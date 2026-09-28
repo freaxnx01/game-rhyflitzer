@@ -34,6 +34,8 @@ three.js, vanilla JS, buildless. Rapier (WASM) for vehicle physics. A separate d
 | [Data sources](docs/02-data-sources.md) | OSM, swisstopo, LGL; what each provides; licenses |
 | [Technical architecture](docs/03-tech-architecture.md) | Stack, hard parts, performance, large worlds, terrain LOD |
 | [Region editor](docs/04-region-editor.md) | Player-picked regions, pipeline design, limits |
+| [Glossary](docs/05-glossary.md) | Graphics and geodata terms explained |
+| [Ideas](ideas.md) | Loose ideas, not yet planned |
 
 ## License
 
