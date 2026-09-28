@@ -76,7 +76,18 @@ Two separate jobs:
 2. **3D of a short street segment**: extract 2–3 frames per second (`ffmpeg -i in.mp4 -vf fps=2 frames/%05d.jpg`), process with Meshroom or COLMAP. Works for short sections, not whole towns.
 3. **Later, automated (v2+)**: use GPS position and heading of each photo to project it onto the right LoD2 walls in the pipeline. Capturing with GPS now keeps this option open.
 
-## 4. Legal (not legal advice, check before publishing)
+## 4. Texture sources and their licences
+
+| Source | Usable as game texture? | Notes |
+|---|---|---|
+| Own GoPro / phone captures | Yes | No strings attached. Preferred. |
+| Mapillary | Yes, with conditions | CC BY-SA 4.0: attribution, and derived textures must carry the same licence. Fine for an open hobby project. |
+| KartaView (formerly OpenStreetCam) | Yes, with conditions | CC BY-SA, same as Mapillary. |
+| swisstopo SWISSIMAGE / LGL DOP20 | Yes, with attribution | Roofs and ground only (aerial). |
+| **Google Street View / Maps** | **No** | Google's terms forbid extracting, storing, or making derivative works from the imagery. Screenshots as textures are a licence violation, and a public repo makes it visible. Use it only to look. |
+| Bing Streetside, Apple Look Around | No | Same kind of terms. |
+
+## 5. Legal (not legal advice, check before publishing)
 
 - **Buildings from public ground**: generally allowed in both countries, including commercial use (Panoramafreiheit: CH Art. 27 URG, DE §59 UrhG).
 - **People and number plates**: must be blurred or cropped before anything ends up in a public game or repo.
