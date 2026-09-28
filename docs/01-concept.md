@@ -44,7 +44,11 @@ A stylized look is deliberate: OSM/LoD2 geometry is plain, and photoreal facades
 
 ## UI mockups
 
-Made in Claude Design on 2026-09-28 (canvas "Map Madness UI Mockups"): two title-screen directions (Sunset Steel: charcoal + yellow, horizontal menu bar; Blue Chrome: navy + orange, vertical menu), race setup, car selection, in-race HUD (speedometer bottom left, round hudmap bottom right, position and checkpoints top left, checkpoint arrow top center, timer top right), results, style sheet. Fonts: Bungee (display), Barlow Condensed (UI).
+Made in Claude Design on 2026-09-28 (canvas "Map Madness UI Mockups"): two title-screen directions (Sunset Steel: charcoal + yellow, horizontal menu bar; Blue Chrome: navy + orange, vertical menu), race setup, car selection, in-race HUD, results, style sheet. Fonts: Bungee (display), Barlow Condensed (UI).
+
+HUD layout: speedometer, gear and damage bottom left; large rectangular map (MM1-style, with labels, route hint, checkpoints and rivals) bottom right; position and checkpoint counter top left; checkpoint arrow with distance top center; timer and event toasts top right.
+
+The 3D backdrops in the mockups are hand-drawn SVG stand-ins, not engine renders. The real "Original" look is defined by the three.js prototype, not by the mockups.
 
 ## Starting region (v0)
 
