@@ -1,1 +1,47 @@
-# game-rhyflitzer
+# Map Madness
+
+*Codename: Rhyflitzer*
+
+An open-world arcade racing game for the browser, in the spirit of Midtown Madness 1. Race through real towns built from open geodata, starting at home on the Hochrhein: Bad Säckingen, Stein, Sisseln and Sisslerfeld, with the Rhine and the old wooden bridge right in the middle.
+
+Later: pick any region on a map, and the game builds it into a world you can race.
+
+Dedicated to my daughter.
+
+## Status
+
+Concept phase. Nothing playable yet.
+
+## Idea in short
+
+- **Arcade, not simulation**: lots of grip, big jumps, forgiving crashes
+- **Real places**: buildings, roads and terrain from OpenStreetMap, swisstopo and LGL Baden-Württemberg, plus hand-built landmarks
+- **Forbidden shortcuts**: the pedestrian-only Holzbrücke is fair game
+- **Two graphic styles**, switchable: chunky MM1 retro and a soft, atmospheric low-poly look
+- **Modes** from MM1: Checkpoint, Blitz, Circuit, Cruise
+- **Region editor** (later): drag a frame on the map, get a playable world
+
+## Tech
+
+three.js, vanilla JS, buildless. Rapier (WASM) for vehicle physics. A separate data pipeline turns geodata into game tiles. Self-hosted.
+
+## Docs
+
+| Document | Content |
+|---|---|
+| [Background](docs/00-background-midtown-madness.md) | Midtown Madness, fan-made European cities, why this project exists |
+| [Concept](docs/01-concept.md) | Pillars, modes, graphic styles, starting region, hero assets |
+| [Data sources](docs/02-data-sources.md) | OSM, swisstopo, LGL; what each provides; licenses |
+| [Technical architecture](docs/03-tech-architecture.md) | Stack, hard parts, performance, large worlds, terrain LOD |
+| [Region editor](docs/04-region-editor.md) | Player-picked regions, pipeline design, limits |
+
+## License
+
+- **Code**: [MIT](LICENSE.md)
+- **Geodata** keeps its own license and requires attribution:
+  - © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/)
+  - © swisstopo
+  - Datengrundlage: LGL, www.lgl-bw.de ([dl-de/by-2-0](https://www.govdata.de/dl-de/by-2-0))
+- **Hand-made assets** (models, textures, sounds): license to be decided once the first ones exist
+
+Not affiliated with Microsoft, Angel Studios or Rockstar Games. Midtown Madness is a trademark of its respective owner.
