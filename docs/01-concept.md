@@ -2,7 +2,7 @@
 
 *Codename: Rhyflitzer.* "Rhy" is Swiss German for the Rhine, a "Flitzer" is a speedster. The codename also names the curated home region.
 
-An open-world arcade racing game in the browser, in the spirit of Midtown Madness 1, set in real towns on the Hochrhein (Swiss and German side of the Rhine).
+An open-world arcade racing game in the browser, in the spirit of Midtown Madness 1 and 2, set in real towns on the Hochrhein (Swiss and German side of the Rhine).
 
 Dedicated to my daughter.
 
@@ -20,20 +20,31 @@ Dedicated to my daughter.
 - **Circuit**: closed-off lap course
 - **Cruise**: free roam
 
+## v0 scope
+
+- **In**: one region, checkpoint races against AI opponents, blitz, cruise, both graphic styles, the Holzbrücke shortcut
+- **Out (v1 or later)**: traffic, pedestrians, cops. The streets belong to the racers. The race setup UI shows these as "coming in v1" rather than as dead sliders.
+
 ## Two switchable graphic styles
 
 Same world data, geometry, collision and gameplay; only materials, lighting and post-processing differ (`StyleProfile`, switchable at runtime).
 
-| | "Original" (MM1 look) | "slowroads" look |
+| | "Original" (MM2 look, 2000) | "slowroads" look |
 |---|---|---|
-| Textures | Low-res, `NearestFilter` | Few; flat colors |
-| Resolution | Reduced render resolution, upscaled | Native |
-| Lighting | Simple vertex/Lambert | Soft sun, shadows |
-| Atmosphere | Hard fog | Atmospheric fog with color gradient, color grading |
+| Textures | Low-res but smooth-filtered, per-face texturing | Few; flat colors |
+| Resolution | Native, optional mild downscale | Native |
+| Lighting | Simple vertex/Lambert, baked shading | Soft sun, shadows |
+| Atmosphere | Hard distance fog, smooth sky gradient | Atmospheric fog with color gradient, color grading |
+
+Decision 2026-09-28: the "Original" style targets **MM2 (2000)** rather than MM1 (1999): smoother shading and gradients, more polygons and texture detail, but still hard fog and low-poly cars. The MM1 pixel-chunky look was judged too crude. The UI stays Y2K: chunky beveled steel panels, bold italic display type, yellow/orange on charcoal.
 
 Consequences: hero assets need two material variants; procedural facades need two generators. Plan both from day one.
 
 A stylized look is deliberate: OSM/LoD2 geometry is plain, and photoreal facades for every house would be a bottomless pit.
+
+## UI mockups
+
+Made in Claude Design on 2026-09-28 (canvas "Map Madness UI Mockups"): two title-screen directions (Sunset Steel: charcoal + yellow, horizontal menu bar; Blue Chrome: navy + orange, vertical menu), race setup, car selection, in-race HUD (speedometer bottom left, round hudmap bottom right, position and checkpoints top left, checkpoint arrow top center, timer top right), results, style sheet. Fonts: Bungee (display), Barlow Condensed (UI).
 
 ## Starting region (v0)
 
