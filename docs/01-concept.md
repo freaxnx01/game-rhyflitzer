@@ -1,6 +1,6 @@
-# Rhyflitzer: Concept
+# Map Madness: Concept
 
-"Rhy" is Swiss German for the Rhine, a "Flitzer" is a speedster.
+*Codename: Rhyflitzer.* "Rhy" is Swiss German for the Rhine, a "Flitzer" is a speedster. The codename also names the curated home region.
 
 An open-world arcade racing game in the browser, in the spirit of Midtown Madness 1, set in real towns on the Hochrhein (Swiss and German side of the Rhine).
 
