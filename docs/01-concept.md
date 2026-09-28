@@ -1,0 +1,68 @@
+# Rhyflitzer: Concept
+
+"Rhy" is Swiss German for the Rhine, a "Flitzer" is a speedster.
+
+An open-world arcade racing game in the browser, in the spirit of Midtown Madness 1, set in real towns on the Hochrhein (Swiss and German side of the Rhine).
+
+Dedicated to my daughter.
+
+## Pillars
+
+- **Arcade, not simulation.** Lots of grip, exaggerated jumps, forgiving crashes. Fun beats realism.
+- **Real places.** Towns built from official geodata and OpenStreetMap, with hand-built landmarks.
+- **Forbidden shortcuts.** Like the Tube in MM2's London: the pedestrian-only Holzbrücke is a shortcut in the game.
+- **Across the border.** Races cross the Rhine; the bridges are natural highlights.
+
+## Game modes (from MM1)
+
+- **Checkpoint**: checkpoints in any order, against opponents
+- **Blitz**: checkpoints against the clock
+- **Circuit**: closed-off lap course
+- **Cruise**: free roam
+
+## Two switchable graphic styles
+
+Same world data, geometry, collision and gameplay; only materials, lighting and post-processing differ (`StyleProfile`, switchable at runtime).
+
+| | "Original" (MM1 look) | "slowroads" look |
+|---|---|---|
+| Textures | Low-res, `NearestFilter` | Few; flat colors |
+| Resolution | Reduced render resolution, upscaled | Native |
+| Lighting | Simple vertex/Lambert | Soft sun, shadows |
+| Atmosphere | Hard fog | Atmospheric fog with color gradient, color grading |
+
+Consequences: hero assets need two material variants; procedural facades need two generators. Plan both from day one.
+
+A stylized look is deliberate: OSM/LoD2 geometry is plain, and photoreal facades for every house would be a bottomless pit.
+
+## Starting region (v0)
+
+**Bad Säckingen (DE), Stein, Sisseln, Sisslerfeld (CH)**, roughly 5 × 3 km.
+
+Covers all three driving scenarios:
+- Bad Säckingen old town: narrow streets, irregular angles, Fridolinsmünster
+- Stein and Sisseln: village centers, Swiss roads
+- Sisslerfeld: wide open roads, large halls, speed and jumps
+
+Plus the Rhine in the middle: road bridge for cars, Holzbrücke as the forbidden shortcut.
+
+First race idea: start in Sisseln, checkpoints across Sisslerfeld and through Stein, finish at the Münster. Taking the Holzbrücke saves ten seconds.
+
+## Later expansion
+
+Whole Fricktal plus German side (Rheinfelden to Laufenburg, side valleys up to Frick), with three hotspots done carefully:
+- Bad Säckingen / Stein
+- Laufenburg (twin town: two old towns, one bridge, two countries)
+- Rheinfelden
+
+The rest procedural, connected by motorways, highways and Rhine bridges.
+
+## Hero assets (hand-built in Blender)
+
+| Asset | Approach |
+|---|---|
+| Holzbrücke Bad Säckingen | 203.7 m long, 5 m wide, 9 spans, roofed. Model one span, Array modifier along a slightly curved path, add stone piers. Reference: 87 photos on Wikimedia Commons. |
+| Fridolinsmünster | Start from LGL LoD2 (nave and roof), hand-model towers, baroque domes, facade details. Optional: phone photogrammetry (Meshroom/RealityScan) as reference or for texture baking. |
+| Later | Trompeterschloss, Laufenburg and Rheinfelden landmarks |
+
+No ready-made models of either were found on Sketchfab.
