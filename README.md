@@ -10,7 +10,10 @@ Dedicated to my daughter.
 
 ## Status
 
-Concept phase. Nothing playable yet.
+Early prototype.
+
+- `prototype/index.html`: playable three.js prototype (single file, buildless). Hand-traced Hochrhein layout (Sisseln, Sisslerfeld, Stein, Bad Säckingen), checkpoint race, two graphic styles (T), synthesized sound. Serve it over HTTP (`python -m http.server`) and open it in a browser.
+- `pipeline/terrain.py`: pipeline step 1, measured terrain from swisstopo and LGL. See [docs/08](docs/08-pipeline-terrain.md).
 
 ## Idea in short
 
@@ -35,6 +38,9 @@ three.js, vanilla JS, buildless. Rapier (WASM) for vehicle physics. A separate d
 | [Technical architecture](docs/03-tech-architecture.md) | Stack, hard parts, performance, large worlds, terrain LOD |
 | [Region editor](docs/04-region-editor.md) | Player-picked regions, pipeline design, limits |
 | [Glossary](docs/05-glossary.md) | Graphics and geodata terms explained |
+| [Photo capture](docs/06-photo-capture.md) | Photogrammetry, GoPro street capture, texture source licences |
+| [Brands and permissions](docs/07-brands-and-permissions.md) | Logos, trademarks, who to ask, permission tracker |
+| [Pipeline: terrain](docs/08-pipeline-terrain.md) | swissALTI3D + LGL DGM1 → `.mmh` heightmap |
 | [Ideas](ideas.md) | Loose ideas, not yet planned |
 
 ## License
