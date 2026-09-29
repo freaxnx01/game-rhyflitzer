@@ -32,6 +32,7 @@ three.js, vanilla JS, buildless. Rapier (WASM) for vehicle physics. A separate d
 
 | Document | Content |
 |---|---|
+| [Status and next steps](docs/10-status-and-next-steps.md) | **Start here:** decisions, prototype internals, known issues, next steps |
 | [Background](docs/00-background-midtown-madness.md) | Midtown Madness, fan-made European cities, why this project exists |
 | [Concept](docs/01-concept.md) | Pillars, modes, graphic styles, starting region, hero assets |
 | [Data sources](docs/02-data-sources.md) | OSM, swisstopo, LGL; what each provides; licenses |
