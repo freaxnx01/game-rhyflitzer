@@ -1,5 +1,15 @@
 # TODO
 
+## Next session prompt
+
+Continue Map Madness (codename Rhyflitzer). Read README.md and docs/ first.
+1. Run pipeline/terrain.py for the default region (Swiss side is automatic), load the .mmh in prototype/index.html, and check the Hauptstrasse climb and curve in Sisseln toward Laufenburg against the real terrain.
+2. Next pipeline step: roads, river and buildings from OSM (Geofabrik extract + osmium, not the public Overpass API) to replace the hand-traced layout. See docs/04 and docs/08.
+
+Status 2026-09-29:
+- Item 1 done. The .mmh builds (10.7 MB, Swiss side only) and loads in the prototype. The Sisseln village section matches OSM within 1–7 m. The climb is wrong: the real road climbs ~13 m diagonally north-east at ~7 % from the Sissle bridge (x≈1440) to x≈1720, while the prototype hits the terrace edge head-on (~40 % wall at x 1600–1620). The curve toward Laufenburg is really at x≈2950, not x≈2300. The Smile-Kreisel is ~65 m too far west (OSM: x≈1270). The DEM shows the creek bed under the Sissle bridge (5 m dip), so bridges need their own deck profile.
+- Item 2 not started. Brainstorming began: first open question is how the prototype loads the OSM world (file picker like .mmh / fetched data/world.json / committed JS module). Use `osmium extract -s simple` (smart runs out of memory on 12 GB).
+
 ## UI mockups (design/mockups/)
 
 The mockups are the visual spec for all menus and the HUD. They come from a Claude Design canvas; the files in git are a snapshot.
