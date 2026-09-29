@@ -1,0 +1,24 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-09-28T10:40:00Z"},
+  "title": "Map Madness UI Mockups",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1920, "h": 1080, "title": "01a Title · Sunset Steel"},
+    "TitleB.dc.html": {"x": 2000, "y": 0, "w": 1920, "h": 1080, "title": "01b Title · Blue Chrome"},
+    "RaceSetup.dc.html": {"x": 0, "y": 1480, "w": 1920, "h": 1080, "title": "02 Race Setup"},
+    "CarSelect.dc.html": {"x": 2000, "y": 1480, "w": 1920, "h": 1080, "title": "03 Car Selection"},
+    "HUD.dc.html": {"x": 0, "y": 2960, "w": 1920, "h": 1080, "title": "04 In-Race HUD"},
+    "Results.dc.html": {"x": 2000, "y": 2960, "w": 1920, "h": 1080, "title": "05 Results"},
+    "StyleSheet.dc.html": {"x": 0, "y": 4440, "w": 1920, "h": 1080, "title": "06 Style Sheet"}
+  },
+  "order": ["Main.dc.html", "TitleB.dc.html", "RaceSetup.dc.html", "CarSelect.dc.html", "HUD.dc.html", "Results.dc.html", "StyleSheet.dc.html"],
+  "notes": {
+    "row1": {"x": 0, "y": -280, "text": "Title screen: two directions to pick from", "kind": "title1", "maxW": 3920},
+    "row2": {"x": 0, "y": 1200, "text": "Race setup and car selection", "kind": "title1", "maxW": 3920},
+    "row3": {"x": 0, "y": 2680, "text": "In-race HUD and results", "kind": "title1", "maxW": 3920},
+    "row4": {"x": 0, "y": 4160, "text": "Style sheet", "kind": "title1", "maxW": 1920}
+  },
+  "designSystems": []
+}
