@@ -78,6 +78,29 @@ The rest procedural, connected by motorways, highways and Rhine bridges.
 |---|---|
 | Holzbrücke Bad Säckingen | 203.7 m long, 5 m wide, 9 spans, roofed. Model one span, Array modifier along a slightly curved path, add stone piers. Reference: 87 photos on Wikimedia Commons. |
 | Fridolinsmünster | Start from LGL LoD2 (nave and roof), hand-model towers, baroque domes, facade details. Optional: phone photogrammetry (Meshroom/RealityScan) as reference or for texture baking. |
+| Plattform Sisslerfeld | Wooden viewing tower, see details below. Photogrammetry from the ground and from the platform; or model in Blender from plans. |
 | Later | Trompeterschloss, Laufenburg and Rheinfelden landmarks |
 
 No ready-made models of either were found on Sketchfab.
+
+### Plattform Sisslerfeld
+
+Wooden viewing tower at the southern edge of the Sisslerfeld, on municipal land in **Münchwilen**, along the planned extension of the Südumfahrung. Design inspired by the Roman watchtowers along the Hochrhein.
+
+| | |
+|---|---|
+| Height | over 10 m |
+| Platform height | 5.8 m |
+| Capacity | 40–50 people |
+| Weight | about 18 t |
+| Material | wood |
+| Foundation | 4 concrete footings, 80 cm deep; tower bolted on |
+| Built by | apprentices of the timber company Häring, Eiken, with local businesses. Initiated by Christoph Grenacher and former Eiken councillor Ingo Anders |
+| History | built 2025, set up provisionally for the Sisslerfeldtag 2025, then dismantled; rebuilt permanently from August 2026; opened 12 September 2026 (4th Sisslerfeldtag) |
+
+For the game:
+- Wood has texture and surface, so phone photogrammetry works well (unlike thin steel). No drone needed at 10 m: photo rings from the ground plus shots from the platform.
+- Most accurate source: construction plans from Häring (the apprentices designed it). Ask, see [07](07-brands-and-permissions.md).
+- Gameplay: stop the car, get out, climb up (see [ideas.md](../ideas.md)).
+
+Sources: [NFZ, Wiederaufbau der Sisslerfeld-Plattform](https://www.nfz.ch/wiederaufbau-der-sisslerfeld-plattform-gestartet), [Aargauer Zeitung, römische Wachttürme](https://www.aargauerzeitung.ch/aargau/fricktal/sisslerfeld-mobile-aussichtsplattform-eingeweiht-ld.4011196), [plattform-sisslerfeld.com](https://www.plattform-sisslerfeld.com/)

@@ -6,7 +6,7 @@ Two separate jobs:
 
 | Job | Goal | Tool |
 |---|---|---|
-| Hero asset | 3D reference for a single landmark (e.g. Plattform Sisslerfeld, Holzbrücke) | Phone photogrammetry, optionally drone |
+| Hero asset | 3D reference for a single landmark (e.g. Plattform Sisslerfeld (wood, 10 m), Holzbrücke) | Phone photogrammetry, optionally drone |
 | Street capture | Facade textures for many ordinary buildings | GoPro (or 360 camera) from car or on foot |
 
 ## 1. Hero assets: photogrammetry
@@ -26,7 +26,7 @@ Two separate jobs:
 
 ### Limits
 
-- Thin steel lattice (viewing platforms, railings) photogrammetry handles badly: little surface, sky behind it. Scan the base, model the lattice by hand from measurements and photos.
+- Thin steel lattice (viewing platforms, railings) photogrammetry handles badly: little surface, sky behind it. Scan the base, model the lattice by hand from measurements and photos. (The Plattform Sisslerfeld is a wooden tower, so this limit does not apply there.)
 - The raw scan (millions of triangles) is **reference only**. In Blender, retopologize a clean low-poly model and bake textures from the scan.
 
 ## 2. Street capture: GoPro for facades

@@ -20,11 +20,12 @@ Not legal advice. Check before publishing.
 | Volg | Volg Konsumwaren AG (fenaco) | Dorfladen sign | Not asked yet |
 | Smile-Kreisel sculpture | Artist / Gemeinde Sisseln | Roundabout model (hand-built from photos) | Modelled freely; sculpture is a public artwork, panorama freedom likely applies. Ask anyway when contacting the Gemeinde |
 | Gemeindewappen Sisseln | Gemeinde Sisseln | Not used yet | Not asked yet |
-| Plattform Sisslerfeld | Sisslerfeld-Plattform operator | Hero asset (planned) | Not asked yet |
+| Plattform Sisslerfeld | Built by Häring (Eiken) apprentices; initiators Christoph Grenacher, Ingo Anders; stands on Münchwilen municipal land | Hero asset (planned) | Not asked yet. Ask Häring for construction plans and dimensions |
 
 ## Who to ask
 
 - **Gemeinde Sisseln**, Gemeindekanzlei: Sissila, Wappen, photos from sisseln.ch, the Kreisel. One email covers all four. Mention that the game is non-commercial and dedicated to a child from the village.
+- **Häring, Eiken** (timber construction): plans and dimensions of the Plattform Sisslerfeld, which their apprentices designed and built. Same template, asking for plans instead of a logo.
 - **Volg**, marketing: shop sign with the real logo. A small local game about the shop's own village is usually welcome; ask for written consent and any usage rules (colours, no alteration).
 
 ## Email template (German)

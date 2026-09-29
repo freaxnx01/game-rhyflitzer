@@ -44,7 +44,7 @@ Single-file three.js, buildless. The world is **hand-traced**, not generated:
 ### Small ideas not yet in `ideas.md`
 
 - A third graphic style "Retro" (MM1 look): `NearestFilter` textures, low render resolution.
-- Hero assets beyond the Holzbrücke and Münster: Trompeterschloss, Laufenburg and Rheinfelden landmarks, Plattform Sisslerfeld.
+- Hero assets beyond the Holzbrücke and Münster: Trompeterschloss, Laufenburg and Rheinfelden landmarks. Plattform Sisslerfeld is documented in [01](01-concept.md) (wooden tower in Münchwilen).
 
 ## Next steps
 
