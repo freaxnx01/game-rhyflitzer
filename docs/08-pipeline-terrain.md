@@ -58,6 +58,16 @@ The same format will serve the region editor later: one `.mmh` per 1 × 1 km til
 - Inside the prototype's river outline the ground is forced to water level; banks are blended over 30 m.
 - Bridges keep their own deck profile.
 
+## Incident: osmium extract took down agent-dev (2026-09-29)
+
+While preparing the OSM step, `osmium extract -b 7.905,47.532,8.030,47.572 -s smart` on the full `switzerland-latest.osm.pbf` (547 MB) grew to 2.5 GB RSS. On top of the other sessions already running there, that pushed agent-dev (CT 201, 12 GB cap, swap 0) to its memory limit. No OOM kill happened. The kernel kept evicting and re-reading file pages instead, which drove the whole cirrus-pve node into IO thrash (load 171). agent-dev SSH and Authentik (CT 124, same node) stopped responding, so `opkssh login` hung too. The process was killed after about 15 minutes. `cache/osm/ch.osm.pbf`, `de.osm.pbf` and `region.osm.pbf` date from that moment and may be incomplete, so regenerate them.
+
+For the OSM step:
+
+- Do not run `osmium extract` on a country file on agent-dev. Use a small regional extract instead (for example the Geofabrik `freiburg-regbez` file, or a pre-cut Swiss canton or bbox from an extract service), or query the bbox directly via Overpass.
+- If you do run it on a big file, use `-s simple` (streams, low memory) instead of `-s smart`, and put a hard memory cap around it: `systemd-run --user --scope -p MemoryMax=2G -p MemorySwapMax=0 osmium extract ...`
+- Heavy one-off data preparation belongs on a node with spare RAM (odroid-plus-pve), not on the shared agent box.
+
 ## Attribution (game credits)
 
 - swissALTI3D: © swisstopo
