@@ -6,6 +6,14 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Changed
+
+- Roads in the Original style now show real asphalt, photographed on the Sisseln Hauptstrasse, instead of generated grey noise.
+
+### Fixed
+
+- Umlauts and symbols (Säckingen, ·, →) show correctly on the start screen, in the HUD and on the map.
+
 ## [0.2.0] - 2026-09-30
 
 ### Added
