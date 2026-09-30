@@ -52,3 +52,24 @@ test('bridge deck is linear between the end heights and continuous at the ends',
   assert.ok(Math.abs(bridgeDeckAt(b, 20) - 11.9) < 1e-9);
   assert.equal(bridgeDeckAt(b, -5), 12.8);     // clamped: approach sits on the end height
 });
+
+import { bridgeDeckOffset, bridgeSurfaceAt } from '../world.js';
+test('bridge surface offset fades in over the first and last 5 m', () => {
+  const b = { len: 40, h0: 12.8, h1: 11.0 };
+  assert.equal(bridgeDeckOffset(b, 0), 0);
+  assert.equal(bridgeDeckOffset(b, 40), 0);
+  assert.ok(Math.abs(bridgeDeckOffset(b, 2.5) - 0.15) < 1e-9);
+  assert.ok(Math.abs(bridgeDeckOffset(b, 37.5) - 0.15) < 1e-9);
+  assert.equal(bridgeDeckOffset(b, 5), 0.3);
+  assert.equal(bridgeDeckOffset(b, 20), 0.3);
+  assert.equal(bridgeDeckOffset(b, -3), 0);
+  assert.equal(bridgeDeckOffset(b, 50), 0);
+  let prev = bridgeDeckOffset(b, 0);
+  for (let t = 0.1; t <= 40; t += 0.1) { const v = bridgeDeckOffset(b, t); assert.ok(Math.abs(v - prev) < 0.3 / 5 * 0.1 + 1e-9); prev = v; }
+});
+test('bridge surface meets the end heights exactly and sits 0.3 above the deck mid-span', () => {
+  const b = { len: 40, h0: 12.8, h1: 11.0 };
+  assert.equal(bridgeSurfaceAt(b, 0), 12.8);
+  assert.equal(bridgeSurfaceAt(b, 40), 11.0);
+  assert.ok(Math.abs(bridgeSurfaceAt(b, 20) - 12.2) < 1e-9);
+});

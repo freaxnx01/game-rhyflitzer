@@ -69,3 +69,6 @@ export function layoutFromWorld(w) {
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
+// Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends.
+export function bridgeDeckOffset(b, t) { return 0.3 * Math.max(0, Math.min(1, Math.min(t, b.len - t) / 5)); }
+export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }

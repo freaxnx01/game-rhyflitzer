@@ -18,6 +18,7 @@ def load(server, block_world: bool):
             page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
         page.goto(f"{server}/prototype/index.html")
         page.wait_for_selector("#startbtn", timeout=180000)
+        page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=180000)
         info = page.evaluate("() => ({ mm: window.__mm, world: document.querySelector('#worldstatus')?.textContent })")
         b.close()
         return info, [t for t, u in msgs if "world_hochrhein.json" not in u]
