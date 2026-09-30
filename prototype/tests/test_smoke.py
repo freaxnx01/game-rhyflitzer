@@ -38,3 +38,18 @@ def test_osm_layout(server):
     assert info["mm"]["counts"]["buildings"] > 1000
     assert "OpenStreetMap" in info["world"]
     assert msgs == []
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_physics_time_osm_vs_hand(server):
+    def phys(block):
+        with sync_playwright() as p:
+            b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
+            if block:
+                page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+            page.goto(f"{server}/prototype/index.html"); page.wait_for_selector("#startbtn", timeout=180000)
+            page.click("#startbtn", timeout=180000); page.keyboard.down("Space"); page.wait_for_timeout(15000)
+            v = page.evaluate("() => window.__mm.physMs"); b.close(); return v
+    hand, osm = phys(True), phys(False)
+    print("physMs hand", hand, "osm", osm)
+    assert osm <= hand * 1.5 + 0.5, (hand, osm)
