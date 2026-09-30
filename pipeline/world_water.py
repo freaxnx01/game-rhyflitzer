@@ -10,6 +10,11 @@ import shapely
 from scipy.ndimage import distance_transform_edt
 from shapely.validation import make_valid
 
+import mmh
+
+# terrain.py fills missing DEM with `base`, which is exactly 0.0 after subtracting base.
+# Real measured heights are float32 values that are practically never exactly 0.0.
+NODATA = 0.0
 LINE_WIDTH = {"river": 20.0, "canal": 10.0, "stream": 3.0}
 
 
@@ -17,7 +22,7 @@ def _polys(g):
     if g.is_empty:
         return []
     if g.geom_type == "Polygon":
-        return [g]
+        return [g] if g.area > 1.0 else []
     return [p for p in getattr(g, "geoms", []) if p.geom_type == "Polygon" and p.area > 1.0]
 
 
@@ -58,7 +63,11 @@ def chunks(polys, size=500.0):
     return out
 
 
-def level(poly, hdr, heights) -> float:
+def level(poly, hdr, heights):
+    """Water level in metres: median of valid (non-NODATA) grid samples inside poly.
+
+    hdr None -> 0.0. Otherwise a float, or None when nothing valid was measured
+    (the caller decides the fallback)."""
     if hdr is None:
         return 0.0
     x0, z0, x1, z1 = poly.bounds
@@ -66,12 +75,18 @@ def level(poly, hdr, heights) -> float:
     xs = np.arange(np.ceil((x0 - hdr["x0"]) / s), np.floor((x1 - hdr["x0"]) / s) + 1, dtype=int)
     zs = np.arange(np.ceil((z0 - hdr["z0"]) / s), np.floor((z1 - hdr["z0"]) / s) + 1, dtype=int)
     xs = xs[(xs >= 0) & (xs < hdr["w"])]; zs = zs[(zs >= 0) & (zs < hdr["h"])]
-    if not len(xs) or not len(zs):
-        return 0.0
-    gx, gz = np.meshgrid(xs, zs)
-    inside = shapely.contains_xy(poly, hdr["x0"] + gx * s, hdr["z0"] + gz * s)
-    vals = heights[gz[inside], gx[inside]]
-    return round(float(np.median(vals)), 2) if len(vals) else 0.0
+    if len(xs) and len(zs):
+        gx, gz = np.meshgrid(xs, zs)
+        inside = shapely.contains_xy(poly, hdr["x0"] + gx * s, hdr["z0"] + gz * s)
+        vals = heights[gz[inside], gx[inside]]
+        vals = vals[vals != NODATA]
+        if len(vals):
+            return round(float(np.median(vals)), 2)
+    px, pz = poly.representative_point().coords[0]
+    if not (hdr["x0"] <= px <= hdr["x0"] + (hdr["w"] - 1) * s and hdr["z0"] <= pz <= hdr["z0"] + (hdr["h"] - 1) * s):
+        return None
+    v = mmh.sample(hdr, heights, px, pz)
+    return None if v == NODATA else round(v, 2)
 
 
 def sdf(polys, bounds, step=8.0, clamp=120):
@@ -82,6 +97,16 @@ def sdf(polys, bounds, step=8.0, clamp=120):
     water = np.zeros((h, w), bool)
     if polys:
         water = shapely.contains_xy(shapely.unary_union(polys), gx, gz)
+    if not water.any():
+        d = np.full((h, w), clamp, dtype=float)
+    elif water.all():
+        d = np.full((h, w), -clamp, dtype=float)
+    else:
+        d = None
+    if d is not None:
+        data = d.astype(np.int8)
+        return {"x0": float(x0), "z0": float(z0), "step": float(step), "w": w, "h": h,
+                "data": base64.b64encode(data.tobytes()).decode()}
     outside = distance_transform_edt(~water) * step
     inside = distance_transform_edt(water) * step
     d = np.clip(np.where(water, -inside, outside), -clamp, clamp)
@@ -92,8 +117,13 @@ def sdf(polys, bounds, step=8.0, clamp=120):
 
 def to_json(polys, hdr, heights):
     out = []
-    for p in chunks(polys):
-        rings = [[[round(x, 1), round(z, 1)] for x, z in p.exterior.coords[:-1]]]
-        rings += [[[round(x, 1), round(z, 1)] for x, z in r.coords[:-1]] for r in p.interiors]
-        out.append({"kind": "water", "level": level(p, hdr, heights), "rings": rings})
+    for whole in polys:
+        fallback = level(whole, hdr, heights)
+        if fallback is None:
+            fallback = 0.0
+        for p in chunks([whole]):
+            lv = level(p, hdr, heights)
+            rings = [[[round(x, 1), round(z, 1)] for x, z in p.exterior.coords[:-1]]]
+            rings += [[[round(x, 1), round(z, 1)] for x, z in r.coords[:-1]] for r in p.interiors]
+            out.append({"kind": "water", "level": fallback if lv is None else lv, "rings": rings})
     return out
