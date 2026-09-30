@@ -67,3 +67,5 @@ export function layoutFromWorld(w) {
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
            rail: w.rail, anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [] };
 }
+
+export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }

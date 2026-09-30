@@ -155,7 +155,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt } from './world.js';
 
 // ---------- helpers ----------
 let seed = 4334;
@@ -247,7 +247,9 @@ let BRIDGES = [
 for (const b of BRIDGES) { b.len = Math.hypot(b.b[0] - b.a[0], b.b[1] - b.a[1]); b.ux = (b.b[0] - b.a[0]) / b.len; b.uz = (b.b[1] - b.a[1]) / b.len; b.rot = Math.atan2(b.uz, b.ux); }
 function bridgeLocal(b, x, z) { const dx = x - b.a[0], dz = z - b.a[1]; return [dx * b.ux + dz * b.uz, -dx * b.uz + dz * b.ux]; }
 function bridgeProfile(b, t) { if (t < b.ramp) return b.deck * clamp(t / b.ramp, 0, 1); if (t > b.len - b.ramp) return b.deck * clamp((b.len - t) / b.ramp, 0, 1); return b.deck; }
-function onBridge(x, z) { for (const b of BRIDGES) { const [t, s] = bridgeLocal(b, x, z); if (t >= -2 && t <= b.len + 2 && Math.abs(s) <= b.hw) return { b, t }; } return null; }
+function onBridge(x, z) {
+  if (L) { for (const b of gridQuery(BRIDGE_GRID, x, z, 1)) { const n = nearestOnPolyline(b.r.pts, x, z); if (n.d <= b.hw && n.t >= -2 && n.t <= b.len + 2) return { b, t: n.t, osm: true }; } return null; }
+  for (const b of BRIDGES) { const [t, s] = bridgeLocal(b, x, z); if (t >= -2 && t <= b.len + 2 && Math.abs(s) <= b.hw) return { b, t }; } return null; }
 function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; const t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1); return Math.hypot(px - ax - dx * t, pz - az - dz * t); }
 function riverDist(x, z) { if (SDF) return SDF(x, z); let m = 1e9; for (let i = 0; i < RIVER.pts.length - 1; i++) m = Math.min(m, segDist(x, z, ...RIVER.pts[i], ...RIVER.pts[i + 1])); return m - RIVER.hw; }
 let RAMP = { x0: W(1088, 0)[0], x1: W(1098, 0)[0], z0: W(0, 560)[1], z1: W(0, 574)[1], h: 3.4 };
@@ -268,6 +270,15 @@ const WORLD = await fetch('../data/world_hochrhein.json').then(r => r.ok ? r.jso
 const L = WORLD && WORLD.format === 'MMW1' ? layoutFromWorld(WORLD) : null;
 const SDF = L ? sdfSampler(L.sdf) : null, WATER = L ? waterIndex(L.water) : null;
 if (L) { ROADS = L.roads; BRIDGES = []; }
+const OSM_BRIDGES = [], BRIDGE_GRID = makeGrid(32);
+if (L) for (const r of L.bridges) {
+  const len = polylineLength(r.pts), kind = L.anchors.landmarks.holzbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.holzbruecke.x, L.anchors.landmarks.holzbruecke.z).d < 15 ? 'wood'
+    : L.anchors.landmarks.fridolinsbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.fridolinsbruecke.x, L.anchors.landmarks.fridolinsbruecke.z).d < 15 ? 'stone' : 'generic';
+  const b = { r, len, hw: r.w / 2, kind, h0: 0, h1: 0 }; OSM_BRIDGES.push(b);
+  for (let i = 0; i < r.pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...r.pts[i], ...r.pts[i + 1], r.w, b);
+}
+// end heights need terrainH (REAL is parsed above); filled before anything calls groundH
+function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } }
 window.__mm = { layout: L ? 'osm' : 'hand', counts: L ? { roads: L.roads.length, buildings: L.buildings.length, water: L.water.length } : {}, physMs: 0 };
 function realH(x, z) { const { hdr, data } = REAL; const fx = (x - hdr.x0) / hdr.step, fz = (z - hdr.z0) / hdr.step; const i = clamp(Math.floor(fx), 0, hdr.w - 2), j = clamp(Math.floor(fz), 0, hdr.h - 2); const tx = clamp(fx - i, 0, 1), tz = clamp(fz - j, 0, 1); const a = data[j * hdr.w + i], b = data[j * hdr.w + i + 1], c = data[(j + 1) * hdr.w + i], d = data[(j + 1) * hdr.w + i + 1]; return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz; }
 function terrainH(x, z) {
@@ -280,8 +291,9 @@ function terrainH(x, z) {
   const n = fbm(x * 0.0018, z * 0.0018) - 0.45; h += n * (3 + 45 * sm(h / 60));
   return h * sm((riverDist(x, z) - 40) / 160);                      // flat towards the water
 }
+fillBridgeHeights();
 function groundH(x, z) {
-  const ob = onBridge(x, z); if (ob) return bridgeProfile(ob.b, ob.t);
+  const ob = onBridge(x, z); if (ob) return ob.osm ? bridgeDeckAt(ob.b, ob.t) + 0.3 : bridgeProfile(ob.b, ob.t);
   if (riverDist(x, z) < 0) return (L && REAL ? (WATER.levelAt(x, z) ?? 0) : 0) - 3;
   const t = terrainH(x, z);
   if (x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
@@ -383,8 +395,8 @@ function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(t
   }
   if (L) waterPolys();
   // roads
-  for (const r of ROADS) ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true);
-  for (const r of ROADS) for (const p of r.pts) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
+  for (const r of ROADS) if (!(L && r.bridge)) ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true);
+  for (const r of ROADS) if (!(L && r.bridge)) for (const p of r.pts) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
   for (let a = 0; a < ROADS.length; a++) for (let b = a + 1; b < ROADS.length; b++) for (let i = 0; i < ROADS[a].pts.length - 1; i++) for (let j = 0; j < ROADS[b].pts.length - 1; j++) { const [x1, y1] = ROADS[a].pts[i], [x2, y2] = ROADS[a].pts[i + 1], [x3, y3] = ROADS[b].pts[j], [x4, y4] = ROADS[b].pts[j + 1]; const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4); if (Math.abs(den) < 1e-6) continue; const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den, u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den; if (t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99) disc(x1 + t * (x2 - x1), y1 + t * (y2 - y1), Math.max(ROADS[a].w, ROADS[b].w) / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff')); }
   // bridges
   for (const b of BRIDGES) {
@@ -394,6 +406,12 @@ function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(t
     else { strip(pts, b.hw * 2, 0.06, 'wood', col('#ffffff'), 4, hf); strip(pts, b.hw * 2 + 0.8, -0.5, 'wood', col('#b08a60'), 4, hf); for (const s of [-1, 1]) { strip(off(s * (b.hw + 0.2)), 0.3, 1.2, 'wood', col('#e0c8a8'), 4, hf); strip(off(s * (b.hw + 0.2)), 0.3, 3.4, 'wood', col('#c8a880'), 4, hf); wall(s * (b.hw + 0.3), 0.3, b.len / 2); } for (let t = 5; t < b.len - 4; t += 10) for (const s of [-1, 1]) { const x = b.a[0] + b.ux * t - b.uz * s * (b.hw + 0.2), z = b.a[1] + b.uz * t + b.ux * s * (b.hw + 0.2); box(0.35, 4.2, 0.35, x, hf(x, z), z, b.rot, col('#c8a880'), 'wood', [1, 1], 0); }
       for (const s of [-1, 1]) { const pos = [], uv = [], nrm = []; for (let t = 0; t < b.len; t += 5) { const t2 = Math.min(b.len, t + 5); const ya = bridgeProfile(b, t) + 4.2, yb = bridgeProfile(b, t2) + 4.2; const ox = b.hw + 0.9; const P = (tt, o, y) => [b.a[0] + b.ux * tt - b.uz * o * s, y, b.a[1] + b.uz * tt + b.ux * o * s]; const A = P(t, ox, ya), B = P(t, 0, ya + 1.9), C = P(t2, 0, yb + 1.9), D = P(t2, ox, yb); const tri = s > 0 ? [A, B, C, A, C, D] : [B, A, D, B, D, C]; for (const v of tri) { pos.push(...v); nrm.push(-b.uz * s * 0.6, 0.8, b.ux * s * 0.6); } uv.push(0, t / 2, 1, t / 2, 1, t2 / 2, 0, t / 2, 1, t2 / 2, 0, t2 / 2); } rawGeo(pos, nrm, uv, 0, 0, 0, col('#6a3a2a'), 'roof'); }
       for (const t of [0.25, 0.5, 0.75]) { const top = b.deck - 0.55, c = new THREE.CylinderGeometry(2, 2.6, top + 4.5, 8); c.translate(b.a[0] + b.ux * b.len * t, (top - 4.5) / 2, b.a[1] + b.uz * b.len * t); colorize(c, col('#a8a296')); push('stone', c); } }
+  }
+  for (const b of OSM_BRIDGES) {
+    const pts = resample(b.r.pts, 5), hf = (x, z) => bridgeDeckAt(b, nearestOnPolyline(b.r.pts, x, z).t);
+    strip(pts, b.r.w, 0.3, b.kind === 'wood' ? 'wood' : 'road', col('#ffffff'), 8, hf);
+    strip(pts, b.r.w + 1.2, -0.6, b.kind === 'wood' ? 'wood' : 'stone', col('#c8c2b6'), 4, hf);
+    for (const s of [-1, 1]) strip(offsetPolyline(pts, s * (b.r.w / 2 + 0.3)), 0.35, 1.2, b.kind === 'wood' ? 'wood' : 'stone', col('#d8d2c6'), 4, hf);
   }
   // railway Basel–Koblenz line (stand-in) and the two stations
   ribbon(WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795], [1960, 740]]), 2.5, 0.03, 'rail', col('#ffffff'), 4, true);

@@ -43,3 +43,12 @@ test('layoutFromWorld maps tex and keeps anchors', () => {
   assert.equal(L.roads[0].tex, 'motorway'); assert.equal(L.roads[1].tex, 'road');
   assert.equal(L.bridges.length, 1);
 });
+
+import { bridgeDeckAt } from '../world.js';
+test('bridge deck is linear between the end heights and continuous at the ends', () => {
+  const b = { len: 40, h0: 12.8, h1: 11.0 };
+  assert.equal(bridgeDeckAt(b, 0), 12.8);
+  assert.equal(bridgeDeckAt(b, 40), 11.0);
+  assert.ok(Math.abs(bridgeDeckAt(b, 20) - 11.9) < 1e-9);
+  assert.equal(bridgeDeckAt(b, -5), 12.8);     // clamped: approach sits on the end height
+});
