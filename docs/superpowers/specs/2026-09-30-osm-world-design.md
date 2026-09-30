@@ -1,6 +1,6 @@
 # Pipeline step 2: OSM world — design
 
-Status: draft for review · 2026-09-30
+Status: approved · 2026-09-30
 
 ## Goal
 
@@ -19,13 +19,26 @@ Success looks like:
 |---|---|
 | Loading | **B**: pipeline writes `data/world_hochrhein.json`; prototype `fetch`es it at startup; no file → hand-traced fallback. `data/` stays gitignored. |
 | Buildings | OSM footprints extruded; height from `height`, else `building:levels` × 3 m, else a default per building type. Small, near-rectangular footprints get a gable roof (as today), large or irregular ones a flat roof. Real roofs come in step 3. |
-| Which buildings | Only those within **30 m** of a main road (`trunk`, `primary`, `secondary`, `tertiary` and their links; not `motorway`): ~1,770 of ~12,000 in the region. Parameter `--house-dist`. |
+| Which buildings | Those within **30 m** of a main road (`trunk`, `primary`, `secondary`, `tertiary` and their links; not `motorway`): ~1,770 of ~12,000 in the region. Parameter `--house-dist`. **Plus every building of 1,000 m² or more, wherever it stands** (259, 216 of them away from main roads: the Sisslerfeld plants, halls, schools), so Sisslerfeld doesn't go empty. Parameter `--big-building-area`, 0 turns it off. |
 | Roads | Main network incl. `residential`, `unclassified`, `living_street`; `service` except `driveway`, `parking_aisle`, `drive-through`; `pedestrian` (old town, the Holzbrücke); footways/paths/cycleways/steps only where they are bridges (`bridge` ≠ `no`). No `track`, no tunnels. |
 | Hand-made houses | The random `housesAlong` houses and the generic hand boxes (row houses, flat buildings, Sisslerfeld halls) disappear when the world is loaded. |
-| Landmarks | Stay, moved to real positions: Smile-Kreisel, Hallenbad Sissila, Fridolinsmünster, Stein church, Holzbrücke, Fridolinsbrücke, both stations. |
+| Landmarks | Stay, moved to real positions: Smile-Kreisel, Hallenbad Sissila, Fridolinsmünster, Stein church, Holzbrücke, Fridolinsbrücke, both stations. **New:** the tall DSM-Firmenich chimney (red/white top) and the DSM-Firmenich water tower, see below. |
 | Physics | Stays the prototype's own arcade physics (no Rapier yet), but gets a spatial index. |
 
-One addition proposed here, not yet agreed: **also keep every building of 1,000 m² or more, wherever it stands** (259 buildings, 216 of them away from main roads — the Sisslerfeld plants, halls, schools). Without it Sisslerfeld, today a field of hand-placed halls, would be nearly empty. They are big, few and flat-roofed, so they are cheap. Parameter `--big-building-area`, 0 turns it off.
+### New landmarks: DSM-Firmenich chimney and water tower
+
+Both stand inside the OSM area "DSM-Firmenich" (`w1378060195`), Sisslerfeld. Neither has a height tag in OSM; heights were measured on 2026-09-30 from swisstopo swissSURFACE3D Raster (2020 flight, 0.5 m) minus swissALTI3D:
+
+| Landmark | OSM | Game position (x, z) | Footprint | Height |
+|---|---|---|---|---|
+| Chimney, red/white top | `w806132044` | ≈ 1065, 345 | Ø ≈ 9 m at the base | ≈ 140 m |
+| Water tower | `w194161080` | ≈ 1126, −94 | Ø ≈ 17 m | ≈ 59 m |
+
+A second, smaller chimney point `n7538446003` (≈ 40 m, 30 m south of the tall one) is not a landmark; it becomes a plain generic chimney if the build keeps small towers, otherwise it is skipped.
+
+Models: hand-built in the prototype like the other landmarks. The chimney is a slightly tapered cylinder with red/white bands at the top and a small aviation light; the water tower a shaft with a wider tank on top. Exact shape and band count from photos, not guessed. Both are visible from far away, so they are the first landmarks to check against fog distance. Heights and positions go into `anchors.json`; their OSM footprints are excluded from the generic buildings.
+
+Height source attribution: swissSURFACE3D Raster © swisstopo.
 
 ## Pipeline
 
@@ -36,6 +49,7 @@ One addition proposed here, not yet agreed: **also keep every building of 1,000 
 - `smart` is needed so water multipolygons (the Rhine is relation 1706150) come out complete; `simple` cuts their rings at the bbox edge.
 - osmium needs **≥ 1.8 GB** here regardless of bbox size: its ID bitmaps span the whole planet ID range. Measured on the 12 GB agent box: `simple` 1.7–1.8 GB; `tags-filter` hit a 2 GB cap. So **the cut runs on `odroid-plus-pve`** (or any machine with a few GB free), not on the agent box. The result is small and gets copied back.
 - `cut` prints a warning when less than 3 GB of memory is available; the pipeline doc says where to run it.
+- `odroid-plus-pve` is reachable over SSH (62 GB RAM, ~41 GB free on 2026-09-30) but has no osmium yet. Where osmium runs there (host package vs. a container) is decided in the plan, with the user.
 
 ### Build (light, runs anywhere)
 

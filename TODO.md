@@ -10,6 +10,10 @@ Status 2026-09-29:
 - Item 1 done. The .mmh builds (10.7 MB, Swiss side only) and loads in the prototype. The Sisseln village section matches OSM within 1–7 m. The climb is wrong: the real road climbs ~13 m diagonally north-east at ~7 % from the Sissle bridge (x≈1440) to x≈1720, while the prototype hits the terrace edge head-on (~40 % wall at x 1600–1620). The curve toward Laufenburg is really at x≈2950, not x≈2300. The Smile-Kreisel is ~65 m too far west (OSM: x≈1270). The DEM shows the creek bed under the Sissle bridge (5 m dip), so bridges need their own deck profile.
 - Item 2 not started. Brainstorming began: first open question is how the prototype loads the OSM world (file picker like .mmh / fetched data/world.json / committed JS module). Use `osmium extract -s simple` (smart runs out of memory on 12 GB).
 
+## After pipeline step 2
+
+- **Physics spike (throwaway):** try the "ball car" from mrdoob's Starter-Kit-Racing (crashcat, MIT) on the measured terrain around the Sisseln climb, and compare the feel with the prototype's own `stepCar`. The car is one rolling sphere in crashcat; the model's heading is steered directly and decoupled from the sphere's momentum, which is what makes it drift (`js/Vehicle.js`, `js/Physics.js`). crashcat is pre-1.0 (the kit pins 0.0.3). Then decide: crashcat vs. Rapier (docs/03) vs. own physics.
+
 ## Tooling
 
 - Update the `freax-agent-skills` marketplace: the local `sync-ai-instructions` is 0.2.0 and still fetches the removed `ui-*` skills (404). Upstream `freaxnx01/agent-skills` fixed that in 0.4.0 (`2b8f6eb`, 2026-07-26). Run `claude plugin marketplace update freax-agent-skills`, then update the plugins via `/plugin`; other plugins from that marketplace are likely stale too.
