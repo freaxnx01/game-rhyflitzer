@@ -13,12 +13,22 @@ Licence: data (c) OpenStreetMap contributors, ODbL. The world file is a derivati
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import json
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
+import shapely
+
+import anchors as anchors_mod
 import geo
+import mmh
+import osm_read
+import world_buildings
+import world_roads
+import world_water
 
 
 def log(msg: str) -> None:
@@ -69,6 +79,58 @@ def cmd_cut(a) -> int:
     return 0
 
 
+def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path) -> dict:
+    frame = geo.Frame(*origin)
+    xs, zs = frame.to_game([bbox[0], bbox[2]], [bbox[3], bbox[1]])
+    clip = shapely.box(float(xs[0]), float(zs[0]), float(xs[1]), float(zs[1]))
+    log(f"reading {pbf}")
+    data = osm_read.read(Path(pbf), frame)
+    hdr = heights = None
+    if mmh_path:
+        hdr, heights = mmh.read_mmh(mmh_path)
+    spec = anchors_mod.load(anchors_path)
+    roads, junctions = world_roads.build(data.ways, data.nodes, data.way_nodes, clip)
+    polys = world_water.polygons(data.areas, data.ways, clip)
+    ind_ids = set(anchors_mod.industrial_ids(spec))
+    sites = [a.geom for a in data.areas if a.id in ind_ids]
+    buildings, stats = world_buildings.build(data.areas, roads, clip, house_dist, big_area,
+                                             anchors_mod.exclude_ids(spec), sites)
+    rail = [[[round(x, 1), round(z, 1)] for x, z in w.line.intersection(clip).coords]
+            for w in data.ways if w.tags.get("railway") == "rail" and w.line.intersects(clip)
+            and w.line.intersection(clip).geom_type == "LineString"]
+    log(f"roads {len(roads)}, junctions {len(junctions)}, water {len(polys)}, buildings {len(buildings)} {stats}, rail {len(rail)}")
+    return {
+        "format": "MMW1",
+        "origin": {"lat": origin[0], "lon": origin[1], "E": frame.e0, "N": frame.n0, "crs": "EPSG:2056"},
+        "bbox": list(bbox),
+        "sources": ["\u00a9 OpenStreetMap contributors, ODbL"]
+                   + (["Water levels: swissALTI3D \u00a9 swisstopo"] if hdr else []),
+        "params": {"houseDist": house_dist, "bigBuildingArea": big_area,
+                   "built": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+                   "pbf": Path(pbf).name},
+        "roads": roads,
+        "junctions": junctions,
+        "water": world_water.to_json(polys, hdr, heights),
+        "waterSdf": world_water.sdf(polys, clip.bounds),
+        "buildings": buildings,
+        "rail": rail,
+        "anchors": anchors_mod.resolve(spec, data, frame),
+    }
+
+
+def write_world(path: Path, world: dict) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(world, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    log(f"wrote {path} ({path.stat().st_size / 1e6:.1f} MB)")
+
+
+def cmd_build(a) -> int:
+    world = build_world(a.pbf, a.mmh, tuple(a.bbox), tuple(a.origin), a.house_dist, a.big_building_area, a.anchors)
+    write_world(a.out, world)
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -78,9 +140,20 @@ def main(argv=None) -> int:
     c.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), default=geo.DEFAULT_BBOX)
     c.add_argument("--pad", type=float, default=2000.0, help="padding around the bbox in metres")
     c.add_argument("--dry-run", action="store_true", help="print the osmium commands only")
+    b = sub.add_parser("build", help="regional .osm.pbf -> world JSON (light)")
+    b.add_argument("--pbf", required=True)
+    b.add_argument("--mmh", default=None, help="measured terrain, for water levels")
+    b.add_argument("--out", default="../data/world_hochrhein.json")
+    b.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), default=geo.DEFAULT_BBOX)
+    b.add_argument("--origin", nargs=2, type=float, metavar=("LAT", "LON"), default=geo.DEFAULT_ORIGIN)
+    b.add_argument("--house-dist", type=float, default=30.0)
+    b.add_argument("--big-building-area", type=float, default=1000.0)
+    b.add_argument("--anchors", default=str(Path(__file__).with_name("anchors.json")))
     a = ap.parse_args(argv)
     if a.cmd == "cut":
         return cmd_cut(a)
+    if a.cmd == "build":
+        return cmd_build(a)
     return 2
 
 
