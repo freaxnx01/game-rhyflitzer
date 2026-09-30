@@ -54,8 +54,9 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 .terrainrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;background:var(--ink);border:3px solid;border-color:#0b0d12 #4a515e #4a515e #0b0d12}
 .btn.small{height:40px;padding:0 14px;font-size:17px;display:inline-flex;align-items:center;box-shadow:3px 3px 0 var(--ink)}
 .btn.small:focus-within,label.btn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
-#mmhstatus{font-size:15px;font-weight:600;color:var(--steel-l)}
-#mmhstatus.real{color:var(--go)}
+#mmhstatus,#worldstatus{font-size:15px;font-weight:600;color:var(--steel-l)}
+#mmhstatus.real,#worldstatus.real{color:var(--go)}
+#worldstatus{display:block}
 #result{font-size:48px;font-weight:800;font-style:italic;color:var(--sun);line-height:1}
 #result small{display:block;font-size:18px;color:var(--steel-l);font-style:normal;letter-spacing:2px;text-transform:uppercase}
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
@@ -154,6 +155,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld } from './world.js';
 
 // ---------- helpers ----------
 let seed = 4334;
@@ -195,8 +197,8 @@ TEX.motorway = makeTex(512, 1024, (g, w, h) => { noise(g, w, h, '#4e4d52', 18, 2
 const textTex = (txt, w, h, bg, fg, font, border) => makeTex(w, h, (g) => { g.clearRect(0, 0, w, h); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); } if (border) { g.strokeStyle = border; g.lineWidth = h * 0.06; g.strokeRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1); } g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + h * 0.03); }, { alpha: true });
 
 // ---------- world layout (traced from the OSM screenshot, pixel coords) ----------
-const RIVER = { hw: 42 * S, pts: WP([[1960, 262], [1700, 255], [1500, 250], [1300, 245], [1100, 232], [950, 208], [800, 182], [690, 170], [600, 205], [545, 290], [518, 390], [506, 470], [484, 555], [458, 635], [446, 700], [422, 758], [362, 790], [255, 765], [130, 705], [-40, 640]]) };
-const ROADS = [
+let RIVER = { hw: 42 * S, pts: WP([[1960, 262], [1700, 255], [1500, 250], [1300, 245], [1100, 232], [950, 208], [800, 182], [690, 170], [600, 205], [545, 290], [518, 390], [506, 470], [484, 555], [458, 635], [446, 700], [422, 758], [362, 790], [255, 765], [130, 705], [-40, 640]]) };
+let ROADS = [
   { n: 'Hauptstrasse', w: 9, tex: 'road', pts: WP([[610, 548], [652, 505], [700, 470], [800, 455], [900, 452], [1000, 450], [1100, 450], [1200, 450], [1320, 452], [1420, 455], [1429, 452]]) },
   // Sisseln, traced from the zoom-18 view: the Hauptstrasse climbs from the Smile-Kreisel onto the terrace, the village lies north of it
   { n: 'Hauptstrasse', w: 9, tex: 'road', pts: [W(1441, 448), W(1470, 440), ...VP([[-140, 660], [0, 690], [150, 710], [400, 733], [600, 722], [800, 708], [1000, 695], [1200, 682], [1400, 672], [1700, 668], [2000, 666], [2400, 690], [2800, 760]])], houses: 'village', hx: [V(-60, 0)[0], V(1330, 0)[0]] },
@@ -238,7 +240,7 @@ const ROADS = [
   { n: 'Werkstrasse', w: 6, pts: WP([[900, 452], [905, 360], [905, 300]]) },
   { n: 'A3', w: 14, tex: 'motorway', pts: WP([[880, 940], [1000, 925], [1200, 885], [1500, 848], [1750, 820], [1960, 800]]) },
 ];
-const BRIDGES = [
+let BRIDGES = [
   { n: 'Fridolinsbrücke', a: W(495, 700), b: W(398, 700), hw: 4.2, deck: 7, ramp: 40, kind: 'stone' },
   { n: 'Holzbrücke', a: W(558, 478), b: W(462, 461), hw: 2.6, deck: 3.2, ramp: 25, kind: 'wood' },
 ];
@@ -247,8 +249,8 @@ function bridgeLocal(b, x, z) { const dx = x - b.a[0], dz = z - b.a[1]; return [
 function bridgeProfile(b, t) { if (t < b.ramp) return b.deck * clamp(t / b.ramp, 0, 1); if (t > b.len - b.ramp) return b.deck * clamp((b.len - t) / b.ramp, 0, 1); return b.deck; }
 function onBridge(x, z) { for (const b of BRIDGES) { const [t, s] = bridgeLocal(b, x, z); if (t >= -2 && t <= b.len + 2 && Math.abs(s) <= b.hw) return { b, t }; } return null; }
 function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; const t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1); return Math.hypot(px - ax - dx * t, pz - az - dz * t); }
-function riverDist(x, z) { let m = 1e9; for (let i = 0; i < RIVER.pts.length - 1; i++) m = Math.min(m, segDist(x, z, ...RIVER.pts[i], ...RIVER.pts[i + 1])); return m - RIVER.hw; }
-const RAMP = { x0: W(1088, 0)[0], x1: W(1098, 0)[0], z0: W(0, 560)[1], z1: W(0, 574)[1], h: 3.4 };
+function riverDist(x, z) { if (SDF) return SDF(x, z); let m = 1e9; for (let i = 0; i < RIVER.pts.length - 1; i++) m = Math.min(m, segDist(x, z, ...RIVER.pts[i], ...RIVER.pts[i + 1])); return m - RIVER.hw; }
+let RAMP = { x0: W(1088, 0)[0], x1: W(1098, 0)[0], z0: W(0, 560)[1], z1: W(0, 574)[1], h: 3.4 };
 // ---------- terrain: Rhine valley floor, Sisseln terrace, Fricktal hills south, Schwarzwald north ----------
 const hash = (ix, iz) => { let n = (Math.imul(ix, 374761393) + Math.imul(iz, 668265263)) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); n = n ^ (n >>> 16); return (n >>> 0) / 4294967295; };
 function vnoise(x, z) { const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz; const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz); const a = hash(ix, iz), b = hash(ix + 1, iz), c = hash(ix, iz + 1), d = hash(ix + 1, iz + 1); return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sz; }
@@ -261,9 +263,15 @@ async function idbGet(k) { try { const db = await idb(); return await new Promis
 async function idbSet(k, v) { try { const db = await idb(); await new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); if (v === null) t.objectStore('kv').delete(k); else t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); return true; } catch (e) { return false; } }
 function parseMMH(buf) { const dv = new DataView(buf); if (String.fromCharCode(...new Uint8Array(buf, 0, 4)) !== 'MMH1') throw new Error('Not a Map Madness heightmap (MMH1)'); const n = dv.getUint32(4, true); const hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n))); const data = new Float32Array(buf, 8 + n, hdr.w * hdr.h); return { hdr, data }; }
 const REAL = await (async () => { const buf = await idbGet('terrain'); if (!buf) return null; try { return parseMMH(buf); } catch (e) { return null; } })();
+// OSM world from the pipeline (data/world_hochrhein.json); absent on a fresh clone -> hand-traced layout
+const WORLD = await fetch('../data/world_hochrhein.json').then(r => r.ok ? r.json() : null).catch(() => null);
+const L = WORLD && WORLD.format === 'MMW1' ? layoutFromWorld(WORLD) : null;
+const SDF = L ? sdfSampler(L.sdf) : null, WATER = L ? waterIndex(L.water) : null;
+if (L) { ROADS = L.roads; BRIDGES = []; }
+window.__mm = { layout: L ? 'osm' : 'hand', counts: L ? { roads: L.roads.length, buildings: L.buildings.length, water: L.water.length } : {}, physMs: 0 };
 function realH(x, z) { const { hdr, data } = REAL; const fx = (x - hdr.x0) / hdr.step, fz = (z - hdr.z0) / hdr.step; const i = clamp(Math.floor(fx), 0, hdr.w - 2), j = clamp(Math.floor(fz), 0, hdr.h - 2); const tx = clamp(fx - i, 0, 1), tz = clamp(fz - j, 0, 1); const a = data[j * hdr.w + i], b = data[j * hdr.w + i + 1], c = data[(j + 1) * hdr.w + i], d = data[(j + 1) * hdr.w + i + 1]; return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz; }
 function terrainH(x, z) {
-  if (REAL) return Math.max(0, realH(x, z)) * sm((riverDist(x, z) + 5) / 30);
+  if (REAL) return L ? realH(x, z) : Math.max(0, realH(x, z)) * sm((riverDist(x, z) + 5) / 30);
   const px = x / S + 960, py = z / S + 500; let h = 0;
   h += 14 * sm((px - 1455) / 70) * sm((py - 300) / 80);          // Sisseln terrace: the Hauptstrasse climbs into the village
   h += 150 * sm((py - 920) / 700);                                  // Fricktal hills south of the A3
@@ -274,15 +282,15 @@ function terrainH(x, z) {
 }
 function groundH(x, z) {
   const ob = onBridge(x, z); if (ob) return bridgeProfile(ob.b, ob.t);
-  if (riverDist(x, z) < 0) return -3;
+  if (riverDist(x, z) < 0) return (L && REAL ? (WATER.levelAt(x, z) ?? 0) : 0) - 3;
   const t = terrainH(x, z);
   if (x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
   return t;
 }
 const mk = (n, px, py) => ({ n, x: W(px, py)[0], z: W(px, py)[1] });
-const CPS = [{ n: 'Bahnhof Sisseln', x: 1780, z: 560 }, mk('Sisslerfeld', 995, 660), mk('GETEC Park Stein', 738, 330), mk('Stein Dorf', 592, 705), mk('Bahnhof Stein-Säckingen', 447, 920)];
-const FINISH = mk('Münsterplatz Bad Säckingen', 452, 464);
-const START = { x: V(1140, 685)[0], z: V(1140, 685)[1], th: Math.PI };
+let CPS = [{ n: 'Bahnhof Sisseln', x: 1780, z: 560 }, mk('Sisslerfeld', 995, 660), mk('GETEC Park Stein', 738, 330), mk('Stein Dorf', 592, 705), mk('Bahnhof Stein-Säckingen', 447, 920)];
+let FINISH = mk('Münsterplatz Bad Säckingen', 452, 464);
+let START = { x: V(1140, 685)[0], z: V(1140, 685)[1], th: Math.PI };
 
 // ---------- geometry builders ----------
 const parts = {};
@@ -300,6 +308,19 @@ function gable(w, d, h0, rh, x, z, rot, roofC, wallC, over = 0.45) {
   tri([hw2, h0, hd2], [hw2, h0, -hd2], [hw2, h0 + rh, 0], [1, 0, 0]); tri([-hw2, h0, -hd2], [-hw2, h0, hd2], [-hw2, h0 + rh, 0], [-1, 0, 0]); rawGeo(gp, gn, gu, rot, x, z, wallC, 'wall');
 }
 function resample(pts, step) { const out = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / step)); for (let k = 1; k <= n; k++) out.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); } return out; }
+function waterPolys() {
+  for (const w of L.water) {
+    const y = (REAL ? w.level : 0) + 0.06, all = w.rings.flat();
+    const tris = THREE.ShapeUtils.triangulateShape(w.rings[0].map(([x, z]) => new THREE.Vector2(x, z)), w.rings.slice(1).map(r => r.map(([x, z]) => new THREE.Vector2(x, z))));
+    const pos = [], nrm = [], uv = [];
+    for (let [a, b, c] of tris) {
+      const A = all[a], B = all[b], C = all[c];
+      if ((B[1] - A[1]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[1] - A[1]) < 0) [b, c] = [c, b];   // face up (+y)
+      for (const k of [a, b, c]) { const [x, z] = all[k]; pos.push(x, y, z); nrm.push(0, 1, 0); uv.push(x / 60, z / 60); }
+    }
+    rawGeo(pos, nrm, uv, 0, 0, 0, col('#ffffff'), 'water');
+  }
+}
 function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false) { // mitred polyline strip, shared vertices at joints
   const pts = onTerrain ? resample(src, 10) : src; const hAt = (p) => onTerrain ? terrainH(p[0], p[1]) + y : y;
   const L = pts.length, left = [], right = [], dist = [0]; for (let i = 1; i < L; i++) dist.push(dist[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
@@ -346,14 +367,21 @@ function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(t
 
 // ---------- build the world ----------
 {
-  const ground = new THREE.PlaneGeometry(6400, 3800, 400, 240); ground.rotateX(-Math.PI / 2); ground.translate(0, 0, 60); { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3), lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'); for (let i = 0; i < p.count; i++) { const h = terrainH(p.getX(i), p.getZ(i)); p.setY(i, h); uv.setXY(i, uv.getX(i) * 320, uv.getY(i) * 190); const t = sm(h / 90); const c = t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); } parts.grass = [ground.toNonIndexed()];
+  const TB = L ? { x0: L.sdf.x0, z0: L.sdf.z0, x1: L.sdf.x0 + (L.sdf.w - 1) * L.sdf.step, z1: L.sdf.z0 + (L.sdf.h - 1) * L.sdf.step } : null;
+  const GW = TB ? TB.x1 - TB.x0 : 6400, GD = TB ? TB.z1 - TB.z0 : 3800;
+  const ground = new THREE.PlaneGeometry(GW, GD, TB ? Math.round(GW / 16) : 400, TB ? Math.round(GD / 16) : 240); ground.rotateX(-Math.PI / 2);
+  if (TB) ground.translate((TB.x0 + TB.x1) / 2, 0, (TB.z0 + TB.z1) / 2); else ground.translate(0, 0, 60);
+  { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3), lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'); for (let i = 0; i < p.count; i++) { const h = terrainH(p.getX(i), p.getZ(i)); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); const t = sm(h / 90); const c = t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); } parts.grass = [ground.toNonIndexed()];
   // fields: the whole rotated rectangle must stay off roads and the river, and it is draped on the terrain
   const fieldClear = (x, z, w, d, rot) => { const c = Math.cos(rot), s = Math.sin(rot), nu = Math.ceil(w / 15), nv = Math.ceil(d / 15); for (let a = 0; a <= nu; a++) for (let b = 0; b <= nv; b++) { const u = -w / 2 + w * a / nu, v = -d / 2 + d * b / nv, px = x + u * c + v * s, pz = z - u * s + v * c; if (roadDist(px, pz) < 3 || riverDist(px, pz) < 20) return false; } return true; };
   for (let i = 0; i < 40; i++) { const x = rr(-2400, 2400), z = rr(-1100, 1240), w = rr(120, 260), d = rr(90, 200), rot = rr(-0.3, 0.3); if (riverDist(x, z) < 200 || terrainH(x, z) > 2.5 || Math.abs(terrainH(x + w / 2, z + d / 2) - terrainH(x - w / 2, z - d / 2)) > 1.5 || !fieldClear(x, z, w, d, rot)) continue; const g = new THREE.PlaneGeometry(w, d, Math.ceil(w / 20), Math.ceil(d / 20)); g.rotateX(-Math.PI / 2); g.rotateY(rot); g.translate(x, 0, z); const p = g.attributes.position; for (let k = 0; k < p.count; k++) p.setY(k, terrainH(p.getX(k), p.getZ(k)) + 0.02); const u = g.attributes.uv; for (let k = 0; k < u.count; k++) u.setXY(k, u.getX(k) * w / 20, u.getY(k) * d / 20); g.computeVertexNormals(); colorize(g, col(rnd() < 0.5 ? '#b9a86a' : '#8fa04e')); push('field', g); }
   // the Rhine: gravel shore, water, current layer
-  ribbon(RIVER.pts, RIVER.hw + 14, 0.03, 'gravel', col('#c8bca4'), 12);
-  const waterGeo = ribbon(RIVER.pts, RIVER.hw, 0.06, 'water', col('#ffffff'), 60);
-  parts.current = [ribbon(RIVER.pts, RIVER.hw - 6, 0.08, 'currentTmp', col('#ffffff'), 90)]; delete parts.currentTmp;
+  if (!L) {
+    ribbon(RIVER.pts, RIVER.hw + 14, 0.03, 'gravel', col('#c8bca4'), 12);
+    const waterGeo = ribbon(RIVER.pts, RIVER.hw, 0.06, 'water', col('#ffffff'), 60);
+    parts.current = [ribbon(RIVER.pts, RIVER.hw - 6, 0.08, 'currentTmp', col('#ffffff'), 90)]; delete parts.currentTmp;
+  }
+  if (L) waterPolys();
   // roads
   for (const r of ROADS) ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true);
   for (const r of ROADS) for (const p of r.pts) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
@@ -389,7 +417,7 @@ function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(t
   { const { x0, x1, z0, z1, h } = RAMP; const T = (x, z) => terrainH(x, z); const pos = [x0, T(x0, z0), z0, x1, T(x1, z0) + h, z0, x1, T(x1, z1) + h, z1, x0, T(x0, z0), z0, x1, T(x1, z1) + h, z1, x0, T(x0, z1), z1, x1, T(x1, z0), z0, x1, T(x1, z1), z1, x1, T(x1, z1) + h, z1, x1, T(x1, z0), z0, x1, T(x1, z1) + h, z1, x1, T(x1, z0) + h, z0]; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(24).fill(0).map((_, i) => (i % 2 ? (i % 4 === 1 ? 0 : 3) : (i % 4 === 0 ? 0 : 2))), 2)); colorize(g, col('#8a6a48')); push('gravel', g); }
   for (const r of ROADS) if (r.houses) housesAlong(r);
   // trees along both banks and scattered
-  const TREES = []; { const pts = RIVER.pts; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; for (let t = 0; t < L; t += 22) for (const s of [-1, 1]) { const o = RIVER.hw + 20 + rr(0, 14); const tx = x0 + ux * t - uz * o * s + rr(-4, 4), tz = z0 + uz * t + ux * o * s + rr(-4, 4); if (!onBridge(tx, tz) && roadDist(tx, tz) > 4 && BRIDGES.every(b => segDist(tx, tz, ...b.a, ...b.b) > 12)) TREES.push([tx, tz, rr(8, 13)]); } } }
+  const TREES = []; if (!L) { const pts = RIVER.pts; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; for (let t = 0; t < L; t += 22) for (const s of [-1, 1]) { const o = RIVER.hw + 20 + rr(0, 14); const tx = x0 + ux * t - uz * o * s + rr(-4, 4), tz = z0 + uz * t + ux * o * s + rr(-4, 4); if (!onBridge(tx, tz) && roadDist(tx, tz) > 4 && BRIDGES.every(b => segDist(tx, tz, ...b.a, ...b.b) > 12)) TREES.push([tx, tz, rr(8, 13)]); } } }
   for (let i = 0; i < 9000; i++) { const tx = rr(-3100, 3100), tz = rr(-1800, 1900); const th = terrainH(tx, tz); const sisselnWald = tx > 1960 && tx < 2500 && tz > -520 && tz < -300; const forest = sisselnWald || th > 18 || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55); if (!forest && rnd() > 0.12) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6) TREES.push([tx, tz, rr(6, 12)]); }
   window.__TREES = TREES;
   streetNames();
@@ -518,6 +546,7 @@ function stepRace(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5)
 function finish() { R.state = 'finished'; SFX.finish(); const t = R.t; let rec = false; if (R.best === null || t < R.best) { rec = R.best !== null; R.best = t; try { localStorage.setItem('mm.best2', String(t)); } catch (e) { } } $('result').hidden = false; $('result').innerHTML = `<small>${rec ? 'New record!' : 'Finished'}</small>${fmt(t)}<small>${R.shortcut ? 'via the Holzbrücke · ' : ''}best ${fmt(R.best)}</small>`; $('ovtext').textContent = 'Münsterplatz reached. Retry for a better line, or take the other bridge next time.'; $('startbtn').textContent = 'Retry'; $('overlay').hidden = false; }
 $('startbtn').onclick = () => { SFX.start(); startRace(); };
 if (REAL) { $('mmhstatus').textContent = `Terrain: measured · ${REAL.hdr.w}×${REAL.hdr.h} at ${REAL.hdr.step} m · ${REAL.hdr.sources.join(' · ')}`; $('mmhstatus').classList.add('real'); $('mmhclear').hidden = false; }
+{ const s = document.createElement('span'); s.id = 'worldstatus'; s.textContent = L ? `World: OpenStreetMap · ${L.roads.length} roads · ${L.buildings.length} buildings · ${L.sources.join(' · ')}` : 'World: traced by hand (no data/world_hochrhein.json)'; if (L) s.classList.add('real'); $('mmhstatus').after(s); }
 $('mmhfile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const buf = await f.arrayBuffer(); parseMMH(buf); $('mmhstatus').textContent = 'Saving terrain, rebuilding the world…'; if (!(await idbSet('terrain', buf))) throw new Error('This browser blocks storage, so the terrain cannot be kept'); location.reload(); } catch (err) { $('mmhstatus').textContent = 'Could not load: ' + err.message; $('mmhstatus').classList.remove('real'); } };
 $('mmhclear').onclick = async () => { await idbSet('terrain', null); location.reload(); };
 
