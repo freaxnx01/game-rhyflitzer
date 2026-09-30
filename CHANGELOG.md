@@ -13,6 +13,7 @@ All notable changes to this project are documented here, following
 ### Fixed
 
 - Umlauts and symbols (Säckingen, ·, →) show correctly on the start screen, in the HUD and on the map.
+- The time and checkpoint panels no longer spread into a big dark box over the whole screen; the game is as bright as intended again.
 
 ## [0.2.0] - 2026-09-30
 
