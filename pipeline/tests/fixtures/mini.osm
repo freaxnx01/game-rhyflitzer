@@ -9,8 +9,19 @@
   <node id="12" lat="47.5501" lon="7.9662"/>
   <node id="13" lat="47.5501" lon="7.9660"/>
   <node id="20" lat="47.5520" lon="7.9700"><tag k="man_made" v="chimney"/></node>
+  <node id="21" lat="47.5521" lon="7.9701"><tag k="railway" v="station"/></node>
+  <node id="22" lat="47.5522" lon="7.9702"><tag k="railway" v="halt"/></node>
+  <node id="23" lat="47.5523" lon="7.9703"><tag k="railway" v="level_crossing"/></node>
+  <node id="24" lat="47.5524" lon="7.9704"><tag k="highway" v="traffic_signals"/></node>
+  <node id="25" lat="47.5525" lon="7.9705"><tag k="highway" v="crossing"/></node>
+  <node id="30" lat="47.5490" lon="7.9690"/>
+  <node id="31" lat="47.5490" lon="7.9690"/>
+  <node id="32" lat="47.5490" lon="7.9700"/>
+  <node id="33" lat="47.5480" lon="7.9700"/>
   <way id="100"><nd ref="1"/><nd ref="2"/><tag k="highway" v="tertiary"/><tag k="name" v="Hauptstrasse"/></way>
   <way id="101"><nd ref="2"/><nd ref="3"/><tag k="highway" v="residential"/></way>
   <way id="102"><nd ref="2"/><nd ref="4"/><tag k="highway" v="track"/></way>
+  <way id="103"><nd ref="31"/><nd ref="33"/><tag k="highway" v="service"/></way>
+  <way id="104"><nd ref="30"/><nd ref="31"/><nd ref="32"/><tag k="highway" v="service"/></way>
   <way id="200"><nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="13"/><nd ref="10"/><tag k="building" v="house"/></way>
 </osm>

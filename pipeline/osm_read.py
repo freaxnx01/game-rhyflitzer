@@ -69,6 +69,7 @@ def read(path: Path, frame: Frame) -> OsmData:
     fab = osmium.geom.WKBFactory()
     out = OsmData()
     uses = Counter()
+    locs: dict = {}
     fp = (osmium.FileProcessor(str(path))
           .with_locations()
           .with_areas(osmium.filter.KeyFilter(*AREA_KEYS)))
@@ -91,10 +92,14 @@ def read(path: Path, frame: Frame) -> OsmData:
                 ids = [n.ref for n in o.nodes]
                 out.way_nodes[o.id] = ids
                 uses.update(set(ids))
+                # keep locations per node ref: the linestring drops duplicate vertices
+                for n in o.nodes:
+                    if n.location.valid():
+                        locs[n.ref] = (n.location.lon, n.location.lat)
         elif o.is_area():
             try:
                 geom = shapely.wkb.loads(fab.create_multipolygon(o))
-            except RuntimeError:
+            except (RuntimeError, osmium.InvalidLocationError):
                 out.skipped["area-geometry"] += 1
                 continue
             g = _to_game(frame, geom)
@@ -102,13 +107,10 @@ def read(path: Path, frame: Frame) -> OsmData:
                 g = g.geoms[0]
             out.areas.append(Area(o.orig_id(), o.from_way(), dict(o.tags), g))
     shared = {nid for nid, c in uses.items() if c >= 2}
-    for w in out.ways:
-        ids = out.way_nodes.get(w.id)
-        if not ids:
-            continue
-        for nid, (x, z) in zip(ids, w.line.coords):
-            if nid in shared:
-                out.nodes[nid] = (x, z)
+    for nid, c in uses.items():
+        if c >= 2 and nid in locs:
+            x, z = frame.to_game(*locs[nid])
+            out.nodes[nid] = (float(x), float(z))
     if out.skipped:
         print(f"osm_read: skipped {dict(out.skipped)}", file=sys.stderr)
     return out
