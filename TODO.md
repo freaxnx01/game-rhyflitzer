@@ -14,6 +14,12 @@ Status 2026-09-29:
 
 - **Physics spike (throwaway):** try the "ball car" from mrdoob's Starter-Kit-Racing (crashcat, MIT) on the measured terrain around the Sisseln climb, and compare the feel with the prototype's own `stepCar`. The car is one rolling sphere in crashcat; the model's heading is steered directly and decoupled from the sphere's momentum, which is what makes it drift (`js/Vehicle.js`, `js/Physics.js`). crashcat is pre-1.0 (the kit pins 0.0.3). Then decide: crashcat vs. Rapier (docs/03) vs. own physics.
 
+## HUD layout (found 2026-09-30, not fixed)
+
+- Phone width (390 px): the checkpoint arrow/distance (`#tc`) overlaps the time and checkpoint plates, and `#tl` (242 px) overlaps `#tr` by ~11 px.
+- Window width ~1000 px: the minimap covers the right half of the hub bar (`#game-nav`).
+- Camera: 62° vertical FOV gives over 100° horizontal on wide windows (fisheye look). Consider clamping the horizontal FOV.
+
 ## Tooling
 
 - Update the `freax-agent-skills` marketplace: the local `sync-ai-instructions` is 0.2.0 and still fetches the removed `ui-*` skills (404). Upstream `freaxnx01/agent-skills` fixed that in 0.4.0 (`2b8f6eb`, 2026-07-26). Run `claude plugin marketplace update freax-agent-skills`, then update the plugins via `/plugin`; other plugins from that marketplace are likely stale too.
