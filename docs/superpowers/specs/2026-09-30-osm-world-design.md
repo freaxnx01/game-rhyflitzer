@@ -24,7 +24,7 @@ Success looks like:
 | Hand-made houses | The random `housesAlong` houses and the generic hand boxes (row houses, flat buildings, Sisslerfeld halls) disappear when the world is loaded. |
 | Landmarks | Stay, moved to real positions: Smile-Kreisel, Hallenbad Sissila, Fridolinsmünster, Stein church, Holzbrücke, Fridolinsbrücke, both stations. **New:** the tall DSM-Firmenich chimney (red/white top) and the DSM-Firmenich water tower, see below. |
 | Physics | Stays the prototype's own arcade physics (no Rapier yet), but gets a spatial index. |
-| Road markings | Swiss style per road class, from a photo of the Sisseln Hauptstrasse (2026-09-30), see *Road markings*. |
+| Road markings | Swiss style from OSM tags per way (cycle lanes, centre line), checked against the user's photo and video of the Sisseln Hauptstrasse, see *Road markings*. |
 | Industrial palette | Buildings inside the DSM-Firmenich area get white/grey facades with blue bands, see *Industrial palette*. |
 
 ### New landmarks: DSM-Firmenich chimney and water tower
@@ -51,17 +51,18 @@ The wooden viewing tower is already a planned hero asset (docs/01, docs/07). OSM
 
 ### Road markings
 
-Replaces the one-size texture (white centre dashes and white edge lines on every road). Chosen per road class and width, drawn into the road texture or as separate decal strips:
+Replaces the one-size texture (white centre dashes and white edge lines on every road). Driven by **OSM tags per way**, not by road class alone, because the same road changes: the Sisseln Hauptstrasse has yellow cycle lanes and no centre line in the village (`cycleway=lane` + `lane_markings=no`), but a solid white centre line and no cycle lanes in the two bends of the climb (`lanes=2`, `cycleway:both=no`, ways `w1239353959`, `w122368066`). Both confirmed by the user's photo and video of 2026-09-29 (`design/reference/`).
 
-| Road | Markings |
+| OSM tags on the way | Markings |
 |---|---|
-| Village main road ≤ 7.5 m (like the Sisseln Hauptstrasse) | No centre line. Yellow broken lines ~1.3 m inside each edge (cycle lanes). |
-| Wider main road (> 7.5 m), trunk | White broken centre line, white solid edge lines. |
-| Motorway | As today (white lane dashes, solid edges). |
-| Residential, service, living street | None. |
-| Pedestrian, bridges for pedestrians | None; paving texture instead of asphalt later. |
+| `cycleway`/`cycleway:both` = `lane` and `lane_markings=no` | No centre line; yellow broken line ~1.3 m inside each edge |
+| cycle lane on one side only (`cycleway:left|right=lane`) | Yellow broken line on that side; white centre line |
+| `lanes` ≥ 2 without `lane_markings=no`, class tertiary or higher | White centre line: broken, solid where the way bends tighter than a radius of 150 m or has `overtaking=no` |
+| motorway, trunk | As today (white lane dashes, solid edges) |
+| residential, service, living street, unclassified without `lanes` | None |
+| pedestrian, footway bridges | None |
 
-Dash lengths and gaps follow Swiss standards (VSS); the plan looks them up rather than guessing. The rectified photo shows the cycle-lane dashes roughly 2.5 m long with similar gaps (±20 %, the scale comes from an assumed 7 m road width).
+The pipeline writes the result per road as `mark` (`none`, `cycle`, `cycle-left`, `cycle-right`, `centre`, `motorway`) plus `solid` ranges. Dash lengths and gaps follow Swiss standards (VSS); the plan looks them up rather than guessing. The rectified photo shows the cycle-lane dashes roughly 2.5 m long with similar gaps (±20 %, scale from an assumed 7 m road width).
 
 ### Industrial palette
 
