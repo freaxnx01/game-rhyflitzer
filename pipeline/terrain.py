@@ -27,8 +27,6 @@ Licences (attribution required in the game credits):
 from __future__ import annotations
 
 import argparse
-import json
-import struct
 import sys
 from pathlib import Path
 
@@ -38,15 +36,16 @@ import rasterio
 from rasterio.io import MemoryFile
 from rasterio.transform import from_origin
 from rasterio.warp import Resampling, reproject
-from pyproj import CRS, Transformer
+from pyproj import CRS
+
+from geo import DEFAULT_BBOX, DEFAULT_ORIGIN, Frame, grid_for
+from mmh import write_mmh
 
 STAC_ITEMS = "https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d/items"
 LV95 = CRS.from_epsg(2056)      # Swiss grid, metric; used as the game's working frame
 ETRS_UTM32 = CRS.from_epsg(25832)  # LGL data
 
-# Defaults: the prototype's region and the origin its hand-traced world is anchored to.
-DEFAULT_BBOX = (7.905, 47.532, 8.030, 47.572)   # lon/lat: Bad Saeckingen west ... east of Sisseln
-DEFAULT_ORIGIN = (47.5506, 7.9671)               # lat, lon (approximate, see docs/08)
+# Defaults: the prototype's region and origin live in geo.py (shared with the OSM step).
 DEFAULT_BASE = 284.0                             # m above sea level, Rhine water level near Sisseln (approx.)
 
 
@@ -141,18 +140,10 @@ def german_datasets(folder: Path | None):
 # ---------- merge onto the game grid ----------
 
 def build(bbox, origin, step, base, cache: Path, dgm_dir: Path | None):
-    to_lv95 = Transformer.from_crs("EPSG:4326", LV95, always_xy=True)
-    e0, n0 = to_lv95.transform(origin[1], origin[0])
-    corners = [to_lv95.transform(x, y) for x in (bbox[0], bbox[2]) for y in (bbox[1], bbox[3])]
-    emin = min(c[0] for c in corners); emax = max(c[0] for c in corners)
-    nmin = min(c[1] for c in corners); nmax = max(c[1] for c in corners)
-    # snap the grid to whole steps relative to the game origin
-    x0 = np.floor((emin - e0) / step) * step
-    x1 = np.ceil((emax - e0) / step) * step
-    znorth = -np.ceil((nmax - n0) / step) * step
-    zsouth = -np.floor((nmin - n0) / step) * step
-    w = int(round((x1 - x0) / step)) + 1
-    h = int(round((zsouth - znorth) / step)) + 1
+    frame = Frame(*origin)
+    e0, n0 = frame.e0, frame.n0
+    g = grid_for(bbox, frame, step)
+    x0, znorth, w, h = g["x0"], g["z0"], g["w"], g["h"]
     dst_transform = from_origin(e0 + x0 - step / 2, n0 - znorth + step / 2, step, step)
     log(f"grid {w} x {h} at {step:g} m ({(w - 1) * step / 1000:.1f} x {(h - 1) * step / 1000:.1f} km)")
 
@@ -191,19 +182,6 @@ def build(bbox, origin, step, base, cache: Path, dgm_dir: Path | None):
         "bbox": list(bbox), "sources": sources,
     }
     return header, out
-
-
-def write_mmh(path: Path, header: dict, heights: np.ndarray) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    hj = json.dumps(header, separators=(",", ":")).encode()
-    pad = (-(8 + len(hj))) % 4                       # keep float32 data 4-byte aligned
-    hj += b" " * pad
-    with open(path, "wb") as f:
-        f.write(b"MMH1")
-        f.write(struct.pack("<I", len(hj)))
-        f.write(hj)
-        f.write(heights.astype("<f4").tobytes())
-    log(f"wrote {path} ({path.stat().st_size / 1e6:.1f} MB), heights {header['min']:.1f} .. {header['max']:.1f} m above base")
 
 
 def main(argv=None) -> int:
