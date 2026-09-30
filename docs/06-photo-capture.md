@@ -70,13 +70,38 @@ Two separate jobs:
 - Hand-held or chest mount facing sideways, walk slowly along the facades
 - The right method for old towns and narrow lanes (Bad Säckingen old town)
 
-## 3. What to do with the imagery
+## 3. Panoramas and 360° photos (phone)
+
+Useful, but not for buildings.
+
+### What they're not good for
+
+- **3D models:** photogrammetry needs photos from *different positions*; the offset between them (parallax) gives depth. A panorama is taken from one spot while turning, so there is no parallax and no 3D.
+- **Facade textures:** the phone stitches with a cylindrical projection, so straight rooflines bend; moving cars and people cause seam errors; the whole panorama has one GPS position. A row of houses shot from across the street works in a pinch, but single photos taken while walking along are better.
+
+### What they're great for
+
+- **Skybox / distant backdrop:** a 360° panorama (Photo Sphere or panorama mode) gives the far horizon: Jura, Schwarzwald, the Rhine. It goes behind the fog as the game's background. Distant things need no 3D; an image is enough, and it adds a lot of "this is really here" for little effort.
+- **View from the Plattform Sisslerfeld:** a 360° panorama from the platform (5.8 m) as the view when the player climbs up.
+- **Lighting and reflections:** a 360° photo as environment map, so the car's paint reflects the real Hochrhein surroundings.
+- **Reference:** all-round view at junctions (e.g. the Smile-Kreisel), kept open while modelling.
+
+### How to shoot them
+
+- **Rotate around the lens, not around your body.** The app stitches many single shots; that only works if the lens stays at the same point in space and only its direction changes (the *no-parallax point* or *nodal point*).
+  - Wrong: phone at arm's length, turning on the spot. The lens travels on a circle of about half a metre, near objects (fence, lamp post, railing) shift against the background between shots, and you get doubled posts, kinks and ghosts.
+  - Right: hold the phone close to your face and shuffle your feet *around the phone* while only turning it. Best: a small tripod with the phone upright, rotating the tripod head.
+  - The farther away everything is, the less it matters: fine for the Jura on the horizon, critical for the platform railing next to you.
+- Overcast day, so the sun doesn't blow out part of the image.
+- For skyboxes, pick a raised, open spot (the platform, the Rhine bank) so nothing near blocks the view.
+
+## 4. What to do with the imagery
 
 1. **Facade textures** (main value): pick a sharp frame, correct the perspective, crop to one facade, use it as texture for the matching LoD2 building wall.
 2. **3D of a short street segment**: extract 2–3 frames per second (`ffmpeg -i in.mp4 -vf fps=2 frames/%05d.jpg`), process with Meshroom or COLMAP. Works for short sections, not whole towns.
 3. **Later, automated (v2+)**: use GPS position and heading of each photo to project it onto the right LoD2 walls in the pipeline. Capturing with GPS now keeps this option open.
 
-## 4. Texture sources and their licences
+## 5. Texture sources and their licences
 
 | Source | Usable as game texture? | Notes |
 |---|---|---|
@@ -87,7 +112,7 @@ Two separate jobs:
 | **Google Street View / Maps** | **No** | Google's terms forbid extracting, storing, or making derivative works from the imagery. Screenshots as textures are a licence violation, and a public repo makes it visible. Use it only to look. |
 | Bing Streetside, Apple Look Around | No | Same kind of terms. |
 
-## 5. Legal (not legal advice, check before publishing)
+## 6. Legal (not legal advice, check before publishing)
 
 - **Buildings from public ground**: generally allowed in both countries, including commercial use (Panoramafreiheit: CH Art. 27 URG, DE §59 UrhG).
 - **People and number plates**: must be blurred or cropped before anything ends up in a public game or repo.
