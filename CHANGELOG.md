@@ -14,6 +14,8 @@ All notable changes to this project are documented here, following
 
 - Umlauts and symbols (Säckingen, ·, →) show correctly on the start screen, in the HUD and on the map.
 - The time and checkpoint panels no longer spread into a big dark box over the whole screen; the game is as bright as intended again.
+- The stone piers of the Holzbrücke no longer poke up through the wooden deck.
+- Fields no longer spill across roads; they now also follow the ground instead of floating as flat plates.
 
 ## [0.2.0] - 2026-09-30
 
