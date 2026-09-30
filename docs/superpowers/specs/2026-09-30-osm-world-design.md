@@ -24,6 +24,8 @@ Success looks like:
 | Hand-made houses | The random `housesAlong` houses and the generic hand boxes (row houses, flat buildings, Sisslerfeld halls) disappear when the world is loaded. |
 | Landmarks | Stay, moved to real positions: Smile-Kreisel, Hallenbad Sissila, Fridolinsmünster, Stein church, Holzbrücke, Fridolinsbrücke, both stations. **New:** the tall DSM-Firmenich chimney (red/white top) and the DSM-Firmenich water tower, see below. |
 | Physics | Stays the prototype's own arcade physics (no Rapier yet), but gets a spatial index. |
+| Road markings | Swiss style per road class, from a photo of the Sisseln Hauptstrasse (2026-09-30), see *Road markings*. |
+| Industrial palette | Buildings inside the DSM-Firmenich area get white/grey facades with blue bands, see *Industrial palette*. |
 
 ### New landmarks: DSM-Firmenich chimney and water tower
 
@@ -36,9 +38,34 @@ Both stand inside the OSM area "DSM-Firmenich" (`w1378060195`), Sisslerfeld. Nei
 
 A second, smaller chimney point `n7538446003` (≈ 40 m, 30 m south of the tall one) is not a landmark; it becomes a plain generic chimney if the build keeps small towers, otherwise it is skipped.
 
-Models: hand-built in the prototype like the other landmarks. The chimney is a slightly tapered cylinder with red/white bands at the top and a small aviation light; the water tower a shaft with a wider tank on top. Exact shape and band count from photos, not guessed. Both are visible from far away, so they are the first landmarks to check against fog distance. Heights and positions go into `anchors.json`; their OSM footprints are excluded from the generic buildings.
+Models: hand-built in the prototype like the other landmarks, shapes taken from reference photos (an aerial view of the site, source unknown, used only to look; and the user's own photo from the Sisslerfeld field road, 2026-09-30):
+
+- **Chimney:** slender, light grey concrete tube, barely tapered. The upper ~40 % carries alternating red and white bands, about six of each, starting red at the top; the very top is darkened. Small red aviation light on top.
+- **Water tower:** grey concrete shaft; on top a short, slightly wider cylindrical tank with a flat roof (goblet silhouette). Tank ≈ 1/5 of the total height. Both are visible from far away, so they are the first landmarks to check against fog distance. Heights and positions go into `anchors.json`; their OSM footprints are excluded from the generic buildings.
 
 Height source attribution: swissSURFACE3D Raster © swisstopo.
+
+### Plattform Sisslerfeld (anchor now, model later)
+
+The wooden viewing tower is already a planned hero asset (docs/01, docs/07). OSM has it as "Plattform Sissler Feld" (`w1559348004`, `height=11`, footprint at ≈ 7.97102 E / 47.54675 N; the OSM footprint is a rough triangle, so the anchor uses its centre, not its outline). Step 2 only puts its anchor into `anchors.json` and keeps its spot free of generic buildings. Its model is a separate task. Reference: the user's own photos (2026-09-30): square plan, four glulam corner posts with X-bracing on every side, a central core of vertical slats (stair), a cantilevered square platform with a closed parapet of vertical boards, a pyramid roof in grey-green sheet metal with a deep overhang. The banner on the core carries a sponsor logo (naturenergie): **not modelled**, per docs/07.
+
+### Road markings
+
+Replaces the one-size texture (white centre dashes and white edge lines on every road). Chosen per road class and width, drawn into the road texture or as separate decal strips:
+
+| Road | Markings |
+|---|---|
+| Village main road ≤ 7.5 m (like the Sisseln Hauptstrasse) | No centre line. Yellow broken lines ~1.3 m inside each edge (cycle lanes). |
+| Wider main road (> 7.5 m), trunk | White broken centre line, white solid edge lines. |
+| Motorway | As today (white lane dashes, solid edges). |
+| Residential, service, living street | None. |
+| Pedestrian, bridges for pedestrians | None; paving texture instead of asphalt later. |
+
+Dash lengths and gaps follow Swiss standards (VSS); the plan looks them up rather than guessing. The rectified photo shows the cycle-lane dashes roughly 2.5 m long with similar gaps (±20 %, the scale comes from an assumed 7 m road width).
+
+### Industrial palette
+
+Buildings whose centroid lies inside the OSM area "DSM-Firmenich" (`w1378060195`) use their own palette instead of the village plaster colours: white and light grey walls, a blue horizontal band (at the ground floor or under the roof edge), dark window strips, flat roofs. Taken from the aerial photo and the user's field-road photo. Cheap: one more palette and a band drawn into the wall texture. Other industrial areas keep the generic hall look.
 
 ## Pipeline
 
@@ -62,7 +89,7 @@ Height source attribution: swissSURFACE3D Raster © swisstopo.
 5. **Water distance field**: signed distance to water (m, negative inside), 8 m grid over the bbox, clamped to ±120 m, stored as int8 (1 m units) base64. Makes the prototype's `riverDist` O(1) instead of a scan over river points. Needs `scipy` (`distance_transform_edt`).
 6. **Buildings**: filter by distance to main roads (and the big-building rule); drop `building=roof|carport|construction|ruins` and footprints under 20 m²; drop footprints overlapping a landmark (listed OSM ids in `anchors.json`). Per building: outer ring (holes dropped), wall height, roof `gable`/`flat`, and for gables the minimum rotated rectangle (centre, w, d, angle). Gable if area < 250 m² and area / rectangle area > 0.85. Height default by type: `house`, `detached`, `semidetached_house`, `residential`, `yes` 2 floors; `apartments` 4; `farm`, `barn` 1.5; `commercial`, `retail`, `office` 3; `industrial`, `warehouse` 9 m flat; `church`, `chapel` 12 m.
 7. **Railways**: `railway=rail` lines (today hard-coded twice in the prototype).
-8. **Anchors**: `pipeline/anchors.json` (hand-maintained, committed) names every hand-made thing with an OSM id or lat/lon: landmarks, checkpoints, finish, start + heading, Ortstafeln, minimap labels. The pipeline converts them to game coordinates.
+8. **Anchors**: `pipeline/anchors.json` (hand-maintained, committed) names every hand-made thing with an OSM id or lat/lon: landmarks (incl. DSM chimney, water tower, Plattform Sisslerfeld), checkpoints, finish, start + heading, Ortstafeln, minimap labels, and the DSM-Firmenich area for the industrial palette. The pipeline converts them to game coordinates.
 
 ### Output: `data/world_hochrhein.json`
 
@@ -75,11 +102,11 @@ Shape (values are illustrative):
   "bbox": [7.905, 47.532, 8.030, 47.572],
   "sources": ["© OpenStreetMap contributors, ODbL"],
   "params": { "houseDist": 30, "bigBuildingArea": 1000, "osmTimestamp": "…" },
-  "roads":     [{ "id": 28495792, "n": "Fridolinsbrücke", "cls": "primary", "w": 9, "bridge": true, "layer": 1, "pts": [[x, z], …] }],
+  "roads":     [{ "id": 28495792, "n": "Fridolinsbrücke", "cls": "primary", "w": 9, "mark": "centre", "bridge": true, "layer": 1, "pts": [[x, z], …] }],
   "junctions": [[x, z, r], …],
   "water":     [{ "kind": "river", "level": 0.3, "rings": [[[x, z], …], …] }],
   "waterSdf":  { "x0": …, "z0": …, "step": 8, "w": …, "h": …, "data": "<base64 int8>" },
-  "buildings": [{ "id": …, "h": 6.2, "roof": "gable", "rect": [cx, cz, w, d, angle], "ring": [[x, z], …] }],
+  "buildings": [{ "id": …, "h": 6.2, "roof": "gable", "palette": "village", "rect": [cx, cz, w, d, angle], "ring": [[x, z], …] }],
   "rail":      [[[x, z], …]],
   "anchors":   { "smileKreisel": [x, z], "start": [x, z, heading], "cps": [{ "n": "Bahnhof Sisseln", "x": …, "z": … }], … }
 }
