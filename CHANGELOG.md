@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Changed
 
+- The car is 30 % bigger. It was true to size, but next to real-size houses and with the wide chase camera it felt like a toy car.
 - Roads in the Original style now show real asphalt, photographed on the Sisseln Hauptstrasse, instead of generated grey noise.
 
 ### Fixed
