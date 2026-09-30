@@ -134,7 +134,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <kbd>Ctrl</kbd><span>handbrake (drift)</span>
       <kbd>T</kbd><span>toggle graphic style</span>
       <kbd>R</kbd><span>back on the road</span>
-      <kbd>H · M</kbd><span>horn · mute</span>
+      <kbd>H · M</kbd><span>horn (also Enter) · mute</span>
     </div>
     <div class="row">
       <button id="startbtn" class="btn primary" type="button">Start</button>
@@ -457,7 +457,7 @@ function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h
 addEventListener('resize', resize);
 
 // ---------- input ----------
-const keys = {}; addEventListener('keydown', e => { if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH') SFX.horn(); if (e.code === 'KeyM') toast(SFX.toggle() ? 'Muted' : 'Sound on'); if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyM') toast(SFX.toggle() ? 'Muted' : 'Sound on'); if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
 for (const [id, k] of [['tL', 'l'], ['tR', 'r'], ['tG', 'g'], ['tB', 'b'], ['tH', 'h']]) { const el = document.getElementById(id); const on = e => { e.preventDefault(); touch[k] = 1; }; const off = e => { e.preventDefault(); touch[k] = 0; }; el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off); }
 function toggleStyle() { applyStyle(styleKey === 'original' ? 'smooth' : 'original'); }
