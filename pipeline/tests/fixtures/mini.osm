@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6">
+  <node id="1" lat="47.5506" lon="7.9671"/>
+  <node id="2" lat="47.5506" lon="7.9681"/>
+  <node id="3" lat="47.5516" lon="7.9681"/>
+  <node id="4" lat="47.5496" lon="7.9681"/>
+  <node id="10" lat="47.5500" lon="7.9660"/>
+  <node id="11" lat="47.5500" lon="7.9662"/>
+  <node id="12" lat="47.5501" lon="7.9662"/>
+  <node id="13" lat="47.5501" lon="7.9660"/>
+  <node id="20" lat="47.5520" lon="7.9700"><tag k="man_made" v="chimney"/></node>
+  <way id="100"><nd ref="1"/><nd ref="2"/><tag k="highway" v="tertiary"/><tag k="name" v="Hauptstrasse"/></way>
+  <way id="101"><nd ref="2"/><nd ref="3"/><tag k="highway" v="residential"/></way>
+  <way id="102"><nd ref="2"/><nd ref="4"/><tag k="highway" v="track"/></way>
+  <way id="200"><nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="13"/><nd ref="10"/><tag k="building" v="house"/></way>
+</osm>
