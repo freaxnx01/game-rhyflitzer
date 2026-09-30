@@ -1,0 +1,39 @@
+{
+  "landmarks": {
+    "dsmChimney":       { "osm": "w806132044", "h": 140, "kind": "chimney" },
+    "dsmWaterTower":    { "osm": "w194161080", "h": 59,  "kind": "waterTower" },
+    "plattform":        { "osm": "w1559348004", "h": 11, "kind": "reserved" },
+    "holzbruecke":      { "osm": "w85692214", "kind": "bridgeWood" },
+    "fridolinsbruecke": { "osm": "w28495792", "kind": "bridgeStone" },
+    "smileKreisel":     { "game": [1270, -148], "kind": "kreisel" },
+    "hallenbad":        { "game": [1727.0, -353.8], "kind": "hallenbad", "heading_deg": 0 },
+    "muenster":         { "game": [-1331.0, -172.7], "kind": "churchBig", "heading_deg": 0 },
+    "steinChurch":      { "game": [-812.8, 406.4], "kind": "church", "heading_deg": 0 },
+    "stationStein":     { "game": [-1303.0, 1130.3], "kind": "station", "heading_deg": -8.0 },
+    "stationSisseln":   { "game": [1854.2, 685.8], "kind": "station", "heading_deg": -5.7 },
+    "jumpRamp":         { "game": [337.8, 170.2], "kind": "ramp", "heading_deg": 0 }
+  },
+  "start": { "game": [1882.9, -292.2], "heading_deg": 180 },
+  "cps": [
+    { "n": "Bahnhof Sisseln", "game": [1780.0, 560.0] },
+    { "n": "Sisslerfeld", "game": [88.9, 406.4] },
+    { "n": "GETEC Park Stein", "game": [-563.9, -431.8] },
+    { "n": "Stein Dorf", "game": [-934.7, 520.7] },
+    { "n": "Bahnhof Stein-Säckingen", "game": [-1303.0, 1066.8] }
+  ],
+  "finish": { "n": "Münsterplatz Bad Säckingen", "game": [-1290.3, -91.4] },
+  "labels": [
+    { "t": "BAD SÄCKINGEN", "game": [-1330, -300] },
+    { "t": "STEIN", "game": [-900, 560] },
+    { "t": "SISSELN", "game": [1950, -420] },
+    { "t": "SISSLERFELD", "game": [420, 300] },
+    { "t": "RHEIN", "game": [-25, -741] },
+    { "t": "RHEIN", "game": [2300, -640] },
+    { "t": "HOLZBRÜCKE", "game": [-1143, -70] }
+  ],
+  "areas": {
+    "industrial": [ "w1378060195" ],
+    "sisselnWald": { "game_box": [1960, -520, 2500, -300] }
+  },
+  "exclude_buildings": [ "w806132044", "w194161080", "w1559348004", "w557475162" ]
+}
