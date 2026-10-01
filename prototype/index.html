@@ -439,6 +439,74 @@ function waterTower(x, z, h) { // grey concrete shaft, short wider cylindrical t
   const tank = new THREE.CylinderGeometry(8.5, 8.2, tankH - 2.5, 24); tank.translate(x, b + shaftH + 2.5 + (tankH - 2.5) / 2, z); colorize(tank, col('#c4c3bd')); push('stone', tank);
   addOBB(x, z, 9.6, 9.6, 0, b + h);
 }
+// ---------- street furniture (props) ----------
+// One low-poly model per prop kind, merged into a single geometry so each kind draws as one InstancedMesh.
+// Every model has its base at y = 0 (the instance is placed on terrainH) and its long axis along local +x, which
+// is the direction the pipeline's `rot` points along. Built once, deterministic: no rr()/rnd() in here.
+function propGeometries() {
+  const paint = (g, c) => colorize(g.toNonIndexed(), col(c));
+  const post = (r, h, c, y = 0, seg = 6) => { const g = new THREE.CylinderGeometry(r, r, h, seg); g.translate(0, y + h / 2, 0); return paint(g, c); };
+  const slab = (w, h, d, c, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y + h / 2, z); return paint(g, c); };
+  const GREY = '#9aa0a8', DARK = '#4a515e';
+  const out = {};
+  { // street lamp: 6 m grey mast, short arm, dark luminaire head
+    const arm = new THREE.CylinderGeometry(0.055, 0.055, 0.9, 6); arm.rotateZ(Math.PI / 2); arm.translate(0.45, 5.92, 0);
+    const head = new THREE.CylinderGeometry(0.22, 0.13, 0.22, 8); head.translate(0.85, 5.8, 0);
+    out.lamp = mergeGeometries([post(0.075, 6, GREY), paint(arm, GREY), paint(head, '#3a404b')], false);
+  }
+  { // Swiss pillar hydrant: red body 0.9 m, domed cap, one outlet through both sides
+    const cap = new THREE.SphereGeometry(0.14, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2); cap.translate(0, 0.78, 0);
+    const collar = new THREE.CylinderGeometry(0.16, 0.16, 0.07, 8); collar.translate(0, 0.74, 0);
+    const outlet = new THREE.CylinderGeometry(0.055, 0.055, 0.38, 6); outlet.rotateX(Math.PI / 2); outlet.translate(0, 0.5, 0);
+    out.hydrant = mergeGeometries([post(0.125, 0.78, '#c8302a', 0, 8), paint(cap, '#c8302a'), paint(collar, '#a02820'), paint(outlet, GREY)], false);
+  }
+  { // bench: three wooden seat slats and two back slats on dark legs, 1.8 x 0.6 x 0.8 m
+    const wood = '#a9753f', pieces = [];
+    for (const x of [-0.75, 0.75]) { pieces.push(slab(0.08, 0.45, 0.55, DARK, x, 0, -0.02), slab(0.07, 0.36, 0.07, DARK, x, 0.45, -0.24)); }
+    for (const z of [-0.17, 0, 0.17]) pieces.push(slab(1.8, 0.05, 0.14, wood, 0, 0.45, z));
+    for (const y of [0.6, 0.72]) pieces.push(slab(1.8, 0.1, 0.05, wood, 0, y, -0.26));
+    out.bench = mergeGeometries(pieces, false);
+  }
+  { // waste basket: grey-green bin hanging on a slim post, ~1 m
+    const body = new THREE.CylinderGeometry(0.19, 0.155, 0.46, 10); body.translate(0, 0.72, 0);
+    const lid = new THREE.CylinderGeometry(0.21, 0.21, 0.05, 10); lid.translate(0, 0.97, 0);
+    out.bin = mergeGeometries([post(0.045, 0.72, GREY), paint(body, '#5f6b55'), paint(lid, '#3f4a38')], false);
+  }
+  { // bike parking: a row of five hoops along +x, 3 m long
+    const pieces = [];
+    for (const x of [-1.5, -0.75, 0, 0.75, 1.5]) {
+      for (const z of [-0.35, 0.35]) { const leg = new THREE.CylinderGeometry(0.025, 0.025, 0.5, 5); leg.translate(x, 0.25, z); pieces.push(paint(leg, GREY)); }
+      const arc = new THREE.TorusGeometry(0.35, 0.025, 4, 8, Math.PI); arc.rotateY(Math.PI / 2); arc.translate(x, 0.5, 0); pieces.push(paint(arc, GREY));
+    }
+    out.bike_rack = mergeGeometries(pieces, false);
+  }
+  { // glass container: green box with a darker lid and two round throw-in openings, 1.5 x 1.5 x 1.6 m
+    const holes = [-0.35, 0.35].map(x => { const g = new THREE.CylinderGeometry(0.17, 0.17, 0.12, 8); g.translate(x, 1.5, 0); return paint(g, '#15211a'); });
+    out.glass_container = mergeGeometries([slab(1.5, 1.4, 1.5, '#2f6d4a', 0, 0, 0), slab(1.56, 0.16, 1.56, '#245639', 0, 1.4, 0), ...holes], false);
+  }
+  { // clothes container: tall grey-white box with a grey hood and a deposit flap, 1.2 x 1.2 x 2 m
+    out.clothes_container = mergeGeometries([slab(1.2, 1.7, 1.2, '#dfe0dc', 0, 0, 0), slab(1.26, 0.22, 1.26, GREY, 0, 1.7, 0),
+                                             slab(0.7, 0.4, 0.09, '#8a8f96', 0, 1.15, 0.58)], false);
+  }
+  return out;
+}
+// lamps and hydrants are thin but solid; the rest is decoration until the fun-physics follow-up
+const PROP_SOLID = { lamp: { size: 0.3, h: 6 }, hydrant: { size: 0.4, h: 0.9 } };
+function propMeshes(props) {
+  const geos = propGeometries(), byKind = {};
+  for (const p of props) (byKind[p.kind] ||= []).push(p);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), at = new THREE.Vector3();
+  window.__mm.counts.props = {};
+  for (const kind in byKind) {
+    const list = byKind[kind];
+    const mesh = new THREE.InstancedMesh(geos[kind], new THREE.MeshLambertMaterial({ vertexColors: true }), list.length);
+    list.forEach((p, i) => { q.setFromAxisAngle(up, -p.rot); at.set(p.x, terrainH(p.x, p.z), p.z); m4.compose(at, q, one); mesh.setMatrixAt(i, m4); });
+    mesh.castShadow = true; signs.add(mesh);
+    window.__mm.counts.props[kind] = list.length;
+    const solid = PROP_SOLID[kind];
+    if (solid) for (const p of list) addOBB(p.x, p.z, solid.size, solid.size, 0, terrainH(p.x, p.z) + solid.h);
+  }
+}
 function stationAt(x, z, rot) { const b = terrainH(x, z); box(26, 6, 8, x, b - 2, z, rot, col('#e0d8c8'), 'wallDoor', [4, 3], 2.1); gable(26, 8, b + 4, 2.2, x, z, rot, col('#5a4a48'), col('#e0d8c8')); addOBB(x, z, 26, 8, rot, b + 4); box(60, 0.6, 3, x, b, z + 8, rot, col('#c8c2b6'), 'stone', [4, 2], 0); }
 function busStop(x, z, name, faceDeg) { const b = terrainH(x, z); const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.y = 1.5; const board = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.5), new THREE.MeshBasicMaterial({ map: textTex(name, 512, 214, '#f5c400', '#111111', '700 88px "Barlow Condensed", sans-serif', '#111111'), side: THREE.DoubleSide })); board.position.set(0, 2.7, 0.06); const shelter = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, 1.8), new THREE.MeshLambertMaterial({ color: 0x4a515e })); shelter.position.set(0, 2.5, -1.2); const back = new THREE.Mesh(new THREE.BoxGeometry(4, 2.4, 0.1), new THREE.MeshPhongMaterial({ color: 0x8fb2c8, transparent: true, opacity: 0.5 })); back.position.set(0, 1.3, -2.05); g.add(pole, board, shelter, back); g.position.set(x, b, z); g.rotation.y = faceDeg * Math.PI / 180; signs.add(g); }
 
@@ -536,6 +604,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   for (const r of ROADS) if (r.houses) housesAlong(r);
   }
   if (L) for (const b of L.buildings) osmBuilding(b);
+  if (L && L.props.length) propMeshes(L.props);
   if (L) { // landmarks on their real positions (the Plattform Sisslerfeld spot stays reserved, no model yet)
     const lm = L.anchors.landmarks, at = (k) => lm[k];
     if (at('dsmChimney')) dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140);
