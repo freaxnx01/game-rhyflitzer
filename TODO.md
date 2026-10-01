@@ -54,6 +54,8 @@ Follow-ups:
 - **A. The Sissel stream fully visible**, flowing into the Rhine: the whole course in the play area, as visible water, with its mouth at the Rhine.
 - **B. Dam track along the Sissel:** before the Smiley roundabout, a turn off the road onto the dam, then drive along the Sissel down to the Rhine. Check whether OSM maps the dam path (track/path tags) or whether it has to be added as a game-only road.
 
+- **C. Scenic flight over the Fricktal:** drive to Schupfart (Flugplatz Fricktal-Schupfart, grass runway), leave the vehicle, board a small plane, take off from the grass strip and fly a round over the Fricktal. Needs: on-foot/vehicle switch (ties into the vehicle issues #5–#7), flight model, and a terrain area far larger than the current driving bbox (check whether Schupfart is inside it; a flight needs a coarse outer terrain ring).
+
 ## Tooling
 
 - Update the `freax-agent-skills` marketplace: the local `sync-ai-instructions` is 0.2.0 and still fetches the removed `ui-*` skills (404). Upstream `freaxnx01/agent-skills` fixed that in 0.4.0 (`2b8f6eb`, 2026-07-26). Run `claude plugin marketplace update freax-agent-skills`, then update the plugins via `/plugin`; other plugins from that marketplace are likely stale too.
