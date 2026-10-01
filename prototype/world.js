@@ -72,6 +72,11 @@ export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.le
 // Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends.
 export function bridgeDeckOffset(b, t) { return 0.3 * Math.max(0, Math.min(1, Math.min(t, b.len - t) / 5)); }
 export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
+// An OSM bridge is ground for a query at height y only from 1.5 m below its surface upward: a car on the road underneath an overpass
+// is not snapped onto the deck. Callers that pass no height (placement code) keep the plain 2D test.
+export function bridgeAccepts(surface, y) { return y === undefined || y >= surface - 1.5; }
+// Water surface height at a point: the chunk's level (0 when unknown) inside the water, null on land. Callers test bridges first.
+export function waterSurface(riverDist, level) { return riverDist < 0 ? (level ?? 0) : null; }
 
 // Road markings, metres. Dash/gap/width follow VSS SN 640 850a ("Markierungen: Ausgestaltung und Anwendungsbereiche") as quoted by
 // the cantonal guidelines Luzern vif 653.201 "Richtlinie Markierung" (2024, p. 8: Leitlinie innerorts 3.00 m / 3.00 m, ausserorts

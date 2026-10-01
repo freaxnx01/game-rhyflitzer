@@ -52,3 +52,25 @@ def test_physics_time_osm_vs_hand(server):
             v = page.evaluate("() => window.__mm.physMs"); b.close(); return v
     hand, osm = phys(True), phys(False)
     assert osm <= hand * 1.5 + 0.5, f"physMs hand={hand} osm={osm}"
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_osm_rhine_splash_and_overpass(server):
+    """Water is relative to the chunk level (Rhine above the Säckingen weir ~5.5 m); an overpass is no ground for a car underneath."""
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
+        page.goto(f"{server}/prototype/index.html"); page.wait_for_selector("#startbtn", timeout=180000)
+        page.wait_for_function("() => window.__mm && window.__mm.place", timeout=180000)
+        page.click("#startbtn", timeout=180000)
+        page.evaluate("() => window.__mm.place(1000, -530)")                       # Sisseln Rhine, riverDist -92
+        page.wait_for_function("() => window.__mm.car().splash > 0", timeout=60000)
+        w = page.evaluate("() => window.__mm.car()")
+        page.evaluate("() => window.__mm.place(-628, 1068)")                       # Zürcherstrasse under the A3, Stein
+        page.wait_for_timeout(1500)
+        u = page.evaluate("() => window.__mm.car()")
+        deck = page.evaluate("() => window.__mm.ground(-628, 1068)")              # no height: placement rule, still the deck
+        b.close()
+    print("water", w, "under", u, "deck", deck)
+    assert w["water"] is not None and w["water"] > 4 and w["splash"] > 0 and w["y"] <= w["water"] - 1.1
+    assert not u["bridge"] and u["water"] is None and abs(u["ground"] - u["terrain"]) < 0.01 and abs(u["y"] - u["terrain"]) < 0.5
+    assert deck > u["terrain"] + 1.5

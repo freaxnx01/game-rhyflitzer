@@ -91,3 +91,20 @@ test('markLines per mark type', () => {
   assert.equal(right[1].spec, MARK.centre); assert.deepEqual(right[1].pts, r('cycle-right').pts);
   assert.equal(markLines(r('cycle-left')).length, 2);
 });
+import { bridgeAccepts, waterSurface } from '../world.js';
+test('an OSM bridge deck only counts as ground for queries at or above it (minus 1.5 m)', () => {
+  assert.equal(bridgeAccepts(12, undefined), true);     // placement code passes no height: current behaviour
+  assert.equal(bridgeAccepts(12, 12), true);            // car on the deck
+  assert.equal(bridgeAccepts(12, 10.5), true);          // boundary: deck - 1.5
+  assert.equal(bridgeAccepts(12, 10.4), false);         // just below: a car driving underneath
+  assert.equal(bridgeAccepts(12, 5), false);            // road level under an overpass
+  assert.equal(bridgeAccepts(12, 20), true);            // airborne above the deck lands on it
+});
+test('water surface is relative to the chunk level, null on land', () => {
+  assert.equal(waterSurface(-5, 5.53), 5.53);           // Rhine above the Saeckingen weir
+  assert.equal(waterSurface(-5, -1.5), -1.5);           // downstream
+  assert.equal(waterSurface(-5, null), 0);              // no level known -> 0 (hand path, or no .mmh)
+  assert.equal(waterSurface(-5, undefined), 0);
+  assert.equal(waterSurface(0, 5.53), null);            // the bank
+  assert.equal(waterSurface(36.2, 5.53), null);
+});
