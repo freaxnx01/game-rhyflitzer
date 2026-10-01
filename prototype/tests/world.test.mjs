@@ -73,3 +73,21 @@ test('bridge surface meets the end heights exactly and sits 0.3 above the deck m
   assert.equal(bridgeSurfaceAt(b, 40), 11.0);
   assert.ok(Math.abs(bridgeSurfaceAt(b, 20) - 12.2) < 1e-9);
 });
+import { MARK, markLines } from '../world.js';
+test('markLines per mark type', () => {
+  const r = (mark) => ({ w: 7, mark, pts: [[0, 0], [100, 0]] });
+  assert.equal(markLines(r('none')).length, 0);
+  assert.equal(markLines(r('motorway')).length, 0);
+  assert.equal(markLines(r('centre')).length, 1);
+  assert.equal(markLines(r('centre'))[0].spec, MARK.centre);
+  assert.equal(markLines(r('centre-solid'))[0].spec, MARK['centre-solid']);
+  const cyc = markLines(r('cycle'));
+  assert.equal(cyc.length, 2);
+  assert.ok(Math.abs(Math.abs(cyc[0].pts[0][1]) - (3.5 - MARK.cycle.inset)) < 1e-6);
+  assert.ok(cyc[0].pts[0][1] < 0 && cyc[1].pts[0][1] > 0);               // left line first, right line second
+  const right = markLines(r('cycle-right'));
+  assert.equal(right.length, 2);                                          // yellow right + white centre
+  assert.equal(right[0].spec, MARK.cycle); assert.ok(right[0].pts[0][1] > 0);
+  assert.equal(right[1].spec, MARK.centre); assert.deepEqual(right[1].pts, r('cycle-right').pts);
+  assert.equal(markLines(r('cycle-left')).length, 2);
+});

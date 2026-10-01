@@ -155,7 +155,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, markLines } from './world.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
 // ---------- helpers ----------
@@ -197,6 +197,9 @@ TEX.tree = makeTex(128, 256, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle
 TEX.rail = makeTex(256, 64, (g, w, h) => { noise(g, w, h, '#7a7468', 20, 500); g.fillStyle = '#5a4a3a'; for (let x = 0; x < w; x += 32) g.fillRect(x + 4, 6, 14, h - 12); g.fillStyle = '#b8b8b8'; g.fillRect(0, 16, w, 5); g.fillRect(0, h - 21, w, 5); });
 TEX.check = makeTex(128, 128, (g, w, h) => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.fillStyle = (x + y) % 2 ? '#14171d' : '#f5efe0'; g.fillRect(x * 32, y * 32, 32, 32); } });
 TEX.motorway = makeTex(512, 1024, (g, w, h) => { noise(g, w, h, '#4e4d52', 18, 2400); asphalt(g, w, h, 7, 6); g.fillStyle = '#e8e2c8'; g.fillRect(w / 2 - 6, 0, 12, 240); g.fillRect(w / 2 - 6, 512, 12, 240); g.fillRect(8, 0, 12, h); g.fillRect(w - 20, 0, 12, h); });
+// OSM path: plain asphalt plus separate marking strips (see MARK in world.js); no rr() here, so the seeded RNG sequence stays the same
+const markTex = (color, dash, gap) => { const t = makeTex(16, 256, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = color; g.fillRect(0, 0, w, gap ? h * dash / (dash + gap) : h); }, { alpha: true }); t.wrapT = THREE.RepeatWrapping; return t; };
+TEX.asphaltOnly = makeTex(512, 1024, (g, w, h) => { g.fillStyle = '#57565a'; g.fillRect(0, 0, w, h); asphalt(g, w, h, 5, 4); });
 const textTex = (txt, w, h, bg, fg, font, border) => makeTex(w, h, (g) => { g.clearRect(0, 0, w, h); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); } if (border) { g.strokeStyle = border; g.lineWidth = h * 0.06; g.strokeRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1); } g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + h * 0.03); }, { alpha: true });
 
 // ---------- world layout (traced from the OSM screenshot, pixel coords) ----------
@@ -345,12 +348,13 @@ function waterPolys() {
     rawGeo(pos, nrm, uv, 0, 0, 0, col('#ffffff'), 'water');
   }
 }
-function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false) { // mitred polyline strip, shared vertices at joints
+function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain); colorize(g, c); push(role, g); return g; }
+function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false) { // mitred polyline strip, shared vertices at joints
   const pts = onTerrain ? resample(src, 10) : src; const hAt = (p) => onTerrain ? terrainH(p[0], p[1]) + y : y;
   const L = pts.length, left = [], right = [], dist = [0]; for (let i = 1; i < L; i++) dist.push(dist[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   for (let i = 0; i < L; i++) { const p = pts[i]; const d0 = i > 0 ? [p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]] : null, d1 = i < L - 1 ? [pts[i + 1][0] - p[0], pts[i + 1][1] - p[1]] : null; const nz = (d) => { const l = Math.hypot(d[0], d[1]); return [-d[1] / l, d[0] / l]; }; let n; let sc = hw; if (d0 && d1) { const a = nz(d0), b = nz(d1); n = [a[0] + b[0], a[1] + b[1]]; const l = Math.hypot(n[0], n[1]) || 1; n = [n[0] / l, n[1] / l]; sc = hw / Math.max(0.35, n[0] * a[0] + n[1] * a[1]); } else n = nz(d0 || d1); left.push([p[0] - n[0] * sc, p[1] - n[1] * sc]); right.push([p[0] + n[0] * sc, p[1] + n[1] * sc]); }
   const pos = [], uv = [], nrm = []; for (let i = 0; i < L - 1; i++) { const ya = hAt(pts[i]), yb = hAt(pts[i + 1]); const A = [left[i][0], ya, left[i][1]], B = [right[i][0], ya, right[i][1]], C = [right[i + 1][0], yb, right[i + 1][1]], D = [left[i + 1][0], yb, left[i + 1][1]]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } const v0 = dist[i] / tileLen, v1 = dist[i + 1] / tileLen; uv.push(0, v0, 1, v0, 1, v1, 0, v0, 1, v1, 0, v1); }
-  return rawGeo(pos, nrm, uv, 0, 0, 0, c, role);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); return g;
 }
 function strip(pts, w, y, role, c, tileLen = 8, hFn = null) { const pos = [], uv = [], nrm = []; let dist = 0; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz); const nx = -dz / L * w / 2, nz = dx / L * w / 2; const segs = hFn ? Math.ceil(L / 5) : 1; for (let s = 0; s < segs; s++) { const t0 = s / segs, t1 = (s + 1) / segs; const ax = x0 + dx * t0, az = z0 + dz * t0, bx = x0 + dx * t1, bz = z0 + dz * t1; const ya = hFn ? hFn(ax, az) + y : y, yb = hFn ? hFn(bx, bz) + y : y; const d0 = dist + L * t0, d1 = dist + L * t1; const A = [ax - nx, ya, az - nz], B = [ax + nx, ya, az + nz], C = [bx + nx, yb, bz + nz], D = [bx - nx, yb, bz - nz]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } uv.push(0, d0 / tileLen, 1, d0 / tileLen, 1, d1 / tileLen, 0, d0 / tileLen, 1, d1 / tileLen, 0, d1 / tileLen); } dist += L; } return rawGeo(pos, nrm, uv, 0, 0, 0, c, role); }
 function disc(x, z, r, y, role, c) { const g = new THREE.CircleGeometry(r, 14); g.rotateX(-Math.PI / 2); g.translate(x, y + terrainH(x, z), z); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * r / 4, uv.getY(i) * r / 4); colorize(g, c); push(role, g); }
@@ -433,7 +437,7 @@ function stationAt(x, z, rot) { const b = terrainH(x, z); box(26, 6, 8, x, b - 2
 function busStop(x, z, name, faceDeg) { const b = terrainH(x, z); const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.y = 1.5; const board = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.5), new THREE.MeshBasicMaterial({ map: textTex(name, 512, 214, '#f5c400', '#111111', '700 88px "Barlow Condensed", sans-serif', '#111111'), side: THREE.DoubleSide })); board.position.set(0, 2.7, 0.06); const shelter = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, 1.8), new THREE.MeshLambertMaterial({ color: 0x4a515e })); shelter.position.set(0, 2.5, -1.2); const back = new THREE.Mesh(new THREE.BoxGeometry(4, 2.4, 0.1), new THREE.MeshPhongMaterial({ color: 0x8fb2c8, transparent: true, opacity: 0.5 })); back.position.set(0, 1.3, -2.05); g.add(pole, board, shelter, back); g.position.set(x, b, z); g.rotation.y = faceDeg * Math.PI / 180; signs.add(g); }
 
 // street-name decals and place-name signs (built as separate meshes)
-const decals = new THREE.Group(), signs = new THREE.Group();
+const decals = new THREE.Group(), signs = new THREE.Group(), marks = new THREE.Group();
 const nameTex = {};
 function streetNames() { for (const r of ROADS) { if (L && !/^(motorway|trunk|primary|secondary|tertiary)/.test(r.cls)) continue; if (!nameTex[r.n]) nameTex[r.n] = textTex(r.n, 1024, 128, null, 'rgba(245,239,224,.92)', '700 84px "Barlow Condensed", sans-serif'); const mat = new THREE.MeshBasicMaterial({ map: nameTex[r.n], transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); for (let i = 0; i < r.pts.length - 1; i++) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1]; const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz); if (L < 70) continue; const n = Math.max(1, Math.floor(L / 220)); for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; const len = Math.min(r.w * 5, L * 0.6), wid = len / 8; const g = new THREE.PlaneGeometry(len, wid); g.rotateX(-Math.PI / 2); let ang = Math.atan2(dz, dx); if (Math.cos(ang) < 0) ang += Math.PI; g.rotateY(-ang); const m = new THREE.Mesh(g, mat); const mx = x0 + dx * t, mz = z0 + dz * t; m.position.set(mx, terrainH(mx, mz) + 0.09, mz); decals.add(m); } } } }
 function sign(txt, kind, px, py, faceDeg) { signW(txt, kind, ...W(px, py), faceDeg); }
@@ -458,7 +462,16 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   }
   if (L) waterPolys();
   // roads
-  for (const r of ROADS) if (!(L && r.bridge)) ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true);
+  for (const r of ROADS) if (!(L && r.bridge)) ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true);
+  if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
+    const mats = {}, geos = {};
+    for (const r of ROADS) if (!r.bridge) for (const { pts, spec } of markLines(r)) {
+      const key = spec.color + spec.dash + spec.gap;
+      if (!mats[key]) { mats[key] = new THREE.MeshBasicMaterial({ map: markTex(spec.color === 'yellow' ? '#f2c21a' : '#f4f1e6', spec.dash, spec.gap), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }); geos[key] = []; }
+      geos[key].push(ribbonGeo(pts, spec.w / 2, 0.06, spec.dash + spec.gap, true));
+    }
+    for (const key in geos) marks.add(new THREE.Mesh(mergeGeometries(geos[key], false), mats[key]));
+  }
   if (!L) for (const r of ROADS) for (const p of r.pts) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
   if (L) for (const r of ROADS) if (!r.bridge) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
   if (L) for (const [x, z, r] of L.junctions) disc(x, z, r, 0.05, 'roadPlain', col('#ffffff'));
@@ -474,7 +487,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   }
   for (const b of OSM_BRIDGES) {
     const pts = resample(b.r.pts, 5), hf = (x, z) => bridgeDeckAt(b, nearestOnPolyline(b.r.pts, x, z).t), hs = (x, z) => bridgeSurfaceAt(b, nearestOnPolyline(b.r.pts, x, z).t);
-    strip(pts, b.r.w, 0, b.kind === 'wood' ? 'wood' : 'road', col('#ffffff'), 8, hs);
+    strip(pts, b.r.w, 0, b.kind === 'wood' ? 'wood' : 'roadOsm', col('#ffffff'), 8, hs);
     strip(pts, b.r.w + 1.2, -0.6, b.kind === 'wood' ? 'wood' : 'stone', col('#c8c2b6'), 4, hf);
     for (const s of [-1, 1]) strip(offsetPolyline(pts, s * (b.r.w / 2 + 0.3)), 0.35, 0.9, b.kind === 'wood' ? 'wood' : 'stone', col('#d8d2c6'), 4, hs);
   }
@@ -529,7 +542,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
 const canvas = document.getElementById('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); renderer.outputColorSpace = THREE.SRGBColorSpace;
 { const an = renderer.capabilities.getMaxAnisotropy(); for (const t of Object.values(TEX)) { t.anisotropy = an; t.needsUpdate = true; } }
-const scene = new THREE.Scene(); scene.add(decals, signs);
+const scene = new THREE.Scene(); scene.add(decals, signs, marks);
 const camera = new THREE.PerspectiveCamera(62, 1, 0.5, 4200);
 const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x6a5a40, 0.9); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 0.8); sun.position.set(-300, 400, -200); scene.add(sun); scene.add(sun.target);
@@ -538,7 +551,7 @@ const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: fals
 const sky = new THREE.Mesh(new THREE.SphereGeometry(3800, 24, 12), skyMat); scene.add(sky);
 const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeTex(128, 128, (g, w, h) => { const r = g.createRadialGradient(64, 64, 4, 64, 64, 64); r.addColorStop(0, 'rgba(255,250,220,1)'); r.addColorStop(0.25, 'rgba(255,230,160,.9)'); r.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = r; g.fillRect(0, 0, w, h); }, { alpha: true }), transparent: true, depthWrite: false, fog: false })); sunSprite.scale.set(320, 320, 1); scene.add(sunSprite);
 const MESH = {};
-for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'water', 'current', 'road', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; }
+for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; }
 const treeGeos = []; for (const t of window.__TREES) { const [x, z, h] = t; t[3] = terrainH(x, z); for (const rot of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(h * 0.9, h); g.translate(0, h / 2, 0); g.rotateY(rot + rr(-0.2, 0.2)); g.translate(x, t[3], z); colorize(g, col('#ffffff')); treeGeos.push(g); } }
 const treeBill = new THREE.Mesh(mergeGeometries(treeGeos, false)); treeBill.userData.role = 'tree'; scene.add(treeBill);
 const coneG = new THREE.ConeGeometry(1, 1, 7); coneG.translate(0, 0.5, 0); const trunkG = new THREE.CylinderGeometry(0.12, 0.16, 1, 6); trunkG.translate(0, 0.5, 0);
@@ -573,9 +586,9 @@ const blob = new THREE.Mesh(new THREE.CircleGeometry(2.6, 16), new THREE.MeshBas
 // ---------- style profiles ----------
 const STYLES = {
   original: { name: 'Original', sky: ['#3d6fb5', '#e8bd8c'], fog: () => new THREE.Fog(col('#e8bd8c'), 320, 1400), hemi: 0.95, sunI: 0.75, shadows: false, pixel: Math.min(1.5, window.devicePixelRatio || 1), trees: 'bill', tone: THREE.NoToneMapping,
-    mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96 }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } return m; } },
+    mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadOsm: TEX.asphaltOnly, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96 }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } return m; } },
   smooth: { name: 'Smooth', sky: ['#5d9be0', '#f2d9c4'], fog: () => new THREE.FogExp2(col('#f2d9c4'), 0.00095), hemi: 0.55, sunI: 1.6, shadows: true, pixel: Math.min(2, window.devicePixelRatio || 1), trees: 'cone', tone: THREE.ACESFilmicToneMapping,
-    mat: (role) => { const flat = { road: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1 }); if (role === 'tree') m.visible = false; return m; } },
+    mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1 }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
 function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); treeBill.visible = St.trees === 'bill'; treeCone.visible = treeTrunk.visible = St.trees === 'cone'; skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); carMats.body.flatShading = k === 'smooth'; carMats.body.needsUpdate = true; document.getElementById('stylename').textContent = St.name; document.getElementById('stylebtn2').textContent = 'Style: ' + St.name; resize(); }

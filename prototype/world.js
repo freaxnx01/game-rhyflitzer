@@ -72,3 +72,24 @@ export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.le
 // Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends.
 export function bridgeDeckOffset(b, t) { return 0.3 * Math.max(0, Math.min(1, Math.min(t, b.len - t) / 5)); }
 export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
+
+// Road markings, metres. Dash/gap/width follow VSS SN 640 850a ("Markierungen: Ausgestaltung und Anwendungsbereiche") as quoted by
+// the cantonal guidelines Luzern vif 653.201 "Richtlinie Markierung" (2024, p. 8: Leitlinie innerorts 3.00 m / 3.00 m, ausserorts
+// 3.00 m / 6.00 m, width 15 cm) and Zürich TBA "Markierungen auf Haupt- und Nebenstrassen" (Radstreifen 3/3, 1/1 across junctions).
+// The norm itself is paywalled, so these are second-hand but consistent. Our roads with a centre line are mostly inner-town, so the
+// innerorts 3/3 rhythm is used everywhere. Not from the norm: the solid line width (taken as the Leitlinie's 15 cm) and the cycle-lane
+// inset (1.3 m, measured on design/reference/2026-09-29_sisseln-hauptstrasse-cycle-lanes.jpg; the usual Radstreifen is 1.25-1.5 m).
+export const MARK = {
+  centre: { dash: 3, gap: 3, w: 0.15, color: 'white' },
+  'centre-solid': { dash: 1, gap: 0, w: 0.15, color: 'white' },
+  cycle: { dash: 3, gap: 3, w: 0.15, color: 'yellow', inset: 1.3 },
+};
+// One-sided cycle lanes also get a white centre line (pipeline contract). Order: left yellow, right yellow, centre.
+export function markLines(r) {
+  const out = [], e = r.w / 2 - MARK.cycle.inset;
+  if (r.mark === 'centre' || r.mark === 'centre-solid') out.push({ pts: r.pts, spec: MARK[r.mark] });
+  if (r.mark === 'cycle' || r.mark === 'cycle-left') out.push({ pts: offsetPolyline(r.pts, -e), spec: MARK.cycle });
+  if (r.mark === 'cycle' || r.mark === 'cycle-right') out.push({ pts: offsetPolyline(r.pts, e), spec: MARK.cycle });
+  if (r.mark === 'cycle-left' || r.mark === 'cycle-right') out.push({ pts: r.pts, spec: MARK.centre });
+  return out;
+}
