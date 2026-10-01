@@ -68,6 +68,11 @@ Data/pipeline gaps (true in OSM mode too):
 Physics / bugs:
 - **Holzbrücke:** car snags on the side walls.
 
+Screenshots (2026-10-01, Pages = hand-traced layout):
+- **Painted street names** (`streetNames()`): "Hauptstrasse" as a 45 m decal, read upside down when driving west, sticks out where the road bends. Real Swiss roads carry no painted names → probably drop them once #12 shows the name in the HUD.
+- **Railway is drivable:** the rail ribbon (also `L.rail` in OSM mode) is plain ground; no ballast bed, no fence or collision.
+- **Smiley-Kreisel:** smileys render dark grey; what is wrong there still to be clarified with the user.
+
 Gameplay / UI features:
 - Minimap: zoom; double-click places the car there.
 - **N** = nitro (unlimited).
