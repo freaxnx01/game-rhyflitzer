@@ -51,5 +51,4 @@ def test_physics_time_osm_vs_hand(server):
             page.click("#startbtn", timeout=180000); page.keyboard.down("Space"); page.wait_for_timeout(15000)
             v = page.evaluate("() => window.__mm.physMs"); b.close(); return v
     hand, osm = phys(True), phys(False)
-    print("physMs hand", hand, "osm", osm)
-    assert osm <= hand * 1.5 + 0.5, (hand, osm)
+    assert osm <= hand * 1.5 + 0.5, f"physMs hand={hand} osm={osm}"
