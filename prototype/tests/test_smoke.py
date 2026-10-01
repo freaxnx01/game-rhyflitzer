@@ -120,3 +120,16 @@ def test_fishes_text_while_car_lies_in_water(server, locale, text):
         b.close()
     assert shown[0] == text
     assert shown[1] < 2.8          # still lying in the water, not yet reset
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_props_loaded(server):
+    import json
+    want = {}
+    for p in json.loads(WORLD.read_text(encoding="utf-8")).get("props", []):
+        want[p["kind"]] = want.get(p["kind"], 0) + 1
+    info, msgs = load(server, block_world=False)
+    assert info["mm"]["counts"]["props"] == want
+    assert msgs == []
+    info, _ = load(server, block_world=True)
+    assert "props" not in info["mm"]["counts"]
