@@ -76,3 +76,13 @@ def test_rounding_and_clip():
     props, _ = WP.build([node(1, 10.04, 5.06, amenity="waste_basket"), node(2, 5000, 0, amenity="waste_basket")],
                         [], [ROAD], CLIP)
     assert props == [{"kind": "bin", "x": 10.0, "z": 5.1, "rot": 0.0}]
+
+
+def test_band_of_a_wider_road_counts_even_if_a_narrow_road_is_nearer():
+    """Real extract: a lamp 3.6 m from a narrow road's centre line (outside its band) but 3.9 m from a 8 m road's centre
+    line (inside that band) was left in the lane, because only the nearest centre line was looked at."""
+    narrow = {"cls": "service", "w": 3.0, "bridge": False, "pts": [[-200, 0], [200, 0]]}
+    wide = {"cls": "primary", "w": 8.0, "bridge": False, "pts": [[-200, 7.5], [200, 7.5]]}
+    props, _ = WP.build([node(1, 50, 3.6, highway="street_lamp")], [], [narrow, wide], CLIP)
+    for p in props:
+        assert abs(p["z"] - 7.5) >= 4.0 + 0.6 - 1e-6 and abs(p["z"]) >= 1.5 + 0.6 - 1e-6, p

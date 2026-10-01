@@ -96,17 +96,19 @@ def build(prop_nodes, areas, roads, clip, max_dist=15.0, edge_gap=0.6):
         if not drive or min(g.distance(point) - r["w"] / 2 for g, r in drive) > max_dist:
             stats["out_of_reach"] += 1
             continue
-        seg, road = min(drive, key=lambda gr: gr[0].distance(point))
+        # the road whose band reaches furthest over the prop (not the nearest centre line: a wide road next to a narrow
+        # one can cover a prop that is outside the narrow road's band)
+        seg, road = min(drive, key=lambda gr: gr[0].distance(point) - _band(gr[1], edge_gap))
         nx, nz, heading = _right_normal(seg)
         if seg.distance(point) < _band(road, edge_gap):
             foot = seg.interpolate(seg.project(point))
             offset = _side(seg, (nx, nz), x, z) * _band(road, edge_gap)
             x, z = foot.x + nx * offset, foot.y + nz * offset
             point = shapely.Point(x, z)
-            if any(g.distance(point) < _band(r, edge_gap) - 1e-6 for g, r in near):
-                stats["still_on_road"] += 1
-                continue
             stats["moved_to_edge"] += 1
+        if any(g.distance(point) < _band(r, edge_gap) - 1e-6 for g, r in near):
+            stats["still_on_road"] += 1
+            continue
         rot = heading if kind in ORIENTED else 0.0
         out.append({"kind": kind, "x": round(x, 1), "z": round(z, 1), "rot": round(rot, 2)})
         stats["kept_" + kind] += 1
