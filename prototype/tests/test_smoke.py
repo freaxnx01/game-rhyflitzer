@@ -103,3 +103,20 @@ def test_camera_cycles_with_c(server):
         b.close()
     assert [v for v, _ in seen] == [1, 2, 3, 0]
     assert [t for _, t in seen] == ["Camera: Chase near", "Camera: Cockpit", "Camera: Bumper", "Camera: Chase"]
+
+
+@pytest.mark.parametrize("locale,text", [("de-CH", "Grüss mir die Fische!"), ("en-US", "Sleep with the fishes!")])
+def test_fishes_text_while_car_lies_in_water(server, locale, text):
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_context(locale=locale, viewport={"width": 480, "height": 270}).new_page()
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        page.click("#startbtn", timeout=180000)
+        page.evaluate("() => window.__mm.place(863.6, -647.7)")          # middle of the hand-traced Rhine
+        page.wait_for_function("() => window.__mm.car().splash > 0.6", timeout=180000)
+        shown = page.evaluate("() => [document.querySelector('#toast').textContent, window.__mm.car().splash]")
+        b.close()
+    assert shown[0] == text
+    assert shown[1] < 2.8          # still lying in the water, not yet reset

@@ -644,6 +644,8 @@ const SFX = (() => {
 
 // ---------- car state & physics ----------
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0 };
+// Midtown Madness homage when the car lies in the water. Language from the browser until the game has its own setting (#9).
+const FISH_TEXT = (navigator.language || '').toLowerCase().startsWith('de') ? 'Grüss mir die Fische!' : 'Sleep with the fishes!';
 function resetCar() { P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // test hooks (prototype/tests): put the car somewhere and read its state
 window.__mm.place = (x, z) => { P.x = x; P.z = z; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; };
@@ -660,7 +662,7 @@ function stepCar(dt) {
   P.vx = vf * fx + vs * rx; P.vz = vf * fz + vs * rz; P.x += P.vx * dt; P.z += P.vz * dt;
   // in the water: everything is relative to the surface (wl), which is 0 on the hand path and the chunk level (Rhine above the Säckingen weir ~5.5 m) on the OSM path
   const gh2 = groundH(P.x, P.z, P.y), wl = waterLevelAt(P.x, P.z, P.y);
-  if (wl !== null) { if (P.splash === 0) SFX.splash(); P.splash += dt; P.vx *= 0.9; P.vz *= 0.9; P.y = Math.max(P.y - 6 * dt, wl - 1.2); if (P.splash > 1.3) { resetCar(); toast('Splash!<br><span style="font-size:17px">The Rhine is cold this time of year.</span>'); } }
+  if (wl !== null) { if (P.splash === 0) SFX.splash(); const was = P.splash; P.splash += dt; P.vx *= 0.9; P.vz *= 0.9; P.y = Math.max(P.y - 6 * dt, wl - 1.2); if (was < 0.35 && P.splash >= 0.35) toast(FISH_TEXT); if (P.splash > 2.8) resetCar(); }
   else { P.vy -= 22 * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (P.vy < -9) { P.dmg = Math.min(1, P.dmg + 0.05); SFX.crash(0.5); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump
   collide(1.3 * CAR_SCALE);
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0);
