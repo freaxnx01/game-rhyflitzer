@@ -14,6 +14,7 @@ Early prototype.
 
 - `prototype/index.html`: playable three.js prototype (single file, buildless). Hand-traced Hochrhein layout (Sisseln, Sisslerfeld, Stein, Bad Säckingen), checkpoint race, two graphic styles (T), synthesized sound. Serve it over HTTP (`python -m http.server`) and open it in a browser.
 - `pipeline/terrain.py`: pipeline step 1, measured terrain from swisstopo and LGL. See [docs/08](docs/08-pipeline-terrain.md).
+- `pipeline/osm.py`: pipeline step 2, OSM world (roads, Rhine, bridges, buildings, landmarks, markings) as one JSON file the prototype loads automatically. See [docs/11](docs/11-pipeline-osm.md).
 
 ## Idea in short
 
@@ -42,6 +43,7 @@ three.js, vanilla JS, buildless. Rapier (WASM) for vehicle physics. A separate d
 | [Photo capture](docs/06-photo-capture.md) | Photogrammetry, GoPro street capture, texture source licences |
 | [Brands and permissions](docs/07-brands-and-permissions.md) | Logos, trademarks, who to ask, permission tracker |
 | [Pipeline: terrain](docs/08-pipeline-terrain.md) | swissALTI3D + LGL DGM1 → `.mmh` heightmap |
+| [Pipeline: OSM world](docs/11-pipeline-osm.md) | Geofabrik extract + osmium → `world_hochrhein.json` (roads, water, buildings, anchors) |
 | [Design workflow](docs/09-design-workflow.md) | Claude Design ↔ CLI round trip, tokens, rules, checklist |
 | [UI mockups](design/mockups/README.md) | Claude Design artboards: title, setup, car select, HUD, results, style sheet |
 | [Ideas](ideas.md) | Loose ideas, not yet planned |

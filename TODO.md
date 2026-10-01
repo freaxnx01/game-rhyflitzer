@@ -4,11 +4,35 @@
 
 Continue Map Madness (codename Rhyflitzer). Read README.md and docs/ first.
 1. Run pipeline/terrain.py for the default region (Swiss side is automatic), load the .mmh in prototype/index.html, and check the Hauptstrasse climb and curve in Sisseln toward Laufenburg against the real terrain.
-2. Next pipeline step: roads, river and buildings from OSM (Geofabrik extract + osmium, not the public Overpass API) to replace the hand-traced layout. See docs/04 and docs/08.
+2. ~~Next pipeline step: roads, river and buildings from OSM (Geofabrik extract + osmium, not the public Overpass API) to replace the hand-traced layout. See docs/04 and docs/08.~~ Done 2026-10-01, see docs/11-pipeline-osm.md.
 
 Status 2026-09-29:
 - Item 1 done. The .mmh builds (10.7 MB, Swiss side only) and loads in the prototype. The Sisseln village section matches OSM within 1–7 m. The climb is wrong: the real road climbs ~13 m diagonally north-east at ~7 % from the Sissle bridge (x≈1440) to x≈1720, while the prototype hits the terrace edge head-on (~40 % wall at x 1600–1620). The curve toward Laufenburg is really at x≈2950, not x≈2300. The Smile-Kreisel is ~65 m too far west (OSM: x≈1270). The DEM shows the creek bed under the Sissle bridge (5 m dip), so bridges need their own deck profile.
 - Item 2 not started. Brainstorming began: first open question is how the prototype loads the OSM world (file picker like .mmh / fetched data/world.json / committed JS module). Use `osmium extract -s simple` (smart runs out of memory on 12 GB).
+
+## After OSM world (pipeline step 2)
+
+Playtest (with the user; Original and Smooth style):
+
+[ ] **1.** Start, then west and down the climb: left/right bends, 7 % grade, no wall, no dip at the Sissle bridge.
+[ ] **2.** Checkpoint lap including the Holzbrücke shortcut toast (gate t>40 is measured from the way start, not the driving direction).
+[ ] **3.** Chimney visible from the Sisseln terrace; check fog distance (faint in Original from ~1 km).
+[ ] **4.** Frame rate subjectively equal to the hand-traced layout.
+[ ] **5.** FINISH snaps onto the Münsterplatz pedestrian way and CP5 to a living street (51.8 m); check this feels right.
+
+Follow-ups:
+
+- Ortstafeln from OSM `traffic_sign=city_limit`.
+- Verify marking dash lengths against the VSS SN 640 850 norm itself (only cantonal guidelines quoting it were seen); ausserorts would be 3/6 m, needs an inner/outer-town flag.
+- Plattform Sisslerfeld model (anchor exists, no model).
+- German DGM1 terrain (the German side is flat; water may float above flat banks).
+- Height floor for tiny OSM height tags in the pipeline (the prototype clamps flat buildings to 3 m).
+- Rail pieces that become a MultiLineString at the clip edge are dropped silently.
+- World-file robustness: wrap layoutFromWorld/sdfSampler/waterIndex in try/catch and fall back to the hand-traced layout.
+- Smoke tests can fail on transient 403s from third-party CDNs (fonts, buttons.github.io); ignore third-party resource errors in the console filter.
+- Mark textures miss the max-anisotropy loop (blur at grazing angles).
+- Markings run through junction mouths (real ones are interrupted); bridge decks have no markings.
+- Start-screen blurb still says "traced by hand" in OSM mode.
 
 ## After pipeline step 2
 

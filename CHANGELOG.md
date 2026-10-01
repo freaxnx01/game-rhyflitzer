@@ -6,6 +6,13 @@ All notable changes to this project are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- The whole Hochrhein map now comes from OpenStreetMap when the world file is present: real roads, the Rhine, bridges, and about two thousand houses along the main roads and big halls in Sisslerfeld.
+- The Sisseln Hauptstrasse finally climbs the way it really does: a left bend up from the Sissle bridge, then a right bend into the village.
+- New landmarks at DSM-Firmenich: the 140 m chimney with red and white bands, and the water tower.
+- Swiss road markings: yellow cycle lanes in the villages, a white centre line where the road has one.
+
 ### Changed
 
 - Enter honks the horn too, next to H (only while driving, so Enter still starts the race from the menu).

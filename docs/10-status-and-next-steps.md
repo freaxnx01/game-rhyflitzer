@@ -48,8 +48,8 @@ Single-file three.js, buildless. The world is **hand-traced**, not generated:
 
 ## Next steps
 
-1. **Run the terrain pipeline** for the default region, load the `.mmh`, check the Sisseln Hauptstrasse climb and curve toward Laufenburg.
-2. **Pipeline step 2: OSM** roads, river and buildings from a Geofabrik extract cut with osmium (not the public Overpass API). Replaces the hand-traced layout and fixes the georeference.
+1. ~~**Run the terrain pipeline**~~ Done: measured terrain, Sisseln climb checked (see TODO.md, 2026-09-29).
+2. ~~**Pipeline step 2: OSM**~~ Done: `pipeline/osm.py` builds `data/world_hochrhein.json` (2.0 MB, 2,616 road pieces, 1,806 buildings); the prototype loads it automatically. See [11](11-pipeline-osm.md).
 3. **Buildings with roofs**: swissBUILDINGS3D and LGL LoD2 into the pipeline.
 4. **Title screen**: pick A (Sunset Steel) or B (Blue Chrome), then implement menus per [09](09-design-workflow.md).
 5. **Permissions**: email Gemeinde Sisseln (Sissila, Wappen, photos, Kreisel) and Volg, using the template in [07](07-brands-and-permissions.md).

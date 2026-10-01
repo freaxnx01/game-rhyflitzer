@@ -4,12 +4,12 @@ Replaces the prototype's made-up hills with measured heights from swisstopo and 
 
 ## What it does
 
-`pipeline/terrain.py`:
+`pipeline/terrain.py` (the frame and grid come from `geo.py`, `.mmh` reading and sampling from `mmh.py`; both are shared with step 2):
 
 1. Finds all **swissALTI3D** 2 m tiles in the bounding box via the swisstopo STAC API, keeps the newest survey per tile, downloads them into `cache/` (only once).
 2. Reads **LGL DGM1** tiles for the German side from a local folder (GeoTIFF, ASC or XYZ).
 3. Reprojects both (EPSG:2056 and EPSG:25832) onto one grid in the Swiss LV95 frame, snapped to the game origin. Swiss data wins where both exist; DGM1 fills the rest.
-4. Subtracts a base height (default 284 m a.s.l., roughly the Rhine at Sisseln) so the valley floor is near 0.
+4. Subtracts a base height (default 284 m a.s.l., the valley floor) so the valley floor is near 0. Note: 284 m is not the Rhine level at Sisseln, which measures about 5.5 m above it (power plant reservoir, see [11](11-pipeline-osm.md)).
 5. Writes one `.mmh` file (Map Madness Heightmap).
 
 ## Run it
@@ -54,7 +54,8 @@ The same format will serve the region editor later: one `.mmh` per 1 × 1 km til
 
 ## Known limits
 
-- The prototype's roads, river and buildings are hand-traced from screenshots and only roughly georeferenced (origin 47.5506 N, 7.9671 E, errors of tens of metres). Heights are measured, but a road may sit a few metres beside its real embankment. The OSM step of the pipeline fixes that.
+- The prototype's hand-traced roads, river and buildings are only roughly georeferenced (origin 47.5506 N, 7.9671 E, errors of tens of metres), so a road may sit a few metres beside its real embankment. Fixed by pipeline step 2 ([11](11-pipeline-osm.md)): with `data/world_hochrhein.json` present the layout comes from OSM in the same frame. The hand-traced layout stays as the fallback.
+- The German side stays flat at the base height until DGM1 tiles are added.
 - Inside the prototype's river outline the ground is forced to water level; banks are blended over 30 m.
 - Bridges keep their own deck profile.
 
