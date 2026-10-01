@@ -86,7 +86,7 @@ def test_osm_rhine_splash_and_overpass(server):
         b.close()
     print("water", w, "under", u, "deck", deck)
     assert w["water"] is not None and w["water"] > 4 and w["splash"] > 0 and w["y"] <= w["water"] - 1.1   # sinks below a 5.5 m surface
-    assert not u["bridge"] and u["water"] is None and abs(u["ground"] - u["terrain"]) < 0.01 and abs(u["y"] - u["terrain"]) < 0.5
+    assert not u["bridge"] and u["water"] is None and -0.01 < u["ground"] - u["terrain"] < 1.0 and abs(u["y"] - u["ground"]) < 0.5   # on the road below (drawn surface), not on the deck
     assert deck > u["terrain"] + 1.5                                                                  # the deck really is above the car
 
 
@@ -210,21 +210,29 @@ def test_plattform_tower_blocks_the_car(server):
 
 
 @pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
-def test_car_does_not_sink_into_the_smile_kreisel(server):
-    """Playtest 2026-10-01: the car sank into the roundabout. The cobble apron is driven over at its own height and
-    the flower island stops the car at its rim."""
-    import json
-    k = json.loads(WORLD.read_text(encoding="utf-8"))["anchors"]["landmarks"]["smileKreisel"]
+def test_smile_kreisel_fits_the_mapped_roundabout(server):
+    """Playtest 2026-10-01: first the car sank into the roundabout, then it could not drive round it at all (the hero
+    island was sized for the hand map and covered OSM's small ring road). The island sits inside the mapped ring, the
+    ring stays free all the way round, the cobble apron is driven over at its own height, the island stops the car."""
+    import json, math
+    w = json.loads(WORLD.read_text(encoding="utf-8")); k = w["anchors"]["landmarks"]["smileKreisel"]
+    ring = next(r for r in w["roads"] if len(r["pts"]) > 4 and math.dist(r["pts"][0], r["pts"][-1]) < 0.5
+                and min(math.dist((k["x"], k["z"]), p) for p in r["pts"]) < 30)
+    q = ring["pts"][:-1]; cx = sum(p[0] for p in q) / len(q); cz = sum(p[1] for p in q) / len(q)
+    rad = sum(math.dist((cx, cz), p) for p in q) / len(q); inner = rad - ring["w"] / 2
     with sync_playwright() as p:
         br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
         page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         page.goto(f"{server}/prototype/index.html")
         page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
-        apron = page.evaluate(f"() => [window.__mm.ground({k['x'] + 11}, {k['z']}, 1e4), window.__mm.ground({k['x'] + 15}, {k['z']}, 1e4)]")
-        hit = page.evaluate(f"() => window.__mm.sim({k['x'] + 30}, {k['z']}, Math.PI, 12, 4)")
+        apron = page.evaluate(f"() => [window.__mm.ground({cx + inner + 0.5}, {cz}, 1e4), window.__mm.ground({cx + rad}, {cz}, 1e4)]")
+        pushed = page.evaluate(f"() => [...Array(16).keys()].map(i => {{ const a = i / 16 * Math.PI * 2, x = {cx} + Math.cos(a) * {rad}, z = {cz} + Math.sin(a) * {rad}, r = window.__mm.sim(x, z, a + Math.PI / 2, 0, 0.3, []); return Math.hypot(r.x - x, r.z - z); }})")
+        hit = page.evaluate(f"() => window.__mm.sim({cx + 30}, {cz}, Math.PI, 12, 4)")
         br.close()
-    assert apron[0] > apron[1] + 0.3, apron                    # the apron is raised above the ring road (radius 15)
-    assert hit["x"] - k["x"] > 9.5 + 1.0, hit                  # stopped at the island rim (radius 9.5) instead of driving into it
+    assert inner > 2.5, (rad, ring["w"])
+    assert max(pushed) < 0.05, pushed                           # the whole ring is drivable ("kann ihn gar nicht mehr befahren")
+    assert apron[0] > apron[1] + 0.3, apron                     # the apron is raised above the ring road
+    assert inner - 1.0 < math.hypot(hit["x"] - cx, hit["z"] - cz) < inner + 3, hit   # stopped at the island rim, not inside it
 
 
 @pytest.mark.parametrize("mode", ["hand", "osm"])
@@ -270,3 +278,20 @@ def test_wheels_do_not_sink_into_the_road(server, mode):
         br.close()
     assert res["done"] > 200, res
     assert res["worst"] < 0.08, res
+
+
+@pytest.mark.parametrize("mode", ["hand", "osm"])
+def test_no_trees_on_the_railway(server, mode):
+    """Playtest 2026-10-01: "Bäume auf Schienen?" — trees kept off the roads but not off the track."""
+    if mode == "osm" and not WORLD.exists():
+        pytest.skip("run pipeline/osm.py build first")
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 320, "height": 180})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        if mode == "hand":
+            page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.treesOnRail && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        n = page.evaluate("() => [window.__mm.treesOnRail(), (window.__TREES || []).length]")
+        br.close()
+    assert n[1] > 100 and n[0] == 0, n
