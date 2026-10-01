@@ -8,6 +8,8 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Hold **N** for nitro — blue flames, much harder acceleration, a higher top speed, and it never runs out.
+- Press **J** to jump straight to a village or railway station (1–9 or click). A jump during a race still lets you finish, but the time doesn't count as a record.
 - The online version now drives the real Hochrhein: OpenStreetMap roads, the Rhine, houses, the DSM chimney and water tower, and the measured swisstopo terrain load by themselves — no file to upload anymore.
 - Drive into the Rhine (or any deep water) and the game wishes you well, Midtown Madness style: "Sleep with the fishes!" — or "Grüss mir die Fische!" in a German browser. The car now lies in the water a moment longer before it is put back on the road.
 - Press C to switch the camera: chase, closer chase, cockpit (driver's eye) and bumper cam.

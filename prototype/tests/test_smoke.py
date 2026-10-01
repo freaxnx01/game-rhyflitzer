@@ -166,3 +166,28 @@ def test_car_slides_along_holzbruecke_rails(server):
         along = (r["x"] - x) * ux + (r["z"] - z) * uz
         assert r["bridge"], r                      # still on the deck, not through the rail
         assert along > 35 and r["speed"] > 10, r   # kept going instead of sticking to the rail
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_nitro_and_jump_menu(server):
+    """N = nitro (unlimited, faster than gas alone); J opens the place list, a digit jumps the car onto a road there."""
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 640, "height": 360})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        page.click("#startbtn")
+        x, z, th = page.evaluate("() => { const c = window.__mm.car(); return [c.x, c.z, window.__mm.heading()]; }")
+        gas = page.evaluate(f"() => window.__mm.sim({x}, {z}, {th}, 0, 4)")["speed"]
+        nitro = page.evaluate(f"() => window.__mm.sim({x}, {z}, {th}, 0, 4, ['KeyW', 'KeyN'])")["speed"]
+        page.keyboard.press("KeyJ")
+        places = page.evaluate("() => [...document.querySelectorAll('#jump li')].map(li => li.textContent)")
+        idx = next(i for i, t in enumerate(places) if "Bahnhof Sisseln" in t)
+        page.keyboard.press(f"Digit{idx + 1}")
+        after = page.evaluate("() => ({ car: window.__mm.car(), open: !document.querySelector('#jump').hidden, road: window.__mm.roadDist() })")
+        br.close()
+    assert nitro > gas * 1.3, (gas, nitro)
+    assert any("Bad Säckingen" in t for t in places) and any("Bahnhof Stein-Säckingen" in t for t in places)
+    assert not after["open"]
+    assert after["road"] < 0                                          # on the driving surface
+    assert abs(after["car"]["x"] - 1780) < 150 and abs(after["car"]["z"] - 560) < 150, after   # Bahnhof Sisseln checkpoint
