@@ -22,3 +22,5 @@ jobs:
       default-model: claude-sonnet-5
       pipeline-ref: v2
       agent: claude
+      timeout-minutes: 120        # whole job; a 6-task plan with browser tests needs far more than the default 30
+      claude-timeout-minutes: 100 # the claude process itself; the action's own default is 10 and killed the first #8 run
