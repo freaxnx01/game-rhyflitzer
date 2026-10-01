@@ -62,11 +62,11 @@ Real build, 2026-09-30: 2,616 road pieces, 3,889 junctions, 377 water entries, 1
 }
 ```
 
-Coordinates are game metres (x east, z south), rounded to 0.1 m. `mark` is one of `none`, `centre`, `centre-solid`, `cycle`, `cycle-left`, `cycle-right`, `lanes`. `waterSdf` holds distances to the nearest water on an 8 m grid, quantised to pixel centres. `anchors.landmarks` are `{x, z, kind, h, rot}`; `start` is `[x, z, heading]`.
+Coordinates are game metres (x east, z south), rounded to 0.1 m. `mark` is one of `none`, `centre`, `centre-solid`, `cycle`, `cycle-left`, `cycle-right`, `motorway`. `waterSdf` holds distances to the nearest water on an 8 m grid, quantised to pixel centres. `anchors.landmarks` are `{x, z, kind, h, rot}`; `start` is `[x, z, heading]`.
 
 ## Rules
 
-**Roads.** OSM highways from `motorway` down to `service` and `track`, split into pieces where tags change. Width from `width`, else `lanes`, else a default per class. Junctions come from shared nodes, with a radius from the widest road. Bridges carry `bridge: true` and a `layer`.
+**Roads.** Drivable OSM highways (motorway down to service roads; footways only when they are bridges; tunnels, driveways and parking aisles skipped), split into pieces where tags change. Width from the `width` tag, else a default per class (motorway 14 m, primary 9 m, residential 5.5 m, service 4 m). Junctions come from shared nodes. Bridges carry `bridge: true` and a `layer`.
 
 **Buildings.** Kept if within **30 m** of a main road (trunk, primary, secondary, tertiary and links), plus every building of **1,000 m²** or more, wherever it stands, so Sisslerfeld does not go empty. Dropped: `roof`, `carport`, `construction`, `ruins`, footprints under 20 m², and the footprints of the two DSM landmarks. Height from `height` (80 % is walls), else `building:levels` × 3 m, else a default per type; flat OSM buildings are clamped to at least 3 m. Gable roof if the footprint is under 250 m² and at least 85 % of its rotated rectangle, otherwise flat. Buildings inside DSM-Firmenich get the industrial palette. Real roofs come in step 3.
 
@@ -78,7 +78,7 @@ Coordinates are game metres (x east, z south), rounded to 0.1 m. `mark` is one o
 | cycle lane on one side | `cycle-left` / `cycle-right` | yellow broken line on that side, white centre line |
 | `lanes` ≥ 2, tertiary or higher | `centre` | white broken centre line |
 | same, bend tighter than 150 m radius or `overtaking=no` | `centre-solid` | white solid centre line |
-| motorway, trunk | `lanes` | white lane dashes, solid edges |
+| motorway | `motorway` | white lane dashes, solid edges |
 | residential, service, pedestrian, footways | `none` | nothing |
 
 Where a road switches between broken and solid, the pipeline splits it into pieces and marks the solid one `centre-solid`. Dash length and gap are 3 m / 3 m (innerorts), centre line 15 cm, from cantonal guidelines (Luzern vif 653.201, Zürich TBA) that quote VSS SN 640 850. The norm itself was not accessed. The 1.3 m inset and the solid-line width are not from the norm. The pipeline has no inside/outside-town flag, so outside villages the dashes are denser than the 3/6 m rule.

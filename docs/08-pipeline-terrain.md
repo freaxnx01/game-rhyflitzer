@@ -9,7 +9,7 @@ Replaces the prototype's made-up hills with measured heights from swisstopo and 
 1. Finds all **swissALTI3D** 2 m tiles in the bounding box via the swisstopo STAC API, keeps the newest survey per tile, downloads them into `cache/` (only once).
 2. Reads **LGL DGM1** tiles for the German side from a local folder (GeoTIFF, ASC or XYZ).
 3. Reprojects both (EPSG:2056 and EPSG:25832) onto one grid in the Swiss LV95 frame, snapped to the game origin. Swiss data wins where both exist; DGM1 fills the rest.
-4. Subtracts a base height (default 284 m a.s.l., the valley floor) so the valley floor is near 0. Note: 284 m is not the Rhine level at Sisseln, which measures about 5.5 m above it (power plant reservoir, see [11](11-pipeline-osm.md)).
+4. Subtracts a base height (default 284 m a.s.l., the valley floor) so it is near 0. Note: 284 m is not the Rhine level at Sisseln, which measures about 5.5 m above it (power plant reservoir, see [11](11-pipeline-osm.md)).
 5. Writes one `.mmh` file (Map Madness Heightmap).
 
 ## Run it
