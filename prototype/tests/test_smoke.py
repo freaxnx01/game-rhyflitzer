@@ -295,3 +295,16 @@ def test_no_trees_on_the_railway(server, mode):
         n = page.evaluate("() => [window.__mm.treesOnRail(), (window.__TREES || []).length]")
         br.close()
     assert n[1] > 100 and n[0] == 0, n
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_props_loaded(server):
+    import json
+    want = {}
+    for p in json.loads(WORLD.read_text(encoding="utf-8")).get("props", []):
+        want[p["kind"]] = want.get(p["kind"], 0) + 1
+    info, msgs = load(server, block_world=False)
+    assert info["mm"]["counts"]["props"] == want
+    assert msgs == []
+    info, _ = load(server, block_world=True)
+    assert "props" not in info["mm"]["counts"]
