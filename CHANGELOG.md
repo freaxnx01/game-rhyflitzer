@@ -11,6 +11,7 @@ All notable changes to this project are documented here, following
 - Hold **N** for nitro — blue flames, much harder acceleration, a higher top speed, and it never runs out.
 - Press **J** to jump straight to a village or railway station (1–9 or click). A jump during a race still lets you finish, but the time doesn't count as a record.
 - The online version now drives the real Hochrhein: OpenStreetMap roads, the Rhine, houses, the DSM chimney and water tower, and the measured swisstopo terrain load by themselves — no file to upload anymore.
+- Street lamps, red hydrants, benches, bins, bike racks and recycling containers now stand where they really are along the roads (from OpenStreetMap). Lamps and hydrants are solid — watch the corners.
 - Drive into the Rhine (or any deep water) and the game wishes you well, Midtown Madness style: "Sleep with the fishes!" — or "Grüss mir die Fische!" in a German browser. The car now lies in the water a moment longer before it is put back on the road.
 - Press C to switch the camera: chase, closer chase, cockpit (driver's eye) and bumper cam.
 - The Plattform Sisslerfeld now stands at its new spot by the Breitenloh field road in Münchwilen: four spruce posts, the round stair core with its X braces, the closed parapet box and the big pyramid roof — a stand-in until the detailed model. Only the posts and the stair core are solid, so you can drive right up to it.
