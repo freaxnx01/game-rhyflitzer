@@ -487,6 +487,7 @@ function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/
   box(10.2, 0.14, 10.2, x, b + 8.08, z, rot, beam, timber, [2, 2], 0); box(10.8, 0.28, 10.8, x, b + 8.0, z, rot, col('#2c2e2c'), 'roofFlat', [4, 4], 0);
   const roof = new THREE.ConeGeometry(5.4 * Math.SQRT2, 2.8, 4, 1, true); roof.rotateY(Math.PI / 4 - rot); roof.translate(x, b + 8.25 + 1.4, z); colorize(roof, col('#7a8878')); push('roofFlat', roof);
   addOBB(x, z, 3.3, 3.3, rot, b + 5.5);
+}
 // ---------- street furniture (props) ----------
 // One low-poly model per prop kind, merged into a single geometry so each kind draws as one InstancedMesh.
 // Every model has its base at y = 0 (the instance is placed on terrainH) and its long axis along local +x, which
