@@ -246,3 +246,6 @@ def test_grass_and_fields_stay_below_the_road(server, mode):
         br.close()
     assert res["done"] >= 240, res
     assert res["worst"] < 0.01, res
+    assert res["marksBelow"] == 0, res                # road markings lie on the road, not under it
+    if mode == "osm":
+        assert res["marksSeen"] > 5, res
