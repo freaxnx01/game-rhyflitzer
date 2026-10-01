@@ -12,7 +12,7 @@ Handover from the kickoff sessions (2026-09-28/29). Read this first when picking
 | Graphic styles | "Original" = Midtown Madness 2 look (2000): filtered textures, vertex lighting, hard fog. "Smooth" = slowroads-like. Toggle with T. |
 | v0 scope | No traffic, pedestrians or cops. Checkpoint race, blitz, cruise. |
 | Start region | Sisseln, Sisslerfeld, Stein, Bad Säckingen (Holzbrücke as the forbidden shortcut). |
-| Controls | Space = accelerate (W/↑ also), A/D or ←/→ = steer, S/↓ = brake/reverse, Ctrl = handbrake, R = reset to road, T = style, H or Enter = horn, M = mute. |
+| Controls | Space = accelerate (W/↑ also), A/D or ←/→ = steer, S/↓ = brake/reverse, Ctrl = handbrake, R = reset to road, T = style, C = camera (chase, near, cockpit, bumper), H or Enter = horn, M = mute. |
 | Player car | Navy-blue compact hatchback in the Mazda 3 class. Own design, not a replica of a real model. Plate "AG · 4334". |
 | Textures | No Google Street View / Apple / Bing imagery. Own photos, Mapillary/KartaView (CC BY-SA), swisstopo/LGL aerials. See [06](06-photo-capture.md). |
 | Logos | None until permission is granted. See [07](07-brands-and-permissions.md). |

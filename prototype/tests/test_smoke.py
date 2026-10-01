@@ -83,3 +83,23 @@ def test_osm_rhine_splash_and_overpass(server):
     assert w["water"] is not None and w["water"] > 4 and w["splash"] > 0 and w["y"] <= w["water"] - 1.1   # sinks below a 5.5 m surface
     assert not u["bridge"] and u["water"] is None and abs(u["ground"] - u["terrain"]) < 0.01 and abs(u["y"] - u["terrain"]) < 0.5
     assert deck > u["terrain"] + 1.5                                                                  # the deck really is above the car
+
+
+def test_camera_cycles_with_c(server):
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_page(viewport={"width": 480, "height": 270})
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        page.keyboard.press("KeyC")
+        assert page.evaluate("() => window.__mm.camView") == 0      # menu open: C does nothing
+        page.click("#startbtn", timeout=180000)
+        seen = []
+        for _ in range(4):
+            page.keyboard.press("KeyC")
+            page.wait_for_timeout(300)
+            seen.append(page.evaluate("() => [window.__mm.camView, document.querySelector('#toast').textContent]"))
+        b.close()
+    assert [v for v, _ in seen] == [1, 2, 3, 0]
+    assert [t for _, t in seen] == ["Camera: Chase near", "Camera: Cockpit", "Camera: Bumper", "Camera: Chase"]
