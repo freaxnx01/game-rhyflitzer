@@ -140,3 +140,28 @@ def test_bundled_terrain_loads_without_upload(server):
     assert status.startswith("Terrain: measured ·") and "(your file)" not in status
     assert "OpenStreetMap" in blurb and "swisstopo" in blurb
     assert clear_hidden
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_car_slides_along_holzbruecke_rails(server):
+    """Playtest 2026-10-01: the car got stuck on the side of the wooden bridge. Steered 8 degrees into a rail at
+    15 m/s with the gas held, it must scrape along and keep going, not stop."""
+    import json, math
+    w = json.loads(WORLD.read_text(encoding="utf-8")); hb = w["anchors"]["landmarks"]["holzbruecke"]
+    def near(r):
+        return min(math.dist((hb["x"], hb["z"]), p) for p in r["pts"]) < 120
+    pts = [p for r in w["roads"] if r.get("bridge") and near(r) for p in r["pts"]]
+    a, b = max(((p, q) for p in pts for q in pts), key=lambda pq: math.dist(*pq))
+    ux, uz = (b[0] - a[0]) / math.dist(a, b), (b[1] - a[1]) / math.dist(a, b)
+    x, z = a[0] + ux * 40, a[1] + uz * 40
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        res = [page.evaluate(f"() => window.__mm.sim({x}, {z}, {math.atan2(uz, ux) + s * math.radians(8)}, 15, 3)") for s in (1, -1)]
+        br.close()
+    for r in res:
+        along = (r["x"] - x) * ux + (r["z"] - z) * uz
+        assert r["bridge"], r                      # still on the deck, not through the rail
+        assert along > 35 and r["speed"] > 10, r   # kept going instead of sticking to the rail
