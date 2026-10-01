@@ -57,8 +57,8 @@ Replaces the one-size texture (white centre dashes and white edge lines on every
 |---|---|
 | `cycleway`/`cycleway:both` = `lane` and `lane_markings=no` | No centre line; yellow broken line ~1.3 m inside each edge |
 | cycle lane on one side only (`cycleway:left|right=lane`) | Yellow broken line on that side; white centre line |
-| `lanes` ≥ 2 without `lane_markings=no`, class tertiary or higher | White centre line: broken, solid where the way bends tighter than a radius of 150 m or has `overtaking=no` |
-| motorway, trunk | As today (white lane dashes, solid edges) |
+| no cycle lanes; main class (trunk, primary, secondary, tertiary and links) with any `lanes`, or any class with `lanes` ≥ 2; not `lane_markings=no` | White centre line: broken; solid for the whole way with `overtaking=no`, and solid on stretches where the way bends tighter than a radius of 150 m |
+| motorway, motorway_link, trunk | As today (white lane dashes, solid edges) |
 | residential, service, living street, unclassified without `lanes` | None |
 | pedestrian, footway bridges | None |
 

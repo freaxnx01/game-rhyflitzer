@@ -6,7 +6,7 @@ Replaces the prototype's hand-traced roads, river and houses with real ones from
 
 `pipeline/osm.py` has two commands.
 
-**`cut`** (heavy, one-off) merges the Geofabrik country extracts (CH, DE) and cuts the region plus 2 km padding with `osmium extract -s smart`. Run it on a node with spare RAM, never on the shared agent box (see the incident in [08](08-pipeline-terrain.md)). The real cut ran in a throwaway LXC on odroid-plus-pve: peak 3.58 GB, 30 s, result 3.7 MB (302,119 nodes, 42,583 ways, 1,308 relations).
+**`cut`** (heavy, one-off) cuts the region plus 2 km padding out of each Geofabrik country extract with `osmium extract -s smart`, then merges the parts with `osmium merge`. It takes every `*.osm.pbf` in `--pbf-dir` (except `*.cut.osm.pbf`), so keep stray files out of that folder. Run it on a node with spare RAM, never on the shared agent box (see the incident in [08](08-pipeline-terrain.md)). The real cut ran in a throwaway LXC on odroid-plus-pve: peak 3.58 GB, 30 s, result 3.7 MB (302,119 nodes, 42,583 ways, 1,308 relations).
 
 **`build`** (light) reads that small `.osm.pbf` and writes one JSON file, `data/world_hochrhein.json` (about 2 MB). Modules in `pipeline/`:
 
@@ -68,7 +68,7 @@ Coordinates are game metres (x east, z south), rounded to 0.1 m. `mark` is one o
 
 **Roads.** Drivable OSM highways (motorway down to service roads; footways only when they are bridges; tunnels, driveways and parking aisles skipped), split into pieces where tags change. Width from the `width` tag, else a default per class (motorway 14 m, primary 9 m, residential 5.5 m, service 4 m). Junctions come from shared nodes. Bridges carry `bridge: true` and a `layer`.
 
-**Buildings.** Kept if within **30 m** of a main road (trunk, primary, secondary, tertiary and links), plus every building of **1,000 m²** or more, wherever it stands, so Sisslerfeld does not go empty. Dropped: `roof`, `carport`, `construction`, `ruins`, footprints under 20 m², and the footprints of the two DSM landmarks. Height from `height` (80 % is walls), else `building:levels` × 3 m, else a default per type; flat OSM buildings are clamped to at least 3 m. Gable roof if the footprint is under 250 m² and at least 85 % of its rotated rectangle, otherwise flat. Buildings inside DSM-Firmenich get the industrial palette. Real roofs come in step 3.
+**Buildings.** Kept if within **30 m** of a main road (trunk, primary, secondary, tertiary and links), plus every building of **1,000 m²** or more, wherever it stands, so Sisslerfeld does not go empty. Dropped: `roof`, `carport`, `construction`, `ruins`, footprints under 20 m², and the footprints listed in `exclude_buildings` in `anchors.json` (the DSM chimney, the DSM water tower and the Plattform Sisslerfeld; a fourth id there, the Holzbrücke, is a `man_made=bridge` and not a building). Height from `height` (80 % is walls), else `building:levels` × 3 m, else a default per type; the pipeline applies no height floor, the prototype clamps flat buildings to at least 3 m. Gable roof if the footprint is under 250 m² and at least 85 % of its rotated rectangle, otherwise flat. Buildings inside DSM-Firmenich get the industrial palette. Real roofs come in step 3.
 
 **Markings** (per way, from OSM tags; checked against the Sisseln Hauptstrasse photo and video):
 
@@ -76,12 +76,13 @@ Coordinates are game metres (x east, z south), rounded to 0.1 m. `mark` is one o
 |---|---|---|
 | cycle lanes both sides, `lane_markings=no` | `cycle` | yellow broken line 1.3 m inside each edge, no centre line |
 | cycle lane on one side | `cycle-left` / `cycle-right` | yellow broken line on that side, white centre line |
-| `lanes` ≥ 2, tertiary or higher | `centre` | white broken centre line |
-| same, bend tighter than 150 m radius or `overtaking=no` | `centre-solid` | white solid centre line |
-| motorway | `motorway` | white lane dashes, solid edges |
-| residential, service, pedestrian, footways | `none` | nothing |
+| none of the above, and the way is a main class (trunk, primary, secondary, tertiary and their links; any `lanes` value) or has `lanes` ≥ 2; not `lane_markings=no` | `centre` | white broken centre line |
+| passes the `centre` test and `overtaking=no` | `centre-solid` | white solid centre line for the whole way |
+| passes the `centre` test without `overtaking=no`, on a bend tighter than 150 m radius | `centre-solid` for that stretch | the way is split there; stretches shorter than 20 m join their neighbour |
+| `motorway`, `motorway_link`, `trunk` | `motorway` | white lane dashes, solid edges (checked first, before all other tags) |
+| everything else (residential, service, pedestrian, footways, or `lane_markings=no` without cycle lanes) | `none` | nothing |
 
-Where a road switches between broken and solid, the pipeline splits it into pieces and marks the solid one `centre-solid`. Dash length and gap are 3 m / 3 m (innerorts), centre line 15 cm, from cantonal guidelines (Luzern vif 653.201, Zürich TBA) that quote VSS SN 640 850. The norm itself was not accessed. The 1.3 m inset and the solid-line width are not from the norm. The pipeline has no inside/outside-town flag, so outside villages the dashes are denser than the 3/6 m rule.
+The cycle-lane tests run before the centre test, so a main road with cycle lanes gets `cycle*`, not `centre`. Dash length and gap are 3 m / 3 m (innerorts), centre line 15 cm, from cantonal guidelines (Luzern vif 653.201, Zürich TBA) that quote VSS SN 640 850. The norm itself was not accessed. The 1.3 m inset and the solid-line width are not from the norm. The pipeline has no inside/outside-town flag, so outside villages the dashes are denser than the 3/6 m rule.
 
 **Water.** Rivers, lakes and riverbanks as polygons, cut into chunks along the river. Each chunk gets a level: the median of the measured terrain inside it, ignoring DEM nodata (exactly 0.0). Chunks with no valid sample inherit their polygon's median, narrow polygons use the terrain at a representative point, and all-nodata means 0.0. The Rhine sits about 5.5 m above the base near Sisseln (the Säckingen power plant reservoir), about -1.5 m downstream, with a step of about 7 m at the Säckingen weir. The base height 284 m is **not** the Sisseln water level.
 
@@ -89,7 +90,7 @@ Where a road switches between broken and solid, the pipeline splits it into piec
 
 ## Load it in the prototype
 
-Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it is there, the whole layout comes from it (roads, Rhine, bridges, houses, landmarks, race points, minimap, markings) and the start screen shows `World: OpenStreetMap · N roads · N buildings · © OpenStreetMap contributors`. If it is missing or not valid, the hand-traced layout is used and the line reads `World: traced by hand`. Terrain still comes from the `.mmh` as before ([08](08-pipeline-terrain.md)).
+Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it is there, the whole layout comes from it (roads, Rhine, bridges, houses, landmarks, race points, minimap, markings) and the start screen shows `World: OpenStreetMap · N roads · N buildings` followed by all `sources` of the file joined with ` · ` (`© OpenStreetMap contributors, ODbL`, plus `Water levels: swissALTI3D © swisstopo` when the file was built with an `.mmh`). If it is missing or not valid, the hand-traced layout is used and the line reads `World: traced by hand`. Terrain still comes from the `.mmh` as before ([08](08-pipeline-terrain.md)).
 
 ## Known limits
 
