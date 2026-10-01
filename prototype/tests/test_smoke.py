@@ -21,7 +21,9 @@ def load(server, block_world: bool):
         page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=180000)
         info = page.evaluate("() => ({ mm: window.__mm, world: document.querySelector('#worldstatus')?.textContent })")
         b.close()
-        return info, [t for t, u in msgs if "world_hochrhein.json" not in u]
+        # own-page errors only: the missing world file is an accepted 404 (docs/11); third-party resources (the Star button's
+        # api.github.com call gets rate-limited to 403 after a few runs) are not under test. Page errors carry no URL and stay.
+        return info, [t for t, u in msgs if "world_hochrhein.json" not in u and (not u or u.startswith(server))]
 
 
 def test_hand_traced_fallback(server):
