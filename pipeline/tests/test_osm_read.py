@@ -45,3 +45,9 @@ def test_junction_coords_survive_duplicate_locations(data):
 def test_named_node(data):
     assert sorted(n.id for n in data.named_nodes) == [20, 21, 22, 24]
     # 23 (level_crossing) and 25 (highway=crossing) must be excluded
+
+
+def test_prop_nodes(data):
+    assert sorted(n.id for n in data.prop_nodes) == [40, 41, 42]
+    lamp = next(n for n in data.prop_nodes if n.id == 40)
+    assert lamp.tags["highway"] == "street_lamp" and isinstance(lamp.x, float)
