@@ -4,6 +4,7 @@ import pytest
 from playwright.sync_api import sync_playwright
 
 WORLD = Path(__file__).parents[2] / "data" / "world_hochrhein.json"
+MMH_ROUTE = "**/data/terrain_hochrhein.mmh"   # blocked by default: tests that want measured terrain opt in
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 
 
@@ -11,6 +12,7 @@ def load(server, block_world: bool):
     with sync_playwright() as p:
         b = p.chromium.launch(args=ARGS)
         page = b.new_page(viewport={"width": 640, "height": 360})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         msgs = []
         page.on("pageerror", lambda e: msgs.append((str(e), "")))
         page.on("console", lambda m: msgs.append((m.text, m.location.get("url", ""))) if m.type in ("error", "warning") else None)
@@ -47,6 +49,7 @@ def test_physics_time_osm_vs_hand(server):
     def phys(block):
         with sync_playwright() as p:
             b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
+            page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
             if block:
                 page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
             page.goto(f"{server}/prototype/index.html"); page.wait_for_selector("#startbtn", timeout=180000)
@@ -65,6 +68,7 @@ def test_osm_rhine_splash_and_overpass(server):
     overpass is no ground for a car on the road underneath. The .mmh goes in through the start screen's file input."""
     with sync_playwright() as p:
         b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         page.goto(f"{server}/prototype/index.html"); page.wait_for_selector("#startbtn", timeout=180000)
         with page.expect_navigation(timeout=180000):                                 # the page stores the terrain and reloads
             page.set_input_files("#mmhfile", str(MMH))
@@ -89,6 +93,7 @@ def test_camera_cycles_with_c(server):
     with sync_playwright() as p:
         b = p.chromium.launch(args=ARGS)
         page = b.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
         page.goto(f"{server}/prototype/index.html")
         page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=180000)
@@ -110,6 +115,7 @@ def test_fishes_text_while_car_lies_in_water(server, locale, text):
     with sync_playwright() as p:
         b = p.chromium.launch(args=ARGS)
         page = b.new_context(locale=locale, viewport={"width": 480, "height": 270}).new_page()
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
         page.goto(f"{server}/prototype/index.html")
         page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=180000)
@@ -120,3 +126,17 @@ def test_fishes_text_while_car_lies_in_water(server, locale, text):
         b.close()
     assert shown[0] == text
     assert shown[1] < 2.8          # still lying in the water, not yet reset
+
+
+@pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
+def test_bundled_terrain_loads_without_upload(server):
+    """GitHub Pages: the published .mmh next to the world file is used without the file input."""
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_selector("#mmhstatus.real", timeout=180000)
+        status, blurb, clear_hidden = page.evaluate("() => [document.querySelector('#mmhstatus').textContent, document.querySelector('#blurb').textContent, document.querySelector('#mmhclear').hidden]")
+        b.close()
+    assert status.startswith("Terrain: measured ·") and "(your file)" not in status
+    assert "OpenStreetMap" in blurb and "swisstopo" in blurb
+    assert clear_hidden

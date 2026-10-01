@@ -1,3 +1,7 @@
 # Generated game data (pipeline output: .mmh terrain, world files)
-/data/
+/data/*
+# published for GitHub Pages (ODbL / swisstopo, see data/README.md)
+!/data/README.md
+!/data/world_hochrhein.json
+!/data/terrain_hochrhein.mmh
 __pycache__/

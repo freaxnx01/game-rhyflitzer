@@ -90,19 +90,18 @@ The cycle-lane tests run before the centre test, so a main road with cycle lanes
 
 ## Load it in the prototype
 
-Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it is there, the whole layout comes from it (roads, Rhine, bridges, houses, landmarks, race points, minimap, markings) and the start screen shows `World: OpenStreetMap · N roads · N buildings` followed by all `sources` of the file joined with ` · ` (`© OpenStreetMap contributors, ODbL`, plus `Water levels: swissALTI3D © swisstopo` when the file was built with an `.mmh`). If it is missing or not valid, the hand-traced layout is used and the line reads `World: traced by hand`. Terrain still comes from the `.mmh` as before ([08](08-pipeline-terrain.md)).
+Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it is there, the whole layout comes from it (roads, Rhine, bridges, houses, landmarks, race points, minimap, markings) and the start screen shows `World: OpenStreetMap · N roads · N buildings` followed by all `sources` of the file joined with ` · ` (`© OpenStreetMap contributors, ODbL`, plus `Water levels: swissALTI3D © swisstopo` when the file was built with an `.mmh`). If it is missing or not valid, the hand-traced layout is used and the line reads `World: traced by hand`. Terrain comes from an `.mmh` the player loaded on the start screen (kept in IndexedDB) or, if there is none, from the published `data/terrain_hochrhein.mmh` ([08](08-pipeline-terrain.md)).
 
 ## Known limits
 
 - The German side is flat at the base height until LGL DGM1 is added to the terrain, so water can sit above flat German banks. Water levels ignore the DEM nodata fill for the same reason.
-- A missing world file is one accepted 404 line in the browser console (and on GitHub Pages, until the world is published; publishing it is an open ODbL question).
+- A missing world file is one accepted 404 line in the browser console. Since 2026-10-01 `data/world_hochrhein.json` and `data/terrain_hochrhein.mmh` are committed and served on GitHub Pages (licences in `data/README.md`); the world file is offered under the ODbL. Rebuild and commit both after a pipeline change.
 - Ortstafeln and street furniture are not from OSM yet. Roofs are flat or gable until step 3.
 - Markings use the innerorts rhythm everywhere, are not interrupted at junction mouths, and bridge decks carry none.
 - A world file with the right format tag but missing fields is not caught and breaks the page; delete or rebuild the file.
-- The start screen blurb still says "traced by hand" in OSM mode.
 
 ## Attribution (game credits)
 
 - © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/)
-- Water levels: swissALTI3D © swisstopo
+- Terrain and water levels: swissALTI3D © swisstopo
 - Heights of the DSM landmarks (chimney, water tower): swissSURFACE3D © swisstopo
