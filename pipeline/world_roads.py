@@ -103,15 +103,18 @@ def _r(p):
 
 
 def build(ways, nodes, way_nodes, clip):
-    roads, widest = [], {}
+    """`nodes` holds every node shared by two or more highway ways (osm_read); a junction needs two or more *kept* ways,
+    so the uses are counted again here over the kept ways only (a road meeting a driveway or track is no junction)."""
+    roads, widest, uses = [], {}, {}
     for w in ways:
         t = w.tags
         if "highway" not in t or not keep(t):
             continue
         wd = width(t)
-        for nid in way_nodes.get(w.id, []):
+        for nid in set(way_nodes.get(w.id, [])):
             if nid in nodes:
                 widest[nid] = max(widest.get(nid, 0.0), wd)
+                uses[nid] = uses.get(nid, 0) + 1
         line = w.line.simplify(0.5, preserve_topology=False).intersection(clip)
         parts = [line] if line.geom_type == "LineString" else list(getattr(line, "geoms", []))
         base = marking(t)
@@ -130,5 +133,5 @@ def build(ways, nodes, way_nodes, clip):
                               "pts": [_r(p) for p in pts]})
     cx0, cz0, cx1, cz1 = clip.bounds
     junctions = [[round(float(x), 1), round(float(z), 1), round(widest[n] / 2 + 0.3, 2)]
-                 for n, (x, z) in sorted(nodes.items()) if n in widest and cx0 <= x <= cx1 and cz0 <= z <= cz1]
+                 for n, (x, z) in sorted(nodes.items()) if uses.get(n, 0) >= 2 and cx0 <= x <= cx1 and cz0 <= z <= cz1]
     return roads, junctions

@@ -77,3 +77,15 @@ def test_build_clips_to_bbox():
     ways = [Way(1, {"highway": "primary"}, shapely.LineString([(-50, 0), (50, 0)]))]
     roads, _ = R.build(ways, {}, {1: [1, 2]}, shapely.box(0, -10, 100, 10))
     assert roads[0]["pts"][0] == [0.0, 0.0]
+
+
+def test_junction_needs_two_kept_ways():
+    """A node shared by one kept road and a track (not kept) is no junction; osm_read counts uses over all highway ways."""
+    ways = [Way(1, {"highway": "tertiary"}, shapely.LineString([(0, 0), (100, 0)])),
+            Way(2, {"highway": "residential"}, shapely.LineString([(50, 0), (50, 80)])),
+            Way(3, {"highway": "track"}, shapely.LineString([(0, 0), (0, 50)])),
+            Way(4, {"highway": "service", "service": "driveway"}, shapely.LineString([(100, 0), (100, 30)]))]
+    nodes = {1: (0.0, 0.0), 7: (50.0, 0.0), 2: (100.0, 0.0)}      # all three are shared over *all* highway ways
+    way_nodes = {1: [1, 7, 2], 2: [7, 8], 3: [1, 9], 4: [2, 10]}
+    _, junctions = R.build(ways, nodes, way_nodes, shapely.box(-1000, -1000, 1000, 1000))
+    assert junctions == [[50.0, 0.0, pytest.approx(3.8)]]

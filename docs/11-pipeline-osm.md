@@ -41,9 +41,9 @@ python osm.py build --pbf cache/osm/hochrhein.osm.pbf \
 
 Options: `--bbox W S E N`, `--origin LAT LON` (same defaults as `terrain.py`), `--house-dist 30`, `--big-building-area 1000`, `--anchors anchors.json`. Without `--mmh` the water levels fall back to 0.
 
-Tests: `cd pipeline && pytest` (the golden test needs the cut extract and skips without it). Prototype tests: `node --test prototype/tests/*.test.mjs` (on Node 24 the folder alone does not work, use the glob).
+Tests: `cd pipeline && pytest` runs the pipeline tests only (the golden test needs the cut extract and skips without it). Prototype unit tests: `node --test prototype/tests/*.test.mjs` (on Node 24 the folder alone does not work, use the glob). Browser smoke tests (Playwright, headless Chromium with SwiftShader, slow: allow several minutes): one-time setup `cd pipeline && ./.venv/bin/pip install -r requirements-dev.txt && ./.venv/bin/python -m playwright install chromium`, then `cd pipeline && ./.venv/bin/python -m pytest ../prototype/tests -q`. They load the page with and without the world file and put the car into the Rhine and under an overpass; the OSM cases skip without `data/world_hochrhein.json`.
 
-Real build, 2026-09-30: 2,616 road pieces, 3,889 junctions, 377 water entries, 1,806 buildings, 142 rail pieces, water SDF 1181 × 550.
+Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two or more kept roads), 377 water entries, 1,806 buildings, 142 rail pieces, water SDF 1181 × 550.
 
 ## The world file (MMW1)
 
