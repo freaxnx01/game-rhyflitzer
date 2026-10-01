@@ -207,3 +207,42 @@ def test_plattform_tower_blocks_the_car(server):
         r = page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 15, 3)")
         br.close()
     assert r["x"] < a["x"], r   # stopped at the tower, not driven through it
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_car_does_not_sink_into_the_smile_kreisel(server):
+    """Playtest 2026-10-01: the car sank into the roundabout. The cobble apron is driven over at its own height and
+    the flower island stops the car at its rim."""
+    import json
+    k = json.loads(WORLD.read_text(encoding="utf-8"))["anchors"]["landmarks"]["smileKreisel"]
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        apron = page.evaluate(f"() => [window.__mm.ground({k['x'] + 11}, {k['z']}, 1e4), window.__mm.ground({k['x'] + 15}, {k['z']}, 1e4)]")
+        hit = page.evaluate(f"() => window.__mm.sim({k['x'] + 30}, {k['z']}, Math.PI, 12, 4)")
+        br.close()
+    assert apron[0] > apron[1] + 0.3, apron                    # the apron is raised above the ring road (radius 15)
+    assert hit["x"] - k["x"] > 9.5 + 1.0, hit                  # stopped at the island rim (radius 9.5) instead of driving into it
+
+
+@pytest.mark.parametrize("mode", ["hand", "osm"])
+def test_grass_and_fields_stay_below_the_road(server, mode):
+    """Playtest 2026-10-01: grass and fields covered the road. Raycast road points (centre and both edges): the rendered
+    road must be on top of the rendered grass and field meshes everywhere. OSM mode runs on the measured terrain."""
+    if mode == "osm" and not (WORLD.exists() and MMH.exists()):
+        pytest.skip("run pipeline/osm.py build and terrain.py first")
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 320, "height": 180})
+        if mode == "hand":
+            page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+            page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.grassOverRoad && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        if mode == "osm":
+            page.wait_for_selector("#mmhstatus.real", timeout=240000)
+        res = page.evaluate("() => window.__mm.grassOverRoad(250)")
+        br.close()
+    assert res["done"] >= 240, res
+    assert res["worst"] < 0.01, res

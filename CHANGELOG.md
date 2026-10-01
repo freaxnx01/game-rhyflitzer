@@ -27,6 +27,8 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- Grass and fields no longer creep over the road, and the car no longer sinks into the Smile-Kreisel.
+- The railway now looks like one: rails run along the track, sleepers across.
 - Scraping along a wall or the Holzbrücke rails no longer stops the car dead; only a real hit costs you speed.
 - Umlauts and symbols (Säckingen, ·, →) show correctly on the start screen, in the HUD and on the map.
 - The time and checkpoint panels no longer spread into a big dark box over the whole screen; the game is as bright as intended again.
