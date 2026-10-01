@@ -10,6 +10,8 @@ import math
 import sys
 from pathlib import Path
 
+import shapely
+
 
 def load(path: Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -84,3 +86,9 @@ def exclude_ids(spec) -> set:
 
 def industrial_ids(spec) -> list:
     return [_osm_ref(s)[1] for s in spec.get("areas", {}).get("industrial", [])]
+
+
+def keep_all_boxes(spec, resolved) -> list:
+    """Areas flagged keep_all_buildings, as game-frame boxes (from the resolved anchors)."""
+    return [shapely.box(*resolved["areas"][name]) for name, a in spec.get("areas", {}).items()
+            if isinstance(a, dict) and a.get("keep_all_buildings") and name in resolved["areas"]]

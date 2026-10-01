@@ -93,8 +93,10 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path)
     polys = world_water.polygons(data.areas, data.ways, clip)
     ind_ids = set(anchors_mod.industrial_ids(spec))
     sites = [a.geom for a in data.areas if a.id in ind_ids]
+    resolved = anchors_mod.resolve(spec, data, frame)
     buildings, stats = world_buildings.build(data.areas, roads, clip, house_dist, big_area,
-                                             anchors_mod.exclude_ids(spec), sites)
+                                             anchors_mod.exclude_ids(spec), sites,
+                                             anchors_mod.keep_all_boxes(spec, resolved))
     rail = [[[round(x, 1), round(z, 1)] for x, z in w.line.intersection(clip).coords]
             for w in data.ways if w.tags.get("railway") == "rail" and w.line.intersects(clip)
             and w.line.intersection(clip).geom_type == "LineString"]
@@ -114,7 +116,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path)
         "waterSdf": world_water.sdf(polys, clip.bounds),
         "buildings": buildings,
         "rail": rail,
-        "anchors": anchors_mod.resolve(spec, data, frame),
+        "anchors": resolved,
     }
 
 

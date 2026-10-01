@@ -37,3 +37,9 @@ def test_missing_osm_id_is_reported_not_crashing(capsys):
     r = anchors.resolve({"landmarks": {"gone": {"osm": "w1"}}}, OsmData(), F)
     assert "gone" not in r["landmarks"]
     assert "w1" in capsys.readouterr().err
+
+
+def test_keep_all_building_boxes():
+    import anchors as A
+    spec = {"areas": {"q": {"game_box": [0, 0, 10, 10], "keep_all_buildings": True}, "w": {"game_box": [5, 5, 6, 6]}}}
+    assert [b.bounds for b in A.keep_all_boxes(spec, {"areas": {"q": [0.0, 0.0, 10.0, 10.0], "w": [5.0, 5.0, 6.0, 6.0]}})] == [(0.0, 0.0, 10.0, 10.0)]

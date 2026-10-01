@@ -60,3 +60,10 @@ def test_industrial_palette():
     site = [shapely.box(-100, 0, 100, 100)]
     bl, _ = B.build([house(1, 0, 20)], MAIN, CLIP, industrial=site)
     assert bl[0]["palette"] == "industrial"
+
+
+def test_keep_all_area_keeps_far_houses_but_not_sheds():
+    far = [house(1, 0, 200), house(2, 400, 200), Area(3, True, {"building": "house"}, shapely.box(10, 190, 13, 193))]  # 9 m2 shed
+    bl, stats = B.build(far, MAIN, CLIP, keep_all=[shapely.box(-50, 150, 50, 250)])
+    assert [b["id"] for b in bl] == [1]
+    assert stats["kept_area"] == 1
