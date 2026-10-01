@@ -98,8 +98,21 @@ Wooden viewing tower at the southern edge of the Sisslerfeld, on municipal land 
 | Built by | apprentices of the timber company Häring, Eiken, with local businesses. Initiated by Christoph Grenacher and former Eiken councillor Ingo Anders |
 | History | built 2025, set up provisionally for the Sisslerfeldtag 2025, then dismantled; rebuilt permanently from August 2026; opened 12 September 2026 (4th Sisslerfeldtag) |
 
+Measured from a phone scan (RealityScan, 2026-10-01; heights above the gravel pad, phone-scan scale roughly ±5 %):
+
+| | Scan | Note |
+|---|---|---|
+| Platform deck | ≈ 5.5 m | densest horizontal layer; published figure 5.8 m |
+| Parapet top | ≈ 6.8–7.0 m | closed board parapet ≈ 1.3 m above the deck |
+| Roof eaves | ≈ 8.0–8.3 m | deep overhang |
+| Roof apex | not captured | scan ends at 9.4 m; OSM tags `height=11` |
+| Corner posts | ≈ 3.0 m from the tower axis | square of ≈ 4.2 m side, ≈ 6 m diagonal |
+| Slatted core | ≈ 3–3.5 m diameter | stair core between the posts |
+| Platform | ≈ 7.5 m square (±1 m) | cantilevers well beyond the posts |
+
 For the game:
-- Wood has texture and surface, so phone photogrammetry works well (unlike thin steel). No drone needed at 10 m: photo rings from the ground plus shots from the platform.
+- Wood has texture and surface, so phone photogrammetry works for the lower half: core, posts, X-bracing and the gravel pad came out usable. The upper half did not: shot from below against a bright sky, RealityScan turned sky into floating grey surfaces, thin parapet and roof edges dissolved, and the top of the pyramid roof is simply never seen from the ground. 524 k triangles and an 8k texture are far beyond a game asset anyway. Use the scan as **reference only** (dimensions above, wood and gravel texture), model the tower by hand (≈ 2–5 k triangles).
+- A better scan: overcast day, more oblique shots from close to the base looking up, a ring of shots from the platform itself for the parapet; the roof only with a drone (or from the plans).
 - Most accurate source: construction plans from Häring (the apprentices designed it). Ask, see [07](07-brands-and-permissions.md).
 - Gameplay: stop the car, get out, climb up (see [ideas.md](../ideas.md)).
 
