@@ -25,6 +25,14 @@ def _is_named_node(tags) -> bool:
     return tags.get("highway") == "traffic_signals"
 
 
+PROP_AMENITIES = {"bench", "waste_basket", "bicycle_parking", "recycling"}
+
+
+def is_prop_node(tags) -> bool:
+    return (tags.get("emergency") == "fire_hydrant" or tags.get("highway") == "street_lamp"
+            or tags.get("amenity") in PROP_AMENITIES)
+
+
 @dataclass
 class Way:
     id: int
@@ -49,11 +57,20 @@ class NamedNode:
 
 
 @dataclass
+class PropNode:
+    id: int
+    tags: dict
+    x: float
+    z: float
+
+
+@dataclass
 class OsmData:
     ways: list = field(default_factory=list)
     areas: list = field(default_factory=list)
     nodes: dict = field(default_factory=dict)
     named_nodes: list = field(default_factory=list)
+    prop_nodes: list = field(default_factory=list)
     way_nodes: dict = field(default_factory=dict)
     skipped: Counter = field(default_factory=Counter)
 
@@ -78,6 +95,9 @@ def read(path: Path, frame: Frame) -> OsmData:
             if _is_named_node(o.tags):
                 x, z = frame.to_game(o.location.lon, o.location.lat)
                 out.named_nodes.append(NamedNode(o.id, dict(o.tags), float(x), float(z)))
+            if is_prop_node(o.tags):
+                x, z = frame.to_game(o.location.lon, o.location.lat)
+                out.prop_nodes.append(PropNode(o.id, dict(o.tags), float(x), float(z)))
         elif o.is_way():
             tags = dict(o.tags)
             if not any(k in tags for k in ("highway", "railway", "waterway")):

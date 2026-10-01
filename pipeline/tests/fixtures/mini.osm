@@ -18,6 +18,10 @@
   <node id="31" lat="47.5490" lon="7.9690"/>
   <node id="32" lat="47.5490" lon="7.9700"/>
   <node id="33" lat="47.5480" lon="7.9700"/>
+  <node id="40" lat="47.5507" lon="7.9672"><tag k="highway" v="street_lamp"/></node>
+  <node id="41" lat="47.5507" lon="7.9673"><tag k="emergency" v="fire_hydrant"/><tag k="fire_hydrant:type" v="pillar"/></node>
+  <node id="42" lat="47.5507" lon="7.9674"><tag k="amenity" v="bench"/></node>
+  <node id="43" lat="47.5507" lon="7.9675"><tag k="amenity" v="parking"/></node>
   <way id="100"><nd ref="1"/><nd ref="2"/><tag k="highway" v="tertiary"/><tag k="name" v="Hauptstrasse"/></way>
   <way id="101"><nd ref="2"/><nd ref="3"/><tag k="highway" v="residential"/></way>
   <way id="102"><nd ref="2"/><nd ref="4"/><tag k="highway" v="track"/></way>
