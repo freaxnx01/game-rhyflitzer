@@ -191,3 +191,19 @@ def test_nitro_and_jump_menu(server):
     assert not after["open"]
     assert after["road"] < 0                                          # on the driving surface
     assert abs(after["car"]["x"] - 1780) < 150 and abs(after["car"]["z"] - 560) < 150, after   # Bahnhof Sisseln checkpoint
+
+
+def test_plattform_tower_blocks_the_car(server):
+    """The Plattform Sisslerfeld placeholder is solid where it matters: driving east straight at its anchor from 25 m
+    west, the car must be stopped by the batten stair core and never come out on the far side."""
+    import json
+    w = json.loads(WORLD.read_text(encoding="utf-8")); a = w["anchors"]["landmarks"]["plattform"]
+    x, z = a["x"] - 25, a["z"]
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        r = page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 15, 3)")
+        br.close()
+    assert r["x"] < a["x"], r   # stopped at the tower, not driven through it
