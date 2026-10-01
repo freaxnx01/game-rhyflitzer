@@ -108,3 +108,10 @@ test('water surface is relative to the chunk level, null on land', () => {
   assert.equal(waterSurface(0, 5.53), null);            // the bank
   assert.equal(waterSurface(36.2, 5.53), null);
 });
+
+test('layoutFromWorld passes props and defaults to an empty list', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: { landmarks: {}, cps: [], labels: [], areas: {} } };
+  assert.deepEqual(layoutFromWorld(base).props, []);
+  const p = [{ kind: 'lamp', x: 1, z: 2, rot: 0 }];
+  assert.deepEqual(layoutFromWorld({ ...base, props: p }).props, p);
+});
