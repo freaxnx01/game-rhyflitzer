@@ -249,3 +249,24 @@ def test_grass_and_fields_stay_below_the_road(server, mode):
     assert res["marksBelow"] == 0, res                # road markings lie on the road, not under it
     if mode == "osm":
         assert res["marksSeen"] > 5, res
+
+
+@pytest.mark.parametrize("mode", ["hand", "osm"])
+def test_wheels_do_not_sink_into_the_road(server, mode):
+    """Playtest 2026-10-01: at the Smile-Kreisel the wheels sank into the asphalt. Wherever a road, junction disc or the
+    kreisel ring is drawn, the car must drive on that surface (at most 8 cm below it)."""
+    if mode == "osm" and not (WORLD.exists() and MMH.exists()):
+        pytest.skip("run pipeline/osm.py build and terrain.py first")
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 320, "height": 180})
+        if mode == "hand":
+            page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+            page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sinkCheck && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        if mode == "osm":
+            page.wait_for_selector("#mmhstatus.real", timeout=240000)
+        res = page.evaluate("() => window.__mm.sinkCheck(400)")
+        br.close()
+    assert res["done"] > 200, res
+    assert res["worst"] < 0.08, res

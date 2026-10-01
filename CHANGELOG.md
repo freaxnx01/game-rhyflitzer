@@ -27,6 +27,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- The wheels no longer sink into the asphalt — at the Smile-Kreisel, at junctions and on bumpy roads the car now drives on the road you see.
 - Grass and fields no longer creep over the road, and the car no longer sinks into the Smile-Kreisel.
 - The railway now looks like one: rails run along the track, sleepers across.
 - Scraping along a wall or the Holzbrücke rails no longer stops the car dead; only a real hit costs you speed.
