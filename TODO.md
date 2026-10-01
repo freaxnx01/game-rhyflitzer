@@ -49,6 +49,33 @@ Follow-ups:
 - **Fridolinsbrücke only two-thirds a stone bridge in OSM mode.** OSM splits it into `w28495792` (132.7 m) and `w319324523` (68.4 m, collinear continuation over the Rhine); only the first is detected via the anchor, so the last third is a flat generic strip without parapets, piers or rail OBBs, and the deck may sag to water level mid-river (one piece ends at (-1337.2, 502.4) over the Rhine). Fix: before building hero spans, grow each hero group with bridge pieces that share an endpoint and carry the same name; fill end heights from the merged span's ends.
 - **Smoke-test console filter too broad** (`prototype/tests/test_smoke.py`, commit 48ef3bf): it ignores every console error from other origins, including three.js on cdn.jsdelivr.net (geometry/shader errors would pass silently). Narrow it to `api.github.com` (the rate-limited Star button) or to "Failed to load resource" messages from other origins.
 
+## Playtest feedback (2026-10-01, from the user)
+
+Played on GitHub Pages (github.freaxnx01.ch/game-rhyflitzer). **Root cause for the first group:** `data/` is gitignored, so Pages serves no `world_hochrhein.json` / `terrain_hochrhein.mmh` (both 404) and the game falls back to the hand-traced layout. Publishing them needs attribution (ODbL for OSM, swisstopo OGD for terrain) and a decision.
+
+Probably fixed by serving the world file on Pages (verify after):
+- No DSM chimney, no water tower, many DSM Firmenich buildings missing.
+- Motorway not drivable.
+- Plattform Sisslerfeld: no placeholder (also true in OSM mode: anchor kind `reserved` draws nothing → needs a placeholder model).
+
+Data/pipeline gaps (true in OSM mode too):
+- **Sissle stream missing:** OSM has it only as a `waterway=river` centre line (w166512663, rel 4801588), `world_water` turns only areas into water → render the line with a width (see Ideas A/B).
+- **Sisslerwald:** forests are not exported yet (landuse=forest / natural=wood).
+- **Quartier Winkelacker / Bodenackerstrasse:** show all buildings there (currently only buildings near main roads are kept, `--house-dist`) → per-area "keep all" list in `anchors.json`.
+- **Road name in the HUD, house numbers on buildings:** world file has no road names or `addr:*` yet.
+- **Label railway stations** (Stein-Säckingen, Sisseln).
+
+Physics / bugs:
+- **Holzbrücke:** car snags on the side walls.
+
+Gameplay / UI features:
+- Minimap: zoom; double-click places the car there.
+- **N** = nitro (unlimited).
+- **J** = jump to a village/place (incl. railway stations).
+- Helicopter mode for overview.
+- Horn: louder, longer. Engine sound sounds unnatural.
+- Vehicle windows transparent.
+
 ## Ideas (2026-10-01, from the user)
 
 - **A. The Sissel stream fully visible**, flowing into the Rhine: the whole course in the play area, as visible water, with its mouth at the Rhine.
