@@ -64,7 +64,7 @@ Replaces the one-size texture (white centre dashes and white edge lines on every
 
 Implementation note: instead of a `mark` plus `solid` ranges, the pipeline splits a road piece where the centre line changes between broken and solid and marks the solid piece `centre-solid`.
 
-The pipeline writes the result per road as `mark` (`none`, `cycle`, `cycle-left`, `cycle-right`, `centre`, `motorway`) plus `solid` ranges. Dash lengths and gaps follow Swiss standards (VSS); the plan looks them up rather than guessing. The rectified photo shows the cycle-lane dashes roughly 2.5 m long with similar gaps (±20 %, scale from an assumed 7 m road width).
+The pipeline writes the result per road as `mark` (`none`, `cycle`, `cycle-left`, `cycle-right`, `centre`, `centre-solid`, `motorway`); see the implementation note above for `centre-solid`. Dash lengths and gaps follow Swiss standards (VSS); the plan looks them up rather than guessing. The rectified photo shows the cycle-lane dashes roughly 2.5 m long with similar gaps (±20 %, scale from an assumed 7 m road width).
 
 ### Industrial palette
 

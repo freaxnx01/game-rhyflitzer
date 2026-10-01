@@ -19,7 +19,7 @@ Handover from the kickoff sessions (2026-09-28/29). Read this first when picking
 
 ## Prototype internals (`prototype/index.html`)
 
-Single-file three.js, buildless. The world is **hand-traced**, not generated:
+Single-file three.js, buildless. The world comes **from OpenStreetMap** when `data/world_hochrhein.json` exists (built by `pipeline/osm.py`, see [11](11-pipeline-osm.md)); without the file the **hand-traced** fallback below is used:
 
 - `W(px, py)`: coordinates traced from an OSM screenshot at zoom 15 (125 % display scaling), **2.54 m per pixel**, pixel (960, 500) = world origin. Covers the whole region.
 - `V(px, py)`: Sisseln village traced from an OSM screenshot at zoom 18, **0.385 m per pixel**, anchored so pixel (1000, 705) on the Hauptstrasse = world (1829, −284.5).
@@ -38,7 +38,7 @@ Single-file three.js, buildless. The world is **hand-traced**, not generated:
 
 - Roads follow the terrain but have no embankments; on slopes they can cut into or float above the ground.
 - The Kreisel's ring road is sampled per vertex and may clip into sloped ground.
-- The hand-traced river and roads don't line up exactly with measured terrain.
+- Hand-traced fallback only: the river and roads don't line up exactly with measured terrain.
 - Only two facade textures for all houses.
 
 ### Small ideas not yet in `ideas.md`
