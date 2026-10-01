@@ -2,7 +2,7 @@
   "landmarks": {
     "dsmChimney":       { "osm": "w806132044", "h": 140, "kind": "chimney" },
     "dsmWaterTower":    { "osm": "w194161080", "h": 59,  "kind": "waterTower" },
-    "plattform":        { "osm": "w1559348004", "h": 11, "kind": "reserved" },
+    "plattform":        { "lonlat": [7.96773785, 47.54290085], "h": 11, "kind": "reserved", "src": "map pin on plattform-sisslerfeld.com (Geueren, Münchwilen); the tower moved there in September 2026, OSM w1559348004 is the old site" },
     "holzbruecke":      { "osm": "w85692214", "kind": "bridgeWood" },
     "fridolinsbruecke": { "osm": "w28495792", "kind": "bridgeStone" },
     "smileKreisel":     { "game": [1270, -148], "kind": "kreisel" },

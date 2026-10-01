@@ -87,6 +87,8 @@ No ready-made models of either were found on Sketchfab.
 
 Wooden viewing tower at the southern edge of the Sisslerfeld, on municipal land in **Münchwilen**, along the planned extension of the Südumfahrung. Design inspired by the Roman watchtowers along the Hochrhein.
 
+**Location:** since September 2026 at **Geueren, Münchwilen**, beside the field road "Breitenloh" (map pin on plattform-sisslerfeld.com: 47.54290 N / 7.96774 E). It stood ≈ 500 m further north-east before; OpenStreetMap (`w1559348004`, extract of 2026-09-28) still shows that old site. The game anchor uses the new pin.
+
 | | |
 |---|---|
 | Height | over 10 m |
