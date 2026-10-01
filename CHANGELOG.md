@@ -29,6 +29,8 @@ All notable changes to this project are documented here, following
 
 - The Smile-Kreisel is drivable again and sits inside the real roundabout; its island is round and stops you at the flower bed.
 - No more trees on the railway, and level crossings lay the track over the road.
+- The Smile-Kreisel is drivable again and sits inside the real roundabout; its island is round and stops you at the flower bed.
+- No more trees on the railway, and level crossings lay the track over the road.
 - The wheels no longer sink into the asphalt — at the Smile-Kreisel, at junctions and on bumpy roads the car now drives on the road you see.
 - Grass and fields no longer creep over the road, and the car no longer sinks into the Smile-Kreisel.
 - The railway now looks like one: rails run along the track, sleepers across.
