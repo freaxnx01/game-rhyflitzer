@@ -27,6 +27,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- The Hallenbad Sissila is back where it belongs, at the Bodenackerstrasse, in its real size.
 - The Smile-Kreisel is drivable again and sits inside the real roundabout; its island is round and stops you at the flower bed.
 - No more trees on the railway, and level crossings lay the track over the road.
 - The Smile-Kreisel is drivable again and sits inside the real roundabout; its island is round and stops you at the flower bed.

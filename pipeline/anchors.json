@@ -6,7 +6,7 @@
     "holzbruecke":      { "osm": "w85692214", "kind": "bridgeWood" },
     "fridolinsbruecke": { "osm": "w28495792", "kind": "bridgeStone" },
     "smileKreisel":     { "game": [1270, -148], "kind": "kreisel" },
-    "hallenbad":        { "game": [1727.0, -353.8], "kind": "hallenbad", "heading_deg": 0 },
+    "hallenbad":        { "osm": "w170395848", "kind": "hallenbad", "heading_deg": -1.2, "size": [42.7, 47.1], "src": "Hallenbad Sissila, Bodenackerstrasse 2; size and heading from the OSM footprint (playtest 2026-10-01: the hand-traced spot was 245 m west)" },
     "muenster":         { "game": [-1331.0, -172.7], "kind": "churchBig", "heading_deg": 0 },
     "steinChurch":      { "game": [-812.8, 406.4], "kind": "church", "heading_deg": 0 },
     "stationStein":     { "game": [-1303.0, 1130.3], "kind": "station", "heading_deg": -8.0 },
@@ -36,5 +36,5 @@
     "sisselnWald": { "game_box": [1960, -520, 2500, -300] },
     "winkelacker": { "lonlat_box": [7.9905, 47.5525, 7.9965, 47.5555], "keep_all_buildings": true, "src": "playtest 2026-10-01: every house in the Winkelacker / Bodenackerstrasse quarter, not only along main roads" }
   },
-  "exclude_buildings": [ "w806132044", "w194161080", "w1559348004", "w557475162" ]
+  "exclude_buildings": [ "w806132044", "w194161080", "w1559348004", "w557475162", "w170395848" ]
 }

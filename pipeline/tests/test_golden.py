@@ -48,3 +48,13 @@ def test_counts_and_size(world, tmp_path):
     osm.write_world(p, world)
     assert p.stat().st_size < 6e6
     assert "dsmChimney" in world["anchors"]["landmarks"]
+
+
+def test_hallenbad_on_its_osm_footprint(world):
+    """Playtest 2026-10-01: the Hallenbad Sissila stood 245 m west of its real spot (hand-traced anchor). It sits on the
+    OSM footprint (w170395848, Bodenackerstrasse 2) with the footprint's size, and that footprint is not also drawn as a
+    generic building."""
+    hb = world["anchors"]["landmarks"]["hallenbad"]
+    assert abs(hb["x"] - 1968) < 5 and abs(hb["z"] + 374) < 5, hb
+    assert hb["size"] == [42.7, 47.1], hb
+    assert all(b["id"] != 170395848 for b in world["buildings"])

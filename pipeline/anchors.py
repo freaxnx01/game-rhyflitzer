@@ -54,6 +54,8 @@ def resolve(spec, data, frame) -> dict:
             continue
         out["landmarks"][name] = {"x": round(p[0], 1), "z": round(p[1], 1), "kind": e.get("kind", ""),
                                   "h": e.get("h"), "rot": math.radians(e.get("heading_deg", 0))}
+        if "size" in e:
+            out["landmarks"][name]["size"] = [float(v) for v in e["size"]]
     if "start" in spec:
         p = _pos(spec["start"], idx, frame)
         if p:
