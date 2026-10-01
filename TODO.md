@@ -54,6 +54,10 @@ Follow-ups:
 Done on `feat/publish-world` (2026-10-01): world and terrain published for GitHub Pages (the missing chimney, water tower, DSM halls, motorway and Sissle were the hand-traced fallback online), Holzbrücke rail scraping, Plattform placeholder, Winkelacker / Bodenackerstrasse quarter (all houses), N nitro, J jump, grass/fields over the road, car sinking into the Smile-Kreisel, rails drawn across the track.
 
 Still open:
+- Playtest 2026-10-02 (live version):
+  - **Sissle invisible from the bridge over it:** likely the 16 m ground mesh smooths the narrow stream bed away, so the water surface lies under the grass → carve the mesh at water polygons (vertices inside water at most level − 0.5 m).
+  - **Railway down into the Sissle valley / through water:** railway bridges are not modelled; the track ribbon follows the terrain.
+  - Issues filed: village names from afar #16, building heights from swisstopo #17, autopilot #18, region east to Laufenburg #19, HUD/controls bundle (help, compass, odometer, car toggle, Blinker, water names, Tab time-lapse) #20; minimap magnifier added to #11.
 - Issues: helicopter #10, minimap zoom + double-click #11, road names in the HUD / house numbers / station labels #12, forests incl. Sisslerwald #13, horn + engine sound #14.
 - Vehicle windows transparent.
 - **Painted street names** (`streetNames()`): 45 m decal, upside down when driving west, sticks out in bends → drop once #12 shows the name in the HUD (asked the user).
