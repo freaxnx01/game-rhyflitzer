@@ -27,6 +27,7 @@ import geo
 import mmh
 import osm_read
 import world_buildings
+import world_props
 import world_roads
 import world_water
 
@@ -97,10 +98,12 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path)
     buildings, stats = world_buildings.build(data.areas, roads, clip, house_dist, big_area,
                                              anchors_mod.exclude_ids(spec), sites,
                                              anchors_mod.keep_all_boxes(spec, resolved))
+    props, prop_stats = world_props.build(data.prop_nodes, data.areas, roads, clip)
     rail = [[[round(x, 1), round(z, 1)] for x, z in w.line.intersection(clip).coords]
             for w in data.ways if w.tags.get("railway") == "rail" and w.line.intersects(clip)
             and w.line.intersection(clip).geom_type == "LineString"]
-    log(f"roads {len(roads)}, junctions {len(junctions)}, water {len(polys)}, buildings {len(buildings)} {stats}, rail {len(rail)}")
+    log(f"roads {len(roads)}, junctions {len(junctions)}, water {len(polys)}, buildings {len(buildings)} {stats}, "
+        f"rail {len(rail)}, props {len(props)} {prop_stats}")
     return {
         "format": "MMW1",
         "origin": {"lat": origin[0], "lon": origin[1], "E": frame.e0, "N": frame.n0, "crs": "EPSG:2056"},
@@ -116,6 +119,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path)
         "waterSdf": world_water.sdf(polys, clip.bounds),
         "buildings": buildings,
         "rail": rail,
+        "props": props,
         "anchors": resolved,
     }
 

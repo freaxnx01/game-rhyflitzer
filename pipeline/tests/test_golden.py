@@ -58,3 +58,21 @@ def test_hallenbad_on_its_osm_footprint(world):
     assert abs(hb["x"] - 1968) < 5 and abs(hb["z"] + 374) < 5, hb
     assert hb["size"] == [42.7, 47.1], hb
     assert all(b["id"] != 170395848 for b in world["buildings"])
+
+
+def test_props(world):
+    from collections import Counter
+    c = Counter(p["kind"] for p in world["props"])
+    assert 1500 <= c["lamp"] <= 2100
+    assert 150 <= c["hydrant"] <= 450
+    assert 150 <= c["bench"] <= 320
+    assert 100 <= c["bin"] <= 220
+    lines = [(shapely.LineString(r["pts"]), r["w"]) for r in world["roads"] if len(r["pts"]) > 1]
+    tree = shapely.STRtree([g for g, _ in lines])
+    for p in world["props"]:
+        if p["kind"] not in ("lamp", "hydrant"):
+            continue
+        pt = shapely.Point(p["x"], p["z"])
+        for i in tree.query(pt, predicate="dwithin", distance=10):
+            g, w = lines[i]
+            assert g.distance(pt) >= w / 2 + 0.5, p
