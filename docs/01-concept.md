@@ -112,6 +112,14 @@ Measured from a phone scan (RealityScan, 2026-10-01; heights above the gravel pa
 | Slatted core | ≈ 3–3.5 m diameter | stair core between the posts |
 | Platform | ≈ 7.5 m square (±1 m) | cantilevers well beyond the posts |
 
+Construction details from the user's videos of 2026-09-29 (climb and platform; private reference, not in the repo because family members are in the shots) and the construction collage on plattform-sisslerfeld.com:
+
+- **Stair core:** a ring of vertical battens (light spruce, gaps about one batten wide) enclosing a **spiral staircase**: thick solid-wood treads, wedge-shaped, fixed to the batten ring; no central column visible. From inside, the battens frame views of the fields, the DSM chimney and the substation next to the site.
+- **Platform:** deck of large wood panels; a **closed solid-wood parapet** on the outside (≈ 1.3 m, see the scan); around the stair opening a **curved handrail on vertical balusters**.
+- **Corner posts** (glulam) continue from the ground up to the roof, with diagonal knee braces under the eaves.
+- **Roof:** pyramid with an **exposed timber structure** inside: four hip rafters meeting at a central hub, purlins and common rafters, a boarded ceiling (natural spruce), deep eaves with a dark metal edge trim; grey-green standing-seam sheet metal outside (2026; the 2025 version had a wooden roof).
+- **Material:** untreated light spruce/fir throughout; the look is bright, almost yellow in low sun.
+
 For the game:
 - Wood has texture and surface, so phone photogrammetry works for the lower half: core, posts, X-bracing and the gravel pad came out usable. The upper half did not: shot from below against a bright sky, RealityScan turned sky into floating grey surfaces, thin parapet and roof edges dissolved, and the top of the pyramid roof is simply never seen from the ground. 524 k triangles and an 8k texture are far beyond a game asset anyway. Use the scan as **reference only** (dimensions above, wood and gravel texture), model the tower by hand (≈ 2–5 k triangles).
 - A better scan: overcast day, more oblique shots from close to the base looking up, a ring of shots from the platform itself for the parapet; the roof only with a drone (or from the plans).
