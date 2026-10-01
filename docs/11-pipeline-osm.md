@@ -16,6 +16,7 @@ Replaces the prototype's hand-traced roads, river and houses with real ones from
 - `world_roads.py`: road pieces, widths, junctions, markings.
 - `world_water.py`: water polygons, water levels, the water SDF.
 - `world_buildings.py`: building selection, heights, roofs, palettes.
+- `world_props.py`: street furniture (lamps, hydrants, benches, bins, bike racks, recycling containers).
 - `anchors.py` + `anchors.json`: landmarks, start, checkpoints, finish, labels, areas, resolved from OSM ids.
 
 ## Run it
@@ -58,11 +59,12 @@ Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two 
   "waterSdf":  { x0, z0, step, w, h, data: "<base64 int8>" },
   "buildings": [{ id, h, roof, palette, rect: [cx, cz, w, d, angle], ring: [[x, z], ...] }],
   "rail":      [[[x, z], ...]],
+  "props":     [{ kind, x, z, rot }],
   "anchors":   { landmarks, cps, labels, areas, start, finish }
 }
 ```
 
-Coordinates are game metres (x east, z south), rounded to 0.1 m. `mark` is one of `none`, `centre`, `centre-solid`, `cycle`, `cycle-left`, `cycle-right`, `motorway`. `waterSdf` holds distances to the nearest water on an 8 m grid, quantised to pixel centres. `anchors.landmarks` are `{x, z, kind, h, rot}`; `start` is `[x, z, heading]`.
+Coordinates are game metres (x east, z south), rounded to 0.1 m; `props[].rot` is rounded to 0.01 rad. `mark` is one of `none`, `centre`, `centre-solid`, `cycle`, `cycle-left`, `cycle-right`, `motorway`. `waterSdf` holds distances to the nearest water on an 8 m grid, quantised to pixel centres. `anchors.landmarks` are `{x, z, kind, h, rot}`; `start` is `[x, z, heading]`.
 
 ## Rules
 
@@ -84,6 +86,26 @@ Coordinates are game metres (x east, z south), rounded to 0.1 m. `mark` is one o
 
 The cycle-lane tests run before the centre test, so a main road with cycle lanes gets `cycle*`, not `centre`. Dash length and gap are 3 m / 3 m (innerorts), centre line 15 cm, from cantonal guidelines (Luzern vif 653.201, Zürich TBA) that quote VSS SN 640 850. The norm itself was not accessed. The 1.3 m inset and the solid-line width are not from the norm. The pipeline has no inside/outside-town flag, so outside villages the dashes are denser than the 3/6 m rule.
 
+**Props (street furniture).** Point-like OSM objects next to the roads, classified by `world_props.classify` into exactly seven kinds. Nodes carrying the tag, plus areas for `amenity=bicycle_parking` and `amenity=recycling` (taken at their centroid):
+
+| `kind` | OSM selection | In bbox | ≤ 15 m from a road |
+|---|---|---|---|
+| `lamp` | `highway=street_lamp` | 2,252 | 1,928 |
+| `hydrant` | `emergency=fire_hydrant`, **except** `fire_hydrant:type=underground` or `pipe` | 838 (all types) | 769 (all types; about 40 % survive the exclusion) |
+| `bench` | `amenity=bench` | 624 | 270 |
+| `bin` | `amenity=waste_basket` | 327 | 176 |
+| `bike_rack` | `amenity=bicycle_parking` | 41 | 21 |
+| `glass_container` | `amenity=recycling` with `recycling:glass_bottles=yes` or `recycling:glass=yes` | 13 | 11 |
+| `clothes_container` | the same with `recycling:clothes=yes` (glass wins when both are tagged) | 4 | 3 |
+
+Counts measured on the 2026-10-01 extract while the design was written; the build logs the real ones per run. Underground hydrants (725 of 1,226) are a lid in the ground, not something to drive into, so they are not props — they also explain most of the hydrants that OSM puts on the road surface.
+
+**Reach.** Kept only when the distance to the nearest kept, non-bridge road **edge** (centre line minus `w/2`) is at most **15 m**, so props stay where a car can reach them.
+
+**Edge rule.** A prop inside a road band (closer to the centre line than `w/2 + 0.6` m) is moved perpendicular to exactly `w/2 + 0.6` m, on the side it was already on; a prop sitting exactly on the centre line goes to the right-hand side of the road's direction. It is then re-checked against *every* nearby band: still inside one (junctions, narrow gaps) means it is dropped rather than left in a lane. A prop inside the band of a **bridge** is dropped outright, so no invisible post ends up on a deck. `bench` and `bike_rack` are turned parallel to the nearest road (`rot = atan2(dz, dx)`), every other kind keeps `rot = 0`.
+
+**Collision.** The prototype draws one `InstancedMesh` per kind. `lamp` (0.3 × 0.3 m) and `hydrant` (0.4 × 0.4 m) get a small OBB and stop the car; benches, bins, bike racks and both containers are decoration until the fun-physics follow-up gives them hit behaviour.
+
 **Water.** Rivers, lakes and riverbanks as polygons, cut into chunks along the river. Each chunk gets a level: the median of the measured terrain inside it, ignoring DEM nodata (exactly 0.0). Chunks with no valid sample inherit their polygon's median, narrow polygons use the terrain at a representative point, and all-nodata means 0.0. The Rhine sits about 5.5 m above the base near Sisseln (the Säckingen power plant reservoir), about -1.5 m downstream, with a step of about 7 m at the Säckingen weir. The base height 284 m is **not** the Sisseln water level.
 
 **Anchors.** `anchors.json` resolves OSM ids to positions: Smile-Kreisel, stations, churches, the two bridges, the DSM chimney (about 140 m) and water tower (about 59 m), Plattform Sisslerfeld (position only, no model), start, checkpoints, finish, minimap labels and areas such as the forest and DSM-Firmenich. The checkpoints snap to the nearest road in the prototype.
@@ -96,7 +118,8 @@ Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it i
 
 - The German side is flat at the base height until LGL DGM1 is added to the terrain, so water can sit above flat German banks. Water levels ignore the DEM nodata fill for the same reason.
 - A missing world file is one accepted 404 line in the browser console. Since 2026-10-01 `data/world_hochrhein.json` and `data/terrain_hochrhein.mmh` are committed and served on GitHub Pages (licences in `data/README.md`); the world file is offered under the ODbL. Rebuild and commit both after a pipeline change.
-- Ortstafeln and street furniture are not from OSM yet. Roofs are flat or gable until step 3.
+- Ortstafeln are not from OSM yet. Roofs are flat or gable until step 3.
+- Props come from OSM positions, which are often a few metres off; the edge rule keeps them out of the lanes, but some end up in a driveway or on a sidewalk. Street furniture that OSM does not map (paper-collection bundles, straw bales) is not there.
 - Markings use the innerorts rhythm everywhere, are not interrupted at junction mouths, and bridge decks carry none.
 - A world file with the right format tag but missing fields is not caught and breaks the page; delete or rebuild the file.
 
