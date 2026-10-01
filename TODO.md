@@ -44,6 +44,11 @@ Follow-ups:
 - Window width ~1000 px: the minimap covers the right half of the hub bar (`#game-nav`).
 - Camera: 62° vertical FOV gives over 100° horizontal on wide windows (fisheye look). Consider clamping the horizontal FOV.
 
+## OSM world — open from the final review (2026-10-01)
+
+- **Fridolinsbrücke only two-thirds a stone bridge in OSM mode.** OSM splits it into `w28495792` (132.7 m) and `w319324523` (68.4 m, collinear continuation over the Rhine); only the first is detected via the anchor, so the last third is a flat generic strip without parapets, piers or rail OBBs, and the deck may sag to water level mid-river (one piece ends at (-1337.2, 502.4) over the Rhine). Fix: before building hero spans, grow each hero group with bridge pieces that share an endpoint and carry the same name; fill end heights from the merged span's ends.
+- **Smoke-test console filter too broad** (`prototype/tests/test_smoke.py`, commit 48ef3bf): it ignores every console error from other origins, including three.js on cdn.jsdelivr.net (geometry/shader errors would pass silently). Narrow it to `api.github.com` (the rate-limited Star button) or to "Failed to load resource" messages from other origins.
+
 ## Tooling
 
 - Update the `freax-agent-skills` marketplace: the local `sync-ai-instructions` is 0.2.0 and still fetches the removed `ui-*` skills (404). Upstream `freaxnx01/agent-skills` fixed that in 0.4.0 (`2b8f6eb`, 2026-07-26). Run `claude plugin marketplace update freax-agent-skills`, then update the plugins via `/plugin`; other plugins from that marketplace are likely stale too.
