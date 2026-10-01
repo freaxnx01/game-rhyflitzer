@@ -51,35 +51,15 @@ Follow-ups:
 
 ## Playtest feedback (2026-10-01, from the user)
 
-Played on GitHub Pages (github.freaxnx01.ch/game-rhyflitzer). **Root cause for the first group:** `data/` is gitignored, so Pages serves no `world_hochrhein.json` / `terrain_hochrhein.mmh` (both 404) and the game falls back to the hand-traced layout. Publishing them needs attribution (ODbL for OSM, swisstopo OGD for terrain) and a decision.
+Done on `feat/publish-world` (2026-10-01): world and terrain published for GitHub Pages (the missing chimney, water tower, DSM halls, motorway and Sissle were the hand-traced fallback online), Holzbrücke rail scraping, Plattform placeholder, Winkelacker / Bodenackerstrasse quarter (all houses), N nitro, J jump, grass/fields over the road, car sinking into the Smile-Kreisel, rails drawn across the track.
 
-Probably fixed by serving the world file on Pages (verify after):
-- No DSM chimney, no water tower, many DSM Firmenich buildings missing.
-- Motorway not drivable.
-- Plattform Sisslerfeld: no placeholder (also true in OSM mode: anchor kind `reserved` draws nothing → needs a placeholder model).
-
-Data/pipeline gaps (true in OSM mode too):
-- **Sissle stream missing:** OSM has it only as a `waterway=river` centre line (w166512663, rel 4801588), `world_water` turns only areas into water → render the line with a width (see Ideas A/B).
-- **Sisslerwald:** forests are not exported yet (landuse=forest / natural=wood).
-- **Quartier Winkelacker / Bodenackerstrasse:** show all buildings there (currently only buildings near main roads are kept, `--house-dist`) → per-area "keep all" list in `anchors.json`.
-- **Road name in the HUD, house numbers on buildings:** world file has no road names or `addr:*` yet.
-- **Label railway stations** (Stein-Säckingen, Sisseln).
-
-Physics / bugs:
-- **Holzbrücke:** car snags on the side walls.
-
-Screenshots (2026-10-01, Pages = hand-traced layout):
-- **Painted street names** (`streetNames()`): "Hauptstrasse" as a 45 m decal, read upside down when driving west, sticks out where the road bends. Real Swiss roads carry no painted names → probably drop them once #12 shows the name in the HUD.
-- **Railway is drivable:** the rail ribbon (also `L.rail` in OSM mode) is plain ground; no ballast bed, no fence or collision.
-- **Smiley-Kreisel:** smileys render dark grey; what is wrong there still to be clarified with the user.
-
-Gameplay / UI features:
-- Minimap: zoom; double-click places the car there.
-- **N** = nitro (unlimited).
-- **J** = jump to a village/place (incl. railway stations).
-- Helicopter mode for overview.
-- Horn: louder, longer. Engine sound sounds unnatural.
+Still open:
+- Issues: helicopter #10, minimap zoom + double-click #11, road names in the HUD / house numbers / station labels #12, forests incl. Sisslerwald #13, horn + engine sound #14.
 - Vehicle windows transparent.
+- **Painted street names** (`streetNames()`): 45 m decal, upside down when driving west, sticks out in bends → drop once #12 shows the name in the HUD (asked the user).
+- **Railway:** drivable on purpose (user: fine); the ribbon is 5 m wide, real gauge 1.435 m — narrower bed plus ballast would look better.
+- **Smile-Kreisel:** apron/island are flat discs at the centre height, so on a slope they float on one side (visible as a dark rim); the smileys render grey steel — check what the user meant.
+- Sissle is buffered at the generic river width (20 m); the real stream is far narrower → `width` override in the pipeline.
 
 ## Ideas (2026-10-01, from the user)
 
