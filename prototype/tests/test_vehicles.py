@@ -108,3 +108,21 @@ def test_table_mass_softens_the_crash(server):
         b.close()
     assert light == pytest.approx(2.074, abs=0.005), light      # recorded on main @ 6d29cb8
     assert heavy > light * 1.15, (light, heavy)
+
+
+def test_table_cockpit_eye_is_used(server):
+    """Cockpit view, car at START heading pi (forward = -x, right = -z): the camera sits at the scaled eye.
+    compact eye (-0.25, 1.22, -0.38) * 1.3; a moved eye (0.5, 1.5, -0.38) * 1.3. The swap mid-race keeps the car hidden."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn", timeout=180000)
+        page.keyboard.press("KeyC"); page.keyboard.press("KeyC"); page.wait_for_timeout(400)
+        before = page.evaluate("() => window.__mm.cam()")
+        use_vehicle(page, "c.camera.cockpit.eye = [0.5, 1.5, -0.38]"); page.wait_for_timeout(400)
+        after = page.evaluate("() => window.__mm.cam()")
+        visible = page.evaluate("() => window.__mm.hud().carVisible")
+        b.close()
+    assert before["view"] == 2 and after["view"] == 2
+    assert before["d"] == pytest.approx([0.325, 1.586, 0.494], abs=1e-3), before
+    assert after["d"] == pytest.approx([-0.65, 1.95, 0.494], abs=1e-3), after
+    assert visible is False
