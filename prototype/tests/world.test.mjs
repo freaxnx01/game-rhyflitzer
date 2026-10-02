@@ -122,3 +122,30 @@ test('layoutFromWorld passes streams and defaults to an empty list', () => {
   const st = [{ name: 'Sissle', w: 12, pts: [[0, 0], [10, 0]] }];
   assert.deepEqual(layoutFromWorld({ ...base, streams: st }).streams, st);
 });
+
+import { roadNameAt, addrLabels, pickLabels } from '../world.js';
+test('roadNameAt: on a named road, off it, unnamed, nearest of two', () => {
+  const a = { n: 'Hauptstrasse', w: 8, pts: [[0, 0], [100, 0]] }, b = { n: 'Bachweg', w: 4, pts: [[50, -50], [50, 50]] }, u = { n: '', w: 20, pts: [[0, 10], [100, 10]] };
+  const c = [{ r: a, i: 0 }, { r: b, i: 0 }, { r: u, i: 0 }];
+  assert.equal(roadNameAt(c, 20, 4.9), 'Hauptstrasse');     // w/2 + 1 = 5
+  assert.equal(roadNameAt(c, 20, 5.1), '');                 // past the margin; only the unnamed road is under the car
+  assert.equal(roadNameAt(c, 51, 2), 'Bachweg', 'roadNameAt picks the nearer of two named roads');
+  assert.equal(roadNameAt([], 0, 0), '');
+});
+
+test('addrLabels: only numbered buildings, roof-top heights, landmarks', () => {
+  const B = [{ addr: '6a–6d', h: 20, rh: 1.5, roof: 'flat', rect: [10, 20, 60, 22, 0] }, { addr: '5', h: 6, roof: 'gable', rect: [1, 2, 12, 8, 0] },
+    { addr: '7', h: 2, roof: 'flat', rect: [3, 4, 10, 10, 0] }, { h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0] }];
+  assert.deepEqual(addrLabels(B, { hallenbad: { x: 5, z: 6, addr: '2' }, chimney: { x: 0, z: 0 } }), [
+    { t: '6a–6d', x: 10, z: 20, top: 21.5 }, { t: '5', x: 1, z: 2, top: 6 + 0.4 * 8 }, { t: '7', x: 3, z: 4, top: 3 }, { t: '2', x: 5, z: 6, top: 9 }]);
+  assert.deepEqual(addrLabels([]), []);
+});
+
+test('pickLabels: within 60 m, nearest first, at most 40', () => {
+  const items = Array.from({ length: 100 }, (_, k) => ({ t: String(k), x: k, z: 0 }));
+  const got = pickLabels(items, 0, 0);
+  assert.equal(got.length, 40);
+  assert.deepEqual(got.slice(0, 3).map(l => [l.t, l.d]), [['0', 0], ['1', 1], ['2', 2]]);
+  assert.equal(pickLabels(items, 0, 0, 60, 100).length, 61);  // 0..60 inclusive
+  assert.deepEqual(pickLabels(items, 500, 500), []);
+});

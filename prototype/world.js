@@ -99,3 +99,26 @@ export function markLines(r) {
   if (r.mark === 'cycle-left' || r.mark === 'cycle-right') out.push({ pts: r.pts, spec: MARK.centre });
   return out;
 }
+
+// #12: name of the road under the car -- the nearest named segment whose centre line is within half its width (+ margin)
+export function roadNameAt(cands, x, z, margin = 1) {
+  let best = '', bd = Infinity;
+  for (const { r, i } of cands) {
+    if (!r.n) continue;
+    const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    const u = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0, d = Math.hypot(x - ax - dx * u, z - az - dz * u);
+    if (d <= r.w / 2 + margin && d < bd) { bd = d; best = r.n; }
+  }
+  return best;
+}
+// #12: house-number labels (OSM addr) at the footprint centre; top = roof top above the base, as osmBuilding draws it (roughly)
+export function addrLabels(buildings, landmarks = {}) {
+  const top = b => typeof b.rh === 'number' ? b.h + b.rh : b.roof === 'gable' ? b.h + 0.4 * Math.min(b.rect[2], b.rect[3]) : Math.max(b.h, 3);
+  return [...buildings.filter(b => b.addr).map(b => ({ t: b.addr, x: b.rect[0], z: b.rect[1], top: top(b) })),
+          ...Object.values(landmarks).filter(l => l.addr).map(l => ({ t: l.addr, x: l.x, z: l.z, top: 9 }))];
+}
+export function pickLabels(items, x, z, maxDist = 60, maxN = 40) {
+  const out = [];
+  for (const it of items) { const d = Math.hypot(it.x - x, it.z - z); if (d <= maxDist) out.push({ ...it, d }); }
+  return out.sort((a, b) => a.d - b.d).slice(0, maxN);
+}
