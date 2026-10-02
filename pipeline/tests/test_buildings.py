@@ -79,10 +79,23 @@ def test_address_node_inside_the_outline():
     assert bl[0]["addr"] == "7" and stats["addr_node"] == 1
 
 
-def test_node_on_the_outline_or_outside_gives_no_addr():
-    nodes = [AddrNode(9, "7", 0.0, 40.0), AddrNode(10, "8", 6.0, 20.0)]     # 15 m away; exactly on the east wall
+def test_node_on_the_outline_counts():
+    nodes = [AddrNode(9, "8", 6.0, 20.0), AddrNode(10, "8a", 0.0, 24.5)]    # exactly on the east wall; on a corner-free north wall
+    bl, stats = B.build([house(1, 0, 20)], MAIN, CLIP, addr_nodes=nodes)
+    assert bl[0]["addr"] == "8–8a" and stats["addr_node"] == 1
+
+
+def test_node_outside_gives_no_addr():
+    nodes = [AddrNode(9, "7", 0.0, 40.0), AddrNode(10, "8", 6.5, 20.0)]     # 15 m away; 0.5 m off the east wall
     bl, _ = B.build([house(1, 0, 20)], MAIN, CLIP, addr_nodes=nodes)
     assert "addr" not in bl[0]
+
+
+def test_node_on_a_shared_wall_goes_to_the_nearest_centroid():
+    a, b = house(1, 0, 20), house(2, 16, 20, w=20)                        # shared wall at x = 6; centroids 6 m and 10 m away
+    bl, stats = B.build([a, b], MAIN, CLIP, addr_nodes=[AddrNode(9, "4", 6.0, 20.0)])
+    by_id = {x["id"]: x for x in bl}
+    assert by_id[1]["addr"] == "4" and "addr" not in by_id[2] and stats["addr_node"] == 1
 
 
 def test_own_number_wins_over_nodes():
