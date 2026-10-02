@@ -46,3 +46,23 @@ def test_golden_trace_of_the_compact_car(server):
         b.close()
     for k, want in GOLDEN.items():
         assert got[k] == pytest.approx(want, abs=1e-6), (k, got[k], want)
+
+
+def test_set_vehicle_validates_and_round_trips(server):
+    """Unknown model and non-circle collision throw (OBB is #6) and leave the active vehicle alone; a plain copy of
+    compact drives exactly like the golden trace."""
+    bad = """(patch) => { const c = window.__mm.vehicles().compact; c.drive.top = 30; patch(c);
+      try { window.__mm.setVehicle(c); return 'no error'; } catch (e) { return e.message; } }"""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        obb = page.evaluate(f"() => ({bad})(c => {{ c.collision = {{ shape: 'obb', hw: 1.2, hd: 6 }}; }})")
+        model = page.evaluate(f"() => ({bad})(c => {{ c.model = 'bus'; }})")
+        top = page.evaluate("() => window.__mm.vehicle().drive.top")
+        use_vehicle(page, "")
+        got = page.evaluate(GOLDEN_JS)
+        b.close()
+    assert "#6" in obb and "obb" in obb, obb
+    assert "bus" in model, model
+    assert top == 60
+    for k, want in GOLDEN.items():
+        assert got[k] == pytest.approx(want, abs=1e-6), (k, got[k], want)
