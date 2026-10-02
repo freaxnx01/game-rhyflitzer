@@ -32,7 +32,9 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #watername{font-size:15px;font-weight:700;letter-spacing:2px;color:#9fd8ff;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #roadname{font-size:15px;font-weight:700;letter-spacing:2px;color:#f5efe0;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
-#jump ol{margin:8px 0;padding-left:26px}#jump li{cursor:pointer;padding:3px 0}#jump li:hover{color:#ffc61a}#jump small{color:var(--steel-l)}
+#jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box}#jump input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}
+#jump .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}#jump .chips button{font:inherit;font-size:13px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 8px;cursor:pointer}#jump .chips button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}
+#jump ul{list-style:none;margin:6px 0;padding:0;max-height:50vh;overflow-y:auto}#jump li{display:flex;justify-content:space-between;gap:12px;cursor:pointer;padding:3px 4px}#jump li span{color:var(--steel-l);font-weight:600}#jump li:hover,#jump li.sel{color:#ffc61a}#jump small{color:var(--steel-l)}
 #bl{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
 #speedo{width:200px;height:200px}
 #gear{display:flex;flex-direction:column;gap:6px}
@@ -109,7 +111,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <kbd>H · Enter</kbd><span>horn</span>
       <kbd>C</kbd><span>camera: chase · near · cockpit · bumper</span>
       <kbd>V</kbd><span>show / hide the car</span>
-      <kbd>J</kbd><span>jump to a place</span>
+      <kbd>J</kbd><span>jump to a landmark</span>
       <kbd>+ · -</kbd><span>zoom the map 1× · 2× · 4× · 8× (or the mouse wheel over it) · double-click or double-tap the map: put the car on the road there</span>
       <kbd>K</kbd><span>reset the trip odometer</span>
       <kbd>R</kbd><span>back on the road</span>
@@ -117,7 +119,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <kbd>M</kbd><span>mute</span>
       <kbd>F1 · ?</kbd><span>this help</span>
     </div></div>
-  <div id="jump" hidden><div>Jump to</div><ol></ol><small>1–9, 0 or click · J / Esc closes</small></div>
+  <div id="jump" hidden><div>Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small>type to search · ↑↓ Enter · J / Esc closes</small></div>
   <div id="bl">
     <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer">
       <defs><linearGradient id="dial" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a515e"/><stop offset="1" stop-color="#14171d"/></linearGradient></defs>
@@ -168,7 +170,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <kbd>R</kbd><span>back on the road</span>
       <kbd>C</kbd><span>camera: chase · near · cockpit · bumper</span>
       <kbd>H · M</kbd><span>horn (also Enter) · mute</span>
-      <kbd>N · J</kbd><span>nitro (hold) · jump to a place</span>
+      <kbd>N · J</kbd><span>nitro (hold) · jump to a landmark</span>
       <kbd>F1</kbd><span>all keys</span>
     </div>
     <div class="row">
@@ -190,6 +192,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels } from './world.js';
+import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf } from './landmarks.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
 // ---------- helpers ----------
@@ -813,7 +816,7 @@ addEventListener('resize', resize);
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser
 const HUD = { carHidden: false, blinker: null, water: '', waterT: 0, road: '' };
-const keys = {}; addEventListener('keydown', e => { if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden) cycleCamera(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyM') toast(SFX.toggle() ? 'Muted' : 'Sound on'); if (e.code === 'F1' || (e.key === '?')) { e.preventDefault(); $('help').hidden = !$('help').hidden; } if (e.code === 'Escape') $('help').hidden = true; if (e.code === 'Tab' && (R.state === 'armed' || R.state === 'racing')) R.fast = true; if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) $('jump').hidden = !$('jump').hidden; else if (e.code === 'Escape') $('jump').hidden = true; else if (!$('jump').hidden && /^(Digit|Numpad)[0-9]$/.test(e.code) && !['+', '=', '-'].includes(e.key)) { const n = +e.code.slice(-1), p = PLACES[n - 1]; if (!n) randomSpot(); else if (p) jumpTo(p); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (!$('jump').hidden) { jumpKey(e); return; } if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden) cycleCamera(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyM') toast(SFX.toggle() ? 'Muted' : 'Sound on'); if (e.code === 'F1' || (e.key === '?')) { e.preventDefault(); $('help').hidden = !$('help').hidden; } if (e.code === 'Escape') $('help').hidden = true; if (e.code === 'Tab' && (R.state === 'armed' || R.state === 'racing')) R.fast = true; if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
 for (const [id, k] of [['tL', 'l'], ['tR', 'r'], ['tG', 'g'], ['tB', 'b'], ['tH', 'h']]) { const el = document.getElementById(id); const on = e => { e.preventDefault(); touch[k] = 1; }; const off = e => { e.preventDefault(); touch[k] = 0; }; el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off); }
 function toggleStyle() { applyStyle(styleKey === 'original' ? 'smooth' : 'original'); }
@@ -842,10 +845,11 @@ const SFX = (() => {
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
 // Midtown Madness homage when the car lies in the water. Language from the browser until the game has its own setting (#9).
 const FISH_TEXT = (navigator.language || '').toLowerCase().startsWith('de') ? 'Grüss mir die Fische!' : 'Sleep with the fishes!';
-// J: places to jump to (villages from the map labels, the railway stations; hand path: the race points), max 9 for the digit keys
-const PLACES = (L ? [...L.anchors.labels.filter(l => l.t !== 'RHEIN').map(l => ({ n: l.t.toLowerCase().replace(/(^|[\s-])(\S)/g, (m, a, b) => a + b.toUpperCase()), x: l.x, z: l.z })), ...CPS.filter(c => c.n.startsWith('Bahnhof'))] : [...CPS, FINISH]).slice(0, 9);
+// J: the 3D landmarks (landmarks.js), searched by name and filtered by Gemeinde; hand layout: the race points, no Gemeinde
+const JUMP_ENTRIES = L ? landmarkEntries(LANDMARK_INFO, L.anchors.landmarks, L.buildings) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
+const JUMP = { q: '', g: null, sel: 0, rows: [] };
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
-function placeOnRoad(x, z, th, name) { P.safe = [x, z, th]; resetCar(); if (R.state === 'racing' || R.state === 'armed') R.jumped = true; $('jump').hidden = true; toast(name); }
+function placeOnRoad(x, z, th, name) { P.safe = [x, z, th]; resetCar(); if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function jumpTo(p) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((p.x - ax) * dx + (p.z - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(p.x - x, p.z - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } if (!best) return; placeOnRoad(best.x, best.z, best.th, p.n); }
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), 'Random spot'); }
 function resetCar() { P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
@@ -926,8 +930,27 @@ function updatePips() { $('cpn').textContent = R.done; [...$('pips').children].f
 function stepRace(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if (R.state === 'racing' || R.state === 'armed') { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); toast(`Checkpoint ${R.done}/5<br><span style="font-size:17px">${best.n}</span>`); if (R.done === 5) finishG.visible = true; } else if (best.i < 0 && bd < 7 && R.state === 'racing') finish(); const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toast('Holzbrücke!<br><span style="font-size:17px">Pedestrians only. Allegedly.</span>'); } } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(performance.now() / 300) * 0.08; }
 function finish() { R.state = 'finished'; SFX.finish(); const t = R.t; let rec = false; if (!R.jumped && !R.fast && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem('mm.best2', String(t)); } catch (e) { } } $('result').hidden = false; $('result').innerHTML = `<small>${rec ? 'New record!' : 'Finished'}</small>${fmt(t)}<small>${R.jumped ? 'with a jump, not counted · ' : ''}${R.fast ? 'with time-lapse, not counted · ' : ''}${R.shortcut ? 'via the Holzbrücke · ' : ''}best ${fmt(R.best)}</small>`; $('ovtext').textContent = 'Münsterplatz reached. Retry for a better line, or take the other bridge next time.'; $('startbtn').textContent = 'Retry'; $('overlay').hidden = false; }
 $('startbtn').onclick = () => { SFX.start(); startRace(); };
-$('jump').querySelector('ol').innerHTML = PLACES.map(p => `<li>${p.n}</li>`).join('') + '<li value="0">Random spot</li>';
-$('jump').querySelectorAll('li').forEach((li, i) => li.onclick = () => PLACES[i] ? jumpTo(PLACES[i]) : randomSpot());
+function jumpRows() { return [...filterLandmarks(JUMP_ENTRIES, JUMP.q, JUMP.g), { n: 'Random spot', g: null, random: true }]; }
+function renderJump() {
+  JUMP.rows = jumpRows(); JUMP.sel = Math.min(JUMP.sel, JUMP.rows.length - 1);
+  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${i === JUMP.sel ? ' class="sel"' : ''}>${r.n}<span>${r.g || ''}</span></li>`).join('');
+  $('jumpchips').innerHTML = L ? ['All', ...gemeindenOf(JUMP_ENTRIES)].map(g => `<button type="button" data-g="${g}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g}</button>`).join('') : '';
+  $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
+}
+function openJump() { for (const k in keys) keys[k] = false; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
+function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
+function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (r.random) randomSpot(); else jumpTo(r); }
+function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
+function jumpKey(e) {
+  if (e.code === 'ArrowDown' || e.code === 'ArrowUp') { e.preventDefault(); moveJumpSel(e.code === 'ArrowDown' ? 1 : -1); return; }
+  if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); pickJump(JUMP.sel); return; }
+  if (e.code === 'Escape' || (e.code === 'KeyJ' && !$('jumpq').value)) { e.preventDefault(); closeJump(); }
+}
+$('jumpq').addEventListener('input', () => { JUMP.q = $('jumpq').value; JUMP.sel = 0; renderJump(); });
+$('jumplist').addEventListener('click', e => { const li = e.target.closest('li'); if (li) pickJump(+li.dataset.i); });
+$('jumpchips').addEventListener('mousedown', e => e.preventDefault());   // keeps the focus (and the typing) in the search field
+$('jumpchips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; JUMP.g = b.dataset.g === 'All' ? null : b.dataset.g; JUMP.sel = 0; renderJump(); });
+window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g }));
 if (REAL) { $('mmhstatus').textContent = `Terrain: measured${REAL_SRC === 'uploaded' ? ' (your file)' : ''} · ${REAL.hdr.w}×${REAL.hdr.h} at ${REAL.hdr.step} m · ${REAL.hdr.sources.join(' · ')}`; $('mmhstatus').classList.add('real'); $('mmhclear').hidden = REAL_SRC !== 'uploaded'; }
 if (L) $('blurb').textContent = 'Roads, the Rhine, houses and landmarks from OpenStreetMap, terrain from swisstopo. Timer starts when you move.';
 { const s = document.createElement('span'); s.id = 'worldstatus'; s.textContent = L ? `World: OpenStreetMap · ${L.roads.length} roads · ${L.buildings.length} buildings · ${L.sources.join(' · ')}` : 'World: traced by hand (no data/world_hochrhein.json)'; if (L) s.classList.add('real'); $('mmhstatus').after(s); }
