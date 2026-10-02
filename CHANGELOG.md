@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- The game speaks German and English. Switch with **EN**/**DE** at the bottom of the screen — the start screen, the HUD, the messages, the **F1** help and the **J** menu change at once, and the choice is remembered (in the other games on this site too). Without a choice, the browser language decides. Landmark, place and street names stay as they are.
 - Car parks now look like car parks: grey asphalt with white parking bays, taken from OpenStreetMap for every open-air and roadside car park in the region — and a blue "P" sign with the name where the car park has one, like the Hallenbad-Parkplatz in Sisseln.
 - The HUD now names the street you are driving on, house numbers from OpenStreetMap float above the houses around you, and both railway stations carry their blue "Bahnhof Sisseln" and "Bahnhof Stein-Säckingen" boards.
 - The minimap zooms: turn the mouse wheel over it or press **+**/**-** to step through 1×, 2×, 4× and 8× — zoomed in, it follows your car. Double-click (or double-tap) the minimap to put the car on the nearest road there; during a race that counts as a jump, like **J**.
@@ -18,7 +19,7 @@ All notable changes to this project are documented here, following
 - Press **J** to jump straight to a village or railway station (1–9 or click). A jump during a race still lets you finish, but the time doesn't count as a record.
 - The online version now drives the real Hochrhein: OpenStreetMap roads, the Rhine, houses, the DSM chimney and water tower, and the measured swisstopo terrain load by themselves — no file to upload anymore.
 - Street lamps, red hydrants, benches, bins, bike racks and recycling containers now stand where they really are along the roads (from OpenStreetMap). Lamps and hydrants are solid — watch the corners.
-- Drive into the Rhine (or any deep water) and the game wishes you well, Midtown Madness style: "Sleep with the fishes!" — or "Grüss mir die Fische!" in a German browser. The car now lies in the water a moment longer before it is put back on the road.
+- Drive into the Rhine (or any deep water) and the game wishes you well, Midtown Madness style: "Sleep with the fishes!" — or "Grüss mir die Fische!" when the game is set to German. The car now lies in the water a moment longer before it is put back on the road.
 - Press C to switch the camera: chase, closer chase, cockpit (driver's eye) and bumper cam.
 - The Plattform Sisslerfeld now stands at its new spot by the Breitenloh field road in Münchwilen: four spruce posts, the round stair core with its X braces, the closed parapet box and the big pyramid roof — a stand-in until the detailed model. Only the posts and the stair core are solid, so you can drive right up to it.
 - The whole Hochrhein map now comes from OpenStreetMap when the world file is present: real roads, the Rhine, bridges, and about two thousand houses along the main roads and big halls in Sisslerfeld.
