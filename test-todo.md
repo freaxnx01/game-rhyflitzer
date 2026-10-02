@@ -63,3 +63,9 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Driving into Sisseln, Stein or Bad Säckingen: the village's own name fades out smoothly and is gone inside the village (radius tuning: `VILLAGES[].r` in `prototype/world.js`).
 - [ ] Far names fade out instead of popping; two names lined up behind each other stay readable (the nearer one on top).
 - [ ] Both graphic styles (T): names are not fogged.
+
+## Debug mode (#39)
+
+- [ ] F3 next to Bodenackerstrasse 6: a green height label floats above the house number, readable from the chase camera; the panel bottom left shows x/z/y, LV95, WGS84 and the nearest building. F3 again: everything gone, and the browser's "find" did not open.
+- [ ] Click the panel and paste into a bug report: the LV95 pair finds the spot in map.geo.admin.ch, the WGS84 pair in Google Maps.
+- [ ] Phone: `…/prototype/index.html?debug` opens with the panel on, top left, clear of the steering buttons.
