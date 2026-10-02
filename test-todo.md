@@ -36,9 +36,17 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] House numbers appear near the car (Bodenackerstrasse 6 shows "6a–6d", the Hallenbad "2") and fade out further away.
 - [ ] Both stations carry their "Bahnhof Sisseln" / "Bahnhof Stein-Säckingen" board.
 
-## Landmark list in the J dialog (#41)
+## Landmark list in the J dialog (#41, PR #52 — merged 2026-10-02)
 
 - [ ] J opens the list with the cursor in the search field; typing "münst" or "munst" leaves the Fridolinsmünster; Enter puts the car next to it.
 - [ ] The Gemeinde chips filter (Sisseln: 6 landmarks); search and chip combine; Random spot is always the last row.
 - [ ] While the dialog is open, R, C, M, W and Space do nothing to the car, camera or sound; after a jump they work again.
 - [ ] On a phone-width window the chips wrap and the panel fits the screen.
+
+## V hides the shadow too (#37, PR #51 — merged 2026-10-02)
+
+- [ ] V hides the car and its shadow — no dark disc left on the road; V again brings both back.
+
+## Hallenbad label on all four sides (#38, PR #53 — merged 2026-10-02)
+
+- [ ] Drive around the Hallenbad Sissila: the name is readable from all four sides, each sign sits on its façade (not floating, not mirrored).
