@@ -135,3 +135,28 @@ def test_help_mentions_map_zoom_and_placement(server):
         page.keyboard.press("F1"); text = page.inner_text("#help")
         b.close()
     assert "zoom the map" in text and "double-click" in text, text
+
+
+# Swiss layout: '=' is Shift+0 and '+' is Shift+1, so the zoom keys arrive with a digit code
+KEY_JS = """([code, key]) => dispatchEvent(new KeyboardEvent('keydown', { code, key, bubbles: true }))"""
+
+
+def test_zoom_keys_on_digit_codes_never_place_the_car(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        start = car(page)
+        page.keyboard.press("KeyJ")
+        menu_open = page.evaluate("() => !document.querySelector('#jump').hidden")
+        page.evaluate(KEY_JS, ["Digit0", "="]); page.wait_for_timeout(300)
+        after_eq = car(page); zoom_eq = zoom(page)
+        page.evaluate(KEY_JS, ["Digit1", "+"]); page.wait_for_timeout(300)
+        after_plus = car(page); zoom_plus = zoom(page); flags = page.evaluate("() => window.__mm.raceFlags()")
+        page.evaluate(KEY_JS, ["Digit0", "0"]); page.wait_for_timeout(300)
+        after_zero = car(page); flags_zero = page.evaluate("() => window.__mm.raceFlags()")
+        b.close()
+    assert menu_open
+    assert (zoom_eq, zoom_plus) == (2, 4)
+    assert dist(after_eq, (start["x"], start["z"])) < 1 and dist(after_plus, (start["x"], start["z"])) < 1, (start, after_eq, after_plus)
+    assert flags["jumped"] is False
+    assert dist(after_zero, (start["x"], start["z"])) > 1 and flags_zero["jumped"] is True   # a plain 0 still does the random spot
