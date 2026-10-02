@@ -88,3 +88,22 @@ def test_minimap_wheel_zooms_and_never_scrolls(server):
     assert steps == [2, 4, 8, 8, 4, 2, 1, 1]
     assert (small, summed) == (1, 2)                                         # small trackpad deltas add up to one step
     assert prevented and all(prevented), prevented
+
+
+def test_minimap_double_click_puts_the_car_on_the_road(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        start = car(page)
+        page.mouse.click(*on_map(page, *SISSELN)); page.wait_for_timeout(600)
+        after_click = car(page); flags_click = page.evaluate("() => window.__mm.raceFlags()")
+        page.mouse.dblclick(*on_map(page, *SISSELN))
+        at_1x = car(page); road_1x = page.evaluate("() => window.__mm.roadDist()"); flags = page.evaluate("() => window.__mm.raceFlags()")
+        page.keyboard.press("NumpadAdd"); page.keyboard.press("NumpadAdd"); page.wait_for_timeout(700)
+        page.mouse.dblclick(*on_map(page, *UPHILL))
+        at_4x = car(page); road_4x = page.evaluate("() => window.__mm.roadDist()")
+        b.close()
+    assert dist(after_click, (start["x"], start["z"])) < 1 and flags_click["jumped"] is False   # a single click does nothing
+    assert dist(at_1x, SISSELN) < 30 and road_1x < 0, (at_1x, road_1x)
+    assert flags["jumped"] is True                                           # a map placement during a race is a jump
+    assert dist(at_4x, UPHILL) < 30 and road_4x < 0, (at_4x, road_4x)
