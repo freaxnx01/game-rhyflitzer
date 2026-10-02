@@ -181,3 +181,14 @@ def test_set_vehicle_rejects_inherited_model_and_missing_collision(server):
     assert ctor.startswith("Error: ") and "constructor" in ctor, ctor
     assert nocol.startswith("Error: ") and "collision" in nocol, nocol
     assert top == 60
+
+
+def test_set_vehicle_keeps_its_own_copy(server):
+    """Review #32: mutating the object passed to setVehicle afterwards must not change the active vehicle (that
+    would bypass checkVehicle)."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        got = page.evaluate("""() => { const c = window.__mm.vehicles().compact; window.__mm.setVehicle(c);
+          c.drive.top = 999; c.collision.shape = 'obb'; c.scale = 5; return window.__mm.vehicle(); }""")
+        b.close()
+    assert got["drive"]["top"] == 60 and got["collision"]["shape"] == "circle" and got["scale"] == 1.3, got

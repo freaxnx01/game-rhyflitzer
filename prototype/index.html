@@ -779,7 +779,7 @@ function freeCar() { const mats = new Set(); car.traverse(o => { o.geometry?.dis
 function buildCar() { freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); blob.scale.set(VEH.scale, 0.55 * VEH.scale, 1); }
 // fail fast, before anything is swapped: only procedural builders and circle collision exist so far
 function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}' (glTF loading is not implemented yet)`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); }
-function setVehicle(def) { checkVehicle(def); VEH = def; buildCar(); }
+function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def); buildCar(); }   // own copy: a later change to def cannot skip checkVehicle
 const carRadius = () => VEH.collision.r * VEH.scale;   // circle only (checkVehicle); OBB: #6
 setVehicle(VEH);
 
