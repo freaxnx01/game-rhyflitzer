@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- The **J** menu has a new entry **0 · Random spot**: it drops the car on a random road somewhere on the map (during a race that counts as a jump).
 - Houses on the Swiss side now have their real height, measured from swisstopo's surface model — Bodenackerstrasse 6 stands its eight storeys tall, bungalows stay low.
 - **F1** shows every key. A compass rose turns with the car, a trip odometer counts your kilometres (**K** resets it), **Q**/**E** set the turn signals, **V** hides the car, and the HUD names the water you are at — Rhein, Sissle and friends. Hold **Tab** to run the game three times faster (that run won't count as a record).
 - Hold **N** for nitro — blue flames, much harder acceleration, a higher top speed, and it never runs out.
