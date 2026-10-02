@@ -54,13 +54,42 @@ test('gemeindenOf lists the Gemeinden present, west to east', () => {
   assert.deepEqual(gemeindenOf(landmarkEntries(INFO, ANCHORS, BUILDINGS)), ['Bad Säckingen', 'Sisseln']);
 });
 
-test('LANDMARK_INFO holds the 14 landmarks of the spec', () => {
-  assert.equal(LANDMARK_INFO.length, 14);
+const BUILDINGS_46 = [
+  ['Schloss Schönau (Trompeterschloss)', 'Bad Säckingen', 390621357],
+  ['Gallusturm', 'Bad Säckingen', 25835477],
+  ['Diebsturm', 'Bad Säckingen', 92036948],
+  ['Bahnhof Bad Säckingen', 'Bad Säckingen', 25049518],
+  ['Kursaal', 'Bad Säckingen', 91592556],
+  ['Aqualon Therme', 'Bad Säckingen', 92039355],
+  ['Bahnhof Eiken', 'Eiken', 199241726],
+  ['Gemeindehaus Sisseln', 'Sisseln', 171822808],
+  ['Schulhaus Sisseln', 'Sisseln', 171822721],
+];
+
+test('LANDMARK_INFO holds the 14 landmarks of #41 and the 9 of #46', () => {
+  assert.equal(LANDMARK_INFO.length, 23);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.ok(!!l.anchor !== !!l.building, `${l.name}: exactly one of anchor / building`);
   }
   assert.deepEqual(GEMEINDEN, ['Bad Säckingen', 'Stein', 'Münchwilen', 'Eiken', 'Sisseln']);
-  assert.deepEqual(LANDMARK_INFO.filter(l => l.building).map(l => [l.name, l.building]),
-    [['Bodenackerstrasse 6c', 171822634], ['Bodenackerstrasse 10B', 171822943]]);
+  assert.deepEqual(LANDMARK_INFO.filter(l => l.building).map(l => [l.name, l.gemeinde, l.building]),
+    [['Schloss Schönau (Trompeterschloss)', 'Bad Säckingen', 390621357], ['Gallusturm', 'Bad Säckingen', 25835477],
+     ['Diebsturm', 'Bad Säckingen', 92036948], ['Bahnhof Bad Säckingen', 'Bad Säckingen', 25049518],
+     ['Kursaal', 'Bad Säckingen', 91592556], ['Aqualon Therme', 'Bad Säckingen', 92039355],
+     ['Bahnhof Eiken', 'Eiken', 199241726],
+     ['Bodenackerstrasse 6c', 'Sisseln', 171822634], ['Bodenackerstrasse 10B', 'Sisseln', 171822943],
+     ['Gemeindehaus Sisseln', 'Sisseln', 171822808], ['Schulhaus Sisseln', 'Sisseln', 171822721]]);
+});
+
+test('#46 entries resolve from their buildings, sort into their Gemeinde and are found accent-blind', () => {
+  const square = (id, x) => ({ id: String(id), ring: [[x, 0], [x + 10, 0], [x + 10, 10], [x, 10]] });
+  const buildings = BUILDINGS_46.map(([, , id], i) => square(id, i * 100));
+  const e = landmarkEntries(LANDMARK_INFO, {}, buildings);              // no anchors: only the building entries
+  assert.deepEqual(e.map(x => [x.n, x.g]), BUILDINGS_46.map(([n, g]) => [n, g]));
+  assert.deepEqual(e.find(x => x.n === 'Kursaal'), { n: 'Kursaal', g: 'Bad Säckingen', x: 405, z: 5 });
+  assert.deepEqual(filterLandmarks(e, 'schonau', null).map(x => x.n), ['Schloss Schönau (Trompeterschloss)']);
+  assert.deepEqual(filterLandmarks(e, 'trompeter', null).map(x => x.n), ['Schloss Schönau (Trompeterschloss)']);
+  assert.deepEqual(filterLandmarks(e, 'bahnhof bad sackingen', null).map(x => x.n), ['Bahnhof Bad Säckingen']);
+  assert.deepEqual(filterLandmarks(e, '', 'Eiken').map(x => x.n), ['Bahnhof Eiken']);
 });
