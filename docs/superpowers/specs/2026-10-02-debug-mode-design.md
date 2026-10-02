@@ -62,6 +62,7 @@ Success: the tester presses **F3** (or opens the page with `?debug`). A small pa
 - Buildings without `hsrc` (German side, and the 42 `not_built` footprints) all show `osm`. The world file does not tell an OSM height tag from a level count or a type default, so the label cannot either.
 - The hand-traced layout has no buildings in the world file, so it shows no height labels and `bldg —`, and it shows `LV95 —` because its coordinates are not geo-referenced.
 - F3 no longer reaches the browser's "find next" while the game has focus.
+- #9 (i18n, spec `2026-10-02-i18n-de-en-design.md`) moves every UI string into a `STRINGS` table. Whichever of #9 and #39 lands second also routes the F3 help line and the four debug toasts (`Debug on/off`, `Copied`, `Copy failed`) through `t()`. The panel lines are numbers and data, so they stay as they are.
 - The live site needs no world rebuild: `origin`, `h`, `rh` and `hsrc` are already in `data/world_hochrhein.json`.
 
 ## Testing
