@@ -1,4 +1,4 @@
-"""Water: area polygons (the Rhine), buffered centre lines where no area exists, levels, distance field."""
+"""Water: area polygons (the Rhine) with levels and a distance field; centre-line rivers and streams as lines."""
 from __future__ import annotations
 
 import base64
@@ -15,7 +15,9 @@ import mmh
 # terrain.py fills missing DEM with `base`, which is exactly 0.0 after subtracting base.
 # Real measured heights are float32 values that are practically never exactly 0.0.
 NODATA = 0.0
-LINE_WIDTH = {"river": 20.0, "canal": 10.0, "stream": 3.0}
+# default widths of centre-line water without a width tag (the Sissle is ~8-10 m wide)
+LINE_WIDTH = {"river": 12.0, "canal": 10.0, "stream": 3.0}
+FLAT_WIDTH = 30.0   # wider centre-line water (gaps in the Rhine area) is nearly level: a flat polygon, not a stream
 
 
 def _polys(g):
@@ -32,6 +34,8 @@ def _width(tags, kind):
 
 
 def polygons(areas, ways, clip):
+    """Area water (natural=water, riverbanks), clipped and repaired, plus centre lines wider than FLAT_WIDTH buffered
+    where no area covers them. Narrower centre lines are streams()."""
     out = []
     for a in areas:
         t = a.tags
@@ -42,14 +46,41 @@ def polygons(areas, ways, clip):
             print(f"world_water: repaired invalid water area {a.id}", file=sys.stderr)
         out += _polys(g.intersection(clip))
     covered = shapely.unary_union(out) if out else None
-    for w in ways:
-        kind = w.tags.get("waterway")
-        if kind not in LINE_WIDTH or w.tags.get("tunnel", "no") != "no":
+    for w in _lines(ways):
+        width = _width(w.tags, w.tags["waterway"])
+        if width <= FLAT_WIDTH:
             continue
         line = w.line if covered is None else w.line.difference(covered.buffer(1.0))
         if line.is_empty or line.length < 5:
             continue
-        out += _polys(line.buffer(_width(w.tags, kind) / 2, cap_style="flat").intersection(clip))
+        out += _polys(line.buffer(width / 2, cap_style="flat").intersection(clip))
+    return out
+
+
+def _lines(ways):
+    return [w for w in ways if w.tags.get("waterway") in LINE_WIDTH and w.tags.get("tunnel", "no") == "no"]
+
+
+def streams(areas, ways, clip):
+    """Rivers, canals and streams mapped only as a centre line, as {name, w, pts} in flow direction (OSM draws
+    waterways downstream). Parts inside area water and piped parts (tunnel/culvert) are left out. The prototype drapes
+    them on the ground like a road, because a flat water level cannot follow a stream that falls 25 m across the map."""
+    area = polygons(areas, ways, clip)
+    covered = shapely.unary_union(area).buffer(1.0) if area else None
+    out = []
+    for w in _lines(ways):
+        kind = w.tags["waterway"]
+        if _width(w.tags, kind) > FLAT_WIDTH:
+            continue
+        line = w.line.intersection(clip)
+        if covered is not None:
+            line = line.difference(covered)
+        parts = [line] if line.geom_type == "LineString" else [g for g in getattr(line, "geoms", []) if g.geom_type == "LineString"]
+        for part in parts:
+            if part.is_empty or part.length < 5:
+                continue
+            out.append({"name": w.tags.get("name", ""), "w": _width(w.tags, kind),
+                        "pts": [[round(x, 1), round(z, 1)] for x, z in part.coords]})
     return out
 
 

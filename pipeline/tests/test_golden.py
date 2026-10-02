@@ -76,3 +76,12 @@ def test_props(world):
         for i in tree.query(pt, predicate="dwithin", distance=10):
             g, w = lines[i]
             assert g.distance(pt) >= w / 2 + 0.5, p
+
+
+def test_sissle_is_a_stream_line(world):
+    """Playtest 2026-10-02: the Sissle was invisible from the bridge over it (flat 500 m water chunks on a stream that
+    falls 25 m). It is exported as a line in flow direction, ending at the Rhine."""
+    import math
+    sissle = [s for s in world["streams"] if s["name"] == "Sissle"]
+    assert sissle and sum(sum(math.dist(a, b) for a, b in zip(s["pts"], s["pts"][1:])) for s in sissle) > 3000
+    assert all(s["w"] == 12.0 for s in sissle)

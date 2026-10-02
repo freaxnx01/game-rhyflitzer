@@ -23,18 +23,30 @@ def test_invalid_ring_is_repaired_not_raised():
     assert all(p.is_valid for p in polys) and sum(p.area for p in polys) > 0
 
 
-def test_centre_line_fallback_buffer():
-    stream = Way(3, {"waterway": "stream"}, shapely.LineString([(0, 50), (400, 50)]))
+def test_centre_lines_are_streams_not_flat_polygons():
+    """Rivers mapped only as a centre line (the Sissle) fall several metres per kilometre; as flat polygons they were
+    under the ground at one end and over the banks at the other. They are exported as lines with a width instead."""
+    stream = Way(3, {"waterway": "stream", "name": "Bach"}, shapely.LineString([(0, 50), (400, 50)]))
     river = Way(4, {"waterway": "river", "width": "40"}, shapely.LineString([(0, 300), (400, 300)]))
-    polys = Wt.polygons([], [stream, river], CLIP)
-    widths = sorted(round(p.area / 400) for p in polys)
-    assert widths == [3, 40]
+    sissle = Way(5, {"waterway": "river", "name": "Sissle"}, shapely.LineString([(0, 200), (500, 200)]))
+    polys = Wt.polygons([], [stream, river, sissle], CLIP)
+    assert len(polys) == 1 and round(polys[0].area / 400) == 40          # a 40 m river stays a flat polygon
+    st = sorted(Wt.streams([], [stream, river, sissle], CLIP), key=lambda s: s["w"])
+    assert [(s["name"], s["w"]) for s in st] == [("Bach", 3.0), ("Sissle", 12.0)]
+    assert st[1]["pts"][0] == [0.0, 200.0] and st[1]["pts"][-1] == [400.0, 200.0]     # clipped, flow direction kept
 
 
-def test_centre_line_inside_area_is_not_buffered_again():
-    area = Area(1, False, {"natural": "water"}, shapely.box(0, 280, 400, 320))
+def test_stream_part_inside_area_water_is_dropped():
+    area = Area(1, False, {"natural": "water"}, shapely.box(0, 280, 200, 320))
     river = Way(4, {"waterway": "river"}, shapely.LineString([(0, 300), (400, 300)]))
     assert len(Wt.polygons([area], [river], CLIP)) == 1
+    st = Wt.streams([area], [river], CLIP)
+    assert len(st) == 1 and st[0]["pts"][0][0] >= 200.0
+
+
+def test_tunnel_and_culvert_streams_are_skipped():
+    piped = Way(6, {"waterway": "stream", "tunnel": "culvert"}, shapely.LineString([(0, 50), (400, 50)]))
+    assert Wt.streams([], [piped], CLIP) == []
 
 
 def test_chunks_and_level():

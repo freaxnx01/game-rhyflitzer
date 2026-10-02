@@ -117,6 +117,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path)
         "junctions": junctions,
         "water": world_water.to_json(polys, hdr, heights),
         "waterSdf": world_water.sdf(polys, clip.bounds),
+        "streams": world_water.streams(data.areas, data.ways, clip),
         "buildings": buildings,
         "rail": rail,
         "props": props,
