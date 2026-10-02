@@ -41,7 +41,8 @@ from pyproj import CRS
 from geo import DEFAULT_BBOX, DEFAULT_ORIGIN, Frame, grid_for
 from mmh import write_mmh
 
-STAC_ITEMS = "https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d/items"
+STAC = "https://data.geo.admin.ch/api/stac/v0.9/collections/{}/items"
+STAC_ITEMS = STAC.format("ch.swisstopo.swissalti3d")
 LV95 = CRS.from_epsg(2056)      # Swiss grid, metric; used as the game's working frame
 ETRS_UTM32 = CRS.from_epsg(25832)  # LGL data
 
@@ -55,10 +56,11 @@ def log(msg: str) -> None:
 
 # ---------- Switzerland: swissALTI3D via STAC ----------
 
-def swiss_tiles(bbox, cache: Path, gsd: float = 2.0) -> list[Path]:
+def swiss_tiles(bbox, cache: Path, gsd: float = 2.0, collection: str = "ch.swisstopo.swissalti3d") -> list[Path]:
+    """Newest tile per 1 km square of a swisstopo STAC raster collection (swissALTI3D; swissSURFACE3D raster for #17)."""
     cache.mkdir(parents=True, exist_ok=True)
     params = {"bbox": ",".join(f"{v:.6f}" for v in bbox), "limit": 100}
-    items, url = [], STAC_ITEMS
+    items, url = [], STAC.format(collection)
     while url:
         r = requests.get(url, params=params, timeout=60)
         r.raise_for_status()
@@ -75,12 +77,12 @@ def swiss_tiles(bbox, cache: Path, gsd: float = 2.0) -> list[Path]:
                 continue
             if f"_{gsd:g}_" not in Path(href).name:
                 continue
-            # name pattern: swissalti3d_<year>_<E>-<N>_<gsd>_2056_5728.tif
+            # name pattern: swissalti3d_<year>_<E>-<N>_<gsd>_2056_5728.tif (swisssurface3d-raster_... alike)
             parts = Path(href).stem.split("_")
             tile_id, year = parts[2], parts[1]
             if tile_id not in newest or year > newest[tile_id][0]:
                 newest[tile_id] = (year, href)
-    log(f"swissALTI3D: {len(newest)} tiles at {gsd:g} m")
+    log(f"{collection}: {len(newest)} tiles at {gsd:g} m")
     paths = []
     for _, href in sorted(newest.values()):
         dst = cache / Path(href).name
