@@ -126,3 +126,12 @@ def test_minimap_double_tap_puts_the_car_on_the_road(server):
         b.close()
     assert dist(after_tap, (start["x"], start["z"])) < 1                    # a single tap does nothing
     assert dist(placed, SISSELN) < 30 and road < 0 and flags["jumped"] is True, (placed, road, flags)
+
+
+def test_help_mentions_map_zoom_and_placement(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        page.keyboard.press("F1"); text = page.inner_text("#help")
+        b.close()
+    assert "zoom the map" in text and "double-click" in text, text
