@@ -774,7 +774,9 @@ function buildCompact(g, v) {
 const MODELS = { compact: buildCompact };
 const blob = new THREE.Mesh(new THREE.CircleGeometry(2.6, 16), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false })); blob.rotation.x = -Math.PI / 2; scene.add(blob);
 // (re)build the car group from VEH; flames and blinkers are persistent groups (other code toggles them), refilled by the builder
-function buildCar() { car.traverse(o => o.geometry?.dispose()); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); blob.scale.set(VEH.scale, 0.55 * VEH.scale, 1); }
+const SHARED_CAR_MATS = new Set(Object.values(carMats));   // shared across builds (and restyled by applyStyle): never disposed
+function freeCar() { const mats = new Set(); car.traverse(o => { o.geometry?.dispose(); if (o.material && !SHARED_CAR_MATS.has(o.material)) mats.add(o.material); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
+function buildCar() { freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); blob.scale.set(VEH.scale, 0.55 * VEH.scale, 1); }
 // fail fast, before anything is swapped: only procedural builders and circle collision exist so far
 function checkVehicle(def) { if (!MODELS[def.model]) throw new Error(`Unknown vehicle model '${def.model}' (glTF loading is not implemented yet)`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); }
 function setVehicle(def) { checkVehicle(def); VEH = def; buildCar(); }
@@ -855,6 +857,7 @@ window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: gro
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.vehicle = () => structuredClone(VEH);
 window.__mm.setVehicle = (def) => { setVehicle(def); };
+window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
 window.__mm.cam = () => ({ view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z] });
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)

@@ -148,3 +148,20 @@ def test_table_gears_drive_the_hud(server):
         long_first = page.inner_text("#gearn")
         b.close()
     assert (compact, long_first) == ("3", "1")
+
+
+def test_rebuilds_free_gpu_memory(server):
+    """Review #32: each setVehicle rebuild must free its per-build materials and the plate texture. After the first
+    rebuild, 5 more rebuilds of the same car (with frames drawn in between, so textures are uploaded) keep the GPU
+    texture and geometry counts flat."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        use_vehicle(page, ""); wait_frames(page)
+        first = page.evaluate("() => window.__mm.gpu()")
+        for _ in range(5):
+            use_vehicle(page, ""); wait_frames(page)
+        last = page.evaluate("() => window.__mm.gpu()")
+        b.close()
+    assert first["textures"] > 0, first
+    assert last["textures"] <= first["textures"], (first, last)
+    assert last["geometries"] <= first["geometries"], (first, last)
