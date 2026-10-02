@@ -27,10 +27,10 @@ Success: while driving, the player presses one key and sees where one Gemeinde e
 | Reader | New module `pipeline/world_boundaries.py`, separate from `osm_read` and using two cheap passes over the extract: pass 1 reads relations only (way id → set of Gemeinde names), pass 2 reads nodes and ways with locations and builds a linestring for each collected way id. `osm_read.read` stays unchanged. |
 | Shape | One entry per OSM way (a shared border appears once), clipped to the bbox clip box, split into LineStrings, parts shorter than 5 m dropped, coordinates rounded to 0.1 m. |
 | World field | `boundaries: [{ id, names: [a, b], pts: [[x, z], ...] }]`. `names` is sorted and holds one name when the other side is outside the data. The field is optional: older files load as `[]`. |
-| Key | **G** toggles. Default **off**, not persisted (like `V`). A toast says `Gemeinde boundaries on` / `off`. In the hand-traced layout it says `Gemeinde boundaries: no data`. |
+| Key | **G** toggles. Default **off**, not persisted (like `V`). A toast says `Gemeinde boundaries on` / `off`. When there are no lines (hand-traced layout, or a world file without the field) it says `Gemeinde boundaries: no data`. |
 | 3D | One merged mesh in its own `THREE.Group` (`BOUNDS`, not in `MESH`, so `applyStyle` leaves it alone). It is a 1.5 m wide strip with `MeshBasicMaterial`, colour `#ff3fb4`, opacity 0.85, `depthWrite: false`, `polygonOffset`. Its height is `max(terrain, drawn road surface, water surface) + 0.25`, so the Rhine border lies on the water and not on the riverbed. |
 | Minimap | A second pre-rendered canvas `mapBounds`, same size as `mapStatic`, with the same lines dashed (`setLineDash([6, 4])`), 2 px, same colour. `drawMap` draws it right after `mapStatic` with the same crop while the toggle is on. |
-| Test hooks | `__mm.hud().bounds` (bool). `__mm.boundaries()` → `{ on, lines, verts, groupVisible }`. `__mm.boundaryY(x, z)` → the strip height function. |
+| Test hooks | `__mm.hud().bounds` (bool). `__mm.boundaries()` → `{ on, lines, verts, groupVisible, color }`. `__mm.boundaryY(x, z)` → the strip height function. |
 | Docs | `docs/11-pipeline-osm.md` gets the field (MMW1 block) and a **Boundaries** rule paragraph. The F1 help gets a `G` line. `CHANGELOG.md [Unreleased]` gets a player-facing line. |
 | World rebuild | Last task, guarded: cache check, golden tests, build with `--dsm-heights`, then a diff guard that allows only the new `boundaries` key. On a machine without caches: skip and say so in the PR. |
 
@@ -52,7 +52,7 @@ Success: while driving, the player presses one key and sees where one Gemeinde e
 ## Consequences
 
 - The world file grows by about 16-17 KB (about 0.6 %).
-- A world file built before this change has no `boundaries`. G then toasts `Gemeinde boundaries on` but draws nothing, until the maintainer rebuilds `data/world_hochrhein.json`. A CI implementer has no caches, so the live site shows no lines until that local rebuild.
+- A world file built before this change has no `boundaries`. G then toasts `Gemeinde boundaries: no data`, as in the hand-traced layout, until the maintainer rebuilds `data/world_hochrhein.json`. A CI implementer has no caches, so the live site shows no lines until that local rebuild.
 - Boundaries at the bbox edge end abruptly at the clip box, as roads and water already do.
 - OSM boundary lines are cadastral and run through fields, houses and the Rhine. The strip can cross a building footprint and is hidden inside it. That is accepted.
 - The strip adds one draw call and about 10k triangles (928 points resampled every 4 m), and only while it is visible.
