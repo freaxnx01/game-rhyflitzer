@@ -120,3 +120,16 @@ def test_sdf_no_water_and_all_water():
 def test_tiny_single_polygon_filtered():
     area = Area(9, True, {"natural": "water"}, shapely.box(10, 10, 10.5, 10.5))
     assert Wt.polygons([area], [], CLIP) == []
+
+
+def test_to_json_carries_the_water_name():
+    """HUD (#20): the name of the water you are at. Area water takes its own name, or the name of the waterway running
+    through it (OSM names the Rhine on the river line, not on every riverbank polygon)."""
+    pond = Area(1, False, {"natural": "water", "name": "Weiher"}, shapely.box(10, 10, 50, 50))
+    bank = Area(2, False, {"natural": "water", "water": "river"}, shapely.box(0, 150, 400, 250))
+    rhine = Way(9, {"waterway": "river", "name": "Rhein", "width": "200"}, shapely.LineString([(0, 200), (400, 200)]))
+    brook = Way(10, {"waterway": "stream", "name": "Bach"}, shapely.LineString([(100, 400), (100, 160)]))   # mouth reaches in
+    polys = Wt.polygons([pond, bank], [rhine], CLIP)
+    out = Wt.to_json(polys, None, None, [pond, bank], [brook, rhine])
+    assert sorted(w["name"] for w in out) == ["Rhein", "Weiher"]
+    assert Wt.to_json(polys, None, None)[0].get("name", "") == ""

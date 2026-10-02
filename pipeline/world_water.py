@@ -146,9 +146,28 @@ def sdf(polys, bounds, step=8.0, clamp=120):
             "data": base64.b64encode(data.tobytes()).decode()}
 
 
-def to_json(polys, hdr, heights):
+def _name(poly, areas, ways):
+    """Name of a water polygon: the named area containing it, else the named waterway line running through it."""
+    pt = poly.representative_point()
+    for a in areas:
+        if a.tags.get("name") and a.geom.contains(pt):
+            return a.tags["name"]
+    # the waterway running furthest through it (a tributary only touches the Rhine at its mouth)
+    best, length = "", 0.0
+    for w in ways:
+        if w.line.intersects(poly):
+            n = w.line.intersection(poly).length
+            if n > length:
+                best, length = w.tags["name"], n
+    return best
+
+
+def to_json(polys, hdr, heights, areas=(), ways=()):
+    areas = [a for a in areas if a.tags.get("name") and ("water" in a.tags or a.tags.get("natural") == "water")]
+    ways = [w for w in ways if w.tags.get("waterway") and w.tags.get("name")]
     out = []
     for whole in polys:
+        name = _name(whole, areas, ways)
         fallback = level(whole, hdr, heights)
         if fallback is None:
             fallback = 0.0
@@ -156,5 +175,5 @@ def to_json(polys, hdr, heights):
             lv = level(p, hdr, heights)
             rings = [[[round(x, 1), round(z, 1)] for x, z in p.exterior.coords[:-1]]]
             rings += [[[round(x, 1), round(z, 1)] for x, z in r.coords[:-1]] for r in p.interiors]
-            out.append({"kind": "water", "level": fallback if lv is None else lv, "rings": rings})
+            out.append({"kind": "water", "level": fallback if lv is None else lv, "rings": rings, "name": name})
     return out

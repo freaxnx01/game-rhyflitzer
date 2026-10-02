@@ -85,3 +85,8 @@ def test_sissle_is_a_stream_line(world):
     sissle = [s for s in world["streams"] if s["name"] == "Sissle"]
     assert sissle and sum(sum(math.dist(a, b) for a, b in zip(s["pts"], s["pts"][1:])) for s in sissle) > 3000
     assert all(s["w"] == 12.0 for s in sissle)
+
+
+def test_rhine_water_is_named(world):
+    names = {w["name"] for w in world["water"]}
+    assert "Rhein" in names

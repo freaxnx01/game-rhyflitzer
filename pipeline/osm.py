@@ -115,7 +115,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path)
                    "pbf": Path(pbf).name},
         "roads": roads,
         "junctions": junctions,
-        "water": world_water.to_json(polys, hdr, heights),
+        "water": world_water.to_json(polys, hdr, heights, data.areas, data.ways),
         "waterSdf": world_water.sdf(polys, clip.bounds),
         "streams": world_water.streams(data.areas, data.ways, clip),
         "buildings": buildings,
