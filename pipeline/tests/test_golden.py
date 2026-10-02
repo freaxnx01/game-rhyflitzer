@@ -109,3 +109,13 @@ def test_building_heights_from_the_surface(world_dsm):
     assert len(dsm) >= 0.6 * len(ch), (len(dsm), len(ch))
     hs = [b["h"] for b in dsm]
     assert 3.0 <= statistics.median(hs) <= 12.0 and max(hs) < 80
+
+
+def test_bodenacker_quarter_heights(world_dsm):
+    """Playtest 2026-10-02: Bodenackerstrasse 6 (w171822634) really has 8 storeys; w1326045746 (apartments) is missing
+    from the 2020 surface and keeps its OSM/default height instead of a 2.5 m shed."""
+    by_id = {b["id"]: b for b in world_dsm["buildings"]}
+    tall = by_id[171822634]
+    assert tall.get("hsrc") == "dsm" and tall["h"] >= 20, tall["h"]
+    new = by_id[1326045746]
+    assert "hsrc" not in new and new["h"] == 12.0, new["h"]
