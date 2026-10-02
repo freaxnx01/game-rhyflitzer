@@ -66,3 +66,18 @@ def test_set_vehicle_validates_and_round_trips(server):
     assert top == 60
     for k, want in GOLDEN.items():
         assert got[k] == pytest.approx(want, abs=1e-6), (k, got[k], want)
+
+
+def test_table_top_speed_is_used(server):
+    """top 30 instead of 60: the same 4 s on the gas end clearly slower (flat-road estimate 21.9 m/s, compact 31.47)."""
+    gas = "() => window.__mm.sim(1882.9, -292.2, Math.PI, 0, 4).speed"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        fast = page.evaluate(gas)
+        use_vehicle(page, "c.drive.top = 30")
+        slow = page.evaluate(gas)
+        table_top = page.evaluate("() => window.__mm.vehicles().compact.drive.top")
+        b.close()
+    assert fast == pytest.approx(GOLDEN["gas"][2], abs=1e-6)
+    assert 18 < slow < 24, slow
+    assert table_top == 60          # the hook hands out a copy; the table itself is untouched
