@@ -341,6 +341,23 @@ def test_props_loaded(server):
     assert "props" not in info["mm"]["counts"]
 
 
+def world_parking():
+    """#40: the car parks in the world file; empty until it is rebuilt with a pipeline that knows about them."""
+    import json
+    return json.loads(WORLD.read_text(encoding="utf-8")).get("parking", []) if WORLD.exists() else []
+
+
+@pytest.mark.skipif(not world_parking(), reason="world file predates #40: rebuild it with pipeline/osm.py build")
+def test_parking_loaded(server):
+    lots = world_parking()
+    want = {"lots": len(lots), "lines": sum(len(p["lines"]) for p in lots), "signs": sum(1 for p in lots if "sign" in p)}
+    info, msgs = load(server, block_world=False)
+    assert info["mm"]["counts"]["parking"] == want and want["lots"] > 250
+    assert msgs == []
+    info, _ = load(server, block_world=True)
+    assert "parking" not in info["mm"]["counts"]
+
+
 @pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
 def test_sissle_visible_along_its_course(server):
     """Playtest 2026-10-02: standing on the bridge over the Sissle, the stream could not be seen (flat water chunks on a
