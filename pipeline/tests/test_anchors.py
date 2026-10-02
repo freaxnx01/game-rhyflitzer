@@ -39,6 +39,14 @@ def test_missing_osm_id_is_reported_not_crashing(capsys):
     assert "w1" in capsys.readouterr().err
 
 
+def test_landmark_area_keeps_its_house_number():
+    data = OsmData(areas=[Area(170395848, True, {"building": "civic", "addr:housenumber": "2", "name": "Hallenbad"}, shapely.box(0, 0, 40, 40)),
+                          Area(806132044, True, {"man_made": "chimney"}, shapely.box(100, 100, 110, 110))])
+    r = anchors.resolve({"landmarks": {"hb": {"osm": "w170395848"}, "c": {"osm": "w806132044"}, "g": {"game": [1, 2]}}}, data, F)
+    assert r["landmarks"]["hb"]["addr"] == "2"
+    assert "addr" not in r["landmarks"]["c"] and "addr" not in r["landmarks"]["g"]
+
+
 def test_keep_all_building_boxes():
     import anchors as A
     spec = {"areas": {"q": {"game_box": [0, 0, 10, 10], "keep_all_buildings": True}, "w": {"game_box": [5, 5, 6, 6]}}}

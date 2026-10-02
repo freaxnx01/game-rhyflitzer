@@ -51,3 +51,11 @@ def test_prop_nodes(data):
     assert sorted(n.id for n in data.prop_nodes) == [40, 41, 42]
     lamp = next(n for n in data.prop_nodes if n.id == 40)
     assert lamp.tags["highway"] == "street_lamp" and isinstance(lamp.x, float)
+
+
+def test_address_nodes_keep_the_number_only(data):
+    assert [(n.id, n.number) for n in data.addr_nodes] == [(50, "7")]
+    n = data.addr_nodes[0]
+    assert set(vars(n)) == {"id", "number", "x", "z"}             # privacy: no name, no street
+    assert isinstance(n.x, float) and isinstance(n.z, float)
+    assert 50 not in {m.id for m in data.named_nodes} | {m.id for m in data.prop_nodes}

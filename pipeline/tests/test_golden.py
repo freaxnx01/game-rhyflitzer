@@ -92,6 +92,18 @@ def test_rhine_water_is_named(world):
     assert "Rhein" in names
 
 
+def test_house_numbers_from_osm(world):
+    """#12: numbers come from OSM only -- the way's own tag or address nodes inside the footprint."""
+    by_id = {b["id"]: b for b in world["buildings"]}
+    assert by_id[155482787]["addr"] == "438"             # own tag, Hauptstrasse 438
+    assert by_id[171822862]["addr"] == "5"               # one node inside, Bodenackerstrasse 5
+    assert by_id[171822634]["addr"] == "6a–6d"      # Bodenackerstrasse 6: four entrance nodes
+    assert world["anchors"]["landmarks"]["hallenbad"]["addr"] == "2"
+    n = sum(1 for b in world["buildings"] if "addr" in b)
+    assert 1100 <= n <= 1400, n
+    assert all("street" not in b for b in world["buildings"])
+
+
 @pytest.fixture(scope="module")
 def world_dsm():
     tiles = list((Path(__file__).parents[1] / "cache" / "swisssurface3d").glob("*.tif"))

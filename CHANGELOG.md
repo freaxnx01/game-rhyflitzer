@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- The HUD now names the street you are driving on, house numbers from OpenStreetMap float above the houses around you, and both railway stations carry their blue "Bahnhof Sisseln" and "Bahnhof Stein-Säckingen" boards.
 - The minimap zooms: turn the mouse wheel over it or press **+**/**-** to step through 1×, 2×, 4× and 8× — zoomed in, it follows your car. Double-click (or double-tap) the minimap to put the car on the nearest road there; during a race that counts as a jump, like **J**.
 - The **J** menu has a new entry **0 · Random spot**: it drops the car on a random road somewhere on the map (during a race that counts as a jump).
 - Houses on the Swiss side now have their real height, measured from swisstopo's surface model — Bodenackerstrasse 6 stands its eight storeys tall, bungalows stay low.

@@ -60,12 +60,51 @@ def _clean(geom):
     return g if g.is_valid and g.area > 0 and len(set(g.exterior.coords)) >= 3 else None
 
 
-def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=()):
+def _natural(s):
+    m = re.match(r"(\d+)(.*)", s)
+    return (int(m.group(1)), m.group(2)) if m else (math.inf, s)
+
+
+def join_numbers(nums):
+    """OSM house numbers -> one label: distinct, natural order; several -> 'first–last' (#12). A ';' list counts as several."""
+    u = sorted({p.strip() for n in nums for p in (n or "").split(";") if p.strip()}, key=_natural)
+    if not u:
+        return None
+    return u[0] if len(u) == 1 else f"{u[0]}–{u[-1]}"
+
+
+ON_OUTLINE = 0.2                                     # m: a node this close to a footprint counts as on it
+
+
+def node_numbers(polys, addr_nodes):
+    """Address-node numbers per footprint: nodes inside or on the outline (≤ 0.2 m); a node touching several footprints goes to the nearest centroid."""
+    out = [[] for _ in polys]
+    if not polys or not addr_nodes:
+        return out
+    pts = [shapely.Point(n.x, n.z) for n in addr_nodes]
+    hits = {}
+    for ni, pi in zip(*STRtree(polys).query(pts, predicate="dwithin", distance=ON_OUTLINE)):
+        hits.setdefault(int(ni), []).append(int(pi))
+    for ni, cand in hits.items():
+        best = min(cand, key=lambda i: polys[i].centroid.distance(pts[ni]))
+        out[best].append(addr_nodes[ni].number)
+    return out
+
+
+def _assign_numbers(recs, polys, own, addr_nodes, stats):
+    for rec, mine, nodes in zip(recs, own, node_numbers(polys, addr_nodes)):
+        addr, src = (mine, "addr_own") if mine else (join_numbers(nodes), "addr_node")
+        if addr:
+            rec["addr"] = addr
+            stats[src] += 1
+
+
+def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=(), addr_nodes=()):
     main = [shapely.LineString(r["pts"]) for r in roads if r["cls"] in MAIN and len(r["pts"]) >= 2]
     tree = STRtree(main) if main else None
     sites = shapely.unary_union(list(industrial)) if industrial else None
     quarters = shapely.unary_union(list(keep_all)) if keep_all else None   # areas where every house is kept, near a main road or not
-    out, stats = [], Counter()
+    out, polys, own, stats = [], [], [], Counter()
     for a in areas:
         t = a.tags
         if "building" not in t or t["building"] == "no":
@@ -92,6 +131,8 @@ def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=froz
         kind, rect = roof(p)
         pal = "industrial" if sites is not None and sites.contains(p.centroid) else "village"
         ring = [[round(x, 1), round(z, 1)] for x, z in p.exterior.coords[:-1]]
-        out.append({"id": a.id, "h": height(t), "roof": kind, "palette": pal, "rect": rect, "ring": ring})
+        rec = {"id": a.id, "h": height(t), "roof": kind, "palette": pal, "rect": rect, "ring": ring}
+        out.append(rec); polys.append(p); own.append(join_numbers([t.get("addr:housenumber", "")]))
         stats["kept_near" if near else "kept_area" if in_quarter else "kept_big"] += 1
+    _assign_numbers(out, polys, own, addr_nodes, stats)
     return out, dict(stats)

@@ -32,6 +32,10 @@ def _index(data):
     return idx
 
 
+def _addr_index(data):
+    return {("r" if not a.from_way else "w", a.id): a.tags["addr:housenumber"] for a in data.areas if a.tags.get("addr:housenumber")}
+
+
 def _pos(entry, idx, frame):
     if "osm" in entry:
         p = idx.get(_osm_ref(entry["osm"]))
@@ -47,6 +51,7 @@ def _pos(entry, idx, frame):
 
 def resolve(spec, data, frame) -> dict:
     idx = _index(data)
+    addrs = _addr_index(data)
     out = {"landmarks": {}, "cps": [], "labels": [], "areas": {}}
     for name, e in spec.get("landmarks", {}).items():
         p = _pos(e, idx, frame)
@@ -56,6 +61,8 @@ def resolve(spec, data, frame) -> dict:
                                   "h": e.get("h"), "rot": math.radians(e.get("heading_deg", 0))}
         if "size" in e:
             out["landmarks"][name]["size"] = [float(v) for v in e["size"]]
+        if "osm" in e and _osm_ref(e["osm"]) in addrs:
+            out["landmarks"][name]["addr"] = addrs[_osm_ref(e["osm"])]
     if "start" in spec:
         p = _pos(spec["start"], idx, frame)
         if p:

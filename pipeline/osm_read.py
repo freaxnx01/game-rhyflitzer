@@ -65,12 +65,22 @@ class PropNode:
 
 
 @dataclass
+class AddrNode:
+    """An OSM address point: only the house number is kept (privacy, #12)."""
+    id: int
+    number: str
+    x: float
+    z: float
+
+
+@dataclass
 class OsmData:
     ways: list = field(default_factory=list)
     areas: list = field(default_factory=list)
     nodes: dict = field(default_factory=dict)
     named_nodes: list = field(default_factory=list)
     prop_nodes: list = field(default_factory=list)
+    addr_nodes: list = field(default_factory=list)
     way_nodes: dict = field(default_factory=dict)
     skipped: Counter = field(default_factory=Counter)
 
@@ -98,6 +108,9 @@ def read(path: Path, frame: Frame) -> OsmData:
             if is_prop_node(o.tags):
                 x, z = frame.to_game(o.location.lon, o.location.lat)
                 out.prop_nodes.append(PropNode(o.id, dict(o.tags), float(x), float(z)))
+            if "addr:housenumber" in o.tags:
+                x, z = frame.to_game(o.location.lon, o.location.lat)
+                out.addr_nodes.append(AddrNode(o.id, o.tags["addr:housenumber"], float(x), float(z)))
         elif o.is_way():
             tags = dict(o.tags)
             if not any(k in tags for k in ("highway", "railway", "waterway")):
