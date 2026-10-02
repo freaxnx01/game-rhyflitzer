@@ -385,7 +385,11 @@ def test_hud_bundle(server):
         page.wait_for_timeout(400); east = hud()["compass"]
         page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 20, 3, [])")
         trip = hud()["trip"]; page.keyboard.press("KeyK"); trip_reset = hud()["trip"]; total = hud()["total"]
-        page.keyboard.press("KeyV"); car_off = hud()["carVisible"]; page.keyboard.press("KeyV"); car_on = hud()["carVisible"]
+        # the shadow follows the toggle in stepCar, i.e. one frame later - and a headless tab only renders while a raf-polled wait drives it, so count frames instead of waiting on the clock
+        page.evaluate("() => { window.__frames = 0; const tick = () => { window.__frames++; requestAnimationFrame(tick); }; requestAnimationFrame(tick); }")
+        wait_frames = lambda: page.wait_for_function("f0 => window.__frames > f0 + 2", arg=page.evaluate("() => window.__frames"), timeout=60000)
+        page.keyboard.press("KeyV"); car_off = hud()["carVisible"]; wait_frames(); shadow_off = hud()["shadowVisible"]
+        page.keyboard.press("KeyV"); car_on = hud()["carVisible"]; wait_frames(); shadow_on = hud()["shadowVisible"]
         page.keyboard.press("KeyQ"); left = hud()["blinker"]; page.keyboard.press("KeyE"); right = hud()["blinker"]; page.keyboard.press("KeyE"); off = hud()["blinker"]
         page.keyboard.down("Tab"); page.wait_for_timeout(300); fast = hud()["timeScale"]; page.keyboard.up("Tab"); page.wait_for_timeout(300); normal = hud()["timeScale"]
         jumped = page.evaluate("() => window.__mm.raceFlags()")
@@ -396,5 +400,6 @@ def test_hud_bundle(server):
     assert north.startswith("N ") and east.startswith("E "), (north, east)
     assert 0.04 < trip < 0.08 and trip_reset == 0 and total >= trip, (trip, trip_reset, total)
     assert car_off is False and car_on is True
+    assert shadow_off is False and shadow_on is True, (shadow_off, shadow_on)   # V hides the car's ground shadow too (#37)
     assert (left, right, off) == ("left", "right", None)
     assert fast == 3 and normal == 1 and jumped["fast"] is True

@@ -853,7 +853,7 @@ window.__mm.place = (x, z) => { P.x = x; P.z = z; P.vx = P.vz = P.vy = 0; P.y = 
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
 // drive headless: start at (x, z) on the highest surface there (a bridge deck if any), heading th at speed v, gas held, fixed 1/60 s steps
 window.__mm.heading = () => P.th;
-window.__mm.hud = () => { const b = bearing(); return { help: !$('help').hidden, compass: `${COMPASS_PTS[Math.round(b / 45) % 8]} ${Math.round(b)}°`, trip: +P.trip.toFixed(3), total: +P.odo.toFixed(3), carVisible: car.visible, blinker: HUD.blinker, water: HUD.water, road: HUD.road, timeScale: keys.Tab ? 3 : 1 }; };
+window.__mm.hud = () => { const b = bearing(); return { help: !$('help').hidden, compass: `${COMPASS_PTS[Math.round(b / 45) % 8]} ${Math.round(b)}°`, trip: +P.trip.toFixed(3), total: +P.odo.toFixed(3), carVisible: car.visible, shadowVisible: blob.visible, blinker: HUD.blinker, water: HUD.water, road: HUD.road, timeScale: keys.Tab ? 3 : 1 }; };
 window.__mm.labels = () => LABELS.shown.map(l => ({ t: l.t, x: l.x, z: l.z, d: +l.d.toFixed(1) }));
 window.__mm.labelSprites = () => LABELS.pool.filter(s => s.visible).length;
 window.__mm.labelTick = () => LABELS.ticks;
@@ -896,7 +896,7 @@ function stepCar(dt) {
   collide(carRadius());
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
-  blob.position.set(P.x, gh2 + 0.05, P.z); blob.rotation.z = -P.th; blob.visible = wl === null && (P.y - gh2) < 6 && !CAM_VIEWS[camView].eye; blob.material.opacity = 0.45 * clamp(1 - (P.y - gh2) / 6, 0.2, 1);
+  blob.position.set(P.x, gh2 + 0.05, P.z); blob.rotation.z = -P.th; blob.visible = wl === null && (P.y - gh2) < 6 && !CAM_VIEWS[camView].eye && !HUD.carHidden; blob.material.opacity = 0.45 * clamp(1 - (P.y - gh2) / 6, 0.2, 1);
 }
 
 // ---------- camera ----------
