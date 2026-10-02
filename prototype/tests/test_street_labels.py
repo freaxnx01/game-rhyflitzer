@@ -72,3 +72,30 @@ def test_house_numbers_appear_near_and_vanish_far(server):
     assert 1 <= len(near) <= 40 and all(l["d"] <= 60 for l in near), near
     assert all(l["d"] <= 60 for l in far) and len(far) <= 40
     assert visible == len(far)                                          # hidden pool sprites really are hidden
+
+
+STATIONS = {"stationStein": "Bahnhof Stein-Säckingen", "stationSisseln": "Bahnhof Sisseln"}
+
+
+@needs_world
+def test_station_boards_on_the_osm_stations(server):
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    with sync_playwright() as p:
+        br, page = open_page(p, server)
+        signs = page.evaluate("() => window.__mm.stationSigns()")
+        br.close()
+    assert sorted(s["t"] for s in signs) == sorted(STATIONS.values())
+    for key, name in STATIONS.items():
+        lm = w["anchors"]["landmarks"][key]; s = next(s for s in signs if s["t"] == name)
+        assert math.dist((s["x"], s["z"]), (lm["x"], lm["z"])) < 1, (s, lm)
+
+
+def test_hand_layout_signs_and_no_labels(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True)
+        page.wait_for_timeout(600)
+        signs = page.evaluate("() => window.__mm.stationSigns()")
+        labels = page.evaluate("() => window.__mm.labels()")
+        br.close()
+    assert sorted(s["t"] for s in signs) == sorted(STATIONS.values())
+    assert labels == []
