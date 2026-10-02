@@ -22,6 +22,7 @@
   <node id="41" lat="47.5507" lon="7.9673"><tag k="emergency" v="fire_hydrant"/><tag k="fire_hydrant:type" v="pillar"/></node>
   <node id="42" lat="47.5507" lon="7.9674"><tag k="amenity" v="bench"/></node>
   <node id="43" lat="47.5507" lon="7.9675"><tag k="amenity" v="parking"/></node>
+  <node id="50" lat="47.55005" lon="7.9661"><tag k="addr:housenumber" v="7"/><tag k="addr:street" v="Testweg"/><tag k="name" v="Familie Muster"/></node>
   <way id="100"><nd ref="1"/><nd ref="2"/><tag k="highway" v="tertiary"/><tag k="name" v="Hauptstrasse"/></way>
   <way id="101"><nd ref="2"/><nd ref="3"/><tag k="highway" v="residential"/></way>
   <way id="102"><nd ref="2"/><nd ref="4"/><tag k="highway" v="track"/></way>
