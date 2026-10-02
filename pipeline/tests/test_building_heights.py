@@ -53,3 +53,12 @@ def test_heights_are_clamped(tiles):
     b = [bld(4, -40, 0, 12, 10, "flat")]
     BH.apply(b, FRAME, *tiles, max_h=5.0)
     assert b[0]["h"] == 5.0
+
+
+def test_footprint_without_a_building_keeps_its_height(tiles):
+    """Playtest 2026-10-02: w1326045746 (apartments) was built after the 2020 surface was flown; bare ground there must
+    not become a 2.5 m shed."""
+    b = [bld(5, 0, 60, 15, 12, "flat", h=12.0)]
+    stats = BH.apply(b, FRAME, *tiles)
+    assert b[0]["h"] == 12.0 and "hsrc" not in b[0] and "rh" not in b[0]
+    assert stats["not_built"] == 1
