@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -229,4 +229,17 @@ test('VILLAGES: eight uppercase names inside the world, the issue\'s four includ
     assert.ok(v.x > -4689 && v.x < 4750 && v.z > -2350 && v.z < 2034, v.t);   // the world's road extent
   }
   for (const t of ['BAD SÄCKINGEN', 'STEIN', 'SISSELN', 'SISSLERFELD', 'MÜNCHWILEN']) assert.ok(VILLAGES.some(v => v.t === t), t);
+});
+
+test('roofTop: measured ridge, gable guess, flat roofs at least 3 m', () => {
+  assert.equal(roofTop({ h: 20, rh: 1.5, roof: 'flat', rect: [0, 0, 60, 22, 0] }), 21.5);
+  assert.equal(roofTop({ h: 6, roof: 'gable', rect: [0, 0, 12, 8, 0] }), 6 + 0.4 * 8);
+  assert.equal(roofTop({ h: 2, roof: 'flat', rect: [0, 0, 10, 10, 0] }), 3);
+});
+
+test('layoutFromWorld passes origin and defaults to null', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: { landmarks: {}, cps: [], labels: [], areas: {} } };
+  assert.equal(layoutFromWorld(base).origin, null);
+  const origin = { lat: 47.5506, lon: 7.9671, E: 2639781.3, N: 1266787.1, crs: 'EPSG:2056' };
+  assert.deepEqual(layoutFromWorld({ ...base, origin }).origin, origin);
 });
