@@ -84,46 +84,46 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 
 <div id="hud">
   <div id="tl" class="plate">
-    <div class="mode">Time trial · Hochrhein</div>
-    <div class="cps"><span id="cpn">0</span> / 5 checkpoints</div>
+    <div class="mode" data-i18n="mode">Time trial · Hochrhein</div>
+    <div class="cps"><span id="cpn">0</span> / 5 <span data-i18n="checkpointsLabel">checkpoints</span></div>
     <div id="pips"><div></div><div></div><div></div><div></div><div></div></div>
   </div>
   <div id="tc">
     <svg id="arrow" viewBox="0 0 160 120" aria-hidden="true"><polygon points="80,4 156,84 118,84 118,116 42,116 42,84 4,84" fill="#ffc61a" stroke="#1c1f26" stroke-width="6" stroke-linejoin="round"/><polygon points="80,26 130,80 104,80 104,102 56,102 56,80 30,80" fill="#ff9a1a"/></svg>
     <div id="dist">— m</div>
-    <div id="cpname">Ready</div>
+    <div id="cpname" data-i18n="ready">Ready</div>
     <div id="blink" aria-hidden="true"><span id="blL">◀</span><span id="blR">▶</span></div>
     <div id="watername"></div>
     <div id="roadname"></div>
   </div>
   <div id="tr" class="plate">
-    <div class="lbl">Time</div>
+    <div class="lbl" data-i18n="time">Time</div>
     <div id="time">00:00<b>.0</b></div>
     <div id="best">Best —</div>
   </div>
   <div id="toast">Holzbrücke!</div>
-  <svg id="compass" viewBox="-50 -50 100 100" aria-label="Compass"><circle r="47" fill="rgba(20,23,29,.82)" stroke="#b9bfc9" stroke-width="4"/><g id="rose" font-family="Barlow Condensed" font-weight="800" font-size="17" text-anchor="middle" fill="#f5efe0"><text y="-28" fill="#ff7a1a">N</text><text x="31" y="6">E</text><text y="40">S</text><text x="-31" y="6">W</text><path d="M0,-22 L5,0 L0,22 L-5,0 Z" fill="none" stroke="#3a404b" stroke-width="2"/></g><polygon points="0,-44 -6,-34 6,-34" fill="#ffc61a"/></svg>
-  <div id="help" hidden><div style="font-weight:800;font-size:20px">Keys · F1 closes</div><div class="keys">
-      <kbd>Space</kbd><span>accelerate (W or ↑ also work)</span>
-      <kbd>A D</kbd><span>or ← →: steer · <b>S</b> / ↓ brake, reverse</span>
-      <kbd>Ctrl</kbd><span>handbrake (drift)</span>
-      <kbd>N</kbd><span>Nitro (hold)</span>
-      <kbd>Tab</kbd><span>game speed ×3 (hold; the run is not recorded)</span>
-      <kbd>Q · E</kbd><span>Turn signals left · right</span>
-      <kbd>H · Enter</kbd><span>horn</span>
-      <kbd>C</kbd><span>camera: chase · near · cockpit · bumper</span>
-      <kbd>V</kbd><span>show / hide the car</span>
-      <kbd>J</kbd><span>jump to a landmark</span>
-      <kbd>+ · -</kbd><span>zoom the map 1× · 2× · 4× · 8× (or the mouse wheel over it) · double-click or double-tap the map: put the car on the road there</span>
-      <kbd>K</kbd><span>reset the trip odometer</span>
-      <kbd>R</kbd><span>back on the road</span>
-      <kbd>T</kbd><span>toggle graphic style</span>
-      <kbd>M</kbd><span>mute</span>
-      <kbd>F1 · ?</kbd><span>this help</span>
+  <svg id="compass" viewBox="-50 -50 100 100" aria-label="Compass" data-i18n-aria="compassAria"><circle r="47" fill="rgba(20,23,29,.82)" stroke="#b9bfc9" stroke-width="4"/><g id="rose" font-family="Barlow Condensed" font-weight="800" font-size="17" text-anchor="middle" fill="#f5efe0"><text y="-28" fill="#ff7a1a">N</text><text x="31" y="6" data-i18n="compassEast">E</text><text y="40">S</text><text x="-31" y="6">W</text><path d="M0,-22 L5,0 L0,22 L-5,0 Z" fill="none" stroke="#3a404b" stroke-width="2"/></g><polygon points="0,-44 -6,-34 6,-34" fill="#ffc61a"/></svg>
+  <div id="help" hidden><div style="font-weight:800;font-size:20px" data-i18n="helpTitle">Keys · F1 closes</div><div class="keys">
+      <kbd>Space</kbd><span data-i18n="keyAccel">accelerate (W or ↑ also work)</span>
+      <kbd>A D</kbd><span data-i18n="keySteer">or ← →: steer · <b>S</b> / ↓ brake, reverse</span>
+      <kbd>Ctrl</kbd><span data-i18n="keyHandbrake">handbrake (drift)</span>
+      <kbd>N</kbd><span data-i18n="keyNitro">Nitro (hold)</span>
+      <kbd>Tab</kbd><span data-i18n="keyTab">game speed ×3 (hold; the run is not recorded)</span>
+      <kbd>Q · E</kbd><span data-i18n="keySignals">Turn signals left · right</span>
+      <kbd>H · Enter</kbd><span data-i18n="keyHorn">horn</span>
+      <kbd>C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper</span>
+      <kbd>V</kbd><span data-i18n="keyCar">show / hide the car</span>
+      <kbd>J</kbd><span data-i18n="keyJump">jump to a landmark</span>
+      <kbd>+ · -</kbd><span data-i18n="keyZoom">zoom the map 1× · 2× · 4× · 8× (or the mouse wheel over it) · double-click or double-tap the map: put the car on the road there</span>
+      <kbd>K</kbd><span data-i18n="keyTrip">reset the trip odometer</span>
+      <kbd>R</kbd><span data-i18n="keyReset">back on the road</span>
+      <kbd>T</kbd><span data-i18n="keyStyle">toggle graphic style</span>
+      <kbd>M</kbd><span data-i18n="keyMute">mute</span>
+      <kbd>F1 · ?</kbd><span data-i18n="keyHelp">this help</span>
     </div></div>
-  <div id="jump" hidden><div>Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small>type to search · ↑↓ Enter · J / Esc closes</small></div>
+  <div id="jump" hidden><div data-i18n="jumpTitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small data-i18n="jumpHint">type to search · ↑↓ Enter · J / Esc closes</small></div>
   <div id="bl">
-    <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer">
+    <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer" data-i18n-aria="speedoAria">
       <defs><linearGradient id="dial" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a515e"/><stop offset="1" stop-color="#14171d"/></linearGradient></defs>
       <circle cx="150" cy="150" r="146" fill="url(#dial)" stroke="#b9bfc9" stroke-width="6"/>
       <circle cx="150" cy="150" r="128" fill="#14171d" stroke="#3a404b" stroke-width="3"/>
@@ -138,51 +138,51 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <text x="150" y="262" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="20" letter-spacing="3" fill="#ffc61a">KM/H</text>
     </svg>
     <div id="gear">
-      <div class="plate">Damage<div id="dmg"><i></i></div></div>
-      <div class="plate">Gear<b id="gearn">N</b></div>
-      <div class="plate">Trip<b id="trip">0.0</b> km<div id="odo" style="font-size:12px;letter-spacing:1px;color:var(--steel-l)">Total 0 km · K resets trip</div></div>
+      <div class="plate"><span data-i18n="damage">Damage</span><div id="dmg"><i></i></div></div>
+      <div class="plate"><span data-i18n="gear">Gear</span><b id="gearn">N</b></div>
+      <div class="plate"><span data-i18n="trip">Trip</span><b id="trip">0.0</b> km<div id="odo" style="font-size:12px;letter-spacing:1px;color:var(--steel-l)">Total 0 km · K resets trip</div></div>
     </div>
   </div>
   <div id="br">
-    <div class="bar"><span>Map · Hochrhein · <span id="mapzoom">1×</span></span><b>N ↑</b></div>
+    <div class="bar"><span><span data-i18n="map">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><b>N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
   </div>
-  <button id="stylebtn" type="button">Style: <b id="stylename">Original</b> · T</button>
+  <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
 </div>
 
 <div id="touch">
-  <button id="tL" type="button" aria-label="Steer left">‹</button>
-  <button id="tR" type="button" aria-label="Steer right">›</button>
-  <button id="tG" type="button" aria-label="Accelerate">▲</button>
-  <button id="tB" type="button" aria-label="Brake">▼</button>
-  <button id="tH" type="button" aria-label="Handbrake">H</button>
+  <button id="tL" type="button" aria-label="Steer left" data-i18n-aria="steerLeft">‹</button>
+  <button id="tR" type="button" aria-label="Steer right" data-i18n-aria="steerRight">›</button>
+  <button id="tG" type="button" aria-label="Accelerate" data-i18n-aria="accelerate">▲</button>
+  <button id="tB" type="button" aria-label="Brake" data-i18n-aria="brake">▼</button>
+  <button id="tH" type="button" aria-label="Handbrake" data-i18n-aria="handbrake">H</button>
 </div>
 
 <div id="overlay">
   <div class="panel">
-    <div class="sub">Codename Rhyflitzer · Prototype v0.2</div>
+    <div class="sub" data-i18n="sub">Codename Rhyflitzer · Prototype v0.2</div>
     <h1>Map Madness</h1>
     <p id="ovtext">Sisseln → Sisslerfeld → Stein → Bad Säckingen. Five checkpoints in any order, then the finish at the Münsterplatz. The Holzbrücke is for pedestrians. Nobody told the timer.</p>
     <div id="result" hidden></div>
     <div class="keys">
-      <kbd>Space</kbd><span>accelerate (W or ↑ also work)</span>
-      <kbd>A D</kbd><span>or ← →: steer · <b>S</b> / ↓ brake, reverse</span>
-      <kbd>Ctrl</kbd><span>handbrake (drift)</span>
-      <kbd>T</kbd><span>toggle graphic style</span>
-      <kbd>R</kbd><span>back on the road</span>
-      <kbd>C</kbd><span>camera: chase · near · cockpit · bumper</span>
-      <kbd>H · M</kbd><span>horn (also Enter) · mute</span>
-      <kbd>N · J</kbd><span>nitro (hold) · jump to a landmark</span>
-      <kbd>F1</kbd><span>all keys</span>
+      <kbd>Space</kbd><span data-i18n="keyAccel">accelerate (W or ↑ also work)</span>
+      <kbd>A D</kbd><span data-i18n="keySteer">or ← →: steer · <b>S</b> / ↓ brake, reverse</span>
+      <kbd>Ctrl</kbd><span data-i18n="keyHandbrake">handbrake (drift)</span>
+      <kbd>T</kbd><span data-i18n="keyStyle">toggle graphic style</span>
+      <kbd>R</kbd><span data-i18n="keyReset">back on the road</span>
+      <kbd>C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper</span>
+      <kbd>H · M</kbd><span data-i18n="keyHornMute">horn (also Enter) · mute</span>
+      <kbd>N · J</kbd><span data-i18n="keyNitroJump">nitro (hold) · jump to a landmark</span>
+      <kbd>F1</kbd><span data-i18n="keyAllKeys">all keys</span>
     </div>
     <div class="row">
       <button id="startbtn" class="btn primary" type="button">Start</button>
       <button id="stylebtn2" class="btn" type="button">Style: Original</button>
     </div>
     <div class="terrainrow">
-      <label for="mmhfile" class="btn small">Load terrain (.mmh)</label>
+      <label for="mmhfile" class="btn small" data-i18n="loadTerrain">Load terrain (.mmh)</label>
       <input id="mmhfile" type="file" accept=".mmh" hidden>
-      <button id="mmhclear" class="btn small" type="button" hidden>Use made-up terrain</button>
+      <button id="mmhclear" class="btn small" type="button" hidden data-i18n="useMadeUp">Use made-up terrain</button>
       <span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span>
     </div>
     <p id="blurb" style="font-size:14px;color:var(--steel-l)">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
@@ -195,7 +195,21 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads } from './world.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf } from './landmarks.js';
+import { translate } from './strings.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
+
+// UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
+// Named tr, not t: many functions here use t as a local variable.
+const tr = (key, ...args) => translate(window.GG_LANG, key, ...args);
+// Static markup carries its key in data-i18n (text), data-i18n-aria (aria-label) or data-i18n-placeholder.
+// Elements whose text depends on game state are rendered by the render* functions instead.
+function applyStaticStrings() {
+  document.documentElement.lang = window.GG_LANG || 'en';
+  for (const el of document.querySelectorAll('[data-i18n]')) el.innerHTML = tr(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', tr(el.dataset.i18nAria));
+  for (const el of document.querySelectorAll('[data-i18n-placeholder]')) el.placeholder = tr(el.dataset.i18nPlaceholder);
+}
+applyStaticStrings();
 
 // ---------- helpers ----------
 let seed = 4334;
@@ -1035,6 +1049,7 @@ requestAnimationFrame(loop);
   @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav { display: none !important; } }
 </style>
 <script src="./version.js"></script>
+<script src="./i18n.js"></script>
 <nav id="game-nav" aria-label="Game navigation" style="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(60px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 20px);box-sizing:border-box;flex-wrap:wrap;justify-content:center;row-gap:2px;z-index:2147483647;display:flex;gap:12px;align-items:center;font:600 13px/1.4 system-ui,-apple-system,sans-serif;padding:6px 11px;border-radius:8px;background:rgba(15,17,26,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:.55;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.55">
   <span id="version-badge" title="Version" style="color:#5a6072"></span>
   <span style="color:#5a6072" aria-hidden="true">·</span>
