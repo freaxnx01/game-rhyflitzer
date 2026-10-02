@@ -39,6 +39,14 @@ def use_vehicle(page, patch_js):
     page.evaluate(f"() => {{ const c = window.__mm.vehicles().compact; {patch_js}; window.__mm.setVehicle(c); }}")
 
 
+def wait_frames(page, n=2):
+    """Wait until the game loop has drawn n more frames. The camera and the HUD are only written inside the loop, and
+    a headless renderer can draw slower than 1 fps -- a fixed wait_for_timeout then reads the state from before the
+    swap. The counter rides on requestAnimationFrame, registered after the game's loop, so it ticks after it."""
+    page.evaluate("() => { if (!window.__frames) { window.__frames = { n: 0 }; const tick = () => { window.__frames.n++; requestAnimationFrame(tick); }; requestAnimationFrame(tick); } window.__frames.n = 0; }")
+    page.wait_for_function(f"() => window.__frames.n >= {n}", timeout=120000)
+
+
 def test_golden_trace_of_the_compact_car(server):
     with sync_playwright() as p:
         b, page = open_hand(p, server)
@@ -116,9 +124,9 @@ def test_table_cockpit_eye_is_used(server):
     with sync_playwright() as p:
         b, page = open_hand(p, server)
         page.click("#startbtn", timeout=180000)
-        page.keyboard.press("KeyC"); page.keyboard.press("KeyC"); page.wait_for_timeout(400)
+        page.keyboard.press("KeyC"); page.keyboard.press("KeyC"); wait_frames(page)
         before = page.evaluate("() => window.__mm.cam()")
-        use_vehicle(page, "c.camera.cockpit.eye = [0.5, 1.5, -0.38]"); page.wait_for_timeout(400)
+        use_vehicle(page, "c.camera.cockpit.eye = [0.5, 1.5, -0.38]"); wait_frames(page)
         after = page.evaluate("() => window.__mm.cam()")
         visible = page.evaluate("() => window.__mm.hud().carVisible")
         b.close()
@@ -126,3 +134,17 @@ def test_table_cockpit_eye_is_used(server):
     assert before["d"] == pytest.approx([0.325, 1.586, 0.494], abs=1e-3), before
     assert after["d"] == pytest.approx([-0.65, 1.95, 0.494], abs=1e-3), after
     assert visible is False
+
+
+def test_table_gears_drive_the_hud(server):
+    """20 m/s = 72 km/h: 3rd gear with compact's table, 1st with a long first gear. The HUD reads the vehicle's table."""
+    roll = "() => window.__mm.sim(1882.9, -292.2, Math.PI, 20, 0.02, [])"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(roll); wait_frames(page)
+        compact = page.inner_text("#gearn")
+        use_vehicle(page, "c.sound.gears = [0, 100, 200, 300, 400, 500, 999]")
+        page.evaluate(roll); wait_frames(page)
+        long_first = page.inner_text("#gearn")
+        b.close()
+    assert (compact, long_first) == ("3", "1")
