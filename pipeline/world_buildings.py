@@ -99,7 +99,7 @@ def _assign_numbers(recs, polys, own, addr_nodes, stats):
             stats[src] += 1
 
 
-def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=(), addr_nodes=()):
+def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=(), addr_nodes=(), keep_ids=frozenset()):
     main = [shapely.LineString(r["pts"]) for r in roads if r["cls"] in MAIN and len(r["pts"]) >= 2]
     tree = STRtree(main) if main else None
     sites = shapely.unary_union(list(industrial)) if industrial else None
@@ -126,13 +126,14 @@ def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=froz
             continue
         near = tree is not None and len(tree.query(p, predicate="dwithin", distance=house_dist)) > 0
         in_quarter = not near and quarters is not None and quarters.contains(p.centroid)
-        if not near and not in_quarter and (big_area <= 0 or p.area < big_area):
+        listed = not near and not in_quarter and a.id in keep_ids     # named landmark kept by id (#46)
+        if not near and not in_quarter and not listed and (big_area <= 0 or p.area < big_area):
             continue
         kind, rect = roof(p)
         pal = "industrial" if sites is not None and sites.contains(p.centroid) else "village"
         ring = [[round(x, 1), round(z, 1)] for x, z in p.exterior.coords[:-1]]
         rec = {"id": a.id, "h": height(t), "roof": kind, "palette": pal, "rect": rect, "ring": ring}
         out.append(rec); polys.append(p); own.append(join_numbers([t.get("addr:housenumber", "")]))
-        stats["kept_near" if near else "kept_area" if in_quarter else "kept_big"] += 1
+        stats["kept_near" if near else "kept_area" if in_quarter else "kept_landmark" if listed else "kept_big"] += 1
     _assign_numbers(out, polys, own, addr_nodes, stats)
     return out, dict(stats)

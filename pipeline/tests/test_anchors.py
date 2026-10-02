@@ -51,3 +51,8 @@ def test_keep_all_building_boxes():
     import anchors as A
     spec = {"areas": {"q": {"game_box": [0, 0, 10, 10], "keep_all_buildings": True}, "w": {"game_box": [5, 5, 6, 6]}}}
     assert [b.bounds for b in A.keep_all_boxes(spec, {"areas": {"q": [0.0, 0.0, 10.0, 10.0], "w": [5.0, 5.0, 6.0, 6.0]}})] == [(0.0, 0.0, 10.0, 10.0)]
+
+
+def test_keep_ids():
+    assert anchors.keep_ids({"keep_buildings": ["w390621357", "w25835477"]}) == {390621357, 25835477}
+    assert anchors.keep_ids({}) == set()

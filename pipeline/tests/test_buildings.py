@@ -114,3 +114,21 @@ def test_join_numbers():
     assert B.join_numbers(["1;3"]) == "1–3"
     assert B.join_numbers(["14-18"]) == "14-18"
     assert B.join_numbers(["", "  "]) is None
+
+
+def test_keep_ids_keep_far_small_buildings_but_not_excluded_sheds_or_outside():
+    far = [house(1, 0, 400),                                                   # far, 108 m2: kept by id
+           house(2, 0, 500),                                                   # kept by id but also excluded
+           house(3, 0, 600),                                                   # far, not listed: dropped
+           Area(4, True, {"building": "yes"}, shapely.box(0, 700, 3, 703)),    # 9 m2 < 20
+           Area(5, True, {"building": "roof"}, shapely.box(0, 800, 20, 820)),  # skipped type
+           house(6, 0, 1500)]                                                  # outside the clip
+    bl, stats = B.build(far, MAIN, CLIP, exclude_ids={2}, keep_ids={1, 2, 4, 5, 6})
+    assert [b["id"] for b in bl] == [1]
+    assert stats["kept_landmark"] == 1
+    assert stats["excluded_landmark"] == 1
+
+
+def test_keep_ids_default_keeps_nothing_extra():
+    bl, _ = B.build([house(1, 0, 400)], MAIN, CLIP)
+    assert bl == []

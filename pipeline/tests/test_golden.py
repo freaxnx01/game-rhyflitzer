@@ -148,3 +148,14 @@ def test_parking(world):
         for ax, az, bx, bz in p["lines"]:
             seg = shapely.LineString([(ax, az), (bx, bz)])
             assert not any(houses.geometries[i].intersection(seg).length > 0.5 for i in houses.query(seg)), p["id"]
+
+
+KEPT_46 = {390621357, 25835477, 92036948, 25049518, 199241726, 171822808, 171822721}
+
+
+def test_issue46_landmark_buildings_are_kept(world):
+    """#46: named landmark buildings far from main roads are kept by id (anchors.json keep_buildings); the
+    Kursaal building and the Aqualon Therme were already in the world and stay."""
+    ids = {b["id"] for b in world["buildings"]}
+    assert KEPT_46 <= ids, KEPT_46 - ids
+    assert {91592556, 92039355} <= ids
