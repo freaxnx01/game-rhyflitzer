@@ -15,7 +15,7 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 
 ## Random spot (#21, PR #27 — merged 2026-10-02)
 
-- [ ] J → 0 (and a click on "Random spot") drops the car on a road somewhere on the map, a different spot each time, never on a bridge or motorway.
+- [ ] J → "Random spot" (the last row: select it with ↓ and press Enter, or click it) drops the car on a road somewhere on the map, a different spot each time, never on a bridge or motorway. (The `0` shortcut is gone since #41.)
 - [ ] During a race: a random spot marks the run "with a jump, not counted".
 
 ## Vehicle table (#5, PR #32 — merged 2026-10-02)
@@ -28,10 +28,17 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Wheel over the map and +/- step through 1×, 2×, 4×, 8×; zoomed in, the map follows the car; the page never scrolls.
 - [ ] Double-click on the map puts the car on the nearest road there; a single click does nothing.
 - [ ] On a phone: double-tap places the car exactly once; a single tap does nothing.
-- [ ] Swiss keyboard: with the J menu open, `=` and `+` only zoom, they don't jump.
+- [ ] Swiss keyboard: with the J menu open, `=` and `+` type into the search field and no longer zoom the map (#41 routes every key to the dialog); with the menu closed they still step the zoom.
 
 ## Road names, house numbers, station boards (#12, PR #33 — merged 2026-10-02)
 
 - [ ] The HUD names the road you're on (Bodenackerstrasse, Hauptstrasse …), empty off-road.
 - [ ] House numbers appear near the car (Bodenackerstrasse 6 shows "6a–6d", the Hallenbad "2") and fade out further away.
 - [ ] Both stations carry their "Bahnhof Sisseln" / "Bahnhof Stein-Säckingen" board.
+
+## Landmark list in the J dialog (#41)
+
+- [ ] J opens the list with the cursor in the search field; typing "münst" or "munst" leaves the Fridolinsmünster; Enter puts the car next to it.
+- [ ] The Gemeinde chips filter (Sisseln: 6 landmarks); search and chip combine; Random spot is always the last row.
+- [ ] While the dialog is open, R, C, M, W and Space do nothing to the car, camera or sound; after a jump they work again.
+- [ ] On a phone-width window the chips wrap and the panel fits the screen.

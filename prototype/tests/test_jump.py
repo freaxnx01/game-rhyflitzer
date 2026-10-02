@@ -43,6 +43,14 @@ def anchor(name):
     return lm["x"], lm["z"]
 
 
+def jump_via_dialog(page, query):
+    """Jump the way a player does, and report where the car ended up (a point on a road)."""
+    page.keyboard.press("KeyJ")
+    page.keyboard.type(query)
+    page.keyboard.press("Enter")
+    return car(page)
+
+
 @needs_world
 def test_j_opens_the_landmark_list_with_focus_in_the_search_field(server):
     with sync_playwright() as p:
@@ -124,19 +132,28 @@ def test_arrows_move_the_selection_and_click_jumps(server):
 
 @needs_world
 def test_game_keys_are_silent_while_the_dialog_is_open(server):
+    # The headless renderer draws about once a second and the loop clamps dt, so a second of
+    # wall time is a fraction of a second of simulation: too little for W to move the car
+    # measurably even when it *is* recorded. So the driving key is checked on the input state
+    # (keysDown) and R on the car's distance from its reset point, not on a wall-clock drift.
     with sync_playwright() as p:
         b, page = open_page(p, server)
-        kx, kz = anchor("smileKreisel")
-        page.evaluate(f"() => window.__mm.place({kx}, {kz})")   # place() does not move the reset point
-        page.keyboard.down("KeyW")                              # held while J opens
+        far = jump_via_dialog(page, "bahnhof sisseln")   # a road point out east
+        safe = jump_via_dialog(page, "munster")          # the reset point R would use is now the Münster
+        page.evaluate(f"() => window.__mm.place({far['x']}, {far['z']})")   # place() does not move the reset point
+        page.keyboard.down("KeyW")                       # held while J opens
+        assert page.evaluate("() => window.__mm.keysDown()") == ["KeyW"]
         page.keyboard.press("KeyJ")
+        assert page.evaluate("() => window.__mm.keysDown()") == [], "a driving key survived into the dialog"
         view = page.evaluate("() => window.__mm.camView")
         page.keyboard.type("rcm ")
-        page.wait_for_timeout(1500)
+        page.wait_for_timeout(500)
         page.keyboard.up("KeyW")
         assert page.input_value("#jumpq") == "rcm "
+        assert page.evaluate("() => window.__mm.keysDown()") == [], "a key typed into the search field drives the car"
         c = car(page)
-        assert math.hypot(c["x"] - kx, c["z"] - kz) < 1.5, "R reset or W drove the car"
+        assert math.hypot(c["x"] - safe["x"], c["z"] - safe["z"]) > 1000, "R reset the car to its safe spot"
+        assert math.hypot(c["x"] - far["x"], c["z"] - far["z"]) < 20
         assert page.evaluate("() => window.__mm.camView") == view, "C switched the camera"
         assert "Muted" not in (page.text_content("#toast") or ""), "M muted the sound"
         assert page.is_visible("#jump")
