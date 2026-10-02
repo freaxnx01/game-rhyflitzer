@@ -115,3 +115,10 @@ test('layoutFromWorld passes props and defaults to an empty list', () => {
   const p = [{ kind: 'lamp', x: 1, z: 2, rot: 0 }];
   assert.deepEqual(layoutFromWorld({ ...base, props: p }).props, p);
 });
+
+test('layoutFromWorld passes streams and defaults to an empty list', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: { landmarks: {}, cps: [], labels: [], areas: {} } };
+  assert.deepEqual(layoutFromWorld(base).streams, []);
+  const st = [{ name: 'Sissle', w: 12, pts: [[0, 0], [10, 0]] }];
+  assert.deepEqual(layoutFromWorld({ ...base, streams: st }).streams, st);
+});

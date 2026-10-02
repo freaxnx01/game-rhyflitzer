@@ -308,3 +308,26 @@ def test_props_loaded(server):
     assert msgs == []
     info, _ = load(server, block_world=True)
     assert "props" not in info["mm"]["counts"]
+
+
+@pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
+def test_sissle_visible_along_its_course(server):
+    """Playtest 2026-10-02: standing on the bridge over the Sissle, the stream could not be seen (flat water chunks on a
+    stream that falls 25 m, under the ground for half its length). Along the whole course, seen from above, the water is
+    the first surface, and the car gets wet in it."""
+    import json, math
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    pts = []
+    for st in (s for s in w["streams"] if s["name"] == "Sissle"):
+        for (ax, az), (bx, bz) in zip(st["pts"], st["pts"][1:]):
+            n = max(1, int(math.dist((ax, az), (bx, bz)) // 40))
+            pts += [[ax + (bx - ax) * k / n, az + (bz - az) * k / n] for k in range(n)]
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 320, "height": 180})
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.waterVisible && document.querySelector('#mmhstatus.real')", timeout=240000)
+        res = page.evaluate(f"() => window.__mm.waterVisible({json.dumps(pts)})")
+        br.close()
+    assert res["checked"] > 60, res
+    assert res["visible"] >= 0.97 * res["checked"], res
+    assert res["wet"] >= 0.97 * res["checked"], res
