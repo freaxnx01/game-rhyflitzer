@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -147,4 +147,18 @@ test('pickLabels: within 60 m, nearest first, at most 40', () => {
   assert.deepEqual(got.slice(0, 3).map(l => [l.t, l.d]), [['0', 0], ['1', 1], ['2', 2]]);
   assert.equal(pickLabels(items, 0, 0, 60, 100).length, 61);  // 0..60 inclusive
   assert.deepEqual(pickLabels(items, 500, 500), []);
+});
+
+test('facadeLabels: one outward label per façade, sized to it', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const same = (got, want) => assert.ok(['x', 'z', 'rotY', 'w', 'h'].every(k => near(got[k], want[k])), `${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+  const t = facadeLabels(100, 200, 0, 28, 26);   // traced hall, default size
+  assert.equal(t.length, 4);
+  same(t[0], { x: 100, z: 213.1, rotY: 0, w: 16.8, h: 16.8 * 2.2 / 16 });             // today's façade
+  same(t[1], { x: 114.1, z: 200, rotY: Math.PI / 2, w: 15.6, h: 15.6 * 2.2 / 16 });
+  same(t[2], { x: 100, z: 186.9, rotY: Math.PI, w: 16.8, h: 16.8 * 2.2 / 16 });
+  same(t[3], { x: 85.9, z: 200, rotY: 3 * Math.PI / 2, w: 15.6, h: 15.6 * 2.2 / 16 });
+  const o = facadeLabels(0, 0, Math.PI / 2, 42.7, 47.1);  // OSM size, rotated a quarter turn
+  same(o[0], { x: -23.65, z: 0, rotY: -Math.PI / 2, w: 20, h: 2.75 });             // clamped to 20 m
+  same(o[1], { x: 0, z: 21.45, rotY: 0, w: 20, h: 2.75 });
 });
