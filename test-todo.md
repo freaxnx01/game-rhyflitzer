@@ -56,3 +56,10 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] **Hallenbad car parks** (J → Sisseln, then to the Hallenbad): the Hallenbad-Parkplatz (west of the pool, ~36 bays), the small Hallenbad-Parkplatz with capacity 18 (7 bays drawn) and Privat Parkplatz Rhyblick (~45 bays) look like the aerial view: grey asphalt, white bay rows, a blue "P" sign with the name.
 - [ ] Elsewhere: roadside parking strips keep their bays along the road, no bay lines run through houses or over a road, and a car park on a slope does not float or sink.
 - [ ] The car drives onto and across a car park without bumping (the lot sits 1 cm under the road surface).
+
+## Big village names (#16)
+
+- [ ] From the start, drive west towards Stein and Bad Säckingen: the names hang over the villages, readable from afar, not too big, not too small.
+- [ ] Driving into Sisseln, Stein or Bad Säckingen: the village's own name fades out smoothly and is gone inside the village (radius tuning: `VILLAGES[].r` in `prototype/world.js`).
+- [ ] Far names fade out instead of popping; two names lined up behind each other stay readable (the nearer one on top).
+- [ ] Both graphic styles (T): names are not fogged.
