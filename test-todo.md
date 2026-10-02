@@ -22,14 +22,14 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] The car looks, drives, sounds (horn H, engine, gears in the HUD) and collides exactly as before.
 - [ ] All four camera views (C) frame the car as before; nitro flames (N) and turn signals (Q/E) still show.
 
-## Minimap zoom and placement (#11, PR #31)
+## Minimap zoom and placement (#11, PR #31 — merged 2026-10-02)
 
 - [ ] Wheel over the map and +/- step through 1×, 2×, 4×, 8×; zoomed in, the map follows the car; the page never scrolls.
 - [ ] Double-click on the map puts the car on the nearest road there; a single click does nothing.
 - [ ] On a phone: double-tap places the car exactly once; a single tap does nothing.
 - [ ] Swiss keyboard: with the J menu open, `=` and `+` only zoom, they don't jump.
 
-## Road names, house numbers, station boards (#12, PR #33)
+## Road names, house numbers, station boards (#12, PR #33 — merged 2026-10-02)
 
 - [ ] The HUD names the road you're on (Bodenackerstrasse, Hauptstrasse …), empty off-road.
 - [ ] House numbers appear near the car (Bodenackerstrasse 6 shows "6a–6d", the Hallenbad "2") and fade out further away.
