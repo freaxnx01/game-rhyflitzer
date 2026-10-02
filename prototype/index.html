@@ -30,6 +30,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #compass{position:fixed;right:16px;top:calc(124px + env(safe-area-inset-top,0px));width:76px;height:76px}
 #blink{display:flex;gap:10px;justify-content:center;font-size:22px;font-weight:800;color:#3a404b;text-shadow:1px 1px 0 var(--ink)}#blink .on{color:#ff9a1a}
 #watername{font-size:15px;font-weight:700;letter-spacing:2px;color:#9fd8ff;text-shadow:2px 2px 0 var(--ink);min-height:18px}
+#roadname{font-size:15px;font-weight:700;letter-spacing:2px;color:#f5efe0;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
 #jump ol{margin:8px 0;padding-left:26px}#jump li{cursor:pointer;padding:3px 0}#jump li:hover{color:#ffc61a}#jump small{color:var(--steel-l)}
 #bl{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
@@ -89,6 +90,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
     <div id="cpname">Ready</div>
     <div id="blink" aria-hidden="true"><span id="blL">◀</span><span id="blR">▶</span></div>
     <div id="watername"></div>
+    <div id="roadname"></div>
   </div>
   <div id="tr" class="plate">
     <div class="lbl">Time</div>
@@ -186,7 +188,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels } from './world.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
 // ---------- helpers ----------
@@ -775,7 +777,7 @@ addEventListener('resize', resize);
 
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser
-const HUD = { carHidden: false, blinker: null, water: '', waterT: 0 };
+const HUD = { carHidden: false, blinker: null, water: '', waterT: 0, road: '' };
 const keys = {}; addEventListener('keydown', e => { if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden) cycleCamera(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyM') toast(SFX.toggle() ? 'Muted' : 'Sound on'); if (e.code === 'F1' || (e.key === '?')) { e.preventDefault(); $('help').hidden = !$('help').hidden; } if (e.code === 'Escape') $('help').hidden = true; if (e.code === 'Tab' && (R.state === 'armed' || R.state === 'racing')) R.fast = true; if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyJ' && $('overlay').hidden) $('jump').hidden = !$('jump').hidden; else if (e.code === 'Escape') $('jump').hidden = true; else if (!$('jump').hidden && /^(Digit|Numpad)[0-9]$/.test(e.code)) { const n = +e.code.slice(-1), p = PLACES[n - 1]; if (!n) randomSpot(); else if (p) jumpTo(p); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
 for (const [id, k] of [['tL', 'l'], ['tR', 'r'], ['tG', 'g'], ['tB', 'b'], ['tH', 'h']]) { const el = document.getElementById(id); const on = e => { e.preventDefault(); touch[k] = 1; }; const off = e => { e.preventDefault(); touch[k] = 0; }; el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off); }
@@ -817,7 +819,7 @@ window.__mm.place = (x, z) => { P.x = x; P.z = z; P.vx = P.vz = P.vy = 0; P.y = 
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
 // drive headless: start at (x, z) on the highest surface there (a bridge deck if any), heading th at speed v, gas held, fixed 1/60 s steps
 window.__mm.heading = () => P.th;
-window.__mm.hud = () => { const b = bearing(); return { help: !$('help').hidden, compass: `${COMPASS_PTS[Math.round(b / 45) % 8]} ${Math.round(b)}°`, trip: +P.trip.toFixed(3), total: +P.odo.toFixed(3), carVisible: car.visible, blinker: HUD.blinker, water: HUD.water, timeScale: keys.Tab ? 3 : 1 }; };
+window.__mm.hud = () => { const b = bearing(); return { help: !$('help').hidden, compass: `${COMPASS_PTS[Math.round(b / 45) % 8]} ${Math.round(b)}°`, trip: +P.trip.toFixed(3), total: +P.odo.toFixed(3), carVisible: car.visible, blinker: HUD.blinker, water: HUD.water, road: HUD.road, timeScale: keys.Tab ? 3 : 1 }; };
 window.__mm.raceFlags = () => ({ jumped: !!R.jumped, fast: !!R.fast });
 // water vs drawn ground at a point: is the water surface above the ground mesh there (visible) or under it?
 // from above, is water the first thing seen at these points (not grass or a field), and is the car wet there? Bridges and roads are skipped
@@ -895,7 +897,7 @@ const bearing = () => ((Math.atan2(Math.cos(P.th), -Math.sin(P.th)) * 180 / Math
 const COMPASS_PTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 // the named water at or within ~20 m of the car (polygons: the Rhine, lakes; streams: the Sissle ...)
 function waterNameNear(x, z) { for (const [ox, oz] of [[0, 0], [20, 0], [-20, 0], [0, 20], [0, -20], [14, 14], [-14, 14], [14, -14], [-14, -14]]) { const px = x + ox, pz = z + oz; const n = (WATER && WATER.nameAt(px, pz)) || streamNameAt(px, pz); if (n) return n; } return ''; }
-function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; $('odo').textContent = `Total ${P.odo.toFixed(0)} km · K resets trip`; try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } { const on = Math.floor(performance.now() / 350) % 2 === 0; $('blL').className = HUD.blinker === 'left' && on ? 'on' : ''; $('blR').className = HUD.blinker === 'right' && on ? 'on' : ''; for (const s of ['left', 'right']) BLINK[s].visible = HUD.blinker === s && on; } if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; } $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gears = [0, 20, 45, 75, 110, 150, 999]; let gi = 0; while (kmh > gears[gi + 1]) gi++; $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); $('dmg').firstElementChild.style.width = (P.dmg * 100) + '%'; $('time').innerHTML = fmt(R.t); $('best').textContent = R.best === null ? 'Best —' : 'Best ' + fmt(R.best).replace(/<[^>]+>/g, ''); if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = (R.target.i < 0 ? 'Finish · ' : `Checkpoint ${R.target.i + 1} · `) + R.target.n; } if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } drawMap(); }
+function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; $('odo').textContent = `Total ${P.odo.toFixed(0)} km · K resets trip`; try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } { const on = Math.floor(performance.now() / 350) % 2 === 0; $('blL').className = HUD.blinker === 'left' && on ? 'on' : ''; $('blR').className = HUD.blinker === 'right' && on ? 'on' : ''; for (const s of ['left', 'right']) BLINK[s].visible = HUD.blinker === s && on; } if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; HUD.road = roadNameAt(gridQuery(ROAD_GRID, P.x, P.z, 1), P.x, P.z); $('roadname').textContent = HUD.road; } $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gears = [0, 20, 45, 75, 110, 150, 999]; let gi = 0; while (kmh > gears[gi + 1]) gi++; $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); $('dmg').firstElementChild.style.width = (P.dmg * 100) + '%'; $('time').innerHTML = fmt(R.t); $('best').textContent = R.best === null ? 'Best —' : 'Best ' + fmt(R.best).replace(/<[^>]+>/g, ''); if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = (R.target.i < 0 ? 'Finish · ' : `Checkpoint ${R.target.i + 1} · `) + R.target.n; } if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } drawMap(); }
 
 // ---------- loop ----------
 applyStyle('original'); resize();
