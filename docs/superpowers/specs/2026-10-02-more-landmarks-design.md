@@ -57,7 +57,11 @@ Everything else must be equal. No `osmium` cut is needed or allowed.
 - **Pipeline unit** (`pipeline/tests/test_buildings.py`, `test_anchors.py`): a far, small building is kept only when its id is in `keep_ids`. `exclude_ids` wins over `keep_ids`. A kept 9 m² footprint is still dropped. `keep_ids` returns the int ids of `keep_buildings`, and an empty set when the key is absent.
 - **Golden** (`pipeline/tests/test_golden.py`, skips without the extract): all seven ids are in `world["buildings"]`, and `91592556` and `92039355` are still there.
 - **Node** (`prototype/tests/landmarks.test.mjs`): `LANDMARK_INFO` has 23 entries, and the building entries are exactly the 2 + 9 listed. The position test resolves the new Kursaal entry from a stub building.
-- **Browser** (`prototype/tests/test_jump.py`): the count-dependent tests (15 rows, the 6 Sisseln rows) move to a `needs_world46` skip mark. It skips when the served world lacks building `390621357`, and then expects 24 rows and 8 Sisseln rows. A new test needs only the current world: typing `kursaal` gives `Kursaal`, and Enter lands the car within 80 m of the footprint mean. A new `needs_world46` test does the same for `gallus` and checks that `trompeter` finds the castle.
+- **Browser** (`prototype/tests/test_jump.py`): the count-dependent assertions pin both world states exactly, keyed on whether building `390621357` is in the served world (`WORLD46`):
+  - `main`'s world gives 17 rows (14 + Kursaal + Aqualon + Random spot) and 6 Sisseln rows;
+  - the rebuilt world gives 24 rows and 8 Sisseln rows.
+
+  A new test needs only the current world: typing `kursaal` gives `Kursaal`, and Enter lands the car within 80 m of the footprint mean. A new test, skipped until the world is rebuilt, checks three things: `trompeter` finds the castle, the Eiken chip lists Bahnhof Eiken, and `gallus` + Enter lands within 80 m.
 - Manual playtest entry in `test-todo.md`.
 
 ## Out of scope
