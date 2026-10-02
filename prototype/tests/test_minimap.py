@@ -70,3 +70,21 @@ def test_minimap_zoom_keys_follow_the_car_and_stay_on_the_map(server):
     assert there == pytest.approx([123, 45], abs=1e-6)
     assert corner_4x == pytest.approx(corner, abs=0.5)                       # clamped: never shows beyond the map
     assert clamped["cx"] > corner[0] + 500 and clamped["cz"] > corner[1] + 200
+
+
+def test_minimap_wheel_zooms_and_never_scrolls(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        page.evaluate("() => { window.__wheel = []; addEventListener('wheel', e => window.__wheel.push(e.defaultPrevented)); }")
+        box = page.locator("#map").bounding_box(); page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        steps = []
+        for dy in [-100, -100, -100, -100, 100, 100, 100, 100]:
+            page.mouse.wheel(0, dy); page.wait_for_timeout(100); steps.append(zoom(page))
+        page.mouse.wheel(0, -40); page.wait_for_timeout(100); small = zoom(page)
+        page.mouse.wheel(0, -60); page.wait_for_timeout(100); summed = zoom(page)
+        prevented = page.evaluate("() => window.__wheel")
+        b.close()
+    assert steps == [2, 4, 8, 8, 4, 2, 1, 1]
+    assert (small, summed) == (1, 2)                                         # small trackpad deltas add up to one step
+    assert prevented and all(prevented), prevented
