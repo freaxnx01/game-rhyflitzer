@@ -4,7 +4,8 @@ Most OSM houses carry no height, so the world used a default (house 6 m). Each f
 roof overhangs don't count) is read from the surface model: the eaves height `h` is the low edge of the roof (10th
 percentile) and the ridge height `rh` the rise from there to the top (95th percentile), both over the ground under the
 centre. A flat roof has rh ~ 0. Measured rather than modelled: many houses here have shallow roofs, which a fixed
-0.4 * width gable got badly wrong. Swiss side only; buildings outside the tiles keep their height.
+0.4 * width gable got badly wrong. A footprint whose roof top is under 2 m was not built yet when the surface was
+flown (2020) and keeps its height. Swiss side only; buildings outside the tiles keep their height.
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ from rasterio.windows import from_bounds
 
 SHRINK = 0.75      # m: stay off walls and roof overhangs
 MIN_H = 2.5
+NOT_BUILT = 2.0    # m: roof top under this = not built yet when the surface was flown (2020); keep the OSM height
 
 
 def _open(paths):
@@ -60,6 +62,9 @@ def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
                 stats["no_data"] += 1
                 continue
             lo, hi = (float(v) for v in np.percentile(vals, [10, 95]))
+            if hi - ground < NOT_BUILT:
+                stats["not_built"] += 1
+                continue
             # the shrink cut off the lowest strip of a pitched roof: continue its slope out to the wall line
             half = min(b["rect"][2], b["rect"][3]) / 2
             if b.get("roof") == "gable" and half > SHRINK + 1:
