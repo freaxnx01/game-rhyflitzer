@@ -27,6 +27,7 @@ All notable changes to this project are documented here, following
 
 ### Changed
 
+- **J** now opens a list of the landmarks — Fridolinsmünster, Holzbrücke, the DSM chimney, the Smile-Kreisel, Bodenackerstrasse 6c and more. Type part of a name (umlauts optional: "munster" finds the Münster) or pick a Gemeinde — Bad Säckingen, Stein, Münchwilen, Eiken, Sisseln — then press Enter or click. Keys typed into the search don't steer the car. The number keys are gone; **Random spot** is the last row.
 - Enter honks the horn too, next to H (only while driving, so Enter still starts the race from the menu).
 - The car is 30 % bigger. It was true to size, but next to real-size houses and with the wide chase camera it felt like a toy car.
 - Roads in the Original style now show real asphalt, photographed on the Sisseln Hauptstrasse, instead of generated grey noise.
@@ -35,6 +36,7 @@ All notable changes to this project are documented here, following
 ### Fixed
 
 - **V** now hides the car's shadow too — no more dark disc left on the road.
+- Clicking an entry in the **J** menu works now. The menu said "or click" from the start, but the click never arrived — only the number keys did anything.
 - The Sissle and the other streams are visible along their whole course now — from the bridge by the Smile-Kreisel too — and on the minimap. Drive in and you get wet.
 - The Hallenbad Sissila is back where it belongs, at the Bodenackerstrasse, in its real size.
 - The Smile-Kreisel is drivable again and sits inside the real roundabout; its island is round and stops you at the flower bed.
