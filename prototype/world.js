@@ -66,7 +66,7 @@ export function offsetPolyline(pts, d) {
 export function layoutFromWorld(w) {
   const roads = w.roads.map(r => ({ ...r, tex: r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
-           rail: w.rail, props: w.props || [], parking: w.parking || [], streams: w.streams || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [] };
+           rail: w.rail, props: w.props || [], parking: w.parking || [], streams: w.streams || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
@@ -111,10 +111,11 @@ export function roadNameAt(cands, x, z, margin = 1) {
   }
   return best;
 }
-// #12: house-number labels (OSM addr) at the footprint centre; top = roof top above the base, as osmBuilding draws it (roughly)
+// roof top above the base, as osmBuilding draws it (roughly); shared by the house-number (#12) and debug height (#39) labels
+export function roofTop(b) { return typeof b.rh === 'number' ? b.h + b.rh : b.roof === 'gable' ? b.h + 0.4 * Math.min(b.rect[2], b.rect[3]) : Math.max(b.h, 3); }
+// #12: house-number labels (OSM addr) at the footprint centre
 export function addrLabels(buildings, landmarks = {}) {
-  const top = b => typeof b.rh === 'number' ? b.h + b.rh : b.roof === 'gable' ? b.h + 0.4 * Math.min(b.rect[2], b.rect[3]) : Math.max(b.h, 3);
-  return [...buildings.filter(b => b.addr).map(b => ({ t: b.addr, x: b.rect[0], z: b.rect[1], top: top(b) })),
+  return [...buildings.filter(b => b.addr).map(b => ({ t: b.addr, x: b.rect[0], z: b.rect[1], top: roofTop(b) })),
           ...Object.values(landmarks).filter(l => l.addr).map(l => ({ t: l.addr, x: l.x, z: l.z, top: 9 }))];
 }
 export function pickLabels(items, x, z, maxDist = 60, maxN = 40) {
