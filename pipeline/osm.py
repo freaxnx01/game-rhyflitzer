@@ -23,8 +23,10 @@ from pathlib import Path
 import shapely
 
 import anchors as anchors_mod
+import building_heights
 import geo
 import mmh
+import terrain
 import osm_read
 import world_buildings
 import world_props
@@ -80,7 +82,7 @@ def cmd_cut(a) -> int:
     return 0
 
 
-def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path) -> dict:
+def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path, dsm_cache=None) -> dict:
     frame = geo.Frame(*origin)
     xs, zs = frame.to_game([bbox[0], bbox[2]], [bbox[3], bbox[1]])
     clip = shapely.box(float(xs[0]), float(zs[0]), float(xs[1]), float(zs[1]))
@@ -99,6 +101,11 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path)
                                              anchors_mod.exclude_ids(spec), sites,
                                              anchors_mod.keep_all_boxes(spec, resolved))
     props, prop_stats = world_props.build(data.prop_nodes, data.areas, roads, clip)
+    if dsm_cache:
+        hstats = building_heights.apply(buildings, frame,
+                                        terrain.swiss_tiles(bbox, Path(dsm_cache) / "swisssurface3d", 0.5, "ch.swisstopo.swisssurface3d-raster"),
+                                        terrain.swiss_tiles(bbox, Path(dsm_cache) / "swissalti3d", 2.0))
+        log(f"building heights from swissSURFACE3D: {dict(hstats)}")
     rail = [[[round(x, 1), round(z, 1)] for x, z in w.line.intersection(clip).coords]
             for w in data.ways if w.tags.get("railway") == "rail" and w.line.intersects(clip)
             and w.line.intersection(clip).geom_type == "LineString"]
@@ -133,7 +140,8 @@ def write_world(path: Path, world: dict) -> None:
 
 
 def cmd_build(a) -> int:
-    world = build_world(a.pbf, a.mmh, tuple(a.bbox), tuple(a.origin), a.house_dist, a.big_building_area, a.anchors)
+    world = build_world(a.pbf, a.mmh, tuple(a.bbox), tuple(a.origin), a.house_dist, a.big_building_area, a.anchors,
+                        a.dsm_heights)
     write_world(a.out, world)
     return 0
 
@@ -156,6 +164,8 @@ def main(argv=None) -> int:
     b.add_argument("--house-dist", type=float, default=30.0)
     b.add_argument("--big-building-area", type=float, default=1000.0)
     b.add_argument("--anchors", default=str(Path(__file__).with_name("anchors.json")))
+    b.add_argument("--dsm-heights", nargs="?", const="cache", default=None, metavar="CACHE",
+                   help="building heights from swissSURFACE3D minus swissALTI3D (downloads ~40 tiles into CACHE/swisssurface3d)")
     a = ap.parse_args(argv)
     if a.cmd == "cut":
         return cmd_cut(a)

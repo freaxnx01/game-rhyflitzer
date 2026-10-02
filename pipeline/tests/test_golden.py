@@ -90,3 +90,22 @@ def test_sissle_is_a_stream_line(world):
 def test_rhine_water_is_named(world):
     names = {w["name"] for w in world["water"]}
     assert "Rhein" in names
+
+
+@pytest.fixture(scope="module")
+def world_dsm():
+    tiles = list((Path(__file__).parents[1] / "cache" / "swisssurface3d").glob("*.tif"))
+    if len(tiles) < 10:
+        pytest.skip("run osm.py build --dsm-heights once to fetch swissSURFACE3D")
+    return osm.build_world(PBF, MMH if MMH.exists() else None, geo.DEFAULT_BBOX, geo.DEFAULT_ORIGIN,
+                           30.0, 1000.0, Path(__file__).parents[1] / "anchors.json", "cache")
+
+
+def test_building_heights_from_the_surface(world_dsm):
+    """#17: on the Swiss side most houses get a measured height instead of the 6 m default."""
+    import statistics
+    ch = [b for b in world_dsm["buildings"] if b["ring"][0][1] > -600 or b["ring"][0][0] > 0]   # roughly south of the Rhine
+    dsm = [b for b in world_dsm["buildings"] if b.get("hsrc") == "dsm"]
+    assert len(dsm) >= 0.6 * len(ch), (len(dsm), len(ch))
+    hs = [b["h"] for b in dsm]
+    assert 3.0 <= statistics.median(hs) <= 12.0 and max(hs) < 80

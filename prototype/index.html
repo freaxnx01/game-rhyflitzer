@@ -477,10 +477,12 @@ function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3]) {
 const INDUSTRIAL = { walls: ['#f1f3f5', '#e3e7eb', '#d6dbe0'], band: '#1f5fae', roof: '#9aa0a8' };
 function osmBuilding(b) {
   const [cx, cz, w, d, rot] = b.rect; let base = Infinity; for (const [x, z] of b.ring) base = Math.min(base, terrainH(x, z));
-  if (b.roof === 'gable') {
+  // measured buildings (hsrc 'dsm', #17): eaves h and ridge rh from swissSURFACE3D; a measured flat roof is drawn flat
+  const dsm = b.hsrc === 'dsm';
+  if (b.roof === 'gable' && !(dsm && b.rh < 0.6)) {
     const floors = Math.max(1, Math.round(b.h / 3)); const wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]);
-    const h = floors * 3 + 0.4; box(w, h + 3, d, cx, base - 3, cz, rot, wc, rnd() < 0.5 ? 'wall' : 'wallDoor', [4, 3], 3.1);
-    gable(w, d, base + h, Math.min(w, d) * 0.4, cx, cz, rot, rc, wc); addOBB(cx, cz, w, d, rot, base + h); return;
+    const h = dsm ? b.h : floors * 3 + 0.4; box(w, h + 3, d, cx, base - 3, cz, rot, wc, rnd() < 0.5 ? 'wall' : 'wallDoor', [4, 3], 3.1);
+    gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, wc); addOBB(cx, cz, w, d, rot, base + h); return;
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
   const wc = col(ind ? INDUSTRIAL.walls[Math.floor(rr(0, 3))] : PLASTER[Math.floor(rr(0, PLASTER.length))]);

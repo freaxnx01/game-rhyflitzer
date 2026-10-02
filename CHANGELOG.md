@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Houses on the Swiss side now have their real height and roof pitch, measured from swisstopo's surface model — bungalows stay low, blocks stand tall.
 - **F1** shows every key. A compass rose turns with the car, a trip odometer counts your kilometres (**K** resets it), **Q**/**E** set the turn signals, **V** hides the car, and the HUD names the water you are at — Rhein, Sissle and friends. Hold **Tab** to run the game three times faster (that run won't count as a record).
 - Hold **N** for nitro — blue flames, much harder acceleration, a higher top speed, and it never runs out.
 - Press **J** to jump straight to a village or railway station (1–9 or click). A jump during a race still lets you finish, but the time doesn't count as a record.
