@@ -32,7 +32,9 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #watername{font-size:15px;font-weight:700;letter-spacing:2px;color:#9fd8ff;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #roadname{font-size:15px;font-weight:700;letter-spacing:2px;color:#f5efe0;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
-#jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}   /* #hud is pointer-events:none, so the dialog has to opt back in to be clickable */#jump input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}
+/* #hud is pointer-events:none, so the dialog has to opt back in to be clickable at all */
+#jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
+#jump input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}
 #jump .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}#jump .chips button{font:inherit;font-size:13px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 8px;cursor:pointer}#jump .chips button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}
 #jump ul{list-style:none;margin:6px 0;padding:0;max-height:50vh;overflow-y:auto}#jump li{display:flex;justify-content:space-between;gap:12px;cursor:pointer;padding:3px 4px}#jump li span{color:var(--steel-l);font-weight:600}#jump li:hover,#jump li.sel{color:#ffc61a}#jump small{color:var(--steel-l)}
 #bl{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
