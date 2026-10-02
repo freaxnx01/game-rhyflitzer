@@ -30,6 +30,7 @@ All notable changes to this project are documented here, following
 - Enter honks the horn too, next to H (only while driving, so Enter still starts the race from the menu).
 - The car is 30 % bigger. It was true to size, but next to real-size houses and with the wide chase camera it felt like a toy car.
 - Roads in the Original style now show real asphalt, photographed on the Sisseln Hauptstrasse, instead of generated grey noise.
+- The Hallenbad Sissila now shows its name on all four sides, so you can read it from whichever way you drive up.
 
 ### Fixed
 
