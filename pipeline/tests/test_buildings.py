@@ -4,7 +4,7 @@ import pytest
 import shapely
 
 import world_buildings as B
-from osm_read import Area
+from osm_read import AddrNode, Area
 
 CLIP = shapely.box(-1000, -1000, 1000, 1000)
 MAIN = [{"cls": "tertiary", "pts": [[-500, 0], [500, 0]]}]
@@ -67,3 +67,37 @@ def test_keep_all_area_keeps_far_houses_but_not_sheds():
     bl, stats = B.build(far, MAIN, CLIP, keep_all=[shapely.box(-50, 150, 50, 250)])
     assert [b["id"] for b in bl] == [1]
     assert stats["kept_area"] == 1
+
+
+def test_own_number_on_the_outline():
+    bl, stats = B.build([house(1, 0, 20, tags={"addr:housenumber": "12"})], MAIN, CLIP)
+    assert bl[0]["addr"] == "12" and stats["addr_own"] == 1
+
+
+def test_address_node_inside_the_outline():
+    bl, stats = B.build([house(1, 0, 20)], MAIN, CLIP, addr_nodes=[AddrNode(9, "7", 1.0, 21.0)])
+    assert bl[0]["addr"] == "7" and stats["addr_node"] == 1
+
+
+def test_node_on_the_outline_or_outside_gives_no_addr():
+    nodes = [AddrNode(9, "7", 0.0, 40.0), AddrNode(10, "8", 6.0, 20.0)]     # 15 m away; exactly on the east wall
+    bl, _ = B.build([house(1, 0, 20)], MAIN, CLIP, addr_nodes=nodes)
+    assert "addr" not in bl[0]
+
+
+def test_own_number_wins_over_nodes():
+    bl, _ = B.build([house(1, 0, 20, tags={"addr:housenumber": "3"})], MAIN, CLIP, addr_nodes=[AddrNode(9, "7", 1.0, 21.0)])
+    assert bl[0]["addr"] == "3"
+
+
+def test_several_entrances_become_a_range():
+    nodes = [AddrNode(i, n, 1.0 + i * 0.1, 21.0) for i, n in enumerate(["6b", "6d", "6a", "6c", "6a"])]
+    bl, _ = B.build([house(1, 0, 20)], MAIN, CLIP, addr_nodes=nodes)
+    assert bl[0]["addr"] == "6a–6d"
+
+
+def test_join_numbers():
+    assert B.join_numbers(["10", "9", "9a"]) == "9–10"
+    assert B.join_numbers(["1;3"]) == "1–3"
+    assert B.join_numbers(["14-18"]) == "14-18"
+    assert B.join_numbers(["", "  "]) is None

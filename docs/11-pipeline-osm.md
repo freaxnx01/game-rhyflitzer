@@ -116,6 +116,8 @@ Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it i
 
 **Building heights (#17).** `osm.py build --dsm-heights [CACHE]` downloads swissSURFACE3D (0.5 m, about 40 tiles, ~500 MB into `CACHE/swisssurface3d`) and measures every footprint against swissALTI3D: eaves `h` = 10th percentile of the roof (a pitched roof's slope continued out to the wall line), ridge `rh` = 95th percentile minus eaves, both over the ground at the centre; marked `hsrc: "dsm"`. A footprint whose 95th percentile is under 2 m above ground (`NOT_BUILT`) was not built yet when the surface was flown (2020): it is counted as `not_built` and keeps its OSM-tag or default height. The prototype draws measured buildings at that eaves height with a gable of `rh` (flat when `rh` < 0.6 m) instead of whole floors and a fixed 0.4 × width ridge. Real extract: 1,686 of 1,885 buildings measured, median eaves 5.1 m; 42 are `not_built`, and the rest (German side, outside the tiles) keep the OSM-tag or default height.
 
+**House numbers (#12).** `osm_read` keeps every node with `addr:housenumber` as `AddrNode(id, number, x, z)` — the number only, no name or street. A building gets an optional `addr`: its own `addr:housenumber`, else the numbers of the address nodes strictly inside its footprint; several numbers become `first–last` (`6a–6d`). An OSM-referenced landmark gets `addr` the same way from its own tag (the Hallenbad: `2`). No `street` field is exported. Real extract: ~1,230 of 1,885 buildings numbered (+~16 KB).
+
 ## Known limits
 
 - The German side is flat at the base height until LGL DGM1 is added to the terrain, so water can sit above flat German banks. Water levels ignore the DEM nodata fill for the same reason.

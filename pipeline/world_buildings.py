@@ -60,11 +60,33 @@ def _clean(geom):
     return g if g.is_valid and g.area > 0 and len(set(g.exterior.coords)) >= 3 else None
 
 
-def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=()):
+def _natural(s):
+    m = re.match(r"(\d+)(.*)", s)
+    return (int(m.group(1)), m.group(2)) if m else (math.inf, s)
+
+
+def join_numbers(nums):
+    """OSM house numbers -> one label: distinct, natural order; several -> 'first–last' (#12). A ';' list counts as several."""
+    u = sorted({p.strip() for n in nums for p in (n or "").split(";") if p.strip()}, key=_natural)
+    if not u:
+        return None
+    return u[0] if len(u) == 1 else f"{u[0]}–{u[-1]}"
+
+
+def house_number(tags, poly, addr_nodes, tree):
+    """Own addr:housenumber first, else the address nodes strictly inside the footprint."""
+    own = join_numbers([tags.get("addr:housenumber", "")])
+    if own or tree is None:
+        return own, "addr_own"
+    return join_numbers([addr_nodes[i].number for i in tree.query(poly, predicate="contains")]), "addr_node"
+
+
+def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=(), addr_nodes=()):
     main = [shapely.LineString(r["pts"]) for r in roads if r["cls"] in MAIN and len(r["pts"]) >= 2]
     tree = STRtree(main) if main else None
     sites = shapely.unary_union(list(industrial)) if industrial else None
     quarters = shapely.unary_union(list(keep_all)) if keep_all else None   # areas where every house is kept, near a main road or not
+    addr_tree = STRtree([shapely.Point(n.x, n.z) for n in addr_nodes]) if addr_nodes else None
     out, stats = [], Counter()
     for a in areas:
         t = a.tags
@@ -92,6 +114,11 @@ def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=froz
         kind, rect = roof(p)
         pal = "industrial" if sites is not None and sites.contains(p.centroid) else "village"
         ring = [[round(x, 1), round(z, 1)] for x, z in p.exterior.coords[:-1]]
-        out.append({"id": a.id, "h": height(t), "roof": kind, "palette": pal, "rect": rect, "ring": ring})
+        rec = {"id": a.id, "h": height(t), "roof": kind, "palette": pal, "rect": rect, "ring": ring}
+        addr, src = house_number(t, p, addr_nodes, addr_tree)
+        if addr:
+            rec["addr"] = addr
+            stats[src] += 1
+        out.append(rec)
         stats["kept_near" if near else "kept_area" if in_quarter else "kept_big"] += 1
     return out, dict(stats)
