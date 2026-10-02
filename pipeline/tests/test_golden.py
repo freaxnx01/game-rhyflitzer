@@ -131,3 +131,20 @@ def test_bodenacker_quarter_heights(world_dsm):
     assert tall.get("hsrc") == "dsm" and tall["h"] >= 20, tall["h"]
     new = by_id[1326045746]
     assert "hsrc" not in new and new["h"] == 12.0, new["h"]
+
+
+def test_parking(world):
+    """#40: the Hallenbad car parks are exported with bay lines; capacity caps the bays; underground lots are skipped."""
+    by_id = {}
+    for p in world["parking"]:
+        by_id.setdefault(p["id"], []).append(p)
+    hb = by_id[26648737][0]
+    assert hb["name"] == "Hallenbad-Parkplatz" and hb["bays"] >= 20 and len(hb["lines"]) >= 40 and "sign" in hb
+    assert 1 <= by_id[282853090][0]["bays"] <= 18
+    assert by_id[290671997][0]["bays"] >= 20
+    assert 250 <= len(world["parking"]) <= 400
+    houses = shapely.STRtree([shapely.Polygon(b["ring"]).buffer(-0.3) for b in world["buildings"]])   # a line along a wall is fine
+    for p in world["parking"]:
+        for ax, az, bx, bz in p["lines"]:
+            seg = shapely.LineString([(ax, az), (bx, bz)])
+            assert not any(houses.geometries[i].intersection(seg).length > 0.5 for i in houses.query(seg)), p["id"]

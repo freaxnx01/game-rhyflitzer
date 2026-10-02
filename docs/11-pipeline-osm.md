@@ -17,6 +17,7 @@ Replaces the prototype's hand-traced roads, river and houses with real ones from
 - `world_water.py`: water polygons, water levels, the water SDF.
 - `world_buildings.py`: building selection, heights, roofs, palettes.
 - `world_props.py`: street furniture (lamps, hydrants, benches, bins, bike racks, recycling containers).
+- `world_parking.py`: car parks (open-air and roadside `amenity=parking`) with painted bay lines.
 - `anchors.py` + `anchors.json`: landmarks, start, checkpoints, finish, labels, areas, resolved from OSM ids.
 
 ## Run it
@@ -60,6 +61,7 @@ Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two 
   "buildings": [{ id, h, roof, palette, rect: [cx, cz, w, d, angle], ring: [[x, z], ...] }],
   "rail":      [[[x, z], ...]],
   "props":     [{ kind, x, z, rot }],
+  "parking":   [{ id, name?, ring: [[x, z], ...], holes?, bays, lines: [[ax, az, bx, bz], ...], sign?: [x, z, rot] }],
   "anchors":   { landmarks, cps, labels, areas, start, finish }
 }
 ```
@@ -105,6 +107,8 @@ Counts measured on the 2026-10-01 extract while the design was written; the buil
 **Edge rule.** A prop inside a road band (closer to the centre line than `w/2 + 0.6` m) is moved perpendicular to exactly `w/2 + 0.6` m, on the side it was already on; a prop sitting exactly on the centre line goes to the right-hand side of the road's direction. It is then re-checked against *every* nearby band: still inside one (junctions, narrow gaps) means it is dropped rather than left in a lane. A prop inside the band of a **bridge** is dropped outright, so no invisible post ends up on a deck. `bench` and `bike_rack` are turned parallel to the nearest road (`rot = atan2(dz, dx)`), every other kind keeps `rot = 0`.
 
 **Collision.** The prototype draws one `InstancedMesh` per kind. `lamp` (0.3 × 0.3 m) and `hydrant` (0.4 × 0.4 m) get a small OBB and stop the car; benches, bins, bike racks and both containers are decoration until the fun-physics follow-up gives them hit behaviour.
+
+**Car parks.** `amenity=parking` areas with `parking=surface`, `street_side` or no `parking` tag become `parking` entries (`lane`, `underground` and `multi-storey` are skipped). Bays, first match wins: mapped `amenity=parking_space` areas inside the lot; else rows of 2.5 × 5 m bays on both sides of every `service=parking_aisle` through the lot; else a rule on the lot's minimum rotated rectangle (narrower than 3.5 m: parallel bays 6 m long; under 7 m: one row across the strip; under 16 m: one row away from the road; wider: two rows). Bays overlapping a house, a road band, an aisle or each other by more than 0.5 m² are dropped (touching a wall is fine); a numeric `capacity` keeps the bays nearest the lot's centre. Each lot exports its outline, the bay count and deduplicated bay edges without the open fronts; named lots get a sign position by the nearest road. Design: `docs/superpowers/specs/2026-10-02-car-parks-design.md`.
 
 **Water.** Rivers, lakes and riverbanks as polygons, cut into chunks along the river. Each chunk gets a level: the median of the measured terrain inside it, ignoring DEM nodata (exactly 0.0). Chunks with no valid sample inherit their polygon's median, narrow polygons use the terrain at a representative point, and all-nodata means 0.0. The Rhine sits about 5.5 m above the base near Sisseln (the Säckingen power plant reservoir), about -1.5 m downstream, with a step of about 7 m at the Säckingen weir. The base height 284 m is **not** the Sisseln water level.
 
