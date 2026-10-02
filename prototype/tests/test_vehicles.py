@@ -81,3 +81,30 @@ def test_table_top_speed_is_used(server):
     assert fast == pytest.approx(GOLDEN["gas"][2], abs=1e-6)
     assert 18 < slow < 24, slow
     assert table_top == 60          # the hook hands out a copy; the table itself is untouched
+
+
+def test_table_collision_radius_scales(server):
+    """A standing car 11.8 m from the island centre (island 9.5): compact (radius 1.69) is free; at scale 2
+    (radius 2.6) it is pushed out to 12.1 m."""
+    stand = "() => { const r = window.__mm.sim(1218.3, -127, Math.PI / 2, 0, 0.1, []); return Math.hypot(r.x - 1206.5, r.z + 127); }"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        small = page.evaluate(stand)
+        use_vehicle(page, "c.scale = 2")
+        big = page.evaluate(stand)
+        b.close()
+    assert small == pytest.approx(11.8, abs=0.01), small
+    assert big == pytest.approx(12.1, abs=0.01), big
+
+
+def test_table_mass_softens_the_crash(server):
+    """Coasting head-on into the island at 15 m/s: the heavier car keeps clearly more speed after the hit."""
+    crash = "() => window.__mm.sim(1236.5, -127, Math.PI, 15, 1.6, []).speed"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        light = page.evaluate(crash)
+        use_vehicle(page, "c.mass = 2")
+        heavy = page.evaluate(crash)
+        b.close()
+    assert light == pytest.approx(2.074, abs=0.005), light      # recorded on main @ 6d29cb8
+    assert heavy > light * 1.15, (light, heavy)
