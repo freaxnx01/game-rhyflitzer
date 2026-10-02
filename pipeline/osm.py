@@ -29,6 +29,7 @@ import mmh
 import terrain
 import osm_read
 import world_buildings
+import world_parking
 import world_props
 import world_roads
 import world_water
@@ -102,6 +103,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
                                              anchors_mod.keep_all_boxes(spec, resolved),
                                              addr_nodes=data.addr_nodes)
     props, prop_stats = world_props.build(data.prop_nodes, data.areas, roads, clip)
+    parking, park_stats = world_parking.build(data.areas, data.ways, buildings, roads, clip)
     if dsm_cache:
         hstats = building_heights.apply(buildings, frame,
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swisssurface3d", 0.5, "ch.swisstopo.swisssurface3d-raster"),
@@ -111,7 +113,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
             for w in data.ways if w.tags.get("railway") == "rail" and w.line.intersects(clip)
             and w.line.intersection(clip).geom_type == "LineString"]
     log(f"roads {len(roads)}, junctions {len(junctions)}, water {len(polys)}, buildings {len(buildings)} {stats}, "
-        f"rail {len(rail)}, props {len(props)} {prop_stats}")
+        f"rail {len(rail)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}")
     return {
         "format": "MMW1",
         "origin": {"lat": origin[0], "lon": origin[1], "E": frame.e0, "N": frame.n0, "crs": "EPSG:2056"},
@@ -129,6 +131,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "buildings": buildings,
         "rail": rail,
         "props": props,
+        "parking": parking,
         "anchors": resolved,
     }
 
