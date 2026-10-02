@@ -69,3 +69,7 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] F3 next to Bodenackerstrasse 6: a green height label floats above the house number, readable from the chase camera; the panel bottom left shows x/z/y, LV95, WGS84 and the nearest building. F3 again: everything gone, and the browser's "find" did not open.
 - [ ] Click the panel and paste into a bug report: the LV95 pair finds the spot in map.geo.admin.ch, the WGS84 pair in Google Maps.
 - [ ] Phone: `…/prototype/index.html?debug` opens with the panel on, top left, clear of the steering buttons.
+
+## More landmarks in the J list (#46)
+
+- [ ] #46: J → type `trompeter`, `gallus`, `dieb`, `kursaal`, `aqualon`; chip Eiken → Bahnhof Eiken; chip Sisseln → Gemeindehaus Sisseln, Schulhaus Sisseln. Each jump lands next to its building, and the building stands there (Schloss Schönau and the Diebsturm in the old town, away from main roads).
