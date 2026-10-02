@@ -101,7 +101,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     buildings, stats = world_buildings.build(data.areas, roads, clip, house_dist, big_area,
                                              anchors_mod.exclude_ids(spec), sites,
                                              anchors_mod.keep_all_boxes(spec, resolved),
-                                             addr_nodes=data.addr_nodes)
+                                             addr_nodes=data.addr_nodes, keep_ids=anchors_mod.keep_ids(spec))
     props, prop_stats = world_props.build(data.prop_nodes, data.areas, roads, clip)
     parking, park_stats = world_parking.build(data.areas, data.ways, buildings, roads, clip)
     if dsm_cache:

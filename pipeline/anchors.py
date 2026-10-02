@@ -93,6 +93,11 @@ def exclude_ids(spec) -> set:
     return {_osm_ref(s)[1] for s in spec.get("exclude_buildings", [])}
 
 
+def keep_ids(spec) -> set:
+    """Building ways kept in the world regardless of main-road distance and area (landmarks for the J list, #46)."""
+    return {_osm_ref(s)[1] for s in spec.get("keep_buildings", [])}
+
+
 def industrial_ids(spec) -> list:
     return [_osm_ref(s)[1] for s in spec.get("areas", {}).get("industrial", [])]
 
