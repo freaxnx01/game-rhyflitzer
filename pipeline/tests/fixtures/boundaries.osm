@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6">
+  <node id="901" lat="47.5506" lon="7.9671"/>
+  <node id="902" lat="47.5506" lon="7.9701"/>
+  <node id="903" lat="47.5526" lon="7.9701"/>
+  <node id="904" lat="47.5526" lon="7.9671"/>
+  <way id="900"><nd ref="901"/><nd ref="902"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="2"/></way>
+  <way id="920"><nd ref="902"/><nd ref="903"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="8"/></way>
+  <way id="930"><nd ref="903"/><nd ref="904"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="9"/></way>
+  <way id="940"><nd ref="904"/><nd ref="901"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="8"/></way>
+  <relation id="910"><member type="way" ref="900" role="outer"/><member type="way" ref="920" role="outer"/><tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="8"/><tag k="name" v="Beta"/></relation>
+  <relation id="911"><member type="way" ref="900" role="outer"/><tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="8"/><tag k="name" v="Alpha"/></relation>
+  <relation id="912"><member type="way" ref="930" role="outer"/><tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="9"/><tag k="name" v="Ortsteil"/></relation>
+  <relation id="913"><member type="way" ref="940" role="outer"/><tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="8"/></relation>
+  <relation id="914"><member type="way" ref="900" role="outer"/><tag k="type" v="boundary"/><tag k="boundary" v="administrative"/><tag k="admin_level" v="2"/><tag k="name" v="Land"/></relation>
+</osm>
