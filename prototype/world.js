@@ -163,3 +163,35 @@ export function lineQuads(lines, width) {
   }
   return out;
 }
+
+// #16: big village names (Midtown Madness style). Centres are the OSM place=town/village nodes inside the world, converted with
+// pipeline/geo.py Frame(*DEFAULT_ORIGIN).to_game on 2026-10-02; Sisslerfeld has no place node and uses its map label (pipeline/anchors.json).
+// r = rough village radius in metres: within it the village's own name is hidden.
+export const VILLAGES = [
+  { t: 'BAD SÄCKINGEN', x: -1372.9, z: -263.1, r: 800 },   // node 240042433 (town)
+  { t: 'STEIN', x: -981.8, z: 615.7, r: 450 },             // node 240097537
+  { t: 'SISSELN', x: 1677.6, z: -329.8, r: 450 },          // node 240055476
+  { t: 'SISSLERFELD', x: 420, z: 300, r: 600 },            // map label, no place node
+  { t: 'MÜNCHWILEN', x: -299.3, z: 1408.4, r: 350 },       // node 240115055
+  { t: 'MUMPF', x: -3484.8, z: 596.6, r: 450 },            // node 192826016
+  { t: 'MURG', x: 4361.6, z: -689.8, r: 550 },             // node 240124251
+  { t: 'WALLBACH', x: -3984.9, z: -1744.8, r: 450 },       // node 3608448837 (Wallbach, Bad Säckingen)
+];
+export const VILLAGE_FADE = { in: 200, full: 2600, out: 3400 };
+// Opacity by the car's distance d to the centre: hidden inside r, fades in over f.in, full until f.full, gone at f.out.
+export function villageFade(d, r, f = VILLAGE_FADE) {
+  if (d <= r || d >= f.out) return 0;
+  if (d < r + f.in) return (d - r) / f.in;
+  if (d > f.full) return (f.out - d) / (f.out - f.full);
+  return 1;
+}
+// World height of the name: a constant ~3.4 deg of view beyond 500 m, at least 30 m, at most 180 m.
+export function villageHeight(d) { return Math.max(30, Math.min(180, 0.06 * d)); }
+export function villageLabels(villages, x, z) {
+  const out = [];
+  for (const v of villages) {
+    const d = Math.hypot(v.x - x, v.z - z), opacity = villageFade(d, v.r);
+    if (opacity > 0) out.push({ t: v.t, x: v.x, z: v.z, d, opacity, h: villageHeight(d) });
+  }
+  return out.sort((a, b) => a.d - b.d);
+}

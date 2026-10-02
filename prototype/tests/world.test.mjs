@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -188,4 +188,45 @@ test('subdivideTris leaves small triangles and shares midpoints between neighbou
 
 test('lineQuads gives a quad of the given width around each line and skips empty ones', () => {
   assert.deepEqual(lineQuads([[0, 0, 10, 0], [3, 3, 3, 3]], 0.2), [[[0, 0.1], [10, 0.1], [10, -0.1], [0, -0.1]]]);
+});
+
+test('villageFade: hidden inside, ramps in, full, ramps out, gone', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  assert.equal(villageFade(0, 450), 0);
+  assert.equal(villageFade(450, 450), 0);
+  assert.ok(near(villageFade(550, 450), 0.5));
+  assert.equal(villageFade(650, 450), 1);
+  assert.equal(villageFade(2000, 450), 1);
+  assert.equal(villageFade(2600, 450), 1);
+  assert.ok(near(villageFade(3000, 450), 0.5));
+  assert.equal(villageFade(3400, 450), 0);
+  assert.equal(villageFade(9000, 450), 0);
+  assert.deepEqual(VILLAGE_FADE, { in: 200, full: 2600, out: 3400 });
+});
+
+test('villageHeight: 0.06 x distance, clamped to 30..180 m', () => {
+  assert.equal(villageHeight(100), 30);
+  assert.equal(villageHeight(1000), 60);
+  assert.equal(villageHeight(1500), 90);
+  assert.equal(villageHeight(5000), 180);
+});
+
+test('villageLabels: only visible names, nearest first', () => {
+  const V = [{ t: 'FAR', x: 3000, z: 0, r: 400 }, { t: 'HERE', x: 100, z: 0, r: 400 }, { t: 'MID', x: 0, z: 1500, r: 400 }, { t: 'GONE', x: 0, z: -5000, r: 400 }];
+  const got = villageLabels(V, 0, 0);
+  assert.deepEqual(got.map(l => l.t), ['MID', 'FAR']);
+  assert.deepEqual(got[0], { t: 'MID', x: 0, z: 1500, d: 1500, opacity: 1, h: 90 });
+  assert.ok(Math.abs(got[1].opacity - 0.5) < 1e-9);
+  assert.deepEqual(villageLabels([], 0, 0), []);
+});
+
+test('VILLAGES: eight uppercase names inside the world, the issue\'s four included', () => {
+  assert.equal(VILLAGES.length, 8);
+  assert.equal(new Set(VILLAGES.map(v => v.t)).size, 8);
+  for (const v of VILLAGES) {
+    assert.equal(v.t, v.t.toUpperCase());
+    assert.ok(v.r >= 300 && v.r <= 1000, v.t);
+    assert.ok(v.x > -4689 && v.x < 4750 && v.z > -2350 && v.z < 2034, v.t);   // the world's road extent
+  }
+  for (const t of ['BAD SÄCKINGEN', 'STEIN', 'SISSELN', 'SISSLERFELD', 'MÜNCHWILEN']) assert.ok(VILLAGES.some(v => v.t === t), t);
 });
