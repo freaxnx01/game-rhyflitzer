@@ -33,6 +33,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- **V** now hides the car's shadow too — no more dark disc left on the road.
 - The Sissle and the other streams are visible along their whole course now — from the bridge by the Smile-Kreisel too — and on the minimap. Drive in and you get wet.
 - The Hallenbad Sissila is back where it belongs, at the Bodenackerstrasse, in its real size.
 - The Smile-Kreisel is drivable again and sits inside the real roundabout; its island is round and stops you at the flower bed.
