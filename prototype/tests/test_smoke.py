@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -170,7 +171,7 @@ def test_car_slides_along_holzbruecke_rails(server):
 
 @pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 def test_nitro_and_jump_menu(server):
-    """N = nitro (unlimited, faster than gas alone); J opens the place list, a digit jumps the car onto a road there."""
+    """N = nitro (unlimited, faster than gas alone); J opens the landmark list, search + Enter jumps the car onto a road there (#41)."""
     with sync_playwright() as p:
         br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 640, "height": 360})
         page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
@@ -182,20 +183,23 @@ def test_nitro_and_jump_menu(server):
         nitro = page.evaluate(f"() => window.__mm.sim({x}, {z}, {th}, 0, 4, ['KeyW', 'KeyN'])")["speed"]
         page.keyboard.press("KeyJ")
         places = page.evaluate("() => [...document.querySelectorAll('#jump li')].map(li => li.textContent)")
-        idx = next(i for i, t in enumerate(places) if "Bahnhof Sisseln" in t)
-        page.keyboard.press(f"Digit{idx + 1}")
+        page.keyboard.type("Bahnhof Sisseln")
+        page.keyboard.press("Enter")
         after = page.evaluate("() => ({ car: window.__mm.car(), open: !document.querySelector('#jump').hidden, road: window.__mm.roadDist() })")
         br.close()
     assert nitro > gas * 1.3, (gas, nitro)
     assert any("Bad Säckingen" in t for t in places) and any("Bahnhof Stein-Säckingen" in t for t in places)
     assert not after["open"]
     assert after["road"] < 0                                          # on the driving surface
-    assert abs(after["car"]["x"] - 1780) < 150 and abs(after["car"]["z"] - 560) < 150, after   # Bahnhof Sisseln checkpoint
+    sx, sz = (1780, 560)                                              # hand layout: the Bahnhof Sisseln checkpoint
+    if WORLD.exists():                                                # real world: the stationSisseln landmark
+        st = json.loads(WORLD.read_text(encoding="utf-8"))["anchors"]["landmarks"]["stationSisseln"]; sx, sz = st["x"], st["z"]
+    assert abs(after["car"]["x"] - sx) < 150 and abs(after["car"]["z"] - sz) < 150, after
 
 
 @pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 def test_jump_menu_random_spot(server):
-    """J then 0 drops the car on a random road point anywhere in the map; it counts as a jump during a race."""
+    """J, then Random spot (the last row: Up wraps to it) + Enter drops the car on a random road point anywhere in the map; it counts as a jump during a race."""
     with sync_playwright() as p:
         br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 640, "height": 360})
         page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
@@ -207,7 +211,7 @@ def test_jump_menu_random_spot(server):
         spots = []
         for i in range(3):
             if i: page.keyboard.press("KeyJ")
-            page.keyboard.press("Digit0")
+            page.keyboard.press("ArrowUp"); page.keyboard.press("Enter")
             spots.append(page.evaluate("() => ({ car: window.__mm.car(), open: !document.querySelector('#jump').hidden, road: window.__mm.roadDist() })"))
         jumped = page.evaluate("() => window.__mm.raceFlags().jumped")
         br.close()
