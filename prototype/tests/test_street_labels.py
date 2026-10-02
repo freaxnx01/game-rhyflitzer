@@ -99,3 +99,24 @@ def test_hand_layout_signs_and_no_labels(server):
         br.close()
     assert sorted(s["t"] for s in signs) == sorted(STATIONS.values())
     assert labels == []
+
+
+@needs_world
+def test_label_material_cache_stays_bounded(server):
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    for i, b in enumerate(w["buildings"]):
+        b["addr"] = f"n{i}"                                              # every building its own distinct number
+    stops = w["buildings"][::len(w["buildings"]) // 16][:16]             # spread across the whole map
+    seen, sizes = set(), []
+    with sync_playwright() as p:
+        br, page = open_page(p, server, world=w)
+        cap = page.evaluate("() => window.__mm.labelCache().cap")
+        for b in stops:
+            page.evaluate(f"() => window.__mm.place({b['rect'][0] + 2}, {b['rect'][1]})")
+            page.wait_for_function(f"() => window.__mm.labels().some(l => l.t === '{b['addr']}')", timeout=60000)
+            seen |= {l["t"] for l in page.evaluate("() => window.__mm.labels()")}
+            c = page.evaluate("() => window.__mm.labelCache()")
+            sizes.append(c["size"]); assert c["live"], c                 # every visible sprite still holds a cached material
+        br.close()
+    assert len(seen) > cap, (len(seen), cap)                             # the drive really overflows the cache
+    assert max(sizes) <= cap, sizes
