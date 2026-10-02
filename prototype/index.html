@@ -723,13 +723,13 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 { const an = renderer.capabilities.getMaxAnisotropy(); for (const t of Object.values(TEX)) { t.anisotropy = an; t.needsUpdate = true; } }
 const scene = new THREE.Scene(); scene.add(decals, signs, marks);
 // house numbers (#12, OSM addr): camera-facing sprites over the buildings within 60 m of the car; a pool of 40, refilled every 250 ms, one material per number
-const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0 };
+const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0, ticks: 0 };
 if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = terrainH(it.x, it.z) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
 for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(3.2, 1.2, 1); s.visible = false; LABELS.pool.push(s); scene.add(s); }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
 function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 256, 96, 'rgba(20,23,29,.82)', '#f5efe0', '700 64px "Barlow Condensed", sans-serif', '#f5efe0'), depthWrite: false }); LABELS.mat.set(t, m); return m; }
 function trimLabelMats() { const inUse = new Set(LABELS.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of LABELS.mat) { if (LABELS.mat.size <= LABELS.cap) return; if (inUse.has(m)) continue; LABELS.mat.delete(t); m.map.dispose(); m.dispose(); } }
-function updateLabels(x, z) { LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
+function updateLabels(x, z) { LABELS.ticks++; LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
 const camera = new THREE.PerspectiveCamera(62, 1, 0.5, 4200);
 const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x6a5a40, 0.9); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 0.8); sun.position.set(-300, 400, -200); scene.add(sun); scene.add(sun.target);
@@ -833,6 +833,7 @@ window.__mm.heading = () => P.th;
 window.__mm.hud = () => { const b = bearing(); return { help: !$('help').hidden, compass: `${COMPASS_PTS[Math.round(b / 45) % 8]} ${Math.round(b)}°`, trip: +P.trip.toFixed(3), total: +P.odo.toFixed(3), carVisible: car.visible, blinker: HUD.blinker, water: HUD.water, road: HUD.road, timeScale: keys.Tab ? 3 : 1 }; };
 window.__mm.labels = () => LABELS.shown.map(l => ({ t: l.t, x: l.x, z: l.z, d: +l.d.toFixed(1) }));
 window.__mm.labelSprites = () => LABELS.pool.filter(s => s.visible).length;
+window.__mm.labelTick = () => LABELS.ticks;
 window.__mm.labelCache = () => { const live = new Set(LABELS.mat.values()); return { size: LABELS.mat.size, cap: LABELS.cap, live: LABELS.pool.every(s => !s.visible || live.has(s.material)) }; };
 window.__mm.stationSigns = () => STATION_SIGNS.map(s => ({ ...s }));
 window.__mm.raceFlags = () => ({ jumped: !!R.jumped, fast: !!R.fast });

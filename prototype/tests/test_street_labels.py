@@ -93,7 +93,8 @@ def test_station_boards_on_the_osm_stations(server):
 def test_hand_layout_signs_and_no_labels(server):
     with sync_playwright() as p:
         br, page = open_page(p, server, block_world=True)
-        page.wait_for_timeout(600)
+        t0 = page.evaluate("() => window.__mm.labelTick()")
+        page.wait_for_function(f"() => window.__mm.labelTick() > {t0}", timeout=60000)   # updateLabels really ran
         signs = page.evaluate("() => window.__mm.stationSigns()")
         labels = page.evaluate("() => window.__mm.labels()")
         br.close()

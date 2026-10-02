@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -123,7 +123,6 @@ test('layoutFromWorld passes streams and defaults to an empty list', () => {
   assert.deepEqual(layoutFromWorld({ ...base, streams: st }).streams, st);
 });
 
-import { roadNameAt, addrLabels, pickLabels } from '../world.js';
 test('roadNameAt: on a named road, off it, unnamed, nearest of two', () => {
   const a = { n: 'Hauptstrasse', w: 8, pts: [[0, 0], [100, 0]] }, b = { n: 'Bachweg', w: 4, pts: [[50, -50], [50, 50]] }, u = { n: '', w: 20, pts: [[0, 10], [100, 10]] };
   const c = [{ r: a, i: 0 }, { r: b, i: 0 }, { r: u, i: 0 }];
