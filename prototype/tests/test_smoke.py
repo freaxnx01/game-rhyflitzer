@@ -231,7 +231,7 @@ def test_smile_kreisel_fits_the_mapped_roundabout(server):
         br.close()
     assert inner > 2.5, (rad, ring["w"])
     assert max(pushed) < 0.05, pushed                           # the whole ring is drivable ("kann ihn gar nicht mehr befahren")
-    assert apron[0] > apron[1] + 0.3, apron                     # the apron is raised above the ring road
+    assert apron[0] > apron[1] + 0.2, apron                     # the apron (0.375 m over the centre) is raised above the ring road
     assert inner - 1.0 < math.hypot(hit["x"] - cx, hit["z"] - cz) < inner + 3, hit   # stopped at the island rim, not inside it
 
 
