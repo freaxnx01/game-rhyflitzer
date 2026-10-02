@@ -28,6 +28,7 @@ import geo
 import mmh
 import terrain
 import osm_read
+import world_boundaries
 import world_buildings
 import world_parking
 import world_props
@@ -112,8 +113,10 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     rail = [[[round(x, 1), round(z, 1)] for x, z in w.line.intersection(clip).coords]
             for w in data.ways if w.tags.get("railway") == "rail" and w.line.intersects(clip)
             and w.line.intersection(clip).geom_type == "LineString"]
+    boundaries = world_boundaries.build(world_boundaries.read(Path(pbf), frame), clip)
     log(f"roads {len(roads)}, junctions {len(junctions)}, water {len(polys)}, buildings {len(buildings)} {stats}, "
-        f"rail {len(rail)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}")
+        f"rail {len(rail)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}, "
+        f"boundaries {len(boundaries)}")
     return {
         "format": "MMW1",
         "origin": {"lat": origin[0], "lon": origin[1], "E": frame.e0, "N": frame.n0, "crs": "EPSG:2056"},
@@ -132,6 +135,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "rail": rail,
         "props": props,
         "parking": parking,
+        "boundaries": boundaries,
         "anchors": resolved,
     }
 

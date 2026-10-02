@@ -243,3 +243,10 @@ test('layoutFromWorld passes origin and defaults to null', () => {
   const origin = { lat: 47.5506, lon: 7.9671, E: 2639781.3, N: 1266787.1, crs: 'EPSG:2056' };
   assert.deepEqual(layoutFromWorld({ ...base, origin }).origin, origin);
 });
+
+test('layoutFromWorld passes boundaries and defaults to an empty list (#48)', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: { landmarks: {}, cps: [], labels: [], areas: {} } };
+  assert.deepEqual(layoutFromWorld(base).boundaries, []);
+  const b = [{ id: 123001743, names: ['Eiken', 'Sisseln'], pts: [[0, 0], [10, 0]] }];
+  assert.deepEqual(layoutFromWorld({ ...base, boundaries: b }).boundaries, b);
+});

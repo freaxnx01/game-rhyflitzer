@@ -159,3 +159,14 @@ def test_issue46_landmark_buildings_are_kept(world):
     ids = {b["id"] for b in world["buildings"]}
     assert KEPT_46 <= ids, KEPT_46 - ids
     assert {91592556, 92039355} <= ids
+
+
+def test_gemeinde_boundaries(world):
+    """#48: admin_level 8 member ways as lines, with both Gemeinde names."""
+    b = world["boundaries"]
+    assert 20 <= len(b) <= 40
+    assert all(x["names"] and all(x["names"]) and len(x["pts"]) >= 2 for x in b)
+    se = [x for x in b if x["id"] == 123001743]                  # Sisseln | Eiken
+    assert se and all(x["names"] == ["Eiken", "Sisseln"] for x in se)
+    line = shapely.MultiLineString([x["pts"] for x in se])
+    assert line.distance(shapely.Point(3079.8, -274.3)) < 2      # where it crosses the Hauptstrasse
