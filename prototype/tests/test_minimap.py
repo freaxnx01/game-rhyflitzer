@@ -107,3 +107,22 @@ def test_minimap_double_click_puts_the_car_on_the_road(server):
     assert dist(at_1x, SISSELN) < 30 and road_1x < 0, (at_1x, road_1x)
     assert flags["jumped"] is True                                           # a map placement during a race is a jump
     assert dist(at_4x, UPHILL) < 30 and road_4x < 0, (at_4x, road_4x)
+
+
+# touch taps as pointer events in one evaluate: a headless renderer dispatches real touchscreen taps seconds apart (one per slow frame)
+TAPS_JS = """([x, y, n]) => { const m = document.querySelector('#map'); for (let i = 0; i < n; i++) m.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', clientX: x, clientY: y, bubbles: true })); }"""
+
+
+def test_minimap_double_tap_puts_the_car_on_the_road(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        start = car(page)
+        x, y = on_map(page, *SISSELN)
+        page.evaluate(TAPS_JS, [x, y, 1]); page.wait_for_timeout(600)
+        after_tap = car(page)
+        page.evaluate(TAPS_JS, [x, y, 2])
+        placed = car(page); road = page.evaluate("() => window.__mm.roadDist()"); flags = page.evaluate("() => window.__mm.raceFlags()")
+        b.close()
+    assert dist(after_tap, (start["x"], start["z"])) < 1                    # a single tap does nothing
+    assert dist(placed, SISSELN) < 30 and road < 0 and flags["jumped"] is True, (placed, road, flags)
