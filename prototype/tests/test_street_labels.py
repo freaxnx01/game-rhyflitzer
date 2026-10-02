@@ -50,3 +50,25 @@ def test_hud_names_the_road_under_the_car(server):
         br.close()
     assert shown == "Hauptstrasse"
     assert off_road > 3, off_road
+
+
+@needs_world
+def test_house_numbers_appear_near_and_vanish_far(server):
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    b = next(x for x in w["buildings"] if x["id"] == 171822634)        # Bodenackerstrasse 6
+    b.setdefault("addr", "6a–6d")
+    cx, cz = b["rect"][0], b["rect"][1]
+    rx, rz = rhine_point(w)
+    with sync_playwright() as p:
+        br, page = open_page(p, server, world=w)
+        page.evaluate(f"() => window.__mm.place({cx + 20}, {cz})")
+        page.wait_for_function("() => window.__mm.labels().some(l => l.t === '6a–6d')", timeout=60000)
+        near = page.evaluate("() => window.__mm.labels()")
+        page.evaluate(f"() => window.__mm.place({rx}, {rz})")
+        page.wait_for_function("() => !window.__mm.labels().some(l => l.t === '6a–6d')", timeout=60000)
+        far = page.evaluate("() => window.__mm.labels()")
+        visible = page.evaluate("() => window.__mm.labelSprites()")
+        br.close()
+    assert 1 <= len(near) <= 40 and all(l["d"] <= 60 for l in near), near
+    assert all(l["d"] <= 60 for l in far) and len(far) <= 40
+    assert visible == len(far)                                          # hidden pool sprites really are hidden
