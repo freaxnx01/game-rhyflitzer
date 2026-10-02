@@ -57,14 +57,13 @@ Nothing new to read. `osm_read.read` already loads every area with an `amenity` 
       - `3.5 m ≤ w < 7 m`: one row of 2.5 m wide bays across the whole width (depth `w`), the typical roadside bay strip.
       - `7 m ≤ w < 16 m`: one row of 5 m bays along the long side farther from the nearest road, the rest is aisle.
       - `w ≥ 16 m`: two rows of 5 m bays along both long sides, aisle in the middle.
-3. **Filter bays** (generated ones only; mapped spaces are kept as mapped, except for the road/building test):
-   - fully inside the lot (`lot.buffer(0.1).contains(bay)`),
-   - not intersecting a building footprint (`ring` from the buildings list),
-   - not intersecting a road band (centre line buffered by `w / 2`, from the roads list),
-   - at most `capacity` bays when `capacity` is a number; drop from the row ends first.
+3. **Filter bays.** "Overlap" means an intersection area over 0.5 m², so a bay that only touches a house wall or a road edge (roadside parking always does) is kept.
+   - generated bays only: fully inside the lot (`lot.buffer(0.1).contains(bay)`), not overlapping an aisle band (aisle centre line buffered by 2.8 m), not overlapping an already accepted bay;
+   - all bays: not overlapping a building footprint (`ring` from the buildings list) or a road band (centre line buffered by `w / 2`, from the roads list);
+   - at most `capacity` bays when `capacity` is a plain number; the bays nearest the lot's centroid are kept.
 4. **Lines:** every bay contributes its edges except the edge facing the aisle (the open front), for mapped spaces as well (the front = the edge nearest the lot's nearest aisle or road; if none, all four edges). Edges shared between neighbours are written once (deduplicated by rounded endpoints, either direction).
 5. **Sign:** only if `name` is set: the point on the lot's outline nearest a road centre line, moved 1 m into the lot; `rot` = heading of that road segment.
-6. **Stats:** counters for `lots`, `skipped_<type>`, `bays_mapped`, `bays_aisle`, `bays_rect`, `dropped_road`, `dropped_building`, `dropped_capacity`.
+6. **Stats:** counters for `lots`, `skipped_<type>`, `bays_mapped`, `bays_aisle`, `bays_rect`, `dropped_outside`, `dropped_aisle`, `dropped_overlap`, `dropped_road`, `dropped_building`, `dropped_capacity`.
 
 ### World file
 
@@ -72,6 +71,7 @@ Nothing new to read. `osm_read.read` already loads every area with an `amenity` 
 "parking": [
   { "id": 26648737, "name": "Hallenbad-Parkplatz",
     "ring": [[x, z], ...], "holes": [[[x, z], ...]],
+    "bays": 36,
     "lines": [[ax, az, bx, bz], ...],
     "sign": [x, z, rot] }
 ]
@@ -83,7 +83,8 @@ Nothing new to read. `osm_read.read` already loads every area with an `amenity` 
 
 - `world.js` `layoutFromWorld`: pass `parking: w.parking || []` through (older world files without the key still load).
 - **Asphalt:** per lot, triangulate `ring` / `holes` with `THREE.ShapeUtils.triangulateShape` (as `waterPolys` does), subdivide every triangle with an edge over 5 m (midpoint split, repeated), drape each vertex at `terrainH(x, z) + 0.03` (1 cm below the road ribbons at +0.04, so overlaps show the road). Colour and material as the existing `lot()` helper (`roadPlain`, `#b8b0a0` tint).
-- **Lines:** each segment becomes a 0.12 m wide quad draped at `terrainH + 0.035`; all segments go into one merged `BufferGeometry` with a white `MeshBasicMaterial`, `depthWrite: false`, `polygonOffset: true`, `polygonOffsetFactor: -1` (as the road markings).
+- **Lines:** each segment becomes a 0.12 m wide quad draped at `terrainH + 0.035`; all segments go into one merged `BufferGeometry` with a white `MeshBasicMaterial`, `transparent: true`, `depthWrite: false`, `polygonOffset: true`, `polygonOffsetFactor: -1` (as the road markings). `transparent` is required: an opaque material without depth writes can be drawn before the asphalt, which then paints over it (seen in a headless screenshot while validating the plan).
+- `window.__mm.counts.parking = { lots, lines, signs }` for the smoke test (as `counts.props`).
 - **Sign:** a pole with a blue square board (white "P") and the name underneath, built from the existing `textTex` helper, at `sign`, turned to face the road.
 - Nothing is added to the physics, the minimap or the random-spot candidates.
 
@@ -98,12 +99,12 @@ Nothing new to read. `osm_read.read` already loads every area with an `amenity` 
   - `capacity=4` keeps at most 4 bays;
   - shared edges appear once;
   - sign only with a name, inside the lot, near the road.
-- `pipeline/tests/test_golden.py` (real extract): `26648737` is exported and has lines; `282853090` has at most 18 bays (counted via its lines); `parking=underground` ids are absent.
-- `prototype/tests/test_smoke.py`: the page still loads with an empty console in OSM mode (existing test, rerun).
+- `pipeline/tests/test_golden.py` (real extract): `26648737` is exported with ≥ 20 bays and a sign; `282853090` has 1–18 bays; `290671997` has ≥ 20 bays; 250–400 lots in total; no bay line runs inside a building (footprints shrunk by 0.3 m, so a line along a wall is fine).
+- `prototype/tests/test_smoke.py`: new `test_parking_loaded` compares `counts.parking` with the world file and expects no console errors; the hand-traced fallback has no `counts.parking`.
 - Manual playtest (test-todo): the Hallenbad lots against the aerial view; a slope car park does not float or sink.
 
 ## Risks
 
 - **Rectangle rule on odd shapes:** L-shaped or curved lots get a rectangle that fits badly; the "fully inside" filter then drops many bays and leaves plain asphalt. Acceptable: plain asphalt is no worse than today.
-- **World file size:** about +300–600 KB for the lines (estimated from ~1,500 mapped plus several thousand generated bays). Acceptable at a 2.1 MB file; if it grows past +1 MB, store generated rows compactly instead (start, end, depth, count).
+- **World file size:** measured while validating the plan: 330 lots, ~5,900 bays, +0.5 MB (2.1 → 2.6 MB). Acceptable; if it grows past +1 MB, store generated rows compactly instead (start, end, depth, count).
 - **Slopes:** draped vertices every ≤ 5 m follow the terrain closely enough at car-park gradients; a steep lot may still show a small gap at the edges.
