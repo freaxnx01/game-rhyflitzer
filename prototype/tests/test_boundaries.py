@@ -73,3 +73,46 @@ def test_g_toggles_the_boundaries(server):
         assert "Gemeinde boundaries off" in page.text_content("#toast")
         assert errs == []
         b.close()
+
+
+MAGENTA_JS = """([x, z]) => { const [px, py] = window.__mm.worldToMap(x, z), d = document.getElementById('map').getContext('2d').getImageData(Math.round(px) - 3, Math.round(py) - 3, 7, 7).data;
+  let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] < 120 && d[i + 2] > 120) n++; return n; }"""
+
+
+@needs_world
+def test_minimap_shows_the_line_only_while_on(server):
+    w = with_boundaries(json.loads(WORLD.read_text(encoding="utf-8")))
+    mid = LAND["pts"][1]
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, world=w)
+        wait_frames(page); assert page.evaluate(MAGENTA_JS, mid) == 0
+        page.keyboard.press("KeyG"); wait_frames(page); assert page.evaluate(MAGENTA_JS, mid) > 0
+        page.keyboard.press("KeyG"); wait_frames(page); assert page.evaluate(MAGENTA_JS, mid) == 0
+        assert errs == []
+        b.close()
+
+
+@needs_world
+def test_boundary_lies_on_the_rhine_not_under_it(server):
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    x, z = rhine_point(w)
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, world=with_boundaries(w), block_mmh=False)   # real terrain: real water levels
+        water = page.evaluate("([x, z]) => window.__mm.probe(x, z).water", [x, z])
+        assert water is not None
+        assert page.evaluate("([x, z]) => window.__mm.boundaryY(x, z)", [x, z]) >= water + 0.2
+        b.close()
+
+
+def test_hand_layout_g_says_no_data(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, block_world=True)
+        page.keyboard.press("KeyG")
+        s = page.evaluate("() => window.__mm.boundaries()")
+        assert s["on"] and s["lines"] == 0 and s["verts"] == 0
+        assert "no data" in page.text_content("#toast")
+        page.keyboard.press("F1")
+        assert "Gemeinde boundaries" in page.inner_text("#help")
+        wait_frames(page)
+        assert errs == []
+        b.close()
