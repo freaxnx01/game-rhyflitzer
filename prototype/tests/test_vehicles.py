@@ -165,3 +165,19 @@ def test_rebuilds_free_gpu_memory(server):
     assert first["textures"] > 0, first
     assert last["textures"] <= first["textures"], (first, last)
     assert last["geometries"] <= first["geometries"], (first, last)
+
+
+def test_set_vehicle_rejects_inherited_model_and_missing_collision(server):
+    """Review #32: 'constructor' is not a model (no prototype lookup), and a def without collision gets a clear Error,
+    not a TypeError. Both leave the active vehicle alone."""
+    bad = """(patch) => { const c = window.__mm.vehicles().compact; c.drive.top = 30; patch(c);
+      try { window.__mm.setVehicle(c); return 'no error'; } catch (e) { return `${e.name}: ${e.message}`; } }"""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        ctor = page.evaluate(f"() => ({bad})(c => {{ c.model = 'constructor'; }})")
+        nocol = page.evaluate(f"() => ({bad})(c => {{ delete c.collision; }})")
+        top = page.evaluate("() => window.__mm.vehicle().drive.top")
+        b.close()
+    assert ctor.startswith("Error: ") and "constructor" in ctor, ctor
+    assert nocol.startswith("Error: ") and "collision" in nocol, nocol
+    assert top == 60
