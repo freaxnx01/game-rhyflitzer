@@ -122,3 +122,12 @@ export function pickLabels(items, x, z, maxDist = 60, maxN = 40) {
   for (const it of items) { const d = Math.hypot(it.x - x, it.z - z); if (d <= maxDist) out.push({ ...it, d }); }
   return out.sort((a, b) => a.d - b.d).slice(0, maxN);
 }
+// #38: one label per façade of a w x d hall rotated like box() (rotateY(-rot)) -- façades +z, +x, -z, -x in the local frame, each
+// just off its wall and facing outward, 0.6 x the façade long (at most 20 m) with the sign texture's 16:2.2 aspect.
+export function facadeLabels(x, z, rot, w, d, off = 0.1) {
+  const c = Math.cos(rot), s = Math.sin(rot);
+  return [[0, d / 2 + off, w], [w / 2 + off, 0, d], [0, -(d / 2 + off), w], [-(w / 2 + off), 0, d]].map(([lx, lz, len], k) => {
+    const lw = Math.min(0.6 * len, 20);
+    return { x: x + lx * c - lz * s, z: z + lx * s + lz * c, rotY: -rot + k * Math.PI / 2, w: lw, h: lw * 2.2 / 16 };
+  });
+}
