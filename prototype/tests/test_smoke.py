@@ -193,6 +193,33 @@ def test_nitro_and_jump_menu(server):
     assert abs(after["car"]["x"] - 1780) < 150 and abs(after["car"]["z"] - 560) < 150, after   # Bahnhof Sisseln checkpoint
 
 
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_jump_menu_random_spot(server):
+    """J then 0 drops the car on a random road point anywhere in the map; it counts as a jump during a race."""
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 640, "height": 360})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        page.click("#startbtn")
+        page.keyboard.press("KeyJ")
+        last = page.evaluate("() => [...document.querySelectorAll('#jump li')].at(-1)?.textContent || ''")
+        spots = []
+        for i in range(3):
+            if i: page.keyboard.press("KeyJ")
+            page.keyboard.press("Digit0")
+            spots.append(page.evaluate("() => ({ car: window.__mm.car(), open: !document.querySelector('#jump').hidden, road: window.__mm.roadDist() })"))
+        jumped = page.evaluate("() => window.__mm.raceFlags().jumped")
+        br.close()
+    assert "Random spot" in last, last
+    for s in spots:
+        assert not s["open"], s
+        assert s["road"] < 0, s                                       # on the driving surface
+    pts = [(s["car"]["x"], s["car"]["z"]) for s in spots]
+    assert any(((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5 > 50 for a in pts for b in pts), pts   # random, not one fixed spot
+    assert jumped
+
+
 def test_plattform_tower_blocks_the_car(server):
     """The Plattform Sisslerfeld placeholder is solid where it matters: driving east straight at its anchor from 25 m
     west, the car must be stopped by the batten stair core and never come out on the far side."""
