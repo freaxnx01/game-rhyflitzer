@@ -11,7 +11,17 @@ WORLD = Path(__file__).parents[2] / "data" / "world_hochrhein.json"
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
-SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"]
+
+
+def _world_building_ids():
+    return {b["id"] for b in json.loads(WORLD.read_text(encoding="utf-8"))["buildings"]} if WORLD.exists() else set()
+
+
+WORLD46 = 390621357 in _world_building_ids()            # world rebuilt with #46's kept buildings
+needs_world46 = pytest.mark.skipif(not WORLD46, reason="world not rebuilt for #46 (Task 4 of docs/superpowers/plans/2026-10-02-more-landmarks.md)")
+ALL_ROWS = 24 if WORLD46 else 17                         # landmarks shown + Random spot
+SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
+    + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else [])
 
 
 def open_page(p, server, block_world=False):
@@ -43,6 +53,11 @@ def anchor(name):
     return lm["x"], lm["z"]
 
 
+def building_mean(bid):
+    ring = next(b["ring"] for b in json.loads(WORLD.read_text(encoding="utf-8"))["buildings"] if b["id"] == bid)
+    return sum(p[0] for p in ring) / len(ring), sum(p[1] for p in ring) / len(ring)
+
+
 def jump_via_dialog(page, query):
     """Jump the way a player does, and report where the car ended up (a point on a road)."""
     page.keyboard.press("KeyJ")
@@ -59,7 +74,7 @@ def test_j_opens_the_landmark_list_with_focus_in_the_search_field(server):
         assert page.is_visible("#jump")
         assert page.evaluate("() => document.activeElement.id") == "jumpq"
         r = rows(page)
-        assert len(r) == 15
+        assert len(r) == ALL_ROWS
         assert r[0] == {"n": "Fridolinsmünster", "g": "Bad Säckingen"}
         assert r[-1] == {"n": "Random spot", "g": None}
         chips = page.eval_on_selector_all("#jumpchips button", "bs => bs.map(b => b.textContent)")
@@ -176,7 +191,7 @@ def test_j_types_with_text_and_closes_when_empty_esc_closes(server):
         assert page.is_hidden("#jump")
         page.keyboard.press("KeyJ")              # reopened: cleared, All, first row selected
         assert page.input_value("#jumpq") == ""
-        assert len(rows(page)) == 15
+        assert len(rows(page)) == ALL_ROWS
         assert page.text_content("#jumpchips button.on") == "All"
         b.close()
 
@@ -203,4 +218,38 @@ def test_without_world_the_list_shows_the_race_points_and_no_chips(server):
         assert all(x["g"] is None for x in r)
         assert r[-1]["n"] == "Random spot"
         assert page.eval_on_selector_all("#jumpchips button", "bs => bs.length") == 0
+        b.close()
+
+
+@needs_world
+def test_kursaal_is_listed_and_jumpable(server):
+    """#46: the Kursaal's building (w91592556) is already in the world, so it is listed before the rebuild too."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.keyboard.type("kursaal")
+        assert rows(page) == [{"n": "Kursaal", "g": "Bad Säckingen"}, {"n": "Random spot", "g": None}]
+        page.keyboard.press("Enter")
+        kx, kz = building_mean(91592556)
+        c = car(page)
+        assert math.hypot(c["x"] - kx, c["z"] - kz) < 80
+        b.close()
+
+
+@needs_world46
+def test_kept_landmark_buildings_are_listed_and_jumpable(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.keyboard.type("trompeter")
+        assert names(page) == ["Schloss Schönau (Trompeterschloss)", "Random spot"]
+        page.fill("#jumpq", "")
+        page.click('#jumpchips button[data-g="Eiken"]')
+        assert names(page) == ["DSM-Kamin", "Bahnhof Sisseln", "Bahnhof Eiken", "Random spot"]
+        page.click('#jumpchips button[data-g="All"]')
+        page.keyboard.type("gallus")
+        page.keyboard.press("Enter")
+        gx, gz = building_mean(25835477)
+        c = car(page)
+        assert math.hypot(c["x"] - gx, c["z"] - gz) < 80
         b.close()
