@@ -331,3 +331,43 @@ def test_sissle_visible_along_its_course(server):
     assert res["checked"] > 60, res
     assert res["visible"] >= 0.97 * res["checked"], res
     assert res["wet"] >= 0.97 * res["checked"], res
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_hud_bundle(server):
+    """#20: help overlay (F1), compass, odometer with reset (K), car on/off (V), turn signals (Q/E), the name of the
+    water you are at, Tab = game speed x3 (a run that used it is not recorded)."""
+    import json, math
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    rhine = next(x for x in w["water"] if x["name"] == "Rhein" and len(x["rings"][0]) > 20)
+    rx = sum(p[0] for p in rhine["rings"][0]) / len(rhine["rings"][0]); rz = sum(p[1] for p in rhine["rings"][0]) / len(rhine["rings"][0])
+    sis = next(s for s in w["streams"] if s["name"] == "Sissle"); sx, sz = sis["pts"][len(sis["pts"]) // 2]
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 960, "height": 540})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        page.click("#startbtn")
+        hud = lambda: page.evaluate("() => window.__mm.hud()")
+        page.keyboard.press("F1"); help_open = hud()["help"]; help_text = page.inner_text("#help")
+        page.keyboard.press("F1"); help_closed = hud()["help"]
+        x, z = page.evaluate("() => { const c = window.__mm.car(); return [c.x, c.z]; }")
+        page.evaluate(f"() => window.__mm.sim({x}, {z}, -Math.PI / 2, 0, 0.02, [])")      # heading -z = north
+        page.wait_for_timeout(400); north = hud()["compass"]
+        page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 0, 0.02, [])")                  # heading +x = east
+        page.wait_for_timeout(400); east = hud()["compass"]
+        page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 20, 3, [])")
+        trip = hud()["trip"]; page.keyboard.press("KeyK"); trip_reset = hud()["trip"]; total = hud()["total"]
+        page.keyboard.press("KeyV"); car_off = hud()["carVisible"]; page.keyboard.press("KeyV"); car_on = hud()["carVisible"]
+        page.keyboard.press("KeyQ"); left = hud()["blinker"]; page.keyboard.press("KeyE"); right = hud()["blinker"]; page.keyboard.press("KeyE"); off = hud()["blinker"]
+        page.keyboard.down("Tab"); page.wait_for_timeout(300); fast = hud()["timeScale"]; page.keyboard.up("Tab"); page.wait_for_timeout(300); normal = hud()["timeScale"]
+        jumped = page.evaluate("() => window.__mm.raceFlags()")
+        page.evaluate(f"() => window.__mm.place({rx}, {rz})"); page.wait_for_function("() => window.__mm.hud().water === 'Rhein'", timeout=60000)
+        page.evaluate(f"() => window.__mm.place({sx + sis['w'] / 2 + 8}, {sz})"); page.wait_for_function("() => window.__mm.hud().water === 'Sissle'", timeout=60000)
+        br.close()
+    assert help_open and not help_closed and "Nitro" in help_text and "Turn signals" in help_text
+    assert north.startswith("N ") and east.startswith("E "), (north, east)
+    assert 0.04 < trip < 0.08 and trip_reset == 0 and total >= trip, (trip, trip_reset, total)
+    assert car_off is False and car_on is True
+    assert (left, right, off) == ("left", "right", None)
+    assert fast == 3 and normal == 1 and jumped["fast"] is True

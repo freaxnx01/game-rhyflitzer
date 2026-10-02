@@ -26,6 +26,10 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #best{font-size:16px;font-weight:600;color:var(--steel)}
 #toast{position:fixed;right:16px;top:calc(120px + env(safe-area-inset-top,0px));padding:8px 18px;background:linear-gradient(#ffe27a,#ffc61a 50%,#ff9a1a);border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);transform:rotate(-3deg);color:var(--ink);font-size:24px;font-weight:800;font-style:italic;text-transform:uppercase;line-height:1.05;text-align:right;opacity:0;transition:opacity .2s}
 #toast.show{opacity:1}
+#help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:21;padding:14px 22px;background:rgba(20,23,29,.94);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;max-height:90vh;overflow:auto}#help .keys{margin:8px 0}
+#compass{position:fixed;right:16px;top:calc(124px + env(safe-area-inset-top,0px));width:76px;height:76px}
+#blink{display:flex;gap:10px;justify-content:center;font-size:22px;font-weight:800;color:#3a404b;text-shadow:1px 1px 0 var(--ink)}#blink .on{color:#ff9a1a}
+#watername{font-size:15px;font-weight:700;letter-spacing:2px;color:#9fd8ff;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
 #jump ol{margin:8px 0;padding-left:26px}#jump li{cursor:pointer;padding:3px 0}#jump li:hover{color:#ffc61a}#jump small{color:var(--steel-l)}
 #bl{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
@@ -83,6 +87,8 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
     <svg id="arrow" viewBox="0 0 160 120" aria-hidden="true"><polygon points="80,4 156,84 118,84 118,116 42,116 42,84 4,84" fill="#ffc61a" stroke="#1c1f26" stroke-width="6" stroke-linejoin="round"/><polygon points="80,26 130,80 104,80 104,102 56,102 56,80 30,80" fill="#ff9a1a"/></svg>
     <div id="dist">— m</div>
     <div id="cpname">Ready</div>
+    <div id="blink" aria-hidden="true"><span id="blL">◀</span><span id="blR">▶</span></div>
+    <div id="watername"></div>
   </div>
   <div id="tr" class="plate">
     <div class="lbl">Time</div>
@@ -90,6 +96,24 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
     <div id="best">Best —</div>
   </div>
   <div id="toast">Holzbrücke!</div>
+  <svg id="compass" viewBox="-50 -50 100 100" aria-label="Compass"><circle r="47" fill="rgba(20,23,29,.82)" stroke="#b9bfc9" stroke-width="4"/><g id="rose" font-family="Barlow Condensed" font-weight="800" font-size="17" text-anchor="middle" fill="#f5efe0"><text y="-28" fill="#ff7a1a">N</text><text x="31" y="6">E</text><text y="40">S</text><text x="-31" y="6">W</text><path d="M0,-22 L5,0 L0,22 L-5,0 Z" fill="none" stroke="#3a404b" stroke-width="2"/></g><polygon points="0,-44 -6,-34 6,-34" fill="#ffc61a"/></svg>
+  <div id="help" hidden><div style="font-weight:800;font-size:20px">Keys · F1 closes</div><div class="keys">
+      <kbd>Space</kbd><span>accelerate (W or ↑ also work)</span>
+      <kbd>A D</kbd><span>or ← →: steer · <b>S</b> / ↓ brake, reverse</span>
+      <kbd>Ctrl</kbd><span>handbrake (drift)</span>
+      <kbd>N</kbd><span>Nitro (hold)</span>
+      <kbd>Tab</kbd><span>game speed ×3 (hold; the run is not recorded)</span>
+      <kbd>Q · E</kbd><span>Turn signals left · right</span>
+      <kbd>H · Enter</kbd><span>horn</span>
+      <kbd>C</kbd><span>camera: chase · near · cockpit · bumper</span>
+      <kbd>V</kbd><span>show / hide the car</span>
+      <kbd>J</kbd><span>jump to a place</span>
+      <kbd>K</kbd><span>reset the trip odometer</span>
+      <kbd>R</kbd><span>back on the road</span>
+      <kbd>T</kbd><span>toggle graphic style</span>
+      <kbd>M</kbd><span>mute</span>
+      <kbd>F1 · ?</kbd><span>this help</span>
+    </div></div>
   <div id="jump" hidden><div>Jump to</div><ol></ol><small>1–9 or click · J / Esc closes</small></div>
   <div id="bl">
     <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer">
@@ -109,6 +133,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
     <div id="gear">
       <div class="plate">Damage<div id="dmg"><i></i></div></div>
       <div class="plate">Gear<b id="gearn">N</b></div>
+      <div class="plate">Trip<b id="trip">0.0</b> km<div id="odo" style="font-size:12px;letter-spacing:1px;color:var(--steel-l)">Total 0 km · K resets trip</div></div>
     </div>
   </div>
   <div id="br">
@@ -141,6 +166,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <kbd>C</kbd><span>camera: chase · near · cockpit · bumper</span>
       <kbd>H · M</kbd><span>horn (also Enter) · mute</span>
       <kbd>N · J</kbd><span>nitro (hold) · jump to a place</span>
+      <kbd>F1</kbd><span>all keys</span>
     </div>
     <div class="row">
       <button id="startbtn" class="btn primary" type="button">Start</button>
@@ -331,6 +357,7 @@ function registerSurface(sf, grid = SURF_GRID) { for (let i = 0; i < sf.pts.leng
 // interpolated with the strip's own split into triangles (A,B,C) and (A,C,D), A/B = left/right at i, D/C at i + 1
 function roadSurfH(x, z) { return surfH(SURF_GRID, x, z); }
 function streamH(x, z) { return surfH(STREAM_GRID, x, z); }
+function streamNameAt(x, z) { for (const { sf, i } of gridQuery(STREAM_GRID, x, z, 1)) { if (sf.name && segDist(x, z, ...sf.pts[i], ...sf.pts[i + 1]) <= sf.hw) return sf.name; } return ''; }
 function surfH(grid, x, z) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const t = ((x - ax) * dx + (z - az) * dz) / L2; if (t < 0 || t > 1) continue; const side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; h = Math.max(h, f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f)); } return h; }
 function groundH(x, z, y) {
   const ob = onBridge(x, z, y); if (ob) return ob.osm ? bridgeSurfaceAt(ob.b, ob.t) : bridgeProfile(ob.b, ob.t);
@@ -576,7 +603,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   const ground = new THREE.PlaneGeometry(GW, GD, TGRID.nx, TGRID.nz); ground.rotateX(-Math.PI / 2); ground.translate(TGRID.x0 + GW / 2, 0, TGRID.z0 + GD / 2);
   { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3), lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'); for (let i = 0; i < p.count; i++) { const h = terrainH(p.getX(i), p.getZ(i)); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); const t = sm(h / 90); const c = t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); } parts.grass = [ground.toNonIndexed()];
   // streams: water draped on the ground like a road (a flat level cannot follow a stream that falls 25 m), 2 cm under road height
-  if (L) for (const st of L.streams) { const g = ribbonGeo(st.pts, st.w / 2, 0.02, 6, true); colorize(g, col('#ffffff')); push('water', g); registerSurface(g.userData.surf, STREAM_GRID); }
+  if (L) for (const st of L.streams) { const g = ribbonGeo(st.pts, st.w / 2, 0.02, 6, true); colorize(g, col('#ffffff')); push('water', g); g.userData.surf.name = st.name; registerSurface(g.userData.surf, STREAM_GRID); }
   // fields: the whole rotated rectangle must stay off roads and the river, and it is draped on the terrain
   const fieldClear = (x, z, w, d, rot) => { const c = Math.cos(rot), s = Math.sin(rot), nu = Math.ceil(w / 5), nv = Math.ceil(d / 5); for (let a = 0; a <= nu; a++) for (let b = 0; b <= nv; b++) { const u = -w / 2 + w * a / nu, v = -d / 2 + d * b / nv, px = x + u * c + v * s, pz = z - u * s + v * c; if (roadDist(px, pz) < 3 || riverDist(px, pz) < 20 || streamH(px, pz) > -Infinity) return false; } return true; };
   for (let i = 0; i < 40; i++) { const x = rr(-2400, 2400), z = rr(-1100, 1240), w = rr(120, 260), d = rr(90, 200), rot = rr(-0.3, 0.3); if (riverDist(x, z) < 200 || terrainH(x, z) > 2.5 || Math.abs(terrainH(x + w / 2, z + d / 2) - terrainH(x - w / 2, z - d / 2)) > 1.5 || !fieldClear(x, z, w, d, rot)) continue; const g = new THREE.PlaneGeometry(w, d, Math.ceil(w / 20), Math.ceil(d / 20)); g.rotateX(-Math.PI / 2); g.rotateY(rot); g.translate(x, 0, z); const p = g.attributes.position; for (let k = 0; k < p.count; k++) p.setY(k, terrainH(p.getX(k), p.getZ(k)) + 0.02); const u = g.attributes.uv; for (let k = 0; k < u.count; k++) u.setXY(k, u.getX(k) * w / 20, u.getY(k) * d / 20); g.computeVertexNormals(); colorize(g, col(rnd() < 0.5 ? '#b9a86a' : '#8fa04e')); push('field', g); }
@@ -712,6 +739,7 @@ const finishG = new THREE.Group(); { const mat = new THREE.MeshLambertMaterial({
 const CAR_SCALE = 1.3;
 const car = new THREE.Group(); car.scale.setScalar(CAR_SCALE); scene.add(car);
 const flames = new THREE.Group(); flames.visible = false; car.add(flames);
+const BLINK = { left: new THREE.Group(), right: new THREE.Group() }; { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [side, z] of [['left', -0.86], ['right', 0.86]]) { for (const x of [2.18, -2.22]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, 0.62, z); BLINK[side].add(b); } BLINK[side].visible = false; car.add(BLINK[side]); } }
 const carMats = { body: new THREE.MeshPhongMaterial({ color: 0x1b2d5e, shininess: 70, specular: 0x8fa4c8 }), glass: new THREE.MeshPhongMaterial({ color: 0x1a2430, shininess: 140, specular: 0xffffff, transparent: true, opacity: 0.92 }), dark: new THREE.MeshLambertMaterial({ color: 0x14171d }), rim: new THREE.MeshPhongMaterial({ color: 0xb9bfc9, shininess: 90, specular: 0xffffff }), tyre: new THREE.MeshLambertMaterial({ color: 0x1a1a1c }) };
 {
   const shape = (pts) => { const s = new THREE.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])); s.closePath(); return s; };
@@ -744,7 +772,9 @@ function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h
 addEventListener('resize', resize);
 
 // ---------- input ----------
-const keys = {}; addEventListener('keydown', e => { if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden) cycleCamera(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyM') toast(SFX.toggle() ? 'Muted' : 'Sound on'); if (e.code === 'KeyJ' && $('overlay').hidden) $('jump').hidden = !$('jump').hidden; else if (e.code === 'Escape') $('jump').hidden = true; else if (!$('jump').hidden && /^(Digit|Numpad)[1-9]$/.test(e.code)) { const p = PLACES[+e.code.slice(-1) - 1]; if (p) jumpTo(p); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+// HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser
+const HUD = { carHidden: false, blinker: null, water: '', waterT: 0 };
+const keys = {}; addEventListener('keydown', e => { if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden) cycleCamera(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyM') toast(SFX.toggle() ? 'Muted' : 'Sound on'); if (e.code === 'F1' || (e.key === '?')) { e.preventDefault(); $('help').hidden = !$('help').hidden; } if (e.code === 'Escape') $('help').hidden = true; if (e.code === 'Tab' && (R.state === 'armed' || R.state === 'racing')) R.fast = true; if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyJ' && $('overlay').hidden) $('jump').hidden = !$('jump').hidden; else if (e.code === 'Escape') $('jump').hidden = true; else if (!$('jump').hidden && /^(Digit|Numpad)[1-9]$/.test(e.code)) { const p = PLACES[+e.code.slice(-1) - 1]; if (p) jumpTo(p); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
 for (const [id, k] of [['tL', 'l'], ['tR', 'r'], ['tG', 'g'], ['tB', 'b'], ['tH', 'h']]) { const el = document.getElementById(id); const on = e => { e.preventDefault(); touch[k] = 1; }; const off = e => { e.preventDefault(); touch[k] = 0; }; el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off); }
 function toggleStyle() { applyStyle(styleKey === 'original' ? 'smooth' : 'original'); }
@@ -770,7 +800,7 @@ const SFX = (() => {
 })();
 
 // ---------- car state & physics ----------
-const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0 };
+const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
 // Midtown Madness homage when the car lies in the water. Language from the browser until the game has its own setting (#9).
 const FISH_TEXT = (navigator.language || '').toLowerCase().startsWith('de') ? 'Grüss mir die Fische!' : 'Sleep with the fishes!';
 // J: places to jump to (villages from the map labels, the railway stations; hand path: the race points), max 9 for the digit keys
@@ -782,6 +812,8 @@ window.__mm.place = (x, z) => { P.x = x; P.z = z; P.vx = P.vz = P.vy = 0; P.y = 
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
 // drive headless: start at (x, z) on the highest surface there (a bridge deck if any), heading th at speed v, gas held, fixed 1/60 s steps
 window.__mm.heading = () => P.th;
+window.__mm.hud = () => { const b = bearing(); return { help: !$('help').hidden, compass: `${COMPASS_PTS[Math.round(b / 45) % 8]} ${Math.round(b)}°`, trip: +P.trip.toFixed(3), total: +P.odo.toFixed(3), carVisible: car.visible, blinker: HUD.blinker, water: HUD.water, timeScale: keys.Tab ? 3 : 1 }; };
+window.__mm.raceFlags = () => ({ jumped: !!R.jumped, fast: !!R.fast });
 // water vs drawn ground at a point: is the water surface above the ground mesh there (visible) or under it?
 // from above, is water the first thing seen at these points (not grass or a field), and is the car wet there? Bridges and roads are skipped
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
@@ -801,7 +833,7 @@ function stepCar(dt) {
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx; let vf = P.vx * fx + P.vz * fz, vs = P.vx * rx + P.vz * rz; const speed = Math.hypot(P.vx, P.vz);
   const nitro = keys.KeyN ? 1 : 0, gas = (keys.Space || keys.KeyW || keys.ArrowUp || touch.g || nitro) ? 1 : 0, brake = (keys.KeyS || keys.ArrowDown || touch.b) ? 1 : 0, steer = ((keys.KeyD || keys.ArrowRight || touch.r) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft || touch.l) ? 1 : 0), hb = (keys.ControlLeft || keys.ControlRight || touch.h) ? 1 : 0;
   const gh = groundH(P.x, P.z, P.y); const air = P.y > gh + 0.15;
-  P.gas = gas; P.air = air; P.nitro = nitro;
+  P.gas = gas; P.air = air; P.nitro = nitro; { const d = Math.hypot(P.vx, P.vz) * dt / 1000; P.trip += d; P.odo += d; }
   if (!air) { const top = nitro ? 90 : 60; if (gas) vf += (nitro ? 34 : 16) * (1 - Math.max(0, vf) / top) * dt; if (brake) { if (vf > 0.5) vf -= 24 * dt; else vf -= 8 * dt * (vf > -14 ? 1 : 0); } vf -= vf * 0.12 * dt + Math.sign(vf) * 0.6 * dt; const sl = (groundH(P.x + fx * 3, P.z + fz * 3, P.y) - groundH(P.x - fx * 3, P.z - fz * 3, P.y)) / 6; vf -= 9.81 * sl / Math.sqrt(1 + sl * sl) * dt; if (Math.abs(vf) < 0.3 && !gas && !brake) vf = 0; const grip = hb ? 1.8 : 9; vs *= Math.exp(-grip * dt); const sf = clamp(speed / 6, 0, 1) * (1 / (1 + speed / 30)); P.th += steer * 2.6 * sf * dt * (vf < 0 ? -1 : 1) + (hb ? steer * 1.2 * clamp(speed / 20, 0, 1) * dt : 0); } else { P.th += steer * 0.4 * dt; }
   P.vx = vf * fx + vs * rx; P.vz = vf * fz + vs * rz; P.x += P.vx * dt; P.z += P.vz * dt;
   // in the water: everything is relative to the surface (wl), which is 0 on the hand path and the chunk level (Rhine above the Säckingen weir ~5.5 m) on the OSM path
@@ -823,7 +855,7 @@ const CAM_VIEWS = [{ n: 'Chase', dist: 9, h: 3.4 }, { n: 'Chase near', dist: 6, 
 let camView = 0;
 function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm.camView = camView; toast('Camera: ' + CAM_VIEWS[camView].n); }
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
-  car.visible = !v.eye;
+  car.visible = !v.eye && !HUD.carHidden;
   if (v.eye) { const [ex, ey, es] = v.eye.map(k => k * CAR_SCALE), rx = -fz, rz = fx; camPos.set(P.x + fx * ex + rx * es, P.y + ey, P.z + fz * ex + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 + rx * es, P.y + ey - 1.2, P.z + fz * 40 + rz * es); }
   else { let dist = v.dist + speed * 0.09, h = v.h + speed * 0.03; const test = (t) => { const tx = P.x - fx * dist * t, tz = P.z - fz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - fx * dist, P.y + h, P.z - fz * dist); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); camPos.lerp(target, 1 - Math.exp(-6 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 6, P.y + 1.2, P.z + fz * 6); }
   sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); sun.position.set(P.x - 300, 400, P.z - 200); sun.target.position.set(P.x, 0, P.z); }
@@ -834,10 +866,10 @@ try { const b = localStorage.getItem('mm.best2'); if (b) R.best = +b; } catch (e
 const $ = id => document.getElementById(id);
 function fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60), d = Math.floor((t * 10) % 10); return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}<b>.${d}</b>`; }
 let toastT = 0; function toast(html) { $('toast').innerHTML = html; $('toast').classList.add('show'); toastT = 2.6; }
-function startRace() { for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.state = 'armed'; P.dmg = 0; P.safe = [START.x, START.z, START.th]; resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); $('overlay').hidden = true; $('result').hidden = true; updatePips(); }
+function startRace() { for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.fast = false; R.state = 'armed'; P.dmg = 0; P.safe = [START.x, START.z, START.th]; resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); $('overlay').hidden = true; $('result').hidden = true; updatePips(); }
 function updatePips() { $('cpn').textContent = R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', cpObjs[i].done)); }
 function stepRace(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if (R.state === 'racing' || R.state === 'armed') { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); toast(`Checkpoint ${R.done}/5<br><span style="font-size:17px">${best.n}</span>`); if (R.done === 5) finishG.visible = true; } else if (best.i < 0 && bd < 7 && R.state === 'racing') finish(); const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toast('Holzbrücke!<br><span style="font-size:17px">Pedestrians only. Allegedly.</span>'); } } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(performance.now() / 300) * 0.08; }
-function finish() { R.state = 'finished'; SFX.finish(); const t = R.t; let rec = false; if (!R.jumped && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem('mm.best2', String(t)); } catch (e) { } } $('result').hidden = false; $('result').innerHTML = `<small>${rec ? 'New record!' : 'Finished'}</small>${fmt(t)}<small>${R.jumped ? 'with a jump, not counted · ' : ''}${R.shortcut ? 'via the Holzbrücke · ' : ''}best ${fmt(R.best)}</small>`; $('ovtext').textContent = 'Münsterplatz reached. Retry for a better line, or take the other bridge next time.'; $('startbtn').textContent = 'Retry'; $('overlay').hidden = false; }
+function finish() { R.state = 'finished'; SFX.finish(); const t = R.t; let rec = false; if (!R.jumped && !R.fast && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem('mm.best2', String(t)); } catch (e) { } } $('result').hidden = false; $('result').innerHTML = `<small>${rec ? 'New record!' : 'Finished'}</small>${fmt(t)}<small>${R.jumped ? 'with a jump, not counted · ' : ''}${R.fast ? 'with time-lapse, not counted · ' : ''}${R.shortcut ? 'via the Holzbrücke · ' : ''}best ${fmt(R.best)}</small>`; $('ovtext').textContent = 'Münsterplatz reached. Retry for a better line, or take the other bridge next time.'; $('startbtn').textContent = 'Retry'; $('overlay').hidden = false; }
 $('startbtn').onclick = () => { SFX.start(); startRace(); };
 $('jump').querySelector('ol').innerHTML = PLACES.map(p => `<li>${p.n}</li>`).join('');
 $('jump').querySelectorAll('li').forEach((li, i) => li.onclick = () => jumpTo(PLACES[i]));
@@ -853,12 +885,17 @@ const MB = L ? (() => { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const
 const mapStatic = document.createElement('canvas'); mapStatic.width = mapC.width; mapStatic.height = mapC.height;
 { const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? L.rail : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
 function drawMap() { mg.drawImage(mapStatic, 0, 0); CPS.forEach((c, i) => { const d = cpObjs[i].done; mg.beginPath(); mg.arc(MX(c.x), MZ(c.z), 7, 0, 7); mg.fillStyle = d ? '#7fe0a0' : (R.target && R.target.i === i ? '#ffc61a' : '#4a515e'); mg.fill(); mg.lineWidth = 2; mg.strokeStyle = d ? '#1c1f26' : '#ffc61a'; mg.stroke(); if (!d) { mg.fillStyle = R.target && R.target.i === i ? '#1c1f26' : '#ffc61a'; mg.font = '800 11px "Barlow Condensed", sans-serif'; mg.textAlign = 'center'; mg.fillText(String(i + 1), MX(c.x), MZ(c.z) + 4); mg.textAlign = 'left'; } }); mg.fillStyle = R.done === 5 ? '#e0322d' : '#6a2a2a'; mg.fillRect(MX(FINISH.x) - 6, MZ(FINISH.z) - 6, 12, 12); mg.strokeStyle = '#1c1f26'; mg.strokeRect(MX(FINISH.x) - 6, MZ(FINISH.z) - 6, 12, 12); mg.save(); mg.translate(MX(P.x), MZ(P.z)); mg.rotate(P.th); mg.beginPath(); mg.moveTo(10, 0); mg.lineTo(-7, 6); mg.lineTo(-4, 0); mg.lineTo(-7, -6); mg.closePath(); mg.fillStyle = '#f5efe0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = '#1c1f26'; mg.stroke(); mg.restore(); }
-function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gears = [0, 20, 45, 75, 110, 150, 999]; let gi = 0; while (kmh > gears[gi + 1]) gi++; $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); $('dmg').firstElementChild.style.width = (P.dmg * 100) + '%'; $('time').innerHTML = fmt(R.t); $('best').textContent = R.best === null ? 'Best —' : 'Best ' + fmt(R.best).replace(/<[^>]+>/g, ''); if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = (R.target.i < 0 ? 'Finish · ' : `Checkpoint ${R.target.i + 1} · `) + R.target.n; } if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } drawMap(); }
+// compass bearing: 0 = north (-z), 90 = east (+x)
+const bearing = () => ((Math.atan2(Math.cos(P.th), -Math.sin(P.th)) * 180 / Math.PI) + 360) % 360;
+const COMPASS_PTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+// the named water at or within ~20 m of the car (polygons: the Rhine, lakes; streams: the Sissle ...)
+function waterNameNear(x, z) { for (const [ox, oz] of [[0, 0], [20, 0], [-20, 0], [0, 20], [0, -20], [14, 14], [-14, 14], [14, -14], [-14, -14]]) { const px = x + ox, pz = z + oz; const n = (WATER && WATER.nameAt(px, pz)) || streamNameAt(px, pz); if (n) return n; } return ''; }
+function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; $('odo').textContent = `Total ${P.odo.toFixed(0)} km · K resets trip`; try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } { const on = Math.floor(performance.now() / 350) % 2 === 0; $('blL').className = HUD.blinker === 'left' && on ? 'on' : ''; $('blR').className = HUD.blinker === 'right' && on ? 'on' : ''; for (const s of ['left', 'right']) BLINK[s].visible = HUD.blinker === s && on; } if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; } $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gears = [0, 20, 45, 75, 110, 150, 999]; let gi = 0; while (kmh > gears[gi + 1]) gi++; $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); $('dmg').firstElementChild.style.width = (P.dmg * 100) + '%'; $('time').innerHTML = fmt(R.t); $('best').textContent = R.best === null ? 'Best —' : 'Best ' + fmt(R.best).replace(/<[^>]+>/g, ''); if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = (R.target.i < 0 ? 'Finish · ' : `Checkpoint ${R.target.i + 1} · `) + R.target.n; } if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } drawMap(); }
 
 // ---------- loop ----------
 applyStyle('original'); resize();
 let last = performance.now();
-function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; const t0 = performance.now(); if (R.state !== 'ready') stepCar(dt); stepRace(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update(Math.hypot(P.vx, P.vz) * 3.6, P.gas, P.air, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; renderer.render(scene, camera); requestAnimationFrame(loop); }
+function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; const t0 = performance.now(); HUD.scale = keys.Tab ? 3 : 1; if (keys.Tab && (R.state === 'armed' || R.state === 'racing')) R.fast = true; for (let k = 0; k < HUD.scale; k++) { if (R.state !== 'ready') stepCar(dt); stepRace(dt); } stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update(Math.hypot(P.vx, P.vz) * 3.6, P.gas, P.air, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; renderer.render(scene, camera); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; blob.position.set(START.x, sy + 0.05, START.z); }
 requestAnimationFrame(loop);
 </script>
