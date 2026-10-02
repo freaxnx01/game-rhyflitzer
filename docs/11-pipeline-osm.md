@@ -17,6 +17,7 @@ Replaces the prototype's hand-traced roads, river and houses with real ones from
 - `world_water.py`: water polygons, water levels, the water SDF.
 - `world_buildings.py`: building selection, heights, roofs, palettes.
 - `world_props.py`: street furniture (lamps, hydrants, benches, bins, bike racks, recycling containers).
+- `world_boundaries.py`: Gemeinde boundaries (OSM admin_level 8) as lines.
 - `world_parking.py`: car parks (open-air and roadside `amenity=parking`) with painted bay lines.
 - `anchors.py` + `anchors.json`: landmarks, start, checkpoints, finish, labels, areas, resolved from OSM ids.
 
@@ -62,6 +63,7 @@ Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two 
   "rail":      [[[x, z], ...]],
   "props":     [{ kind, x, z, rot }],
   "parking":   [{ id, name?, ring: [[x, z], ...], holes?, bays, lines: [[ax, az, bx, bz], ...], sign?: [x, z, rot] }],
+  "boundaries": [{ id, names: [a, b], pts: [[x, z], ...] }],
   "anchors":   { landmarks, cps, labels, areas, start, finish }
 }
 ```
@@ -121,6 +123,8 @@ Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it i
 **Building heights (#17).** `osm.py build --dsm-heights [CACHE]` downloads swissSURFACE3D (0.5 m, about 40 tiles, ~500 MB into `CACHE/swisssurface3d`) and measures every footprint against swissALTI3D: eaves `h` = 10th percentile of the roof (a pitched roof's slope continued out to the wall line), ridge `rh` = 95th percentile minus eaves, both over the ground at the centre; marked `hsrc: "dsm"`. A footprint whose 95th percentile is under 2 m above ground (`NOT_BUILT`) was not built yet when the surface was flown (2020): it is counted as `not_built` and keeps its OSM-tag or default height. The prototype draws measured buildings at that eaves height with a gable of `rh` (flat when `rh` < 0.6 m) instead of whole floors and a fixed 0.4 × width ridge. Real extract: 1,686 of 1,885 buildings measured, median eaves 5.1 m; 42 are `not_built`, and the rest (German side, outside the tiles) keep the OSM-tag or default height.
 
 **House numbers (#12).** `osm_read` keeps every node with `addr:housenumber` as `AddrNode(id, number, x, z)` — the number only, no name or street. A building gets an optional `addr`: its own `addr:housenumber`, else the numbers of the address nodes inside its footprint or on its outline (≤ 0.2 m; a node touching two footprints goes to the nearest centroid); several numbers become `first–last` (`6a–6d`). An OSM-referenced landmark gets `addr` the same way from its own tag (the Hallenbad: `2`). No `street` field is exported. Real extract: 1,321 of 1,885 buildings numbered (1,050 own tag, 271 from address nodes; +16 KB).
+
+**Gemeinde boundaries (#48).** `world_boundaries.py` reads the relations `boundary=administrative` + `admin_level=8` that have a `name`, which covers Swiss and German Gemeinden alike (Ortsteile at level 9/10 are left out). It exports their member **ways** as lines, so a border shared by two Gemeinden appears once with both `names` (sorted; one name when the other side is outside the data). Lines, not areas: `osmium extract -s smart` completes only multipolygon relations, so Gemeinden reaching past the padded cut are incomplete. The lines are clipped to the map, parts under 5 m are dropped, and coordinates are rounded to 0.1 m. The national border in the Rhine is included, because it is a Gemeinde border too. Real extract: about 28 lines, roughly 16.5 KB; Sisseln | Eiken is way 123001743 (both pinned in `tests/test_golden.py::test_gemeinde_boundaries`). The prototype draws them only while **G** is on.
 
 ## Known limits
 
