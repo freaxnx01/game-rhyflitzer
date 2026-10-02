@@ -66,7 +66,7 @@ export function offsetPolyline(pts, d) {
 export function layoutFromWorld(w) {
   const roads = w.roads.map(r => ({ ...r, tex: r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
-           rail: w.rail, props: w.props || [], streams: w.streams || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [] };
+           rail: w.rail, props: w.props || [], parking: w.parking || [], streams: w.streams || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [] };
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
@@ -130,4 +130,36 @@ export function facadeLabels(x, z, rot, w, d, off = 0.1) {
     const lw = Math.min(0.6 * len, 20);
     return { x: x + lx * c - lz * s, z: z + lx * s + lz * c, rotY: -rot + k * Math.PI / 2, w: lw, h: lw * 2.2 / 16 };
   });
+}
+
+// car parks (#40): split triangles at their longest edge until no edge is longer than maxEdge, so a lot draped on the
+// terrain follows it; midpoints are shared between neighbours. pts: [[x, z]], tris: [[i, j, k]] (winding kept)
+export function subdivideTris(pts, tris, maxEdge) {
+  const out = pts.slice(), done = [], todo = tris.map(t => t.slice()), mid = new Map();
+  const len = (a, b) => Math.hypot(out[a][0] - out[b][0], out[a][1] - out[b][1]);
+  const midpoint = (a, b) => {
+    const key = a < b ? `${a},${b}` : `${b},${a}`;
+    if (!mid.has(key)) { out.push([(out[a][0] + out[b][0]) / 2, (out[a][1] + out[b][1]) / 2]); mid.set(key, out.length - 1); }
+    return mid.get(key);
+  };
+  while (todo.length) {
+    const [a, b, c] = todo.pop();
+    const [p, q, r] = [[a, b, c], [b, c, a], [c, a, b]].reduce((best, e) => len(e[0], e[1]) > len(best[0], best[1]) ? e : best);
+    if (len(p, q) <= maxEdge) { done.push([a, b, c]); continue; }
+    const m = midpoint(p, q);
+    todo.push([p, m, r], [m, q, r]);
+  }
+  return { pts: out, tris: done };
+}
+
+// car parks (#40): each [ax, az, bx, bz] line becomes a quad `width` wide, corners [[x, z] x4] in order around it
+export function lineQuads(lines, width) {
+  const out = [];
+  for (const [ax, az, bx, bz] of lines) {
+    const length = Math.hypot(bx - ax, bz - az);
+    if (!length) continue;
+    const nx = -(bz - az) / length * width / 2, nz = (bx - ax) / length * width / 2;
+    out.push([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]]);
+  }
+  return out;
 }

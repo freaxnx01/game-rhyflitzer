@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -161,4 +161,31 @@ test('facadeLabels: one outward label per façade, sized to it', () => {
   const o = facadeLabels(0, 0, Math.PI / 2, 42.7, 47.1);  // OSM size, rotated a quarter turn
   same(o[0], { x: -23.65, z: 0, rotY: -Math.PI / 2, w: 20, h: 2.75 });             // clamped to 20 m
   same(o[1], { x: 0, z: 21.45, rotY: 0, w: 20, h: 2.75 });
+});
+
+test('layoutFromWorld passes parking and defaults to an empty list', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: { landmarks: {}, cps: [], labels: [], areas: {} } };
+  assert.deepEqual(layoutFromWorld(base).parking, []);
+  const p = [{ id: 1, ring: [[0, 0], [5, 0], [5, 5]], bays: 0, lines: [] }];
+  assert.deepEqual(layoutFromWorld({ ...base, parking: p }).parking, p);
+});
+
+test('subdivideTris splits until every edge is short and keeps the area and winding', () => {
+  const pts = [[0, 0], [40, 0], [40, 20]], { pts: out, tris } = subdivideTris(pts, [[0, 1, 2]], 5);
+  const area = ([a, b, c]) => ((out[b][0] - out[a][0]) * (out[c][1] - out[a][1]) - (out[b][1] - out[a][1]) * (out[c][0] - out[a][0])) / 2;
+  assert.ok(tris.length > 16);
+  for (const t of tris) for (const [i, j] of [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]]) assert.ok(Math.hypot(out[i][0] - out[j][0], out[i][1] - out[j][1]) <= 5 + 1e-9);
+  assert.ok(tris.every(t => area(t) > 0));
+  assert.ok(Math.abs(tris.reduce((s, t) => s + area(t), 0) - 400) < 1e-6);
+});
+
+test('subdivideTris leaves small triangles and shares midpoints between neighbours', () => {
+  assert.deepEqual(subdivideTris([[0, 0], [1, 0], [0, 1]], [[0, 1, 2]], 5).tris, [[0, 1, 2]]);
+  const { pts } = subdivideTris([[0, 0], [8, 0], [8, 8], [0, 8]], [[0, 1, 2], [0, 2, 3]], 5);
+  const keys = pts.map(([x, z]) => `${x},${z}`);
+  assert.equal(keys.length, new Set(keys).size);
+});
+
+test('lineQuads gives a quad of the given width around each line and skips empty ones', () => {
+  assert.deepEqual(lineQuads([[0, 0, 10, 0], [3, 3, 3, 3]], 0.2), [[[0, 0.1], [10, 0.1], [10, -0.1], [0, -0.1]]]);
 });
