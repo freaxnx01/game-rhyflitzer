@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- The LANDI silo tower by Bahnhof Sisseln now stands in the world at its real 56 m, a grey concrete tower you can see from across the Sisslerfeld. **J** → `landi` takes you there; it is listed under Eiken, where it actually stands.
 - The row houses on the Bodenackerstrasse in Sisseln now look like the real ones: white walls with a yellow panel between every two houses, yellow-framed windows and grey roller shutters, instead of the generic plaster.
 - Hold **B** to look back. Behind the car, the camera swings round in front of it and looks back past it, so you see who is chasing you. In the cockpit you turn your head, and the bumper camera becomes a rear camera. Let go of **B** and you look ahead again.
 - Press **F** to take off in a helicopter and look at the whole region from above: **W**/**S** fly forwards and back, **A**/**D** turn, **Space** climbs, **Shift** sinks. It flies over houses and hills on its own. **F** again lands and puts your car on the nearest road below — if there is none close by, you keep flying. In a race the clock keeps running, checkpoints don't count from the air, and the run is not recorded. Flying is keyboard-only for now.

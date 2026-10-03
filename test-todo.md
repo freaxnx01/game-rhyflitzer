@@ -104,3 +104,10 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Known limit: flying is keyboard-only for now (no touch buttons for F, climb or sink).
 - [ ] In a race: the clock runs on, no checkpoint is collected from the air, and the result says "with the helicopter, not counted".
 - [ ] German: the F1 help line, the toasts and the result text read well.
+
+## LANDI-Turm (#81)
+
+- [ ] J → `landi` → LANDI-Turm (Eiken). The car lands on the Bahnhofstrasse or Sisslerstrasse by the station; the tower stands just west of the Bahnhofstrasse, south of the railway, next to the LANDI halls (Sisslerstrasse 19).
+- [ ] It is a tall flat-topped concrete slab, long side roughly north–south, about as tall as the DSM water tower (59 m) and much lower than the chimney (140 m). Does it read as the LANDI tower, or does it need a different shape (silo cells, a taller head house)?
+- [ ] Drive into it: the car stops, no sinking, no driving through. The house number `19.1` floats above its base.
+- [ ] Eiken chip in J: DSM-Kamin, Bahnhof Sisseln, Bahnhof Eiken, LANDI-Turm.
