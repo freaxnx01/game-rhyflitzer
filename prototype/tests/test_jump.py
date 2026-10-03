@@ -277,3 +277,38 @@ def test_landi_tower_is_listed_and_jumpable(server):
         c = car(page)
         assert math.hypot(c["x"] - tx, c["z"] - tz) < 80
         b.close()
+
+
+SWISS_END = (-1233.5, 533.5)      # Fridolinsbrücke deck end at Schaffhauserstrasse (Stein CH)
+GERMAN_END = (-1462.6, 459.1)     # deck end at Fricktalstraße (Bad Säckingen DE)
+
+
+def _jumpable_road_dist(x, z):
+    best = math.inf
+    for r in json.loads(WORLD.read_text(encoding="utf-8"))["roads"]:
+        if r["bridge"] or r["cls"] in ("motorway", "motorway_link"):
+            continue
+        for (ax, az), (bx, bz) in zip(r["pts"], r["pts"][1:]):
+            dx, dz = bx - ax, bz - az
+            t = max(0.0, min(1.0, ((x - ax) * dx + (z - az) * dz) / ((dx * dx + dz * dz) or 1)))
+            best = min(best, math.hypot(x - (ax + dx * t), z - (az + dz * t)))
+    return best
+
+
+@needs_world
+def test_fridolinsbruecke_lands_on_the_swiss_side_facing_the_bridge(server):
+    """#79: the Swiss approach (Stein), on the road, facing the deck - not the German bank nearest the mid-river anchor."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        c = jump_via_dialog(page, "fridolinsbr")
+        to_ch = math.hypot(c["x"] - SWISS_END[0], c["z"] - SWISS_END[1])
+        to_de = math.hypot(c["x"] - GERMAN_END[0], c["z"] - GERMAN_END[1])
+        assert to_ch < 60, f"car at ({c['x']:.1f}, {c['z']:.1f}) is {to_ch:.0f} m from the Swiss deck end"
+        assert to_ch < to_de
+        assert c["bridge"] is False
+        assert _jumpable_road_dist(c["x"], c["z"]) < 4
+        th = page.evaluate("() => window.__mm.heading()")
+        ax, az = anchor("fridolinsbruecke")
+        ux, uz = ax - c["x"], az - c["z"]
+        assert (math.cos(th) * ux + math.sin(th) * uz) / math.hypot(ux, uz) > 0.5, "car does not face the bridge"
+        b.close()
