@@ -186,3 +186,13 @@ def test_gemeinde_boundaries(world):
     assert se and all(x["names"] == ["Eiken", "Sisseln"] for x in se)
     line = shapely.MultiLineString([x["pts"] for x in se])
     assert line.distance(shapely.Point(3079.8, -274.3)) < 2      # where it crosses the Hauptstrasse
+
+
+def test_issue81_landi_tower_anchor(world):
+    """#81: the LANDI silo tower (Sisslerstrasse 19.1, Eiken, w197688923) is an anchor with its measured height, and its
+    footprint is not also drawn as a generic building."""
+    t = world["anchors"]["landmarks"]["landiTurm"]
+    assert abs(t["x"] - 1832.7) < 2 and abs(t["z"] - 627.7) < 2, t
+    assert t["h"] == 56 and t["kind"] == "silo" and t["size"] == [35.4, 12.6] and t["addr"] == "19.1", t
+    assert abs(t["rot"] - 1.4346) < 1e-3, t
+    assert all(b["id"] != 197688923 for b in world["buildings"])
