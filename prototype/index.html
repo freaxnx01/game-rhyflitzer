@@ -235,7 +235,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf } from './landmarks.js';
 import { translate } from './strings.js';
@@ -837,7 +837,8 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   }
   // trees along both banks and scattered
   const TREES = [], SW = L?.anchors.areas.sisselnWald || [1960, -520, 2500, -300]; if (!L) { const pts = RIVER.pts; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; for (let t = 0; t < L; t += 22) for (const s of [-1, 1]) { const o = RIVER.hw + 20 + rr(0, 14); const tx = x0 + ux * t - uz * o * s + rr(-4, 4), tz = z0 + uz * t + ux * o * s + rr(-4, 4); if (!onBridge(tx, tz) && roadDist(tx, tz) > 4 && BRIDGES.every(b => segDist(tx, tz, ...b.a, ...b.b) > 12)) TREES.push([tx, tz, rr(8, 13)]); } } }
-  for (let i = 0; i < 9000; i++) { const tx = rr(-3100, 3100), tz = rr(-1800, 1900); const th = terrainH(tx, tz); const sisselnWald = tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = sisselnWald || th > 18 || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55); if (!forest && rnd() > 0.12) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity) TREES.push([tx, tz, rr(6, 12)]); }
+  const PARKING = parkingIndex(L ? L.parking : []), TREE_CROWN = 0.45;   // #72: a tree's footprint (billboards are h x 0.9 wide) stays off the car parks
+  for (let i = 0; i < 9000; i++) { const tx = rr(-3100, 3100), tz = rr(-1800, 1900); const th = terrainH(tx, tz); const sisselnWald = tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = sisselnWald || th > 18 || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55); if (!forest && rnd() > 0.12) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
   window.__TREES = TREES;
   streetNames();
   // Ortstafeln: Swiss blue on Hauptstrassen, German yellow across the Rhine (hand path only; OSM city-limit signs are a follow-up)
