@@ -73,3 +73,8 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 ## More landmarks in the J list (#46)
 
 - [ ] #46: J → type `trompeter`, `gallus`, `dieb`, `kursaal`, `aqualon`; chip Eiken → Bahnhof Eiken; chip Sisseln → Gemeindehaus Sisseln, Schulhaus Sisseln. Each jump lands next to its building, and the building stands there (Schloss Schönau and the Diebsturm in the old town, away from main roads).
+
+## Gemeinde boundaries (#48, PR #61 — merged 2026-10-03)
+
+- [ ] G shows the boundaries (magenta on the ground, dashed on the minimap) and hides them again; the toast says on/off (in German "Gemeindegrenzen an/aus").
+- [ ] Sisseln / Eiken: the line crosses the Hauptstrasse where the village sign stands, and runs over roads and water without z-fighting.
