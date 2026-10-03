@@ -567,7 +567,7 @@ function waterTower(x, z, h) { // grey concrete shaft, short wider cylindrical t
 }
 function siloTower(x, z, rot, w, d, h) { // #81 LANDI silo tower by Bahnhof Sisseln: flat-roofed concrete slab (w along rot, d across), small head house on the roof, no lettering (docs/07); solid
   const b = terrainH(x, z);
-  box(w, h + 1, d, x, b - 1, z, rot, col('#c9c5bd'), 'stone', [6, 6], 2.5);
+  box(w, h + 3, d, x, b - 3, z, rot, col('#c9c5bd'), 'stone', [6, 6], 4.5);   // sunk 3 m like the other models: the ground falls ~1 m across the footprint (review of #89); same 1.5 m dark base as before
   box(9, 2.5, Math.max(3, d - 3), x, b + h, z, rot, col('#b5b1a9'), 'stone', [3, 3], 0);
   addOBB(x, z, w, d, rot, b + h);
   window.__mm.counts.landiTurm = 1;
@@ -792,7 +792,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const lm = L.anchors.landmarks, at = (k) => lm[k];
     if (at('dsmChimney')) dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140);
     if (at('dsmWaterTower')) waterTower(at('dsmWaterTower').x, at('dsmWaterTower').z, at('dsmWaterTower').h || 59);
-    if (at('landiTurm')) { const t = at('landiTurm'), s = t.size || [35.4, 12.6]; siloTower(t.x, t.z, t.rot || 0, s[0], s[1], t.h || 56); }
+    if (at('landiTurm')) { const t = at('landiTurm'); siloTower(t.x, t.z, t.rot, t.size[0], t.size[1], t.h); }
     if (at('smileKreisel')) { const k = at('smileKreisel'); const rb = ROADS.filter(r => r.pts.length > 4 && Math.hypot(r.pts[0][0] - r.pts[r.pts.length - 1][0], r.pts[0][1] - r.pts[r.pts.length - 1][1]) < 0.5).map(r => { const q = r.pts.slice(0, -1), cx = q.reduce((a, p) => a + p[0], 0) / q.length, cz = q.reduce((a, p) => a + p[1], 0) / q.length; return { r, cx, cz, rad: q.reduce((a, p) => a + Math.hypot(p[0] - cx, p[1] - cz), 0) / q.length }; }).filter(o => Math.hypot(o.cx - k.x, o.cz - k.z) < 30).sort((a, b) => Math.hypot(a.cx - k.x, a.cz - k.z) - Math.hypot(b.cx - k.x, b.cz - k.z))[0]; if (rb) smileKreiselAt(rb.cx, rb.cz, Math.max(2.5, rb.rad - rb.r.w / 2)); else smileKreiselAt(k.x, k.z); }
     if (at('hallenbad')) { const hb = at('hallenbad'); if (hb.size) hallenbad(hb.x, hb.z, hb.rot, hb.size[0], hb.size[1], false); else hallenbad(hb.x, hb.z, hb.rot); }
     if (at('muenster')) church(at('muenster').x, at('muenster').z, at('muenster').rot, true);
