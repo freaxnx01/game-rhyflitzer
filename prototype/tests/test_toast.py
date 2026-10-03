@@ -69,3 +69,20 @@ def test_water_toast_lasts_five_seconds(server):
         b.close()
     assert shown["text"] == "Grüss mir die Fische!"
     assert shown["left"] > 4.2, shown                                    # 5 s minus the ~0.3 s since splash 0.35
+
+
+def test_start_screen_covers_the_checkpoint_block(server):
+    """Review of #111: #tc's z-index must stay inside the HUD; on the start (and result) screen the overlay paints on
+    top of the arrow, the distance plate and any toast, as before #75."""
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_context(viewport={"width": 1280, "height": 720}).new_page()
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.add_style_tag(content="#hud, #hud * { pointer-events: auto !important }")   # elementFromPoint skips pointer-events:none, the HUD's default
+        on_top = page.evaluate("""() => { const r = document.querySelector('#tc').getBoundingClientRect();
+            const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return el && el.closest('#overlay') ? 'overlay' : (el && el.id) || el?.tagName; }""")
+        b.close()
+    assert on_top == "overlay", on_top
