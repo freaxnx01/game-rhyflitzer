@@ -131,3 +131,7 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Hold Tab while driving: the map is big and centred, the car arrow moves, releasing Tab brings back the corner minimap at the old zoom.
 - [ ] Hold Tab, then Alt-Tab away and back: the full map is closed.
 - [ ] Finish a race after using Tab: the time counts as a record.
+
+## Held J (#86)
+
+- [ ] On a real keyboard, hold **J** for about a second: the jump menu opens and stays open, the search field stays empty. Let go and press **J** once: it closes.
