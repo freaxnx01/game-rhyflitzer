@@ -53,7 +53,8 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 
 ## Car parks (#40, PR #54 + world rebuild PR #55 — merged 2026-10-03)
 
-- [ ] **Hallenbad car parks** (J → Sisseln, then to the Hallenbad): the Hallenbad-Parkplatz (west of the pool, ~36 bays), the small Hallenbad-Parkplatz with capacity 18 (7 bays drawn) and Privat Parkplatz Rhyblick (~45 bays) look like the aerial view: grey asphalt, white bay rows, a blue "P" sign with the name.
+- [x] **Hallenbad car parks** (J → Sisseln, then to the Hallenbad): the Hallenbad-Parkplatz (west of the pool, ~36 bays), the small Hallenbad-Parkplatz with capacity 18 (7 bays drawn) and Privat Parkplatz Rhyblick (~45 bays) look like the aerial view: grey asphalt, white bay rows, a blue "P" sign with the name.
+  - *Playtest 2026-10-03:* "tested and car parks looking good".
 - [ ] Elsewhere: roadside parking strips keep their bays along the road, no bay lines run through houses or over a road, and a car park on a slope does not float or sink.
 - [ ] The car drives onto and across a car park without bumping (the lot sits 1 cm under the road surface).
 
