@@ -41,6 +41,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- Roofs on the Swiss side now follow the measured ridge: the Bodenackerstrasse row houses 10, 12, 14, 18, 20 and 21 in Sisseln have their pitched roofs, 3, 4, 7, 8, 11, 13, 15, 16 and 17 stay flat — and the same rule fixes every other measured house that was drawn with the wrong roof.
 - **V** now hides the car's shadow too — no more dark disc left on the road.
 - Clicking an entry in the **J** menu works now. The menu said "or click" from the start, but the click never arrived — only the number keys did anything.
 - The Sissle and the other streams are visible along their whole course now — from the bridge by the Smile-Kreisel too — and on the minimap. Drive in and you get wet.
