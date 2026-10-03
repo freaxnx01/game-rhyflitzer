@@ -94,3 +94,11 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] The minimap and the compass do not change while **B** is held.
 - [ ] Open **J**, close it again: the camera is not stuck looking back.
 - [ ] Hold vs. toggle: does holding B feel right, or should it be a toggle?
+
+## Helicopter mode (#10)
+
+- [ ] **F** during a game: the helicopter climbs to about 120 m and the view gives a real overview (how far can you see before the fog?). Does 120 m feel right?
+- [ ] Flying feels controllable: **W**/**S**, **A**/**D**, **Space**/**Shift**; it rides up over the DSM tower and the Bad Säckingen Münster instead of clipping them.
+- [ ] **F** again lands on a sensible road below, pointing along it; **R** and **J** while flying also bring the car back.
+- [ ] In a race: the clock runs on, no checkpoint is collected from the air, and the result says "with the helicopter, not counted".
+- [ ] German: the F1 help line, the toasts and the result text read well.
