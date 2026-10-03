@@ -260,7 +260,7 @@ def test_phone_abandon_confirmation_fits_and_taps(server):
         s = pause(page)
         b.close()
     assert fit["title"] == "Diesen Lauf abbrechen?" and fit["focus"] == "abandoncancel"
-    assert [x["text"] for x in fit["buttons"]] == ["Zurück", "Abbrechen"]
+    assert [x["text"] for x in fit["buttons"]] == ["Abbrechen", "Verwerfen"]
     assert all(x["inside"] and not x["clipped"] and x["h"] >= 44 for x in fit["buttons"])
     assert fit["pageWidth"] <= 360 and fit["nav"] == "none"
     assert back and (s["on"], s["state"]) == (False, "ready")
