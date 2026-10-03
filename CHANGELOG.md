@@ -23,7 +23,7 @@ All notable changes to this project are documented here, following
 - The minimap zooms: turn the mouse wheel over it or press **+**/**-** to step through 1×, 2×, 4× and 8× — zoomed in, it follows your car. Double-click (or double-tap) the minimap to put the car on the nearest road there; during a race that counts as a jump, like **J**.
 - The **J** menu has a new entry **0 · Random spot**: it drops the car on a random road somewhere on the map (during a race that counts as a jump).
 - Houses on the Swiss side now have their real height, measured from swisstopo's surface model — Bodenackerstrasse 6 stands its eight storeys tall, bungalows stay low.
-- **F1** shows every key. A compass rose turns with the car, a trip odometer counts your kilometres (**K** resets it), **Q**/**E** set the turn signals, **V** hides the car, and the HUD names the water you are at — Rhein, Sissle and friends. Hold **Tab** to run the game three times faster (that run won't count as a record).
+- **F1** shows every key. A compass rose turns with the car, a trip odometer counts your kilometres (**K** resets it), **Q**/**E** set the turn signals, **V** hides the car, and the HUD names the water you are at — Rhein, Sissle and friends. Hold **Tab** to see the whole map big in the middle of the screen.
 - Hold **N** for nitro — blue flames, much harder acceleration, a higher top speed, and it never runs out.
 - Press **J** to jump straight to a village or railway station (1–9 or click). A jump during a race still lets you finish, but the time doesn't count as a record.
 - The online version now drives the real Hochrhein: OpenStreetMap roads, the Rhine, houses, the DSM chimney and water tower, and the measured swisstopo terrain load by themselves — no file to upload anymore.
