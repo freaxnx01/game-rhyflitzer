@@ -62,3 +62,32 @@ def test_footprint_without_a_building_keeps_its_height(tiles):
     stats = BH.apply(b, FRAME, *tiles)
     assert b[0]["h"] == 12.0 and "hsrc" not in b[0] and "rh" not in b[0]
     assert stats["not_built"] == 1
+
+
+def test_roof_shape_from_the_ridge():
+    """#43: the measured ridge decides flat vs. pitched on rectangular footprints under 1,000 m2; in the 0.6-1.5 m band
+    the footprint heuristic keeps deciding."""
+    assert BH.roof_shape("flat", 2.9, 0.89, 500) == "gable"        # Bodenackerstrasse 20a-20f: 36 x 13 m, pitched
+    assert BH.roof_shape("gable", 0.1, 1.0, 208) == "flat"         # 16a-16c: the heuristic said gable, the roof is flat
+    assert BH.roof_shape("flat", 0.1, 0.87, 395) == "flat"         # 8a-8f
+    assert BH.roof_shape("flat", 2.9, 0.7, 500) == "flat"          # L-shaped: gable() would draw a box over the L
+    assert BH.roof_shape("flat", 3.0, 0.87, 14689) == "flat"       # hall with rooftop plant
+    assert BH.roof_shape("flat", 1.5, 0.85, 999.9) == "gable"      # thresholds are inclusive / exclusive as named
+    assert BH.roof_shape("flat", 1.5, 0.85, 1000.0) == "flat"
+    assert BH.roof_shape("gable", 1.0, 0.95, 100) == "gable"       # shallow ridge: heuristic keeps deciding
+    assert BH.roof_shape("flat", 1.0, 0.95, 400) == "flat"
+    assert BH.roof_shape("gable", 0.6, 0.95, 100) == "gable"
+    assert BH.roof_shape("gable", 0.59, 0.95, 100) == "flat"
+
+
+def test_measured_ridge_overrides_the_footprint_roof(tiles):
+    """#43: a 'flat' footprint over a pitched surface becomes gable, a 'gable' footprint over a flat roof becomes flat;
+    footprints without a measurement keep their roof."""
+    b = [bld(6, 40, 0, 10, 8, "flat"), bld(7, -40, 0, 12, 10, "gable"), bld(8, 900, 900, 10, 8, "gable"),
+         bld(9, 0, 60, 15, 12, "gable", h=12.0)]
+    stats = BH.apply(b, FRAME, *tiles)
+    assert b[0]["roof"] == "gable" and b[0]["rh"] >= 1.5 and b[0]["hsrc"] == "dsm"
+    assert b[1]["roof"] == "flat" and b[1]["rh"] < 0.6 and b[1]["hsrc"] == "dsm"
+    assert b[2]["roof"] == "gable" and "rh" not in b[2]            # outside the tiles
+    assert b[3]["roof"] == "gable" and "rh" not in b[3]            # not built in 2020
+    assert stats["ridge_gable"] == 1 and stats["ridge_flat"] == 1

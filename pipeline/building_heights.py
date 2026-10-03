@@ -3,7 +3,8 @@
 Most OSM houses carry no height, so the world used a default (house 6 m). Each footprint (a little shrunk, so walls and
 roof overhangs don't count) is read from the surface model: the eaves height `h` is the low edge of the roof (10th
 percentile) and the ridge height `rh` the rise from there to the top (95th percentile), both over the ground under the
-centre. A flat roof has rh ~ 0. Measured rather than modelled: many houses here have shallow roofs, which a fixed
+centre. A flat roof has rh ~ 0. The roof shape follows the ridge (#43): rh >= 1.5 m on a rectangular footprint under
+1,000 m2 is a gable, rh < 0.6 m is flat, in between the footprint heuristic decides. Measured rather than modelled: many houses here have shallow roofs, which a fixed
 0.4 * width gable got badly wrong. A footprint whose roof top is under 2 m was not built yet when the surface was
 flown (2020) and keeps its height. Swiss side only; buildings outside the tiles keep their height.
 """
@@ -21,6 +22,22 @@ SHRINK = 0.75      # m: stay off walls and roof overhangs
 MIN_H = 2.5
 NOT_BUILT = 2.0    # m: roof top under this = not built yet when the surface was flown (2020); keep the OSM height
 
+RIDGE_GABLE = 1.5         # m: a ridge this high on a rectangular footprint is a pitched roof (#43)
+RIDGE_FLAT = 0.6          # m: under this the roof is flat (the prototype's cut, index.html osmBuilding)
+RECT_FILL = 0.85          # footprint share of its rotated rectangle, as in world_buildings.roof()
+GABLE_MAX_AREA = 1000.0   # m2: the pipeline's big-building threshold; a bigger hall keeps a flat roof
+
+
+def roof_shape(kind, rh, fill, area):
+    """Roof from the measured ridge (#43). A ridge of at least RIDGE_GABLE on a footprint that fills RECT_FILL of its
+    rectangle and is under GABLE_MAX_AREA is a gable; a ridge under RIDGE_FLAT is flat; between the two the footprint
+    heuristic's `kind` stays (a shallow roof and a parapet measure alike)."""
+    if rh >= RIDGE_GABLE and fill >= RECT_FILL and area < GABLE_MAX_AREA:
+        return "gable"
+    if rh < RIDGE_FLAT:
+        return "flat"
+    return kind
+
 
 def _open(paths):
     out = []
@@ -35,7 +52,8 @@ def _tile(tiles, pt):
 
 
 def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
-    """Set b["h"] (eaves height) and b["hsrc"] = "dsm" where the surface data covers the footprint. Returns stats."""
+    """Set b["h"] (eaves), b["rh"] (ridge), b["hsrc"] = "dsm" and b["roof"] from the ridge (#43) where the surface data
+    covers the footprint. Returns stats."""
     dsm, dtm = _open(dsm_paths), _open(dtm_paths)
     stats = Counter()
     try:
@@ -72,6 +90,10 @@ def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
             b["h"] = round(float(np.clip(lo - ground, MIN_H, max_h)), 1)
             b["rh"] = round(max(0.0, hi - lo), 1)
             b["hsrc"] = "dsm"
+            shape = roof_shape(b["roof"], b["rh"], poly.area / (b["rect"][2] * b["rect"][3]), poly.area)
+            if shape != b["roof"]:
+                stats["ridge_" + shape] += 1
+                b["roof"] = shape
             stats["dsm"] += 1
     finally:
         for _, ds in dsm + dtm:
