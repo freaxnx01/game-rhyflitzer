@@ -24,7 +24,7 @@ NOT_BUILT = 2.0    # m: roof top under this = not built yet when the surface was
 
 RIDGE_GABLE = 1.5         # m: a ridge this high on a rectangular footprint is a pitched roof (#43)
 RIDGE_FLAT = 0.6          # m: under this the roof is flat (the prototype's cut, index.html osmBuilding)
-RECT_FILL = 0.85          # footprint share of its rotated rectangle, as in world_buildings.roof()
+RECT_FILL = 0.85          # footprint share of its rotated rectangle; inclusive here, world_buildings.roof() uses > 0.85
 GABLE_MAX_AREA = 1000.0   # m2: the pipeline's big-building threshold; a bigger hall keeps a flat roof
 
 
@@ -85,15 +85,18 @@ def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
                 continue
             # the shrink cut off the lowest strip of a pitched roof: continue its slope out to the wall line
             half = min(b["rect"][2], b["rect"][3]) / 2
-            if b.get("roof") == "gable" and half > SHRINK + 1:
-                lo -= (hi - lo) * SHRINK / (half - SHRINK)
-            b["h"] = round(float(np.clip(lo - ground, MIN_H, max_h)), 1)
-            b["rh"] = round(max(0.0, hi - lo), 1)
-            b["hsrc"] = "dsm"
-            shape = roof_shape(b["roof"], b["rh"], poly.area / (b["rect"][2] * b["rect"][3]), poly.area)
+            lo_pitched = lo - (hi - lo) * SHRINK / (half - SHRINK) if half > SHRINK + 1 else lo
+            # the roof shape comes first (#43), judged on the ridge a pitched roof would have, so a footprint the ridge
+            # promotes to gable gets the same eaves as one the heuristic already called gable (review of #68)
+            shape = roof_shape(b["roof"], round(max(0.0, hi - lo_pitched), 1), poly.area / (b["rect"][2] * b["rect"][3]), poly.area)
             if shape != b["roof"]:
                 stats["ridge_" + shape] += 1
                 b["roof"] = shape
+            if b["roof"] == "gable":
+                lo = lo_pitched
+            b["h"] = round(float(np.clip(lo - ground, MIN_H, max_h)), 1)
+            b["rh"] = round(max(0.0, hi - lo), 1)
+            b["hsrc"] = "dsm"
             stats["dsm"] += 1
     finally:
         for _, ds in dsm + dtm:
