@@ -52,3 +52,21 @@ test('English texts stay exactly as the existing tests expect', () => {
   assert.equal(translate('en', 'keyNitro'), 'Nitro (hold)');
   assert.ok(translate('en', 'worldOsm', 7, 9, 'OSM').startsWith('World: OpenStreetMap · 7 roads · 9 buildings ·'));
 });
+
+test('pause menu texts exist in both languages (#83)', () => {
+  assert.equal(translate('en', 'pauseTitle'), 'Paused');
+  assert.equal(translate('en', 'pauseResume'), 'Resume');
+  assert.equal(translate('en', 'pauseRestart'), 'Restart race');
+  assert.equal(translate('en', 'pauseMenu'), 'Main menu');
+  assert.equal(translate('de', 'pauseTitle'), 'Pause');
+  assert.equal(translate('de', 'pauseResume'), 'Weiter');
+  assert.equal(translate('de', 'pauseRestart'), 'Rennen neu starten');
+  assert.equal(translate('de', 'pauseMenu'), 'Hauptmenü');
+  assert.equal(translate('en', 'abandonTitle'), 'Abandon this run?');
+  assert.equal(translate('en', 'abandonCancel'), 'Cancel');
+  assert.equal(translate('en', 'abandonOk'), 'Abandon');
+  assert.equal(translate('de', 'abandonTitle'), 'Diesen Lauf abbrechen?');
+  assert.equal(translate('de', 'abandonCancel'), 'Zurück');
+  assert.equal(translate('de', 'abandonOk'), 'Abbrechen');
+  for (const k of ['pauseHint', 'pauseAria', 'keyPause', 'abandonHint']) assert.notEqual(translate('de', k), k, k);
+});
