@@ -82,5 +82,5 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 
 ## Roofs from the measured ridge (#43)
 
-- [ ] Bodenackerstrasse, Sisseln: 10, 12, 14, 18, 20, 21 (and 19) have pitched roofs with the ridge along the long side, about 3 m high — a gentle slope, not a tent. 3, 4, 7, 8, 11, 13, 15, 16a–16c and 17 are flat.
+- [ ] Bodenackerstrasse, Sisseln: 10, 12, 14, 18, 19, 20 and 21 have pitched roofs with the ridge along the long side, about 3 m high — a gentle slope, not a tent. 3, 4, 7, 8, 11, 13, 15, 16a–16c and 17 are flat.
 - [ ] F3 next to 20a–20f: the height label still shows the same eaves as before (7.7 m) — only the roof shape changed.
