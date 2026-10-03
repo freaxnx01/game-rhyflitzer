@@ -30,13 +30,13 @@ In the **cockpit view** a small rear-view mirror sits at the top centre of the s
 | Cost control | The target is re-rendered **every second frame**; the other frames only redraw the quad. The shadow map is not recomputed for the mirror pass (`renderer.shadowMap.autoUpdate = false` around it). The mirror camera sees the same scene; no extra objects are built. Fixed 256 × 80 independent of the screen and of the pixel ratio. |
 | Touch devices | **Off.** `matchMedia('(pointer:coarse)')` is read once at start. Phones are the weakest GPUs, and the touch bar has no room for a driving view anyway. |
 | On/off | **Always on in the cockpit view, no key.** C already switches the view; B hides it while held (looking back would show the road ahead in the mirror). Nothing is added to the F1 help, the strings or the touch bar. |
-| Look | A dark frame in the HUD's style (`var(--ink)` fill, 4 px steel-light bevel as `#br`), 22 % of the screen width, clamped to 220–420 px wide, 80/256 of that tall, 12 px below the top edge (below the safe-area inset). Drawn in the canvas, so no DOM element and no layout change. |
+| Look | A dark frame in the HUD's style (`var(--ink)` fill, 4 px steel-light bevel as `#br`), 22 % of the screen width, clamped to 220–420 px wide, 80/256 of that tall, 12 px below the top edge (no safe-area handling: touch devices, the only ones with notches, get no mirror). Drawn in the canvas, so no DOM element and no layout change. |
 | Pause (#83) | **Frozen**: while `PAUSE.on` the quad is drawn from the last rendered target, the target is not re-rendered. |
 | Night (#2) | Nothing special: the mirror camera renders the same `scene`, so it sees the chaser's headlights and the lit street lamps as soon as #2 lands. The car's own tail lights are not visible (the car is hidden in the cockpit view). |
 | Helicopter (#10) | No mirror while `FLY.on`. |
 | Full map (#77) | Hidden while Tab is held (the map takes the middle of the screen). |
 | Car size (#69) | The camera position is `vehEye('cockpit')` (already scaled by `VEH.scale`), so a larger or smaller vehicle moves the mirror camera with it. Side offset forced to 0. |
-| Pure logic | New `prototype/mirror.js` (ES module, like `heli.js`/`pause.js`): `mirrorVisible(state)`, `mirrorRect(w, h, inset)`, `mirrorDue(frame)`. Node-testable without a browser. |
+| Pure logic | New `prototype/mirror.js` (ES module, like `heli.js`/`pause.js`): `mirrorVisible(state)`, `mirrorRect(width)`, `mirrorDue(frame)`. Node-testable without a browser. |
 | Test hook | `__mm.mirror()` → `{ visible, renders, frame, rect: { x, y, w, h }, pos: [x, y, z], look: [x, y, z] }`. `renders` counts the target renders. |
 | Version / changelog | One sentence under `[Unreleased] / Added`. No version bump. |
 
