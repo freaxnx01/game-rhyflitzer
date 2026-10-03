@@ -10,6 +10,12 @@ MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 BODENACKER_6 = 171822634
+TALLEST = 155170807                                  # roof top 38.1 m (h 32.5 + rh 5.6), the tallest in the region
+SPOT_DX = {BODENACKER_6: 20, TALLEST: 22}            # car this far east of the footprint centre, clear of the façade
+CHASE_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view === 0"
+                 " && Math.abs(Math.hypot(d[0], d[2]) - 9) < 0.3 && Math.abs(d[1] - 3.4) < 0.3; }")
+COCKPIT_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view === 2"
+                   " && Math.abs(d[0] - 0.325) < 0.05 && Math.abs(d[1] - 1.586) < 0.05 && Math.abs(d[2] - 0.494) < 0.05; }")
 
 
 def open_page(p, server, block_world=False, query=""):
@@ -100,3 +106,29 @@ def test_click_on_the_panel_copies_one_line(server):
     assert copied.startswith("x ") and " | LV95 —" in copied, copied
     assert copied.split(" | ")[0].split("  ")[0] == lines[0].split("  ")[0]    # same panel (the car may have moved a frame since)
     assert toast == "Copied"
+
+
+@needs_world
+@pytest.mark.parametrize("bid", [BODENACKER_6, TALLEST])
+def test_tall_building_label_stays_on_screen(server, bid):
+    """#70: facing a tall building from close by, its height label is lowered into the screen (NDC y <= 0.8)."""
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    b = next(x for x in w["buildings"] if x["id"] == bid)
+    cx, cz = b["rect"][0] + SPOT_DX[bid], b["rect"][1]
+    label = f"window.__mm.debug().heights.find(l => l.id === {bid})"
+    with sync_playwright() as p:
+        br, page = open_page(p, server, query="?debug")
+        page.click("#startbtn", timeout=180000)
+        page.evaluate(f"() => window.__mm.sim({cx}, {cz}, Math.PI, 0, 0, [])")     # heading pi = facing west, at the building
+        page.wait_for_function(CHASE_ARRIVED, timeout=120000)
+        page.wait_for_function(f"() => !!{label}", timeout=60000)
+        chase = page.evaluate(f"() => {label}")
+        page.keyboard.press("KeyC")
+        page.keyboard.press("KeyC")
+        page.wait_for_function(COCKPIT_ARRIVED, timeout=120000)
+        page.wait_for_function(f"() => !!{label}", timeout=60000)
+        cockpit = page.evaluate(f"() => {label}")
+        br.close()
+    for view, l in (("chase", chase), ("cockpit", cockpit)):
+        assert l.get("clamped") is True, (view, l)
+        assert l.get("ny") is not None and -1 <= l["ny"] <= 0.8 + 1e-3, (view, l)
