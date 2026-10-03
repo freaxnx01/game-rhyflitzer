@@ -239,6 +239,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf } from './landmarks.js';
 import { translate } from './strings.js';
+import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
@@ -960,7 +961,7 @@ addEventListener('resize', resize);
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };
-const keys = {}; addEventListener('keydown', e => { if (!$('jump').hidden) { jumpKey(e); return; } if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || (e.key === '?')) { e.preventDefault(); $('help').hidden = !$('help').hidden; } if (e.code === 'Escape') $('help').hidden = true; if (e.code === 'F3') { e.preventDefault(); toggleDebug(); } if (e.code === 'Tab' && (R.state === 'armed' || R.state === 'racing')) R.fast = true; if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (!$('jump').hidden) { jumpKey(e); return; } if (pauseKey(e)) return; if (e.repeat) return; keys[e.code] = true; if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyR') resetCar(); if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || (e.key === '?')) { e.preventDefault(); $('help').hidden = !$('help').hidden; } if (e.code === 'Escape') $('help').hidden = true; if (e.code === 'F3') { e.preventDefault(); toggleDebug(); } if (e.code === 'Tab' && (R.state === 'armed' || R.state === 'racing')) R.fast = true; if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
@@ -970,8 +971,9 @@ document.getElementById('stylebtn').onclick = toggleStyle; document.getElementBy
 
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
-  let ac = null, eng = null, muted = false; const lv = { engine: 0, noise: 0, frames: 0 };   // last target gains, for the tests
-  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination); ac.master = master; } if (ac.state === 'suspended') ac.resume(); return ac; };
+  let ac = null, eng = null, muted = false, held = false;   // held: paused (#83), ctx() must not wake the context; #14 replaces this with SFX.hold
+  const lv = { engine: 0, noise: 0, frames: 0 };   // last target gains, for the tests
+  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination); ac.master = master; } if (ac.state === 'suspended' && !held) ac.resume(); return ac; };
   function engine() { if (eng) return eng; const a = ctx(); const o1 = a.createOscillator(), o2 = a.createOscillator(), g = a.createGain(), f = a.createBiquadFilter(); o1.type = 'sawtooth'; o2.type = 'square'; o2.detune.value = -1205; f.type = 'lowpass'; f.frequency.value = 700; f.Q.value = 2; g.gain.value = 0; o1.connect(f); o2.connect(f); f.connect(g); g.connect(a.master); o1.start(); o2.start(); const nb = a.createBuffer(1, a.sampleRate * 2, a.sampleRate); const d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const ns = a.createBufferSource(); ns.buffer = nb; ns.loop = true; const nf = a.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 300; nf.Q.value = 0.6; const ng = a.createGain(); ng.gain.value = 0; ns.connect(nf); nf.connect(ng); ng.connect(a.master); ns.start(); eng = { o1, o2, g, f, ng }; return eng; }
   function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
   function burst(dur, freq, q, vol) { if (muted) return; const a = ctx(); const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(a.master); s.start(); }
@@ -986,6 +988,9 @@ const SFX = (() => {
     splash() { burst(0.6, 900, 0.5, 0.4); },
     horn() { for (const f of VEH.sound.horn) beep(f, VEH.sound.hornDur, 'sawtooth', 0.12); },
     toggle() { muted = !muted; return muted; },
+    suspend() { held = true; if (ac) ac.suspend(); },
+    resume() { held = false; if (ac) ac.resume(); },
+    state() { return ac ? ac.state : null; },
   };
 })();
 
@@ -1103,6 +1108,25 @@ function resultHtml({ t, rec }) { return `<small>${tr(rec ? 'newRecord' : 'finis
 // the overlay doubles as the start and the result screen, so its texts depend on the race state
 function renderOverlay() { const done = R.state === 'finished'; $('ovtext').textContent = tr(done ? 'finishedText' : 'intro'); $('startbtn').textContent = tr(done ? 'retry' : 'start'); if (done) $('result').innerHTML = resultHtml(R.last); }
 $('startbtn').onclick = () => { SFX.start(); startRace(); };
+// #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
+const PAUSE = { on: false, confirm: false, frame: 0 };
+const inRun = () => canPause($('overlay').hidden, R.state);
+const holdSound = (on) => on ? SFX.suspend() : SFX.resume();   // #14 lands second: replace with SFX.hold('menu', on)
+function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; for (const k in keys) keys[k] = false; $('help').hidden = true; $('pause').hidden = false; holdSound(true); $(PAUSE_BUTTONS[0]).focus(); }
+function closePause() { if (!PAUSE.on) return; PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
+function restartRace() { closePause(); startRace(); }
+function toMainMenu() { closePause(); R.state = 'ready'; R.t = 0; P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderOverlay(); $('overlay').hidden = false; $('startbtn').focus(); }   // the run is abandoned, never recorded; R.best untouched
+// A3 (user decision 2026-10-03): with the clock running, ask first; 'armed' goes straight back
+function chooseMainMenu() { if (needsAbandonConfirm(R.state)) openAbandon(); else toMainMenu(); }
+function openAbandon() { PAUSE.confirm = true; $('pause').hidden = true; $('abandon').hidden = false; $(ABANDON_BUTTONS[0]).focus(); }
+function closeAbandon() { PAUSE.confirm = false; $('abandon').hidden = true; $('pause').hidden = false; $('pausemenu').focus(); }   // Cancel: back to the menu, on the button that asked
+function movePauseFocus(step) { $(nextFocus(PAUSE.confirm ? ABANDON_BUTTONS : PAUSE_BUTTONS, document.activeElement?.id || '', step)).focus(); }
+const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon, next: () => movePauseFocus(1), prev: () => movePauseFocus(-1), debug: () => toggleDebug() };
+// true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
+function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), helpOpen: !$('help').hidden, confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
+$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu;
+document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
+window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.frame, state: R.state, t: R.t, best: R.best, x: P.x, z: P.z, audio: SFX.state(), focus: document.activeElement?.id || '' });
 function jumpRows() { return [...filterLandmarks(JUMP_ENTRIES, JUMP.q, JUMP.g), { n: tr('randomSpot'), g: null, random: true }]; }
 function renderJump() {
   JUMP.rows = jumpRows(); JUMP.sel = Math.min(JUMP.sel, JUMP.rows.length - 1);
@@ -1195,7 +1219,8 @@ function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttrib
 // ---------- loop ----------
 applyStyle('original'); resize();
 let last = performance.now();
-function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; const t0 = performance.now(); HUD.scale = keys.Tab ? 3 : 1; if (keys.Tab && (R.state === 'armed' || R.state === 'racing')) R.fast = true; for (let k = 0; k < HUD.scale; k++) { if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); } stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); if (FLY.on) SFX.silent(); else SFX.update(Math.hypot(P.vx, P.vz) * 3.6, P.gas, P.air, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; renderer.render(scene, camera); requestAnimationFrame(loop); }
+function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; PAUSE.frame++; if (PAUSE.on) { debugTick(); renderer.render(scene, camera); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
+  const t0 = performance.now(); HUD.scale = keys.Tab ? 3 : 1; if (keys.Tab && (R.state === 'armed' || R.state === 'racing')) R.fast = true; for (let k = 0; k < HUD.scale; k++) { if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); } stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); if (FLY.on) SFX.silent(); else SFX.update(Math.hypot(P.vx, P.vz) * 3.6, P.gas, P.air, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; renderer.render(scene, camera); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; blob.position.set(START.x, sy + 0.05, START.z); }
 requestAnimationFrame(loop);
 </script>
