@@ -166,3 +166,20 @@ def test_help_lists_f(server):
         help_text = page.inner_text("#help")
         b.close()
     assert "helicopter" in help_text, help_text
+
+
+def test_car_engine_and_tyres_are_silent_in_flight(server):
+    """Review of #84: the car's engine and tyre noise must not follow the helicopter's airspeed; landing brings them back."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        page.wait_for_function("() => window.__mm.sfx().engine > 0", timeout=120000)   # idling on the road
+        take_off(page)
+        fly_sim(page, 3, ["KeyW"])                                                      # cruising: the heli sets P.vx/vz
+        n = page.evaluate("() => window.__mm.sfx().frames")
+        page.wait_for_function("(n) => window.__mm.sfx().frames > n + 1", arg=n, timeout=120000)   # two frames in flight
+        flying = page.evaluate("() => window.__mm.sfx()")
+        page.keyboard.press("KeyF")                                                     # land
+        page.wait_for_function("() => !window.__mm.fly().on && window.__mm.sfx().engine > 0", timeout=120000)
+        b.close()
+    assert flying["engine"] == 0 and flying["noise"] == 0, flying
