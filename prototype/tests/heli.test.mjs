@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HELI, heliInput, heliFloor, heliStart, stepHeli } from '../heli.js';
+import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from '../heli.js';
 
 const IDLE = { fwd: 0, yaw: 0, lift: 0 };
 const NO_TOUCH = { l: 0, r: 0, g: 0, b: 0, h: 0 };
@@ -10,7 +10,19 @@ const at = (y, th = 0) => ({ x: 0, z: 0, y, th, v: 0, alt: y });
 const box = (o) => ({ x: 0, z: 0, hw: 5, hd: 5, c: 1, s: 0, h: 30, ...o });
 
 test('HELI: the agreed flight constants', () => {
-  assert.deepEqual(HELI, { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, back: 10, accel: 12, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 4, camDist: 35, camH: 22 });
+  assert.deepEqual(HELI, { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, back: 10, accel: 12, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 8, landRadius: 150, camDist: 35, camH: 22 });
+});
+
+test('HELI: the rotor margin covers the model (blades 5.5 m, tail boom to 7.4 m from the hub) -- review of #84', () => {
+  assert.ok(HELI.rotorMargin >= 7.4);
+});
+
+test('landingSpot: the nearest road counts only within landRadius -- review of #84', () => {
+  const road = (d) => ({ d, x: 1, z: 2, th: 0 });
+  assert.deepEqual(landingSpot(road(0)), road(0));
+  assert.deepEqual(landingSpot(road(HELI.landRadius)), road(HELI.landRadius));
+  assert.equal(landingSpot(road(HELI.landRadius + 0.1)), null);
+  assert.equal(landingSpot(null), null);
 });
 
 test('heliInput: W/S and arrows fly, A/D and arrows yaw, Space climbs, Shift sinks, touch buttons too', () => {

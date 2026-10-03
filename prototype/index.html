@@ -205,7 +205,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf } from './landmarks.js';
 import { translate } from './strings.js';
-import { HELI, heliInput, heliFloor, heliStart, stepHeli } from './heli.js';
+import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -961,7 +961,7 @@ function resetCar() { FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P
 // #10: F takes off from the car's spot and lands the car on the nearest jumpable road below (not a jump: the flight already marks the run). R, J, the map and Start end a flight through resetCar
 function toggleFly() { if (FLY.on) land(); else takeOff(); }
 function takeOff() { const s = heliStart(P.x, P.z, P.y, P.th, groundH(P.x, P.z, 1e4)); FLY.on = true; FLY.v = s.v; FLY.alt = s.alt; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
-function land() { const spot = nearestJumpable(P.x, P.z); if (spot) P.safe = [spot.x, spot.z, spot.th]; resetCar(); toast(tr('heliLanded')); }
+function land() { const spot = landingSpot(nearestJumpable(P.x, P.z)); if (!spot) { toast(tr('heliNoRoad')); return; } P.safe = [spot.x, spot.z, spot.th]; resetCar(); toast(tr('heliLanded')); }
 function stepFly(dt) { const ground = groundH(P.x, P.z, 1e4), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; blob.visible = false; flames.visible = false; }
 // test hooks (prototype/tests): put the car somewhere and read its state
 window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; };
@@ -981,6 +981,7 @@ window.__mm.villageSprites = () => [...VILLAGE_SIGNS.sprites].filter(([, s]) => 
 window.__mm.stationSigns = () => STATION_SIGNS.map(s => ({ ...s }));
 window.__mm.raceFlags = () => ({ jumped: !!R.jumped, fast: !!R.fast, flown: !!R.flown });
 window.__mm.sfx = () => SFX.levels();
+window.__mm.nearestRoad = (x, z) => nearestJumpable(x, z);
 window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, alt: FLY.alt, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
 // water vs drawn ground at a point: is the water surface above the ground mesh there (visible) or under it?
@@ -1053,6 +1054,7 @@ function fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60), d = Math
 let toastT = 0; function toast(html) { $('toast').innerHTML = html; $('toast').classList.add('show'); toastT = 2.6; }
 function startRace() { for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.fast = false; R.flown = false; R.state = 'armed'; P.dmg = 0; P.safe = [START.x, START.z, START.th]; resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); $('overlay').hidden = true; $('result').hidden = true; updatePips(); }
 function updatePips() { $('cpn').textContent = R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', cpObjs[i].done)); }
+// armed -> racing is deliberately outside the !FLY.on gate below: helicopter movement starts the clock too, and it runs on in flight (#10)
 function stepRace(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on) { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); toast(tr('cpToast', R.done, best.n)); if (R.done === 5) finishG.visible = true; } else if (best.i < 0 && bd < 7 && R.state === 'racing') finish(); const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toast(tr('holzToast')); } } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(performance.now() / 300) * 0.08; }
 function finish() { R.state = 'finished'; SFX.finish(); const t = R.t; let rec = false; if (!R.jumped && !R.fast && !R.flown && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem('mm.best2', String(t)); } catch (e) { } } R.last = { t, rec }; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 function resultHtml({ t, rec }) { return `<small>${tr(rec ? 'newRecord' : 'finished')}</small>${fmt(t)}<small>${R.jumped ? tr('notCountedJump') : ''}${R.fast ? tr('notCountedFast') : ''}${R.flown ? tr('notCountedHeli') : ''}${R.shortcut ? tr('viaHolz') : ''}${tr('bestLower')} ${fmt(R.best)}</small>`; }

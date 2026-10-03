@@ -100,5 +100,7 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] **F** during a game: the helicopter climbs to about 120 m and the view gives a real overview (how far can you see before the fog?). Does 120 m feel right?
 - [ ] Flying feels controllable: **W**/**S**, **A**/**D**, **Space**/**Shift**; it rides up over the DSM tower and the Bad Säckingen Münster instead of clipping them.
 - [ ] **F** again lands on a sensible road below, pointing along it; **R** and **J** while flying also bring the car back.
+- [ ] **F** far from any road (over the Rhine, a field) does not land: the toast says there is no road below.
+- [ ] Known limit: flying is keyboard-only for now (no touch buttons for F, climb or sink).
 - [ ] In a race: the clock runs on, no checkpoint is collected from the air, and the result says "with the helicopter, not counted".
 - [ ] German: the F1 help line, the toasts and the result text read well.
