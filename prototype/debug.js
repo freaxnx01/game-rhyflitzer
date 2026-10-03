@@ -41,3 +41,18 @@ export function positionLines(pos, y, bearing) {
 }
 export function buildingLines(label) { return [label ? `bldg ${label.id} · ${label.t}` : 'bldg —']; }
 export function copyText(lines) { return lines.join(' | '); }
+
+// #70: keep debug height labels on screen. view = camera.matrixWorldInverse.elements (column-major), tanHalf = tan(fov / 2).
+export const DEBUG_LABEL_NDC_MAX = 0.8;
+export function labelNdcY(view, tanHalf, x, y, z) {
+  const e = view, yc = e[1] * x + e[5] * y + e[9] * z + e[13], zc = e[2] * x + e[6] * y + e[10] * z + e[14];
+  return zc < 0 ? yc / (-zc * tanHalf) : NaN;
+}
+// lower y along the vertical axis until the point projects to ndcMax (closed form: yc(y) = -ndcMax * tanHalf * zc(y)); never raise, never below floor
+export function clampLabelY(view, tanHalf, x, y, z, ndcMax, floor) {
+  if (!(labelNdcY(view, tanHalf, x, y, z) > ndcMax)) return y;
+  const e = view, k = ndcMax * tanHalf, den = e[5] + k * e[6];
+  if (den <= 0) return y;
+  const a = e[1] * x + e[9] * z + e[13], c = e[2] * x + e[10] * z + e[14];
+  return Math.max(floor, Math.min(y, -(a + k * c) / den));
+}

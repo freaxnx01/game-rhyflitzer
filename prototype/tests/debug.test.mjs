@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText } from '../debug.js';
+import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY } from '../debug.js';
 
 const ORIGIN = { lat: 47.5506, lon: 7.9671, E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };   // data/world_hochrhein.json
 
@@ -50,4 +50,38 @@ test('buildingLines and copyText', () => {
   assert.deepEqual(buildingLines({ id: 171822634, t: '22.8 m +1.2 dsm' }), ['bldg 171822634 · 22.8 m +1.2 dsm']);
   assert.deepEqual(buildingLines(undefined), ['bldg —']);
   assert.equal(copyText(['a', 'b c']), 'a | b c');
+});
+
+// #70: camera view matrices as camera.matrixWorldInverse.elements (column-major); FOV 62° like the game camera
+const TAN = Math.tan(31 * Math.PI / 180);
+const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+const pitched = (a, ty, tz) => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, ty, tz, 1]; };
+
+test('labelNdcY: projects like a three.js PerspectiveCamera; NaN behind the camera', () => {
+  assert.ok(Math.abs(labelNdcY(IDENTITY, TAN, 0, 10 * TAN, -10) - 1) < 1e-12);
+  assert.equal(labelNdcY(IDENTITY, TAN, 5, 0, -10), 0);
+  assert.ok(Number.isNaN(labelNdcY(IDENTITY, TAN, 0, 1, 5)));
+});
+
+test('clampLabelY: a label above the limit comes down to exactly ndcMax', () => {
+  const y = clampLabelY(IDENTITY, TAN, 0, 10, -10, 0.8, -1e9);
+  assert.ok(Math.abs(y - 8 * TAN) < 1e-9, String(y));
+  const view = pitched(0.3, -2, -1), y2 = clampLabelY(view, TAN, 3, 30, -20, 0.8, -1e9);
+  assert.ok(y2 < 30, String(y2));
+  assert.ok(Math.abs(labelNdcY(view, TAN, 3, y2, -20) - 0.8) < 1e-9);
+});
+
+test('clampLabelY: a camera moved up by 5 m clamps 5 m higher', () => {
+  const lifted = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -5, 0, 1];
+  assert.ok(Math.abs(clampLabelY(lifted, TAN, 0, 30, -10, 0.8, -1e9) - (5 + 8 * TAN)) < 1e-9);
+});
+
+test('clampLabelY: labels that fit, labels behind the camera and the floor', () => {
+  assert.equal(clampLabelY(IDENTITY, TAN, 0, 1, -10, 0.8, -1e9), 1);          // fits: unchanged, never raised
+  assert.equal(clampLabelY(IDENTITY, TAN, 0, 10, 5, 0.8, -1e9), 10);          // behind the camera: unchanged
+  assert.equal(clampLabelY(IDENTITY, TAN, 0, 10, -10, 0.8, 6), 6);            // never below the floor
+});
+
+test('DEBUG_LABEL_NDC_MAX: 0.8 leaves a tenth of the screen above the label centre', () => {
+  assert.equal(DEBUG_LABEL_NDC_MAX, 0.8);
 });
