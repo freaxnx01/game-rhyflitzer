@@ -111,3 +111,17 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] It is a tall flat-topped concrete slab, long side roughly north–south, about as tall as the DSM water tower (59 m) and much lower than the chimney (140 m). Does it read as the LANDI tower, or does it need a different shape (silo cells, a taller head house)?
 - [ ] Drive into it: the car stops, no sinking, no driving through. The house number `19.1` floats above its base.
 - [ ] Eiken chip in J: DSM-Kamin, Bahnhof Sisseln, Bahnhof Eiken, LANDI-Turm.
+
+## Pause menu (#83)
+
+- [ ] Racing at full throttle, press **Esc**: everything freezes (clock, car, engine sound), the menu shows with **Resume** highlighted. Let go of Space: the game stays paused.
+- [ ] **Esc** or **P** again resumes exactly where you stopped; the clock goes on from the same tenth.
+- [ ] ↑ ↓ and Tab move through the three buttons; Enter presses one. **Restart race** starts a fresh run at the start.
+- [ ] With the clock running, **Main menu** asks „Abandon this run?" with **Cancel** highlighted: Esc or Cancel goes back to the menu; **Abandon** shows the start screen, the best time is unchanged, and **Start** from there works.
+- [ ] Pause right after Start (car not moved yet): **Main menu** goes straight to the start screen, no question.
+- [ ] Switch to another tab for a few seconds and come back: the game is paused and silent, and stays paused until you resume.
+- [ ] Phone (portrait and landscape): the **II** button is reachable and does not cover the compass or the timer; the menu buttons fit, nothing scrolls sideways, the nav links are hidden while the menu is open.
+- [ ] With **F3** on, pause: the debug panel stays readable behind the menu.
+- [ ] In browser fullscreen, **Esc** leaves fullscreen instead of pausing (expected); **P** pauses.
+- [ ] Phone: the question „Diesen Lauf abbrechen?" and both buttons fit and react to a tap.
+- [ ] Feels right? Is the question annoying or reassuring?
