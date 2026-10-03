@@ -1,6 +1,6 @@
 # Region extension west, south and east (Rheinfelden, Schupfart, Laufenburg) — design
 
-Status: written in headless enrichment (`/enrich 44|47|19 --headless`, one batch) 2026-10-03 · Issues #44 (west), #47 (south), #19 (east) · **open decisions D1 and D2 need a human before dispatch**
+Status: written in headless enrichment (`/enrich 44|47|19 --headless`, one batch) 2026-10-03 · Issues #44 (west), #47 (south), #19 (east) · **D1 and D2 confirmed by the maintainer 2026-10-03** (as proposed; customs post = Zollstation Laufenburg; ship, measure, chunk later)
 
 ## Goal
 
@@ -56,7 +56,7 @@ Success means four things. One cut, one terrain build and one world build produc
 
 Gemeinde relations (admin_level 8) exist for every Gemeinde the new area touches, among them Rheinfelden r1684403, Rheinfelden (Baden) r2787853, Möhlin r1684373, Schupfart r1684421, Laufenburg r1684347, Laufenburg (Baden) r2786292 and Kaisten r1684338.
 
-## Open decisions (headless: proposed, not decided)
+## Decisions D1 and D2 (proposed headless, confirmed 2026-10-03)
 
 **D1 — how far each edge moves.** Proposed: **W 7.775, S 47.500, E 8.085, N 47.572** (north unchanged).
 
@@ -109,9 +109,9 @@ A human must accept the first-load cost: about 9–10 MB gzip in total instead o
 
 ## Assumptions (headless — no human was asked)
 
-- **A1** [low] **D1 edges** W 7.775 / S 47.500 / E 8.085 / N 47.572. Evidence: the probe table above; the issues give only targets ("~7.79 E", "~47.509 N", "~8.06 E"). Rejected: edges flush on the targets, which would put the landmarks at the map rim with no road network around them.
+- **A1** [confirmed 2026-10-03] **D1 edges** W 7.775 / S 47.500 / E 8.085 / N 47.572. Evidence: the probe table above; the issues give only targets ("~7.79 E", "~47.509 N", "~8.06 E"). Rejected: edges flush on the targets, which would put the landmarks at the map rim with no road network around them.
 - **A2** [high] One rectangle, not an L- or T-shape. The whole pipeline and prototype assume one: the clip box (`osm.py:87-89`), `grid_for`, the SDF and `TGRID`. Rejected: a polygon clip, which is a refactor of every step and its own issue.
-- **A3** [low] **D2 budget** and terrain step 8 m. Evidence: the game samples 16 m (`index.html:337-345`), and 4 m would put ~27 MB gzip on every first load. Rejected: 4 m kept (×4.5 download), 6 m (in between, ~21 MB raw). A human must accept the ×4.5 area on phones.
+- **A3** [confirmed 2026-10-03] **D2 budget** and terrain step 8 m. Evidence: the game samples 16 m (`index.html:337-345`), and 4 m would put ~27 MB gzip on every first load. Rejected: 4 m kept (×4.5 download), 6 m (in between, ~21 MB raw). A human must accept the ×4.5 area on phones.
 - **A4** [high] One plan for all three issues. All three change the same constant, the same cut, the same terrain and world files and the same golden tests. Three plans would mean three odroid cuts, three DGM rounds and three regenerated multi-MB data files racing each other on `main`. Rejected: three plans with a shared base (no task is independent of the cut and the rebuild).
 - **A5** [med] #19 carries the plan as the oldest issue, from the playtest. #44 and #47 reference it and are closed by the same PR. Rejected: #44, the biggest change, as carrier. Either works.
 - **A6** [med] `-s smart` on odroid-plus-pve instead of `-s simple` under the 2 GB cap. `simple` does not complete multipolygon relations that reach past the padded box. The Rhine (r1706150), landuse and boundary relations would lose members, and area assembly would drop them. The user rule says to route a >2 GB step to odroid rather than raise the cap.
