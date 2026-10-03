@@ -1,6 +1,7 @@
 // #10: helicopter flight model (F) -- pure, no three.js, no DOM. Unit-tested with `node --test prototype/tests/*.test.mjs`.
 // Units m, m/s, m/s², rad/s. Same frame as the car: x east, z south, th = heading (0 = +x; D makes it grow, like steering).
-export const HELI = { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, back: 10, accel: 12, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 4, camDist: 35, camH: 22 };
+export const HELI = { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, back: 10, accel: 12, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 8, landRadius: 150, camDist: 35, camH: 22 };
+// rotorMargin covers the model: blades 5.5 m, tail boom 7.4 m from the hub. landRadius: F lands only with a road this close (review of #84)
 
 const held = (keys, codes) => codes.some(c => keys[c]);
 const axis = (plus, minus) => (plus ? 1 : 0) - (minus ? 1 : 0);
@@ -40,3 +41,6 @@ export function stepHeli(s, input, dt, ground, floor, cfg = HELI) {
   const y = Math.max(floor, s.y + (alt - s.y) * (1 - Math.exp(-cfg.follow * dt)));
   return { x: s.x + Math.cos(th) * v * dt, z: s.z + Math.sin(th) * v * dt, y, th, v, alt };
 }
+
+// the road to land on: the nearest one ({ d, x, z, th }) if it lies within landRadius, else null -- no teleport to a far road
+export function landingSpot(spot, cfg = HELI) { return spot && spot.d <= cfg.landRadius ? spot : null; }

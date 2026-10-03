@@ -183,3 +183,23 @@ def test_car_engine_and_tyres_are_silent_in_flight(server):
         page.wait_for_function("() => !window.__mm.fly().on && window.__mm.sfx().engine > 0", timeout=120000)
         b.close()
     assert flying["engine"] == 0 and flying["noise"] == 0, flying
+
+
+def test_no_landing_without_a_road_below(server):
+    """Review of #84: F over a roadless spot (more than landRadius from any road) keeps flying and says why, instead of
+    teleporting the car to a far road and making that the new reset spot."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        take_off(page)
+        spot = page.evaluate("""() => { for (let r = 300; r < 6000; r += 100) for (let a = 0; a < 360; a += 15) {
+            const x = r * Math.cos(a * Math.PI / 180), z = r * Math.sin(a * Math.PI / 180);
+            const n = window.__mm.nearestRoad(x, z); if (n && n.d > 250) return [x, z]; } return null; }""")
+        assert spot, "no roadless spot found"
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", spot)
+        page.keyboard.press("KeyF")
+        state = fly(page)
+        toast = text(page, "#toast")
+        b.close()
+    assert state["on"] is True, state
+    assert "road" in toast.lower(), toast
