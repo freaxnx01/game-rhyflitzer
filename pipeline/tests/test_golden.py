@@ -133,6 +133,22 @@ def test_bodenacker_quarter_heights(world_dsm):
     assert "hsrc" not in new and new["h"] == 12.0, new["h"]
 
 
+BODENACKER_FLAT = {512632899, 171822953, 171822664, 171822908, 171822930, 171822939, 171822935, 171822913, 171822799}
+BODENACKER_GABLE = {171822943, 171822937, 171822949, 171822938, 171822934, 171822932}
+
+
+def test_bodenacker_row_houses_roof_from_the_ridge(world_dsm):
+    """#43 (player, 2026-10-02): Bodenackerstrasse 3, 4, 7, 8, 11, 13, 15, 16, 17 have flat roofs, 10, 12, 14, 18, 20, 21
+    pitched ones. The footprint heuristic said flat for every 36 x 13 m block; the measured ridge decides now."""
+    by_id = {b["id"]: b for b in world_dsm["buildings"]}
+    assert by_id[171822908]["roof"] == "flat" and by_id[171822908]["rh"] < 0.6          # 8a–8f
+    assert by_id[171822934]["roof"] == "gable" and by_id[171822934]["rh"] >= 1.5        # 20a–20f
+    assert by_id[171822799]["roof"] == "flat" and by_id[171822799]["addr"] == "16a–16c"  # the three-house row
+    assert {i: by_id[i]["roof"] for i in BODENACKER_FLAT} == dict.fromkeys(BODENACKER_FLAT, "flat")
+    assert {i: by_id[i]["roof"] for i in BODENACKER_GABLE} == dict.fromkeys(BODENACKER_GABLE, "gable")
+    assert all(by_id[i]["h"] >= 6.0 for i in BODENACKER_FLAT | BODENACKER_GABLE)        # eaves untouched (#34 is separate)
+
+
 def test_parking(world):
     """#40: the Hallenbad car parks are exported with bay lines; capacity caps the bays; underground lots are skipped."""
     by_id = {}
