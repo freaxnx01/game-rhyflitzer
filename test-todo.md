@@ -135,3 +135,9 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 ## Held J (#86)
 
 - [ ] On a real keyboard, hold **J** for about a second: the jump menu opens and stays open, the search field stays empty. Let go and press **J** once: it closes.
+
+## Sprungschanze (#80)
+
+- [ ] J → Sprungschanze: the gravel ramp is right ahead and clearly visible on the real terrain (not buried in a slope, not floating).
+- [ ] Full gas from the jump spot: the car goes up the ramp and flies; the landing feels OK. **R** brings you back to the run-up.
+- [ ] Seen from the side, the open wedge (no side walls) is acceptable — or note that it needs side walls.
