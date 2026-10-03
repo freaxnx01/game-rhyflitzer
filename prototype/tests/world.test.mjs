@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -265,4 +265,30 @@ test('row houses (#45): picked by OSM way id, units from the addr range, one uni
   assert.ok(Math.abs(t[0] - 36.4 / 6) < 1e-9 && Math.abs(t[1] - 3.1) < 1e-9, t);
   assert.deepEqual(rowHouseTile({ rect: [0, 0, 36, 12], h: 9, addr: '4a–4f' }), [6, 3]);          // after #34: three storeys
   assert.deepEqual(rowHouseTile({ rect: [0, 0, 11.5, 18], h: 6.9, addr: '16a–16c' }), [6, 3.45]); // long side may be d
+});
+
+test('parkingIndex keeps a tree disc off the lot surface but allows the islands', () => {
+  const lot = { ring: [[0, 0], [20, 0], [20, 10], [0, 10]], holes: [[[8, 3], [12, 3], [12, 7], [8, 7]]] };
+  const p = parkingIndex([lot]);
+  assert.equal(p.clear(5, 5, 0), false);      // trunk on the asphalt
+  assert.equal(p.clear(5, 5, 3), false);
+  assert.equal(p.clear(25, 5, 3), true);      // 5 m off the east edge, 3 m crown
+  assert.equal(p.clear(22, 5, 3), false);     // crown reaches 1 m over the edge
+  assert.equal(p.clear(10, -2.5, 2), true);   // 2.5 m north of the lot, 2 m crown
+  assert.equal(p.clear(10, 5, 1), true);      // small tree in the island, 2 m from its kerb
+  assert.equal(p.clear(10, 5, 3), false);     // crown spills over the island onto the bays
+  assert.equal(p.clear(500, 500, 5), true);   // far away (bbox prefilter)
+});
+
+test('parkingIndex with no lots is always clear', () => {
+  const p = parkingIndex([]);
+  assert.equal(p.clear(0, 0, 0), true);
+  assert.equal(p.clear(0, 0, 100), true);
+});
+
+test('parkingIndex accepts closed rings and lots without holes', () => {
+  const p = parkingIndex([{ ring: [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]] }]);
+  assert.equal(p.clear(5, 5), false);
+  assert.equal(p.clear(-0.5, 5, 1), false);   // crown over the closing edge's neighbour (x = 0)
+  assert.equal(p.clear(-2, 5, 1), true);
 });

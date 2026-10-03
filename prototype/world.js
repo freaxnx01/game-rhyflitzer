@@ -39,6 +39,30 @@ export function waterIndex(water) {
     nameAt(x, z) { for (const { w, bb } of items) { if (x < bb[0] || x > bb[2] || z < bb[1] || z > bb[3]) continue; if (inRing(w.rings[0], x, z) && !w.rings.slice(1).some(h => inRing(h, x, z))) return w.name || ''; } return ''; } };
 }
 
+// car parks (#72): is a disc (a tree's footprint) clear of every lot surface? holes are islands, not car park
+function ringDist(r, x, z) {
+  let best = Infinity;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [ax, az] = r[j], [bx, bz] = r[i], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    const t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+    best = Math.min(best, Math.hypot(x - ax - t * dx, z - az - t * dz));
+  }
+  return best;
+}
+export function parkingIndex(lots) {
+  const items = lots.map(l => { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const [x, z] of l.ring) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); } return { rings: [l.ring, ...(l.holes || [])], bb: [a, b, c, d] }; });
+  return {
+    clear(x, z, r = 0) {
+      for (const { rings, bb } of items) {
+        if (x < bb[0] - r || x > bb[2] + r || z < bb[1] - r || z > bb[3] + r) continue;
+        if (inRing(rings[0], x, z) && !rings.slice(1).some(h => inRing(h, x, z))) return false;
+        if (rings.some(ring => ringDist(ring, x, z) < r)) return false;
+      }
+      return true;
+    },
+  };
+}
+
 export function polylineLength(pts) { let s = 0; for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return s; }
 export function nearestOnPolyline(pts, x, z) {
   let best = { d: Infinity, t: 0, i: 0 }, acc = 0;
