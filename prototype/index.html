@@ -80,6 +80,15 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #tG{right:20px;bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:120px;bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tH{right:20px;bottom:calc(300px + env(safe-area-inset-bottom,0px))}
 #stylebtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel);color:var(--cream);font-family:inherit;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:6px 14px}
 #stylebtn b{color:var(--sun)}
+#pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
+#pausebtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+/* #83: light, even dim so the frozen scene, HUD and F3 panel stay readable behind the menu */
+#pause,#abandon{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(10,8,20,.55);padding:16px;box-sizing:border-box;overflow:auto}
+#pause[hidden],#abandon[hidden]{display:none}
+#pause .panel,#abandon .panel{max-width:420px}
+#pause .col,#abandon .col{display:flex;flex-direction:column;gap:12px}
+#pause .btn,#abandon .btn{width:100%;height:auto;min-height:56px;padding:8px 14px;font-size:clamp(18px,5.5vw,26px);white-space:normal;overflow-wrap:anywhere}
+#pause small,#abandon small{font-size:15px;font-weight:600;color:var(--steel-l)}
 @media (prefers-reduced-motion:reduce){#arrow{transition:none}}
 </style>
 
@@ -125,6 +134,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <kbd>R</kbd><span data-i18n="keyReset">back on the road</span>
       <kbd>T</kbd><span data-i18n="keyStyle">toggle graphic style</span>
       <kbd>M</kbd><span data-i18n="keyMute">mute</span>
+      <kbd>Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
       <kbd>F3</kbd><span data-i18n="keyDebug">debug: coordinates, building heights (click the panel to copy · ?debug in the URL)</span>
       <kbd>F1 · ?</kbd><span data-i18n="keyHelp">this help</span>
     </div></div>
@@ -155,6 +165,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
     <canvas id="map" width="800" height="400"></canvas>
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
+  <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
   <div id="debug" hidden title="Click to copy"></div>
 </div>
 
@@ -181,6 +192,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <kbd>C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper</span>
       <kbd>H · M</kbd><span data-i18n="keyHornMute">horn (also Enter) · mute</span>
       <kbd>N · J</kbd><span data-i18n="keyNitroJump">nitro (hold) · jump to a landmark</span>
+      <kbd>Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
       <kbd>F1</kbd><span data-i18n="keyAllKeys">all keys</span>
     </div>
     <div class="row">
@@ -194,6 +206,28 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span>
     </div>
     <p id="blurb" style="font-size:14px;color:var(--steel-l)">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
+  </div>
+</div>
+
+<div id="pause" hidden role="dialog" aria-modal="true" aria-labelledby="pausetitle">
+  <div class="panel">
+    <h1 id="pausetitle" data-i18n="pauseTitle">Paused</h1>
+    <div class="col">
+      <button id="pauseresume" class="btn primary" type="button" data-i18n="pauseResume">Resume</button>
+      <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
+      <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
+    </div>
+    <small data-i18n="pauseHint">Esc · P: resume</small>
+  </div>
+</div>
+<div id="abandon" hidden role="alertdialog" aria-modal="true" aria-labelledby="abandontitle">
+  <div class="panel">
+    <h1 id="abandontitle" data-i18n="abandonTitle">Abandon this run?</h1>
+    <div class="col">
+      <button id="abandoncancel" class="btn primary" type="button" data-i18n="abandonCancel">Cancel</button>
+      <button id="abandonok" class="btn" type="button" data-i18n="abandonOk">Abandon</button>
+    </div>
+    <small data-i18n="abandonHint">Esc: cancel</small>
   </div>
 </div>
 
@@ -1169,9 +1203,10 @@ requestAnimationFrame(loop);
 <!-- game-nav (hub overlay: version badge, links, star). Centred and raised
      above #stylebtn: the HUD owns both bottom corners (#bl, #br). -->
 <style>
-  /* Phones: the start/result dialog fills the screen and the wrapped nav would
-     sit on its buttons, so show the nav only while racing. */
-  @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav { display: none !important; } }
+  /* Phones: the start/result dialog, the pause menu and its abandon question
+     fill the screen and the wrapped nav would sit on their buttons, so show
+     the nav only while racing. */
+  @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav, body:has(#pause:not([hidden])) #game-nav, body:has(#abandon:not([hidden])) #game-nav { display: none !important; } }
 </style>
 <script src="./version.js"></script>
 <script src="./i18n.js"></script>
