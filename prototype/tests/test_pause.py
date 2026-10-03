@@ -18,7 +18,9 @@ HIDE = """(h) => {
 def open_page(p, server, phone=False, start=True):
     b = p.chromium.launch(args=ARGS)
     if phone:
-        ctx = b.new_context(viewport={"width": 360, "height": 640}, has_touch=True, is_mobile=True, locale="de-CH")
+        # has_touch without is_mobile, like every other test here: index.html has no <meta name="viewport">, so
+        # mobile emulation would lay the page out at 980 CSS px and no phone media query would fire at all.
+        ctx = b.new_context(viewport={"width": 360, "height": 640}, has_touch=True, locale="de-CH")
     else:
         ctx = b.new_context(viewport={"width": 1280, "height": 720}, locale="en-US")
     page = ctx.new_page()
