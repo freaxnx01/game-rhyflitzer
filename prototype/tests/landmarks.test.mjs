@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GEMEINDEN, LANDMARK_INFO, foldText, landmarkEntries, filterLandmarks, gemeindenOf, faceToward } from '../landmarks.js';
+import { GEMEINDEN, LANDMARK_INFO, foldText, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from '../landmarks.js';
 
 const ANCHORS = { muenster: { x: -1331, z: -172.7 }, smileKreisel: { x: 1270, z: -148 } };
 const BUILDINGS = [{ id: '171822634', ring: [[0, 0], [10, 0], [10, 20], [0, 20]] }];
@@ -122,4 +122,24 @@ test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found b
   assert.deepEqual(filterLandmarks(e, 'landi', null).map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(filterLandmarks(e, 'LANDI', 'Eiken').map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['DSM-Kamin']);   // anchor missing: skipped
+});
+
+test('rampApproach stands runUp metres before the low edge, centred, facing up the ramp (+x)', () => {
+  assert.deepEqual(rampApproach({ x0: 100, x1: 125.4, z0: 10, z1: 45.6, h: 3.4 }, 40), { x: 60, z: 27.8, th: 0 });
+});
+
+test('landmarkEntries passes the ramp flag through, and only for ramp items', () => {
+  const info = [
+    { name: 'Sprungschanze', gemeinde: 'Sisseln', anchor: 'jumpRamp', ramp: true },
+    { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
+  ];
+  const e = landmarkEntries(info, { jumpRamp: { x: 337.8, z: 170.2 }, smileKreisel: { x: 1270, z: -148 } }, []);
+  assert.deepEqual(e, [
+    { n: 'Sprungschanze', g: 'Sisseln', x: 337.8, z: 170.2, ramp: true },
+    { n: 'Smile-Kreisel', g: 'Sisseln', x: 1270, z: -148 },
+  ]);
+});
+
+test('LANDMARK_INFO flags only the Sprungschanze as a ramp (#80)', () => {
+  assert.deepEqual(LANDMARK_INFO.filter(l => l.ramp).map(l => l.name), ['Sprungschanze']);
 });

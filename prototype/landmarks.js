@@ -25,7 +25,7 @@ export const LANDMARK_INFO = [
   { name: 'Hallenbad Sissila', gemeinde: 'Sisseln', anchor: 'hallenbad' },
   { name: 'Bodenackerstrasse 6c', gemeinde: 'Sisseln', building: 171822634 },
   { name: 'Bodenackerstrasse 10B', gemeinde: 'Sisseln', building: 171822943 },
-  { name: 'Sprungschanze', gemeinde: 'Sisseln', anchor: 'jumpRamp' },
+  { name: 'Sprungschanze', gemeinde: 'Sisseln', anchor: 'jumpRamp', ramp: true },     // J puts the car on its run-up, not on a road (#80)
   { name: 'Gemeindehaus Sisseln', gemeinde: 'Sisseln', building: 171822808 },
   { name: 'Schulhaus Sisseln', gemeinde: 'Sisseln', building: 171822721 },
 ];
@@ -54,7 +54,7 @@ export function landmarkEntries(info, anchors, buildings) {
   const found = [];
   info.forEach((item, i) => {
     const p = sourcePos(item, anchors || {}, byId);
-    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), i });
+    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.ramp ? { ramp: true } : {}), i });
   });
   found.sort((a, b) => GEMEINDEN.indexOf(a.g) - GEMEINDEN.indexOf(b.g) || a.i - b.i);
   return found.map(({ i, ...entry }) => entry);
@@ -73,4 +73,10 @@ export function filterLandmarks(entries, query, gemeinde) {
 export function gemeindenOf(entries) {
   const present = new Set(entries.map(e => e.g));
   return GEMEINDEN.filter(g => present.has(g));
+}
+
+// The Sprungschanze's run-up (#80): runUp metres before the low edge x0, centred across it, facing up the ramp
+// (th 0 = +x, the direction groundH raises it).
+export function rampApproach(ramp, runUp) {
+  return { x: ramp.x0 - runUp, z: (ramp.z0 + ramp.z1) / 2, th: 0 };
 }
