@@ -48,6 +48,7 @@ All notable changes to this project are documented here, following
 
 - No more trees on the car parks — the one in the middle of the Hallenbad bays is gone, and so are the others standing on asphalt and parking lines across the region.
 - **J** → Fridolinsbrücke now puts you on the Swiss side in Stein, on the road and facing the bridge — no longer somewhere on the German bank.
+- Holding **J** a moment too long no longer opens the jump menu and shuts it again straight away — it stays open, ready for you to type.
 - Roofs on the Swiss side now follow the measured ridge: the Bodenackerstrasse row houses 10, 12, 14, 18, 19, 20 and 21 in Sisseln have their pitched roofs, 3, 4, 7, 8, 11, 13, 15, 16 and 17 stay flat — and the same rule fixes every other measured house that was drawn with the wrong roof.
 - **V** now hides the car's shadow too — no more dark disc left on the road.
 - Clicking an entry in the **J** menu works now. The menu said "or click" from the start, but the click never arrived — only the number keys did anything.
