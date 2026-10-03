@@ -1144,7 +1144,7 @@ function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + 
 function jumpKey(e) {
   if (e.code === 'ArrowDown' || e.code === 'ArrowUp') { e.preventDefault(); moveJumpSel(e.code === 'ArrowDown' ? 1 : -1); return; }
   if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); pickJump(JUMP.sel); return; }
-  if (e.code === 'Escape' || (e.code === 'KeyJ' && !$('jumpq').value)) { e.preventDefault(); closeJump(); }
+  if (e.code === 'Escape' || (e.code === 'KeyJ' && !$('jumpq').value)) { e.preventDefault(); if (!e.repeat) closeJump(); }   // a held key never closes it, and types nothing (#86)
 }
 $('jumpq').addEventListener('input', () => { JUMP.q = $('jumpq').value; JUMP.sel = 0; renderJump(); });
 $('jumplist').addEventListener('click', e => { const li = e.target.closest('li'); if (li) pickJump(+li.dataset.i); });

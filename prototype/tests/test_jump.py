@@ -206,6 +206,25 @@ def test_j_types_with_text_and_closes_when_empty_esc_closes(server):
 
 
 @needs_world
+def test_holding_j_keeps_the_dialog_open(server):
+    # #86: a held key auto-repeats. In Chromium a second keyboard.down() without an up() fires
+    # keydown with repeat: true, like the OS does after its repeat delay.
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.down("KeyJ")
+        assert page.is_visible("#jump")
+        page.keyboard.down("KeyJ")               # 1st auto-repeat: used to close the dialog
+        assert page.is_visible("#jump"), "a held J closed the dialog"
+        page.keyboard.down("KeyJ")               # 2nd auto-repeat
+        assert page.is_visible("#jump")
+        assert page.input_value("#jumpq") == "", "a held J typed into the search field"
+        page.keyboard.up("KeyJ")
+        page.keyboard.press("KeyJ")              # a fresh press on the empty field still closes
+        assert page.is_hidden("#jump")
+        b.close()
+
+
+@needs_world
 def test_no_match_leaves_random_spot(server):
     with sync_playwright() as p:
         b, page = open_page(p, server)
