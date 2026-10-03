@@ -19,7 +19,16 @@ def _world_building_ids():
 
 WORLD46 = 390621357 in _world_building_ids()            # world rebuilt with #46's kept buildings
 needs_world46 = pytest.mark.skipif(not WORLD46, reason="world not rebuilt for #46 (Task 4 of docs/superpowers/plans/2026-10-02-more-landmarks.md)")
-ALL_ROWS = 24 if WORLD46 else 17                         # landmarks shown + Random spot
+
+
+def _world_anchor_keys():
+    return set(json.loads(WORLD.read_text(encoding="utf-8"))["anchors"]["landmarks"]) if WORLD.exists() else set()
+
+
+WORLD81 = "landiTurm" in _world_anchor_keys()           # world rebuilt with the #81 LANDI tower anchor
+needs_world81 = pytest.mark.skipif(not WORLD81, reason="world not rebuilt for #81 (Task 4 of docs/superpowers/plans/2026-10-03-landi-tower.md)")
+EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else [])
+ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0)   # landmarks shown + Random spot
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else [])
 
@@ -245,11 +254,26 @@ def test_kept_landmark_buildings_are_listed_and_jumpable(server):
         assert names(page) == ["Schloss Schönau (Trompeterschloss)", "Random spot"]
         page.fill("#jumpq", "")
         page.click('#jumpchips button[data-g="Eiken"]')
-        assert names(page) == ["DSM-Kamin", "Bahnhof Sisseln", "Bahnhof Eiken", "Random spot"]
+        assert names(page) == EIKEN_ROWS + ["Random spot"]
         page.click('#jumpchips button[data-g="All"]')
         page.keyboard.type("gallus")
         page.keyboard.press("Enter")
         gx, gz = building_mean(25835477)
         c = car(page)
         assert math.hypot(c["x"] - gx, c["z"] - gz) < 80
+        b.close()
+
+
+@needs_world81
+def test_landi_tower_is_listed_and_jumpable(server):
+    """#81: 'landi' finds the LANDI-Turm (Eiken, by Bahnhof Sisseln); Enter puts the car on a road within 80 m of the tower."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.keyboard.type("landi")
+        assert rows(page) == [{"n": "LANDI-Turm", "g": "Eiken"}, {"n": "Random spot", "g": None}]
+        page.keyboard.press("Enter")
+        tx, tz = anchor("landiTurm")
+        c = car(page)
+        assert math.hypot(c["x"] - tx, c["z"] - tz) < 80
         b.close()
