@@ -331,3 +331,51 @@ def test_fridolinsbruecke_lands_on_the_swiss_side_facing_the_bridge(server):
         ux, uz = ax - c["x"], az - c["z"]
         assert (math.cos(th) * ux + math.sin(th) * uz) / math.hypot(ux, uz) > 0.5, "car does not face the bridge"
         b.close()
+
+
+def ramp(page):
+    return page.evaluate("() => window.__mm.ramp()")
+
+
+@needs_world
+def test_sprungschanze_puts_the_ramp_right_ahead(server):
+    """#80: J -> Sprungschanze landed 175 m away on a road with the ramp 90 deg off, and the ramp was not drawn."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        c = jump_via_dialog(page, "sprung")
+        r = ramp(page)
+        cx, cz = (r["x0"] + r["x1"]) / 2, (r["z0"] + r["z1"]) / 2
+        ax, az = anchor("jumpRamp")
+        assert math.hypot(cx - ax, cz - az) < 0.01, "the ramp is not on its anchor"
+        assert page.evaluate("() => window.__mm.counts.ramp") == 1, "the ramp is not drawn in the OSM world"
+        d = math.hypot(cx - c["x"], cz - c["z"])
+        assert 30 < d < 80, f"the ramp is {d:.0f} m away"
+        assert c["x"] < r["x0"], "the car does not start before the ramp's low edge"
+        th = page.evaluate("() => window.__mm.heading()")
+        off = math.degrees((math.atan2(cz - c["z"], cx - c["x"]) - th + math.pi) % (2 * math.pi) - math.pi)
+        assert abs(off) < 5, f"the ramp is {off:.0f} deg off the heading"
+        b.close()
+
+
+@needs_world
+def test_sprungschanze_run_up_launches_the_car(server):
+    # Fixed 1/60 s steps: the dry run (procedural terrain, as here) was 2.41 m above the ground at x 362.8 after 4 s.
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        c = jump_via_dialog(page, "sprung")
+        th = page.evaluate("() => window.__mm.heading()")
+        r = ramp(page)
+        end = page.evaluate(f"() => window.__mm.sim({c['x']}, {c['z']}, {th}, 0, 4)")
+        g = page.evaluate(f"() => window.__mm.ground({end['x']}, {end['z']}, -Infinity)")
+        assert end["x"] > r["x1"], "the car did not get over the ramp"
+        assert r["z0"] < end["z"] < r["z1"], "the car left the ramp sideways"
+        assert end["y"] - g > 1.0, "the ramp did not launch the car"
+        b.close()
+
+
+def test_hand_layout_still_draws_the_ramp(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server, block_world=True)
+        assert page.evaluate("() => window.__mm.layout") == "hand"
+        assert page.evaluate("() => window.__mm.counts.ramp") == 1
+        b.close()
