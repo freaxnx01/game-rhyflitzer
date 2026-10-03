@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -356,6 +357,60 @@ def test_parking_loaded(server):
     assert msgs == []
     info, _ = load(server, block_world=True)
     assert "parking" not in info["mm"]["counts"]
+
+
+def _in_ring(r, x, z):
+    c = False
+    j = len(r) - 1
+    for i in range(len(r)):
+        (xi, zi), (xj, zj) = r[i], r[j]
+        if (zi > z) != (zj > z) and x < (xj - xi) * (z - zi) / (zj - zi) + xi:
+            c = not c
+        j = i
+    return c
+
+
+def _ring_dist(r, x, z):
+    best = float("inf")
+    for i in range(len(r)):
+        (ax, az), (bx, bz) = r[i - 1], r[i]
+        dx, dz = bx - ax, bz - az
+        l2 = dx * dx + dz * dz
+        t = max(0.0, min(1.0, ((x - ax) * dx + (z - az) * dz) / l2)) if l2 else 0.0
+        best = min(best, math.hypot(x - ax - t * dx, z - az - t * dz))
+    return best
+
+
+def _tree_on_lot(lot, x, z, rad):
+    xs = [p[0] for p in lot["ring"]]; zs = [p[1] for p in lot["ring"]]
+    if x < min(xs) - rad or x > max(xs) + rad or z < min(zs) - rad or z > max(zs) + rad:
+        return False
+    rings = [lot["ring"], *lot.get("holes", [])]
+    if _in_ring(rings[0], x, z) and not any(_in_ring(h, x, z) for h in rings[1:]):
+        return True
+    return any(_ring_dist(r, x, z) < rad for r in rings)
+
+
+@pytest.mark.skipif(not world_parking(), reason="world file predates #40: rebuild it with pipeline/osm.py build")
+@pytest.mark.parametrize("terrain", ["flat", "measured"])
+def test_no_trees_on_car_parks(server, terrain):
+    """#72, playtest 2026-10-03: "Keine Bäume auf Parkplatz" — a tree stood in the middle of the Hallenbad bays.
+    A tree's footprint is a disc of 0.45 · h (the crown billboards are h · 0.9 wide); it must not overlap any lot."""
+    if terrain == "measured" and not MMH.exists():
+        pytest.skip("run pipeline/terrain.py first")
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 320, "height": 180})
+        if terrain == "flat":
+            page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__TREES && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        if terrain == "measured":
+            page.wait_for_selector("#mmhstatus.real", timeout=240000)
+        trees = page.evaluate("() => window.__TREES.map(([x, z, h]) => [x, z, h])")
+        br.close()
+    lots = world_parking()
+    bad = [(round(x, 1), round(z, 1), lot.get("name", lot["id"])) for x, z, h in trees for lot in lots if _tree_on_lot(lot, x, z, 0.45 * h)]
+    assert len(trees) > 1000 and bad == [], bad[:10]
 
 
 @pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
