@@ -439,7 +439,7 @@ def test_sissle_visible_along_its_course(server):
 @pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 def test_hud_bundle(server):
     """#20: help overlay (F1), compass, odometer with reset (K), car on/off (V), turn signals (Q/E), the name of the
-    water you are at, Tab = game speed x3 (a run that used it is not recorded)."""
+    water you are at, Tab held = the whole map, big (#77)."""
     import json, math
     w = json.loads(WORLD.read_text(encoding="utf-8"))
     rhine = next(x for x in w["water"] if x["name"] == "Rhein" and len(x["rings"][0]) > 20)
@@ -467,8 +467,7 @@ def test_hud_bundle(server):
         page.keyboard.press("KeyV"); car_off = hud()["carVisible"]; wait_frames(); shadow_off = hud()["shadowVisible"]
         page.keyboard.press("KeyV"); car_on = hud()["carVisible"]; wait_frames(); shadow_on = hud()["shadowVisible"]
         page.keyboard.press("KeyQ"); left = hud()["blinker"]; page.keyboard.press("KeyE"); right = hud()["blinker"]; page.keyboard.press("KeyE"); off = hud()["blinker"]
-        page.keyboard.down("Tab"); page.wait_for_timeout(300); fast = hud()["timeScale"]; page.keyboard.up("Tab"); page.wait_for_timeout(300); normal = hud()["timeScale"]
-        jumped = page.evaluate("() => window.__mm.raceFlags()")
+        page.keyboard.down("Tab"); page.wait_for_function("() => window.__mm.map().full === true", timeout=120000); full_map = page.evaluate("() => window.__mm.map().full"); page.keyboard.up("Tab"); page.wait_for_function("() => window.__mm.map().full === false", timeout=120000); corner_map = page.evaluate("() => window.__mm.map().full")
         page.evaluate(f"() => window.__mm.place({rx}, {rz})"); page.wait_for_function("() => window.__mm.hud().water === 'Rhein'", timeout=60000)
         page.evaluate(f"() => window.__mm.place({sx + sis['w'] / 2 + 8}, {sz})"); page.wait_for_function("() => window.__mm.hud().water === 'Sissle'", timeout=60000)
         br.close()
@@ -478,4 +477,4 @@ def test_hud_bundle(server):
     assert car_off is False and car_on is True
     assert shadow_off is False and shadow_on is True, (shadow_off, shadow_on)   # V hides the car's ground shadow too (#37)
     assert (left, right, off) == ("left", "right", None)
-    assert fast == 3 and normal == 1 and jumped["fast"] is True
+    assert full_map is True and corner_map is False

@@ -117,3 +117,22 @@ def test_double_click_on_the_full_map_places_the_car(server):
         release_tab(page)
         b.close()
     assert math.hypot(placed["x"] - UPHILL[0], placed["z"] - UPHILL[1]) < 30 and road < 0, (placed, road)
+
+
+def test_tab_no_longer_speeds_up_and_the_run_counts(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")                                                 # race armed
+        hold_tab(page); release_tab(page)
+        flags = page.evaluate("() => window.__mm.raceFlags()")
+        hud = page.evaluate("() => window.__mm.hud()")
+        page.evaluate("() => window.__mm.finishNow()")
+        result = page.text_content("#overlay")
+        best = page.evaluate("() => localStorage.getItem('mm.best2')")
+        help_text = page.text_content("#help")
+        b.close()
+    assert "fast" not in flags and flags["jumped"] is False, flags
+    assert "timeScale" not in hud, hud
+    assert "time-lapse" not in result and "not counted" not in result, result
+    assert best is not None                                                     # the first finish is saved as the best time
+    assert "full map (hold)" in help_text and "×3" not in help_text, help_text

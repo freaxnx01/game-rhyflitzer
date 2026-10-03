@@ -125,3 +125,9 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] In browser fullscreen, **Esc** leaves fullscreen instead of pausing (expected); **P** pauses.
 - [ ] Phone: the question „Diesen Lauf abbrechen?" and both buttons fit and react to a tap.
 - [ ] Feels right? Is the question annoying or reassuring?
+
+## #77 Tab = full map
+
+- [ ] Hold Tab while driving: the map is big and centred, the car arrow moves, releasing Tab brings back the corner minimap at the old zoom.
+- [ ] Hold Tab, then Alt-Tab away and back: the full map is closed.
+- [ ] Finish a race after using Tab: the time counts as a record.
