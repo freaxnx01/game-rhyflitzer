@@ -801,7 +801,12 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // level crossings: the track lies on the road surface where it crosses one, else on the terrain
   for (const pts of (L ? L.rail : [RAIL_PTS])) { const g = ribbonGeo(pts, 2.5, 0.03, 4, true, (p) => Math.max(terrainH(p[0], p[1]), roadSurfH(p[0], p[1]))); colorize(g, col('#ffffff')); push('rail', g); }
   // gravel wedge over RAMP: sloped top rising along +x, back face at x1 (no side walls)
-  function rampMesh() { const { x0, x1, z0, z1, h } = RAMP; const T = (x, z) => terrainH(x, z); const pos = [x0, T(x0, z0), z0, x1, T(x1, z0) + h, z0, x1, T(x1, z1) + h, z1, x0, T(x0, z0), z0, x1, T(x1, z1) + h, z1, x0, T(x0, z1), z1, x1, T(x1, z0), z0, x1, T(x1, z1), z1, x1, T(x1, z1) + h, z1, x1, T(x1, z0), z0, x1, T(x1, z1) + h, z1, x1, T(x1, z0) + h, z0]; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(24).fill(0).map((_, i) => (i % 2 ? (i % 4 === 1 ? 0 : 3) : (i % 4 === 0 ? 0 : 2))), 2)); colorize(g, col('#8a6a48')); push('gravel', g); window.__mm.counts.ramp = 1; }
+  function rampMesh() { const { x0, x1, z0, z1, h } = RAMP, NX = 12, NZ = 8, pos = [], uv = [];   // a grid, not four corners: the measured ground under the ramp is not planar, and groundH adds the ramp pointwise (review of #98)
+    const top = (i, j) => { const x = x0 + (x1 - x0) * i / NX, z = z0 + (z1 - z0) * j / NZ; return [x, terrainH(x, z) + h * i / NX, z]; }, foot = (j) => { const z = z0 + (z1 - z0) * j / NZ; return [x1, terrainH(x1, z), z]; };
+    const quad = (a, b, c, d, ua, ub, uc, ud) => { pos.push(...a, ...b, ...c, ...a, ...c, ...d); uv.push(...ua, ...ub, ...uc, ...ua, ...uc, ...ud); };
+    for (let i = 0; i < NX; i++) for (let j = 0; j < NZ; j++) quad(top(i, j), top(i + 1, j), top(i + 1, j + 1), top(i, j + 1), [2 * i / NX, 3 * j / NZ], [2 * (i + 1) / NX, 3 * j / NZ], [2 * (i + 1) / NX, 3 * (j + 1) / NZ], [2 * i / NX, 3 * (j + 1) / NZ]);   // sloped top, same winding as before
+    for (let j = 0; j < NZ; j++) quad(foot(j), foot(j + 1), top(NX, j + 1), top(NX, j), [0, 3 * j / NZ], [0, 3 * (j + 1) / NZ], [2, 3 * (j + 1) / NZ], [2, 3 * j / NZ]);   // back face at x1
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); colorize(g, col('#8a6a48')); push('gravel', g); window.__mm.counts.ramp = 1; }
   if (!L) { // hand-traced buildings and landmarks; the OSM world places its own below
   for (const [px, py, rot, name] of [[447, 945, -0.14, 'Bahnhof Stein-Säckingen'], [1690, 770, -0.1, 'Bahnhof Sisseln']]) { const [x, z] = W(px, py); stationAt(x, z, rot, name); }
   smileKreisel(1435, 450);
@@ -1020,6 +1025,8 @@ function stepFly(dt) { const ground = groundH(P.x, P.z, 1e4), floor = heliFloor(
 window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; };
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
 window.__mm.ramp = () => ({ x0: RAMP.x0, x1: RAMP.x1, z0: RAMP.z0, z1: RAMP.z1, h: RAMP.h });
+// review of #98: largest vertical gap between the drawn ramp top and the surface the car drives on (groundH's ramp), over a grid inside the footprint
+window.__mm.rampGap = () => { const { x0, x1, z0, z1, h } = RAMP, ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0); let gap = 0; for (let i = 1; i < 10; i++) for (let j = 1; j < 8; j++) { const x = x0 + (x1 - x0) * i / 10, z = z0 + (z1 - z0) * j / 8; ray.set(new THREE.Vector3(x, 1e4, z), down); const side = MESH.gravel.material.side; MESH.gravel.material.side = THREE.DoubleSide; const hit = ray.intersectObject(MESH.gravel, false)[0]; MESH.gravel.material.side = side; if (!hit) return Infinity; gap = Math.max(gap, Math.abs(hit.point.y - (terrainH(x, z) + h * (x - x0) / (x1 - x0)))); } return gap; };
 // drive headless: start at (x, z) on the highest surface there (a bridge deck if any), heading th at speed v, gas held, fixed 1/60 s steps
 window.__mm.heading = () => P.th;
 window.__mm.keysDown = () => Object.keys(keys).filter(k => keys[k]);   // the J dialog must not record a game key (#41)
