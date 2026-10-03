@@ -84,3 +84,13 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 
 - [ ] Bodenackerstrasse, Sisseln: 10, 12, 14, 18, 19, 20 and 21 have pitched roofs with the ridge along the long side, about 3 m high — a gentle slope, not a tent. 3, 4, 7, 8, 11, 13, 15, 16a–16c and 17 are flat.
 - [ ] F3 next to 20a–20f: the height label still shows the same eaves as before (7.7 m) — only the roof shape changed.
+
+## Look back with B (#65)
+
+- [ ] Chase view, driving: hold **B**. The camera jumps in front of the car and looks back past it, with no swing through the car. Let go: it jumps back behind the car.
+- [ ] Hold **B** while driving fast through Stein (houses close to the road): the camera does not end up inside a building.
+- [ ] Cockpit and bumper: holding **B** shows the road behind (the bumper view from the rear bumper). Steering while looking back feels usable.
+- [ ] Press **C** while holding **B**: the next view also looks back.
+- [ ] The minimap and the compass do not change while **B** is held.
+- [ ] Open **J**, close it again: the camera is not stuck looking back.
+- [ ] Hold vs. toggle: does holding B feel right, or should it be a toggle?
