@@ -1,7 +1,6 @@
 """#83: Esc / P / the II button pause a run; the menu resumes, restarts or goes back to the start screen (asking
 "Abandon this run?" first while the race clock runs); a hidden tab pauses. Hand-traced layout (world + terrain blocked): no data files needed, deterministic and fast.
 Slow (Playwright): run in the foreground."""
-import pytest
 from playwright.sync_api import sync_playwright
 
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
@@ -271,9 +270,6 @@ def test_phone_abandon_confirmation_fits_and_taps(server):
 def test_pause_freezes_a_flight(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
-        if not page.evaluate("() => !!window.__mm.fly"):
-            b.close()
-            pytest.skip("#10 helicopter mode not merged yet")
         page.keyboard.press("KeyF")
         page.wait_for_function("() => window.__mm.fly().on", timeout=T)
         page.keyboard.press("Escape")
@@ -285,3 +281,20 @@ def test_pause_freezes_a_flight(server):
         b.close()
     assert f2["on"] and (f2["x"], f2["y"], f2["z"]) == (f1["x"], f1["y"], f1["z"])
     assert errors == []
+
+
+def test_pause_closes_an_open_jump_dialog(server):
+    """Review of #90: pausing with the J dialog open must close it, or every key keeps going to the J dialog behind the
+    pause menu (Esc closes J instead of resuming, Enter could teleport the car in a frozen run)."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.wait_for_function("() => !document.querySelector('#jump').hidden", timeout=T)
+        page.click("#pausebtn")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=T)
+        jump_after_pause = page.evaluate("() => !document.querySelector('#jump').hidden")
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => !window.__mm.pause().on", timeout=T)
+        b.close()
+    assert not jump_after_pause, "J dialog still open behind the pause menu"
+    assert not errors, errors
