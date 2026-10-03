@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GEMEINDEN, LANDMARK_INFO, foldText, landmarkEntries, filterLandmarks, gemeindenOf } from '../landmarks.js';
+import { GEMEINDEN, LANDMARK_INFO, foldText, landmarkEntries, filterLandmarks, gemeindenOf, faceToward } from '../landmarks.js';
 
 const ANCHORS = { muenster: { x: -1331, z: -172.7 }, smileKreisel: { x: 1270, z: -148 } };
 const BUILDINGS = [{ id: '171822634', ring: [[0, 0], [10, 0], [10, 20], [0, 20]] }];
@@ -93,6 +93,25 @@ test('#46 entries resolve from their buildings, sort into their Gemeinde and are
   assert.deepEqual(filterLandmarks(e, 'trompeter', null).map(x => x.n), ['Schloss Schönau (Trompeterschloss)']);
   assert.deepEqual(filterLandmarks(e, 'bahnhof bad sackingen', null).map(x => x.n), ['Bahnhof Bad Säckingen']);
   assert.deepEqual(filterLandmarks(e, '', 'Eiken').map(x => x.n), ['Bahnhof Eiken']);
+});
+
+test('landmarkEntries passes a jump spot through as j (#79)', () => {
+  const info = [{ name: 'Brücke', gemeinde: 'Stein', anchor: 'muenster', jump: [10, 20] }];
+  assert.deepEqual(landmarkEntries(info, ANCHORS, []), [{ n: 'Brücke', g: 'Stein', x: -1331, z: -172.7, j: [10, 20] }]);
+});
+
+test('faceToward keeps a heading towards the target and flips one away from it (#79)', () => {
+  assert.equal(faceToward(0, 0, 0, 10, 1), 0);
+  assert.equal(faceToward(0, 0, 0, -10, 1), Math.PI);
+  assert.equal(faceToward(Math.PI / 2, 5, 5, 5, 50), Math.PI / 2);
+  assert.equal(faceToward(Math.PI / 2, 5, 5, 5, -50), Math.PI / 2 + Math.PI);
+});
+
+test('the Fridolinsbrücke jumps to the Swiss approach, east of the deck end (#79)', () => {
+  const item = LANDMARK_INFO.find(x => x.name === 'Fridolinsbrücke');
+  assert.ok(item.jump, 'Fridolinsbrücke has a jump spot');
+  assert.ok(item.jump[0] > -1233.5, 'jump spot is east of the Swiss deck end (-1233.5, 533.5)');
+  assert.ok(Math.hypot(item.jump[0] + 1233.5, item.jump[1] - 533.5) < 40, 'jump spot is near the Swiss deck end');
 });
 
 test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found by "landi"', () => {

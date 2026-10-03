@@ -6,7 +6,7 @@ export const GEMEINDEN = ['Bad Säckingen', 'Stein', 'Münchwilen', 'Eiken', 'Si
 export const LANDMARK_INFO = [
   { name: 'Fridolinsmünster', gemeinde: 'Bad Säckingen', anchor: 'muenster' },
   { name: 'Holzbrücke', gemeinde: 'Bad Säckingen', anchor: 'holzbruecke' },
-  { name: 'Fridolinsbrücke', gemeinde: 'Bad Säckingen', anchor: 'fridolinsbruecke' },
+  { name: 'Fridolinsbrücke', gemeinde: 'Bad Säckingen', anchor: 'fridolinsbruecke', jump: [-1211.0, 535.5] },   // #79: J lands on the Swiss approach (Stein), westbound, ~23 m before the deck
   { name: 'Schloss Schönau (Trompeterschloss)', gemeinde: 'Bad Säckingen', building: 390621357 },
   { name: 'Gallusturm', gemeinde: 'Bad Säckingen', building: 25835477 },
   { name: 'Diebsturm', gemeinde: 'Bad Säckingen', building: 92036948 },
@@ -54,10 +54,15 @@ export function landmarkEntries(info, anchors, buildings) {
   const found = [];
   info.forEach((item, i) => {
     const p = sourcePos(item, anchors || {}, byId);
-    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, i });
+    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), i });
   });
   found.sort((a, b) => GEMEINDEN.indexOf(a.g) - GEMEINDEN.indexOf(b.g) || a.i - b.i);
   return found.map(({ i, ...entry }) => entry);
+}
+
+// #79: a road heading (car forward = (cos th, sin th)) turned, if needed, so the car faces (tx, tz)
+export function faceToward(th, x, z, tx, tz) {
+  return Math.cos(th) * (tx - x) + Math.sin(th) * (tz - z) < 0 ? th + Math.PI : th;
 }
 
 export function filterLandmarks(entries, query, gemeinde) {
