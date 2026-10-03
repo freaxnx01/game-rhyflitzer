@@ -379,3 +379,21 @@ def test_hand_layout_still_draws_the_ramp(server):
         assert page.evaluate("() => window.__mm.layout") == "hand"
         assert page.evaluate("() => window.__mm.counts.ramp") == 1
         b.close()
+
+
+MMH = Path(__file__).parents[2] / "data" / "terrain_hochrhein.mmh"
+needs_measured = pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="needs data/world_hochrhein.json and data/terrain_hochrhein.mmh")
+
+
+@needs_measured
+def test_sprungschanze_drawn_where_the_car_drives_on_measured_terrain(server):
+    """Review of #98: on the measured DEM the ground under the ramp is not planar; the drawn gravel must follow the
+    surface groundH gives the car (terrain + ramp), not interpolate four corners (up to 2.4 m off)."""
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_page(viewport={"width": 1280, "height": 720})
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && /measured/.test(document.querySelector('#mmhstatus')?.textContent || '')", timeout=240000)
+        gap = page.evaluate("() => window.__mm.rampGap()")
+        b.close()
+    assert gap < 0.3, f"drawn ramp is {gap:.2f} m off the drive surface"
