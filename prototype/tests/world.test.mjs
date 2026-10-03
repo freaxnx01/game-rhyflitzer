@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -249,4 +249,20 @@ test('layoutFromWorld passes boundaries and defaults to an empty list (#48)', ()
   assert.deepEqual(layoutFromWorld(base).boundaries, []);
   const b = [{ id: 123001743, names: ['Eiken', 'Sisseln'], pts: [[0, 0], [10, 0]] }];
   assert.deepEqual(layoutFromWorld({ ...base, boundaries: b }).boundaries, b);
+});
+
+test('row houses (#45): picked by OSM way id, units from the addr range, one unit x one storey per tile', () => {
+  assert.equal(ROW_HOUSE_IDS.size, 16);
+  assert.equal(isRowHouse({ id: 512632899 }), true);          // 3a–3f
+  assert.equal(isRowHouse({ id: 171822799 }), true);          // 16a–16c, the three-unit block
+  assert.equal(isRowHouse({ id: 171822634 }), false);         // Bodenackerstrasse 6a–6d: a–d range, but the big block
+  assert.equal(isRowHouse({ id: 25049518 }), false);
+  assert.equal(rowUnits('3a–3f'), 6);
+  assert.equal(rowUnits('16a–16c'), 3);
+  assert.equal(rowUnits(undefined), 6);
+  assert.equal(rowUnits('6'), 6);
+  const t = rowHouseTile({ rect: [0, 0, 36.4, 11.96], h: 6.2, addr: '4a–4f' });   // today's measured 4a–4f: two storeys
+  assert.ok(Math.abs(t[0] - 36.4 / 6) < 1e-9 && Math.abs(t[1] - 3.1) < 1e-9, t);
+  assert.deepEqual(rowHouseTile({ rect: [0, 0, 36, 12], h: 9, addr: '4a–4f' }), [6, 3]);          // after #34: three storeys
+  assert.deepEqual(rowHouseTile({ rect: [0, 0, 11.5, 18], h: 6.9, addr: '16a–16c' }), [6, 3.45]); // long side may be d
 });
