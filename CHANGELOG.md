@@ -51,6 +51,7 @@ All notable changes to this project are documented here, following
 - **J** → Fridolinsbrücke now puts you on the Swiss side in Stein, on the road and facing the bridge — no longer somewhere on the German bank.
 - Holding **J** a moment too long no longer opens the jump menu and shuts it again straight away — it stays open, ready for you to type.
 - **J → Sprungschanze** now really takes you to the ramp: the car stands on a run-up facing the gravel ramp, up the slope ahead — step on the gas, climb and fly. The ramp's surface now follows the ground under it. Before, the jump dropped you on a road 175 m away and the ramp was invisible (you could only feel a bump in the field).
+- In the **F3** debug view, the height of a tall building right in front of you no longer floats off the top of the screen — up close, the label slides down onto the façade, and it shows through other buildings.
 - Roofs on the Swiss side now follow the measured ridge: the Bodenackerstrasse row houses 10, 12, 14, 18, 19, 20 and 21 in Sisseln have their pitched roofs, 3, 4, 7, 8, 11, 13, 15, 16 and 17 stay flat — and the same rule fixes every other measured house that was drawn with the wrong roof.
 - **V** now hides the car's shadow too — no more dark disc left on the road.
 - Clicking an entry in the **J** menu works now. The menu said "or click" from the start, but the click never arrived — only the number keys did anything.
