@@ -113,6 +113,14 @@ export function roadNameAt(cands, x, z, margin = 1) {
 }
 // roof top above the base, as osmBuilding draws it (roughly); shared by the house-number (#12) and debug height (#39) labels
 export function roofTop(b) { return typeof b.rh === 'number' ? b.h + b.rh : b.roof === 'gable' ? b.h + 0.4 * Math.min(b.rect[2], b.rect[3]) : Math.max(b.h, 3); }
+// #45: the Bodenackerstrasse row houses in Sisseln, by OSM way id -- the six-unit blocks 3-21 plus the three-unit block 16a-16c.
+// Picked by id, not by addr: 6a-6d and 1a-1d share the a-x pattern and are the big blocks next door.
+export const ROW_HOUSE_IDS = new Set([512632899, 171822953, 171822664, 171822908, 171822930, 171822939, 171822935, 171822913, 171822943, 171822937, 171822949, 171822938, 171822934, 171822932, 171822933, 171822799]);
+export function isRowHouse(b) { return ROW_HOUSE_IDS.has(b.id); }
+// house units from the OSM addr range ('3a–3f' -> 6); 6 when the range is missing or unreadable
+export function rowUnits(addr) { const m = /^\d+([a-z])[–-]\d+([a-z])$/.exec(addr || ''); return m ? m[2].charCodeAt(0) - m[1].charCodeAt(0) + 1 : 6; }
+// texture tile for a row house: one unit wide, one whole storey tall (3 m nominal), so the yellow panels fall on the unit joints
+export function rowHouseTile(b) { const w = Math.max(b.rect[2], b.rect[3]), h = Math.max(b.h, 3); return [w / rowUnits(b.addr), h / Math.max(1, Math.round(h / 3))]; }
 // #12: house-number labels (OSM addr) at the footprint centre
 export function addrLabels(buildings, landmarks = {}) {
   return [...buildings.filter(b => b.addr).map(b => ({ t: b.addr, x: b.rect[0], z: b.rect[1], top: roofTop(b) })),
