@@ -199,7 +199,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf } from './landmarks.js';
 import { translate } from './strings.js';
@@ -505,7 +505,7 @@ function smileKreiselAt(x, z, inner = 10.5) { // three tilted steel smiley discs
 }
 function flatBuilding(x, z, w, d, h, rot, c, role = 'hall') { const b = terrainH(x, z); box(w, h + 2, d, x, b - 2, z, rot, col(c), role, role === 'hall' ? [8, h] : [4, 3], 0); addOBB(x, z, w, d, rot, b + h); }
 // OSM footprint -> walls (one quad per edge, outward-facing) + flat roof (triangulated); base = lowest terrain under the ring
-function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3]) {
+function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], uPerFace = false) {
   let area = 0; for (let i = 0; i < ring.length; i++) { const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length]; area += x0 * z1 - x1 * z0; } if (area > 0) ring = ring.slice().reverse();
   const pos = [], nrm = [], uv = []; let along = 0;
   for (let i = 0; i < ring.length; i++) {
@@ -513,7 +513,8 @@ function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3]) {
     const nx = -(z1 - z0) / L2, nz = (x1 - x0) / L2, y0 = base - 2, y1 = base + h;
     const A = [x0, y0, z0], B = [x1, y0, z1], C = [x1, y1, z1], D = [x0, y1, z0];
     for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(nx, 0, nz); }
-    const u0 = along / tile[0], u1 = (along + L2) / tile[0], v0 = -2 / tile[1], v1 = h / tile[1]; along += L2;
+    // uPerFace (#45): u restarts on every edge, so a tile boundary sits on each corner; cumulative otherwise, so no seam shows mid-wall
+    const u0 = uPerFace ? 0 : along / tile[0], u1 = (uPerFace ? L2 : along + L2) / tile[0], v0 = -2 / tile[1], v1 = h / tile[1]; along += L2;
     uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
   }
   rawGeo(pos, nrm, uv, 0, 0, 0, c, role);
@@ -527,14 +528,19 @@ function osmBuilding(b) {
   const [cx, cz, w, d, rot] = b.rect; let base = Infinity; for (const [x, z] of b.ring) base = Math.min(base, terrainH(x, z));
   // measured buildings (hsrc 'dsm', #17): eaves h and ridge rh from swissSURFACE3D; a measured flat roof is drawn flat
   const dsm = b.hsrc === 'dsm';
+  // #45: the Bodenackerstrasse row houses get their own facade role and a tile per unit and storey, in both paths. The PLASTER colour
+  // and the door coin below are still drawn for them (and then ignored), so the seeded RNG sequence for every later building is unchanged
+  const row = isRowHouse(b); if (row) window.__mm.counts.rowHouses = (window.__mm.counts.rowHouses || 0) + 1;
   if (b.roof === 'gable' && !(dsm && b.rh < 0.6)) {
     const floors = Math.max(1, Math.round(b.h / 3)); const wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]);
-    const h = dsm ? b.h : floors * 3 + 0.4; box(w, h + 3, d, cx, base - 3, cz, rot, wc, rnd() < 0.5 ? 'wall' : 'wallDoor', [4, 3], 3.1);
+    const h = dsm ? b.h : floors * 3 + 0.4; const door = rnd() < 0.5 ? 'wall' : 'wallDoor';
+    box(w, h + 3, d, cx, base - 3, cz, rot, row ? col('#ffffff') : wc, row ? 'rowHouse' : door, row ? rowHouseTile(b) : [4, 3], 3.1);
     gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, wc); addOBB(cx, cz, w, d, rot, base + h); return;
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
   const wc = col(ind ? INDUSTRIAL.walls[Math.floor(rr(0, 3))] : PLASTER[Math.floor(rr(0, PLASTER.length))]);
-  extrudeFootprint(b.ring, base, h, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, h] : [4, 3]);
+  if (row) extrudeFootprint(b.ring, base, h, col('#ffffff'), 'rowHouse', col('#8f8a84'), rowHouseTile(b), true);
+  else extrudeFootprint(b.ring, base, h, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, h] : [4, 3]);
   addOBB(cx, cz, w, d, rot, base + h);
 }
 function lot(x, z, w, d, rot, c = '#b8b0a0') { const g = new THREE.PlaneGeometry(w, d, 4, 4); g.rotateX(-Math.PI / 2); g.rotateY(-rot); g.translate(x, 0, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, terrainH(p.getX(i), p.getZ(i)) + 0.035); const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * w / 4, u.getY(i) * d / 4); colorize(g, col(c)); push('roadPlain', g); }
@@ -943,7 +949,7 @@ function jumpTo(p) { let best = null; for (const r of ROADS) { if (!jumpable(r))
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
 function resetCar() { P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // test hooks (prototype/tests): put the car somewhere and read its state
-window.__mm.place = (x, z) => { P.x = x; P.z = z; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; };
+window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; };
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
 // drive headless: start at (x, z) on the highest surface there (a bridge deck if any), heading th at speed v, gas held, fixed 1/60 s steps
 window.__mm.heading = () => P.th;
@@ -961,6 +967,9 @@ window.__mm.stationSigns = () => STATION_SIGNS.map(s => ({ ...s }));
 window.__mm.raceFlags = () => ({ jumped: !!R.jumped, fast: !!R.fast });
 // water vs drawn ground at a point: is the water surface above the ground mesh there (visible) or under it?
 // from above, is water the first thing seen at these points (not grass or a field), and is the car wet there? Bridges and roads are skipped
+window.__mm.roles = () => Object.keys(MESH);
+// #45: role of the first merged mesh a horizontal ray from (x, z) towards (tx, tz) hits, `up` m above the terrain at the target
+window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5) => { const y = terrainH(tx, tz) + up, dir = new THREE.Vector3(tx - x, 0, tz - z).normalize(); const ray = new THREE.Raycaster(new THREE.Vector3(x, y, z), dir, 0, Math.hypot(tx - x, tz - z) + 1); const hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? hit.object.userData.role : null; };
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
 window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x, z, 1e4), bridge: !!onBridge(x, z, 1e4) });
 window.__mm.treesOnRail = () => (window.__TREES || []).filter(([x, z]) => railDist(x, z) < 4).length;
