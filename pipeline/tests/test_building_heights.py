@@ -91,3 +91,12 @@ def test_measured_ridge_overrides_the_footprint_roof(tiles):
     assert b[2]["roof"] == "gable" and "rh" not in b[2]            # outside the tiles
     assert b[3]["roof"] == "gable" and "rh" not in b[3]            # not built in 2020
     assert stats["ridge_gable"] == 1 and stats["ridge_flat"] == 1
+
+
+def test_ridge_promoted_gable_gets_the_eaves_correction(tiles):
+    """Review of #68: a footprint the ridge promotes to gable gets the same eaves/ridge as one the heuristic already
+    called gable, over the same pitched surface (eaves 6 m, ridge 3.2 m)."""
+    b = [bld(6, 40, 0, 10, 8, "flat"), bld(7, 40, 0, 10, 8, "gable")]
+    BH.apply(b, FRAME, *tiles)
+    assert b[0]["roof"] == b[1]["roof"] == "gable"
+    assert (b[0]["h"], b[0]["rh"]) == (b[1]["h"], b[1]["rh"]), b
