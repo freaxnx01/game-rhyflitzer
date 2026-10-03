@@ -238,7 +238,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText } from './debug.js';
-import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward } from './landmarks.js';
+import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
@@ -800,6 +800,8 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // railway Basel–Koblenz line (stand-in) and the two stations
   // level crossings: the track lies on the road surface where it crosses one, else on the terrain
   for (const pts of (L ? L.rail : [RAIL_PTS])) { const g = ribbonGeo(pts, 2.5, 0.03, 4, true, (p) => Math.max(terrainH(p[0], p[1]), roadSurfH(p[0], p[1]))); colorize(g, col('#ffffff')); push('rail', g); }
+  // gravel wedge over RAMP: sloped top rising along +x, back face at x1 (no side walls)
+  function rampMesh() { const { x0, x1, z0, z1, h } = RAMP; const T = (x, z) => terrainH(x, z); const pos = [x0, T(x0, z0), z0, x1, T(x1, z0) + h, z0, x1, T(x1, z1) + h, z1, x0, T(x0, z0), z0, x1, T(x1, z1) + h, z1, x0, T(x0, z1), z1, x1, T(x1, z0), z0, x1, T(x1, z1), z1, x1, T(x1, z1) + h, z1, x1, T(x1, z0), z0, x1, T(x1, z1) + h, z1, x1, T(x1, z0) + h, z0]; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(24).fill(0).map((_, i) => (i % 2 ? (i % 4 === 1 ? 0 : 3) : (i % 4 === 0 ? 0 : 2))), 2)); colorize(g, col('#8a6a48')); push('gravel', g); window.__mm.counts.ramp = 1; }
   if (!L) { // hand-traced buildings and landmarks; the OSM world places its own below
   for (const [px, py, rot, name] of [[447, 945, -0.14, 'Bahnhof Stein-Säckingen'], [1690, 770, -0.1, 'Bahnhof Sisseln']]) { const [x, z] = W(px, py); stationAt(x, z, rot, name); }
   smileKreisel(1435, 450);
@@ -818,9 +820,9 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // Sisslerfeld halls (GETEC Park, Syngenta, DSM-Firmenich stand-ins)
   for (const h of [[735, 370, 110, 90, 12, '#dfe4e8'], [795, 300, 70, 60, 9, '#d0d8dc'], [850, 400, 80, 60, 10, '#e4e0d6'], [935, 370, 120, 100, 14, '#c8d4dc'], [960, 300, 60, 50, 8, '#dde2e6'], [1060, 545, 90, 70, 11, '#d8dde2'], [1230, 560, 100, 80, 12, '#dfe4e8'], [1330, 545, 90, 70, 13, '#c9c4bc'], [1200, 650, 80, 60, 9, '#e0e4e8'], [1330, 645, 110, 80, 12, '#d0d8c8'], [1460, 610, 80, 100, 10, '#dde2e6'], [830, 760, 90, 60, 9, '#e4e0d6'], [720, 830, 70, 50, 8, '#d8dde2']]) hall(...h);
   { const [x, z] = W(1093, 600); const g = new THREE.PlaneGeometry(110, 150, 8, 10); g.rotateX(-Math.PI / 2); g.translate(x, 0.03, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, terrainH(p.getX(i), p.getZ(i)) + 0.03); const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * 6, u.getY(i) * 8); colorize(g, col('#b8a890')); push('gravel', g); }
-  { const { x0, x1, z0, z1, h } = RAMP; const T = (x, z) => terrainH(x, z); const pos = [x0, T(x0, z0), z0, x1, T(x1, z0) + h, z0, x1, T(x1, z1) + h, z1, x0, T(x0, z0), z0, x1, T(x1, z1) + h, z1, x0, T(x0, z1), z1, x1, T(x1, z0), z0, x1, T(x1, z1), z1, x1, T(x1, z1) + h, z1, x1, T(x1, z0), z0, x1, T(x1, z1) + h, z1, x1, T(x1, z0) + h, z0]; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(24).fill(0).map((_, i) => (i % 2 ? (i % 4 === 1 ? 0 : 3) : (i % 4 === 0 ? 0 : 2))), 2)); colorize(g, col('#8a6a48')); push('gravel', g); }
   for (const r of ROADS) if (r.houses) housesAlong(r);
   }
+  rampMesh();   // the Sprungschanze, in both layouts: groundH raises the ground there in both (#80)
   if (L) for (const b of L.buildings) osmBuilding(b);
   if (L && L.props.length) propMeshes(L.props);
   if (L && L.parking.length) parkingMeshes(L.parking);
@@ -1005,6 +1007,8 @@ const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_l
 function placeOnRoad(x, z, th, name) { P.safe = [x, z, th]; resetCar(); if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
 function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, p.j ? faceToward(best.th, best.x, best.z, p.x, p.z) : best.th, p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
+const RAMP_RUNUP = 40;   // J → Sprungschanze: metres of run-up before the ramp's low edge, enough to launch from standstill (#80)
+function jumpToRamp(name) { const s = rampApproach(RAMP, RAMP_RUNUP); placeOnRoad(s.x, s.z, s.th, name); }   // off road: R returns to the run-up
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
 function resetCar() { FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #10: F takes off from the car's spot and lands the car on the nearest jumpable road below (not a jump: the flight already marks the run). R, J, the map and Start end a flight through resetCar
@@ -1015,6 +1019,7 @@ function stepFly(dt) { const ground = groundH(P.x, P.z, 1e4), floor = heliFloor(
 // test hooks (prototype/tests): put the car somewhere and read its state
 window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; };
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
+window.__mm.ramp = () => ({ x0: RAMP.x0, x1: RAMP.x1, z0: RAMP.z0, z1: RAMP.z1, h: RAMP.h });
 // drive headless: start at (x, z) on the highest surface there (a bridge deck if any), heading th at speed v, gas held, fixed 1/60 s steps
 window.__mm.heading = () => P.th;
 window.__mm.keysDown = () => Object.keys(keys).filter(k => keys[k]);   // the J dialog must not record a game key (#41)
@@ -1141,7 +1146,7 @@ function renderJump() {
 }
 function openJump() { for (const k in keys) keys[k] = false; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
 function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
-function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (r.random) randomSpot(); else jumpTo(r); }
+function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else jumpTo(r); }
 function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
 function jumpKey(e) {
   if (e.code === 'ArrowDown' || e.code === 'ArrowUp') { e.preventDefault(); moveJumpSel(e.code === 'ArrowDown' ? 1 : -1); return; }
