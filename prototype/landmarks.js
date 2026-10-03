@@ -2,7 +2,7 @@
 // (an anchors.landmarks key or a world building id). Pure: no DOM, no three.js.
 export const GEMEINDEN = ['Bad Säckingen', 'Stein', 'Münchwilen', 'Eiken', 'Sisseln'];   // west → east
 
-// Gemeinden verified against OpenStreetMap on 2026-10-02 (#41, #46)
+// Gemeinden verified against OpenStreetMap on 2026-10-02/03 (#41, #46, #81)
 export const LANDMARK_INFO = [
   { name: 'Fridolinsmünster', gemeinde: 'Bad Säckingen', anchor: 'muenster' },
   { name: 'Holzbrücke', gemeinde: 'Bad Säckingen', anchor: 'holzbruecke' },
@@ -19,6 +19,7 @@ export const LANDMARK_INFO = [
   { name: 'DSM-Kamin', gemeinde: 'Eiken', anchor: 'dsmChimney' },
   { name: 'Bahnhof Sisseln', gemeinde: 'Eiken', anchor: 'stationSisseln' },
   { name: 'Bahnhof Eiken', gemeinde: 'Eiken', building: 199241726 },
+  { name: 'LANDI-Turm', gemeinde: 'Eiken', anchor: 'landiTurm' },                    // Sisslerstrasse 19.1, w197688923 (#81)
   { name: 'DSM-Wasserturm', gemeinde: 'Sisseln', anchor: 'dsmWaterTower' },
   { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
   { name: 'Hallenbad Sissila', gemeinde: 'Sisseln', anchor: 'hallenbad' },
