@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A **Choose car** button on the start / result screen opens a full-screen car selection: the live car on a turntable (cut-out onto the real scene), ‹ › and garage tiles through every `VEHICLES` entry, four stat bars from the table, nine paint swatches, **Back** / Esc and **Race!**. Vehicle and paint are remembered in `localStorage['mm.car']`; `?vehicle=<id>` (#6) still selects for one load. Keyboard, mouse and touch, 360 px wide, en / de (#7).
+**Goal:** A **Choose car** button on the start / result screen opens a full-screen car selection: the live car on a turntable (cut-out onto the real scene), ‹ › and garage tiles through every `VEHICLES` entry, four stat bars from the table, eleven paint swatches (absorbs #25: plum and flamingo added), **Back** / Esc and **Race!**. Vehicle and paint are remembered in `localStorage['mm.car']`; `?vehicle=<id>` (#6) still selects for one load. Keyboard, mouse and touch, 360 px wide, en / de (#7).
 
 **Architecture:** A new pure module `prototype/carselect.js` holds the rules (`PAINTS`, `statBars`, `barCells`, `cycle`, `paintable`, `parseChoice`, `initialChoice`, `carselKeyAction`, `spinStep`, `lookShift`, `vehicleText`), unit-tested with `node --test`. `prototype/index.html` adds `#carbtn`, the `#carsel` dialog and its CSS, a `CHOICE` restored before the first frame, `applyPaint`, the `CARSEL` state with `openCarSel` / `closeCarSel` / `selectVehicle` / `renderCarSel`, a `stepTurntable` branch in `stepCamera`, a `carselKey` guard at the top of the `keydown` listener (after the J dialog) and the `__mm.carsel()` / `__mm.registerVehicle()` hooks. Strings through `tr()` (#9). Design artefacts in `docs/design/car-select/`.
 
@@ -96,7 +96,7 @@ The approved wireframe is the mockup `design/mockups/CarSelect.dc.html` (artboar
 
 - Header: title **Choose car** (Bungee, skewed, Sunflower with the burnt / ink shadow), subtitle = the game's `mode` string.
 - Body: stage left (58 %), info panel right. The stage is a **see-through cut-out onto the live scene** — the real car turns on it — with the mockup's bevel border; everything outside the stage is dimmed. ‹ › buttons inside the stage, „Car i of n" top left, „Rotate · drag or ← →" at the bottom.
-- Info panel: class line, name, description; four 10-cell stat bars with the score (Top speed, Acceleration, Handling, Mass); „Paint" with the colour name and nine swatches; „Garage · n vehicles" with one tile per vehicle.
+- Info panel: class line, name, description; four 10-cell stat bars with the score (Top speed, Acceleration, Handling, Mass); „Paint" with the colour name and eleven swatches in two rows; „Garage · n vehicles" with one tile per vehicle.
 - Footer bar: **‹ Back** left, **Race! ›** right.
 
 ## Dropped on purpose
@@ -108,7 +108,7 @@ The approved wireframe is the mockup `design/mockups/CarSelect.dc.html` (artboar
 
 ## Phone width (≤ 700 px)
 
-Header, stage (38 vh), info panel and footer stack in one column; the screen scrolls vertically only; swatches and tiles wrap; footer buttons share the width. All buttons ≥ 44 px tall.
+Header, stage (38 vh), info panel and footer stack in one column; the screen scrolls vertically only; swatches sit in two rows of six columns (6 + 5), tiles wrap; footer buttons share the width. All buttons ≥ 44 px tall.
 ```
 
 - [ ] **Step 2: Flow.** Write `docs/design/car-select/flow.md`:
@@ -151,7 +151,7 @@ git commit -m "docs(design): car selection wireframe pointer and flow (#7)"
 - Test: `prototype/tests/carselect.test.mjs`
 
 **Interfaces:**
-- `PAINTS: { id, hex, nameKey }[]` (nine, navy first), `DEFAULT_CHOICE = { id: 'compact', paint: 'navy' }`
+- `PAINTS: { id, hex, nameKey }[]` (eleven, navy first; plum and flamingo absorb #25), `DEFAULT_CHOICE = { id: 'compact', paint: 'navy' }`
 - `STAT_REF`, `STAT_KEYS = ['top', 'accel', 'handling', 'mass']`, `STAT_LABEL_KEYS: { top: 'statTop', … }`
 - `statBars(def) → { top, accel, handling, mass }` integers 1..10; `barCells(score) → ('lit' | 'tip' | 'off')[10]`
 - `cycle(i, n, step) → number`; `paintable(def) → boolean`
@@ -173,10 +173,14 @@ const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRa
 const BUS = { model: 'gltf', drive: { top: 22, accel: 4, grip: 6, steerRate: 1.1 }, mass: 8 };
 const IDS = ['compact', 'bus'], PAINT_IDS = PAINTS.map(p => p.id);
 
-test('PAINTS: nine unique ids, navy first, every hex #rrggbb', () => {
-  assert.equal(PAINTS.length, 9);
-  assert.equal(new Set(PAINT_IDS).size, 9);
+test('PAINTS: eleven unique ids and hexes, navy first, purple and pink from #25, one orange, every hex #rrggbb', () => {
+  assert.equal(PAINTS.length, 11);
+  assert.equal(new Set(PAINT_IDS).size, 11);
+  assert.equal(new Set(PAINTS.map(p => p.hex)).size, 11);
   assert.equal(PAINTS[0].id, 'navy'); assert.equal(PAINTS[0].hex, '#1b2d5e');
+  assert.equal(PAINTS.find(p => p.id === 'plum')?.hex, '#7b3fa0');
+  assert.equal(PAINTS.find(p => p.id === 'flamingo')?.hex, '#ff6fa8');
+  assert.deepEqual(PAINTS.filter(p => p.hex === '#ff7a1a').map(p => p.id), ['signal']);   // #25's orange is the mockup's Signal, not a second entry
   for (const p of PAINTS) { assert.match(p.hex, /^#[0-9a-f]{6}$/, p.id); assert.ok(p.nameKey.startsWith('paint'), p.id); }
   assert.deepEqual(DEFAULT_CHOICE, { id: 'compact', paint: 'navy' });
 });
@@ -214,7 +218,7 @@ test('parseChoice: a valid choice passes, every kind of garbage falls back field
   assert.deepEqual(parseChoice('not json', IDS, PAINT_IDS), DEFAULT_CHOICE);
   assert.deepEqual(parseChoice('42', IDS, PAINT_IDS), DEFAULT_CHOICE);
   assert.deepEqual(parseChoice('{"id":"tank","paint":"ice"}', IDS, PAINT_IDS), { id: 'compact', paint: 'ice' });
-  assert.deepEqual(parseChoice('{"id":"bus","paint":"pink"}', IDS, PAINT_IDS), { id: 'bus', paint: 'navy' });
+  assert.deepEqual(parseChoice('{"id":"bus","paint":"zebra"}', IDS, PAINT_IDS), { id: 'bus', paint: 'navy' });
   assert.deepEqual(parseChoice('{"id":"constructor"}', IDS, PAINT_IDS), DEFAULT_CHOICE);
   assert.notEqual(parseChoice(null, IDS, PAINT_IDS), DEFAULT_CHOICE);   // a copy, never the constant itself
 });
@@ -275,12 +279,15 @@ test('vehicleText: strings when they exist, the id as the name otherwise, never 
 ```js
 // #7: pure rules for the car selection screen -- no DOM, no three.js. Unit-tested with `node --test prototype/tests/*.test.mjs`.
 
-// paint swatches in display order; navy is today's factory colour (index.html carMats.body) and the default
+// paint swatches in display (hue) order; navy is today's factory colour (index.html carMats.body) and the default;
+// plum and flamingo are #25's purple and pink, its orange is the mockup's signal
 export const PAINTS = [
   { id: 'navy', hex: '#1b2d5e', nameKey: 'paintNavy' },
   { id: 'sunflower', hex: '#ffc61a', nameKey: 'paintSunflower' },
   { id: 'signal', hex: '#ff7a1a', nameKey: 'paintSignal' },
   { id: 'swiss', hex: '#e0322d', nameKey: 'paintSwiss' },
+  { id: 'flamingo', hex: '#ff6fa8', nameKey: 'paintFlamingo' },   // pink, #25
+  { id: 'plum', hex: '#7b3fa0', nameKey: 'paintPlum' },           // purple, #25
   { id: 'rhine', hex: '#2f6a96', nameKey: 'paintRhine' },
   { id: 'ice', hex: '#7fd1ff', nameKey: 'paintIce' },
   { id: 'meadow', hex: '#5f8a4c', nameKey: 'paintMeadow' },
@@ -398,7 +405,7 @@ test('car selection texts exist in both languages (#7)', () => {
   assert.equal(translate('de', 'garageLabel', 3), 'Garage · 3 Fahrzeuge');
   assert.equal(translate('de', 'veh_compact_class'), 'Kompakt · Klasse B');
   assert.equal(translate('de', 'carselRace'), 'Los! ›');
-  for (const k of ['carselTitle', 'carselPrev', 'carselNext', 'carselRotate', 'statTop', 'statAccel', 'statHandling', 'statMass', 'paintLabel', 'paintFixed', 'paintNavy', 'paintSunflower', 'paintSignal', 'paintSwiss', 'paintRhine', 'paintIce', 'paintMeadow', 'paintCream', 'paintCharcoal', 'carselBack', 'veh_compact_desc']) assert.notEqual(translate('de', k), k, k);
+  for (const k of ['carselTitle', 'carselPrev', 'carselNext', 'carselRotate', 'statTop', 'statAccel', 'statHandling', 'statMass', 'paintLabel', 'paintFixed', 'paintNavy', 'paintSunflower', 'paintSignal', 'paintSwiss', 'paintFlamingo', 'paintPlum', 'paintRhine', 'paintIce', 'paintMeadow', 'paintCream', 'paintCharcoal', 'carselBack', 'veh_compact_desc']) assert.notEqual(translate('de', k), k, k);
 });
 ```
 
@@ -424,6 +431,8 @@ test('car selection texts exist in both languages (#7)', () => {
   paintSunflower: 'Sunflower',
   paintSignal: 'Signal orange',
   paintSwiss: 'Swiss red',
+  paintFlamingo: 'Flamingo',
+  paintPlum: 'Plum',
   paintRhine: 'Rhine blue',
   paintIce: 'Ice',
   paintMeadow: 'Meadow',
@@ -456,6 +465,8 @@ In `de`, after `chipAll: 'Alle',`:
   paintSunflower: 'Sonnenblume',
   paintSignal: 'Signalorange',
   paintSwiss: 'Schweizer Rot',
+  paintFlamingo: 'Flamingo',
+  paintPlum: 'Pflaume',
   paintRhine: 'Rheinblau',
   paintIce: 'Eis',
   paintMeadow: 'Wiese',
@@ -567,7 +578,7 @@ def test_choose_car_opens_the_screen_with_the_compact(server):
     assert shown["overlayHidden"] is True and shown["role"] == "dialog" and shown["modal"] == "true"
     assert shown["title"] == "Choose car" and shown["count"] == "Car 1 of 1"
     assert shown["name"] == "Sissle Speedster" and shown["cls"] == "Compact · Class B" and shown["desc"].startswith("Small, light")
-    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 8 and shown["tiles"] == ["true"]
+    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 10 and shown["tiles"] == ["true"]
     assert shown["garage"] == "Garage · 1 vehicle" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
     assert bars == [{"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 3, "score": 3}]
     assert got["open"] is True and got["id"] == "compact" and got["paint"] == "navy" and got["focus"] == "csrace"
@@ -697,6 +708,7 @@ def test_phone_layout_de(server):
             labels: [...document.querySelectorAll('#csstats .cs-label')].map(e => e.textContent),
             scrollW: cs.scrollWidth, docScrollW: document.documentElement.scrollWidth,
             minBtn: Math.min(...[...cs.querySelectorAll('button')].map(b => b.getBoundingClientRect().height)),
+            swatchRows: new Set([...document.querySelectorAll('#cspaints button')].map(b => Math.round(b.getBoundingClientRect().top))).size,
             nav: getComputedStyle(document.querySelector('#game-nav')).display, touch: getComputedStyle(document.querySelector('#touch')).display,
             race: document.querySelector('#csrace').textContent }; }""")
         b.close()
@@ -704,6 +716,7 @@ def test_phone_layout_de(server):
     assert got["labels"] == ["Höchsttempo", "Beschleunigung", "Handling", "Masse"]
     assert got["scrollW"] <= 360 and got["docScrollW"] <= 360, got
     assert got["minBtn"] >= 44, got
+    assert got["swatchRows"] == 2, got                          # eleven swatches in a fixed six-column grid: 6 + 5
     assert got["nav"] == "none" and got["touch"] == "none"
     assert errors == []
 
@@ -790,7 +803,7 @@ git commit -m "test(ui): car selection screen browser tests (#7)"
 .cs-stat .cs-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:1px}
 .cs-cells{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}.cs-cells i{display:block;height:18px;background:#2a2e38}.cs-cells i.lit{background:var(--sun)}.cs-cells i.tip{background:#ff9a1a}
 .cs-score{font-size:20px;font-weight:800;text-align:right}
-.cs-swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px}
+.cs-swatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 .cs-swatches button{height:56px;cursor:pointer;padding:0;border:4px solid;border-color:#fff #3a404b #3a404b #fff}
 .cs-swatches button[aria-pressed=true]{border:5px solid var(--cream);box-shadow:0 0 0 3px var(--sun),4px 4px 0 var(--ink)}
 .cs-swatches button:disabled{cursor:default;opacity:.4}
@@ -925,7 +938,7 @@ git push
 - [ ] **Step 1: CHANGELOG.** Under `## [Unreleased]` → `### Added`, add as the first entry, in the player-facing voice (never regenerate the file with `git cliff -o`):
 
 ```markdown
-- **Choose car** on the start screen opens the garage: your car turns on a turntable in the real scene, four bars show its top speed, acceleration, handling and mass, and nine paints recolour it on the spot — the familiar navy stays the default. Vehicle and paint are remembered, and new vehicles show up here as soon as they exist.
+- **Choose car** on the start screen opens the garage: your car turns on a turntable in the real scene, four bars show its top speed, acceleration, handling and mass, and eleven paints, now with purple and pink, recolour it on the spot — the familiar navy stays the default. Vehicle and paint are remembered, and new vehicles show up here as soon as they exist.
 ```
 
 - [ ] **Step 2: test-todo.** Append:
@@ -938,7 +951,7 @@ git push
 - [ ] Click a paint: the body changes at once; reload: still that colour; **Race!** drives it. Navy is the one you had before.
 - [ ] Tab reaches ‹ › , every swatch, every garage tile, Back and Race!; the yellow outline is visible on each; Enter on Race! starts the run; Esc goes back and the focus is on **Choose car** again.
 - [ ] While the screen is open: T, C, M, R, J, F1, F3, V do nothing. After Back they work again.
-- [ ] Phone (portrait, German): header, stage, panel and footer stack; no sideways scrolling; swatches and tiles are big enough for a thumb; the bottom nav links and the round steering buttons are hidden while choosing.
+- [ ] Phone (portrait, German): header, stage, panel and footer stack; no sideways scrolling; the eleven swatches sit in two rows; swatches and tiles are big enough for a thumb; the bottom nav links and the round steering buttons are hidden while choosing.
 - [ ] After #6 lands: tractor and bus appear in the garage with their own bars; their paint reads „fixed"; `?vehicle=bus` in the address opens the game with the bus selected and the screen shows it.
 - [ ] Night (#2) on, then Choose car: does the dimmed night scene still read, or does the stage need a lighter dim?
 ```
