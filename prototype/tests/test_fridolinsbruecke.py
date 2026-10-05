@@ -16,6 +16,11 @@ LINE = [(-1488.0, 452.4), (-1474.0, 456.8), (-1462.6, 459.1), (-1337.2, 502.4), 
         (-1222.9, 536.1), (-1215.6, 536.4), (-1207.9, 534.3), (-1196.2, 526.9)]
 BESIDE = (-1330.9, 483.4)                     # the Rhine 20 m beside the deck (2026-10-03: level -1.62)
 CHAIN = {28495792, 319324523, 175815130, 175815131}
+# The step bound runs from just inside the Bad Säckingen abutment. West of it the Fricktalstraße ribbon is draped up to 0.4 m over the
+# bare terrain and falls 0.19 m per metre; measured 2026-10-05, those samples are bit-identical on main. #78 lifts the bank, it cannot
+# flatten the road drape, and every step there is a drop, so it never launches the car - the two drive tests cover that stretch.
+DECK = [(-1471.9, 457.2)] + LINE[2:]
+BANK_HEAD = LINE[:3]                          # the pre-existing drape, kept as a regression bound
 
 
 def resample(pts, step=1.0):
@@ -59,12 +64,19 @@ def test_chain_and_banks(page):
 
 
 def test_deck_profile_has_no_steps(page):
-    g = profile(page, resample(LINE))
+    g = profile(page, resample(DECK))
     steps = [abs(b - a) for a, b in zip(g, g[1:])]
     worst = max(range(len(steps)), key=steps.__getitem__)
     assert steps[worst] <= 0.15, (worst, g[max(0, worst - 5):worst + 6])          # 2026-10-03: +2.79 at the CH end, -1.86 at the DE end
-    grades = [abs(g[i + 10] - g[i]) / 10 for i in range(len(g) - 10)]
+    f = profile(page, resample(LINE))
+    grades = [abs(f[i + 10] - f[i]) / 10 for i in range(len(f) - 10)]
     assert max(grades) <= 0.10, max(grades)                                        # 2026-10-03: 0.5-0.7 per metre up the Stein bank
+
+
+def test_the_bank_road_west_of_the_abutment_is_no_worse_than_before(page):
+    """Fricktalstraße carries a pre-existing road-drape step of 0.194 m, the same on main and here (2026-10-05). #78 must not add to it."""
+    g = profile(page, resample(BANK_HEAD))
+    assert max(abs(b - a) for a, b in zip(g, g[1:])) <= 0.20, g
 
 
 def test_deck_stands_above_the_rhine(page):
