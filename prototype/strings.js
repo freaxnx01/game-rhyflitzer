@@ -31,6 +31,7 @@ const en = {
   finished: 'Finished',
   notCountedJump: 'with a jump, not counted · ',
   notCountedHeli: 'with the helicopter, not counted · ',
+  notCountedAuto: 'with the autopilot, not counted · ',
   viaHolz: 'via the Holzbrücke · ',
   bestLower: 'best',
   keyHornMute: 'horn (also Enter) · mute',
@@ -119,6 +120,17 @@ const en = {
   jumpSearch: 'Search landmarks',
   jumpHint: 'type to search · ↑↓ Enter · J / Esc closes',
   chipAll: 'All',
+  keyAuto: 'autopilot: drive to a place or street (O again, steering, gas or brake: you drive)',
+  driveTitle: 'Drive to',
+  driveHint: 'type to search · ↑↓ Enter · O / Esc closes',
+  streetIn: (g) => `street · ${g}`,
+  autoOn: (n) => `Autopilot → ${n}`,
+  autoOff: 'Autopilot off — you drive',
+  autoArrived: (n) => `Arrived: ${n}`,
+  autoStuck: 'Autopilot stuck — you drive',
+  autoNoRoute: 'No route from here',
+  autoNoWorld: 'Autopilot needs the OSM world',
+  autoLine: (n, km) => `AUTOPILOT → ${n} · ${km} km`,
 };
 
 const de = {
@@ -146,6 +158,7 @@ const de = {
   finished: 'Im Ziel',
   notCountedJump: 'mit Sprung, zählt nicht · ',
   notCountedHeli: 'mit Helikopter, zählt nicht · ',
+  notCountedAuto: 'mit Autopilot, zählt nicht · ',
   viaHolz: 'über die Holzbrücke · ',
   bestLower: 'Bestzeit',
   keyHornMute: 'Hupe (auch Enter) · Ton aus',
@@ -229,6 +242,17 @@ const de = {
   jumpSearch: 'Wahrzeichen suchen',
   jumpHint: 'tippen zum Suchen · ↑↓ Enter · J / Esc schliesst',
   chipAll: 'Alle',
+  keyAuto: 'Autopilot: zu einem Ort oder einer Strasse fahren (nochmals O, lenken, Gas oder Bremse: selbst fahren)',
+  driveTitle: 'Fahren nach',
+  driveHint: 'tippen zum Suchen · ↑↓ Enter · O / Esc schliesst',
+  streetIn: (g) => `Strasse · ${g}`,
+  autoOn: (n) => `Autopilot → ${n}`,
+  autoOff: 'Autopilot aus — selbst fahren',
+  autoArrived: (n) => `Angekommen: ${n}`,
+  autoStuck: 'Autopilot steckt fest — selbst fahren',
+  autoNoRoute: 'Keine Route von hier',
+  autoNoWorld: 'Autopilot braucht die OSM-Welt',
+  autoLine: (n, km) => `AUTOPILOT → ${n} · ${km} km`,
 };
 
 export const STRINGS = { en, de };
