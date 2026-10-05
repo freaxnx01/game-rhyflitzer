@@ -107,7 +107,8 @@ def test_autopilot_drives_to_a_street(server):
         assert row == {"n": "Bahnhofstrasse", "g": "Sisseln"}
         r = page.evaluate("() => window.__mm.autoSim(120)")
         assert r["last"] == "arrived", r
-        assert page.evaluate("() => window.__mm.hud().road") == "Bahnhofstrasse"
+        # autoSim steps the car headless; the HUD's road line refreshes on rendered frames (250 ms), so wait for it
+        page.wait_for_function("() => window.__mm.hud().road === 'Bahnhofstrasse'", timeout=60000)
         b.close()
 
 
