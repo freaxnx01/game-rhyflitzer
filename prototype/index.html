@@ -1060,6 +1060,7 @@ window.__mm.grassOverRoad = (n = 300) => { const ray = new THREE.Raycaster(), do
 window.__mm.roadDist = () => roadDist(P.x, P.z);
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW']) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: !!onBridge(P.x, P.z, P.y) }; };
 window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: !!onBridge(P.x, P.z, P.y), water: waterLevelAt(P.x, P.z, P.y) });
+window.__mm.pushAt = (x, z) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg]; P.x = x; P.z = z; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg] = keep; return out; };   // #36: read-only, for the region-wide collider test
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.vehicle = () => structuredClone(VEH);
