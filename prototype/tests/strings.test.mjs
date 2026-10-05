@@ -53,6 +53,15 @@ test('English texts stay exactly as the existing tests expect', () => {
   assert.ok(translate('en', 'worldOsm', 7, 9, 'OSM').startsWith('World: OpenStreetMap · 7 roads · 9 buildings ·'));
 });
 
+test('#18 autopilot strings exist in both languages', () => {
+  assert.equal(translate('en', 'driveTitle'), 'Drive to');
+  assert.equal(translate('de', 'driveTitle'), 'Fahren nach');
+  assert.equal(translate('en', 'autoLine', 'Smile-Kreisel', '0.7'), 'AUTOPILOT → Smile-Kreisel · 0.7 km');
+  assert.equal(translate('de', 'autoArrived', 'Smile-Kreisel'), 'Angekommen: Smile-Kreisel');
+  assert.equal(translate('en', 'streetIn', 'Sisseln'), 'street · Sisseln');
+  assert.equal(translate('en', 'notCountedAuto'), 'with the autopilot, not counted · ');
+});
+
 test('pause menu texts exist in both languages (#83)', () => {
   assert.equal(translate('en', 'pauseTitle'), 'Paused');
   assert.equal(translate('en', 'pauseResume'), 'Resume');
