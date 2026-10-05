@@ -142,3 +142,11 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] J → Sprungschanze: the gravel ramp is right ahead and clearly visible on the real terrain (not buried in a slope, not floating).
 - [ ] Full gas from the jump spot: the car goes up the ramp and flies; the landing feels OK. **R** brings you back to the run-up.
 - [ ] Seen from the side, the open wedge (no side walls) is acceptable — or note that it needs side walls.
+
+## Autopilot (#18)
+
+- [ ] O → "Smile-Kreisel" from the start: the car drives there on its own, the right turn signal blinks before the roundabout, it stops at the Kreisel and says "Arrived".
+- [ ] O → a street ("Bahnhofstrasse · Stein"): the route on the minimap leads over the Fridolinsbrücke at walking pace, no jump at the bridge ends.
+- [ ] A, D, W, S, Space or O while it drives: the car is yours at once, the key works as usual.
+- [ ] Hold Tab (full map, #77): the blue route is on the big map too.
+- [ ] Does it feel too slow / too fast in Sisseln and on the Hauptstrasse?
