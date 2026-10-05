@@ -94,12 +94,38 @@ export function layoutFromWorld(w) {
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
-// Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends.
-export function bridgeDeckOffset(b, t) { return 0.3 * Math.max(0, Math.min(1, Math.min(t, b.len - t) / 5)); }
+// Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends; an end
+// flagged fade0/fade1 === false is a joint with the next piece of a chain (#78) and keeps the full offset.
+export function bridgeDeckOffset(b, t) { const a = b.fade0 === false ? Infinity : t, e = b.fade1 === false ? Infinity : b.len - t; return 0.3 * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
 export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
 // An OSM bridge is ground for a query at height y only from 1.5 m below its surface upward: a car on the road underneath an overpass
 // is not snapped onto the deck. Callers that pass no height (placement code) keep the plain 2D test.
 export function bridgeAccepts(surface, y) { return y === undefined || y >= surface - 1.5; }
+// #78: indices of the bridge pieces that join the hero piece `seed`: same non-empty name and an endpoint within 0.5 m of the group,
+// generic pieces only (so #76's rail decks never join). The Fridolinsbrücke is four OSM ways.
+export function bridgeChain(pieces, seed) {
+  const out = [seed], name = pieces[seed].name, ends = (p) => [p.pts[0], p.pts[p.pts.length - 1]];
+  const touches = (p) => ends(p).some(e => out.some(j => ends(pieces[j]).some(q => Math.hypot(e[0] - q[0], e[1] - q[1]) <= 0.5)));
+  if (!name) return out;
+  for (let grew = true; grew;) { grew = false; for (let i = 0; i < pieces.length; i++) { const p = pieces[i]; if (out.includes(i) || p.kind !== 'generic' || p.name !== name || !touches(p)) continue; out.push(i); grew = true; } }
+  return out;
+}
+// #78: first sample (1 m apart) whose rise over the next `run` samples is below maxGrade: the top of the bank an approach road climbs
+export function bankTop(hs, maxGrade = 0.08, run = 4) { for (let i = 0; i + run < hs.length; i++) if ((hs[i + run] - hs[i]) / run < maxGrade) return i; return hs.length - 1; }
+// #78: -1 behind the polyline's first vertex, 1 beyond its last, else 0 (nearestOnPolyline clamps, this does not)
+export function pastEnd(pts, x, z) {
+  const n = pts.length, [ax, az] = pts[0], [bx, bz] = pts[1], [cx, cz] = pts[n - 2], [dx, dz] = pts[n - 1];
+  if ((x - ax) * (bx - ax) + (z - az) * (bz - az) < 0) return -1;
+  return (x - dx) * (dx - cx) + (z - dz) * (dz - cz) > 0 ? 1 : 0;
+}
+// #78: height on the straight deck line from bank point a (height ha) to bank point b (height hb), clamped at both banks
+export function deckLine(a, ha, b, hb, x, z) { const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1, u = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)); return ha + (hb - ha) * u; }
+// #78: the first s metres of a polyline
+export function cutPolyline(pts, s) {
+  const out = [pts[0]]; let acc = 0; s = Math.max(0, s);
+  for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0); if (acc + L >= s) { const u = L ? (s - acc) / L : 0; out.push([x0 + (x1 - x0) * u, z0 + (z1 - z0) * u]); return out; } out.push(pts[i + 1]); acc += L; }
+  return out;
+}
 // Water surface height at a point: the chunk's level (0 when unknown) inside the water, null on land. Callers test bridges first.
 export function waterSurface(riverDist, level) { return riverDist < 0 ? (level ?? 0) : null; }
 

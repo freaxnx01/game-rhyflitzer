@@ -329,3 +329,43 @@ test('ringPush: a centre exactly on a wall is pushed along that wall\'s outward 
 test('ringPush: far away is clear', () => {
   assert.equal(ringPush(L_CCW, 40, 40, 1.7), null);
 });
+
+import { bridgeChain, bankTop, pastEnd, deckLine, cutPolyline } from '../world.js';
+test('bridgeChain grows a hero piece along same-named generic pieces that share an endpoint (#78)', () => {
+  const P = (name, kind, pts) => ({ name, kind, pts });
+  const pieces = [P('Fridolinsbrücke', 'stone', [[0, 0], [100, 0]]), P('Fridolinsbrücke', 'generic', [[100, 0], [150, 0]]),
+    P('Fridolinsbrücke', 'generic', [[180, 3], [150.3, 0.2]]), P('Fridolinsbrücke', 'generic', [[150.2, 0], [180, -3]]),
+    P('Andere', 'generic', [[0, 0], [-50, 0]]), P('Fridolinsbrücke', 'rail', [[100, 0], [100, 40]]), P('Fridolinsbrücke', 'generic', [[300, 0], [400, 0]])];
+  assert.deepEqual(bridgeChain(pieces, 0).sort(), [0, 1, 2, 3]);       // other name, rail deck (#76) and a detached piece stay out
+  assert.deepEqual(bridgeChain([P('', 'stone', [[0, 0], [1, 0]]), P('', 'generic', [[1, 0], [2, 0]])], 0), [0]);
+});
+test('bankTop is the first sample where the rise over the next 4 m drops below 8 %', () => {
+  assert.equal(bankTop([2.6, 3.5, 4.5, 5.4, 6.6, 7.8, 8.4, 8.5, 8.55, 8.6, 8.6]), 6);   // index 5 rises (8.55 - 7.8) / 4 = 0.19, index 6 (8.6 - 8.4) / 4 = 0.05
+  assert.equal(bankTop([0, 0.05, 0.1, 0.15, 0.2, 0.25]), 0);
+  assert.equal(bankTop([0, 1, 2, 3, 4, 5]), 5);
+  assert.equal(bankTop([5, 4, 3, 2, 1, 0]), 0);                                          // falling ground is not a bank to climb
+});
+test('pastEnd tells before the start, past the end and on the polyline apart', () => {
+  const pts = [[0, 0], [10, 0], [10, 10]];
+  assert.equal(pastEnd(pts, -1, 2), -1);
+  assert.equal(pastEnd(pts, 5, 3), 0);
+  assert.equal(pastEnd(pts, 11, 12), 1);
+  assert.equal(pastEnd(pts, 9, 10), 0);
+});
+test('deckLine is linear along a -> b and clamped beyond both ends', () => {
+  assert.equal(deckLine([0, 0], 7, [100, 0], 15, 50, 30), 11);
+  assert.equal(deckLine([0, 0], 7, [100, 0], 15, -20, 0), 7);
+  assert.equal(deckLine([0, 0], 7, [100, 0], 15, 130, 0), 15);
+});
+test('cutPolyline keeps the first s metres', () => {
+  assert.deepEqual(cutPolyline([[0, 0], [10, 0], [10, 10]], 15), [[0, 0], [10, 0], [10, 5]]);
+  assert.deepEqual(cutPolyline([[0, 0], [10, 0]], 50), [[0, 0], [10, 0]]);
+  assert.deepEqual(cutPolyline([[0, 0], [10, 0]], 0), [[0, 0], [0, 0]]);
+});
+test('bridgeDeckOffset does not fade at ends flagged as joints (#78)', () => {
+  const b = { len: 40, h0: 0, h1: 0, fade0: false };
+  assert.equal(bridgeDeckOffset(b, 0), 0.3);
+  assert.equal(bridgeDeckOffset(b, 40), 0);
+  assert.equal(bridgeDeckOffset({ ...b, fade1: false }, 40), 0.3);
+  assert.equal(bridgeDeckOffset({ len: 40, h0: 0, h1: 0 }, 0), 0);      // unflagged: today's fade
+});
