@@ -236,7 +236,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
@@ -374,8 +374,12 @@ function bridgeLocal(b, x, z) { const dx = x - b.a[0], dz = z - b.a[1]; return [
 function bridgeProfile(b, t) { if (t < b.ramp) return b.deck * clamp(t / b.ramp, 0, 1); if (t > b.len - b.ramp) return b.deck * clamp((b.len - t) / b.ramp, 0, 1); return b.deck; }
 // y: height of the asking object (car, camera target); OSM overpasses only count from 1.5 m below their deck upward, so a car on the
 // road underneath keeps its road. Placement code passes no y. Hand-traced bridges ignore y (nothing drives under them).
+// #78: a chain piece does not reach past an end a neighbour continues (fade* === false), and an abutment stops at its bank top; without
+// this the endpoint clamp in nearestOnPolyline leaves a flat plateau hw past every end -- the step that threw the car off the Fridolinsbrücke.
+const ownsEnd = (b, x, z) => { const e = pastEnd(b.r.pts, x, z); return e === 0 || !(b.approach || b[e > 0 ? 'fade1' : 'fade0'] === false); };
 function onBridge(x, z, y) {
-  if (L) { for (const b of gridQuery(BRIDGE_GRID, x, z, 1)) { const n = nearestOnPolyline(b.r.pts, x, z); if (n.d <= b.hw && bridgeAccepts(bridgeSurfaceAt(b, n.t), y)) return { b, t: n.t, osm: true }; } return null; }
+  // an abutment (#78) is solid ground at any height: nothing drives under one, so a car or a J spot lands on it, not on the bank road it buries
+  if (L) { for (const b of gridQuery(BRIDGE_GRID, x, z, 1)) { const n = nearestOnPolyline(b.r.pts, x, z); if (n.d <= b.hw && ownsEnd(b, x, z) && (b.approach || bridgeAccepts(bridgeSurfaceAt(b, n.t), y))) return { b, t: n.t, osm: true }; } return null; }
   for (const b of BRIDGES) { const [t, s] = bridgeLocal(b, x, z); if (t >= -2 && t <= b.len + 2 && Math.abs(s) <= b.hw) return { b, t }; } return null; }
 function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; const t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1); return Math.hypot(px - ax - dx * t, pz - az - dz * t); }
 function riverDist(x, z) { if (SDF) return SDF(x, z); let m = 1e9; for (let i = 0; i < RIVER.pts.length - 1; i++) m = Math.min(m, segDist(x, z, ...RIVER.pts[i], ...RIVER.pts[i + 1])); return m - RIVER.hw; }
@@ -408,8 +412,46 @@ if (L) for (const r of L.bridges) {
   const b = { r, len, hw: kind === 'wood' ? 2.6 : kind === 'stone' ? 4.2 : r.w / 2, kind, h0: 0, h1: 0 }; OSM_BRIDGES.push(b);
   for (let i = 0; i < r.pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...r.pts[i], ...r.pts[i + 1], b.hw * 2, b);
 }
+// #78: a hero piece grows along same-named generic bridge pieces sharing an endpoint (the Fridolinsbrücke is four OSM ways); rail decks (#76) never join.
+// The grid entries keep the old, wider hw -- it is only the broad phase.
+for (const kind of ['wood', 'stone']) { const seed = OSM_BRIDGES.findIndex(b => b.kind === kind); if (seed < 0) continue; for (const i of bridgeChain(OSM_BRIDGES.map(b => ({ name: b.r.n, kind: b.kind, pts: b.r.pts })), seed)) if (OSM_BRIDGES[i].kind === 'generic') Object.assign(OSM_BRIDGES[i], { kind, hw: kind === 'wood' ? 2.6 : 4.2 }); }
 // end heights need terrainH (REAL is parsed above); filled before anything calls groundH
-function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } }
+let STONE_AXIS = null;   // #78: the stone chain's deck line, bank point -> bank point, once the chain is a two-bank crossing
+// #78: roads (no bridges, none in skip) with an endpoint within 0.5 m of p, each oriented away from p
+const roadsFrom = (p, skip) => { const out = []; for (const r of ROADS) { if (r.bridge || skip.has(r)) continue; const a = r.pts[0], e = r.pts[r.pts.length - 1]; if (Math.hypot(a[0] - p[0], a[1] - p[1]) <= 0.5) out.push({ r, pts: r.pts }); else if (Math.hypot(e[0] - p[0], e[1] - p[1]) <= 0.5) out.push({ r, pts: [...r.pts].reverse() }); } return out; };
+const sampleH = (pts, step = 1) => { const n = Math.floor(polylineLength(pts) / step), hs = []; for (let k = 0; k <= n; k++) { const q = cutPolyline(pts, k * step), [x, z] = q[q.length - 1]; hs.push(terrainH(x, z)); } return hs; };
+// #78: height of the bank an open end sits under: the mean over its roads of the terrain at the bank top, walking on (first continuation) up to 60 m
+function bankHeight(ends) { const tops = []; for (const p of ends) for (const first of roadsFrom(p, new Set())) { let pts = first.pts; const seen = new Set([first.r]); while (polylineLength(pts) < 60) { const on = roadsFrom(pts[pts.length - 1], seen)[0]; if (!on) break; seen.add(on.r); pts = [...pts, ...on.pts.slice(1)]; } const hs = sampleH(cutPolyline(pts, 60)); tops.push(hs[bankTop(hs)]); } return tops.length ? tops.reduce((s, h) => s + h, 0) / tops.length : null; }
+// #78: arc length where the terrain along pts first reaches h (1 m samples, linear between), null if it does not within maxS
+function reachAt(pts, h, maxS) { const hs = sampleH(cutPolyline(pts, maxS + 1)); for (let k = 0; k < hs.length; k++) if (hs[k] >= h) return k === 0 ? 0 : k - 1 + (h - hs[k - 1]) / (hs[k] - hs[k - 1]); return null; }
+// #78: the abutments that carry the deck up a bank -- breadth-first from the bank's open ends, so every road is claimed from the end
+// nearest the bridge, each covered up to where its terrain reaches H and at most 60 m on. A road that falls away is no approach.
+function approachPieces(ends, H, seen) {
+  const out = []; let q = ends.map(p => ({ p, acc: 0 }));
+  while (q.length) { const next = []; for (const { p, acc } of q) for (const { r, pts } of roadsFrom(p, seen)) { seen.add(r);
+      const len = polylineLength(pts), s = reachAt(pts, H, 60 - acc), far = pts[pts.length - 1];
+      if (s === null && terrainH(far[0], far[1]) <= terrainH(pts[0][0], pts[0][1])) continue;
+      const cut = s === null ? Math.min(len, 60 - acc) : s, q2 = cutPolyline(pts, cut), tip = q2[q2.length - 1], joint = s === null && cut >= len;
+      if (cut >= 0.5) out.push({ r, pts: q2, h1: s !== null || joint ? H : terrainH(tip[0], tip[1]), joint });
+      if (joint) next.push({ p: far, acc: acc + len }); }
+    q = next; }
+  return out;
+}
+function addApproach({ r, pts, h1, joint }, H) { const b = { r: { ...r, pts }, len: polylineLength(pts), hw: Math.max(4.2, r.w / 2), kind: 'stone', approach: true, h0: H, h1, fade0: false, ...(joint ? { fade1: false } : {}) }; OSM_BRIDGES.push(b); for (let i = 0; i < pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...pts[i], ...pts[i + 1], b.hw * 2, b); }
+// #78: the stone chain gets one straight deck line between its two bank tops, plus flat abutments over the bank-climbing approach roads
+function buildStoneChain() {
+  const chain = OSM_BRIDGES.filter(b => b.kind === 'stone' && !b.approach), end = (b, k) => k ? b.r.pts[b.r.pts.length - 1] : b.r.pts[0], near = (p, q, d) => Math.hypot(p[0] - q[0], p[1] - q[1]) <= d;
+  const opens = []; for (const b of chain) for (const k of [0, 1]) { const p = end(b, k); if (chain.some(o => o !== b && [0, 1].some(j => near(end(o, j), p, 0.5)))) b['fade' + k] = false; else opens.push({ b, k, p }); }
+  const banks = []; for (const { p } of opens) { const bk = banks.find(k => k.some(q => near(q, p, 15))); if (bk) bk.push(p); else banks.push([p]); }
+  if (banks.length !== 2) return;   // not a two-bank crossing: keep the endpoint heights
+  banks.sort((A, B) => A[0][0] - B[0][0]);
+  const H = banks.map(k => bankHeight(k) ?? terrainH(k[0][0], k[0][1])), mid = (k) => [k.reduce((s, p) => s + p[0], 0) / k.length, k.reduce((s, p) => s + p[1], 0) / k.length];
+  STONE_AXIS = { a: mid(banks[0]), ha: H[0], e: mid(banks[1]), he: H[1] };
+  for (const b of chain) for (const k of [0, 1]) b['h' + k] = deckLine(STONE_AXIS.a, H[0], STONE_AXIS.e, H[1], ...end(b, k));
+  const seen = new Set(); banks.forEach((k, i) => { for (const ap of approachPieces(k, H[i], seen)) addApproach(ap, H[i]); });
+  for (const o of opens) if (OSM_BRIDGES.some(x => x.approach && near(x.r.pts[0], o.p, 0.5))) o.b['fade' + o.k] = false;   // an end that continues as an abutment is a joint too
+}
+function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } buildStoneChain(); }
 window.__mm = { layout: L ? 'osm' : 'hand', camView: 0, counts: L ? { roads: L.roads.length, buildings: L.buildings.length, water: L.water.length } : {}, physMs: 0 };
 function realH(x, z) { const { hdr, data } = REAL; const fx = (x - hdr.x0) / hdr.step, fz = (z - hdr.z0) / hdr.step; const i = clamp(Math.floor(fx), 0, hdr.w - 2), j = clamp(Math.floor(fz), 0, hdr.h - 2); const tx = clamp(fx - i, 0, 1), tz = clamp(fz - j, 0, 1); const a = data[j * hdr.w + i], b = data[j * hdr.w + i + 1], c = data[(j + 1) * hdr.w + i], d = data[(j + 1) * hdr.w + i + 1]; return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz; }
 // The ground is drawn as a grid mesh (16 m cells); terrainH returns exactly that mesh surface, so the car, roads, fields and
@@ -447,10 +489,13 @@ function streamH(x, z) { return surfH(STREAM_GRID, x, z); }
 function streamNameAt(x, z) { for (const { sf, i } of gridQuery(STREAM_GRID, x, z, 1)) { if (sf.name && segDist(x, z, ...sf.pts[i], ...sf.pts[i + 1]) <= sf.hw) return sf.name; } return ''; }
 function surfH(grid, x, z) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const t = ((x - ax) * dx + (z - az) * dz) / L2; if (t < 0 || t > 1) continue; const side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; h = Math.max(h, f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f)); } return h; }
 function groundH(x, z, y) {
-  const ob = onBridge(x, z, y); if (ob) return ob.osm ? bridgeSurfaceAt(ob.b, ob.t) : bridgeProfile(ob.b, ob.t);
-  const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null) return wl - 3;
-  for (const k of KREISEL) if (Math.hypot(x - k.x, z - k.z) <= k.apron) return k.b + 0.375;
-  const t = Math.max(terrainH(x, z), roadSurfH(x, z));
+  const ob = onBridge(x, z, y); if (ob && !ob.b.approach) return ob.osm ? bridgeSurfaceAt(ob.b, ob.t) : bridgeProfile(ob.b, ob.t);
+  // #78: an abutment is fill, not a deck -- the ground is the higher of the fill and the bank or road already there, so it meets both
+  // without a step. Pinning it to the fill alone leaves one wherever the road ribbon is draped above the bare terrain (0.4 m at Bad Säckingen).
+  const fill = ob ? bridgeSurfaceAt(ob.b, ob.t) : -Infinity;
+  const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null) return Math.max(wl - 3, fill);
+  for (const k of KREISEL) if (Math.hypot(x - k.x, z - k.z) <= k.apron) return Math.max(k.b + 0.375, fill);
+  const t = Math.max(terrainH(x, z), roadSurfH(x, z), fill);
   if (x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
   return t;
 }
@@ -778,11 +823,34 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
       for (const s of [-1, 1]) { const pos = [], uv = [], nrm = []; for (let t = 0; t < b.len; t += 5) { const t2 = Math.min(b.len, t + 5); const ya = hAt(t) + 4.2, yb = hAt(t2) + 4.2; const ox = b.hw + 0.9; const P = (tt, o, y) => [b.a[0] + b.ux * tt - b.uz * o * s, y, b.a[1] + b.uz * tt + b.ux * o * s]; const A = P(t, ox, ya), B = P(t, 0, ya + 1.9), C = P(t2, 0, yb + 1.9), D = P(t2, ox, yb); const tri = s > 0 ? [A, B, C, A, C, D] : [B, A, D, B, D, C]; for (const v of tri) { pos.push(...v); nrm.push(-b.uz * s * 0.6, 0.8, b.ux * s * 0.6); } uv.push(0, t / 2, 1, t / 2, 1, t2 / 2, 0, t / 2, 1, t2 / 2, 0, t2 / 2); } rawGeo(pos, nrm, uv, 0, 0, 0, col('#6a3a2a'), 'roof'); }
       for (const t of [0.25, 0.5, 0.75]) { const top = hAt(b.len * t) - 0.55, bottom = pierBase, c = new THREE.CylinderGeometry(2, 2.6, top - bottom, 8); c.translate(b.a[0] + b.ux * b.len * t, (top + bottom) / 2, b.a[1] + b.uz * b.len * t); colorize(c, col('#a8a296')); push('stone', c); } }
   }
+  // #78: the stone chain drawn per piece along its polyline (the Fridolinsbrücke bends and splits into two carriageways at Stein, so one
+  // straight chord cannot carry it): deck, underside, parapets in 2 m wall OBBs dropped where they would stand on another piece of the
+  // chain (they would block a carriageway), stone skirts under the abutments, and three piers along the river span.
+  function heroStone(pcs) {
+    const main = pcs.filter(p => !p.approach);
+    for (const p of pcs) {
+      const pts = resample(p.r.pts, 2), hs = (x, z) => bridgeSurfaceAt(p, nearestOnPolyline(p.r.pts, x, z).t), onOther = (x, z) => pcs.some(o => o !== p && nearestOnPolyline(o.r.pts, x, z).d < o.hw);
+      strip(pts, p.hw * 2, 0.06, 'road', col('#ffffff'), 8, hs); strip(pts, p.hw * 2 + 1.6, -1.0, 'stone', col('#c8c2b6'), 4, hs);
+      for (const s of [-1, 1]) { const side = offsetPolyline(pts, s * (p.hw + 0.5)), pos = [], nrm = [], uv = [];
+        for (let i = 0; i < side.length - 1; i++) { const [x0, z0] = side[i], [x1, z1] = side[i + 1], mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, len = Math.hypot(x1 - x0, z1 - z0) || 1; if (onOther(mx, mz)) continue;
+          strip([side[i], side[i + 1]], 0.5, 1.0, 'stone', col('#d8d2c6'), 4, hs); pushOBB({ x: mx, z: mz, hw: len / 2, hd: 0.4, c: (x1 - x0) / len, s: (z1 - z0) / len, h: 2, bridge: true, y0: hs(mx, mz) - 1.5 });
+          if (!p.approach) continue;
+          const A = [x0, hs(x0, z0) - 1, z0], B = [x1, hs(x1, z1) - 1, z1], C = [x1, terrainH(x1, z1) - 0.5, z1], D = [x0, terrainH(x0, z0) - 0.5, z0], nx = -(z1 - z0) / len * s, nz = (x1 - x0) / len * s;
+          for (const v of [A, B, C, A, C, D, A, C, B, A, D, C]) { pos.push(...v); nrm.push(nx, 0, nz); }   // both windings: the skirt shows from either side
+          for (let k = 0; k < 4; k++) uv.push(0, 0, 1, 0, 1, 1); }
+        if (pos.length) rawGeo(pos, nrm, uv, 0, 0, 0, col('#b8b2a6'), 'stone'); }
+    }
+    for (const u of [0.3, 0.5, 0.7]) { const x = STONE_AXIS.a[0] + (STONE_AXIS.e[0] - STONE_AXIS.a[0]) * u, z = STONE_AXIS.a[1] + (STONE_AXIS.e[1] - STONE_AXIS.a[1]) * u;
+      let best = null; for (const p of main) { const n = nearestOnPolyline(p.r.pts, x, z); if (!best || n.d < best.n.d) best = { p, n }; }
+      const q = cutPolyline(best.p.r.pts, best.n.t), [px, pz] = q[q.length - 1], top = bridgeSurfaceAt(best.p, best.n.t) - 1.05, wl = REAL ? WATER.levelAt(px, pz) : 0;
+      const bottom = wl !== null ? wl - 5 : terrainH(px, pz) - 1, c = new THREE.CylinderGeometry(3.5, 4, top - bottom, 10); c.translate(px, (top + bottom) / 2, pz); colorize(c, col('#b8b2a6')); push('stone', c); }
+  }
   for (const b of BRIDGES) heroBridge(b, (t) => bridgeProfile(b, t), b.kind === 'stone' ? -5 : -4.5);
   // OSM: one straight hero span per kind, between the two farthest-apart points of its bridge piece(s) (the Fridolinsbrücke may be split into
   // several ways); heights come from bridgeSurfaceAt of the nearest piece, i.e. exactly what groundH uses. Generic bridges stay flat strips.
-  { const heroes = {}; for (const ob of OSM_BRIDGES) if (ob.kind !== 'generic') (heroes[ob.kind] ||= []).push(ob);
+  { const heroes = {}; for (const ob of OSM_BRIDGES) if (ob.kind === 'wood' || ob.kind === 'stone') (heroes[ob.kind] ||= []).push(ob);
     for (const kind in heroes) {
+      if (kind === 'stone' && STONE_AXIS) { heroStone(heroes.stone); continue; }
       const pcs = heroes[kind], all = pcs.flatMap(p => p.r.pts); let a = all[0], e = all[1], best = -1;
       for (const p of all) for (const q of all) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d > best) { best = d; a = p; e = q; } }
       const hb = { a, b: e, len: best, ux: (e[0] - a[0]) / best, uz: (e[1] - a[1]) / best, hw: pcs[0].hw, kind }; hb.rot = Math.atan2(hb.uz, hb.ux);
@@ -1058,9 +1126,11 @@ window.__mm.sinkCheck = (n = 300) => { const ray = new THREE.Raycaster(), down =
 // raycast road points from above: how far does grass or a field rise above the road surface? (playtest: "Feld/Wiese überdeckt Strasse")
 window.__mm.grassOverRoad = (n = 300) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.motorway].filter(Boolean), green = [MESH.grass, MESH.field].filter(Boolean); const segs = []; for (const r of ROADS) if (!r.bridge) for (let i = 0; i < r.pts.length - 1; i++) segs.push([r, i]); let worst = 0, bad = 0, done = 0, marksSeen = 0, marksBelow = 0; const step = Math.max(1, Math.floor(segs.length / n)); for (let k = 0; k < segs.length && done < n; k += step) { const [r, i] = segs[k], [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0.5, 0], [0.3, 0.8], [0.7, -0.8]]) { const x = x0 + (x1 - x0) * t + nx * o * (r.w / 2 - 0.3), z = z0 + (z1 - z0) * t + nz * o * (r.w / 2 - 0.3); ray.set(new THREE.Vector3(x, 2000, z), down); const hr = ray.intersectObjects(road, false)[0], hg = ray.intersectObjects(green, false)[0]; if (!hr || !hg) continue; const d = hg.point.y - hr.point.y; if (d > worst) worst = d; if (d > 0.005) bad++; done++; for (const hm of ray.intersectObjects(marks.children, false)) { marksSeen++; if (hm.point.y < hr.point.y) marksBelow++; } } } return { worst, bad, done, marksSeen, marksBelow }; };
 window.__mm.roadDist = () => roadDist(P.x, P.z);
-window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW']) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: !!onBridge(P.x, P.z, P.y) }; };
-window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: !!onBridge(P.x, P.z, P.y), water: waterLevelAt(P.x, P.z, P.y) });
+const isDeck = (ob) => !!ob && !ob.b.approach;   // #78: an abutment is road on fill, not a bridge (keeps #79's "not on a bridge")
+window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW']) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
+window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: isDeck(onBridge(P.x, P.z, P.y)), water: waterLevelAt(P.x, P.z, P.y) });
 window.__mm.pushAt = (x, z) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg]; P.x = x; P.z = z; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg] = keep; return out; };   // #36: read-only, for the region-wide collider test
+window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone' && !b.approach).map(b => b.r.id), approaches: OSM_BRIDGES.filter(b => b.approach).length, banks: STONE_AXIS ? [{ x: STONE_AXIS.a[0], z: STONE_AXIS.a[1], h: STONE_AXIS.ha }, { x: STONE_AXIS.e[0], z: STONE_AXIS.e[1], h: STONE_AXIS.he }] : [] });
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.vehicle = () => structuredClone(VEH);
