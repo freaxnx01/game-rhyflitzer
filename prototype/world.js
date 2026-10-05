@@ -228,3 +228,21 @@ export function villageLabels(villages, x, z) {
   }
   return out.sort((a, b) => a.d - b.d);
 }
+
+// #36: a circle of radius r against a building footprint ring (either winding). null when it is clear; else the unit push
+// (wx, wz) out of the footprint and the overlap pen: r - d from outside, r + d from inside, r with the centre on the wall
+export function ringPush(ring, x, z, r) {
+  let best = Infinity, px = 0, pz = 0, ex = 0, ez = 0, inside = false, area = 0;
+  for (let i = 0, n = ring.length; i < n; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    area += ax * bz - bx * az;
+    if ((az > z) !== (bz > z) && x < ax + (z - az) * dx / dz) inside = !inside;
+    const t = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0, cx = ax + dx * t, cz = az + dz * t, d2 = (x - cx) ** 2 + (z - cz) ** 2;
+    if (d2 < best) { best = d2; px = cx; pz = cz; ex = dx; ez = dz; }
+  }
+  const d = Math.sqrt(best);
+  if (!inside && d > r) return null;
+  if (d < 1e-6) { const L = Math.hypot(ex, ez) || 1, sg = area > 0 ? 1 : -1; return { wx: sg * ez / L, wz: -sg * ex / L, pen: r }; }   // centre on the wall: its outward normal
+  const k = inside ? -1 / d : 1 / d;
+  return { wx: (x - px) * k, wz: (z - pz) * k, pen: inside ? r + d : r - d };
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -291,4 +291,41 @@ test('parkingIndex accepts closed rings and lots without holes', () => {
   assert.equal(p.clear(5, 5), false);
   assert.equal(p.clear(-0.5, 5, 1), false);   // crown over the closing edge's neighbour (x = 0)
   assert.equal(p.clear(-2, 5, 1), true);
+});
+
+// #36: flat OSM buildings collide as their drawn footprint. L-shaped ring: a 20 x 20 square without its top-right 10 x 10
+// quarter (its minimum rectangle is the full square, which is what made the car stop in the open)
+const L_CCW = [[0, 0], [20, 0], [20, 10], [10, 10], [10, 20], [0, 20]];
+const L_CW = L_CCW.slice().reverse();
+
+test('ringPush: a circle in the cut-out corner is clear, though the min rect would block it', () => {
+  for (const ring of [L_CCW, L_CW]) assert.equal(ringPush(ring, 15, 15, 1.7), null);
+});
+
+test('ringPush: a circle that touches a wall from outside is pushed straight out by the overlap', () => {
+  for (const ring of [L_CCW, L_CW]) {
+    const h = ringPush(ring, 15, 11, 1.7);   // 1 m above the inner wall z = 10
+    assert.ok(Math.abs(h.wx) < 1e-9 && Math.abs(h.wz - 1) < 1e-9, JSON.stringify(h));
+    assert.ok(Math.abs(h.pen - 0.7) < 1e-9, JSON.stringify(h));
+  }
+});
+
+test('ringPush: a centre inside the footprint is pushed out through the nearest wall, by depth + radius', () => {
+  for (const ring of [L_CCW, L_CW]) {
+    const h = ringPush(ring, 2, 5, 1.7);     // 2 m inside the wall x = 0
+    assert.ok(Math.abs(h.wx + 1) < 1e-9 && Math.abs(h.wz) < 1e-9, JSON.stringify(h));
+    assert.ok(Math.abs(h.pen - 3.7) < 1e-9, JSON.stringify(h));
+  }
+});
+
+test('ringPush: a centre exactly on a wall is pushed along that wall\'s outward normal', () => {
+  for (const ring of [L_CCW, L_CW]) {
+    const h = ringPush(ring, 5, 0, 1.7);     // on the bottom wall z = 0: outward is -z
+    assert.ok(Math.abs(h.wx) < 1e-9 && Math.abs(h.wz + 1) < 1e-9, JSON.stringify(h));
+    assert.equal(h.pen, 1.7);
+  }
+});
+
+test('ringPush: far away is clear', () => {
+  assert.equal(ringPush(L_CCW, 40, 40, 1.7), null);
 });
