@@ -191,3 +191,20 @@ def test_help_lists_o(server, locale, text):
         page.wait_for_function("() => window.__mm && window.__mm.sim", timeout=240000)
         assert text in page.inner_html("#help")
         b.close()
+
+
+@needs_world
+def test_f_takes_off_and_ends_the_autopilot_and_o_is_inert_in_flight(server):
+    """#18 / #10: taking off ends the autopilot; while flying, O does not open the drive-to list."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        drive_to(page, "Smile")
+        assert auto(page)["on"] is True
+        page.keyboard.press("KeyF")
+        flying = page.evaluate("() => window.__mm.fly().on")
+        after_f = auto(page)["on"]
+        page.keyboard.press("KeyO")
+        jump_open = page.evaluate("() => !document.querySelector('#jump').hidden")
+        b.close()
+    assert after_f is False and flying is True
+    assert jump_open is False
