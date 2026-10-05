@@ -47,6 +47,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- The Fridolinsbrücke no longer throws the car into the air. The deck now runs level from the road in Bad Säckingen up to the road in Stein, high above the Rhine instead of sagging to the water, and the whole bridge is the stone bridge with parapets — you can no longer drive off its side into the river.
 - The car no longer gets stuck next to a building it isn't touching. Buildings with an L-shaped or slanted outline used to block a whole invisible rectangle around them — on the grass beside a long low building near Sisseln, or in a narrow lane between two houses in Bad Säckingen. Now the car stops at the wall you see.
 - No more trees on the car parks — the one in the middle of the Hallenbad bays is gone, and so are the others standing on asphalt and parking lines across the region.
 - **J** → Fridolinsbrücke now puts you on the Swiss side in Stein, on the road and facing the bridge — no longer somewhere on the German bank.
