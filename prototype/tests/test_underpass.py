@@ -52,7 +52,7 @@ def test_laufenburgerstrasse_underpass(server):
         page.wait_for_timeout(500)
         r["under"] = page.evaluate("() => window.__mm.car()")
         r["deck"] = page.evaluate("() => window.__mm.ground(1569.7, 628.2, 1e4)")
-        r["on_deck"] = page.evaluate("() => window.__mm.sim(1552, 631.9, Math.atan2(-7, 33.6), 6, 2)")
+        r["on_deck"] = page.evaluate("() => window.__mm.sim(1552, 631.9, Math.atan2(-7, 33.6), 6, 2, [])")   # coast ~12 m: holding W runs off the 34 m deck
         r["drive"] = page.evaluate("() => window.__mm.sim(1565.5, 675, Math.atan2(619.9 - 675, 1569.8 - 1565.5), 12, 6)")
         r["level"] = page.evaluate(f"() => {json.dumps(LEVEL)}.map(([x, z]) => window.__mm.cutDepth(x, z))")
         r["hits"] = page.evaluate("() => [window.__mm.rayHits(1569.7, 645), window.__mm.rayHits(1569.7, 628.2)]")

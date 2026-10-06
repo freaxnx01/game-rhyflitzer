@@ -101,7 +101,7 @@ export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOf
 
 // #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;
 // the cut ramps out along the road at `grade`, with 1:`bank` grass banks beside it, never deeper than `maxDepth`.
-export const UNDERPASS = { clear: 4.5, deck: 1.2, grade: 0.08, bank: 2, margin: 1, maxDepth: 6, apron: 3 };
+export const UNDERPASS = { clear: 4.5, deck: 1.2, grade: 0.08, bank: 1, margin: 1, maxDepth: 6, apron: 3 };
 
 export function pointAtLength(pts, t) {
   let acc = 0;

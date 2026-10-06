@@ -408,15 +408,15 @@ test('cutFlat covers the deck footprint on the road plus the apron, skew-limited
   assert.ok(Math.abs(cutFlat(2.75, 0.1) - (2.75 / 0.3 + 3)) < 1e-9);
 });
 
-const CUT = { pts: [[0, -100], [0, 100]], t: 100, hw: 4.5, flat: 6, depth: 3 };   // ramp = 3 / 0.08 = 37.5 m, bank 6 m
-test('cutDepthAt: full under the deck, 8 % ramps along the road, 1:2 banks beside it', () => {
+const CUT = { pts: [[0, -100], [0, 100]], t: 100, hw: 4.5, flat: 6, depth: 3 };   // ramp = 3 / 0.08 = 37.5 m, bank 3 m
+test('cutDepthAt: full under the deck, 8 % ramps along the road, 1:1 banks beside it', () => {
   assert.equal(cutDepthAt(CUT, 0, 0), 3);
   assert.equal(cutDepthAt(CUT, 0, 6), 3);
   assert.ok(Math.abs(cutDepthAt(CUT, 0, 6 + 18.75) - 1.5) < 1e-9);
   assert.equal(cutDepthAt(CUT, 0, 50), 0);
   assert.equal(cutDepthAt(CUT, 5.5, 0), 3);
-  assert.ok(Math.abs(cutDepthAt(CUT, 8.5, 0) - 1.5) < 1e-9);
-  assert.equal(cutDepthAt(CUT, 11.6, 0), 0);
+  assert.ok(Math.abs(cutDepthAt(CUT, 7, 0) - 1.5) < 1e-9);
+  assert.equal(cutDepthAt(CUT, 8.6, 0), 0);
   assert.equal(cutDepthAt({ ...CUT, depth: 0 }, 0, 0), 0);
 });
 
@@ -429,7 +429,7 @@ test('cutDepth of two overlapping cuts is the max', () => {
 
 test('cutBounds holds every point with depth > 0', () => {
   const [x0, z0, x1, z1] = cutBounds(CUT);
-  [-11.5, -55, 11.5, 55].forEach((want, k) => assert.ok(Math.abs([x0, z0, x1, z1][k] - want) < 1e-9, `${k}: ${[x0, z0, x1, z1][k]}`));   // 43.5 m along (flat 6 + ramp 37.5) plus the 11.5 m pad
+  [-8.5, -52, 8.5, 52].forEach((want, k) => assert.ok(Math.abs([x0, z0, x1, z1][k] - want) < 1e-9, `${k}: ${[x0, z0, x1, z1][k]}`));   // 43.5 m along (flat 6 + ramp 37.5) plus the 8.5 m pad
   for (let x = -20; x <= 20; x += 0.5) for (let z = -60; z <= 60; z += 0.5) if (cutDepthAt(CUT, x, z) > 0) assert.ok(x > x0 && x < x1 && z > z0 && z < z1, `${x},${z}`);
 });
 
