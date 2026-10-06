@@ -203,5 +203,7 @@ def test_rail_bridges_over_laufenburgerstrasse(world):
     near = [b for b in world["railBridges"] if shapely.LineString(b["pts"]).distance(shapely.Point(1569.7, 625)) < 6]
     assert len(near) == 2 and all(b["layer"] == 1 for b in near), near
     assert 8 <= len(world["railBridges"]) <= 18
-    bridge_pts = {tuple(p) for b in world["railBridges"] for p in b["pts"]}
-    assert not any(all(tuple(p) in bridge_pts for p in line) for line in world["rail"])   # no bridge piece left in rail
+    # no bridge piece left in rail; compare segments, since plain track between two bridges has only bridge end points
+    seg = lambda line: {frozenset((tuple(a), tuple(b))) for a, b in zip(line, line[1:])}
+    bridge_segs = set().union(*(seg(b["pts"]) for b in world["railBridges"]))
+    assert not any(seg(line) & bridge_segs for line in world["rail"])
