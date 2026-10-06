@@ -117,3 +117,9 @@ test('describe says "in", "now" or "destination"', () => {
   const dest = describe({ left: 300, man: null });
   assert.deepEqual([dest.type, dest.dist.value, dest.dist.unit, dest.angle], ['dest', 300, 'm', 0]);
 });
+
+test('describe reports the distance to the destination, never as 0 m', () => {
+  assert.deepEqual(describe({ left: 1430, man: { kind: 'turnRight', dist: 80, turn: 1 } }).left, { value: 1.4, unit: 'km' });
+  assert.deepEqual(describe({ left: 25, man: null }).left, { value: 30, unit: 'm' });      // the last 30 m, not "0 m"
+  assert.deepEqual(describe({ left: 25, man: null }).dist, { value: 30, unit: 'm' });
+});

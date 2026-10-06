@@ -55,9 +55,12 @@ export function naviStep(st, route, x, z, dt) {
   return { s: st.s, off: t.d, left, man: nextManeuver(route, st.s), arrived, replan };
 }
 
-// What the panel says: a turn ahead, a turn right now, or the remaining distance to the destination
+// What the panel says: a turn ahead, a turn right now, or the remaining distance to the destination.
+// `left` is the distance to the destination for the panel's second line; it never rounds to 0, so the
+// last stretch reads "Destination in 30 m" instead of "Destination in 0 m" (the Navi ends 20 m before the end anyway).
 export function describe(step) {
-  if (!step.man) return { type: 'dest', kind: null, dist: roundDistance(step.left), angle: 0 };
+  const left = roundDistance(Math.max(NAVI.nowM, step.left));
+  if (!step.man) return { type: 'dest', kind: null, dist: left, left, angle: 0 };
   const close = step.man.dist < NAVI.nowM;
-  return { type: close ? 'now' : 'in', kind: step.man.kind, dist: roundDistance(step.man.dist), angle: rad2deg(step.man.turn) };
+  return { type: close ? 'now' : 'in', kind: step.man.kind, dist: roundDistance(step.man.dist), left, angle: rad2deg(step.man.turn) };
 }
