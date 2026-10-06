@@ -56,7 +56,7 @@ Still open:
 - Playtest 2026-10-02 (live version):
   - ~~Sissle invisible from the bridge~~ — done 2026-10-02: centre-line water is exported as `streams` and draped on the ground (flat 500 m chunks were under the ground on a stream falling 25 m).
   - **Bumper/cockpit camera on a steep slope** (e.g. the Sissle dam) looks into the ground mesh.
-  - **Railway down into the Sissle valley / through water:** railway bridges are not modelled; the track ribbon follows the terrain.
+  - **Railway down into the Sissle valley / through water:** railway bridges over roads are decks with an underpass cut since #76; elsewhere (and under road bridges) the track ribbon still follows the terrain.
   - Issues filed: village names from afar #16, building heights from swisstopo #17, autopilot #18, region east to Laufenburg #19, HUD/controls bundle (help, compass, odometer, car toggle, Blinker, water names, Tab time-lapse) #20; minimap magnifier added to #11.
 - Issues: helicopter #10, minimap zoom + double-click #11, road names in the HUD / house numbers / station labels #12, forests incl. Sisslerwald #13, horn + engine sound #14.
 - Vehicle windows transparent.
