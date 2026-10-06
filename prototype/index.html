@@ -502,7 +502,10 @@ fillBridgeHeights();
 function makeCut(c) {
   const b = RAIL_DECKS[c.bridge], hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), span = hw / Math.max(0.3, c.sin) + 1;
   let deckMin = Infinity; for (const k of [-1, 0, 1]) deckMin = Math.min(deckMin, bridgeSurfaceAt(b, c.tRail + k * span));
-  let roadMax = -Infinity; for (let s = -flat; s <= flat; s += 1) { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); roadMax = Math.max(roadMax, meshH(x, z) + 0.04); }
+  // the drawn road follows its edges' ground plus the bulge lift, not the centre line: size the cut on the road's own ribbon,
+  // laid on the still uncut mesh (no CUT_CELLS yet, so terrainH is meshH here)
+  const sf = ribbonGeo(c.road.pts, hw, 0.04, 8, true).userData.surf;
+  let roadMax = -Infinity; for (let s = -flat; s <= flat; s += 1) { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); roadMax = Math.max(roadMax, surfaceAt(sf, x, z)); }
   return { pts: c.road.pts, t: c.tRoad, hw, flat, depth: underpassDepth(deckMin, roadMax), x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail };
 }
 function cutDepth(x, z) { let d = 0; for (const c of CUTS) if (Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) d = Math.max(d, cutDepthAt(c, x, z)); return d; }
