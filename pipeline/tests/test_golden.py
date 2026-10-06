@@ -196,3 +196,12 @@ def test_issue81_landi_tower_anchor(world):
     assert t["h"] == 56 and t["kind"] == "silo" and t["size"] == [35.4, 12.6] and t["addr"] == "19.1", t
     assert abs(t["rot"] - 1.4346) < 1e-3, t
     assert all(b["id"] != 197688923 for b in world["buildings"])
+
+
+def test_rail_bridges_over_laufenburgerstrasse(world):
+    """#76: both tracks cross Laufenburgerstrasse (Sisseln) on bridges (OSM w35583301, w1496246793, layer 1)."""
+    near = [b for b in world["railBridges"] if shapely.LineString(b["pts"]).distance(shapely.Point(1569.7, 625)) < 6]
+    assert len(near) == 2 and all(b["layer"] == 1 for b in near), near
+    assert 8 <= len(world["railBridges"]) <= 18
+    bridge_pts = {tuple(p) for b in world["railBridges"] for p in b["pts"]}
+    assert not any(all(tuple(p) in bridge_pts for p in line) for line in world["rail"])   # no bridge piece left in rail
