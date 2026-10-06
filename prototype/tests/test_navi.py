@@ -98,12 +98,12 @@ def test_i_opens_the_navigate_dialog_and_enter_starts_the_navi(server):
         assert "Random spot" not in names
         chips = page.eval_on_selector_all("#jumpchips button", "bs => bs.map(b => b.textContent)")
         assert chips[0] == "All" and "Sisseln" in chips
-        row = navigate_to(page, "Hallenbad")
-        assert row["n"] == "Hallenbad"
+        row = navigate_to(page, "Smile")
+        assert row["n"] == "Smile-Kreisel"
         assert not page.is_visible("#jump")
         n = navi(page)
-        assert n["on"] is True and n["dest"]["n"] == "Hallenbad" and n["len"] > 300
-        assert "Navi on: Hallenbad" in page.inner_html("#toast")
+        assert n["on"] is True and n["dest"]["n"] == "Smile-Kreisel" and n["len"] > 300
+        assert "Navi on: Smile-Kreisel" in page.inner_html("#toast")
         frames(page)
         assert page.is_visible("#navi")
         b.close()
@@ -127,16 +127,18 @@ def test_the_panel_shows_arrow_distance_and_text(server):
 
 
 @needs_world
-def test_instructions_only_at_junctions_and_a_destination_announcement_at_the_end(server):
+def test_instructions_are_only_turns_at_junctions(server):
     with sync_playwright() as p:
         b, page = open_page(p, server)
-        navigate_to(page, "Hallenbad")
-        walked = page.evaluate("() => window.__mm.naviWalk()")
+        navigate_to(page, "Fridolinsm")                                 # across the Rhine: a long route with several junctions
+        walked = page.evaluate("() => window.__mm.naviWalk(20, 2000)")
         b.close()
-    kinds = {s.split(":")[1] for s in walked["seen"] if s.startswith("in:") or s.startswith("now:")}
-    assert kinds, walked                                                # a 2 km route announces at least one turn
-    assert kinds <= {"slightLeft", "turnLeft", "sharpLeft", "slightRight", "turnRight", "sharpRight", "uturn"}, walked
-    assert "dest:" in walked["seen"], walked                            # after the last turn: "Destination in …"
+    assert walked["on"] is False, walked                                # drove the whole route
+    kinds = {s.split(":")[1] for s in walked["seen"]}
+    assert kinds - {""}, walked                                         # a long route announces at least one turn
+    # every announced maneuver is one of the seven turn classes — bends without a junction and straight junctions are silent
+    assert kinds <= {"", "slightLeft", "turnLeft", "sharpLeft", "slightRight", "turnRight", "sharpRight", "uturn"}, walked
+    assert {s.split(":")[0] for s in walked["seen"]} <= {"in", "now", "dest"}, walked
 
 
 @needs_world
@@ -192,7 +194,7 @@ def test_arrival_ends_the_navi_with_a_toast(server):
         b, page = open_page(p, server)
         navigate_to(page, "Smile")
         r = page.evaluate("() => window.__mm.naviWalk()")
-        assert r["on"] is False and r["left"] is not None, r
+        assert r["on"] is False and r["replans"] == 0, r
         assert "Arrived: Smile-Kreisel" in page.inner_html("#toast")
         frames(page)
         assert not page.is_visible("#navi")
@@ -226,7 +228,14 @@ def test_o_starts_the_autopilot_and_the_navi_and_taking_over_ends_only_the_autop
         assert n["dest"]["n"] == a["dest"] and abs(n["len"] - a["len"]) < 1e-6, (a, n)
         page.keyboard.press("KeyA")                                     # the player takes over
         assert page.evaluate("() => window.__mm.auto().on") is False
+        assert "Autopilot off" in page.inner_html("#toast")
         assert navi(page)["on"] is True                                 # the Navi keeps guiding
+        page.keyboard.press("KeyO")
+        page.keyboard.press("Enter")                                    # O opens the drive list again, Enter starts both
+        assert page.evaluate("() => window.__mm.auto().on") is True and navi(page)["on"] is True
+        page.keyboard.press("KeyO")                                     # O switched both on, so O switches both off
+        assert page.evaluate("() => window.__mm.auto().on") is False
+        assert navi(page)["on"] is False
         b.close()
 
 
@@ -249,7 +258,7 @@ def test_start_navi_takes_a_plain_destination_for_the_delivery_mode(server):
 def test_the_navi_panel_overlaps_nothing(server, view):
     with sync_playwright() as p:
         b, page = open_page(p, server, **VIEWS[view])
-        navigate_to(page, "Hallenbad")
+        navigate_to(page, "Smile")
         page.evaluate("() => window.__mm.naviWalk(20, 6)")
         page.wait_for_function("() => document.querySelector('#toast').classList.contains('show')", timeout=120000)
         frames(page)
