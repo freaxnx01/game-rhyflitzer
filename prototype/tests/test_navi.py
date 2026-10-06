@@ -57,9 +57,8 @@ def navi(page):
     return page.evaluate("() => window.__mm.navi()")
 
 
-def navigate_to(page, query, place=None):
-    """Pick a destination the way a player does: I, type, choose the row (by place if given), Enter."""
-    page.keyboard.press("KeyI")
+def pick_dest(page, query, place=None):
+    """With the dialog already open: type, choose the row (by place if given), Enter."""
     page.keyboard.type(query)
     rows = page.evaluate("() => window.__mm.jumpList()")
     i = next(k for k, r in enumerate(rows) if place is None or r["g"] == place)
@@ -67,6 +66,13 @@ def navigate_to(page, query, place=None):
         page.keyboard.press("ArrowDown")
     page.keyboard.press("Enter")
     return rows[i]
+
+
+def navigate_to(page, query, place=None):
+    """Pick a destination the way a player does: I, type, choose the row, Enter. Needs the dialog closed —
+    I on an open dialog with an empty search field closes it again (#86)."""
+    page.keyboard.press("KeyI")
+    return pick_dest(page, query, place)
 
 
 def route_pixels(page):
@@ -98,7 +104,7 @@ def test_i_opens_the_navigate_dialog_and_enter_starts_the_navi(server):
         assert "Random spot" not in names
         chips = page.eval_on_selector_all("#jumpchips button", "bs => bs.map(b => b.textContent)")
         assert chips[0] == "All" and "Sisseln" in chips
-        row = navigate_to(page, "Smile")
+        row = pick_dest(page, "Smile")                                   # the dialog is already open from the I above
         assert row["n"] == "Smile-Kreisel"
         assert not page.is_visible("#jump")
         n = navi(page)
@@ -176,15 +182,21 @@ def test_the_route_is_drawn_on_the_minimap(server):
 def test_leaving_the_route_plans_a_new_one(server):
     with sync_playwright() as p:
         b, page = open_page(p, server)
-        navigate_to(page, "Smile")
+        start = page.evaluate("() => window.__mm.car()")
+        # a point 2 km west that is certainly on the routable network: drive a real route there and remember where we land.
+        # (A landmark's nearest road is no good — the Münsterplatz is `pedestrian`, which route.js does not route over.)
+        navigate_to(page, "Fridolinsm")
+        page.evaluate("() => window.__mm.naviWalk(20, 100)")
+        far = page.evaluate("() => window.__mm.car()")
+        page.evaluate(f"() => window.__mm.place({start['x']}, {start['z']})")
+        assert page.evaluate("() => window.__mm.naviStart('Smile-Kreisel')") is True
         assert navi(page)["replans"] == 0
-        x, z = anchor("muenster")                                       # ~2.6 km west of the route
-        page.evaluate(f"() => {{ const r = window.__mm.nearestRoad({x}, {z}); window.__mm.place(r.x, r.z, r.th); }}")
+        page.evaluate(f"() => window.__mm.place({far['x']}, {far['z']})")
         r = page.evaluate("() => window.__mm.naviSim(4)")               # 1.5 s off the route, then a new plan
         assert r["replans"] == 1 and r["on"] is True, r
         assert "Recalculating" in page.inner_html("#toast")
         r2 = page.evaluate("() => window.__mm.naviSim(2)")              # on the new route again: no second plan
-        assert r2["replans"] == 1, r2
+        assert r2["replans"] == 1 and r2["on"] is True, r2
         b.close()
 
 
@@ -280,7 +292,7 @@ def test_german_texts(server):
         page.keyboard.press("KeyI")
         assert page.text_content("#jumptitle") == "Navigieren nach"
         assert "I / Esc schliesst" in page.text_content("#jumphint")
-        navigate_to(page, "Smile")
+        pick_dest(page, "Smile")                                         # the dialog is already open from the I above
         assert "Navi an: Smile-Kreisel" in page.inner_html("#toast")
         page.evaluate("() => window.__mm.naviWalk(20, 6)")
         frames(page)
