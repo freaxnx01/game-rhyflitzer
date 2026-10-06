@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, underpassDepth, cutFlat, cutDepthAt, cutBounds, patchCells, triLerp } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -368,4 +368,81 @@ test('bridgeDeckOffset does not fade at ends flagged as joints (#78)', () => {
   assert.equal(bridgeDeckOffset(b, 40), 0);
   assert.equal(bridgeDeckOffset({ ...b, fade1: false }, 40), 0.3);
   assert.equal(bridgeDeckOffset({ len: 40, h0: 0, h1: 0 }, 0), 0);      // unflagged: today's fade
+});
+
+test('layoutFromWorld passes railBridges through and defaults to none', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [], waterSdf: {} };
+  assert.deepEqual(layoutFromWorld(base).railBridges, []);
+  assert.deepEqual(layoutFromWorld({ ...base, railBridges: [{ pts: [[0, 0], [1, 0]], layer: 1 }] }).railBridges, [{ pts: [[0, 0], [1, 0]], layer: 1 }]);
+});
+
+test('pointAtLength walks the polyline and clamps at the ends', () => {
+  const pts = [[0, 0], [10, 0], [10, 10]];
+  assert.deepEqual(pointAtLength(pts, 15), [10, 5]);
+  assert.deepEqual(pointAtLength(pts, -3), [0, 0]);
+  assert.deepEqual(pointAtLength(pts, 99), [10, 10]);
+});
+
+test('railRoadCrossings: a rail bridge over a lower, non-bridge road only', () => {
+  const road = (extra) => ({ n: 'R', w: 9, bridge: false, layer: 0, pts: [[0, -20], [0, 20]], ...extra });
+  const rb = [{ pts: [[-10, 5], [10, 5]], layer: 1 }];
+  const [c, ...rest] = railRoadCrossings([road()], rb);
+  assert.equal(rest.length, 0);
+  assert.equal(c.bridge, 0); assert.equal(c.x, 0); assert.equal(c.z, 5);
+  assert.equal(c.tRoad, 25); assert.equal(c.tRail, 10); assert.ok(Math.abs(c.sin - 1) < 1e-9);
+  assert.deepEqual(railRoadCrossings([road({ bridge: true, layer: 1 })], rb), []);   // road bridge: road over or level with the deck
+  assert.deepEqual(railRoadCrossings([road({ layer: 1 })], rb), []);                 // same layer: not under it
+  assert.deepEqual(railRoadCrossings([road({ pts: [[20, -20], [20, 20]] })], rb), []);   // misses the bridge
+  assert.equal(railRoadCrossings([road({ layer: undefined })], rb).length, 1);      // untagged road is layer 0
+});
+
+test('underpassDepth keeps 4.5 m under a 1.2 m deck, never negative, at most 6 m', () => {
+  assert.ok(Math.abs(underpassDepth(20, 15) - 0.7) < 1e-9);
+  assert.equal(underpassDepth(25, 15), 0);
+  assert.ok(Math.abs(underpassDepth(16, 15) - 4.7) < 1e-9);
+  assert.equal(underpassDepth(10, 15), UNDERPASS.maxDepth);
+});
+
+test('cutFlat covers the deck footprint on the road plus the apron, skew-limited', () => {
+  assert.equal(cutFlat(2.75, 1), 5.75);
+  assert.ok(Math.abs(cutFlat(2.75, 0.1) - (2.75 / 0.3 + 3)) < 1e-9);
+});
+
+const CUT = { pts: [[0, -100], [0, 100]], t: 100, hw: 4.5, flat: 6, depth: 3 };   // ramp = 3 / 0.08 = 37.5 m, bank 6 m
+test('cutDepthAt: full under the deck, 8 % ramps along the road, 1:2 banks beside it', () => {
+  assert.equal(cutDepthAt(CUT, 0, 0), 3);
+  assert.equal(cutDepthAt(CUT, 0, 6), 3);
+  assert.ok(Math.abs(cutDepthAt(CUT, 0, 6 + 18.75) - 1.5) < 1e-9);
+  assert.equal(cutDepthAt(CUT, 0, 50), 0);
+  assert.equal(cutDepthAt(CUT, 5.5, 0), 3);
+  assert.ok(Math.abs(cutDepthAt(CUT, 8.5, 0) - 1.5) < 1e-9);
+  assert.equal(cutDepthAt(CUT, 11.6, 0), 0);
+  assert.equal(cutDepthAt({ ...CUT, depth: 0 }, 0, 0), 0);
+});
+
+test('cutDepth of two overlapping cuts is the max', () => {
+  const other = { ...CUT, t: 107 };
+  const both = (x, z) => Math.max(cutDepthAt(CUT, x, z), cutDepthAt(other, x, z));
+  assert.equal(both(0, 3.5), 3);
+  for (let z = -60; z <= 60; z += 0.5) assert.ok(both(0, z) <= 3 + 1e-9);
+});
+
+test('cutBounds holds every point with depth > 0', () => {
+  const [x0, z0, x1, z1] = cutBounds(CUT);
+  assert.deepEqual([x0, z0, x1, z1], [-11.5, -55, 11.5, 55]);   // 43.5 m along (flat 6 + ramp 37.5) plus the 11.5 m pad
+  for (let x = -20; x <= 20; x += 0.5) for (let z = -60; z <= 60; z += 0.5) if (cutDepthAt(CUT, x, z) > 0) assert.ok(x > x0 && x < x1 && z > z0 && z < z1, `${x},${z}`);
+});
+
+test('patch cells cover the whole footprint (clamped to the grid)', () => {
+  const G = { x0: 0, z0: 0, dx: 16, dz: 16, nx: 10, nz: 10 };
+  assert.deepEqual(patchCells([20, 20, 40, 33], G), [[1, 1], [2, 1], [1, 2], [2, 2]]);
+  assert.deepEqual(patchCells([-11.5, -43.5, 11.5, 43.5], G), [[0, 0], [0, 1], [0, 2]]);
+});
+
+test('triLerp matches the corners and splits along u + v = 1', () => {
+  assert.equal(triLerp(1, 2, 3, 4, 0, 0), 1);
+  assert.equal(triLerp(1, 2, 3, 4, 0, 1), 2);
+  assert.equal(triLerp(1, 2, 3, 4, 1, 1), 3);
+  assert.equal(triLerp(1, 2, 3, 4, 1, 0), 4);
+  assert.equal(triLerp(1, 2, 3, 4, 0.25, 0.25), 1 + 3 * 0.25 + 1 * 0.25);
 });

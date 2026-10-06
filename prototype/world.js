@@ -90,7 +90,7 @@ export function offsetPolyline(pts, d) {
 export function layoutFromWorld(w) {
   const roads = w.roads.map(r => ({ ...r, tex: r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
-           rail: w.rail, props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
+           rail: w.rail, railBridges: w.railBridges || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
@@ -98,6 +98,77 @@ export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.le
 // flagged fade0/fade1 === false is a joint with the next piece of a chain (#78) and keeps the full offset.
 export function bridgeDeckOffset(b, t) { const a = b.fade0 === false ? Infinity : t, e = b.fade1 === false ? Infinity : b.len - t; return 0.3 * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
 export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
+
+// #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;
+// the cut ramps out along the road at `grade`, with 1:`bank` grass banks beside it, never deeper than `maxDepth`.
+export const UNDERPASS = { clear: 4.5, deck: 1.2, grade: 0.08, bank: 2, margin: 1, maxDepth: 6, apron: 3 };
+
+export function pointAtLength(pts, t) {
+  let acc = 0;
+  if (t <= 0) return pts[0].slice();
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az);
+    if (acc + L >= t) { const u = L ? (t - acc) / L : 0; return [ax + (bx - ax) * u, az + (bz - az) * u]; }
+    acc += L;
+  }
+  return pts[pts.length - 1].slice();
+}
+
+function segmentHit(ax, az, bx, bz, cx, cz, dx, dz) {
+  const rx = bx - ax, rz = bz - az, sx = dx - cx, sz = dz - cz, den = rx * sz - rz * sx;
+  if (Math.abs(den) < 1e-9) return null;
+  const qx = cx - ax, qz = cz - az, u = (qx * sz - qz * sx) / den, v = (qx * rz - qz * rx) / den;
+  return u >= 0 && u <= 1 && v >= 0 && v <= 1 ? { u, v, sin: Math.abs(den) / (Math.hypot(rx, rz) * Math.hypot(sx, sz)) } : null;
+}
+
+export function railRoadCrossings(roads, railBridges) {
+  const out = [];
+  railBridges.forEach((rb, bridge) => {
+    for (const road of roads) {
+      if (road.bridge || (road.layer ?? 0) >= rb.layer) continue;
+      let ta = 0;
+      for (let i = 0; i < road.pts.length - 1; i++) {
+        const [ax, az] = road.pts[i], [bx, bz] = road.pts[i + 1], la = Math.hypot(bx - ax, bz - az);
+        let tb = 0;
+        for (let j = 0; j < rb.pts.length - 1; j++) {
+          const [cx, cz] = rb.pts[j], [dx, dz] = rb.pts[j + 1], lb = Math.hypot(dx - cx, dz - cz), h = segmentHit(ax, az, bx, bz, cx, cz, dx, dz);
+          if (h) out.push({ road, bridge, x: ax + (bx - ax) * h.u, z: az + (bz - az) * h.u, tRoad: ta + la * h.u, tRail: tb + lb * h.v, sin: h.sin });
+          tb += lb;
+        }
+        ta += la;
+      }
+    }
+  });
+  return out;
+}
+
+export function underpassDepth(deckMin, roadMax, u = UNDERPASS) { return Math.min(u.maxDepth, Math.max(0, u.clear + u.deck - (deckMin - roadMax))); }
+export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidth / Math.max(0.3, sin) + u.apron; }
+
+export function cutDepthAt(c, x, z, u = UNDERPASS) {
+  if (c.depth <= 0) return 0;
+  const n = nearestOnPolyline(c.pts, x, z), s = Math.abs(n.t - c.t), ramp = c.depth / u.grade, inner = c.hw + u.margin;
+  const along = s <= c.flat ? 1 : Math.max(0, 1 - (s - c.flat) / ramp);
+  const side = n.d <= inner ? 1 : Math.max(0, 1 - (n.d - inner) / (c.depth * u.bank));
+  return c.depth * along * side;
+}
+
+export function cutBounds(c, u = UNDERPASS) {
+  const ext = c.flat + c.depth / u.grade, pad = c.hw + u.margin + c.depth * u.bank, n = Math.max(1, Math.ceil(2 * ext / 2));
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (let k = 0; k <= n; k++) { const [x, z] = pointAtLength(c.pts, c.t - ext + 2 * ext * k / n); x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
+  return [x0 - pad, z0 - pad, x1 + pad, z1 + pad];
+}
+
+export function patchCells([bx0, bz0, bx1, bz1], G) {
+  const cl = (v, n) => Math.max(0, Math.min(n - 1, v)), out = [];
+  const i0 = cl(Math.floor((bx0 - G.x0) / G.dx), G.nx), i1 = cl(Math.floor((bx1 - G.x0) / G.dx), G.nx);
+  const j0 = cl(Math.floor((bz0 - G.z0) / G.dz), G.nz), j1 = cl(Math.floor((bz1 - G.z0) / G.dz), G.nz);
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) out.push([i, j]);
+  return out;
+}
+
+export function triLerp(ha, hb, hc, hd, u, v) { return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v); }
 // An OSM bridge is ground for a query at height y only from 1.5 m below its surface upward: a car on the road underneath an overpass
 // is not snapped onto the deck. Callers that pass no height (placement code) keep the plain 2D test.
 export function bridgeAccepts(surface, y) { return y === undefined || y >= surface - 1.5; }
