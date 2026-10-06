@@ -238,7 +238,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, underpassDepth, cutFlat, cutDepthAt, cutBounds, patchCells, triLerp } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
@@ -407,7 +407,7 @@ const L = WORLD && WORLD.format === 'MMW1' ? layoutFromWorld(WORLD) : null;
 const SDF = L ? sdfSampler(L.sdf) : null, WATER = L ? waterIndex(L.water) : null;
 if (L) { ROADS = L.roads; BRIDGES = []; }
 for (const r of ROADS) for (let i = 0; i < r.pts.length - 1; i++) gridAddSegment(ROAD_GRID, ...r.pts[i], ...r.pts[i + 1], r.w / 2 + 2, { r, i });
-const OSM_BRIDGES = [], BRIDGE_GRID = makeGrid(32);
+const OSM_BRIDGES = [], RAIL_DECKS = [], BRIDGE_GRID = makeGrid(32);
 if (L) for (const r of L.bridges) {
   const len = polylineLength(r.pts), kind = L.anchors.landmarks.holzbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.holzbruecke.x, L.anchors.landmarks.holzbruecke.z).d < 15 ? 'wood'
     : L.anchors.landmarks.fridolinsbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.fridolinsbruecke.x, L.anchors.landmarks.fridolinsbruecke.z).d < 15 ? 'stone' : 'generic';
@@ -418,6 +418,11 @@ if (L) for (const r of L.bridges) {
 // #78: a hero piece grows along same-named generic bridge pieces sharing an endpoint (the Fridolinsbrücke is four OSM ways); rail decks (#76) never join.
 // The grid entries keep the old, wider hw -- it is only the broad phase.
 for (const kind of ['wood', 'stone']) { const seed = OSM_BRIDGES.findIndex(b => b.kind === kind); if (seed < 0) continue; for (const i of bridgeChain(OSM_BRIDGES.map(b => ({ name: b.r.n, kind: b.kind, pts: b.r.pts })), seed)) if (OSM_BRIDGES[i].kind === 'generic') Object.assign(OSM_BRIDGES[i], { kind, hw: kind === 'wood' ? 2.6 : 4.2 }); }
+if (L) for (const rb of L.railBridges) {
+  const b = { r: { pts: rb.pts, w: 5.5 }, len: polylineLength(rb.pts), hw: 2.75, kind: 'rail', layer: rb.layer, h0: 0, h1: 0 };
+  OSM_BRIDGES.push(b); RAIL_DECKS.push(b);
+  for (let i = 0; i < rb.pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...rb.pts[i], ...rb.pts[i + 1], b.hw * 2, b);
+}
 // end heights need terrainH (REAL is parsed above); filled before anything calls groundH
 let STONE_AXIS = null;   // #78: the stone chain's deck line, bank point -> bank point, once the chain is a two-bank crossing
 // #78: roads (no bridges, none in skip) with an endpoint within 0.5 m of p, each oriented away from p
@@ -460,12 +465,19 @@ function realH(x, z) { const { hdr, data } = REAL; const fx = (x - hdr.x0) / hdr
 // The ground is drawn as a grid mesh (16 m cells); terrainH returns exactly that mesh surface, so the car, roads, fields and
 // buildings sit on what is drawn. baseH is the underlying height model, sampled only at the grid vertices.
 const TGRID = (() => { const TB = L ? { x0: L.sdf.x0, z0: L.sdf.z0, x1: L.sdf.x0 + (L.sdf.w - 1) * L.sdf.step, z1: L.sdf.z0 + (L.sdf.h - 1) * L.sdf.step } : null; const GW = TB ? TB.x1 - TB.x0 : 6400, GD = TB ? TB.z1 - TB.z0 : 3800, nx = TB ? Math.round(GW / 16) : 400, nz = TB ? Math.round(GD / 16) : 240; return { GW, GD, nx, nz, x0: (TB ? (TB.x0 + TB.x1) / 2 : 0) - GW / 2, z0: (TB ? (TB.z0 + TB.z1) / 2 : 60) - GD / 2, dx: GW / nx, dz: GD / nz, h: null }; })();
-function terrainH(x, z) {
+const CUT_N = 8, CUT_CELLS = new Map(), CUTS = [];
+function meshH(x, z) {
   const G = TGRID; const fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz; if (fx < 0 || fz < 0 || fx > G.nx || fz > G.nz) return baseH(x, z);
   if (!G.h) { G.h = new Float32Array((G.nx + 1) * (G.nz + 1)); for (let j = 0; j <= G.nz; j++) for (let i = 0; i <= G.nx; i++) G.h[j * (G.nx + 1) + i] = baseH(G.x0 + i * G.dx, G.z0 + j * G.dz); }
   // same split as THREE.PlaneGeometry: triangles (a,b,d) and (b,c,d) with a = (i,j), b = (i,j+1), c = (i+1,j+1), d = (i+1,j)
   const i = Math.min(Math.floor(fx), G.nx - 1), j = Math.min(Math.floor(fz), G.nz - 1), u = fx - i, v = fz - j, W1 = G.nx + 1; const ha = G.h[j * W1 + i], hb = G.h[(j + 1) * W1 + i], hc = G.h[(j + 1) * W1 + i + 1], hd = G.h[j * W1 + i + 1];
   return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v);
+}
+function terrainH(x, z) {
+  const key = `${Math.floor((x - TGRID.x0) / TGRID.dx)},${Math.floor((z - TGRID.z0) / TGRID.dz)}`;
+  const patch = CUT_CELLS.get(key);
+  if (patch) return triLerp(x, z, patch.tris);
+  return meshH(x, z);
 }
 function baseH(x, z) {
   if (REAL) return L ? realH(x, z) : Math.max(0, realH(x, z)) * sm((riverDist(x, z) + 5) / 30);
@@ -478,6 +490,22 @@ function baseH(x, z) {
   return h * sm((riverDist(x, z) - 40) / (SDF ? 80 : 160));         // flat towards the water; the SDF is clamped at 120 m, so blend shorter there
 }
 fillBridgeHeights();
+if (L && L.railBridges) for (const rb of railRoadCrossings(L.railBridges, ROADS)) {
+  const d = underpassDepth(rb.roadH, rb.railH), bd = cutBounds(rb.x, rb.z, rb.railDim, d);
+  if (d > 0.1) {
+    CUTS.push({ x: rb.x, z: rb.z, d, bd });
+    for (const [i, j] of patchCells(bd, TGRID)) {
+      const key = `${i},${j}`;
+      if (!CUT_CELLS.has(key)) {
+        const x0 = TGRID.x0 + i * TGRID.dx, z0 = TGRID.z0 + j * TGRID.dz;
+        const [x1, z1] = [x0 + TGRID.dx, z0 + TGRID.dz];
+        const h00 = meshH(x0, z0), h10 = meshH(x1, z0), h01 = meshH(x0, z1), h11 = meshH(x1, z1);
+        const tris = cutFlat([x0, z0, h00, x1, z0, h10, x1, z1, h11, x0, z1, h01], CUTS, CUT_N);
+        if (tris.length) CUT_CELLS.set(key, { tris });
+      }
+    }
+  }
+}
 // water surface at (x, z) for an object at height y, null on land or on a bridge; the river bed is 3 m under it (groundH)
 function waterLevelAt(x, z, y) { if (onBridge(x, z, y)) return null; const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null || !L) return wl; const sh = streamH(x, z); return sh > -Infinity && roadSurfH(x, z) === -Infinity ? sh : null; }
 // roundabouts drawn so far: groundH lifts the car onto the cobble apron (radius 11.6, top 0.375 m) instead of sinking into it
@@ -568,7 +596,7 @@ function pushOBB(o) { OBB.push(o); const e = o.hw + o.hd; gridAdd(OBB_GRID, o.x 
 // Exact for any threshold <= reach: segments were inserted with r.w/2+2 padding, so every segment within `reach` is found; beyond that 1e9 compares like the true distance.
 // distance to the nearest railway centre line (trees and fields keep off the track)
 let RAIL_GRID = null;   // built on first use (RAIL_PTS is defined further down)
-function railDist(x, z) { if (!RAIL_GRID) { RAIL_GRID = makeGrid(64); for (const pts of (L ? L.rail : [RAIL_PTS])) for (let i = 0; i < pts.length - 1; i++) gridAddSegment(RAIL_GRID, ...pts[i], ...pts[i + 1], 12, [pts[i], pts[i + 1]]); } let m = 1e9; for (const [a, b] of gridQuery(RAIL_GRID, x, z, 1)) m = Math.min(m, segDist(x, z, ...a, ...b)); return m; }
+function railDist(x, z) { if (!RAIL_GRID) { RAIL_GRID = makeGrid(64); for (const pts of (L ? [...L.rail, ...L.railBridges.map(rb => rb.pts)] : [RAIL_PTS])) for (let i = 0; i < pts.length - 1; i++) gridAddSegment(RAIL_GRID, ...pts[i], ...pts[i + 1], 12, [pts[i], pts[i + 1]]); } let m = 1e9; for (const [a, b] of gridQuery(RAIL_GRID, x, z, 1)) m = Math.min(m, segDist(x, z, ...a, ...b)); return m; }
 function roadDist(x, z, reach = 32) { let m = 1e9; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) m = Math.min(m, segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) - r.w / 2); return m; }
 function free(x, z, rad) { if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
 const PLASTER = ['#e9dfc8', '#e5cfa8', '#d9c2a0', '#f0e6d6', '#d8c9b8', '#e8d3b0', '#cdb894', '#f2e0c0', '#dfe3d8', '#e6d4c4'];
@@ -786,7 +814,33 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
 {
   const { GW, GD } = TGRID;
   const ground = new THREE.PlaneGeometry(GW, GD, TGRID.nx, TGRID.nz); ground.rotateX(-Math.PI / 2); ground.translate(TGRID.x0 + GW / 2, 0, TGRID.z0 + GD / 2);
-  { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3), lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'); for (let i = 0; i < p.count; i++) { const h = terrainH(p.getX(i), p.getZ(i)); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); const t = sm(h / 90); const c = t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); } parts.grass = [ground.toNonIndexed()];
+  { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3), lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'); for (let i = 0; i < p.count; i++) { const h = meshH(p.getX(i), p.getZ(i)); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); const t = sm(h / 90); const c = t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); }
+  const keepTris = (g) => { const pos = g.attributes.position, idx = g.index, drop = new Set(); if (idx) for (let t = 0; t < idx.count; t += 3) { const a = idx.getX(t), b = idx.getX(t + 1), c = idx.getX(t + 2); const cx = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3, cz = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3; for (const cut of CUTS) if (Math.hypot(cx - cut.x, cz - cut.z) < cut.bd.r) drop.add(t); } else for (let t = 0; t < pos.count; t += 3) { const cx = (pos.getX(t) + pos.getX(t + 1) + pos.getX(t + 2)) / 3, cz = (pos.getZ(t) + pos.getZ(t + 1) + pos.getZ(t + 2)) / 3; for (const cut of CUTS) if (Math.hypot(cx - cut.x, cz - cut.z) < cut.bd.r) drop.add(t); } if (drop.size) { const nPos = [], nUv = [], nCol = []; const col = g.attributes.color; if (idx) for (let t = 0; t < idx.count; t += 3) { if (drop.has(t)) continue; for (const i of [t, t + 1, t + 2]) { const ai = idx.getX(i); nPos.push(pos.getX(ai), pos.getY(ai), pos.getZ(ai)); nUv.push(uv.getX(i), uv.getY(i)); nCol.push(col.getX(ai), col.getY(ai), col.getZ(ai)); } } else for (let t = 0; t < pos.count; t += 3) { if (drop.has(t)) continue; for (const i of [t, t + 1, t + 2]) { nPos.push(pos.getX(i), pos.getY(i), pos.getZ(i)); nUv.push(uv.getX(i), uv.getY(i)); nCol.push(col.getX(i), col.getY(i), col.getZ(i)); } } const ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nPos), 3)); ng.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(nUv), 2)); ng.setAttribute('color', new THREE.BufferAttribute(new Float32Array(nCol), 3)); ng.computeVertexNormals(); return ng; } return g; };
+  const groundMeshes = [keepTris(ground.toNonIndexed())];
+  for (const [key, patch] of CUT_CELLS) {
+    const [si, sj] = key.split(',').map(Number);
+    const x0 = TGRID.x0 + si * TGRID.dx, z0 = TGRID.z0 + sj * TGRID.dz;
+    const [x1, z1] = [x0 + TGRID.dx, z0 + TGRID.dz];
+    const g = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N);
+    g.rotateX(-Math.PI / 2);
+    g.translate(x0 + TGRID.dx / 2, 0, z0 + TGRID.dz / 2);
+    const p = g.attributes.position, u = g.attributes.uv;
+    for (let i = 0; i < p.count; i++) {
+      const h = triLerp(p.getX(i), p.getZ(i), patch.tris);
+      p.setY(i, h);
+      u.setXY(i, u.getX(i) * TGRID.dx / 20, u.getY(i) * TGRID.dz / 20);
+    }
+    const cArr = new Float32Array(p.count * 3), lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35');
+    for (let i = 0; i < p.count; i++) {
+      const h = p.getY(i), t = sm(h / 90);
+      const c = t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2);
+      cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(cArr, 3));
+    g.computeVertexNormals();
+    groundMeshes.push(g);
+  }
+  parts.grass = groundMeshes;
   // streams: water draped on the ground like a road (a flat level cannot follow a stream that falls 25 m), 2 cm under road height
   if (L) for (const st of L.streams) { const g = ribbonGeo(st.pts, st.w / 2, 0.02, 6, true); colorize(g, col('#ffffff')); push('water', g); g.userData.surf.name = st.name; registerSurface(g.userData.surf, STREAM_GRID); }
   // fields: the whole rotated rectangle must stay off roads and the river, and it is draped on the terrain
@@ -851,7 +905,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   for (const b of BRIDGES) heroBridge(b, (t) => bridgeProfile(b, t), b.kind === 'stone' ? -5 : -4.5);
   // OSM: one straight hero span per kind, between the two farthest-apart points of its bridge piece(s) (the Fridolinsbrücke may be split into
   // several ways); heights come from bridgeSurfaceAt of the nearest piece, i.e. exactly what groundH uses. Generic bridges stay flat strips.
-  { const heroes = {}; for (const ob of OSM_BRIDGES) if (ob.kind === 'wood' || ob.kind === 'stone') (heroes[ob.kind] ||= []).push(ob);
+  { const heroes = {}; for (const ob of OSM_BRIDGES) if (ob.kind !== 'generic' && ob.kind !== 'rail') (heroes[ob.kind] ||= []).push(ob);
     for (const kind in heroes) {
       if (kind === 'stone' && STONE_AXIS) { heroStone(heroes.stone); continue; }
       const pcs = heroes[kind], all = pcs.flatMap(p => p.r.pts); let a = all[0], e = all[1], best = -1;
@@ -867,6 +921,11 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     strip(pts, b.r.w, 0, b.kind === 'wood' ? 'wood' : 'roadOsm', col('#ffffff'), 8, hs);
     strip(pts, b.r.w + 1.2, -0.6, b.kind === 'wood' ? 'wood' : 'stone', col('#c8c2b6'), 4, hf);
     for (const s of [-1, 1]) strip(offsetPolyline(pts, s * (b.r.w / 2 + 0.3)), 0.35, 0.9, b.kind === 'wood' ? 'wood' : 'stone', col('#d8d2c6'), 4, hs);
+  }
+  for (const b of RAIL_DECKS) {
+    const pts = resample(b.r.pts, 5), hf = (x, z) => bridgeDeckAt(b, nearestOnPolyline(b.r.pts, x, z).t);
+    strip(pts, b.r.w, 0, 'stone', col('#c8c2b6'), 4, hf);
+    strip(pts, b.r.w, 0.06, 'rail', col('#ffffff'), 4, (x, z) => hf(x, z) + 0.06);
   }
   // railway Basel–Koblenz line (stand-in) and the two stations
   // level crossings: the track lies on the road surface where it crosses one, else on the terrain
@@ -927,6 +986,9 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   sign('Bad Säckingen', 'de', 470, 466, -100); sign('Bad Säckingen', 'de', 402, 706, -90); sign('Bad Säckingen', 'de', 1500, 145, -90);
   }
 }
+window.__mm.cutDepth = (x, z) => { for (const c of CUTS) if (Math.hypot(x - c.x, z - c.z) < c.bd.r) return c.d; return 0; };
+window.__mm.crossings = () => CUTS;
+window.__mm.rayHits = (x, z) => [...gridQuery(BRIDGE_GRID, x, z, 5)].map(o => o.r || o.sf || o).filter(o => o);
 
 // ---------- scene ----------
 const canvas = document.getElementById('gl');
