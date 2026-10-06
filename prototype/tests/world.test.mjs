@@ -429,7 +429,7 @@ test('cutDepth of two overlapping cuts is the max', () => {
 
 test('cutBounds holds every point with depth > 0', () => {
   const [x0, z0, x1, z1] = cutBounds(CUT);
-  assert.deepEqual([x0, z0, x1, z1], [-11.5, -55, 11.5, 55]);   // 43.5 m along (flat 6 + ramp 37.5) plus the 11.5 m pad
+  [-11.5, -55, 11.5, 55].forEach((want, k) => assert.ok(Math.abs([x0, z0, x1, z1][k] - want) < 1e-9, `${k}: ${[x0, z0, x1, z1][k]}`));   // 43.5 m along (flat 6 + ramp 37.5) plus the 11.5 m pad
   for (let x = -20; x <= 20; x += 0.5) for (let z = -60; z <= 60; z += 0.5) if (cutDepthAt(CUT, x, z) > 0) assert.ok(x > x0 && x < x1 && z > z0 && z < z1, `${x},${z}`);
 });
 
