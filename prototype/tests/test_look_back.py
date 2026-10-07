@@ -47,8 +47,8 @@ def test_hold_b_looks_back_in_the_chase_view(server):
 
 
 @pytest.mark.parametrize("presses,back_d,normal_d", [
-    (2, [-0.325, 1.586, 0.494], [0.325, 1.586, 0.494]),    # cockpit: eye (-0.25, 1.22, -0.38) * 1.3, forward offset mirrored, driver stays left
-    (3, [3.055, 0.715, 0.0], [-3.055, 0.715, 0.0]),        # bumper (2.35, 0.55, 0) * 1.3 -> rear bumper
+    (2, [-0.25, 1.22, 0.38], [0.25, 1.22, 0.38]),          # cockpit: eye (-0.25, 1.22, -0.38) * 1.0, forward offset mirrored, driver stays left
+    (3, [2.35, 0.55, 0.0], [-2.35, 0.55, 0.0]),            # bumper (2.35, 0.55, 0) * 1.0 -> rear bumper
 ])
 def test_hold_b_looks_back_from_the_eye_views(server, presses, back_d, normal_d):
     with sync_playwright() as p:

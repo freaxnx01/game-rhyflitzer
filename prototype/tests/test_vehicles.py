@@ -13,15 +13,17 @@ GOLDEN_JS = """() => { const m = window.__mm, X = 1882.9, Z = -292.2, TH = Math.
     handbrake: pick(m.sim(X, Z, TH, 15, 2, ['KeyW', 'KeyD', 'ControlLeft'])), coast: pick(m.sim(X, Z, TH, 20, 3, [])),
     brakeReverse: pick(m.sim(X, Z, TH, 10, 4, ['KeyS'])), kreisel: pick(m.sim(KX + 30, KZ, Math.PI, 12, 4)) }; }"""
 
-# [x, z, speed] recorded on main @ 6d29cb8 (unchanged code) -- the refactor must reproduce them to 1e-6
+# [x, z, speed] recorded on main @ 6d29cb8 (unchanged code) -- the refactor must reproduce them to 1e-6.
+# nitro and kreisel re-recorded for #69 (compact.scale 1.3 -> 1.0, collision radius 1.69 -> 1.3 m): the smaller car
+# passes the first obstacle on the nitro straight and bounces off the Kreisel island 0.39 m later. The other five never touch anything.
 GOLDEN = {
     "gas": [1803.968653733491, -292.2, 31.468025543467167],
-    "nitro": [1746.6700469774994, -290.3246922497351, 41.015723512960825],
+    "nitro": [1739.232868382405, -290.63114851912127, 46.21729428938969],
     "turn": [1882.5171647865836, -267.454153955126, 21.604638849512714],
     "handbrake": [1873.6407168218582, -300.736676160143, 5.796862538598718],
     "coast": [1834.6722120583554, -292.2, 12.614475983585198],
     "brakeReverse": [1916.5585419172364, -292.2, 13.990973001690463],
-    "kreisel": [1219.3204826373772, -127, 0.23503098219921587],
+    "kreisel": [1218.7183244804414, -127, 1.0311994537196747],
 }
 
 
@@ -92,7 +94,7 @@ def test_table_top_speed_is_used(server):
 
 
 def test_table_collision_radius_scales(server):
-    """A standing car 11.8 m from the island centre (island 9.5): compact (radius 1.69) is free; at scale 2
+    """A standing car 11.8 m from the island centre (island 9.5): compact (radius 1.3) is free; at scale 2
     (radius 2.6) it is pushed out to 12.1 m."""
     stand = "() => { const r = window.__mm.sim(1218.3, -127, Math.PI / 2, 0, 0.1, []); return Math.hypot(r.x - 1206.5, r.z + 127); }"
     with sync_playwright() as p:
@@ -120,7 +122,7 @@ def test_table_mass_softens_the_crash(server):
 
 def test_table_cockpit_eye_is_used(server):
     """Cockpit view, car at START heading pi (forward = -x, right = -z): the camera sits at the scaled eye.
-    compact eye (-0.25, 1.22, -0.38) * 1.3; a moved eye (0.5, 1.5, -0.38) * 1.3. The swap mid-race keeps the car hidden."""
+    compact eye (-0.25, 1.22, -0.38) * 1.0; a moved eye (0.5, 1.5, -0.38) * 1.0. The swap mid-race keeps the car hidden."""
     with sync_playwright() as p:
         b, page = open_hand(p, server)
         page.click("#startbtn", timeout=180000)
@@ -131,8 +133,8 @@ def test_table_cockpit_eye_is_used(server):
         visible = page.evaluate("() => window.__mm.hud().carVisible")
         b.close()
     assert before["view"] == 2 and after["view"] == 2
-    assert before["d"] == pytest.approx([0.325, 1.586, 0.494], abs=1e-3), before
-    assert after["d"] == pytest.approx([-0.65, 1.95, 0.494], abs=1e-3), after
+    assert before["d"] == pytest.approx([0.25, 1.22, 0.38], abs=1e-3), before
+    assert after["d"] == pytest.approx([-0.5, 1.5, 0.38], abs=1e-3), after
     assert visible is False
 
 
@@ -191,4 +193,36 @@ def test_set_vehicle_keeps_its_own_copy(server):
         got = page.evaluate("""() => { const c = window.__mm.vehicles().compact; window.__mm.setVehicle(c);
           c.drive.top = 999; c.collision.shape = 'obb'; c.scale = 5; return window.__mm.vehicle(); }""")
         b.close()
-    assert got["drive"]["top"] == 60 and got["collision"]["shape"] == "circle" and got["scale"] == 1.3, got
+    assert got["drive"]["top"] == 60 and got["collision"]["shape"] == "circle" and got["scale"] == 1.0, got
+
+
+def test_compact_car_is_true_to_size(server):
+    """#69: the compact is drawn at real size -- 4.66 m long (body outline +-2.26 m plus the 0.07 m bevel), 2.18 m over
+    the mirrors, 1.55 m high -- and fits a 2.5 x 5.0 m parking bay (pipeline/world_parking.py BAY_W, BAY_D)."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        scale = page.evaluate("() => window.__mm.vehicle().scale")
+        size = page.evaluate("() => window.__mm.carSize()")
+        b.close()
+    assert scale == 1.0
+    assert size["l"] == pytest.approx(4.66, abs=0.02), size
+    assert size["w"] == pytest.approx(2.18, abs=0.02), size
+    assert size["h"] == pytest.approx(1.55, abs=0.02), size
+    assert size["l"] < 5.0 and size["w"] < 2.5, size
+
+
+@pytest.mark.parametrize("presses,dist,h", [(0, 6.9, 2.6), (1, 4.6, 1.85)])
+def test_chase_cameras_sit_closer_to_the_true_size_car(server, presses, dist, h):
+    """#69: chase/near distances are world metres. With the car at real size they move in by 1/1.3, so the car keeps
+    its on-screen size (6.9 / 4.66 m ~ 9 / 6.06 m). The camera is smoothed: wait for arrival, never a fixed sleep."""
+    arrived = (f"() => {{ const c = window.__mm.cam(); return c.view === {presses} && Math.abs(Math.hypot(c.d[0], c.d[2]) - {dist}) < 0.1"
+               f" && Math.abs(c.d[1] - {h}) < 0.1; }}")
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        table = page.evaluate("() => window.__mm.vehicle().camera")
+        assert table["chase"] == {"dist": 6.9, "h": 2.6} and table["near"] == {"dist": 4.6, "h": 1.85}, table
+        page.click("#startbtn", timeout=180000)
+        for _ in range(presses):
+            page.keyboard.press("KeyC")
+        page.wait_for_function(arrived, timeout=120000)
+        b.close()
