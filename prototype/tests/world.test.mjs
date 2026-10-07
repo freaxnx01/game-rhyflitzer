@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, underpassDepth, cutFlat, cutDepthAt, cutBounds, patchCells, triLerp } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, patchCells, triLerp } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -396,11 +396,9 @@ test('railRoadCrossings: a rail bridge over a lower, non-bridge road only', () =
   assert.equal(railRoadCrossings([road({ layer: undefined })], rb).length, 1);      // untagged road is layer 0
 });
 
-test('underpassDepth keeps 4.5 m under a 1.2 m deck, never negative, at most 6 m', () => {
-  assert.ok(Math.abs(underpassDepth(20, 15) - 0.7) < 1e-9);
-  assert.equal(underpassDepth(25, 15), 0);
-  assert.ok(Math.abs(underpassDepth(16, 15) - 4.7) < 1e-9);
-  assert.equal(underpassDepth(10, 15), UNDERPASS.maxDepth);
+test('cutFloorTarget keeps 4.5 m plus the road lift under a 1.2 m deck, at most 6 m below the ground', () => {
+  assert.ok(Math.abs(cutFloorTarget(20, 15) - (20 - 1.2 - 4.5 - 0.04)) < 1e-9);
+  assert.equal(cutFloorTarget(10, 15), 15 - UNDERPASS.maxDepth);
 });
 
 test('cutFlat covers the deck footprint on the road plus the apron, skew-limited', () => {
@@ -408,29 +406,46 @@ test('cutFlat covers the deck footprint on the road plus the apron, skew-limited
   assert.ok(Math.abs(cutFlat(2.75, 0.1) - (2.75 / 0.3 + 3)) < 1e-9);
 });
 
-const CUT = { pts: [[0, -100], [0, 100]], t: 100, hw: 4.5, flat: 6, depth: 3 };   // ramp = 3 / 0.08 = 37.5 m, bank 3 m
-test('cutDepthAt: full under the deck, 8 % ramps along the road, 1:1 banks beside it', () => {
-  assert.equal(cutDepthAt(CUT, 0, 0), 3);
-  assert.equal(cutDepthAt(CUT, 0, 6), 3);
-  assert.ok(Math.abs(cutDepthAt(CUT, 0, 6 + 18.75) - 1.5) < 1e-9);
-  assert.equal(cutDepthAt(CUT, 0, 50), 0);
-  assert.equal(cutDepthAt(CUT, 5.5, 0), 3);
-  assert.ok(Math.abs(cutDepthAt(CUT, 7, 0) - 1.5) < 1e-9);
-  assert.equal(cutDepthAt(CUT, 8.6, 0), 0);
-  assert.equal(cutDepthAt({ ...CUT, depth: 0 }, 0, 0), 0);
+test('junctionCap raises the floor so the ramp meets each junction at its own ground', () => {
+  assert.deepEqual(junctionCap(10, 6, []), { f0: 10, capped: null });
+  assert.deepEqual(junctionCap(10, 6, [{ s: 50, ground: 12 }]), { f0: 10, capped: null });   // 12 - 0.08 * 44 = 8.48: the ramp is already up
+  const one = junctionCap(10, 6, [{ s: 20, ground: 13 }]);                                    // 13 - 0.08 * 14 = 11.88
+  assert.ok(Math.abs(one.f0 - 11.88) < 1e-9); assert.equal(one.capped.s, 20);
+  const two = junctionCap(10, 6, [{ s: 20, ground: 13 }, { s: -10, ground: 12 }]);           // the second: 12 - 0.32 = 11.68
+  assert.ok(Math.abs(two.f0 - 11.88) < 1e-9); assert.equal(two.capped.s, 20);
+  const inBand = junctionCap(10, 6, [{ s: -4, ground: 12.5, end: true }]);                    // a piece end under the deck: no cut there at all
+  assert.equal(inBand.f0, 12.5); assert.equal(inBand.capped.end, true);
 });
 
-test('cutDepth of two overlapping cuts is the max', () => {
-  const other = { ...CUT, t: 107 };
-  const both = (x, z) => Math.max(cutDepthAt(CUT, x, z), cutDepthAt(other, x, z));
-  assert.equal(both(0, 3.5), 3);
-  for (let z = -60; z <= 60; z += 0.5) assert.ok(both(0, z) <= 3 + 1e-9);
+const CUT = { pts: [[0, -100], [0, 100]], t: 100, hw: 4.5, flat: 6, f0: 10, reach: [30, 40] };   // crossing at z = 0
+test('cutFloor is level under the deck band and ramps out at 8 %', () => {
+  assert.equal(cutFloor(CUT, 0), 10);
+  assert.equal(cutFloor(CUT, -6), 10);
+  assert.ok(Math.abs(cutFloor(CUT, 16) - 10.8) < 1e-9);
+  assert.ok(Math.abs(cutFloor(CUT, -16) - 10.8) < 1e-9);
 });
 
-test('cutBounds holds every point with depth > 0', () => {
+test('cutReach ends each side where the floor meets the ground, at most flat + maxDepth / grade', () => {
+  const c = { ...CUT, reach: undefined };
+  assert.deepEqual(cutReach(c, (s) => (s >= 0 ? 12.4 : 10.4)), [11, 36]);   // behind: 6 + 0.4 / 0.08, ahead: 6 + 2.4 / 0.08
+  assert.deepEqual(cutReach(c, () => 100), [81, 81]);
+  assert.deepEqual(cutReach(c, () => 9), [0, 0]);                        // the deck is high enough: no cut
+});
+
+test('cutFloorAt: the floor inside the corridor (to the middle of the wall) and the reach, else null', () => {
+  assert.equal(cutFloorAt(CUT, 0, 0), 10);
+  assert.equal(cutFloorAt(CUT, 6.5, 0), 10);                             // hw 4.5 + margin 1 + wall / 2
+  assert.equal(cutFloorAt(CUT, 6.6, 0), null);
+  assert.ok(Math.abs(cutFloorAt(CUT, 0, 31) - 12) < 1e-9);
+  assert.equal(cutFloorAt(CUT, 0, -31), null);
+  assert.ok(Math.abs(cutFloorAt(CUT, 0, 40) - 12.72) < 1e-9);
+  assert.equal(cutFloorAt(CUT, 0, 40.5), null);
+});
+
+test('cutBounds holds every point with a floor, padded by the wall and one cell', () => {
   const [x0, z0, x1, z1] = cutBounds(CUT);
-  [-8.5, -52, 8.5, 52].forEach((want, k) => assert.ok(Math.abs([x0, z0, x1, z1][k] - want) < 1e-9, `${k}: ${[x0, z0, x1, z1][k]}`));   // 43.5 m along (flat 6 + ramp 37.5) plus the 8.5 m pad
-  for (let x = -20; x <= 20; x += 0.5) for (let z = -60; z <= 60; z += 0.5) if (cutDepthAt(CUT, x, z) > 0) assert.ok(x > x0 && x < x1 && z > z0 && z < z1, `${x},${z}`);
+  [-8.5, -38.5, 8.5, 48.5].forEach((want, k) => assert.ok(Math.abs([x0, z0, x1, z1][k] - want) < 1e-9, `${k}: ${[x0, z0, x1, z1][k]}`));   // reach plus hw 4.5 + margin 1 + wall 2 + 1
+  for (let x = -20; x <= 20; x += 0.5) for (let z = -60; z <= 60; z += 0.5) if (cutFloorAt(CUT, x, z) !== null) assert.ok(x > x0 && x < x1 && z > z0 && z < z1, `${x},${z}`);
 });
 
 test('patch cells cover the whole footprint (clamped to the grid)', () => {

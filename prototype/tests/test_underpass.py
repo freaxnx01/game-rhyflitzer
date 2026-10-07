@@ -78,5 +78,7 @@ def test_every_underpass_has_headroom(server):
     xs = run(server, lambda page: page.evaluate("() => window.__mm.crossings()"))
     print(json.dumps(xs, indent=1))
     assert len(xs) >= 2
-    bad = [c for c in xs if (c["clearance"] < 4.45 and c["depth"] < 5.99) or c["railGap"] >= 0.5]
+    # #119: a cut capped by a junction or road-piece end keeps the side road connected and only has to let a car through
+    bad = [c for c in xs if (c["clearance"] < (2.0 if c["capped"] else 4.45) and c["depth"] < 5.99) or c["railGap"] >= 0.3]
     assert not bad, bad
+    print("capped:", [(c["road"], round(c["clearance"], 2), c["capped"]) for c in xs if c["capped"]])

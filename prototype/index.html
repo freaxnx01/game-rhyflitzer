@@ -238,7 +238,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, underpassDepth, cutFlat, cutDepthAt, cutBounds, patchCells, triLerp } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, patchCells, triLerp } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
@@ -473,9 +473,10 @@ function meshH(x, z) {
   const i = Math.min(Math.floor(fx), G.nx - 1), j = Math.min(Math.floor(fz), G.nz - 1), u = fx - i, v = fz - j, W1 = G.nx + 1; const ha = G.h[j * W1 + i], hb = G.h[(j + 1) * W1 + i], hc = G.h[(j + 1) * W1 + i + 1], hd = G.h[j * W1 + i + 1];
   return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v);
 }
-// #76: 16 m cells under a road cut are replaced by a CUT_N x CUT_N patch (key 'i,j' -> heights, row-major (CUT_N+1)^2);
+// #76: 16 m cells under a road cut are replaced by a CUT_N x CUT_N patch (1 m cells, so a trough wall's step stays behind its
+// face) (key 'i,j' -> heights, row-major (CUT_N+1)^2);
 // terrainH returns the patch surface there, with the mesh's own triangle split, so everything sits on what is drawn.
-const CUT_N = 8, CUT_CELLS = new Map(), CUTS = [];
+const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], WALLS = [];
 function terrainH(x, z) {
   const G = TGRID, fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz;
   if (CUT_CELLS.size && fx >= 0 && fz >= 0 && fx <= G.nx && fz <= G.nz) {
@@ -498,24 +499,36 @@ function baseH(x, z) {
   return h * sm((riverDist(x, z) - 40) / (SDF ? 80 : 160));         // flat towards the water; the SDF is clamped at 120 m, so blend shorter there
 }
 fillBridgeHeights();
-// #76: one cut per rail-deck/road crossing, sized on the uncut mesh (meshH), then the patches for every cell a cut touches
+// #76/#119: one cut per rail-deck/road crossing, an absolute floor sized on the uncut mesh (meshH): level across the
+// corridor, ramping out until it meets the ground. Junctions and the road piece's own ends inside its reach cap it, so
+// side roads keep their ground (#120 lets them descend instead). Then the patches for every cell a cut touches.
 function makeCut(c) {
   const b = RAIL_DECKS[c.bridge], hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), span = hw / Math.max(0.3, c.sin) + 1;
   let deckMin = Infinity; for (const k of [-1, 0, 1]) deckMin = Math.min(deckMin, bridgeSurfaceAt(b, c.tRail + k * span));
-  // the drawn road follows its edges' ground plus the bulge lift, not the centre line: size the cut on the road's own ribbon,
-  // laid on the still uncut mesh (no CUT_CELLS yet, so terrainH is meshH here)
-  const sf = ribbonGeo(c.road.pts, hw, 0.04, 8, true).userData.surf;
-  let roadMax = -Infinity; for (let s = -flat; s <= flat; s += 1) { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); roadMax = Math.max(roadMax, surfaceAt(sf, x, z)); }
-  return { pts: c.road.pts, t: c.tRoad, hw, flat, depth: underpassDepth(deckMin, roadMax), x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail };
+  const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return meshH(x, z); };
+  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: cutFloorTarget(deckMin, groundAt(0)), capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin };
+  cut.reach = cutReach(cut, groundAt);
+  Object.assign(cut, junctionCap(cut.f0, flat, cutJunctions(cut)));
+  cut.reach = cutReach(cut, groundAt); cut.depth = Math.max(0, groundAt(0) - cut.f0);
+  return cut;
 }
-function cutDepth(x, z) { let d = 0; for (const c of CUTS) if (Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) d = Math.max(d, cutDepthAt(c, x, z)); return d; }
+// junctions on the cut road and the road piece's two ends, inside the current reach, with their ground
+function cutJunctions(cut) {
+  const len = polylineLength(cut.pts), out = [];
+  const add = (x, z, s, end) => { if (s >= -cut.reach[0] && s <= cut.reach[1]) out.push({ x, z, s, ground: meshH(x, z), end }); };
+  for (const [jx, jz] of L.junctions) { const n = nearestOnPolyline(cut.pts, jx, jz); if (n.d < cut.hw + 2) add(jx, jz, n.t - cut.t, false); }
+  add(...cut.pts[0], -cut.t, true); add(...cut.pts[cut.pts.length - 1], len - cut.t, true);
+  return out;
+}
+function cutFloorMin(x, z) { let f = Infinity; for (const c of CUTS) if (c.depth > 0 && Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) { const h = cutFloorAt(c, x, z); if (h !== null) f = Math.min(f, h); } return f; }
+function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
 function buildCuts() {
   for (const c of railRoadCrossings(L.roads, L.railBridges)) CUTS.push(makeCut(c));
   const G = TGRID, W = CUT_N + 1;
   for (const c of CUTS) if (c.depth > 0) for (const [i, j] of patchCells(cutBounds(c), G)) {
     const key = i + ',' + j; if (CUT_CELLS.has(key)) continue;
     const p = new Float32Array(W * W);
-    for (let b = 0; b < W; b++) for (let a = 0; a < W; a++) { const x = G.x0 + (i + a / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + a] = meshH(x, z) - cutDepth(x, z); }
+    for (let b = 0; b < W; b++) for (let a = 0; a < W; a++) { const x = G.x0 + (i + a / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + a] = Math.min(meshH(x, z), cutFloorMin(x, z)); }
     CUT_CELLS.set(key, p);
   }
 }
@@ -1217,7 +1230,7 @@ window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail), p = c.deck.r.pts, ends = [[p[0], c.deck.h0], [p[p.length - 1], c.deck.h1]];
-  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, deck, clearance: deck - UNDERPASS.deck - road,
+  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, capped: c.capped && { x: c.capped.x, z: c.capped.z, s: c.capped.s }, deck, clearance: deck - UNDERPASS.deck - road,
            railGap: Math.max(...ends.map(([[x, z], h]) => Math.abs(Math.max(terrainH(x, z), roadSurfH(x, z)) - h))) };
 });
 window.__mm.rayHits = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
