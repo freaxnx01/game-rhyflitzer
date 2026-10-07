@@ -32,6 +32,7 @@ import world_boundaries
 import world_buildings
 import world_parking
 import world_props
+import world_rail
 import world_roads
 import world_water
 
@@ -110,12 +111,10 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swisssurface3d", 0.5, "ch.swisstopo.swisssurface3d-raster"),
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swissalti3d", 2.0))
         log(f"building heights from swissSURFACE3D: {dict(hstats)}")
-    rail = [[[round(x, 1), round(z, 1)] for x, z in w.line.intersection(clip).coords]
-            for w in data.ways if w.tags.get("railway") == "rail" and w.line.intersects(clip)
-            and w.line.intersection(clip).geom_type == "LineString"]
+    rail, rail_bridges = world_rail.build(data.ways, clip)
     boundaries = world_boundaries.build(world_boundaries.read(Path(pbf), frame), clip)
     log(f"roads {len(roads)}, junctions {len(junctions)}, water {len(polys)}, buildings {len(buildings)} {stats}, "
-        f"rail {len(rail)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}, "
+        f"rail {len(rail)}, rail bridges {len(rail_bridges)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}, "
         f"boundaries {len(boundaries)}")
     return {
         "format": "MMW1",
@@ -133,6 +132,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "streams": world_water.streams(data.areas, data.ways, clip),
         "buildings": buildings,
         "rail": rail,
+        "railBridges": rail_bridges,
         "props": props,
         "parking": parking,
         "boundaries": boundaries,

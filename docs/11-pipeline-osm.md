@@ -61,6 +61,7 @@ Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two 
   "waterSdf":  { x0, z0, step, w, h, data: "<base64 int8>" },
   "buildings": [{ id, h, roof, palette, rect: [cx, cz, w, d, angle], ring: [[x, z], ...] }],
   "rail":      [[[x, z], ...]],
+  "railBridges": [{ layer, pts: [[x, z], ...] }],
   "props":     [{ kind, x, z, rot }],
   "parking":   [{ id, name?, ring: [[x, z], ...], holes?, bays, lines: [[ax, az, bx, bz], ...], sign?: [x, z, rot] }],
   "boundaries": [{ id, names: [a, b], pts: [[x, z], ...] }],
@@ -72,7 +73,7 @@ Coordinates are game metres (x east, z south), rounded to 0.1 m; `props[].rot` i
 
 ## Rules
 
-**Roads.** Drivable OSM highways (motorway down to service roads; footways only when they are bridges; tunnels, driveways and parking aisles skipped), split into pieces where tags change. Width from the `width` tag, else a default per class (motorway 14 m, primary 9 m, residential 5.5 m, service 4 m). Junctions come from shared nodes. Bridges carry `bridge: true` and a `layer`.
+**Roads.** Drivable OSM highways (motorway down to service roads; footways only when they are bridges; tunnels, driveways and parking aisles skipped), split into pieces where tags change. Width from the `width` tag, else a default per class (motorway 14 m, primary 9 m, residential 5.5 m, service 4 m). Junctions come from shared nodes. Bridges carry `bridge: true` and a `layer`. Railway bridges (`railway=rail` with a `bridge` tag) leave `rail` and go to `railBridges` with their `layer` (1 when untagged); pieces that share an endpoint are merged per layer. The prototype lifts them onto rail decks and cuts the road underneath (#76).
 
 **Buildings.** Kept if within **30 m** of a main road (trunk, primary, secondary, tertiary and links), plus every building of **1,000 m²** or more, wherever it stands, so Sisslerfeld does not go empty. Dropped: `roof`, `carport`, `construction`, `ruins`, footprints under 20 m², and the footprints listed in `exclude_buildings` in `anchors.json` (the DSM chimney, the DSM water tower and the Plattform Sisslerfeld; a fourth id there, the Holzbrücke, is a `man_made=bridge` and not a building). Height from `height` (80 % is walls), else `building:levels` × 3 m, else a default per type; the pipeline applies no height floor, the prototype clamps flat buildings to at least 3 m. Gable roof if the footprint is under 250 m² and at least 85 % of its rotated rectangle, otherwise flat; for measured buildings the ridge overrides this (see Building heights). Buildings inside DSM-Firmenich get the industrial palette. Real roofs come in step 3.
 
