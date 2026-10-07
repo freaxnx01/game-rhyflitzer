@@ -38,3 +38,12 @@ and moves those pieces out of `rail`) → update PR #117 body, merge.
 - `GH_TOKEN` in the session env is invalid: run `gh`/`git push` with `unset GH_TOKEN` (stored gh login works).
 - Browser tests: `cd pipeline && systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMax=0 /home/freax/repos/github/freaxnx01/public/game-rhyflitzer/pipeline/.venv/bin/python -m pytest ../prototype/tests/test_underpass.py -q -s` (foreground, ~90 s).
 - In flight elsewhere: #106 (Navi) dispatched to the pipeline; #107 waits on #106.
+
+## Outcome (2026-10-07)
+
+- Clearance: `makeCut` sizes the cut on the road's own ribbon (built on the uncut mesh), not `meshH` on the centre line —
+  Laufenburgerstrasse's ~2.2 m cross slope put the drawn centre ~0.5 m higher.
+- railGap: `UNDERPASS.bank` 2 → 1; at depth 3.1 a 1:2 bank reached the deck's east ends 10.85 m from the road.
+- `test_underpass.py` green on main's world (injected Laufenburgerstrasse); golden 16 passed; targeted smoke regression green.
+- World **not** rebuilt in #117: on the rebuilt world 9 of 16 crossings need 5–6 m cuts and fail railGap even with 1:1
+  banks. Abutment walls + rebuild + changelog moved to #119.
