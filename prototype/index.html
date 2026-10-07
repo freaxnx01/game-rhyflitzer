@@ -1235,6 +1235,7 @@ window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.vehicle = () => structuredClone(VEH);
+window.__mm.carSize = () => { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; };   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
 window.__mm.setVehicle = (def) => { setVehicle(def); };
 window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z] }; };   // back/look: #65
