@@ -82,3 +82,34 @@ def test_every_underpass_has_headroom(server):
     bad = [c for c in xs if (c["clearance"] < (2.0 if c["capped"] else 4.45) and c["depth"] < 5.99) or c["railGap"] >= 0.3]
     assert not bad, bad
     print("capped:", [(c["road"], round(c["clearance"], 2), c["capped"]) for c in xs if c["capped"]])
+
+
+@needs_world
+def test_trough_walls(server):
+    """#119: stone walls line the Laufenburgerstrasse cut on both sides; they stop a car in the trough and on the ground beside
+    it, not one on the rail deck above; one run per side for the two decks; the road stays the top surface in the trough."""
+    def script(page):
+        ws = page.evaluate("() => window.__mm.walls()")
+        near = [w for w in ws if math.hypot(w["x"] - CROSS[0], w["z"] - CROSS[1]) < 60]
+        under = min((w for w in near if w["under"]), key=lambda w: math.hypot(w["x"] - CROSS[0], w["z"] - CROSS[1]))
+        open_ = max((w for w in near if not w["under"]), key=lambda w: w["top"] - w["floor"])
+        at = lambda w, d: (w["x"] - w["nx"] * d, w["z"] - w["nz"] * d)            # d m from the wall centre towards the road
+        r = {"near": near}
+        x, z = at(under, 1.5); r["trough"] = page.evaluate(f"() => window.__mm.pushAt({x}, {z}, {under['floor'] + 0.1})")
+        r["deck"] = page.evaluate(f"() => window.__mm.pushAt({x}, {z}, {under['top'] + 1.2})")
+        x, z = at(open_, -1.5); r["parapet"] = page.evaluate(f"() => window.__mm.pushAt({x}, {z}, {open_['top'] - 0.9})")
+        # across the road in the trough: x of the road centre from the drive line (1565.5, 675) -> (1569.8, 619.9)
+        r["across"] = page.evaluate("""() => [-0.5, 0, 0.5].flatMap((f) => [640, 632, 625].map((z) => {
+            const x = 1565.5 + (675 - z) * 4.3 / 55.1, h = window.__mm.rayHits(x + f * 4.5, z); return [h.grass, h.roadOsm]; }))""")
+        return r
+    r = run(server, script)
+    near = r["near"]
+    assert {w["side"] for w in near} == {-1, 1}, near
+    assert any(w["under"] for w in near) and any(not w["under"] for w in near)
+    for a in near:                                                                      # the two decks share one wall run per side
+        assert not any(b is not a and b["side"] == a["side"] and math.hypot(b["x"] - a["x"], b["z"] - a["z"]) < 1.0 for b in near), a
+    assert math.hypot(r["trough"]["dx"], r["trough"]["dz"]) > 0.01, r["trough"]           # the wall stops a car in the trough
+    assert math.hypot(r["deck"]["dx"], r["deck"]["dz"]) < 0.01, r["deck"]                 # but not one on the deck above it
+    assert math.hypot(r["parapet"]["dx"], r["parapet"]["dz"]) > 0.01, r["parapet"]       # the parapet stops a car beside the trough
+    for grass, road in r["across"]:
+        assert road is not None and (grass is None or grass <= road + 0.005), r["across"]

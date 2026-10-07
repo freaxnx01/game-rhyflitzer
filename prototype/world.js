@@ -172,6 +172,24 @@ export function cutBounds(c, u = UNDERPASS) {
   return [x0 - pad, z0 - pad, x1 + pad, z1 + pad];
 }
 
+export function mergeIntervals(iv) {
+  const out = [];
+  for (const [a, b] of [...iv].sort((p, q) => p[0] - q[0])) { const last = out[out.length - 1]; if (last && a <= last[1]) last[1] = Math.max(last[1], b); else out.push([a, b]); }
+  return out;
+}
+// #119: wall pieces along a road over the (merged) spans, `offset` m to each side; (nx, nz) points away from the road
+export function wallStations(pts, intervals, offset, step) {
+  const out = [];
+  for (const [a, b] of mergeIntervals(intervals)) {
+    const n = Math.max(1, Math.round((b - a) / step)), len = (b - a) / n;
+    for (let k = 0; k < n; k++) {
+      const t = a + (k + 0.5) * len, [x0, z0] = pointAtLength(pts, t - len / 2), [x1, z1] = pointAtLength(pts, t + len / 2), rot = Math.atan2(z1 - z0, x1 - x0);
+      for (const side of [-1, 1]) { const nx = -Math.sin(rot) * side, nz = Math.cos(rot) * side; out.push({ t, side, len, rot, nx, nz, x: (x0 + x1) / 2 + nx * offset, z: (z0 + z1) / 2 + nz * offset }); }
+    }
+  }
+  return out;
+}
+
 export function patchCells([bx0, bz0, bx1, bz1], G) {
   const cl = (v, n) => Math.max(0, Math.min(n - 1, v)), out = [];
   const i0 = cl(Math.floor((bx0 - G.x0) / G.dx), G.nx), i1 = cl(Math.floor((bx1 - G.x0) / G.dx), G.nx);

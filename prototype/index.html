@@ -238,7 +238,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, patchCells, triLerp } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
@@ -949,6 +949,21 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     }
     const g = ribbonGeo(b.r.pts, 2.5, 0.03, 4, false, (p) => hs(p[0], p[1])); colorize(g, col('#ffffff')); push('rail', g);
   }
+  // #119 trough walls: along every road with a cut, a stone wall with its face at hw + margin, from the cut floor to 1 m
+  // over the ground behind it (parapet); under a deck up to the deck's underside and no parapet. Solid, but `low`: a car
+  // above the top (on the deck) passes over.
+  const byRoad = new Map(); for (const c of CUTS) if (c.depth > 0) { if (!byRoad.has(c.road)) byRoad.set(c.road, []); byRoad.get(c.road).push(c); }
+  for (const [road, cuts] of byRoad) {
+    const hw = road.w / 2, inner = hw + UNDERPASS.margin;
+    for (const w of wallStations(road.pts, cuts.map((c) => [c.t - c.reach[0], c.t + c.reach[1]]), inner + UNDERPASS.wall / 2, 2)) {
+      const [rx, rz] = pointAtLength(road.pts, w.t), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25)), ground = meshH(rx + w.nx * (inner + UNDERPASS.wall + 0.5), rz + w.nz * (inner + UNDERPASS.wall + 0.5));
+      if (ground - floor <= 0.1) continue;
+      const under = cuts.find((c) => Math.abs(w.t - c.t) <= c.flat - UNDERPASS.apron), top = under ? Math.max(ground, under.deckMin - UNDERPASS.deck) : ground + 1;
+      box(w.len + 0.05, top - floor, UNDERPASS.wall, w.x, floor, w.z, w.rot, col('#b8b2a6'), 'stone', [4, 3], 0);
+      pushOBB({ x: w.x, z: w.z, hw: w.len / 2, hd: UNDERPASS.wall / 2, c: Math.cos(w.rot), s: Math.sin(w.rot), h: top, low: true });
+      WALLS.push({ x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under });
+    }
+  }
   // railway Basel–Koblenz line (stand-in) and the two stations
   // level crossings: the track lies on the road surface where it crosses one, else on the terrain
   for (const pts of (L ? L.rail : [RAIL_PTS])) { const g = ribbonGeo(pts, 2.5, 0.03, 4, true, (p) => Math.max(terrainH(p[0], p[1]), roadSurfH(p[0], p[1]))); colorize(g, col('#ffffff')); push('rail', g); }
@@ -1243,7 +1258,8 @@ window.__mm.roadDist = () => roadDist(P.x, P.z);
 const isDeck = (ob) => !!ob && !ob.b.approach;   // #78: an abutment is road on fill, not a bridge (keeps #79's "not on a bridge")
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW']) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: isDeck(onBridge(P.x, P.z, P.y)), water: waterLevelAt(P.x, P.z, P.y) });
-window.__mm.pushAt = (x, z) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg]; P.x = x; P.z = z; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg] = keep; return out; };   // #36: read-only, for the region-wide collider test
+window.__mm.pushAt = (x, z, y) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; if (y !== undefined) P.y = y; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return out; };   // #36: read-only, for the region-wide collider test; #119: optional car height
+window.__mm.walls = () => WALLS;
 window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone' && !b.approach).map(b => b.r.id), approaches: OSM_BRIDGES.filter(b => b.approach).length, banks: STONE_AXIS ? [{ x: STONE_AXIS.a[0], z: STONE_AXIS.a[1], h: STONE_AXIS.ha }, { x: STONE_AXIS.e[0], z: STONE_AXIS.e[1], h: STONE_AXIS.he }] : [] });
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
@@ -1253,7 +1269,7 @@ window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counte
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z] }; };   // back/look: #65
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)
-function collide(r) { for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; const dx = P.x - o.x, dz = P.z - o.z; let wx, wz, pen; if (o.ring) { const hit = ringPush(o.ring, P.x, P.z, r); if (!hit) continue; ({ wx, wz, pen } = hit); } else if (o.circle) { const dd = Math.hypot(dx, dz) || 1e-4; if (dd > r + o.circle) continue; wx = dx / dd; wz = dz / dd; pen = r + o.circle - dd; } else { const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; const cx = clamp(lx, -o.hw, o.hw), cz = clamp(lz, -o.hd, o.hd); let nx = lx - cx, nz = lz - cz; let d = Math.hypot(nx, nz); if (d > r) continue; if (d < 1e-4) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px; } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz; } } else { nx /= d; nz /= d; } wx = nx * o.c - nz * o.s; wz = nx * o.s + nz * o.c; pen = r - d; } P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; P.dmg = Math.min(1, P.dmg + Math.min(0.12, -vn * 0.004 / VEH.mass)); if (vn < -3) SFX.crash(Math.min(1, -vn / 25)); } } }
+function collide(r) { for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; const dx = P.x - o.x, dz = P.z - o.z; let wx, wz, pen; if (o.ring) { const hit = ringPush(o.ring, P.x, P.z, r); if (!hit) continue; ({ wx, wz, pen } = hit); } else if (o.circle) { const dd = Math.hypot(dx, dz) || 1e-4; if (dd > r + o.circle) continue; wx = dx / dd; wz = dz / dd; pen = r + o.circle - dd; } else { const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; const cx = clamp(lx, -o.hw, o.hw), cz = clamp(lz, -o.hd, o.hd); let nx = lx - cx, nz = lz - cz; let d = Math.hypot(nx, nz); if (d > r) continue; if (d < 1e-4) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px; } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz; } } else { nx /= d; nz /= d; } wx = nx * o.c - nz * o.s; wz = nx * o.s + nz * o.c; pen = r - d; } P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; P.dmg = Math.min(1, P.dmg + Math.min(0.12, -vn * 0.004 / VEH.mass)); if (vn < -3) SFX.crash(Math.min(1, -vn / 25)); } } }
 function stepCar(dt) {
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx; let vf = P.vx * fx + P.vz * fz, vs = P.vx * rx + P.vz * rz; const speed = Math.hypot(P.vx, P.vz);
   const ap = autoInputs(dt), nitro = ap ? 0 : (keys.KeyN ? 1 : 0), gas = ap ? ap.gas : ((keys.Space || keys.KeyW || keys.ArrowUp || touch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((keys.KeyS || keys.ArrowDown || touch.b) ? 1 : 0), steer = ap ? ap.steer : (((keys.KeyD || keys.ArrowRight || touch.r) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft || touch.l) ? 1 : 0)), hb = ap ? 0 : ((keys.ControlLeft || keys.ControlRight || touch.h) ? 1 : 0);

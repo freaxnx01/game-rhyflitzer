@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, patchCells, triLerp } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -460,4 +460,21 @@ test('triLerp matches the corners and splits along u + v = 1', () => {
   assert.equal(triLerp(1, 2, 3, 4, 1, 1), 3);
   assert.equal(triLerp(1, 2, 3, 4, 1, 0), 4);
   assert.equal(triLerp(1, 2, 3, 4, 0.25, 0.25), 1 + 3 * 0.25 + 1 * 0.25);
+});
+
+test('mergeIntervals joins overlapping spans and sorts them', () => {
+  assert.deepEqual(mergeIntervals([[30, 40], [0, 10], [5, 20]]), [[0, 20], [30, 40]]);
+  assert.deepEqual(mergeIntervals([]), []);
+});
+
+test('wallStations: pieces of about `step` m on both sides at `offset`, normals pointing away from the road', () => {
+  const pts = [[0, -100], [0, 100]], ws = wallStations(pts, [[90, 110], [100, 105]], 6.5, 2);   // the second span lies inside the first
+  assert.equal(ws.length, 20);
+  const first = ws.filter((w) => Math.abs(w.t - 91) < 1e-9);
+  assert.equal(first.length, 2);
+  for (const w of first) {
+    assert.ok(Math.abs(Math.abs(w.x) - 6.5) < 1e-9 && Math.abs(w.z + 9) < 1e-9, `${w.x},${w.z}`);
+    assert.ok(Math.abs(w.nx - Math.sign(w.x)) < 1e-9 && Math.abs(w.nz) < 1e-9);
+    assert.ok(Math.abs(w.len - 2) < 1e-9 && Math.abs(w.rot - Math.PI / 2) < 1e-9);
+  }
 });
