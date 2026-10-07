@@ -1047,16 +1047,16 @@ const finishG = new THREE.Group(); { const mat = new THREE.MeshLambertMaterial({
 // mass: only the crash response (speed loss and damage / mass); collision: circle radius in model metres (OBB for long vehicles: #6)
 // camera: chase distances in world metres, cockpit/bumper eyes in model metres (x forward, y up, side + = right), scaled with the car
 const VEHICLES = {
-  compact: { model: 'compact', gltf: null, scale: 1.3, wheels: [[1.38, 0.86], [-1.38, 0.86]], wheelR: 0.34,
+  compact: { model: 'compact', gltf: null, scale: 1.0, wheels: [[1.38, 0.86], [-1.38, 0.86]], wheelR: 0.34,
     drive: { top: 60, topNitro: 90, accel: 16, accelNitro: 34, brake: 24, reverse: 8, reverseMax: 14, grip: 9, gripHandbrake: 1.8, steerRate: 2.6, airSteer: 0.4 },
     mass: 1.0, collision: { shape: 'circle', r: 1.3 },
-    camera: { chase: { dist: 9, h: 3.4 }, near: { dist: 6, h: 2.4 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] } },
+    camera: { chase: { dist: 6.9, h: 2.6 }, near: { dist: 4.6, h: 1.85 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] } },
     sound: { horn: [420, 528], hornDur: 0.45, engineBase: 55, enginePerRpm: 150, gears: [0, 20, 45, 75, 110, 150, 999] } },
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
 // ---------- the car: navy compact hatchback ----------
-// arcade scale: the model is true to size (4.5 m, like a Mazda 3), but next to real-size houses and a wide chase cam it read like a toy car (compact.scale 1.3)
+// the model is drawn true to size (4.66 m, like a Mazda 3; compact.scale 1.0, #69): it fits the 2.5 x 5 m car-park bays. 1.3x made it read less like a toy car; the closer chase cams (6.9 m / 4.6 m) do that now
 const car = new THREE.Group(); scene.add(car);
 const flames = new THREE.Group(); flames.visible = false;
 const BLINK = { left: new THREE.Group(), right: new THREE.Group() }; BLINK.left.visible = BLINK.right.visible = false;
