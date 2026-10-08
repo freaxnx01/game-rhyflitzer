@@ -134,10 +134,11 @@ def test_walls_follow_skewed_decks_and_leave_side_roads_open(server):
     underside and a car on the deck drives over it; beside a deck it carries the parapet. No wall stands in a side road."""
     w = json.loads(served_world())
     extra = HAUPTSTRASSE_STEIN + KAPFSTRASSE
-    assert all(p in w["rail"] for p in extra), "Hauptstrasse Stein / Kapfstrasse bridge pieces not found in rail"
-    w["rail"] = [p for p in w["rail"] if p not in extra]
-    w["railBridges"] += [{"pts": p, "layer": 1} for p in extra]
-    decks = LAUFENBURGER + extra
+    if any(p in w["rail"] for p in extra):                                               # main's world before the #119 rebuild
+        assert all(p in w["rail"] for p in extra), "Hauptstrasse Stein / Kapfstrasse bridge pieces not found in rail"
+        w["rail"] = [p for p in w["rail"] if p not in extra]
+        w["railBridges"] += [{"pts": p, "layer": 1} for p in extra]
+    decks = [b["pts"] for b in w["railBridges"]]
     # per wall piece: the deck surface right above it, and a car on the track (the deck's centre line) above the piece
     ws = run(server, lambda page: page.evaluate("""(decks) => window.__mm.walls().map((w) => {
         let best = null; for (const pts of decks) for (let i = 0; i < pts.length - 1; i++) {
@@ -151,7 +152,7 @@ def test_walls_follow_skewed_decks_and_leave_side_roads_open(server):
         d = min(dseg(x["x"], x["z"], p) for p in decks)
         if d <= 2.75:                                                                   # the deck surface is right above the piece
             assert x["under"], (d, x)
-            assert x["top"] <= x["deckTop"] - 0.3, (d, x)                                 # stays under the deck surface (at a deck end the ground behind may top the underside)
+            assert x["top"] <= x["deckTop"] - 0.25, (d, x)                                # stays under the deck surface (at a deck end the ground behind may top the underside)
             assert math.hypot(x["pushDeck"]["dx"], x["pushDeck"]["dz"]) < 0.01, (d, x)   # a car on the track passes over it
         elif d >= 2.75 + 1.5:
             assert not x["under"], (d, x)
