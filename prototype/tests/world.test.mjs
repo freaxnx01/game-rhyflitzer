@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -477,4 +477,17 @@ test('wallStations: pieces of about `step` m on both sides at `offset`, normals 
     assert.ok(Math.abs(w.nx - Math.sign(w.x)) < 1e-9 && Math.abs(w.nz) < 1e-9);
     assert.ok(Math.abs(w.len - 2) < 1e-9 && Math.abs(w.rot - Math.PI / 2) < 1e-9);
   }
+});
+
+test('treeTrunkR_TreeHeight_ScalesWithTheTrunkNotTheCrown', () => {
+  assert.equal(TREE_TRUNK, 0.06);
+  assert.ok(Math.abs(treeTrunkR(6) - 0.36) < 1e-9);
+  assert.ok(Math.abs(treeTrunkR(12) - 0.72) < 1e-9);
+  assert.ok(treeTrunkR(12) < 0.45 * 12 / 4, 'far inside the crown (0.45 h)');
+});
+
+test('treeCollider_TreeOnTerrain_IsACircleAtTheTrunkUpToTheCrownTop', () => {
+  const o = treeCollider(100, -50, 10, 4);
+  const r = treeTrunkR(10);
+  assert.deepEqual(o, { x: 100, z: -50, hw: r, hd: r, c: 1, s: 0, h: 14, circle: r, tree: true });
 });

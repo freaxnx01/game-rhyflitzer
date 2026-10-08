@@ -373,3 +373,10 @@ export function ringPush(ring, x, z, r) {
   const k = inside ? -1 / d : 1 / d;
   return { wx: (x - px) * k, wz: (z - pz) * k, pen: inside ? r + d : r - d };
 }
+
+// #131: trees are solid at the trunk, not the crown -- one circle per tree, in the shape collide() already reads
+// (circle, like the Smile-Kreisel island); hw/hd = r so the coarse bounds, heliFloor and the camera box test work as is.
+// Billboard trunks are ~0.04 h wide in radius, the cone style's ~0.14 h: one value in between for both styles.
+export const TREE_TRUNK = 0.06;
+export function treeTrunkR(h) { return TREE_TRUNK * h; }
+export function treeCollider(x, z, h, base) { const r = treeTrunkR(h); return { x, z, hw: r, hd: r, c: 1, s: 0, h: base + h, circle: r, tree: true }; }
