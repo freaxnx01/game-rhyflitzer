@@ -14,20 +14,12 @@ Session state for resume. Issues and PRs live in `freaxnx01/game-rhyflitzer` unl
 
 ## Open — in this order
 
-1. **PR #134 (#129, held Tab moves focus)**: pipeline review's `request_changes` fixed (`jumpKey` prevents Tab; the
-   J-dialog test asserts focus stays on `#jumpq` and value `sisx`), rebased on main, `MERGEABLE CLEAN`, ready.
-   → **The user merges.**
-2. **PR #136 (#131, solid trees)**: review fixed (`treeCollider` sets `low: true` so trunks only count up to the
-   crown top; new above-the-crown test; drive test proves arrival), rebased, `MERGEABLE CLEAN`, ready.
-   → **The user merges.**
-3. **#132 (front wheels turn when steering)**: enriched, NOT dispatched. Dispatch with `/gh:implement 132` only
-   **after #136 is merged** (both edit the car and collision code in `prototype/index.html`).
-4. **PR #135 (#130, stations beside the tracks)**: rebased onto main 9e13daf (`test-todo.md`: both sections kept),
-   verified — node 135/135, `test_anchors.py` 11/11, `test_autopilot.py` 15/15, `test_smoke.py` 24/25; results
-   posted, marked ready, `MERGEABLE CLEAN`. → **The user merges.**
+1–3. Done 2026-10-08 afternoon: PRs #134, #136, #135 merged (each rebased, `test-todo.md`/CHANGELOG kept both
+   sides, affected tests re-run). #132 dispatched (`ai-implement` + `ai-review-human-merge`, code contract posted).
+4. Holzbrücke regression filed as **#137** (bisected to #122, the true-to-size car). Needs enrichment.
 5. **Housekeeping**: 5 leftover subagent worktrees under `.claude/worktrees/agent-*` (reviews/enrich, all pushed or
    read-only) can be removed with `git worktree remove` + `git branch -D worktree-agent-*`.
-6. **Regression on main (discovery, not yet an issue)**: `test_smoke.py::test_car_slides_along_holzbruecke_rails`
+6. ~~Regression on main~~ → #137.: `test_smoke.py::test_car_slides_along_holzbruecke_rails`
    fails on main 9e13daf — `assert r["bridge"]`, car ends at x=-1130.4 z=-78.5 y=-1.2 (dropped off the deck).
    Likely from #121/#122/#133 (merged today). Ask the user whether to file it.
 7. **Old feedback batch** `docs/ai-notes/feedback/2026-10-02-stuck-car.md` is still `awaiting-approval` — ask the user
