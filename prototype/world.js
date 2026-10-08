@@ -379,4 +379,4 @@ export function ringPush(ring, x, z, r) {
 // Billboard trunks are ~0.04 h wide in radius, the cone style's ~0.14 h: one value in between for both styles.
 export const TREE_TRUNK = 0.06;
 export function treeTrunkR(h) { return TREE_TRUNK * h; }
-export function treeCollider(x, z, h, base) { const r = treeTrunkR(h); return { x, z, hw: r, hd: r, c: 1, s: 0, h: base + h, circle: r, tree: true }; }
+export function treeCollider(x, z, h, base) { const r = treeTrunkR(h); return { x, z, hw: r, hd: r, c: 1, s: 0, h: base + h, circle: r, low: true }; }

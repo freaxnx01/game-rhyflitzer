@@ -489,5 +489,5 @@ test('treeTrunkR_TreeHeight_ScalesWithTheTrunkNotTheCrown', () => {
 test('treeCollider_TreeOnTerrain_IsACircleAtTheTrunkUpToTheCrownTop', () => {
   const o = treeCollider(100, -50, 10, 4);
   const r = treeTrunkR(10);
-  assert.deepEqual(o, { x: 100, z: -50, hw: r, hd: r, c: 1, s: 0, h: 14, circle: r, tree: true });
+  assert.deepEqual(o, { x: 100, z: -50, hw: r, hd: r, c: 1, s: 0, h: 14, circle: r, low: true });   // low: a car above the crown top passes over
 });

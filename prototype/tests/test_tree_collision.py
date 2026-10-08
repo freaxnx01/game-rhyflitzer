@@ -53,11 +53,28 @@ def test_pushAt_besideATrunk_pushesTheCarOut(server):
         b, page = open_world(p, server)
         rc = car_radius(page)
         trees = page.evaluate(ISOLATED_JS, 50)
-        pushes = page.evaluate("(ts) => ts.map(([x, z]) => window.__mm.pushAt(x + 0.5, z))", trees)
+        # the car on the ground beside the trunk (pushAt keeps the car's own height otherwise, and a low collider is height-gated)
+        pushes = page.evaluate("(ts) => ts.map(([x, z]) => window.__mm.pushAt(x + 0.5, z, window.__mm.probe(x, z).terrain + 0.5))", trees)
         b.close()
     assert len(trees) >= 20, len(trees)
     bad = [(t, d) for t, d in zip(trees, pushes) if abs(d["dx"] - (rc + t[3] - 0.5)) > 0.05 or abs(d["dz"]) > 0.05]
     assert bad == [], bad[:5]
+
+
+@needs_world
+def test_pushAt_aboveTheCrown_passesOver(server):
+    """A car in the air above a tree's crown (a jump, a drop into a forest) is not stopped by the trunk below it."""
+    with sync_playwright() as p:
+        b, page = open_world(p, server)
+        rc = car_radius(page)
+        trees = page.evaluate(ISOLATED_JS, 20)
+        out = page.evaluate("""(ts) => ts.map(([x, z, h]) => { const top = window.__mm.probe(x, z).terrain + h;
+            return [window.__mm.pushAt(x + 0.5, z, top + 0.5), window.__mm.pushAt(x + 0.5, z, top - 1)]; })""", trees)
+        b.close()
+    assert len(trees) >= 10, len(trees)
+    for t, (above, below) in zip(trees, out):
+        assert abs(above["dx"]) < 0.01 and abs(above["dz"]) < 0.01, (t, above)   # above the crown top: passes over
+        assert abs(below["dx"]) > 0.05, (t, below)                               # below it: still the trunk
 
 
 @needs_world
@@ -72,7 +89,7 @@ def test_sim_driveAtATree_stopsInFrontOfTheTrunk(server):
         r = page.evaluate(f"() => window.__mm.sim({x - 25}, {z}, 0, 0, 5)")
         b.close()
     assert r["x"] < x - rt - rc + 0.3, (r, tree, rc)   # stopped in front of the trunk
-    assert r["x"] > x - 25 + 10, (r, tree)             # and it really drove there
+    assert r["x"] > x - rt - rc - 1, (r, tree, rc)     # and it really drove up to it (not stalled on a slope)
     assert abs(r["z"] - z) < 0.5, (r, tree)
 
 
