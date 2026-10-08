@@ -1366,6 +1366,7 @@ function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
 function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else jumpTo(r); }
 function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
 function jumpKey(e) {
+  if (e.code === 'Tab') { e.preventDefault(); return; }   // #129: the focus (and the typing) stays in the search field
   if (e.code === 'ArrowDown' || e.code === 'ArrowUp') { e.preventDefault(); moveJumpSel(e.code === 'ArrowDown' ? 1 : -1); return; }
   if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); pickJump(JUMP.sel); return; }
   if (e.code === 'Escape' || (e.code === (JUMP.mode === 'drive' ? 'KeyO' : 'KeyJ') && !$('jumpq').value)) { e.preventDefault(); if (!e.repeat) closeJump(); }   // a held key never closes it, and types nothing (#86)

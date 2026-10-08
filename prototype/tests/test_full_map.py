@@ -163,7 +163,9 @@ def test_tab_in_the_jump_dialog_keeps_typing_working(server):
         page.wait_for_function("() => !document.querySelector('#jump').hidden", timeout=120000)
         page.keyboard.type("sis")
         page.keyboard.press("Tab")
+        focus = page.evaluate("() => document.activeElement.id")
         page.keyboard.type("x")
         value = page.evaluate("() => document.querySelector('#jumpq').value")
         b.close()
-    assert value.startswith("sis")
+    assert focus == "jumpq", focus                      # Tab keeps the focus in the search field
+    assert value == "sisx", value                       # and the typing goes on there

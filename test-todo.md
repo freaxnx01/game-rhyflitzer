@@ -170,4 +170,4 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 ## Tab holds only the map (#129)
 
 - [ ] Hold Tab for several seconds while driving: only the big map shows, no button or link gets a focus ring.
-- [ ] **J**, type a search, press Tab: typing in the search field still works.
+- [ ] **J**, type a search, press Tab: the focus stays in the search field and typing goes on there.
