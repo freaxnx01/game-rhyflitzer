@@ -194,3 +194,9 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] The wheels roll while driving and stop when you stop; no strange spinning in the air or in the water.
 - [ ] Pause (Esc): the wheels freeze. Helicopter (F), then land again: the car's wheels are straight.
 - [ ] Feel: do the swing speed (about a quarter of a second) and the 30 degree lock look right?
+
+## Holzbrücke deck reaches the rails (#137)
+
+- [ ] Drive over the Holzbrücke hugging the left rail, then the right rail, the whole length in both directions: the car stays on the planks, never sinks into the Rhine.
+- [ ] Steer into a rail at speed: the car scrapes along and keeps going.
+- [ ] Fridolinsbrücke: hugging either parapet still keeps the car on the deck.

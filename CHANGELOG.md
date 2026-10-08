@@ -51,6 +51,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- Scraping the side of the Holzbrücke no longer drops you into the Rhine. Since the car is back to its real size, it could slip off the deck between the rails where the old bridge bends. Now everything between the railings is solid planks.
 - Holding **Tab** now shows only the big map. The browser no longer jumps through the buttons on the page while you hold the key.
 - Trees are solid now: the car no longer drives straight through them. Hit a trunk and you stop, lose speed and take damage, just like with a lamp post — but you can still brush past the leaves. Trees never stand close enough to a road to get in the way.
 - Bahnhof Sisseln and Bahnhof Stein-Säckingen now stand beside the tracks, where the real stations are, instead of up to 90 m away in a field. The two station checkpoints and the **J** entries moved with them: the Sisseln checkpoint is on the road in front of the station, the Stein one on the Bahnhofstrasse.

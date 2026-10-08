@@ -381,9 +381,12 @@ function bridgeProfile(b, t) { if (t < b.ramp) return b.deck * clamp(t / b.ramp,
 // #78: a chain piece does not reach past an end a neighbour continues (fade* === false), and an abutment stops at its bank top; without
 // this the endpoint clamp in nearestOnPolyline leaves a flat plateau hw past every end -- the step that threw the car off the Fridolinsbrücke.
 const ownsEnd = (b, x, z) => { const e = pastEnd(b.r.pts, x, z); return e === 0 || !(b.approach || b[e > 0 ? 'fade1' : 'fade0'] === false); };
+// #137: a hero span is drawn (deck, rails) on one straight chord, but its OSM pieces bend up to 1.55 m off it. A point between the
+// drawn rails is deck, measured against the chord, for the hero piece nearest to it (whose surface hAt draws there)
+function inHeroDeck(b, x, z, d) { const h = b.hero; if (!h) return false; const [t, s] = bridgeLocal(h, x, z); if (t < 0 || t > h.len || Math.abs(s) > h.hw) return false; return h.pcs.every(o => o === b || nearestOnPolyline(o.r.pts, x, z).d >= d); }
 function onBridge(x, z, y) {
   // an abutment (#78) is solid ground at any height: nothing drives under one, so a car or a J spot lands on it, not on the bank road it buries
-  if (L) { for (const b of gridQuery(BRIDGE_GRID, x, z, 1)) { const n = nearestOnPolyline(b.r.pts, x, z); if (n.d <= b.hw && ownsEnd(b, x, z) && (b.approach || bridgeAccepts(bridgeSurfaceAt(b, n.t), y))) return { b, t: n.t, osm: true }; } return null; }
+  if (L) { for (const b of gridQuery(BRIDGE_GRID, x, z, 1)) { const n = nearestOnPolyline(b.r.pts, x, z); if ((n.d <= b.hw || inHeroDeck(b, x, z, n.d)) && ownsEnd(b, x, z) && (b.approach || bridgeAccepts(bridgeSurfaceAt(b, n.t), y))) return { b, t: n.t, osm: true }; } return null; }
   for (const b of BRIDGES) { const [t, s] = bridgeLocal(b, x, z); if (t >= -2 && t <= b.len + 2 && Math.abs(s) <= b.hw) return { b, t }; } return null; }
 function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; const t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1); return Math.hypot(px - ax - dx * t, pz - az - dz * t); }
 function riverDist(x, z) { if (SDF) return SDF(x, z); let m = 1e9; for (let i = 0; i < RIVER.pts.length - 1; i++) m = Math.min(m, segDist(x, z, ...RIVER.pts[i], ...RIVER.pts[i + 1])); return m - RIVER.hw; }
@@ -932,6 +935,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
       const pcs = heroes[kind], all = pcs.flatMap(p => p.r.pts); let a = all[0], e = all[1], best = -1;
       for (const p of all) for (const q of all) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d > best) { best = d; a = p; e = q; } }
       const hb = { a, b: e, len: best, ux: (e[0] - a[0]) / best, uz: (e[1] - a[1]) / best, hw: pcs[0].hw, kind }; hb.rot = Math.atan2(hb.uz, hb.ux);
+      hb.pcs = pcs; for (const p of pcs) p.hero = hb;   // #137: onBridge measures the drawn straight span too, so deck and rails agree
       hb.y0 = Math.min(...pcs.map(p => Math.min(p.h0, p.h1))) - 1.5;
       const hAt = (t) => { const x = a[0] + hb.ux * t, z = a[1] + hb.uz * t; let bp = null; for (const p of pcs) { const n = nearestOnPolyline(p.r.pts, x, z); if (!bp || n.d < bp.n.d) bp = { p, n }; } return bridgeSurfaceAt(bp.p, bp.n.t); };
       const wl = REAL ? (WATER.levelAt(a[0] + hb.ux * best / 2, a[1] + hb.uz * best / 2) ?? hb.y0 - 4) : 0;
