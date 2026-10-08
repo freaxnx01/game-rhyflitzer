@@ -13,9 +13,9 @@ BODENACKER_6 = 171822634
 TALLEST = 155170807                                  # roof top 38.1 m (h 32.5 + rh 5.6), the tallest in the region
 SPOT_DX = {BODENACKER_6: 20, TALLEST: 22}            # car this far east of the footprint centre, clear of the façade
 CHASE_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view === 0"
-                 " && Math.abs(Math.hypot(d[0], d[2]) - 9) < 0.3 && Math.abs(d[1] - 3.4) < 0.3; }")
+                 " && Math.abs(Math.hypot(d[0], d[2]) - 6.9) < 0.3 && Math.abs(d[1] - 2.6) < 0.3; }")   # compact chase cam since #69
 COCKPIT_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view === 2"
-                   " && Math.abs(d[0] - 0.325) < 0.05 && Math.abs(d[1] - 1.586) < 0.05 && Math.abs(d[2] - 0.494) < 0.05; }")
+                   " && Math.abs(d[0] - 0.25) < 0.05 && Math.abs(d[1] - 1.22) < 0.05 && Math.abs(d[2] - 0.38) < 0.05; }")   # cockpit eye x scale 1.0 (#69)
 
 
 def open_page(p, server, block_world=False, query=""):
