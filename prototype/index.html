@@ -247,6 +247,7 @@ import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKey
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
 import { vehicleFromQuery } from './vehicle.js';
+import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -1095,6 +1096,12 @@ const VEHICLES = {
     mass: 1.0, collision: { shape: 'circle', r: 1.3 },
     camera: { chase: { dist: 6.9, h: 2.6 }, near: { dist: 4.6, h: 1.85 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] } },
     sound: { horn: [420, 528], hornDur: 0.45, engineBase: 55, enginePerRpm: 150, gears: [0, 20, 45, 75, 110, 150, 999] } },
+  // #126: DeLorean look-alike. DMC-12 numbers: 177 km/h = 49 m/s, slow off the line, rear engine (a little less grip), 2.41 m wheelbase, 14"/15" wheels; five-speed box
+  delorean: { model: 'delorean', gltf: null, scale: 1.0, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,
+    drive: { top: 49, topNitro: 80, accel: 10, accelNitro: 26, brake: 22, reverse: 8, reverseMax: 12, grip: 8, gripHandbrake: 1.6, steerRate: 2.4, airSteer: 0.4 },
+    mass: 1.0, collision: { shape: 'circle', r: 1.2 },
+    camera: { chase: { dist: 6.9, h: 2.4 }, near: { dist: 4.6, h: 1.7 }, cockpit: { eye: [-0.15, 0.95, -0.38] }, bumper: { eye: [2.15, 0.45, 0] } },
+    sound: { horn: [392, 494], hornDur: 0.45, engineBase: 48, enginePerRpm: 140, gears: [0, 20, 42, 70, 105, 999] } },
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -1103,7 +1110,13 @@ let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras
 const car = new THREE.Group(); scene.add(car);
 const flames = new THREE.Group(); flames.visible = false;
 const BLINK = { left: new THREE.Group(), right: new THREE.Group() }; BLINK.left.visible = BLINK.right.visible = false;
-const carMats = { body: new THREE.MeshPhongMaterial({ color: 0x1b2d5e, shininess: 70, specular: 0x8fa4c8 }), glass: new THREE.MeshPhongMaterial({ color: 0x0b0f14, shininess: 140, specular: 0xffffff }), dark: new THREE.MeshLambertMaterial({ color: 0x14171d }), rim: new THREE.MeshPhongMaterial({ color: 0xb9bfc9, shininess: 90, specular: 0xffffff }), tyre: new THREE.MeshLambertMaterial({ color: 0x1a1a1c }) };   // #123: dark, opaque glass, shared with the helicopter
+const STEEL_GRAIN = makeTex(256, 256, (g, w, h) => { g.fillStyle = '#b4b9be'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 2) { g.fillStyle = `rgba(255,255,255,${(0.04 + Math.random() * 0.10).toFixed(3)})`; g.fillRect(0, y, w, 1); } });   // #126: faint horizontal brush lines, repeats per model metre (ExtrudeGeometry UVs)
+const carMats = { body: new THREE.MeshPhongMaterial({ color: 0x1b2d5e, shininess: 70, specular: 0x8fa4c8 }), steel: new THREE.MeshPhongMaterial({ color: 0xb4b9be, shininess: 30, specular: 0xd8dde2, map: STEEL_GRAIN }), glass: new THREE.MeshPhongMaterial({ color: 0x0b0f14, shininess: 140, specular: 0xffffff }), dark: new THREE.MeshLambertMaterial({ color: 0x14171d }), rim: new THREE.MeshPhongMaterial({ color: 0xb9bfc9, shininess: 90, specular: 0xffffff }), tyre: new THREE.MeshLambertMaterial({ color: 0x1a1a1c }) };   // #123: dark, opaque glass, shared with the helicopter; #126: brushed steel (Phong: no env map for MeshStandardMaterial metalness)
+// the wheels every procedural car shares: tyre, rim and hub at each v.wheels [x, z], mirrored to ±z (#132's steer > roll groups)
+function buildWheels(g, v) {
+  g.userData.wheels = []; const frontX = frontAxleX(v.wheels);   // #132: steer group (yaw, front axle only) > roll group (spin) > tyre, rim, hub
+  for (const [x, z] of v.wheels) for (const s of [1, -1]) { const w = new THREE.Group(), roll = new THREE.Group(); const t = new THREE.Mesh(new THREE.CylinderGeometry(v.wheelR, v.wheelR, 0.24, 16), carMats.tyre); t.rotation.x = Math.PI / 2; const r = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.26, 10), carMats.rim); r.rotation.x = Math.PI / 2; const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.28, 8), carMats.dark); hub.rotation.x = Math.PI / 2; roll.add(t, r, hub); w.add(roll); w.position.set(x, v.wheelR, s * z); g.add(w); g.userData.wheels.push({ front: x === frontX, steer: w, roll }); }
+}
 function buildCompact(g, v) {
   { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [side, z] of [['left', -0.86], ['right', 0.86]]) for (const x of [2.18, -2.22]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, 0.62, z); BLINK[side].add(b); } }
   const shape = (pts) => { const s = new THREE.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])); s.closePath(); return s; };
@@ -1114,14 +1127,37 @@ function buildCompact(g, v) {
   const sill = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 1.9), carMats.dark); sill.position.y = 0.34; g.add(sill);
   // nitro: two blue exhaust flames at the rear, shown while N is held
   for (const z of [0.45, -0.45]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 10), new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 })); f.rotation.z = Math.PI / 2; f.position.set(-2.65, 0.42, z); flames.add(f); }
-  g.userData.wheels = []; const frontX = frontAxleX(v.wheels);   // #132: steer group (yaw, front axle only) > roll group (spin) > tyre, rim, hub
-  for (const [x, z] of v.wheels) for (const s of [1, -1]) { const w = new THREE.Group(), roll = new THREE.Group(); const t = new THREE.Mesh(new THREE.CylinderGeometry(v.wheelR, v.wheelR, 0.24, 16), carMats.tyre); t.rotation.x = Math.PI / 2; const r = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.26, 10), carMats.rim); r.rotation.x = Math.PI / 2; const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.28, 8), carMats.dark); hub.rotation.x = Math.PI / 2; roll.add(t, r, hub); w.add(roll); w.position.set(x, v.wheelR, s * z); g.add(w); g.userData.wheels.push({ front: x === frontX, steer: w, roll }); }
+  buildWheels(g, v);
   const hl = new THREE.MeshBasicMaterial({ color: 0xfff6d0 }), tl = new THREE.MeshBasicMaterial({ color: 0xe0322d });
   for (const s of [-1, 1]) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.42), hl); h.position.set(2.2, 0.82, s * 0.6); g.add(h); const t = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.4), tl); t.position.set(-2.24, 0.86, s * 0.62); g.add(t); const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.22), carMats.body); m.position.set(0.72, 1.12, s * 0.98); g.add(m); }
   const grille = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.26, 1.0), carMats.dark); grille.position.set(2.25, 0.5, 0); g.add(grille);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex('AG · 4334', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-2.28, 0.62, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
 }
-const MODELS = { compact: buildCompact };
+// ---------- #126: DeLorean look-alike -- brushed steel, wedge nose, louvred rear, gull-wing doors; primitives only, no logo, no lettering ----------
+function buildDelorean(g, v) {
+  { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [side, z] of [['left', -0.8], ['right', 0.8]]) for (const x of [2.02, -2.06]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, 0.5, z); BLINK[side].add(b); } }
+  const shape = (pts) => { const s = new THREE.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])); s.closePath(); return s; };
+  const box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const bodyG = new THREE.ExtrudeGeometry(shape(DELOREAN_BODY), { depth: 1.76, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 2 }); bodyG.translate(0, 0, -0.88); g.add(new THREE.Mesh(bodyG, carMats.steel));
+  const glassG = new THREE.ExtrudeGeometry(shape(DELOREAN_GLASS), { depth: 1.82, bevelEnabled: false }); glassG.translate(0, 0, -0.91); const glassM = new THREE.Mesh(glassG, carMats.glass); glassM.userData.glass = true; g.add(glassM);
+  box(4.0, 0.14, 1.9, carMats.dark, 0, 0.29, 0);                                   // black sill band
+  // louvres: the rear window sunshade and the engine cover slats
+  for (const p of louvreSlots(-1.22, 0.955, -0.82, 1.085, 6)) box(0.06, 0.018, 1.5, carMats.dark, p.x, p.y, 0).rotation.z = p.tilt;
+  for (const p of louvreSlots(-1.90, 0.925, -1.30, 0.975, 5)) box(0.06, 0.018, 1.4, carMats.dark, p.x, p.y, 0).rotation.z = p.tilt;
+  // roof spine and the two gull-wing doors: roof half + window pane + lower panel, hinged at the spine (drawDoors rotates the hinge)
+  box(0.9, 0.03, 0.12, carMats.dark, -0.36, 1.10, 0);
+  g.userData.doors = [];
+  for (const s of [-1, 1]) { const hinge = new THREE.Group(); hinge.position.set(-0.36, 1.085, 0); const roof = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.03, 0.80), carMats.steel); roof.position.set(0, 0.02, s * 0.46); const pane = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.26, 0.03), carMats.glass); pane.position.set(0.05, -0.13, s * 0.95); const panel = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.32, 0.04), carMats.steel); panel.position.set(0.05, -0.41, s * 0.95); hinge.add(roof, pane, panel); g.add(hinge); g.userData.doors.push({ side: s, hinge, panel }); }
+  // nitro flames (N), rear
+  for (const z of [0.4, -0.4]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 10), new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 })); f.rotation.z = Math.PI / 2; f.position.set(-2.45, 0.36, z); flames.add(f); }
+  buildWheels(g, v);
+  // the flat nose: quad rectangular lamps over a black fascia slit; the wide tail band; mirrors; plate
+  const hl = new THREE.MeshBasicMaterial({ color: 0xfff6d0 }), tl = new THREE.MeshBasicMaterial({ color: 0xe0322d });
+  for (const s of [-1, 1]) { for (const z of [0.3, 0.62]) box(0.1, 0.14, 0.3, hl, 2.06, 0.52, s * z); box(0.08, 0.18, 0.7, tl, -2.09, 0.66, s * 0.5); box(0.14, 0.08, 0.14, carMats.steel, 0.85, 0.88, s * 0.93); }
+  box(0.05, 0.1, 1.2, carMats.dark, 2.08, 0.36, 0);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex('AG · 1981', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-2.11, 0.46, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
+}
+const MODELS = { compact: buildCompact, delorean: buildDelorean };
 const blob = new THREE.Mesh(new THREE.CircleGeometry(2.6, 16), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false })); blob.rotation.x = -Math.PI / 2; scene.add(blob);
 // (re)build the car group from VEH; flames and blinkers are persistent groups (other code toggles them), refilled by the builder
 const SHARED_CAR_MATS = new Set(Object.values(carMats));   // shared across builds (and restyled by applyStyle): never disposed
@@ -1136,6 +1172,10 @@ setVehicle(VEH);
 const WHEEL_STATE = { yaw: 0, spin: 0 };
 function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL_STATE.yaw, steer, speed, dt); WHEEL_STATE.spin = stepWheelSpin(WHEEL_STATE.spin, vf, VEH.wheelR * VEH.scale, dt); }
 function drawWheels() { for (const w of car.userData.wheels ?? []) { w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.roll.rotation.z = -WHEEL_STATE.spin; } }
+// #126: the gull-wing doors open while the car waits on the start screen; written by stepDoors (loop), read by drawDoors (loop) only
+const DOOR_STATE = { open: 0, target: 0 };
+function stepDoors(dt) { DOOR_STATE.target = doorTarget(R.state, Math.hypot(P.vx, P.vz)); DOOR_STATE.open = stepDoor(DOOR_STATE.open, DOOR_STATE.target, dt); }
+function drawDoors() { for (const d of car.userData.doors ?? []) d.hinge.rotation.x = -d.side * DOOR_STATE.open * DOOR.angle; }
 // #10 helicopter (F): FLY is the flight state, P stays the position (so map, compass and HUD follow); a generic procedural model, no operator livery
 const FLY = { on: false, v: 0, alt: 0 };
 const heli = new THREE.Group(), rotor = new THREE.Group(); heli.visible = false; scene.add(heli);
@@ -1149,7 +1189,7 @@ const STYLES = {
     mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1 }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); treeBill.visible = St.trees === 'bill'; treeCone.visible = treeTrunk.visible = St.trees === 'cone'; skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); carMats.body.flatShading = k === 'smooth'; carMats.body.needsUpdate = true; renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); treeBill.visible = St.trees === 'bill'; treeCone.visible = treeTrunk.visible = St.trees === 'cone'; skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } renderStyleName(); resize(); }
 function renderStyleName() { const name = tr(STYLES[styleKey].nameKey); $('stylename').textContent = name; $('stylebtn2').textContent = `${tr('styleLabel')} ${name}`; }
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize);
@@ -1291,6 +1331,8 @@ window.__mm.carSize = () => { const rot = car.rotation.clone(); car.rotation.set
 window.__mm.wheelYaw = () => { const ws = car.userData.wheels ?? []; return { yaw: WHEEL_STATE.yaw, spin: WHEEL_STATE.spin, front: ws.filter(w => w.front).map(w => w.steer.rotation.y), rear: ws.filter(w => !w.front).map(w => w.steer.rotation.y) }; };
 // #123: the glass actually on the car and the helicopter (read-only, for the test)
 window.__mm.glass = () => { const find = (root) => { let m = null; root.traverse((o) => { if (!m && o.userData.glass) m = o.material; }); return m && { color: m.color.getHex(), transparent: m.transparent, opacity: m.opacity }; }; return { car: find(car), heli: find(heli) }; };
+// #126: door animation state and the lower door panels' world height (read-only, for the test; [] for a car without doors)
+window.__mm.doors = () => ({ open: DOOR_STATE.open, target: DOOR_STATE.target, panelY: (car.userData.doors ?? []).map(d => d.panel.getWorldPosition(new THREE.Vector3()).y - P.y) });
 window.__mm.setVehicle = (def) => { setVehicle(def); };
 window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z] }; };   // back/look: #65
@@ -1478,7 +1520,7 @@ function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttrib
 applyStyle('original'); resize();
 let last = performance.now();
 function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; PAUSE.frame++; if (PAUSE.on) { fadeToast(dt); debugTick(); clampDebugHeights(); renderer.render(scene, camera); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); if (FLY.on) SFX.silent(); else SFX.update(Math.hypot(P.vx, P.vz) * 3.6, P.gas, P.air, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); renderer.render(scene, camera); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); if (FLY.on) SFX.silent(); else SFX.update(Math.hypot(P.vx, P.vz) * 3.6, P.gas, P.air, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); stepDoors(dt); drawDoors(); renderer.render(scene, camera); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; blob.position.set(START.x, sy + 0.05, START.z); }
 requestAnimationFrame(loop);
 </script>
