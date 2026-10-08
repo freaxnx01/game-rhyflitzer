@@ -226,3 +226,27 @@ def test_chase_cameras_sit_closer_to_the_true_size_car(server, presses, dist, h)
             page.keyboard.press("KeyC")
         page.wait_for_function(arrived, timeout=120000)
         b.close()
+
+
+GLASS_JS = "() => window.__mm.glass()"
+
+
+def assert_dark_opaque(g):
+    for k in ("car", "heli"):
+        m = g[k]
+        assert m is not None, (k, g)
+        assert m["transparent"] is False and m["opacity"] == 1, (k, m)
+        assert all((m["color"] >> s) & 0xFF <= 0x20 for s in (16, 8, 0)), (k, hex(m["color"]))
+    assert g["car"]["color"] == g["heli"]["color"], g
+
+
+def test_windows_are_dark_and_opaque(server):
+    """#123: car and helicopter share one dark, opaque glass, not a murky half see-through blue, also after a car rebuild."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        before = page.evaluate(GLASS_JS)
+        use_vehicle(page, "c.drive.top = 30")                  # rebuilds the car (freeCar + buildCar)
+        after = page.evaluate(GLASS_JS)
+        b.close()
+    assert_dark_opaque(before)
+    assert_dark_opaque(after)
