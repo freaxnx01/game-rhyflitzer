@@ -67,3 +67,21 @@ def test_paused_wheels_stand_still(server):
         after = page.evaluate(WHEELS_JS)
         b.close()
     assert before == after, (before, after)
+
+
+def test_scaled_vehicle_rolls_with_its_drawn_wheel_size(server):
+    """#132 review: the model is drawn at VEH.scale, so a wheel of radius wheelR is wheelR * scale big on screen.
+    Its roll angle must match the distance driven over that drawn radius, not over the unscaled one."""
+    import math
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        use_vehicle(page, "c.scale = 2")
+        r = page.evaluate("""([x, z, th]) => { const s0 = window.__mm.wheelYaw().spin;
+          const res = window.__mm.sim(x, z, th, 10, 0.1, []);
+          return { s0, s1: window.__mm.wheelYaw().spin, x: res.x, z: res.z, v: window.__mm.vehicle() }; }""", START)
+        b.close()
+    dist = math.dist(START[:2], (r["x"], r["z"]))
+    turned = (r["s1"] - r["s0"]) % (2 * math.pi)
+    expected = dist / (r["v"]["wheelR"] * r["v"]["scale"])
+    assert dist > 0.5, r
+    assert abs(turned - expected) < 0.1 * expected, (turned, expected, r)

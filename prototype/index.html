@@ -1129,7 +1129,7 @@ const carRadius = () => VEH.collision.r * VEH.scale;   // circle only (checkVehi
 setVehicle(VEH);
 // #132: wheel state is written by stepWheels (from stepCar) only; drawWheels (from the loop) only reads it
 const WHEEL_STATE = { yaw: 0, spin: 0 };
-function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL_STATE.yaw, steer, speed, dt); WHEEL_STATE.spin = stepWheelSpin(WHEEL_STATE.spin, vf, VEH.wheelR, dt); }
+function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL_STATE.yaw, steer, speed, dt); WHEEL_STATE.spin = stepWheelSpin(WHEEL_STATE.spin, vf, VEH.wheelR * VEH.scale, dt); }
 function drawWheels() { for (const w of car.userData.wheels ?? []) { w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.roll.rotation.z = -WHEEL_STATE.spin; } }
 // #10 helicopter (F): FLY is the flight state, P stays the position (so map, compass and HUD follow); a generic procedural model, no operator livery
 const FLY = { on: false, v: 0, alt: 0 };
