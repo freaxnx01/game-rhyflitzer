@@ -178,3 +178,10 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Driving along roads through the forest: no invisible bumps from trees at the road edge.
 - [ ] Helicopter low over the forest: it keeps above the crowns, no jitter.
 - [ ] Chase camera in a forest: no annoying zoom-in jumps when trunks pass behind the car.
+
+## Stations beside the tracks (#130)
+
+- [ ] J → "Bahnhof Sisseln": the car stands on the road in front of a station building that runs parallel to the tracks, with the platform between building and tracks. The blue "Bahnhof Sisseln" board faces the tracks and the road.
+- [ ] J → "Bahnhof Stein-Säckingen": same check by the Bahnhofstrasse, the station parallel to the tracks.
+- [ ] Race: checkpoint 1 (Bahnhof Sisseln) and checkpoint 5 (Bahnhof Stein-Säckingen) sit at the stations and are reachable by road; the autopilot (O) finds them.
+- [ ] Driving along the tracks at Sisseln and Stein: the station box does not sit on a rail, and no tree or car park overlaps it.

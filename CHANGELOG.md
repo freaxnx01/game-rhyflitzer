@@ -52,6 +52,7 @@ All notable changes to this project are documented here, following
 
 - Holding **Tab** now shows only the big map. The browser no longer jumps through the buttons on the page while you hold the key.
 - Trees are solid now: the car no longer drives straight through them. Hit a trunk and you stop, lose speed and take damage, just like with a lamp post — but you can still brush past the leaves. Trees never stand close enough to a road to get in the way.
+- Bahnhof Sisseln and Bahnhof Stein-Säckingen now stand beside the tracks, where the real stations are, instead of up to 90 m away in a field. The two station checkpoints and the **J** entries moved with them: the Sisseln checkpoint is on the road in front of the station, the Stein one on the Bahnhofstrasse.
 - The Fridolinsbrücke no longer throws the car into the air. The deck now runs level from the road in Bad Säckingen up to the road in Stein, high above the Rhine instead of sagging to the water, and the whole bridge is the stone bridge with parapets — you can no longer drive off its side into the river.
 - The car no longer gets stuck next to a building it isn't touching. Buildings with an L-shaped or slanted outline used to block a whole invisible rectangle around them — on the grass beside a long low building near Sisseln, or in a narrow lane between two houses in Bad Säckingen. Now the car stops at the wall you see.
 - No more trees on the car parks — the one in the middle of the Hallenbad bays is gone, and so are the others standing on asphalt and parking lines across the region.
