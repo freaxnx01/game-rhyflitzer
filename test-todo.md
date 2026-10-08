@@ -159,3 +159,10 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Collisions match the body: lamps, hydrants and walls hit where the car visibly touches them; the Holzbrücke rails scrape where the car meets them.
 - [ ] Grip and steering feel: corners, handbrake slides and nitro feel as before (or note what feels off for a follow-up).
 - [ ] The shadow under the car matches the smaller body.
+
+## Dark car windows (#123)
+
+- [ ] All four camera views (C): the windows read as dark, tinted glass with a highlight, not as a blue block.
+- [ ] Where the glass meets the body there is no flicker, also while driving and turning.
+- [ ] Cockpit and bumper view: the view out is unchanged.
+- [ ] Helicopter (F): its round window is the same dark glass.
