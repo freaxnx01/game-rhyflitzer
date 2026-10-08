@@ -100,8 +100,9 @@ export function bridgeDeckOffset(b, t) { const a = b.fade0 === false ? Infinity 
 export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
 
 // #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;
-// the cut ramps out along the road at `grade`, with 1:`bank` grass banks beside it, never deeper than `maxDepth`.
-export const UNDERPASS = { clear: 4.5, deck: 1.2, grade: 0.08, bank: 1, margin: 1, maxDepth: 6, apron: 3 };
+// the cut ramps out along the road at `grade`, never deeper than `maxDepth`. #119: `wall` m thick stone walls retain the
+// ground beside it instead of grass banks, their face `margin` m out from the road edge.
+export const UNDERPASS = { clear: 4.5, deck: 1.2, lift: 0.04, grade: 0.08, margin: 1, wall: 2, maxDepth: 6, apron: 3 };
 
 export function pointAtLength(pts, t) {
   let acc = 0;
@@ -142,22 +143,51 @@ export function railRoadCrossings(roads, railBridges) {
   return out;
 }
 
-export function underpassDepth(deckMin, roadMax, u = UNDERPASS) { return Math.min(u.maxDepth, Math.max(0, u.clear + u.deck - (deckMin - roadMax))); }
 export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidth / Math.max(0.3, sin) + u.apron; }
 
-export function cutDepthAt(c, x, z, u = UNDERPASS) {
-  if (c.depth <= 0) return 0;
-  const n = nearestOnPolyline(c.pts, x, z), s = Math.abs(n.t - c.t), ramp = c.depth / u.grade, inner = c.hw + u.margin;
-  const along = s <= c.flat ? 1 : Math.max(0, 1 - (s - c.flat) / ramp);
-  const side = n.d <= inner ? 1 : Math.max(0, 1 - (n.d - inner) / (c.depth * u.bank));
-  return c.depth * along * side;
+// #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at
+// u.grade until it meets the ground. The road ribbon lies u.lift above the floor.
+export function cutFloorTarget(deckMin, ground, u = UNDERPASS) { return Math.max(deckMin - u.deck - u.clear - u.lift, ground - u.maxDepth); }
+// junctions (and the road piece's own ends) inside the reach keep their ground: the ramp must reach it by then
+export function junctionCap(f0, flat, junctions, u = UNDERPASS) {
+  let out = { f0, capped: null };
+  for (const j of junctions) { const f = j.ground - u.grade * Math.max(0, Math.abs(j.s) - flat); if (f > out.f0) out = { f0: f, capped: j }; }
+  return out;
+}
+export function cutFloor(c, s, u = UNDERPASS) { return c.f0 + u.grade * Math.max(0, Math.abs(s) - c.flat); }
+// per side, the first whole metre outward where the floor reaches the ground (groundAt takes the signed distance s)
+export function cutReach(c, groundAt, u = UNDERPASS) {
+  const max = c.flat + u.maxDepth / u.grade;
+  return [-1, 1].map((dir) => { for (let s = 0; s < max; s++) if (cutFloor(c, s, u) >= groundAt(dir * s) - 1e-9) return s; return max; });
+}
+export function cutFloorAt(c, x, z, u = UNDERPASS) {
+  const n = nearestOnPolyline(c.pts, x, z), s = n.t - c.t;
+  if (n.d > c.hw + u.margin + u.wall / 2 || s < -c.reach[0] || s > c.reach[1]) return null;
+  return cutFloor(c, s, u);
+}
+export function cutBounds(c, u = UNDERPASS) {
+  const a = c.t - c.reach[0], b = c.t + c.reach[1], pad = c.hw + u.margin + u.wall + 1, n = Math.max(1, Math.ceil(b - a));
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (let k = 0; k <= n; k++) { const [x, z] = pointAtLength(c.pts, a + (b - a) * k / n); x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
+  return [x0 - pad, z0 - pad, x1 + pad, z1 + pad];
 }
 
-export function cutBounds(c, u = UNDERPASS) {
-  const ext = c.flat + c.depth / u.grade, pad = c.hw + u.margin + c.depth * u.bank, n = Math.max(1, Math.ceil(2 * ext / 2));
-  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
-  for (let k = 0; k <= n; k++) { const [x, z] = pointAtLength(c.pts, c.t - ext + 2 * ext * k / n); x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
-  return [x0 - pad, z0 - pad, x1 + pad, z1 + pad];
+export function mergeIntervals(iv) {
+  const out = [];
+  for (const [a, b] of [...iv].sort((p, q) => p[0] - q[0])) { const last = out[out.length - 1]; if (last && a <= last[1]) last[1] = Math.max(last[1], b); else out.push([a, b]); }
+  return out;
+}
+// #119: wall pieces along a road over the (merged) spans, `offset` m to each side; (nx, nz) points away from the road
+export function wallStations(pts, intervals, offset, step) {
+  const out = [];
+  for (const [a, b] of mergeIntervals(intervals)) {
+    const n = Math.max(1, Math.round((b - a) / step)), len = (b - a) / n;
+    for (let k = 0; k < n; k++) {
+      const t = a + (k + 0.5) * len, [x0, z0] = pointAtLength(pts, t - len / 2), [x1, z1] = pointAtLength(pts, t + len / 2), rot = Math.atan2(z1 - z0, x1 - x0);
+      for (const side of [-1, 1]) { const nx = -Math.sin(rot) * side, nz = Math.cos(rot) * side; out.push({ t, side, len, rot, nx, nz, x: (x0 + x1) / 2 + nx * offset, z: (z0 + z1) / 2 + nz * offset }); }
+    }
+  }
+  return out;
 }
 
 export function patchCells([bx0, bz0, bx1, bz1], G) {

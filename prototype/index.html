@@ -238,7 +238,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, underpassDepth, cutFlat, cutDepthAt, cutBounds, patchCells, triLerp } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
@@ -473,9 +473,10 @@ function meshH(x, z) {
   const i = Math.min(Math.floor(fx), G.nx - 1), j = Math.min(Math.floor(fz), G.nz - 1), u = fx - i, v = fz - j, W1 = G.nx + 1; const ha = G.h[j * W1 + i], hb = G.h[(j + 1) * W1 + i], hc = G.h[(j + 1) * W1 + i + 1], hd = G.h[j * W1 + i + 1];
   return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v);
 }
-// #76: 16 m cells under a road cut are replaced by a CUT_N x CUT_N patch (key 'i,j' -> heights, row-major (CUT_N+1)^2);
+// #76: 16 m cells under a road cut are replaced by a CUT_N x CUT_N patch (1 m cells, so a trough wall's step stays behind its
+// face) (key 'i,j' -> heights, row-major (CUT_N+1)^2);
 // terrainH returns the patch surface there, with the mesh's own triangle split, so everything sits on what is drawn.
-const CUT_N = 8, CUT_CELLS = new Map(), CUTS = [];
+const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], WALLS = [];
 function terrainH(x, z) {
   const G = TGRID, fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz;
   if (CUT_CELLS.size && fx >= 0 && fz >= 0 && fx <= G.nx && fz <= G.nz) {
@@ -498,24 +499,36 @@ function baseH(x, z) {
   return h * sm((riverDist(x, z) - 40) / (SDF ? 80 : 160));         // flat towards the water; the SDF is clamped at 120 m, so blend shorter there
 }
 fillBridgeHeights();
-// #76: one cut per rail-deck/road crossing, sized on the uncut mesh (meshH), then the patches for every cell a cut touches
+// #76/#119: one cut per rail-deck/road crossing, an absolute floor sized on the uncut mesh (meshH): level across the
+// corridor, ramping out until it meets the ground. Junctions and the road piece's own ends inside its reach cap it, so
+// side roads keep their ground (#120 lets them descend instead). Then the patches for every cell a cut touches.
 function makeCut(c) {
   const b = RAIL_DECKS[c.bridge], hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), span = hw / Math.max(0.3, c.sin) + 1;
   let deckMin = Infinity; for (const k of [-1, 0, 1]) deckMin = Math.min(deckMin, bridgeSurfaceAt(b, c.tRail + k * span));
-  // the drawn road follows its edges' ground plus the bulge lift, not the centre line: size the cut on the road's own ribbon,
-  // laid on the still uncut mesh (no CUT_CELLS yet, so terrainH is meshH here)
-  const sf = ribbonGeo(c.road.pts, hw, 0.04, 8, true).userData.surf;
-  let roadMax = -Infinity; for (let s = -flat; s <= flat; s += 1) { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); roadMax = Math.max(roadMax, surfaceAt(sf, x, z)); }
-  return { pts: c.road.pts, t: c.tRoad, hw, flat, depth: underpassDepth(deckMin, roadMax), x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail };
+  const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return meshH(x, z); };
+  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: cutFloorTarget(deckMin, groundAt(0)), capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin };
+  cut.reach = cutReach(cut, groundAt);
+  Object.assign(cut, junctionCap(cut.f0, flat, cutJunctions(cut)));
+  cut.reach = cutReach(cut, groundAt); cut.depth = Math.max(0, groundAt(0) - cut.f0);
+  return cut;
 }
-function cutDepth(x, z) { let d = 0; for (const c of CUTS) if (Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) d = Math.max(d, cutDepthAt(c, x, z)); return d; }
+// junctions on the cut road and the road piece's two ends, inside the current reach, with their ground
+function cutJunctions(cut) {
+  const len = polylineLength(cut.pts), out = [];
+  const add = (x, z, s, end) => { if (s >= -cut.reach[0] && s <= cut.reach[1]) out.push({ x, z, s, ground: meshH(x, z), end }); };
+  for (const [jx, jz] of L.junctions) { const n = nearestOnPolyline(cut.pts, jx, jz); if (n.d < cut.hw + 2) add(jx, jz, n.t - cut.t, false); }
+  add(...cut.pts[0], -cut.t, true); add(...cut.pts[cut.pts.length - 1], len - cut.t, true);
+  return out;
+}
+function cutFloorMin(x, z) { let f = Infinity; for (const c of CUTS) if (c.depth > 0 && Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) { const h = cutFloorAt(c, x, z); if (h !== null) f = Math.min(f, h); } return f; }
+function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
 function buildCuts() {
   for (const c of railRoadCrossings(L.roads, L.railBridges)) CUTS.push(makeCut(c));
   const G = TGRID, W = CUT_N + 1;
   for (const c of CUTS) if (c.depth > 0) for (const [i, j] of patchCells(cutBounds(c), G)) {
     const key = i + ',' + j; if (CUT_CELLS.has(key)) continue;
     const p = new Float32Array(W * W);
-    for (let b = 0; b < W; b++) for (let a = 0; a < W; a++) { const x = G.x0 + (i + a / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + a] = meshH(x, z) - cutDepth(x, z); }
+    for (let b = 0; b < W; b++) for (let a = 0; a < W; a++) { const x = G.x0 + (i + a / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + a] = Math.min(meshH(x, z), cutFloorMin(x, z)); }
     CUT_CELLS.set(key, p);
   }
 }
@@ -830,7 +843,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   const ground = new THREE.PlaneGeometry(GW, GD, TGRID.nx, TGRID.nz); ground.rotateX(-Math.PI / 2); ground.translate(TGRID.x0 + GW / 2, 0, TGRID.z0 + GD / 2);
   const lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'), groundCol = (h) => { const t = sm(h / 90); return t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); };
   { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const h = terrainH(p.getX(i), p.getZ(i)); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); const c = groundCol(h); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); }
-  if (CUT_CELLS.size) { // #76: drop the coarse cells under a cut and draw their 2 m patches (the same heights terrainH returns)
+  if (CUT_CELLS.size) { // #76: drop the coarse cells under a cut and draw their 1 m patches (the same heights terrainH returns)
     const p = ground.attributes.position, idx = ground.index.array, keep = [];
     for (let k = 0; k < idx.length; k += 3) {
       const cx = (p.getX(idx[k]) + p.getX(idx[k + 1]) + p.getX(idx[k + 2])) / 3, cz = (p.getZ(idx[k]) + p.getZ(idx[k + 1]) + p.getZ(idx[k + 2])) / 3;
@@ -935,6 +948,25 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
       box(Math.hypot(x1 - x0, z1 - z0) + 0.1, UNDERPASS.deck, b.r.w, mx, hs(mx, mz) - UNDERPASS.deck, mz, Math.atan2(z1 - z0, x1 - x0), col('#b8b2a6'), 'stone', [4, 3], 0);
     }
     const g = ribbonGeo(b.r.pts, 2.5, 0.03, 4, false, (p) => hs(p[0], p[1])); colorize(g, col('#ffffff')); push('rail', g);
+  }
+  // #119 trough walls: along every road with a cut, a stone wall with its face at hw + margin, from the cut floor to 1 m
+  // over the ground behind it (parapet); where a deck passes over the piece itself (not over the road's centre line --
+  // at a skewed crossing those are metres apart) up to that deck's underside there and no parapet. No wall in another
+  // road's corridor, so a side road joining at a capped cut stays open. Solid, but `low`: a car above the top passes over.
+  const deckOver = (cuts, x, z) => { let best = null; for (const c of cuts) { const n = nearestOnPolyline(c.deck.r.pts, x, z); if (!best || n.d < best.n.d) best = { c, n }; } return best; };
+  const inSideRoad = (road, x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + 1.5);
+  const byRoad = new Map(); for (const c of CUTS) if (c.depth > 0) { if (!byRoad.has(c.road)) byRoad.set(c.road, []); byRoad.get(c.road).push(c); }
+  for (const [road, cuts] of byRoad) {
+    const hw = road.w / 2, inner = hw + UNDERPASS.margin;
+    for (const w of wallStations(road.pts, cuts.map((c) => [c.t - c.reach[0], c.t + c.reach[1]]), inner + UNDERPASS.wall / 2, 2)) {
+      const [rx, rz] = pointAtLength(road.pts, w.t), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25)), ground = meshH(rx + w.nx * (inner + UNDERPASS.wall + 0.5), rz + w.nz * (inner + UNDERPASS.wall + 0.5));
+      if (ground - floor <= 0.1 || inSideRoad(road, w.x, w.z)) continue;
+      const dk = deckOver(cuts, w.x, w.z), under = dk.n.d <= dk.c.deck.hw + w.len / 2, deckTop = bridgeSurfaceAt(dk.c.deck, dk.n.t);
+      const top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
+      box(w.len + 0.05, top - floor, UNDERPASS.wall, w.x, floor, w.z, w.rot, col('#b8b2a6'), 'stone', [4, 3], 0);
+      pushOBB({ x: w.x, z: w.z, hw: w.len / 2, hd: UNDERPASS.wall / 2, c: Math.cos(w.rot), s: Math.sin(w.rot), h: top, low: true });
+      WALLS.push({ x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under });
+    }
   }
   // railway Basel–Koblenz line (stand-in) and the two stations
   // level crossings: the track lies on the road surface where it crosses one, else on the terrain
@@ -1217,7 +1249,7 @@ window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail), p = c.deck.r.pts, ends = [[p[0], c.deck.h0], [p[p.length - 1], c.deck.h1]];
-  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, deck, clearance: deck - UNDERPASS.deck - road,
+  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, capped: c.capped && { x: c.capped.x, z: c.capped.z, s: c.capped.s, end: c.capped.end }, deck, clearance: deck - UNDERPASS.deck - road,
            railGap: Math.max(...ends.map(([[x, z], h]) => Math.abs(Math.max(terrainH(x, z), roadSurfH(x, z)) - h))) };
 });
 window.__mm.rayHits = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
@@ -1230,7 +1262,8 @@ window.__mm.roadDist = () => roadDist(P.x, P.z);
 const isDeck = (ob) => !!ob && !ob.b.approach;   // #78: an abutment is road on fill, not a bridge (keeps #79's "not on a bridge")
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW']) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: isDeck(onBridge(P.x, P.z, P.y)), water: waterLevelAt(P.x, P.z, P.y) });
-window.__mm.pushAt = (x, z) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg]; P.x = x; P.z = z; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg] = keep; return out; };   // #36: read-only, for the region-wide collider test
+window.__mm.pushAt = (x, z, y) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; if (y !== undefined) P.y = y; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return out; };   // #36: read-only, for the region-wide collider test; #119: optional car height
+window.__mm.walls = () => WALLS;
 window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone' && !b.approach).map(b => b.r.id), approaches: OSM_BRIDGES.filter(b => b.approach).length, banks: STONE_AXIS ? [{ x: STONE_AXIS.a[0], z: STONE_AXIS.a[1], h: STONE_AXIS.ha }, { x: STONE_AXIS.e[0], z: STONE_AXIS.e[1], h: STONE_AXIS.he }] : [] });
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
@@ -1241,7 +1274,7 @@ window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counte
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z] }; };   // back/look: #65
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)
-function collide(r) { for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; const dx = P.x - o.x, dz = P.z - o.z; let wx, wz, pen; if (o.ring) { const hit = ringPush(o.ring, P.x, P.z, r); if (!hit) continue; ({ wx, wz, pen } = hit); } else if (o.circle) { const dd = Math.hypot(dx, dz) || 1e-4; if (dd > r + o.circle) continue; wx = dx / dd; wz = dz / dd; pen = r + o.circle - dd; } else { const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; const cx = clamp(lx, -o.hw, o.hw), cz = clamp(lz, -o.hd, o.hd); let nx = lx - cx, nz = lz - cz; let d = Math.hypot(nx, nz); if (d > r) continue; if (d < 1e-4) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px; } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz; } } else { nx /= d; nz /= d; } wx = nx * o.c - nz * o.s; wz = nx * o.s + nz * o.c; pen = r - d; } P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; P.dmg = Math.min(1, P.dmg + Math.min(0.12, -vn * 0.004 / VEH.mass)); if (vn < -3) SFX.crash(Math.min(1, -vn / 25)); } } }
+function collide(r) { for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; const dx = P.x - o.x, dz = P.z - o.z; let wx, wz, pen; if (o.ring) { const hit = ringPush(o.ring, P.x, P.z, r); if (!hit) continue; ({ wx, wz, pen } = hit); } else if (o.circle) { const dd = Math.hypot(dx, dz) || 1e-4; if (dd > r + o.circle) continue; wx = dx / dd; wz = dz / dd; pen = r + o.circle - dd; } else { const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; const cx = clamp(lx, -o.hw, o.hw), cz = clamp(lz, -o.hd, o.hd); let nx = lx - cx, nz = lz - cz; let d = Math.hypot(nx, nz); if (d > r) continue; if (d < 1e-4) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px; } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz; } } else { nx /= d; nz /= d; } wx = nx * o.c - nz * o.s; wz = nx * o.s + nz * o.c; pen = r - d; } P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; P.dmg = Math.min(1, P.dmg + Math.min(0.12, -vn * 0.004 / VEH.mass)); if (vn < -3) SFX.crash(Math.min(1, -vn / 25)); } } }
 function stepCar(dt) {
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx; let vf = P.vx * fx + P.vz * fz, vs = P.vx * rx + P.vz * rz; const speed = Math.hypot(P.vx, P.vz);
   const ap = autoInputs(dt), nitro = ap ? 0 : (keys.KeyN ? 1 : 0), gas = ap ? ap.gas : ((keys.Space || keys.KeyW || keys.ArrowUp || touch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((keys.KeyS || keys.ArrowDown || touch.b) ? 1 : 0), steer = ap ? ap.steer : (((keys.KeyD || keys.ArrowRight || touch.r) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft || touch.l) ? 1 : 0)), hb = ap ? 0 : ((keys.ControlLeft || keys.ControlRight || touch.h) ? 1 : 0);
