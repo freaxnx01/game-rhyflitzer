@@ -171,6 +171,35 @@ def test_car_slides_along_holzbruecke_rails(server):
 
 
 @pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_holzbruecke_deck_reaches_its_rails(server):
+    """#137: the Holzbrücke is drawn as one straight span between its rails, but its OSM line bends up to 1.5 m off
+    that span. Everywhere between the drawn rails must be deck, not the Rhine 3 m below, whatever the car's collider.
+    Well outside the rails over the river stays water, so the deck is not just made wider."""
+    import json, math
+    w = json.loads(WORLD.read_text(encoding="utf-8")); hb = w["anchors"]["landmarks"]["holzbruecke"]
+    def near(r):
+        return min(math.dist((hb["x"], hb["z"]), p) for p in r["pts"]) < 120
+    pts = [p for r in w["roads"] if r.get("bridge") and near(r) for p in r["pts"]]
+    a, b = max(((p, q) for p in pts for q in pts), key=lambda pq: math.dist(*pq))
+    length = math.dist(a, b); ux, uz = (b[0] - a[0]) / length, (b[1] - a[1]) / length
+    at = lambda t, s: [a[0] + ux * t - uz * s, a[1] + uz * t + ux * s]
+    inside = [(t, s) for t in range(10, int(length) - 9, 5) for s in (-2.2, 2.2)]
+    outside = [(t, s) for t in range(60, 141, 10) for s in (-4.5, 4.5)]
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        ground = lambda ps: page.evaluate(f"() => {json.dumps([at(t, s) for t, s in ps])}.map(([x, z]) => window.__mm.ground(x, z, 1e4))")
+        g_in, g_out = ground(inside), ground(outside)
+        br.close()
+    holes = [(t, s, g) for (t, s), g in zip(inside, g_in) if g <= -1]
+    widened = [(t, s, g) for (t, s), g in zip(outside, g_out) if g >= -1]
+    assert holes == [], holes       # between the rails: deck
+    assert widened == [], widened   # outside the rails over the Rhine: still water
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 def test_nitro_and_jump_menu(server):
     """N = nitro (unlimited, faster than gas alone); J opens the landmark list, search + Enter jumps the car onto a road there (#41)."""
     with sync_playwright() as p:
