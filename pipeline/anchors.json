@@ -10,17 +10,17 @@
     "hallenbad":        { "osm": "w170395848", "kind": "hallenbad", "heading_deg": -1.2, "size": [42.7, 47.1], "src": "Hallenbad Sissila, Bodenackerstrasse 2; size and heading from the OSM footprint (playtest 2026-10-01: the hand-traced spot was 245 m west)" },
     "muenster":         { "game": [-1331.0, -172.7], "kind": "churchBig", "heading_deg": 0 },
     "steinChurch":      { "game": [-812.8, 406.4], "kind": "church", "heading_deg": 0 },
-    "stationStein":     { "game": [-1303.0, 1130.3], "kind": "station", "heading_deg": -8.0 },
-    "stationSisseln":   { "game": [1854.2, 685.8], "kind": "station", "heading_deg": -5.7 },
+    "stationStein":     { "game": [-1369.1, 999.7], "kind": "station", "heading_deg": 25.0, "src": "OSM w1280041307 (building=train_station, 34 x 15 m, long side along the track at 25 deg): footprint centre (-1370.2, 1002.0) moved 2.5 m off rail polyline 76 so the nearest track centreline is 11.5 m away (#130)" },
+    "stationSisseln":   { "game": [1940.5, 539.0], "kind": "station", "heading_deg": -9.8, "src": "OSM w183386655 (disused building=train_station, Sisslerstrasse 20.1, next to the LANDI at 19.1): footprint centre (1940.7, 540.0) moved 1.0 m off rail polyline 123 so the nearest track centreline is 11.6 m away; heading = track direction, platform side toward the track (#130)" },
     "jumpRamp":         { "game": [337.8, 170.2], "kind": "ramp", "heading_deg": 0 }
   },
   "start": { "game": [1882.9, -292.2], "heading_deg": 180 },
   "cps": [
-    { "n": "Bahnhof Sisseln", "game": [1780.0, 560.0] },
+    { "n": "Bahnhof Sisseln", "game": [1938.5, 530.4] },
     { "n": "Sisslerfeld", "game": [88.9, 406.4] },
     { "n": "GETEC Park Stein", "game": [-563.9, -431.8] },
     { "n": "Stein Dorf", "game": [-934.7, 520.7] },
-    { "n": "Bahnhof Stein-Säckingen", "game": [-1303.0, 1066.8] }
+    { "n": "Bahnhof Stein-Säckingen", "game": [-1368.2, 988.3] }
   ],
   "finish": { "n": "Münsterplatz Bad Säckingen", "game": [-1290.3, -91.4] },
   "labels": [
