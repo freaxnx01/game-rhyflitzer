@@ -22,15 +22,15 @@ Session state for resume. Issues and PRs live in `freaxnx01/game-rhyflitzer` unl
    → **The user merges.**
 3. **#132 (front wheels turn when steering)**: enriched, NOT dispatched. Dispatch with `/gh:implement 132` only
    **after #136 is merged** (both edit the car and collision code in `prototype/index.html`).
-4. **PR #135 (#130, stations beside the tracks)**: manual review posted, Approve-with-nits. Before merging:
-   rebase onto main (conflict in `test-todo.md` — keep both sections), run `prototype/tests/test_smoke.py` and
-   `prototype/tests/test_autopilot.py` (foreground, `systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMax=0`,
-   split with `-k` to stay under ~9 min per call), post the results on the PR, mark ready. The pipeline's
-   `block` on #135 is a false positive (one-line world JSON, see agent-workflow#490); the world file differs from
-   main only in `anchors` (verified).
+4. **PR #135 (#130, stations beside the tracks)**: rebased onto main 9e13daf (`test-todo.md`: both sections kept),
+   verified — node 135/135, `test_anchors.py` 11/11, `test_autopilot.py` 15/15, `test_smoke.py` 24/25; results
+   posted, marked ready, `MERGEABLE CLEAN`. → **The user merges.**
 5. **Housekeeping**: 5 leftover subagent worktrees under `.claude/worktrees/agent-*` (reviews/enrich, all pushed or
    read-only) can be removed with `git worktree remove` + `git branch -D worktree-agent-*`.
-6. **Old feedback batch** `docs/ai-notes/feedback/2026-10-02-stuck-car.md` is still `awaiting-approval` — ask the user
+6. **Regression on main (discovery, not yet an issue)**: `test_smoke.py::test_car_slides_along_holzbruecke_rails`
+   fails on main 9e13daf — `assert r["bridge"]`, car ends at x=-1130.4 z=-78.5 y=-1.2 (dropped off the deck).
+   Likely from #121/#122/#133 (merged today). Ask the user whether to file it.
+7. **Old feedback batch** `docs/ai-notes/feedback/2026-10-02-stuck-car.md` is still `awaiting-approval` — ask the user
    whether to resume it (`/processing-test-feedback` resumes it).
 
 ## Notes
