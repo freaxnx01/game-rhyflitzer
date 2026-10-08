@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY } from '../debug.js';
+import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines } from '../debug.js';
 
 const ORIGIN = { lat: 47.5506, lon: 7.9671, E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };   // data/world_hochrhein.json
 
@@ -50,6 +50,16 @@ test('buildingLines and copyText', () => {
   assert.deepEqual(buildingLines({ id: 171822634, t: '22.8 m +1.2 dsm' }), ['bldg 171822634 · 22.8 m +1.2 dsm']);
   assert.deepEqual(buildingLines(undefined), ['bldg —']);
   assert.equal(copyText(['a', 'b c']), 'a | b c');
+});
+
+test('sizeLine: length x width x height in metres, two decimals', () => {
+  assert.equal(sizeLine({ l: 4.66, w: 2.18, h: 1.55 }), 'size 4.66 × 2.18 × 1.55 m');
+  assert.equal(sizeLine({ l: 4.6612, w: 2.1849, h: 1.5 }), 'size 4.66 × 2.18 × 1.50 m');
+});
+
+test('mapLines: extent in km and the area in km2 from the metre values', () => {
+  assert.deepEqual(mapLines(9440, 4392), ['map 9.44 × 4.39 km · 41.5 km²']);
+  assert.deepEqual(mapLines(6400, 3800), ['map 6.40 × 3.80 km · 24.3 km²']);
 });
 
 // #70: camera view matrices as camera.matrixWorldInverse.elements (column-major); FOV 62° like the game camera

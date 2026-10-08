@@ -42,6 +42,13 @@ export function positionLines(pos, y, bearing) {
 export function buildingLines(label) { return [label ? `bldg ${label.id} · ${label.t}` : 'bldg —']; }
 export function copyText(lines) { return lines.join(' | '); }
 
+// #124: car body box (metres) and the drawn map extent (metres in, km / km2 out)
+export function sizeLine(s) { return `size ${s.l.toFixed(2)} × ${s.w.toFixed(2)} × ${s.h.toFixed(2)} m`; }
+export function mapLines(widthM, depthM) {
+  const km = m => (m / 1000).toFixed(2);
+  return [`map ${km(widthM)} × ${km(depthM)} km · ${(widthM * depthM / 1e6).toFixed(1)} km²`];
+}
+
 // #70: keep debug height labels on screen. view = camera.matrixWorldInverse.elements (column-major), tanHalf = tan(fov / 2).
 export const DEBUG_LABEL_NDC_MAX = 0.8;
 export function labelNdcY(view, tanHalf, x, y, z) {
