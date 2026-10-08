@@ -166,3 +166,8 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Where the glass meets the body there is no flicker, also while driving and turning.
 - [ ] Cockpit and bumper view: the view out is unchanged.
 - [ ] Helicopter (F): its round window is the same dark glass.
+
+## Tab holds only the map (#129)
+
+- [ ] Hold Tab for several seconds while driving: only the big map shows, no button or link gets a focus ring.
+- [ ] **J**, type a search, press Tab: the focus stays in the search field and typing goes on there.

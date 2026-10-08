@@ -136,3 +136,36 @@ def test_tab_no_longer_speeds_up_and_the_run_counts(server):
     assert "time-lapse" not in result and "not counted" not in result, result
     assert best is not None                                                     # the first finish is saved as the best time
     assert "full map (hold)" in help_text and "×3" not in help_text, help_text
+
+
+def test_held_tab_does_not_move_the_focus(server):
+    """#129: auto-repeat keydowns of a held Tab were not prevented, so the browser tabbed through the buttons."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        page.evaluate("() => document.activeElement && document.activeElement.blur()")
+        page.keyboard.down("Tab")
+        page.keyboard.down("Tab")   # second down = auto-repeat keydown (repeat: true)
+        page.keyboard.down("Tab")
+        page.wait_for_function("() => window.__mm.map().full === true", timeout=120000)
+        wait_frames(page)
+        focus = page.evaluate("() => document.activeElement.tagName")
+        release_tab(page)
+        b.close()
+    assert focus == "BODY"
+
+
+def test_tab_in_the_jump_dialog_keeps_typing_working(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        page.keyboard.press("KeyJ")
+        page.wait_for_function("() => !document.querySelector('#jump').hidden", timeout=120000)
+        page.keyboard.type("sis")
+        page.keyboard.press("Tab")
+        focus = page.evaluate("() => document.activeElement.id")
+        page.keyboard.type("x")
+        value = page.evaluate("() => document.querySelector('#jumpq').value")
+        b.close()
+    assert focus == "jumpq", focus                      # Tab keeps the focus in the search field
+    assert value == "sisx", value                       # and the typing goes on there
