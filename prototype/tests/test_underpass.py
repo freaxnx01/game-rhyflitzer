@@ -13,6 +13,9 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 # both Laufenburgerstrasse track bridges (OSM w35583301, w1496246793) exactly as the pipeline writes them
 LAUFENBURGER = [[[1546.7, 633.0], [1580.3, 626.0]], [[1580.7, 619.1], [1547.5, 626.1]]]
 CROSS = (1569.7, 625.0)
+# a skewed deck (Hauptstrasse Stein, sin ~0.55) and one capped by a side road (Kapfstrasse / Bahnhofstrasse), as in main's rail
+HAUPTSTRASSE_STEIN = [[[-198.0, 1090.1], [-212.2, 1088.3], [-230.1, 1086.6]], [[-195.4, 1094.2], [-210.8, 1092.2], [-227.0, 1090.7]]]
+KAPFSTRASSE = [[[-4037.9, 541.8], [-4023.8, 550.2]], [[-4025.0, 554.1], [-4040.0, 544.9]]]
 LEVEL = [(1857.6, 566.8), (1228.0, 564.0)]          # railway=level_crossing nodes 651841741 and near 1327351950
 needs_world = pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
 
@@ -27,8 +30,8 @@ def served_world() -> str:
     return json.dumps(w)
 
 
-def run(server, script):
-    body = served_world()
+def run(server, script, body=None):
+    body = body or served_world()
     with sync_playwright() as p:
         b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
         errors = []
@@ -113,3 +116,44 @@ def test_trough_walls(server):
     assert math.hypot(r["parapet"]["dx"], r["parapet"]["dz"]) > 0.01, r["parapet"]       # the parapet stops a car beside the trough
     for grass, road in r["across"]:
         assert road is not None and (grass is None or grass <= road + 0.005), r["across"]
+
+
+def dseg(x, z, pts):
+    best = math.inf
+    for (ax, az), (bx, bz) in zip(pts, pts[1:]):
+        vx, vz = bx - ax, bz - az
+        t = max(0.0, min(1.0, ((x - ax) * vx + (z - az) * vz) / ((vx * vx + vz * vz) or 1e-9)))
+        best = min(best, math.hypot(x - ax - t * vx, z - az - t * vz))
+    return best
+
+
+@needs_world
+def test_walls_follow_skewed_decks_and_leave_side_roads_open(server):
+    """#119, review of #121: a wall piece is under a deck where the deck itself passes over it, not where the road's centre
+    line is under the deck -- at a skewed crossing the two are metres apart. Under a deck the wall stops at the deck's
+    underside and a car on the deck drives over it; beside a deck it carries the parapet. No wall stands in a side road."""
+    w = json.loads(served_world())
+    extra = HAUPTSTRASSE_STEIN + KAPFSTRASSE
+    assert all(p in w["rail"] for p in extra), "Hauptstrasse Stein / Kapfstrasse bridge pieces not found in rail"
+    w["rail"] = [p for p in w["rail"] if p not in extra]
+    w["railBridges"] += [{"pts": p, "layer": 1} for p in extra]
+    decks = LAUFENBURGER + extra
+    # per wall piece: the deck surface right above it, and a car on the track (the deck's centre line) above the piece
+    ws = run(server, lambda page: page.evaluate("""(decks) => window.__mm.walls().map((w) => {
+        let best = null; for (const pts of decks) for (let i = 0; i < pts.length - 1; i++) {
+          const [ax, az] = pts[i], [bx, bz] = pts[i + 1], vx = bx - ax, vz = bz - az, t = Math.max(0, Math.min(1, ((w.x - ax) * vx + (w.z - az) * vz) / (vx * vx + vz * vz)));
+          const x = ax + vx * t, z = az + vz * t, d = Math.hypot(w.x - x, w.z - z); if (!best || d < best.d) best = { d, x, z }; }
+        const g = window.__mm.ground(w.x, w.z, 1e4), gt = window.__mm.ground(best.x, best.z, 1e4);
+        return { ...w, deckTop: g, pushDeck: w.under ? window.__mm.pushAt(best.x, best.z, gt + 0.1) : null }; })""", decks), json.dumps(w))
+    haupt = [x for x in ws if math.hypot(x["x"] + 212, x["z"] - 1090) < 30]
+    assert {x["side"] for x in haupt if x["under"]} == {-1, 1}, haupt                    # the skewed deck has walls under it on both sides
+    for x in ws:
+        d = min(dseg(x["x"], x["z"], p) for p in decks)
+        if d <= 2.75:                                                                   # the deck surface is right above the piece
+            assert x["under"], (d, x)
+            assert x["top"] <= x["deckTop"] - 0.3, (d, x)                                 # stays under the deck surface (at a deck end the ground behind may top the underside)
+            assert math.hypot(x["pushDeck"]["dx"], x["pushDeck"]["dz"]) < 0.01, (d, x)   # a car on the track passes over it
+        elif d >= 2.75 + 1.5:
+            assert not x["under"], (d, x)
+        for r in w["roads"]:
+            assert dseg(x["x"], x["z"], r["pts"]) >= r["w"] / 2 + 1.0, (r["n"], x)        # no wall in a road's corridor

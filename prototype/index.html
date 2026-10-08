@@ -843,7 +843,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   const ground = new THREE.PlaneGeometry(GW, GD, TGRID.nx, TGRID.nz); ground.rotateX(-Math.PI / 2); ground.translate(TGRID.x0 + GW / 2, 0, TGRID.z0 + GD / 2);
   const lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'), groundCol = (h) => { const t = sm(h / 90); return t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); };
   { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const h = terrainH(p.getX(i), p.getZ(i)); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); const c = groundCol(h); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); }
-  if (CUT_CELLS.size) { // #76: drop the coarse cells under a cut and draw their 2 m patches (the same heights terrainH returns)
+  if (CUT_CELLS.size) { // #76: drop the coarse cells under a cut and draw their 1 m patches (the same heights terrainH returns)
     const p = ground.attributes.position, idx = ground.index.array, keep = [];
     for (let k = 0; k < idx.length; k += 3) {
       const cx = (p.getX(idx[k]) + p.getX(idx[k + 1]) + p.getX(idx[k + 2])) / 3, cz = (p.getZ(idx[k]) + p.getZ(idx[k + 1]) + p.getZ(idx[k + 2])) / 3;
@@ -950,15 +950,19 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const g = ribbonGeo(b.r.pts, 2.5, 0.03, 4, false, (p) => hs(p[0], p[1])); colorize(g, col('#ffffff')); push('rail', g);
   }
   // #119 trough walls: along every road with a cut, a stone wall with its face at hw + margin, from the cut floor to 1 m
-  // over the ground behind it (parapet); under a deck up to the deck's underside and no parapet. Solid, but `low`: a car
-  // above the top (on the deck) passes over.
+  // over the ground behind it (parapet); where a deck passes over the piece itself (not over the road's centre line --
+  // at a skewed crossing those are metres apart) up to that deck's underside there and no parapet. No wall in another
+  // road's corridor, so a side road joining at a capped cut stays open. Solid, but `low`: a car above the top passes over.
+  const deckOver = (cuts, x, z) => { let best = null; for (const c of cuts) { const n = nearestOnPolyline(c.deck.r.pts, x, z); if (!best || n.d < best.n.d) best = { c, n }; } return best; };
+  const inSideRoad = (road, x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + 1.5);
   const byRoad = new Map(); for (const c of CUTS) if (c.depth > 0) { if (!byRoad.has(c.road)) byRoad.set(c.road, []); byRoad.get(c.road).push(c); }
   for (const [road, cuts] of byRoad) {
     const hw = road.w / 2, inner = hw + UNDERPASS.margin;
     for (const w of wallStations(road.pts, cuts.map((c) => [c.t - c.reach[0], c.t + c.reach[1]]), inner + UNDERPASS.wall / 2, 2)) {
       const [rx, rz] = pointAtLength(road.pts, w.t), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25)), ground = meshH(rx + w.nx * (inner + UNDERPASS.wall + 0.5), rz + w.nz * (inner + UNDERPASS.wall + 0.5));
-      if (ground - floor <= 0.1) continue;
-      const under = cuts.find((c) => Math.abs(w.t - c.t) <= c.flat - UNDERPASS.apron), top = under ? Math.max(ground, under.deckMin - UNDERPASS.deck) : ground + 1;
+      if (ground - floor <= 0.1 || inSideRoad(road, w.x, w.z)) continue;
+      const dk = deckOver(cuts, w.x, w.z), under = dk.n.d <= dk.c.deck.hw + w.len / 2, deckTop = bridgeSurfaceAt(dk.c.deck, dk.n.t);
+      const top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
       box(w.len + 0.05, top - floor, UNDERPASS.wall, w.x, floor, w.z, w.rot, col('#b8b2a6'), 'stone', [4, 3], 0);
       pushOBB({ x: w.x, z: w.z, hw: w.len / 2, hd: UNDERPASS.wall / 2, c: Math.cos(w.rot), s: Math.sin(w.rot), h: top, low: true });
       WALLS.push({ x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under });
@@ -1245,7 +1249,7 @@ window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail), p = c.deck.r.pts, ends = [[p[0], c.deck.h0], [p[p.length - 1], c.deck.h1]];
-  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, capped: c.capped && { x: c.capped.x, z: c.capped.z, s: c.capped.s }, deck, clearance: deck - UNDERPASS.deck - road,
+  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, capped: c.capped && { x: c.capped.x, z: c.capped.z, s: c.capped.s, end: c.capped.end }, deck, clearance: deck - UNDERPASS.deck - road,
            railGap: Math.max(...ends.map(([[x, z], h]) => Math.abs(Math.max(terrainH(x, z), roadSurfH(x, z)) - h))) };
 });
 window.__mm.rayHits = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
