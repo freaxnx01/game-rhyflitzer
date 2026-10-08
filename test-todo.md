@@ -185,3 +185,12 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] J → "Bahnhof Stein-Säckingen": same check by the Bahnhofstrasse, the station parallel to the tracks.
 - [ ] Race: checkpoint 1 (Bahnhof Sisseln) and checkpoint 5 (Bahnhof Stein-Säckingen) sit at the stations and are reachable by road; the autopilot (O) finds them.
 - [ ] Driving along the tracks at Sisseln and Stein: the station box does not sit on a rail, and no tree or car park overlaps it.
+
+## Steering wheels (#132)
+
+- [ ] Chase cam (C): hold A or D while driving slowly: the front wheels swing visibly into the curve, the rear wheels stay straight; let go and they swing back.
+- [ ] At top speed the front wheels turn less far than when crawling.
+- [ ] Reverse (S) and steer: the wheels point the way you press.
+- [ ] The wheels roll while driving and stop when you stop; no strange spinning in the air or in the water.
+- [ ] Pause (Esc): the wheels freeze. Helicopter (F), then land again: the car's wheels are straight.
+- [ ] Feel: do the swing speed (about a quarter of a second) and the 30 degree lock look right?
