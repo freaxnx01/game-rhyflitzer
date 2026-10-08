@@ -21,6 +21,7 @@ Not legal advice. Check before publishing.
 | Smile-Kreisel sculpture | Artist / Gemeinde Sisseln | Roundabout model (hand-built from photos) | Modelled freely; sculpture is a public artwork, panorama freedom likely applies. Ask anyway when contacting the Gemeinde |
 | Gemeindewappen Sisseln | Gemeinde Sisseln | Not used yet | Not asked yet |
 | PostAuto (yellow bus, three-tone horn) | PostAuto AG | Planned bus vehicle | **Not asked — decided 2026-10-01.** The bus is a generic yellow coach with no PostAuto logo, lettering or livery details. The three-tone horn (Dü-Da-Do) may be a registered sound mark; the bus gets its own horn chord instead. |
+| DMC DeLorean (DMC-12 shape) | DeLorean Motor Company | Vehicle (#126) | **Not asked — look-alike, decided 2026-10-08.** Built from primitives: brushed-steel body, gull-wing doors, louvred rear window. No DMC logo or lettering on the model, no film references; the name appears only in code, docs and the changelog. |
 | Plattform Sisslerfeld | Built by Häring (Eiken) apprentices; initiators Christoph Grenacher, Ingo Anders; stands on Münchwilen municipal land | Hero asset (planned) | Not asked yet. Ask Häring for construction plans and dimensions |
 
 ## Who to ask
