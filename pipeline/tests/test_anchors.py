@@ -1,3 +1,4 @@
+import json
 import math
 from pathlib import Path
 
@@ -78,3 +79,67 @@ def test_repo_anchors_place_the_landi_tower_and_exclude_its_footprint():
     assert t["osm"] == "w197688923" and t["h"] == 56 and t["kind"] == "silo"
     assert t["size"] == [35.4, 12.6] and t["heading_deg"] == 82.2
     assert 197688923 in anchors.exclude_ids(spec)
+
+
+ROOT = Path(__file__).parents[2]
+WORLD = ROOT / "data" / "world_hochrhein.json"
+SPEC = ROOT / "pipeline" / "anchors.json"
+needs_world = pytest.mark.skipif(not WORLD.exists(), reason="data/world_hochrhein.json not present")
+STATIONS = ("stationSisseln", "stationStein")
+STATION_CPS = {"Bahnhof Sisseln": "stationSisseln", "Bahnhof Stein-Säckingen": "stationStein"}
+
+
+def _world():
+    return json.loads(WORLD.read_text(encoding="utf-8"))
+
+
+def _nearest_on_polylines(lines, x, z):
+    """(distance, qx, qz, segment angle) of the closest point on any of the polylines."""
+    best = None
+    for line in lines:
+        for (ax, az), (bx, bz) in zip(line, line[1:]):
+            dx, dz = bx - ax, bz - az
+            length2 = dx * dx + dz * dz
+            if not length2:
+                continue
+            t = max(0.0, min(1.0, ((x - ax) * dx + (z - az) * dz) / length2))
+            qx, qz = ax + t * dx, az + t * dz
+            d = math.hypot(x - qx, z - qz)
+            if best is None or d < best[0]:
+                best = (d, qx, qz, math.atan2(dz, dx))
+    return best
+
+
+@needs_world
+@pytest.mark.parametrize("key", STATIONS)
+def test_station_stands_beside_the_track_facing_it(key):
+    world = _world()
+    lm = world["anchors"]["landmarks"][key]
+    d, qx, qz, angle = _nearest_on_polylines(world["rail"], lm["x"], lm["z"])
+    assert 10.5 <= d <= 14.0, f"{key} is {d:.1f} m from the nearest rail"
+    off = (lm["rot"] - angle + math.pi / 2) % math.pi - math.pi / 2          # modulo 180 deg
+    assert abs(off) < math.radians(3), f"{key} is {math.degrees(off):.1f} deg off the track direction"
+    side = (-math.sin(lm["rot"]), math.cos(lm["rot"]))                        # local +z: the platform strip
+    assert (qx - lm["x"]) * side[0] + (qz - lm["z"]) * side[1] > 0, f"{key}: the platform faces away from the track"
+
+
+@needs_world
+def test_world_anchors_are_baked_from_the_spec():
+    spec = json.loads(SPEC.read_text(encoding="utf-8"))
+    baked = _world()["anchors"]
+    for key in STATIONS:
+        entry, lm = spec["landmarks"][key], baked["landmarks"][key]
+        assert (lm["x"], lm["z"]) == tuple(entry["game"]), key
+        assert lm["rot"] == pytest.approx(math.radians(entry["heading_deg"])), key
+    assert [(c["n"], c["x"], c["z"]) for c in baked["cps"]] == [(c["n"], *c["game"]) for c in spec["cps"]]
+
+
+@needs_world
+def test_station_checkpoints_are_at_the_station_on_a_road():
+    world = _world()
+    drivable = [r["pts"] for r in world["roads"] if not r["bridge"] and r["cls"] != "motorway"]
+    for name, key in STATION_CPS.items():
+        cp = next(c for c in world["anchors"]["cps"] if c["n"] == name)
+        lm = world["anchors"]["landmarks"][key]
+        assert math.hypot(cp["x"] - lm["x"], cp["z"] - lm["z"]) <= 15, name
+        assert _nearest_on_polylines(drivable, cp["x"], cp["z"])[0] <= 2.5, name
