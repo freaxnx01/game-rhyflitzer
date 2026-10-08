@@ -239,7 +239,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider } from './world.js';
-import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY } from './debug.js';
+import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, TAKE_OVER_KEYS } from './route.js';
@@ -1326,7 +1326,8 @@ window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.vehicle = () => structuredClone(VEH);
-window.__mm.carSize = () => { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; };   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
+function carSize() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
+window.__mm.carSize = carSize;
 // #132: wheel state and the wheel groups actually on the car (read-only, for the test)
 window.__mm.wheelYaw = () => { const ws = car.userData.wheels ?? []; return { yaw: WHEEL_STATE.yaw, spin: WHEEL_STATE.spin, front: ws.filter(w => w.front).map(w => w.steer.rotation.y), rear: ws.filter(w => !w.front).map(w => w.steer.rotation.y) }; };
 // #123: the glass actually on the car and the helicopter (read-only, for the test)
@@ -1511,6 +1512,8 @@ const camTanHalf = () => Math.tan(camera.fov * Math.PI / 360);
 function clampDebugHeights() { if (!DEBUG.on) return; camera.updateMatrixWorld(); const view = camera.matrixWorldInverse.elements, tanHalf = camTanHalf(); DEBUG_H.pool.forEach((s, i) => { const it = DEBUG_H.shown[i]; if (s.visible && it) s.position.y = clampLabelY(view, tanHalf, it.x, it.y, it.z, DEBUG_LABEL_NDC_MAX, it.floor); }); }
 debugSection(() => positionLines(debugPosition(L && L.origin, P.x, P.z), P.y, bearing()));
 debugSection(() => buildingLines(DEBUG_H.shown[0]));
+debugSection(() => [sizeLine(carSize())]);                       // #124
+debugSection(() => mapLines(TGRID.GW, TGRID.GD));
 window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length });
 if (debugFromQuery(location.search)) toggleDebug();
 { const id = vehicleFromQuery(location.search, Object.keys(VEHICLES)); if (id && id !== VEH.model) setVehicle(VEHICLES[id]); }   // #126: ?vehicle=<id>; the picker is #7
