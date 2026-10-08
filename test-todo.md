@@ -150,3 +150,12 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] A, D, W, S, Space or O while it drives: the car is yours at once, the key works as usual.
 - [ ] Hold Tab (full map, #77): the blue route is on the big map too.
 - [ ] Does it feel too slow / too fast in Sisseln and on the Hauptstrasse?
+
+## Car true to size (#69)
+
+- [ ] J → Sisseln, drive to the Hallenbad-Parkplatz: the car fits inside one white bay, with room on both sides.
+- [ ] On a residential road (e.g. Bodenackerstrasse) the car looks like a normal compact next to the houses and the road width.
+- [ ] All four camera views (C) frame the car well: chase and near show it as big as before, cockpit and bumper sit in the right place. Hold B in each: still right.
+- [ ] Collisions match the body: lamps, hydrants and walls hit where the car visibly touches them; the Holzbrücke rails scrape where the car meets them.
+- [ ] Grip and steering feel: corners, handbrake slides and nitro feel as before (or note what feels off for a follow-up).
+- [ ] The shadow under the car matches the smaller body.

@@ -41,7 +41,7 @@ All notable changes to this project are documented here, following
 
 - **J** now opens a list of the landmarks — Fridolinsmünster, Holzbrücke, the DSM chimney, the Smile-Kreisel, Bodenackerstrasse 6c and more. Type part of a name (umlauts optional: "munster" finds the Münster) or pick a Gemeinde — Bad Säckingen, Stein, Münchwilen, Eiken, Sisseln — then press Enter or click. Keys typed into the search don't steer the car. The number keys are gone; **Random spot** is the last row.
 - Enter honks the horn too, next to H (only while driving, so Enter still starts the race from the menu).
-- The car is 30 % bigger. It was true to size, but next to real-size houses and with the wide chase camera it felt like a toy car.
+- The car is back to its real size, so it fits the parking bays and the narrow village streets. The chase cameras sit closer instead, so it still fills the picture and no longer looks like a toy car.
 - Roads in the Original style now show real asphalt, photographed on the Sisseln Hauptstrasse, instead of generated grey noise.
 - The Hallenbad Sissila now shows its name on all four sides, so you can read it from whichever way you drive up.
 - Messages like "Grüss mir die Fische!" or "Gemeindegrenzen an" now pop up in the middle, right under the checkpoint arrow, and stay longer — 4 seconds, 5 for things that happen to you on the road — so you can read them while driving.
