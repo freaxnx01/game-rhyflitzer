@@ -109,6 +109,35 @@ def test_click_on_the_panel_copies_one_line(server):
 
 
 @needs_world
+def panel_lines(page):
+    page.keyboard.press("F3")
+    page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
+    return page.evaluate("() => window.__mm.debug().lines")
+
+
+def test_panel_shows_car_size_and_hand_layout_map(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True)
+        lines = panel_lines(page)
+        size = page.evaluate("() => window.__mm.carSize()")
+        text = page.evaluate("() => window.__mm.debug().copy")
+        br.close()
+    got = next(l for l in lines if l.startswith("size "))
+    l, w, h = (float(v) for v in got[5:-2].split(" × "))
+    assert (l, w, h) == (pytest.approx(size["l"], abs=0.02), pytest.approx(size["w"], abs=0.02), pytest.approx(size["h"], abs=0.02)), got
+    assert "map 6.40 × 3.80 km · 24.3 km²" in lines, lines
+    assert "size " in text and "map " in text
+
+
+@needs_world
+def test_panel_shows_world_map_extent(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server)
+        lines = panel_lines(page)
+        br.close()
+    assert "map 9.44 × 4.39 km · 41.5 km²" in lines, lines
+
+
 @pytest.mark.parametrize("bid", [BODENACKER_6, TALLEST])
 def test_tall_building_label_stays_on_screen(server, bid):
     """#70: facing a tall building from close by, its height label is lowered into the screen (NDC y <= 0.8)."""
