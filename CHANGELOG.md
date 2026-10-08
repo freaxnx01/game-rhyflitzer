@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Railway bridges are real now: where the train crosses a road on a bridge — Laufenburgerstrasse in Sisseln, Hauptstrasse in Stein, Ankengasse in Mumpf and more — the tracks run over a stone deck and the road dips underneath between stone walls, with room for a lorry. Drive under it, or follow the tracks over it. Where a side street turns off right next to the bridge, the underpass is lower — mind your roof. Level crossings stay level.
 - Press **O** for the autopilot: pick a place from the **J** list or any street, and the car drives there by itself — it finds the way through the road network, slows down for bends and bridges, sets the turn signals before it turns and stops when it arrives. The way ahead shows as a blue line on the map. Steer, accelerate or brake (or press **O** again) and you drive yourself. A race run with the autopilot does not count.
 - The LANDI silo tower by Bahnhof Sisseln now stands in the world at its real 56 m, a grey concrete tower you can see from across the Sisslerfeld. **J** → `landi` takes you there; it is listed under Eiken, where it actually stands.
 - Press **Esc** or **P** (or tap the **II** button) to pause. The car, the clock and the engine stop, and a menu lets you carry on, restart the race or go back to the start screen. If the clock is already running, going back asks „Abandon this run?" first, so a stray tap does not throw a good run away. Switching to another tab pauses the game too.
