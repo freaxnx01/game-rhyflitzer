@@ -171,3 +171,10 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 
 - [ ] Hold Tab for several seconds while driving: only the big map shows, no button or link gets a focus ring.
 - [ ] **J**, type a search, press Tab: the focus stays in the search field and typing goes on there.
+
+## Solid trees (#131)
+
+- [ ] Drive off-road into a tree (e.g. the Sisseln forest east of the village): the car stops at the trunk, the damage bar rises, the crash sound plays. Both tree styles (billboards and cones, style switch) look right — the car stops at, not inside or far in front of, the trunk.
+- [ ] Driving along roads through the forest: no invisible bumps from trees at the road edge.
+- [ ] Helicopter low over the forest: it keeps above the crowns, no jitter.
+- [ ] Chase camera in a forest: no annoying zoom-in jumps when trunks pass behind the car.
