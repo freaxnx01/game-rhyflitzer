@@ -9,7 +9,7 @@ export function photoFileName(date) {
   return `rhyflitzer-${day}-${time}.png`;
 }
 
-// a photo needs a visible scene: start / result screen hidden, the J/O search closed, and one press per key-down
-export function canPhoto(overlayHidden, jumpOpen, repeat) {
-  return overlayHidden && !jumpOpen && !repeat;
+// a photo needs a visible scene: the start / result overlay hidden (the J/O search and key repeat are filtered upstream)
+export function canPhoto(overlayHidden) {
+  return overlayHidden;
 }
