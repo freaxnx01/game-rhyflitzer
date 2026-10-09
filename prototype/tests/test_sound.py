@@ -41,3 +41,74 @@ def test_voices_render_offline(server):
     assert r["load"]["peak"] < 1.0, r
     assert r["fly"]["rms"] == 0, r
     assert r["rotor"]["rms"] > 0.02 and r["rotor"]["peak"] < 1.0, r
+
+
+def open_sound(p, server):
+    """The hand layout with autoplay allowed, Start clicked (that creates the AudioContext and the engine voices)."""
+    b = p.chromium.launch(args=ARGS + ["--autoplay-policy=no-user-gesture-required"]); page = b.new_page(viewport={"width": 320, "height": 180})
+    page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+    page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+    page.goto(f"{server}/prototype/index.html")
+    page.wait_for_function("() => window.__mm && window.__mm.audio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    page.click("#startbtn", timeout=180000)
+    page.wait_for_function("() => window.__mm.audio().ctx === 'running'", timeout=60000)
+    return b, page
+
+
+def test_engine_follows_the_car_and_nitro(server):
+    """72 km/h coasting: 3rd gear, rpm heads for 6200 * 72 / 75; holding N adds the hiss."""
+    with sync_playwright() as p:
+        b, page = open_sound(p, server)
+        page.evaluate("() => window.__mm.sim(1882.9, -292.2, Math.PI, 20, 0.02, [])"); wait_frames(page, 3)
+        coast = page.evaluate("() => window.__mm.audio()")
+        page.keyboard.down("KeyN"); wait_frames(page, 3)
+        nitro = page.evaluate("() => window.__mm.audio()")
+        page.keyboard.up("KeyN")
+        b.close()
+    assert coast["gear"] == 2, coast
+    assert coast["mix"]["hiss"] == 0 and coast["mix"]["road"] > 0, coast
+    assert nitro["mix"]["hiss"] > 0, nitro
+
+
+def test_hidden_tab_and_hold_suspend_the_sound(server):
+    """A hidden tab suspends the AudioContext and a visible one resumes it; a second hold (#83's pause menu) keeps it
+    suspended until both are released. The horn does nothing while held."""
+    hide = "(h) => { Object.defineProperty(document, 'hidden', { value: h, configurable: true }); document.dispatchEvent(new Event('visibilitychange')); }"
+    with sync_playwright() as p:
+        b, page = open_sound(p, server)
+        page.evaluate(f"({hide})(true)")
+        page.wait_for_function("() => window.__mm.audio().ctx === 'suspended'", timeout=30000)
+        page.evaluate("() => window.__mm.sfxHold('menu', true)")
+        page.evaluate(f"({hide})(false)"); page.wait_for_timeout(300)
+        still = page.evaluate("() => window.__mm.audio()")
+        page.evaluate("() => window.__mm.sfxHold('menu', false)")
+        page.wait_for_function("() => window.__mm.audio().ctx === 'running'", timeout=30000)
+        b.close()
+    assert still["ctx"] == "suspended" and still["holds"] == ["menu"], still
+
+
+def test_vehicle_swap_rebuilds_the_engine_voices(server):
+    """A preset with a three-cylinder engine and other harmonics is accepted and heard: the firing frequency follows it."""
+    with sync_playwright() as p:
+        b, page = open_sound(p, server)
+        use_vehicle(page, "c.sound.engine.cylinders = 3; c.sound.engine.harmonics = [{ mul: 1, gain: 1, detune: 0 }]")
+        wait_frames(page, 3)
+        got = page.evaluate("() => window.__mm.audio()")
+        bad = page.evaluate("() => { const c = window.__mm.vehicles().compact; c.sound.horn.notes = []; try { window.__mm.setVehicle(c); return 'no error'; } catch (e) { return e.message; } }")
+        b.close()
+    assert abs(got["mix"]["f0"] - got["rpm"] / 60 * 1.5) < 1e-6, got
+    assert "horn.notes" in bad, bad
+
+
+def test_flying_mutes_the_engine_and_plays_the_rotor(server):
+    """#10: F lifts off; in flight the engine, road noise and hiss are silent and the rotor plays; F again lands."""
+    with sync_playwright() as p:
+        b, page = open_sound(p, server)
+        page.keyboard.press("KeyF"); wait_frames(page, 3)
+        fly = page.evaluate("() => window.__mm.audio()")
+        page.keyboard.press("KeyF"); wait_frames(page, 3)
+        ground = page.evaluate("() => window.__mm.audio()")
+        b.close()
+    assert fly["mix"]["gain"] == 0 and fly["mix"]["road"] == 0 and fly["mix"]["hiss"] == 0, fly
+    assert fly["rotor"]["gain"] > 0, fly
+    assert ground["mix"]["gain"] > 0 and ground["rotor"]["gain"] == 0, ground
