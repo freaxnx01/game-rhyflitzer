@@ -1519,6 +1519,7 @@ window.__mm.finishNow = () => finish();   // test hook (#9): show the result scr
 window.__mm.hunt = () => ({ mode: R.mode, state: R.state, found: R.done, total: HUNT_RUN.spots.length, spots: HUNT_RUN.spots.map(s => [s.x, s.z, s.y]), timers: { ...SURP }, gravity: gravityScale(SURP), dmg: P.dmg, best: R.huntBest, last: R.last ? { ...R.last } : null, cpsVisible: cpObjs.every(c => c.g.visible), boxesVisible: presentObjs.filter(o => o.g.visible).length, confetti: confetti.pts.visible });
 window.__mm.startHunt = (seed, cands) => { SFX.start(); startRace('hunt', seededRng(seed)); if (cands) { startHuntRun(true, seededRng(seed), cands); renderModeLine(); updatePips(); } };   // cands: a test's own candidate list in place of the roads
 window.__mm.surprise = (id) => applySurprise(SURPRISES.find(s => s.id === id));
+window.__mm.huntSetEndIn = (s) => { HUNT_RUN.endIn = s; };   // tests: shorten the celebration before the result screen, which takes ~30 frames at the dt clamp
 
 // ---------- HUD & map ----------
 const mapC = $('map'), mg = mapC.getContext('2d');

@@ -29,6 +29,13 @@ def collect(page, k):
     page.wait_for_function(f"() => window.__mm.hunt().found > {k}", timeout=T)
 
 
+def skip_celebration(page):
+    """The 1.5 s celebration is ~30 drawn frames at the loop's dt clamp, minutes on a loaded box: end it in one frame.
+    The hunt is already over (clock stopped, best stored) by the time this runs; only the wait before the result screen shrinks."""
+    assert page.evaluate("window.__mm.hunt().state") == "finished"
+    page.evaluate("window.__mm.huntSetEndIn(0.01)")
+
+
 def test_hunt_button_starts_a_hunt_with_five_spots(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
@@ -66,6 +73,7 @@ def test_collecting_all_five_ends_with_a_result_and_a_best(server):
             assert page.text_content("#toast").startswith(f"Present {k + 1}/5")
             kinds.append(page.text_content("#toast").split("/5", 1)[1])   # the surprise line, without "Present n/5"
         assert len(set(kinds[:4])) == 4
+        skip_celebration(page)
         page.wait_for_function("() => !document.querySelector('#overlay').hidden", timeout=T)
         assert "All presents found!" in page.text_content("#result") or "New record!" in page.text_content("#result")
         assert page.text_content("#huntbtn") == "Retry" and page.text_content("#startbtn") == "Start"
@@ -215,6 +223,7 @@ def test_a_corrupt_stored_hunt_best_is_ignored(server):
             collect(page, k)
         best = page.evaluate("window.__mm.hunt().best")
         assert isinstance(best, (int, float)) and best >= 0
+        skip_celebration(page)
         page.wait_for_function("() => !document.querySelector('#overlay').hidden", timeout=T)
         assert "NaN" not in page.text_content("#result")
         assert errors == []
