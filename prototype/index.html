@@ -1440,7 +1440,8 @@ const holdSound = (on) => SFX.hold('menu', on);   // #14: one of several hold re
 function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; for (const k in keys) keys[k] = false; $('help').hidden = true; closeJump(); $('pause').hidden = false; holdSound(true); $(PAUSE_BUTTONS[0]).focus(); }
 function closePause() { if (!PAUSE.on) return; PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
 function restartRace() { closePause(); startRace(R.mode); }
-function toMainMenu() { closePause(); R.state = 'ready'; R.t = 0; R.timeUp = false; P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderOverlay(); renderModeLine(); $('overlay').hidden = false; $('startbtn').focus(); }   // the run is abandoned, never recorded; R.best untouched
+function resetMode() { R.mode = 'trial'; R.left = 0; R.timeUp = false; }   // back to the plain time trial; every way out to the start screen calls this
+function toMainMenu() { closePause(); R.state = 'ready'; R.t = 0; resetMode(); P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderOverlay(); renderModeLine(); $('overlay').hidden = false; $('startbtn').focus(); }   // the run is abandoned, never recorded; R.best untouched
 // A3 (user decision 2026-10-03): with the clock running, ask first; 'armed' goes straight back
 function chooseMainMenu() { if (needsAbandonConfirm(R.state)) openAbandon(); else toMainMenu(); }
 function openAbandon() { PAUSE.confirm = true; $('pause').hidden = true; $('abandon').hidden = false; $(ABANDON_BUTTONS[0]).focus(); }

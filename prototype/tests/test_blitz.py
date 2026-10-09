@@ -106,6 +106,26 @@ def test_a_cheated_finish_shows_the_rank_but_keeps_no_best(server):
         b.close()
 
 
+def test_abandoning_a_blitz_run_returns_the_start_screen_to_the_time_trial(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.click("#blitzbtn")
+        page.wait_for_function("() => document.getElementById('overlay').hidden", timeout=T)
+        page.keyboard.down("KeyW")                                           # racing, so the abandon dialog appears
+        page.wait_for_function("() => window.__mm.blitz().left < 90", timeout=T)
+        page.keyboard.up("KeyW")
+        page.keyboard.press("Escape"); page.click("#pausemenu")
+        if page.is_visible("#abandonok"): page.click("#abandonok")
+        page.wait_for_function("() => !document.getElementById('overlay').hidden", timeout=T)
+        s = blitz(page)
+        assert s["mode"] == "trial" and s["left"] == 0 and s["timeUp"] is False
+        assert text(page, "#tl .mode") == "Time trial · Hochrhein" and text(page, "#tr .lbl") == "Time"
+        page.wait_for_function("() => document.querySelector('#time').textContent.startsWith('00:00')", timeout=T)   # hud() redraws behind the overlay
+        assert text(page, "#tr .lbl") == "Time" and text(page, "#best").startswith("Best ") and not text(page, "#best").startswith("Best left")
+        assert errors == []
+        b.close()
+
+
 def test_the_time_trial_is_untouched_and_german_labels_switch_mid_run(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
