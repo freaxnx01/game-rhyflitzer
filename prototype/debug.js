@@ -63,3 +63,10 @@ export function clampLabelY(view, tanHalf, x, y, z, ndcMax, floor) {
   const a = e[1] * x + e[9] * z + e[13], c = e[2] * x + e[10] * z + e[14];
   return Math.max(floor, Math.min(y, -(a + k * c) / den));
 }
+
+// #74: the short label drawn left of each panel line (a strings.js key); the line text itself stays language-neutral
+const LINE_LABELS = [['x ', 'dbgLabCar'], ['LV95 ', 'dbgLabLv95'], ['WGS84 ', 'dbgLabWgs84'], ['bldg ', 'dbgLabBldg'], ['size ', 'dbgLabSize'], ['map ', 'dbgLabMap']];
+export function lineLabelKey(line) {
+  const hit = LINE_LABELS.find(([prefix]) => line.startsWith(prefix));
+  return hit ? hit[1] : null;
+}

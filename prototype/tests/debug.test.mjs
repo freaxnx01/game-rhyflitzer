@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines } from '../debug.js';
+import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey } from '../debug.js';
+import { translate } from '../strings.js';
 
 const ORIGIN = { lat: 47.5506, lon: 7.9671, E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };   // data/world_hochrhein.json
 
@@ -94,4 +95,29 @@ test('clampLabelY: labels that fit, labels behind the camera and the floor', () 
 
 test('DEBUG_LABEL_NDC_MAX: 0.8 leaves a tenth of the screen above the label centre', () => {
   assert.equal(DEBUG_LABEL_NDC_MAX, 0.8);
+});
+
+// #74: the panel explains itself — a short label per line and a legend behind the ? button
+test('lineLabelKey: one label key per panel line, by prefix; null for anything else', () => {
+  const p = { x: 1234.54, z: -253.26, E: 2641015.9, N: 1267040.3, lat: 47.552843, lon: 7.983451 };
+  const lines = [...positionLines(p, 312.44, 86.6), ...buildingLines({ id: 171822634, t: '22.8 m +1.2 dsm' }), sizeLine({ l: 4.66, w: 2.18, h: 1.55 }), ...mapLines(9440, 4392)];
+  assert.deepEqual(lines.map(lineLabelKey), ['dbgLabCar', 'dbgLabLv95', 'dbgLabWgs84', 'dbgLabBldg', 'dbgLabSize', 'dbgLabMap']);
+  const bare = [...positionLines({ x: 1, z: 2, E: null, N: null, lat: null, lon: null }, 0, 0), ...buildingLines(undefined)];
+  assert.deepEqual(bare.map(lineLabelKey), ['dbgLabCar', 'dbgLabLv95', 'dbgLabBldg']);
+  for (const other of ['', 'xyz', 'LV9', 'something else', 'building 1']) assert.equal(lineLabelKey(other), null, other);
+});
+
+test('debug labels and legend exist in English and German and explain every value', () => {
+  const keys = ['dbgLabCar', 'dbgLabLv95', 'dbgLabWgs84', 'dbgLabBldg', 'dbgLabSize', 'dbgLabMap'];
+  for (const k of [...keys, 'dbgLegendBtn', 'dbgLegend']) {
+    for (const lang of ['en', 'de']) assert.notEqual(translate(lang, k), k, `${lang}.${k}`);
+  }
+  assert.deepEqual(keys.map(k => translate('en', k)), ['car', 'Swiss', 'GPS', 'nearest', 'car body', 'world']);
+  assert.deepEqual(keys.map(k => translate('de', k)), ['Auto', 'Schweiz', 'GPS', 'nächstes', 'Karosserie', 'Welt']);
+  const en = translate('en', 'dbgLegend'), de = translate('de', 'dbgLegend');
+  for (const term of ['east', 'south', 'height', 'heading', 'north', 'LV95', 'WGS84', 'eaves', 'roof', 'dsm', 'digital surface model (swissSURFACE3D) minus the terrain model', 'osm', '2.5 m', 'copy']) assert.ok(en.includes(term), `en: ${term}`);
+  for (const term of ['Osten', 'Süden', 'Höhe', 'Kurs', 'Norden', 'LV95', 'WGS84', 'Traufe', 'Dach', 'dsm', 'digitales Oberflächenmodell (DSM)', 'swissSURFACE3D', 'Geländemodell', 'osm', '2.5 m', 'kopiert']) assert.ok(de.includes(term), `de: ${term}`);
+  for (const [lang, text] of [['en', en], ['de', de]]) {                     // #124's two lines are explained too
+    for (const label of keys.map(k => translate(lang, k))) assert.ok(text.includes(`<b>${label}</b>`), `${lang}: ${label}`);
+  }
 });

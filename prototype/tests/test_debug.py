@@ -19,8 +19,8 @@ COCKPIT_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view 
                    " && Math.abs(d[0] - 0.25) < 0.05 && Math.abs(d[1] - 1.22) < 0.05 && Math.abs(d[2] - 0.38) < 0.05; }")   # cockpit eye x scale 1.0 (#69)
 
 
-def open_page(p, server, block_world=False, query=""):
-    b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 960, "height": 540})
+def open_page(p, server, block_world=False, query="", **page_opts):
+    b = p.chromium.launch(args=ARGS); page = b.new_page(**{"viewport": {"width": 960, "height": 540}, **page_opts})
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     if block_world:
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
@@ -209,3 +209,134 @@ def test_tall_building_label_stays_on_screen(server, bid):
     for view, l in (("chase", chase), ("cockpit", cockpit)):
         assert l.get("clamped") is True, (view, l)
         assert l.get("ny") is not None and -1 <= l["ny"] <= 0.8 + 1e-3, (view, l)
+
+
+# #74: a short label left of every line, drawn by CSS ::before so the line text and the copied text stay bare
+HAND_LABELS = ["car", "Swiss", "nearest", "car body", "world"]
+
+
+def test_every_panel_line_has_a_label(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug")
+        page.wait_for_function("() => (window.__mm.debug().labels || []).length > 0", timeout=60000)
+        dbg = page.evaluate("() => window.__mm.debug()")
+        drawn = page.evaluate("() => [...document.querySelectorAll('#debugtext > div')].map(d => getComputedStyle(d, '::before').content)")
+        text = page.inner_text("#debug")
+        br.close()
+    assert dbg["labels"] == HAND_LABELS, dbg
+    assert len(dbg["labels"]) == len(dbg["lines"])
+    assert all(dbg["labels"]), dbg["labels"]                               # no line is left unexplained
+    assert drawn == [f'"{l}"' for l in HAND_LABELS], drawn                 # drawn by ::before, not a text node
+    assert text.startswith("x ") and "LV95 —" in text and "bldg —" in text, text
+
+
+@needs_world
+def test_world_layout_labels_every_line(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, query="?debug")
+        page.wait_for_function("() => (window.__mm.debug().labels || []).length === 6", timeout=120000)
+        dbg = page.evaluate("() => window.__mm.debug()")
+        br.close()
+    assert dbg["labels"] == ["car", "Swiss", "GPS", "nearest", "car body", "world"], dbg
+    assert dbg["lines"][2].startswith("WGS84 "), dbg["lines"]
+
+
+def install_copy_spy(page):
+    page.evaluate("() => { window.__copied = null; navigator.clipboard.writeText = t => { window.__copied = t; return Promise.resolve(); }; }")
+
+
+def test_question_button_toggles_the_legend_without_copying(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug")
+        page.click("#startbtn")
+        page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
+        install_copy_spy(page)
+        hidden_at_start = not page.is_visible("#debuglegend")
+        page.click("#debughelp")
+        page.wait_for_timeout(400)                                           # > one 250 ms debug tick: the tick must not wipe the legend
+        shown = page.is_visible("#debuglegend"); expanded = page.get_attribute("#debughelp", "aria-expanded")
+        legend = page.text_content("#debuglegend"); hook = page.evaluate("() => window.__mm.debug().legend")
+        focused = page.evaluate("() => document.activeElement && document.activeElement.id")
+        panel = page.locator("#debug").bounding_box()
+        page.click("#debuglegend")
+        page.click("#debughelp")
+        hidden_again = not page.is_visible("#debuglegend"); collapsed = page.get_attribute("#debughelp", "aria-expanded")
+        page.wait_for_timeout(300)
+        copied = page.evaluate("() => window.__copied")
+        br.close()
+    assert hidden_at_start and shown and expanded == "true" and hook is True
+    for term in ["eaves", "roof", "dsm", "digital surface model", "terrain model", "osm", "2.5 m", "east", "south", "heading", "LV95", "WGS84"]:
+        assert term in legend, term
+    assert focused != "debughelp"
+    assert panel["y"] >= 0 and panel["y"] + panel["height"] <= 540, panel   # the open legend scrolls instead of pushing the panel off screen
+    assert hidden_again and collapsed == "false"
+    assert copied is None                                                    # neither the button nor the legend copies
+
+
+def test_tap_on_the_question_button_opens_the_legend(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug", viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
+        page.tap("#startbtn")
+        page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
+        coarse = page.evaluate("() => matchMedia('(pointer:coarse)').matches")
+        box = page.locator("#debughelp").bounding_box()
+        page.tap("#debughelp")
+        shown = page.is_visible("#debuglegend")
+        panel = page.locator("#debug").bounding_box()
+        br.close()
+    assert coarse and box["width"] >= 35.99 and box["height"] >= 35.99, box   # 36 CSS px, finger-sized (the device pixel ratio costs a 10^-5 of a px)
+    assert shown
+    assert panel["y"] >= 0 and panel["y"] + panel["height"] <= 844, panel     # and it fits the phone screen too
+
+
+def test_labels_and_legend_follow_the_language(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug")
+        page.wait_for_function("() => (window.__mm.debug().labels || []).length > 0", timeout=60000)
+        page.evaluate("() => window.ggSetLang('de')")
+        page.wait_for_function("() => window.__mm.debug().labels[0] === 'Auto'", timeout=30000)
+        labels = page.evaluate("() => window.__mm.debug().labels")
+        legend = page.text_content("#debuglegend")
+        aria = page.get_attribute("#debughelp", "aria-label")
+        copy = page.evaluate("() => window.__mm.debug().copy")
+        page.evaluate("() => window.ggSetLang('en')")                         # gg-lang is shared across the site's games
+        br.close()
+    assert labels == ["Auto", "Schweiz", "nächstes", "Karosserie", "Welt"], labels
+    assert "Traufe" in legend and "Dach" in legend and "2.5 m" in legend and "digitales Oberflächenmodell (DSM)" in legend, legend
+    assert aria == "Debug-Werte erklären"
+    assert copy.startswith("x ") and " | LV95 —" in copy                      # the copied text stays language-neutral
+
+
+def boxes_overlap(a, b):
+    return a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"] and a["y"] < b["y"] + b["height"] and b["y"] < a["y"] + a["height"]
+
+
+# boxes and the viewport are compared in CSS (layout) pixels throughout: the page has no <meta name="viewport">,
+# so a phone lays out at 980 px and scales the whole page down — device pixels would not be the same unit.
+VIEWPORT = "() => ({ width: innerWidth, height: innerHeight })"
+
+
+@needs_world
+@pytest.mark.parametrize("name,opts", [("desktop", {}), ("phone", {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True})])
+def test_panel_with_the_legend_open_stays_on_screen(server, name, opts):
+    """The world layout has the longest lines (bldg <id> · <h> m +<rh> dsm) and one more of them than the hand
+    layout, so it is what decides whether the labelled panel plus the open legend still fit on screen."""
+    with sync_playwright() as p:
+        br, page = open_page(p, server, query="?debug", **opts)
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => (window.__mm.debug().labels || []).length === 6", timeout=120000)
+        page.click("#debughelp")
+        page.wait_for_function("() => window.__mm.debug().legend", timeout=30000)
+        vp = page.evaluate(VIEWPORT)
+        panel = page.locator("#debug").bounding_box()
+        button = page.locator("#debughelp").bounding_box()
+        steering = [page.locator(sel).bounding_box() for sel in ("#tL", "#tR", "#tH")]
+        steering = [b for b in steering if b]                                # display:none off a coarse pointer, so no box on the desktop
+        lines = page.evaluate("() => window.__mm.debug().lines")
+        br.close()
+    assert any(l.startswith("bldg 1") for l in lines), lines                 # a real building, not the "bldg —" placeholder
+    assert panel["x"] >= 0 and panel["x"] + panel["width"] <= vp["width"], (panel, vp)
+    assert panel["y"] >= 0 and panel["y"] + panel["height"] <= vp["height"], (panel, vp)
+    assert button["y"] >= 0, (button, vp)                                    # the ? stays clickable, so the legend can be closed again
+    for box in steering:
+        assert not boxes_overlap(panel, box), (panel, box)                   # the open legend still leaves the steering buttons free
