@@ -322,3 +322,11 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] Phone (portrait, German): header, stage, panel and footer stack; no sideways scrolling; the eleven swatches sit in two rows; swatches and tiles are big enough for a thumb; Back / Los! stay at the bottom while you scroll; the bottom nav links and the round steering buttons are hidden while choosing.
 - [ ] `?vehicle=delorean` in the address opens the game with the DeLorean selected and the screen shows it as „Auto 2 von 2".
 - [ ] Night (#2) on, then Choose car: does the dimmed night scene still read, or does the stage need a lighter dim?
+
+## Forests (#13)
+
+- [ ] J → Sisseln, drive the Hauptstrasse east towards Eiken: the Sisslerwald stands on both sides of the road, the road itself is open (no invisible wall on the asphalt), trees do not stand on the road.
+- [ ] Leave the road into a wood: the car is stopped at the first trunks (wall just inside the edge), not thrown back; reversing frees it.
+- [ ] Phone: frame rate while driving along a wood's edge in both styles (T), and from the J list a jump across the map — note load time.
+- [ ] Original style: the ground under the woods is darker; Smooth style: trees only.
+- [ ] Trees that stick out of a car park, a stream or the railway in a wood (there should be none).

@@ -507,3 +507,80 @@ def test_hud_bundle(server):
     assert shadow_off is False and shadow_on is True, (shadow_off, shadow_on)   # V hides the car's ground shadow too (#37)
     assert (left, right, off) == ("left", "right", None)
     assert full_map is True and corner_map is False
+
+
+def world_forests():
+    """#13: the woods in the world file; empty until it is rebuilt with a pipeline that exports them."""
+    return json.loads(WORLD.read_text(encoding="utf-8")).get("forests", []) if WORLD.exists() else []
+
+
+@pytest.mark.skipif(not world_forests(), reason="world file predates #13: rebuild it with pipeline/osm.py build")
+def test_forest_loaded(server):
+    forests = world_forests()
+    info, msgs = load(server, block_world=False)
+    f = info["mm"]["counts"]["forest"]
+    assert f["polys"] == len(forests)
+    assert 20000 <= f["edge"] and 10000 <= f["fill"] and f["edge"] + f["fill"] <= 70000, f
+    assert 0 < f["trees"] <= f["edge"] + f["fill"] and f["walls"] >= 5000 and 100 <= f["tiles"] <= 200, f
+    assert msgs == []
+    info, _ = load(server, block_world=True)
+    assert "forest" not in info["mm"]["counts"]
+
+
+def _in_wood(forests, x, z):
+    return any(_in_ring(f["ring"], x, z) and not any(_in_ring(h, x, z) for h in f.get("holes", [])) for f in forests)
+
+
+def _seg_dist(px, pz, ax, az, bx, bz):
+    dx, dz = bx - ax, bz - az
+    l2 = dx * dx + dz * dz or 1.0
+    t = max(0.0, min(1.0, ((px - ax) * dx + (pz - az) * dz) / l2))
+    return math.hypot(px - ax - dx * t, pz - az - dz * t)
+
+
+def _forest_approach(world):
+    """A straight wood edge (>= 30 m) with 25 m of open ground in front of it: no road centre line within 25 m (lamps
+    and hydrants stand up to w/2 + 15 m from it) and no building within 20 m of the approach line, the start outside
+    every wood. Returns (start x, start z, heading, ring)."""
+    forests = world["forests"]
+    roads = [(a, b) for r in world["roads"] for a, b in zip(r["pts"], r["pts"][1:])]
+    houses = [(b["rect"][0], b["rect"][1]) for b in world["buildings"]]
+    for f in forests:
+        ring = f["ring"]
+        for i in range(len(ring)):
+            (ax, az), (bx, bz) = ring[i - 1], ring[i]
+            length = math.hypot(bx - ax, bz - az)
+            if length < 30:
+                continue
+            mx, mz = (ax + bx) / 2, (az + bz) / 2
+            nx, nz = -(bz - az) / length, (bx - ax) / length
+            if not _in_wood(forests, mx + nx * 3, mz + nz * 3):           # normal must point into the wood
+                nx, nz = -nx, -nz
+                if not _in_wood(forests, mx + nx * 3, mz + nz * 3):
+                    continue
+            samples = [(mx - nx * d, mz - nz * d) for d in range(2, 27, 2)]
+            if any(_in_wood(forests, x, z) for x, z in samples):
+                continue
+            if any(_seg_dist(x, z, *a, *b) < 25 for x, z in samples for a, b in roads if abs(a[0] - x) < 80 and abs(a[1] - z) < 80):
+                continue
+            if any(math.hypot(hx - x, hz - z) < 20 for x, z in samples for hx, hz in houses):
+                continue
+            return mx - nx * 25, mz - nz * 25, math.atan2(nz, nx), ring
+    pytest.skip("no straight wood edge with open ground in front of it")
+
+
+@pytest.mark.skipif(not world_forests(), reason="world file predates #13: rebuild it with pipeline/osm.py build")
+def test_forest_edge_blocks_the_car(server):
+    """#13: only the edge of a wood collides. Driving straight at a wood from 25 m out for 3 s (15 m/s, gas held) the
+    car is stopped at the trunks: it ends outside the wood, less than 27 m from where it started."""
+    world = json.loads(WORLD.read_text(encoding="utf-8"))
+    sx, sz, th, ring = _forest_approach(world)
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && window.__mm.counts.forest && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        r = page.evaluate(f"() => window.__mm.sim({sx}, {sz}, {th}, 15, 3)")
+        br.close()
+    assert not _in_ring(ring, r["x"], r["z"]), r
+    assert math.hypot(r["x"] - sx, r["z"] - sz) < 27, r
