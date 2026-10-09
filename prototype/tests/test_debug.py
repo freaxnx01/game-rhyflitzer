@@ -199,3 +199,33 @@ def test_tall_building_label_stays_on_screen(server, bid):
     for view, l in (("chase", chase), ("cockpit", cockpit)):
         assert l.get("clamped") is True, (view, l)
         assert l.get("ny") is not None and -1 <= l["ny"] <= 0.8 + 1e-3, (view, l)
+
+
+# #74: a short label left of every line, drawn by CSS ::before so the line text and the copied text stay bare
+HAND_LABELS = ["car", "Swiss", "nearest", "car body", "world"]
+
+
+def test_every_panel_line_has_a_label(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug")
+        page.wait_for_function("() => (window.__mm.debug().labels || []).length > 0", timeout=60000)
+        dbg = page.evaluate("() => window.__mm.debug()")
+        drawn = page.evaluate("() => [...document.querySelectorAll('#debugtext > div')].map(d => getComputedStyle(d, '::before').content)")
+        text = page.inner_text("#debug")
+        br.close()
+    assert dbg["labels"] == HAND_LABELS, dbg
+    assert len(dbg["labels"]) == len(dbg["lines"])
+    assert all(dbg["labels"]), dbg["labels"]                               # no line is left unexplained
+    assert drawn == [f'"{l}"' for l in HAND_LABELS], drawn                 # drawn by ::before, not a text node
+    assert text.startswith("x ") and "LV95 —" in text and "bldg —" in text, text
+
+
+@needs_world
+def test_world_layout_labels_every_line(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, query="?debug")
+        page.wait_for_function("() => (window.__mm.debug().labels || []).length === 6", timeout=120000)
+        dbg = page.evaluate("() => window.__mm.debug()")
+        br.close()
+    assert dbg["labels"] == ["car", "Swiss", "GPS", "nearest", "car body", "world"], dbg
+    assert dbg["lines"][2].startswith("WGS84 "), dbg["lines"]

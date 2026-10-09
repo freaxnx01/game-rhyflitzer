@@ -35,6 +35,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #debug{position:fixed;left:16px;bottom:calc(232px + env(safe-area-inset-bottom,0px));z-index:5;padding:6px 10px;background:rgba(20,23,29,.82);border:2px solid #3a404b;font:600 13px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#b6ff7a;white-space:pre;pointer-events:auto;cursor:copy}#debug[hidden]{display:none}
 @media (max-width:900px){#debug{bottom:calc(162px + env(safe-area-inset-bottom,0px))}}
 @media (pointer:coarse){#debug{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px))}}
+#debugtext>div::before{content:attr(data-label);display:inline-block;min-width:11ch;color:#7f9a6a}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
 /* #hud is pointer-events:none, so the dialog has to opt back in to be clickable at all */
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
@@ -169,7 +170,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
-  <div id="debug" hidden title="Click to copy"></div>
+  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div></div>
 </div>
 
 <div id="touch">
@@ -239,7 +240,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider } from './world.js';
-import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines } from './debug.js';
+import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, TAKE_OVER_KEYS } from './route.js';
@@ -1496,7 +1497,9 @@ const DEBUG = { on: false, t: 0, sections: [], layers: [], lines: [] };
 function debugSection(fn) { DEBUG.sections.push(fn); }
 function debugLayer(layer) { DEBUG.layers.push(layer); }
 function toggleDebug() { DEBUG.on = !DEBUG.on; DEBUG.t = 0; $('debug').hidden = !DEBUG.on; if (!DEBUG.on) for (const l of DEBUG.layers) l.hide(); toast(tr(DEBUG.on ? 'debugOn' : 'debugOff')); }
-function debugTick() { if (!DEBUG.on || performance.now() - DEBUG.t < 250) return; DEBUG.t = performance.now(); for (const l of DEBUG.layers) l.tick(P.x, P.z); DEBUG.lines = DEBUG.sections.flatMap(fn => fn()); $('debug').textContent = DEBUG.lines.join('\n'); }
+// #74: one <div> per panel line; the label is drawn by CSS ::before from data-label, so innerText and the copied text stay the bare values
+function debugLineEl(line) { const el = document.createElement('div'); const key = lineLabelKey(line); el.dataset.label = key ? tr(key) : ''; el.textContent = line; return el; }
+function debugTick() { if (!DEBUG.on || performance.now() - DEBUG.t < 250) return; DEBUG.t = performance.now(); for (const l of DEBUG.layers) l.tick(P.x, P.z); DEBUG.lines = DEBUG.sections.flatMap(fn => fn()); $('debugtext').replaceChildren(...DEBUG.lines.map(debugLineEl)); }
 function copyDebug() { const text = copyText(DEBUG.lines); if (!navigator.clipboard) { toast(tr('copyFailed')); return; } navigator.clipboard.writeText(text).then(() => toast(tr('copied')), () => toast(tr('copyFailed'))); }
 $('debug').addEventListener('click', copyDebug);
 // building heights (data h, +rh, hsrc) over the buildings within 60 m: own grid, sprite pool and LRU, built like the house numbers (LABELS)
@@ -1516,7 +1519,7 @@ debugSection(() => positionLines(debugPosition(L && L.origin, P.x, P.z), P.y, be
 debugSection(() => buildingLines(DEBUG_H.shown[0]));
 debugSection(() => [sizeLine(CAR_SIZE)]);   // #124: the size measured at build time
 debugSection(() => mapLines(TGRID.GW, TGRID.GD));   // #124
-window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length });
+window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length, labels: [...document.querySelectorAll('#debugtext > div')].map(d => d.dataset.label) });
 if (debugFromQuery(location.search)) toggleDebug();
 { const id = vehicleFromQuery(location.search, Object.keys(VEHICLES)); if (id && id !== VEH.model) setVehicle(VEHICLES[id]); }   // #126: ?vehicle=<id>; the picker is #7
 function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; renderOdo(); try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } { const on = Math.floor(performance.now() / 350) % 2 === 0; $('blL').className = HUD.blinker === 'left' && on ? 'on' : ''; $('blR').className = HUD.blinker === 'right' && on ? 'on' : ''; for (const s of ['left', 'right']) BLINK[s].visible = HUD.blinker === s && on; } if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; HUD.road = roadNameAt(gridQuery(ROAD_GRID, P.x, P.z, 1), P.x, P.z); $('roadname').textContent = HUD.road; $('autoline').textContent = AUTOP.on ? tr('autoLine', AUTOP.dest.n, ((AUTOP.st.route.len - AUTOP.st.s) / 1000).toFixed(1)) : ''; } if (performance.now() - LABELS.t > 250) { LABELS.t = performance.now(); updateLabels(P.x, P.z); } updateVillageNames(P.x, P.z); $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gears = VEH.sound.gears; let gi = 0; while (kmh > gears[gi + 1]) gi++; $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); $('dmg').firstElementChild.style.width = (P.dmg * 100) + '%'; $('time').innerHTML = fmt(R.t); $('best').textContent = tr('best', R.best === null ? null : fmt(R.best).replace(/<[^>]+>/g, '')); if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = R.target.i < 0 ? tr('finishTarget', R.target.n) : tr('cpTarget', R.target.i + 1, R.target.n); } fadeToast(dt); debugTick(); clampDebugHeights(); setFullMap(!!keys.Tab && $('overlay').hidden); drawMap(); }
