@@ -103,6 +103,7 @@ def test_a_cheated_finish_shows_the_rank_but_keeps_no_best(server):
         assert blitz(page)["rank"] in ("S", "A", "B", "C")
         assert "not counted" in text(page, "#result")
         assert page.evaluate("() => localStorage.getItem('mm.blitzBest')") is None
+        assert errors == []
         b.close()
 
 
