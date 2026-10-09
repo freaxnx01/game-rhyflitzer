@@ -222,3 +222,21 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] **Helicopter (F):** engine silent, a rotor thump instead; landing brings the engine back.
 - [ ] **Pause (Esc / P):** pausing silences the game, resuming brings the engine back. Pausing, switching tab, coming back and resuming: still sound (the two holds are independent).
 - [ ] **DeLorean (`?vehicle=delorean`):** a lazier, darker engine and a lower horn than the compact — the two cars are clearly tellable apart by ear.
+
+## Crash sound (#104)
+
+The numbers all live in one table (`sound.crash` per vehicle in `prototype/index.html`: `thump` 70 Hz is the
+body's note, `noise` 1800 Hz the brightness, `weight` the length, `gain` the level) — tuning is a table edit.
+
+- [ ] Bump a house at about 15 km/h: a short, quiet tick, no bang.
+- [ ] Hit the same house at full speed: loud, deep and clearly longer — and not distorted.
+- [ ] Scrape along a wall (steer into it and keep driving): silent the whole way, no ticking per metre.
+- [ ] Press into a wall with the gas held: one crash, then quiet. No rattling, no machine gun.
+- [ ] Bounce around a corner (two walls): each real hit sounds, so a hard second hit is not swallowed.
+- [ ] Land from the Sprungschanze: a big drop thuds deeply, a small step barely at all.
+- [ ] Drive into the Rhine: only the splash, no crash on top of it.
+- [ ] **M** mutes it; nothing plays. Crash into a wall while paused (**Esc**) and resume: no crash arrives late.
+- [ ] `?vehicle=delorean`: the steel car's crash is a touch brighter and harder than the compact's. Do the
+      two read as different cars, or should the presets move further apart?
+- [ ] Crash while the engine is loud and the horn (**H**) sounds: does #14's limiter keep the mix bearable
+      (loud, but not distorted)?

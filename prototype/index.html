@@ -255,6 +255,7 @@ import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
 import { vehicleFromQuery } from './vehicle.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn } from './sound.js';
+import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -1097,6 +1098,7 @@ const finishG = new THREE.Group(); { const mat = new THREE.MeshLambertMaterial({
 // model: builder id in MODELS (gltf: reserved for a glTF file, not loaded yet); wheels: [x, z] in model metres, each mirrored to ±z
 // mass: only the crash response (speed loss and damage / mass); collision: circle radius in model metres (OBB for long vehicles: #6)
 // camera: chase distances in world metres, cockpit/bumper eyes in model metres (x forward, y up, side + = right), scaled with the car
+// sound.crash (#104): weight stretches the crash, thump = the body's note in Hz, noise = the lowpass corner in Hz, gain = its level next to the other sounds
 const VEHICLES = {
   compact: { model: 'compact', gltf: null, scale: 1.0, wheels: [[1.38, 0.86], [-1.38, 0.86]], wheelR: 0.34,
     drive: { top: 60, topNitro: 90, accel: 16, accelNitro: 34, brake: 24, reverse: 8, reverseMax: 14, grip: 9, gripHandbrake: 1.8, steerRate: 2.6, airSteer: 0.4 },
@@ -1105,7 +1107,8 @@ const VEHICLES = {
     sound: { gears: [0, 20, 45, 75, 110, 150, 999],
       engine: { cylinders: 4, idleRpm: 850, shiftRpm: 6200, limitRpm: 6800, topKmh: 330, harmonics: [{ mul: 0.5, gain: 0.35, detune: -8 }, { mul: 1, gain: 1, detune: 0 }, { mul: 2, gain: 0.5, detune: 6 }, { mul: 3, gain: 0.22, detune: -5 }, { mul: 4, gain: 0.1, detune: 9 }],
         filter: { idle: 450, open: 2600, offLoad: 0.55, q: 1.6 }, gain: { idle: 0.06, rev: 0.06, load: 0.1 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
-      horn: { notes: [415, 523], dur: 0.9, gain: 0.22, band: 1400, wave: 'square' } } },
+      horn: { notes: [415, 523], dur: 0.9, gain: 0.22, band: 1400, wave: 'square' },
+      crash: { weight: 1, thump: 70, noise: 1800, gain: 1 } } },
   // #126: DeLorean look-alike. DMC-12 numbers: 177 km/h = 49 m/s, slow off the line, rear engine (a little less grip), 2.41 m wheelbase, 14"/15" wheels; five-speed box
   delorean: { model: 'delorean', gltf: null, scale: 1.0, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,
     drive: { top: 49, topNitro: 80, accel: 10, accelNitro: 26, brake: 22, reverse: 8, reverseMax: 12, grip: 8, gripHandbrake: 1.6, steerRate: 2.4, airSteer: 0.4 },
@@ -1114,7 +1117,8 @@ const VEHICLES = {
     sound: { gears: [0, 20, 42, 70, 105, 999],
       engine: { cylinders: 6, idleRpm: 800, shiftRpm: 5200, limitRpm: 5800, topKmh: 295, harmonics: [{ mul: 0.5, gain: 0.45, detune: -7 }, { mul: 1, gain: 1, detune: 0 }, { mul: 2, gain: 0.4, detune: 5 }, { mul: 3, gain: 0.18, detune: -6 }],
         filter: { idle: 380, open: 2200, offLoad: 0.5, q: 1.4 }, gain: { idle: 0.06, rev: 0.05, load: 0.09 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
-      horn: { notes: [370, 466], dur: 0.9, gain: 0.22, band: 1200, wave: 'square' } } },   // the PRV V6 sits behind the cabin: lazier revs, darker filter, a lower horn than the compact's
+      horn: { notes: [370, 466], dur: 0.9, gain: 0.22, band: 1200, wave: 'square' },
+      crash: { weight: 1, thump: 80, noise: 2200, gain: 1 } } },   // the PRV V6 sits behind the cabin: lazier revs, darker filter, a lower horn than the compact's
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -1179,7 +1183,7 @@ let CAR_SIZE = null;   // #124: body box measured once per build (buildCar), so 
 function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
 function buildCar() { freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); blob.scale.set(VEH.scale, 0.55 * VEH.scale, 1); CAR_SIZE = measureCar(); }
 // fail fast, before anything is swapped: only procedural builders and circle collision exist so far
-function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}' (glTF loading is not implemented yet)`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); checkSound(def.sound); }
+function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}' (glTF loading is not implemented yet)`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); checkSound(def.sound); checkCrash(def.sound.crash); }
 function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def); buildCar(); }   // own copy: a later change to def cannot skip checkVehicle
 const carRadius = () => VEH.collision.r * VEH.scale;   // circle only (checkVehicle); OBB: #6
 setVehicle(VEH);
@@ -1223,6 +1227,7 @@ document.getElementById('stylebtn').onclick = toggleStyle; document.getElementBy
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
   let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set();   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other
+  const gate = { t: -Infinity, s: 0 }, rec = { count: 0, last: null };   // #104: the crash retrigger gate, and what it let through (for the tests)
   const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(limit); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
   function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0 }; return eng; }
   function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted || holds.size) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
@@ -1233,7 +1238,8 @@ const SFX = (() => {
     update(input, dt) { if (!eng) return; if (eng.src !== VEH.sound.engine) { stopEngine(eng); eng = null; engine(); } es = engineStep(es, input, VEH.sound, dt); mix = engineMix(es, input, VEH.sound.engine); rmix = rotorMix(input); frames++; const t = ac.currentTime; applyEngine(eng, mix, t); applyRotor(rot, rmix, t); },
     checkpoint() { beep(660, 0.12, 'square', 0.18); beep(990, 0.18, 'square', 0.18, 0.1); },
     finish() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.25, 'square', 0.2, i * 0.12)); },
-    crash(v) { burst(0.18, 320, 1, 0.5 * v + 0.15); },
+    crash(s) { if (muted || holds.size) return; const voice = crashVoice(s, VEH.sound.crash); if (!voice) return; const a = ctx(); if (!crashGate(gate, a.currentTime, s)) return; playCrash(a, a.master, voice); rec.count++; rec.last = { s, t: a.currentTime }; },   // #104: s = impactStrength(closing speed); a scrape (s = 0) and a muted or paused game queue nothing
+    crashes() { return { count: rec.count, last: rec.last }; },
     splash() { burst(0.6, 900, 0.5, 0.4); },
     horn() { if (muted || holds.size) return; const a = ctx(); playHorn(a, a.master, VEH.sound.horn, a.currentTime); },
     toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
@@ -1306,6 +1312,7 @@ window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n 
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
+window.__mm.sfxCrashes = () => SFX.crashes();
 window.__mm.nearestRoad = (x, z) => nearestJumpable(x, z);
 window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, alt: FLY.alt, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
@@ -1354,7 +1361,7 @@ window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counte
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z] }; };   // back/look: #65
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)
-function collide(r) { for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; const dx = P.x - o.x, dz = P.z - o.z; let wx, wz, pen; if (o.ring) { const hit = ringPush(o.ring, P.x, P.z, r); if (!hit) continue; ({ wx, wz, pen } = hit); } else if (o.circle) { const dd = Math.hypot(dx, dz) || 1e-4; if (dd > r + o.circle) continue; wx = dx / dd; wz = dz / dd; pen = r + o.circle - dd; } else { const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; const cx = clamp(lx, -o.hw, o.hw), cz = clamp(lz, -o.hd, o.hd); let nx = lx - cx, nz = lz - cz; let d = Math.hypot(nx, nz); if (d > r) continue; if (d < 1e-4) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px; } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz; } } else { nx /= d; nz /= d; } wx = nx * o.c - nz * o.s; wz = nx * o.s + nz * o.c; pen = r - d; } P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; P.dmg = Math.min(1, P.dmg + Math.min(0.12, -vn * 0.004 / VEH.mass)); if (vn < -3) SFX.crash(Math.min(1, -vn / 25)); } } }
+function collide(r) { for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; const dx = P.x - o.x, dz = P.z - o.z; let wx, wz, pen; if (o.ring) { const hit = ringPush(o.ring, P.x, P.z, r); if (!hit) continue; ({ wx, wz, pen } = hit); } else if (o.circle) { const dd = Math.hypot(dx, dz) || 1e-4; if (dd > r + o.circle) continue; wx = dx / dd; wz = dz / dd; pen = r + o.circle - dd; } else { const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; const cx = clamp(lx, -o.hw, o.hw), cz = clamp(lz, -o.hd, o.hd); let nx = lx - cx, nz = lz - cz; let d = Math.hypot(nx, nz); if (d > r) continue; if (d < 1e-4) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px; } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz; } } else { nx /= d; nz /= d; } wx = nx * o.c - nz * o.s; wz = nx * o.s + nz * o.c; pen = r - d; } P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; P.dmg = Math.min(1, P.dmg + Math.min(0.12, -vn * 0.004 / VEH.mass)); SFX.crash(impactStrength(-vn)); } } }
 function stepCar(dt) {
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx; let vf = P.vx * fx + P.vz * fz, vs = P.vx * rx + P.vz * rz; const speed = Math.hypot(P.vx, P.vz);
   const ap = autoInputs(dt), nitro = ap ? 0 : (keys.KeyN ? 1 : 0), gas = ap ? ap.gas : ((keys.Space || keys.KeyW || keys.ArrowUp || touch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((keys.KeyS || keys.ArrowDown || touch.b) ? 1 : 0), steer = ap ? ap.steer : (((keys.KeyD || keys.ArrowRight || touch.r) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft || touch.l) ? 1 : 0)), hb = ap ? 0 : ((keys.ControlLeft || keys.ControlRight || touch.h) ? 1 : 0);
@@ -1368,7 +1375,7 @@ function stepCar(dt) {
   const gh2 = groundH(P.x, P.z, P.y), wl = waterLevelAt(P.x, P.z, P.y);
   // toast(tr('fishes')): the Midtown Madness homage, in the game language (#9)
   if (wl !== null) { if (P.splash === 0) SFX.splash(); const was = P.splash; P.splash += dt; P.vx *= 0.9; P.vz *= 0.9; P.y = Math.max(P.y - 6 * dt, wl - 1.2); if (was < 0.35 && P.splash >= 0.35) toast(tr('fishes'), TOAST_S.event); if (P.splash > 2.8) resetCar(); }
-  else { P.vy -= 22 * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (P.vy < -9) { P.dmg = Math.min(1, P.dmg + 0.05); SFX.crash(0.5); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump
+  else { P.vy -= 22 * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (P.vy < -9) { P.dmg = Math.min(1, P.dmg + 0.05); SFX.crash(impactStrength(-P.vy)); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump
   collide(carRadius());
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
