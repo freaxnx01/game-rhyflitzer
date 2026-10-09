@@ -55,6 +55,38 @@ def test_pressing_x_downloads_one_png_of_the_rendered_scene(server):
     assert downloads == 1, downloads
 
 
+SPY = """() => {
+  window.__dl = { anchorInDocument: null, revokedAtClick: null, revoked: 0 };
+  const revoke = URL.revokeObjectURL.bind(URL);
+  URL.revokeObjectURL = (u) => { window.__dl.revoked++; return revoke(u); };
+  const click = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () {
+    if (this.download) {
+      window.__dl.anchorInDocument = this.isConnected;
+      const r = click.call(this);
+      window.__dl.revokedRightAfterClick = window.__dl.revoked;
+      return r;
+    }
+    return click.call(this);
+  };
+}"""
+
+
+def test_download_anchor_is_in_the_document_and_the_url_outlives_the_click(server):
+    """Firefox/WebKit lose the file if the anchor is detached or the blob URL is revoked synchronously."""
+    with sync_playwright() as p:
+        b, page = start_hand(p, server)
+        page.evaluate(SPY)
+        with page.expect_download(timeout=120000):
+            page.keyboard.press("KeyX")
+        spy = page.evaluate("() => window.__dl")
+        leftover = page.evaluate("() => document.querySelectorAll('a[download]').length")
+        b.close()
+    assert spy["anchorInDocument"] is True, spy
+    assert spy["revokedRightAfterClick"] == 0, spy
+    assert leftover == 0, leftover                                      # the anchor is removed again
+
+
 def test_photo_works_while_paused(server):
     with sync_playwright() as p:
         b, page = start_hand(p, server)

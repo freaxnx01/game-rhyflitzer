@@ -1558,7 +1558,9 @@ function savePhoto(blob) {
   if (!blob) { toast(tr('photoFailed')); return; }
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a'); link.href = url; link.download = photoFileName(new Date());
-  link.click(); URL.revokeObjectURL(url); toast(tr('photoSaved'));
+  document.body.appendChild(link); link.click(); link.remove();       // FileSaver.js way: Firefox/WebKit want the anchor in the document
+  setTimeout(() => URL.revokeObjectURL(url), 40000);                  // ...and the blob URL alive until the download has fetched it
+  toast(tr('photoSaved'));
 }
 
 // ---------- loop ----------
