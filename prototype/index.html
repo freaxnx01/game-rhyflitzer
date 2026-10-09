@@ -1238,7 +1238,7 @@ const SFX = (() => {
     update(input, dt) { if (!eng) return; if (eng.src !== VEH.sound.engine) { stopEngine(eng); eng = null; engine(); } es = engineStep(es, input, VEH.sound, dt); mix = engineMix(es, input, VEH.sound.engine); rmix = rotorMix(input); frames++; const t = ac.currentTime; applyEngine(eng, mix, t); applyRotor(rot, rmix, t); },
     checkpoint() { beep(660, 0.12, 'square', 0.18); beep(990, 0.18, 'square', 0.18, 0.1); },
     finish() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.25, 'square', 0.2, i * 0.12)); },
-    crash(s) { if (muted || held) return; const voice = crashVoice(s, VEH.sound.crash); if (!voice) return; const a = ctx(); if (!crashGate(gate, a.currentTime, s)) return; playCrash(a, a.master, voice); rec.count++; rec.last = { s, t: a.currentTime }; },   // #104: s = impactStrength(closing speed); a scrape (s = 0) and a muted or paused game queue nothing
+    crash(s) { if (muted || holds.size) return; const voice = crashVoice(s, VEH.sound.crash); if (!voice) return; const a = ctx(); if (!crashGate(gate, a.currentTime, s)) return; playCrash(a, a.master, voice); rec.count++; rec.last = { s, t: a.currentTime }; },   // #104: s = impactStrength(closing speed); a scrape (s = 0) and a muted or paused game queue nothing
     crashes() { return { count: rec.count, last: rec.last }; },
     splash() { burst(0.6, 900, 0.5, 0.4); },
     horn() { if (muted || holds.size) return; const a = ctx(); playHorn(a, a.master, VEH.sound.horn, a.currentTime); },
