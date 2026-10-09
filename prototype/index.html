@@ -839,6 +839,21 @@ function siloTower(x, z, rot, w, d, h) { // #81 LANDI silo tower by Bahnhof Siss
   addOBB(x, z, w, d, rot, b + h);
   window.__mm.counts.landiTurm = 1;
 }
+function foodTruck(x, z, rot) { // #103 Güggeli food truck: cream box body on four wheels, red cab in front (local +x), serving hatch and awning on the local -z side, hand-painted roof board; generic look, no logo (docs/07); solid
+  const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
+  const slab = (ox, oz, y, w, h, d, cl, role = 'hall') => { const [px, pz] = R(ox, oz); box(w, h, d, px, y, pz, rot, col(cl), role, [4, 3], 0); };
+  slab(-0.75, 0, b + 0.6, 5.6, 2.3, 2.3, '#f3e9d2');                                  // body
+  slab(2.8, 0, b + 0.6, 1.5, 1.7, 2.2, '#c8302a'); slab(2.95, 0, b + 1.6, 0.9, 0.55, 2.0, '#2a3340');   // cab, windscreen band
+  slab(0, 0, b + 0.3, 7.1, 0.3, 1.6, '#2b2b2b', 'stone');                             // chassis
+  slab(-0.75, -1.2, b + 1.6, 2.4, 1.1, 0.12, '#2a2a2a');                              // serving hatch
+  slab(-0.75, -1.75, b + 2.95, 2.8, 0.08, 1.2, '#c8302a');                            // awning over the hatch
+  for (const ox of [-2.3, 2.3]) for (const oz of [-1.05, 1.05]) { const w = new THREE.CylinderGeometry(0.42, 0.42, 0.3, 12); w.rotateX(Math.PI / 2); w.rotateY(-rot); const [px, pz] = R(ox, oz); w.translate(px, b + 0.42, pz); colorize(w, col('#2b2b2b')); push('stone', w); }
+  const board = new THREE.MeshLambertMaterial({ map: textTex('Güggeli', 1024, 288, '#f6c84a', '#7a1f12', 'italic 800 190px "Barlow Condensed", sans-serif', '#7a1f12') });
+  for (const sd of [1, -1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.9), board); const [px, pz] = R(-0.75, sd * 0.04); m.position.set(px, b + 3.35, pz); m.rotation.y = -rot + (sd < 0 ? Math.PI : 0); signs.add(m); }   // roof board, readable from both long sides
+  { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.4), new THREE.MeshLambertMaterial({ map: textTex('Güggeli · Pommes', 512, 128, '#2a2a2a', '#f5efe0', '700 72px "Barlow Condensed", sans-serif', '#f5efe0') })); const [px, pz] = R(1.25, -1.17); m.position.set(px, b + 2.5, pz); m.rotation.y = -rot + Math.PI; signs.add(m); }   // menu board beside the hatch, facing the customer side
+  addOBB(x, z, 7.1, 2.4, rot, b + 3);
+  window.__mm.counts.foodTruck = 1;
+}
 function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/01; timber on the neutral roofFlat noise so it stays bright spruce, the plank texture is too brown): four spruce posts on a 4.2 m square, round batten stair core with X braces, closed parapet box at 5.5-7 m cantilevering past the posts, big overhanging pyramid roof in grey-green sheet metal, apex 11 m
   const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), spruce = col('#f6dc9a'), beam = col('#dcbf80'), timber = 'roofFlat', R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
   const bar = (ax, ay, az, bx, by, bz, t, cc) => { const [wax, waz] = R(ax, az), [wbx, wbz] = R(bx, bz); const d = new THREE.Vector3(wbx - wax, by - ay, wbz - waz), len = d.length(); const g = new THREE.BoxGeometry(t, len, t); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); g.translate((wax + wbx) / 2, b + (ay + by) / 2, (waz + wbz) / 2); colorize(g, cc); push(timber, g); };
@@ -1217,6 +1232,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     if (at('dsmChimney')) dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140);
     if (at('dsmWaterTower')) waterTower(at('dsmWaterTower').x, at('dsmWaterTower').z, at('dsmWaterTower').h || 59);
     if (at('landiTurm')) { const t = at('landiTurm'); siloTower(t.x, t.z, t.rot, t.size[0], t.size[1], t.h); }
+    if (at('foodTruck')) foodTruck(at('foodTruck').x, at('foodTruck').z, at('foodTruck').rot || 0);
     if (at('smileKreisel')) { const k = at('smileKreisel'); const rb = ROADS.filter(r => r.pts.length > 4 && Math.hypot(r.pts[0][0] - r.pts[r.pts.length - 1][0], r.pts[0][1] - r.pts[r.pts.length - 1][1]) < 0.5).map(r => { const q = r.pts.slice(0, -1), cx = q.reduce((a, p) => a + p[0], 0) / q.length, cz = q.reduce((a, p) => a + p[1], 0) / q.length; return { r, cx, cz, rad: q.reduce((a, p) => a + Math.hypot(p[0] - cx, p[1] - cz), 0) / q.length }; }).filter(o => Math.hypot(o.cx - k.x, o.cz - k.z) < 30).sort((a, b) => Math.hypot(a.cx - k.x, a.cz - k.z) - Math.hypot(b.cx - k.x, b.cz - k.z))[0]; if (rb) smileKreiselAt(rb.cx, rb.cz, Math.max(2.5, rb.rad - rb.r.w / 2)); else smileKreiselAt(k.x, k.z); }
     if (at('hallenbad')) { const hb = at('hallenbad'); if (hb.size) hallenbad(hb.x, hb.z, hb.rot, hb.size[0], hb.size[1], false); else hallenbad(hb.x, hb.z, hb.rot); }
     if (at('muenster')) church(at('muenster').x, at('muenster').z, at('muenster').rot, true);

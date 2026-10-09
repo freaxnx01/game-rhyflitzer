@@ -27,8 +27,11 @@ def _world_anchor_keys():
 
 WORLD81 = "landiTurm" in _world_anchor_keys()           # world rebuilt with the #81 LANDI tower anchor
 needs_world81 = pytest.mark.skipif(not WORLD81, reason="world not rebuilt for #81 (Task 4 of docs/superpowers/plans/2026-10-03-landi-tower.md)")
-EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"]
-ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + 2   # landmarks shown + Random spot; the Südspange (#125) and the Bergsee (#94) are fixed points, listed in any world
+WORLD103 = "foodTruck" in _world_anchor_keys()          # world rebuilt with the #103 food truck anchor
+needs_world103 = pytest.mark.skipif(not WORLD103, reason="world not rebuilt for #103 (Task 4 of docs/superpowers/plans/2026-10-03-food-truck-eiken.md)")
+EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
+    + (["Güggeli-Foodtruck"] if WORLD103 else [])
+ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + 2   # landmarks shown + Random spot; the Südspange (#125) and the Bergsee (#94) are fixed points, listed in any world
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else [])
 
@@ -293,6 +296,21 @@ def test_landi_tower_is_listed_and_jumpable(server):
         assert rows(page) == [{"n": "LANDI-Turm", "g": "Eiken"}, {"n": "Random spot", "g": None}]
         page.keyboard.press("Enter")
         tx, tz = anchor("landiTurm")
+        c = car(page)
+        assert math.hypot(c["x"] - tx, c["z"] - tz) < 80
+        b.close()
+
+
+@needs_world103
+def test_food_truck_is_listed_and_jumpable(server):
+    """#103: 'gugg' finds the Güggeli-Foodtruck (Eiken, Bahnhof Eiken car park); Enter puts the car on a road within 80 m."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.keyboard.type("gugg")
+        assert rows(page) == [{"n": "Güggeli-Foodtruck", "g": "Eiken"}, {"n": "Random spot", "g": None}]
+        page.keyboard.press("Enter")
+        tx, tz = anchor("foodTruck")
         c = car(page)
         assert math.hypot(c["x"] - tx, c["z"] - tz) < 80
         b.close()
