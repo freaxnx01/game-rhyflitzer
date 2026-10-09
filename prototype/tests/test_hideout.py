@@ -53,3 +53,62 @@ def test_floor_lid_and_tower(server):
     assert h["found"] is False
     assert wall == "stone", wall
     assert tower == "dome", tower
+
+
+def jump_list(page):
+    page.keyboard.press("KeyJ")
+    page.wait_for_function("() => !document.getElementById('jump').hidden")
+    names = [r["n"] for r in page.evaluate("() => window.__mm.jumpList()")]
+    page.keyboard.press("Escape")
+    page.wait_for_function("() => document.getElementById('jump').hidden")
+    return names
+
+
+@needs_world
+def test_drive_in_finds_the_hideout(server):
+    """Not listed before; drive from the Hübel into the hill: the car ends on the cavern floor, the find is toasted and
+    remembered, J lists the Eiffelturm, and the chase camera stays under the ceiling."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        assert "Eiffelturm" not in jump_list(page)
+        h = page.evaluate("() => window.__mm.hideout()")
+        cx, cz = h["centre"]
+        # gas held for 8 s: ~105 m down the tunnel, so the car comes to rest inside the cavern
+        r = page.evaluate(f"() => window.__mm.sim({MOUTH_ROAD[0]}, {MOUTH_ROAD[1]}, {HEADING}, 16, 8, ['KeyW'])")
+        found = page.evaluate("() => window.__mm.hideout().found")
+        stored = page.evaluate("() => localStorage.getItem('mm.hideout')")
+        toast = page.evaluate("() => window.__mm.toast()")
+        names = jump_list(page)
+        lid = page.evaluate(f"() => window.__mm.lidAt({r['x']}, {r['z']})")
+        # wait for arrival, not stillness (CLAUDE.md): the chase cam lerps in from the start screen at ~1 fps under SwiftShader
+        page.wait_for_function(f"() => {{ const c = window.__mm.cam(), car = window.__mm.car(); return car.y + c.d[1] < {lid} && c.d[1] > 0; }}", timeout=120000)
+        br.close()
+    assert errors == []
+    assert math.hypot(r["x"] - cx, r["z"] - cz) < 23, (r, h)
+    assert abs(r["y"] - h["floor"]) < 1.0, (r, h)
+    assert found is True and stored == "1"
+    assert toast["shown"] and ("Hideout found" in toast["text"] or "Versteck gefunden" in toast["text"]), toast
+    assert "Eiffelturm" in names
+    assert lid is not None and lid - h["floor"] > 40, (lid, h)
+
+
+@needs_world
+def test_sky_ground_and_no_takeoff_inside(server):
+    """The helicopter sees the hill over the cavern, and F inside the hideout is refused with a toast."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        cx, cz = h["centre"]
+        page.evaluate(f"() => window.__mm.sim({MOUTH_ROAD[0]}, {MOUTH_ROAD[1]}, {HEADING}, 16, 8, ['KeyW'])")
+        page.keyboard.press("KeyF")
+        page.wait_for_timeout(500)
+        toast = page.evaluate("() => window.__mm.toast().text")
+        car = page.evaluate("() => window.__mm.car()")
+        flying = page.evaluate("() => window.__mm.fly().on")
+        sky = page.evaluate(f"() => window.__mm.skyGround({cx}, {cz})")
+        br.close()
+    assert errors == []
+    assert "sky" in toast or "Himmel" in toast, toast
+    assert flying is False
+    assert abs(car["y"] - h["floor"]) < 1.0, car
+    assert sky >= h["lid"], (sky, h)
