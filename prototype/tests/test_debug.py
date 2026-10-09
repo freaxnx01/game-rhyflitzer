@@ -108,7 +108,6 @@ def test_click_on_the_panel_copies_one_line(server):
     assert toast == "Copied"
 
 
-@needs_world
 def panel_lines(page):
     page.keyboard.press("F3")
     page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
@@ -138,6 +137,7 @@ def test_panel_shows_world_map_extent(server):
     assert "map 9.44 × 4.39 km · 41.5 km²" in lines, lines
 
 
+@needs_world
 @pytest.mark.parametrize("bid", [BODENACKER_6, TALLEST])
 def test_tall_building_label_stays_on_screen(server, bid):
     """#70: facing a tall building from close by, its height label is lowered into the screen (NDC y <= 0.8)."""
