@@ -39,8 +39,9 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #navdist{background:rgba(20,23,29,.82);border:3px solid #3ddcff;padding:0 12px;font-size:24px;font-weight:800;font-style:italic;color:#3ddcff;line-height:1.15}
 #navtext{font-size:15px;font-weight:700;letter-spacing:1px;color:#f5efe0;text-shadow:2px 2px 0 var(--ink)}
 #navdest{font-size:13px;font-weight:700;color:var(--steel-l)}
-/* narrow screens: a centred toast can fill the upper half (#75), so the panel drops below it and stays above the small minimap */
-@media (max-width:900px){#navi{top:calc(50vh + 8px)}}
+/* narrow screens: a centred toast can fill the upper half (#75), so the panel drops below it and stays above the small minimap
+   and the F3 debug panel (taller since its map links, #160): a smaller arrow and distance keep it short enough */
+@media (max-width:900px){#navi{top:calc(50vh + 8px);gap:0}#navarrow{width:40px;height:30px}#navdist{font-size:20px}}
 #debug{position:fixed;left:16px;bottom:calc(232px + env(safe-area-inset-bottom,0px));z-index:5;padding:6px 10px;background:rgba(20,23,29,.82);border:2px solid #3a404b;font:600 13px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#b6ff7a;white-space:pre;pointer-events:auto;cursor:copy}#debug[hidden]{display:none}
 @media (max-width:900px){#debug{bottom:calc(162px + env(safe-area-inset-bottom,0px))}}
 @media (pointer:coarse){#debug{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px))}}
