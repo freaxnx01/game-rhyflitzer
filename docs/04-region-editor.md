@@ -1,5 +1,7 @@
 # Region editor (idea)
 
+> **Design (2026-10-09):** [`superpowers/specs/2026-10-09-region-editor-design.md`](superpowers/specs/2026-10-09-region-editor-design.md) — public, Switzerland only, one rectangle ≤ 4 × 4 km, built on ionos1. Where it differs from this idea doc, the design wins.
+
 Players pick their own region by dragging a frame on an OSM map. Our server converts it into a playable Rhyflitzer world.
 
 ## Flow
