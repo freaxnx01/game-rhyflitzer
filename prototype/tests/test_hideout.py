@@ -37,8 +37,9 @@ def test_floor_lid_and_tower(server):
         sky = page.evaluate(f"() => window.__mm.skyGround({cx}, {cz})")
         roofed_mouth = page.evaluate(f"() => window.__mm.roofed({h['mouth'][0]}, {h['mouth'][1]})")
         counts = page.evaluate("() => window.__mm.counts")
-        ux, uz = math.cos(HEADING), math.sin(HEADING)
-        wall = page.evaluate(f"() => window.__mm.wallRoleAt({cx}, {cz}, {cx + uz * 30}, {cz - ux * 30}, 2)")
+        # inward from outside the hill at 2 m over the cavern floor: the first thing is the ring wall's outer face.
+        # The target must sit inside the disc, where terrainH is the floor -- the hook takes `up` over the target.
+        wall = page.evaluate(f"() => window.__mm.wallRoleAt({cx + 40}, {cz}, {cx + 21}, {cz}, 2)")
         tower = page.evaluate(f"() => window.__mm.wallRoleAt({cx - 20}, {cz}, {cx}, {cz}, 5.4)")
         br.close()
     assert errors == []

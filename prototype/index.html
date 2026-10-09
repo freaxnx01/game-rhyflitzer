@@ -847,6 +847,51 @@ function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/
   const roof = new THREE.ConeGeometry(5.4 * Math.SQRT2, 2.8, 4, 1, true); roof.rotateY(Math.PI / 4 - rot); roof.translate(x, b + 8.25 + 1.4, z); colorize(roof, col('#7a8878')); push('roofFlat', roof);
   addOBB(x, z, 3.3, 3.3, rot, b + 5.5);
 }
+// #102: the hideout -- trough walls along the tunnel (the #119 pattern without decks), a ring wall around the cavern, the
+// reservoir gate at the portal, gravel on the floor, lamps, and the tower. Every OBB is `secret`: the static map skips it.
+function hideoutBuild() {
+  const h = HIDEOUT, u = TUNNEL, a = hideoutAxis(h), g0 = meshH(a.mouth[0], a.mouth[1]), floor = (s) => floorAt(s, g0, h), stone = col('#b8b2a6'), gravel = col('#cfc3ac'), inner = h.hw + u.margin;
+  const wallBox = (x, z, len, rot, bottom, top) => { box(len, top - bottom, u.wall, x, bottom, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: len / 2, hd: u.wall / 2, c: Math.cos(rot), s: Math.sin(rot), h: top, low: true, secret: true }); HIDE.walls++; };
+  for (const w of wallStations(a.pts, [[0, h.length]], inner + u.wall / 2, 2)) {
+    const fl = floor(w.t), ground = meshH(w.x + w.nx * (u.wall / 2 + 0.5), w.z + w.nz * (u.wall / 2 + 0.5));
+    if (ground - fl <= 0.1) continue;
+    wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, w.t >= HIDE.portal ? meshH(w.x, w.z) - 0.6 : ground + 1);   // parapet in the open trench, up to the ceiling under the lid
+  }
+  const [cx, cz] = a.centre, fl = floor(h.length); HIDE.floor = fl;
+  for (const r of ringStations(cx, cz, cavernR(h, u) + u.wall / 2, 24)) wallBox(r.x, r.z, r.len, r.rot, fl, meshH(r.x, r.z) - 0.6);
+  // the gate: piers in the margins, a lintel over the 9 m opening up to 1 m over the hillside, the sign on its outer face
+  const ps = HIDE.portal, px = a.mouth[0] + a.ux * ps, pz = a.mouth[1] + a.uz * ps, pf = floor(ps), rot = h.heading + Math.PI / 2, nx = -a.uz, nz = a.ux;
+  for (const side of [-1, 1]) { const d = side * (h.hw + u.margin / 2), x = px + nx * d, z = pz + nz * d; box(u.margin, 5, 1.2, x, pf, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: u.margin / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: pf + 5, secret: true }); }
+  box(2 * (inner + u.wall), meshH(px, pz) + 1 - (pf + 5), 1.2, px, pf + 5, pz, rot, stone, 'stone', [4, 3], 0);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.9), new THREE.MeshBasicMaterial({ map: textTex('RESERVOIR HÜBEL', 1024, 160, '#d8d2c6', '#2a2a2a', '700 110px "Barlow Condensed", sans-serif'), transparent: true }));
+  sign.position.set(px - a.ux * 0.62, pf + 5.8, pz - a.uz * 0.62); sign.rotation.y = Math.atan2(-a.ux, -a.uz); signs.add(sign);
+  // floor: gravel down the tunnel and over the cavern, draped on the cut
+  ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true); disc(cx, cz, cavernR(h, u) - 1, 0.04, 'gravel', gravel);
+  // light: two warm point lights by the tower, four lamp posts on the diagonals (the chimney's lamp pattern)
+  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffd9a0, 1.4, 70, 1.5); l.position.set(cx + a.ux * 12 * k, fl + 3, cz + a.uz * 12 * k); signs.add(l); }
+  for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const x = cx + ox * 10.6, z = cz + oz * 10.6;   // 15 m out on the diagonals
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.set(x, fl + 1.3, z);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd27a })); head.position.set(x, fl + 2.8, z);
+    signs.add(pole, head); HIDE.lamps++;
+  }
+  eiffelTower(cx, cz, fl);
+}
+// #102: 1:10 lookalike from primitives (hideout.js describes it): painted iron on the dome role (plain colour), solid at the four feet only -- drive between the legs
+function eiffelTower(x, z, b) {
+  const iron = col('#6e4b2a'), up = new THREE.Vector3(0, 1, 0);
+  for (const p of eiffelParts(HIDEOUT.towerH)) {
+    let g;
+    if (p.kind === 'leg') { const d = new THREE.Vector3(p.to[0] - p.from[0], p.to[1] - p.from[1], p.to[2] - p.from[2]), len = d.length(); g = new THREE.CylinderGeometry(p.r1, p.r0, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate(x + (p.from[0] + p.to[0]) / 2, b + (p.from[1] + p.to[1]) / 2, z + (p.from[2] + p.to[2]) / 2); }
+    else if (p.kind === 'box') { g = new THREE.BoxGeometry(p.w, p.h, p.d); g.translate(x, b + p.y + p.h / 2, z); }
+    else if (p.kind === 'arch') { g = new THREE.TorusGeometry(p.r, p.tube, 6, 16, Math.PI); g.translate(0, p.y, p.offset); g.rotateY(p.rot); g.translate(x, b, z); }
+    else { g = new THREE.CylinderGeometry(p.r1, p.r0, p.y1 - p.y0, 6); g.translate(x, b + (p.y0 + p.y1) / 2, z); }
+    colorize(g, iron); push('dome', g);
+  }
+  const k = HIDEOUT.towerH / 33;
+  for (const [ox, oz] of [[-6.25, -6.25], [6.25, -6.25], [6.25, 6.25], [-6.25, 6.25]]) pushOBB({ x: x + ox * k, z: z + oz * k, hw: 0.8, hd: 0.8, c: 1, s: 0, h: b + 5.7 * k, secret: true });
+  window.__mm.counts.eiffel = 1;
+}
 // ---------- street furniture (props) ----------
 // One low-poly model per prop kind, merged into a single geometry so each kind draws as one InstancedMesh.
 // Every model has its base at y = 0 (the instance is placed on terrainH) and its long axis along local +x, which
@@ -985,6 +1030,30 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const q = g.attributes.position, uv = g.attributes.uv, cArr = new Float32Array(q.count * 3);
     for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = terrainH(x, z), c = groundCol(h, x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
     g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals(); parts.grass.push(g.toNonIndexed());
+  }
+  if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy 0.6 m under it, wound to face down (ceiling, into stone)
+    const ROCK = col('#4a4642');
+    for (const c of [HIDE.tunnel, HIDE.cavern]) for (const [i, j] of patchCells(cutBounds(c, c.u), TGRID)) {
+      const key = i + ',' + j; if (HIDE.lidCells.has(key)) continue; HIDE.lidCells.add(key);
+      const g = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N); g.rotateX(-Math.PI / 2); g.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
+      const q = g.attributes.position, idx = g.index.array, keep = [];
+      for (let k = 0; k < idx.length; k += 3) { const tx = (q.getX(idx[k]) + q.getX(idx[k + 1]) + q.getX(idx[k + 2])) / 3, tz = (q.getZ(idx[k]) + q.getZ(idx[k + 1]) + q.getZ(idx[k + 2])) / 3; if (roofedAt(tx, tz)) keep.push(idx[k], idx[k + 1], idx[k + 2]); }
+      if (!keep.length) continue;
+      g.setIndex(keep);
+      const uv = g.attributes.uv, cArr = new Float32Array(q.count * 3);
+      for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = meshH(x, z), c = groundCol(h, x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
+      g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals(); parts.grass.push(g.toNonIndexed());
+      // the ceiling: the same triangles with vertices 1 and 2 swapped, so they face down (the roles are FrontSide)
+      const ceil = g.toNonIndexed(), cp = ceil.attributes.position, cu = ceil.attributes.uv;
+      ceil.translate(0, -0.6, 0);
+      for (let k = 0; k < cp.count; k += 3) {
+        const px = cp.getX(k + 1), py = cp.getY(k + 1), pz = cp.getZ(k + 1), ux = cu.getX(k + 1), uy = cu.getY(k + 1);
+        cp.setXYZ(k + 1, cp.getX(k + 2), cp.getY(k + 2), cp.getZ(k + 2)); cp.setXYZ(k + 2, px, py, pz);
+        cu.setXY(k + 1, cu.getX(k + 2), cu.getY(k + 2)); cu.setXY(k + 2, ux, uy);
+      }
+      ceil.computeVertexNormals(); colorize(ceil, ROCK); push('stone', ceil);
+      HIDE.lidTris += keep.length / 3;
+    }
   }
   // streams: water draped on the ground like a road (a flat level cannot follow a stream that falls 25 m), 2 cm under road height
   if (L) for (const st of L.streams) { const g = ribbonGeo(st.pts, st.w / 2, 0.02, 6, true); colorize(g, col('#ffffff')); push('water', g); g.userData.surf.name = st.name; registerSurface(g.userData.surf, STREAM_GRID); }
@@ -1141,6 +1210,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     if (at('steinChurch')) church(at('steinChurch').x, at('steinChurch').z, at('steinChurch').rot, false);
     for (const k of ['stationStein', 'stationSisseln']) if (at(k)) stationAt(at(k).x, at(k).z, at(k).rot, STATION_NAMES[k]);
     if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z, at('plattform').rot || 0);
+    if (HIDE) hideoutBuild();   // #102
   }
   // trees along both banks and scattered
   // #127: only the Hochrhein world has the Sisseln forest box, so another region's trees come from the height alone
@@ -1820,7 +1890,7 @@ window.__mm.huntSetEndIn = (s) => { HUNT_RUN.endIn = s; };   // tests: shorten t
 const mapC = $('map'), mg = mapC.getContext('2d');
 const MB = L ? (() => { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const r of ROADS) for (const [x, z] of r.pts) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); } return { x0, x1, z0, z1 }; })() : { x0: W(0, 0)[0], x1: W(1920, 0)[0], z0: W(0, 60)[1], z1: W(0, 989)[1] }; const MS = Math.min(mapC.width / (MB.x1 - MB.x0), mapC.height / (MB.z1 - MB.z0)); const MX = (x) => (x - MB.x0) * MS + (mapC.width - (MB.x1 - MB.x0) * MS) / 2, MZ = (z) => (z - MB.z0) * MS + (mapC.height - (MB.z1 - MB.z0) * MS) / 2;
 const mapStatic = document.createElement('canvas'); mapStatic.width = mapC.width; mapStatic.height = mapC.height;
-{ const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
+{ const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge || o.secret) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
 // #48: the Gemeinde boundaries as a dashed overlay, pre-rendered like mapStatic and drawn over it only while G is on
 const mapBounds = document.createElement('canvas'); mapBounds.width = mapC.width; mapBounds.height = mapC.height;
 if (L) { const g = mapBounds.getContext('2d'); g.strokeStyle = '#ff3fb4'; g.lineWidth = 2; g.lineCap = 'round'; g.setLineDash([6, 4]); for (const b of L.boundaries) { g.beginPath(); b.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } }
