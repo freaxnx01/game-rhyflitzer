@@ -1,5 +1,5 @@
 // The J dialog's landmarks (#41): names and Gemeinden kept by hand here, positions from the loaded world
-// (an anchors.landmarks key or a world building id). Pure: no DOM, no three.js.
+// (an anchors.landmarks key or a world building id), or a fixed game point (at). Pure: no DOM, no three.js.
 export const GEMEINDEN = ['Bad Säckingen', 'Stein', 'Münchwilen', 'Eiken', 'Sisseln'];   // west → east
 
 // Gemeinden verified against OpenStreetMap on 2026-10-02/03 (#41, #46, #81)
@@ -20,6 +20,7 @@ export const LANDMARK_INFO = [
   { name: 'Bahnhof Sisseln', gemeinde: 'Eiken', anchor: 'stationSisseln' },
   { name: 'Bahnhof Eiken', gemeinde: 'Eiken', building: 199241726 },
   { name: 'LANDI-Turm', gemeinde: 'Eiken', anchor: 'landiTurm' },                    // Sisslerstrasse 19.1, w197688923 (#81)
+  { name: 'Südspange Sisslerfeld', gemeinde: 'Eiken', at: [1528, 409] },            // #125: the K295 junction, the road's start; J snaps to the nearest road (the K295 until #42 builds the Südspange)
   { name: 'DSM-Wasserturm', gemeinde: 'Sisseln', anchor: 'dsmWaterTower' },
   { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
   { name: 'Hallenbad Sissila', gemeinde: 'Sisseln', anchor: 'hallenbad' },
@@ -41,6 +42,7 @@ function ringMean(ring) {
 }
 
 function sourcePos(item, anchors, buildingsById) {
+  if (item.at) return { x: item.at[0], z: item.at[1] };   // #125: a fixed game point, independent of what the world carries
   if (item.anchor) {
     const a = anchors[item.anchor];
     return a ? { x: a.x, z: a.z } : null;
