@@ -32,6 +32,8 @@ def test_blitz_button_starts_a_countdown_that_checkpoints_top_up(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
         assert text(page, "#blitzbtn") == "Blitz"
+        assert page.locator("kbd", has_text="Blitz").count() == 0           # Blitz is a button, not a key: explained in the start text instead
+        assert "90 seconds" in text(page, "#blitzhint")
         page.click("#blitzbtn")
         page.wait_for_function("() => document.getElementById('overlay').hidden", timeout=T)
         s = blitz(page)

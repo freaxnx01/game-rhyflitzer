@@ -156,7 +156,6 @@ const en = {
   blitzBest: (time) => `Best left ${time ?? '—'}`,
   blitzTimeUp: "Time's up",
   blitzCps: (done) => `${done} / 5 checkpoints`,
-  keyBlitz: 'Blitz: countdown, +60 s per checkpoint, rank at the finish',
 };
 
 const de = {
@@ -303,7 +302,6 @@ const de = {
   blitzBest: (time) => `Beste Restzeit ${time ?? '—'}`,
   blitzTimeUp: 'Zeit ist um',
   blitzCps: (done) => `${done} / 5 Checkpoints`,
-  keyBlitz: 'Blitz: Countdown, +60 s pro Checkpoint, Rang im Ziel',
 };
 
 export const STRINGS = { en, de };
