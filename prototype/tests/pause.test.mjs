@@ -47,6 +47,13 @@ test('while paused: arrows and Tab move the focus, F3 stays, every other key is 
   for (const c of ['Enter', 'NumpadEnter', 'Space', 'KeyW', 'KeyH', 'KeyJ', 'KeyF', 'KeyM', 'KeyT', 'F1', 'KeyR']) assert.equal(pauseKeyAction(key(c), PAUSED), 'ignore', c);
 });
 
+test('X photographs the frozen scene from the pause menu, but not from behind the abandon question (#113)', () => {
+  assert.equal(pauseKeyAction(key('KeyX'), PAUSED), 'photo');
+  assert.equal(pauseKeyAction(key('KeyX', { repeat: true }), PAUSED), 'ignore');
+  assert.equal(pauseKeyAction(key('KeyX'), CONFIRM), 'ignore');
+  assert.equal(pauseKeyAction(key('KeyX'), RUN), 'pass');
+});
+
 test('nextFocus wraps both ways and starts at the first button from anywhere else', () => {
   assert.deepEqual(PAUSE_BUTTONS, ['pauseresume', 'pauserestart', 'pausemenu']);
   assert.equal(nextFocus(PAUSE_BUTTONS, 'pauseresume', 1), 'pauserestart');

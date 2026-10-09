@@ -20,7 +20,7 @@ const NEXT = new Set(['ArrowDown', 'ArrowRight']);
 const PREV = new Set(['ArrowUp', 'ArrowLeft']);
 
 // key = { code, shiftKey, repeat }, state = { paused, canPause, helpOpen, confirm }
-// → 'pause' | 'resume' | 'cancel' | 'next' | 'prev' | 'debug' | 'ignore' (swallowed, browser default kept) | 'pass' (normal game key handling)
+// → 'pause' | 'resume' | 'cancel' | 'next' | 'prev' | 'debug' | 'photo' | 'ignore' (swallowed, browser default kept) | 'pass' (normal game key handling)
 export function pauseKeyAction(key, state) {
   if (state.paused) return state.confirm ? confirmAction(key) : pausedAction(key);
   if (!TOGGLE.has(key.code) || key.repeat || !state.canPause) return 'pass';
@@ -30,6 +30,8 @@ export function pauseKeyAction(key, state) {
 
 function pausedAction(key) {
   if (TOGGLE.has(key.code)) return key.repeat ? 'ignore' : 'resume';
+  // #113: a photo of the frozen scene is harmless here, unlike behind the abandon question
+  if (key.code === 'KeyX') return key.repeat ? 'ignore' : 'photo';
   return menuAction(key);
 }
 
