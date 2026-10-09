@@ -35,7 +35,7 @@ def test_wanderweg_is_a_trail_road(world):
 def test_kept_buildings_and_counts(world):
     ids = {b["id"] for b in world["buildings"]}
     assert {114544595, 114544599, 102158022, 178797165, 102165202, 178797287} <= ids
-    assert 400 < len(world["buildings"]) < 2500
+    assert 200 < len(world["buildings"]) < 400   # measured 243 (2026-10-09): near-road, landmark and big buildings only, like Hochrhein
     assert len(world["anchors"]["cps"]) == 5
 
 

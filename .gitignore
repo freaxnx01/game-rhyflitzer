@@ -4,6 +4,8 @@
 !/data/README.md
 !/data/world_hochrhein.json
 !/data/terrain_hochrhein.mmh
+!/data/world_ehrendingen.json
+!/data/terrain_ehrendingen.mmh
 __pycache__/
 
 # local git worktrees (see CLAUDE.md "Git Worktrees")
