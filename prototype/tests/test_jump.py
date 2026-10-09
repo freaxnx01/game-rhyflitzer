@@ -28,7 +28,7 @@ def _world_anchor_keys():
 WORLD81 = "landiTurm" in _world_anchor_keys()           # world rebuilt with the #81 LANDI tower anchor
 needs_world81 = pytest.mark.skipif(not WORLD81, reason="world not rebuilt for #81 (Task 4 of docs/superpowers/plans/2026-10-03-landi-tower.md)")
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"]
-ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + 1   # landmarks shown + Random spot; the Südspange (#125) is a fixed point, listed in any world
+ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + 2   # landmarks shown + Random spot; the Südspange (#125) and the Bergsee (#94) are fixed points, listed in any world
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else [])
 
@@ -351,6 +351,50 @@ def test_suedspange_jump_lands_on_a_road_at_the_k295_junction(server):
         assert d < 40, f"car at ({c['x']:.1f}, {c['z']:.1f}) is {d:.0f} m from the junction"
         assert _jumpable_road_dist(c["x"], c["z"]) < 4, "the car did not land on a road"
         b.close()
+
+
+BERGSEE = (-2349, -2207)          # #94: the ring mean of the OSM lake "Bergsee" above Bad Säckingen
+
+
+@needs_world
+def test_bergsee_jump_lands_on_the_lake_road_facing_the_lake(server):
+    """#94: 'bergsee' finds the Bergsee (Bad Säckingen) and Enter puts the car on Am Bergsee, looking across the water."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.keyboard.type("bergsee")
+        assert rows(page) == [{"n": "Bergsee", "g": "Bad Säckingen"}, {"n": "Random spot", "g": None}]
+        page.keyboard.press("Enter")
+        c = car(page)
+        th = page.evaluate("() => window.__mm.heading()")
+        b.close()
+    dx, dz = BERGSEE[0] - c["x"], BERGSEE[1] - c["z"]
+    d = math.hypot(dx, dz)
+    assert d < 80, f"car at ({c['x']:.1f}, {c['z']:.1f}) is {d:.0f} m from the lake centre"
+    assert _jumpable_road_dist(c["x"], c["z"]) < 4, "the car did not land on a road"
+    assert (math.cos(th) * dx + math.sin(th) * dz) / d > 0.5, f"car at ({c['x']:.1f}, {c['z']:.1f}) does not face the lake"
+
+
+@needs_world
+def test_plattform_jump_lands_beside_the_tower_not_in_it(server):
+    """#94: the tower stands on Breitenloh, so the plain anchor snap put the car inside it."""
+    ax, az = anchor("plattform")
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        c = jump_via_dialog(page, "plattform")
+        b.close()
+    d = math.hypot(c["x"] - ax, c["z"] - az)
+    assert 15 < d < 40, f"car at ({c['x']:.1f}, {c['z']:.1f}) is {d:.0f} m from the tower"
+
+
+@needs_world
+def test_hallenbad_jump_still_lands_near_the_pool(server):
+    ax, az = anchor("hallenbad")
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        c = jump_via_dialog(page, "hallenbad")
+        b.close()
+    assert math.hypot(c["x"] - ax, c["z"] - az) < 60, c
 
 
 def ramp(page):
