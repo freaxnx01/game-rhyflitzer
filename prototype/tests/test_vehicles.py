@@ -366,7 +366,9 @@ def test_delorean_rebuilds_free_gpu_memory(server):
     """#126: five DeLorean rebuilds keep the GPU counters flat (the steel grain is shared, the plate is per-build)."""
     with sync_playwright() as p:
         b, page = open_hand(p, server)
-        page.evaluate(DELOREAN_JS); wait_frames(page)
+        page.evaluate(DELOREAN_JS)
+        page.wait_for_function("() => window.__mm.doors().open > 0.95", timeout=120000)   # doors fully open before the first reading
+        wait_frames(page)
         first = page.evaluate("() => window.__mm.gpu()")
         for _ in range(5):
             page.evaluate(DELOREAN_JS); wait_frames(page)
