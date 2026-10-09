@@ -358,6 +358,7 @@ def test_map_links_open_the_cars_spot_in_a_new_tab(server):
     b = next(x for x in w["buildings"] if x["id"] == BODENACKER_6)
     with sync_playwright() as p:
         br, page = open_page(p, server, query="?debug")
+        page.click("#startbtn", timeout=180000)                              # the start overlay would swallow the clicks
         page.evaluate(f"() => window.__mm.place({b['rect'][0] + 20}, {b['rect'][1]})")
         page.wait_for_function("() => window.__mm.debug().links !== null && window.__mm.debug().lines.length > 0", timeout=60000)
         page.evaluate(SPY_OPEN)
@@ -389,6 +390,7 @@ def test_map_links_open_the_cars_spot_in_a_new_tab(server):
 def test_map_links_hidden_without_a_world_origin(server):
     with sync_playwright() as p:
         br, page = open_page(p, server, block_world=True, query="?debug")
+        page.click("#startbtn")
         page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
         hidden = not page.is_visible("#debuglinks")
         links = page.evaluate("() => window.__mm.debug().links")
