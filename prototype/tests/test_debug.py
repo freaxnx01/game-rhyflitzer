@@ -277,3 +277,21 @@ def test_tap_on_the_question_button_opens_the_legend(server):
     assert coarse and box["width"] >= 35.99 and box["height"] >= 35.99, box   # 36 CSS px, finger-sized (the device pixel ratio costs a 10^-5 of a px)
     assert shown
     assert panel["y"] >= 0 and panel["y"] + panel["height"] <= 844, panel     # and it fits the phone screen too
+
+
+def test_labels_and_legend_follow_the_language(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug")
+        page.wait_for_function("() => (window.__mm.debug().labels || []).length > 0", timeout=60000)
+        page.evaluate("() => window.ggSetLang('de')")
+        page.wait_for_function("() => window.__mm.debug().labels[0] === 'Auto'", timeout=30000)
+        labels = page.evaluate("() => window.__mm.debug().labels")
+        legend = page.text_content("#debuglegend")
+        aria = page.get_attribute("#debughelp", "aria-label")
+        copy = page.evaluate("() => window.__mm.debug().copy")
+        page.evaluate("() => window.ggSetLang('en')")                         # gg-lang is shared across the site's games
+        br.close()
+    assert labels == ["Auto", "Schweiz", "nächstes", "Karosserie", "Welt"], labels
+    assert "Traufe" in legend and "Dach" in legend and "2.5 m" in legend and "digitales Oberflächenmodell (DSM)" in legend, legend
+    assert aria == "Debug-Werte erklären"
+    assert copy.startswith("x ") and " | LV95 —" in copy                      # the copied text stays language-neutral
