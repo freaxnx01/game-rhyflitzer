@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -490,4 +490,14 @@ test('treeCollider_TreeOnTerrain_IsACircleAtTheTrunkUpToTheCrownTop', () => {
   const o = treeCollider(100, -50, 10, 4);
   const r = treeTrunkR(10);
   assert.deepEqual(o, { x: 100, z: -50, hw: r, hd: r, c: 1, s: 0, h: 14, circle: r, low: true });   // low: a car above the crown top passes over
+});
+
+test('layoutFromWorld draws trail roads as gravel (#127)', () => {
+  const w = { roads: [{ cls: 'track', trail: true, pts: [[0, 0], [10, 0]], w: 3 }, { cls: 'residential', pts: [[0, 0], [10, 0]], w: 5.5 }],
+              junctions: [], water: [], buildings: [], rail: [], anchors: {}, bbox: [], waterSdf: null };
+  assert.deepEqual(layoutFromWorld(w).roads.map(r => r.tex), ['gravel', 'road']);
+});
+
+test('Ehrendingen has its own village names (#127)', () => {
+  assert.deepEqual(VILLAGES_EHRENDINGEN.map(v => v.t), ['UNTEREHRENDINGEN', 'OBEREHRENDINGEN']);
 });
