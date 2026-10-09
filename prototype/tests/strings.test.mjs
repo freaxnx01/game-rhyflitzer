@@ -39,6 +39,7 @@ test('function values interpolate their arguments; names pass through untouched'
   assert.equal(translate('en', 'best', null), 'Best —');
   assert.equal(translate('de', 'best', '01:02.3'), 'Bestzeit 01:02.3');
   assert.equal(translate('de', 'cpToast', 3, 'Smile-Kreisel'), 'Checkpoint 3/5<br><span style="font-size:17px">Smile-Kreisel</span>');
+  assert.equal(translate('de', 'cpToastBlitz', 2, 'Sisslerfeld', 60).startsWith('Checkpoint 2/5 · +60 s'), true);
 });
 
 test('English texts stay exactly as the existing tests expect', () => {

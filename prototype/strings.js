@@ -143,6 +143,19 @@ const en = {
   autoNoRoute: 'No route from here',
   autoNoWorld: 'Autopilot needs the OSM world',
   autoLine: (n, km) => `AUTOPILOT → ${n} · ${km} km`,
+  // ---- Blitz (#128) ----
+  blitz: 'Blitz',
+  modeBlitz: 'Blitz · Hochrhein',
+  timeLeft: 'Time left',
+  blitzIntro: 'The same five checkpoints and the finish — but the clock counts down. 90 seconds to start, every checkpoint adds 60. Finish with time left for a rank.',
+  blitzFinishedText: 'Made it before the clock. More seconds left means a better rank — S is the one to chase.',
+  blitzTimeUpText: 'The clock ran out. Checkpoints add time, so take the nearest one first.',
+  cpToastBlitz: (number, name, bonus) => `Checkpoint ${number}/5 · +${bonus} s<br>${small(name)}`,
+  blitzRank: 'Rank',
+  blitzLeft: (time) => `${time} left · `,
+  blitzBest: (time) => `Best left ${time ?? '—'}`,
+  blitzTimeUp: "Time's up",
+  blitzCps: (done) => `${done} / 5 checkpoints`,
 };
 
 const de = {
@@ -276,6 +289,19 @@ const de = {
   autoNoRoute: 'Keine Route von hier',
   autoNoWorld: 'Autopilot braucht die OSM-Welt',
   autoLine: (n, km) => `AUTOPILOT → ${n} · ${km} km`,
+  // ---- Blitz (#128) ----
+  blitz: 'Blitz',
+  modeBlitz: 'Blitz · Hochrhein',
+  timeLeft: 'Restzeit',
+  blitzIntro: 'Dieselben fünf Checkpoints und das Ziel — aber die Uhr läuft rückwärts. 90 Sekunden zum Start, jeder Checkpoint gibt 60 dazu. Mit Restzeit ins Ziel gibt einen Rang.',
+  blitzFinishedText: 'Vor der Uhr im Ziel. Je mehr Restzeit, desto besser der Rang — S ist das Ziel.',
+  blitzTimeUpText: 'Die Zeit ist abgelaufen. Checkpoints geben Zeit — nimm zuerst den nächsten.',
+  cpToastBlitz: (number, name, bonus) => `Checkpoint ${number}/5 · +${bonus} s<br>${small(name)}`,
+  blitzRank: 'Rang',
+  blitzLeft: (time) => `${time} Restzeit · `,
+  blitzBest: (time) => `Beste Restzeit ${time ?? '—'}`,
+  blitzTimeUp: 'Zeit ist um',
+  blitzCps: (done) => `${done} / 5 Checkpoints`,
 };
 
 export const STRINGS = { en, de };
