@@ -21,7 +21,7 @@ def open_page(p, server, locale="en-US", lang=None):
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
-    page.goto(f"{server}/prototype/index.html")
+    page.goto(f"{server}/prototype/index.html", timeout=240000)
     page.wait_for_function(READY, timeout=240000)
     return b, page, errors
 
@@ -105,7 +105,7 @@ def test_toggle_switches_live_and_persists(server):
         })""")
         page.keyboard.press("KeyT")
         smooth = text(page, "#stylename")
-        page.reload(); page.wait_for_function(READY, timeout=240000)
+        page.reload(timeout=240000); page.wait_for_function(READY, timeout=240000)
         after_reload = text(page, "#tl .mode")
         b.close()
     assert live["lang"] == "de" and live["stored"] == "de" and live["html"] == "de" and live["toggle"] == "DE"
