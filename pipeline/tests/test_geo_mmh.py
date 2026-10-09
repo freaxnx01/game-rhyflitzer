@@ -51,3 +51,18 @@ def test_mmh_roundtrip_and_sample(tmp_path):
     assert mmh.sample(hdr2, h2, 11.0, -4.0) == pytest.approx(0.5)      # halfway between col 0 and 1
     assert mmh.sample(hdr2, h2, 10.0, -2.0) == pytest.approx(4.0)      # one row south
     assert mmh.sample(hdr2, h2, -100.0, 100.0) == pytest.approx(8.0)   # clamped to the south-west corner
+
+
+def test_grid_for_ehrendingen():
+    f = geo.Frame(*geo.EHRENDINGEN_ORIGIN)
+    g = geo.grid_for(geo.EHRENDINGEN_BBOX, f, 4.0)
+    assert (g["w"], g["h"], g["x0"], g["z0"]) == (844, 1095, -1528.0, -2268.0)
+
+
+def test_ehrendingen_places_inside_the_box():
+    f = geo.Frame(*geo.EHRENDINGEN_ORIGIN)
+    w, s, e, n = geo.EHRENDINGEN_BBOX
+    for lon, lat in [(8.34014, 47.50799), (8.35081, 47.49498), (8.3437, 47.4795)]:   # Böndlern, Wanderweg junction, Lägern
+        assert w < lon < e and s < lat < n
+    x, z = f.to_game(8.34014, 47.50799)
+    assert float(x) == pytest.approx(-149.5, abs=0.5) and float(z) == pytest.approx(-1464.9, abs=0.5)
