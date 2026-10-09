@@ -56,9 +56,11 @@ def test_the_clock_counts_down_only_while_racing_and_ends_the_run_at_zero(server
         b, page, errors = open_page(p, server)
         page.click("#blitzbtn")
         page.wait_for_function("() => document.getElementById('overlay').hidden", timeout=T)
-        page.evaluate("() => window.__mm.blitzSetLeft(3)")
+        # 0.15 s, not more: each frame ticks at most 0.05 s (the loop's dt clamp) and a loaded headless
+        # renderer draws a frame every few seconds, so the run must end within a handful of frames
+        page.evaluate("() => window.__mm.blitzSetLeft(0.15)")
         page.keyboard.down("KeyW")                                           # the car moves: armed → racing
-        page.wait_for_function("() => window.__mm.blitz().left < 3", timeout=T)
+        page.wait_for_function("() => window.__mm.blitz().left < 0.15", timeout=T)
         page.wait_for_function("() => document.querySelector('#time').classList.contains('low')", timeout=T)
         page.wait_for_function("() => window.__mm.blitz().timeUp", timeout=T)
         page.keyboard.up("KeyW")
