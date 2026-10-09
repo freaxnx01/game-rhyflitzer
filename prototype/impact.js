@@ -12,9 +12,11 @@ export function impactStrength(speed) {
 export function crashVoice(s, p) {
   if (!(s > 0)) return null;
   const level = p.gain * (0.12 + 0.88 * s);
+  // the two layers peak together, so their gains must add up to under 1 even at full strength: the noise burst is
+  // random, and a sum over 1 clipped the hardest hits (0.38 + 0.55 = 0.93, thump-dominant for the body of the crash)
   return {
-    noise: { gain: 0.6 * level, freq: p.noise * (0.5 + 0.5 * s), dur: (0.10 + 0.30 * s) * p.weight },
-    thump: { gain: 0.9 * level, f0: 1.6 * p.thump, f1: p.thump, dur: (0.12 + 0.28 * s) * p.weight },
+    noise: { gain: 0.38 * level, freq: p.noise * (0.5 + 0.5 * s), dur: (0.10 + 0.30 * s) * p.weight },
+    thump: { gain: 0.55 * level, f0: 1.6 * p.thump, f1: p.thump, dur: (0.12 + 0.28 * s) * p.weight },
   };
 }
 
