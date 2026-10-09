@@ -277,6 +277,7 @@ def test_delorean_is_in_the_table_and_true_to_size(server):
         page.evaluate(DELOREAN_JS)
         page.click("#startbtn", timeout=180000)
         page.wait_for_function("() => window.__mm.doors().open < 0.01", timeout=120000)
+        page.wait_for_function("() => Math.abs(window.__mm.wheelYaw().yaw) < 1e-3", timeout=120000)   # front wheels straight, or w reads 2.094
         model = page.evaluate("() => window.__mm.vehicle().model")
         size = page.evaluate("() => window.__mm.carSize()")
         b.close()
