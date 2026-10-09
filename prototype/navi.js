@@ -1,10 +1,10 @@
 // navi.js — turn-by-turn guidance on a route from route.js (#106). Pure: no DOM, no window, so node --test can import it.
 // A route is { pts, cum, len, joints: [{ s, deg }] }; turnAt(route, s) > 0 turns right. The Navi only reads — it never
 // drives: no keys, no car state, no turn signals (the autopilot of #18 does that).
-import { turnAt, trackRoute } from './route.js';
+import { AUTO, turnAt, trackRoute } from './route.js';
 
 export const NAVI = {
-  minTurnDeg: 30, slightMaxDeg: 60, sharpMinDeg: 120, uturnMinDeg: 165,   // turn classes (same 30 deg rule as the autopilot's blinkers, #18)
+  minTurnDeg: Math.round(AUTO.turnAngle * 180 / Math.PI), slightMaxDeg: 60, sharpMinDeg: 120, uturnMinDeg: 165,   // turn classes; the minimum is the autopilot's blinker angle (30 deg, #18)
   passedM: 3,                  // a junction this far behind the car is done
   nowM: 30,                    // closer than this: "now"
   offRouteM: 25, offRouteS: 1.5, replanGapS: 3,   // leave the route by 25 m for 1.5 s -> plan again, at most every 3 s

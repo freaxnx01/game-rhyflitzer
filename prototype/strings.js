@@ -443,7 +443,7 @@ const de = {
   naviDestIn: (d) => `Ziel in ${d}`,
   naviArrived: (n) => `Angekommen: ${n}`,
   naviReroute: 'Route wird neu berechnet…',
-  naviNoRoute: 'Von hier keine Route',
+  naviNoRoute: 'Keine Route von hier',
   naviNoWorld: 'Das Navi braucht die OSM-Welt',
   naviDest: (n, d) => `${n} · ${d}`,
   dirSlightLeft: 'leicht links',
