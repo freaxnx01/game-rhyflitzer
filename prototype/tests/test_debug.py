@@ -1,5 +1,6 @@
 """#39: debug overlay (F3 or ?debug) with car coordinates and building heights. Slow (Playwright): run in the foreground."""
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -106,6 +107,72 @@ def test_click_on_the_panel_copies_one_line(server):
     assert copied.startswith("x ") and " | LV95 —" in copied, copied
     assert copied.split(" | ")[0].split("  ")[0] == lines[0].split("  ")[0]    # same panel (the car may have moved a frame since)
     assert toast == "Copied"
+
+
+def panel_lines(page):
+    page.keyboard.press("F3")
+    page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
+    return page.evaluate("() => window.__mm.debug().lines")
+
+
+SIZE_LINE = re.compile(r"size (\d+\.\d\d) × (\d+\.\d\d) × (\d+\.\d\d) m")
+HAND_MAP_LINE = "map 6.40 × 3.80 km · 24.3 km²"
+
+
+def test_panel_shows_car_size_and_hand_layout_map(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True)
+        lines = panel_lines(page)
+        size = page.evaluate("() => window.__mm.carSize()")
+        text = page.evaluate("() => window.__mm.debug().copy")
+        page.evaluate("() => { const c = window.__mm.vehicles().compact; c.scale = 1.5; window.__mm.setVehicle(c); }")
+        page.wait_for_function("() => window.__mm.debug().lines.some(l => l.startsWith('size ') && parseFloat(l.slice(5)) > 6)", timeout=60000)
+        scaled = next(l for l in page.evaluate("() => window.__mm.debug().lines") if l.startswith("size "))
+        br.close()
+    got = next(l for l in lines if l.startswith("size "))
+    m = SIZE_LINE.fullmatch(got)
+    assert m, got
+    l, w, h = (float(v) for v in m.groups())
+    assert (l, w, h) == (pytest.approx(size["l"], abs=0.02), pytest.approx(size["w"], abs=0.02), pytest.approx(size["h"], abs=0.02)), got
+    assert HAND_MAP_LINE in lines, lines
+    copied = text.split(" | ")
+    assert got in copied and HAND_MAP_LINE in copied, text
+    ms = SIZE_LINE.fullmatch(scaled)                                       # the size follows the selected vehicle
+    assert ms, scaled
+    assert [float(v) for v in ms.groups()] == [pytest.approx(v * 1.5, abs=0.03) for v in (l, w, h)], (got, scaled)
+
+
+CAR_POSE = ("() => { const p = window.__mm.carPose(); return { rot: p.rot.map(v => +v.toFixed(9)), visible: p.visible }; }")
+SPY_MEASURE = """async () => { const THREE = await import('three'); const orig = THREE.Box3.prototype.expandByObject;
+  window.__measured = 0; THREE.Box3.prototype.expandByObject = function (...a) { window.__measured++; return orig.apply(this, a); }; }"""
+
+
+def test_panel_ticks_leave_the_car_alone(server):
+    """#124 AC 5: the size line reads a value measured when the car is built; the 250 ms panel tick never re-measures
+    (rotates) the car, and the car's rotation and visibility are the same after several ticks."""
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True)
+        before = page.evaluate(CAR_POSE)
+        page.evaluate(SPY_MEASURE)
+        frame0 = page.evaluate("() => window.__mm.pause().frame")
+        lines = panel_lines(page)
+        page.wait_for_function(f"() => window.__mm.pause().frame >= {frame0} + 12", timeout=120000)
+        page.wait_for_timeout(1500)                                            # several 250 ms ticks
+        measured = page.evaluate("() => window.__measured")
+        after = page.evaluate(CAR_POSE)
+        br.close()
+    assert any(l.startswith("size ") for l in lines), lines
+    assert measured == 0, measured
+    assert after == before, (before, after)
+
+
+@needs_world
+def test_panel_shows_world_map_extent(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server)
+        lines = panel_lines(page)
+        br.close()
+    assert "map 9.44 × 4.39 km · 41.5 km²" in lines, lines
 
 
 @needs_world
