@@ -1162,7 +1162,9 @@ const blob = new THREE.Mesh(new THREE.CircleGeometry(2.6, 16), new THREE.MeshBas
 // (re)build the car group from VEH; flames and blinkers are persistent groups (other code toggles them), refilled by the builder
 const SHARED_CAR_MATS = new Set(Object.values(carMats));   // shared across builds (and restyled by applyStyle): never disposed
 function freeCar() { const mats = new Set(); car.traverse(o => { o.geometry?.dispose(); if (o.material && !SHARED_CAR_MATS.has(o.material)) mats.add(o.material); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
-function buildCar() { freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); blob.scale.set(VEH.scale, 0.55 * VEH.scale, 1); }
+let CAR_SIZE = null;   // #124: body box measured once per build (buildCar), so readers never touch the car
+function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
+function buildCar() { freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); blob.scale.set(VEH.scale, 0.55 * VEH.scale, 1); CAR_SIZE = measureCar(); }
 // fail fast, before anything is swapped: only procedural builders and circle collision exist so far
 function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}' (glTF loading is not implemented yet)`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); }
 function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def); buildCar(); }   // own copy: a later change to def cannot skip checkVehicle
@@ -1326,8 +1328,7 @@ window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.vehicle = () => structuredClone(VEH);
-function carSize() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
-window.__mm.carSize = carSize;
+window.__mm.carSize = () => ({ ...CAR_SIZE });   // #69: body box in world metres, measured at build time (measureCar)
 window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotation.z], visible: car.visible });   // #124: read-only, for the test
 // #132: wheel state and the wheel groups actually on the car (read-only, for the test)
 window.__mm.wheelYaw = () => { const ws = car.userData.wheels ?? []; return { yaw: WHEEL_STATE.yaw, spin: WHEEL_STATE.spin, front: ws.filter(w => w.front).map(w => w.steer.rotation.y), rear: ws.filter(w => !w.front).map(w => w.steer.rotation.y) }; };
@@ -1513,8 +1514,8 @@ const camTanHalf = () => Math.tan(camera.fov * Math.PI / 360);
 function clampDebugHeights() { if (!DEBUG.on) return; camera.updateMatrixWorld(); const view = camera.matrixWorldInverse.elements, tanHalf = camTanHalf(); DEBUG_H.pool.forEach((s, i) => { const it = DEBUG_H.shown[i]; if (s.visible && it) s.position.y = clampLabelY(view, tanHalf, it.x, it.y, it.z, DEBUG_LABEL_NDC_MAX, it.floor); }); }
 debugSection(() => positionLines(debugPosition(L && L.origin, P.x, P.z), P.y, bearing()));
 debugSection(() => buildingLines(DEBUG_H.shown[0]));
-debugSection(() => [sizeLine(carSize())]);                       // #124
-debugSection(() => mapLines(TGRID.GW, TGRID.GD));
+debugSection(() => [sizeLine(CAR_SIZE)]);   // #124: the size measured at build time
+debugSection(() => mapLines(TGRID.GW, TGRID.GD));   // #124
 window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length });
 if (debugFromQuery(location.search)) toggleDebug();
 { const id = vehicleFromQuery(location.search, Object.keys(VEHICLES)); if (id && id !== VEH.model) setVehicle(VEHICLES[id]); }   // #126: ?vehicle=<id>; the picker is #7
