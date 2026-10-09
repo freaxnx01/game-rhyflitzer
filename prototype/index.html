@@ -256,6 +256,7 @@ import { vehicleFromQuery } from './vehicle.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn } from './sound.js';
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
+import { UW, bedDepth, submerged, underwaterCamY, bedSamples, makeSchool, schoolPose } from './underwater.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -547,7 +548,7 @@ function buildCuts() {
   }
 }
 if (L) buildCuts();
-// water surface at (x, z) for an object at height y, null on land or on a bridge; the river bed is 3 m under it (groundH)
+// water surface at (x, z) for an object at height y, null on land or on a bridge; the river bed is bedDepth under it (groundH)
 function waterLevelAt(x, z, y) { if (onBridge(x, z, y)) return null; const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null || !L) return wl; const sh = streamH(x, z); return sh > -Infinity && roadSurfH(x, z) === -Infinity ? sh : null; }
 // roundabouts drawn so far: groundH lifts the car onto the cobble apron (radius 11.6, top 0.375 m) instead of sinking into it
 const KREISEL = [];
@@ -565,7 +566,8 @@ function groundH(x, z, y) {
   // #78: an abutment is fill, not a deck -- the ground is the higher of the fill and the bank or road already there, so it meets both
   // without a step. Pinning it to the fill alone leaves one wherever the road ribbon is draped above the bare terrain (0.4 m at Bad Säckingen).
   const fill = ob ? bridgeSurfaceAt(ob.b, ob.t) : -Infinity;
-  const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null) return Math.max(wl - 3, fill);
+  // #101: the bed shelves from the shoreline (0) to 6 m (bedDepth); the car lies and drives on it
+  const rd = riverDist(x, z), wl = waterSurface(rd, L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null) return Math.max(wl - bedDepth(rd), fill);
   for (const k of KREISEL) if (Math.hypot(x - k.x, z - k.z) <= k.apron) return Math.max(k.b + 0.375, fill);
   const t = Math.max(terrainH(x, z), roadSurfH(x, z), fill);
   if (x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
@@ -857,8 +859,12 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
 {
   const { GW, GD } = TGRID;
   const ground = new THREE.PlaneGeometry(GW, GD, TGRID.nx, TGRID.nz); ground.rotateX(-Math.PI / 2); ground.translate(TGRID.x0 + GW / 2, 0, TGRID.z0 + GD / 2);
-  const lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'), groundCol = (h) => { const t = sm(h / 90); return t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); };
-  { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const h = terrainH(p.getX(i), p.getZ(i)); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); const c = groundCol(h); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); }
+  const lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'), BED_COL = col('#8c7b5a'), groundCol = (h) => { const t = sm(h / 90); return t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); };
+  { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); let h = terrainH(x, z), c = groundCol(h);
+      // #101: inside the Rhine the vertex goes down to the bed, in sand (the smooth style ignores vertex colours there: green)
+      const rd = riverDist(x, z), wl = rd < 0 ? waterLevelAt(x, z, 1e4) : null;
+      if (wl !== null && !onBridge(x, z, 1e4)) { h = Math.min(h, wl - bedDepth(rd)); c = BED_COL; }
+      p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); }
   if (CUT_CELLS.size) { // #76: drop the coarse cells under a cut and draw their 1 m patches (the same heights terrainH returns)
     const p = ground.attributes.position, idx = ground.index.array, keep = [];
     for (let k = 0; k < idx.length; k += 3) {
@@ -882,7 +888,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   for (let i = 0; i < 40; i++) { const x = rr(-2400, 2400), z = rr(-1100, 1240), w = rr(120, 260), d = rr(90, 200), rot = rr(-0.3, 0.3); if (riverDist(x, z) < 200 || terrainH(x, z) > 2.5 || Math.abs(terrainH(x + w / 2, z + d / 2) - terrainH(x - w / 2, z - d / 2)) > 1.5 || !fieldClear(x, z, w, d, rot)) continue; const g = new THREE.PlaneGeometry(w, d, Math.ceil(w / 20), Math.ceil(d / 20)); g.rotateX(-Math.PI / 2); g.rotateY(rot); g.translate(x, 0, z); const p = g.attributes.position; for (let k = 0; k < p.count; k++) p.setY(k, terrainH(p.getX(k), p.getZ(k)) + 0.02); const u = g.attributes.uv; for (let k = 0; k < u.count; k++) u.setXY(k, u.getX(k) * w / 20, u.getY(k) * d / 20); g.computeVertexNormals(); colorize(g, col(rnd() < 0.5 ? '#b9a86a' : '#8fa04e')); push('field', g); }
   // the Rhine: gravel shore, water, current layer
   if (!L) {
-    ribbon(RIVER.pts, RIVER.hw + 14, 0.03, 'gravel', col('#c8bca4'), 12);
+    for (const s of [-1, 1]) ribbon(offsetPolyline(RIVER.pts, s * (RIVER.hw + 7)), 7, 0.03, 'gravel', col('#c8bca4'), 12, true);   // #101: a strip per bank, draped, so the bed shows between them
     const waterGeo = ribbon(RIVER.pts, RIVER.hw, 0.06, 'water', col('#ffffff'), 60);
     parts.current = [ribbon(RIVER.pts, RIVER.hw - 6, 0.08, 'currentTmp', col('#ffffff'), 90)]; delete parts.currentTmp;
   }
@@ -1323,6 +1329,8 @@ window.__mm.roles = () => Object.keys(MESH);
 window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5) => { const y = terrainH(tx, tz) + up, dir = new THREE.Vector3(tx - x, 0, tz - z).normalize(); const ray = new THREE.Raycaster(new THREE.Vector3(x, y, z), dir, 0, Math.hypot(tx - x, tz - z) + 1); const hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? hit.object.userData.role : null; };
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
 window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x, z, 1e4), bridge: !!onBridge(x, z, 1e4) });
+// #101: the riverbed under (x, z) -- groundH's own value, the water surface, the bedDepth, and where the drawn terrain actually is
+window.__mm.bed = (x, z) => { const rd = riverDist(x, z), water = waterLevelAt(x, z, 1e4); const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)); const h = MESH.grass ? ray.intersectObject(MESH.grass, false)[0] : null; return { ground: groundH(x, z, 1e4), water, depth: water === null ? 0 : bedDepth(rd), drawn: h ? h.point.y : null }; };
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
