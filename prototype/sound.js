@@ -54,3 +54,41 @@ export function checkSound(sound) {
   if (!h || !Array.isArray(h.notes) || h.notes.length < 1 || h.notes.length > 4 || h.notes.some(f => !num(f, 100, 2000))) bad('horn.notes needs 1-4 frequencies in 100-2000 Hz');
   if (!num(h.dur, 0.2, 3) || !num(h.gain, 0.01, 0.6) || !num(h.band, 200, 8000) || !['square', 'sawtooth', 'triangle'].includes(h.wave)) bad('horn needs dur 0.2-3 s, gain 0.01-0.6, band 200-8000 Hz, wave square|sawtooth|triangle');
 }
+
+// ---------- graph builders (WebAudio, no DOM) ----------
+export function noiseBuffer(ac, secs) { const b = ac.createBuffer(1, Math.round(ac.sampleRate * secs), ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; }
+
+export function buildEngine(ac, dest, engine) {
+  const out = ac.createGain(); out.gain.value = 0; const filter = ac.createBiquadFilter(); filter.type = 'lowpass'; filter.connect(out); out.connect(dest);
+  const oscs = engine.harmonics.map(h => { const o = ac.createOscillator(), g = ac.createGain(); o.type = h.mul === 1 ? 'sawtooth' : 'triangle'; o.detune.value = h.detune; g.gain.value = h.gain; o.connect(g); g.connect(filter); o.start(); return { o, mul: h.mul }; });
+  const noise = noiseBuffer(ac, 2), sources = oscs.map(h => h.o), voice = (type, freq, q) => { const s = ac.createBufferSource(); s.buffer = noise; s.loop = true; sources.push(s); const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = ac.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(dest); s.start(); return g; };
+  return { oscs, filter, out, sources, road: voice('bandpass', 300, 0.6), hiss: voice('bandpass', 2600, 0.9) };
+}
+
+// a vehicle swap with another preset: silence and drop the old voices
+export function stopEngine(n) { for (const s of n.sources) s.stop(); n.out.disconnect(); n.road.disconnect(); n.hiss.disconnect(); }
+
+export function applyEngine(n, mix, t) {
+  for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(mix.f0 * mul, t, 0.03);
+  n.filter.frequency.setTargetAtTime(mix.cutoff, t, 0.06); n.filter.Q.setTargetAtTime(mix.q, t, 0.06);
+  n.out.gain.setTargetAtTime(mix.gain, t, 0.05); n.road.gain.setTargetAtTime(mix.road, t, 0.1); n.hiss.gain.setTargetAtTime(mix.hiss, t, 0.08);
+}
+
+// #10 rotor: lowpassed noise, its level pulsed by a sine at the blade rate
+export function buildRotor(ac, dest) {
+  const s = ac.createBufferSource(); s.buffer = noiseBuffer(ac, 2); s.loop = true; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = ROTOR.cutoff;
+  const pulse = ac.createGain(); pulse.gain.value = 0.5; const lfo = ac.createOscillator(), depth = ac.createGain(); lfo.frequency.value = ROTOR.rate; depth.gain.value = 0.5; lfo.connect(depth); depth.connect(pulse.gain);
+  const out = ac.createGain(); out.gain.value = 0; s.connect(f); f.connect(pulse); pulse.connect(out); out.connect(dest); s.start(); lfo.start();
+  return { lfo, f, out };
+}
+
+export function applyRotor(n, mix, t) { n.lfo.frequency.setTargetAtTime(mix.rate, t, 0.2); n.f.frequency.setTargetAtTime(mix.cutoff, t, 0.2); n.out.gain.setTargetAtTime(mix.gain, t, 0.3); }
+
+// the horn: each note a detuned pair through one bandpass, held at full level for dur (no decay), short attack and release
+export function playHorn(ac, dest, horn, when) {
+  const band = ac.createBiquadFilter(); band.type = 'bandpass'; band.frequency.value = horn.band; band.Q.value = 0.7;
+  const env = ac.createGain(), end = when + horn.dur; env.gain.setValueAtTime(0, when); env.gain.linearRampToValueAtTime(horn.gain, when + 0.015); env.gain.setValueAtTime(horn.gain, end - 0.06); env.gain.linearRampToValueAtTime(0, end);
+  band.connect(env); env.connect(dest);
+  for (const f of horn.notes) for (const cents of [-6, 6]) { const o = ac.createOscillator(); o.type = horn.wave; o.frequency.value = f; o.detune.value = cents; o.connect(band); o.start(when); o.stop(end + 0.02); }
+  return end;
+}
