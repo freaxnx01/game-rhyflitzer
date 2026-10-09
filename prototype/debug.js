@@ -42,6 +42,18 @@ export function positionLines(pos, y, bearing) {
 export function buildingLines(label) { return [label ? `bldg ${label.id} · ${label.t}` : 'bldg —']; }
 export function copyText(lines) { return lines.join(' | '); }
 
+// #63: key-free map URLs at a WGS84 spot (OSM, Google Maps URLs API); 6 decimals is about 0.1 m
+const MAP_ZOOM = 18;
+const deg = (v) => v.toFixed(6);
+const compass = (h) => ((Math.round(h) % 360) + 360) % 360;
+export function osmUrl(lat, lon) { return `https://www.openstreetmap.org/?mlat=${deg(lat)}&mlon=${deg(lon)}#map=${MAP_ZOOM}/${deg(lat)}/${deg(lon)}`; }
+export function googleMapsUrl(lat, lon) { return `https://www.google.com/maps/@?api=1&map_action=map&center=${deg(lat)},${deg(lon)}&zoom=${MAP_ZOOM}`; }
+export function streetViewUrl(lat, lon, heading) { return `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${deg(lat)},${deg(lon)}&heading=${compass(heading)}&pitch=0&fov=90`; }
+export function mapUrls(pos, heading) {
+  if (pos.lat === null || pos.lon === null) return null;
+  return { osm: osmUrl(pos.lat, pos.lon), maps: googleMapsUrl(pos.lat, pos.lon), street: streetViewUrl(pos.lat, pos.lon, heading) };
+}
+
 // #124: car body box (metres) and the drawn map extent (metres in, km / km2 out)
 export function sizeLine(s) { return `size ${s.l.toFixed(2)} × ${s.w.toFixed(2)} × ${s.h.toFixed(2)} m`; }
 export function mapLines(widthM, depthM) {

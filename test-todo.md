@@ -266,3 +266,11 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] **J → "Bergsee"** (Bad Säckingen) puts the car on Am Bergsee at the shore, with the lake ahead — not in a field and not facing away from the water.
 - [ ] **J → "Plattform Sisslerfeld"** shows the tower standing in front of the car on the Breitenloh, not around it; driving off takes you past its foot.
 - [ ] **J → "Hallenbad Sissila"** still lands on the road by the pool, as before.
+
+## Map links (#63)
+
+- [ ] F3 next to Bodenackerstrasse 6, then click **OSM**, **Maps** and **Street View**: three new tabs open at that spot, the game tab stays; Street View faces the same way as the car. No "popup blocked" bar.
+- [ ] Clicking a link does not show the "Copied" toast; clicking the text part of the panel still copies.
+- [ ] After a click, Enter honks and does not open another tab.
+- [ ] Phone (`…/prototype/index.html?debug`): the buttons in the top-left panel are tappable and open the map app or a new tab.
+- [ ] On the German side (Bad Säckingen): note what Street View shows where Google has no panorama.

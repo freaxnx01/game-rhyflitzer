@@ -37,9 +37,10 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 @media (max-width:900px){#debug{bottom:calc(162px + env(safe-area-inset-bottom,0px))}}
 @media (pointer:coarse){#debug{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px))}}
 #debugtext>div::before{content:attr(data-label);display:inline-block;min-width:11ch;color:#7f9a6a}
+#debuglinks{display:flex;gap:6px;margin-top:4px;white-space:normal}#debuglinks[hidden]{display:none}#debuglinks button{font:inherit;color:#8fd8e8;background:none;border:1px solid #3a404b;padding:1px 6px;cursor:pointer}
 #debug{padding-right:36px}#debughelp{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font:inherit;line-height:18px;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 /* the open legend must not push the panel (and its ? button) off screen, so it scrolls once the space the panel's anchor leaves is used up */
-#debuglegend{max-width:min(380px,calc(100vw - 72px));max-height:calc(100vh - 390px);overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
+#debuglegend{max-width:min(380px,calc(100vw - 72px));max-height:calc(100vh - 420px);overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
 @media (max-width:900px){#debuglegend{max-height:calc(100vh - 290px)}}
 @media (pointer:coarse){#debug{padding-right:48px}#debughelp{width:36px;height:36px;line-height:32px}#debuglegend{max-height:calc(100vh - 400px)}}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
@@ -146,7 +147,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <kbd>X</kbd><span data-i18n="keyPhoto">photo: save the view as a PNG</span>
       <kbd>M</kbd><span data-i18n="keyMute">mute</span>
       <kbd>Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
-      <kbd>F3</kbd><span data-i18n="keyDebug">debug: coordinates, building heights (click the panel to copy · ?debug in the URL)</span>
+      <kbd>F3</kbd><span data-i18n="keyDebug">debug: coordinates, building heights, map links (click the panel to copy · ?debug in the URL)</span>
       <kbd>F1 · ?</kbd><span data-i18n="keyHelp">this help</span>
     </div></div>
   <div id="jump" hidden><div id="jumptitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small id="jumphint">type to search · ↑↓ Enter · J / Esc closes</small></div>
@@ -177,7 +178,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
-  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div></div>
+  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab)">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div></div>
 </div>
 
 <div id="touch">
@@ -250,7 +251,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider } from './world.js';
-import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey } from './debug.js';
+import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { translate } from './strings.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
@@ -269,13 +270,14 @@ const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
 // Named tr, not t: many functions here use t as a local variable.
 const tr = (key, ...args) => translate(window.GG_LANG, key, ...args);
-// Static markup carries its key in data-i18n (text), data-i18n-aria (aria-label) or data-i18n-placeholder.
+// Static markup carries its key in data-i18n (text), data-i18n-aria (aria-label), data-i18n-placeholder or data-i18n-title.
 // Elements whose text depends on game state are rendered by the render* functions instead.
 function applyStaticStrings() {
   document.documentElement.lang = window.GG_LANG || 'en';
   for (const el of document.querySelectorAll('[data-i18n]')) el.innerHTML = tr(el.dataset.i18n);
   for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', tr(el.dataset.i18nAria));
   for (const el of document.querySelectorAll('[data-i18n-placeholder]')) el.placeholder = tr(el.dataset.i18nPlaceholder);
+  for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = tr(el.dataset.i18nTitle);
 }
 applyStaticStrings();
 
@@ -1565,6 +1567,10 @@ function debugLineEl(line) { const el = document.createElement('div'); const key
 function debugTick() { if (!DEBUG.on || performance.now() - DEBUG.t < 250) return; DEBUG.t = performance.now(); for (const l of DEBUG.layers) l.tick(P.x, P.z); DEBUG.lines = DEBUG.sections.flatMap(fn => fn()); $('debugtext').replaceChildren(...DEBUG.lines.map(debugLineEl)); }
 function copyDebug() { const text = copyText(DEBUG.lines); if (!navigator.clipboard) { toast(tr('copyFailed')); return; } navigator.clipboard.writeText(text).then(() => toast(tr('copied')), () => toast(tr('copyFailed'))); }
 $('debug').addEventListener('click', copyDebug);
+// #63: map links in the panel -- URL from the car's spot at click time, new tab, never copies the panel; blur so Enter (horn) can't re-click
+function openMap(kind) { const links = mapUrls(debugPosition(L && L.origin, P.x, P.z), bearing()); if (links) window.open(links[kind], '_blank', 'noopener'); }
+$('debuglinks').hidden = !(L && L.origin);
+$('debuglinks').addEventListener('click', e => { e.stopPropagation(); const b = e.target.closest('button[data-map]'); if (!b) return; openMap(b.dataset.map); b.blur(); });
 // #74: ? toggles the legend; neither the button nor the legend copies the panel, and the button drops focus (Enter is the horn)
 function toggleDebugLegend(e) { e.stopPropagation(); const lg = $('debuglegend'); lg.hidden = !lg.hidden; e.currentTarget.setAttribute('aria-expanded', String(!lg.hidden)); e.currentTarget.blur(); }
 $('debughelp').addEventListener('click', toggleDebugLegend);
@@ -1586,7 +1592,7 @@ debugSection(() => positionLines(debugPosition(L && L.origin, P.x, P.z), P.y, be
 debugSection(() => buildingLines(DEBUG_H.shown[0]));
 debugSection(() => [sizeLine(CAR_SIZE)]);   // #124: the size measured at build time
 debugSection(() => mapLines(TGRID.GW, TGRID.GD));   // #124
-window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length, labels: [...document.querySelectorAll('#debugtext > div')].map(d => d.dataset.label), legend: !$('debuglegend').hidden });
+window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), links: mapUrls(debugPosition(L && L.origin, P.x, P.z), bearing()), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length, labels: [...document.querySelectorAll('#debugtext > div')].map(d => d.dataset.label), legend: !$('debuglegend').hidden });
 if (debugFromQuery(location.search)) toggleDebug();
 { const id = vehicleFromQuery(location.search, Object.keys(VEHICLES)); if (id && id !== VEH.model) setVehicle(VEHICLES[id]); }   // #126: ?vehicle=<id>; the picker is #7
 function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; renderOdo(); try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } { const on = Math.floor(performance.now() / 350) % 2 === 0; $('blL').className = HUD.blinker === 'left' && on ? 'on' : ''; $('blR').className = HUD.blinker === 'right' && on ? 'on' : ''; for (const s of ['left', 'right']) BLINK[s].visible = HUD.blinker === s && on; } if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; HUD.road = roadNameAt(gridQuery(ROAD_GRID, P.x, P.z, 1), P.x, P.z); $('roadname').textContent = HUD.road; $('autoline').textContent = AUTOP.on ? tr('autoLine', AUTOP.dest.n, ((AUTOP.st.route.len - AUTOP.st.s) / 1000).toFixed(1)) : ''; } if (performance.now() - LABELS.t > 250) { LABELS.t = performance.now(); updateLabels(P.x, P.z); } updateVillageNames(P.x, P.z); $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gi = gearAt(kmh, VEH.sound.gears); $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); $('dmg').firstElementChild.style.width = (P.dmg * 100) + '%'; if (R.mode === 'blitz') { $('time').innerHTML = fmt(R.left); $('time').classList.toggle('low', R.left < BLITZ.low); $('best').textContent = tr('blitzBest', R.blitzBest === null ? null : fmt(R.blitzBest).replace(/<[^>]+>/g, '')); } else { $('time').innerHTML = fmt(R.t); $('time').classList.remove('low'); const hb = R.mode === 'hunt' ? R.huntBest : R.best; $('best').textContent = tr('best', hb === null ? null : fmt(hb).replace(/<[^>]+>/g, '')); } $('arrow').style.visibility = R.target ? '' : 'hidden'; if (!R.target) { $('dist').textContent = ''; $('cpname').textContent = ''; }   // every present found: nothing left to point at

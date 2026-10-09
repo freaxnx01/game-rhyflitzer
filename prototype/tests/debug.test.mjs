@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey } from '../debug.js';
+import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls } from '../debug.js';
 import { translate } from '../strings.js';
 
 const ORIGIN = { lat: 47.5506, lon: 7.9671, E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };   // data/world_hochrhein.json
@@ -120,4 +120,26 @@ test('debug labels and legend exist in English and German and explain every valu
   for (const [lang, text] of [['en', en], ['de', de]]) {                     // #124's two lines are explained too
     for (const label of keys.map(k => translate(lang, k))) assert.ok(text.includes(`<b>${label}</b>`), `${lang}: ${label}`);
   }
+});
+
+test('osmUrl: marker and map view at zoom 18, 6 decimals', () => {
+  assert.equal(osmUrl(47.5506, 7.9671), 'https://www.openstreetmap.org/?mlat=47.550600&mlon=7.967100#map=18/47.550600/7.967100');
+  assert.equal(osmUrl(47.12345678, 7.98765432), 'https://www.openstreetmap.org/?mlat=47.123457&mlon=7.987654#map=18/47.123457/7.987654');
+});
+
+test('googleMapsUrl: Maps URLs API map action, centre and zoom 18', () => {
+  assert.equal(googleMapsUrl(47.5506, 7.9671), 'https://www.google.com/maps/@?api=1&map_action=map&center=47.550600,7.967100&zoom=18');
+});
+
+test('streetViewUrl: pano at the spot, heading rounded and folded into 0..359', () => {
+  assert.equal(streetViewUrl(47.5506, 7.9671, 86.6), 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=47.550600,7.967100&heading=87&pitch=0&fov=90');
+  for (const [h, want] of [[0, 0], [90.5, 91], [359.6, 0], [-0.4, 0], [-90, 270], [720, 0]]) {
+    assert.ok(streetViewUrl(1, 2, h).includes(`&heading=${want}&`), `${h} -> ${want}`);
+  }
+});
+
+test('mapUrls: all three links for a WGS84 position, null without one', () => {
+  const pos = { x: 0, z: 0, E: 2639781.3, N: 1266787.1, lat: 47.5506, lon: 7.9671 };
+  assert.deepEqual(mapUrls(pos, 86.6), { osm: osmUrl(47.5506, 7.9671), maps: googleMapsUrl(47.5506, 7.9671), street: streetViewUrl(47.5506, 7.9671, 86.6) });
+  assert.equal(mapUrls({ x: 1, z: 2, E: null, N: null, lat: null, lon: null }, 0), null);
 });

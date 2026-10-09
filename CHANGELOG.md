@@ -9,6 +9,7 @@ All notable changes to this project are documented here, following
 ### Added
 
 - The **J** list has a new place, the **Bergsee** above Bad Säckingen: it drops the car on the road Am Bergsee at the shore, looking out across the water. Type "bergsee" to find it.
+- The **F3** debug panel now has three buttons — **OSM**, **Maps** and **Street View** — that open the spot where your car stands in OpenStreetMap, Google Maps or Google Street View in a new tab. Street View looks the way the car is pointing, so you can compare the game with the real street.
 - The **J** list has a new place, the **Südspange Sisslerfeld** in Eiken: it drops the car at the junction with the Laufenburgerstrasse where the new road is planned to start. Type "südspange" to find it.
 - Press **X** to take a photo: the current view of the game is saved as a PNG picture on your computer, without the speedometer and map. It works in every camera, in the helicopter and while paused.
 - **Blitz** — a second way to run the course: press **Blitz** on the start screen and the clock counts *down* from 90 seconds; every checkpoint adds 60. Reach the Münsterplatz with time left and you get a rank — S, A, B or C, the more seconds the better — and your best time left is remembered. Run out of time and it's over: "Time's up", with the checkpoints you made. The time trial is still there under Start.

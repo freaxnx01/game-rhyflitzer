@@ -340,3 +340,61 @@ def test_panel_with_the_legend_open_stays_on_screen(server, name, opts):
     assert button["y"] >= 0, (button, vp)                                    # the ? stays clickable, so the legend can be closed again
     for box in steering:
         assert not boxes_overlap(panel, box), (panel, box)                   # the open legend still leaves the steering buttons free
+
+
+# #63: map links -- OSM / Google Maps / Street View at the car's spot, in a new tab
+LINK_RE = {
+    "osm": r"^https://www\.openstreetmap\.org/\?mlat=(-?\d+\.\d{6})&mlon=(-?\d+\.\d{6})#map=18/\1/\2$",
+    "maps": r"^https://www\.google\.com/maps/@\?api=1&map_action=map&center=(-?\d+\.\d{6}),(-?\d+\.\d{6})&zoom=18$",
+    "street": r"^https://www\.google\.com/maps/@\?api=1&map_action=pano&viewpoint=(-?\d+\.\d{6}),(-?\d+\.\d{6})&heading=(\d{1,3})&pitch=0&fov=90$",
+}
+SPY_OPEN = ("() => { window.__opened = []; window.open = (u, t, f) => { window.__opened.push([u, t, f]); return null; };"
+            " window.__copied = null; navigator.clipboard.writeText = t => { window.__copied = t; return Promise.resolve(); }; }")
+
+
+@needs_world
+def test_map_links_open_the_cars_spot_in_a_new_tab(server):
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    b = next(x for x in w["buildings"] if x["id"] == BODENACKER_6)
+    with sync_playwright() as p:
+        br, page = open_page(p, server, query="?debug")
+        page.click("#startbtn", timeout=180000)                              # the start overlay would swallow the clicks
+        page.evaluate(f"() => window.__mm.place({b['rect'][0] + 20}, {b['rect'][1]})")
+        page.wait_for_function("() => window.__mm.debug().links !== null && window.__mm.debug().lines.length > 0", timeout=60000)
+        page.evaluate(SPY_OPEN)
+        page.wait_for_timeout(600)                                           # let debugTick run twice: it must not wipe the row
+        visible = page.is_visible("#debuglinks")
+        title = page.get_attribute('#debuglinks button[data-map="street"]', "title")
+        for kind in ("osm", "maps", "street"):
+            page.click(f'#debuglinks button[data-map="{kind}"]')
+        page.wait_for_function("() => window.__opened.length === 3", timeout=30000)
+        opened = page.evaluate("() => window.__opened")
+        dbg = page.evaluate("() => window.__mm.debug()")
+        in_row = page.evaluate("() => !!(document.activeElement && document.activeElement.closest('#debuglinks'))")
+        page.wait_for_timeout(300)
+        copied = page.evaluate("() => window.__copied")
+        br.close()
+    pos, links = dbg["pos"], dbg["links"]
+    assert visible and title == "Open in Google Street View (new tab)", title
+    assert [o[1:] for o in opened] == [["_blank", "noopener"]] * 3, opened
+    assert copied is None and not in_row                                     # no copy, focus left the button
+    assert set(links) == {"osm", "maps", "street"}
+    for (url, _, _), kind in zip(opened, ("osm", "maps", "street")):
+        m = re.match(LINK_RE[kind], url); assert m, url
+        assert abs(float(m.group(1)) - pos["lat"]) < 1e-5 and abs(float(m.group(2)) - pos["lon"]) < 1e-5, (url, pos)
+    heading = int(re.match(LINK_RE["street"], opened[2][0]).group(3))
+    shown = int(dbg["lines"][0].split()[-1].rstrip("°")) % 360               # the panel's bearing, same rounding
+    assert 0 <= heading <= 359 and min(abs(heading - shown), 360 - abs(heading - shown)) <= 1, (heading, shown)
+
+
+def test_map_links_hidden_without_a_world_origin(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug")
+        page.click("#startbtn")
+        page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
+        hidden = not page.is_visible("#debuglinks")
+        links = page.evaluate("() => window.__mm.debug().links")
+        text = page.inner_text("#debug")
+        br.close()
+    assert hidden and links is None
+    assert text.startswith("x ") and "OSM" not in text, text
