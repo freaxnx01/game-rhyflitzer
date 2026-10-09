@@ -439,7 +439,9 @@ def test_no_trees_on_car_parks(server, terrain):
         br.close()
     lots = world_parking()
     bad = [(round(x, 1), round(z, 1), lot.get("name", lot["id"])) for x, z, h in trees for lot in lots if _tree_on_lot(lot, x, z, 0.45 * h)]
-    assert len(trees) > 1000 and bad == [], bad[:10]
+    # the floor only guarantees there is a sample worth checking. It was > 1000 while the heuristic forests still ran in
+    # OSM mode; #13 switched those off, so the countryside scatter is now the 12 % roll alone (about 800 trees).
+    assert len(trees) > 500 and bad == [], bad[:10]
 
 
 @pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")

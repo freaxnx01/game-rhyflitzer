@@ -100,4 +100,6 @@ def test_no_tree_reaches_a_road(server):
         b, page = open_world(p, server)
         n = page.evaluate("() => [window.__mm.treesOnRoad(), window.__TREES.length]")
         b.close()
-    assert n[1] > 1000 and n[0] == 0, n
+    # the floor only guarantees there is a sample worth checking; #13 switched the heuristic forests off in OSM mode, so
+    # the countryside scatter is the 12 % roll alone (about 800 trees). The forest trees have no collider of their own.
+    assert n[1] > 500 and n[0] == 0, n
