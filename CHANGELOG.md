@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- The **J** list has a new place, the **Bergsee** above Bad Säckingen: it drops the car on the road Am Bergsee at the shore, looking out across the water. Type "bergsee" to find it.
 - The **J** list has a new place, the **Südspange Sisslerfeld** in Eiken: it drops the car at the junction with the Laufenburgerstrasse where the new road is planned to start. Type "südspange" to find it.
 - Press **X** to take a photo: the current view of the game is saved as a PNG picture on your computer, without the speedometer and map. It works in every camera, in the helicopter and while paused.
 - **Blitz** — a second way to run the course: press **Blitz** on the start screen and the clock counts *down* from 90 seconds; every checkpoint adds 60. Reach the Münsterplatz with time left and you get a rank — S, A, B or C, the more seconds the better — and your best time left is remembered. Run out of time and it's over: "Time's up", with the checkpoints you made. The time trial is still there under Start.
@@ -59,6 +60,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- **J** → Plattform Sisslerfeld no longer drops you inside the lookout tower. The tower stands right on the Breitenloh, so the car now starts a good 25 m down the road from it, with the tower in front of you.
 - Scraping the side of the Holzbrücke no longer drops you into the Rhine. Since the car is back to its real size, it could slip off the deck between the rails where the old bridge bends. Now everything between the railings is solid planks.
 - Holding **Tab** now shows only the big map. The browser no longer jumps through the buttons on the page while you hold the key.
 - Trees are solid now: the car no longer drives straight through them. Hit a trunk and you stop, lose speed and take damage, just like with a lamp post — but you can still brush past the leaves. Trees never stand close enough to a road to get in the way.

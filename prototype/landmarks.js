@@ -13,9 +13,10 @@ export const LANDMARK_INFO = [
   { name: 'Bahnhof Bad Säckingen', gemeinde: 'Bad Säckingen', building: 25049518 },     // station building of n313032305
   { name: 'Kursaal', gemeinde: 'Bad Säckingen', building: 91592556 },                  // contains n426864010
   { name: 'Aqualon Therme', gemeinde: 'Bad Säckingen', building: 92039355 },
+  { name: 'Bergsee', gemeinde: 'Bad Säckingen', at: [-2349, -2207], jump: [-2281.8, -2179.9] },   // #94: the OSM lake "Bergsee" above Bad Säckingen (its ring mean); J lands on Am Bergsee, facing across the water
   { name: 'Kirche Stein', gemeinde: 'Stein', anchor: 'steinChurch' },
   { name: 'Bahnhof Stein-Säckingen', gemeinde: 'Stein', anchor: 'stationStein' },
-  { name: 'Plattform Sisslerfeld', gemeinde: 'Münchwilen', anchor: 'plattform' },
+  { name: 'Plattform Sisslerfeld', gemeinde: 'Münchwilen', anchor: 'plattform', jump: [78.1, 861.4] },   // #94: the tower stands on Breitenloh; J lands 25 m east of it on the same road, facing it
   { name: 'DSM-Kamin', gemeinde: 'Eiken', anchor: 'dsmChimney' },
   { name: 'Bahnhof Sisseln', gemeinde: 'Eiken', anchor: 'stationSisseln' },
   { name: 'Bahnhof Eiken', gemeinde: 'Eiken', building: 199241726 },

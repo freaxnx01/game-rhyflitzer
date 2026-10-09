@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, existsSync } from 'node:fs';
 import { GEMEINDEN, LANDMARK_INFO, foldText, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from '../landmarks.js';
 
 const ANCHORS = { muenster: { x: -1331, z: -172.7 }, smileKreisel: { x: 1270, z: -148 } };
@@ -66,8 +67,8 @@ const BUILDINGS_46 = [
   ['Schulhaus Sisseln', 'Sisseln', 171822721],
 ];
 
-test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81 and the Südspange of #125', () => {
-  assert.equal(LANDMARK_INFO.length, 25);
+test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125 and the Bergsee of #94', () => {
+  assert.equal(LANDMARK_INFO.length, 26);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
@@ -86,8 +87,9 @@ test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower
 test('#46 entries resolve from their buildings, sort into their Gemeinde and are found accent-blind', () => {
   const square = (id, x) => ({ id: String(id), ring: [[x, 0], [x + 10, 0], [x + 10, 10], [x, 10]] });
   const buildings = BUILDINGS_46.map(([, , id], i) => square(id, i * 100));
-  const e = landmarkEntries(LANDMARK_INFO, {}, buildings);              // no anchors: the building entries, plus #125's anchorless Südspange
+  const e = landmarkEntries(LANDMARK_INFO, {}, buildings);              // no anchors: the building entries, plus the anchorless fixed points of #125 and #94
   const expected = BUILDINGS_46.map(([n, g]) => [n, g]);
+  expected.splice(expected.findIndex(([n]) => n === 'Aqualon Therme') + 1, 0, ['Bergsee', 'Bad Säckingen']);
   expected.splice(expected.findIndex(([n]) => n === 'Bahnhof Eiken') + 1, 0, ['Südspange Sisslerfeld', 'Eiken']);
   assert.deepEqual(e.map(x => [x.n, x.g]), expected);
   assert.deepEqual(e.find(x => x.n === 'Kursaal'), { n: 'Kursaal', g: 'Bad Säckingen', x: 405, z: 5 });
@@ -119,11 +121,11 @@ test('the Fridolinsbrücke jumps to the Swiss approach, east of the deck end (#7
 test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found by "landi"', () => {
   const anchors = { dsmChimney: { x: 1065.2, z: 345.1 }, stationSisseln: { x: 1854.2, z: 685.8 }, landiTurm: { x: 1832.7, z: 627.7 } };
   const e = landmarkEntries(LANDMARK_INFO, anchors, [{ id: '199241726', ring: [[2600, 900], [2610, 900], [2610, 910], [2600, 910]] }]);
-  assert.deepEqual(e.map(x => x.n), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
+  assert.deepEqual(e.map(x => x.n), ['Bergsee', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
   assert.deepEqual(e.find(x => x.n === 'LANDI-Turm'), { n: 'LANDI-Turm', g: 'Eiken', x: 1832.7, z: 627.7 });
   assert.deepEqual(filterLandmarks(e, 'landi', null).map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(filterLandmarks(e, 'LANDI', 'Eiken').map(x => x.n), ['LANDI-Turm']);
-  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
+  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Bergsee', 'DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
 });
 
 test('rampApproach stands runUp metres before the low edge, centred, facing up the ramp (+x)', () => {
@@ -162,4 +164,42 @@ test('landmarkEntries gives the Südspange its fixed point without any world anc
 test('filterLandmarks finds the Südspange by "sudspange", "südspange" and "SISSLERFELD" (#125)', () => {
   const e = landmarkEntries(LANDMARK_INFO, {}, []);
   for (const q of ['sudspange', 'südspange', 'SISSLERFELD']) assert.ok(filterLandmarks(e, q, null).some(x => x.n === 'Südspange Sisslerfeld'), q);
+});
+
+test('#94 Bergsee, Hallenbad and Plattform are in the J table', () => {
+  const by = n => LANDMARK_INFO.find(l => l.name === n);
+  assert.equal(by('Bergsee').gemeinde, 'Bad Säckingen');
+  assert.deepEqual(by('Bergsee').at, [-2349, -2207]);
+  assert.deepEqual(by('Bergsee').jump, [-2281.8, -2179.9]);
+  assert.equal(by('Hallenbad Sissila').gemeinde, 'Sisseln');
+  assert.equal(by('Hallenbad Sissila').anchor, 'hallenbad');
+  assert.equal(by('Plattform Sisslerfeld').gemeinde, 'Münchwilen');
+  assert.deepEqual(by('Plattform Sisslerfeld').jump, [78.1, 861.4]);
+  const names = landmarkEntries(LANDMARK_INFO, { hallenbad: { x: 1968, z: -374.2 } }, []).map(x => x.n);
+  assert.ok(names.includes('Bergsee') && names.includes('Hallenbad Sissila'));
+  assert.deepEqual(filterLandmarks(landmarkEntries(LANDMARK_INFO, {}, []), 'berg', null).map(x => x.n), ['Bergsee']);
+});
+
+const WORLD_URL = new URL('../../data/world_hochrhein.json', import.meta.url);
+const inRing = (r, x, z) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, zi] = r[i], [xj, zj] = r[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
+// the road a jump spot snaps to, the way nearestJumpable picks it (prototype/index.html)
+const nearestRoad = (roads, x, z) => roads.filter(r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link')
+  .flatMap(r => r.pts.slice(1).map((b, i) => {
+    const a = r.pts[i], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2));
+    return { d: Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t), n: r.n };
+  })).reduce((best, c) => (c.d < best.d ? c : best));
+
+test('#94 world sanity: the Bergsee point lies in the lake, the jump spots on their streets', { skip: !existsSync(WORLD_URL) }, () => {
+  const w = JSON.parse(readFileSync(WORLD_URL, 'utf8'));
+  const by = n => LANDMARK_INFO.find(l => l.name === n);
+  const [bx, bz] = by('Bergsee').at;
+  assert.ok(w.water.some(c => c.name === 'Bergsee' && inRing(c.rings[0], bx, bz)), 'the Bergsee point is inside a Bergsee water ring');
+  const bergseeRoad = nearestRoad(w.roads, ...by('Bergsee').jump);
+  assert.ok(bergseeRoad.d < 3, `Bergsee jump spot is ${bergseeRoad.d.toFixed(1)} m off the nearest road`);
+  assert.equal(bergseeRoad.n, 'Am Bergsee');
+  const plattformRoad = nearestRoad(w.roads, ...by('Plattform Sisslerfeld').jump);
+  assert.ok(plattformRoad.d < 3, `Plattform jump spot is ${plattformRoad.d.toFixed(1)} m off the nearest road`);
+  assert.equal(plattformRoad.n, 'Breitenloh');
+  const p = w.anchors.landmarks.plattform, j = by('Plattform Sisslerfeld').jump;
+  assert.ok(Math.hypot(j[0] - p.x, j[1] - p.z) >= 15, 'Plattform jump spot is clear of the tower');
 });
