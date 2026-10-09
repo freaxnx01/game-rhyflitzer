@@ -10,7 +10,7 @@
 
 - `prototype/regions.js` (pure) holds a `REGIONS` table with data URLs, storage keys, string keys, villages, Gemeinden, landmarks and tree rules per region. `regionFromQuery` picks the region; a start-screen row reloads with `?region=`.
 - `index.html` reads every Hochrhein-specific constant from `REGION`. The Hochrhein values are exactly today's constants.
-- The pipeline is already parametric on the CLI. It gets the Ehrendingen bbox and origin constants, a new anchors file and one new feature: hiking-route member ways kept as drivable `trail` roads (`world_trails.py`).
+- The pipeline is already parametric on the CLI. It gets the Ehrendingen bbox and origin constants, a new anchors file and one new feature: listed ways (Hofrain / Steinbuckweg) kept as drivable `trail` roads.
 - Tasks 1–7 are code and docs. They run anywhere, CI included, and are pushed before any data work. Tasks 8–10 build `data/world_ehrendingen.json` and `data/terrain_ehrendingen.mmh`. They are guarded and stop cleanly on CI.
 
 **Tech stack:** Python 3 (pyosmium, shapely, pyproj, numpy, pytest) in `pipeline/`; vanilla JS ES modules in `prototype/`; Node `node:test`; Playwright (pytest).
@@ -32,7 +32,6 @@
 | File | Change |
 |---|---|
 | `pipeline/geo.py` | `EHRENDINGEN_BBOX`, `EHRENDINGEN_ORIGIN`, `EHRENDINGEN_BASE` |
-| `pipeline/world_trails.py` (new) | `member_ways(path, relation_ids)` |
 | `pipeline/world_roads.py` | `build(..., trail_ids=frozenset())`: trail ways kept as `trail` roads |
 | `pipeline/anchors.py` | `trail_ids(spec)` |
 | `pipeline/osm.py` | wire trails into `build_world` |
@@ -64,7 +63,7 @@ def test_grid_for_ehrendingen():
 def test_ehrendingen_places_inside_the_box():
     f = geo.Frame(*geo.EHRENDINGEN_ORIGIN)
     w, s, e, n = geo.EHRENDINGEN_BBOX
-    for lon, lat in [(8.34014, 47.50799), (8.3438, 47.4914), (8.3437, 47.4795)]:   # Böndlern, Unter Eich, Lägern
+    for lon, lat in [(8.34014, 47.50799), (8.35081, 47.49498), (8.3437, 47.4795)]:   # Böndlern, Wanderweg junction, Lägern
         assert w < lon < e and s < lat < n
     x, z = f.to_game(8.34014, 47.50799)
     assert float(x) == pytest.approx(-149.5, abs=0.5) and float(z) == pytest.approx(-1464.9, abs=0.5)
@@ -87,16 +86,17 @@ EHRENDINGEN_BASE = 405.0                            # m a.s.l. that becomes 0: a
 
 ### Task 2: Hiking trails as drivable roads
 
+The Wanderweg is Hofrain / Steinbuckweg (spec A3, confirmed by the user). Its track ways are listed by OSM way id in the anchors file and kept as drivable gravel trails. There is no relation reading and no `world_trails.py`.
+
 **Files:**
 
-- Create `pipeline/world_trails.py`, `pipeline/tests/test_trails.py`, `pipeline/tests/fixtures/trails.osm`
+- Create `pipeline/tests/test_trails.py`, `pipeline/tests/fixtures/trails.osm`
 - Modify `pipeline/world_roads.py`, `pipeline/anchors.py`, `pipeline/osm.py`
 
 **Interfaces:**
 
-- `world_trails.member_ways(path: Path, relation_ids: set[int]) -> set[int]`
 - `world_roads.build(ways, nodes, way_nodes, clip, trail_ids=frozenset())`
-- `anchors.trail_ids(spec) -> set[int]`
+- `anchors.trail_ids(spec) -> set[int]` (way ids from `w…` refs)
 
 - [ ] **Step 1: Write the fixture** `pipeline/tests/fixtures/trails.osm`:
 
@@ -111,16 +111,13 @@ EHRENDINGEN_BASE = 405.0                            # m a.s.l. that becomes 0: a
   <way id="11"><nd ref="2"/><nd ref="3"/><tag k="highway" v="path"/></way>
   <way id="12"><nd ref="3"/><nd ref="4"/><tag k="highway" v="path"/><tag k="tunnel" v="yes"/></way>
   <way id="13"><nd ref="4"/><nd ref="1"/><tag k="highway" v="track"/></way>
-  <relation id="100"><member type="way" ref="10" role=""/><member type="way" ref="11" role=""/><member type="way" ref="12" role=""/><tag k="type" v="route"/><tag k="route" v="hiking"/></relation>
-  <relation id="101"><member type="way" ref="13" role=""/><tag k="type" v="route"/><tag k="route" v="hiking"/></relation>
-  <relation id="102"><member type="way" ref="13" role=""/><tag k="type" v="route"/><tag k="route" v="bicycle"/></relation>
 </osm>
 ```
 
 - [ ] **Step 2: Write the failing tests** `pipeline/tests/test_trails.py`:
 
 ```python
-"""#127: member ways of listed route=hiking relations become drivable gravel trails."""
+"""#127: listed ways (Hofrain / Steinbuckweg) become drivable gravel trails."""
 from pathlib import Path
 
 import shapely
@@ -129,18 +126,10 @@ import anchors
 import geo
 import osm_read
 import world_roads
-import world_trails
 
 FIX = Path(__file__).parent / "fixtures" / "trails.osm"
 FRAME = geo.Frame(*geo.EHRENDINGEN_ORIGIN)
 CLIP = shapely.box(-5000, -5000, 5000, 5000)
-
-
-def test_member_ways_only_listed_hiking_relations():
-    assert world_trails.member_ways(FIX, {100}) == {10, 11, 12}
-    assert world_trails.member_ways(FIX, {101}) == {13}
-    assert world_trails.member_ways(FIX, {102}) == set()          # not a hiking route
-    assert world_trails.member_ways(FIX, set()) == set()
 
 
 def _roads(trail_ids):
@@ -151,7 +140,7 @@ def _roads(trail_ids):
 
 def test_trail_ways_are_kept_as_gravel_trails():
     roads = _roads({10, 11, 12})
-    assert set(roads) == {10, 11}                                 # 12 is a tunnel, 13 is not a trail
+    assert set(roads) == {10, 11}                                 # 12 is a tunnel, 13 is not listed
     for r in roads.values():
         assert r["trail"] is True and r["w"] == 3.0 and r["mark"] == "none"
 
@@ -161,41 +150,17 @@ def test_without_trail_ids_tracks_and_paths_stay_dropped():
 
 
 def test_trail_ids_from_spec():
-    assert anchors.trail_ids({"trails": ["r5185510", "r5185484"]}) == {5185510, 5185484}
+    assert anchors.trail_ids({"trails": ["w28183399", "w28183458"]}) == {28183399, 28183458}
     assert anchors.trail_ids({}) == set()
 ```
 
-- [ ] **Step 3: Run them and see them fail.** `cd pipeline && ./.venv/bin/python -m pytest tests/test_trails.py -q` gives `ModuleNotFoundError: No module named 'world_trails'`.
+- [ ] **Step 3: Run them and see them fail.** `cd pipeline && ./.venv/bin/python -m pytest tests/test_trails.py -q` fails with `AttributeError: module 'anchors' has no attribute 'trail_ids'` and a `TypeError` on `trail_ids=` for `world_roads.build`.
 
-- [ ] **Step 4: Implement `pipeline/world_trails.py`:**
-
-```python
-"""Hiking trails (#127): the member ways of chosen OSM route=hiking relations, kept as drivable gravel trails.
-
-Read apart from osm_read, like world_boundaries: in one pass pyosmium meets a relation only after its ways."""
-from __future__ import annotations
-
-from pathlib import Path
-
-import osmium
-
-
-def member_ways(path: Path, relation_ids: set[int]) -> set[int]:
-    """Way ids of the route=hiking relations in relation_ids."""
-    if not relation_ids:
-        return set()
-    out: set[int] = set()
-    for r in osmium.FileProcessor(str(path), osmium.osm.RELATION):
-        if r.id in relation_ids and r.tags.get("route") == "hiking":
-            out.update(m.ref for m in r.members if m.type == "w")
-    return out
-```
-
-- [ ] **Step 5: Implement in `pipeline/world_roads.py`.** Add `TRAIL_WIDTH = 3.0` next to `SPLIT_MIN`. Change `build`:
+- [ ] **Step 4: Implement in `pipeline/world_roads.py`.** Add `TRAIL_WIDTH = 3.0` next to `SPLIT_MIN`. Change `build`:
 
 ```python
 def build(ways, nodes, way_nodes, clip, trail_ids=frozenset()):
-    """... (keep the docstring) ... trail_ids (#127): hiking-route member ways kept as 3 m gravel trails, tunnels excepted."""
+    """... (keep the docstring) ... trail_ids (#127): listed ways kept as 3 m gravel trails, tunnels excepted."""
     roads, widest, uses = [], {}, {}
     for w in ways:
         t = w.tags
@@ -205,28 +170,27 @@ def build(ways, nodes, way_nodes, clip, trail_ids=frozenset()):
         wd = TRAIL_WIDTH if trail else width(t)
 ```
 
-In the same loop, set `base = "none" if trail else marking(t)`. Add `**({"trail": True} if trail else {})` to the road dict, after `"layer"`. Hochrhein roads get no new key, so their JSON is unchanged.
+In the same loop, set `base = "none" if trail else marking(t)`. Add `**({"trail": True} if trail else {})` to the road dict, after `"layer"`. Hochrhein roads get no new key, so their JSON is unchanged. A listed way that `keep()` already accepts (the residential Hofrain) stays an ordinary road.
 
-- [ ] **Step 6: Implement `anchors.trail_ids`** in `pipeline/anchors.py`, after `keep_ids`:
+- [ ] **Step 5: Implement `anchors.trail_ids`** in `pipeline/anchors.py`, after `keep_ids`:
 
 ```python
 def trail_ids(spec) -> set:
-    """Hiking route relations whose member ways become drivable trails (#127)."""
+    """OSM ways kept as drivable trails (#127), e.g. the Wanderweg Hofrain / Steinbuckweg."""
     return {_osm_ref(s)[1] for s in spec.get("trails", [])}
 ```
 
-- [ ] **Step 7: Wire it in `pipeline/osm.py` `build_world`.** Add `import world_trails` to the imports. Replace the `roads, junctions = world_roads.build(...)` line. `spec` is loaded one line above, so move `spec = anchors_mod.load(anchors_path)` above it if needed:
+- [ ] **Step 6: Wire it in `pipeline/osm.py` `build_world`.** Replace the `roads, junctions = world_roads.build(...)` line. `spec` is loaded one line above, so move `spec = anchors_mod.load(anchors_path)` above it if needed:
 
 ```python
-    trails = world_trails.member_ways(Path(pbf), anchors_mod.trail_ids(spec))
-    roads, junctions = world_roads.build(data.ways, data.nodes, data.way_nodes, clip, trail_ids=trails)
+    roads, junctions = world_roads.build(data.ways, data.nodes, data.way_nodes, clip, trail_ids=anchors_mod.trail_ids(spec))
 ```
 
 Add `trails {len([r for r in roads if r.get('trail')])}` to the summary `log(...)`.
 
-- [ ] **Step 8: Run the new and the existing pipeline tests.** `cd pipeline && ./.venv/bin/python -m pytest -q`. All green; the Hochrhein golden tests skip or pass unchanged.
+- [ ] **Step 7: Run the new and the existing pipeline tests.** `cd pipeline && ./.venv/bin/python -m pytest -q`. All green; the Hochrhein golden tests skip or pass unchanged.
 
-- [ ] **Step 9: Commit.** `git add pipeline/world_trails.py pipeline/world_roads.py pipeline/anchors.py pipeline/osm.py pipeline/tests/test_trails.py pipeline/tests/fixtures/trails.osm && git commit -m "feat(pipeline): hiking-route member ways as drivable trails (#127)"`
+- [ ] **Step 8: Commit.** `git add pipeline/world_roads.py pipeline/anchors.py pipeline/osm.py pipeline/tests/test_trails.py pipeline/tests/fixtures/trails.osm && git commit -m "feat(pipeline): listed ways as drivable trails (#127)"`
 
 ### Task 3: Ehrendingen anchors and golden test
 
@@ -244,12 +208,12 @@ def test_ehrendingen_anchors_resolve_without_osm_data():
     b = out["landmarks"]["boendlern"]
     assert (b["x"], b["z"]) == pytest.approx((-149.5, -1464.9), abs=0.5)
     w = out["landmarks"]["wanderweg"]
-    assert (w["x"], w["z"]) == pytest.approx((147.5, 376.4), abs=2)
+    assert (w["x"], w["z"]) == pytest.approx(tuple(float(v) for v in geo.Frame(*geo.EHRENDINGEN_ORIGIN).to_game(8.35081, 47.49498)), abs=0.2)   # roughly (685, -20)
     assert "gemeindehausUnterdorf" in out["landmarks"]
     assert len(out["cps"]) == 5 and out["finish"]["n"] == "Im Böndlern"
     assert out["start"][2] == pytest.approx(math.radians(270))
     assert {lb["t"] for lb in out["labels"]} == {"UNTEREHRENDINGEN", "OBEREHRENDINGEN", "IM BÖNDLERN", "LÄGERN"}
-    assert anchors.trail_ids(spec) == {5185510, 5185484, 5185509}
+    assert anchors.trail_ids(spec) == {28183399, 685318985, 685318986, 28183458, 702208313, 347967817, 702208308, 702208309}   # Hofrain / Steinbuckweg tracks
     assert anchors.keep_ids(spec) == {114544595, 114544599, 102158022, 178797165, 102165202, 178797287}
     assert "jumpRamp" not in spec["landmarks"]
 ```
@@ -262,7 +226,7 @@ def test_ehrendingen_anchors_resolve_without_osm_data():
 {
   "landmarks": {
     "boendlern":             { "lonlat": [8.34014, 47.50799], "kind": "poi", "src": "Im Böndlern: service road w54804175 'Böndlern' by the ARA (Böndlern 2-7), #127" },
-    "wanderweg":             { "lonlat": [8.3438, 47.4914], "kind": "poi", "src": "Unter Eich, where the yellow Wanderweg routes r5185484, r5185509 and r5185510 meet (#127, spec A3)" },
+    "wanderweg":             { "lonlat": [8.35081, 47.49498], "kind": "poi", "src": "junction of Hofrain and Steinbuckweg, the Wanderweg (confirmed by the user 2026-10-09; #127, spec A3)" },
     "gemeindehausUnterdorf": { "lonlat": [8.35008, 47.50105], "kind": "poi", "src": "townhall node n323236524 (not a named node in osm_read)" }
   },
   "start": { "lonlat": [8.33993, 47.49417], "heading_deg": 270, "src": "bus stop Ehrendingen Post n323236548, facing north" },
@@ -283,11 +247,11 @@ def test_ehrendingen_anchors_resolve_without_osm_data():
   "areas": { "industrial": [] },
   "exclude_buildings": [],
   "keep_buildings": [ "w114544595", "w114544599", "w102158022", "w178797165", "w102165202", "w178797287" ],
-  "trails": [ "r5185510", "r5185484", "r5185509" ]
+  "trails": [ "w28183399", "w685318985", "w685318986", "w28183458", "w702208313", "w347967817", "w702208308", "w702208309" ]
 }
 ```
 
-Check while writing it: `wanderweg`'s expected position in the test (147.5, 376.4 ±2) is `Frame(*EHRENDINGEN_ORIGIN).to_game(8.3438, 47.4914)`. If that disagrees by more than 2 m, fix the **test constant** to the computed value, never the lonlat. It is a coordinate pin, not behaviour.
+Check while writing it: the test computes `wanderweg`'s expected position from `Frame(*EHRENDINGEN_ORIGIN).to_game(8.35081, 47.49498)` (about x 685, z -20), so it pins the coordinate, not behaviour. Only the lonlat is data. Before the build (Task 9), confirm with `osmium getid` or an Overpass query that the eight `trails` ways still exist and are `highway=track` (found 2026-10-09); if OSM re-tagged one, update the list, never the test.
 
 - [ ] **Step 4: Run it and see it pass.**
 
@@ -394,7 +358,7 @@ export const GEMEINDEN_EHRENDINGEN = ['Ehrendingen'];
 export const LANDMARK_INFO_EHRENDINGEN = [
   { name: 'Im Böndlern', gemeinde: 'Ehrendingen', anchor: 'boendlern' },
   { name: 'ARA Ehrendingen', gemeinde: 'Ehrendingen', building: 178797287 },
-  { name: 'Wanderweg', gemeinde: 'Ehrendingen', anchor: 'wanderweg' },              // Unter Eich on the yellow Wanderweg (spec A3)
+  { name: 'Wanderweg', gemeinde: 'Ehrendingen', anchor: 'wanderweg' },              // junction of Hofrain and Steinbuckweg (spec A3)
   { name: 'Kath. Kirche Ehrendingen', gemeinde: 'Ehrendingen', building: 114544595 },
   { name: 'Reformierte Kirche Ehrendingen', gemeinde: 'Ehrendingen', building: 114544599 },
   { name: 'Kapelle St. Anna', gemeinde: 'Ehrendingen', building: 102158022 },
@@ -709,13 +673,13 @@ Clicking the active region does nothing. On a fallback the Hochrhein button is t
 - [ ] **Step 1: CHANGELOG** under `## [Unreleased]` → `### Added` (English, player-facing):
 
 ```markdown
-- A second place to race: **Ehrendingen**, near Baden. Pick it on the start screen (or add `?region=ehrendingen` to the address). The race starts at the post office in Oberdorf, runs through five checkpoints and ends Im Böndlern by the Surb. The yellow Wanderweg to Unter Eich is gravel you can drive — it is meant for hikers, but nobody told the timer. **J** takes you to Im Böndlern, the Wanderweg, both churches, Kapelle St. Anna and more. Each place keeps its own best time; the Hochrhein stays the default.
+- A second place to race: **Ehrendingen**, near Baden. Pick it on the start screen (or add `?region=ehrendingen` to the address). The race starts at the post office in Oberdorf, runs through five checkpoints and ends Im Böndlern by the Surb. The Wanderweg (Hofrain, then Steinbuckweg, up to the woods) is gravel you can drive — it is meant for hikers, but nobody told the timer. **J** takes you to Im Böndlern, the Wanderweg, both churches, Kapelle St. Anna and more. Each place keeps its own best time; the Hochrhein stays the default.
 ```
 
 - [ ] **Step 2: `test-todo.md`:** add a section "#127 Ehrendingen" with these checks:
   - pick Ehrendingen on the start screen and back;
   - race Oberdorf → Im Böndlern;
-  - drive the Wanderweg to Unter Eich;
+  - drive the Wanderweg (Hofrain, then Steinbuckweg) up to the woods;
   - Oberehrendingen is a village, not a forest;
   - fly (F) up to the Lägern;
   - the Hochrhein is unchanged (record, trees, Sprungschanze).

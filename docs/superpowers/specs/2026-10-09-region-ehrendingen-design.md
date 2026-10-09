@@ -9,7 +9,7 @@ The game gets a **second, separate region**: Ehrendingen AG (near Baden), not ad
 The issue names two places:
 
 - **Im Böndlern** is the small commercial area at the north end of Unterehrendingen, around the ARA (the sewage works) by the Surb. In OSM it is the service road `w54804175` "Böndlern" (47.50799 N, 8.34014 E), with the buildings Böndlern 2/4/5/7: `w392447945`, `w102165202` (MGS Naturstein), `w178797099` and `w178797287` (ARA Ehrendingen).
-- **"the Wanderweg"** (hiking trail) has no OSM object of that name. No way or street in the Gemeinde is called "Wanderweg" (Overpass probe, 2026-10-09). Ehrendingen has a whole network of marked yellow-diamond hiking routes (`route=hiking`, network `lwn`). This design takes **the yellow Wanderweg through the village to Unter Eich** as "the" Wanderweg: Höhtal – Unter Eich `r5185510`, Oberehrendingen – Unter Eich `r5185484`, and Unter Eich – Niederweningen Kirche `r5185509`. It becomes **drivable as a gravel trail**, in the spirit of the "forbidden shortcuts" pillar, like the Holzbrücke. See A3. The list of route relations is data in the region's anchors file, so a human who meant a different trail changes one line.
+- **"the Wanderweg"** is **Hofrain / Steinbuckweg**, confirmed by the user on 2026-10-09 (A3). In OSM it is one continuous lane from Oberdorf up the slope to the Lägern woods: Hofrain (`highway=residential` at the village end, then `highway=track`, gravel) turns into Steinbuckweg (`highway=track`, compacted or fine gravel, last stretch `motor_vehicle=forestry`). The track part is dropped by the road filter today, so it becomes **drivable as a gravel trail**, in the spirit of the "forbidden shortcuts" pillar, like the Holzbrücke. See A3. The ways are data in the region's anchors file, so a different lane is a one-line change.
 
 Success means all of the following:
 
@@ -40,8 +40,7 @@ Success means all of the following:
   - the ground mesh and minimap scale come from the world's SDF and roads (`:474`, `:1462`);
   - the race has 5 checkpoints (`R.done === 5`, `:1396`; the HUD's "/ 5", `:102`), so Ehrendingen also gets exactly 5.
 - **The root `index.html` forwards `location.search` to `prototype/`** (`index.html:9`), so `https://github.freaxnx01.ch/game-rhyflitzer/?region=ehrendingen` works. URL parameters are the established switch: `?vehicle=` (`vehicle.js:3-6`) and `?debug` (`debug.js:5-8`).
-- **The road filter drops tracks and paths** (`world_roads.keep`, `world_roads.py:23-31`): `FOOT` ways are kept only as bridges, and `track` is not in `DRIVE`. A hiking trail is therefore invisible and undrivable today.
-- **Relations are read in their own pass.** `world_boundaries.member_names` (`world_boundaries.py:20-31`) shows the pattern, because in one pass pyosmium meets a relation only after its ways.
+- **The road filter drops tracks and paths** (`world_roads.keep`, `world_roads.py:23-31`): `FOOT` ways are kept only as bridges, and `track` is not in `DRIVE`. The Wanderweg (Hofrain / Steinbuckweg) is `highway=track` from about 47.498 N up to the woods, so it is invisible and undrivable today.
 - **OSM cut memory:** `osmium extract -s smart` on the 547 MB `switzerland-latest.osm.pbf` peaked at 3.58 GB (`docs/11-pipeline-osm.md`) and froze agent-dev once (`docs/08`, Incident). The peak comes from the planet-wide ID bitmaps, so a small bbox does not shrink it. The cached `switzerland-latest.osm.pbf` (2026-09-29) is in the main checkout's `pipeline/cache/osm/`.
 
 ### Measured probes (Overpass, read-only, 2026-10-09)
@@ -60,7 +59,7 @@ Game coordinates with the proposed origin (47.4948, 8.3419), from `geo.Frame(...
 | | x | z |
 |---|---|---|
 | Im Böndlern (Böndlern road) | −149.5 | −1464.9 |
-| Unter Eich (trail junction, 47.4914 N) | 147.5 | 376.4 |
+| Wanderweg (Hofrain / Steinbuckweg junction, 47.49498 N, 8.35081 E), approx. | ~685 | ~-20 |
 | Ehrendingen Post | −147.6 | 71.7 |
 | Höhtal | −455.1 | 800.3 |
 | Schulhaus Lägernbreite | 87.3 | 253.6 |
@@ -129,14 +128,14 @@ Hochrhein values are exactly today's constants, so the default game is unchanged
 - `geo.py`: `EHRENDINGEN_BBOX = (8.322, 47.476, 8.366, 47.515)` and `EHRENDINGEN_ORIGIN = (47.4948, 8.3419)` (the village place node, rounded). The bbox is the Gemeinde's bounds plus margin: ~250 m north of the Böndlern buildings, with the Lägern ridge inside on the south. It is 3.3 × 4.3 km (14.4 km², a third of Hochrhein). Grid at 4 m: 844 × 1095 (`x0` −1528, `z0` −2268).
 - `terrain.py`: no code change. It runs with `--bbox/--origin` for Ehrendingen, `--step 4` (explicit, so a later change of the default by #19 does not move it) and `--base 405` (about the Surb at Böndlern, so the valley floor is near 0 and the Lägern ridge is about +450).
 - `pipeline/anchors_ehrendingen.json` (new):
-  - landmarks: `boendlern` {lonlat [8.34014, 47.50799], kind poi}, `wanderweg` {lonlat [8.3438, 47.4914], kind poi}, `gemeindehausUnterdorf` {lonlat [8.35008, 47.50105], kind poi}. It is lonlat rather than `osm: n323236524` because a townhall node is not a named node (`osm_read._is_named_node`, `osm_read.py:20-25`);
+  - landmarks: `boendlern` {lonlat [8.34014, 47.50799], kind poi}, `wanderweg` {lonlat [8.35081, 47.49498], kind poi}, the junction of Hofrain and Steinbuckweg, `gemeindehausUnterdorf` {lonlat [8.35008, 47.50105], kind poi}. It is lonlat rather than `osm: n323236524` because a townhall node is not a named node (`osm_read._is_named_node`, `osm_read.py:20-25`);
   - start Ehrendingen Post, lonlat [8.33993, 47.49417], heading 270 (north);
   - cps: Höhtal, Breitwies, Schulhaus Lägernbreite, Kapelle St. Anna, Tiefenwaag (lonlat each);
   - finish "Im Böndlern" lonlat [8.34014, 47.50799];
   - labels `UNTEREHRENDINGEN`, `OBEREHRENDINGEN`, `IM BÖNDLERN`, `LÄGERN`;
   - `keep_buildings`: the two churches, Kapelle St. Anna, Mehrzweckhalle Lägernbreite, MGS Naturstein, ARA Ehrendingen;
-  - `trails`: [`r5185510`, `r5185484`, `r5185509`].
-- **Trails** (new `pipeline/world_trails.py`): `member_ways(path, relation_ids)` reads the listed `route=hiking` relations in a relation-only pass, like `world_boundaries.member_names`, and returns their way ids. `world_roads.build(..., trail_ids=frozenset())` keeps a way whose id is in `trail_ids` even when `keep()` says no (track, path, footway; still not tunnels). Such a way gets width 3.0, mark `none` and `"trail": true`. `anchors.trail_ids(spec)` parses the relation refs. `osm.build_world` wires it together. Hochrhein's `anchors.json` has no `trails` key, so its world is unchanged.
+  - `trails`: the eight `highway=track` ways of Hofrain and Steinbuckweg, `w28183399`, `w685318985` (Hofrain, track), `w685318986`, `w28183458`, `w702208313`, `w347967817`, `w702208308`, `w702208309` (Steinbuckweg, track). The two residential Hofrain ways (`w27259993`, `w235008971`) are ordinary streets, already kept by the road filter, and are not listed.
+- **Trails** (no new module): `world_roads.build(..., trail_ids=frozenset())` keeps a way whose id is in `trail_ids` even when `keep()` says no (track, path, footway; still not tunnels). Such a way gets width 3.0, mark `none` and `"trail": true`. `anchors.trail_ids(spec)` parses the `w…` way refs of the `trails` key. `osm.build_world` passes them in. Hochrhein's `anchors.json` has no `trails` key, so its world is unchanged.
 - **Game side of trails:** `layoutFromWorld` maps `r.trail` to `tex: 'gravel'`. The road ribbon (`index.html:884`) draws `tex === 'gravel'` with the existing `gravel` texture and flat colour (`TEX.gravel`, `:300`; flat `gravel: '#c9bda6'`). Trails are ordinary `ROADS`, so they are drivable, the autopilot and J can use them, and the minimap draws them in a lighter colour.
 - **Villages and J list (game data):**
   - `VILLAGES_EHRENDINGEN`: UNTEREHRENDINGEN (377.2, −995.5, r 450) and OBEREHRENDINGEN (26.2, 127.2, r 450);
@@ -157,12 +156,11 @@ All of it runs in the one guarded local task of the plan, never on a CI runner, 
 
 - **A1** [high] **Separate region, chosen by URL parameter plus a start-screen row, with a reload.** Evidence: `?vehicle`/`?debug` are the existing switches (`vehicle.js:3-6`, `debug.js:5-8`). The root page forwards the query (`index.html:9`). The world is built once at top level (`index.html:409-412`, merged meshes at `:1074`). Rejected: an entry in the J list (J moves the car within one loaded world; jumping 30 km between two worlds would need an in-place rebuild); only a URL parameter (players would never find it); an in-place world swap (a refactor of the whole module).
 - **A2** [high] **Hochrhein stays the default and unchanged**, with the same IndexedDB key `'terrain'` and best key `'mm.best2'`, so existing players keep their uploads and records. Evidence: `index.html:409,1386`.
-- **A3** [low] **"the Wanderweg" = the yellow Wanderweg through the village to Unter Eich** (`r5185510`, `r5185484`, `r5185509`), made drivable as a gravel trail. Its J entry is at Unter Eich. Evidence: no OSM object named "Wanderweg" in the Gemeinde (probe). These are the marked routes that start in Oberehrendingen and the village's own trail network. Rejected:
-  - the Lägern ridge path (Gratweg `r309633`, Jura-Höhenweg `r8749925`): the region's best-known trail, but rocky, on the far southern edge and away from Im Böndlern;
-  - Lengnau – Freienwil `r6577812`: the closest route to Böndlern, ~700 m west, mostly outside the Gemeinde;
-  - a trail as a decoration only (not drivable): it would be a line in a field.
+- **A3** [high] **"the Wanderweg" = Hofrain / Steinbuckweg**, confirmed by the user 2026-10-09 (this replaces the earlier [low] guess, the yellow village trail to Unter Eich `r5185510`, `r5185484`, `r5185509`). OSM probe, 2026-10-09: the two names make one lane of ten ways, west to east and up the slope: Hofrain `w27259993` (residential, asphalt), `w235008971` (residential, asphalt, 26 nodes, 47.5012 N to 47.4980 N), then `w28183399` (track, pebblestone), `w685318985` (track, fine gravel), then Steinbuckweg `w685318986` (track, fine gravel), `w28183458` (track, compacted, 19 nodes), `w702208313` and `w347967817` (track, asphalt, 2 nodes each), `w702208308` (track, compacted), `w702208309` (track, compacted, `motor_vehicle=forestry`, ends at 8.3621 E, 47.4884 N). They connect end to end; the lane starts at Hofrain in Oberdorf (8.3488 E, 47.5014 N) and runs about 1.5 km south-east to the woods.
+  - Made drivable as a gravel trail: the residential Hofrain ways are already roads; the eight `highway=track` ways are listed in `trails` and kept as 3 m `trail` roads. This is what the Wanderweg feature covers. The first draft's idea of listing `route=hiking` relations is dropped: the lane is a pair of named streets and tracks, so the ways are listed directly.
+  - Its J entry (`wanderweg`) is the junction of Hofrain and Steinbuckweg (8.35081 E, 47.49498 N), on the lane itself.
 
-  A human who meant another trail edits `trails` and the `wanderweg` anchor in `anchors_ehrendingen.json`.
+  A human who meant another lane edits `trails` and the `wanderweg` anchor in `anchors_ehrendingen.json`.
 - **A4** [high] **Im Böndlern = the Böndlern commercial area by the ARA** (`w54804175` and Böndlern 2–7). Evidence: the only "Böndler*" names in the Gemeinde (probe); the issue's "Im" is the usual Swiss field-name form.
 - **A5** [med] **Bbox W 8.322 / S 47.476 / E 8.366 / N 47.515, origin at the village node.** Evidence: Gemeinde bounds (probe). Rejected: a box flush on the Gemeinde (Böndlern would sit 500 m from the rim, and the Lägern summit would be cut); a bigger box including Niederweningen (another canton and data with no ask behind it).
 - **A6** [med] **Terrain base 405 m, forest above +90 m, tree scatter box from the bbox.** Today's rule `th > 18` assumes a base at the Rhine (`index.html:1029`, `terrain.py:50`). In Ehrendingen, Oberehrendingen sits ~35–60 m above the Surb and would be forest. +90 (≈ 495 m a.s.l.) starts the forest at the foot of the Lägern slope. Rejected: one global threshold (it changes Hochrhein); OSM forests (#13, a separate issue).
@@ -179,7 +177,7 @@ No ⛔ blocked items: no step spends money, needs credentials, deletes data or c
 - Best times are kept per region. The Hochrhein record stays where it is.
 - A player who uploaded their own `.mmh` keeps it for Hochrhein only. Ehrendingen always starts from its bundled terrain, unless they upload one while in Ehrendingen.
 - `data/` grows by two files (estimate: world ~1.5–2.5 MB raw / ~0.3–0.5 MB gzip; `.mmh` 3.7 MB raw). The Hochrhein first load is unchanged, because nothing is fetched for a region that is not chosen.
-- Trails become a world feature. Any later region can list hiking relations, and Hochrhein could too (not in this change).
+- Trails become a world feature. Any later region can list way ids to keep as drivable trails, and Hochrhein could too (not in this change).
 - If #19 (region extension) lands first or later, nothing collides. #127 adds new constants and files and never touches `DEFAULT_BBOX`, `anchors.json` or the Hochrhein data. #19's golden tests and #127's Ehrendingen golden tests are independent.
 - The heli (F) can fly up to the Lägern ridge (~+450 m). The 4200 m far plane covers the whole 4.3 km box from its middle.
 - Ehrendingen has no Rhine, so the water toasts and splash only happen in the Surb and ponds (water polygons may be empty; `world_water.sdf` handles that, `world_water.py:131-140`).
@@ -188,8 +186,8 @@ No ⛔ blocked items: no step spends money, needs credentials, deletes data or c
 
 - **Pipeline unit (`pipeline/tests/`):**
   - `test_geo_mmh.py`: `grid_for(EHRENDINGEN_BBOX, Frame(*EHRENDINGEN_ORIGIN), 4.0) == {x0 −1528, z0 −2268, w 844, h 1095}`;
-  - `test_trails.py` (fixture `fixtures/trails.osm`): `member_ways` returns only the listed hiking relations' way ids; `world_roads.build` keeps a `track` in `trail_ids` with `trail: true`, width 3, mark `none`, keeps dropping it otherwise, and still drops a trail tunnel;
-  - `test_anchors.py`: `trail_ids` parses `r…` refs, empty without the key; `anchors_ehrendingen.json` resolves `boendlern`, `wanderweg`, start, 5 cps and finish by lonlat.
+  - `test_trails.py` (fixture `fixtures/trails.osm`): `world_roads.build` keeps a `track` in `trail_ids` with `trail: true`, width 3, mark `none`, keeps dropping it otherwise, and still drops a trail tunnel;
+  - `test_anchors.py`: `trail_ids` parses `w…` refs, empty without the key; `anchors_ehrendingen.json` resolves `boendlern`, `wanderweg`, start, 5 cps and finish by lonlat.
 - **Golden Ehrendingen** (`test_golden_ehrendingen.py`, skips unless `pipeline/cache/osm/ehrendingen.osm.pbf` exists):
   - `bbox == EHRENDINGEN_BBOX`;
   - road `54804175` present;
@@ -208,4 +206,4 @@ No ⛔ blocked items: no step spends money, needs credentials, deletes data or c
   - with the Ehrendingen world routed to 404 → `__mm.region === 'hochrhein'` and the toast shows;
   - (skips unless `data/world_ehrendingen.json` exists) Ehrendingen loads `osm`, J `böndlern` + Enter lands within 80 m of Im Böndlern, and J `wanderweg` lands on a trail road.
 - **Existing affected Playwright tests**, run instead of the full suite: `test_i18n.py`, `test_jump.py`, `test_village_names.py`, `test_smoke.py`, `test_tree_collision.py` (the default region must be unchanged).
-- **Manual playtest** (`test-todo.md`): pick Ehrendingen on the start screen; race Oberdorf → Böndlern; drive the Wanderweg to Unter Eich; check the Oberehrendingen village is not a forest; fly to the Lägern.
+- **Manual playtest** (`test-todo.md`): pick Ehrendingen on the start screen; race Oberdorf → Böndlern; drive the Wanderweg (Hofrain, then Steinbuckweg) up to the woods; check the Oberehrendingen village is not a forest; fly to the Lägern.
