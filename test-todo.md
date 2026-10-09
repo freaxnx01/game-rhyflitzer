@@ -331,3 +331,14 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] Original style: the ground under the woods is darker; Smooth style: trees only.
 - [ ] Trees that stick out of a car park, a stream or the railway in a wood (there should be none).
 - [ ] Ehrendingen (`?region=ehrendingen`): the Lägern slope and the woods around Oberehrendingen come from OSM now, not from the +90 m forest line; the Wanderweg (J → wanderweg) stays open through the wood; the minimap shows no grey outlines around the woods.
+
+## Rear-view mirror (#92)
+
+- [ ] **C** three times (cockpit): a small mirror sits at the top centre of the screen and shows the road behind the car, live.
+- [ ] The picture is reversed like a real mirror: a house passing on your left appears on the left of the mirror.
+- [ ] **T** (original ↔ smooth style): does the mirror picture match the main picture, or is it noticeably brighter/flatter (the quad is not tone-mapped)?
+- [ ] **F3** in the OSM world: frame rate in the cockpit view with the mirror against the chase view without it — is the drop acceptable?
+- [ ] **Esc**/**P** (pause): the mirror picture freezes with the game and does not flicker.
+- [ ] The mirror is gone while **B** is held, while **Tab** is held, in the helicopter (**F**) and in the chase, near and bumper views; the main picture stays correct in all of them.
+- [ ] On a phone/tablet: no mirror at all.
+- [ ] **X** in the cockpit view: the saved photo contains the mirror (it is drawn into the canvas, unlike the HUD). Keep it, or take the photo before the mirror pass?
