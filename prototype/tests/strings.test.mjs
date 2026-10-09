@@ -80,3 +80,12 @@ test('pause menu texts exist in both languages (#83)', () => {
   assert.equal(translate('de', 'abandonOk'), 'Verwerfen');
   for (const k of ['pauseHint', 'pauseAria', 'keyPause', 'abandonHint']) assert.notEqual(translate('de', k), k, k);
 });
+
+test('#108: the surprise hunt has its texts in both languages', () => {
+  for (const key of ['hunt', 'modeHunt', 'presentsLabel', 'presentTarget', 'huntStart', 'presentToast', 'surpriseHop', 'surpriseTurbo', 'surpriseMoon', 'surpriseRepair', 'huntAllFound', 'huntFinishedText']) {
+    assert.ok(key in STRINGS.en, key); assert.ok(key in STRINGS.de, key);
+  }
+  assert.equal(translate('en', 'surpriseTurbo', 6), 'Turbo for 6 seconds!');
+  assert.equal(translate('de', 'surpriseMoon', 10), 'Mondschwerkraft für 10 Sekunden!');
+  assert.match(translate('de', 'presentToast', 2, 5, 'x'), /^Geschenk 2\/5/);
+});
