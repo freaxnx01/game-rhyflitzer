@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- The **F3** debug panel now explains itself: every line has a short label (car, Swiss, GPS, nearest, car body, world), and the **?** in its corner opens a legend — what x, z, y and the heading mean, LV95 and WGS84, and how to read a building's `22.8 m +3.9 dsm` (wall height to the eaves, roof on top, and whether it was measured from swisstopo's digital surface model or comes from OpenStreetMap). Works with a tap on phones, in German and English.
 - A second car: a DeLorean look-alike in brushed stainless steel, with the flat wedge nose, the louvred rear window and gull-wing doors that swing open while the car waits on the start screen and shut when you start. It is slower off the line than the compact and its tail steps out a little sooner. Add `?vehicle=delorean` to the address to drive it; a proper car-select screen comes later.
 - The front wheels turn with the steering now: they swing into the curve when you press A/D (less far the faster you drive), and all four wheels roll as the car moves.
 - The **F3** debug panel now shows the size of your car (length × width × height in metres) and of the map (length × width in km, and its area in km²), so you can check the car against roads and parking bays.

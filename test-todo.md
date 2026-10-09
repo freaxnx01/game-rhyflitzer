@@ -71,6 +71,8 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Click the panel and paste into a bug report: the LV95 pair finds the spot in map.geo.admin.ch, the WGS84 pair in Google Maps.
 - [ ] Phone: `…/prototype/index.html?debug` opens with the panel on, top left, clear of the steering buttons.
 - [ ] #70: F3, stand right next to Bodenackerstrasse 6 (and the 38 m block at `155170807`) in every camera view (C): the height label is fully readable, sits on the upper façade, and rises back above the roof as you drive away. No visible jitter while driving.
+- [ ] #74: F3, then click **?**: the legend opens below the lines and explains every value; click **?** again to close it. Clicking **?** or the legend does not copy; clicking the lines still does. Switch EN/DE: labels and legend change at once.
+- [ ] #74 phone: `…/prototype/index.html?debug`, tap **?** — the legend is readable, and the panel still leaves the steering buttons free.
 
 ## More landmarks in the J list (#46)
 
