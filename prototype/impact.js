@@ -33,3 +33,32 @@ export function checkCrash(c) {
     if (!Number.isFinite(c[k]) || c[k] <= 0) throw new Error(`sound.crash.${k} must be a positive number, got ${c[k]}`);
   }
 }
+
+const END_GAIN = 0.001;   // exponentialRampToValueAtTime cannot reach 0
+
+function noiseBuffer(ctx, dur) {
+  const len = Math.max(1, Math.ceil(ctx.sampleRate * dur)), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return buf;
+}
+
+function decayGain(ctx, dest, peak, t, dur) {
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(END_GAIN, t + dur);
+  g.connect(dest);
+  return g;
+}
+
+// the only impure function here: schedules the voice on any BaseAudioContext (the game's AudioContext, or an
+// OfflineAudioContext in the tests). Noise burst = the impact itself, sine thump = the body it happens to.
+export function playCrash(ctx, dest, voice, when = 0) {
+  const t = ctx.currentTime + when, { noise: n, thump: h } = voice;
+  const src = ctx.createBufferSource(), lp = ctx.createBiquadFilter();
+  src.buffer = noiseBuffer(ctx, n.dur); lp.type = 'lowpass'; lp.frequency.value = n.freq;
+  src.connect(lp); lp.connect(decayGain(ctx, dest, n.gain, t, n.dur)); src.start(t);
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(h.f0, t); osc.frequency.exponentialRampToValueAtTime(h.f1, t + h.dur * 0.5);
+  osc.connect(decayGain(ctx, dest, h.gain, t, h.dur)); osc.start(t); osc.stop(t + h.dur + 0.05);
+}
