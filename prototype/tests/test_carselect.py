@@ -123,7 +123,7 @@ def test_paint_recolours_and_persists(server):
         shown = page.evaluate("""() => ({ stored: localStorage.getItem('mm.car'), name: document.querySelector('#cspaintname').textContent,
             pressed: document.querySelector('#cspaints button[data-paint=sunflower]').getAttribute('aria-pressed'),
             focus: document.activeElement?.dataset?.paint })""")
-        page.reload(); page.wait_for_function(READY, timeout=240000)
+        page.reload(timeout=240000, wait_until="commit"); page.wait_for_function(READY, timeout=240000)   # like test_i18n: the load event is slow on a loaded box
         reloaded = carsel(page)
         b.close()
     assert got["bodyColor"] == "ffc61a" and got["paint"] == "sunflower"

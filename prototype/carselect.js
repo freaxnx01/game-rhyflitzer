@@ -26,7 +26,8 @@ export const STAT_LABEL_KEYS = { top: 'statTop', accel: 'statAccel', handling: '
 
 // carselect.js: statBars(def) — score of each stat (1..10) based on the vehicle def and fixed reference ceilings
 export function statBars(def) {
-  const drive = def.drive || {};
+  const drive = def.drive;
+  if (!drive || ![drive.top, drive.accel, drive.grip, def.mass].every(Number.isFinite)) throw new Error('statBars: vehicle needs numeric drive.top, drive.accel, drive.grip and mass');
   return {
     top: Math.max(1, Math.min(10, Math.round(drive.top / STAT_REF.top * 10))),
     accel: Math.max(1, Math.min(10, Math.round(drive.accel / STAT_REF.accel * 10))),
@@ -113,11 +114,10 @@ export function spinStep(spin, dt, input) {
 // lookShift(ox, oy, dist, fovDeg, aspect) — compute the camera look-target shift so the car sits centred in the stage
 // The stage is a rectangular cut-out; if off-centre (ox, oy in NDC), shift the look target so the car ends up in the centre
 export function lookShift(ox, oy, dist, fovDeg, aspect) {
+  if (![ox, oy, dist, fovDeg, aspect].every(Number.isFinite)) throw new Error('lookShift: every argument must be a finite number');
   const halfH = dist * Math.tan((fovDeg / 2) * Math.PI / 180);
   const halfW = halfH * aspect;
-  const sx = -ox * halfW || 0;
-  const sy = -oy * halfH || 0;
-  return [sx, sy];
+  return [-ox * halfW + 0, -oy * halfH + 0];   // + 0: a centred stage reads [0, 0], not [-0, -0]
 }
 
 // ---- text ----

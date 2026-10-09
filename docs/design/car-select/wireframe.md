@@ -1,6 +1,6 @@
 # Car selection — wireframe
 
-**Visual reference:** [`design/mockups/CarSelect.dc.html`](../../mockups/CarSelect.dc.html) — the full mockup at 1920×1080, rendered in a dc-tool bundle.
+**Visual reference:** [`design/mockups/CarSelect.dc.html`](../../../design/mockups/CarSelect.dc.html) — the full mockup at 1920×1080, rendered in a dc-tool bundle.
 
 ## Layout
 

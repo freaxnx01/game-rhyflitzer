@@ -27,6 +27,9 @@ test('statBars: compact 8 / 8 / 8 / 3, tractor and bus from the #6 table, intege
   assert.deepEqual(statBars({ ...COMPACT, drive: { ...COMPACT.drive, top: 30 }, mass: 2 }), { top: 4, accel: 8, handling: 8, mass: 7 });
   const zero = statBars({ drive: { top: 0, accel: 0, grip: 0, steerRate: 0 }, mass: 0 }), huge = statBars({ drive: { top: 1e9, accel: 1e9, grip: 1e9, steerRate: 1e9 }, mass: 1e9 });
   for (const k of STAT_KEYS) { assert.equal(zero[k], 1, k); assert.equal(huge[k], 10, k); assert.ok(Number.isInteger(statBars(COMPACT)[k]), k); }
+  assert.throws(() => statBars({ mass: 1 }), /statBars/);                                   // no drive: fail fast, never NaN bars
+  assert.throws(() => statBars({ drive: { top: 60, accel: 16 }, mass: 1 }), /statBars/);    // grip missing
+  assert.throws(() => statBars({ ...COMPACT, mass: 'heavy' }), /statBars/);
 });
 
 test('barCells: lit cells, the last lit one is the tip, the rest off', () => {
@@ -95,6 +98,8 @@ test('lookShift: a centred stage shifts nothing; a stage left of centre moves th
   const halfH = 10 * Math.tan(31 * Math.PI / 180);
   assert.ok(Math.abs(right - 0.4 * halfH * 2) < 1e-12, right); assert.ok(right > 0);
   assert.ok(Math.abs(up + 0.2 * halfH) < 1e-12, up); assert.ok(up < 0);
+  assert.throws(() => lookShift(NaN, 0, 10, 62, 2), /lookShift/);                          // a broken stage rect fails fast instead of a silent 0
+  assert.throws(() => lookShift(0, 0, 10, 62, undefined), /lookShift/);
 });
 
 test('vehicleText: strings when they exist, the id as the name otherwise, never a raw key', () => {

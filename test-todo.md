@@ -292,3 +292,15 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] No Hochrhein leftovers in Ehrendingen: no Sprungschanze, no Sisseln forest box, no Ortstafeln.
 - [ ] The Hochrhein is unchanged: same record (`mm.best2`), same trees, Sprungschanze still jumpable,
       an uploaded `.mmh` still in place. Each region keeps its own best time.
+
+## Car selection (#7)
+
+- [ ] **Choose car** on the start screen: the real car turns on the stage with the scene behind it, the rest of the screen is dimmed; the Sissle Speedster reads 8 / 8 / 8 / 3, the Rhy Gullwing (DeLorean) 7 / 5 / 7 / 3. Does the car sit in the middle of the stage (not off to one side)? Is the three-quarter view a good first angle?
+- [ ] ← → and dragging spin it; let go and it keeps turning by itself after two seconds.
+- [ ] Click a paint: the compact's body changes at once; reload: still that colour; **Race!** drives it. Navy is the one you had before. On the DeLorean the paint reads „fixed" and the swatches are greyed out.
+- [ ] Tab reaches ‹ ›, every swatch, every garage tile, Back and Race!; the yellow outline is visible on each; Enter on Race! starts the run; Esc goes back and the focus is on **Choose car** again.
+- [ ] After a Blitz or Surprise hunt run: the car screen's subtitle names that mode and **Race!** restarts it, not the time trial.
+- [ ] While the screen is open: T, C, M, R, J, F1, F3, V do nothing. After Back they work again.
+- [ ] Phone (portrait, German): header, stage, panel and footer stack; no sideways scrolling; the eleven swatches sit in two rows; swatches and tiles are big enough for a thumb; Back / Los! stay at the bottom while you scroll; the bottom nav links and the round steering buttons are hidden while choosing.
+- [ ] `?vehicle=delorean` in the address opens the game with the DeLorean selected and the screen shows it as „Auto 2 von 2".
+- [ ] Night (#2) on, then Choose car: does the dimmed night scene still read, or does the stage need a lighter dim?
