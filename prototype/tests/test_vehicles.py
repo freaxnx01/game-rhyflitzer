@@ -250,3 +250,129 @@ def test_windows_are_dark_and_opaque(server):
         b.close()
     assert_dark_opaque(before)
     assert_dark_opaque(after)
+
+
+# ---------- #126: DeLorean look-alike ----------
+DELOREAN_JS = "() => { window.__mm.setVehicle(window.__mm.vehicles().delorean); }"
+DOORS_JS = "() => window.__mm.doors()"
+
+
+def open_hand_query(p, server, query):
+    """open_hand with a query string on the URL (the hooks are the same)."""
+    b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 320, "height": 180})
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+    page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+    page.goto(f"{server}/prototype/index.html{query}")
+    page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    return b, page, errors
+
+
+def test_delorean_is_in_the_table_and_true_to_size(server):
+    """#126: 4.27 m long (profile -2.09..2.08 plus the 0.05 bevel), 2.0 m over the mirrors, 1.14 m to the roof, measured
+    with the doors shut (Start closes them; the animation is smoothed, so wait for it, never a fixed sleep)."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(DELOREAN_JS)
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => window.__mm.doors().open < 0.01", timeout=120000)
+        page.wait_for_function("() => Math.abs(window.__mm.wheelYaw().yaw) < 1e-3", timeout=120000)   # front wheels straight, or w reads 2.094
+        model = page.evaluate("() => window.__mm.vehicle().model")
+        size = page.evaluate("() => window.__mm.carSize()")
+        b.close()
+    assert model == "delorean"
+    assert size["l"] == pytest.approx(4.27, abs=0.05), size
+    assert size["w"] == pytest.approx(2.0, abs=0.05), size
+    assert size["h"] == pytest.approx(1.14, abs=0.05), size
+
+
+def test_delorean_glass_is_dark_and_opaque(server):
+    """#126: the DeLorean's cabin block is the shared #123 glass and is found by the hook."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(DELOREAN_JS)
+        got = page.evaluate(GLASS_JS)
+        b.close()
+    assert_dark_opaque(got)
+
+
+def test_delorean_drives_slower_than_compact(server):
+    """#126: top 49 / accel 10 instead of 60 / 16: the golden 4 s gas run ends clearly slower (flat-road estimate with
+    stepCar's drag terms: 21.1 m/s; compact 31.47)."""
+    gas = "() => window.__mm.sim(1882.9, -292.2, Math.PI, 0, 4).speed"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(DELOREAN_JS)
+        slow = page.evaluate(gas)
+        b.close()
+    assert 18 < slow < 25, slow
+
+
+def test_vehicle_query_selects_the_delorean(server):
+    """#126: ?vehicle=delorean starts with the DeLorean, an unknown id with the compact, no errors either way."""
+    with sync_playwright() as p:
+        b, page, errors = open_hand_query(p, server, "?vehicle=delorean")
+        picked = page.evaluate("() => window.__mm.vehicle().model")
+        b.close()
+        b, page, errors2 = open_hand_query(p, server, "?vehicle=tank")
+        fallback = page.evaluate("() => window.__mm.vehicle().model")
+        b.close()
+    assert picked == "delorean"
+    assert fallback == "compact"
+    assert errors == [] and errors2 == [], (errors, errors2)
+
+
+def test_delorean_doors_open_on_the_start_screen_and_close_for_the_run(server):
+    """#126: on the start screen the gull-wing doors swing up (both lower panels rise); Start shuts them."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(DELOREAN_JS)
+        page.wait_for_function("() => window.__mm.doors().open > 0.95", timeout=120000)
+        opened = page.evaluate(DOORS_JS)
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => window.__mm.doors().open < 0.05", timeout=120000)
+        closed = page.evaluate(DOORS_JS)
+        b.close()
+    assert opened["target"] == 1 and closed["target"] == 0, (opened, closed)
+    assert len(opened["panelY"]) == 2 and len(closed["panelY"]) == 2, (opened, closed)
+    for up, down in zip(opened["panelY"], closed["panelY"]):
+        assert up > down + 0.3, (opened, closed)
+
+
+def test_compact_has_no_doors(server):
+    """#126: the compact reports no door panels and the door state is harmless for it."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        got = page.evaluate(DOORS_JS)
+        b.close()
+    assert got["panelY"] == [], got
+
+
+def test_swapping_from_the_delorean_to_the_compact_drops_the_door_entries(server):
+    """Review #142: buildCar must reset car.userData.doors, or drawDoors keeps rotating detached hinges after a swap."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(DELOREAN_JS)
+        before = page.evaluate(DOORS_JS)
+        page.evaluate("() => { window.__mm.setVehicle(window.__mm.vehicles().compact); }")
+        after = page.evaluate(DOORS_JS)
+        b.close()
+    assert len(before["panelY"]) == 2, before
+    assert after["panelY"] == [], after
+
+
+def test_delorean_rebuilds_free_gpu_memory(server):
+    """#126: five DeLorean rebuilds keep the GPU counters flat (the steel grain is shared, the plate is per-build)."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(DELOREAN_JS)
+        page.wait_for_function("() => window.__mm.doors().open > 0.95", timeout=120000)   # doors fully open before the first reading
+        wait_frames(page)
+        first = page.evaluate("() => window.__mm.gpu()")
+        for _ in range(5):
+            page.evaluate(DELOREAN_JS); wait_frames(page)
+        last = page.evaluate("() => window.__mm.gpu()")
+        b.close()
+    assert last["textures"] <= first["textures"], (first, last)
+    assert last["geometries"] <= first["geometries"], (first, last)

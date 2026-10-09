@@ -200,3 +200,10 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] Drive over the Holzbrücke hugging the left rail, then the right rail, the whole length in both directions: the car stays on the planks, never sinks into the Rhine.
 - [ ] Steer into a rail at speed: the car scrapes along and keeps going.
 - [ ] Fridolinsbrücke: hugging either parapet still keeps the car on the deck.
+
+## DeLorean (#126)
+
+- [ ] Open the game with `?vehicle=delorean`: on the start screen the steel car stands with both gull-wing doors up; press Start and they swing shut. Both styles (style switch): the body reads as brushed steel, not grey paint.
+- [ ] All four camera views (C): wedge nose with the four rectangular lamps, louvres on the rear window and the engine cover, black roof spine, the wide red tail band; no flicker where the door panels meet the body or the glass.
+- [ ] Driving: slower off the line and a lower top speed than the compact, the tail slides a little sooner in a handbrake turn; horn (H) is its own two-note chord; gears 1–5 in the HUD.
+- [ ] The compact (no `?vehicle=`) looks and drives exactly as before.

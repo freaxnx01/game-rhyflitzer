@@ -85,3 +85,14 @@ def test_scaled_vehicle_rolls_with_its_drawn_wheel_size(server):
     expected = dist / (r["v"]["wheelR"] * r["v"]["scale"])
     assert dist > 0.5, r
     assert abs(turned - expected) < 0.1 * expected, (turned, expected, r)
+
+
+def test_delorean_wheels_steer_too(server):
+    """#126 + #132: the shared buildWheels gives the DeLorean two steering front wheels and two fixed rear wheels."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate("() => { window.__mm.setVehicle(window.__mm.vehicles().delorean); }")
+        right = drive(page, "KeyD")
+        b.close()
+    assert len(right["front"]) == 2 and len(right["rear"]) == 2, right
+    assert all(y < -0.2 for y in right["front"]), right
