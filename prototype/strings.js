@@ -61,7 +61,7 @@ const en = {
   // ---- toasts ----
   muted: 'Muted',
   soundOn: 'Sound on',
-  photoSaved: 'Photo saved',
+  photoSaved: 'Photo taken',
   photoFailed: 'Photo failed',
   camera: (view) => `Camera: ${view}`,
   camChase: 'Chase',
@@ -198,7 +198,7 @@ const de = {
   handbrake: 'Handbremse',
   muted: 'Ton aus',
   soundOn: 'Ton an',
-  photoSaved: 'Foto gespeichert',
+  photoSaved: 'Foto gemacht',
   photoFailed: 'Foto fehlgeschlagen',
   camera: (view) => `Kamera: ${view}`,
   camChase: 'Verfolger',

@@ -246,7 +246,7 @@ body's note, `noise` 1800 Hz the brightness, `weight` the length, `gain` the lev
 The photo is the WebGL canvas only, taken in the frame the key press lands in, so what you see in the 3D view
 is exactly what the file holds — the HUD, the minimap and the toast are DOM elements on top and never appear.
 
-- [ ] **X** while driving saves `rhyflitzer-YYYYMMDD-HHMMSS.png` to the downloads folder, and a "Photo saved"
+- [ ] **X** while driving saves `rhyflitzer-YYYYMMDD-HHMMSS.png` to the downloads folder, and a "Photo taken"
       toast confirms it. Open the file: the scene, no speedometer, no map, not blank.
 - [ ] The timestamp in the name is your local time, not UTC.
 - [ ] All four cameras (**C**) and **B** held each give the view you were looking at.
@@ -256,7 +256,7 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] Start and result screen: **X** saves nothing.
 - [ ] **J** or **O** open: `x` types into the search field and no photo is taken.
 - [ ] Hold **X** down for a few seconds: exactly one file, not one per frame.
-- [ ] German (**DE**): the toast reads "Foto gespeichert" and **F1** lists `X` with "Foto: Ansicht als PNG
+- [ ] German (**DE**): the toast reads "Foto gemacht" and **F1** lists `X` with "Foto: Ansicht als PNG
       speichern".
 - [ ] Several photos in a row: does the browser ask once to allow multiple downloads, and is that acceptable?
 - [ ] On a phone: there is no **X** key — should the photo get a button of its own later?

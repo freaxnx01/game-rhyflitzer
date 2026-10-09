@@ -51,7 +51,7 @@ def test_pressing_x_downloads_one_png_of_the_rendered_scene(server):
     assert NAME_RE.match(download.suggested_filename), download.suggested_filename
     assert png_size(data) == tuple(canvas), (png_size(data), canvas)
     assert len(data) > 5000, len(data)                                  # a blank frame compresses to ~1 kB
-    assert toast["shown"] and toast["text"] == "Photo saved", toast
+    assert toast["shown"] and toast["text"] == "Photo taken", toast
     assert downloads == 1, downloads
 
 
