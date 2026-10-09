@@ -337,3 +337,79 @@ def test_help_lists_i(server, lang, text):
         b, page = open_page(p, server, block_world=True, lang=lang)
         assert text in page.inner_html("#help")
         b.close()
+
+
+# the autopilot and the Navi stepped together, frame by frame, until the autopilot is done. Records every frame where the
+# Navi had already ended while the autopilot was still driving — that is where the Navi's own "Arrived" toast used to
+# come before the autopilot's (two arrival toasts for one arrival).
+AUTO_AND_NAVI_JS = """(secs) => { const early = []; let n = 0;
+  for (; n < secs * 60 && window.__mm.auto().on; n++) { window.__mm.autoSim(1 / 60); window.__mm.naviSim(1 / 60);
+    const a = window.__mm.auto(), v = window.__mm.navi(); if (a.on && !v.on) early.push(a.left); }
+  return { early: early.length, firstEarlyLeft: early[0] ?? null, auto: window.__mm.auto(), navi: window.__mm.navi(), toast: window.__mm.toast().text }; }"""
+
+
+@needs_world
+def test_with_the_autopilot_driving_its_arrival_is_the_only_one(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyO")
+        page.keyboard.type("Smile")
+        page.keyboard.press("Enter")
+        assert page.evaluate("() => window.__mm.auto().on") is True and navi(page)["on"] is True
+        r = page.evaluate(AUTO_AND_NAVI_JS, 150)
+        b.close()
+    assert r["auto"]["last"] == "arrived", r
+    assert r["early"] == 0, r                                         # the Navi never announced an arrival of its own
+    assert r["navi"]["on"] is False, r                                # the autopilot's arrival ended it, silently
+    assert r["toast"] == "Arrived: Smile-Kreisel", r
+
+
+def navi_on(page, dest="Smile-Kreisel"):
+    assert page.evaluate(f"() => window.__mm.naviStart('{dest}')") is True
+    assert navi(page)["on"] is True
+
+
+def ended_silently(page):
+    """The Navi is off, its panel is gone, and a few seconds later it has not come back with "Recalculating…"."""
+    r = page.evaluate("() => window.__mm.naviSim(3)")
+    frames(page)
+    return r["on"] is False and r["replans"] == 0 and not page.is_visible("#navi") and "Recalculating" not in page.inner_html("#toast")
+
+
+@needs_world
+def test_r_j_and_the_map_double_click_end_the_navi(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        navi_on(page)
+        page.keyboard.press("KeyR")
+        assert ended_silently(page)
+        navi_on(page)
+        page.keyboard.press("KeyJ")
+        pick_dest(page, "Fridolinsm")
+        assert ended_silently(page)
+        navi_on(page)
+        c = page.evaluate("() => window.__mm.car()")
+        px, py = page.evaluate(f"() => window.__mm.worldToMap({c['x'] + 150}, {c['z']})")
+        assert 0 < px < 800 and 0 < py < 400, (px, py)                 # the spot is on the minimap
+        box = page.locator("#map").bounding_box()
+        page.mouse.dblclick(box["x"] + px * box["width"] / 800, box["y"] + py * box["height"] / 400)
+        assert ended_silently(page)
+        b.close()
+
+
+@needs_world
+def test_the_main_menu_and_start_end_the_navi(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        navi_on(page)
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=120000)
+        page.click("#pausemenu")
+        if page.is_visible("#abandon"):
+            page.click("#abandonok")
+        page.wait_for_function("() => !document.querySelector('#overlay').hidden", timeout=120000)
+        assert ended_silently(page)                                   # no Navi panel over the main menu
+        navi_on(page)                                                 # (#107 may start it without the dialog)
+        page.click("#startbtn")
+        assert ended_silently(page)
+        b.close()
