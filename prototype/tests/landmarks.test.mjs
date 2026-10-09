@@ -67,8 +67,8 @@ const BUILDINGS_46 = [
   ['Schulhaus Sisseln', 'Sisseln', 171822721],
 ];
 
-test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125 and the Bergsee of #94', () => {
-  assert.equal(LANDMARK_INFO.length, 26);
+test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102', () => {
+  assert.equal(LANDMARK_INFO.length, 27);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
@@ -217,4 +217,27 @@ test('the Ehrendingen J list has Im Böndlern and the Wanderweg, all in Ehrendin
   assert.ok(names.includes('Im Böndlern') && names.includes('Wanderweg'));
   assert.ok(LANDMARK_INFO_EHRENDINGEN.every(i => i.gemeinde === 'Ehrendingen' && !i.ramp));
   assert.deepEqual(GEMEINDEN_EHRENDINGEN, ['Ehrendingen']);
+});
+
+// #102: a hand-measured position and a secret that only lists once it is found
+const SECRET_INFO = [
+  { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
+  { name: 'Eiffelturm', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], secret: true },
+];
+
+test('landmarkEntries_GamePosition_IsTakenAsIs', () => {
+  const e = landmarkEntries(SECRET_INFO, ANCHORS, BUILDINGS, GEMEINDEN, { secrets: true }).find(x => x.n === 'Eiffelturm');
+  assert.deepEqual(e, { n: 'Eiffelturm', g: 'Münchwilen', x: -712.8, z: 1528.2, j: [-703.3, 1419.1] });
+});
+
+test('landmarkEntries_SecretEntries_OnlyWhenRevealed', () => {
+  assert.deepEqual(landmarkEntries(SECRET_INFO, ANCHORS, BUILDINGS).map(x => x.n), ['Smile-Kreisel']);
+  assert.deepEqual(landmarkEntries(SECRET_INFO, ANCHORS, BUILDINGS, GEMEINDEN, {}).map(x => x.n), ['Smile-Kreisel']);
+  assert.deepEqual(landmarkEntries(SECRET_INFO, ANCHORS, BUILDINGS, GEMEINDEN, { secrets: true }).map(x => x.n), ['Eiffelturm', 'Smile-Kreisel'], 'Münchwilen sorts before Sisseln');
+});
+
+test('LANDMARK_INFO_HasTheHideoutAsASecretInMuenchwilen', () => {
+  const e = LANDMARK_INFO.find(i => i.name === 'Eiffelturm');
+  assert.equal(e.secret, true); assert.equal(e.gemeinde, 'Münchwilen'); assert.deepEqual(e.at, [-712.8, 1528.2]);
+  assert.ok(!landmarkEntries(LANDMARK_INFO, {}, []).some(x => x.n === 'Eiffelturm'), 'hidden by default');
 });
