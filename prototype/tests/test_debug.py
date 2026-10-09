@@ -247,6 +247,7 @@ def test_question_button_toggles_the_legend_without_copying(server):
         shown = page.is_visible("#debuglegend"); expanded = page.get_attribute("#debughelp", "aria-expanded")
         legend = page.text_content("#debuglegend"); hook = page.evaluate("() => window.__mm.debug().legend")
         focused = page.evaluate("() => document.activeElement && document.activeElement.id")
+        panel = page.locator("#debug").bounding_box()
         page.click("#debuglegend")
         page.click("#debughelp")
         hidden_again = not page.is_visible("#debuglegend"); collapsed = page.get_attribute("#debughelp", "aria-expanded")
@@ -257,6 +258,7 @@ def test_question_button_toggles_the_legend_without_copying(server):
     for term in ["eaves", "roof", "dsm", "digital surface model", "terrain model", "osm", "2.5 m", "east", "south", "heading", "LV95", "WGS84"]:
         assert term in legend, term
     assert focused != "debughelp"
+    assert panel["y"] >= 0 and panel["y"] + panel["height"] <= 540, panel   # the open legend scrolls instead of pushing the panel off screen
     assert hidden_again and collapsed == "false"
     assert copied is None                                                    # neither the button nor the legend copies
 
@@ -270,6 +272,8 @@ def test_tap_on_the_question_button_opens_the_legend(server):
         box = page.locator("#debughelp").bounding_box()
         page.tap("#debughelp")
         shown = page.is_visible("#debuglegend")
+        panel = page.locator("#debug").bounding_box()
         br.close()
-    assert coarse and box["width"] >= 36 and box["height"] >= 36, box       # finger-sized on touch screens
+    assert coarse and box["width"] >= 35.99 and box["height"] >= 35.99, box   # 36 CSS px, finger-sized (the device pixel ratio costs a 10^-5 of a px)
     assert shown
+    assert panel["y"] >= 0 and panel["y"] + panel["height"] <= 844, panel     # and it fits the phone screen too
