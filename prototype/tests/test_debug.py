@@ -13,8 +13,8 @@ needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py
 BODENACKER_6 = 171822634
 TALLEST = 155170807                                  # roof top 38.1 m (h 32.5 + rh 5.6), the tallest in the region
 SPOT_DX = {BODENACKER_6: 20, TALLEST: 22}            # car this far east of the footprint centre, clear of the façade
-CHASE_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view === 0"
-                 " && Math.abs(Math.hypot(d[0], d[2]) - 6.9) < 0.3 && Math.abs(d[1] - 2.6) < 0.3; }")   # compact chase cam since #69
+CHASE_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d, th = window.__mm.heading(); return c.view === 0"
+                 " && Math.hypot(d[0] + 6.9 * Math.cos(th), d[1] - 2.6, d[2] + 6.9 * Math.sin(th)) < 0.3; }")   # #143: at the chase target BEHIND the car, not anywhere on the 6.9 m ring
 COCKPIT_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view === 2"
                    " && Math.abs(d[0] - 0.25) < 0.05 && Math.abs(d[1] - 1.22) < 0.05 && Math.abs(d[2] - 0.38) < 0.05; }")   # cockpit eye x scale 1.0 (#69)
 
@@ -32,6 +32,15 @@ def open_page(p, server, block_world=False, query=""):
 def height_text(b):
     ridge = f" +{b['rh']:.1f}" if isinstance(b.get("rh"), (int, float)) else ""
     return f"{b['h']:.1f} m{ridge} {b.get('hsrc') or 'osm'}"
+
+
+def snap_chase_camera(page):
+    """#143: a change of the look-back flag snaps the chase camera to its target (index.html, CAM.back),
+    so hold and release B instead of waiting out the 25-35-frame fly-in from START."""
+    page.keyboard.down("KeyB")
+    page.wait_for_function("() => window.__mm.cam().back === true", timeout=120000)
+    page.keyboard.up("KeyB")
+    page.wait_for_function("() => window.__mm.cam().back === false", timeout=120000)
 
 
 def test_f3_toggles_the_panel_and_the_hand_layout_has_no_lv95(server):
@@ -187,6 +196,7 @@ def test_tall_building_label_stays_on_screen(server, bid):
         br, page = open_page(p, server, query="?debug")
         page.click("#startbtn", timeout=180000)
         page.evaluate(f"() => window.__mm.sim({cx}, {cz}, Math.PI, 0, 0, [])")     # heading pi = facing west, at the building
+        snap_chase_camera(page)
         page.wait_for_function(CHASE_ARRIVED, timeout=120000)
         page.wait_for_function(f"() => !!{label}", timeout=60000)
         chase = page.evaluate(f"() => {label}")
