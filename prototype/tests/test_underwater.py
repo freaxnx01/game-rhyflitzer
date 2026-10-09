@@ -242,3 +242,20 @@ def test_fish_swim_only_while_you_are_down_there(server):
         b.close()
     assert a == a2, "on land the fish are frozen (nobody can see them)"
     assert w != w2, "underwater they swim"
+
+
+def test_bed_content_is_instanced_and_drawn_only_under_the_surface(server):
+    # review fix: ~8000 weed tufts and ~2800 boulders on the OSM map were merged meshes (800k + 300k vertices, the boulders
+    # drawn above the surface too); one InstancedMesh each, hidden like the fish and the wrecks while the camera is dry
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        dry = underwater(page)
+        roles = page.evaluate("() => window.__mm.roles()")
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(MID_RHINE))
+        page.wait_for_function("() => window.__mm.underwater().on", timeout=180000)
+        wet = underwater(page)
+        b.close()
+    assert "weed" not in roles, roles
+    assert dry["bed"]["stones"] == dry["stones"] and 3 * dry["weeds"] <= dry["bed"]["blades"] <= 5 * dry["weeds"], dry
+    assert dry["bed"]["visible"] is False and wet["bed"]["visible"] is True, (dry["bed"], wet["bed"])
