@@ -152,6 +152,22 @@ def test_table_gears_drive_the_hud(server):
     assert (compact, long_first) == ("3", "1")
 
 
+def wait_settled(page, rounds=40, eps=0.01):
+    """Wait until the scene has stopped uploading: three.js uploads a mesh the first time it is drawn, and the follow
+    camera eases from its spawn pose into the chase pose over ~30 frames, so static world meshes keep entering the
+    frustum and being uploaded for the first time (#64). Settled = two consecutive samples with equal GPU counts and
+    a camera offset that moved < eps (arrival, not stillness: the exponential ease never reaches zero)."""
+    sample = "() => ({ gpu: window.__mm.gpu(), d: window.__mm.cam().d })"
+    prev = page.evaluate(sample)
+    for _ in range(rounds):
+        wait_frames(page, 5)
+        cur = page.evaluate(sample)
+        if cur["gpu"] == prev["gpu"] and max(abs(a - b) for a, b in zip(cur["d"], prev["d"])) < eps:
+            return
+        prev = cur
+    raise AssertionError(f"scene did not settle in {rounds} rounds of 5 frames: {prev} -> {cur}")
+
+
 def test_rebuilds_free_gpu_memory(server):
     """Review #32: each setVehicle rebuild must free its per-build materials and the plate texture. After the first
     rebuild, 5 more rebuilds of the same car (with frames drawn in between, so textures are uploaded) keep the GPU
@@ -159,6 +175,7 @@ def test_rebuilds_free_gpu_memory(server):
     with sync_playwright() as p:
         b, page = open_hand(p, server)
         use_vehicle(page, ""); wait_frames(page)
+        wait_settled(page)
         first = page.evaluate("() => window.__mm.gpu()")
         for _ in range(5):
             use_vehicle(page, ""); wait_frames(page)
