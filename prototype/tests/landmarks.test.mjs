@@ -143,3 +143,21 @@ test('landmarkEntries passes the ramp flag through, and only for ramp items', ()
 test('LANDMARK_INFO flags only the Sprungschanze as a ramp (#80)', () => {
   assert.deepEqual(LANDMARK_INFO.filter(l => l.ramp).map(l => l.name), ['Sprungschanze']);
 });
+
+test('LANDMARK_INFO has the Südspange row in Eiken at the K295 junction (#125)', () => {
+  const item = LANDMARK_INFO.find(x => x.name === 'Südspange Sisslerfeld');
+  assert.ok(item);
+  assert.equal(item.gemeinde, 'Eiken');
+  assert.deepEqual(item.at, [1528, 409]);
+  assert.equal(item.jump, undefined);
+});
+
+test('landmarkEntries gives the Südspange its fixed point without any world anchor (#125)', () => {
+  const e = landmarkEntries(LANDMARK_INFO, {}, []).find(x => x.n === 'Südspange Sisslerfeld');
+  assert.deepEqual(e, { n: 'Südspange Sisslerfeld', g: 'Eiken', x: 1528, z: 409 });
+});
+
+test('filterLandmarks finds the Südspange by "sudspange", "südspange" and "SISSLERFELD" (#125)', () => {
+  const e = landmarkEntries(LANDMARK_INFO, {}, []);
+  for (const q of ['sudspange', 'südspange', 'SISSLERFELD']) assert.ok(filterLandmarks(e, q, null).some(x => x.n === 'Südspange Sisslerfeld'), q);
+});
