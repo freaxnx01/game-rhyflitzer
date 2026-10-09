@@ -143,3 +143,22 @@ def test_station_checkpoints_are_at_the_station_on_a_road():
         lm = world["anchors"]["landmarks"][key]
         assert math.hypot(cp["x"] - lm["x"], cp["z"] - lm["z"]) <= 15, name
         assert _nearest_on_polylines(drivable, cp["x"], cp["z"])[0] <= 2.5, name
+
+
+EHR = Path(__file__).parents[1] / "anchors_ehrendingen.json"
+
+
+def test_ehrendingen_anchors_resolve_without_osm_data():
+    spec = anchors.load(EHR)
+    out = anchors.resolve(spec, OsmData(), geo.Frame(*geo.EHRENDINGEN_ORIGIN))
+    b = out["landmarks"]["boendlern"]
+    assert (b["x"], b["z"]) == pytest.approx((-149.5, -1464.9), abs=0.5)
+    w = out["landmarks"]["wanderweg"]
+    assert (w["x"], w["z"]) == pytest.approx(tuple(float(v) for v in geo.Frame(*geo.EHRENDINGEN_ORIGIN).to_game(8.35081, 47.49498)), abs=0.2)   # roughly (671, -28)
+    assert "gemeindehausUnterdorf" in out["landmarks"]
+    assert len(out["cps"]) == 5 and out["finish"]["n"] == "Im Böndlern"
+    assert out["start"][2] == pytest.approx(math.radians(270))
+    assert {lb["t"] for lb in out["labels"]} == {"UNTEREHRENDINGEN", "OBEREHRENDINGEN", "IM BÖNDLERN", "LÄGERN"}
+    assert anchors.trail_ids(spec) == {28183399, 685318985, 685318986, 28183458, 702208313, 347967817, 702208308, 702208309}   # Hofrain / Steinbuckweg tracks
+    assert anchors.keep_ids(spec) == {114544595, 114544599, 102158022, 178797165, 102165202, 178797287}
+    assert "jumpRamp" not in spec["landmarks"]

@@ -274,3 +274,21 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] After a click, Enter honks and does not open another tab.
 - [ ] Phone (`…/prototype/index.html?debug`): the buttons in the top-left panel are tappable and open the map app or a new tab.
 - [ ] On the German side (Bad Säckingen): note what Street View shows where Google has no panorama.
+
+## Ehrendingen region (#127)
+
+- [ ] Pick **Ehrendingen** in the Region row on the start screen: the page reloads with `?region=ehrendingen`,
+      the Ehrendingen button is the marked one, the HUD and the minimap read „Ehrendingen", and picking
+      **Hochrhein** again takes you back (the URL loses the parameter).
+- [ ] Race Oberdorf → Im Böndlern: start at Ehrendingen Post, take the five checkpoints (Höhtal, Breitwies,
+      Schulhaus Lägernbreite, Kapelle St. Anna, Tiefenwaag) in any order, finish Im Böndlern. Each checkpoint
+      sits on a road, not in a field.
+- [ ] Drive the Wanderweg: **J** → `wanderweg` puts the car on it; follow Hofrain and then Steinbuckweg
+      up to the woods. It is gravel, it is drivable all the way, and it shows light on the minimap.
+- [ ] Oberehrendingen is a village, not a forest: no trees standing in the streets or on the houses
+      (the forest line is +90 m above the Surb, not Hochrhein's +18 m).
+- [ ] Fly (**F**) up to the Lägern ridge: the slope is there, the camera does not clip through it, and the
+      far plane still covers the whole box.
+- [ ] No Hochrhein leftovers in Ehrendingen: no Sprungschanze, no Sisseln forest box, no Ortstafeln.
+- [ ] The Hochrhein is unchanged: same record (`mm.best2`), same trees, Sprungschanze still jumpable,
+      an uploaded `.mmh` still in place. Each region keeps its own best time.

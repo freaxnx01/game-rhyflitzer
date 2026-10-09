@@ -98,6 +98,11 @@ def keep_ids(spec) -> set:
     return {_osm_ref(s)[1] for s in spec.get("keep_buildings", [])}
 
 
+def trail_ids(spec) -> set:
+    """OSM ways kept as drivable trails (#127), e.g. the Wanderweg Hofrain / Steinbuckweg."""
+    return {_osm_ref(s)[1] for s in spec.get("trails", [])}
+
+
 def industrial_ids(spec) -> list:
     return [_osm_ref(s)[1] for s in spec.get("areas", {}).get("industrial", [])]
 

@@ -88,7 +88,7 @@ export function offsetPolyline(pts, d) {
 }
 
 export function layoutFromWorld(w) {
-  const roads = w.roads.map(r => ({ ...r, tex: r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
+  const roads = w.roads.map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
            rail: w.rail, railBridges: w.railBridges || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
@@ -336,6 +336,11 @@ export const VILLAGES = [
   { t: 'MUMPF', x: -3484.8, z: 596.6, r: 450 },            // node 192826016
   { t: 'MURG', x: 4361.6, z: -689.8, r: 550 },             // node 240124251
   { t: 'WALLBACH', x: -3984.9, z: -1744.8, r: 450 },       // node 3608448837 (Wallbach, Bad Säckingen)
+];
+// #127: Ehrendingen's village names, place nodes converted with geo.Frame(*EHRENDINGEN_ORIGIN).to_game on 2026-10-09
+export const VILLAGES_EHRENDINGEN = [
+  { t: 'UNTEREHRENDINGEN', x: 377.2, z: -995.5, r: 450 },   // node 102311519
+  { t: 'OBEREHRENDINGEN', x: 26.2, z: 127.2, r: 450 },      // node 102311797
 ];
 export const VILLAGE_FADE = { in: 200, full: 2600, out: 3400 };
 // Opacity by the car's distance d to the centre: hidden inside r, fades in over f.in, full until f.full, gone at f.out.

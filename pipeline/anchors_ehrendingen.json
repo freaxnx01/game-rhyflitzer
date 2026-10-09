@@ -1,0 +1,26 @@
+{
+  "landmarks": {
+    "boendlern":             { "lonlat": [8.34014, 47.50799], "kind": "poi", "src": "Im Böndlern: service road w54804175 'Böndlern' by the ARA (Böndlern 2-7), #127" },
+    "wanderweg":             { "lonlat": [8.35081, 47.49498], "kind": "poi", "src": "junction of Hofrain and Steinbuckweg, the Wanderweg (confirmed by the user 2026-10-09; #127, spec A3)" },
+    "gemeindehausUnterdorf": { "lonlat": [8.35008, 47.50105], "kind": "poi", "src": "townhall node n323236524 (not a named node in osm_read)" }
+  },
+  "start": { "lonlat": [8.33993, 47.49417], "heading_deg": 270, "src": "bus stop Ehrendingen Post n323236548, facing north" },
+  "cps": [
+    { "n": "Höhtal", "lonlat": [8.33574, 47.48765] },
+    { "n": "Breitwies", "lonlat": [8.33846, 47.49123] },
+    { "n": "Schulhaus Lägernbreite", "lonlat": [8.34302, 47.49251] },
+    { "n": "Kapelle St. Anna", "lonlat": [8.34877, 47.50153] },
+    { "n": "Tiefenwaag", "lonlat": [8.34621, 47.50565] }
+  ],
+  "finish": { "n": "Im Böndlern", "lonlat": [8.34014, 47.50799] },
+  "labels": [
+    { "t": "UNTEREHRENDINGEN", "lonlat": [8.3470583, 47.5037138] },
+    { "t": "OBEREHRENDINGEN", "lonlat": [8.3422279, 47.4936534] },
+    { "t": "IM BÖNDLERN", "lonlat": [8.34014, 47.50840] },
+    { "t": "LÄGERN", "lonlat": [8.3437, 47.4795] }
+  ],
+  "areas": { "industrial": [] },
+  "exclude_buildings": [],
+  "keep_buildings": [ "w114544595", "w114544599", "w102158022", "w178797165", "w102165202", "w178797287" ],
+  "trails": [ "w28183399", "w685318985", "w685318986", "w28183458", "w702208313", "w347967817", "w702208308", "w702208309" ]
+}

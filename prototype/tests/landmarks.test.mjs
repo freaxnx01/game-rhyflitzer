@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { GEMEINDEN, LANDMARK_INFO, foldText, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from '../landmarks.js';
+import { GEMEINDEN, LANDMARK_INFO, GEMEINDEN_EHRENDINGEN, LANDMARK_INFO_EHRENDINGEN, foldText, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from '../landmarks.js';
 
 const ANCHORS = { muenster: { x: -1331, z: -172.7 }, smileKreisel: { x: 1270, z: -148 } };
 const BUILDINGS = [{ id: '171822634', ring: [[0, 0], [10, 0], [10, 20], [0, 20]] }];
@@ -202,4 +202,19 @@ test('#94 world sanity: the Bergsee point lies in the lake, the jump spots on th
   assert.equal(plattformRoad.n, 'Breitenloh');
   const p = w.anchors.landmarks.plattform, j = by('Plattform Sisslerfeld').jump;
   assert.ok(Math.hypot(j[0] - p.x, j[1] - p.z) >= 15, 'Plattform jump spot is clear of the tower');
+});
+
+test('landmarkEntries and gemeindenOf take the region Gemeinden (#127)', () => {
+  const info = [{ name: 'Im Böndlern', gemeinde: 'Ehrendingen', anchor: 'boendlern' }];
+  const e = landmarkEntries(info, { boendlern: { x: -149.5, z: -1464.9 } }, [], GEMEINDEN_EHRENDINGEN);
+  assert.deepEqual(e, [{ n: 'Im Böndlern', g: 'Ehrendingen', x: -149.5, z: -1464.9 }]);
+  assert.deepEqual(gemeindenOf(e, GEMEINDEN_EHRENDINGEN), ['Ehrendingen']);
+  assert.deepEqual(gemeindenOf(e), []);                       // default stays the Hochrhein list
+});
+
+test('the Ehrendingen J list has Im Böndlern and the Wanderweg, all in Ehrendingen, no ramp (#127)', () => {
+  const names = LANDMARK_INFO_EHRENDINGEN.map(i => i.name);
+  assert.ok(names.includes('Im Böndlern') && names.includes('Wanderweg'));
+  assert.ok(LANDMARK_INFO_EHRENDINGEN.every(i => i.gemeinde === 'Ehrendingen' && !i.ramp));
+  assert.deepEqual(GEMEINDEN_EHRENDINGEN, ['Ehrendingen']);
 });

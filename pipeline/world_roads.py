@@ -15,6 +15,7 @@ WIDTH = {"motorway": 14, "motorway_link": 7, "trunk": 9, "trunk_link": 7, "prima
          "secondary": 8, "secondary_link": 6, "tertiary": 7, "tertiary_link": 6, "unclassified": 5.5,
          "residential": 5.5, "living_street": 5, "pedestrian": 5, "service": 4}
 SPLIT_MIN = 20.0          # m: shorter solid/broken pieces are merged into their neighbour
+TRAIL_WIDTH = 3.0         # m: width of a listed trail way (#127)
 
 
 def _bridge(tags) -> bool:
@@ -102,22 +103,24 @@ def _r(p):
     return [round(float(p[0]), 1), round(float(p[1]), 1)]
 
 
-def build(ways, nodes, way_nodes, clip):
+def build(ways, nodes, way_nodes, clip, trail_ids=frozenset()):
     """`nodes` holds every node shared by two or more highway ways (osm_read); a junction needs two or more *kept* ways,
-    so the uses are counted again here over the kept ways only (a road meeting a driveway or track is no junction)."""
+    so the uses are counted again here over the kept ways only (a road meeting a driveway or track is no junction).
+    trail_ids (#127): listed ways kept as 3 m gravel trails, tunnels excepted."""
     roads, widest, uses = [], {}, {}
     for w in ways:
         t = w.tags
-        if "highway" not in t or not keep(t):
+        trail = w.id in trail_ids and "highway" in t and t.get("tunnel", "no") == "no" and not keep(t)
+        if "highway" not in t or not (keep(t) or trail):
             continue
-        wd = width(t)
+        wd = TRAIL_WIDTH if trail else width(t)
         for nid in set(way_nodes.get(w.id, [])):
             if nid in nodes:
                 widest[nid] = max(widest.get(nid, 0.0), wd)
                 uses[nid] = uses.get(nid, 0) + 1
         line = w.line.simplify(0.5, preserve_topology=False).intersection(clip)
         parts = [line] if line.geom_type == "LineString" else list(getattr(line, "geoms", []))
-        base = marking(t)
+        base = "none" if trail else marking(t)
         for part in parts:
             if part.is_empty or part.length < 1.0:
                 continue
@@ -130,6 +133,7 @@ def build(ways, nodes, way_nodes, clip):
                               "mark": "centre-solid" if solid else base,
                               "bridge": t.get("bridge", "no") != "no",
                               "layer": int(t.get("layer", "0")) if t.get("layer", "0").lstrip("-").isdigit() else 0,
+                              **({"trail": True} if trail else {}),
                               "pts": [_r(p) for p in pts]})
     cx0, cz0, cx1, cz1 = clip.bounds
     junctions = [[round(float(x), 1), round(float(z), 1), round(widest[n] / 2 + 0.3, 2)]

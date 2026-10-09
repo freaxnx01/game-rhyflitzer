@@ -14,6 +14,11 @@ from pyproj import Transformer
 DEFAULT_BBOX = (7.905, 47.532, 8.030, 47.572)   # lon/lat: Bad Saeckingen west ... east of Sisseln
 DEFAULT_ORIGIN = (47.5506, 7.9671)               # lat, lon (the prototype's world origin)
 
+# #127: a second, separate region (not adjacent to the Hochrhein): Ehrendingen AG, the Gemeinde (r1684300) plus margin
+EHRENDINGEN_BBOX = (8.322, 47.476, 8.366, 47.515)   # lon/lat: Höhtal/Lägern ... Im Böndlern
+EHRENDINGEN_ORIGIN = (47.4948, 8.3419)              # lat, lon: place node Ehrendingen n240060931, rounded
+EHRENDINGEN_BASE = 405.0                            # m a.s.l. that becomes 0: about the Surb at Im Böndlern
+
 _TO_LV95 = Transformer.from_crs("EPSG:4326", "EPSG:2056", always_xy=True)
 _TO_WGS = Transformer.from_crs("EPSG:2056", "EPSG:4326", always_xy=True)
 

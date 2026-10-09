@@ -117,6 +117,58 @@ Counts measured on the 2026-10-01 extract while the design was written; the buil
 
 **Anchors.** `anchors.json` resolves OSM ids to positions: Smile-Kreisel, stations, churches, the two bridges, the DSM chimney (about 140 m) and water tower (about 59 m), Plattform Sisslerfeld (position only, no model), start, checkpoints, finish, minimap labels and areas such as the forest and DSM-Firmenich. The checkpoints snap to the nearest road in the prototype.
 
+## Second region: Ehrendingen (#127)
+
+A second, separate region (not adjacent to the Hochrhein): Ehrendingen AG, with the Wanderweg and Im
+Böndlern. It uses the same two commands with its own constants (`geo.EHRENDINGEN_BBOX`,
+`geo.EHRENDINGEN_ORIGIN`, `geo.EHRENDINGEN_BASE = 405`) and its own anchors file
+`anchors_ehrendingen.json`. Hochrhein is untouched: no shared file changes.
+
+The cut runs on **odroid-plus-pve**, never on the agent box or a CI runner — `osmium extract -s smart`
+peaks at about 3.58 GB because the ID bitmaps span the whole planet ID range, and that peak does not
+depend on the bbox size. Print the commands first (cheap, anywhere), using a directory that holds
+**only** `switzerland-latest.osm.pbf` (symlink it), so the German file is not cut too:
+
+```bash
+cd pipeline
+./.venv/bin/python osm.py cut --pbf-dir <dir with only switzerland-latest.osm.pbf> \
+    --out cache/osm/ehrendingen.osm.pbf --bbox 8.322 47.476 8.366 47.515 --dry-run
+```
+
+Run the printed `osmium extract` and `osmium merge` in a throwaway LXC on odroid-plus-pve and copy the
+result (~1–3 MB) back into `pipeline/cache/osm/`. Terrain and world then build on the agent box under the
+2 GB cap:
+
+```bash
+cd pipeline
+systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python terrain.py \
+    --bbox 8.322 47.476 8.366 47.515 --origin 47.4948 8.3419 --step 4 --base 405 \
+    --out ../data/terrain_ehrendingen.mmh
+systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python osm.py build \
+    --pbf cache/osm/ehrendingen.osm.pbf --mmh ../data/terrain_ehrendingen.mmh \
+    --bbox 8.322 47.476 8.366 47.515 --origin 47.4948 8.3419 \
+    --anchors anchors_ehrendingen.json --out ../data/world_ehrendingen.json --dsm-heights cache
+```
+
+Expect `w 844`, `h 1095` in the `.mmh` header, `min` between −15 and +5 and `max` around +440 (Lägern).
+The build log must show `trails` > 0 and no `anchors: … not found`; both files stay under 4 MB. Exit 137
+means the 2 GB cap was hit — move that step to the odroid LXC, never raise the cap.
+
+**Trails (`trails`).** The anchors file's `trails` key lists OSM **way ids** that are kept as drivable 3 m
+gravel roads although `world_roads.keep()` drops them (`highway=track`, `path`, …). Each listed way gets
+`"trail": true`, width 3.0 and no markings; tunnels are still dropped, and a listed way that `keep()`
+already accepts stays an ordinary road. The prototype draws them with the gravel texture and light on the
+minimap. Ehrendingen lists the eight `highway=track` ways of the Wanderweg (Hofrain, then Steinbuckweg:
+`w28183399`, `w685318985`, `w685318986`, `w28183458`, `w702208313`, `w347967817`, `w702208308`,
+`w702208309`); the two residential Hofrain ways are ordinary roads already. Hochrhein has no `trails` key,
+so its world file is byte-for-byte unaffected.
+
+**The region in the game.** `prototype/regions.js` holds the table (data URLs, the IndexedDB and best-time
+keys, villages, Gemeinden, landmarks, tree box and forest line per region). `?region=ehrendingen` or the
+Region row on the start screen picks one; a region whose world file is missing falls back to Hochrhein with
+a toast. Golden test: `pipeline/tests/test_golden_ehrendingen.py` (skips without the extract); browser test:
+`prototype/tests/test_region.py` (the data case skips without `data/world_ehrendingen.json`).
+
 ## Load it in the prototype
 
 Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it is there, the whole layout comes from it (roads, Rhine, bridges, houses, landmarks, race points, minimap, markings) and the start screen shows `World: OpenStreetMap · N roads · N buildings` followed by all `sources` of the file joined with ` · ` (`© OpenStreetMap contributors, ODbL`, plus `Water levels: swissALTI3D © swisstopo` when the file was built with an `.mmh`). If it is missing or not valid, the hand-traced layout is used and the line reads `World: traced by hand`. Terrain comes from an `.mmh` the player loaded on the start screen (kept in IndexedDB) or, if there is none, from the published `data/terrain_hochrhein.mmh` ([08](08-pipeline-terrain.md)).

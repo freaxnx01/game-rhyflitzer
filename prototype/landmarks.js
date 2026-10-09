@@ -32,6 +32,19 @@ export const LANDMARK_INFO = [
   { name: 'Schulhaus Sisseln', gemeinde: 'Sisseln', building: 171822721 },
 ];
 
+// #127: the second region. Positions from the Ehrendingen world (pipeline/anchors_ehrendingen.json, kept buildings).
+export const GEMEINDEN_EHRENDINGEN = ['Ehrendingen'];
+export const LANDMARK_INFO_EHRENDINGEN = [
+  { name: 'Im Böndlern', gemeinde: 'Ehrendingen', anchor: 'boendlern' },
+  { name: 'ARA Ehrendingen', gemeinde: 'Ehrendingen', building: 178797287 },
+  { name: 'Wanderweg', gemeinde: 'Ehrendingen', anchor: 'wanderweg' },              // junction of Hofrain and Steinbuckweg (spec A3)
+  { name: 'Kath. Kirche Ehrendingen', gemeinde: 'Ehrendingen', building: 114544595 },
+  { name: 'Reformierte Kirche Ehrendingen', gemeinde: 'Ehrendingen', building: 114544599 },
+  { name: 'Kapelle St. Anna', gemeinde: 'Ehrendingen', building: 102158022 },
+  { name: 'Mehrzweckhalle Lägernbreite', gemeinde: 'Ehrendingen', building: 178797165 },
+  { name: 'Gemeindehaus Unterdorf', gemeinde: 'Ehrendingen', anchor: 'gemeindehausUnterdorf' },
+];
+
 export function foldText(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
@@ -52,14 +65,14 @@ function sourcePos(item, anchors, buildingsById) {
   return b && b.ring && b.ring.length ? ringMean(b.ring) : null;
 }
 
-export function landmarkEntries(info, anchors, buildings) {
+export function landmarkEntries(info, anchors, buildings, gemeinden = GEMEINDEN) {
   const byId = new Map((buildings || []).map(b => [Number(b.id), b]));
   const found = [];
   info.forEach((item, i) => {
     const p = sourcePos(item, anchors || {}, byId);
     if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.ramp ? { ramp: true } : {}), i });
   });
-  found.sort((a, b) => GEMEINDEN.indexOf(a.g) - GEMEINDEN.indexOf(b.g) || a.i - b.i);
+  found.sort((a, b) => gemeinden.indexOf(a.g) - gemeinden.indexOf(b.g) || a.i - b.i);
   return found.map(({ i, ...entry }) => entry);
 }
 
@@ -73,9 +86,9 @@ export function filterLandmarks(entries, query, gemeinde) {
   return entries.filter(e => (!gemeinde || e.g === gemeinde) && (!q || foldText(e.n).includes(q)));
 }
 
-export function gemeindenOf(entries) {
+export function gemeindenOf(entries, gemeinden = GEMEINDEN) {
   const present = new Set(entries.map(e => e.g));
-  return GEMEINDEN.filter(g => present.has(g));
+  return gemeinden.filter(g => present.has(g));
 }
 
 // The Sprungschanze's run-up (#80): runUp metres before the low edge x0, centred across it, facing up the ramp
