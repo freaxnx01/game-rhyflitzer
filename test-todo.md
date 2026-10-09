@@ -260,3 +260,9 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
       speichern".
 - [ ] Several photos in a row: does the browser ask once to allow multiple downloads, and is that acceptable?
 - [ ] On a phone: there is no **X** key — should the photo get a button of its own later?
+
+## More jump spots (#94)
+
+- [ ] **J → "Bergsee"** (Bad Säckingen) puts the car on Am Bergsee at the shore, with the lake ahead — not in a field and not facing away from the water.
+- [ ] **J → "Plattform Sisslerfeld"** shows the tower standing in front of the car on the Breitenloh, not around it; driving off takes you past its foot.
+- [ ] **J → "Hallenbad Sissila"** still lands on the road by the pool, as before.
