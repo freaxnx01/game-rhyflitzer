@@ -95,7 +95,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     if mmh_path:
         hdr, heights = mmh.read_mmh(mmh_path)
     spec = anchors_mod.load(anchors_path)
-    roads, junctions = world_roads.build(data.ways, data.nodes, data.way_nodes, clip)
+    roads, junctions = world_roads.build(data.ways, data.nodes, data.way_nodes, clip, trail_ids=anchors_mod.trail_ids(spec))
     polys = world_water.polygons(data.areas, data.ways, clip)
     ind_ids = set(anchors_mod.industrial_ids(spec))
     sites = [a.geom for a in data.areas if a.id in ind_ids]
@@ -113,7 +113,8 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         log(f"building heights from swissSURFACE3D: {dict(hstats)}")
     rail, rail_bridges = world_rail.build(data.ways, clip)
     boundaries = world_boundaries.build(world_boundaries.read(Path(pbf), frame), clip)
-    log(f"roads {len(roads)}, junctions {len(junctions)}, water {len(polys)}, buildings {len(buildings)} {stats}, "
+    log(f"roads {len(roads)}, trails {len([r for r in roads if r.get('trail')])}, junctions {len(junctions)}, "
+        f"water {len(polys)}, buildings {len(buildings)} {stats}, "
         f"rail {len(rail)}, rail bridges {len(rail_bridges)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}, "
         f"boundaries {len(boundaries)}")
     return {
