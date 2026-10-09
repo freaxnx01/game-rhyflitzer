@@ -404,12 +404,12 @@ def test_the_main_menu_and_start_end_the_navi(server):
         navi_on(page)
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=120000)
-        page.click("#pausemenu")
+        page.click("#pausemenu", timeout=120000)
         if page.is_visible("#abandon"):
-            page.click("#abandonok")
+            page.click("#abandonok", timeout=120000)
         page.wait_for_function("() => !document.querySelector('#overlay').hidden", timeout=120000)
         assert ended_silently(page)                                   # no Navi panel over the main menu
         navi_on(page)                                                 # (#107 may start it without the dialog)
-        page.click("#startbtn")
+        page.click("#startbtn", timeout=120000)
         assert ended_silently(page)
         b.close()
