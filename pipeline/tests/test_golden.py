@@ -124,13 +124,31 @@ def test_building_heights_from_the_surface(world_dsm):
 
 
 def test_bodenacker_quarter_heights(world_dsm):
-    """Playtest 2026-10-02: Bodenackerstrasse 6 (w171822634) really has 8 storeys; w1326045746 (apartments) is missing
-    from the 2020 surface and keeps its OSM/default height instead of a 2.5 m shed."""
+    """Playtest 2026-10-02 / #34: Bodenackerstrasse 6 (w171822634) has 8 storeys, main roof about 25.5 m over the
+    ground, and is the tallest building in Sisseln; w1326045746 (apartments) is missing from the 2020 surface and keeps
+    its OSM/default height instead of a 2.5 m shed."""
     by_id = {b["id"]: b for b in world_dsm["buildings"]}
     tall = by_id[171822634]
-    assert tall.get("hsrc") == "dsm" and tall["h"] >= 20, tall["h"]
+    # #34: the main roof is at 25.4-25.6 m over the ground (rooftop plant to 27.8 m); ground inside the outline pulled the
+    # old 10th percentile down to 22.8 m
+    assert tall.get("hsrc") == "dsm" and tall["roof"] == "flat" and 24.5 <= tall["h"] <= 26.5, (tall["h"], tall["roof"])
     new = by_id[1326045746]
     assert "hsrc" not in new and new["h"] == 12.0, new["h"]
+
+
+def test_bodenacker_6_is_the_tallest_in_sisseln(world_dsm):
+    """#34: no building inside Sisseln's boundary is taller than Bodenackerstrasse 6, and the eaves fix pushes nothing
+    region-wide above the tallest measured building (32.5 m, w155170807)."""
+    from shapely.ops import polygonize, unary_union
+    lines = [shapely.LineString(b["pts"]) for b in world_dsm["boundaries"] if "Sisseln" in b["names"]]
+    sisseln = max(polygonize(unary_union(lines)), key=lambda p: p.area)
+    by_id = {b["id"]: b for b in world_dsm["buildings"]}
+    tall = by_id[171822634]
+    inside = [b for b in world_dsm["buildings"] if sisseln.contains(shapely.Point(b["rect"][0], b["rect"][1]))]
+    assert len(inside) > 100 and tall in inside
+    taller = [(b["id"], b["h"]) for b in inside if b is not tall and b["h"] >= tall["h"]]
+    assert not taller, taller
+    assert max(b["h"] for b in world_dsm["buildings"] if b.get("hsrc") == "dsm") <= 32.5
 
 
 BODENACKER_FLAT = {512632899, 171822953, 171822664, 171822908, 171822930, 171822939, 171822935, 171822913, 171822799}
