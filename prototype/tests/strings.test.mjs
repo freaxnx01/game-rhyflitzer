@@ -102,5 +102,8 @@ test('car selection texts exist in both languages (#7)', () => {
   assert.equal(translate('de', 'garageLabel', 3), 'Garage · 3 Fahrzeuge');
   assert.equal(translate('de', 'veh_compact_class'), 'Kompakt · Klasse B');
   assert.equal(translate('de', 'carselRace'), 'Los! ›');
+  assert.equal(translate('en', 'veh_delorean_name'), 'Rhy Gullwing');
+  assert.equal(translate('de', 'veh_delorean_class'), 'Edelstahl-Coupé · Klasse B');
+  for (const k of ['veh_delorean_class', 'veh_delorean_desc']) for (const l of ['en', 'de']) assert.notEqual(translate(l, k), k, `${l} ${k}`);
   for (const k of ['carselTitle', 'carselPrev', 'carselNext', 'carselRotate', 'statTop', 'statAccel', 'statHandling', 'statMass', 'paintLabel', 'paintFixed', 'paintNavy', 'paintSunflower', 'paintSignal', 'paintSwiss', 'paintFlamingo', 'paintPlum', 'paintRhine', 'paintIce', 'paintMeadow', 'paintCream', 'paintCharcoal', 'carselBack', 'veh_compact_desc']) assert.notEqual(translate('de', k), k, k);
 });
