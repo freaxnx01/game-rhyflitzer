@@ -295,3 +295,38 @@ def test_labels_and_legend_follow_the_language(server):
     assert "Traufe" in legend and "Dach" in legend and "2.5 m" in legend and "digitales Oberflächenmodell (DSM)" in legend, legend
     assert aria == "Debug-Werte erklären"
     assert copy.startswith("x ") and " | LV95 —" in copy                      # the copied text stays language-neutral
+
+
+def boxes_overlap(a, b):
+    return a["x"] < b["x"] + b["width"] and b["x"] < a["x"] + a["width"] and a["y"] < b["y"] + b["height"] and b["y"] < a["y"] + a["height"]
+
+
+# boxes and the viewport are compared in CSS (layout) pixels throughout: the page has no <meta name="viewport">,
+# so a phone lays out at 980 px and scales the whole page down — device pixels would not be the same unit.
+VIEWPORT = "() => ({ width: innerWidth, height: innerHeight })"
+
+
+@needs_world
+@pytest.mark.parametrize("name,opts", [("desktop", {}), ("phone", {"viewport": {"width": 390, "height": 844}, "has_touch": True, "is_mobile": True})])
+def test_panel_with_the_legend_open_stays_on_screen(server, name, opts):
+    """The world layout has the longest lines (bldg <id> · <h> m +<rh> dsm) and one more of them than the hand
+    layout, so it is what decides whether the labelled panel plus the open legend still fit on screen."""
+    with sync_playwright() as p:
+        br, page = open_page(p, server, query="?debug", **opts)
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => (window.__mm.debug().labels || []).length === 6", timeout=120000)
+        page.click("#debughelp")
+        page.wait_for_function("() => window.__mm.debug().legend", timeout=30000)
+        vp = page.evaluate(VIEWPORT)
+        panel = page.locator("#debug").bounding_box()
+        button = page.locator("#debughelp").bounding_box()
+        steering = [page.locator(sel).bounding_box() for sel in ("#tL", "#tR", "#tH")]
+        steering = [b for b in steering if b]                                # display:none off a coarse pointer, so no box on the desktop
+        lines = page.evaluate("() => window.__mm.debug().lines")
+        br.close()
+    assert any(l.startswith("bldg 1") for l in lines), lines                 # a real building, not the "bldg —" placeholder
+    assert panel["x"] >= 0 and panel["x"] + panel["width"] <= vp["width"], (panel, vp)
+    assert panel["y"] >= 0 and panel["y"] + panel["height"] <= vp["height"], (panel, vp)
+    assert button["y"] >= 0, (button, vp)                                    # the ? stays clickable, so the legend can be closed again
+    for box in steering:
+        assert not boxes_overlap(panel, box), (panel, box)                   # the open legend still leaves the steering buttons free
