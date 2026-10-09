@@ -207,3 +207,16 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 - [ ] All four camera views (C): wedge nose with the four rectangular lamps, louvres on the rear window and the engine cover, black roof spine, the wide red tail band; no flicker where the door panels meet the body or the glass.
 - [ ] Driving: slower off the line and a lower top speed than the compact, the tail slides a little sooner in a handbrake turn; horn (H) is its own two-note chord; gears 1–5 in the HUD.
 - [ ] The compact (no `?vehicle=`) looks and drives exactly as before.
+
+## Engine and horn sound (#14)
+
+- [ ] **Horn (H, Enter):** louder than before and about a second long per press, a steady two-tone chord — not a beep that fades. Not the PostAuto three-tone horn.
+- [ ] **Engine at idle and pulling away:** low idle at the start; with W the pitch rises and drops audibly at about 20, 45, 75, 110 and 150 km/h, with a short dip at each shift. Does it sound like a car rather than a synthesiser? Too buzzy, too quiet, too loud next to the horn?
+- [ ] **Load:** letting off the gas at speed makes the engine darker and quieter; back on, it brightens again.
+- [ ] **Jump:** in the air with gas held, the engine howls up; road noise stops until landing.
+- [ ] **Nitro (N):** a hiss on top of the engine while held.
+- [ ] **Mute (M)** silences everything; M again brings it back.
+- [ ] **Other tab:** switch away while driving — silence; come back — the engine is there again.
+- [ ] **Helicopter (F):** engine silent, a rotor thump instead; landing brings the engine back.
+- [ ] **Pause (Esc / P):** pausing silences the game, resuming brings the engine back. Pausing, switching tab, coming back and resuming: still sound (the two holds are independent).
+- [ ] **DeLorean (`?vehicle=delorean`):** a lazier, darker engine and a lower horn than the compact — the two cars are clearly tellable apart by ear.

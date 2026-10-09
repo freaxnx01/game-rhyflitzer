@@ -248,6 +248,7 @@ import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './
 import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
 import { vehicleFromQuery } from './vehicle.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
+import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn } from './sound.js';
 const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -1095,13 +1096,19 @@ const VEHICLES = {
     drive: { top: 60, topNitro: 90, accel: 16, accelNitro: 34, brake: 24, reverse: 8, reverseMax: 14, grip: 9, gripHandbrake: 1.8, steerRate: 2.6, airSteer: 0.4 },
     mass: 1.0, collision: { shape: 'circle', r: 1.3 },
     camera: { chase: { dist: 6.9, h: 2.6 }, near: { dist: 4.6, h: 1.85 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] } },
-    sound: { horn: [420, 528], hornDur: 0.45, engineBase: 55, enginePerRpm: 150, gears: [0, 20, 45, 75, 110, 150, 999] } },
+    sound: { gears: [0, 20, 45, 75, 110, 150, 999],
+      engine: { cylinders: 4, idleRpm: 850, shiftRpm: 6200, limitRpm: 6800, topKmh: 330, harmonics: [{ mul: 0.5, gain: 0.35, detune: -8 }, { mul: 1, gain: 1, detune: 0 }, { mul: 2, gain: 0.5, detune: 6 }, { mul: 3, gain: 0.22, detune: -5 }, { mul: 4, gain: 0.1, detune: 9 }],
+        filter: { idle: 450, open: 2600, offLoad: 0.55, q: 1.6 }, gain: { idle: 0.06, rev: 0.06, load: 0.1 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
+      horn: { notes: [415, 523], dur: 0.9, gain: 0.22, band: 1400, wave: 'square' } } },
   // #126: DeLorean look-alike. DMC-12 numbers: 177 km/h = 49 m/s, slow off the line, rear engine (a little less grip), 2.41 m wheelbase, 14"/15" wheels; five-speed box
   delorean: { model: 'delorean', gltf: null, scale: 1.0, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,
     drive: { top: 49, topNitro: 80, accel: 10, accelNitro: 26, brake: 22, reverse: 8, reverseMax: 12, grip: 8, gripHandbrake: 1.6, steerRate: 2.4, airSteer: 0.4 },
     mass: 1.0, collision: { shape: 'circle', r: 1.2 },
     camera: { chase: { dist: 6.9, h: 2.4 }, near: { dist: 4.6, h: 1.7 }, cockpit: { eye: [-0.15, 0.95, -0.38] }, bumper: { eye: [2.15, 0.45, 0] } },
-    sound: { horn: [392, 494], hornDur: 0.45, engineBase: 48, enginePerRpm: 140, gears: [0, 20, 42, 70, 105, 999] } },
+    sound: { gears: [0, 20, 42, 70, 105, 999],
+      engine: { cylinders: 6, idleRpm: 800, shiftRpm: 5200, limitRpm: 5800, topKmh: 295, harmonics: [{ mul: 0.5, gain: 0.45, detune: -7 }, { mul: 1, gain: 1, detune: 0 }, { mul: 2, gain: 0.4, detune: 5 }, { mul: 3, gain: 0.18, detune: -6 }],
+        filter: { idle: 380, open: 2200, offLoad: 0.5, q: 1.4 }, gain: { idle: 0.06, rev: 0.05, load: 0.09 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
+      horn: { notes: [370, 466], dur: 0.9, gain: 0.22, band: 1200, wave: 'square' } } },   // the PRV V6 sits behind the cabin: lazier revs, darker filter, a lower horn than the compact's
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -1166,7 +1173,7 @@ let CAR_SIZE = null;   // #124: body box measured once per build (buildCar), so 
 function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
 function buildCar() { freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); blob.scale.set(VEH.scale, 0.55 * VEH.scale, 1); CAR_SIZE = measureCar(); }
 // fail fast, before anything is swapped: only procedural builders and circle collision exist so far
-function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}' (glTF loading is not implemented yet)`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); }
+function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}' (glTF loading is not implemented yet)`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); checkSound(def.sound); }
 function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def); buildCar(); }   // own copy: a later change to def cannot skip checkVehicle
 const carRadius = () => VEH.collision.r * VEH.scale;   // circle only (checkVehicle); OBB: #6
 setVehicle(VEH);
@@ -1209,28 +1216,26 @@ document.getElementById('stylebtn').onclick = toggleStyle; document.getElementBy
 
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
-  let ac = null, eng = null, muted = false, held = false;   // held: paused (#83), ctx() must not wake the context; #14 replaces this with SFX.hold
-  const lv = { engine: 0, noise: 0, frames: 0 };   // last target gains, for the tests
-  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination); ac.master = master; } if (ac.state === 'suspended' && !held) ac.resume(); return ac; };
-  function engine() { if (eng) return eng; const a = ctx(); const o1 = a.createOscillator(), o2 = a.createOscillator(), g = a.createGain(), f = a.createBiquadFilter(); o1.type = 'sawtooth'; o2.type = 'square'; o2.detune.value = -1205; f.type = 'lowpass'; f.frequency.value = 700; f.Q.value = 2; g.gain.value = 0; o1.connect(f); o2.connect(f); f.connect(g); g.connect(a.master); o1.start(); o2.start(); const nb = a.createBuffer(1, a.sampleRate * 2, a.sampleRate); const d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const ns = a.createBufferSource(); ns.buffer = nb; ns.loop = true; const nf = a.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 300; nf.Q.value = 0.6; const ng = a.createGain(); ng.gain.value = 0; ns.connect(nf); nf.connect(ng); ng.connect(a.master); ns.start(); eng = { o1, o2, g, f, ng }; return eng; }
-  function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
-  function burst(dur, freq, q, vol) { if (muted) return; const a = ctx(); const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(a.master); s.start(); }
+  let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set();   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other
+  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(limit); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
+  function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0 }; return eng; }
+  function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted || holds.size) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
+  function burst(dur, freq, q, vol) { if (muted || holds.size) return; const a = ctx(); const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(a.master); s.start(); }
   return {
     start() { try { ctx(); engine(); } catch (e) { } },
-    update(kmh, gas, air, dt) { if (!eng) return; const S = VEH.sound, gears = S.gears; let gi = 0; while (kmh > gears[gi + 1]) gi++; const rpm = kmh < 2 ? 0 : (kmh - gears[gi]) / (gears[gi + 1] - gears[gi]); const f = S.engineBase + rpm * S.enginePerRpm + gi * 6; const now = eng.o1.context.currentTime; eng.o1.frequency.setTargetAtTime(f, now, 0.05); eng.o2.frequency.setTargetAtTime(f, now, 0.05); eng.f.frequency.setTargetAtTime(400 + rpm * 900 + (gas ? 300 : 0), now, 0.08); lv.engine = muted ? 0 : 0.06 + (gas ? 0.09 : 0.02) + rpm * 0.05; lv.frames++; eng.g.gain.setTargetAtTime(lv.engine, now, 0.08); eng.ng.gain.setTargetAtTime(lv.noise = muted || air ? 0 : Math.min(0.25, kmh / 400), now, 0.1); },
-    silent() { lv.engine = lv.noise = 0; lv.frames++; if (!eng) return; const now = eng.o1.context.currentTime; eng.g.gain.setTargetAtTime(0, now, 0.08); eng.ng.gain.setTargetAtTime(0, now, 0.1); },   // #10: no car engine or tyres in the air
-    levels() { return { ...lv }; },
+    // input { kmh, gas, nitro, air, fly } from the loop; a vehicle swap (setVehicle clones VEH) rebuilds the engine voices for the new preset
+    update(input, dt) { if (!eng) return; if (eng.src !== VEH.sound.engine) { stopEngine(eng); eng = null; engine(); } es = engineStep(es, input, VEH.sound, dt); mix = engineMix(es, input, VEH.sound.engine); rmix = rotorMix(input); frames++; const t = ac.currentTime; applyEngine(eng, mix, t); applyRotor(rot, rmix, t); },
     checkpoint() { beep(660, 0.12, 'square', 0.18); beep(990, 0.18, 'square', 0.18, 0.1); },
     finish() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.25, 'square', 0.2, i * 0.12)); },
     crash(v) { burst(0.18, 320, 1, 0.5 * v + 0.15); },
     splash() { burst(0.6, 900, 0.5, 0.4); },
-    horn() { for (const f of VEH.sound.horn) beep(f, VEH.sound.hornDur, 'sawtooth', 0.12); },
-    toggle() { muted = !muted; return muted; },
-    suspend() { held = true; if (ac) ac.suspend(); },
-    resume() { held = false; if (ac) ac.resume(); },
-    state() { return ac ? ac.state : null; },
+    horn() { if (muted || holds.size) return; const a = ctx(); playHorn(a, a.master, VEH.sound.horn, a.currentTime); },
+    toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
+    hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
+    state() { return { ctx: ac ? ac.state : 'none', muted, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix } }; },
   };
 })();
+document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
 
 // ---------- car state & physics ----------
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
@@ -1292,7 +1297,9 @@ window.__mm.raceFlags = () => ({ jumped: !!R.jumped, flown: !!R.flown, auto: !!R
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, blinker: HUD.blinker, last: AUTOP.last });
 // drive headless: step the car and the race at 1/60 s while the autopilot is on, at most secs seconds
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
-window.__mm.sfx = () => SFX.levels();
+window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
+window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
+window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
 window.__mm.nearestRoad = (x, z) => nearestJumpable(x, z);
 window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, alt: FLY.alt, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
@@ -1402,7 +1409,7 @@ $('startbtn').onclick = () => { SFX.start(); startRace(); };
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };
 const inRun = () => canPause($('overlay').hidden, R.state);
-const holdSound = (on) => on ? SFX.suspend() : SFX.resume();   // #14 lands second: replace with SFX.hold('menu', on)
+const holdSound = (on) => SFX.hold('menu', on);   // #14: one of several hold reasons -- a hidden tab holds 'tab' and must not release this one
 function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; for (const k in keys) keys[k] = false; $('help').hidden = true; closeJump(); $('pause').hidden = false; holdSound(true); $(PAUSE_BUTTONS[0]).focus(); }
 function closePause() { if (!PAUSE.on) return; PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
 function restartRace() { closePause(); startRace(); }
@@ -1417,7 +1424,7 @@ const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon,
 function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), helpOpen: !$('help').hidden, confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
 $('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu;
 document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
-window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.frame, state: R.state, t: R.t, best: R.best, x: P.x, z: P.z, audio: SFX.state(), focus: document.activeElement?.id || '' });
+window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.frame, state: R.state, t: R.t, best: R.best, x: P.x, z: P.z, audio: SFX.state().ctx, focus: document.activeElement?.id || '' });
 function jumpEntries() { return JUMP.mode === 'drive' ? [...JUMP_ENTRIES, ...AUTOP.streets] : JUMP_ENTRIES; }
 function jumpRows() { const rows = filterLandmarks(jumpEntries(), JUMP.q, JUMP.g); return JUMP.mode === 'drive' ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }]; }
 function renderJump() {
@@ -1519,13 +1526,13 @@ debugSection(() => mapLines(TGRID.GW, TGRID.GD));   // #124
 window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length });
 if (debugFromQuery(location.search)) toggleDebug();
 { const id = vehicleFromQuery(location.search, Object.keys(VEHICLES)); if (id && id !== VEH.model) setVehicle(VEHICLES[id]); }   // #126: ?vehicle=<id>; the picker is #7
-function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; renderOdo(); try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } { const on = Math.floor(performance.now() / 350) % 2 === 0; $('blL').className = HUD.blinker === 'left' && on ? 'on' : ''; $('blR').className = HUD.blinker === 'right' && on ? 'on' : ''; for (const s of ['left', 'right']) BLINK[s].visible = HUD.blinker === s && on; } if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; HUD.road = roadNameAt(gridQuery(ROAD_GRID, P.x, P.z, 1), P.x, P.z); $('roadname').textContent = HUD.road; $('autoline').textContent = AUTOP.on ? tr('autoLine', AUTOP.dest.n, ((AUTOP.st.route.len - AUTOP.st.s) / 1000).toFixed(1)) : ''; } if (performance.now() - LABELS.t > 250) { LABELS.t = performance.now(); updateLabels(P.x, P.z); } updateVillageNames(P.x, P.z); $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gears = VEH.sound.gears; let gi = 0; while (kmh > gears[gi + 1]) gi++; $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); $('dmg').firstElementChild.style.width = (P.dmg * 100) + '%'; $('time').innerHTML = fmt(R.t); $('best').textContent = tr('best', R.best === null ? null : fmt(R.best).replace(/<[^>]+>/g, '')); if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = R.target.i < 0 ? tr('finishTarget', R.target.n) : tr('cpTarget', R.target.i + 1, R.target.n); } fadeToast(dt); debugTick(); clampDebugHeights(); setFullMap(!!keys.Tab && $('overlay').hidden); drawMap(); }
+function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; renderOdo(); try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } { const on = Math.floor(performance.now() / 350) % 2 === 0; $('blL').className = HUD.blinker === 'left' && on ? 'on' : ''; $('blR').className = HUD.blinker === 'right' && on ? 'on' : ''; for (const s of ['left', 'right']) BLINK[s].visible = HUD.blinker === s && on; } if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; HUD.road = roadNameAt(gridQuery(ROAD_GRID, P.x, P.z, 1), P.x, P.z); $('roadname').textContent = HUD.road; $('autoline').textContent = AUTOP.on ? tr('autoLine', AUTOP.dest.n, ((AUTOP.st.route.len - AUTOP.st.s) / 1000).toFixed(1)) : ''; } if (performance.now() - LABELS.t > 250) { LABELS.t = performance.now(); updateLabels(P.x, P.z); } updateVillageNames(P.x, P.z); $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gi = gearAt(kmh, VEH.sound.gears); $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); $('dmg').firstElementChild.style.width = (P.dmg * 100) + '%'; $('time').innerHTML = fmt(R.t); $('best').textContent = tr('best', R.best === null ? null : fmt(R.best).replace(/<[^>]+>/g, '')); if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = R.target.i < 0 ? tr('finishTarget', R.target.n) : tr('cpTarget', R.target.i + 1, R.target.n); } fadeToast(dt); debugTick(); clampDebugHeights(); setFullMap(!!keys.Tab && $('overlay').hidden); drawMap(); }
 
 // ---------- loop ----------
 applyStyle('original'); resize();
 let last = performance.now();
 function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; PAUSE.frame++; if (PAUSE.on) { fadeToast(dt); debugTick(); clampDebugHeights(); renderer.render(scene, camera); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); if (FLY.on) SFX.silent(); else SFX.update(Math.hypot(P.vx, P.vz) * 3.6, P.gas, P.air, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); stepDoors(dt); drawDoors(); renderer.render(scene, camera); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: Math.hypot(P.vx, P.vz) * 3.6, gas: P.gas, nitro: P.nitro, air: P.air, fly: FLY.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); stepDoors(dt); drawDoors(); renderer.render(scene, camera); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; blob.position.set(START.x, sy + 0.05, START.z); }
 requestAnimationFrame(loop);
 </script>
