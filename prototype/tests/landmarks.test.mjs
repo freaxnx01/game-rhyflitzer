@@ -67,8 +67,8 @@ const BUILDINGS_46 = [
   ['Schulhaus Sisseln', 'Sisseln', 171822721],
 ];
 
-test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102', () => {
-  assert.equal(LANDMARK_INFO.length, 27);
+test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103', () => {
+  assert.equal(LANDMARK_INFO.length, 28);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
@@ -81,7 +81,7 @@ test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower
      ['Bahnhof Eiken', 'Eiken', 199241726],
      ['Bodenackerstrasse 6c', 'Sisseln', 171822634], ['Bodenackerstrasse 10B', 'Sisseln', 171822943],
      ['Gemeindehaus Sisseln', 'Sisseln', 171822808], ['Schulhaus Sisseln', 'Sisseln', 171822721]]);
-  assert.deepEqual(LANDMARK_INFO.filter(l => l.gemeinde === 'Eiken').map(l => l.name), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
+  assert.deepEqual(LANDMARK_INFO.filter(l => l.gemeinde === 'Eiken').map(l => l.name), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Güggeli-Foodtruck']);
 });
 
 test('#46 entries resolve from their buildings, sort into their Gemeinde and are found accent-blind', () => {
@@ -126,6 +126,15 @@ test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found b
   assert.deepEqual(filterLandmarks(e, 'landi', null).map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(filterLandmarks(e, 'LANDI', 'Eiken').map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Bergsee', 'DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
+});
+
+test('#103 Güggeli-Foodtruck resolves from its anchor, sits last in Eiken and is found by "gugg", "food" and "GÜGGELI"', () => {
+  const anchors = { dsmChimney: { x: 1065.2, z: 345.1 }, stationSisseln: { x: 1854.2, z: 685.8 }, landiTurm: { x: 1832.7, z: 627.7 }, foodTruck: { x: 1758.5, z: 1986.5 } };
+  const e = landmarkEntries(LANDMARK_INFO, anchors, [{ id: '199241726', ring: [[1700, 1930], [1720, 1930], [1720, 1943], [1700, 1943]] }]);
+  assert.deepEqual(filterLandmarks(e, '', 'Eiken').map(x => x.n), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Güggeli-Foodtruck']);
+  assert.deepEqual(e.find(x => x.n === 'Güggeli-Foodtruck'), { n: 'Güggeli-Foodtruck', g: 'Eiken', x: 1758.5, z: 1986.5 });
+  for (const q of ['gugg', 'food', 'GÜGGELI', 'truck']) assert.deepEqual(filterLandmarks(e, q, null).map(x => x.n), ['Güggeli-Foodtruck'], q);
+  assert.ok(!landmarkEntries(LANDMARK_INFO, { landiTurm: anchors.landiTurm }, []).some(x => x.n === 'Güggeli-Foodtruck'), 'skipped while the anchor is missing');
 });
 
 test('rampApproach stands runUp metres before the low edge, centred, facing up the ramp (+x)', () => {
