@@ -2,6 +2,21 @@
 
 Manual playtests still owed. Tick an item once it has been played in the browser (live: https://github.freaxnx01.ch/game-rhyflitzer/), and note what was found.
 
+## Underwater Rhine (#101, PR #159)
+
+Screenshot: `docs/ai-notes/screenshots/2026-10-09-underwater.png` — murky blue-green, the surface visible overhead, sand-coloured bed with boulders and weed, a school of fish: does it read as „under the Rhine", or is it too dark / too bright / too blue?
+
+- [ ] Drive off the gravel at Sisseln into the Rhine: splash, „Sleep with the fishes!", the car sinks and lands on the bed; the picture turns blue-green while the camera goes under (not before).
+- [ ] After 3 s the hint „Drive up to the bank, or press R for the road." shows once per dive.
+- [ ] On the bed the car drives at walking pace, steers, and climbs out where the bed meets the bank — no kerb, no jump, no reset.
+- [ ] Bubbles rise from the back of the car in the water; none on land, none in the helicopter.
+- [ ] Fish circle in schools (silver, green, orange), weed stands on the bed, boulders lie about; nothing pokes through the surface.
+- [ ] The capsized rowing boat and the rusty car lie at the bend below Bad Säckingen (J → Bad Säckingen, then drive in from the Rheinbrückstrasse bank and follow the river).
+- [ ] **T** underwater keeps the murk in both styles; **F** takes off from the bed, the surface passes, the sky comes back.
+- [ ] The chase camera in the shallows near the bank: under the surface but never inside the bed.
+- [ ] The Sissle: splashing through it is slow, but you come out the other side (no reset).
+- [ ] Holzbrücke and Fridolinsbrücke: unchanged, the car does not fall through.
+
 ## Building heights (#17, PR #26 — merged 2026-10-02)
 
 - [ ] **Winkel / Bodenackerstrasse quarter is recognizable:** J → Sisseln, then drive to the Hallenbad (Bodenackerstrasse 2). Check:
