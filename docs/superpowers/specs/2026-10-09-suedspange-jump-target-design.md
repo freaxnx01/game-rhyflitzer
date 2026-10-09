@@ -1,44 +1,60 @@
-# Südspange as a jump target (#125)
+# Südspange Sisslerfeld as a jump target — design
+
+Status: approved in headless `/enrich` (quick mode, no human gate) 2026-10-09 · Issue #125 · builds on #41, #46, #81 · related #42, #94
 
 ## Goal
 
-**J** lists "Südspange Sisslerfeld" so a player can jump to the new road's start at the K295 junction. It must work today, before the road exists in the world (#42), and keep working after #42 lands.
+The **J** list (#41) offers the **Südspange Sisslerfeld** under the Eiken chip, found by typing `sudspange` or
+`südspange`, and Enter puts the car on a road at the junction where the road is planned to start — today the
+K295, once #42 draws the Südspange, the Südspange itself.
 
-## What the world has today (probed 2026-10-09 in `data/world_hochrhein.json`)
+## The facts (verified 2026-10-09 against `data/world_hochrhein.json`; `main` @ `8d42d5a`)
 
-- The K295 Laufenburgerstrasse is road index 5 (`primary`), **10.7 m** from the junction point (1528, 409) fixed by #42's acceptance criteria.
-- Nothing named "Südspange" exists; the construction way `w1417144102` is dropped by `pipeline/world_roads.py:24-33` (`keep()` has no `construction`). #42 brings it in.
-- The Sisslerstrasse end (32.8, 402.1) lies on three `residential` roads; the track crossing (1240, 574) is 17.9 m from a `service` road.
-- `anchors.landmarks` has no Südspange key, and `pipeline/anchors.json` is not touched here (a new anchor needs a world re-bake, which #42 already does).
+- **The target point is game (1528, 409)**, the junction of the planned Südspange with the K295, fixed by #42's
+  acceptance criteria.
+- **A road is already there.** The nearest jumpable road segment (the `jumpable` filter of
+  `prototype/index.html`: no bridge, no motorway) to that point is road index 5, `cls primary`,
+  `n Laufenburgerstrasse` — the K295 — at **0.10 m**, closest point (1528.1, 409.0). So `nearestJumpable` snaps
+  the car onto the K295 right at the junction and the entry needs no world change and no dependency on #42.
+- **Gemeinde: Eiken.** `LANDMARK_INFO` already puts DSM-Kamin (x 1065) and Bahnhof Sisseln (x 1854) in Eiken; the
+  junction at x 1528 lies between them.
+- **`sourcePos` today knows two sources** (`prototype/landmarks.js:43-50`): an `anchors.landmarks` key and a world
+  building id. Neither can carry a point that is in no world file, and `pipeline/anchors.json` would need a world
+  re-bake. #94 has not landed, so there is no `at` source yet.
 
-## Design
+## Decisions
 
-One new row in `LANDMARK_INFO` (`prototype/landmarks.js`): `{ name: 'Südspange Sisslerfeld', gemeinde: 'Eiken', at: [1528, 409] }`, listed after `LANDI-Turm`.
-
-- **Position:** the K295 junction, the road's start. It is a fixed world coordinate, not a world object, so it uses the `at: [x, z]` source from #94 (`sourcePos` returns `{x: at[0], z: at[1]}`).
-- **While the road does not exist:** `jumpTo` snaps `(x, z)` to the nearest jumpable road, which is the K295 (10.7 m away). The player lands at the future junction. Nothing in the entry needs the new road.
-- **After #42:** the same coordinates are the Südspange's first node, so the snap picks the K295 or the Südspange's first metres, both at the junction. No change needed; there is **no dependency on #42** in either direction.
-- **No `jump`/`faceToward`:** the car keeps the road's heading (`prototype/index.html:1243`); the junction has no "right" facing.
-- **Gemeinde:** Eiken (the junction lies between DSM-Kamin at (1065, 345) and Bahnhof Sisseln at (1940, 539), both Eiken). No chip change.
-
-### Relation to #94
-
-#94 adds Bergsee, fixes the Plattform and introduces the `at` source. This issue adds one row and, if #94 is not on `main` yet, the identical one-line `at` branch of `sourcePos`; the merges are textual and touch different rows. #94 is not duplicated: no Bergsee, no Plattform, no Hallenbad.
-
-## Out of scope
-
-The road itself, its signs and its HUD name (#42); the autopilot's destination list (#18 reads `LANDMARK_INFO` and gets the entry for free); other jump spots (#94).
-
-## Assumptions
-
-- **A1** [high] The target is the K295 junction (1528, 409), the road's start. Rejected: the track crossing or the Sisslerstrasse end. #42's acceptance criteria fix the junction coordinate; the start is where a player expects to begin driving it.
-- **A2** [high] No dependency on #42: the entry snaps to the nearest existing road. Rejected: waiting for #42. Evidence: world road 5 (`primary`, K295) lies 10.7 m from the point today.
-- **A3** [high] An `at: [x, z]` source, not an anchor. Rejected: `pipeline/anchors.json` (needs a world re-bake). Evidence: `prototype/landmarks.js:20-25` (`sourcePos` has anchor and building only); #94 A5.
-- **A4** [med] Gemeinde = Eiken. Rejected: Münchwilen (Plattform Sisslerfeld's chip) and Sisseln. Evidence: `LANDMARK_INFO` puts DSM-Kamin and Bahnhof Sisseln in Eiken; the junction is between them (x 1065 to 1940).
-- **A5** [med] Name "Südspange Sisslerfeld", the project's own name, shown in both languages. Proper names are not translated (`prototype/strings.js:2`).
+| Topic | Decision | Rationale |
+|---|---|---|
+| Target point | The K295 junction, game **(1528, 409)** — the road's start. | Fixed by #42's acceptance criteria, and where a player expects to begin driving the new road. Rejected: the track crossing and the Sisslerstrasse end. |
+| Source kind | A new third `sourcePos` source, `at: [x, z]`, returned before the anchor and building branches. | The point is not in the world file and must not need one. Rejected: a `pipeline/anchors.json` anchor — it needs a world re-bake, and `data/` is out of scope. |
+| Dependency on #42 | None. The row snaps to the nearest existing road. | The K295 lies 0.1 m from the point today, so J works now; #42 only makes the destination worth looking at. |
+| Name | `Südspange Sisslerfeld`, unchanged in `de` and `en`. | The project's own name; proper names are not translated (`prototype/strings.js:2`), like every other J entry. |
+| Gemeinde | `Eiken`. | Boundary-consistent with DSM-Kamin and Bahnhof Sisseln, which flank the junction. Rejected: Münchwilen (the Plattform's chip) and Sisseln. |
+| Place in the table | After `LANDI-Turm`, i.e. last in the Eiken block. | The #46 rule: new entries go at the end of their Gemeinde block, so the chip order stays stable. |
+| No model | Nothing is drawn at the point. | #42 owns the road; this issue is a list row and a jump target only. |
 
 ## Consequences
 
-- The J list grows by one row (one more in the Eiken chip); count assertions in `landmarks.test.mjs` and `test_jump.py` move by one.
-- A player jumping there today lands on the K295 and sees no Südspange; #42 makes the destination real.
-- The row stays valid if #19 enlarges the box (origin kept).
+- The J list grows by one row, one more under the Eiken chip. `LANDMARK_INFO.length`, `ALL_ROWS` and the Eiken
+  row lists move by one.
+- Because `at` needs no anchor, the row appears whenever a world file is served, regardless of which anchors or
+  buildings that world carries. Without a world file the hand layout replaces the landmark list with the race
+  points, so there is no row and no error — the same graceful degradation as the other landmarks.
+- A player jumping there today lands on the K295 and sees no Südspange.
+- The row stays valid if #19 enlarges the box, since the origin is kept.
+
+## Testing
+
+- **Node** (`prototype/tests/landmarks.test.mjs`): the row (Eiken, `at: [1528, 409]`, no `jump`); it resolves to
+  its fixed point from `landmarkEntries(LANDMARK_INFO, {}, [])`, i.e. with no anchors and no buildings; it is
+  found by `sudspange`, `südspange` and `SISSLERFELD`; the entry-count and Eiken-list assertions follow.
+- **Browser** (`prototype/tests/test_jump.py`): `sudspange` + Enter lands within 40 m of (1528, 409) and within
+  4 m of a jumpable road (`_jumpable_road_dist`, the same check #79's Fridolinsbrücke test uses). No assertion
+  about a Südspange road — that is #42.
+
+## Out of scope
+
+- Drawing the Südspange (#42).
+- The other jump spots of #94 (Bergsee, Plattform, Hallenbad).
+- Any `pipeline/`, `data/` or `prototype/index.html` change.

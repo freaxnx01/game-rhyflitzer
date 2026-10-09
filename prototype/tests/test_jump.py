@@ -27,8 +27,8 @@ def _world_anchor_keys():
 
 WORLD81 = "landiTurm" in _world_anchor_keys()           # world rebuilt with the #81 LANDI tower anchor
 needs_world81 = pytest.mark.skipif(not WORLD81, reason="world not rebuilt for #81 (Task 4 of docs/superpowers/plans/2026-10-03-landi-tower.md)")
-EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else [])
-ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0)   # landmarks shown + Random spot
+EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"]
+ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + 1   # landmarks shown + Random spot; the Südspange (#125) is a fixed point, listed in any world
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else [])
 
@@ -330,6 +330,26 @@ def test_fridolinsbruecke_lands_on_the_swiss_side_facing_the_bridge(server):
         ax, az = anchor("fridolinsbruecke")
         ux, uz = ax - c["x"], az - c["z"]
         assert (math.cos(th) * ux + math.sin(th) * uz) / math.hypot(ux, uz) > 0.5, "car does not face the bridge"
+        b.close()
+
+
+SUEDSPANGE = (1528, 409)          # #125: the junction with the Laufenburgerstrasse (K295) where the Südspange starts
+
+
+@needs_world
+def test_suedspange_jump_lands_on_a_road_at_the_k295_junction(server):
+    """#125: 'sudspange' finds the Südspange Sisslerfeld (Eiken) and Enter puts the car on a road at the junction -
+    the K295 today, the Südspange itself once #42 draws it."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.keyboard.type("sudspange")
+        assert rows(page) == [{"n": "Südspange Sisslerfeld", "g": "Eiken"}, {"n": "Random spot", "g": None}]
+        page.keyboard.press("Enter")
+        c = car(page)
+        d = math.hypot(c["x"] - SUEDSPANGE[0], c["z"] - SUEDSPANGE[1])
+        assert d < 40, f"car at ({c['x']:.1f}, {c['z']:.1f}) is {d:.0f} m from the junction"
+        assert _jumpable_road_dist(c["x"], c["z"]) < 4, "the car did not land on a road"
         b.close()
 
 
