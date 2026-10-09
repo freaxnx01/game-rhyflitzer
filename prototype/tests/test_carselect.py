@@ -18,7 +18,8 @@ SLOW = "(() => { const c = window.__mm.vehicles().compact; c.drive.top = 30; c.m
 def open_page(p, server, phone=False, stored=None, query=""):
     b = p.chromium.launch(args=ARGS)
     if phone:
-        ctx = b.new_context(viewport={"width": 360, "height": 740}, has_touch=True, is_mobile=True, locale="de-CH")
+        # has_touch without is_mobile (see test_pause.py): index.html has no <meta name="viewport">, so is_mobile would lay out at 980 px
+        ctx = b.new_context(viewport={"width": 360, "height": 740}, has_touch=True, locale="de-CH")
     else:
         ctx = b.new_context(viewport={"width": 1280, "height": 720}, locale="en-US")
     if stored is not None:
