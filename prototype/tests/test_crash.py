@@ -144,3 +144,22 @@ def test_mute_silences_the_crash_and_queues_nothing(server):
         b.close()
     assert muted == 0, "a crash played while muted"
     assert unmuted == 1, "the same hit plays nothing unmuted either -- the mute test proves nothing"
+
+
+def test_pause_silences_the_crash_and_queues_nothing(server):
+    """A pause hold (#83's menu, via #14's SFX.hold) silences the crash like mute does; releasing it does not
+    play the held hit late, and the same hit plays once the hold is gone."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate("() => window.__mm.sfxHold('menu', true)")
+        page.evaluate(HARD_HIT)
+        held = crashes(page)["count"]
+        page.evaluate("() => window.__mm.sfxHold('menu', false)")
+        time.sleep(0.6)
+        released = crashes(page)["count"]
+        page.evaluate(HARD_HIT)
+        resumed = crashes(page)["count"]
+        b.close()
+    assert held == 0, "a crash played while paused"
+    assert released == 0, "releasing the pause played the held crash late"
+    assert resumed == 1, "the same hit plays nothing after the pause either -- the pause test proves nothing"
