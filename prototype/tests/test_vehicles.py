@@ -348,6 +348,19 @@ def test_compact_has_no_doors(server):
     assert got["panelY"] == [], got
 
 
+def test_swapping_from_the_delorean_to_the_compact_drops_the_door_entries(server):
+    """Review #142: buildCar must reset car.userData.doors, or drawDoors keeps rotating detached hinges after a swap."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(DELOREAN_JS)
+        before = page.evaluate(DOORS_JS)
+        page.evaluate("() => { window.__mm.setVehicle(window.__mm.vehicles().compact); }")
+        after = page.evaluate(DOORS_JS)
+        b.close()
+    assert len(before["panelY"]) == 2, before
+    assert after["panelY"] == [], after
+
+
 def test_delorean_rebuilds_free_gpu_memory(server):
     """#126: five DeLorean rebuilds keep the GPU counters flat (the steel grain is shared, the plate is per-build)."""
     with sync_playwright() as p:
