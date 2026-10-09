@@ -103,3 +103,52 @@ def test_r_puts_the_car_back_on_the_road(server):
         c = car(page)
         b.close()
     assert c["splash"] == 0 and c["submerged"] is False
+
+
+def underwater(page):
+    return page.evaluate("() => window.__mm.underwater()")
+
+
+def test_look_follows_the_camera(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        dry = underwater(page)
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(MID_RHINE))
+        page.wait_for_function("() => window.__mm.underwater().on", timeout=180000)
+        wet = underwater(page)
+        cam = page.evaluate("() => window.__mm.cam()")
+        page.keyboard.press("KeyR")
+        page.wait_for_function("() => !window.__mm.underwater().on", timeout=60000)
+        back = underwater(page)
+        b.close()
+    assert dry["on"] is False and dry["fogDensity"] is None                 # original style: linear fog, no density
+    assert wet["on"] is True and abs(wet["fogDensity"] - 0.035) < 1e-6 and wet["waterDoubleSide"] is True
+    assert cam["d"][1] < 6, cam                                            # the chase cam came down with the car (under the 0 m surface)
+    assert back["on"] is False and back["fogDensity"] is None
+
+
+def test_t_underwater_keeps_the_murk(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(MID_RHINE))
+        page.wait_for_function("() => window.__mm.underwater().on", timeout=180000)
+        page.keyboard.press("KeyT")
+        page.wait_for_timeout(500)
+        u = underwater(page)
+        b.close()
+    assert u["on"] is True and abs(u["fogDensity"] - 0.035) < 1e-6
+
+
+def test_bubbles_rise_only_in_the_water(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        dry = underwater(page)
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(MID_RHINE))
+        page.wait_for_function("() => window.__mm.car().splash > 1", timeout=180000)
+        wet = underwater(page)
+        b.close()
+    assert dry["bubbles"]["visible"] is False
+    assert wet["bubbles"]["visible"] is True and wet["bubbles"]["count"] == 24 and wet["bubbles"]["maxY"] <= 0.05
