@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, existsSync } from 'node:fs';
 import { GEMEINDEN, LANDMARK_INFO, foldText, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from '../landmarks.js';
 
 const ANCHORS = { muenster: { x: -1331, z: -172.7 }, smileKreisel: { x: 1270, z: -148 } };
@@ -162,4 +163,42 @@ test('landmarkEntries gives the Südspange its fixed point without any world anc
 test('filterLandmarks finds the Südspange by "sudspange", "südspange" and "SISSLERFELD" (#125)', () => {
   const e = landmarkEntries(LANDMARK_INFO, {}, []);
   for (const q of ['sudspange', 'südspange', 'SISSLERFELD']) assert.ok(filterLandmarks(e, q, null).some(x => x.n === 'Südspange Sisslerfeld'), q);
+});
+
+test('#94 Bergsee, Hallenbad and Plattform are in the J table', () => {
+  const by = n => LANDMARK_INFO.find(l => l.name === n);
+  assert.equal(by('Bergsee').gemeinde, 'Bad Säckingen');
+  assert.deepEqual(by('Bergsee').at, [-2349, -2207]);
+  assert.deepEqual(by('Bergsee').jump, [-2281.8, -2179.9]);
+  assert.equal(by('Hallenbad Sissila').gemeinde, 'Sisseln');
+  assert.equal(by('Hallenbad Sissila').anchor, 'hallenbad');
+  assert.equal(by('Plattform Sisslerfeld').gemeinde, 'Münchwilen');
+  assert.deepEqual(by('Plattform Sisslerfeld').jump, [78.1, 861.4]);
+  const names = landmarkEntries(LANDMARK_INFO, { hallenbad: { x: 1968, z: -374.2 } }, []).map(x => x.n);
+  assert.ok(names.includes('Bergsee') && names.includes('Hallenbad Sissila'));
+  assert.deepEqual(filterLandmarks(landmarkEntries(LANDMARK_INFO, {}, []), 'berg', null).map(x => x.n), ['Bergsee']);
+});
+
+const WORLD_URL = new URL('../../data/world_hochrhein.json', import.meta.url);
+const inRing = (r, x, z) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, zi] = r[i], [xj, zj] = r[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; };
+// the road a jump spot snaps to, the way nearestJumpable picks it (prototype/index.html)
+const nearestRoad = (roads, x, z) => roads.filter(r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link')
+  .flatMap(r => r.pts.slice(1).map((b, i) => {
+    const a = r.pts[i], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2));
+    return { d: Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t), n: r.n };
+  })).reduce((best, c) => (c.d < best.d ? c : best));
+
+test('#94 world sanity: the Bergsee point lies in the lake, the jump spots on their streets', { skip: !existsSync(WORLD_URL) }, () => {
+  const w = JSON.parse(readFileSync(WORLD_URL, 'utf8'));
+  const by = n => LANDMARK_INFO.find(l => l.name === n);
+  const [bx, bz] = by('Bergsee').at;
+  assert.ok(w.water.some(c => c.name === 'Bergsee' && inRing(c.rings[0], bx, bz)), 'the Bergsee point is inside a Bergsee water ring');
+  const bergseeRoad = nearestRoad(w.roads, ...by('Bergsee').jump);
+  assert.ok(bergseeRoad.d < 3, `Bergsee jump spot is ${bergseeRoad.d.toFixed(1)} m off the nearest road`);
+  assert.equal(bergseeRoad.n, 'Am Bergsee');
+  const plattformRoad = nearestRoad(w.roads, ...by('Plattform Sisslerfeld').jump);
+  assert.ok(plattformRoad.d < 3, `Plattform jump spot is ${plattformRoad.d.toFixed(1)} m off the nearest road`);
+  assert.equal(plattformRoad.n, 'Breitenloh');
+  const p = w.anchors.landmarks.plattform, j = by('Plattform Sisslerfeld').jump;
+  assert.ok(Math.hypot(j[0] - p.x, j[1] - p.z) >= 15, 'Plattform jump spot is clear of the tower');
 });
