@@ -16,14 +16,16 @@ export function axisCoords(x, z, h = HIDEOUT) {
   const a = hideoutAxis(h), dx = x - a.mouth[0], dz = z - a.mouth[1];
   return { s: dx * a.ux + dz * a.uz, d: Math.abs(-dx * a.uz + dz * a.ux) };
 }
-// the floor: ground at the mouth (g0), down the grade to the cavern centre, flat from there
-export function floorAt(s, g0, h = HIDEOUT) { return g0 - h.grade * Math.min(Math.max(0, s), h.length); }
+// The floor: ground at the mouth (g0), down the grade, level from the cavern's near edge on -- so the tunnel floor and the
+// flat cavern disc meet without a step (they would differ by grade * cavernR if the grade ran all the way to the centre).
+export function floorAt(s, g0, h = HIDEOUT, u = TUNNEL) { return g0 - h.grade * Math.min(Math.max(0, s), h.length - cavernR(h, u)); }
 
 // Two cuts in the shape makeCut() builds (index.html): the tunnel polyline mouth -> centre with its deepest point (t) at the
 // centre, and a 0.1 m polyline through the centre whose hw makes cutFloorAt a flat disc of radius cavernR.
 export function hideoutCuts(groundAt, h = HIDEOUT, u = TUNNEL) {
-  const a = hideoutAxis(h), g0 = groundAt(a.mouth[0], a.mouth[1]), f0 = floorAt(h.length, g0, h), depth = groundAt(a.centre[0], a.centre[1]) - f0;
-  const tunnel = { pts: a.pts, t: h.length, hw: h.hw, flat: 0, f0, u, x: a.centre[0], z: a.centre[1], capped: null, depth };
+  const a = hideoutAxis(h), g0 = groundAt(a.mouth[0], a.mouth[1]), f0 = floorAt(h.length, g0, h, u), depth = groundAt(a.centre[0], a.centre[1]) - f0;
+  // flat = cavernR: the tunnel's own floor is already level over the disc, so cutFloorMin finds no step where the two cuts meet
+  const tunnel = { pts: a.pts, t: h.length, hw: h.hw, flat: cavernR(h, u), f0, u, x: a.centre[0], z: a.centre[1], capped: null, depth };
   tunnel.reach = [cutReach(tunnel, (s) => groundAt(a.centre[0] + a.ux * s, a.centre[1] + a.uz * s), u)[0], 0];
   const [cx, cz] = a.centre, e = 0.05;
   const cavern = { pts: [[cx - a.ux * e, cz - a.uz * e], [cx + a.ux * e, cz + a.uz * e]], t: e, hw: h.cavernHw, flat: 1, f0, u, x: cx, z: cz, capped: null, depth, reach: [1, 1] };
@@ -49,11 +51,21 @@ export function inHideout(x, z, h = HIDEOUT) {
   const { s, d } = axisCoords(x, z, h);
   return d <= 10 && s >= -4 && s <= h.length;
 }
-// n wall pieces around a circle: centre, tangent heading (rot, as wallStations' rot: the box's long axis is (cos rot, sin rot))
-export function ringStations(cx, cz, r, n) {
-  const out = [];
-  for (let k = 0; k < n; k++) { const a = (k + 0.5) / n * 2 * Math.PI; out.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r, rot: a + Math.PI / 2, len: 2 * Math.PI * r / n + 0.05 }); }
+// n wall pieces along an arc (the whole circle by default): centre, tangent heading (rot, as wallStations' rot: the box's
+// long axis is (cos rot, sin rot))
+export function ringStations(cx, cz, r, n, a0 = 0, a1 = 2 * Math.PI) {
+  const out = [], span = a1 - a0;
+  for (let k = 0; k < n; k++) { const a = a0 + (k + 0.5) / n * span; out.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r, rot: a + Math.PI / 2, len: span * r / n + 0.05 }); }
   return out;
+}
+// The cavern's ring wall is an arc, not a closed circle: the stretch facing the tunnel is left out, so the corridor opens
+// into the cavern. The arc ends exactly at the corridor's outer faces (hw + margin + wall off the axis). The wall's outer
+// face sits on the cut's edge and its inner face a whole wall thickness inside it, because the skirt the patch grid draws
+// there drops the full height of the hill: a 1 m patch cell blends the hilltop up to a cell diagonal inside the edge, and
+// anything of that left uncovered reads as a green wall in the cave.
+export function ringArc(h = HIDEOUT, u = TUNNEL) {
+  const r = cavernR(h, u) - u.wall / 2, half = Math.asin(Math.min(1, (h.hw + u.margin + u.wall) / r)), a0 = h.heading + Math.PI + half;
+  return { r, a0, a1: a0 + 2 * Math.PI - 2 * half };
 }
 // The Eiffel Tower at h metres (1:10 at 33), base y = 0, centred on (0, 0), unrotated: four legs of three tapered segments
 // (base corners +-6.25 -> 1st floor +-3.5 at 5.7 -> 2nd floor +-2.0 at 11.5 -> top +-0.9 at 27.6), X braces on the two lower

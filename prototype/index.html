@@ -325,7 +325,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
-import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, ringStations, eiffelParts } from './hideout.js';
+import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, ringStations, ringArc, eiffelParts } from './hideout.js';
 import { translate } from './strings.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
@@ -855,10 +855,11 @@ function hideoutBuild() {
   for (const w of wallStations(a.pts, [[0, h.length]], inner + u.wall / 2, 2)) {
     const fl = floor(w.t), ground = meshH(w.x + w.nx * (u.wall / 2 + 0.5), w.z + w.nz * (u.wall / 2 + 0.5));
     if (ground - fl <= 0.1) continue;
+    if (inCavern(w.x, w.z, -u.wall)) continue;   // the corridor's walls stop just inside the cavern, where the ring takes over
     wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, w.t >= HIDE.portal ? meshH(w.x, w.z) - 0.6 : ground + 1);   // parapet in the open trench, up to the ceiling under the lid
   }
-  const [cx, cz] = a.centre, fl = floor(h.length); HIDE.floor = fl;
-  for (const r of ringStations(cx, cz, cavernR(h, u) + u.wall / 2, 24)) wallBox(r.x, r.z, r.len, r.rot, fl, meshH(r.x, r.z) - 0.6);
+  const [cx, cz] = a.centre, fl = floor(h.length), arc = ringArc(h, u); HIDE.floor = fl;
+  for (const r of ringStations(cx, cz, arc.r, 24, arc.a0, arc.a1)) wallBox(r.x, r.z, r.len, r.rot, fl, meshH(r.x, r.z) - 0.6);
   // the gate: piers in the margins, a lintel over the 9 m opening up to 1 m over the hillside, the sign on its outer face
   const ps = HIDE.portal, px = a.mouth[0] + a.ux * ps, pz = a.mouth[1] + a.uz * ps, pf = floor(ps), rot = h.heading + Math.PI / 2, nx = -a.uz, nz = a.ux;
   for (const side of [-1, 1]) { const d = side * (h.hw + u.margin / 2), x = px + nx * d, z = pz + nz * d; box(u.margin, 5, 1.2, x, pf, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: u.margin / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: pf + 5, secret: true }); }
@@ -866,7 +867,7 @@ function hideoutBuild() {
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.9), new THREE.MeshBasicMaterial({ map: textTex('RESERVOIR HÜBEL', 1024, 160, '#d8d2c6', '#2a2a2a', '700 110px "Barlow Condensed", sans-serif'), transparent: true }));
   sign.position.set(px - a.ux * 0.62, pf + 5.8, pz - a.uz * 0.62); sign.rotation.y = Math.atan2(-a.ux, -a.uz); signs.add(sign);
   // floor: gravel down the tunnel and over the cavern, draped on the cut
-  ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true); disc(cx, cz, cavernR(h, u) - 1, 0.04, 'gravel', gravel);
+  ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true); disc(cx, cz, arc.r - u.wall / 2, 0.04, 'gravel', gravel);   // up to the ring wall's inner face
   // light: two warm point lights by the tower, four lamp posts on the diagonals (the chimney's lamp pattern)
   for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffd9a0, 1.4, 70, 1.5); l.position.set(cx + a.ux * 12 * k, fl + 3, cz + a.uz * 12 * k); signs.add(l); }
   for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {

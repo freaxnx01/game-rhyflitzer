@@ -1,7 +1,7 @@
 // #102: the secret hideout in the Hübel -- pure helpers. node --test prototype/tests/hideout.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HIDEOUT, TUNNEL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, ringStations, eiffelParts } from '../hideout.js';
+import { HIDEOUT, TUNNEL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, ringStations, ringArc, eiffelParts } from '../hideout.js';
 import { cutFloorAt, UNDERPASS } from '../world.js';
 
 const close = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
@@ -25,13 +25,15 @@ test('axisCoords_SignedDistanceAlongAndOffTheAxis', () => {
   close(axisCoords(A.mouth[0] - A.ux * 3, A.mouth[1] - A.uz * 3).s, -3, 1e-6, 'behind the mouth is negative');
 });
 
-test('floorAt_DescendsAtTheGradeAndIsFlatPastTheCavernCentre', () => {
-  close(floorAt(0, 75), 75); close(floorAt(40, 75), 73); close(floorAt(105, 75), 69.75); close(floorAt(140, 75), 69.75);
+test('floorAt_DescendsAtTheGradeAndIsLevelFromTheCavernsNearEdgeOn', () => {
+  close(floorAt(0, 75), 75); close(floorAt(40, 75), 73);
+  const flat = HIDEOUT.length - cavernR();   // 83 m: beyond it the floor is the cavern's, so the two never meet in a step
+  close(floorAt(flat, 75), 75 - 0.05 * flat); close(floorAt(105, 75), 75 - 0.05 * flat); close(floorAt(140, 75), 75 - 0.05 * flat);
 });
 
 test('hideoutCuts_FloorMeetsTheGroundAtTheMouth', () => {
   const { tunnel, cavern, f0 } = hideoutCuts(hill);
-  close(f0, 75 - 0.05 * 105);
+  close(f0, 75 - 0.05 * (105 - cavernR()));
   close(cutFloorAt(tunnel, ...A.mouth, tunnel.u), 75, 1e-6, 'no step at the mouth');
   close(cutFloorAt(tunnel, A.mouth[0] + A.ux * 50, A.mouth[1] + A.uz * 50, tunnel.u), 72.5);
   assert.equal(cutFloorAt(tunnel, A.mouth[0] + A.ux * 50 + A.uz * 9, A.mouth[1] + A.uz * 50 - A.ux * 9, tunnel.u), null, '9 m off the axis is outside hw + margin + wall/2 = 6.5');
@@ -47,6 +49,26 @@ test('hideoutCuts_CavernIsAFlatDiscOfRadius22', () => {
   for (const [dx, dz] of [[0, 0], [21, 0], [0, -21], [15, 15]]) close(cavern.f0, f0), close(cutFloorAt(cavern, cx + dx, cz + dz, cavern.u), f0, 1e-6, `${dx},${dz}`);
   assert.equal(cutFloorAt(cavern, cx + 23, cz, cavern.u), null);
   assert.equal(cavernR(), 22);
+});
+
+test('hideoutCuts_NoStepWhereTheTunnelOpensIntoTheCavern', () => {
+  const { tunnel, cavern } = hideoutCuts(hill), low = (s) => {
+    const x = A.mouth[0] + A.ux * s, z = A.mouth[1] + A.uz * s;
+    return Math.min(...[tunnel, cavern].map(c => cutFloorAt(c, x, z, c.u) ?? Infinity));
+  };
+  for (let s = 0; s < HIDEOUT.length; s += 0.5) assert.ok(low(s) - low(s + 0.5) <= 0.05 * 0.5 + 1e-9, `step at s = ${s}: ${low(s)} -> ${low(s + 0.5)}`);
+  close(low(HIDEOUT.length), cavern.f0);
+});
+
+test('ringArc_LeavesTheCorridorOpenAndRingStationsFollowTheArc', () => {
+  const arc = ringArc(), [cx, cz] = A.centre, d = (p) => axisCoords(p.x, p.z).d;
+  close(arc.r, cavernR() - TUNNEL.wall / 2, 1e-9, 'the ring sits inside the cut edge, so its inner face hides the patch skirt');
+  for (const end of [arc.a0, arc.a1]) close(Math.abs(axisCoords(cx + Math.cos(end) * arc.r, cz + Math.sin(end) * arc.r).d), HIDEOUT.hw + TUNNEL.margin + TUNNEL.wall, 1e-9, 'the arc ends at the corridor face');
+  const r = ringStations(cx, cz, arc.r, 24, arc.a0, arc.a1);
+  assert.equal(r.length, 24);
+  for (const s of r) close(Math.hypot(s.x - cx, s.z - cz), arc.r);
+  const toMouth = r.filter(s => axisCoords(s.x, s.z).s < HIDEOUT.length);   // the half the tunnel comes from
+  assert.ok(toMouth.length >= 10 && toMouth.every(s => d(s) > HIDEOUT.hw + TUNNEL.margin + TUNNEL.wall), 'nothing in the doorway');
 });
 
 test('portalS_FirstWholeMetreWhereTheTrenchIsRoofDepthDeep', () => {
