@@ -384,15 +384,15 @@ def test_r_j_and_the_map_double_click_end_the_navi(server):
         page.keyboard.press("KeyR")
         assert ended_silently(page)
         navi_on(page)
-        page.keyboard.press("KeyJ")
-        pick_dest(page, "Fridolinsm")
-        assert ended_silently(page)
-        navi_on(page)
         c = page.evaluate("() => window.__mm.car()")
         px, py = page.evaluate(f"() => window.__mm.worldToMap({c['x'] + 150}, {c['z']})")
         assert 0 < px < 800 and 0 < py < 400, (px, py)                 # the spot is on the minimap
         box = page.locator("#map").bounding_box()
         page.mouse.dblclick(box["x"] + px * box["width"] / 800, box["y"] + py * box["height"] / 400)
+        assert ended_silently(page)
+        navi_on(page)
+        page.keyboard.press("KeyJ")                                   # last: the Münsterplatz is no start for a new route
+        pick_dest(page, "Fridolinsm")
         assert ended_silently(page)
         b.close()
 
