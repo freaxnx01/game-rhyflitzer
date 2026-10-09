@@ -325,6 +325,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
+import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, ringStations, eiffelParts } from './hideout.js';
 import { translate } from './strings.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
@@ -629,12 +630,16 @@ function cutJunctions(cut) {
   add(...cut.pts[0], -cut.t, true); add(...cut.pts[cut.pts.length - 1], len - cut.t, true);
   return out;
 }
-function cutFloorMin(x, z) { let f = Infinity; for (const c of CUTS) if (c.depth > 0 && Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) { const h = cutFloorAt(c, x, z); if (h !== null) f = Math.min(f, h); } return f; }
+// #102: the hideout's two cuts (hideout.js) ride the same patch machinery, from their own array: CUTS stays rail-only for
+// __mm.crossings and the #119 walls. Built on the measured terrain only -- the made-up hills have no Hübel.
+const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...hideoutCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, lidTris: 0, lidCells: new Set(), floor: null }; })() : null;
+const allCuts = () => HIDE ? [...CUTS, HIDE.tunnel, HIDE.cavern] : CUTS;
+function cutFloorMin(x, z) { let f = Infinity; for (const c of allCuts()) if (c.depth > 0 && Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) { const h = cutFloorAt(c, x, z, c.u ?? UNDERPASS); if (h !== null) f = Math.min(f, h); } return f; }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
 function buildCuts() {
   for (const c of railRoadCrossings(L.roads, L.railBridges)) CUTS.push(makeCut(c));
   const G = TGRID, W = CUT_N + 1;
-  for (const c of CUTS) if (c.depth > 0) for (const [i, j] of patchCells(cutBounds(c), G)) {
+  for (const c of allCuts()) if (c.depth > 0) for (const [i, j] of patchCells(cutBounds(c, c.u ?? UNDERPASS), G)) {
     const key = i + ',' + j; if (CUT_CELLS.has(key)) continue;
     const p = new Float32Array(W * W);
     for (let b = 0; b < W; b++) for (let a = 0; a < W; a++) { const x = G.x0 + (i + a / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + a] = Math.min(meshH(x, z), cutFloorMin(x, z)); }
@@ -642,6 +647,10 @@ function buildCuts() {
   }
 }
 if (L) buildCuts();
+// #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
+function roofedAt(x, z) { return !!HIDE && roofed(x, z, HIDE.portal); }
+function lidH(x, z) { return roofedAt(x, z) ? meshH(x, z) - 0.6 : null; }
+function skyGroundH(x, z) { const g = groundH(x, z, 1e4); return roofedAt(x, z) ? Math.max(g, meshH(x, z)) : g; }
 // water surface at (x, z) for an object at height y, null on land or on a bridge; the river bed is bedDepth under it (groundH, #101)
 function waterLevelAt(x, z, y) { if (onBridge(x, z, y)) return null; const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null || !L) return wl; const sh = streamH(x, z); return sh > -Infinity && roadSurfH(x, z) === -Infinity ? sh : null; }
 // roundabouts drawn so far: groundH lifts the car onto the cobble apron (radius 11.6, top 0.375 m) instead of sinking into it
@@ -1140,7 +1149,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // #13: a world file with OSM woods replaces the heuristic forests (box, height line, fbm); one without them keeps the heuristic
   const OSM_WOODS = !!(L && L.forests.length);
   const [bx0, bx1, bz0, bz1] = REGION.treeBox;   // #127: the scatter box and the forest line are the region's (Hochrhein's are today's values)
-  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = !OSM_WOODS && (sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55)); if (!forest && rnd() > 0.12) continue; if (FOREST.inside(tx, tz)) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
+  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = !OSM_WOODS && (sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55)); if (!forest && rnd() > 0.12) continue; if (FOREST.inside(tx, tz)) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity && !(HIDE && inHideout(tx, tz))) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
   // #131: trees are solid at the trunk. After the loop, so free() above never sees a tree (forest density unchanged);
   // The OSM forest trees (#13) are a separate list below, stopped by edge walls instead of a collider each.
   for (const [x, z, h] of TREES) addSolid(treeCollider(x, z, h, terrainH(x, z)));
@@ -1153,7 +1162,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   if (L && L.forests.length) {
     const edges = forestEdges(L.forests, FOREST), placed = forestTrees(L.forests, FOREST, edges, rng(13));
     for (const [x, z, h] of [...placed.edge, ...placed.fill])
-      if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
+      if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && !(HIDE && inHideout(x, z)) && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
     for (const e of edges) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: terrainH(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap
     window.__mm.counts.forest = { polys: L.forests.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, walls: edges.length };
   }
@@ -1568,6 +1577,9 @@ window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x,
 window.__mm.bed = (x, z) => { const rd = riverDist(x, z), water = waterLevelAt(x, z, 1e4), ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), hit = MESH.grass ? ray.intersectObject(MESH.grass, false)[0] : null; return { ground: groundH(x, z, 1e4), water, depth: water === null ? 0 : bedDepth(rd), drawn: hit ? hit.point.y : null }; };
 window.__mm.underwater = () => ({ on: UWS.on, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, waterDoubleSide: MESH.water ? MESH.water.material.side === THREE.DoubleSide : null, bubbles: { visible: bubbles.visible, count: bubbles.children.length, maxY: Math.max(...bubbles.children.map(s => s.position.y)) }, fish: FISH.mesh ? FISH.mesh.count : 0, schools: FISH.schools.length, bed: { stones: BED.stones ? BED.stones.count : 0, blades: BED.weed ? BED.weed.count : 0, visible: !!BED.weed && BED.weed.visible && BED.stones.visible }, ...UWS.counts });
 window.__mm.fishPose = (i) => { const m = new THREE.Matrix4(); FISH.mesh.getMatrixAt(i, m); return Array.from(m.elements).map(v => +v.toFixed(4)); };
+// #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
+window.__mm.hideout = () => HIDE ? { mouth: HIDE.tunnel.pts[0], centre: [HIDE.tunnel.x, HIDE.tunnel.z], portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(HIDE.tunnel.x, HIDE.tunnel.z), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris } : null;
+window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH;
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
