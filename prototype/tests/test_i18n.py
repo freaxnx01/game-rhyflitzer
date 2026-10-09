@@ -60,7 +60,7 @@ def test_stored_language_wins_over_the_browser(server):
             compass: document.querySelector('#compass').getAttribute('aria-label'),
             speedo: document.querySelector('#speedo').getAttribute('aria-label'),
             steerLeft: document.querySelector('#tL').getAttribute('aria-label'),
-            map: document.querySelector('[data-i18n="map"]').textContent,
+            map: document.querySelector('#maptext').textContent,
             loadTerrain: document.querySelector('label[for=mmhfile]').textContent,
             useMadeUp: document.querySelector('#mmhclear').textContent,
             sub: document.querySelector('.sub').textContent,

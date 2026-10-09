@@ -76,6 +76,9 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 .btn:active{transform:translate(4px,4px);box-shadow:1px 1px 0 var(--ink)}
 .btn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 .terrainrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;background:var(--ink);border:3px solid;border-color:#0b0d12 #4a515e #4a515e #0b0d12}
+/* #127: the region choice. The loaded region's button is outlined like a focused one. */
+.regionrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:10px 0}
+.regionrow .btn[aria-pressed="true"]{outline:3px solid var(--sun)}
 .btn.small{height:40px;padding:0 14px;font-size:17px;display:inline-flex;align-items:center;box-shadow:3px 3px 0 var(--ink)}
 .btn.small:focus-within,label.btn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 #mmhstatus,#worldstatus{font-size:15px;font-weight:600;color:var(--steel-l)}
@@ -106,7 +109,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 
 <div id="hud">
   <div id="tl" class="plate">
-    <div class="mode" data-i18n="mode">Time trial · Hochrhein</div>
+    <div class="mode" id="modetext">Time trial · Hochrhein</div>
     <div class="cps"><span id="cpn">0</span> / <span id="cpt">5</span> <span data-i18n="checkpointsLabel">checkpoints</span></div>
     <div id="pips"><div></div><div></div><div></div><div></div><div></div></div>
   </div>
@@ -173,7 +176,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
     </div>
   </div>
   <div id="br">
-    <div class="bar"><span><span data-i18n="map">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><b>N ↑</b></div>
+    <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><b>N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
@@ -214,6 +217,11 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
       <button id="huntbtn" class="btn" type="button" data-i18n="hunt">Surprise hunt</button>
       <button id="stylebtn2" class="btn" type="button">Style: Original</button>
     </div>
+    <div class="regionrow">
+      <span data-i18n="region">Region</span>
+      <button id="region-hochrhein" class="btn small" type="button" aria-pressed="true">Hochrhein</button>
+      <button id="region-ehrendingen" class="btn small" type="button" aria-pressed="false">Ehrendingen</button>
+    </div>
     <div class="terrainrow">
       <label for="mmhfile" class="btn small" data-i18n="loadTerrain">Load terrain (.mmh)</label>
       <input id="mmhfile" type="file" accept=".mmh" hidden>
@@ -253,6 +261,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
+import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
 import { translate } from './strings.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, TAKE_OVER_KEYS } from './route.js';
@@ -270,6 +279,9 @@ const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
 // Named tr, not t: many functions here use t as a local variable.
 const tr = (key, ...args) => translate(window.GG_LANG, key, ...args);
+// #127: the region (?region=, start-screen row). Picked before the first applyStaticStrings, because the HUD names it;
+// a non-default region whose world file is missing falls back to the default where the world is loaded below.
+let REGION = REGIONS[regionFromQuery(location.search)], REGION_FALLBACK = null;
 // Static markup carries its key in data-i18n (text), data-i18n-aria (aria-label), data-i18n-placeholder or data-i18n-title.
 // Elements whose text depends on game state are rendered by the render* functions instead.
 function applyStaticStrings() {
@@ -278,6 +290,8 @@ function applyStaticStrings() {
   for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', tr(el.dataset.i18nAria));
   for (const el of document.querySelectorAll('[data-i18n-placeholder]')) el.placeholder = tr(el.dataset.i18nPlaceholder);
   for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = tr(el.dataset.i18nTitle);
+  document.getElementById('modetext').textContent = tr('mode', REGION.name);
+  document.getElementById('maptext').textContent = tr('map', REGION.name);
 }
 applyStaticStrings();
 
@@ -422,11 +436,13 @@ function idb() { return new Promise((res, rej) => { const r = indexedDB.open('ma
 async function idbGet(k) { try { const db = await idb(); return await new Promise((res) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch (e) { return null; } }
 async function idbSet(k, v) { try { const db = await idb(); await new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); if (v === null) t.objectStore('kv').delete(k); else t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); return true; } catch (e) { return false; } }
 function parseMMH(buf) { const dv = new DataView(buf); if (String.fromCharCode(...new Uint8Array(buf, 0, 4)) !== 'MMH1') throw new Error(tr('errNotMmh')); const n = dv.getUint32(4, true); const hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n))); const data = new Float32Array(buf, 8 + n, hdr.w * hdr.h); return { hdr, data }; }
+// OSM world from the pipeline (the region's world file); absent on a fresh clone -> hand-traced layout.
+// #127: a region without a world file of its own falls back to the default region instead (only Hochrhein is hand-traced).
+let WORLD = await fetch(REGION.world).then(r => r.ok ? r.json() : null).catch(() => null);
+if (!WORLD && !REGION.handFallback) { REGION_FALLBACK = REGION.name; REGION = REGIONS.hochrhein; WORLD = await fetch(REGION.world).then(r => r.ok ? r.json() : null).catch(() => null); }
 // measured terrain: an .mmh the player loaded (IndexedDB) wins, else the one published next to the world file
 let REAL_SRC = 'uploaded';
-const REAL = await (async () => { let buf = await idbGet('terrain'); if (!buf) { REAL_SRC = 'bundled'; buf = await fetch('../data/terrain_hochrhein.mmh').then(r => r.ok ? r.arrayBuffer() : null).catch(() => null); } if (!buf) return null; try { return parseMMH(buf); } catch (e) { return null; } })();
-// OSM world from the pipeline (data/world_hochrhein.json); absent on a fresh clone -> hand-traced layout
-const WORLD = await fetch('../data/world_hochrhein.json').then(r => r.ok ? r.json() : null).catch(() => null);
+const REAL = await (async () => { let buf = await idbGet(REGION.idbKey); if (!buf) { REAL_SRC = 'bundled'; buf = await fetch(REGION.terrain).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null); } if (!buf) return null; try { return parseMMH(buf); } catch (e) { return null; } })();
 const L = WORLD && WORLD.format === 'MMW1' ? layoutFromWorld(WORLD) : null;
 const SDF = L ? sdfSampler(L.sdf) : null, WATER = L ? waterIndex(L.water) : null;
 if (L) { ROADS = L.roads; BRIDGES = []; }
@@ -486,6 +502,7 @@ function buildStoneChain() {
 }
 function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } buildStoneChain(); }
 window.__mm = { layout: L ? 'osm' : 'hand', camView: 0, counts: L ? { roads: L.roads.length, buildings: L.buildings.length, water: L.water.length } : {}, physMs: 0 };
+window.__mm.region = REGION.id;
 function realH(x, z) { const { hdr, data } = REAL; const fx = (x - hdr.x0) / hdr.step, fz = (z - hdr.z0) / hdr.step; const i = clamp(Math.floor(fx), 0, hdr.w - 2), j = clamp(Math.floor(fz), 0, hdr.h - 2); const tx = clamp(fx - i, 0, 1), tz = clamp(fz - j, 0, 1); const a = data[j * hdr.w + i], b = data[j * hdr.w + i + 1], c = data[(j + 1) * hdr.w + i], d = data[(j + 1) * hdr.w + i + 1]; return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz; }
 // The ground is drawn as a grid mesh (16 m cells); terrainH returns exactly that mesh surface, so the car, roads, fields and
 // buildings sit on what is drawn. baseH is the underlying height model, sampled only at the grid vertices.
@@ -514,6 +531,7 @@ function terrainH(x, z) {
 }
 function baseH(x, z) {
   if (REAL) return L ? realH(x, z) : Math.max(0, realH(x, z)) * sm((riverDist(x, z) + 5) / 30);
+  if (L && !REGION.handFallback) return 0;   // #127: the made-up hills are the Rhine valley; elsewhere flat until the .mmh loads
   const px = x / S + 960, py = z / S + 500; let h = 0;
   h += 14 * sm((px - 1455) / 70) * sm((py - 300) / 80);          // Sisseln terrace: the Hauptstrasse climbs into the village
   h += 150 * sm((py - 920) / 700);                                  // Fricktal hills south of the A3
@@ -578,7 +596,7 @@ function groundH(x, z, y) {
   const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null) return Math.max(wl - 3, fill);
   for (const k of KREISEL) if (Math.hypot(x - k.x, z - k.z) <= k.apron) return Math.max(k.b + 0.375, fill);
   const t = Math.max(terrainH(x, z), roadSurfH(x, z), fill);
-  if (x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
+  if (RAMP && x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
   return t;
 }
 const mk = (n, px, py) => ({ n, x: W(px, py)[0], z: W(px, py)[1] });
@@ -593,6 +611,7 @@ if (L && L.anchors.cps.length) {
   { const [x, z] = snapRoad(L.anchors.start[0], L.anchors.start[1]); START = { x, z, th: L.anchors.start[2] }; }
 }
 if (L && L.anchors.landmarks.jumpRamp) { const r = L.anchors.landmarks.jumpRamp; RAMP = { x0: r.x - 12.7, x1: r.x + 12.7, z0: r.z - 17.8, z1: r.z + 17.8, h: 3.4 }; }   // same size as the hand-traced ramp
+else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has no ramp
 
 // ---------- geometry builders ----------
 const parts = {};
@@ -899,7 +918,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   if (L) waterPolys();
   // roads
   const ROAD_SURF = new Map();
-  for (const r of ROADS) if (!(L && r.bridge)) ROAD_SURF.set(r, registerSurface(ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true).userData.surf));
+  for (const r of ROADS) if (!(L && r.bridge)) ROAD_SURF.set(r, registerSurface(ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true).userData.surf));
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
     const mats = {}, geos = {};
     for (const r of ROADS) if (!r.bridge) for (const { pts, spec } of markLines(r)) {
@@ -1025,7 +1044,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   { const [x, z] = W(1093, 600); const g = new THREE.PlaneGeometry(110, 150, 8, 10); g.rotateX(-Math.PI / 2); g.translate(x, 0.03, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, terrainH(p.getX(i), p.getZ(i)) + 0.03); const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * 6, u.getY(i) * 8); colorize(g, col('#b8a890')); push('gravel', g); }
   for (const r of ROADS) if (r.houses) housesAlong(r);
   }
-  rampMesh();   // the Sprungschanze, in both layouts: groundH raises the ground there in both (#80)
+  if (RAMP) rampMesh();   // the Sprungschanze, in both layouts: groundH raises the ground there in both (#80)
   if (L) for (const b of L.buildings) osmBuilding(b);
   if (L && L.props.length) propMeshes(L.props);
   if (L && L.parking.length) parkingMeshes(L.parking);
@@ -1042,9 +1061,11 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z, at('plattform').rot || 0);
   }
   // trees along both banks and scattered
-  const TREES = [], SW = L?.anchors.areas.sisselnWald || [1960, -520, 2500, -300]; if (!L) { const pts = RIVER.pts; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; for (let t = 0; t < L; t += 22) for (const s of [-1, 1]) { const o = RIVER.hw + 20 + rr(0, 14); const tx = x0 + ux * t - uz * o * s + rr(-4, 4), tz = z0 + uz * t + ux * o * s + rr(-4, 4); if (!onBridge(tx, tz) && roadDist(tx, tz) > 4 && BRIDGES.every(b => segDist(tx, tz, ...b.a, ...b.b) > 12)) TREES.push([tx, tz, rr(8, 13)]); } } }
+  // #127: only the Hochrhein world has the Sisseln forest box, so another region's trees come from the height alone
+  const TREES = [], SW = L ? (L.anchors.areas.sisselnWald || null) : [1960, -520, 2500, -300]; if (!L) { const pts = RIVER.pts; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; for (let t = 0; t < L; t += 22) for (const s of [-1, 1]) { const o = RIVER.hw + 20 + rr(0, 14); const tx = x0 + ux * t - uz * o * s + rr(-4, 4), tz = z0 + uz * t + ux * o * s + rr(-4, 4); if (!onBridge(tx, tz) && roadDist(tx, tz) > 4 && BRIDGES.every(b => segDist(tx, tz, ...b.a, ...b.b) > 12)) TREES.push([tx, tz, rr(8, 13)]); } } }
   const PARKING = parkingIndex(L ? L.parking : []), TREE_CROWN = 0.45;   // #72: a tree's footprint (billboards are h x 0.9 wide) stays off the car parks
-  for (let i = 0; i < 9000; i++) { const tx = rr(-3100, 3100), tz = rr(-1800, 1900); const th = terrainH(tx, tz); const sisselnWald = tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = sisselnWald || th > 18 || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55); if (!forest && rnd() > 0.12) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
+  const [bx0, bx1, bz0, bz1] = REGION.treeBox;   // #127: the scatter box and the forest line are the region's (Hochrhein's are today's values)
+  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55); if (!forest && rnd() > 0.12) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
   // #131: trees are solid at the trunk. After the loop, so free() above never sees a tree (forest density unchanged);
   // OSM forests (#13) only need to push into TREES before this line.
   for (const [x, z, h] of TREES) addSolid(treeCollider(x, z, h, terrainH(x, z)));
@@ -1073,11 +1094,11 @@ function trimLabelMats() { const inUse = new Set(LABELS.pool.filter(s => s.visib
 function updateLabels(x, z) { LABELS.ticks++; LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
 // #16: big village names over the villages (Midtown Madness style): camera-facing, drawn over everything and unfogged, hidden inside the
 // village; one sprite per village, created the first time its name shows (the web font has loaded by then)
-const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? VILLAGES.map(v => [v.t, terrainH(v.x, v.z)]) : []) };
+const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? REGION.villages.map(v => [v.t, terrainH(v.x, v.z)]) : []) };
 function villageTex(t) { return makeTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = '800 120px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = 'rgba(20,23,29,.85)'; g.strokeText(t, w / 2, h / 2 + 4); g.fillStyle = '#f5efe0'; g.fillText(t, w / 2, h / 2 + 4); }, { alpha: true }); }
 function villageSprite(t) { let s = VILLAGE_SIGNS.sprites.get(t); if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: villageTex(t), transparent: true, depthTest: false, depthWrite: false, fog: false })); VILLAGE_SIGNS.sprites.set(t, s); scene.add(s); } return s; }
 function updateVillageNames(x, z) {
-  VILLAGE_SIGNS.shown = L ? villageLabels(VILLAGES, x, z) : [];
+  VILLAGE_SIGNS.shown = L ? villageLabels(REGION.villages, x, z) : [];
   for (const s of VILLAGE_SIGNS.sprites.values()) s.visible = false;
   VILLAGE_SIGNS.shown.forEach((l, rank) => { const s = villageSprite(l.t); s.visible = true; s.material.opacity = l.opacity; s.renderOrder = 20 - rank; s.scale.set(l.h * 1024 / 160, l.h, 1); s.position.set(l.x, VILLAGE_SIGNS.ground.get(l.t) + 70 + l.h / 2, l.z); });
 }
@@ -1270,19 +1291,19 @@ document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hid
 // ---------- car state & physics ----------
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
 // J: the 3D landmarks (landmarks.js), searched by name and filtered by Gemeinde; hand layout: the race points, no Gemeinde
-const JUMP_ENTRIES = L ? landmarkEntries(LANDMARK_INFO, L.anchors.landmarks, L.buildings) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
+const JUMP_ENTRIES = L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
 const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 function placeOnRoad(x, z, th, name) { P.safe = [x, z, th]; resetCar(); if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
 function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, p.j ? faceToward(best.th, best.x, best.z, p.x, p.z) : best.th, p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
 const RAMP_RUNUP = 40;   // J → Sprungschanze: metres of run-up before the ramp's low edge, enough to launch from standstill (#80)
-function jumpToRamp(name) { const s = rampApproach(RAMP, RAMP_RUNUP); placeOnRoad(s.x, s.z, s.th, name); }   // off road: R returns to the run-up
+function jumpToRamp(name) { if (!RAMP) return; const s = rampApproach(RAMP, RAMP_RUNUP); placeOnRoad(s.x, s.z, s.th, name); }   // off road: R returns to the run-up
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
 function resetCar() { stopAuto('reset'); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; WHEEL_STATE.yaw = 0; }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
-function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, VILLAGES); } return AUTOP.graph; }
+function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
 function autoGoals(dest) { if (dest.street) return dest.goals; const s = snapToGraph(AUTOP.graph, dest.x, dest.z, 400); return s ? [s] : []; }
 function planRoute() { const route = findRoute(AUTOP.graph, snapToGraph(AUTOP.graph, P.x, P.z), AUTOP.goals); if (!route) return false; AUTOP.st = { route, s: 0, signals: routeSignals(route), stuckT: 0 }; return true; }
 function startAuto(dest) { closeJump(); AUTOP.dest = dest; AUTOP.goals = autoGoals(dest); if (!planRoute()) { AUTOP.last = 'no-route'; toast(tr('autoNoRoute')); return; } AUTOP.on = true; AUTOP.last = null; if (R.state === 'armed' || R.state === 'racing') R.auto = true; toast(tr('autoOn', dest.n)); }
@@ -1307,9 +1328,9 @@ function stepFly(dt) { const ground = groundH(P.x, P.z, 1e4), floor = heliFloor(
 // test hooks (prototype/tests): put the car somewhere and read its state
 window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; };
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
-window.__mm.ramp = () => ({ x0: RAMP.x0, x1: RAMP.x1, z0: RAMP.z0, z1: RAMP.z1, h: RAMP.h });
+window.__mm.ramp = () => RAMP && ({ x0: RAMP.x0, x1: RAMP.x1, z0: RAMP.z0, z1: RAMP.z1, h: RAMP.h });
 // review of #98: largest vertical gap between the drawn ramp top and the surface the car drives on (groundH's ramp), over a grid inside the footprint
-window.__mm.rampGap = () => { const { x0, x1, z0, z1, h } = RAMP, ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0); let gap = 0; for (let i = 1; i < 10; i++) for (let j = 1; j < 8; j++) { const x = x0 + (x1 - x0) * i / 10, z = z0 + (z1 - z0) * j / 8; ray.set(new THREE.Vector3(x, 1e4, z), down); const side = MESH.gravel.material.side; MESH.gravel.material.side = THREE.DoubleSide; const hit = ray.intersectObject(MESH.gravel, false)[0]; MESH.gravel.material.side = side; if (!hit) return Infinity; gap = Math.max(gap, Math.abs(hit.point.y - (terrainH(x, z) + h * (x - x0) / (x1 - x0)))); } return gap; };
+window.__mm.rampGap = () => { if (!RAMP) return 0; const { x0, x1, z0, z1, h } = RAMP, ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0); let gap = 0; for (let i = 1; i < 10; i++) for (let j = 1; j < 8; j++) { const x = x0 + (x1 - x0) * i / 10, z = z0 + (z1 - z0) * j / 8; ray.set(new THREE.Vector3(x, 1e4, z), down); const side = MESH.gravel.material.side; MESH.gravel.material.side = THREE.DoubleSide; const hit = ray.intersectObject(MESH.gravel, false)[0]; MESH.gravel.material.side = side; if (!hit) return Infinity; gap = Math.max(gap, Math.abs(hit.point.y - (terrainH(x, z) + h * (x - x0) / (x1 - x0)))); } return gap; };
 // drive headless: start at (x, z) on the highest surface there (a bridge deck if any), heading th at speed v, gas held, fixed 1/60 s steps
 window.__mm.heading = () => P.th;
 window.__mm.keysDown = () => Object.keys(keys).filter(k => keys[k]);   // the J dialog must not record a game key (#41)
@@ -1359,6 +1380,8 @@ window.__mm.sinkCheck = (n = 300) => { const ray = new THREE.Raycaster(), down =
 // raycast road points from above: how far does grass or a field rise above the road surface? (playtest: "Feld/Wiese überdeckt Strasse")
 window.__mm.grassOverRoad = (n = 300) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.motorway].filter(Boolean), green = [MESH.grass, MESH.field].filter(Boolean); const segs = []; for (const r of ROADS) if (!r.bridge) for (let i = 0; i < r.pts.length - 1; i++) segs.push([r, i]); let worst = 0, bad = 0, done = 0, marksSeen = 0, marksBelow = 0; const step = Math.max(1, Math.floor(segs.length / n)); for (let k = 0; k < segs.length && done < n; k += step) { const [r, i] = segs[k], [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0.5, 0], [0.3, 0.8], [0.7, -0.8]]) { const x = x0 + (x1 - x0) * t + nx * o * (r.w / 2 - 0.3), z = z0 + (z1 - z0) * t + nz * o * (r.w / 2 - 0.3); ray.set(new THREE.Vector3(x, 2000, z), down); const hr = ray.intersectObjects(road, false)[0], hg = ray.intersectObjects(green, false)[0]; if (!hr || !hg) continue; const d = hg.point.y - hr.point.y; if (d > worst) worst = d; if (d > 0.005) bad++; done++; for (const hm of ray.intersectObjects(marks.children, false)) { marksSeen++; if (hm.point.y < hr.point.y) marksBelow++; } } } return { worst, bad, done, marksSeen, marksBelow }; };
 window.__mm.roadDist = () => roadDist(P.x, P.z);
+// #127: is the car on a gravel trail (the Wanderweg)? the nearest road piece in ROAD_GRID, by its centre line
+window.__mm.onTrail = () => { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, P.x, P.z, 32)) { const d = segDist(P.x, P.z, ...r.pts[i], ...r.pts[i + 1]); if (!best || d < best.d) best = { d, r }; } return !!(best && best.r.trail); };
 const isDeck = (ob) => !!ob && !ob.b.approach;   // #78: an abutment is road on fill, not a bridge (keeps #79's "not on a bridge")
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW']) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: isDeck(onBridge(P.x, P.z, P.y)), water: waterLevelAt(P.x, P.z, P.y) });
@@ -1423,7 +1446,7 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
 
 // ---------- race ----------
 const R = { state: 'ready', mode: 'trial', t: 0, left: 0, timeUp: false, best: null, blitzBest: null, huntBest: null, done: 0, shortcut: false, target: null };   // #128/#108: mode 'trial' | 'blitz' | 'hunt'; left = Blitz seconds
-try { const b = localStorage.getItem('mm.best2'); if (b) R.best = +b; } catch (e) { }
+try { const b = localStorage.getItem(REGION.bestKey); if (b) R.best = +b; } catch (e) { }   // #127: a best time per region
 try { const b = localStorage.getItem('mm.blitzBest'); if (b) R.blitzBest = +b; } catch (e) { }
 try { const b = Number(localStorage.getItem('mm.huntBest') || NaN); if (Number.isFinite(b)) R.huntBest = b; } catch (e) { }   // a corrupt value would be NaN, and no time beats NaN
 const PRESENT_CANDS = presentCandidates(ROADS, L ? deckFootprints(L.roads, L.railBridges) : []);   // never under a road or rail deck: the box would sit on top, out of reach
@@ -1436,7 +1459,7 @@ window.__mm.toast = () => ({ text: $('toast').textContent, shown: $('toast').cla
 function fadeToast(dt) { if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } }   // also while paused (review of #90)
 function startRace(mode = 'trial', rng = Math.random) { R.mode = mode; const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = !hunt; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = [START.x, START.z, START.th]; resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); }
 function startHuntRun(hunt, rng, cands = PRESENT_CANDS) { const spots = hunt ? pickPresentSpots(cands, START, rng).map(s => ({ ...s, y: groundH(s.x, s.z) })) : []; HUNT_RUN = { spots, found: spots.map(() => false), bag: [], rng, endIn: 0 }; presentObjs.forEach((o, i) => { const s = spots[i]; o.g.visible = !!s; if (s) o.g.position.set(s.x, s.y, s.z); }); confetti.parts = []; confetti.pts.visible = false; }
-function renderModeLine() { const hunt = R.mode === 'hunt', blitz = R.mode === 'blitz'; $('tl').querySelector('.mode').textContent = tr(hunt ? 'modeHunt' : blitz ? 'modeBlitz' : 'mode'); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's
+function renderModeLine() { const hunt = R.mode === 'hunt', blitz = R.mode === 'blitz'; $('tl').querySelector('.mode').textContent = tr(hunt ? 'modeHunt' : blitz ? 'modeBlitz' : 'mode', REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's
 // the total and the pips follow the run: a hunt can have fewer than five boxes when the roads around the start are sparse
 function setPipCount(n) { $('cpt').textContent = n; const pips = $('pips'); if (pips.children.length === n) return; pips.replaceChildren(...Array.from({ length: n }, () => document.createElement('div'))); pips.style.gridTemplateColumns = `repeat(${n},1fr)`; }
 function updatePips() { const on = R.mode === 'hunt' ? HUNT_RUN.found : cpObjs.map(c => c.done); $('cpn').textContent = R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', !!on[i])); }
@@ -1450,16 +1473,19 @@ function applySurprise(s) { if (s.id === 'hop') { if (!FLY.on) { P.y += 0.3; P.v
 // the clock stops at the last box; the result screen follows after a short celebration (spec: HUNT.celebrate)
 function endHunt() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); const t = R.t, clean = !R.jumped && !R.auto && !R.flown; let rec = false; if (clean && isNewHuntBest(R.huntBest, t)) { rec = R.huntBest !== null; R.huntBest = t; try { localStorage.setItem('mm.huntBest', String(t)); } catch (e) { } } R.last = { t, rec, mode: 'hunt' }; HUNT_RUN.endIn = HUNT.celebrate; }
 function showHuntResult() { HUNT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'hunt') return; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
-function finish() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); const t = R.t, clean = !R.jumped && !R.auto && !R.flown; let rec = false; if (R.mode === 'blitz') { const rank = blitzRank(R.left); if (clean && blitzNewBest(R.blitzBest, R.left)) { rec = R.blitzBest !== null; R.blitzBest = R.left; try { localStorage.setItem('mm.blitzBest', String(R.left)); } catch (e) { } } R.last = { mode: 'blitz', t, left: R.left, rank, rec }; } else { if (clean && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem('mm.best2', String(t)); } catch (e) { } } R.last = { mode: 'trial', t, rec }; } $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
+function finish() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); const t = R.t, clean = !R.jumped && !R.auto && !R.flown; let rec = false; if (R.mode === 'blitz') { const rank = blitzRank(R.left); if (clean && blitzNewBest(R.blitzBest, R.left)) { rec = R.blitzBest !== null; R.blitzBest = R.left; try { localStorage.setItem('mm.blitzBest', String(R.left)); } catch (e) { } } R.last = { mode: 'blitz', t, left: R.left, rank, rec }; } else { if (clean && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem(REGION.bestKey, String(t)); } catch (e) { } } R.last = { mode: 'trial', t, rec }; } $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 function timeUp() { stopAuto('reset'); R.state = 'finished'; R.timeUp = true; R.last = { mode: 'blitz', timeUp: true, done: R.done }; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }   // #128: the Blitz clock hit zero — no rank, no best, no sound
 const penalties = () => `${R.jumped ? tr('notCountedJump') : ''}${R.auto ? tr('notCountedAuto') : ''}${R.flown ? tr('notCountedHeli') : ''}`;
 const notes = () => `${penalties()}${R.shortcut ? tr('viaHolz') : ''}`;
 function resultHtml(last) { if (last.timeUp) return `<small>${tr('blitzTimeUp')}</small>${tr('blitzCps', last.done)}`; if (last.mode === 'blitz') return `<small>${tr(last.rec ? 'newRecord' : 'blitzRank')}</small>${last.rank}<small>${tr('blitzLeft', fmt(last.left).replace(/<[^>]+>/g, ''))}${notes()}${tr('blitzBest', R.blitzBest === null ? null : fmt(R.blitzBest).replace(/<[^>]+>/g, ''))}</small>`; if (last.mode === 'hunt') return `<small>${tr(last.rec ? 'newRecord' : 'huntAllFound')}</small>${fmt(last.t)}<small>${penalties()}${tr('bestLower')} ${R.huntBest === null ? '—' : fmt(R.huntBest)}</small>`; return `<small>${tr(last.rec ? 'newRecord' : 'finished')}</small>${fmt(last.t)}<small>${notes()}${tr('bestLower')} ${fmt(R.best)}</small>`; }
 // the overlay doubles as the start and the result screen, so its texts depend on the race state
-function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; $('ovtext').textContent = tr(done ? (R.timeUp ? 'blitzTimeUpText' : blitz ? 'blitzFinishedText' : hunt ? 'huntFinishedText' : 'finishedText') : 'intro'); $('startbtn').textContent = tr(done && !blitz && !hunt ? 'retry' : 'start'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); if (done) $('result').innerHTML = resultHtml(R.last); }
+function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; $('ovtext').textContent = tr(done ? (R.timeUp ? 'blitzTimeUpText' : blitz ? 'blitzFinishedText' : hunt ? 'huntFinishedText' : REGION.strings.finished) : REGION.strings.intro); $('startbtn').textContent = tr(done && !blitz && !hunt ? 'retry' : 'start'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); if (done) $('result').innerHTML = resultHtml(R.last); }
 $('startbtn').onclick = () => { SFX.start(); startRace(); };
 $('blitzbtn').onclick = () => { SFX.start(); startRace('blitz'); };
 $('huntbtn').onclick = () => { SFX.start(); startRace('hunt'); };
+// the overlay doubles as the start and the result screen, so its texts depend on the race state
+// #127: the region row. The loaded region is the pressed one (on a fallback that is Hochrhein); clicking it does nothing.
+for (const id of Object.keys(REGIONS)) { const b = $('region-' + id); b.setAttribute('aria-pressed', String(id === REGION.id)); b.onclick = () => { if (id !== REGION.id) location.search = regionSearch(location.search, id); }; }
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };
 const inRun = () => canPause($('overlay').hidden, R.state);
@@ -1486,7 +1512,7 @@ function renderJump() {
   const drive = JUMP.mode === 'drive'; JUMP.rows = jumpRows(); JUMP.sel = Math.min(JUMP.sel, JUMP.rows.length - 1);
   $('jumptitle').textContent = tr(drive ? 'driveTitle' : 'jumpTitle'); $('jumphint').textContent = tr(drive ? 'driveHint' : 'jumpHint');
   $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${i === JUMP.sel ? ' class="sel"' : ''}>${r.n}<span>${r.street ? tr('streetIn', r.g) : r.g || ''}</span></li>`).join('');
-  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES))].map(g => `<button type="button" data-g="${g}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : g}</button>`).join('') : '';
+  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${g}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : g}</button>`).join('') : '';
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
 function openJump(mode) { for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
@@ -1508,11 +1534,11 @@ if (REAL) { $('mmhstatus').classList.add('real'); $('mmhclear').hidden = REAL_SR
 { const s = document.createElement('span'); s.id = 'worldstatus'; if (L) s.classList.add('real'); $('mmhstatus').after(s); }
 function renderStatus() {
   $('mmhstatus').textContent = REAL ? tr('terrainMeasured', REAL_SRC === 'uploaded', REAL.hdr.w, REAL.hdr.h, REAL.hdr.step, REAL.hdr.sources.join(' · ')) : tr('terrainMadeUp');
-  $('blurb').textContent = tr(L ? 'blurbOsm' : 'blurbHand');
+  $('blurb').textContent = tr(L ? REGION.strings.blurb : 'blurbHand');
   $('worldstatus').textContent = L ? tr('worldOsm', L.roads.length, L.buildings.length, L.sources.join(' · ')) : tr('worldHand');
 }
-$('mmhfile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const buf = await f.arrayBuffer(); parseMMH(buf); $('mmhstatus').textContent = tr('terrainSaving'); if (!(await idbSet('terrain', buf))) throw new Error(tr('errNoStorage')); location.reload(); } catch (err) { $('mmhstatus').textContent = tr('terrainCouldNotLoad', err.message); $('mmhstatus').classList.remove('real'); } };
-$('mmhclear').onclick = async () => { await idbSet('terrain', null); location.reload(); };
+$('mmhfile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const buf = await f.arrayBuffer(); parseMMH(buf); $('mmhstatus').textContent = tr('terrainSaving'); if (!(await idbSet(REGION.idbKey, buf))) throw new Error(tr('errNoStorage')); location.reload(); } catch (err) { $('mmhstatus').textContent = tr('terrainCouldNotLoad', err.message); $('mmhstatus').classList.remove('real'); } };
+$('mmhclear').onclick = async () => { await idbSet(REGION.idbKey, null); location.reload(); };
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStatus(); renderJump(); renderOdo(); renderModeLine(); }
@@ -1527,7 +1553,7 @@ window.__mm.huntSetEndIn = (s) => { HUNT_RUN.endIn = s; };   // tests: shorten t
 const mapC = $('map'), mg = mapC.getContext('2d');
 const MB = L ? (() => { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const r of ROADS) for (const [x, z] of r.pts) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); } return { x0, x1, z0, z1 }; })() : { x0: W(0, 0)[0], x1: W(1920, 0)[0], z0: W(0, 60)[1], z1: W(0, 989)[1] }; const MS = Math.min(mapC.width / (MB.x1 - MB.x0), mapC.height / (MB.z1 - MB.z0)); const MX = (x) => (x - MB.x0) * MS + (mapC.width - (MB.x1 - MB.x0) * MS) / 2, MZ = (z) => (z - MB.z0) * MS + (mapC.height - (MB.z1 - MB.z0) * MS) / 2;
 const mapStatic = document.createElement('canvas'); mapStatic.width = mapC.width; mapStatic.height = mapC.height;
-{ const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
+{ const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
 // #48: the Gemeinde boundaries as a dashed overlay, pre-rendered like mapStatic and drawn over it only while G is on
 const mapBounds = document.createElement('canvas'); mapBounds.width = mapC.width; mapBounds.height = mapC.height;
 if (L) { const g = mapBounds.getContext('2d'); g.strokeStyle = '#ff3fb4'; g.lineWidth = 2; g.lineCap = 'round'; g.setLineDash([6, 4]); for (const b of L.boundaries) { g.beginPath(); b.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } }
@@ -1618,6 +1644,7 @@ let last = performance.now();
 function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; PAUSE.frame++; if (PAUSE.on) { fadeToast(dt); debugTick(); clampDebugHeights(); renderer.render(scene, camera); if (photoPending) capturePhoto(); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
   const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: Math.hypot(P.vx, P.vz) * 3.6, gas: P.gas, nitro: P.nitro, air: P.air, fly: FLY.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; blob.position.set(START.x, sy + 0.05, START.z); }
+if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);
 </script>
 
