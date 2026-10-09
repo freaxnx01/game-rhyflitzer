@@ -90,7 +90,7 @@ export function offsetPolyline(pts, d) {
 export function layoutFromWorld(w) {
   const roads = w.roads.map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
-           rail: w.rail, railBridges: w.railBridges || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
+           rail: w.rail, railBridges: w.railBridges || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
@@ -323,6 +323,65 @@ export function lineQuads(lines, width) {
   }
   return out;
 }
+
+// forests (#13): woods from the world file -> an 8 m bit mask, edge segments with inward normals, and seeded trees under a budget.
+// mulberry32, the same generator as the page's rnd(); forests get their own seed so the main scatter's sequence stays as it is
+export function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+export function forestIndex(forests, step = 8) {
+  if (!forests.length) return { w: 0, h: 0, step, x0: 0, z0: 0, mask: new Uint8Array(0), inside: () => false };
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (const f of forests) for (const [x, z] of f.ring) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
+  const w = Math.ceil((x1 - x0) / step) + 1, h = Math.ceil((z1 - z0) / step) + 1, mask = new Uint8Array(w * h);
+  for (const f of forests) {                       // even-odd scanline fill of ring + holes at the grid nodes, OR-ed into the mask
+    const rings = [f.ring, ...(f.holes || [])];
+    let j0 = Infinity, j1 = -Infinity; for (const [, z] of f.ring) { j0 = Math.min(j0, z); j1 = Math.max(j1, z); }
+    for (let j = Math.max(0, Math.ceil((j0 - z0) / step)); j <= Math.min(h - 1, Math.floor((j1 - z0) / step)); j++) {
+      const z = z0 + j * step, xs = [];
+      for (const r of rings) for (let i = 0, k = r.length - 1; i < r.length; k = i++) { const [xi, zi] = r[i], [xk, zk] = r[k]; if ((zi > z) !== (zk > z)) xs.push(xi + (z - zi) * (xk - xi) / (zk - zi)); }
+      xs.sort((a, b) => a - b);
+      for (let n = 0; n + 1 < xs.length; n += 2) { const ia = Math.max(0, Math.ceil((xs[n] - x0) / step)), ib = Math.min(w - 1, Math.floor((xs[n + 1] - x0) / step)); for (let i = ia; i <= ib; i++) mask[j * w + i] = 1; }
+    }
+  }
+  return { w, h, step, x0, z0, mask, inside(x, z) { const i = Math.round((x - x0) / step), j = Math.round((z - z0) / step); return i >= 0 && j >= 0 && i < w && j < h && mask[j * w + i] === 1; } };
+}
+
+export function forestEdges(forests, index, maxLen = 48) {
+  const out = [], s = index.step;
+  for (const f of forests) for (const ring of [f.ring, ...(f.holes || [])]) for (let i = 0, k = ring.length - 1; i < ring.length; k = i++) {
+    const [ax, az] = ring[k], [bx, bz] = ring[i], full = Math.hypot(bx - ax, bz - az); if (full < 0.5) continue;
+    const n = Math.ceil(full / maxLen), len = full / n, ux = (bx - ax) / full, uz = (bz - az) / full, px = -uz, pz = ux;
+    for (let q = 0; q < n; q++) {
+      const x0 = ax + ux * len * q, z0 = az + uz * len * q, x1 = x0 + ux * len, z1 = z0 + uz * len, mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+      let side = 0;
+      for (const d of [0.75 * s, 1.5 * s]) { if (index.inside(mx + px * d, mz + pz * d)) { side = 1; break; } if (index.inside(mx - px * d, mz - pz * d)) { side = -1; break; } }
+      out.push({ x0, z0, x1, z1, mx, mz, len, rot: Math.atan2(z1 - z0, x1 - x0), nx: px * side, nz: pz * side });
+    }
+  }
+  return out;
+}
+
+export const FOREST_BUDGET = { edgeStep: 6, fillArea: 600, cap: 70000, edgeH: [7, 12], fillH: [8, 14], tile: 512 };
+export function forestTrees(forests, index, edges, rnd, budget = FOREST_BUDGET) {
+  const edge = [], fill = [], rr = ([a, b]) => a + rnd() * (b - a);
+  for (const e of edges) {
+    const n = Math.max(1, Math.round(e.len / budget.edgeStep)), ux = (e.x1 - e.x0) / e.len, uz = (e.z1 - e.z0) / e.len;
+    for (let k = 0; k < n; k++) {
+      const t = ((k + 0.5) / n + (rnd() - 0.5) * 0.5 / n) * e.len, d = 0.5 + rnd() * 2.5;
+      edge.push([e.x0 + ux * t + e.nx * d, e.z0 + uz * t + e.nz * d, rr(budget.edgeH)]);
+    }
+  }
+  const g = Math.sqrt(budget.fillArea);
+  for (let z = index.z0; z <= index.z0 + index.h * index.step; z += g) for (let x = index.x0; x <= index.x0 + index.w * index.step; x += g) {
+    const px = x + (rnd() - 0.5) * g, pz = z + (rnd() - 0.5) * g, h = rr(budget.fillH);
+    if (index.inside(px, pz)) fill.push([px, pz, h]);
+  }
+  const keep = Math.max(0, Math.min(fill.length, budget.cap - edge.length));
+  const kept = keep === fill.length ? fill : fill.filter((_, i) => Math.floor((i + 1) * keep / fill.length) > Math.floor(i * keep / fill.length));
+  return { edge, fill: kept, thinned: fill.length - kept.length };
+}
+
+export function tileKey(x, z, size) { return Math.floor(x / size) + ',' + Math.floor(z / size); }
 
 // #16: big village names (Midtown Madness style). Centres are the OSM place=town/village nodes inside the world, converted with
 // pipeline/geo.py Frame(*DEFAULT_ORIGIN).to_game on 2026-10-02; Sisslerfeld has no place node and uses its map label (pipeline/anchors.json).
