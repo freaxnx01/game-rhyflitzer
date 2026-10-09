@@ -148,3 +148,97 @@ def test_follows_the_rising_bed_out_of_the_river(server):
         assert abs(s["y"] - s["ground"]) < 0.3, (s, tr)                                 # on the bed all the way, never buried in it
     assert min(s["ground"] for s in wet) <= -5.5 and max(s["y"] for s in wet) > -1, tr   # climbed from the deep middle to the shallows
     assert tr[-1]["water"] is None and tr[-1]["z"] > MID_RHINE[1] + 107, tr[-1]          # and out onto the bank
+
+
+# ---------- Task 4: the look under the surface ----------
+def underwater(page):
+    return page.evaluate("() => window.__mm.underwater()")
+
+
+def test_look_follows_the_camera(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        dry = underwater(page)
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(MID_RHINE))
+        page.wait_for_function("() => window.__mm.underwater().on", timeout=180000)
+        wet = underwater(page)
+        cam = page.evaluate("() => window.__mm.cam()")
+        page.keyboard.press("KeyR")
+        page.wait_for_function("() => !window.__mm.underwater().on", timeout=60000)
+        back = underwater(page)
+        b.close()
+    assert dry["on"] is False and dry["fogDensity"] is None                 # original style: linear fog, no density
+    assert wet["on"] is True and abs(wet["fogDensity"] - 0.035) < 1e-6 and wet["waterDoubleSide"] is True
+    assert cam["d"][1] < 6, cam                                            # the chase cam came down with the car (under the 0 m surface)
+    assert back["on"] is False and back["fogDensity"] is None
+
+
+def test_camera_stays_above_the_bed_in_the_shallows(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        # 4 m inside the south edge: bed 1.2 m, surface 0 -- the chase cam must sit under the surface AND above the bed
+        page.evaluate("([x, z]) => window.__mm.place(x, z, -Math.PI / 2)", [863.6, -647.7 + 102.7])
+        page.wait_for_function("() => window.__mm.car().splash > 2", timeout=180000)
+        c = car(page)
+        cam = page.evaluate("() => window.__mm.cam()")
+        g = page.evaluate("([x, y]) => window.__mm.bed(x, y).ground", [863.6 + cam["d"][0], -647.7 + 102.7 + cam["d"][2]])
+        b.close()
+    assert c["water"] == 0 and c["submerged"] is True, c
+    assert c["y"] + cam["d"][1] >= g + 1.0, (c, cam, g)                     # not inside the bed (the ground floor wins)
+
+
+def test_t_underwater_keeps_the_murk(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(MID_RHINE))
+        page.wait_for_function("() => window.__mm.underwater().on", timeout=180000)
+        page.keyboard.press("KeyT")
+        page.wait_for_timeout(500)
+        u = underwater(page)
+        b.close()
+    assert u["on"] is True and abs(u["fogDensity"] - 0.035) < 1e-6
+
+
+def test_bubbles_rise_only_in_the_water(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        dry = underwater(page)
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(MID_RHINE))
+        page.wait_for_function("() => window.__mm.car().splash > 1", timeout=180000)
+        wet = underwater(page)
+        b.close()
+    assert dry["bubbles"]["visible"] is False
+    assert wet["bubbles"]["visible"] is True and wet["bubbles"]["count"] == 24 and wet["bubbles"]["maxY"] <= 0.05
+
+
+# ---------- Task 5: boulders, waterweed, fish and the wrecks ----------
+def test_bed_has_boulders_weed_fish_and_wrecks_in_the_water(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        u = underwater(page)
+        wreck = bed(page, *u["wreck"])
+        b.close()
+    assert u["stones"] > 200 and u["weeds"] > 400, u
+    assert u["schools"] == 14 and 8 * 14 <= u["fish"] <= 14 * 14, u
+    assert wreck["water"] is not None and wreck["depth"] > 2, wreck            # the wrecks lie in the deep, not on the bank
+
+
+def test_fish_swim_only_while_you_are_down_there(server):
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        a = page.evaluate("() => window.__mm.fishPose(0)")
+        page.wait_for_timeout(400)
+        a2 = page.evaluate("() => window.__mm.fishPose(0)")
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", list(MID_RHINE))
+        page.wait_for_function("() => window.__mm.underwater().on", timeout=180000)
+        w = page.evaluate("() => window.__mm.fishPose(0)")
+        page.wait_for_timeout(400)
+        w2 = page.evaluate("() => window.__mm.fishPose(0)")
+        b.close()
+    assert a == a2, "on land the fish are frozen (nobody can see them)"
+    assert w != w2, "underwater they swim"
