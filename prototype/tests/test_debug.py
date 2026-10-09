@@ -19,8 +19,8 @@ COCKPIT_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view 
                    " && Math.abs(d[0] - 0.25) < 0.05 && Math.abs(d[1] - 1.22) < 0.05 && Math.abs(d[2] - 0.38) < 0.05; }")   # cockpit eye x scale 1.0 (#69)
 
 
-def open_page(p, server, block_world=False, query=""):
-    b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 960, "height": 540})
+def open_page(p, server, block_world=False, query="", **page_opts):
+    b = p.chromium.launch(args=ARGS); page = b.new_page(**{"viewport": {"width": 960, "height": 540}, **page_opts})
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     if block_world:
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
@@ -229,3 +229,47 @@ def test_world_layout_labels_every_line(server):
         br.close()
     assert dbg["labels"] == ["car", "Swiss", "GPS", "nearest", "car body", "world"], dbg
     assert dbg["lines"][2].startswith("WGS84 "), dbg["lines"]
+
+
+def install_copy_spy(page):
+    page.evaluate("() => { window.__copied = null; navigator.clipboard.writeText = t => { window.__copied = t; return Promise.resolve(); }; }")
+
+
+def test_question_button_toggles_the_legend_without_copying(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug")
+        page.click("#startbtn")
+        page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
+        install_copy_spy(page)
+        hidden_at_start = not page.is_visible("#debuglegend")
+        page.click("#debughelp")
+        page.wait_for_timeout(400)                                           # > one 250 ms debug tick: the tick must not wipe the legend
+        shown = page.is_visible("#debuglegend"); expanded = page.get_attribute("#debughelp", "aria-expanded")
+        legend = page.text_content("#debuglegend"); hook = page.evaluate("() => window.__mm.debug().legend")
+        focused = page.evaluate("() => document.activeElement && document.activeElement.id")
+        page.click("#debuglegend")
+        page.click("#debughelp")
+        hidden_again = not page.is_visible("#debuglegend"); collapsed = page.get_attribute("#debughelp", "aria-expanded")
+        page.wait_for_timeout(300)
+        copied = page.evaluate("() => window.__copied")
+        br.close()
+    assert hidden_at_start and shown and expanded == "true" and hook is True
+    for term in ["eaves", "roof", "dsm", "digital surface model", "terrain model", "osm", "2.5 m", "east", "south", "heading", "LV95", "WGS84"]:
+        assert term in legend, term
+    assert focused != "debughelp"
+    assert hidden_again and collapsed == "false"
+    assert copied is None                                                    # neither the button nor the legend copies
+
+
+def test_tap_on_the_question_button_opens_the_legend(server):
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug", viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
+        page.tap("#startbtn")
+        page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
+        coarse = page.evaluate("() => matchMedia('(pointer:coarse)').matches")
+        box = page.locator("#debughelp").bounding_box()
+        page.tap("#debughelp")
+        shown = page.is_visible("#debuglegend")
+        br.close()
+    assert coarse and box["width"] >= 36 and box["height"] >= 36, box       # finger-sized on touch screens
+    assert shown
