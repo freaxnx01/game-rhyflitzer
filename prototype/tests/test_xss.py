@@ -74,6 +74,13 @@ def open_page(p, server, world=None, landmarks=False, viewport=None):
     return b, page, errs
 
 
+def start(page):
+    """Press Start through the DOM: the same onclick, without Playwright's frame-bound stability wait, which takes
+    minutes when the loaded real world draws below 1 fps."""
+    page.evaluate("() => document.getElementById('startbtn').click()")
+    page.wait_for_function("() => document.getElementById('overlay').hidden", polling=250, timeout=T)   # timer polling: rAF stalls under load
+
+
 def wait_frames(page, n=2):
     """Wait until the game loop has drawn n more frames (a headless renderer can be slower than 1 fps)."""
     page.evaluate("() => { if (!window.__frames) { window.__frames = { n: 0 }; const tick = () => { window.__frames.n++; requestAnimationFrame(tick); }; requestAnimationFrame(tick); } window.__frames.n = 0; }")
@@ -101,7 +108,7 @@ def test_poisoned_landmark_and_gemeinde_stay_text_in_the_j_list(server):
     A chip click still filters, so the escaped data-g attribute round-trips back to the raw name."""
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, world=poisoned_world(), landmarks=True)
-        page.click("#startbtn", timeout=T)
+        start(page)
         page.keyboard.press("KeyJ")
         page.wait_for_function("() => !document.querySelector('#jump').hidden", timeout=T)
         clean(page, "#jumplist")
@@ -129,7 +136,7 @@ def test_poisoned_street_names_stay_text_in_the_drive_list_and_toasts(server):
     """O (autopilot) and I (Navi) list the world's street names. Picking one shows the name in a toast."""
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, world=poisoned_world())
-        page.click("#startbtn", timeout=T)
+        start(page)
         page.keyboard.press("KeyO")
         page.wait_for_function("() => !document.querySelector('#jump').hidden && window.__mm.jumpList().length", timeout=T)
         clean(page, "#jumplist")
@@ -153,7 +160,7 @@ def test_poisoned_landmark_name_stays_text_in_the_jump_toast(server):
     """Jumping to a landmark toasts its bare name -- the path that made toast() text-only."""
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, world=poisoned_world(), landmarks=True)
-        page.click("#startbtn", timeout=T)
+        start(page)
         page.keyboard.press("KeyJ")
         page.wait_for_function("() => !document.querySelector('#jump').hidden", timeout=T)
         page.click(f'#jumplist li[data-i="{row_index(page, LANDMARK)}"]')
@@ -170,7 +177,7 @@ def test_poisoned_checkpoint_name_stays_text_in_the_checkpoint_toast(server):
     the markup survives, the name does not become markup."""
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, world=poisoned_world())
-        page.click("#startbtn", timeout=T)
+        start(page)
         page.evaluate("() => { const c = window.__mm.blitz().cps[0]; window.__mm.place(c[0], c[1]); }")
         page.wait_for_function("() => window.__mm.toast().shown && window.__mm.toast().text.includes('Checkpoint')", timeout=T)
         assert PAYLOAD in page.text_content("#toast")
@@ -198,7 +205,7 @@ def test_the_result_screen_and_the_present_toast_keep_their_own_markup(server):
     """Regression guard for the strings that are ours: the result screen and presentToast must still render markup."""
     with sync_playwright() as p:
         b, page, errs = open_page(p, server)
-        page.click("#startbtn", timeout=T)
+        start(page)
         page.evaluate("() => window.__mm.finishNow()")
         page.wait_for_function("() => !document.querySelector('#result').hidden", timeout=T)
         assert page.eval_on_selector_all("#result small", "els => els.length") >= 1   # own <small>/<b> markup intact
