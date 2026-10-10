@@ -1494,8 +1494,9 @@ function drawWheels() { for (const w of car.userData.wheels ?? []) { w.steer.rot
 // outside the physics step -- the start screen, resetCar, __mm.place, landing from the helicopter
 const SHADOW_STATE = { y: 0, pitch: 0, roll: 0, wet: false, air: 0 };
 function restShadow() { SHADOW_STATE.y = P.y; SHADOW_STATE.pitch = 0; SHADOW_STATE.roll = 0; SHADOW_STATE.wet = false; SHADOW_STATE.air = 0; }
-// a positive roll means the right side of the car is up, so the quad's local +z edge has to rise: rotation about +x lowers it, hence -roll
-function drawShadow() { shadowMesh.visible = shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !!CAM_VIEWS[camView].eye, hidden: HUD.carHidden }); if (!shadowMesh.visible) return; const shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(P.x + shift.x, SHADOW_STATE.y + SHADOW.lift, P.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -P.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }
+// a positive roll means the right side of the car is up, so the quad's local +z edge has to rise: rotation about +x lowers it, hence -roll.
+// On the turntable (#7) stepTurntable shows the car whatever V or the eye views say, so the shadow follows the car there too
+function drawShadow() { shadowMesh.visible = shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !CARSEL.on && !!CAM_VIEWS[camView].eye, hidden: !CARSEL.on && HUD.carHidden }); if (!shadowMesh.visible) return; const shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(P.x + shift.x, SHADOW_STATE.y + SHADOW.lift, P.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -P.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }
 // #126: the gull-wing doors open while the car waits on the start screen; written by stepDoors (loop), read by drawDoors (loop) only
 const DOOR_STATE = { open: 0, target: 0 };
 function stepDoors(dt) { DOOR_STATE.target = doorTarget(R.state, Math.hypot(P.vx, P.vz)); DOOR_STATE.open = stepDoor(DOOR_STATE.open, DOOR_STATE.target, dt); }

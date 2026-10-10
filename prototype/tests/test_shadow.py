@@ -170,3 +170,23 @@ def test_the_shadow_stays_under_the_car_far_from_the_origin(server):
     assert s["pos"][0] - car["x"] == pytest.approx(0.465, abs=0.02), (s, car)
     assert s["pos"][2] - car["z"] == pytest.approx(0.31, abs=0.02), (s, car)
     assert s["pos"][0] - car["x"] == pytest.approx(s["shift"][0], abs=1e-6) and s["pos"][2] - car["z"] == pytest.approx(s["shift"][1], abs=1e-6), s
+
+
+def test_the_turntable_shows_the_shadow_with_the_car(server):
+    """Review of #163: the garage (#162) forces the car visible on the turntable whatever V or the eye views say, so the
+    shadow must follow the car there too, and be hidden again with it after Back."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.keyboard.press("KeyV")
+        before = shadow(page)["visible"]
+        page.click("#carbtn")
+        page.wait_for_function("() => window.__mm.carsel().open", timeout=120000)
+        wait_frames(page, 2)
+        stage = page.evaluate("() => ({ car: window.__mm.carsel().carVisible, shadow: window.__mm.hud().shadowVisible })")
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => !window.__mm.carsel().open", timeout=120000)
+        after = shadow(page)["visible"]
+        b.close()
+    assert before is False, before
+    assert stage == {"car": True, "shadow": True}, stage
+    assert after is False, after
