@@ -1,7 +1,7 @@
 // #102: the secret hideout in the Hübel -- pure helpers (no three.js, no DOM): the tunnel axis, the two cut descriptors (the rail
 // underpass model of world.js with its own parameter set), the roofed / tree-free predicates, the cavern ring and the Eiffel
 // Tower as primitive descriptors. Unit-tested with `node --test prototype/tests/hideout.test.mjs`.
-import { UNDERPASS, cutReach } from './world.js';
+import { UNDERPASS, armReach } from './world.js';
 
 // mouth = the hill-side edge of the Hübel (centre line [-703.3, 1419.1] + w/2 + margin), heading = the steepest rise (probe 2026-10-09)
 export const HIDEOUT = { mouth: [-703.7, 1423.6], heading: 95 * Math.PI / 180, length: 105, hw: 4.5, grade: 0.05, cavernHw: 20, roofDepth: 5.5, towerH: 33, key: 'mm.hideout' };
@@ -21,14 +21,15 @@ export function axisCoords(x, z, h = HIDEOUT) {
 export function floorAt(s, g0, h = HIDEOUT, u = TUNNEL) { return g0 - h.grade * Math.min(Math.max(0, s), h.length - cavernR(h, u)); }
 
 // Two cuts in the shape makeCut() builds (index.html): the tunnel polyline mouth -> centre with its deepest point (t) at the
-// centre, and a 0.1 m polyline through the centre whose hw makes cutFloorAt a flat disc of radius cavernR.
+// centre, and a 0.1 m polyline through the centre whose hw makes cutFloorAt a flat disc of radius cavernR. roundEnds keeps
+// cutFloorAt's level disc past a polyline end (#156 ramps road cuts on past their ends instead).
 export function hideoutCuts(groundAt, h = HIDEOUT, u = TUNNEL) {
   const a = hideoutAxis(h), g0 = groundAt(a.mouth[0], a.mouth[1]), f0 = floorAt(h.length, g0, h, u), depth = groundAt(a.centre[0], a.centre[1]) - f0;
   // flat = cavernR: the tunnel's own floor is already level over the disc, so cutFloorMin finds no step where the two cuts meet
-  const tunnel = { pts: a.pts, t: h.length, hw: h.hw, flat: cavernR(h, u), f0, u, x: a.centre[0], z: a.centre[1], capped: null, depth };
-  tunnel.reach = [cutReach(tunnel, (s) => groundAt(a.centre[0] + a.ux * s, a.centre[1] + a.uz * s), u)[0], 0];
+  const tunnel = { pts: a.pts, t: h.length, hw: h.hw, flat: cavernR(h, u), f0, u, x: a.centre[0], z: a.centre[1], capped: null, depth, roundEnds: true };
+  tunnel.reach = [armReach(tunnel, (s) => groundAt(a.centre[0] + a.ux * s, a.centre[1] + a.uz * s), h.length, u)[0].s, 0];
   const [cx, cz] = a.centre, e = 0.05;
-  const cavern = { pts: [[cx - a.ux * e, cz - a.uz * e], [cx + a.ux * e, cz + a.uz * e]], t: e, hw: h.cavernHw, flat: 1, f0, u, x: cx, z: cz, capped: null, depth, reach: [1, 1] };
+  const cavern = { pts: [[cx - a.ux * e, cz - a.uz * e], [cx + a.ux * e, cz + a.uz * e]], t: e, hw: h.cavernHw, flat: 1, f0, u, x: cx, z: cz, capped: null, depth, reach: [1, 1], roundEnds: true };
   return { tunnel, cavern, f0 };
 }
 // first whole metre along the axis where the trench is roofDepth deep: the portal stands there, the lid starts behind it

@@ -81,10 +81,62 @@ def test_every_underpass_has_headroom(server):
     xs = run(server, lambda page: page.evaluate("() => window.__mm.crossings()"))
     print(json.dumps(xs, indent=1))
     assert len(xs) >= 2
-    # #119: a cut capped by a junction or road-piece end keeps the side road connected and only has to let a car through
-    bad = [c for c in xs if (c["clearance"] < (2.0 if c["capped"] else 4.45) and c["depth"] < 5.99) or c["railGap"] >= 0.3]
+    # #120: side roads descend with the cut, so nothing caps it any more and every underpass has the full headroom
+    bad = [c for c in xs if (c["clearance"] < 4.45 and c["depth"] < 5.99) or c["railGap"] >= 0.3]
     assert not bad, bad
-    print("capped:", [(c["road"], round(c["clearance"], 2), c["capped"]) for c in xs if c["capped"]])
+    assert not [c for c in xs if c["capped"]], [(c["road"], c["capped"]) for c in xs if c["capped"]]
+    assert not [c for c in xs if c["unsettled"]], [(c["road"], c["x"], c["z"]) for c in xs if c["unsettled"]]   # review of #156
+    print("arms:", [(c["road"], c["arms"]) for c in xs])
+
+
+# #119 capped these; with #120 their side roads descend instead (crossing positions on the rebuilt world)
+FORMER_CAPS = {"Kapfstrasse": (-4032, 548), "unnamed road by Bahndammstrasse": (-886, 1207),
+               "Hauptstrasse Stein": (-212, 1090), "Laufenburgerstrasse north": (1571, 1811)}
+
+
+@needs_world
+def test_side_roads_descend_with_the_cut(server):
+    """#120: at the four places #119 capped, the side roads joining inside the cut descend with it. Every arm starts at the
+    floor of the road it leaves, climbs without a step and meets the ground where it ends; a car drives up out of one."""
+    def script(page):
+        arms = page.evaluate("() => window.__mm.arms()")
+        rohrmatt = [(a, k) for a in arms if a["road"] == "Rohrmatt" for k in (0, 1)]
+        assert rohrmatt, f"no Rohrmatt arm in the rebuilt world: {sorted({a['road'] for a in arms})}"
+        a, k = max(rohrmatt, key=lambda p: p[0]["reach"][p[1]])
+        prof = a["sides"][k]; (x0, z0), (x1, z1) = prof[0][3:5], prof[min(5, len(prof) - 1)][3:5]
+        drive = page.evaluate(f"() => window.__mm.sim({x0}, {z0}, {math.atan2(z1 - z0, x1 - x0)}, 6, 4)")
+        return {"arms": arms, "drive": drive, "from": [x0, z0]}
+    r = run(server, script)
+    arms = r["arms"]
+    print(json.dumps([(a["road"], a["crossing"], round(a["f0"], 2), a["grade"], a["reach"], a["stop"]) for a in arms]))
+    for name, (x, z) in FORMER_CAPS.items():
+        assert any(math.hypot(a["crossing"][0] - x, a["crossing"][1] - z) < 15 for a in arms), name
+    for a in arms:
+        for k, prof in enumerate(a["sides"]):
+            assert prof[0][1] <= a["f0"] + 0.2, (a["road"], prof[0])                        # starts at the floor it leaves
+            for p, q in zip(prof, prof[1:]):
+                assert abs(q[1] - p[1]) <= 0.3, (a["road"], p, q)                           # no step along the arm
+            if a["stop"][k] == "ground":
+                assert prof[-1][5] >= prof[-1][2] - 0.3, (a["road"], prof[-1])             # its own floor has climbed out to the ground by its end
+    d = r["drive"]
+    assert math.hypot(d["x"] - r["from"][0], d["z"] - r["from"][1]) >= 15 and d["speed"] > 2, d   # up and out of the trough
+
+
+@needs_world
+def test_arms_out_of_budget_run_out_to_the_ground(server):
+    """Review of #156: an arm that ends on its budget is still below the ground there. Past its end the road must not step
+    back up to the uncut ground: the cut's depth (uncut mesh - terrain) shrinks by at most 0.3 m per metre and is gone
+    within 30 m. Measured on the depth, not the height, so a road that climbs steeply on its own is not blamed on the cut."""
+    arms = run(server, lambda page: page.evaluate("() => window.__mm.arms()"))
+    budget = [(a, k) for a in arms for k in (0, 1) if a["stop"][k] == "budget"]
+    print(json.dumps([(a["road"], a["crossing"], a["reach"][k], [[s, round(m - t, 2)] for s, t, m in a["past"][k]]) for a, k in budget]))
+    assert budget, "no arm ends on its budget any more: the case this test guards is gone from the world"
+    for a, k in budget:
+        past = a["past"][k]
+        assert past[-1][0] > a["reach"][k] + 5, (a["road"], a["reach"][k], past[-1])            # the road goes on past the end
+        for (s0, t0, m0), (s1, t1, m1) in zip(past, past[1:]):
+            assert abs((m1 - t1) - (m0 - t0)) <= 0.3 * (s1 - s0) + 1e-6, (a["road"], a["crossing"], s0, m0 - t0, s1, m1 - t1)
+        assert past[-1][2] - past[-1][1] <= 0.05, (a["road"], a["crossing"], past[-1])              # back on the ground
 
 
 @needs_world
@@ -158,3 +210,26 @@ def test_walls_follow_skewed_decks_and_leave_side_roads_open(server):
             assert not x["under"], (d, x)
         for r in w["roads"]:
             assert dseg(x["x"], x["z"], r["pts"]) >= r["w"] / 2 + 1.0, (r["n"], x)        # no wall in a road's corridor
+        # review of #156: the whole piece, ends included, keeps 0.25 m of slack to that bound for every other road (walls are
+        # trimmed there on a 0.25 m sampling, so a trim threshold equal to the asserted bound leaves pieces sitting right on it)
+        ends = [(x["x"] + k * math.cos(x["rot"]) * x["len"] / 2, x["z"] + k * math.sin(x["rot"]) * x["len"] / 2) for k in (-1, 1)]
+        for r in (r for k, r in enumerate(w["roads"]) if k != x["road"]):            # road = its index in the world
+            for ex, ez in ends:
+                assert dseg(ex, ez, r["pts"]) >= r["w"] / 2 + 1.0 + 0.25, (r["n"], round(dseg(ex, ez, r["pts"]) - r["w"] / 2, 3), x)
+
+
+@needs_world
+def test_no_open_cut_faces(server):
+    """#120: wherever a cut network lowers the ground by more than 0.3 m outside every road corridor, a trough wall stands
+    -- along the side roads and at the corners where they leave the cut road's trough.
+
+    One kind of point is not counted (world.js sharedTrough, unit-tested on its own): a point whose two nearest road
+    corridors face each other across it with their edges less than margin + wall + margin (4 m) apart. The issue's other
+    rule -- no wall in any road's corridor -- makes a wall impossible there: the two roads share one trough and there is no
+    bank between them to retain. In the world this is the ~30 m where Bahndammstrasse and the service road beside it run
+    1.85-2.84 m apart (64 points; PR #156 comment "Status: test_side_roads_descend_with_the_cut green", option (a), chosen
+    by the user). Junction corners do not qualify (their roads meet, they do not face each other); nothing else is relaxed."""
+    r = run(server, lambda page: page.evaluate("() => window.__mm.openCutFaces()"))
+    print(json.dumps({k: v for k, v in r.items() if k != "troughPts"}))
+    assert r["checked"] > 0, r
+    assert r["count"] == 0, r
