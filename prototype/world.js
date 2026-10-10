@@ -102,7 +102,8 @@ export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOf
 // #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;
 // the cut ramps out along the road at `grade`, never deeper than `maxDepth`. #119: `wall` m thick stone walls retain the
 // ground beside it instead of grass banks, their face `margin` m out from the road edge.
-export const UNDERPASS = { clear: 4.5, deck: 1.2, lift: 0.04, grade: 0.08, margin: 1, wall: 2, maxDepth: 6, apron: 3 };
+// #120: side roads joining inside a cut descend with it on arms ramping at sideGrade (the same street going on: grade).
+export const UNDERPASS = { clear: 4.5, deck: 1.2, lift: 0.04, grade: 0.08, sideGrade: 0.12, margin: 1, wall: 2, maxDepth: 6, apron: 3, runout: 0.25 };
 
 export function pointAtLength(pts, t) {
   let acc = 0;
@@ -148,25 +149,128 @@ export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidt
 // #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at
 // u.grade until it meets the ground. The road ribbon lies u.lift above the floor.
 export function cutFloorTarget(deckMin, ground, u = UNDERPASS) { return Math.max(deckMin - u.deck - u.clear - u.lift, ground - u.maxDepth); }
-// junctions (and the road piece's own ends) inside the reach keep their ground: the ramp must reach it by then
-export function junctionCap(f0, flat, junctions, u = UNDERPASS) {
+// #120: the points the network cannot descend through (dead ends, bridge joins, arms out of budget) keep their ground:
+// f0 >= ground - rise, rise = how far the floor climbs from the crossing to that point along the network
+export function capFloor(f0, caps) {
   let out = { f0, capped: null };
-  for (const j of junctions) { const f = j.ground - u.grade * Math.max(0, Math.abs(j.s) - flat); if (f > out.f0) out = { f0: f, capped: j }; }
+  for (const p of caps) { const f = p.ground - p.rise; if (f > out.f0) out = { f0: f, capped: p }; }
   return out;
 }
-export function cutFloor(c, s, u = UNDERPASS) { return c.f0 + u.grade * Math.max(0, Math.abs(s) - c.flat); }
-// per side, the first whole metre outward where the floor reaches the ground (groundAt takes the signed distance s)
-export function cutReach(c, groundAt, u = UNDERPASS) {
-  const max = c.flat + u.maxDepth / u.grade;
-  return [-1, 1].map((dir) => { for (let s = 0; s < max; s++) if (cutFloor(c, s, u) >= groundAt(dir * s) - 1e-9) return s; return max; });
+// #120, review of #156: reach -> network -> cap until no cap lifts the floor any more. A cap only ever raises f0, so the last
+// one applied is the shallowest floor seen: if the floor has still not settled after `tries` lifts, the cut keeps that floor
+// (never the deeper one a cap rejected), rebuilds its arms from it and is flagged `unsettled` for the build to report.
+export function settleCut(cut, network, tries = 8) {
+  cut.unsettled = false;
+  for (let k = 0; ; k++) {
+    const net = network(cut), cap = capFloor(cut.f0, net.caps);
+    cut.arms = net.arms;
+    if (!cap.capped) return cut;
+    cut.f0 = cap.f0; cut.capped = cap.capped;
+    if (k === tries) { cut.arms = network(cut).arms; cut.unsettled = true; return cut; }
+  }
 }
-export function cutFloorAt(c, x, z, u = UNDERPASS) {
-  const n = nearestOnPolyline(c.pts, x, z), s = n.t - c.t;
-  if (n.d > c.hw + u.margin + u.wall / 2 || s < -c.reach[0] || s > c.reach[1]) return null;
-  return cutFloor(c, s, u);
+export function cutFloor(c, s, u = UNDERPASS) { return c.f0 + (c.grade ?? u.grade) * Math.max(0, Math.abs(s) - c.flat); }
+// #120: per side of the anchor t, how far a cut or arm reaches and why it stops: the floor meets the ground ('ground', first
+// whole metre), its road piece ends first ('end'), or it is still below the ground after flat + maxDepth / grade ('budget')
+export function armReach(a, groundAt, len, u = UNDERPASS) {
+  const max = a.flat + u.maxDepth / (a.grade ?? u.grade);
+  return [-1, 1].map((dir) => {
+    const room = Math.max(0, dir < 0 ? a.t : len - a.t);   // #156: an anchor on a piece end can land a hair past it
+    for (let s = 0; s <= Math.min(room, max); s++) if (cutFloor(a, s, u) >= groundAt(dir * s) - 1e-9) return { s, why: 'ground' };
+    return room <= max ? { s: room, why: 'end' } : { s: max, why: 'budget' };
+  });
 }
+// #120: the nodes along a cut or arm inside its reach -- junction points on its road and the piece ends it reaches, never its
+// own anchor; s is signed from the anchor; one node per 0.5 m (a piece end on a junction is one node, an end)
+export function armNodes(a, junctions, len) {
+  const out = [], add = (x, z, s, end) => {
+    if (Math.abs(s) <= 0.5 || s < -a.reach[0] - 1e-9 || s > a.reach[1] + 1e-9 || out.some((o) => Math.hypot(o.x - x, o.z - z) < 0.5)) return;
+    out.push({ x, z, s, end });
+  };
+  add(...a.pts[0], -a.t, true); add(...a.pts[a.pts.length - 1], len - a.t, true);
+  for (const [jx, jz] of junctions) { const n = nearestOnPolyline(a.pts, jx, jz); if (n.d < a.hw + 2) add(jx, jz, n.t - a.t, false); }
+  return out;
+}
+const sameStreet = (a, b) => a.id === b.id || (!!a.n && a.n === b.n);
+// #156: how long a side road starting at t on `pts` stays in the corridor of the cut or arm `a` it leaves, and the floor of `a`
+// where it gets out. Leaving square-on that is the corridor's half-width at the junction's own floor; leaving at a slant it is
+// longer, and `a`'s floor climbs under it meanwhile, so the side road waits level at the floor where it gets out -- held at the
+// junction's floor it would sink below `a`'s road and step across its carriageway where its own corridor ends.
+function leaveCorridor(a, pts, t, floor, u) {
+  const half = a.hw + u.margin + u.wall / 2, len = polylineLength(pts);
+  const inside = (s) => { const [x, z] = pointAtLength(pts, t + s); return cutFloorAt(a, x, z, u) !== null; };
+  let best = { flat: half, f0: floor };
+  for (const dir of [-1, 1]) {
+    const room = dir < 0 ? t : len - t;
+    let s = 0;
+    while (s + 0.25 <= room && inside(dir * (s + 0.25))) s += 0.25;
+    if (s + 0.25 <= room) for (let lo = s, hi = s + 0.25, k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (inside(dir * m)) lo = s = m; else hi = m; }
+    if (s <= best.flat + 1e-6) continue;
+    const [x, z] = pointAtLength(pts, t + dir * s);
+    best = { flat: s, f0: cutFloorAt(a, x, z, u) };
+  }
+  return best;
+}
+// #120: every road piece meeting the cut (or one of its arms) at a node below the ground descends with it: an arm anchored
+// there, starting at the floor of the road it leaves and ramping back up at u.grade (same street) or u.sideGrade. Breadth-
+// first, each piece once. What cannot take an arm becomes a cap point for capFloor.
+export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
+  const arms = [], caps = [], used = new Set([cut.road]), queue = [{ a: cut, rise0: 0 }];
+  while (queue.length) {
+    const { a, rise0 } = queue.shift();
+    for (const nd of armNodes(a, junctions, polylineLength(a.pts))) {
+      const floor = cutFloor(a, nd.s, u), g = ground(nd.x, nd.z), rise = rise0 + floor - a.f0;
+      if (floor >= g - 0.05) continue;
+      const touch = roads.filter((o) => o !== a.road && nearestOnPolyline(o.pts, nd.x, nd.z).d < 0.6), open = touch.filter((o) => !o.bridge && (o.layer ?? 0) === 0);
+      if (open.length < touch.length) caps.push({ x: nd.x, z: nd.z, rise, ground: g, kind: 'bridge' });
+      else if (nd.end && !open.length) caps.push({ x: nd.x, z: nd.z, rise, ground: g, kind: 'dead' });
+      for (const o of open) {
+        if (used.has(o)) continue;
+        used.add(o);
+        // a side road crosses the trough it leaves before it can ramp, so it stays level over that corridor (else the floor
+        // steps up by grade * corridor where the parent's corridor ends); the same street going on has no trough to cross
+        const on = sameStreet(o, a.road), t = nearestOnPolyline(o.pts, nd.x, nd.z).t, lev = on ? { flat: 0, f0: floor } : leaveCorridor(a, o.pts, t, floor, u);
+        const arm = { pts: o.pts, road: o, t, hw: o.w / 2, flat: lev.flat, f0: lev.f0, grade: on ? u.grade : u.sideGrade, x: nd.x, z: nd.z };
+        const r = armReach(arm, (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);
+        arm.reach = r.map((p) => p.s); arm.stop = r.map((p) => p.why);
+        // an arm that runs out of budget on a road climbing steeper than its grade ends there, below the ground (capping it
+        // instead lifts the floor above the deck's underside and loses the underpass); from there its floor runs out to the
+        // ground, losing the depth d left at the end over d / u.runout m, so the road has no step (review of #156)
+        arm.out = r.map((p, k) => {
+          const s = k ? p.s : -p.s, d = p.why === 'budget' ? ground(...pointAtLength(o.pts, t + s)) - cutFloor(arm, s, u) : 0;
+          return d > 0 ? { d, len: d / u.runout } : null;
+        });
+        arms.push(arm); queue.push({ a: arm, rise0: rise });
+      }
+    }
+  }
+  return { arms, caps };
+}
+// the floor at (x, z), or null outside the corridor and the reach; past an end with a run-out (`out`, see cutNetwork) it rises
+// from the floor there to `ground` on the centre line, linearly in the depth left
+export function cutFloorAt(c, x, z, u = UNDERPASS, ground = null) {
+  const n = nearestOnPolyline(c.pts, x, z), s = n.t - c.t, k = s < 0 ? 0 : 1, past = Math.abs(s) - c.reach[k];
+  if (n.d > c.hw + u.margin + u.wall / 2) return null;
+  const b = beyondEnd(c.pts, x, z, n.t);
+  if (b !== 0 && Math.abs(s) < 1e-9) return null;                 // behind an anchor at the road end: the road it leaves covers that
+  if (past <= 0) return cutFloor(c, s + b, u);
+  const o = c.out?.[k];
+  if (!o || !ground || past > o.len) return null;
+  return ground(...pointAtLength(c.pts, n.t)) - o.d * (1 - past / o.len);
+}
+// #156: how far (x, z) lies past the polyline's end along its last segment (+), or behind its start along the first (-), when
+// the nearest road point t is that end; else 0
+function beyondEnd(pts, x, z, t) {
+  const last = pts.length - 1, atStart = t <= 1e-9, atEnd = !atStart && t >= polylineLength(pts) - 1e-9;
+  if (!atStart && !atEnd) return 0;
+  const [ax, az] = atStart ? pts[1] : pts[last - 1], [bx, bz] = atStart ? pts[0] : pts[last], L = Math.hypot(bx - ax, bz - az) || 1;
+  const ext = Math.max(0, ((x - bx) * (bx - ax) + (z - bz) * (bz - az)) / L);
+  return atStart ? -ext : ext;
+}
+// the part of its road a cut or arm lowers, run-outs included: [t0, t1]
+export function armSpan(c) { return [c.t - c.reach[0] - (c.out?.[0]?.len ?? 0), c.t + c.reach[1] + (c.out?.[1]?.len ?? 0)]; }
 export function cutBounds(c, u = UNDERPASS) {
-  const a = c.t - c.reach[0], b = c.t + c.reach[1], pad = c.hw + u.margin + u.wall + 1, n = Math.max(1, Math.ceil(b - a));
+  const [a, b] = armSpan(c), pad = c.hw + u.margin + u.wall + 1, n = Math.max(1, Math.ceil(b - a));
   let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
   for (let k = 0; k <= n; k++) { const [x, z] = pointAtLength(c.pts, a + (b - a) * k / n); x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
   return [x0 - pad, z0 - pad, x1 + pad, z1 + pad];
@@ -177,14 +281,55 @@ export function mergeIntervals(iv) {
   for (const [a, b] of [...iv].sort((p, q) => p[0] - q[0])) { const last = out[out.length - 1]; if (last && a <= last[1]) last[1] = Math.max(last[1], b); else out.push([a, b]); }
   return out;
 }
-// #119: wall pieces along a road over the (merged) spans, `offset` m to each side; (nx, nz) points away from the road
-export function wallStations(pts, intervals, offset, step) {
+// #119: wall pieces along a road over the (merged) spans, `offset` m to each side; (nx, nz) points away from the road.
+// #156: each piece is the chord of the wall line itself (both ends offset along the road's normal there, as wallSpans tests
+// them), so on the outside of a bend the pieces still meet; where the wall line folds back on the inside of a tight bend the
+// piece keeps the road's chord, moved out.
+export function wallStations(pts, intervals, offset, step, sides = [-1, 1]) {
   const out = [];
   for (const [a, b] of mergeIntervals(intervals)) {
     const n = Math.max(1, Math.round((b - a) / step)), len = (b - a) / n;
     for (let k = 0; k < n; k++) {
-      const t = a + (k + 0.5) * len, [x0, z0] = pointAtLength(pts, t - len / 2), [x1, z1] = pointAtLength(pts, t + len / 2), rot = Math.atan2(z1 - z0, x1 - x0);
-      for (const side of [-1, 1]) { const nx = -Math.sin(rot) * side, nz = Math.cos(rot) * side; out.push({ t, side, len, rot, nx, nz, x: (x0 + x1) / 2 + nx * offset, z: (z0 + z1) / 2 + nz * offset }); }
+      const t = a + (k + 0.5) * len, [x0, z0] = pointAlong(pts, t - len / 2), [x1, z1] = pointAlong(pts, t + len / 2), rot = Math.atan2(z1 - z0, x1 - x0);
+      for (const side of sides) {
+        const [ax, az] = wallPoint(pts, t - len / 2, offset, side), [bx, bz] = wallPoint(pts, t + len / 2, offset, side);
+        const along = (bx - ax) * Math.cos(rot) + (bz - az) * Math.sin(rot) > 1e-6;
+        const r = along ? Math.atan2(bz - az, bx - ax) : rot, nx = -Math.sin(r) * side, nz = Math.cos(r) * side;
+        out.push(along ? { t, side, len: Math.hypot(bx - ax, bz - az), rot: r, nx, nz, x: (ax + bx) / 2, z: (az + bz) / 2 }
+          : { t, side, len, rot, nx, nz, x: (x0 + x1) / 2 + nx * offset, z: (z0 + z1) / 2 + nz * offset });
+      }
+    }
+  }
+  return out;
+}
+// the point `offset` m to `side` of the road at t, along the road's normal there (tangent over +-0.1 m, so a vertex gets the mitre)
+function wallPoint(pts, t, offset, side) {
+  const [x0, z0] = pointAlong(pts, t - 0.1), [x1, z1] = pointAlong(pts, t + 0.1), rot = Math.atan2(z1 - z0, x1 - x0), [x, z] = pointAlong(pts, t);
+  return [x - Math.sin(rot) * side * offset, z + Math.cos(rot) * side * offset];
+}
+// pointAtLength, but past either end it goes on along the end segment (a wall overhang keeps its normal there)
+function pointAlong(pts, t) {
+  const len = polylineLength(pts);
+  if (t >= 0 && t <= len) return pointAtLength(pts, t);
+  const [ax, az] = t < 0 ? pts[0] : pts[pts.length - 1], [bx, bz] = t < 0 ? pts[1] : pts[pts.length - 2], L = Math.hypot(bx - ax, bz - az) || 1, e = t < 0 ? t : len - t;
+  return [ax + (bx - ax) / L * e, az + (bz - az) / L * e];
+}
+// #120: the parts of the spans where the wall centre line (`offset` m to `side`, normal as in wallStations) stays outside
+// `blocked` -- another road's corridor -- sampled every 0.25 m, so a run ends at that road's wall face; bits < 0.5 m dropped
+export function wallSpans(pts, intervals, offset, side, blocked, overhang = 0) {
+  const out = [], len = polylineLength(pts);
+  // on the road, or at most `overhang` m past its ends (#156, see pointAlong): past an end pointAtLength clamps and the normal
+  // is lost (review of #156)
+  for (const [a, b] of mergeIntervals(intervals).map(([a, b]) => [Math.max(-overhang, a), Math.min(len + overhang, b)]).filter(([a, b]) => b - a >= 0.5)) {
+    const n = Math.max(1, Math.ceil((b - a) / 0.25)), freeAt = (t) => !blocked(...wallPoint(pts, t, offset, side));
+    // #156: between a free and a blocked sample, the last free t to the centimetre
+    const edge = (free, blockedT) => { for (let k = 0; k < 6; k++) { const m = (free + blockedT) / 2; if (freeAt(m)) free = m; else blockedT = m; } return free; };
+    let start = null, last = null, prev = null;
+    for (let k = 0; k <= n; k++) {
+      const t = a + (b - a) * k / n, free = freeAt(t);
+      if (free) { if (start === null) start = prev === null ? t : edge(t, prev); last = t; }
+      if ((!free || k === n) && start !== null) { const end = free ? last : edge(last, t); if (end - start >= 0.5) out.push([start, end]); start = null; }
+      prev = t;
     }
   }
   return out;

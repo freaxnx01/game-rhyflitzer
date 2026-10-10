@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -406,15 +406,33 @@ test('cutFlat covers the deck footprint on the road plus the apron, skew-limited
   assert.ok(Math.abs(cutFlat(2.75, 0.1) - (2.75 / 0.3 + 3)) < 1e-9);
 });
 
-test('junctionCap raises the floor so the ramp meets each junction at its own ground', () => {
-  assert.deepEqual(junctionCap(10, 6, []), { f0: 10, capped: null });
-  assert.deepEqual(junctionCap(10, 6, [{ s: 50, ground: 12 }]), { f0: 10, capped: null });   // 12 - 0.08 * 44 = 8.48: the ramp is already up
-  const one = junctionCap(10, 6, [{ s: 20, ground: 13 }]);                                    // 13 - 0.08 * 14 = 11.88
-  assert.ok(Math.abs(one.f0 - 11.88) < 1e-9); assert.equal(one.capped.s, 20);
-  const two = junctionCap(10, 6, [{ s: 20, ground: 13 }, { s: -10, ground: 12 }]);           // the second: 12 - 0.32 = 11.68
-  assert.ok(Math.abs(two.f0 - 11.88) < 1e-9); assert.equal(two.capped.s, 20);
-  const inBand = junctionCap(10, 6, [{ s: -4, ground: 12.5, end: true }]);                    // a piece end under the deck: no cut there at all
-  assert.equal(inBand.f0, 12.5); assert.equal(inBand.capped.end, true);
+test('capFloor raises the floor until every cap point is at its own ground', () => {
+  assert.deepEqual(capFloor(10, []), { f0: 10, capped: null });
+  assert.deepEqual(capFloor(10, [{ rise: 3, ground: 12 }]), { f0: 10, capped: null });          // 12 - 3 = 9: already up
+  const one = capFloor(10, [{ rise: 1.12, ground: 13, kind: 'dead' }]);
+  assert.ok(Math.abs(one.f0 - 11.88) < 1e-9); assert.equal(one.capped.kind, 'dead');
+  const two = capFloor(10, [{ rise: 1.12, ground: 13, kind: 'dead' }, { rise: 0.32, ground: 12, kind: 'bridge' }]);
+  assert.ok(Math.abs(two.f0 - 11.88) < 1e-9); assert.equal(two.capped.kind, 'dead');
+});
+
+// review of #156: makeCut's reach -> network -> cap loop, pulled out so its iteration limit can be tested
+test('settleCut: raises the floor cap by cap until no cap lifts it, and rebuilds the arms from the floor it keeps', () => {
+  const seen = [], net = (c) => { seen.push(c.f0); return { arms: [{ f0: c.f0 }], caps: c.f0 < 12 ? [{ rise: 0, ground: 12, kind: 'dead' }] : [] }; };
+  const cut = settleCut({ f0: 10, capped: null }, net);
+  assert.equal(cut.f0, 12); assert.equal(cut.capped.kind, 'dead'); assert.equal(cut.unsettled, false);
+  assert.deepEqual(seen, [10, 12]); assert.deepEqual(cut.arms, [{ f0: 12 }]);
+  const flat = settleCut({ f0: 10, capped: null }, () => ({ arms: [], caps: [] }));
+  assert.equal(flat.f0, 10); assert.equal(flat.capped, null); assert.equal(flat.unsettled, false);
+});
+
+test('settleCut: a floor that never settles keeps the last (shallowest) cap, matching arms, and says so', () => {
+  // every pass demands 1 m more: the loop gives up after `tries`, but never with the floor below a cap it has seen
+  const net = (c) => ({ arms: [{ f0: c.f0 }], caps: [{ rise: 0, ground: c.f0 + 1, kind: 'dead', at: c.f0 }] });
+  const cut = settleCut({ f0: 10, capped: null }, net, 3);
+  assert.equal(cut.f0, 14);                                   // 10 -> 11 -> 12 -> 13 -> 14: four caps over tries + 1 passes
+  assert.equal(cut.capped.ground, 14); assert.equal(cut.capped.at, 13);   // capped names the cap the floor actually meets
+  assert.deepEqual(cut.arms, [{ f0: 14 }]);                   // arms start from the floor that is kept, not the one before it
+  assert.equal(cut.unsettled, true);
 });
 
 const CUT = { pts: [[0, -100], [0, 100]], t: 100, hw: 4.5, flat: 6, f0: 10, reach: [30, 40] };   // crossing at z = 0
@@ -423,13 +441,27 @@ test('cutFloor is level under the deck band and ramps out at 8 %', () => {
   assert.equal(cutFloor(CUT, -6), 10);
   assert.ok(Math.abs(cutFloor(CUT, 16) - 10.8) < 1e-9);
   assert.ok(Math.abs(cutFloor(CUT, -16) - 10.8) < 1e-9);
+  assert.ok(Math.abs(cutFloor({ f0: 10, flat: 0, grade: 0.12 }, -10) - 11.2) < 1e-9);   // #120: an arm ramps at its own grade
 });
 
-test('cutReach ends each side where the floor meets the ground, at most flat + maxDepth / grade', () => {
-  const c = { ...CUT, reach: undefined };
-  assert.deepEqual(cutReach(c, (s) => (s >= 0 ? 12.4 : 10.4)), [11, 36]);   // behind: 6 + 0.4 / 0.08, ahead: 6 + 2.4 / 0.08
-  assert.deepEqual(cutReach(c, () => 100), [81, 81]);
-  assert.deepEqual(cutReach(c, () => 9), [0, 0]);                        // the deck is high enough: no cut
+test('armReach: per side, where the floor meets the ground, else the piece end, else the budget', () => {
+  const c = { t: 100, flat: 6, f0: 10 };
+  assert.deepEqual(armReach(c, (s) => (s >= 0 ? 12.4 : 10.4), 200), [{ s: 11, why: 'ground' }, { s: 36, why: 'ground' }]);
+  assert.deepEqual(armReach(c, () => 100, 200), [{ s: 81, why: 'budget' }, { s: 81, why: 'budget' }]);   // flat + maxDepth / grade
+  assert.deepEqual(armReach(c, () => 100, 120), [{ s: 81, why: 'budget' }, { s: 20, why: 'end' }]);
+  assert.deepEqual(armReach(c, () => 9, 200), [{ s: 0, why: 'ground' }, { s: 0, why: 'ground' }]);    // the deck is high enough
+  const arm = { t: 0, flat: 0, f0: 10, grade: 0.12 };
+  assert.deepEqual(armReach(arm, () => 12, 100), [{ s: 0, why: 'end' }, { s: 17, why: 'ground' }]);   // 2 / 0.12 = 16.7
+  const deep = armReach(arm, () => 100, 100);
+  assert.equal(deep[1].why, 'budget'); assert.ok(Math.abs(deep[1].s - 50) < 1e-9);                      // maxDepth / sideGrade
+});
+
+// #156: an anchor on a piece end can land a hair past it in floating point (nearestOnPolyline); the reach that side is 0, never
+// negative -- a reach of -3.6e-15 left an empty profile and an IndexError in test_side_roads_descend_with_the_cut
+test('armReach: an anchor a hair past the road end reaches 0 there, not less', () => {
+  const r = armReach({ t: 10 + 1e-12, flat: 0, f0: 10, grade: 0.08 }, () => 20, 10);
+  assert.deepEqual(r[1], { s: 0, why: 'end' });
+  assert.deepEqual(armReach({ t: -1e-12, flat: 0, f0: 10, grade: 0.08 }, () => 20, 10)[0], { s: 0, why: 'end' });
 });
 
 test('cutFloorAt: the floor inside the corridor (to the middle of the wall) and the reach, else null', () => {
@@ -442,10 +474,47 @@ test('cutFloorAt: the floor inside the corridor (to the middle of the wall) and 
   assert.equal(cutFloorAt(CUT, 0, 40.5), null);
 });
 
+// #156: past its road's end an arm's corridor is a half disc around the end point (the nearest road point is the end). Held
+// level there it lay under the next piece of the street, which ramps on from the same floor, and stepped up 0.3 m where the
+// disc ended (Rütistrasse); it goes on ramping instead, as if the road went on
+test('cutFloorAt: past the road end the floor keeps ramping along the end direction', () => {
+  const arm = { pts: [[0, 0], [10, 0]], t: 0, hw: 2.75, flat: 0, f0: 10, grade: 0.12, reach: [0, 10] };
+  assert.ok(Math.abs(cutFloorAt(arm, 10, 1) - 11.2) < 1e-9);                       // at the end
+  assert.ok(Math.abs(cutFloorAt(arm, 12, 1) - 11.44) < 1e-9);                      // 2 m past it
+});
+
+// #156: an arm whose road starts at its anchor lowers nothing behind that start: the road it leaves covers the junction. Its
+// level start held a half disc there under the cut street's own next piece, which ramps on from the junction, and the floor
+// stepped up 0.4-0.5 m where the disc ended (Rohrmatt over Hauptstrasse, Dammstrasse over Laufenburgerstrasse north)
+test('cutFloorAt: nothing behind an arm anchored at its road end', () => {
+  const side = { pts: [[0, 0], [10, 0]], t: 0, hw: 2.75, flat: 4.75, f0: 10, grade: 0.12, reach: [0, 10] };
+  assert.equal(cutFloorAt(side, -2, 1), null);
+  assert.equal(cutFloorAt(side, 0.5, 3), 10);                                      // beside its first metres it is level
+  assert.equal(cutFloorAt({ ...side, pts: [[10, 0], [0, 0]], t: 10, reach: [10, 0] }, -2, 1), null);   // anchored at the far end
+});
+
 test('cutBounds holds every point with a floor, padded by the wall and one cell', () => {
   const [x0, z0, x1, z1] = cutBounds(CUT);
   [-8.5, -38.5, 8.5, 48.5].forEach((want, k) => assert.ok(Math.abs([x0, z0, x1, z1][k] - want) < 1e-9, `${k}: ${[x0, z0, x1, z1][k]}`));   // reach plus hw 4.5 + margin 1 + wall 2 + 1
   for (let x = -20; x <= 20; x += 0.5) for (let z = -60; z <= 60; z += 0.5) if (cutFloorAt(CUT, x, z) !== null) assert.ok(x > x0 && x < x1 && z > z0 && z < z1, `${x},${z}`);
+});
+
+// review of #156: past an end on its budget the floor runs out to the ground, by the depth left there over depth / runout m
+const RUN = { ...CUT, out: [null, { d: 4, len: 16 }] }, RUN_GROUND = () => 16.72;     // 12.72 at the end (z = 40) + 4
+test('cutFloorAt: past a budget end the floor runs out to the ground, linearly in its depth', () => {
+  assert.ok(Math.abs(cutFloorAt(RUN, 0, 40, UNDERPASS, RUN_GROUND) - 12.72) < 1e-9);   // the ramp's own end
+  assert.ok(Math.abs(cutFloorAt(RUN, 0, 48, UNDERPASS, RUN_GROUND) - 14.72) < 1e-9);   // half way: half the depth left
+  assert.ok(Math.abs(cutFloorAt(RUN, 3, 48, UNDERPASS, RUN_GROUND) - 14.72) < 1e-9);   // level across the corridor
+  assert.ok(Math.abs(cutFloorAt(RUN, 0, 56, UNDERPASS, RUN_GROUND) - 16.72) < 1e-9);   // on the ground
+  assert.equal(cutFloorAt(RUN, 0, 56.5, UNDERPASS, RUN_GROUND), null);
+  assert.equal(cutFloorAt(RUN, 0, -31, UNDERPASS, RUN_GROUND), null);                 // the other end has no run-out
+  assert.equal(cutFloorAt(RUN, 0, 48), null);                                         // and without the ground there is none
+});
+
+test('cutBounds holds the run-out too', () => {
+  const [, , , z1] = cutBounds(RUN);
+  assert.ok(Math.abs(z1 - 64.5) < 1e-9, `${z1}`);                                      // 40 + 16 + 4.5 + 1 + 2 + 1
+  assert.deepEqual(armSpan(RUN), [70, 156]); assert.deepEqual(armSpan(CUT), [70, 140]);
 });
 
 test('patch cells cover the whole footprint (clamped to the grid)', () => {
@@ -477,6 +546,152 @@ test('wallStations: pieces of about `step` m on both sides at `offset`, normals 
     assert.ok(Math.abs(w.nx - Math.sign(w.x)) < 1e-9 && Math.abs(w.nz) < 1e-9);
     assert.ok(Math.abs(w.len - 2) < 1e-9 && Math.abs(w.rot - Math.PI / 2) < 1e-9);
   }
+});
+
+// #156: a piece is the chord of the wall line, not the road's chord moved out -- on the outside of a bend the moved chords
+// fall short of each other and leave wedges of open bank between them (Kapfstrasse, the service road's hairpin)
+test('wallStations: on a bend the pieces of the outer wall meet end to end', () => {
+  const pts = [[0, 0], [0, 20], [20, 20]];                                             // a right angle at (0, 20)
+  for (const side of [-1, 1]) {
+    const ws = wallStations(pts, [[10, 30]], 4, 2, [side]);
+    const ends = ws.map((w) => [-1, 1].map((k) => [w.x + k * Math.cos(w.rot) * w.len / 2, w.z + k * Math.sin(w.rot) * w.len / 2]));
+    for (let i = 0; i + 1 < ends.length; i++) {
+      const [ax, az] = ends[i][1], [bx, bz] = ends[i + 1][0];
+      if (side === 1) assert.ok(Math.hypot(ax - bx, az - bz) < 1e-6, `piece ${i}: ${ax},${az} -> ${bx},${bz}`);   // x < 0, then z > 20: the outer side
+    }
+    for (const w of ws) assert.ok(Math.abs(Math.hypot(w.nx, w.nz) - 1) < 1e-9 && (w.nx * Math.cos(w.rot) + w.nz * Math.sin(w.rot)) ** 2 < 1e-12);
+  }
+});
+
+test('wallStations builds only the sides asked for', () => {
+  const ws = wallStations([[0, -100], [0, 100]], [[90, 110]], 6.5, 2, [1]);
+  assert.equal(ws.length, 10);
+  assert.ok(ws.every((w) => w.side === 1 && Math.abs(w.x + 6.5) < 1e-9));
+});
+
+test('wallSpans trims a wall run where its centre line enters another road', () => {
+  const pts = [[0, -100], [0, 100]];
+  assert.deepEqual(wallSpans(pts, [[90, 110]], 6.5, 1, () => false), [[90, 110]]);
+  const sp = wallSpans(pts, [[90, 110]], 6.5, 1, (x, z) => Math.abs(z) < 3 && x < 0);   // a side road along x < 0 at z = 0
+  assert.equal(sp.length, 2);
+  // the gap edges land within one 0.25 m sample of the side road's corridor (3 m here)
+  assert.ok(Math.abs(sp[0][0] - 90) < 1e-9 && Math.abs(sp[0][1] - 97) <= 0.25 && Math.abs(sp[1][0] - 103) <= 0.25 && Math.abs(sp[1][1] - 110) < 1e-9, JSON.stringify(sp));
+  assert.deepEqual(wallSpans(pts, [[90, 110]], 6.5, -1, (x, z) => Math.abs(z) < 3 && x < 0), [[90, 110]]);   // the far side stays closed
+});
+
+// #156: the run ends on the corridor itself, not on the last 0.25 m sample before it, so the trim slack in index.html is all
+// that stays open at a corner (a gap of up to 0.25 m more left a notch of open bank where the two runs meet)
+test('wallSpans finds the gap edges to the centimetre', () => {
+  const sp = wallSpans([[0, -100], [0, 100]], [[90, 110]], 6.5, 1, (x, z) => Math.abs(z) < 3.1 && x < 0);
+  assert.ok(Math.abs(sp[0][1] - 96.9) < 0.01 && Math.abs(sp[1][0] - 103.1) < 0.01, JSON.stringify(sp));
+});
+
+// #120: a main road along z (crossing at z = 0, floor 10, level 6 m), side roads at z = 20; flat ground at 14 unless given
+// review of #156: a span reaching past the road's end (a run-out can) stops at the end; past it both tangent samples clamp to
+// the end point, so the normal there would point along +z instead of off the road
+test('wallSpans keeps a run on its road: a span past the end stops at the end', () => {
+  const pts = [[0, 0], [0, 10]];                                                   // along +z: side 1 lies at x = -3
+  assert.deepEqual(wallSpans(pts, [[8, 12]], 3, 1, () => false), [[8, 10]]);
+  assert.deepEqual(wallSpans(pts, [[-2, 2]], 3, 1, () => false), [[0, 2]]);
+  assert.deepEqual(wallSpans(pts, [[8, 12]], 3, 1, (x) => x < -2), []);            // the wall line is blocked all along
+});
+
+// #156: the cut patches are 1 m cells, so the lowering runs out over up to 1 m past where a floor ends; a run may reach that far
+// past its road's end too (the outside of a bend between two pieces), its normal taken from the end segment
+test('wallSpans/wallStations: an overhang past the road end, with the end segment normal', () => {
+  const pts = [[0, 0], [0, 10]];                                                   // along +z: side 1 lies at x = -3
+  assert.deepEqual(wallSpans(pts, [[8, 12]], 3, 1, () => false, 1), [[8, 11]]);
+  assert.deepEqual(wallSpans(pts, [[-2, 2]], 3, 1, () => false, 1), [[-1, 2]]);
+  assert.deepEqual(wallSpans(pts, [[8, 12]], 3, 1, (x) => x < -2, 1), []);         // the wall line is blocked all along
+  const [w] = wallStations(pts, [[9, 11]], 3, 2, [1]);
+  assert.ok(Math.abs(w.x + 3) < 1e-9 && Math.abs(w.z - 10) < 1e-9 && Math.abs(w.len - 2) < 1e-9 && Math.abs(w.rot - Math.PI / 2) < 1e-9, JSON.stringify(w));
+});
+
+const MAIN_RD = { id: 1, n: 'Main', w: 9, pts: [[0, -100], [0, 100]] };
+const MAIN = (road = MAIN_RD, t = 100) => {
+  const c = { pts: road.pts, road, t, hw: road.w / 2, flat: 6, f0: 10 };
+  c.reach = armReach(c, () => 14, polylineLength(road.pts)).map((p) => p.s);
+  return c;
+};
+const flat14 = () => 14;
+
+test('armNodes: junctions on the road and reached piece ends, inside the reach, not the anchor', () => {
+  const c = { pts: [[0, -100], [0, 100]], t: 100, hw: 4.5, reach: [56, 56] };
+  assert.deepEqual(armNodes(c, [[0, 20, 3], [0, -30, 3], [50, 0, 3], [0, 80, 3], [0, 20.3, 3], [0, 0.2, 3]], 200),
+    [{ x: 0, z: 20, s: 20, end: false }, { x: 0, z: -30, s: -30, end: false }]);
+  assert.deepEqual(armNodes({ ...c, reach: [100, 0] }, [], 200), [{ x: 0, z: -100, s: -100, end: true }]);
+});
+
+test('cutNetwork: a side road joining inside the reach descends from the floor there at the side grade', () => {
+  const side = { id: 2, n: 'Side', w: 5.5, pts: [[0, 20], [60, 20]] };
+  const { arms, caps } = cutNetwork(MAIN(), [MAIN_RD, side], [[0, 20, 3]], flat14);
+  assert.equal(arms.length, 1); assert.deepEqual(caps, []);
+  const a = arms[0];
+  assert.equal(a.road, side); assert.equal(a.t, 0); assert.equal(a.grade, 0.12); assert.equal(a.flat, 6.5);   // the main road's corridor it crosses
+  assert.ok(Math.abs(a.f0 - 11.12) < 1e-9);                                        // 10 + 0.08 * (20 - 6)
+  assert.deepEqual(a.reach, [0, 31]); assert.deepEqual(a.stop, ['end', 'ground']);   // 6.5 + 2.88 / 0.12
+});
+
+// #156: a side road leaving at a slant stays in the main road's corridor for longer than its width; the main floor climbs under
+// it there, so a side floor held at the junction would sink below the main road and step across its carriageway
+test('cutNetwork: a side road leaving at a slant stays level until it is out of the corridor, at the floor there', () => {
+  const side = { id: 2, n: 'Side', w: 5.5, pts: [[0, 20], [60, 20 + 60 * Math.tan(Math.PI / 3)]] };   // 30 degrees off the main road
+  const { arms } = cutNetwork(MAIN(), [MAIN_RD, side], [[0, 20, 3]], flat14);
+  const a = arms[0], sExit = 6.5 / Math.sin(Math.PI / 6);                           // 13 m to leave the 6.5 m corridor
+  assert.ok(Math.abs(a.flat - sExit) < 1e-3, `flat ${a.flat}`);
+  assert.ok(Math.abs(a.f0 - (10 + 0.08 * (20 + sExit * Math.cos(Math.PI / 6) - 6))) < 1e-3, `f0 ${a.f0}`);   // the main floor there
+  for (let s = 0; s <= 13; s += 1) {                                                // nowhere below the main floor beside it
+    const [x, z] = pointAtLength(side.pts, s), main = 10 + 0.08 * Math.max(0, Math.abs(z) - 6);
+    assert.ok(cutFloor(a, s) >= main - 1e-6, `s ${s}: side ${cutFloor(a, s)} < main ${main}`);
+  }
+});
+
+test('cutNetwork: a dead end caps the floor by its rise along the network', () => {
+  const stub = { id: 2, n: 'Side', w: 5.5, pts: [[0, 20], [10, 20]] };
+  const { arms, caps } = cutNetwork(MAIN(), [MAIN_RD, stub], [[0, 20, 3]], flat14);
+  assert.equal(arms.length, 1); assert.equal(caps.length, 1);
+  assert.equal(caps[0].kind, 'dead'); assert.ok(Math.abs(caps[0].rise - 1.54) < 1e-9);   // 1.12 on the main road + 0.12 * (10 - 6.5)
+  assert.ok(Math.abs(capFloor(10, caps).f0 - 12.46) < 1e-9);
+});
+
+test('cutNetwork: a bridge piece at a node is no arm but a cap', () => {
+  const br = { id: 2, n: 'Side', w: 5.5, pts: [[0, 20], [60, 20]], bridge: true };
+  const { arms, caps } = cutNetwork(MAIN(), [MAIN_RD, br], [[0, 20, 3]], flat14);
+  assert.equal(arms.length, 0); assert.equal(caps.length, 1); assert.equal(caps[0].kind, 'bridge');
+  assert.ok(Math.abs(capFloor(10, caps).f0 - 12.88) < 1e-9);
+});
+
+test('cutNetwork: the cut road going on in its next piece keeps the cut grade', () => {
+  const m1 = { id: 1, n: 'Main', w: 9, pts: [[0, -100], [0, 20]] }, m2 = { id: 1, n: 'Main', w: 9, pts: [[0, 20], [0, 100]] };
+  const cut = MAIN(m1);
+  assert.deepEqual(cut.reach, [56, 20]);                                            // stops at its piece end
+  const { arms, caps } = cutNetwork(cut, [m1, m2], [], flat14);
+  assert.equal(arms.length, 1); assert.deepEqual(caps, []);
+  assert.equal(arms[0].grade, 0.08); assert.deepEqual(arms[0].reach, [0, 36]);      // 20 + 36 = 56, as one road
+});
+
+test('cutNetwork: an arm meeting another road on its ramp spreads into it', () => {
+  const stub = { id: 2, n: 'Side', w: 5.5, pts: [[0, 20], [10, 20]] }, next = { id: 3, n: 'Other', w: 5.5, pts: [[10, 20], [10, 80]] };
+  const { arms, caps } = cutNetwork(MAIN(), [MAIN_RD, stub, next], [[0, 20, 3]], flat14);
+  assert.equal(arms.length, 2); assert.deepEqual(caps, []);
+  assert.equal(arms[1].road, next); assert.ok(Math.abs(arms[1].f0 - 11.54) < 1e-9); assert.deepEqual(arms[1].reach, [0, 26]);
+});
+
+// A road climbing steeper than sideGrade outruns the ramp: the arm ends on its budget, still below the ground, and does not
+// cap -- like a main cut's own side (#119). Capping it loses the underpass instead (measured at Bahndammstrasse, see #120).
+test('cutNetwork: an arm still below the ground at its budget ends there and does not cap the floor', () => {
+  const side = { id: 2, n: 'Side', w: 5.5, pts: [[0, 20], [200, 20]] }, climb = (x) => 14 + 0.2 * Math.max(0, x);
+  const { arms, caps } = cutNetwork(MAIN(), [MAIN_RD, side], [[0, 20, 3]], climb);
+  assert.deepEqual(caps, []);
+  assert.deepEqual(arms[0].stop, ['end', 'budget']); assert.ok(Math.abs(arms[0].reach[1] - 56.5) < 1e-9);   // flat + maxDepth / sideGrade
+});
+
+test('cutNetwork: an arm ending on its budget runs out to the ground at UNDERPASS.runout per metre (review of #156)', () => {
+  const side = { id: 2, n: 'Side', w: 5.5, pts: [[0, 20], [200, 20]] }, climb = (x) => 14 + 0.2 * Math.max(0, x);
+  const { arms } = cutNetwork(MAIN(), [MAIN_RD, side], [[0, 20, 3]], climb);
+  assert.equal(arms[0].out[0], null);                                                   // ends on its piece end
+  const o = arms[0].out[1], d = 14 + 0.2 * 56.5 - (11.12 + 0.12 * 50);                  // ground - floor at the budget end
+  assert.ok(Math.abs(o.d - d) < 1e-9 && Math.abs(o.len - d / UNDERPASS.runout) < 1e-9, JSON.stringify(o));
 });
 
 test('treeTrunkR_TreeHeight_ScalesWithTheTrunkNotTheCrown', () => {

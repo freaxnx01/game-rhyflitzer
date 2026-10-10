@@ -321,7 +321,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
@@ -586,7 +586,7 @@ function meshH(x, z) {
 // #76: 16 m cells under a road cut are replaced by a CUT_N x CUT_N patch (1 m cells, so a trough wall's step stays behind its
 // face) (key 'i,j' -> heights, row-major (CUT_N+1)^2);
 // terrainH returns the patch surface there, with the mesh's own triangle split, so everything sits on what is drawn.
-const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], WALLS = [];
+const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], ARMS = [], WALLS = [];
 function terrainH(x, z) {
   const G = TGRID, fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz;
   if (CUT_CELLS.size && fx >= 0 && fz >= 0 && fx <= G.nx && fz <= G.nz) {
@@ -610,40 +610,42 @@ function baseH(x, z) {
   return h * sm((riverDist(x, z) - 40) / (SDF ? 80 : 160));         // flat towards the water; the SDF is clamped at 120 m, so blend shorter there
 }
 fillBridgeHeights();
-// #76/#119: one cut per rail-deck/road crossing, an absolute floor sized on the uncut mesh (meshH): level across the
-// corridor, ramping out until it meets the ground. Junctions and the road piece's own ends inside its reach cap it, so
-// side roads keep their ground (#120 lets them descend instead). Then the patches for every cell a cut touches.
+// #76/#119/#120: one cut per rail-deck/road crossing, an absolute floor sized on the uncut mesh (meshH): level across the
+// corridor, ramping out until it meets the ground. Side roads and the cut road's next piece joining inside it descend with
+// it on arms (cutNetwork); only what cannot (dead ends, bridges, arms out of budget) still caps the floor. Then the patches
+// for every cell an arm touches.
 function makeCut(c) {
-  const b = RAIL_DECKS[c.bridge], hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), span = hw / Math.max(0.3, c.sin) + 1;
+  const b = RAIL_DECKS[c.bridge], hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), span = hw / Math.max(0.3, c.sin) + 1, len = polylineLength(c.road.pts);
   let deckMin = Infinity; for (const k of [-1, 0, 1]) deckMin = Math.min(deckMin, bridgeSurfaceAt(b, c.tRail + k * span));
   const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return meshH(x, z); };
-  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: cutFloorTarget(deckMin, groundAt(0)), capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin };
-  cut.reach = cutReach(cut, groundAt);
-  Object.assign(cut, junctionCap(cut.f0, flat, cutJunctions(cut)));
-  cut.reach = cutReach(cut, groundAt); cut.depth = Math.max(0, groundAt(0) - cut.f0);
+  const near = [...new Set([...gridQuery(ROAD_GRID, c.x, c.z, 250)].map(({ r }) => r))];
+  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: cutFloorTarget(deckMin, groundAt(0)), capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [] };
+  settleCut(cut, (c) => { c.reach = armReach(c, groundAt, len).map((p) => p.s); return cutNetwork(c, near, L.junctions, meshH); });
+  if (cut.unsettled) console.warn(`underpass at ${c.road.n} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): the cut floor did not settle; kept the shallowest capped floor`);
+  for (const a of cut.arms) a.deck = b;
+  cut.depth = Math.max(0, groundAt(0) - cut.f0);
   return cut;
-}
-// junctions on the cut road and the road piece's two ends, inside the current reach, with their ground
-function cutJunctions(cut) {
-  const len = polylineLength(cut.pts), out = [];
-  const add = (x, z, s, end) => { if (s >= -cut.reach[0] && s <= cut.reach[1]) out.push({ x, z, s, ground: meshH(x, z), end }); };
-  for (const [jx, jz] of L.junctions) { const n = nearestOnPolyline(cut.pts, jx, jz); if (n.d < cut.hw + 2) add(jx, jz, n.t - cut.t, false); }
-  add(...cut.pts[0], -cut.t, true); add(...cut.pts[cut.pts.length - 1], len - cut.t, true);
-  return out;
 }
 // #102: the hideout's two cuts (hideout.js) ride the same patch machinery, from their own array: CUTS stays rail-only for
 // __mm.crossings and the #119 walls. Built on the measured terrain only -- the made-up hills have no Hübel.
 const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...hideoutCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, lidTris: 0, lidCells: new Set(), floor: null }; })() : null;
-const allCuts = () => HIDE ? [...CUTS, HIDE.tunnel, HIDE.cavern] : CUTS;
-function cutFloorMin(x, z) { let f = Infinity; for (const c of allCuts()) if (c.depth > 0 && Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) { const h = cutFloorAt(c, x, z, c.u ?? UNDERPASS); if (h !== null) f = Math.min(f, h); } return f; }
+// the rail arms (ARMS) plus the hideout's cuts: everything that lowers the patches
+const patchCuts = () => HIDE ? [...ARMS, ...[HIDE.tunnel, HIDE.cavern].filter((c) => c.depth > 0)] : ARMS;
+function cutFloorMin(x, z) {
+  let f = Infinity;
+  for (const a of patchCuts()) { const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue; const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, meshH); if (h !== null) f = Math.min(f, h); }
+  return f;
+}
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
 function buildCuts() {
   for (const c of railRoadCrossings(L.roads, L.railBridges)) CUTS.push(makeCut(c));
+  for (const c of CUTS) if (c.depth > 0) for (const a of [c, ...c.arms]) { a.bounds = cutBounds(a); ARMS.push(a); }
   const G = TGRID, W = CUT_N + 1;
-  for (const c of allCuts()) if (c.depth > 0) for (const [i, j] of patchCells(cutBounds(c, c.u ?? UNDERPASS), G)) {
+  if (HIDE) for (const c of [HIDE.tunnel, HIDE.cavern]) c.bounds = cutBounds(c, c.u);
+  for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) {
     const key = i + ',' + j; if (CUT_CELLS.has(key)) continue;
     const p = new Float32Array(W * W);
-    for (let b = 0; b < W; b++) for (let a = 0; a < W; a++) { const x = G.x0 + (i + a / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + a] = Math.min(meshH(x, z), cutFloorMin(x, z)); }
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(meshH(x, z), cutFloorMin(x, z)); }
     CUT_CELLS.set(key, p);
   }
 }
@@ -1174,23 +1176,36 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     }
     const g = ribbonGeo(b.r.pts, 2.5, 0.03, 4, false, (p) => hs(p[0], p[1])); colorize(g, col('#ffffff')); push('rail', g);
   }
-  // #119 trough walls: along every road with a cut, a stone wall with its face at hw + margin, from the cut floor to 1 m
-  // over the ground behind it (parapet); where a deck passes over the piece itself (not over the road's centre line --
-  // at a skewed crossing those are metres apart) up to that deck's underside there and no parapet. No wall in another
-  // road's corridor, so a side road joining at a capped cut stays open. Solid, but `low`: a car above the top passes over.
-  const deckOver = (cuts, x, z) => { let best = null; for (const c of cuts) { const n = nearestOnPolyline(c.deck.r.pts, x, z); if (!best || n.d < best.n.d) best = { c, n }; } return best; };
-  const inSideRoad = (road, x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + 1.5);
-  const byRoad = new Map(); for (const c of CUTS) if (c.depth > 0) { if (!byRoad.has(c.road)) byRoad.set(c.road, []); byRoad.get(c.road).push(c); }
-  for (const [road, cuts] of byRoad) {
-    const hw = road.w / 2, inner = hw + UNDERPASS.margin;
-    for (const w of wallStations(road.pts, cuts.map((c) => [c.t - c.reach[0], c.t + c.reach[1]]), inner + UNDERPASS.wall / 2, 2)) {
-      const [rx, rz] = pointAtLength(road.pts, w.t), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25)), ground = meshH(rx + w.nx * (inner + UNDERPASS.wall + 0.5), rz + w.nz * (inner + UNDERPASS.wall + 0.5));
-      if (ground - floor <= 0.1 || inSideRoad(road, w.x, w.z)) continue;
-      const dk = deckOver(cuts, w.x, w.z), under = dk.n.d <= dk.c.deck.hw + w.len / 2, deckTop = bridgeSurfaceAt(dk.c.deck, dk.n.t);
+  // #119/#120 trough walls: along every road with a cut or an arm, a stone wall with its face at hw + margin, from the floor
+  // to 1 m over the ground behind it (parapet); where a deck passes over the piece itself (not over the road's centre line --
+  // at a skewed crossing those are metres apart) up to that deck's underside there and no parapet. Per side, the run stops
+  // where its centre line reaches another road's wall face, so a side road enters through a gap and the walls meet at the
+  // corner. Solid, but `low`: a car above the top passes over.
+  const deckOver = (arms, x, z) => { let best = null; for (const c of arms) { const n = nearestOnPolyline(c.deck.r.pts, x, z); if (!best || n.d < best.n.d) best = { c, n }; } return best; };
+  // review of #156: the run stops WALL_SLACK short of the other road's wall face, so no piece end reaches into that road's
+  // corridor; wallSpans finds that point to the centimetre, so the slack is also the whole notch left open at the corner (under
+  // the 0.3 m a wall covers in __mm.openCutFaces)
+  const WALL_SLACK = 0.28;
+  const otherRoad = (road) => (x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK);
+  const byRoad = new Map(); for (const a of ARMS) { if (!byRoad.has(a.road)) byRoad.set(a.road, []); byRoad.get(a.road).push(a); }
+  for (const [road, arms] of byRoad) {
+    // #156: the 1 m patch cells run the lowering out over up to one cell past where a floor ends, so the runs go on that far
+    const cell = Math.max(TGRID.dx, TGRID.dz) / CUT_N, spans = arms.map(armSpan).map(([a, b]) => [a - cell, b + cell]);
+    const hw = road.w / 2, inner = hw + UNDERPASS.margin, off = inner + UNDERPASS.wall / 2;
+    for (const side of [-1, 1]) for (const w of wallStations(road.pts, wallSpans(road.pts, spans, off, side, otherRoad(road), cell), off, 2, [side])) {
+      const [rx, rz] = pointAtLength(road.pts, w.t), at = (d) => meshH(rx + w.nx * d, rz + w.nz * d), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25));
+      // #156: the ground the wall retains -- behind it, or on its own band where the cut still lowers it (on a slope falling away
+      // from the road the ground 0.5 m behind can lie below the floor while the band is lowered 0.8 m)
+      const ground = Math.max(at(inner + UNDERPASS.wall + 0.5), at(inner + 0.25), at(inner + UNDERPASS.wall / 2));
+      if (ground - floor <= 0.1) continue;
+      // the lowest deck surface over the piece's own footprint (half its length, plus how far it sits off the deck's centre
+      // line): near a deck end bridgeDeckOffset fades, so the surface right above the piece is below the centre-line value
+      const dk = deckOver(arms, w.x, w.z), under = dk.n.d <= dk.c.deck.hw + w.len / 2, span = w.len / 2 + dk.n.d;
+      const deckTop = Math.min(...[-span, 0, span].map((k) => bridgeSurfaceAt(dk.c.deck, dk.n.t + k)));
       const top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
       box(w.len + 0.05, top - floor, UNDERPASS.wall, w.x, floor, w.z, w.rot, col('#b8b2a6'), 'stone', [4, 3], 0);
       pushOBB({ x: w.x, z: w.z, hw: w.len / 2, hd: UNDERPASS.wall / 2, c: Math.cos(w.rot), s: Math.sin(w.rot), h: top, low: true });
-      WALLS.push({ x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under });
+      WALLS.push({ road: ROADS.indexOf(road), x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under });
     }
   }
   // railway Basel–Koblenz line (stand-in) and the two stations
@@ -1712,9 +1727,16 @@ window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail), p = c.deck.r.pts, ends = [[p[0], c.deck.h0], [p[p.length - 1], c.deck.h1]];
-  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, capped: c.capped && { x: c.capped.x, z: c.capped.z, s: c.capped.s, end: c.capped.end }, deck, clearance: deck - UNDERPASS.deck - road,
+  return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind }, deck, clearance: deck - UNDERPASS.deck - road,
            railGap: Math.max(...ends.map(([[x, z], h]) => Math.abs(Math.max(terrainH(x, z), roadSurfH(x, z)) - h))) };
 });
+// #120: the side-road arms of every cut, with a 1 m profile per side: [s, terrain, uncut mesh, x, z, this arm's own floor]
+// (terrain is the lowest floor of the whole network there, so where cuts overlap it stays under an arm that has surfaced)
+window.__mm.arms = () => CUTS.filter((c) => c.depth > 0).flatMap((c) => c.arms.map((a) => ({
+  road: a.road.n, crossing: [c.x, c.z], x: a.x, z: a.z, f0: a.f0, grade: a.grade, reach: a.reach, stop: a.stop,
+  sides: [-1, 1].map((dir, k) => { const out = []; for (let s = 0; s <= a.reach[k]; s += 1) { const [x, z] = pointAtLength(a.pts, a.t + dir * s); out.push([s, terrainH(x, z), meshH(x, z), x, z, cutFloor(a, dir * s)]); } return out; }),
+  // review of #156: from 3 m before each end to 30 m past it (on the road, not past its end): [s, terrain, uncut mesh]
+  past: [-1, 1].map((dir, k) => { const out = [], room = dir < 0 ? a.t : polylineLength(a.pts) - a.t; for (let s = Math.max(0, a.reach[k] - 3); s <= Math.min(room, a.reach[k] + 30); s += 1) { const [x, z] = pointAtLength(a.pts, a.t + dir * s); out.push([s, terrainH(x, z), meshH(x, z)]); } return out; }) })));
 window.__mm.rayHits = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
 window.__mm.treesOnRail = () => [...(window.__TREES || []), ...(window.__FOREST || [])].filter(([x, z]) => railDist(x, z) < 4).length;
 window.__mm.treeTrunkR = treeTrunkR;
@@ -1733,6 +1755,19 @@ window.__mm.step = (secs, hold = ['KeyW']) => { for (const k of hold) keys[k] = 
 window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: isDeck(onBridge(P.x, P.z, P.y)), water: waterLevelAt(P.x, P.z, P.y), submerged: submerged(P.y, waterLevelAt(P.x, P.z, P.y)) });
 window.__mm.pushAt = (x, z, y) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; if (y !== undefined) P.y = y; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return out; };   // #36: read-only, for the region-wide collider test; #119: optional car height
 window.__mm.walls = () => WALLS;
+// #120: points the cuts lower by > 0.3 m outside every road corridor (hw + margin) that no trough wall covers -- should be none
+window.__mm.openCutFaces = (step = 0.5) => {
+  const out = []; let checked = 0;
+  for (const a of ARMS) {
+    const [x0, z0, x1, z1] = a.bounds, walls = WALLS.filter((w) => w.x > x0 - 3 && w.x < x1 + 3 && w.z > z0 - 3 && w.z < z1 + 3);
+    for (let x = x0; x <= x1; x += step) for (let z = z0; z <= z1; z += step) {
+      const d = cutDepth(x, z); if (d <= 0.3 || roadDist(x, z, 16) < UNDERPASS.margin) continue;
+      checked++;
+      if (!walls.some((w) => { const dx = x - w.x, dz = z - w.z, c = Math.cos(w.rot), s = Math.sin(w.rot); return Math.abs(dx * c + dz * s) <= w.len / 2 + 0.3 && Math.abs(-dx * s + dz * c) <= UNDERPASS.wall / 2 + 0.3; })) out.push([+x.toFixed(1), +z.toFixed(1), +d.toFixed(2)]);
+    }
+  }
+  return { checked, count: out.length, open: out.slice(0, 30) };
+};
 window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone' && !b.approach).map(b => b.r.id), approaches: OSM_BRIDGES.filter(b => b.approach).length, banks: STONE_AXIS ? [{ x: STONE_AXIS.a[0], z: STONE_AXIS.a[1], h: STONE_AXIS.ha }, { x: STONE_AXIS.e[0], z: STONE_AXIS.e[1], h: STONE_AXIS.he }] : [] });
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
