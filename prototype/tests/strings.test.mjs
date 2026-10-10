@@ -133,3 +133,14 @@ test('hideout strings exist in both languages (#102)', () => {
   assert.match(translate('en', 'hideoutNoSky'), /drive out/);
   assert.match(translate('de', 'hideoutNoSky'), /fahr zuerst raus/);
 });
+
+test('pontoon bridge texts exist in both languages (#100)', () => {
+  assert.equal(translate('en', 'pontoonBuild'), 'U · build a pontoon bridge');
+  assert.equal(translate('de', 'pontoonBuild'), 'U · Pontonbrücke bauen');
+  assert.equal(translate('en', 'pontoonRemove'), 'U · remove the pontoon bridge');
+  assert.equal(translate('de', 'pontoonRemove'), 'U · Pontonbrücke abbauen');
+  assert.equal(translate('de', 'pontoonNoBank'), 'Hier ist kein Rheinufer');
+  assert.equal(translate('de', 'pontoonHasBridge'), 'Hier gibt es schon eine Brücke');
+  assert.equal(translate('de', 'notCountedPontoon'), 'mit Pontonbrücke, zählt nicht · ');
+  for (const k of ['pontoonBuilding', 'pontoonRemoving', 'pontoonNoFarBank', 'keyPontoon']) { assert.notEqual(translate('de', k), k, k); assert.notEqual(translate('en', k), k, k); }
+});

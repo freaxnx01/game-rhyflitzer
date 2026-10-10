@@ -12,6 +12,17 @@ Screenshots: `docs/ai-notes/screenshots/2026-10-10-suedspange/`. **J** → „s�
 - [ ] Sections match Abbildung 2 of the report: 8 m road with the bike path 7.5 m north on sections 1–2, 7 m on sections 3–4.
 - [ ] The Baustelle and Fahrverbot signs stand beside the road and face the traffic.
 
+## Pontoon bridge (#100)
+
+Screenshot: `design/screenshots/2026-10-pontoon-bridge-sisseln.png` — hulls 0.5 m out of the water, legs on the bank ramps, posts and rail bar, olive deck: does it read as a military pontoon bridge?
+
+The key is **U** („Übergang"), not **P** as the issue asked: **P** is the pause toggle (`prototype/pause.js:18`). Free letters were L, U, Y and Z; Y/Z sit on the wrong physical key for a Swiss keyboard because the game reads `e.code`.
+
+- [ ] **J** → Sisseln, drive down the Innermattstrasse to the Rhine. The HUD shows „U · Pontonbrücke bauen"; **U** lays the bridge across in ~3 s, each bay drops in and settles. Does the build read as bay-by-bay, or too fast to see?
+- [ ] **U** again: the bridge disappears from the far end; standing on it you fall in and come back on the Innermattstrasse.
+- [ ] **U** next to the Fridolinsbrücke or the Holzbrücke: „Hier gibt es schon eine Brücke". **U** at the Sissle or 100 m from the river: „Hier ist kein Rheinufer".
+- [ ] Look: hulls 0.5 m out of the water, legs on the bank ramps, rails, the olive line on the minimap.
+
 ## Hideout in the Hübel (#102, PR #158 — merged 2026-10-10)
 
 The gate is in **J** from the start; the cavern is secret, so start on a fresh profile (or clear `mm.hideout` in localStorage).
