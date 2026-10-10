@@ -25,18 +25,36 @@ def flat_terrain(bbox, origin, step, base, cache, dgm_dir):
     return header, heights
 
 
-@pytest.fixture(scope="module")
-def built(tmp_path_factory):
-    if not bridge_works():
-        pytest.skip("no Node 22+ on PATH: the race measures its legs with the game's A*")
-    tmp = tmp_path_factory.mktemp("region")
+def no_race(mp):
+    """Stub the automatic race out: only the race needs Node, the rest of build_world must run without it."""
+    mp.setattr(region.race, "build", lambda *a: None)
+
+
+def build_synth(tmp_path_factory, name, with_race: bool):
+    tmp = tmp_path_factory.mktemp(name)
     mp = pytest.MonkeyPatch()
     mp.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
+    if not with_race:
+        no_race(mp)
     steps = []
     files = region.build_world(synth_osm.RECT, tmp / "out", pbf=synth_osm.write(tmp / "synth.osm"), cache=tmp / "cache",
                                dsm=False, progress=steps.append)
     mp.undo()
     return files, json.loads(files["world"].read_text("utf-8")), json.loads(files["meta"].read_text("utf-8")), steps
+
+
+@pytest.fixture(scope="module")
+def built(tmp_path_factory):
+    """The synthetic world without its race: runs on any host, Node or not."""
+    return build_synth(tmp_path_factory, "region", with_race=False)
+
+
+@pytest.fixture(scope="module")
+def raced(tmp_path_factory):
+    """The synthetic world with its automatic race, measured with the game's A* through Node."""
+    if not bridge_works():
+        pytest.skip("no Node 22+ on PATH: the race measures its legs with the game's A*")
+    return build_synth(tmp_path_factory, "raced", with_race=True)
 
 
 def test_files_steps_and_terrain_base(built):
@@ -57,18 +75,18 @@ def test_name_villages_jlist_start(built):
         ("Ahausen", "village", "Ahausen"), ("Ahausen Bahnhof", "station", "Ahausen"),
         ("Kirche Ahausen", "place_of_worship", "Ahausen"), ("Schulhaus Ahausen", "school", "Ahausen")]
     assert len(a["start"]) == 3 and abs(a["start"][0]) < 200 and abs(a["start"][1]) < 200    # on the secondary/tertiary cross
-    assert r["forestAbove"] is None
+    assert a["cps"] == [] and r["race"] is None and r["forestAbove"] is None
 
 
-def test_race_in_the_world_file(built):
-    _, world, _, _ = built
+def test_race_in_the_world_file(raced):
+    _, world, meta, _ = raced
     a, race = world["anchors"], world["region"]["race"]
     pts = [a["start"][:2]] + [[c["x"], c["z"]] for c in a["cps"] + [a["finish"]]]
     assert len(a["cps"]) == 5 and len({c["n"] for c in a["cps"] + [a["finish"]]}) == 6
     x0, x1, z0, z1 = world["region"]["treeBox"]
     assert all(x0 + 149 <= x <= x1 - 149 and z0 + 149 <= z <= z1 - 149 for x, z in pts[1:])     # 150 m off the edge
     assert all(math.dist(p, q) >= 300 for i, p in enumerate(pts) for q in pts[i + 1:])
-    assert 2500 <= race["len"] <= 7200 and race["par"] == math.ceil(race["len"] / 12.5)
+    assert 2500 <= race["len"] <= 7200 and race["par"] == math.ceil(race["len"] / 12.5) and meta["race"] is True
 
 
 def test_forests_and_clip(built):
@@ -83,7 +101,7 @@ def test_forests_and_clip(built):
 def test_meta(built):
     _, world, meta, _ = built
     assert meta["id"] == F.world_id(synth_osm.RECT, region.PIPELINE_VERSION) == world["region"]["id"]
-    assert meta["bbox"]["lv95"] == list(synth_osm.RECT) and meta["lastPlayed"] is None and meta["race"] is True
+    assert meta["bbox"]["lv95"] == list(synth_osm.RECT) and meta["lastPlayed"] is None and meta["race"] is False
     assert "ODbL" in meta["license"] and meta["extract"]["file"] == "synth.osm" and meta["base"] == 412.0
     assert "Terrain: swissALTI3D © swisstopo" in meta["sources"] and world["origin"]["lat"] == F.origin(synth_osm.RECT)[0]
 
@@ -144,6 +162,7 @@ def holey_terrain(bbox, origin, step, cache, dgm_dir):
 
 def test_terrain_reaching_outside_switzerland_keeps_the_base(tmp_path, monkeypatch):
     monkeypatch.setattr(region.terrain, "sample", holey_terrain)
+    no_race(monkeypatch)
     files = region.build_world(synth_osm.RECT, tmp_path / "out", pbf=synth_osm.write(tmp_path / "synth.osm"),
                                cache=tmp_path / "cache", dsm=False)
     hdr, heights = mmh.read_mmh(files["terrain"])
@@ -156,6 +175,7 @@ def test_one_boundary_read_and_both_tile_caches_pruned(tmp_path, monkeypatch):
     monkeypatch.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
     reads, real_read = [], region.world_boundaries.read
     monkeypatch.setattr(region.world_boundaries, "read", lambda *a: reads.append(a) or real_read(*a))
+    no_race(monkeypatch)
     for name in ("swissalti3d", "swisssurface3d"):
         (tmp_path / "cache" / name).mkdir(parents=True)
         for i in range(3):
