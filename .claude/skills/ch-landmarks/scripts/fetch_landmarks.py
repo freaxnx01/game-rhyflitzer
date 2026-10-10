@@ -49,6 +49,9 @@ ATTRIBUTION = "swissBUILDINGS3D 3.0 © swisstopo (https://www.swisstopo.admin.ch
 GML = "http://www.opengis.net/gml"
 # Top-Level-Objekte, die als eigenständige Landmarks in Frage kommen.
 CANDIDATE_TAGS = {"Building", "Bridge", "BuildingPart", "BridgePart", "GenericCityObject"}
+PART_TAGS = {"BuildingPart", "BridgePart"}
+# swisstopo schreibt Attributwerte ohne Umlaute ("Bruecke gedeckt"), der Viewer zeigt sie mit.
+UMLAUTS = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue"})
 
 TO_WGS84 = Transformer.from_crs("EPSG:2056", "EPSG:4326", always_xy=True)
 
@@ -219,28 +222,42 @@ def _attrs(obj) -> dict:
     return out
 
 
+def _units(obj) -> list:
+    """Sammel-Objekt ohne eigene Attribute (gml:id `ID_`, keine EGID) → seine Teile, sonst das Objekt.
+
+    swisstopo bündelt Objekte ohne EGID (z.B. Brücken) als BuildingParts in einem anonymen
+    Building; die Teile haben räumlich nichts miteinander zu tun. Gebäude mit eigener EGID
+    bleiben mitsamt ihren Teilen ein Objekt.
+    """
+    parts = [p for p in obj.iter() if p is not obj and local(p.tag) in PART_TAGS]
+    has_own_attrs = any(local(c.tag).endswith("Attribute") for c in obj)
+    return parts if parts and not has_own_attrs else [obj]
+
+
+def _city_object(obj) -> CityObject:
+    co = CityObject(obj.get(f"{{{GML}}}id") or "?", local(obj.tag), _attrs(obj))
+    for poly in obj.iter(f"{{{GML}}}Polygon"):
+        ext = poly.find(f"{{{GML}}}exterior")
+        if ext is None:
+            continue
+        e = _coords(ext)
+        if e is None or len(e) < 3:
+            continue
+        holes = [h for h in (_coords(i) for i in poly.findall(f"{{{GML}}}interior"))
+                 if h is not None and len(h) >= 3]
+        co.rings.append([e, *holes])
+    return co
+
+
 def parse_gml(path: Path) -> list[CityObject]:
     objs = []
     for _, el in etree.iterparse(str(path), events=("end",), huge_tree=True):
         if local(el.tag) != "cityObjectMember":
             continue
         for obj in el:
-            kind = local(obj.tag)
-            if kind not in CANDIDATE_TAGS:
+            if local(obj.tag) not in CANDIDATE_TAGS:
                 continue
-            co = CityObject(obj.get(f"{{{GML}}}id") or "?", kind, _attrs(obj))
-            for poly in obj.iter(f"{{{GML}}}Polygon"):
-                ext = poly.find(f"{{{GML}}}exterior")
-                if ext is None:
-                    continue
-                e = _coords(ext)
-                if e is None or len(e) < 3:
-                    continue
-                holes = [h for h in (_coords(i) for i in poly.findall(f"{{{GML}}}interior"))
-                         if h is not None and len(h) >= 3]
-                co.rings.append([e, *holes])
-            if co.rings:
-                objs.append(co)
+            objs.extend(co for co in map(_city_object, _units(obj)) if co.rings)
         el.clear()
         while el.getprevious() is not None:
             del el.getparent()[0]
@@ -268,6 +285,10 @@ def select(objs: list[CityObject], lm: dict) -> list[CityObject]:
     return hits
 
 
+def _fold(value) -> str:
+    return str(value).casefold().translate(UMLAUTS)
+
+
 def check_expect(hits: list[CityObject], lm: dict) -> list[str]:
     exp = lm.get("expect") or {}
     tol = float(exp.get("tolerance_m", 1.0))
@@ -275,9 +296,9 @@ def check_expect(hits: list[CityObject], lm: dict) -> list[str]:
     if isinstance(selection_area(lm), Point) and len(hits) != 1:
         errs.append(f"Punkt trifft {len(hits)} Objekte statt genau 1")
     if "typ" in exp:
-        want = str(exp["typ"]).casefold()
+        want = _fold(exp["typ"])
         for o in hits:
-            if not any(str(v).casefold() == want for v in o.attrs.values() if v is not None):
+            if not any(_fold(v) == want for v in o.attrs.values() if v is not None):
                 errs.append(f"{o.gml_id}: kein Attribut mit Wert '{exp['typ']}' "
                             f"(vorhanden: {o.attrs})")
     if "roof_max" in exp and hits:

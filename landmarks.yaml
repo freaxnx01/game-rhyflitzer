@@ -17,7 +17,7 @@ landmarks:
   - id: holzbruecke-saeckingen
     name: Holzbrücke Stein–Bad Säckingen
     select:
-      point: [2638590.49, 1266920.23]
+      point: [2638607.58, 1266869.99]
     expect:
       typ: "Brücke gedeckt"
       roof_max: 296.56
