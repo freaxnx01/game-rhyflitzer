@@ -45,7 +45,8 @@ def eaves(vals, ground, min_samples=8):
     the outline (a courtyard, a ramp, an outline that misses the roof) pulled the percentile over all samples down:
     Bodenackerstrasse 6 has 7.5 % ground samples and came out 22.8 m instead of 25.3 m. A lower wing at least NOT_BUILT
     high still counts. When the roof samples are not the majority, the outline is mostly not roof and the old statistic
-    over all samples stays."""
+    over all samples stays. The guard is a cliff, not a ramp: at 51 % roof the eaves come from the roof, at 49 % the old
+    statistic stands, so an outline that is just under half roof keeps a low eaves."""
     roof = vals[vals - ground >= NOT_BUILT]
     if len(roof) < min_samples or len(roof) < ROOF_MAJORITY * len(vals):
         return float(np.percentile(vals, 10))
