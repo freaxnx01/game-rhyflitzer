@@ -112,3 +112,43 @@ def test_sky_ground_and_no_takeoff_inside(server):
     assert flying is False
     assert abs(car["y"] - h["floor"]) < 1.0, car
     assert sky >= h["lid"], (sky, h)
+
+
+CROSS_JS = """([x, z, th, secs]) => {
+  window.__mm.sim(x, z, th, 10, 0.05, ['KeyW']);
+  const out = { roofed: 0, minAboveLid: Infinity, path: [] };
+  for (let i = 0; i < secs * 10; i++) {
+    const c = window.__mm.step(0.1, ['KeyW']), lid = window.__mm.lidAt(c.x, c.z);
+    out.path.push([+c.x.toFixed(1), +c.z.toFixed(1), +c.y.toFixed(1)]);
+    if (lid !== null) { out.roofed++; out.minAboveLid = Math.min(out.minAboveLid, c.y - lid); }
+  }
+  out.found = window.__mm.hideout().found;
+  return out;
+}"""
+
+
+def across(page, s, off, secs):
+    """Start `off` metres to the side of the axis at `s` metres in, on the hilltop, and drive straight across the axis."""
+    ux, uz = math.cos(HEADING), math.sin(HEADING)
+    mx, mz = -703.7 + ux * s, 1423.6 + uz * s
+    x, z = mx - uz * off, mz + ux * off            # off the axis on its left (normal (-uz, ux))
+    th = math.atan2(-ux, uz)                       # facing (uz, -ux): back across the axis to the right
+    return page.evaluate(CROSS_JS, [x, z, th, secs])
+
+
+@needs_world
+def test_hill_is_solid_over_the_tunnel_and_the_cavern(server):
+    """The review's drive: sideways across the hill at s = 40 and s = 70, and over the cavern. The car stays on the hill,
+    never under the ceiling."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        runs = {s: across(page, s, 18, 4) for s in (40, 70)}
+        cavern = across(page, 105, 40, 8)
+        br.close()
+    assert errors == []
+    for s, r in runs.items():
+        assert r["roofed"] > 0, (s, r["path"])
+        assert r["minAboveLid"] > 0, (s, r["minAboveLid"], r["path"])
+    assert cavern["roofed"] > 0, cavern["path"]
+    assert cavern["minAboveLid"] > 0, (cavern["minAboveLid"], cavern["path"])
+

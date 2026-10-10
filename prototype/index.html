@@ -672,6 +672,8 @@ function groundH(x, z, y) {
   // #101: the bed shelves from the shoreline (0) to 6 m (bedDepth); the car lies and drives on it
   const rd = riverDist(x, z), wl = waterSurface(rd, L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null) return Math.max(wl - bedDepth(rd), fill);
   for (const k of KREISEL) if (Math.hypot(x - k.x, z - k.z) <= k.apron) return Math.max(k.b + 0.375, fill);
+  // #102: the lid is solid -- over the tunnel and the cavern, anything above the ceiling stands on the hill, not on the cut floor
+  const lid = HIDE ? lidH(x, z) : null; if (lid !== null && y > lid - 1) return meshH(x, z);
   const t = Math.max(terrainH(x, z), roadSurfH(x, z), fill);
   if (RAMP && x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
   return t;
