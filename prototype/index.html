@@ -1613,7 +1613,7 @@ function stepTurntable(dt) { CARSEL.spin = spinStep(CARSEL.spin, dt, { dir: CARS
 // ---------- rear-view mirror (#92) ----------
 // Only in the cockpit view, and only off a touch device: the mirror camera renders the same scene into MIR.rt every second
 // frame, the quad is redrawn from the last target on the others (and in pause, so the picture freezes with the game).
-function aimMirror() { const fx = Math.cos(P.th), fz = Math.sin(P.th), [ex, ey] = vehEye('cockpit'), y = P.y + ey + MIRROR.drop; MIR.cam.position.set(P.x + fx * ex, y, P.z + fz * ex); MIR.cam.lookAt(P.x - fx * 40, y - 0.3, P.z - fz * 40); }   // centre line (no side offset), looking straight back
+function aimMirror() { const fx = Math.cos(P.th), fz = Math.sin(P.th), [ex, ey] = vehEye('cockpit'), wl = waterLevelAt(P.x, P.z, P.y), y = mirrorEyeY(P.y + ey, wl, UWS.on); MIR.cam.position.set(P.x + fx * ex, y, P.z + fz * ex); MIR.cam.lookAt(P.x - fx * 40, y - 0.3, P.z - fz * 40); }   // centre line (no side offset), looking straight back
 function renderMirrorTarget() { const sh = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false; try { aimMirror(); renderer.setRenderTarget(MIR.rt); renderer.render(scene, MIR.cam); } finally { renderer.setRenderTarget(null); renderer.shadowMap.autoUpdate = sh; } MIR.renders++; }   // the sun does not move with the camera: the main pass' shadow map is valid
 // setViewport/setScissor take CSS pixels and apply the pixel ratio themselves, so the rect needs no scaling; y counts from the bottom
 function drawMirrorQuad(r) { const b = MIRROR.border, y = innerHeight - r.y - r.h, c = new THREE.Color(), ca = renderer.getClearAlpha(); renderer.getClearColor(c); renderer.autoClear = false; renderer.setScissorTest(true);
