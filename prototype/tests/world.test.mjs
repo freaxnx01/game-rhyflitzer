@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
+import { GRADE_BAND, gradeProfile, profileY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -912,4 +913,51 @@ test('layoutFromWorld passes forests and defaults to an empty list (#13)', () =>
   const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: { landmarks: {}, cps: [], labels: [], areas: {} } };
   assert.deepEqual(layoutFromWorld(base).forests, []);
   assert.deepEqual(layoutFromWorld({ ...base, forests: [SQUARE] }).forests, [SQUARE]);
+});
+
+// #42: grades (the Südspange's cutting and underpass) as one more cut source for #76's patch
+const GR = { pts: [[0, 0], [100, 0]], hw: 5, ctl: [[0, 0], [50, 4], [100, 0]] };
+
+test('grade profile: control heights from the uncut terrain, linear between', () => {
+  const prof = gradeProfile(GR, () => 10);
+  assert.deepEqual(prof, [[0, 10], [50, 6], [100, 10]]);
+  assert.equal(profileY(prof, 25), 8);
+  assert.equal(profileY(prof, -5), 10);
+  assert.equal(profileY(prof, 140), 10);
+});
+
+test('gradeCutAt: profile in the corridor, 1:2 bank beside it, 0 at outer and beyond the ends', () => {
+  const flat = () => 10, gc = gradeCut(GR, flat);
+  assert.equal(gc.inner, 6);
+  assert.equal(gc.outer, 18);                                  // inner + 2 * (max centreline cut 4 + 2)
+  assert.equal(gradeCutAt(gc, 50, 0, flat), 4);
+  assert.equal(gradeCutAt(gc, 50, 6, flat), 4);
+  assert.equal(gradeCutAt(gc, 50, 10, flat), 2);
+  assert.equal(gradeCutAt(gc, 50, 16, flat), 0);
+  assert.equal(gradeCutAt(gc, 25, 0, flat), 2);
+  assert.equal(gradeCutAt(gc, 110, 0, flat), 0);
+  const slope = (x, z) => 10 + Math.abs(z);                    // terrain rising beside the road
+  const gs = gradeCut(GR, slope);
+  assert.equal(gradeCutAt(gs, 50, 17, slope), 0.5);            // capped by the bank down to outer
+  assert.equal(gradeCutAt(gs, 50, 18, slope), 0);
+});
+
+test('gradeCut never reaches past hw + GRADE_BAND', () => {
+  const deep = { ...GR, ctl: [[0, 0], [50, 30], [100, 0]] };
+  assert.equal(gradeCut(deep, () => 10).outer, 5 + GRADE_BAND);
+});
+
+test('gradeCells covers every point with a cut', () => {
+  const G = { x0: -50, z0: -50, dx: 16, dz: 16, nx: 20, nz: 20 }, flat = () => 10, gc = gradeCut(GR, flat);
+  const cells = new Set(gradeCells(gc, G).map(([i, j]) => i + ',' + j));
+  assert.equal(cells.size, gradeCells(gc, G).length);          // unique
+  for (let x = -30; x <= 130; x += 1) for (let z = -30; z <= 30; z += 1)
+    if (gradeCutAt(gc, x, z, flat) > 0) assert.ok(cells.has(Math.floor((x - G.x0) / G.dx) + ',' + Math.floor((z - G.z0) / G.dz)), `${x},${z}`);
+});
+
+test('layoutFromWorld passes grades, default empty', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: { landmarks: {}, cps: [], labels: [], areas: {} } };
+  assert.deepEqual(layoutFromWorld(base).grades, []);
+  const gr = [{ pts: [[0, 0], [1, 0]], hw: 9.5, ctl: [[0, 0], [1, 0]] }];
+  assert.deepEqual(layoutFromWorld({ ...base, grades: gr }).grades, gr);
 });
