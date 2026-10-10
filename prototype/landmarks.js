@@ -22,7 +22,7 @@ export const LANDMARK_INFO = [
   { name: 'Bahnhof Sisseln', gemeinde: 'Eiken', anchor: 'stationSisseln' },
   { name: 'Bahnhof Eiken', gemeinde: 'Eiken', building: 199241726 },
   { name: 'LANDI-Turm', gemeinde: 'Eiken', anchor: 'landiTurm' },                    // Sisslerstrasse 19.1, w197688923 (#81)
-  { name: 'Südspange Sisslerfeld', gemeinde: 'Eiken', at: [1528, 409] },            // #125: the K295 junction, the road's start; J snaps to the nearest road (the K295 until #42 builds the Südspange)
+  { name: 'Südspange Sisslerfeld', gemeinde: 'Eiken', at: [1528, 409], jump: [1509.2, 425.4], look: [1441.4, 483.1] },   // #125: listed at the K295 junction, the road's start; #42: J lands 25 m into the Südspange, looking down it into the cutting
   { name: 'Güggeli-Foodtruck', gemeinde: 'Eiken', anchor: 'foodTruck' },            // Bahnhof Eiken car park, a first guess (#103); the position lives in pipeline/anchors.json
   { name: 'DSM-Wasserturm', gemeinde: 'Sisseln', anchor: 'dsmWaterTower' },
   { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },

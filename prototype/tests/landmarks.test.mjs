@@ -163,12 +163,14 @@ test('LANDMARK_INFO has the Südspange row in Eiken at the K295 junction (#125)'
   assert.ok(item);
   assert.equal(item.gemeinde, 'Eiken');
   assert.deepEqual(item.at, [1528, 409]);
-  assert.equal(item.jump, undefined);
+  // #42: J lands 25 m into the Südspange itself (not on the K295 at the junction), looking down the road into the cutting
+  assert.deepEqual(item.jump, [1509.2, 425.4]);
+  assert.deepEqual(item.look, [1441.4, 483.1]);
 });
 
 test('landmarkEntries gives the Südspange its fixed point without any world anchor (#125)', () => {
   const e = landmarkEntries(LANDMARK_INFO, {}, []).find(x => x.n === 'Südspange Sisslerfeld');
-  assert.deepEqual(e, { n: 'Südspange Sisslerfeld', g: 'Eiken', x: 1528, z: 409 });
+  assert.deepEqual(e, { n: 'Südspange Sisslerfeld', g: 'Eiken', x: 1528, z: 409, j: [1509.2, 425.4], look: [1441.4, 483.1] });
 });
 
 test('filterLandmarks finds the Südspange by "sudspange", "südspange" and "SISSLERFELD" (#125)', () => {
