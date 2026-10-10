@@ -686,14 +686,15 @@ function buildCuts() {
   for (const c of CUTS) if (c.depth > 0) for (const a of [c, ...c.arms]) { a.lat = a.hw + UNDERPASS.margin + UNDERPASS.wall - PATCH_BLEED; a.bounds = cutBounds(a); ARMS.push(a); }
   const G = TGRID, W = CUT_N + 1;
   if (HIDE) for (const c of [HIDE.tunnel, HIDE.cavern]) c.bounds = cutBounds(c, c.u);
-  const patchCell = (i, j) => {
-    const key = i + ',' + j; if (CUT_CELLS.has(key)) return;
-    const p = new Float32Array(W * W);
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(gradedH(x, z), cutFloorMin(x, z)); }
-    CUT_CELLS.set(key, p);
+  const fillCell = (i, j) => {
+    const p = new Float32Array(W * W); let lowered = false;
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(gradedH(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
+    return { p, lowered };
   };
-  for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) patchCell(i, j);
-  for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) patchCell(i, j);
+  for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
+  // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
+  // without 2 x CUT_N^2 more triangles to draw)
+  for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key)) continue; const c = fillCell(i, j); if (c.lowered) CUT_CELLS.set(key, c.p); }
 }
 if (L) buildCuts();
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)

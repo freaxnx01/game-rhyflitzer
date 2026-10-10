@@ -44,7 +44,7 @@ def open_page(p, server, block_world=False):
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/prototype/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
-    page.click("#startbtn")   # J only opens with the start overlay hidden
+    page.click("#startbtn", timeout=180000)   # J only opens with the start overlay hidden; the first frame can take 30 s+ on a busy box (as in test_underpass)
     return b, page
 
 

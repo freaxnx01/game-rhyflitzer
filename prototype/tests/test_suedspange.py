@@ -18,8 +18,7 @@ GRADE = {"pts": STANDIN, "hw": 9.5, "ctl": [[0, 0], [90.0, 6.5], [238.0, 0]]}
 
 
 def open_page(p, server, world=None):
-    """The real terrain, not the flat fallback: the grade is sized on the uncut mesh. Waits for the .mmh first: with it
-    blocked, or before it lands, the page can stay busy for minutes under load (#187)."""
+    """The real terrain, not the flat fallback: the grade is sized on the uncut mesh, so wait for the .mmh first."""
     b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 640, "height": 360})
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
