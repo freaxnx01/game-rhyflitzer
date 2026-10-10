@@ -62,3 +62,24 @@ def test_standin_underpass(server):
     assert all(c["clearance"] >= 4.45 and c["railGap"] < 0.3 for c in here), here
     assert through["x"] < 1150 and through["speed"] > 5 and not through["bridge"], through
     assert grass["done"] > 0 and grass["bad"] == 0, grass
+
+
+SIGNS = {"tBo": {"x": 1300.0, "z": 582.0, "kind": "baustelle", "h": None, "rot": 3.1},
+         "tFo": {"x": 1200.0, "z": 581.0, "kind": "fahrverbot", "h": None, "rot": 0.0}}
+
+
+@needs_world
+def test_standin_signs(server):
+    w = standin_world()
+    w["anchors"]["landmarks"] = {k: v for k, v in w["anchors"]["landmarks"].items() if v["kind"] not in ("baustelle", "fahrverbot")}
+    w["anchors"]["landmarks"].update(SIGNS)
+    with sync_playwright() as p:
+        br, page = open_page(p, server, world=w)
+        page.wait_for_function("() => window.__mm.roadSigns", timeout=240000)
+        signs = page.evaluate("() => window.__mm.roadSigns()")
+        on_road = page.evaluate("() => { window.__mm.place(1300, 582); return window.__mm.roadDist(); }")
+        errors = page.errors
+        br.close()
+    assert errors == [], errors
+    assert sorted(s["kind"] for s in signs) == ["baustelle", "fahrverbot"], signs
+    assert on_road > 0, on_road                                          # beside the road, not on it
