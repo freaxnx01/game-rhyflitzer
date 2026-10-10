@@ -17,7 +17,8 @@
     "suedspangeBaustelleOst":   { "game": [1513.2, 430.2], "kind": "baustelle",  "heading_deg": -40, "src": "#42: K295 junction, south shoulder, facing traffic from the K295" },
     "suedspangeBaustelleWest":  { "game": [328.0, 424.5],  "kind": "baustelle",  "heading_deg": 180, "src": "#42: Geuerenstrasse before the field-path leg, facing eastbound traffic" },
     "suedspangeFahrverbotOst":  { "game": [518.0, 480.0],  "kind": "fahrverbot", "heading_deg": 90,  "src": "#42: start of section 3 (bus/bike corridor), facing traffic from the south" },
-    "suedspangeFahrverbotWest": { "game": [343.0, 425.5],  "kind": "fahrverbot", "heading_deg": 180, "src": "#42: end of section 3 at the Geuerenstrasse, facing eastbound traffic" }
+    "suedspangeFahrverbotWest": { "game": [343.0, 425.5],  "kind": "fahrverbot", "heading_deg": 180, "src": "#42: end of section 3 at the Geuerenstrasse, facing eastbound traffic" },
+    "flugplatzSchupfart": { "lonlat": [7.9505, 47.5090], "kind": "poi", "src": "#47: Flugplatz Schupfart (LSZI, OSM r2782819, Gemeinde Schupfart): centroid of the aerodrome; lon/lat because aeroway is no area key in osm_read" }
   },
   "start": { "game": [1882.9, -292.2], "heading_deg": 180 },
   "cps": [
@@ -35,7 +36,8 @@
     { "t": "SISSLERFELD", "game": [420, 300] },
     { "t": "RHEIN", "game": [-25, -741] },
     { "t": "RHEIN", "game": [2300, -640] },
-    { "t": "HOLZBRÜCKE", "game": [-1143, -70] }
+    { "t": "HOLZBRÜCKE", "game": [-1143, -70] },
+    { "t": "SCHUPFART", "lonlat": [7.96578, 47.51455] }
   ],
   "areas": {
     "industrial": [ "w1378060195" ],
