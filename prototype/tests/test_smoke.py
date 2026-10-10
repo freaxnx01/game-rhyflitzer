@@ -586,3 +586,39 @@ def test_forest_edge_blocks_the_car(server):
         br.close()
     assert not _in_ring(ring, r["x"], r["z"]), r
     assert math.hypot(r["x"] - sx, r["z"] - sz) < 27, r
+
+
+def _osm_state(server, strip_forests):
+    """Load the OSM world, optionally served without its `forests` key (a world built before #13), and read the
+    scatter, the forest counts and the number of rectangles the static minimap paints."""
+    world = json.loads(WORLD.read_text(encoding="utf-8"))
+    if strip_forests:
+        world.pop("forests", None)
+    body = json.dumps(world)
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=200, content_type="application/json", body=body))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.mapBoxes && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        s = page.evaluate("() => ({ layout: window.__mm.layout, trees: window.__TREES.length, forest: window.__mm.counts.forest || null, mapBoxes: window.__mm.mapBoxes() })")
+        br.close()
+    return s
+
+
+@pytest.mark.skipif(not world_forests(), reason="world file predates #13: rebuild it with pipeline/osm.py build")
+def test_forest_walls_stay_off_the_minimap(server):
+    """#13 review: the edge walls are solid for the car but are not buildings, so the static minimap (which paints every
+    OBB) must draw exactly as many rectangles with the woods as without them."""
+    with_woods, without = _osm_state(server, False), _osm_state(server, True)
+    assert with_woods["forest"] and with_woods["forest"]["walls"] >= 5000, with_woods
+    assert with_woods["mapBoxes"] == without["mapBoxes"], (with_woods["mapBoxes"], without["mapBoxes"])
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_heuristic_forests_without_osm_woods(server):
+    """#13 review: a world file without `forests` (built before #13, or by a pipeline that does not export them) keeps
+    the heuristic forests -- height line and fbm patches -- instead of losing every wood but the 12 % scatter."""
+    s = _osm_state(server, True)
+    assert s["layout"] == "osm" and s["forest"] is None, s
+    assert s["trees"] > 2000, s
