@@ -1760,7 +1760,8 @@ function stepCar(dt) {
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
   // gh2 ± 2 * slope is atan(slope) exactly), the roll costs two new samples to the car's left and right. Airborne, the quad lies flat.
-  const shLeft = groundH(P.x - rx * SHADOW.roll, P.z - rz * SHADOW.roll, P.y), shRight = groundH(P.x + rx * SHADOW.roll, P.z + rz * SHADOW.roll, P.y), tilt = groundTilt(gh2 + slope * 2, gh2 - slope * 2, shLeft, shRight, 2, SHADOW.roll);
+  // A sample that steps away from gh2 (kerb, trough wall, the ramp's side edge) levels that axis, and both angles are clamped (groundTilt).
+  const shLeft = groundH(P.x - rx * SHADOW.roll, P.z - rz * SHADOW.roll, P.y), shRight = groundH(P.x + rx * SHADOW.roll, P.z + rz * SHADOW.roll, P.y), tilt = groundTilt(gh2, gh2 + slope * 2, gh2 - slope * 2, shLeft, shRight, 2, SHADOW.roll);
   SHADOW_STATE.y = gh2; SHADOW_STATE.pitch = air ? 0 : tilt.pitch; SHADOW_STATE.roll = air ? 0 : tilt.roll; SHADOW_STATE.wet = wl !== null; SHADOW_STATE.air = P.y - gh2;
 }
 

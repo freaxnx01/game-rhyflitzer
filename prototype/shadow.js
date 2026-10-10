@@ -1,9 +1,11 @@
 // #163: the car's ground shadow -- pure, no three.js, no DOM. Unit-tested with `node --test prototype/tests/*.test.mjs`.
 // Frame as the car: x east, z south, th = heading (0 = +x); car model +x forward, +z right. Metres and radians.
-export const SHADOW = { margin: 0.5, core: 0.92, lift: 0.04, hideAbove: 6, minFade: 0.2, bodyMid: 0.4, roll: 1.0 };
+export const SHADOW = { margin: 0.5, core: 0.92, lift: 0.04, hideAbove: 6, minFade: 0.2, bodyMid: 0.4, roll: 1.0, step: 0.5, maxTilt: 0.5 };
 // margin: soft edge outside the dark core; core: the box fraction that is tyres and body, not mirror tips; lift: above the ground, against
 // z-fighting; hideAbove: air height where the shadow is gone; minFade: opacity floor while fading; bodyMid: the body-centre height as a
-// fraction of the car height (what the sun displaces); roll: lateral ground-sample distance for the roll tilt
+// fraction of the car height (what the sun displaces); roll: lateral ground-sample distance for the roll tilt; step: a sample further than
+// this from the centre height is a kerb, a trough wall or a deck edge, not a slope (the ramp's own rise over 2 m is 0.27 m); maxTilt: the
+// quad never tilts past this (rad) either way, whatever the samples say
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const smooth = (t) => { const x = clamp(t, 0, 1); return x * x * (3 - 2 * x); };
@@ -23,9 +25,15 @@ export function shadowAlpha(u, v, fu, fv) {
   return smooth(1 - Math.hypot(du, dv));
 }
 
-// fore/aft: ground dx ahead of / behind the centre; left/right: ground dz to each side. pitch > 0 = nose up, roll > 0 = right side up
-export function groundTilt(fore, aft, left, right, dx, dz) {
-  return { pitch: Math.atan((fore - aft) / (2 * dx)), roll: Math.atan((right - left) / (2 * dz)) };
+// centre: the ground under the car; fore/aft: ground dx ahead of / behind it; left/right: ground dz to each side.
+// pitch > 0 = nose up, roll > 0 = right side up. An axis with a sample that steps more than SHADOW.step away from the centre is a
+// discontinuity (a kerb, a trough wall, the ramp's side edge): the quad stays level across that axis instead of standing up through the car
+function axisTilt(centre, lo, hi, d) {
+  if (Math.abs(lo - centre) > SHADOW.step || Math.abs(hi - centre) > SHADOW.step) return 0;
+  return clamp(Math.atan((hi - lo) / (2 * d)), -SHADOW.maxTilt, SHADOW.maxTilt);
+}
+export function groundTilt(centre, fore, aft, left, right, dx, dz) {
+  return { pitch: axisTilt(centre, aft, fore, dx), roll: axisTilt(centre, left, right, dz) };
 }
 
 // sun: the direction the light comes from, i.e. the vector pointing at the sun (not normalised). Where a point `height` above the

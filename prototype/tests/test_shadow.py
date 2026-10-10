@@ -131,3 +131,24 @@ def test_rebuilds_keep_the_texture_count(server):
         b.close()
     assert counts[0] > 0, counts
     assert counts[1:] == counts[:-1], counts
+
+
+def test_a_ground_step_beside_the_car_does_not_tilt_the_shadow(server):
+    """Review of #163: heading up the jump ramp 0.5 m inside its side edge, the right-hand roll sample lands on the terrain
+    1.7 m below the ramp (a step, not a slope). The quad must stay level across the car (the step sample is rejected),
+    keep the ramp's pitch along the car, and never tilt past SHADOW.maxTilt either way."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        r = page.evaluate("() => window.__mm.ramp()")
+        mx, ez = (r["x0"] + r["x1"]) / 2, r["z1"] - 0.5
+        page.evaluate("([x, z]) => window.__mm.place(x, z, 0)", [mx, ez])
+        page.evaluate("([x, z]) => window.__mm.sim(x, z, 0, 0, 0.05, [])", [mx, ez])
+        s = shadow(page)
+        step = page.evaluate("([x, z]) => window.__mm.ground(x, z + 1, 1e4) - window.__mm.ground(x, z, 1e4)", [mx, ez])
+        b.close()
+    assert step < -1.0, step                                       # the fixture really is a step: the right sample is well below the car
+    pitch = math.atan(r["h"] / (r["x1"] - r["x0"]))
+    assert abs(s["rot"][0]) <= 0.5 and abs(s["rot"][2]) <= 0.5, s
+    assert s["rot"][0] == pytest.approx(0, abs=1e-9), s           # roll rejected, not just clamped
+    assert s["edge"][0] == pytest.approx(s["edge"][1], abs=1e-6), s
+    assert s["rot"][2] == pytest.approx(pitch, abs=0.03), (s, pitch)
