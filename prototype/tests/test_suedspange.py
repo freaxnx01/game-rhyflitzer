@@ -83,3 +83,52 @@ def test_standin_signs(server):
     assert errors == [], errors
     assert sorted(s["kind"] for s in signs) == ["baustelle", "fahrverbot"], signs
     assert on_road > 0, on_road                                          # beside the road, not on it
+
+
+def real_world():
+    w = json.loads(WORLD.read_text(encoding="utf-8")) if WORLD.exists() else {}
+    return w if any(r["id"] == -42001 for r in w.get("roads", [])) else None
+
+
+needs_suedspange = pytest.mark.skipif(real_world() is None, reason="world predates #42: rebuild it (plan Task 9)")
+
+
+def midpoint(w, rid):
+    a, b = max(((a, b) for r in w["roads"] if r["id"] == rid for a, b in zip(r["pts"], r["pts"][1:])), key=lambda s: math.dist(*s))
+    return (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+
+
+@needs_suedspange
+def test_real_route_names_ground_and_underpass(server):
+    w = real_world()
+    pts = [r["pts"] for r in w["roads"] if r["id"] in (-42001, -42003, -42004, -42005)]
+    with sync_playwright() as p:
+        br, page = open_page(p, server)
+        page.wait_for_function("() => window.__mm.crossings && window.__mm.gradeAt && window.__mm.roadSigns", timeout=240000)
+        names = {}
+        for rid in (-42001, -42003, -42004, -42005):
+            x, z = midpoint(w, rid)
+            page.evaluate(f"() => window.__mm.place({x}, {z})")
+            page.wait_for_timeout(500)
+            names[rid] = page.evaluate("() => window.__mm.hud().road")
+        steps = page.evaluate("""(lines) => { let worst = 0; for (const pts of lines) { let prev = null;
+            for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], n = Math.ceil(Math.hypot(bx - ax, bz - az) / 2);
+              for (let k = 0; k <= n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n, g = window.__mm.ground(x, z, 1e4);
+                if (prev !== null) worst = Math.max(worst, Math.abs(g - prev)); prev = g; } } } return worst; }""", pts)
+        at = page.evaluate("() => window.__mm.gradeAt(1240, 574)")
+        xs = page.evaluate("() => window.__mm.crossings()")
+        through = page.evaluate("() => window.__mm.sim(1300, 575.9, Math.PI + 0.026, 12, 10)")
+        grass = page.evaluate("() => window.__mm.grassOverRoad(2000, 'Südspange')")
+        signs = page.evaluate("() => window.__mm.roadSigns()")
+        errors = page.errors
+        br.close()
+    here = [c for c in xs if c["road"] == "Südspange"]
+    print(json.dumps({"names": names, "steps": steps, "at": at, "here": here, "through": through, "grass": grass, "signs": signs}, indent=1))
+    assert errors == [], errors
+    assert names == {-42001: "Südspange", -42003: "Südspange", -42004: "Geuerenstrasse", -42005: "Zufahrt Freiverlad"}, names
+    assert steps < 0.6, steps
+    assert abs(at["mesh"] - at["terrain"] - 6.5) < 0.3, at
+    assert len(here) >= 5 and all(c["clearance"] >= 4.45 and c["railGap"] < 0.3 for c in here), here
+    assert through["x"] < 1150 and through["speed"] > 5 and not through["bridge"], through
+    assert grass["done"] > 0 and grass["bad"] == 0, grass
+    assert sorted(s["kind"] for s in signs) == ["baustelle", "baustelle", "fahrverbot", "fahrverbot"], signs
