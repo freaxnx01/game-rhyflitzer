@@ -238,3 +238,80 @@ def test_language_toggle_rerenders_the_open_screen(server):
     assert got == {"title": "Auto wählen", "name": "Sissle Speedster", "cls": "Kompakt · Klasse B", "paint": "Marine",
                    "garage": "Garage · 2 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
     assert errors == []
+
+
+CLICK = "(sel) => document.querySelector(sel).click()"
+RUN = """() => ({ pause: window.__mm.pause(), dmg: window.__mm.hunt().dmg, top: window.__mm.vehicle().drive.top,
+  flags: window.__mm.raceFlags(), paused: !document.querySelector('#pause').hidden })"""
+
+
+def pause_in_a_run(page):
+    """#189: racing, a clock of 12.5 s and 40 % damage in zero frames (test hook), then the pause menu."""
+    page.click("#startbtn", timeout=T)
+    page.evaluate("() => window.__mm.raceNow(12.5, 0.4)")
+    page.keyboard.press("Escape")
+    page.wait_for_function("() => window.__mm.pause().on", timeout=T)
+
+
+def open_swap(page):
+    page.evaluate(CLICK, "#pausevehicle")
+    page.wait_for_function("() => window.__mm.carsel().open", timeout=T)
+
+
+def test_changing_the_vehicle_mid_race_keeps_the_run_and_flags_it(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        pause_in_a_run(page)
+        before = page.evaluate(RUN)
+        open_swap(page)
+        shown = page.evaluate("() => ({ pauseShown: !document.querySelector('#pause').hidden, drive: document.querySelector('#csrace').textContent })")
+        page.evaluate(CLICK, "#csnext")
+        page.wait_for_function("() => window.__mm.carsel().id === 'delorean'", timeout=T)
+        page.evaluate(CLICK, "#csrace")
+        page.wait_for_function("() => !window.__mm.carsel().open && !window.__mm.pause().on", timeout=T)
+        after = page.evaluate(RUN)
+        page.evaluate("() => window.__mm.finishNow()")
+        result = page.inner_text("#result")
+        b.close()
+    assert before["pause"]["t"] == 12.5 and before["top"] == 60 and before["flags"]["swapped"] is False
+    assert shown == {"pauseShown": False, "drive": "Drive on ›"}
+    assert after["top"] == 49 and after["flags"]["swapped"] is True
+    assert (after["pause"]["x"], after["pause"]["z"]) == (before["pause"]["x"], before["pause"]["z"])
+    assert before["pause"]["t"] <= after["pause"]["t"] < before["pause"]["t"] + 1      # the clock resumes where it stopped (a few capped frames at most)
+    assert after["dmg"] == 0.4
+    assert "with a vehicle change, not counted" in result, result
+    assert errors == []
+
+
+def test_back_in_a_vehicle_change_restores_the_choice_and_flags_nothing(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        pause_in_a_run(page)
+        open_swap(page)
+        page.evaluate(CLICK, "#csnext")
+        page.wait_for_function("() => window.__mm.carsel().id === 'delorean'", timeout=T)
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => !window.__mm.carsel().open", timeout=T)
+        got = page.evaluate(RUN)
+        stored = page.evaluate("() => JSON.parse(localStorage.getItem('mm.car')).id")
+        focus = page.evaluate("() => window.__mm.pause().focus")
+        chosen = page.evaluate("() => window.__mm.carsel().id")
+        b.close()
+    assert chosen == "compact" and stored == "compact" and got["top"] == 60
+    assert got["paused"] is True and got["pause"]["on"] is True and focus == "pausevehicle"
+    assert got["flags"]["swapped"] is False and got["pause"]["t"] == 12.5
+    assert errors == []
+
+
+def test_a_paint_change_mid_race_is_not_a_vehicle_change(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        pause_in_a_run(page)
+        open_swap(page)
+        page.evaluate("() => document.querySelector('#cspaints button:not([aria-pressed=\"true\"])').click()")
+        page.evaluate(CLICK, "#csrace")
+        page.wait_for_function("() => !window.__mm.carsel().open && !window.__mm.pause().on", timeout=T)
+        got = page.evaluate(RUN)
+        b.close()
+    assert got["flags"]["swapped"] is False and got["top"] == 60
+    assert errors == []
