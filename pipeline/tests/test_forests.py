@@ -80,3 +80,16 @@ def test_clipped_simplified_and_sorted():
 
 def test_no_woods_gives_empty_list():
     assert WF.build([Area(1, True, {"building": "yes"}, shapely.box(0, 0, 10, 10))], [], CLIP) == ([], {})
+
+
+def test_small_road_and_car_park_holes_are_kept():
+    """A road stub or a small car park wholly inside a wood leaves a hole under MIN_AREA; it must stay a hole, or trees
+    and an edge wall would stand on that road (only natural clearings under MIN_AREA are dropped)."""
+    stub = road([(100, 100), (110, 100)], w=3.0)                                       # corridor ~263 m2
+    lot = Area(9, True, {"amenity": "parking", "parking": "surface"}, shapely.box(150, 150, 160, 158))   # gap ~224 m2
+    out, _ = WF.build([wood(1, shapely.box(0, 0, 200, 200)), lot], [stub], CLIP)
+    holes = [shapely.Polygon(h) for h in out[0].get("holes", [])]
+    assert len(holes) == 2, out[0].get("holes")
+    assert all(h.area < WF.MIN_AREA for h in holes)
+    assert any(h.contains(shapely.Point(105, 100)) for h in holes)
+    assert any(h.contains(shapely.Point(155, 154)) for h in holes)

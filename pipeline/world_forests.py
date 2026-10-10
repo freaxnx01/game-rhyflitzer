@@ -33,9 +33,11 @@ def _ring(coords):
     return [[round(x, 1), round(z, 1)] for x, z in list(coords)[:-1]]
 
 
-def _entry(p):
+def _entry(p, cut):
+    """A small hole is kept when a road corridor or a car park made it: only natural clearings under MIN_AREA go."""
     entry = {"ring": _ring(p.exterior.coords)}
-    holes = [_ring(i.coords) for i in p.interiors if shapely.Polygon(i).area >= MIN_AREA]
+    holes = [_ring(i.coords) for i in p.interiors
+             if shapely.Polygon(i).area >= MIN_AREA or (cut is not None and cut.intersects(shapely.Polygon(i)))]
     if holes:
         entry["holes"] = holes
     return entry
@@ -57,8 +59,10 @@ def build(areas, roads, clip):
     cuts = [shapely.LineString(r["pts"]).buffer(r["w"] / 2 + CORRIDOR) for r in roads if len(r["pts"]) > 1]
     # mitred: a car park gap stays the lot's rectangle (4 vertices, and `simplify` cannot shave its corners)
     cuts += [a.geom.buffer(PARKING_GAP, join_style="mitre") for a in areas if world_parking.selected(a.tags)]
-    if cuts:
-        merged = merged.difference(shapely.unary_union(cuts))
+    cut = shapely.unary_union(cuts) if cuts else None
+    if cut is not None:
+        merged = merged.difference(cut)
+        shapely.prepare(cut)                 # _entry asks it once per hole
     kept = []
     for p in _polys(merged):
         if p.area < MIN_AREA:
@@ -69,4 +73,4 @@ def build(areas, roads, clip):
     kept.sort(key=lambda p: (p.bounds[0], p.bounds[1]))
     stats["parts"] = len(kept)
     stats["area_ha"] = round(sum(p.area for p in kept) / 1e4)
-    return [_entry(p) for p in kept], dict(stats)
+    return [_entry(p, cut) for p in kept], dict(stats)
