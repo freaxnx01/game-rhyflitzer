@@ -26,9 +26,9 @@ python terrain.py --out ../data/terrain_hochrhein.mmh
 python terrain.py --dgm-dir ~/geodata/lgl_dgm1 --out ../data/terrain_hochrhein.mmh
 ```
 
-Options: `--bbox W S E N` (lon/lat), `--origin LAT LON`, `--step 4` (metres), `--base 284`, `--cache cache`.
+Options: `--bbox W S E N` (lon/lat), `--origin LAT LON`, `--step 8` (metres, default 8), `--base 284`, `--cache cache`.
 
-Default region: 7.905–8.030 E, 47.532–47.572 N (Bad Säckingen to east of Sisseln), 4 m grid, about 9.4 × 4.5 km, around 10 MB.
+Default region: 7.905–8.030 E, 47.500–47.572 N (Bad Säckingen to east of Sisseln, south up to Flugplatz Schupfart), 8 m grid, about 9.4 × 8.0 km, about 5 MB.
 
 ## German tiles (manual download)
 

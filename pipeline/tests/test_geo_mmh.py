@@ -28,16 +28,32 @@ def test_to_game_vectorised_and_roundtrip():
     assert lo == pytest.approx(lon, abs=1e-7) and la == pytest.approx(lat, abs=1e-7)
 
 
-def test_grid_for_default_matches_existing_mmh():
+def test_grid_for_core_matches_the_first_mmh():
+    """The pre-#47 region (CORE_BBOX) at 4 m is the grid of the first published .mmh."""
     f = geo.Frame(*geo.DEFAULT_ORIGIN)
-    g = geo.grid_for(geo.DEFAULT_BBOX, f, 4.0)
+    g = geo.grid_for(geo.CORE_BBOX, f, 4.0)
     assert (g["w"], g["h"], g["x0"], g["z0"]) == (2362, 1130, -4692.0, -2416.0)
+
+
+def test_grid_for_region_south_to_schupfart():
+    """#47: south edge 47.500 at the 8 m terrain step."""
+    f = geo.Frame(*geo.DEFAULT_ORIGIN)
+    g = geo.grid_for(geo.DEFAULT_BBOX, f, 8.0)
+    assert (g["w"], g["h"], g["x0"], g["z0"]) == (1186, 1010, -4696.0, -2416.0)
+
+
+def test_region_contains_the_core_and_the_airfield():
+    w, s, e, n = geo.DEFAULT_BBOX
+    assert (w, e, n) == (geo.CORE_BBOX[0], geo.CORE_BBOX[2], geo.CORE_BBOX[3])   # only the south edge moved
+    assert s == 47.500 and s < geo.CORE_BBOX[1]
+    for lon, lat in [(7.9458, 47.5079), (7.9541, 47.5102)]:                      # Flugplatz Schupfart r2782819 bounds
+        assert w < lon < e and s < lat < n
 
 
 def test_pad_bbox_two_km():
     w, s, e, n = geo.pad_bbox(geo.DEFAULT_BBOX, 2000)
     assert w < 7.905 - 0.025 and e > 8.030 + 0.025
-    assert s < 47.532 - 0.017 and n > 47.572 + 0.017
+    assert s < 47.500 - 0.017 and n > 47.572 + 0.017
 
 
 def test_mmh_roundtrip_and_sample(tmp_path):

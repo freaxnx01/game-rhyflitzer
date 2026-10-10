@@ -18,7 +18,7 @@ Game coordinates: x = east, z = south, in metres, origin at `--origin` (lat/lon)
 
 Usage:
     python terrain.py --out ../data/terrain_hochrhein.mmh
-    python terrain.py --bbox 7.90 47.53 8.03 47.58 --step 4 --dgm-dir ~/geodata/lgl_dgm1
+    python terrain.py --bbox 7.90 47.53 8.03 47.58 --step 8 --dgm-dir ~/geodata/lgl_dgm1
 
 Licences (attribution required in the game credits):
     swissALTI3D: (c) swisstopo
@@ -195,7 +195,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), default=DEFAULT_BBOX, help="lon/lat bounding box")
     ap.add_argument("--origin", nargs=2, type=float, metavar=("LAT", "LON"), default=DEFAULT_ORIGIN, help="game origin")
-    ap.add_argument("--step", type=float, default=4.0, help="grid spacing in metres (default 4)")
+    ap.add_argument("--step", type=float, default=8.0, help="grid spacing in metres (default 8; the game draws a 16 m mesh)")
     ap.add_argument("--base", type=float, default=DEFAULT_BASE, help="height that becomes 0 in the game (m a.s.l.)")
     ap.add_argument("--dgm-dir", type=Path, default=None, help="folder with LGL DGM1 tiles (German side)")
     ap.add_argument("--cache", type=Path, default=Path("cache"), help="download cache")
