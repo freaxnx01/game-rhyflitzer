@@ -133,3 +133,89 @@ def test_mirror_is_off_on_touch_devices(server):
         state = page.evaluate(MIRROR)
         b.close()
     assert state["visible"] is False and state["renders"] == 0, state
+
+
+# ---------- review fixes ----------
+TC_TOP = "() => document.querySelector('#tc').getBoundingClientRect().top"
+
+
+def test_hud_column_moves_below_the_mirror_and_back(server):
+    """The top-centre HUD column (arrow, distance, checkpoint, road name, toast) must not sit on the mirror glass."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        start_in_view(page, 2)
+        page.wait_for_function("() => window.__mm.mirror().visible", timeout=WAIT)
+        wait_frames(page, 2)
+        m = page.evaluate(MIRROR)
+        tc_cockpit = page.evaluate(TC_TOP)
+        page.keyboard.press("KeyC")
+        page.wait_for_function("() => window.__mm.camView === 3 && !window.__mm.mirror().visible", timeout=WAIT)
+        wait_frames(page, 2)
+        tc_bumper = page.evaluate(TC_TOP)
+        b.close()
+    r = m["rect"]
+    assert tc_cockpit >= r["y"] + r["h"] + 4, (tc_cockpit, r)   # below the 4 px steel frame
+    assert abs(tc_bumper - 12) < 0.5, tc_bumper                  # back in its usual place without the mirror
+
+
+def test_mirror_is_off_on_the_car_selection_screen(server):
+    """#7: cockpit view, back to the start screen, Choose car: the turntable owns the camera, no mirror on it."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        start_in_view(page, 2)
+        page.wait_for_function("() => window.__mm.mirror().visible", timeout=WAIT)
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=WAIT)
+        page.click("#pausemenu")
+        page.wait_for_function("() => !document.querySelector('#overlay').hidden", timeout=WAIT)
+        page.click("#carbtn")
+        page.wait_for_function("() => window.__mm.carsel().open", timeout=WAIT)
+        wait_frames(page, 3)
+        state = page.evaluate(MIRROR)
+        b.close()
+    assert state["visible"] is False, state
+
+
+def test_mirror_shown_during_pause_renders_once(server):
+    """Tab held (mirror hidden), pause, release Tab: the glass gets one picture of the frozen scene, then no more."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        start_in_view(page, 2)
+        page.wait_for_function("() => window.__mm.mirror().visible", timeout=WAIT)
+        page.keyboard.down("Tab")
+        page.wait_for_function("() => !window.__mm.mirror().visible", timeout=WAIT)
+        r0 = page.evaluate("() => window.__mm.mirror().renders")
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=WAIT)
+        page.keyboard.up("Tab")
+        page.wait_for_function("() => window.__mm.mirror().visible", timeout=WAIT)
+        f0 = page.evaluate("() => window.__mm.pause().frame")
+        page.wait_for_function(f"() => window.__mm.pause().frame >= {f0 + 4}", timeout=WAIT)
+        r1 = page.evaluate("() => window.__mm.mirror().renders")
+        b.close()
+    assert r1 == r0 + 1, (r0, r1)
+
+
+def test_mirror_stays_under_the_surface_with_the_cockpit_eye(server):
+    """#101: in the shallows the cockpit eye can sit just under the surface; the mirror camera 0.1 m higher must not
+    poke through it (the scene has the underwater look, so a camera above the water would show murk over dry land)."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        start_in_view(page, 2)
+        page.wait_for_function("() => window.__mm.mirror().visible", timeout=WAIT)
+        ey = page.evaluate("() => window.__mm.cam().d[1]")
+        # hand layout: water level 0, bed shelving from the south bank of the Rhine (z = -647.7 + 106.7) at 0.3 m/m;
+        # find the spot where the bed is ey + 0.05 deep: the cockpit eye 5 cm under the surface
+        z = page.evaluate("""(ey) => { let lo = -647.7, hi = -647.7 + 106.7;
+            for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (-window.__mm.bed(863.6, m).ground > ey + 0.05) lo = m; else hi = m; }
+            return (lo + hi) / 2; }""", ey)
+        page.evaluate("([x, z]) => window.__mm.place(x, z, -Math.PI / 2)", [863.6, z])
+        page.wait_for_function("() => window.__mm.car().splash > 1 && window.__mm.underwater().on && window.__mm.mirror().renders > 0", timeout=180000)
+        r0 = page.evaluate("() => window.__mm.mirror().renders")
+        page.wait_for_function(f"() => window.__mm.mirror().renders > {r0}", timeout=180000)
+        c = page.evaluate("() => window.__mm.car()")
+        cam = page.evaluate("() => window.__mm.cam()")
+        m = page.evaluate(MIRROR)
+        b.close()
+    assert c["water"] == 0 and c["y"] + cam["d"][1] < 0 < c["y"] + cam["d"][1] + 0.1, (c, cam)   # the edge case is set up
+    assert m["visible"] is True and m["pos"][1] < 0, m
