@@ -21,12 +21,12 @@ import osm_read
 import places
 import terrain
 import world_boundaries
-import world_forests
 
 PIPELINE_VERSION = "1"
 PAD = 1000.0                       # m of OSM around the frame (roads and woods at the edge, Gemeinde lines)
 STEP = 4.0                         # m terrain grid
-TILE_CACHE_BYTES = 2_000_000_000   # swissSURFACE3D tiles kept after a build, oldest deleted first
+TILE_CACHE_BYTES = 2_000_000_000   # per tile cache (TILE_CACHES), kept after a build, oldest deleted first
+TILE_CACHES = ("swissalti3d", "swisssurface3d")
 ODBL = ("Contains information from OpenStreetMap (c) OpenStreetMap contributors, made available under the "
         "Open Database License (ODbL) 1.0: https://opendatacommons.org/licenses/odbl/1-0/")
 
@@ -43,9 +43,16 @@ def game_box(rect, fr: geo.Frame) -> tuple[float, float, float, float]:
 
 
 def rebase(header: dict, heights: np.ndarray):
-    """Heights relative to the frame's lowest point (whole metres), so the valley floor sits near 0."""
+    """Heights relative to the frame's lowest point (whole metres), so the valley floor sits near 0. Cells without
+    data (NaN: the grid edge reaching past the Swiss border) are left out of the lowest point and set to 0."""
+    holes = np.isnan(heights)
+    if holes.all():
+        raise ValueError("no terrain data in the frame")
     low = float(math.floor(float(np.nanmin(heights))))
     out = heights - low
+    if holes.any():
+        log(f"{holes.mean():.1%} of the terrain grid has no data (outside Switzerland) -> set to the lowest point")
+        out[holes] = 0.0
     return {**header, "base": header.get("base", 0.0) + low, "min": float(out.min()), "max": float(out.max())}, out
 
 
@@ -79,8 +86,6 @@ def generated(world: dict, data, lines, clip, rect, wid: str) -> dict:
     start = places.start_point(world["roads"], clip)
     world["anchors"] = {"landmarks": {}, "cps": [], "areas": {}, "labels": [{"t": v["t"], "x": v["x"], "z": v["z"]} for v in vill],
                         **({"start": list(start)} if start else {})}
-    if "forests" not in world:   # #13 not wired into osm.build_world (yet)
-        world["forests"], _ = world_forests.build(data.areas, world["roads"], clip)
     x0, z0, x1, z1 = clip.bounds
     world["region"] = {"id": wid, "name": name, "gemeinden": [name], "villages": vill,
                        "jlist": [{**e, "g": name} for e in jl], "treeBox": [x0, x1, z0, z1], "forestAbove": None,
@@ -105,7 +110,7 @@ def meta(rect, region, world, header, src) -> dict:
 
 
 def _terrain(bbox, org, cache: Path, out: Path) -> dict:
-    header, heights = rebase(*terrain.build(bbox, org, STEP, 0.0, cache, None))
+    header, heights = rebase(*terrain.sample(bbox, org, STEP, cache, None))
     mmh.write_mmh(out, header, heights)
     return header
 
@@ -117,10 +122,11 @@ def _world(pbf, out_dir: Path, rect, cache: Path, dsm: bool, step):
     header = _terrain(frame_mod.lonlat_bbox(rect), org, cache, out_dir / "terrain.mmh")
     step("world")
     data = osm_read.read(Path(pbf), fr)
+    boundary_items = world_boundaries.read(Path(pbf), fr)
     world = osm.build_world(pbf, out_dir / "terrain.mmh", frame_mod.lonlat_bbox(rect), org, 30.0, 1000.0, None,
-                            cache if dsm else None, clip_box=box, data=data)
+                            cache if dsm else None, clip_box=box, data=data, boundary_items=boundary_items)
     world["sources"] += ["Terrain: swissALTI3D © swisstopo"] + (["Building heights: swissSURFACE3D © swisstopo"] if dsm else [])
-    lines = [(names, line) for _, names, line in world_boundaries.read(Path(pbf), fr)]
+    lines = [(names, line) for _, names, line in boundary_items]
     return world, data, lines, shapely.box(*box), header
 
 
@@ -147,8 +153,8 @@ def build_world(rect, out_dir, *, extract=None, pbf=None, cache=Path("cache"), d
         osm.write_world(out_dir / "world.json", world)
         doc = meta(rect, region, world, header, extract if extract is not None else pbf)
         (out_dir / "meta.json").write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
-    if dsm:
-        log(f"pruned {prune_tiles(cache / 'swisssurface3d', tile_cache_bytes)} swissSURFACE3D tiles")
+    for name in TILE_CACHES:
+        log(f"pruned {prune_tiles(cache / name, tile_cache_bytes)} {name} tiles")
     log(f"world {wid} '{region['name']}' built: {len(region['jlist'])} J places, {len(region['villages'])} villages")
     step("done")
     return {"world": out_dir / "world.json", "terrain": out_dir / "terrain.mmh", "meta": out_dir / "meta.json"}

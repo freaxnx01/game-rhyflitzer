@@ -27,7 +27,7 @@ def flat_terrain(bbox, origin, step, base, cache, dgm_dir):
 def built(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("region")
     mp = pytest.MonkeyPatch()
-    mp.setattr(region.terrain, "build", flat_terrain)
+    mp.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
     steps = []
     files = region.build_world(synth_osm.RECT, tmp / "out", pbf=synth_osm.write(tmp / "synth.osm"), cache=tmp / "cache",
                                dsm=False, progress=steps.append)
@@ -102,8 +102,50 @@ def test_game_box_and_fallback_name():
 
 
 def test_empty_frame_still_builds_for_free_driving():
-    world = {"roads": []}
+    world = {"roads": [], "forests": []}            # as osm.build_world returns it
     r = region.generated(world, SimpleNamespace(named_nodes=[], areas=[]), [], shapely.box(-1000, -1000, 1000, 1000),
                          synth_osm.RECT, "abc")
     assert r["name"] == "Region 2667/1259" and r["jlist"] == [] and r["race"] is None
     assert world["anchors"]["cps"] == [] and "start" not in world["anchors"] and world["forests"] == []
+
+
+def test_rebase_ignores_cells_without_data():
+    heights = np.array([[412.6, np.nan], [413.0, 420.0]], dtype=np.float32)   # a grid cell outside Switzerland
+    hdr, out = region.rebase({"base": 0.0}, heights)
+    assert hdr["base"] == 412.0 and hdr["min"] == 0.0 and hdr["max"] == pytest.approx(8.0)
+    assert not np.isnan(out).any() and out[0, 1] == 0.0                         # the hole sits at the valley floor
+
+
+def test_rebase_refuses_a_grid_without_any_data():
+    with pytest.raises(ValueError, match="no terrain"):
+        region.rebase({"base": 0.0}, np.full((2, 2), np.nan, dtype=np.float32))
+
+
+def holey_terrain(bbox, origin, step, cache, dgm_dir):
+    header, heights = flat_terrain(bbox, origin, step, 0.0, cache, dgm_dir)
+    heights[-1, :] = np.nan                       # the grid's south row lies outside Switzerland: no swissALTI3D tile
+    return header, heights
+
+
+def test_terrain_reaching_outside_switzerland_keeps_the_base(tmp_path, monkeypatch):
+    monkeypatch.setattr(region.terrain, "sample", holey_terrain)
+    files = region.build_world(synth_osm.RECT, tmp_path / "out", pbf=synth_osm.write(tmp_path / "synth.osm"),
+                               cache=tmp_path / "cache", dsm=False)
+    hdr, heights = mmh.read_mmh(files["terrain"])
+    meta = json.loads(files["meta"].read_text("utf-8"))
+    assert hdr["base"] == meta["base"] == 412.0 and not np.isnan(heights).any()
+    assert float(heights.min()) == 0.0 and float(heights.max()) == pytest.approx(18.0)
+
+
+def test_one_boundary_read_and_both_tile_caches_pruned(tmp_path, monkeypatch):
+    monkeypatch.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
+    reads, real_read = [], region.world_boundaries.read
+    monkeypatch.setattr(region.world_boundaries, "read", lambda *a: reads.append(a) or real_read(*a))
+    for name in ("swissalti3d", "swisssurface3d"):
+        (tmp_path / "cache" / name).mkdir(parents=True)
+        for i in range(3):
+            (tmp_path / "cache" / name / f"t{i}.tif").write_bytes(b"x" * 100)
+    region.build_world(synth_osm.RECT, tmp_path / "out", pbf=synth_osm.write(tmp_path / "synth.osm"),
+                       cache=tmp_path / "cache", dsm=False, tile_cache_bytes=150)
+    assert len(reads) == 1                                                    # osm.build_world reuses the lines
+    assert [len(list((tmp_path / "cache" / n).glob("*.tif"))) for n in ("swissalti3d", "swisssurface3d")] == [1, 1]

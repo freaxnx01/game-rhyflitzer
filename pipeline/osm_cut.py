@@ -47,7 +47,7 @@ def incomplete_ids(cut_pbf, relations_pbf) -> list[str]:
         if not o.is_way():
             continue
         ways.add(o.id)
-        if is_area_of_interest(o.tags) and o.nodes[0].ref == o.nodes[-1].ref and not all(n.location.valid() for n in o.nodes):
+        if is_area_of_interest(o.tags) and len(o.nodes) > 1 and o.nodes[0].ref == o.nodes[-1].ref and not all(n.location.valid() for n in o.nodes):
             broken.add(o.id)
     rels = {o.id for o in osmium.FileProcessor(str(relations_pbf), osmium.osm.RELATION)
             if any(m.type == "w" and m.ref in ways for m in o.members)}

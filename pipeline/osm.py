@@ -88,9 +88,9 @@ def cmd_cut(a) -> int:
 
 
 def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path, dsm_cache=None, *,
-                clip_box=None, data=None) -> dict:
-    """clip_box (game x0, z0, x1, z1) overrides the clip from the lon/lat bbox; data reuses an osm_read result;
-    anchors_path None means no hand anchors (#166: generated worlds)."""
+                clip_box=None, data=None, boundary_items=None) -> dict:
+    """clip_box (game x0, z0, x1, z1) overrides the clip from the lon/lat bbox; data reuses an osm_read result and
+    boundary_items a world_boundaries.read result; anchors_path None means no hand anchors (#166: generated worlds)."""
     frame = geo.Frame(*origin)
     if clip_box is None:
         xs, zs = frame.to_game([bbox[0], bbox[2]], [bbox[3], bbox[1]])
@@ -121,7 +121,9 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swissalti3d", 2.0))
         log(f"building heights from swissSURFACE3D: {dict(hstats)}")
     rail, rail_bridges = world_rail.build(data.ways, clip)
-    boundaries = world_boundaries.build(world_boundaries.read(Path(pbf), frame), clip)
+    if boundary_items is None:
+        boundary_items = world_boundaries.read(Path(pbf), frame)
+    boundaries = world_boundaries.build(boundary_items, clip)
     log(f"roads {len(roads)}, trails {len([r for r in roads if r.get('trail')])}, junctions {len(junctions)}, "
         f"water {len(polys)}, buildings {len(buildings)} {stats}, "
         f"rail {len(rail)}, rail bridges {len(rail_bridges)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}, "

@@ -201,8 +201,8 @@ systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 \
 It prints the three written paths and exits **2** on a refused frame (the reason is on stderr:
 `frame refused (outside-ch): …`). `--extract` cuts the frame out of a country extract itself; `--pbf` takes
 an extract that is already cut and must cover the frame plus 1 km. `--no-dsm` skips the swissSURFACE3D
-building heights (~850 MB of tiles per 15 km²); with them, tiles over 2 GB in `CACHE/swisssurface3d` are
-pruned oldest-first after every build.
+building heights (~850 MB of tiles per 15 km²). After every build, tiles over 2 GB in each of
+`CACHE/swissalti3d` and `CACHE/swisssurface3d` are pruned oldest-first.
 
 **Measured** (2026-10-10, GitHub Actions `ubuntu-latest`, under a hard `MemoryMax=2G`, `--no-dsm`):
 3.5 × 4 km at Ehrendingen from the 523 MB Swiss extract — exit 0, **53 s**, peak RSS **1.92 GB**,
@@ -253,7 +253,9 @@ cut → terrain → `osm.build_world` (no anchors file, clipped to the frame) �
   `forests`, and a new `region` block: `{id, name, gemeinden, villages, jlist, treeBox, forestAbove, race}`.
   Each J entry is `{n, kind, x, z, g}` (`g` = its Gemeinde).
 - `terrain.mmh` — step 4 m, `base` = the **lowest point of the frame** rounded down to a whole metre, so the
-  valley floor sits near 0 (no hand-picked river level per region).
+  valley floor sits near 0 (no hand-picked river level per region). Grid cells without swissALTI3D data (the
+  grid edge reaching a few metres past the Swiss border) do not count for the lowest point and are set to 0; a
+  frame with no terrain data at all is refused.
 - `meta.json` — `{format: "MMR1", id, pipelineVersion, name, bbox: {lv95, lonlat}, origin, base, built,
   extract: {file, modified}, race, counts, sources, license, lastPlayed}`. `license` is the full ODbL notice;
   the world is an OSM derivative database.

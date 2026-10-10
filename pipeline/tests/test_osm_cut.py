@@ -58,3 +58,10 @@ def test_cut_on_the_synthetic_extract(tmp_path):
     assert any(t.get("landuse") == "forest" for t in ways.values())      # the wood lies wholly inside: it survives
     assert not (tmp_path / "ids.txt").exists()                            # nothing to complete -> no getid step
     assert Path(out).stat().st_size > 0
+
+
+def test_incomplete_ids_skips_a_way_without_nodes(tmp_path):
+    empty = CUT.replace("</osm>", '  <way id="14"><tag k="natural" v="wood"/></way>\n</osm>')
+    (tmp_path / "cut.osm").write_text(empty, encoding="utf-8")
+    (tmp_path / "rels.osm").write_text(RELS, encoding="utf-8")
+    assert C.incomplete_ids(tmp_path / "cut.osm", tmp_path / "rels.osm") == ["r20", "w10"]
