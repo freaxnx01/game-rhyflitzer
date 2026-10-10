@@ -1153,7 +1153,7 @@ function updateLabels(x, z) { LABELS.ticks++; LABELS.shown = pickLabels(gridQuer
 // #16: big village names over the villages (Midtown Madness style): camera-facing, drawn over everything and unfogged, hidden inside the
 // village; one sprite per village, created the first time its name shows (the web font has loaded by then).
 // #73: not across the Rhine (national border from L.boundaries) and nothing while inside a village
-const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? REGION.villages.map(v => [v.t, terrainH(v.x, v.z)]) : []), border: L ? nationalBorder(L.boundaries) : null };
+const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? REGION.villages.map(v => [v.t, terrainH(v.x, v.z)]) : []), border: L ? nationalBorder(L.boundaries, REGION.borderDe) : null };
 function villageTex(t) { return makeTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = '800 120px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = 'rgba(20,23,29,.85)'; g.strokeText(t, w / 2, h / 2 + 4); g.fillStyle = '#f5efe0'; g.fillText(t, w / 2, h / 2 + 4); }, { alpha: true }); }
 function villageSprite(t) { let s = VILLAGE_SIGNS.sprites.get(t); if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: villageTex(t), transparent: true, depthTest: false, depthWrite: false, fog: false })); VILLAGE_SIGNS.sprites.set(t, s); scene.add(s); } return s; }
 function updateVillageNames(x, z) {

@@ -374,7 +374,7 @@ function joinPiece(chain, p, same) {
 }
 // One polyline from the CH/DE border lines, or null when there are none or they don't join end to end.
 export function nationalBorder(boundaries, de = BORDER_DE, tol = 1) {
-  const pieces = boundaries.filter(b => b.names.filter(n => de.includes(n)).length === 1).map(b => b.pts);
+  const pieces = boundaries.filter(b => b.names.length === 2 && b.names.filter(n => de.includes(n)).length === 1).map(b => b.pts);
   if (!pieces.length) return null;
   const same = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= tol;
   let chain = pieces.shift().slice();

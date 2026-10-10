@@ -502,6 +502,11 @@ test('Ehrendingen has its own village names (#127)', () => {
   assert.deepEqual(VILLAGES_EHRENDINGEN.map(v => v.t), ['UNTEREHRENDINGEN', 'OBEREHRENDINGEN']);
 });
 
+test('nationalBorder: a German line without a named Swiss neighbour is not the border (#73)', () => {
+  const B = [{ names: ['Murg', 'Sisseln'], pts: [[0, 0], [10, 0]] }, { names: ['Murg'], pts: [[10, 0], [10, 50]] }];
+  assert.deepEqual(nationalBorder(B), [[0, 0], [10, 0]]);
+});
+
 test('nationalBorder: joins the CH/DE lines in any order and direction, skips inner ones', () => {
   const B = [
     { names: ['Murg', 'Sisseln'], pts: [[100, 0], [200, 10]] },
