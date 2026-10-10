@@ -64,6 +64,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- Bodenackerstrasse 6 in Sisseln stands at its real height again (about 25 m to the roof instead of 22.8 m), and about 70 other houses whose outline took in a bit of courtyard or pavement no longer come out too low.
 - **J** → Plattform Sisslerfeld no longer drops you inside the lookout tower. The tower stands right on the Breitenloh, so the car now starts a good 25 m down the road from it, with the tower in front of you.
 - Scraping the side of the Holzbrücke no longer drops you into the Rhine. Since the car is back to its real size, it could slip off the deck between the rails where the old bridge bends. Now everything between the railings is solid planks.
 - Holding **Tab** now shows only the big map. The browser no longer jumps through the buttons on the page while you hold the key.

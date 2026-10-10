@@ -100,3 +100,51 @@ def test_ridge_promoted_gable_gets_the_eaves_correction(tiles):
     BH.apply(b, FRAME, *tiles)
     assert b[0]["roof"] == b[1]["roof"] == "gable"
     assert (b[0]["h"], b[0]["rh"]) == (b[1]["h"], b[1]["rh"]), b
+
+
+@pytest.fixture
+def notched(tmp_path):
+    """#34: outlines that take in open ground next to the roof (Bodenackerstrasse 6: 7.5 % of its samples are ground).
+    North (z = 30): a 25 m flat roof whose outline has a 3.5 m strip of ground at its east end (15 % of the samples).
+    South (z = -30): mostly ground, roof over the west 5 m only."""
+    E0, N0 = round(FRAME.e0) - 100, round(FRAME.n0) + 100
+    dtm = np.full((100, 100), 300.0)
+    dsm = np.full((400, 400), 300.0)
+    for r in range(400):
+        for c in range(400):
+            x, z = E0 + (c + 0.5) * 0.5 - FRAME.e0, FRAME.n0 - (N0 - (r + 0.5) * 0.5)
+            if abs(x) <= 10 and abs(z - 30) <= 5 and x <= 6.5:
+                dsm[r, c] = 325.0
+            if abs(x) <= 10 and abs(z + 30) <= 5 and x <= -5.0:
+                dsm[r, c] = 325.0
+    return [tif(tmp_path / "dsm.tif", E0, N0, dsm, 0.5)], [tif(tmp_path / "dtm.tif", E0, N0, dtm, 2.0)]
+
+
+def test_eaves_ignores_ground_inside_the_footprint():
+    """#34: the eaves are the 10th percentile of the roof samples (>= NOT_BUILT over the ground); a lower wing still
+    counts; a footprint that is mostly not roof keeps the old statistic over all samples."""
+    assert BH.eaves(np.array([300.0] * 15 + [325.0] * 85), 300.0) == 325.0          # 15 % ground: ignored
+    assert BH.eaves(np.array([302.0] * 15 + [325.0] * 85), 300.0) == 302.0          # a 2 m annex is roof
+    assert BH.eaves(np.array([300.0] * 60 + [325.0] * 40), 300.0) == 300.0          # mostly ground: old statistic
+    few = [300.0] * 3 + [325.0] * 5                                                  # under min_samples roof samples
+    assert BH.eaves(np.array(few), 300.0) == pytest.approx(float(np.percentile(few, 10)))
+
+
+def test_ground_inside_the_outline_does_not_lower_the_eaves(notched):
+    """#34, Bodenackerstrasse 6 (22.8 m shipped, main roof 25.5 m): ground inside the outline pulled the 10th
+    percentile down. Today the north block comes out h 2.5 and 'gable' (the ground strip reads as a 25 m ridge)."""
+    b = [bld(10, 0, 30, 20, 10, "flat"), bld(11, 0, -30, 20, 10, "flat")]
+    BH.apply(b, FRAME, *notched)
+    assert b[0]["hsrc"] == "dsm" and b[0]["roof"] == "flat", b[0]
+    assert b[0]["h"] == pytest.approx(25.0, abs=0.3) and b[0]["rh"] == pytest.approx(0.0, abs=0.3), b[0]
+    assert b[1]["hsrc"] == "dsm" and b[1]["h"] == 2.5, b[1]                          # mostly ground: unchanged
+
+
+def test_committed_world_has_bodenacker_6_at_its_measured_roof():
+    """#34: the file the game loads, not just the pipeline, carries the fix (runs without the swisstopo cache)."""
+    import json
+    from pathlib import Path
+    world = json.loads((Path(__file__).parents[2] / "data" / "world_hochrhein.json").read_text())
+    tall = next(b for b in world["buildings"] if b["id"] == 171822634)
+    assert tall["hsrc"] == "dsm" and tall["roof"] == "flat" and 24.5 <= tall["h"] <= 26.5, (tall["h"], tall["roof"])
+    assert max(b["h"] for b in world["buildings"] if b.get("hsrc") == "dsm") <= 32.5

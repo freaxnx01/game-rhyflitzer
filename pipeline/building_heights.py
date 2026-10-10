@@ -2,7 +2,7 @@
 
 Most OSM houses carry no height, so the world used a default (house 6 m). Each footprint (a little shrunk, so walls and
 roof overhangs don't count) is read from the surface model: the eaves height `h` is the low edge of the roof (10th
-percentile) and the ridge height `rh` the rise from there to the top (95th percentile), both over the ground under the
+percentile of the samples at least 2 m over the ground, #34) and the ridge height `rh` the rise from there to the top (95th percentile), both over the ground under the
 centre. A flat roof has rh ~ 0. The roof shape follows the ridge (#43): rh >= 1.5 m on a rectangular footprint under
 1,000 m2 is a gable, rh < 0.6 m is flat, in between the footprint heuristic decides. Measured rather than modelled: many houses here have shallow roofs, which a fixed
 0.4 * width gable got badly wrong. A footprint whose roof top is under 2 m was not built yet when the surface was
@@ -26,6 +26,7 @@ RIDGE_GABLE = 1.5         # m: a ridge this high on a rectangular footprint is a
 RIDGE_FLAT = 0.6          # m: under this the roof is flat (the prototype's cut, index.html osmBuilding)
 RECT_FILL = 0.85          # footprint share of its rotated rectangle; inclusive here, world_buildings.roof() uses > 0.85
 GABLE_MAX_AREA = 1000.0   # m2: the pipeline's big-building threshold; a bigger hall keeps a flat roof
+ROOF_MAJORITY = 0.5       # share of the footprint samples that must be roof for the eaves to come from roof samples only (#34)
 
 
 def roof_shape(kind, rh, fill, area):
@@ -37,6 +38,19 @@ def roof_shape(kind, rh, fill, area):
     if rh < RIDGE_FLAT:
         return "flat"
     return kind
+
+
+def eaves(vals, ground, min_samples=8):
+    """Eaves level: the 10th percentile of the roof samples, those at least NOT_BUILT over the ground (#34). Ground inside
+    the outline (a courtyard, a ramp, an outline that misses the roof) pulled the percentile over all samples down:
+    Bodenackerstrasse 6 has 7.5 % ground samples and came out 22.8 m instead of 25.3 m. A lower wing at least NOT_BUILT
+    high still counts. When the roof samples are not the majority, the outline is mostly not roof and the old statistic
+    over all samples stays. The guard is a cliff, not a ramp: at 51 % roof the eaves come from the roof, at 49 % the old
+    statistic stands, so an outline that is just under half roof keeps a low eaves."""
+    roof = vals[vals - ground >= NOT_BUILT]
+    if len(roof) < min_samples or len(roof) < ROOF_MAJORITY * len(vals):
+        return float(np.percentile(vals, 10))
+    return float(np.percentile(roof, 10))
 
 
 def _open(paths):
@@ -79,10 +93,11 @@ def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
             if len(vals) < min_samples:
                 stats["no_data"] += 1
                 continue
-            lo, hi = (float(v) for v in np.percentile(vals, [10, 95]))
+            hi = float(np.percentile(vals, 95))
             if hi - ground < NOT_BUILT:
                 stats["not_built"] += 1
                 continue
+            lo = eaves(vals, ground, min_samples)
             # the shrink cut off the lowest strip of a pitched roof: continue its slope out to the wall line
             half = min(b["rect"][2], b["rect"][3]) / 2
             lo_pitched = lo - (hi - lo) * SHRINK / (half - SHRINK) if half > SHRINK + 1 else lo
