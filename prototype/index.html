@@ -310,7 +310,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageLabels, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
@@ -1151,12 +1151,13 @@ function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); e
 function trimLabelMats() { const inUse = new Set(LABELS.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of LABELS.mat) { if (LABELS.mat.size <= LABELS.cap) return; if (inUse.has(m)) continue; LABELS.mat.delete(t); m.map.dispose(); m.dispose(); } }
 function updateLabels(x, z) { LABELS.ticks++; LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
 // #16: big village names over the villages (Midtown Madness style): camera-facing, drawn over everything and unfogged, hidden inside the
-// village; one sprite per village, created the first time its name shows (the web font has loaded by then)
-const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? REGION.villages.map(v => [v.t, terrainH(v.x, v.z)]) : []) };
+// village; one sprite per village, created the first time its name shows (the web font has loaded by then).
+// #73: not across the Rhine (national border from L.boundaries) and nothing while inside a village
+const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? REGION.villages.map(v => [v.t, terrainH(v.x, v.z)]) : []), border: L ? nationalBorder(L.boundaries, REGION.borderDe) : null };
 function villageTex(t) { return makeTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = '800 120px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = 'rgba(20,23,29,.85)'; g.strokeText(t, w / 2, h / 2 + 4); g.fillStyle = '#f5efe0'; g.fillText(t, w / 2, h / 2 + 4); }, { alpha: true }); }
 function villageSprite(t) { let s = VILLAGE_SIGNS.sprites.get(t); if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: villageTex(t), transparent: true, depthTest: false, depthWrite: false, fog: false })); VILLAGE_SIGNS.sprites.set(t, s); scene.add(s); } return s; }
 function updateVillageNames(x, z) {
-  VILLAGE_SIGNS.shown = L ? villageLabels(REGION.villages, x, z) : [];
+  VILLAGE_SIGNS.shown = L ? villageNames(REGION.villages, x, z, VILLAGE_SIGNS.border) : [];
   for (const s of VILLAGE_SIGNS.sprites.values()) s.visible = false;
   VILLAGE_SIGNS.shown.forEach((l, rank) => { const s = villageSprite(l.t); s.visible = true; s.material.opacity = l.opacity; s.renderOrder = 20 - rank; s.scale.set(l.h * 1024 / 160, l.h, 1); s.position.set(l.x, VILLAGE_SIGNS.ground.get(l.t) + 70 + l.h / 2, l.z); });
 }
@@ -1453,6 +1454,7 @@ window.__mm.labelTick = () => LABELS.ticks;
 window.__mm.labelCache = () => { const live = new Set(LABELS.mat.values()); return { size: LABELS.mat.size, cap: LABELS.cap, live: LABELS.pool.every(s => !s.visible || live.has(s.material)) }; };
 window.__mm.villages = () => VILLAGE_SIGNS.shown.map(l => ({ t: l.t, d: +l.d.toFixed(1), opacity: +l.opacity.toFixed(3), h: +l.h.toFixed(1) }));
 window.__mm.villageSprites = () => [...VILLAGE_SIGNS.sprites].filter(([, s]) => s.visible).map(([t, s]) => ({ t, opacity: s.material.opacity, depthTest: s.material.depthTest, fog: s.material.fog, w: s.scale.x, h: s.scale.y, y: s.position.y, ground: VILLAGE_SIGNS.ground.get(t) }));
+window.__mm.villageBorder = () => VILLAGE_SIGNS.border ? VILLAGE_SIGNS.border.length : 0;
 window.__mm.stationSigns = () => STATION_SIGNS.map(s => ({ ...s }));
 window.__mm.raceFlags = () => ({ jumped: !!R.jumped, flown: !!R.flown, auto: !!R.auto });
 window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, done: R.done, rank: R.last?.rank ?? null, best: R.blitzBest, cps: CPS.map(c => [c.x, c.z]), finish: [FINISH.x, FINISH.z] });   // #128

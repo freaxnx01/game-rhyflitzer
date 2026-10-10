@@ -73,9 +73,12 @@ Screenshot: `docs/ai-notes/screenshots/2026-10-09-underwater.png` — murky blue
 - [ ] Elsewhere: roadside parking strips keep their bays along the road, no bay lines run through houses or over a road, and a car park on a slope does not float or sink.
 - [ ] The car drives onto and across a car park without bumping (the lot sits 1 cm under the road surface).
 
-## Big village names (#16)
+## Big village names (#16, #73)
 
-- [ ] From the start, drive west towards Stein and Bad Säckingen: the names hang over the villages, readable from afar, not too big, not too small.
+- [ ] Leave Sisseln westwards towards Sisslerfeld and Stein: once out of the village, the Swiss names hang over the villages, readable from afar, not too big, not too small. BAD SÄCKINGEN does not show from the Swiss bank (#73).
+- [ ] #73 repro: drive through Sisseln along the Hauptstrasse eastwards — no MURG (and no other name) over the houses.
+- [ ] On the Rhine bank between Sisseln and Murg, and on a Rhine bridge outside a village: names from both banks fade in; driving away from the river, the other bank's names fade out smoothly.
+- [ ] On the German bank (e.g. north of Murg): MURG and BAD SÄCKINGEN show, the Swiss names don't.
 - [ ] Driving into Sisseln, Stein or Bad Säckingen: the village's own name fades out smoothly and is gone inside the village (radius tuning: `VILLAGES[].r` in `prototype/world.js`).
 - [ ] Far names fade out instead of popping; two names lined up behind each other stay readable (the nearer one on top).
 - [ ] Both graphic styles (T): names are not fogged.

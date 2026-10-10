@@ -361,6 +361,56 @@ export function villageLabels(villages, x, z) {
   return out.sort((a, b) => a.d - b.d);
 }
 
+// #73: the national border runs in the Rhine. It is every #48 Gemeinde line between one German Gemeinde (BORDER_DE, the
+// admin_level=8 relations with a de:amtlicher_gemeindeschluessel) and a Swiss one, joined into one polyline. Names from the
+// other bank are hidden, except within VILLAGE_BANK_FADE metres of the border (on the river and its bridges).
+export const BORDER_DE = ['Bad Säckingen', 'Murg'];
+export const VILLAGE_BANK_FADE = 150;
+function joinPiece(chain, p, same) {
+  if (same(chain.at(-1), p[0])) return chain.concat(p.slice(1));
+  if (same(chain.at(-1), p.at(-1))) return chain.concat(p.slice(0, -1).reverse());
+  if (same(chain[0], p.at(-1))) return p.slice(0, -1).concat(chain);
+  return p.slice(1).reverse().concat(chain);
+}
+// One polyline from the CH/DE border lines, or null when there are none or they don't join end to end.
+export function nationalBorder(boundaries, de = BORDER_DE, tol = 1) {
+  const pieces = boundaries.filter(b => b.names.length === 2 && b.names.filter(n => de.includes(n)).length === 1).map(b => b.pts);
+  if (!pieces.length) return null;
+  const same = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= tol;
+  let chain = pieces.shift().slice();
+  while (pieces.length) {
+    const i = pieces.findIndex(p => [p[0], p.at(-1)].some(e => same(chain[0], e) || same(chain.at(-1), e)));
+    if (i < 0) return null;
+    chain = joinPiece(chain, pieces.splice(i, 1)[0], same);
+  }
+  return chain;
+}
+function crossZ(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
+function segmentsCross(a, b, c, d) { return (crossZ(c, d, a) > 0) !== (crossZ(c, d, b) > 0) && (crossZ(a, b, c) > 0) !== (crossZ(a, b, d) > 0); }
+// The border splits the world in two (it ends on the world edge): an even number of crossings means the same bank.
+export function sameBank(border, ax, az, bx, bz) {
+  if (!border) return true;
+  let crossings = 0;
+  for (let i = 0; i < border.length - 1; i++) if (segmentsCross([ax, az], [bx, bz], border[i], border[i + 1])) crossings++;
+  return crossings % 2 === 0;
+}
+export function bankFade(border, x, z, w = VILLAGE_BANK_FADE) {
+  if (!border) return 1;
+  return Math.max(0, 1 - nearestOnPolyline(border, x, z).d / w);
+}
+// Inside any village every name is hidden; it comes back over f.in metres as the car leaves the village.
+export function villageQuiet(villages, x, z, f = VILLAGE_FADE) {
+  let quiet = 1;
+  for (const v of villages) quiet = Math.min(quiet, Math.max(0, (Math.hypot(v.x - x, v.z - z) - v.r) / f.in));
+  return quiet;
+}
+export function villageNames(villages, x, z, border = null) {
+  const quiet = villageQuiet(villages, x, z), across = bankFade(border, x, z);
+  return villageLabels(villages, x, z)
+    .map(l => ({ ...l, opacity: Math.min(l.opacity, quiet, sameBank(border, x, z, l.x, l.z) ? 1 : across) }))
+    .filter(l => l.opacity > 0);
+}
+
 // #36: a circle of radius r against a building footprint ring (either winding). null when it is clear; else the unit push
 // (wx, wz) out of the footprint and the overlap pen: r - d from outside, r + d from inside, r with the centre on the wall
 export function ringPush(ring, x, z, r) {

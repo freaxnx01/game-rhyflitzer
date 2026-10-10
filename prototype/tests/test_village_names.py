@@ -9,6 +9,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 SISSELN = (1677.6, -329.8)   # OSM place node 240055476, as in VILLAGES
 MUMPF = (-3484.8, 596.6)     # OSM place node 192826016
+MUMPF_OUTSIDE = (-3484.8, 1400)   # 800 m north of Mumpf's centre: outside its radius, still on the Swiss bank, 5.2 km from Sisseln
 
 
 def open_page(p, server, block_world=False):
@@ -49,12 +50,19 @@ def test_village_name_big_from_afar_hidden_inside(server):
 def test_far_villages_and_own_village_hidden(server):
     with sync_playwright() as p:
         br, page = open_page(p, server)
+        t0 = page.evaluate("() => window.__mm.labelTick()")
         page.evaluate(f"() => window.__mm.place({MUMPF[0]}, {MUMPF[1]})")
-        page.wait_for_function("() => window.__mm.villages().some(v => v.t === 'WALLBACH')", timeout=60000)   # 2.4 km away
+        page.wait_for_function(f"() => window.__mm.labelTick() > {t0} + 2", timeout=60000)
+        inside = names(page)
+        page.evaluate(f"() => window.__mm.place({MUMPF_OUTSIDE[0]}, {MUMPF_OUTSIDE[1]})")
+        page.wait_for_function("() => window.__mm.villages().some(v => v.t === 'MUMPF')", timeout=60000)
         shown = names(page)
         br.close()
-    assert "MUMPF" not in shown          # inside
+    assert inside == []                  # inside Mumpf every name is hidden
+    assert "MUMPF" in shown              # own village, once outside its radius: the rules do not hide everything
     assert "SISSELN" not in shown        # 5.2 km away
+    assert "WALLBACH" not in shown       # across the Rhine (#73)
+    assert "BAD SÄCKINGEN" not in shown  # across the Rhine (#73)
 
 
 def test_hand_layout_has_no_village_names(server):
@@ -65,3 +73,42 @@ def test_hand_layout_has_no_village_names(server):
         sprites = page.evaluate("() => window.__mm.villageSprites()")
         br.close()
     assert shown == [] and sprites == []
+
+
+CH_BANK = (3300, 100)      # Swiss bank, 1.3 km from Murg, 1.7 km from Sisseln, > 150 m from the border
+DE_BANK = (3000, -1200)    # German bank, 1.5 km from Murg, 1.6 km from Sisseln
+ON_BORDER = (2406.7, -670.6)   # Murg/Sisseln/Bad Säckingen border point in the Rhine
+
+
+def place_and_wait(page, xz, js_condition):
+    page.evaluate(f"() => window.__mm.place({xz[0]}, {xz[1]})")
+    page.wait_for_function(js_condition, timeout=60000)
+    return names(page)
+
+
+@needs_world
+def test_other_bank_names_hidden_except_on_the_river(server):
+    """#73: from the Swiss bank no German names and vice versa; on the river both."""
+    with sync_playwright() as p:
+        br, page = open_page(p, server)
+        border_points = page.evaluate("() => window.__mm.villageBorder()")
+        ch = place_and_wait(page, CH_BANK, "() => window.__mm.villages().some(v => v.t === 'SISSELN')")
+        de = place_and_wait(page, DE_BANK, "() => window.__mm.villages().some(v => v.t === 'MURG')")
+        river = place_and_wait(page, ON_BORDER, "() => window.__mm.villages().some(v => v.t === 'SISSELN')")
+        br.close()
+    assert border_points > 100, border_points
+    assert "MURG" not in ch, ch
+    assert "SISSELN" not in de, de
+    assert "MURG" in river and "SISSELN" in river, river
+
+
+@needs_world
+def test_no_names_inside_sisseln(server):
+    """#73 repro: in Sisseln, MURG (or any other name) must not hang over the houses."""
+    with sync_playwright() as p:
+        br, page = open_page(p, server)
+        place_and_wait(page, CH_BANK, "() => window.__mm.villages().length > 0")
+        shown = place_and_wait(page, SISSELN, "() => window.__mm.villages().length === 0")
+        sprites = page.evaluate("() => window.__mm.villageSprites()")
+        br.close()
+    assert shown == [] and sprites == [], (shown, sprites)

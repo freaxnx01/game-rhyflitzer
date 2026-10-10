@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -500,4 +500,64 @@ test('layoutFromWorld draws trail roads as gravel (#127)', () => {
 
 test('Ehrendingen has its own village names (#127)', () => {
   assert.deepEqual(VILLAGES_EHRENDINGEN.map(v => v.t), ['UNTEREHRENDINGEN', 'OBEREHRENDINGEN']);
+});
+
+test('nationalBorder: a German line without a named Swiss neighbour is not the border (#73)', () => {
+  const B = [{ names: ['Murg', 'Sisseln'], pts: [[0, 0], [10, 0]] }, { names: ['Murg'], pts: [[10, 0], [10, 50]] }];
+  assert.deepEqual(nationalBorder(B), [[0, 0], [10, 0]]);
+});
+
+test('nationalBorder: joins the CH/DE lines in any order and direction, skips inner ones', () => {
+  const B = [
+    { names: ['Murg', 'Sisseln'], pts: [[100, 0], [200, 10]] },
+    { names: ['Bad Säckingen', 'Murg'], pts: [[0, -50], [0, -500]] },          // German–German: not the border
+    { names: ['Bad Säckingen', 'Stein'], pts: [[100, 0], [0, 5], [-100, 0]] }, // joins at the start, reversed
+    { names: ['Sisseln', 'Stein'], pts: [[0, 5], [0, 400]] },                  // Swiss–Swiss: not the border
+  ];
+  assert.deepEqual(nationalBorder(B), [[-100, 0], [0, 5], [100, 0], [200, 10]]);
+  assert.equal(nationalBorder([{ names: ['Murg', 'Sisseln'], pts: [[0, 0], [1, 0]] }, { names: ['Bad Säckingen', 'Stein'], pts: [[500, 0], [600, 0]] }]), null);
+  assert.equal(nationalBorder([]), null);
+  assert.deepEqual(BORDER_DE, ['Bad Säckingen', 'Murg']);
+});
+
+test('sameBank: even number of border crossings, null border means same bank', () => {
+  const border = [[-1000, 0], [0, 10], [1000, 0]];
+  assert.equal(sameBank(border, 200, 100, 200, -100), false);
+  assert.equal(sameBank(border, 0, 100, 500, 300), true);
+  assert.equal(sameBank(border, -500, -100, 500, -100), true);
+  assert.equal(sameBank(null, 200, 100, 200, -100), true);
+});
+
+test('bankFade: 1 on the border, 0 from VILLAGE_BANK_FADE on, 1 without a border', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const border = [[-1000, 0], [1000, 0]];
+  assert.equal(VILLAGE_BANK_FADE, 150);
+  assert.equal(bankFade(border, 0, 0), 1);
+  assert.ok(near(bankFade(border, 0, 75), 0.5));
+  assert.equal(bankFade(border, 0, 150), 0);
+  assert.equal(bankFade(border, 0, -400), 0);
+  assert.equal(bankFade(null, 0, 9999), 1);
+});
+
+test('villageQuiet: 0 inside any village, ramps over VILLAGE_FADE.in, 1 in the open', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const V = [{ t: 'A', x: 0, z: 0, r: 400 }, { t: 'B', x: 2000, z: 0, r: 400 }];
+  assert.equal(villageQuiet(V, 0, 0), 0);
+  assert.ok(near(villageQuiet(V, 500, 0), 0.5));
+  assert.equal(villageQuiet(V, 1000, 0), 1);
+  assert.equal(villageQuiet([], 0, 0), 1);
+});
+
+test('villageNames: nothing inside a village, other bank only near the border', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const V = [{ t: 'HOME', x: 0, z: 1000, r: 400 }, { t: 'NEAR', x: 1500, z: 1000, r: 400 }, { t: 'ACROSS', x: 0, z: -1000, r: 400 }];
+  const river = [[-5000, 0], [5000, 0]];
+  assert.deepEqual(villageNames(V, 0, 1000, river), []);                                         // inside HOME
+  assert.deepEqual(villageNames(V, 700, 1000, river).map(l => l.t), ['HOME', 'NEAR']);           // open country, ACROSS is over the river
+  assert.deepEqual(villageNames(V, 700, 1000, null).map(l => l.t), ['HOME', 'NEAR', 'ACROSS']);  // no border: as in #16
+  const atBank = villageNames(V, 0, 75, river);                                                  // 75 m from the border
+  assert.deepEqual(atBank.map(l => l.t), ['HOME', 'ACROSS', 'NEAR']);
+  assert.ok(near(atBank[1].opacity, 0.5));
+  assert.deepEqual(villageNames(V, 0, 500, river).map(l => [l.t, l.opacity]), [['HOME', 0.5], ['NEAR', 0.5]]); // 100 m outside HOME
+  assert.deepEqual(Object.keys(atBank[0]), ['t', 'x', 'z', 'd', 'opacity', 'h']);
 });

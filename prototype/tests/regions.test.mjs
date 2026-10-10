@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { REGIONS, DEFAULT_REGION, regionFromQuery, regionSearch } from '../regions.js';
 import { STRINGS } from '../strings.js';
-import { VILLAGES } from '../world.js';
+import { VILLAGES, BORDER_DE } from '../world.js';
 import { GEMEINDEN, LANDMARK_INFO } from '../landmarks.js';
 
 test('regionFromQuery: default, case-insensitive, unknown falls back', () => {
@@ -31,6 +31,11 @@ test('Hochrhein keeps exactly today\'s values', () => {
   assert.equal(h.handFallback, true);
   assert.equal(h.villages, VILLAGES); assert.equal(h.gemeinden, GEMEINDEN); assert.equal(h.landmarks, LANDMARK_INFO);
   assert.deepEqual(h.strings, { intro: 'intro', finished: 'finishedText', blurb: 'blurbOsm' });
+});
+
+test('the national border names are per region: Hochrhein has them, Ehrendingen has no border (#73)', () => {
+  assert.equal(REGIONS.hochrhein.borderDe, BORDER_DE);
+  assert.deepEqual(REGIONS.ehrendingen.borderDe, []);
 });
 
 test('every region is complete and its string keys exist', () => {
