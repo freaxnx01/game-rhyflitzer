@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
-import { GRADE_BAND, gradeProfile, profileY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
+import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -960,4 +960,16 @@ test('layoutFromWorld passes grades, default empty', () => {
   assert.deepEqual(layoutFromWorld(base).grades, []);
   const gr = [{ pts: [[0, 0], [1, 0]], hw: 9.5, ctl: [[0, 0], [1, 0]] }];
   assert.deepEqual(layoutFromWorld({ ...base, grades: gr }).grades, gr);
+});
+
+test('grade caps: the profile stays under every deck cap, ramping back at the underpass grade', () => {
+  const flat = () => 10, GR2 = { pts: [[0, 0], [400, 0]], hw: 5, ctl: [[0, 0], [200, 4], [400, 0]] };   // a 2 % profile
+  const cap = { t: 200, y: 5, w: 5 }, gc = gradeCut(GR2, flat, GRADE_CUT, [cap]);
+  assert.equal(gradeY(gc, 200), 5);                            // the profile would be 6: the cap holds it at 5
+  assert.equal(gradeY(gc, 205), 5);                            // level across the deck band
+  assert.ok(Math.abs(gradeY(gc, 215) - (5 + GRADE_CUT.grade * 10)) < 1e-9);
+  assert.equal(gradeY(gc, 100), profileY(gc.prof, 100));       // past where the ramp meets the profile: the plain profile
+  assert.equal(gradeCutAt(gc, 200, 0, flat), 5);
+  assert.equal(gc.outer, gc.inner + GRADE_CUT.bank * (5 + 2)); // the banks are sized on the capped depth
+  assert.deepEqual(gradeCut(GR2, flat).caps, []);
 });

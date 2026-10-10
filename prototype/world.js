@@ -373,25 +373,32 @@ export function triLerp(ha, hb, hc, hd, u, v) { return u + v <= 1 ? ha + (hd - h
 // ctl: [[t, cut]] } from the world file; h0(x, z) = the uncut mesh. A grade is one more source for #76's terrain patch:
 // the ground comes down to the profile inside hw + margin, a 1:bank grass bank rises back beside it (no trough walls),
 // and the depth is 0 at `outer` (never past hw + GRADE_BAND, which the pipeline's BAND mirrors), so the patch meets the
-// coarse mesh.
+// coarse mesh. caps [{ t, y, w }]: a rail deck over the corridor holds the profile at y (its underside minus the
+// clearance) for w either side of t and lets it climb back at the underpass grade, so every deck clears the road.
 export const GRADE_BAND = 24;
-export const GRADE_CUT = { margin: UNDERPASS.margin, bank: 2 };
+export const GRADE_CUT = { margin: UNDERPASS.margin, bank: 2, grade: UNDERPASS.grade };
 export function gradeProfile(g, h0) { return g.ctl.map(([t, cut]) => { const [x, z] = pointAtLength(g.pts, t); return [t, h0(x, z) - cut]; }); }
 export function profileY(prof, t) {
   if (t <= prof[0][0]) return prof[0][1];
   for (let i = 1; i < prof.length; i++) if (t <= prof[i][0]) { const [t0, y0] = prof[i - 1], [t1, y1] = prof[i]; return y0 + (y1 - y0) * (t - t0) / ((t1 - t0) || 1); }
   return prof[prof.length - 1][1];
 }
-export function gradeCut(g, h0, u = GRADE_CUT) {
-  const prof = gradeProfile(g, h0), len = polylineLength(g.pts), inner = g.hw + u.margin;
+export function gradeY(gc, t, u = GRADE_CUT) {
+  let y = profileY(gc.prof, t);
+  for (const c of gc.caps) y = Math.min(y, c.y + u.grade * Math.max(0, Math.abs(t - c.t) - c.w));
+  return y;
+}
+export function gradeCut(g, h0, u = GRADE_CUT, caps = []) {
+  const gc = { pts: g.pts, hw: g.hw, prof: gradeProfile(g, h0), caps, inner: g.hw + u.margin }, len = polylineLength(g.pts);
   let max = 0;
-  for (let t = 0; t <= len; t += 2) { const [x, z] = pointAtLength(g.pts, t); max = Math.max(max, h0(x, z) - profileY(prof, t)); }
-  return { pts: g.pts, hw: g.hw, prof, inner, outer: Math.min(inner + u.bank * (max + 2), g.hw + GRADE_BAND) };
+  for (let t = 0; t <= len; t += 2) { const [x, z] = pointAtLength(g.pts, t); max = Math.max(max, h0(x, z) - gradeY(gc, t, u)); }
+  for (const c of caps) { const [x, z] = pointAtLength(g.pts, c.t); max = Math.max(max, h0(x, z) - gradeY(gc, c.t, u)); }
+  return { ...gc, outer: Math.min(gc.inner + u.bank * (max + 2), g.hw + GRADE_BAND) };
 }
 export function gradeCutAt(gc, x, z, h0, u = GRADE_CUT) {
   const n = nearestOnPolyline(gc.pts, x, z);
   if (n.d >= gc.outer) return 0;
-  const raw = h0(x, z) - profileY(gc.prof, n.t) - Math.max(0, n.d - gc.inner) / u.bank;
+  const raw = h0(x, z) - gradeY(gc, n.t, u) - Math.max(0, n.d - gc.inner) / u.bank;
   return Math.max(0, Math.min(raw, (gc.outer - n.d) / u.bank));
 }
 export function gradeCells(gc, G) {
