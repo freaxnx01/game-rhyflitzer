@@ -241,3 +241,10 @@ test('LANDMARK_INFO_HasTheHideoutAsASecretInMuenchwilen', () => {
   assert.equal(e.secret, true); assert.equal(e.gemeinde, 'Münchwilen'); assert.deepEqual(e.at, [-712.8, 1528.2]);
   assert.ok(!landmarkEntries(LANDMARK_INFO, {}, []).some(x => x.n === 'Eiffelturm'), 'hidden by default');
 });
+
+test('landmarkEntries_LookPoint_IsPassedThrough (#102)', () => {
+  const info = [{ name: 'Eiffelturm', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], look: [-703.7, 1423.6], secret: true }];
+  assert.deepEqual(landmarkEntries(info, {}, [], GEMEINDEN, { secrets: true })[0], { n: 'Eiffelturm', g: 'Münchwilen', x: -712.8, z: 1528.2, j: [-703.3, 1419.1], look: [-703.7, 1423.6] });
+  // the Eiffelturm's J spot is on the Hübel; the car turns to look at the gate in the hillside, not along the road
+  assert.deepEqual(LANDMARK_INFO.find(i => i.name === 'Eiffelturm').look, [-703.7, 1423.6]);
+});

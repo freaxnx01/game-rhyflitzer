@@ -17,7 +17,7 @@ export const LANDMARK_INFO = [
   { name: 'Kirche Stein', gemeinde: 'Stein', anchor: 'steinChurch' },
   { name: 'Bahnhof Stein-Säckingen', gemeinde: 'Stein', anchor: 'stationStein' },
   { name: 'Plattform Sisslerfeld', gemeinde: 'Münchwilen', anchor: 'plattform', jump: [78.1, 861.4] },   // #94: the tower stands on Breitenloh; J lands 25 m east of it on the same road, facing it
-  { name: 'Eiffelturm', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], secret: true },   // #102: the hideout in the Hübel; J lands on the Hübel facing the gate
+  { name: 'Eiffelturm', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], look: [-703.7, 1423.6], secret: true },   // #102: the hideout in the Hübel; J lands on the Hübel looking at the gate (look: the tunnel mouth)
   { name: 'DSM-Kamin', gemeinde: 'Eiken', anchor: 'dsmChimney' },
   { name: 'Bahnhof Sisseln', gemeinde: 'Eiken', anchor: 'stationSisseln' },
   { name: 'Bahnhof Eiken', gemeinde: 'Eiken', building: 199241726 },
@@ -72,7 +72,7 @@ export function landmarkEntries(info, anchors, buildings, gemeinden = GEMEINDEN,
   info.forEach((item, i) => {
     if (item.secret && !opts.secrets) return;   // #102: a secret lists only once the player has found it
     const p = sourcePos(item, anchors || {}, byId);
-    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.ramp ? { ramp: true } : {}), i });
+    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), i });
   });
   found.sort((a, b) => gemeinden.indexOf(a.g) - gemeinden.indexOf(b.g) || a.i - b.i);
   return found.map(({ i, ...entry }) => entry);

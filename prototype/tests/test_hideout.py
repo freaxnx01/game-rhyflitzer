@@ -15,8 +15,10 @@ HEADING = 95 * math.pi / 180
 needs_world = pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
 
 
-def open_page(p, server):
+def open_page(p, server, init_script=None):
     br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
+    if init_script:
+        page.add_init_script(init_script)
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(f"{server}/prototype/index.html")
@@ -278,3 +280,24 @@ def test_camera_stays_under_the_ceiling_while_easing_and_on_the_hill_above_it(se
     assert hill["car"]["y"] > hill["settled"]["hill"] - 5, hill          # the car is up on the hill
     assert hill["settled"]["lid"] is not None, hill                     # with the camera over the lid
     assert hill["settled"]["y"] > hill["settled"]["hill"], hill
+
+
+@needs_world
+def test_j_eiffel_puts_the_car_on_the_huebel_facing_the_gate(server):
+    """Once found (remembered across a reload), J -> "eiffel" puts the car on the Hübel by the mouth, facing the gate."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server, "localStorage.setItem('mm.hideout', '1')")
+        page.keyboard.press("KeyJ")
+        page.wait_for_function("() => !document.getElementById('jump').hidden")
+        page.keyboard.type("eiffel")
+        listed = [r["n"] for r in page.evaluate("() => window.__mm.jumpList()")]
+        page.keyboard.press("Enter")
+        page.wait_for_function("() => document.getElementById('jump').hidden")
+        car = page.evaluate("() => window.__mm.car()")
+        th = page.evaluate("() => window.__mm.heading()")
+        br.close()
+    assert errors == []
+    assert listed[0] == "Eiffelturm", listed                  # first match, so Enter takes it
+    assert math.hypot(car["x"] - MOUTH_ROAD[0], car["z"] - MOUTH_ROAD[1]) < 5, car
+    ux, uz = math.cos(HEADING), math.sin(HEADING)
+    assert math.cos(th) * ux + math.sin(th) * uz > 0.7, ("not facing down the tunnel", th)
