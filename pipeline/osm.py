@@ -6,6 +6,7 @@
            free memory (osmium's ID bitmaps span the whole planet ID range); run it on
            odroid-plus-pve, not on the agent box. See docs/11-pipeline-osm.md.
     build  light: regional .osm.pbf (+ optional .mmh) -> data/world_<region>.json (MMW1)
+    world  any Swiss rectangle with generated content (#166), light except the cut
 
 Never uses the public Overpass API.
 Licence: data (c) OpenStreetMap contributors, ODbL. The world file is a derivative database.
@@ -165,6 +166,21 @@ def cmd_build(a) -> int:
     return 0
 
 
+def cmd_world(a) -> int:
+    import frame as frame_mod   # here, not at the top: region imports osm
+    import region
+    rect = tuple(a.lv95) if a.lv95 else frame_mod.from_lonlat(*a.bbox)
+    try:
+        files = region.build_world(rect, a.out, extract=a.extract, pbf=a.pbf, cache=Path(a.cache), dsm=not a.no_dsm,
+                                   progress=lambda s: log(f"step: {s}"))
+    except frame_mod.FrameError as e:
+        log(f"frame refused ({e.code}): {e}")
+        return 2
+    for p in files.values():
+        print(p)
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -185,11 +201,23 @@ def main(argv=None) -> int:
     b.add_argument("--anchors", default=str(Path(__file__).with_name("anchors.json")))
     b.add_argument("--dsm-heights", nargs="?", const="cache", default=None, metavar="CACHE",
                    help="building heights from swissSURFACE3D minus swissALTI3D (downloads ~40 tiles into CACHE/swisssurface3d)")
+    w = sub.add_parser("world", help="#166: any Swiss rectangle -> world.json + terrain.mmh + meta.json")
+    where = w.add_mutually_exclusive_group(required=True)
+    where.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), help="lon/lat box, snapped to 250 m LV95")
+    where.add_argument("--lv95", nargs=4, type=float, metavar=("E0", "N0", "E1", "N1"), help="LV95 rectangle, snapped to 250 m")
+    src = w.add_mutually_exclusive_group(required=True)
+    src.add_argument("--extract", help="country extract to cut from (cache/osm/switzerland-latest.osm.pbf, ~1.9 GB peak)")
+    src.add_argument("--pbf", help="an already cut regional .osm.pbf covering the frame plus 1 km")
+    w.add_argument("--out", required=True, help="output folder")
+    w.add_argument("--cache", default="cache", help="swisstopo tile cache (swissalti3d/, swisssurface3d/)")
+    w.add_argument("--no-dsm", action="store_true", help="skip swissSURFACE3D building heights (~850 MB of tiles per 15 km2)")
     a = ap.parse_args(argv)
     if a.cmd == "cut":
         return cmd_cut(a)
     if a.cmd == "build":
         return cmd_build(a)
+    if a.cmd == "world":
+        return cmd_world(a)
     return 2
 
 
