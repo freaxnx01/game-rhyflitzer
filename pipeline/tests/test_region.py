@@ -1,5 +1,6 @@
 """#166: build_world on a synthetic extract -- no download, no osmium cut; terrain is a fake flat grid."""
 import json
+import math
 import os
 from types import SimpleNamespace
 
@@ -12,6 +13,7 @@ import geo
 import mmh
 import region
 from tests import synth_osm
+from tests.test_race import bridge_works
 
 
 def flat_terrain(bbox, origin, step, base, cache, dgm_dir):
@@ -25,6 +27,8 @@ def flat_terrain(bbox, origin, step, base, cache, dgm_dir):
 
 @pytest.fixture(scope="module")
 def built(tmp_path_factory):
+    if not bridge_works():
+        pytest.skip("no Node 22+ on PATH: the race measures its legs with the game's A*")
     tmp = tmp_path_factory.mktemp("region")
     mp = pytest.MonkeyPatch()
     mp.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
@@ -53,7 +57,18 @@ def test_name_villages_jlist_start(built):
         ("Ahausen", "village", "Ahausen"), ("Ahausen Bahnhof", "station", "Ahausen"),
         ("Kirche Ahausen", "place_of_worship", "Ahausen"), ("Schulhaus Ahausen", "school", "Ahausen")]
     assert len(a["start"]) == 3 and abs(a["start"][0]) < 200 and abs(a["start"][1]) < 200    # on the secondary/tertiary cross
-    assert a["cps"] == [] and r["race"] is None and r["forestAbove"] is None
+    assert r["forestAbove"] is None
+
+
+def test_race_in_the_world_file(built):
+    _, world, _, _ = built
+    a, race = world["anchors"], world["region"]["race"]
+    pts = [a["start"][:2]] + [[c["x"], c["z"]] for c in a["cps"] + [a["finish"]]]
+    assert len(a["cps"]) == 5 and len({c["n"] for c in a["cps"] + [a["finish"]]}) == 6
+    x0, x1, z0, z1 = world["region"]["treeBox"]
+    assert all(x0 + 149 <= x <= x1 - 149 and z0 + 149 <= z <= z1 - 149 for x, z in pts[1:])     # 150 m off the edge
+    assert all(math.dist(p, q) >= 300 for i, p in enumerate(pts) for q in pts[i + 1:])
+    assert 2500 <= race["len"] <= 7200 and race["par"] == math.ceil(race["len"] / 12.5)
 
 
 def test_forests_and_clip(built):
@@ -68,7 +83,7 @@ def test_forests_and_clip(built):
 def test_meta(built):
     _, world, meta, _ = built
     assert meta["id"] == F.world_id(synth_osm.RECT, region.PIPELINE_VERSION) == world["region"]["id"]
-    assert meta["bbox"]["lv95"] == list(synth_osm.RECT) and meta["lastPlayed"] is None and meta["race"] is False
+    assert meta["bbox"]["lv95"] == list(synth_osm.RECT) and meta["lastPlayed"] is None and meta["race"] is True
     assert "ODbL" in meta["license"] and meta["extract"]["file"] == "synth.osm" and meta["base"] == 412.0
     assert "Terrain: swissALTI3D © swisstopo" in meta["sources"] and world["origin"]["lat"] == F.origin(synth_osm.RECT)[0]
 
