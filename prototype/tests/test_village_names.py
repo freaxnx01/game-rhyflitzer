@@ -9,6 +9,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 SISSELN = (1677.6, -329.8)   # OSM place node 240055476, as in VILLAGES
 MUMPF = (-3484.8, 596.6)     # OSM place node 192826016
+MUMPF_OUTSIDE = (-3484.8, 1400)   # 800 m north of Mumpf's centre: outside its radius, still on the Swiss bank, 5.2 km from Sisseln
 
 
 def open_page(p, server, block_world=False):
@@ -52,11 +53,16 @@ def test_far_villages_and_own_village_hidden(server):
         t0 = page.evaluate("() => window.__mm.labelTick()")
         page.evaluate(f"() => window.__mm.place({MUMPF[0]}, {MUMPF[1]})")
         page.wait_for_function(f"() => window.__mm.labelTick() > {t0} + 2", timeout=60000)
+        inside = names(page)
+        page.evaluate(f"() => window.__mm.place({MUMPF_OUTSIDE[0]}, {MUMPF_OUTSIDE[1]})")
+        page.wait_for_function("() => window.__mm.villages().some(v => v.t === 'MUMPF')", timeout=60000)
         shown = names(page)
         br.close()
-    assert "MUMPF" not in shown          # inside
+    assert inside == []                  # inside Mumpf every name is hidden
+    assert "MUMPF" in shown              # own village, once outside its radius: the rules do not hide everything
     assert "SISSELN" not in shown        # 5.2 km away
     assert "WALLBACH" not in shown       # across the Rhine (#73)
+    assert "BAD SÄCKINGEN" not in shown  # across the Rhine (#73)
 
 
 def test_hand_layout_has_no_village_names(server):
