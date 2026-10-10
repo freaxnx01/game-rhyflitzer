@@ -28,7 +28,8 @@ export function groundTilt(fore, aft, left, right, dx, dz) {
   return { pitch: Math.atan((fore - aft) / (2 * dx)), roll: Math.atan((right - left) / (2 * dz)) };
 }
 
-// sun: vector from the scene toward the sun (sun.position as-is). Where a point `height` above the ground lands along the light
+// sun: the direction the light comes from, i.e. the vector pointing at the sun (not normalised). Where a point `height` above the
+// ground lands when projected along that light
 export function sunShift(sun, height) {
   if (!(sun.y > 0)) return { x: 0, z: 0 };
   const k = height / sun.y;

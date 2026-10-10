@@ -1290,6 +1290,9 @@ const MIR = { cam: new THREE.PerspectiveCamera(MIRROR.fov, MIRROR.w / MIRROR.h, 
 const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x6a5a40, 0.9); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 0.8); sun.position.set(-300, 400, -200); scene.add(sun); scene.add(sun.target);
 sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -180; sun.shadow.camera.right = 180; sun.shadow.camera.top = 180; sun.shadow.camera.bottom = -180; sun.shadow.camera.near = 50; sun.shadow.camera.far = 1200; sun.shadow.bias = -0.0005;
+// #163: the direction the light comes from. camTail keeps sun.position a fixed offset from the car, so the direction is the
+// difference to its target, not the position itself -- the same vector three.js builds the shadow camera from.
+const sunDir = () => ({ x: sun.position.x - sun.target.position.x, y: sun.position.y - sun.target.position.y, z: sun.position.z - sun.target.position.z });
 const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { top: { value: col('#3a6fb8') }, hor: { value: col('#e6b98a') } }, vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }', fragmentShader: 'uniform vec3 top; uniform vec3 hor; varying vec3 vP; void main(){ float h = normalize(vP).y; float t = smoothstep(-0.02, 0.45, h); gl_FragColor = vec4(mix(hor, top, t), 1.0); }' });
 const sky = new THREE.Mesh(new THREE.SphereGeometry(3800, 24, 12), skyMat); scene.add(sky);
 const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeTex(128, 128, (g, w, h) => { const r = g.createRadialGradient(64, 64, 4, 64, 64, 64); r.addColorStop(0, 'rgba(255,250,220,1)'); r.addColorStop(0.25, 'rgba(255,230,160,.9)'); r.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = r; g.fillRect(0, 0, w, h); }, { alpha: true }), transparent: true, depthWrite: false, fog: false })); sunSprite.scale.set(320, 320, 1); scene.add(sunSprite);
@@ -1492,7 +1495,7 @@ function drawWheels() { for (const w of car.userData.wheels ?? []) { w.steer.rot
 const SHADOW_STATE = { y: 0, pitch: 0, roll: 0, wet: false, air: 0 };
 function restShadow() { SHADOW_STATE.y = P.y; SHADOW_STATE.pitch = 0; SHADOW_STATE.roll = 0; SHADOW_STATE.wet = false; SHADOW_STATE.air = 0; }
 // a positive roll means the right side of the car is up, so the quad's local +z edge has to rise: rotation about +x lowers it, hence -roll
-function drawShadow() { shadowMesh.visible = shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !!CAM_VIEWS[camView].eye, hidden: HUD.carHidden }); if (!shadowMesh.visible) return; const shift = sunShift(sun.position, SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(P.x + shift.x, SHADOW_STATE.y + SHADOW.lift, P.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -P.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }
+function drawShadow() { shadowMesh.visible = shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !!CAM_VIEWS[camView].eye, hidden: HUD.carHidden }); if (!shadowMesh.visible) return; const shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(P.x + shift.x, SHADOW_STATE.y + SHADOW.lift, P.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -P.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }
 // #126: the gull-wing doors open while the car waits on the start screen; written by stepDoors (loop), read by drawDoors (loop) only
 const DOOR_STATE = { open: 0, target: 0 };
 function stepDoors(dt) { DOOR_STATE.target = doorTarget(R.state, Math.hypot(P.vx, P.vz)); DOOR_STATE.open = stepDoor(DOOR_STATE.open, DOOR_STATE.target, dt); }
@@ -1718,8 +1721,9 @@ window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.vehicle = () => structuredClone(VEH);
 window.__mm.carSize = () => ({ ...CAR_SIZE });   // #69: body box in world metres, measured at build time (measureCar)
-// #163: read-only, for the test. size = the quad in world metres, rot = [roll, yaw, pitch] (order YZX), shift = the sun offset, ground = the sampled ground under the car
-window.__mm.shadow = () => { const s = sunShift(sun.position, SHADOW.bodyMid * CAR_SIZE.h); return { visible: shadowMesh.visible, opacity: shadowMesh.material.opacity, size: [shadowMesh.scale.x, shadowMesh.scale.z], pos: [shadowMesh.position.x, shadowMesh.position.y, shadowMesh.position.z], rot: [shadowMesh.rotation.x, shadowMesh.rotation.y, shadowMesh.rotation.z], shift: [s.x, s.z], ground: SHADOW_STATE.y }; };
+// #163: read-only, for the test. size = the quad in world metres, rot = [roll, yaw, pitch] (order YZX), shift = the sun offset,
+// ground = the sampled ground under the car, edge = the world height of the quad's left and right edge midpoints (where it really lies)
+window.__mm.shadow = () => { const s = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.updateMatrixWorld(true); const edge = [-0.5, 0.5].map(c => shadowMesh.localToWorld(new THREE.Vector3(0, 0, c)).y); return { visible: shadowMesh.visible, opacity: shadowMesh.material.opacity, size: [shadowMesh.scale.x, shadowMesh.scale.z], pos: [shadowMesh.position.x, shadowMesh.position.y, shadowMesh.position.z], rot: [shadowMesh.rotation.x, shadowMesh.rotation.y, shadowMesh.rotation.z], shift: [s.x, s.z], ground: SHADOW_STATE.y, edge }; };
 window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotation.z], visible: car.visible });   // #124: read-only, for the test
 // #132: wheel state and the wheel groups actually on the car (read-only, for the test)
 window.__mm.wheelYaw = () => { const ws = car.userData.wheels ?? []; return { yaw: WHEEL_STATE.yaw, spin: WHEEL_STATE.spin, front: ws.filter(w => w.front).map(w => w.steer.rotation.y), rear: ws.filter(w => !w.front).map(w => w.steer.rotation.y) }; };
