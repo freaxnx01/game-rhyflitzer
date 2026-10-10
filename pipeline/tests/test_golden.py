@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(not PBF.exists(), reason="regional extract not p
 
 @pytest.fixture(scope="module")
 def world():
-    return osm.build_world(PBF, MMH if MMH.exists() else None, geo.DEFAULT_BBOX, geo.DEFAULT_ORIGIN,
+    return osm.build_world(PBF, MMH if MMH.exists() else None, geo.CORE_BBOX, geo.DEFAULT_ORIGIN,
                            30.0, 1000.0, Path(__file__).parents[1] / "anchors.json")
 
 
@@ -110,7 +110,7 @@ def world_dsm():
     tiles = list((Path(__file__).parents[1] / "cache" / "swisssurface3d").glob("*.tif"))
     if len(tiles) < 10:
         pytest.skip("run osm.py build --dsm-heights once to fetch swissSURFACE3D")
-    return osm.build_world(PBF, MMH if MMH.exists() else None, geo.DEFAULT_BBOX, geo.DEFAULT_ORIGIN,
+    return osm.build_world(PBF, MMH if MMH.exists() else None, geo.CORE_BBOX, geo.DEFAULT_ORIGIN,
                            30.0, 1000.0, Path(__file__).parents[1] / "anchors.json", "cache")
 
 
@@ -312,3 +312,50 @@ def test_suedspange_grade_decks_and_signs(world):
     assert len(decks) >= 5 and all(b["layer"] == 1 for b in decks), decks
     kinds = [lm["kind"] for lm in world["anchors"]["landmarks"].values()]
     assert kinds.count("baustelle") == 2 and kinds.count("fahrverbot") == 2
+
+
+ANCHORS = Path(__file__).parents[1] / "anchors.json"
+SOUTH_NODES = {240030566, 191017638}   # place nodes Schupfart and Frick: only the #47 cut reaches them
+SOUTH_BUDGET = 12e6                     # bytes, world JSON (spec D2)
+
+
+def _extract_covers_the_south() -> bool:
+    import osmium
+    seen = {o.id for o in osmium.FileProcessor(str(PBF), osmium.osm.NODE) if o.id in SOUTH_NODES}
+    return seen == SOUTH_NODES
+
+
+@pytest.fixture(scope="module")
+def world_south():
+    if not _extract_covers_the_south():
+        pytest.skip("extract predates the south extension (#47): human step H1 + plan Task 8")
+    return osm.build_world(PBF, MMH if MMH.exists() else None, geo.DEFAULT_BBOX, geo.DEFAULT_ORIGIN,
+                           30.0, 1000.0, ANCHORS)
+
+
+def _clip():
+    f = geo.Frame(*geo.DEFAULT_ORIGIN)
+    xs, zs = f.to_game([geo.DEFAULT_BBOX[0], geo.DEFAULT_BBOX[2]], [geo.DEFAULT_BBOX[3], geo.DEFAULT_BBOX[1]])
+    return float(xs[0]), float(zs[0]), float(xs[1]), float(zs[1])
+
+
+def test_south_bbox_and_airfield_anchor(world_south):
+    assert world_south["bbox"] == list(geo.DEFAULT_BBOX)
+    a = world_south["anchors"]["landmarks"]["flugplatzSchupfart"]
+    assert shapely.box(*_clip()).contains(shapely.Point(a["x"], a["z"]))
+    assert any(lb["t"] == "SCHUPFART" for lb in world_south["anchors"]["labels"])
+
+
+def test_south_has_roads_buildings_and_woods_in_the_strip(world_south):
+    """Schupfart, Frick and Oeschgen are driveable; the Tafeljura woods continue south of the old edge (z ~ 2034)."""
+    strip = shapely.box(-4689, 2100, 4777, _clip()[3])
+    assert sum(1 for r in world_south["roads"] if any(strip.contains(shapely.Point(p)) for p in r["pts"])) > 150
+    assert sum(1 for b in world_south["buildings"] if strip.contains(shapely.Point(b["ring"][0]))) > 200
+    woods = sum(shapely.Polygon(p["ring"], p.get("holes", [])).intersection(strip).area for p in world_south["forests"])
+    assert woods > 4e6, woods
+
+
+def test_south_world_fits_the_budget(world_south, tmp_path):
+    p = tmp_path / "w.json"
+    osm.write_world(p, world_south)
+    assert p.stat().st_size <= SOUTH_BUDGET, p.stat().st_size
