@@ -66,6 +66,15 @@ steht in `landmarks.lock.json`.
 6. **Prüfen:** Dreieckszahl in der Ausgabe, `index.json` angesehen, Modell im Spiel geladen.
 7. **Commit:** `landmarks.yaml`, `landmarks.lock.json`, GLB, `index.json`, `CREDITS.md` —
    Conventional Commit, z. B. `feat(landmarks): add holzbruecke-saeckingen`.
+8. **Issue für die Integration:** Der Export bringt den Landmark noch nicht ins Spiel. Nach jedem
+   erfolgreichen Export pro Landmark ein Issue mit `gh issue create` anlegen, Labels
+   `needs-enrichment` und `area:world`, Titel `feat(world): bring landmark <id> into the game`.
+   Vorher mit `gh issue list --state all --search "<id>"` prüfen, ob es schon eins gibt — dann
+   dort kommentieren statt ein zweites anzulegen. In den Body gehört, was die Integration braucht:
+   Pfad der GLB, `mode`, Bounds und Dreieckszahl aus der Ausgabe, der Nullpunkt aus
+   `landmarks.yaml` samt Versatz zum Welt-Ursprung in `data/world_hochrhein.json`, und was das
+   Spiel an der Stelle heute schon zeigt (z. B. ein Eintrag in `prototype/landmarks.js`), damit
+   nichts doppelt steht. Bei `mode: hero` gehört das Nachmodellieren in Blender ins selbe Issue.
 
 Exit-Code ≠ 0 heisst: mindestens ein Landmark wurde nicht geschrieben. Nicht ignorieren.
 
