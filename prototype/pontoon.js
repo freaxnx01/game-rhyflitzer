@@ -3,7 +3,7 @@
 // env = { dist(x, z), nameAt(x, z), waterLevel(x, z), roadAt(x, z), bridgeNear(x, z), ground(x, z) }: the world's adapters, so tests use a synthetic river.
 import { bridgeAccepts } from './world.js';
 
-export const PONTOON_CFG = { reach: 30, maxWidth: 400, roadReach: 80, apron: 6, hw: 2.2, deckAbove: 0.9, maxGrade: 0.15, minRamp: 6, maxRamp: 60, bay: 6, buildSecs: 3, bridgeClear: 25, sweepDeg: [0, 5, -5, 10, -10, 15, -15, 20, -20, 25, -25], dropH: 1.5, dropSecs: 0.4, minGrad: 0.2 };
+export const PONTOON_CFG = { reach: 30, maxWidth: 400, roadReach: 80, apron: 6, hw: 2.2, deckAbove: 0.9, maxGrade: 0.15, minRamp: 6, maxRamp: 60, bay: 6, buildSecs: 3, bridgeClear: 25, sweepDeg: [0, 5, -5, 10, -10, 15, -15, 20, -20, 25, -25], dropH: 1.5, dropSecs: 0.4, minGrad: 0.2, nameFrom: 2, nameTo: 12, nameStep: 2 };
 
 // unit vector towards the water: minus the SDF gradient (central differences over ±h); null where the field is flat (no bank near)
 export function bankNormal(dist, x, z, h = 4, cfg = PONTOON_CFG) {
@@ -27,12 +27,20 @@ function march(dist, x, z, u, t0, max, hit) {
 
 function rotate([ux, uz], deg) { const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); return [ux * c - uz * s, ux * s + uz * c]; }
 
+// the name of the water this bank faces: the first named polygon along u, walking inward from nameFrom to nameTo past the SDF edge at t.
+// Not one fixed probe: the SDF (8 m grid, Int8, interpolated) and the water polygons disagree by a couple of metres at the edge --
+// measured 2.6 m at Innermattstrasse (1404.4, -425.5) -- so a single 2 m probe still sits on land and reads '' for the Rhine itself.
+// The *first* name wins, so a pond or the weir basin in front of the river is still a refusal rather than a Rhine bank.
+function waterNameAt(env, x, z, u, t, cfg) {
+  for (let o = cfg.nameFrom; o <= cfg.nameTo; o += cfg.nameStep) { const name = env.nameAt(x + u[0] * (t + o), z + u[1] * (t + o)); if (name) return name; }
+  return '';
+}
 // the bank: on land, within reach of the water, with a bank direction, and the water there is the Rhine -- returns the normal or null
 function bankAt(env, x, z, cfg) {
   const d0 = env.dist(x, z); if (d0 < 0 || d0 > cfg.reach) return null;
   const n = bankNormal(env.dist, x, z, 4, cfg); if (!n) return null;
   const t = marchToWater(env.dist, x, z, n, 0, cfg.reach); if (t === null) return null;
-  return env.nameAt(x + n[0] * (t + 2), z + n[1] * (t + 2)) === 'Rhein' ? n : null;
+  return waterNameAt(env, x, z, n, t, cfg) === 'Rhein' ? n : null;
 }
 export function atRhineBank(env, x, z, cfg = PONTOON_CFG) { return bankAt(env, x, z, cfg) !== null; }
 

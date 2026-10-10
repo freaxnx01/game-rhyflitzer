@@ -34,6 +34,17 @@ test('atRhineBank: on land within reach of water named Rhein, else false', () =>
   assert.equal(atRhineBank(env({ dist: () => 10 }), 0, 25), false);      // flat: no bank direction
 });
 
+// the real SDF (8 m grid, Int8, interpolated) reads water up to ~2.6 m before the water polygon starts (measured at
+// Innermattstrasse); the name probe has to walk inward past that gap, and still take the FIRST name it finds
+test('atRhineBank: the name probe survives an SDF edge that runs ahead of the water polygon', () => {
+  const lateRhein = env({ nameAt: (x, z) => z > 53 && z < 147 ? 'Rhein' : '' });   // polygon 3 m inside the SDF edge
+  assert.equal(atRhineBank(lateRhein, 0, 25), true);
+  assert.equal(crossingLine(lateRhein, 0, 25).error, undefined);
+  const pondThenRhein = env({ nameAt: (x, z) => z > 70 ? 'Rhein' : z > 53 ? 'Weiher' : '' });   // the first water in front is not the Rhine
+  assert.equal(atRhineBank(pondThenRhein, 0, 25), false);
+  assert.equal(atRhineBank(env({ nameAt: (x, z) => z > 90 ? 'Rhein' : '' }), 0, 25), false);    // the Rhine starts past nameTo
+});
+
 test('crossingLine: perpendicular from 6 m inland to the first road on the far bank', () => {
   const d = crossingLine(env(), 0, 25);
   assert.equal(d.error, undefined);

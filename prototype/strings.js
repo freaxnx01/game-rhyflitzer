@@ -140,8 +140,8 @@ const en = {
   keyDebug: 'debug: coordinates, building heights, map links (click the panel to copy · ?debug in the URL)',
   keyHelp: 'this help',
   // ---- pontoon bridge (#100) ----
-  pontoonBuild: 'P · build a pontoon bridge',
-  pontoonRemove: 'P · remove the pontoon bridge',
+  pontoonBuild: 'U · build a pontoon bridge',
+  pontoonRemove: 'U · remove the pontoon bridge',
   pontoonBuilding: 'Pontoniers at work!',
   pontoonRemoving: 'Pontoon bridge coming down',
   pontoonNoBank: 'No Rhine bank here',
@@ -376,8 +376,8 @@ const de = {
   keyDebug: 'Debug: Koordinaten, Gebäudehöhen, Kartenlinks (Panel anklicken zum Kopieren · ?debug in der URL)',
   keyHelp: 'diese Hilfe',
   // ---- Pontonbrücke (#100) ----
-  pontoonBuild: 'P · Pontonbrücke bauen',
-  pontoonRemove: 'P · Pontonbrücke abbauen',
+  pontoonBuild: 'U · Pontonbrücke bauen',
+  pontoonRemove: 'U · Pontonbrücke abbauen',
   pontoonBuilding: 'Pontoniere ans Werk!',
   pontoonRemoving: 'Pontonbrücke wird abgebaut',
   pontoonNoBank: 'Hier ist kein Rheinufer',

@@ -1,4 +1,4 @@
-"""#100 pontoon bridge: P at a Rhine bank builds a crossing to the opposite bank in 3 s, P again removes it; one at a time.
+"""#100 pontoon bridge: U at a Rhine bank builds a crossing to the opposite bank in 3 s, U again removes it; one at a time.
 OSM world, terrain blocked (water level 0, deckH 0.9). Innermattstrasse (1404.4, -425.5) in Sisseln is 20 m south of the Rhine
 (208 m wide there); Murger Weg lies 74 m beyond the north bank. Slow (Playwright): run in the foreground."""
 import math
@@ -50,14 +50,14 @@ def ground(page, x, z):
 
 def build(page):
     place(page, BANK, NORTH)
-    page.keyboard.press("KeyP")
+    page.keyboard.press("KeyU")
     st = pontoon(page)
     assert st["on"] is True and st["dir"] == 1, st
     return pontoon_sim(page, 3)
 
 
 @needs_world
-def test_prompt_and_p_build_a_bridge_to_the_far_road(server):
+def test_prompt_and_u_build_a_bridge_to_the_far_road(server):
     with sync_playwright() as p:
         b, page = open_world(p, server)
         place(page, BANK, NORTH)
@@ -82,7 +82,7 @@ def test_prompt_and_p_build_a_bridge_to_the_far_road(server):
 
 
 @needs_world
-def test_p_again_removes_the_bridge_and_drops_a_car_on_it(server):
+def test_u_again_removes_the_bridge_and_drops_a_car_on_it(server):
     with sync_playwright() as p:
         b, page = open_world(p, server)
         st = build(page)
@@ -90,7 +90,7 @@ def test_p_again_removes_the_bridge_and_drops_a_car_on_it(server):
         mid = ((a["x"] + bb["x"]) / 2, (a["z"] + bb["z"]) / 2)
         place(page, mid, NORTH)
         assert car(page)["bridge"] is True
-        page.keyboard.press("KeyP")
+        page.keyboard.press("KeyU")
         assert pontoon(page)["dir"] == -1
         half = pontoon_sim(page, 1.6)
         assert half["on"] is True and 0.4 < half["built"] < 0.6           # the far half is gone, the near half still stands
@@ -103,17 +103,17 @@ def test_p_again_removes_the_bridge_and_drops_a_car_on_it(server):
 
 
 @needs_world
-def test_p_refuses_away_from_the_rhine_and_next_to_a_bridge(server):
+def test_u_refuses_away_from_the_rhine_and_next_to_a_bridge(server):
     with sync_playwright() as p:
         b, page = open_world(p, server)
         place(page, INLAND, NORTH)
         assert pontoon(page)["prompt"] is None
-        page.keyboard.press("KeyP")
+        page.keyboard.press("KeyU")
         st = pontoon(page)
         assert st["on"] is False and st["error"] == "noBank"
         page.wait_for_function("() => /Rheinufer|Rhine bank/.test(document.querySelector('#toast').textContent)", timeout=120000)
         place(page, AT_BRIDGE, math.pi)
-        page.keyboard.press("KeyP")
+        page.keyboard.press("KeyU")
         st = pontoon(page)
         assert st["on"] is False and st["error"] == "hasBridge"
         b.close()
@@ -128,7 +128,7 @@ def test_a_pontoon_crossing_is_not_counted_and_the_build_freezes_while_paused(se
         th = math.atan2(bb["z"] - a["z"], bb["x"] - a["x"])
         page.evaluate("([x, z, th]) => window.__mm.sim(x, z, th, 12, 3, ['KeyW'])", [a["x"], a["z"], th])
         page.wait_for_function("() => window.__mm.raceFlags().pontoon === true", timeout=120000)   # the live loop's stepRace sets it
-        page.keyboard.press("KeyP")                                           # start a removal, then pause
+        page.keyboard.press("KeyU")                                           # start a removal, then pause
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=120000)
         built0 = pontoon(page)["built"]
