@@ -115,8 +115,8 @@ def test_poisoned_landmark_and_gemeinde_stay_text_in_the_j_list(server):
         clean(page, "#jumpchips")
         assert POISON + " " + LANDMARK in page.text_content("#jumplist")        # the name, literally
         assert POISON + " " + GEMEINDE in page.text_content("#jumpchips")       # the Gemeinde chip, literally
-        assert "<img" not in page.inner_html("#jumplist").lower()               # escaped, not parsed
-        assert "<img" not in page.inner_html("#jumpchips").lower()
+        assert page.locator("#jumplist img").count() == 0                       # escaped, not parsed as an element
+        assert page.locator("#jumpchips img").count() == 0                      # (innerHTML keeps a raw "<" inside an attribute value, so count elements)
         before = len(page.evaluate("() => window.__mm.jumpList()"))
         chip = page.locator("#jumpchips button", has_text=PAYLOAD)
         assert chip.count() == 1
