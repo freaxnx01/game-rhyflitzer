@@ -154,3 +154,10 @@ def test_kept_by_game_drops_points_the_game_would_move():
              {"cls": "secondary", "bridge": True, "pts": [[600, -50], [600, 50]]}]
     snaps = [{"x": 300, "z": 0, "d": 2}, {"x": 0, "z": 0, "d": 1}, None, {"x": 600, "z": 0, "d": 3}]
     assert R.kept_by_game(snaps, R.game_snap_lines(roads)) == [snaps[0], None, None, snaps[3]]   # a lone bridge stays
+
+
+def test_names_collects_the_named_places_once(monkeypatch):
+    calls, real = [], R.places.named_places
+    monkeypatch.setattr(R.places, "named_places", lambda *a: calls.append(1) or real(*a))
+    R.names([0, 1, 2, 3], [{"name": None}] * 3, [(0, 0), (0, 0), (0, 500), (0, -900)], [], [], [], CLIP)
+    assert len(calls) == 1

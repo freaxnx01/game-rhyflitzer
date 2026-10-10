@@ -141,10 +141,16 @@ def par_seconds(length_m: float, kmh: float = PAR_KMH) -> int:
     return math.ceil(length_m / (kmh / 3.6))
 
 
-def checkpoint_name(x, z, named_nodes, areas, roads, clip) -> str | None:
+def cp_places(named_nodes, areas, clip):
+    """The stations, churches, schools and squares a checkpoint may be named after."""
+    return places.named_places(named_nodes, areas, clip, CP_KINDS)
+
+
+def checkpoint_name(x, z, named_nodes, areas, roads, clip, known=None) -> str | None:
     """The nearest station, church, school or square within CP_RADIUS, else the nearest named street within
-    STREET_RADIUS, else None."""
-    near = [(math.hypot(px - x, pz - z), name) for _, name, px, pz in places.named_places(named_nodes, areas, clip, CP_KINDS)]
+    STREET_RADIUS, else None. `known`: cp_places() already collected, so a whole race reads them once."""
+    known = cp_places(named_nodes, areas, clip) if known is None else known
+    near = [(math.hypot(px - x, pz - z), name) for _, name, px, pz in known]
     near = [h for h in near if h[0] <= CP_RADIUS]
     if not near:
         p = shapely.Point(x, z)
@@ -155,9 +161,11 @@ def checkpoint_name(x, z, named_nodes, areas, roads, clip) -> str | None:
 
 def names(path, picked, pos, named_nodes, areas, roads, clip) -> list[str]:
     """A candidate's own name, else checkpoint_name, else "Checkpoint k"; never the same name twice."""
-    out = []
+    out, known = [], None
     for k, (idx, c) in enumerate(zip(path[1:], picked), start=1):
-        n = c["name"] or checkpoint_name(*pos[idx], named_nodes, areas, roads, clip)
+        if not c["name"] and known is None:
+            known = cp_places(named_nodes, areas, clip)
+        n = c["name"] or checkpoint_name(*pos[idx], named_nodes, areas, roads, clip, known)
         out.append(n if n and n not in out else f"Checkpoint {k}")
     return out
 
