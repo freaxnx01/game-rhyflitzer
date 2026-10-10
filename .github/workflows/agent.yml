@@ -26,3 +26,4 @@ jobs:
       timeout-minutes: 120        # whole job; a 6-task plan with browser tests needs far more than the default 30
       claude-timeout-minutes: 100 # the claude process itself; the action's own default is 10 and killed the first #8 run
       ai-review-human-merge: true # with the issue label of the same name: the pipeline reviews its own draft PR and promotes it to ready on approve; a human merges
+      self-fix: true              # on request_changes the implementing agent (GLM) fixes the findings, Sonnet re-reviews; max 2 rounds
