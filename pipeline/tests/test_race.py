@@ -95,6 +95,21 @@ def test_route_lengths_without_node_says_why(monkeypatch):
         R.route_lengths([], [], [])
 
 
+def test_route_lengths_turns_a_garbled_or_hung_node_into_runtime_error(monkeypatch):
+    """bridge_works() and callers only catch RuntimeError: a Node that prints a banner instead of JSON, or hangs, must
+    not escape as JSONDecodeError or TimeoutExpired (it would error test collection instead of skipping)."""
+    monkeypatch.setattr(R.shutil, "which", lambda name: "/usr/bin/node")
+    monkeypatch.setattr(R.subprocess, "run", lambda *a, **k: R.subprocess.CompletedProcess(a, 0, "Warning: banner\n", ""))
+    with pytest.raises(RuntimeError, match="not JSON"):
+        R.route_lengths([], [], [])
+
+    def hang(*a, **k):
+        raise R.subprocess.TimeoutExpired("node", 600)
+    monkeypatch.setattr(R.subprocess, "run", hang)
+    with pytest.raises(RuntimeError, match="timed out"):
+        R.route_lengths([], [], [])
+
+
 @needs_node
 def test_route_lengths_uses_the_game_graph():
     roads = [{"cls": "residential", "n": "", "bridge": False, "pts": [[0, 0], [1000, 0]]},

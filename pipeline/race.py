@@ -60,10 +60,16 @@ def route_lengths(roads, points, pairs, max_snap: float = MAX_SNAP):
         raise RuntimeError("the race needs Node 22+ on PATH: it measures legs with the game's A* (prototype/route.js)")
     req = json.dumps({"roads": roads, "points": [list(p) for p in points], "pairs": [list(p) for p in pairs],
                       "maxSnap": max_snap})
-    res = subprocess.run([node, str(BRIDGE)], input=req, capture_output=True, text=True, timeout=600)
+    try:
+        res = subprocess.run([node, str(BRIDGE)], input=req, capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(f"route_matrix.mjs timed out after {e.timeout} s") from e
     if res.returncode != 0:
         raise RuntimeError(f"route_matrix.mjs failed: {res.stderr.strip()[:500]}")
-    out = json.loads(res.stdout)
+    try:
+        out = json.loads(res.stdout)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"route_matrix.mjs output is not JSON: {res.stdout.strip()[:200]!r}") from e
     return out["snap"], {tuple(p): v for p, v in zip(pairs, out["len"]) if v is not None}
 
 
