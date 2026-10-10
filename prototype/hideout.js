@@ -25,8 +25,9 @@ export const CAVE = {
 export const EIFFEL = { h: 330, feet: [[-50, -50], [50, -50], [50, 50], [-50, 50]], footHw: 13, footH: 60, url: './assets/models/eiffel_tower.glb', colour: 0x6b4a32, roughness: 0.75, metalness: 0.35, loadWithin: 400 };
 // #201: the chase camera looks up in the hall (tilt = rise per metre of horizontal distance to the look point), eased over `ease` s
 export const HALL_CAM = { tilt: 0.45, ease: 1 };
-// #201: four floodlights on the hall's diagonals at radius r, aimed aimY m up the tower (three r170 physical units: cd)
-export const TOWER_SPOTS = { r: 140, aimY: 100, intensity: 10000, distance: 600, angle: 0.5, penumbra: 0.5 };
+// #201: four floodlights on the hall's diagonals at radius r, aimed aimY m up the tower (three r170 physical units: cd; 8000 cd
+// at 171 m with decay 2 give ~0.27 each, ~1.1 summed at the aim point -- the sun outside is 0.75)
+export const TOWER_SPOTS = { r: 140, aimY: 100, intensity: 8000, distance: 600, angle: 0.5, penumbra: 0.5 };
 
 export function hideoutAxis(h = HIDEOUT) {
   const ux = Math.cos(h.heading), uz = Math.sin(h.heading), mouth = [h.mouth[0], h.mouth[1]], centre = [mouth[0] + ux * h.length, mouth[1] + uz * h.length];
