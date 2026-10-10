@@ -36,7 +36,8 @@ landmarks:
 - **`select.point`** — ein Punkt *auf* dem Objekt in LV95. Treffer = Objekt, dessen 2D-Grundriss den Punkt enthält (±0.5 m). Muss genau ein Objekt treffen.
 - **`select.polygon`** — Areal in LV95; alle Objekte, deren Grundriss im Polygon liegt. Optional `egids: [...]` als zusätzlicher Filter.
 - **`expect`** — Plausibilitätsprüfung; bei Abweichung wird nichts geschrieben:
-  - `typ`: irgendein Attributwert des Objekts muss exakt (ohne Gross/Klein) passen
+  - `typ`: irgendein Attributwert des Objekts muss exakt passen — ohne Gross/Klein, und
+    `ä/ö/ü` gelten als `ae/oe/ue` („Brücke gedeckt“ trifft `Bruecke gedeckt`)
   - `roof_max`: höchster Punkt in m ü. M., Toleranz `tolerance_m`
   - `min_count`: Mindestanzahl Treffer (für Polygone)
 - **`mode`** — `block` = direkt ins Spiel; `hero` = nur Referenz für Blender
@@ -106,12 +107,12 @@ for (const [id, lm] of Object.entries(landmarks)) {
   Befund Kachel 1049-33 (Jahrgang 2024, geprüft 2026-10-10): alle 1164 Top-Level-Objekte sind
   `Building`, es gibt kein `Bridge`. Der Typ steht im generischen Attribut `OBJEKTART`, die
   Werte sind ohne Umlaute geschrieben (`Bruecke gedeckt`, `Gebaeude Einzelhaus`) — der Viewer
-  zeigt dagegen „Brücke gedeckt“. Die Dachhöhe steht in `DACH_MAX`.
+  zeigt dagegen „Brücke gedeckt“; der `typ`-Vergleich toleriert das. Die Dachhöhe steht in `DACH_MAX`.
 - **Sammel-Objekte:** Die Holzbrücke ist kein eigenes Top-Level-Objekt, sondern ein
   `BuildingPart` (`ID_62E48E33-707A-4079-8CA2-B966E2A4E3D5`) in einem `Building` mit der
-  `gml:id` `ID_`, das zusätzlich ein fremdes Gebäude 690 m weiter enthält. Das Skript wählt
-  nur Top-Level-Objekte und mischt deren Attribute und Höhen (z bis 298.49 statt 296.56).
-  Offen: Auswahl auf `BuildingPart`-Ebene.
+  `gml:id` `ID_`, das zusätzlich ein fremdes Gebäude 690 m weiter enthält. Solche Sammel-Objekte
+  ohne eigene Attribute (keine EGID) löst das Skript in ihre Teile auf; der Treffer heisst dann
+  `BuildingPart`. Gebäude mit eigener EGID bleiben mitsamt ihren Teilen ein Objekt.
 - **Keine Texturen:** Modelle sind untexturiert; Materialien setzt das Spiel.
 - **Normalen:** CityGML garantiert keine konsistente Orientierung. Bei Löchern im Mesh im Spiel
   `side: THREE.DoubleSide` setzen und melden.
