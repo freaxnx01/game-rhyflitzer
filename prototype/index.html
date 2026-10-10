@@ -877,8 +877,10 @@ function hideoutBuild() {
   sign.position.set(px - a.ux * 0.62, pf + 5.8, pz - a.uz * 0.62); sign.rotation.y = Math.atan2(-a.ux, -a.uz); signs.add(sign);
   // floor: gravel down the tunnel and over the cavern, draped on the cut
   ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true); disc(cx, cz, arc.r - u.wall / 2, 0.04, 'gravel', gravel);   // up to the ring wall's inner face
-  // light: two warm point lights by the tower, four lamp posts on the diagonals (the chimney's lamp pattern)
-  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffd9a0, 1.4, 70, 1.5); l.position.set(cx + a.ux * 12 * k, fl + 3, cz + a.uz * 12 * k); signs.add(l); }
+  // light: two warm point lights by the tower, four lamp posts on the diagonals (the chimney's lamp pattern). three r170 lights
+  // in physical units: 120 cd with decay 2 gives ~0.8 at the tower, 12 m off (the sun is 0.8); 36 m of range ends inside the hill
+  HIDE.lights = [];
+  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffd9a0, 120, 36, 2); l.position.set(cx + a.ux * 12 * k, fl + 3, cz + a.uz * 12 * k); signs.add(l); HIDE.lights.push(l); }
   for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
     const x = cx + ox * 10.6, z = cz + oz * 10.6;   // 15 m out on the diagonals
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.set(x, fl + 1.3, z);
@@ -1667,6 +1669,7 @@ window.__mm.hideout = () => HIDE ? { mouth: HIDE.tunnel.pts[0], centre: [HIDE.tu
 window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH;
 // #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
 window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? { role: hit.object.userData.role, y: hit.point.y } : null; };
+window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay })) : null;
 window.__mm.hideoutRing = () => HIDE && HIDE.ring ? HIDE.ring.map(r => ({ ...r, wall: TUNNEL.wall })) : null;
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {

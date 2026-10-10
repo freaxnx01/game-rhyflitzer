@@ -216,3 +216,32 @@ def test_corridor_edges_are_covered_from_above(server):
     assert len(pts) > 300
     bad = [pt for pt in pts if pt["role"] != "grass" or abs(pt["y"] - pt["hill"]) > 0.05]
     assert bad == [], (len(bad), bad[:6])
+
+
+def irradiance(light, x, y, z):
+    """three r170 PointLight, physical units: intensity / d^decay, windowed to 0 at `distance` (getDistanceAttenuation)."""
+    d = math.dist((light["x"], light["y"], light["z"]), (x, y, z))
+    window = (max(0.0, 1 - (d / light["distance"]) ** 4)) ** 2 if light["distance"] > 0 else 1.0
+    return light["intensity"] / max(d ** light["decay"], 0.01) * window
+
+
+@needs_world
+def test_cavern_is_floodlit_and_the_light_stays_inside(server):
+    """The two point lights light the tower at least as strongly as the sun (0.8) lights the world outside, and their range
+    ends before the hill surface over them, so nothing outside the hideout changes."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        lights = page.evaluate("() => window.__mm.hideoutLights()")
+        cx, cz = h["centre"]
+        hill = page.evaluate(f"""() => {{ const out = []; for (let dx = -40; dx <= 40; dx += 4) for (let dz = -40; dz <= 40; dz += 4)
+            out.push([{cx} + dx, window.__mm.probe({cx} + dx, {cz} + dz).terrain + window.__mm.cutDepth({cx} + dx, {cz} + dz), {cz} + dz]); return out; }}""")
+        br.close()
+    assert errors == []
+    assert len(lights) == 2
+    at_tower = sum(irradiance(l, cx, h["floor"] + 1, cz) for l in lights)
+    assert at_tower >= 0.8, (at_tower, lights)
+    for l in lights:
+        assert l["distance"] > 0, l
+        reach = min(math.dist((l["x"], l["y"], l["z"]), pt) for pt in hill)
+        assert reach > l["distance"], (reach, l)
