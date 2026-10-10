@@ -4,7 +4,7 @@ Replaces the prototype's hand-traced roads, river and houses with real ones from
 
 ## What it does
 
-`pipeline/osm.py` has two commands.
+`pipeline/osm.py` has three commands.
 
 **`cut`** (heavy, one-off) cuts the region plus 2 km padding out of each Geofabrik country extract with `osmium extract -s smart`, then merges the parts with `osmium merge`. It takes every `*.osm.pbf` in `--pbf-dir` (except `*.cut.osm.pbf`), so keep stray files out of that folder. Run it on a node with spare RAM, never on the shared agent box (see the incident in [08](08-pipeline-terrain.md)). The real cut ran in a throwaway LXC on odroid-plus-pve: peak 3.58 GB, 30 s, result 3.7 MB (302,119 nodes, 42,583 ways, 1,308 relations).
 
@@ -21,6 +21,13 @@ Replaces the prototype's hand-traced roads, river and houses with real ones from
 - `world_parking.py`: car parks (open-air and roadside `amenity=parking`) with painted bay lines.
 - `world_forests.py`: woods (`landuse=forest`, `natural=wood`) as merged outlines with the roads and car parks cut out.
 - `anchors.py` + `anchors.json`: landmarks, start, checkpoints, finish, labels, areas, resolved from OSM ids.
+
+**`world`** (#166, light except the cut) builds *any* rectangle inside Switzerland into a playable region without a hand-written anchors file — see [Any Swiss rectangle](#any-swiss-rectangle-osmpy-world-166). Its own modules:
+
+- `frame.py` + `ch_outline.geojson`: the frame of a generated world — an LV95 rectangle snapped to 250 m, the size limits, the Switzerland check, the world id. `ch_outline.py` regenerates the outline (one-off).
+- `osm_cut.py`: the four-step cut that stays under 2 GB and still keeps whole woods and lakes.
+- `places.py`: the generated start point, village signs, J list and the world's name, all from OSM.
+- `region.py`: the orchestration — cut → terrain → `osm.build_world` → generated content → `world.json` + `terrain.mmh` + `meta.json`.
 
 ## Run it
 
@@ -173,6 +180,94 @@ Region row on the start screen picks one; a region whose world file is missing f
 a toast. Golden test: `pipeline/tests/test_golden_ehrendingen.py` (skips without the extract); browser test:
 `prototype/tests/test_region.py` (the data case skips without `data/world_ehrendingen.json`).
 
+## Any Swiss rectangle: `osm.py world` (#166)
+
+`osm.py build` needs a hand-written anchors file per region, so a new region is a day of work. `osm.py world`
+builds **any** rectangle inside Switzerland into a playable region with no hand-written JS and no anchors
+file — start point, village signs, J list, forests and the region's name all come out of OSM. This is the
+pipeline library behind the region editor (phases 2–5); it is usable on its own from the command line.
+
+```bash
+cd pipeline
+# the frame as an LV95 rectangle, cut out of the Swiss country extract
+systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 \
+  ./.venv/bin/python osm.py world --lv95 2666500 1257750 2670000 1261750 \
+  --extract cache/osm/switzerland-latest.osm.pbf --out /tmp/world-166 --no-dsm
+# or a lon/lat box, and an already cut regional extract
+./.venv/bin/python osm.py world --bbox 8.3283 47.4850 8.3550 47.5030 \
+  --pbf cache/osm/ehrendingen.osm.pbf --out /tmp/world-ehr
+```
+
+It prints the three written paths and exits **2** on a refused frame (the reason is on stderr:
+`frame refused (outside-ch): …`). `--extract` cuts the frame out of a country extract itself; `--pbf` takes
+an extract that is already cut and must cover the frame plus 1 km. `--no-dsm` skips the swissSURFACE3D
+building heights (~850 MB of tiles per 15 km²). After every build, tiles over 2 GB in each of
+`CACHE/swissalti3d` and `CACHE/swisssurface3d` are pruned oldest-first.
+
+**Measured** (2026-10-10, GitHub Actions `ubuntu-latest`, under a hard `MemoryMax=2G`, `--no-dsm`):
+3.5 × 4 km at Ehrendingen from the 523 MB Swiss extract — exit 0, **53 s**, peak RSS **1.92 GB**,
+`world.json` 531 kB, `terrain.mmh` 3.6 MB; 471 roads, 217 buildings, **44 of 44 woods** (5.03 km², the
+`-s smart` reference is 5.1 km²), 15 J places, 1 village, name `Ehrendingen`, base 387 m. The largest frame,
+4 × 4 km, runs in 35 s at peak RSS 1.93 GB (the swissALTI3D tiles were already cached by then). Exit 137 or
+a SIGTERM means the cap was hit — report it, never raise the cap.
+
+**The frame (`frame.py`).** An LV95 rectangle `(e0, n0, e1, n1)`. Each edge is rounded to the nearest
+**250 m** line, and after snapping every side must be **1–4 km** (`too-small` / `too-big`); a non-rectangle
+is `bad-bbox`. The frame must lie **entirely inside Switzerland** or it is refused with `outside-ch` —
+checked against `ch_outline.geojson`, the swissBOUNDARIES3D land area simplified to 50 m (~90 kB, committed;
+`ch_outline.py` fetches it again from the geo.admin.ch REST API, only needed when the border data changes).
+That rejects Büsingen and the other German enclaves, Liechtenstein, and any frame reaching across the Rhine.
+`world_id(rect, version)` is the first 12 hex of a SHA-256 over the snapped edges and the pipeline version:
+the same frame always yields the same id, and bumping `region.PIPELINE_VERSION` yields a new one.
+
+**The cut (`osm_cut.py`).** Cutting one frame out of the 523 MB Swiss extract must stay under 2 GB, and
+`osmium extract -s smart` (the `cut` command above) does not — its ID bitmaps span the planet ID range.
+Plain `-s simple` fits in ~1.9 GB but loses every wood or lake whose outline leaves the cut: at Ehrendingen
+it kept 1.1 of 5.1 km² of forest, dropping the Lägern wood (relation 4019). So the cut is four steps:
+
+1. `osmium extract -s simple` — the frame plus 1 km.
+2. `osmium tags-filter -R` — every `landuse=forest` / `natural=wood,water` / `water=*` **relation**, members
+   excluded (~50 MB).
+3. `osmium getid -r` — those relations that have a member way in the cut, plus the cut's own closed area ways
+   that lost nodes at the cut edge, this time complete (~0.9 GB).
+4. `osmium merge` of 1 and 3.
+
+**Generated places (`places.py`).** The **start** is the point nearest the frame centre on a
+`primary`/`secondary`/`tertiary` road, heading along that road; a frame with no such road gets no start.
+**Village signs** come from `place=city/town/village/hamlet` nodes only, with the prototype's radii
+(700/550/450/300 m) — `place=neighbourhood` and `suburb` get none, so Unterehrendingen has no sign. The
+**J list** is at most 15 entries: every village/town centre first (west to east), then by kind in the order
+station, town hall, church, school, attraction, viewpoint, stadium, square, each kind by name. The same place
+is listed once: a church node and its own building (same name, under 150 m apart) collapse to one entry, the
+node winning. The **name** is the Gemeinde at the frame centre, found by casting 8 rays against the
+`admin_level=8` boundary **lines** and taking the one name all first hits share (a relation in a cut is
+incomplete, so there are no polygons to test against). A second Gemeinde holding 3 of 9 sample points makes
+the name `A · B`; with no boundary lines at all, `region.fallback_name` takes the nearest village centre,
+and failing that the frame's LV95 kilometres (`Region 2667/1259`).
+
+**The three files (`region.py`).** `region.build_world(rect, out_dir, extract=… | pbf=…)` runs
+cut → terrain → `osm.build_world` (no anchors file, clipped to the frame) → generated content, and writes:
+
+- `world.json` — the ordinary MMW1 world file plus generated `anchors`
+  (`landmarks: {}`, `cps: []`, `areas: {}`, `labels` = the village signs, `start` when there is one),
+  `forests`, and a new `region` block: `{id, name, gemeinden, villages, jlist, treeBox, forestAbove, race}`.
+  Each J entry is `{n, kind, x, z, g}` (`g` = its Gemeinde).
+- `terrain.mmh` — step 4 m, `base` = the **lowest point of the frame** rounded down to a whole metre, so the
+  valley floor sits near 0 (no hand-picked river level per region). Grid cells without swissALTI3D data (the
+  grid edge reaching a few metres past the Swiss border) do not count for the lowest point and are set to 0; a
+  frame with no terrain data at all is refused.
+- `meta.json` — `{format: "MMR1", id, pipelineVersion, name, bbox: {lv95, lonlat}, origin, base, built,
+  extract: {file, modified}, race, counts, sources, license, lastPlayed}`. `license` is the full ODbL notice;
+  the world is an OSM derivative database.
+
+**Limits.** No race yet: `anchors.cps` is empty and `region.race` is `null`, so a generated world is a
+free-driving world with a start — the automatic race (5 checkpoints, finish, par time) is a follow-up. The
+game does not read the `region` block until phase 2, and `prototype/regions.js` is untouched. `--extract`
+needs osmium-tool, so the cut test and a real build skip where it is missing. Complexity limits and a build
+queue arrive with the API service in phase 3. Tests cover the whole library without the Swiss extract or any
+network access (`tests/test_frame.py`, `test_osm_cut.py`, `test_places.py`, `test_region.py`,
+`test_world_cli.py`, on a synthetic extract from `tests/synth_osm.py`).
+
 ## Load it in the prototype
 
 Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it is there, the whole layout comes from it (roads, Rhine, bridges, houses, landmarks, race points, minimap, markings) and the start screen shows `World: OpenStreetMap · N roads · N buildings` followed by all `sources` of the file joined with ` · ` (`© OpenStreetMap contributors, ODbL`, plus `Water levels: swissALTI3D © swisstopo` when the file was built with an `.mmh`). If it is missing or not valid, the hand-traced layout is used and the line reads `World: traced by hand`. Terrain comes from an `.mmh` the player loaded on the start screen (kept in IndexedDB) or, if there is none, from the published `data/terrain_hochrhein.mmh` ([08](08-pipeline-terrain.md)).
@@ -196,4 +291,5 @@ Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it i
 
 - © OpenStreetMap contributors, [ODbL](https://opendatacommons.org/licenses/odbl/)
 - Terrain and water levels: swissALTI3D © swisstopo
+- Switzerland outline: swissBOUNDARIES3D © swisstopo
 - Heights of buildings (Swiss side) and the DSM landmarks (chimney, water tower): swissSURFACE3D © swisstopo

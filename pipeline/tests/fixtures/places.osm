@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6">
+  <node id="1" lat="47.5506" lon="7.9671"><tag k="place" v="village"/><tag k="name" v="Alpha"/></node>
+  <node id="2" lat="47.5507" lon="7.9672"><tag k="place" v="square"/><tag k="name" v="Dorfplatz"/></node>
+  <node id="3" lat="47.5508" lon="7.9673"><tag k="amenity" v="place_of_worship"/><tag k="name" v="Kirche"/></node>
+  <node id="4" lat="47.5509" lon="7.9674"><tag k="amenity" v="school"/><tag k="name" v="Schulhaus"/></node>
+  <node id="5" lat="47.5510" lon="7.9675"><tag k="amenity" v="townhall"/><tag k="name" v="Gemeindehaus"/></node>
+  <node id="6" lat="47.5511" lon="7.9676"><tag k="leisure" v="stadium"/><tag k="name" v="Stadion"/></node>
+  <node id="7" lat="47.5512" lon="7.9677"><tag k="amenity" v="bench"/></node>
+</osm>

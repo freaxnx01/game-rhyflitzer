@@ -141,7 +141,8 @@ def german_datasets(folder: Path | None):
 
 # ---------- merge onto the game grid ----------
 
-def build(bbox, origin, step, base, cache: Path, dgm_dir: Path | None):
+def sample(bbox, origin, step, cache: Path, dgm_dir: Path | None):
+    """Absolute heights (m a.s.l.) on the game grid, NaN where no source has data; base 0, min/max still unset."""
     frame = Frame(*origin)
     e0, n0 = frame.e0, frame.n0
     g = grid_for(bbox, frame, step)
@@ -170,20 +171,24 @@ def build(bbox, origin, step, base, cache: Path, dgm_dir: Path | None):
         paint(ds, crs, "DGM1 Datengrundlage: LGL, www.lgl-bw.de (dl-de/by-2-0)")
         ds.close()
 
+    header = {
+        "format": "MMH1", "w": w, "h": h, "step": step,
+        "x0": float(x0), "z0": float(znorth),          # game coords of sample [0,0] (north-west corner)
+        "origin": {"lat": origin[0], "lon": origin[1], "E": e0, "N": n0, "crs": "EPSG:2056"},
+        "base": 0.0, "min": None, "max": None,
+        "bbox": list(bbox), "sources": sources,
+    }
+    return header, out
+
+
+def build(bbox, origin, step, base, cache: Path, dgm_dir: Path | None):
+    header, out = sample(bbox, origin, step, cache, dgm_dir)
     missing = float(np.isnan(out).mean())
     if missing > 0:
         log(f"{missing:.1%} of the grid has no data (outside Switzerland without DGM1 tiles?) -> filled with base")
         out[np.isnan(out)] = base
     out -= base
-
-    header = {
-        "format": "MMH1", "w": w, "h": h, "step": step,
-        "x0": float(x0), "z0": float(znorth),          # game coords of sample [0,0] (north-west corner)
-        "origin": {"lat": origin[0], "lon": origin[1], "E": e0, "N": n0, "crs": "EPSG:2056"},
-        "base": base, "min": float(out.min()), "max": float(out.max()),
-        "bbox": list(bbox), "sources": sources,
-    }
-    return header, out
+    return {**header, "base": base, "min": float(out.min()), "max": float(out.max())}, out
 
 
 def main(argv=None) -> int:
