@@ -74,6 +74,7 @@ All notable changes to this project are documented here, following
 
 ### Fixed
 
+- **Choose car** shows your car again after you gave up a run: it used to stay where the run ended and the stage showed only an empty road with the car's shadow.
 - The car's shadow looks like a shadow now: a soft, dark patch the size of the car instead of a hard oval that was longer than the car. It lies on the road and tilts with it on the ramp and on slopes, sits a little off to the side the way the sun shines, fades as you jump, and is gone in the helicopter and in the cockpit and bumper views. The DeLorean gets its own, shorter shadow.
 - Place and street names with special characters (such as & or quotes) now show exactly as written in the list, the chips and the messages.
 - Bodenackerstrasse 6 in Sisseln stands at its real height again (about 25 m to the roof instead of 22.8 m), and about 70 other houses whose outline took in a bit of courtyard or pavement no longer come out too low.
