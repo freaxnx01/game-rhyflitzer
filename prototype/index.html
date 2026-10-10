@@ -1139,7 +1139,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const edges = forestEdges(L.forests, FOREST), placed = forestTrees(L.forests, FOREST, edges, rng(13));
     for (const [x, z, h] of [...placed.edge, ...placed.fill])
       if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
-    for (const e of edges) addOBB(e.mx + e.nx * 1.2, e.mz + e.nz * 1.2, e.len + 0.6, 2.4, e.rot, terrainH(e.mx, e.mz) + 1.6);
+    for (const e of edges) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: terrainH(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap
     window.__mm.counts.forest = { polys: L.forests.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, walls: edges.length };
   }
   window.__FOREST = FOREST_TREES;
