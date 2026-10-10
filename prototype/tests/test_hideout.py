@@ -176,3 +176,18 @@ def test_ring_wall_stays_under_the_hill(server):
     assert len(blocks) == 24
     bad = [pt for blk in blocks for pt in blk if pt["role"] != "grass" or abs(pt["y"] - pt["hill"]) > 0.05]
     assert bad == [], (len(bad), bad[:6])
+
+
+@needs_world
+def test_no_find_on_top_of_the_hill(server):
+    """Driving over the cavern on the hilltop (or flying over it) is no find: that needs the car under the ceiling."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        cavern = across(page, 105, 40, 8)
+        h = page.evaluate("() => window.__mm.hideout()")
+        stored = page.evaluate("() => localStorage.getItem('mm.hideout')")
+        br.close()
+    assert errors == []
+    cx, cz = h["centre"]
+    assert min(math.hypot(x - cx, z - cz) for x, z, _ in cavern["path"]) < 10, cavern["path"]   # right over the tower
+    assert cavern["found"] is False and h["found"] is False and stored is None, (cavern["path"], h)
