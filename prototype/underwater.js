@@ -34,9 +34,11 @@ export function makeSchool(x, z, bed, rnd, index = 0) {
   return { x, z, y: bed + rr(rnd, 0.8, 2.5), r: rr(rnd, 5, 12), n: Math.floor(rr(rnd, 8, 15)), omega: rr(rnd, 0.3, 0.6), phase: rr(rnd, 0, Math.PI * 2), colour: COLOURS[index % COLOURS.length] };
 }
 
-// fish k of the school at time t: on the circle, a share of the turn ahead of fish 0, heading along the tangent, bobbing 0.3 m
-export function schoolPose(s, k, t) {
+// fish k of the school at time t: on the circle, a share of the turn ahead of fish 0, heading along the tangent, bobbing 0.3 m;
+// written into out (the render loop passes one scratch object: no allocation per fish per frame)
+export function schoolPose(s, k, t, out = {}) {
   const a = s.phase + s.omega * t + (k / s.n) * Math.PI * 2;
   const x = s.x + Math.cos(a) * s.r, z = s.z + Math.sin(a) * s.r;
-  return { x, y: s.y + 0.3 * Math.sin(t * 2 + k), z, th: Math.atan2(Math.cos(a), -Math.sin(a)) };
+  out.x = x; out.y = s.y + 0.3 * Math.sin(t * 2 + k); out.z = z; out.th = Math.atan2(Math.cos(a), -Math.sin(a));
+  return out;
 }

@@ -65,3 +65,10 @@ test('schoolPose_FishOnTheCircle_HeadingAlongTheTangent_Bobbing', () => {
   const later = schoolPose(s, 0, 2);
   close(Math.atan2(later.z - s.z, later.x - s.x) - Math.atan2(p0.z - s.z, p0.x - s.x), 1, 1e-9, 'omega 0.5 rad/s for 2 s');
 });
+
+test('schoolPose_GivenAnOutObject_FillsAndReturnsIt', () => {   // review: stepFish poses ~150 fish per frame, without allocating
+  const s = { x: 5, z: -3, y: 2, r: 8, n: 10, omega: 0.4, phase: 1, colour: '#b9c3cc' }, out = {};
+  const p = schoolPose(s, 3, 1.5, out);
+  assert.equal(p, out);
+  assert.deepEqual({ ...out }, { ...schoolPose(s, 3, 1.5) });
+});
