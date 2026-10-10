@@ -11,7 +11,8 @@ from dataclasses import dataclass, field
 import numpy as np
 from pyproj import Transformer
 
-DEFAULT_BBOX = (7.905, 47.532, 8.030, 47.572)   # lon/lat: Bad Saeckingen west ... east of Sisseln
+CORE_BBOX = (7.905, 47.532, 8.030, 47.572)      # lon/lat: the first region, Bad Saeckingen west ... east of Sisseln
+DEFAULT_BBOX = (7.905, 47.500, 8.030, 47.572)   # #47: the same, south up the Tafeljura to Flugplatz Schupfart
 DEFAULT_ORIGIN = (47.5506, 7.9671)               # lat, lon (the prototype's world origin)
 
 # #127: a second, separate region (not adjacent to the Hochrhein): Ehrendingen AG, the Gemeinde (r1684300) plus margin
