@@ -31,6 +31,7 @@ import terrain
 import osm_read
 import world_boundaries
 import world_buildings
+import world_extra_roads
 import world_forests
 import world_parking
 import world_props
@@ -104,27 +105,33 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         hdr, heights = mmh.read_mmh(mmh_path)
     spec = anchors_mod.load(anchors_path) if anchors_path else {}
     roads, junctions = world_roads.build(data.ways, data.nodes, data.way_nodes, clip, trail_ids=anchors_mod.trail_ids(spec))
+    # #42: game-only roads; buildings, props and car parks still see the OSM roads only (they must not change),
+    # the forests see the game roads too, so no wood grows over them
+    osm_roads = roads
+    roads, junctions, grades = world_extra_roads.apply(spec.get("roads", {}), data.ways, roads, junctions, clip)
+    game_roads = [r for r in roads if r["id"] < 0]
     polys = world_water.polygons(data.areas, data.ways, clip)
     ind_ids = set(anchors_mod.industrial_ids(spec))
     sites = [a.geom for a in data.areas if a.id in ind_ids]
     resolved = anchors_mod.resolve(spec, data, frame)
-    buildings, stats = world_buildings.build(data.areas, roads, clip, house_dist, big_area,
+    buildings, stats = world_buildings.build(data.areas, osm_roads, clip, house_dist, big_area,
                                              anchors_mod.exclude_ids(spec), sites,
                                              anchors_mod.keep_all_boxes(spec, resolved),
                                              addr_nodes=data.addr_nodes, keep_ids=anchors_mod.keep_ids(spec))
-    props, prop_stats = world_props.build(data.prop_nodes, data.areas, roads, clip)
-    parking, park_stats = world_parking.build(data.areas, data.ways, buildings, roads, clip)
-    forests, forest_stats = world_forests.build(data.areas, roads, clip)
+    props, prop_stats = world_props.build(data.prop_nodes, data.areas, osm_roads, clip)
+    parking, park_stats = world_parking.build(data.areas, data.ways, buildings, osm_roads, clip)
+    forests, forest_stats = world_forests.build(data.areas, osm_roads + game_roads, clip)
     if dsm_cache:
         hstats = building_heights.apply(buildings, frame,
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swisssurface3d", 0.5, "ch.swisstopo.swisssurface3d-raster"),
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swissalti3d", 2.0))
         log(f"building heights from swissSURFACE3D: {dict(hstats)}")
     rail, rail_bridges = world_rail.build(data.ways, clip)
+    rail, rail_bridges = world_extra_roads.deck_rail(grades, rail, rail_bridges)
     if boundary_items is None:
         boundary_items = world_boundaries.read(Path(pbf), frame)
     boundaries = world_boundaries.build(boundary_items, clip)
-    log(f"roads {len(roads)}, trails {len([r for r in roads if r.get('trail')])}, junctions {len(junctions)}, "
+    log(f"roads {len(roads)}, trails {len([r for r in roads if r.get('trail')])}, junctions {len(junctions)}, grades {len(grades)}, "
         f"water {len(polys)}, buildings {len(buildings)} {stats}, "
         f"rail {len(rail)}, rail bridges {len(rail_bridges)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}, "
         f"forests {len(forests)} {forest_stats}, "
@@ -140,6 +147,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
                    "pbf": Path(pbf).name},
         "roads": roads,
         "junctions": junctions,
+        "grades": grades,
         "water": world_water.to_json(polys, hdr, heights, data.areas, data.ways),
         "waterSdf": world_water.sdf(polys, clip.bounds),
         "streams": world_water.streams(data.areas, data.ways, clip),

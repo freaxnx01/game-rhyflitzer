@@ -44,7 +44,7 @@ def open_page(p, server, block_world=False):
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/prototype/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
-    page.click("#startbtn")   # J only opens with the start overlay hidden
+    page.click("#startbtn", timeout=180000)   # J only opens with the start overlay hidden; the first frame can take 30 s+ on a busy box (as in test_underpass)
     return b, page
 
 
@@ -352,12 +352,13 @@ def test_fridolinsbruecke_lands_on_the_swiss_side_facing_the_bridge(server):
 
 
 SUEDSPANGE = (1528, 409)          # #125: the junction with the Laufenburgerstrasse (K295) where the Südspange starts
+WORLD42 = WORLD.exists() and any(r["id"] == -42001 for r in json.loads(WORLD.read_text(encoding="utf-8"))["roads"])   # #42 drew it
 
 
 @needs_world
 def test_suedspange_jump_lands_on_a_road_at_the_k295_junction(server):
-    """#125: 'sudspange' finds the Südspange Sisslerfeld (Eiken) and Enter puts the car on a road at the junction -
-    the K295 today, the Südspange itself once #42 draws it."""
+    """#125: 'sudspange' finds the Südspange Sisslerfeld (Eiken) and Enter puts the car on a road at the junction;
+    #42: on the Südspange itself, 25 m in, once the world has it (before, the nearest road there is the K295)."""
     with sync_playwright() as p:
         b, page = open_page(p, server)
         page.keyboard.press("KeyJ")
@@ -368,6 +369,8 @@ def test_suedspange_jump_lands_on_a_road_at_the_k295_junction(server):
         d = math.hypot(c["x"] - SUEDSPANGE[0], c["z"] - SUEDSPANGE[1])
         assert d < 40, f"car at ({c['x']:.1f}, {c['z']:.1f}) is {d:.0f} m from the junction"
         assert _jumpable_road_dist(c["x"], c["z"]) < 4, "the car did not land on a road"
+        if WORLD42:
+            page.wait_for_function("() => window.__mm.hud().road === 'Südspange'", timeout=60000)
         b.close()
 
 

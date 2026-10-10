@@ -321,7 +321,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
@@ -575,7 +575,22 @@ function buildStoneChain() {
   const seen = new Set(); banks.forEach((k, i) => { for (const ap of approachPieces(k, H[i], seen)) addApproach(ap, H[i]); });
   for (const o of opens) if (OSM_BRIDGES.some(x => x.approach && near(x.r.pts[0], o.p, 0.5))) o.b['fade' + o.k] = false;   // an end that continues as an abutment is a joint too
 }
-function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } buildStoneChain(); }
+function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatSwitchEnds(); buildStoneChain(); }
+// #42: inside a grade's band (the track fan over the Südspange cutting) a deck end lying on another deck is a switch: it
+// takes that deck's surface, not the ground's, so the fan is one level slab (two passes for a switch on a switch)
+const inGradeBand = (x, z) => !!L && L.grades.some((g) => nearestOnPolyline(g.pts, x, z).d < g.hw + GRADE_BAND);
+function switchUnder(deck, x, z) {
+  if (!inGradeBand(x, z)) return null;
+  for (const o of RAIL_DECKS) { if (o === deck) continue; const n = nearestOnPolyline(o.r.pts, x, z); if (n.d < 0.5) return { o, t: n.t }; }
+  return null;
+}
+function seatSwitchEnds() {
+  for (let pass = 0; pass < 2; pass++) for (const b of RAIL_DECKS) {
+    const p = b.r.pts, a = switchUnder(b, ...p[0]), e = switchUnder(b, ...p[p.length - 1]);
+    if (a) b.h0 = bridgeSurfaceAt(a.o, a.t);
+    if (e) b.h1 = bridgeSurfaceAt(e.o, e.t);
+  }
+}
 window.__mm = { layout: L ? 'osm' : 'hand', camView: 0, counts: L ? { roads: L.roads.length, buildings: L.buildings.length, water: L.water.length } : {}, physMs: 0 };
 window.__mm.region = REGION.id;
 function realH(x, z) { const { hdr, data } = REAL; const fx = (x - hdr.x0) / hdr.step, fz = (z - hdr.z0) / hdr.step; const i = clamp(Math.floor(fx), 0, hdr.w - 2), j = clamp(Math.floor(fz), 0, hdr.h - 2); const tx = clamp(fx - i, 0, 1), tz = clamp(fz - j, 0, 1); const a = data[j * hdr.w + i], b = data[j * hdr.w + i + 1], c = data[(j + 1) * hdr.w + i], d = data[(j + 1) * hdr.w + i + 1]; return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz; }
@@ -593,6 +608,11 @@ function meshH(x, z) {
 // face) (key 'i,j' -> heights, row-major (CUT_N+1)^2);
 // terrainH returns the patch surface there, with the mesh's own triangle split, so everything sits on what is drawn.
 const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], ARMS = [], WALLS = [];
+// #42: graded roads (the Südspange's cutting): one more source for the patches. gradedH is the uncut mesh brought down to
+// their profile and banks -- the ground #76's cuts are sized on, so a crossing inside a grade cuts only what the grade
+// does not already give (nothing, at the Südspange: no walls, no arms there). Without grades gradedH === meshH.
+const GRADE_CUTS = [];
+function gradedH(x, z) { let d = 0; for (const gc of GRADE_CUTS) d = Math.max(d, gradeCutAt(gc, x, z, meshH)); return meshH(x, z) - d; }
 const PATCH_BLEED = Math.SQRT2 * Math.max(TGRID.dx, TGRID.dz) / CUT_N;   // #156: how far a patch's triangles carry one lowered vertex
 function terrainH(x, z) {
   const G = TGRID, fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz;
@@ -621,13 +641,27 @@ fillBridgeHeights();
 // corridor, ramping out until it meets the ground. Side roads and the cut road's next piece joining inside it descend with
 // it on arms (cutNetwork); only what cannot (dead ends, bridges, arms out of budget) still caps the floor. Then the patches
 // for every cell an arm touches.
-function makeCut(c) {
-  const b = RAIL_DECKS[c.bridge], hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), span = hw / Math.max(0.3, c.sin) + 1, len = polylineLength(c.road.pts);
+// the lowest deck surface over the road's band at a crossing
+function deckMinAt(c) {
+  const b = RAIL_DECKS[c.bridge], span = c.road.w / 2 / Math.max(0.3, c.sin) + 1;
   let deckMin = Infinity; for (const k of [-1, 0, 1]) deckMin = Math.min(deckMin, bridgeSurfaceAt(b, c.tRail + k * span));
-  const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return meshH(x, z); };
+  return deckMin;
+}
+// #42: a crossing inside a grade's corridor caps its profile at the deck's underside minus the clearance
+function gradeCaps(g, crossings) {
+  const caps = [];
+  for (const c of crossings) {
+    const n = nearestOnPolyline(g.pts, c.x, c.z); if (n.d > g.hw) continue;
+    caps.push({ t: n.t, y: deckMinAt(c) - UNDERPASS.deck - UNDERPASS.clear - UNDERPASS.lift, w: cutFlat(RAIL_DECKS[c.bridge].hw, c.sin) });
+  }
+  return caps;
+}
+function makeCut(c) {
+  const b = RAIL_DECKS[c.bridge], hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), len = polylineLength(c.road.pts), deckMin = deckMinAt(c);
+  const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return gradedH(x, z); };
   const near = [...new Set([...gridQuery(ROAD_GRID, c.x, c.z, 250)].map(({ r }) => r))];
   const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: cutFloorTarget(deckMin, groundAt(0)), capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [] };
-  settleCut(cut, (c) => { c.reach = armReach(c, groundAt, len).map((p) => p.s); return cutNetwork(c, near, L.junctions, meshH); });
+  settleCut(cut, (c) => { c.reach = armReach(c, groundAt, len).map((p) => p.s); return cutNetwork(c, near, L.junctions, gradedH); });
   if (cut.unsettled) console.warn(`underpass at ${c.road.n} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): the cut floor did not settle; kept the shallowest capped floor`);
   for (const a of cut.arms) a.deck = b;
   cut.depth = Math.max(0, groundAt(0) - cut.f0);
@@ -640,23 +674,28 @@ const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (()
 const patchCuts = () => HIDE ? [...ARMS, ...[HIDE.tunnel, HIDE.cavern].filter((c) => c.depth > 0)] : ARMS;
 function cutFloorMin(x, z) {
   let f = Infinity;
-  for (const a of patchCuts()) { const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue; const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, meshH); if (h !== null) f = Math.min(f, h); }
+  for (const a of patchCuts()) { const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue; const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
   return f;
 }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
 function buildCuts() {
-  for (const c of railRoadCrossings(L.roads, L.railBridges)) CUTS.push(makeCut(c));
+  const crossings = railRoadCrossings(L.roads, L.railBridges);
+  for (const g of L.grades) GRADE_CUTS.push(gradeCut(g, meshH, GRADE_CUT, gradeCaps(g, crossings)));
+  for (const c of crossings) CUTS.push(makeCut(c));
   // #156: a lowered patch vertex reaches PATCH_BLEED on (the diagonal of a 1 m cell): lat ends the lowering that far inside the
   // wall's outer face, so nothing behind a wall is lowered
   for (const c of CUTS) if (c.depth > 0) for (const a of [c, ...c.arms]) { a.lat = a.hw + UNDERPASS.margin + UNDERPASS.wall - PATCH_BLEED; a.bounds = cutBounds(a); ARMS.push(a); }
   const G = TGRID, W = CUT_N + 1;
   if (HIDE) for (const c of [HIDE.tunnel, HIDE.cavern]) c.bounds = cutBounds(c, c.u);
-  for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) {
-    const key = i + ',' + j; if (CUT_CELLS.has(key)) continue;
-    const p = new Float32Array(W * W);
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(meshH(x, z), cutFloorMin(x, z)); }
-    CUT_CELLS.set(key, p);
-  }
+  const fillCell = (i, j) => {
+    const p = new Float32Array(W * W); let lowered = false;
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(gradedH(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
+    return { p, lowered };
+  };
+  for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
+  // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
+  // without 2 x CUT_N^2 more triangles to draw)
+  for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key)) continue; const c = fillCell(i, j); if (c.lowered) CUT_CELLS.set(key, c.p); }
 }
 if (L) buildCuts();
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
@@ -851,6 +890,47 @@ function siloTower(x, z, rot, w, d, h) { // #81 LANDI silo tower by Bahnhof Siss
   box(9, 2.5, Math.max(3, d - 3), x, b + h, z, rot, col('#b5b1a9'), 'stone', [3, 3], 0);
   addOBB(x, z, w, d, rot, b + h);
   window.__mm.counts.landiTurm = 1;
+}
+// #42: Baustelle and Fahrverbot signs beside the Südspange, from landmark kinds; rot = the direction the face looks
+// (cos rot, sin rot). German in-world signage, no collision.
+const ROAD_SIGNS = [];
+let SIGN_TEX = null;
+function signTextures() {
+  if (SIGN_TEX) return SIGN_TEX;
+  const tri = makeTex(256, 256, (g, w, h) => {
+    g.clearRect(0, 0, w, h); g.beginPath(); g.moveTo(w / 2, 10); g.lineTo(w - 8, h - 22); g.lineTo(8, h - 22); g.closePath();
+    g.fillStyle = '#d42a20'; g.fill(); g.beginPath(); g.moveTo(w / 2, 52); g.lineTo(w - 44, h - 42); g.lineTo(44, h - 42); g.closePath(); g.fillStyle = '#ffffff'; g.fill();
+    g.fillStyle = '#111111'; g.beginPath(); g.arc(112, 108, 11, 0, 7); g.fill();                       // the worker: head,
+    g.lineWidth = 12; g.lineCap = 'round'; g.strokeStyle = '#111111'; g.beginPath(); g.moveTo(112, 124); g.lineTo(122, 166); g.lineTo(100, 196); g.moveTo(122, 166); g.lineTo(138, 196); g.stroke();   // body, legs
+    g.lineWidth = 7; g.beginPath(); g.moveTo(116, 136); g.lineTo(150, 150); g.lineTo(158, 186); g.stroke();   // arms and shovel
+    g.beginPath(); g.moveTo(150, 200); g.quadraticCurveTo(176, 168, 200, 200); g.fill();                   // heap
+  }, { alpha: true });
+  const disc = makeTex(256, 256, (g, w, h) => { g.clearRect(0, 0, w, h); g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 4, 0, 7); g.fillStyle = '#d42a20'; g.fill(); g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 34, 0, 7); g.fillStyle = '#ffffff'; g.fill(); }, { alpha: true });
+  const bake = makeTex(64, 256, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); g.fillStyle = '#d42a20'; for (let y = -w; y < h; y += 64) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + w); g.lineTo(w, y + w + 32); g.lineTo(0, y + 32); g.closePath(); g.fill(); } });
+  const plate = (lines, w, h) => makeTex(w, h, (g) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); g.strokeStyle = '#111111'; g.lineWidth = 6; g.strokeRect(3, 3, w - 6, h - 6); g.fillStyle = '#111111'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `600 ${Math.floor(h / (lines.length + 0.8))}px "Barlow Condensed", sans-serif`; lines.forEach((t, i) => g.fillText(t, w / 2, h * (i + 1) / (lines.length + 1))); });
+  SIGN_TEX = { tri, disc, bake, baustelle: plate(['Baustelle'], 512, 128), fahrverbot: plate(['ausgenommen Bus, Velo,', 'Landwirtschaft, Notfall'], 512, 170) };
+  return SIGN_TEX;
+}
+function signPanel(g, tex, w, h, y) {
+  for (const back of [false, true]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex, color: back ? 0x6a6f78 : 0xffffff, transparent: true, alphaTest: 0.5 }));
+    m.position.set(0, y, back ? -0.02 : 0.02); if (back) m.rotation.y = Math.PI; g.add(m);
+  }
+}
+function roadSign(kind, x, z, rot, build) {
+  const g = new THREE.Group(), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 8), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+  pole.position.y = 1.3; g.add(pole); build(g, signTextures());
+  g.position.set(x, terrainH(x, z), z); g.rotation.y = Math.PI / 2 - rot; g.traverse(o => o.castShadow = true); signs.add(g);
+  ROAD_SIGNS.push({ kind, x, z });
+}
+function baustelleSign(x, z, rot) {
+  roadSign('baustelle', x, z, rot, (g, T) => {
+    signPanel(g, T.tri, 1.0, 1.0, 2.15); signPanel(g, T.baustelle, 1.0, 0.25, 1.5);
+    for (const side of [-1, 1]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.0, 0.1), new THREE.MeshLambertMaterial({ map: T.bake })); b.position.set(side * 1.2, 0.5, 0); g.add(b); }   // Leitbaken
+  });
+}
+function fahrverbotSign(x, z, rot) {
+  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); });
 }
 function foodTruck(x, z, rot) { // #103 Güggeli food truck: cream box body on four wheels, red cab in front (local +x), serving hatch and awning on the local -z side, hand-painted roof board; generic look, no logo (docs/07); solid
   const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
@@ -1293,6 +1373,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     for (const k of ['stationStein', 'stationSisseln']) if (at(k)) stationAt(at(k).x, at(k).z, at(k).rot, STATION_NAMES[k]);
     if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z, at('plattform').rot || 0);
     if (HIDE) hideoutBuild();   // #102
+    for (const s of Object.values(lm)) { if (s.kind === 'baustelle') baustelleSign(s.x, s.z, s.rot); else if (s.kind === 'fahrverbot') fahrverbotSign(s.x, s.z, s.rot); }   // #42
   }
   // trees along both banks and scattered
   // #127: only the Hochrhein world has the Sisseln forest box, so another region's trees come from the height alone
@@ -1807,11 +1888,20 @@ window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector
 window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay })) : null;
 window.__mm.hideoutRing = () => HIDE && HIDE.ring ? HIDE.ring.map(r => ({ ...r, wall: TUNNEL.wall })) : null;
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
+window.__mm.roadSigns = () => ROAD_SIGNS.map(s => ({ ...s }));   // #42
+// #42: at (x, z) the grade profile (null outside every grade's corridor), the ground and the uncut mesh
+window.__mm.gradeAt = (x, z) => { let profile = null; for (const gc of GRADE_CUTS) { const n = nearestOnPolyline(gc.pts, x, z); if (n.d <= gc.inner) { profile = gradeY(gc, n.t); break; } } return { profile, terrain: terrainH(x, z), mesh: meshH(x, z) }; };
+// how far a deck end at (x, z), height h, is off what it rests on: the ground, or (#42: a switch in the track fan over the
+// Südspange cutting) another rail deck it lies on
+function railEndGap(deck, x, z, h) {
+  const sw = switchUnder(deck, x, z);
+  return Math.abs((sw ? bridgeSurfaceAt(sw.o, sw.t) : Math.max(terrainH(x, z), roadSurfH(x, z))) - h);
+}
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
   const deck = bridgeSurfaceAt(c.deck, c.tRail), p = c.deck.r.pts, ends = [[p[0], c.deck.h0], [p[p.length - 1], c.deck.h1]];
   return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind }, deck, clearance: deck - UNDERPASS.deck - road,
-           railGap: Math.max(...ends.map(([[x, z], h]) => Math.abs(Math.max(terrainH(x, z), roadSurfH(x, z)) - h))) };
+           railGap: Math.max(...ends.map(([[x, z], h]) => railEndGap(c.deck, x, z, h))) };
 });
 // #120: the side-road arms of every cut, with a 1 m profile per side: [s, terrain, uncut mesh, x, z, this arm's own floor]
 // (terrain is the lowest floor of the whole network there, so where cuts overlap it stays under an arm that has surfaced)
@@ -1828,7 +1918,7 @@ window.__mm.treesOnRoad = () => [...(window.__TREES || []), ...(window.__FOREST 
 // playtest: "die Räder versinken im Asphalt" -> how far is the drawn road surface above the height the car drives on?
 window.__mm.sinkCheck = (n = 300) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.roadPlain, MESH.motorway].filter(Boolean); const pts = []; for (const r of ROADS) if (!r.bridge) for (let i = 0; i < r.pts.length - 1; i++) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0, 0], [0.5, 0], [0.4, 0.7], [0.6, -0.7]]) pts.push([x0 + (x1 - x0) * t + nx * o * r.w / 2, z0 + (z1 - z0) * t + nz * o * r.w / 2]); } if (L) for (const [x, z, r] of L.junctions) for (let a = 0; a < 6; a++) pts.push([x + Math.cos(a) * r * 0.8, z + Math.sin(a) * r * 0.8]); for (const k of KREISEL) for (let a = 0; a < 12; a++) pts.push([k.x + Math.cos(a / 2) * 15, k.z + Math.sin(a / 2) * 15]); let worst = 0, at = null, bad = 0, done = 0, water = 0; const step = Math.max(1, Math.floor(pts.length / n)); for (let k = 0; k < pts.length; k += step) { const [x, z] = pts[k]; if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 12).length || waterLevelAt(x, z, 1e4) !== null) { water++; continue; } ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(road, false)[0]; if (!h) continue; const d = h.point.y - groundH(x, z, h.point.y); done++; if (d > 0.08) bad++; if (d > worst) { worst = d; at = [Math.round(x), Math.round(z)]; } } return { worst, at, bad, done, water }; };
 // raycast road points from above: how far does grass or a field rise above the road surface? (playtest: "Feld/Wiese überdeckt Strasse")
-window.__mm.grassOverRoad = (n = 300) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.motorway].filter(Boolean), green = [MESH.grass, MESH.field].filter(Boolean); const segs = []; for (const r of ROADS) if (!r.bridge) for (let i = 0; i < r.pts.length - 1; i++) segs.push([r, i]); let worst = 0, bad = 0, done = 0, marksSeen = 0, marksBelow = 0; const step = Math.max(1, Math.floor(segs.length / n)); for (let k = 0; k < segs.length && done < n; k += step) { const [r, i] = segs[k], [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0.5, 0], [0.3, 0.8], [0.7, -0.8]]) { const x = x0 + (x1 - x0) * t + nx * o * (r.w / 2 - 0.3), z = z0 + (z1 - z0) * t + nz * o * (r.w / 2 - 0.3); ray.set(new THREE.Vector3(x, 2000, z), down); const hr = ray.intersectObjects(road, false)[0], hg = ray.intersectObjects(green, false)[0]; if (!hr || !hg) continue; const d = hg.point.y - hr.point.y; if (d > worst) worst = d; if (d > 0.005) bad++; done++; for (const hm of ray.intersectObjects(marks.children, false)) { marksSeen++; if (hm.point.y < hr.point.y) marksBelow++; } } } return { worst, bad, done, marksSeen, marksBelow }; };
+window.__mm.grassOverRoad = (n = 300, only = null) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.motorway].filter(Boolean), green = [MESH.grass, MESH.field].filter(Boolean); const segs = []; for (const r of ROADS) if (!r.bridge && (only === null || r.n === only)) for (let i = 0; i < r.pts.length - 1; i++) segs.push([r, i]); let worst = 0, bad = 0, done = 0, marksSeen = 0, marksBelow = 0; const step = Math.max(1, Math.floor(segs.length / n)); for (let k = 0; k < segs.length && done < n; k += step) { const [r, i] = segs[k], [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0.5, 0], [0.3, 0.8], [0.7, -0.8]]) { const x = x0 + (x1 - x0) * t + nx * o * (r.w / 2 - 0.3), z = z0 + (z1 - z0) * t + nz * o * (r.w / 2 - 0.3); ray.set(new THREE.Vector3(x, 2000, z), down); const hr = ray.intersectObjects(road, false)[0], hg = ray.intersectObjects(green, false)[0]; if (!hr || !hg) continue; const d = hg.point.y - hr.point.y; if (d > worst) worst = d; if (d > 0.005) bad++; done++; for (const hm of ray.intersectObjects(marks.children, false)) { marksSeen++; if (hm.point.y < hr.point.y) marksBelow++; } } } return { worst, bad, done, marksSeen, marksBelow }; };
 window.__mm.roadDist = () => roadDist(P.x, P.z);
 // #127: is the car on a gravel trail (the Wanderweg)? the nearest road piece in ROAD_GRID, by its centre line
 window.__mm.onTrail = () => { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, P.x, P.z, 32)) { const d = segDist(P.x, P.z, ...r.pts[i], ...r.pts[i + 1]); if (!best || d < best.d) best = { d, r }; } return !!(best && best.r.trail); };

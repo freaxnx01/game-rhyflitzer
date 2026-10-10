@@ -90,7 +90,7 @@ export function offsetPolyline(pts, d) {
 export function layoutFromWorld(w) {
   const roads = w.roads.map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
-           rail: w.rail, railBridges: w.railBridges || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
+           rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
@@ -368,6 +368,47 @@ export function patchCells([bx0, bz0, bx1, bz1], G) {
 }
 
 export function triLerp(ha, hb, hc, hd, u, v) { return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v); }
+
+// #42 grades: a stretch of road on its own vertical profile (the Südspange's cutting and underpass). g = { pts, hw,
+// ctl: [[t, cut]] } from the world file; h0(x, z) = the uncut mesh. A grade is one more source for #76's terrain patch:
+// the ground comes down to the profile inside hw + margin, a 1:bank grass bank rises back beside it (no trough walls),
+// and the depth is 0 at `outer` (never past hw + GRADE_BAND, which the pipeline's BAND mirrors), so the patch meets the
+// coarse mesh. caps [{ t, y, w }]: a rail deck over the corridor holds the profile at y (its underside minus the
+// clearance) for w either side of t and lets it climb back at the underpass grade, so every deck clears the road.
+export const GRADE_BAND = 24;
+export const GRADE_CUT = { margin: UNDERPASS.margin, bank: 2, grade: UNDERPASS.grade };
+export function gradeProfile(g, h0) { return g.ctl.map(([t, cut]) => { const [x, z] = pointAtLength(g.pts, t); return [t, h0(x, z) - cut]; }); }
+export function profileY(prof, t) {
+  if (t <= prof[0][0]) return prof[0][1];
+  for (let i = 1; i < prof.length; i++) if (t <= prof[i][0]) { const [t0, y0] = prof[i - 1], [t1, y1] = prof[i]; return y0 + (y1 - y0) * (t - t0) / ((t1 - t0) || 1); }
+  return prof[prof.length - 1][1];
+}
+export function gradeY(gc, t, u = GRADE_CUT) {
+  let y = profileY(gc.prof, t);
+  for (const c of gc.caps) y = Math.min(y, c.y + u.grade * Math.max(0, Math.abs(t - c.t) - c.w));
+  return y;
+}
+export function gradeCut(g, h0, u = GRADE_CUT, caps = []) {
+  const gc = { pts: g.pts, hw: g.hw, prof: gradeProfile(g, h0), caps, inner: g.hw + u.margin }, len = polylineLength(g.pts);
+  let max = 0;
+  for (let t = 0; t <= len; t += 2) { const [x, z] = pointAtLength(g.pts, t); max = Math.max(max, h0(x, z) - gradeY(gc, t, u)); }
+  for (const c of caps) { const [x, z] = pointAtLength(g.pts, c.t); max = Math.max(max, h0(x, z) - gradeY(gc, c.t, u)); }
+  return { ...gc, outer: Math.min(gc.inner + u.bank * (max + 2), g.hw + GRADE_BAND) };
+}
+export function gradeCutAt(gc, x, z, h0, u = GRADE_CUT) {
+  const n = nearestOnPolyline(gc.pts, x, z);
+  if (n.d >= gc.outer) return 0;
+  const raw = h0(x, z) - gradeY(gc, n.t, u) - Math.max(0, n.d - gc.inner) / u.bank;
+  return Math.max(0, Math.min(raw, (gc.outer - n.d) / u.bank));
+}
+export function gradeCells(gc, G) {
+  const out = [], seen = new Set(), len = polylineLength(gc.pts), r = gc.outer;
+  for (let t = 0; t <= len + 4; t += 4) {
+    const [x, z] = pointAtLength(gc.pts, Math.min(t, len));
+    for (const c of patchCells([x - r - 4, z - r - 4, x + r + 4, z + r + 4], G)) { const k = c[0] + ',' + c[1]; if (!seen.has(k)) { seen.add(k); out.push(c); } }
+  }
+  return out;
+}
 // An OSM bridge is ground for a query at height y only from 1.5 m below its surface upward: a car on the road underneath an overpass
 // is not snapped onto the deck. Callers that pass no height (placement code) keep the plain 2D test.
 export function bridgeAccepts(surface, y) { return y === undefined || y >= surface - 1.5; }

@@ -16,7 +16,8 @@ CROSS = (1569.7, 625.0)
 # a skewed deck (Hauptstrasse Stein, sin ~0.55) and one capped by a side road (Kapfstrasse / Bahnhofstrasse), as in main's rail
 HAUPTSTRASSE_STEIN = [[[-198.0, 1090.1], [-212.2, 1088.3], [-230.1, 1086.6]], [[-195.4, 1094.2], [-210.8, 1092.2], [-227.0, 1090.7]]]
 KAPFSTRASSE = [[[-4037.9, 541.8], [-4023.8, 550.2]], [[-4025.0, 554.1], [-4040.0, 544.9]]]
-LEVEL = [(1857.6, 566.8), (1228.0, 564.0)]          # railway=level_crossing nodes 651841741 and near 1327351950
+LEVEL = [(1857.6, 566.8)]          # railway=level_crossing node 651841741
+# (1228, 564), the DSM crossing, is in the Südspange cutting since #42: its tracks are on a deck
 needs_world = pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
 
 
@@ -69,7 +70,7 @@ def test_laufenburgerstrasse_underpass(server):
     assert not r["under"]["bridge"] and r["deck"] - r["under"]["y"] >= 1.2 + 4.45 - 0.05, (r["under"], r["deck"])
     assert r["on_deck"]["bridge"] and r["on_deck"]["y"] > r["deck"] - 1.0, r["on_deck"]
     assert r["drive"]["z"] < 600 and not r["drive"]["bridge"], r["drive"]              # drove under both decks
-    assert r["level"] == [0, 0]
+    assert r["level"] == [0]
     assert not any(math.hypot(c["x"] - x, c["z"] - z) < 30 for c in r["xs"] for x, z in LEVEL)
     ramp, deck = r["hits"]
     assert ramp["roadOsm"] >= ramp["grass"] - 0.005, ramp                              # grass stays under the road in the cut

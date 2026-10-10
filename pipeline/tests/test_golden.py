@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 import numpy as np
@@ -220,7 +221,9 @@ def test_rail_bridges_over_laufenburgerstrasse(world):
     """#76: both tracks cross Laufenburgerstrasse (Sisseln) on bridges (OSM w35583301, w1496246793, layer 1)."""
     near = [b for b in world["railBridges"] if shapely.LineString(b["pts"]).distance(shapely.Point(1569.7, 625)) < 6]
     assert len(near) == 2 and all(b["layer"] == 1 for b in near), near
-    assert 8 <= len(world["railBridges"]) <= 18
+    # #42's game-made decks over the Südspange cutting are not OSM bridges: they are checked in test_suedspange_*
+    cut = shapely.union_all([shapely.LineString(g["pts"]).buffer(g["hw"] + 24 + 0.5) for g in world["grades"]])
+    assert 8 <= len([b for b in world["railBridges"] if not shapely.LineString(b["pts"]).within(cut)]) <= 18
     # no bridge piece left in rail; compare segments, since plain track between two bridges has only bridge end points
     seg = lambda line: {frozenset((tuple(a), tuple(b))) for a, b in zip(line, line[1:])}
     bridge_segs = set().union(*(seg(b["pts"]) for b in world["railBridges"]))
@@ -259,3 +262,53 @@ def test_issue103_food_truck_anchor_stands_on_the_bahnhof_eiken_car_park(world):
     assert not any(shapely.Polygon(b["ring"]).contains(p) for b in world["buildings"]), "the truck stands on no building"
     roads = shapely.MultiLineString([r["pts"] for r in world["roads"] if len(r["pts"]) > 1])
     assert roads.distance(p) >= 5, roads.distance(p)
+
+
+def _lines(world, rid):
+    return shapely.MultiLineString([r["pts"] for r in world["roads"] if r["id"] == rid and len(r["pts"]) > 1])
+
+
+def _off(line, pts, tol=2.0):
+    return [p for p in pts if line.distance(shapely.Point(p)) > tol]
+
+
+def test_suedspange_route(world):
+    """#42: K295 junction -> DSM tracks -> field path -> DSM road -> field path -> Geuerenstrasse -> Sisslerstrasse."""
+    s12, s3, s4, fv = (_lines(world, i) for i in (-42001, -42003, -42004, -42005))
+    assert not _off(s12, [(1528, 409), (1441, 483), (1240, 574), (954.2, 567.6), (953.4, 497.0), (736, 502), (514, 498)])
+    assert 1100 < s12.length < 1200, s12.length
+    assert not _off(s3, [(514, 498), (511.1, 440), (450, 397), (353.4, 420.3)])
+    assert not _off(s4, [(32.8, 402.1), (174.3, 410.2), (353.4, 420.3)])
+    assert not _off(fv, [(514, 498), (514.4, 748.6), (625.4, 815.8)])
+    by = lambda i: [r for r in world["roads"] if r["id"] == i]
+    assert all(r["n"] == "Südspange" and r["w"] == 8.0 and r["cls"] == "tertiary" for r in by(-42001))
+    assert all(r["n"] == "Südspange" and r["w"] == 7.0 for r in by(-42003))
+    assert all(r["n"] == "Geuerenstrasse" and r["w"] == 7.0 for r in by(-42004))
+    assert all(r["n"] == "Zufahrt Freiverlad" and r["w"] == 6.0 for r in by(-42005))
+    path = _lines(world, -42002)
+    assert all(r["w"] == 3.0 and r["cls"] == "cycleway" and r["n"] == "" for r in by(-42002))
+    assert path.distance(shapely.Point(1075, 566.3)) < 1.5          # 7.5 m north of the E-W field-path leg
+
+
+def test_suedspange_replaces_the_osm_ribbons(world):
+    assert not [r for r in world["roads"] if r["id"] == 52017693]   # OSM Geuerenstrasse
+    svc = _lines(world, 118856572)
+    assert svc.distance(shapely.Point(736, 502)) > 3                 # reused DSM road stretch gone
+    assert svc.distance(shapely.Point(512, 200)) < 2                 # its leg north to the Rhine stays
+    dsm = _lines(world, 183354680)
+    g = shapely.LineString(world["grades"][0]["pts"])
+    assert dsm.is_empty or dsm.distance(g) >= 9.5 + 24 - 1
+    assert any(abs(x - 514) < 1 and abs(z - 498) < 1 and r >= 4.3 for x, z, r in world["junctions"])
+
+
+def test_suedspange_grade_decks_and_signs(world):
+    (g,) = world["grades"]
+    assert g["hw"] == 9.5 and math.dist(g["pts"][0], (1528, 409)) < 1
+    (t0, c0), (t1, c1), (t2, c2) = g["ctl"]
+    assert (t0, c0, c1, c2) == (0, 0, 6.5, 0) and 340 < t1 < 352 and 480 < t2 < 505
+    band = shapely.LineString(g["pts"]).buffer(g["hw"] + 24 - 0.5)
+    assert not [p for p in world["rail"] if shapely.LineString(p).intersects(band)]     # no track left in the cut
+    decks = [b for b in world["railBridges"] if shapely.LineString(b["pts"]).distance(shapely.Point(1240, 574)) < 15]
+    assert len(decks) >= 5 and all(b["layer"] == 1 for b in decks), decks
+    kinds = [lm["kind"] for lm in world["anchors"]["landmarks"].values()]
+    assert kinds.count("baustelle") == 2 and kinds.count("fahrverbot") == 2
