@@ -28,7 +28,8 @@ def world(tmp_path_factory):
 
 def test_name_and_places(world):
     r = world["region"]
-    assert r["name"] == "Ehrendingen" and any(v["t"] == "EHRENDINGEN" for v in r["villages"])
+    # not the exact name: a cut that carries more complete admin_level=8 lines makes it "Ehrendingen · Wettingen"
+    assert r["name"].startswith("Ehrendingen") and any(v["t"] == "EHRENDINGEN" for v in r["villages"])
     assert {"Ehrendingen", "Kath. Kirche", "Reformierte Kirche Ehrendingen"} <= {e["n"] for e in r["jlist"]}
 
 
