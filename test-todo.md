@@ -2,6 +2,16 @@
 
 Manual playtests still owed. Tick an item once it has been played in the browser (live: https://github.freaxnx01.ch/game-rhyflitzer/), and note what was found.
 
+## Südspange ESP Sisslerfeld (#42, PR #191 — merged 2026-10-10)
+
+Screenshots: `docs/ai-notes/screenshots/2026-10-10-suedspange/`. **J** → „südspange" puts the car on it, 25 m in from the K295.
+
+- [ ] Drive K295 → Sisslerstrasse (Münchwilen) end to end, and the branch to the Freiverlad.
+- [ ] The cutting near the K295 reads as a cutting; under the DSM tracks the decks span the road, no rails float or sink, no deck top is buried in the plateau.
+- [ ] DSM buildings and fences next to the cutting do not float or sink (the cut can reach ~28 m from the centre line).
+- [ ] Sections match Abbildung 2 of the report: 8 m road with the bike path 7.5 m north on sections 1–2, 7 m on sections 3–4.
+- [ ] The Baustelle and Fahrverbot signs stand beside the road and face the traffic.
+
 ## Hideout in the Hübel (#102, PR #158 — merged 2026-10-10)
 
 The gate is in **J** from the start; the cavern is secret, so start on a fresh profile (or clear `mm.hideout` in localStorage).
