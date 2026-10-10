@@ -435,13 +435,18 @@ def test_no_trees_on_car_parks(server, terrain):
         page.wait_for_function("() => window.__mm && window.__TREES && document.querySelector('#worldstatus')?.textContent", timeout=240000)
         if terrain == "measured":
             page.wait_for_selector("#mmhstatus.real", timeout=240000)
-        trees = page.evaluate("() => window.__TREES.map(([x, z, h]) => [x, z, h])")
+        trees = page.evaluate("() => [...window.__TREES, ...(window.__FOREST || [])].map(([x, z, h]) => [x, z, h])")   # #13: the woods too
         br.close()
     lots = world_parking()
-    bad = [(round(x, 1), round(z, 1), lot.get("name", lot["id"])) for x, z, h in trees for lot in lots if _tree_on_lot(lot, x, z, 0.45 * h)]
-    # the floor only guarantees there is a sample worth checking. It was > 1000 while the heuristic forests still ran in
-    # OSM mode; #13 switched those off, so the countryside scatter is now the 12 % roll alone (about 800 trees).
-    assert len(trees) > 500 and bad == [], bad[:10]
+    cells = {}                                        # 64 m buckets of the lots, so ~60 k forest trees stay cheap to check
+    for lot in lots:
+        xs = [q[0] for q in lot["ring"]]; zs = [q[1] for q in lot["ring"]]
+        for i in range(int(min(xs) - 8) // 64, int(max(xs) + 8) // 64 + 1):
+            for j in range(int(min(zs) - 8) // 64, int(max(zs) + 8) // 64 + 1):
+                cells.setdefault((i, j), []).append(lot)
+    bad = [(round(x, 1), round(z, 1), lot.get("name", lot["id"])) for x, z, h in trees
+           for lot in cells.get((int(x) // 64, int(z) // 64), []) if _tree_on_lot(lot, x, z, 0.45 * h)]
+    assert len(trees) > 1000 and bad == [], bad[:10]
 
 
 @pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")

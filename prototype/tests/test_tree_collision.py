@@ -95,11 +95,10 @@ def test_sim_driveAtATree_stopsInFrontOfTheTrunk(server):
 
 @needs_world
 def test_no_tree_reaches_a_road(server):
-    """No tree collider can touch a car whose centre is on a road: trees never block driving."""
+    """No tree collider can touch a car whose centre is on a road: trees never block driving. The forest trees (#13)
+    count too: the 8 m forest mask can put a fill tree inside a road corridor, only free() keeps it off the asphalt."""
     with sync_playwright() as p:
         b, page = open_world(p, server)
-        n = page.evaluate("() => [window.__mm.treesOnRoad(), window.__TREES.length]")
+        n = page.evaluate("() => [window.__mm.treesOnRoad(), window.__TREES.length + (window.__FOREST || []).length]")
         b.close()
-    # the floor only guarantees there is a sample worth checking; #13 switched the heuristic forests off in OSM mode, so
-    # the countryside scatter is the 12 % roll alone (about 800 trees). The forest trees have no collider of their own.
-    assert n[1] > 500 and n[0] == 0, n
+    assert n[1] > 1000 and n[0] == 0, n
