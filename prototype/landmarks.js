@@ -1,8 +1,8 @@
 // The J dialog's landmarks (#41): names and Gemeinden kept by hand here, positions from the loaded world
 // (an anchors.landmarks key or a world building id), or a fixed game point (at). Pure: no DOM, no three.js.
-export const GEMEINDEN = ['Bad Säckingen', 'Stein', 'Münchwilen', 'Eiken', 'Sisseln'];   // west → east
+export const GEMEINDEN = ['Bad Säckingen', 'Stein', 'Münchwilen', 'Schupfart', 'Eiken', 'Sisseln'];   // west → east
 
-// Gemeinden verified against OpenStreetMap on 2026-10-02/03 (#41, #46, #81, #103)
+// Gemeinden verified against OpenStreetMap on 2026-10-02/03 (#41, #46, #81, #103) and 2026-10-10 (#47)
 export const LANDMARK_INFO = [
   { name: 'Fridolinsmünster', gemeinde: 'Bad Säckingen', anchor: 'muenster' },
   { name: 'Holzbrücke', gemeinde: 'Bad Säckingen', anchor: 'holzbruecke' },
@@ -18,6 +18,7 @@ export const LANDMARK_INFO = [
   { name: 'Bahnhof Stein-Säckingen', gemeinde: 'Stein', anchor: 'stationStein' },
   { name: 'Plattform Sisslerfeld', gemeinde: 'Münchwilen', anchor: 'plattform', jump: [78.1, 861.4] },   // #94: the tower stands on Breitenloh; J lands 25 m east of it on the same road, facing it
   { name: 'Reservoir Hübel', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], look: [-703.7, 1423.6] },   // #102: the hideout in the Hübel (always listed, the name keeps the tower secret); J lands on the Hübel looking at the gate (look: the tunnel mouth)
+  { name: 'Flugplatz Schupfart', gemeinde: 'Schupfart', anchor: 'flugplatzSchupfart' },   // #47: LSZI on the Tafeljura (r2782819, Gemeinde Schupfart r1684421); J snaps to the nearest road
   { name: 'DSM-Kamin', gemeinde: 'Eiken', anchor: 'dsmChimney' },
   { name: 'Bahnhof Sisseln', gemeinde: 'Eiken', anchor: 'stationSisseln' },
   { name: 'Bahnhof Eiken', gemeinde: 'Eiken', building: 199241726 },

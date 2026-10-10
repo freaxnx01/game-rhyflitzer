@@ -67,13 +67,13 @@ const BUILDINGS_46 = [
   ['Schulhaus Sisseln', 'Sisseln', 171822721],
 ];
 
-test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103', () => {
-  assert.equal(LANDMARK_INFO.length, 28);
+test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47', () => {
+  assert.equal(LANDMARK_INFO.length, 29);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
   }
-  assert.deepEqual(GEMEINDEN, ['Bad Säckingen', 'Stein', 'Münchwilen', 'Eiken', 'Sisseln']);
+  assert.deepEqual(GEMEINDEN, ['Bad Säckingen', 'Stein', 'Münchwilen', 'Schupfart', 'Eiken', 'Sisseln']);
   assert.deepEqual(LANDMARK_INFO.filter(l => l.building).map(l => [l.name, l.gemeinde, l.building]),
     [['Schloss Schönau (Trompeterschloss)', 'Bad Säckingen', 390621357], ['Gallusturm', 'Bad Säckingen', 25835477],
      ['Diebsturm', 'Bad Säckingen', 92036948], ['Bahnhof Bad Säckingen', 'Bad Säckingen', 25049518],
@@ -259,4 +259,11 @@ test('landmarkEntries_LookPoint_IsPassedThrough (#102)', () => {
   assert.deepEqual(landmarkEntries(info, {}, [])[0], { n: 'Reservoir Hübel', g: 'Münchwilen', x: -712.8, z: 1528.2, j: [-703.3, 1419.1], look: [-703.7, 1423.6] });
   // the Reservoir Hübel's J spot is on the Hübel; the car turns to look at the gate in the hillside, not along the road
   assert.deepEqual(LANDMARK_INFO.find(i => i.name === 'Reservoir Hübel').look, [-703.7, 1423.6]);
+});
+
+test('#47: Flugplatz Schupfart sits in its own Gemeinde, between Münchwilen and Eiken', () => {
+  const e = landmarkEntries(LANDMARK_INFO, { flugplatzSchupfart: { x: -1219.4, z: 4633.6 } }, []);
+  assert.deepEqual(e.find(x => x.n === 'Flugplatz Schupfart'), { n: 'Flugplatz Schupfart', g: 'Schupfart', x: -1219.4, z: 4633.6 });
+  assert.deepEqual(gemeindenOf(e, GEMEINDEN), ['Bad Säckingen', 'Münchwilen', 'Schupfart', 'Eiken']);
+  assert.deepEqual(filterLandmarks(e, 'flugplatz', null).map(x => x.n), ['Flugplatz Schupfart']);
 });

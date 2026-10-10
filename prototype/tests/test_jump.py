@@ -29,9 +29,12 @@ WORLD81 = "landiTurm" in _world_anchor_keys()           # world rebuilt with the
 needs_world81 = pytest.mark.skipif(not WORLD81, reason="world not rebuilt for #81 (Task 4 of docs/superpowers/plans/2026-10-03-landi-tower.md)")
 WORLD103 = "foodTruck" in _world_anchor_keys()          # world rebuilt with the #103 food truck anchor
 needs_world103 = pytest.mark.skipif(not WORLD103, reason="world not rebuilt for #103 (Task 4 of docs/superpowers/plans/2026-10-03-food-truck-eiken.md)")
+WORLD47 = "flugplatzSchupfart" in _world_anchor_keys()  # world rebuilt for #47 (south to Schupfart)
+needs_world47 = pytest.mark.skipif(not WORLD47, reason="world not rebuilt for #47 (Tasks 8-10 of docs/superpowers/plans/2026-10-10-region-south-schupfart.md)")
+CHIPS = ["All", "Bad Säckingen", "Stein", "Münchwilen"] + (["Schupfart"] if WORLD47 else []) + ["Eiken", "Sisseln"]
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
     + (["Güggeli-Foodtruck"] if WORLD103 else [])
-ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + 3   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94) and the Reservoir Hübel (#102) are fixed points, listed in any world
+ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + 3   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94) and the Reservoir Hübel (#102) are fixed points, listed in any world
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else [])
 
@@ -90,7 +93,7 @@ def test_j_opens_the_landmark_list_with_focus_in_the_search_field(server):
         assert r[0] == {"n": "Fridolinsmünster", "g": "Bad Säckingen"}
         assert r[-1] == {"n": "Random spot", "g": None}
         chips = page.eval_on_selector_all("#jumpchips button", "bs => bs.map(b => b.textContent)")
-        assert chips == ["All", "Bad Säckingen", "Stein", "Münchwilen", "Eiken", "Sisseln"]
+        assert chips == CHIPS
         page.keyboard.type("münst")
         assert names(page) == ["Fridolinsmünster", "Random spot"]
         page.fill("#jumpq", "")
@@ -482,3 +485,22 @@ def test_sprungschanze_drawn_where_the_car_drives_on_measured_terrain(server):
         gap = page.evaluate("() => window.__mm.rampGap()")
         b.close()
     assert gap < 0.3, f"drawn ramp is {gap:.2f} m off the drive surface"
+
+
+@needs_world47
+def test_flugplatz_schupfart_is_listed_and_jumpable(server):
+    """#47: 'flugplatz' finds Flugplatz Schupfart under its own chip; Enter puts the car on the road nearest the airfield."""
+    ax, az = anchor("flugplatzSchupfart")
+    road = _jumpable_road_dist(ax, az)
+    assert road < 300, road                      # a road runs past the airfield
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.click('#jumpchips button[data-g="Schupfart"]')
+        assert rows(page) == [{"n": "Flugplatz Schupfart", "g": "Schupfart"}, {"n": "Random spot", "g": None}]
+        page.click('#jumpchips button[data-g="All"]')
+        page.keyboard.type("flugplatz")
+        page.keyboard.press("Enter")
+        c = car(page)
+        assert math.hypot(c["x"] - ax, c["z"] - az) < road + 30
+        b.close()
