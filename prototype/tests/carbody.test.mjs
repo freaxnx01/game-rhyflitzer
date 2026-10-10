@@ -83,3 +83,15 @@ test('spokeBars: five bars 72 degrees apart from the hub to the rim lip', () => 
 test('archRadius: the wheel plus the gap', () => {
   close(archRadius(0.34), 0.34 + ARCH.gap, 1e-12); assert.ok(ARCH.lip > 0 && ARCH.gap > ARCH.lip);
 });
+
+test('loftBody: glass on the windscreen, the rear window and the doors (#225)', () => {
+  const L = loftBody(COMPACT), P = L.positions, found = { windscreen: 0, rear: 0, door: 0 };
+  for (let t = 0; t < L.glassIndices.length; t += 3) {
+    const [a, b, c] = [0, 1, 2].map(i => L.glassIndices[t + i]);
+    const x = (P[3 * a] + P[3 * b] + P[3 * c]) / 3, z = Math.abs(P[3 * a + 2] + P[3 * b + 2] + P[3 * c + 2]) / 3;
+    if (z >= 0.62) found.door++; else if (x > 0) found.windscreen++; else if (x < -1.3) found.rear++;
+  }
+  assert.ok(found.windscreen > 0, `windscreen glass ${JSON.stringify(found)}`);
+  assert.ok(found.rear > 0, `rear window glass ${JSON.stringify(found)}`);
+  assert.ok(found.door > 0, `door glass ${JSON.stringify(found)}`);
+});
