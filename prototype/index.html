@@ -187,6 +187,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd>V</kbd><span data-i18n="keyCar">show / hide the car</span>
       <kbd>G</kbd><span data-i18n="keyBounds">show / hide the Gemeinde boundaries</span>
       <kbd>J</kbd><span data-i18n="keyJump">jump to a landmark</span>
+      <kbd>2×</kbd><span data-i18n="keyBeam">double-click or double-tap the landscape: beam the car there (in a race it does not count)</span>
       <kbd>O</kbd><span data-i18n="keyAuto">autopilot: drive to a place or street (O again, steering, gas or brake: you drive)</span>
       <kbd>I</kbd><span data-i18n="keyNavi">navigation: route, turn arrow and directions to a street or landmark (O drives it too)</span>
       <kbd>F</kbd><span data-i18n="keyHeli">helicopter: take off · land (Space climbs, Shift sinks)</span>
@@ -329,6 +330,7 @@ import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, i
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
+import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
@@ -2207,6 +2209,16 @@ mapC.addEventListener('dblclick', placeFromMap);
 // double-tap (touch): mobile browsers do not fire dblclick reliably, so two taps < 300 ms and < 30 px apart
 mapC.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - MAP.tapT < 300 && Math.hypot(e.clientX - MAP.tapX, e.clientY - MAP.tapY) < 30) { MAP.tapT = 0; placeFromMap(e); return; } MAP.tapT = t; MAP.tapX = e.clientX; MAP.tapY = e.clientY; });
 window.__mm.map = () => { const [cx, cz] = mapToWorld(mapC.width / 2, mapC.height / 2); return { zoom: MAP.zoom, full: MAP.full, cx, cz }; }; window.__mm.mapToWorld = mapToWorld; window.__mm.worldToMap = worldToMap;
+// #165: double-click (mouse) or double-tap (touch) on the 3D view beams the car to the ground point under the pointer; a blocked spot (water, a building) snaps to the nearest road within 30 m. Through placeOnRoad, so a race is flagged as a jump
+const BEAM = { ray: new THREE.Raycaster(), ndc: new THREE.Vector2(), t: 0, tapT: 0, tapX: 0, tapY: 0, last: null };
+const BEAM_ROLES = ['grass', 'field', 'road', 'roadOsm', 'roadPlain'];
+const beamAllowed = () => $('overlay').hidden && $('jump').hidden && $('help').hidden && !PAUSE.on && !CARSEL.on && !FLY.on;
+function beamPick(cx, cy) { BEAM.ndc.set(cx / innerWidth * 2 - 1, 1 - cy / innerHeight * 2); BEAM.ray.setFromCamera(BEAM.ndc, camera); BEAM.ray.far = 4000; const hit = BEAM.ray.intersectObjects(BEAM_ROLES.map(r => MESH[r]).filter(Boolean), false)[0]; return hit ? { x: hit.point.x, z: hit.point.z } : null; }
+function spotBlocked(x, z) { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; P.y = groundH(x, z, -Infinity); P.vx = P.vz = 0; collide(carRadius()); const pushed = Math.hypot(P.x - x, P.z - z) > 0.05; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return pushed || waterLevelAt(x, z, 1e4) !== null; }
+function beamTo(cx, cy) { if (!beamAllowed() || performance.now() - BEAM.t < 500) return; BEAM.t = performance.now(); const hit = beamPick(cx, cy), spot = hit && beamSpot(hit.x, hit.z, { blocked: spotBlocked, nearestRoad: nearestJumpable }); BEAM.last = spot; if (!spot) { toast(tr('beamNone')); return; } placeOnRoad(spot.x, spot.z, spot.th ?? P.th, tr('beamed')); }
+$('gl').addEventListener('dblclick', e => beamTo(e.clientX, e.clientY));
+$('gl').addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - BEAM.tapT < 300 && Math.hypot(e.clientX - BEAM.tapX, e.clientY - BEAM.tapY) < 30) { BEAM.tapT = 0; beamTo(e.clientX, e.clientY); return; } BEAM.tapT = t; BEAM.tapX = e.clientX; BEAM.tapY = e.clientY; });
+window.__mm.beamPick = beamPick; window.__mm.beam = () => BEAM.last && { ...BEAM.last };   // test hooks (#165): the pick under a pointer position, the last landing (null before the first beam)
 // #18: the route still ahead, cyan with a dark outline, and a dot at the destination
 // the route line: the autopilot's while it drives, else the Navi's (with both on it is the same route) (#106)
 function currentRoute() { return AUTOP.on ? { route: AUTOP.st.route, s: AUTOP.st.s } : NAVIS.on ? { route: NAVIS.route, s: NAVIS.st.s } : null; }
