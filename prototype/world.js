@@ -251,7 +251,7 @@ export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
 export function cutFloorAt(c, x, z, u = UNDERPASS, ground = null) {
   const n = nearestOnPolyline(c.pts, x, z), s = n.t - c.t, k = s < 0 ? 0 : 1, past = Math.abs(s) - c.reach[k];
   if (n.d > c.hw + u.margin + u.wall / 2) return null;
-  const b = beyondEnd(c.pts, x, z, n.t);
+  const b = c.roundEnds ? 0 : beyondEnd(c.pts, x, z, n.t);     // roundEnds (the hideout's cuts): the corridor runs on as a level disc
   if (b !== 0 && Math.abs(s) < 1e-9) return null;                 // behind an anchor at the road end: the road it leaves covers that
   if (past <= 0) return cutFloor(c, s + b, u);
   const o = c.out?.[k];
