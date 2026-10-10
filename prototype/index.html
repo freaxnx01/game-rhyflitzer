@@ -327,6 +327,7 @@ import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceTowar
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
 import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, segmentInHideout, ringStations, ringArc, eiffelParts } from './hideout.js';
 import { translate } from './strings.js';
+import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
@@ -2004,10 +2005,12 @@ function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.
 function carselKeyUp(e) { if ((e.code === 'ArrowLeft' && CARSEL.dir < 0) || (e.code === 'ArrowRight' && CARSEL.dir > 0)) CARSEL.dir = 0; }
 function renderCarSel() { const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = vehicleText(tr, CHOICE.id, 'class'); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc');
   const bars = statBars(def); $('csstats').innerHTML = STAT_KEYS.map(k => `<div class="cs-stat"><div class="cs-label">${tr(STAT_LABEL_KEYS[k])}</div><div class="cs-cells">${barCells(bars[k]).map(c => `<i class="${c}"></i>`).join('')}</div><div class="cs-score">${bars[k]}</div></div>`).join('');
-  const can = paintable(def), cur = PAINTS.find(p => p.id === CHOICE.paint) || PAINTS[0]; $('cspaintname').textContent = can ? tr(cur.nameKey) : tr('paintFixed'); $('cspaints').innerHTML = PAINTS.map(p => `<button type="button" data-paint="${p.id}" aria-label="${tr(p.nameKey)}" title="${tr(p.nameKey)}" aria-pressed="${p.id === CHOICE.paint}" style="background:${p.hex}"${can ? '' : ' disabled'}></button>`).join('');
-  $('csgaragelabel').textContent = tr('garageLabel', ids.length); $('csgarage').innerHTML = ids.map(id => `<button type="button" data-id="${id}" aria-label="${vehicleText(tr, id, 'name')}" title="${vehicleText(tr, id, 'name')}" aria-pressed="${id === CHOICE.id}"></button>`).join(''); }
+  const can = paintable(def), cur = PAINTS.find(p => p.id === CHOICE.paint) || PAINTS[0]; $('cspaintname').textContent = can ? tr(cur.nameKey) : tr('paintFixed'); $('cspaints').innerHTML = PAINTS.map(p => `<button type="button" data-paint="${esc(p.id)}" aria-label="${esc(tr(p.nameKey))}" title="${esc(tr(p.nameKey))}" aria-pressed="${p.id === CHOICE.paint}" style="background:${p.hex}"${can ? '' : ' disabled'}></button>`).join('');
+  /* #176: a vehicle id is data (registerVehicle, future glTF vehicles) and vehicleText falls back to the raw id, so both are escaped */
+  $('csgaragelabel').textContent = tr('garageLabel', ids.length); $('csgarage').innerHTML = ids.map(id => `<button type="button" data-id="${esc(id)}" aria-label="${esc(vehicleText(tr, id, 'name'))}" title="${esc(vehicleText(tr, id, 'name'))}" aria-pressed="${id === CHOICE.id}"></button>`).join(''); }
 // the swatch and tile lists are rebuilt with innerHTML: re-find the focused one by its data attribute so Tab / Enter continue where the player was
-function renderCarSelKeepFocus() { const a = document.activeElement, sel = a?.dataset?.paint ? `[data-paint="${a.dataset.paint}"]` : a?.dataset?.id ? `[data-id="${a.dataset.id}"]` : null; renderCarSel(); if (sel) $('carsel').querySelector(sel)?.focus(); }
+// #176: CSS.escape, because a vehicle id is data and a quote in it would otherwise break the selector
+function renderCarSelKeepFocus() { const a = document.activeElement, sel = a?.dataset?.paint ? `[data-paint="${CSS.escape(a.dataset.paint)}"]` : a?.dataset?.id ? `[data-id="${CSS.escape(a.dataset.id)}"]` : null; renderCarSel(); if (sel) $('carsel').querySelector(sel)?.focus(); }
 $('carbtn').onclick = openCarSel; $('csback').onclick = closeCarSel; $('csprev').onclick = () => stepVehicle(-1); $('csnext').onclick = () => stepVehicle(1);
 $('csrace').onclick = () => { CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; SFX.start(); startRace(R.mode); };
 $('cspaints').onclick = (e) => { const b = e.target.closest('button[data-paint]'); if (!b || b.disabled) return; applyPaint(b.dataset.paint); saveChoice(); renderCarSelKeepFocus(); };
@@ -2044,8 +2047,10 @@ function jumpRows() { const rows = filterLandmarks(jumpEntries(), JUMP.q, JUMP.g
 function renderJump() {
   const drive = DEST_MODES.has(JUMP.mode), toNavi = JUMP.mode === 'navi'; JUMP.rows = jumpRows(); JUMP.sel = Math.min(JUMP.sel, JUMP.rows.length - 1);
   $('jumptitle').textContent = tr(toNavi ? 'naviTitle' : drive ? 'driveTitle' : 'jumpTitle'); $('jumphint').textContent = tr(toNavi ? 'naviHint' : drive ? 'driveHint' : 'jumpHint');
-  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${i === JUMP.sel ? ' class="sel"' : ''}>${r.n}<span>${r.street ? tr('streetIn', r.g) : r.g || ''}</span></li>`).join('');
-  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${g}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : g}</button>`).join('') : '';
+  /* #176: street and place names come from OSM, so every name is escaped; tr('streetIn') keeps its own markup, so only its argument is escaped */
+  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${i === JUMP.sel ? ' class="sel"' : ''}>${esc(r.n)}<span>${r.street ? tr('streetIn', esc(r.g)) : esc(r.g)}</span></li>`).join('');
+  /* data-g round-trips through the browser's attribute decoding, so the click handler still reads the raw name from dataset.g */
+  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`).join('') : '';
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
 function openJump(mode) { for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
