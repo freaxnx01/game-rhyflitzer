@@ -627,3 +627,27 @@ def test_heuristic_forests_without_osm_woods(server):
     s = _osm_state(server, True)
     assert s["layout"] == "osm" and s["forest"] is None, s
     assert s["trees"] > 2000, s
+
+
+# #187: the first rAF timestamp is the frame's start, which can precede the performance.now() the loop was armed with
+# when the script ran long (a busy box). A negative dt made the chase camera's lerp factor 1-exp(-6*dt) huge and flung the
+# camera to ~1e20 m, where gridQuery loops forever: the page froze and every Playwright wait behind it timed out.
+EARLY_FIRST_FRAME = """(() => {
+  const raf = window.requestAnimationFrame.bind(window); let firstFrame = null;
+  window.requestAnimationFrame = cb => raf(t => { if (firstFrame === null) firstFrame = t; cb(t === firstFrame ? t - 8000 : t); });
+})();"""
+
+
+def test_first_frame_before_loop_arming_does_not_fling_the_camera(server):
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_page(viewport={"width": 640, "height": 360})
+        page.add_init_script(EARLY_FIRST_FRAME)
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.cam && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        page.wait_for_timeout(1500)   # a few frames, so the early one has been through stepCamera
+        d = page.evaluate("() => window.__mm.cam().d")
+        b.close()
+    assert all(math.isfinite(v) for v in d) and math.hypot(*d) < 100, d
