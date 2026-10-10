@@ -138,6 +138,7 @@ const en = {
   keyPhoto: 'photo: save the view as a PNG',
   keyMute: 'mute',
   keyDebug: 'debug: coordinates, building heights, map links (click the panel to copy · ?debug in the URL)',
+  creditEiffel: '3D model „Eiffel Tower" by Johnson Martin (Sketchfab), CC BY 4.0',
   keyHelp: 'this help',
   keyPause: 'pause: resume · restart race · main menu',
   // ---- pause menu (#83) ----
@@ -364,6 +365,7 @@ const de = {
   keyPhoto: 'Foto: Ansicht als PNG speichern',
   keyMute: 'Ton aus',
   keyDebug: 'Debug: Koordinaten, Gebäudehöhen, Kartenlinks (Panel anklicken zum Kopieren · ?debug in der URL)',
+  creditEiffel: '3D-Modell „Eiffel Tower" von Johnson Martin (Sketchfab), CC BY 4.0',
   keyHelp: 'diese Hilfe',
   keyPause: 'Pause: weiter · Rennen neu starten · Hauptmenü',
   pauseTitle: 'Pause',
