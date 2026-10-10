@@ -12,6 +12,19 @@ Screenshots: `docs/ai-notes/screenshots/2026-10-10-suedspange/`. **J** → „s�
 - [ ] Sections match Abbildung 2 of the report: 8 m road with the bike path 7.5 m north on sections 1–2, 7 m on sections 3–4.
 - [ ] The Baustelle and Fahrverbot signs stand beside the road and face the traffic.
 
+## Pontoon bridge (#100)
+
+Screenshot: `design/screenshots/2026-10-pontoon-bridge-sisseln.png` — hulls 0.5 m out of the water, legs on the bank ramps, posts and rail bar, olive deck: does it read as a military pontoon bridge?
+
+The key is **U** („Übergang"), not **P** as the issue asked: **P** is the pause toggle (`prototype/pause.js:18`). Free letters were L, U, Y and Z; Y/Z sit on the wrong physical key for a Swiss keyboard because the game reads `e.code`.
+
+- [ ] **J** → Sisseln, drive down the Innermattstrasse to the Rhine. The HUD shows „U · Pontonbrücke bauen"; **U** lays the bridge across in ~3 s, each bay drops in and settles. Does the build read as bay-by-bay, or too fast to see?
+- [ ] **U** again: the bridge disappears from the far end; standing on it you fall in and come back on the Innermattstrasse.
+- [ ] **U** next to the Fridolinsbrücke or the Holzbrücke: „Hier gibt es schon eine Brücke". **U** at the Sissle or 100 m from the river: „Hier ist kein Rheinufer".
+- [ ] Look: hulls 0.5 m out of the water, legs on the bank ramps, rails, the olive line on the minimap.
+- [ ] **Known limitation — needs a decision.** On the wooded banks (Auenwald) the pontoon's land ends fall behind the invisible forest-edge collision walls (#175, `prototype/index.html:1316`), so the car cannot drive from the road onto its own ramp at Innermattstrasse, and is stopped again at the far water's edge 73 m short of Murger Weg. The deck itself is fine — the car crosses all 208 m of the Rhine on it at full speed (pinned by `test_pontoon.py`). The design dry run for #100 predates #175, which is why the plan did not see this. Options: (a) let `crossingLine` prefer bank ends clear of obstacles, (b) suppress forest-edge walls under a laid deck, (c) mark the forest walls `low` so a deck above them does not collide. Pick one before calling #100 done.
+- [ ] Find a bank with no wood on either side (the Sisslerfeld / Stein stretch?) and check the full drive-on → cross → drive-off there.
+
 ## Hideout in the Hübel (#102, PR #158 — merged 2026-10-10)
 
 The gate is in **J** from the start; the cavern is secret, so start on a fresh profile (or clear `mm.hideout` in localStorage).
