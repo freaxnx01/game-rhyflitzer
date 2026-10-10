@@ -30,6 +30,7 @@ import terrain
 import osm_read
 import world_boundaries
 import world_buildings
+import world_forests
 import world_parking
 import world_props
 import world_rail
@@ -106,6 +107,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
                                              addr_nodes=data.addr_nodes, keep_ids=anchors_mod.keep_ids(spec))
     props, prop_stats = world_props.build(data.prop_nodes, data.areas, roads, clip)
     parking, park_stats = world_parking.build(data.areas, data.ways, buildings, roads, clip)
+    forests, forest_stats = world_forests.build(data.areas, roads, clip)
     if dsm_cache:
         hstats = building_heights.apply(buildings, frame,
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swisssurface3d", 0.5, "ch.swisstopo.swisssurface3d-raster"),
@@ -116,6 +118,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     log(f"roads {len(roads)}, trails {len([r for r in roads if r.get('trail')])}, junctions {len(junctions)}, "
         f"water {len(polys)}, buildings {len(buildings)} {stats}, "
         f"rail {len(rail)}, rail bridges {len(rail_bridges)}, props {len(props)} {prop_stats}, parking {len(parking)} {park_stats}, "
+        f"forests {len(forests)} {forest_stats}, "
         f"boundaries {len(boundaries)}")
     return {
         "format": "MMW1",
@@ -136,6 +139,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "railBridges": rail_bridges,
         "props": props,
         "parking": parking,
+        "forests": forests,
         "boundaries": boundaries,
         "anchors": resolved,
     }

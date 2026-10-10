@@ -95,9 +95,10 @@ def test_sim_driveAtATree_stopsInFrontOfTheTrunk(server):
 
 @needs_world
 def test_no_tree_reaches_a_road(server):
-    """No tree collider can touch a car whose centre is on a road: trees never block driving."""
+    """No tree collider can touch a car whose centre is on a road: trees never block driving. The forest trees (#13)
+    count too: the 8 m forest mask can put a fill tree inside a road corridor, only free() keeps it off the asphalt."""
     with sync_playwright() as p:
         b, page = open_world(p, server)
-        n = page.evaluate("() => [window.__mm.treesOnRoad(), window.__TREES.length]")
+        n = page.evaluate("() => [window.__mm.treesOnRoad(), window.__TREES.length + (window.__FOREST || []).length]")
         b.close()
     assert n[1] > 1000 and n[0] == 0, n

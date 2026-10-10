@@ -310,7 +310,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutReach, cutFloorAt, cutBounds, wallStations, patchCells, triLerp, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
@@ -497,6 +497,7 @@ if (!WORLD && !REGION.handFallback) { REGION_FALLBACK = REGION.name; REGION = RE
 let REAL_SRC = 'uploaded';
 const REAL = await (async () => { let buf = await idbGet(REGION.idbKey); if (!buf) { REAL_SRC = 'bundled'; buf = await fetch(REGION.terrain).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null); } if (!buf) return null; try { return parseMMH(buf); } catch (e) { return null; } })();
 const L = WORLD && WORLD.format === 'MMW1' ? layoutFromWorld(WORLD) : null;
+const FOREST = forestIndex(L ? L.forests : []);   // #13: 8 m bit mask of the OSM woods; always answers false in the hand layout
 const SDF = L ? sdfSampler(L.sdf) : null, WATER = L ? waterIndex(L.water) : null;
 if (L) { ROADS = L.roads; BRIDGES = []; }
 for (const r of ROADS) for (let i = 0; i < r.pts.length - 1; i++) gridAddSegment(ROAD_GRID, ...r.pts[i], ...r.pts[i + 1], r.w / 2 + 2, { r, i });
@@ -942,9 +943,10 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   const { GW, GD } = TGRID;
   const ground = new THREE.PlaneGeometry(GW, GD, TGRID.nx, TGRID.nz); ground.rotateX(-Math.PI / 2); ground.translate(TGRID.x0 + GW / 2, 0, TGRID.z0 + GD / 2);
   const BED_COL = col('#8c7b5a');   // #101: the sandy riverbed
-  const lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'), groundCol = (h) => { const t = sm(h / 90); return t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); };
+  // #13: a vertex inside a wood is blended halfway to the forest floor (visible in the Original style, which draws the ground with vertex colours)
+  const lo = col('#6f8a4a'), mid = col('#5d7a40'), hi = col('#3f5a35'), floor = col('#2f4a2c'), groundCol = (h, x, z) => { const t = sm(h / 90); const c = t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2); return FOREST.inside(x, z) ? c.lerp(floor, 0.5) : c; };
   // #101: a terrain vertex inside the Rhine goes down to the bed, in sand (the smooth style ignores vertex colours: green there)
-  const groundVertex = (x, z) => { const h = terrainH(x, z), rd = riverDist(x, z), wl = rd < 0 ? waterLevelAt(x, z, 1e4) : null; return wl === null ? { h, c: groundCol(h) } : { h: Math.min(h, wl - bedDepth(rd)), c: BED_COL }; };
+  const groundVertex = (x, z) => { const h = terrainH(x, z), rd = riverDist(x, z), wl = rd < 0 ? waterLevelAt(x, z, 1e4) : null; return wl === null ? { h, c: groundCol(h, x, z) } : { h: Math.min(h, wl - bedDepth(rd)), c: BED_COL }; };
   { const p = ground.attributes.position, uv = ground.attributes.uv, cArr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); const { h, c } = groundVertex(x, z); p.setY(i, h); uv.setXY(i, uv.getX(i) * GW / 20, uv.getY(i) * GD / 20); cArr[i * 3] = c.r; cArr[i * 3 + 1] = c.g; cArr[i * 3 + 2] = c.b; } ground.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); ground.computeVertexNormals(); }
   if (CUT_CELLS.size) { // #76: drop the coarse cells under a cut and draw their 1 m patches (the same heights terrainH returns)
     const p = ground.attributes.position, idx = ground.index.array, keep = [];
@@ -959,13 +961,13 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const [i, j] = key.split(',').map(Number), g = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N);
     g.rotateX(-Math.PI / 2); g.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
     const q = g.attributes.position, uv = g.attributes.uv, cArr = new Float32Array(q.count * 3);
-    for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = terrainH(x, z), c = groundCol(h); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
+    for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = terrainH(x, z), c = groundCol(h, x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
     g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals(); parts.grass.push(g.toNonIndexed());
   }
   // streams: water draped on the ground like a road (a flat level cannot follow a stream that falls 25 m), 2 cm under road height
   if (L) for (const st of L.streams) { const g = ribbonGeo(st.pts, st.w / 2, 0.02, 6, true); colorize(g, col('#ffffff')); push('water', g); g.userData.surf.name = st.name; registerSurface(g.userData.surf, STREAM_GRID); }
   // fields: the whole rotated rectangle must stay off roads and the river, and it is draped on the terrain
-  const fieldClear = (x, z, w, d, rot) => { const c = Math.cos(rot), s = Math.sin(rot), nu = Math.ceil(w / 5), nv = Math.ceil(d / 5); for (let a = 0; a <= nu; a++) for (let b = 0; b <= nv; b++) { const u = -w / 2 + w * a / nu, v = -d / 2 + d * b / nv, px = x + u * c + v * s, pz = z - u * s + v * c; if (roadDist(px, pz) < 3 || riverDist(px, pz) < 20 || streamH(px, pz) > -Infinity) return false; } return true; };
+  const fieldClear = (x, z, w, d, rot) => { const c = Math.cos(rot), s = Math.sin(rot), nu = Math.ceil(w / 5), nv = Math.ceil(d / 5); for (let a = 0; a <= nu; a++) for (let b = 0; b <= nv; b++) { const u = -w / 2 + w * a / nu, v = -d / 2 + d * b / nv, px = x + u * c + v * s, pz = z - u * s + v * c; if (roadDist(px, pz) < 3 || riverDist(px, pz) < 20 || streamH(px, pz) > -Infinity || FOREST.inside(px, pz)) return false; } return true; };
   for (let i = 0; i < 40; i++) { const x = rr(-2400, 2400), z = rr(-1100, 1240), w = rr(120, 260), d = rr(90, 200), rot = rr(-0.3, 0.3); if (riverDist(x, z) < 200 || terrainH(x, z) > 2.5 || Math.abs(terrainH(x + w / 2, z + d / 2) - terrainH(x - w / 2, z - d / 2)) > 1.5 || !fieldClear(x, z, w, d, rot)) continue; const g = new THREE.PlaneGeometry(w, d, Math.ceil(w / 20), Math.ceil(d / 20)); g.rotateX(-Math.PI / 2); g.rotateY(rot); g.translate(x, 0, z); const p = g.attributes.position; for (let k = 0; k < p.count; k++) p.setY(k, terrainH(p.getX(k), p.getZ(k)) + 0.02); const u = g.attributes.uv; for (let k = 0; k < u.count; k++) u.setXY(k, u.getX(k) * w / 20, u.getY(k) * d / 20); g.computeVertexNormals(); colorize(g, col(rnd() < 0.5 ? '#b9a86a' : '#8fa04e')); push('field', g); }
   // the Rhine: gravel shore, water, current layer
   if (!L) {
@@ -1122,12 +1124,27 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // #127: only the Hochrhein world has the Sisseln forest box, so another region's trees come from the height alone
   const TREES = [], SW = L ? (L.anchors.areas.sisselnWald || null) : [1960, -520, 2500, -300]; if (!L) { const pts = RIVER.pts; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; for (let t = 0; t < L; t += 22) for (const s of [-1, 1]) { const o = RIVER.hw + 20 + rr(0, 14); const tx = x0 + ux * t - uz * o * s + rr(-4, 4), tz = z0 + uz * t + ux * o * s + rr(-4, 4); if (!onBridge(tx, tz) && roadDist(tx, tz) > 4 && BRIDGES.every(b => segDist(tx, tz, ...b.a, ...b.b) > 12)) TREES.push([tx, tz, rr(8, 13)]); } } }
   const PARKING = parkingIndex(L ? L.parking : []), TREE_CROWN = 0.45;   // #72: a tree's footprint (billboards are h x 0.9 wide) stays off the car parks
+  // #13: a world file with OSM woods replaces the heuristic forests (box, height line, fbm); one without them keeps the heuristic
+  const OSM_WOODS = !!(L && L.forests.length);
   const [bx0, bx1, bz0, bz1] = REGION.treeBox;   // #127: the scatter box and the forest line are the region's (Hochrhein's are today's values)
-  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55); if (!forest && rnd() > 0.12) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
+  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = !OSM_WOODS && (sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55)); if (!forest && rnd() > 0.12) continue; if (FOREST.inside(tx, tz)) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
   // #131: trees are solid at the trunk. After the loop, so free() above never sees a tree (forest density unchanged);
-  // OSM forests (#13) only need to push into TREES before this line.
+  // The OSM forest trees (#13) are a separate list below, stopped by edge walls instead of a collider each.
   for (const [x, z, h] of TREES) addSolid(treeCollider(x, z, h, terrainH(x, z)));
   window.__TREES = TREES;
+  // #13: the real woods -- edge row + fill from the OSM outlines, through the same filters as the scatter. A wood holds
+  // tens of thousands of trees, so they stay a separate list with no collider each (that would be 70 k circles in
+  // OBB_GRID): the edge walls below stop the car instead. They come last, because free() reads an OBB as a circle of
+  // radius hypot(hw, hd) -- a 48 m wall added any earlier would clear every tree within 26 m of it.
+  const FOREST_TREES = [];
+  if (L && L.forests.length) {
+    const edges = forestEdges(L.forests, FOREST), placed = forestTrees(L.forests, FOREST, edges, rng(13));
+    for (const [x, z, h] of [...placed.edge, ...placed.fill])
+      if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
+    for (const e of edges) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: terrainH(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap
+    window.__mm.counts.forest = { polys: L.forests.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, walls: edges.length };
+  }
+  window.__FOREST = FOREST_TREES;
   streetNames();
   // Ortstafeln: Swiss blue on Hauptstrassen, German yellow across the Rhine (hand path only; OSM city-limit signs are a follow-up)
   if (!L) {
@@ -1217,6 +1234,26 @@ const treeBill = new THREE.Mesh(mergeGeometries(treeGeos, false)); treeBill.user
 const coneG = new THREE.ConeGeometry(1, 1, 7); coneG.translate(0, 0.5, 0); const trunkG = new THREE.CylinderGeometry(0.12, 0.16, 1, 6); trunkG.translate(0, 0.5, 0);
 const treeCone = new THREE.InstancedMesh(coneG, new THREE.MeshStandardMaterial({ color: 0x4f8a4a, flatShading: true, roughness: 1 }), window.__TREES.length); const treeTrunk = new THREE.InstancedMesh(trunkG, new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 }), window.__TREES.length);
 { const m = new THREE.Matrix4(), c = new THREE.Color(); window.__TREES.forEach(([x, z, h, ty], i) => { m.compose(new THREE.Vector3(x, ty + h * 0.28, z), new THREE.Quaternion(), new THREE.Vector3(h * 0.42, h * 0.75, h * 0.42)); treeCone.setMatrixAt(i, m); c.setHSL(0.3 + rr(-0.04, 0.04), 0.4, 0.3 + rr(0, 0.12)); treeCone.setColorAt(i, c); m.compose(new THREE.Vector3(x, ty, z), new THREE.Quaternion(), new THREE.Vector3(h * 0.9, h * 0.3, h * 0.9)); treeTrunk.setMatrixAt(i, m); }); treeCone.castShadow = treeTrunk.castShadow = true; scene.add(treeCone, treeTrunk); }
+// #13: forest trees per 512 m tile -- one InstancedMesh per tile and representation, so three.js culls whole tiles; 14 triangles per tree, no shadows
+const FOREST_MESHES = [];
+{ const tiles = new Map(); for (const t of window.__FOREST) { t[3] = terrainH(t[0], t[1]); const k = tileKey(t[0], t[1], FOREST_BUDGET.tile); if (!tiles.has(k)) tiles.set(k, []); tiles.get(k).push(t); }
+  const fcone = new THREE.ConeGeometry(1, 1, 6, 1, true); fcone.translate(0, 0.5, 0); const ftrunk = new THREE.CylinderGeometry(0.12, 0.16, 1, 4, 1, true); ftrunk.translate(0, 0.5, 0);
+  const fbill = mergeGeometries([0, Math.PI / 2].map(r => { const g = new THREE.PlaneGeometry(0.9, 1); g.translate(0, 0.5, 0); g.rotateY(r); return g; }), false); colorize(fbill, col('#ffffff'));
+  const coneMat = new THREE.MeshStandardMaterial({ color: 0x4f8a4a, flatShading: true, roughness: 1 }), trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 });
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color(), frnd = rng(31);
+  for (const list of tiles.values()) {
+    const cone = new THREE.InstancedMesh(fcone, coneMat, list.length), trunk = new THREE.InstancedMesh(ftrunk, trunkMat, list.length), bill = new THREE.InstancedMesh(fbill, new THREE.MeshBasicMaterial(), list.length);
+    list.forEach(([x, z, h, ty], i) => {
+      q.identity(); m.compose(new THREE.Vector3(x, ty + h * 0.28, z), q, new THREE.Vector3(h * 0.42, h * 0.75, h * 0.42)); cone.setMatrixAt(i, m);
+      c.setHSL(0.3 + (frnd() - 0.5) * 0.08, 0.4, 0.3 + frnd() * 0.12); cone.setColorAt(i, c);
+      m.compose(new THREE.Vector3(x, ty, z), q, new THREE.Vector3(h * 0.9, h * 0.3, h * 0.9)); trunk.setMatrixAt(i, m);
+      q.setFromAxisAngle(up, (frnd() - 0.5) * 0.4); m.compose(new THREE.Vector3(x, ty, z), q, new THREE.Vector3(h, h, h)); bill.setMatrixAt(i, m);
+    });
+    for (const im of [cone, trunk, bill]) { im.computeBoundingSphere(); scene.add(im); }
+    FOREST_MESHES.push({ cone, trunk, bill });
+  }
+  if (window.__mm.counts.forest) window.__mm.counts.forest.tiles = tiles.size;
+}
 // checkpoints and finish
 const cpMat = new THREE.MeshBasicMaterial({ color: 0xffc61a, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }), cpMatDone = new THREE.MeshBasicMaterial({ color: 0x7fe0a0, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false });
 const cpObjs = CPS.map((c) => { const g = new THREE.Group(); const pillar = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 40, 16, 1, true), cpMat); pillar.position.y = 20; const ring = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.35, 8, 24), new THREE.MeshBasicMaterial({ color: 0xffc61a })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.6; g.add(pillar, ring); g.position.set(c.x, groundH(c.x, c.z), c.z); scene.add(g); return { g, pillar, ring, done: false }; });
@@ -1353,7 +1390,7 @@ const STYLES = {
     mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); treeBill.visible = St.trees === 'bill'; treeCone.visible = treeTrunk.visible = St.trees === 'cone'; skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); treeBill.visible = St.trees === 'bill'; treeCone.visible = treeTrunk.visible = St.trees === 'cone'; { const fm = St.mat('tree'); for (const f of FOREST_MESHES) { f.bill.material = fm; f.bill.visible = St.trees === 'bill'; f.cone.visible = f.trunk.visible = St.trees === 'cone'; } } skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); renderStyleName(); resize(); }
 // #101: under the surface -- murky blue-green fog, the sky sphere in the same colour, dimmer and cooler light, no sun disc; off restores the style.
 // The bed content (boulders, weed, fish, wrecks) is only drawn while under: through the 0.96-opaque surface nobody sees it anyway.
 const HEMI_SKY = { dry: col('#dfe8ff'), wet: col('#8fd0d6') };
@@ -1488,9 +1525,10 @@ window.__mm.crossings = () => CUTS.map(c => {
            railGap: Math.max(...ends.map(([[x, z], h]) => Math.abs(Math.max(terrainH(x, z), roadSurfH(x, z)) - h))) };
 });
 window.__mm.rayHits = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
-window.__mm.treesOnRail = () => (window.__TREES || []).filter(([x, z]) => railDist(x, z) < 4).length;
+window.__mm.treesOnRail = () => [...(window.__TREES || []), ...(window.__FOREST || [])].filter(([x, z]) => railDist(x, z) < 4).length;
 window.__mm.treeTrunkR = treeTrunkR;
-window.__mm.treesOnRoad = () => (window.__TREES || []).filter(([x, z, h]) => roadDist(x, z) < carRadius() + treeTrunkR(h)).length;   // #131: must stay 0
+window.__mm.mapBoxes = () => OBB.filter(o => !o.bridge).length;   // the rectangles the static minimap paints (#13: no forest walls)
+window.__mm.treesOnRoad = () => [...(window.__TREES || []), ...(window.__FOREST || [])].filter(([x, z, h]) => roadDist(x, z) < carRadius() + treeTrunkR(h)).length;   // #131: must stay 0
 // playtest: "die Räder versinken im Asphalt" -> how far is the drawn road surface above the height the car drives on?
 window.__mm.sinkCheck = (n = 300) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.roadPlain, MESH.motorway].filter(Boolean); const pts = []; for (const r of ROADS) if (!r.bridge) for (let i = 0; i < r.pts.length - 1; i++) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0, 0], [0.5, 0], [0.4, 0.7], [0.6, -0.7]]) pts.push([x0 + (x1 - x0) * t + nx * o * r.w / 2, z0 + (z1 - z0) * t + nz * o * r.w / 2]); } if (L) for (const [x, z, r] of L.junctions) for (let a = 0; a < 6; a++) pts.push([x + Math.cos(a) * r * 0.8, z + Math.sin(a) * r * 0.8]); for (const k of KREISEL) for (let a = 0; a < 12; a++) pts.push([k.x + Math.cos(a / 2) * 15, k.z + Math.sin(a / 2) * 15]); let worst = 0, at = null, bad = 0, done = 0, water = 0; const step = Math.max(1, Math.floor(pts.length / n)); for (let k = 0; k < pts.length; k += step) { const [x, z] = pts[k]; if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 12).length || waterLevelAt(x, z, 1e4) !== null) { water++; continue; } ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(road, false)[0]; if (!h) continue; const d = h.point.y - groundH(x, z, h.point.y); done++; if (d > 0.08) bad++; if (d > worst) { worst = d; at = [Math.round(x), Math.round(z)]; } } return { worst, at, bad, done, water }; };
 // raycast road points from above: how far does grass or a field rise above the road surface? (playtest: "Feld/Wiese überdeckt Strasse")

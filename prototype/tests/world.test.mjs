@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, junctionCap, cutFloor, cutReach, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -560,4 +560,70 @@ test('villageNames: nothing inside a village, other bank only near the border', 
   assert.ok(near(atBank[1].opacity, 0.5));
   assert.deepEqual(villageNames(V, 0, 500, river).map(l => [l.t, l.opacity]), [['HOME', 0.5], ['NEAR', 0.5]]); // 100 m outside HOME
   assert.deepEqual(Object.keys(atBank[0]), ['t', 'x', 'z', 'd', 'opacity', 'h']);
+});
+
+const SQUARE = { ring: [[0, 0], [100, 0], [100, 100], [0, 100]] };
+const WITH_HOLE = { ring: [[0, 0], [200, 0], [200, 200], [0, 200]], holes: [[[80, 80], [120, 80], [120, 120], [80, 120]]] };
+
+test('rng is deterministic and in [0, 1)', () => {
+  const a = rng(13), b = rng(13), xs = Array.from({ length: 5 }, () => a());
+  assert.deepEqual(xs, Array.from({ length: 5 }, () => b()));
+  assert.ok(xs.every(v => v >= 0 && v < 1) && new Set(xs).size === 5);
+});
+
+test('forestIndex: inside, outside, hole, island in a hole, empty', () => {
+  const fi = forestIndex([WITH_HOLE, { ring: [[90, 90], [110, 90], [110, 110], [90, 110]] }]);
+  assert.equal(fi.step, 8);
+  assert.equal(fi.inside(40, 40), true);
+  assert.equal(fi.inside(-20, 40), false);
+  assert.equal(fi.inside(300, 300), false);
+  assert.equal(fi.inside(84, 84), false);      // clearing
+  assert.equal(fi.inside(100, 100), true);     // island wood inside the clearing
+  assert.equal(forestIndex([]).inside(0, 0), false);
+});
+
+test('forestEdges: inward normals point to the centre, long edges are split, slivers get no normal', () => {
+  const fi = forestIndex([SQUARE]);
+  const e = forestEdges([SQUARE], fi);
+  assert.equal(e.length, 4 * 3);                                       // 100 m sides split into 3 x 33.3 m
+  for (const s of e) {
+    assert.ok(Math.abs(s.len - 100 / 3) < 1e-9);
+    const px = s.mx + s.nx * 10, pz = s.mz + s.nz * 10;              // 10 m along the normal lands inside
+    assert.ok(px > 0 && px < 100 && pz > 0 && pz < 100, JSON.stringify(s));
+    assert.ok(Math.abs(Math.hypot(s.nx, s.nz) - 1) < 1e-9);
+  }
+  const sliver = { ring: [[0, 0], [100, 0], [100, 3], [0, 3]] };       // 3 m wide: no mask cell inside on either side
+  const se = forestEdges([sliver], forestIndex([sliver]));
+  assert.ok(se.some(s => s.nx === 0 && s.nz === 0));
+  assert.deepEqual(forestEdges([], forestIndex([])), []);
+});
+
+test('forestTrees: seeded, edge every 6 m, fill one per 600 m2, cap thins the fill only', () => {
+  const fi = forestIndex([SQUARE]), edges = forestEdges([SQUARE], fi);
+  const a = forestTrees([SQUARE], fi, edges, rng(13)), b = forestTrees([SQUARE], fi, edges, rng(13));
+  assert.deepEqual(a, b);
+  assert.ok(Math.abs(a.edge.length - 400 / 6) <= 8, a.edge.length);       // 12 segments x round(33.3 / 6) = 72
+  assert.ok(Math.abs(a.fill.length - 10000 / 600) <= 10, a.fill.length);   // the 8 m mask rounds the square out to ~104 m
+  assert.equal(a.thinned, 0);
+  for (const [x, z, h] of a.edge) { assert.ok(x > -0.01 && x < 100.01 && z > -0.01 && z < 100.01); assert.ok(h >= 7 && h < 12); }
+  for (const [, , h] of a.fill) assert.ok(h >= 8 && h < 14);
+  const capped = forestTrees([SQUARE], fi, edges, rng(13), { ...FOREST_BUDGET, cap: a.edge.length + 5 });
+  assert.equal(capped.edge.length, a.edge.length);
+  assert.equal(capped.fill.length, 5);
+  assert.equal(capped.thinned, a.fill.length - 5);
+  const tight = forestTrees([SQUARE], fi, edges, rng(13), { ...FOREST_BUDGET, cap: 10 });
+  assert.equal(tight.edge.length, a.edge.length);                        // the edge row is never thinned
+  assert.equal(tight.fill.length, 0);
+});
+
+test('tileKey groups by 512 m cells', () => {
+  assert.equal(tileKey(10, 10, 512), '0,0');
+  assert.equal(tileKey(-1, 600, 512), '-1,1');
+  assert.equal(tileKey(1023.9, -0.1, 512), '1,-1');
+});
+
+test('layoutFromWorld passes forests and defaults to an empty list (#13)', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: { landmarks: {}, cps: [], labels: [], areas: {} } };
+  assert.deepEqual(layoutFromWorld(base).forests, []);
+  assert.deepEqual(layoutFromWorld({ ...base, forests: [SQUARE] }).forests, [SQUARE]);
 });

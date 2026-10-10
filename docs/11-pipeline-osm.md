@@ -19,6 +19,7 @@ Replaces the prototype's hand-traced roads, river and houses with real ones from
 - `world_props.py`: street furniture (lamps, hydrants, benches, bins, bike racks, recycling containers).
 - `world_boundaries.py`: Gemeinde boundaries (OSM admin_level 8) as lines.
 - `world_parking.py`: car parks (open-air and roadside `amenity=parking`) with painted bay lines.
+- `world_forests.py`: woods (`landuse=forest`, `natural=wood`) as merged outlines with the roads and car parks cut out.
 - `anchors.py` + `anchors.json`: landmarks, start, checkpoints, finish, labels, areas, resolved from OSM ids.
 
 ## Run it
@@ -64,6 +65,7 @@ Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two 
   "railBridges": [{ layer, pts: [[x, z], ...] }],
   "props":     [{ kind, x, z, rot }],
   "parking":   [{ id, name?, ring: [[x, z], ...], holes?, bays, lines: [[ax, az, bx, bz], ...], sign?: [x, z, rot] }],
+  "forests":   [{ ring: [[x, z], ...], holes?: [[[x, z], ...]] }],
   "boundaries": [{ id, names: [a, b], pts: [[x, z], ...] }],
   "anchors":   { landmarks, cps, labels, areas, start, finish }
 }
@@ -113,9 +115,11 @@ Counts measured on the 2026-10-01 extract while the design was written; the buil
 
 **Car parks.** `amenity=parking` areas with `parking=surface`, `street_side` or no `parking` tag become `parking` entries (`lane`, `underground` and `multi-storey` are skipped). Bays, first match wins: mapped `amenity=parking_space` areas inside the lot; else rows of 2.5 × 5 m bays on both sides of every `service=parking_aisle` through the lot; else a rule on the lot's minimum rotated rectangle (narrower than 3.5 m: parallel bays 6 m long; under 7 m: one row across the strip; under 16 m: one row away from the road; wider: two rows). Bays overlapping a house, a road band, an aisle or each other by more than 0.5 m² are dropped (touching a wall is fine); a numeric `capacity` keeps the bays nearest the lot's centre. Each lot exports its outline, the bay count and deduplicated bay edges without the open fronts; named lots get a sign position by the nearest road. Design: `docs/superpowers/specs/2026-10-02-car-parks-design.md`.
 
+**Forests (#13).** `landuse=forest` and `natural=wood` areas are repaired, clipped and merged into one set of outlines. Every exported road — bridges and footways included — cuts a corridor of `w/2 + 5 m` through them, car parks are cut out with 3 m, parts and holes under 500 m² are dropped, and the rings are simplified by 1 m and rounded to 0.1 m. Names and `leaf_type` are not kept (2 of 595 areas are named). The prototype places the trees itself from the outlines (edge row every 6 m, fill 1/600 m², cap 70,000, seeded) and puts invisible 1.6 m walls along every edge, so the car cannot enter a wood but drives every road through one. Real extract: about 160 parts, 15.7 km², 248 km of edge, ≈ 115 KB. Design: `docs/superpowers/specs/2026-10-03-forests-design.md`.
+
 **Water.** Rivers, lakes and riverbanks as polygons, cut into chunks along the river. Each chunk gets a level: the median of the measured terrain inside it, ignoring DEM nodata (exactly 0.0). Chunks with no valid sample inherit their polygon's median, narrow polygons use the terrain at a representative point, and all-nodata means 0.0. The Rhine sits about 5.5 m above the base near Sisseln (the Säckingen power plant reservoir), about -1.5 m downstream, with a step of about 7 m at the Säckingen weir. The base height 284 m is **not** the Sisseln water level.
 
-**Anchors.** `anchors.json` resolves OSM ids to positions: Smile-Kreisel, stations, churches, the two bridges, the DSM chimney (about 140 m) and water tower (about 59 m), Plattform Sisslerfeld (position only, no model), start, checkpoints, finish, minimap labels and areas such as the forest and DSM-Firmenich. The checkpoints snap to the nearest road in the prototype.
+**Anchors.** `anchors.json` resolves OSM ids to positions: Smile-Kreisel, stations, churches, the two bridges, the DSM chimney (about 140 m) and water tower (about 59 m), Plattform Sisslerfeld (position only, no model), start, checkpoints, finish, minimap labels and areas such as DSM-Firmenich and the Winkelacker quarter. The woods are not an anchor: they come from OSM (see **Forests**). The checkpoints snap to the nearest road in the prototype.
 
 ## Second region: Ehrendingen (#127)
 

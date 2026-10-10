@@ -66,3 +66,19 @@ def test_ehrendingen_loads_and_j_reaches_boendlern_and_the_wanderweg(server):
             if on_trail:
                 assert page.evaluate("() => window.__mm.onTrail()")
         b.close()
+
+
+@needs_ehr
+def test_ehrendingen_has_its_osm_woods(server):
+    """#13: the second region draws its own OSM woods (edge walls included), and no forest tree reaches a road."""
+    forests = json.loads(EHR_WORLD.read_text(encoding="utf-8")).get("forests", [])
+    if not forests:
+        pytest.skip("Ehrendingen world predates #13")
+    with sync_playwright() as p:
+        b, page = boot(p, server, "?region=ehrendingen")
+        f = page.evaluate("() => window.__mm.counts.forest")
+        on_road = page.evaluate("() => window.__mm.treesOnRoad()")
+        b.close()
+    assert f["polys"] == len(forests), f
+    assert f["trees"] > 5000 and f["walls"] > 1000 and f["thinned"] == 0, f
+    assert on_road == 0
