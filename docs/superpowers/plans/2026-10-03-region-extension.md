@@ -1,5 +1,9 @@
 # Region extension (Rheinfelden west, Schupfart south, Laufenburg east) — implementation plan
 
+> **Split 2026-10-10:** #47 (south to Flugplatz Schupfart) was split out of this batch by the maintainer and has its own
+> spec and plan (`2026-10-10-region-south-schupfart-*`, Swiss data only). This document now covers #19 (east) and #44
+> (west). The south edge stays 47.532 here unless #47 has landed; see #19's body for the ordering and what to skip.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to carry out this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Grow the map in one pipeline run to Rheinfelden/Feldschlösschen (#44), Flugplatz Schupfart (#47) and Laufenburg with bridge and customs post (#19). Add measured German terrain (LGL DGM1) and five new J-list jump targets.

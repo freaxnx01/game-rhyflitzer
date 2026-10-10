@@ -1,5 +1,9 @@
 # Region extension west, south and east (Rheinfelden, Schupfart, Laufenburg) — design
 
+> **Split 2026-10-10:** #47 (south to Flugplatz Schupfart) was split out of this batch by the maintainer and has its own
+> spec and plan (`2026-10-10-region-south-schupfart-*`, Swiss data only). This document now covers #19 (east) and #44
+> (west). The south edge stays 47.532 here unless #47 has landed; see #19's body for the ordering and what to skip.
+
 Status: written in headless enrichment (`/enrich 44|47|19 --headless`, one batch) 2026-10-03 · Issues #44 (west), #47 (south), #19 (east) · **D1 and D2 confirmed by the maintainer 2026-10-03** (as proposed; customs post = Zollstation Laufenburg; ship, measure, chunk later)
 
 ## Goal
