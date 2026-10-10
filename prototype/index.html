@@ -325,7 +325,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
-import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, segmentInHideout, ringStations, ringArc, eiffelParts } from './hideout.js';
+import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, HALL_CAM, TOWER_SPOTS, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, stubPts, nodeR } from './hideout.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -667,11 +667,12 @@ function makeCut(c) {
   cut.depth = Math.max(0, groundAt(0) - cut.f0);
   return cut;
 }
-// #102: the hideout's two cuts (hideout.js) ride the same patch machinery, from their own array: CUTS stays rail-only for
-// __mm.crossings and the #119 walls. Built on the measured terrain only -- the made-up hills have no Hübel.
-const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...hideoutCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, lidTris: 0, lidCells: new Set(), floor: null }; })() : null;
+// #102 / #201: the hideout's cuts (hideout.js: T1, the rooms and corridors of the cave system) ride the same patch machinery,
+// from their own array: CUTS stays rail-only for __mm.crossings and the #119 walls. Built on the measured terrain only -- the
+// made-up hills have no Hübel.
+const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...caveCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, stubs: 0, lidTris: 0, floorTris: 0, lidCells: new Set(), floor: null, ring: {}, rooms: null, lights: [] }; })() : null;
 // the rail arms (ARMS) plus the hideout's cuts: everything that lowers the patches
-const patchCuts = () => HIDE ? [...ARMS, ...[HIDE.tunnel, HIDE.cavern].filter((c) => c.depth > 0)] : ARMS;
+const patchCuts = () => HIDE ? [...ARMS, ...HIDE.cuts.filter((c) => c.depth > 0)] : ARMS;
 function cutFloorMin(x, z) {
   let f = Infinity;
   for (const a of patchCuts()) { const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue; const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
@@ -686,7 +687,7 @@ function buildCuts() {
   // wall's outer face, so nothing behind a wall is lowered
   for (const c of CUTS) if (c.depth > 0) for (const a of [c, ...c.arms]) { a.lat = a.hw + UNDERPASS.margin + UNDERPASS.wall - PATCH_BLEED; a.bounds = cutBounds(a); ARMS.push(a); }
   const G = TGRID, W = CUT_N + 1;
-  if (HIDE) for (const c of [HIDE.tunnel, HIDE.cavern]) c.bounds = cutBounds(c, c.u);
+  if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);
   const fillCell = (i, j) => {
     const p = new Float32Array(W * W); let lowered = false;
     for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(gradedH(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
@@ -699,11 +700,15 @@ function buildCuts() {
 }
 if (L) buildCuts();
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
-function roofedAt(x, z) { return !!HIDE && roofed(x, z, HIDE.portal); }
+function roofedAt(x, z) { return !!HIDE && caveRoofed(x, z, HIDE.portal); }
 // the lid reaches TUNNEL.wall further out than the corridor, over the trough walls and the cut's edge (drawn and solid)
-function underLid(x, z) { return !!HIDE && roofed(x, z, HIDE.portal, HIDEOUT, TUNNEL, TUNNEL.wall); }
+function underLid(x, z) { return !!HIDE && caveRoofed(x, z, HIDE.portal, TUNNEL.wall); }
 function lidH(x, z) { return underLid(x, z) ? meshH(x, z) - 0.6 : null; }
+// #201: the ceiling of the cave at (x, z): tunnels capped at 12 m, the hall's shell 380 m up, R0/N1/stubs the hill's underside
+function ceilingH(x, z) { return HIDE ? ceilingAt(x, z, meshH, HIDE.portal) : null; }
 function skyGroundH(x, z) { const g = groundH(x, z, 1e4); return roofedAt(x, z) ? Math.max(g, meshH(x, z)) : g; }
+// #201: the ground things on the surface stand on: the hill over the roofed system, the terrain (cut floors included) elsewhere
+function lidGround(x, z) { return roofedAt(x, z) ? meshH(x, z) : terrainH(x, z); }
 // water surface at (x, z) for an object at height y, null on land or on a bridge; the river bed is bedDepth under it (groundH, #101)
 function waterLevelAt(x, z, y) { if (onBridge(x, z, y)) return null; const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null || !L) return wl; const sh = streamH(x, z); return sh > -Infinity && roadSurfH(x, z) === -Infinity ? sh : null; }
 // roundabouts drawn so far: groundH lifts the car onto the cobble apron (radius 11.6, top 0.375 m) instead of sinking into it
@@ -748,6 +753,9 @@ else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has 
 // ---------- geometry builders ----------
 const parts = {};
 const UWS = { on: false };   // #101: true while the camera is under the water surface (setUnderwater switches the look)
+// #201: cave mode -- on while the car is under the hill (caveInside); group = the hall's interior, drawn only then (setCave)
+const CAVE_MODE = { on: false, group: null, placeholder: null, model: null, eiffel: null };
+const CAVE_CAM = { hall: 0 };   // #201: 0..1, how far the chase camera has tilted up for the hall (eased in stepCamera)
 function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.toNonIndexed() : geo); }
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
@@ -792,7 +800,42 @@ function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // 
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.userData.surf = { pts, hw, hl, hr }; return g;
 }
 function strip(pts, w, y, role, c, tileLen = 8, hFn = null) { const pos = [], uv = [], nrm = []; let dist = 0; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz); const nx = -dz / L * w / 2, nz = dx / L * w / 2; const segs = hFn ? Math.ceil(L / 5) : 1; for (let s = 0; s < segs; s++) { const t0 = s / segs, t1 = (s + 1) / segs; const ax = x0 + dx * t0, az = z0 + dz * t0, bx = x0 + dx * t1, bz = z0 + dz * t1; const ya = hFn ? hFn(ax, az) + y : y, yb = hFn ? hFn(bx, bz) + y : y; const d0 = dist + L * t0, d1 = dist + L * t1; const A = [ax - nx, ya, az - nz], B = [ax + nx, ya, az + nz], C = [bx + nx, yb, bz + nz], D = [bx - nx, yb, bz - nz]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } uv.push(0, d0 / tileLen, 1, d0 / tileLen, 1, d1 / tileLen, 0, d0 / tileLen, 1, d1 / tileLen, 0, d1 / tileLen); } dist += L; } return rawGeo(pos, nrm, uv, 0, 0, 0, c, role); }
-function disc(x, z, r, y, role, c) { const g = new THREE.RingGeometry(0, r, 14, 3); g.rotateX(-Math.PI / 2); g.translate(x, 0, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const vx = p.getX(i), vz = p.getZ(i); p.setY(i, Math.max(terrainH(vx, vz) + y, roadSurfH(vx, vz) + 0.01)); } const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * r / 4, uv.getY(i) * r / 4); colorize(g, c); push(role, g); }
+// #201: a 16 m terrain cell as triangles ([x, y, z] x 3) in 4 m sub-blocks: a sub-block whose 5 x 5 samples (1 m apart) all
+// pass `whole` and whose surface hAt is planar over them is 2 triangles, else it is the 1 m grid, keeping each triangle whose
+// centroid passes `keep`. The split (the diagonal from (x, z + d) to (x + w, z)) is the ground mesh's own, so a 2-triangle
+// sub-block is exact on meshH, and a sub-block's edge samples are the 1 m grid's nodes, so a neighbour at 1 m shows no crack.
+function cellTris(i, j, hAt, whole, keep) {
+  const G = TGRID, x0 = G.x0 + i * G.dx, z0 = G.z0 + j * G.dz, sx = G.dx / CUT_N, sz = G.dz / CUT_N, out = [];
+  const quad = (x, z, w, d, test) => {
+    const a = [x, hAt(x, z), z], b = [x, hAt(x, z + d), z + d], c = [x + w, hAt(x + w, z + d), z + d], e = [x + w, hAt(x + w, z), z];
+    if (!test || keep(x + w / 3, z + 2 * d / 3)) out.push(a, b, e);
+    if (!test || keep(x + 2 * w / 3, z + 2 * d / 3)) out.push(b, c, e);
+  };
+  const planar = (x, z, w, d) => {
+    const ha = hAt(x, z), hb = hAt(x, z + d), hc = hAt(x + w, z + d), hd = hAt(x + w, z);
+    for (let a = 0; a <= 4; a++) for (let b = 0; b <= 4; b++) { const u = a / 4, v = b / 4, px = x + u * w, pz = z + v * d; if (!whole(px, pz) || Math.abs(hAt(px, pz) - triLerp(ha, hb, hc, hd, u, v)) > 0.02) return false; }
+    return true;
+  };
+  for (let bj = 0; bj < 4; bj++) for (let bi = 0; bi < 4; bi++) {
+    const bx = x0 + bi * 4 * sx, bz = z0 + bj * 4 * sz;
+    if (planar(bx, bz, 4 * sx, 4 * sz)) { quad(bx, bz, 4 * sx, 4 * sz, false); continue; }
+    for (let b = 0; b < 4; b++) for (let a = 0; a < 4; a++) quad(bx + a * sx, bz + b * sz, sx, sz, true);
+  }
+  return out;
+}
+// #201: cellTris' triangles as a non-indexed geometry with the terrain's uv and colAt(h, x, z) per vertex; flip winds every
+// triangle the other way (a ceiling, facing down). null when there is nothing to draw.
+function cellGeo(tris, colAt, flip = false) {
+  if (!tris.length) return null;
+  const pos = new Float32Array(tris.length * 3), uv = new Float32Array(tris.length * 2), cArr = new Float32Array(tris.length * 3);
+  for (let k = 0; k < tris.length; k++) {
+    const [x, h, z] = tris[flip ? k - (k % 3) + [0, 2, 1][k % 3] : k], c = colAt(h, x, z);
+    pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z; uv[k * 2] = (x - TGRID.x0) / 20; uv[k * 2 + 1] = (TGRID.z0 + TGRID.GD - z) / 20; cArr[k * 3] = c.r; cArr[k * 3 + 1] = c.g; cArr[k * 3 + 2] = c.b;
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals();
+  return g;
+}
+function disc(x, z, r, y, role, c, seg = 14) { const g = new THREE.RingGeometry(0, r, seg, 3); g.rotateX(-Math.PI / 2); g.translate(x, 0, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const vx = p.getX(i), vz = p.getZ(i); p.setY(i, Math.max(terrainH(vx, vz) + y, roadSurfH(vx, vz) + 0.01)); } const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * r / 4, uv.getY(i) * r / 4); colorize(g, c); push(role, g); }
 
 // ---------- placement bookkeeping ----------
 const OBB = [];
@@ -805,7 +848,7 @@ function addSolid(o) { const e = o.hw + o.hd; gridAdd(OBB_GRID, o.x - e, o.z - e
 let RAIL_GRID = null;   // built on first use (RAIL_PTS is defined further down)
 function railDist(x, z) { if (!RAIL_GRID) { RAIL_GRID = makeGrid(64); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) for (let i = 0; i < pts.length - 1; i++) gridAddSegment(RAIL_GRID, ...pts[i], ...pts[i + 1], 12, [pts[i], pts[i + 1]]); } let m = 1e9; for (const [a, b] of gridQuery(RAIL_GRID, x, z, 1)) m = Math.min(m, segDist(x, z, ...a, ...b)); return m; }
 function roadDist(x, z, reach = 32) { let m = 1e9; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) m = Math.min(m, segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) - r.w / 2); return m; }
-function free(x, z, rad) { if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
+function free(x, z, rad) { if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (!o.secret && Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
 const PLASTER = ['#e9dfc8', '#e5cfa8', '#d9c2a0', '#f0e6d6', '#d8c9b8', '#e8d3b0', '#cdb894', '#f2e0c0', '#dfe3d8', '#e6d4c4'];
 const ROOFS = ['#8a3a2a', '#7a3f30', '#9a4a34', '#6e3a30', '#5a4a48', '#8a5a3a'];
 function house(x, z, rot, w, d, floors, style) { const b = terrainH(x, z), h = floors * 3 + 0.4, wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]); box(w, h + 3, d, x, b - 3, z, rot, wc, rnd() < 0.5 ? 'wall' : 'wallDoor', [4, 3], 3.1); const rh = style === 'oldtown' ? Math.min(w, d) * 0.55 : Math.min(w, d) * 0.4; if (w >= d) gable(w, d, b + h, rh, x, z, rot, rc, wc); else gable(d, w, b + h, rh, x, z, rot + Math.PI / 2, rc, wc); addOBB(x, z, w, d, rot, b + h); }
@@ -960,58 +1003,135 @@ function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/
   const roof = new THREE.ConeGeometry(5.4 * Math.SQRT2, 2.8, 4, 1, true); roof.rotateY(Math.PI / 4 - rot); roof.translate(x, b + 8.25 + 1.4, z); colorize(roof, col('#7a8878')); push('roofFlat', roof);
   addOBB(x, z, 3.3, 3.3, rot, b + 5.5);
 }
-// #102: the hideout -- trough walls along the tunnel (the #119 pattern without decks), a ring wall around the cavern, the
-// reservoir gate at the portal, gravel on the floor, lamps, and the tower. Every OBB is `secret`: the static map skips it.
+// #102 / #201: the hideout -- trough walls along T1 (the #119 pattern without decks), ring walls around R0 and N1 between
+// their exits, walls along every corridor, bricked-up stubs with „KEIN ZUTRITT" signs, the reservoir gate at the portal,
+// gravel on every floor, lamps and lights in R0, the hall's invisible ring (its drawn shell belongs to cave mode, caveBuild)
+// and the tower (eiffelTower). Every OBB is `secret`: the static map skips it, and free() (the trees on the hill) ignores it.
 function hideoutBuild() {
   const h = HIDEOUT, u = TUNNEL, a = hideoutAxis(h), g0 = meshH(a.mouth[0], a.mouth[1]), floor = (s) => floorAt(s, g0, h), stone = col('#b8b2a6'), gravel = col('#cfc3ac'), inner = h.hw + u.margin;
   // topAt(x, z): the wall's top over each corner, so a block on a slope follows the hill instead of poking out of it; the
   // collider takes the lowest corner, so a car on the hill passes over it
   const shapeTop = (g, bottom, topAt) => { const p = g.attributes.position; let lo = Infinity; for (let i = 0; i < p.count; i++) if (p.getY(i) > bottom + 0.01) { const y = topAt(p.getX(i), p.getZ(i)); p.setY(i, y); lo = Math.min(lo, y); } g.computeVertexNormals(); return lo; };
   const wallBox = (x, z, len, rot, bottom, topAt) => { box(len, topAt(x, z) - bottom, u.wall, x, bottom, z, rot, stone, 'stone', [4, 3], 0); const top = shapeTop(parts.stone[parts.stone.length - 1], bottom, topAt); pushOBB({ x, z, hw: len / 2, hd: u.wall / 2, c: Math.cos(rot), s: Math.sin(rot), h: top, low: true, secret: true }); HIDE.walls++; };
-  const lidTop = (x, z) => meshH(x, z) - 0.6;
+  const lidTop = (x, z) => meshH(x, z) - 0.6, fl = floor(h.length); HIDE.floor = fl;
+  CAVE_MODE.group = new THREE.Group(); CAVE_MODE.group.visible = false;
+  // T1: a parapet in the open trench; from the portal on up to the 12 m ceiling (#201), or the lid where the hill is lower still
   for (const w of wallStations(a.pts, [[0, h.length]], inner + u.wall / 2, 2)) {
-    const fl = floor(w.t), ground = meshH(w.x + w.nx * (u.wall / 2 + 0.5), w.z + w.nz * (u.wall / 2 + 0.5));
-    if (ground - fl <= 0.1) continue;
-    if (inCavern(w.x, w.z, -u.wall)) continue;   // the corridor's walls stop just inside the cavern, where the ring takes over
-    wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, w.t >= HIDE.portal ? lidTop : () => ground + 1);   // parapet in the open trench, up to the ceiling under the lid
+    const wf = floor(w.t), ground = meshH(w.x + w.nx * (u.wall / 2 + 0.5), w.z + w.nz * (u.wall / 2 + 0.5));
+    if (ground - wf <= 0.1) continue;
+    if (roomAt(w.x, w.z, -u.wall)) continue;   // the corridor's walls stop just inside R0, where the ring takes over
+    wallBox(w.x, w.z, w.len + 0.05, w.rot, wf, w.t >= HIDE.portal ? (x, z) => Math.min(lidTop(x, z), wf + TUNNEL_CEIL + 0.1) : () => ground + 1);
   }
-  const [cx, cz] = a.centre, fl = floor(h.length), arc = ringArc(h, u); HIDE.floor = fl;
-  HIDE.ring = ringStations(cx, cz, arc.r, 24, arc.a0, arc.a1);
-  for (const r of HIDE.ring) wallBox(r.x, r.z, r.len, r.rot, fl, lidTop);
+  // #201: the ring walls of R0 and N1, one arc between each pair of exits, up to the hill's underside (their ceiling)
+  for (const id of ['r0', 'n1']) {
+    const n = CAVE.nodes[id], R = nodeR(n, u) - u.wall / 2; HIDE.ring[id] = [];
+    for (const arc of ringArcs(id, u)) for (const r of ringStations(n.c[0], n.c[1], R, Math.max(1, Math.round(24 * (arc.a1 - arc.a0) / (2 * Math.PI))), arc.a0, arc.a1)) { HIDE.ring[id].push(r); wallBox(r.x, r.z, r.len, r.rot, fl, lidTop); }
+  }
+  // #201: the hall keeps the car and the chase camera inside with 48 invisible solid pieces just inside its shell; nothing drawn
+  { const [cx, cz] = CAVE.nodes.hall.c; for (const r of ringStations(cx, cz, CAVE.nodes.hall.shellR - 1, 48)) pushOBB({ x: r.x, z: r.z, hw: r.len / 2, hd: 1, c: Math.cos(r.rot), s: Math.sin(r.rot), h: fl + 400, secret: true }); }
+  // #201: the corridors' walls (T2a, T2b: up to their 12 m ceiling; the stubs: up to the hill), stopping just inside the rooms
+  const corridorWalls = (pts, hw, top) => { const len = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]); for (const w of wallStations(pts, [[0, len]], hw + u.margin + u.wall / 2, 2)) { if (roomAt(w.x, w.z, -u.wall)) continue; wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, top); } };
+  for (const l of CAVE.links) corridorWalls(linkPts(l), l.hw, () => fl + l.ceiling + 0.1);
+  // #201: a stub is bricked up at its end: a wall across the whole corridor from the floor to the hill, solid, with the sign
+  // on its room-facing side (place-style, untranslated like the gate's)
+  for (const s of CAVE.stubs) {
+    const pts = stubPts(s, u); corridorWalls(pts, s.hw, lidTop);
+    const dx = Math.cos(s.heading), dz = Math.sin(s.heading), ex = pts[1][0] - dx * 0.6, ez = pts[1][1] - dz * 0.6, rot = s.heading + Math.PI / 2, w = 2 * (s.hw + u.margin + u.wall);
+    box(w, lidTop(ex, ez) - fl, 1.2, ex, fl, ez, rot, stone, 'stone', [4, 3], 0);
+    pushOBB({ x: ex, z: ez, hw: w / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: fl + 400, secret: true });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.7), new THREE.MeshBasicMaterial({ map: textTex('KEIN ZUTRITT', 1024, 180, '#f2c230', '#1a1a1a', '800 120px "Barlow Condensed", sans-serif'), transparent: true }));
+    sign.position.set(ex - dx * 0.62, fl + 2.2, ez - dz * 0.62); sign.rotation.y = Math.atan2(-dx, -dz); signs.add(sign); HIDE.stubs++;
+  }
   // the gate: piers in the margins, a lintel over the 9 m opening up to 1 m over the hillside, the sign on its outer face
   const ps = HIDE.portal, px = a.mouth[0] + a.ux * ps, pz = a.mouth[1] + a.uz * ps, pf = floor(ps), rot = h.heading + Math.PI / 2, nx = -a.uz, nz = a.ux;
   for (const side of [-1, 1]) { const d = side * (h.hw + u.margin / 2), x = px + nx * d, z = pz + nz * d; box(u.margin, 5, 1.2, x, pf, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: u.margin / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: pf + 5, secret: true }); }
   box(2 * (inner + u.wall), meshH(px, pz) + 1 - (pf + 5), 1.2, px, pf + 5, pz, rot, stone, 'stone', [4, 3], 0);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.9), new THREE.MeshBasicMaterial({ map: textTex('RESERVOIR HÜBEL', 1024, 160, '#d8d2c6', '#2a2a2a', '700 110px "Barlow Condensed", sans-serif'), transparent: true }));
   sign.position.set(px - a.ux * 0.62, pf + 5.8, pz - a.uz * 0.62); sign.rotation.y = Math.atan2(-a.ux, -a.uz); signs.add(sign);
-  // floor: gravel down the tunnel and over the cavern, draped on the cut
-  ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true); disc(cx, cz, arc.r - u.wall / 2, 0.04, 'gravel', gravel);   // up to the ring wall's inner face
-  // light: two warm point lights by the tower, four lamp posts on the diagonals (the chimney's lamp pattern). three r170 lights
-  // in physical units: 120 cd with decay 2 gives ~0.8 at the tower, 12 m off (the sun is 0.8); 36 m of range ends inside the hill
-  HIDE.lights = [];
-  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffd9a0, 120, 36, 2); l.position.set(cx + a.ux * 12 * k, fl + 3, cz + a.uz * 12 * k); signs.add(l); HIDE.lights.push(l); }
+  // floor: gravel down T1 (draped on the cut), over R0 and N1 up to their rings' inner faces, along every corridor, over the hall
+  const [cx, cz] = CAVE.nodes.r0.c;
+  ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true);
+  for (const id of ['r0', 'n1']) disc(...CAVE.nodes[id].c, nodeR(CAVE.nodes[id], u) - u.wall, 0.04, 'gravel', gravel);
+  for (const l of CAVE.links) ribbon(linkPts(l), l.hw, fl + 0.04, 'gravel', gravel);
+  for (const s of CAVE.stubs) ribbon(stubPts(s, u), s.hw, fl + 0.04, 'gravel', gravel);
+  disc(...CAVE.nodes.hall.c, CAVE.nodes.hall.shellR, 0.04, 'gravel', gravel, 48);
+  // R0's light: two warm point lights, four lamp posts on the diagonals (the chimney's lamp pattern). three r170 lights in
+  // physical units: 120 cd with decay 2 gives ~0.8 at the centre, 12 m off (the sun is 0.8); 36 m of range ends inside the hill
+  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffd9a0, 120, 36, 2); l.position.set(cx + a.ux * 12 * k, fl + 3, cz + a.uz * 12 * k); l.userData.kind = 'point'; CAVE_MODE.group.add(l); HIDE.lights.push(l); }
   for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
     const x = cx + ox * 10.6, z = cz + oz * 10.6;   // 15 m out on the diagonals
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.set(x, fl + 1.3, z);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd27a })); head.position.set(x, fl + 2.8, z);
     signs.add(pole, head); HIDE.lamps++;
   }
+  // #201: the rooms for the tests: centre, floor radius; the hall with its ceiling and the least rock over its whole disc
+  HIDE.rooms = {};
+  for (const id in CAVE.nodes) HIDE.rooms[id] = { c: CAVE.nodes[id].c, r: nodeR(CAVE.nodes[id], u) };
+  { const hn = CAVE.nodes.hall, R = nodeR(hn, u); let minRock = Infinity; for (let x = -R; x <= R; x += 10) for (let z = -R; z <= R; z += 10) if (Math.hypot(x, z) <= R) minRock = Math.min(minRock, meshH(hn.c[0] + x, hn.c[1] + z) - fl); Object.assign(HIDE.rooms.hall, { ceiling: fl + hn.ceiling, minRock }); }
+  caveBuild(fl);
+}
+// #201: cave mode's content -- everything of the hall that must not exist for an outside observer, in CAVE_MODE.group, visible
+// only while the car is under the hill (setCave): the shell (two open cylinders, the lower one with a gap at T2b's door, and
+// a ceiling disc 380 m up, merged into one mesh of near-black rock), four floodlights and two base lights, and the tower.
+function caveBuild(fl) {
+  const group = CAVE_MODE.group, hn = CAVE.nodes.hall, [cx, cz] = hn.c, R = hn.shellR, [arc] = ringArcs('hall'), th0 = Math.PI / 2 - arc.a1, thLen = arc.a1 - arc.a0;
+  const lower = new THREE.CylinderGeometry(R, R, TUNNEL_CEIL, 64, 1, true, th0, thLen); lower.translate(cx, fl + TUNNEL_CEIL / 2, cz);
+  const upper = new THREE.CylinderGeometry(R, R, hn.ceiling - TUNNEL_CEIL, 64, 1, true); upper.translate(cx, fl + TUNNEL_CEIL + (hn.ceiling - TUNNEL_CEIL) / 2, cz);
+  const top = new THREE.CircleGeometry(R, 64); top.rotateX(Math.PI / 2); top.translate(cx, fl + hn.ceiling, cz);
+  const g = mergeGeometries([lower, upper, top].map(q => q.toNonIndexed()), false), jitter = rng(201); colorize(g, col('#3a3632'));
+  { const c = g.attributes.color; for (let i = 0; i < c.count; i++) { const f = 0.75 + 0.25 * jitter(); c.setXYZ(i, c.getX(i) * f, c.getY(i) * f, c.getZ(i) * f); } }
+  const shell = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, vertexColors: true })); shell.userData.role = 'shell'; group.add(shell);
+  // floodlights on the diagonals, aimed up the tower; base lights along T2b's axis for the floor between the legs
+  const T = TOWER_SPOTS, d = T.r / Math.SQRT2;
+  for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const l = new THREE.SpotLight(0xffd9a0, T.intensity, T.distance, T.angle, T.penumbra, 2); l.position.set(cx + ox * d, fl + 2, cz + oz * d); l.target.position.set(cx, fl + T.aimY, cz); l.userData.kind = 'spot'; group.add(l, l.target); HIDE.lights.push(l); }
+  const [p, q] = linkPts(CAVE.links[1]), len = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / len, uz = (q[1] - p[1]) / len;
+  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffe2b0, 400, 120, 2); l.position.set(cx + ux * 60 * k, fl + 6, cz + uz * 60 * k); l.userData.kind = 'point'; group.add(l); HIDE.lights.push(l); }
   eiffelTower(cx, cz, fl);
 }
-// #102: 1:10 lookalike from primitives (hideout.js describes it): painted iron on the dome role (plain colour), solid at the four feet only -- drive between the legs
+// #201: the tower's placeholder -- the #102 primitives at 330 m with the legs on the model's feet (hideout.js describes it), one
+// mesh in the cave group so the model can take its place; solid at the four feet only, drive between the legs
 function eiffelTower(x, z, b) {
-  const iron = col('#6e4b2a'), up = new THREE.Vector3(0, 1, 0);
-  for (const p of eiffelParts(HIDEOUT.towerH)) {
+  const up = new THREE.Vector3(0, 1, 0), geos = [];
+  for (const p of eiffelParts(EIFFEL.h, EIFFEL.feet[2][0])) {
     let g;
     if (p.kind === 'leg') { const d = new THREE.Vector3(p.to[0] - p.from[0], p.to[1] - p.from[1], p.to[2] - p.from[2]), len = d.length(); g = new THREE.CylinderGeometry(p.r1, p.r0, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate(x + (p.from[0] + p.to[0]) / 2, b + (p.from[1] + p.to[1]) / 2, z + (p.from[2] + p.to[2]) / 2); }
     else if (p.kind === 'box') { g = new THREE.BoxGeometry(p.w, p.h, p.d); g.translate(x, b + p.y + p.h / 2, z); }
     else if (p.kind === 'arch') { g = new THREE.TorusGeometry(p.r, p.tube, 6, 16, Math.PI); g.translate(0, p.y, p.offset); g.rotateY(p.rot); g.translate(x, b, z); }
     else { g = new THREE.CylinderGeometry(p.r1, p.r0, p.y1 - p.y0, 6); g.translate(x, b + (p.y0 + p.y1) / 2, z); }
-    colorize(g, iron); push('dome', g);
+    geos.push(g.toNonIndexed());
   }
-  const k = HIDEOUT.towerH / 33;
-  for (const [ox, oz] of [[-6.25, -6.25], [6.25, -6.25], [6.25, 6.25], [-6.25, 6.25]]) pushOBB({ x: x + ox * k, z: z + oz * k, hw: 0.8, hd: 0.8, c: 1, s: 0, h: b + 5.7 * k, secret: true });
+  const mesh = new THREE.Mesh(mergeGeometries(geos, false), new THREE.MeshLambertMaterial({ color: EIFFEL.colour })); mesh.userData.role = 'eiffel';
+  CAVE_MODE.group.add(mesh); CAVE_MODE.placeholder = mesh;
+  for (const [fx, fz] of EIFFEL.feet) pushOBB({ x: x + fx, z: z + fz, hw: EIFFEL.footHw, hd: EIFFEL.footHw, c: 1, s: 0, h: b + EIFFEL.footH, secret: true });
   window.__mm.counts.eiffel = 1;
+  CAVE_MODE.eiffel = { loaded: false, placeholder: true, started: false, error: null, tris: 0, height: null, base: null, material: null };
+}
+// #201: the life-size model („Eiffel Tower" by Johnson Martin, CC BY 4.0), fetched once the car is near the Hübel: the loader and
+// the meshopt decoder come from three/addons (the importmap), every mesh gets one shared Eiffel-brown material, the whole is
+// scaled to EIFFEL.h and stood on the hall floor, and the placeholder goes. Offline or blocked, the placeholder stays.
+async function loadEiffel() {
+  const E = CAVE_MODE.eiffel; E.started = true;
+  console.info('Loading the Eiffel Tower model from', EIFFEL.url);
+  try {
+    const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
+    const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+    const gltf = await loader.loadAsync(EIFFEL.url), root = gltf.scene, mat = new THREE.MeshStandardMaterial({ color: EIFFEL.colour, roughness: EIFFEL.roughness, metalness: EIFFEL.metalness });
+    let tris = 0;
+    root.traverse(o => { if (!o.isMesh) return; o.material = mat; o.castShadow = o.receiveShadow = false; o.userData.role = 'eiffel'; if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+    const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), s = EIFFEL.h / size.y, [cx, cz] = CAVE.nodes.hall.c, fl = HIDE.floor;
+    root.scale.setScalar(s); root.position.set(cx - s * (box.min.x + box.max.x) / 2, fl - s * box.min.y, cz - s * (box.min.z + box.max.z) / 2);
+    CAVE_MODE.group.remove(CAVE_MODE.placeholder); CAVE_MODE.group.add(root); CAVE_MODE.model = root;
+    Object.assign(E, { loaded: true, placeholder: false, tris, height: size.y * s, base: Math.max(size.x, size.z) * s, material: '#' + mat.color.getHexString() });
+    console.info(`Eiffel Tower model loaded: ${tris} triangles, ${(size.y * s).toFixed(1)} m tall`);
+  } catch (err) { console.warn('Eiffel Tower model not loaded, keeping the placeholder:', err); E.error = String(err); }
+}
+// #201: the per-quadrant footprint of the loaded model's vertices below 20 m, relative to the hall centre (to measure EIFFEL.feet)
+function eiffelFootprints() {
+  if (!CAVE_MODE.model) return null;
+  const [cx, cz] = CAVE.nodes.hall.c, fl = HIDE.floor, v = new THREE.Vector3(), boxes = [[], [], [], []];
+  CAVE_MODE.model.updateWorldMatrix(true, true);
+  CAVE_MODE.model.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y > fl + 20) continue; boxes[(v.x < cx ? 0 : 1) + (v.z < cz ? 0 : 2)].push([v.x - cx, v.z - cz]); } });
+  return boxes.filter(b => b.length).map(b => ({ x0: Math.min(...b.map(q => q[0])), x1: Math.max(...b.map(q => q[0])), z0: Math.min(...b.map(q => q[1])), z1: Math.max(...b.map(q => q[1])), n: b.length }));
 }
 // ---------- street furniture (props) ----------
 // One low-poly model per prop kind, merged into a single geometry so each kind draws as one InstancedMesh.
@@ -1145,35 +1265,32 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     ground.setIndex(keep);
   }
   parts.grass = [ground.toNonIndexed()];
+  // #201: the cells of the cave system (the hall alone is 450 of the 1 m patches' 512 triangles each): drawn through cellTris,
+  // which keeps a 4 m sub-block that is wholly flat floor or wholly lid at 2 triangles
+  const caveCells = new Set(); if (HIDE) for (const c of HIDE.cuts) for (const [i, j] of patchCells(cutBounds(c, c.u), TGRID)) caveCells.add(i + ',' + j);
+  // (a sub-block of flat floor or of unlowered hill is planar on the grid's own split, so cellTris' 2 triangles are exact there)
   for (const key of CUT_CELLS.keys()) {
-    const [i, j] = key.split(',').map(Number), g = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N);
-    g.rotateX(-Math.PI / 2); g.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
-    const q = g.attributes.position, uv = g.attributes.uv, cArr = new Float32Array(q.count * 3);
+    const [i, j] = key.split(',').map(Number), cave = caveCells.has(key);
+    const g = cave ? cellGeo(cellTris(i, j, terrainH, () => true, () => true), groundCol) : null;
+    if (g) { HIDE.floorTris += g.attributes.position.count / 3; parts.grass.push(g); continue; }
+    const p = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N);
+    p.rotateX(-Math.PI / 2); p.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
+    const q = p.attributes.position, uv = p.attributes.uv, cArr = new Float32Array(q.count * 3);
     for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = terrainH(x, z), c = groundCol(h, x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
-    g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals(); parts.grass.push(g.toNonIndexed());
+    p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); parts.grass.push(p.toNonIndexed());
   }
-  if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy 0.6 m under it, wound to face down (ceiling, into stone)
-    const ROCK = col('#4a4642');
-    for (const c of [HIDE.tunnel, HIDE.cavern]) for (const [i, j] of patchCells(cutBounds(c, c.u), TGRID)) {
-      const key = i + ',' + j; if (HIDE.lidCells.has(key)) continue; HIDE.lidCells.add(key);
-      const g = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N); g.rotateX(-Math.PI / 2); g.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
-      const q = g.attributes.position, idx = g.index.array, keep = [];
-      for (let k = 0; k < idx.length; k += 3) { const tx = (q.getX(idx[k]) + q.getX(idx[k + 1]) + q.getX(idx[k + 2])) / 3, tz = (q.getZ(idx[k]) + q.getZ(idx[k + 1]) + q.getZ(idx[k + 2])) / 3; if (underLid(tx, tz)) keep.push(idx[k], idx[k + 1], idx[k + 2]); }
-      if (!keep.length) continue;
-      g.setIndex(keep);
-      const uv = g.attributes.uv, cArr = new Float32Array(q.count * 3);
-      for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = meshH(x, z), c = groundCol(h, x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
-      g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals(); parts.grass.push(g.toNonIndexed());
-      // the ceiling: the same triangles with vertices 1 and 2 swapped, so they face down (the roles are FrontSide)
-      const ceil = g.toNonIndexed(), cp = ceil.attributes.position, cu = ceil.attributes.uv;
-      ceil.translate(0, -0.6, 0);
-      for (let k = 0; k < cp.count; k += 3) {
-        const px = cp.getX(k + 1), py = cp.getY(k + 1), pz = cp.getZ(k + 1), ux = cu.getX(k + 1), uy = cu.getY(k + 1);
-        cp.setXYZ(k + 1, cp.getX(k + 2), cp.getY(k + 2), cp.getZ(k + 2)); cp.setXYZ(k + 2, px, py, pz);
-        cu.setXY(k + 1, cu.getX(k + 2), cu.getY(k + 2)); cu.setXY(k + 2, ux, uy);
-      }
-      ceil.computeVertexNormals(); colorize(ceil, ROCK); push('stone', ceil);
-      HIDE.lidTris += keep.length / 3;
+  if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy under it, wound to face down (ceiling, into stone)
+    // #201: the ceiling is ceilingH (tunnels capped at 12 m, rooms the hill's underside); the hall has none -- its shell is the
+    // ceiling -- and the lid's triangles reaching into its disc take the hill's underside, so no sheet hangs from the shell's 380 m
+    const ROCK = col('#4a4642'), inHall = (x, z) => roomAt(x, z, TUNNEL.wall) === 'hall', ceilH = (x, z) => inHall(x, z) ? meshH(x, z) - 0.6 : (ceilingH(x, z) ?? meshH(x, z) - 0.6);
+    for (const key of caveCells) {
+      const [i, j] = key.split(',').map(Number); HIDE.lidCells.add(key);
+      const lid = cellGeo(cellTris(i, j, meshH, underLid, underLid), groundCol);
+      if (!lid) continue;
+      parts.grass.push(lid); HIDE.lidTris += lid.attributes.position.count / 3;
+      const ceil = cellGeo(cellTris(i, j, ceilH, underLid, (x, z) => underLid(x, z) && !inHall(x, z)), () => ROCK, true);
+      if (!ceil) continue;
+      push('stone', ceil); HIDE.lidTris += ceil.attributes.position.count / 3;
     }
   }
   // streams: water draped on the ground like a road (a flat level cannot follow a stream that falls 25 m), 2 cm under road height
@@ -1382,7 +1499,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // #13: a world file with OSM woods replaces the heuristic forests (box, height line, fbm); one without them keeps the heuristic
   const OSM_WOODS = !!(L && L.forests.length);
   const [bx0, bx1, bz0, bz1] = REGION.treeBox;   // #127: the scatter box and the forest line are the region's (Hochrhein's are today's values)
-  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = !OSM_WOODS && (sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55)); if (!forest && rnd() > 0.12) continue; if (FOREST.inside(tx, tz)) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity && !(HIDE && inHideout(tx, tz))) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
+  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = !OSM_WOODS && (sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55)); if (!forest && rnd() > 0.12) continue; if (FOREST.inside(tx, tz)) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity && !(HIDE && (inHideout(tx, tz) || roomAt(tx, tz, 4) || corridorAt(tx, tz, 4)))) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
   // #131: trees are solid at the trunk. After the loop, so free() above never sees a tree (forest density unchanged);
   // The OSM forest trees (#13) are a separate list below, stopped by edge walls instead of a collider each.
   for (const [x, z, h] of TREES) addSolid(treeCollider(x, z, h, terrainH(x, z)));
@@ -1396,7 +1513,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const edges = forestEdges(L.forests, FOREST), placed = forestTrees(L.forests, FOREST, edges, rng(13));
     for (const [x, z, h] of [...placed.edge, ...placed.fill])
       if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && !(HIDE && inHideout(x, z)) && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
-    for (const e of edges) if (!(HIDE && segmentInHideout(e.x0, e.z0, e.x1, e.z1))) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: terrainH(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap
+    for (const e of edges) if (!(HIDE && segmentInHideout(e.x0, e.z0, e.x1, e.z1))) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: lidGround(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap; #201: on the hill over the cave
     window.__mm.counts.forest = { polys: L.forests.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, walls: edges.length };
   }
   window.__FOREST = FOREST_TREES;
@@ -1413,7 +1530,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
 const canvas = document.getElementById('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); renderer.outputColorSpace = THREE.SRGBColorSpace;
 { const an = renderer.capabilities.getMaxAnisotropy(); for (const t of Object.values(TEX)) { t.anisotropy = an; t.needsUpdate = true; } }
-const scene = new THREE.Scene(); scene.add(decals, signs, marks);
+const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group);   // #201
 // house numbers (#12, OSM addr): camera-facing sprites over the buildings within 60 m of the car; a pool of 40, refilled every 250 ms, one material per number
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0, ticks: 0 };
 if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = terrainH(it.x, it.z) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
@@ -1497,7 +1614,7 @@ const treeCone = new THREE.InstancedMesh(coneG, new THREE.MeshStandardMaterial({
 { const m = new THREE.Matrix4(), c = new THREE.Color(); window.__TREES.forEach(([x, z, h, ty], i) => { m.compose(new THREE.Vector3(x, ty + h * 0.28, z), new THREE.Quaternion(), new THREE.Vector3(h * 0.42, h * 0.75, h * 0.42)); treeCone.setMatrixAt(i, m); c.setHSL(0.3 + rr(-0.04, 0.04), 0.4, 0.3 + rr(0, 0.12)); treeCone.setColorAt(i, c); m.compose(new THREE.Vector3(x, ty, z), new THREE.Quaternion(), new THREE.Vector3(h * 0.9, h * 0.3, h * 0.9)); treeTrunk.setMatrixAt(i, m); }); treeCone.castShadow = treeTrunk.castShadow = true; scene.add(treeCone, treeTrunk); }
 // #13: forest trees per 512 m tile -- one InstancedMesh per tile and representation, so three.js culls whole tiles; 14 triangles per tree, no shadows
 const FOREST_MESHES = [];
-{ const tiles = new Map(); for (const t of window.__FOREST) { t[3] = terrainH(t[0], t[1]); const k = tileKey(t[0], t[1], FOREST_BUDGET.tile); if (!tiles.has(k)) tiles.set(k, []); tiles.get(k).push(t); }
+{ const tiles = new Map(); for (const t of window.__FOREST) { t[3] = lidGround(t[0], t[1]); const k = tileKey(t[0], t[1], FOREST_BUDGET.tile); if (!tiles.has(k)) tiles.set(k, []); tiles.get(k).push(t); }
   const fcone = new THREE.ConeGeometry(1, 1, 6, 1, true); fcone.translate(0, 0.5, 0); const ftrunk = new THREE.CylinderGeometry(0.12, 0.16, 1, 4, 1, true); ftrunk.translate(0, 0.5, 0);
   const fbill = mergeGeometries([0, Math.PI / 2].map(r => { const g = new THREE.PlaneGeometry(0.9, 1); g.translate(0, 0.5, 0); g.rotateY(r); return g; }), false); colorize(fbill, col('#ffffff'));
   const coneMat = new THREE.MeshStandardMaterial({ color: 0x4f8a4a, flatShading: true, roughness: 1 }), trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 });
@@ -1713,7 +1830,18 @@ const STYLES = {
     mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); treeBill.visible = St.trees === 'bill'; treeCone.visible = treeTrunk.visible = St.trees === 'cone'; { const fm = St.mat('tree'); for (const f of FOREST_MESHES) { f.bill.material = fm; f.bill.visible = St.trees === 'bill'; f.cone.visible = f.trunk.visible = St.trees === 'cone'; } } skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on) setCave(true); renderStyleName(); resize(); }
+// #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
+function treesVisible(on) { const St = STYLES[styleKey]; treeBill.visible = on && St.trees === 'bill'; treeCone.visible = treeTrunk.visible = on && St.trees === 'cone'; for (const f of FOREST_MESHES) { f.bill.visible = on && St.trees === 'bill'; f.cone.visible = f.trunk.visible = on && St.trees === 'cone'; } }
+// #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool faint hemisphere light, the sun as a faint top
+// light without shadows, no trees, no sun disc; off restores the style (modelled on setUnderwater; the two are never both on)
+const CAVE_LOOK = { fog: '#07080a', density: 0.0016, hemiSky: '#4a5468', hemiGround: '#1a1612', hemi: 0.35, sunFactor: 0.15 };
+function setCave(on) {
+  CAVE_MODE.on = on; const St = STYLES[styleKey]; if (CAVE_MODE.group) CAVE_MODE.group.visible = on; sunSprite.visible = !on && !UWS.on;
+  if (on) { scene.fog = new THREE.FogExp2(col(CAVE_LOOK.fog), CAVE_LOOK.density); skyMat.uniforms.top.value.set(CAVE_LOOK.fog); skyMat.uniforms.hor.value.set(CAVE_LOOK.fog); hemi.color.set(CAVE_LOOK.hemiSky); hemi.groundColor.set(CAVE_LOOK.hemiGround); hemi.intensity = CAVE_LOOK.hemi; sun.intensity = St.sunI * CAVE_LOOK.sunFactor; sun.castShadow = false; renderer.shadowMap.enabled = false; }
+  else { scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; }
+  treesVisible(!on);
+}
 // #101: under the surface -- murky blue-green fog, the sky sphere in the same colour, dimmer and cooler light, no sun disc; off restores the style.
 // The bed content (boulders, weed, fish, wrecks) is only drawn while under: through the 0.96-opaque surface nobody sees it anyway.
 const HEMI_SKY = { dry: col('#dfe8ff'), wet: col('#8fd0d6') };
@@ -1774,6 +1902,8 @@ const RAMP_RUNUP = 40;   // J → Sprungschanze: metres of run-up before the ram
 function jumpToRamp(name) { if (!RAMP) return; const s = rampApproach(RAMP, RAMP_RUNUP); placeOnRoad(s.x, s.z, s.th, name); }   // off road: R returns to the run-up
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
 // #102: first time in the cavern -- toast, jingle, remember it
+// #201: the car is under the hill -- the one place that decides cave mode, the find and the camera (#202 makes it stateful)
+function caveInside() { return !!HIDE && roofedAt(P.x, P.z) && P.y < meshH(P.x, P.z) - 1; }
 function foundHideout() { HIDE.found = true; try { localStorage.setItem(HIDEOUT.key, '1'); } catch (e) { } toastHtml(tr('hideoutFound'), TOAST_S.event); SFX.finish(); }
 function resetCar() { stopAuto('reset'); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
@@ -1873,7 +2003,8 @@ window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true
 // from above, is water the first thing seen at these points (not grass or a field), and is the car wet there? Bridges and roads are skipped
 window.__mm.roles = () => Object.keys(MESH);
 // #45: role of the first merged mesh a horizontal ray from (x, z) towards (tx, tz) hits, `up` m above the terrain at the target
-window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5) => { const y = terrainH(tx, tz) + up, dir = new THREE.Vector3(tx - x, 0, tz - z).normalize(); const ray = new THREE.Raycaster(new THREE.Vector3(x, y, z), dir, 0, Math.hypot(tx - x, tz - z) + 1); const hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? hit.object.userData.role : null; };
+// #201: with up1 the ray climbs: from `up` over the ground at (x, z) to terrain + up1 over the target; the cave group's meshes count while drawn
+window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); const hit = ray.intersectObjects([...Object.values(MESH), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).find(h => h.object.userData.role); return hit ? hit.object.userData.role : null; };
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
 window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x, z, 1e4), bridge: !!onBridge(x, z, 1e4) });
 // #101: the riverbed under (x, z): groundH's value, the water surface, the bedDepth, and where the drawn terrain is (raycast on the grass mesh)
@@ -1881,12 +2012,18 @@ window.__mm.bed = (x, z) => { const rd = riverDist(x, z), water = waterLevelAt(x
 window.__mm.underwater = () => ({ on: UWS.on, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, waterDoubleSide: MESH.water ? MESH.water.material.side === THREE.DoubleSide : null, bubbles: { visible: bubbles.visible, count: bubbles.children.length, maxY: Math.max(...bubbles.children.map(s => s.position.y)) }, fish: FISH.mesh ? FISH.mesh.count : 0, schools: FISH.schools.length, bed: { stones: BED.stones ? BED.stones.count : 0, blades: BED.weed ? BED.weed.count : 0, visible: !!BED.weed && BED.weed.visible && BED.stones.visible }, ...UWS.counts });
 window.__mm.fishPose = (i) => { const m = new THREE.Matrix4(); FISH.mesh.getMatrixAt(i, m); return Array.from(m.elements).map(v => +v.toFixed(4)); };
 // #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
-window.__mm.hideout = () => HIDE ? { mouth: HIDE.tunnel.pts[0], centre: [HIDE.tunnel.x, HIDE.tunnel.z], portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(HIDE.tunnel.x, HIDE.tunnel.z), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris } : null;
-window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH;
+window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.r0.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.r0.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, stubs: HIDE.stubs, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms } : null;
+window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH; window.__mm.roomAt = roomAt; window.__mm.ceilingAt = ceilingH;   // #201
 // #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
 window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? { role: hit.object.userData.role, y: hit.point.y } : null; };
-window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay })) : null;
-window.__mm.hideoutRing = () => HIDE && HIDE.ring ? HIDE.ring.map(r => ({ ...r, wall: TUNNEL.wall })) : null;
+window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay, visible: l.visible && l.parent.visible, kind: l.userData.kind, target: l.isSpotLight ? l.target.position.toArray() : null, angle: l.angle ?? null, penumbra: l.penumbra ?? null })) : null;
+window.__mm.hideoutRing = () => HIDE && HIDE.ring ? Object.fromEntries(Object.entries(HIDE.ring).map(([id, ring]) => [id, ring.map(r => ({ ...r, wall: TUNNEL.wall }))])) : null;   // #201: { r0, n1 }
+// #201: cave mode as the tests see it; the lights; the last frame's draw calls; the tower; the static map's pixel over (x, z)
+window.__mm.cave = () => ({ inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || treeCone.visible || FOREST_MESHES.some(f => f.bill.visible || f.cone.visible), lights: HIDE ? HIDE.lights.length : 0, hallCam: CAVE_CAM.hall, programs: renderer.info.programs.length });
+window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
+window.__mm.eiffel = () => CAVE_MODE.eiffel ? { ...CAVE_MODE.eiffel, feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
+window.__mm.eiffelFootprints = eiffelFootprints;
+window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.roadSigns = () => ROAD_SIGNS.map(s => ({ ...s }));   // #42
 // #42: at (x, z) the grade profile (null outside every grade's corridor), the ground and the uncut mesh
@@ -1923,7 +2060,8 @@ window.__mm.roadDist = () => roadDist(P.x, P.z);
 // #127: is the car on a gravel trail (the Wanderweg)? the nearest road piece in ROAD_GRID, by its centre line
 window.__mm.onTrail = () => { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, P.x, P.z, 32)) { const d = segDist(P.x, P.z, ...r.pts[i], ...r.pts[i + 1]); if (!best || d < best.d) best = { d, r }; } return !!(best && best.r.trail); };
 const isDeck = (ob) => !!ob && !ob.b.approach;   // #78: an abutment is road on fill, not a bridge (keeps #79's "not on a bridge")
-window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW']) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
+// y (#201): an explicit start height, e.g. the cave floor under the hill (the default is the ground seen from the sky)
+window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 window.__mm.step = (secs, hold = ['KeyW']) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepCar(1 / 60); for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };   // #101: like sim, but from where the car is now (no placement)
 window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: isDeck(onBridge(P.x, P.z, P.y)), water: waterLevelAt(P.x, P.z, P.y), submerged: submerged(P.y, waterLevelAt(P.x, P.z, P.y)) });
 window.__mm.pushAt = (x, z, y) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; if (y !== undefined) P.y = y; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return out; };   // #36: read-only, for the region-wide collider test; #119: optional car height
@@ -1988,7 +2126,8 @@ function stepCar(dt) {
   if (wl !== null) { if (P.splash === 0) { SFX.splash(); P.hinted = false; } const was = P.splash; P.splash += dt; P.vy = 0; if (P.y > gh2 + 0.15) { const k = Math.exp(-UW.drag * dt); P.vx *= k; P.vz *= k; P.y = Math.max(P.y - UW.sink * dt, gh2); } else P.y = gh2; if (was < 0.35 && P.splash >= 0.35) toast(tr('fishes'), TOAST_S.event); if (!P.hinted && P.splash >= UW.hintAt) { P.hinted = true; toast(tr('underwaterHint'), TOAST_S.event); } }
   else { P.splash = 0; P.vy -= 22 * gravityScale(SURP) * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (P.vy < -9) { P.dmg = Math.min(1, P.dmg + 0.05); SFX.crash(impactStrength(-P.vy)); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump
   collide(carRadius());
-  if (HIDE && !HIDE.found && inCavern(P.x, P.z) && P.y < lidH(P.x, P.z)) foundHideout();   // #102: in the cavern, under the ceiling -- not on the hill over it
+  // #102 / #201: under the hill? cave mode follows the car; the find is the hall (not R0, not the hill over it); the model loads near the Hübel
+  if (HIDE) { const inside = caveInside(); if (inside !== CAVE_MODE.on) setCave(inside); if (!HIDE.found && inside && roomAt(P.x, P.z) === 'hall') foundHideout(); if (CAVE_MODE.eiffel && !CAVE_MODE.eiffel.started && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
@@ -2011,7 +2150,7 @@ function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm
 // #10: one heli chase cam, behind and above, looking ahead and down; C does nothing while flying
 // #102: a camera height held 1 m under the hideout's ceiling while the car is down in it (below the hill), the easing
 // camera too, not only its target; with the car up on the hill the camera stays where it is
-function underCeiling(x, z, y) { const lid = HIDE && P.y < meshH(P.x, P.z) - 1 ? lidH(x, z) : null; return lid === null ? y : Math.min(y, lid - 1); }
+function underCeiling(x, z, y) { const lid = caveInside() ? ceilingH(x, z) : null; return lid === null ? y : Math.min(y, lid - 1); }
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
@@ -2019,7 +2158,10 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
   car.visible = !v.eye && !HUD.carHidden && !FLY.on; heli.visible = FLY.on;
   if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }
   else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
-    if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-6 * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos); camera.lookAt(P.x + bx * 6, P.y + 1.2, P.z + bz * 6); }
+    if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-6 * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
+    // #201: in the hall the look point rises with the distance (tilt 0.45 ~ 24 deg), so the tower comes into the frame
+    CAVE_CAM.hall = clamp(CAVE_CAM.hall + (caveInside() && roomAt(P.x, P.z) === 'hall' ? 1 : -1) * dt / HALL_CAM.ease, 0, 1);
+    const look = new THREE.Vector3(P.x + bx * 6, P.y + 1.2, P.z + bz * 6); look.y += CAVE_CAM.hall * HALL_CAM.tilt * Math.hypot(camPos.x - look.x, camPos.z - look.z); camera.lookAt(look); }
   camTail(); }
 function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); sun.position.set(P.x - 300, 400, P.z - 200); sun.target.position.set(P.x, 0, P.z);
   const camWl = waterLevelAt(camera.position.x, camera.position.z, camera.position.y), under = camWl !== null && camera.position.y < camWl; if (under !== UWS.on) setUnderwater(under); }   // #101: the look follows the camera, not the car
@@ -2186,7 +2328,7 @@ window.__mm.huntSetEndIn = (s) => { HUNT_RUN.endIn = s; };   // tests: shorten t
 const mapC = $('map'), mg = mapC.getContext('2d');
 const MB = L ? (() => { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const r of ROADS) for (const [x, z] of r.pts) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); } return { x0, x1, z0, z1 }; })() : { x0: W(0, 0)[0], x1: W(1920, 0)[0], z0: W(0, 60)[1], z1: W(0, 989)[1] }; const MS = Math.min(mapC.width / (MB.x1 - MB.x0), mapC.height / (MB.z1 - MB.z0)); const MX = (x) => (x - MB.x0) * MS + (mapC.width - (MB.x1 - MB.x0) * MS) / 2, MZ = (z) => (z - MB.z0) * MS + (mapC.height - (MB.z1 - MB.z0) * MS) / 2;
 const mapStatic = document.createElement('canvas'); mapStatic.width = mapC.width; mapStatic.height = mapC.height;
-{ const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge || o.secret) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
+{ const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = HIDE && roofedAt(x, z) ? meshH(x, z) : terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge || o.secret) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
 // #48: the Gemeinde boundaries as a dashed overlay, pre-rendered like mapStatic and drawn over it only while G is on
 const mapBounds = document.createElement('canvas'); mapBounds.width = mapC.width; mapBounds.height = mapC.height;
 if (L) { const g = mapBounds.getContext('2d'); g.strokeStyle = '#ff3fb4'; g.lineWidth = 2; g.lineCap = 'round'; g.setLineDash([6, 4]); for (const b of L.boundaries) { g.beginPath(); b.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } }
@@ -2284,6 +2426,8 @@ function savePhoto(blob) {
 
 // ---------- loop ----------
 applyStyle('original'); resize();
+// #201: compile the cave look up front (the lit materials' programs differ with the lights and the fog type), so the door costs no hitch
+if (CAVE_MODE.group) { setCave(true); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on) { fadeToast(dt); debugTick(); clampDebugHeights(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
   const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: Math.hypot(P.vx, P.vz) * 3.6, gas: P.gas, nitro: P.nitro, air: P.air, fly: FLY.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
