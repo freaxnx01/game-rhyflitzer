@@ -248,12 +248,16 @@ and failing that the frame's LV95 kilometres (`Region 2667/1259`).
 **The automatic race (`race.py`, #179).** Every generated world gets a race: the start, **5 checkpoints** and
 a finish on the road graph, each leg **500–1,200 m along the route** (`LEG_MIN`/`LEG_MAX`), no two race points
 within **300 m** straight-line (`MIN_GAP`), every point at least **150 m inside the frame** (`EDGE`) — checked
-again after snapping, which can move a point by up to `MAX_SNAP` 60 m. Candidates are the J list's named places
+again after snapping, which can move a point by up to `MAX_SNAP` 60 m. The game re-snaps every race point on
+load with its own `snapRoad` (`prototype/index.html`: nearest road that is neither a bridge nor a motorway,
+within 60 m), so a point it would move more than 1 m (`GAME_SNAP_TOL`) — e.g. one on a bridge with a yard road
+beside it — is dropped before the search, and no candidate is sampled on a bridge. Candidates are the J list's named places
 first (village centres excluded), then a point every **400 m** (`SAMPLE`) along the `primary`/`secondary`/
 `tertiary` roads, then along `unclassified`/`residential`, nearest the frame centre first within each group, at
 most **60** (`MAX_CANDIDATES`). A bounded depth-first search (`MAX_EXPANSIONS` 20,000) takes the 6-leg chain,
 trying named places (+2) and main roads (+1) first. **Par time** is the route length at **45 km/h** (`PAR_KMH`,
-rounded up). A **checkpoint's name** is the candidate's own name, else the nearest station, church, school or
+rounded up) — an open point of the spec, to be tuned on test worlds once the game shows it (phase 2); the
+autopilot's per-class speeds in `route.js` are not a limit for the player. A **checkpoint's name** is the candidate's own name, else the nearest station, church, school or
 square within 150 m, else the nearest named street within 30 m, else `Checkpoint n`; a name is never used
 twice. The **start heading** is the road's, turned round when it points away from the first checkpoint. All the
 constants live in `race.py`, nowhere else. No start point or no chain that fits → no race, and the world is a
@@ -266,7 +270,8 @@ no `package.json`) and answers snap points and pair distances over stdin/stdout;
 with Node. A port would duplicate ~150 lines of that logic and drift. Cost: **Node 22+** on the build host —
 the same Node the prototype's `node --test` needs, because `route.js` is an ES module in a `.js` file with no
 `package.json`. Without it `race.route_lengths` raises a `RuntimeError` naming Node; it never quietly drops the
-race. Measured 2026-10-09: 650 pairs in 0.7 s on the 2,616-road Hochrhein world.
+race. The tests that need it (`test_race.py`'s bridge test, `test_region.py`'s race fixture,
+`test_region_real.py`) skip without it; the other `build_world` tests stub the race out and run anywhere. Measured 2026-10-09: 650 pairs in 0.7 s on the 2,616-road Hochrhein world.
 
 **The three files (`region.py`).** `region.build_world(rect, out_dir, extract=… | pbf=…)` runs
 cut → terrain → `osm.build_world` (no anchors file, clipped to the frame) → generated content, and writes:
