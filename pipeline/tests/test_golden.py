@@ -239,9 +239,10 @@ def test_forests(world):
     assert sum(p.intersection(sisslerwald).area for p in polys) >= 0.8e6
     roads = [(shapely.LineString(r["pts"]), r["w"]) for r in world["roads"] if len(r["pts"]) > 1]
     tree = shapely.STRtree([g for g, _ in roads])
+    reach = max(w for _, w in roads) / 2 + 5                              # the widest road's corridor, so motorways are examined too
     for p in f:
-        for x, z in p["ring"][::7]:                                       # every 7th vertex keeps the test under a few seconds
+        for x, z in [v for r in [p["ring"], *p.get("holes", [])] for v in r[::7]]:   # every 7th vertex, holes included
             pt = shapely.Point(x, z)
-            for i in tree.query(pt, predicate="dwithin", distance=12):
+            for i in tree.query(pt, predicate="dwithin", distance=reach):
                 g, w = roads[i]
                 assert g.distance(pt) >= w / 2 + 4.5, (x, z)
