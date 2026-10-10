@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
 
 from test_street_labels import ARGS, WORLD, needs_world
@@ -98,22 +99,30 @@ def midpoint(w, rid):
     return (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
 
 
+EXPECTED_NAMES = {-42001: "Südspange", -42003: "Südspange", -42004: "Geuerenstrasse", -42005: "Zufahrt Freiverlad"}
+
+
 @needs_suedspange
 def test_real_route_names_ground_and_underpass(server):
+    """The ground is sampled the way the car meets it, from just above the previous sample every 2 m: from the sky it
+    would land on the rail decks over the underpass."""
     w = real_world()
     pts = [r["pts"] for r in w["roads"] if r["id"] in (-42001, -42003, -42004, -42005)]
     with sync_playwright() as p:
         br, page = open_page(p, server)
         page.wait_for_function("() => window.__mm.crossings && window.__mm.gradeAt && window.__mm.roadSigns", timeout=240000)
         names = {}
-        for rid in (-42001, -42003, -42004, -42005):
+        for rid, want in EXPECTED_NAMES.items():
             x, z = midpoint(w, rid)
             page.evaluate(f"() => window.__mm.place({x}, {z})")
-            page.wait_for_timeout(500)
+            try:                                                           # the HUD catches up a few frames later
+                page.wait_for_function(f"() => window.__mm.hud().road === {json.dumps(want)}", timeout=60000)
+            except PlaywrightTimeout:
+                pass
             names[rid] = page.evaluate("() => window.__mm.hud().road")
         steps = page.evaluate("""(lines) => { let worst = 0; for (const pts of lines) { let prev = null;
             for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], n = Math.ceil(Math.hypot(bx - ax, bz - az) / 2);
-              for (let k = 0; k <= n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n, g = window.__mm.ground(x, z, 1e4);
+              for (let k = 0; k <= n; k++) { const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n, g = window.__mm.ground(x, z, prev === null ? 1e4 : prev + 1);
                 if (prev !== null) worst = Math.max(worst, Math.abs(g - prev)); prev = g; } } } return worst; }""", pts)
         at = page.evaluate("() => window.__mm.gradeAt(1240, 574)")
         xs = page.evaluate("() => window.__mm.crossings()")
@@ -125,7 +134,7 @@ def test_real_route_names_ground_and_underpass(server):
     here = [c for c in xs if c["road"] == "Südspange"]
     print(json.dumps({"names": names, "steps": steps, "at": at, "here": here, "through": through, "grass": grass, "signs": signs}, indent=1))
     assert errors == [], errors
-    assert names == {-42001: "Südspange", -42003: "Südspange", -42004: "Geuerenstrasse", -42005: "Zufahrt Freiverlad"}, names
+    assert names == EXPECTED_NAMES, names
     assert steps < 0.6, steps
     assert abs(at["mesh"] - at["terrain"] - 6.5) < 0.3, at
     assert len(here) >= 5 and all(c["clearance"] >= 4.45 and c["railGap"] < 0.3 for c in here), here
