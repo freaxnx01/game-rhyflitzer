@@ -152,3 +152,21 @@ def test_a_ground_step_beside_the_car_does_not_tilt_the_shadow(server):
     assert s["rot"][0] == pytest.approx(0, abs=1e-9), s           # roll rejected, not just clamped
     assert s["edge"][0] == pytest.approx(s["edge"][1], abs=1e-6), s
     assert s["rot"][2] == pytest.approx(pitch, abs=0.03), (s, pitch)
+
+
+def test_the_shadow_stays_under_the_car_far_from_the_origin(server):
+    """Review of #163: the sun offset is the light's direction, not sun.position. camTail keeps the sun at a fixed offset
+    from the car, so a world point as the direction would drag the shadow metres away, growing with the car's x and z.
+    Drive a stretch and compare the mesh against the car itself: the offset is the same hand's width everywhere."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        c0 = page.evaluate("() => window.__mm.car()")
+        page.evaluate("([x, z]) => window.__mm.sim(x, z, 0, 0, 6)", [c0["x"], c0["z"]])
+        car = page.evaluate("() => window.__mm.car()")
+        s = shadow(page)
+        b.close()
+    assert math.hypot(car["x"] - c0["x"], car["z"] - c0["z"]) > 30, (c0, car)
+    assert max(abs(car["x"]), abs(car["z"])) > 300, car            # far enough out that a world point and a direction differ by metres
+    assert s["pos"][0] - car["x"] == pytest.approx(0.465, abs=0.02), (s, car)
+    assert s["pos"][2] - car["z"] == pytest.approx(0.31, abs=0.02), (s, car)
+    assert s["pos"][0] - car["x"] == pytest.approx(s["shift"][0], abs=1e-6) and s["pos"][2] - car["z"] == pytest.approx(s["shift"][1], abs=1e-6), s
