@@ -19,9 +19,10 @@ jobs:
     with:
       issue-number: ${{ github.event.issue.number }}
       runner-labels: '["ubuntu-latest"]'
-      default-model: claude-sonnet-5
+      default-model: z-ai/glm-5.2  # implementation on OpenRouter; design issues get labels agent:claude + model:fable
       pipeline-ref: v2
-      agent: claude
+      agent: opencode
+      review-model: claude-sonnet-5  # review runs on the claude CLI; Sonnet instead of the Opus default
       timeout-minutes: 120        # whole job; a 6-task plan with browser tests needs far more than the default 30
       claude-timeout-minutes: 100 # the claude process itself; the action's own default is 10 and killed the first #8 run
       ai-review-human-merge: true # with the issue label of the same name: the pipeline reviews its own draft PR and promotes it to ready on approve; a human merges
