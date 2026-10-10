@@ -245,3 +245,36 @@ def test_cavern_is_floodlit_and_the_light_stays_inside(server):
         assert l["distance"] > 0, l
         reach = min(math.dist((l["x"], l["y"], l["z"]), pt) for pt in hill)
         assert reach > l["distance"], (reach, l)
+
+
+CAM_JS = """([x, z, th, v, secs, from]) => {
+  window.__mm.sim(x, z, th, v, secs, ['KeyW']);
+  const step = (f) => { const c = window.__mm.camStep(1 / 60, f), car = window.__mm.car(), cx = car.x + c.d[0], cy = car.y + c.d[1], cz = car.z + c.d[2];
+    return { y: cy, lid: window.__mm.lidAt(cx, cz), hill: window.__mm.probe(cx, cz).terrain + window.__mm.cutDepth(cx, cz) }; };
+  const car = window.__mm.car(), first = step(from ? [car.x + from[0], car.y + from[1], car.z + from[2]] : null);
+  let settled = first; for (let i = 0; i < 120; i++) settled = step(null);
+  return { car, first, settled };
+}"""
+
+
+@needs_world
+def test_camera_stays_under_the_ceiling_while_easing_and_on_the_hill_above_it(server):
+    """In the tunnel a chase camera still easing in from above the hill is held under the ceiling from its first step;
+    on the hilltop over the cavern the camera stays above the grass."""
+    ux, uz = math.cos(HEADING), math.sin(HEADING)
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        # from the Hübel into the tunnel (~35 m in); the camera 8 m back down the axis and 40 m up, where a camera
+        # following from outside the hill can still be
+        tunnel = page.evaluate(CAM_JS, [MOUTH_ROAD[0], MOUTH_ROAD[1], HEADING, 16, 2.5, [-ux * 8, 40, -uz * 8]])
+        h = page.evaluate("() => window.__mm.hideout()")
+        cx, cz = h["centre"]
+        hill = page.evaluate(CAM_JS, [cx - uz * 30, cz + ux * 30, math.atan2(-ux, uz), 6, 1.5, None])
+        br.close()
+    assert errors == []
+    assert abs(tunnel["car"]["y"] - h["floor"]) < 6, tunnel           # the car is down in the tunnel
+    for c in (tunnel["first"], tunnel["settled"]):
+        assert c["lid"] is not None and c["y"] <= c["lid"] - 1 + 1e-6, tunnel
+    assert hill["car"]["y"] > hill["settled"]["hill"] - 5, hill          # the car is up on the hill
+    assert hill["settled"]["lid"] is not None, hill                     # with the camera over the lid
+    assert hill["settled"]["y"] > hill["settled"]["hill"], hill
