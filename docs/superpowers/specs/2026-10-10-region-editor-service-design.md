@@ -15,6 +15,7 @@ of the design's table, with 30-day retention and a 10 GB store cap.
 ```
 Traefik (myRateLimit@file, TLS) ──► rhyflitzer-api      (uvicorn + Starlette, mem_limit 512m)
                                       │  POST /api/jobs, GET /api/jobs/<id>, GET /api/worlds/<id>, GET /api/health
+                                      │  GET /api/challenge (ALTCHA), GET /api/preview
                                       │  GET /worlds/<id>/{world.json, terrain.mmh, meta.json}
                                       │  PUT/DELETE /api/admin/gallery/<id>   (bearer token)
                                       ▼
@@ -40,7 +41,9 @@ Traefik (myRateLimit@file, TLS) ──► rhyflitzer-api      (uvicorn + Starlet
 
 | Request | Answer |
 |---|---|
-| `POST /api/jobs` `{"lv95": [e0, n0, e1, n1]}` or `{"lonlat": [w, s, e, n]}` | `202` job (new or already queued/building), `200` job when already built (cache hit, free); `400 {error, message}` with `bad-request`, `bad-bbox`, `too-small`, `too-big`, `outside-ch`; `429` `one-at-a-time`, `daily-limit`, `server-daily-limit`; `503` `busy` |
+| `POST /api/jobs` `{"lv95": [e0, n0, e1, n1]}` or `{"lonlat": [w, s, e, n]}` | `202` job (new or already queued/building), `200` job when already built (cache hit, free); `400 {error, message}` with `bad-request`, `bad-bbox`, `too-small`, `too-big`, `outside-ch`; **`403` `human_check_failed`** (a NEW build without a valid ALTCHA solution in `"altcha"`); `429` `one-at-a-time`, `daily-limit`, `server-daily-limit`; `503` `busy` |
+| `GET /api/challenge` | a signed ALTCHA challenge (`Cache-Control: no-store`); `503 human-check-unavailable` without the key file |
+| `GET /api/preview?bbox=e0,n0,e1,n1` (LV95) | `{name, gemeinden, raceOk, reason?}`; `raceOk` is `true`, `false` (`reason: few-major-roads`) or `null` (`reason: no-road-index`); `400` as for `POST /api/jobs`; `429 preview-rate-limit` |
 | `GET /api/jobs/<id>` | `{id, state, step, position?, error, message, lv95, files?}`; `state` ∈ queued, building, ready, failed, expired; `step` ∈ cutting, terrain, world, places, race, done; `404 unknown` |
 | `GET /api/worlds/<id>` | `{id, status, bbox: {lv95: [e0, n0, e1, n1]}}` — #167's status call; the row stays after expiry (a tombstone), because the id is a hash and "Build it again?" needs the frame back; `404 unknown` |
 | `GET /worlds/<id>/world.json` | `Cache-Control: no-cache`; every load revalidates, so **this request is the play signal** (`lastPlayed` in the store and `meta.json`, at most hourly) |
@@ -55,6 +58,20 @@ download (the three files + `LICENSE-ODbL.txt`) is packed in the browser by #167
 
 CORS: `Access-Control-Allow-Origin` on `/worlds/*` and `/api/*`, only for `CORS_ORIGINS` (default
 `https://github.freaxnx01.ch`).
+
+## Human check (ALTCHA) on new builds
+
+`POST /api/jobs` for a **new** build must carry `"altcha": <base64 payload>`, the solution of a challenge from `GET /api/challenge`. Playing, polling, downloading, gallery reads, a cache hit (the world exists) and joining a frame that is already queued or building never need it; for those the field is ignored and nothing is spent.
+
+- **Server side: the `altcha` package** (PyPI, official `altcha-org/altcha-lib-py`, MIT, zero dependencies, 2.3.0 of 2026-10-04), PoW v2 like the `altcha` 3.x widget; `challenge.py` is a thin wrapper. A pure re-implementation was rejected: v2 signs a canonical JSON that mimics JavaScript number formatting, and would drift from the widget.
+- **Parameters:** `PBKDF2/SHA-256`, `cost` 5000 iterations per try (`ALTCHA_COST`), key prefix `00` (one try in 256): ~1.3 M iterations per solve, about 1 s on a phone; verification is one derivation. Expiry 10 minutes.
+- **HMAC key:** a Docker secret file (`ALTCHA_SECRET_FILE`), read per request, never logged; no key means `503` on the challenge and `403` on a new build (fail closed).
+- **Replay:** the challenge signature goes into `used_challenges(signature, expires)` **inside the admission transaction**, before the limits: a second use is `403`, and a refusal by a limit (`429`/`503`) rolls it back, so the player can retry with the same solution. Expired rows are deleted on the next new build.
+- The per-IP and global limits below stay as they are; the human check is an additional layer, and it is checked first (`403` before `429`).
+
+## Frame preview
+
+`GET /api/preview` answers without building, in well under 2 s and with little memory: **name and Gemeinden** from swisstopo's identify service (a point request at the centre and an envelope request, 0.9 s timeout each, cached per snapped frame; "A" or "A · B", centre first; a failed lookup is `name: null`); **`raceOk`** from a road index the worker builds after each weekly extract update: metres of primary/secondary/tertiary road (`places.MAJOR`) per 500 m LV95 cell, via `osmium tags-filter` (streaming, no cut) and pyosmium, stored in SQLite. A frame is `raceOk` with at least 3000 m of major road in its cells (`RACE_MIN_ROAD_M`), an estimate to calibrate against real builds. No human check; 60 requests per minute per client IP, in memory only.
 
 ## Limits (design section 2, enforced in `store.submit` inside one `BEGIN IMMEDIATE`)
 
@@ -82,6 +99,7 @@ rightmost `X-Forwarded-For` entry (the one Traefik appends); the container publi
 
 ## Secrets, logging, deployment
 
+- ALTCHA HMAC key: a Docker secret file (`ALTCHA_SECRET_FILE`), kept in Passbolt, API container only; never in the repo.
 - Admin token: a Docker secret file (`ADMIN_TOKEN_FILE`), kept in Passbolt; read per request, compared with
   `hmac.compare_digest`, never logged. Missing file → every admin call is `401` (fail closed).
 - Logs: one JSON object per line on stdout (`ts`, `level`, `logger`, `msg`, fields such as `world`); messages
@@ -94,4 +112,4 @@ rightmost `X-Forwarded-For` entry (the one Traefik appends); the container publi
 ## Testing
 
 pytest in `service/tests` with the build mocked (fake subprocess commands, a fake `region.build_world`,
-fake HTTP for Geofabrik); no real build, no download, no Docker build in CI or by the implementing agent.
+fake HTTP for Geofabrik and swisstopo, challenges solved in-process at cost 1); no real build, no download, no Docker build in CI or by the implementing agent.

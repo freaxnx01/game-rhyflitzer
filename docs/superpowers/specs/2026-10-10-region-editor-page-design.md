@@ -10,7 +10,7 @@ the page assumes is written down in "API contract" below.
 A static page on GitHub Pages, `editor/index.html` (`https://github.freaxnx01.ch/game-rhyflitzer/editor/`):
 a swisstopo map of Switzerland with a draggable, resizable frame (1 × 1 to 4 × 4 km, snapped to 250 m in
 LV95, entirely inside Switzerland). Before building it shows the world's name (the Gemeinde at the frame
-centre) and warns when the frame will be "free driving only". **Build** posts the frame to the API, the page
+centre) and warns when the frame will be "free driving only". **Build** first runs a short human check (ALTCHA) on the device, then posts the frame to the API, the page
 follows the job (queue position, then the build steps) and ends with **Drive!**, a share link and
 **Download world**. Every API failure has a plain message. German and English via the shared `i18n.js`;
 usable at 360 px with ≥ 44 px targets. All API/OSM/geo.admin text goes through `textContent`.
@@ -26,7 +26,8 @@ usable at 360 px with ≥ 44 px targets. All API/OSM/geo.admin text goes through
 | Frame on the map | A Leaflet `L.polygon` draws the true LV95 rectangle (4 corners). A DOM overlay above the map container carries the drag body and the 4 corner handles (44 × 44 px). |
 | Switzerland check | Client-side against `pipeline/ch_outline.geojson` (phase 1, swissBOUNDARIES3D, ≈ 90 kB, fetched at load). The API's check stays authoritative. |
 | World name | Live from geo.admin.ch `identify` on `ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill` at the frame centre (`timeInstant=<year>`, attribute `gemname`). CORS `*`, no key. The final name comes from the job (`A · B` across a border). |
-| "Free driving only" | From `GET /api/preview?bbox=…` → `{ race: bool }` (API contract below). If the endpoint answers 404 or fails, no warning is shown before the build; the done card still shows it from the job's `race`. |
+| "Free driving only" | From `GET /api/preview?bbox=…` → `{ name, gemeinden, raceOk, reason? }` (API contract below); only `raceOk === false` shows the note. If the endpoint answers 404, `raceOk: null` (no road index yet) or fails, no warning is shown before the build; the done card still shows it from the job's `race`. |
+| Human check | **ALTCHA** (open source, MIT, self-hosted proof of work, no third party, no cookies), the official `altcha` web component vendored under `vendor/altcha/` (3.3.0, one file). **Only when the player presses Build**: `GET /api/challenge` → solved in the widget's Web Workers (~1 s) → sent as `altcha` in `POST /api/jobs`. Never for the preview, polling, downloads or page load. Invisible widget, no puzzle; the status „Checking you're human…" and all errors come from `editor/strings.js` (en/de). |
 | State in the URL | `?bbox=e0,n0,e1,n1` (LV95, snapped) reproduces a frame — the entry point #167's expired-link page ("Build it again?") uses. The page rewrites it with `history.replaceState` on every commit. |
 | Strings | Own table `editor/strings.js` (`en`/`de`, same shape as `prototype/strings.js`), language from `window.GG_LANG`, re-render on `gg-langchange`. |
 
@@ -56,6 +57,7 @@ Panel contents by state:
 - **edit** — size readout `2.5 × 3.0 km`, world name (or `…` while loading, `—` when none), a hint
   „Drag the frame, pull a corner to resize", the "free driving only" note when `race === false`, the
   Switzerland error when outside, **Build** (disabled while outside CH or while the outline is loading).
+- **verifying** (≈ 1 s) — „Checking you're human…", Build disabled.
 - **submitting / queued / building** — a step list `Queued (#3) → Cutting → Terrain → World → Race → Done`
   with the active step lit, „about 1–2 minutes", and the world name.
 - **done** — name, **Drive!** (primary, `../?world=<id>`), share link (read-only input + **Copy**),
@@ -88,8 +90,12 @@ Bungee for the title, Barlow Condensed for everything else, `.btn` / `.btn.prima
 
 ## Build flow and polling
 
-1. **Build** → `POST /api/jobs` with `{ bbox: [e0, n0, e1, n1] }` (LV95, snapped). While in flight: state
-   `submitting`, button disabled.
+1. **Build** → state `verifying`: `GET /api/challenge`, a fresh invisible `<altcha-widget>` solves it in Web Workers
+   (`editor/human.js`), then `POST /api/jobs` with `{ bbox: [e0, n0, e1, n1], altcha: <payload> }` (LV95, snapped). While in
+   flight: state `submitting`, button disabled. A `403 human_check_failed` repeats steps 1 once with a fresh challenge;
+   a second refusal is shown as `errHuman`. A refused or unreachable challenge keeps its HTTP meaning (`errBusy`, `errServer`).
+   A world that already exists (cache hit) needs no solution on the server, but the page cannot know that, so every
+   Build costs one ≈ 1 s solve.
 2. `201/202` `{ id, status, position }` → state `queued`/`building`; `200` with `status: "done"` (dedupe)
    → `done` directly.
 3. Poll `GET /api/worlds/<id>` (the status endpoint #167 also reads for expired worlds) every 2 s, 5 s after the first minute (`pollDelay`). Stop on `done` / `failed`.
@@ -106,6 +112,7 @@ Bungee for the title, Barlow Condensed for everything else, `.btn` / `.btn.prima
 |---|---|---|
 | `400` `outside-ch` | `errOutsideCh` | The frame must lie entirely inside Switzerland. |
 | `400` `too-big` / `too-small` / `bad-bbox` | `errBadFrame` | That frame is not allowed: 1 × 1 to 4 × 4 km. |
+| `403` `human_check_failed` (twice) / widget error or timeout | `errHuman` | The human check did not work. Please try again. |
 | `429` | `errRateLimit` | You have built enough worlds for today — try again tomorrow, or drive one you built. |
 | `503` | `errBusy` | The server is busy right now. Try again in a few minutes. |
 | `failed` `too-complex` | `errTooComplex` | Too many buildings or roads in this frame. Try a smaller one. |
@@ -115,17 +122,18 @@ Bungee for the title, Barlow Condensed for everything else, `.btn` / `.btn.prima
 
 ## API contract assumed (phase 3, #168)
 
-Base URL: one constant `API_BASE` in `editor/api.js` (`https://rhyflitzer-api.freaxnx01.ch`, the host
-name is an open point of the parent spec; one line to change). All responses JSON, CORS `*`.
+Base URL: one constant `API_BASE` in `editor/api.js` (`https://rhyflitzer-api.freaxnx01.ch`, host name
+confirmed 2026-10-10; one line to change). All responses JSON, CORS `*`.
 
 | Call | Response |
 |---|---|
-| `POST /api/jobs` `{ bbox: [e0,n0,e1,n1] }` | `202 { id, status: "queued", position }` / `200 { id, status: "done", name, race }` (cached) / `400 { error: "outside-ch" \| "too-big" \| "too-small" \| "bad-bbox" }` / `429 { error: "rate-limit" }` / `503 { error: "busy" }` |
+| `GET /api/challenge` | `200` a signed ALTCHA PoW-v2 challenge (`{ parameters: {algorithm: "PBKDF2/SHA-256", cost, salt, nonce, keyPrefix, keyLength, expiresAt}, signature }`, good for 10 minutes, `no-store`) / `503 human-check-unavailable` |
+| `POST /api/jobs` `{ bbox: [e0,n0,e1,n1], altcha: "<base64 payload>" }` (`altcha` needed only for a NEW build) | `403 { error: "human_check_failed" }` / `202 { id, status: "queued", position }` / `200 { id, status: "done", name, race }` (cached) / `400 { error: "outside-ch" \| "too-big" \| "too-small" \| "bad-bbox" }` / `429 { error: "rate-limit" }` / `503 { error: "busy" }` |
 | `GET /api/worlds/<id>` | `200 { id, status: "queued" \| "cutting" \| "terrain" \| "world" \| "race" \| "done" \| "failed" \| "expired", position?, name?, race?, reason?, bbox?: { lv95: [4] } }` (`reason` on `failed`: `too-complex` \| `source-unreachable` \| `timeout` \| `build-failed`; `expired` is #167's tombstone, the editor treats it like `failed`) / `404` |
-| `GET /api/preview?bbox=e0,n0,e1,n1` | `200 { id, name, race: true \| false }` — a cheap answer (road count in the frame from the server's extract index); `404` if not implemented |
+| `GET /api/preview?bbox=e0,n0,e1,n1` | `200 { name, gemeinden, raceOk: true \| false \| null, reason? }` — cheap, no build (#168: major-road metres per 500 m cell from the extract, names from swisstopo; `raceOk: null` = no index yet); `400` as for jobs; `429 preview-rate-limit`; `404` if not implemented. No human check. |
 | `GET /worlds/<id>/world.zip` | the zip of #167 (`world.json`, `terrain.mmh`, `meta.json`, `LICENSE-ODbL.txt`) |
 
-`parseJob(json)` normalises whatever comes back into `{ id, status, position, name, race, reason }` and
+`parsePreview(json)` reads the preview as `{ name, raceOk }` (wrong types become `null`). `parseJob(json)` normalises whatever comes back into `{ id, status, position, name, race, reason }` and
 throws on an unknown `status`, so adapting to #168's final shape is one function and its test.
 
 ## Security
@@ -133,7 +141,8 @@ throws on an unknown `status`, so adapting to #168's final shape is one function
 - Every piece of text from the API, geo.admin or the world (`name`, `reason`, `error`) is written with
   `textContent`; the page has no `innerHTML` with data in it. Own strings are set with `textContent` too.
 - `id` validated before use in a URL; `?bbox=` parsed into numbers (`parseBbox`), never echoed as text.
-- No secrets: the editor talks to public endpoints only.
+- No secrets: the editor talks to public endpoints only. The ALTCHA payload is a one-time proof, not a credential; no cookie is set (`credentials: 'omit'`).
+- The vendored widget is MIT, a single pinned file with a recorded sha256 (`vendor/README.md`); its workers are `data:` URLs.
 
 ## Mobile
 
@@ -150,7 +159,7 @@ frame, not the page. The Leaflet map keeps pinch-zoom. No horizontal scroll.
 - Playwright `prototype/tests/test_editor.py` against the repo served by the existing `server` fixture, with
   `page.route` stubs for WMTS tiles (1 × 1 PNG), geo.admin identify, `ch_outline.geojson` (a synthetic
   square with a hole, so the test does not need #166) and the API (`/api/jobs`, `/api/jobs/<id>`,
-  `/api/preview`): load without errors, drag moves and snaps, corner resize clamps at 4 km, outside the
+  `/api/preview`, `/api/challenge` with a real-shaped cost-1 challenge that the widget actually solves): load without errors, drag moves and snaps, corner resize clamps at 4 km, outside the
   outline disables Build, keyboard move, build → queued #3 → steps → done with the Drive href and share
   link, every error row above, 360 px layout, EN/DE toggle re-renders. Frame-light (small viewport, no
   WebGL), foreground, under `systemd-run --user --scope -q -p MemoryMax=2G`.
@@ -168,9 +177,9 @@ frame, not the page. The Leaflet map keeps pinch-zoom. No horizontal scroll.
 - **A3** [med] The world name comes from geo.admin.ch `identify` (CORS `*`, verified 2026-10-10 with
   `timeInstant=2025` → one result `gemname: "Ehrendingen"`), not from our API. Phase 1 already uses
   geo.admin.ch for the outline (`2026-10-09-region-editor-phase1.md:21`).
-- **A4** [low] The "free driving only" preview needs an API call, `GET /api/preview?bbox=` → `{ race }`.
-  #168 is enriched in parallel; if it ships without this endpoint the editor shows the note only on the done
-  card (from the job's `race`). A comment on #168 states the contract.
+- **A4** [med] The "free driving only" preview is `GET /api/preview?bbox=` → `{ name, gemeinden, raceOk, reason? }`,
+  as #168 now specifies it (an estimate from a road index; the job's `race` stays authoritative). If it is missing,
+  `raceOk` is `null` or the call fails, the editor shows the note only on the done card.
 - **A5** [low] HTTP codes and error codes as in "API contract": `400` + phase 1's frame codes, `429`, `503`,
   `failed.reason`. One mapping function `errorKey`; unknown → `errServer`.
 - **A6** [med] The download URL is `${API_BASE}/worlds/<id>/world.zip` (one function `zipUrl`). #167 and
@@ -188,11 +197,18 @@ frame, not the page. The Leaflet map keeps pinch-zoom. No horizontal scroll.
 - **A10** [high] No one-way door: no credentials, no cost beyond free swisstopo/geo.admin calls, no public
   interface others depend on (the API contract is stated, not changed).
 
+- **A12** [med] **Human check = the official `altcha` 3.3.0 web component, vendored** (`vendor/altcha/altcha.min.js`,
+  sha256 `fc27a83d…ad829`, MIT; second vendored dependency after Leaflet), started only at Build, invisible, with the
+  page's own de/en texts (the widget's i18n bundle, 178 kB, is not shipped). Rejected: a hosted CAPTCHA (third party,
+  cookies, puzzle), a hand-written PoW (would drift from #168's `altcha` server library, which speaks the same PoW v2).
+  The challenge is fetched by the page and handed to the widget, so a refused challenge keeps its HTTP status.
+
 ## Consequences
 
 - New top-level directories `editor/` and `vendor/`, a root `editor.html` stub; 165 kB of vendored Leaflet.
 - GitHub Pages now serves a second page; the hub card (`freaxnx01.github.io`) can link it later (phase 5).
-- Every frame commit makes one geo.admin request and one API preview request (debounced 400 ms).
+- Every frame commit makes one geo.admin request and one API preview request (debounced 400 ms; the API limits previews to 60 a minute per client).
+- Every Build press costs one ≈ 1 s proof of work on the device, even when the world already exists; 120 kB more to load (gzip ≈ 34 kB).
 - `pipeline/ch_outline.geojson` becomes a runtime asset of the site, not only a pipeline input: a change to
   it changes what the editor accepts.
 - The `.btn.small` height differs between the game (40 px) and the editor (44 px) — the editor's own CSS.

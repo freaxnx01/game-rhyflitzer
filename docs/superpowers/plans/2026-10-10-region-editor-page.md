@@ -12,8 +12,9 @@
 
 ## Global Constraints
 
-- **Buildless.** No `package.json`, no bundler, no framework. Leaflet is the only vendored dependency (`vendor/leaflet/leaflet.js`, `leaflet.css`, `LICENSE`) — nothing else from a CDN except the Google Fonts the game already uses.
+- **Buildless.** No `package.json`, no bundler, no framework. Leaflet and the ALTCHA widget are the only vendored dependencies (`vendor/leaflet/…`, `vendor/altcha/…`) — nothing else from a CDN except the Google Fonts the game already uses.
 - **Never the public OSM tile servers or Overpass.** Tiles come from `wmts.geo.admin.ch`, names from `api3.geo.admin.ch` (both free, `© swisstopo`).
+- **The human check runs only when the player presses Build** (#168 requires an ALTCHA solution on `POST /api/jobs` for a NEW build, nothing else): `GET /api/challenge` → solved in the widget's Web Workers → `"altcha": <payload>` in the POST body. Never at page load, on frame moves, for the preview or while polling. No cookies (`credentials: 'omit'`), no third party, no visual puzzle; the status text comes from `editor/strings.js` (en/de), the widget itself is `display="invisible"`.
 - **`textContent` only for data** (names, reasons, ids, anything from the API, geo.admin or the URL). The page has no `innerHTML` with a variable in it (#176).
 - **One API constant.** `API_BASE` in `editor/api.js`; every URL is built by a function there. Nothing else knows the host.
 - Strings go through `t(key, ...args)` from `editor/strings.js`; `en` and `de` have the same keys, Swiss spelling (no `ß`). Re-render on `gg-langchange`.
@@ -33,17 +34,19 @@
 - **Disabled Build:** while the outline is loading, while outside Switzerland, and while submitting.
 - **#167's entry point:** `../editor.html?bbox=2666500,1257750,2670000,1261750` from `prototype/` must land on the editor with that frame. The root `editor.html` keeps `location.search` in its redirect, exactly like the root `index.html:9`. Whole metres only; the value is snapped and validated (`parseBbox`), junk falls back to the default frame.
 - **Status endpoint is `/api/worlds/<id>`** (shared with #167's expired-world tombstone), not `/api/jobs/<id>`; `POST /api/jobs` starts a build. `expired` is a valid status and is shown like a failed build.
+- **Human check:** `GET /api/challenge` is requested only after Build is pressed (`test_the_human_check_runs_only_when_build_is_pressed_and_shows_its_state`); a `403 human_check_failed` is retried **once** with a fresh challenge, then shown as `errHuman` (`test_a_refused_solution_is_retried_once_with_a_fresh_challenge`, the 403 row of the error table); a fresh `<altcha-widget>` element per attempt, removed afterwards, so no state leaks between attempts.
+- **Preview shape:** `GET /api/preview` answers `{name, gemeinden, raceOk, reason?}` (#168); `raceOk` is `true`, `false` or `null` (no index yet), and only `false` shows the free-driving note (`parsePreview`).
 
 ---
 
 ## File map
 
 - Create: `docs/design/region-editor/wireframe.md`, `docs/design/region-editor/flow.md` (Task 1)
-- Create: `vendor/leaflet/leaflet.js`, `vendor/leaflet/leaflet.css`, `vendor/leaflet/LICENSE`, `vendor/README.md` (Task 2)
+- Create: `vendor/leaflet/leaflet.js`, `vendor/leaflet/leaflet.css`, `vendor/leaflet/LICENSE`, `vendor/altcha/altcha.min.js`, `vendor/altcha/LICENSE`, `vendor/README.md` (Task 2)
 - Create: `editor/geo.js`, `prototype/tests/editor-geo.test.mjs` (Task 2)
 - Create: `editor/api.js`, `editor/strings.js`, `prototype/tests/editor-api.test.mjs`, `prototype/tests/editor-strings.test.mjs` (Task 3)
 - Create: `editor.html` (root redirect stub for #167's `../editor.html?bbox=` link), `editor/index.html`, `editor/editor.css` (Task 4)
-- Create: `editor/frame.js` (Task 5); `editor/editor.js` (Tasks 4–6)
+- Create: `editor/frame.js` (Task 5); `editor/human.js` (Task 6); `editor/editor.js` (Tasks 4–6)
 - Create: `prototype/tests/test_editor.py` (Task 7)
 - Modify: `CHANGELOG.md`, `test-todo.md`, `README.md` (one line) (Task 7)
 
@@ -167,10 +170,13 @@ stateDiagram-v2
     [*] --> Loading: page load (outline + ?bbox= parsed)
     Loading --> Edit: outline loaded → frame drawn, preview requested
     Edit --> Edit: drag / corner / arrow keys → snap 250 m, clamp 1–4 km, CH check,\n?bbox= rewritten, name + race preview (400 ms debounce)
-    Edit --> Submitting: Build (enabled only inside CH)
+    Edit --> Verifying: Build (enabled only inside CH) → GET /api/challenge, ALTCHA solved on the device (~1 s)
+    Verifying --> Submitting: solved → POST with the solution
+    Verifying --> Failed: challenge refused / solving failed → errorKey / errHuman
+    Submitting --> Verifying: 403 human_check_failed (once: fresh challenge)
     Submitting --> Queued: 202 {id, queued, position}
     Submitting --> Done: 200 {status done} (same frame built before)
-    Submitting --> Failed: 400 / 429 / 503 / network → errorKey
+    Submitting --> Failed: 400 / 403 (twice) / 429 / 503 / network → errorKey
     Queued --> Building: poll says cutting | terrain | world | race
     Queued --> Queued: poll every 2 s (5 s after 60 s), position updates
     Building --> Building: poll, step advances
@@ -187,7 +193,7 @@ south-west corner stays) · Tab moves on to Build. The map keeps its own +/− a
 
 **Preview** (on every commit, debounced 400 ms, both in parallel, each ignored when a newer commit happened):
 1. `GET api3.geo.admin.ch …/identify?geometry=<centre E,N>&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill&timeInstant=<year>&sr=2056` → `gemname`.
-2. `GET ${API_BASE}/api/preview?bbox=e0,n0,e1,n1` → `{ race }`; 404 / error → no note before the build.
+2. `GET ${API_BASE}/api/preview?bbox=e0,n0,e1,n1` → `{ name, gemeinden, raceOk }`; `raceOk === false` → the free-driving note; `null`, 404 or an error → no note before the build. No human check here.
 
 **Polling:** `GET ${API_BASE}/api/worlds/<id>` (the status endpoint #167 reads too; `expired` counts as failed); network miss → retry after the same delay, "Connection lost, retrying…" after 3 misses; never gives up.
 
@@ -201,7 +207,7 @@ south-west corner stays) · Tab moves on to Build. The map keeps its own +/− a
 ### Task 2: Vendor Leaflet and the pure geometry module
 
 **Files:**
-- Create: `vendor/leaflet/leaflet.js`, `vendor/leaflet/leaflet.css`, `vendor/leaflet/LICENSE`, `vendor/README.md`
+- Create: `vendor/leaflet/leaflet.js`, `vendor/leaflet/leaflet.css`, `vendor/leaflet/LICENSE`, `vendor/altcha/altcha.min.js`, `vendor/altcha/LICENSE`, `vendor/README.md`
 - Create: `editor/geo.js`
 - Test: `prototype/tests/editor-geo.test.mjs`
 
@@ -228,7 +234,21 @@ If a hash differs, stop and report (do not vendor an unverified file). `vendor/R
 | Library | Version | Licence | Used by | Notes |
 |---|---|---|---|---|
 | [Leaflet](https://leafletjs.com) | 1.9.4 | BSD-2-Clause (`leaflet/LICENSE`) | `editor/` | `dist/leaflet.js` + `dist/leaflet.css` only; no marker images (unused). Update by re-downloading from unpkg and checking the sha256 in the #169 plan. |
+| [ALTCHA widget](https://altcha.org) (`altcha` on npm) | 3.3.0 | MIT (`altcha/LICENSE`) | `editor/human.js` | `dist/main/altcha.min.js` only (styles and PBKDF2/SHA workers inline, no i18n bundle: the page shows its own de/en text). Proof-of-work human check for #168's `POST /api/jobs`; self-hosted, no cookies, no third party. Must match #168's server library (`altcha` on PyPI, PoW v2). Update by re-downloading from unpkg and checking the sha256 in the #169 plan. |
 ```
+
+- [ ] **Step 1b: Vendor the ALTCHA widget 3.3.0** (MIT, published 2026-10-05, npm `altcha`; read from the published tarball `altcha-3.3.0.tgz`, sha1 `e2c52081d82899ae2050ca0763b984f856a56f93` as the registry lists it, and identical from unpkg on 2026-10-10):
+
+```bash
+mkdir -p vendor/altcha
+curl -sL https://unpkg.com/altcha@3.3.0/dist/main/altcha.min.js -o vendor/altcha/altcha.min.js
+curl -sL https://unpkg.com/altcha@3.3.0/LICENSE.txt           -o vendor/altcha/LICENSE
+sha256sum vendor/altcha/altcha.min.js vendor/altcha/LICENSE
+# fc27a83dcd98a3d8acf6d70fbe4643dcbee512abfb98886edd8ed045350ad829  altcha.min.js (118 562 bytes)
+# bee1fb9d9c97d42c12c22332c5250f2fb1ef5c2321f6f82beb23e3b77be50a29  LICENSE      (1 095 bytes)
+```
+
+Same rule as Leaflet: a different hash means stop and report. The file is an ES module that registers `<altcha-widget>` and the `$altcha` global (loaded with `<script type="module">` in Task 4); its workers are `data:` URLs, so no separate worker file is needed. The widget's server counterpart is #168's `altcha` package (PoW v2); keep both on major version 3 (widget) and 2 (library).
 
 - [ ] **Step 2: Write the failing tests** — `prototype/tests/editor-geo.test.mjs`:
 
@@ -427,7 +447,7 @@ export function rectInside(rect, geojson) {
 - Test: `prototype/tests/editor-api.test.mjs`, `prototype/tests/editor-strings.test.mjs`
 
 **Interfaces:**
-- `api.js`: `API_BASE`, `GAME_URL`, `WMTS_URL`, `WMTS_ATTRIBUTION`, `jobsUrl()`, `jobUrl(id)`, `previewUrl(rect)`, `zipUrl(id)`, `shareUrl(id)`, `driveUrl(id)`, `identifyUrl([E, N], year)`, `isWorldId(s)`, `STATUSES`, `STEPS`, `parseJob(json) -> {id, status, position, name, race, reason}`, `errorKey(httpStatus, body) -> key`, `failKey(reason) -> key`, `pollDelay(elapsedMs)`, `gemeindeName(identifyJson) -> string | null`.
+- `api.js`: `API_BASE`, `GAME_URL`, `WMTS_URL`, `WMTS_ATTRIBUTION`, `jobsUrl()`, `challengeUrl()`, `parsePreview(json) -> {name, raceOk}`, `jobUrl(id)`, `previewUrl(rect)`, `zipUrl(id)`, `shareUrl(id)`, `driveUrl(id)`, `identifyUrl([E, N], year)`, `isWorldId(s)`, `STATUSES`, `STEPS`, `parseJob(json) -> {id, status, position, name, race, reason}`, `errorKey(httpStatus, body) -> key`, `failKey(reason) -> key`, `pollDelay(elapsedMs)`, `gemeindeName(identifyJson) -> string | null`.
 - `strings.js`: `STRINGS = {en, de}`, `translate(lang, key, ...args)`.
 
 - [ ] **Step 1: Write the failing tests** — `prototype/tests/editor-api.test.mjs`:
@@ -436,7 +456,7 @@ export function rectInside(rect, geojson) {
 // #169: the editor's API contract (phase 3, #168) as pure functions. node --test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { API_BASE, GAME_URL, WMTS_URL, jobsUrl, jobUrl, previewUrl, zipUrl, shareUrl, driveUrl, identifyUrl, isWorldId, STATUSES, STEPS, parseJob, errorKey, failKey, pollDelay, gemeindeName } from '../../editor/api.js';
+import { API_BASE, GAME_URL, WMTS_URL, jobsUrl, challengeUrl, parsePreview, jobUrl, previewUrl, zipUrl, shareUrl, driveUrl, identifyUrl, isWorldId, STATUSES, STEPS, parseJob, errorKey, failKey, pollDelay, gemeindeName } from '../../editor/api.js';
 
 const ID = '0123456789ab', EHR = [2667000, 1259750, 2669000, 1261750];
 
@@ -444,6 +464,7 @@ test('URLs: everything hangs off the one API_BASE; the share link is the game ro
   assert.match(API_BASE, /^https:\/\/[^/]+$/);
   assert.equal(GAME_URL, 'https://github.freaxnx01.ch/game-rhyflitzer/');
   assert.equal(jobsUrl(), `${API_BASE}/api/jobs`);
+  assert.equal(challengeUrl(), `${API_BASE}/api/challenge`);
   assert.equal(jobUrl(ID), `${API_BASE}/api/worlds/${ID}`);   // the status endpoint #167 reads too (expired tombstone)
   assert.equal(previewUrl(EHR), `${API_BASE}/api/preview?bbox=2667000,1259750,2669000,1261750`);
   assert.equal(zipUrl(ID), `${API_BASE}/worlds/${ID}/world.zip`);
@@ -486,6 +507,15 @@ test('errorKey: HTTP + error code -> string key; failKey: failed.reason -> strin
   for (const r of ['timeout', 'build-failed', 'anything', null, 'expired']) assert.equal(failKey(r), 'errBuildFailed', String(r));
 });
 
+test('human check: 403 maps to errHuman; the preview answer is read as raceOk true/false/null', () => {
+  assert.equal(errorKey(403, { error: 'human_check_failed' }), 'errHuman');
+  assert.equal(errorKey(403, null), 'errHuman');
+  assert.deepEqual(parsePreview({ name: 'Ehrendingen', gemeinden: ['Ehrendingen'], raceOk: false }), { name: 'Ehrendingen', raceOk: false });
+  assert.deepEqual(parsePreview({ name: null, gemeinden: [], raceOk: true, reason: 'x' }), { name: null, raceOk: true });
+  for (const j of [null, {}, { raceOk: null, reason: 'no-road-index' }, { raceOk: 'yes' }, { name: 7, raceOk: 1 }, 'x']) assert.equal(parsePreview(j).raceOk, null, JSON.stringify(j));
+  assert.equal(parsePreview({ name: 7 }).name, null);
+});
+
 test('pollDelay: 2 s in the first minute, 5 s afterwards', () => {
   assert.equal(pollDelay(0), 2000); assert.equal(pollDelay(59999), 2000); assert.equal(pollDelay(60000), 5000); assert.equal(pollDelay(1e7), 5000);
 });
@@ -524,7 +554,7 @@ test('Swiss spelling, no markup in any string (the page renders with textContent
 });
 
 test('every error key of api.js and every step has a string', () => {
-  for (const k of ['errOutsideCh', 'errBadFrame', 'errRateLimit', 'errBusy', 'errTooComplex', 'errSource', 'errBuildFailed', 'errServer',
+  for (const k of ['errOutsideCh', 'errBadFrame', 'errRateLimit', 'errBusy', 'errTooComplex', 'errSource', 'errBuildFailed', 'errServer', 'errHuman', 'verifying', 'humanNote',
     'stepQueued', 'stepCutting', 'stepTerrain', 'stepWorld', 'stepRace', 'stepDone']) assert.ok(k in STRINGS.en, k);
 });
 
@@ -541,7 +571,7 @@ test('translate picks the language, falls back to English, then to the key; name
 
 ```js
 // #169: the editor's side of the build API (phase 3, #168) and the swisstopo/geo.admin endpoints. Pure: node --test imports it.
-// API_BASE is the ONE place that knows the host (parent spec, open point: the host name).
+// API_BASE is the ONE place that knows the host (confirmed 2026-10-10: rhyflitzer-api.freaxnx01.ch).
 import { formatBbox } from './geo.js';
 
 export const API_BASE = 'https://rhyflitzer-api.freaxnx01.ch';
@@ -555,6 +585,7 @@ export const isWorldId = (s) => typeof s === 'string' && /^[0-9a-f]{12}$/.test(s
 function checkId(id) { if (!isWorldId(id)) throw new Error(`bad world id: ${String(id)}`); return id; }
 
 export const jobsUrl = () => `${API_BASE}/api/jobs`;
+export const challengeUrl = () => `${API_BASE}/api/challenge`;   // ALTCHA, requested only when Build is pressed
 export const jobUrl = (id) => `${API_BASE}/api/worlds/${checkId(id)}`;   // status; same endpoint #167 reads for expired worlds
 export const previewUrl = (rect) => `${API_BASE}/api/preview?bbox=${formatBbox(rect)}`;
 export const zipUrl = (id) => `${API_BASE}/worlds/${checkId(id)}/world.zip`;
@@ -570,6 +601,9 @@ export function identifyUrl([E, N], year) {
 
 const str = (v) => (typeof v === 'string' ? v : null);
 
+// #168's preview: {name, gemeinden, raceOk, reason?}; raceOk null = no road index yet. Wrong types become null, never rendered.
+export const parsePreview = (json) => ({ name: str(json && json.name), raceOk: json && typeof json.raceOk === 'boolean' ? json.raceOk : null });
+
 export function parseJob(json) {
   if (!json || typeof json !== 'object') throw new Error('bad job: not an object');
   if (!isWorldId(json.id)) throw new Error('bad job: id');
@@ -581,6 +615,7 @@ export function parseJob(json) {
 export function errorKey(httpStatus, body) {
   const code = body && typeof body.error === 'string' ? body.error : '';
   if (httpStatus === 400) return code === 'outside-ch' ? 'errOutsideCh' : 'errBadFrame';
+  if (httpStatus === 403) return 'errHuman';
   if (httpStatus === 429) return 'errRateLimit';
   if (httpStatus === 503) return 'errBusy';
   return 'errServer';
@@ -622,6 +657,8 @@ const en = {
   errBusy: 'The server is busy right now. Try again in a few minutes.', errTooComplex: 'Too many buildings or roads in this frame. Try a smaller one.',
   errSource: 'A data source is not reachable right now. Try again later.', errBuildFailed: 'The build failed. Try a different frame.',
   errServer: 'The server is not reachable. Check your connection and try again.',
+  verifying: "Checking you're human…", humanNote: 'Pressing Build runs a short check on your device that you are not a bot (ALTCHA): no cookies, no third party, no puzzle.',
+  errHuman: 'The human check did not work. Please try again.',
 };
 const de = {
   title: 'Region-Editor', tagline: 'Zieh einen Rahmen irgendwo in der Schweiz auf — in zwei Minuten fährst Du dort.',
@@ -640,6 +677,8 @@ const de = {
   errBusy: 'Der Server ist gerade ausgelastet. Versuch es in ein paar Minuten noch einmal.', errTooComplex: 'Zu viele Häuser oder Strassen in diesem Rahmen. Nimm einen kleineren.',
   errSource: 'Eine Datenquelle ist gerade nicht erreichbar. Versuch es später noch einmal.', errBuildFailed: 'Der Bau ist fehlgeschlagen. Versuch einen anderen Rahmen.',
   errServer: 'Der Server ist nicht erreichbar. Prüf Deine Verbindung und versuch es noch einmal.',
+  verifying: 'Wir prüfen, ob Du ein Mensch bist…', humanNote: 'Beim Bauen läuft kurz eine Prüfung auf Deinem Gerät, dass Du kein Bot bist (ALTCHA): ohne Cookies, ohne Dritte, ohne Rätsel.',
+  errHuman: 'Die Prüfung, ob Du ein Mensch bist, hat nicht geklappt. Versuch es noch einmal.',
 };
 
 export const STRINGS = { en, de };
@@ -663,7 +702,7 @@ export function translate(lang, key, ...args) {
 - Create: `editor/index.html`, `editor/editor.css`, `editor/editor.js` (shell only; Tasks 5–6 extend it)
 
 **Interfaces:**
-- `editor.js` exports nothing; it exposes `window.__ed = { rect, state, setRect, commit }` for tests (like the game's `window.__mm`). DOM ids: `#map`, `#mapwrap`, `#frame`, `#panel`, `#size`, `#name`, `#warn`, `#chmsg`, `#hint`, `#buildbtn`, `#steps`, `#about`, `#result`, `#drivebtn`, `#sharein`, `#copybtn`, `#dlbtn`, `#newbtn`, `#fail`, `#failmsg`, `#changebtn`, `#licence`.
+- `editor.js` exports nothing; it exposes `window.__ed = { rect, state, setRect, commit }` for tests (like the game's `window.__mm`). DOM ids: `#map`, `#mapwrap`, `#frame`, `#panel`, `#size`, `#name`, `#warn`, `#chmsg`, `#hint`, `#buildbtn`, `#humanmsg`, `#humannote`, `#human`, `#steps`, `#about`, `#result`, `#drivebtn`, `#sharein`, `#copybtn`, `#dlbtn`, `#newbtn`, `#fail`, `#failmsg`, `#changebtn`, `#licence`.
 
 - [ ] **Step 1: Write the root `editor.html` stub and `editor/index.html`**
 
@@ -698,6 +737,7 @@ export function translate(lang, key, ...args) {
       <p id="size" class="big"></p><p id="name" class="name">…</p>
       <p id="chmsg" class="err" hidden></p><p id="warn" class="warn" hidden></p><p id="hint" class="hint" data-i18n="hint"></p>
       <button id="buildbtn" class="btn primary" type="button" disabled data-i18n="build"></button>
+      <p id="humanmsg" class="hint" role="status" hidden></p><p id="humannote" class="hint" data-i18n="humanNote"></p><div id="human" hidden></div>
     </section>
     <section id="progress" class="card" hidden>
       <h2 data-i18n="building"></h2><p id="pname" class="name"></p>
@@ -734,6 +774,7 @@ export function translate(lang, key, ...args) {
   })();
 </script>
 <script src="../vendor/leaflet/leaflet.js"></script>
+<script type="module" src="../vendor/altcha/altcha.min.js"></script>
 <script type="module" src="./editor.js"></script>
 </html>
 ```
@@ -831,13 +872,14 @@ function renderEdit() {
   $('chmsg').className = S.outline === null ? 'hint' : 'err';
   show('warn', S.race === false); setText('warn', t('freeDriving'));
   $('buildbtn').disabled = S.inside !== true || S.state !== 'edit';
+  show('humanmsg', S.state === 'verifying'); setText('humanmsg', t('verifying'));
   poly.setLatLngs(corners(S.rect).map(toLatLng));
   poly.setStyle({ className: 'frame-poly' + (S.inside === false ? ' out' : '') });
   $('frame').classList.toggle('out', S.inside === false);
 }
 
 function render() {
-  show('edit', S.state === 'loading' || S.state === 'edit' || S.state === 'submitting');
+  show('edit', ['loading', 'edit', 'verifying', 'submitting'].includes(S.state));
   show('progress', S.state === 'queued' || S.state === 'building');
   show('result', S.state === 'done'); show('fail', S.state === 'failed');
   renderEdit();
@@ -949,7 +991,7 @@ export function createFrame(map, el, { toLv95, toLatLng, labels, onGhost, onComm
 ```js
 import { createFrame } from './frame.js';
 import { wgsToLv95 } from './geo.js';   // merge into the existing geo import
-import { previewUrl, identifyUrl, gemeindeName } from './api.js';   // merge into the existing api import
+import { previewUrl, identifyUrl, gemeindeName, parsePreview } from './api.js';   // merge into the existing api import
 
 const frame = createFrame(map, $('frame'), { toLv95: (ll) => wgsToLv95(ll.lat, ll.lng), toLatLng,
   labels: { body: t('frameLabel'), handle: (c) => t('handle', c.toUpperCase()) },
@@ -965,7 +1007,7 @@ function schedulePreview() {
 async function preview(seq) {
   const rect = S.rect;
   const nameP = fetch(identifyUrl(centre(rect), new Date().getFullYear())).then((r) => (r.ok ? r.json() : null)).then(gemeindeName).catch(() => null);
-  const raceP = fetch(previewUrl(rect)).then((r) => (r.ok ? r.json() : null)).then((j) => (j && typeof j.race === 'boolean' ? j.race : null)).catch(() => null);
+  const raceP = fetch(previewUrl(rect)).then((r) => (r.ok ? r.json() : null)).then((j) => parsePreview(j).raceOk).catch(() => null);
   const [name, race] = await Promise.all([nameP, raceP]);
   if (seq !== previewSeq) return;   // a newer commit happened
   S.name = name; S.race = race; render();
@@ -991,24 +1033,75 @@ window.__ed = { rect: () => S.rect.slice(), state: () => S.state, setRect: (r) =
 ### Task 6: Build, polling, done and failed states
 
 **Files:**
+- Create: `editor/human.js`
 - Modify: `editor/editor.js`
 
-- [ ] **Step 1: Add the build flow to `editor/editor.js`** (imports merged into the existing `api.js` import):
+- [ ] **Step 1: Write `editor/human.js`** — the ALTCHA step, kept out of `editor.js`. It fetches the challenge itself (so a refused or unreachable challenge keeps its HTTP meaning), then lets a **fresh** `<altcha-widget>` solve it in its Web Workers and returns the payload the API wants:
+
+```js
+// #169: the human check (#168). Only called when the player presses Build. A fresh invisible <altcha-widget> per attempt, removed afterwards.
+import { challengeUrl } from './api.js';
+
+const TIMEOUT_MS = 60000;   // ~1 s on a phone; a minute is a hung worker
+
+export class HumanCheckError extends Error {
+  constructor(message, httpStatus = 0, body = null) { super(message); this.httpStatus = httpStatus; this.body = body; }
+}
+
+async function fetchChallenge() {
+  const res = await fetch(challengeUrl(), { credentials: 'omit' });   // a network failure throws a TypeError: the caller maps it to errServer
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body) throw new HumanCheckError('challenge refused', res.status, body);
+  return body;
+}
+
+export async function solveHuman(host = document.getElementById('human')) {
+  const challenge = await fetchChallenge();
+  return new Promise((resolve, reject) => {
+    const widget = document.createElement('altcha-widget');
+    widget.setAttribute('display', 'invisible'); widget.setAttribute('auto', 'off');
+    const finish = (settle, value) => { clearTimeout(timer); widget.remove(); settle(value); };
+    const timer = setTimeout(() => finish(reject, new HumanCheckError('solving timed out')), TIMEOUT_MS);
+    widget.addEventListener('load', () => { widget.configure({ challenge, credentials: 'omit', workers: Math.min(4, navigator.hardwareConcurrency || 2) }); widget.verify(); }, { once: true });
+    widget.addEventListener('verified', (e) => finish(resolve, e.detail.payload));
+    widget.addEventListener('statechange', (e) => { if (e.detail.state === 'error') finish(reject, new HumanCheckError('solving failed')); });
+    host.appendChild(widget);
+  });
+}
+```
+
+The widget's methods exist only after its `load` event, hence the listener. If a different 3.x release changes `configure`/`verify`/`verified` (read `vendor/altcha/altcha.min.js` and the package README), adapt this one file; `editor.js` only sees `solveHuman()`.
+
+- [ ] **Step 2: Add the build flow to `editor/editor.js`** (imports merged into the existing `api.js` import):
 
 ```js
 import { jobsUrl, jobUrl, zipUrl, shareUrl, driveUrl, parseJob, errorKey, failKey, pollDelay } from './api.js';
+import { solveHuman, HumanCheckError } from './human.js';
 
 const ACTIVE = ['queued', 'cutting', 'terrain', 'world', 'race'];
 let pollTimer = 0;
 
+async function submit() {   // one human check, then one POST
+  S.state = 'verifying'; render();
+  const altcha = await solveHuman();
+  S.state = 'submitting'; render();
+  const res = await fetch(jobsUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bbox: S.rect, altcha }) });
+  return [res, await res.json().catch(() => null)];
+}
+
+const refusedAsRobot = (res, body) => res.status === 403 && body && body.error === 'human_check_failed';
+
 async function build() {
   if (S.state !== 'edit' || S.inside !== true) return;
-  S.state = 'submitting'; render();
-  let res, body = null;
-  try { res = await fetch(jobsUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bbox: S.rect }) }); body = await res.json().catch(() => null); }
-  catch (e) { return fail('errServer'); }
-  if (!res.ok) return fail(errorKey(res.status, body));
-  try { applyJob(parseJob(body), 0); } catch (e) { console.warn('bad job', e); fail('errServer'); }
+  try {
+    let [res, body] = await submit();
+    if (refusedAsRobot(res, body)) [res, body] = await submit();   // once more, with a fresh challenge
+    if (!res.ok) return fail(errorKey(res.status, body));
+    applyJob(parseJob(body), 0);
+  } catch (e) {
+    if (e instanceof HumanCheckError) return fail(e.httpStatus ? errorKey(e.httpStatus, e.body) : 'errHuman');
+    console.warn('build failed', e); fail('errServer');
+  }
 }
 
 function applyJob(job, startedAt) {
@@ -1060,7 +1153,7 @@ Extend `render()`:
 
 ```js
 function render() {
-  show('edit', S.state === 'loading' || S.state === 'edit' || S.state === 'submitting');
+  show('edit', ['loading', 'edit', 'verifying', 'submitting'].includes(S.state));
   show('progress', S.state === 'queued' || S.state === 'building');
   show('result', S.state === 'done'); show('fail', S.state === 'failed');
   renderEdit(); if (S.job) { renderProgress(); renderResult(); } if (S.state === 'failed') renderFail();
@@ -1082,9 +1175,9 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && (S
 
 Add `job: () => S.job` to `window.__ed`. The `renderEdit` guard `S.state !== 'edit'` already disables Build while submitting. `ACTIVE` is unused after this step — do not add it (or drop it); keep what the code uses.
 
-- [ ] **Step 2: Check by hand with a stub** — in the browser console `window.__ed` + the network tab: without an API host the POST fails → the failed card says „The server is not reachable…", **Change the frame** returns to edit with the frame kept. (The real flow is pinned by Task 7's stub.)
+- [ ] **Step 3: Check by hand with a stub** — in the browser console `window.__ed` + the network tab: without an API host the POST fails → the failed card says „The server is not reachable…", **Change the frame** returns to edit with the frame kept. (The real flow is pinned by Task 7's stub.)
 
-- [ ] **Step 3: Commit** — `git add editor/editor.js && git commit -m "feat(editor): build, job polling with queue position, Drive/share/download and error states (#169)"`
+- [ ] **Step 4: Commit** — `git add editor/human.js editor/editor.js && git commit -m "feat(editor): ALTCHA human check on Build, job polling, Drive/share/download and error states (#169)"`
 
 ---
 
@@ -1102,6 +1195,8 @@ Slow (Playwright): run in the foreground, frame-light (no WebGL, small viewport)
 import base64
 import json
 import re
+import secrets
+import time
 from pathlib import Path
 
 import pytest
@@ -1116,18 +1211,30 @@ ID = "0123456789ab"
 OUTLINE = {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [
     [[2600000, 1200000], [2700000, 1200000], [2700000, 1300000], [2600000, 1300000], [2600000, 1200000]],
     [[2650000, 1250000], [2653000, 1250000], [2653000, 1254000], [2650000, 1254000], [2650000, 1250000]]]}}
+def challenge():
+    """A PoW-v2 challenge as #168 issues it (cost 1, so the widget solves it at once); fresh salt and nonce per call. The signature is not checked by the stub."""
+    return {"parameters": {"algorithm": "PBKDF2/SHA-256", "cost": 1, "keyLength": 32, "keyPrefix": "00", "nonce": secrets.token_hex(16),
+                           "salt": secrets.token_hex(16), "expiresAt": 4102444800}, "signature": "stub"}
+
+
 IDENTIFY = {"results": [{"attributes": {"jahr": 2026, "is_current_jahr": True, "gemname": "Ehrendingen <b>x</b>"}}]}
 
 
 class Api:
-    """The stubbed build API. `script` is the list of GET /api/worlds/<id> answers in order; `post` the POST answer (status, body)."""
-    def __init__(self, post=(202, {"id": ID, "status": "queued", "position": 3}), script=(), preview=(200, {"id": ID, "name": "Ehrendingen", "race": False})):
-        self.post, self.script, self.preview, self.posts, self.gets = post, list(script), preview, [], 0
+    """The stubbed build API. `script` is the list of GET /api/worlds/<id> answers in order; `post` the POST answer (status, body) or a list of them;
+    `challenge` the GET /api/challenge answer (None: a fresh valid challenge); `challenge_delay` slows it down so the "checking" state can be seen."""
+    def __init__(self, post=(202, {"id": ID, "status": "queued", "position": 3}), script=(),
+                 preview=(200, {"name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": False}), challenge=None, challenge_delay=0.0):
+        self.post = [post] if isinstance(post, tuple) else list(post)
+        self.script, self.preview, self.posts, self.gets = list(script), preview, [], 0
+        self.challenge_answer, self.challenge_delay, self.challenges = challenge, challenge_delay, 0
 
     def route(self, r):
         url, m = r.request.url, r.request.method
         if url.endswith("/api/jobs") and m == "POST":
-            self.posts.append(json.loads(r.request.post_data)); st, body = self.post
+            self.posts.append(json.loads(r.request.post_data)); st, body = self.post.pop(0) if len(self.post) > 1 else self.post[0]
+        elif url.endswith("/api/challenge"):
+            self.challenges += 1; time.sleep(self.challenge_delay); st, body = self.challenge_answer or (200, challenge())
         elif "/api/preview" in url:
             st, body = self.preview
         elif "/api/worlds/" in url:
@@ -1172,7 +1279,7 @@ def test_loads_with_the_frame_from_the_url_and_the_name_as_text(server):
     assert errs == []
     assert got["rect"] == EHR and got["size"] == "2 × 2 km" and got["build"] is False
     assert got["name"] == "Ehrendingen <b>x</b>" and "&lt;b&gt;" in got["nameHtml"]   # textContent, never markup
-    assert got["warn"] is False   # preview said race: false → free-driving note
+    assert got["warn"] is False   # preview said raceOk: false → free-driving note
     assert "swisstopo" in got["attribution"] and got["tiles"] > 0
 
 
@@ -1222,7 +1329,8 @@ def test_build_queued_steps_done_drive_share_download(server):
                             " share: document.querySelector('#sharein').value, dl: document.querySelector('#dlbtn').getAttribute('href'), warn: document.querySelector('#rwarn').hidden,"
                             " edit: document.querySelector('#edit').hidden, drivePx: document.querySelector('#drivebtn').getBoundingClientRect().height })")
         b.close()
-    assert errs == [] and api.posts == [{"bbox": EHR}] and api.gets >= 3
+    assert errs == [] and [p["bbox"] for p in api.posts] == [EHR] and api.gets >= 3 and api.challenges == 1
+    assert set(json.loads(base64.b64decode(api.posts[0]["altcha"]))) >= {"challenge", "solution"}   # the widget really solved the stub challenge
     assert got == {"name": "Ehrendingen · Freienwil", "drive": f"../?world={ID}", "share": f"https://github.freaxnx01.ch/game-rhyflitzer/?world={ID}",
                    "dl": f"{API}/worlds/{ID}/world.zip", "warn": True, "edit": True, "drivePx": 64}
 
@@ -1241,6 +1349,7 @@ def test_cached_world_is_done_at_once_and_free_driving_is_said(server):
 @pytest.mark.parametrize("post,script,text", [
     ((400, {"error": "outside-ch"}), [], "The frame must lie entirely inside Switzerland."),
     ((400, {"error": "too-big"}), [], "That frame is not allowed: 1 × 1 to 4 × 4 km."),
+    ((403, {"error": "human_check_failed"}), [], "The human check did not work. Please try again."),   # refused twice: the retry is also refused
     ((429, {"error": "rate-limit"}), [], "You have built enough worlds for today — try again tomorrow, or drive one you built."),
     ((503, {"error": "busy"}), [], "The server is busy right now. Try again in a few minutes."),
     ((500, {}), [], "The server is not reachable. Check your connection and try again."),
@@ -1274,6 +1383,43 @@ def test_root_editor_html_redirects_with_the_bbox_from_167(server):
     assert errs == []
     assert got == {"rect": [2666500, 1257750, 2670000, 1261750], "search": "?bbox=2666500,1257750,2670000,1261750"}
     assert junk == EHR   # the default frame, no error
+
+
+def test_the_human_check_runs_only_when_build_is_pressed_and_shows_its_state(server):
+    api = Api(challenge_delay=1.0)
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.wait_for_function("() => document.querySelector('#name').textContent.includes('Ehrendingen')", timeout=20000)
+        page.evaluate(f"() => window.__ed.setRect({[2667250, 1259750, 2669250, 1261750]})")   # frame moves and previews never ask for a challenge
+        page.wait_for_timeout(800)
+        before = api.challenges
+        page.click("#buildbtn")
+        page.wait_for_function("() => window.__ed.state() === 'verifying'", timeout=5000)
+        shown = page.evaluate("() => ({ text: document.querySelector('#humanmsg').textContent, hidden: document.querySelector('#humanmsg').hidden, build: document.querySelector('#buildbtn').disabled })")
+        page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=60000)
+        b.close()
+    assert errs == [] and before == 0 and api.challenges == 1
+    assert shown == {"text": "Checking you're human…", "hidden": False, "build": True}
+
+
+def test_a_refused_solution_is_retried_once_with_a_fresh_challenge(server):
+    api = Api(post=[(403, {"error": "human_check_failed"}), (202, {"id": ID, "status": "queued", "position": 1})],
+              script=[(200, {"id": ID, "status": "queued", "position": 1})])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=60000)
+        b.close()
+    assert errs == [] and api.challenges == 2 and len(api.posts) == 2 and api.posts[0]["altcha"] != api.posts[1]["altcha"]
+
+
+def test_a_refused_challenge_is_a_sentence_not_a_human_check_error(server):
+    api = Api(challenge=(503, {"error": "human-check-unavailable"}))
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'failed'", timeout=20000)
+        msg = page.text_content("#failmsg")
+        b.close()
+    assert errs == [] and api.posts == [] and msg == "The server is busy right now. Try again in a few minutes."
 
 
 def test_no_preview_endpoint_means_no_warning_before_the_build(server):
@@ -1317,7 +1463,7 @@ Fix the implementation (never the assertions) until green. If a drag test is fla
 `CHANGELOG.md`, `[Unreleased]` / Added, first bullet:
 
 ```markdown
-- A **region editor** at `/editor/`: a map of Switzerland from swisstopo with a yellow frame you drag anywhere and pull to any size from 1 × 1 to 4 × 4 km. It shows the name of the place and warns you when there are too few roads for a race. **Build** sends the frame to the server, you watch the queue and the build steps, and about two minutes later **Drive!** takes you there; a link lets friends drive the same world, and **Download world** keeps it. In German and English, also on the phone.
+- A **region editor** at `/editor/`: a map of Switzerland from swisstopo with a yellow frame you drag anywhere and pull to any size from 1 × 1 to 4 × 4 km. It shows the name of the place and warns you when there are too few roads for a race. **Build** first runs a quick check on your device that you are not a bot (no cookies, no puzzle), then sends the frame to the server, you watch the queue and the build steps, and about two minutes later **Drive!** takes you there; a link lets friends drive the same world, and **Download world** keeps it. In German and English, also on the phone.
 ```
 
 `test-todo.md`, a new section after the heading block:
@@ -1331,7 +1477,7 @@ Needs the build API (#168) online; otherwise everything up to Build, and the "se
 - [ ] Drag the frame: it follows the finger as a dashed ghost and snaps when released; the URL's `bbox` changes. Pull a corner: the opposite corner stays, 4 km is the maximum, 1 km the minimum.
 - [ ] Move the frame over Büsingen, over Lake Constance, over Liechtenstein: it turns red, „The frame must lie entirely inside Switzerland", Build is grey.
 - [ ] The name under the size is the Gemeinde at the centre (try Ehrendingen, Baden, Zürich).
-- [ ] Build: queue position, then the steps light up in turn; Drive! opens the game in the world; the share link works in another browser; Download gives a zip.
+- [ ] Build: „Checking you're human…" for about a second (never at page load or while moving the frame), then the queue position, then the steps light up in turn; Drive! opens the game in the world; the share link works in another browser; Download gives a zip.
 - [ ] Rate limit (6th build in a day) and a busy server show their sentence; Change the frame keeps the frame.
 - [ ] EN/DE toggle at the bottom switches every text at once; 360 px phone: one column, nothing cut off.
 ```
@@ -1350,7 +1496,7 @@ gh pr create --base main --title "feat(ui): region editor page with swisstopo ma
 Closes #169. Depends on the API of #168 (contract in the spec); works stand-alone up to Build.
 
 ## Changes
-- `editor/` (geo, api, strings, frame, editor), root `editor.html` redirect (#167 links `../editor.html?bbox=`), `vendor/leaflet/`, `docs/design/region-editor/`
+- `editor/` (geo, api, strings, frame, human, editor), root `editor.html` redirect (#167 links `../editor.html?bbox=`), `vendor/leaflet/`, `vendor/altcha/` (ALTCHA 3.3.0, MIT, sha256 checked), `docs/design/region-editor/`
 - Status polled at `GET /api/worlds/<id>` (shared with #167's expired tombstone); `POST /api/jobs` starts a build
 - `prototype/tests/editor-*.test.mjs`, `prototype/tests/test_editor.py`
 - CHANGELOG, test-todo, README
@@ -1361,6 +1507,6 @@ Closes #169. Depends on the API of #168 (contract in the spec); works stand-alon
 - Manual: see `test-todo.md` → Region editor
 
 ## Checklist
-- [x] tests pass · [x] no new vulnerable deps (Leaflet 1.9.4, BSD-2, sha256 checked) · [x] no secrets · [x] `textContent` for all data (#176)
+- [x] tests pass · [x] no new vulnerable deps (Leaflet 1.9.4 BSD-2, ALTCHA 3.3.0 MIT, sha256 checked) · [x] no secrets · [x] `textContent` for all data (#176)
 EOF
 ```

@@ -4,9 +4,9 @@
 
 **Goal:** `service/` holds a Starlette API and one worker that queue, limit, build (via `region.build_world`), serve, expire and evict generated worlds, plus the Dockerfile that runs both on ionos1 (#168).
 
-**Architecture:** Package `service/rhyflitzer_api/`: `config` (env settings + the limits table), `logs` (JSON lines), `store` (SQLite: queue, limits, metadata), `app` (HTTP), `build` (one build in a subprocess) + `runner` (worker side of it), `housekeeping` (retention, cap, nightly), `extract` (weekly Geofabrik), `worker` (the loop). Two compose services from one image: API (512 MB) and worker (3 GB cap). Contract and reasons: spec below.
+**Architecture:** Package `service/rhyflitzer_api/`: `config` (env settings + the limits table), `logs` (JSON lines), `store` (SQLite: queue, limits, metadata), `app` (HTTP), `build` (one build in a subprocess) + `runner` (worker side of it), `housekeeping` (retention, cap, nightly), `extract` (weekly Geofabrik), `challenge` (ALTCHA human check on new builds), `roadgrid` + `preview` (the frame preview), `worker` (the loop). Two compose services from one image: API (512 MB) and worker (3 GB cap). Contract and reasons: spec below.
 
-**Tech Stack:** Python 3.12, Starlette 1.x + uvicorn (new), httpx (tests only, for Starlette's TestClient), stdlib `sqlite3`; the pipeline's own requirements; pytest.
+**Tech Stack:** Python 3.12, Starlette 1.x + uvicorn + `altcha` (new; the human check), httpx (tests only, for Starlette's TestClient), stdlib `sqlite3`; the pipeline's own requirements; pytest.
 
 **Spec:** `docs/superpowers/specs/2026-10-10-region-editor-service-design.md` (on top of `docs/superpowers/specs/2026-10-09-region-editor-design.md`, sections 1, 2, 3, 5).
 
@@ -15,8 +15,8 @@
 - **Needs #166 merged** (`pipeline/frame.py`, `pipeline/region.py` with `build_world`, `PIPELINE_VERSION`, `ODBL`, `prune_tiles`). #179 (race) is not needed; it only adds a `race` step, which the service relays like any other.
 - **Venv:** `python3 -m venv service/.venv && service/.venv/bin/pip install -r service/requirements-dev.txt`. Tests: `cd service && .venv/bin/python -m pytest -q`. The pipeline suite stays green and untouched (`cd pipeline && ./.venv/bin/python -m pytest -q`).
 - **No dry runs, no real builds, no downloads, no `docker build`:** every test mocks the build (fake subprocess commands, fake `region.build_world`) and HTTP (fake `get`). The real build runs only on ionos1 after deployment (operator checklist).
-- New dependencies: exactly `starlette`, `uvicorn` (runtime) and `httpx` (dev). Nothing else; no change to `pipeline/requirements*.txt`, `pipeline/*.py`, `prototype/`, `data/`.
-- Never write the admin token, a hostname-specific secret, or a Cloudflare token into the repo. The token is only ever read from `ADMIN_TOKEN_FILE`.
+- New dependencies: exactly `starlette`, `uvicorn`, `altcha` (runtime; MIT, zero dependencies of its own) and `httpx` (dev). Nothing else; no change to `pipeline/requirements*.txt`, `pipeline/*.py`, `prototype/`, `data/`.
+- Never write the admin token, the ALTCHA HMAC key, a hostname-specific secret, or a Cloudflare token into the repo. The token is only ever read from `ADMIN_TOKEN_FILE`, the key from `ALTCHA_SECRET_FILE`.
 - Logging: every operation logs the attempt, then the outcome (cause on failure), through `logs.fields(...)` — JSON on stdout.
 - Conventional Commits with explicit paths; push after each task. **CHANGELOG: no entry, `test-todo.md`: nothing** (nothing in the game changes until phase 2/4).
 
@@ -29,6 +29,8 @@
 - **Gallery worlds survive** both the 30-day expiry and the 10 GB cap (`test_expiry_keeps_played_and_gallery`, `test_cap_evicts_least_recently_played_never_gallery`).
 - **A failed extract update keeps the old file** (`test_bad_checksum_keeps_the_old_file`, `test_unreachable_keeps_the_old_file`).
 - **The admin token fails closed** and is never logged (`test_admin_without_token_file_is_401`).
+- **The human check guards new builds only:** `POST /api/jobs` for a NEW build needs a valid, unexpired, unused ALTCHA solution (`403 human_check_failed` otherwise); playing, polling, downloading, gallery reads, cache hits and joining a queued frame never do (`test_cache_hit_needs_no_solution`, `test_joining_a_queued_frame_needs_no_solution`); a solution is spent in the admission transaction, so a `429` leaves it unspent (`test_a_solution_works_once`, `test_refused_build_leaves_the_solution_unspent`); no key file fails closed (`test_challenge_without_a_key_is_503`).
+- **The preview is cheap and bounded:** no build, no cut, 60 requests a minute per client, a failed name lookup is a `null` name and not an error (`test_preview_is_rate_limited_per_client`, `test_a_failed_name_lookup_gives_a_null_name`, `test_no_road_index_yet_is_unknown_not_an_error`).
 
 ---
 
@@ -48,6 +50,7 @@
 ```
 starlette>=1.0,<2
 uvicorn>=0.30
+altcha>=2.3,<3
 ```
 `service/requirements-dev.txt`:
 ```
@@ -636,7 +639,7 @@ class Store:
 
 **Interfaces:**
 - Consumes: `frame.snap/check/from_lonlat/world_id/FrameError`, `region.PIPELINE_VERSION`, `Store`, `Settings`.
-- Produces: `app.create_app(settings=None, store=None) -> Starlette` (uvicorn `--factory`); `app.client_ip(request, hops)`; `app.job_view(store, row)`; routes `POST /api/jobs`, `GET /api/jobs/{wid}`, `GET /api/worlds/{wid}` (the status #167 reads: `{id, status, bbox: {lv95: [e0, n0, e1, n1]}}`, still answering after expiry), `GET /api/health`. Task 7 adds the world-file and admin routes to `ROUTES`.
+- Produces: `app.create_app(settings=None, store=None) -> Starlette` (uvicorn `--factory`); `app.client_ip(request, hops)`; `app.job_view(store, row)`; routes `POST /api/jobs`, `GET /api/jobs/{wid}`, `GET /api/worlds/{wid}` (the status #167 reads: `{id, status, bbox: {lv95: [e0, n0, e1, n1]}}`, still answering after expiry), `GET /api/health`. Task 7 adds the world-file and admin routes to `ROUTES`; Task 8 adds `GET /api/challenge`, `GET /api/preview` and the human check on `POST /api/jobs` (a new build then needs an `altcha` solution in the body).
 
 - [ ] **Step 1: Write the failing tests** — `service/tests/test_app_jobs.py`:
 
@@ -1929,7 +1932,750 @@ and extend `ROUTES`:
 
 ---
 
-### Task 8: Docker image and the operator README
+### Task 8: The public edge — human check on new builds (ALTCHA) and the frame preview
+
+**Why:** the endpoint is public and a build costs up to 3 GB and a minute of 2 cores. On top of the unchanged per-IP and global limits: a **human check on `POST /api/jobs` for a NEW build only** (never for playing, polling, downloading, gallery reads, a cache hit or joining a queued frame), and a cheap, rate-limited `GET /api/preview` (name, race feasible) that builds nothing.
+
+**Files:**
+- Create: `service/rhyflitzer_api/challenge.py`, `service/rhyflitzer_api/roadgrid.py`, `service/rhyflitzer_api/preview.py`, `service/tests/test_challenge.py`, `service/tests/test_human_check.py`, `service/tests/test_roadgrid.py`, `service/tests/test_preview.py`
+- Modify: `service/rhyflitzer_api/config.py`, `store.py`, `app.py`, `worker.py`, `service/tests/conftest.py`, `service/tests/test_app_jobs.py`
+
+**Interfaces:**
+- Produces: `GET /api/challenge` (signed ALTCHA challenge, `no-store`; `503 human-check-unavailable` without a key); `POST /api/jobs` accepts `"altcha"` and answers `403 {error: "human_check_failed", message}` for a NEW build without a valid, unexpired, unused solution; `GET /api/preview?bbox=` → `{name, gemeinden, raceOk, reason?}`. `challenge.issue(settings, now)`, `challenge.check(payload, settings) -> Ticket | None`, `challenge.Ticket(signature, expires)`, `challenge.Unavailable`; `store.human_gate(ticket, now)`, `Store.submit(..., gate=None)`, `Store.replace_roadgrid(rows)`, `Store.major_meters(rect)`; `roadgrid.cells_of_way/build/run_due`; `preview.Limiter/describe`.
+- Consumes: Tasks 1-7.
+
+**Decisions** are A14-A16 in the issue and the spec sections "Human check (ALTCHA) on new builds" and "Frame preview"; in short: the server side is the **`altcha` package** (`altcha>=2.3,<3`, MIT, zero dependencies, PoW v2 like the widget) behind a thin `challenge.py`; `PBKDF2/SHA-256`, `cost` 5000 (`ALTCHA_COST`), key prefix `00`, ~1 s on a phone, 10-minute expiry; the ticket is spent **inside the admission transaction** (a later `429`/`503` rolls it back unspent); the HMAC key is the secret file `ALTCHA_SECRET_FILE`, no file fails closed; the preview is an estimate (road index of major-road metres per 500 m cell, swisstopo identify for the name, `RACE_MIN_ROAD_M` 3000, 60 requests a minute per client, no human check).
+
+- [ ] **Step 1: Settings, store, conftest** (so the failing tests below can run against them)
+
+`config.py` — add the fields after `extract_url` and read them in `from_env`:
+
+```python
+    altcha_secret_file: Path | None = None    # HMAC key of the human check (Docker secret); none: fails closed
+    altcha_cost: int = 5000                   # PBKDF2/SHA-256 iterations per try; one try in 256 succeeds
+    altcha_ttl: float = 600.0                 # a challenge, and so its solution, is good for 10 minutes
+    race_min_road_m: int = 3000               # metres of major road in a frame before a race looks feasible
+    preview_per_minute: int = 60
+```
+
+```python
+        secret = env.get("ALTCHA_SECRET_FILE")
+        return cls(data_dir=Path(env["DATA_DIR"]), cors_origins=origins,
+                   admin_token_file=Path(token) if token else None, proxy_hops=int(env.get("PROXY_HOPS", "1")),
+                   altcha_secret_file=Path(secret) if secret else None, altcha_cost=int(env.get("ALTCHA_COST", "5000")),
+                   race_min_road_m=int(env.get("RACE_MIN_ROAD_M", "3000")))
+```
+
+`store.py` — two tables in `SCHEMA`:
+
+```sql
+CREATE TABLE IF NOT EXISTS used_challenges (signature TEXT PRIMARY KEY, expires REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS roadgrid (cx INTEGER NOT NULL, cy INTEGER NOT NULL, meters INTEGER NOT NULL,
+  PRIMARY KEY (cx, cy)) WITHOUT ROWID;
+```
+
+`import math` at the top, `CELL = 500.0   # roadgrid cell edge in metres (LV95)` and `HUMAN_MESSAGE` below `PERMANENT`, the gate, then `submit` takes `gate=None` and calls it for a NEW build only, before the limits:
+
+```python
+HUMAN_MESSAGE = "The human check did not pass; wait a moment for it to finish and press Build again"
+
+
+def human_gate(ticket, now: float):
+    """submit()'s gate for a NEW build: spends the ticket (a solved ALTCHA challenge) inside the admission transaction,
+    so a later refusal rolls it back unspent and the same solution never admits two builds."""
+    def gate(db) -> None:
+        if ticket is None:
+            raise Refused(403, "human_check_failed", HUMAN_MESSAGE)
+        db.execute("DELETE FROM used_challenges WHERE expires < ?", (now,))
+        try:
+            db.execute("INSERT INTO used_challenges(signature, expires) VALUES (?, ?)", (ticket.signature, ticket.expires))
+        except sqlite3.IntegrityError:
+            raise Refused(403, "human_check_failed", HUMAN_MESSAGE) from None
+    return gate
+```
+
+```python
+    def submit(self, wid: str, rect, ip_hash: str, now: float, settings, gate=None) -> dict:
+        ...
+            if row and (row["state"] in ("queued", "building", "ready") or row["error"] in PERMANENT):
+                return dict(row)
+            if gate is not None:
+                gate(db)
+            _check_limits(db, ip_hash, day_of(now), settings)
+```
+
+and two methods (section "gallery, health, kv"):
+
+```python
+    def replace_roadgrid(self, rows) -> None:
+        def swap(db):
+            db.execute("DELETE FROM roadgrid")
+            db.executemany("INSERT INTO roadgrid(cx, cy, meters) VALUES (?, ?, ?)", rows)
+        self._tx(swap)
+
+    def major_meters(self, rect) -> int | None:
+        """Metres of major road in the cells whose centre lies inside the frame; None while there is no index."""
+        if not self._q("SELECT 1 AS x FROM roadgrid LIMIT 1"):
+            return None
+        e0, n0, e1, n1 = rect
+        return self._q("SELECT COALESCE(SUM(meters), 0) AS m FROM roadgrid WHERE cx BETWEEN ? AND ? AND cy BETWEEN ? AND ?",
+                       (math.ceil(e0 / CELL - 0.5), math.floor(e1 / CELL - 0.5),
+                        math.ceil(n0 / CELL - 0.5), math.floor(n1 / CELL - 0.5)))[0]["m"]
+```
+
+`tests/conftest.py` — `import altcha` with the other imports, a `settings` fixture that carries a key and a cost of 1 (tests solve in microseconds), and two helpers:
+
+```python
+@pytest.fixture
+def settings(tmp_path):
+    key = tmp_path / "altcha.secret"
+    key.write_text("test-key", encoding="utf-8")
+    return Settings(data_dir=tmp_path, altcha_secret_file=key, altcha_cost=1)
+
+
+def solve(doc: dict) -> str:
+    """The payload a browser would send for this challenge document."""
+    challenge = altcha.Challenge.from_dict(doc)
+    return altcha.Payload(challenge, altcha.solve_challenge(challenge)).to_base64()
+
+
+def human(client) -> str:
+    """A fresh, valid human-check payload from the app under test."""
+    return solve(client.get("/api/challenge").json())
+```
+
+`tests/test_app_jobs.py` (Task 3) — `from conftest import RECT, human, ip`; a NEW build now carries a solution, a join or cache hit does not:
+- `test_post_queues_a_new_world_and_get_reports_it`: `json={"lv95": list(RECT), "altcha": human(client)}`.
+- `test_same_frame_is_one_job_snapped_and_from_lonlat`: the first post gets `"altcha": human(client)`; the second (a join) stays without.
+- `test_limits_reach_the_client`: both posts get `"altcha": human(client)` (each its own).
+
+- [ ] **Step 2: Write the failing tests** — `service/tests/test_challenge.py`:
+
+```python
+import dataclasses
+import time
+
+import altcha
+import pytest
+
+from conftest import solve
+from rhyflitzer_api import challenge
+from rhyflitzer_api.config import Settings
+
+
+def test_issue_is_a_signed_pbkdf2_challenge_that_expires_in_ten_minutes(settings):
+    now = time.time()
+    doc = challenge.issue(settings, now)
+    p = doc["parameters"]
+    assert (p["algorithm"], p["cost"], p["expiresAt"]) == ("PBKDF2/SHA-256", settings.altcha_cost, int(now + 600))
+    assert doc["signature"] and doc != challenge.issue(settings, now)
+
+
+def test_valid_solution_gives_a_ticket(settings):
+    doc = challenge.issue(settings, time.time())
+    assert challenge.check(solve(doc), settings) == challenge.Ticket(doc["signature"], doc["parameters"]["expiresAt"])
+
+
+def test_wrong_solution_is_refused(settings):
+    ch = altcha.Challenge.from_dict(challenge.issue(settings, time.time()))
+    good = altcha.solve_challenge(ch)
+    bad = altcha.Solution(counter=good.counter + 1, derived_key=good.derived_key)
+    assert challenge.check(altcha.Payload(ch, bad).to_base64(), settings) is None
+
+
+def test_expired_challenge_is_refused(settings):
+    assert challenge.check(solve(challenge.issue(settings, time.time() - 3600)), settings) is None
+
+
+def test_tampered_or_foreign_challenge_is_refused(settings, tmp_path):
+    doc = challenge.issue(settings, time.time())
+    doc["parameters"]["expiresAt"] += 3600                       # extending the expiry breaks the signature
+    assert challenge.check(solve(doc), settings) is None
+    other = tmp_path / "other.secret"
+    other.write_text("another-key", encoding="utf-8")
+    foreign = challenge.issue(dataclasses.replace(settings, altcha_secret_file=other), time.time())
+    assert challenge.check(solve(foreign), settings) is None
+
+
+@pytest.mark.parametrize("payload", [None, "", "not base64 at all", 42, "A" * 5000])
+def test_garbage_is_refused(settings, payload):
+    assert challenge.check(payload, settings) is None
+
+
+def test_without_a_key_file_it_fails_closed(settings):
+    gone = dataclasses.replace(settings, altcha_secret_file=None)
+    with pytest.raises(challenge.Unavailable):
+        challenge.issue(gone, time.time())
+    assert challenge.check(solve(challenge.issue(settings, time.time())), gone) is None
+
+
+def test_settings_read_key_file_cost_and_race_threshold(tmp_path):
+    s = Settings.from_env({"DATA_DIR": str(tmp_path), "ALTCHA_SECRET_FILE": "/run/secrets/a", "ALTCHA_COST": "8000",
+                           "RACE_MIN_ROAD_M": "4000"})
+    assert (str(s.altcha_secret_file), s.altcha_cost, s.race_min_road_m, s.altcha_ttl) == ("/run/secrets/a", 8000, 4000, 600.0)
+    d = Settings.from_env({"DATA_DIR": str(tmp_path)})
+    assert (d.altcha_secret_file, d.altcha_cost, d.race_min_road_m, d.preview_per_minute) == (None, 5000, 3000, 60)
+```
+
+`service/tests/test_human_check.py`:
+
+```python
+import dataclasses
+import time
+
+import frame
+import region
+from starlette.testclient import TestClient
+
+from conftest import RECT, T0, add_ready, human, ip, solve
+from rhyflitzer_api import challenge
+from rhyflitzer_api.app import create_app
+from rhyflitzer_api.store import human_gate
+
+WID = frame.world_id(RECT, region.PIPELINE_VERSION)
+OTHER = [2667000, 1259750, 2669000, 1261750]
+
+
+def post(client, rect=RECT, payload=None, n=1):
+    body = {"lv95": list(rect)}
+    if payload is not None:
+        body["altcha"] = payload
+    return client.post("/api/jobs", json=body, headers=ip(n))
+
+
+def test_challenge_endpoint_issues_a_fresh_signed_challenge(client):
+    a, b = client.get("/api/challenge"), client.get("/api/challenge")
+    assert a.status_code == 200 and a.headers["cache-control"] == "no-store"
+    assert a.json()["parameters"]["algorithm"] == "PBKDF2/SHA-256" and a.json()["signature"] != b.json()["signature"]
+
+
+def test_challenge_without_a_key_is_503(settings, store):
+    client = TestClient(create_app(dataclasses.replace(settings, altcha_secret_file=None), store))
+    r = client.get("/api/challenge")
+    assert r.status_code == 503 and r.json()["error"] == "human-check-unavailable"
+
+
+def test_new_build_without_a_solution_is_403_and_queues_nothing(client, store):
+    r = post(client)
+    assert r.status_code == 403 and r.json()["error"] == "human_check_failed" and r.json()["message"]
+    assert store.get(WID) is None
+
+
+def test_new_build_with_a_solution_is_queued(client):
+    assert post(client, payload=human(client)).status_code == 202
+
+
+def test_a_solution_works_once(client):
+    payload = human(client)
+    assert post(client, payload=payload).status_code == 202
+    again = post(client, OTHER, payload, n=2)
+    assert again.status_code == 403 and again.json()["error"] == "human_check_failed"
+
+
+def test_wrong_solution_is_403(client):
+    assert post(client, payload="not-a-solution").json()["error"] == "human_check_failed"
+
+
+def test_expired_solution_is_403(client, settings):
+    expired = solve(challenge.issue(settings, time.time() - 3600))
+    assert post(client, payload=expired).status_code == 403
+
+
+def test_cache_hit_needs_no_solution(client, store, settings):
+    add_ready(store, settings, WID)
+    r = post(client)
+    assert r.status_code == 200 and r.json()["state"] == "ready"
+
+
+def test_joining_a_queued_frame_needs_no_solution(client):
+    assert post(client, payload=human(client)).status_code == 202
+    joined = post(client, n=2)
+    assert joined.status_code == 202 and joined.json()["id"] == WID
+
+
+def test_refused_build_leaves_the_solution_unspent(client):
+    first, second = human(client), human(client)
+    assert post(client, payload=first).status_code == 202
+    assert post(client, OTHER, second).json()["error"] == "one-at-a-time"      # 429 rolls the ticket back
+    assert post(client, OTHER, second, n=2).status_code == 202
+
+
+def test_used_signatures_are_forgotten_once_they_expire(store, settings):
+    def spent():
+        return [r["signature"] for r in store._q("SELECT signature FROM used_challenges")]
+
+    store.submit("a" * 12, RECT, "x", T0, settings, gate=human_gate(challenge.Ticket("sig-1", T0 + 600), T0))
+    assert spent() == ["sig-1"]
+    store.submit("b" * 12, RECT, "y", T0 + 700, settings, gate=human_gate(challenge.Ticket("sig-2", T0 + 1300), T0 + 700))
+    assert spent() == ["sig-2"]
+```
+
+- [ ] **Step 3: Write the failing tests** — `service/tests/test_roadgrid.py` and `service/tests/test_preview.py`:
+
+```python
+# test_roadgrid.py
+import shutil
+import subprocess
+from collections import Counter
+
+import pytest
+
+from conftest import T0
+from rhyflitzer_api import roadgrid
+
+needs_osmium = pytest.mark.skipif(shutil.which("osmium") is None, reason="osmium-tool not installed")
+SYNTH = ('<?xml version="1.0"?><osm version="0.6">'
+         '<node id="1" lat="47.4750" lon="8.3000"/><node id="2" lat="47.4850" lon="8.3000"/>'
+         '<way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/></way>'
+         '<way id="11"><nd ref="1"/><nd ref="2"/><tag k="highway" v="footway"/></way></osm>')
+
+
+def test_a_way_counts_for_the_cells_its_pieces_lie_in():
+    cells = roadgrid.cells_of_way([(250.0, 250.0), (2250.0, 250.0)])
+    assert dict(cells) == {(0, 0): 250.0, (1, 0): 500.0, (2, 0): 500.0, (3, 0): 500.0, (4, 0): 250.0}
+
+
+def test_major_meters_sums_cells_centred_in_the_frame_and_is_none_without_an_index(store):
+    assert store.major_meters((500.0, 500.0, 1500.0, 1500.0)) is None
+    store.replace_roadgrid([(1, 1, 700), (2, 2, 300), (9, 9, 99999)])       # centres (750, 750), (1250, 1250)
+    assert store.major_meters((500.0, 500.0, 1500.0, 1500.0)) == 1000
+    assert store.major_meters((500.0, 500.0, 1000.0, 1000.0)) == 700
+
+
+def test_run_due_builds_once_per_extract(store, settings):
+    settings.extract_path.parent.mkdir(parents=True)
+    settings.extract_path.write_bytes(b"x")
+    calls = []
+
+    def build(path, work):
+        calls.append(path)
+        return Counter({(1, 1): 3999.6})
+
+    roadgrid.run_due(store, settings, T0, build=build)
+    roadgrid.run_due(store, settings, T0 + 5000, build=build)
+    assert len(calls) == 1 and store.major_meters((500.0, 500.0, 1000.0, 1000.0)) == 4000
+
+
+def test_a_failed_index_build_is_retried_at_most_hourly(store, settings):
+    settings.extract_path.parent.mkdir(parents=True)
+    settings.extract_path.write_bytes(b"x")
+    calls = []
+
+    def build(path, work):
+        calls.append(path)
+        raise subprocess.CalledProcessError(1, "osmium")
+
+    for offset in (0, 60, 3600):
+        roadgrid.run_due(store, settings, T0 + offset, build=build)
+    assert len(calls) == 2 and store.major_meters((500.0, 500.0, 1000.0, 1000.0)) is None
+
+
+@needs_osmium
+def test_build_reads_only_major_roads_from_a_synthetic_extract(tmp_path):
+    extract = tmp_path / "ch.osm"
+    extract.write_text(SYNTH, encoding="utf-8")
+    cells = roadgrid.build(extract, tmp_path)
+    assert abs(sum(cells.values()) - 1112) < 15 and not (tmp_path / "major-roads.pbf").exists()
+```
+
+```python
+# test_preview.py
+import dataclasses
+
+import pytest
+import requests
+from starlette.testclient import TestClient
+
+from conftest import RECT, ip
+from rhyflitzer_api.app import create_app
+from rhyflitzer_api.preview import Limiter
+
+BBOX = "bbox=2667000,1259750,2669250,1261750"
+INSIDE = (5336, 2521)          # a cell centred in RECT
+
+
+class Reply:
+    def __init__(self, names):
+        self.names = names
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return {"results": [{"attributes": {"gemname": n, "jahr": 2026, "is_current_jahr": True}} for n in self.names]}
+
+
+def fake_get(point=("Ehrendingen",), envelope=("Ehrendingen",), calls=None):
+    def get(url, params, timeout):
+        if calls is not None:
+            calls.append(params["geometryType"])
+        return Reply(point if params["geometryType"] == "esriGeometryPoint" else envelope)
+    return get
+
+
+def app(settings, store, get=None, **over):
+    return TestClient(create_app(dataclasses.replace(settings, **over), store, get=get or fake_get()))
+
+
+def test_limiter_allows_n_per_minute_and_forgets():
+    now = [0.0]
+    limiter = Limiter(2, clock=lambda: now[0])
+    assert [limiter.allow("a"), limiter.allow("a"), limiter.allow("a"), limiter.allow("b")] == [True, True, False, True]
+    now[0] = 60.0
+    assert limiter.allow("a")
+
+
+def test_preview_names_the_frame_and_says_a_race_fits(settings, store):
+    store.replace_roadgrid([(*INSIDE, 4000), (9000, 9000, 99999)])
+    r = app(settings, store).get(f"/api/preview?{BBOX}", headers=ip(1))
+    assert r.status_code == 200
+    assert r.json() == {"name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": True}
+
+
+def test_two_gemeinden_make_a_double_name_centre_first(settings, store):
+    store.replace_roadgrid([(*INSIDE, 4000)])
+    get = fake_get(point=("Ehrendingen",), envelope=("Lengnau", "Ehrendingen"))
+    assert app(settings, store, get).get(f"/api/preview?{BBOX}").json()["name"] == "Ehrendingen · Lengnau"
+
+
+def test_few_major_roads_say_so(settings, store):
+    store.replace_roadgrid([(*INSIDE, 1000)])
+    assert app(settings, store).get(f"/api/preview?{BBOX}").json()["raceOk"] is False
+    assert app(settings, store).get(f"/api/preview?{BBOX}").json()["reason"] == "few-major-roads"
+
+
+def test_no_road_index_yet_is_unknown_not_an_error(settings, store):
+    assert app(settings, store).get(f"/api/preview?{BBOX}").json() == {
+        "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": None, "reason": "no-road-index"}
+
+
+def test_a_failed_name_lookup_gives_a_null_name(settings, store):
+    def down(url, params, timeout):
+        raise requests.ConnectionError("swisstopo is down")
+    store.replace_roadgrid([(*INSIDE, 4000)])
+    r = app(settings, store, down).get(f"/api/preview?{BBOX}")
+    assert r.status_code == 200 and r.json() == {"name": None, "gemeinden": [], "raceOk": True}
+
+
+@pytest.mark.parametrize("query, code", [
+    ("", "bad-bbox"), ("?bbox=1,2,3", "bad-bbox"),
+    ("?bbox=2693000,1283000,2695000,1285000", "outside-ch"), ("?bbox=2660000,1250000,2670000,1260000", "too-big"),
+])
+def test_preview_refuses_bad_frames(settings, store, query, code):
+    r = app(settings, store).get(f"/api/preview{query}")
+    assert r.status_code == 400 and r.json()["error"] == code
+
+
+def test_preview_is_rate_limited_per_client(settings, store):
+    client = app(settings, store, preview_per_minute=2)
+    assert [client.get(f"/api/preview?{BBOX}", headers=ip(1)).status_code for _ in range(3)] == [200, 200, 429]
+    assert client.get(f"/api/preview?{BBOX}", headers=ip(2)).status_code == 200
+    assert client.get(f"/api/preview?{BBOX}", headers=ip(1)).json()["error"] == "preview-rate-limit"
+
+
+def test_the_same_frame_is_looked_up_once(settings, store):
+    calls = []
+    client = app(settings, store, fake_get(calls=calls))
+    client.get(f"/api/preview?{BBOX}")
+    client.get(f"/api/preview?{BBOX}")
+    assert calls == ["esriGeometryPoint", "esriGeometryEnvelope"]
+```
+
+- [ ] **Step 4: Run** — `cd service && .venv/bin/python -m pip install -r requirements-dev.txt && .venv/bin/python -m pytest -q tests/test_challenge.py tests/test_human_check.py tests/test_roadgrid.py tests/test_preview.py` — Expected: FAIL (`ModuleNotFoundError: rhyflitzer_api.challenge`).
+
+- [ ] **Step 5: Implement** — `service/rhyflitzer_api/challenge.py`:
+
+```python
+"""#168: the human check on new builds. ALTCHA proof of work (PoW v2) through the `altcha` package (MIT): the server
+signs a short-lived challenge with an HMAC key, the browser spends about a second of CPU finding a counter whose
+PBKDF2 key starts with the required prefix, and the signed solution rides along with POST /api/jobs. No third party,
+no cookie, no puzzle. A solution may admit one build: spending the ticket is the store's job (store.human_gate)."""
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+
+import altcha
+
+log = logging.getLogger("rhyflitzer.api")
+ALGORITHM = "PBKDF2/SHA-256"
+MAX_PAYLOAD = 4096
+
+
+class Unavailable(Exception):
+    """No usable HMAC key: the human check fails closed."""
+
+
+@dataclass(frozen=True)
+class Ticket:
+    signature: str      # of the challenge; identifies it for replay protection
+    expires: float
+
+
+def secret(settings) -> str:
+    path = settings.altcha_secret_file
+    try:
+        value = path.read_text(encoding="utf-8").strip() if path else ""
+    except OSError:
+        value = ""
+    if not value:
+        raise Unavailable("the ALTCHA key file is missing or empty")
+    return value
+
+
+def issue(settings, now: float) -> dict:
+    """A signed challenge, good for settings.altcha_ttl seconds."""
+    return altcha.create_challenge(algorithm=ALGORITHM, cost=settings.altcha_cost, expires_at=int(now + settings.altcha_ttl),
+                                   hmac_secret=secret(settings)).to_dict()
+
+
+def check(payload, settings) -> Ticket | None:
+    """The ticket of a valid, unexpired solution to a challenge we signed; None for anything else (the cause is
+    logged, never sent back)."""
+    if not isinstance(payload, str) or not 0 < len(payload) <= MAX_PAYLOAD:
+        return None
+    try:
+        result = altcha.verify_solution(payload, secret(settings))
+    except Unavailable as exc:
+        log.warning("Human check impossible: %s", exc)
+        return None
+    if not result.verified:
+        why = "expired" if result.expired else "forged" if result.invalid_signature else result.error or "wrong solution"
+        log.info("Human check failed: %s", why)
+        return None
+    signed = altcha.Payload.from_base64(payload).challenge
+    return Ticket(signed.signature, signed.parameters.expires_at)
+```
+
+`service/rhyflitzer_api/roadgrid.py`:
+
+```python
+"""#168: the road index behind GET /api/preview: metres of primary/secondary/tertiary road (places.MAJOR, #166) per
+500 m LV95 cell, rebuilt by the worker when the Swiss extract changes. `osmium tags-filter` streams the 0.55 GB
+extract into a small file and pyosmium reads that: no cut, well under 1 GB."""
+from __future__ import annotations
+
+import logging
+import math
+import subprocess
+from collections import Counter
+from pathlib import Path
+
+import osmium
+from pyproj import Transformer
+
+import places
+
+from . import logs
+from .store import CELL
+
+log = logging.getLogger("rhyflitzer.worker")
+PIECE = 250.0            # a segment is cut into pieces of at most this length; each counts for its midpoint's cell
+RETRY_SECONDS = 3600.0
+TO_LV95 = Transformer.from_crs(4326, 2056, always_xy=True)
+
+
+def cells_of_way(points) -> Counter:
+    """Metres of one way per (cx, cy) cell, from its LV95 points."""
+    out: Counter = Counter()
+    for (e0, n0), (e1, n1) in zip(points, points[1:]):
+        length = math.hypot(e1 - e0, n1 - n0)
+        pieces = max(1, math.ceil(length / PIECE))
+        for i in range(pieces):
+            mid = (i + 0.5) / pieces
+            out[(math.floor((e0 + (e1 - e0) * mid) / CELL), math.floor((n0 + (n1 - n0) * mid) / CELL))] += length / pieces
+    return out
+
+
+def build(extract: Path, work_dir: Path, run=subprocess.run) -> Counter:
+    """The whole index from the extract; the filtered file is removed again."""
+    work_dir.mkdir(parents=True, exist_ok=True)
+    major = work_dir / "major-roads.pbf"
+    try:
+        run(["osmium", "tags-filter", "--overwrite", "-o", str(major), str(extract),
+             "w/highway=" + ",".join(sorted(places.MAJOR))], check=True)
+        cells: Counter = Counter()
+        for way in osmium.FileProcessor(str(major), osmium.osm.WAY).with_locations():
+            if way.tags.get("highway") in places.MAJOR:
+                cells.update(cells_of_way([TO_LV95.transform(n.lon, n.lat) for n in way.nodes if n.location.valid()]))
+        return cells
+    finally:
+        major.unlink(missing_ok=True)
+
+
+def run_due(store, settings, now: float, build=build) -> None:
+    """Rebuilds the index when the extract is newer than the one it was built from; a failure is retried hourly."""
+    if not settings.extract_path.exists():
+        return
+    stamp = str(settings.extract_path.stat().st_mtime_ns)
+    tried = store.kv_get("roadgrid_tried")
+    if store.kv_get("roadgrid_for") == stamp or (tried and now - float(tried) < RETRY_SECONDS):
+        return
+    store.kv_set("roadgrid_tried", str(now))
+    log.info("Building the road index for the preview from the extract")
+    try:
+        cells = build(settings.extract_path, settings.cache_dir / "roadgrid")
+    except (OSError, subprocess.CalledProcessError):
+        log.exception("Building the road index failed; the preview answers raceOk null until the next try")
+        return
+    store.replace_roadgrid([(cx, cy, round(m)) for (cx, cy), m in cells.items()])
+    store.kv_set("roadgrid_for", stamp)
+    log.info("The road index is ready: %d cells", len(cells), extra=logs.fields(cells=len(cells)))
+```
+
+`service/rhyflitzer_api/preview.py`:
+
+```python
+"""#168: GET /api/preview: what a frame would become, answered without building. Name and Gemeinden from swisstopo's
+identify service (a point request at the centre and an envelope request, cached per snapped frame); "can a race
+fit" from the road index (roadgrid.py). An estimate: the build's own `race` stays authoritative."""
+from __future__ import annotations
+
+import collections
+import logging
+import time
+
+import requests
+
+from .store import Store
+
+log = logging.getLogger("rhyflitzer.api")
+IDENTIFY = "https://api3.geo.admin.ch/rest/services/api/MapServer/identify"
+LAYER = "all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
+FEW_ROADS, NO_INDEX = "few-major-roads", "no-road-index"
+CACHE_SIZE = 512
+
+
+class Limiter:
+    """At most `per_minute` calls per client in any 60 s; kept in memory only, so no address is ever stored."""
+
+    def __init__(self, per_minute: int, clock=time.monotonic):
+        self.per_minute, self.clock, self._hits = per_minute, clock, collections.defaultdict(collections.deque)
+
+    def allow(self, client: str) -> bool:
+        now, hits = self.clock(), self._hits[client]
+        while hits and now - hits[0] >= 60:
+            hits.popleft()
+        if len(hits) >= self.per_minute:
+            return False
+        hits.append(now)
+        if len(self._hits) > 4096:
+            self._hits = collections.defaultdict(collections.deque, {k: v for k, v in self._hits.items() if v and now - v[-1] < 60})
+        return True
+
+
+def _identify(geometry: str, kind: str, year: int, get) -> list[str]:
+    reply = get(IDENTIFY, params={"geometry": geometry, "geometryType": kind, "layers": LAYER, "tolerance": 0, "sr": 2056,
+                                  "returnGeometry": "false", "timeInstant": year}, timeout=0.9)
+    reply.raise_for_status()
+    names = [r["attributes"]["gemname"] for r in reply.json().get("results", [])
+             if r["attributes"].get("is_current_jahr", True) and r["attributes"].get("gemname")]
+    return list(dict.fromkeys(names))
+
+
+def gemeinden(rect, year: int, get) -> tuple[str | None, list[str]]:
+    """(name, Gemeinden): the centre's Gemeinde first, then the others touching the frame; the name has at most two."""
+    centre = _identify(f"{(rect[0] + rect[2]) / 2},{(rect[1] + rect[3]) / 2}", "esriGeometryPoint", year, get)[:1]
+    around = _identify(",".join(str(v) for v in rect), "esriGeometryEnvelope", year, get)
+    names = centre + [n for n in around if n not in centre]
+    return (" · ".join(names[:2]) or None), names
+
+
+def lookup(rect, year: int, get, cache: dict) -> tuple[str | None, list[str]]:
+    """(name, Gemeinden) of a snapped frame, looked up once; a failed lookup is not cached and gives (None, [])."""
+    if rect in cache:
+        return cache[rect]
+    try:
+        found = gemeinden(rect, year, get)
+    except (requests.RequestException, ValueError, KeyError):
+        log.warning("Looking up the Gemeinden of a preview failed; answering without a name", exc_info=True)
+        return None, []
+    if len(cache) >= CACHE_SIZE:
+        cache.clear()
+    cache[rect] = found
+    return found
+
+
+def describe(store: Store, settings, rect, year: int, get, cache: dict) -> dict:
+    name, names = lookup(rect, year, get, cache)
+    meters = store.major_meters(rect)
+    answer = {"name": name, "gemeinden": names, "raceOk": None if meters is None else meters >= settings.race_min_road_m}
+    if meters is None:
+        answer["reason"] = NO_INDEX
+    elif not answer["raceOk"]:
+        answer["reason"] = FEW_ROADS
+    return answer
+```
+
+`app.py` — imports (`import requests`, `from starlette.concurrency import run_in_threadpool`, `from . import challenge, logs, preview`, `from .store import Refused, Store, human_gate`), then:
+
+```python
+def snapped(body) -> tuple:
+    """The snapped, checked LV95 frame of a request; raises frame.FrameError, or ValueError/TypeError when malformed."""
+    rect = frame.snap(*parse_rect(body))
+    frame.check(rect)
+    return rect
+
+
+async def create_job(request: Request) -> JSONResponse:
+    settings, store = request.app.state.settings, request.app.state.store
+    try:
+        body = await request.json()
+    except ValueError:
+        return error(400, "bad-request", "the body must be JSON")
+    try:
+        rect = snapped(body)
+    except frame.FrameError as exc:
+        return error(400, exc.code, str(exc))
+    except (TypeError, ValueError):
+        return error(400, "bad-bbox", BBOX_HELP)
+    wid, now = frame.world_id(rect, region.PIPELINE_VERSION), time.time()
+    ticket = challenge.check(body.get("altcha"), settings)       # judged only if this turns out to be a NEW build
+    log.info("Admitting a build of world %s", wid, extra=logs.fields(world=wid, lv95=list(rect)))
+    try:
+        row = store.submit(wid, rect, store.ip_hash(client_ip(request, settings.proxy_hops), now), now, settings,
+                           gate=human_gate(ticket, now))
+    except Refused as exc:
+        log.info("Refused a build of world %s: %s", wid, exc.code, extra=logs.fields(world=wid, code=exc.code))
+        return error(exc.status, exc.code, str(exc))
+    log.info("World %s is %s", wid, row["state"], extra=logs.fields(world=wid, state=row["state"]))
+    return JSONResponse(job_view(store, row), status_code=200 if row["state"] == "ready" else 202)
+
+
+async def get_challenge(request: Request) -> JSONResponse:
+    log.debug("Issuing a human-check challenge")
+    try:
+        doc = challenge.issue(request.app.state.settings, time.time())
+    except challenge.Unavailable as exc:
+        log.error("Could not issue a human-check challenge: %s", exc)
+        return error(503, "human-check-unavailable", "The human check is not available right now")
+    return JSONResponse(doc, headers={"Cache-Control": "no-store"})
+
+
+async def get_preview(request: Request) -> JSONResponse:
+    state = request.app.state
+    if not state.limiter.allow(client_ip(request, state.settings.proxy_hops)):
+        return error(429, "preview-rate-limit", "Too many previews; wait a moment")
+    try:
+        rect = snapped({"lv95": request.query_params.get("bbox", "").split(",")})
+    except frame.FrameError as exc:
+        return error(400, exc.code, str(exc))
+    except (TypeError, ValueError):
+        return error(400, "bad-bbox", "give bbox=e0,n0,e1,n1 in LV95")
+    return JSONResponse(await run_in_threadpool(preview.describe, state.store, state.settings, rect,
+                                                time.gmtime().tm_year, state.get, state.names))
+```
+
+`ROUTES` gets `Route("/api/challenge", get_challenge, methods=["GET"])` and `Route("/api/preview", get_preview, methods=["GET"])`; `create_app(settings=None, store=None, get=requests.get)` additionally sets `app.state.get, app.state.names, app.state.limiter = get, {}, preview.Limiter(settings.preview_per_minute)`.
+
+`worker.py` — `from . import extract, housekeeping, logs, roadgrid, runner` and, in `tick`, after `extract.run_due(self.store, self.settings, now)`: `roadgrid.run_due(self.store, self.settings, now)`.
+
+- [ ] **Step 6: Run** — `cd service && .venv/bin/python -m pytest -q` — Expected: everything green: 117 tests (116 and one skipped without `osmium-tool`); the pipeline suite untouched.
+- [ ] **Step 7: Commit** — `git add service/rhyflitzer_api/challenge.py service/rhyflitzer_api/roadgrid.py service/rhyflitzer_api/preview.py service/rhyflitzer_api/config.py service/rhyflitzer_api/store.py service/rhyflitzer_api/app.py service/rhyflitzer_api/worker.py service/tests/ && git commit -m "feat(service): ALTCHA human check on new builds and a frame preview (#168)" && git push`
+
+---
+
+### Task 9: Docker image and the operator README
 
 **Files:**
 - Create: `service/Dockerfile`, `service/Dockerfile.dockerignore`, `service/README.md`, `service/tests/test_packaging.py`
@@ -1954,14 +2700,15 @@ def test_dockerfile_has_osmium_node20_nonroot_and_the_factory():
         assert f"COPY {path}" in text
 
 
-def test_only_starlette_and_uvicorn_at_runtime():
+def test_runtime_dependencies_are_exactly_these():
     lines = [l for l in (SERVICE / "requirements.txt").read_text().splitlines() if l.strip()]
-    assert [l.split(">")[0] for l in lines] == ["starlette", "uvicorn"]
+    assert [l.split(">")[0] for l in lines] == ["starlette", "uvicorn", "altcha"]
 
 
 def test_readme_documents_the_worker_cap_and_the_secret():
     text = (SERVICE / "README.md").read_text()
     assert "mem_limit: 3g" in text and "rhyflitzer_admin_token" in text and "python -m rhyflitzer_api.worker" in text
+    assert "rhyflitzer_altcha_secret" in text and "ALTCHA_SECRET_FILE" in text
 ```
 
 - [ ] **Step 2: Run** — Expected: FAIL (`FileNotFoundError: .../service/Dockerfile`).
@@ -2025,8 +2772,10 @@ CMD ["uvicorn", "rhyflitzer_api.app:create_app", "--factory", "--host", "0.0.0.0
     environment:
       - CORS_ORIGINS=https://github.freaxnx01.ch
       - ADMIN_TOKEN_FILE=/run/secrets/rhyflitzer_admin_token
+      - ALTCHA_SECRET_FILE=/run/secrets/rhyflitzer_altcha_secret
     secrets:
       - rhyflitzer_admin_token
+      - rhyflitzer_altcha_secret
     volumes:
       - ./data/rhyflitzer:/data
     networks:
@@ -2056,10 +2805,10 @@ CMD ["uvicorn", "rhyflitzer_api.app:create_app", "--factory", "--host", "0.0.0.0
       - "traefik.enable=false"
 ```
 
-   plus, under the file's top-level `secrets:`: `rhyflitzer_admin_token: {file: "./secrets/rhyflitzer_admin_token.secret"}`, and in `production/vserver/.env`: `SUBDOMAIN_RHYFLITZER_API=rhyflitzer-api`. (Volume path: follow the file's existing convention if it differs from `./data/…`.)
+   plus, under the file's top-level `secrets:`: `rhyflitzer_admin_token: {file: "./secrets/rhyflitzer_admin_token.secret"}` and `rhyflitzer_altcha_secret: {file: "./secrets/rhyflitzer_altcha_secret.secret"}` (only the API service mounts them), and in `production/vserver/.env`: `SUBDOMAIN_RHYFLITZER_API=rhyflitzer-api`. (Volume path: follow the file's existing convention if it differs from `./data/…`.)
 4. **Operator checklist** — the numbered list from #168's "Operator checklist" section, verbatim.
 5. **Admin** — `curl -X PUT -H "Authorization: Bearer $(cat <token file>)" -H 'Content-Type: application/json' -d '{"title":"…","description":"…"}' https://rhyflitzer-api.freaxnx01.ch/api/admin/gallery/<id>` and the `DELETE` form; never paste the token into a shell history or a file in a repo.
-6. **Operations** — health URL; logs `docker logs rhyflitzer-worker | jq .`; where data lives (`/data`: `service.sqlite3`, `worlds/`, `extract/`, `cache/`); a failed extract update keeps the old file; an OOM kill shows as `build-failed` "killed by signal 9".
+6. **Operations** — the human check (`ALTCHA_COST`, default 5000: ~1 s on a phone; raise to tighten) and the preview threshold (`RACE_MIN_ROAD_M`, default 3000); health URL; logs `docker logs rhyflitzer-worker | jq .`; where data lives (`/data`: `service.sqlite3`, `worlds/`, `extract/`, `cache/`); a failed extract update keeps the old file; an OOM kill shows as `build-failed` "killed by signal 9".
 
-- [ ] **Step 4: Run** — Expected: 3 passed; whole suite green (`cd service && .venv/bin/python -m pytest -q`): 77 tests. Pipeline suite unchanged and green.
+- [ ] **Step 4: Run** — Expected: 3 passed; whole suite green (`cd service && .venv/bin/python -m pytest -q`): 117 tests (116 and one skipped without `osmium-tool`). Pipeline suite unchanged and green.
 - [ ] **Step 5: Commit** — `git add service/Dockerfile service/Dockerfile.dockerignore service/README.md service/tests/test_packaging.py && git commit -m "feat(service): Docker image and operator README for ionos1 (#168)" && git push`, then open the PR (`feat(service): region editor build service on ionos1 (#168)`), body listing the operator checklist as the remaining manual part.
