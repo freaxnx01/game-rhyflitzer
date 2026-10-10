@@ -15,7 +15,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #pips{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:4px}
 #pips div{height:14px;background:#2a2e38;border:2px solid var(--steel)}
 #pips div.on{background:var(--sun);border-color:var(--ink)}
-#tc{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;z-index:1}
+#tc{position:fixed;left:50%;top:calc(12px + var(--mirror-drop,0px) + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;z-index:1}
 #arrow{width:80px;height:60px;transition:transform .12s linear}
 #dist{background:rgba(20,23,29,.82);border:3px solid var(--sun);padding:2px 14px;font-size:26px;font-weight:800;font-style:italic;color:var(--sun);line-height:1.1}
 #cpname{font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;text-shadow:2px 2px 0 var(--ink)}
@@ -321,7 +321,7 @@ import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntri
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
 import { photoFileName, canPhoto } from './photo.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
-import { MIRROR, mirrorVisible, mirrorRect, mirrorDue } from './mirror.js';
+import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
 import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn } from './sound.js';
@@ -1181,7 +1181,7 @@ function updateVillageNames(x, z) {
 }
 const camera = new THREE.PerspectiveCamera(62, 1, 0.5, 4200);
 // #92: rear-view mirror -- a second camera into a small render target, drawn as a quad in an inset of the main canvas (see drawMirror)
-const MIR = { cam: new THREE.PerspectiveCamera(MIRROR.fov, MIRROR.w / MIRROR.h, MIRROR.near, MIRROR.far), rt: new THREE.WebGLRenderTarget(MIRROR.w, MIRROR.h), scene: new THREE.Scene(), ortho: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), frame: 0, renders: 0, visible: false, rect: { x: 0, y: 0, w: 0, h: 0 }, touch: matchMedia('(pointer:coarse)').matches };
+const MIR = { cam: new THREE.PerspectiveCamera(MIRROR.fov, MIRROR.w / MIRROR.h, MIRROR.near, MIRROR.far), rt: new THREE.WebGLRenderTarget(MIRROR.w, MIRROR.h), scene: new THREE.Scene(), ortho: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), frame: 0, renders: 0, visible: false, hudDrop: 0, rect: { x: 0, y: 0, w: 0, h: 0 }, touch: matchMedia('(pointer:coarse)').matches };
 { const g = new THREE.PlaneGeometry(2, 2), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i)); MIR.scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: MIR.rt.texture, toneMapped: false }))); }   // a mirror image is reversed: flip the quad, not the projection
 const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x6a5a40, 0.9); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 0.8); sun.position.set(-300, 400, -200); scene.add(sun); scene.add(sun.target);
@@ -1620,8 +1620,9 @@ function drawMirrorQuad(r) { const b = MIRROR.border, y = innerHeight - r.y - r.
   renderer.setViewport(r.x - b, y - b, r.w + 2 * b, r.h + 2 * b); renderer.setScissor(r.x - b, y - b, r.w + 2 * b, r.h + 2 * b); renderer.setClearColor(0x8a93a3, 1); renderer.clear(true, true, false);   // a flat steel frame between --steel and --steel-l, the HUD's plates in one colour
   renderer.setViewport(r.x, y, r.w, r.h); renderer.setScissor(r.x, y, r.w, r.h); renderer.render(MIR.scene, MIR.ortho);
   renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.setClearColor(c, ca); renderer.autoClear = true; }
-function drawMirror(frozen) { const was = MIR.visible; MIR.visible = mirrorVisible({ view: CAM_VIEWS[camView].k, back: CAM.back, flying: FLY.on, overlay: !$('overlay').hidden, fullMap: !!keys.Tab, touch: MIR.touch, carsel: CARSEL.on }); if (!MIR.visible) return;
-  if (!frozen) { MIR.frame++; if (mirrorDue(MIR.frame, was)) renderMirrorTarget(); } MIR.rect = mirrorRect(innerWidth); drawMirrorQuad(MIR.rect); }
+function drawMirror(frozen) { const was = MIR.visible; MIR.visible = mirrorVisible({ view: CAM_VIEWS[camView].k, back: CAM.back, flying: FLY.on, overlay: !$('overlay').hidden, fullMap: !!keys.Tab, touch: MIR.touch, carsel: CARSEL.on }); if (!MIR.visible) { syncHudDrop(0); return; }
+  if (!frozen) { MIR.frame++; if (mirrorDue(MIR.frame, was)) renderMirrorTarget(); } MIR.rect = mirrorRect(innerWidth); syncHudDrop(mirrorHudDrop(MIR.rect)); drawMirrorQuad(MIR.rect); }
+function syncHudDrop(px) { if (px === MIR.hudDrop) return; MIR.hudDrop = px; $('tc').style.setProperty('--mirror-drop', px + 'px'); }   // the arrow, distance, names and toast move under the glass, only on a change
 window.__mm.mirror = () => { const l = MIR.cam.getWorldDirection(new THREE.Vector3()); return { visible: MIR.visible, renders: MIR.renders, frame: MIR.frame, rect: { ...MIR.rect }, pos: MIR.cam.position.toArray(), look: [l.x, l.y, l.z] }; };
 
 // ---------- race ----------
