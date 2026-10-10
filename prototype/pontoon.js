@@ -78,6 +78,12 @@ export function pontoonSurfaceAt(d, t) {
 // the car drives only on whole laid bays
 export function drivableLength(d, cfg = PONTOON_CFG) { return Math.min(d.len, Math.floor(d.built * d.nBays + 1e-9) * cfg.bay); }
 // onBridge's answer for the pontoon: { b, t, pontoon: true } or null; y as in bridgeAccepts (an object 1.5 m under the deck is not on it)
+// the deck lane plus a 12 m run-up on both banks: where static forest-edge walls (#175) must not stop a car driving on or off
+export function pontoonCorridor(d, x, z) {
+  if (!d) return false;
+  const [t, s] = pontoonLocal(d, x, z);
+  return t >= -12 && t <= d.len + 12 && Math.abs(s) <= d.hw + 1.5;
+}
 export function pontoonHit(d, x, z, y) {
   if (!d) return null;
   const [t, s] = pontoonLocal(d, x, z);

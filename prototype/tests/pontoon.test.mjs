@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PONTOON_CFG, bankNormal, marchToWater, marchToLand, atRhineBank, crossingLine, pontoonLocal, pontoonSurfaceAt, drivableLength, pontoonHit, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonHulls, pontoonPrompt } from '../pontoon.js';
+import { PONTOON_CFG, bankNormal, marchToWater, marchToLand, atRhineBank, crossingLine, pontoonLocal, pontoonSurfaceAt, drivableLength, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonHulls, pontoonPrompt } from '../pontoon.js';
 
 // a straight east-west Rhine between z 50 and 150 (water = negative), the car on the south bank (z < 50), a road strip at z 190..196 on the north bank
 const river = (x, z) => Math.abs(z - 100) - 50;
@@ -144,4 +144,14 @@ test('pontoonHulls: one box per laid floating bay, along x across, water-relativ
 
 test('pontoonPrompt', () => {
   assert.equal(pontoonPrompt(null, false), null); assert.equal(pontoonPrompt(null, true), 'build'); assert.equal(pontoonPrompt({}, true), 'remove'); assert.equal(pontoonPrompt({}, false), 'remove');
+});
+
+test('pontoonCorridor: the deck lane plus a run-up on both banks, so forest-edge walls (#175) do not block the ramps', () => {
+  const d = { ...crossingLine(env(), 0, 25), built: 1 };
+  assert.equal(pontoonCorridor(null, 0, 25), false);
+  assert.equal(pontoonCorridor(d, 0.5, 100), true);                // on the deck
+  assert.equal(pontoonCorridor(d, 0, d.a[1] - 4), true);            // 4 m before the near end: the run-up
+  assert.equal(pontoonCorridor(d, 0, d.a[1] - 14), false);           // 14 m before it: still the forest's wall
+  assert.equal(pontoonCorridor(d, 0, d.b[1] + 4), true);             // past the far end
+  assert.equal(pontoonCorridor(d, 5, 100), false);                 // beside the deck
 });
