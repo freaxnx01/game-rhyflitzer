@@ -10,7 +10,9 @@ from playwright.sync_api import sync_playwright
 
 WORLD = Path(__file__).parents[2] / "data" / "world_hochrhein.json"
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
-ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
+# a software 2D canvas: on a GPU-backed one each minimap getImageData waits for the queued WebGL frames,
+# 1-4 minutes per read on a loaded box (same pixels, read in milliseconds)
+ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--disable-accelerated-2d-canvas"]
 needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 ROUTE_RGB = (0x3D, 0xDC, 0xFF)
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
