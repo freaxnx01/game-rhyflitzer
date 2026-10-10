@@ -21,7 +21,7 @@ def open_page(p, server):
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto(f"{server}/prototype/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
-    page.click("#startbtn")
+    page.click("#startbtn", timeout=180000)   # heavy real world under SwiftShader: the start overlay can take a while to accept clicks
     return br, page, errors
 
 
@@ -152,3 +152,27 @@ def test_hill_is_solid_over_the_tunnel_and_the_cavern(server):
     assert cavern["roofed"] > 0, cavern["path"]
     assert cavern["minAboveLid"] > 0, (cavern["minAboveLid"], cavern["path"])
 
+
+
+FOOTPRINT_JS = """() => window.__mm.hideoutRing().map(r => {
+  const c = Math.cos(r.rot), s = Math.sin(r.rot), out = [];
+  for (const a of [-0.5, -0.25, 0, 0.25, 0.5]) for (const b of [-0.5, 0, 0.5]) {
+    const la = a * (r.len - 0.1), lb = b * (r.wall - 0.1), x = r.x + c * la - s * lb, z = r.z + s * la + c * lb;
+    const top = window.__mm.topAt(x, z), hill = window.__mm.skyGround(x, z);
+    out.push({ x: +x.toFixed(2), z: +z.toFixed(2), role: top && top.role, y: top && top.y, hill });
+  }
+  return out;
+})"""
+
+
+@needs_world
+def test_ring_wall_stays_under_the_hill(server):
+    """From the sky, every point over the 24 ring-wall blocks hits the hill's grass at the hill's height: no stone pokes out."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        blocks = page.evaluate(FOOTPRINT_JS)
+        br.close()
+    assert errors == []
+    assert len(blocks) == 24
+    bad = [pt for blk in blocks for pt in blk if pt["role"] != "grass" or abs(pt["y"] - pt["hill"]) > 0.05]
+    assert bad == [], (len(bad), bad[:6])

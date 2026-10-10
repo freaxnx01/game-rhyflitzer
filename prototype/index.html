@@ -853,15 +853,20 @@ function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/
 // reservoir gate at the portal, gravel on the floor, lamps, and the tower. Every OBB is `secret`: the static map skips it.
 function hideoutBuild() {
   const h = HIDEOUT, u = TUNNEL, a = hideoutAxis(h), g0 = meshH(a.mouth[0], a.mouth[1]), floor = (s) => floorAt(s, g0, h), stone = col('#b8b2a6'), gravel = col('#cfc3ac'), inner = h.hw + u.margin;
-  const wallBox = (x, z, len, rot, bottom, top) => { box(len, top - bottom, u.wall, x, bottom, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: len / 2, hd: u.wall / 2, c: Math.cos(rot), s: Math.sin(rot), h: top, low: true, secret: true }); HIDE.walls++; };
+  // topAt(x, z): the wall's top over each corner, so a block on a slope follows the hill instead of poking out of it; the
+  // collider takes the lowest corner, so a car on the hill passes over it
+  const shapeTop = (g, bottom, topAt) => { const p = g.attributes.position; let lo = Infinity; for (let i = 0; i < p.count; i++) if (p.getY(i) > bottom + 0.01) { const y = topAt(p.getX(i), p.getZ(i)); p.setY(i, y); lo = Math.min(lo, y); } g.computeVertexNormals(); return lo; };
+  const wallBox = (x, z, len, rot, bottom, topAt) => { box(len, topAt(x, z) - bottom, u.wall, x, bottom, z, rot, stone, 'stone', [4, 3], 0); const top = shapeTop(parts.stone[parts.stone.length - 1], bottom, topAt); pushOBB({ x, z, hw: len / 2, hd: u.wall / 2, c: Math.cos(rot), s: Math.sin(rot), h: top, low: true, secret: true }); HIDE.walls++; };
+  const underLid = (x, z) => meshH(x, z) - 0.6;
   for (const w of wallStations(a.pts, [[0, h.length]], inner + u.wall / 2, 2)) {
     const fl = floor(w.t), ground = meshH(w.x + w.nx * (u.wall / 2 + 0.5), w.z + w.nz * (u.wall / 2 + 0.5));
     if (ground - fl <= 0.1) continue;
     if (inCavern(w.x, w.z, -u.wall)) continue;   // the corridor's walls stop just inside the cavern, where the ring takes over
-    wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, w.t >= HIDE.portal ? meshH(w.x, w.z) - 0.6 : ground + 1);   // parapet in the open trench, up to the ceiling under the lid
+    wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, w.t >= HIDE.portal ? underLid : () => ground + 1);   // parapet in the open trench, up to the ceiling under the lid
   }
   const [cx, cz] = a.centre, fl = floor(h.length), arc = ringArc(h, u); HIDE.floor = fl;
-  for (const r of ringStations(cx, cz, arc.r, 24, arc.a0, arc.a1)) wallBox(r.x, r.z, r.len, r.rot, fl, meshH(r.x, r.z) - 0.6);
+  HIDE.ring = ringStations(cx, cz, arc.r, 24, arc.a0, arc.a1);
+  for (const r of HIDE.ring) wallBox(r.x, r.z, r.len, r.rot, fl, underLid);
   // the gate: piers in the margins, a lintel over the 9 m opening up to 1 m over the hillside, the sign on its outer face
   const ps = HIDE.portal, px = a.mouth[0] + a.ux * ps, pz = a.mouth[1] + a.uz * ps, pf = floor(ps), rot = h.heading + Math.PI / 2, nx = -a.uz, nz = a.ux;
   for (const side of [-1, 1]) { const d = side * (h.hw + u.margin / 2), x = px + nx * d, z = pz + nz * d; box(u.margin, 5, 1.2, x, pf, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: u.margin / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: pf + 5, secret: true }); }
@@ -1658,6 +1663,9 @@ window.__mm.fishPose = (i) => { const m = new THREE.Matrix4(); FISH.mesh.getMatr
 // #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
 window.__mm.hideout = () => HIDE ? { mouth: HIDE.tunnel.pts[0], centre: [HIDE.tunnel.x, HIDE.tunnel.z], portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(HIDE.tunnel.x, HIDE.tunnel.z), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris } : null;
 window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH;
+// #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
+window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? { role: hit.object.userData.role, y: hit.point.y } : null; };
+window.__mm.hideoutRing = () => HIDE && HIDE.ring ? HIDE.ring.map(r => ({ ...r, wall: TUNNEL.wall })) : null;
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
