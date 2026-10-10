@@ -338,6 +338,7 @@ import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY
 import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
 import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, shadowShown } from './shadow.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
+import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn } from './sound.js';
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, seededRng, nextSurprise, tickSurprises, gravityScale, nearestPresent, canCollect, isNewHuntBest, confettiBurst, stepConfetti } from './presents.js';
@@ -1472,27 +1473,70 @@ const car = new THREE.Group(); scene.add(car);
 const flames = new THREE.Group(); flames.visible = false;
 const BLINK = { left: new THREE.Group(), right: new THREE.Group() }; BLINK.left.visible = BLINK.right.visible = false;
 const STEEL_GRAIN = makeTex(256, 256, (g, w, h) => { g.fillStyle = '#b4b9be'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 2) { g.fillStyle = `rgba(255,255,255,${(0.04 + Math.random() * 0.10).toFixed(3)})`; g.fillRect(0, y, w, 1); } });   // #126: faint horizontal brush lines, repeats per model metre (ExtrudeGeometry UVs)
-const carMats = { body: new THREE.MeshPhongMaterial({ color: 0x1b2d5e, shininess: 70, specular: 0x8fa4c8 }), steel: new THREE.MeshPhongMaterial({ color: 0xb4b9be, shininess: 30, specular: 0xd8dde2, map: STEEL_GRAIN }), glass: new THREE.MeshPhongMaterial({ color: 0x0b0f14, shininess: 140, specular: 0xffffff }), dark: new THREE.MeshLambertMaterial({ color: 0x14171d }), rim: new THREE.MeshPhongMaterial({ color: 0xb9bfc9, shininess: 90, specular: 0xffffff }), tyre: new THREE.MeshLambertMaterial({ color: 0x1a1a1c }) };   // #123: dark, opaque glass, shared with the helicopter; #126: brushed steel (Phong: no env map for MeshStandardMaterial metalness)
-// the wheels every procedural car shares: tyre, rim and hub at each v.wheels [x, z], mirrored to ±z (#132's steer > roll groups)
+// #164: physically based car materials lit by CAR_ENV (set in applyStyle). body is car paint: a coloured base under a
+// mirror-sharp clearcoat; body.color stays the paint (#7's swatches write it) and body.map is BODY_LINES, white with dark
+// seams, multiplied with it. glass stays dark and opaque (#123, shared with the helicopter) but now reflects the sky.
+const carMats = { body: new THREE.MeshPhysicalMaterial({ color: 0x1b2d5e, metalness: 0, roughness: 0.38, clearcoat: 1, clearcoatRoughness: 0.14 }), steel: new THREE.MeshStandardMaterial({ color: 0xb4b9be, metalness: 0.9, roughness: 0.42, map: STEEL_GRAIN }), glass: new THREE.MeshPhysicalMaterial({ color: 0x0b0f14, metalness: 0, roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0 }), dark: new THREE.MeshStandardMaterial({ color: 0x14171d, metalness: 0, roughness: 0.75 }), rim: new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 1, roughness: 0.22 }), tyre: new THREE.MeshStandardMaterial({ color: 0x1a1a1c, metalness: 0, roughness: 0.92 }), lampHead: new THREE.MeshStandardMaterial({ color: 0xe8e8e8, emissive: 0xfff6d0, emissiveIntensity: 0.35, metalness: 0, roughness: 0.12 }), lampTail: new THREE.MeshStandardMaterial({ color: 0xa01810, emissive: 0xe0322d, emissiveIntensity: 0.45, metalness: 0, roughness: 0.15 }) };
+// the materials that reflect the sky: paint, brushed steel, glass, polished alloy and the lamp lenses (matte trim and rubber do not)
+const CAR_ENV_MATS = [carMats.body, carMats.steel, carMats.glass, carMats.rim, carMats.lampHead, carMats.lampTail];
+// #164: panel lines in the loft's uv space (u along the car, v around the ring: right side 0 -> 0.5, left side mirrored).
+// White with dark seams, multiplied into carMats.body.color, so every paint from #7's swatches keeps its shut lines.
+const LOFT = loftBody(COMPACT);
+const BODY_LINES = makeTex(1024, 512, (g, w, h) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); const u = (x) => (x + 2.33) / 4.66 * w, vr = (v) => v * h, vl = (v) => (1 - v) * h; const seam = (x, v0, v1) => { for (const vv of [vr, vl]) g.fillRect(u(x) - 1, Math.min(vv(v0), vv(v1)), 2, Math.abs(vv(v1) - vv(v0))); }; g.fillStyle = 'rgba(0,0,0,0.55)'; seam(0.95, LOFT.v.sill, LOFT.v.belt); seam(-0.05, LOFT.v.sill, LOFT.v.belt); seam(-0.95, LOFT.v.sill, LOFT.v.belt); seam(0.85, LOFT.v.belt, LOFT.v.roof); seam(-1.80, LOFT.v.belt, LOFT.v.roof); for (const vv of [vr, vl]) { g.fillRect(u(0.85), vv(LOFT.v.roof) - 1, u(2.0) - u(0.85), 2); g.fillRect(u(-2.15), vv(LOFT.v.roof) - 1, u(-1.80) - u(-2.15), 2); for (const x of [0.15, -0.85]) g.fillRect(u(x), vv(LOFT.v.belt - 0.012) - 2, u(x + 0.16) - u(x), 4); } g.fillStyle = 'rgba(0,0,0,0.25)'; for (const vv of [vr, vl]) g.fillRect(0, Math.min(vv(0), vv(LOFT.v.sill)), w, Math.abs(vv(LOFT.v.sill) - vv(0))); });
+BODY_LINES.wrapS = BODY_LINES.wrapT = THREE.ClampToEdgeWrapping;
+BODY_LINES.anisotropy = renderer.capabilities.getMaxAnisotropy();
+carMats.body.map = BODY_LINES;
+carMats.body.needsUpdate = true;
+// #164: a small environment map for the car's paint, glass and chrome, rendered once per style from a private sky scene
+// (the style's gradient over a darker ground, plus a soft sun blob in the sun's direction). Only the car materials use it:
+// in the smooth style the whole world is MeshStandardMaterial, and scene.environment would change all of it.
+const CAR_ENV = { rt: null, pmrem: new THREE.PMREMGenerator(renderer), scene: new THREE.Scene(), mat: null };
+CAR_ENV.mat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, uniforms: { top: { value: col('#3a6fb8') }, hor: { value: col('#e6b98a') }, ground: { value: col('#4a4538') }, sunDir: { value: new THREE.Vector3(-300, 400, -200).normalize() } }, vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }', fragmentShader: 'uniform vec3 top; uniform vec3 hor; uniform vec3 ground; uniform vec3 sunDir; varying vec3 vP; void main(){ vec3 d = normalize(vP); float h = d.y; vec3 sky = mix(hor, top, smoothstep(-0.02, 0.14, h)); vec3 c = h < 0.0 ? mix(hor, ground, smoothstep(0.0, 0.25, -h)) : sky; float s = smoothstep(0.996, 0.9995, dot(d, sunDir)); c += vec3(1.0, 0.95, 0.8) * s * 1.2; gl_FragColor = vec4(c, 1.0); }' });
+CAR_ENV.scene.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), CAR_ENV.mat));
+// the whole render target goes, not just its texture: that is what frees the framebuffer and the renderer's texture slot
+function buildCarEnv(St) { CAR_ENV.rt?.dispose(); CAR_ENV.mat.uniforms.top.value.set(St.sky[0]); CAR_ENV.mat.uniforms.hor.value.set(St.sky[1]); CAR_ENV.rt = CAR_ENV.pmrem.fromScene(CAR_ENV.scene, 0.04); for (const m of CAR_ENV_MATS) { m.envMap = CAR_ENV.rt.texture; m.envMapIntensity = St.carEnv; m.needsUpdate = true; } }
+// the wheels every procedural car shares (#164: a lathe-turned tyre and rim in one piece, five merged spokes and a dark dish
+// behind them) at each v.wheels [x, z], mirrored to ±z under #132's steer > roll groups. The lathe turns its points about the
+// y axis, so rotation.x = s * pi / 2 lays the axle along ±z with the dished outer face pointing away from the car on both sides.
 function buildWheels(g, v) {
-  g.userData.wheels = []; const frontX = frontAxleX(v.wheels);   // #132: steer group (yaw, front axle only) > roll group (spin) > tyre, rim, hub
-  for (const [x, z] of v.wheels) for (const s of [1, -1]) { const w = new THREE.Group(), roll = new THREE.Group(); const t = new THREE.Mesh(new THREE.CylinderGeometry(v.wheelR, v.wheelR, 0.24, 16), carMats.tyre); t.rotation.x = Math.PI / 2; const r = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.26, 10), carMats.rim); r.rotation.x = Math.PI / 2; const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.28, 8), carMats.dark); hub.rotation.x = Math.PI / 2; roll.add(t, r, hub); w.add(roll); w.position.set(x, v.wheelR, s * z); g.add(w); g.userData.wheels.push({ front: x === frontX, steer: w, roll }); }
+  g.userData.wheels = []; const frontX = frontAxleX(v.wheels), W = 0.24, prof = WHEEL_PROFILE(v.wheelR, W), seg = 24;
+  // two lathes rather than one with index groups: LatheGeometry walks its indices segment by segment, not point by point,
+  // so a group split at tyreCount would cut the wheel into pie slices instead of into rubber and alloy. They share the
+  // profile point at the rim lip, so the sidewall meets the rim with no gap.
+  const turn = (from, to) => new THREE.LatheGeometry(prof.points.slice(from, to).map(([r, y]) => new THREE.Vector2(r, y)), seg);
+  const tyre = turn(0, prof.tyreCount), rim = turn(prof.tyreCount - 1, prof.points.length);
+  const spokes = mergeGeometries(spokeBars(v.wheelR).map(({ angle, r0, r1, width, thick }) => { const b = new THREE.BoxGeometry(r1 - r0, thick, width); b.translate((r0 + r1) / 2, W / 2 - 0.015, 0); b.rotateY(-angle); return b; }), false);
+  // the recessed dark face the spokes stand on: it covers the alloy out to 0.60 R, where the lathe's dish is still behind it
+  const dish = new THREE.CircleGeometry(0.60 * v.wheelR, 20); dish.rotateX(-Math.PI / 2); dish.translate(0, W / 2 - 0.03, 0);
+  const parts = [[tyre, carMats.tyre], [rim, carMats.rim], [spokes, carMats.rim], [dish, carMats.dark]];
+  for (const [x, z] of v.wheels) for (const s of [1, -1]) { const w = new THREE.Group(), roll = new THREE.Group(); for (const [geo, mat] of parts) { const m = new THREE.Mesh(geo, mat); m.rotation.x = s * Math.PI / 2; roll.add(m); } w.add(roll); w.position.set(x, v.wheelR, s * z); g.add(w); g.userData.wheels.push({ front: x === frontX, steer: w, roll }); }
 }
 function buildCompact(g, v) {
   { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [side, z] of [['left', -0.86], ['right', 0.86]]) for (const x of [2.18, -2.22]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, 0.62, z); BLINK[side].add(b); } }
-  const shape = (pts) => { const s = new THREE.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])); s.closePath(); return s; };
-  const bodyS = shape([[-2.2, 0.36], [-2.26, 0.6], [-2.2, 0.9], [-2.05, 1.02], [-1.85, 1.06], [-1.35, 1.42], [-0.9, 1.48], [0.15, 1.48], [0.85, 1.12], [1.35, 1.0], [1.95, 0.92], [2.2, 0.8], [2.26, 0.56], [2.2, 0.36], [1.7, 0.3], [-1.7, 0.3]]);
-  const bodyG = new THREE.ExtrudeGeometry(bodyS, { depth: 1.66, bevelEnabled: true, bevelThickness: 0.07, bevelSize: 0.07, bevelSegments: 2 }); bodyG.translate(0, 0, -0.83); const body = new THREE.Mesh(bodyG, carMats.body); g.add(body);
-  const glassS = shape([[-1.98, 1.04], [-1.4, 1.39], [-0.9, 1.43], [0.12, 1.43], [0.8, 1.1], [0.6, 1.04]]);
-  const glassG = new THREE.ExtrudeGeometry(glassS, { depth: 1.86, bevelEnabled: false }); glassG.translate(0, 0, -0.93); const glassM = new THREE.Mesh(glassG, carMats.glass); glassM.userData.glass = true; g.add(glassM);
-  const sill = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 1.9), carMats.dark); sill.position.y = 0.34; g.add(sill);
+  // #164: the hull is one loft of COMPACT's stations (carbody.js) with two material groups -- paint and, where a span says so,
+  // the glass of the windscreen, the door windows and the rear screen. userData.glass is the glass group's index, not a flag.
+  const hull = new THREE.BufferGeometry();
+  hull.setAttribute('position', new THREE.Float32BufferAttribute(LOFT.positions, 3));
+  hull.setAttribute('uv', new THREE.Float32BufferAttribute(LOFT.uvs, 2));
+  hull.setIndex([...LOFT.bodyIndices, ...LOFT.glassIndices]);
+  hull.addGroup(0, LOFT.bodyIndices.length, 0);
+  hull.addGroup(LOFT.bodyIndices.length, LOFT.glassIndices.length, 1);
+  hull.computeVertexNormals();
+  const body = new THREE.Mesh(hull, [carMats.body, carMats.glass]); body.userData.glass = 1; g.add(body);
+  // the wheel openings: a dark half disc just outside the paint at each wheel, so the tyre stands in a black arch instead of
+  // sinking into the body, plus a raised arch lip around it (rotation.y turns the left side's disc outward)
+  const aR = archRadius(v.wheelR), wSide = 0.91;
+  for (const [x] of v.wheels) for (const s of [1, -1]) { const well = new THREE.Mesh(new THREE.CircleGeometry(aR, 20, 0, Math.PI), carMats.dark); well.position.set(x, v.wheelR, s * wSide); well.rotation.y = s < 0 ? Math.PI : 0; const lip = new THREE.Mesh(new THREE.TorusGeometry(aR, ARCH.lip, 6, 14, Math.PI), carMats.dark); lip.position.set(x, v.wheelR, s * wSide); g.add(well, lip); }
+  // nose and tail: a dark bumper band across the lower face, the lamp lenses above it and the grille between the headlights.
+  // Everything on these two faces sits 5 mm proud of the loft's end cap at x = ±2.33 and nothing reaches past ±2.336, so the
+  // measured car stays 4.66 m long (#69, test_vehicles.py::test_compact_car_is_true_to_size).
+  for (const [x, y] of [[2.305, 0.52], [-2.305, 0.53]]) { const bump = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 1.44), carMats.dark); bump.position.set(x, y, 0); g.add(bump); }
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.7), carMats.dark); grille.position.set(2.31, 0.76, 0); g.add(grille);
   // nitro: two blue exhaust flames at the rear, shown while N is held
   for (const z of [0.45, -0.45]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 10), new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 })); f.rotation.z = Math.PI / 2; f.position.set(-2.65, 0.42, z); flames.add(f); }
   buildWheels(g, v);
-  const hl = new THREE.MeshBasicMaterial({ color: 0xfff6d0 }), tl = new THREE.MeshBasicMaterial({ color: 0xe0322d });
-  for (const s of [-1, 1]) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.42), hl); h.position.set(2.2, 0.82, s * 0.6); g.add(h); const t = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.4), tl); t.position.set(-2.24, 0.86, s * 0.62); g.add(t); const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.22), carMats.body); m.position.set(0.72, 1.12, s * 0.98); g.add(m); }
-  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.26, 1.0), carMats.dark); grille.position.set(2.25, 0.5, 0); g.add(grille);
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex('AG · 4334', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-2.28, 0.62, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
+  for (const s of [-1, 1]) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.14, 0.3), carMats.lampHead); h.position.set(2.31, 0.76, s * 0.57); g.add(h); const t = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.24, 0.34), carMats.lampTail); t.position.set(-2.31, 0.82, s * 0.55); g.add(t); const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.22), carMats.body); m.position.set(0.72, 1.12, s * 0.98); g.add(m); const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.18), carMats.dark); stalk.position.set(0.72, 1.08, s * 0.87); g.add(stalk); }
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex('AG · 4334', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-2.336, 0.53, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
 }
 // ---------- #126: DeLorean look-alike -- brushed steel, wedge nose, louvred rear, gull-wing doors; primitives only, no logo, no lettering ----------
 function buildDelorean(g, v) {
@@ -1533,7 +1577,9 @@ const shadowMesh = new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({ color
 function bakeShadow(box) { const size = shadowSize(box), fu = SHADOW.margin / (size.l / 2), fv = SHADOW.margin / (size.w / 2); shadowMesh.material.map?.dispose(); shadowMesh.material.map = makeTex(128, 64, (g, w, h) => { const img = g.createImageData(w, h); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const a = shadowAlpha((i + 0.5) / w * 2 - 1, (j + 0.5) / h * 2 - 1, fu, fv); img.data[(j * w + i) * 4 + 3] = Math.round(a * 255); } g.putImageData(img, 0, 0); }, { alpha: true }); shadowMesh.material.needsUpdate = true; shadowMesh.scale.set(size.l, 1, size.w); }
 // (re)build the car group from VEH; flames and blinkers are persistent groups (other code toggles them), refilled by the builder
 const SHARED_CAR_MATS = new Set(Object.values(carMats));   // shared across builds (and restyled by applyStyle): never disposed
-function freeCar() { const mats = new Set(); car.traverse(o => { o.geometry?.dispose(); if (o.material && !SHARED_CAR_MATS.has(o.material)) mats.add(o.material); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
+// #164: the lofted hull carries a material array (paint + glass), so unwrap it -- a Set.has on the array itself would never
+// match a shared material and the array would then be disposed as if it were one
+function freeCar() { const mats = new Set(); car.traverse(o => { o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
 let CAR_SIZE = null;   // #124: body box measured once per build (buildCar), so readers never touch the car
 function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
 function buildCar() { freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
@@ -1570,14 +1616,16 @@ const heli = new THREE.Group(), rotor = new THREE.Group(); heli.visible = false;
 // ---------- style profiles ----------
 // carShadow (#163): base opacity of the car's shadow decal. original has no shadow map, so the decal is the whole shadow;
 // smooth already casts a real sun shadow, so there the decal is only the contact darkening under the body.
+// carEnv (#164): how strongly the car's paint, glass and chrome reflect CAR_ENV. original renders with NoToneMapping, where a
+// full-strength sky reflection clips to white, so it is toned down; smooth has ACES to roll the highlights off and gets 1.0.
 const STYLES = {
-  original: { nameKey: 'styleOriginal', sky: ['#3d6fb5', '#e8bd8c'], fog: () => new THREE.Fog(col('#e8bd8c'), 320, 1400), hemi: 0.95, sunI: 0.75, shadows: false, carShadow: 0.55, pixel: Math.min(1.5, window.devicePixelRatio || 1), trees: 'bill', tone: THREE.NoToneMapping,
+  original: { nameKey: 'styleOriginal', sky: ['#3d6fb5', '#e8bd8c'], fog: () => new THREE.Fog(col('#e8bd8c'), 320, 1400), hemi: 0.95, sunI: 0.75, shadows: false, carShadow: 0.55, pixel: Math.min(1.5, window.devicePixelRatio || 1), trees: 'bill', tone: THREE.NoToneMapping, carEnv: 0.45,
     mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, rowHouse: TEX.rowHouse, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadOsm: TEX.asphaltOnly, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96, side: THREE.DoubleSide }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } return m; } },
-  smooth: { nameKey: 'styleSmooth', sky: ['#5d9be0', '#f2d9c4'], fog: () => new THREE.FogExp2(col('#f2d9c4'), 0.00095), hemi: 0.55, sunI: 1.6, shadows: true, carShadow: 0.3, pixel: Math.min(2, window.devicePixelRatio || 1), trees: 'cone', tone: THREE.ACESFilmicToneMapping,
+  smooth: { nameKey: 'styleSmooth', sky: ['#5d9be0', '#f2d9c4'], fog: () => new THREE.FogExp2(col('#f2d9c4'), 0.00095), hemi: 0.55, sunI: 1.6, shadows: true, carShadow: 0.3, pixel: Math.min(2, window.devicePixelRatio || 1), trees: 'cone', tone: THREE.ACESFilmicToneMapping, carEnv: 1.0,
     mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); treeBill.visible = St.trees === 'bill'; treeCone.visible = treeTrunk.visible = St.trees === 'cone'; { const fm = St.mat('tree'); for (const f of FOREST_MESHES) { f.bill.material = fm; f.bill.visible = St.trees === 'bill'; f.cone.visible = f.trunk.visible = St.trees === 'cone'; } } skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); treeBill.visible = St.trees === 'bill'; treeCone.visible = treeTrunk.visible = St.trees === 'cone'; { const fm = St.mat('tree'); for (const f of FOREST_MESHES) { f.bill.material = fm; f.bill.visible = St.trees === 'bill'; f.cone.visible = f.trunk.visible = St.trees === 'cone'; } } skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); renderStyleName(); resize(); }
 // #101: under the surface -- murky blue-green fog, the sky sphere in the same colour, dimmer and cooler light, no sun disc; off restores the style.
 // The bed content (boulders, weed, fish, wrecks) is only drawn while under: through the 0.96-opaque surface nobody sees it anyway.
 const HEMI_SKY = { dry: col('#dfe8ff'), wet: col('#8fd0d6') };
@@ -1812,10 +1860,14 @@ window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotatio
 // #132: wheel state and the wheel groups actually on the car (read-only, for the test)
 window.__mm.wheelYaw = () => { const ws = car.userData.wheels ?? []; return { yaw: WHEEL_STATE.yaw, spin: WHEEL_STATE.spin, front: ws.filter(w => w.front).map(w => w.steer.rotation.y), rear: ws.filter(w => !w.front).map(w => w.steer.rotation.y) }; };
 // #123: the glass actually on the car and the helicopter (read-only, for the test)
-window.__mm.glass = () => { const find = (root) => { let m = null; root.traverse((o) => { if (!m && o.userData.glass) m = o.material; }); return m && { color: m.color.getHex(), transparent: m.transparent, opacity: m.opacity }; }; return { car: find(car), heli: find(heli) }; };
+window.__mm.glass = () => { const find = (root) => { let m = null; root.traverse((o) => { if (!m && o.userData.glass) m = Array.isArray(o.material) ? o.material[o.userData.glass] : o.material; }); return m && { color: m.color.getHex(), transparent: m.transparent, opacity: m.opacity }; }; return { car: find(car), heli: find(heli) }; };
 // #126: door animation state and the lower door panels' world height (read-only, for the test; [] for a car without doors)
 window.__mm.doors = () => ({ open: DOOR_STATE.open, target: DOOR_STATE.target, panelY: (car.userData.doors ?? []).map(d => d.panel.getWorldPosition(new THREE.Vector3()).y - P.y) });
 window.__mm.setVehicle = (def) => { setVehicle(def); };
+// #164: the car's shared materials, its draw-call / triangle budget and a style switch -- all read-only, for the test
+window.__mm.carMats = () => Object.fromEntries(Object.entries(carMats).map(([k, m]) => [k, { type: m.type, hasEnv: !!m.envMap, color: '#' + m.color.getHexString(), clearcoat: m.clearcoat ?? null, metalness: m.metalness ?? null, roughness: m.roughness ?? null, envMapIntensity: m.envMapIntensity ?? null, emissiveIntensity: m.emissive ? m.emissiveIntensity : null }]));
+window.__mm.carStats = () => { let meshes = 0, triangles = 0; const walk = (o) => { if (!o.visible) return; if (o.isMesh) { meshes++; const g = o.geometry; triangles += Math.round((g.index ? g.index.count : g.attributes.position.count) / 3); } for (const c of o.children) walk(c); }; walk(car); return { meshes, triangles }; };
+window.__mm.setStyle = (k) => { if (!Object.hasOwn(STYLES, k)) throw new Error(`Unknown style '${k}'`); applyStyle(k); };
 window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
 window.__mm.camStep = (dt, from) => { if (from) camPos.set(...from); stepCamera(dt); return window.__mm.cam(); };   // #102: one camera step from a given position (the loop's frames are too slow to catch an easing camera)
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z] }; };   // back/look: #65

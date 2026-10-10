@@ -60,6 +60,7 @@ All notable changes to this project are documented here, following
 
 ### Changed
 
+- The compact looks like a real hatchback now: a rounded body that narrows towards the roof, door and bonnet seams, black wheel arches with five-spoke alloy wheels on proper tyres, a bumper at each end, and glossy paint, windows and lamps that catch the sky. The DeLorean's stainless steel really shines now and rolls on the same new wheels.
 - The car sounds like a car: the engine idles low, revs up with speed and drops at every gear change, growls under throttle and hums off it, howls when the wheels leave the ground, and hisses with nitro (**N**). The horn (**H**) is louder and holds its two-tone chord for almost a second. In the helicopter you hear the rotor instead of the engine. Switching to another tab, or pausing, silences the game.
 - The car's windows are dark, tinted glass now — the same on the helicopter — instead of a murky, half see-through blue.
 - **J** now opens a list of the landmarks — Fridolinsmünster, Holzbrücke, the DSM chimney, the Smile-Kreisel, Bodenackerstrasse 6c and more. Type part of a name (umlauts optional: "munster" finds the Münster) or pick a Gemeinde — Bad Säckingen, Stein, Münchwilen, Eiken, Sisseln — then press Enter or click. Keys typed into the search don't steer the car. The number keys are gone; **Random spot** is the last row.
