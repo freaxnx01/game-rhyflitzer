@@ -1,7 +1,7 @@
 // #102: the secret hideout in the Hübel -- pure helpers. node --test prototype/tests/hideout.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HIDEOUT, TUNNEL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, ringStations, ringArc, eiffelParts } from '../hideout.js';
+import { HIDEOUT, TUNNEL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, segmentInHideout, ringStations, ringArc, eiffelParts } from '../hideout.js';
 import { cutFloorAt, UNDERPASS } from '../world.js';
 
 const close = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
@@ -104,4 +104,15 @@ test('eiffelParts_33mTallFourLeggedAndSymmetric', () => {
   for (const f of feet) { close(Math.abs(f[0]), 6.25); close(Math.abs(f[2]), 6.25); }
   for (const p of parts) if (p.kind === 'leg') assert.ok(Math.max(Math.abs(p.from[0]), Math.abs(p.to[0]), Math.abs(p.from[2]), Math.abs(p.to[2])) <= 6.25 + 1e-9, 'inside the base square');
   const half = eiffelParts(16.5); close(half.find(p => p.kind === 'spire').y1, 16.5, 1e-6, 'scales with h');
+});
+
+test('segmentInHideout_AForestEdgeAcrossTheTrenchOrTheCavern', () => {
+  const [cx, cz] = A.centre, mx = A.mouth[0] + A.ux * 5, mz = A.mouth[1] + A.uz * 5;
+  // a 6 m wall straight across the trench, its ends 3 m either side of the axis
+  assert.ok(segmentInHideout(mx - A.uz * 3, mz + A.ux * 3, mx + A.uz * 3, mz - A.ux * 3));
+  // a 20 m wall whose ends are both outside the trench, but whose middle crosses it
+  assert.ok(segmentInHideout(mx - A.uz * 12, mz + A.ux * 12, mx + A.uz * 12, mz - A.ux * 12), 'the middle counts, not only the ends');
+  assert.ok(segmentInHideout(cx - 5, cz, cx + 5, cz), 'over the cavern');
+  assert.ok(!segmentInHideout(cx + 40, cz, cx + 50, cz), 'well off the hill');
+  assert.ok(!segmentInHideout(A.mouth[0] - A.ux * 20 - 5, A.mouth[1] - A.uz * 20, A.mouth[0] - A.ux * 20 + 5, A.mouth[1] - A.uz * 20), 'across the road, 20 m before the mouth');
 });

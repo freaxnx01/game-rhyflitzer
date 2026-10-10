@@ -51,6 +51,12 @@ export function inHideout(x, z, h = HIDEOUT) {
   const { s, d } = axisCoords(x, z, h);
   return d <= 10 && s >= -4 && s <= h.length;
 }
+// a straight piece (a forest edge wall, #13) that touches inHideout anywhere along it, sampled every metre
+export function segmentInHideout(x0, z0, x1, z1, h = HIDEOUT) {
+  const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0)));
+  for (let k = 0; k <= n; k++) if (inHideout(x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n, h)) return true;
+  return false;
+}
 // n wall pieces along an arc (the whole circle by default): centre, tangent heading (rot, as wallStations' rot: the box's
 // long axis is (cos rot, sin rot))
 export function ringStations(cx, cz, r, n, a0 = 0, a1 = 2 * Math.PI) {

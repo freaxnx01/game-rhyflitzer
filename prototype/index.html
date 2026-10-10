@@ -325,7 +325,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
-import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, ringStations, ringArc, eiffelParts } from './hideout.js';
+import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, segmentInHideout, ringStations, ringArc, eiffelParts } from './hideout.js';
 import { translate } from './strings.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
@@ -1234,7 +1234,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const edges = forestEdges(L.forests, FOREST), placed = forestTrees(L.forests, FOREST, edges, rng(13));
     for (const [x, z, h] of [...placed.edge, ...placed.fill])
       if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && !(HIDE && inHideout(x, z)) && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
-    for (const e of edges) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: terrainH(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap
+    for (const e of edges) if (!(HIDE && segmentInHideout(e.x0, e.z0, e.x1, e.z1))) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: terrainH(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap
     window.__mm.counts.forest = { polys: L.forests.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, walls: edges.length };
   }
   window.__FOREST = FOREST_TREES;
