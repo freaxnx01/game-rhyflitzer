@@ -1,0 +1,39 @@
+# landmarks.yaml — Schweizer Landmarks für Rhyflitzer (swissBUILDINGS3D 3.0)
+# Ins Repo-Root kopieren als landmarks.yaml. Koordinaten in LV95 (EPSG:2056),
+# abgelesen in map.geo.admin.ch (Statusleiste unten).
+
+crs: EPSG:2056
+
+# Spiel-Nullpunkt. EINMAL festlegen und danach nie mehr ändern —
+# sonst verschieben sich alle bereits exportierten Modelle.
+# Bewusst runde Werte zwischen Holzbrücke und Sisseln; der Nullpunkt ist nicht der Spawn.
+origin:
+  e: 2640000
+  n: 1267000
+  h: 280
+
+landmarks:
+  # Werte aus der Objekt-Information im Viewer (Screenshot 10.10.2026)
+  - id: holzbruecke-saeckingen
+    name: Holzbrücke Stein–Bad Säckingen
+    select:
+      point: [2638607.58, 1266869.99]
+    expect:
+      typ: "Brücke gedeckt"
+      roof_max: 296.56
+      tolerance_m: 1.0
+    mode: hero          # Hülle als Massstab; Fachwerk wird in Blender gebaut
+
+  # Areal-Beispiel: Eckpunkte im Viewer abklicken, dann --inspect laufen lassen
+  # - id: feldschloesschen-rheinfelden
+  #   name: Brauerei Feldschlösschen
+  #   select:
+  #     polygon:
+  #       - [E1, N1]
+  #       - [E2, N2]
+  #       - [E3, N3]
+  #       - [E4, N4]
+  #     # egids: [123456, 234567]   # optional: nur diese Gebäude
+  #   expect:
+  #     min_count: 5
+  #   mode: block
