@@ -1450,10 +1450,21 @@ CAR_ENV.mat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false
 CAR_ENV.scene.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), CAR_ENV.mat));
 // the whole render target goes, not just its texture: that is what frees the framebuffer and the renderer's texture slot
 function buildCarEnv(St) { CAR_ENV.rt?.dispose(); CAR_ENV.mat.uniforms.top.value.set(St.sky[0]); CAR_ENV.mat.uniforms.hor.value.set(St.sky[1]); CAR_ENV.rt = CAR_ENV.pmrem.fromScene(CAR_ENV.scene, 0.04); for (const m of CAR_ENV_MATS) { m.envMap = CAR_ENV.rt.texture; m.envMapIntensity = St.carEnv; m.needsUpdate = true; } }
-// the wheels every procedural car shares: tyre, rim and hub at each v.wheels [x, z], mirrored to ±z (#132's steer > roll groups)
+// the wheels every procedural car shares (#164: a lathe-turned tyre and rim in one piece, five merged spokes and a dark dish
+// behind them) at each v.wheels [x, z], mirrored to ±z under #132's steer > roll groups. The lathe turns its points about the
+// y axis, so rotation.x = s * pi / 2 lays the axle along ±z with the dished outer face pointing away from the car on both sides.
 function buildWheels(g, v) {
-  g.userData.wheels = []; const frontX = frontAxleX(v.wheels);   // #132: steer group (yaw, front axle only) > roll group (spin) > tyre, rim, hub
-  for (const [x, z] of v.wheels) for (const s of [1, -1]) { const w = new THREE.Group(), roll = new THREE.Group(); const t = new THREE.Mesh(new THREE.CylinderGeometry(v.wheelR, v.wheelR, 0.24, 16), carMats.tyre); t.rotation.x = Math.PI / 2; const r = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.26, 10), carMats.rim); r.rotation.x = Math.PI / 2; const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.28, 8), carMats.dark); hub.rotation.x = Math.PI / 2; roll.add(t, r, hub); w.add(roll); w.position.set(x, v.wheelR, s * z); g.add(w); g.userData.wheels.push({ front: x === frontX, steer: w, roll }); }
+  g.userData.wheels = []; const frontX = frontAxleX(v.wheels), W = 0.24, prof = WHEEL_PROFILE(v.wheelR, W), seg = 24;
+  // two lathes rather than one with index groups: LatheGeometry walks its indices segment by segment, not point by point,
+  // so a group split at tyreCount would cut the wheel into pie slices instead of into rubber and alloy. They share the
+  // profile point at the rim lip, so the sidewall meets the rim with no gap.
+  const turn = (from, to) => new THREE.LatheGeometry(prof.points.slice(from, to).map(([r, y]) => new THREE.Vector2(r, y)), seg);
+  const tyre = turn(0, prof.tyreCount), rim = turn(prof.tyreCount - 1, prof.points.length);
+  const spokes = mergeGeometries(spokeBars(v.wheelR).map(({ angle, r0, r1, width, thick }) => { const b = new THREE.BoxGeometry(r1 - r0, thick, width); b.translate((r0 + r1) / 2, W / 2 - 0.015, 0); b.rotateY(-angle); return b; }), false);
+  // the recessed dark face the spokes stand on: it covers the alloy out to 0.60 R, where the lathe's dish is still behind it
+  const dish = new THREE.CircleGeometry(0.60 * v.wheelR, 20); dish.rotateX(-Math.PI / 2); dish.translate(0, W / 2 - 0.03, 0);
+  const parts = [[tyre, carMats.tyre], [rim, carMats.rim], [spokes, carMats.rim], [dish, carMats.dark]];
+  for (const [x, z] of v.wheels) for (const s of [1, -1]) { const w = new THREE.Group(), roll = new THREE.Group(); for (const [geo, mat] of parts) { const m = new THREE.Mesh(geo, mat); m.rotation.x = s * Math.PI / 2; roll.add(m); } w.add(roll); w.position.set(x, v.wheelR, s * z); g.add(w); g.userData.wheels.push({ front: x === frontX, steer: w, roll }); }
 }
 function buildCompact(g, v) {
   { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [side, z] of [['left', -0.86], ['right', 0.86]]) for (const x of [2.18, -2.22]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, 0.62, z); BLINK[side].add(b); } }

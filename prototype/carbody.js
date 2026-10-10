@@ -99,13 +99,13 @@ export function bodyBox(def) {
 // shoulders, sidewall down to the rim lip at 0.66 R, then the rim dish in to the hub boss and the axis. The first tyreCount
 // points are rubber, the rest polished alloy.
 export function WHEEL_PROFILE(R, w) {
-  const points = [[0.66 * R, -w / 2], [0.94 * R, -w / 2 + 0.015], [R, -0.35 * w], [R, 0.35 * w], [0.94 * R, w / 2 - 0.015], [0.66 * R, w / 2], [0.60 * R, w / 2 - 0.02], [0.30 * R, w / 2 - 0.08], [0.22 * R, w / 2 - 0.05], [0, w / 2 - 0.05]];
+  const points = [[0.66 * R, -w / 2], [0.94 * R, -w / 2 + 0.015], [R, -0.35 * w], [R, 0.35 * w], [0.94 * R, w / 2 - 0.015], [0.66 * R, w / 2], [0.60 * R, w / 2 - 0.04], [0.30 * R, w / 2 - 0.08], [0.22 * R, w / 2 - 0.05], [0, w / 2 - 0.05]];
   return { points, tyreCount: 6 };
 }
 
 export const SPOKES = 5;
 export function spokeBars(R) {
-  return Array.from({ length: SPOKES }, (_, i) => ({ angle: i * 2 * Math.PI / SPOKES, r0: 0.22 * R, r1: 0.66 * R, width: 0.11 * R, thick: 0.025 }));
+  return Array.from({ length: SPOKES }, (_, i) => ({ angle: i * 2 * Math.PI / SPOKES, r0: 0.22 * R, r1: 0.66 * R, width: 0.16 * R, thick: 0.025 }));
 }
 
 // the dark wheel opening: gap between tyre and arch, and the arch lip's tube radius
