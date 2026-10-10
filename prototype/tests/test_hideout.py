@@ -68,11 +68,11 @@ def jump_list(page):
 
 @needs_world
 def test_drive_in_finds_the_hideout(server):
-    """Not listed before; drive from the Hübel into the hill: the car ends on the cavern floor, the find is toasted and
-    remembered, J lists the Eiffelturm, and the chase camera stays under the ceiling."""
+    """Listed in J from the start; drive from the Hübel into the hill: the car ends on the cavern floor, the find is toasted and
+    remembered, and the chase camera stays under the ceiling."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
-        assert "Eiffelturm" not in jump_list(page)
+        assert "Reservoir Hübel" in jump_list(page)   # #102: always in the list, found or not
         h = page.evaluate("() => window.__mm.hideout()")
         cx, cz = h["centre"]
         # gas held for 8 s: ~105 m down the tunnel, so the car comes to rest inside the cavern
@@ -90,7 +90,7 @@ def test_drive_in_finds_the_hideout(server):
     assert abs(r["y"] - h["floor"]) < 1.0, (r, h)
     assert found is True and stored == "1"
     assert toast["shown"] and ("Hideout found" in toast["text"] or "Versteck gefunden" in toast["text"]), toast
-    assert "Eiffelturm" in names
+    assert "Reservoir Hübel" in names
     assert lid is not None and lid - h["floor"] > 40, (lid, h)
 
 
@@ -283,13 +283,13 @@ def test_camera_stays_under_the_ceiling_while_easing_and_on_the_hill_above_it(se
 
 
 @needs_world
-def test_j_eiffel_puts_the_car_on_the_huebel_facing_the_gate(server):
-    """Once found (remembered across a reload), J -> "eiffel" puts the car on the Hübel by the mouth, facing the gate."""
+def test_j_reservoir_puts_the_car_on_the_huebel_facing_the_gate(server):
+    """J -> "reservoir" (no find needed) puts the car on the Hübel by the mouth, facing the gate."""
     with sync_playwright() as p:
-        br, page, errors = open_page(p, server, "localStorage.setItem('mm.hideout', '1')")
+        br, page, errors = open_page(p, server)
         page.keyboard.press("KeyJ")
         page.wait_for_function("() => !document.getElementById('jump').hidden")
-        page.keyboard.type("eiffel")
+        page.keyboard.type("reservoir")
         listed = [r["n"] for r in page.evaluate("() => window.__mm.jumpList()")]
         page.keyboard.press("Enter")
         page.wait_for_function("() => document.getElementById('jump').hidden")
@@ -297,7 +297,7 @@ def test_j_eiffel_puts_the_car_on_the_huebel_facing_the_gate(server):
         th = page.evaluate("() => window.__mm.heading()")
         br.close()
     assert errors == []
-    assert listed[0] == "Eiffelturm", listed                  # first match, so Enter takes it
+    assert listed[0] == "Reservoir Hübel", listed                  # first match, so Enter takes it
     assert math.hypot(car["x"] - MOUTH_ROAD[0], car["z"] - MOUTH_ROAD[1]) < 5, car
     ux, uz = math.cos(HEADING), math.sin(HEADING)
     assert math.cos(th) * ux + math.sin(th) * uz > 0.7, ("not facing down the tunnel", th)
