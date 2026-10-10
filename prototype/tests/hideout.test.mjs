@@ -1,17 +1,20 @@
-// #102: the secret hideout in the Hübel -- pure helpers. node --test prototype/tests/hideout.test.mjs
+// #102 / #201: the secret hideout in the Hübel and its cave system -- pure helpers. node --test prototype/tests/hideout.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HIDEOUT, TUNNEL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, segmentInHideout, ringStations, ringArc, eiffelParts } from '../hideout.js';
+import { HIDEOUT, TUNNEL, CAVE, EIFFEL, TUNNEL_CEIL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, inHideout, segmentInHideout, ringStations, eiffelParts,
+  nodeR, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, sightBlocked, linkPts, stubPts } from '../hideout.js';
 import { cutFloorAt, UNDERPASS } from '../world.js';
 
 const close = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 // a hill like the probe: 75 m at the mouth, rising 0.5 m per metre along the axis, flat across it
 const A = hideoutAxis();
 const hill = (x, z) => { const { s } = axisCoords(x, z); return 75 + 0.5 * Math.max(0, s); };
+// #201: a 150 m plateau over the whole system, 75 m at the mouth (the climb is over in the first 10 m)
+const plateau = (x, z) => { const { s } = axisCoords(x, z); return 75 + 75 * Math.min(1, Math.max(0, s) / 10); };
 
-test('HIDEOUT and TUNNEL: the agreed constants', () => {
-  assert.deepEqual(HIDEOUT, { mouth: [-703.7, 1423.6], heading: 95 * Math.PI / 180, length: 105, hw: 4.5, grade: 0.05, cavernHw: 20, roofDepth: 5.5, towerH: 33, key: 'mm.hideout' });
+test('TUNNEL: the agreed constants', () => {
   assert.deepEqual(TUNNEL, { ...UNDERPASS, grade: 0.05, maxDepth: 80 });
+  assert.equal(HIDEOUT.key, 'mm.hideout');
 });
 
 test('hideoutAxis_RunsFromTheMouth105mAt95Degrees', () => {
@@ -60,15 +63,83 @@ test('hideoutCuts_NoStepWhereTheTunnelOpensIntoTheCavern', () => {
   close(low(HIDEOUT.length), cavern.f0);
 });
 
-test('ringArc_LeavesTheCorridorOpenAndRingStationsFollowTheArc', () => {
-  const arc = ringArc(), [cx, cz] = A.centre, d = (p) => axisCoords(p.x, p.z).d;
-  close(arc.r, cavernR() - TUNNEL.wall / 2, 1e-9, 'the ring sits inside the cut edge, so its inner face hides the patch skirt');
-  for (const end of [arc.a0, arc.a1]) close(Math.abs(axisCoords(cx + Math.cos(end) * arc.r, cz + Math.sin(end) * arc.r).d), HIDEOUT.hw + TUNNEL.margin + TUNNEL.wall, 1e-9, 'the arc ends at the corridor face');
-  const r = ringStations(cx, cz, arc.r, 24, arc.a0, arc.a1);
-  assert.equal(r.length, 24);
-  for (const s of r) close(Math.hypot(s.x - cx, s.z - cz), arc.r);
-  const toMouth = r.filter(s => axisCoords(s.x, s.z).s < HIDEOUT.length);   // the half the tunnel comes from
-  assert.ok(toMouth.length >= 10 && toMouth.every(s => d(s) > HIDEOUT.hw + TUNNEL.margin + TUNNEL.wall), 'nothing in the doorway');
+test('CAVE_LayoutIsTheSpecsSketch', () => {
+  close(CAVE.nodes.r0.c[0], A.centre[0], 0.1); close(CAVE.nodes.r0.c[1], A.centre[1], 0.1);
+  close(CAVE.nodes.n1.c[0], -802.5, 0.1); close(CAVE.nodes.n1.c[1], 1520.4, 0.1);
+  assert.deepEqual(CAVE.nodes.hall.c, [-790, 1855]); assert.equal(nodeR(CAVE.nodes.hall), 170); assert.equal(nodeR(CAVE.nodes.r0), 22);
+  assert.equal(nodeR(CAVE.nodes.r0), cavernR(), 'R0 is the #102 cavern');
+  assert.equal(CAVE.nodes.hall.ceiling, 380); assert.equal(TUNNEL_CEIL, 12);
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  for (const [a, b] of [['r0', 'n1'], ['r0', 'hall'], ['n1', 'hall']]) assert.ok(d(CAVE.nodes[a].c, CAVE.nodes[b].c) > nodeR(CAVE.nodes[a]) + nodeR(CAVE.nodes[b]) + 10, `${a}/${b} overlap`);
+  assert.ok(CAVE.nodes.hall.c[1] + nodeR(CAVE.nodes.hall) + TUNNEL.wall < 2042, 'inside the ground grid');
+  close(d(...linkPts(CAVE.links[0])), 90, 1e-6, 'T2a is 90 m');
+  assert.ok(Math.abs(Math.atan2(linkPts(CAVE.links[1])[1][1] - linkPts(CAVE.links[1])[0][1], linkPts(CAVE.links[1])[1][0] - linkPts(CAVE.links[1])[0][0]) - 88 * Math.PI / 180) < 0.02, 'T2b heads south');
+  assert.equal(EIFFEL.h, 330); assert.equal(EIFFEL.feet.length, 4);
+});
+
+test('caveCuts_EightLevelCutsOnOneFloor', () => {
+  const { cuts, f0 } = caveCuts(plateau);
+  close(f0, 75 - 0.05 * (105 - cavernR()), 1e-6, 'the floor is T1\'s');
+  assert.deepEqual(cuts.map(c => c.id), ['t1', 'r0', 'n1', 't2a', 't2b', 'hall', 'stubE', 'stubW']);
+  for (const c of cuts.slice(1)) { assert.equal(c.f0, f0, c.id); assert.equal(c.u, TUNNEL, c.id); assert.ok(c.depth > 70, `${c.id} depth ${c.depth}`); assert.ok(c.roundEnds, c.id); }
+  const [hx, hz] = CAVE.nodes.hall.c, hall = cuts.find(c => c.id === 'hall');
+  for (const r of [0, 100, 169]) close(cutFloorAt(hall, hx + r, hz, TUNNEL), f0, 1e-6, `hall r ${r}`);
+  assert.equal(cutFloorAt(hall, hx + 171, hz, TUNNEL), null);
+  const t2b = cuts.find(c => c.id === 't2b'), [px, pz] = linkPts(CAVE.links[1])[0];
+  close(cutFloorAt(t2b, px, pz, TUNNEL), f0, 1e-6, 'T2b starts level'); close(cutFloorAt(t2b, (px + hx) / 2, (pz + hz) / 2, TUNNEL), f0, 1e-6, 'level along T2b');
+  assert.equal(cutFloorAt(t2b, (px + hx) / 2 + 12, (pz + hz) / 2, TUNNEL), null, '12 m off T2b is rock');
+  const stub = cuts.find(c => c.id === 'stubE'), [sx, sz] = stubPts(CAVE.stubs[0])[1];
+  close(cutFloorAt(stub, sx, sz, TUNNEL), f0, 1e-6, 'the stub ends level');
+});
+
+test('roomAt_corridorAt_caveRoofed', () => {
+  const [hx, hz] = CAVE.nodes.hall.c, [rx, rz] = CAVE.nodes.r0.c;
+  assert.equal(roomAt(hx, hz), 'hall'); assert.equal(roomAt(hx + 169, hz), 'hall'); assert.equal(roomAt(hx + 175, hz), null); assert.equal(roomAt(hx + 175, hz, 6), 'hall');
+  assert.equal(roomAt(rx, rz), 'r0'); assert.equal(roomAt(...CAVE.nodes.n1.c), 'n1');
+  const [p, q] = linkPts(CAVE.links[0]), mid = (p[0] + q[0]) / 2, midz = (p[1] + q[1]) / 2;
+  assert.equal(corridorAt(mid, midz).id, 't2a'); close(corridorAt(mid, midz).s, 45, 0.01); assert.equal(corridorAt(mid, midz + 12), null, '12 m off T2a is rock');
+  assert.equal(corridorAt(...stubPts(CAVE.stubs[0])[1]).id, 'stubE');
+  assert.equal(corridorAt(...stubPts(CAVE.stubs[1])[1]).id, 'stubW');
+  assert.ok(caveRoofed(hx, hz, 10)); assert.ok(caveRoofed(mid, midz, 10)); assert.ok(!caveRoofed(hx + 300, hz, 10));
+  assert.ok(caveRoofed(hx + 171, hz, 10), 'the hall\'s cut edge is under the lid'); assert.ok(caveRoofed(hx + 173.9, hz, 10, TUNNEL.wall), 'padded'); assert.ok(!caveRoofed(hx + 173, hz, 10));
+  assert.ok(caveRoofed(A.mouth[0] + A.ux * 50, A.mouth[1] + A.uz * 50, 10)); assert.ok(!caveRoofed(A.mouth[0] + A.ux * 5, A.mouth[1] + A.uz * 5, 10), 'the open trench');
+  assert.ok(!caveRoofed(A.mouth[0] + A.ux * 50 + A.uz * 8, A.mouth[1] + A.uz * 50 - A.ux * 8, 10), '8 m off T1\'s axis is hillside');
+});
+
+test('inHideout_IsTheOpenTrenchAndT1Only', () => {
+  const [cx, cz] = A.centre;
+  assert.ok(inHideout(A.mouth[0] + A.ux * 5, A.mouth[1] + A.uz * 5), 'trees stay out of the trench');
+  assert.ok(!inHideout(A.mouth[0] - A.ux * 6, A.mouth[1] - A.uz * 6), 'the road before the mouth');
+  assert.ok(!inHideout(cx, cz), 'forest stands on the lid over R0'); assert.ok(!inHideout(...CAVE.nodes.hall.c)); assert.ok(!inHideout(...CAVE.nodes.n1.c));
+  assert.ok(!segmentInHideout(CAVE.nodes.hall.c[0] - 5, CAVE.nodes.hall.c[1], CAVE.nodes.hall.c[0] + 5, CAVE.nodes.hall.c[1]), 'a forest edge over the hall stays');
+  assert.ok(inCavern(cx + 21, cz)); assert.ok(!inCavern(cx + 23, cz)); assert.ok(inCavern(cx + 23, cz, 2));
+});
+
+test('segmentInHideout_AForestEdgeAcrossTheTrench', () => {
+  const mx = A.mouth[0] + A.ux * 5, mz = A.mouth[1] + A.uz * 5;
+  // a 6 m wall straight across the trench, its ends 3 m either side of the axis
+  assert.ok(segmentInHideout(mx - A.uz * 3, mz + A.ux * 3, mx + A.uz * 3, mz - A.ux * 3));
+  // a 20 m wall whose ends are both outside the trench, but whose middle crosses it
+  assert.ok(segmentInHideout(mx - A.uz * 12, mz + A.ux * 12, mx + A.uz * 12, mz - A.ux * 12), 'the middle counts, not only the ends');
+  assert.ok(!segmentInHideout(A.centre[0] + 40, A.centre[1], A.centre[0] + 50, A.centre[1]), 'well off the hill');
+  assert.ok(!segmentInHideout(A.mouth[0] - A.ux * 20 - 5, A.mouth[1] - A.uz * 20, A.mouth[0] - A.ux * 20 + 5, A.mouth[1] - A.uz * 20), 'across the road, 20 m before the mouth');
+});
+
+test('ringArcs_LeaveEveryExitOpen', () => {
+  const r0 = ringArcs('r0'), n1 = ringArcs('n1'), hall = ringArcs('hall');
+  assert.equal(r0.length, 3); assert.equal(n1.length, 3); assert.equal(hall.length, 1);
+  const total = r0.reduce((s, a) => s + a.a1 - a.a0, 0); assert.ok(total < 2 * Math.PI && total > Math.PI, 'three openings in R0');
+  // T1's doorway: the arc ends on R0's ring are off T1's axis by the corridor's outer face
+  const R = nodeR(CAVE.nodes.r0) - TUNNEL.wall / 2, ends = r0.flatMap(a => [a.a0, a.a1]).map(a => axisCoords(A.centre[0] + Math.cos(a) * R, A.centre[1] + Math.sin(a) * R));
+  assert.ok(ends.some(e => Math.abs(e.d - (HIDEOUT.hw + TUNNEL.margin + TUNNEL.wall)) < 1e-6 && e.s < HIDEOUT.length), 'the ring opens towards T1');
+  // nothing in any doorway: no arc point lies within the corridor half-width of an exit's axis
+  for (const [id, arcs] of [['r0', r0], ['n1', n1], ['hall', hall]]) for (const a of arcs) for (let k = 0; k <= 20; k++) {
+    const ang = a.a0 + (a.a1 - a.a0) * k / 20, n = CAVE.nodes[id], Rr = nodeR(n) - TUNNEL.wall / 2, x = n.c[0] + Math.cos(ang) * Rr, z = n.c[1] + Math.sin(ang) * Rr;
+    assert.equal(corridorAt(x, z, -0.01), null, `${id} wall in a doorway at ${ang}`);
+    if (id === 'r0') assert.ok(axisCoords(x, z).d > HIDEOUT.hw + TUNNEL.margin + TUNNEL.wall - 1e-6 || axisCoords(x, z).s > HIDEOUT.length, 'R0 wall in T1\'s doorway');
+  }
+  const st = ringStations(...CAVE.nodes.r0.c, R, 24, r0[0].a0, r0[0].a1);
+  assert.equal(st.length, 24); for (const s of st) close(Math.hypot(s.x - CAVE.nodes.r0.c[0], s.z - CAVE.nodes.r0.c[1]), R);
 });
 
 test('portalS_FirstWholeMetreWhereTheTrenchIsRoofDepthDeep', () => {
@@ -76,15 +147,28 @@ test('portalS_FirstWholeMetreWhereTheTrenchIsRoofDepthDeep', () => {
   assert.equal(portalS(() => 0), HIDEOUT.length, 'a flat hill never roofs: the portal sits at the end');
 });
 
-test('inCavern_roofed_inHideout', () => {
-  const [cx, cz] = A.centre, portal = 10;
-  assert.ok(inCavern(cx + 21, cz)); assert.ok(!inCavern(cx + 23, cz)); assert.ok(inCavern(cx + 23, cz, 2));
-  assert.ok(roofed(cx, cz, portal)); assert.ok(roofed(cx + 23, cz, portal), 'the ring wall is under the lid');
-  assert.ok(roofed(A.mouth[0] + A.ux * 50, A.mouth[1] + A.uz * 50, portal));
-  assert.ok(!roofed(A.mouth[0] + A.ux * 5, A.mouth[1] + A.uz * 5, portal), 'the open trench');
-  assert.ok(!roofed(A.mouth[0] + A.ux * 50 + A.uz * 8, A.mouth[1] + A.uz * 50 - A.ux * 8, portal), '8 m off the axis is hillside');
-  assert.ok(inHideout(A.mouth[0] + A.ux * 5, A.mouth[1] + A.uz * 5), 'trees stay out of the trench');
-  assert.ok(inHideout(cx + 25, cz)); assert.ok(!inHideout(cx + 27, cz)); assert.ok(!inHideout(A.mouth[0] - A.ux * 6, A.mouth[1] - A.uz * 6));
+test('ceilingAt_TunnelsCappedRoomsLidHallHigh', () => {
+  // 60 m down T2b from N1: in the corridor proper (its midpoint already lies inside the hall's disc)
+  const f0 = caveCuts(plateau).f0, [p, q] = linkPts(CAVE.links[1]), len = Math.hypot(q[0] - p[0], q[1] - p[1]), mx = p[0] + (q[0] - p[0]) * 60 / len, mz = p[1] + (q[1] - p[1]) * 60 / len;
+  assert.equal(roomAt(mx, mz, TUNNEL.wall), null); assert.equal(corridorAt(mx, mz).id, 't2b');
+  close(ceilingAt(mx, mz, plateau, 10), f0 + TUNNEL_CEIL, 1e-6, 'T2b'); close(ceilingAt(...CAVE.nodes.hall.c, plateau, 10), f0 + 380, 1e-6, 'the hall');
+  close(ceilingAt(...CAVE.nodes.r0.c, plateau, 10), 150 - 0.6, 1e-6, 'R0 keeps the hill'); close(ceilingAt(...CAVE.nodes.n1.c, plateau, 10), 150 - 0.6, 1e-6, 'N1 too');
+  close(ceilingAt(...stubPts(CAVE.stubs[0])[1], plateau, 10), 150 - 0.6, 1e-6, 'a stub too');
+  close(ceilingAt(A.mouth[0] + A.ux * 60, A.mouth[1] + A.uz * 60, plateau, 10), Math.min(150 - 0.6, floorAt(60, 75) + TUNNEL_CEIL), 1e-6, 'T1 capped too');
+  close(ceilingAt(A.mouth[0] + A.ux * 11, A.mouth[1] + A.uz * 11, hill, 10), hill(A.mouth[0] + A.ux * 11, A.mouth[1] + A.uz * 11) - 0.6, 1e-6, 'a low lid stays the lid');
+  assert.equal(ceilingAt(A.mouth[0] + A.ux * 5, A.mouth[1] + A.uz * 5, plateau, 10), null, 'the open trench');
+  assert.equal(ceilingAt(CAVE.nodes.hall.c[0] + 400, CAVE.nodes.hall.c[1], plateau, 10), null);
+});
+
+test('sightBlocked_MouthToHall', () => {
+  const [hx, hz] = CAVE.nodes.hall.c, R = nodeR(CAVE.nodes.hall), eyes = [], targets = [[hx, hz]];
+  for (let d = -4.5; d <= 4.5; d += 1.125) eyes.push([A.mouth[0] - A.uz * d, A.mouth[1] + A.ux * d]);
+  for (let k = 0; k < 36; k++) targets.push([hx + Math.cos(k / 36 * 2 * Math.PI) * R, hz + Math.sin(k / 36 * 2 * Math.PI) * R]);
+  assert.equal(eyes.length, 9); assert.equal(targets.length, 37);
+  for (const e of eyes) for (const t of targets) assert.ok(sightBlocked(e, t), `clear line from ${e} to ${t}`);
+  assert.ok(!sightBlocked(A.mouth, CAVE.nodes.r0.c), 'R0 is in plain view from the mouth');
+  assert.ok(!sightBlocked(CAVE.nodes.n1.c, [hx, hz]), 'the reveal: N1 looks straight at the tower');
+  assert.ok(!sightBlocked(CAVE.nodes.r0.c, CAVE.nodes.n1.c), 'and R0 looks down T2a');
 });
 
 test('ringStations_24TangentPiecesAroundTheCircle', () => {
@@ -106,24 +190,20 @@ test('eiffelParts_33mTallFourLeggedAndSymmetric', () => {
   const half = eiffelParts(16.5); close(half.find(p => p.kind === 'spire').y1, 16.5, 1e-6, 'scales with h');
 });
 
-test('segmentInHideout_AForestEdgeAcrossTheTrenchOrTheCavern', () => {
-  const [cx, cz] = A.centre, mx = A.mouth[0] + A.ux * 5, mz = A.mouth[1] + A.uz * 5;
-  // a 6 m wall straight across the trench, its ends 3 m either side of the axis
-  assert.ok(segmentInHideout(mx - A.uz * 3, mz + A.ux * 3, mx + A.uz * 3, mz - A.ux * 3));
-  // a 20 m wall whose ends are both outside the trench, but whose middle crosses it
-  assert.ok(segmentInHideout(mx - A.uz * 12, mz + A.ux * 12, mx + A.uz * 12, mz - A.ux * 12), 'the middle counts, not only the ends');
-  assert.ok(segmentInHideout(cx - 5, cz, cx + 5, cz), 'over the cavern');
-  assert.ok(!segmentInHideout(cx + 40, cz, cx + 50, cz), 'well off the hill');
-  assert.ok(!segmentInHideout(A.mouth[0] - A.ux * 20 - 5, A.mouth[1] - A.uz * 20, A.mouth[0] - A.ux * 20 + 5, A.mouth[1] - A.uz * 20), 'across the road, 20 m before the mouth');
+test('eiffelParts_ScalesTo330AndStandsOnTheFeet', () => {
+  const parts = eiffelParts(330, 50), spire = parts.find(p => p.kind === 'spire'); close(spire.y1, 330);
+  const feet = parts.filter(p => p.kind === 'leg' && p.r0 > 2 && p.from[1] === 0).map(p => p.from); assert.equal(feet.length, 4);
+  for (const f of feet) { close(Math.abs(f[0]), 50); close(Math.abs(f[2]), 50); }
+  const first = parts.filter(p => p.kind === 'leg' && p.r0 > 2 && p.to[1] === 57); assert.equal(first.length, 4, 'the 1st floor is at 57 m');
 });
 
-test('roofed_WithAPad_ReachesOverTheTroughWallsAndTheCutEdge', () => {
+test('caveRoofed_WithAPad_ReachesOverTheTroughWallsAndTheCutEdge', () => {
   const portal = 12, [cx, cz] = A.centre, at = (s, d) => [A.mouth[0] + A.ux * s - A.uz * d, A.mouth[1] + A.uz * s + A.ux * d];
   // the trough wall stands 5.5..7.5 m off the axis; the lid has to reach past its outer face and the cut's edge
-  assert.ok(!roofed(...at(50, 7), portal), 'unpadded: the outer half of the wall is not under the lid');
-  for (const d of [7, 7.5, 8.4, -8.4]) assert.ok(roofed(...at(50, d), portal, HIDEOUT, TUNNEL, TUNNEL.wall), `padded, ${d} m off`);
-  assert.ok(!roofed(...at(50, 9), portal, HIDEOUT, TUNNEL, TUNNEL.wall), 'the pad is 2 m, not more');
-  assert.ok(!roofed(...at(portal - 1, 0), portal, HIDEOUT, TUNNEL, TUNNEL.wall), 'the open trench stays open');
-  assert.ok(roofed(cx + cavernR() + 3.9, cz, portal, HIDEOUT, TUNNEL, TUNNEL.wall), 'and round the cavern');
-  assert.ok(!roofed(cx + cavernR() + 4.1, cz, portal, HIDEOUT, TUNNEL, TUNNEL.wall));
+  assert.ok(!caveRoofed(...at(50, 7), portal), 'unpadded: the outer half of the wall is not under the lid');
+  for (const d of [7, 7.5, 8.4, -8.4]) assert.ok(caveRoofed(...at(50, d), portal, TUNNEL.wall), `padded, ${d} m off`);
+  assert.ok(!caveRoofed(...at(50, 9), portal, TUNNEL.wall), 'the pad is 2 m, not more');
+  assert.ok(!caveRoofed(...at(portal - 1, 0), portal, TUNNEL.wall), 'the open trench stays open');
+  assert.ok(caveRoofed(cx + cavernR() + 3.9, cz, portal, TUNNEL.wall), 'and round the cavern');
+  assert.ok(!caveRoofed(cx + cavernR() + 4.1, cz, portal, TUNNEL.wall));
 });
