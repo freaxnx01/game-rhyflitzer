@@ -16,3 +16,7 @@ __pycache__/
 
 # visual test records, one JSON per browser test session (see prototype/tests/visual_runs.py)
 .test-runs/
+
+# ch-landmarks skill: swisstopo tile downloads and local Python venv
+.cache/
+.venv/
