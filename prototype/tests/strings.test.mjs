@@ -126,3 +126,10 @@ test('car selection texts exist in both languages (#7)', () => {
   for (const k of ['veh_delorean_class', 'veh_delorean_desc']) for (const l of ['en', 'de']) assert.notEqual(translate(l, k), k, `${l} ${k}`);
   for (const k of ['carselTitle', 'carselPrev', 'carselNext', 'carselRotate', 'statTop', 'statAccel', 'statHandling', 'statMass', 'paintLabel', 'paintFixed', 'paintNavy', 'paintSunflower', 'paintSignal', 'paintSwiss', 'paintFlamingo', 'paintPlum', 'paintRhine', 'paintIce', 'paintMeadow', 'paintCream', 'paintCharcoal', 'carselBack', 'veh_compact_desc']) assert.notEqual(translate('de', k), k, k);
 });
+
+test('hideout strings exist in both languages (#102)', () => {
+  assert.match(translate('en', 'hideoutFound'), /Hideout found/);
+  assert.match(translate('de', 'hideoutFound'), /Versteck gefunden/);
+  assert.match(translate('en', 'hideoutNoSky'), /drive out/);
+  assert.match(translate('de', 'hideoutNoSky'), /fahr zuerst raus/);
+});

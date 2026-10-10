@@ -325,6 +325,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
+import { HIDEOUT, TUNNEL, hideoutAxis, floorAt, hideoutCuts, portalS, cavernR, inCavern, roofed, inHideout, segmentInHideout, ringStations, ringArc, eiffelParts } from './hideout.js';
 import { translate } from './strings.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
@@ -629,12 +630,16 @@ function cutJunctions(cut) {
   add(...cut.pts[0], -cut.t, true); add(...cut.pts[cut.pts.length - 1], len - cut.t, true);
   return out;
 }
-function cutFloorMin(x, z) { let f = Infinity; for (const c of CUTS) if (c.depth > 0 && Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) { const h = cutFloorAt(c, x, z); if (h !== null) f = Math.min(f, h); } return f; }
+// #102: the hideout's two cuts (hideout.js) ride the same patch machinery, from their own array: CUTS stays rail-only for
+// __mm.crossings and the #119 walls. Built on the measured terrain only -- the made-up hills have no Hübel.
+const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...hideoutCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, lidTris: 0, lidCells: new Set(), floor: null }; })() : null;
+const allCuts = () => HIDE ? [...CUTS, HIDE.tunnel, HIDE.cavern] : CUTS;
+function cutFloorMin(x, z) { let f = Infinity; for (const c of allCuts()) if (c.depth > 0 && Math.abs(x - c.x) < 200 && Math.abs(z - c.z) < 200) { const h = cutFloorAt(c, x, z, c.u ?? UNDERPASS); if (h !== null) f = Math.min(f, h); } return f; }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
 function buildCuts() {
   for (const c of railRoadCrossings(L.roads, L.railBridges)) CUTS.push(makeCut(c));
   const G = TGRID, W = CUT_N + 1;
-  for (const c of CUTS) if (c.depth > 0) for (const [i, j] of patchCells(cutBounds(c), G)) {
+  for (const c of allCuts()) if (c.depth > 0) for (const [i, j] of patchCells(cutBounds(c, c.u ?? UNDERPASS), G)) {
     const key = i + ',' + j; if (CUT_CELLS.has(key)) continue;
     const p = new Float32Array(W * W);
     for (let b = 0; b < W; b++) for (let a = 0; a < W; a++) { const x = G.x0 + (i + a / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + a] = Math.min(meshH(x, z), cutFloorMin(x, z)); }
@@ -642,6 +647,12 @@ function buildCuts() {
   }
 }
 if (L) buildCuts();
+// #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
+function roofedAt(x, z) { return !!HIDE && roofed(x, z, HIDE.portal); }
+// the lid reaches TUNNEL.wall further out than the corridor, over the trough walls and the cut's edge (drawn and solid)
+function underLid(x, z) { return !!HIDE && roofed(x, z, HIDE.portal, HIDEOUT, TUNNEL, TUNNEL.wall); }
+function lidH(x, z) { return underLid(x, z) ? meshH(x, z) - 0.6 : null; }
+function skyGroundH(x, z) { const g = groundH(x, z, 1e4); return roofedAt(x, z) ? Math.max(g, meshH(x, z)) : g; }
 // water surface at (x, z) for an object at height y, null on land or on a bridge; the river bed is bedDepth under it (groundH, #101)
 function waterLevelAt(x, z, y) { if (onBridge(x, z, y)) return null; const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null || !L) return wl; const sh = streamH(x, z); return sh > -Infinity && roadSurfH(x, z) === -Infinity ? sh : null; }
 // roundabouts drawn so far: groundH lifts the car onto the cobble apron (radius 11.6, top 0.375 m) instead of sinking into it
@@ -663,6 +674,8 @@ function groundH(x, z, y) {
   // #101: the bed shelves from the shoreline (0) to 6 m (bedDepth); the car lies and drives on it
   const rd = riverDist(x, z), wl = waterSurface(rd, L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null) return Math.max(wl - bedDepth(rd), fill);
   for (const k of KREISEL) if (Math.hypot(x - k.x, z - k.z) <= k.apron) return Math.max(k.b + 0.375, fill);
+  // #102: the lid is solid -- over the tunnel and the cavern, anything above the ceiling stands on the hill, not on the cut floor
+  const lid = HIDE ? lidH(x, z) : null; if (lid !== null && y > lid - 1) return meshH(x, z);
   const t = Math.max(terrainH(x, z), roadSurfH(x, z), fill);
   if (RAMP && x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
   return t;
@@ -838,6 +851,59 @@ function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/
   const roof = new THREE.ConeGeometry(5.4 * Math.SQRT2, 2.8, 4, 1, true); roof.rotateY(Math.PI / 4 - rot); roof.translate(x, b + 8.25 + 1.4, z); colorize(roof, col('#7a8878')); push('roofFlat', roof);
   addOBB(x, z, 3.3, 3.3, rot, b + 5.5);
 }
+// #102: the hideout -- trough walls along the tunnel (the #119 pattern without decks), a ring wall around the cavern, the
+// reservoir gate at the portal, gravel on the floor, lamps, and the tower. Every OBB is `secret`: the static map skips it.
+function hideoutBuild() {
+  const h = HIDEOUT, u = TUNNEL, a = hideoutAxis(h), g0 = meshH(a.mouth[0], a.mouth[1]), floor = (s) => floorAt(s, g0, h), stone = col('#b8b2a6'), gravel = col('#cfc3ac'), inner = h.hw + u.margin;
+  // topAt(x, z): the wall's top over each corner, so a block on a slope follows the hill instead of poking out of it; the
+  // collider takes the lowest corner, so a car on the hill passes over it
+  const shapeTop = (g, bottom, topAt) => { const p = g.attributes.position; let lo = Infinity; for (let i = 0; i < p.count; i++) if (p.getY(i) > bottom + 0.01) { const y = topAt(p.getX(i), p.getZ(i)); p.setY(i, y); lo = Math.min(lo, y); } g.computeVertexNormals(); return lo; };
+  const wallBox = (x, z, len, rot, bottom, topAt) => { box(len, topAt(x, z) - bottom, u.wall, x, bottom, z, rot, stone, 'stone', [4, 3], 0); const top = shapeTop(parts.stone[parts.stone.length - 1], bottom, topAt); pushOBB({ x, z, hw: len / 2, hd: u.wall / 2, c: Math.cos(rot), s: Math.sin(rot), h: top, low: true, secret: true }); HIDE.walls++; };
+  const lidTop = (x, z) => meshH(x, z) - 0.6;
+  for (const w of wallStations(a.pts, [[0, h.length]], inner + u.wall / 2, 2)) {
+    const fl = floor(w.t), ground = meshH(w.x + w.nx * (u.wall / 2 + 0.5), w.z + w.nz * (u.wall / 2 + 0.5));
+    if (ground - fl <= 0.1) continue;
+    if (inCavern(w.x, w.z, -u.wall)) continue;   // the corridor's walls stop just inside the cavern, where the ring takes over
+    wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, w.t >= HIDE.portal ? lidTop : () => ground + 1);   // parapet in the open trench, up to the ceiling under the lid
+  }
+  const [cx, cz] = a.centre, fl = floor(h.length), arc = ringArc(h, u); HIDE.floor = fl;
+  HIDE.ring = ringStations(cx, cz, arc.r, 24, arc.a0, arc.a1);
+  for (const r of HIDE.ring) wallBox(r.x, r.z, r.len, r.rot, fl, lidTop);
+  // the gate: piers in the margins, a lintel over the 9 m opening up to 1 m over the hillside, the sign on its outer face
+  const ps = HIDE.portal, px = a.mouth[0] + a.ux * ps, pz = a.mouth[1] + a.uz * ps, pf = floor(ps), rot = h.heading + Math.PI / 2, nx = -a.uz, nz = a.ux;
+  for (const side of [-1, 1]) { const d = side * (h.hw + u.margin / 2), x = px + nx * d, z = pz + nz * d; box(u.margin, 5, 1.2, x, pf, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: u.margin / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: pf + 5, secret: true }); }
+  box(2 * (inner + u.wall), meshH(px, pz) + 1 - (pf + 5), 1.2, px, pf + 5, pz, rot, stone, 'stone', [4, 3], 0);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.9), new THREE.MeshBasicMaterial({ map: textTex('RESERVOIR HÜBEL', 1024, 160, '#d8d2c6', '#2a2a2a', '700 110px "Barlow Condensed", sans-serif'), transparent: true }));
+  sign.position.set(px - a.ux * 0.62, pf + 5.8, pz - a.uz * 0.62); sign.rotation.y = Math.atan2(-a.ux, -a.uz); signs.add(sign);
+  // floor: gravel down the tunnel and over the cavern, draped on the cut
+  ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true); disc(cx, cz, arc.r - u.wall / 2, 0.04, 'gravel', gravel);   // up to the ring wall's inner face
+  // light: two warm point lights by the tower, four lamp posts on the diagonals (the chimney's lamp pattern). three r170 lights
+  // in physical units: 120 cd with decay 2 gives ~0.8 at the tower, 12 m off (the sun is 0.8); 36 m of range ends inside the hill
+  HIDE.lights = [];
+  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffd9a0, 120, 36, 2); l.position.set(cx + a.ux * 12 * k, fl + 3, cz + a.uz * 12 * k); signs.add(l); HIDE.lights.push(l); }
+  for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const x = cx + ox * 10.6, z = cz + oz * 10.6;   // 15 m out on the diagonals
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.set(x, fl + 1.3, z);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd27a })); head.position.set(x, fl + 2.8, z);
+    signs.add(pole, head); HIDE.lamps++;
+  }
+  eiffelTower(cx, cz, fl);
+}
+// #102: 1:10 lookalike from primitives (hideout.js describes it): painted iron on the dome role (plain colour), solid at the four feet only -- drive between the legs
+function eiffelTower(x, z, b) {
+  const iron = col('#6e4b2a'), up = new THREE.Vector3(0, 1, 0);
+  for (const p of eiffelParts(HIDEOUT.towerH)) {
+    let g;
+    if (p.kind === 'leg') { const d = new THREE.Vector3(p.to[0] - p.from[0], p.to[1] - p.from[1], p.to[2] - p.from[2]), len = d.length(); g = new THREE.CylinderGeometry(p.r1, p.r0, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate(x + (p.from[0] + p.to[0]) / 2, b + (p.from[1] + p.to[1]) / 2, z + (p.from[2] + p.to[2]) / 2); }
+    else if (p.kind === 'box') { g = new THREE.BoxGeometry(p.w, p.h, p.d); g.translate(x, b + p.y + p.h / 2, z); }
+    else if (p.kind === 'arch') { g = new THREE.TorusGeometry(p.r, p.tube, 6, 16, Math.PI); g.translate(0, p.y, p.offset); g.rotateY(p.rot); g.translate(x, b, z); }
+    else { g = new THREE.CylinderGeometry(p.r1, p.r0, p.y1 - p.y0, 6); g.translate(x, b + (p.y0 + p.y1) / 2, z); }
+    colorize(g, iron); push('dome', g);
+  }
+  const k = HIDEOUT.towerH / 33;
+  for (const [ox, oz] of [[-6.25, -6.25], [6.25, -6.25], [6.25, 6.25], [-6.25, 6.25]]) pushOBB({ x: x + ox * k, z: z + oz * k, hw: 0.8, hd: 0.8, c: 1, s: 0, h: b + 5.7 * k, secret: true });
+  window.__mm.counts.eiffel = 1;
+}
 // ---------- street furniture (props) ----------
 // One low-poly model per prop kind, merged into a single geometry so each kind draws as one InstancedMesh.
 // Every model has its base at y = 0 (the instance is placed on terrainH) and its long axis along local +x, which
@@ -976,6 +1042,30 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const q = g.attributes.position, uv = g.attributes.uv, cArr = new Float32Array(q.count * 3);
     for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = terrainH(x, z), c = groundCol(h, x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
     g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals(); parts.grass.push(g.toNonIndexed());
+  }
+  if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy 0.6 m under it, wound to face down (ceiling, into stone)
+    const ROCK = col('#4a4642');
+    for (const c of [HIDE.tunnel, HIDE.cavern]) for (const [i, j] of patchCells(cutBounds(c, c.u), TGRID)) {
+      const key = i + ',' + j; if (HIDE.lidCells.has(key)) continue; HIDE.lidCells.add(key);
+      const g = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N); g.rotateX(-Math.PI / 2); g.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
+      const q = g.attributes.position, idx = g.index.array, keep = [];
+      for (let k = 0; k < idx.length; k += 3) { const tx = (q.getX(idx[k]) + q.getX(idx[k + 1]) + q.getX(idx[k + 2])) / 3, tz = (q.getZ(idx[k]) + q.getZ(idx[k + 1]) + q.getZ(idx[k + 2])) / 3; if (underLid(tx, tz)) keep.push(idx[k], idx[k + 1], idx[k + 2]); }
+      if (!keep.length) continue;
+      g.setIndex(keep);
+      const uv = g.attributes.uv, cArr = new Float32Array(q.count * 3);
+      for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = meshH(x, z), c = groundCol(h, x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
+      g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals(); parts.grass.push(g.toNonIndexed());
+      // the ceiling: the same triangles with vertices 1 and 2 swapped, so they face down (the roles are FrontSide)
+      const ceil = g.toNonIndexed(), cp = ceil.attributes.position, cu = ceil.attributes.uv;
+      ceil.translate(0, -0.6, 0);
+      for (let k = 0; k < cp.count; k += 3) {
+        const px = cp.getX(k + 1), py = cp.getY(k + 1), pz = cp.getZ(k + 1), ux = cu.getX(k + 1), uy = cu.getY(k + 1);
+        cp.setXYZ(k + 1, cp.getX(k + 2), cp.getY(k + 2), cp.getZ(k + 2)); cp.setXYZ(k + 2, px, py, pz);
+        cu.setXY(k + 1, cu.getX(k + 2), cu.getY(k + 2)); cu.setXY(k + 2, ux, uy);
+      }
+      ceil.computeVertexNormals(); colorize(ceil, ROCK); push('stone', ceil);
+      HIDE.lidTris += keep.length / 3;
+    }
   }
   // streams: water draped on the ground like a road (a flat level cannot follow a stream that falls 25 m), 2 cm under road height
   if (L) for (const st of L.streams) { const g = ribbonGeo(st.pts, st.w / 2, 0.02, 6, true); colorize(g, col('#ffffff')); push('water', g); g.userData.surf.name = st.name; registerSurface(g.userData.surf, STREAM_GRID); }
@@ -1132,6 +1222,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     if (at('steinChurch')) church(at('steinChurch').x, at('steinChurch').z, at('steinChurch').rot, false);
     for (const k of ['stationStein', 'stationSisseln']) if (at(k)) stationAt(at(k).x, at(k).z, at(k).rot, STATION_NAMES[k]);
     if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z, at('plattform').rot || 0);
+    if (HIDE) hideoutBuild();   // #102
   }
   // trees along both banks and scattered
   // #127: only the Hochrhein world has the Sisseln forest box, so another region's trees come from the height alone
@@ -1140,7 +1231,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // #13: a world file with OSM woods replaces the heuristic forests (box, height line, fbm); one without them keeps the heuristic
   const OSM_WOODS = !!(L && L.forests.length);
   const [bx0, bx1, bz0, bz1] = REGION.treeBox;   // #127: the scatter box and the forest line are the region's (Hochrhein's are today's values)
-  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = !OSM_WOODS && (sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55)); if (!forest && rnd() > 0.12) continue; if (FOREST.inside(tx, tz)) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
+  for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = !OSM_WOODS && (sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55)); if (!forest && rnd() > 0.12) continue; if (FOREST.inside(tx, tz)) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity && !(HIDE && inHideout(tx, tz))) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
   // #131: trees are solid at the trunk. After the loop, so free() above never sees a tree (forest density unchanged);
   // The OSM forest trees (#13) are a separate list below, stopped by edge walls instead of a collider each.
   for (const [x, z, h] of TREES) addSolid(treeCollider(x, z, h, terrainH(x, z)));
@@ -1153,8 +1244,8 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   if (L && L.forests.length) {
     const edges = forestEdges(L.forests, FOREST), placed = forestTrees(L.forests, FOREST, edges, rng(13));
     for (const [x, z, h] of [...placed.edge, ...placed.fill])
-      if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
-    for (const e of edges) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: terrainH(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap
+      if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && !(HIDE && inHideout(x, z)) && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
+    for (const e of edges) if (!(HIDE && segmentInHideout(e.x0, e.z0, e.x1, e.z1))) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: terrainH(e.mx, e.mz) + 1.6 });   // solid, not a building: off the minimap
     window.__mm.counts.forest = { polys: L.forests.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, walls: edges.length };
   }
   window.__FOREST = FOREST_TREES;
@@ -1455,15 +1546,21 @@ document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hid
 // ---------- car state & physics ----------
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, hinted: false, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
 // J: the 3D landmarks (landmarks.js), searched by name and filtered by Gemeinde; hand layout: the race points, no Gemeinde
-const JUMP_ENTRIES = L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
+// #102: secrets list once found, so the list is rebuilt on discovery (jumpEntries() reads it at call time).
+const jumpEntriesNow = () => L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden, { secrets: !!(HIDE && HIDE.found) }) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
+let JUMP_ENTRIES = jumpEntriesNow();
 const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 function placeOnRoad(x, z, th, name) { P.safe = [x, z, th]; clearNavi(); resetCar(); if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
-function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, p.j ? faceToward(best.th, best.x, best.z, p.x, p.z) : best.th, p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
+function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, jumpHeading(p, best), p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
+// along the road, turned towards the landmark (#79); a look point (#102) turns the car straight at it, off the road's line
+function jumpHeading(p, best) { if (p.look) return Math.atan2(p.look[1] - best.z, p.look[0] - best.x); return p.j ? faceToward(best.th, best.x, best.z, p.x, p.z) : best.th; }
 const RAMP_RUNUP = 40;   // J → Sprungschanze: metres of run-up before the ramp's low edge, enough to launch from standstill (#80)
 function jumpToRamp(name) { if (!RAMP) return; const s = rampApproach(RAMP, RAMP_RUNUP); placeOnRoad(s.x, s.z, s.th, name); }   // off road: R returns to the run-up
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
+// #102: first time in the cavern -- toast, jingle, remember it, and the Eiffelturm joins the J/O lists
+function foundHideout() { HIDE.found = true; try { localStorage.setItem(HIDEOUT.key, '1'); } catch (e) { } toast(tr('hideoutFound'), TOAST_S.event); SFX.finish(); JUMP_ENTRIES = jumpEntriesNow(); }
 function resetCar() { stopAuto('reset'); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
@@ -1515,9 +1612,10 @@ function stepNavi(dt) {
 }
 // #10: F takes off from the car's spot and lands the car on the nearest jumpable road below (not a jump: the flight already marks the run). R, J, the map and Start end a flight through resetCar
 function toggleFly() { if (FLY.on) land(); else takeOff(); }
-function takeOff() { stopAuto('reset'); const s = heliStart(P.x, P.z, P.y, P.th, groundH(P.x, P.z, 1e4)); FLY.on = true; FLY.v = s.v; FLY.alt = s.alt; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
+function takeOff() { if (roofedAt(P.x, P.z)) { toast(tr('hideoutNoSky')); return; }   // #102: no sky under the hill
+  stopAuto('reset'); const s = heliStart(P.x, P.z, P.y, P.th, skyGroundH(P.x, P.z)); FLY.on = true; FLY.v = s.v; FLY.alt = s.alt; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
 function land() { const spot = landingSpot(nearestJumpable(P.x, P.z)); if (!spot) { toast(tr('heliNoRoad')); return; } P.safe = [spot.x, spot.z, spot.th]; resetCar(); toast(tr('heliLanded')); }
-function stepFly(dt) { const ground = groundH(P.x, P.z, 1e4), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; blob.visible = false; flames.visible = false; }
+function stepFly(dt) { const ground = skyGroundH(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; blob.visible = false; flames.visible = false; }
 // test hooks (prototype/tests): put the car somewhere and read its state
 window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; };
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
@@ -1568,6 +1666,13 @@ window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x,
 window.__mm.bed = (x, z) => { const rd = riverDist(x, z), water = waterLevelAt(x, z, 1e4), ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), hit = MESH.grass ? ray.intersectObject(MESH.grass, false)[0] : null; return { ground: groundH(x, z, 1e4), water, depth: water === null ? 0 : bedDepth(rd), drawn: hit ? hit.point.y : null }; };
 window.__mm.underwater = () => ({ on: UWS.on, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, waterDoubleSide: MESH.water ? MESH.water.material.side === THREE.DoubleSide : null, bubbles: { visible: bubbles.visible, count: bubbles.children.length, maxY: Math.max(...bubbles.children.map(s => s.position.y)) }, fish: FISH.mesh ? FISH.mesh.count : 0, schools: FISH.schools.length, bed: { stones: BED.stones ? BED.stones.count : 0, blades: BED.weed ? BED.weed.count : 0, visible: !!BED.weed && BED.weed.visible && BED.stones.visible }, ...UWS.counts });
 window.__mm.fishPose = (i) => { const m = new THREE.Matrix4(); FISH.mesh.getMatrixAt(i, m); return Array.from(m.elements).map(v => +v.toFixed(4)); };
+// #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
+window.__mm.hideout = () => HIDE ? { mouth: HIDE.tunnel.pts[0], centre: [HIDE.tunnel.x, HIDE.tunnel.z], portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(HIDE.tunnel.x, HIDE.tunnel.z), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris } : null;
+window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH;
+// #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
+window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? { role: hit.object.userData.role, y: hit.point.y } : null; };
+window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay })) : null;
+window.__mm.hideoutRing = () => HIDE && HIDE.ring ? HIDE.ring.map(r => ({ ...r, wall: TUNNEL.wall })) : null;
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.crossings = () => CUTS.map(c => {
   let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
@@ -1607,6 +1712,7 @@ window.__mm.glass = () => { const find = (root) => { let m = null; root.traverse
 window.__mm.doors = () => ({ open: DOOR_STATE.open, target: DOOR_STATE.target, panelY: (car.userData.doors ?? []).map(d => d.panel.getWorldPosition(new THREE.Vector3()).y - P.y) });
 window.__mm.setVehicle = (def) => { setVehicle(def); };
 window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
+window.__mm.camStep = (dt, from) => { if (from) camPos.set(...from); stepCamera(dt); return window.__mm.cam(); };   // #102: one camera step from a given position (the loop's frames are too slow to catch an easing camera)
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z] }; };   // back/look: #65
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)
@@ -1628,6 +1734,7 @@ function stepCar(dt) {
   if (wl !== null) { if (P.splash === 0) { SFX.splash(); P.hinted = false; } const was = P.splash; P.splash += dt; P.vy = 0; if (P.y > gh2 + 0.15) { const k = Math.exp(-UW.drag * dt); P.vx *= k; P.vz *= k; P.y = Math.max(P.y - UW.sink * dt, gh2); } else P.y = gh2; if (was < 0.35 && P.splash >= 0.35) toast(tr('fishes'), TOAST_S.event); if (!P.hinted && P.splash >= UW.hintAt) { P.hinted = true; toast(tr('underwaterHint'), TOAST_S.event); } }
   else { P.splash = 0; P.vy -= 22 * gravityScale(SURP) * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (P.vy < -9) { P.dmg = Math.min(1, P.dmg + 0.05); SFX.crash(impactStrength(-P.vy)); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump
   collide(carRadius());
+  if (HIDE && !HIDE.found && inCavern(P.x, P.z) && P.y < lidH(P.x, P.z)) foundHideout();   // #102: in the cavern, under the ceiling -- not on the hill over it
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
   blob.position.set(P.x, gh2 + 0.05, P.z); blob.rotation.z = -P.th; blob.visible = wl === null && (P.y - gh2) < 6 && !CAM_VIEWS[camView].eye && !HUD.carHidden; blob.material.opacity = 0.45 * clamp(1 - (P.y - gh2) / 6, 0.2, 1);
@@ -1644,13 +1751,17 @@ let camView = 0;
 const CAM = { back: false };   // #65: B held = look back (read each frame in stepCamera)
 function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm.camView = camView; toast(tr('camera', tr(CAM_VIEWS[camView].nameKey))); }
 // #10: one heli chase cam, behind and above, looking ahead and down; C does nothing while flying
+// #102: a camera height held 1 m under the hideout's ceiling while the car is down in it (below the hill), the easing
+// camera too, not only its target; with the car up on the hill the camera stays where it is
+function underCeiling(x, z, y) { const lid = HIDE && P.y < meshH(P.x, P.z) - 1 ? lidH(x, z) : null; return lid === null ? y : Math.min(y, lid - 1); }
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
   car.visible = !v.eye && !HUD.carHidden && !FLY.on; heli.visible = FLY.on;
   if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }
-  else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-6 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + bx * 6, P.y + 1.2, P.z + bz * 6); }
+  else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
+    if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-6 * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos); camera.lookAt(P.x + bx * 6, P.y + 1.2, P.z + bz * 6); }
   camTail(); }
 function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); sun.position.set(P.x - 300, 400, P.z - 200); sun.target.position.set(P.x, 0, P.z);
   const camWl = waterLevelAt(camera.position.x, camera.position.z, camera.position.y), under = camWl !== null && camera.position.y < camWl; if (under !== UWS.on) setUnderwater(under); }   // #101: the look follows the camera, not the car
@@ -1808,7 +1919,7 @@ window.__mm.huntSetEndIn = (s) => { HUNT_RUN.endIn = s; };   // tests: shorten t
 const mapC = $('map'), mg = mapC.getContext('2d');
 const MB = L ? (() => { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const r of ROADS) for (const [x, z] of r.pts) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); } return { x0, x1, z0, z1 }; })() : { x0: W(0, 0)[0], x1: W(1920, 0)[0], z0: W(0, 60)[1], z1: W(0, 989)[1] }; const MS = Math.min(mapC.width / (MB.x1 - MB.x0), mapC.height / (MB.z1 - MB.z0)); const MX = (x) => (x - MB.x0) * MS + (mapC.width - (MB.x1 - MB.x0) * MS) / 2, MZ = (z) => (z - MB.z0) * MS + (mapC.height - (MB.z1 - MB.z0) * MS) / 2;
 const mapStatic = document.createElement('canvas'); mapStatic.width = mapC.width; mapStatic.height = mapC.height;
-{ const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
+{ const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge || o.secret) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) for (const lb of L.anchors.labels) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
 // #48: the Gemeinde boundaries as a dashed overlay, pre-rendered like mapStatic and drawn over it only while G is on
 const mapBounds = document.createElement('canvas'); mapBounds.width = mapC.width; mapBounds.height = mapC.height;
 if (L) { const g = mapBounds.getContext('2d'); g.strokeStyle = '#ff3fb4'; g.lineWidth = 2; g.lineCap = 'round'; g.setLineDash([6, 4]); for (const b of L.boundaries) { g.beginPath(); b.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } }
