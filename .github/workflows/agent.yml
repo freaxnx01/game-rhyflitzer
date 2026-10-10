@@ -16,6 +16,7 @@ jobs:
     uses: freaxnx01/agent-workflow/.github/workflows/agent-implement.yml@v2
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}   # without it the pipeline silently falls back to claude
     with:
       issue-number: ${{ github.event.issue.number }}
       runner-labels: '["ubuntu-latest"]'
