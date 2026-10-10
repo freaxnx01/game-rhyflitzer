@@ -138,3 +138,13 @@ def test_ground_inside_the_outline_does_not_lower_the_eaves(notched):
     assert b[0]["hsrc"] == "dsm" and b[0]["roof"] == "flat", b[0]
     assert b[0]["h"] == pytest.approx(25.0, abs=0.3) and b[0]["rh"] == pytest.approx(0.0, abs=0.3), b[0]
     assert b[1]["hsrc"] == "dsm" and b[1]["h"] == 2.5, b[1]                          # mostly ground: unchanged
+
+
+def test_committed_world_has_bodenacker_6_at_its_measured_roof():
+    """#34: the file the game loads, not just the pipeline, carries the fix (runs without the swisstopo cache)."""
+    import json
+    from pathlib import Path
+    world = json.loads((Path(__file__).parents[2] / "data" / "world_hochrhein.json").read_text())
+    tall = next(b for b in world["buildings"] if b["id"] == 171822634)
+    assert tall["hsrc"] == "dsm" and tall["roof"] == "flat" and 24.5 <= tall["h"] <= 26.5, (tall["h"], tall["roof"])
+    assert max(b["h"] for b in world["buildings"] if b.get("hsrc") == "dsm") <= 32.5
