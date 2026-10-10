@@ -62,7 +62,7 @@ Still open:
 - Vehicle windows transparent.
 - **Painted street names** (`streetNames()`): 45 m decal, upside down when driving west, sticks out in bends → drop once #12 shows the name in the HUD (asked the user).
 - **Railway:** drivable on purpose (user: fine); the ribbon is 5 m wide, real gauge 1.435 m — narrower bed plus ballast would look better.
-- **Smile-Kreisel:** apron/island are flat discs at the centre height, so on a slope they float on one side (visible as a dark rim); the smileys render grey steel — check what the user meant.
+- **Smile-Kreisel:** the smileys render grey steel — check what the user meant. (The floating apron/island is #222.)
 - Sissle is buffered at the generic river width (20 m); the real stream is far narrower → `width` override in the pipeline.
 
 ## Ideas (2026-10-01, from the user)
