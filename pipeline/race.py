@@ -25,6 +25,8 @@ PAR_KMH = 45.0         # open point in the spec: tune on two or three test world
 MAX_SNAP = 60.0        # m: a candidate farther from the main road network is dropped
 CP_KINDS = {"station", "place_of_worship", "school", "square"}
 CP_RADIUS, STREET_RADIUS = 150.0, 30.0
+GAME_SNAP = 60.0       # m: prototype/index.html snapRoad leaves a race point alone beyond this
+GAME_SNAP_TOL = 1.0    # m: a point the game's snapRoad moves farther than this is dropped
 BRIDGE = Path(__file__).with_name("route_matrix.mjs")
 
 
@@ -41,7 +43,7 @@ def candidates(roads, named, clip) -> list[dict]:
                  key=lambda p: (math.hypot(p["x"] - c.x, p["z"] - c.y), p["name"]))
     sampled = []
     for r in roads:
-        if r["cls"] in SAMPLED and len(r["pts"]) > 1:
+        if r["cls"] in SAMPLED and not r.get("bridge") and len(r["pts"]) > 1:
             line, s = shapely.LineString(r["pts"]), SAMPLE / 2
             while s < line.length:
                 p = line.interpolate(s)
@@ -71,6 +73,31 @@ def route_lengths(roads, points, pairs, max_snap: float = MAX_SNAP):
     except json.JSONDecodeError as e:
         raise RuntimeError(f"route_matrix.mjs output is not JSON: {res.stdout.strip()[:200]!r}") from e
     return out["snap"], {tuple(p): v for p, v in zip(pairs, out["len"]) if v is not None}
+
+
+def game_snap_lines(roads):
+    """The roads the game's snapRoad (prototype/index.html) re-snaps race points to: neither bridges nor motorways."""
+    lines = [shapely.LineString(r["pts"]) for r in roads
+             if not r.get("bridge") and r["cls"] != "motorway" and len(r["pts"]) > 1]
+    return lines, shapely.STRtree(lines)
+
+
+def game_snap(lines, x, z):
+    """Where the game puts a race point on load: the nearest point of the nearest such road within GAME_SNAP, else
+    the point itself (snapRoad in prototype/index.html)."""
+    geoms, tree = lines
+    p = shapely.Point(x, z)
+    hit = tree.query_nearest(p, max_distance=GAME_SNAP, all_matches=False)
+    if not len(hit):
+        return (x, z)
+    q = geoms[int(hit[0])].interpolate(geoms[int(hit[0])].project(p))
+    return (q.x, q.y)
+
+
+def kept_by_game(snaps, lines):
+    """The snapped points, None where the game's own snapRoad would move the point off the measured leg."""
+    return [s if s is not None and math.dist(game_snap(lines, s["x"], s["z"]), (s["x"], s["z"])) <= GAME_SNAP_TOL
+            else None for s in snaps]
 
 
 def on_course(snaps, inner) -> list[int]:
@@ -153,7 +180,7 @@ def build(roads, named_nodes, areas, clip, jl):
     pairs = [(i, j) for i in range(len(points)) for j in range(i + 1, len(points))
              if MIN_GAP <= math.dist(points[i], points[j]) <= LEG_MAX]
     snaps, lens = route_lengths(roads, points, pairs)
-    ok = on_course(snaps, inner_frame(clip))
+    ok = on_course(kept_by_game(snaps, game_snap_lines(roads)), inner_frame(clip))
     if not ok or ok[0] != 0:
         return None
     remap = {old: new for new, old in enumerate(ok)}

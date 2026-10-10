@@ -126,3 +126,31 @@ def test_on_course_drops_points_that_snapped_out_of_the_frame():
     snaps = [{"x": 0, "z": 0, "d": 1}, None, {"x": 0, "z": -860, "d": 45}, {"x": 800, "z": 0, "d": 2}]
     assert R.on_course(snaps, inner) == [0, 3]
     assert R.on_course([{"x": 0, "z": -990, "d": 5}], inner) == [0]          # the start itself may sit near the edge
+
+
+def test_candidates_skip_bridges():
+    """The game's snapRoad never snaps onto a bridge, so a candidate sampled on one would be moved off it."""
+    roads = [{"cls": "secondary", "bridge": True, "pts": [[-1000, 0], [1000, 0]]}]
+    assert R.candidates(roads, [], CLIP) == []
+
+
+def test_game_snap_matches_the_games_snaproad():
+    """prototype/index.html snapRoad: nearest road that is neither a bridge nor a motorway, within 60 m, else stay."""
+    roads = [{"cls": "secondary", "bridge": True, "pts": [[-50, 0], [50, 0]]},
+             {"cls": "service", "bridge": False, "pts": [[-50, 40], [50, 40]]},
+             {"cls": "motorway", "bridge": False, "pts": [[-50, -10], [50, -10]]},
+             {"cls": "residential", "bridge": False, "pts": [[500, -100], [500, 100]]}]
+    lines = R.game_snap_lines(roads)
+    assert R.game_snap(lines, 0, 0) == pytest.approx((0, 40))                # off the bridge, onto the yard road
+    assert R.game_snap(lines, 490, 7) == pytest.approx((500, 7))
+    assert R.game_snap(lines, 300, 300) == (300, 300)                        # nothing within 60 m: stays
+
+
+def test_kept_by_game_drops_points_the_game_would_move():
+    """The reviewer's case: a checkpoint certified mid-bridge, a service road 40 m away -- the game would move it there."""
+    roads = [{"cls": "secondary", "bridge": True, "pts": [[-50, 0], [50, 0]]},
+             {"cls": "service", "bridge": False, "pts": [[-50, 40], [50, 40]]},
+             {"cls": "secondary", "bridge": False, "pts": [[300, -500], [300, 500]]},
+             {"cls": "secondary", "bridge": True, "pts": [[600, -50], [600, 50]]}]
+    snaps = [{"x": 300, "z": 0, "d": 2}, {"x": 0, "z": 0, "d": 1}, None, {"x": 600, "z": 0, "d": 3}]
+    assert R.kept_by_game(snaps, R.game_snap_lines(roads)) == [snaps[0], None, None, snaps[3]]   # a lone bridge stays
