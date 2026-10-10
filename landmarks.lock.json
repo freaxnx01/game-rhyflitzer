@@ -1,0 +1,18 @@
+{
+  "holzbruecke-saeckingen": {
+    "mode": "hero",
+    "output": "blender/ref/holzbruecke-saeckingen.ref.glb",
+    "tiles": [
+      {
+        "item": "swissbuildings3d_3_0_2024_1049-33",
+        "asset": "swissbuildings3d_3_0_2024_1049-33_2056_5728.citygml.zip",
+        "multihash": "1220BFC4FABACF19FAF316B5532994F9D13086F1DBB281A7E721A7653BE5AA94A255"
+      }
+    ],
+    "gml_ids": [
+      "ID_62E48E33-707A-4079-8CA2-B966E2A4E3D5"
+    ],
+    "zmax": 296.66,
+    "resolved_at": "2026-10-10T19:41:55+00:00"
+  }
+}
