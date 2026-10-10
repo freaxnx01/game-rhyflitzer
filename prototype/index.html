@@ -425,6 +425,10 @@ TEX.rowHouse = makeTex(256, 128, (g, w, h) => {
   g.fillStyle = '#e3b31f'; g.fillRect(153, 50, 4, 56);                                     // mullion
   g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(96, 112, 118, 4);                            // sill shadow
 });
+// #87: gable ends of a row house -- plain plaster only. The tile above is 256 x 128: yellow panel at x 0-29, window frame at
+// x 96-214 / y 22-116, storey joint at y 0-3 (canvas y flips to v). u 0.14-0.35, v 0.05-0.90 is speckled white with nothing
+// painted on it. Three (u, v) pairs: eave-left, eave-right, ridge, in gable()'s tri() order
+const ROW_GABLE_END = { role: 'rowHouse', uv: [0.14, 0.05, 0.35, 0.05, 0.245, 0.90] };
 const textTex = (txt, w, h, bg, fg, font, border) => makeTex(w, h, (g) => { g.clearRect(0, 0, w, h); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); } if (border) { g.strokeStyle = border; g.lineWidth = h * 0.06; g.strokeRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1); } g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + h * 0.03); }, { alpha: true });
 
 // ---------- world layout (traced from the OSM screenshot, pixel coords) ----------
@@ -707,14 +711,16 @@ function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.toNonIndexe
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
 function rawGeo(pos, nrm, uv, rot, x, z, c, role) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); if (rot) g.rotateY(-rot); g.translate(x, 0, z); colorize(g, c); push(role, g); return g; }
-function gable(w, d, h0, rh, x, z, rot, roofC, wallC, over = 0.45) {
+const GABLE_END_WALL = { role: 'wall', uv: null };   // #87: default gable end -- plaster texture, UVs computed from the triangle
+function gable(w, d, h0, rh, x, z, rot, roofC, wallC, over = 0.45, end = GABLE_END_WALL) {
   const hw = w / 2 + over, hd = d / 2 + over, y0 = h0 - 0.05, y1 = h0 + rh; const pos = [], uv = [], nrm = [];
   const q = (a, b, c, d2, n) => { for (const v of [a, b, c, a, c, d2]) { pos.push(...v); nrm.push(...n); } const L = w / 2, Sl = Math.hypot(hd, rh); uv.push(0, 0, L, 0, L, Sl, 0, 0, L, Sl, 0, Sl); };
   const n1 = new THREE.Vector3(0, hd, rh).normalize(), n2 = new THREE.Vector3(0, hd, -rh).normalize();
   q([-hw, y0, hd], [hw, y0, hd], [hw, y1, 0], [-hw, y1, 0], [n1.x, n1.y, n1.z]); q([hw, y0, -hd], [-hw, y0, -hd], [-hw, y1, 0], [hw, y1, 0], [n2.x, n2.y, n2.z]);
   rawGeo(pos, nrm, uv, rot, x, z, roofC, 'roof');
-  const gp = [], gn = [], gu = []; const hw2 = w / 2, hd2 = d / 2; const tri = (a, b, c, n) => { gp.push(...a, ...b, ...c); gn.push(...n, ...n, ...n); gu.push(0, 0, d / 4, 0, d / 8, rh / 3); };
-  tri([hw2, h0, hd2], [hw2, h0, -hd2], [hw2, h0 + rh, 0], [1, 0, 0]); tri([-hw2, h0, -hd2], [-hw2, h0, hd2], [-hw2, h0 + rh, 0], [-1, 0, 0]); rawGeo(gp, gn, gu, rot, x, z, wallC, 'wall');
+  const gp = [], gn = [], gu = []; const hw2 = w / 2, hd2 = d / 2; const endUV = end.uv || [0, 0, d / 4, 0, d / 8, rh / 3];
+  const tri = (a, b, c, n) => { gp.push(...a, ...b, ...c); gn.push(...n, ...n, ...n); gu.push(...endUV); };
+  tri([hw2, h0, hd2], [hw2, h0, -hd2], [hw2, h0 + rh, 0], [1, 0, 0]); tri([-hw2, h0, -hd2], [-hw2, h0, hd2], [-hw2, h0 + rh, 0], [-1, 0, 0]); rawGeo(gp, gn, gu, rot, x, z, wallC, end.role);
 }
 function resample(pts, step) { const out = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / step)); for (let k = 1; k <= n; k++) out.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); } return out; }
 function waterPolys() {
@@ -810,7 +816,7 @@ function osmBuilding(b) {
     const floors = Math.max(1, Math.round(b.h / 3)); const wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]);
     const h = dsm ? b.h : floors * 3 + 0.4; const door = rnd() < 0.5 ? 'wall' : 'wallDoor';
     box(w, h + 3, d, cx, base - 3, cz, rot, row ? col('#ffffff') : wc, row ? 'rowHouse' : door, row ? rowHouseTile(b) : [4, 3], 3.1);
-    gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, wc); addOBB(cx, cz, w, d, rot, base + h); return;
+    gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, row ? col('#ffffff') : wc, 0.45, row ? ROW_GABLE_END : GABLE_END_WALL); addOBB(cx, cz, w, d, rot, base + h); return;
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
   const wc = col(ind ? INDUSTRIAL.walls[Math.floor(rr(0, 3))] : PLASTER[Math.floor(rr(0, PLASTER.length))]);
