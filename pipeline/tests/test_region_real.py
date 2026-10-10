@@ -28,8 +28,9 @@ def world(tmp_path_factory):
 
 def test_name_and_places(world):
     r = world["region"]
-    # not the exact name: a cut that carries more complete admin_level=8 lines makes it "Ehrendingen · Wettingen"
-    assert r["name"].startswith("Ehrendingen") and any(v["t"] == "EHRENDINGEN" for v in r["villages"])
+    # the documented osmium cut gives "Ehrendingen"; a cut with more complete admin_level=8 lines adds Wettingen, the
+    # neighbour across the Lägern in the south of the frame -- any other second Gemeinde is wrong
+    assert r["name"] in {"Ehrendingen", "Ehrendingen · Wettingen"} and any(v["t"] == "EHRENDINGEN" for v in r["villages"])
     assert {"Ehrendingen", "Kath. Kirche", "Reformierte Kirche Ehrendingen"} <= {e["n"] for e in r["jlist"]}
 
 
