@@ -341,4 +341,7 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] **Esc**/**P** (pause): the mirror picture freezes with the game and does not flicker.
 - [ ] The mirror is gone while **B** is held, while **Tab** is held, in the helicopter (**F**) and in the chase, near and bumper views; the main picture stays correct in all of them.
 - [ ] On a phone/tablet: no mirror at all.
-- [ ] **X** in the cockpit view: the saved photo contains the mirror (it is drawn into the canvas, unlike the HUD). Keep it, or take the photo before the mirror pass?
+- [ ] **X** in the cockpit view: the saved photo shows the view without the mirror (it is taken before the mirror pass, like the HUD is left out).
+- [ ] Cockpit view: the arrow, the distance, the checkpoint and road names and the toasts sit below the mirror, not on the glass; in the other views they are back at the top.
+- [ ] Cockpit view, open the start screen and **Choose car**: no mirror over the turntable.
+- [ ] Drive into the Rhine in the cockpit view, also in the shallows near the bank: the mirror has the same underwater look as the windscreen.
