@@ -4,12 +4,12 @@ Manual playtests still owed. Tick an item once it has been played in the browser
 
 ## Hideout in the Hübel (#102, PR #158 — merged 2026-10-10)
 
-Secret, so start on a fresh profile (or clear `mm.hideout` in localStorage).
+The gate is in **J** from the start; the cavern is secret, so start on a fresh profile (or clear `mm.hideout` in localStorage).
 
-- [ ] Before the find: no „Eiffelturm" in **J** or **O**, nothing on the minimap or the **Tab** map, no help line.
+- [ ] Before the find: „Reservoir Hübel" is in **J** and **O** (no „Eiffelturm" anywhere), nothing on the minimap or the **Tab** map, no help line.
 - [ ] From the Hübel (Münchwilen, the cul-de-sac south of the A3) the „RESERVOIR HÜBEL" gate is easy to miss but findable; the trench meets the road without a kerb.
-- [ ] Drive through the tunnel into the cavern: toast „Hideout found!" / „Versteck gefunden!", the finish jingle; afterwards and after a reload „Eiffelturm" is in **J** and **O**.
-- [ ] **J** → „eiffel" puts the car on the Hübel looking at the gate.
+- [ ] Drive through the tunnel into the cavern: toast „Hideout found!" / „Versteck gefunden!", the finish jingle; the list is unchanged.
+- [ ] **J** → „reservoir" puts the car on the Hübel looking at the gate.
 - [ ] Inside: the tower reads as the Eiffel Tower, warm and visibly lit, the ceiling dark rock; the car drives between the legs; the chase camera never pops into the hill (also when driving in and out at the portal).
 - [ ] Drive and fly over the hill: it is solid, looks untouched (no lines or grooves along the tunnel, no stone poking out over the cavern), and flying over it is no find.
 - [ ] **F** inside is refused with „No sky down here"; the helicopter over the hill floors on the grass.

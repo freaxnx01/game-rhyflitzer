@@ -90,6 +90,7 @@ test('#46 entries resolve from their buildings, sort into their Gemeinde and are
   const e = landmarkEntries(LANDMARK_INFO, {}, buildings);              // no anchors: the building entries, plus the anchorless fixed points of #125 and #94
   const expected = BUILDINGS_46.map(([n, g]) => [n, g]);
   expected.splice(expected.findIndex(([n]) => n === 'Aqualon Therme') + 1, 0, ['Bergsee', 'Bad Säckingen']);
+  expected.splice(expected.findIndex(([n]) => n === 'Bergsee') + 1, 0, ['Reservoir Hübel', 'Münchwilen']);
   expected.splice(expected.findIndex(([n]) => n === 'Bahnhof Eiken') + 1, 0, ['Südspange Sisslerfeld', 'Eiken']);
   assert.deepEqual(e.map(x => [x.n, x.g]), expected);
   assert.deepEqual(e.find(x => x.n === 'Kursaal'), { n: 'Kursaal', g: 'Bad Säckingen', x: 405, z: 5 });
@@ -121,11 +122,11 @@ test('the Fridolinsbrücke jumps to the Swiss approach, east of the deck end (#7
 test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found by "landi"', () => {
   const anchors = { dsmChimney: { x: 1065.2, z: 345.1 }, stationSisseln: { x: 1854.2, z: 685.8 }, landiTurm: { x: 1832.7, z: 627.7 } };
   const e = landmarkEntries(LANDMARK_INFO, anchors, [{ id: '199241726', ring: [[2600, 900], [2610, 900], [2610, 910], [2600, 910]] }]);
-  assert.deepEqual(e.map(x => x.n), ['Bergsee', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
+  assert.deepEqual(e.map(x => x.n), ['Bergsee', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
   assert.deepEqual(e.find(x => x.n === 'LANDI-Turm'), { n: 'LANDI-Turm', g: 'Eiken', x: 1832.7, z: 627.7 });
   assert.deepEqual(filterLandmarks(e, 'landi', null).map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(filterLandmarks(e, 'LANDI', 'Eiken').map(x => x.n), ['LANDI-Turm']);
-  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Bergsee', 'DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
+  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Bergsee', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
 });
 
 test('#103 Güggeli-Foodtruck resolves from its anchor, sits last in Eiken and is found by "gugg", "food" and "GÜGGELI"', () => {
@@ -228,32 +229,32 @@ test('the Ehrendingen J list has Im Böndlern and the Wanderweg, all in Ehrendin
   assert.deepEqual(GEMEINDEN_EHRENDINGEN, ['Ehrendingen']);
 });
 
-// #102: a hand-measured position and a secret that only lists once it is found
-const SECRET_INFO = [
+// #102: a hand-measured position
+const FIXED_INFO = [
   { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
-  { name: 'Eiffelturm', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], secret: true },
+  { name: 'Reservoir Hübel', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1] },
 ];
 
 test('landmarkEntries_GamePosition_IsTakenAsIs', () => {
-  const e = landmarkEntries(SECRET_INFO, ANCHORS, BUILDINGS, GEMEINDEN, { secrets: true }).find(x => x.n === 'Eiffelturm');
-  assert.deepEqual(e, { n: 'Eiffelturm', g: 'Münchwilen', x: -712.8, z: 1528.2, j: [-703.3, 1419.1] });
+  const e = landmarkEntries(FIXED_INFO, ANCHORS, BUILDINGS).find(x => x.n === 'Reservoir Hübel');
+  assert.deepEqual(e, { n: 'Reservoir Hübel', g: 'Münchwilen', x: -712.8, z: 1528.2, j: [-703.3, 1419.1] });
 });
 
-test('landmarkEntries_SecretEntries_OnlyWhenRevealed', () => {
-  assert.deepEqual(landmarkEntries(SECRET_INFO, ANCHORS, BUILDINGS).map(x => x.n), ['Smile-Kreisel']);
-  assert.deepEqual(landmarkEntries(SECRET_INFO, ANCHORS, BUILDINGS, GEMEINDEN, {}).map(x => x.n), ['Smile-Kreisel']);
-  assert.deepEqual(landmarkEntries(SECRET_INFO, ANCHORS, BUILDINGS, GEMEINDEN, { secrets: true }).map(x => x.n), ['Eiffelturm', 'Smile-Kreisel'], 'Münchwilen sorts before Sisseln');
+test('landmarkEntries_FixedPositionEntry_ListsAlwaysAndSortsByGemeinde', () => {
+  assert.deepEqual(landmarkEntries(FIXED_INFO, ANCHORS, BUILDINGS).map(x => x.n), ['Reservoir Hübel', 'Smile-Kreisel'], 'Münchwilen sorts before Sisseln');
 });
 
-test('LANDMARK_INFO_HasTheHideoutAsASecretInMuenchwilen', () => {
-  const e = LANDMARK_INFO.find(i => i.name === 'Eiffelturm');
-  assert.equal(e.secret, true); assert.equal(e.gemeinde, 'Münchwilen'); assert.deepEqual(e.at, [-712.8, 1528.2]);
-  assert.ok(!landmarkEntries(LANDMARK_INFO, {}, []).some(x => x.n === 'Eiffelturm'), 'hidden by default');
+test('LANDMARK_INFO_HasTheReservoirHuebelInMuenchwilenAlways (#102)', () => {
+  const e = LANDMARK_INFO.find(i => i.name === 'Reservoir Hübel');
+  assert.ok(e, 'listed'); assert.equal(e.gemeinde, 'Münchwilen'); assert.deepEqual(e.at, [-712.8, 1528.2]);
+  assert.ok(!('secret' in e), 'no secret flag: it is in the J list from the start');
+  assert.ok(landmarkEntries(LANDMARK_INFO, {}, []).some(x => x.n === 'Reservoir Hübel'), 'listed by default');
+  assert.ok(!LANDMARK_INFO.some(i => /eiffel/i.test(i.name)), 'the name does not spoil the tower');
 });
 
 test('landmarkEntries_LookPoint_IsPassedThrough (#102)', () => {
-  const info = [{ name: 'Eiffelturm', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], look: [-703.7, 1423.6], secret: true }];
-  assert.deepEqual(landmarkEntries(info, {}, [], GEMEINDEN, { secrets: true })[0], { n: 'Eiffelturm', g: 'Münchwilen', x: -712.8, z: 1528.2, j: [-703.3, 1419.1], look: [-703.7, 1423.6] });
-  // the Eiffelturm's J spot is on the Hübel; the car turns to look at the gate in the hillside, not along the road
-  assert.deepEqual(LANDMARK_INFO.find(i => i.name === 'Eiffelturm').look, [-703.7, 1423.6]);
+  const info = [{ name: 'Reservoir Hübel', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], look: [-703.7, 1423.6] }];
+  assert.deepEqual(landmarkEntries(info, {}, [])[0], { n: 'Reservoir Hübel', g: 'Münchwilen', x: -712.8, z: 1528.2, j: [-703.3, 1419.1], look: [-703.7, 1423.6] });
+  // the Reservoir Hübel's J spot is on the Hübel; the car turns to look at the gate in the hillside, not along the road
+  assert.deepEqual(LANDMARK_INFO.find(i => i.name === 'Reservoir Hübel').look, [-703.7, 1423.6]);
 });

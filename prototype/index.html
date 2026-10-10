@@ -1581,9 +1581,7 @@ document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hid
 // ---------- car state & physics ----------
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, hinted: false, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
 // J: the 3D landmarks (landmarks.js), searched by name and filtered by Gemeinde; hand layout: the race points, no Gemeinde
-// #102: secrets list once found, so the list is rebuilt on discovery (jumpEntries() reads it at call time).
-const jumpEntriesNow = () => L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden, { secrets: !!(HIDE && HIDE.found) }) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
-let JUMP_ENTRIES = jumpEntriesNow();
+const JUMP_ENTRIES = L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
 const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 function placeOnRoad(x, z, th, name) { P.safe = [x, z, th]; clearNavi(); resetCar(); if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
@@ -1594,8 +1592,8 @@ function jumpHeading(p, best) { if (p.look) return Math.atan2(p.look[1] - best.z
 const RAMP_RUNUP = 40;   // J → Sprungschanze: metres of run-up before the ramp's low edge, enough to launch from standstill (#80)
 function jumpToRamp(name) { if (!RAMP) return; const s = rampApproach(RAMP, RAMP_RUNUP); placeOnRoad(s.x, s.z, s.th, name); }   // off road: R returns to the run-up
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
-// #102: first time in the cavern -- toast, jingle, remember it, and the Eiffelturm joins the J/O lists
-function foundHideout() { HIDE.found = true; try { localStorage.setItem(HIDEOUT.key, '1'); } catch (e) { } toast(tr('hideoutFound'), TOAST_S.event); SFX.finish(); JUMP_ENTRIES = jumpEntriesNow(); }
+// #102: first time in the cavern -- toast, jingle, remember it
+function foundHideout() { HIDE.found = true; try { localStorage.setItem(HIDEOUT.key, '1'); } catch (e) { } toast(tr('hideoutFound'), TOAST_S.event); SFX.finish(); }
 function resetCar() { stopAuto('reset'); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
