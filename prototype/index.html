@@ -15,7 +15,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #pips{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:4px}
 #pips div{height:14px;background:#2a2e38;border:2px solid var(--steel)}
 #pips div.on{background:var(--sun);border-color:var(--ink)}
-#tc{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;z-index:1}
+#tc{position:fixed;left:50%;top:calc(12px + var(--mirror-drop,0px) + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;z-index:1}
 #arrow{width:80px;height:60px;transition:transform .12s linear}
 #dist{background:rgba(20,23,29,.82);border:3px solid var(--sun);padding:2px 14px;font-size:26px;font-weight:800;font-style:italic;color:var(--sun);line-height:1.1}
 #cpname{font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;text-shadow:2px 2px 0 var(--ink)}
@@ -321,6 +321,7 @@ import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntri
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
 import { photoFileName, canPhoto } from './photo.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
+import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
 import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn } from './sound.js';
@@ -1179,6 +1180,9 @@ function updateVillageNames(x, z) {
   VILLAGE_SIGNS.shown.forEach((l, rank) => { const s = villageSprite(l.t); s.visible = true; s.material.opacity = l.opacity; s.renderOrder = 20 - rank; s.scale.set(l.h * 1024 / 160, l.h, 1); s.position.set(l.x, VILLAGE_SIGNS.ground.get(l.t) + 70 + l.h / 2, l.z); });
 }
 const camera = new THREE.PerspectiveCamera(62, 1, 0.5, 4200);
+// #92: rear-view mirror -- a second camera into a small render target, drawn as a quad in an inset of the main canvas (see drawMirror)
+const MIR = { cam: new THREE.PerspectiveCamera(MIRROR.fov, MIRROR.w / MIRROR.h, MIRROR.near, MIRROR.far), rt: new THREE.WebGLRenderTarget(MIRROR.w, MIRROR.h), scene: new THREE.Scene(), ortho: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), frame: 0, renders: 0, visible: false, hudDrop: 0, rect: { x: 0, y: 0, w: 0, h: 0 }, touch: matchMedia('(pointer:coarse)').matches };
+{ const g = new THREE.PlaneGeometry(2, 2), uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i)); MIR.scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: MIR.rt.texture, toneMapped: false }))); }   // a mirror image is reversed: flip the quad, not the projection
 const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x6a5a40, 0.9); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff2d8, 0.8); sun.position.set(-300, 400, -200); scene.add(sun); scene.add(sun.target);
 sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -180; sun.shadow.camera.right = 180; sun.shadow.camera.top = 180; sun.shadow.camera.bottom = -180; sun.shadow.camera.near = 50; sun.shadow.camera.far = 1200; sun.shadow.bias = -0.0005;
@@ -1606,6 +1610,22 @@ function camTail() { sky.position.copy(camera.position); sunSprite.position.set(
 // #7 turntable: orbit the standing car at the chase distance, car.visible whatever V / the eye views say, look target shifted so the car sits in the stage's centre
 function stepTurntable(dt) { CARSEL.spin = spinStep(CARSEL.spin, dt, { dir: CARSEL.dir, drag: CARSEL.drag }); CARSEL.drag = 0; const a = CARSEL.spin.angle, d = VEH.camera.chase.dist * 1.5, h = VEH.camera.chase.h * 0.75, cy = P.y + 0.8 * VEH.scale; car.visible = true; camPos.set(P.x + Math.cos(a) * d, P.y + h, P.z + Math.sin(a) * d); camera.position.copy(camPos); const r = $('csstage').getBoundingClientRect(), ox = (r.left + r.width / 2) / innerWidth * 2 - 1, oy = 1 - (r.top + r.height / 2) / innerHeight * 2; const [sx, sy] = lookShift(ox, oy, Math.hypot(d, h - 0.8 * VEH.scale), camera.fov, camera.aspect); camera.lookAt(P.x + Math.sin(a) * sx, cy + sy, P.z - Math.cos(a) * sx); }   // right vector of a camera at angle a looking at the car: (sin a, 0, -cos a)
 
+// ---------- rear-view mirror (#92) ----------
+// Only in the cockpit view, and only off a touch device: the mirror camera renders the same scene into MIR.rt every second
+// frame, the quad is redrawn from the last target on the others (and in pause, so the picture freezes with the game;
+// a mirror uncovered during pause gets one picture of the frozen scene).
+function aimMirror() { const fx = Math.cos(P.th), fz = Math.sin(P.th), [ex, ey] = vehEye('cockpit'), wl = waterLevelAt(P.x, P.z, P.y), y = mirrorEyeY(P.y + ey, wl, UWS.on); MIR.cam.position.set(P.x + fx * ex, y, P.z + fz * ex); MIR.cam.lookAt(P.x - fx * 40, y - 0.3, P.z - fz * 40); }   // centre line (no side offset), looking straight back
+function renderMirrorTarget() { const sh = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false; try { aimMirror(); renderer.setRenderTarget(MIR.rt); renderer.render(scene, MIR.cam); } finally { renderer.setRenderTarget(null); renderer.shadowMap.autoUpdate = sh; } MIR.renders++; }   // the sun does not move with the camera: the main pass' shadow map is valid
+// setViewport/setScissor take CSS pixels and apply the pixel ratio themselves, so the rect needs no scaling; y counts from the bottom
+function drawMirrorQuad(r) { const b = MIRROR.border, y = innerHeight - r.y - r.h, c = new THREE.Color(), ca = renderer.getClearAlpha(), ac = renderer.autoClear; renderer.getClearColor(c); renderer.autoClear = false; renderer.setScissorTest(true);
+  try { renderer.setViewport(r.x - b, y - b, r.w + 2 * b, r.h + 2 * b); renderer.setScissor(r.x - b, y - b, r.w + 2 * b, r.h + 2 * b); renderer.setClearColor(0x8a93a3, 1); renderer.clear(true, true, false);   // a flat steel frame between --steel and --steel-l, the HUD's plates in one colour
+  renderer.setViewport(r.x, y, r.w, r.h); renderer.setScissor(r.x, y, r.w, r.h); renderer.render(MIR.scene, MIR.ortho);
+  } finally { renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.setClearColor(c, ca); renderer.autoClear = ac; } }   // a throw must not leave the main picture scissored
+function drawMirror(frozen) { const was = MIR.visible; MIR.visible = mirrorVisible({ view: CAM_VIEWS[camView].k, back: CAM.back, flying: FLY.on, overlay: !$('overlay').hidden, fullMap: !!keys.Tab, touch: MIR.touch, carsel: CARSEL.on }); if (!MIR.visible) { syncHudDrop(0); return; }
+  if (!frozen) { MIR.frame++; if (mirrorDue(MIR.frame, was)) renderMirrorTarget(); } else if (!was) renderMirrorTarget(); MIR.rect = mirrorRect(innerWidth); syncHudDrop(mirrorHudDrop(MIR.rect)); drawMirrorQuad(MIR.rect); }
+function syncHudDrop(px) { if (px === MIR.hudDrop) return; MIR.hudDrop = px; $('tc').style.setProperty('--mirror-drop', px + 'px'); }   // the arrow, distance, names and toast move under the glass, only on a change
+window.__mm.mirror = () => { const l = MIR.cam.getWorldDirection(new THREE.Vector3()); return { visible: MIR.visible, renders: MIR.renders, frame: MIR.frame, rect: { ...MIR.rect }, pos: MIR.cam.position.toArray(), look: [l.x, l.y, l.z] }; };
+
 // ---------- race ----------
 const R = { state: 'ready', mode: 'trial', t: 0, left: 0, timeUp: false, best: null, blitzBest: null, huntBest: null, done: 0, shortcut: false, target: null };   // #128/#108: mode 'trial' | 'blitz' | 'hunt'; left = Blitz seconds
 try { const b = localStorage.getItem(REGION.bestKey); if (b) R.best = +b; } catch (e) { }   // #127: a best time per region
@@ -1824,8 +1844,8 @@ function savePhoto(blob) {
 // ---------- loop ----------
 applyStyle('original'); resize();
 let last = performance.now();
-function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; PAUSE.frame++; if (PAUSE.on) { fadeToast(dt); debugTick(); clampDebugHeights(); renderer.render(scene, camera); if (photoPending) capturePhoto(); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: Math.hypot(P.vx, P.vz) * 3.6, gas: P.gas, nitro: P.nitro, air: P.air, fly: FLY.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); requestAnimationFrame(loop); }
+function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; PAUSE.frame++; if (PAUSE.on) { fadeToast(dt); debugTick(); clampDebugHeights(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepRace(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: Math.hypot(P.vx, P.vz) * 3.6, gas: P.gas, nitro: P.nitro, air: P.air, fly: FLY.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; blob.position.set(START.x, sy + 0.05, START.z); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);
