@@ -351,6 +351,23 @@ LINK_RE = {
 SPY_OPEN = ("() => { window.__opened = []; window.open = (u, t, f) => { window.__opened.push([u, t, f]); return null; };"
             " window.__copied = null; navigator.clipboard.writeText = t => { window.__copied = t; return Promise.resolve(); }; }")
 
+CLICK_NOW = """(sel) => {
+  const el = document.querySelector(sel);
+  if (!el || el.hidden || el.disabled) return 'missing-or-disabled';
+  const r = el.getBoundingClientRect();
+  if (r.width <= 0 || r.height <= 0 || r.left < 0 || r.top < 0 || r.right > innerWidth || r.bottom > innerHeight) return 'outside-viewport';
+  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  if (hit !== el) return 'covered-by:' + (hit && (hit.id || hit.tagName));
+  el.focus(); el.click(); return 'ok';
+}"""
+
+
+def click_now(page, selector):
+    """#174: Playwright's click waits two animation frames ("stable"), and the real-world scene draws under one frame per
+    several seconds on SwiftShader, so it timed out. Same checks in one evaluate (exists, enabled, in the viewport, not covered), no frames."""
+    got = page.evaluate(CLICK_NOW, selector)
+    assert got == "ok", (selector, got)
+
 
 @needs_world
 def test_map_links_open_the_cars_spot_in_a_new_tab(server):
@@ -358,7 +375,7 @@ def test_map_links_open_the_cars_spot_in_a_new_tab(server):
     b = next(x for x in w["buildings"] if x["id"] == BODENACKER_6)
     with sync_playwright() as p:
         br, page = open_page(p, server, query="?debug")
-        page.click("#startbtn", timeout=180000)                              # the start overlay would swallow the clicks
+        click_now(page, "#startbtn")                                         # the start overlay would swallow the clicks
         page.evaluate(f"() => window.__mm.place({b['rect'][0] + 20}, {b['rect'][1]})")
         page.wait_for_function("() => window.__mm.debug().links !== null && window.__mm.debug().lines.length > 0", timeout=60000)
         page.evaluate(SPY_OPEN)
@@ -366,7 +383,7 @@ def test_map_links_open_the_cars_spot_in_a_new_tab(server):
         visible = page.is_visible("#debuglinks")
         title = page.get_attribute('#debuglinks button[data-map="street"]', "title")
         for kind in ("osm", "maps", "street"):
-            page.click(f'#debuglinks button[data-map="{kind}"]')
+            click_now(page, f'#debuglinks button[data-map="{kind}"]')
         page.wait_for_function("() => window.__opened.length === 3", timeout=30000)
         opened = page.evaluate("() => window.__opened")
         dbg = page.evaluate("() => window.__mm.debug()")
