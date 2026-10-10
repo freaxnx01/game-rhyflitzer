@@ -3,6 +3,7 @@
     "dsmChimney":       { "osm": "w806132044", "h": 140, "kind": "chimney" },
     "dsmWaterTower":    { "osm": "w194161080", "h": 59,  "kind": "waterTower" },
     "landiTurm":        { "osm": "w197688923", "h": 56, "kind": "silo", "heading_deg": 82.2, "size": [35.4, 12.6], "src": "LANDI silo tower, Sisslerstrasse 19.1 Eiken, by Bahnhof Sisseln (#81): height = swissSURFACE3D flat top over the footprint (p50 55.8, p90 56.0 m above ground), size and heading from the OSM footprint's rotated rectangle" },
+    "foodTruck":        { "game": [1758.5, 1986.5], "kind": "foodTruck", "heading_deg": 0, "src": "Güggeli food truck (#103): first guess, the centroid of the Bahnhof Eiken car park (OSM parking w210461003, 22 m off the Bahnhofstrasse); the user moves it later — edit game/heading_deg here and rebuild the world" },
     "plattform":        { "lonlat": [7.96773785, 47.54290085], "h": 11, "kind": "reserved", "src": "map pin on plattform-sisslerfeld.com (Geueren, Münchwilen); the tower moved there in September 2026, OSM w1559348004 is the old site" },
     "holzbruecke":      { "osm": "w85692214", "kind": "bridgeWood" },
     "fridolinsbruecke": { "osm": "w28495792", "kind": "bridgeStone" },

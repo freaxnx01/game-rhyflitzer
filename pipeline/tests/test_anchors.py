@@ -162,3 +162,17 @@ def test_ehrendingen_anchors_resolve_without_osm_data():
     assert anchors.trail_ids(spec) == {28183399, 685318985, 685318986, 28183458, 702208313, 347967817, 702208308, 702208309}   # Hofrain / Steinbuckweg tracks
     assert anchors.keep_ids(spec) == {114544595, 114544599, 102158022, 178797165, 102165202, 178797287}
     assert "jumpRamp" not in spec["landmarks"]
+
+
+def test_game_landmark_passes_kind_and_heading_through():
+    """#103: the food truck is a hand `game` anchor; kind and heading reach the world file."""
+    spec = {"landmarks": {"foodTruck": {"game": [1758.5, 1986.5], "kind": "foodTruck", "heading_deg": 0}}}
+    t = anchors.resolve(spec, OsmData(), F)["landmarks"]["foodTruck"]
+    assert t["x"] == 1758.5 and t["z"] == 1986.5
+    assert t["kind"] == "foodTruck" and t["h"] is None and t["rot"] == 0
+
+
+def test_repo_anchors_place_the_food_truck_on_the_bahnhof_eiken_car_park():
+    spec = anchors.load(Path(__file__).parents[1] / "anchors.json")
+    t = spec["landmarks"]["foodTruck"]
+    assert t["game"] == [1758.5, 1986.5] and t["kind"] == "foodTruck" and t["heading_deg"] == 0

@@ -246,3 +246,16 @@ def test_forests(world):
             for i in tree.query(pt, predicate="dwithin", distance=reach):
                 g, w = roads[i]
                 assert g.distance(pt) >= w / 2 + 4.5, (x, z)
+
+
+def test_issue103_food_truck_anchor_stands_on_the_bahnhof_eiken_car_park(world):
+    """#103: the food truck anchor lies inside the Bahnhof Eiken car park (parking way 210461003), on no building and
+    off every road."""
+    t = world["anchors"]["landmarks"]["foodTruck"]
+    assert (t["x"], t["z"]) == (1758.5, 1986.5) and t["kind"] == "foodTruck" and t["rot"] == 0, t
+    p = shapely.Point(t["x"], t["z"])
+    lot = next(x for x in world["parking"] if x["id"] == 210461003)
+    assert shapely.Polygon(lot["ring"]).contains(p), "the truck stands inside the car park"
+    assert not any(shapely.Polygon(b["ring"]).contains(p) for b in world["buildings"]), "the truck stands on no building"
+    roads = shapely.MultiLineString([r["pts"] for r in world["roads"] if len(r["pts"]) > 1])
+    assert roads.distance(p) >= 5, roads.distance(p)
