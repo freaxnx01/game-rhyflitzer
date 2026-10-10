@@ -1620,7 +1620,7 @@ function drawMirrorQuad(r) { const b = MIRROR.border, y = innerHeight - r.y - r.
   renderer.setViewport(r.x - b, y - b, r.w + 2 * b, r.h + 2 * b); renderer.setScissor(r.x - b, y - b, r.w + 2 * b, r.h + 2 * b); renderer.setClearColor(0x8a93a3, 1); renderer.clear(true, true, false);   // a flat steel frame between --steel and --steel-l, the HUD's plates in one colour
   renderer.setViewport(r.x, y, r.w, r.h); renderer.setScissor(r.x, y, r.w, r.h); renderer.render(MIR.scene, MIR.ortho);
   renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.setClearColor(c, ca); renderer.autoClear = true; }
-function drawMirror(frozen) { const was = MIR.visible; MIR.visible = mirrorVisible({ view: CAM_VIEWS[camView].k, back: CAM.back, flying: FLY.on, overlay: !$('overlay').hidden, fullMap: !!keys.Tab, touch: MIR.touch }); if (!MIR.visible) return;
+function drawMirror(frozen) { const was = MIR.visible; MIR.visible = mirrorVisible({ view: CAM_VIEWS[camView].k, back: CAM.back, flying: FLY.on, overlay: !$('overlay').hidden, fullMap: !!keys.Tab, touch: MIR.touch, carsel: CARSEL.on }); if (!MIR.visible) return;
   if (!frozen) { MIR.frame++; if (mirrorDue(MIR.frame, was)) renderMirrorTarget(); } MIR.rect = mirrorRect(innerWidth); drawMirrorQuad(MIR.rect); }
 window.__mm.mirror = () => { const l = MIR.cam.getWorldDirection(new THREE.Vector3()); return { visible: MIR.visible, renders: MIR.renders, frame: MIR.frame, rect: { ...MIR.rect }, pos: MIR.cam.position.toArray(), look: [l.x, l.y, l.z] }; };
 
