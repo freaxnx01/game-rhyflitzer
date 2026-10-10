@@ -43,3 +43,18 @@ def test_size_budget(world, tmp_path):
     out = tmp_path / "w.json"
     osm.write_world(out, world)
     assert out.stat().st_size < 4_000_000
+
+
+def test_forests(world):
+    """#13: the second region's woods. Measured 2026-10-10: 53 parts, 4.13 km2, the largest 229 ha, 132 ha on the
+    Lägern slope. A cut that loses a wood relation crossing its edge (osmium -s simple) shows up here as missing area."""
+    f = world["forests"]
+    assert 40 <= len(f) <= 70, len(f)
+    polys = [shapely.Polygon(p["ring"], p.get("holes", [])) for p in f]
+    assert 3.6e6 <= sum(p.area for p in polys) <= 4.6e6
+    assert max(p.area for p in polys) >= 1.5e6
+    assert sum(p.intersection(shapely.box(-845, 1199, 1155, 2065)).area for p in polys) >= 1.0e6   # around the LÄGERN label
+    woods = shapely.unary_union(polys)
+    for r in world["roads"]:          # whole outlines, not vertices: the 1 m simplification may pull a chord 1 m into the corridor
+        if len(r["pts"]) > 1:
+            assert woods.distance(shapely.LineString(r["pts"])) >= r["w"] / 2 + 4.0, r["id"]
