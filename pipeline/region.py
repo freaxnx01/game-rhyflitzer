@@ -19,6 +19,7 @@ import osm
 import osm_cut
 import osm_read
 import places
+import race
 import terrain
 import world_boundaries
 
@@ -86,10 +87,13 @@ def generated(world: dict, data, lines, clip, rect, wid: str) -> dict:
     start = places.start_point(world["roads"], clip)
     world["anchors"] = {"landmarks": {}, "cps": [], "areas": {}, "labels": [{"t": v["t"], "x": v["x"], "z": v["z"]} for v in vill],
                         **({"start": list(start)} if start else {})}
+    rc = race.build(world["roads"], data.named_nodes, data.areas, clip, jl)
+    if rc:
+        world["anchors"].update(start=rc["start"], cps=rc["cps"], finish=rc["finish"])
     x0, z0, x1, z1 = clip.bounds
     world["region"] = {"id": wid, "name": name, "gemeinden": [name], "villages": vill,
                        "jlist": [{**e, "g": name} for e in jl], "treeBox": [x0, x1, z0, z1], "forestAbove": None,
-                       "race": None}   # filled by the automatic race (follow-up, race.py)
+                       "race": {"par": rc["par"], "len": rc["len"]} if rc else None}
     return world["region"]
 
 
@@ -155,6 +159,8 @@ def build_world(rect, out_dir, *, extract=None, pbf=None, cache=Path("cache"), d
         (out_dir / "meta.json").write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
     for name in TILE_CACHES:
         log(f"pruned {prune_tiles(cache / name, tile_cache_bytes)} {name} tiles")
-    log(f"world {wid} '{region['name']}' built: {len(region['jlist'])} J places, {len(region['villages'])} villages")
+    rc = region["race"]
+    log(f"world {wid} '{region['name']}' built: {len(region['jlist'])} J places, {len(region['villages'])} villages, "
+        + (f"race {rc['len'] / 1000:.1f} km, par {rc['par']} s" if rc else "no race (free driving)"))
     step("done")
     return {"world": out_dir / "world.json", "terrain": out_dir / "terrain.mmh", "meta": out_dir / "meta.json"}
