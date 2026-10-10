@@ -330,3 +330,4 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] Phone: frame rate while driving along a wood's edge in both styles (T), and from the J list a jump across the map — note load time.
 - [ ] Original style: the ground under the woods is darker; Smooth style: trees only.
 - [ ] Trees that stick out of a car park, a stream or the railway in a wood (there should be none).
+- [ ] Ehrendingen (`?region=ehrendingen`): the Lägern slope and the woods around Oberehrendingen come from OSM now, not from the +90 m forest line; the Wanderweg (J → wanderweg) stays open through the wood; the minimap shows no grey outlines around the woods.
