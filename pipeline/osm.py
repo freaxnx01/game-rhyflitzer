@@ -86,16 +86,22 @@ def cmd_cut(a) -> int:
     return 0
 
 
-def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path, dsm_cache=None) -> dict:
+def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path, dsm_cache=None, *,
+                clip_box=None, data=None) -> dict:
+    """clip_box (game x0, z0, x1, z1) overrides the clip from the lon/lat bbox; data reuses an osm_read result;
+    anchors_path None means no hand anchors (#166: generated worlds)."""
     frame = geo.Frame(*origin)
-    xs, zs = frame.to_game([bbox[0], bbox[2]], [bbox[3], bbox[1]])
-    clip = shapely.box(float(xs[0]), float(zs[0]), float(xs[1]), float(zs[1]))
-    log(f"reading {pbf}")
-    data = osm_read.read(Path(pbf), frame)
+    if clip_box is None:
+        xs, zs = frame.to_game([bbox[0], bbox[2]], [bbox[3], bbox[1]])
+        clip_box = (float(xs[0]), float(zs[0]), float(xs[1]), float(zs[1]))
+    clip = shapely.box(*clip_box)
+    if data is None:
+        log(f"reading {pbf}")
+        data = osm_read.read(Path(pbf), frame)
     hdr = heights = None
     if mmh_path:
         hdr, heights = mmh.read_mmh(mmh_path)
-    spec = anchors_mod.load(anchors_path)
+    spec = anchors_mod.load(anchors_path) if anchors_path else {}
     roads, junctions = world_roads.build(data.ways, data.nodes, data.way_nodes, clip, trail_ids=anchors_mod.trail_ids(spec))
     polys = world_water.polygons(data.areas, data.ways, clip)
     ind_ids = set(anchors_mod.industrial_ids(spec))
