@@ -1,0 +1,10 @@
+{
+  "landmarks": {},
+  "origin": {
+    "crs": "EPSG:2056",
+    "e": 2640000,
+    "n": 1267000,
+    "h": 280,
+    "axes": "x=E-e, y=H-h, z=-(N-n), meters"
+  }
+}
