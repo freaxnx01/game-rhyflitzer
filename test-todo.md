@@ -369,3 +369,12 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] Hold **Tab**: the route is on the big map too. **F3** debug panel and the toasts do not cover the panel.
 - [ ] German (**DE**): „In 200 m rechts“, „Jetzt links“, „Ziel in …“, „Angekommen: …“.
 - [ ] Phone-width window and a real phone: the panel sits below a toast and above the minimap, nothing overlaps.
+
+## Güggeli-Foodtruck (#103)
+
+- [ ] J → `gugg` → Güggeli-Foodtruck (Eiken). The car lands on the Bahnhofstrasse by Bahnhof Eiken; the truck stands on the car park south-east of the station, about 20 m off the road.
+- [ ] Is this the right spot? If not, note where it should go (street / car park / square); moving it is one line in `pipeline/anchors.json` (`landmarks.foodTruck.game`, `heading_deg`) plus a world rebuild.
+- [ ] Does it read as a food truck: cream body, red cab, dark hatch with the red awning on the north side, the yellow **Güggeli** board on the roof, the small menu board? Readable from the car? Too big, too small?
+- [ ] Drive into it from each side: the car stops, no sinking, no driving through.
+- [ ] No tree stands on the truck or the car park.
+- [ ] Eiken chip in J: DSM-Kamin, Bahnhof Sisseln, Bahnhof Eiken, LANDI-Turm, Südspange Sisslerfeld, Güggeli-Foodtruck.
