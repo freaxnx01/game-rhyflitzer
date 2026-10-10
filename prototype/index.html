@@ -1457,19 +1457,30 @@ function buildWheels(g, v) {
 }
 function buildCompact(g, v) {
   { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [side, z] of [['left', -0.86], ['right', 0.86]]) for (const x of [2.18, -2.22]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, 0.62, z); BLINK[side].add(b); } }
-  const shape = (pts) => { const s = new THREE.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])); s.closePath(); return s; };
-  const bodyS = shape([[-2.2, 0.36], [-2.26, 0.6], [-2.2, 0.9], [-2.05, 1.02], [-1.85, 1.06], [-1.35, 1.42], [-0.9, 1.48], [0.15, 1.48], [0.85, 1.12], [1.35, 1.0], [1.95, 0.92], [2.2, 0.8], [2.26, 0.56], [2.2, 0.36], [1.7, 0.3], [-1.7, 0.3]]);
-  const bodyG = new THREE.ExtrudeGeometry(bodyS, { depth: 1.66, bevelEnabled: true, bevelThickness: 0.07, bevelSize: 0.07, bevelSegments: 2 }); bodyG.translate(0, 0, -0.83); const body = new THREE.Mesh(bodyG, carMats.body); g.add(body);
-  const glassS = shape([[-1.98, 1.04], [-1.4, 1.39], [-0.9, 1.43], [0.12, 1.43], [0.8, 1.1], [0.6, 1.04]]);
-  const glassG = new THREE.ExtrudeGeometry(glassS, { depth: 1.86, bevelEnabled: false }); glassG.translate(0, 0, -0.93); const glassM = new THREE.Mesh(glassG, carMats.glass); glassM.userData.glass = true; g.add(glassM);
-  const sill = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 1.9), carMats.dark); sill.position.y = 0.34; g.add(sill);
+  // #164: the hull is one loft of COMPACT's stations (carbody.js) with two material groups -- paint and, where a span says so,
+  // the glass of the windscreen, the door windows and the rear screen. userData.glass is the glass group's index, not a flag.
+  const hull = new THREE.BufferGeometry();
+  hull.setAttribute('position', new THREE.Float32BufferAttribute(LOFT.positions, 3));
+  hull.setAttribute('uv', new THREE.Float32BufferAttribute(LOFT.uvs, 2));
+  hull.setIndex([...LOFT.bodyIndices, ...LOFT.glassIndices]);
+  hull.addGroup(0, LOFT.bodyIndices.length, 0);
+  hull.addGroup(LOFT.bodyIndices.length, LOFT.glassIndices.length, 1);
+  hull.computeVertexNormals();
+  const body = new THREE.Mesh(hull, [carMats.body, carMats.glass]); body.userData.glass = 1; g.add(body);
+  // the wheel openings: a dark half disc just outside the paint at each wheel, so the tyre stands in a black arch instead of
+  // sinking into the body, plus a raised arch lip around it (rotation.y turns the left side's disc outward)
+  const aR = archRadius(v.wheelR), wSide = 0.91;
+  for (const [x] of v.wheels) for (const s of [1, -1]) { const well = new THREE.Mesh(new THREE.CircleGeometry(aR, 20, 0, Math.PI), carMats.dark); well.position.set(x, v.wheelR, s * wSide); well.rotation.y = s < 0 ? Math.PI : 0; const lip = new THREE.Mesh(new THREE.TorusGeometry(aR, ARCH.lip, 6, 14, Math.PI), carMats.dark); lip.position.set(x, v.wheelR, s * wSide); g.add(well, lip); }
+  // nose and tail: a dark bumper band across the lower face, the lamp lenses above it and the grille between the headlights.
+  // Everything on these two faces sits 5 mm proud of the loft's end cap at x = ±2.33 and nothing reaches past ±2.336, so the
+  // measured car stays 4.66 m long (#69, test_vehicles.py::test_compact_car_is_true_to_size).
+  for (const [x, y] of [[2.305, 0.52], [-2.305, 0.53]]) { const bump = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 1.44), carMats.dark); bump.position.set(x, y, 0); g.add(bump); }
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.7), carMats.dark); grille.position.set(2.31, 0.76, 0); g.add(grille);
   // nitro: two blue exhaust flames at the rear, shown while N is held
   for (const z of [0.45, -0.45]) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 10), new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 })); f.rotation.z = Math.PI / 2; f.position.set(-2.65, 0.42, z); flames.add(f); }
   buildWheels(g, v);
-  const hl = new THREE.MeshBasicMaterial({ color: 0xfff6d0 }), tl = new THREE.MeshBasicMaterial({ color: 0xe0322d });
-  for (const s of [-1, 1]) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.42), hl); h.position.set(2.2, 0.82, s * 0.6); g.add(h); const t = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.4), tl); t.position.set(-2.24, 0.86, s * 0.62); g.add(t); const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.22), carMats.body); m.position.set(0.72, 1.12, s * 0.98); g.add(m); }
-  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.26, 1.0), carMats.dark); grille.position.set(2.25, 0.5, 0); g.add(grille);
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex('AG · 4334', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-2.28, 0.62, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
+  for (const s of [-1, 1]) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.14, 0.3), carMats.lampHead); h.position.set(2.31, 0.76, s * 0.57); g.add(h); const t = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.24, 0.34), carMats.lampTail); t.position.set(-2.31, 0.82, s * 0.55); g.add(t); const m = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.22), carMats.body); m.position.set(0.72, 1.12, s * 0.98); g.add(m); const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.18), carMats.dark); stalk.position.set(0.72, 1.08, s * 0.87); g.add(stalk); }
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex('AG · 4334', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-2.336, 0.53, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
 }
 // ---------- #126: DeLorean look-alike -- brushed steel, wedge nose, louvred rear, gull-wing doors; primitives only, no logo, no lettering ----------
 function buildDelorean(g, v) {
@@ -1510,7 +1521,9 @@ const shadowMesh = new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({ color
 function bakeShadow(box) { const size = shadowSize(box), fu = SHADOW.margin / (size.l / 2), fv = SHADOW.margin / (size.w / 2); shadowMesh.material.map?.dispose(); shadowMesh.material.map = makeTex(128, 64, (g, w, h) => { const img = g.createImageData(w, h); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const a = shadowAlpha((i + 0.5) / w * 2 - 1, (j + 0.5) / h * 2 - 1, fu, fv); img.data[(j * w + i) * 4 + 3] = Math.round(a * 255); } g.putImageData(img, 0, 0); }, { alpha: true }); shadowMesh.material.needsUpdate = true; shadowMesh.scale.set(size.l, 1, size.w); }
 // (re)build the car group from VEH; flames and blinkers are persistent groups (other code toggles them), refilled by the builder
 const SHARED_CAR_MATS = new Set(Object.values(carMats));   // shared across builds (and restyled by applyStyle): never disposed
-function freeCar() { const mats = new Set(); car.traverse(o => { o.geometry?.dispose(); if (o.material && !SHARED_CAR_MATS.has(o.material)) mats.add(o.material); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
+// #164: the lofted hull carries a material array (paint + glass), so unwrap it -- a Set.has on the array itself would never
+// match a shared material and the array would then be disposed as if it were one
+function freeCar() { const mats = new Set(); car.traverse(o => { o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
 let CAR_SIZE = null;   // #124: body box measured once per build (buildCar), so readers never touch the car
 function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
 function buildCar() { freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
@@ -1769,7 +1782,7 @@ window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotatio
 // #132: wheel state and the wheel groups actually on the car (read-only, for the test)
 window.__mm.wheelYaw = () => { const ws = car.userData.wheels ?? []; return { yaw: WHEEL_STATE.yaw, spin: WHEEL_STATE.spin, front: ws.filter(w => w.front).map(w => w.steer.rotation.y), rear: ws.filter(w => !w.front).map(w => w.steer.rotation.y) }; };
 // #123: the glass actually on the car and the helicopter (read-only, for the test)
-window.__mm.glass = () => { const find = (root) => { let m = null; root.traverse((o) => { if (!m && o.userData.glass) m = o.material; }); return m && { color: m.color.getHex(), transparent: m.transparent, opacity: m.opacity }; }; return { car: find(car), heli: find(heli) }; };
+window.__mm.glass = () => { const find = (root) => { let m = null; root.traverse((o) => { if (!m && o.userData.glass) m = Array.isArray(o.material) ? o.material[o.userData.glass] : o.material; }); return m && { color: m.color.getHex(), transparent: m.transparent, opacity: m.opacity }; }; return { car: find(car), heli: find(heli) }; };
 // #126: door animation state and the lower door panels' world height (read-only, for the test; [] for a car without doors)
 window.__mm.doors = () => ({ open: DOOR_STATE.open, target: DOOR_STATE.target, panelY: (car.userData.doors ?? []).map(d => d.panel.getWorldPosition(new THREE.Vector3()).y - P.y) });
 window.__mm.setVehicle = (def) => { setVehicle(def); };
