@@ -250,7 +250,7 @@ export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
 // from the floor there to `ground` on the centre line, linearly in the depth left
 export function cutFloorAt(c, x, z, u = UNDERPASS, ground = null) {
   const n = nearestOnPolyline(c.pts, x, z), s = n.t - c.t, k = s < 0 ? 0 : 1, past = Math.abs(s) - c.reach[k];
-  if (n.d > c.hw + u.margin + u.wall / 2) return null;
+  if (n.d > (c.lat ?? c.hw + u.margin + u.wall / 2)) return null;   // #156: lat, if set, keeps the patch bleed behind the wall
   const b = c.roundEnds ? 0 : beyondEnd(c.pts, x, z, n.t);     // roundEnds (the hideout's cuts): the corridor runs on as a level disc
   if (b !== 0 && Math.abs(s) < 1e-9) return null;                 // behind an anchor at the road end: the road it leaves covers that
   if (past <= 0) return cutFloor(c, s + b, u);
@@ -266,6 +266,16 @@ function beyondEnd(pts, x, z, t) {
   const [ax, az] = atStart ? pts[1] : pts[last - 1], [bx, bz] = atStart ? pts[0] : pts[last], L = Math.hypot(bx - ax, bz - az) || 1;
   const ext = Math.max(0, ((x - bx) * (bx - ax) + (z - bz) * (bz - az)) / L);
   return atStart ? -ext : ext;
+}
+// PR #156, option (a): (x, z) lies in a shared trough when its two nearest road corridors face each other across it (the
+// directions to their nearest points within 30 deg of opposite) and their edges there are less than margin + wall + margin
+// apart. No wall fits between them without standing in one of the corridors, so the two roads share one trough with no bank
+// between them to retain (the Bahndammstrasse and the service road beside it). A junction corner is not one: its roads meet.
+export function sharedTrough(x, z, roads, u = UNDERPASS) {
+  const near = roads.map((r) => { const n = nearestOnPolyline(r.pts, x, z), [px, pz] = pointAtLength(r.pts, n.t); return { d: n.d, e: n.d - r.w / 2, hw: r.w / 2, px, pz }; }).sort((p, q) => p.e - q.e);
+  if (near.length < 2 || near[0].d < 1e-9 || near[1].d < 1e-9) return false;
+  const [a, b] = near, facing = ((a.px - x) * (b.px - x) + (a.pz - z) * (b.pz - z)) / (a.d * b.d) <= -Math.cos(Math.PI / 6);
+  return facing && Math.hypot(a.px - b.px, a.pz - b.pz) - a.hw - b.hw < u.margin + u.wall + u.margin;
 }
 // the part of its road a cut or arm lowers, run-outs included: [t0, t1]
 export function armSpan(c) { return [c.t - c.reach[0] - (c.out?.[0]?.len ?? 0), c.t + c.reach[1] + (c.out?.[1]?.len ?? 0)]; }
@@ -302,8 +312,22 @@ export function wallStations(pts, intervals, offset, step, sides = [-1, 1]) {
   }
   return out;
 }
+// #156: the cap piece for an acute corner, where a wall run stops short of another road's corridor and the run of that road
+// stops short of this one. a, b: a point q on each road's centre line, its unit normal n towards the corner, its half width hw.
+// The piece lies across the corner's bisector, its centre where its inner face meets both margins, its ends `end` m off both
+// edges (the run-end distance); null at 90 deg or more, where the two runs close the corner themselves.
+export function cornerPiece(a, b, end, u = UNDERPASS) {
+  const cosA = -(a.n[0] * b.n[0] + a.n[1] * b.n[1]), det = a.n[0] * b.n[1] - a.n[1] * b.n[0];
+  if (cosA <= 1e-9 || Math.abs(det) < 1e-9) return null;
+  const sinH = Math.sqrt((1 - cosA) / 2), cosH = Math.sqrt((1 + cosA) / 2), c = u.margin + u.wall / 2 * sinH, len = 2 * (c - end) / cosH;
+  if (len <= 0) return null;
+  const ra = a.n[0] * a.q[0] + a.n[1] * a.q[1] + a.hw + c, rb = b.n[0] * b.q[0] + b.n[1] * b.q[1] + b.hw + c;
+  const x = (ra * b.n[1] - rb * a.n[1]) / det, z = (a.n[0] * rb - b.n[0] * ra) / det;
+  const bx = a.n[0] + b.n[0], bz = a.n[1] + b.n[1], L = Math.hypot(bx, bz), nx = bx / L, nz = bz / L;
+  return { x, z, len, rot: Math.atan2(nz, nx) + Math.PI / 2, nx, nz };
+}
 // the point `offset` m to `side` of the road at t, along the road's normal there (tangent over +-0.1 m, so a vertex gets the mitre)
-function wallPoint(pts, t, offset, side) {
+export function wallPoint(pts, t, offset, side) {
   const [x0, z0] = pointAlong(pts, t - 0.1), [x1, z1] = pointAlong(pts, t + 0.1), rot = Math.atan2(z1 - z0, x1 - x0), [x, z] = pointAlong(pts, t);
   return [x - Math.sin(rot) * side * offset, z + Math.cos(rot) * side * offset];
 }

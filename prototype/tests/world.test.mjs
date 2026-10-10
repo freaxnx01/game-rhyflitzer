@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -517,6 +517,42 @@ test('cutBounds holds the run-out too', () => {
   assert.deepEqual(armSpan(RUN), [70, 156]); assert.deepEqual(armSpan(CUT), [70, 140]);
 });
 
+// #156: the 1 m patch cells carry a lowered vertex up to sqrt(2) m on along the diagonal. An arm's `lat` (set by the build)
+// stops the lowering that far inside the wall's outer face, so nothing behind a wall is lowered; without it the corridor is
+// hw + margin + wall / 2 as before (the hideout's cuts)
+test('cutFloorAt: an arm with lat lowers nothing further than lat off its road', () => {
+  const lat = 4.5 + 1 + 2 - Math.SQRT2;
+  assert.equal(cutFloorAt({ ...CUT, lat }, lat - 0.01, 0), 10);
+  assert.equal(cutFloorAt({ ...CUT, lat }, lat + 0.01, 0), null);
+  assert.equal(cutFloorAt(CUT, lat + 0.01, 0), 10);
+});
+
+// PR #156, option (a): Bahndammstrasse (OSM 51546380) and the service road leaving it (221958487) run side by side for ~30 m,
+// 1.85-2.84 m apart edge to edge. A wall needs margin + wall + margin = 4 m there, so every point between them is one shared
+// trough: these are the 64 points __mm.openCutFaces found open there (rounded to 0.1 m), with the two roads as in the world
+const BAHNDAMM = { w: 5.5, pts: [[-890.1, 1228.6], [-883.2, 1232.1], [-878.3, 1233.6], [-872.1, 1234.1], [-858.6, 1233.5], [-845.3, 1231.8], [-827.1, 1228.0], [-790.6, 1222.6]] };
+const SERVICE = { w: 4.0, pts: [[-883.2, 1232.1], [-877.8, 1238.4], [-873.2, 1240.4], [-865.1, 1241.0], [-844.5, 1239.0], [-840.1, 1239.9], [-837.4, 1242.7]] };
+const GORE = [[-866.9, 1237.8], [-866.4, 1237.8], [-865.9, 1237.8], [-865.4, 1237.8], [-864.9, 1237.8], [-864.4, 1237.8], [-863.9, 1237.8], [-860.4, 1237.3], [-859.9, 1237.3], [-859.4, 1237.3], [-858.9, 1237.3], [-854.9, 1236.8], [-854.4, 1236.8], [-853.9, 1236.8], [-850.9, 1236.3], [-850.4, 1236.3], [-849.9, 1236.3], [-849.4, 1236.3], [-848.9, 1236.3], [-848.4, 1236.3], [-847.4, 1235.8], [-846.9, 1235.8], [-846.4, 1235.8], [-845.9, 1235.8], [-845.4, 1235.8], [-844.9, 1235.8], [-844.4, 1235.8], [-843.9, 1235.3], [-843.9, 1235.8], [-866.2, 1237.6], [-865.7, 1237.6], [-865.2, 1237.6], [-864.7, 1237.6], [-864.2, 1237.6], [-863.7, 1237.6], [-863.2, 1237.6], [-862.7, 1237.6], [-862.2, 1237.6], [-861.7, 1237.6], [-861.2, 1237.6], [-856.7, 1237.1], [-856.2, 1237.1], [-853.2, 1236.6], [-852.7, 1236.6], [-852.2, 1236.6], [-851.7, 1236.6], [-851.2, 1236.6], [-849.2, 1236.1], [-848.7, 1236.1], [-848.2, 1236.1], [-847.7, 1236.1], [-847.2, 1236.1], [-846.7, 1236.1], [-846.2, 1236.1], [-845.7, 1236.1], [-845.2, 1235.6], [-844.7, 1235.6], [-844.2, 1235.6], [-843.7, 1235.6], [-843.7, 1236.1], [-843.2, 1235.6], [-843.2, 1236.1], [-843.4, 1235.3], [-843.4, 1235.8]];
+test('sharedTrough: the 64 points between Bahndammstrasse and the service road beside it', () => {
+  assert.equal(GORE.length, 64);
+  for (const [x, z] of GORE) assert.equal(sharedTrough(x, z, [BAHNDAMM, SERVICE]), true, `${x},${z}`);
+});
+
+test('sharedTrough: an ordinary open bank is not one', () => {
+  const road = { w: 5.5, pts: [[0, 0], [100, 0]] }, far = { w: 5.5, pts: [[0, 30], [100, 30]] };
+  assert.equal(sharedTrough(50, 4.5, [road]), false);                                  // one road, 1.75 m past its margin
+  assert.equal(sharedTrough(50, 4.5, [road, far]), false);                             // a road across the bank, 22.5 m on
+  const wide = { w: 5.5, pts: [[0, 9.6], [100, 9.6]] };                                // edges 4.1 m apart: a wall fits
+  assert.equal(sharedTrough(50, 4.8, [road, wide]), false);
+  const tight = { w: 5.5, pts: [[0, 9.4], [100, 9.4]] };                               // edges 3.9 m apart: it does not
+  assert.equal(sharedTrough(50, 4.7, [road, tight]), true);
+  // Hauptstrasse Stein, behind its wall (3.3 m off 653943243, the next piece and Rohrmatt further): roads not facing it
+  const HAUPT = [{ w: 9, pts: [[-240.1, 1066.9], [-178.5, 1119.5]] }, { w: 9, pts: [[-262.4, 1055.5], [-240.1, 1066.9]] }, { w: 5.5, pts: [[-213.1, 1048.6], [-225.7, 1054.5], [-240.1, 1066.9]] }];
+  assert.equal(sharedTrough(-241.6, 1075.9, HAUPT), false);
+  // the acute Hauptstrasse / Rohrmatt corner: both edges ~1 m off, but the roads meet there, they do not face each other
+  assert.equal(sharedTrough(-232.9, 1065.8, HAUPT), false);
+});
+
 test('patch cells cover the whole footprint (clamped to the grid)', () => {
   const G = { x0: 0, z0: 0, dx: 16, dz: 16, nx: 10, nz: 10 };
   assert.deepEqual(patchCells([20, 20, 40, 33], G), [[1, 1], [2, 1], [1, 2], [2, 2]]);
@@ -605,6 +641,41 @@ test('wallSpans/wallStations: an overhang past the road end, with the end segmen
   assert.deepEqual(wallSpans(pts, [[8, 12]], 3, 1, (x) => x < -2, 1), []);         // the wall line is blocked all along
   const [w] = wallStations(pts, [[9, 11]], 3, 2, [1]);
   assert.ok(Math.abs(w.x + 3) < 1e-9 && Math.abs(w.z - 10) < 1e-9 && Math.abs(w.len - 2) < 1e-9 && Math.abs(w.rot - Math.PI / 2) < 1e-9, JSON.stringify(w));
+});
+
+// #156: where a side road leaves another at an acute angle, both wall runs stop WALL_SLACK (0.28 m) short of the other road's
+// wall line, and the corner point just beyond both margins lies (0.28 + cos a) / sin a past both run ends -- more than the
+// 0.3 m a wall covers for a < 90 deg (Hauptstrasse/Rohrmatt, Laufenburgerstrasse/Grendelweg and /Dammstrasse). cornerPiece
+// closes it with one short piece across the corner's bisector whose centre and ends keep the same distances as a run end.
+const SLACK = 0.28, covers = (ws, x, z) => ws.some((w) => { const dx = x - w.x, dz = z - w.z, c = Math.cos(w.rot), s = Math.sin(w.rot); return Math.abs(dx * c + dz * s) <= w.len / 2 + 0.3 && Math.abs(-dx * s + dz * c) <= UNDERPASS.wall / 2 + 0.3; });
+const edgeDist = (r, x, z) => nearestOnPolyline(r.pts, x, z).d - r.w / 2;
+function acuteCorner(deg) {
+  const al = deg * Math.PI / 180, B = { w: 8, pts: [[0, -60], [0, 60]] }, A = { w: 5.5, pts: [[0, 0], [60 * Math.sin(al), 60 * Math.cos(al)]] };
+  const offA = A.w / 2 + 2, offB = B.w / 2 + 2, blockedBy = (r) => (x, z) => edgeDist(r, x, z) < UNDERPASS.margin + SLACK;
+  const runA = wallSpans(A.pts, [[0, 30]], offA, 1, blockedBy(B)), runB = wallSpans(B.pts, [[40, 100]], offB, -1, blockedBy(A));   // side 1 of A, side -1 of B: the wedge
+  const ws = [...wallStations(A.pts, runA, offA, 2, [1]), ...wallStations(B.pts, runB, offB, 2, [-1])];
+  const t = runA[0][0], [qx, qz] = pointAtLength(A.pts, t), nA = [-Math.cos(al), Math.sin(al)], E = [qx + nA[0] * offA, qz + nA[1] * offA];
+  const nb = nearestOnPolyline(B.pts, ...E), qB = pointAtLength(B.pts, nb.t), nB = [(E[0] - qB[0]) / nb.d, (E[1] - qB[1]) / nb.d];
+  const cap = cornerPiece({ q: [qx, qz], n: nA, hw: A.w / 2 }, { q: qB, n: nB, hw: B.w / 2 }, UNDERPASS.margin + SLACK + 0.02);
+  // the corner the cut lowers: beyond both margins, within 3 m (the wall's outer face) of one of the two roads, in the wedge
+  const open = (pieces) => { const out = []; for (let x = 0; x <= 12; x += 0.05) for (let z = 0; z <= 14; z += 0.05) { const ea = edgeDist(A, x, z), eb = edgeDist(B, x, z); if (ea >= 1 && eb >= 1 && Math.min(ea, eb) <= 3 && z > x / Math.tan(al) && !covers(pieces, x, z)) out.push([x, z]); } return out; };
+  return { A, B, ws, cap, open };
+}
+test('cornerPiece: an acute corner left open by the two trimmed runs is closed by one piece across its bisector', () => {
+  for (const deg of [50, 71, 81]) {
+    const { A, B, ws, cap, open } = acuteCorner(deg);
+    assert.ok(open(ws).length > 0, `${deg} deg: the runs alone leave the corner open`);
+    assert.ok(cap, `${deg} deg: a piece`);
+    assert.deepEqual(open([...ws, cap]), [], `${deg} deg`);
+    for (const r of [A, B]) assert.ok(edgeDist(r, cap.x, cap.z) >= UNDERPASS.margin, `${deg} deg: centre outside the corridor`);
+    for (const k of [-1, 1]) for (const r of [A, B]) assert.ok(edgeDist(r, cap.x + k * Math.cos(cap.rot) * cap.len / 2, cap.z + k * Math.sin(cap.rot) * cap.len / 2) >= UNDERPASS.margin + 0.25, `${deg} deg: ends keep the run-end slack`);
+    assert.ok(Math.abs(Math.hypot(cap.nx, cap.nz) - 1) < 1e-9 && Math.abs(cap.nx * Math.cos(cap.rot) + cap.nz * Math.sin(cap.rot)) < 1e-9);
+  }
+});
+test('cornerPiece: none where the roads meet at 90 deg or more (the runs close that corner)', () => {
+  const a = { q: [0, 0], n: [1, 0], hw: 2.75 };
+  assert.equal(cornerPiece(a, { q: [0, 0], n: [0, 1], hw: 4 }, 1.3), null);             // square
+  assert.equal(cornerPiece(a, { q: [0, 0], n: [Math.SQRT1_2, Math.SQRT1_2], hw: 4 }, 1.3), null);   // 135 deg
 });
 
 const MAIN_RD = { id: 1, n: 'Main', w: 9, pts: [[0, -100], [0, 100]] };

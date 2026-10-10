@@ -221,8 +221,15 @@ def test_walls_follow_skewed_decks_and_leave_side_roads_open(server):
 @needs_world
 def test_no_open_cut_faces(server):
     """#120: wherever a cut network lowers the ground by more than 0.3 m outside every road corridor, a trough wall stands
-    -- along the side roads and at the corners where they leave the cut road's trough."""
+    -- along the side roads and at the corners where they leave the cut road's trough.
+
+    One kind of point is not counted (world.js sharedTrough, unit-tested on its own): a point whose two nearest road
+    corridors face each other across it with their edges less than margin + wall + margin (4 m) apart. The issue's other
+    rule -- no wall in any road's corridor -- makes a wall impossible there: the two roads share one trough and there is no
+    bank between them to retain. In the world this is the ~30 m where Bahndammstrasse and the service road beside it run
+    1.85-2.84 m apart (64 points; PR #156 comment "Status: test_side_roads_descend_with_the_cut green", option (a), chosen
+    by the user). Junction corners do not qualify (their roads meet, they do not face each other); nothing else is relaxed."""
     r = run(server, lambda page: page.evaluate("() => window.__mm.openCutFaces()"))
-    print(json.dumps(r))
+    print(json.dumps({k: v for k, v in r.items() if k != "troughPts"}))
     assert r["checked"] > 0, r
     assert r["count"] == 0, r
