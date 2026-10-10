@@ -90,3 +90,19 @@ def test_trim_clears_the_grade_band():
 def test_existing_junction_on_a_game_road_grows():
     _, junctions, _ = X.apply({"s": {"pieces": [GRADED]}}, [], [], [[100.0, 0.0, 3.05], [100.0, 50.0, 3.05]], CLIP)
     assert [100.0, 0.0, 4.3] in junctions and [100.0, 50.0, 3.05] in junctions
+
+
+def test_rail_in_the_grade_band_goes_on_a_deck():
+    g = [{"pts": [[0, 0], [300, 0]], "hw": 9.5, "ctl": [[0, 0], [300, 0]]}]
+    across, far, old = [[150, -100], [150, 100]], [[0, 200], [300, 200]], {"pts": [[1, 1], [2, 2]], "layer": 1}
+    rail, decks = X.deck_rail(g, [across, far], [old])
+    assert far in rail and decks[0] == old and len(decks) == 2
+    (deck,) = decks[1:]
+    assert deck["layer"] == 1
+    assert sorted(z for _, z in deck["pts"]) == [pytest.approx(-33.5, abs=0.2), pytest.approx(33.5, abs=0.2)]
+    stubs = sorted(r for r in rail if r != far)
+    assert len(stubs) == 2 and all(abs(z) >= 33.0 for s in stubs for _, z in s)
+
+
+def test_deck_rail_without_grades_changes_nothing():
+    assert X.deck_rail([], [[[0, 0], [1, 0]]], []) == ([[[0, 0], [1, 0]]], [])

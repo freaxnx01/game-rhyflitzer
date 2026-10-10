@@ -127,3 +127,24 @@ def apply(spec, ways, roads, junctions, clip):
             band = shapely.LineString(grades[-1]["pts"]).buffer(grades[-1]["hw"] + BAND)
             roads = _carve(roads, {_way_id(s) for s in road.get("trim", [])}, band)
     return roads + new, _widen(junctions, new) + ends, grades
+
+
+def _parts(geom):
+    return [[world_roads._r(q) for q in g.coords] for g in getattr(geom, "geoms", [geom]) if not g.is_empty and g.length >= 1.0]
+
+
+def deck_rail(grades, rail, rail_bridges):
+    """#42: rail inside a grade's band goes on a deck (railBridges, layer 1), so #76 keeps it at the uncut height
+    over the cutting. OSM has no bridge there yet: the underpass is under construction."""
+    if not grades:
+        return rail, rail_bridges
+    band = shapely.union_all([shapely.LineString(g["pts"]).buffer(g["hw"] + BAND) for g in grades])
+    kept, decks = [], list(rail_bridges)
+    for pts in rail:
+        line = shapely.LineString(pts)
+        if not line.intersects(band):
+            kept.append(pts)
+            continue
+        kept += _parts(line.difference(band))
+        decks += [{"pts": p, "layer": 1} for p in _parts(line.intersection(band))]
+    return kept, decks
