@@ -541,7 +541,7 @@ test('#167: generated-world texts exist in both languages; error reasons fall ba
 - [ ] **Step 3: Implement** — append to `prototype/worlds.js`:
 
 ```js
-export const WORLD_HOST = 'https://rhyflitzer-api.freaxnx01.ch';   // phase 3 (#168) names the real host; one constant, nothing else to change
+export const WORLD_HOST = 'https://rhyflitzer-api.freaxnx01.ch';   // the host #168 confirmed; one constant, nothing else to change
 export const EDITOR_URL = '../editor.html';                        // phase 4 (#169), relative to prototype/
 const LOCAL = new Set(['localhost', '127.0.0.1']);
 const PARTS = ['world.json', 'terrain.mmh', 'meta.json'];

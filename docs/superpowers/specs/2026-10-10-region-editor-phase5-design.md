@@ -9,8 +9,9 @@ phase 3 (#168, the API service on ionos1; its plan had not landed when this was 
 ## What the owner and the player get
 
 - **Owner:** adds a finished world to the gallery with a title and a short description, and removes it again,
-  with one `curl` call or `scripts/gallery.py add|remove|list`. No admin page. The bearer token is a secret on
-  ionos1 and in Passbolt; it is never in the repo, the game or a command line.
+  with `scripts/gallery.py add|remove|list`. No admin page. The admin routes are **not public** (#168): they run on the
+  internal `rhyflitzer-admin` listener and are used over SSH only (a tunnel, or `docker exec` on ionos1). The bearer token is a
+  secret on ionos1 and in Passbolt; it is never in the repo, the game or a command line.
 - **Player:** the start screen shows a **Worlds** row beside the Region row. One button per gallery world (its
   title), the description of the focused/hovered one underneath. A click opens `?world=<id>`. With an empty or
   unreachable gallery the row is not shown at all, and nothing else changes.
@@ -21,11 +22,11 @@ phase 3 (#168, the API service on ionos1; its plan had not landed when this was 
 | Call | Auth | Body / result |
 |---|---|---|
 | `GET /api/gallery` | none, public, cacheable 60 s | `[{id, title, description}]`, owner's order (`position`), at most 50 |
-| `PUT /api/admin/gallery/<id>` | `Authorization: Bearer <token>` | `{title, description}`; the world must exist and be `ready`; adds or replaces; sets `meta.json` `pinned: true` |
-| `DELETE /api/admin/gallery/<id>` | bearer | removes the entry; the world falls back to normal retention with `lastPlayed = now` |
+| `PUT /api/admin/gallery/<id>` | internal listener only (SSH), `Authorization: Bearer <token>` | `{title, description}`; the world must exist and be `ready`; adds or replaces; sets `meta.json` `pinned: true` |
+| `DELETE /api/admin/gallery/<id>` | internal listener only (SSH), bearer | removes the entry; the world falls back to normal retention with `lastPlayed = now` |
 
-- Token: environment variable `GALLERY_ADMIN_TOKEN` of the service (never in a file in the repo). Missing or empty
-  at start-up: the admin routes answer 503, the public list still works. Compared with `hmac.compare_digest`;
+- Token: the Docker secret file `ADMIN_TOKEN_FILE` of #168's `rhyflitzer-admin` service (never a file in the repo). Missing or empty:
+  the admin routes answer 503, the public list still works. Compared with `hmac.compare_digest`;
   wrong or absent token is 401 with no detail; the failure is logged (no token, no IP, only a count).
 - Validation: `<id>` against `^[0-9a-f]{12}$`; `title` 1–80 characters, `description` 0–300, both stripped of control
   characters and surrounding whitespace; body ≤ 4 KB; anything else 400 with a reason.

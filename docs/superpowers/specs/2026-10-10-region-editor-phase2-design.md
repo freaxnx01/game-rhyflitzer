@@ -29,9 +29,8 @@ block, `terrain.mmh` "MMH1", `meta.json` "MMR1"). Security prerequisite: #176 (`
 
 ## Host and testability
 
-- One constant `WORLD_HOST` in `worlds.js` (placeholder `https://rhyflitzer-api.freaxnx01.ch`; phase 3, #168,
-  picks the real name). Files: `${host}/worlds/<id>/{world.json,terrain.mmh,meta.json}`; status:
-  `${host}/api/worlds/<id>` → `{id, status: "ready" | "expired", bbox: {lv95: [e0, n0, e1, n1]}}`.
+- One constant `WORLD_HOST` in `worlds.js` (`https://rhyflitzer-api.freaxnx01.ch`, the host name #168 confirmed). Files: `${host}/worlds/<id>/{world.json,terrain.mmh,meta.json}`; status:
+  `${host}/api/worlds/<id>` → `{id, status, bbox: {lv95: [e0, n0, e1, n1]}}` with `status` ∈ queued, building, ready, failed, expired (the same values as a job's `state` in #168; the game acts on `expired` only, any other status leaves the panel without a frame). Progress is not here: it is `GET /api/jobs/<id>`, which the game does not read.
 - `?worldhost=http://127.0.0.1:<port>` overrides it **only** when the page itself is served from
   `localhost` / `127.0.0.1` and the override also points there. On GitHub Pages it is ignored, so a link cannot
   point the game at someone else's server. Playwright runs a second local HTTP server with CORS that serves

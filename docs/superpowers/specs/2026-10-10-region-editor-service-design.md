@@ -17,7 +17,7 @@ Traefik (myRateLimit@file, TLS) ──► rhyflitzer-api      (uvicorn + Starlet
                                       │  POST /api/jobs, GET /api/jobs/<id>, GET /api/worlds/<id>, GET /api/health
                                       │  GET /api/challenge (ALTCHA), GET /api/preview
                                       │  GET /worlds/<id>/{world.json, terrain.mmh, meta.json}
-                                      │  PUT/DELETE /api/admin/gallery/<id>   (bearer token)
+                                      │  (no admin routes: they live in rhyflitzer-admin, below)
                                       ▼
                                /data (one volume)
                                  service.sqlite3   queue = worlds table, builds per day, daily salts, kv
@@ -25,6 +25,8 @@ Traefik (myRateLimit@file, TLS) ──► rhyflitzer-api      (uvicorn + Starlet
                                  extract/switzerland-latest.osm.pbf
                                  cache/            swisstopo tiles, pruned to 1 GB per collection
                                       ▲
+                               rhyflitzer-admin    (same image, 256m, no Traefik, 127.0.0.1:8081 on the host only)
+                                 PUT/DELETE /api/admin/gallery/<id>   (bearer token, SSH only)
                                rhyflitzer-worker   (same image, mem_limit 3g, cpus 2, no Traefik)
                                  loop: heartbeat → nightly cleanup (03 UTC) → weekly extract (Mon 04 UTC)
                                        → claim next job → subprocess `python -m rhyflitzer_api.build`
@@ -32,6 +34,7 @@ Traefik (myRateLimit@file, TLS) ──► rhyflitzer-api      (uvicorn + Starlet
 
 - **Two compose services from one image.** The 3 GB cap sits on the worker only, so an OOM kill takes down a
   build, never the API. SQLite in WAL mode on the shared local volume is safe across the two processes.
+- **Admin is not public.** `PUT`/`DELETE /api/admin/gallery/<id>` exist only in `create_admin_app`, served by a third compose service `rhyflitzer-admin` (same image, `uvicorn rhyflitzer_api.app:create_admin_app --factory --port 8001`) that has no Traefik labels, sits on no Traefik network and publishes `127.0.0.1:8081:8001` on the host's loopback only. The public app (`create_app`) has no admin route at all (`404`), and the public router rule also excludes the prefix (`Host(...) && !PathPrefix(`/api/admin`)`). The bearer token from `ADMIN_TOKEN_FILE` stays as a second layer (fail closed). The owner reaches it over SSH, from any IP and without the homelab: `ssh -N -L 8081:127.0.0.1:8081 ionos1` (then the CLI against `http://127.0.0.1:8081`), or `ssh ionos1 docker exec rhyflitzer-admin …` (the CLI is #170's `scripts/gallery.py`). No public admin rate limit is needed.
 - **One build = one subprocess.** The worker relays its `STEP` lines into the job's `step`, kills it after
   10 minutes, and publishes `worlds/.<id>.tmp` → `worlds/<id>` with one rename, only on success.
 - **Job id = world id** (`frame.world_id(snapped rect, PIPELINE_VERSION)`). One row per world is both the job
@@ -43,25 +46,26 @@ Traefik (myRateLimit@file, TLS) ──► rhyflitzer-api      (uvicorn + Starlet
 |---|---|
 | `POST /api/jobs` `{"lv95": [e0, n0, e1, n1]}` or `{"lonlat": [w, s, e, n]}` | `202` job (new or already queued/building), `200` job when already built (cache hit, free); `400 {error, message}` with `bad-request`, `bad-bbox`, `too-small`, `too-big`, `outside-ch`; **`403` `human_check_failed`** (a NEW build without a valid ALTCHA solution in `"altcha"`); `429` `one-at-a-time`, `daily-limit`, `server-daily-limit`; `503` `busy` |
 | `GET /api/challenge` | a signed ALTCHA challenge (`Cache-Control: no-store`); `503 human-check-unavailable` without the key file |
-| `GET /api/preview?bbox=e0,n0,e1,n1` (LV95) | `{name, gemeinden, raceOk, reason?}`; `raceOk` is `true`, `false` (`reason: few-major-roads`) or `null` (`reason: no-road-index`); `400` as for `POST /api/jobs`; `429 preview-rate-limit` |
-| `GET /api/jobs/<id>` | `{id, state, step, position?, error, message, lv95, files?}`; `state` ∈ queued, building, ready, failed, expired; `step` ∈ cutting, terrain, world, places, race, done; `404 unknown` |
-| `GET /api/worlds/<id>` | `{id, status, bbox: {lv95: [e0, n0, e1, n1]}}` — #167's status call; the row stays after expiry (a tombstone), because the id is a hash and "Build it again?" needs the frame back; `404 unknown` |
+| `GET /api/preview?bbox=e0,n0,e1,n1` (LV95) | `{id, exists, name, gemeinden, raceOk, reason?}`; `id` is the world id the snapped frame gets (the job id); `exists` is `true` when a `POST /api/jobs` would only join or read that world (built, queued, building, or permanently failed `too-complex`) and so needs no human check, `false` for a new build (also after expiry); `raceOk` is `true`, `false` (`reason: few-major-roads`) or `null` (`reason: no-road-index`); `400` as for `POST /api/jobs`; `429 preview-rate-limit` |
+| `GET /api/jobs/<id>` | the progress call: `{id, state, step, position?, error, message, lv95, files?}`; `state` ∈ queued, building, ready, failed, expired; `step` ∈ cutting, terrain, world, places, race, done (while building); `position` only while queued; `files` (`/worlds/<id>/`) only when ready; `error` ∈ too-complex, source-unreachable, timeout, build-failed on a failed job; `404 unknown`. `POST /api/jobs` answers with this same view |
+| `GET /api/worlds/<id>` | `{id, status, bbox: {lv95: [e0, n0, e1, n1]}}` — #167's status call, no progress; `status` has the same values as a job's `state` (note the two names: `status` here, `state` in the job view; #167's contract fixed `status`); the row stays after expiry (a tombstone), because the id is a hash and "Build it again?" needs the frame back; `404 unknown` |
 | `GET /worlds/<id>/world.json` | `Cache-Control: no-cache`; every load revalidates, so **this request is the play signal** (`lastPlayed` in the store and `meta.json`, at most hourly) |
-| `GET /worlds/<id>/meta.json` | `Cache-Control: no-cache` |
+| `GET /worlds/<id>/meta.json` | `Cache-Control: no-cache`; the editor's done card reads `name` and `race` (boolean) from it |
 | `GET /worlds/<id>/terrain.mmh` | `Cache-Control: public, max-age=86400` |
 | any other `/worlds/<id>/…`, or a world that is not ready | `404 {error: expired | not-ready | unknown}` |
 
-World ids are exactly 12 lowercase hex characters (`^[0-9a-f]{12}$`), checked before any lookup. The zip
-download (the three files + `LICENSE-ODbL.txt`) is packed in the browser by #167; the server has no zip route.
-| `PUT /api/admin/gallery/<id>` `{title, description}` / `DELETE` | bearer token; pins/unpins a ready world (gallery worlds are never expired or evicted) |
 | `GET /api/health` | `{status, queued, building, worlds, storedBytes, extract, workerSeenSecondsAgo}` |
+| `PUT /api/admin/gallery/<id>` `{title, description}` / `DELETE` | **not on the public host**: only the internal `rhyflitzer-admin` listener (`create_admin_app`); the public app answers `404`. Bearer token; pins/unpins a ready world (gallery worlds are never expired or evicted) |
+
+World ids are exactly 12 lowercase hex characters (`^[0-9a-f]{12}$`), checked before any lookup. The zip
+download (the three files + `LICENSE-ODbL.txt`) is packed in the browser by #167 (and by the editor page, #169, with #167's `packWorldZip`); the server has no zip route, so `/worlds/<id>/world.zip` is a `404`.
 
 CORS: `Access-Control-Allow-Origin` on `/worlds/*` and `/api/*`, only for `CORS_ORIGINS` (default
 `https://github.freaxnx01.ch`).
 
 ## Human check (ALTCHA) on new builds
 
-`POST /api/jobs` for a **new** build must carry `"altcha": <base64 payload>`, the solution of a challenge from `GET /api/challenge`. Playing, polling, downloading, gallery reads, a cache hit (the world exists) and joining a frame that is already queued or building never need it; for those the field is ignored and nothing is spent.
+`POST /api/jobs` for a **new** build must carry `"altcha": <base64 payload>`, the solution of a challenge from `GET /api/challenge`. The page learns whether a frame is new from `GET /api/preview` (`exists`) and skips the proof of work when it is not; that is a convenience only, this check stays authoritative (a `POST` without a solution for a new world is always `403`, whatever the preview said). Playing, polling, downloading, gallery reads, a cache hit (the world exists) and joining a frame that is already queued or building never need it; for those the field is ignored and nothing is spent.
 
 - **Server side: the `altcha` package** (PyPI, official `altcha-org/altcha-lib-py`, MIT, zero dependencies, 2.3.0 of 2026-10-04), PoW v2 like the `altcha` 3.x widget; `challenge.py` is a thin wrapper. A pure re-implementation was rejected: v2 signs a canonical JSON that mimics JavaScript number formatting, and would drift from the widget.
 - **Parameters:** `PBKDF2/SHA-256`, `cost` 5000 iterations per try (`ALTCHA_COST`), key prefix `00` (one try in 256): ~1.3 M iterations per solve, about 1 s on a phone; verification is one derivation. Expiry 10 minutes.
@@ -71,7 +75,7 @@ CORS: `Access-Control-Allow-Origin` on `/worlds/*` and `/api/*`, only for `CORS_
 
 ## Frame preview
 
-`GET /api/preview` answers without building, in well under 2 s and with little memory: **name and Gemeinden** from swisstopo's identify service (a point request at the centre and an envelope request, 0.9 s timeout each, cached per snapped frame; "A" or "A · B", centre first; a failed lookup is `name: null`); **`raceOk`** from a road index the worker builds after each weekly extract update: metres of primary/secondary/tertiary road (`places.MAJOR`) per 500 m LV95 cell, via `osmium tags-filter` (streaming, no cut) and pyosmium, stored in SQLite. A frame is `raceOk` with at least 3000 m of major road in its cells (`RACE_MIN_ROAD_M`), an estimate to calibrate against real builds. No human check; 60 requests per minute per client IP, in memory only.
+`GET /api/preview` answers without building, in well under 2 s and with little memory: **`id` and `exists`** from the same snap and `world_id` the job uses, and one `Store.exists` lookup; **name and Gemeinden** from swisstopo's identify service (a point request at the centre and an envelope request, 0.9 s timeout each, cached per snapped frame; "A" or "A · B", centre first; a failed lookup is `name: null`); **`raceOk`** from a road index the worker builds after each weekly extract update: metres of primary/secondary/tertiary road (`places.MAJOR`) per 500 m LV95 cell, via `osmium tags-filter` (streaming, no cut) and pyosmium, stored in SQLite. A frame is `raceOk` with at least 3000 m of major road in its cells (`RACE_MIN_ROAD_M`), an estimate to calibrate against real builds. No human check; 60 requests per minute per client IP, in memory only.
 
 ## Limits (design section 2, enforced in `store.submit` inside one `BEGIN IMMEDIATE`)
 
@@ -100,7 +104,7 @@ rightmost `X-Forwarded-For` entry (the one Traefik appends); the container publi
 ## Secrets, logging, deployment
 
 - ALTCHA HMAC key: a Docker secret file (`ALTCHA_SECRET_FILE`), kept in Passbolt, API container only; never in the repo.
-- Admin token: a Docker secret file (`ADMIN_TOKEN_FILE`), kept in Passbolt; read per request, compared with
+- Admin token: a Docker secret file (`ADMIN_TOKEN_FILE`), kept in Passbolt, mounted only into `rhyflitzer-admin`; read per request, compared with
   `hmac.compare_digest`, never logged. Missing file → every admin call is `401` (fail closed).
 - Logs: one JSON object per line on stdout (`ts`, `level`, `logger`, `msg`, fields such as `world`); messages
   follow the repo's rule (attempt, then outcome with the cause).

@@ -24,6 +24,7 @@
 
 - **Limits are atomic:** `store.submit` checks and inserts inside one `BEGIN IMMEDIATE` (`test_one_active_job_per_ip`, `test_queue_full_is_busy`, `test_daily_limits`).
 - **Cache hits are free:** a built or already queued world never counts against a limit (`test_daily_limits`, `test_same_frame_is_one_job_snapped_and_from_lonlat`).
+- **Admin is SSH-only:** the public app has no admin route and the compose router excludes `/api/admin` (`test_the_public_app_has_no_admin_routes`, `test_admin_stays_off_traefik`).
 - **#167's contract:** `GET /api/worlds/<id>` answers `{id, status, bbox: {lv95}}` after expiry; fetching `world.json` is the play signal; CORS on `/worlds/*` and `/api/*` (`test_world_status_survives_expiry_for_the_rebuild`, `test_world_json_is_the_play_signal_at_most_hourly`).
 - **Nothing half-built is ever served:** files appear by one rename on success (`test_success_relays_steps_and_publishes`, `test_timeout_kills_the_build`).
 - **Gallery worlds survive** both the 30-day expiry and the 10 GB cap (`test_expiry_keeps_played_and_gallery`, `test_cap_evicts_least_recently_played_never_gallery`).
@@ -639,7 +640,7 @@ class Store:
 
 **Interfaces:**
 - Consumes: `frame.snap/check/from_lonlat/world_id/FrameError`, `region.PIPELINE_VERSION`, `Store`, `Settings`.
-- Produces: `app.create_app(settings=None, store=None) -> Starlette` (uvicorn `--factory`); `app.client_ip(request, hops)`; `app.job_view(store, row)`; routes `POST /api/jobs`, `GET /api/jobs/{wid}`, `GET /api/worlds/{wid}` (the status #167 reads: `{id, status, bbox: {lv95: [e0, n0, e1, n1]}}`, still answering after expiry), `GET /api/health`. Task 7 adds the world-file and admin routes to `ROUTES`; Task 8 adds `GET /api/challenge`, `GET /api/preview` and the human check on `POST /api/jobs` (a new build then needs an `altcha` solution in the body).
+- Produces: `app.create_app(settings=None, store=None) -> Starlette` (uvicorn `--factory`); `app.client_ip(request, hops)`; `app.job_view(store, row)`; routes `POST /api/jobs`, `GET /api/jobs/{wid}`, `GET /api/worlds/{wid}` (the status #167 reads: `{id, status, bbox: {lv95: [e0, n0, e1, n1]}}`, `status` = the job's `state`, still answering after expiry; progress is `GET /api/jobs/{wid}`), `GET /api/health`. Task 7 adds the world-file and admin routes to `ROUTES`; Task 8 adds `GET /api/challenge`, `GET /api/preview` and the human check on `POST /api/jobs` (a new build then needs an `altcha` solution in the body).
 
 - [ ] **Step 1: Write the failing tests** — `service/tests/test_app_jobs.py`:
 
@@ -1739,11 +1740,11 @@ if __name__ == "__main__":
 ### Task 7: World files and the admin gallery
 
 **Files:**
-- Modify: `service/rhyflitzer_api/app.py` (new handlers, appended to `ROUTES`; admin is `curl`, so CORS stays `GET`/`POST`)
+- Modify: `service/rhyflitzer_api/app.py` (new handlers; the world route is appended to `ROUTES`, the admin route goes into `ADMIN_ROUTES` of `create_admin_app`, which has no CORS: admin is not a browser)
 - Create: `service/tests/test_app_worlds.py`
 
 **Interfaces:**
-- Produces (#167's contract): `GET /worlds/{wid}/{name}` for exactly `world.json` (`no-cache`; **fetching it is the play signal**: `lastPlayed` in the store and in `meta.json`, at most hourly), `meta.json` (`no-cache`) and `terrain.mmh` (`public, max-age=86400`); `404 {error: unknown | not-ready | expired}` otherwise; CORS for `CORS_ORIGINS` on `/worlds/*` and `/api/*`. `PUT /api/admin/gallery/{wid}` `{title, description}` and `DELETE`, with `Authorization: Bearer <token>`. No server-side zip: #167 packs the download (incl. `LICENSE-ODbL.txt`) in the browser.
+- Produces (#167's contract): `GET /worlds/{wid}/{name}` for exactly `world.json` (`no-cache`; **fetching it is the play signal**: `lastPlayed` in the store and in `meta.json`, at most hourly), `meta.json` (`no-cache`) and `terrain.mmh` (`public, max-age=86400`); `404 {error: unknown | not-ready | expired}` otherwise; CORS for `CORS_ORIGINS` on `/worlds/*` and `/api/*`. `PUT /api/admin/gallery/{wid}` `{title, description}` and `DELETE`, with `Authorization: Bearer <token>`, served **only** by `create_admin_app` (the internal `rhyflitzer-admin` listener), never by `create_app`. No server-side zip: #167 packs the download (incl. `LICENSE-ODbL.txt`) in the browser.
 
 - [ ] **Step 1: Write the failing tests** — `service/tests/test_app_worlds.py`:
 
@@ -1756,7 +1757,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from conftest import add_ready
-from rhyflitzer_api.app import create_app
+from rhyflitzer_api.app import create_admin_app, create_app
 
 WID = "0123456789ab"
 ORIGIN = {"Origin": "https://github.freaxnx01.ch"}
@@ -1813,9 +1814,16 @@ def test_missing_worlds_say_why(client, store, settings, setup, path, code):
     assert r.headers["access-control-allow-origin"] == ORIGIN["Origin"]      # the game can read why
 
 
-def test_admin_without_token_file_is_401(client, store, settings):
+def test_the_public_app_has_no_admin_routes(client, store, settings):
     add_ready(store, settings, WID)
-    r = client.put(f"/api/admin/gallery/{WID}", json={"title": "x"}, headers={"Authorization": "Bearer "})
+    for call in (client.put, client.delete):
+        assert call(f"/api/admin/gallery/{WID}", headers={"Authorization": "Bearer s3cret"}).status_code == 404
+    assert store.get(WID)["gallery"] == 0
+
+
+def test_admin_without_token_file_is_401(store, settings):
+    add_ready(store, settings, WID)
+    r = TestClient(create_admin_app(settings, store)).put(f"/api/admin/gallery/{WID}", json={"title": "x"}, headers={"Authorization": "Bearer "})
     assert r.status_code == 401 and store.get(WID)["gallery"] == 0
 
 
@@ -1823,7 +1831,11 @@ def test_admin_without_token_file_is_401(client, store, settings):
 def admin(settings, store, tmp_path):
     token = tmp_path / "admin_token"
     token.write_text("s3cret\n")
-    return TestClient(create_app(dataclasses.replace(settings, admin_token_file=token), store))
+    return TestClient(create_admin_app(dataclasses.replace(settings, admin_token_file=token), store))
+
+
+def test_the_admin_app_serves_nothing_but_admin(admin):
+    assert admin.get("/api/health").status_code == 404 and admin.get(f"/worlds/{WID}/world.json").status_code == 404
 
 
 def test_admin_pins_and_unpins_a_ready_world(admin, store, settings):
@@ -1924,10 +1936,25 @@ and extend `ROUTES`:
 
 ```python
     Route("/worlds/{wid}/{name}", world_file, methods=["GET"]),
-    Route("/api/admin/gallery/{wid}", gallery, methods=["PUT", "DELETE"]),
 ```
 
-- [ ] **Step 4: Run** — Expected: 10 passed (this file); whole suite green.
+and, below `create_app`, the admin surface (nothing else is served there, and `create_app` never includes it):
+
+```python
+ADMIN_ROUTES = [Route("/api/admin/gallery/{wid}", gallery, methods=["PUT", "DELETE"])]
+
+
+def create_admin_app(settings: Settings | None = None, store: Store | None = None) -> Starlette:
+    """Admin only; run by the rhyflitzer-admin service on an internal port that Traefik never sees."""
+    if settings is None:
+        logs.setup()
+        settings = Settings.from_env()
+    app = Starlette(routes=ADMIN_ROUTES)
+    app.state.settings, app.state.store = settings, store or Store(settings.db_path)
+    return app
+```
+
+- [ ] **Step 4: Run** — Expected: 12 passed (this file); whole suite green.
 - [ ] **Step 5: Commit** — `git add service/rhyflitzer_api/app.py service/tests/test_app_worlds.py && git commit -m "feat(service): world files with CORS, cache headers and play signal; admin gallery (#168)" && git push`
 
 ---
@@ -1941,10 +1968,10 @@ and extend `ROUTES`:
 - Modify: `service/rhyflitzer_api/config.py`, `store.py`, `app.py`, `worker.py`, `service/tests/conftest.py`, `service/tests/test_app_jobs.py`
 
 **Interfaces:**
-- Produces: `GET /api/challenge` (signed ALTCHA challenge, `no-store`; `503 human-check-unavailable` without a key); `POST /api/jobs` accepts `"altcha"` and answers `403 {error: "human_check_failed", message}` for a NEW build without a valid, unexpired, unused solution; `GET /api/preview?bbox=` → `{name, gemeinden, raceOk, reason?}`. `challenge.issue(settings, now)`, `challenge.check(payload, settings) -> Ticket | None`, `challenge.Ticket(signature, expires)`, `challenge.Unavailable`; `store.human_gate(ticket, now)`, `Store.submit(..., gate=None)`, `Store.replace_roadgrid(rows)`, `Store.major_meters(rect)`; `roadgrid.cells_of_way/build/run_due`; `preview.Limiter/describe`.
+- Produces: `GET /api/challenge` (signed ALTCHA challenge, `no-store`; `503 human-check-unavailable` without a key); `POST /api/jobs` accepts `"altcha"` and answers `403 {error: "human_check_failed", message}` for a NEW build without a valid, unexpired, unused solution; `GET /api/preview?bbox=` → `{id, exists, name, gemeinden, raceOk, reason?}` (`id` = the world id of the snapped frame, `exists` = a POST would only join or read it, so no human check). `challenge.issue(settings, now)`, `challenge.check(payload, settings) -> Ticket | None`, `challenge.Ticket(signature, expires)`, `challenge.Unavailable`; `store.human_gate(ticket, now)`, `Store.submit(..., gate=None)`, `Store.replace_roadgrid(rows)`, `Store.major_meters(rect)`, `Store.exists(wid)` (and the module function `joins(row)` that `submit` and `exists` share); `roadgrid.cells_of_way/build/run_due`; `preview.Limiter/describe`.
 - Consumes: Tasks 1-7.
 
-**Decisions** are A14-A16 in the issue and the spec sections "Human check (ALTCHA) on new builds" and "Frame preview"; in short: the server side is the **`altcha` package** (`altcha>=2.3,<3`, MIT, zero dependencies, PoW v2 like the widget) behind a thin `challenge.py`; `PBKDF2/SHA-256`, `cost` 5000 (`ALTCHA_COST`), key prefix `00`, ~1 s on a phone, 10-minute expiry; the ticket is spent **inside the admission transaction** (a later `429`/`503` rolls it back unspent); the HMAC key is the secret file `ALTCHA_SECRET_FILE`, no file fails closed; the preview is an estimate (road index of major-road metres per 500 m cell, swisstopo identify for the name, `RACE_MIN_ROAD_M` 3000, 60 requests a minute per client, no human check).
+**Decisions** are A14-A16 in the issue and the spec sections "Human check (ALTCHA) on new builds" and "Frame preview"; in short: the server side is the **`altcha` package** (`altcha>=2.3,<3`, MIT, zero dependencies, PoW v2 like the widget) behind a thin `challenge.py`; `PBKDF2/SHA-256`, `cost` 5000 (`ALTCHA_COST`), key prefix `00`, ~1 s on a phone, 10-minute expiry; the ticket is spent **inside the admission transaction** (a later `429`/`503` rolls it back unspent); the HMAC key is the secret file `ALTCHA_SECRET_FILE`, no file fails closed; the preview is an estimate (road index of major-road metres per 500 m cell, swisstopo identify for the name, `RACE_MIN_ROAD_M` 3000, 60 requests a minute per client, no human check; its `exists` flag lets the editor skip the proof of work for a world that is already built or queued, while a POST without a solution for a new world stays `403`).
 
 - [ ] **Step 1: Settings, store, conftest** (so the failing tests below can run against them)
 
@@ -1995,9 +2022,18 @@ def human_gate(ticket, now: float):
 ```
 
 ```python
+def joins(row) -> bool:
+    """A request for this world would only join or read it (built, queued, building, permanently failed): free, no human check."""
+    return bool(row) and (row["state"] in ("queued", "building", "ready") or row["error"] in PERMANENT)
+```
+
+```python
+    def exists(self, wid: str) -> bool:
+        return joins(self.get(wid))
+
     def submit(self, wid: str, rect, ip_hash: str, now: float, settings, gate=None) -> dict:
         ...
-            if row and (row["state"] in ("queued", "building", "ready") or row["error"] in PERMANENT):
+            if joins(row):
                 return dict(row)
             if gate is not None:
                 gate(db)
@@ -2282,15 +2318,18 @@ def test_build_reads_only_major_roads_from_a_synthetic_extract(tmp_path):
 # test_preview.py
 import dataclasses
 
+import frame
 import pytest
+import region
 import requests
 from starlette.testclient import TestClient
 
-from conftest import RECT, ip
+from conftest import RECT, add_ready, ip
 from rhyflitzer_api.app import create_app
 from rhyflitzer_api.preview import Limiter
 
 BBOX = "bbox=2667000,1259750,2669250,1261750"
+WID = frame.world_id(RECT, region.PIPELINE_VERSION)
 INSIDE = (5336, 2521)          # a cell centred in RECT
 
 
@@ -2329,7 +2368,7 @@ def test_preview_names_the_frame_and_says_a_race_fits(settings, store):
     store.replace_roadgrid([(*INSIDE, 4000), (9000, 9000, 99999)])
     r = app(settings, store).get(f"/api/preview?{BBOX}", headers=ip(1))
     assert r.status_code == 200
-    assert r.json() == {"name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": True}
+    assert r.json() == {"id": WID, "exists": False, "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": True}
 
 
 def test_two_gemeinden_make_a_double_name_centre_first(settings, store):
@@ -2346,7 +2385,7 @@ def test_few_major_roads_say_so(settings, store):
 
 def test_no_road_index_yet_is_unknown_not_an_error(settings, store):
     assert app(settings, store).get(f"/api/preview?{BBOX}").json() == {
-        "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": None, "reason": "no-road-index"}
+        "id": WID, "exists": False, "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": None, "reason": "no-road-index"}
 
 
 def test_a_failed_name_lookup_gives_a_null_name(settings, store):
@@ -2354,7 +2393,7 @@ def test_a_failed_name_lookup_gives_a_null_name(settings, store):
         raise requests.ConnectionError("swisstopo is down")
     store.replace_roadgrid([(*INSIDE, 4000)])
     r = app(settings, store, down).get(f"/api/preview?{BBOX}")
-    assert r.status_code == 200 and r.json() == {"name": None, "gemeinden": [], "raceOk": True}
+    assert r.status_code == 200 and r.json() == {"id": WID, "exists": False, "name": None, "gemeinden": [], "raceOk": True}
 
 
 @pytest.mark.parametrize("query, code", [
@@ -2371,6 +2410,33 @@ def test_preview_is_rate_limited_per_client(settings, store):
     assert [client.get(f"/api/preview?{BBOX}", headers=ip(1)).status_code for _ in range(3)] == [200, 200, 429]
     assert client.get(f"/api/preview?{BBOX}", headers=ip(2)).status_code == 200
     assert client.get(f"/api/preview?{BBOX}", headers=ip(1)).json()["error"] == "preview-rate-limit"
+
+
+def exists(client):
+    return client.get(f"/api/preview?{BBOX}").json()["exists"]
+
+
+def test_preview_says_whether_the_world_exists(settings, store):
+    client = app(settings, store)
+    assert (client.get(f"/api/preview?{BBOX}").json()["id"], exists(client)) == (WID, False)
+    add_ready(store, settings, WID)
+    assert exists(client) is True
+    for state, error, expected in [("queued", None, True), ("building", None, True), ("expired", None, False),
+                                   ("failed", "timeout", False), ("failed", "too-complex", True)]:
+        store._x("UPDATE worlds SET state = ?, error = ? WHERE id = ?", (state, error, WID))
+        assert exists(client) is expected, (state, error)
+
+
+def test_exists_matches_the_human_check_but_the_server_stays_authoritative(settings, store):
+    client = app(settings, store)
+    add_ready(store, settings, WID)
+    assert exists(client) is True
+    hit = client.post("/api/jobs", json={"lv95": list(RECT)}, headers=ip(1))        # no "altcha": a cache hit is free
+    assert hit.status_code == 200 and hit.json()["state"] == "ready"
+    store._x("UPDATE worlds SET state = 'expired' WHERE id = ?", (WID,))
+    assert exists(client) is False
+    refused = client.post("/api/jobs", json={"lv95": list(RECT)}, headers=ip(1))    # a NEW build without a solution
+    assert refused.status_code == 403 and refused.json()["error"] == "human_check_failed"
 
 
 def test_the_same_frame_is_looked_up_once(settings, store):
@@ -2596,10 +2662,11 @@ def lookup(rect, year: int, get, cache: dict) -> tuple[str | None, list[str]]:
     return found
 
 
-def describe(store: Store, settings, rect, year: int, get, cache: dict) -> dict:
+def describe(store: Store, settings, rect, wid: str, year: int, get, cache: dict) -> dict:
+    """id and exists (a POST would only join or read the world: no human check), name, Gemeinden, raceOk."""
     name, names = lookup(rect, year, get, cache)
     meters = store.major_meters(rect)
-    answer = {"name": name, "gemeinden": names, "raceOk": None if meters is None else meters >= settings.race_min_road_m}
+    answer = {"id": wid, "exists": store.exists(wid), "name": name, "gemeinden": names, "raceOk": None if meters is None else meters >= settings.race_min_road_m}
     if meters is None:
         answer["reason"] = NO_INDEX
     elif not answer["raceOk"]:
@@ -2662,7 +2729,8 @@ async def get_preview(request: Request) -> JSONResponse:
         return error(400, exc.code, str(exc))
     except (TypeError, ValueError):
         return error(400, "bad-bbox", "give bbox=e0,n0,e1,n1 in LV95")
-    return JSONResponse(await run_in_threadpool(preview.describe, state.store, state.settings, rect,
+    wid = frame.world_id(rect, region.PIPELINE_VERSION)
+    return JSONResponse(await run_in_threadpool(preview.describe, state.store, state.settings, rect, wid,
                                                 time.gmtime().tm_year, state.get, state.names))
 ```
 
@@ -2670,7 +2738,7 @@ async def get_preview(request: Request) -> JSONResponse:
 
 `worker.py` — `from . import extract, housekeeping, logs, roadgrid, runner` and, in `tick`, after `extract.run_due(self.store, self.settings, now)`: `roadgrid.run_due(self.store, self.settings, now)`.
 
-- [ ] **Step 6: Run** — `cd service && .venv/bin/python -m pytest -q` — Expected: everything green: 117 tests (116 and one skipped without `osmium-tool`); the pipeline suite untouched.
+- [ ] **Step 6: Run** — `cd service && .venv/bin/python -m pytest -q` — Expected: everything green: 121 tests (120 and one skipped without `osmium-tool`); the pipeline suite untouched.
 - [ ] **Step 7: Commit** — `git add service/rhyflitzer_api/challenge.py service/rhyflitzer_api/roadgrid.py service/rhyflitzer_api/preview.py service/rhyflitzer_api/config.py service/rhyflitzer_api/store.py service/rhyflitzer_api/app.py service/rhyflitzer_api/worker.py service/tests/ && git commit -m "feat(service): ALTCHA human check on new builds and a frame preview (#168)" && git push`
 
 ---
@@ -2709,6 +2777,14 @@ def test_readme_documents_the_worker_cap_and_the_secret():
     text = (SERVICE / "README.md").read_text()
     assert "mem_limit: 3g" in text and "rhyflitzer_admin_token" in text and "python -m rhyflitzer_api.worker" in text
     assert "rhyflitzer_altcha_secret" in text and "ALTCHA_SECRET_FILE" in text
+
+
+def test_admin_stays_off_traefik():
+    text = (SERVICE / "README.md").read_text()
+    assert "!PathPrefix(`/api/admin`)" in text and "create_admin_app" in text and "127.0.0.1:8081:8001" in text
+    admin = text.split("  rhyflitzer-admin:")[1].split("\n```")[0]
+    assert "traefik.enable=true" not in admin and "traefik.http" not in admin and "- web" not in admin
+    assert "rhyflitzer_admin_token" not in text.split("  rhyflitzer-worker:")[0]
 ```
 
 - [ ] **Step 2: Run** — Expected: FAIL (`FileNotFoundError: .../service/Dockerfile`).
@@ -2771,10 +2847,8 @@ CMD ["uvicorn", "rhyflitzer_api.app:create_app", "--factory", "--host", "0.0.0.0
     mem_limit: 512m
     environment:
       - CORS_ORIGINS=https://github.freaxnx01.ch
-      - ADMIN_TOKEN_FILE=/run/secrets/rhyflitzer_admin_token
       - ALTCHA_SECRET_FILE=/run/secrets/rhyflitzer_altcha_secret
     secrets:
-      - rhyflitzer_admin_token
       - rhyflitzer_altcha_secret
     volumes:
       - ./data/rhyflitzer:/data
@@ -2784,7 +2858,7 @@ CMD ["uvicorn", "rhyflitzer_api.app:create_app", "--factory", "--host", "0.0.0.0
       - "traefik.enable=true"
       - "traefik.docker.network=web"
       - "traefik.http.services.rhyflitzer-api.loadbalancer.server.port=8000"
-      - "traefik.http.routers.rhyflitzer-api.rule=Host(`${SUBDOMAIN_RHYFLITZER_API}.${HOST}`)"
+      - "traefik.http.routers.rhyflitzer-api.rule=Host(`${SUBDOMAIN_RHYFLITZER_API}.${HOST}`) && !PathPrefix(`/api/admin`)"
       - "traefik.http.routers.rhyflitzer-api.entrypoints=${ENTRYPOINT}"
       - "traefik.http.routers.rhyflitzer-api.tls.certresolver=default"
       - "traefik.http.routers.rhyflitzer-api.middlewares=myRateLimit@file"
@@ -2803,12 +2877,31 @@ CMD ["uvicorn", "rhyflitzer_api.app:create_app", "--factory", "--host", "0.0.0.0
       disable: true
     labels:
       - "traefik.enable=false"
+
+  rhyflitzer-admin:
+    image: rhyflitzer-api:latest
+    container_name: rhyflitzer-admin
+    command: ["uvicorn", "rhyflitzer_api.app:create_admin_app", "--factory", "--host", "0.0.0.0", "--port", "8001", "--no-access-log"]
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      - ADMIN_TOKEN_FILE=/run/secrets/rhyflitzer_admin_token
+    secrets:
+      - rhyflitzer_admin_token
+    volumes:
+      - ./data/rhyflitzer:/data
+    ports:
+      - "127.0.0.1:8081:8001"   # the host's loopback only: reached over SSH, never routed by Traefik
+    healthcheck:
+      disable: true
+    labels:
+      - "traefik.enable=false"
 ```
 
-   plus, under the file's top-level `secrets:`: `rhyflitzer_admin_token: {file: "./secrets/rhyflitzer_admin_token.secret"}` and `rhyflitzer_altcha_secret: {file: "./secrets/rhyflitzer_altcha_secret.secret"}` (only the API service mounts them), and in `production/vserver/.env`: `SUBDOMAIN_RHYFLITZER_API=rhyflitzer-api`. (Volume path: follow the file's existing convention if it differs from `./data/…`.)
+   plus, under the file's top-level `secrets:`: `rhyflitzer_admin_token: {file: "./secrets/rhyflitzer_admin_token.secret"}` and `rhyflitzer_altcha_secret: {file: "./secrets/rhyflitzer_altcha_secret.secret"}` (the admin token is mounted only into `rhyflitzer-admin`, the ALTCHA key only into `rhyflitzer-api`), and in `production/vserver/.env`: `SUBDOMAIN_RHYFLITZER_API=rhyflitzer-api`. (Volume path: follow the file's existing convention if it differs from `./data/…`.)
 4. **Operator checklist** — the numbered list from #168's "Operator checklist" section, verbatim.
-5. **Admin** — `curl -X PUT -H "Authorization: Bearer $(cat <token file>)" -H 'Content-Type: application/json' -d '{"title":"…","description":"…"}' https://rhyflitzer-api.freaxnx01.ch/api/admin/gallery/<id>` and the `DELETE` form; never paste the token into a shell history or a file in a repo.
+5. **Admin (SSH only)** — the admin routes are not on the public host. Tunnel: `ssh -N -L 8081:127.0.0.1:8081 ionos1`, then the CLI against `RHYFLITZER_ADMIN_API=http://127.0.0.1:8081` (token from the environment, e.g. out of Passbolt). Or run it on the server, which needs no tunnel: `ssh ionos1 "docker exec rhyflitzer-admin sh -c 'RHYFLITZER_ADMIN_API=http://127.0.0.1:8001 RHYFLITZER_ADMIN_TOKEN=\$(cat /run/secrets/rhyflitzer_admin_token) python scripts/gallery.py add <id> \"Title\" \"Description\"'"` (the CLI is #170's; the token is read inside the container and never printed). Never paste the token into a shell history or a file in a repo.
 6. **Operations** — the human check (`ALTCHA_COST`, default 5000: ~1 s on a phone; raise to tighten) and the preview threshold (`RACE_MIN_ROAD_M`, default 3000); health URL; logs `docker logs rhyflitzer-worker | jq .`; where data lives (`/data`: `service.sqlite3`, `worlds/`, `extract/`, `cache/`); a failed extract update keeps the old file; an OOM kill shows as `build-failed` "killed by signal 9".
 
-- [ ] **Step 4: Run** — Expected: 3 passed; whole suite green (`cd service && .venv/bin/python -m pytest -q`): 117 tests (116 and one skipped without `osmium-tool`). Pipeline suite unchanged and green.
+- [ ] **Step 4: Run** — Expected: 4 passed; whole suite green (`cd service && .venv/bin/python -m pytest -q`): 122 tests (121 and one skipped without `osmium-tool`). Pipeline suite unchanged and green.
 - [ ] **Step 5: Commit** — `git add service/Dockerfile service/Dockerfile.dockerignore service/README.md service/tests/test_packaging.py && git commit -m "feat(service): Docker image and operator README for ionos1 (#168)" && git push`, then open the PR (`feat(service): region editor build service on ionos1 (#168)`), body listing the operator checklist as the remaining manual part.

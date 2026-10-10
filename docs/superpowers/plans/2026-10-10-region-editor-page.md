@@ -14,7 +14,7 @@
 
 - **Buildless.** No `package.json`, no bundler, no framework. Leaflet and the ALTCHA widget are the only vendored dependencies (`vendor/leaflet/…`, `vendor/altcha/…`) — nothing else from a CDN except the Google Fonts the game already uses.
 - **Never the public OSM tile servers or Overpass.** Tiles come from `wmts.geo.admin.ch`, names from `api3.geo.admin.ch` (both free, `© swisstopo`).
-- **The human check runs only when the player presses Build** (#168 requires an ALTCHA solution on `POST /api/jobs` for a NEW build, nothing else): `GET /api/challenge` → solved in the widget's Web Workers → `"altcha": <payload>` in the POST body. Never at page load, on frame moves, for the preview or while polling. No cookies (`credentials: 'omit'`), no third party, no visual puzzle; the status text comes from `editor/strings.js` (en/de), the widget itself is `display="invisible"`.
+- **The human check runs only when the player presses Build** (#168 requires an ALTCHA solution on `POST /api/jobs` for a NEW build, nothing else): `GET /api/challenge` → solved in the widget's Web Workers → `"altcha": <payload>` in the POST body. Never at page load, on frame moves, for the preview or while polling, **nor when the preview said `exists: true`** (the world is built or queued: the POST goes without `altcha`; if the server still answers `403`, e.g. the world expired meanwhile, one human check and a second POST follow). No cookies (`credentials: 'omit'`), no third party, no visual puzzle; the status text comes from `editor/strings.js` (en/de), the widget itself is `display="invisible"`.
 - **`textContent` only for data** (names, reasons, ids, anything from the API, geo.admin or the URL). The page has no `innerHTML` with a variable in it (#176).
 - **One API constant.** `API_BASE` in `editor/api.js`; every URL is built by a function there. Nothing else knows the host.
 - Strings go through `t(key, ...args)` from `editor/strings.js`; `en` and `de` have the same keys, Swiss spelling (no `ß`). Re-render on `gg-langchange`.
@@ -29,13 +29,13 @@
 - **Snapping happens on release**, not during the drag (`ghost` rect while moving, `commit` on `pointerup`/key). `__ed.rect()` is always a multiple of 250 and 1000–4000 m a side.
 - **LV95 rectangle, not a Mercator box:** the polygon uses the 4 LV95 corners (slightly rotated against the screen in eastern Switzerland); the handles sit on the projected corners, the `.body` on their bounding box. Do not "fix" the rotation.
 - **Outline with a hole:** Büsingen and Campione are holes in `ch_outline.geojson`. `rectInside` must return `false` when a hole lies entirely inside the frame (vertex-inside-rect check), not only when a corner is in the hole.
-- **`parseJob` throws on an unknown status** — the page shows `errServer` then, never a blank panel. Adapting to #168's final JSON is this function plus its test.
-- **Done from `POST`:** a cached world answers `200 { status: "done" }` on the POST itself; the page must not start polling an id it already knows is done.
+- **`parseJob` maps #168's job view** `{id, state, step, position?, error, message, lv95}` onto the page's status (`state` ∈ queued, building, ready, failed, expired; `step` ∈ cutting, terrain, world, places, race, done; `places` and `done` count as `race`) and throws on an unknown `state` — the page shows `errServer` then, never a blank panel.
+- **Done from `POST`:** a cached world answers `200` with `state: "ready"` on the POST itself; the page must not start polling an id it already knows is done.
 - **Disabled Build:** while the outline is loading, while outside Switzerland, and while submitting.
 - **#167's entry point:** `../editor.html?bbox=2666500,1257750,2670000,1261750` from `prototype/` must land on the editor with that frame. The root `editor.html` keeps `location.search` in its redirect, exactly like the root `index.html:9`. Whole metres only; the value is snapped and validated (`parseBbox`), junk falls back to the default frame.
-- **Status endpoint is `/api/worlds/<id>`** (shared with #167's expired-world tombstone), not `/api/jobs/<id>`; `POST /api/jobs` starts a build. `expired` is a valid status and is shown like a failed build.
+- **Progress is polled at `GET /api/jobs/<id>`** (`state`, `step`, `position`); `/api/worlds/<id>` is #167's tombstone (`status`, `bbox`) with no progress, so the page never reads it. `POST /api/jobs` starts a build. `expired` is a valid state, shown like a failed build. Name and race for the done card come from `GET /worlds/<id>/meta.json` (`name`, `race`); **Download world** packs the three files in the browser with #167's `packWorldZip` (#168 has no zip route).
 - **Human check:** `GET /api/challenge` is requested only after Build is pressed (`test_the_human_check_runs_only_when_build_is_pressed_and_shows_its_state`); a `403 human_check_failed` is retried **once** with a fresh challenge, then shown as `errHuman` (`test_a_refused_solution_is_retried_once_with_a_fresh_challenge`, the 403 row of the error table); a fresh `<altcha-widget>` element per attempt, removed afterwards, so no state leaks between attempts.
-- **Preview shape:** `GET /api/preview` answers `{name, gemeinden, raceOk, reason?}` (#168); `raceOk` is `true`, `false` or `null` (no index yet), and only `false` shows the free-driving note (`parsePreview`).
+- **Preview shape:** `GET /api/preview` answers `{id, exists, name, gemeinden, raceOk, reason?}` (#168); `raceOk` is `true`, `false` or `null` (no index yet), and only `false` shows the free-driving note; `exists` (built or queued) lets Build skip the human check (`parsePreview`). The server stays authoritative: a POST without a solution for a new world is `403`.
 
 ---
 
@@ -170,19 +170,20 @@ stateDiagram-v2
     [*] --> Loading: page load (outline + ?bbox= parsed)
     Loading --> Edit: outline loaded → frame drawn, preview requested
     Edit --> Edit: drag / corner / arrow keys → snap 250 m, clamp 1–4 km, CH check,\n?bbox= rewritten, name + race preview (400 ms debounce)
-    Edit --> Verifying: Build (enabled only inside CH) → GET /api/challenge, ALTCHA solved on the device (~1 s)
+    Edit --> Verifying: Build (enabled only inside CH), preview did not say exists → GET /api/challenge, ALTCHA solved on the device (~1 s)
+    Edit --> Submitting: Build, preview said exists → POST without a solution
     Verifying --> Submitting: solved → POST with the solution
     Verifying --> Failed: challenge refused / solving failed → errorKey / errHuman
     Submitting --> Verifying: 403 human_check_failed (once: fresh challenge)
-    Submitting --> Queued: 202 {id, queued, position}
-    Submitting --> Done: 200 {status done} (same frame built before)
+    Submitting --> Queued: 202 {id, state queued, position}
+    Submitting --> Done: 200 {state ready} (same frame built before)
     Submitting --> Failed: 400 / 403 (twice) / 429 / 503 / network → errorKey
-    Queued --> Building: poll says cutting | terrain | world | race
+    Queued --> Building: poll says state building (step cutting | terrain | world | places | race)
     Queued --> Queued: poll every 2 s (5 s after 60 s), position updates
     Building --> Building: poll, step advances
-    Building --> Done: status done {name, race}
-    Queued --> Failed: status failed {reason}
-    Building --> Failed: status failed {reason}
+    Building --> Done: state ready → meta.json {name, race}
+    Queued --> Failed: state failed {error}
+    Building --> Failed: state failed {error}
     Done --> [*]: Drive! → ../?world=<id>
     Done --> Edit: New frame
     Failed --> Edit: Change the frame (frame kept)
@@ -193,9 +194,9 @@ south-west corner stays) · Tab moves on to Build. The map keeps its own +/− a
 
 **Preview** (on every commit, debounced 400 ms, both in parallel, each ignored when a newer commit happened):
 1. `GET api3.geo.admin.ch …/identify?geometry=<centre E,N>&layers=all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill&timeInstant=<year>&sr=2056` → `gemname`.
-2. `GET ${API_BASE}/api/preview?bbox=e0,n0,e1,n1` → `{ name, gemeinden, raceOk }`; `raceOk === false` → the free-driving note; `null`, 404 or an error → no note before the build. No human check here.
+2. `GET ${API_BASE}/api/preview?bbox=e0,n0,e1,n1` → `{ id, exists, name, gemeinden, raceOk }`; `raceOk === false` → the free-driving note; `null`, 404 or an error → no note before the build; `exists === true` → Build skips the human check. No human check here.
 
-**Polling:** `GET ${API_BASE}/api/worlds/<id>` (the status endpoint #167 reads too; `expired` counts as failed); network miss → retry after the same delay, "Connection lost, retrying…" after 3 misses; never gives up.
+**Polling:** `GET ${API_BASE}/api/jobs/<id>` (`state`, `step`, `position`; `expired` counts as failed); network miss → retry after the same delay, "Connection lost, retrying…" after 3 misses; never gives up. On `ready` the page reads `${API_BASE}/worlds/<id>/meta.json` (`name`, `race`) for the done card.
 
 **URL:** `?bbox=e0,n0,e1,n1` in LV95 whole metres (snapped) is read on load and rewritten with `history.replaceState` on every commit — #167's expired-world panel links `../editor.html?bbox=…` (root stub → `editor/`).
 ````
@@ -447,7 +448,7 @@ export function rectInside(rect, geojson) {
 - Test: `prototype/tests/editor-api.test.mjs`, `prototype/tests/editor-strings.test.mjs`
 
 **Interfaces:**
-- `api.js`: `API_BASE`, `GAME_URL`, `WMTS_URL`, `WMTS_ATTRIBUTION`, `jobsUrl()`, `challengeUrl()`, `parsePreview(json) -> {name, raceOk}`, `jobUrl(id)`, `previewUrl(rect)`, `zipUrl(id)`, `shareUrl(id)`, `driveUrl(id)`, `identifyUrl([E, N], year)`, `isWorldId(s)`, `STATUSES`, `STEPS`, `parseJob(json) -> {id, status, position, name, race, reason}`, `errorKey(httpStatus, body) -> key`, `failKey(reason) -> key`, `pollDelay(elapsedMs)`, `gemeindeName(identifyJson) -> string | null`.
+- `api.js`: `API_BASE`, `GAME_URL`, `WMTS_URL`, `WMTS_ATTRIBUTION`, `jobsUrl()`, `challengeUrl()`, `parsePreview(json) -> {name, raceOk, id, exists}`, `jobUrl(id)`, `previewUrl(rect)`, `fileUrl(id, name)`, `metaUrl(id)`, `parseMeta(json) -> {name, race}`, `shareUrl(id)`, `driveUrl(id)`, `identifyUrl([E, N], year)`, `isWorldId(s)`, `STATUSES`, `STEPS`, `parseJob(json) -> {id, status, position, reason}`, `errorKey(httpStatus, body) -> key`, `failKey(reason) -> key`, `pollDelay(elapsedMs)`, `gemeindeName(identifyJson) -> string | null`.
 - `strings.js`: `STRINGS = {en, de}`, `translate(lang, key, ...args)`.
 
 - [ ] **Step 1: Write the failing tests** — `prototype/tests/editor-api.test.mjs`:
@@ -456,7 +457,7 @@ export function rectInside(rect, geojson) {
 // #169: the editor's API contract (phase 3, #168) as pure functions. node --test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { API_BASE, GAME_URL, WMTS_URL, jobsUrl, challengeUrl, parsePreview, jobUrl, previewUrl, zipUrl, shareUrl, driveUrl, identifyUrl, isWorldId, STATUSES, STEPS, parseJob, errorKey, failKey, pollDelay, gemeindeName } from '../../editor/api.js';
+import { API_BASE, GAME_URL, WMTS_URL, jobsUrl, challengeUrl, parsePreview, parseMeta, jobUrl, fileUrl, metaUrl, previewUrl, shareUrl, driveUrl, identifyUrl, isWorldId, STATUSES, STEPS, parseJob, errorKey, failKey, pollDelay, gemeindeName } from '../../editor/api.js';
 
 const ID = '0123456789ab', EHR = [2667000, 1259750, 2669000, 1261750];
 
@@ -465,9 +466,10 @@ test('URLs: everything hangs off the one API_BASE; the share link is the game ro
   assert.equal(GAME_URL, 'https://github.freaxnx01.ch/game-rhyflitzer/');
   assert.equal(jobsUrl(), `${API_BASE}/api/jobs`);
   assert.equal(challengeUrl(), `${API_BASE}/api/challenge`);
-  assert.equal(jobUrl(ID), `${API_BASE}/api/worlds/${ID}`);   // the status endpoint #167 reads too (expired tombstone)
+  assert.equal(jobUrl(ID), `${API_BASE}/api/jobs/${ID}`);   // progress; /api/worlds/<id> is #167's tombstone, not read here
   assert.equal(previewUrl(EHR), `${API_BASE}/api/preview?bbox=2667000,1259750,2669000,1261750`);
-  assert.equal(zipUrl(ID), `${API_BASE}/worlds/${ID}/world.zip`);
+  assert.equal(fileUrl(ID, 'world.json'), `${API_BASE}/worlds/${ID}/world.json`);   // #168 has no zip route
+  assert.equal(metaUrl(ID), `${API_BASE}/worlds/${ID}/meta.json`);
   assert.equal(shareUrl(ID), `https://github.freaxnx01.ch/game-rhyflitzer/?world=${ID}`);
   assert.equal(driveUrl(ID), `../?world=${ID}`);
   assert.match(WMTS_URL, /^https:\/\/wmts\.geo\.admin\.ch\/1\.0\.0\/ch\.swisstopo\.pixelkarte-farbe\/default\/current\/3857\/\{z\}\/\{x\}\/\{y\}\.jpeg$/);
@@ -481,37 +483,54 @@ test('URLs: everything hangs off the one API_BASE; the share link is the game ro
 test('isWorldId: 12 lowercase hex, nothing else goes into a URL', () => {
   assert.equal(isWorldId(ID), true);
   for (const s of ['', '0123456789AB', '0123456789a', '0123456789abc', '../x', '0123456789a<', null, undefined, 12]) assert.equal(isWorldId(s), false, String(s));
-  for (const f of [jobUrl, zipUrl, shareUrl, driveUrl]) assert.throws(() => f('../x'), /world id/);
+  for (const f of [jobUrl, metaUrl, shareUrl, driveUrl, (id) => fileUrl(id, 'world.json')]) assert.throws(() => f('../x'), /world id/);
 });
 
-test('parseJob: normalises, defaults, throws on an unknown status', () => {
-  assert.deepEqual(parseJob({ id: ID, status: 'queued', position: 3 }), { id: ID, status: 'queued', position: 3, name: null, race: null, reason: null });
-  assert.deepEqual(parseJob({ id: ID, status: 'done', name: 'Ehrendingen', race: false }), { id: ID, status: 'done', position: null, name: 'Ehrendingen', race: false, reason: null });
-  assert.deepEqual(parseJob({ id: ID, status: 'failed', reason: 'too-complex' }).reason, 'too-complex');
-  assert.equal(parseJob({ id: ID, status: 'terrain', position: 'x', name: 7 }).name, null);   // wrong types become null, never rendered
-  assert.equal(parseJob({ id: ID, status: 'expired', bbox: { lv95: [2667000, 1259750, 2669000, 1261750] } }).status, 'expired');   // #167's tombstone shape
+test('parseJob: maps #168 state + step onto the page status, throws on an unknown state', () => {
+  const job = (o) => ({ id: ID, state: 'queued', step: null, error: null, message: null, lv95: EHR, ...o });
+  assert.deepEqual(parseJob(job({ position: 3 })), { id: ID, status: 'queued', position: 3, reason: null });
+  assert.equal(parseJob(job({ state: 'building' })).status, 'cutting');   // no STEP line yet
+  for (const [step, status] of [['cutting', 'cutting'], ['terrain', 'terrain'], ['world', 'world'], ['places', 'race'], ['race', 'race'], ['done', 'race']]) {
+    assert.equal(parseJob(job({ state: 'building', step })).status, status, step);
+  }
+  assert.equal(parseJob(job({ state: 'ready', step: 'done', files: `/worlds/${ID}/` })).status, 'done');
+  assert.deepEqual(parseJob(job({ state: 'failed', error: 'too-complex', message: 'x' })), { id: ID, status: 'failed', position: null, reason: 'too-complex' });
+  assert.equal(parseJob(job({ state: 'expired' })).status, 'expired');
+  assert.equal(parseJob(job({ position: 'x' })).position, null);   // wrong types become null, never rendered
   assert.deepEqual(STATUSES, ['queued', 'cutting', 'terrain', 'world', 'race', 'done', 'failed', 'expired']);
   assert.deepEqual(STEPS, ['queued', 'cutting', 'terrain', 'world', 'race', 'done']);
-  for (const bad of [null, {}, { id: ID }, { id: ID, status: 'building' }, { id: 'nope', status: 'queued' }, 'done']) assert.throws(() => parseJob(bad), /job/, JSON.stringify(bad));
+  for (const bad of [null, {}, { id: ID }, job({ state: 'done' }), job({ state: 'constructor' }), job({ id: 'nope' }), 'ready']) assert.throws(() => parseJob(bad), /job/, JSON.stringify(bad));
 });
 
-test('errorKey: HTTP + error code -> string key; failKey: failed.reason -> string key', () => {
+test('parseMeta: the final name and whether the world has a race (null when unknown)', () => {
+  assert.deepEqual(parseMeta({ id: ID, name: 'Ehrendingen · Freienwil', race: true }), { name: 'Ehrendingen · Freienwil', race: true });
+  assert.deepEqual(parseMeta({ name: 7, race: 'yes' }), { name: null, race: null });
+  assert.deepEqual(parseMeta(null), { name: null, race: null });
+});
+
+test('errorKey: HTTP status + #168 error code -> string key; failKey: a failed job error -> string key', () => {
   assert.equal(errorKey(400, { error: 'outside-ch' }), 'errOutsideCh');
-  for (const e of ['too-big', 'too-small', 'bad-bbox']) assert.equal(errorKey(400, { error: e }), 'errBadFrame');
+  for (const e of ['too-big', 'too-small', 'bad-bbox', 'bad-request']) assert.equal(errorKey(400, { error: e }), 'errBadFrame');
   assert.equal(errorKey(400, {}), 'errBadFrame');
-  assert.equal(errorKey(429, { error: 'rate-limit' }), 'errRateLimit');
+  assert.equal(errorKey(429, { error: 'one-at-a-time' }), 'errOneAtATime');
+  assert.equal(errorKey(429, { error: 'daily-limit' }), 'errRateLimit');
+  assert.equal(errorKey(429, { error: 'server-daily-limit' }), 'errServerDaily');
+  assert.equal(errorKey(429, null), 'errRateLimit');
   assert.equal(errorKey(503, { error: 'busy' }), 'errBusy');
+  assert.equal(errorKey(503, { error: 'human-check-unavailable' }), 'errServer');
   for (const s of [0, 500, 502, 404, 418]) assert.equal(errorKey(s, null), 'errServer', String(s));
   assert.equal(failKey('too-complex'), 'errTooComplex');
   assert.equal(failKey('source-unreachable'), 'errSource');
   for (const r of ['timeout', 'build-failed', 'anything', null, 'expired']) assert.equal(failKey(r), 'errBuildFailed', String(r));
 });
 
-test('human check: 403 maps to errHuman; the preview answer is read as raceOk true/false/null', () => {
+test('human check: 403 maps to errHuman; the preview is read as raceOk true/false/null plus id and exists', () => {
   assert.equal(errorKey(403, { error: 'human_check_failed' }), 'errHuman');
   assert.equal(errorKey(403, null), 'errHuman');
-  assert.deepEqual(parsePreview({ name: 'Ehrendingen', gemeinden: ['Ehrendingen'], raceOk: false }), { name: 'Ehrendingen', raceOk: false });
-  assert.deepEqual(parsePreview({ name: null, gemeinden: [], raceOk: true, reason: 'x' }), { name: null, raceOk: true });
+  assert.deepEqual(parsePreview({ id: ID, exists: false, name: 'Ehrendingen', gemeinden: ['Ehrendingen'], raceOk: false }), { name: 'Ehrendingen', raceOk: false, id: ID, exists: false });
+  assert.deepEqual(parsePreview({ id: ID, exists: true, name: null, gemeinden: [], raceOk: true, reason: 'x' }), { name: null, raceOk: true, id: ID, exists: true });
+  assert.equal(parsePreview({ id: 'nope', exists: true }).exists, false);   // no valid id, no skipped human check
+  assert.equal(parsePreview({ id: ID, exists: 'yes' }).exists, false);
   for (const j of [null, {}, { raceOk: null, reason: 'no-road-index' }, { raceOk: 'yes' }, { name: 7, raceOk: 1 }, 'x']) assert.equal(parsePreview(j).raceOk, null, JSON.stringify(j));
   assert.equal(parsePreview({ name: 7 }).name, null);
 });
@@ -578,7 +597,7 @@ export const API_BASE = 'https://rhyflitzer-api.freaxnx01.ch';
 export const GAME_URL = 'https://github.freaxnx01.ch/game-rhyflitzer/';
 export const WMTS_URL = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg';
 export const WMTS_ATTRIBUTION = '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>';   // Leaflet's attribution control, own constant
-export const STATUSES = ['queued', 'cutting', 'terrain', 'world', 'race', 'done', 'failed', 'expired'];   // expired: #167's tombstone
+export const STATUSES = ['queued', 'cutting', 'terrain', 'world', 'race', 'done', 'failed', 'expired'];   // the page's view of #168's state + step
 export const STEPS = STATUSES.slice(0, 6);
 
 export const isWorldId = (s) => typeof s === 'string' && /^[0-9a-f]{12}$/.test(s);   // pipeline frame.world_id (#166)
@@ -586,9 +605,10 @@ function checkId(id) { if (!isWorldId(id)) throw new Error(`bad world id: ${Stri
 
 export const jobsUrl = () => `${API_BASE}/api/jobs`;
 export const challengeUrl = () => `${API_BASE}/api/challenge`;   // ALTCHA, requested only when Build is pressed
-export const jobUrl = (id) => `${API_BASE}/api/worlds/${checkId(id)}`;   // status; same endpoint #167 reads for expired worlds
+export const jobUrl = (id) => `${API_BASE}/api/jobs/${checkId(id)}`;   // progress: {state, step, position?, error, message, lv95}; /api/worlds/<id> is #167's tombstone
+export const fileUrl = (id, name) => `${API_BASE}/worlds/${checkId(id)}/${name}`;   // world.json, terrain.mmh, meta.json; #168 has no zip route
+export const metaUrl = (id) => fileUrl(id, 'meta.json');   // {name, race} for the done card
 export const previewUrl = (rect) => `${API_BASE}/api/preview?bbox=${formatBbox(rect)}`;
-export const zipUrl = (id) => `${API_BASE}/worlds/${checkId(id)}/world.zip`;
 export const shareUrl = (id) => `${GAME_URL}?world=${checkId(id)}`;
 export const driveUrl = (id) => `../?world=${checkId(id)}`;
 
@@ -601,23 +621,32 @@ export function identifyUrl([E, N], year) {
 
 const str = (v) => (typeof v === 'string' ? v : null);
 
-// #168's preview: {name, gemeinden, raceOk, reason?}; raceOk null = no road index yet. Wrong types become null, never rendered.
-export const parsePreview = (json) => ({ name: str(json && json.name), raceOk: json && typeof json.raceOk === 'boolean' ? json.raceOk : null });
+// #168's preview: {id, exists, name, gemeinden, raceOk, reason?}; raceOk null = no road index yet; exists = built or queued, so no human check
+// is needed. Wrong types become null / false, never rendered; `exists` needs a valid id.
+export const parsePreview = (json) => ({ name: str(json && json.name), raceOk: json && typeof json.raceOk === 'boolean' ? json.raceOk : null,
+  id: json && isWorldId(json.id) ? json.id : null, exists: !!json && json.exists === true && isWorldId(json.id) });
 
+const BUILDING = new Map([['cutting', 'cutting'], ['terrain', 'terrain'], ['world', 'world'], ['places', 'race'], ['race', 'race'], ['done', 'race']]);   // #168 step -> page status
+const STATE = new Map([['queued', 'queued'], ['ready', 'done'], ['failed', 'failed'], ['expired', 'expired']]);
+
+// #168's job view {id, state, step, position?, error, message, lv95, files?} -> the page's status; throws on an unknown state.
 export function parseJob(json) {
   if (!json || typeof json !== 'object') throw new Error('bad job: not an object');
   if (!isWorldId(json.id)) throw new Error('bad job: id');
-  if (!STATUSES.includes(json.status)) throw new Error(`bad job: status ${String(json.status)}`);
-  return { id: json.id, status: json.status, position: Number.isInteger(json.position) ? json.position : null,
-    name: str(json.name), race: typeof json.race === 'boolean' ? json.race : null, reason: str(json.reason) };
+  const status = json.state === 'building' ? (BUILDING.get(json.step) || 'cutting') : STATE.get(json.state);
+  if (!status) throw new Error(`bad job: state ${String(json.state)}`);
+  return { id: json.id, status, position: Number.isInteger(json.position) ? json.position : null, reason: str(json.error) };
 }
 
-export function errorKey(httpStatus, body) {
+// meta.json of a built world: the final name (A · B across a border) and whether it has a race (false: free driving only).
+export const parseMeta = (json) => ({ name: str(json && json.name), race: json && typeof json.race === 'boolean' ? json.race : null });
+
+export function errorKey(httpStatus, body) {   // #168 answers {error: "<code>", message}
   const code = body && typeof body.error === 'string' ? body.error : '';
-  if (httpStatus === 400) return code === 'outside-ch' ? 'errOutsideCh' : 'errBadFrame';
-  if (httpStatus === 403) return 'errHuman';
-  if (httpStatus === 429) return 'errRateLimit';
-  if (httpStatus === 503) return 'errBusy';
+  if (httpStatus === 400) return code === 'outside-ch' ? 'errOutsideCh' : 'errBadFrame';   // too-big, too-small, bad-bbox, bad-request
+  if (httpStatus === 403) return 'errHuman';   // human_check_failed
+  if (httpStatus === 429) return code === 'one-at-a-time' ? 'errOneAtATime' : code === 'server-daily-limit' ? 'errServerDaily' : 'errRateLimit';   // daily-limit
+  if (httpStatus === 503 && code === 'busy') return 'errBusy';   // human-check-unavailable is a server problem, not "busy"
   return 'errServer';
 }
 
@@ -654,10 +683,13 @@ const en = {
   licence: 'Map data © OpenStreetMap contributors (ODbL) · Terrain, heights and map © swisstopo',
   errOutsideCh: 'The frame must lie entirely inside Switzerland.', errBadFrame: 'That frame is not allowed: 1 × 1 to 4 × 4 km.',
   errRateLimit: 'You have built enough worlds for today — try again tomorrow, or drive one you built.',
+  errOneAtATime: 'You already have a world being built. Wait until it is done, then build the next one.',
+  errServerDaily: 'The server has built all the worlds it can for today. Try again tomorrow.',
+  dlError: 'The download did not work. Try again.',
   errBusy: 'The server is busy right now. Try again in a few minutes.', errTooComplex: 'Too many buildings or roads in this frame. Try a smaller one.',
   errSource: 'A data source is not reachable right now. Try again later.', errBuildFailed: 'The build failed. Try a different frame.',
   errServer: 'The server is not reachable. Check your connection and try again.',
-  verifying: "Checking you're human…", humanNote: 'Pressing Build runs a short check on your device that you are not a bot (ALTCHA): no cookies, no third party, no puzzle.',
+  verifying: "Checking you're human…", humanNote: 'Pressing Build runs a short check on your device that you are not a bot (ALTCHA): no cookies, no third party, no puzzle. A world that already exists skips it.',
   errHuman: 'The human check did not work. Please try again.',
 };
 const de = {
@@ -674,10 +706,13 @@ const de = {
   licence: 'Kartendaten © OpenStreetMap-Mitwirkende (ODbL) · Gelände, Höhen und Karte © swisstopo',
   errOutsideCh: 'Der Rahmen muss ganz in der Schweiz liegen.', errBadFrame: 'Dieser Rahmen geht nicht: 1 × 1 bis 4 × 4 km.',
   errRateLimit: 'Du hast für heute genug Welten gebaut — versuch es morgen wieder oder fahr in einer, die Du schon gebaut hast.',
+  errOneAtATime: 'Es wird schon eine Welt für Dich gebaut. Warte, bis sie fertig ist, und bau dann die nächste.',
+  errServerDaily: 'Der Server hat für heute alle Welten gebaut, die er schafft. Versuch es morgen wieder.',
+  dlError: 'Der Download hat nicht geklappt. Versuch es noch einmal.',
   errBusy: 'Der Server ist gerade ausgelastet. Versuch es in ein paar Minuten noch einmal.', errTooComplex: 'Zu viele Häuser oder Strassen in diesem Rahmen. Nimm einen kleineren.',
   errSource: 'Eine Datenquelle ist gerade nicht erreichbar. Versuch es später noch einmal.', errBuildFailed: 'Der Bau ist fehlgeschlagen. Versuch einen anderen Rahmen.',
   errServer: 'Der Server ist nicht erreichbar. Prüf Deine Verbindung und versuch es noch einmal.',
-  verifying: 'Wir prüfen, ob Du ein Mensch bist…', humanNote: 'Beim Bauen läuft kurz eine Prüfung auf Deinem Gerät, dass Du kein Bot bist (ALTCHA): ohne Cookies, ohne Dritte, ohne Rätsel.',
+  verifying: 'Wir prüfen, ob Du ein Mensch bist…', humanNote: 'Beim Bauen läuft kurz eine Prüfung auf Deinem Gerät, dass Du kein Bot bist (ALTCHA): ohne Cookies, ohne Dritte, ohne Rätsel. Bei einer Welt, die es schon gibt, entfällt sie.',
   errHuman: 'Die Prüfung, ob Du ein Mensch bist, hat nicht geklappt. Versuch es noch einmal.',
 };
 
@@ -747,7 +782,7 @@ export function translate(lang, key, ...args) {
       <h2 data-i18n="ready"></h2><p id="rname" class="name"></p>
       <a id="drivebtn" class="btn primary" href="#" data-i18n="drive"></a>
       <label class="share"><span data-i18n="share"></span><span class="row"><input id="sharein" type="text" readonly><button id="copybtn" class="btn small" type="button" data-i18n="copy"></button></span></label>
-      <a id="dlbtn" class="btn small" href="#" download data-i18n="download"></a>
+      <a id="dlbtn" class="btn small" href="#" role="button" data-i18n="download"></a><p id="dlmsg" class="err" hidden></p>
       <p id="rwarn" class="warn" hidden data-i18n="freeDriving"></p>
       <button id="newbtn" class="btn small" type="button" data-i18n="newFrame"></button>
     </section>
@@ -845,7 +880,7 @@ const $ = (id) => document.getElementById(id);
 const t = (key, ...args) => translate(window.GG_LANG, key, ...args);
 const CH_BOUNDS = [[45.6, 5.7], [47.95, 10.6]], OUTLINE_URL = '../pipeline/ch_outline.geojson';
 
-const S = { state: 'loading', rect: parseBbox(location.search) || DEFAULT_RECT, fromUrl: !!parseBbox(location.search), outline: null, inside: null, name: null, race: null, job: null, errKey: null };
+const S = { state: 'loading', rect: parseBbox(location.search) || DEFAULT_RECT, fromUrl: !!parseBbox(location.search), outline: null, inside: null, name: null, race: null, exists: false, job: null, errKey: null };
 
 // ---- map ----
 const map = L.map('map', { zoomControl: true, attributionControl: true, maxBounds: CH_BOUNDS, maxBoundsViscosity: 0.8, minZoom: 7, maxZoom: 18 });
@@ -1001,16 +1036,16 @@ frame.setRect(S.rect);
 
 let previewSeq = 0, previewTimer = 0;
 function schedulePreview() {
-  clearTimeout(previewTimer); const seq = ++previewSeq; S.name = undefined; S.race = null;
+  clearTimeout(previewTimer); const seq = ++previewSeq; S.name = undefined; S.race = null; S.exists = false;
   previewTimer = setTimeout(() => preview(seq), 400);
 }
 async function preview(seq) {
   const rect = S.rect;
   const nameP = fetch(identifyUrl(centre(rect), new Date().getFullYear())).then((r) => (r.ok ? r.json() : null)).then(gemeindeName).catch(() => null);
-  const raceP = fetch(previewUrl(rect)).then((r) => (r.ok ? r.json() : null)).then((j) => parsePreview(j).raceOk).catch(() => null);
-  const [name, race] = await Promise.all([nameP, raceP]);
+  const previewP = fetch(previewUrl(rect)).then((r) => (r.ok ? r.json() : null)).then(parsePreview).catch(() => parsePreview(null));
+  const [name, pv] = await Promise.all([nameP, previewP]);
   if (seq !== previewSeq) return;   // a newer commit happened
-  S.name = name; S.race = race; render();
+  S.name = name; S.race = pv.raceOk; S.exists = pv.exists; render();
 }
 
 function commit(rect) {
@@ -1019,7 +1054,7 @@ function commit(rect) {
   if (S.state === 'edit' && S.inside) schedulePreview();
   render();
 }
-window.__ed = { rect: () => S.rect.slice(), state: () => S.state, setRect: (r) => commit(r), commit, map, centre: () => centre(S.rect), preview: () => ({ name: S.name, race: S.race }) };
+window.__ed = { rect: () => S.rect.slice(), state: () => S.state, setRect: (r) => commit(r), commit, map, centre: () => centre(S.rect), preview: () => ({ name: S.name, race: S.race, exists: S.exists }) };
 ```
 
 `renderEdit` already shows `t('nameLoading')` while `S.name === undefined`. `S.name` starts `null` in `S` — change the initial value to `undefined` so the first paint shows `…`.
@@ -1075,17 +1110,17 @@ The widget's methods exist only after its `load` event, hence the listener. If a
 - [ ] **Step 2: Add the build flow to `editor/editor.js`** (imports merged into the existing `api.js` import):
 
 ```js
-import { jobsUrl, jobUrl, zipUrl, shareUrl, driveUrl, parseJob, errorKey, failKey, pollDelay } from './api.js';
+import { jobsUrl, jobUrl, fileUrl, metaUrl, shareUrl, driveUrl, parseJob, parseMeta, errorKey, failKey, pollDelay } from './api.js';
 import { solveHuman, HumanCheckError } from './human.js';
 
-const ACTIVE = ['queued', 'cutting', 'terrain', 'world', 'race'];
 let pollTimer = 0;
 
-async function submit() {   // one human check, then one POST
-  S.state = 'verifying'; render();
-  const altcha = await solveHuman();
+async function submit(withHuman) {   // the human check (only for a new world), then one POST
+  let altcha = null;
+  if (withHuman) { S.state = 'verifying'; render(); altcha = await solveHuman(); }
   S.state = 'submitting'; render();
-  const res = await fetch(jobsUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bbox: S.rect, altcha }) });
+  const body = altcha ? { lv95: S.rect, altcha } : { lv95: S.rect };
+  const res = await fetch(jobsUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   return [res, await res.json().catch(() => null)];
 }
 
@@ -1094,8 +1129,8 @@ const refusedAsRobot = (res, body) => res.status === 403 && body && body.error =
 async function build() {
   if (S.state !== 'edit' || S.inside !== true) return;
   try {
-    let [res, body] = await submit();
-    if (refusedAsRobot(res, body)) [res, body] = await submit();   // once more, with a fresh challenge
+    let [res, body] = await submit(S.exists !== true);   // the preview said the world exists: #168 wants no solution
+    if (refusedAsRobot(res, body)) [res, body] = await submit(true);   // once more with a fresh challenge (also: the world expired meanwhile)
     if (!res.ok) return fail(errorKey(res.status, body));
     applyJob(parseJob(body), 0);
   } catch (e) {
@@ -1105,8 +1140,8 @@ async function build() {
 }
 
 function applyJob(job, startedAt) {
-  S.job = job; S.name = job.name || S.name; if (job.race !== null) S.race = job.race;
-  if (job.status === 'done') { S.state = 'done'; clearTimeout(pollTimer); return render(); }
+  S.job = job;
+  if (job.status === 'done') { S.state = 'done'; clearTimeout(pollTimer); loadMeta(job.id); return render(); }
   if (job.status === 'failed' || job.status === 'expired') return fail(failKey(job.reason || job.status));
   S.state = job.status === 'queued' ? 'queued' : 'building'; S.misses = 0; render();
   const t0 = startedAt || Date.now(); S.startedAt = t0;
@@ -1124,8 +1159,30 @@ async function poll(t0) {
   }
 }
 
+async function loadMeta(id) {   // the final name and the race from meta.json; the preview's guesses stay if it is not readable
+  try {
+    const r = await fetch(metaUrl(id)); if (!r.ok) return;
+    const meta = parseMeta(await r.json());
+    if (S.job && S.job.id === id) { S.name = meta.name || S.name; if (meta.race !== null) S.race = meta.race; render(); }
+  } catch (e) { console.warn('meta.json not readable', e); }
+}
+
+async function fetchOk(url) { const r = await fetch(url); if (!r.ok) throw new Error(String(r.status)); return r; }
+
+async function downloadWorld(e) {   // #168 has no zip route: fetch the three files and pack them with #167's packWorldZip
+  e.preventDefault(); const id = S.job && S.job.id; if (!id) return;
+  try {
+    const { packWorldZip } = await import('../prototype/worlds.js');   // #167
+    const [worldText, metaText] = await Promise.all([fetchOk(fileUrl(id, 'world.json')).then((r) => r.text()), fetchOk(metaUrl(id)).then((r) => r.text())]);
+    const terrain = await fetchOk(fileUrl(id, 'terrain.mmh')).then((r) => r.arrayBuffer());
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([await packWorldZip({ worldText, terrain, metaText, meta: JSON.parse(metaText) })], { type: 'application/zip' }));
+    a.download = `rhyflitzer-${id}.zip`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } catch (err) { console.warn('download failed', err); setText('dlmsg', t('dlError')); show('dlmsg', true); }
+}
+
 function fail(key) { S.state = 'failed'; S.errKey = key; clearTimeout(pollTimer); render(); }
-function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; clearTimeout(pollTimer); show('lost', false); commit(S.rect); }
+function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; clearTimeout(pollTimer); show('lost', false); show('dlmsg', false); commit(S.rect); }
 
 function renderProgress() {
   const job = S.job; if (!job) return;
@@ -1142,7 +1199,7 @@ function renderProgress() {
 function renderResult() {
   const job = S.job; if (!job) return;
   setText('rname', S.name || t('nameNone'));
-  $('drivebtn').href = driveUrl(job.id); $('sharein').value = shareUrl(job.id); $('dlbtn').href = zipUrl(job.id);
+  $('drivebtn').href = driveUrl(job.id); $('sharein').value = shareUrl(job.id);
   show('rwarn', S.race === false);
 }
 
@@ -1165,6 +1222,7 @@ Wire the buttons (after `frame.setRect`):
 ```js
 $('buildbtn').addEventListener('click', build);
 $('newbtn').addEventListener('click', backToEdit); $('changebtn').addEventListener('click', backToEdit);
+$('dlbtn').addEventListener('click', downloadWorld);
 $('copybtn').addEventListener('click', async () => {
   const input = $('sharein');
   try { await navigator.clipboard.writeText(input.value); } catch (e) { input.select(); document.execCommand && document.execCommand('copy'); }
@@ -1173,7 +1231,7 @@ $('copybtn').addEventListener('click', async () => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden && (S.state === 'queued' || S.state === 'building')) { clearTimeout(pollTimer); poll(S.startedAt); } });
 ```
 
-Add `job: () => S.job` to `window.__ed`. The `renderEdit` guard `S.state !== 'edit'` already disables Build while submitting. `ACTIVE` is unused after this step — do not add it (or drop it); keep what the code uses.
+Add `job: () => S.job` to `window.__ed`. The `renderEdit` guard `S.state !== 'edit'` already disables Build while submitting.
 
 - [ ] **Step 3: Check by hand with a stub** — in the browser console `window.__ed` + the network tab: without an API host the POST fails → the failed card says „The server is not reachable…", **Change the frame** returns to edit with the frame kept. (The real flow is pinned by Task 7's stub.)
 
@@ -1197,6 +1255,7 @@ import json
 import re
 import secrets
 import time
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -1217,16 +1276,25 @@ def challenge():
                            "salt": secrets.token_hex(16), "expiresAt": 4102444800}, "signature": "stub"}
 
 
+META = {"format": "MMR1", "id": ID, "name": "Ehrendingen · Freienwil", "race": True, "license": "ODbL"}
+FILES = {"world.json": b'{"format": "MMW1"}', "terrain.mmh": b"MMH1" + bytes(12)}
+
+
+def job(state, step=None, position=None, error=None):
+    """#168's job view: the answer of POST /api/jobs and GET /api/jobs/<id>."""
+    return {"id": ID, "state": state, "step": step, "error": error, "message": None, "lv95": EHR, **({"position": position} if position else {})}
+
+
 IDENTIFY = {"results": [{"attributes": {"jahr": 2026, "is_current_jahr": True, "gemname": "Ehrendingen <b>x</b>"}}]}
 
 
 class Api:
-    """The stubbed build API. `script` is the list of GET /api/worlds/<id> answers in order; `post` the POST answer (status, body) or a list of them;
+    """The stubbed build API. `script` is the list of GET /api/jobs/<id> answers in order; `post` the POST answer (status, body) or a list of them;
     `challenge` the GET /api/challenge answer (None: a fresh valid challenge); `challenge_delay` slows it down so the "checking" state can be seen."""
-    def __init__(self, post=(202, {"id": ID, "status": "queued", "position": 3}), script=(),
-                 preview=(200, {"name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": False}), challenge=None, challenge_delay=0.0):
+    def __init__(self, post=(202, job("queued", position=3)), script=(), meta=(200, META),
+                 preview=(200, {"id": ID, "exists": False, "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": False}), challenge=None, challenge_delay=0.0):
         self.post = [post] if isinstance(post, tuple) else list(post)
-        self.script, self.preview, self.posts, self.gets = list(script), preview, [], 0
+        self.script, self.preview, self.meta, self.posts, self.gets = list(script), preview, meta, [], 0
         self.challenge_answer, self.challenge_delay, self.challenges = challenge, challenge_delay, 0
 
     def route(self, r):
@@ -1237,8 +1305,12 @@ class Api:
             self.challenges += 1; time.sleep(self.challenge_delay); st, body = self.challenge_answer or (200, challenge())
         elif "/api/preview" in url:
             st, body = self.preview
-        elif "/api/worlds/" in url:
+        elif f"/api/jobs/{ID}" in url:
             self.gets += 1; st, body = self.script.pop(0) if len(self.script) > 1 else self.script[0]
+        elif url.endswith(f"/worlds/{ID}/meta.json"):
+            st, body = self.meta
+        elif f"/worlds/{ID}/" in url:
+            return r.fulfill(status=200, headers={"Access-Control-Allow-Origin": "*"}, content_type="application/octet-stream", body=FILES[url.rsplit("/", 1)[1]])
         else:
             return r.fulfill(status=404, body="")
         r.fulfill(status=st, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, body=json.dumps(body))
@@ -1318,28 +1390,29 @@ def test_outside_switzerland_and_the_hole_disable_build(server):
 
 
 def test_build_queued_steps_done_drive_share_download(server):
-    api = Api(script=[(200, {"id": ID, "status": "queued", "position": 2}), (200, {"id": ID, "status": "terrain"}),
-                      (200, {"id": ID, "status": "done", "name": "Ehrendingen · Freienwil", "race": True})])
+    api = Api(script=[(200, job("queued", position=2)), (200, job("building", "terrain")), (200, job("ready", "done"))])
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, api)
         page.click("#buildbtn")
         page.wait_for_function("() => document.querySelector('#steps li.on')?.textContent === 'Queued (#2)'", timeout=20000)
         page.wait_for_function("() => window.__ed.state() === 'done'", timeout=30000)
+        page.wait_for_function("() => document.querySelector('#rname').textContent === 'Ehrendingen · Freienwil'", timeout=10000)   # meta.json
         got = page.evaluate("() => ({ name: document.querySelector('#rname').textContent, drive: document.querySelector('#drivebtn').getAttribute('href'),"
-                            " share: document.querySelector('#sharein').value, dl: document.querySelector('#dlbtn').getAttribute('href'), warn: document.querySelector('#rwarn').hidden,"
+                            " share: document.querySelector('#sharein').value, warn: document.querySelector('#rwarn').hidden,"
                             " edit: document.querySelector('#edit').hidden, drivePx: document.querySelector('#drivebtn').getBoundingClientRect().height })")
         b.close()
-    assert errs == [] and [p["bbox"] for p in api.posts] == [EHR] and api.gets >= 3 and api.challenges == 1
+    assert errs == [] and [p["lv95"] for p in api.posts] == [EHR] and api.gets >= 3 and api.challenges == 1
     assert set(json.loads(base64.b64decode(api.posts[0]["altcha"]))) >= {"challenge", "solution"}   # the widget really solved the stub challenge
     assert got == {"name": "Ehrendingen · Freienwil", "drive": f"../?world={ID}", "share": f"https://github.freaxnx01.ch/game-rhyflitzer/?world={ID}",
-                   "dl": f"{API}/worlds/{ID}/world.zip", "warn": True, "edit": True, "drivePx": 64}
+                   "warn": True, "edit": True, "drivePx": 64}
 
 
 def test_cached_world_is_done_at_once_and_free_driving_is_said(server):
-    api = Api(post=(200, {"id": ID, "status": "done", "name": "Ehrendingen", "race": False}), script=[(500, {})])
+    api = Api(post=(200, job("ready", "done")), script=[(500, {})], meta=(200, {**META, "name": "Ehrendingen", "race": False}))
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, api)
         page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=20000)
+        page.wait_for_function("() => document.querySelector('#rname').textContent === 'Ehrendingen'", timeout=10000)   # meta.json
         page.wait_for_timeout(2500)
         warn = page.evaluate("() => document.querySelector('#rwarn').hidden")
         b.close()
@@ -1350,13 +1423,16 @@ def test_cached_world_is_done_at_once_and_free_driving_is_said(server):
     ((400, {"error": "outside-ch"}), [], "The frame must lie entirely inside Switzerland."),
     ((400, {"error": "too-big"}), [], "That frame is not allowed: 1 × 1 to 4 × 4 km."),
     ((403, {"error": "human_check_failed"}), [], "The human check did not work. Please try again."),   # refused twice: the retry is also refused
-    ((429, {"error": "rate-limit"}), [], "You have built enough worlds for today — try again tomorrow, or drive one you built."),
+    ((400, {"error": "bad-request"}), [], "That frame is not allowed: 1 × 1 to 4 × 4 km."),
+    ((429, {"error": "daily-limit"}), [], "You have built enough worlds for today — try again tomorrow, or drive one you built."),
+    ((429, {"error": "one-at-a-time"}), [], "You already have a world being built. Wait until it is done, then build the next one."),
+    ((429, {"error": "server-daily-limit"}), [], "The server has built all the worlds it can for today. Try again tomorrow."),
     ((503, {"error": "busy"}), [], "The server is busy right now. Try again in a few minutes."),
     ((500, {}), [], "The server is not reachable. Check your connection and try again."),
-    ((202, {"id": ID, "status": "queued", "position": 1}), [(200, {"id": ID, "status": "failed", "reason": "too-complex"})], "Too many buildings or roads in this frame. Try a smaller one."),
-    ((202, {"id": ID, "status": "queued", "position": 1}), [(200, {"id": ID, "status": "failed", "reason": "source-unreachable"})], "A data source is not reachable right now. Try again later."),
-    ((202, {"id": ID, "status": "queued", "position": 1}), [(200, {"id": ID, "status": "failed", "reason": "timeout"})], "The build failed. Try a different frame."),
-    ((202, {"id": ID, "status": "queued", "position": 1}), [(200, {"id": ID, "status": "expired", "bbox": {"lv95": EHR}})], "The build failed. Try a different frame."),
+    ((202, job("queued", position=1)), [(200, job("failed", error="too-complex"))], "Too many buildings or roads in this frame. Try a smaller one."),
+    ((202, job("queued", position=1)), [(200, job("failed", error="source-unreachable"))], "A data source is not reachable right now. Try again later."),
+    ((202, job("queued", position=1)), [(200, job("failed", error="timeout"))], "The build failed. Try a different frame."),
+    ((202, job("queued", position=1)), [(200, job("expired"))], "The build failed. Try a different frame."),
 ])
 def test_every_error_has_a_sentence_and_change_the_frame_returns(server, post, script, text):
     with sync_playwright() as p:
@@ -1403,8 +1479,8 @@ def test_the_human_check_runs_only_when_build_is_pressed_and_shows_its_state(ser
 
 
 def test_a_refused_solution_is_retried_once_with_a_fresh_challenge(server):
-    api = Api(post=[(403, {"error": "human_check_failed"}), (202, {"id": ID, "status": "queued", "position": 1})],
-              script=[(200, {"id": ID, "status": "queued", "position": 1})])
+    api = Api(post=[(403, {"error": "human_check_failed"}), (202, job("queued", position=1))],
+              script=[(200, job("queued", position=1))])
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, api)
         page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=60000)
@@ -1419,7 +1495,43 @@ def test_a_refused_challenge_is_a_sentence_not_a_human_check_error(server):
         page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'failed'", timeout=20000)
         msg = page.text_content("#failmsg")
         b.close()
-    assert errs == [] and api.posts == [] and msg == "The server is busy right now. Try again in a few minutes."
+    assert errs == [] and api.posts == [] and msg == "The server is not reachable. Check your connection and try again."
+
+
+def test_an_existing_world_needs_no_human_check(server):
+    api = Api(preview=(200, {"id": ID, "exists": True, "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": True}), post=(202, job("queued", position=1)))
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.wait_for_function("() => window.__ed.preview().exists === true", timeout=20000)
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=20000)
+        b.close()
+    assert errs == [] and api.challenges == 0 and api.posts == [{"lv95": EHR}]
+
+
+def test_an_existing_world_that_expired_meanwhile_gets_one_human_check_and_a_second_post(server):
+    api = Api(preview=(200, {"id": ID, "exists": True, "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": True}),
+              post=[(403, {"error": "human_check_failed", "message": "x"}), (202, job("queued", position=1))])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.wait_for_function("() => window.__ed.preview().exists === true", timeout=20000)
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=60000)
+        b.close()
+    assert errs == [] and api.challenges == 1 and len(api.posts) == 2 and "altcha" not in api.posts[0] and "altcha" in api.posts[1]
+
+
+@pytest.mark.skipif(not (ROOT / "prototype" / "worlds.js").exists(), reason="#167 (prototype/worlds.js) is not merged yet")
+def test_download_packs_the_three_files_into_a_zip(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api(post=(200, job("ready", "done"))))
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=20000)
+        with page.expect_download() as info:
+            page.click("#dlbtn")
+        path, name = info.value.path(), info.value.suggested_filename
+        b.close()
+    with zipfile.ZipFile(path) as z:
+        names, world = sorted(z.namelist()), z.read("world.json")
+    assert errs == [] and name == f"rhyflitzer-{ID}.zip"
+    assert names == ["LICENSE-ODbL.txt", "meta.json", "terrain.mmh", "world.json"] and world == FILES["world.json"]
 
 
 def test_no_preview_endpoint_means_no_warning_before_the_build(server):
@@ -1477,7 +1589,7 @@ Needs the build API (#168) online; otherwise everything up to Build, and the "se
 - [ ] Drag the frame: it follows the finger as a dashed ghost and snaps when released; the URL's `bbox` changes. Pull a corner: the opposite corner stays, 4 km is the maximum, 1 km the minimum.
 - [ ] Move the frame over Büsingen, over Lake Constance, over Liechtenstein: it turns red, „The frame must lie entirely inside Switzerland", Build is grey.
 - [ ] The name under the size is the Gemeinde at the centre (try Ehrendingen, Baden, Zürich).
-- [ ] Build: „Checking you're human…" for about a second (never at page load or while moving the frame), then the queue position, then the steps light up in turn; Drive! opens the game in the world; the share link works in another browser; Download gives a zip.
+- [ ] Build: „Checking you're human…" for about a second (never at page load or while moving the frame), then the queue position, then the steps light up in turn; Drive! opens the game in the world; the share link works in another browser; Download gives a zip (needs #167). Build the same frame again: no „Checking you're human…“, it goes straight to the world.
 - [ ] Rate limit (6th build in a day) and a busy server show their sentence; Change the frame keeps the frame.
 - [ ] EN/DE toggle at the bottom switches every text at once; 360 px phone: one column, nothing cut off.
 ```
@@ -1497,7 +1609,7 @@ Closes #169. Depends on the API of #168 (contract in the spec); works stand-alon
 
 ## Changes
 - `editor/` (geo, api, strings, frame, human, editor), root `editor.html` redirect (#167 links `../editor.html?bbox=`), `vendor/leaflet/`, `vendor/altcha/` (ALTCHA 3.3.0, MIT, sha256 checked), `docs/design/region-editor/`
-- Status polled at `GET /api/worlds/<id>` (shared with #167's expired tombstone); `POST /api/jobs` starts a build
+- Progress polled at `GET /api/jobs/<id>` (#168); name and race from `meta.json`; Download packs the three files with #167's `packWorldZip`; `POST /api/jobs` starts a build, without a solution when the preview says the world exists
 - `prototype/tests/editor-*.test.mjs`, `prototype/tests/test_editor.py`
 - CHANGELOG, test-todo, README
 
