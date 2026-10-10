@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- **Choose car** on the start screen opens the garage: your car turns on a turntable in the real scene, four bars show its top speed, acceleration, handling and mass, and eleven paints, now with purple and pink, recolour the compact on the spot — the familiar navy stays the default. The DeLorean look-alike is in the garage too, in its fixed brushed steel. Vehicle and paint are remembered, **Race!** starts the mode you were on, and new vehicles show up here as soon as they exist. Works with the keyboard (← → spin, Esc back), the mouse and on the phone.
 - The **J** list has a new place, the **Bergsee** above Bad Säckingen: it drops the car on the road Am Bergsee at the shore, looking out across the water. Type "bergsee" to find it.
 - The **F3** debug panel now has three buttons — **OSM**, **Maps** and **Street View** — that open the spot where your car stands in OpenStreetMap, Google Maps or Google Street View in a new tab. Street View looks the way the car is pointing, so you can compare the game with the real street.
 - The **J** list has a new place, the **Südspange Sisslerfeld** in Eiken: it drops the car at the junction with the Laufenburgerstrasse where the new road is planned to start. Type "südspange" to find it.

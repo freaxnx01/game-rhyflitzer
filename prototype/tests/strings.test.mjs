@@ -89,3 +89,21 @@ test('#108: the surprise hunt has its texts in both languages', () => {
   assert.equal(translate('de', 'surpriseMoon', 10), 'Mondschwerkraft für 10 Sekunden!');
   assert.match(translate('de', 'presentToast', 2, 5, 'x'), /^Geschenk 2\/5/);
 });
+
+test('car selection texts exist in both languages (#7)', () => {
+  assert.equal(translate('en', 'chooseCar'), 'Choose car');
+  assert.equal(translate('en', 'carselCount', 2, 3), 'Car 2 of 3');
+  assert.equal(translate('en', 'garageLabel', 1), 'Garage · 1 vehicle');
+  assert.equal(translate('en', 'garageLabel', 3), 'Garage · 3 vehicles');
+  assert.equal(translate('en', 'veh_compact_name'), 'Sissle Speedster');
+  assert.equal(translate('de', 'chooseCar'), 'Auto wählen');
+  assert.equal(translate('de', 'carselCount', 2, 3), 'Auto 2 von 3');
+  assert.equal(translate('de', 'garageLabel', 1), 'Garage · 1 Fahrzeug');
+  assert.equal(translate('de', 'garageLabel', 3), 'Garage · 3 Fahrzeuge');
+  assert.equal(translate('de', 'veh_compact_class'), 'Kompakt · Klasse B');
+  assert.equal(translate('de', 'carselRace'), 'Los! ›');
+  assert.equal(translate('en', 'veh_delorean_name'), 'Rhy Gullwing');
+  assert.equal(translate('de', 'veh_delorean_class'), 'Edelstahl-Coupé · Klasse B');
+  for (const k of ['veh_delorean_class', 'veh_delorean_desc']) for (const l of ['en', 'de']) assert.notEqual(translate(l, k), k, `${l} ${k}`);
+  for (const k of ['carselTitle', 'carselPrev', 'carselNext', 'carselRotate', 'statTop', 'statAccel', 'statHandling', 'statMass', 'paintLabel', 'paintFixed', 'paintNavy', 'paintSunflower', 'paintSignal', 'paintSwiss', 'paintFlamingo', 'paintPlum', 'paintRhine', 'paintIce', 'paintMeadow', 'paintCream', 'paintCharcoal', 'carselBack', 'veh_compact_desc']) assert.notEqual(translate('de', k), k, k);
+});
