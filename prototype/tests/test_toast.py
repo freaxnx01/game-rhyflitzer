@@ -86,3 +86,24 @@ def test_start_screen_covers_the_checkpoint_block(server):
             const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return el && el.closest('#overlay') ? 'overlay' : (el && el.id) || el?.tagName; }""")
         b.close()
     assert on_top == "overlay", on_top
+
+
+STEER_JS = """() => { const r = id => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect();
+  return b.width ? [b.left, b.top, b.right, b.bottom] : null; };
+  return { vw: innerWidth, vh: innerHeight, debug: r('debug'), tl: r('tl'), steer: ['tL', 'tR', 'tG', 'tB', 'tH'].map(r) }; }"""
+
+
+def test_debug_panel_clears_the_hud_on_a_phone(server):
+    """#178: the open panel (legend + map links) must not sit on the checkpoint block or the steering circles."""
+    with sync_playwright() as p:
+        b, page = start_hand(p, server, "?debug", **VIEWS["touch-phone"])
+        page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=120000)
+        page.evaluate("() => document.getElementById('debughelp').click()")
+        page.wait_for_function("() => window.__mm.debug().legend", timeout=120000)
+        r = page.evaluate(STEER_JS)
+        b.close()
+    d = r["debug"]
+    assert d and d[0] >= 0 and d[1] >= 0 and d[2] <= r["vw"] and d[3] <= r["vh"], r
+    assert not overlaps(d, r["tl"]), r
+    for s in r["steer"]:
+        assert s and not overlaps(d, s), (s, r)

@@ -52,6 +52,8 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #debuglegend{max-width:min(380px,calc(100vw - 72px));max-height:calc(100vh - 420px);overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
 @media (max-width:900px){#debuglegend{max-height:calc(100vh - 290px)}}
 @media (pointer:coarse){#debug{padding-right:48px}#debughelp{width:36px;height:36px;line-height:32px}#debuglegend{max-height:calc(100vh - 400px)}}
+/* #178: the grown panel (legend + map links) now reaches the toast band when anchored at top:120px; drop it below the toast */
+@media (pointer:coarse) and (orientation:portrait){#debug{top:calc(310px + env(safe-area-inset-top,0px))}}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
 /* #hud is pointer-events:none, so the dialog has to opt back in to be clickable at all */
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
