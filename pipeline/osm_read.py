@@ -15,6 +15,7 @@ from geo import Frame
 
 AREA_KEYS = ("building", "natural", "man_made", "landuse", "amenity", "water")
 NODE_KEYS = ("man_made", "junction", "tourism")
+PLACE_AMENITIES = {"place_of_worship", "school", "townhall"}
 
 
 def _is_named_node(tags) -> bool:
@@ -22,6 +23,8 @@ def _is_named_node(tags) -> bool:
         return True
     if tags.get("railway") in ("station", "halt"):
         return True
+    if "place" in tags or tags.get("amenity") in PLACE_AMENITIES or tags.get("leisure") == "stadium":
+        return True   # #166: village names, the J list and checkpoint names of generated worlds
     return tags.get("highway") == "traffic_signals"
 
 
