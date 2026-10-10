@@ -63,6 +63,25 @@ test('#18 autopilot strings exist in both languages', () => {
   assert.equal(translate('en', 'notCountedAuto'), 'with the autopilot, not counted · ');
 });
 
+test('the Navi texts read as instructions in both languages (#106)', () => {
+  assert.equal(translate('en', 'naviIn', '200 m', translate('en', 'dirTurnRight')), 'In 200 m turn right');
+  assert.equal(translate('de', 'naviIn', '200 m', translate('de', 'dirTurnRight')), 'In 200 m rechts');
+  assert.equal(translate('en', 'naviNow', translate('en', 'dirTurnRight')), 'Turn right now');
+  assert.equal(translate('de', 'naviNow', translate('de', 'dirTurnRight')), 'Jetzt rechts');
+  assert.equal(translate('en', 'naviDestIn', '300 m'), 'Destination in 300 m');
+  assert.equal(translate('de', 'naviDestIn', '300 m'), 'Ziel in 300 m');
+  assert.equal(translate('en', 'naviArrived', 'Hallenbad'), 'Arrived: Hallenbad');
+  assert.equal(translate('de', 'naviArrived', 'Hallenbad'), 'Angekommen: Hallenbad');
+  assert.equal(translate('en', 'naviTitle'), 'Navigate to');
+  assert.equal(translate('de', 'naviTitle'), 'Navigieren nach');
+  assert.equal(translate('en', 'naviNoWorld'), 'The Navi needs the OSM world');
+  assert.equal(translate('de', 'naviNoWorld'), 'Das Navi braucht die OSM-Welt');
+  for (const k of ['naviHint', 'naviOn', 'naviOff', 'naviReroute', 'naviNoRoute', 'naviDest', 'keyNavi',
+    'dirSlightLeft', 'dirTurnLeft', 'dirSharpLeft', 'dirSlightRight', 'dirSharpRight', 'dirUturn']) {
+    for (const lang of ['en', 'de']) assert.notEqual(translate(lang, k), k, `${lang}.${k}`);
+  }
+});
+
 test('pause menu texts exist in both languages (#83)', () => {
   assert.equal(translate('en', 'pauseTitle'), 'Paused');
   assert.equal(translate('en', 'pauseResume'), 'Resume');

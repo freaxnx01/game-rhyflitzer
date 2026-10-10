@@ -345,3 +345,14 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] Cockpit view: the arrow, the distance, the checkpoint and road names and the toasts sit below the mirror, not on the glass; in the other views they are back at the top.
 - [ ] Cockpit view, open the start screen and **Choose car**: no mirror over the turntable.
 - [ ] Drive into the Rhine in the cockpit view, also in the shallows near the bank: the mirror has the same underwater look as the windscreen.
+
+## Navigation (#106)
+
+- [ ] **I** → a street ("Bahnhofstrasse · Stein"): the blue route appears on the minimap, the panel on the right shows an arrow, the distance and „In … turn …“; drive it and the turns are announced at the junctions only, not in every bend.
+- [ ] Leave the route on purpose: after about 2 s "Recalculating…" and a new blue line from where you are.
+- [ ] Drive all the way: "Arrived: …" once, the panel disappears. **I** again in the middle switches it off ("Navi off").
+- [ ] **O** → a place: the autopilot drives and the Navi panel guides along the same line; at the end exactly one "Arrived" toast. Take over with A/D: the Navi keeps guiding.
+- [ ] **R**, **J**, a double-click on the map and going back to the start screen (**Esc** → main menu) end the Navi — no "Recalculating…" afterwards, no panel over the start screen.
+- [ ] Hold **Tab**: the route is on the big map too. **F3** debug panel and the toasts do not cover the panel.
+- [ ] German (**DE**): „In 200 m rechts“, „Jetzt links“, „Ziel in …“, „Angekommen: …“.
+- [ ] Phone-width window and a real phone: the panel sits below a toast and above the minimap, nothing overlaps.
