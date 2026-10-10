@@ -13,7 +13,7 @@ def test_cut_commands_extract_each_then_merge(tmp_path):
         assert "-s" in c and c[c.index("-s") + 1] == "smart"
         assert str(src) in c and "--overwrite" in c
         w, s, e, n = map(float, c[c.index("-b") + 1].split(","))
-        assert w < 7.905 and e > 8.030 and s < 47.532 and n > 47.572
+        assert w < 7.905 and e > 8.030 and s < 47.500 and n > 47.572
     assert cmds[2][:2] == ["osmium", "merge"] and cmds[2][-1] == str(tmp_path / "out.osm.pbf")
 
 
