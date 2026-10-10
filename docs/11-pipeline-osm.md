@@ -10,7 +10,7 @@ Replaces the prototype's hand-traced roads, river and houses with real ones from
 
 **`build`** (light) reads that small `.osm.pbf` and writes one JSON file, `data/world_hochrhein.json` (about 2 MB). Modules in `pipeline/`:
 
-- `geo.py`: the shared frame (LV95 origin, game x = east, z = south), default bbox and origin, padding. `terrain.py` uses it too.
+- `geo.py`: the shared frame (LV95 origin, game x = east, z = south), default bbox (`DEFAULT_BBOX`, south to Flugplatz Schupfart since #47) and origin, padding. `CORE_BBOX` keeps the first, smaller region (S 47.532) for the golden tests. `terrain.py` uses it too.
 - `mmh.py`: reads `.mmh` heightmaps and samples them (bilinear).
 - `osm_read.py`: pyosmium reader into ways, areas, named nodes.
 - `world_roads.py`: road pieces, widths, junctions, markings.
@@ -41,6 +41,8 @@ python osm.py cut --pbf-dir ~/geodata/geofabrik --out cache/osm/hochrhein.osm.pb
 ```
 
 Copy `hochrhein.osm.pbf` back to `pipeline/cache/osm/`. The extracts need `switzerland-latest` and a German file covering Baden-Württemberg's Hochrhein (for example `freiburg-regbez`). On the day of the first run the Geofabrik `-latest` URLs were in a redirect loop, so already cached extracts (2026-09-28) were copied in by hand.
+
+The current extract is the **#47 south cut**: `--bbox 7.905 47.500 8.030 47.572`, cut from the same cached 2026-09-28 country files in a throwaway LXC on odroid-plus-pve on 2026-10-10 (4.8 MB; 407,685 nodes, 55,675 ways, 1,970 relations). The same snapshot keeps the core's objects identical, so the core golden numbers did not move. The pre-#47 extract is kept as `cache/osm/hochrhein-core-2026-10-01.osm.pbf`; only `hochrhein.osm.pbf` is current.
 
 The build (seconds, on any machine):
 
@@ -129,7 +131,7 @@ Counts measured on the 2026-10-01 extract while the design was written; the buil
 
 **Water.** Rivers, lakes and riverbanks as polygons, cut into chunks along the river. Each chunk gets a level: the median of the measured terrain inside it, ignoring DEM nodata (exactly 0.0). Chunks with no valid sample inherit their polygon's median, narrow polygons use the terrain at a representative point, and all-nodata means 0.0. The Rhine sits about 5.5 m above the base near Sisseln (the Säckingen power plant reservoir), about -1.5 m downstream, with a step of about 7 m at the Säckingen weir. The base height 284 m is **not** the Sisseln water level.
 
-**Anchors.** `anchors.json` resolves OSM ids to positions: Smile-Kreisel, stations, churches, the two bridges, the DSM chimney (about 140 m) and water tower (about 59 m), Plattform Sisslerfeld (position only, no model), start, checkpoints, finish, minimap labels and areas such as DSM-Firmenich and the Winkelacker quarter. The woods are not an anchor: they come from OSM (see **Forests**). The checkpoints snap to the nearest road in the prototype.
+**Anchors.** `anchors.json` resolves OSM ids to positions: Smile-Kreisel, stations, churches, the two bridges, the DSM chimney (about 140 m) and water tower (about 59 m), Plattform Sisslerfeld (position only, no model), Flugplatz Schupfart (`flugplatzSchupfart`, #47: lon/lat of the aerodrome's centroid, position only, a **J** target), start, checkpoints, finish, minimap labels and areas such as DSM-Firmenich and the Winkelacker quarter. The woods are not an anchor: they come from OSM (see **Forests**). The checkpoints snap to the nearest road in the prototype.
 
 ## Second region: Ehrendingen (#127)
 

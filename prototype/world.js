@@ -605,6 +605,12 @@ export const VILLAGES = [
   { t: 'MUMPF', x: -3484.8, z: 596.6, r: 450 },            // node 192826016
   { t: 'MURG', x: 4361.6, z: -689.8, r: 550 },             // node 240124251
   { t: 'WALLBACH', x: -3984.9, z: -1744.8, r: 450 },       // node 3608448837 (Wallbach, Bad Säckingen)
+  { t: 'EIKEN', x: 1696.8, z: 2139.8, r: 450 },             // node 191017634 (#47: inside the map since the south extension; place nodes via geo.Frame(*DEFAULT_ORIGIN).to_game, 2026-10-10)
+  { t: 'OBERMUMPF', x: -2160.9, z: 2378.8, r: 450 },        // node 1420719124
+  { t: 'OESCHGEN', x: 3788.1, z: 3471.3, r: 450 },          // node 240041868
+  { t: 'SCHUPFART', x: -72.4, z: 4009.3, r: 450 },          // node 240030566
+  { t: 'HELLIKON', x: -3142.8, z: 4582.5, r: 450 },         // node 1592994106
+  { t: 'FRICK', x: 4040.6, z: 4762.8, r: 450 },             // node 191017638
 ];
 // #127: Ehrendingen's village names, place nodes converted with geo.Frame(*EHRENDINGEN_ORIGIN).to_game on 2026-10-09
 export const VILLAGES_EHRENDINGEN = [

@@ -221,15 +221,16 @@ test('villageLabels: only visible names, nearest first', () => {
   assert.deepEqual(villageLabels([], 0, 0), []);
 });
 
-test('VILLAGES: eight uppercase names inside the world, the issue\'s four included', () => {
-  assert.equal(VILLAGES.length, 8);
-  assert.equal(new Set(VILLAGES.map(v => v.t)).size, 8);
+test('VILLAGES: fourteen uppercase names inside the world, the issue\'s four included', () => {
+  assert.equal(VILLAGES.length, 14);
+  assert.equal(new Set(VILLAGES.map(v => v.t)).size, 14);
   for (const v of VILLAGES) {
     assert.equal(v.t, v.t.toUpperCase());
     assert.ok(v.r >= 300 && v.r <= 1000, v.t);
-    assert.ok(v.x > -4689 && v.x < 4750 && v.z > -2350 && v.z < 2034, v.t);   // the world's road extent
+    assert.ok(v.x > -4689 && v.x < 4777 && v.z > -2350 && v.z < 5592, v.t);   // the world's extent since #47
   }
   for (const t of ['BAD SÄCKINGEN', 'STEIN', 'SISSELN', 'SISSLERFELD', 'MÜNCHWILEN']) assert.ok(VILLAGES.some(v => v.t === t), t);
+  for (const t of ['EIKEN', 'OBERMUMPF', 'OESCHGEN', 'SCHUPFART', 'HELLIKON', 'FRICK']) assert.ok(VILLAGES.some(v => v.t === t), t);   // #47
 });
 
 test('roofTop: measured ridge, gable guess, flat roofs at least 3 m', () => {
