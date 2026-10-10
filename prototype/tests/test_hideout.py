@@ -191,3 +191,28 @@ def test_no_find_on_top_of_the_hill(server):
     cx, cz = h["centre"]
     assert min(math.hypot(x - cx, z - cz) for x, z, _ in cavern["path"]) < 10, cavern["path"]   # right over the tower
     assert cavern["found"] is False and h["found"] is False and stored is None, (cavern["path"], h)
+
+
+EDGES_JS = """() => {
+  const h = window.__mm.hideout(), a = 95 * Math.PI / 180, ux = Math.cos(a), uz = Math.sin(a), out = [];
+  for (let s = h.portalS + 2; s <= 105 - 25; s += 3) for (const side of [-1, 1]) for (let d = 5.5; d <= 10; d += 0.25) {
+    const x = h.mouth[0] + ux * s - uz * d * side, z = h.mouth[1] + uz * s + ux * d * side;
+    const top = window.__mm.topAt(x, z), hill = window.__mm.probe(x, z).terrain + window.__mm.cutDepth(x, z);
+    out.push({ s, d: d * side, role: top && top.role, y: top && top.y, hill });
+  }
+  return out;
+}"""
+
+
+@needs_world
+def test_corridor_edges_are_covered_from_above(server):
+    """Downward rays across both edges of the roofed corridor hit the hill's grass at the hill's height: no groove, no
+    trough-wall top showing as two lines along the tunnel."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        pts = page.evaluate(EDGES_JS)
+        br.close()
+    assert errors == []
+    assert len(pts) > 300
+    bad = [pt for pt in pts if pt["role"] != "grass" or abs(pt["y"] - pt["hill"]) > 0.05]
+    assert bad == [], (len(bad), bad[:6])

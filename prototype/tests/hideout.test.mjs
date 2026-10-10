@@ -116,3 +116,14 @@ test('segmentInHideout_AForestEdgeAcrossTheTrenchOrTheCavern', () => {
   assert.ok(!segmentInHideout(cx + 40, cz, cx + 50, cz), 'well off the hill');
   assert.ok(!segmentInHideout(A.mouth[0] - A.ux * 20 - 5, A.mouth[1] - A.uz * 20, A.mouth[0] - A.ux * 20 + 5, A.mouth[1] - A.uz * 20), 'across the road, 20 m before the mouth');
 });
+
+test('roofed_WithAPad_ReachesOverTheTroughWallsAndTheCutEdge', () => {
+  const portal = 12, [cx, cz] = A.centre, at = (s, d) => [A.mouth[0] + A.ux * s - A.uz * d, A.mouth[1] + A.uz * s + A.ux * d];
+  // the trough wall stands 5.5..7.5 m off the axis; the lid has to reach past its outer face and the cut's edge
+  assert.ok(!roofed(...at(50, 7), portal), 'unpadded: the outer half of the wall is not under the lid');
+  for (const d of [7, 7.5, 8.4, -8.4]) assert.ok(roofed(...at(50, d), portal, HIDEOUT, TUNNEL, TUNNEL.wall), `padded, ${d} m off`);
+  assert.ok(!roofed(...at(50, 9), portal, HIDEOUT, TUNNEL, TUNNEL.wall), 'the pad is 2 m, not more');
+  assert.ok(!roofed(...at(portal - 1, 0), portal, HIDEOUT, TUNNEL, TUNNEL.wall), 'the open trench stays open');
+  assert.ok(roofed(cx + cavernR() + 3.9, cz, portal, HIDEOUT, TUNNEL, TUNNEL.wall), 'and round the cavern');
+  assert.ok(!roofed(cx + cavernR() + 4.1, cz, portal, HIDEOUT, TUNNEL, TUNNEL.wall));
+});

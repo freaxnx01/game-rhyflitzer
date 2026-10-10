@@ -649,7 +649,9 @@ function buildCuts() {
 if (L) buildCuts();
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
 function roofedAt(x, z) { return !!HIDE && roofed(x, z, HIDE.portal); }
-function lidH(x, z) { return roofedAt(x, z) ? meshH(x, z) - 0.6 : null; }
+// the lid reaches TUNNEL.wall further out than the corridor, over the trough walls and the cut's edge (drawn and solid)
+function underLid(x, z) { return !!HIDE && roofed(x, z, HIDE.portal, HIDEOUT, TUNNEL, TUNNEL.wall); }
+function lidH(x, z) { return underLid(x, z) ? meshH(x, z) - 0.6 : null; }
 function skyGroundH(x, z) { const g = groundH(x, z, 1e4); return roofedAt(x, z) ? Math.max(g, meshH(x, z)) : g; }
 // water surface at (x, z) for an object at height y, null on land or on a bridge; the river bed is bedDepth under it (groundH, #101)
 function waterLevelAt(x, z, y) { if (onBridge(x, z, y)) return null; const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null || !L) return wl; const sh = streamH(x, z); return sh > -Infinity && roadSurfH(x, z) === -Infinity ? sh : null; }
@@ -857,16 +859,16 @@ function hideoutBuild() {
   // collider takes the lowest corner, so a car on the hill passes over it
   const shapeTop = (g, bottom, topAt) => { const p = g.attributes.position; let lo = Infinity; for (let i = 0; i < p.count; i++) if (p.getY(i) > bottom + 0.01) { const y = topAt(p.getX(i), p.getZ(i)); p.setY(i, y); lo = Math.min(lo, y); } g.computeVertexNormals(); return lo; };
   const wallBox = (x, z, len, rot, bottom, topAt) => { box(len, topAt(x, z) - bottom, u.wall, x, bottom, z, rot, stone, 'stone', [4, 3], 0); const top = shapeTop(parts.stone[parts.stone.length - 1], bottom, topAt); pushOBB({ x, z, hw: len / 2, hd: u.wall / 2, c: Math.cos(rot), s: Math.sin(rot), h: top, low: true, secret: true }); HIDE.walls++; };
-  const underLid = (x, z) => meshH(x, z) - 0.6;
+  const lidTop = (x, z) => meshH(x, z) - 0.6;
   for (const w of wallStations(a.pts, [[0, h.length]], inner + u.wall / 2, 2)) {
     const fl = floor(w.t), ground = meshH(w.x + w.nx * (u.wall / 2 + 0.5), w.z + w.nz * (u.wall / 2 + 0.5));
     if (ground - fl <= 0.1) continue;
     if (inCavern(w.x, w.z, -u.wall)) continue;   // the corridor's walls stop just inside the cavern, where the ring takes over
-    wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, w.t >= HIDE.portal ? underLid : () => ground + 1);   // parapet in the open trench, up to the ceiling under the lid
+    wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, w.t >= HIDE.portal ? lidTop : () => ground + 1);   // parapet in the open trench, up to the ceiling under the lid
   }
   const [cx, cz] = a.centre, fl = floor(h.length), arc = ringArc(h, u); HIDE.floor = fl;
   HIDE.ring = ringStations(cx, cz, arc.r, 24, arc.a0, arc.a1);
-  for (const r of HIDE.ring) wallBox(r.x, r.z, r.len, r.rot, fl, underLid);
+  for (const r of HIDE.ring) wallBox(r.x, r.z, r.len, r.rot, fl, lidTop);
   // the gate: piers in the margins, a lintel over the 9 m opening up to 1 m over the hillside, the sign on its outer face
   const ps = HIDE.portal, px = a.mouth[0] + a.ux * ps, pz = a.mouth[1] + a.uz * ps, pf = floor(ps), rot = h.heading + Math.PI / 2, nx = -a.uz, nz = a.ux;
   for (const side of [-1, 1]) { const d = side * (h.hw + u.margin / 2), x = px + nx * d, z = pz + nz * d; box(u.margin, 5, 1.2, x, pf, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: u.margin / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: pf + 5, secret: true }); }
@@ -1045,7 +1047,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
       const key = i + ',' + j; if (HIDE.lidCells.has(key)) continue; HIDE.lidCells.add(key);
       const g = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N); g.rotateX(-Math.PI / 2); g.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
       const q = g.attributes.position, idx = g.index.array, keep = [];
-      for (let k = 0; k < idx.length; k += 3) { const tx = (q.getX(idx[k]) + q.getX(idx[k + 1]) + q.getX(idx[k + 2])) / 3, tz = (q.getZ(idx[k]) + q.getZ(idx[k + 1]) + q.getZ(idx[k + 2])) / 3; if (roofedAt(tx, tz)) keep.push(idx[k], idx[k + 1], idx[k + 2]); }
+      for (let k = 0; k < idx.length; k += 3) { const tx = (q.getX(idx[k]) + q.getX(idx[k + 1]) + q.getX(idx[k + 2])) / 3, tz = (q.getZ(idx[k]) + q.getZ(idx[k + 1]) + q.getZ(idx[k + 2])) / 3; if (underLid(tx, tz)) keep.push(idx[k], idx[k + 1], idx[k + 2]); }
       if (!keep.length) continue;
       g.setIndex(keep);
       const uv = g.attributes.uv, cArr = new Float32Array(q.count * 3);

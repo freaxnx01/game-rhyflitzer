@@ -39,11 +39,12 @@ export function portalS(groundAt, h = HIDEOUT) {
 }
 export function cavernR(h = HIDEOUT, u = TUNNEL) { return h.cavernHw + u.margin + u.wall / 2; }
 export function inCavern(x, z, pad = 0, h = HIDEOUT) { const a = hideoutAxis(h); return Math.hypot(x - a.centre[0], z - a.centre[1]) <= cavernR(h) + pad; }
-// under the lid: the cavern disc up to the outside of its ring wall, or the tunnel corridor from the portal on
-export function roofed(x, z, portal, h = HIDEOUT, u = TUNNEL) {
-  if (inCavern(x, z, u.wall, h)) return true;
+// under the lid: the cavern disc up to the outside of its ring wall, or the tunnel corridor from the portal on; pad widens
+// both sideways (the drawn lid takes TUNNEL.wall, so it reaches over the trough walls' outer half and the cut's edge)
+export function roofed(x, z, portal, h = HIDEOUT, u = TUNNEL, pad = 0) {
+  if (inCavern(x, z, u.wall + pad, h)) return true;
   const { s, d } = axisCoords(x, z, h);
-  return d <= h.hw + u.margin + u.wall / 2 && s >= portal && s <= h.length;
+  return d <= h.hw + u.margin + u.wall / 2 + pad && s >= portal && s <= h.length;
 }
 // where no tree may grow: the trench and tunnel corridor with 10 m to spare, the cavern with 4 m
 export function inHideout(x, z, h = HIDEOUT) {
