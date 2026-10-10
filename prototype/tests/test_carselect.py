@@ -238,3 +238,24 @@ def test_language_toggle_rerenders_the_open_screen(server):
     assert got == {"title": "Auto wählen", "name": "Sissle Speedster", "cls": "Kompakt · Klasse B", "paint": "Marine",
                    "garage": "Garage · 2 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
     assert errors == []
+
+
+def test_car_mesh_follows_the_reset_after_a_run_is_abandoned(server):
+    """#210: Main menu sends P back to the start; the mesh must go with it, or Choose car shows only the shadow."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.evaluate("() => document.getElementById('startbtn').click()")
+        page.wait_for_function("() => document.querySelector('#overlay').hidden", polling=250, timeout=T)
+        page.evaluate("() => window.__mm.step(2, ['KeyW', 'KeyA'])")        # drive off and turn: mesh and P leave the start
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", polling=250, timeout=T)
+        page.evaluate("() => document.getElementById('pausemenu').click()")  # state is 'racing' after step: confirm the abandon
+        page.wait_for_function("() => window.__mm.pause().confirm", polling=250, timeout=T)
+        page.evaluate("() => document.getElementById('abandonok').click()")
+        page.wait_for_function("() => !document.querySelector('#overlay').hidden", polling=250, timeout=T)
+        got = page.evaluate("""() => { const c = window.__mm.car(), p = window.__mm.carPose();
+            return { dx: p.pos[0] - c.x, dy: p.pos[1] - c.y, dz: p.pos[2] - c.z, yaw: p.rot[1] + window.__mm.heading() }; }""")
+        b.close()
+    assert max(abs(got["dx"]), abs(got["dy"]), abs(got["dz"])) < 1e-6, got
+    assert abs(got["yaw"]) < 1e-6, got
+    assert errors == []
