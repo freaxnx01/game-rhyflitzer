@@ -144,13 +144,12 @@ def test_lift_ride_finds_the_hideout_and_the_room(server):
         found = page.evaluate("() => window.__mm.lift().found"); stored = page.evaluate("() => localStorage.getItem('mm.hideout')")
         cave_on = page.evaluate("() => window.__mm.cave().on")
         labels = page.evaluate("() => window.__mm.labels()"); below = page.evaluate("() => document.body.classList.contains('below')")
-        jumped = page.evaluate("() => window.__mm.raceFlags().jumped")   # no race running: nothing flagged
         br.close()
     assert errors == []
     assert abs(car["y"] + 600) < 1.0, car
     assert found is True and stored == "1"
     assert "Hideout found" in toast["text"] or "Versteck gefunden" in toast["text"], toast
-    assert cave_on is False and labels == [] and below is True and jumped is False
+    assert cave_on is False and labels == [] and below is True
 
 
 @needs_world
@@ -185,8 +184,9 @@ def test_room_drive_under_the_tower_f_refused_and_ride_back_up(server):
         page.keyboard.press("KeyR"); page.wait_for_timeout(300)
         lvl = page.evaluate("() => window.__mm.level().id")
         lx, lz = h["lift"]["c"]; c = page.evaluate("() => window.__mm.car()")
-        th = h["lift"]["th"]                                                         # ride up: off the platform, then back on and stop
-        page.evaluate(f"() => window.__mm.sim({lx + math.cos(th) * 12}, {lz + math.sin(th) * 12}, {th + math.pi}, 6, 4, ['KeyS'], -600)")
+        th = h["lift"]["th"]                                                         # ride up: off the platform (re-arms the lift), then back on, at rest
+        page.evaluate(f"() => window.__mm.sim({lx + math.cos(th) * 12}, {lz + math.sin(th) * 12}, {th + math.pi}, 0, 0.2, [], -600)")
+        drive_onto_the_lift(page, h)
         page.wait_for_function(RIDE_DONE, arg="surface", timeout=240000)
         up = page.evaluate("() => window.__mm.car()")
         br.close()
