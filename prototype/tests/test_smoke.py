@@ -498,8 +498,8 @@ def test_forest_loaded(server):
     info, msgs = load(server, block_world=False)
     f = info["mm"]["counts"]["forest"]
     assert f["polys"] == len(forests)
-    assert 20000 <= f["edge"] and 10000 <= f["fill"] and f["edge"] + f["fill"] <= 70000, f
-    assert 0 < f["trees"] <= f["edge"] + f["fill"] and f["walls"] >= 5000 and 100 <= f["tiles"] <= 200, f
+    assert 20000 <= f["edge"] and 10000 <= f["fill"] and f["edge"] + f["fill"] <= 85000, f
+    assert 0 < f["trees"] <= f["edge"] + f["fill"] and f["walls"] >= 5000 and 100 <= f["tiles"] <= 350, f
     assert msgs == []
     info, _ = load(server, block_world=True)
     assert "forest" not in info["mm"]["counts"]

@@ -86,6 +86,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-11 17:46` The **woods in the south are full again**: since the map grew, the tree budget was eaten up by the trees along the forest edges, so the inside of the woods stood hollow — only a thin row of trees at the rim. The budget is raised, and the woods have their trees inside again.
 - `2026-10-11 14:35` No more water on the **Hauptstrasse**: brooks and canals that ran beside a road were drawn as wide as a river and lay over the road edge. They now stop where they would touch a road.
 - `2026-10-11 12:22` The roads at both ends of the **Fridolinsbrücke** run smoothly onto the bridge now. The ground on the two banks follows the measured terrain, so the car no longer jolts over small ridges where the road meets the bridge in Bad Säckingen and in Stein.
 - On the start screen of a normal-sized window the Ehrendingen and Hochrhein buttons were half hidden under the links at the bottom of the screen and could not be clicked. The links now sit lower while the start screen is open, so both buttons work.

@@ -623,7 +623,7 @@ export function forestEdges(forests, index, maxLen = 48) {
   return out;
 }
 
-export const FOREST_BUDGET = { edgeStep: 6, fillArea: 600, cap: 70000, edgeH: [7, 12], fillH: [8, 14], tile: 512 };
+export const FOREST_BUDGET = { edgeStep: 6, fillArea: 600, cap: 85000, edgeH: [7, 12], fillH: [8, 14], tile: 512 };
 export function forestTrees(forests, index, edges, rnd, budget = FOREST_BUDGET) {
   const edge = [], fill = [], rr = ([a, b]) => a + rnd() * (b - a);
   for (const e of edges) {

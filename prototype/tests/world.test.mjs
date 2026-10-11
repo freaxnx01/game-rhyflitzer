@@ -1082,3 +1082,13 @@ test('terrainGrid without a world keeps the hand layout mesh', async () => {
   const { terrainGrid } = await import('../world.js');
   assert.deepEqual(terrainGrid(null), { GW: 6400, GD: 3800, nx: 400, nz: 240, x0: -3200, z0: -1840, dx: 16, dz: 3800 / 240, h: null });
 });
+
+test('forestTrees: the committed Hochrhein world keeps its fill above 10000 under the budget cap (#272)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const world = JSON.parse(readFileSync(new URL('../../data/world_hochrhein.json', import.meta.url), 'utf8'));
+  const forests = layoutFromWorld(world).forests, fi = forestIndex(forests);
+  const placed = forestTrees(forests, fi, forestEdges(forests, fi), rng(13));
+  assert.ok(placed.edge.length >= 20000, placed.edge.length);
+  assert.ok(placed.fill.length >= 10000, `edge ${placed.edge.length}, fill ${placed.fill.length}, thinned ${placed.thinned}`);
+  assert.ok(placed.edge.length + placed.fill.length <= FOREST_BUDGET.cap);
+});
