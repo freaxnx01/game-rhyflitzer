@@ -76,7 +76,7 @@ The rest procedural, connected by motorways, highways and Rhine bridges.
 
 | Asset | Approach |
 |---|---|
-| Holzbrücke Bad Säckingen | 203.7 m long, 5 m wide, 9 spans, roofed. Model one span, Array modifier along a slightly curved path, add stone piers. Reference: 87 photos on Wikimedia Commons. |
+| Holzbrücke Bad Säckingen | 203.7 m long, 3.4–5 m wide, seven openings on six piers, S-shaped in plan, roofed. Built procedurally in the game since #241. Model one span, Array modifier along a slightly curved path, add stone piers. Reference: 87 photos on Wikimedia Commons. |
 | Fridolinsmünster | Start from LGL LoD2 (nave and roof), hand-model towers, baroque domes, facade details. Optional: phone photogrammetry (Meshroom/RealityScan) as reference or for texture baking. |
 | Plattform Sisslerfeld | Wooden viewing tower, see details below. Photogrammetry from the ground and from the platform; or model in Blender from plans. |
 | Later | Trompeterschloss, Laufenburg and Rheinfelden landmarks |
