@@ -186,7 +186,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd>Tab</kbd><span data-i18n="keyTab">full map (hold)</span>
       <kbd>Q · E</kbd><span data-i18n="keySignals">Turn signals left · right</span>
       <kbd>H · Enter</kbd><span data-i18n="keyHorn">horn</span>
-      <kbd>C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper</span>
+      <kbd>C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper · drone</span>
       <kbd>B</kbd><span data-i18n="keyLookBack">look back (hold)</span>
       <kbd>V</kbd><span data-i18n="keyCar">show / hide the car</span>
       <kbd>G</kbd><span data-i18n="keyBounds">show / hide the Gemeinde boundaries</span>
@@ -258,7 +258,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd>Ctrl</kbd><span data-i18n="keyHandbrake">handbrake (drift)</span>
       <kbd>T</kbd><span data-i18n="keyStyle">toggle graphic style</span>
       <kbd>R</kbd><span data-i18n="keyReset">back on the road</span>
-      <kbd>C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper</span>
+      <kbd>C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper · drone</span>
       <kbd>H · M</kbd><span data-i18n="keyHornMute">horn (also Enter) · mute</span>
       <kbd>N · J</kbd><span data-i18n="keyNitroJump">nitro (hold) · jump to a landmark</span>
       <kbd>Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
@@ -346,6 +346,7 @@ import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKey
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
+import { DRONE, droneSway } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
 import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
@@ -1728,13 +1729,13 @@ function drawConfetti(dt) { if (!confetti.parts.length) { confetti.pts.visible =
 // model: builder id in MODELS (gltf: reserved for a glTF file, not loaded yet); wheels: [x, z] in model metres, each mirrored to ±z
 // mass: only the crash response (speed loss and damage / mass); collision: circle radius in model metres (OBB for long vehicles: #6)
 //   ; engineAt (#105): where the wreck smokes, model metres (x forward, y up, z right) — a vehicle without it smokes from [collision.r, 1, 0]
-// camera: chase distances in world metres, cockpit/bumper eyes in model metres (x forward, y up, side + = right), scaled with the car
+// camera: chase distances in world metres, cockpit/bumper eyes in model metres (x forward, y up, side + = right), scaled with the car; drone: world metres too, not tied to the car's size (#93)
 // sound.crash (#104): weight stretches the crash, thump = the body's note in Hz, noise = the lowpass corner in Hz, gain = its level next to the other sounds
 const VEHICLES = {
   compact: { model: 'compact', gltf: null, scale: 1.0, wheels: [[1.38, 0.86], [-1.38, 0.86]], wheelR: 0.34,
     drive: { top: 60, topNitro: 90, accel: 16, accelNitro: 34, brake: 24, reverse: 8, reverseMax: 14, grip: 9, gripHandbrake: 1.8, steerRate: 2.6, airSteer: 0.4 },
     mass: 1.0, engineAt: [1.5, 1.05, 0], collision: { shape: 'circle', r: 1.3 },
-    camera: { chase: { dist: 6.9, h: 2.6 }, near: { dist: 4.6, h: 1.85 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] } },
+    camera: { chase: { dist: 6.9, h: 2.6 }, near: { dist: 4.6, h: 1.85 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] }, drone: { dist: 18, h: 12 } },
     sound: { gears: [0, 20, 45, 75, 110, 150, 999],
       engine: { cylinders: 4, idleRpm: 850, shiftRpm: 6200, limitRpm: 6800, topKmh: 330, harmonics: [{ mul: 0.5, gain: 0.35, detune: -8 }, { mul: 1, gain: 1, detune: 0 }, { mul: 2, gain: 0.5, detune: 6 }, { mul: 3, gain: 0.22, detune: -5 }, { mul: 4, gain: 0.1, detune: 9 }],
         filter: { idle: 450, open: 2600, offLoad: 0.55, q: 1.6 }, gain: { idle: 0.06, rev: 0.06, load: 0.1 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
@@ -1744,7 +1745,7 @@ const VEHICLES = {
   delorean: { model: 'delorean', gltf: null, scale: 1.0, paint: false, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,
     drive: { top: 49, topNitro: 80, accel: 10, accelNitro: 26, brake: 22, reverse: 8, reverseMax: 12, grip: 8, gripHandbrake: 1.6, steerRate: 2.4, airSteer: 0.4 },
     mass: 1.0, engineAt: [-1.5, 0.95, 0], collision: { shape: 'circle', r: 1.2 },
-    camera: { chase: { dist: 6.9, h: 2.4 }, near: { dist: 4.6, h: 1.7 }, cockpit: { eye: [-0.15, 0.95, -0.38] }, bumper: { eye: [2.15, 0.45, 0] } },
+    camera: { chase: { dist: 6.9, h: 2.4 }, near: { dist: 4.6, h: 1.7 }, cockpit: { eye: [-0.15, 0.95, -0.38] }, bumper: { eye: [2.15, 0.45, 0] }, drone: { dist: 18, h: 12 } },
     sound: { gears: [0, 20, 42, 70, 105, 999],
       engine: { cylinders: 6, idleRpm: 800, shiftRpm: 5200, limitRpm: 5800, topKmh: 295, harmonics: [{ mul: 0.5, gain: 0.45, detune: -7 }, { mul: 1, gain: 1, detune: 0 }, { mul: 2, gain: 0.4, detune: 5 }, { mul: 3, gain: 0.18, detune: -6 }],
         filter: { idle: 380, open: 2200, offLoad: 0.5, q: 1.4 }, gain: { idle: 0.06, rev: 0.05, load: 0.09 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
@@ -2284,13 +2285,13 @@ function stepCar(dt) {
 
 // ---------- camera ----------
 const camPos = new THREE.Vector3(START.x + 12, 20, START.z);
-// four camera views, cycled with C: the original chase cam (default), a closer chase cam, cockpit (driver's eye, left seat) and bumper.
+// five camera views, cycled with C: the original chase cam (default), a closer chase cam, cockpit (driver's eye, left seat), bumper and the drone (#93: high, lazy, hovering).
 // the car model is hidden in the inside views (seen from within, its parts float in the picture)
 // offsets per vehicle: VEH.camera[k] (chase: dist/h in world metres; eye views: car-model metres, x forward, y up, side + = right, scaled with the car)
-const CAM_VIEWS = [{ nameKey: 'camChase', k: 'chase' }, { nameKey: 'camNear', k: 'near' }, { nameKey: 'camCockpit', k: 'cockpit', eye: true }, { nameKey: 'camBumper', k: 'bumper', eye: true }];
+const CAM_VIEWS = [{ nameKey: 'camChase', k: 'chase' }, { nameKey: 'camNear', k: 'near' }, { nameKey: 'camCockpit', k: 'cockpit', eye: true }, { nameKey: 'camBumper', k: 'bumper', eye: true }, { nameKey: 'camDrone', k: 'drone', drone: true }];
 const vehEye = (k) => VEH.camera[k].eye.map(c => c * VEH.scale);
 let camView = 0;
-const CAM = { back: false };   // #65: B held = look back (read each frame in stepCamera)
+const CAM = { back: false, t: 0, aim: new THREE.Vector3(), aiming: false };   // #65: B held = look back (read each frame in stepCamera); #93: the drone's clock, lagging aim point and whether it is seeded
 function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm.camView = camView; toast(tr('camera', tr(CAM_VIEWS[camView].nameKey))); }
 // #10: one heli chase cam, behind and above, looking ahead and down; C does nothing while flying
 // #102: a camera height held 1 m under the hideout's ceiling while the car is down in it (below the hill), the easing
@@ -2298,15 +2299,17 @@ function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm
 function underCeiling(x, z, y) { const lid = caveInside() ? ceilingH(x, z) : null; return lid === null ? y : Math.min(y, lid - 1); }
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
+  if (!v.drone || FLY.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
   car.visible = !v.eye && !HUD.carHidden && !FLY.on; heli.visible = FLY.on;
   if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }
   else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
-    if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-6 * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
+    const drone = !!v.drone; if (drone) { CAM.t += dt; const sw = droneSway(CAM.t); target.x -= fz * sw.side; target.z += fx * sw.side; target.y += sw.up; }   // #93: hover on the car's true right vector (-fz, fx), not on b, so B does not flip it
+    if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
     // #201: in the hall the look point rises with the distance (tilt 0.45 ~ 24 deg), so the tower comes into the frame
     CAVE_CAM.hall = clamp(CAVE_CAM.hall + (caveInside() && roomAt(P.x, P.z) === 'hall' ? 1 : -1) * dt / HALL_CAM.ease, 0, 1);
-    const look = new THREE.Vector3(P.x + bx * 6, P.y + 1.2, P.z + bz * 6); look.y += CAVE_CAM.hall * HALL_CAM.tilt * Math.hypot(camPos.x - look.x, camPos.z - look.z); camera.lookAt(look); }
+    const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim; look.y += CAVE_CAM.hall * HALL_CAM.tilt * Math.hypot(camPos.x - look.x, camPos.z - look.z); camera.lookAt(look); }
   camTail(); }
 function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); sun.position.set(P.x - 300, 400, P.z - 200); sun.target.position.set(P.x, 0, P.z);
   const camWl = waterLevelAt(camera.position.x, camera.position.z, camera.position.y), under = camWl !== null && camera.position.y < camWl; if (under !== UWS.on) setUnderwater(under); }   // #101: the look follows the camera, not the car
