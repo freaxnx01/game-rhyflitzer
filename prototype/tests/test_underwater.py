@@ -221,10 +221,12 @@ def test_bed_has_boulders_weed_fish_and_wrecks_in_the_water(server):
         b, page = open_hand(p, server)
         u = underwater(page)
         wreck = bed(page, *u["wreck"])
+        near = page.evaluate("([x, z]) => window.__mm.nearestSchool(x, z)", list(u["wreck"]))
         b.close()
     assert u["stones"] > 200 and u["weeds"] > 400, u
-    assert u["schools"] == 14 and 8 * 14 <= u["fish"] <= 14 * 14, u
+    assert u["schools"] >= 3 and 8 * u["schools"] <= u["fish"] <= 14 * u["schools"], u   # the wreck schools plus the spread ones
     assert wreck["water"] is not None and wreck["depth"] > 2, wreck            # the wrecks lie in the deep, not on the bank
+    assert near < 1, near                                                      # a school circles the capsized boat (the seed)
 
 
 def test_fish_swim_only_while_you_are_down_there(server):
