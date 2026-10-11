@@ -50,7 +50,7 @@ def test_standin_underpass(server):
         at = page.evaluate("() => window.__mm.gradeAt(1240, 574)")
         xs = page.evaluate("() => window.__mm.crossings()")
         through = page.evaluate("() => window.__mm.sim(1300, 575.3, Math.PI, 12, 10)")
-        grass = page.evaluate("() => window.__mm.grassOverRoad(400, 'Südspange')")
+        grass = page.evaluate("() => window.__mm.grassOverRoad(100, 'Südspange')")
         errors = page.errors
         br.close()
     assert errors == [], errors
@@ -126,7 +126,7 @@ def test_real_route_names_ground_and_underpass(server):
         at = page.evaluate("() => window.__mm.gradeAt(1240, 574)")
         xs = page.evaluate("() => window.__mm.crossings()")
         through = page.evaluate("() => window.__mm.sim(1300, 575.9, Math.PI + 0.026, 12, 10)")
-        grass = page.evaluate("() => window.__mm.grassOverRoad(2000, 'Südspange')")
+        grass = page.evaluate("() => window.__mm.grassOverRoad(100, 'Südspange')")
         signs = page.evaluate("() => window.__mm.roadSigns()")
         errors = page.errors
         br.close()

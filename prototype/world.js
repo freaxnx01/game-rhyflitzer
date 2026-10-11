@@ -770,3 +770,22 @@ export function ringPush(ring, x, z, r) {
 export const TREE_TRUNK = 0.06;
 export function treeTrunkR(h) { return TREE_TRUNK * h; }
 export function treeCollider(x, z, h, base) { const r = treeTrunkR(h); return { x, z, hw: r, hd: r, c: 1, s: 0, h: base + h, circle: r, low: true }; }
+
+// #273: pick a point by its coordinates, not by its index, so a bigger world does not change which points a check sees
+export function sampled(x, z, pct) {
+  const h = (Math.imul(Math.round(x * 4), 73856093) ^ Math.imul(Math.round(z * 4), 19349663)) >>> 0;
+  return h % 100 < pct;
+}
+
+// #273: the height of a triangle list (flat [x, y, z] x 3 per triangle) at (x, z), the highest one there; -Infinity off them all
+export function trisHeightAt(tris, x, z) {
+  let h = -Infinity;
+  for (let k = 0; k < tris.length; k += 9) {
+    const ax = tris[k], ay = tris[k + 1], az = tris[k + 2], bx = tris[k + 3], by = tris[k + 4], bz = tris[k + 5], cx = tris[k + 6], cy = tris[k + 7], cz = tris[k + 8], det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+    if (Math.abs(det) < 1e-12) continue;
+    const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / det, v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / det, w = 1 - u - v;
+    if (u < -1e-9 || v < -1e-9 || w < -1e-9) continue;
+    h = Math.max(h, u * ay + v * by + w * cy);
+  }
+  return h;
+}
