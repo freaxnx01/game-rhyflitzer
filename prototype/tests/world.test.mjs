@@ -347,6 +347,13 @@ test('bankTop is the first sample where the rise over the next 4 m drops below 8
   assert.equal(bankTop([0, 1, 2, 3, 4, 5]), 5);
   assert.equal(bankTop([5, 4, 3, 2, 1, 0]), 0);                                          // falling ground is not a bank to climb
 });
+test('bankTop never stops on the face: a sample whose next metre still climbs more than twice the grade is not the top (#47)', () => {
+  // Fricktalstraße up the Bad Säckingen bank on the 8 m terrain: index 10 passes the 4 m chord test ((6.81 - 6.55) / 4 = 0.065)
+  // although its own next metre still climbs 0.25 m -- taken as the top, it put the abutment 0.25 m down the face (0.24 m drape step)
+  assert.equal(bankTop([3.58, 3.9, 4.23, 4.55, 4.87, 5.19, 5.51, 5.77, 6.03, 6.29, 6.55, 6.8, 6.83, 6.81, 6.8, 6.79, 6.78, 6.77]), 11);
+  // the same road's twin on the 4 m terrain: index 10's next metre climbs 0.08, under the cap -- unchanged
+  assert.equal(bankTop([3.49, 3.89, 4.29, 4.7, 5.1, 5.5, 5.91, 6.3, 6.65, 6.99, 7.34, 7.42, 7.41, 7.4, 7.39, 7.38, 7.37, 7.36]), 10);
+});
 test('pastEnd tells before the start, past the end and on the polyline apart', () => {
   const pts = [[0, 0], [10, 0], [10, 10]];
   assert.equal(pastEnd(pts, -1, 2), -1);

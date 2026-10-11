@@ -462,8 +462,10 @@ export function bridgeChain(pieces, seed) {
   for (let grew = true; grew;) { grew = false; for (let i = 0; i < pieces.length; i++) { const p = pieces[i]; if (out.includes(i) || p.kind !== 'generic' || p.name !== name || !touches(p)) continue; out.push(i); grew = true; } }
   return out;
 }
-// #78: first sample (1 m apart) whose rise over the next `run` samples is below maxGrade: the top of the bank an approach road climbs
-export function bankTop(hs, maxGrade = 0.08, run = 4) { for (let i = 0; i + run < hs.length; i++) if ((hs[i + run] - hs[i]) / run < maxGrade) return i; return hs.length - 1; }
+// #78: first sample (1 m apart) whose rise over the next `run` samples is below maxGrade: the top of the bank an approach road climbs.
+// #47: and whose own next metre climbs less than twice that -- one steep last metre of the face (0.25 m on the 8 m terrain) passes the
+// chord test from a sample still on the face, which put the abutment 0.25 m below the bank top
+export function bankTop(hs, maxGrade = 0.08, run = 4) { for (let i = 0; i + run < hs.length; i++) if ((hs[i + run] - hs[i]) / run < maxGrade && hs[i + 1] - hs[i] < 2 * maxGrade) return i; return hs.length - 1; }
 // #78: -1 behind the polyline's first vertex, 1 beyond its last, else 0 (nearestOnPolyline clamps, this does not)
 export function pastEnd(pts, x, z) {
   const n = pts.length, [ax, az] = pts[0], [bx, bz] = pts[1], [cx, cz] = pts[n - 2], [dx, dz] = pts[n - 1];
