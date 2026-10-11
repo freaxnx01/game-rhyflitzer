@@ -61,10 +61,23 @@ def _lines(ways):
     return [w for w in ways if w.tags.get("waterway") in LINE_WIDTH and w.tags.get("tunnel", "no") == "no"]
 
 
-def streams(areas, ways, clip):
+NOT_A_CARRIAGEWAY = ("footway", "path", "steps", "cycleway")
+
+
+def _cut_from_roads(line, width, roads):
+    """The line without the parts where a ribbon of `width` would touch a road (road half width + ribbon half width from
+    the road's centre line). Bridges and footpaths do not count: the water runs under the first, beside the second."""
+    near = [shapely.LineString(r["pts"]).buffer(r["w"] / 2 + width / 2) for r in roads
+            if not r["bridge"] and r["cls"] not in NOT_A_CARRIAGEWAY and len(r["pts"]) > 1]
+    near = [b for b in near if b.intersects(line)]
+    return line.difference(shapely.unary_union(near)) if near else line
+
+
+def streams(areas, ways, clip, roads=()):
     """Rivers, canals and streams mapped only as a centre line, as {name, w, pts} in flow direction (OSM draws
     waterways downstream). Parts inside area water and piped parts (tunnel/culvert) are left out. The prototype drapes
-    them on the ground like a road, because a flat water level cannot follow a stream that falls 25 m across the map."""
+    them on the ground like a road, because a flat water level cannot follow a stream that falls 25 m across the map.
+    Where a ribbon of its width would touch a road (roads: world road dicts), the line is cut away."""
     area = polygons(areas, ways, clip)
     covered = shapely.unary_union(area).buffer(1.0) if area else None
     out = []
@@ -75,6 +88,8 @@ def streams(areas, ways, clip):
         line = w.line.intersection(clip)
         if covered is not None:
             line = line.difference(covered)
+        if roads:
+            line = _cut_from_roads(line, _width(w.tags, kind), roads)
         parts = [line] if line.geom_type == "LineString" else [g for g in getattr(line, "geoms", []) if g.geom_type == "LineString"]
         for part in parts:
             if part.is_empty or part.length < 5:

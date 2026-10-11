@@ -133,3 +133,31 @@ def test_to_json_carries_the_water_name():
     out = Wt.to_json(polys, None, None, [pond, bank], [brook, rhine])
     assert sorted(w["name"] for w in out) == ["Rhein", "Weiher"]
     assert Wt.to_json(polys, None, None)[0].get("name", "") == ""
+
+
+ROAD = shapely.LineString([(0, 100), (400, 100)])
+
+
+def _road(cls="primary", bridge=False, w=9.0):
+    return {"pts": [list(c) for c in ROAD.coords], "w": w, "cls": cls, "bridge": bridge}
+
+
+def test_canal_beside_a_road_is_cut_away_where_its_ribbon_would_touch_the_road():
+    """#229: an untagged canal is 10 m wide; 6 m from a 9 m road its ribbon lay on the carriageway."""
+    canal = Way(7, {"waterway": "canal"}, shapely.LineString([(0, 106), (400, 106)]))
+    assert Wt.streams([], [canal], CLIP, roads=[_road()]) == []
+    assert len(Wt.streams([], [canal], CLIP)) == 1                         # no roads given: unchanged
+
+
+def test_canal_crossing_a_road_is_cut_at_the_crossing_only():
+    canal = Way(8, {"waterway": "canal"}, shapely.LineString([(200, 0), (200, 400)]))
+    st = Wt.streams([], [canal], CLIP, roads=[_road()])
+    assert len(st) == 2
+    for s in st:
+        assert all(abs(z - 100) >= 4.5 + 5.0 - 1e-6 for _, z in s["pts"])
+
+
+def test_bridges_and_footpaths_do_not_cut_a_stream():
+    canal = Way(9, {"waterway": "canal"}, shapely.LineString([(0, 106), (400, 106)]))
+    for road in (_road(bridge=True), _road(cls="footway", w=2.0), _road(cls="path", w=1.0)):
+        assert len(Wt.streams([], [canal], CLIP, roads=[road])) == 1
