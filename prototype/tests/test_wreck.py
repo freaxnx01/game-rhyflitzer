@@ -181,9 +181,12 @@ def test_hud_shows_the_damage(server):
 def test_wreck_and_respawn_leave_gpu_memory_flat(server):
     with sync_playwright() as p:
         b, page, _ = open_hand(p, server)
+        page.evaluate("() => { window.__mm.setDamage(1); window.__mm.wreckSim(3.2); }")
+        wait_frames(page)      # the first visible puff uploads the sprite quad and the smoke texture once; like test_rebuilds_free_gpu_memory, measure after that
         before = page.evaluate("() => window.__mm.gpu()")
         for _ in range(2):
             page.evaluate("() => { window.__mm.setDamage(1); window.__mm.wreckSim(3.2); }")
+        wait_frames(page)
         after = page.evaluate("() => window.__mm.gpu()")
         b.close()
     assert after == before, (before, after)
