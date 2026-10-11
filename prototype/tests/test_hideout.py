@@ -354,7 +354,7 @@ def test_ring_wall_stays_under_the_hill(server):
         br.close()
     assert errors == []
     assert set(ring) == {"r0", "n1", "lobby"} and ring["r0"] >= 12 and ring["n1"] >= 6 and ring["lobby"] >= 6, ring
-    assert len(blocks) == ring["r0"] + ring["n1"]
+    assert len(blocks) == sum(ring.values())
     bad = [pt for blk in blocks for pt in blk if pt["role"] != "grass" or abs(pt["y"] - pt["hill"]) > 0.05]
     assert bad == [], (len(bad), bad[:6])
 
