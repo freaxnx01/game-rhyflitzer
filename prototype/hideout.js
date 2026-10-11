@@ -22,7 +22,8 @@ export const CAVE = {
 };
 // #201: the life-size tower. feet: the four foot boxes (relative to the hall centre, metres), measured 2026-10-11 from the loaded
 // model's footprints (__mm.eiffelFootprints): vertices below 20 m span x 36.8..69.7, z 36.8..68.6 per quadrant; the placeholder's legs end on them.
-export const EIFFEL = { h: 330, feet: [[-53, -53], [53, -53], [53, 53], [-53, 53]], footHw: 17, footH: 60, url: './assets/models/eiffel_tower.glb', colour: 0x6b4a32, roughness: 0.75, metalness: 0.35, loadWithin: 400 };
+// #201 look: metalness low -- without an environment map a metallic surface only swallows the floodlight, it reflects nothing
+export const EIFFEL = { h: 330, feet: [[-53, -53], [53, -53], [53, 53], [-53, 53]], footHw: 17, footH: 60, url: './assets/models/eiffel_tower.glb', colour: 0x6b4a32, roughness: 0.6, metalness: 0.1, loadWithin: 400 };
 // #201: the extent of [x, z] points -- a loop, not Math.min(...spread): the real model's leg has far more vertices than V8's argument limit
 export function pointBounds(points) {
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
@@ -33,7 +34,11 @@ export function pointBounds(points) {
 export const HALL_CAM = { tilt: 0.45, ease: 1 };
 // #201: four floodlights on the hall's diagonals at radius r, aimed aimY m up the tower (three r170 physical units: cd; 8000 cd
 // at 171 m with decay 2 give ~0.27 each, ~1.1 summed at the aim point -- the sun outside is 0.75)
-export const TOWER_SPOTS = { r: 140, aimY: 100, intensity: 8000, distance: 600, angle: 0.5, penumbra: 0.5 };
+// #201 look: angle 0.75 (43 deg, full to 26) -- the summit is 30 deg off the aim axis, a 0.5 cone left the top two thirds unlit
+export const TOWER_SPOTS = { r: 140, aimY: 100, intensity: 8000, distance: 600, angle: 0.75, penumbra: 0.4 };
+// #201 look: two summit lights beside the top (cx +- r, floor + y, cz), so the spire and the ceiling over it glow where the
+// floodlights (0.1 each at 280 m) no longer reach; 3000 cd at 60 m give ~0.8, the ceiling 80 m up ~0.3
+export const TOWER_TOP = { r: 60, y: 300, intensity: 3000, distance: 400 };
 
 export function hideoutAxis(h = HIDEOUT) {
   const ux = Math.cos(h.heading), uz = Math.sin(h.heading), mouth = [h.mouth[0], h.mouth[1]], centre = [mouth[0] + ux * h.length, mouth[1] + uz * h.length];

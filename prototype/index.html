@@ -332,7 +332,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
-import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, HALL_CAM, TOWER_SPOTS, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
+import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, HALL_CAM, TOWER_SPOTS, TOWER_TOP, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -1091,14 +1091,18 @@ function caveBuild(fl) {
   const lower = new THREE.CylinderGeometry(R, R, TUNNEL_CEIL, 64, 1, true, th0, thLen); lower.translate(cx, fl + TUNNEL_CEIL / 2, cz);
   const upper = new THREE.CylinderGeometry(R, R, hn.ceiling - TUNNEL_CEIL, 64, 1, true); upper.translate(cx, fl + TUNNEL_CEIL + (hn.ceiling - TUNNEL_CEIL) / 2, cz);
   const top = new THREE.CircleGeometry(R, 64); top.rotateX(Math.PI / 2); top.translate(cx, fl + hn.ceiling, cz);
-  const g = mergeGeometries([lower, upper, top].map(q => q.toNonIndexed()), false), jitter = rng(201); colorize(g, col('#3a3632'));
-  { const c = g.attributes.color; for (let i = 0; i < c.count; i++) { const f = 0.75 + 0.25 * jitter(); c.setXYZ(i, c.getX(i) * f, c.getY(i) * f, c.getZ(i) * f); } }
+  // #201 look: warm grey rock, jittered, and darker with height (1 at the floor, 0.35 at the ceiling), so the walls read as a
+  // hall around the car while the ceiling 380 m up stays lost in the dark
+  const g = mergeGeometries([lower, upper, top].map(q => q.toNonIndexed()), false), jitter = rng(201); colorize(g, col('#5a524a'));
+  { const c = g.attributes.color, pos = g.attributes.position; for (let i = 0; i < c.count; i++) { const f = (0.75 + 0.25 * jitter()) * (1 - 0.65 * Math.min(1, (pos.getY(i) - fl) / hn.ceiling)); c.setXYZ(i, c.getX(i) * f, c.getY(i) * f, c.getZ(i) * f); } }
   const shell = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, vertexColors: true })); shell.userData.role = 'shell'; group.add(shell);
   // floodlights on the diagonals, aimed up the tower; base lights along T2b's axis for the floor between the legs
   const T = TOWER_SPOTS, d = T.r / Math.SQRT2;
   for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const l = new THREE.SpotLight(0xffd9a0, T.intensity, T.distance, T.angle, T.penumbra, 2); l.position.set(cx + ox * d, fl + 2, cz + oz * d); l.target.position.set(cx, fl + T.aimY, cz); l.userData.kind = 'spot'; group.add(l, l.target); HIDE.lights.push(l); }
   const [p, q] = linkPts(CAVE.links[1]), len = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / len, uz = (q[1] - p[1]) / len;
   for (const k of [-1, 1]) { const l = new THREE.PointLight(0xffe2b0, 400, 120, 2); l.position.set(cx + ux * 60 * k, fl + 6, cz + uz * 60 * k); l.userData.kind = 'point'; group.add(l); HIDE.lights.push(l); }
+  // #201 look: the summit lights, one each side of the top across T2b's axis (TOWER_TOP)
+  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xfff1d6, TOWER_TOP.intensity, TOWER_TOP.distance, 2); l.position.set(cx - uz * TOWER_TOP.r * k, fl + TOWER_TOP.y, cz + ux * TOWER_TOP.r * k); l.userData.kind = 'point'; group.add(l); HIDE.lights.push(l); }
   eiffelTower(cx, cz, fl);
 }
 // #201: the tower's placeholder -- the #102 primitives at 330 m with the legs on the model's feet (hideout.js describes it), one
@@ -1846,9 +1850,11 @@ let styleKey = 'original';
 function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on) setCave(true); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
 function treesVisible(on) { const St = STYLES[styleKey]; treeBill.visible = on && St.trees === 'bill'; treeCone.visible = treeTrunk.visible = on && St.trees === 'cone'; for (const f of FOREST_MESHES) { f.bill.visible = on && St.trees === 'bill'; f.cone.visible = f.trunk.visible = on && St.trees === 'cone'; } }
-// #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool faint hemisphere light, the sun as a faint top
-// light without shadows, no trees, no sun disc; off restores the style (modelled on setUnderwater; the two are never both on)
-const CAVE_LOOK = { fog: '#07080a', density: 0.0016, hemiSky: '#4a5468', hemiGround: '#1a1612', hemi: 0.35, sunFactor: 0.15 };
+// #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
+// light without shadows, no trees, no sun disc; off restores the style (modelled on setUnderwater; the two are never both on).
+// Look (#201 polish): density 0.0009 keeps the summit 350 m away at ~10 % fog, not 30 %; the cool blue-grey ambient at 0.55
+// against the amber floodlights is what makes the tower read as lit, not merely as less black than the walls
+const CAVE_LOOK = { fog: '#07080a', density: 0.0009, hemiSky: '#5a6c8c', hemiGround: '#2a2219', hemi: 0.55, sunFactor: 0.25 };
 function setCave(on) {
   CAVE_MODE.on = on; const St = STYLES[styleKey]; if (CAVE_MODE.group) CAVE_MODE.group.visible = on; sunSprite.visible = !on && !UWS.on;
   if (on) { scene.fog = new THREE.FogExp2(col(CAVE_LOOK.fog), CAVE_LOOK.density); skyMat.uniforms.top.value.set(CAVE_LOOK.fog); skyMat.uniforms.hor.value.set(CAVE_LOOK.fog); hemi.color.set(CAVE_LOOK.hemiSky); hemi.groundColor.set(CAVE_LOOK.hemiGround); hemi.intensity = CAVE_LOOK.hemi; sun.intensity = St.sunI * CAVE_LOOK.sunFactor; sun.castShadow = false; renderer.shadowMap.enabled = false; }
