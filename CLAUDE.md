@@ -497,24 +497,24 @@ tag, JSON file, and a second const). The tag is truth; `version.js` mirrors it.
 ## Changelog
 
 `CHANGELOG.md` follows Keep a Changelog with an `[Unreleased]` section, as base
-defines. **The entries are written by hand, and they are the deliverable** — a
-game's changelog is read by the person playing it, so an entry says what changed
-*in the game* („Die Turmhöhe ist jetzt wählbar…"), not what changed in the repo.
-Each PR appends its entry under `[Unreleased]` in that voice.
+defines. **Entries are written by hand, for the person playing the game** — say
+what changed *in the game*, not in the repo. Each PR adds its entry under
+`[Unreleased]`, newest first:
 
-**Never regenerate the file with `git cliff -o CHANGELOG.md`.** It rewrites the
-whole file from commit subjects and deletes the player-facing prose of every
-earlier release — confirmed the hard way while cutting `game-wipfelkratzer`
-v0.6.0 (2026-09-17). Cutting a release is therefore an edit, not a command:
-rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and open a fresh empty
-`[Unreleased]` above it.
+```markdown
+- `2026-10-10 22:32` Press <kbd>U</kbd> to lay a **pontoon bridge** over the Rhine.
+```
 
-`cliff.toml` stays in the repo and `git-cliff` stays useful for *reading* the
-Conventional Commits since the last tag (`git cliff --unreleased` to stdout) —
-as a source to write from, never as a generator that overwrites the file.
-`orhun/git-cliff-action` in CI is likewise fine for GitHub **Release notes**,
-which are separate from `CHANGELOG.md`; the release body can also just be the
-hand-written section for that version.
+- **Timestamp every entry** in local time, no UTC copy:
+  `TZ=Europe/Zurich date '+%F %H:%M'` (a CI runner's clock is UTC).
+- **Bold 1–3 keywords** per entry. Keys go in `<kbd>`, never bold.
+
+**Never regenerate the file with `git cliff -o CHANGELOG.md`** — it overwrites
+the hand-written prose of every release. Cutting a release is an edit: rename
+`## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and open a fresh `[Unreleased]`
+above it. `git cliff --unreleased` (stdout) stays fine as a source to write from.
+
+Full rules: [`changelog.md`](https://github.com/freaxnx01/ai-instructions/blob/main/.ai/references/browser-game/changelog.md)
 
 ---
 
