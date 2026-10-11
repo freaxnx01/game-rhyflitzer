@@ -176,3 +176,15 @@ def test_repo_anchors_place_the_food_truck_on_the_bahnhof_eiken_car_park():
     spec = anchors.load(Path(__file__).parents[1] / "anchors.json")
     t = spec["landmarks"]["foodTruck"]
     assert t["game"] == [1758.5, 1986.5] and t["kind"] == "foodTruck" and t["heading_deg"] == 0
+
+
+def test_repo_anchors_place_flugplatz_schupfart_in_the_south_strip():
+    """#47: the airfield is a lon/lat anchor (aeroway is no area key) inside the new strip, south of the old edge."""
+    spec = anchors.load(Path(__file__).parents[1] / "anchors.json")
+    e = spec["landmarks"]["flugplatzSchupfart"]
+    assert e["lonlat"] == [7.9505, 47.5090] and e["kind"] == "poi"
+    r = anchors.resolve({"landmarks": {"f": e}}, OsmData(), F)["landmarks"]["f"]
+    _, old_edge = F.to_game(geo.CORE_BBOX[2], geo.CORE_BBOX[1])
+    _, new_edge = F.to_game(geo.DEFAULT_BBOX[2], geo.DEFAULT_BBOX[1])
+    assert old_edge < r["z"] < new_edge and -1300 < r["x"] < -1150, r
+    assert any(lb["t"] == "SCHUPFART" for lb in spec["labels"])

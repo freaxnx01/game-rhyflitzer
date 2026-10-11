@@ -32,6 +32,15 @@ export function sdfSampler(sdf) {
   };
 }
 
+// The terrain mesh: exact 16 m cells laid from the world's north-west corner, so a region that grows south or east keeps every
+// existing vertex where it was and the ground under a bridge or a road does not shift with the map's extent (#47).
+const MESH_CELL = 16;
+export function terrainGrid(sdf) {
+  if (!sdf) return { GW: 6400, GD: 3800, nx: 400, nz: 240, x0: -3200, z0: -1840, dx: 6400 / 400, dz: 3800 / 240, h: null };
+  const nx = Math.ceil((sdf.w - 1) * sdf.step / MESH_CELL), nz = Math.ceil((sdf.h - 1) * sdf.step / MESH_CELL);
+  return { GW: nx * MESH_CELL, GD: nz * MESH_CELL, nx, nz, x0: sdf.x0, z0: sdf.z0, dx: MESH_CELL, dz: MESH_CELL, h: null };
+}
+
 function inRing(r, x, z) { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, zi] = r[i], [xj, zj] = r[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; }
 export function waterIndex(water) {
   const items = water.map(w => { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const [x, z] of w.rings[0]) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); } return { w, bb: [a, b, c, d] }; });
@@ -462,8 +471,10 @@ export function bridgeChain(pieces, seed) {
   for (let grew = true; grew;) { grew = false; for (let i = 0; i < pieces.length; i++) { const p = pieces[i]; if (out.includes(i) || p.kind !== 'generic' || p.name !== name || !touches(p)) continue; out.push(i); grew = true; } }
   return out;
 }
-// #78: first sample (1 m apart) whose rise over the next `run` samples is below maxGrade: the top of the bank an approach road climbs
-export function bankTop(hs, maxGrade = 0.08, run = 4) { for (let i = 0; i + run < hs.length; i++) if ((hs[i + run] - hs[i]) / run < maxGrade) return i; return hs.length - 1; }
+// #78: first sample (1 m apart) whose rise over the next `run` samples is below maxGrade: the top of the bank an approach road climbs.
+// #47: and whose own next metre climbs less than twice that -- one steep last metre of the face (0.25 m on the 8 m terrain) passes the
+// chord test from a sample still on the face, which put the abutment 0.25 m below the bank top
+export function bankTop(hs, maxGrade = 0.08, run = 4) { for (let i = 0; i + run < hs.length; i++) if ((hs[i + run] - hs[i]) / run < maxGrade && hs[i + 1] - hs[i] < 2 * maxGrade) return i; return hs.length - 1; }
 // #78: -1 behind the polyline's first vertex, 1 beyond its last, else 0 (nearestOnPolyline clamps, this does not)
 export function pastEnd(pts, x, z) {
   const n = pts.length, [ax, az] = pts[0], [bx, bz] = pts[1], [cx, cz] = pts[n - 2], [dx, dz] = pts[n - 1];
@@ -646,6 +657,12 @@ export const VILLAGES = [
   { t: 'MUMPF', x: -3484.8, z: 596.6, r: 450 },            // node 192826016
   { t: 'MURG', x: 4361.6, z: -689.8, r: 550 },             // node 240124251
   { t: 'WALLBACH', x: -3984.9, z: -1744.8, r: 450 },       // node 3608448837 (Wallbach, Bad Säckingen)
+  { t: 'EIKEN', x: 1696.8, z: 2139.8, r: 450 },             // node 191017634 (#47: inside the map since the south extension; place nodes via geo.Frame(*DEFAULT_ORIGIN).to_game, 2026-10-10)
+  { t: 'OBERMUMPF', x: -2160.9, z: 2378.8, r: 450 },        // node 1420719124
+  { t: 'OESCHGEN', x: 3788.1, z: 3471.3, r: 450 },          // node 240041868
+  { t: 'SCHUPFART', x: -72.4, z: 4009.3, r: 450 },          // node 240030566
+  { t: 'HELLIKON', x: -3142.8, z: 4582.5, r: 450 },         // node 1592994106
+  { t: 'FRICK', x: 4040.6, z: 4762.8, r: 450 },             // node 191017638
 ];
 // #127: Ehrendingen's village names, place nodes converted with geo.Frame(*EHRENDINGEN_ORIGIN).to_game on 2026-10-09
 export const VILLAGES_EHRENDINGEN = [

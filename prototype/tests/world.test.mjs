@@ -221,15 +221,16 @@ test('villageLabels: only visible names, nearest first', () => {
   assert.deepEqual(villageLabels([], 0, 0), []);
 });
 
-test('VILLAGES: eight uppercase names inside the world, the issue\'s four included', () => {
-  assert.equal(VILLAGES.length, 8);
-  assert.equal(new Set(VILLAGES.map(v => v.t)).size, 8);
+test('VILLAGES: fourteen uppercase names inside the world, the issue\'s four included', () => {
+  assert.equal(VILLAGES.length, 14);
+  assert.equal(new Set(VILLAGES.map(v => v.t)).size, 14);
   for (const v of VILLAGES) {
     assert.equal(v.t, v.t.toUpperCase());
     assert.ok(v.r >= 300 && v.r <= 1000, v.t);
-    assert.ok(v.x > -4689 && v.x < 4750 && v.z > -2350 && v.z < 2034, v.t);   // the world's road extent
+    assert.ok(v.x > -4689 && v.x < 4777 && v.z > -2350 && v.z < 5592, v.t);   // the world's extent since #47
   }
   for (const t of ['BAD SÄCKINGEN', 'STEIN', 'SISSELN', 'SISSLERFELD', 'MÜNCHWILEN']) assert.ok(VILLAGES.some(v => v.t === t), t);
+  for (const t of ['EIKEN', 'OBERMUMPF', 'OESCHGEN', 'SCHUPFART', 'HELLIKON', 'FRICK']) assert.ok(VILLAGES.some(v => v.t === t), t);   // #47
 });
 
 test('roofTop: measured ridge, gable guess, flat roofs at least 3 m', () => {
@@ -345,6 +346,13 @@ test('bankTop is the first sample where the rise over the next 4 m drops below 8
   assert.equal(bankTop([0, 0.05, 0.1, 0.15, 0.2, 0.25]), 0);
   assert.equal(bankTop([0, 1, 2, 3, 4, 5]), 5);
   assert.equal(bankTop([5, 4, 3, 2, 1, 0]), 0);                                          // falling ground is not a bank to climb
+});
+test('bankTop never stops on the face: a sample whose next metre still climbs more than twice the grade is not the top (#47)', () => {
+  // Fricktalstraße up the Bad Säckingen bank on the 8 m terrain: index 10 passes the 4 m chord test ((6.81 - 6.55) / 4 = 0.065)
+  // although its own next metre still climbs 0.25 m -- taken as the top, it put the abutment 0.25 m down the face (0.24 m drape step)
+  assert.equal(bankTop([3.58, 3.9, 4.23, 4.55, 4.87, 5.19, 5.51, 5.77, 6.03, 6.29, 6.55, 6.8, 6.83, 6.81, 6.8, 6.79, 6.78, 6.77]), 11);
+  // the same road's twin on the 4 m terrain: index 10's next metre climbs 0.08, under the cap -- unchanged
+  assert.equal(bankTop([3.49, 3.89, 4.29, 4.7, 5.1, 5.5, 5.91, 6.3, 6.65, 6.99, 7.34, 7.42, 7.41, 7.4, 7.39, 7.38, 7.37, 7.36]), 10);
 });
 test('pastEnd tells before the start, past the end and on the polyline apart', () => {
   const pts = [[0, 0], [10, 0], [10, 10]];
@@ -1054,4 +1062,23 @@ test('smoothedGround keeps a slope, damps 4 m bumps, and is anchored to the worl
   for (const x of [20.5, 21, 21.7, 40.3]) assert.ok(Math.abs(ripple(x, 50)) < 0.05, `${x}: ${ripple(x, 50)}`);
   const a = smoothedGround(hill, [-1290, 460, -1140, 610]), b = smoothedGround(hill, [-1283.3, 471.1, -1150, 600]);
   for (const [x, z] of [[-1212, 538], [-1200.7, 529.7], [-1240.2, 501.9]]) assert.ok(Math.abs(a(x, z) - b(x, z)) < 1e-9, `${x},${z}`);
+});
+
+test('terrainGrid: exact 16 m cells from the north-west corner, so extending the region south moves no vertex (#47)', async () => {
+  const { terrainGrid } = await import('../world.js');
+  const sdf = h => ({ x0: -4688.66, z0: -2349.8, step: 8, w: 1185, h });
+  const before = terrainGrid(sdf(550)), after = terrainGrid(sdf(994));   // the core region, then the region south to Schupfart
+  for (const g of [before, after]) {
+    assert.equal(g.dx, 16); assert.equal(g.dz, 16);
+    assert.equal(g.x0, -4688.66); assert.equal(g.z0, -2349.8);
+    assert.equal(g.GW, g.nx * 16); assert.equal(g.GD, g.nz * 16);
+    assert.ok(g.x0 + g.GW >= -4688.66 + 1184 * 8 && g.z0 + g.GD >= -2349.8 + (g === before ? 549 : 993) * 8);
+  }
+  assert.equal(before.nx, after.nx);
+  assert.ok(after.nz > before.nz);
+});
+
+test('terrainGrid without a world keeps the hand layout mesh', async () => {
+  const { terrainGrid } = await import('../world.js');
+  assert.deepEqual(terrainGrid(null), { GW: 6400, GD: 3800, nx: 400, nz: 240, x0: -3200, z0: -1840, dx: 16, dz: 3800 / 240, h: null });
 });
