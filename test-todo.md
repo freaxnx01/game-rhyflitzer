@@ -2,6 +2,16 @@
 
 Manual playtests still owed. Tick an item once it has been played in the browser (live: https://github.freaxnx01.ch/game-rhyflitzer/), and note what was found.
 
+## Region south to Flugplatz Schupfart (#47, PR #243 — merged 2026-10-11) and the Fridolinsbrücke banks (#259, PR #262)
+
+The map now reaches the Tafeljura; the terrain is an 8 m grid (was 4 m). **J** → „flugplatz" (or the Schupfart chip) puts the car on the road by the airfield.
+
+- [ ] **J** → Flugplatz Schupfart: the hangar, the clubhouse by the apron and the small building by the airfield parking all stand there; the „SCHUPFART" village name shows.
+- [ ] Drive Frick → Oeschgen → Schupfart and over to Obermumpf / Hellikon: roads, houses and woods continue south of the old map edge without a seam or a gap.
+- [ ] The old map area looks and drives as before on the coarser 8 m terrain: no new bumps on the main roads, no buildings or trees floating or sunk.
+- [ ] Fridolinsbrücke, both directions at speed: no jolt where the road meets the bridge, in Bad Säckingen or in Stein; the banks look natural (no step or crack in the grass around them).
+- [ ] Loading feels no slower than before (the data to download is smaller now: ~9 MB instead of ~13 MB).
+
 ## Südspange ESP Sisslerfeld (#42, PR #191 — merged 2026-10-10)
 
 Screenshots: `docs/ai-notes/screenshots/2026-10-10-suedspange/`. **J** → „südspange" puts the car on it, 25 m in from the K295.
