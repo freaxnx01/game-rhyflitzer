@@ -2538,7 +2538,17 @@ function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttrib
 // The renderer has no preserveDrawingBuffer, so the canvas only holds a readable image inside the task that drew it.
 // X therefore just raises this flag, and loop() reads it right after renderer.render() -- no per-frame cost otherwise.
 let photoPending = false;
-function capturePhoto() { photoPending = false; canvas.toBlob(savePhoto, 'image/png'); }
+let photoSink = null;   // #251: set by photoDataUrl(); the next capture goes there instead of into a download
+function capturePhoto() { const sink = photoSink || savePhoto; photoSink = null; photoPending = false; canvas.toBlob(sink, 'image/png'); }
+function blobToDataUrl(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('photo failed')); r.readAsDataURL(blob); }); }
+// #251: the Testhub screenshot -- the frame X would save, as a PNG data URL (no HUD: it is the canvas only)
+function photoDataUrl() {
+  if (photoSink) return Promise.reject(new Error('screenshot already pending'));
+  return new Promise((resolve, reject) => {
+    photoSink = blob => { if (!blob) reject(new Error('photo failed')); else blobToDataUrl(blob).then(resolve, reject); };
+    photoPending = true;
+  });
+}
 function savePhoto(blob) {
   if (!blob) { toast(tr('photoFailed')); return; }
   const url = URL.createObjectURL(blob);
@@ -2567,6 +2577,7 @@ function testhubGo(target) {
 }
 function testhubRegister(hub) {
   hub.setInfo({ game: 'rhyflitzer', version: window.GAME_VERSION || '0.0.0' });
+  hub.onScreenshot(photoDataUrl);
   for (const target of buildTargets(testhubContext())) hub.register(target.id, () => testhubGo(target), target.label);
 }
 if (window.ggTesthub) testhubRegister(window.ggTesthub);

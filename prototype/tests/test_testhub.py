@@ -136,3 +136,25 @@ def test_registers_when_the_client_was_there_before_the_game(server):
         b.close()
     assert requests == [] and errors == []
     assert "uw.boat" in ids and any(i.startswith("j.") for i in ids), ids
+
+
+def test_screenshot_hook_returns_a_png_data_url_and_rejects_a_second_request(server):
+    with sync_playwright() as p:
+        b, page, errors, _ = new_page(p, server, "?dev=1", block_world=True)
+        start(page)
+        page.wait_for_function("() => window.ggTesthub && window.ggTesthub.shot", timeout=30000)
+        downloads = []
+        page.on("download", lambda d: downloads.append(d))
+        url = page.evaluate("""() => Promise.race([window.ggTesthub.shot(),
+            new Promise((_, no) => setTimeout(() => no(new Error('no frame in 90 s')), 90000))])""")
+        both = page.evaluate("""async () => {
+            const first = window.ggTesthub.shot();
+            const second = await window.ggTesthub.shot().then(() => 'resolved', e => e.message);
+            await first; return second; }""")
+        page.wait_for_timeout(1000)
+        b.close()
+    assert errors == []
+    assert url.startswith("data:image/png;base64,"), url[:40]
+    assert len(url) > 5000, len(url)                      # a blank frame compresses to ~1 kB (see test_photo.py)
+    assert both == "screenshot already pending", both
+    assert downloads == [], "the hook returns the picture instead of downloading it"
