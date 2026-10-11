@@ -403,9 +403,15 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 
 ## Güggeli-Foodtruck (#103)
 
-- [ ] J → `gugg` → Güggeli-Foodtruck (Eiken). The car lands on the Bahnhofstrasse by Bahnhof Eiken; the truck stands on the car park south-east of the station, about 20 m off the road.
-- [ ] Is this the right spot? If not, note where it should go (street / car park / square); moving it is one line in `pipeline/anchors.json` (`landmarks.foodTruck.game`, `heading_deg`) plus a world rebuild.
+- [ ] J → `gugg` → Güggeli-Foodtruck (Eiken). The car lands near the truck on the Hauptstrasse in Eiken (see the #205 block below).
 - [ ] Does it read as a food truck: cream body, red cab, dark hatch with the red awning on the north side, the yellow **Güggeli** board on the roof, the small menu board? Readable from the car? Too big, too small?
 - [ ] Drive into it from each side: the car stops, no sinking, no driving through.
-- [ ] No tree stands on the truck or the car park.
+- [ ] No tree stands on the truck.
 - [ ] Eiken chip in J: DSM-Kamin, Bahnhof Sisseln, Bahnhof Eiken, LANDI-Turm, Südspange Sisslerfeld, Güggeli-Foodtruck.
+
+## Güggeli-Foodtruck on the Hauptstrasse (#205)
+
+- [ ] {go: j.gueggeli-foodtruck} The truck stands on the Hauptstrasse in Eiken at the Google Maps pin (47.5302471, 7.9924156), long side parallel to the road, serving hatch towards the street.
+- [ ] {go: j.gueggeli-foodtruck} It stands beside the carriageway, not on it: drive the Hauptstrasse past it in both directions without touching it, and no house is overlapped.
+- [ ] {go: j.gueggeli-foodtruck} Drive into it from the road side and from 25 m west: the car stops, no sinking, no driving through.
+- [ ] Nothing is left on the old spot at the Bahnhof Eiken car park.
