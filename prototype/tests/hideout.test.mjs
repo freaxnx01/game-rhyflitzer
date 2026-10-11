@@ -216,3 +216,22 @@ test('pointBounds_HugeSyntheticArray_DoesNotOverflowTheStack', () => {
 test('pointBounds_SmallArray_ReturnsTheExtent', () => {
   assert.deepEqual(pointBounds([[1, 5], [-2, 7], [3, -4]]), { x0: -2, x1: 3, z0: -4, z1: 7, n: 3 });
 });
+
+// #276: driving the cave's way (T1 -> R0 -> T2a -> N1 -> T2b -> hall centre), the lamps' light on the floor swells and fades
+// gently: no hot spot to flare in and drop out of within a second (100 km/h is 28 m/s, so 1 m is two frames)
+import { caveLamps, lampLight } from '../hideout.js';
+test('caveLamps_AlongTheDrive_NoFlareAndNoJump', () => {
+  const lamps = caveLamps(), pts = [A.mouth, A.centre, CAVE.nodes.n1.c, CAVE.nodes.hall.c];
+  let prev = null, peak = 0, worst = 1, at = 0, t = 0;
+  for (let i = 0; i < 3; i++) {
+    const [p, q] = [pts[i], pts[i + 1]], n = Math.round(Math.hypot(q[0] - p[0], q[1] - p[1]));
+    for (let s = 0; s < n; s++, t++) {
+      const e = lampLight(lamps, p[0] + (q[0] - p[0]) * s / n, p[1] + (q[1] - p[1]) * s / n);
+      peak = Math.max(peak, e);
+      if (prev !== null && Math.max(prev, e) > 0.05) { const r = Math.max(e, prev) / Math.max(1e-6, Math.min(e, prev)); if (r > worst) { worst = r; at = t; } }
+      prev = e;
+    }
+  }
+  assert.ok(peak <= 2.5, `hot spot: ${peak.toFixed(2)} under a lamp`);
+  assert.ok(worst <= 1.25, `light jumps x${worst.toFixed(2)} within 1 m at ${at} m`);
+});

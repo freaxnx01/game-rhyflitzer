@@ -40,6 +40,27 @@ export const TOWER_SPOTS = { r: 140, aimY: 100, intensity: 8000, distance: 600, 
 // floodlights (0.1 each at 280 m) no longer reach; 3000 cd at 60 m give ~0.8, the ceiling 80 m up ~0.3
 export const TOWER_TOP = { r: 60, y: 300, intensity: 3000, distance: 400 };
 
+// #276: the cave's floor lamps as point lights (relative to the floor): two in R0 along T1's axis, two in the hall along T2b's axis.
+// A lamp low over the road makes a hot spot (1/d^2 at 3 m is 100x the value 30 m off) that the car drives into and out of in a
+// second, so they hang high: the light under them stays a gentle swell. three r170 physical units (cd), distance = hard cut-off.
+export const CAVE_LAMPS = { r0: { off: 12, y: 9, intensity: 180, distance: 60, decay: 2 }, hall: { off: 60, y: 30, intensity: 2000, distance: 200, decay: 2 } };
+export function caveLamps(h = HIDEOUT) {
+  const a = hideoutAxis(h), [cx, cz] = a.centre, [p, q] = linkPts(CAVE.links[1]), len = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / len, uz = (q[1] - p[1]) / len;
+  const [hx, hz] = CAVE.nodes.hall.c, out = [];
+  for (const k of [-1, 1]) out.push({ room: 'r0', x: cx + a.ux * CAVE_LAMPS.r0.off * k, z: cz + a.uz * CAVE_LAMPS.r0.off * k, ...CAVE_LAMPS.r0 });
+  for (const k of [-1, 1]) out.push({ room: 'hall', x: hx + ux * CAVE_LAMPS.hall.off * k, z: hz + uz * CAVE_LAMPS.hall.off * k, ...CAVE_LAMPS.hall });
+  return out;
+}
+// what the point lamps add on a floor patch at (x, z) facing up: intensity / d^decay x cos, times three's distance window
+export function lampLight(lamps, x, z) {
+  let sum = 0;
+  for (const l of lamps) {
+    const dx = x - l.x, dz = z - l.z, d = Math.hypot(dx, dz, l.y); if (d >= l.distance) continue;
+    sum += l.intensity / Math.pow(d, l.decay) * (l.y / d) * Math.pow(1 - Math.pow(d / l.distance, 4), 2);
+  }
+  return sum;
+}
+
 export function hideoutAxis(h = HIDEOUT) {
   const ux = Math.cos(h.heading), uz = Math.sin(h.heading), mouth = [h.mouth[0], h.mouth[1]], centre = [mouth[0] + ux * h.length, mouth[1] + uz * h.length];
   return { ux, uz, mouth, centre, pts: [mouth, centre] };
