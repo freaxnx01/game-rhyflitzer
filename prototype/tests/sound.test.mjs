@@ -111,3 +111,12 @@ test('checkSound: each broken field throws an Error that names it', () => {
   }
   assert.throws(() => checkSound(undefined), /sound preset/);
 });
+
+test('engineMix: a dead engine (a wreck, #105) is silent and has no nitro hiss, the tyres still roll', () => {
+  const { engine } = SOUND(), s = { rpm: 4000, gear: 2, shift: 0 };
+  const dead = engineMix(s, IN({ kmh: 60, gas: 1, nitro: 1, dead: true }), engine);
+  assert.equal(dead.gain, 0);
+  assert.equal(dead.hiss, 0);
+  assert.equal(dead.road, 0.15);
+  assert.ok(engineMix(s, IN({ kmh: 60, gas: 1 }), engine).gain > 0);
+});
