@@ -2572,6 +2572,16 @@ requestAnimationFrame(loop);
 </style>
 <script src="./version.js"></script>
 <script src="./i18n.js"></script>
+<script>
+  // Testhub (#251): dev mode loads the shared playtest client; a player loads nothing.
+  // ?dev=1 sets localStorage['gg-dev'], ?dev=0 clears it; gg-dev is shared by every game on this origin.
+  (function () {
+    var q = new URLSearchParams(location.search).get('dev'), stored = null;
+    try { if (q === '1') localStorage.setItem('gg-dev', '1'); else if (q === '0') localStorage.removeItem('gg-dev'); stored = localStorage.getItem('gg-dev'); } catch (e) { }
+    if (q !== '1' && (q === '0' || stored !== '1')) return;
+    var s = document.createElement('script'); s.src = '/testhub/client.js'; s.async = true; document.head.appendChild(s);
+  })();
+</script>
 <nav id="game-nav" aria-label="Game navigation" style="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(60px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 20px);box-sizing:border-box;flex-wrap:wrap;justify-content:center;row-gap:2px;z-index:2147483647;display:flex;gap:12px;align-items:center;font:600 13px/1.4 system-ui,-apple-system,sans-serif;padding:6px 11px;border-radius:8px;background:rgba(15,17,26,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:.55;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.55">
   <span id="version-badge" title="Version" style="color:#5a6072"></span>
   <span style="color:#5a6072" aria-hidden="true">·</span>
