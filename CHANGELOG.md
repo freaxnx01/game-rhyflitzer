@@ -73,6 +73,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-10-11 23:14` The hint under the <kbd>I</kbd>, <kbd>J</kbd> and <kbd>O</kbd> search now says what to press: **Enter** confirms the highlighted place, Esc closes. (Enter always did; the old hint only mentioned the opening key.)
 - `2026-10-11 23:15` In the **surprise hunt** the text about what you just won stays on screen twice as long, so everyone can finish reading it.
 - `2026-10-11 13:40` The **Güggeli food truck** has moved to its real spot on the **Hauptstrasse in Eiken** (it used to stand on the car park by the station). <kbd>J</kbd> → „gugg" still takes you there.
 - `2026-10-11 11:51` The **hall under the Hübel** is no longer a black void: the **floodlights** now reach all the way up the Eiffel Tower, two more lamps light its summit and the rock above it, the cave walls show as grey rock around you, and the haze is thinner, so the tower stands out brightly from the tunnel door to the spire.
