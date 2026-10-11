@@ -14,6 +14,7 @@ export const LANDMARK_INFO = [
   { name: 'Kursaal', gemeinde: 'Bad Säckingen', building: 91592556 },                  // contains n426864010
   { name: 'Aqualon Therme', gemeinde: 'Bad Säckingen', building: 92039355 },
   { name: 'Bergsee', gemeinde: 'Bad Säckingen', at: [-2349, -2207], jump: [-2281.8, -2179.9] },   // #94: the OSM lake "Bergsee" above Bad Säckingen (its ring mean); J lands on Am Bergsee, facing across the water
+  { name: 'Rhein-Wracks', gemeinde: 'Bad Säckingen', at: [-1088.4, -406.4], wreck: true },   // #215: the capsized rowing boat and the rusty car on the Rhine bed (#101); J puts the car on the bed beside them (index.html jumpToWreck, position from the built wrecks); at is only the list position
   { name: 'Kirche Stein', gemeinde: 'Stein', anchor: 'steinChurch' },
   { name: 'Bahnhof Stein-Säckingen', gemeinde: 'Stein', anchor: 'stationStein' },
   { name: 'Plattform Sisslerfeld', gemeinde: 'Münchwilen', anchor: 'plattform', jump: [78.1, 861.4] },   // #94: the tower stands on Breitenloh; J lands 25 m east of it on the same road, facing it
@@ -73,7 +74,7 @@ export function landmarkEntries(info, anchors, buildings, gemeinden = GEMEINDEN)
   const found = [];
   info.forEach((item, i) => {
     const p = sourcePos(item, anchors || {}, byId);
-    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), i });
+    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), ...(item.wreck ? { wreck: true } : {}), i });
   });
   found.sort((a, b) => gemeinden.indexOf(a.g) - gemeinden.indexOf(b.g) || a.i - b.i);
   return found.map(({ i, ...entry }) => entry);

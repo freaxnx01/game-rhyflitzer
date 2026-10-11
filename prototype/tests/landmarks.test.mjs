@@ -67,8 +67,8 @@ const BUILDINGS_46 = [
   ['Schulhaus Sisseln', 'Sisseln', 171822721],
 ];
 
-test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47', () => {
-  assert.equal(LANDMARK_INFO.length, 29);
+test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47 and the Rhine wrecks of #215', () => {
+  assert.equal(LANDMARK_INFO.length, 30);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
@@ -90,7 +90,8 @@ test('#46 entries resolve from their buildings, sort into their Gemeinde and are
   const e = landmarkEntries(LANDMARK_INFO, {}, buildings);              // no anchors: the building entries, plus the anchorless fixed points of #125 and #94
   const expected = BUILDINGS_46.map(([n, g]) => [n, g]);
   expected.splice(expected.findIndex(([n]) => n === 'Aqualon Therme') + 1, 0, ['Bergsee', 'Bad Säckingen']);
-  expected.splice(expected.findIndex(([n]) => n === 'Bergsee') + 1, 0, ['Reservoir Hübel', 'Münchwilen']);
+  expected.splice(expected.findIndex(([n]) => n === 'Bergsee') + 1, 0, ['Rhein-Wracks', 'Bad Säckingen']);
+  expected.splice(expected.findIndex(([n]) => n === 'Rhein-Wracks') + 1, 0, ['Reservoir Hübel', 'Münchwilen']);
   expected.splice(expected.findIndex(([n]) => n === 'Bahnhof Eiken') + 1, 0, ['Südspange Sisslerfeld', 'Eiken']);
   assert.deepEqual(e.map(x => [x.n, x.g]), expected);
   assert.deepEqual(e.find(x => x.n === 'Kursaal'), { n: 'Kursaal', g: 'Bad Säckingen', x: 405, z: 5 });
@@ -122,11 +123,11 @@ test('the Fridolinsbrücke jumps to the Swiss approach, east of the deck end (#7
 test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found by "landi"', () => {
   const anchors = { dsmChimney: { x: 1065.2, z: 345.1 }, stationSisseln: { x: 1854.2, z: 685.8 }, landiTurm: { x: 1832.7, z: 627.7 } };
   const e = landmarkEntries(LANDMARK_INFO, anchors, [{ id: '199241726', ring: [[2600, 900], [2610, 900], [2610, 910], [2600, 910]] }]);
-  assert.deepEqual(e.map(x => x.n), ['Bergsee', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
+  assert.deepEqual(e.map(x => x.n), ['Bergsee', 'Rhein-Wracks', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
   assert.deepEqual(e.find(x => x.n === 'LANDI-Turm'), { n: 'LANDI-Turm', g: 'Eiken', x: 1832.7, z: 627.7 });
   assert.deepEqual(filterLandmarks(e, 'landi', null).map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(filterLandmarks(e, 'LANDI', 'Eiken').map(x => x.n), ['LANDI-Turm']);
-  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Bergsee', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
+  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Bergsee', 'Rhein-Wracks', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
 });
 
 test('#103 Güggeli-Foodtruck resolves from its anchor, sits last in Eiken and is found by "gugg", "food" and "GÜGGELI"', () => {
@@ -156,6 +157,18 @@ test('landmarkEntries passes the ramp flag through, and only for ramp items', ()
 
 test('LANDMARK_INFO flags only the Sprungschanze as a ramp (#80)', () => {
   assert.deepEqual(LANDMARK_INFO.filter(l => l.ramp).map(l => l.name), ['Sprungschanze']);
+});
+
+test('landmarkEntries passes the wreck flag through (#215)', () => {
+  const info = [{ name: 'Wracks', gemeinde: 'Bad Säckingen', at: [1, 2], wreck: true }];
+  assert.deepEqual(landmarkEntries(info, {}, []), [{ n: 'Wracks', g: 'Bad Säckingen', x: 1, z: 2, wreck: true }]);
+});
+
+test('LANDMARK_INFO lists the Rhine wrecks under Bad Säckingen (#215)', () => {
+  const w = LANDMARK_INFO.find(l => l.wreck);
+  assert.equal(w.name, 'Rhein-Wracks');
+  assert.equal(w.gemeinde, 'Bad Säckingen');
+  assert.equal(w.at.length, 2);
 });
 
 test('LANDMARK_INFO has the Südspange row in Eiken at the K295 junction (#125)', () => {

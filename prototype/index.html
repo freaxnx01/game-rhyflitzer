@@ -1978,6 +1978,8 @@ function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(
 function jumpHeading(p, best) { if (p.look) return Math.atan2(p.look[1] - best.z, p.look[0] - best.x); return p.j ? faceToward(best.th, best.x, best.z, p.x, p.z) : best.th; }
 const RAMP_RUNUP = 40;   // J → Sprungschanze: metres of run-up before the ramp's low edge, enough to launch from standstill (#80)
 function jumpToRamp(name) { if (!RAMP) return; const s = rampApproach(RAMP, RAMP_RUNUP); placeOnRoad(s.x, s.z, s.th, name); }   // off road: R returns to the run-up
+const WRECK_RUNUP = 8;
+function jumpToWreck(name) { const c = UWS.counts; if (!c || !c.wreck) return; const [bx, bz] = c.wreck, th = Math.atan2(c.wreckCar[1] - bz, c.wreckCar[0] - bx), px = bx - Math.cos(th) * WRECK_RUNUP, pz = bz - Math.sin(th) * WRECK_RUNUP, wet = waterLevelAt(px, pz, 1e4) !== null, x = wet ? px : bx, z = wet ? pz : bz, road = nearestJumpable(bx, bz); if (!road) return; placeOnRoad(road.x, road.z, road.th, name); P.x = x; P.z = z; P.th = th; P.y = groundH(x, z, -Infinity); restShadow(); camPos.set(x - Math.cos(th) * 12, P.y + 3, z - Math.sin(th) * 12); }
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
 // #102: first time in the cavern -- toast, jingle, remember it
 // #201: the car is under the hill -- the one place that decides cave mode, the find and the camera (#202 makes it stateful)
@@ -2388,7 +2390,7 @@ window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.
 // 'jump' (J) lists the landmarks and the random spot; 'drive' (O, #18) and 'navi' (I, #106) share the landmarks + streets rows
 const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
-function destEntries() { return [...JUMP_ENTRIES, ...AUTOP.streets]; }
+function destEntries() { return [...JUMP_ENTRIES.filter(e => !e.wreck), ...AUTOP.streets]; }
 function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : JUMP_ENTRIES; }
 function jumpRows() { const rows = filterLandmarks(jumpEntries(), JUMP.q, JUMP.g); return DEST_MODES.has(JUMP.mode) ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }]; }
 function renderJump() {
@@ -2402,7 +2404,7 @@ function renderJump() {
 }
 function openJump(mode) { for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
 function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
-function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else jumpTo(r); }
+function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else if (r.wreck) jumpToWreck(r.n); else jumpTo(r); }
 function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
 function jumpKey(e) {
   if (e.code === 'Tab') { e.preventDefault(); return; }   // #129: the focus (and the typing) stays in the search field
