@@ -6,7 +6,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 READY = "() => window.__mm && window.__mm.kreisel && document.querySelector('#worldstatus')?.textContent"
 
 
-def test_kreisel_apron_reaches_below_the_lowest_ground_under_it(server):
+def test_kreisel_apron_and_island_reach_below_the_lowest_ground_under_them(server):
     with sync_playwright() as p:
         b = p.chromium.launch(args=ARGS)
         page = b.new_page(viewport={"width": 320, "height": 180})
@@ -18,5 +18,6 @@ def test_kreisel_apron_reaches_below_the_lowest_ground_under_it(server):
         b.close()
     assert got, "the world has a roundabout"
     for k in got:
-        assert k["bottom"] <= k["low"] - 0.2, k
+        assert k["bottom"] <= k["low"] - 0.2, ("apron", k)
+        assert k["ibottom"] <= k["ilow"] - 0.2, ("island", k)
     assert errors == []
