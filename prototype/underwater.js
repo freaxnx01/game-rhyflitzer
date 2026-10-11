@@ -6,7 +6,7 @@ export const UW = {
   camUnder: 0.8,                     // the chase target is pulled this far under the surface once the car is submerged
   fogColor: '#17505f', skyHor: '#2b7a86', fogDensity: 0.035, hemiFactor: 0.6, sunFactor: 0.5,   // the look under the surface
   hintAt: 3,                         // seconds after the splash: "drive up to the bank, or press R"
-  schools: 14, sampleStep: 12, shoreClear: 8,   // content: fish schools; bed samples every 12 m, at least 8 m from the shore
+  schools: 200, schoolSpacing: 120, sampleStep: 12, shoreClear: 8,   // content: at most 200 fish schools, at least 120 m apart; bed samples every 12 m, at least 8 m from the shore
 };
 
 export function bedDepth(riverDist) { return riverDist >= 0 ? 0 : Math.min(UW.maxDepth, -riverDist * UW.slope); }
@@ -41,4 +41,20 @@ export function schoolPose(s, k, t, out = {}) {
   const x = s.x + Math.cos(a) * s.r, z = s.z + Math.sin(a) * s.r;
   out.x = x; out.y = s.y + 0.3 * Math.sin(t * 2 + k); out.z = z; out.th = Math.atan2(Math.cos(a), -Math.sin(a));
   return out;
+}
+
+export function shuffled(list, rnd) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+// school centres: the seeds first, then the points (already shuffled) that are at least `spacing` from every centre kept so far, at most `max` in all
+export function spreadSchools(points, spacing, max, seeds = []) {
+  const kept = seeds.slice(0, max).map(([x, z]) => [x, z]), min2 = spacing * spacing;
+  for (const [x, z] of points) {
+    if (kept.length >= max) break;
+    if (kept.every(([kx, kz]) => (kx - x) ** 2 + (kz - z) ** 2 >= min2)) kept.push([x, z]);
+  }
+  return kept;
 }

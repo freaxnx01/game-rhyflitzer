@@ -1,13 +1,13 @@
 // #101: the underwater Rhine -- pure helpers. node --test prototype/tests/underwater.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { UW, bedDepth, submerged, underwaterCamY, bedSamples, makeSchool, schoolPose } from '../underwater.js';
+import { UW, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose } from '../underwater.js';
 
 const close = (a, b, eps = 1e-9, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };   // a deterministic rnd()
 
 test('UW: the agreed constants', () => {
-  assert.deepEqual(UW, { slope: 0.3, maxDepth: 6, sink: 3, drag: 1.2, topFactor: 0.2, camUnder: 0.8, fogColor: '#17505f', skyHor: '#2b7a86', fogDensity: 0.035, hemiFactor: 0.6, sunFactor: 0.5, hintAt: 3, schools: 14, sampleStep: 12, shoreClear: 8 });
+  assert.deepEqual(UW, { slope: 0.3, maxDepth: 6, sink: 3, drag: 1.2, topFactor: 0.2, camUnder: 0.8, fogColor: '#17505f', skyHor: '#2b7a86', fogDensity: 0.035, hemiFactor: 0.6, sunFactor: 0.5, hintAt: 3, schools: 200, schoolSpacing: 120, sampleStep: 12, shoreClear: 8 });
 });
 
 test('bedDepth_Shoreline_IsZeroSoTheCarDrivesOut', () => {
@@ -71,4 +71,25 @@ test('schoolPose_GivenAnOutObject_FillsAndReturnsIt', () => {   // review: stepF
   const p = schoolPose(s, 3, 1.5, out);
   assert.equal(p, out);
   assert.deepEqual({ ...out }, { ...schoolPose(s, 3, 1.5) });
+});
+
+test('shuffled_GivenARnd_IsADeterministicPermutationAndLeavesTheInputAlone', () => {
+  const input = [1, 2, 3, 4, 5, 6];
+  const a = shuffled(input, seq(0.1, 0.9, 0.5, 0.3, 0.7)), b = shuffled(input, seq(0.1, 0.9, 0.5, 0.3, 0.7));
+  assert.deepEqual(a, b);
+  assert.deepEqual([...a].sort(), input);
+  assert.deepEqual(input, [1, 2, 3, 4, 5, 6]);
+});
+
+test('spreadSchools_SeedsFirst_NoTwoCloserThanSpacing_EveryPointCovered', () => {
+  const pts = []; for (let x = 0; x <= 1000; x += 12) for (let z = 0; z <= 100; z += 12) pts.push([x, z]);
+  const seeds = [[500, 50]];
+  const got = spreadSchools(shuffled(pts, seq(0.2, 0.8, 0.4, 0.6, 0.1, 0.9, 0.3, 0.7)), 120, 500, seeds);
+  assert.deepEqual(got[0], [500, 50]);
+  for (let i = 1; i < got.length; i++) for (let j = 1; j < i; j++) assert.ok(Math.hypot(got[i][0] - got[j][0], got[i][1] - got[j][1]) >= 120, 'spacing');
+  for (const [x, z] of pts) assert.ok(got.some(([gx, gz]) => Math.hypot(gx - x, gz - z) < 120), `covered ${x},${z}`);
+});
+
+test('spreadSchools_MoreSeedsThanMax_KeepsOnlyMax', () => {
+  assert.equal(spreadSchools([[0, 0]], 10, 2, [[1, 1], [2, 2], [3, 3]]).length, 2);
 });
