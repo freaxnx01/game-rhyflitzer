@@ -87,6 +87,14 @@ test('the Navi texts read as instructions in both languages (#106)', () => {
   }
 });
 
+test('jumpHints_AllModes_NameEnterAsConfirm', () => {
+  for (const k of ['jumpHint', 'driveHint', 'naviHint']) {
+    assert.match(translate('en', k), /Enter confirms/, k);
+    assert.match(translate('de', k), /Enter bestätigt/, k);
+    assert.doesNotMatch(translate('en', k), /\b[JOI] \/ Esc/, k);
+  }
+});
+
 test('pause menu texts exist in both languages (#83)', () => {
   assert.equal(translate('en', 'pauseTitle'), 'Paused');
   assert.equal(translate('en', 'pauseResume'), 'Resume');
