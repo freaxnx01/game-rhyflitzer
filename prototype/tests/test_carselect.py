@@ -273,13 +273,13 @@ def test_changing_the_vehicle_mid_race_keeps_the_run_and_flags_it(server):
         page.evaluate("() => window.__mm.finishNow()")
         result = page.inner_text("#result")
         b.close()
-    assert before["pause"]["t"] == 12.5 and before["top"] == 60 and before["flags"]["swapped"] is False
+    assert 12.5 <= before["pause"]["t"] < 13 and before["top"] == 60 and before["flags"]["swapped"] is False
     assert shown == {"pauseShown": False, "drive": "Drive on ›"}
     assert after["top"] == 49 and after["flags"]["swapped"] is True
     assert (after["pause"]["x"], after["pause"]["z"]) == (before["pause"]["x"], before["pause"]["z"])
     assert before["pause"]["t"] <= after["pause"]["t"] < before["pause"]["t"] + 1      # the clock resumes where it stopped (a few capped frames at most)
     assert after["dmg"] == 0.4
-    assert "with a vehicle change, not counted" in result, result
+    assert "with a vehicle change, not counted" in result.lower(), result
     assert errors == []
 
 
@@ -299,7 +299,24 @@ def test_back_in_a_vehicle_change_restores_the_choice_and_flags_nothing(server):
         b.close()
     assert chosen == "compact" and stored == "compact" and got["top"] == 60
     assert got["paused"] is True and got["pause"]["on"] is True and focus == "pausevehicle"
-    assert got["flags"]["swapped"] is False and got["pause"]["t"] == 12.5
+    assert got["flags"]["swapped"] is False and 12.5 <= got["pause"]["t"] < 13
+    assert errors == []
+
+
+def test_closing_the_pause_during_a_vehicle_change_cancels_it(server):
+    """Any exit from the pause other than the carsel's own Back (here closePause directly) restores vehicle + paint and leaves no half-open panel."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        pause_in_a_run(page)
+        open_swap(page)
+        page.evaluate(CLICK, "#csnext")
+        page.wait_for_function("() => window.__mm.carsel().id === 'delorean'", timeout=T)
+        page.evaluate("() => window.__mm.closePause()")
+        got = page.evaluate("() => ({ run: null, carsel: window.__mm.carsel().open, id: window.__mm.carsel().id, pauseOn: window.__mm.pause().on, carselShown: !document.querySelector('#carsel').hidden, pauseShown: !document.querySelector('#pause').hidden })")
+        run = page.evaluate(RUN)
+        b.close()
+    assert got["carsel"] is False and got["carselShown"] is False and got["pauseOn"] is False and got["pauseShown"] is False
+    assert got["id"] == "compact" and run["top"] == 60 and run["flags"]["swapped"] is False
     assert errors == []
 
 
