@@ -590,6 +590,13 @@ export function lineQuads(lines, width) {
 // mulberry32, the same generator as the page's rnd(); forests get their own seed so the main scatter's sequence stays as it is
 export function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
+// #214: the woods minus every polygon that contains one of the points [x, z] (an island the OSM draws as a wood)
+export function clearWoods(forests, points) {
+  if (!points || !points.length) return forests;
+  const inRing = (x, z, ring) => { let c = false; for (let i = 0, k = ring.length - 1; i < ring.length; k = i++) { const [xi, zi] = ring[i], [xk, zk] = ring[k]; if ((zi > z) !== (zk > z) && x < xi + (z - zi) * (xk - xi) / (zk - zi)) c = !c; } return c; };
+  return forests.filter(f => !points.some(([x, z]) => inRing(x, z, f.ring)));
+}
+
 export function forestIndex(forests, step = 8) {
   if (!forests.length) return { w: 0, h: 0, step, x0: 0, z0: 0, mask: new Uint8Array(0), inside: () => false };
   let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
