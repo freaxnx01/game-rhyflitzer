@@ -225,7 +225,7 @@ def test_the_navi_does_not_touch_the_race_the_car_or_the_turn_signals(server):
         assert page.evaluate(state) == before
         page.evaluate("() => window.__mm.naviSim(2)")
         assert page.evaluate(state) == before
-        assert before == {"flags": {"jumped": False, "flown": False, "auto": False}, "blinker": None, "keys": []}
+        assert before == {"flags": {"jumped": False, "flown": False, "auto": False, "swapped": False}, "blinker": None, "keys": []}
         assert page.evaluate("() => window.__mm.auto().on") is False
         b.close()
 

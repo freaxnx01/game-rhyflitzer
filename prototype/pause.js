@@ -1,7 +1,7 @@
 // #83: pure rules for the pause menu -- no DOM, no three.js. Unit-tested with `node --test prototype/tests/*.test.mjs`.
 
 // the menu's buttons, in focus order (ids in prototype/index.html)
-export const PAUSE_BUTTONS = ['pauseresume', 'pauserestart', 'pausemenu'];
+export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pauserestart', 'pausemenu'];
 // the „Abandon this run?" question's buttons, Cancel first (it gets the focus)
 export const ABANDON_BUTTONS = ['abandoncancel', 'abandonok'];
 
