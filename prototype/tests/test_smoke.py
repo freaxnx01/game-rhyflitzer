@@ -286,7 +286,7 @@ def test_grass_and_fields_stay_below_the_road(server, mode):
         res = page.evaluate(f"() => window.__mm.grassOverRoad({PCT[mode]})")  # #273: picked by coordinate hash, the same set in every world size
         br.close()
     print(res)
-    assert res["done"] >= 240, res
+    assert res["done"] >= {"hand": 200, "osm": 2000}[mode], res    # measured 438 / 4002 (2026-10-12)
     assert res["worst"] < 0.01, res
     assert res["marksBelow"] == 0, res                # road markings lie on the road, not under it
     if mode == "osm":
@@ -311,11 +311,11 @@ def test_wheels_do_not_sink_into_the_road(server, mode):
         res = page.evaluate(f"() => window.__mm.sinkCheck({PCT[mode]})")  # #273: picked by coordinate hash, plus the fixed Sisseln junction spots
         br.close()
     print(res)
-    assert res["done"] > 200, res
+    assert res["done"] > {"hand": 280, "osm": 3600}[mode], res      # measured 576 / 7262 (2026-10-12)
     assert res["worst"] < 0.08, res
     if mode == "osm":
         assert len(res["spots"]) >= 5, res              # the fixed spots are on the drawn road, so they are checked
-        assert all(s["d"] < 0.08 for s in res["spots"]), res
+        assert all(abs(s["d"]) < 0.08 for s in res["spots"]), res   # on the drawn road: neither under it nor hovering over it
 
 
 @pytest.mark.parametrize("mode", ["hand", "osm"])
