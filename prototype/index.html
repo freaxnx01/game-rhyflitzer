@@ -69,6 +69,8 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #dmg{width:120px;height:12px;background:#2a2e38;border:2px solid var(--ink);margin-top:4px}
 #dmg i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--go),var(--sun))}
 #dmg.crit i{background:linear-gradient(90deg,var(--sun),var(--red))}
+body.below #br{display:none}
+#liftfloor{position:fixed;left:50%;top:18%;transform:translateX(-50%);font:700 64px "Barlow Condensed",sans-serif;color:#f5efe0;text-shadow:0 2px 6px #000;z-index:12;pointer-events:none}
 #br{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);border:4px solid;border-color:var(--steel-l) #3a404b #3a404b var(--steel-l);box-shadow:5px 5px 0 var(--ink)}
 #br .bar{display:flex;justify-content:space-between;padding:3px 8px;background:linear-gradient(#4a515e,#2a2e38);border-bottom:2px solid var(--ink);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
 #br .bar b{color:var(--sun)}
@@ -362,7 +364,7 @@ import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
 import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, seededRng, nextSurprise, tickSurprises, gravityScale, nearestPresent, canCollect, isNewHuntBest, confettiBurst, stepConfetti } from './presents.js';
 import { UW, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
-const OBB_GRID = makeGrid(32), ROAD_GRID = makeGrid(32);
+let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
 // Named tr, not t: many functions here use t as a local variable.
@@ -740,7 +742,7 @@ function skyGroundH(x, z) { const g = groundH(x, z, 1e4); return roofedAt(x, z) 
 // #201: the ground things on the surface stand on: the hill over the roofed system, the terrain (cut floors included) elsewhere
 function lidGround(x, z) { return roofedAt(x, z) ? meshH(x, z) : terrainH(x, z); }
 // water surface at (x, z) for an object at height y, null on land or on a bridge; the river bed is bedDepth under it (groundH, #101)
-function waterLevelAt(x, z, y) { if (onBridge(x, z, y)) return null; const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null || !L) return wl; const sh = streamH(x, z); return sh > -Infinity && roadSurfH(x, z) === -Infinity ? sh : null; }
+function waterLevelAt(x, z, y) { if (!LEVELS.isSurface() || onBridge(x, z, y)) return null; const wl = waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0); if (wl !== null || !L) return wl; const sh = streamH(x, z); return sh > -Infinity && roadSurfH(x, z) === -Infinity ? sh : null; }
 // roundabouts drawn so far: groundH lifts the car onto the cobble apron (radius 11.6, top 0.375 m) instead of sinking into it
 const KREISEL = [];
 // drawn road surfaces (draped roads, the kreisel ring): the car drives on these, not on the terrain under them
@@ -759,7 +761,10 @@ function segS(pts, i, x, z) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx
 // a point past a segment's end and before the next one's start (the outer side of a bend, or a joint itself in rounding) lies on
 // the strip's mitred corner: it takes the joint's heights
 function surfH(grid, x, z) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const s = ((x - ax) * dx + (z - az) * dz) / L2; if (s < 0 ? !(i > 0 && segS(sf.pts, i - 1, x, z) > 1) : s > 1 && !(i < sf.pts.length - 2 && segS(sf.pts, i + 1, x, z) < 0)) continue; const t = clamp(s, 0, 1), side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; h = Math.max(h, f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f)); } return h; }
-function groundH(x, z, y) {
+// #277: the levels. The surface keeps today's ground and colliders; the Eiffel room registers its own on its first ride (roomBuild).
+const LEVELS = createLevels(); const SURFACE_GRID = OBB_GRID;
+function groundH(x, z, y) { return LEVELS.isSurface() ? surfaceGroundH(x, z, y) : LEVELS.groundAt(x, z, y); }
+function surfaceGroundH(x, z, y) {
   const ob = onBridge(x, z, y); if (ob && !ob.b.approach) return ob.pontoon ? pontoonSurfaceAt(ob.b, ob.t) : ob.osm ? bridgeSurfaceAt(ob.b, ob.t) : bridgeProfile(ob.b, ob.t);
   // #78: an abutment is fill, not a deck -- the ground is the higher of the fill and the bank or road already there, so it meets both
   // without a step. Pinning it to the fill alone leaves one wherever the road ribbon is draped above the bare terrain (0.4 m at Bad Säckingen).
@@ -773,6 +778,7 @@ function groundH(x, z, y) {
   if (RAMP && x >= RAMP.x0 && x <= RAMP.x1 && z >= RAMP.z0 && z <= RAMP.z1) return t + RAMP.h * (x - RAMP.x0) / (RAMP.x1 - RAMP.x0);
   return t;
 }
+LEVELS.register('surface', { groundAt: surfaceGroundH, colliders: SURFACE_GRID });
 const mk = (n, px, py) => ({ n, x: W(px, py)[0], z: W(px, py)[1] });
 let CPS = [{ n: 'Bahnhof Sisseln', x: 1780, z: 560 }, mk('Sisslerfeld', 995, 660), mk('GETEC Park Stein', 738, 330), mk('Stein Dorf', 592, 705), mk('Bahnhof Stein-Säckingen', 447, 920)];
 let FINISH = mk('Münsterplatz Bad Säckingen', 452, 464);
@@ -1577,7 +1583,8 @@ for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(3.2, 1.
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
 function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 256, 96, 'rgba(20,23,29,.82)', '#f5efe0', '700 64px "Barlow Condensed", sans-serif', '#f5efe0'), depthWrite: false }); LABELS.mat.set(t, m); return m; }
 function trimLabelMats() { const inUse = new Set(LABELS.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of LABELS.mat) { if (LABELS.mat.size <= LABELS.cap) return; if (inUse.has(m)) continue; LABELS.mat.delete(t); m.map.dispose(); m.dispose(); } }
-function updateLabels(x, z) { LABELS.ticks++; LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
+function updateLabels(x, z) { LABELS.ticks++; if (!LEVELS.isSurface()) { LABELS.shown = []; for (const s of LABELS.pool) s.visible = false; return; }   // #277: none below (the surface world is hidden anyway)
+  LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
 // #16: big village names over the villages (Midtown Madness style): camera-facing, drawn over everything and unfogged, hidden inside the
 // village; one sprite per village, created the first time its name shows (the web font has loaded by then).
 // #73: not across the Rhine (national border from L.boundaries) and nothing while inside a village
@@ -1585,7 +1592,7 @@ const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? REGIO
 function villageTex(t) { return makeTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = '800 120px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = 'rgba(20,23,29,.85)'; g.strokeText(t, w / 2, h / 2 + 4); g.fillStyle = '#f5efe0'; g.fillText(t, w / 2, h / 2 + 4); }, { alpha: true }); }
 function villageSprite(t) { let s = VILLAGE_SIGNS.sprites.get(t); if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: villageTex(t), transparent: true, depthTest: false, depthWrite: false, fog: false })); VILLAGE_SIGNS.sprites.set(t, s); scene.add(s); } return s; }
 function updateVillageNames(x, z) {   // #258: none inside the cave (no sky; the sprites ignore depth, so they would show through the rock)
-  VILLAGE_SIGNS.shown = L && !CAVE_MODE.on ? villageNames(REGION.villages, x, z, VILLAGE_SIGNS.border) : [];
+  VILLAGE_SIGNS.shown = L && !CAVE_MODE.on && LEVELS.isSurface() ? villageNames(REGION.villages, x, z, VILLAGE_SIGNS.border) : [];
   for (const s of VILLAGE_SIGNS.sprites.values()) s.visible = false;
   VILLAGE_SIGNS.shown.forEach((l, rank) => { const s = villageSprite(l.t); s.visible = true; s.material.opacity = l.opacity; s.renderOrder = 20 - rank; s.scale.set(l.h * 1024 / 160, l.h, 1); s.position.set(l.x, VILLAGE_SIGNS.ground.get(l.t) + 70 + l.h / 2, l.z); });
 }
@@ -1872,9 +1879,9 @@ const STYLES = {
     mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on) setCave(true); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on) setCave(true); if (!LEVELS.isSurface()) setRoomLook(true); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
-function treesVisible(on) { const St = STYLES[styleKey]; treeBill.visible = on && St.trees === 'bill'; treeCone.visible = treeTrunk.visible = on && St.trees === 'cone'; for (const f of FOREST_MESHES) { f.bill.visible = on && St.trees === 'bill'; f.cone.visible = f.trunk.visible = on && St.trees === 'cone'; } }
+function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey]; treeBill.visible = on && St.trees === 'bill'; treeCone.visible = treeTrunk.visible = on && St.trees === 'cone'; for (const f of FOREST_MESHES) { f.bill.visible = on && St.trees === 'bill'; f.cone.visible = f.trunk.visible = on && St.trees === 'cone'; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
 // light without shadows, no trees, no sun disc; off restores the style (modelled on setUnderwater; the two are never both on).
 // Look (#201 polish): density 0.0009 keeps the summit 350 m away at ~10 % fog, not 30 %; the cool blue-grey ambient at 0.55
@@ -1886,6 +1893,13 @@ function setCave(on) {
   else { scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; }
   treesVisible(!on);
 }
+// #277: the Eiffel room's light -- a clear midday: pale haze fog, blue sky dome, a steady sun, no shadow map, no time of day
+const ROOM_LOOK = { fog: '#cfe2f3', density: 0.00045, skyTop: '#3f7fd6', skyHor: '#d9e9f7', hemiSky: '#e4eeff', hemiGround: '#6f8f55', hemi: 0.85, sun: 1.1 };
+function setRoomLook(on) {
+  if (!on) { const St = STYLES[styleKey]; scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; sunSprite.visible = !UWS.on; treesVisible(!CAVE_MODE.on); return; }   // as setCave(false): no style rebuild, no shader recompile
+  const L2 = ROOM_LOOK; scene.fog = new THREE.FogExp2(col(L2.fog), L2.density); skyMat.uniforms.top.value.set(L2.skyTop); skyMat.uniforms.hor.value.set(L2.skyHor);
+  hemi.color.set(L2.hemiSky); hemi.groundColor.set(L2.hemiGround); hemi.intensity = L2.hemi; sun.intensity = L2.sun; sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = true;
+}
 // #101: under the surface -- murky blue-green fog, the sky sphere in the same colour, dimmer and cooler light, no sun disc; off restores the style.
 // The bed content (boulders, weed, fish, wrecks) is only drawn while under: through the 0.96-opaque surface nobody sees it anyway.
 const HEMI_SKY = { dry: col('#dfe8ff'), wet: col('#8fd0d6') };
@@ -1896,6 +1910,122 @@ function renderStyleName() { const name = tr(STYLES[styleKey].nameKey); $('style
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize);
 
+// #277: switching level. surfaceRoot (hidden) takes every direct child of the scene that is not on the keep-list, so the whole surface
+// world -- terrain, buildings, forest, label sprites, checkpoint markers -- is out of the render below, whatever per-frame code does to
+// the nodes' own .visible (that makes #258's label guard redundant for the picture; the guards stay so the hooks and the work are honest).
+// It is not a visibility flag per node: a hidden parent beats them all. Back on the surface they return.
+const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.name = 'surfaceRoot'; scene.add(surfaceRoot);
+const ROOM = { layout: HIDE ? eiffelRoom() : null, built: false, group: null, cab: null, eiffel: null, model: null, placeholder: null };
+const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, ROOM.cab]);
+LEVELS.onChange((id) => {
+  OBB_GRID = LEVELS.colliders;
+  if (id !== 'surface') {
+    if (CAVE_MODE.on) setCave(false);
+    const keep = keepBelow(); for (const node of [...scene.children]) if (!keep.has(node)) surfaceRoot.add(node);
+    if (ROOM.group) ROOM.group.visible = true;
+    LABELS.shown = []; VILLAGE_SIGNS.shown = [];   // the guards in updateLabels / updateVillageNames keep them empty from here on
+  } else {
+    if (ROOM.group) ROOM.group.visible = false;
+    for (const node of [...surfaceRoot.children]) scene.add(node);
+  }
+  document.body.classList.toggle('below', id !== 'surface');
+  setRoomLook(id !== 'surface');
+});
+// #277: the Eiffel room, built on the first ride down. Everything is in ROOM.group (hidden on the surface); the layout is
+// room-eiffel.js. 500 x 500 lawn, gravel strips, two rows of low-poly trees, the tower, the lift house, clouds.
+function roomBuild() {
+  if (ROOM.built) return; ROOM.built = true;
+  const R = ROOM.layout, [cx, cz] = R.centre, y = R.y, group = new THREE.Group(); ROOM.group = group; group.visible = false;
+  // lawn: one plane, the grass texture tiled every 8 m (TEX.grass is the surface's grass; reuse it)
+  const lawnTex = TEX.grass.clone(); lawnTex.wrapS = lawnTex.wrapT = THREE.RepeatWrapping; lawnTex.repeat.set(2 * R.half / 8, 2 * R.half / 8); lawnTex.needsUpdate = true;
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshLambertMaterial({ map: lawnTex, color: 0xb8d89a })); lawn.rotation.x = -Math.PI / 2; lawn.position.set(cx, y, cz); group.add(lawn);
+  for (const p of R.paths) group.add(flatStrip(p.pts, p.hw, y + 0.08, 0xcfc3ac));
+  roomTrees(group, R); roomTower(group, R); roomHouse(group, R); roomClouds(group, R);
+  // sunlit surfaces need no lights of their own: the style's hemisphere + sun (setRoomLook) light the room
+  const grid = makeGrid(32); for (const o of R.colliders) { const e = o.hw + o.hd; gridAdd(grid, o.x - e, o.z - e, o.x + e, o.z + e, o); }
+  LEVELS.register('eiffel', { groundAt: R.groundAt, colliders: grid });
+  scene.add(group); window.__mm.counts.eiffel = 1;
+  if (ROOM.model) attachModel();
+  group.visible = true; renderer.compile(scene, camera); group.visible = LEVELS.id === 'eiffel';   // the room's programs exist before the doors open
+}
+function flatStrip(pts, hw, y, colour) {   // a flat ribbon on the lawn: two triangles per segment
+  const pos = [], idx = []; pts.forEach((p, i) => {
+    const q = pts[Math.min(i + 1, pts.length - 1)], o = pts[Math.max(i - 1, 0)], dx = q[0] - o[0], dz = q[1] - o[1], d = Math.hypot(dx, dz) || 1, nx = -dz / d * hw, nz = dx / d * hw;
+    pos.push(p[0] + nx, y, p[1] + nz, p[0] - nx, y, p[1] - nz); if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  });
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: colour, side: THREE.DoubleSide })); m.renderOrder = 1; return m;
+}
+function roomTrees(group, R) {   // the forest's cone + trunk, one InstancedMesh each (about 1000 trees, 7 + 6 triangles per tree)
+  const cone = new THREE.InstancedMesh(coneG, new THREE.MeshStandardMaterial({ color: 0x4f8a4a, flatShading: true, roughness: 1 }), R.trees.length);
+  const trunk = new THREE.InstancedMesh(trunkG, new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 }), R.trees.length);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color(), r = rng(278);
+  R.trees.forEach(([x, z, h], i) => {
+    m.compose(new THREE.Vector3(x, R.y + h * 0.28, z), q, new THREE.Vector3(h * 0.42, h * 0.75, h * 0.42)); cone.setMatrixAt(i, m); c.setHSL(0.3 + (r() - 0.5) * 0.08, 0.4, 0.3 + r() * 0.12); cone.setColorAt(i, c);
+    m.compose(new THREE.Vector3(x, R.y, z), q, new THREE.Vector3(h * 0.9, h * 0.3, h * 0.9)); trunk.setMatrixAt(i, m);
+  });
+  cone.computeBoundingSphere(); trunk.computeBoundingSphere(); group.add(cone, trunk);
+}
+function roomHouse(group, R) {   // the lift house: three concrete walls and a flat roof round the platform, the front open; platform + gate as in the lobby
+  const f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], v = [-f[1], f[0]], at = (a, b) => [LIFT.c[0] + f[0] * a + v[0] * b, LIFT.c[1] + f[1] * a + v[1] * b], mat = new THREE.MeshLambertMaterial({ color: 0xb9b4aa });
+  for (const [a, b, len, dep] of [[-17.5, 0, 1, 23], [-9, -10.5, 17, 1], [-9, 10.5, 17, 1]]) { const w = new THREE.Mesh(new THREE.BoxGeometry(len, 12, dep), mat); const [x, z] = at(a, b); w.position.set(x, R.y + 6, z); w.rotation.y = -LIFT.th; group.add(w); }
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(18, 0.6, 23), mat); const [rx, rz] = at(-9, 0); roof.position.set(rx, R.y + 12.3, rz); roof.rotation.y = -LIFT.th; group.add(roof);
+  LIFT_GATE.room = liftPlatformMeshes(R.y, group);
+}
+function roomClouds(group, R) {   // ~36 soft white sprites high above the room, drifting nowhere (the camera never leaves the 500 m square)
+  const tex = makeTex(256, 128, (g, w, h) => { g.clearRect(0, 0, w, h); for (const [x, yy, r] of [[90, 70, 46], [140, 60, 52], [185, 74, 40], [120, 82, 40], [160, 84, 34]]) { const gr = g.createRadialGradient(x, yy, 2, x, yy, r); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); } }, { alpha: true });
+  const r = rng(279);
+  for (let i = 0; i < 36; i++) { const a = r() * 2 * Math.PI, d = 700 + r() * 1700, s = 450 + r() * 500; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, opacity: 0.85 })); sp.scale.set(s, s * 0.45, 1); sp.position.set(R.centre[0] + Math.cos(a) * d, R.y + 650 + r() * 450, R.centre[1] + Math.sin(a) * d); group.add(sp); }
+}
+// #201 / #277: the tower's placeholder -- the #102 primitives at 330 m with the legs on the model's feet (hideout.js describes it), one
+// mesh in the room group so the model can take its place. The solid feet are in the layout's colliders (room-eiffel.js)
+function roomTower(group, R) {
+  const x = R.tower.x, z = R.tower.z, b = R.y, up = new THREE.Vector3(0, 1, 0), geos = [];
+  for (const p of eiffelParts(EIFFEL.h, EIFFEL.feet[2][0])) {
+    let g;
+    if (p.kind === 'leg') { const d = new THREE.Vector3(p.to[0] - p.from[0], p.to[1] - p.from[1], p.to[2] - p.from[2]), len = d.length(); g = new THREE.CylinderGeometry(p.r1, p.r0, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate(x + (p.from[0] + p.to[0]) / 2, b + (p.from[1] + p.to[1]) / 2, z + (p.from[2] + p.to[2]) / 2); }
+    else if (p.kind === 'box') { g = new THREE.BoxGeometry(p.w, p.h, p.d); g.translate(x, b + p.y + p.h / 2, z); }
+    else if (p.kind === 'arch') { g = new THREE.TorusGeometry(p.r, p.tube, 6, 16, Math.PI); g.translate(0, p.y, p.offset); g.rotateY(p.rot); g.translate(x, b, z); }
+    else { g = new THREE.CylinderGeometry(p.r1, p.r0, p.y1 - p.y0, 6); g.translate(x, b + (p.y0 + p.y1) / 2, z); }
+    geos.push(g.toNonIndexed());
+  }
+  const mesh = new THREE.Mesh(mergeGeometries(geos, false), new THREE.MeshLambertMaterial({ color: EIFFEL.colour })); mesh.userData.role = 'eiffel';
+  group.add(mesh); ROOM.placeholder = mesh;
+}
+const eiffelState = () => (ROOM.eiffel ||= { loaded: false, placeholder: true, started: false, error: null, tris: 0, height: null, base: null, material: null });
+function attachModel() { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeholder); ROOM.placeholder = null; } ROOM.group.add(ROOM.model); eiffelState().loaded = true; ROOM.eiffel.placeholder = false; }
+// #201: the life-size model („Eiffel Tower" by Johnson Martin, CC BY 4.0), fetched once the car is near the Hübel: the loader and
+// the meshopt decoder come from three/addons (the importmap), every mesh gets one shared Eiffel-brown material, the whole is
+// scaled to EIFFEL.h and stood on the room's floor, and the placeholder goes. Offline or blocked, the placeholder stays.
+async function loadEiffel() {
+  const E = eiffelState(); E.started = true;
+  console.info('Loading the Eiffel Tower model from', EIFFEL.url);
+  try {
+    const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
+    const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+    const gltf = await loader.loadAsync(EIFFEL.url), root = gltf.scene, mat = new THREE.MeshStandardMaterial({ color: EIFFEL.colour, roughness: EIFFEL.roughness, metalness: EIFFEL.metalness });
+    let tris = 0;
+    root.traverse(o => { if (!o.isMesh) return; o.material = mat; o.castShadow = o.receiveShadow = false; o.userData.role = 'eiffel'; if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+    const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), s = EIFFEL.h / size.y, { x: cx, z: cz } = ROOM.layout.tower, fl = ROOM.layout.y;
+    root.scale.setScalar(s); root.position.set(cx - s * (box.min.x + box.max.x) / 2, fl - s * box.min.y, cz - s * (box.min.z + box.max.z) / 2);
+    ROOM.model = root;
+    Object.assign(E, { tris, height: size.y * s, base: Math.max(size.x, size.z) * s, material: '#' + mat.color.getHexString() });
+    if (ROOM.built) attachModel();
+    console.info(`Eiffel Tower model loaded: ${tris} triangles, ${(size.y * s).toFixed(1)} m tall`);
+  } catch (err) { console.warn('Eiffel Tower model not loaded, keeping the placeholder:', err); E.error = String(err); }
+}
+// #201: the per-quadrant footprint of the loaded model's vertices below 20 m, relative to the tower centre (to measure EIFFEL.feet)
+function eiffelFootprints() {
+  if (!ROOM.model) return null;
+  const { x: cx, z: cz } = ROOM.layout.tower, fl = ROOM.layout.y, v = new THREE.Vector3(), boxes = [[], [], [], []];
+  ROOM.model.updateWorldMatrix(true, true);
+  ROOM.model.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y > fl + 20) continue; boxes[(v.x < cx ? 0 : 1) + (v.z < cz ? 0 : 2)].push([v.x - cx, v.z - cz]); } });
+  return boxes.filter(b => b.length).map(pointBounds);
+}
+window.__mm.eiffel = () => ROOM.eiffel ? { ...ROOM.eiffel, feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
+window.__mm.eiffelFootprints = eiffelFootprints;
+window.__mm.buildRoom = roomBuild;   // Task 7 smoke hook (removed in Task 8)
+window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };
@@ -1939,7 +2069,7 @@ const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg
 const JUMP_ENTRIES = L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
 const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
-function placeOnRoad(x, z, th, name) { P.safe = [x, z, th]; clearNavi(); resetCar(); if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
+function placeOnRoad(x, z, th, name) { const wasBelow = LEVELS.onJump(); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
 function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, jumpHeading(p, best), p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
 // along the road, turned towards the landmark (#79); a look point (#102) turns the car straight at it, off the road's line
@@ -1951,7 +2081,7 @@ function jumpToWreck(name) { const c = UWS.counts; if (!c || !c.wreck) return; c
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
 // #102: first time in the cavern -- toast, jingle, remember it
 // #201: the car is under the hill -- the one place that decides cave mode, the find and the camera (#202 makes it stateful)
-function caveInside() { return !!HIDE && roofedAt(P.x, P.z) && P.y < meshH(P.x, P.z) - 1; }
+function caveInside() { return !!HIDE && LEVELS.isSurface() && roofedAt(P.x, P.z) && P.y < meshH(P.x, P.z) - 1; }
 function foundHideout() { HIDE.found = true; try { localStorage.setItem(HIDEOUT.key, '1'); } catch (e) { } toastHtml(tr('hideoutFound'), TOAST_S.event); SFX.finish(); }
 // #105: smoke = a pool of 24 sprites made once (10 puffs/s × 2.4 s ≤ 24), one shared texture, one material each for per-puff opacity
 const SMOKE = { pool: [] };
@@ -2032,7 +2162,7 @@ function stepNavi(dt) {
 }
 // #10: F takes off from the car's spot and lands the car on the nearest jumpable road below (not a jump: the flight already marks the run). R, J, the map and Start end a flight through resetCar
 function toggleFly() { if (WRECK_S.on) return; if (FLY.on) land(); else takeOff(); }
-function takeOff() { if (roofedAt(P.x, P.z)) { toast(tr('hideoutNoSky')); return; }   // #102: no sky under the hill
+function takeOff() { if (roofedAt(P.x, P.z) || !LEVELS.isSurface()) { toast(tr('hideoutNoSky')); return; }   // #102: no sky under the hill
   stopAuto('reset'); const s = heliStart(P.x, P.z, P.y, P.th, skyGroundH(P.x, P.z)); FLY.on = true; FLY.v = s.v; FLY.alt = s.alt; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
 function land() { const spot = landingSpot(nearestJumpable(P.x, P.z)); if (!spot) { toast(tr('heliNoRoad')); return; } P.safe = [spot.x, spot.z, spot.th]; resetCar(); toast(tr('heliLanded')); }
 // #100: pontoon bridge (U). Rules in pontoon.js; here the world adapters, the key, the step and the hooks (meshes: buildPontoonMeshes below)
@@ -2114,7 +2244,7 @@ window.__mm.underwater = () => ({ on: UWS.on, fogDensity: scene.fog && scene.fog
 window.__mm.fishPose = (i) => { const m = new THREE.Matrix4(); FISH.mesh.getMatrixAt(i, m); return Array.from(m.elements).map(v => +v.toFixed(4)); };
 window.__mm.nearestSchool = (x, z) => Math.min(...FISH.schools.map(s => Math.hypot(s.x - x, s.z - z)));
 // #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
-window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.r0.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.r0.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, stubs: HIDE.stubs, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms } : null;
+window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.r0.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.r0.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, stubs: HIDE.stubs, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms, lift: { c: LIFT.c, th: LIFT.th, hw: LIFT.hw, hd: LIFT.hd }, room: ROOM.layout && { centre: ROOM.layout.centre, tower: ROOM.layout.tower, spawn: ROOM.layout.spawn, towerView: ROOM.layout.towerView, half: ROOM.layout.half, y: ROOM.layout.y } } : null;
 window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH; window.__mm.roomAt = roomAt; window.__mm.ceilingAt = ceilingH;   // #201
 // #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
 window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? { role: hit.object.userData.role, y: hit.point.y } : null; };
@@ -2122,7 +2252,9 @@ window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ 
 window.__mm.hideoutRing = () => HIDE && HIDE.ring ? Object.fromEntries(Object.entries(HIDE.ring).map(([id, ring]) => [id, ring.map(r => ({ ...r, wall: TUNNEL.wall }))])) : null;   // #201: { r0, n1 }
 // #201: cave mode as the tests see it; the lights; the last frame's draw calls; the tower; the static map's pixel over (x, z)
 window.__mm.cave = () => ({ inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || treeCone.visible || FOREST_MESHES.some(f => f.bill.visible || f.cone.visible), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
-window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
+window.__mm.level = () => ({ id: LEVELS.id, grid: OBB_GRID === SURFACE_GRID ? 'surface' : 'room', y: P.y });
+window.__mm.setLevel = (id) => LEVELS.set(id);   // Task 6 smoke hook, replaced by the ride in Task 8
+window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, level: LEVELS.id });
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.roadSigns = () => ROAD_SIGNS.map(s => ({ ...s }));   // #42
@@ -2232,7 +2364,7 @@ function stepCar(dt) {
   else { P.splash = 0; P.vy -= 22 * gravityScale(SURP) * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (landingHurts(P.vy)) { const s = impactStrength(-P.vy); crashHit(s); SFX.crash(s); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (!dead && roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump; #105: a wreck does not move the safe spot (the new car comes to the last road position, not wherever the wreck rolled)
   collide(carRadius());
   // #102 / #201: under the hill? cave mode follows the car (#277: the find is the lift ride's, see liftEvent)
-  if (HIDE) { const inside = caveInside(); if (inside !== CAVE_MODE.on) setCave(inside); }
+  if (HIDE) { const inside = caveInside(); if (inside !== CAVE_MODE.on) setCave(inside); if (!(ROOM.eiffel && ROOM.eiffel.started) && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }   // the model downloads near the Hübel; the room swaps it in
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
@@ -2268,7 +2400,7 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
     if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
     const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim; camera.lookAt(look); }
   camTail(); }
-function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); sun.position.set(P.x - 300, 400, P.z - 200); sun.target.position.set(P.x, 0, P.z);
+function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); const base = LEVELS.isSurface() ? 0 : ROOM_Y; sun.position.set(P.x - 300, base + 400, P.z - 200); sun.target.position.set(P.x, base, P.z);
   const camWl = waterLevelAt(camera.position.x, camera.position.z, camera.position.y), under = camWl !== null && camera.position.y < camWl; if (under !== UWS.on) setUnderwater(under); }   // #101: the look follows the camera, not the car
 // #7 turntable: orbit the standing car at the chase distance, car.visible whatever V / the eye views say, look target shifted so the car sits in the stage's centre
 function stepTurntable(dt) { CARSEL.spin = spinStep(CARSEL.spin, dt, { dir: CARSEL.dir, drag: CARSEL.drag }); CARSEL.drag = 0; const a = CARSEL.spin.angle, d = VEH.camera.chase.dist * 1.5, h = VEH.camera.chase.h * 0.75, cy = P.y + 0.8 * VEH.scale; car.visible = true; camPos.set(P.x + Math.cos(a) * d, P.y + h, P.z + Math.sin(a) * d); camera.position.copy(camPos); const r = $('csstage').getBoundingClientRect(), ox = (r.left + r.width / 2) / innerWidth * 2 - 1, oy = 1 - (r.top + r.height / 2) / innerHeight * 2; const [sx, sy] = lookShift(ox, oy, Math.hypot(d, h - 0.8 * VEH.scale), camera.fov, camera.aspect); camera.lookAt(P.x + Math.sin(a) * sx, cy + sy, P.z - Math.cos(a) * sx); }   // right vector of a camera at angle a looking at the car: (sin a, 0, -cos a)
@@ -2453,7 +2585,7 @@ const mapToWorld = (px, py) => { const v = mapView(), bx = (px - mapC.width / 2)
 function stepMapZoom(dir) { MAP.zoom = ZOOMS[clamp(ZOOMS.indexOf(MAP.zoom) + dir, 0, ZOOMS.length - 1)]; renderMapZoom(); }
 function renderMapZoom() { $('mapzoom').textContent = (MAP.full ? 1 : MAP.zoom) + '×'; }
 // #77: hold Tab = full map; #br gets the class `full` (CSS centres and enlarges it), only on a change
-function setFullMap(full) { if (full === MAP.full) return; MAP.full = full; $('br').classList.toggle('full', full); renderMapZoom(); }
+function setFullMap(full) { if (full === MAP.full || (full && !LEVELS.isSurface())) return; MAP.full = full; $('br').classList.toggle('full', full); renderMapZoom(); }
 mapC.addEventListener('wheel', e => { e.preventDefault(); MAP.wheel += e.deltaY * (e.deltaMode ? 40 : 1); if (Math.abs(MAP.wheel) < 100) return; stepMapZoom(MAP.wheel < 0 ? 1 : -1); MAP.wheel = 0; }, { passive: false });   // one notch (100) = one step; trackpad deltas add up
 // double-click (mouse) on the map: the car goes onto the nearest jumpable road there, like J (a jump during a race). Placements < 500 ms apart are one gesture
 function placeFromMap(e) { if (performance.now() - MAP.placedT < 500) return; MAP.placedT = performance.now(); const r = mapC.getBoundingClientRect(), [x, z] = mapToWorld((e.clientX - r.left) * mapC.width / r.width, (e.clientY - r.top) * mapC.height / r.height); jumpTo({ n: tr('fromMap'), x, z }); }
@@ -2507,7 +2639,7 @@ for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(6.4, 1.
 function debugMat(t) { let m = DEBUG_H.mat.get(t); if (m) DEBUG_H.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 512, 96, 'rgba(14,30,8,.85)', '#b6ff7a', '700 56px "Barlow Condensed", sans-serif', '#b6ff7a'), depthWrite: false, depthTest: false }); DEBUG_H.mat.set(t, m); return m; }
 function trimDebugMats() { const inUse = new Set(DEBUG_H.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of DEBUG_H.mat) { if (DEBUG_H.mat.size <= DEBUG_H.cap) return; if (inUse.has(m)) continue; DEBUG_H.mat.delete(t); m.map.dispose(); m.dispose(); } }
 debugLayer({
-  tick(x, z) { DEBUG_H.shown = pickLabels(gridQuery(DEBUG_H.grid, x, z, 60), x, z, 60, 40); DEBUG_H.pool.forEach((s, i) => { const it = DEBUG_H.shown[i]; s.visible = !!it; if (it) { s.material = debugMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimDebugMats(); },
+  tick(x, z) { if (!LEVELS.isSurface()) { DEBUG_H.shown = []; for (const s of DEBUG_H.pool) s.visible = false; return; } DEBUG_H.shown = pickLabels(gridQuery(DEBUG_H.grid, x, z, 60), x, z, 60, 40); DEBUG_H.pool.forEach((s, i) => { const it = DEBUG_H.shown[i]; s.visible = !!it; if (it) { s.material = debugMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimDebugMats(); },
   hide() { DEBUG_H.shown = []; for (const s of DEBUG_H.pool) s.visible = false; },
 });
 // #70: a label over a tall building close to the camera would leave the top of the screen: every frame, lower each shown label from its roof-top it.y to NDC y 0.8 (debug.js clampLabelY). hud runs before render, so refresh the view matrix first.
