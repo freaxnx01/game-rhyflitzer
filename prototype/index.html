@@ -291,12 +291,12 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <label for="mmhfile" class="btn small" data-i18n="loadTerrain">Load terrain (.mmh)</label>
       <input id="mmhfile" type="file" accept=".mmh" hidden>
       <button id="mmhclear" class="btn small" type="button" hidden data-i18n="useMadeUp">Use made-up terrain</button>
-      <label for="worldfile" class="btn small" data-i18n="loadWorldFile">Load world file (.zip)</label>
+      <label for="worldfile" class="btn small" data-i18n="loadWorldFile" hidden>Load world file (.zip)</label>
       <input id="worldfile" type="file" accept=".zip,application/zip" hidden>
       <button id="worlddl" class="btn small" type="button" hidden data-i18n="downloadWorld">Download world</button>
       <button id="worldforget" class="btn small" type="button" hidden data-i18n="forgetWorld">Remove saved copy</button>
       <span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span>
-      <span id="worldfilestatus" role="status"></span>
+      <span id="worldfilestatus" role="status" hidden></span>
     </div>
     <p id="blurb" style="font-size:14px;color:var(--steel-l)">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
   </div>

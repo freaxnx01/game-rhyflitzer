@@ -100,7 +100,7 @@ export async function writeZip(entries) {
     const name = new TextEncoder().encode(e.name);
     const rawData = e.data instanceof Uint8Array ? e.data : new Uint8Array(e.data);
     const crc = crc32(rawData);
-    const deflated = await pump(new CompressionStream('deflate-raw'), rawData, rawData.length);
+    const deflated = await pump(new CompressionStream('deflate-raw'), rawData, Math.max(rawData.length * 2, 256));
     const useDeflate = deflated.length < rawData.length;
     const compressed = useDeflate ? deflated : rawData;
     const method = useDeflate ? 8 : 0;
