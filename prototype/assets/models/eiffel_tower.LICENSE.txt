@@ -1,0 +1,7 @@
+„Eiffel Tower" (https://skfb.ly/AIU9) by Johnson Martin, licensed under Creative Commons Attribution 4.0
+(CC BY 4.0, http://creativecommons.org/licenses/by/4.0/).
+
+eiffel_tower.glb in this folder is a modified copy: simplified/quantized and meshopt-compressed with
+gltf-transform (EXT_meshopt_compression + KHR_mesh_quantization) for the desktop build; the materials are
+replaced in-game with a plain brown PBR material (#6b4a32, roughness 0.75, metalness 0.35). The game credits
+the model in the F1 help, README.md and CHANGELOG.md.

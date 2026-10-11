@@ -18,6 +18,11 @@ test('every value is a string or a function in both languages, and functions agr
   }
 });
 
+test('the Eiffel Tower model is credited in both languages (#201)', () => {
+  assert.match(translate('en', 'creditEiffel'), /Johnson Martin.*CC BY 4\.0/);
+  assert.match(translate('de', 'creditEiffel'), /Johnson Martin.*CC BY 4\.0/);
+});
+
 test('German strings use Swiss spelling (no sharp s)', () => {
   for (const [key, value] of Object.entries(STRINGS.de)) assert.ok(!render(value).includes('ß'), key);
 });
