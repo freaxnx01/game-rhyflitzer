@@ -8,6 +8,7 @@ All notable changes to this project are documented here, following
 
 ### Added
 
+- Hover over the version number at the bottom of the screen and it tells you when the game was last updated, in your own time zone, and how long ago that was — „Build: 11.10.2026, 08:59 (vor 1 Stunde 35 Minuten)". A click still opens the changelog. Works in German and English.
 - Doppelklick in die Landschaft beamt das Auto dorthin; im Rennen zählt das wie ein Sprung nicht.
 - Im Pausenmenü kann das Fahrzeug mitten im Rennen gewechselt werden; so ein Rennen zählt nicht für die Bestzeit.
 - The new Südspange through the Sisslerfeld is open in the game, even though it is still being built: from the new junction on the Laufenburgerstrasse it drops into a cutting, passes under the DSM tracks and climbs onto the Sisslerfeld, then runs past the DSM plant to the Geuerenstrasse in Münchwilen. A bike path runs beside it on the first stretch, and the branch to the new SBB Freiverlad is there too. Baustelle signs mark both ends, and the stretch for buses and bikes only has its Fahrverbot signs — you can still drive it. **J** → `südspange` now puts you on the new road itself, looking down into the cutting.
