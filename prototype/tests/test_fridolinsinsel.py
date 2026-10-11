@@ -25,5 +25,7 @@ def test_car_drives_out_of_the_rhine_onto_the_fridolinsinsel(server):
         polys = page.evaluate("() => window.__mm.counts.forest.polys")
         b.close()
     assert out is not None, "the car never left the water: a wall stops it on the bed"
-    assert -1238 < out["x"] < -1195, out      # it came out past the old stall (-1238) and onto the island, not the east bank
+    # measured: the island's west shore (wood polygon edge = water edge) at z=170 is x=-1236.7 in the world data; the car leaves the
+    # water on the first 0.25 s step past it (x=-1236.6, ~1.1 m per step). The plan's -1235 was a guess 1.6 m inland of the shore.
+    assert -1237 < out["x"] < -1230, out      # it came out at the west shore, not the east bank (-1209.9)
     assert polys == len(json.loads(WORLD.read_text(encoding="utf-8"))["forests"]) - 1

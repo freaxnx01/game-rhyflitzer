@@ -12,6 +12,16 @@ test('clearWoods_PointInsideOnePolygon_DropsOnlyThatPolygon', () => {
   assert.deepEqual(clearWoods([SQUARE, OTHER], [[5, 5]]), [OTHER]);
 });
 
+test('clearWoods_SeveralPoints_DropsEachWoodTheyLieInAndNothingElse', () => {
+  const THIRD = { ring: [[200, 200], [210, 200], [210, 210], [200, 210]] };
+  assert.deepEqual(clearWoods([SQUARE, OTHER, THIRD], [[5, 5], [105, 105]]), [THIRD]);
+});
+
+test('clearWoods_PointInsideTwoOverlappingPolygons_DropsBoth', () => {   // by design: a pin clears every wood it lies in
+  const OVERLAP = { ring: [[5, 5], [15, 5], [15, 15], [5, 15]] };
+  assert.deepEqual(clearWoods([SQUARE, OVERLAP, OTHER], [[7, 7]]), [OTHER]);
+});
+
 test('clearWoods_PointOutsideEverything_KeepsAll', () => {
   assert.deepEqual(clearWoods([SQUARE, OTHER], [[50, 50]]), [SQUARE, OTHER]);
 });
