@@ -335,7 +335,10 @@ import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLin
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from './holzbruecke.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
-import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, HALL_CAM, TOWER_SPOTS, TOWER_TOP, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
+import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, onLiftPlatform, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
+import { createLift } from './lift.js';
+import { createLevels } from './levels.js';
+import { eiffelRoom, ROOM_Y } from './room-eiffel.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -731,7 +734,7 @@ function roofedAt(x, z) { return !!HIDE && caveRoofed(x, z, HIDE.portal); }
 // the lid reaches TUNNEL.wall further out than the corridor, over the trough walls and the cut's edge (drawn and solid)
 function underLid(x, z) { return !!HIDE && caveRoofed(x, z, HIDE.portal, TUNNEL.wall); }
 function lidH(x, z) { return underLid(x, z) ? meshH(x, z) - 0.6 : null; }
-// #201: the ceiling of the cave at (x, z): tunnels capped at 12 m, the hall's shell 380 m up, R0/N1/stubs the hill's underside
+// #201: the ceiling of the cave at (x, z): tunnels capped at 12 m, the lobby 14 m, R0/N1/stubs the hill's underside
 function ceilingH(x, z) { return HIDE ? ceilingAt(x, z, meshH, HIDE.portal) : null; }
 function skyGroundH(x, z) { const g = groundH(x, z, 1e4); return roofedAt(x, z) ? Math.max(g, meshH(x, z)) : g; }
 // #201: the ground things on the surface stand on: the hill over the roofed system, the terrain (cut floors included) elsewhere
@@ -787,9 +790,8 @@ else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has 
 // ---------- geometry builders ----------
 const parts = {};
 const UWS = { on: false };   // #101: true while the camera is under the water surface (setUnderwater switches the look)
-// #201: cave mode -- on while the car is under the hill (caveInside); group = the hall's interior, drawn only then (setCave)
-const CAVE_MODE = { on: false, group: null, placeholder: null, model: null, eiffel: null };
-const CAVE_CAM = { hall: 0 };   // #201: 0..1, how far the chase camera has tilted up for the hall (eased in stepCamera)
+// #201: cave mode -- on while the car is under the hill (caveInside); group = the lobby's lights and platform, drawn only then (setCave)
+const CAVE_MODE = { on: false, group: null };
 function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.toNonIndexed() : geo); }
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
@@ -1040,8 +1042,7 @@ function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/
 }
 // #102 / #201: the hideout -- trough walls along T1 (the #119 pattern without decks), ring walls around R0 and N1 between
 // their exits, walls along every corridor, bricked-up stubs with „KEIN ZUTRITT" signs, the reservoir gate at the portal,
-// gravel on every floor, lamps and lights in R0, the hall's invisible ring (its drawn shell belongs to cave mode, caveBuild)
-// and the tower (eiffelTower). Every OBB is `secret`: the static map skips it, and free() (the trees on the hill) ignores it.
+// gravel on every floor, lamps and lights in R0, and the lift lobby at T2b's end (#277, lobbyBuild). Every OBB is `secret`: the static map skips it, and free() (the trees on the hill) ignores it.
 function hideoutBuild() {
   const h = HIDEOUT, u = TUNNEL, a = hideoutAxis(h), g0 = meshH(a.mouth[0], a.mouth[1]), floor = (s) => floorAt(s, g0, h), stone = col('#b8b2a6'), gravel = col('#cfc3ac'), inner = h.hw + u.margin;
   // topAt(x, z): the wall's top over each corner, so a block on a slope follows the hill instead of poking out of it; the
@@ -1057,13 +1058,11 @@ function hideoutBuild() {
     if (roomAt(w.x, w.z, -u.wall)) continue;   // the corridor's walls stop just inside R0, where the ring takes over
     wallBox(w.x, w.z, w.len + 0.05, w.rot, wf, w.t >= HIDE.portal ? (x, z) => Math.min(lidTop(x, z), wf + TUNNEL_CEIL + 0.1) : () => ground + 1);
   }
-  // #201: the ring walls of R0 and N1, one arc between each pair of exits, up to the hill's underside (their ceiling)
-  for (const id of ['r0', 'n1']) {
-    const n = CAVE.nodes[id], R = nodeR(n, u) - u.wall / 2; HIDE.ring[id] = [];
-    for (const arc of ringArcs(id, u)) for (const r of ringStations(n.c[0], n.c[1], R, Math.max(1, Math.round(24 * (arc.a1 - arc.a0) / (2 * Math.PI))), arc.a0, arc.a1)) { HIDE.ring[id].push(r); wallBox(r.x, r.z, r.len, r.rot, fl, lidTop); }
+  // #201: the ring walls of R0, N1 and the lobby (#277), one arc between each pair of exits, up to the hill's underside (their ceiling)
+  for (const id of ['r0', 'n1', 'lobby']) {
+    const n = CAVE.nodes[id], R = nodeR(n, u) - u.wall / 2, top = id === 'lobby' ? () => fl + n.ceiling + 0.1 : lidTop; HIDE.ring[id] = [];
+    for (const arc of ringArcs(id, u)) for (const r of ringStations(n.c[0], n.c[1], R, Math.max(1, Math.round(24 * (arc.a1 - arc.a0) / (2 * Math.PI))), arc.a0, arc.a1)) { HIDE.ring[id].push(r); wallBox(r.x, r.z, r.len, r.rot, fl, top); }
   }
-  // #201: the hall keeps the car and the chase camera inside with 48 invisible solid pieces just inside its shell; nothing drawn
-  { const [cx, cz] = CAVE.nodes.hall.c; for (const r of ringStations(cx, cz, CAVE.nodes.hall.shellR - 1, 48)) pushOBB({ x: r.x, z: r.z, hw: r.len / 2, hd: 1, c: Math.cos(r.rot), s: Math.sin(r.rot), h: fl + 400, secret: true }); }
   // #201: the corridors' walls (T2a, T2b: up to their 12 m ceiling; the stubs: up to the hill), stopping just inside the rooms
   const corridorWalls = (pts, hw, top) => { const len = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]); for (const w of wallStations(pts, [[0, len]], hw + u.margin + u.wall / 2, 2)) { if (roomAt(w.x, w.z, -u.wall)) continue; wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, top); } };
   for (const l of CAVE.links) corridorWalls(linkPts(l), l.hw, () => fl + l.ceiling + 0.1);
@@ -1083,13 +1082,12 @@ function hideoutBuild() {
   box(2 * (inner + u.wall), meshH(px, pz) + 1 - (pf + 5), 1.2, px, pf + 5, pz, rot, stone, 'stone', [4, 3], 0);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.9), new THREE.MeshBasicMaterial({ map: textTex('RESERVOIR HÜBEL', 1024, 160, '#d8d2c6', '#2a2a2a', '700 110px "Barlow Condensed", sans-serif'), transparent: true }));
   sign.position.set(px - a.ux * 0.62, pf + 5.8, pz - a.uz * 0.62); sign.rotation.y = Math.atan2(-a.ux, -a.uz); signs.add(sign);
-  // floor: gravel down T1 (draped on the cut), over R0 and N1 up to their rings' inner faces, along every corridor, over the hall
+  // floor: gravel down T1 (draped on the cut), over R0 and N1 up to their rings' inner faces, along every corridor (the lobby's floor is lobbyBuild's)
   const [cx, cz] = CAVE.nodes.r0.c;
   ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true);
   for (const id of ['r0', 'n1']) disc(...CAVE.nodes[id].c, nodeR(CAVE.nodes[id], u) - u.wall, 0.04, 'gravel', gravel);
   for (const l of CAVE.links) ribbon(linkPts(l), l.hw, fl + 0.04, 'gravel', gravel);
   for (const s of CAVE.stubs) ribbon(stubPts(s, u), s.hw, fl + 0.04, 'gravel', gravel);
-  disc(...CAVE.nodes.hall.c, CAVE.nodes.hall.shellR, 0.04, 'gravel', gravel, 48);
   // R0's light: two warm point lights, four lamp posts on the diagonals (the chimney's lamp pattern). three r170 lights in
   // physical units: 120 cd with decay 2 gives ~0.8 at the centre, 12 m off (the sun is 0.8); 36 m of range ends inside the hill
   for (const m of caveLamps(h).filter(m => m.room === 'r0')) { const l = new THREE.PointLight(0xffd9a0, m.intensity, m.distance, m.decay); l.position.set(m.x, fl + m.y, m.z); l.userData.kind = 'point'; CAVE_MODE.group.add(l); HIDE.lights.push(l); }
@@ -1099,78 +1097,32 @@ function hideoutBuild() {
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd27a })); head.position.set(x, fl + 2.8, z);
     signs.add(pole, head); HIDE.lamps++;
   }
-  // #201: the rooms for the tests: centre, floor radius; the hall with its ceiling and the least rock over its whole disc
+  // #201: the rooms for the tests: centre, floor radius; the lobby with its ceiling
   HIDE.rooms = {};
   for (const id in CAVE.nodes) HIDE.rooms[id] = { c: CAVE.nodes[id].c, r: nodeR(CAVE.nodes[id], u) };
-  { const hn = CAVE.nodes.hall, R = nodeR(hn, u); let minRock = Infinity; for (let x = -R; x <= R; x += 10) for (let z = -R; z <= R; z += 10) if (Math.hypot(x, z) <= R) minRock = Math.min(minRock, meshH(hn.c[0] + x, hn.c[1] + z) - fl); Object.assign(HIDE.rooms.hall, { ceiling: fl + hn.ceiling, minRock }); }
-  caveBuild(fl);
+  Object.assign(HIDE.rooms.lobby, { ceiling: fl + CAVE.nodes.lobby.ceiling });
+  lobbyBuild(fl);
 }
-// #201: cave mode's content -- everything of the hall that must not exist for an outside observer, in CAVE_MODE.group, visible
-// only while the car is under the hill (setCave): the shell (two open cylinders, the lower one with a gap at T2b's door, and
-// a ceiling disc 380 m up, merged into one mesh of near-black rock), four floodlights and two base lights, and the tower.
-function caveBuild(fl) {
-  const group = CAVE_MODE.group, hn = CAVE.nodes.hall, [cx, cz] = hn.c, R = hn.shellR, [arc] = ringArcs('hall'), th0 = Math.PI / 2 - arc.a1, thLen = arc.a1 - arc.a0;
-  const lower = new THREE.CylinderGeometry(R, R, TUNNEL_CEIL, 64, 1, true, th0, thLen); lower.translate(cx, fl + TUNNEL_CEIL / 2, cz);
-  const upper = new THREE.CylinderGeometry(R, R, hn.ceiling - TUNNEL_CEIL, 64, 1, true); upper.translate(cx, fl + TUNNEL_CEIL + (hn.ceiling - TUNNEL_CEIL) / 2, cz);
-  const top = new THREE.CircleGeometry(R, 64); top.rotateX(Math.PI / 2); top.translate(cx, fl + hn.ceiling, cz);
-  // #201 look: warm grey rock, jittered, and darker with height (1 at the floor, 0.35 at the ceiling), so the walls read as a
-  // hall around the car while the ceiling 380 m up stays lost in the dark
-  const g = mergeGeometries([lower, upper, top].map(q => q.toNonIndexed()), false), jitter = rng(201); colorize(g, col('#5a524a'));
-  { const c = g.attributes.color, pos = g.attributes.position; for (let i = 0; i < c.count; i++) { const f = (0.75 + 0.25 * jitter()) * (1 - 0.65 * Math.min(1, (pos.getY(i) - fl) / hn.ceiling)); c.setXYZ(i, c.getX(i) * f, c.getY(i) * f, c.getZ(i) * f); } }
-  const shell = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide, vertexColors: true })); shell.userData.role = 'shell'; group.add(shell);
-  // floodlights on the diagonals, aimed up the tower; base lights along T2b's axis for the floor between the legs
-  const T = TOWER_SPOTS, d = T.r / Math.SQRT2;
-  for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const l = new THREE.SpotLight(0xffd9a0, T.intensity, T.distance, T.angle, T.penumbra, 2); l.position.set(cx + ox * d, fl + 2, cz + oz * d); l.target.position.set(cx, fl + T.aimY, cz); l.userData.kind = 'spot'; group.add(l, l.target); HIDE.lights.push(l); }
-  const [p, q] = linkPts(CAVE.links[1]), len = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / len, uz = (q[1] - p[1]) / len;
-  for (const m of caveLamps().filter(m => m.room === 'hall')) { const l = new THREE.PointLight(0xffe2b0, m.intensity, m.distance, m.decay); l.position.set(m.x, fl + m.y, m.z); l.userData.kind = 'point'; group.add(l); HIDE.lights.push(l); }
-  // #201 look: the summit lights, one each side of the top across T2b's axis (TOWER_TOP)
-  for (const k of [-1, 1]) { const l = new THREE.PointLight(0xfff1d6, TOWER_TOP.intensity, TOWER_TOP.distance, 2); l.position.set(cx - uz * TOWER_TOP.r * k, fl + TOWER_TOP.y, cz + ux * TOWER_TOP.r * k); l.userData.kind = 'point'; group.add(l); HIDE.lights.push(l); }
-  eiffelTower(cx, cz, fl);
+// #277: the lift lobby at the end of T2b -- concrete floor, the dark steel platform with yellow edge strips, the lamps of caveLamps. The
+// lift's gate bar drops across the platform's front during a ride (stepLift). Drawn only under the hill, like the rest of the group.
+const LIFT_GATE = { cave: null, room: null };
+function liftGateMesh() {   // a bar over the platform front: up (open) = 4.6 m, down (shut) = 1.4 m
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0xe0b020 })); m.userData.role = 'liftgate'; return m;
 }
-// #201: the tower's placeholder -- the #102 primitives at 330 m with the legs on the model's feet (hideout.js describes it), one
-// mesh in the cave group so the model can take its place; solid at the four feet only, drive between the legs
-function eiffelTower(x, z, b) {
-  const up = new THREE.Vector3(0, 1, 0), geos = [];
-  for (const p of eiffelParts(EIFFEL.h, EIFFEL.feet[2][0])) {
-    let g;
-    if (p.kind === 'leg') { const d = new THREE.Vector3(p.to[0] - p.from[0], p.to[1] - p.from[1], p.to[2] - p.from[2]), len = d.length(); g = new THREE.CylinderGeometry(p.r1, p.r0, len, 4); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d.normalize())); g.translate(x + (p.from[0] + p.to[0]) / 2, b + (p.from[1] + p.to[1]) / 2, z + (p.from[2] + p.to[2]) / 2); }
-    else if (p.kind === 'box') { g = new THREE.BoxGeometry(p.w, p.h, p.d); g.translate(x, b + p.y + p.h / 2, z); }
-    else if (p.kind === 'arch') { g = new THREE.TorusGeometry(p.r, p.tube, 6, 16, Math.PI); g.translate(0, p.y, p.offset); g.rotateY(p.rot); g.translate(x, b, z); }
-    else { g = new THREE.CylinderGeometry(p.r1, p.r0, p.y1 - p.y0, 6); g.translate(x, b + (p.y0 + p.y1) / 2, z); }
-    geos.push(g.toNonIndexed());
+function placeGate(mesh, y0) { mesh.userData.y0 = y0; mesh.position.set(LIFT.c[0] + Math.cos(LIFT.th) * LIFT.hd, y0 + 4.6, LIFT.c[1] + Math.sin(LIFT.th) * LIFT.hd); mesh.rotation.y = -LIFT.th; }
+function liftPlatformMeshes(y0, group) {   // y0 = the floor; group = where to add them
+  const [cx, cz] = LIFT.c, f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], v = [-f[1], f[0]];
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd, 0.3, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0x3a3f46 })); deck.position.set(cx, y0 + 0.15, cz); deck.rotation.y = -LIFT.th; group.add(deck);
+  for (const [a, b, w, d] of [[LIFT.hd - 0.25, 0, 0.5, 2 * LIFT.hw], [-LIFT.hd + 0.25, 0, 0.5, 2 * LIFT.hw], [0, LIFT.hw - 0.25, 2 * LIFT.hd, 0.5], [0, -LIFT.hw + 0.25, 2 * LIFT.hd, 0.5]]) {
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), new THREE.MeshLambertMaterial({ color: 0xe0b020 })); strip.position.set(cx + f[0] * a + v[0] * b, y0 + 0.32, cz + f[1] * a + v[1] * b); strip.rotation.y = -LIFT.th; group.add(strip);
   }
-  const mesh = new THREE.Mesh(mergeGeometries(geos, false), new THREE.MeshLambertMaterial({ color: EIFFEL.colour })); mesh.userData.role = 'eiffel';
-  CAVE_MODE.group.add(mesh); CAVE_MODE.placeholder = mesh;
-  for (const [fx, fz] of EIFFEL.feet) pushOBB({ x: x + fx, z: z + fz, hw: EIFFEL.footHw, hd: EIFFEL.footHw, c: 1, s: 0, h: b + EIFFEL.footH, secret: true });
-  window.__mm.counts.eiffel = 1;
-  CAVE_MODE.eiffel = { loaded: false, placeholder: true, started: false, error: null, tris: 0, height: null, base: null, material: null };
+  const gate = liftGateMesh(); placeGate(gate, y0); group.add(gate); return gate;
 }
-// #201: the life-size model („Eiffel Tower" by Johnson Martin, CC BY 4.0), fetched once the car is near the Hübel: the loader and
-// the meshopt decoder come from three/addons (the importmap), every mesh gets one shared Eiffel-brown material, the whole is
-// scaled to EIFFEL.h and stood on the hall floor, and the placeholder goes. Offline or blocked, the placeholder stays.
-async function loadEiffel() {
-  const E = CAVE_MODE.eiffel; E.started = true;
-  console.info('Loading the Eiffel Tower model from', EIFFEL.url);
-  try {
-    const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
-    const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
-    const gltf = await loader.loadAsync(EIFFEL.url), root = gltf.scene, mat = new THREE.MeshStandardMaterial({ color: EIFFEL.colour, roughness: EIFFEL.roughness, metalness: EIFFEL.metalness });
-    let tris = 0;
-    root.traverse(o => { if (!o.isMesh) return; o.material = mat; o.castShadow = o.receiveShadow = false; o.userData.role = 'eiffel'; if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
-    const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), s = EIFFEL.h / size.y, [cx, cz] = CAVE.nodes.hall.c, fl = HIDE.floor;
-    root.scale.setScalar(s); root.position.set(cx - s * (box.min.x + box.max.x) / 2, fl - s * box.min.y, cz - s * (box.min.z + box.max.z) / 2);
-    CAVE_MODE.group.remove(CAVE_MODE.placeholder); CAVE_MODE.group.add(root); CAVE_MODE.model = root;
-    Object.assign(E, { loaded: true, placeholder: false, tris, height: size.y * s, base: Math.max(size.x, size.z) * s, material: '#' + mat.color.getHexString() });
-    console.info(`Eiffel Tower model loaded: ${tris} triangles, ${(size.y * s).toFixed(1)} m tall`);
-  } catch (err) { console.warn('Eiffel Tower model not loaded, keeping the placeholder:', err); E.error = String(err); }
-}
-// #201: the per-quadrant footprint of the loaded model's vertices below 20 m, relative to the hall centre (to measure EIFFEL.feet)
-function eiffelFootprints() {
-  if (!CAVE_MODE.model) return null;
-  const [cx, cz] = CAVE.nodes.hall.c, fl = HIDE.floor, v = new THREE.Vector3(), boxes = [[], [], [], []];
-  CAVE_MODE.model.updateWorldMatrix(true, true);
-  CAVE_MODE.model.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y > fl + 20) continue; boxes[(v.x < cx ? 0 : 1) + (v.z < cz ? 0 : 2)].push([v.x - cx, v.z - cz]); } });
-  return boxes.filter(b => b.length).map(pointBounds);
+function lobbyBuild(fl) {
+  const u = TUNNEL, n = CAVE.nodes.lobby, group = CAVE_MODE.group;
+  disc(...n.c, nodeR(n, u) - u.wall, 0.04, 'stone', col('#9aa0a6'));
+  LIFT_GATE.cave = liftPlatformMeshes(fl, group);
+  for (const m of caveLamps().filter(m => m.room === 'lobby')) { const l = new THREE.PointLight(0xffe2b0, m.intensity, m.distance, m.decay); l.position.set(m.x, fl + m.y, m.z); l.userData.kind = 'point'; group.add(l); HIDE.lights.push(l); }
 }
 // ---------- street furniture (props) ----------
 // One low-poly model per prop kind, merged into a single geometry so each kind draws as one InstancedMesh.
@@ -1319,15 +1271,14 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); parts.grass.push(p.toNonIndexed());
   }
   if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy under it, wound to face down (ceiling, into stone)
-    // #201: the ceiling is ceilingH (tunnels capped at 12 m, rooms the hill's underside); the hall has none -- its shell is the
-    // ceiling -- and the lid's triangles reaching into its disc take the hill's underside, so no sheet hangs from the shell's 380 m
-    const ROCK = col('#4a4642'), inHall = (x, z) => roomAt(x, z, TUNNEL.wall) === 'hall', ceilH = (x, z) => inHall(x, z) ? meshH(x, z) - 0.6 : (ceilingH(x, z) ?? meshH(x, z) - 0.6);
+    // #201: the ceiling is ceilingH (tunnels capped at 12 m, rooms the hill's underside, the lobby 14 m)
+    const ROCK = col('#4a4642'), ceilH = (x, z) => ceilingH(x, z) ?? meshH(x, z) - 0.6;
     for (const key of caveCells) {
       const [i, j] = key.split(',').map(Number); HIDE.lidCells.add(key);
       const lid = cellGeo(cellTris(i, j, meshH, underLid, underLid), groundCol);
       if (!lid) continue;
       parts.grass.push(lid); HIDE.lidTris += lid.attributes.position.count / 3;
-      const ceil = cellGeo(cellTris(i, j, ceilH, underLid, (x, z) => underLid(x, z) && !inHall(x, z)), () => ROCK, true);
+      const ceil = cellGeo(cellTris(i, j, ceilH, underLid, underLid), () => ROCK, true);
       if (!ceil) continue;
       push('stone', ceil); HIDE.lidTris += ceil.attributes.position.count / 3;
     }
@@ -2170,10 +2121,8 @@ window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector
 window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay, visible: l.visible && l.parent.visible, kind: l.userData.kind, target: l.isSpotLight ? l.target.position.toArray() : null, angle: l.angle ?? null, penumbra: l.penumbra ?? null })) : null;
 window.__mm.hideoutRing = () => HIDE && HIDE.ring ? Object.fromEntries(Object.entries(HIDE.ring).map(([id, ring]) => [id, ring.map(r => ({ ...r, wall: TUNNEL.wall }))])) : null;   // #201: { r0, n1 }
 // #201: cave mode as the tests see it; the lights; the last frame's draw calls; the tower; the static map's pixel over (x, z)
-window.__mm.cave = () => ({ inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || treeCone.visible || FOREST_MESHES.some(f => f.bill.visible || f.cone.visible), lights: HIDE ? HIDE.lights.length : 0, hallCam: CAVE_CAM.hall, programs: renderer.info.programs.length });
+window.__mm.cave = () => ({ inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || treeCone.visible || FOREST_MESHES.some(f => f.bill.visible || f.cone.visible), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
 window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles });
-window.__mm.eiffel = () => CAVE_MODE.eiffel ? { ...CAVE_MODE.eiffel, feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
-window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
 window.__mm.cutDepth = (x, z) => cutDepth(x, z);
 window.__mm.roadSigns = () => ROAD_SIGNS.map(s => ({ ...s }));   // #42
@@ -2282,8 +2231,8 @@ function stepCar(dt) {
   if (wl !== null) { if (P.splash === 0) { SFX.splash(); P.hinted = false; } const was = P.splash; P.splash += dt; P.vy = 0; if (P.y > gh2 + 0.15) { const k = Math.exp(-UW.drag * dt); P.vx *= k; P.vz *= k; P.y = Math.max(P.y - UW.sink * dt, gh2); } else P.y = gh2; if (was < 0.35 && P.splash >= 0.35) toast(tr('fishes'), TOAST_S.event); if (!P.hinted && P.splash >= UW.hintAt) { P.hinted = true; toast(tr('underwaterHint'), TOAST_S.event); } }
   else { P.splash = 0; P.vy -= 22 * gravityScale(SURP) * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (landingHurts(P.vy)) { const s = impactStrength(-P.vy); crashHit(s); SFX.crash(s); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (!dead && roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump; #105: a wreck does not move the safe spot (the new car comes to the last road position, not wherever the wreck rolled)
   collide(carRadius());
-  // #102 / #201: under the hill? cave mode follows the car; the find is the hall (not R0, not the hill over it); the model loads near the Hübel
-  if (HIDE) { const inside = caveInside(); if (inside !== CAVE_MODE.on) setCave(inside); if (!HIDE.found && inside && roomAt(P.x, P.z) === 'hall') foundHideout(); if (CAVE_MODE.eiffel && !CAVE_MODE.eiffel.started && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }
+  // #102 / #201: under the hill? cave mode follows the car (#277: the find is the lift ride's, see liftEvent)
+  if (HIDE) { const inside = caveInside(); if (inside !== CAVE_MODE.on) setCave(inside); }
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
@@ -2317,9 +2266,7 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
   else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
     const drone = !!v.drone; if (drone) { CAM.t += dt; const sw = droneSway(CAM.t); target.x -= fz * sw.side; target.z += fx * sw.side; target.y += sw.up; }   // #93: hover on the car's true right vector (-fz, fx), not on b, so B does not flip it
     if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
-    // #201: in the hall the look point rises with the distance (tilt 0.45 ~ 24 deg), so the tower comes into the frame
-    CAVE_CAM.hall = clamp(CAVE_CAM.hall + (caveInside() && roomAt(P.x, P.z) === 'hall' ? 1 : -1) * dt / HALL_CAM.ease, 0, 1);
-    const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim; look.y += CAVE_CAM.hall * HALL_CAM.tilt * Math.hypot(camPos.x - look.x, camPos.z - look.z); camera.lookAt(look); }
+    const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim; camera.lookAt(look); }
   camTail(); }
 function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); sun.position.set(P.x - 300, 400, P.z - 200); sun.target.position.set(P.x, 0, P.z);
   const camWl = waterLevelAt(camera.position.x, camera.position.z, camera.position.y), under = camWl !== null && camera.position.y < camWl; if (under !== UWS.on) setUnderwater(under); }   // #101: the look follows the camera, not the car
@@ -2619,14 +2566,14 @@ function testhubContext() {
   return {
     entries: JUMP_ENTRIES,
     underwater: UWS.counts ? { wreck: UWS.counts.wreck, wreckCar: UWS.counts.wreckCar } : null,
-    hideout: HIDE ? { mouth: HIDEOUT.mouth, heading: HIDEOUT.heading, n1: CAVE.nodes.n1.c, hall: CAVE.nodes.hall.c } : null,
+    hideout: HIDE ? { mouth: HIDEOUT.mouth, heading: HIDEOUT.heading, n1: CAVE.nodes.n1.c, lobby: CAVE.nodes.lobby.c } : null,
   };
 }
 function testhubGo(target) {
   if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else jumpTo(target.entry); return; }
   const s = target.spot;
   placeOnRoad(s.x, s.z, s.th, target.label);
-  if (s.floor && HIDE) { P.y = HIDE.floor ?? HIDE.f0; car.position.y = P.y; restShadow(); }   // inside the hill: the cave floor, not the ground seen from the sky
+  if (s.floor && HIDE) { P.y = HIDE.floor ?? HIDE.f0; car.position.y = P.y; restShadow(); }   // inside the hill: the cave floor, not the ground seen from the sky (Task 9 replaces this)
 }
 function testhubRegister(hub) {
   hub.setInfo({ game: 'rhyflitzer', version: window.GAME_VERSION || '0.0.0' });
