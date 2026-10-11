@@ -172,7 +172,7 @@ const en = {
   // ---- J dialog ----
   jumpTitle: 'Jump to',
   jumpSearch: 'Search landmarks',
-  jumpHint: 'type to search · ↑↓ Enter · J / Esc closes',
+  jumpHint: 'type to search · ↑↓ choose · Enter confirms · Esc closes',
   chipAll: 'All',
   // ---- car selection (#7) ----
   chooseCar: 'Choose car',
@@ -210,7 +210,7 @@ const en = {
   veh_delorean_desc: 'Brushed steel, gull-wing doors, 1981 on the clock. Slow off the line, but when it pulls up the whole Hochrhein turns round.',
   keyAuto: 'autopilot: drive to a place or street (O again, steering, gas or brake: you drive)',
   driveTitle: 'Drive to',
-  driveHint: 'type to search · ↑↓ Enter · O / Esc closes',
+  driveHint: 'type to search · ↑↓ choose · Enter confirms · Esc closes',
   streetIn: (g) => `street · ${g}`,
   autoOn: (n) => `Autopilot → ${n}`,
   autoOff: 'Autopilot off — you drive',
@@ -235,7 +235,7 @@ const en = {
   // ---- I dialog and Navi panel (#106) ----
   keyNavi: 'navigation: route, turn arrow and directions to a street or landmark (O drives it too)',
   naviTitle: 'Navigate to',
-  naviHint: 'type to search · ↑↓ Enter · I / Esc closes',
+  naviHint: 'type to search · ↑↓ choose · Enter confirms · Esc closes',
   naviOn: (n) => `Navi on: ${n}`,
   naviOff: 'Navi off',
   naviIn: (d, dir) => `In ${d} ${dir}`,
@@ -415,7 +415,7 @@ const de = {
   abandonHint: 'Esc: weiterspielen',
   jumpTitle: 'Springen nach',
   jumpSearch: 'Wahrzeichen suchen',
-  jumpHint: 'tippen zum Suchen · ↑↓ Enter · J / Esc schliesst',
+  jumpHint: 'tippen zum Suchen · ↑↓ wählen · Enter bestätigt · Esc schliesst',
   chipAll: 'Alle',
   // ---- car selection (#7) ----
   chooseCar: 'Auto wählen',
@@ -453,7 +453,7 @@ const de = {
   veh_delorean_desc: 'Gebürsteter Stahl, Flügeltüren, Baujahr 1981. Träge beim Anfahren, aber wenn er vorfährt, dreht sich der ganze Hochrhein um.',
   keyAuto: 'Autopilot: zu einem Ort oder einer Strasse fahren (nochmals O, lenken, Gas oder Bremse: selbst fahren)',
   driveTitle: 'Fahren nach',
-  driveHint: 'tippen zum Suchen · ↑↓ Enter · O / Esc schliesst',
+  driveHint: 'tippen zum Suchen · ↑↓ wählen · Enter bestätigt · Esc schliesst',
   streetIn: (g) => `Strasse · ${g}`,
   autoOn: (n) => `Autopilot → ${n}`,
   autoOff: 'Autopilot aus — selbst fahren',
@@ -477,7 +477,7 @@ const de = {
   blitzCps: (done) => `${done} / 5 Checkpoints`,
   keyNavi: 'Navi: Route, Abbiegepfeil und Ansagen zu einer Strasse oder einem Ort (O fährt auch)',
   naviTitle: 'Navigieren nach',
-  naviHint: 'tippen zum Suchen · ↑↓ Enter · I / Esc schliesst',
+  naviHint: 'tippen zum Suchen · ↑↓ wählen · Enter bestätigt · Esc schliesst',
   naviOn: (n) => `Navi an: ${n}`,
   naviOff: 'Navi aus',
   naviIn: (d, dir) => `In ${d} ${dir}`,

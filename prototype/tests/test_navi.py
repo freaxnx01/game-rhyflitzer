@@ -97,7 +97,7 @@ def test_i_opens_the_navigate_dialog_and_enter_starts_the_navi(server):
         page.keyboard.press("KeyI")
         assert page.is_visible("#jump")
         assert page.text_content("#jumptitle") == "Navigate to"
-        assert "I / Esc closes" in page.text_content("#jumphint")
+        assert "Enter confirms" in page.text_content("#jumphint")
         assert page.evaluate("() => document.activeElement.id") == "jumpq"
         rows = page.evaluate("() => window.__mm.jumpList()")
         names = [r["n"] for r in rows]
@@ -293,7 +293,7 @@ def test_german_texts(server):
         b, page = open_page(p, server, locale="de-CH", lang="de")
         page.keyboard.press("KeyI")
         assert page.text_content("#jumptitle") == "Navigieren nach"
-        assert "I / Esc schliesst" in page.text_content("#jumphint")
+        assert "Enter bestätigt" in page.text_content("#jumphint")
         pick_dest(page, "Smile")                                         # the dialog is already open from the I above
         assert "Navi an: Smile-Kreisel" in page.inner_html("#toast")
         page.evaluate("() => window.__mm.naviWalk(20, 6)")
@@ -323,12 +323,12 @@ def test_the_j_and_o_dialogs_are_unchanged(server):
         b, page = open_page(p, server)
         page.keyboard.press("KeyJ")
         assert page.text_content("#jumptitle") == "Jump to"
-        assert "J / Esc closes" in page.text_content("#jumphint")
+        assert "Enter confirms" in page.text_content("#jumphint")
         assert "Random spot" in [r["n"] for r in page.evaluate("() => window.__mm.jumpList()")]
         page.keyboard.press("KeyJ")
         page.keyboard.press("KeyO")
         assert page.text_content("#jumptitle") == "Drive to"
-        assert "O / Esc closes" in page.text_content("#jumphint")
+        assert "Enter confirms" in page.text_content("#jumphint")
         assert "Random spot" not in [r["n"] for r in page.evaluate("() => window.__mm.jumpList()")]
         b.close()
 
