@@ -172,6 +172,7 @@ def test_look_follows_the_camera(server):
     assert wet["on"] is True and abs(wet["fogDensity"] - 0.035) < 1e-6 and wet["waterDoubleSide"] is True
     assert cam["d"][1] < 6, cam                                            # the chase cam came down with the car (under the 0 m surface)
     assert back["on"] is False and back["fogDensity"] is None
+    assert dry["surface"]["lit"] is False and wet["surface"]["lit"] is True and back["surface"]["lit"] is False   # the ceiling glows only under the surface
 
 
 def test_camera_stays_above_the_bed_in_the_shallows(server):
@@ -200,6 +201,7 @@ def test_t_underwater_keeps_the_murk(server):
         u = underwater(page)
         b.close()
     assert u["on"] is True and abs(u["fogDensity"] - 0.035) < 1e-6
+    assert u["surface"]["lit"] is True   # the Smooth style's new water material gets the glow too (applyStyle -> setUnderwater)
 
 
 def test_bubbles_rise_only_in_the_water(server):

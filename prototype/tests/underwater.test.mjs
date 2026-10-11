@@ -1,7 +1,7 @@
 // #101: the underwater Rhine -- pure helpers. node --test prototype/tests/underwater.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { UW, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose } from '../underwater.js';
+import { UW, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, SURFACE_UNDER, surfaceLook } from '../underwater.js';
 
 const close = (a, b, eps = 1e-9, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };   // a deterministic rnd()
@@ -92,4 +92,20 @@ test('spreadSchools_SeedsFirst_NoTwoCloserThanSpacing_EveryPointCovered', () => 
 
 test('spreadSchools_MoreSeedsThanMax_KeepsOnlyMax', () => {
   assert.equal(spreadSchools([[0, 0]], 10, 2, [[1, 1], [2, 2], [3, 3]]).length, 2);
+});
+
+// #217: the surface seen from the river bed must read as lit water, not a dark board
+const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return 0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255); };
+
+test('surfaceLook_Under_IsASelfLitTeal', () => {
+  assert.deepEqual(surfaceLook(true), { emissive: SURFACE_UNDER.emissive, emissiveIntensity: SURFACE_UNDER.intensity });
+  assert.ok(surfaceLook(true).emissiveIntensity > 0);
+});
+
+test('surfaceLook_Dry_IsOff', () => {
+  assert.deepEqual(surfaceLook(false), { emissive: '#000000', emissiveIntensity: 0 });
+});
+
+test('SURFACE_UNDER_GlowIsLighterThanTheMurkAroundIt', () => {
+  assert.ok(lum(SURFACE_UNDER.emissive) * SURFACE_UNDER.intensity > lum(UW.fogColor), 'the ceiling must not be darker than the fog');
 });
