@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-11 15:45` The <kbd>J</kbd> list has a new place, the **Rhein-Wracks** below Bad Säckingen: it drops the car on the bed of the Rhine a few metres from the capsized rowing boat, with the rusty car further down the river. Type "wrack" to find it; **R** puts you back on the road.
 - `2026-10-11 12:24` The map reaches further south now, up onto the **Tafeljura**: **Schupfart** with its airfield, Frick, Oeschgen, Obermumpf and Hellikon are there to drive to, with their village names. <kbd>J</kbd> → `flugplatz` (or the new Schupfart chip) takes you to **Flugplatz Schupfart**.
 - `2026-10-11 10:33` Hover over the **version number** at the bottom of the screen and it tells you when the game was **last updated**, in your own time zone, and how long ago that was — „Build: 11.10.2026, 08:59 (vor 1 Stunde 35 Minuten)". A click still opens the changelog. Works in German and English.
 - `2026-10-11 09:27` Im **Pausenmenü** kann das **Fahrzeug** mitten im Rennen gewechselt werden; so ein Rennen zählt nicht für die Bestzeit.

@@ -34,7 +34,7 @@ needs_world47 = pytest.mark.skipif(not WORLD47, reason="world not rebuilt for #4
 CHIPS = ["All", "Bad Säckingen", "Stein", "Münchwilen"] + (["Schupfart"] if WORLD47 else []) + ["Eiken", "Sisseln"]
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
     + (["Güggeli-Foodtruck"] if WORLD103 else [])
-ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + 3   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94) and the Reservoir Hübel (#102) are fixed points, listed in any world
+ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + 4   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) are fixed points, listed in any world
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else [])
 
@@ -397,6 +397,23 @@ def test_bergsee_jump_lands_on_the_lake_road_facing_the_lake(server):
     assert d < 80, f"car at ({c['x']:.1f}, {c['z']:.1f}) is {d:.0f} m from the lake centre"
     assert _jumpable_road_dist(c["x"], c["z"]) < 4, "the car did not land on a road"
     assert (math.cos(th) * dx + math.sin(th) * dz) / d > 0.5, f"car at ({c['x']:.1f}, {c['z']:.1f}) does not face the lake"
+
+
+@needs_world
+def test_rhein_wracks_jump_puts_the_car_on_the_bed_by_the_wrecks(server):
+    """#215: J -> 'wrack' drops the car on the Rhine bed 8 m upstream of the capsized boat; R brings it back to a road."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        c = jump_via_dialog(page, "wrack")
+        u = page.evaluate("() => window.__mm.underwater()")
+        page.keyboard.press("KeyR")
+        page.wait_for_function("() => window.__mm.car().water === null", timeout=60000)
+        back = car(page)
+        b.close()
+    bx, bz = u["wreck"]
+    assert math.hypot(c["x"] - bx, c["z"] - bz) < 12, c
+    assert c["water"] is not None and c["submerged"] is True, c       # on the bed, under the surface
+    assert back["splash"] == 0 and back["submerged"] is False, back    # R: out of the water, on a road
 
 
 @needs_world
