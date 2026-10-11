@@ -1622,8 +1622,8 @@ function updateLabels(x, z) { LABELS.ticks++; LABELS.shown = pickLabels(gridQuer
 const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? REGION.villages.map(v => [v.t, terrainH(v.x, v.z)]) : []), border: L ? nationalBorder(L.boundaries, REGION.borderDe) : null };
 function villageTex(t) { return makeTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = '800 120px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = 'rgba(20,23,29,.85)'; g.strokeText(t, w / 2, h / 2 + 4); g.fillStyle = '#f5efe0'; g.fillText(t, w / 2, h / 2 + 4); }, { alpha: true }); }
 function villageSprite(t) { let s = VILLAGE_SIGNS.sprites.get(t); if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: villageTex(t), transparent: true, depthTest: false, depthWrite: false, fog: false })); VILLAGE_SIGNS.sprites.set(t, s); scene.add(s); } return s; }
-function updateVillageNames(x, z) {
-  VILLAGE_SIGNS.shown = L ? villageNames(REGION.villages, x, z, VILLAGE_SIGNS.border) : [];
+function updateVillageNames(x, z) {   // #258: none inside the cave (no sky; the sprites ignore depth, so they would show through the rock)
+  VILLAGE_SIGNS.shown = L && !CAVE_MODE.on ? villageNames(REGION.villages, x, z, VILLAGE_SIGNS.border) : [];
   for (const s of VILLAGE_SIGNS.sprites.values()) s.visible = false;
   VILLAGE_SIGNS.shown.forEach((l, rank) => { const s = villageSprite(l.t); s.visible = true; s.material.opacity = l.opacity; s.renderOrder = 20 - rank; s.scale.set(l.h * 1024 / 160, l.h, 1); s.position.set(l.x, VILLAGE_SIGNS.ground.get(l.t) + 70 + l.h / 2, l.z); });
 }

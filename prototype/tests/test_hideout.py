@@ -493,3 +493,22 @@ def test_eiffel_placeholder_survives_a_blocked_model(server):
     assert e["placeholder"] is True and e["loaded"] is False and e["started"] is True and counts["eiffel"] == 1, e
     assert math.hypot(push["foot"]["dx"], push["foot"]["dz"]) > 5, push
     assert math.hypot(push["centre"]["dx"], push["centre"]["dz"]) < 0.01, push
+
+
+@needs_world
+def test_village_names_hidden_inside_the_cave_and_back_outside(server):
+    """#258: the big village names are depth-test-free sprites, so they showed through the rock; the cavern has no sky."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        page.evaluate(f"() => window.__mm.place({MOUTH_ROAD[0]}, {MOUTH_ROAD[1]})")
+        page.wait_for_function("() => window.__mm.villageSprites().length > 0", timeout=120000)
+        outside = [s["t"] for s in page.evaluate("() => window.__mm.villageSprites()")]
+        c = page.evaluate("() => window.__mm.hideout().centre")
+        page.evaluate(f"() => window.__mm.sim({c[0]}, {c[1]}, {HEADING}, 8, 0.5, [], {page.evaluate('() => window.__mm.hideout().floor')})")
+        page.wait_for_function("() => window.__mm.cave().inside === true", timeout=120000)
+        page.wait_for_function("() => window.__mm.villageSprites().length === 0", timeout=60000)
+        page.evaluate(f"() => window.__mm.place({MOUTH_ROAD[0]}, {MOUTH_ROAD[1]})")
+        page.wait_for_function("() => window.__mm.cave().inside === false && window.__mm.villageSprites().length > 0", timeout=120000)
+        br.close()
+    assert errors == []
+    assert outside, "no village name outside the cave"
