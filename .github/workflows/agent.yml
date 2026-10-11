@@ -20,7 +20,7 @@ jobs:
     with:
       issue-number: ${{ github.event.issue.number }}
       runner-labels: '["ubuntu-latest"]'
-      default-model: z-ai/glm-5.2  # implementation on OpenRouter; design issues get labels agent:claude + model:fable
+      default-model: z-ai/glm-5.3  # implementation on OpenRouter; design issues get labels agent:claude + model:fable
       pipeline-ref: v2
       agent: opencode
       review-model: claude-sonnet-5  # review runs on the claude CLI; Sonnet instead of the Opus default
