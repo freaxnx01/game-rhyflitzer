@@ -97,11 +97,13 @@ test('pause menu texts exist in both languages (#83)', () => {
   assert.equal(translate('de', 'pauseRestart'), 'Rennen neu starten');
   assert.equal(translate('de', 'pauseMenu'), 'Hauptmenü');
   assert.equal(translate('en', 'abandonTitle'), 'Abandon this run?');
-  assert.equal(translate('en', 'abandonCancel'), 'Cancel');
-  assert.equal(translate('en', 'abandonOk'), 'Abandon');
+  assert.equal(translate('en', 'abandonCancel'), 'Keep driving');
+  assert.equal(translate('en', 'abandonOk'), 'Abandon run');
+  assert.equal(translate('en', 'abandonHint'), 'Esc: keep driving');
   assert.equal(translate('de', 'abandonTitle'), 'Diesen Lauf abbrechen?');
-  assert.equal(translate('de', 'abandonCancel'), 'Abbrechen');
-  assert.equal(translate('de', 'abandonOk'), 'Verwerfen');
+  assert.equal(translate('de', 'abandonCancel'), 'Weiterspielen');
+  assert.equal(translate('de', 'abandonOk'), 'Lauf verwerfen');
+  assert.equal(translate('de', 'abandonHint'), 'Esc: weiterspielen');
   for (const k of ['pauseHint', 'pauseAria', 'keyPause', 'abandonHint']) assert.notEqual(translate('de', k), k, k);
 });
 

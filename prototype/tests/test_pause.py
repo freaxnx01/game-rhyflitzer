@@ -135,7 +135,7 @@ def test_keyboard_navigation_and_main_menu_asks_first(server):
         gone = not page.is_visible("#pause") and not page.is_visible("#abandon")
         b.close()
     assert seen == ["pauseresume", "pausevehicle", "pauserestart", "pausemenu", "pauseresume", "pausemenu", "pauseresume", "pausemenu"]
-    assert q_shown and role == "alertdialog" and q_text == ["Abandon this run?", "Cancel", "Abandon"]
+    assert q_shown and role == "alertdialog" and q_text == ["Abandon this run?", "Keep driving", "Abandon run"]
     assert (q["on"], q["confirm"], q["focus"], q["t"], q["state"]) == (True, True, "abandoncancel", before["t"], "racing")
     assert (still["on"], still["confirm"]) == (True, True)
     assert back_shown and (back["on"], back["focus"], back["t"]) == (True, "pausemenu", before["t"])
@@ -143,6 +143,31 @@ def test_keyboard_navigation_and_main_menu_asks_first(server):
     assert (s["on"], s["confirm"], s["state"], s["t"], s["focus"], s["best"]) == (False, False, "ready", 0, "startbtn", before["best"])
     assert gone and start_text == "Start"
     assert abs(car["x"] - start["x"]) < 0.5 and abs(car["z"] - start["z"]) < 0.5   # back at START (an armed car may settle a little)
+    assert errors == []
+
+
+def test_abandon_title_fits_desktop(server):
+    """#223: at 72 px the DE title wrapped to three lines and ran out of the panel on the right."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.evaluate("() => window.ggSetLang('de')")
+        drive(page)
+        page.keyboard.up("Space")
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=T)
+        page.click("#pausemenu")
+        page.wait_for_function("() => window.__mm.pause().confirm", timeout=T)
+        fit = page.evaluate("""() => {
+            const h1 = document.getElementById('abandontitle'), r = h1.getBoundingClientRect(),
+                  panel = h1.closest('.panel').getBoundingClientRect(), cs = getComputedStyle(h1);
+            return { title: h1.textContent, overflow: h1.scrollWidth > h1.clientWidth,
+                     right: r.right, panelRight: panel.right,
+                     lines: Math.round(r.height / parseFloat(cs.lineHeight)) };
+        }""")
+        b.close()
+    assert fit["title"] == "Diesen Lauf abbrechen?"
+    assert not fit["overflow"] and fit["right"] <= fit["panelRight"]
+    assert fit["lines"] <= 2
     assert errors == []
 
 
@@ -260,7 +285,7 @@ def test_phone_abandon_confirmation_fits_and_taps(server):
         s = pause(page)
         b.close()
     assert fit["title"] == "Diesen Lauf abbrechen?" and fit["focus"] == "abandoncancel"
-    assert [x["text"] for x in fit["buttons"]] == ["Abbrechen", "Verwerfen"]
+    assert [x["text"] for x in fit["buttons"]] == ["Weiterspielen", "Lauf verwerfen"]
     assert all(x["inside"] and not x["clipped"] and x["h"] >= 44 for x in fit["buttons"])
     assert fit["pageWidth"] <= 360 and fit["nav"] == "none"
     assert back and (s["on"], s["state"]) == (False, "ready")
