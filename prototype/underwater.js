@@ -58,3 +58,10 @@ export function spreadSchools(points, spacing, max, seeds = []) {
   }
   return kept;
 }
+
+// #217: the surface seen from below is lit from the wrong side (back face normals flip), so it turns into a dark board; under water it glows instead
+export const SURFACE_UNDER = { emissive: '#3f9fb0', intensity: 0.8 };
+
+export function surfaceLook(on) {
+  return on ? { emissive: SURFACE_UNDER.emissive, emissiveIntensity: SURFACE_UNDER.intensity } : { emissive: '#000000', emissiveIntensity: 0 };
+}
