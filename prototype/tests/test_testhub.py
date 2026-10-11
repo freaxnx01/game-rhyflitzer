@@ -89,3 +89,50 @@ def test_loader_survives_blocked_local_storage(server):
         b.close()
     assert len(requests) == 1, requests
     assert not any("blocked" in e and "testhub" in e.lower() for e in errors), errors
+
+
+def car(page):
+    return page.evaluate("() => window.__mm.car()")
+
+
+def go(page, target_id):
+    page.evaluate("(id) => window.ggTesthub.regs[id].fn()", target_id)
+
+
+def reg_ids(page):
+    return page.evaluate("() => Object.keys(window.ggTesthub.regs)")
+
+
+def test_registers_j_entries_and_wrecks_and_jumps_flag_the_race(server):
+    with sync_playwright() as p:
+        b, page, errors, _ = new_page(p, server, "?dev=1", block_world=True)
+        start(page)
+        page.wait_for_function("() => window.ggTesthub && Object.keys(window.ggTesthub.regs).length > 0", timeout=30000)
+        ids, info = reg_ids(page), page.evaluate("() => window.ggTesthub.info")
+        wreck = page.evaluate("() => window.__mm.underwater().wreck")
+        assert page.evaluate("() => window.__mm.raceFlags().jumped") is False
+
+        go(page, "uw.boat")                                  # the wreck, 8 m east of it, facing it
+        c1, th = car(page), page.evaluate("() => window.__mm.heading()")
+        flags = page.evaluate("() => window.__mm.raceFlags()")
+        go(page, [i for i in ids if i.startswith("j.")][-1])
+        c2 = car(page)
+        b.close()
+    assert errors == []
+    assert info == {"game": "rhyflitzer", "version": "0.2.0"}, info
+    assert {"uw.boat", "uw.car"} <= set(ids) and not any(i.startswith("hideout.") for i in ids), ids
+    assert len([i for i in ids if i.startswith("j.")]) >= 2, ids
+    assert math.hypot(c1["x"] - (wreck[0] + 8), c1["z"] - wreck[1]) < 2, (c1, wreck)
+    assert math.cos(th - math.pi) > 0.99, th
+    assert flags["jumped"] is True, "a Testhub jump counts like a J jump"
+    assert math.hypot(c2["x"] - c1["x"], c2["z"] - c1["z"]) > 20, "the j.* target moved the car"
+
+
+def test_registers_when_the_client_was_there_before_the_game(server):
+    with sync_playwright() as p:
+        b, page, errors, requests = new_page(p, server, "", block_world=True, init_script=STUB_FIRST)   # no ?dev: nothing is fetched
+        start(page)
+        ids = reg_ids(page)
+        b.close()
+    assert requests == [] and errors == []
+    assert "uw.boat" in ids and any(i.startswith("j.") for i in ids), ids

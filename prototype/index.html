@@ -343,6 +343,7 @@ import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntri
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
 import { photoFileName, canPhoto } from './photo.js';
+import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
@@ -2546,6 +2547,30 @@ function savePhoto(blob) {
   setTimeout(() => URL.revokeObjectURL(url), 40000);                  // ...and the blob URL alive until the download has fetched it
   toast(tr('photoSaved'));
 }
+
+// ---------- Testhub (#251) ----------
+// Dev mode only: the loader in the body appends /testhub/client.js, which defines window.ggTesthub and then fires
+// 'gg-testhub-ready'. The client may arrive before or after this module, so handle both orders (no polling).
+// Every jump goes through placeOnRoad(), so a race in progress is flagged exactly like a J jump.
+function testhubContext() {
+  return {
+    entries: JUMP_ENTRIES,
+    underwater: UWS.counts ? { wreck: UWS.counts.wreck, wreckCar: UWS.counts.wreckCar } : null,
+    hideout: HIDE ? { mouth: HIDEOUT.mouth, heading: HIDEOUT.heading, n1: CAVE.nodes.n1.c, hall: CAVE.nodes.hall.c } : null,
+  };
+}
+function testhubGo(target) {
+  if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else jumpTo(target.entry); return; }
+  const s = target.spot;
+  placeOnRoad(s.x, s.z, s.th, target.label);
+  if (s.floor && HIDE) { P.y = HIDE.floor ?? HIDE.f0; car.position.y = P.y; restShadow(); }   // inside the hill: the cave floor, not the ground seen from the sky
+}
+function testhubRegister(hub) {
+  hub.setInfo({ game: 'rhyflitzer', version: window.GAME_VERSION || '0.0.0' });
+  for (const target of buildTargets(testhubContext())) hub.register(target.id, () => testhubGo(target), target.label);
+}
+if (window.ggTesthub) testhubRegister(window.ggTesthub);
+else addEventListener('gg-testhub-ready', () => testhubRegister(window.ggTesthub), { once: true });
 
 // ---------- loop ----------
 applyStyle('original'); resize();
