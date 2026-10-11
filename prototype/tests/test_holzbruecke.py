@@ -58,13 +58,11 @@ def bridge(server):
 
 def assert_piers_reach_the_bed(feet, n):
     """Playtest 2026-10-11, under water: "nicht alle Pfeiler gehen in den Flussboden rein". Every pier's base lies at least a metre
-    under the bed -- the analytic one (water level minus bedDepth) and the drawn terrain under the bridge (window.__mm.bed(...).drawn)."""
+    under the drawn terrain beneath the bridge (window.__mm.bed(...).drawn, the riverbed mesh seen from above; the water lookup there
+    is None because the deck is in the way)."""
     assert len(feet) == n, feet
-    wet = [f for f in feet if f["bed"]["water"] is not None]
-    assert len(wet) >= n - 2, feet                                                  # the Rhine runs under all but the bank piers
-    for f in wet:
-        assert f["base"] < f["bed"]["water"] - f["bed"]["depth"] - 1, f
-        assert f["bed"]["drawn"] is None or f["base"] < f["bed"]["drawn"] - 1, f
+    for f in feet:
+        assert f["bed"]["drawn"] is not None and f["base"] < f["bed"]["drawn"] - 1, f
 
 
 def test_every_pier_is_sunk_into_the_riverbed(bridge):

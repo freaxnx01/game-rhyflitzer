@@ -1431,7 +1431,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     // chapels (playtest: "wie angeklebt"): each is part of the bridge -- a stone head of its pier carries it up to deck level, it opens to
     // the deck as a niche with a floor, its walls are closed half-timber (dark posts and a rail on light infill), and its roof leans
     // against the wall plate under the main eave: a half-pyramid on the polygonal ones, a single slope on the pent one
-    const infill = col('#e2d6be'), ov = 0.3, lowEave = H.eave - 1.2, ring = (pts) => pts.map((q, i) => [q, pts[(i + 1) % pts.length]]);
+    const infill = col('#f4efe4'), ov = 0.3, lowEave = H.eave - 1.2, ring = (pts) => pts.map((q, i) => [q, pts[(i + 1) % pts.length]]);
     for (const ch of H.chapels) { const p = piers[ch.pier], rot = Math.atan2(p.uz, p.ux), yd = hs(p.x, p.z), { outline, eave } = chapelPlan(ch, ov), base = chapelPlan(ch, 0.25).eave;
       const at = ([a, d]) => P(p, a, ch.side, wallAt + d), W = (q, y) => { const [x, z] = at(q); return [x, y, z]; }, apex = V(at([0, 0]), H.eave);
       const topY = (q) => ch.kind === 'pent' ? H.eave - (H.eave - lowEave) * q[1] / (ch.depth + ov) : lowEave;   // the pent roof falls from the wall plate; under a hip the walls are level
