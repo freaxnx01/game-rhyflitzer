@@ -74,3 +74,13 @@ test('reads a deflated zip written by Python zipfile (interop)', async () => {
   const files = await readZip(Uint8Array.from(Buffer.from(PY, 'base64')), LIM);
   assert.equal(new TextDecoder().decode(files.get('a.txt')), 'hello from python '.repeat(20));
 });
+
+test('writeZip stores incompressible and tiny entries instead of rejecting them', async () => {
+  const { randomBytes } = await import('node:crypto');
+  const random = new Uint8Array(randomBytes(200000));
+  const files = await readZip(await writeZip([{ name: 'a.txt', data: enc('x') }, { name: 'b.bin', data: random }]), { 'a.txt': 10, 'b.bin': 300000 });
+  assert.deepEqual(files.get('b.bin'), random);
+  assert.equal(new TextDecoder().decode(files.get('a.txt')), 'x');
+  const empty = await readZip(await writeZip([{ name: 'a.txt', data: new Uint8Array(0) }]), LIM);
+  assert.equal(empty.get('a.txt').length, 0);
+});
