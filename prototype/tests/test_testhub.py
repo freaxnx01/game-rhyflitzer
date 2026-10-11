@@ -164,7 +164,7 @@ HEADING = 95 * math.pi / 180      # the tunnel axis, as in test_hideout.py
 
 
 @needs_world
-def test_hideout_targets_put_the_car_at_the_gate_and_in_the_hall(server):
+def test_hideout_targets_put_the_car_at_the_gate_and_in_the_eiffel_room(server):
     with sync_playwright() as p:
         b, page, errors, _ = new_page(p, server, "?dev=1", block_world=False)
         start(page)
@@ -175,16 +175,17 @@ def test_hideout_targets_put_the_car_at_the_gate_and_in_the_hall(server):
         go(page, "hideout.gate")
         gate, gate_th = car(page), page.evaluate("() => window.__mm.heading()")
         go(page, "hideout.tower")
-        tower = car(page)
+        tower = car(page); tower_th = page.evaluate("() => window.__mm.heading()"); level = page.evaluate("() => window.__mm.level()")
         b.close()
     assert errors == []
     assert {"hideout.gate", "hideout.tower", "uw.boat", "uw.car", "j.reservoir-huebel"} <= set(ids), ids
     mx, mz = h["mouth"]
     assert 8 < math.hypot(gate["x"] - mx, gate["z"] - mz) < 16, (gate, h["mouth"])           # ~12 m back from the mouth
     assert math.cos(gate_th - HEADING) > 0.99, gate_th                                         # looking down the tunnel axis
-    hx, hz = h["rooms"]["hall"]["c"]
-    assert 100 < math.hypot(tower["x"] - hx, tower["z"] - hz) < 120, (tower, h["rooms"]["hall"])   # 110 m before the hall centre
-    assert abs(tower["y"] - h["floor"]) < 3, (tower["y"], h["floor"])                          # on the cave floor, not on the hill
+    tx, tz = h["room"]["tower"]["x"], h["room"]["tower"]["z"]
+    assert level["id"] == "eiffel" and abs(tower["y"] + 600) < 1, (level, tower)               # in the room, on its floor
+    assert 120 < math.hypot(tower["x"] - tx, tower["z"] - tz) < 180, (tower, h["room"]["tower"])   # 120-180 m from the tower centre
+    assert abs(tower_th - math.atan2(tz - tower["z"], tx - tower["x"])) < 0.05, (tower_th, tower)   # facing it
 
 
 @needs_world

@@ -2731,14 +2731,18 @@ function testhubContext() {
   return {
     entries: JUMP_ENTRIES,
     underwater: UWS.counts ? { wreck: UWS.counts.wreck, wreckCar: UWS.counts.wreckCar } : null,
-    hideout: HIDE ? { mouth: HIDEOUT.mouth, heading: HIDEOUT.heading, n1: CAVE.nodes.n1.c, lobby: CAVE.nodes.lobby.c } : null,
+    hideout: HIDE ? { mouth: HIDEOUT.mouth, heading: HIDEOUT.heading, tower: ROOM.layout.towerView } : null,
   };
 }
 function testhubGo(target) {
   if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else jumpTo(target.entry); return; }
   const s = target.spot;
+  if (s.room) {   // #277: a room below: build it, jump there like any jump (race flagged, toast), then step down into it
+    roomBuild(); if (!(ROOM.eiffel && ROOM.eiffel.started)) loadEiffel();
+    placeOnRoad(s.x, s.z, s.th, target.label); LEVELS.set('eiffel'); P.safe = [s.x, s.z, s.th]; resetCar();
+    camPos.set(s.x - Math.cos(s.th) * 12, P.y + 4, s.z - Math.sin(s.th) * 12); camera.position.copy(camPos); restShadow(); return;
+  }
   placeOnRoad(s.x, s.z, s.th, target.label);
-  if (s.floor && HIDE) { P.y = HIDE.floor ?? HIDE.f0; car.position.y = P.y; restShadow(); }   // inside the hill: the cave floor, not the ground seen from the sky (Task 9 replaces this)
 }
 function testhubRegister(hub) {
   hub.setInfo({ game: 'rhyflitzer', version: window.GAME_VERSION || '0.0.0' });

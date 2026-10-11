@@ -55,18 +55,19 @@ test('spotTargets: both wrecks, placed 8 m east of the wreck facing it (west)', 
   t.forEach(x => { assert.equal(x.kind, 'spot'); assert.match(x.id, TARGET_ID_RE); });
 });
 
+const HIDEOUT_CTX = { mouth: [0, 0], heading: 0, tower: { x: 10, z: 20, th: 1.5 } };
+
 test('spotTargets: hideout gate is 12 m back from the mouth, facing along the tunnel axis', () => {
-  const t = spotTargets({ underwater: null, hideout: { mouth: [0, 0], heading: 0, n1: [0, 0], hall: [0, 100] } });
+  const t = spotTargets({ underwater: null, hideout: HIDEOUT_CTX });
   const gate = t.find(x => x.id === 'hideout.gate');
   assert.deepEqual(gate.spot, { x: -12, z: 0, th: 0 });
 });
 
-test('spotTargets: hideout tower is 110 m before the hall centre on the N1 -> hall axis, facing it, on the cave floor', () => {
-  const t = spotTargets({ underwater: null, hideout: { mouth: [0, 0], heading: 0, n1: [0, 0], hall: [0, 100] } });
+test('spotTargets: hideout tower is a spot in the Eiffel room, at the given pose', () => {
+  const t = spotTargets({ underwater: null, hideout: HIDEOUT_CTX });
   const tower = t.find(x => x.id === 'hideout.tower');
-  assert.equal(tower.spot.floor, true);
-  assert.ok(Math.abs(tower.spot.x - 0) < 1e-9 && Math.abs(tower.spot.z - -10) < 1e-9, JSON.stringify(tower.spot));
-  assert.ok(Math.abs(tower.spot.th - Math.PI / 2) < 1e-9);
+  assert.equal(tower.label, 'Hideout: Eiffel room, facing the tower'); assert.equal(tower.kind, 'spot');
+  assert.deepEqual(tower.spot, { x: 10, z: 20, th: 1.5, room: 'eiffel' });
 });
 
 test('spotTargets: no underwater / no hideout -> no spots (hand layout, other region)', () => {
@@ -78,7 +79,7 @@ test('buildTargets: J entries first, then the four hidden spots; all ids valid a
   const targets = buildTargets({
     entries,
     underwater: { wreck: [0, 0], wreckCar: [30, 0] },
-    hideout: { mouth: [0, 0], heading: 1.6, n1: [0, 50], hall: [0, 200] },
+    hideout: { mouth: [0, 0], heading: 1.6, tower: { x: 0, z: 100, th: 0 } },
   });
   const ids = targets.map(t => t.id);
   assert.equal(new Set(ids).size, ids.length);
