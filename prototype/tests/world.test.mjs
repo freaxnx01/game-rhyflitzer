@@ -973,3 +973,85 @@ test('grade caps: the profile stays under every deck cap, ramping back at the un
   assert.equal(gc.outer, gc.inner + GRADE_CUT.bank * (5 + 2)); // the banks are sized on the capped depth
   assert.deepEqual(gradeCut(GR2, flat).caps, []);
 });
+
+// #259: the ground around a stone bridge's banks in 1 m patches of the measured terrain, so it does not depend on the coarse mesh
+const lattice = (dz, oz) => ({ x0: -4688.66, z0: -2349.8 + oz, dx: 16, dz, nx: 600, nz: 300 });
+const hill = (x, z) => 15 + 6 * Math.sin(x / 23) * Math.cos(z / 17) + 0.04 * x;   // a bank: curved, steep in places
+const coarseOf = (G) => (x, z) => {   // the coarse mesh over hill on lattice G, with the mesh's own triangle split
+  const fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz, i = Math.floor(fx), j = Math.floor(fz), at = (a, b) => hill(G.x0 + a * G.dx, G.z0 + b * G.dz);
+  return triLerpW(at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j), fx - i, fz - j);
+};
+let triLerpW;
+const sampleFine = (G, cells, n, x, z) => {   // what terrainH returns: the patch surface where there is one
+  const fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz, i = Math.floor(fx), j = Math.floor(fz), p = cells.get(i + ',' + j);
+  if (!p) return null;
+  const sx = (fx - i) * n, sz = (fz - j) * n, a = Math.min(Math.floor(sx), n - 1), b = Math.min(Math.floor(sz), n - 1), W = n + 1;
+  return triLerpW(p[b * W + a], p[(b + 1) * W + a], p[(b + 1) * W + a + 1], p[b * W + a + 1], sx - a, sz - b);
+};
+const finePatches = async (G, centres) => {
+  const { fineCells, fineWeight, cellHeights } = await import('../world.js');
+  const { smoothedGround, FINE_BANK } = await import('../world.js'), o = FINE_BANK.outer;
+  const coarse = coarseOf(G), m = new Map(), sm = smoothedGround(hill, [centres[0][0] - o, centres[0][1] - o, centres[0][0] + o, centres[0][1] + o]);
+  for (const [i, j] of fineCells(centres, G)) m.set(i + ',' + j, cellHeights(i, j, G, 16, (x, z) => coarse(x, z) + (sm(x, z) - coarse(x, z)) * fineWeight(x, z, centres)));
+  return m;
+};
+
+test('fineWeight: 1 near a bank, 0 from the outer radius on, smooth between (#259)', async () => {
+  const { fineWeight, FINE_BANK } = await import('../world.js');
+  const c = [[0, 0], [300, 0]];
+  assert.equal(fineWeight(10, 5, c), 1);
+  assert.equal(fineWeight(300, FINE_BANK.inner, c), 1);
+  assert.equal(fineWeight(0, FINE_BANK.outer, c), 0);
+  assert.equal(fineWeight(150, 0, c), 0);
+  const mid = fineWeight((FINE_BANK.inner + FINE_BANK.outer) / 2, 0, c);
+  assert.ok(Math.abs(mid - 0.5) < 1e-9, mid);
+});
+
+test('fineCells: every cell within the outer radius, and the edges they share with the coarse mesh lie outside it (#259)', async () => {
+  const { fineCells, FINE_BANK } = await import('../world.js');
+  const G = lattice(16, 0), c = [[-1212, 538]], set = new Set(fineCells(c, G).map(([i, j]) => i + ',' + j));
+  const near = (i, j) => { const x = Math.max(G.x0 + i * 16, Math.min(c[0][0], G.x0 + (i + 1) * 16)), z = Math.max(G.z0 + j * 16, Math.min(c[0][1], G.z0 + (j + 1) * 16)); return Math.hypot(x - c[0][0], z - c[0][1]); };
+  const i0 = Math.floor((c[0][0] - G.x0) / 16), j0 = Math.floor((c[0][1] - G.z0) / 16);
+  for (let j = j0 - 8; j <= j0 + 8; j++) for (let i = i0 - 8; i <= i0 + 8; i++) assert.equal(set.has(i + ',' + j), near(i, j) < FINE_BANK.outer, `${i},${j}`);
+});
+
+test('the fine patches meet the coarse mesh without a crack (#259)', async () => {
+  const { triLerp } = await import('../world.js'); triLerpW = triLerp;
+  const G = lattice(16, 0), c = [[-1212, 538]], cells = await finePatches(G, c), coarse = coarseOf(G);
+  for (const key of cells.keys()) {
+    const [i, j] = key.split(',').map(Number);
+    for (const [di, dj, horiz] of [[0, -1, true], [0, 1, true], [-1, 0, false], [1, 0, false]]) {
+      if (cells.has((i + di) + ',' + (j + dj))) continue;
+      for (let s = 0; s <= 16; s += 0.5) {
+        const x = G.x0 + (horiz ? i * 16 + s : (di > 0 ? i + 1 : i) * 16), z = G.z0 + (horiz ? (dj > 0 ? j + 1 : j) * 16 : j * 16 + s);
+        const fx = Math.min(x, G.x0 + (i + 1) * 16 - 1e-9), fz = Math.min(z, G.z0 + (j + 1) * 16 - 1e-9);
+        assert.ok(Math.abs(sampleFine(G, cells, 16, Math.max(fx, G.x0 + i * 16), Math.max(fz, G.z0 + j * 16)) - coarse(x, z)) < 1e-4, `${key} ${x} ${z}`);
+      }
+    }
+  }
+});
+
+test('near a bank the ground no longer depends on where the coarse mesh rows fall (#259)', async () => {
+  const { triLerp, FINE_BANK } = await import('../world.js'); triLerpW = triLerp;
+  const c = [[-1212, 538]], lats = [lattice(4392 / 275, 0), ...[0, 2, 4, 6, 8, 10, 12, 14].map(o => lattice(16, -o))];
+  const all = await Promise.all(lats.map(G => finePatches(G, c)));
+  let worstFine = 0, worstCoarse = 0;
+  for (let a = 0; a < 360; a += 7) for (let r = 0; r < FINE_BANK.inner; r += 3.3) {
+    const x = c[0][0] + r * Math.cos(a * Math.PI / 180), z = c[0][1] + r * Math.sin(a * Math.PI / 180);
+    const hs = lats.map((G, k) => sampleFine(G, all[k], 16, x, z)), cs = lats.map(G => coarseOf(G)(x, z));
+    worstFine = Math.max(worstFine, Math.max(...hs) - Math.min(...hs));
+    worstCoarse = Math.max(worstCoarse, Math.max(...cs) - Math.min(...cs));
+  }
+  assert.ok(worstCoarse > 0.3, worstCoarse);   // the coarse mesh alone moves by decimetres between the lattices
+  assert.ok(worstFine < 0.01, worstFine);      // the patches are the same surface whichever lattice is under them
+});
+
+test('smoothedGround keeps a slope, damps 4 m bumps, and is anchored to the world, not to its box (#259)', async () => {
+  const { smoothedGround } = await import('../world.js');
+  const plane = smoothedGround((x, z) => 3 + 0.2 * x - 0.1 * z, [0, 0, 100, 100]);
+  for (const [x, z] of [[10, 10], [33.3, 71.7], [50, 2]]) assert.ok(Math.abs(plane(x, z) - (3 + 0.2 * x - 0.1 * z)) < 1e-9, `${x},${z}`);
+  const ripple = smoothedGround((x) => Math.sin(2 * Math.PI * x / 4), [0, 0, 100, 100]);
+  for (const x of [20.5, 21, 21.7, 40.3]) assert.ok(Math.abs(ripple(x, 50)) < 0.05, `${x}: ${ripple(x, 50)}`);
+  const a = smoothedGround(hill, [-1290, 460, -1140, 610]), b = smoothedGround(hill, [-1283.3, 471.1, -1150, 600]);
+  for (const [x, z] of [[-1212, 538], [-1200.7, 529.7], [-1240.2, 501.9]]) assert.ok(Math.abs(a(x, z) - b(x, z)) < 1e-9, `${x},${z}`);
+});
