@@ -172,10 +172,10 @@ def test_game_landmark_passes_kind_and_heading_through():
     assert t["kind"] == "foodTruck" and t["h"] is None and t["rot"] == 0
 
 
-def test_repo_anchors_place_the_food_truck_on_the_bahnhof_eiken_car_park():
+def test_repo_anchors_place_the_food_truck_on_the_hauptstrasse():
     spec = anchors.load(Path(__file__).parents[1] / "anchors.json")
     t = spec["landmarks"]["foodTruck"]
-    assert t["game"] == [1758.5, 1986.5] and t["kind"] == "foodTruck" and t["heading_deg"] == 0
+    assert t["lonlat"] == [7.9924156, 47.5302471] and t["kind"] == "foodTruck" and "game" not in t
 
 
 def test_repo_anchors_place_flugplatz_schupfart_in_the_south_strip():
