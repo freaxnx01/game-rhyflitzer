@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HIDEOUT, TUNNEL, CAVE, EIFFEL, TUNNEL_CEIL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, inHideout, segmentInHideout, ringStations, eiffelParts,
-  nodeR, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, sightBlocked, linkPts, stubPts, pointBounds } from '../hideout.js';
+  nodeR, LIFT, onLiftPlatform, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, sightBlocked, linkPts, stubPts, pointBounds } from '../hideout.js';
 import { cutFloorAt, UNDERPASS } from '../world.js';
 
 const close = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
@@ -66,12 +66,12 @@ test('hideoutCuts_NoStepWhereTheTunnelOpensIntoTheCavern', () => {
 test('CAVE_LayoutIsTheSpecsSketch', () => {
   close(CAVE.nodes.r0.c[0], A.centre[0], 0.1); close(CAVE.nodes.r0.c[1], A.centre[1], 0.1);
   close(CAVE.nodes.n1.c[0], -802.5, 0.1); close(CAVE.nodes.n1.c[1], 1520.4, 0.1);
-  assert.deepEqual(CAVE.nodes.hall.c, [-790, 1855]); assert.equal(nodeR(CAVE.nodes.hall), 170); assert.equal(nodeR(CAVE.nodes.r0), 22);
+  assert.deepEqual(CAVE.nodes.lobby.c, [-790, 1855]); assert.equal(nodeR(CAVE.nodes.lobby), 22); assert.equal(nodeR(CAVE.nodes.r0), 22);
   assert.equal(nodeR(CAVE.nodes.r0), cavernR(), 'R0 is the #102 cavern');
-  assert.equal(CAVE.nodes.hall.ceiling, 380); assert.equal(TUNNEL_CEIL, 12);
+  assert.equal(CAVE.nodes.lobby.ceiling, 14); assert.equal(TUNNEL_CEIL, 12);
   const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-  for (const [a, b] of [['r0', 'n1'], ['r0', 'hall'], ['n1', 'hall']]) assert.ok(d(CAVE.nodes[a].c, CAVE.nodes[b].c) > nodeR(CAVE.nodes[a]) + nodeR(CAVE.nodes[b]) + 10, `${a}/${b} overlap`);
-  assert.ok(CAVE.nodes.hall.c[1] + nodeR(CAVE.nodes.hall) + TUNNEL.wall < 2042, 'inside the ground grid');
+  for (const [a, b] of [['r0', 'n1'], ['r0', 'lobby'], ['n1', 'lobby']]) assert.ok(d(CAVE.nodes[a].c, CAVE.nodes[b].c) > nodeR(CAVE.nodes[a]) + nodeR(CAVE.nodes[b]) + 10, `${a}/${b} overlap`);
+  assert.ok(CAVE.nodes.lobby.c[1] + nodeR(CAVE.nodes.lobby) + TUNNEL.wall < 2042, 'inside the ground grid');
   close(d(...linkPts(CAVE.links[0])), 90, 1e-6, 'T2a is 90 m');
   assert.ok(Math.abs(Math.atan2(linkPts(CAVE.links[1])[1][1] - linkPts(CAVE.links[1])[0][1], linkPts(CAVE.links[1])[1][0] - linkPts(CAVE.links[1])[0][0]) - 88 * Math.PI / 180) < 0.02, 'T2b heads south');
   assert.equal(EIFFEL.h, 330); assert.equal(EIFFEL.feet.length, 4);
@@ -80,11 +80,11 @@ test('CAVE_LayoutIsTheSpecsSketch', () => {
 test('caveCuts_EightLevelCutsOnOneFloor', () => {
   const { cuts, f0 } = caveCuts(plateau);
   close(f0, 75 - 0.05 * (105 - cavernR()), 1e-6, 'the floor is T1\'s');
-  assert.deepEqual(cuts.map(c => c.id), ['t1', 'r0', 'n1', 't2a', 't2b', 'hall', 'stubE', 'stubW']);
+  assert.deepEqual(cuts.map(c => c.id), ['t1', 'r0', 'n1', 't2a', 't2b', 'lobby', 'stubE', 'stubW']);
   for (const c of cuts.slice(1)) { assert.equal(c.f0, f0, c.id); assert.equal(c.u, TUNNEL, c.id); assert.ok(c.depth > 70, `${c.id} depth ${c.depth}`); assert.ok(c.roundEnds, c.id); }
-  const [hx, hz] = CAVE.nodes.hall.c, hall = cuts.find(c => c.id === 'hall');
-  for (const r of [0, 100, 169]) close(cutFloorAt(hall, hx + r, hz, TUNNEL), f0, 1e-6, `hall r ${r}`);
-  assert.equal(cutFloorAt(hall, hx + 171, hz, TUNNEL), null);
+  const [hx, hz] = CAVE.nodes.lobby.c, lobby = cuts.find(c => c.id === 'lobby');
+  for (const r of [0, 10, 21]) close(cutFloorAt(lobby, hx + r, hz, TUNNEL), f0, 1e-6, `lobby r ${r}`);
+  assert.equal(cutFloorAt(lobby, hx + 23, hz, TUNNEL), null);
   const t2b = cuts.find(c => c.id === 't2b'), [px, pz] = linkPts(CAVE.links[1])[0];
   close(cutFloorAt(t2b, px, pz, TUNNEL), f0, 1e-6, 'T2b starts level'); close(cutFloorAt(t2b, (px + hx) / 2, (pz + hz) / 2, TUNNEL), f0, 1e-6, 'level along T2b');
   assert.equal(cutFloorAt(t2b, (px + hx) / 2 + 12, (pz + hz) / 2, TUNNEL), null, '12 m off T2b is rock');
@@ -93,15 +93,15 @@ test('caveCuts_EightLevelCutsOnOneFloor', () => {
 });
 
 test('roomAt_corridorAt_caveRoofed', () => {
-  const [hx, hz] = CAVE.nodes.hall.c, [rx, rz] = CAVE.nodes.r0.c;
-  assert.equal(roomAt(hx, hz), 'hall'); assert.equal(roomAt(hx + 169, hz), 'hall'); assert.equal(roomAt(hx + 175, hz), null); assert.equal(roomAt(hx + 175, hz, 6), 'hall');
+  const [hx, hz] = CAVE.nodes.lobby.c, [rx, rz] = CAVE.nodes.r0.c;
+  assert.equal(roomAt(hx, hz), 'lobby'); assert.equal(roomAt(hx + 21, hz), 'lobby'); assert.equal(roomAt(hx + 27, hz), null); assert.equal(roomAt(hx + 27, hz, 6), 'lobby');
   assert.equal(roomAt(rx, rz), 'r0'); assert.equal(roomAt(...CAVE.nodes.n1.c), 'n1');
   const [p, q] = linkPts(CAVE.links[0]), mid = (p[0] + q[0]) / 2, midz = (p[1] + q[1]) / 2;
   assert.equal(corridorAt(mid, midz).id, 't2a'); close(corridorAt(mid, midz).s, 45, 0.01); assert.equal(corridorAt(mid, midz + 12), null, '12 m off T2a is rock');
   assert.equal(corridorAt(...stubPts(CAVE.stubs[0])[1]).id, 'stubE');
   assert.equal(corridorAt(...stubPts(CAVE.stubs[1])[1]).id, 'stubW');
   assert.ok(caveRoofed(hx, hz, 10)); assert.ok(caveRoofed(mid, midz, 10)); assert.ok(!caveRoofed(hx + 300, hz, 10));
-  assert.ok(caveRoofed(hx + 171, hz, 10), 'the hall\'s cut edge is under the lid'); assert.ok(caveRoofed(hx + 173.9, hz, 10, TUNNEL.wall), 'padded'); assert.ok(!caveRoofed(hx + 173, hz, 10));
+  assert.ok(caveRoofed(hx + 23, hz, 10), 'the lobby\'s cut edge is under the lid'); assert.ok(caveRoofed(hx + 25.9, hz, 10, TUNNEL.wall), 'padded'); assert.ok(!caveRoofed(hx + 25, hz, 10));
   assert.ok(caveRoofed(A.mouth[0] + A.ux * 50, A.mouth[1] + A.uz * 50, 10)); assert.ok(!caveRoofed(A.mouth[0] + A.ux * 5, A.mouth[1] + A.uz * 5, 10), 'the open trench');
   assert.ok(!caveRoofed(A.mouth[0] + A.ux * 50 + A.uz * 8, A.mouth[1] + A.uz * 50 - A.ux * 8, 10), '8 m off T1\'s axis is hillside');
 });
@@ -110,8 +110,8 @@ test('inHideout_IsTheOpenTrenchAndT1Only', () => {
   const [cx, cz] = A.centre;
   assert.ok(inHideout(A.mouth[0] + A.ux * 5, A.mouth[1] + A.uz * 5), 'trees stay out of the trench');
   assert.ok(!inHideout(A.mouth[0] - A.ux * 6, A.mouth[1] - A.uz * 6), 'the road before the mouth');
-  assert.ok(!inHideout(cx, cz), 'forest stands on the lid over R0'); assert.ok(!inHideout(...CAVE.nodes.hall.c)); assert.ok(!inHideout(...CAVE.nodes.n1.c));
-  assert.ok(!segmentInHideout(CAVE.nodes.hall.c[0] - 5, CAVE.nodes.hall.c[1], CAVE.nodes.hall.c[0] + 5, CAVE.nodes.hall.c[1]), 'a forest edge over the hall stays');
+  assert.ok(!inHideout(cx, cz), 'forest stands on the lid over R0'); assert.ok(!inHideout(...CAVE.nodes.lobby.c)); assert.ok(!inHideout(...CAVE.nodes.n1.c));
+  assert.ok(!segmentInHideout(CAVE.nodes.lobby.c[0] - 5, CAVE.nodes.lobby.c[1], CAVE.nodes.lobby.c[0] + 5, CAVE.nodes.lobby.c[1]), 'a forest edge over the lobby stays');
   assert.ok(inCavern(cx + 21, cz)); assert.ok(!inCavern(cx + 23, cz)); assert.ok(inCavern(cx + 23, cz, 2));
 });
 
@@ -126,14 +126,14 @@ test('segmentInHideout_AForestEdgeAcrossTheTrench', () => {
 });
 
 test('ringArcs_LeaveEveryExitOpen', () => {
-  const r0 = ringArcs('r0'), n1 = ringArcs('n1'), hall = ringArcs('hall');
-  assert.equal(r0.length, 3); assert.equal(n1.length, 3); assert.equal(hall.length, 1);
+  const r0 = ringArcs('r0'), n1 = ringArcs('n1'), lobby = ringArcs('lobby');
+  assert.equal(r0.length, 3); assert.equal(n1.length, 3); assert.equal(lobby.length, 1);
   const total = r0.reduce((s, a) => s + a.a1 - a.a0, 0); assert.ok(total < 2 * Math.PI && total > Math.PI, 'three openings in R0');
   // T1's doorway: the arc ends on R0's ring are off T1's axis by the corridor's outer face
   const R = nodeR(CAVE.nodes.r0) - TUNNEL.wall / 2, ends = r0.flatMap(a => [a.a0, a.a1]).map(a => axisCoords(A.centre[0] + Math.cos(a) * R, A.centre[1] + Math.sin(a) * R));
   assert.ok(ends.some(e => Math.abs(e.d - (HIDEOUT.hw + TUNNEL.margin + TUNNEL.wall)) < 1e-6 && e.s < HIDEOUT.length), 'the ring opens towards T1');
   // nothing in any doorway: no arc point lies within the corridor half-width of an exit's axis
-  for (const [id, arcs] of [['r0', r0], ['n1', n1], ['hall', hall]]) for (const a of arcs) for (let k = 0; k <= 20; k++) {
+  for (const [id, arcs] of [['r0', r0], ['n1', n1], ['lobby', lobby]]) for (const a of arcs) for (let k = 0; k <= 20; k++) {
     const ang = a.a0 + (a.a1 - a.a0) * k / 20, n = CAVE.nodes[id], Rr = nodeR(n) - TUNNEL.wall / 2, x = n.c[0] + Math.cos(ang) * Rr, z = n.c[1] + Math.sin(ang) * Rr;
     assert.equal(corridorAt(x, z, -0.01), null, `${id} wall in a doorway at ${ang}`);
     if (id === 'r0') assert.ok(axisCoords(x, z).d > HIDEOUT.hw + TUNNEL.margin + TUNNEL.wall - 1e-6 || axisCoords(x, z).s > HIDEOUT.length, 'R0 wall in T1\'s doorway');
@@ -147,27 +147,27 @@ test('portalS_FirstWholeMetreWhereTheTrenchIsRoofDepthDeep', () => {
   assert.equal(portalS(() => 0), HIDEOUT.length, 'a flat hill never roofs: the portal sits at the end');
 });
 
-test('ceilingAt_TunnelsCappedRoomsLidHallHigh', () => {
-  // 60 m down T2b from N1: in the corridor proper (its midpoint already lies inside the hall's disc)
+test('ceilingAt_TunnelsCappedRoomsLidLobbyLow', () => {
+  // 60 m down T2b from N1: in the corridor proper (its midpoint already lies inside the lobby's disc)
   const f0 = caveCuts(plateau).f0, [p, q] = linkPts(CAVE.links[1]), len = Math.hypot(q[0] - p[0], q[1] - p[1]), mx = p[0] + (q[0] - p[0]) * 60 / len, mz = p[1] + (q[1] - p[1]) * 60 / len;
   assert.equal(roomAt(mx, mz, TUNNEL.wall), null); assert.equal(corridorAt(mx, mz).id, 't2b');
-  close(ceilingAt(mx, mz, plateau, 10), f0 + TUNNEL_CEIL, 1e-6, 'T2b'); close(ceilingAt(...CAVE.nodes.hall.c, plateau, 10), f0 + 380, 1e-6, 'the hall');
+  close(ceilingAt(mx, mz, plateau, 10), f0 + TUNNEL_CEIL, 1e-6, 'T2b'); close(ceilingAt(...CAVE.nodes.lobby.c, plateau, 10), f0 + 14, 1e-6, 'the lobby');
   close(ceilingAt(...CAVE.nodes.r0.c, plateau, 10), 150 - 0.6, 1e-6, 'R0 keeps the hill'); close(ceilingAt(...CAVE.nodes.n1.c, plateau, 10), 150 - 0.6, 1e-6, 'N1 too');
   close(ceilingAt(...stubPts(CAVE.stubs[0])[1], plateau, 10), 150 - 0.6, 1e-6, 'a stub too');
   close(ceilingAt(A.mouth[0] + A.ux * 60, A.mouth[1] + A.uz * 60, plateau, 10), Math.min(150 - 0.6, floorAt(60, 75) + TUNNEL_CEIL), 1e-6, 'T1 capped too');
   close(ceilingAt(A.mouth[0] + A.ux * 11, A.mouth[1] + A.uz * 11, hill, 10), hill(A.mouth[0] + A.ux * 11, A.mouth[1] + A.uz * 11) - 0.6, 1e-6, 'a low lid stays the lid');
   assert.equal(ceilingAt(A.mouth[0] + A.ux * 5, A.mouth[1] + A.uz * 5, plateau, 10), null, 'the open trench');
-  assert.equal(ceilingAt(CAVE.nodes.hall.c[0] + 400, CAVE.nodes.hall.c[1], plateau, 10), null);
+  assert.equal(ceilingAt(CAVE.nodes.lobby.c[0] + 400, CAVE.nodes.lobby.c[1], plateau, 10), null);
 });
 
-test('sightBlocked_MouthToHall', () => {
-  const [hx, hz] = CAVE.nodes.hall.c, R = nodeR(CAVE.nodes.hall), eyes = [], targets = [[hx, hz]];
+test('sightBlocked_MouthToLobby', () => {
+  const [hx, hz] = CAVE.nodes.lobby.c, R = nodeR(CAVE.nodes.lobby), eyes = [], targets = [[hx, hz]];
   for (let d = -4.5; d <= 4.5; d += 1.125) eyes.push([A.mouth[0] - A.uz * d, A.mouth[1] + A.ux * d]);
   for (let k = 0; k < 36; k++) targets.push([hx + Math.cos(k / 36 * 2 * Math.PI) * R, hz + Math.sin(k / 36 * 2 * Math.PI) * R]);
   assert.equal(eyes.length, 9); assert.equal(targets.length, 37);
   for (const e of eyes) for (const t of targets) assert.ok(sightBlocked(e, t), `clear line from ${e} to ${t}`);
   assert.ok(!sightBlocked(A.mouth, CAVE.nodes.r0.c), 'R0 is in plain view from the mouth');
-  assert.ok(!sightBlocked(CAVE.nodes.n1.c, [hx, hz]), 'the reveal: N1 looks straight at the tower');
+  assert.ok(!sightBlocked(CAVE.nodes.n1.c, [hx, hz]), 'N1 looks straight down T2b into the lobby');
   assert.ok(!sightBlocked(CAVE.nodes.r0.c, CAVE.nodes.n1.c), 'and R0 looks down T2a');
 });
 
@@ -217,11 +217,11 @@ test('pointBounds_SmallArray_ReturnsTheExtent', () => {
   assert.deepEqual(pointBounds([[1, 5], [-2, 7], [3, -4]]), { x0: -2, x1: 3, z0: -4, z1: 7, n: 3 });
 });
 
-// #276: driving the cave's way (T1 -> R0 -> T2a -> N1 -> T2b -> hall centre), the lamps' light on the floor swells and fades
+// #276: driving the cave's way (T1 -> R0 -> T2a -> N1 -> T2b -> lobby centre), the lamps' light on the floor swells and fades
 // gently: no hot spot to flare in and drop out of within a second (100 km/h is 28 m/s, so 1 m is two frames)
 import { caveLamps, lampLight } from '../hideout.js';
 test('caveLamps_AlongTheDrive_NoFlareAndNoJump', () => {
-  const lamps = caveLamps(), pts = [A.mouth, A.centre, CAVE.nodes.n1.c, CAVE.nodes.hall.c];
+  const lamps = caveLamps(), pts = [A.mouth, A.centre, CAVE.nodes.n1.c, CAVE.nodes.lobby.c];
   let prev = null, peak = 0, worst = 1, at = 0, t = 0;
   for (let i = 0; i < 3; i++) {
     const [p, q] = [pts[i], pts[i + 1]], n = Math.round(Math.hypot(q[0] - p[0], q[1] - p[1]));
@@ -234,4 +234,15 @@ test('caveLamps_AlongTheDrive_NoFlareAndNoJump', () => {
   }
   assert.ok(peak <= 2.5, `hot spot: ${peak.toFixed(2)} under a lamp`);
   assert.ok(worst <= 1.25, `light jumps x${worst.toFixed(2)} within 1 m at ${at} m`);
+});
+
+test('LIFT_PlatformSitsInTheLobbyAndFacesDownT2b', () => {
+  assert.deepEqual(LIFT.c, CAVE.nodes.lobby.c);
+  const [p, q] = linkPts(CAVE.links[1]);
+  close(LIFT.th, Math.atan2(q[1] - p[1], q[0] - p[0]), 1e-9, 'heading = T2b');
+  assert.ok(LIFT.hw < CAVE.nodes.lobby.r && LIFT.hd < CAVE.nodes.lobby.r, 'the platform fits the lobby');
+  assert.ok(onLiftPlatform(LIFT.c[0], LIFT.c[1]));
+  assert.ok(onLiftPlatform(LIFT.c[0] + Math.cos(LIFT.th) * 7.9, LIFT.c[1] + Math.sin(LIFT.th) * 7.9), 'front edge, inside');
+  assert.ok(!onLiftPlatform(LIFT.c[0] + Math.cos(LIFT.th) * 8.5, LIFT.c[1] + Math.sin(LIFT.th) * 8.5), 'past the front edge');
+  assert.ok(!onLiftPlatform(LIFT.c[0] - Math.sin(LIFT.th) * 5.5, LIFT.c[1] + Math.cos(LIFT.th) * 5.5), 'beside it');
 });
