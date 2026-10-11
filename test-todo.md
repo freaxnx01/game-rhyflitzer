@@ -415,3 +415,10 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] {go: j.gueggeli-foodtruck} It stands beside the carriageway, not on it: drive the Hauptstrasse past it in both directions without touching it, and no house is overlapped.
 - [ ] {go: j.gueggeli-foodtruck} Drive into it from the road side and from 25 m west: the car stops, no sinking, no driving through.
 - [ ] Nothing is left on the old spot at the Bahnhof Eiken car park.
+
+## No water on roads (#229)
+
+- [ ] Hauptstrasse near the old spot (J → Bad Säckingen area, `__mm.sim(248.5, 1280.5, 1.82, 0, 0)` with F3): no water on the road or verge; the canal beside it simply stops where it would touch the road.
+- [ ] Hauensteiner Murg in Bad Säckingen {go: j.bad-saeckingen}: no blue over the Fabrikstrasse or the Hauptstrasse; the stream still shows where it runs clear of the roads.
+- [ ] Sissle and other brooks: still visible in open country and still slow the car; a stream crossing under a bridge is not cut.
+
