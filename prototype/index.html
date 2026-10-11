@@ -2570,7 +2570,7 @@ function testhubContext() {
   };
 }
 function testhubGo(target) {
-  if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else jumpTo(target.entry); return; }
+  if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else jumpTo(target.entry); return; }
   const s = target.spot;
   placeOnRoad(s.x, s.z, s.th, target.label);
   if (s.floor && HIDE) { P.y = HIDE.floor ?? HIDE.f0; car.position.y = P.y; restShadow(); }   // inside the hill: the cave floor, not the ground seen from the sky

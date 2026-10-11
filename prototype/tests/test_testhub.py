@@ -185,3 +185,18 @@ def test_hideout_targets_put_the_car_at_the_gate_and_in_the_hall(server):
     hx, hz = h["rooms"]["hall"]["c"]
     assert 100 < math.hypot(tower["x"] - hx, tower["z"] - hz) < 120, (tower, h["rooms"]["hall"])   # 110 m before the hall centre
     assert abs(tower["y"] - h["floor"]) < 3, (tower["y"], h["floor"])                          # on the cave floor, not on the hill
+
+
+@needs_world
+def test_wreck_j_entry_lands_beside_the_wrecks_like_the_j_list(server):
+    # #215 (merged after the plan was written): "Rhein-Wracks" is a J entry with its own jump, not a road spot.
+    with sync_playwright() as p:
+        b, page, errors, _ = new_page(p, server, "?dev=1", block_world=False)
+        start(page)
+        page.wait_for_function("() => window.ggTesthub && window.ggTesthub.regs['j.rhein-wracks']", timeout=30000)
+        wreck = page.evaluate("() => window.__mm.underwater().wreck")
+        go(page, "j.rhein-wracks")
+        c = car(page)
+        b.close()
+    assert errors == []
+    assert math.hypot(c["x"] - wreck[0], c["z"] - wreck[1]) < 15, (c, wreck)
