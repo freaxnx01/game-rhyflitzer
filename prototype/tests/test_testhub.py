@@ -158,3 +158,30 @@ def test_screenshot_hook_returns_a_png_data_url_and_rejects_a_second_request(ser
     assert len(url) > 5000, len(url)                      # a blank frame compresses to ~1 kB (see test_photo.py)
     assert both == "screenshot already pending", both
     assert downloads == [], "the hook returns the picture instead of downloading it"
+
+
+HEADING = 95 * math.pi / 180      # the tunnel axis, as in test_hideout.py
+
+
+@needs_world
+def test_hideout_targets_put_the_car_at_the_gate_and_in_the_hall(server):
+    with sync_playwright() as p:
+        b, page, errors, _ = new_page(p, server, "?dev=1", block_world=False)
+        start(page)
+        page.wait_for_function("() => window.ggTesthub && window.ggTesthub.regs['hideout.tower']", timeout=30000)
+        h = page.evaluate("() => window.__mm.hideout()")
+        ids = reg_ids(page)
+
+        go(page, "hideout.gate")
+        gate, gate_th = car(page), page.evaluate("() => window.__mm.heading()")
+        go(page, "hideout.tower")
+        tower = car(page)
+        b.close()
+    assert errors == []
+    assert {"hideout.gate", "hideout.tower", "uw.boat", "uw.car", "j.reservoir-huebel"} <= set(ids), ids
+    mx, mz = h["mouth"]
+    assert 8 < math.hypot(gate["x"] - mx, gate["z"] - mz) < 16, (gate, h["mouth"])           # ~12 m back from the mouth
+    assert math.cos(gate_th - HEADING) > 0.99, gate_th                                         # looking down the tunnel axis
+    hx, hz = h["rooms"]["hall"]["c"]
+    assert 100 < math.hypot(tower["x"] - hx, tower["z"] - hz) < 120, (tower, h["rooms"]["hall"])   # 110 m before the hall centre
+    assert abs(tower["y"] - h["floor"]) < 3, (tower["y"], h["floor"])                          # on the cave floor, not on the hill
