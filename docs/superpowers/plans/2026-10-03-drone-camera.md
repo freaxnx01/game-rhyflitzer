@@ -2,9 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Refreshed 2026-10-11 against `main` @ `090402c`.** Scope is unchanged (nothing in issue #93 is obsolete). What moved since the first draft:
+> - #69 landed: chase is now `{ dist: 6.9, h: 2.6 }` and near `{ dist: 4.6, h: 1.85 }` (not 9 / 3.4 and 6 / 2.4). The drone stays `{ dist: 18, h: 12 }` (issue AC).
+> - **Two vehicles** exist (`VEHICLES.compact` and `VEHICLES.delorean`): both need a `camera.drone` row, otherwise `VEH.camera.drone` is `undefined` and `stepCamera` throws after a car swap.
+> - The chase branch of `stepCamera` has new code (underwater camera, `underCeiling`, hideout hall tilt `CAVE_CAM`); the edit points below are re-anchored. Open PR #281 (levels / lift, #277) removes `CAVE_CAM` and the tilt term: the edits here do not depend on either, so they apply whether or not #281 has merged.
+> - Pause: the loop skips `stepCamera` while paused (except in the garage), the garage (`CARSEL.on`) returns from `stepCamera` before the chase branch, and **C** is ignored while flying: all of this is why the drone needs no extra pause / garage / helicopter code beyond resetting `CAM.aiming`.
+> - Line numbers dropped: anchor on identifiers (`grep -n`).
+
 **Goal:** A fifth camera view, **Drone**, after bumper in the **C** cycle: 18 m behind and 12 m above the car, following lazily (position lerp 2.5, lagging aim point) with a small deterministic hover sway. Car and shadow shown; **B** (#65) works by reuse (#93).
 
-**Architecture:** A pure module `prototype/camera.js` holds the `DRONE` constants and `droneSway(t)` (node-tested). In `prototype/index.html`, `CAM_VIEWS` gets a fifth entry `{ nameKey: 'camDrone', k: 'drone', drone: true }`, `VEHICLES.compact.camera` gets `drone: { dist: 18, h: 12 }`, and the chase branch of `stepCamera` gains a `drone` path: sway added to the target, a slower lerp, and a lagging aim point `CAM.aim`. For the four existing views every number stays as today. Strings via `tr()`.
+**Architecture:** A pure module `prototype/camera.js` holds the `DRONE` constants and `droneSway(t)` (node-tested). In `prototype/index.html`, `CAM_VIEWS` gets a fifth entry `{ nameKey: 'camDrone', k: 'drone', drone: true }`, **both** `VEHICLES.compact.camera` and `VEHICLES.delorean.camera` get `drone: { dist: 18, h: 12 }`; the chase branch of `stepCamera` gains a `drone` path: sway added to the target, a slower lerp, and a lagging aim point `CAM.aim`. For the four existing views every number stays as today. Strings via `tr()`.
 
 **Tech Stack:** vanilla JS + three.js in the buildless `prototype/index.html`, `node --test` for pure modules, Playwright smoke tests with pytest.
 
@@ -14,14 +21,14 @@
 
 - **The four existing views are byte-for-byte the same behaviour.** `test_vehicles.py` (`test_table_cockpit_eye_is_used`), `test_look_back.py` and `test_heli.py` stay unchanged and green. Only `test_smoke.py::test_camera_cycles_with_c` changes, and only because the cycle now has five views.
 - The drone is appended at index **4**. Never reorder `CAM_VIEWS`.
-- No new key. The wheel and `+`/`-` stay the minimap zoom (`index.html:964`, `:1182`).
-- The building pull-in and the ground clamp in the chase branch are **not** edited; the drone reuses them.
+- No new key (C and B already exist; do not touch their handlers, `cycleCamera` already wraps with `CAM_VIEWS.length`). The wheel and `+`/`-` stay the minimap zoom.
+- The building pull-in, the underwater camera adjustment, the ground clamp and `underCeiling` in the chase branch are **not** edited; the drone reuses them. Leave the hideout hall-tilt statements (`CAVE_CAM`, if still present) untouched.
 - No HUD element, overlay or frame for the drone.
 - Strings go through `tr()`; `prototype/strings.js` gets the same keys in `en` and `de` (`strings.test.mjs` enforces it; Swiss spelling, no `ß`).
 - `prototype/index.html`: dense one-line style (long single-line statements, short `//` comments); match the surrounding code, do not reformat neighbours. No framework, no bundler, no `package.json`, no new dependency. New code must **not** call `rr()` or `rnd()`; the sway uses the camera's own clock `CAM.t`.
 - Do not touch `data/` or `pipeline/`.
 - **Animated camera:** the drone lerps slowly and never stands still (sway). Every browser check **polls the end state with a tolerance** via `page.wait_for_function(…, timeout=120000)` — wait for *arrival* (view index **and** camera inside ±1.5 m of its target), never for stillness, never a fixed `wait_for_timeout` on a camera position. The loop clamps `dt` to 0.05 s and a headless renderer draws under 1 fps, so one frame advances the sway clock by about 0.05 s.
-- Commands (from the repo root): node tests `node --test prototype/tests/*.test.mjs` (the glob is needed on Node 24). Playwright: `cd pipeline && systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_drone.py -q`. These runs are slow (several minutes). Run them in the **foreground only, never `run_in_background`**. Exit 137 means the memory cap was hit: stop and report. Without `systemd-run --user` (CI runner), run the same command without the prefix. One-time setup if the venv is missing: `cd pipeline && python3 -m venv .venv && ./.venv/bin/pip install -r requirements-dev.txt && ./.venv/bin/python -m playwright install chromium`.
+- **Tests to run (and no others):** `node --test prototype/tests/*.test.mjs` (the glob is needed on Node 24) and exactly ONE Playwright file, `test_drone.py`. Do **not** run the full Playwright suite (about 2 h) or other Playwright files; CI runs them. The edited `test_smoke.py::test_camera_cycles_with_c` is covered locally by `test_drone.py`'s first test (same C presses, same toast). Playwright: `cd pipeline && systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_drone.py -q`. These runs are slow (several minutes). Run them in the **foreground only, never `run_in_background`**. Exit 137 means the memory cap was hit: stop and report. Without `systemd-run --user` (CI runner), run the same command without the prefix. One-time setup if the venv is missing: `cd pipeline && python3 -m venv .venv && ./.venv/bin/pip install -r requirements-dev.txt && ./.venv/bin/python -m playwright install chromium`.
 - Commit after every task with Conventional Commits and explicit paths (`git add <paths>`, never `-A`). Push the branch **before** the long Playwright runs.
 
 ## Review Focus
@@ -30,6 +37,8 @@
 - **Stale aim point:** `CAM.aim` must be re-seeded when the drone view is entered (`!CAM.aiming`) and on a look-back snap; otherwise the first drone frames look at wherever the drone last was.
 - **Sway on the true right vector** (`-fz, fx`), not on `b` — the sway must not flip with B.
 - **Index 4 everywhere:** the smoke test, the toast list, the help line.
+- **Both vehicles have `camera.drone`** (compact and delorean). Swapping to the DeLorean in the pause menu / garage while in the drone view must not throw.
+- **`CAM.aiming` is reset** whenever the drone is not driving the camera (other view, helicopter, garage), so re-entering the drone re-seeds `CAM.aim`.
 
 ---
 
@@ -38,16 +47,16 @@
 - `prototype/camera.js`: new (Task 1).
 - `prototype/tests/camera.test.mjs`: new (Task 1).
 - `prototype/tests/test_drone.py`: new (Task 2).
-- `prototype/tests/test_smoke.py`: `test_camera_cycles_with_c` (~L94-113) (Task 2).
-- `prototype/index.html`:
-  - the import block (~L243, after the `heli.js` import)
-  - the two static F1 help copies of the C line (~L126, ~L192)
-  - `VEHICLES.compact.camera` (~L905)
-  - `CAM_VIEWS`, `CAM`, `stepCamera` (~L1082-1094)
-- `prototype/strings.js`: `camDrone` and `keyCamera` in `en` (~L68, ~L93) and `de` (~L182, ~L206).
+- `prototype/tests/test_smoke.py`: `test_camera_cycles_with_c` (Task 2).
+- `prototype/index.html` (find by identifier):
+  - the import block: the `import { HELI, … } from './heli.js';` line
+  - the two static F1/start-overlay help copies: `<span data-i18n="keyCamera">` (two lines)
+  - `VEHICLES.compact.camera` and `VEHICLES.delorean.camera`, plus the comment `// camera: chase distances in world metres` above `const VEHICLES`
+  - `CAM_VIEWS` (and its comment above), `const CAM`, `function stepCamera`
+- `prototype/strings.js`: `camDrone` and `keyCamera` in `en` and `de` (next to `camBumper`).
 - `CHANGELOG.md`, `test-todo.md`.
 
-Line numbers are from `main` @ `ccdcca0`. Verify them with `grep -n` before editing, because other PRs may have shifted them.
+Use `grep -n` to find every anchor; no line numbers are given on purpose (other PRs shift them).
 
 ---
 
@@ -61,9 +70,10 @@ Line numbers are from `main` @ `ccdcca0`. Verify them with `grep -n` before edit
 grep -c "function stepCamera" prototype/index.html
 grep -c "camDrone" prototype/index.html prototype/strings.js
 grep -n "const CAM_VIEWS" prototype/index.html
+ls prototype/camera.js prototype/tests/test_drone.py
 ```
 
-Expected: `1`, `0` for both files, one line showing the four views. **If `camDrone` already appears**, STOP and report.
+Expected: `1`, `0` for both files, one line showing the four views, and `ls` reporting both files missing. **If `camDrone` already appears**, STOP and report.
 
 - [ ] **Step 2: Baseline.** `node --test prototype/tests/*.test.mjs` → all pass. Note the count.
 
@@ -153,7 +163,7 @@ git commit -m "feat(camera): drone camera constants and sway (#93)"
 
 **Files:**
 - Create: `prototype/tests/test_drone.py`
-- Modify: `prototype/tests/test_smoke.py` (`test_camera_cycles_with_c`, ~L94-113)
+- Modify: `prototype/tests/test_smoke.py` (`test_camera_cycles_with_c`)
 
 **Interfaces:**
 - Consumes (existing): `window.__mm.cam()` → `{ view, d, back, look }`, `window.__mm.camView`, `window.__mm.heading()`, `window.__mm.hud().carVisible`, `#toast`.
@@ -268,7 +278,7 @@ def test_help_lists_the_drone(server, locale, text):
     assert [t for _, t in seen] == ["Camera: Chase near", "Camera: Cockpit", "Camera: Bumper", "Camera: Drone", "Camera: Chase"]
 ```
 
-- [ ] **Step 3: Run, expect failure.** From `pipeline/`: `systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_drone.py -q -x` (foreground). Expected: `test_drone_is_the_fifth_view…` fails at `camView === 4` (timeout: there are only four views). Stop after the first failure — the whole file takes minutes.
+- [ ] **Step 3: Run, expect failure.** From `pipeline/`: the `test_drone.py` command from Global Constraints with `-x` (foreground). Expected: `test_drone_is_the_fifth_view…` fails at `camView === 4` (timeout: there are only four views). Stop after the first failure — the whole file takes minutes.
 
 - [ ] **Step 4: Commit.**
 
@@ -282,43 +292,56 @@ git commit -m "test(camera): drone view tests, five views in the C cycle (#93)"
 ### Task 3: The drone view in `index.html` and the strings
 
 **Files:**
-- Modify: `prototype/index.html` (import ~L243, help ~L126 and ~L192, `VEHICLES` ~L905, `CAM_VIEWS` / `CAM` / `stepCamera` ~L1082-1094)
-- Modify: `prototype/strings.js` (`en` ~L68, ~L93; `de` ~L182, ~L206)
+- Modify: `prototype/index.html` (import, two help spans, both `VEHICLES.*.camera`, `CAM_VIEWS` / `CAM` / `stepCamera`)
+- Modify: `prototype/strings.js`
 
-- [ ] **Step 1: Import.** After the `heli.js` import line add:
+- [ ] **Step 1: Import.** After the `import { HELI, … } from './heli.js';` line add:
 
 ```js
 import { DRONE, droneSway } from './camera.js';
 ```
 
-- [ ] **Step 2: Vehicle table.** In `VEHICLES.compact.camera` (one line, ~L905) append the drone row after `bumper`:
+- [ ] **Step 2: Vehicle table.** In **both** `VEHICLES.compact.camera` and `VEHICLES.delorean.camera` (each a one-line `camera: { chase: …, near: …, cockpit: …, bumper: … },`) append `, drone: { dist: 18, h: 12 }` after the `bumper: { eye: [...] }` entry, e.g. for compact:
 
 ```js
-camera: { chase: { dist: 9, h: 3.4 }, near: { dist: 6, h: 2.4 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] }, drone: { dist: 18, h: 12 } },
+camera: { chase: { dist: 6.9, h: 2.6 }, near: { dist: 4.6, h: 1.85 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] }, drone: { dist: 18, h: 12 } },
 ```
 
-Extend the comment above the table (`// camera: chase distances in world metres, …`) with `; drone: world metres too, not tied to the car's size (#93)`.
+Extend the comment above `const VEHICLES` (`// camera: chase distances in world metres, …`) with `; drone: world metres too, not tied to the car's size (#93)`.
 
 - [ ] **Step 3: Views and state.** Replace the `CAM_VIEWS` line and the `CAM` line:
 
 ```js
-// five camera views, cycled with C: the original chase cam (default), a closer chase cam, cockpit (driver's eye, left seat), bumper and the drone (#93: high, lazy, hovering)
 const CAM_VIEWS = [{ nameKey: 'camChase', k: 'chase' }, { nameKey: 'camNear', k: 'near' }, { nameKey: 'camCockpit', k: 'cockpit', eye: true }, { nameKey: 'camBumper', k: 'bumper', eye: true }, { nameKey: 'camDrone', k: 'drone', drone: true }];
 ```
 
 ```js
-const CAM = { back: false, t: 0, aim: new THREE.Vector3(), aiming: false };   // #65: B held = look back (read each frame in stepCamera); #93: the drone's clock and lagging aim point
+const CAM = { back: false, t: 0, aim: new THREE.Vector3(), aiming: false };   // #65: B held = look back (read each frame in stepCamera); #93: the drone's clock, lagging aim point and whether it is seeded
 ```
 
-(Also change the existing comment `// four camera views, cycled with C …` above `CAM_VIEWS` to the five-view line shown; keep the two following comment lines about the car model and the per-vehicle offsets.)
+Change the comment line `// four camera views, cycled with C: … and bumper.` above `CAM_VIEWS` to `// five camera views, cycled with C: the original chase cam (default), a closer chase cam, cockpit (driver's eye, left seat), bumper and the drone (#93: high, lazy, hovering).` Keep the two following comment lines.
 
-- [ ] **Step 4: `stepCamera` chase branch.** Replace only the tail of the `else { const bx = fx * s, … }` branch — from `const target = new THREE.Vector3(` to the closing `}` of the branch — with:
+- [ ] **Step 4: `stepCamera`, three small edits.** Do not reformat anything else in the function.
+
+(a) Right after the first line of `stepCamera` (`function stepCamera(dt) { const speed = …; const v = CAM_VIEWS[camView];`), on a new line, add:
 
 ```js
-const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); const drone = !!v.drone; if (drone) { CAM.t += dt; const sw = droneSway(CAM.t); target.x -= fz * sw.side; target.z += fx * sw.side; target.y += sw.up; } const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; camera.position.copy(camPos); camera.lookAt(drone ? CAM.aim : aim); }
+  if (!v.drone || FLY.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
 ```
 
-Everything before `const target` in that branch (the `bx/bz`, `vc`, `dist/h` speed terms and the building pull-in loop) is **unchanged**. For a view without `drone`, this is exactly today's code: lerp rate 6, aim `P + b·6` at `P.y + 1.2`, no sway.
+(b) In the chase branch (`else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; …`), the building pull-in loop, the underwater adjustment and the ground clamp stay as they are. Immediately after the statement ending `target.y = underCeiling(target.x, target.z, target.y);` (it carries the comment `// #102: under the hideout's ceiling`) and before the next line (`if (snap) camPos.copy(target); else camPos.lerp(…)`), insert a new line:
+
+```js
+    const drone = !!v.drone; if (drone) { CAM.t += dt; const sw = droneSway(CAM.t); target.x -= fz * sw.side; target.z += fx * sw.side; target.y += sw.up; }   // #93: hover on the car's true right vector (-fz, fx), not on b, so B does not flip it
+```
+
+(c) On the `if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-6 * dt));` line, replace `1 - Math.exp(-6 * dt)` with `1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)`. Then replace only the statement `const look = new THREE.Vector3(P.x + bx * 6, P.y + 1.2, P.z + bz * 6);` (keep whatever follows it on that line, i.e. the `look.y += …` hall tilt if present and `camera.lookAt(look); }`, exactly as is) with:
+
+```js
+const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim;
+```
+
+For a view without `drone` this is exactly today's code: lerp rate 6, look point `P + b·6` at `P.y + 1.2`, no sway, hall tilt still applied to `look`. (`aim` is a fresh vector each frame, so letting the tilt mutate it is harmless.) For the drone, `camera.lookAt(look)` looks at the lagging aim point.
 
 - [ ] **Step 5: Strings.** In `prototype/strings.js`:
 
@@ -326,9 +349,9 @@ Everything before `const target` in that branch (the `bx/bz`, `vc`, `dist/h` spe
 
 `de`: after `camBumper: 'Stossstange',` add `camDrone: 'Drohne',`; change `keyCamera` to `'Kamera: Verfolger · nah · Cockpit · Stossstange · Drohne'`.
 
-- [ ] **Step 6: Static help copies.** In `prototype/index.html`, both `<span data-i18n="keyCamera">` lines (~L126 and ~L192) get the new English text `camera: chase · near · cockpit · bumper · drone`.
+- [ ] **Step 6: Static help copies.** In `prototype/index.html`, both `<span data-i18n="keyCamera">` lines get the new English text `camera: chase · near · cockpit · bumper · drone`.
 
-- [ ] **Step 7: Node tests.** `node --test prototype/tests/*.test.mjs` → all green (`strings.test.mjs` checks en/de key parity).
+- [ ] **Step 7: Node tests.** `node --test prototype/tests/*.test.mjs` → all green (`strings.test.mjs` checks en/de key parity and no `ß`).
 
 - [ ] **Step 8: Commit and push** (before the long browser run).
 
@@ -338,25 +361,23 @@ git commit -m "feat(camera): drone chase view, fifth in the C cycle (#93)"
 git push -u origin HEAD
 ```
 
-- [ ] **Step 9: Browser tests, foreground.** From `pipeline/`: `systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_drone.py ../prototype/tests/test_smoke.py -q`. Expected: all green. If the arrival poll times out, read `window.__mm.cam().d` once at the timeout and compare with (18, 12): a value stuck near (9, 3.4) means `VEH.camera.drone` is not read; a height far above 12 means the ground clamp or a pull-in fired at START (then report, do not loosen `TOL`).
-
-- [ ] **Step 10: Regression, foreground.** Same prefix, `-m pytest ../prototype/tests/test_look_back.py ../prototype/tests/test_vehicles.py ../prototype/tests/test_heli.py -q`. Expected: green and **unchanged** — if one of them fails, the drone path leaked into the existing views (Review Focus), fix `stepCamera`, never the tests.
+- [ ] **Step 9: Browser tests, foreground, this one file only.** From `pipeline/`: the `test_drone.py` command from Global Constraints (no other test file). Expected: 5 passed. If the arrival poll times out, read `window.__mm.cam().d` once at the timeout and compare with (18, 12): a value stuck near (6.9, 2.6) means `VEH.camera.drone` is not read; a height far above 12 means the ground clamp or a pull-in fired at START (then report, do not loosen `TOL`). Do not run `test_look_back.py`, `test_vehicles.py`, `test_heli.py` or `test_smoke.py`: they stay unchanged and CI covers them. Instead re-read your `stepCamera` diff once: every `drone ? X : Y` must give today's value `Y`.
 
 ---
 
 ### Task 4: Changelog and playtest notes
 
 **Files:**
-- Modify: `CHANGELOG.md` (`[Unreleased] → Added`, after the **B** look-back line)
+- Modify: `CHANGELOG.md` (`## [Unreleased]` → `### Added`, new first bullet)
 - Modify: `test-todo.md` (new section at the end)
 
-- [ ] **Step 1: CHANGELOG.** Add under `### Added`, after the „Hold **B** to look back" bullet:
+- [ ] **Step 1: CHANGELOG.** Read the top of `CHANGELOG.md` first. Entries are one line each, newest first, prefixed with the Swiss local time (Europe/Zurich) as `` `YYYY-MM-DD HH:MM` `` in backticks, written in the player's voice. Insert as the **first** bullet under `### Added` (stamp from `TZ=Europe/Zurich date '+%Y-%m-%d %H:%M'`):
 
 ```markdown
-- A fifth camera view: press **C** past the bumper cam and a **drone** follows you from high up behind the car. It hangs back when you accelerate, swings wide in bends and hovers a little, like a camera drone keeping station. **B** still looks back from up there too.
+- `YYYY-MM-DD HH:MM` A fifth camera view: press **C** past the bumper cam and a **drone** follows you from high up behind the car. It hangs back when you accelerate, swings wide in bends and hovers a little, like a camera drone keeping station. **B** still looks back from up there too.
 ```
 
-- [ ] **Step 2: test-todo.** Append:
+- [ ] **Step 2: test-todo.** Append at the end of `test-todo.md` (blank line, then this section; `##` heading with the issue number and `- [ ]` items, like the sections above it):
 
 ```markdown
 ## Drone camera (#93)
@@ -364,9 +385,10 @@ git push -u origin HEAD
 - [ ] **C** four times from the start: the toast says „Camera: Drone" / „Kamera: Drohne"; the view is high behind the car (about 18 m back, 12 m up) and the car with its shadow is in the picture.
 - [ ] Driving: the drone lags on acceleration and swings out in bends, then catches up; at rest it hovers gently. Does 18 / 12 feel right, or too high / too far? (`VEH.camera.drone` in `prototype/index.html`, `DRONE` in `prototype/camera.js`.)
 - [ ] Hold **B** in the drone view: it swings round in front, high, looking back past the car; let go and it returns without swinging through the car.
-- [ ] Beside the LANDI tower (**J** → `landi`) and the DSM halls: the drone pulls in and climbs over tall boxes instead of clipping through them; low houses are passed over.
+- [ ] Beside the LANDI tower (**J** → LANDI) and the DSM halls: the drone pulls in and climbs over tall boxes instead of clipping through them; low houses are passed over.
 - [ ] **F** (helicopter) and back: the helicopter camera is unchanged; landing keeps the drone view if it was selected.
 - [ ] **Esc**: paused, the drone freezes (no hover while the menu is open).
+- [ ] **Esc** → change car (garage) to the DeLorean while in the drone view: no error, the drone view stays and frames the DeLorean the same way; after leaving the garage the drone settles behind the car without a jump.
 - [ ] **F1**: the C line reads „camera: chase · near · cockpit · bumper · drone" (de: „… Stossstange · Drohne").
 ```
 
@@ -383,6 +405,6 @@ git push
 ## Done when
 
 - `node --test prototype/tests/*.test.mjs` green (baseline + 5).
-- `test_drone.py` (5 tests) and the updated `test_smoke.py::test_camera_cycles_with_c` green; `test_look_back.py`, `test_vehicles.py`, `test_heli.py` green and unchanged.
-- `CAM_VIEWS` has five entries, drone last; `VEH.camera.drone = { dist: 18, h: 12 }`.
+- `test_drone.py` (5 tests) green; `test_smoke.py::test_camera_cycles_with_c` updated to five views (not run locally); `test_look_back.py`, `test_vehicles.py`, `test_heli.py` untouched.
+- `CAM_VIEWS` has five entries, drone last; `camera.drone = { dist: 18, h: 12 }` on compact and delorean.
 - CHANGELOG and test-todo entries present.
