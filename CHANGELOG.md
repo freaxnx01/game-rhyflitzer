@@ -82,6 +82,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- On the start screen of a normal-sized window the Ehrendingen and Hochrhein buttons were half hidden under the links at the bottom of the screen and could not be clicked. The links now sit lower while the start screen is open, so both buttons work.
 - `2026-10-11 09:41` The **Smile-Kreisel** in Sisseln no longer floats: its cobbled apron and the flower island now reach down to the slope on the downhill side instead of hanging in the air with a dark rim under them.
 - `2026-10-11 09:38` **Choose car** shows your car again after you gave up a run: it used to stay where the run ended and the stage showed only an empty road with the car's shadow.
 - `2026-10-10 20:43` Place and street names with **special characters** (such as & or quotes) now show exactly as written in the list, the chips and the messages.

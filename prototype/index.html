@@ -2554,6 +2554,9 @@ requestAnimationFrame(loop);
   /* Phones: the start/result dialog, the pause menu and its abandon question
      fill the screen and the wrapped nav would sit on their buttons, so show
      the nav only while racing. */
+  /* Wider screens keep the nav (the language toggle lives in it) but drop it to the
+     bottom edge while the start/result dialog is open, clear of that dialog's buttons. */
+  body:has(#overlay:not([hidden])) #game-nav { bottom: calc(8px + env(safe-area-inset-bottom,0px)) !important; }
   @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav, body:has(#carsel:not([hidden])) #game-nav, body:has(#pause:not([hidden])) #game-nav, body:has(#abandon:not([hidden])) #game-nav { display: none !important; } }
 </style>
 <script src="./version.js"></script>

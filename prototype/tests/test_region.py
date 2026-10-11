@@ -82,3 +82,15 @@ def test_ehrendingen_has_its_osm_woods(server):
     assert f["polys"] == len(forests), f
     assert f["trees"] > 5000 and f["walls"] > 1000 and f["thinned"] == 0, f
     assert on_road == 0
+
+
+def test_start_screen_buttons_are_not_covered_by_the_game_nav(server):
+    """The fixed #game-nav footer must not sit on the region buttons (or hide the language toggle) on the start screen."""
+    with sync_playwright() as p:
+        b, page = boot(p, server)
+        got = page.evaluate("""() => ['#region-hochrhein', '#region-ehrendingen', '#gg-lang-toggle'].map(sel => {
+            const el = document.querySelector(sel), r = el.getBoundingClientRect();
+            return [sel, document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el];
+        })""")
+        b.close()
+    assert got == [["#region-hochrhein", True], ["#region-ehrendingen", True], ["#gg-lang-toggle", True]]
