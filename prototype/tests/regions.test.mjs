@@ -41,7 +41,7 @@ test('the national border names are per region: Hochrhein has them, Ehrendingen 
 test('every region is complete and its string keys exist', () => {
   for (const [id, r] of Object.entries(REGIONS)) {
     assert.equal(r.id, id);
-    for (const k of ['name', 'world', 'terrain', 'idbKey', 'bestKey', 'villages', 'gemeinden', 'landmarks', 'treeBox', 'forestAbove']) assert.ok(r[k] !== undefined, `${id}.${k}`);
+    for (const k of ['name', 'world', 'terrain', 'idbKey', 'bestKey', 'villages', 'gemeinden', 'landmarks', 'treeBox', 'forestAbove', 'openWoods']) assert.ok(r[k] !== undefined, `${id}.${k}`);
     for (const key of Object.values(r.strings)) { assert.ok(key in STRINGS.en, key); assert.ok(key in STRINGS.de, key); }
   }
   assert.notEqual(REGIONS.ehrendingen.idbKey, REGIONS.hochrhein.idbKey);

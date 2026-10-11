@@ -328,7 +328,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from './holzbruecke.js';
@@ -532,7 +532,7 @@ if (!WORLD && !REGION.handFallback) { REGION_FALLBACK = REGION.name; REGION = RE
 let REAL_SRC = 'uploaded';
 const REAL = await (async () => { let buf = await idbGet(REGION.idbKey); if (!buf) { REAL_SRC = 'bundled'; buf = await fetch(REGION.terrain).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null); } if (!buf) return null; try { return parseMMH(buf); } catch (e) { return null; } })();
 const L = WORLD && WORLD.format === 'MMW1' ? layoutFromWorld(WORLD) : null;
-const FOREST = forestIndex(L ? L.forests : []);   // #13: 8 m bit mask of the OSM woods; always answers false in the hand layout
+const WOODS = L ? clearWoods(L.forests, REGION.openWoods) : [], FOREST = forestIndex(WOODS);   // #13: 8 m bit mask of the OSM woods; always answers false in the hand layout
 const SDF = L ? sdfSampler(L.sdf) : null, WATER = L ? waterIndex(L.water) : null;
 if (L) { ROADS = L.roads; BRIDGES = []; }
 for (const r of ROADS) for (let i = 0; i < r.pts.length - 1; i++) gridAddSegment(ROAD_GRID, ...r.pts[i], ...r.pts[i + 1], r.w / 2 + 2, { r, i });
@@ -1574,7 +1574,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   const TREES = [], SW = L ? (L.anchors.areas.sisselnWald || null) : [1960, -520, 2500, -300]; if (!L) { const pts = RIVER.pts; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; for (let t = 0; t < L; t += 22) for (const s of [-1, 1]) { const o = RIVER.hw + 20 + rr(0, 14); const tx = x0 + ux * t - uz * o * s + rr(-4, 4), tz = z0 + uz * t + ux * o * s + rr(-4, 4); if (!onBridge(tx, tz) && roadDist(tx, tz) > 4 && BRIDGES.every(b => segDist(tx, tz, ...b.a, ...b.b) > 12)) TREES.push([tx, tz, rr(8, 13)]); } } }
   const PARKING = parkingIndex(L ? L.parking : []), TREE_CROWN = 0.45;   // #72: a tree's footprint (billboards are h x 0.9 wide) stays off the car parks
   // #13: a world file with OSM woods replaces the heuristic forests (box, height line, fbm); one without them keeps the heuristic
-  const OSM_WOODS = !!(L && L.forests.length);
+  const OSM_WOODS = !!(L && WOODS.length);
   const [bx0, bx1, bz0, bz1] = REGION.treeBox;   // #127: the scatter box and the forest line are the region's (Hochrhein's are today's values)
   for (let i = 0; i < 9000; i++) { const tx = rr(bx0, bx1), tz = rr(bz0, bz1); const th = terrainH(tx, tz); const sisselnWald = !!SW && tx > SW[0] && tx < SW[2] && tz > SW[1] && tz < SW[3]; const forest = !OSM_WOODS && (sisselnWald || th > REGION.forestAbove || (th > 6 && fbm(tx * 0.004, tz * 0.004) > 0.55)); if (!forest && rnd() > 0.12) continue; if (FOREST.inside(tx, tz)) continue; if (free(tx, tz, 3) && roadDist(tx, tz) > 6 && railDist(tx, tz) > 7 && streamH(tx, tz) === -Infinity && !(HIDE && (inHideout(tx, tz) || roomAt(tx, tz, 4) || corridorAt(tx, tz, 4)))) { const h = rr(6, 12); if (PARKING.clear(tx, tz, TREE_CROWN * h)) TREES.push([tx, tz, h]); } }
   // #131: trees are solid at the trunk. After the loop, so free() above never sees a tree (forest density unchanged);
@@ -1586,12 +1586,12 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // OBB_GRID): the edge walls below stop the car instead. They come last, because free() reads an OBB as a circle of
   // radius hypot(hw, hd) -- a 48 m wall added any earlier would clear every tree within 26 m of it.
   const FOREST_TREES = [];
-  if (L && L.forests.length) {
-    const edges = forestEdges(L.forests, FOREST), placed = forestTrees(L.forests, FOREST, edges, rng(13));
+  if (L && WOODS.length) {
+    const edges = forestEdges(WOODS, FOREST), placed = forestTrees(WOODS, FOREST, edges, rng(13));
     for (const [x, z, h] of [...placed.edge, ...placed.fill])
       if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && !(HIDE && inHideout(x, z)) && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
     for (const e of edges) if (!(HIDE && segmentInHideout(e.x0, e.z0, e.x1, e.z1))) addSolid({ x: e.mx + e.nx * 1.2, z: e.mz + e.nz * 1.2, hw: (e.len + 0.6) / 2, hd: 1.2, c: Math.cos(e.rot), s: Math.sin(e.rot), h: lidGround(e.mx, e.mz) + 1.6, forest: true });   // solid, not a building: off the minimap; #201: on the hill over the cave
-    window.__mm.counts.forest = { polys: L.forests.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, walls: edges.length };
+    window.__mm.counts.forest = { polys: WOODS.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, walls: edges.length };
   }
   window.__FOREST = FOREST_TREES;
   streetNames();

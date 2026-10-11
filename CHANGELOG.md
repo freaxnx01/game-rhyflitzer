@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-11 17:50` You can drive out of the Rhine onto the **Fridolinsinsel** in Bad Säckingen now: the island is a meadow without its trees and the invisible wall around it, so the car can climb out of the river bed and drive around on it. **R** puts you back on the road.
 - `2026-10-11 16:18` **For testers only:** open the game with `?dev=1` (and `?dev=0` to switch it off again) and it connects to the new **Testhub**, a playtest list in its own window with one-click jumps to the places a change is about, including the sunken wrecks and the hideout. Players see and load nothing of it.
 - `2026-10-11 15:45` The <kbd>J</kbd> list has a new place, the **Rhein-Wracks** below Bad Säckingen: it drops the car on the bed of the Rhine a few metres from the capsized rowing boat, with the rusty car further down the river. Type "wrack" to find it; **R** puts you back on the road.
 - `2026-10-11 12:24` The map reaches further south now, up onto the **Tafeljura**: **Schupfart** with its airfield, Frick, Oeschgen, Obermumpf and Hellikon are there to drive to, with their village names. <kbd>J</kbd> → `flugplatz` (or the new Schupfart chip) takes you to **Flugplatz Schupfart**.
