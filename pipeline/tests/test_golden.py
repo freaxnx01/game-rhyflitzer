@@ -251,17 +251,20 @@ def test_forests(world):
                 assert g.distance(pt) >= w / 2 + 4.5, (x, z)
 
 
-def test_issue103_food_truck_anchor_stands_on_the_bahnhof_eiken_car_park(world):
-    """#103: the food truck anchor lies inside the Bahnhof Eiken car park (parking way 210461003), on no building and
-    off every road."""
-    t = world["anchors"]["landmarks"]["foodTruck"]
-    assert (t["x"], t["z"]) == (1758.5, 1986.5) and t["kind"] == "foodTruck" and t["rot"] == 0, t
-    p = shapely.Point(t["x"], t["z"])
-    lot = next(x for x in world["parking"] if x["id"] == 210461003)
-    assert shapely.Polygon(lot["ring"]).contains(p), "the truck stands inside the car park"
-    assert not any(shapely.Polygon(b["ring"]).contains(p) for b in world["buildings"]), "the truck stands on no building"
-    roads = shapely.MultiLineString([r["pts"] for r in world["roads"] if len(r["pts"]) > 1])
-    assert roads.distance(p) >= 5, roads.distance(p)
+def test_issue205_food_truck_stands_off_the_road_on_the_hauptstrasse(world_south):
+    """#205: the food truck stands at the Hauptstrasse pin in Eiken (within the 8 m verge move), 7.1 x 2.4 m, on no
+    building and clear of every carriageway."""
+    t = world_south["anchors"]["landmarks"]["foodTruck"]
+    assert t["kind"] == "foodTruck"
+    assert abs(t["x"] - 1921.6) < 10 and abs(t["z"] - 2249.8) < 10, t
+    c, s = math.cos(t["rot"]), math.sin(t["rot"])
+    rect = shapely.Polygon([(t["x"] + ox * c - oz * s, t["z"] + ox * s + oz * c)
+                            for ox, oz in [(-3.55, -1.2), (3.55, -1.2), (3.55, 1.2), (-3.55, 1.2)]])
+    assert not any(shapely.Polygon(b["ring"]).intersects(rect) for b in world_south["buildings"]), "the truck stands on no building"
+    for r in world_south["roads"]:
+        if r["bridge"] or len(r["pts"]) < 2:
+            continue
+        assert shapely.LineString(r["pts"]).distance(rect) >= r["w"] / 2 - 0.2, ("the van blocks the road", r["n"])
 
 
 def _lines(world, rid):
