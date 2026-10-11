@@ -87,6 +87,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-11 23:00` The **village names** no longer shine through the rock inside the **Hübel cave**: in the tunnel and the hall you see no Mumpf or Stein floating in the wall any more, and they are back as soon as you drive out.
 - `2026-10-11 22:30` The light in the **Hübel cave** no longer flares and drops out: the lamps in the first cavern and in the hall hang high now instead of just over the road, so the floor and the car glow softly while you drive past instead of blazing bright for a second and going dark again.
 - `2026-10-11 17:46` The **woods in the south are full again**: since the map grew, the tree budget was eaten up by the trees along the forest edges, so the inside of the woods stood hollow — only a thin row of trees at the rim. The budget is raised, and the woods have their trees inside again.
 - `2026-10-11 14:35` No more water on the **Hauptstrasse**: brooks and canals that ran beside a road were drawn as wide as a river and lay over the road edge. They now stop where they would touch a road.
