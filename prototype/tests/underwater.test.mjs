@@ -1,7 +1,7 @@
 // #101: the underwater Rhine -- pure helpers. node --test prototype/tests/underwater.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { UW, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, SURFACE_UNDER, surfaceLook } from '../underwater.js';
+import { UW, PIER_SINK, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, SURFACE_UNDER, surfaceLook } from '../underwater.js';
 
 const close = (a, b, eps = 1e-9, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };   // a deterministic rnd()
@@ -108,4 +108,11 @@ test('surfaceLook_Dry_IsOff', () => {
 
 test('SURFACE_UNDER_GlowIsLighterThanTheMurkAroundIt', () => {
   assert.ok(lum(SURFACE_UNDER.emissive) * SURFACE_UNDER.intensity > lum(UW.fogColor), 'the ceiling must not be darker than the fog');
+});
+
+test('pierBase: a bridge pier starts PIER_SINK under the deepest bed, whatever the water level', () => {
+  assert.equal(PIER_SINK, 1.5);
+  close(pierBase(0), -UW.maxDepth - 1.5);
+  close(pierBase(287.3), 287.3 - UW.maxDepth - 1.5);
+  assert.ok(pierBase(0) < -bedDepth(-1000));
 });

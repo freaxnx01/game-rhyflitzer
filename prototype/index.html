@@ -364,7 +364,7 @@ import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSa
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows } from './helpfilter.js';
-import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from './holzbruecke.js';
+import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan } from './holzbruecke.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -394,7 +394,7 @@ import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopE
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
 import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, seededRng, nextSurprise, tickSurprises, gravityScale, nearestPresent, canCollect, isNewHuntBest, confettiBurst, stepConfetti } from './presents.js';
-import { UW, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
+import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
 import { LAMP, lampState } from './lights.js';
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
@@ -1383,11 +1383,12 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   if (!L) for (let a = 0; a < ROADS.length; a++) for (let b = a + 1; b < ROADS.length; b++) if (!(L && (ROADS[a].bridge || ROADS[b].bridge))) for (let i = 0; i < ROADS[a].pts.length - 1; i++) for (let j = 0; j < ROADS[b].pts.length - 1; j++) { const [x1, y1] = ROADS[a].pts[i], [x2, y2] = ROADS[a].pts[i + 1], [x3, y3] = ROADS[b].pts[j], [x4, y4] = ROADS[b].pts[j + 1]; const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4); if (Math.abs(den) < 1e-6) continue; const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den, u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den; if (t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99) disc(x1 + t * (x2 - x1), y1 + t * (y2 - y1), Math.max(ROADS[a].w, ROADS[b].w) / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff')); }
   // bridges: the stone hero model on one straight span (deck, parapets, piers) -- the hand layout's Fridolinsbrücke and the OSM one while
   // its chain is no two-bank crossing. b: straight span a -> b (len, ux, uz, rot, hw); hAt(t): deck surface height at distance t along it;
-  // pierBase: height the piers start at (5 m under the water surface). The wooden Holzbrücke is heroWood below.
+  // pierBase: height the piers start at (under the deepest riverbed, underwater.js pierBase). The wooden Holzbrücke is heroWood below.
   function heroBridge(b, hAt, pierBase) {
     const hf = (x, z) => hAt(bridgeLocal(b, x, z)[0]); const pts = [b.a, b.b]; const off = (s) => pts.map(p => [p[0] - b.uz * s, p[1] + b.ux * s]);
     const wall = (s, hw, hd) => pushOBB({ x: (b.a[0] + b.b[0]) / 2 - b.uz * s, z: (b.a[1] + b.b[1]) / 2 + b.ux * s, hw: hd, hd: hw, c: Math.cos(b.rot), s: Math.sin(b.rot), h: 2, bridge: true, ...(b.y0 !== undefined ? { y0: b.y0 } : {}) });
     strip(pts, b.hw * 2, 0.06, 'road', col('#ffffff'), 8, hf); strip(pts, b.hw * 2 + 1.6, -1.0, 'stone', col('#c8c2b6'), 4, hf); for (const s of [-1, 1]) { strip(off(s * (b.hw + 0.5)), 0.5, 1.0, 'stone', col('#d8d2c6'), 4, hf); wall(s * (b.hw + 0.5), 0.4, b.len / 2); } for (const t of [0.3, 0.5, 0.7]) { const top = hAt(b.len * t) - 1.05, bottom = pierBase, c = new THREE.CylinderGeometry(3.5, 4, top - bottom, 10); c.translate(b.a[0] + b.ux * b.len * t, (top + bottom) / 2, b.a[1] + b.uz * b.len * t); colorize(c, col('#b8b2a6')); push('stone', c); }
+    window.__mm.counts.stonePiers = [0.3, 0.5, 0.7].map(t => ({ x: b.a[0] + b.ux * b.len * t, z: b.a[1] + b.uz * b.len * t, base: pierBase }));
   }
   // #241: the covered wooden Holzbrücke along its line (S-shaped: the bends sit on the piers) -- deck, boarded parapets, posts, braces,
   // wall plates, a gabled roof that shows from below, a truss per frame, six stone piers and the three chapels (prototype/holzbruecke.js).
@@ -1398,12 +1399,13 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     // a metres along f's direction and d metres out on side s (+1 = south while the line runs east -> west), then lifted y above the deck
     const P = (f, a, s, d) => [f.x + f.ux * a + f.uz * s * d, f.z + f.uz * a - f.ux * s * d];
     const V = ([x, z], y) => [x, hs(x, z) + y, z];
-    const quad = (A, B, C, D, c, role) => {   // both windings: boards and the roof show from either side
+    const quad = (A, B, C, D, c, role, [tu, tv] = [1, 1]) => {   // both windings: boards and the roof show from either side; tile: texture repeats across and up
       const e1 = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], e2 = [D[0] - A[0], D[1] - A[1], D[2] - A[2]];
       const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]], l = Math.hypot(...n) || 1, pos = [], nrm = [];
       for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(n[0] / l, n[1] / l, n[2] / l); }
       for (const v of [A, C, B, A, D, C]) { pos.push(...v); nrm.push(-n[0] / l, -n[1] / l, -n[2] / l); }
-      rawGeo(pos, nrm, [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1], 0, 0, 0, c, role); };
+      rawGeo(pos, nrm, [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1].map((u, i) => u * (i % 2 ? tv : tu)), 0, 0, 0, c, role); };
+    const lerp = (A, B, u) => [A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u], openings = chapelOpenings(piers, H.chapels);
     strip(line, hw * 2, 0.06, 'wood', col('#ffffff'), 4, hs); strip(line, hw * 2 + 0.8, -0.5, 'wood', dark, 4, hs);
     for (const s of [-1, 1]) {
       strip(offsetPolyline(line, s * wallAt), 0.3, H.eave, 'wood', timber, 4, hs);   // wall plate
@@ -1415,26 +1417,35 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
       box(2 * wallAt, 0.25, 0.25, f.x, yf + H.eave - 0.25, f.z, rot + Math.PI / 2, dark, 'wood', [1, 1], 0);   // tie beam
       box(0.2, H.ridge - H.eave, 0.2, f.x, yf + H.eave, f.z, rot, dark, 'wood', [1, 1], 0);                     // king post
       for (const s of [-1, 1]) { const w = P(f, 0, s, wallAt);
-        box(0.3, H.eave, 0.3, w[0], hs(w[0], w[1]), w[1], rot, timber, 'wood', [1, 1], 0);                      // post
+        if (!inOpening(f.t, s, openings)) box(0.3, H.eave, 0.3, w[0], hs(w[0], w[1]), w[1], rot, timber, 'wood', [1, 1], 0);   // post (a chapel's own posts frame its opening)
         quad(V(w, H.eave), V(top, H.ridge), V(top, H.ridge - 0.25), V(w, H.eave - 0.25), dark, 'wood');         // rafter
         if (!g) continue;
-        const w1 = P(g, 0, s, wallAt), top1 = P(g, 0, 1, 0);
-        quad(V(w, 0), V(w1, 0), V(w1, H.parapet), V(w, H.parapet), timber, 'wood');                              // boarded parapet
-        quad(V(w, H.parapet), V(w1, H.eave - 0.25), V(w1, H.eave), V(w, H.parapet + 0.25), dark, 'wood');        // brace
+        const w1 = P(g, 0, s, wallAt), top1 = P(g, 0, 1, 0), cover = wallCover(f.t, g.t, s, openings);
+        for (const [u0, u1] of cover) { const a = lerp(w, w1, u0), b = lerp(w, w1, u1); quad(V(a, 0), V(b, 0), V(b, H.parapet), V(a, H.parapet), timber, 'wood'); }   // boarded parapet, open where a chapel is
+        if (cover.length === 1 && cover[0][1] - cover[0][0] === 1) quad(V(w, H.parapet), V(w1, H.eave - 0.25), V(w1, H.eave), V(w, H.parapet + 0.25), dark, 'wood');   // brace, only in a bay no chapel opens into
         quad(V(P(f, 0, s, hw + H.overhang), H.eave), V(P(g, 0, s, hw + H.overhang), H.eave), V(top1, H.ridge), V(top, H.ridge), roofC, 'roof'); } }
     // piers: hexagonal in plan, pointed up- and downstream, pierWidth along the bridge and 2 * hw + 3 across
+    const stone = col('#a8a296');
     for (const p of piers) { const top = hs(p.x, p.z) - 0.55, c = new THREE.CylinderGeometry(1, 1, top - pierBase, 6);
-      c.scale(H.pierWidth / 2 / 0.866, 1, hw + 1.5); c.rotateY(-Math.atan2(p.uz, p.ux)); c.translate(p.x, (top + pierBase) / 2, p.z); c.computeVertexNormals(); colorize(c, col('#a8a296')); push('stone', c); }
-    // chapels stand outside the rails on a pier: a half-hexagon with a half-pyramid roof, or a box with a lean-to roof
-    for (const ch of H.chapels) { const p = piers[ch.pier], rot = Math.atan2(p.uz, p.ux), yd = hs(p.x, p.z), half = ch.length / 2;
-      if (ch.kind === 'pent') { const [cx, cz] = P(p, 0, ch.side, wallAt + ch.depth / 2);
-        box(ch.length, H.eave - 1.2, ch.depth, cx, yd, cz, rot, timber, 'wood', [1, 1], 0);
-        quad(V(P(p, -half - 0.2, ch.side, wallAt), H.eave - 0.6), V(P(p, half + 0.2, ch.side, wallAt), H.eave - 0.6), V(P(p, half + 0.2, ch.side, wallAt + ch.depth + 0.2), H.eave - 1.2), V(P(p, -half - 0.2, ch.side, wallAt + ch.depth + 0.2), H.eave - 1.2), roofC, 'roof');
-        continue; }
-      const phi = Math.atan2(-p.ux * ch.side, p.uz * ch.side), [bx, bz] = P(p, 0, ch.side, wallAt);   // local +x points out of the wall
-      const body = new THREE.CylinderGeometry(1, 1, H.eave, 6, 1, true, 0, Math.PI); body.scale(ch.depth, 1, half); body.rotateY(-phi); body.translate(bx, yd + H.eave / 2, bz); body.computeVertexNormals(); colorize(body, timber); push('wood', body);
-      const cap = new THREE.ConeGeometry(1, 1.4, 6, 1, true, 0, Math.PI); cap.scale(ch.depth + 0.3, 1, half + 0.3); cap.rotateY(-phi); cap.translate(bx, yd + H.eave + 0.7, bz); cap.computeVertexNormals(); colorize(cap, roofC); push('roof', cap); }
-    window.__mm.counts.holzbruecke = { frames: frames.length, piers: piers.length, chapels: H.chapels.length };
+      c.scale(H.pierWidth / 2 / 0.866, 1, hw + 1.5); c.rotateY(-Math.atan2(p.uz, p.ux)); c.translate(p.x, (top + pierBase) / 2, p.z); c.computeVertexNormals(); colorize(c, stone); push('stone', c); }
+    // chapels (playtest: "wie angeklebt"): each is part of the bridge -- a stone head of its pier carries it up to deck level, it opens to
+    // the deck as a niche with a floor, its walls are closed half-timber (dark posts and a rail on light infill), and its roof leans
+    // against the wall plate under the main eave: a half-pyramid on the polygonal ones, a single slope on the pent one
+    const infill = col('#e2d6be'), ov = 0.3, lowEave = H.eave - 1.2, ring = (pts) => pts.map((q, i) => [q, pts[(i + 1) % pts.length]]);
+    for (const ch of H.chapels) { const p = piers[ch.pier], rot = Math.atan2(p.uz, p.ux), yd = hs(p.x, p.z), { outline, eave } = chapelPlan(ch, ov), base = chapelPlan(ch, 0.25).eave;
+      const at = ([a, d]) => P(p, a, ch.side, wallAt + d), W = (q, y) => { const [x, z] = at(q); return [x, y, z]; }, apex = V(at([0, 0]), H.eave);
+      const topY = (q) => ch.kind === 'pent' ? H.eave - (H.eave - lowEave) * q[1] / (ch.depth + ov) : lowEave;   // the pent roof falls from the wall plate; under a hip the walls are level
+      for (const [a, b] of ring(base)) quad(W(a, pierBase), W(b, pierBase), V(at(b), 0), V(at(a), 0), stone, 'stone', [2, (yd - pierBase) / 2]);   // the pier head, down to the bed
+      quad(...base.map(q => V(at(q), 0)), stone, 'stone');
+      quad(...outline.map(([a, d]) => V(at([a, d || -0.2]), 0.05)), col('#ffffff'), 'wood');   // the floor, at deck level, reaching the deck edge
+      for (let k = 0; k < 3; k++) { const a = outline[k], b = outline[k + 1], A = at(a), B = at(b), len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+        quad(V(A, 0), V(B, 0), V(B, topY(b)), V(A, topY(a)), infill, 'wood');
+        box(len, 0.14, 0.14, (A[0] + B[0]) / 2, yd + H.parapet, (A[1] + B[1]) / 2, Math.atan2(B[1] - A[1], B[0] - A[0]), dark, 'wood', [1, 1], 0); }   // the rail, at parapet height like the bridge's
+      for (const q of outline) { const [x, z] = at(q); box(0.22, q[1] ? topY(q) : H.eave, 0.22, x, yd, z, rot, dark, 'wood', [1, 1], 0); }   // corner posts; the two at the wall frame the opening up to the eave
+      for (let k = 0; k < 3; k++) { const a = eave[k], b = eave[k + 1]; if (a[0] === b[0]) continue;   // the pent one's side gables are wall, not roof
+        const [C, D] = ch.kind === 'pent' ? [V(at([b[0], 0]), H.eave), V(at([a[0], 0]), H.eave)] : [apex, apex];
+        quad(V(at(a), topY(a)), V(at(b), topY(b)), C, D, roofC, 'roof'); } }
+    window.__mm.counts.holzbruecke = { frames: frames.length, piers: piers.length, chapels: H.chapels.length, pierFeet: piers.map(p => ({ x: p.x, z: p.z, base: pierBase })) };
   }
   // #78: the stone chain drawn per piece along its polyline (the Fridolinsbrücke bends and splits into two carriageways at Stein, so one
   // straight chord cannot carry it): deck, underside, parapets in 2 m wall OBBs dropped where they would stand on another piece of the
@@ -1453,12 +1464,14 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
           for (let k = 0; k < 4; k++) uv.push(0, 0, 1, 0, 1, 1); }
         if (pos.length) rawGeo(pos, nrm, uv, 0, 0, 0, col('#b8b2a6'), 'stone'); }
     }
+    window.__mm.counts.stonePiers = [];
     for (const u of [0.3, 0.5, 0.7]) { const x = STONE_AXIS.a[0] + (STONE_AXIS.e[0] - STONE_AXIS.a[0]) * u, z = STONE_AXIS.a[1] + (STONE_AXIS.e[1] - STONE_AXIS.a[1]) * u;
       let best = null; for (const p of main) { const n = nearestOnPolyline(p.r.pts, x, z); if (!best || n.d < best.n.d) best = { p, n }; }
       const q = cutPolyline(best.p.r.pts, best.n.t), [px, pz] = q[q.length - 1], top = bridgeSurfaceAt(best.p, best.n.t) - 1.05, wl = REAL ? WATER.levelAt(px, pz) : 0;
-      const bottom = wl !== null ? wl - 5 : terrainH(px, pz) - 1, c = new THREE.CylinderGeometry(3.5, 4, top - bottom, 10); c.translate(px, (top + bottom) / 2, pz); colorize(c, col('#b8b2a6')); push('stone', c); }
+      const bottom = wl !== null ? pierBase(wl) : terrainH(px, pz) - 1, c = new THREE.CylinderGeometry(3.5, 4, top - bottom, 10); c.translate(px, (top + bottom) / 2, pz); colorize(c, col('#b8b2a6')); push('stone', c);
+      window.__mm.counts.stonePiers.push({ x: px, z: pz, base: bottom }); }
   }
-  for (const b of BRIDGES) { if (b.kind === 'wood') heroWood(orientEastWest([b.a, b.b]), (x, z) => bridgeProfile(b, bridgeLocal(b, x, z)[0]), -4.5); else heroBridge(b, (t) => bridgeProfile(b, t), -5); }
+  for (const b of BRIDGES) { if (b.kind === 'wood') heroWood(orientEastWest([b.a, b.b]), (x, z) => bridgeProfile(b, bridgeLocal(b, x, z)[0]), pierBase(0)); else heroBridge(b, (t) => bridgeProfile(b, t), pierBase(0)); }
   // OSM: the wooden bridge is drawn along its own line (heroWood); the stone one along its chain (heroStone) or, while that chain is no
   // two-bank crossing, on one straight span between its farthest-apart points (heroBridge). Generic bridges stay flat strips.
   { const heroes = {}; for (const ob of OSM_BRIDGES) if (ob.kind === 'wood' || ob.kind === 'stone') (heroes[ob.kind] ||= []).push(ob);
@@ -1468,7 +1481,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
         const wood = heroes.wood, wpts = orientEastWest(joinPolylines(wood.map(p => p.r.pts))), mid = pointAtLength(wpts, polylineLength(wpts) / 2);
         const hs = (x, z) => { let bp = null; for (const p of wood) { const n = nearestOnPolyline(p.r.pts, x, z); if (!bp || n.d < bp.n.d) bp = { p, n }; } return bridgeSurfaceAt(bp.p, bp.n.t); };
         const wy0 = Math.min(...wood.map(p => Math.min(p.h0, p.h1))) - 1.5, wl = REAL ? (WATER.levelAt(mid[0], mid[1]) ?? wy0 - 4) : 0;
-        heroWood(wpts, hs, wl - 4.5, wy0); continue; }
+        heroWood(wpts, hs, pierBase(wl), wy0); continue; }
       const pcs = heroes[kind], all = pcs.flatMap(p => p.r.pts); let a = all[0], e = all[1], best = -1;
       for (const p of all) for (const q of all) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d > best) { best = d; a = p; e = q; } }
       const hb = { a, b: e, len: best, ux: (e[0] - a[0]) / best, uz: (e[1] - a[1]) / best, hw: pcs[0].hw, kind }; hb.rot = Math.atan2(hb.uz, hb.ux);
@@ -1476,7 +1489,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
       hb.y0 = Math.min(...pcs.map(p => Math.min(p.h0, p.h1))) - 1.5;
       const hAt = (t) => { const x = a[0] + hb.ux * t, z = a[1] + hb.uz * t; let bp = null; for (const p of pcs) { const n = nearestOnPolyline(p.r.pts, x, z); if (!bp || n.d < bp.n.d) bp = { p, n }; } return bridgeSurfaceAt(bp.p, bp.n.t); };
       const wl = REAL ? (WATER.levelAt(a[0] + hb.ux * best / 2, a[1] + hb.uz * best / 2) ?? hb.y0 - 4) : 0;
-      heroBridge(hb, hAt, wl - 5);
+      heroBridge(hb, hAt, pierBase(wl));
     } }
   for (const b of OSM_BRIDGES) if (b.kind === 'generic') {
     const pts = resample(b.r.pts, 5), hf = (x, z) => bridgeDeckAt(b, nearestOnPolyline(b.r.pts, x, z).t), hs = (x, z) => bridgeSurfaceAt(b, nearestOnPolyline(b.r.pts, x, z).t);
