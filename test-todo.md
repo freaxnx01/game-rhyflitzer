@@ -424,3 +424,14 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 
 - [ ] {go: hideout.gate} Drive the whole cave (gate, tunnel, first cavern, hall) at speed: the light under and around the car swells and fades softly, no bright flare next to a lamp followed by sudden dark.
 - [ ] {go: hideout.tower} In the tunnel and in the hall no village name (Mumpf, Stein, ...) floats in the rock; drive out and they are back.
+
+## Drone camera (#93)
+
+- [ ] **C** four times from the start: the toast says „Camera: Drone" / „Kamera: Drohne"; the view is high behind the car (about 18 m back, 12 m up) and the car with its shadow is in the picture.
+- [ ] Driving: the drone lags on acceleration and swings out in bends, then catches up; at rest it hovers gently. Does 18 / 12 feel right, or too high / too far? (`VEH.camera.drone` in `prototype/index.html`, `DRONE` in `prototype/camera.js`.)
+- [ ] Hold **B** in the drone view: it swings round in front, high, looking back past the car; let go and it returns without swinging through the car.
+- [ ] Beside the LANDI tower (**J** → LANDI) and the DSM halls: the drone pulls in and climbs over tall boxes instead of clipping through them; low houses are passed over.
+- [ ] **F** (helicopter) and back: the helicopter camera is unchanged; landing keeps the drone view if it was selected.
+- [ ] **Esc**: paused, the drone freezes (no hover while the menu is open).
+- [ ] **Esc** → change car (garage) to the DeLorean while in the drone view: no error, the drone view stays and frames the DeLorean the same way; after leaving the garage the drone settles behind the car without a jump.
+- [ ] **F1**: the C line reads „camera: chase · near · cockpit · bumper · drone" (de: „… Stossstange · Drohne").
