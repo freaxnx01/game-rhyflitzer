@@ -422,3 +422,5 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] Hauensteiner Murg in Bad Säckingen: no blue over the Fabrikstrasse or the Hauptstrasse; the stream still shows where it runs clear of the roads.
 - [ ] Sissle and other brooks: still visible in open country and still slow the car; a stream crossing under a bridge is not cut.
 
+- [ ] {go: hideout.gate} Drive the whole cave (gate, tunnel, first cavern, hall) at speed: the light under and around the car swells and fades softly, no bright flare next to a lamp followed by sudden dark.
+- [ ] {go: hideout.tower} In the tunnel and in the hall no village name (Mumpf, Stein, ...) floats in the rock; drive out and they are back.
