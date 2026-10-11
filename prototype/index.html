@@ -254,6 +254,11 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div class="panel">
     <div class="sub" data-i18n="sub">Codename Rhyflitzer · Prototype v0.2</div>
     <h1>Map Madness</h1>
+    <div id="worldgone" hidden role="alert">
+      <h2 id="worldgonetitle"></h2>
+      <p id="worldgonetext"></p>
+      <div class="row"><a id="buildagain" class="btn primary" href="../editor.html"></a><button id="drivehere" class="btn" type="button"></button></div>
+    </div>
     <p id="ovtext">Sisseln → Sisslerfeld → Stein → Bad Säckingen. Five checkpoints in any order, then the finish at the Münsterplatz. The Holzbrücke is for pedestrians. Nobody told the timer.</p>
     <div id="result" hidden></div>
     <div class="keys">
@@ -280,12 +285,18 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <span data-i18n="region">Region</span>
       <button id="region-hochrhein" class="btn small" type="button" aria-pressed="true">Hochrhein</button>
       <button id="region-ehrendingen" class="btn small" type="button" aria-pressed="false">Ehrendingen</button>
+      <button id="region-world" class="btn small" type="button" aria-pressed="true" hidden></button>
     </div>
     <div class="terrainrow">
       <label for="mmhfile" class="btn small" data-i18n="loadTerrain">Load terrain (.mmh)</label>
       <input id="mmhfile" type="file" accept=".mmh" hidden>
       <button id="mmhclear" class="btn small" type="button" hidden data-i18n="useMadeUp">Use made-up terrain</button>
+      <label for="worldfile" class="btn small" data-i18n="loadWorldFile">Load world file (.zip)</label>
+      <input id="worldfile" type="file" accept=".zip,application/zip" hidden>
+      <button id="worlddl" class="btn small" type="button" hidden data-i18n="downloadWorld">Download world</button>
+      <button id="worldforget" class="btn small" type="button" hidden data-i18n="forgetWorld">Remove saved copy</button>
       <span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span>
+      <span id="worldfilestatus" role="status"></span>
     </div>
     <p id="blurb" style="font-size:14px;color:var(--steel-l)">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
   </div>
@@ -337,7 +348,8 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, 
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from './holzbruecke.js';
-import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
+import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
+import { worldIdFromQuery, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, onLiftPlatform, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
 import { createLift } from './lift.js';
 import { createLevels } from './levels.js';
@@ -370,9 +382,12 @@ let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
 // Named tr, not t: many functions here use t as a local variable.
 const tr = (key, ...args) => translate(window.GG_LANG, key, ...args);
-// #127: the region (?region=, start-screen row). Picked before the first applyStaticStrings, because the HUD names it;
-// a non-default region whose world file is missing falls back to the default where the world is loaded below.
+/* #127: the region (?region=, start-screen row). Picked before the first applyStaticStrings, because the HUD names it;
+   a non-default region whose world file is missing falls back to the default where the world is loaded below.
+   #167: ?world= wins over ?region=; an invalid id is ignored, like an unknown region. */
 let REGION = REGIONS[regionFromQuery(location.search)], REGION_FALLBACK = null;
+const WORLD_ID = worldIdFromQuery(location.search);
+let GEN = null, WORLD_GONE = null;
 // Static markup carries its key in data-i18n (text), data-i18n-aria (aria-label), data-i18n-placeholder or data-i18n-title.
 // Elements whose text depends on game state are rendered by the render* functions instead.
 function applyStaticStrings() {
@@ -533,14 +548,23 @@ const MMH = { db: null };
 function idb() { return new Promise((res, rej) => { const r = indexedDB.open('mapmadness', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbGet(k) { try { const db = await idb(); return await new Promise((res) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch (e) { return null; } }
 async function idbSet(k, v) { try { const db = await idb(); await new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); if (v === null) t.objectStore('kv').delete(k); else t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); return true; } catch (e) { return false; } }
-function parseMMH(buf) { const dv = new DataView(buf); if (String.fromCharCode(...new Uint8Array(buf, 0, 4)) !== 'MMH1') throw new Error(tr('errNotMmh')); const n = dv.getUint32(4, true); const hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n))); const data = new Float32Array(buf, 8 + n, hdr.w * hdr.h); return { hdr, data }; }
-// OSM world from the pipeline (the region's world file); absent on a fresh clone -> hand-traced layout.
-// #127: a region without a world file of its own falls back to the default region instead (only Hochrhein is hand-traced).
-let WORLD = await fetch(REGION.world).then(r => r.ok ? r.json() : null).catch(() => null);
+/* parseMMH tolerates a header without `sources` (#167 A11) because the HUD joins REAL.hdr.sources; a generated world's header may not carry it. */
+function parseMMH(buf) { const dv = new DataView(buf); if (String.fromCharCode(...new Uint8Array(buf, 0, 4)) !== 'MMH1') throw new Error(tr('errNotMmh')); const n = dv.getUint32(4, true); const hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n))); const data = new Float32Array(buf, 8 + n, hdr.w * hdr.h); if (!Array.isArray(hdr.sources)) hdr.sources = []; return { hdr, data }; }
+/* OSM world from the pipeline (the region's world file); absent on a fresh clone -> hand-traced layout.
+   #127: a region without a world file of its own falls back to the default region instead (only Hochrhein is hand-traced).
+   #167: a generated world (?world=<id>) loads from the host or IndexedDB instead. */
+let WORLD = null;
+if (WORLD_ID) {
+  const got = await loadGenerated(WORLD_ID, { host: worldHost(location.href), fetch: (u) => fetch(u), idbGet });
+  if (got.gone) { WORLD_GONE = { id: WORLD_ID, ...got.gone }; REGION = REGIONS.hochrhein; }
+  else { GEN = got; WORLD = got.world; REGION = generatedRegion(WORLD_ID, got.world); }
+}
+if (!GEN) WORLD = await fetch(REGION.world).then(r => r.ok ? r.json() : null).catch(() => null);
 if (!WORLD && !REGION.handFallback) { REGION_FALLBACK = REGION.name; REGION = REGIONS.hochrhein; WORLD = await fetch(REGION.world).then(r => r.ok ? r.json() : null).catch(() => null); }
-// measured terrain: an .mmh the player loaded (IndexedDB) wins, else the one published next to the world file
+/* measured terrain: an .mmh the player loaded (IndexedDB) wins, else the one published next to the world file.
+   #167: a generated world uses GEN.terrain directly, still subject to REGION.idbKey overrides. */
 let REAL_SRC = 'uploaded';
-const REAL = await (async () => { let buf = await idbGet(REGION.idbKey); if (!buf) { REAL_SRC = 'bundled'; buf = await fetch(REGION.terrain).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null); } if (!buf) return null; try { return parseMMH(buf); } catch (e) { return null; } })();
+const REAL = await (async () => { let buf = await idbGet(REGION.idbKey); if (!buf) { REAL_SRC = 'bundled'; buf = GEN ? GEN.terrain : await fetch(REGION.terrain).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null); } if (!buf) return null; try { return parseMMH(buf); } catch (e) { return null; } })();
 const L = WORLD && WORLD.format === 'MMW1' ? layoutFromWorld(WORLD) : null;
 const WOODS = L ? clearWoods(L.forests, REGION.openWoods) : [], FOREST = forestIndex(WOODS);   // #13: 8 m bit mask of the OSM woods; always answers false in the hand layout
 const SDF = L ? sdfSampler(L.sdf) : null, WATER = L ? waterIndex(L.water) : null;
@@ -790,6 +814,10 @@ if (L && L.anchors.cps.length) {
   CPS = L.anchors.cps.map(c => { const [x, z] = snapRoad(c.x, c.z); return { n: c.n, x, z }; });
   { const [x, z] = snapRoad(L.anchors.finish.x, L.anchors.finish.z); FINISH = { n: L.anchors.finish.n, x, z }; }
   { const [x, z] = snapRoad(L.anchors.start[0], L.anchors.start[1]); START = { x, z, th: L.anchors.start[2] }; }
+} else if (REGION.generated) {
+  const s = L.anchors.start, [bx0, bx1, bz0, bz1] = REGION.treeBox;
+  const [x, z] = s ? snapRoad(s[0], s[1]) : snapRoad((bx0 + bx1) / 2, (bz0 + bz1) / 2);
+  START = { x, z, th: s ? s[2] : 0 }; CPS = []; FINISH = { n: REGION.name, x, z };
 }
 if (L && L.anchors.landmarks.jumpRamp) { const r = L.anchors.landmarks.jumpRamp; RAMP = { x0: r.x - 12.7, x1: r.x + 12.7, z0: r.z - 17.8, z1: r.z + 17.8, h: 3.4 }; }   // same size as the hand-traced ramp
 else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has no ramp
@@ -2097,8 +2125,9 @@ document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hid
 
 // ---------- car state & physics ----------
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, hinted: false, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
-// J: the 3D landmarks (landmarks.js), searched by name and filtered by Gemeinde; hand layout: the race points, no Gemeinde
-const JUMP_ENTRIES = L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
+/* J: the 3D landmarks (landmarks.js), searched by name and filtered by Gemeinde; hand layout: the race points, no Gemeinde.
+   #167: a generated world uses REGION.jlist instead of landmarkEntries. */
+const JUMP_ENTRIES = REGION.generated ? REGION.jlist.map(e => ({ ...e })) : L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
 const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 function placeOnRoad(x, z, th, name) { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); CAB.visible = false; liftIndicator(null); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
