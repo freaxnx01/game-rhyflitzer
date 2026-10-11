@@ -1063,3 +1063,22 @@ test('smoothedGround keeps a slope, damps 4 m bumps, and is anchored to the worl
   const a = smoothedGround(hill, [-1290, 460, -1140, 610]), b = smoothedGround(hill, [-1283.3, 471.1, -1150, 600]);
   for (const [x, z] of [[-1212, 538], [-1200.7, 529.7], [-1240.2, 501.9]]) assert.ok(Math.abs(a(x, z) - b(x, z)) < 1e-9, `${x},${z}`);
 });
+
+test('terrainGrid: exact 16 m cells from the north-west corner, so extending the region south moves no vertex (#47)', async () => {
+  const { terrainGrid } = await import('../world.js');
+  const sdf = h => ({ x0: -4688.66, z0: -2349.8, step: 8, w: 1185, h });
+  const before = terrainGrid(sdf(550)), after = terrainGrid(sdf(994));   // the core region, then the region south to Schupfart
+  for (const g of [before, after]) {
+    assert.equal(g.dx, 16); assert.equal(g.dz, 16);
+    assert.equal(g.x0, -4688.66); assert.equal(g.z0, -2349.8);
+    assert.equal(g.GW, g.nx * 16); assert.equal(g.GD, g.nz * 16);
+    assert.ok(g.x0 + g.GW >= -4688.66 + 1184 * 8 && g.z0 + g.GD >= -2349.8 + (g === before ? 549 : 993) * 8);
+  }
+  assert.equal(before.nx, after.nx);
+  assert.ok(after.nz > before.nz);
+});
+
+test('terrainGrid without a world keeps the hand layout mesh', async () => {
+  const { terrainGrid } = await import('../world.js');
+  assert.deepEqual(terrainGrid(null), { GW: 6400, GD: 3800, nx: 400, nz: 240, x0: -3200, z0: -1840, dx: 16, dz: 3800 / 240, h: null });
+});

@@ -32,6 +32,15 @@ export function sdfSampler(sdf) {
   };
 }
 
+// The terrain mesh: exact 16 m cells laid from the world's north-west corner, so a region that grows south or east keeps every
+// existing vertex where it was and the ground under a bridge or a road does not shift with the map's extent (#47).
+const MESH_CELL = 16;
+export function terrainGrid(sdf) {
+  if (!sdf) return { GW: 6400, GD: 3800, nx: 400, nz: 240, x0: -3200, z0: -1840, dx: 6400 / 400, dz: 3800 / 240, h: null };
+  const nx = Math.ceil((sdf.w - 1) * sdf.step / MESH_CELL), nz = Math.ceil((sdf.h - 1) * sdf.step / MESH_CELL);
+  return { GW: nx * MESH_CELL, GD: nz * MESH_CELL, nx, nz, x0: sdf.x0, z0: sdf.z0, dx: MESH_CELL, dz: MESH_CELL, h: null };
+}
+
 function inRing(r, x, z) { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, zi] = r[i], [xj, zj] = r[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; }
 export function waterIndex(water) {
   const items = water.map(w => { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const [x, z] of w.rings[0]) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); } return { w, bb: [a, b, c, d] }; });
