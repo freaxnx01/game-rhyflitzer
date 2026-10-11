@@ -331,7 +331,7 @@ import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, p
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { REGIONS, regionFromQuery, regionSearch } from './regions.js';
-import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, HALL_CAM, TOWER_SPOTS, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, stubPts, nodeR } from './hideout.js';
+import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, HALL_CAM, TOWER_SPOTS, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -1142,7 +1142,7 @@ function eiffelFootprints() {
   const [cx, cz] = CAVE.nodes.hall.c, fl = HIDE.floor, v = new THREE.Vector3(), boxes = [[], [], [], []];
   CAVE_MODE.model.updateWorldMatrix(true, true);
   CAVE_MODE.model.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y > fl + 20) continue; boxes[(v.x < cx ? 0 : 1) + (v.z < cz ? 0 : 2)].push([v.x - cx, v.z - cz]); } });
-  return boxes.filter(b => b.length).map(b => ({ x0: Math.min(...b.map(q => q[0])), x1: Math.max(...b.map(q => q[0])), z0: Math.min(...b.map(q => q[1])), z1: Math.max(...b.map(q => q[1])), n: b.length }));
+  return boxes.filter(b => b.length).map(pointBounds);
 }
 // ---------- street furniture (props) ----------
 // One low-poly model per prop kind, merged into a single geometry so each kind draws as one InstancedMesh.

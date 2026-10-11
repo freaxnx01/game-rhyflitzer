@@ -269,7 +269,7 @@ def test_no_find_on_top_of_the_hill(server):
         cavern = across(page, 105, 40, 8)
         h = page.evaluate("() => window.__mm.hideout()")
         hx, hz = h["rooms"]["hall"]["c"]
-        hall = page.evaluate(CROSS_JS, [hx, hz - 8, math.pi / 2, 3])   # the hilltop here is woods: start by the centre, the edge walls stop a longer run
+        hall = page.evaluate(CROSS_JS, [hx, hz - 150, math.pi / 2, 16])   # inside the hall disc (r 168): the wooded rim's edge walls stand at the disc edge, so a 200 m start outside it is stopped there
         stored = page.evaluate("() => localStorage.getItem('mm.hideout')")
         found = page.evaluate("() => window.__mm.hideout().found")
         br.close()

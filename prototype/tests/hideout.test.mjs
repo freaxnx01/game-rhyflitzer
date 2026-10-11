@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HIDEOUT, TUNNEL, CAVE, EIFFEL, TUNNEL_CEIL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, inHideout, segmentInHideout, ringStations, eiffelParts,
-  nodeR, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, sightBlocked, linkPts, stubPts } from '../hideout.js';
+  nodeR, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, sightBlocked, linkPts, stubPts, pointBounds } from '../hideout.js';
 import { cutFloorAt, UNDERPASS } from '../world.js';
 
 const close = (a, b, eps = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
@@ -206,4 +206,13 @@ test('caveRoofed_WithAPad_ReachesOverTheTroughWallsAndTheCutEdge', () => {
   assert.ok(!caveRoofed(...at(portal - 1, 0), portal, TUNNEL.wall), 'the open trench stays open');
   assert.ok(caveRoofed(cx + cavernR() + 3.9, cz, portal, TUNNEL.wall), 'and round the cavern');
   assert.ok(!caveRoofed(cx + cavernR() + 4.1, cz, portal, TUNNEL.wall));
+});
+
+test('pointBounds_HugeSyntheticArray_DoesNotOverflowTheStack', () => {
+  const pts = Array.from({ length: 1_000_000 }, (_, i) => [i - 500000, (i % 1000) - 3]);
+  assert.deepEqual(pointBounds(pts), { x0: -500000, x1: 499999, z0: -3, z1: 996, n: 1_000_000 });
+});
+
+test('pointBounds_SmallArray_ReturnsTheExtent', () => {
+  assert.deepEqual(pointBounds([[1, 5], [-2, 7], [3, -4]]), { x0: -2, x1: 3, z0: -4, z1: 7, n: 3 });
 });

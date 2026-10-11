@@ -20,9 +20,15 @@ export const CAVE = {
   links: [{ id: 't2a', from: 'r0', to: 'n1', hw: 4.5, ceiling: TUNNEL_CEIL }, { id: 't2b', from: 'n1', to: 'hall', hw: 4.5, ceiling: TUNNEL_CEIL }],
   stubs: [{ id: 'stubE', node: 'r0', heading: deg(45), len: 15, hw: 4.5, ceiling: 'lid' }, { id: 'stubW', node: 'n1', heading: deg(185), len: 15, hw: 4.5, ceiling: 'lid' }],
 };
-// #201: the life-size tower. feet: the four foot boxes (relative to the hall centre, metres), to be re-measured from the loaded
-// model's footprints (__mm.eiffelFootprints) -- spec defaults until the GLB is measured; the placeholder's legs end on them.
-export const EIFFEL = { h: 330, feet: [[-50, -50], [50, -50], [50, 50], [-50, 50]], footHw: 13, footH: 60, url: './assets/models/eiffel_tower.glb', colour: 0x6b4a32, roughness: 0.75, metalness: 0.35, loadWithin: 400 };
+// #201: the life-size tower. feet: the four foot boxes (relative to the hall centre, metres), measured 2026-10-11 from the loaded
+// model's footprints (__mm.eiffelFootprints): vertices below 20 m span x 36.8..69.7, z 36.8..68.6 per quadrant; the placeholder's legs end on them.
+export const EIFFEL = { h: 330, feet: [[-53, -53], [53, -53], [53, 53], [-53, 53]], footHw: 17, footH: 60, url: './assets/models/eiffel_tower.glb', colour: 0x6b4a32, roughness: 0.75, metalness: 0.35, loadWithin: 400 };
+// #201: the extent of [x, z] points -- a loop, not Math.min(...spread): the real model's leg has far more vertices than V8's argument limit
+export function pointBounds(points) {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const [x, z] of points) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; }
+  return { x0, x1, z0, z1, n: points.length };
+}
 // #201: the chase camera looks up in the hall (tilt = rise per metre of horizontal distance to the look point), eased over `ease` s
 export const HALL_CAM = { tilt: 0.45, ease: 1 };
 // #201: four floodlights on the hall's diagonals at radius r, aimed aimY m up the tower (three r170 physical units: cd; 8000 cd
