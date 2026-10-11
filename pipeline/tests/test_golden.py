@@ -362,3 +362,14 @@ def test_south_world_fits_the_budget(world_south, tmp_path):
     p = tmp_path / "w.json"
     osm.write_world(p, world_south)
     assert p.stat().st_size <= SOUTH_BUDGET, p.stat().st_size
+
+
+def test_issue229_no_stream_ribbon_lies_on_a_road(world):
+    """#229: the canal beside the Hauptstrasse was a 10 m ribbon over the carriageway edge."""
+    flat = ("footway", "path", "steps", "cycleway")
+    roads = [(shapely.LineString(r["pts"]), r["w"]) for r in world["roads"]
+             if not r["bridge"] and r["cls"] not in flat and len(r["pts"]) > 1]
+    for s in world["streams"]:
+        ribbon = shapely.LineString(s["pts"]).buffer(s["w"] / 2, cap_style="flat")
+        for line, w in roads:
+            assert ribbon.intersection(line.buffer(w / 2)).area <= 1.0, (s["name"], s["w"])
