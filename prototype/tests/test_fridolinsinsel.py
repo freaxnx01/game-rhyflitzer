@@ -25,5 +25,5 @@ def test_car_drives_out_of_the_rhine_onto_the_fridolinsinsel(server):
         polys = page.evaluate("() => window.__mm.counts.forest.polys")
         b.close()
     assert out is not None, "the car never left the water: a wall stops it on the bed"
-    assert -1235 < out["x"] < -1195, out      # it came out on the island, not somewhere else
+    assert -1238 < out["x"] < -1195, out      # it came out past the old stall (-1238) and onto the island, not the east bank
     assert polys == len(json.loads(WORLD.read_text(encoding="utf-8"))["forests"]) - 1
