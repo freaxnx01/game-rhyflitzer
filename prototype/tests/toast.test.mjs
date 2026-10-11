@@ -17,6 +17,14 @@ function textToastKeys() {
   return [...keys];
 }
 
+// #218: kids need longer to read the surprise text than the 5 s of a game event, so the present toast gets its own duration.
+test('toast: the surprise-hunt present toast lasts at least 8 s', () => {
+  const table = HTML.match(/const TOAST_S = \{([^}]*)\}/)[1];
+  const surprise = Number(table.match(/surprise:\s*(\d+)/)?.[1]);
+  assert.ok(surprise >= 8, `TOAST_S.surprise is ${surprise}`);
+  assert.match(HTML, /toastHtml\(tr\('presentToast'[^;]*TOAST_S\.surprise\)/);
+});
+
 test('toast: every key shown as text exists and carries no markup in en or de', () => {
   const keys = textToastKeys();
   assert.ok(keys.length > 20, `found only ${keys.length} toast keys: the call-site pattern changed`);

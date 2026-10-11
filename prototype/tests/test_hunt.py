@@ -82,6 +82,21 @@ def test_collecting_all_five_ends_with_a_result_and_a_best(server):
         b.close()
 
 
+def test_the_surprise_toast_stays_long_enough_to_read(server):
+    """#218: the present toast lasts 10 s, not the 5 s of a game event — kids are not so fast in reading.
+    The next present replaces it (single #toast), so nothing stacks."""
+    with sync_playwright() as p:
+        b, page, _ = open_page(p, server)
+        page.evaluate("window.__mm.startHunt(3)")
+        collect(page, 0)
+        assert page.text_content("#toast").startswith("Present 1/5")
+        assert page.evaluate("window.__mm.toast().left") > 8
+        collect(page, 1)
+        assert page.text_content("#toast").startswith("Present 2/5")   # the next surprise replaces the toast
+        assert page.evaluate("window.__mm.toast().left") > 8
+        b.close()
+
+
 def test_a_box_is_not_collected_from_30_m_away(server):
     """The flying and height rules are unit-tested in presents.test.mjs (canCollect); here only the wiring."""
     with sync_playwright() as p:
