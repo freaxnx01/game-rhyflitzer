@@ -74,6 +74,7 @@ const en = {
   camNear: 'Chase near',
   camCockpit: 'Cockpit',
   camBumper: 'Bumper',
+  camDrone: 'Drone',
   cpToast: (number, name) => `Checkpoint ${number}/5<br>${small(name)}`,
   // ---- surprise hunt (#108) ----
   hunt: 'Surprise hunt',
@@ -128,7 +129,7 @@ const en = {
   keyTab: 'full map (hold)',
   keySignals: 'Turn signals left · right',
   keyHorn: 'horn',
-  keyCamera: 'camera: chase · near · cockpit · bumper',
+  keyCamera: 'camera: chase · near · cockpit · bumper · drone',
   keyLookBack: 'look back (hold)',
   keyCar: 'show / hide the car',
   keyBounds: 'show / hide the Gemeinde boundaries',
@@ -321,6 +322,7 @@ const de = {
   camNear: 'Verfolger nah',
   camCockpit: 'Cockpit',
   camBumper: 'Stossstange',
+  camDrone: 'Drohne',
   cpToast: (number, name) => `Checkpoint ${number}/5<br>${small(name)}`,
   // ---- Überraschungsjagd (#108) ----
   hunt: 'Überraschungsjagd',
@@ -373,7 +375,7 @@ const de = {
   keyTab: 'ganze Karte (halten)',
   keySignals: 'Blinker links · rechts',
   keyHorn: 'Hupe',
-  keyCamera: 'Kamera: Verfolger · nah · Cockpit · Stossstange',
+  keyCamera: 'Kamera: Verfolger · nah · Cockpit · Stossstange · Drohne',
   keyLookBack: 'zurückschauen (halten)',
   keyCar: 'Auto zeigen / verstecken',
   keyBounds: 'Gemeindegrenzen ein- / ausblenden',

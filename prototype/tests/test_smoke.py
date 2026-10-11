@@ -105,13 +105,13 @@ def test_camera_cycles_with_c(server):
         assert page.evaluate("() => window.__mm.camView") == 0      # menu open: C does nothing
         page.click("#startbtn", timeout=180000)
         seen = []
-        for _ in range(4):
+        for _ in range(5):
             page.keyboard.press("KeyC")
             page.wait_for_timeout(300)
             seen.append(page.evaluate("() => [window.__mm.camView, document.querySelector('#toast').textContent]"))
         b.close()
-    assert [v for v, _ in seen] == [1, 2, 3, 0]
-    assert [t for _, t in seen] == ["Camera: Chase near", "Camera: Cockpit", "Camera: Bumper", "Camera: Chase"]
+    assert [v for v, _ in seen] == [1, 2, 3, 4, 0]
+    assert [t for _, t in seen] == ["Camera: Chase near", "Camera: Cockpit", "Camera: Bumper", "Camera: Drone", "Camera: Chase"]
 
 
 @pytest.mark.parametrize("locale,text", [("de-CH", "Grüss mir die Fische!"), ("en-US", "Sleep with the fishes!")])

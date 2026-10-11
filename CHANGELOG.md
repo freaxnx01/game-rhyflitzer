@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-11 23:20` A fifth camera view: press **C** past the bumper cam and a **drone** follows you from high up behind the car. It hangs back when you accelerate, swings wide in bends and hovers a little, like a camera drone keeping station. **B** still looks back from up there too.
 - `2026-10-11 22:28` **Crashes now hurt for real:** the harder you hit a wall, a house or a lamp post, the more damage the new percentage in the corner shows, and bumping along at walking pace is free. At 100 % the wheels fly off, the engine smokes and the car is dead; three seconds later a new car stands on the last road. The clock keeps running.
 - `2026-10-11 22:01` There are many more **fish** in the Rhine now: a school every 120 metres or so along the river bed instead of 14 for the whole river, and one circles the capsized rowing boat and another the rusty car.
 - `2026-10-11 17:50` You can drive out of the Rhine onto the **Fridolinsinsel** in Bad Säckingen now: the island is a meadow without its trees and the invisible wall around it, so the car can climb out of the river bed and drive around on it. **R** puts you back on the road.
