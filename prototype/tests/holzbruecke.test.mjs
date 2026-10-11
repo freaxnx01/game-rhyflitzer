@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from '../holzbruecke.js';
+import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan } from '../holzbruecke.js';
 
 // the bridge line of data/world_hochrhein.json (OSM w85692214), Stein -> Säckingen
 const LINE = [[-1079.9, -75.0], [-1111.5, -79.5], [-1135.8, -81.8], [-1161.9, -81.5], [-1220.4, -86.8], [-1284.7, -94.2]];
@@ -76,4 +76,35 @@ test('pierStations: six piers at the documented fractions, in order, with unit d
 test('the piers stand close to the bends of the OSM line (the bends are the piers)', () => {
   const p = pierStations(LINE, HOLZ.pierFractions);
   for (const [i, v] of [[0, 1], [1, 2], [2, 3], [4, 4]]) assert.ok(Math.hypot(p[i].x - LINE[v][0], p[i].z - LINE[v][1]) < 3, `pier ${i}`);
+});
+
+const PIERS = [10, 20, 30, 40, 50, 60].map(t => ({ t }));
+
+test('chapelOpenings: each chapel is an opening in the wall, its length centred on its pier, on its own side', () => {
+  assert.deepEqual(chapelOpenings(PIERS, HOLZ.chapels), [
+    { side: 1, t0: 48, t1: 52 }, { side: -1, t0: 48, t1: 52 }, { side: 1, t0: 29, t1: 31 },
+  ]);
+});
+
+test('wallCover: a bay keeps the stretches outside an opening on its side, as fractions of the bay', () => {
+  const o = [{ side: 1, t0: 4, t1: 6 }];
+  assert.deepEqual(wallCover(0, 10, 1, o), [[0, 0.4], [0.6, 1]]);
+  assert.deepEqual(wallCover(0, 10, -1, o), [[0, 1]]);
+  assert.deepEqual(wallCover(0, 10, 1, [{ side: 1, t0: 8, t1: 12 }]), [[0, 0.8]]);
+  assert.deepEqual(wallCover(5, 7, 1, [{ side: 1, t0: 4, t1: 8 }]), []);
+  assert.deepEqual(wallCover(0, 10, 1, [{ side: 1, t0: 2, t1: 3 }, { side: 1, t0: 7, t1: 8 }]), [[0, 0.2], [0.3, 0.7], [0.8, 1]]);
+});
+
+test('inOpening: a station inside a chapel opening on that side', () => {
+  const o = [{ side: 1, t0: 4, t1: 6 }];
+  assert.equal(inOpening(5, 1, o), true);
+  assert.equal(inOpening(5, -1, o), false);
+  assert.equal(inOpening(7, 1, o), false);
+});
+
+test('chapelPlan: a polygonal chapel is a half-hexagon out from the wall, a pent one a box; the eave stands the overhang further out', () => {
+  assert.deepEqual(chapelPlan({ kind: 'polygon', depth: 3, length: 4 }, 0.3), {
+    outline: [[-2, 0], [-1, 3], [1, 3], [2, 0]], eave: [[-2.3, 0], [-1.15, 3.3], [1.15, 3.3], [2.3, 0]] });
+  assert.deepEqual(chapelPlan({ kind: 'pent', depth: 1, length: 2 }, 0.3), {
+    outline: [[-1, 0], [-1, 1], [1, 1], [1, 0]], eave: [[-1.3, 0], [-1.3, 1.3], [1.3, 1.3], [1.3, 0]] });
 });

@@ -11,6 +11,10 @@ export const UW = {
 
 export function bedDepth(riverDist) { return riverDist >= 0 ? 0 : Math.min(UW.maxDepth, -riverDist * UW.slope); }
 
+// a bridge pier starts this far under the deepest bed, so none hangs above the riverbed (playtest: "nicht alle Pfeiler gehen in den Flussboden")
+export const PIER_SINK = 1.5;
+export function pierBase(waterLevel) { return waterLevel - UW.maxDepth - PIER_SINK; }
+
 // the car counts as submerged half a metre under the surface (the splash itself is not "underwater")
 export function submerged(y, wl) { return wl !== null && wl !== undefined && y < wl - 0.5; }
 

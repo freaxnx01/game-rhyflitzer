@@ -46,13 +46,29 @@ def bridge(server):
         page.goto(f"{server}/prototype/index.html")
         page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
         counts = page.evaluate("() => window.__mm.counts.holzbruecke || null")
+        feet = page.evaluate("() => ((window.__mm.counts.holzbruecke || {}).pierFeet || []).map(f => ({ ...f, bed: window.__mm.bed(f.x, f.z) }))")
         ground = lambda ps: page.evaluate(f"() => {json.dumps([at(pts, t, s)[0] for t, s in ps])}.map(([x, z]) => window.__mm.ground(x, z, 1e4))")
         g_in, g_out = ground(inside), ground(outside)
         runs = [(t, [x, z], page.evaluate(f"() => window.__mm.sim({x}, {z}, {th}, 15, 3)")) for t, (x, z), th in starts]
         br.close()
     # own-page messages only, as in test_smoke.load: the terrain 404 is on purpose, third-party resources are not under test
     own = [t for t, u in msgs if "terrain_hochrhein.mmh" not in u and (not u or u.startswith(server))]
-    return {"counts": counts, "inside": list(zip(inside, g_in)), "outside": list(zip(outside, g_out)), "runs": runs, "msgs": own}
+    return {"counts": counts, "feet": feet, "inside": list(zip(inside, g_in)), "outside": list(zip(outside, g_out)), "runs": runs, "msgs": own}
+
+
+def assert_piers_reach_the_bed(feet, n):
+    """Playtest 2026-10-11, under water: "nicht alle Pfeiler gehen in den Flussboden rein". Every pier's base lies at least a metre
+    under the bed -- the analytic one (water level minus bedDepth) and the drawn terrain under the bridge (window.__mm.bed(...).drawn)."""
+    assert len(feet) == n, feet
+    wet = [f for f in feet if f["bed"]["water"] is not None]
+    assert len(wet) >= n - 2, feet                                                  # the Rhine runs under all but the bank piers
+    for f in wet:
+        assert f["base"] < f["bed"]["water"] - f["bed"]["depth"] - 1, f
+        assert f["bed"]["drawn"] is None or f["base"] < f["bed"]["drawn"] - 1, f
+
+
+def test_every_pier_is_sunk_into_the_riverbed(bridge):
+    assert_piers_reach_the_bed(bridge["feet"], 6)
 
 
 def test_six_piers_three_chapels_and_a_frame_every_five_metres(bridge):

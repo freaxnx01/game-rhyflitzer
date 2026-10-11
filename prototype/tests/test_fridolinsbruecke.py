@@ -43,6 +43,13 @@ def page(server):
         b.close()
 
 
+def test_every_pier_is_sunk_into_the_riverbed(page):
+    """Same rule as the Holzbrücke's piers (test_holzbruecke.assert_piers_reach_the_bed): the three stone piers start under the bed."""
+    from test_holzbruecke import assert_piers_reach_the_bed
+    feet = page.evaluate("() => (window.__mm.counts.stonePiers || []).map(f => ({ ...f, bed: window.__mm.bed(f.x, f.z) }))")
+    assert_piers_reach_the_bed(feet, 3)
+
+
 def profile(page, pts):
     return page.evaluate(f"() => {json.dumps(pts)}.map(([x, z]) => window.__mm.ground(x, z, 1e4))")
 

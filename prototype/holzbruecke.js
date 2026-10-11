@@ -75,3 +75,29 @@ export function pierStations(pts, fractions) {
   const line = distinct(pts), len = polylineLength(line);
   return fractions.map(f => station(line, f * len));
 }
+
+// the chapels as openings in the bridge wall: an arc-length interval per chapel, its length centred on its pier, on its side
+export function chapelOpenings(piers, chapels) {
+  return chapels.map(ch => ({ side: ch.side, t0: piers[ch.pier].t - ch.length / 2, t1: piers[ch.pier].t + ch.length / 2 }));
+}
+
+// the stretches of the bay t0 -> t1 that the wall still covers on side s, as fractions of the bay; the openings are left out
+export function wallCover(t0, t1, side, openings) {
+  let kept = [[0, 1]];
+  for (const o of openings) {
+    if (o.side !== side) continue;
+    const a = (o.t0 - t0) / (t1 - t0), b = (o.t1 - t0) / (t1 - t0);
+    kept = kept.flatMap(([u0, u1]) => b <= u0 || a >= u1 ? [[u0, u1]] : [[u0, Math.max(u0, a)], [Math.min(u1, b), u1]].filter(([p, q]) => q - p > 1e-9));
+  }
+  return kept;
+}
+
+export function inOpening(t, side, openings) { return openings.some(o => o.side === side && t > o.t0 - 1e-9 && t < o.t1 + 1e-9); }
+
+// a chapel in plan: metres along the wall (a) and out from it (d). outline: the walls, from one side of the opening round to the
+// other -- a half-hexagon for a polygonal chapel, a box for the pent one; eave: the roof edge, the overhang further out
+export function chapelPlan(ch, overhang) {
+  const half = ch.length / 2, k = ch.kind === 'pent' ? 1 : 0.5;
+  const ring = (h, d) => [[-h, 0], [-h * k, d], [h * k, d], [h, 0]];
+  return { outline: ring(half, ch.depth), eave: ring(half + overhang, ch.depth + overhang) };
+}
