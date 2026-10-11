@@ -343,6 +343,7 @@ import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntri
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
 import { photoFileName, canPhoto } from './photo.js';
+import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
@@ -2537,7 +2538,17 @@ function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttrib
 // The renderer has no preserveDrawingBuffer, so the canvas only holds a readable image inside the task that drew it.
 // X therefore just raises this flag, and loop() reads it right after renderer.render() -- no per-frame cost otherwise.
 let photoPending = false;
-function capturePhoto() { photoPending = false; canvas.toBlob(savePhoto, 'image/png'); }
+let photoSink = null;   // #251: set by photoDataUrl(); the next capture goes there instead of into a download
+function capturePhoto() { const sink = photoSink || savePhoto; photoSink = null; photoPending = false; canvas.toBlob(sink, 'image/png'); }
+function blobToDataUrl(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('photo failed')); r.readAsDataURL(blob); }); }
+// #251: the Testhub screenshot -- the frame X would save, as a PNG data URL (no HUD: it is the canvas only)
+function photoDataUrl() {
+  if (photoSink) return Promise.reject(new Error('screenshot already pending'));
+  return new Promise((resolve, reject) => {
+    photoSink = blob => { if (!blob) reject(new Error('photo failed')); else blobToDataUrl(blob).then(resolve, reject); };
+    photoPending = true;
+  });
+}
 function savePhoto(blob) {
   if (!blob) { toast(tr('photoFailed')); return; }
   const url = URL.createObjectURL(blob);
@@ -2546,6 +2557,31 @@ function savePhoto(blob) {
   setTimeout(() => URL.revokeObjectURL(url), 40000);                  // ...and the blob URL alive until the download has fetched it
   toast(tr('photoSaved'));
 }
+
+// ---------- Testhub (#251) ----------
+// Dev mode only: the loader in the body appends /testhub/client.js, which defines window.ggTesthub and then fires
+// 'gg-testhub-ready'. The client may arrive before or after this module, so handle both orders (no polling).
+// Every jump goes through placeOnRoad(), so a race in progress is flagged exactly like a J jump.
+function testhubContext() {
+  return {
+    entries: JUMP_ENTRIES,
+    underwater: UWS.counts ? { wreck: UWS.counts.wreck, wreckCar: UWS.counts.wreckCar } : null,
+    hideout: HIDE ? { mouth: HIDEOUT.mouth, heading: HIDEOUT.heading, n1: CAVE.nodes.n1.c, hall: CAVE.nodes.hall.c } : null,
+  };
+}
+function testhubGo(target) {
+  if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else jumpTo(target.entry); return; }
+  const s = target.spot;
+  placeOnRoad(s.x, s.z, s.th, target.label);
+  if (s.floor && HIDE) { P.y = HIDE.floor ?? HIDE.f0; car.position.y = P.y; restShadow(); }   // inside the hill: the cave floor, not the ground seen from the sky
+}
+function testhubRegister(hub) {
+  hub.setInfo({ game: 'rhyflitzer', version: window.GAME_VERSION || '0.0.0' });
+  hub.onScreenshot(photoDataUrl);
+  for (const target of buildTargets(testhubContext())) hub.register(target.id, () => testhubGo(target), target.label);
+}
+if (window.ggTesthub) testhubRegister(window.ggTesthub);
+else addEventListener('gg-testhub-ready', () => testhubRegister(window.ggTesthub), { once: true });
 
 // ---------- loop ----------
 applyStyle('original'); resize();
@@ -2572,6 +2608,16 @@ requestAnimationFrame(loop);
 </style>
 <script src="./version.js"></script>
 <script src="./i18n.js"></script>
+<script>
+  // Testhub (#251): dev mode loads the shared playtest client; a player loads nothing.
+  // ?dev=1 sets localStorage['gg-dev'], ?dev=0 clears it; gg-dev is shared by every game on this origin.
+  (function () {
+    var q = new URLSearchParams(location.search).get('dev'), stored = null;
+    try { if (q === '1') localStorage.setItem('gg-dev', '1'); else if (q === '0') localStorage.removeItem('gg-dev'); stored = localStorage.getItem('gg-dev'); } catch (e) { }
+    if (q !== '1' && (q === '0' || stored !== '1')) return;
+    var s = document.createElement('script'); s.src = '/testhub/client.js'; s.async = true; document.head.appendChild(s);
+  })();
+</script>
 <nav id="game-nav" aria-label="Game navigation" style="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(60px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 20px);box-sizing:border-box;flex-wrap:wrap;justify-content:center;row-gap:2px;z-index:2147483647;display:flex;gap:12px;align-items:center;font:600 13px/1.4 system-ui,-apple-system,sans-serif;padding:6px 11px;border-radius:8px;background:rgba(15,17,26,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:.55;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.55">
   <span id="version-badge" title="Version" style="color:#5a6072"></span>
   <span style="color:#5a6072" aria-hidden="true">·</span>

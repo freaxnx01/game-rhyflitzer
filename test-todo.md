@@ -12,7 +12,7 @@ The map now reaches the Tafeljura; the terrain is an 8 m grid (was 4 m). **J** �
 - [ ] Fridolinsbrücke, both directions at speed: no jolt where the road meets the bridge, in Bad Säckingen or in Stein; the banks look natural (no step or crack in the grass around them).
 - [ ] Loading feels no slower than before (the data to download is smaller now: ~9 MB instead of ~13 MB).
 
-## Südspange ESP Sisslerfeld (#42, PR #191 — merged 2026-10-10)
+## Südspange ESP Sisslerfeld (#42, PR #191 — merged 2026-10-10) {go: j.suedspange-sisslerfeld}
 
 Screenshots: `docs/ai-notes/screenshots/2026-10-10-suedspange/`. **J** → „südspange" puts the car on it, 25 m in from the K295.
 
@@ -37,13 +37,13 @@ The key is **U** („Übergang"), not **P** as the issue asked: **P** is the pau
 
 The gate is in **J** from the start; the cavern is secret, so start on a fresh profile (or clear `mm.hideout` in localStorage).
 
-- [ ] Before the find: „Reservoir Hübel" is in **J** and **O** (no „Eiffelturm" anywhere), nothing on the minimap or the **Tab** map, no help line.
-- [ ] From the Hübel (Münchwilen, the cul-de-sac south of the A3) the „RESERVOIR HÜBEL" gate is easy to miss but findable; the trench meets the road without a kerb.
-- [ ] Drive through the tunnel into the cavern: toast „Hideout found!" / „Versteck gefunden!", the finish jingle; the list is unchanged.
-- [ ] **J** → „reservoir" puts the car on the Hübel looking at the gate.
-- [ ] Inside: the tower reads as the Eiffel Tower, warm and visibly lit, the ceiling dark rock; the car drives between the legs; the chase camera never pops into the hill (also when driving in and out at the portal).
+- [ ] Before the find: „Reservoir Hübel" is in **J** and **O** (no „Eiffelturm" anywhere), nothing on the minimap or the **Tab** map, no help line. {go: j.reservoir-huebel}
+- [ ] From the Hübel (Münchwilen, the cul-de-sac south of the A3) the „RESERVOIR HÜBEL" gate is easy to miss but findable; the trench meets the road without a kerb. {go: hideout.gate}
+- [ ] Drive through the tunnel into the cavern: toast „Hideout found!" / „Versteck gefunden!", the finish jingle; the list is unchanged. {go: hideout.gate}
+- [ ] **J** → „reservoir" puts the car on the Hübel looking at the gate. {go: j.reservoir-huebel}
+- [ ] Inside: the tower reads as the Eiffel Tower, warm and visibly lit, the ceiling dark rock; the car drives between the legs; the chase camera never pops into the hill (also when driving in and out at the portal). {go: hideout.tower}
 - [ ] Drive and fly over the hill: it is solid, looks untouched (no lines or grooves along the tunnel, no stone poking out over the cavern), and flying over it is no find.
-- [ ] **F** inside is refused with „No sky down here"; the helicopter over the hill floors on the grass.
+- [ ] **F** inside is refused with „No sky down here"; the helicopter over the hill floors on the grass. {go: hideout.tower}
 - [ ] No trees or forest edge walls in the trench, the tunnel or the cavern.
 
 ## Underwater Rhine (#101, PR #159)
@@ -55,7 +55,7 @@ Screenshot: `docs/ai-notes/screenshots/2026-10-09-underwater.png` — murky blue
 - [ ] On the bed the car drives at walking pace, steers, and climbs out where the bed meets the bank — no kerb, no jump, no reset.
 - [ ] Bubbles rise from the back of the car in the water; none on land, none in the helicopter.
 - [ ] Fish circle in schools (silver, green, orange), weed stands on the bed, boulders lie about; nothing pokes through the surface.
-- [ ] The capsized rowing boat and the rusty car lie at the bend below Bad Säckingen (J → Bad Säckingen, then drive in from the Rheinbrückstrasse bank and follow the river).
+- [ ] The capsized rowing boat and the rusty car lie at the bend below Bad Säckingen (J → Bad Säckingen, then drive in from the Rheinbrückstrasse bank and follow the river). {go: uw.boat}
 - [ ] **T** underwater keeps the murk in both styles; **F** takes off from the bed, the surface passes, the sky comes back.
 - [ ] The chase camera in the shallows near the bank: under the surface but never inside the bed.
 - [ ] The Sissle: splashing through it is slow, but you come out the other side (no reset).
@@ -419,6 +419,6 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 ## No water on roads (#229)
 
 - [ ] Hauptstrasse near the old spot (J → Bad Säckingen area, `__mm.sim(248.5, 1280.5, 1.82, 0, 0)` with F3): no water on the road or verge; the canal beside it simply stops where it would touch the road.
-- [ ] Hauensteiner Murg in Bad Säckingen {go: j.bad-saeckingen}: no blue over the Fabrikstrasse or the Hauptstrasse; the stream still shows where it runs clear of the roads.
+- [ ] Hauensteiner Murg in Bad Säckingen: no blue over the Fabrikstrasse or the Hauptstrasse; the stream still shows where it runs clear of the roads.
 - [ ] Sissle and other brooks: still visible in open country and still slow the car; a stream crossing under a bridge is not cut.
 
