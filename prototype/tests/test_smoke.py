@@ -7,6 +7,7 @@ from playwright.sync_api import sync_playwright
 
 WORLD = Path(__file__).parents[2] / "data" / "world_hochrhein.json"
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"   # blocked by default: tests that want measured terrain opt in
+PCT = {"hand": 100, "osm": 10}   # #273: share of road points the road checks sample; the hand world is small, so all of it
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 
 
@@ -282,9 +283,10 @@ def test_grass_and_fields_stay_below_the_road(server, mode):
         page.wait_for_function("() => window.__mm && window.__mm.grassOverRoad && document.querySelector('#worldstatus')?.textContent", timeout=240000)
         if mode == "osm":
             page.wait_for_selector("#mmhstatus.real", timeout=240000)
-        res = page.evaluate("() => window.__mm.grassOverRoad(250)")
+        res = page.evaluate(f"() => window.__mm.grassOverRoad({PCT[mode]})")  # #273: picked by coordinate hash, the same set in every world size
         br.close()
-    assert res["done"] >= 240, res
+    print(res)
+    assert res["done"] >= {"hand": 200, "osm": 2000}[mode], res    # measured 438 / 4002 (2026-10-12)
     assert res["worst"] < 0.01, res
     assert res["marksBelow"] == 0, res                # road markings lie on the road, not under it
     if mode == "osm":
@@ -306,10 +308,14 @@ def test_wheels_do_not_sink_into_the_road(server, mode):
         page.wait_for_function("() => window.__mm && window.__mm.sinkCheck && document.querySelector('#worldstatus')?.textContent", timeout=240000)
         if mode == "osm":
             page.wait_for_selector("#mmhstatus.real", timeout=240000)
-        res = page.evaluate("() => window.__mm.sinkCheck(400)")
+        res = page.evaluate(f"() => window.__mm.sinkCheck({PCT[mode]})")  # #273: picked by coordinate hash, plus the fixed Sisseln junction spots
         br.close()
-    assert res["done"] > 200, res
+    print(res)
+    assert res["done"] > {"hand": 280, "osm": 3600}[mode], res      # measured 576 / 7262 (2026-10-12)
     assert res["worst"] < 0.08, res
+    if mode == "osm":
+        assert len(res["spots"]) >= 5, res              # the fixed spots are on the drawn road, so they are checked
+        assert all(abs(s["d"]) < 0.08 for s in res["spots"]), res   # on the drawn road: neither under it nor hovering over it
 
 
 @pytest.mark.parametrize("mode", ["hand", "osm"])

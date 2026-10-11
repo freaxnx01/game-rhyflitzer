@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
+import { sampled, trisHeightAt } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -1091,4 +1092,22 @@ test('forestTrees: the committed Hochrhein world keeps its fill above 10000 unde
   assert.ok(placed.edge.length >= 20000, placed.edge.length);
   assert.ok(placed.fill.length >= 10000, `edge ${placed.edge.length}, fill ${placed.fill.length}, thinned ${placed.thinned}`);
   assert.ok(placed.edge.length + placed.fill.length <= FOREST_BUDGET.cap);
+});
+
+test('sampled picks a point by its coordinates, the same in every world size (#273)', () => {
+  assert.equal(sampled(1524, 916, 100), true);
+  assert.equal(sampled(1524, 916, 0), false);
+  assert.equal(sampled(1524, 916, 10), sampled(1524, 916, 10));
+  let hits = 0;
+  for (let x = 0; x < 100; x++) for (let z = 0; z < 100; z++) if (sampled(x, z, 10)) hits++;
+  assert.ok(hits >= 800 && hits <= 1200, hits);
+});
+
+test('trisHeightAt: the drawn height of a junction disc between its vertices, -Infinity off it (#273)', () => {
+  // two triangles of the plane y = 0.1 x + 0.2 z over the square 0..10, split on the diagonal
+  const tris = [0, 0, 0, 10, 1, 0, 10, 3, 10, 0, 0, 0, 10, 3, 10, 0, 2, 10];
+  assert.ok(Math.abs(trisHeightAt(tris, 2, 2) - 0.6) < 1e-9);
+  assert.ok(Math.abs(trisHeightAt(tris, 7, 3) - 1.3) < 1e-9);
+  assert.ok(Math.abs(trisHeightAt(tris, 5, 5) - 1.5) < 1e-9);   // on the shared edge: no gap between the triangles
+  assert.equal(trisHeightAt(tris, 12, 5), -Infinity);
 });
