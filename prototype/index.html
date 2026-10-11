@@ -328,7 +328,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND } from './world.js';
+import { makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from './holzbruecke.js';
@@ -582,7 +582,11 @@ function buildStoneChain() {
   const banks = []; for (const { p } of opens) { const bk = banks.find(k => k.some(q => near(q, p, 15))); if (bk) bk.push(p); else banks.push([p]); }
   if (banks.length !== 2) return;   // not a two-bank crossing: keep the endpoint heights
   banks.sort((A, B) => A[0][0] - B[0][0]);
-  const H = banks.map(k => bankHeight(k) ?? terrainH(k[0][0], k[0][1])), mid = (k) => [k.reduce((s, p) => s + p[0], 0) / k.length, k.reduce((s, p) => s + p[1], 0) / k.length];
+  const mid = (k) => [k.reduce((s, p) => s + p[0], 0) / k.length, k.reduce((s, p) => s + p[1], 0) / k.length];
+  // #259: patch the banks first, so their tops (H), the abutments and the roads draped there sit on the measured ground
+  FINE_BANKS = banks.map(mid); FINE_GROUND = FINE_BANKS.map(([x, z]) => smoothedGround(baseH, [x - FINE_BANK.outer, z - FINE_BANK.outer, x + FINE_BANK.outer, z + FINE_BANK.outer]));
+  for (const [i, j] of fineCells(FINE_BANKS, TGRID)) { const key = i + ',' + j; FINE_KEYS.add(key); CUT_CELLS.set(key, cellHeights(i, j, TGRID, CUT_N, patchGround)); }
+  const H = banks.map(k => bankHeight(k) ?? terrainH(k[0][0], k[0][1]));
   STONE_AXIS = { a: mid(banks[0]), ha: H[0], e: mid(banks[1]), he: H[1] };
   for (const b of chain) for (const k of [0, 1]) b['h' + k] = deckLine(STONE_AXIS.a, H[0], STONE_AXIS.e, H[1], ...end(b, k));
   const seen = new Set(); banks.forEach((k, i) => { for (const ap of approachPieces(k, H[i], seen)) addApproach(ap, H[i]); });
@@ -626,6 +630,11 @@ const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], ARMS = [], WALLS = [];
 // does not already give (nothing, at the Südspange: no walls, no arms there). Without grades gradedH === meshH.
 const GRADE_CUTS = [];
 function gradedH(x, z) { let d = 0; for (const gc of GRADE_CUTS) d = Math.max(d, gradeCutAt(gc, x, z, meshH)); return meshH(x, z) - d; }
+// #259: the stone chain's bank points; around them the patches follow the smoothed measured ground, blended back to the mesh
+let FINE_BANKS = [], FINE_GROUND = [];
+const FINE_KEYS = new Set();
+function fineGroundAt(x, z) { let k = 0; for (let n = 1; n < FINE_BANKS.length; n++) if (Math.hypot(x - FINE_BANKS[n][0], z - FINE_BANKS[n][1]) < Math.hypot(x - FINE_BANKS[k][0], z - FINE_BANKS[k][1])) k = n; return FINE_GROUND[k](x, z); }
+function patchGround(x, z) { const g = gradedH(x, z); if (!FINE_BANKS.length) return g; const w = fineWeight(x, z, FINE_BANKS); return w ? g + w * (fineGroundAt(x, z) - meshH(x, z)) : g; }
 const PATCH_BLEED = Math.SQRT2 * Math.max(TGRID.dx, TGRID.dz) / CUT_N;   // #156: how far a patch's triangles carry one lowered vertex
 function terrainH(x, z) {
   const G = TGRID, fx = (x - G.x0) / G.dx, fz = (z - G.z0) / G.dz;
@@ -703,13 +712,13 @@ function buildCuts() {
   if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);
   const fillCell = (i, j) => {
     const p = new Float32Array(W * W); let lowered = false;
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(gradedH(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
     return { p, lowered };
   };
-  for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
+  for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
   // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
   // without 2 x CUT_N^2 more triangles to draw)
-  for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key)) continue; const c = fillCell(i, j); if (c.lowered) CUT_CELLS.set(key, c.p); }
+  for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
 }
 if (L) buildCuts();
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
@@ -1294,7 +1303,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     const p = new THREE.PlaneGeometry(TGRID.dx, TGRID.dz, CUT_N, CUT_N);
     p.rotateX(-Math.PI / 2); p.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
     const q = p.attributes.position, uv = p.attributes.uv, cArr = new Float32Array(q.count * 3);
-    for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), h = terrainH(x, z), c = groundCol(h, x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
+    for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), { h, c } = groundVertex(x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
     p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); parts.grass.push(p.toNonIndexed());
   }
   if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy under it, wound to face down (ceiling, into stone)

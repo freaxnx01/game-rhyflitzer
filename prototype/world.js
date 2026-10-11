@@ -367,6 +367,47 @@ export function patchCells([bx0, bz0, bx1, bz1], G) {
   return out;
 }
 
+// #259: the ground around a stone bridge's banks is drawn in 1 m patches of the smoothed measured terrain, so the bank top an abutment
+// stands on, the roads draped there and the ground the car drives on do not depend on where the coarse 16 m mesh rows fall.
+// Full weight up to `inner` from a bank, blended back to the coarse mesh by `outer`, where the patches meet it without a crack.
+export const FINE_BANK = { inner: 48, outer: 72 };
+export function fineWeight(x, z, centres, { inner, outer } = FINE_BANK) {
+  let d = Infinity; for (const [cx, cz] of centres) d = Math.min(d, Math.hypot(x - cx, z - cz));
+  const t = Math.max(0, Math.min(1, (d - inner) / (outer - inner)));
+  return 1 - t * t * (3 - 2 * t);
+}
+// the cells with any point closer than `outer` to a bank: every edge they share with an unpatched cell lies at outer or beyond
+export function fineCells(centres, G, outer = FINE_BANK.outer) {
+  const out = new Map();
+  for (const [cx, cz] of centres) for (const [i, j] of patchCells([cx - outer, cz - outer, cx + outer, cz + outer], G)) {
+    const x = Math.max(G.x0 + i * G.dx, Math.min(cx, G.x0 + (i + 1) * G.dx)), z = Math.max(G.z0 + j * G.dz, Math.min(cz, G.z0 + (j + 1) * G.dz));
+    if (Math.hypot(x - cx, z - cz) < outer) out.set(i + ',' + j, [i, j]);
+  }
+  return [...out.values()];
+}
+// #259: the measured ground under a bank, low-passed with a tent of half-width r -- the smoothing a linear mesh of r-metre cells
+// gives, but centred on every point, so no row phase enters. Tabulated on a `step` grid anchored at world multiples of step
+// (whatever the box), filtered separably, read bilinearly; box is [x0, z0, x1, z1], reads outside it clamp to its edge.
+export function smoothedGround(h, [bx0, bz0, bx1, bz1], r = 16, step = 2) {
+  const k = Math.round(r / step), x0 = Math.floor(bx0 / step) * step, z0 = Math.floor(bz0 / step) * step;
+  const nx = Math.ceil((bx1 - x0) / step) + 1, nz = Math.ceil((bz1 - z0) / step) + 1, W = nx + 2 * k, D = nz + 2 * k;
+  const wt = []; let ws = 0; for (let a = -k; a <= k; a++) { wt.push(1 - Math.abs(a) / (k + 1)); ws += wt[wt.length - 1]; }
+  const raw = new Float64Array(W * D); for (let j = 0; j < D; j++) for (let i = 0; i < W; i++) raw[j * W + i] = h(x0 + (i - k) * step, z0 + (j - k) * step);
+  const rows = new Float64Array(nx * D); for (let j = 0; j < D; j++) for (let i = 0; i < nx; i++) { let s = 0; for (let a = 0; a <= 2 * k; a++) s += wt[a] * raw[j * W + i + a]; rows[j * nx + i] = s / ws; }
+  const g = new Float64Array(nx * nz); for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { let s = 0; for (let a = 0; a <= 2 * k; a++) s += wt[a] * rows[(j + a) * nx + i]; g[j * nx + i] = s / ws; }
+  return (x, z) => {
+    const fx = Math.max(0, Math.min(nx - 1, (x - x0) / step)), fz = Math.max(0, Math.min(nz - 1, (z - z0) / step));
+    const i = Math.min(Math.floor(fx), nx - 2), j = Math.min(Math.floor(fz), nz - 2), u = fx - i, v = fz - j, at = (a, b) => g[b * nx + a];
+    return (at(i, j) * (1 - u) + at(i + 1, j) * u) * (1 - v) + (at(i, j + 1) * (1 - u) + at(i + 1, j + 1) * u) * v;
+  };
+}
+// the (n+1)^2 vertex heights of cell (i, j) cut into n x n, row-major, from h(x, z)
+export function cellHeights(i, j, G, n, h) {
+  const W = n + 1, p = new Float32Array(W * W);
+  for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) p[b * W + k] = h(G.x0 + (i + k / n) * G.dx, G.z0 + (j + b / n) * G.dz);
+  return p;
+}
+
 export function triLerp(ha, hb, hc, hd, u, v) { return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v); }
 
 // #42 grades: a stretch of road on its own vertical profile (the Südspange's cutting and underpass). g = { pts, hw,
