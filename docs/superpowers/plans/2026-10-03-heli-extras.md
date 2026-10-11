@@ -2,27 +2,32 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** In the helicopter (#10): **N** boosts speed (60 m/s, 24 m/s²) with blue exhaust flames; the HUD shows the height above ground and, with the measured terrain, above sea level; the helicopter is a dark, sleek gunship-shaped low-poly model with a bubble canopy and no weapons, text or livery; **B** flips the heli camera to look back; the rotor sound (#14) is made subtle and reacts to nitro, when #14 is on `main` (#99).
+> **Refreshed 2026-10-11 against `main` @ `090402c`.** What changed since the first version: the sound engine (#14) **is** on `main` (`prototype/sound.js`), so Task 5 is now unconditional; `P.nitro` is read by `SFX.update` every frame, so `stepFly` must write it (it is stale from the last car frame otherwise); the helicopter uses the shared `carMats.glass` (pinned by `test_vehicles.py::test_windows_are_dark_and_opaque`, #123), so the new model must keep it; flight height uses `skyGroundH` (hideout hill, #102); `index.html` grew from ~1400 to ~2750 lines, so anchors below are identifiers, not line numbers. Nothing in the issue is obsolete: N, height, look, B and the rotor are all still missing on `main`. Verification is `node --test prototype/tests/*.test.mjs` plus the **one** new Playwright file `test_heli_extras.py`, not the ~2 h full suite.
 
-**Architecture:** `prototype/heli.js` (pure, node-tested) gains `HELI.topNitro` / `HELI.accelNitro`, a `nitro` input, nitro-aware `stepHeli`, and `heliAltitude(y, ground, base)`. `prototype/index.html` gets `buildHeli(...)` next to `buildCompact` (built once into the existing `heli` group, plus `tailRotor` and `heliFlames` groups), `stepFly` writing `FLY.nitro` / `P.nitro` and the flames, `flyCamera(dt, s, snap)` honouring #65's look-back, a `#alt` line in the `#tr` plate filled by `hud`, strings via `tr()`, hooks `__mm.fly().nitro` and `__mm.heliModel()`. The rotor sound is a conditional edit of `prototype/sound.js` (#14) — if it is not on `main`, the PR says so and ships no sound code.
+**Goal:** In the helicopter (#10): **N** boosts speed (60 m/s, 24 m/s²) with blue exhaust flames; the HUD shows the height above ground and, with the measured terrain, above sea level; the helicopter is a dark, sleek gunship-shaped low-poly model with a bubble canopy and no weapons, text or livery; **B** flips the heli camera to look back; the rotor sound (#14, already on `main`) is made subtle and reacts to nitro (#99).
 
-**Tech Stack:** vanilla JS + three.js in the buildless `prototype/index.html`; `node --test` for pure modules; Playwright + pytest for the browser checks.
+**Architecture:** `prototype/heli.js` (pure, node-tested) gains `HELI.topNitro` / `HELI.accelNitro`, a `nitro` input, nitro-aware `stepHeli`, and `heliAltitude(y, ground, base)`. `prototype/index.html` gets `buildHeli(...)` next to `buildCompact` (built once into the existing `heli` group, plus `tailRotor` and `heliFlames` groups), `stepFly` writing `FLY.nitro` / `P.nitro` and the flames, `flyCamera(dt, s, snap)` honouring #65's look-back, a `#alt` line in the `#tr` plate filled by `hud`, strings via `tr()`, hooks `__mm.fly().nitro` and `__mm.heliModel()`. The rotor sound is a small edit of `ROTOR` / `rotorMix` in `prototype/sound.js` (Task 5); `SFX.update` already passes `P.nitro` and `FLY.on` as `nitro` / `fly`.
+
+**Tech Stack:** vanilla JS + three.js in the buildless `prototype/index.html`; `node --test` for pure modules; Playwright + pytest for the browser checks (one file: `test_heli_extras.py`).
 
 **Spec:** `docs/superpowers/specs/2026-10-03-heli-extras-design.md`
 
 ## Global Constraints
 
-- **`test_heli.py` stays green and unchanged.** `heli.test.mjs` changes only where this plan says (the `HELI` constants assertion, the `heliInput` shape, new tests). Never edit a test to make it pass.
+- **`test_heli.py`, `test_look_back.py` and `test_vehicles.py` stay unchanged** (run by CI, not by you — see the test rule below). `heli.test.mjs` changes only where this plan says (the `HELI` constants assertion, the `heliInput` shape, new tests). Never edit a test to make it pass.
 - The whole model stays inside `HELI.rotorMargin` 8 m of the hub in x and z: nose ≤ 3.9, tail ≥ −7.85, blades ±6. Do not change `rotorMargin`, `heliFloor` or the camera constants.
 - **No weapons, no text, no textures on the helicopter**: no `textTex`, no `material.map`, no gun pods, no cannon. The sensor ball on the nose is the only „eye".
 - No new key, no touch button, no new help line (`keyHeli` is extended). **C** stays inactive in flight.
-- No sound code outside Task 5, and Task 5 only if `prototype/sound.js` exists on `main`. Never add a rotor voice to today's `SFX` block.
+- No sound code outside Task 5. Do not add a new voice to the `SFX` block in `index.html`; only edit `ROTOR` / `rotorMix` in `sound.js`.
+- **Keys:** `N` and `B` are already bound in `index.html`'s `keydown` handler / `stepCamera` (`keys.KeyN` in `stepCar`, `keys.KeyB` in `stepCamera`); grep of all `prototype/*.js` (incl. `pause.js`, `route.js`) shows no other use of `KeyN` (only `route.js` `TAKE_OVER_KEYS`, which stops the autopilot — irrelevant in flight) and none of `KeyB` besides `stepCamera`. Add **no** new key handling: `heliInput` reads `keys.KeyN`, `stepCamera` already reads `keys.KeyB`.
+- **Glass:** the canopy and the nose ball use the shared `carMats.glass` and the canopy carries `userData.glass = true`. Do not create a second glass material: `test_vehicles.py::test_windows_are_dark_and_opaque` (#123) finds the heli glass by that flag and wants it dark and opaque. Never dispose `carMats.*` (the heli is built once and never rebuilt).
+- **Not for #99:** pause (`openPause` already clears `keys`, so N and B release), the rear-view mirror (`mirrorVisible` already hides it while `FLY.on`), the hideout (`takeOff` already refuses under `roofedAt`), Navi (dimmed in flight), the car garage (`CARSEL`), the Testhub, the DeLorean and underwater code. Do not touch them.
 - Strings go through `tr()`; `prototype/strings.js` gets the same keys in `en` and `de` (`strings.test.mjs` enforces equal keys; Swiss spelling, no `ß`).
 - `prototype/index.html`: dense one-line style (long single-line statements, short `//` comments); match the surrounding code, do not reformat neighbours. No framework, no bundler, no `package.json`, no new dependency. New code must **not** call `rr()` or `rnd()`.
 - Do not touch `data/` or `pipeline/`.
 - **Animated camera:** the heli camera lerps (rate 3) and a headless renderer draws under 1 fps. Every browser check **polls the end state** with `page.wait_for_function(…, timeout=120000)` — wait for *arrival* (flag **and** camera on the expected side), never for stillness, never a fixed `wait_for_timeout` on a camera position. `__mm.flySim` steps the flight synchronously; the camera and the HUD update on the next drawn frame, so poll them.
-- Commands (from the repo root): node tests `node --test prototype/tests/*.test.mjs` (the glob is needed on Node 24). Playwright: `cd pipeline && systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_heli_extras.py -q`. Slow (several minutes). **Foreground only, never `run_in_background`.** Exit 137 = memory cap hit: stop and report. Without `systemd-run --user` (CI runner) run the same command without the prefix. One-time setup if the venv is missing: `cd pipeline && python3 -m venv .venv && ./.venv/bin/pip install -r requirements-dev.txt && ./.venv/bin/python -m playwright install chromium`.
-- Commit after every task with Conventional Commits and explicit paths (`git add <paths>`, never `-A`). Push the branch **before** the long Playwright runs.
+- Commands (from the repo root): node tests `node --test prototype/tests/*.test.mjs` (the glob is needed on Node 24). Playwright: `cd pipeline && systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_heli_extras.py -q`. Slow (several minutes). **Run only this one Playwright file, never the full suite (~2 h) and never other `test_*.py` files**; node tests: all of `prototype/tests/*.test.mjs`. **Foreground only, never `run_in_background`.** Exit 137 = memory cap hit: stop and report. Without `systemd-run --user` (CI runner) run the same command without the prefix. One-time setup if the venv is missing: `cd pipeline && python3 -m venv .venv && ./.venv/bin/pip install -r requirements-dev.txt && ./.venv/bin/python -m playwright install chromium`.
+- Commit after every task with Conventional Commits and explicit paths (`git add <paths>`, never `-A`). Push the branch **before** the long Playwright runs. Open PR #281 (hideout lift) also edits `prototype/index.html`; it does not touch the helicopter blocks, so a rebase conflict is unlikely — if one appears, keep both sides.
 - Task 2 is a graphics task: when subagents are dispatched for it locally, use the Fable model (repo owner's memory).
 
 ## Review Focus
@@ -30,6 +35,7 @@
 - **`heliInput` shape:** every caller and every existing `heli.test.mjs` assertion now needs `nitro`; `IDLE` in the test file gains `nitro: 0`. A missed `nitro` makes `stepHeli` read `undefined` → falsy → no boost, silently.
 - **Nitro implies forward** (`fwd` includes `nitro`), like the car's `gas = … || nitro`; **S** + **N** = 0.
 - **`flyCamera(dt, s, snap)`:** `s` flips the camera offset *and* the look-at point; `snap` copies instead of lerping. The ground clamp `+5` stays.
+- **`P.nitro` in flight:** `SFX.update` reads `P.nitro` every frame; `stepFly` must set it (0/1) or the rotor keeps the last car value after take-off.
 - **Model extents** are pinned by `test_heli_model_...` — if a part sticks out past 8 m, move the part, never the margin.
 - **`#alt` hidden on the ground**, visible in flight, text from `tr()`, no „a.s.l." in the hand layout (`REAL === null`).
 
@@ -39,22 +45,22 @@
 
 - `prototype/heli.js`: `HELI`, `heliInput`, `stepHeli`, new `heliAltitude` (Task 1).
 - `prototype/tests/heli.test.mjs`: `IDLE`, `HELI` assertion, nitro and altitude tests (Task 1).
-- `prototype/index.html`:
-  - import line `:244` (`heliAltitude`)
-  - `#tr` plate `:113-117` (`#alt`) and CSS after `#best` `:27`
-  - static help copy `:132` (`keyHeli`)
-  - the helicopter block `:952-955` (`FLY`, groups, `buildHeli`)
-  - `stepFly` `:1023`
-  - `__mm.fly` `:1046`, new `__mm.heliModel` after it
-  - `flyCamera` `:1102`, `stepCamera`'s `if (FLY.on) flyCamera(dt)` `:1106`
-  - `hud` `:1237`
-- `prototype/strings.js`: `altitude` (new) and `keyHeli` in `en` (`:97`) and `de` (`:209`).
+- `prototype/index.html` (find each by the identifier, not a line number):
+  - the `import { HELI, heliInput, … } from './heli.js';` line (add `heliAltitude`)
+  - the `#tr` plate (`<div id="best">Best —</div>`) and the CSS rule `#best{…}`
+  - the help line `<kbd>F</kbd><span data-i18n="keyHeli">`
+  - the helicopter block under `// #10 helicopter (F): FLY is the flight state` (`const FLY`, `const heli`, the `{ const body = new THREE.MeshLambertMaterial({ color: 0xffc61a })…` model block)
+  - `function resetCar()`, `function stepFly(dt)`
+  - `window.__mm.fly = …`, new `window.__mm.heliModel` after it
+  - `function flyCamera(dt)` and the `if (FLY.on) flyCamera(dt); else if (v.eye)` call in `stepCamera`
+  - `function hud(dt)`
+- `prototype/strings.js`: `altitude` (new) next to `heliNoRoad`, and `keyHeli`, in `en` and `de`.
 - `prototype/tests/test_heli_extras.py`: new (Tasks 2–4).
-- `prototype/sound.js`, `prototype/tests/sound.test.mjs`: only if present (Task 5).
-- `docs/ai-notes/screenshots/2026-10-03-heli-look.png`: new (Task 6).
+- `prototype/sound.js`, `prototype/tests/sound.test.mjs`: `ROTOR`, `rotorMix` (Task 5).
+- `docs/ai-notes/screenshots/2026-10-03-heli-look.png`: new (Task 6; the folder does not exist yet, create it).
 - `CHANGELOG.md`, `test-todo.md` (Task 7).
 
-Line numbers are from `main` @ `ee94c5e`. Verify them with `grep -n` before editing; other PRs may have shifted them.
+Verified against `main` @ `090402c` on 2026-10-11. Re-check each anchor with `grep -n` before editing (Task 0).
 
 ---
 
@@ -74,7 +80,7 @@ grep -c "heliAltitude\|heliFlames\|buildHeli" prototype/index.html prototype/hel
 
 Expected: `1`, `1`, `1`, `1`, then `0` for both files. If the last line is not `0`, STOP and report (someone started this already). If one of the first four is `0`, find the moved line with `grep -n` and adapt, keeping its meaning.
 
-- [ ] **Step 2: Is #14 on `main`?** `ls prototype/sound.js` → note „present" or „absent". Task 5 depends on it.
+- [ ] **Step 2: Sound check.** `grep -n "export const ROTOR\|export function rotorMix" prototype/sound.js` → both present (they are: #14 is on `main`). If not, STOP and report.
 
 - [ ] **Step 3: Baseline.** `node --test prototype/tests/*.test.mjs` → all pass. Note the count.
 
@@ -108,7 +114,7 @@ Replace the `HELI: the agreed flight constants` test body with:
   assert.deepEqual(HELI, { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 12, accelNitro: 24, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 8, landRadius: 150, camDist: 35, camH: 22 });
 ```
 
-Replace the `rotor margin` test with:
+Replace the `HELI: the rotor margin covers the model (blades 5.5 m, tail boom to 7.4 m from the hub) -- review of #84` test with:
 
 ```js
 test('HELI: the rotor margin covers the gunship model (nose 3.9 m, tail rotor 7.85 m, blades 6 m) and nitro is faster -- #99', () => {
@@ -117,7 +123,7 @@ test('HELI: the rotor margin covers the gunship model (nose 3.9 m, tail rotor 7.
 });
 ```
 
-In the `heliInput` test, every expected object gains `nitro: 0` (`{ fwd: 1, yaw: 1, lift: 1, nitro: 0 }` etc.), and add at its end:
+In the `heliInput` test (`heliInput: W/S and arrows fly, …`), every one of the 6 expected objects that is not `IDLE` gains `nitro: 0` (`{ fwd: 1, yaw: 1, lift: 1, nitro: 0 }` etc.), and add at its end:
 
 ```js
   assert.deepEqual(heliInput({ KeyN: true }, NO_TOUCH), { fwd: 1, yaw: 0, lift: 0, nitro: 1 });            // N alone flies forward, like gas
@@ -154,6 +160,8 @@ export const HELI = { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, topN
 // rotorMargin covers the model: nose 3.9 m, tail rotor 7.85 m and blades 6 m from the hub (#99). landRadius: F lands only with a road this close (review of #84)
 ```
 
+(That replaces both the `export const HELI` line and the comment line below it, which today reads „blades 5.5 m, tail boom 7.4 m".)
+
 ```js
 // keys: KeyboardEvent.code → bool (the game's keys object); touch: the on-screen buttons { l, r, g, b, h }. N (nitro, #99) counts as forward, like gas for the car
 export function heliInput(keys, touch) {
@@ -183,7 +191,7 @@ export function heliAltitude(y, ground, base) {
 }
 ```
 
-- [ ] **Step 4: Run, watch it pass.** `node --test prototype/tests/*.test.mjs` → all pass (baseline + 2).
+- [ ] **Step 4: Run, watch it pass.** `node --test prototype/tests/*.test.mjs` → all pass (baseline + 2 new tests).
 
 - [ ] **Step 5: Commit.** `git add prototype/heli.js prototype/tests/heli.test.mjs` → `feat(heli): nitro boost and altitude helper in the flight model (#99)`.
 
@@ -193,7 +201,7 @@ export function heliAltitude(y, ground, base) {
 
 **Files:**
 - Create: `prototype/tests/test_heli_extras.py`
-- Modify: `prototype/index.html` (`:952-955`, after `:1046`)
+- Modify: `prototype/index.html` (the helicopter block; after `window.__mm.fly`)
 
 **Interfaces:**
 - `const heli, rotor, tailRotor, heliFlames` groups; `buildHeli(g, rotor, tailRotor, flames)` fills them; `HELI_BOX` = the group's local bounding box, taken once at build time.
@@ -261,18 +269,18 @@ def test_heli_model_is_a_dark_gunship_inside_the_rotor_margin_without_text(serve
 
 - [ ] **Step 2: Run, watch it fail.** `cd pipeline && systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_heli_extras.py -q` → fails (`__mm.heliModel is not a function`).
 
-- [ ] **Step 3: Implement the model.** Replace the two lines `:954-955` (`const heli = …` and the `{ const body = … }` block) with:
+- [ ] **Step 3: Implement the model.** Replace the two lines `const heli = new THREE.Group(), rotor = new THREE.Group(); heli.visible = false; scene.add(heli);` and the one-line `{ const body = new THREE.MeshLambertMaterial({ color: 0xffc61a }) … }` block under it (keep the `const FLY` line above, changed in Task 3) with:
 
 ```js
 const heli = new THREE.Group(), rotor = new THREE.Group(), tailRotor = new THREE.Group(), heliFlames = new THREE.Group(); heli.visible = false; heliFlames.visible = false; scene.add(heli);
 // #99: the "fliegendes Auge" look -- a dark, low gunship silhouette with a bubble canopy, stub wings, a long boom, swept fin, tail rotor, four blades, wheels. No weapons, no text, no livery.
 // model metres, x forward, y up, z right; everything within HELI.rotorMargin (8 m) of the hub: nose 3.9, tail rotor 7.85, blades 6
-const heliMats = { body: new THREE.MeshPhongMaterial({ color: 0x1c2230, shininess: 60, specular: 0x4a5a78 }), glass: new THREE.MeshPhongMaterial({ color: 0x0e1824, shininess: 160, specular: 0xffffff, transparent: true, opacity: 0.9 }), dark: new THREE.MeshLambertMaterial({ color: 0x14171d }) };
+const heliMats = { body: new THREE.MeshPhongMaterial({ color: 0x1c2230, shininess: 60, specular: 0x4a5a78 }), glass: carMats.glass, dark: new THREE.MeshLambertMaterial({ color: 0x14171d }) };   // glass is the car's shared dark opaque glass (#123)
 function buildHeli(g, rotor, tailRotor, flames) {
   const M = heliMats, box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
   const shape = (pts) => { const s = new THREE.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])); s.closePath(); return s; };
   const bodyG = new THREE.ExtrudeGeometry(shape([[3.9, 1.0], [3.4, 0.55], [2.0, 0.4], [-1.6, 0.45], [-2.2, 0.9], [-2.0, 2.2], [-0.8, 2.5], [1.2, 2.45], [2.6, 1.9], [3.6, 1.35]]), { depth: 2.0, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 2 }); bodyG.translate(0, 0, -1.0); g.add(new THREE.Mesh(bodyG, M.body));
-  const canopy = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 12), M.glass); canopy.scale.set(1.9, 0.75, 0.9); canopy.position.set(1.9, 2.05, 0); g.add(canopy);   // the bubble
+  const canopy = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 12), M.glass); canopy.scale.set(1.9, 0.75, 0.9); canopy.position.set(1.9, 2.05, 0); canopy.userData.glass = true; g.add(canopy);   // the bubble; userData.glass = what __mm.glass() / test_vehicles.py (#123) look for
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 8), M.glass); eye.position.set(3.1, 0.5, 0); g.add(eye);   // the sensor ball on the nose: an eye, not a gun
   for (const s of [-1, 1]) box(1.2, 0.12, 1.6, M.body, 0.2, 1.2, s * 1.7);   // stub wings, nothing under them
   box(2.4, 0.6, 1.3, M.body, -0.4, 2.75, 0);   // engine cowl
@@ -293,13 +301,13 @@ const HELI_BOX = new THREE.Box3().setFromObject(heli);   // local extents, taken
 
 `heli.visible = false` makes `setFromObject` skip nothing — `Box3.setFromObject` reads geometry regardless of visibility. If the box comes back empty (`isEmpty()`), call `heli.updateMatrixWorld(true)` before it.
 
-- [ ] **Step 4: Add the hook.** After `window.__mm.fly = …` (`:1046`):
+- [ ] **Step 4: Add the hook.** After `window.__mm.fly = …`:
 
 ```js
 window.__mm.heliModel = () => { let meshes = 0, textured = 0; heli.traverse(o => { if (o.isMesh) { meshes++; if (o.material.map) textured++; } }); return { meshes, textured, bladeTips: rotor.children.length * 2, box: { min: HELI_BOX.min.toArray(), max: HELI_BOX.max.toArray() } }; };   // #99
 ```
 
-- [ ] **Step 5: Run, watch it pass.** The same pytest command → 1 passed. Also `node --test prototype/tests/*.test.mjs` still green.
+- [ ] **Step 5: Run, watch it pass.** The same pytest command → 1 passed. Also `node --test prototype/tests/*.test.mjs` still green. Quick sanity (no extra test file): `page.evaluate("() => window.__mm.glass()")` has `heli` non-null, opaque, same colour as `car` — add `assert` for it to the model test if cheap: `g = page.evaluate("() => window.__mm.glass()"); assert g["heli"]["transparent"] is False and g["heli"]["color"] == g["car"]["color"], g`.
 
 - [ ] **Step 6: Commit.** `git add prototype/index.html prototype/tests/test_heli_extras.py` → `feat(heli): dark gunship-style helicopter model with a bubble canopy, no weapons (#99)`.
 
@@ -309,12 +317,12 @@ window.__mm.heliModel = () => { let meshes = 0, textured = 0; heli.traverse(o =>
 
 **Files:**
 - Modify: `prototype/tests/test_heli_extras.py`
-- Modify: `prototype/index.html` (`:27`, `:113-117`, `:132`, `:244`, `:1023`, `:1046`, `:1237`)
-- Modify: `prototype/strings.js` (`:97`, `:209`, new `altitude` next to `heliNoRoad` in both languages)
+- Modify: `prototype/index.html` (CSS `#best`, `#tr` plate, help line, import, `FLY`, `resetCar`, `stepFly`, `__mm.fly`, `hud`)
+- Modify: `prototype/strings.js` (new `altitude` next to `heliNoRoad`, and `keyHeli`, in both languages)
 
 **Interfaces:**
 - `FLY = { on, v, alt, nitro }`; `stepFly` sets `FLY.nitro`, `P.nitro`, `heliFlames.visible`, spins `tailRotor`.
-- `#alt` in `#tr`; `hud` sets `hidden = !FLY.on` and the text `tr('altitude', agl, asl)`.
+- `#alt` in `#tr`; `hud` sets `hidden = !FLY.on` and the text `tr('altitude', agl, asl)`; `agl` uses `skyGroundH` (the same ground `stepFly` flies over, so it is right over the hideout hill too).
 - Strings: `altitude: (agl, asl) => …` and the extended `keyHeli`.
 - `__mm.fly()` gains `nitro`.
 
@@ -393,57 +401,57 @@ def test_help_lists_nitro_and_look_back_for_the_helicopter(server):
 
 - [ ] **Step 4: Markup, CSS, help copy.** In `index.html`:
 
-After `#best{…}` (`:27`) append on the same line:
+After the `#best{…}` rule append on the same line:
 
 ```css
 #alt{font-size:16px;font-weight:700;color:var(--sun)}#alt[hidden]{display:none}
 ```
 
-In the `#tr` plate after `<div id="best">Best —</div>` (`:116`):
+In the `#tr` plate after `<div id="best">Best —</div>`:
 
 ```html
     <div id="alt" hidden></div>
 ```
 
-Static help copy `:132`:
+Static help copy (the `keyHeli` line in `#help`, currently `…(Space climbs, Shift sinks)`):
 
 ```html
       <kbd>F</kbd><span data-i18n="keyHeli">helicopter: take off · land (Space climbs, Shift sinks, N nitro, B looks back)</span>
 ```
 
-Import `:244`:
+Import line (`import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';`):
 
 ```js
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliAltitude } from './heli.js';
 ```
 
-- [ ] **Step 5: State and `stepFly`.** `:953`:
+- [ ] **Step 5: State and `stepFly`.** The `const FLY` line:
 
 ```js
 const FLY = { on: false, v: 0, alt: 0, nitro: false };
 ```
 
-Replace `stepFly` (`:1023`) with:
+Replace `stepFly` with (changes vs today: `input` taken once, `FLY.nitro`, `P.nitro`, `tailRotor`, `heliFlames`; `skyGroundH` and everything else as it is):
 
 ```js
-function stepFly(dt) { const ground = groundH(P.x, P.z, 1e4), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z), input = heliInput(keys, touch); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, input, dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; FLY.nitro = !!input.nitro; P.nitro = input.nitro; heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; tailRotor.rotation.z += dt * 90; heliFlames.visible = FLY.nitro; blob.visible = false; flames.visible = false; }   // #99: N boosts, flames at the exhausts; P.nitro for #14's rotor
+function stepFly(dt) { const ground = skyGroundH(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z), input = heliInput(keys, touch); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, input, dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; FLY.nitro = !!input.nitro; P.nitro = input.nitro; heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; tailRotor.rotation.z += dt * 90; heliFlames.visible = FLY.nitro; blob.visible = false; flames.visible = false; }   // #99: N boosts, flames at the exhausts; P.nitro for #14's rotor
 ```
 
-In `takeOff` nothing changes; in `land` → `resetCar` sets `FLY.on = false` — add `FLY.nitro = false; heliFlames.visible = false;` to `resetCar` right after `FLY.on = false;` (`:1018`).
+`takeOff` and `land` need no change; `land` calls `resetCar`, which starts `function resetCar() { stopAuto('reset'); FLY.on = false;` — add `FLY.nitro = false; heliFlames.visible = false;` right after that `FLY.on = false;`.
 
-Hook `:1046`:
+Replace the `window.__mm.fly = …` hook:
 
 ```js
 window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, alt: FLY.alt, nitro: FLY.nitro, flames: heliFlames.visible, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
 ```
 
-- [ ] **Step 6: HUD.** In `hud(dt)` (`:1237`), directly before `fadeToast(dt);` insert:
+- [ ] **Step 6: HUD.** In `function hud(dt)`, directly before its `fadeToast(dt);` insert (`skyGroundH`, like `stepFly`):
 
 ```js
-$('alt').hidden = !FLY.on; if (FLY.on) { const a = heliAltitude(P.y, groundH(P.x, P.z, 1e4), REAL ? REAL.hdr.base : null); $('alt').textContent = tr('altitude', a.agl, a.asl); }
+$('alt').hidden = !FLY.on; if (FLY.on) { const a = heliAltitude(P.y, skyGroundH(P.x, P.z), REAL ? REAL.hdr.base : null); $('alt').textContent = tr('altitude', a.agl, a.asl); }
 ```
 
-Check once that the parsed header exposes `base`: `grep -n "hdr" prototype/index.html | head` — `REAL.hdr` is the parsed JSON header (`REAL.hdr.w`, `.step`, `.sources` are read at `:1171`), and `base` is a header field (`docs/08-pipeline-terrain.md:51`). If the parser strips unknown fields, add `base` to what it keeps; `heliAltitude` returns `asl: null` for a missing number either way.
+`REAL.hdr` is the parsed MMH JSON header (`parseMMH` returns it unfiltered) and the shipped `data/terrain_hochrhein.mmh` has `base: 284`, so nothing else is needed; without terrain (`REAL === null`) `asl` is `null` and the line shows only the height.
 
 - [ ] **Step 7: Run, watch it pass.** `node --test prototype/tests/*.test.mjs` green; the pytest command → 4 passed.
 
@@ -455,7 +463,7 @@ Check once that the parsed header exposes `base`: `grep -n "hdr" prototype/index
 
 **Files:**
 - Modify: `prototype/tests/test_heli_extras.py`
-- Modify: `prototype/index.html` (`:1102`, `:1106`)
+- Modify: `prototype/index.html` (`flyCamera`, the `flyCamera(dt)` call in `stepCamera`)
 
 **Interfaces:** `flyCamera(dt, s, snap)` — `s` ±1 (from #65), `snap` true on a change of the look-back state.
 
@@ -482,31 +490,29 @@ def test_hold_b_looks_back_in_flight(server):
 
 - [ ] **Step 2: Run, watch it fail.** The pytest command → the new test times out at `AHEAD > 30` (the heli camera ignores B).
 
-- [ ] **Step 3: Implement.** Replace `flyCamera` (`:1102`):
+- [ ] **Step 3: Implement.** Replace `function flyCamera(dt)` (the comment line above it, `// #10: one heli chase cam…`, is replaced by the one below):
 
 ```js
 // #10: one heli chase cam, behind and above, looking ahead and down; C does nothing while flying. #99: B (s = -1) puts it in front, looking back; snap on change like the chase cam
 function flyCamera(dt, s = 1, snap = false) { const fx = Math.cos(P.th) * s, fz = Math.sin(P.th) * s; const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
 ```
 
-In `stepCamera` (`:1106`) change the call: `if (FLY.on) flyCamera(dt, s, snap); else if (v.eye) …` — nothing else on that line changes.
+In `stepCamera` change the call `if (FLY.on) flyCamera(dt); else if (v.eye) …` to `if (FLY.on) flyCamera(dt, s, snap); else if (v.eye) …` — nothing else on that line changes (`back`, `snap`, `s` are already computed two lines above, and `CAM.back` already requires `$('overlay').hidden`).
 
 - [ ] **Step 4: Run, watch it pass.** The pytest command → 5 passed.
 
-- [ ] **Step 5: Regression, foreground.** Same prefix, `-m pytest ../prototype/tests/test_heli.py ../prototype/tests/test_look_back.py -q` → green and **unchanged**.
-
-- [ ] **Step 6: Commit.** `git add prototype/index.html prototype/tests/test_heli_extras.py` → `feat(heli): B looks back from the helicopter camera (#99)`.
+- [ ] **Step 5: Commit.** `git add prototype/index.html prototype/tests/test_heli_extras.py` → `feat(heli): B looks back from the helicopter camera (#99)`.
 
 ---
 
-### Task 5: Subtle rotor, nitro blade rate — only if #14 is on `main`
+### Task 5: Subtle rotor, nitro blade rate (`sound.js`)
 
 **Files:**
-- Modify: `prototype/sound.js`, `prototype/tests/sound.test.mjs` (only if they exist)
+- Modify: `prototype/sound.js`, `prototype/tests/sound.test.mjs`
 
-- [ ] **Step 1: Check.** `git fetch origin && git rebase origin/main`, then `ls prototype/sound.js`. **Absent → skip this task.** Write in the PR body: „Rotor sound: arrives with #14, which already mutes the engine and plays the rotor in flight. #14 should ship `ROTOR.gain = 0.5` (subtle) and `ROTOR.nitroRate = 1.5` Hz added to the blade rate while `input.nitro && input.fly` — see the #99 spec, Decisions ‚Rotor sound'." Continue with Task 6.
+`sound.js` (#14) is on `main`: `ROTOR = { rate: 5.5, ratePerKmh: 0.012, gain: 1.2, cutoff: 260 }` and `rotorMix(input)`; `SFX.update` already calls `rotorMix(input)` with `input = { kmh, gas, nitro: P.nitro, air, fly: FLY.on }`, so Task 3's `P.nitro` is all the wiring needed. No change in `index.html`.
 
-- [ ] **Step 2: Write the failing test** (present only). In `prototype/tests/sound.test.mjs` find the `ROTOR` / `rotorMix` assertions and add:
+- [ ] **Step 1: Write the failing test.** In `prototype/tests/sound.test.mjs` (it imports `ROTOR`, `rotorMix` and defines `IN(o)` already) append:
 
 ```js
 test('ROTOR: subtle, and nitro speeds up the blade thump -- #99', () => {
@@ -518,11 +524,11 @@ test('ROTOR: subtle, and nitro speeds up the blade thump -- #99', () => {
 });
 ```
 
-If an existing assertion pins `ROTOR` by deep-equality to `gain: 1.2`, update that one number and add `nitroRate: 1.5` to it — this plan changes the agreed value on purpose.
+The existing test `engineMix + rotorMix: flying mutes the engine…` compares to `ROTOR.gain` symbolically and stays green; do not edit it.
 
-- [ ] **Step 3: Run, watch it fail.** `node --test prototype/tests/*.test.mjs`.
+- [ ] **Step 2: Run, watch it fail.** `node --test prototype/tests/*.test.mjs` → the new test fails (`gain` is 1.2, `nitroRate` undefined).
 
-- [ ] **Step 4: Implement** in `prototype/sound.js`:
+- [ ] **Step 3: Implement** in `prototype/sound.js`:
 
 ```js
 export const ROTOR = { rate: 5.5, ratePerKmh: 0.012, nitroRate: 1.5, gain: 0.5, cutoff: 260 };   // #10 helicopter: blade thump (Hz), lowpassed noise; #99: subtle, faster under nitro
@@ -532,9 +538,11 @@ export const ROTOR = { rate: 5.5, ratePerKmh: 0.012, nitroRate: 1.5, gain: 0.5, 
 export function rotorMix(input) { return input.fly ? { rate: ROTOR.rate + ROTOR.ratePerKmh * input.kmh + (input.nitro ? ROTOR.nitroRate : 0), gain: ROTOR.gain, cutoff: ROTOR.cutoff } : { rate: ROTOR.rate, gain: 0, cutoff: ROTOR.cutoff }; }
 ```
 
-- [ ] **Step 5: Run, watch it pass.** Node tests green; then `-m pytest ../prototype/tests/test_sound.py -q` (foreground) — `test_flying_mutes_the_engine_and_plays_the_rotor` asserts `rotor.gain > 0`, still true at 0.5; the offline render's `rotor.rms > 0.02` must still hold — if it does not, raise `ROTOR.gain` in steps of 0.05 until it does and note the final number in the PR body.
+(Each replaces the existing one-line `export const ROTOR` / `export function rotorMix`.)
 
-- [ ] **Step 6: Commit.** `git add prototype/sound.js prototype/tests/sound.test.mjs` → `feat(sound): subtle rotor, faster thump under nitro (#99)`.
+- [ ] **Step 4: Run, watch it pass.** `node --test prototype/tests/*.test.mjs` green. `test_sound.py` (its offline render wants `rotor.rms > 0.02` at the rotor's gain) is **not** run here; the ~0.04 rms margin at 1.2 shrinks at 0.5, so state this in the PR body for CI: „`ROTOR.gain` 1.2 → 0.5; `test_sound.py::…rotor rms > 0.02` is the CI check; if it fails, raise `ROTOR.gain` in steps of 0.05\". Do not run it locally.
+
+- [ ] **Step 5: Commit.** `git add prototype/sound.js prototype/tests/sound.test.mjs` → `feat(sound): subtle rotor, faster thump under nitro (#99)`.
 
 ---
 
@@ -566,7 +574,7 @@ with sync_playwright() as p:
     b.close()
 ```
 
-- [ ] **Step 2: Look at it yourself** (Read the PNG): a dark helicopter with a glass bubble nose, stub wings, long boom, tail rotor, four blades, blue flames at the exhausts, the HUD „Height … m" top right, no text on the model. If a part is obviously wrong (floating, inside out, a blade through the boom), fix the number in `buildHeli` and reshoot. Keep the file under 400 KB (`ls -l`); if larger, `page.screenshot(..., type="jpeg", quality=80)` with a `.jpg` name and use that name below.
+- [ ] **Step 2: Look at it yourself** (Read the PNG; if you cannot view images, skip the judgement, keep the file and say so in the PR body): a dark helicopter with a glass bubble nose, stub wings, long boom, tail rotor, four blades, blue flames at the exhausts, the HUD „Height … m" top right, no text on the model. If a part is obviously wrong (floating, inside out, a blade through the boom), fix the number in `buildHeli` and reshoot. Keep the file under 400 KB (`ls -l`); if larger, `page.screenshot(..., type="jpeg", quality=80)` with a `.jpg` name and use that name below.
 
 - [ ] **Step 3: Commit.** `git add docs/ai-notes/screenshots/2026-10-03-heli-look.png` → `docs(heli): screenshot of the new helicopter look for review (#99)`. Link it in the PR body with a one-line ask: „Does it read as the sleek dark gunship with a bubble canopy? Any part to retune?"
 
@@ -575,13 +583,13 @@ with sync_playwright() as p:
 ### Task 7: Changelog and playtest notes
 
 **Files:**
-- Modify: `CHANGELOG.md` (`[Unreleased]` → `Added`, top of the list)
+- Modify: `CHANGELOG.md` (`[Unreleased]` → `### Added`, new first entry)
 - Modify: `test-todo.md` (new section after „## Helicopter mode (#10)")
 
-- [ ] **Step 1: CHANGELOG** — one player-facing entry:
+- [ ] **Step 1: CHANGELOG** — one player-facing entry, formatted like its neighbours: `- \`YYYY-MM-DD HH:MM\` text` with the Swiss local time of the commit (`TZ=Europe/Zurich date '+%Y-%m-%d %H:%M'`), placed as the **first** bullet under `## [Unreleased]` → `### Added`:
 
 ```markdown
-- The helicopter got an upgrade: it now looks like a sleek, dark gunship with a glass bubble nose (no weapons, promise). Hold **N** in the air for nitro — blue flames and 216 km/h. The top-right plate shows your height above the ground and, in the real Hochrhein, above sea level. Hold **B** to look back over the tail. As soon as the new engine sound lands, you will hear a quiet rotor instead of the car's engine.
+- `2026-10-11 18:00` The helicopter got an upgrade: it now looks like a sleek, dark gunship with a glass bubble nose (no weapons, promise). Hold **N** in the air for nitro — blue flames and 216 km/h. The top-right plate shows your height above the ground and, in the real Hochrhein, above sea level. Hold **B** to look back over the tail. The rotor sounds quieter now and beats faster under nitro.
 ```
 
 - [ ] **Step 2: test-todo** — a new section:
@@ -593,7 +601,7 @@ with sync_playwright() as p:
 - [ ] **Nitro:** W + N in the air — clearly faster (216 km/h on the dial), blue flames at the exhausts; letting go of N slows back to 144 km/h. N alone also flies forward.
 - [ ] **Height:** the top-right plate shows „Height … m · … m a.s.l." (German „Höhe … m · … m ü. M.") in the real world; over Sisseln about 120 m above ground and ~400 m a.s.l. at take-off. Hidden on the ground.
 - [ ] **B:** holding B in flight swings the camera round in front of the helicopter, looking back; letting go returns it without swinging through the machine.
-- [ ] **Rotor sound** (needs #14 on `main`): in flight a quiet thump, not the car's engine; a little faster with N. Loud enough to notice, quiet enough to leave on? (`ROTOR.gain` 0.5 is the tuning knob.)
+- [ ] **Rotor sound:** in flight a quiet thump, not the car's engine; a little faster with N. Loud enough to notice, quiet enough to leave on? (`ROTOR.gain` 0.5 is the tuning knob.)
 - [ ] **Pause** (Esc / P) in flight freezes the height, the flames and the camera; **Tab** and the minimap still follow the helicopter.
 ```
 
@@ -601,16 +609,16 @@ with sync_playwright() as p:
 
 ---
 
-### Task 8: Full regression
+### Task 8: Final check (targeted, not the full suite)
 
 - [ ] **Step 1:** `node --test prototype/tests/*.test.mjs` → all green.
-- [ ] **Step 2 (foreground, the `systemd-run` prefix):** `-m pytest ../prototype/tests/test_heli.py ../prototype/tests/test_heli_extras.py ../prototype/tests/test_look_back.py ../prototype/tests/test_pause.py ../prototype/tests/test_smoke.py -q`. `test_smoke.py::test_hud_bundle` and `test_help_lists_f` read the help text — the extended `keyHeli` still contains „helicopter". If a `test_vehicles.py::test_rebuilds_free_gpu_memory` run is part of the CI suite, note that the heli group is built once and never rebuilt, so the baseline is taken after it exists.
-- [ ] **Step 3:** Push; open the PR with the screenshot, the five AC points mapped to the tests, and the Task 5 note (rotor done here, or handed to #14 with the two numbers).
+- [ ] **Step 2 (foreground, the `systemd-run` prefix):** `-m pytest ../prototype/tests/test_heli_extras.py -q` → 5 passed. That is the only Playwright run; `test_heli.py`, `test_look_back.py`, `test_vehicles.py` (shared glass) and `test_sound.py` run in CI, not here.
+- [ ] **Step 3:** Push; open the PR with the screenshot, the AC points mapped to the tests, and the Task 5 note (`ROTOR.gain` 0.5 and the `test_sound.py` caveat).
 
 ## Done when
 
-- `node --test` green; `test_heli_extras.py` (5 tests) green; `test_heli.py` and `test_look_back.py` green and unchanged.
+- `node --test` green; `test_heli_extras.py` (5 tests) green; `test_heli.py`, `test_look_back.py`, `test_vehicles.py` untouched (CI).
 - The helicopter is the dark gunship model inside the 8 m margin, with no textured material; the screenshot is committed and linked.
 - N boosts to 60 m/s with flames; `#alt` shows the height in flight only, in both languages; B flips the heli camera.
-- Rotor: `ROTOR.gain 0.5` + nitro rate in `sound.js`, or the hand-off note to #14 in the PR body.
+- Rotor: `ROTOR.gain 0.5` + `ROTOR.nitroRate` in `sound.js`; `P.nitro` is set in flight.
 - `CHANGELOG.md` and `test-todo.md` updated.
