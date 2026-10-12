@@ -42,3 +42,13 @@ export function eiffelRoom(lift = LIFT) {
     towerView: { x: view[0], z: view[1], th: lift.th },
   };
 }
+
+// The helicopter in the room (F): allowed on the room level except during the lift ride, and on the surface only under open sky
+// (zone 'open'); the tunnel and the lift lobby ('roofed') and any ride ('lift') have no sky. Kept inside the room by a soft wall
+// 25 m inside the half width (the tree rows stand at 6 and 12 m) and a ceiling 420 m over the floor (the tower is 330 m).
+export const ROOM_FLY = { wall: ROOM_HALF - 25, ceiling: 420 };
+export const flyAllowed = (level, zone) => zone !== 'lift' && (level === 'eiffel' || (level === 'surface' && zone === 'open'));
+export function roomFlyClamp(x, y, z, room = eiffelRoom(), cfg = ROOM_FLY) {
+  const [cx, cz] = room.centre, c = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  return { x: c(x, cx - cfg.wall, cx + cfg.wall), y: Math.min(y, ROOM_Y + cfg.ceiling), z: c(z, cz - cfg.wall, cz + cfg.wall) };
+}
