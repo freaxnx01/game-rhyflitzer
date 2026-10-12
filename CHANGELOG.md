@@ -100,6 +100,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-12 21:24` The **Reservoir Hübel** is never dark outside any more: looking out of the gate from inside the tunnel you see daylight, and driving out the trees no longer pop up at the gate. The tunnel itself gets darker around you the deeper you drive, and the dark cave light, the forest, the shadows and the cave interior only switch 36 to 42 metres in, where the gate is far behind you.
 - `2026-10-12 20:19` In the Eiffel room under the Hübel the orange checkpoint arrow, the distance and the "CHECKPOINT …" label are gone; back on the surface they show again.
 - `2026-10-12 20:43` Driving into the **Reservoir Hübel** the light no longer snaps from daylight to cave dark at the gate: it dims smoothly over the first 30 metres of the tunnel, and brightens again the same way on the way out.
 - `2026-10-12 20:43` In the **freight lift** the shaft wall now slides the right way: riding down, the wall rises past the car, and riding up it sinks, so the ride no longer looks like going up when you go down.

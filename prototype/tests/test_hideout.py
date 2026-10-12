@@ -641,30 +641,61 @@ def test_village_names_hidden_inside_the_cave_and_back_outside(server):
 
 
 @needs_world
-def test_cave_light_fades_in_along_the_tunnel_without_a_step(server):
-    """Driving in from 30 m outside the gate to 60 m into the tunnel: the fog, ambient and sun values change a little at a time (no
-    step at the portal), the day look is whole at the portal and the cave look whole from 30 m in. Measured before: fog #e8bd8c ->
-    #07080a between 0 and 3 m past the portal."""
+def test_cave_light_stays_daylight_until_the_deep_point_and_the_tunnel_darkens_locally(server):
+    """Driving in from 30 m outside the gate to 60 m into the tunnel: the scene's fog, sky, ambient and sun are the day's own until the
+    deep point (CAVE_SWITCH_IN), where the whole cave look takes over; before that the tunnel's lining is what darkens it. The
+    maintainer: 'it should never be dark outside' -- the cave look used to fade in from the gate, darkening the world seen through the
+    opening."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         h = page.evaluate("() => window.__mm.hideout()")
         mx, mz = h["mouth"]; ps = h["portalS"]; ux, uz = math.cos(HEADING), math.sin(HEADING)
         rows = []
-        for d in range(-30, 61, 2):
+        for d in list(range(-30, 41, 5)) + list(range(45, 61, 5)):
             x, z = mx + ux * (ps + d), mz + uz * (ps + d)
             page.evaluate(f"() => {{ window.__mm.place({x}, {z}, {HEADING}); window.__mm.sim({x}, {z}, {HEADING}, 0.1, 0.05, [], window.__mm.car().y); }}")
             rows.append((d, page.evaluate("() => window.__mm.cave()")))
         br.close()
     assert errors == []
-    def rgb(c): return [int(c[i:i + 2], 16) for i in (1, 3, 5)]
-    for (d0, a), (d1, b) in zip(rows, rows[1:]):
-        assert abs(a["hemi"] - b["hemi"]) < 0.1 and abs(a["sun"] - b["sun"]) < 0.1, (d0, d1, a, b)
-        assert max(abs(u - v) for u, v in zip(rgb(a["fog"]), rgb(b["fog"]))) < 40, (d0, d1, a["fog"], b["fog"])
-        assert max(abs(u - v) for u, v in zip(rgb(a["skyTop"]), rgb(b["skyTop"]))) < 40, (d0, d1, a["skyTop"], b["skyTop"])
-    by = dict(rows)
-    assert by[-2]["k"] == 0 and by[-2]["fog"] == "#e8bd8c", by[-2]
-    assert by[30]["k"] == 1 and by[30]["fog"] == "#07080a" and by[60]["fog"] == "#07080a", (by[30], by[60])
-    assert 0 < by[12]["k"] < 1, by[12]
+    by = dict(rows); day = by[-30]
+    assert day["fog"] == "#e8bd8c" and day["dark"] is True, day
+    for d, r in rows:
+        if d <= 35:
+            assert r["fog"] == day["fog"] and r["skyTop"] == day["skyTop"] and r["hemi"] == day["hemi"] and r["sun"] == day["sun"], (d, r)
+            assert r["dark"] is True and r["on"] is False, (d, r)
+    for d in (45, 50, 60):
+        assert by[d]["fog"] == "#07080a" and by[d]["dark"] is False and by[d]["on"] is True, (d, by[d])
+
+
+def crop_brightness(page):
+    """Mean grey of the frame's middle (the opening, looking out of the portal), from the game's own next-frame PNG."""
+    import base64, io
+    from PIL import Image, ImageStat
+    url = page.evaluate("() => window.__mm.photoUrl()")
+    img = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("L"); w, h = img.size
+    return ImageStat.Stat(img.crop((int(w * 0.42), int(h * 0.35), int(w * 0.58), int(h * 0.55)))).mean[0]
+
+
+@needs_world
+def test_the_opening_seen_from_inside_the_tunnel_is_as_bright_as_outside(server):
+    """Standing 10 m inside looking out of the portal, the picture at the opening is daylight, not black ('it should never be dark
+    outside'). Compared with the same view from 15 m outside the gate."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        mx, mz = h["mouth"]; ps = h["portalS"]; ux, uz = math.cos(HEADING), math.sin(HEADING)
+        def shot(d):
+            x, z = mx + ux * (ps + d), mz + uz * (ps + d); th = HEADING + math.pi
+            page.evaluate(f"() => {{ window.__mm.place({x}, {z}, {th}); window.__mm.sim({x}, {z}, {th}, 0.1, 0.05, [], window.__mm.car().y); }}")
+            page.wait_for_timeout(4000)
+            return page.evaluate("() => window.__mm.cave()"), crop_brightness(page)
+        inside, bi = shot(10)
+        outside, bo = shot(-15)
+        br.close()
+    assert errors == []
+    assert inside["inside"] is True and outside["inside"] is False, (inside, outside)
+    assert bo > 25, f"the outside reference is itself dark: {bo}"
+    assert bi > 0.7 * bo, f"the opening seen from 10 m inside is dark: {bi:.0f} vs outside {bo:.0f}"
 
 
 RECORD_RIDE = """async () => {
@@ -706,3 +737,36 @@ def test_lift_shaft_pattern_rises_riding_down_and_sinks_riding_up(server):
     nums = lambda rows: [int(r["indicator"].replace("−", "-")) for r in rows]   # the full -1 .. -12 count is lift.test.mjs's (exact, no render time)
     assert nums(down)[0] == -1 and nums(down)[-1] < -1 and nums(down) == sorted(nums(down), reverse=True), nums(down)
     assert nums(up)[0] == -12 and nums(up)[-1] > -12 and nums(up) == sorted(nums(up)), nums(up)
+
+
+SWITCH_PROBE = """async ({x, z, th, y}) => {
+  window.__mm.place(x, z, th); window.__mm.sim(x, z, th, 0.1, 0.05, [], y);
+  const c = window.__mm.cave(); return { inside: c.inside, on: c.on, trees: c.treesVisible, shadows: c.shadows, group: c.visible };
+}"""
+
+
+@needs_world
+def test_cave_switches_happen_deep_in_the_tunnel_not_at_the_portal(server):
+    """The forest, the shadow map and the interior are hard switches; they must not flip where the portal is in view. Driving in and
+    out along T1 they flip once each way, deep inside (past the 30 m light fade). Measured before: all of them at 0 m, the portal."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        page.evaluate("() => window.__mm.setStyle('smooth')")   # the style with a sun shadow map ('original' has none to switch)
+        h = page.evaluate("() => window.__mm.hideout()")
+        mx, mz = h["mouth"]; ps = h["portalS"]; ux, uz = math.cos(HEADING), math.sin(HEADING)
+        def probe(d):
+            x, z = mx + ux * (ps + d), mz + uz * (ps + d)
+            return page.evaluate(SWITCH_PROBE, {"x": x, "z": z, "th": HEADING, "y": page.evaluate("() => window.__mm.car().y")})
+        ins = [(d, probe(d)) for d in range(-10, 61, 2)]
+        outs = [(d, probe(d)) for d in range(60, -11, -2)]
+        br.close()
+    assert errors == []
+    def first(rows, key, want): return next(d for d, r in rows if r[key] == want)
+    assert any(r["inside"] for d, r in ins if 0 < d <= 10), "the car is under the hill a few metres in"
+    for d, r in ins + outs:
+        if d <= 30:
+            assert r["trees"] is True and r["shadows"] is True and r["group"] is False and r["on"] is False, (d, r)
+    for key, off in (("trees", False), ("shadows", False), ("group", True), ("on", True)):
+        went_in = first(ins, key, off); went_out = first(outs, key, not off)
+        assert 35 <= went_in <= 50, (key, "in", went_in)
+        assert 30 <= went_out <= 45 and went_out < went_in, (key, "out", went_out)
