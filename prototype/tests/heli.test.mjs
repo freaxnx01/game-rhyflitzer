@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from '../heli.js';
+import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliAltitude } from '../heli.js';
 
-const IDLE = { fwd: 0, yaw: 0, lift: 0 };
+const IDLE = { fwd: 0, yaw: 0, lift: 0, nitro: 0 };
 const NO_TOUCH = { l: 0, r: 0, g: 0, b: 0, h: 0 };
 const run = (s, input, secs, ground = 0, floor = ground + HELI.clearance) => { for (let i = 0; i < secs * 60; i++) s = stepHeli(s, input, 1 / 60, ground, floor); return s; };
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
@@ -10,11 +10,12 @@ const at = (y, th = 0) => ({ x: 0, z: 0, y, th, v: 0, alt: y });
 const box = (o) => ({ x: 0, z: 0, hw: 5, hd: 5, c: 1, s: 0, h: 30, ...o });
 
 test('HELI: the agreed flight constants', () => {
-  assert.deepEqual(HELI, { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, back: 10, accel: 12, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 8, landRadius: 150, camDist: 35, camH: 22 });
+  assert.deepEqual(HELI, { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 12, accelNitro: 24, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 8, landRadius: 150, camDist: 35, camH: 22 });
 });
 
-test('HELI: the rotor margin covers the model (blades 5.5 m, tail boom to 7.4 m from the hub) -- review of #84', () => {
-  assert.ok(HELI.rotorMargin >= 7.4);
+test('HELI: the rotor margin covers the gunship model (nose 3.9 m, tail rotor 7.85 m, blades 6 m) and nitro is faster -- #99', () => {
+  assert.ok(HELI.rotorMargin >= 7.85);
+  assert.ok(HELI.topNitro > HELI.top && HELI.accelNitro > HELI.accel);
 });
 
 test('landingSpot: the nearest road counts only within landRadius -- review of #84', () => {
@@ -27,12 +28,14 @@ test('landingSpot: the nearest road counts only within landRadius -- review of #
 
 test('heliInput: W/S and arrows fly, A/D and arrows yaw, Space climbs, Shift sinks, touch buttons too', () => {
   assert.deepEqual(heliInput({}, NO_TOUCH), IDLE);
-  assert.deepEqual(heliInput({ KeyW: true, KeyD: true, Space: true }, NO_TOUCH), { fwd: 1, yaw: 1, lift: 1 });
-  assert.deepEqual(heliInput({ ArrowDown: true, ArrowLeft: true, ShiftRight: true }, NO_TOUCH), { fwd: -1, yaw: -1, lift: -1 });
-  assert.deepEqual(heliInput({ ArrowUp: true, ArrowRight: true, ShiftLeft: true }, NO_TOUCH), { fwd: 1, yaw: 1, lift: -1 });
+  assert.deepEqual(heliInput({ KeyW: true, KeyD: true, Space: true }, NO_TOUCH), { fwd: 1, yaw: 1, lift: 1, nitro: 0 });
+  assert.deepEqual(heliInput({ ArrowDown: true, ArrowLeft: true, ShiftRight: true }, NO_TOUCH), { fwd: -1, yaw: -1, lift: -1, nitro: 0 });
+  assert.deepEqual(heliInput({ ArrowUp: true, ArrowRight: true, ShiftLeft: true }, NO_TOUCH), { fwd: 1, yaw: 1, lift: -1, nitro: 0 });
   assert.deepEqual(heliInput({ KeyW: true, KeyS: true, KeyA: true, KeyD: true, Space: true, ShiftLeft: true }, NO_TOUCH), IDLE);
-  assert.deepEqual(heliInput({ KeyW: false }, { ...NO_TOUCH, g: 1, l: 1 }), { fwd: 1, yaw: -1, lift: 0 });
-  assert.deepEqual(heliInput({}, { ...NO_TOUCH, b: 1, r: 1 }), { fwd: -1, yaw: 1, lift: 0 });
+  assert.deepEqual(heliInput({ KeyW: false }, { ...NO_TOUCH, g: 1, l: 1 }), { fwd: 1, yaw: -1, lift: 0, nitro: 0 });
+  assert.deepEqual(heliInput({}, { ...NO_TOUCH, b: 1, r: 1 }), { fwd: -1, yaw: 1, lift: 0, nitro: 0 });
+  assert.deepEqual(heliInput({ KeyN: true }, NO_TOUCH), { fwd: 1, yaw: 0, lift: 0, nitro: 1 });            // N alone flies forward, like gas
+  assert.deepEqual(heliInput({ KeyN: true, KeyS: true }, NO_TOUCH), { fwd: 0, yaw: 0, lift: 0, nitro: 1 });
 });
 
 test('heliStart: where the car is, standing, aiming for takeoffAgl above the ground', () => {
@@ -98,4 +101,22 @@ test('heliFloor: rotated boxes are tested in their own frame', () => {
   const r = box({ hw: 20, hd: 2, c: Math.cos(Math.PI / 2), s: Math.sin(Math.PI / 2) });   // long along z
   assert.equal(heliFloor(0, [r], 0, 15), 30 + HELI.clearance);
   assert.equal(heliFloor(0, [r], 15, 0), HELI.clearance);
+});
+
+test('stepHeli: N raises the top speed to topNitro at accelNitro; letting go falls back to top -- #99', () => {
+  let s = run(at(50), { ...IDLE, fwd: 1, nitro: 1 }, 6);
+  close(s.v, HELI.topNitro, 1e-9, 'nitro top');
+  const one = stepHeli(at(50), { ...IDLE, fwd: 1, nitro: 1 }, 1, 0, 10);
+  close(one.v, HELI.accelNitro, 1e-9, 'one second of nitro from rest');
+  s = run(s, { ...IDLE, fwd: 1 }, 3); close(s.v, HELI.top, 1e-9, 'back to top');
+  s = run(s, heliInput({ KeyN: true }, NO_TOUCH), 3); close(s.v, HELI.topNitro, 1e-9, 'N alone');   // N alone flies forward, like gas for the car
+  close(run(at(50), heliInput({ KeyN: true, KeyS: true }, NO_TOUCH), 3).v, 0, 1e-9, 'S + N hover');
+});
+
+test('heliAltitude: metres above the ground, and above sea level only with a datum -- #99', () => {
+  assert.deepEqual(heliAltitude(130.4, 10.2, 284), { agl: 120, asl: 414 });
+  assert.deepEqual(heliAltitude(130.4, 10.2, undefined), { agl: 120, asl: null });
+  assert.deepEqual(heliAltitude(130.4, 10.2, null), { agl: 120, asl: null });
+  assert.deepEqual(heliAltitude(130.4, 10.2, NaN), { agl: 120, asl: null });
+  assert.deepEqual(heliAltitude(5, 5, 284), { agl: 0, asl: 289 });
 });

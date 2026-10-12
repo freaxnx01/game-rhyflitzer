@@ -1,17 +1,19 @@
 // #10: helicopter flight model (F) -- pure, no three.js, no DOM. Unit-tested with `node --test prototype/tests/*.test.mjs`.
 // Units m, m/s, m/s², rad/s. Same frame as the car: x east, z south, th = heading (0 = +x; D makes it grow, like steering).
-export const HELI = { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, back: 10, accel: 12, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 8, landRadius: 150, camDist: 35, camH: 22 };
-// rotorMargin covers the model: blades 5.5 m, tail boom 7.4 m from the hub. landRadius: F lands only with a road this close (review of #84)
+export const HELI = { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 12, accelNitro: 24, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 8, landRadius: 150, camDist: 35, camH: 22 };
+// rotorMargin covers the model: nose 3.9 m, tail rotor 7.85 m and blades 6 m from the hub (#99). landRadius: F lands only with a road this close (review of #84)
 
 const held = (keys, codes) => codes.some(c => keys[c]);
 const axis = (plus, minus) => (plus ? 1 : 0) - (minus ? 1 : 0);
 
-// keys: KeyboardEvent.code → bool (the game's keys object); touch: the on-screen buttons { l, r, g, b, h }
+// keys: KeyboardEvent.code → bool (the game's keys object); touch: the on-screen buttons { l, r, g, b, h }. N (nitro, #99) counts as forward, like gas for the car
 export function heliInput(keys, touch) {
+  const nitro = held(keys, ['KeyN']) ? 1 : 0;
   return {
-    fwd: axis(held(keys, ['KeyW', 'ArrowUp']) || touch.g, held(keys, ['KeyS', 'ArrowDown']) || touch.b),
+    fwd: axis(held(keys, ['KeyW', 'ArrowUp']) || touch.g || nitro, held(keys, ['KeyS', 'ArrowDown']) || touch.b),
     yaw: axis(held(keys, ['KeyD', 'ArrowRight']) || touch.r, held(keys, ['KeyA', 'ArrowLeft']) || touch.l),
     lift: axis(held(keys, ['Space']), held(keys, ['ShiftLeft', 'ShiftRight'])),
+    nitro,
   };
 }
 
@@ -35,8 +37,8 @@ const approach = (value, target, maxStep) => value + Math.max(-maxStep, Math.min
 // one fixed step: yaw, speed towards top / -back / 0, target altitude within [floor, ground + maxAgl], y follows it smoothly but never below the floor
 export function stepHeli(s, input, dt, ground, floor, cfg = HELI) {
   const th = s.th + input.yaw * cfg.yawRate * dt;
-  const target = input.fwd > 0 ? cfg.top : input.fwd < 0 ? -cfg.back : 0;
-  const v = approach(s.v, target, cfg.accel * dt);
+  const target = input.fwd > 0 ? (input.nitro ? cfg.topNitro : cfg.top) : input.fwd < 0 ? -cfg.back : 0;
+  const v = approach(s.v, target, (input.nitro ? cfg.accelNitro : cfg.accel) * dt);
   const alt = Math.max(floor, Math.min(ground + cfg.maxAgl, s.alt + input.lift * cfg.climb * dt));
   const y = Math.max(floor, s.y + (alt - s.y) * (1 - Math.exp(-cfg.follow * dt)));
   return { x: s.x + Math.cos(th) * v * dt, z: s.z + Math.sin(th) * v * dt, y, th, v, alt };
@@ -44,3 +46,8 @@ export function stepHeli(s, input, dt, ground, floor, cfg = HELI) {
 
 // the road to land on: the nearest one ({ d, x, z, th }) if it lies within landRadius, else null -- no teleport to a far road
 export function landingSpot(spot, cfg = HELI) { return spot && spot.d <= cfg.landRadius ? spot : null; }
+
+// HUD height (#99): whole metres above the ground under the helicopter, and above sea level when the terrain header's base (m a.s.l. of y = 0) is known
+export function heliAltitude(y, ground, base) {
+  return { agl: Math.round(y - ground), asl: Number.isFinite(base) ? Math.round(y + base) : null };
+}
