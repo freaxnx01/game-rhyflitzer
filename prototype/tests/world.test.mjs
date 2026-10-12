@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
 import { sampled, trisHeightAt } from '../world.js';
@@ -222,9 +223,9 @@ test('villageLabels: only visible names, nearest first', () => {
   assert.deepEqual(villageLabels([], 0, 0), []);
 });
 
-test('VILLAGES: fourteen uppercase names inside the world, the issue\'s four included', () => {
-  assert.equal(VILLAGES.length, 14);
-  assert.equal(new Set(VILLAGES.map(v => v.t)).size, 14);
+test('VILLAGES: eighteen uppercase names inside the world, the issue\'s four included', () => {
+  assert.equal(VILLAGES.length, 18);
+  assert.equal(new Set(VILLAGES.map(v => v.t)).size, 18);
   for (const v of VILLAGES) {
     assert.equal(v.t, v.t.toUpperCase());
     assert.ok(v.r >= 300 && v.r <= 1000, v.t);
@@ -232,6 +233,15 @@ test('VILLAGES: fourteen uppercase names inside the world, the issue\'s four inc
   }
   for (const t of ['BAD SÄCKINGEN', 'STEIN', 'SISSELN', 'SISSLERFELD', 'MÜNCHWILEN']) assert.ok(VILLAGES.some(v => v.t === t), t);
   for (const t of ['EIKEN', 'OBERMUMPF', 'OESCHGEN', 'SCHUPFART', 'HELLIKON', 'FRICK']) assert.ok(VILLAGES.some(v => v.t === t), t);   // #47
+  for (const t of ['ZUZGEN', 'KAISTEN', 'WEGENSTETTEN', 'GIPF-OBERFRICK']) assert.ok(VILLAGES.some(v => v.t === t), t);   // #228
+});
+
+// #228: every Gemeinde that has a boundary line in the world data is named in VILLAGES
+test('VILLAGES covers every Gemeinde that has a boundary line', () => {
+  const world = JSON.parse(readFileSync(new URL('../../data/world_hochrhein.json', import.meta.url), 'utf8'));
+  const names = new Set(world.boundaries.flatMap(b => b.names.map(n => n.toUpperCase())));
+  const have = new Set(VILLAGES.map(v => v.t));
+  assert.deepEqual([...names].filter(n => !have.has(n)), []);
 });
 
 test('roofTop: measured ridge, gable guess, flat roofs at least 3 m', () => {
