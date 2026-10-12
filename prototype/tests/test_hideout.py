@@ -614,3 +614,30 @@ def test_village_names_hidden_inside_the_cave_and_back_outside(server):
         br.close()
     assert errors == []
     assert outside, "no village name outside the cave"
+
+
+@needs_world
+def test_cave_light_fades_in_along_the_tunnel_without_a_step(server):
+    """Driving in from 30 m outside the gate to 60 m into the tunnel: the fog, ambient and sun values change a little at a time (no
+    step at the portal), the day look is whole at the portal and the cave look whole from 30 m in. Measured before: fog #e8bd8c ->
+    #07080a between 0 and 3 m past the portal."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        mx, mz = h["mouth"]; ps = h["portalS"]; ux, uz = math.cos(HEADING), math.sin(HEADING)
+        rows = []
+        for d in range(-30, 61, 2):
+            x, z = mx + ux * (ps + d), mz + uz * (ps + d)
+            page.evaluate(f"() => {{ window.__mm.place({x}, {z}, {HEADING}); window.__mm.sim({x}, {z}, {HEADING}, 0.1, 0.05, [], window.__mm.car().y); }}")
+            rows.append((d, page.evaluate("() => window.__mm.cave()")))
+        br.close()
+    assert errors == []
+    def rgb(c): return [int(c[i:i + 2], 16) for i in (1, 3, 5)]
+    for (d0, a), (d1, b) in zip(rows, rows[1:]):
+        assert abs(a["hemi"] - b["hemi"]) < 0.1 and abs(a["sun"] - b["sun"]) < 0.1, (d0, d1, a, b)
+        assert max(abs(u - v) for u, v in zip(rgb(a["fog"]), rgb(b["fog"]))) < 40, (d0, d1, a["fog"], b["fog"])
+        assert max(abs(u - v) for u, v in zip(rgb(a["skyTop"]), rgb(b["skyTop"]))) < 40, (d0, d1, a["skyTop"], b["skyTop"])
+    by = dict(rows)
+    assert by[-2]["k"] == 0 and by[-2]["fog"] == "#e8bd8c", by[-2]
+    assert by[30]["k"] == 1 and by[30]["fog"] == "#07080a" and by[60]["fog"] == "#07080a", (by[30], by[60])
+    assert 0 < by[12]["k"] < 1, by[12]
