@@ -35,7 +35,8 @@ def fake_get(point=("Ehrendingen",), envelope=("Ehrendingen",), calls=None):
 
 
 def app(settings, store, get=None, **over):
-    return TestClient(create_app(dataclasses.replace(settings, **over), store, get=get or fake_get()))
+    return TestClient(create_app(dataclasses.replace(settings, **over), store, get=get or fake_get()),
+                      client=("10.0.0.2", 50000))
 
 
 def test_limiter_allows_n_per_minute_and_forgets():

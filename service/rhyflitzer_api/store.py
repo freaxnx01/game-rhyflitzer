@@ -9,9 +9,12 @@ import math
 import secrets
 import sqlite3
 import threading
+import time
 from pathlib import Path
 
 PERMANENT = ("too-complex",)   # failures a rebuild of the same frame cannot fix
+MAX_ATTEMPTS = 3
+INTERRUPTED = "The build was interrupted repeatedly and was given up"
 CELL = 500.0   # roadgrid cell edge in metres (LV95)
 HUMAN_MESSAGE = "The human check did not pass; wait a moment for it to finish and press Build again"
 
@@ -185,9 +188,14 @@ class Store:
         self._x("UPDATE worlds SET state = 'queued', step = NULL, not_before = ?, message = ? WHERE id = ?",
                 (not_before, message, wid))
 
-    def requeue_interrupted(self) -> int:
-        with self._lock:
-            return self._db.execute("UPDATE worlds SET state = 'queued', step = NULL WHERE state = 'building'").rowcount
+    def requeue_interrupted(self, max_attempts: int = MAX_ATTEMPTS) -> int:
+        """Puts builds the worker died in back on the queue; one that has died MAX_ATTEMPTS times fails for good."""
+        def requeue(db):
+            db.execute("UPDATE worlds SET state = 'failed', step = NULL, error = 'build-failed', message = ? "
+                       "WHERE state = 'building' AND NOT (attempts < ?)", (INTERRUPTED, max_attempts))
+            return db.execute("UPDATE worlds SET state = 'queued', step = NULL WHERE state = 'building'").rowcount
+
+        return self._tx(requeue)
 
     # -- retention ------------------------------------------------------------------------------------------
     def expired(self, cutoff: float) -> list[str]:
@@ -211,6 +219,7 @@ class Store:
         self._x("UPDATE worlds SET last_played = ? WHERE id = ?", (now, wid))
 
     def purge_before(self, day: str) -> None:
+        day = min(day, day_of(time.time()))    # fail closed: a skewed clock must never wipe today's counters or salt
         self._x("DELETE FROM salts WHERE day < ?", (day,))
         self._x("DELETE FROM builds WHERE day < ?", (day,))
 

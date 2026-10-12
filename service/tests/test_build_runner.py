@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -31,13 +32,24 @@ elif mode == "complex":
 elif mode == "slow":
     out.mkdir(parents=True, exist_ok=True)
     time.sleep(30)
+elif mode == "tree":
+    import subprocess
+    child = subprocess.Popen(["sleep", "30"])
+    pathlib.Path(sys.argv[3]).write_text(str(child.pid))
+    time.sleep(30)
+elif mode == "hog":
+    hog = bytearray(1_000_000_000)
+    print("RESULT " + json.dumps({"ok": True}))
+elif mode == "spin":
+    while True:
+        pass
 elif mode == "killed":
     os.kill(os.getpid(), signal.SIGKILL)
 '''
 
 
-def fake(mode):
-    return lambda job, settings, out: [sys.executable, "-c", FAKE, str(out), mode]
+def fake(mode, *extra):
+    return lambda job, settings, out: [sys.executable, "-c", FAKE, str(out), mode, *extra]
 
 
 def test_success_relays_steps_and_publishes(settings):
@@ -123,3 +135,63 @@ def test_check_complexity_counts_road_points():
     build.check_complexity({"buildings": [], "roads": [{"pts": [[0, 0]] * 3}]}, 10, 3)
     with pytest.raises(build.TooComplex, match="4 road points"):
         build.check_complexity({"buildings": [], "roads": [{"pts": [[0, 0]] * 4}]}, 10, 3)
+
+
+def alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return Path(f"/proc/{pid}/stat").read_text().split()[2] != "Z"
+
+
+def test_timeout_kills_the_whole_process_tree(settings, tmp_path):
+    pidfile = tmp_path / "child.pid"
+    out = runner.run_build(JOB, dataclasses.replace(settings, job_timeout=2.0), lambda s: None, fake("tree", str(pidfile)))
+    assert out.error == "timeout"
+    time.sleep(0.5)
+    assert not alive(int(pidfile.read_text()))
+
+
+def test_the_memory_cap_sits_on_the_build_itself(settings):
+    start = time.monotonic()
+    out = runner.run_build(JOB, dataclasses.replace(settings, build_memory_bytes=300_000_000), lambda s: None, fake("hog"))
+    assert not out.ok and out.error == "build-failed" and time.monotonic() - start < 20
+
+
+def test_the_cpu_cap_sits_on_the_build_itself(settings):
+    start = time.monotonic()
+    out = runner.run_build(JOB, dataclasses.replace(settings, build_cpu_seconds=1, job_timeout=60.0), lambda s: None, fake("spin"))
+    assert not out.ok and out.error == "build-failed" and time.monotonic() - start < 20
+
+
+SYNTH = ('<?xml version="1.0"?><osm version="0.6">'
+         '<node id="1" lat="47.47" lon="8.30"/><node id="2" lat="47.48" lon="8.30"/><node id="3" lat="47.48" lon="8.31"/>'
+         '<way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><tag k="highway" v="residential"/></way>'
+         '<way id="11"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="1"/><tag k="building" v="yes"/></way>'
+         '<way id="12"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="1"/><tag k="building" v="yes"/></way></osm>')
+
+
+def test_count_cut_counts_buildings_and_road_points(tmp_path):
+    extract = tmp_path / "cut.osm"
+    extract.write_text(SYNTH, encoding="utf-8")
+    assert build.count_cut(extract) == (2, 3)
+
+
+def test_an_over_limit_frame_is_refused_before_terrain_and_world_work(tmp_path, monkeypatch):
+    extract = tmp_path / "cut.osm"
+    extract.write_text(SYNTH, encoding="utf-8")
+    reached = []
+
+    def fake_build_world(rect, out, *, extract, cache, progress, tile_cache_bytes):
+        region.osm_cut.cut(extract, (0, 0, 1, 1), Path(out) / "cut.osm", out)      # what build_world does first
+        reached.append("terrain")
+        return {}
+
+    monkeypatch.setattr(region, "build_world", fake_build_world)
+    monkeypatch.setattr(region.osm_cut, "cut", lambda extract, bbox, out, workdir: extract)
+    args = build.parse(["--id", "0123456789ab", "--lv95", *map(str, RECT), "--out", str(tmp_path / "o"),
+                        "--extract", str(extract), "--cache", str(tmp_path / "c"), "--max-buildings", "1"])
+    with pytest.raises(build.TooComplex):
+        build.build(args)
+    assert reached == []

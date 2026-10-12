@@ -90,3 +90,23 @@ def test_tick_beats_and_runs_due_maintenance(store, settings, monkeypatch):
     monkeypatch.setattr(extract, "run_due", lambda st, se, now: calls.append(("extract", now)))
     worker.Worker(settings, store, builder(Outcome(True)), Clock(T0)).tick()
     assert calls == [("cleanup", T0), ("extract", T0)] and store.kv_get("worker_heartbeat") == str(T0)
+
+
+def test_a_job_without_a_readable_attempt_count_is_never_retried(store, settings):
+    store.submit("00000000000a", RECT, "a", T0, settings)
+    job = store.claim_next(T0)
+    del job["attempts"]
+    w = worker.Worker(settings, store, builder(Outcome(True)), Clock(T0))
+    w._settle(job, Outcome(False, "source-unreachable", "down"), 1.0)
+    assert store.get("00000000000a")["state"] == "failed"
+
+
+def test_a_crashing_job_stops_at_the_attempt_cap(store, settings):
+    with_extract(settings)
+    store.submit("00000000000a", RECT, "a", T0, settings)
+    build = builder(Outcome(False, "source-unreachable", "down"))
+    w = worker.Worker(settings, store, build, Clock(T0))
+    for step in range(10):
+        w.clock.t = T0 + step * 1000
+        w.run_once()
+    assert len(build.calls) == settings.source_retries + 1 and store.get("00000000000a")["state"] == "failed"

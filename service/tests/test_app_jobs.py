@@ -104,3 +104,24 @@ def test_client_ip_collapses_an_ipv6_address_to_its_64_prefix():
     b = client_ip(request("2001:db8:1:2:1111:2222:3333:4444"), 1)
     assert a == b and client_ip(request("2001:db8:1:3::1"), 1) != a      # a /64 is one subscriber, not 2^64 clients
     assert client_ip(request("::ffff:203.0.113.9"), 1) == "203.0.113.9"
+
+
+def test_client_ip_ignores_forwarded_for_from_an_untrusted_peer():
+    direct = Request({"type": "http", "headers": [(b"x-forwarded-for", b"6.6.6.6")], "client": ("198.51.100.5", 1)})
+    assert client_ip(direct, 1) == "198.51.100.5"
+
+
+def test_a_forged_forwarded_for_does_not_buy_a_new_budget(settings, store):
+    from starlette.testclient import TestClient
+    from rhyflitzer_api.app import create_app
+    direct = TestClient(create_app(settings, store), client=("198.51.100.5", 1))      # not Traefik: no trust
+    first = direct.post("/api/jobs", json={"lv95": list(RECT), "altcha": human(direct)}, headers=ip(1))
+    second = direct.post("/api/jobs", json={"lv95": [2667000, 1259750, 2669000, 1261750], "altcha": human(direct)},
+                         headers=ip(2))
+    assert first.status_code == 202 and second.status_code == 429 and second.json()["error"] == "one-at-a-time"
+
+
+def test_an_oversized_body_is_refused_before_it_is_parsed(client):
+    r = client.post("/api/jobs", content=b'{"lv95": [' + b"1," * 50000 + b'1]}',
+                    headers={"Content-Type": "application/json", **ip(1)})
+    assert r.status_code == 413 and r.json()["error"] == "too-large"

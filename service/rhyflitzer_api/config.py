@@ -14,12 +14,15 @@ class Settings:
     data_dir: Path
     cors_origins: tuple[str, ...] = (DEFAULT_ORIGIN,)
     admin_token_file: Path | None = None
+    trusted_proxies: tuple[str, ...] = ("127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7", "::1/128")
     proxy_hops: int = 1                       # X-Forwarded-For entries added by our own proxies (Traefik)
     max_queue: int = 20
     per_ip_active: int = 1
     per_ip_daily: int = 5
     global_daily: int = 100
     job_timeout: float = 600.0
+    build_memory_bytes: int = 4 * 1024**3     # RLIMIT_AS on the build process (the container cap is 3 GB resident)
+    build_cpu_seconds: int = 1200             # RLIMIT_CPU on the build: two cores for the whole job timeout
     max_buildings: int = 20_000
     max_road_points: int = 50_000
     retention_days: int = 30
@@ -64,5 +67,6 @@ class Settings:
         secret = env.get("ALTCHA_SECRET_FILE")
         return cls(data_dir=Path(env["DATA_DIR"]), cors_origins=origins,
                    admin_token_file=Path(token) if token else None, proxy_hops=int(env.get("PROXY_HOPS", "1")),
+                   **({"trusted_proxies": tuple(env["TRUSTED_PROXIES"].split(","))} if env.get("TRUSTED_PROXIES") else {}),
                    altcha_secret_file=Path(secret) if secret else None, altcha_cost=int(env.get("ALTCHA_COST", "5000")),
                    race_min_road_m=int(env.get("RACE_MIN_ROAD_M", "3000")))

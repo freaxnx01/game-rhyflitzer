@@ -38,13 +38,22 @@ def error(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse({"error": code, "message": message}, status_code=status)
 
 
-def client_ip(request: Request, hops: int) -> str:
-    """The address Traefik saw: the hops-th entry from the right of X-Forwarded-For (it appends, never trusts).
-    An IPv6 address is reduced to its /64, because one subscriber controls all 2^64 addresses of it."""
+def _trusted(peer: str, trusted) -> bool:
+    try:
+        address = ipaddress.ip_address(peer)
+    except ValueError:
+        return False
+    return any(address in ipaddress.ip_network(net) for net in trusted)
+
+
+def client_ip(request: Request, hops: int, trusted=Settings.trusted_proxies) -> str:
+    """The address Traefik saw: the hops-th entry from the right of X-Forwarded-For, honoured only when the socket
+    peer is one of our own proxies; any other peer is the client itself. IPv6 is reduced to its /64."""
+    peer = request.client.host if request.client else "unknown"
     forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
-    if hops > 0 and len(forwarded) >= hops:
+    if hops > 0 and len(forwarded) >= hops and _trusted(peer, trusted):
         return _subscriber(forwarded[-hops])
-    return _subscriber(request.client.host) if request.client else "unknown"
+    return _subscriber(peer)
 
 
 def _subscriber(address: str) -> str:
@@ -87,10 +96,31 @@ def snapped(body) -> tuple:
     return rect
 
 
+MAX_BODY = 8192
+
+
+async def read_json(request: Request):
+    """The JSON body, read with a size cap so an anonymous client cannot make us buffer megabytes; ValueError if bad."""
+    if int(request.headers.get("content-length", "0") or 0) > MAX_BODY:
+        raise BodyTooLarge
+    raw = b""
+    async for chunk in request.stream():
+        raw += chunk
+        if len(raw) > MAX_BODY:
+            raise BodyTooLarge
+    return json.loads(raw)
+
+
+class BodyTooLarge(Exception):
+    pass
+
+
 async def create_job(request: Request) -> JSONResponse:
     settings, store = request.app.state.settings, request.app.state.store
     try:
-        body = await request.json()
+        body = await read_json(request)
+    except BodyTooLarge:
+        return error(413, "too-large", "the request body is too large")
     except ValueError:
         return error(400, "bad-request", "the body must be JSON")
     try:
@@ -103,7 +133,7 @@ async def create_job(request: Request) -> JSONResponse:
     ticket = challenge.check(body.get("altcha"), settings)       # judged only if this turns out to be a NEW build
     log.info("Admitting a build of world %s", wid, extra=logs.fields(world=wid, lv95=list(rect)))
     try:
-        address = client_ip(request, settings.proxy_hops)
+        address = client_ip(request, settings.proxy_hops, settings.trusted_proxies)
         row = store.submit(wid, rect, store.ip_hash(address, now), now, settings,
                            prev_ip_hash=store.prev_ip_hash(address, now), gate=human_gate(ticket, now))
     except Refused as exc:
@@ -213,7 +243,14 @@ async def gallery(request: Request) -> JSONResponse:
         store.unset_gallery(wid)
         log.info("Removed world %s from the gallery", wid, extra=logs.fields(world=wid))
         return JSONResponse({"id": wid, "gallery": False})
-    body = await request.json()
+    try:
+        body = await read_json(request)
+    except BodyTooLarge:
+        return error(413, "too-large", "the request body is too large")
+    except ValueError:
+        return error(400, "bad-request", "the body must be JSON")
+    if not isinstance(body, dict):
+        return error(400, "bad-request", "the body must be a JSON object")
     title = str(body.get("title", "")).strip()[:80]
     if not title:
         return error(400, "bad-request", "a title is required")
@@ -234,7 +271,7 @@ async def get_challenge(request: Request) -> JSONResponse:
 
 async def get_preview(request: Request) -> JSONResponse:
     state = request.app.state
-    if not state.limiter.allow(client_ip(request, state.settings.proxy_hops)):
+    if not state.limiter.allow(client_ip(request, state.settings.proxy_hops, state.settings.trusted_proxies)):
         return error(429, "preview-rate-limit", "Too many previews; wait a moment")
     try:
         rect = snapped({"lv95": request.query_params.get("bbox", "").split(",")})

@@ -53,7 +53,9 @@ class Worker:
             log.info("Built world %s in %.0f s (%.1f MB)", wid, seconds, outcome.size / 1e6, extra=fields)
             housekeeping.enforce_cap(self.store, self.settings)
             return
-        if outcome.error == "source-unreachable" and job["attempts"] <= self.settings.source_retries:
+        attempts = job.get("attempts")                      # fail closed: no readable count, no retry
+        if (outcome.error == "source-unreachable" and isinstance(attempts, int)
+                and attempts <= self.settings.source_retries):
             self.store.retry_later(wid, now + self.settings.retry_delay, outcome.message)
             log.warning("Building world %s failed: data source unreachable; retrying in %.0f s", wid,
                         self.settings.retry_delay, extra=fields)

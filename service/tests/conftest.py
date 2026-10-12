@@ -62,4 +62,4 @@ def store(settings):
 def client(settings, store):
     from starlette.testclient import TestClient
     from rhyflitzer_api.app import create_app
-    return TestClient(create_app(settings, store))
+    return TestClient(create_app(settings, store), client=("10.0.0.2", 50000))   # the proxy's address

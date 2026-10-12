@@ -1,3 +1,4 @@
+import time
 import dataclasses
 
 import pytest
@@ -130,3 +131,19 @@ def test_one_at_a_time_holds_across_utc_midnight(store, settings):
         store.submit(wid(2), RECT, store.ip_hash("198.51.100.7", after), after, settings,
                      prev_ip_hash=store.prev_ip_hash("198.51.100.7", after))
     assert (e.value.status, e.value.code) == (429, "one-at-a-time")
+
+
+def test_purge_never_reaches_into_the_current_day(store, settings):
+    now = time.time()
+    h = store.ip_hash("198.51.100.7", now)
+    store.submit(wid(1), RECT, h, now, settings)
+    store.purge_before("9999-12-31")                       # a skewed clock must not wipe today's counters or salt
+    assert builds(store) == 1 and store.ip_hash("198.51.100.7", now) == h
+
+
+def test_a_job_interrupted_over_and_over_fails_for_good(store, settings):
+    store.submit(wid(1), RECT, "a", T0, settings)
+    for _ in range(3):
+        assert store.claim_next(T0)["id"] == wid(1)
+        store.requeue_interrupted()                        # the worker died mid-build, again
+    assert store.get(wid(1))["state"] == "failed" and store.claim_next(T0) is None

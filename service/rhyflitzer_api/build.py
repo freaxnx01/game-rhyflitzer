@@ -12,6 +12,7 @@ from pathlib import Path
 import requests
 
 import frame
+import osmium
 import region
 
 from . import logs
@@ -60,9 +61,37 @@ def parse(argv) -> argparse.Namespace:
     return ap.parse_args(argv)
 
 
+def count_cut(pbf) -> tuple[int, int]:
+    """(building ways, road node references) in the frame's regional cut: a cheap bound known before any terrain."""
+    buildings = points = 0
+    for way in osmium.FileProcessor(str(pbf), osmium.osm.WAY):
+        if "building" in way.tags:
+            buildings += 1
+        elif "highway" in way.tags:
+            points += len(way.nodes)
+    return buildings, points
+
+
+def guard_cut(original, max_buildings: int, max_road_points: int):
+    """Wraps osm_cut.cut so an oversized cut stops the build right there, before the terrain download. The cut is
+    padded and unclipped, so the bound is 1.5x the caps; the exact check on world.json still follows the build."""
+    def cut(extract, bbox, out, workdir):
+        pbf = original(extract, bbox, out, workdir)
+        buildings, points = count_cut(pbf)
+        check_complexity({"buildings": [0] * buildings, "roads": [{"pts": [0] * points}]},
+                         int(max_buildings * 1.5), int(max_road_points * 1.5))
+        return pbf
+    return cut
+
+
 def build(a: argparse.Namespace) -> None:
-    files = region.build_world(tuple(a.lv95), a.out, extract=a.extract, cache=a.cache,
-                               progress=lambda step: emit("STEP", step), tile_cache_bytes=a.tile_cache_bytes)
+    original = region.osm_cut.cut
+    region.osm_cut.cut = guard_cut(original, a.max_buildings, a.max_road_points)
+    try:
+        files = region.build_world(tuple(a.lv95), a.out, extract=a.extract, cache=a.cache,
+                                   progress=lambda step: emit("STEP", step), tile_cache_bytes=a.tile_cache_bytes)
+    finally:
+        region.osm_cut.cut = original
     check_complexity(json.loads(files["world"].read_text("utf-8")), a.max_buildings, a.max_road_points)
 
 
