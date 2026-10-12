@@ -353,7 +353,7 @@ import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceTowar
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from './holzbruecke.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
-import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, onLiftPlatform, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, blendLook, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
+import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, onLiftPlatform, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
 import { eiffelRoom, ROOM_Y, flyAllowed, roomFlyClamp, roomFlyAlt } from './room-eiffel.js';
@@ -831,7 +831,7 @@ else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has 
 const parts = {};
 const UWS = { on: false };   // #101: true while the camera is under the water surface (setUnderwater switches the look)
 // #201: cave mode -- on while the car is under the hill (caveInside); group = the lobby's lights and platform, drawn only then (setCave)
-const CAVE_MODE = { on: false, group: null, k: 0 };
+const CAVE_MODE = { on: false, group: null, dark: null, k: 0 };
 function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.toNonIndexed() : geo); }
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
@@ -1122,6 +1122,20 @@ function hideoutBuild() {
   box(2 * (inner + u.wall), meshH(px, pz) + 1 - (pf + 5), 1.2, px, pf + 5, pz, rot, stone, 'stone', [4, 3], 0);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(6, 0.9), new THREE.MeshBasicMaterial({ map: textTex('RESERVOIR HÜBEL', 1024, 160, '#d8d2c6', '#2a2a2a', '700 110px "Barlow Condensed", sans-serif'), transparent: true }));
   sign.position.set(px - a.ux * 0.62, pf + 5.8, pz - a.uz * 0.62); sign.rotation.y = Math.atan2(-a.ux, -a.uz); signs.add(sign);
+  // the tunnel's local darkness: a black lining just inside T1's walls, floor and roof, opaque by depth (caveBlend), so the scene's light
+  // stays daylight and the opening never goes dark; it goes away when the global cave look takes over (setCave)
+  {
+    const half = inner - 0.05, rows = [], N = Math.ceil((CAVE_SWITCH_IN + 8) / 2), pos = [], col4 = [], idx = [];
+    for (let i = 0; i <= N; i++) {
+      const s = ps + i * 2, cx0 = a.mouth[0] + a.ux * s, cz0 = a.mouth[1] + a.uz * s, f0 = floor(s) + 0.07, alpha = TUNNEL_DARK * caveBlend(i * 2), corners = [];
+      for (const side of [-1, 1]) { const x = cx0 - a.uz * half * side, z = cz0 + a.ux * half * side, top = Math.min(lidTop(x, z), floor(s) + TUNNEL_CEIL + 0.1) - 0.05; corners.push([x, f0, z], [x, top, z]); }
+      for (const c of [corners[0], corners[1], corners[3], corners[2]]) { pos.push(...c); col4.push(0, 0, 0, alpha); }   // BL, TL, TR, BR: a ring
+    }
+    for (let i = 0; i < N; i++) for (let k = 0; k < 4; k++) { const p = i * 4 + k, q = i * 4 + (k + 1) % 4; idx.push(p, q, p + 4, q, q + 4, p + 4); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col4, 4)); g.setIndex(idx);
+    CAVE_MODE.dark = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    CAVE_MODE.dark.renderOrder = 5; CAVE_MODE.dark.frustumCulled = false; CAVE_MODE.dark.name = 'tunnelDark';
+  }
   // floor: gravel down T1 (draped on the cut), over R0 and N1 up to their rings' inner faces, along every corridor (the lobby's floor is lobbyBuild's)
   const [cx, cz] = CAVE.nodes.r0.c;
   ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true);
@@ -1609,7 +1623,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
 const canvas = document.getElementById('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); renderer.outputColorSpace = THREE.SRGBColorSpace;
 { const an = renderer.capabilities.getMaxAnisotropy(); for (const t of Object.values(TEX)) { t.anisotropy = an; t.needsUpdate = true; } }
-const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group);   // #201
+const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group); if (CAVE_MODE.dark) scene.add(CAVE_MODE.dark);   // #201
 // house numbers (#12, OSM addr): camera-facing sprites over the buildings within 60 m of the car; a pool of 40, refilled every 250 ms, one material per number
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0, ticks: 0 };
 if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = terrainH(it.x, it.z) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
@@ -1927,7 +1941,7 @@ const CAVE_FOG = new THREE.FogExp2(col(CAVE_LOOK.fog), CAVE_LOOK.density);
 const DAY_FOG_DENSITY = 0.00094;   // a linear fog 320..1400 m reads like this exp2 density at 700 m
 function dayLook(St) { const f = St.fog(); return { fog: '#' + f.color.getHexString(), density: f.isFogExp2 ? f.density : DAY_FOG_DENSITY, skyTop: St.sky[0], skyHor: St.sky[1], hemiSky: '#' + HEMI_SKY.dry.getHexString(), hemiGround: '#6a5a40', hemi: St.hemi, sun: St.sunI }; }
 function caveLook(St) { const c = CAVE_LOOK; return { fog: c.fog, density: c.density, skyTop: c.fog, skyHor: c.fog, hemiSky: c.hemiSky, hemiGround: c.hemiGround, hemi: c.hemi, sun: St.sunI * c.sunFactor }; }
-function caveK() { return HIDE && caveInside() ? caveBlend(caveDepth(P.x, P.z, HIDE.portal)) : 0; }
+function caveK() { return CAVE_MODE.on ? 1 : 0; }
 function applyCaveLook(k) {
   const St = STYLES[styleKey];
   if (k <= 0) { scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; CAVE_MODE.k = 0; return; }
@@ -1935,8 +1949,8 @@ function applyCaveLook(k) {
   CAVE_FOG.color.set(m.fog); CAVE_FOG.density = m.density; scene.fog = CAVE_FOG; skyMat.uniforms.top.value.set(m.skyTop); skyMat.uniforms.hor.value.set(m.skyHor);
   hemi.color.set(m.hemiSky); hemi.groundColor.set(m.hemiGround); hemi.intensity = m.hemi; sun.intensity = m.sun; CAVE_MODE.k = k;
 }
-function setCave(on, k = caveK()) {
-  CAVE_MODE.on = on; const St = STYLES[styleKey]; if (CAVE_MODE.group) CAVE_MODE.group.visible = on; sunSprite.visible = !on && !UWS.on;
+function setCave(on, k = 1) {
+  CAVE_MODE.on = on; const St = STYLES[styleKey]; if (CAVE_MODE.group) CAVE_MODE.group.visible = on; if (CAVE_MODE.dark) CAVE_MODE.dark.visible = !on; sunSprite.visible = !on && !UWS.on;
   if (on) { sun.castShadow = false; renderer.shadowMap.enabled = false; }
   else { sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; }
   applyCaveLook(on ? k : 0);
@@ -2336,7 +2350,7 @@ window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector
 window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay, visible: l.visible && l.parent.visible, kind: l.userData.kind, target: l.isSpotLight ? l.target.position.toArray() : null, angle: l.angle ?? null, penumbra: l.penumbra ?? null })) : null;
 window.__mm.hideoutRing = () => HIDE && HIDE.ring ? Object.fromEntries(Object.entries(HIDE.ring).map(([id, ring]) => [id, ring.map(r => ({ ...r, wall: TUNNEL.wall }))])) : null;   // #201: { r0, n1 }
 // #201: cave mode as the tests see it; the lights; the last frame's draw calls; the tower; the static map's pixel over (x, z)
-window.__mm.cave = () => ({ inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, k: CAVE_MODE.k, hemi: hemi.intensity, sun: sun.intensity, skyTop: '#' + skyMat.uniforms.top.value.getHexString(), fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || treeCone.visible || FOREST_MESHES.some(f => f.bill.visible || f.cone.visible), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
+window.__mm.cave = () => ({ dark: !!CAVE_MODE.dark && CAVE_MODE.dark.visible, inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, k: CAVE_MODE.k, hemi: hemi.intensity, sun: sun.intensity, skyTop: '#' + skyMat.uniforms.top.value.getHexString(), fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || treeCone.visible || FOREST_MESHES.some(f => f.bill.visible || f.cone.visible), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
 window.__mm.level = () => ({ id: LEVELS.id, grid: OBB_GRID === SURFACE_GRID ? 'surface' : 'room', y: P.y });
 window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, level: LEVELS.id });
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
@@ -2450,7 +2464,7 @@ function stepCar(dt) {
   else { P.splash = 0; P.vy -= 22 * gravityScale(SURP) * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (landingHurts(P.vy)) { const s = impactStrength(-P.vy); crashHit(s); SFX.crash(s); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (LEVELS.isSurface() && !dead && roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump; #105: a wreck does not move the safe spot (the new car comes to the last road position, not wherever the wreck rolled)
   collide(carRadius());
   // #102 / #201: under the hill? cave mode follows the car (#277: the find is the lift ride's, see liftEvent)
-  if (HIDE) { const inside = caveInside(); if (inside !== CAVE_MODE.on) setCave(inside); else if (inside) { const k = caveK(); if (k !== CAVE_MODE.k) applyCaveLook(k); } if (!(ROOM.eiffel && ROOM.eiffel.started) && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }   // the model downloads near the Hübel; the room swaps it in
+  if (HIDE) { const inside = caveInside(), deep = caveSwitch(inside ? caveDepth(P.x, P.z, HIDE.portal) : -Infinity, CAVE_MODE.on); if (deep !== CAVE_MODE.on) setCave(deep); if (!(ROOM.eiffel && ROOM.eiffel.started) && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }   // the model downloads near the Hübel; the room swaps it in
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
@@ -2813,6 +2827,7 @@ function photoDataUrl() {
     photoPending = true;
   });
 }
+window.__mm.photoUrl = photoDataUrl;   // tests: the next rendered frame as a PNG data URL (a page.screenshot starves under SwiftShader)
 function savePhoto(blob) {
   if (!blob) { toast(tr('photoFailed')); return; }
   const url = URL.createObjectURL(blob);

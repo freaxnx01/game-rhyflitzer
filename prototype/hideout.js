@@ -134,6 +134,14 @@ export function caveRoofed(x, z, portal, pad = 0, h = HIDEOUT, u = TUNNEL) {
 // at the portal, the cave look from CAVE_FADE m in. caveDepth = metres past the portal along T1 (Infinity in the rooms and corridors).
 export const CAVE_FADE = 30;
 export function caveBlend(depth, fade = CAVE_FADE) { const t = Math.min(1, Math.max(0, depth / fade)); return t * t * (3 - 2 * t); }
+// The global cave look and the hard switches (forest, sun shadow map, interior group, village labels) cannot fade, so they flip where the portal is far behind
+// and fully fogged: IN metres past the portal going in, OUT metres coming back (hysteresis, no flicker). Both lie past CAVE_FADE,
+// where caveBlend is already 1. depth = caveDepth (Infinity in the rooms), -Infinity outside the cave.
+// the tunnel's own darkness (a lining of the walls, floor and roof with a depth-graded black) grows with caveBlend up to TUNNEL_DARK while the
+// scene's light stays daylight, so the opening is never dark; 1 - TUNNEL_DARK is about the cave look's share of the day light
+export const TUNNEL_DARK = 0.6;
+export const CAVE_SWITCH_IN = 42, CAVE_SWITCH_OUT = 36;
+export function caveSwitch(depth, wasOn) { return depth >= CAVE_SWITCH_IN || (wasOn && depth > CAVE_SWITCH_OUT); }
 export function caveDepth(x, z, portal, h = HIDEOUT, u = TUNNEL) {
   const { s, d } = axisCoords(x, z, h);
   return d <= h.hw + u.margin + u.wall / 2 && s >= portal && s <= h.length - cavernR(h, u) ? s - portal : Infinity;

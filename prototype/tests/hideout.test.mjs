@@ -264,3 +264,25 @@ test('blendLook_EndpointsAreTheTwoLooks_AndTheMiddleIsBetween', () => {
   assert.deepEqual(blendLook(day, cave, 0), day); assert.deepEqual(blendLook(day, cave, 1), cave);
   const m = blendLook(day, cave, 0.5); assert.ok(m.hemi < 0.95 && m.hemi > 0.55); assert.notEqual(m.fog, day.fog); assert.notEqual(m.fog, cave.fog);
 });
+
+// the hard switches (forest, shadow map, interior, labels) happen deep in the tunnel, with hysteresis, not at the portal
+import { caveSwitch, CAVE_SWITCH_IN, CAVE_SWITCH_OUT } from '../hideout.js';
+test('caveSwitch_NearThePortal_NeverFlipsEitherWay', () => {
+  for (let d = -20; d < CAVE_SWITCH_OUT; d += 0.25) { assert.equal(caveSwitch(d, false), false, `in at ${d}`); assert.equal(caveSwitch(d, true), false, `out at ${d}`); }
+  assert.ok(CAVE_SWITCH_OUT >= CAVE_FADE + 5 && CAVE_SWITCH_IN > CAVE_SWITCH_OUT, 'both thresholds lie where caveBlend is already 1');
+});
+test('caveSwitch_DrivingInAndOut_FlipsOnceEachWayAtTheDeepPoint', () => {
+  let on = false, flips = [];
+  for (let d = -10; d <= 90; d += 0.1) { const n = caveSwitch(d, on); if (n !== on) flips.push(['in', d]); on = n; }
+  for (let d = 90; d >= -10; d -= 0.1) { const n = caveSwitch(d, on); if (n !== on) flips.push(['out', d]); on = n; }
+  assert.deepEqual(flips.map(f => f[0]), ['in', 'out']);
+  close(flips[0][1], CAVE_SWITCH_IN, 0.2); close(flips[1][1], CAVE_SWITCH_OUT, 0.2);
+});
+test('caveSwitch_JitterAroundTheThreshold_DoesNotFlicker', () => {
+  let on = false, flips = 0;
+  for (let i = 0; i < 400; i++) { const d = (CAVE_SWITCH_IN + CAVE_SWITCH_OUT) / 2 + Math.sin(i) * 1.5; const n = caveSwitch(d, on); if (n !== on) flips++; on = n; }
+  assert.equal(flips, 0);
+});
+test('caveSwitch_InTheRoomsAndOutsideTheCave_IsOnOrOff', () => {
+  assert.equal(caveSwitch(Infinity, false), true); assert.equal(caveSwitch(-Infinity, true), false);
+});
