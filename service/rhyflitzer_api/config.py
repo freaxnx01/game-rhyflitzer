@@ -32,6 +32,11 @@ class Settings:
     extract_weekday: int = 0                  # Monday
     extract_hour_utc: int = 4
     extract_url: str = "https://download.geofabrik.de/europe/switzerland-latest.osm.pbf"
+    altcha_secret_file: Path | None = None    # HMAC key of the human check (Docker secret); none: fails closed
+    altcha_cost: int = 5000                   # PBKDF2/SHA-256 iterations per try; one try in 256 succeeds
+    altcha_ttl: float = 600.0                 # a challenge, and so its solution, is good for 10 minutes
+    race_min_road_m: int = 3000               # metres of major road in a frame before a race looks feasible
+    preview_per_minute: int = 60
 
     @property
     def db_path(self) -> Path:
@@ -56,5 +61,8 @@ class Settings:
             raise ValueError("DATA_DIR must be set (the volume holding the database, worlds and extract)")
         origins = tuple(o.strip() for o in env.get("CORS_ORIGINS", DEFAULT_ORIGIN).split(",") if o.strip())
         token = env.get("ADMIN_TOKEN_FILE")
+        secret = env.get("ALTCHA_SECRET_FILE")
         return cls(data_dir=Path(env["DATA_DIR"]), cors_origins=origins,
-                   admin_token_file=Path(token) if token else None, proxy_hops=int(env.get("PROXY_HOPS", "1")))
+                   admin_token_file=Path(token) if token else None, proxy_hops=int(env.get("PROXY_HOPS", "1")),
+                   altcha_secret_file=Path(secret) if secret else None, altcha_cost=int(env.get("ALTCHA_COST", "5000")),
+                   race_min_road_m=int(env.get("RACE_MIN_ROAD_M", "3000")))

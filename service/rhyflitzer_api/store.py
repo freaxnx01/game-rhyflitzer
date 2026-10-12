@@ -5,12 +5,15 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import math
 import secrets
 import sqlite3
 import threading
 from pathlib import Path
 
 PERMANENT = ("too-complex",)   # failures a rebuild of the same frame cannot fix
+CELL = 500.0   # roadgrid cell edge in metres (LV95)
+HUMAN_MESSAGE = "The human check did not pass; wait a moment for it to finish and press Build again"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS worlds (
@@ -22,6 +25,9 @@ CREATE INDEX IF NOT EXISTS worlds_queue ON worlds(state, not_before, created);
 CREATE TABLE IF NOT EXISTS builds (day TEXT NOT NULL, ip_hash TEXT NOT NULL, world TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS salts (day TEXT PRIMARY KEY, salt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS used_challenges (signature TEXT PRIMARY KEY, expires REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS roadgrid (cx INTEGER NOT NULL, cy INTEGER NOT NULL, meters INTEGER NOT NULL,
+  PRIMARY KEY (cx, cy)) WITHOUT ROWID;
 """
 REQUEUE = ("INSERT INTO worlds(id, lv95, state, ip_hash, created) VALUES (?, ?, 'queued', ?, ?) "
            "ON CONFLICT(id) DO UPDATE SET state = 'queued', step = NULL, error = NULL, message = NULL, "
@@ -56,6 +62,25 @@ def _check_limits(db, ip_hash: str, day: str, s, prev_ip_hash: str | None = None
         raise Refused(429, "daily-limit", f"At most {s.per_ip_daily} new worlds per day; try again tomorrow")
     if _count(db, "SELECT COUNT(*) FROM builds WHERE day = ?", (day,)) >= s.global_daily:
         raise Refused(429, "server-daily-limit", "The server has built enough worlds today; try again tomorrow")
+
+
+def human_gate(ticket, now: float):
+    """submit()'s gate for a NEW build: spends the ticket (a solved ALTCHA challenge) inside the admission transaction,
+    so a later refusal rolls it back unspent and the same solution never admits two builds."""
+    def gate(db) -> None:
+        if ticket is None:
+            raise Refused(403, "human_check_failed", HUMAN_MESSAGE)
+        db.execute("DELETE FROM used_challenges WHERE expires < ?", (now,))
+        try:
+            db.execute("INSERT INTO used_challenges(signature, expires) VALUES (?, ?)", (ticket.signature, ticket.expires))
+        except sqlite3.IntegrityError:
+            raise Refused(403, "human_check_failed", HUMAN_MESSAGE) from None
+    return gate
+
+
+def joins(row) -> bool:
+    """A request for this world would only join or read it (built, queued, building, permanently failed): free, no human check."""
+    return bool(row) and (row["state"] in ("queued", "building", "ready") or row["error"] in PERMANENT)
 
 
 class Store:
@@ -104,6 +129,9 @@ class Store:
         row = self._q("SELECT salt FROM salts WHERE day = ?", (day_of(now - 86400),))
         return hashlib.sha256(f"{row[0]['salt']}:{ip}".encode()).hexdigest()[:16] if row else None
 
+    def exists(self, wid: str) -> bool:
+        return joins(self.get(wid))
+
     def get(self, wid: str) -> dict | None:
         rows = self._q("SELECT * FROM worlds WHERE id = ?", (wid,))
         return rows[0] if rows else None
@@ -112,13 +140,15 @@ class Store:
         return self._q("SELECT COUNT(*) AS n FROM worlds WHERE state = 'queued' AND "
                        "created <= (SELECT created FROM worlds WHERE id = ?)", (wid,))[0]["n"]
 
-    def submit(self, wid: str, rect, ip_hash: str, now: float, settings, prev_ip_hash: str | None = None) -> dict:
+    def submit(self, wid: str, rect, ip_hash: str, now: float, settings, prev_ip_hash: str | None = None, gate=None) -> dict:
         """The world's row: as it is when built, queued, building or permanently failed (free); otherwise queued
         as a new build after the limits allow it. Raises Refused."""
         def admit(db):
             row = db.execute("SELECT * FROM worlds WHERE id = ?", (wid,)).fetchone()
-            if row and (row["state"] in ("queued", "building", "ready") or row["error"] in PERMANENT):
+            if joins(row):
                 return dict(row)
+            if gate is not None:
+                gate(db)
             _check_limits(db, ip_hash, day_of(now), settings, prev_ip_hash)
             db.execute(REQUEUE, (wid, json.dumps(list(rect)), ip_hash, now))
             db.execute("INSERT INTO builds(day, ip_hash, world) VALUES (?, ?, ?)", (day_of(now), ip_hash, wid))
@@ -190,6 +220,21 @@ class Store:
 
     def unset_gallery(self, wid: str) -> None:
         self._x("UPDATE worlds SET gallery = 0 WHERE id = ?", (wid,))
+
+    def replace_roadgrid(self, rows) -> None:
+        def swap(db):
+            db.execute("DELETE FROM roadgrid")
+            db.executemany("INSERT INTO roadgrid(cx, cy, meters) VALUES (?, ?, ?)", rows)
+        self._tx(swap)
+
+    def major_meters(self, rect) -> int | None:
+        """Metres of major road in the cells whose centre lies inside the frame; None while there is no index."""
+        if not self._q("SELECT 1 AS x FROM roadgrid LIMIT 1"):
+            return None
+        e0, n0, e1, n1 = rect
+        return self._q("SELECT COALESCE(SUM(meters), 0) AS m FROM roadgrid WHERE cx BETWEEN ? AND ? AND cy BETWEEN ? AND ?",
+                       (math.ceil(e0 / CELL - 0.5), math.floor(e1 / CELL - 0.5),
+                        math.ceil(n0 / CELL - 0.5), math.floor(n1 / CELL - 0.5)))[0]["m"]
 
     def counts(self) -> dict:
         return {r["state"]: r["n"] for r in self._q("SELECT state, COUNT(*) AS n FROM worlds GROUP BY state")}

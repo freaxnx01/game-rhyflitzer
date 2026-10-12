@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "pipeline"), str(ROOT / "service")]
 
+import altcha  # noqa: E402
 import pytest  # noqa: E402
 
 from rhyflitzer_api.config import Settings  # noqa: E402
@@ -35,7 +36,20 @@ def add_ready(store, settings, wid, *, size=1000, finished=T0, played=None, gall
 
 @pytest.fixture
 def settings(tmp_path):
-    return Settings(data_dir=tmp_path)
+    key = tmp_path / "altcha.secret"
+    key.write_text("test-key", encoding="utf-8")
+    return Settings(data_dir=tmp_path, altcha_secret_file=key, altcha_cost=1)
+
+
+def solve(doc: dict) -> str:
+    """The payload a browser would send for this challenge document."""
+    challenge = altcha.Challenge.from_dict(doc)
+    return altcha.Payload(challenge, altcha.solve_challenge(challenge)).to_base64()
+
+
+def human(client) -> str:
+    """A fresh, valid human-check payload from the app under test."""
+    return solve(client.get("/api/challenge").json())
 
 
 @pytest.fixture

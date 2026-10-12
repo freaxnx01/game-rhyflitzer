@@ -13,9 +13,11 @@ import re
 import sqlite3
 import time
 
+import requests
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
@@ -23,9 +25,9 @@ from starlette.routing import Route
 import frame
 import region
 
-from . import logs
+from . import challenge, logs, preview
 from .config import Settings
-from .store import Refused, Store
+from .store import Refused, Store, human_gate
 
 log = logging.getLogger("rhyflitzer.api")
 WORLD_ID = re.compile(r"^[0-9a-f]{12}$")
@@ -78,6 +80,13 @@ def job_view(store: Store, row: dict) -> dict:
     return view
 
 
+def snapped(body) -> tuple:
+    """The snapped, checked LV95 frame of a request; raises frame.FrameError, or ValueError/TypeError when malformed."""
+    rect = frame.snap(*parse_rect(body))
+    frame.check(rect)
+    return rect
+
+
 async def create_job(request: Request) -> JSONResponse:
     settings, store = request.app.state.settings, request.app.state.store
     try:
@@ -85,18 +94,18 @@ async def create_job(request: Request) -> JSONResponse:
     except ValueError:
         return error(400, "bad-request", "the body must be JSON")
     try:
-        rect = frame.snap(*parse_rect(body))
-        frame.check(rect)
+        rect = snapped(body)
     except frame.FrameError as exc:
         return error(400, exc.code, str(exc))
     except (TypeError, ValueError):
         return error(400, "bad-bbox", BBOX_HELP)
     wid, now = frame.world_id(rect, region.PIPELINE_VERSION), time.time()
+    ticket = challenge.check(body.get("altcha"), settings)       # judged only if this turns out to be a NEW build
     log.info("Admitting a build of world %s", wid, extra=logs.fields(world=wid, lv95=list(rect)))
     try:
         address = client_ip(request, settings.proxy_hops)
         row = store.submit(wid, rect, store.ip_hash(address, now), now, settings,
-                           prev_ip_hash=store.prev_ip_hash(address, now))
+                           prev_ip_hash=store.prev_ip_hash(address, now), gate=human_gate(ticket, now))
     except Refused as exc:
         log.info("Refused a build of world %s: %s", wid, exc.code, extra=logs.fields(world=wid, code=exc.code))
         return error(exc.status, exc.code, str(exc))
@@ -213,7 +222,34 @@ async def gallery(request: Request) -> JSONResponse:
     return JSONResponse({"id": wid, "gallery": True, "title": title})
 
 
+async def get_challenge(request: Request) -> JSONResponse:
+    log.debug("Issuing a human-check challenge")
+    try:
+        doc = challenge.issue(request.app.state.settings, time.time())
+    except challenge.Unavailable as exc:
+        log.error("Could not issue a human-check challenge: %s", exc)
+        return error(503, "human-check-unavailable", "The human check is not available right now")
+    return JSONResponse(doc, headers={"Cache-Control": "no-store"})
+
+
+async def get_preview(request: Request) -> JSONResponse:
+    state = request.app.state
+    if not state.limiter.allow(client_ip(request, state.settings.proxy_hops)):
+        return error(429, "preview-rate-limit", "Too many previews; wait a moment")
+    try:
+        rect = snapped({"lv95": request.query_params.get("bbox", "").split(",")})
+    except frame.FrameError as exc:
+        return error(400, exc.code, str(exc))
+    except (TypeError, ValueError):
+        return error(400, "bad-bbox", "give bbox=e0,n0,e1,n1 in LV95")
+    wid = frame.world_id(rect, region.PIPELINE_VERSION)
+    return JSONResponse(await run_in_threadpool(preview.describe, state.store, state.settings, rect, wid,
+                                                time.gmtime().tm_year, state.get, state.names))
+
+
 ROUTES = [
+    Route("/api/challenge", get_challenge, methods=["GET"]),
+    Route("/api/preview", get_preview, methods=["GET"]),
     Route("/api/jobs", create_job, methods=["POST"]),
     Route("/api/jobs/{wid}", get_job, methods=["GET"]),
     Route("/api/worlds/{wid}", world_status, methods=["GET"]),
@@ -222,7 +258,7 @@ ROUTES = [
 ]
 
 
-def create_app(settings: Settings | None = None, store: Store | None = None) -> Starlette:
+def create_app(settings: Settings | None = None, store: Store | None = None, get=requests.get) -> Starlette:
     if settings is None:
         logs.setup()
         settings = Settings.from_env()
@@ -231,6 +267,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None) -> 
                       allow_headers=["Content-Type"])
     app = Starlette(routes=ROUTES, middleware=[cors])
     app.state.settings, app.state.store = settings, store
+    app.state.get, app.state.names, app.state.limiter = get, {}, preview.Limiter(settings.preview_per_minute)
     log.info("API ready", extra=logs.fields(data=str(settings.data_dir), origins=list(settings.cors_origins)))
     return app
 

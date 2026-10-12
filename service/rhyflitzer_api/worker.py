@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 
-from . import extract, housekeeping, logs, runner
+from . import extract, housekeeping, logs, roadgrid, runner
 from .config import Settings
 from .store import Store
 
@@ -27,6 +27,7 @@ class Worker:
         self.store.kv_set("worker_heartbeat", str(now))
         housekeeping.run_due(self.store, self.settings, now)
         extract.run_due(self.store, self.settings, now)
+        roadgrid.run_due(self.store, self.settings, now)
 
     def run_once(self) -> bool:
         """Builds the next due job; False when there is none (or no extract yet), so the loop can idle."""

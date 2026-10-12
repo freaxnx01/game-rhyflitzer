@@ -3,14 +3,14 @@ from starlette.requests import Request
 
 import frame
 import region
-from conftest import RECT, ip
+from conftest import RECT, human, ip
 from rhyflitzer_api.app import client_ip
 
 WID = frame.world_id(RECT, region.PIPELINE_VERSION)
 
 
 def test_post_queues_a_new_world_and_get_reports_it(client):
-    r = client.post("/api/jobs", json={"lv95": list(RECT)}, headers=ip(1))
+    r = client.post("/api/jobs", json={"lv95": list(RECT), "altcha": human(client)}, headers=ip(1))
     assert r.status_code == 202
     job = r.json()
     assert (job["id"], job["state"], job["position"], job["lv95"]) == (WID, "queued", 1, list(RECT))
@@ -18,7 +18,8 @@ def test_post_queues_a_new_world_and_get_reports_it(client):
 
 
 def test_same_frame_is_one_job_snapped_and_from_lonlat(client):
-    a = client.post("/api/jobs", json={"lv95": [2667010, 1259740, 2669240, 1261760]}, headers=ip(1)).json()
+    a = client.post("/api/jobs", json={"lv95": [2667010, 1259740, 2669240, 1261760], "altcha": human(client)},
+                    headers=ip(1)).json()
     b = client.post("/api/jobs", json={"lonlat": list(frame.lonlat_bbox(RECT))}, headers=ip(2)).json()
     assert a["id"] == b["id"] == WID
 
@@ -50,8 +51,9 @@ def test_body_that_is_not_json(client):
 
 
 def test_limits_reach_the_client(client):
-    client.post("/api/jobs", json={"lv95": list(RECT)}, headers=ip(1))
-    r = client.post("/api/jobs", json={"lv95": [2667000, 1259750, 2669000, 1261750]}, headers=ip(1))
+    client.post("/api/jobs", json={"lv95": list(RECT), "altcha": human(client)}, headers=ip(1))
+    r = client.post("/api/jobs", json={"lv95": [2667000, 1259750, 2669000, 1261750], "altcha": human(client)},
+                    headers=ip(1))
     assert r.status_code == 429 and r.json()["error"] == "one-at-a-time"
 
 
