@@ -4,11 +4,22 @@
 
 **Goal:** `editor/index.html` on GitHub Pages: a swisstopo map with a draggable, resizable frame (1 × 1 to 4 × 4 km, snapped to 250 m in LV95, inside Switzerland), the world's name and a "free driving only" note before building, **Build** → job polling with the queue position and the build steps → **Drive!** (`../?world=<id>`), share link, **Download world**; a plain sentence for every API failure; de/en via the shared `i18n.js`; works at 360 px.
 
-**Architecture:** Pure ES modules first — `editor/geo.js` (LV95 ↔ WGS84, snap, clamp, move/resize, `?bbox=`, rectangle-inside-outline), `editor/api.js` (the single `API_BASE`, URLs, `parseJob`, `errorKey`, `pollDelay`, `gemeindeName`), `editor/strings.js` (en/de) — all `node --test`ed. `editor/frame.js` is the Leaflet overlay (drag body, 4 corner handles, keyboard) that only emits `commit(rect)`. `editor/editor.js` is the page's state machine (`edit → submitting → queued/building → done | failed`) and renders the panel with `textContent` only. Leaflet 1.9.4 is vendored under `vendor/leaflet/`. Browser behaviour is pinned by Playwright against stubbed WMTS, geo.admin, outline and API routes.
+**Architecture:** Pure ES modules first — `editor/geo.js` (LV95 ↔ WGS84, snap, clamp, move/resize, `?bbox=`, rectangle-inside-outline), `editor/api.js` (the single `API_BASE`, URLs, `parseJob`, `errorKey`, `pollDelay`, `gemeindeName`), `editor/strings.js` (en/de) — all `node --test`ed. `editor/frame.js` is the Leaflet overlay (drag body, 4 corner handles, keyboard) that only emits `commit(rect)`. `editor/editor.js` is the page's state machine (`edit → submitting → queued/building → done | failed`) and renders the panel with `textContent` only. Leaflet 1.9.4 is vendored under `vendor/leaflet/`. Browser behaviour is pinned by Playwright against stubbed WMTS, geo.admin, outline and API routes. The host, the world-id check and the zip packing are the game's own: `editor/api.js` re-exports `WORLD_HOST` as `API_BASE` and `isWorldId`, and `editor.js` imports `packWorldZip`, all from `prototype/worlds.js` (#167).
 
 **Tech Stack:** vanilla JS ES modules, Leaflet 1.9.4 (vendored), swisstopo WMTS, `node --test`, pytest + Playwright (existing `prototype/tests/conftest.py` server fixture).
 
 **Spec:** `docs/superpowers/specs/2026-10-10-region-editor-page-design.md` (this phase) on top of `docs/superpowers/specs/2026-10-09-region-editor-design.md` (sections 1, 2, 4, 5).
+
+**Refreshed 2026-10-12** against the merged phase 2 (#167, PR #274: `prototype/worlds.js`, `zip.js`, `WORLD_HOST`, `EDITOR_URL`) and phase 3 (#168, PR #293: the `service/` package, README operator steps). What changed from the 2026-10-10 version, so the implementer does not re-derive it:
+
+- The editor no longer owns the API host, the world-id check or the zip packing: `API_BASE` is `WORLD_HOST` from `prototype/worlds.js`, `isWorldId` and `packWorldZip` are imported from there (static import; the "until #167 is merged" fallback and the test `skipif` are gone). `checkFiles` is not used for the download: the zip is the server's own output, the game validates on load, and the Playwright stub files stay trivial.
+- `pipeline/ch_outline.geojson` is merged (#166, 90 kB, LV95 Feature): no generate-it-yourself branch in Task 0.
+- Error codes (A5) were compared with `service/rhyflitzer_api/app.py`, `store.py` and `build.py`: the table held, with these corrections. `413 too-large` exists (falls to `errServer`); a permanent failure (`too-complex`) answers a `POST` with `202` and `state: "failed"` (the page must show it, not poll); a failed job can carry `outside-ch` / `bad-bbox` / `too-small` / `too-big` (the pipeline's own frame check), now mapped in `failKey`; the build emits the steps `cutting`, `terrain`, `world`, `places`, `done` and never `race` (`places` is shown as "Race and places").
+- A `POST` for a world that is queued or building answers `202`, for a built one `200` (both with the job view, no human check), for an expired one it is a new build and needs the solution.
+- One test input in `editor-geo.test.mjs` was wrong in the first version (`snapRect` of `1259875`, exactly half a cell, rounds up to `1260000`, not `1259750`): fixed here, run against the code of Task 2 on 2026-10-12.
+- Tests: `node --test prototype/tests/*.test.mjs` per task and at the end, plus ONE Playwright file, `prototype/tests/test_editor.py`; commands run from the repo root with `python3 -m pytest`. CHANGELOG entries are timestamped. `test-todo.md` goes straight to `main` in its own commit, not into the PR.
+
+Where this plan and the spec differ (the spec still says phases 1 to 3 are open and keeps the old A6 and A9), **this plan wins**.
 
 ## Global Constraints
 
@@ -16,12 +27,12 @@
 - **Never the public OSM tile servers or Overpass.** Tiles come from `wmts.geo.admin.ch`, names from `api3.geo.admin.ch` (both free, `© swisstopo`).
 - **The human check runs only when the player presses Build** (#168 requires an ALTCHA solution on `POST /api/jobs` for a NEW build, nothing else): `GET /api/challenge` → solved in the widget's Web Workers → `"altcha": <payload>` in the POST body. Never at page load, on frame moves, for the preview or while polling, **nor when the preview said `exists: true`** (the world is built or queued: the POST goes without `altcha`; if the server still answers `403`, e.g. the world expired meanwhile, one human check and a second POST follow). No cookies (`credentials: 'omit'`), no third party, no visual puzzle; the status text comes from `editor/strings.js` (en/de), the widget itself is `display="invisible"`.
 - **`textContent` only for data** (names, reasons, ids, anything from the API, geo.admin or the URL). The page has no `innerHTML` with a variable in it (#176).
-- **One API constant.** `API_BASE` in `editor/api.js`; every URL is built by a function there. Nothing else knows the host.
+- **One API constant.** `API_BASE` in `editor/api.js` is `WORLD_HOST` from `prototype/worlds.js` (#167), so the host is written once in the repo; every URL is built by a function in `editor/api.js`. Nothing else knows the host.
 - Strings go through `t(key, ...args)` from `editor/strings.js`; `en` and `de` have the same keys, Swiss spelling (no `ß`). Re-render on `gg-langchange`.
 - `prototype/`, `pipeline/`, `data/` are not modified (tests are added under `prototype/tests/` only). Do not touch `index.html` at the root.
-- Tests: node `node --test prototype/tests/editor-*.test.mjs`. Playwright: `cd pipeline && systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_editor.py -q -x` — **foreground only, never `run_in_background`**; exit 137 = memory cap, stop and report. Without `systemd-run --user` (CI) drop the prefix. Venv setup if missing: `cd pipeline && python3 -m venv .venv && ./.venv/bin/pip install -r requirements-dev.txt && ./.venv/bin/python -m playwright install chromium`. Only this test file, never the full suite.
+- Tests: node `node --test prototype/tests/editor-*.test.mjs` while working on a task, `node --test prototype/tests/*.test.mjs` at the end (existing expectations unchanged). Playwright, from the repo root: `systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 python3 -m pytest prototype/tests/test_editor.py -q -x` — **foreground only, never `run_in_background`**; exit 137 = memory cap, stop and report, never raise the cap. Without `systemd-run --user` (CI) drop the prefix. If `python3` lacks Playwright: `pipeline/.venv/bin/python` of the main checkout has it (`python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && .venv/bin/python -m playwright install chromium` in `pipeline/`). ONE Playwright file, no other Playwright runs, no repeat runs "to be safe".
 - Commit after every task, Conventional Commits, explicit `git add <paths>` (never `-A`). Push the branch **before** the Playwright run in Task 7.
-- CHANGELOG `[Unreleased]` / Added entry in the player's voice (Task 7). `test-todo.md` gets a playtest section (Task 7).
+- CHANGELOG `[Unreleased]` / Added entry in the player's voice, **timestamped** in Swiss local time (`TZ=Europe/Zurich date '+%F %H:%M'`), 1-3 bold keywords, newest first (Task 7). `test-todo.md` gets a playtest section in its own commit pushed straight to `main` (repo rule for that one file), not in the PR (Task 7).
 
 ## Review Focus
 
@@ -29,12 +40,14 @@
 - **Snapping happens on release**, not during the drag (`ghost` rect while moving, `commit` on `pointerup`/key). `__ed.rect()` is always a multiple of 250 and 1000–4000 m a side.
 - **LV95 rectangle, not a Mercator box:** the polygon uses the 4 LV95 corners (slightly rotated against the screen in eastern Switzerland); the handles sit on the projected corners, the `.body` on their bounding box. Do not "fix" the rotation.
 - **Outline with a hole:** Büsingen and Campione are holes in `ch_outline.geojson`. `rectInside` must return `false` when a hole lies entirely inside the frame (vertex-inside-rect check), not only when a corner is in the hole.
-- **`parseJob` maps #168's job view** `{id, state, step, position?, error, message, lv95}` onto the page's status (`state` ∈ queued, building, ready, failed, expired; `step` ∈ cutting, terrain, world, places, race, done; `places` and `done` count as `race`) and throws on an unknown `state` — the page shows `errServer` then, never a blank panel.
+- **`parseJob` maps #168's job view** `{id, state, step, position?, error, message, lv95, files?}` onto the page's status (`state` ∈ queued, building, ready, failed, expired; `step` ∈ cutting, terrain, world, places, done while building, `null` right after the worker claimed the job; `places` and `done` count as `race`) and throws on an unknown `state` — the page shows `errServer` then, never a blank panel. A `POST` can already answer `202` with `state: "failed"` (a permanent `too-complex` failure of the same frame): `applyJob` shows it at once and starts no polling.
 - **Done from `POST`:** a cached world answers `200` with `state: "ready"` on the POST itself; the page must not start polling an id it already knows is done.
 - **Disabled Build:** while the outline is loading, while outside Switzerland, and while submitting.
 - **#167's entry point:** `../editor.html?bbox=2666500,1257750,2670000,1261750` from `prototype/` must land on the editor with that frame. The root `editor.html` keeps `location.search` in its redirect, exactly like the root `index.html:9`. Whole metres only; the value is snapped and validated (`parseBbox`), junk falls back to the default frame.
 - **Progress is polled at `GET /api/jobs/<id>`** (`state`, `step`, `position`); `/api/worlds/<id>` is #167's tombstone (`status`, `bbox`) with no progress, so the page never reads it. `POST /api/jobs` starts a build. `expired` is a valid state, shown like a failed build. Name and race for the done card come from `GET /worlds/<id>/meta.json` (`name`, `race`); **Download world** packs the three files in the browser with #167's `packWorldZip` (#168 has no zip route).
 - **Human check:** `GET /api/challenge` is requested only after Build is pressed (`test_the_human_check_runs_only_when_build_is_pressed_and_shows_its_state`); a `403 human_check_failed` is retried **once** with a fresh challenge, then shown as `errHuman` (`test_a_refused_solution_is_retried_once_with_a_fresh_challenge`, the 403 row of the error table); a fresh `<altcha-widget>` element per attempt, removed afterwards, so no state leaks between attempts.
+- **Error codes** are the merged ones: `400` `outside-ch` / `too-small` / `too-big` / `bad-bbox` / `bad-request`, `403` `human_check_failed`, `413` `too-large` (→ `errServer`), `429` `one-at-a-time` / `daily-limit` / `server-daily-limit` (and `preview-rate-limit` on the preview, which stays silent), `503` `busy` (and `human-check-unavailable` on the challenge → `errServer`), job errors `too-complex` / `source-unreachable` / `timeout` / `build-failed` (plus the frame codes). Anything else falls to `errServer` or `errBuildFailed`, never a blank panel.
+- **Download counts as a play:** `world.json` is the server's play signal (`no-cache`, `lastPlayed`), so **Download world** renews the 30 days of that world. Harmless; do not add a second request to avoid it.
 - **Preview shape:** `GET /api/preview` answers `{id, exists, name, gemeinden, raceOk, reason?}` (#168); `raceOk` is `true`, `false` or `null` (no index yet), and only `false` shows the free-driving note; `exists` (built or queued) lets Build skip the human check (`parsePreview`). The server stays authoritative: a POST without a solution for a new world is `403`.
 
 ---
@@ -48,7 +61,7 @@
 - Create: `editor.html` (root redirect stub for #167's `../editor.html?bbox=` link), `editor/index.html`, `editor/editor.css` (Task 4)
 - Create: `editor/frame.js` (Task 5); `editor/human.js` (Task 6); `editor/editor.js` (Tasks 4–6)
 - Create: `prototype/tests/test_editor.py` (Task 7)
-- Modify: `CHANGELOG.md`, `test-todo.md`, `README.md` (one line) (Task 7)
+- Modify: `CHANGELOG.md`, `README.md` (one line) (Task 7); `test-todo.md` straight on `main` after the merge
 
 ---
 
@@ -60,11 +73,11 @@
 
 ```bash
 git fetch origin && git checkout -b feature/169-region-editor-page origin/main
-test -f pipeline/ch_outline.geojson && echo "166-OUTLINE-PRESENT" || echo "166-OUTLINE-MISSING"
+for f in prototype/worlds.js prototype/zip.js service/rhyflitzer_api/app.py pipeline/ch_outline.geojson; do test -f $f || echo "MISSING $f"; done
 node --version   # 20+
 ```
 
-- **166-OUTLINE-MISSING:** the page fetches `../pipeline/ch_outline.geojson` at runtime and the tests stub it, so nothing here blocks. For a manual check in a browser, generate it once with the 20-line `pipeline/ch_outline.py` from the #166 plan (`docs/superpowers/plans/2026-10-09-region-editor-phase1.md`, Task 1 Step 3) but **do not commit it in this PR** — #166 owns it. If #166 has merged meanwhile, use its file.
+All four files exist on `main` (#166, #167, #168 are merged). If one is reported missing, stop and report: this phase imports `prototype/worlds.js` and reads `pipeline/ch_outline.geojson` at runtime, and the API it talks to is #168's. The tests stub the outline and the API, so they never need a network.
 
 ---
 
@@ -177,8 +190,8 @@ stateDiagram-v2
     Submitting --> Verifying: 403 human_check_failed (once: fresh challenge)
     Submitting --> Queued: 202 {id, state queued, position}
     Submitting --> Done: 200 {state ready} (same frame built before)
-    Submitting --> Failed: 400 / 403 (twice) / 429 / 503 / network → errorKey
-    Queued --> Building: poll says state building (step cutting | terrain | world | places | race)
+    Submitting --> Failed: 400 / 403 (twice) / 429 / 503 / network → errorKey, or 202 {state failed} → failKey
+    Queued --> Building: poll says state building (step cutting | terrain | world | places)
     Queued --> Queued: poll every 2 s (5 s after 60 s), position updates
     Building --> Building: poll, step advances
     Building --> Done: state ready → meta.json {name, race}
@@ -282,7 +295,7 @@ test('LV95 <-> WGS84: Bern origin and Ehrendingen within 1.5 m, round trip withi
 test('snapRect: each edge to the nearest 250 m, corners ordered', () => {
   assert.deepEqual(snapRect([2667010, 1259760, 2668990, 1261740]), EHR);
   assert.deepEqual(snapRect([2669000, 1261750, 2667000, 1259750]), EHR);
-  assert.deepEqual(snapRect([2667124, 1259875, 2668876, 1261625]), [2667000, 1259750, 2669000, 1261750]);
+  assert.deepEqual(snapRect([2667124, 1259874, 2668876, 1261625]), [2667000, 1259750, 2669000, 1261750]);   // 1261625 is exactly half a cell: rounds up
 });
 
 test('clampRect: sides forced into 1-4 km, the fixed corner stays', () => {
@@ -448,7 +461,7 @@ export function rectInside(rect, geojson) {
 - Test: `prototype/tests/editor-api.test.mjs`, `prototype/tests/editor-strings.test.mjs`
 
 **Interfaces:**
-- `api.js`: `API_BASE`, `GAME_URL`, `WMTS_URL`, `WMTS_ATTRIBUTION`, `jobsUrl()`, `challengeUrl()`, `parsePreview(json) -> {name, raceOk, id, exists}`, `jobUrl(id)`, `previewUrl(rect)`, `fileUrl(id, name)`, `metaUrl(id)`, `parseMeta(json) -> {name, race}`, `shareUrl(id)`, `driveUrl(id)`, `identifyUrl([E, N], year)`, `isWorldId(s)`, `STATUSES`, `STEPS`, `parseJob(json) -> {id, status, position, reason}`, `errorKey(httpStatus, body) -> key`, `failKey(reason) -> key`, `pollDelay(elapsedMs)`, `gemeindeName(identifyJson) -> string | null`.
+- `api.js`: `API_BASE` (= `WORLD_HOST` of `prototype/worlds.js`), `GAME_URL`, `WMTS_URL`, `WMTS_ATTRIBUTION`, `jobsUrl()`, `challengeUrl()`, `parsePreview(json) -> {name, raceOk, id, exists}`, `jobUrl(id)`, `previewUrl(rect)`, `fileUrl(id, name)`, `metaUrl(id)`, `parseMeta(json) -> {name, race}`, `shareUrl(id)`, `driveUrl(id)`, `identifyUrl([E, N], year)`, `isWorldId(s)`, `STATUSES`, `STEPS`, `parseJob(json) -> {id, status, position, reason}`, `errorKey(httpStatus, body) -> key`, `failKey(reason) -> key`, `pollDelay(elapsedMs)`, `gemeindeName(identifyJson) -> string | null`.
 - `strings.js`: `STRINGS = {en, de}`, `translate(lang, key, ...args)`.
 
 - [ ] **Step 1: Write the failing tests** — `prototype/tests/editor-api.test.mjs`:
@@ -457,12 +470,14 @@ export function rectInside(rect, geojson) {
 // #169: the editor's API contract (phase 3, #168) as pure functions. node --test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { WORLD_HOST } from '../worlds.js';
 import { API_BASE, GAME_URL, WMTS_URL, jobsUrl, challengeUrl, parsePreview, parseMeta, jobUrl, fileUrl, metaUrl, previewUrl, shareUrl, driveUrl, identifyUrl, isWorldId, STATUSES, STEPS, parseJob, errorKey, failKey, pollDelay, gemeindeName } from '../../editor/api.js';
 
 const ID = '0123456789ab', EHR = [2667000, 1259750, 2669000, 1261750];
 
 test('URLs: everything hangs off the one API_BASE; the share link is the game root; Drive is relative', () => {
   assert.match(API_BASE, /^https:\/\/[^/]+$/);
+  assert.equal(API_BASE, WORLD_HOST);   // one host in the repo: the game's
   assert.equal(GAME_URL, 'https://github.freaxnx01.ch/game-rhyflitzer/');
   assert.equal(jobsUrl(), `${API_BASE}/api/jobs`);
   assert.equal(challengeUrl(), `${API_BASE}/api/challenge`);
@@ -490,7 +505,7 @@ test('parseJob: maps #168 state + step onto the page status, throws on an unknow
   const job = (o) => ({ id: ID, state: 'queued', step: null, error: null, message: null, lv95: EHR, ...o });
   assert.deepEqual(parseJob(job({ position: 3 })), { id: ID, status: 'queued', position: 3, reason: null });
   assert.equal(parseJob(job({ state: 'building' })).status, 'cutting');   // no STEP line yet
-  for (const [step, status] of [['cutting', 'cutting'], ['terrain', 'terrain'], ['world', 'world'], ['places', 'race'], ['race', 'race'], ['done', 'race']]) {
+  for (const [step, status] of [['cutting', 'cutting'], ['terrain', 'terrain'], ['world', 'world'], ['places', 'race'], ['done', 'race']]) {   // the build never emits 'race' itself
     assert.equal(parseJob(job({ state: 'building', step })).status, status, step);
   }
   assert.equal(parseJob(job({ state: 'ready', step: 'done', files: `/worlds/${ID}/` })).status, 'done');
@@ -518,9 +533,12 @@ test('errorKey: HTTP status + #168 error code -> string key; failKey: a failed j
   assert.equal(errorKey(429, null), 'errRateLimit');
   assert.equal(errorKey(503, { error: 'busy' }), 'errBusy');
   assert.equal(errorKey(503, { error: 'human-check-unavailable' }), 'errServer');
-  for (const s of [0, 500, 502, 404, 418]) assert.equal(errorKey(s, null), 'errServer', String(s));
+  for (const s of [0, 500, 502, 404, 413, 418]) assert.equal(errorKey(s, null), 'errServer', String(s));
+  assert.equal(errorKey(413, { error: 'too-large' }), 'errServer');
   assert.equal(failKey('too-complex'), 'errTooComplex');
   assert.equal(failKey('source-unreachable'), 'errSource');
+  assert.equal(failKey('outside-ch'), 'errOutsideCh');   // the pipeline's own frame check can fail a build
+  for (const r of ['too-big', 'too-small', 'bad-bbox']) assert.equal(failKey(r), 'errBadFrame', r);
   for (const r of ['timeout', 'build-failed', 'anything', null, 'expired']) assert.equal(failKey(r), 'errBuildFailed', String(r));
 });
 
@@ -590,17 +608,18 @@ test('translate picks the language, falls back to English, then to the key; name
 
 ```js
 // #169: the editor's side of the build API (phase 3, #168) and the swisstopo/geo.admin endpoints. Pure: node --test imports it.
-// API_BASE is the ONE place that knows the host (confirmed 2026-10-10: rhyflitzer-api.freaxnx01.ch).
+// API_BASE is the game's WORLD_HOST (#167, prototype/worlds.js): the ONE place that knows the host, shared with the game.
 import { formatBbox } from './geo.js';
+import { WORLD_HOST, isWorldId } from '../prototype/worlds.js';
 
-export const API_BASE = 'https://rhyflitzer-api.freaxnx01.ch';
+export { isWorldId };
+export const API_BASE = WORLD_HOST;
 export const GAME_URL = 'https://github.freaxnx01.ch/game-rhyflitzer/';
 export const WMTS_URL = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg';
 export const WMTS_ATTRIBUTION = '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>';   // Leaflet's attribution control, own constant
 export const STATUSES = ['queued', 'cutting', 'terrain', 'world', 'race', 'done', 'failed', 'expired'];   // the page's view of #168's state + step
 export const STEPS = STATUSES.slice(0, 6);
 
-export const isWorldId = (s) => typeof s === 'string' && /^[0-9a-f]{12}$/.test(s);   // pipeline frame.world_id (#166)
 function checkId(id) { if (!isWorldId(id)) throw new Error(`bad world id: ${String(id)}`); return id; }
 
 export const jobsUrl = () => `${API_BASE}/api/jobs`;
@@ -626,7 +645,7 @@ const str = (v) => (typeof v === 'string' ? v : null);
 export const parsePreview = (json) => ({ name: str(json && json.name), raceOk: json && typeof json.raceOk === 'boolean' ? json.raceOk : null,
   id: json && isWorldId(json.id) ? json.id : null, exists: !!json && json.exists === true && isWorldId(json.id) });
 
-const BUILDING = new Map([['cutting', 'cutting'], ['terrain', 'terrain'], ['world', 'world'], ['places', 'race'], ['race', 'race'], ['done', 'race']]);   // #168 step -> page status
+const BUILDING = new Map([['cutting', 'cutting'], ['terrain', 'terrain'], ['world', 'world'], ['places', 'race'], ['done', 'race']]);   // #168 step -> page status (the build never emits 'race')
 const STATE = new Map([['queued', 'queued'], ['ready', 'done'], ['failed', 'failed'], ['expired', 'expired']]);
 
 // #168's job view {id, state, step, position?, error, message, lv95, files?} -> the page's status; throws on an unknown state.
@@ -643,14 +662,16 @@ export const parseMeta = (json) => ({ name: str(json && json.name), race: json &
 
 export function errorKey(httpStatus, body) {   // #168 answers {error: "<code>", message}
   const code = body && typeof body.error === 'string' ? body.error : '';
-  if (httpStatus === 400) return code === 'outside-ch' ? 'errOutsideCh' : 'errBadFrame';   // too-big, too-small, bad-bbox, bad-request
+  if (httpStatus === 400) return code === 'outside-ch' ? 'errOutsideCh' : 'errBadFrame';   // too-big, too-small, bad-bbox, bad-request (413 too-large falls to errServer)
   if (httpStatus === 403) return 'errHuman';   // human_check_failed
   if (httpStatus === 429) return code === 'one-at-a-time' ? 'errOneAtATime' : code === 'server-daily-limit' ? 'errServerDaily' : 'errRateLimit';   // daily-limit
   if (httpStatus === 503 && code === 'busy') return 'errBusy';   // human-check-unavailable is a server problem, not "busy"
   return 'errServer';
 }
 
-export function failKey(reason) {
+export function failKey(reason) {   // a failed job's error: build.py classify() gives too-complex, source-unreachable, build-failed, or a frame code
+  if (reason === 'outside-ch') return 'errOutsideCh';
+  if (reason === 'too-big' || reason === 'too-small' || reason === 'bad-bbox') return 'errBadFrame';
   if (reason === 'too-complex') return 'errTooComplex';
   if (reason === 'source-unreachable') return 'errSource';
   return 'errBuildFailed';
@@ -938,7 +959,7 @@ applyStaticStrings(); render(); loadOutline();
 window.__ed = { rect: () => S.rect.slice(), state: () => S.state, setRect: (r) => commit(r), commit, map, centre: () => centre(S.rect) };
 ```
 
-- [ ] **Step 4: Check in a browser by hand** — `python3 -m http.server 8000` at the repo root, open `http://localhost:8000/editor/`: the swisstopo map of Switzerland, the yellow 2 × 2 km polygon at Ehrendingen, the panel with size and `…`, Build disabled (no outline file yet → „Loading the map of Switzerland…" stays, that is expected without #166's file; with the file: enabled). Resize to 360 px: single column, nav at the bottom, no horizontal scroll. EN/DE toggle switches the panel texts. Console: the outline 404 warning only.
+- [ ] **Step 4: Check in a browser by hand** — `python3 -m http.server 8000` at the repo root, open `http://localhost:8000/editor/`: the swisstopo map of Switzerland, the yellow 2 × 2 km polygon at Ehrendingen, the panel with size and `…`, Build enabled once the outline has loaded (`pipeline/ch_outline.geojson`, 90 kB). Resize to 360 px: single column, nav at the bottom, no horizontal scroll. EN/DE toggle switches the panel texts. Console: no errors (the API calls fail quietly without a network: the name stays `…`).
 
 Also open `http://localhost:8000/editor.html?bbox=2666500,1257750,2670000,1261750` — it must land on `/editor/?bbox=2666500,1257750,2670000,1261750`.
 
@@ -1112,6 +1133,7 @@ The widget's methods exist only after its `load` event, hence the listener. If a
 ```js
 import { jobsUrl, jobUrl, fileUrl, metaUrl, shareUrl, driveUrl, parseJob, parseMeta, errorKey, failKey, pollDelay } from './api.js';
 import { solveHuman, HumanCheckError } from './human.js';
+import { packWorldZip } from '../prototype/worlds.js';   // #167
 
 let pollTimer = 0;
 
@@ -1139,7 +1161,7 @@ async function build() {
   }
 }
 
-function applyJob(job, startedAt) {
+function applyJob(job, startedAt) {   // job.status 'failed' also arrives from the POST itself (a permanent too-complex failure: 202 + state failed)
   S.job = job;
   if (job.status === 'done') { S.state = 'done'; clearTimeout(pollTimer); loadMeta(job.id); return render(); }
   if (job.status === 'failed' || job.status === 'expired') return fail(failKey(job.reason || job.status));
@@ -1172,7 +1194,6 @@ async function fetchOk(url) { const r = await fetch(url); if (!r.ok) throw new E
 async function downloadWorld(e) {   // #168 has no zip route: fetch the three files and pack them with #167's packWorldZip
   e.preventDefault(); const id = S.job && S.job.id; if (!id) return;
   try {
-    const { packWorldZip } = await import('../prototype/worlds.js');   // #167
     const [worldText, metaText] = await Promise.all([fetchOk(fileUrl(id, 'world.json')).then((r) => r.text()), fetchOk(metaUrl(id)).then((r) => r.text())]);
     const terrain = await fetchOk(fileUrl(id, 'terrain.mmh')).then((r) => r.arrayBuffer());
     const a = document.createElement('a');
@@ -1243,9 +1264,9 @@ Add `job: () => S.job` to `window.__ed`. The `renderEdit` guard `S.state !== 'ed
 
 **Files:**
 - Create: `prototype/tests/test_editor.py`
-- Modify: `CHANGELOG.md` (`[Unreleased]` / Added), `test-todo.md`, `README.md` (one line under the region editor bullet)
+- Modify: `CHANGELOG.md` (`[Unreleased]` / Added), `README.md` (one line under the region editor bullet); `test-todo.md` separately on `main`
 
-- [ ] **Step 1: Write `prototype/tests/test_editor.py`** (stubbed routes; the API host comes from `editor/api.js` so the test reads it from the file):
+- [ ] **Step 1: Write `prototype/tests/test_editor.py`** (stubbed routes; the API host is the game's `WORLD_HOST`, read from `prototype/worlds.js`):
 
 ```python
 """#169: the region editor page against stubbed WMTS tiles, geo.admin identify, the Switzerland outline and the build API.
@@ -1262,7 +1283,7 @@ import pytest
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).parents[2]
-API = re.search(r"API_BASE = '([^']+)'", (ROOT / "editor" / "api.js").read_text(encoding="utf-8")).group(1)
+API = re.search(r"WORLD_HOST = '([^']+)'", (ROOT / "prototype" / "worlds.js").read_text(encoding="utf-8")).group(1)   # the one host constant, #167
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
 EHR = [2667000, 1259750, 2669000, 1261750]
 ID = "0123456789ab"
@@ -1430,6 +1451,8 @@ def test_cached_world_is_done_at_once_and_free_driving_is_said(server):
     ((503, {"error": "busy"}), [], "The server is busy right now. Try again in a few minutes."),
     ((500, {}), [], "The server is not reachable. Check your connection and try again."),
     ((202, job("queued", position=1)), [(200, job("failed", error="too-complex"))], "Too many buildings or roads in this frame. Try a smaller one."),
+    ((202, job("failed", error="too-complex")), [], "Too many buildings or roads in this frame. Try a smaller one."),   # the same frame failed before: the POST itself says so, no polling
+    ((413, {"error": "too-large"}), [], "The server is not reachable. Check your connection and try again."),
     ((202, job("queued", position=1)), [(200, job("failed", error="source-unreachable"))], "A data source is not reachable right now. Try again later."),
     ((202, job("queued", position=1)), [(200, job("failed", error="timeout"))], "The build failed. Try a different frame."),
     ((202, job("queued", position=1)), [(200, job("expired"))], "The build failed. Try a different frame."),
@@ -1519,7 +1542,6 @@ def test_an_existing_world_that_expired_meanwhile_gets_one_human_check_and_a_sec
     assert errs == [] and api.challenges == 1 and len(api.posts) == 2 and "altcha" not in api.posts[0] and "altcha" in api.posts[1]
 
 
-@pytest.mark.skipif(not (ROOT / "prototype" / "worlds.js").exists(), reason="#167 (prototype/worlds.js) is not merged yet")
 def test_download_packs_the_three_files_into_a_zip(server):
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, Api(post=(200, job("ready", "done"))))
@@ -1534,10 +1556,11 @@ def test_download_packs_the_three_files_into_a_zip(server):
     assert names == ["LICENSE-ODbL.txt", "meta.json", "terrain.mmh", "world.json"] and world == FILES["world.json"]
 
 
-def test_no_preview_endpoint_means_no_warning_before_the_build(server):
+@pytest.mark.parametrize("preview", [(404, {}), (429, {"error": "preview-rate-limit"}), (200, {"id": ID, "exists": False, "name": None, "gemeinden": [], "raceOk": None, "reason": "no-road-index"})])
+def test_no_usable_preview_means_no_warning_before_the_build(server, preview):
     with sync_playwright() as p:
-        b, page, errs = open_page(p, server, Api(preview=(404, {})))
-        page.wait_for_function("() => document.querySelector('#name').textContent.includes('Ehrendingen')", timeout=20000)
+        b, page, errs = open_page(p, server, Api(preview=preview))
+        page.wait_for_function("() => document.querySelector('#name').textContent.includes('Ehrendingen')", timeout=20000)   # the name comes from geo.admin, not from the preview
         warn = page.evaluate("() => document.querySelector('#warn').hidden")
         b.close()
     assert errs == [] and warn is True
@@ -1564,21 +1587,21 @@ def test_phone_layout_de(server):
 - [ ] **Step 3: Run the tests (foreground)**
 
 ```bash
-node --test prototype/tests/editor-*.test.mjs
-cd pipeline && systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 ./.venv/bin/python -m pytest ../prototype/tests/test_editor.py -q -x
+node --test prototype/tests/*.test.mjs
+systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 python3 -m pytest prototype/tests/test_editor.py -q -x
 ```
 
 Fix the implementation (never the assertions) until green. If a drag test is flaky because Leaflet is still animating `fitBounds`, open the page with `?bbox=` (the fixture does) and add `map.fitBounds(..., { animate: false })` in `editor.js` — a product improvement, not a test weakening. If the memory cap kills it (137), stop and report.
 
 - [ ] **Step 4: CHANGELOG, test-todo, README**
 
-`CHANGELOG.md`, `[Unreleased]` / Added, first bullet:
+`CHANGELOG.md`, `[Unreleased]` / Added, first bullet, prefixed with the time it goes live, Swiss local time (`` `YYYY-MM-DD HH:MM` `` from `TZ=Europe/Zurich date '+%F %H:%M'`, taken when the entry is written):
 
 ```markdown
-- A **region editor** at `/editor/`: a map of Switzerland from swisstopo with a yellow frame you drag anywhere and pull to any size from 1 × 1 to 4 × 4 km. It shows the name of the place and warns you when there are too few roads for a race. **Build** first runs a quick check on your device that you are not a bot (no cookies, no puzzle), then sends the frame to the server, you watch the queue and the build steps, and about two minutes later **Drive!** takes you there; a link lets friends drive the same world, and **Download world** keeps it. In German and English, also on the phone.
+- `2026-10-12 21:00` A **region editor** at `/editor/`: a map of Switzerland from swisstopo with a yellow frame you drag anywhere and pull to any size from 1 × 1 to 4 × 4 km. It shows the name of the place and warns you when there are too few roads for a race. **Build** first runs a quick check on your device that you are not a bot (no cookies, no puzzle), then sends the frame to the server, you watch the queue and the build steps, and about two minutes later **Drive!** takes you there; a link lets friends drive the same world, and **Download world** keeps it. In German and English, also on the phone.
 ```
 
-`test-todo.md`, a new section after the heading block:
+`test-todo.md` (repo rule for this one file: **not in the PR**; after the merge, one commit pushed straight to `main`), a new section after the heading block:
 
 ```markdown
 ## Region editor (#169)
@@ -1589,7 +1612,8 @@ Needs the build API (#168) online; otherwise everything up to Build, and the "se
 - [ ] Drag the frame: it follows the finger as a dashed ghost and snaps when released; the URL's `bbox` changes. Pull a corner: the opposite corner stays, 4 km is the maximum, 1 km the minimum.
 - [ ] Move the frame over Büsingen, over Lake Constance, over Liechtenstein: it turns red, „The frame must lie entirely inside Switzerland", Build is grey.
 - [ ] The name under the size is the Gemeinde at the centre (try Ehrendingen, Baden, Zürich).
-- [ ] Build: „Checking you're human…" for about a second (never at page load or while moving the frame), then the queue position, then the steps light up in turn; Drive! opens the game in the world; the share link works in another browser; Download gives a zip (needs #167). Build the same frame again: no „Checking you're human…“, it goes straight to the world.
+- [ ] The Hochrhein of the game's start screen is untouched; the expired-world panel's „Build it again?" opens `/editor/` with that world's frame.
+- [ ] Build: „Checking you're human…" for about a second (never at page load or while moving the frame), then the queue position, then the steps light up in turn; Drive! opens the game in the world; the share link works in another browser; Download gives a zip that **Load world file** in the game opens again. Build the same frame again: no „Checking you're human…“, it goes straight to the world.
 - [ ] Rate limit (6th build in a day) and a busy server show their sentence; Change the frame keeps the frame.
 - [ ] EN/DE toggle at the bottom switches every text at once; 360 px phone: one column, nothing cut off.
 ```
@@ -1599,24 +1623,24 @@ Needs the build API (#168) online; otherwise everything up to Build, and the "se
 - [ ] **Step 5: Commit, push, PR**
 
 ```bash
-git add CHANGELOG.md test-todo.md README.md && git commit -m "docs(editor): changelog entry, playtest list and README line for the region editor (#169)"
+git add CHANGELOG.md README.md && git commit -m "docs(editor): changelog entry and README line for the region editor (#169)"
 git push
 gh pr create --base main --title "feat(ui): region editor page with swisstopo map and frame (editor phase 4)" --body-file - <<'EOF'
 ## Summary
 `editor/index.html`: swisstopo map (vendored Leaflet 1.9.4), draggable/resizable LV95 frame snapped to 250 m (1–4 km, inside Switzerland), name + free-driving preview, Build → polling → Drive!/share/download, every API error as a sentence, de/en, 360 px.
 
-Closes #169. Depends on the API of #168 (contract in the spec); works stand-alone up to Build.
+Closes #169. Talks to the merged API of #168 and reuses `prototype/worlds.js` of #167; works stand-alone up to Build. The first real build through this page is operator step 7 of `service/README.md`.
 
 ## Changes
 - `editor/` (geo, api, strings, frame, human, editor), root `editor.html` redirect (#167 links `../editor.html?bbox=`), `vendor/leaflet/`, `vendor/altcha/` (ALTCHA 3.3.0, MIT, sha256 checked), `docs/design/region-editor/`
-- Progress polled at `GET /api/jobs/<id>` (#168); name and race from `meta.json`; Download packs the three files with #167's `packWorldZip`; `POST /api/jobs` starts a build, without a solution when the preview says the world exists
+- Progress polled at `GET /api/jobs/<id>` (#168); name and race from `meta.json`; Download packs the three files with #167's `packWorldZip`; the API host is `WORLD_HOST` from `prototype/worlds.js`; `POST /api/jobs` starts a build, without a solution when the preview says the world exists
 - `prototype/tests/editor-*.test.mjs`, `prototype/tests/test_editor.py`
-- CHANGELOG, test-todo, README
+- CHANGELOG, README (the `test-todo.md` section follows on `main`)
 
 ## Testing
 - node: `node --test prototype/tests/editor-*.test.mjs`
 - Playwright: `prototype/tests/test_editor.py` (stubbed WMTS/geo.admin/outline/API)
-- Manual: see `test-todo.md` → Region editor
+- Manual: the Region editor section of `test-todo.md` (added on `main` after the merge)
 
 ## Checklist
 - [x] tests pass · [x] no new vulnerable deps (Leaflet 1.9.4 BSD-2, ALTCHA 3.3.0 MIT, sha256 checked) · [x] no secrets · [x] `textContent` for all data (#176)
