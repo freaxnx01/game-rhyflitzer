@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-10-12 21:40` In the **Eiffel room** the helicopter now really climbs: hold **Space** and it rises steadily (about 15 m per second) to the top of the tower in under 20 seconds, up to the ceiling; **Shift** brings it back down. Before, it crept up only about half a metre per second.
+
 ### Added
 
 - `2026-10-12 21:05` In the **Eiffel room** you can now take off with **F** and fly around and under the tower. The room has its own sky, so the helicopter stays inside the ring of trees and below a ceiling above the tower top; **F** again sets the car down on the meadow, and the lift still takes you home. In the tunnel and the lift lobby there is still no sky to take off into.

@@ -48,7 +48,10 @@ export function eiffelRoom(lift = LIFT) {
 // 25 m inside the half width (the tree rows stand at 6 and 12 m) and a ceiling 420 m over the floor (the tower is 330 m).
 export const ROOM_FLY = { wall: ROOM_HALF - 25, ceiling: 420 };
 export const flyAllowed = (level, zone) => zone !== 'lift' && (level === 'eiffel' || (level === 'surface' && zone === 'open'));
+export const roomFlyCeiling = (cfg = ROOM_FLY) => ROOM_Y + cfg.ceiling;
+// The target altitude is limited by the ceiling itself, never by the (lagging) current height: clamping it to y pinned the climb at ~0.5 m/s.
+export const roomFlyAlt = (alt, cfg = ROOM_FLY) => Math.min(alt, roomFlyCeiling(cfg));
 export function roomFlyClamp(x, y, z, room = eiffelRoom(), cfg = ROOM_FLY) {
   const [cx, cz] = room.centre, c = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  return { x: c(x, cx - cfg.wall, cx + cfg.wall), y: Math.min(y, ROOM_Y + cfg.ceiling), z: c(z, cz - cfg.wall, cz + cfg.wall) };
+  return { x: c(x, cx - cfg.wall, cx + cfg.wall), y: Math.min(y, roomFlyCeiling(cfg)), z: c(z, cz - cfg.wall, cz + cfg.wall) };
 }

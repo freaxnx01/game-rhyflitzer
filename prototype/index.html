@@ -356,7 +356,7 @@ import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpa
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, onLiftPlatform, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, blendLook, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
-import { eiffelRoom, ROOM_Y, flyAllowed, roomFlyClamp } from './room-eiffel.js';
+import { eiffelRoom, ROOM_Y, flyAllowed, roomFlyClamp, roomFlyAlt } from './room-eiffel.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -2274,7 +2274,7 @@ function buildPontoonMeshes(d) {
 }
 function updatePontoonMeshes(d) { if (!PONTOON.group) return; PONTOON.group.children.forEach((bay, i) => { bay.visible = bayVisible(d, i); bay.position.y = bayDrop(d, i); }); }
 function freePontoon() { if (!PONTOON.group) return; PONTOON.group.traverse(o => o.geometry?.dispose()); scene.remove(PONTOON.group); PONTOON.group = null; }
-function stepFly(dt) { const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; if (!LEVELS.isSurface()) { const c = roomFlyClamp(P.x, P.y, P.z, ROOM.layout); P.x = c.x; P.z = c.z; P.y = c.y; FLY.alt = Math.min(FLY.alt, c.y); }
+function stepFly(dt) { const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; if (!LEVELS.isSurface()) { const c = roomFlyClamp(P.x, P.y, P.z, ROOM.layout); P.x = c.x; P.z = c.z; P.y = c.y; FLY.alt = roomFlyAlt(FLY.alt); }
   heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; flames.visible = false; }
 // test hooks (prototype/tests): put the car somewhere and read its state
 window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; restShadow(); };
