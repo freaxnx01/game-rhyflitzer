@@ -700,6 +700,12 @@ export function villageLabels(villages, x, z) {
   return out.sort((a, b) => a.d - b.d);
 }
 
+// #228: the minimap names every village at its place node; a hand-placed anchor label stays only if it is not a village (RHEIN, HOLZBRÜCKE)
+export function minimapNames(villages, anchorLabels) {
+  const own = new Set(villages.map(v => v.t));
+  return [...villages.map(({ t, x, z }) => ({ t, x, z })), ...anchorLabels.filter(l => !own.has(l.t)).map(({ t, x, z }) => ({ t, x, z }))];
+}
+
 // #73: the national border runs in the Rhine. It is every #48 Gemeinde line between one German Gemeinde (BORDER_DE, the
 // admin_level=8 relations with a de:amtlicher_gemeindeschluessel) and a Swiss one, joined into one polyline. Names from the
 // other bank are hidden, except within VILLAGE_BANK_FADE metres of the border (on the river and its bridges).

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
 import { sampled, trisHeightAt } from '../world.js';
 
@@ -221,6 +221,14 @@ test('villageLabels: only visible names, nearest first', () => {
   assert.deepEqual(got[0], { t: 'MID', x: 0, z: 1500, d: 1500, opacity: 1, h: 90 });
   assert.ok(Math.abs(got[1].opacity - 0.5) < 1e-9);
   assert.deepEqual(villageLabels([], 0, 0), []);
+});
+
+test('minimapNames: all villages, anchor labels only when not a village name', () => {
+  const villages = [{ t: 'STEIN', x: 1, z: 2, r: 450 }, { t: 'MÜNCHWILEN', x: 3, z: 4, r: 350 }];
+  const anchors = [{ t: 'STEIN', x: 9, z: 9 }, { t: 'RHEIN', x: 5, z: 6 }];
+  assert.deepEqual(minimapNames(villages, anchors), [
+    { t: 'STEIN', x: 1, z: 2 }, { t: 'MÜNCHWILEN', x: 3, z: 4 }, { t: 'RHEIN', x: 5, z: 6 },
+  ]);
 });
 
 test('VILLAGES: eighteen uppercase names inside the world, the issue\'s four included', () => {
