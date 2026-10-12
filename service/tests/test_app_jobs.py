@@ -131,3 +131,13 @@ def test_a_world_id_with_a_trailing_newline_is_not_an_id(client):
     from conftest import add_ready
     assert client.get("/api/jobs/0123456789ab%0A").status_code == 404
     assert client.get("/worlds/0123456789ab%0A/world.json").status_code == 404
+
+
+@pytest.mark.parametrize("body", [
+    {"lv95": [10**400, 1259750, 2669250, 1261750]},                 # float() overflows
+    {"lonlat": [8.3, 47.4, 8.4, 95.0]},                             # latitude beyond the pole projects to inf
+])
+def test_numbers_that_do_not_project_are_a_bad_bbox_not_a_500(client, body):
+    r = client.post("/api/jobs", json=body, headers=ip(1))
+    assert r.status_code == 400 and r.json()["error"] == "bad-bbox"
+    assert client.get("/api/preview?bbox=" + ",".join(["1" * 400, "2", "3", "4"])).status_code == 400

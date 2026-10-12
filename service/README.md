@@ -29,6 +29,7 @@ In the `mydocker-compose` repo; the operator adds it, this repo does not.
     mem_limit: 512m
     environment:
       - CORS_ORIGINS=https://github.freaxnx01.ch
+      - TRUSTED_PROXIES=172.18.0.0/16   # the `web` network's subnet (docker network inspect web); only Traefik may set X-Forwarded-For
       - ALTCHA_SECRET_FILE=/run/secrets/rhyflitzer_altcha_secret
     secrets:
       - rhyflitzer_altcha_secret
@@ -86,7 +87,7 @@ Under the file's top-level `secrets:`: `rhyflitzer_admin_token: {file: "./secret
 `SUBDOMAIN_RHYFLITZER_API=rhyflitzer-api`. (Volume path: follow the file's existing convention if it differs from `./data/...`.)
 
 The client address comes from the rightmost `X-Forwarded-For` entry, and only when the socket peer is one of
-`TRUSTED_PROXIES` (default: loopback and the private ranges, i.e. Traefik on the Docker network); any other peer is the
+`TRUSTED_PROXIES` (set it explicitly to the `web` network's subnet or Traefik's IP; the default of loopback plus all private ranges is wider than needed; a bad value stops the boot); any other peer is the
 client itself. IPv6 clients are counted per /64.
 
 ## Operator checklist
@@ -97,7 +98,11 @@ client itself. IPv6 clients are counted per /64.
 
 [ ] **3.** Generate the ALTCHA key (`openssl rand -hex 32`), save it in Passbolt as "rhyflitzer altcha secret", write it to `production/vserver/secrets/rhyflitzer_altcha_secret.secret` on ionos1.
 
-[ ] **4.** Add the `rhyflitzer-api`, `rhyflitzer-worker` and `rhyflitzer-admin` services (no Traefik label or rule for admin) and the secrets `rhyflitzer_admin_token` and `rhyflitzer_altcha_secret` from this README to `production/vserver/docker-compose.yml`.
+[ ] **4.** `chown -R 10001 ./data/rhyflitzer` and make the two secret files readable by uid 10001 (the container runs non-root).
+
+[ ] **4b.** Set `TRUSTED_PROXIES` in the `rhyflitzer-api` block to Traefik's `web` subnet (`docker network inspect web`).
+
+[ ] **4c.** Add the `rhyflitzer-api`, `rhyflitzer-worker` and `rhyflitzer-admin` services (no Traefik label or rule for admin) and the secrets `rhyflitzer_admin_token` and `rhyflitzer_altcha_secret` from this README to `production/vserver/docker-compose.yml`.
 
 [ ] **5.** Create the Cloudflare A record `rhyflitzer-api.freaxnx01.ch` -> `82.165.65.143`, unproxied (homelab-service-routing skill, "VPS-DE").
 

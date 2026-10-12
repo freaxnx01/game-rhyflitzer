@@ -19,8 +19,8 @@ TILE_COLLECTIONS = ("swisssurface3d", "swissalti3d")
 
 def _remove(store, settings, wid: str, reason: str) -> None:
     log.info("Removing world %s: %s", wid, reason, extra=logs.fields(world=wid, reason=reason))
+    store.mark_expired(wid)                                 # first: readers then answer "expired", never a half-deleted folder
     shutil.rmtree(settings.worlds_dir / wid, ignore_errors=True)
-    store.mark_expired(wid)
     log.info("Removed world %s", wid, extra=logs.fields(world=wid))
 
 

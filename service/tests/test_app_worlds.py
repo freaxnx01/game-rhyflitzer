@@ -96,3 +96,9 @@ def test_admin_pins_and_unpins_a_ready_world(admin, store, settings):
     r = admin.put(f"/api/admin/gallery/{WID}", json={"title": "Lägern", "description": "Ridge road"}, headers=auth)
     assert r.status_code == 200 and (store.get(WID)["gallery"], store.get(WID)["title"]) == (1, "Lägern")
     assert admin.delete(f"/api/admin/gallery/{WID}", headers=auth).status_code == 200 and store.get(WID)["gallery"] == 0
+
+
+def test_a_world_whose_folder_vanishes_mid_request_is_expired_not_a_500(client, store, settings):
+    add_ready(store, settings, WID)                       # ready in the store, no files on disk: the eviction race
+    r = client.get(f"/worlds/{WID}/terrain.mmh")
+    assert r.status_code == 404 and r.json()["error"] == "expired"

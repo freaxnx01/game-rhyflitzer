@@ -48,3 +48,10 @@ def test_formatter_includes_the_exception():
 
 def test_fields_is_the_extra_dict():
     assert logs.fields(world="w", code="busy") == {"fields": {"world": "w", "code": "busy"}}
+
+
+def test_trusted_proxies_are_stripped_normalised_and_a_bad_value_fails_the_boot(tmp_path):
+    env = {"DATA_DIR": str(tmp_path), "TRUSTED_PROXIES": " 10.0.0.5/24 , 172.18.0.2 "}
+    assert Settings.from_env(env).trusted_proxies == ("10.0.0.0/24", "172.18.0.2/32")
+    with pytest.raises(ValueError):
+        Settings.from_env({**env, "TRUSTED_PROXIES": "10.0.0.0/8,not-a-network"})

@@ -141,3 +141,13 @@ def test_failed_update_is_tried_again_at_most_hourly(store, settings):
     extract.run_due(store, s, at(10, 12) + 600, down, lambda x: None)
     extract.run_due(store, s, at(10, 13) + 1, down, lambda x: None)
     assert len(calls) == 2
+
+
+def test_a_world_is_marked_expired_before_its_folder_is_deleted(store, settings, monkeypatch):
+    add_ready(store, settings, "0123456789ab", files=True)
+    seen = []
+    real = housekeeping.shutil.rmtree
+    monkeypatch.setattr(housekeeping.shutil, "rmtree",
+                        lambda p, **kw: (seen.append(store.get("0123456789ab")["state"]), real(p, **kw)))
+    housekeeping._remove(store, settings, "0123456789ab", "test")
+    assert seen == ["expired"]

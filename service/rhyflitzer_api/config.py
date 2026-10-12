@@ -3,10 +3,16 @@ design's table (spec section 2) and change only with a code review."""
 from __future__ import annotations
 
 import os
+import ipaddress
 from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_ORIGIN = "https://github.freaxnx01.ch"
+
+
+def parse_networks(text: str) -> tuple[str, ...]:
+    """Comma-separated addresses or CIDRs, stripped and normalised; ValueError on a bad entry, so the boot fails."""
+    return tuple(str(ipaddress.ip_network(part.strip(), strict=False)) for part in text.split(",") if part.strip())
 
 
 @dataclass(frozen=True)
@@ -67,6 +73,6 @@ class Settings:
         secret = env.get("ALTCHA_SECRET_FILE")
         return cls(data_dir=Path(env["DATA_DIR"]), cors_origins=origins,
                    admin_token_file=Path(token) if token else None, proxy_hops=int(env.get("PROXY_HOPS", "1")),
-                   **({"trusted_proxies": tuple(env["TRUSTED_PROXIES"].split(","))} if env.get("TRUSTED_PROXIES") else {}),
+                   **({"trusted_proxies": parse_networks(env["TRUSTED_PROXIES"])} if env.get("TRUSTED_PROXIES") else {}),
                    altcha_secret_file=Path(secret) if secret else None, altcha_cost=int(env.get("ALTCHA_COST", "5000")),
                    race_min_road_m=int(env.get("RACE_MIN_ROAD_M", "3000")))

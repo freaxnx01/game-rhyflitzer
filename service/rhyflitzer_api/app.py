@@ -3,6 +3,7 @@ the admin gallery. Run: uvicorn rhyflitzer_api.app:create_app --factory."""
 from __future__ import annotations
 
 import datetime as dt
+import functools
 import ipaddress
 import hmac
 import json
@@ -38,12 +39,17 @@ def error(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse({"error": code, "message": message}, status_code=status)
 
 
+@functools.lru_cache(maxsize=8)
+def _networks(trusted: tuple) -> tuple:
+    return tuple(ipaddress.ip_network(net, strict=False) for net in trusted)
+
+
 def _trusted(peer: str, trusted) -> bool:
     try:
         address = ipaddress.ip_address(peer)
     except ValueError:
         return False
-    return any(address in ipaddress.ip_network(net) for net in trusted)
+    return any(address in net for net in _networks(tuple(trusted)))
 
 
 def client_ip(request: Request, hops: int, trusted=Settings.trusted_proxies) -> str:
@@ -73,10 +79,16 @@ def parse_rect(body) -> tuple[float, float, float, float]:
     if not isinstance(body, dict) or not ({"lv95", "lonlat"} & body.keys()):
         raise ValueError(BBOX_HELP)
     key = "lv95" if "lv95" in body else "lonlat"
-    values = [float(v) for v in body[key]]
+    try:
+        values = [float(v) for v in body[key]]
+    except OverflowError:
+        raise ValueError(BBOX_HELP) from None
     if len(values) != 4 or not all(math.isfinite(v) for v in values):
         raise ValueError(BBOX_HELP)
-    return tuple(values) if key == "lv95" else frame.from_lonlat(*values)
+    rect = tuple(values) if key == "lv95" else frame.from_lonlat(*values)
+    if not all(math.isfinite(v) for v in rect):
+        raise ValueError(BBOX_HELP)
+    return rect
 
 
 def job_view(store: Store, row: dict) -> dict:
@@ -215,10 +227,13 @@ async def world_file(request: Request) -> Response:
     row = store.get(wid)
     if row is None or row["state"] != "ready":
         return world_missing(row)
+    path = settings.worlds_dir / wid / name
+    if not path.is_file():                                  # eviction deleted the folder after the row was read
+        return world_missing({"state": "expired"})
     if name == PLAY_SIGNAL:
         note_played(store, settings, wid)
     media, cache = FILES[name]
-    return FileResponse(settings.worlds_dir / wid / name, media_type=media, headers={"Cache-Control": cache})
+    return FileResponse(path, media_type=media, headers={"Cache-Control": cache})
 
 
 def is_admin(request: Request, settings: Settings) -> bool:
