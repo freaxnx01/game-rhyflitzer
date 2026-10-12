@@ -130,6 +130,22 @@ export function caveRoofed(x, z, portal, pad = 0, h = HIDEOUT, u = TUNNEL) {
   if (roomAt(x, z, u.wall + pad, u) || corridorAt(x, z, pad, u)) return true;
   const { s, d } = axisCoords(x, z, h); return d <= h.hw + u.margin + u.wall / 2 + pad && s >= portal && s <= h.length;
 }
+// the cave light fades in over the first CAVE_FADE m past the portal (and out again driving back), not at one step: the day look
+// at the portal, the cave look from CAVE_FADE m in. caveDepth = metres past the portal along T1 (Infinity in the rooms and corridors).
+export const CAVE_FADE = 30;
+export function caveBlend(depth, fade = CAVE_FADE) { const t = Math.min(1, Math.max(0, depth / fade)); return t * t * (3 - 2 * t); }
+export function caveDepth(x, z, portal, h = HIDEOUT, u = TUNNEL) {
+  const { s, d } = axisCoords(x, z, h);
+  return d <= h.hw + u.margin + u.wall / 2 && s >= portal && s <= h.length - cavernR(h, u) ? s - portal : Infinity;
+}
+const hexRgb = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+const lerpHex = (a, b, k) => '#' + hexRgb(a).map((v, i) => Math.round(v * (1 - k) + hexRgb(b)[i] * k).toString(16).padStart(2, '0')).join('');
+// a look is { name: '#rrggbb' | number }: the same keys in both, each mixed on its own; the ends are returned as they are
+export function blendLook(a, b, k) {
+  if (k <= 0) return { ...a }; if (k >= 1) return { ...b };
+  const out = {}; for (const key of Object.keys(a)) out[key] = typeof a[key] === 'string' ? lerpHex(a[key], b[key], k) : a[key] * (1 - k) + b[key] * k;
+  return out;
+}
 // where no tree and no forest-edge wall may stand: the open trench and T1's corridor with 10 m to spare, up to R0 (the forest
 // stands on the lid over the rest of the system, #201)
 export function inHideout(x, z, h = HIDEOUT) { const { s, d } = axisCoords(x, z, h); return d <= 10 && s >= -4 && s <= h.length - cavernR(h) + 6; }

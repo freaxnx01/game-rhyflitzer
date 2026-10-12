@@ -71,3 +71,22 @@ test('setTimes_ShortensTheRideForTests', () => {
   const l = createLift(); l.setTimes({ dwell: 0.1, close: 0.1, ride: 0.2, open: 0.1 });
   const ev = run(l, 1, STOP, 0.02).map(e => e.type); assert.deepEqual(ev, ['start', 'switch', 'done']);
 });
+
+// the shaft wall must slide past the car the other way from the ride: three.js samples the texture at uv + offset, so a growing
+// offset.y moves the pattern DOWN on screen -- riding down needs it to shrink (the pattern rises past the car), riding up to grow.
+import { shaftScrollDelta } from '../lift.js';
+test('shaftScrollDelta_RidingDown_ShrinksTheOffsetSoThePatternRises', () => {
+  assert.ok(shaftScrollDelta('down', 'descending', 0.1) < 0);
+});
+test('shaftScrollDelta_RidingUp_GrowsTheOffsetSoThePatternSinks', () => {
+  assert.ok(shaftScrollDelta('up', 'descending', 0.1) > 0);
+});
+test('shaftScrollDelta_WhenTheShaftIsNotMoving_IsZero', () => {
+  for (const phase of ['idle', 'closing', 'opening']) assert.equal(shaftScrollDelta('down', phase, 0.1), 0);
+});
+test('floor_DownAndUp_CountsMinus1ToMinus12AndBack', () => {
+  const seq = (dir) => { const l = createLift(); const seen = []; const input = { onPlatform: true, speed: 0, dir };
+    for (let i = 0; i < 400; i++) { l.step(0.05, input); const f = l.floor(); if (f !== null && seen[seen.length - 1] !== f) seen.push(f); } return seen; };
+  assert.deepEqual(seq('down'), [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12]);
+  assert.deepEqual(seq('up'), [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]);
+});

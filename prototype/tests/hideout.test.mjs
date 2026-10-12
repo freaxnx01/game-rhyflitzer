@@ -246,3 +246,21 @@ test('LIFT_PlatformSitsInTheLobbyAndFacesDownT2b', () => {
   assert.ok(!onLiftPlatform(LIFT.c[0] + Math.cos(LIFT.th) * 8.5, LIFT.c[1] + Math.sin(LIFT.th) * 8.5), 'past the front edge');
   assert.ok(!onLiftPlatform(LIFT.c[0] - Math.sin(LIFT.th) * 5.5, LIFT.c[1] + Math.cos(LIFT.th) * 5.5), 'beside it');
 });
+
+// the light fades in over the first CAVE_FADE m of the tunnel instead of switching at the portal
+import { caveBlend, caveDepth, blendLook, CAVE_FADE } from '../hideout.js';
+test('caveBlend_AlongTheTunnel_ContinuousMonotonicWithTheEndpoints', () => {
+  assert.equal(caveBlend(-50), 0); assert.equal(caveBlend(0), 0); assert.equal(caveBlend(CAVE_FADE), 1); assert.equal(caveBlend(500), 1); assert.equal(caveBlend(Infinity), 1);
+  let prev = 0;
+  for (let d = -5; d <= CAVE_FADE + 5; d += 0.1) { const k = caveBlend(d); assert.ok(k >= prev - 1e-12, `monotonic at ${d}`); assert.ok(k - prev < 0.02, `no jump at ${d}: ${k - prev}`); prev = k; }
+});
+test('caveDepth_OnTheAxisStripAndInTheRooms_IsMetresPastThePortalOrDeep', () => {
+  const a = hideoutAxis(), portal = 20, at = (s, side = 0) => [a.mouth[0] + a.ux * s - a.uz * side, a.mouth[1] + a.uz * s + a.ux * side];
+  close(caveDepth(...at(portal + 12), portal), 12, 1e-6); close(caveDepth(...at(portal + 30), portal), 30, 1e-6);
+  assert.ok(caveDepth(...CAVE.nodes.lobby.c, portal) >= CAVE_FADE, 'the lobby is fully dark'); assert.ok(caveDepth(...CAVE.nodes.r0.c, portal) >= CAVE_FADE);
+});
+test('blendLook_EndpointsAreTheTwoLooks_AndTheMiddleIsBetween', () => {
+  const day = { fog: '#e8bd8c', density: 0.00094, hemi: 0.95, hemiSky: '#dfe8ff' }, cave = { fog: '#07080a', density: 0.0009, hemi: 0.55, hemiSky: '#5a6c8c' };
+  assert.deepEqual(blendLook(day, cave, 0), day); assert.deepEqual(blendLook(day, cave, 1), cave);
+  const m = blendLook(day, cave, 0.5); assert.ok(m.hemi < 0.95 && m.hemi > 0.55); assert.notEqual(m.fog, day.fog); assert.notEqual(m.fog, cave.fog);
+});

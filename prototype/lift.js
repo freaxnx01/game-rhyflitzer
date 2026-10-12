@@ -45,3 +45,8 @@ export function createLift(times = LIFT_TIMES) {
     },
   };
 }
+
+// the cab's shaft wall texture: how far offset.y moves in dt seconds. three.js samples uv + offset, so a growing offset.y slides the
+// pattern DOWN on screen; riding down the wall has to rise past the car (offset shrinks), riding up it has to sink (offset grows).
+export const SHAFT_SCROLL = 0.5;
+export function shaftScrollDelta(dir, phase, dt) { return phase === 'descending' ? (dir === 'down' ? -1 : 1) * dt * SHAFT_SCROLL : 0; }
