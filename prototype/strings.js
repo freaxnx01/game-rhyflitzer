@@ -126,7 +126,7 @@ const en = {
   copyFailed: 'Copy failed',
   mapOsm: 'Open in OpenStreetMap (new tab)',
   mapGoogle: 'Open in Google Maps (new tab)',
-  mapStreetView: 'Open in Google Street View (new tab)',
+  mapStreetView: 'Open in Google Street View (new tab) — only where Google has images; otherwise use Maps',
   // ---- debug panel labels and legend (#74) ----
   dbgLabCar: 'car',
   dbgLabLv95: 'Swiss',
@@ -393,7 +393,7 @@ const de = {
   copyFailed: 'Kopieren fehlgeschlagen',
   mapOsm: 'In OpenStreetMap öffnen (neuer Tab)',
   mapGoogle: 'In Google Maps öffnen (neuer Tab)',
-  mapStreetView: 'In Google Street View öffnen (neuer Tab)',
+  mapStreetView: 'In Google Street View öffnen (neuer Tab) — nur wo Google Bilder hat, sonst Maps nehmen',
   dbgLabCar: 'Auto',
   dbgLabLv95: 'Schweiz',
   dbgLabWgs84: 'GPS',

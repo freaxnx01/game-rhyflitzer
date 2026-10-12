@@ -392,7 +392,7 @@ def test_map_links_open_the_cars_spot_in_a_new_tab(server):
         copied = page.evaluate("() => window.__copied")
         br.close()
     pos, links = dbg["pos"], dbg["links"]
-    assert visible and title == "Open in Google Street View (new tab)", title
+    assert visible and title == "Open in Google Street View (new tab) — only where Google has images; otherwise use Maps", title
     assert [o[1:] for o in opened] == [["_blank", "noopener"]] * 3, opened
     assert copied is None and not in_row                                     # no copy, focus left the button
     assert set(links) == {"osm", "maps", "street"}
