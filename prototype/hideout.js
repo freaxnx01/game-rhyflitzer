@@ -1,7 +1,7 @@
 // #102 / #201: the secret hideout in the Hübel -- pure helpers (no three.js, no DOM): the T1 tunnel axis, the cave system
 // behind it (#201: a graph of disc rooms and straight corridors on one floor, each a cut in the rail-underpass model of
 // world.js with its own parameter set), the roofed / tree-free predicates, the ring arcs between a room's exits, the capped
-// ceilings, the line-of-sight test that keeps the tower hidden from the gate, and the placeholder Eiffel Tower as
+// ceilings, the line-of-sight test that keeps the lobby hidden from the gate, the freight-lift platform (#277), and the placeholder Eiffel Tower as
 // primitive descriptors. Unit-tested with `node --test prototype/tests/hideout.test.mjs`.
 import { UNDERPASS, armReach } from './world.js';
 
@@ -12,15 +12,15 @@ export const TUNNEL = { ...UNDERPASS, grade: 0.05, maxDepth: 80 };
 export const TUNNEL_CEIL = 12;
 const deg = (d) => d * Math.PI / 180, step = (p, a, l) => [p[0] + Math.cos(a) * l, p[1] + Math.sin(a) * l];
 const R0 = step(HIDEOUT.mouth, HIDEOUT.heading, HIDEOUT.length);   // T1's end, the #102 cavern's centre (-712.8, 1528.2)
-// #201: the cave system. r is the cut's hw (nodeR adds margin + wall/2, as cavernR does for R0); the hall's floor is the one
-// floor f0 of the whole system (T1's end), its shell ceiling 380 m up, its drawn shell at shellR (inside the cut's edge, so
-// the patch skirt there is hidden behind it). N1 is the bend where T2a turns south into T2b: three exits need its radius.
+// #201: the cave system. r is the cut's hw (nodeR adds margin + wall/2, as cavernR does for R0); every room stands on the one
+// floor f0 of the whole system (T1's end). The lobby is a small lit room at T2b's end, ceiling 14 m (#277 replaced the #201 hall
+// with it). N1 is the bend where T2a turns south into T2b: three exits need its radius.
 export const CAVE = {
-  nodes: { r0: { c: R0, r: 20, ceiling: 'lid' }, n1: { c: step(R0, deg(185), 90), r: 12, ceiling: 'lid' }, hall: { c: [-790, 1855], r: 168, ceiling: 380, shellR: 167 } },
-  links: [{ id: 't2a', from: 'r0', to: 'n1', hw: 4.5, ceiling: TUNNEL_CEIL }, { id: 't2b', from: 'n1', to: 'hall', hw: 4.5, ceiling: TUNNEL_CEIL }],
+  nodes: { r0: { c: R0, r: 20, ceiling: 'lid' }, n1: { c: step(R0, deg(185), 90), r: 12, ceiling: 'lid' }, lobby: { c: [-790, 1855], r: 20, ceiling: 14 } },
+  links: [{ id: 't2a', from: 'r0', to: 'n1', hw: 4.5, ceiling: TUNNEL_CEIL }, { id: 't2b', from: 'n1', to: 'lobby', hw: 4.5, ceiling: TUNNEL_CEIL }],
   stubs: [{ id: 'stubE', node: 'r0', heading: deg(45), len: 15, hw: 4.5, ceiling: 'lid' }, { id: 'stubW', node: 'n1', heading: deg(185), len: 15, hw: 4.5, ceiling: 'lid' }],
 };
-// #201: the life-size tower. feet: the four foot boxes (relative to the hall centre, metres), measured 2026-10-11 from the loaded
+// #201: the life-size tower. feet: the four foot boxes (relative to the room's tower centre, metres), measured 2026-10-11 from the loaded
 // model's footprints (__mm.eiffelFootprints): vertices below 20 m span x 36.8..69.7, z 36.8..68.6 per quadrant; the placeholder's legs end on them.
 // #201 look: metalness low -- without an environment map a metallic surface only swallows the floodlight, it reflects nothing
 export const EIFFEL = { h: 330, feet: [[-53, -53], [53, -53], [53, 53], [-53, 53]], footHw: 17, footH: 60, url: './assets/models/eiffel_tower.glb', colour: 0x6b4a32, roughness: 0.6, metalness: 0.1, loadWithin: 400 };
@@ -30,25 +30,16 @@ export function pointBounds(points) {
   for (const [x, z] of points) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; }
   return { x0, x1, z0, z1, n: points.length };
 }
-// #201: the chase camera looks up in the hall (tilt = rise per metre of horizontal distance to the look point), eased over `ease` s
-export const HALL_CAM = { tilt: 0.45, ease: 1 };
-// #201: four floodlights on the hall's diagonals at radius r, aimed aimY m up the tower (three r170 physical units: cd; 8000 cd
-// at 171 m with decay 2 give ~0.27 each, ~1.1 summed at the aim point -- the sun outside is 0.75)
-// #201 look: angle 0.75 (43 deg, full to 26) -- the summit is 30 deg off the aim axis, a 0.5 cone left the top two thirds unlit
-export const TOWER_SPOTS = { r: 140, aimY: 100, intensity: 8000, distance: 600, angle: 0.75, penumbra: 0.4 };
-// #201 look: two summit lights beside the top (cx +- r, floor + y, cz), so the spire and the ceiling over it glow where the
-// floodlights (0.1 each at 280 m) no longer reach; 3000 cd at 60 m give ~0.8, the ceiling 80 m up ~0.3
-export const TOWER_TOP = { r: 60, y: 300, intensity: 3000, distance: 400 };
 
-// #276: the cave's floor lamps as point lights (relative to the floor): two in R0 along T1's axis, two in the hall along T2b's axis.
+// #276: the cave's floor lamps as point lights (relative to the floor): two in R0 along T1's axis, two in the lobby along T2b's axis.
 // A lamp low over the road makes a hot spot (1/d^2 at 3 m is 100x the value 30 m off) that the car drives into and out of in a
 // second, so they hang high: the light under them stays a gentle swell. three r170 physical units (cd), distance = hard cut-off.
-export const CAVE_LAMPS = { r0: { off: 12, y: 9, intensity: 180, distance: 60, decay: 2 }, hall: { off: 60, y: 30, intensity: 2000, distance: 200, decay: 2 } };
+export const CAVE_LAMPS = { r0: { off: 12, y: 9, intensity: 180, distance: 60, decay: 2 }, lobby: { off: 10, y: 8, intensity: 90, distance: 44, decay: 2 } };
 export function caveLamps(h = HIDEOUT) {
   const a = hideoutAxis(h), [cx, cz] = a.centre, [p, q] = linkPts(CAVE.links[1]), len = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / len, uz = (q[1] - p[1]) / len;
-  const [hx, hz] = CAVE.nodes.hall.c, out = [];
+  const [hx, hz] = CAVE.nodes.lobby.c, out = [];
   for (const k of [-1, 1]) out.push({ room: 'r0', x: cx + a.ux * CAVE_LAMPS.r0.off * k, z: cz + a.uz * CAVE_LAMPS.r0.off * k, ...CAVE_LAMPS.r0 });
-  for (const k of [-1, 1]) out.push({ room: 'hall', x: hx + ux * CAVE_LAMPS.hall.off * k, z: hz + uz * CAVE_LAMPS.hall.off * k, ...CAVE_LAMPS.hall });
+  for (const k of [-1, 1]) out.push({ room: 'lobby', x: hx + ux * CAVE_LAMPS.lobby.off * k, z: hz + uz * CAVE_LAMPS.lobby.off * k, ...CAVE_LAMPS.lobby });
   return out;
 }
 // what the point lamps add on a floor patch at (x, z) facing up: intensity / d^decay x cos, times three's distance window
@@ -59,6 +50,16 @@ export function lampLight(lamps, x, z) {
     sum += l.intensity / Math.pow(d, l.decay) * (l.y / d) * Math.pow(1 - Math.pow(d / l.distance, 4), 2);
   }
   return sum;
+}
+
+// #277: the freight-lift platform in the lobby: centre = the lobby's centre, heading = down T2b, hw across, hd along. The room's lift
+// house stands on the same x/z (the ride only changes y), so one rectangle serves both levels.
+const T2B = [CAVE.nodes.n1.c, CAVE.nodes.lobby.c];
+export const LIFT = { c: CAVE.nodes.lobby.c, th: Math.atan2(T2B[1][1] - T2B[0][1], T2B[1][0] - T2B[0][0]), hw: 5, hd: 8 };
+// is (x, z) inside the platform's rectangle (pad > 0 grows it)
+export function onLiftPlatform(x, z, pad = 0, l = LIFT) {
+  const dx = x - l.c[0], dz = z - l.c[1], along = dx * Math.cos(l.th) + dz * Math.sin(l.th), across = -dx * Math.sin(l.th) + dz * Math.cos(l.th);
+  return Math.abs(along) <= l.hd + pad && Math.abs(across) <= l.hw + pad;
 }
 
 export function hideoutAxis(h = HIDEOUT) {
@@ -105,12 +106,12 @@ export function stubPts(s, u = TUNNEL) { const n = CAVE.nodes[s.node], a = step(
 const disc = (id, c, r, f0, depth, u) => { const e = 0.05; return { id, pts: [[c[0] - e, c[1]], [c[0] + e, c[1]]], t: e, hw: r, flat: 1, f0, u, x: c[0], z: c[1], depth, reach: [1, 1], roundEnds: true, capped: null }; };
 // a level corridor: t at its start, flat past its end, reach to its end; roundEnds keeps the floor level past both ends
 const corridor = (id, pts, hw, f0, depth, u) => { const len = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]); return { id, pts, t: 0, hw, flat: 1e9, f0, u, x: (pts[0][0] + pts[1][0]) / 2, z: (pts[0][1] + pts[1][1]) / 2, depth, reach: [0, len], roundEnds: true, capped: null }; };
-// every cut of the system on T1's floor f0: T1 and R0 as #102 built them, then N1, the links, the hall and the stubs
+// every cut of the system on T1's floor f0: T1 and R0 as #102 built them, then N1, the links, the lobby and the stubs
 export function caveCuts(groundAt, h = HIDEOUT, u = TUNNEL) {
   const { tunnel, cavern, f0 } = hideoutCuts(groundAt, h, u), dep = (c) => groundAt(c[0], c[1]) - f0, N = CAVE.nodes;
   tunnel.id = 't1'; cavern.id = 'r0';
   const cuts = [tunnel, cavern, disc('n1', N.n1.c, N.n1.r, f0, dep(N.n1.c), u),
-    ...CAVE.links.map(l => corridor(l.id, linkPts(l), l.hw, f0, dep(linkPts(l)[1]), u)), disc('hall', N.hall.c, N.hall.r, f0, dep(N.hall.c), u),
+    ...CAVE.links.map(l => corridor(l.id, linkPts(l), l.hw, f0, dep(linkPts(l)[1]), u)), disc('lobby', N.lobby.c, N.lobby.r, f0, dep(N.lobby.c), u),
     ...CAVE.stubs.map(s => corridor(s.id, stubPts(s, u), s.hw, f0, dep(stubPts(s, u)[1]), u))];
   return { cuts, f0 };
 }
@@ -167,7 +168,7 @@ export function ringArcs(id, u = TUNNEL) {
   return out;
 }
 // the ceiling over (x, z) under the hill, null outside the system: a room with ceiling 'lid' has the hill's underside
-// (meshAt - 0.6, the #102 lid), the hall its shell height over the floor, a corridor the lower of the lid and f0 + 12, and
+// (meshAt - 0.6, the #102 lid), the lobby its 14 m over the floor, a corridor the lower of the lid and f0 + 12, and
 // T1 from the portal on the lower of the lid and its own floor + 12
 export function ceilingAt(x, z, meshAt, portal, h = HIDEOUT, u = TUNNEL) {
   const lid = meshAt(x, z) - 0.6, a = hideoutAxis(h), g0 = meshAt(a.mouth[0], a.mouth[1]), f0 = floorAt(h.length, g0, h, u), room = roomAt(x, z, u.wall, u);

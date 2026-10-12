@@ -1,5 +1,5 @@
 // #251: the Testhub jump targets -- pure rules, no DOM, no three.js. Unit-tested with `node --test prototype/tests/*.test.mjs`.
-// A target is { id, label, kind, ... }: kind 'jump' carries a J entry, kind 'spot' carries { x, z, th, floor? }.
+// A target is { id, label, kind, ... }: kind 'jump' carries a J entry, kind 'spot' carries { x, z, th, room? } (room: a level to enter, #277).
 // The car's forward vector is (cos th, sin th) in (x, z), as everywhere in the game.
 
 export const TARGET_ID_RE = /^[a-z0-9._-]+$/;
@@ -25,7 +25,6 @@ export function jumpTargets(entries) {
 
 const WRECK_RUN = 8;      // m east of a wreck: where the console shortcut `__mm.place(x + 8, z)` has always put the car
 const GATE_BACK = 12;     // m back from the tunnel mouth, so the gate is in view ahead
-const TOWER_BACK = 110;   // m before the hall centre: outside the tower's feet (|x|,|z| <= 53 + 17), inside the hall (r 168)
 
 const spot = (id, label, x, z, th, extra = {}) => ({ id, label, kind: 'spot', spot: { x, z, th, ...extra } });
 
@@ -41,10 +40,9 @@ function underwaterSpots(u) {
 function hideoutSpots(h) {
   if (!h) return [];
   const gate = [h.mouth[0] - Math.cos(h.heading) * GATE_BACK, h.mouth[1] - Math.sin(h.heading) * GATE_BACK];
-  const dx = h.hall[0] - h.n1[0], dz = h.hall[1] - h.n1[1], len = Math.hypot(dx, dz) || 1, ux = dx / len, uz = dz / len;
   return [
     spot('hideout.gate', 'Hideout: reservoir gate', ...gate, h.heading),
-    spot('hideout.tower', 'Hideout: Eiffel Tower hall', h.hall[0] - ux * TOWER_BACK, h.hall[1] - uz * TOWER_BACK, Math.atan2(uz, ux), { floor: true }),
+    spot('hideout.tower', 'Hideout: Eiffel room, facing the tower', h.tower.x, h.tower.z, h.tower.th, { room: 'eiffel' }),
   ];
 }
 

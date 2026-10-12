@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-12 17:10` The **Reservoir Hübel** has a secret lift now. Drive through the gate and the tunnel to the end, stop on the big yellow-edged **freight lift** and wait a second: the gate shuts, the shaft slides past with the floors counting down, and the doors open on a **meadow under a blue sky with clouds**, ringed by trees, with the whole **Eiffel Tower** standing in it — all 330 m. Drive around it and right under it; **F** still says there is no sky to take off into, and **R** puts you back at the lift. The same lift takes you home. The dark cavern with the cut-off tower is gone. A race run through the lift is not counted, like a jump.
 - `2026-10-11 23:19` Looking up from the bottom of the Rhine you now see lit water overhead instead of a dark board: the surface glows a soft teal as long as you are under it.
 - `2026-10-11 23:20` A fifth camera view: press **C** past the bumper cam and a **drone** follows you from high up behind the car. It hangs back when you accelerate, swings wide in bends and hovers a little, like a camera drone keeping station. **B** still looks back from up there too.
 - `2026-10-11 22:28` **Crashes now hurt for real:** the harder you hit a wall, a house or a lamp post, the more damage the new percentage in the corner shows, and bumping along at walking pace is free. At 100 % the wheels fly off, the engine smokes and the car is dead; three seconds later a new car stands on the last road. The clock keeps running.
