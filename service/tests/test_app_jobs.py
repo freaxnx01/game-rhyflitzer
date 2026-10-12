@@ -125,3 +125,9 @@ def test_an_oversized_body_is_refused_before_it_is_parsed(client):
     r = client.post("/api/jobs", content=b'{"lv95": [' + b"1," * 50000 + b'1]}',
                     headers={"Content-Type": "application/json", **ip(1)})
     assert r.status_code == 413 and r.json()["error"] == "too-large"
+
+
+def test_a_world_id_with_a_trailing_newline_is_not_an_id(client):
+    from conftest import add_ready
+    assert client.get("/api/jobs/0123456789ab%0A").status_code == 404
+    assert client.get("/worlds/0123456789ab%0A/world.json").status_code == 404

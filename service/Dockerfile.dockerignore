@@ -1,0 +1,9 @@
+**
+!pipeline/*.py
+!pipeline/*.geojson
+!pipeline/*.mjs
+!pipeline/requirements.txt
+!prototype/**
+!service/requirements.txt
+!service/rhyflitzer_api/**
+**/__pycache__

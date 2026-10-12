@@ -30,7 +30,7 @@ from .config import Settings
 from .store import Refused, Store, human_gate
 
 log = logging.getLogger("rhyflitzer.api")
-WORLD_ID = re.compile(r"^[0-9a-f]{12}$")
+WORLD_ID = re.compile(r"[0-9a-f]{12}")
 BBOX_HELP = "give lv95: [e0, n0, e1, n1] or lonlat: [w, s, e, n]"
 
 
@@ -145,7 +145,7 @@ async def create_job(request: Request) -> JSONResponse:
 
 async def get_job(request: Request) -> JSONResponse:
     store, wid = request.app.state.store, request.path_params["wid"]
-    row = store.get(wid) if WORLD_ID.match(wid) else None
+    row = store.get(wid) if WORLD_ID.fullmatch(wid) else None
     if row is None:
         return error(404, "unknown", "no such world")
     return JSONResponse(job_view(store, row))
@@ -155,7 +155,7 @@ async def world_status(request: Request) -> JSONResponse:
     """#167's contract: {id, status, bbox: {lv95}}; kept after expiry (a tombstone), because the id is a hash and
     the game's "Build it again?" needs the frame back."""
     store, wid = request.app.state.store, request.path_params["wid"]
-    row = store.get(wid) if WORLD_ID.match(wid) else None
+    row = store.get(wid) if WORLD_ID.fullmatch(wid) else None
     if row is None:
         return error(404, "unknown", "no such world")
     return JSONResponse({"id": wid, "status": row["state"], "bbox": {"lv95": json.loads(row["lv95"])}})
@@ -210,7 +210,7 @@ def world_missing(row) -> JSONResponse:
 async def world_file(request: Request) -> Response:
     settings, store = request.app.state.settings, request.app.state.store
     wid, name = request.path_params["wid"], request.path_params["name"]
-    if not WORLD_ID.match(wid) or name not in FILES:
+    if not WORLD_ID.fullmatch(wid) or name not in FILES:
         return error(404, "unknown", "no such file")
     row = store.get(wid)
     if row is None or row["state"] != "ready":
@@ -236,7 +236,7 @@ async def gallery(request: Request) -> JSONResponse:
     if not is_admin(request, settings):
         log.warning("Refused an admin call without a valid token", extra=logs.fields(world=wid))
         return error(401, "unauthorized", "admin token required")
-    row = store.get(wid) if WORLD_ID.match(wid) else None
+    row = store.get(wid) if WORLD_ID.fullmatch(wid) else None
     if row is None or row["state"] != "ready":
         return error(404, "unknown", "no such built world")
     if request.method == "DELETE":
