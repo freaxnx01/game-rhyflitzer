@@ -40,6 +40,7 @@ The cave hall is gone: the tunnel ends in a lift lobby, a ride of about 8 s lead
 - [ ] Drive through the gate and down the tunnel: it ends in a small lit lobby with a dark platform and yellow edges, no hall any more. {go: hideout.gate}
 - [ ] Drive across the platform without stopping: nothing happens. Stop on it for a second: the gate bar drops, the shaft walls slide up, the floor counts −1 … −12 with a low hum, then the doors open.
 - [ ] Below: „Hideout found!" appears only now (not in the tunnel); a meadow, blue sky with clouds, steady sun, trees all round, the whole tower down to the top. {go: hideout.tower}
+- [ ] In the Eiffel room press **F**: the helicopter lifts off, flies around and under the tower, stops at a soft wall inside the tree ring and at a ceiling above the tower top; **F** sets the car down on the meadow and the lift up still works. In the tunnel and the lobby **F** is still refused. {go: hideout.tower}
 - [ ] The tower reads as the Eiffel Tower in daylight (not the old dark brown). Drive round it on the gravel loop and under it between the legs; the chase camera never clips a leg.
 - [ ] Drive at the tree ring from every side: the car stops, nowhere a gap to the sky or the void.
 - [ ] No minimap, no village names, no house numbers below. **F**: „No sky down here". **R** puts the car back at the lift house below, still in the room.
