@@ -354,7 +354,7 @@ import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, onLiftPlatform, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, blendLook, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
-import { createLift } from './lift.js';
+import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
 import { eiffelRoom, ROOM_Y, flyAllowed, roomFlyClamp } from './room-eiffel.js';
 import { translate } from './strings.js';
@@ -2087,7 +2087,7 @@ function stepLift(dt) {
   const ev = LIFT_RIDE.step(dt, { onPlatform: liftOnPlatform(), speed: Math.hypot(P.vx, P.vz), dir: LEVELS.isSurface() ? 'down' : 'up' });
   for (const e of ev) liftEvent(e);
   const gate = LIFT_RIDE.gate; for (const m of [LIFT_GATE.cave, LIFT_GATE.room]) if (m) m.position.y = m.userData.y0 + 4.6 - 3.2 * gate;
-  CAB.visible = LIFT_RIDE.busy; if (CAB.visible) { CAB.position.set(P.x, P.y + 7, P.z); CAB.material.map.offset.y += (LIFT_RIDE.dir === 'down' ? 1 : -1) * dt * (LIFT_RIDE.phase === 'descending' ? 0.5 : 0); }
+  CAB.visible = LIFT_RIDE.busy; if (CAB.visible) { CAB.position.set(P.x, P.y + 7, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
   const fl = LIFT_RIDE.floor(); liftIndicator(fl === null ? null : String(fl).replace('-', '−'));
 }
 const LIFT_TIMES_TOTAL = () => { const t = LIFT_RIDE.times; return t.close + t.ride + t.open; };
@@ -2103,7 +2103,7 @@ function liftSwitch(dir) {
   restShadow(); car.position.y = P.y;
 }
 window.__mm.liftTimes = (t) => { LIFT_RIDE.setTimes(t); return LIFT_RIDE.times; };   // tests: a ride of 1 s instead of 8 (headless renders ~1 fps and the loop clamps dt to 0.05)
-window.__mm.lift = () => ({ phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
+window.__mm.lift = () => ({ phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };

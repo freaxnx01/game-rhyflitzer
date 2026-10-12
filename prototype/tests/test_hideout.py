@@ -641,3 +641,44 @@ def test_cave_light_fades_in_along_the_tunnel_without_a_step(server):
     assert by[-2]["k"] == 0 and by[-2]["fog"] == "#e8bd8c", by[-2]
     assert by[30]["k"] == 1 and by[30]["fog"] == "#07080a" and by[60]["fog"] == "#07080a", (by[30], by[60])
     assert 0 < by[12]["k"] < 1, by[12]
+
+
+RECORD_RIDE = """async () => {
+  const rows = []; const t0 = performance.now();
+  while (performance.now() - t0 < 200000) {
+    await new Promise(r => requestAnimationFrame(r));
+    const l = window.__mm.lift(); if (l.phase === 'idle' && rows.length) break;
+    rows.push({ phase: l.phase, scroll: l.scroll, indicator: l.indicator });
+  }
+  return rows;
+}"""
+
+
+def descent_rows(page):
+    return [r for r in page.evaluate(RECORD_RIDE) if r["phase"] == "descending"]
+
+
+@needs_world
+def test_lift_shaft_pattern_rises_riding_down_and_sinks_riding_up(server):
+    """Three.js samples uv + offset: a growing offset.y moves the shaft wall's pattern DOWN on screen. Riding down it must rise past
+    the car (offset.y shrinks) and riding up it must sink; the floor indicator counts -1 .. -12 down and -12 .. -1 up."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); page.evaluate("() => window.__mm.liftTimes({dwell: 0.1, close: 0.1, ride: 2, open: 0.1})")
+        drive_onto_the_lift(page, h)
+        down = descent_rows(page)
+        page.wait_for_function(RIDE_DONE, arg="eiffel", timeout=240000)
+        lx, lz = h["lift"]["c"]; th = h["lift"]["th"]                                  # off the platform re-arms the lift, then back on for the ride up
+        page.evaluate(f"() => window.__mm.place({lx - math.cos(th) * 20}, {lz - math.sin(th) * 20}, {th})"); page.wait_for_timeout(1500)
+        drive_onto_the_lift(page, h)
+        up = descent_rows(page)
+        br.close()
+    assert errors == []
+    assert len(down) > 5 and len(up) > 5, (len(down), len(up))
+    assert down[-1]["scroll"] < down[0]["scroll"], (down[0], down[-1])
+    assert up[-1]["scroll"] > up[0]["scroll"], (up[0], up[-1])
+    steps = lambda rows: [r["scroll"] - q["scroll"] for q, r in zip(rows, rows[1:])]
+    assert all(s <= 1e-9 for s in steps(down)) and all(s >= -1e-9 for s in steps(up))
+    nums = lambda rows: [int(r["indicator"].replace("−", "-")) for r in rows]   # the full -1 .. -12 count is lift.test.mjs's (exact, no render time)
+    assert nums(down)[0] == -1 and nums(down)[-1] < -1 and nums(down) == sorted(nums(down), reverse=True), nums(down)
+    assert nums(up)[0] == -12 and nums(up)[-1] > -12 and nums(up) == sorted(nums(up)), nums(up)
