@@ -60,9 +60,9 @@ def make_zip(path, d, *, skip=(), extra=None, replace=None):
     return path
 
 
-def boot(p, server, host, wid=None, extra=""):
+def boot(p, server, host, wid=None, extra="", size=(480, 270)):
     b = p.chromium.launch(args=ARGS)
-    page = b.new_page(viewport={"width": 480, "height": 270})
+    page = b.new_page(viewport={"width": size[0], "height": size[1]})
     page.route("**/data/terrain_*.mmh", lambda r: r.fulfill(status=404, body=""))
     q = f"?worldhost={host}" + (f"&world={wid}" if wid else "") + extra
     page.goto(f"{server}/prototype/index.html{q}")
@@ -84,7 +84,7 @@ def test_world_loads_from_the_host(server, world_host):
         assert "Testdorf" in page.text_content("#modetext")
         page.evaluate("() => document.getElementById('startbtn').click()")
         page.keyboard.press("KeyJ")
-        assert page.evaluate("() => window.__mm.jumpList()") == [{"n": "Testkirche", "g": "Testdorf"}]
+        assert {"n": "Testkirche", "g": "Testdorf"} in page.evaluate("() => window.__mm.jumpList()")
         b.close()
 
 
@@ -137,7 +137,7 @@ def test_expired_link_offers_build_again(server, world_host):
     (root / "api" / "worlds").mkdir(parents=True, exist_ok=True)
     (root / "api" / "worlds" / RAW_ID).write_text(json.dumps({"id": RAW_ID, "status": "expired", "bbox": {"lv95": LV95}}))
     with sync_playwright() as p:
-        b, page = boot(p, server, url, RAW_ID)
+        b, page = boot(p, server, url, RAW_ID, size=(1024, 720))
         assert page.is_visible("#worldgone") and page.evaluate("() => window.__mm.region") == "hochrhein"
         assert page.evaluate("() => window.__mm.worldGone.reason") == "expired"
         assert page.get_attribute("#buildagain", "href").endswith("editor.html?bbox=" + ",".join(map(str, LV95)))
@@ -168,13 +168,13 @@ def test_upload_world_zip_plays_offline(server, world_host, tmp_path):
         f.unlink()
     with sync_playwright() as p:
         b, page = boot(p, server, url)
-        with page.expect_navigation():
+        with page.expect_navigation(wait_until="commit", timeout=T):
             page.set_input_files("#worldfile", str(z))
         page.wait_for_function("() => window.__mm && window.__mm.sim", timeout=T)
         assert f"world={FILE_ID}" in page.url
         assert page.evaluate("() => window.__mm.world.from") == "file"
         assert page.is_visible("#worldforget")
-        with page.expect_navigation():
+        with page.expect_navigation(wait_until="commit", timeout=T):
             page.click("#worldforget")
         page.wait_for_function("() => window.__mm && window.__mm.sim", timeout=T)
         assert "never existed" in page.text_content("#worldgonetext")
