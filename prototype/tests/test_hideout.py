@@ -212,6 +212,7 @@ def test_room_helicopter_flies_inside_the_clamp_lands_on_the_floor_and_the_lift_
         cx, cz = h["room"]["centre"]; lx, lz = h["lift"]["c"]; th = h["lift"]["th"]
         page.evaluate(f"() => window.__mm.place({cx - 120}, {cz}, 0)")
         page.keyboard.press("KeyF"); page.wait_for_timeout(300)
+        page.wait_for_function("() => window.__mm.fly().on && window.__mm.fly().y > -600", timeout=60000)   # a loaded headless run may not have stepped a frame yet
         on = page.evaluate("() => window.__mm.fly()")
         out = page.evaluate("() => window.__mm.flySim(40, ['KeyW', 'Space', 'KeyN'])")   # forward (+x) and up, nitro
         page.evaluate(f"() => window.__mm.place({cx}, {cz - 100}, {-math.pi / 2})")
@@ -235,6 +236,29 @@ def test_room_helicopter_flies_inside_the_clamp_lands_on_the_floor_and_the_lift_
     assert landed["fly"] is False and landed["lvl"] == "eiffel" and abs(landed["car"]["y"] + 600) < 1.0, landed
     assert abs(up["y"] - h["floor"]) < 1.0, up
     assert tunnel["flying"] is False and ("sky" in tunnel["toast"] or "Himmel" in tunnel["toast"]), tunnel
+
+
+@needs_world
+def test_room_helicopter_climbs_past_the_tower_top_and_sinks_back(server):
+    """In the room, holding Space climbs steadily to above the 330 m tower top within ~20 s (it crawled at ~0.5 m/s because the
+    clamp pulled the target altitude down to the lagging height every frame); Shift sinks again; always inside the clamp."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride_down(page, h)
+        cx, cz = h["room"]["centre"]
+        page.evaluate(f"() => window.__mm.place({cx - 120}, {cz}, 0)")
+        page.keyboard.press("KeyF"); page.wait_for_timeout(300)
+        page.evaluate("() => window.__mm.flySim(10, ['Space'])")
+        mid = page.evaluate("() => window.__mm.fly()")
+        top = page.evaluate("() => window.__mm.flySim(12, ['Space'])")
+        capped = page.evaluate("() => window.__mm.flySim(20, ['Space'])")
+        sunk = page.evaluate("() => window.__mm.flySim(15, ['ShiftLeft'])")
+        br.close()
+    assert errors == []
+    assert mid["y"] > -600 + 120 + 100, mid                 # 10 s of Space: far above the +120 m take-off height
+    assert top["y"] > -600 + 330, top                       # 22 s: above the tower top
+    assert top["y"] <= -600 + 420 + 0.5 and capped["y"] <= -600 + 420 + 0.5 and capped["y"] > -600 + 395, capped
+    assert sunk["y"] < capped["y"] - 150, (capped, sunk)    # Shift sinks
 
 
 @needs_world
