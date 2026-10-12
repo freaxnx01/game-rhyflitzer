@@ -130,6 +130,9 @@ def test_tunnel_and_lobby_are_no_find(server):
     assert in_r0["found"] is False and found is False and stored is None and in_r0["stored"] is None
 
 
+HUD_SHOWN = "() => Object.fromEntries(['arrow', 'dist', 'cpname'].map(i => [i, getComputedStyle(document.getElementById(i)).display !== 'none']))"
+
+
 @needs_world
 def test_lift_ride_finds_the_hideout_and_the_room(server):
     """Drive onto the lift, stand still: gate, descent, doors open below; the find toast comes only now; the room is the Eiffel room."""
@@ -144,8 +147,10 @@ def test_lift_ride_finds_the_hideout_and_the_room(server):
         found = page.evaluate("() => window.__mm.lift().found"); stored = page.evaluate("() => localStorage.getItem('mm.hideout')")
         cave_on = page.evaluate("() => window.__mm.cave().on")
         labels = page.evaluate("() => window.__mm.labels()"); below = page.evaluate("() => document.body.classList.contains('below')")
+        hud_room = page.evaluate(HUD_SHOWN)
         br.close()
     assert errors == []
+    assert hud_room == {"arrow": False, "dist": False, "cpname": False}, hud_room        # no checkpoint arrow / distance / label in the room
     assert abs(car["y"] + 600) < 1.0, car
     assert found is True and stored == "1"
     assert "Hideout found" in toast["text"] or "Versteck gefunden" in toast["text"], toast
@@ -189,8 +194,10 @@ def test_room_drive_under_the_tower_f_refused_and_ride_back_up(server):
         drive_onto_the_lift(page, h)
         page.wait_for_function(RIDE_DONE, arg="surface", timeout=240000)
         up = page.evaluate("() => window.__mm.car()")
+        hud_surface = page.evaluate(HUD_SHOWN)
         br.close()
     assert errors == []
+    assert hud_surface == {"arrow": True, "dist": True, "cpname": True}, hud_surface         # back on the surface the race HUD is back
     assert abs(under["y"] + 600) < 1.0 and math.hypot(under["x"] - tx, under["z"] - tz) < 1, under
     assert end["z"] < cz + half - 2, end
     assert flying is False

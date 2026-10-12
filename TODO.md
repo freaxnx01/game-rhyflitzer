@@ -105,6 +105,5 @@ The mockups are the visual spec for all menus and the HUD. They come from a Clau
 
 ## #277 follow-ups (found, not fixed)
 
-- The checkpoint arrow and distance HUD stay on screen in the Eiffel room (spec keeps the arrow); it points at nothing useful below.
 - Autopilot (O) and Navi were not tried below; `resetCar` stops the autopilot, nothing else is special-cased.
 - Surface colliders (forest edge walls, buildings) over the cave still exist underground; #277 only skips non-secret ones while the car is under the hill (`collide`, chase camera).

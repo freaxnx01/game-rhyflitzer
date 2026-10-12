@@ -95,6 +95,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-12 20:19` In the Eiffel room under the Hübel the orange checkpoint arrow, the distance and the "CHECKPOINT …" label are gone; back on the surface they show again.
 - `2026-10-11 23:16` Die Rückfrage „Diesen Lauf abbrechen?" passt jetzt in ihr Fenster, und die Knöpfe heissen „Weiterspielen" und „Lauf verwerfen", damit klar ist, was sie tun.
 - `2026-10-12 01:39` The car no longer **sinks into the road** at the motorway junction by **Sisseln** and at other junctions: the wheels now sit on the drawn asphalt where a slip road meets the main road, and on the bends and joints of roads all over the map instead of dipping up to 70 cm into them for a moment.
 - `2026-10-11 23:00` The **village names** no longer shine through the rock inside the **Hübel cave**: in the tunnel and the hall you see no Mumpf or Stein floating in the wall any more, and they are back as soon as you drive out.
