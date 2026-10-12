@@ -1,6 +1,7 @@
 // #127: the playable regions. Pure: no DOM, no three.js. Hochrhein is the default and keeps today's values exactly.
 import { VILLAGES, VILLAGES_EHRENDINGEN, BORDER_DE } from './world.js';
 import { GEMEINDEN, LANDMARK_INFO, GEMEINDEN_EHRENDINGEN, LANDMARK_INFO_EHRENDINGEN } from './landmarks.js';
+import { STRINGS } from './strings.js';
 
 export const DEFAULT_REGION = 'hochrhein';
 export const REGIONS = {
@@ -26,8 +27,22 @@ export function regionFromQuery(search) {
 
 export function regionSearch(search, id) {
   const p = new URLSearchParams(search);
-  p.delete('region');
+  p.delete('region'); p.delete('world');
   if (id !== DEFAULT_REGION) p.set('region', id);
   const s = p.toString();
   return s ? `?${s}` : '';
+}
+
+/* #167: a generated world (?world=<id>, region editor) as a region. Everything comes from the world's `region` block
+   (pipeline region.py, #166); the storage keys derive from the id, so worlds never share a best time or a terrain. */
+export function generatedRegion(id, world) {
+  const r = world.region, race = world.anchors.cps.length > 0;
+  return {
+    id: `world:${id}`, worldId: id, generated: true, name: r.name, world: null, terrain: null,
+    idbKey: `terrain:world:${id}`, bestKey: `mm.best2.world.${id}`,
+    strings: { intro: race ? 'introWorld' : 'introWorldFree', finished: 'finishedWorld', blurb: 'blurbOsmWorld' },
+    villages: r.villages, gemeinden: r.gemeinden, landmarks: [], borderDe: [],
+    jlist: r.jlist.map((e) => ({ n: e.n, g: e.g ?? r.name, x: e.x, z: e.z })),
+    treeBox: r.treeBox, forestAbove: r.forestAbove ?? Infinity, handFallback: false, race,
+  };
 }
