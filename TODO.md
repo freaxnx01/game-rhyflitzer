@@ -102,3 +102,9 @@ The mockups are the visual spec for all menus and the HUD. They come from a Clau
 - Real `<button>` elements, visible focus states, keyboard navigation. Menus must be usable with the keyboard alone.
 - No logos of real brands (Sissila, Volg) until docs/07-brands-and-permissions.md says permission is granted.
 - If a screen needs a visual change the mockup doesn't cover, propose it first instead of improvising.
+
+## #277 follow-ups (found, not fixed)
+
+- The checkpoint arrow and distance HUD stay on screen in the Eiffel room (spec keeps the arrow); it points at nothing useful below.
+- Autopilot (O) and Navi were not tried below; `resetCar` stops the autopilot, nothing else is special-cased.
+- Surface colliders (forest edge walls, buildings) over the cave still exist underground; #277 only skips non-secret ones while the car is under the hill (`collide`, chase camera).
