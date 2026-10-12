@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-12 18:08` Worlds built with the region editor open in the game from their link (`?world=…`). **Download world** on the start screen saves the world as a zip file, and **Load world file** opens such a file again, even offline or after the link has expired. An expired link says so and offers to build the same world again.
 - `2026-10-12 17:10` The **Reservoir Hübel** has a secret lift now. Drive through the gate and the tunnel to the end, stop on the big yellow-edged **freight lift** and wait a second: the gate shuts, the shaft slides past with the floors counting down, and the doors open on a **meadow under a blue sky with clouds**, ringed by trees, with the whole **Eiffel Tower** standing in it — all 330 m. Drive around it and right under it; **F** still says there is no sky to take off into, and **R** puts you back at the lift. The same lift takes you home. The dark cavern with the cut-off tower is gone. A race run through the lift is not counted, like a jump.
 - `2026-10-11 23:19` Looking up from the bottom of the Rhine you now see lit water overhead instead of a dark board: the surface glows a soft teal as long as you are under it.
 - `2026-10-11 23:20` A fifth camera view: press **C** past the bumper cam and a **drone** follows you from high up behind the car. It hangs back when you accelerate, swings wide in bends and hovers a little, like a camera drone keeping station. **B** still looks back from up there too.

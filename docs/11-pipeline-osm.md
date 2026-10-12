@@ -312,6 +312,15 @@ Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it i
 
 **Gemeinde boundaries (#48).** `world_boundaries.py` reads the relations `boundary=administrative` + `admin_level=8` that have a `name`, which covers Swiss and German Gemeinden alike (Ortsteile at level 9/10 are left out). It exports their member **ways** as lines, so a border shared by two Gemeinden appears once with both `names` (sorted; one name when the other side is outside the data). Lines, not areas: `osmium extract -s smart` completes only multipolygon relations, so Gemeinden reaching past the padded cut are incomplete. The lines are clipped to the map, parts under 5 m are dropped, and coordinates are rounded to 0.1 m. The national border in the Rhine is included, because it is a Gemeinde border too. Real extract: about 28 lines, roughly 16.5 KB; Sisseln | Eiken is way 123001743 (both pinned in `tests/test_golden.py::test_gemeinde_boundaries`). The prototype draws them only while **G** is on.
 
+## Generated worlds (`?world=<id>`, #167)
+
+A world built with the region editor opens as `?world=<12 hex>` (the id is lowercase hex, anything else is ignored like an unknown `?region=`; `?world=` wins over `?region=`).
+
+- **Host.** `WORLD_HOST` in `prototype/worlds.js` (a placeholder until #168 serves it; phase 3 changes it there and nowhere else). The game reads `<host>/worlds/<id>/{world.json,terrain.mmh,meta.json}`, and on a 404/410 asks `<host>/api/worlds/<id>` for `{"status": "expired", "bbox": {"lv95": [...]}}` so the expired-link panel can offer to build the same frame again (`editor.html?bbox=...`). An unreachable host shows the offline text, a damaged world the invalid text. `?worldhost=` overrides the host for tests and playtests on a localhost page, and only to a localhost target.
+- **Zip.** **Download world** (only in a generated world) saves `rhyflitzer-<id>.zip` with `world.json`, `terrain.mmh`, `meta.json` and `LICENSE-ODbL.txt`. **Load world file** accepts such a zip (at most 32 MB; allowlisted names, no traversal, duplicates, encryption or zip64; per-entry caps also while inflating; CRC, JSON shape, `MMH1` header and size are checked) and only then stores it and opens the world. A refused file stores nothing and shows a de/en reason. A saved copy wins over the host and works offline; **Remove saved copy** deletes it.
+- **Storage keys** derive from the id: saved file `world:<id>` and terrain override `terrain:world:<id>` (IndexedDB), best time `mm.best2.world.<id>` (localStorage).
+- **No race.** A world without checkpoints hides the trial and Blitz; the surprise hunt works and the car starts at `anchors.start` (or the frame centre).
+
 ## Known limits
 
 - The German side is flat at the base height until LGL DGM1 is added to the terrain, so water can sit above flat German banks. Water levels ignore the DEM nodata fill for the same reason.
