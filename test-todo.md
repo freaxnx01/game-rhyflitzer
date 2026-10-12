@@ -33,6 +33,20 @@ The key is **U** („Übergang"), not **P** as the issue asked: **P** is the pau
 - [ ] **U** next to the Fridolinsbrücke or the Holzbrücke: „Hier gibt es schon eine Brücke". **U** at the Sissle or 100 m from the river: „Hier ist kein Rheinufer".
 - [ ] Look: hulls 0.5 m out of the water, legs on the bank ramps, rails, the olive line on the minimap.
 
+## Hideout lift and the Eiffel room (#277, PR #281)
+
+The cave hall is gone: the tunnel ends in a lift lobby, a ride of about 8 s leads to a full-height Eiffel room. Start on a fresh profile (or clear `mm.hideout`) to see the find toast.
+
+- [ ] Drive through the gate and down the tunnel: it ends in a small lit lobby with a dark platform and yellow edges, no hall any more. {go: hideout.gate}
+- [ ] Drive across the platform without stopping: nothing happens. Stop on it for a second: the gate bar drops, the shaft walls slide up, the floor counts −1 … −12 with a low hum, then the doors open.
+- [ ] Below: „Hideout found!" appears only now (not in the tunnel); a meadow, blue sky with clouds, steady sun, trees all round, the whole tower down to the top. {go: hideout.tower}
+- [ ] The tower reads as the Eiffel Tower in daylight (not the old dark brown). Drive round it on the gravel loop and under it between the legs; the chase camera never clips a leg.
+- [ ] Drive at the tree ring from every side: the car stops, nowhere a gap to the sky or the void.
+- [ ] No minimap, no village names, no house numbers below. **F**: „No sky down here". **R** puts the car back at the lift house below, still in the room.
+- [ ] Ride back up from the lift house: arrives on the lobby platform, does **not** ride down again until the car leaves and comes back.
+- [ ] **J** → any place from below: the car is on the surface, map and labels back. In a race, riding the lift counts as a jump (not counted).
+- [ ] Frame rate in the room feels at least as good as in the old hall on your machine.
+
 ## Hideout in the Hübel (#102, PR #158 — merged 2026-10-10)
 
 The gate is in **J** from the start; the cavern is secret, so start on a fresh profile (or clear `mm.hideout` in localStorage).
