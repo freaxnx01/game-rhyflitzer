@@ -95,3 +95,10 @@ def test_client_ip_is_the_hop_traefik_added():
     assert client_ip(request("6.6.6.6, 203.0.113.9"), 1) == "203.0.113.9"   # a spoofed first entry is ignored
     assert client_ip(request(), 1) == "10.0.0.2"
     assert client_ip(request("203.0.113.9"), 0) == "10.0.0.2"
+
+
+def test_client_ip_collapses_an_ipv6_address_to_its_64_prefix():
+    a = client_ip(request("2001:db8:1:2:aaaa:bbbb:cccc:dddd"), 1)
+    b = client_ip(request("2001:db8:1:2:1111:2222:3333:4444"), 1)
+    assert a == b and client_ip(request("2001:db8:1:3::1"), 1) != a      # a /64 is one subscriber, not 2^64 clients
+    assert client_ip(request("::ffff:203.0.113.9"), 1) == "203.0.113.9"

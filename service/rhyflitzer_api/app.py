@@ -3,6 +3,7 @@ the admin gallery. Run: uvicorn rhyflitzer_api.app:create_app --factory."""
 from __future__ import annotations
 
 import datetime as dt
+import ipaddress
 import hmac
 import json
 import logging
@@ -36,11 +37,24 @@ def error(status: int, code: str, message: str) -> JSONResponse:
 
 
 def client_ip(request: Request, hops: int) -> str:
-    """The address Traefik saw: the hops-th entry from the right of X-Forwarded-For (it appends, never trusts)."""
+    """The address Traefik saw: the hops-th entry from the right of X-Forwarded-For (it appends, never trusts).
+    An IPv6 address is reduced to its /64, because one subscriber controls all 2^64 addresses of it."""
     forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
     if hops > 0 and len(forwarded) >= hops:
-        return forwarded[-hops]
-    return request.client.host if request.client else "unknown"
+        return _subscriber(forwarded[-hops])
+    return _subscriber(request.client.host) if request.client else "unknown"
+
+
+def _subscriber(address: str) -> str:
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if ip.version == 6 and ip.ipv4_mapped:
+        return str(ip.ipv4_mapped)
+    if ip.version == 6:
+        return str(ipaddress.ip_network(f"{ip}/64", strict=False).network_address)
+    return str(ip)
 
 
 def parse_rect(body) -> tuple[float, float, float, float]:
@@ -80,7 +94,9 @@ async def create_job(request: Request) -> JSONResponse:
     wid, now = frame.world_id(rect, region.PIPELINE_VERSION), time.time()
     log.info("Admitting a build of world %s", wid, extra=logs.fields(world=wid, lv95=list(rect)))
     try:
-        row = store.submit(wid, rect, store.ip_hash(client_ip(request, settings.proxy_hops), now), now, settings)
+        address = client_ip(request, settings.proxy_hops)
+        row = store.submit(wid, rect, store.ip_hash(address, now), now, settings,
+                           prev_ip_hash=store.prev_ip_hash(address, now))
     except Refused as exc:
         log.info("Refused a build of world %s: %s", wid, exc.code, extra=logs.fields(world=wid, code=exc.code))
         return error(exc.status, exc.code, str(exc))

@@ -120,3 +120,13 @@ def test_purge_counts_and_kv(store, settings):
     store.kv_set("k", "v")
     store.kv_set("k", "w")
     assert store.kv_get("k") == "w"
+
+
+def test_one_at_a_time_holds_across_utc_midnight(store, settings):
+    before = (T0 // DAY + 1) * DAY - 10                       # 10 s before midnight
+    after = before + 20
+    store.submit(wid(1), RECT, store.ip_hash("198.51.100.7", before), before, settings)
+    with pytest.raises(Refused) as e:                         # the salt rotated, the same client is still building
+        store.submit(wid(2), RECT, store.ip_hash("198.51.100.7", after), after, settings,
+                     prev_ip_hash=store.prev_ip_hash("198.51.100.7", after))
+    assert (e.value.status, e.value.code) == (429, "one-at-a-time")

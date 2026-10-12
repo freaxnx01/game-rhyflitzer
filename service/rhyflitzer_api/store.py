@@ -46,11 +46,11 @@ def _count(db, sql: str, args=()) -> int:
     return db.execute(sql, args).fetchone()[0]
 
 
-def _check_limits(db, ip_hash: str, day: str, s) -> None:
+def _check_limits(db, ip_hash: str, day: str, s, prev_ip_hash: str | None = None) -> None:
     if _count(db, "SELECT COUNT(*) FROM worlds WHERE state = 'queued'") >= s.max_queue:
         raise Refused(503, "busy", "Server busy, try again later")
-    if _count(db, "SELECT COUNT(*) FROM worlds WHERE state IN ('queued', 'building') AND ip_hash = ?",
-              (ip_hash,)) >= s.per_ip_active:
+    if _count(db, "SELECT COUNT(*) FROM worlds WHERE state IN ('queued', 'building') AND ip_hash IN (?, ?)",
+              (ip_hash, prev_ip_hash or ip_hash)) >= s.per_ip_active:
         raise Refused(429, "one-at-a-time", "One of your worlds is still building; wait until it is done")
     if _count(db, "SELECT COUNT(*) FROM builds WHERE day = ? AND ip_hash = ?", (day, ip_hash)) >= s.per_ip_daily:
         raise Refused(429, "daily-limit", f"At most {s.per_ip_daily} new worlds per day; try again tomorrow")
@@ -99,6 +99,11 @@ class Store:
 
         return hashlib.sha256(f"{self._tx(salt)}:{ip}".encode()).hexdigest()[:16]
 
+    def prev_ip_hash(self, ip: str, now: float) -> str | None:
+        """The same client under yesterday's salt, so a job it started before UTC midnight still counts as its own."""
+        row = self._q("SELECT salt FROM salts WHERE day = ?", (day_of(now - 86400),))
+        return hashlib.sha256(f"{row[0]['salt']}:{ip}".encode()).hexdigest()[:16] if row else None
+
     def get(self, wid: str) -> dict | None:
         rows = self._q("SELECT * FROM worlds WHERE id = ?", (wid,))
         return rows[0] if rows else None
@@ -107,14 +112,14 @@ class Store:
         return self._q("SELECT COUNT(*) AS n FROM worlds WHERE state = 'queued' AND "
                        "created <= (SELECT created FROM worlds WHERE id = ?)", (wid,))[0]["n"]
 
-    def submit(self, wid: str, rect, ip_hash: str, now: float, settings) -> dict:
+    def submit(self, wid: str, rect, ip_hash: str, now: float, settings, prev_ip_hash: str | None = None) -> dict:
         """The world's row: as it is when built, queued, building or permanently failed (free); otherwise queued
         as a new build after the limits allow it. Raises Refused."""
         def admit(db):
             row = db.execute("SELECT * FROM worlds WHERE id = ?", (wid,)).fetchone()
             if row and (row["state"] in ("queued", "building", "ready") or row["error"] in PERMANENT):
                 return dict(row)
-            _check_limits(db, ip_hash, day_of(now), settings)
+            _check_limits(db, ip_hash, day_of(now), settings, prev_ip_hash)
             db.execute(REQUEUE, (wid, json.dumps(list(rect)), ip_hash, now))
             db.execute("INSERT INTO builds(day, ip_hash, world) VALUES (?, ?, ?)", (day_of(now), ip_hash, wid))
             return dict(db.execute("SELECT * FROM worlds WHERE id = ?", (wid,)).fetchone())
