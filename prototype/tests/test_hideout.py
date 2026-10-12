@@ -167,8 +167,8 @@ def test_driving_across_the_platform_without_stopping_does_nothing(server):
 
 
 @needs_world
-def test_room_drive_under_the_tower_f_refused_and_ride_back_up(server):
-    """Below: the tree ring stops the car, the car drives under the tower, F is refused, R stays below, the lift takes it up to the lobby."""
+def test_room_drive_under_the_tower_and_ride_back_up(server):
+    """Below: the tree ring stops the car, the car drives under the tower, R stays below, the lift takes it up to the lobby."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         h = page.evaluate("() => window.__mm.hideout()"); ride_down(page, h)
@@ -179,8 +179,6 @@ def test_room_drive_under_the_tower_f_refused_and_ride_back_up(server):
         cx, cz = h["room"]["centre"]; half = h["room"]["half"]
         page.evaluate(f"() => window.__mm.sim({cx}, {cz + half - 60}, {math.pi / 2}, 25, 4, ['KeyW'], -600)")   # the tree ring ends the run
         end = page.evaluate("() => window.__mm.car()")
-        page.keyboard.press("KeyF"); page.wait_for_timeout(300)
-        flying = page.evaluate("() => window.__mm.fly().on")
         page.keyboard.press("KeyR"); page.wait_for_timeout(300)
         lvl = page.evaluate("() => window.__mm.level().id")
         lx, lz = h["lift"]["c"]; c = page.evaluate("() => window.__mm.car()")
@@ -193,9 +191,43 @@ def test_room_drive_under_the_tower_f_refused_and_ride_back_up(server):
     assert errors == []
     assert abs(under["y"] + 600) < 1.0 and math.hypot(under["x"] - tx, under["z"] - tz) < 1, under
     assert end["z"] < cz + half - 2, end
-    assert flying is False
     assert lvl == "eiffel" and math.hypot(c["x"] - lx, c["z"] - lz) < 3, (lvl, c)
     assert abs(up["y"] - h["floor"]) < 1.0 and math.hypot(up["x"] - lx, up["z"] - lz) < 9, up
+
+
+@needs_world
+def test_room_helicopter_flies_inside_the_clamp_lands_on_the_floor_and_the_lift_works(server):
+    """In the room F takes off, the helicopter stays inside the soft wall and under the ceiling when pushed out and up,
+    F lands on the room floor, and the lift up still works. In the tunnel F is still refused."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride_down(page, h)
+        cx, cz = h["room"]["centre"]; lx, lz = h["lift"]["c"]; th = h["lift"]["th"]
+        page.evaluate(f"() => window.__mm.place({cx - 120}, {cz}, 0)")
+        page.keyboard.press("KeyF"); page.wait_for_timeout(300)
+        on = page.evaluate("() => window.__mm.fly()")
+        out = page.evaluate("() => window.__mm.flySim(40, ['KeyW', 'Space', 'KeyN'])")   # forward (+x) and up, nitro
+        page.evaluate(f"() => window.__mm.place({cx}, {cz - 100}, {-math.pi / 2})")
+        side = page.evaluate("() => window.__mm.flySim(40, ['KeyW', 'Space'])")
+        page.keyboard.press("KeyF"); page.wait_for_timeout(300)
+        landed = page.evaluate("() => ({ fly: window.__mm.fly().on, car: window.__mm.car(), lvl: window.__mm.level().id })")
+        page.evaluate(f"() => window.__mm.sim({lx + math.cos(th) * 12}, {lz + math.sin(th) * 12}, {th + math.pi}, 0, 0.2, [], -600)")
+        drive_onto_the_lift(page, h)
+        page.wait_for_function(RIDE_DONE, arg="surface", timeout=240000)
+        up = page.evaluate("() => window.__mm.car()")
+        # the tunnel (roofed, surface level) still refuses
+        (px, pz), tth = t2b_point(h, 60)
+        page.evaluate(f"() => window.__mm.sim({px}, {pz}, {tth}, 0, 0.1, ['KeyW'], {h['floor']})")
+        page.keyboard.press("KeyF"); page.wait_for_timeout(500)
+        tunnel = page.evaluate("() => ({ toast: window.__mm.toast().text, flying: window.__mm.fly().on })")
+        br.close()
+    assert errors == []
+    assert on["on"] is True and on["y"] > -600
+    assert out["x"] <= cx + 225 + 0.01 and out["y"] <= -600 + 420 + 0.5 and out["y"] > -600, out
+    assert side["on"] is True and side["y"] <= -600 + 420 + 0.5 and side["z"] >= cz - 225 - 0.01, side
+    assert landed["fly"] is False and landed["lvl"] == "eiffel" and abs(landed["car"]["y"] + 600) < 1.0, landed
+    assert abs(up["y"] - h["floor"]) < 1.0, up
+    assert tunnel["flying"] is False and ("sky" in tunnel["toast"] or "Himmel" in tunnel["toast"]), tunnel
 
 
 @needs_world
