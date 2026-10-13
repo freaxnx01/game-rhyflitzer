@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 const t = (key, ...args) => translate(window.GG_LANG, key, ...args);
 const CH_BOUNDS = [[45.6, 5.7], [47.95, 10.6]], OUTLINE_URL = '../pipeline/ch_outline.geojson';
 
-const S = { state: 'loading', rect: parseBbox(location.search) || DEFAULT_RECT, fromUrl: !!parseBbox(location.search), outline: null, inside: null, name: undefined, race: null, exists: false, job: null, errKey: null };
+const S = { state: 'loading', rect: parseBbox(location.search) || DEFAULT_RECT, fromUrl: !!parseBbox(location.search), outline: null, inside: null, name: undefined, race: null, exists: false, job: null, dlFailed: false, errKey: null };
 
 // ---- map ----
 const map = L.map('map', { zoomControl: true, attributionControl: true, maxBounds: CH_BOUNDS, maxBoundsViscosity: 0.8, minZoom: 7, maxZoom: 18 });
@@ -32,8 +32,9 @@ function polyClass({ out = false, ghost = false }) {
 }
 
 function applyStaticStrings() {
-  document.documentElement.lang = window.GG_LANG;
+  document.documentElement.lang = window.GG_LANG; document.title = t('docTitle');
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
 }
 
 function renderEdit() {
@@ -67,6 +68,7 @@ function renderResult() {
   setText('rname', S.name || t('nameNone'));
   $('drivebtn').href = driveUrl(job.id); $('sharein').value = shareUrl(job.id);
   show('rwarn', S.race === false);
+  show('dlmsg', S.dlFailed); if (S.dlFailed) setText('dlmsg', t('dlError'));
 }
 
 function renderFail() { setText('failmsg', t(S.errKey || 'errServer')); }
@@ -87,7 +89,7 @@ async function loadOutline() {
 
 // ---- the frame and its preview ----
 const frame = createFrame(map, $('frame'), { toLv95: (ll) => wgsToLv95(ll.lat, ll.lng), toLatLng,
-  labels: { body: t('frameLabel'), handle: (c) => t('handle', c.toUpperCase()) },
+  labels: { body: () => t('frameLabel'), handle: (c) => t('handle', c.toUpperCase()) },
   onGhost: (r) => { poly.setLatLngs(corners(r).map(toLatLng)); polyClass({ out: S.inside === false, ghost: true }); },
   onCommit: (r) => commit(r) });
 frame.setRect(S.rect);
@@ -185,11 +187,11 @@ async function downloadWorld(e) {   // #168 has no zip route: fetch the three fi
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([await packWorldZip({ worldText, terrain, metaText, meta: JSON.parse(metaText) })], { type: 'application/zip' }));
     a.download = `rhyflitzer-${id}.zip`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-  } catch (err) { console.warn('download failed', err); setText('dlmsg', t('dlError')); show('dlmsg', true); }
+  } catch (err) { console.warn('download failed', err); S.dlFailed = true; render(); }
 }
 
 function fail(key) { S.state = 'failed'; S.errKey = key; stopPolling(); render(); }
-function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; stopPolling(); show('lost', false); show('dlmsg', false); commit(S.rect); }
+function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; S.dlFailed = false; stopPolling(); show('lost', false); commit(S.rect); }
 
 $('buildbtn').addEventListener('click', build);
 $('newbtn').addEventListener('click', backToEdit); $('changebtn').addEventListener('click', backToEdit);
@@ -201,7 +203,7 @@ $('copybtn').addEventListener('click', async () => {
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && (S.state === 'queued' || S.state === 'building')) { stopPolling(); poll(S.startedAt, pollGen); } });
 
-window.addEventListener('gg-langchange', () => { applyStaticStrings(); render(); });
+window.addEventListener('gg-langchange', () => { applyStaticStrings(); frame.relabel(); render(); });
 applyStaticStrings(); render(); loadOutline();
 window.__ed = { rect: () => S.rect.slice(), state: () => S.state, setRect: (r) => commit(r), commit, map, centre: () => centre(S.rect),
   preview: () => ({ name: S.name, race: S.race, exists: S.exists }), job: () => S.job };

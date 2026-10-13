@@ -7,13 +7,18 @@ const OPPOSITE = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' };
 export function createFrame(map, el, { toLv95, toLatLng, labels, onGhost, onCommit }) {
   let rect = null, drag = null;
   el.innerHTML = '';   // own static markup only, built once
-  const body = document.createElement('div'); body.className = 'body'; body.tabIndex = 0; body.setAttribute('role', 'group'); body.setAttribute('aria-label', labels.body);
-  el.appendChild(body);
+  const body = document.createElement('div'); body.className = 'body'; body.tabIndex = 0; body.setAttribute('role', 'group'); el.appendChild(body);
   const handles = {};
   for (const c of ['nw', 'ne', 'se', 'sw']) {
-    const h = document.createElement('button'); h.type = 'button'; h.className = `h ${c}`; h.dataset.corner = c; h.setAttribute('aria-label', labels.handle(c)); h.tabIndex = -1;
+    const h = document.createElement('button'); h.type = 'button'; h.className = `h ${c}`; h.dataset.corner = c; h.tabIndex = -1;
     el.appendChild(h); handles[c] = h;
   }
+
+  function relabel() {   // labels are functions, so a language switch can re-read them
+    body.setAttribute('aria-label', labels.body());
+    for (const [c, h] of Object.entries(handles)) h.setAttribute('aria-label', labels.handle(c));
+  }
+  relabel();
 
   function refresh() {
     if (!rect) return;
@@ -57,5 +62,5 @@ export function createFrame(map, el, { toLv95, toLatLng, labels, onGhost, onComm
   });
 
   map.on('move zoom viewreset resize', refresh);
-  return { setRect(r) { rect = r; refresh(); }, refresh, element: el, focus: () => body.focus() };
+  return { setRect(r) { rect = r; refresh(); }, refresh, relabel, element: el, focus: () => body.focus() };
 }

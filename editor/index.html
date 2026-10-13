@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="./editor.css">
 <header id="top"><h1 data-i18n="title">Region editor</h1><p class="tag" data-i18n="tagline"></p></header>
 <main id="main">
-  <div id="mapwrap"><div id="map" role="application" aria-label="Map of Switzerland"></div><div id="frame" hidden></div></div>
+  <div id="mapwrap"><div id="map" role="application" aria-label="Map of Switzerland" data-i18n-aria="mapLabel"></div><div id="frame" hidden></div></div>
   <aside id="panel" aria-live="polite">
     <section id="edit" class="card">
       <h2 data-i18n="frame"></h2>
@@ -39,11 +39,11 @@
 </main>
 <script src="../prototype/version.js"></script>
 <script src="../prototype/i18n.js"></script>
-<nav id="game-nav" aria-label="Game navigation">
+<nav id="game-nav" aria-label="Game navigation" data-i18n-aria="navLabel">
   <span id="version-badge" title="Version"></span>
-  <span class="dot" aria-hidden="true">·</span><a href="https://github.freaxnx01.ch/games/">More Games…</a>
-  <span class="dot" aria-hidden="true">·</span><a href="https://github.com/freaxnx01/game-rhyflitzer" target="_blank" rel="noopener">Source</a>
-  <span class="dot" aria-hidden="true">·</span><a href="https://github.com/freaxnx01/game-rhyflitzer/issues/new?title=%5BFeedback%5D%20game-rhyflitzer%20editor&labels=feedback" target="_blank" rel="noopener">Feedback</a>
+  <span class="dot" aria-hidden="true">·</span><a href="https://github.freaxnx01.ch/games/" data-i18n="navMore">More Games…</a>
+  <span class="dot" aria-hidden="true">·</span><a href="https://github.com/freaxnx01/game-rhyflitzer" target="_blank" rel="noopener" data-i18n="navSource">Source</a>
+  <span class="dot" aria-hidden="true">·</span><a href="https://github.com/freaxnx01/game-rhyflitzer/issues/new?title=%5BFeedback%5D%20game-rhyflitzer%20editor&labels=feedback" target="_blank" rel="noopener" data-i18n="navFeedback">Feedback</a>
 </nav>
 <script>
   (function () {   // version badge → CHANGELOG, text only from version.js (same as prototype/index.html)

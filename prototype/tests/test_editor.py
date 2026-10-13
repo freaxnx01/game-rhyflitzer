@@ -368,3 +368,24 @@ def test_a_poll_answer_arriving_after_change_the_frame_is_ignored(server):
         got = page.evaluate("() => window.__ed.state()")
         b.close()
     assert errs == [] and got == "edit"
+
+
+def test_the_language_switch_reaches_every_text(server):
+    probe = """() => ({ frame: document.querySelector('#frame .body').getAttribute('aria-label'), handle: document.querySelector('#frame .h.nw').getAttribute('aria-label'),
+        map: document.querySelector('#map').getAttribute('aria-label'), title: document.title, navLabel: document.querySelector('#game-nav').getAttribute('aria-label'),
+        links: [...document.querySelectorAll('#game-nav a')].slice(1).map((a) => a.textContent), dlmsg: document.querySelector('#dlmsg').textContent })"""
+    api = Api(post=(200, job("ready", "done")))
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api, lang="en")
+        page.route(f"{API}/worlds/{ID}/terrain.mmh", lambda r: r.fulfill(status=500, headers={"Access-Control-Allow-Origin": "*"}, body=""))
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=20000)
+        page.click("#dlbtn"); page.wait_for_function("() => !document.querySelector('#dlmsg').hidden", timeout=10000)
+        en = page.evaluate(probe)
+        page.click("#gg-lang-toggle")
+        de = page.evaluate(probe)
+        b.close()
+    assert errs == []
+    assert en == {"frame": "World frame on the map", "handle": "Resize corner NW", "map": "Map of Switzerland", "title": "Region editor · Map Madness",
+                  "navLabel": "Game navigation", "links": ["More Games…", "Source", "Feedback"], "dlmsg": "The download did not work. Try again."}
+    assert de == {"frame": "Welt-Rahmen auf der Karte", "handle": "Ecke NW ziehen", "map": "Karte der Schweiz", "title": "Region-Editor · Map Madness",
+                  "navLabel": "Spielnavigation", "links": ["Weitere Spiele…", "Quellcode", "Feedback"], "dlmsg": "Der Download hat nicht geklappt. Versuch es noch einmal."}
