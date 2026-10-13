@@ -115,6 +115,17 @@ test('pause menu texts exist in both languages (#83)', () => {
   for (const k of ['pauseHint', 'pauseAria', 'keyPause', 'abandonHint']) assert.notEqual(translate('de', k), k, k);
 });
 
+test('F1 help search and no-match hint exist in both languages (#249)', () => {
+  assert.equal(translate('en', 'helpSearch'), 'Search keys');
+  assert.equal(translate('de', 'helpSearch'), 'Tasten suchen');
+  assert.equal(translate('en', 'helpNone'), 'No key matches');
+  assert.equal(translate('de', 'helpNone'), 'Keine Taste passt');
+  for (const k of ['helpSearch', 'helpNone']) {
+    assert.notEqual(translate('en', k), k, k);
+    assert.notEqual(translate('de', k), k, k);
+  }
+});
+
 test('#108: the surprise hunt has its texts in both languages', () => {
   for (const key of ['hunt', 'modeHunt', 'presentsLabel', 'presentTarget', 'huntStart', 'presentToast', 'surpriseHop', 'surpriseTurbo', 'surpriseMoon', 'surpriseRepair', 'huntAllFound', 'huntFinishedText']) {
     assert.ok(key in STRINGS.en, key); assert.ok(key in STRINGS.de, key);
