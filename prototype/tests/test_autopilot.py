@@ -92,10 +92,27 @@ def test_autopilot_drives_to_a_landmark_signals_and_stops(server):
         assert r["on"] is False and r["last"] == "arrived", r
         x, z = anchor("smileKreisel")
         assert math.hypot(r["x"] - x, r["z"] - z) < 40
-        assert r["blinkers"], "a turn signal was set on the way"
+        assert r["blinkers"] == [], "the route ends inside the roundabout: no entry signal, no exit signal (#231)"
         assert 20 < r["maxKmh"] <= 62
         assert auto(page)["blinker"] is None
         assert "Arrived" in page.inner_html("#toast")
+        b.close()
+
+
+@needs_world
+def test_autopilot_blinks_leaving_a_roundabout_not_entering(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        drive_to(page, "Plattform")   # the route from the start runs through a roundabout (ring signal at about s=713)
+        signals = auto(page)["signalList"]
+        ring = [sg for sg in signals if "from" in sg]
+        assert len(ring) == 1, signals
+        exit_signal = ring[0]
+        assert exit_signal["to"] - exit_signal["from"] == 25
+        inside = [sg for sg in signals if sg is not exit_signal and exit_signal["s"] - 90 < sg["s"] < exit_signal["s"] + 1]
+        assert inside == [], "no signal at the entry or on the ring"
+        r = page.evaluate("() => window.__mm.autoSim(150)")
+        assert r["blinkers"], "the car blinked on the way"
         b.close()
 
 

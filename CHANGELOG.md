@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-13 21:02` The **autopilot** now blinks when it **leaves a roundabout**, not when it drives in; going round the ring it stays dark.
 - `2026-10-12 21:40` In the **Eiffel room** the helicopter now really climbs: hold **Space** and it rises steadily (about 15 m per second) to the top of the tower in under 20 seconds, up to the ceiling; **Shift** brings it back down. Before, it crept up only about half a metre per second.
 
 ### Added

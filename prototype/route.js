@@ -5,6 +5,15 @@ import { makeGrid, gridAddSegment, gridQuery } from './world.js';
 
 export const NOT_ROUTABLE = new Set(['footway', 'path', 'steps', 'cycleway', 'pedestrian']);
 export const isRoutable = (r) => !NOT_ROUTABLE.has(r.cls);
+// A roundabout: a routable closed ring 15-45 m across (bigger loops are service roads or parking aisles)
+export function isRoundabout(r) {
+  if (!isRoutable(r) || r.pts.length <= 4) return false;
+  const first = r.pts[0], last = r.pts[r.pts.length - 1];
+  if (Math.hypot(first[0] - last[0], first[1] - last[1]) > 0.5) return false;
+  const xs = r.pts.map((p) => p[0]), zs = r.pts.map((p) => p[1]);
+  const across = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+  return across >= 15 && across <= 45;
+}
 // km/h per OSM class: what the autopilot drives at most, not a traffic rule (there are none)
 export const CLASS_KMH = { motorway: 100, trunk: 100, motorway_link: 60, trunk_link: 60, primary: 60, secondary: 60, primary_link: 50, secondary_link: 50, tertiary: 50, tertiary_link: 50, unclassified: 50, residential: 30, service: 30, living_street: 20 };
 export const AUTO = {
@@ -14,7 +23,7 @@ export const AUTO = {
   brakeAccel: 4, latAccel: 3.5, chord: 16, sampleStep: 5,
   defaultKmh: 30, bridgeKmh: 30, bridgeMargin: 20, uturnSpeed: 4,
   arriveDist: 8, offRoute: 20, stuckSecs: 4,
-  turnAngle: Math.PI / 6, signalBefore: 50, signalAfter: 10,
+  turnAngle: Math.PI / 6, signalBefore: 50, signalAfter: 10, roundaboutSignalBefore: 15,
 };
 
 // a press of any of these hands the car back to the player (touch drive buttons do the same in index.html)
@@ -187,19 +196,47 @@ export function turnAt(route, s, w = 10) {
   return Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
 }
 
-// Turn signals: at junctions (3+ roads) where the route turns by AUTO.turnAngle or more
+// Signed heading change over the route segments i0..i1 (> 0 turns right): the way round a ring
+function headingChange(route, i0, i1) {
+  let total = 0;
+  for (let i = i0; i < i1; i++) {
+    const [a, b, c] = [route.pts[i], route.pts[i + 1], route.pts[i + 2]];
+    const d1 = [b[0] - a[0], b[1] - a[1]], d2 = [c[0] - b[0], c[1] - b[1]];
+    total += Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
+  }
+  return total;
+}
+
+// Stretches of the route that run around a roundabout: { sIn, sOut, right }
+function ringRuns(route) {
+  const runs = [];
+  for (let i = 0; i < route.road.length; i++) {
+    if (!isRoundabout(route.road[i])) continue;
+    let k = i;
+    while (k + 1 < route.road.length && route.road[k + 1] === route.road[i]) k++;
+    runs.push({ sIn: route.cum[i], sOut: route.cum[k + 1], right: headingChange(route, i, k) > 0 });
+    i = k;
+  }
+  return runs;
+}
+
+// Turn signals: at junctions (3+ roads) where the route turns by AUTO.turnAngle or more; on a roundabout only when leaving it
 export function routeSignals(route) {
-  const out = [];
+  const runs = ringRuns(route), out = [];
   for (const j of route.joints) {
-    if (j.deg < 3) continue;
+    if (j.deg < 3 || runs.some((r) => j.s >= r.sIn - 0.5 && j.s <= r.sOut + 0.5)) continue;
     const t = turnAt(route, j.s);
     if (Math.abs(t) >= AUTO.turnAngle) out.push({ s: j.s, side: t > 0 ? 'right' : 'left' });
   }
-  return out;
+  for (const r of runs) {
+    if (r.sIn <= 0 || r.sOut >= route.len - 0.5) continue;
+    out.push({ s: r.sOut, side: r.right ? 'right' : 'left', from: r.sOut - AUTO.roundaboutSignalBefore, to: r.sOut + AUTO.signalAfter });
+  }
+  return out.sort((a, b) => a.s - b.s);
 }
 
 export function blinkerAt(signals, s) {
-  for (const sg of signals) if (s >= sg.s - AUTO.signalBefore && s <= sg.s + AUTO.signalAfter) return sg.side;
+  for (const sg of signals) if (s >= (sg.from ?? sg.s - AUTO.signalBefore) && s <= (sg.to ?? sg.s + AUTO.signalAfter)) return sg.side;
   return null;
 }
 

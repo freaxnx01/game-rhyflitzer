@@ -2326,7 +2326,7 @@ window.__mm.stationSigns = () => STATION_SIGNS.map(s => ({ ...s }));
 window.__mm.raceFlags = () => ({ jumped: !!R.jumped, flown: !!R.flown, auto: !!R.auto, pontoon: !!R.pontoon, swapped: !!R.swapped });
 window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, done: R.done, rank: R.last?.rank ?? null, best: R.blitzBest, cps: CPS.map(c => [c.x, c.z]), finish: [FINISH.x, FINISH.z] });   // #128
 window.__mm.blitzSetLeft = (s) => { R.left = s; };
-window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, blinker: HUD.blinker, last: AUTOP.last });
+window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
 // drive headless: step the car and the race at 1/60 s while the autopilot is on, at most secs seconds
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
