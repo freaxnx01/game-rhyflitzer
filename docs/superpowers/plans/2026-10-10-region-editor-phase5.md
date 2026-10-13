@@ -6,6 +6,8 @@
 
 **Refreshed 2026-10-12** against the merged phase 2 (#167, PR #274: `prototype/worlds.js`, `zip.js`, `?world=`, `WORLD_HOST`, `worldHost()`, `worldSearch()`) and phase 3 (#168, PR #293: the `service/` package). The first version of this plan (2026-10-10) assumed a separate `gallery.py` module with its own SQLite table; #168 had meanwhile shipped most of the server side. Where this plan and the spec (`docs/superpowers/specs/2026-10-10-region-editor-phase5-design.md`) differ, **this plan wins** (the differences are listed in "Already shipped by #168" and "Deviations from the spec").
 
+**Refreshed again 2026-10-13** against PR #312 (#296: handlers that touch SQLite or files now stay off the event loop, `service/requirements.lock` is hash-pinned) and PR #310 (#169: the editor page under `editor/` and `editor.html`; it touches neither `service/rhyflitzer_api/app.py` nor `prototype/index.html`, so nothing in this plan collides with it). Effect on this plan: the new `GET /api/gallery` handler is a plain `def` (Starlette runs it in the threadpool) and the edited `gallery` handler offloads `store.set_gallery` the way its neighbours already do (Task 2).
+
 **Architecture:** Server side, three small additions to the phase 3 service: `Store.gallery_list()` plus an order column, a public `GET /api/gallery` route, and `scripts/gallery.py` (stdlib CLI, shipped in the image). Client side, one pure ES module `prototype/gallery.js` (validation + fetch with injected `fetch`) and a few wiring lines in `prototype/index.html` that build the row with `createElement` / `textContent`.
 
 **Tech Stack:** vanilla JS ES modules, `node --test`, Playwright (Python, pytest) with `page.route` stubbing the gallery call, Python 3.12 stdlib + Starlette + pytest for the service.
@@ -14,7 +16,7 @@
 
 In `service/rhyflitzer_api/app.py` and `store.py`, merged in PR #293, with tests in `service/tests/test_app_worlds.py`, `test_store.py` and `test_housekeeping_extract.py`:
 
-- `PUT` / `DELETE /api/admin/gallery/{wid}` (handler `gallery`, route list `ADMIN_ROUTES`, app factory `create_admin_app`), served **only** by the internal `rhyflitzer-admin` listener (`127.0.0.1:8081` on ionos1, no Traefik route). `Authorization: Bearer <token>`, token from the Docker secret file `ADMIN_TOKEN_FILE` (`is_admin()`, `hmac.compare_digest`).
+- `PUT` / `DELETE /api/admin/gallery/{wid}` (handler `gallery`, route list `ADMIN_ROUTES`, app factory `create_admin_app`), served **only** by the internal `rhyflitzer-admin` listener (`127.0.0.1:8081` on ionos1, no Traefik route). `Authorization: Bearer <token>`, token from the Docker secret file `ADMIN_TOKEN_FILE` (`is_admin()`, `hmac.compare_digest`). Since #312 the handler is `async def` but awaits `run_in_threadpool(is_admin, …)` and `run_in_threadpool(store.get / set_gallery / unset_gallery, …)`; `test_admin_gallery_runs_off_the_event_loop` in `test_app_worlds.py` pins that.
 - Answers: `401 unauthorized` (also when no token file is configured: fail closed, **not** 503), `404 unknown` (not a ready world), `400 bad-request` (non-object body, empty title), `413 too-large` (body over 8 KB), `200 {id, gallery: true, title}` / `{id, gallery: false}`. Errors are `{error, message}`. Title is cut to 80, description to 300 characters.
 - Columns `gallery`, `title`, `description` on the `worlds` table; `Store.set_gallery()` / `unset_gallery()`.
 - Retention: `Store.expired()` and `Store.eviction_order()` already skip `gallery = 1` (nightly cleanup and the 10 GB cap).
@@ -40,7 +42,8 @@ In `service/rhyflitzer_api/app.py` and `store.py`, merged in PR #293, with tests
 ## Global Constraints
 
 - **Never put a `//` comment in the middle of a one-line statement in `prototype/index.html`** (much of the file is one statement per line; a trailing `//` swallows the rest of the line). Use `/* ... */` or a comment on its own line. New code in `index.html` is multi-line.
-- Buildless game: no `package.json`, no framework, no vendored library. The service gains no dependency (`test_runtime_dependencies_are_exactly_these` stays green).
+- **Blocking work stays off the event loop** (#296, PR #312): a handler that reads SQLite or a file is a plain `def` (Starlette runs it in the threadpool, like `get_job`, `world_status`, `health`, `world_file`), or an `async def` that wraps each blocking call in `await run_in_threadpool(…)`, like `gallery`. Never call a `Store` method directly from an `async def` body.
+- Buildless game: no `package.json`, no framework, no vendored library. The service gains no dependency (`test_runtime_dependencies_are_exactly_these` stays green), so `service/requirements.lock` (hash-pinned, `--require-hashes`) stays untouched.
 - All gallery text is untrusted when it reaches the page: `textContent` / `setAttribute('title', …)` only, never `innerHTML`, never `toastHtml()` (#176; `prototype/escape.js` is merged). The id is checked with `isWorldId` before it builds a URL.
 - **The admin token appears nowhere in the code, the repo, a URL, a command line, a log line or a test value that looks real.** The service reads it from `ADMIN_TOKEN_FILE`; the CLI reads `RHYFLITZER_ADMIN_TOKEN` from its environment and has no `--token` flag. Tests use throwaway strings like `unit-test-token`. Creating the token and adding the first worlds is the maintainer's go-live step (README, Task 8), not part of this PR.
 - Do not change Hochrhein / Ehrendingen behaviour or any `?world=` behaviour from #167.
@@ -53,6 +56,7 @@ In `service/rhyflitzer_api/app.py` and `store.py`, merged in PR #293, with tests
 - A title like `<img src=x onerror=window.__pwn=1>` shows as text and never runs (`test_gallery.py::test_gallery_text_is_text`).
 - The token never appears in any committed file or output: `test_main_sends_through_the_admin_host_and_never_prints_the_token`, and `git grep -n -i "bearer [a-z0-9]\{12,\}"` finds nothing.
 - `GET /api/gallery` is on both listeners and needs no token; `PUT` / `DELETE` stay on the admin listener only (`test_the_public_app_has_no_admin_routes` stays green).
+- `GET /api/gallery` and the `gallery` handler's store calls run off the event loop (`test_the_public_gallery_runs_off_the_event_loop`, and the merged `test_admin_gallery_runs_off_the_event_loop` stays green).
 - Un-pinning restarts the 30 days; re-adding a world puts it last; replacing keeps its place.
 - A database created by #168 before this change gets the new column without losing rows (`test_a_database_from_before_the_gallery_order_gets_its_column`).
 - An unreachable, empty or garbage gallery leaves the start screen exactly as before.
@@ -149,7 +153,7 @@ def test_a_database_from_before_the_gallery_order_gets_its_column(tmp_path):
 
 **Files:** modify `service/rhyflitzer_api/app.py` (anchors: the handler `gallery`, the list `ROUTES`, the list `ADMIN_ROUTES`), `service/tests/test_app_worlds.py` (it has the `client` / `admin` fixtures, `WID`, `ORIGIN`, `add_ready`).
 
-**Interfaces:** `clean_text(value, limit) -> str`; `gallery_index(request)` (handler); routes `GET /api/gallery` in `ROUTES` **and** in `ADMIN_ROUTES`.
+**Interfaces:** `clean_text(value, limit) -> str`; `gallery_index(request)` (a plain `def` handler: it reads SQLite, so Starlette runs it in the threadpool, like `get_job`); routes `GET /api/gallery` in `ROUTES` **and** in `ADMIN_ROUTES`.
 
 - [ ] **Step 1: Write the failing tests** — append to `service/tests/test_app_worlds.py`:
 
@@ -174,7 +178,17 @@ def test_gallery_text_loses_control_characters_but_markup_stays_text(admin, stor
     r = admin.put(f"/api/admin/gallery/{WID}", json={"title": "  Rhy\u0000fl\u0007itzer <b>  ", "description": "a\u0085b"}, headers={"Authorization": "Bearer s3cret"})
     assert r.status_code == 200 and r.json()["title"] == "Rhyflitzer <b>"
     assert (store.get(WID)["title"], store.get(WID)["description"]) == ("Rhyflitzer <b>", "ab")
+
+
+def test_the_public_gallery_runs_off_the_event_loop(client, store, settings, monkeypatch):
+    add_ready(store, settings, WID)
+    real, seen = store.gallery_list, []
+    monkeypatch.setattr(store, "gallery_list", lambda *a, **kw: seen.append(_off_loop()) or real(*a, **kw))
+    assert client.get("/api/gallery").status_code == 200
+    assert seen == [True]
 ```
+
+  (`_off_loop` is the helper already defined in this file by #312, above `test_admin_gallery_runs_off_the_event_loop`; the new test goes below it.)
 
 - [ ] **Step 2:** `cd service && .venv/bin/python -m pytest tests/test_app_worlds.py -q` fails (404 on `/api/gallery`).
 - [ ] **Step 3: Implement** in `app.py`. Above `is_admin`:
@@ -188,11 +202,11 @@ def clean_text(value, limit: int) -> str:
     return CONTROL.sub("", str(value)).strip()[:limit]
 ```
 
-  In the handler `gallery`, use it: `title = clean_text(body.get("title", ""), 80)` and `store.set_gallery(wid, title, clean_text(body.get("description", ""), 300))` (replacing the two `str(...).strip()[:n]` expressions). Above `get_challenge`:
+  In the handler `gallery`, use it: `title = clean_text(body.get("title", ""), 80)` and `await run_in_threadpool(store.set_gallery, wid, title, clean_text(body.get("description", ""), 300))` (replacing the two `str(...).strip()[:n]` expressions; keep the `await run_in_threadpool(…)` that #312 put around the store call, do not call `store.set_gallery` directly). Above `get_challenge`:
 
 ```python
-async def gallery_index(request: Request) -> JSONResponse:
-    """The curated worlds, in the owner's order; public (it is what the start screen shows)."""
+def gallery_index(request: Request) -> JSONResponse:
+    """The curated worlds, in the owner's order; public (it is what the start screen shows). A plain def: the SQLite read runs in the threadpool, not on the event loop (#296)."""
     return JSONResponse(request.app.state.store.gallery_list(), headers={"Cache-Control": "public, max-age=60"})
 ```
 
