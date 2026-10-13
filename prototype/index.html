@@ -95,6 +95,9 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 /* #127: the region choice. The loaded region's button is outlined like a focused one. */
 .regionrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:10px 0}
 .regionrow .btn[aria-pressed="true"]{outline:3px solid var(--sun)}
+/* #170: the curated worlds row. Hidden until the gallery has entries, so a fresh install looks exactly as before. */
+.regionrow[hidden]{display:none}
+#worldsdesc{flex-basis:100%;font-size:14px;color:var(--steel-l);min-height:1.2em;margin:0}
 .btn.small{height:40px;padding:0 14px;font-size:17px;display:inline-flex;align-items:center;box-shadow:3px 3px 0 var(--ink)}
 .btn[hidden]{display:none}
 .btn.small:focus-within,label.btn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
@@ -295,6 +298,11 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <button id="region-ehrendingen" class="btn small" type="button" aria-pressed="false">Ehrendingen</button>
       <button id="region-world" class="btn small" type="button" aria-pressed="true" hidden></button>
     </div>
+    <div id="worldsrow" class="regionrow" hidden>
+      <span id="worldslabel" data-i18n="worldsRow">Worlds</span>
+      <span id="worldsbtns" style="display:contents"></span>
+      <p id="worldsdesc" role="status"></p>
+    </div>
     <div class="terrainrow">
       <label for="mmhfile" class="btn small" data-i18n="loadTerrain">Load terrain (.mmh)</label>
       <input id="mmhfile" type="file" accept=".mmh" hidden>
@@ -359,6 +367,7 @@ import { filterHelpRows } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations } from './holzbruecke.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
+import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, onLiftPlatform, hideoutAxis, floorAt, portalS, inHideout, segmentInHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
@@ -2908,6 +2917,33 @@ function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000))
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);
+
+/* #170: the curated worlds from the API. Not awaited: play never waits for the gallery; any failure leaves the row
+   hidden. Deliberately without an abort timer -- a timer cannot tell a slow API from a page busy with its first
+   frames, and it aborts requests whose answer has already arrived. */
+async function showGallery() {
+  const worlds = await loadGallery({ host: worldHost(location.href), fetch: (u, o) => fetch(u, o) });
+  window.__mm.gallery = worlds.map((w) => w.id);
+  if (!worlds.length) return;
+  const box = $('worldsbtns'), desc = $('worldsdesc'), current = GEN ? WORLD_ID : null;
+  for (const w of worlds) {
+    const b = document.createElement('button');
+    b.className = 'btn small';
+    b.type = 'button';
+    b.textContent = w.title;
+    b.dataset.worldId = w.id;
+    b.setAttribute('aria-pressed', String(w.id === current));
+    const say = () => { desc.textContent = w.description; };
+    b.onmouseenter = say;
+    b.onfocus = say;
+    b.onmouseleave = () => { desc.textContent = ''; };
+    b.onblur = b.onmouseleave;
+    b.onclick = () => { if (w.id !== current) location.search = worldSearch(location.search, w.id); };
+    box.appendChild(b);
+  }
+  $('worldsrow').hidden = false;
+}
+showGallery();
 </script>
 
 <!-- game-nav (hub overlay: version badge, links, star). Centred and raised
