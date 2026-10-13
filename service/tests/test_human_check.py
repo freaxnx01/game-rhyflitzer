@@ -123,11 +123,11 @@ def test_store_and_human_check_run_off_the_event_loop(client, store, monkeypatch
     assert all(off for _, off in seen), seen
 
 
-def test_a_join_that_races_a_failure_is_admitted_without_a_human_check(client, store, monkeypatch):
-    # The world looked joinable when the client checked, so they rightly skipped solving. If it has flipped to
-    # non-joinable inside submit's transaction (a non-permanent failure landed between the two checks), they are
-    # still admitted — re-queued — instead of getting a spurious 403 human_check_failed.
+def test_a_join_that_races_a_failure_still_needs_the_human_check(client, store, monkeypatch):
+    # The world looked joinable outside the transaction, so no solution was judged. If it is not joinable inside
+    # submit's transaction (it expired or failed in between), the new build is refused, never admitted unchecked:
+    # the sentence of human_check_failed already tells the player to press Build again.
     monkeypatch.setattr(store, "exists", lambda wid: True)
     r = post(client)
-    assert r.status_code == 202 and r.json()["state"] == "queued"
-    assert store.get(WID)["state"] == "queued"
+    assert r.status_code == 403 and r.json()["error"] == "human_check_failed"
+    assert store.get(WID) is None

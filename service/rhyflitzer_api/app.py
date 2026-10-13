@@ -159,14 +159,13 @@ def admit(request: Request, rect, solution) -> JSONResponse:
     """The blocking half of POST /api/jobs (SQLite and the human check), run off the event loop."""
     settings, store = request.app.state.settings, request.app.state.store
     wid, now = frame.world_id(rect, region.PIPELINE_VERSION), time.time()
-    joinable = store.exists(wid)
-    ticket = None if joinable else challenge.check(solution, settings)   # a join or a cache hit is never judged
+    ticket = None if store.exists(wid) else challenge.check(solution, settings)   # a join or a cache hit is never judged
     log.info("Admitting a build of world %s", wid, extra=logs.fields(world=wid, lv95=list(rect)))
     try:
         address = client_ip(request, settings.proxy_hops, settings.trusted_proxies)
         net = network_of(address)
         row = store.submit(wid, rect, store.ip_hash(address, now), now, settings,
-                           prev_ip_hash=store.prev_ip_hash(address, now), gate=human_gate(ticket, now, required=not joinable),
+                           prev_ip_hash=store.prev_ip_hash(address, now), gate=human_gate(ticket, now),
                            net_hash=store.ip_hash(net, now), prev_net_hash=store.prev_ip_hash(net, now))
     except Refused as exc:
         log.info("Refused a build of world %s: %s", wid, exc.code, extra=logs.fields(world=wid, code=exc.code))
