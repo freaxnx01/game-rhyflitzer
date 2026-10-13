@@ -19,12 +19,11 @@ const TOGGLE = new Set(['Escape', 'KeyP']);
 const NEXT = new Set(['ArrowDown', 'ArrowRight']);
 const PREV = new Set(['ArrowUp', 'ArrowLeft']);
 
-// key = { code, shiftKey, repeat }, state = { paused, canPause, helpOpen, confirm }
+// key = { code, shiftKey, repeat }, state = { paused, canPause, confirm }
 // → 'pause' | 'resume' | 'cancel' | 'next' | 'prev' | 'debug' | 'photo' | 'ignore' (swallowed, browser default kept) | 'pass' (normal game key handling)
 export function pauseKeyAction(key, state) {
   if (state.paused) return state.confirm ? confirmAction(key) : pausedAction(key);
   if (!TOGGLE.has(key.code) || key.repeat || !state.canPause) return 'pass';
-  if (key.code === 'Escape' && state.helpOpen) return 'pass';
   return 'pause';
 }
 

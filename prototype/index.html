@@ -2631,7 +2631,7 @@ function closeAbandon() { PAUSE.confirm = false; $('abandon').hidden = true; $('
 function movePauseFocus(step) { $(nextFocus(PAUSE.confirm ? ABANDON_BUTTONS : PAUSE_BUTTONS, document.activeElement?.id || '', step)).focus(); }
 const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon, next: () => movePauseFocus(1), prev: () => movePauseFocus(-1), debug: () => toggleDebug(), photo: () => { photoPending = true; } };
 // true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
-function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), helpOpen: !$('help').hidden, confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
+function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
 $('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap;
 document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
 window.__mm.closePause = closePause;   // test hook: any non-Esc exit from the pause while the vehicle change is open (#189)
