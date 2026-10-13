@@ -1,7 +1,8 @@
 // #169: the region editor page. State machine edit → submitting → queued/building → done | failed; renders with textContent only.
-import { DEFAULT_RECT, parseBbox, formatBbox, sizeKm, centre, lv95ToWgs, corners, rectInside } from './geo.js';
-import { WMTS_URL, WMTS_ATTRIBUTION, STEPS } from './api.js';
+import { DEFAULT_RECT, parseBbox, formatBbox, sizeKm, centre, lv95ToWgs, wgsToLv95, corners, rectInside } from './geo.js';
+import { WMTS_URL, WMTS_ATTRIBUTION, STEPS, previewUrl, identifyUrl, gemeindeName, parsePreview } from './api.js';
 import { translate } from './strings.js';
+import { createFrame } from './frame.js';
 
 const $ = (id) => document.getElementById(id);
 const t = (key, ...args) => translate(window.GG_LANG, key, ...args);
@@ -54,12 +55,34 @@ async function loadOutline() {
   S.state = 'edit'; commit(S.rect);
 }
 
-function commit(rect) {   // Task 5 completes this (frame, URL, preview)
-  S.rect = rect; S.inside = S.outline ? rectInside(rect, S.outline) : null;
+// ---- the frame and its preview ----
+const frame = createFrame(map, $('frame'), { toLv95: (ll) => wgsToLv95(ll.lat, ll.lng), toLatLng,
+  labels: { body: t('frameLabel'), handle: (c) => t('handle', c.toUpperCase()) },
+  onGhost: (r) => { poly.setLatLngs(corners(r).map(toLatLng)); poly.setStyle({ className: 'frame-poly ghost' }); },
+  onCommit: (r) => commit(r) });
+frame.setRect(S.rect);
+
+let previewSeq = 0, previewTimer = 0;
+function schedulePreview() {
+  clearTimeout(previewTimer); const seq = ++previewSeq; S.name = undefined; S.race = null; S.exists = false;
+  previewTimer = setTimeout(() => preview(seq), 400);
+}
+async function preview(seq) {
+  const rect = S.rect;
+  const nameP = fetch(identifyUrl(centre(rect), new Date().getFullYear())).then((r) => (r.ok ? r.json() : null)).then(gemeindeName).catch(() => null);
+  const previewP = fetch(previewUrl(rect)).then((r) => (r.ok ? r.json() : null)).then(parsePreview).catch(() => parsePreview(null));
+  const [name, pv] = await Promise.all([nameP, previewP]);
+  if (seq !== previewSeq) return;   // a newer commit happened
+  S.name = name; S.race = pv.raceOk; S.exists = pv.exists; render();
+}
+
+function commit(rect) {
+  S.rect = rect; frame.setRect(rect); S.inside = S.outline ? rectInside(rect, S.outline) : null;
   history.replaceState(null, '', `?bbox=${formatBbox(rect)}`);
+  if (S.state === 'edit' && S.inside) schedulePreview();
   render();
 }
 
 window.addEventListener('gg-langchange', () => { applyStaticStrings(); render(); });
 applyStaticStrings(); render(); loadOutline();
-window.__ed = { rect: () => S.rect.slice(), state: () => S.state, setRect: (r) => commit(r), commit, map, centre: () => centre(S.rect) };
+window.__ed = { rect: () => S.rect.slice(), state: () => S.state, setRect: (r) => commit(r), commit, map, centre: () => centre(S.rect), preview: () => ({ name: S.name, race: S.race, exists: S.exists }) };
