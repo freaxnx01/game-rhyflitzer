@@ -24,7 +24,7 @@ Early prototype.
 - **Forbidden shortcuts**: the pedestrian-only Holzbrücke is fair game
 - **Two graphic styles**, switchable: chunky MM1 retro and a soft, atmospheric low-poly look
 - **Modes** from MM1: Checkpoint, Blitz, Circuit, Cruise
-- **Region editor** (later): drag a frame on the map, get a playable world
+- **Region editor** (`editor/`): drag a frame on a swisstopo map of Switzerland, get a playable world — see `docs/04-region-editor.md`
 
 ## Tech
 
