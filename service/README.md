@@ -114,17 +114,31 @@ of an IPv6 one) may have 3 worlds queued or building (the fourth gets `503 busy`
 
 [ ] **8.** Check that admin is not public: `curl -i https://rhyflitzer-api.freaxnx01.ch/api/admin/gallery/000000000000` must answer `404` (not `401`). Then over SSH: `ssh -N -L 8081:127.0.0.1:8081 ionos1` and `curl -i -X DELETE http://127.0.0.1:8081/api/admin/gallery/000000000000` -> `401` without a token.
 
+[ ] **9.** Go-live of #170 (the maintainer only; this is the one place the admin token is used): build the worlds you want to show through the editor (#169), then add each with the `docker exec` one-liner above; check `https://rhyflitzer-api.freaxnx01.ch/api/gallery` lists them and the start screen shows the Worlds row.
+
 ## Admin (SSH only)
 
 The admin routes are not on the public host. Tunnel: `ssh -N -L 8081:127.0.0.1:8081 ionos1`, then the CLI against
 `RHYFLITZER_ADMIN_API=http://127.0.0.1:8081` (token from the environment, e.g. out of Passbolt). Or run it on the
-server, which needs no tunnel (the CLI is #170's; the token is read inside the container and never printed):
+server, which needs no tunnel (the CLI is `scripts/gallery.py`, shipped in the image; the token is read inside the
+container and never printed):
 
 ```bash
 ssh ionos1 "docker exec rhyflitzer-admin sh -c 'RHYFLITZER_ADMIN_API=http://127.0.0.1:8001 RHYFLITZER_ADMIN_TOKEN=\$(cat /run/secrets/rhyflitzer_admin_token) python scripts/gallery.py add <id> \"Title\" \"Description\"'"
 ```
 
 Never paste the token into a shell history or a file in a repo.
+
+### Curating the gallery
+
+`python scripts/gallery.py list` prints what the start screen shows and needs no token (it reads the public
+`GET /api/gallery`, which the admin listener serves too). `add <id> "Title" "Description"` adds or replaces an entry:
+a replaced entry keeps its place, a world removed and added again goes last. `remove <id>` returns the world to
+normal retention with a fresh 30 days. At most 50 entries are listed, and a world must be `ready`.
+
+From a laptop: `ssh -N -L 8081:127.0.0.1:8081 ionos1`, then
+`RHYFLITZER_ADMIN_TOKEN=… python3 scripts/gallery.py add …` with the token taken from Passbolt into the environment,
+never as an argument (there is no `--token` flag).
 
 ## Operations
 
