@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from '../pause.js';
 
 const key = (code, extra = {}) => ({ code, shiftKey: false, repeat: false, ...extra });
-const RUN = { paused: false, canPause: true, helpOpen: false };
-const PAUSED = { paused: true, canPause: true, helpOpen: false, confirm: false };
+const RUN = { paused: false, canPause: true };
+const PAUSED = { paused: true, canPause: true, confirm: false };
 const CONFIRM = { ...PAUSED, confirm: true };
 
 test('canPause: only with the start / result screen hidden and the race armed or running', () => {
@@ -22,12 +22,10 @@ test('Esc and P pause a run; other keys pass to the game', () => {
   for (const c of ['KeyW', 'Space', 'Tab', 'KeyF', 'F3', 'Enter', 'ArrowDown']) assert.equal(pauseKeyAction(key(c), RUN), 'pass', c);
 });
 
-test('no pause outside a run, on a key repeat, or with Esc while the F1 help is open', () => {
+test('no pause outside a run or on a key repeat', () => {
   assert.equal(pauseKeyAction(key('Escape'), { ...RUN, canPause: false }), 'pass');
   assert.equal(pauseKeyAction(key('KeyP'), { ...RUN, canPause: false }), 'pass');
   assert.equal(pauseKeyAction(key('KeyP', { repeat: true }), RUN), 'pass');
-  assert.equal(pauseKeyAction(key('Escape'), { ...RUN, helpOpen: true }), 'pass');
-  assert.equal(pauseKeyAction(key('KeyP'), { ...RUN, helpOpen: true }), 'pause');
 });
 
 test('while paused: Esc / P resume, a held P does not flicker', () => {

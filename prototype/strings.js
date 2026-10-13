@@ -145,6 +145,8 @@ const en = {
   boundsNoData: 'Gemeinde boundaries: no data',
   // ---- F1 help ----
   helpTitle: 'Keys · F1 closes',
+  helpSearch: 'Search keys',
+  helpNone: 'No key matches',
   keyAccel: 'accelerate (W or ↑ also work)',
   keySteer: 'or ← →: steer · <b>S</b> / ↓ brake, reverse',
   keyHandbrake: 'handbrake (drift)',
@@ -416,6 +418,8 @@ const de = {
   boundsOff: 'Gemeindegrenzen aus',
   boundsNoData: 'Gemeindegrenzen: keine Daten',
   helpTitle: 'Tasten · F1 schliesst',
+  helpSearch: 'Tasten suchen',
+  helpNone: 'Keine Taste passt',
   keyAccel: 'Gas geben (W oder ↑ gehen auch)',
   keySteer: 'oder ← →: lenken · <b>S</b> / ↓ bremsen, rückwärts',
   keyHandbrake: 'Handbremse (Drift)',
