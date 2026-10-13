@@ -296,7 +296,7 @@ async def get_preview(request: Request) -> JSONResponse:
         return error(400, "bad-bbox", "give bbox=e0,n0,e1,n1 in LV95")
     wid = frame.world_id(rect, region.PIPELINE_VERSION)
     return JSONResponse(await run_in_threadpool(preview.describe, state.store, state.settings, rect, wid,
-                                                time.gmtime().tm_year, state.get, state.names))
+                                                time.gmtime().tm_year, state.names))
 
 
 ROUTES = [
@@ -319,7 +319,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None, get
                       allow_headers=["Content-Type"])
     app = Starlette(routes=ROUTES, middleware=[cors])
     app.state.settings, app.state.store = settings, store
-    app.state.get, app.state.names, app.state.limiter = get, {}, preview.Limiter(settings.preview_per_minute)
+    app.state.names, app.state.limiter = preview.Names(get, settings), preview.Limiter(settings.preview_per_minute)
     log.info("API ready", extra=logs.fields(data=str(settings.data_dir), origins=list(settings.cors_origins)))
     return app
 

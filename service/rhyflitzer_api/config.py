@@ -46,6 +46,9 @@ class Settings:
     altcha_ttl: float = 600.0                 # a challenge, and so its solution, is good for 10 minutes
     race_min_road_m: int = 3000               # metres of major road in a frame before a race looks feasible
     preview_per_minute: int = 60
+    preview_lookup_slots: int = 4             # swisstopo name lookups running at once, all clients together
+    preview_lookups_per_minute: int = 120     # new swisstopo name lookups a minute, all clients together
+    preview_failure_ttl: float = 60.0         # a failed name lookup is not tried again for this long
 
     @property
     def db_path(self) -> Path:

@@ -1,4 +1,6 @@
 import dataclasses
+import threading
+import time
 
 import frame
 import pytest
@@ -8,11 +10,13 @@ from starlette.testclient import TestClient
 
 from conftest import RECT, add_ready, ip
 from rhyflitzer_api.app import create_app
-from rhyflitzer_api.preview import Limiter
+from rhyflitzer_api.preview import Limiter, Names
 
 BBOX = "bbox=2667000,1259750,2669250,1261750"
 WID = frame.world_id(RECT, region.PIPELINE_VERSION)
 INSIDE = (5336, 2521)          # a cell centred in RECT
+OTHER_RECT = (2667000.0, 1259750.0, 2669000.0, 1261750.0)
+OTHER_BBOX = "bbox=2667000,1259750,2669000,1261750"
 
 
 class Reply:
@@ -128,3 +132,54 @@ def test_the_same_frame_is_looked_up_once(settings, store):
     client.get(f"/api/preview?{BBOX}")
     client.get(f"/api/preview?{BBOX}")
     assert calls == ["esriGeometryPoint", "esriGeometryEnvelope"]
+
+
+def test_a_failed_name_lookup_is_not_repeated_for_a_minute(settings):
+    now, calls = [0.0], []
+
+    def down(url, params, timeout):
+        calls.append(url)
+        raise requests.ConnectionError("swisstopo is down")
+
+    names = Names(down, settings, clock=lambda: now[0])
+    assert names.lookup(RECT, 2026) == (None, []) and names.lookup(RECT, 2026) == (None, [])
+    assert len(calls) == 1                                   # the second preview did not ask again
+    now[0] = 61.0
+    names.lookup(RECT, 2026)
+    assert len(calls) == 2
+
+
+def test_name_lookups_never_queue_beyond_their_slots(settings):
+    started, release = threading.Event(), threading.Event()
+
+    def slow(url, params, timeout):
+        started.set()
+        release.wait(5)
+        return Reply(("Ehrendingen",))
+
+    names = Names(slow, dataclasses.replace(settings, preview_lookup_slots=1))
+    first = threading.Thread(target=names.lookup, args=(RECT, 2026))
+    first.start()
+    assert started.wait(5)
+    began = time.monotonic()
+    assert names.lookup(OTHER_RECT, 2026) == (None, []) and time.monotonic() - began < 1   # at once, without a name
+    release.set()
+    first.join(5)
+    assert names.lookup(OTHER_RECT, 2026)[0] == "Ehrendingen"                              # the slot came back
+
+
+def test_new_name_lookups_are_limited_for_everybody_together(settings):
+    calls = []
+    names = Names(fake_get(calls=calls), dataclasses.replace(settings, preview_lookups_per_minute=1), clock=lambda: 0.0)
+    assert names.lookup(RECT, 2026)[0] == "Ehrendingen"
+    assert names.lookup(OTHER_RECT, 2026) == (None, []) and len(calls) == 2      # two requests for the first frame only
+    assert names.lookup(RECT, 2026)[0] == "Ehrendingen"                          # a cached frame costs nothing
+
+
+def test_a_preview_beyond_the_lookup_budget_still_answers_without_a_name(settings, store):
+    store.replace_roadgrid([(*INSIDE, 4000)])
+    client = app(settings, store, preview_lookups_per_minute=1)
+    assert client.get(f"/api/preview?{BBOX}").json()["name"] == "Ehrendingen"
+    r = client.get(f"/api/preview?{OTHER_BBOX}")
+    assert r.status_code == 200 and r.json()["name"] is None and r.json()["gemeinden"] == []
+    assert r.json()["exists"] is False and r.json()["raceOk"] is True

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import collections
 import logging
+import threading
 import time
 
 import requests
@@ -16,6 +17,7 @@ IDENTIFY = "https://api3.geo.admin.ch/rest/services/api/MapServer/identify"
 LAYER = "all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
 FEW_ROADS, NO_INDEX = "few-major-roads", "no-road-index"
 CACHE_SIZE = 512
+EVERYBODY = "*"
 
 
 class Limiter:
@@ -53,26 +55,66 @@ def gemeinden(rect, year: int, get) -> tuple[str | None, list[str]]:
     return (" · ".join(names[:2]) or None), names
 
 
-def lookup(rect, year: int, get, cache: dict) -> tuple[str | None, list[str]]:
-    """(name, Gemeinden) of a snapped frame, looked up once; a failed lookup is not cached and gives (None, [])."""
-    if rect in cache:
-        return cache[rect]
-    try:
-        found = gemeinden(rect, year, get)
-    except (requests.RequestException, ValueError, KeyError):
-        log.warning("Looking up the Gemeinden of a preview failed; answering without a name", exc_info=True)
-        return None, []
-    if len(cache) >= CACHE_SIZE:
-        cache.clear()
-    cache[rect] = found
-    return found
+class Names:
+    """Names of snapped frames from swisstopo, bounded for all clients together: at most `preview_lookup_slots`
+    lookups at once and `preview_lookups_per_minute` new ones a minute; a failed lookup is remembered for
+    `preview_failure_ttl` seconds. Beyond a bound the answer is (None, []) at once: a preview never waits."""
+
+    def __init__(self, get, settings, clock=time.monotonic):
+        self.get, self.clock, self.failure_ttl = get, clock, settings.preview_failure_ttl
+        self._slots = threading.BoundedSemaphore(settings.preview_lookup_slots)
+        self._rate = Limiter(settings.preview_lookups_per_minute, clock)
+        self._found, self._failed, self._lock = {}, {}, threading.Lock()
+
+    def lookup(self, rect, year: int) -> tuple[str | None, list[str]]:
+        """(name, Gemeinden) of a snapped frame; (None, []) when it failed lately or the lookups are at a bound."""
+        if rect in self._found:
+            return self._found[rect]
+        if not self._take_slot(rect):
+            log.debug("Answering a preview without a name: the lookup failed lately or lookups are at their bound")
+            return None, []
+        try:
+            return self._ask(rect, year)
+        finally:
+            self._slots.release()
+
+    def _take_slot(self, rect) -> bool:
+        """Takes a lookup slot (lookup() gives it back) unless the frame failed lately or a bound is reached."""
+        with self._lock:
+            if self.clock() < self._failed.get(rect, 0.0):
+                return False
+            if not self._slots.acquire(blocking=False):
+                return False
+            if not self._rate.allow(EVERYBODY):
+                self._slots.release()
+                return False
+            return True
+
+    def _ask(self, rect, year: int) -> tuple[str | None, list[str]]:
+        log.debug("Looking up the Gemeinden of a preview")
+        try:
+            found = gemeinden(rect, year, self.get)
+        except (requests.RequestException, ValueError, KeyError):
+            log.warning("Looking up the Gemeinden of a preview failed; answering without a name for %.0f s",
+                        self.failure_ttl, exc_info=True)
+            self._remember(self._failed, rect, self.clock() + self.failure_ttl)
+            return None, []
+        self._remember(self._found, rect, found)
+        log.debug("Looked up the Gemeinden of a preview")
+        return found
+
+    @staticmethod
+    def _remember(cache: dict, rect, value) -> None:
+        if len(cache) >= CACHE_SIZE:
+            cache.clear()
+        cache[rect] = value
 
 
-def describe(store: Store, settings, rect, wid: str, year: int, get, cache: dict) -> dict:
+def describe(store: Store, settings, rect, wid: str, year: int, names: Names) -> dict:
     """id and exists (a POST would only join or read the world: no human check), name, Gemeinden, raceOk."""
-    name, names = lookup(rect, year, get, cache)
+    name, found = names.lookup(rect, year)
     meters = store.major_meters(rect)
-    answer = {"id": wid, "exists": store.exists(wid), "name": name, "gemeinden": names, "raceOk": None if meters is None else meters >= settings.race_min_road_m}
+    answer = {"id": wid, "exists": store.exists(wid), "name": name, "gemeinden": found, "raceOk": None if meters is None else meters >= settings.race_min_road_m}
     if meters is None:
         answer["reason"] = NO_INDEX
     elif not answer["raceOk"]:
