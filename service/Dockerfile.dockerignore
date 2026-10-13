@@ -7,4 +7,5 @@
 !prototype/**
 !service/requirements.txt
 !service/rhyflitzer_api/**
+!scripts/gallery.py
 **/__pycache__

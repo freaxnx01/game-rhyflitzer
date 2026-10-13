@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 SERVICE = Path(__file__).resolve().parents[1]
@@ -58,3 +59,10 @@ def test_readme_documents_the_network_caps_and_the_lock():
     text = (SERVICE / "README.md").read_text()
     assert "/24" in text and "/48" in text and "ALTCHA_COST" in text
     assert "requirements.lock" in text and "uv pip compile" in text and "oom_score_adj" in text
+
+
+def test_the_image_carries_the_gallery_cli_and_the_readme_holds_no_token():
+    assert "COPY scripts/gallery.py scripts/gallery.py" in (SERVICE / "Dockerfile").read_text()
+    assert "!scripts/gallery.py" in (SERVICE / "Dockerfile.dockerignore").read_text().splitlines()
+    readme = (SERVICE / "README.md").read_text()
+    assert "scripts/gallery.py add" in readme and not re.search(r"Bearer [A-Za-z0-9]{12,}", readme)
