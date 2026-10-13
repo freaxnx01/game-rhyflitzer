@@ -92,7 +92,7 @@ def test_autopilot_drives_to_a_landmark_signals_and_stops(server):
         assert r["on"] is False and r["last"] == "arrived", r
         x, z = anchor("smileKreisel")
         assert math.hypot(r["x"] - x, r["z"] - z) < 40
-        assert r["blinkers"], "a turn signal was set on the way"
+        assert r["blinkers"] == [], "the route ends inside the roundabout: no entry signal, no exit signal (#231)"
         assert 20 < r["maxKmh"] <= 62
         assert auto(page)["blinker"] is None
         assert "Arrived" in page.inner_html("#toast")
