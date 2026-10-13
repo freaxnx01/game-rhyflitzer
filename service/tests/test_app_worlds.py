@@ -130,3 +130,33 @@ def test_a_world_whose_folder_vanishes_mid_request_is_expired_not_a_500(client, 
     add_ready(store, settings, WID)                       # ready in the store, no files on disk: the eviction race
     r = client.get(f"/worlds/{WID}/terrain.mmh")
     assert r.status_code == 404 and r.json()["error"] == "expired"
+
+
+def test_the_gallery_is_public_ordered_cacheable_and_also_on_the_admin_listener(client, admin, store, settings):
+    for n in (1, 2):
+        add_ready(store, settings, f"{n:012x}")
+    auth = {"Authorization": "Bearer s3cret"}
+    assert client.get("/api/gallery").json() == []
+    admin.put(f"/api/admin/gallery/{2:012x}", json={"title": "Erste", "description": "d"}, headers=auth)
+    admin.put(f"/api/admin/gallery/{1:012x}", json={"title": "Zweite"}, headers=auth)
+    r = client.get("/api/gallery", headers=ORIGIN)
+    assert r.json() == [{"id": f"{2:012x}", "title": "Erste", "description": "d"}, {"id": f"{1:012x}", "title": "Zweite", "description": ""}]
+    assert r.headers["cache-control"] == "public, max-age=60" and r.headers["access-control-allow-origin"] == ORIGIN["Origin"]
+    assert admin.get("/api/gallery").json() == r.json()                       # no token needed to read; the CLI's `list`
+    admin.delete(f"/api/admin/gallery/{2:012x}", headers=auth)
+    assert [e["title"] for e in client.get("/api/gallery").json()] == ["Zweite"]
+
+
+def test_gallery_text_loses_control_characters_but_markup_stays_text(admin, store, settings):
+    add_ready(store, settings, WID)
+    r = admin.put(f"/api/admin/gallery/{WID}", json={"title": "  Rhy\x00fl\x07itzer <b>  ", "description": "a\x85b"}, headers={"Authorization": "Bearer s3cret"})
+    assert r.status_code == 200 and r.json()["title"] == "Rhyflitzer <b>"
+    assert (store.get(WID)["title"], store.get(WID)["description"]) == ("Rhyflitzer <b>", "ab")
+
+
+def test_the_public_gallery_runs_off_the_event_loop(client, store, settings, monkeypatch):
+    add_ready(store, settings, WID)
+    real, seen = store.gallery_list, []
+    monkeypatch.setattr(store, "gallery_list", lambda *a, **kw: seen.append(_off_loop()) or real(*a, **kw))
+    assert client.get("/api/gallery").status_code == 200
+    assert seen == [True]
