@@ -175,7 +175,7 @@ def test_the_gallery_is_public_ordered_cacheable_and_also_on_the_admin_listener(
 
 def test_gallery_text_loses_control_characters_but_markup_stays_text(admin, store, settings):
     add_ready(store, settings, WID)
-    r = admin.put(f"/api/admin/gallery/{WID}", json={"title": "  Rhy\u0000fl\u0007itzer <b>  ", "description": "a\u0085b"}, headers={"Authorization": "Bearer s3cret"})
+    r = admin.put(f"/api/admin/gallery/{WID}", json={"title": "  Rhy\x00fl\x07itzer <b>  ", "description": "a\x85b"}, headers={"Authorization": "Bearer s3cret"})
     assert r.status_code == 200 and r.json()["title"] == "Rhyflitzer <b>"
     assert (store.get(WID)["title"], store.get(WID)["description"]) == ("Rhyflitzer <b>", "ab")
 
@@ -395,7 +395,7 @@ test('galleryUrl joins host and path', () => {
 });
 
 test('cleanEntry keeps good entries and strips control characters', () => {
-  assert.deepEqual(cleanEntry({ id: ID, title: ' Rhein\u0000felden ', description: 'Altstadt' }), { id: ID, title: 'Rheinfelden', description: 'Altstadt' });
+  assert.deepEqual(cleanEntry({ id: ID, title: ' Rhein\x00felden ', description: 'Altstadt' }), { id: ID, title: 'Rheinfelden', description: 'Altstadt' });
   assert.equal(cleanEntry({ id: ID, title: 'T' }).description, '');
 });
 
@@ -434,7 +434,7 @@ test('loadGallery: good list, non-ok, network error and bad JSON all end in a li
 import { isWorldId } from './worlds.js';
 
 const MAX_ENTRIES = 50, MAX_TITLE = 80, MAX_DESC = 300;
-const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g;
+const CONTROL = /[\x00-\x1f\x7f-\x9f]/g;
 
 export const galleryUrl = (host) => `${host}/api/gallery`;
 
