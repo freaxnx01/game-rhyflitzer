@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="../favicon.png" sizes="32x32" type="image/png">
+<title>Region editor · Map Madness</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,800&display=swap">
+<link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="./editor.css">
+<header id="top"><h1 data-i18n="title">Region editor</h1><p class="tag" data-i18n="tagline"></p></header>
+<main id="main">
+  <div id="mapwrap"><div id="map" role="application" aria-label="Map of Switzerland"></div><div id="frame" hidden></div></div>
+  <aside id="panel" aria-live="polite">
+    <section id="edit" class="card">
+      <h2 data-i18n="frame"></h2>
+      <p id="size" class="big"></p><p id="name" class="name">…</p>
+      <p id="chmsg" class="err" hidden></p><p id="warn" class="warn" hidden></p><p id="hint" class="hint" data-i18n="hint"></p>
+      <button id="buildbtn" class="btn primary" type="button" disabled data-i18n="build"></button>
+      <p id="humanmsg" class="hint" role="status" hidden></p><p id="humannote" class="hint" data-i18n="humanNote"></p><div id="human" hidden></div>
+    </section>
+    <section id="progress" class="card" hidden>
+      <h2 data-i18n="building"></h2><p id="pname" class="name"></p>
+      <ol id="steps"></ol><p id="about" class="hint" data-i18n="about"></p><p id="lost" class="warn" hidden data-i18n="connectionLost"></p>
+    </section>
+    <section id="result" class="card" hidden>
+      <h2 data-i18n="ready"></h2><p id="rname" class="name"></p>
+      <a id="drivebtn" class="btn primary" href="#" data-i18n="drive"></a>
+      <label class="share"><span data-i18n="share"></span><span class="row"><input id="sharein" type="text" readonly><button id="copybtn" class="btn small" type="button" data-i18n="copy"></button></span></label>
+      <a id="dlbtn" class="btn small" href="#" role="button" data-i18n="download"></a><p id="dlmsg" class="err" hidden></p>
+      <p id="rwarn" class="warn" hidden data-i18n="freeDriving"></p>
+      <button id="newbtn" class="btn small" type="button" data-i18n="newFrame"></button>
+    </section>
+    <section id="fail" class="card" hidden>
+      <h2 data-i18n="sorry"></h2><p id="failmsg" class="err"></p>
+      <button id="changebtn" class="btn" type="button" data-i18n="changeFrame"></button>
+    </section>
+    <p id="licence" class="licence" data-i18n="licence"></p>
+  </aside>
+</main>
+<script src="../prototype/version.js"></script>
+<script src="../prototype/i18n.js"></script>
+<nav id="game-nav" aria-label="Game navigation">
+  <span id="version-badge" title="Version"></span>
+  <span class="dot" aria-hidden="true">·</span><a href="https://github.freaxnx01.ch/games/">More Games…</a>
+  <span class="dot" aria-hidden="true">·</span><a href="https://github.com/freaxnx01/game-rhyflitzer" target="_blank" rel="noopener">Source</a>
+  <span class="dot" aria-hidden="true">·</span><a href="https://github.com/freaxnx01/game-rhyflitzer/issues/new?title=%5BFeedback%5D%20game-rhyflitzer%20editor&labels=feedback" target="_blank" rel="noopener">Feedback</a>
+</nav>
+<script>
+  (function () {   // version badge → CHANGELOG, text only from version.js (same as prototype/index.html)
+    var el = document.getElementById('version-badge'); if (!el) return;
+    var a = document.createElement('a'); a.href = 'https://github.com/freaxnx01/game-rhyflitzer/blob/main/CHANGELOG.md'; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = 'v' + (window.GAME_VERSION || '0.0.0'); el.appendChild(a);
+  })();
+</script>
+<script src="../vendor/leaflet/leaflet.js"></script>
+<script type="module" src="../vendor/altcha/altcha.min.js"></script>
+<script type="module" src="./editor.js"></script>
+</html>
