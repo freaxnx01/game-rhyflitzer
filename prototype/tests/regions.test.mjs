@@ -31,6 +31,8 @@ test('Hochrhein keeps exactly today\'s values', () => {
   assert.equal(h.handFallback, true);
   assert.equal(h.villages, VILLAGES); assert.equal(h.gemeinden, GEMEINDEN); assert.equal(h.landmarks, LANDMARK_INFO);
   assert.deepEqual(h.strings, { intro: 'intro', finished: 'finishedText', blurb: 'blurbOsm' });
+  assert.equal(h.motorwayRef, 'A3');   // #226
+  assert.equal(REGIONS.ehrendingen.motorwayRef, undefined);
 });
 
 test('the national border names are per region: Hochrhein has them, Ehrendingen has no border (#73)', () => {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
-import { sampled, trisHeightAt } from '../world.js';
+import { sampled, trisHeightAt, motorwayLabelSpots } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -1128,4 +1128,18 @@ test('trisHeightAt: the drawn height of a junction disc between its vertices, -I
   assert.ok(Math.abs(trisHeightAt(tris, 7, 3) - 1.3) < 1e-9);
   assert.ok(Math.abs(trisHeightAt(tris, 5, 5) - 1.5) < 1e-9);   // on the shared edge: no gap between the triangles
   assert.equal(trisHeightAt(tris, 12, 5), -Infinity);
+});
+
+test('motorwayLabelSpots: one spot per stretch, parallel carriageways and links and stubs skipped', () => {
+  const way = (cls, pts) => ({ cls, bridge: false, pts });
+  const roads = [
+    way('motorway', [[0, 0], [2000, 0]]),
+    way('motorway', [[2000, 20], [0, 20]]),          // opposite carriageway, 20 m away: dropped
+    way('motorway_link', [[0, 3000], [900, 3000]]),  // link: ignored
+    way('motorway', [[0, 4000], [100, 4000]]),       // 100 m stub: ignored
+    way('motorway', [[0, 5000], [4000, 5000]]),      // 4 km: two spots
+    way('primary', [[0, 7000], [3000, 7000]]),
+  ];
+  const spots = motorwayLabelSpots(roads);
+  assert.deepEqual(spots.map(s => [Math.round(s.x), Math.round(s.z)]), [[1000, 5000], [3000, 5000], [1000, 0]]);
 });
