@@ -1,7 +1,9 @@
+import asyncio
 import dataclasses
 import time
 
 import frame
+import pytest
 import region
 from starlette.testclient import TestClient
 
@@ -86,3 +88,36 @@ def test_used_signatures_are_forgotten_once_they_expire(store, settings):
     assert spent() == ["sig-1"]
     store.submit("b" * 12, RECT, "y", T0 + 700, settings, gate=human_gate(challenge.Ticket("sig-2", T0 + 1300), T0 + 700))
     assert spent() == ["sig-2"]
+
+
+def off_loop() -> bool:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return True
+    return False
+
+
+def test_a_cache_hit_does_not_judge_the_solution(client, store, settings, monkeypatch):
+    add_ready(store, settings, WID)
+    monkeypatch.setattr(challenge, "check", lambda payload, s: pytest.fail("the human check ran for a cache hit"))
+    assert post(client, payload="anything").status_code == 200
+
+
+def test_store_and_human_check_run_off_the_event_loop(client, store, monkeypatch):
+    seen = []
+
+    def spy(name, real):
+        def call(*args, **kw):
+            seen.append((name, off_loop()))
+            return real(*args, **kw)
+        return call
+
+    for name in ("get", "submit", "ip_hash", "prev_ip_hash", "position", "counts"):
+        monkeypatch.setattr(store, name, spy(name, getattr(store, name)))
+    monkeypatch.setattr(challenge, "check", spy("check", challenge.check))
+    assert post(client, payload=human(client)).status_code == 202
+    for path in (f"/api/jobs/{WID}", f"/api/worlds/{WID}", "/api/health", f"/worlds/{WID}/world.json"):
+        client.get(path)
+    assert {name for name, _ in seen} >= {"get", "submit", "ip_hash", "position", "counts", "check"}
+    assert all(off for _, off in seen), seen

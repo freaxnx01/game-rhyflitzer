@@ -128,7 +128,6 @@ class BodyTooLarge(Exception):
 
 
 async def create_job(request: Request) -> JSONResponse:
-    settings, store = request.app.state.settings, request.app.state.store
     try:
         body = await read_json(request)
     except BodyTooLarge:
@@ -141,8 +140,14 @@ async def create_job(request: Request) -> JSONResponse:
         return error(400, exc.code, str(exc))
     except (TypeError, ValueError):
         return error(400, "bad-bbox", BBOX_HELP)
+    return await run_in_threadpool(admit, request, rect, body.get("altcha"))
+
+
+def admit(request: Request, rect, solution) -> JSONResponse:
+    """The blocking half of POST /api/jobs (SQLite and the human check), run off the event loop."""
+    settings, store = request.app.state.settings, request.app.state.store
     wid, now = frame.world_id(rect, region.PIPELINE_VERSION), time.time()
-    ticket = challenge.check(body.get("altcha"), settings)       # judged only if this turns out to be a NEW build
+    ticket = None if store.exists(wid) else challenge.check(solution, settings)   # a join or a cache hit is never judged
     log.info("Admitting a build of world %s", wid, extra=logs.fields(world=wid, lv95=list(rect)))
     try:
         address = client_ip(request, settings.proxy_hops, settings.trusted_proxies)
@@ -155,7 +160,7 @@ async def create_job(request: Request) -> JSONResponse:
     return JSONResponse(job_view(store, row), status_code=200 if row["state"] == "ready" else 202)
 
 
-async def get_job(request: Request) -> JSONResponse:
+def get_job(request: Request) -> JSONResponse:
     store, wid = request.app.state.store, request.path_params["wid"]
     row = store.get(wid) if WORLD_ID.fullmatch(wid) else None
     if row is None:
@@ -163,7 +168,7 @@ async def get_job(request: Request) -> JSONResponse:
     return JSONResponse(job_view(store, row))
 
 
-async def world_status(request: Request) -> JSONResponse:
+def world_status(request: Request) -> JSONResponse:
     """#167's contract: {id, status, bbox: {lv95}}; kept after expiry (a tombstone), because the id is a hash and
     the game's "Build it again?" needs the frame back."""
     store, wid = request.app.state.store, request.path_params["wid"]
@@ -173,7 +178,7 @@ async def world_status(request: Request) -> JSONResponse:
     return JSONResponse({"id": wid, "status": row["state"], "bbox": {"lv95": json.loads(row["lv95"])}})
 
 
-async def health(request: Request) -> JSONResponse:
+def health(request: Request) -> JSONResponse:
     settings, store = request.app.state.settings, request.app.state.store
     try:
         counts, stored, beat = store.counts(), store.stored_bytes(), store.kv_get("worker_heartbeat")
@@ -219,7 +224,7 @@ def world_missing(row) -> JSONResponse:
     return error(404, "not-ready", "This world is not built yet")
 
 
-async def world_file(request: Request) -> Response:
+def world_file(request: Request) -> Response:
     settings, store = request.app.state.settings, request.app.state.store
     wid, name = request.path_params["wid"], request.path_params["name"]
     if not WORLD_ID.fullmatch(wid) or name not in FILES:
@@ -274,7 +279,7 @@ async def gallery(request: Request) -> JSONResponse:
     return JSONResponse({"id": wid, "gallery": True, "title": title})
 
 
-async def get_challenge(request: Request) -> JSONResponse:
+def get_challenge(request: Request) -> JSONResponse:
     log.debug("Issuing a human-check challenge")
     try:
         doc = challenge.issue(request.app.state.settings, time.time())
