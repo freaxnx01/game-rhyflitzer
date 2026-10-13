@@ -1,4 +1,5 @@
 """#270: press L to switch the car lights on and off. Hand layout (world + terrain blocked).
+#271: press 1 for the hazard lights — both turn signals flash together.
 Slow (Playwright): run in the foreground. Verifies the compact and the DeLorean share the same lamp levels."""
 import pytest
 from playwright.sync_api import sync_playwright
@@ -57,4 +58,63 @@ def test_l_toggles_the_same_levels_on_the_delorean(server):
         assert off["head"] is False and off["headLevel"] == 0.35, off
         press_l_and_assert(page, True)                                         # L -> lights on, same 2.0
         press_l_and_assert(page, False)                                        # L -> back to 0.35
+        b.close()
+
+
+def test_1_toggles_hazard_both_sides_flash_win_over_q_and_yield_to_the_blinker(server):
+    """#271: 1 toggles the hazard lights — both turn signals flash together, hazard wins over
+    Q (the stored blinker is kept), and switching hazard off shows the stored blinker alone again."""
+    with sync_playwright() as p:
+        b, page = start_hand(p, server)
+        wait_lights(page)
+
+        # 1 on: toast, and both sides flash together — never one without the other.
+        page.keyboard.press("Digit1")
+        page.wait_for_function("() => window.__mm.toast().shown", timeout=120000)
+        assert page.evaluate("() => window.__mm.toast().text") == "Hazard lights on"
+        assert page.evaluate("() => window.__mm.lights().hazard") is True
+        on = page.evaluate("""() => {
+          const start = performance.now();
+          while (performance.now() - start < 1000) {
+            const s = window.__mm.lights();
+            if (s.left !== s.right) return { bad: true, left: s.left, right: s.right };
+            if (s.left && s.right) return { ok: true };
+          }
+          return { ok: false };
+        }""")
+        assert on.get("ok"), on
+
+        # Q mid-hazard stores a blinker but does not break the symmetry: hazard still flashes both.
+        page.keyboard.press("KeyQ")
+        assert page.evaluate("() => window.__mm.hud().blinker") == "left"
+        q = page.evaluate("""() => {
+          const start = performance.now();
+          while (performance.now() - start < 1000) {
+            const s = window.__mm.lights();
+            if (s.left !== s.right) return { bad: true, left: s.left, right: s.right };
+            if (s.left && s.right) return { ok: true };
+          }
+          return { ok: false };
+        }""")
+        assert q.get("ok"), q
+
+        # 1 off: the stored blinker shows alone again (left on, right off), never both together.
+        page.keyboard.press("Digit1")
+        page.wait_for_function("() => window.__mm.toast().shown", timeout=120000)
+        assert page.evaluate("() => window.__mm.toast().text") == "Hazard lights off"
+        assert page.evaluate("() => window.__mm.lights().hazard") is False
+        assert page.evaluate("() => window.__mm.hud().blinker") == "left"
+        off = page.evaluate("""() => {
+          const start = performance.now();
+          let bothTrue = false;
+          while (performance.now() - start < 1000) {
+            const s = window.__mm.lights();
+            if (s.left && s.right) bothTrue = true;
+            if (s.left === true && s.right === false) return { ok: true, bothTrue };
+          }
+          return { ok: false, bothTrue };
+        }""")
+        assert off.get("ok"), off
+        assert not off.get("bothTrue"), off   # hazard off: the two never flash together again
+
         b.close()
