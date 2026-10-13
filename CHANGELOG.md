@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-13 20:43` The **brake lights** glow brighter red when you brake, with the lights on or off.
 - `2026-10-13 20:22` The **F1** key list has a search field now: it is focused as soon as the help opens, and typing filters the keys by their label or their description, ignoring capitals and umlauts — type „ton" to find **Ton aus**, or „F3" to find the debug row. No game key fires while the help is open. <kbd>Esc</kbd> closes the help.
 - `2026-10-13 20:04` Press <kbd>1</kbd> for the **hazard lights**: both turn signals flash together, with the lights on or off, until you press <kbd>1</kbd> again.
 - `2026-10-12 20:11` The minimap names every village now: **Münchwilen**, **Mumpf**, **Murg**, **Wallbach**, **Eiken**, **Obermumpf**, **Oeschgen**, **Hellikon**, **Frick** and the rest sit where the village is, not just Bad Säckingen, Stein and Sisseln. **Zuzgen**, **Kaisten**, **Wegenstetten** and **Gipf-Oberfrick** are new on the map and in the sky.

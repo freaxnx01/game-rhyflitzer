@@ -1,5 +1,6 @@
 """#270: press L to switch the car lights on and off. Hand layout (world + terrain blocked).
 #271: press 1 for the hazard lights — both turn signals flash together.
+#230: brake lights light up while braking — brake beats rear light (L), with lights on or off.
 Slow (Playwright): run in the foreground. Verifies the compact and the DeLorean share the same lamp levels."""
 import pytest
 from playwright.sync_api import sync_playwright
@@ -116,5 +117,48 @@ def test_1_toggles_hazard_both_sides_flash_win_over_q_and_yield_to_the_blinker(s
         }""")
         assert off.get("ok"), off
         assert not off.get("bothTrue"), off   # hazard off: the two never flash together again
+
+        b.close()
+
+
+def test_s_brakes_light_up_the_tail_lenses(server):
+    """#230: hold S (or Down, touch brake, autopilot, handbrake) and the tail lights glow brighter red,
+    above 0.5 m/s — brake beats rear light (L), with lights on or off. No brake light when standing still."""
+    with sync_playwright() as p:
+        b, page = start_hand(p, server)
+        wait_lights(page)
+
+        # lights off, no brake: idle tail level
+        off = page.evaluate("() => window.__mm.lights()")
+        assert off["braking"] is False and off["tailLevel"] == 0.45, off
+
+        # drive forward, then brake: braking true, tail at brake level (2.4)
+        braking = page.evaluate("""() => {
+          window.__mm.step(2, ['KeyW']);
+          window.__mm.step(0.3, ['KeyS']);
+          return window.__mm.lights();
+        }""")
+        assert braking["braking"] is True and braking["tailLevel"] == 2.4, braking
+
+        # release: settle back to idle
+        page.evaluate("() => window.__mm.step(2, [])")
+        wait_lights(page)
+        idle = page.evaluate("() => window.__mm.lights()")
+        assert idle["braking"] is False and idle["tailLevel"] == 0.45, idle
+
+        # lights on (L): rear light level (1.0), no brake
+        page.keyboard.press("KeyL")
+        page.wait_for_function("() => window.__mm.toast().shown", timeout=120000)
+        wait_lights(page)
+        lights_on = page.evaluate("() => window.__mm.lights()")
+        assert lights_on["head"] is True and lights_on["tailLevel"] == 1.0, lights_on
+
+        # lights on + brake: brake beats rear light (2.4)
+        brake_on = page.evaluate("""() => {
+          window.__mm.step(2, ['KeyW']);
+          window.__mm.step(0.3, ['KeyS']);
+          return window.__mm.lights();
+        }""")
+        assert brake_on["braking"] is True and brake_on["tailLevel"] == 2.4, brake_on
 
         b.close()
