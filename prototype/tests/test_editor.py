@@ -334,3 +334,37 @@ def test_polling_keeps_retrying_on_a_5xx(server):
         page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=30000)
         b.close()
     assert api.gets == 2
+
+
+SLOW_JOB_GETS = """() => { const real = window.fetch; window.__jobGets = 0;
+    window.fetch = async (url, ...rest) => { const slow = String(url).includes('/api/jobs/'); if (slow) window.__jobGets++;
+        const res = await real(url, ...rest); if (slow) await new Promise((r) => setTimeout(r, 1500)); return res; }; }"""
+
+
+def test_a_tab_switch_during_a_poll_does_not_start_a_second_poll_chain(server):
+    api = Api(script=[(200, job("queued", position=1))])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.evaluate(SLOW_JOB_GETS)
+        page.click("#buildbtn")
+        page.wait_for_function("() => window.__jobGets === 1", timeout=20000)   # the first poll is in flight
+        page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_function("() => window.__jobGets >= 3", timeout=20000)
+        page.wait_for_timeout(800)   # a second chain would have fired its third poll by now
+        gets = page.evaluate("() => window.__jobGets")
+        b.close()
+    assert errs == [] and gets == 3
+
+
+def test_a_poll_answer_arriving_after_change_the_frame_is_ignored(server):
+    api = Api(script=[(200, job("queued", position=1))])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.evaluate(SLOW_JOB_GETS)
+        page.click("#buildbtn")
+        page.wait_for_function("() => window.__jobGets === 1", timeout=20000)
+        page.evaluate("() => { window.__ed.job(); document.querySelector('#changebtn').click(); }")
+        page.wait_for_timeout(2500)   # the late answer has arrived
+        got = page.evaluate("() => window.__ed.state()")
+        b.close()
+    assert errs == [] and got == "edit"

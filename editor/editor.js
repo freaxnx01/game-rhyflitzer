@@ -114,7 +114,8 @@ function commit(rect) {
 }
 
 // ---- build, polling, done and failed ----
-let pollTimer = 0;
+let pollTimer = 0, pollGen = 0;   // pollGen: one poll chain at a time; stopPolling() invalidates answers still in flight
+function stopPolling() { clearTimeout(pollTimer); pollGen++; }
 
 async function submit(withHuman) {   // the human check (only for a new world), then one POST
   let altcha = null;
@@ -142,24 +143,27 @@ async function build() {
 
 function applyJob(job, startedAt) {   // job.status 'failed' also arrives from the POST itself (a permanent too-complex failure: 202 + state failed)
   S.job = job;
-  if (job.status === 'done') { S.state = 'done'; clearTimeout(pollTimer); loadMeta(job.id); return render(); }
+  if (job.status === 'done') { S.state = 'done'; stopPolling(); loadMeta(job.id); return render(); }
   if (job.status === 'failed' || job.status === 'expired') return fail(failKey(job.reason || job.status));
   S.state = job.status === 'queued' ? 'queued' : 'building'; S.misses = 0; render();
   const t0 = startedAt || Date.now(); S.startedAt = t0;
-  pollTimer = setTimeout(() => poll(t0), pollDelay(Date.now() - t0));
+  const gen = pollGen; pollTimer = setTimeout(() => poll(t0, gen), pollDelay(Date.now() - t0));
 }
 
-async function poll(t0) {
+async function poll(t0, gen) {
   if (S.state !== 'queued' && S.state !== 'building') return;
   try {
-    const r = await fetch(jobUrl(S.job.id));
+    const r = await fetch(jobUrl(S.job.id)); if (gen !== pollGen) return;   // superseded, or the page left the build, while this was in flight
     if (r.status === 404) return fail('errServer');   // 'unknown': the job row is gone, so retrying cannot help
     if (!r.ok) throw new Error(String(r.status));
-    S.misses = 0; applyJob(parseJob(await r.json()), t0);
+    const job = parseJob(await r.json());
+    if (gen !== pollGen) return;
+    S.misses = 0; applyJob(job, t0);
   } catch (e) {
+    if (gen !== pollGen) return;
     if (e instanceof JobFormatError) return fail('errServer');   // a malformed answer will not get better
     S.misses = (S.misses || 0) + 1; show('lost', S.misses >= 3);
-    pollTimer = setTimeout(() => poll(t0), pollDelay(Date.now() - t0));
+    pollTimer = setTimeout(() => poll(t0, gen), pollDelay(Date.now() - t0));
   }
 }
 
@@ -184,8 +188,8 @@ async function downloadWorld(e) {   // #168 has no zip route: fetch the three fi
   } catch (err) { console.warn('download failed', err); setText('dlmsg', t('dlError')); show('dlmsg', true); }
 }
 
-function fail(key) { S.state = 'failed'; S.errKey = key; clearTimeout(pollTimer); render(); }
-function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; clearTimeout(pollTimer); show('lost', false); show('dlmsg', false); commit(S.rect); }
+function fail(key) { S.state = 'failed'; S.errKey = key; stopPolling(); render(); }
+function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; stopPolling(); show('lost', false); show('dlmsg', false); commit(S.rect); }
 
 $('buildbtn').addEventListener('click', build);
 $('newbtn').addEventListener('click', backToEdit); $('changebtn').addEventListener('click', backToEdit);
@@ -195,7 +199,7 @@ $('copybtn').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(input.value); } catch (e) { input.select(); document.execCommand && document.execCommand('copy'); }
   setText('copybtn', t('copied')); setTimeout(() => setText('copybtn', t('copy')), 1500);
 });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && (S.state === 'queued' || S.state === 'building')) { clearTimeout(pollTimer); poll(S.startedAt); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && (S.state === 'queued' || S.state === 'building')) { stopPolling(); poll(S.startedAt, pollGen); } });
 
 window.addEventListener('gg-langchange', () => { applyStaticStrings(); render(); });
 applyStaticStrings(); render(); loadOutline();
