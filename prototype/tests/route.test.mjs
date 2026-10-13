@@ -1,7 +1,7 @@
 // #18: autopilot — road graph, A* route, turn signals, speed and steering rules. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
+import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
 
 const road = (pts, cls = 'residential', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -146,4 +146,48 @@ test('streetEntries: one entry per street name and nearest village, sorted west 
   assert.deepEqual(e.map((s) => [s.n, s.g, s.goals.length]), [['Hauptstrasse', 'West', 2], ['Bachweg', 'Ost', 1], ['Hauptstrasse', 'Ost', 1]]);
   assert.ok(e.every((s) => s.street));
   assert.deepEqual(placeChips([{ g: 'Stein' }, { g: 'Sisseln' }, { g: 'Stein' }, { g: null }]), ['Stein', 'Sisseln']);
+});
+
+// a roundabout: closed ring of radius 12 (32 segments, vertices rounded so arms can share them) with four arms
+const ringPts = Array.from({ length: 33 }, (_, k) => { const a = (k % 32) / 32 * Math.PI * 2; return [Math.round(Math.cos(a) * 12000) / 1000, Math.round(Math.sin(a) * 12000) / 1000]; });
+const RING = road(ringPts, 'primary');
+const arm = (k, dx, dz) => road([[ringPts[k][0] + dx, ringPts[k][1] + dz], ringPts[k]], 'primary');
+const ROUNDABOUT = [RING, arm(0, 100, 0), arm(8, 0, 100), arm(16, -100, 0), arm(24, 0, -100)];
+
+test('isRoundabout_ClosedSmallRing_IsTrue', () => assert.equal(isRoundabout(RING), true));
+test('isRoundabout_OpenArc_IsFalse', () => assert.equal(isRoundabout(road(ringPts.slice(0, 20), 'primary')), false));
+test('isRoundabout_BigLoop_IsFalse', () => {
+  const big = ringPts.map(([x, z]) => [x * 4, z * 4]);
+  assert.equal(isRoundabout(road(big, 'service')), false);
+});
+test('isRoundabout_PedestrianRing_IsFalse', () => assert.equal(isRoundabout(road(ringPts, 'pedestrian')), false));
+
+const roundaboutRoute = (from, to) => {
+  const g = buildGraph(ROUNDABOUT);
+  return findRoute(g, snapToGraph(g, ...from, 5), [snapToGraph(g, ...to, 5)]);
+};
+
+test('routeSignals_RouteThroughRoundabout_BlinksOnlyAtTheExit', () => {
+  const r = roundaboutRoute([112, 0], [0, 112]);
+  const sigs = routeSignals(r);
+  assert.equal(sigs.length, 1);
+  assert.ok(Math.abs(sigs[0].s - (100 + 12 * Math.PI / 2)) < 2, 'the signal sits at the exit point');
+  assert.equal(blinkerAt(sigs, 90), null, 'not before the entry');
+  assert.equal(blinkerAt(sigs, 100), null, 'not at the entry');
+  assert.ok(blinkerAt(sigs, sigs[0].s - 5));
+  assert.equal(blinkerAt(sigs, sigs[0].s + 40), null);
+});
+
+test('routeSignals_RoundaboutExit_SideFollowsTheRingDirection', () => {
+  const a = routeSignals(roundaboutRoute([112, 0], [0, 112]))[0].side;
+  const b = routeSignals(roundaboutRoute([112, 0], [0, -112]))[0].side;
+  assert.notEqual(a, b);   // opposite ways round the ring, opposite exit side
+});
+
+test('routeSignals_RouteEndingInsideTheRing_HasNoSignal', () => {
+  assert.deepEqual(routeSignals(roundaboutRoute([112, 0], [0, 12])), []);
+});
+
+test('routeSignals_RouteStartingInsideTheRing_HasNoRingSignal', () => {
+  assert.deepEqual(routeSignals(roundaboutRoute([12, 0], [0, 112])).filter((sg) => sg.from !== undefined), []);
 });
