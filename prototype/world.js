@@ -72,6 +72,21 @@ export function parkingIndex(lots) {
   };
 }
 
+// #226: where the minimap writes the motorway ref. Links and stubs are skipped; a way yields one spot per `spacing` metres;
+// a spot within MIN_GAP of an accepted one is dropped, longest ways first (the two carriageways would double-label).
+export function motorwayLabelSpots(roads, spacing = 1500) {
+  const MIN_GAP = 900, MIN_LEN = 300, out = [];
+  const ways = roads.filter(r => r.cls === 'motorway').map(r => ({ r, len: polylineLength(r.pts) })).filter(w => w.len >= MIN_LEN).sort((a, b) => b.len - a.len);
+  for (const { r, len } of ways) {
+    const n = Math.max(1, Math.floor(len / spacing));
+    for (let i = 0; i < n; i++) {
+      const [x, z] = pointAtLength(r.pts, (i + 0.5) / n * len);
+      if (out.every(s => Math.hypot(s.x - x, s.z - z) >= MIN_GAP)) out.push({ x, z });
+    }
+  }
+  return out;
+}
+
 export function polylineLength(pts) { let s = 0; for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return s; }
 export function nearestOnPolyline(pts, x, z) {
   let best = { d: Infinity, t: 0, i: 0 }, acc = 0;

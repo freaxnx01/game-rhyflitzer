@@ -9,6 +9,7 @@ export const REGIONS = {
     id: 'hochrhein', name: 'Hochrhein', world: '../data/world_hochrhein.json', terrain: '../data/terrain_hochrhein.mmh',
     idbKey: 'terrain', bestKey: 'mm.best2', strings: { intro: 'intro', finished: 'finishedText', blurb: 'blurbOsm' },
     villages: VILLAGES, gemeinden: GEMEINDEN, landmarks: LANDMARK_INFO, borderDe: BORDER_DE,   // borderDe: German Gemeinde names that make a boundary line the national border (#73)
+    motorwayRef: 'A3',   // #226: every motorway in this world is the A3
     treeBox: [-3100, 3100, -1800, 1900], forestAbove: 18, handFallback: true, openWoods: [[-1222, 166]],   // #214: the Fridolinsinsel is an OSM wood; its edge walls stopped the car on the bed, so the wood is dropped
   },
   ehrendingen: {
