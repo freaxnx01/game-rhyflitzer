@@ -39,3 +39,16 @@ def test_admin_stays_off_traefik():
     admin = text.split("  rhyflitzer-admin:")[1].split("\n```")[0]
     assert "traefik.enable=true" not in admin and "traefik.http" not in admin and "- web" not in admin
     assert "rhyflitzer_admin_token" not in text.split("  rhyflitzer-worker:")[0]
+
+
+def test_the_image_installs_only_pinned_hashed_dependencies():
+    docker = (SERVICE / "Dockerfile").read_text()
+    assert "pip install --no-cache-dir --require-hashes -r service/requirements.lock" in docker
+    assert "-r pipeline/requirements.txt" not in docker and "-r service/requirements.txt" not in docker
+    assert "!service/requirements.lock" in (SERVICE / "Dockerfile.dockerignore").read_text().splitlines()
+    lock = (SERVICE / "requirements.lock").read_text()
+    pins = [line for line in lock.splitlines() if line and not line.startswith((" ", "#"))]
+    assert pins and all("==" in line and line.endswith("\\") for line in pins)
+    assert lock.count("--hash=sha256:") >= len(pins)
+    names = {line.split("==")[0].lower() for line in pins}
+    assert {"starlette", "uvicorn", "altcha", "numpy", "rasterio", "pyproj", "requests", "osmium", "shapely", "scipy"} <= names

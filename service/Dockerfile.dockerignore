@@ -3,6 +3,7 @@
 !pipeline/*.geojson
 !pipeline/*.mjs
 !pipeline/requirements.txt
+!service/requirements.lock
 !prototype/**
 !service/requirements.txt
 !service/rhyflitzer_api/**
