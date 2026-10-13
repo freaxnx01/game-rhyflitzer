@@ -1,6 +1,7 @@
 """#169: the region editor page against stubbed WMTS tiles, geo.admin identify, the Switzerland outline and the build API.
 Slow (Playwright): run in the foreground, frame-light (no WebGL, small viewport). Does not need #166's outline file or a network."""
 import base64
+import io
 import json
 import re
 import secrets
@@ -279,9 +280,10 @@ def test_download_packs_the_three_files_into_a_zip(server):
         page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=20000)
         with page.expect_download() as info:
             page.click("#dlbtn")
-        path, name = info.value.path(), info.value.suggested_filename
+        name = info.value.suggested_filename
+        blob = Path(info.value.path()).read_bytes()   # read it before closing: Playwright deletes its artifacts with the browser
         b.close()
-    with zipfile.ZipFile(path) as z:
+    with zipfile.ZipFile(io.BytesIO(blob)) as z:
         names, world = sorted(z.namelist()), z.read("world.json")
     assert errs == [] and name == f"rhyflitzer-{ID}.zip"
     assert names == ["LICENSE-ODbL.txt", "meta.json", "terrain.mmh", "world.json"] and world == FILES["world.json"]

@@ -25,6 +25,12 @@ if (S.fromUrl) map.fitBounds(poly.getBounds().pad(0.6)); else map.fitBounds(CH_B
 function setText(id, text) { $(id).textContent = text; }
 function show(id, on) { $(id).hidden = !on; }
 
+// Leaflet copies options.className onto the path only while creating it, so setStyle cannot change it afterwards.
+function polyClass({ out = false, ghost = false }) {
+  const el = poly.getElement(); if (!el) return;
+  el.classList.toggle('out', out); el.classList.toggle('ghost', ghost);
+}
+
 function applyStaticStrings() {
   document.documentElement.lang = window.GG_LANG;
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
@@ -40,7 +46,7 @@ function renderEdit() {
   $('buildbtn').disabled = S.inside !== true || S.state !== 'edit';
   show('humanmsg', S.state === 'verifying'); setText('humanmsg', t('verifying'));
   poly.setLatLngs(corners(S.rect).map(toLatLng));
-  poly.setStyle({ className: 'frame-poly' + (S.inside === false ? ' out' : '') });
+  polyClass({ out: S.inside === false });
   $('frame').classList.toggle('out', S.inside === false);
 }
 
@@ -82,7 +88,7 @@ async function loadOutline() {
 // ---- the frame and its preview ----
 const frame = createFrame(map, $('frame'), { toLv95: (ll) => wgsToLv95(ll.lat, ll.lng), toLatLng,
   labels: { body: t('frameLabel'), handle: (c) => t('handle', c.toUpperCase()) },
-  onGhost: (r) => { poly.setLatLngs(corners(r).map(toLatLng)); poly.setStyle({ className: 'frame-poly ghost' }); },
+  onGhost: (r) => { poly.setLatLngs(corners(r).map(toLatLng)); polyClass({ out: S.inside === false, ghost: true }); },
   onCommit: (r) => commit(r) });
 frame.setRect(S.rect);
 
