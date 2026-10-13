@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-13 20:04` Press <kbd>1</kbd> for the **hazard lights**: both turn signals flash together, with the lights on or off, until you press <kbd>1</kbd> again.
 - `2026-10-12 20:11` The minimap names every village now: **Münchwilen**, **Mumpf**, **Murg**, **Wallbach**, **Eiken**, **Obermumpf**, **Oeschgen**, **Hellikon**, **Frick** and the rest sit where the village is, not just Bad Säckingen, Stein and Sisseln. **Zuzgen**, **Kaisten**, **Wegenstetten** and **Gipf-Oberfrick** are new on the map and in the sky.
 - `2026-10-12 20:10` Press <kbd>L</kbd> to switch the **car lights** on and off: the headlights and the tail lights glow, in daylight too. Works for the compact and the DeLorean.
 - `2026-10-12 21:05` In the **Eiffel room** you can now take off with **F** and fly around and under the tower. The room has its own sky, so the helicopter stays inside the ring of trees and below a ceiling above the tower top; **F** again sets the car down on the meadow, and the lift still takes you home. In the tunnel and the lift lobby there is still no sky to take off into.

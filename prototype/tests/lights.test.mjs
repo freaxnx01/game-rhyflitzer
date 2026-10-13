@@ -31,3 +31,10 @@ test('lampState: hazard flashes both sides and wins over a blinker', () => {
   const s = lampState({ hazard: true, blinker: 'left', flashOn: true });
   assert.deepEqual([s.left, s.right], [true, true]);
 });
+
+test('lampState: hazard shows both sides off together on the dark phase, on together on the flash phase', () => {
+  const dark = lampState({ hazard: true, flashOn: false });
+  assert.deepEqual([dark.left, dark.right], [false, false]);
+  const flash = lampState({ hazard: true, flashOn: true });
+  assert.deepEqual([flash.left, flash.right], [true, true]);
+});
