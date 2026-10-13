@@ -671,6 +671,10 @@ export const VILLAGES = [
   { t: 'SCHUPFART', x: -72.4, z: 4009.3, r: 450 },          // node 240030566
   { t: 'HELLIKON', x: -3142.8, z: 4582.5, r: 450 },         // node 1592994106
   { t: 'FRICK', x: 4040.6, z: 4762.8, r: 450 },             // node 191017638
+  { t: 'ZUZGEN', x: -3760.5, z: 2395.7, r: 450 },            // #228: place node 240088266 is west of the world bbox; labelled at its Gemeinde boundary centre
+  { t: 'KAISTEN', x: 3914.7, z: 932.3, r: 450 },             // #228: place node 240042337 is east of the world bbox; labelled at its Gemeinde boundary centre
+  { t: 'WEGENSTETTEN', x: -2165.9, z: 4979.7, r: 450 },     // #228: place node 192817739 is south of the world bbox; labelled at its Gemeinde boundary centre
+  { t: 'GIPF-OBERFRICK', x: 1764.6, z: 5094.5, r: 450 },    // #228: place node 240047695 is south of the world bbox; labelled at its Gemeinde boundary centre
 ];
 // #127: Ehrendingen's village names, place nodes converted with geo.Frame(*EHRENDINGEN_ORIGIN).to_game on 2026-10-09
 export const VILLAGES_EHRENDINGEN = [
@@ -694,6 +698,12 @@ export function villageLabels(villages, x, z) {
     if (opacity > 0) out.push({ t: v.t, x: v.x, z: v.z, d, opacity, h: villageHeight(d) });
   }
   return out.sort((a, b) => a.d - b.d);
+}
+
+// #228: the minimap names every village at its place node; a hand-placed anchor label stays only if it is not a village (RHEIN, HOLZBRÜCKE)
+export function minimapNames(villages, anchorLabels) {
+  const own = new Set(villages.map(v => v.t));
+  return [...villages.map(({ t, x, z }) => ({ t, x, z })), ...anchorLabels.filter(l => !own.has(l.t)).map(({ t, x, z }) => ({ t, x, z }))];
 }
 
 // #73: the national border runs in the Rhine. It is every #48 Gemeinde line between one German Gemeinde (BORDER_DE, the
