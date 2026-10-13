@@ -206,3 +206,44 @@ def test_a_database_from_before_the_network_caps_gets_its_table(store, settings)
 
 def test_the_network_caps_are_three_active_and_fifteen_a_day(settings):
     assert (settings.per_net_active, settings.per_net_daily) == (3, 15)
+
+
+def test_the_gallery_keeps_the_owners_order_and_a_replaced_entry_keeps_its_place(store, settings):
+    for n in (1, 2, 3):
+        add_ready(store, settings, wid(n))
+    store.set_gallery(wid(2), "Two", "", now=T0)
+    store.set_gallery(wid(1), "One", "first", now=T0 + 1)
+    store.set_gallery(wid(2), "Two again", "", now=T0 + 2)
+    assert [(e["id"], e["title"]) for e in store.gallery_list()] == [(wid(2), "Two again"), (wid(1), "One")]
+    store.unset_gallery(wid(2), now=T0 + 3)
+    store.set_gallery(wid(2), "Two", "", now=T0 + 4)
+    assert [e["id"] for e in store.gallery_list()] == [wid(1), wid(2)]       # a re-added world goes to the end
+
+
+def test_the_gallery_lists_only_ready_worlds_and_at_most_fifty(store, settings):
+    for n in range(60):
+        add_ready(store, settings, wid(n))
+        store.set_gallery(wid(n), f"W{n}", "", now=T0 + n)
+    store.mark_expired(wid(0))
+    listed = store.gallery_list()
+    assert len(listed) == 50 and listed[0]["id"] == wid(1) and set(listed[0]) == {"id", "title", "description"}
+
+
+def test_unpinning_gives_the_world_a_fresh_retention_period(store, settings):
+    add_ready(store, settings, wid(1), finished=T0 - 99 * DAY, gallery=True)
+    assert store.expired(T0 - 30 * DAY) == []                                # pinned: never
+    store.unset_gallery(wid(1), now=T0)
+    assert store.expired(T0 - 30 * DAY) == [] and store.expired(T0 + 31 * DAY) == [wid(1)]
+
+
+def test_a_database_from_before_the_gallery_order_gets_its_column(tmp_path):
+    import sqlite3
+    from rhyflitzer_api import store as store_module
+    path = tmp_path / "old.sqlite3"
+    old = store_module.SCHEMA.replace(", gallery_at REAL", "")
+    assert old != store_module.SCHEMA
+    sqlite3.connect(path).executescript(old)
+    upgraded = store_module.Store(path)
+    add_ready(upgraded, None, wid(1))
+    upgraded.set_gallery(wid(1), "One", "", now=T0)
+    assert [e["id"] for e in upgraded.gallery_list()] == [wid(1)]
