@@ -159,13 +159,14 @@ def admit(request: Request, rect, solution) -> JSONResponse:
     """The blocking half of POST /api/jobs (SQLite and the human check), run off the event loop."""
     settings, store = request.app.state.settings, request.app.state.store
     wid, now = frame.world_id(rect, region.PIPELINE_VERSION), time.time()
-    ticket = None if store.exists(wid) else challenge.check(solution, settings)   # a join or a cache hit is never judged
+    joinable = store.exists(wid)
+    ticket = None if joinable else challenge.check(solution, settings)   # a join or a cache hit is never judged
     log.info("Admitting a build of world %s", wid, extra=logs.fields(world=wid, lv95=list(rect)))
     try:
         address = client_ip(request, settings.proxy_hops, settings.trusted_proxies)
         net = network_of(address)
         row = store.submit(wid, rect, store.ip_hash(address, now), now, settings,
-                           prev_ip_hash=store.prev_ip_hash(address, now), gate=human_gate(ticket, now),
+                           prev_ip_hash=store.prev_ip_hash(address, now), gate=human_gate(ticket, now, required=not joinable),
                            net_hash=store.ip_hash(net, now), prev_net_hash=store.prev_ip_hash(net, now))
     except Refused as exc:
         log.info("Refused a build of world %s: %s", wid, exc.code, extra=logs.fields(world=wid, code=exc.code))
@@ -266,15 +267,18 @@ def is_admin(request: Request, settings: Settings) -> bool:
 
 
 async def gallery(request: Request) -> JSONResponse:
+    """The admin gallery pin/unpin. The token file read and every SQLite call run off the event loop, the same way
+    commit 2 offloaded get_job/world_status/health/world_file: is_admin reads the secret file, and the store calls
+    are blocking, so each is dispatched to the threadpool rather than awaited on the loop."""
     settings, store, wid = request.app.state.settings, request.app.state.store, request.path_params["wid"]
-    if not is_admin(request, settings):
+    if not await run_in_threadpool(is_admin, request, settings):
         log.warning("Refused an admin call without a valid token", extra=logs.fields(world=wid))
         return error(401, "unauthorized", "admin token required")
-    row = store.get(wid) if WORLD_ID.fullmatch(wid) else None
+    row = await run_in_threadpool(store.get, wid) if WORLD_ID.fullmatch(wid) else None
     if row is None or row["state"] != "ready":
         return error(404, "unknown", "no such built world")
     if request.method == "DELETE":
-        store.unset_gallery(wid)
+        await run_in_threadpool(store.unset_gallery, wid)
         log.info("Removed world %s from the gallery", wid, extra=logs.fields(world=wid))
         return JSONResponse({"id": wid, "gallery": False})
     try:
@@ -288,7 +292,7 @@ async def gallery(request: Request) -> JSONResponse:
     title = str(body.get("title", "")).strip()[:80]
     if not title:
         return error(400, "bad-request", "a title is required")
-    store.set_gallery(wid, title, str(body.get("description", "")).strip()[:300])
+    await run_in_threadpool(store.set_gallery, wid, title, str(body.get("description", "")).strip()[:300])
     log.info("Added world %s to the gallery as %s", wid, title, extra=logs.fields(world=wid))
     return JSONResponse({"id": wid, "gallery": True, "title": title})
 

@@ -24,12 +24,17 @@ def iso_week(now: float) -> str:
 
 
 def _room_for(settings, announced: int) -> None:
-    """Raises before a byte is written when the extract is announced too big or the volume would run short."""
+    """Raises before a byte is written when the extract is announced too big or the volume would run short.
+
+    Free disk is reserved against the byte cap, not the server-reported Content-Length: a mirror can under-report
+    (or omit) Content-Length while still streaming up to the cap that _within enforces as bytes arrive, so the cap is
+    the most the download can actually consume."""
     if announced > settings.extract_max_bytes:
         raise ValueError(f"the extract is announced as {announced} bytes, over the cap of {settings.extract_max_bytes}")
     free = shutil.disk_usage(settings.extract_path.parent).free
-    if free < announced + settings.extract_min_free_bytes:
-        raise OSError(f"not enough free disk for the extract: {free} bytes free, {announced} announced")
+    if free < settings.extract_max_bytes + settings.extract_min_free_bytes:
+        raise OSError(f"not enough free disk for the extract: {free} bytes free, "
+                      f"the cap is {settings.extract_max_bytes} bytes")
 
 
 def _within(settings, size: int, seconds: float) -> None:

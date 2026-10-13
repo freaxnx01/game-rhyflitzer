@@ -188,6 +188,15 @@ def test_an_extract_announced_over_the_cap_is_refused_before_writing(settings, o
     assert untouched(old_extract)
 
 
+def test_an_under_reported_content_length_is_refused_on_the_cap_not_the_announcement(settings, old_extract, monkeypatch):
+    s = dataclasses.replace(settings, extract_max_bytes=20, extract_min_free_bytes=0)
+    monkeypatch.setattr(extract.shutil, "disk_usage", lambda path: types.SimpleNamespace(free=10))
+    # advertised 5 but streams 20; free (10) covers the announcement but not the cap, so refuse before writing
+    with pytest.raises(OSError, match="free disk"):
+        extract.download(s, sized_get(b"x" * 20, {"Content-Length": "5"}, pieces=2))
+    assert untouched(old_extract)
+
+
 def test_an_extract_that_outgrows_the_cap_is_dropped(settings, old_extract):
     s = dataclasses.replace(settings, extract_max_bytes=10)
     with pytest.raises(ValueError, match="cap"):
@@ -203,10 +212,10 @@ def test_a_download_past_its_deadline_is_dropped(settings, old_extract):
 
 
 def test_too_little_free_disk_refuses_the_download_before_writing(settings, old_extract, monkeypatch):
-    s = dataclasses.replace(settings, extract_min_free_bytes=30)
+    s = dataclasses.replace(settings, extract_max_bytes=20, extract_min_free_bytes=30)
     monkeypatch.setattr(extract.shutil, "disk_usage", lambda path: types.SimpleNamespace(free=40))
     with pytest.raises(OSError, match="free disk"):
-        extract.download(s, sized_get(b"x" * 20, {"Content-Length": "20"}))      # 20 + 30 > 40
+        extract.download(s, sized_get(b"x" * 20, {"Content-Length": "20"}))      # the cap (20) + 30 > 40
     assert untouched(old_extract)
     monkeypatch.setattr(extract.shutil, "disk_usage", lambda path: types.SimpleNamespace(free=50))
     extract.download(s, sized_get(b"x" * 20, {"Content-Length": "20"}))

@@ -78,10 +78,17 @@ def _check_net_limits(db, net_hash: str, prev_net_hash: str | None, day: str, s)
         raise Refused(429, "daily-limit", f"At most {s.per_net_daily} new worlds per day from one network; try again tomorrow")
 
 
-def human_gate(ticket, now: float):
+def human_gate(ticket, now: float, required: bool = True):
     """submit()'s gate for a NEW build: spends the ticket (a solved ALTCHA challenge) inside the admission transaction,
-    so a later refusal rolls it back unspent and the same solution never admits two builds."""
+    so a later refusal rolls it back unspent and the same solution never admits two builds.
+
+    `required` is False when the caller already saw the world as joinable outside the transaction and so did not
+    ask the client to solve anything. If the world has flipped to non-joinable inside the transaction (a narrow
+    race, e.g. a non-permanent failure landed between the two checks), the client rightly skipped solving and is
+    admitted without a ticket rather than getting a spurious 403."""
     def gate(db) -> None:
+        if not required:
+            return
         if ticket is None:
             raise Refused(403, "human_check_failed", HUMAN_MESSAGE)
         db.execute("DELETE FROM used_challenges WHERE expires < ?", (now,))
