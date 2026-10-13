@@ -147,3 +147,62 @@ def test_a_job_interrupted_over_and_over_fails_for_good(store, settings):
         assert store.claim_next(T0)["id"] == wid(1)
         store.requeue_interrupted()                        # the worker died mid-build, again
     assert store.get(wid(1))["state"] == "failed" and store.claim_next(T0) is None
+
+
+def test_a_network_holds_at_most_three_active_builds(store, settings):
+    for n in range(3):
+        store.submit(wid(n), RECT, f"ip{n}", T0, settings, net_hash="net-a")
+    with pytest.raises(Refused) as e:
+        store.submit(wid(3), RECT, "ip3", T0, settings, net_hash="net-a")
+    assert (e.value.status, e.value.code) == (503, "busy") and store.get(wid(3)) is None
+    assert store.submit(wid(3), RECT, "ip3", T0, settings, net_hash="net-b")["state"] == "queued"      # another network is free
+    assert store.claim_next(T0)["id"] == wid(0)
+    store.finish_ready(wid(0), T0, 10)
+    assert store.submit(wid(4), RECT, "ip4", T0 + 1, settings, net_hash="net-a")["state"] == "queued"  # a finished build frees a place
+
+
+def test_a_network_keeps_its_active_builds_across_utc_midnight(store, settings):
+    for n in range(3):
+        store.submit(wid(n), RECT, f"ip{n}", T0, settings, net_hash="yesterday")
+    with pytest.raises(Refused) as e:
+        store.submit(wid(3), RECT, "ip3", T0 + DAY, settings, net_hash="today", prev_net_hash="yesterday")
+    assert e.value.code == "busy"
+
+
+def test_a_network_builds_at_most_fifteen_new_worlds_a_day(store, settings):
+    for n in range(15):
+        store.submit(wid(n), RECT, f"ip{n}", T0, settings, net_hash="net-a")
+        store.claim_next(T0)
+        store.finish_ready(wid(n), T0, 10)
+    with pytest.raises(Refused) as e:
+        store.submit(wid(15), RECT, "ip15", T0, settings, net_hash="net-a")
+    assert (e.value.status, e.value.code) == (429, "daily-limit")
+    assert store.submit(wid(0), RECT, "ip15", T0, settings, net_hash="net-a")["state"] == "ready"         # a cache hit stays free
+    assert store.submit(wid(15), RECT, "ip15", T0 + DAY, settings, net_hash="net-a")["state"] == "queued"  # a new day
+
+
+def test_a_rebuild_counts_for_the_network_that_asked_for_it(store, settings):
+    s = dataclasses.replace(settings, per_net_active=1)
+    store.submit(wid(1), RECT, "a", T0, s, net_hash="net-a")
+    store.claim_next(T0)
+    store.finish_failed(wid(1), T0, "timeout", "slow")
+    store.submit(wid(1), RECT, "b", T0 + 1, s, net_hash="net-b")                    # net-b asks for the rebuild
+    assert store.submit(wid(2), RECT, "c", T0 + 2, s, net_hash="net-a")["state"] == "queued"
+    with pytest.raises(Refused):
+        store.submit(wid(3), RECT, "d", T0 + 3, s, net_hash="net-b")
+
+
+def test_the_purge_forgets_past_days_networks(store, settings):
+    store.submit(wid(1), RECT, "a", T0 - DAY, settings, net_hash="net-a")
+    store.purge_before(day_of(T0))
+    assert store._q("SELECT COUNT(*) AS n FROM net_builds")[0]["n"] == 0
+
+
+def test_a_database_from_before_the_network_caps_gets_its_table(store, settings):
+    from rhyflitzer_api.store import Store
+    store._x("DROP TABLE net_builds")
+    assert Store(settings.db_path).submit(wid(1), RECT, "a", T0, settings, net_hash="net-a")["state"] == "queued"
+
+
+def test_the_network_caps_are_three_active_and_fifteen_a_day(settings):
+    assert (settings.per_net_active, settings.per_net_daily) == (3, 15)

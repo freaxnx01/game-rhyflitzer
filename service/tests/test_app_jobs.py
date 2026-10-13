@@ -4,7 +4,7 @@ from starlette.requests import Request
 import frame
 import region
 from conftest import RECT, human, ip
-from rhyflitzer_api.app import client_ip
+from rhyflitzer_api.app import client_ip, network_of
 
 WID = frame.world_id(RECT, region.PIPELINE_VERSION)
 
@@ -141,3 +141,21 @@ def test_numbers_that_do_not_project_are_a_bad_bbox_not_a_500(client, body):
     r = client.post("/api/jobs", json=body, headers=ip(1))
     assert r.status_code == 400 and r.json()["error"] == "bad-bbox"
     assert client.get("/api/preview?bbox=" + ",".join(["1" * 400, "2", "3", "4"])).status_code == 400
+
+
+def test_network_of_is_the_24_or_the_48():
+    assert network_of("203.0.113.9") == network_of("203.0.113.200") == "203.0.113.0/24"
+    assert network_of("203.0.114.9") != network_of("203.0.113.9")
+    assert network_of("2001:db8:1:2::") == network_of("2001:db8:1:ffff::") == "2001:db8:1::/48"
+    assert network_of("2001:db8:2::") != network_of("2001:db8:1::")
+    assert network_of("unknown") == "unknown"
+
+
+def test_one_network_cannot_fill_the_queue(client):
+    frames = [[2667000 + 250 * n, 1259750, 2669250 + 250 * n, 1261750] for n in range(4)]
+    codes = [client.post("/api/jobs", json={"lv95": f, "altcha": human(client)}, headers=ip(n + 1)).status_code
+             for n, f in enumerate(frames)]
+    assert codes == [202, 202, 202, 503]                       # four addresses, one /24
+    elsewhere = client.post("/api/jobs", json={"lv95": frames[3], "altcha": human(client)},
+                            headers={"X-Forwarded-For": "198.51.100.7"})
+    assert elsewhere.status_code == 202

@@ -74,6 +74,18 @@ def _subscriber(address: str) -> str:
     return str(ip)
 
 
+NET_PREFIX = {4: 24, 6: 48}
+
+
+def network_of(address: str) -> str:
+    """The network a client shares with its neighbours: the /24 of an IPv4 address, the /48 of an IPv6 one."""
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    return str(ipaddress.ip_network(f"{ip}/{NET_PREFIX[ip.version]}", strict=False))
+
+
 def parse_rect(body) -> tuple[float, float, float, float]:
     """The unsnapped LV95 rectangle from {"lv95": [...]} or {"lonlat": [...]}; ValueError/TypeError otherwise."""
     if not isinstance(body, dict) or not ({"lv95", "lonlat"} & body.keys()):
@@ -151,8 +163,10 @@ def admit(request: Request, rect, solution) -> JSONResponse:
     log.info("Admitting a build of world %s", wid, extra=logs.fields(world=wid, lv95=list(rect)))
     try:
         address = client_ip(request, settings.proxy_hops, settings.trusted_proxies)
+        net = network_of(address)
         row = store.submit(wid, rect, store.ip_hash(address, now), now, settings,
-                           prev_ip_hash=store.prev_ip_hash(address, now), gate=human_gate(ticket, now))
+                           prev_ip_hash=store.prev_ip_hash(address, now), gate=human_gate(ticket, now),
+                           net_hash=store.ip_hash(net, now), prev_net_hash=store.prev_ip_hash(net, now))
     except Refused as exc:
         log.info("Refused a build of world %s: %s", wid, exc.code, extra=logs.fields(world=wid, code=exc.code))
         return error(exc.status, exc.code, str(exc))

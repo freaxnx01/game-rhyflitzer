@@ -25,6 +25,8 @@ class Settings:
     max_queue: int = 20
     per_ip_active: int = 1
     per_ip_daily: int = 5
+    per_net_active: int = 3                   # queued or building per network (/24 of IPv4, /48 of IPv6)
+    per_net_daily: int = 15                   # new builds per network and UTC day
     global_daily: int = 100
     job_timeout: float = 600.0
     build_memory_bytes: int = 4 * 1024**3     # RLIMIT_AS on the build process (the container cap is 3 GB resident)

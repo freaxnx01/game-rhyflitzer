@@ -31,12 +31,15 @@ CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS used_challenges (signature TEXT PRIMARY KEY, expires REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS roadgrid (cx INTEGER NOT NULL, cy INTEGER NOT NULL, meters INTEGER NOT NULL,
   PRIMARY KEY (cx, cy)) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS net_builds (day TEXT NOT NULL, net_hash TEXT NOT NULL, world TEXT NOT NULL, created REAL NOT NULL);
 """
 REQUEUE = ("INSERT INTO worlds(id, lv95, state, ip_hash, created) VALUES (?, ?, 'queued', ?, ?) "
            "ON CONFLICT(id) DO UPDATE SET state = 'queued', step = NULL, error = NULL, message = NULL, "
            "ip_hash = excluded.ip_hash, attempts = 0, not_before = 0, created = excluded.created, started = NULL, "
            "finished = NULL, last_played = NULL, size = 0")
 PLAYED_AT = "COALESCE(last_played, finished)"
+NET_ACTIVE = ("SELECT COUNT(*) FROM worlds w JOIN net_builds n ON n.world = w.id AND n.created = w.created "
+              "WHERE w.state IN ('queued', 'building') AND n.net_hash IN (?, ?)")
 
 
 class Refused(Exception):
@@ -65,6 +68,14 @@ def _check_limits(db, ip_hash: str, day: str, s, prev_ip_hash: str | None = None
         raise Refused(429, "daily-limit", f"At most {s.per_ip_daily} new worlds per day; try again tomorrow")
     if _count(db, "SELECT COUNT(*) FROM builds WHERE day = ?", (day,)) >= s.global_daily:
         raise Refused(429, "server-daily-limit", "The server has built enough worlds today; try again tomorrow")
+
+
+def _check_net_limits(db, net_hash: str, prev_net_hash: str | None, day: str, s) -> None:
+    """The same two limits per network, so the addresses of one range cannot fill the queue or the day alone."""
+    if _count(db, NET_ACTIVE, (net_hash, prev_net_hash or net_hash)) >= s.per_net_active:
+        raise Refused(503, "busy", "Server busy, try again later")
+    if _count(db, "SELECT COUNT(*) FROM net_builds WHERE day = ? AND net_hash = ?", (day, net_hash)) >= s.per_net_daily:
+        raise Refused(429, "daily-limit", f"At most {s.per_net_daily} new worlds per day from one network; try again tomorrow")
 
 
 def human_gate(ticket, now: float):
@@ -143,9 +154,10 @@ class Store:
         return self._q("SELECT COUNT(*) AS n FROM worlds WHERE state = 'queued' AND "
                        "created <= (SELECT created FROM worlds WHERE id = ?)", (wid,))[0]["n"]
 
-    def submit(self, wid: str, rect, ip_hash: str, now: float, settings, prev_ip_hash: str | None = None, gate=None) -> dict:
+    def submit(self, wid: str, rect, ip_hash: str, now: float, settings, prev_ip_hash: str | None = None, gate=None,
+               net_hash: str | None = None, prev_net_hash: str | None = None) -> dict:
         """The world's row: as it is when built, queued, building or permanently failed (free); otherwise queued
-        as a new build after the limits allow it. Raises Refused."""
+        as a new build after the limits allow it (per address, and per network when net_hash is given). Raises Refused."""
         def admit(db):
             row = db.execute("SELECT * FROM worlds WHERE id = ?", (wid,)).fetchone()
             if joins(row):
@@ -153,6 +165,10 @@ class Store:
             if gate is not None:
                 gate(db)
             _check_limits(db, ip_hash, day_of(now), settings, prev_ip_hash)
+            if net_hash is not None:
+                _check_net_limits(db, net_hash, prev_net_hash, day_of(now), settings)
+                db.execute("INSERT INTO net_builds(day, net_hash, world, created) VALUES (?, ?, ?, ?)",
+                           (day_of(now), net_hash, wid, now))
             db.execute(REQUEUE, (wid, json.dumps(list(rect)), ip_hash, now))
             db.execute("INSERT INTO builds(day, ip_hash, world) VALUES (?, ?, ?)", (day_of(now), ip_hash, wid))
             return dict(db.execute("SELECT * FROM worlds WHERE id = ?", (wid,)).fetchone())
@@ -222,6 +238,7 @@ class Store:
         day = min(day, day_of(time.time()))    # fail closed: a skewed clock must never wipe today's counters or salt
         self._x("DELETE FROM salts WHERE day < ?", (day,))
         self._x("DELETE FROM builds WHERE day < ?", (day,))
+        self._x("DELETE FROM net_builds WHERE day < ?", (day,))
 
     # -- gallery, health, kv --------------------------------------------------------------------------------
     def set_gallery(self, wid: str, title: str, description: str) -> None:
