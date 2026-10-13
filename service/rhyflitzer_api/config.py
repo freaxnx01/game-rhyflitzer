@@ -43,6 +43,9 @@ class Settings:
     extract_weekday: int = 0                  # Monday
     extract_hour_utc: int = 4
     extract_url: str = "https://download.geofabrik.de/europe/switzerland-latest.osm.pbf"
+    extract_max_bytes: int = 2 * 1024**3      # a larger extract is not ours: refused, the previous file stays
+    extract_deadline: float = 1800.0          # seconds for the whole download
+    extract_min_free_bytes: int = 1024**3     # free disk that must remain after the new extract is written
     altcha_secret_file: Path | None = None    # HMAC key of the human check (Docker secret); none: fails closed
     altcha_cost: int = 5000                   # PBKDF2/SHA-256 iterations per try; one try in 256 succeeds
     altcha_ttl: float = 600.0                 # a challenge, and so its solution, is good for 10 minutes

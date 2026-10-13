@@ -38,7 +38,7 @@ def add_ready(store, settings, wid, *, size=1000, finished=T0, played=None, gall
 def settings(tmp_path):
     key = tmp_path / "altcha.secret"
     key.write_text("test-key", encoding="utf-8")
-    return Settings(data_dir=tmp_path, altcha_secret_file=key, altcha_cost=1)
+    return Settings(data_dir=tmp_path, altcha_secret_file=key, altcha_cost=1, extract_min_free_bytes=0)
 
 
 def solve(doc: dict) -> str:

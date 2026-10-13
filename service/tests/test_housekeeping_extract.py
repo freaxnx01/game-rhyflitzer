@@ -1,6 +1,7 @@
 import dataclasses
 import datetime as dt
 import hashlib
+import types
 
 import pytest
 import requests
@@ -63,6 +64,8 @@ def test_nightly_purges_past_days(store, settings):
 
 
 class FakeResponse:
+    headers: dict = {}
+
     def __init__(self, body: bytes):
         self.body, self.text = body, body.decode()
 
@@ -151,3 +154,66 @@ def test_a_world_is_marked_expired_before_its_folder_is_deleted(store, settings,
                         lambda p, **kw: (seen.append(store.get("0123456789ab")["state"]), real(p, **kw)))
     housekeeping._remove(store, settings, "0123456789ab", "test")
     assert seen == ["expired"]
+
+
+class Sized(FakeResponse):
+    """A reply with headers whose body arrives in pieces."""
+
+    def __init__(self, body: bytes, headers=None, pieces=1):
+        super().__init__(body)
+        self.headers, self.pieces = headers or {}, pieces
+
+    def iter_content(self, size):
+        step = max(1, len(self.body) // self.pieces)
+        for start in range(0, len(self.body), step):
+            yield self.body[start:start + step]
+
+
+def sized_get(pbf: bytes, headers=None, pieces=1):
+    def get(url, **kw):
+        if url.endswith(".md5"):
+            return FakeResponse(f"{hashlib.md5(pbf).hexdigest()}  switzerland-latest.osm.pbf\n".encode())
+        return Sized(pbf, headers, pieces)
+    return get
+
+
+def untouched(old_extract) -> bool:
+    return old_extract.read_bytes() == b"old" and not list(old_extract.parent.glob("*.part"))
+
+
+def test_an_extract_announced_over_the_cap_is_refused_before_writing(settings, old_extract):
+    s = dataclasses.replace(settings, extract_max_bytes=10)
+    with pytest.raises(ValueError, match="cap"):
+        extract.download(s, sized_get(b"new", {"Content-Length": "11"}))
+    assert untouched(old_extract)
+
+
+def test_an_extract_that_outgrows_the_cap_is_dropped(settings, old_extract):
+    s = dataclasses.replace(settings, extract_max_bytes=10)
+    with pytest.raises(ValueError, match="cap"):
+        extract.download(s, sized_get(b"x" * 30, pieces=3))          # no Content-Length: caught while streaming
+    assert untouched(old_extract)
+
+
+def test_a_download_past_its_deadline_is_dropped(settings, old_extract):
+    ticks = iter([0.0, 10.0, 2000.0, 2001.0, 2002.0])                # start, first piece, second piece: too late
+    with pytest.raises(TimeoutError):
+        extract.download(settings, sized_get(b"x" * 30, pieces=3), clock=lambda: next(ticks))
+    assert untouched(old_extract)
+
+
+def test_too_little_free_disk_refuses_the_download_before_writing(settings, old_extract, monkeypatch):
+    s = dataclasses.replace(settings, extract_min_free_bytes=30)
+    monkeypatch.setattr(extract.shutil, "disk_usage", lambda path: types.SimpleNamespace(free=40))
+    with pytest.raises(OSError, match="free disk"):
+        extract.download(s, sized_get(b"x" * 20, {"Content-Length": "20"}))      # 20 + 30 > 40
+    assert untouched(old_extract)
+    monkeypatch.setattr(extract.shutil, "disk_usage", lambda path: types.SimpleNamespace(free=50))
+    extract.download(s, sized_get(b"x" * 20, {"Content-Length": "20"}))
+    assert old_extract.read_bytes() == b"x" * 20
+
+
+def test_update_keeps_the_old_file_when_the_new_one_is_too_big(settings, old_extract):
+    s = dataclasses.replace(settings, extract_max_bytes=2, source_retries=0)
+    assert not extract.update(s, sized_get(b"new"), sleep=lambda seconds: None)
+    assert untouched(old_extract)
