@@ -39,12 +39,14 @@ export const parsePreview = (json) => ({ name: str(json && json.name), raceOk: j
 const BUILDING = new Map([['cutting', 'cutting'], ['terrain', 'terrain'], ['world', 'world'], ['places', 'race'], ['done', 'race']]);   // #168 step -> page status (the build never emits 'race')
 const STATE = new Map([['queued', 'queued'], ['ready', 'done'], ['failed', 'failed'], ['expired', 'expired']]);
 
+export class JobFormatError extends Error {}
+
 // #168's job view {id, state, step, position?, error, message, lv95, files?} -> the page's status; throws on an unknown state.
 export function parseJob(json) {
-  if (!json || typeof json !== 'object') throw new Error('bad job: not an object');
-  if (!isWorldId(json.id)) throw new Error('bad job: id');
+  if (!json || typeof json !== 'object') throw new JobFormatError('bad job: not an object');
+  if (!isWorldId(json.id)) throw new JobFormatError('bad job: id');
   const status = json.state === 'building' ? (BUILDING.get(json.step) || 'cutting') : STATE.get(json.state);
-  if (!status) throw new Error(`bad job: state ${String(json.state)}`);
+  if (!status) throw new JobFormatError(`bad job: state ${String(json.state)}`);
   return { id: json.id, status, position: Number.isInteger(json.position) ? json.position : null, reason: str(json.error) };
 }
 

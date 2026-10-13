@@ -313,3 +313,24 @@ def test_phone_layout_de(server):
     assert got["scrollW"] <= 360 and got["panelBelowMap"] and got["build"] >= 44 and got["handle"] >= 44
     assert got["lang"] == "de" and got["build_t"] == "Bauen" and "Grösse" in got["hint"] and got["toggle"] == "DE"
     assert en == "Build"
+
+
+@pytest.mark.parametrize("answer", [(404, {"error": "unknown", "message": "no such job"}), (200, {"id": ID, "state": "weird", "step": None})])
+def test_polling_ends_on_a_gone_job_or_an_unparseable_answer(server, answer):
+    api = Api(script=[answer])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'failed'", timeout=30000)
+        msg, lost = page.text_content("#failmsg"), page.evaluate("() => document.querySelector('#lost').hidden")
+        page.wait_for_timeout(5500)   # a retry would show up as a second GET
+        b.close()
+    assert msg == "The server is not reachable. Check your connection and try again." and lost is True and api.gets == 1
+
+
+def test_polling_keeps_retrying_on_a_5xx(server):
+    api = Api(script=[(500, {}), (200, job("ready", "done"))])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=30000)
+        b.close()
+    assert api.gets == 2

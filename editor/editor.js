@@ -1,7 +1,7 @@
 // #169: the region editor page. State machine edit → submitting → queued/building → done | failed; renders with textContent only.
 import { DEFAULT_RECT, parseBbox, formatBbox, sizeKm, centre, lv95ToWgs, wgsToLv95, corners, rectInside } from './geo.js';
 import { WMTS_URL, WMTS_ATTRIBUTION, STEPS, previewUrl, identifyUrl, gemeindeName, parsePreview,
-  jobsUrl, jobUrl, fileUrl, metaUrl, shareUrl, driveUrl, parseJob, parseMeta, errorKey, failKey, pollDelay } from './api.js';
+  jobsUrl, jobUrl, fileUrl, metaUrl, shareUrl, driveUrl, parseJob, JobFormatError, parseMeta, errorKey, failKey, pollDelay } from './api.js';
 import { translate } from './strings.js';
 import { createFrame } from './frame.js';
 import { solveHuman, HumanCheckError } from './human.js';
@@ -152,9 +152,12 @@ function applyJob(job, startedAt) {   // job.status 'failed' also arrives from t
 async function poll(t0) {
   if (S.state !== 'queued' && S.state !== 'building') return;
   try {
-    const r = await fetch(jobUrl(S.job.id)); if (!r.ok) throw new Error(String(r.status));
+    const r = await fetch(jobUrl(S.job.id));
+    if (r.status === 404) return fail('errServer');   // 'unknown': the job row is gone, so retrying cannot help
+    if (!r.ok) throw new Error(String(r.status));
     S.misses = 0; applyJob(parseJob(await r.json()), t0);
   } catch (e) {
+    if (e instanceof JobFormatError) return fail('errServer');   // a malformed answer will not get better
     S.misses = (S.misses || 0) + 1; show('lost', S.misses >= 3);
     pollTimer = setTimeout(() => poll(t0), pollDelay(Date.now() - t0));
   }
