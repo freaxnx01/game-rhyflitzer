@@ -88,7 +88,9 @@ Under the file's top-level `secrets:`: `rhyflitzer_admin_token: {file: "./secret
 
 The client address comes from the rightmost `X-Forwarded-For` entry, and only when the socket peer is one of
 `TRUSTED_PROXIES` (set it explicitly to the `web` network's subnet or Traefik's IP; the default of loopback plus all private ranges is wider than needed; a bad value stops the boot); any other peer is the
-client itself. IPv6 clients are counted per /64.
+client itself. IPv6 clients are counted per /64. On top of the limits per address, each network (the /24 of an IPv4 address, the /48
+of an IPv6 one) may have 3 worlds queued or building (the fourth gets `503 busy`) and start 15 new builds a day
+(`429 daily-limit`); networks are stored like addresses, as a hash with the day's salt.
 
 ## Operator checklist
 
@@ -130,4 +132,8 @@ Never paste the token into a shell history or a file in a repo.
 - The worker is the same image started with `python -m rhyflitzer_api.worker` (3 GB cap, 2 cores).
 - Health: `/api/health`. Logs: `docker logs rhyflitzer-worker | jq .`.
 - Data lives in `/data`: `service.sqlite3`, `worlds/`, `extract/`, `cache/`. A failed extract update keeps the old file.
-- A build runs in its own process group with `RLIMIT_AS` (`build_memory_bytes`) and `RLIMIT_CPU`; on timeout the whole group is killed. An OOM kill shows as `build-failed` "killed by signal 9". A build the worker dies in three times is failed for good.
+- A build runs in its own process group with `RLIMIT_AS` (`build_memory_bytes`) and `RLIMIT_CPU`; on timeout the whole group is killed. `RLIMIT_AS` is per process; the sum is capped by the worker container's `mem_limit: 3g`. The build tree runs with `oom_score_adj` 1000, so at that cap the kernel kills the build, not the worker: it shows as `build-failed` "killed by signal 9". A build the worker dies in three times is failed for good.
+- Under attack: the network caps stop one address range; many unrelated networks (Tor exits, proxies) can still fill the queue of 20 (`503 busy` for everyone) or the 100 builds a day. Raise `ALTCHA_COST` in the `rhyflitzer-api` environment and restart it; each queued build then costs the sender that much more CPU.
+- The preview's name lookup is bounded for all clients together (4 at once, 120 new frames a minute, a failed lookup rests for 60 s); beyond that a preview answers without a name, never with an error.
+- The weekly extract download is refused over 2 GiB, after 30 minutes, or when less than 1 GiB of disk would remain; the previous extract stays (`docker logs rhyflitzer-worker` says which bound).
+- Dependencies: the image installs `service/requirements.lock` with `--require-hashes`. After changing `pipeline/requirements.txt` or `service/requirements.txt`, regenerate it from the repo root with `uv pip compile --universal --python-version 3.12 --generate-hashes -o service/requirements.lock pipeline/requirements.txt service/requirements.txt` and commit it; regenerate it the same way to take security updates.

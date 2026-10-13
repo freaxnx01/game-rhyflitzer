@@ -52,3 +52,9 @@ def test_the_image_installs_only_pinned_hashed_dependencies():
     assert lock.count("--hash=sha256:") >= len(pins)
     names = {line.split("==")[0].lower() for line in pins}
     assert {"starlette", "uvicorn", "altcha", "numpy", "rasterio", "pyproj", "requests", "osmium", "shapely", "scipy"} <= names
+
+
+def test_readme_documents_the_network_caps_and_the_lock():
+    text = (SERVICE / "README.md").read_text()
+    assert "/24" in text and "/48" in text and "ALTCHA_COST" in text
+    assert "requirements.lock" in text and "uv pip compile" in text and "oom_score_adj" in text
