@@ -6,6 +6,7 @@ import datetime as dt
 import hashlib
 import logging
 import os
+import shutil
 import time
 
 import requests
@@ -22,19 +23,45 @@ def iso_week(now: float) -> str:
     return f"{year}-W{week:02d}"
 
 
-def download(settings, get=requests.get) -> None:
-    """Raises on any failure; the current extract is untouched until the new one is complete and verified."""
+def _room_for(settings, announced: int) -> None:
+    """Raises before a byte is written when the extract is announced too big or the volume would run short.
+
+    Free disk is reserved against the byte cap, not the server-reported Content-Length: a mirror can under-report
+    (or omit) Content-Length while still streaming up to the cap that _within enforces as bytes arrive, so the cap is
+    the most the download can actually consume."""
+    if announced > settings.extract_max_bytes:
+        raise ValueError(f"the extract is announced as {announced} bytes, over the cap of {settings.extract_max_bytes}")
+    free = shutil.disk_usage(settings.extract_path.parent).free
+    if free < settings.extract_max_bytes + settings.extract_min_free_bytes:
+        raise OSError(f"not enough free disk for the extract: {free} bytes free, "
+                      f"the cap is {settings.extract_max_bytes} bytes")
+
+
+def _within(settings, size: int, seconds: float) -> None:
+    """Raises when the body has outgrown the byte cap or the download its deadline."""
+    if size > settings.extract_max_bytes:
+        raise ValueError(f"the extract is larger than the cap of {settings.extract_max_bytes} bytes")
+    if seconds > settings.extract_deadline:
+        raise TimeoutError(f"the extract download took longer than {settings.extract_deadline:.0f} s")
+
+
+def download(settings, get=requests.get, clock=time.monotonic) -> None:
+    """Raises on any failure (also: over the byte cap, past the deadline, too little free disk); the current
+    extract is untouched until the new one is complete and verified."""
     dest = settings.extract_path
     part = dest.with_name(dest.name + ".part")
     dest.parent.mkdir(parents=True, exist_ok=True)
     answer = get(settings.extract_url + ".md5", timeout=60)
     answer.raise_for_status()
-    expected, digest = answer.text.split()[0], hashlib.md5()
+    expected, digest, started, size = answer.text.split()[0], hashlib.md5(), clock(), 0
     try:
         with get(settings.extract_url, stream=True, timeout=120) as r:
             r.raise_for_status()
+            _room_for(settings, int(r.headers.get("Content-Length") or 0))
             with part.open("wb") as f:
                 for chunk in r.iter_content(CHUNK):
+                    size += len(chunk)
+                    _within(settings, size, clock() - started)
                     f.write(chunk)
                     digest.update(chunk)
         if digest.hexdigest() != expected:

@@ -195,3 +195,11 @@ def test_an_over_limit_frame_is_refused_before_terrain_and_world_work(tmp_path, 
     with pytest.raises(build.TooComplex):
         build.build(args)
     assert reached == []
+
+
+def test_the_build_is_the_first_victim_of_the_container_memory_cap(settings, tmp_path):
+    note = tmp_path / "oom_score_adj"
+    code = "import pathlib, sys; pathlib.Path(sys.argv[1]).write_text(pathlib.Path('/proc/self/oom_score_adj').read_text())"
+    runner.run_build(JOB, settings, lambda step: None, lambda job, s, out: [sys.executable, "-c", code, str(note)])
+    assert note.read_text().strip() == "1000"
+    assert Path("/proc/self/oom_score_adj").read_text().strip() != "1000"      # the worker keeps its own score

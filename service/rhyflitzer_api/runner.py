@@ -61,9 +61,14 @@ def run_build(job: dict, settings, on_step, command=build_command) -> Outcome:
 
 
 def _limit(settings) -> None:
-    """Runs in the child before exec: memory and CPU caps that every process of the build tree inherits."""
+    """Runs in the child before exec: memory and CPU caps that every process of the build tree inherits, and the
+    highest OOM score, so that when the container's memory cap is reached the kernel kills the build, not the worker."""
     resource.setrlimit(resource.RLIMIT_AS, (settings.build_memory_bytes, settings.build_memory_bytes))
     resource.setrlimit(resource.RLIMIT_CPU, (settings.build_cpu_seconds, settings.build_cpu_seconds))
+    try:
+        Path("/proc/self/oom_score_adj").write_text("1000")
+    except OSError:      # no writable /proc: the build still runs, only without this preference
+        pass
 
 
 def _kill_group(proc) -> None:

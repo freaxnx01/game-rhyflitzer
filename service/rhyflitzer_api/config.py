@@ -25,6 +25,8 @@ class Settings:
     max_queue: int = 20
     per_ip_active: int = 1
     per_ip_daily: int = 5
+    per_net_active: int = 3                   # queued or building per network (/24 of IPv4, /48 of IPv6)
+    per_net_daily: int = 15                   # new builds per network and UTC day
     global_daily: int = 100
     job_timeout: float = 600.0
     build_memory_bytes: int = 4 * 1024**3     # RLIMIT_AS on the build process (the container cap is 3 GB resident)
@@ -41,11 +43,17 @@ class Settings:
     extract_weekday: int = 0                  # Monday
     extract_hour_utc: int = 4
     extract_url: str = "https://download.geofabrik.de/europe/switzerland-latest.osm.pbf"
+    extract_max_bytes: int = 2 * 1024**3      # a larger extract is not ours: refused, the previous file stays
+    extract_deadline: float = 1800.0          # seconds for the whole download
+    extract_min_free_bytes: int = 1024**3     # free disk that must remain after the new extract is written
     altcha_secret_file: Path | None = None    # HMAC key of the human check (Docker secret); none: fails closed
     altcha_cost: int = 5000                   # PBKDF2/SHA-256 iterations per try; one try in 256 succeeds
     altcha_ttl: float = 600.0                 # a challenge, and so its solution, is good for 10 minutes
     race_min_road_m: int = 3000               # metres of major road in a frame before a race looks feasible
     preview_per_minute: int = 60
+    preview_lookup_slots: int = 4             # swisstopo name lookups running at once, all clients together
+    preview_lookups_per_minute: int = 120     # new swisstopo name lookups a minute, all clients together
+    preview_failure_ttl: float = 60.0         # a failed name lookup is not tried again for this long
 
     @property
     def db_path(self) -> Path:

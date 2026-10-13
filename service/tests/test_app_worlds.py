@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 import json
 import time
@@ -96,6 +97,33 @@ def test_admin_pins_and_unpins_a_ready_world(admin, store, settings):
     r = admin.put(f"/api/admin/gallery/{WID}", json={"title": "Lägern", "description": "Ridge road"}, headers=auth)
     assert r.status_code == 200 and (store.get(WID)["gallery"], store.get(WID)["title"]) == (1, "Lägern")
     assert admin.delete(f"/api/admin/gallery/{WID}", headers=auth).status_code == 200 and store.get(WID)["gallery"] == 0
+
+
+def _off_loop() -> bool:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return True
+    return False
+
+
+def test_admin_gallery_runs_off_the_event_loop(admin, store, settings, monkeypatch):
+    add_ready(store, settings, WID)
+    seen = []
+
+    def spy(name, real):
+        def call(*args, **kw):
+            seen.append((name, _off_loop()))
+            return real(*args, **kw)
+        return call
+
+    for name in ("get", "set_gallery", "unset_gallery"):
+        monkeypatch.setattr(store, name, spy(name, getattr(store, name)))
+    auth = {"Authorization": "Bearer s3cret"}
+    admin.put(f"/api/admin/gallery/{WID}", json={"title": "Lägern"}, headers=auth)
+    admin.delete(f"/api/admin/gallery/{WID}", headers=auth)
+    assert {name for name, _ in seen} >= {"get", "set_gallery", "unset_gallery"}
+    assert all(off for _, off in seen), seen
 
 
 def test_a_world_whose_folder_vanishes_mid_request_is_expired_not_a_500(client, store, settings):

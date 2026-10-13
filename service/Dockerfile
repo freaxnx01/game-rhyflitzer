@@ -8,9 +8,8 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends osmium-tool \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY pipeline/requirements.txt pipeline/requirements.txt
-COPY service/requirements.txt service/requirements.txt
-RUN pip install --no-cache-dir -r pipeline/requirements.txt -r service/requirements.txt
+COPY service/requirements.lock service/requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r service/requirements.lock
 COPY pipeline/ pipeline/
 COPY prototype/ prototype/
 COPY service/rhyflitzer_api/ service/rhyflitzer_api/
