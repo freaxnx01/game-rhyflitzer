@@ -518,6 +518,13 @@ def test_umami_pageview_has_no_query_and_no_event_carries_the_frame(server):
     assert not re.search(r"26[67]\d{4}|12[56]\d{4}|0123456789ab", json.dumps(calls)), calls   # no LV95, no world id
 
 
+def test_umami_tag_keeps_the_query_out_of_every_event():
+    # g.js puts the page URL into every event, not only the pageview; ?bbox= is the exact frame, so the tag must drop the query
+    html = (ROOT / "editor" / "index.html").read_text(encoding="utf-8")
+    tag = re.search(r'<script[^>]*stats\.freaxnx01\.ch/g\.js[^>]*>', html).group(0)
+    assert 'data-exclude-search="true"' in tag and 'data-auto-track="false"' in tag, tag
+
+
 def test_umami_frame_event_after_the_settle_once_per_gemeinde(server):
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, Api())

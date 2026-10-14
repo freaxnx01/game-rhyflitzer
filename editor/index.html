@@ -54,8 +54,8 @@
   })();
 </script>
 <script src="../vendor/leaflet/leaflet.js"></script>
-<!-- Umami analytics (self-hosted, server in Germany). Auto-tracking is off: the editor's URL carries the exact frame (?bbox=), so the page sends a path-only pageview itself. -->
-<script defer src="https://stats.freaxnx01.ch/g.js" data-website-id="35f395c0-a1ba-4706-ad56-7c95fcc0169f" data-domains="github.freaxnx01.ch" data-auto-track="false" data-do-not-track="true"></script>
+<!-- Umami analytics (self-hosted, server in Germany). Auto-tracking is off and the query is excluded: the editor URL carries the exact frame (?bbox=), and g.js would put it into every event. -->
+<script defer src="https://stats.freaxnx01.ch/g.js" data-website-id="35f395c0-a1ba-4706-ad56-7c95fcc0169f" data-domains="github.freaxnx01.ch" data-auto-track="false" data-exclude-search="true" data-do-not-track="true"></script>
 <script type="module" src="../vendor/altcha/altcha.min.js"></script>
 <script type="module" src="./editor.js"></script>
 </html>
