@@ -106,7 +106,7 @@ of an IPv6 one) may have 3 worlds queued or building (the fourth gets `503 busy`
 
 [ ] **4c.** Add the `rhyflitzer-api`, `rhyflitzer-worker` and `rhyflitzer-admin` services (no Traefik label or rule for admin) and the secrets `rhyflitzer_admin_token` and `rhyflitzer_altcha_secret` from this README to `production/vserver/docker-compose.yml`.
 
-[ ] **5.** Create the Cloudflare A record `rhyflitzer-api.freaxnx01.ch` -> `82.165.65.143`, unproxied (homelab-service-routing skill, "VPS-DE").
+[ ] **5.** Create the Cloudflare CNAME `rhyflitzer-api.freaxnx01.ch` -> `freaxnx01.ch`, DNS-only (like the other VPS-DE subdomains, so an IP change touches one record; homelab-service-routing skill, "VPS-DE").
 
 [ ] **6.** `docker compose up -d --build rhyflitzer-api rhyflitzer-worker rhyflitzer-admin`; wait for the first extract download and the road index (`docker logs -f rhyflitzer-worker`: "The road index is ready").
 
