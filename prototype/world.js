@@ -88,6 +88,8 @@ export function motorwayLabelSpots(roads, spacing = 1500) {
 }
 
 export function polylineLength(pts) { let s = 0; for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return s; }
+// #319: a polyline without consecutive repeated points; a zero-length step has no direction, and a ribbon built on one gets NaN vertices
+export function dropRepeats(pts) { return pts.filter((p, i) => i === 0 || p[0] !== pts[i - 1][0] || p[1] !== pts[i - 1][1]); }
 export function nearestOnPolyline(pts, x, z) {
   let best = { d: Infinity, t: 0, i: 0 }, acc = 0;
   for (let i = 0; i < pts.length - 1; i++) {
