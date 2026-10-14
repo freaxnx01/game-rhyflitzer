@@ -16,6 +16,10 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 STAMP = "%Y-%m-%dT%H:%M:%SZ"
+MARKER = "<!-- visual-test-runs -->"
+DATA_RE = re.compile(r"<!-- visual-test-runs-data: ([A-Za-z0-9+/=]+) -->")
+DETAIL_RUNS = 5
+MAX_ROWS = 40
 
 
 def where_from(env, hostname=socket.gethostname):
@@ -95,3 +99,49 @@ def write_record(record, directory, pid=None):
     path = directory / f"{stamp}-{pid if pid is not None else os.getpid()}.json"
     path.write_text(json.dumps(record, indent=2) + "\n")
     return path
+
+
+def slim(record):
+    browser_tests = [test for test in record["tests"] if test["browser"]]
+    outcomes = [test["outcome"] for test in browser_tests]
+    files = list(dict.fromkeys(test["nodeid"].split("::")[0].rsplit("/", 1)[-1] for test in browser_tests))
+    return {
+        "started_at": record["started_at"], "where": record["where"], "renderer": record["renderer"],
+        "commit": record["commit"], "wall_seconds": record["wall_seconds"],
+        "count": len(browser_tests), "files": files,
+        "passed": outcomes.count("passed"),
+        "failed": outcomes.count("failed") + outcomes.count("error"),
+        "skipped": outcomes.count("skipped"),
+        "tests": [{"id": t["nodeid"], "outcome": t["outcome"], "seconds": t["seconds"]} for t in browser_tests],
+    }
+
+
+def empty_data():
+    return {"v": 1, "dropped": 0, "runs": []}
+
+
+def append_run(data, record):
+    runs = [*data["runs"], slim(record)]
+    dropped = data["dropped"]
+    while len(runs) > MAX_ROWS:
+        runs.pop(0)
+        dropped += 1
+    detailed_from = len(runs) - DETAIL_RUNS
+    runs = [run if index >= detailed_from else {**run, "tests": []} for index, run in enumerate(runs)]
+    return {"v": 1, "dropped": dropped, "runs": runs}
+
+
+def encode_data(data):
+    packed = zlib.compress(json.dumps(data, separators=(",", ":")).encode())
+    return f"<!-- visual-test-runs-data: {base64.b64encode(packed).decode()} -->"
+
+
+def decode_data(text):
+    match = DATA_RE.search(text)
+    if match is None:
+        return None
+    try:
+        data = json.loads(zlib.decompress(base64.b64decode(match.group(1))))
+    except (ValueError, zlib.error):
+        return None
+    return data if isinstance(data, dict) and isinstance(data.get("runs"), list) else None

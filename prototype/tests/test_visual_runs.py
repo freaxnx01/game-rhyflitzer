@@ -132,3 +132,60 @@ def test_write_record_names_the_file_by_utc_timestamp_and_pid(tmp_path):
     path = vr.write_record(record, tmp_path / ".test-runs", pid=4711)
     assert path.name == "20261014T103000Z-4711.json"
     assert json.loads(path.read_text()) == record
+
+
+def _record(started="2026-10-14T10:30:00Z", where="agent-dev", renderer="SwiftShader", commit="abc1234", wall=12.3, tests=None):
+    if tests is None:
+        tests = [
+            {"nodeid": "prototype/tests/test_a.py::test_one", "outcome": "passed", "seconds": 3.2, "browser": True},
+            {"nodeid": "prototype/tests/test_a.py::test_two", "outcome": "failed", "seconds": 4.0, "browser": True},
+            {"nodeid": "prototype/tests/test_b.py::test_three", "outcome": "passed", "seconds": 1.1, "browser": True},
+            {"nodeid": "prototype/tests/test_c.py::test_pure", "outcome": "passed", "seconds": 0.0, "browser": False},
+        ]
+    return {"started_at": started, "where": where, "renderer": renderer, "commit": commit, "wall_seconds": wall, "tests": tests}
+
+
+def test_slim_summarises_only_the_browser_tests():
+    slim = vr.slim(_record())
+    assert (slim["count"], slim["passed"], slim["failed"], slim["skipped"]) == (3, 2, 1, 0)
+    assert slim["files"] == ["test_a.py", "test_b.py"]
+    assert [t["id"] for t in slim["tests"]] == [
+        "prototype/tests/test_a.py::test_one", "prototype/tests/test_a.py::test_two", "prototype/tests/test_b.py::test_three"]
+
+
+def test_slim_counts_errors_as_failed_and_skips_separately():
+    tests = [
+        {"nodeid": "a.py::x", "outcome": "error", "seconds": 0.0, "browser": True},
+        {"nodeid": "a.py::y", "outcome": "skipped", "seconds": 0.0, "browser": True},
+    ]
+    slim = vr.slim(_record(tests=tests))
+    assert (slim["failed"], slim["skipped"], slim["passed"]) == (1, 1, 0)
+
+
+def test_data_round_trips_through_a_comment_body():
+    data = vr.append_run(vr.empty_data(), _record())
+    body = "<!-- visual-test-runs -->\n" + vr.encode_data(data) + "\n\n### Visual tests\n"
+    assert vr.decode_data(body) == data
+
+
+@pytest.mark.parametrize("body", ["", "no data here", "<!-- visual-test-runs-data: !!!not-base64!!! -->",
+                                  "<!-- visual-test-runs-data: aGVsbG8= -->"])
+def test_decode_returns_none_for_missing_or_unreadable_data(body):
+    assert vr.decode_data(body) is None
+
+
+def test_append_keeps_details_only_for_the_last_five_runs():
+    data = vr.empty_data()
+    for minute in range(7):
+        data = vr.append_run(data, _record(started=f"2026-10-14T10:{minute:02d}:00Z"))
+    assert [bool(run["tests"]) for run in data["runs"]] == [False, False, True, True, True, True, True]
+    assert data["runs"][0]["count"] == 3
+
+
+def test_append_drops_the_oldest_beyond_forty_and_counts_them():
+    data = vr.empty_data()
+    for i in range(43):
+        data = vr.append_run(data, _record(commit=f"c{i:06d}"))
+    assert len(data["runs"]) == 40
+    assert data["dropped"] == 3
+    assert data["runs"][0]["commit"] == "c000003" and data["runs"][-1]["commit"] == "c000042"
