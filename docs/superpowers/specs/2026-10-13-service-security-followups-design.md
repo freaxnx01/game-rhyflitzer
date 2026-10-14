@@ -60,7 +60,7 @@ So at most 4 of the pool's 40 threads can ever wait on swisstopo. The bound is o
 
 - **Byte cap** `extract_max_bytes` = 2 GiB: refused before writing when `Content-Length` says more, dropped while streaming when the body grows past it.
 - **Deadline** `extract_deadline` = 1800 s for the whole body, checked after every chunk.
-- **Free disk**: before writing, the volume must have `Content-Length + extract_min_free_bytes` (1 GiB) free.
+- **Free disk**: before writing, the volume must have `extract_max_bytes + extract_min_free_bytes` (2 GiB + 1 GiB) free. The reserve is taken against the byte cap, not the announced `Content-Length`, because a mirror can under-report it.
 
 Each failure raises (`ValueError`, `TimeoutError`, `OSError`), which `extract.update` already treats as "keep the previous file, try again later".
 
