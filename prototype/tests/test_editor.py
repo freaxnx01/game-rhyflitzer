@@ -446,6 +446,18 @@ def test_connection_lost_appears_after_three_misses_not_two(server):
     assert errs == [] and text == "Connection lost, retrying…"
 
 
+def test_connection_lost_disappears_when_a_poll_succeeds_again(server):
+    api = Api(script=[(500, {}), (500, {}), (500, {}), (200, job("building", "terrain"))])   # three misses, then the connection is back
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn")
+        page.wait_for_function("() => !document.querySelector('#lost').hidden", timeout=30000)
+        page.wait_for_function("() => document.querySelector('#lost').hidden", timeout=30000)   # the first good poll hides it
+        state = page.evaluate("() => window.__ed.state()")
+        b.close()
+    assert errs == [] and state == "building"
+
+
 def test_a_hidden_tab_does_not_poll_a_visible_one_polls_at_once(server):
     api = Api(script=[(200, job("queued", position=1))])
     with sync_playwright() as p:
