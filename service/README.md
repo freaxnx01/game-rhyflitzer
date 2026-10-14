@@ -35,6 +35,8 @@ In the `mydocker-compose` repo; the operator adds it, this repo does not.
       - rhyflitzer_altcha_secret
     volumes:
       - ./data/rhyflitzer:/data
+      - ./data-no-backup/rhyflitzer/extract:/data/extract   # re-downloadable: kept out of the host's backup
+      - ./data-no-backup/rhyflitzer/cache:/data/cache
     networks:
       - web
     labels:
@@ -56,6 +58,8 @@ In the `mydocker-compose` repo; the operator adds it, this repo does not.
     cpus: 2
     volumes:
       - ./data/rhyflitzer:/data
+      - ./data-no-backup/rhyflitzer/extract:/data/extract   # re-downloadable: kept out of the host's backup
+      - ./data-no-backup/rhyflitzer/cache:/data/cache
     healthcheck:
       disable: true
     labels:
@@ -73,6 +77,8 @@ In the `mydocker-compose` repo; the operator adds it, this repo does not.
       - rhyflitzer_admin_token
     volumes:
       - ./data/rhyflitzer:/data
+      - ./data-no-backup/rhyflitzer/extract:/data/extract   # re-downloadable: kept out of the host's backup
+      - ./data-no-backup/rhyflitzer/cache:/data/cache
     ports:
       - "127.0.0.1:8081:8001"   # the host's loopback only: reached over SSH, never routed by Traefik
     healthcheck:
@@ -145,7 +151,7 @@ never as an argument (there is no `--token` flag).
 - Human check: `ALTCHA_COST` (default 5000, about 1 s on a phone; raise to tighten). Preview threshold: `RACE_MIN_ROAD_M` (default 3000).
 - The worker is the same image started with `python -m rhyflitzer_api.worker` (3 GB cap, 2 cores).
 - Health: `/api/health`. Logs: `docker logs rhyflitzer-worker | jq .`.
-- Data lives in `/data`: `service.sqlite3`, `worlds/`, `extract/`, `cache/`. A failed extract update keeps the old file.
+- Data lives in `/data`: `service.sqlite3`, `worlds/`, `extract/`, `cache/`. A failed extract update keeps the old file. `extract/` and `cache/` are mounted from a path the host's backup excludes (on ionos1 `~/data-no-backup/rhyflitzer`, which restic skips with `--iexclude=data-no-backup`): both are downloaded again when missing, while `worlds/` and `service.sqlite3` are backed up.
 - A build runs in its own process group with `RLIMIT_AS` (`build_memory_bytes`) and `RLIMIT_CPU`; on timeout the whole group is killed. `RLIMIT_AS` is per process; the sum is capped by the worker container's `mem_limit: 3g`. The build tree runs with `oom_score_adj` 1000, so at that cap the kernel kills the build, not the worker: it shows as `build-failed` "killed by signal 9". A build the worker dies in three times is failed for good.
 - Under attack: the network caps stop one address range; many unrelated networks (Tor exits, proxies) can still fill the queue of 20 (`503 busy` for everyone) or the 100 builds a day. Raise `ALTCHA_COST` in the `rhyflitzer-api` environment and restart it; each queued build then costs the sender that much more CPU.
 - The preview's name lookup is bounded for all clients together (4 at once, 120 new frames a minute, a failed lookup rests for 60 s); beyond that a preview answers without a name, never with an error.
