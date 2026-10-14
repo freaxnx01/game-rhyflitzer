@@ -493,7 +493,7 @@ jobs:
           fi
 ```
 
-Before keeping `PLAYWRIGHT_VERSION: "1.63.0"`, confirm it exists: `python -m pip index versions playwright | head -2`. It is the version the maintainer runs locally and the repo does not pin it anywhere (`pipeline/requirements-dev.txt` says `>=1.45`). If 1.63.0 is not on PyPI, stop and report; do not guess another version.
+`PLAYWRIGHT_VERSION: "1.63.0"` is the version the maintainer's local test venv runs (confirmed 2026-10-14); the repo itself does not pin it (`pipeline/requirements-dev.txt` says `>=1.45`). Keep it.
 
 ### Step 3.2 — structural checks
 
