@@ -75,15 +75,21 @@ def open_page(p, server, api, query=f"?bbox={','.join(map(str, EHR))}", viewport
     ctx = b.new_context(viewport={"width": viewport[0], "height": viewport[1]}, locale=locale, has_touch=viewport[0] < 500)
     if lang:
         ctx.add_init_script(f"try {{ localStorage.setItem('gg-lang', '{lang}'); }} catch (e) {{}}")
+    ctx.add_init_script("window.__umami = []; window.umami = { track: (a, b) => { window.__umami.push(typeof a === 'function' ? { pageview: a({ website: 'w', url: location.pathname + location.search, title: 'T' }) } : { name: a, data: b }); } };")
     page = ctx.new_page(); errs = []; page.on("pageerror", lambda e: errs.append(str(e)))
     page.route("**/wmts.geo.admin.ch/**", lambda r: r.fulfill(status=200, content_type="image/png", body=PNG))
     page.route("**/fonts.googleapis.com/**", lambda r: r.fulfill(status=200, content_type="text/css", body=""))
     page.route("**/api3.geo.admin.ch/**", lambda r: r.fulfill(status=200, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, body=json.dumps(IDENTIFY)))
     page.route("**/pipeline/ch_outline.geojson", lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps(outline)) if outline else r.fulfill(status=404, body=""))
+    page.route("**/stats.freaxnx01.ch/**", lambda r: r.fulfill(status=200, content_type="application/javascript", body=""))
     page.route(f"{API}/**", api.route)
     page.goto(f"{server}/editor/{query}")
     page.wait_for_function("() => window.__ed && window.__ed.state() === 'edit'", timeout=60000)
     return b, page, errs
+
+
+def umami(page):
+    return page.evaluate("() => window.__umami")
 
 
 def frame_box(page):
@@ -499,3 +505,59 @@ def test_the_language_switch_reaches_every_text(server):
                   "navLabel": "Game navigation", "links": ["More Games…", "Source", "Feedback"], "dlmsg": "The download did not work. Try again."}
     assert de == {"frame": "Welt-Rahmen auf der Karte", "handle": "Ecke NW ziehen", "map": "Karte der Schweiz", "title": "Region-Editor · Map Madness",
                   "navLabel": "Spielnavigation", "links": ["Weitere Spiele…", "Quellcode", "Feedback"], "dlmsg": "Der Download hat nicht geklappt. Versuch es noch einmal."}
+
+
+def test_umami_pageview_has_no_query_and_no_event_carries_the_frame(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api(post=(200, job("ready", "done"))))
+        page.wait_for_timeout(3600)   # the frame settles
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=20000)
+        calls = umami(page); b.close()
+    assert errs == []
+    assert "?" not in calls[0]["pageview"]["url"], calls[0]
+    assert not re.search(r"26[67]\d{4}|12[56]\d{4}|0123456789ab", json.dumps(calls)), calls   # no LV95, no world id
+
+
+def test_umami_tag_keeps_the_query_out_of_every_event():
+    # g.js puts the page URL into every event, not only the pageview; ?bbox= is the exact frame, so the tag must drop the query
+    html = (ROOT / "editor" / "index.html").read_text(encoding="utf-8")
+    tag = re.search(r'<script[^>]*stats\.freaxnx01\.ch/g\.js[^>]*>', html).group(0)
+    assert 'data-exclude-search="true"' in tag and 'data-auto-track="false"' in tag, tag
+
+
+def test_umami_frame_event_after_the_settle_once_per_gemeinde(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api())
+        page.wait_for_timeout(1000); early = [c for c in umami(page) if c.get("name") == "editor-frame"]
+        page.wait_for_function("() => window.__umami.some((c) => c.name === 'editor-frame')", timeout=10000)
+        page.evaluate("() => window.__ed.setRect([2667250, 1259750, 2669250, 1261750])"); page.wait_for_timeout(4000)
+        frames = [c for c in umami(page) if c.get("name") == "editor-frame"]; b.close()
+    assert errs == []
+    assert early == [] and len(frames) == 1   # not before 3 s; the moved frame has the same Gemeinde
+    assert frames[0]["data"]["gemeinden"] == "Ehrendingen" and frames[0]["data"]["w_km"] == 2
+
+
+def test_umami_build_start_done_and_failed_events(server):
+    ok = Api(post=(202, job("queued", position=1)), script=[(200, job("building", "terrain")), (200, job("ready", "done"))])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, ok)
+        page.wait_for_timeout(1500)   # the preview names the Gemeinde before Build
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=30000)
+        ev = {c["name"]: c["data"] for c in umami(page) if "name" in c}; b.close()
+        b, page, errs = open_page(p, server, Api(post=(429, {"error": "daily-limit"})))
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'failed'", timeout=20000)
+        names = [c["name"] for c in umami(page) if "name" in c]
+        failed = [c["data"] for c in umami(page) if c.get("name") == "editor-build-failed"]; b.close()
+    assert errs == []
+    assert ev["editor-build-start"]["cached"] is False and ev["editor-build-start"]["gemeinden"] == "Ehrendingen"
+    assert ev["editor-build-done"]["seconds"] % 5 == 0 and ev["editor-build-done"]["race"] in ("yes", "no", "unknown")
+    assert "editor-build-start" not in names and failed[0]["reason"] == "errRateLimit"   # a refused POST is a failure, not a start
+
+
+@pytest.mark.parametrize("lang,word", [("en", "no cookies"), ("de", "keine Cookies")])
+def test_privacy_text_and_link_in_both_languages(server, lang, word):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api(), lang=lang)
+        text = page.inner_text("#privacy"); href = page.get_attribute("#privacy a", "href"); b.close()
+    assert errs == []
+    assert word in text and "Umami" in text and href.endswith("#datenschutz--privacy")

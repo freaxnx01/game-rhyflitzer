@@ -49,6 +49,12 @@ three.js, vanilla JS, buildless. Rapier (WASM) for vehicle physics. A separate d
 | [UI mockups](design/mockups/README.md) | Claude Design artboards: title, setup, car select, HUD, results, style sheet |
 | [Ideas](ideas.md) | Loose ideas, not yet planned |
 
+## Datenschutz / Privacy
+
+Der Region-Editor (`editor/`) zählt Besuche und mit **Umami**, wie viele Rahmen angeschaut und gebaut werden und ob der Bau fertig wurde oder fehlschlug. Umami ist selbst gehostet auf einem Server in **Deutschland** (`stats.freaxnx01.ch`). Es werden keine Cookies gesetzt und keine personenbezogenen Daten gespeichert. Pro Ereignis werden nur die Namen der Gemeinden des Rahmens, seine Grösse und die Lage seines Mittelpunkts auf etwa 5 km gerundet übermittelt, nie die genauen Koordinaten und nie die Welt-ID. Die IP-Adresse wird nicht gespeichert, sondern nur kurzzeitig für die Bestimmung von Land und Region verwendet. Browser mit „Do Not Track" werden nicht gezählt. Wird das Skript blockiert, läuft der Editor unverändert weiter.
+
+The region editor (`editor/`) counts visits and with **Umami** how many frames are looked at and built, and whether the build finished or failed. Umami is self-hosted on a server in **Germany** (`stats.freaxnx01.ch`). No cookies are set and no personal data is stored. Per event only the names of the frame's Gemeinden, its size and the position of its centre rounded to about 5 km are sent, never the exact coordinates and never the world id. The IP address is not stored, only used briefly to determine country and region. Browsers with „Do Not Track" are not counted. If the script is blocked, the editor runs unchanged.
+
 ## License
 
 - **Code**: [MIT](LICENSE.md)

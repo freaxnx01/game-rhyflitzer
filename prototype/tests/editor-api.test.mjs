@@ -77,10 +77,13 @@ test('errorKey: HTTP status + #168 error code -> string key; failKey: a failed j
 test('human check: 403 maps to errHuman; the preview is read as raceOk true/false/null plus id and exists', () => {
   assert.equal(errorKey(403, { error: 'human_check_failed' }), 'errHuman');
   assert.equal(errorKey(403, null), 'errHuman');
-  assert.deepEqual(parsePreview({ id: ID, exists: false, name: 'Ehrendingen', gemeinden: ['Ehrendingen'], raceOk: false }), { name: 'Ehrendingen', raceOk: false, id: ID, exists: false });
-  assert.deepEqual(parsePreview({ id: ID, exists: true, name: null, gemeinden: [], raceOk: true, reason: 'x' }), { name: null, raceOk: true, id: ID, exists: true });
+  assert.deepEqual(parsePreview({ id: ID, exists: false, name: 'Ehrendingen', gemeinden: ['Ehrendingen'], raceOk: false }), { name: 'Ehrendingen', raceOk: false, id: ID, exists: false, gemeinden: ['Ehrendingen'] });
+  assert.deepEqual(parsePreview({ id: ID, exists: true, name: null, gemeinden: [], raceOk: true, reason: 'x' }), { name: null, raceOk: true, id: ID, exists: true, gemeinden: [] });
   assert.equal(parsePreview({ id: 'nope', exists: true }).exists, false);   // no valid id, no skipped human check
   assert.equal(parsePreview({ id: ID, exists: 'yes' }).exists, false);
+  assert.deepEqual(parsePreview({ gemeinden: ['A', 7, null, 'B'] }).gemeinden, ['A', 'B']);   // only strings survive
+  assert.deepEqual(parsePreview({ gemeinden: 'A' }).gemeinden, []);
+  assert.deepEqual(parsePreview(null).gemeinden, []);
   for (const j of [null, {}, { raceOk: null, reason: 'no-road-index' }, { raceOk: 'yes' }, { name: 7, raceOk: 1 }, 'x']) assert.equal(parsePreview(j).raceOk, null, JSON.stringify(j));
   assert.equal(parsePreview({ name: 7 }).name, null);
 });

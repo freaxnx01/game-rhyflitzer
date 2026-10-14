@@ -32,9 +32,10 @@ export function identifyUrl([E, N], year) {
 const str = (v) => (typeof v === 'string' ? v : null);
 
 // #168's preview: {id, exists, name, gemeinden, raceOk, reason?}; raceOk null = no road index yet; exists = built or queued, so no human check
-// is needed. Wrong types become null / false, never rendered; `exists` needs a valid id.
+// is needed. Wrong types become null / false / [], never rendered; `exists` needs a valid id. `gemeinden`: only strings survive (#197).
 export const parsePreview = (json) => ({ name: str(json && json.name), raceOk: json && typeof json.raceOk === 'boolean' ? json.raceOk : null,
-  id: json && isWorldId(json.id) ? json.id : null, exists: !!json && json.exists === true && isWorldId(json.id) });
+  id: json && isWorldId(json.id) ? json.id : null, exists: !!json && json.exists === true && isWorldId(json.id),
+  gemeinden: json && Array.isArray(json.gemeinden) ? json.gemeinden.filter((g) => typeof g === 'string') : [] });
 
 const BUILDING = new Map([['cutting', 'cutting'], ['terrain', 'terrain'], ['world', 'world'], ['places', 'race'], ['done', 'race']]);   // #168 step -> page status (the build never emits 'race')
 const STATE = new Map([['queued', 'queued'], ['ready', 'done'], ['failed', 'failed'], ['expired', 'expired']]);

@@ -35,6 +35,7 @@
       <button id="changebtn" class="btn" type="button" data-i18n="changeFrame"></button>
     </section>
     <p id="licence" class="licence" data-i18n="licence"></p>
+    <p id="privacy" class="licence"><span data-i18n="privacy"></span> <a href="https://github.com/freaxnx01/game-rhyflitzer#datenschutz--privacy" target="_blank" rel="noopener" data-i18n="privacyLink"></a></p>
   </aside>
 </main>
 <script src="../prototype/version.js"></script>
@@ -53,6 +54,8 @@
   })();
 </script>
 <script src="../vendor/leaflet/leaflet.js"></script>
+<!-- Umami analytics (self-hosted, server in Germany). Auto-tracking is off and the query is excluded: the editor URL carries the exact frame (?bbox=), and g.js would put it into every event. -->
+<script defer src="https://stats.freaxnx01.ch/g.js" data-website-id="35f395c0-a1ba-4706-ad56-7c95fcc0169f" data-domains="github.freaxnx01.ch" data-auto-track="false" data-exclude-search="true" data-do-not-track="true"></script>
 <script type="module" src="../vendor/altcha/altcha.min.js"></script>
 <script type="module" src="./editor.js"></script>
 </html>
