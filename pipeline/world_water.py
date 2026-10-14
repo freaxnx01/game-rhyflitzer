@@ -73,6 +73,16 @@ def _cut_from_roads(line, width, roads):
     return line.difference(shapely.unary_union(near)) if near else line
 
 
+def _rounded(coords):
+    """Points rounded to 0.1 m, without consecutive repeats: a cut close to a vertex rounds onto it (#319)."""
+    out = []
+    for x, z in coords:
+        p = [round(x, 1), round(z, 1)]
+        if not out or p != out[-1]:
+            out.append(p)
+    return out
+
+
 def streams(areas, ways, clip, roads=()):
     """Rivers, canals and streams mapped only as a centre line, as {name, w, pts} in flow direction (OSM draws
     waterways downstream). Parts inside area water and piped parts (tunnel/culvert) are left out. The prototype drapes
@@ -94,8 +104,11 @@ def streams(areas, ways, clip, roads=()):
         for part in parts:
             if part.is_empty or part.length < 5:
                 continue
+            pts = _rounded(part.coords)
+            if len(pts) < 2:
+                continue
             out.append({"name": w.tags.get("name", ""), "w": _width(w.tags, kind),
-                        "pts": [[round(x, 1), round(z, 1)] for x, z in part.coords]})
+                        "pts": pts})
     return out
 
 

@@ -352,6 +352,7 @@ test('ringPush: far away is clear', () => {
 });
 
 import { bridgeChain, bankTop, pastEnd, deckLine, cutPolyline } from '../world.js';
+import { dropRepeats } from '../world.js';
 test('bridgeChain grows a hero piece along same-named generic pieces that share an endpoint (#78)', () => {
   const P = (name, kind, pts) => ({ name, kind, pts });
   const pieces = [P('Fridolinsbrücke', 'stone', [[0, 0], [100, 0]]), P('Fridolinsbrücke', 'generic', [[100, 0], [150, 0]]),
@@ -1142,4 +1143,13 @@ test('motorwayLabelSpots: one spot per stretch, parallel carriageways and links 
   ];
   const spots = motorwayLabelSpots(roads);
   assert.deepEqual(spots.map(s => [Math.round(s.x), Math.round(s.z)]), [[1000, 5000], [3000, 5000], [1000, 0]]);
+});
+
+test('dropRepeats: consecutive repeated points go, the rest stays (#319)', () => {
+  const pts = [[439, -831.4], [439, -831.4], [423.8, -841.7], [423.8, -841.7], [414.9, -847.2]];
+  assert.deepEqual(dropRepeats(pts), [[439, -831.4], [423.8, -841.7], [414.9, -847.2]]);
+  assert.equal(pts.length, 5);                                            // input untouched
+  assert.deepEqual(dropRepeats([[0, 0], [5, 0], [0, 0]]), [[0, 0], [5, 0], [0, 0]]);   // only consecutive repeats
+  assert.deepEqual(dropRepeats([[1, 2]]), [[1, 2]]);
+  assert.deepEqual(dropRepeats([]), []);
 });

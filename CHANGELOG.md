@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-14 11:16` In some **generated worlds** a **stream** lost its first metres of water and the browser console showed an error; streams now draw in full.
 - `2026-10-14 09:19` In the **region editor**, "**Connection lost**, retrying…" now goes away as soon as the connection is back, instead of staying while your world is still building.
 - `2026-10-14 06:55` The **region editor** keeps the right **place name**, takes the right **corner** when a frame is pulled inside out, says when a **world has expired**, sizes follow the **language region**, and **Space** downloads the world.
 - `2026-10-13 21:02` The **autopilot** now blinks when it **leaves a roundabout**, not when it drives in; going round the ring it stays dark.

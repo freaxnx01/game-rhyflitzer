@@ -11,7 +11,7 @@ ROOT = Path(__file__).parents[2]
 EHR = ROOT / "data" / "world_ehrendingen.json"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 needs_ehr = pytest.mark.skipif(not EHR.exists(), reason="Ehrendingen world not built")
-ID, RAW_ID, FILE_ID, FREE_ID, XSS_ID = "0123456789ab", "abcdefabcdef", "fedcba987654", "111122223333", "444455556666"
+ID, RAW_ID, FILE_ID, FREE_ID, XSS_ID, NAN_ID = "0123456789ab", "abcdefabcdef", "fedcba987654", "111122223333", "444455556666", "777788889999"
 BOX = [-1520, 1840, -2225, 2065]
 LV95 = [2666500, 1257750, 2670000, 1261750]
 PAYLOAD = '<img src=x onerror="window.__xss=1">'
@@ -220,4 +220,27 @@ def test_world_name_is_text(server, world_host):
         page.keyboard.press("KeyJ")
         assert page.locator("#overlay img, #jumplist img, #jumpchips img, #toast img").count() == 0
         assert page.evaluate("() => window.__xss") is None
+        b.close()
+
+
+@needs_ehr
+def test_stream_with_a_repeated_point_has_no_nan_water(server, world_host):
+    """#319: a stream whose first point repeats (as the build service wrote it for Ehrendingen and Lenzburg) made NaN
+    vertices in the water mesh and three.js logged 'Computed radius is NaN'."""
+    url, root = world_host
+    d = make_world(root, NAN_ID)
+    w = json.loads((d / "world.json").read_text("utf-8"))
+    w["streams"][0]["pts"] = [w["streams"][0]["pts"][0]] + w["streams"][0]["pts"]
+    (d / "world.json").write_text(json.dumps(w), "utf-8")
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_page(viewport={"width": 480, "height": 270})
+        logs = []
+        page.on("console", lambda m: logs.append(m.text))
+        page.route("**/data/terrain_*.mmh", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html?worldhost={url}&world={NAN_ID}")
+        page.wait_for_function("() => window.__mm && window.__mm.sim", timeout=T)
+        page.wait_for_timeout(3000)
+        assert page.evaluate("() => window.__mm.world.id") == NAN_ID
+        assert not [t for t in logs if "Computed radius is NaN" in t]
         b.close()

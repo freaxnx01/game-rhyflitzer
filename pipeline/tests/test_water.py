@@ -161,3 +161,14 @@ def test_bridges_and_footpaths_do_not_cut_a_stream():
     canal = Way(9, {"waterway": "canal"}, shapely.LineString([(0, 106), (400, 106)]))
     for road in (_road(bridge=True), _road(cls="footway", w=2.0), _road(cls="path", w=1.0)):
         assert len(Wt.streams([], [canal], CLIP, roads=[road])) == 1
+
+
+def test_stream_has_no_repeated_points_after_rounding():
+    """#319: a cut within 5 cm of a vertex rounded to the same 0.1 m point; the prototype's ribbon then divided by a
+    zero segment length and the water mesh got NaN vertices (Ehrendingen's Moosbach, a Lenzburg stream)."""
+    brook = Way(11, {"waterway": "stream", "name": "Moosbach"}, shapely.LineString([(-10, 50), (0.04, 50), (200, 50)]))
+    st = Wt.streams([], [brook], CLIP)
+    assert len(st) == 1
+    pts = st[0]["pts"]
+    assert pts[0] == [0.0, 50.0] and pts[-1] == [200.0, 50.0]
+    assert all(a != b for a, b in zip(pts, pts[1:]))
