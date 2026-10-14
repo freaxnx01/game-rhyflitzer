@@ -5,13 +5,15 @@ import { WMTS_URL, WMTS_ATTRIBUTION, STEPS, previewUrl, identifyUrl, gemeindeNam
 import { translate, formatKm } from './strings.js';
 import { createFrame } from './frame.js';
 import { solveHuman, HumanCheckError } from './human.js';
+import { frameData, track, trackPageview, createPreviewReporter } from './analytics.js';
 import { packWorldZip } from '../prototype/worlds.js';   // #167
 
 const $ = (id) => document.getElementById(id);
 const t = (key, ...args) => translate(window.GG_LANG, key, ...args);
 const CH_BOUNDS = [[45.6, 5.7], [47.95, 10.6]], OUTLINE_URL = '../pipeline/ch_outline.geojson';
 
-const S = { state: 'loading', rect: parseBbox(location.search) || DEFAULT_RECT, fromUrl: !!parseBbox(location.search), outline: null, inside: null, name: undefined, race: null, exists: false, job: null, dlFailed: false, errKey: null };
+const S = { state: 'loading', rect: parseBbox(location.search) || DEFAULT_RECT, fromUrl: !!parseBbox(location.search), outline: null, inside: null, name: undefined, race: null, exists: false, gemeinden: [], job: null, dlFailed: false, errKey: null };
+const reporter = createPreviewReporter();
 
 // ---- map ----
 const map = L.map('map', { zoomControl: true, attributionControl: true, maxBounds: CH_BOUNDS, maxBoundsViscosity: 0.8, minZoom: 7, maxZoom: 18 });
@@ -97,11 +99,11 @@ frame.setRect(S.rect);
 
 let previewSeq = 0, previewTimer = 0;
 function schedulePreview() {
-  clearTimeout(previewTimer); const seq = ++previewSeq; S.name = undefined; S.race = null; S.exists = false;
+  clearTimeout(previewTimer); const seq = ++previewSeq; S.name = undefined; S.race = null; S.exists = false; S.gemeinden = [];
   previewTimer = setTimeout(() => preview(seq), 400);
 }
 function cancelPreview() {   // outside Switzerland: nothing to name, nothing to ask the service
-  clearTimeout(previewTimer); previewSeq++; S.name = null; S.race = null; S.exists = false;
+  clearTimeout(previewTimer); previewSeq++; S.name = null; S.race = null; S.exists = false; S.gemeinden = []; reporter.cancel();
 }
 async function preview(seq) {
   const rect = S.rect;
@@ -109,7 +111,9 @@ async function preview(seq) {
   const previewP = fetch(previewUrl(rect)).then((r) => (r.ok ? r.json() : null)).then(parsePreview).catch(() => parsePreview(null));
   const [name, pv] = await Promise.all([nameP, previewP]);
   if (seq !== previewSeq) return;   // a newer commit happened
-  S.name = name; S.race = pv.raceOk; S.exists = pv.exists; render();
+  S.name = name; S.race = pv.raceOk; S.exists = pv.exists;
+  S.gemeinden = pv.gemeinden.length ? pv.gemeinden : name ? [name] : []; reporter.frame(frameData(rect, S.gemeinden));
+  render();
 }
 
 function commit(rect) {
@@ -140,6 +144,7 @@ async function build() {
     let [res, body] = await submit(S.exists !== true);   // the preview said the world exists: #168 wants no solution
     if (refusedAsRobot(res, body)) [res, body] = await submit(true);   // once more with a fresh challenge (also: the world expired meanwhile)
     if (!res.ok) return fail(errorKey(res.status, body));
+    reporter.cancel(); track('editor-build-start', facts({ cached: S.exists === true }));
     applyJob(parseJob(body), 0);
   } catch (e) {
     if (e instanceof HumanCheckError) return fail(e.httpStatus ? errorKey(e.httpStatus, e.body) : 'errHuman');
@@ -149,7 +154,7 @@ async function build() {
 
 function applyJob(job, startedAt) {   // job.status 'failed' also arrives from the POST itself (a permanent too-complex failure: 202 + state failed)
   S.job = job;
-  if (job.status === 'done') { S.state = 'done'; stopPolling(); loadMeta(job.id); return render(); }
+  if (job.status === 'done') { S.state = 'done'; stopPolling(); track('editor-build-done', facts({ seconds: Math.round((Date.now() - (S.startedAt || Date.now())) / 5000) * 5, race: raceWord() })); loadMeta(job.id); return render(); }
   if (job.status === 'failed' || job.status === 'expired') return fail(failKey(job.reason || job.status));
   S.state = job.status === 'queued' ? 'queued' : 'building'; S.misses = 0; render();
   const t0 = startedAt || Date.now(); S.startedAt = t0;
@@ -194,8 +199,10 @@ async function downloadWorld(e) {   // #168 has no zip route: fetch the three fi
   } catch (err) { console.warn('download failed', err); S.dlFailed = true; render(); }
 }
 
-function fail(key) { S.state = 'failed'; S.errKey = key; stopPolling(); render(); }
-function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; S.dlFailed = false; stopPolling(); show('lost', false); commit(S.rect); }
+const facts = (extra) => ({ ...frameData(S.rect, S.gemeinden), ...extra });
+const raceWord = () => (S.race === true ? 'yes' : S.race === false ? 'no' : 'unknown');
+function fail(key) { track('editor-build-failed', facts({ reason: key })); S.state = 'failed'; S.errKey = key; stopPolling(); render(); }
+function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; S.dlFailed = false; S.startedAt = 0; stopPolling(); show('lost', false); commit(S.rect); }
 
 $('buildbtn').addEventListener('click', build);
 $('newbtn').addEventListener('click', backToEdit); $('changebtn').addEventListener('click', backToEdit);
@@ -210,6 +217,6 @@ $('copybtn').addEventListener('click', async () => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden && (S.state === 'queued' || S.state === 'building')) { stopPolling(); poll(S.startedAt, pollGen); } });
 
 window.addEventListener('gg-langchange', () => { applyStaticStrings(); frame.relabel(); render(); });
-applyStaticStrings(); render(); loadOutline();
+applyStaticStrings(); render(); loadOutline(); trackPageview();
 window.__ed = { rect: () => S.rect.slice(), state: () => S.state, setRect: (r) => commit(r), commit, map, centre: () => centre(S.rect),
   preview: () => ({ name: S.name, race: S.race, exists: S.exists }), job: () => S.job };
