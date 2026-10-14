@@ -20,6 +20,10 @@ MARKER = "<!-- visual-test-runs -->"
 DATA_RE = re.compile(r"<!-- visual-test-runs-data: ([A-Za-z0-9+/=]+) -->")
 DETAIL_RUNS = 5
 MAX_ROWS = 40
+ZURICH = ZoneInfo("Europe/Zurich")
+BODY_LIMIT = 60000
+TESTS_CELL_LIMIT = 120
+MARKS = {"passed": "✓", "failed": "✗", "error": "✗", "skipped": "○"}
 
 
 def where_from(env, hostname=socket.gethostname):
@@ -145,3 +149,59 @@ def decode_data(text):
     except (ValueError, zlib.error):
         return None
     return data if isinstance(data, dict) and isinstance(data.get("runs"), list) else None
+
+
+def _when(started_at):
+    utc = datetime.strptime(started_at, STAMP).replace(tzinfo=timezone.utc)
+    return utc.astimezone(ZURICH).strftime("%Y-%m-%d %H:%M")
+
+
+def _result(run):
+    parts = [f"{run[key]} {mark}" for key, mark in (("passed", "✓"), ("failed", "✗"), ("skipped", "○")) if run[key]]
+    return " ".join(parts) or "–"
+
+
+def _tests_cell(run):
+    cell = f"{run['count']}: {', '.join(run['files'])}"
+    return cell if len(cell) <= TESTS_CELL_LIMIT else cell[:TESTS_CELL_LIMIT - 1] + "…"
+
+
+def _row(run):
+    cells = [_when(run["started_at"]), run["where"], run["renderer"], _tests_cell(run), _result(run), f"{run['wall_seconds']:.0f}"]
+    return "| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |"
+
+
+def _details(run):
+    summary = " · ".join([_when(run["started_at"]), run["where"], run["renderer"], run["commit"]])
+    lines = [f"- {MARKS[test['outcome']]} `{test['id']}` {test['seconds']:.1f} s" for test in run["tests"]]
+    return "\n".join(["<details>", f"<summary>{summary}</summary>", "", *lines, "", "</details>"])
+
+
+def _body(data):
+    lines = [MARKER, encode_data(data), "", "### Visual tests", ""]
+    if data["dropped"]:
+        lines += [f"_{data['dropped']} older runs dropped._", ""]
+    lines += ["| When | Where | Renderer | Tests | Result | Time (s) |", "|---|---|---|---|---|---|"]
+    lines += [_row(run) for run in data["runs"]]
+    lines += ["", *[_details(run) + "\n" for run in data["runs"] if run["tests"]]]
+    return "\n".join(lines)
+
+
+def _trim_once(data):
+    """Strip the per-test details of the oldest run that has any; with none left, drop the oldest row."""
+    runs = data["runs"]
+    for index, run in enumerate(runs):
+        if run["tests"]:
+            runs[index] = {**run, "tests": []}
+            return
+    runs.pop(0)
+    data["dropped"] += 1
+
+
+def render_comment(data):
+    data = {**data, "runs": list(data["runs"])}
+    body = _body(data)
+    while len(body) > BODY_LIMIT and data["runs"]:
+        _trim_once(data)
+        body = _body(data)
+    return body
