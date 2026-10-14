@@ -70,7 +70,8 @@ test('errorKey: HTTP status + #168 error code -> string key; failKey: a failed j
   assert.equal(failKey('source-unreachable'), 'errSource');
   assert.equal(failKey('outside-ch'), 'errOutsideCh');   // the pipeline's own frame check can fail a build
   for (const r of ['too-big', 'too-small', 'bad-bbox']) assert.equal(failKey(r), 'errBadFrame', r);
-  for (const r of ['timeout', 'build-failed', 'anything', null, 'expired']) assert.equal(failKey(r), 'errBuildFailed', String(r));
+  assert.equal(failKey('expired'), 'errExpired');
+  for (const r of ['timeout', 'build-failed', 'anything', null]) assert.equal(failKey(r), 'errBuildFailed', String(r));
 });
 
 test('human check: 403 maps to errHuman; the preview is read as raceOk true/false/null plus id and exists', () => {

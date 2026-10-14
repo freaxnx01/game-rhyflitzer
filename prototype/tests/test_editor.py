@@ -16,6 +16,7 @@ ROOT = Path(__file__).parents[2]
 API = re.search(r"WORLD_HOST = '([^']+)'", (ROOT / "prototype" / "worlds.js").read_text(encoding="utf-8")).group(1)   # the one host constant, #167
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
 EHR = [2667000, 1259750, 2669000, 1261750]
+HOLE = [2650250, 1250250, 2652250, 1252250]   # inside the outline's hole: outside Switzerland
 ID = "0123456789ab"
 # a square country 2600000..2700000 / 1200000..1300000 with a 3 x 4 km hole (a Büsingen) at 2650000..2653000 / 1250000..1254000
 OUTLINE = {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [
@@ -47,7 +48,7 @@ class Api:
     def __init__(self, post=(202, job("queued", position=3)), script=(), meta=(200, META),
                  preview=(200, {"id": ID, "exists": False, "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": False}), challenge=None, challenge_delay=0.0):
         self.post = [post] if isinstance(post, tuple) else list(post)
-        self.script, self.preview, self.meta, self.posts, self.gets = list(script), preview, meta, [], 0
+        self.script, self.preview, self.meta, self.posts, self.gets, self.previews = list(script), preview, meta, [], 0, 0
         self.challenge_answer, self.challenge_delay, self.challenges = challenge, challenge_delay, 0
 
     def route(self, r):
@@ -57,7 +58,7 @@ class Api:
         elif url.endswith("/api/challenge"):
             self.challenges += 1; time.sleep(self.challenge_delay); st, body = self.challenge_answer or (200, challenge())
         elif "/api/preview" in url:
-            st, body = self.preview
+            self.previews += 1; st, body = self.preview
         elif f"/api/jobs/{ID}" in url:
             self.gets += 1; st, body = self.script.pop(0) if len(self.script) > 1 else self.script[0]
         elif url.endswith(f"/worlds/{ID}/meta.json"):
@@ -69,9 +70,9 @@ class Api:
         r.fulfill(status=st, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, body=json.dumps(body))
 
 
-def open_page(p, server, api, query=f"?bbox={','.join(map(str, EHR))}", viewport=(900, 700), lang=None, outline=OUTLINE):
+def open_page(p, server, api, query=f"?bbox={','.join(map(str, EHR))}", viewport=(900, 700), lang=None, outline=OUTLINE, locale="en-US"):
     b = p.chromium.launch()
-    ctx = b.new_context(viewport={"width": viewport[0], "height": viewport[1]}, locale="en-US", has_touch=viewport[0] < 500)
+    ctx = b.new_context(viewport={"width": viewport[0], "height": viewport[1]}, locale=locale, has_touch=viewport[0] < 500)
     if lang:
         ctx.add_init_script(f"try {{ localStorage.setItem('gg-lang', '{lang}'); }} catch (e) {{}}")
     page = ctx.new_page(); errs = []; page.on("pageerror", lambda e: errs.append(str(e)))
@@ -127,6 +128,17 @@ def test_drag_moves_and_snaps_corner_resizes_and_clamps_keyboard_moves(server):
     assert r3[0] == r2[0] - 250 and r3[2] == r2[2] - 250 and r3[3] - r3[1] == 3750 and r3[1] == r2[1]
 
 
+def test_a_corner_dragged_past_the_opposite_one_keeps_the_fixed_corner(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api())
+        se = page.locator("#frame .h.se").bounding_box(); sx, sy = se["x"] + 22, se["y"] + 22
+        drag(page, sx, sy, sx - 600, sy - 30)   # far west past the west edge (flips, exceeds 4 km), slightly up
+        r = page.evaluate("() => window.__ed.rect()")
+        b.close()
+    assert errs == []
+    assert r[2] == EHR[0] and r[3] == EHR[3] and r[2] - r[0] == 4000   # the old nw point stays as the ne corner
+
+
 def test_outside_switzerland_and_the_hole_disable_build(server):
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, Api())
@@ -140,6 +152,23 @@ def test_outside_switzerland_and_the_hole_disable_build(server):
         b.close()
     assert errs == [] and out == {"d": True, "msg": "The frame must lie entirely inside Switzerland.", "hidden": False, "red": True}
     assert hole is True and back is False
+
+
+def test_a_frame_moved_outside_switzerland_drops_name_note_and_pending_preview(server):
+    api = Api()
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.wait_for_function("() => document.querySelector('#name').textContent.includes('Ehrendingen') && !document.querySelector('#warn').hidden", timeout=20000)
+        page.evaluate("(r) => window.__ed.setRect(r)", HOLE)
+        now = page.evaluate("() => ({ name: document.querySelector('#name').textContent, warn: document.querySelector('#warn').hidden, pv: window.__ed.preview() })")
+        before = api.previews
+        page.evaluate("([a, h]) => { window.__ed.setRect(a); window.__ed.setRect(h); }", [[2667250, 1259750, 2669250, 1261750], HOLE])   # inside, then outside within 400 ms
+        page.wait_for_timeout(1200)   # a leaked timer would have fired its preview by now
+        after = api.previews
+        b.close()
+    assert errs == []
+    assert now == {"name": "—", "warn": True, "pv": {"name": None, "race": None, "exists": False}}
+    assert after == before
 
 
 def test_build_queued_steps_done_drive_share_download(server):
@@ -187,7 +216,7 @@ def test_cached_world_is_done_at_once_and_free_driving_is_said(server):
     ((413, {"error": "too-large"}), [], "The server is not reachable. Check your connection and try again."),
     ((202, job("queued", position=1)), [(200, job("failed", error="source-unreachable"))], "A data source is not reachable right now. Try again later."),
     ((202, job("queued", position=1)), [(200, job("failed", error="timeout"))], "The build failed. Try a different frame."),
-    ((202, job("queued", position=1)), [(200, job("expired"))], "The build failed. Try a different frame."),
+    ((202, job("queued", position=1)), [(200, job("expired"))], "This world has expired. Build it again."),
 ])
 def test_every_error_has_a_sentence_and_change_the_frame_returns(server, post, script, text):
     with sync_playwright() as p:
@@ -214,6 +243,12 @@ def test_root_editor_html_redirects_with_the_bbox_from_167(server):
     assert errs == []
     assert got == {"rect": [2666500, 1257750, 2670000, 1261750], "search": "?bbox=2666500,1257750,2670000,1261750"}
     assert junk == EHR   # the default frame, no error
+
+
+def test_root_editor_html_meta_refresh_only_without_javascript():
+    html = (ROOT / "editor.html").read_text(encoding="utf-8")
+    assert re.search(r"<noscript>\s*<meta http-equiv=\"refresh\"[^>]*url=editor/\"\s*>\s*</noscript>", html)
+    assert html.count("http-equiv") == 1 and 'location.replace("editor/" + location.search + location.hash)' in html
 
 
 def test_the_human_check_runs_only_when_build_is_pressed_and_shows_its_state(server):
@@ -287,6 +322,27 @@ def test_download_packs_the_three_files_into_a_zip(server):
         names, world = sorted(z.namelist()), z.read("world.json")
     assert errs == [] and name == f"rhyflitzer-{ID}.zip"
     assert names == ["LICENSE-ODbL.txt", "meta.json", "terrain.mmh", "world.json"] and world == FILES["world.json"]
+
+
+def test_space_on_the_download_link_downloads_the_world(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api(post=(200, job("ready", "done"))))
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=20000)
+        page.focus("#dlbtn")
+        with page.expect_download() as info:
+            page.keyboard.press("Space")
+        name = info.value.suggested_filename
+        b.close()
+    assert errs == [] and name == f"rhyflitzer-{ID}.zip"
+
+
+def test_the_size_follows_the_browser_region_de_de(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api(), lang="de", locale="de-DE")
+        page.evaluate("() => window.__ed.setRect([2667000, 1259750, 2669500, 1261750])")   # 2.5 km wide
+        size = page.evaluate("() => document.querySelector('#size').textContent")
+        b.close()
+    assert errs == [] and size == "2,5 × 2 km"
 
 
 @pytest.mark.parametrize("preview", [(404, {}), (429, {"error": "preview-rate-limit"}), (200, {"id": ID, "exists": False, "name": None, "gemeinden": [], "raceOk": None, "reason": "no-road-index"})])
@@ -368,6 +424,48 @@ def test_a_poll_answer_arriving_after_change_the_frame_is_ignored(server):
         got = page.evaluate("() => window.__ed.state()")
         b.close()
     assert errs == [] and got == "edit"
+
+
+def test_connection_lost_appears_after_three_misses_not_two(server):
+    api = Api(script=[(500, {})])   # every poll misses; the last answer repeats
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn")
+        page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=20000)
+        deadline = time.time() + 20
+        while api.gets != 2 and time.time() < deadline:
+            page.wait_for_timeout(250)
+        assert api.gets == 2
+        assert page.evaluate("() => document.querySelector('#lost').hidden") is True   # not after two misses
+        while api.gets != 3 and time.time() < deadline:
+            page.wait_for_timeout(250)
+        assert api.gets == 3
+        page.wait_for_function("() => !document.querySelector('#lost').hidden", timeout=5000)
+        text = page.text_content("#lost")
+        b.close()
+    assert errs == [] and text == "Connection lost, retrying…"
+
+
+def test_a_hidden_tab_does_not_poll_a_visible_one_polls_at_once(server):
+    api = Api(script=[(200, job("queued", position=1))])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn")
+        page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=20000)
+        page.evaluate("() => Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })")
+        g = api.gets
+        page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_timeout(600)
+        assert api.gets == g   # a hidden tab does not poll
+        t0 = time.time()
+        page.evaluate("() => Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })")
+        page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+        while api.gets <= g and time.time() - t0 < 3:
+            page.wait_for_timeout(100)
+        grew_at = time.time() - t0
+        b.close()
+    assert errs == [] and api.gets > g   # the page polls at once, not after the 2 s delay
+    assert grew_at < 1   # grew within 1 s of the event
 
 
 def test_the_language_switch_reaches_every_text(server):

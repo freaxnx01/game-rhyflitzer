@@ -19,6 +19,7 @@ const en = {
   dlError: 'The download did not work. Try again.',
   errBusy: 'The server is busy right now. Try again in a few minutes.', errTooComplex: 'Too many buildings or roads in this frame. Try a smaller one.',
   errSource: 'A data source is not reachable right now. Try again later.', errBuildFailed: 'The build failed. Try a different frame.',
+  errExpired: 'This world has expired. Build it again.',
   errServer: 'The server is not reachable. Check your connection and try again.',
   verifying: "Checking you're human…", humanNote: 'Pressing Build runs a short check on your device that you are not a bot (ALTCHA): no cookies, no third party, no puzzle. A world that already exists skips it.',
   errHuman: 'The human check did not work. Please try again.',
@@ -43,12 +44,24 @@ const de = {
   dlError: 'Der Download hat nicht geklappt. Versuch es noch einmal.',
   errBusy: 'Der Server ist gerade ausgelastet. Versuch es in ein paar Minuten noch einmal.', errTooComplex: 'Zu viele Häuser oder Strassen in diesem Rahmen. Nimm einen kleineren.',
   errSource: 'Eine Datenquelle ist gerade nicht erreichbar. Versuch es später noch einmal.', errBuildFailed: 'Der Bau ist fehlgeschlagen. Versuch einen anderen Rahmen.',
+  errExpired: 'Diese Welt ist abgelaufen. Bau sie noch einmal.',
   errServer: 'Der Server ist nicht erreichbar. Prüf Deine Verbindung und versuch es noch einmal.',
   verifying: 'Wir prüfen, ob Du ein Mensch bist…', humanNote: 'Beim Bauen läuft kurz eine Prüfung auf Deinem Gerät, dass Du kein Bot bist (ALTCHA): ohne Cookies, ohne Dritte, ohne Rätsel. Bei einer Welt, die es schon gibt, entfällt sie.',
   errHuman: 'Die Prüfung, ob Du ein Mensch bist, hat nicht geklappt. Versuch es noch einmal.',
 };
 
 export const STRINGS = { en, de };
+
+export function numberLocale(lang, navLang = '') {   // regional formatting follows the OS region, not the UI language; de without a region is de-CH
+  const tag = String(navLang || '');
+  return tag.toLowerCase().startsWith(lang) && tag.includes('-') ? tag : lang === 'de' ? 'de-CH' : 'en';
+}
+
+export function formatKm(value, lang, navLang) {
+  const options = { maximumFractionDigits: 2 };
+  try { return new Intl.NumberFormat(numberLocale(lang, navLang), options).format(value); }
+  catch (e) { return new Intl.NumberFormat(lang === 'de' ? 'de-CH' : 'en', options).format(value); }
+}
 
 export function translate(lang, key, ...args) {
   const table = STRINGS[lang] || en;

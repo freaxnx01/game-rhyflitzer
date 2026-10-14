@@ -67,6 +67,7 @@ export function failKey(reason) {   // a failed job's error: build.py classify()
   if (reason === 'too-big' || reason === 'too-small' || reason === 'bad-bbox') return 'errBadFrame';
   if (reason === 'too-complex') return 'errTooComplex';
   if (reason === 'source-unreachable') return 'errSource';
+  if (reason === 'expired') return 'errExpired';
   return 'errBuildFailed';
 }
 

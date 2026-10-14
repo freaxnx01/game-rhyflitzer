@@ -1,7 +1,7 @@
 // #169: the editor's string table. Same rules as strings.test.mjs (#9).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STRINGS, translate } from '../../editor/strings.js';
+import { STRINGS, translate, numberLocale, formatKm } from '../../editor/strings.js';
 
 const render = (v) => (typeof v === 'function' ? v(...Array(v.length).fill('x')) : v);
 
@@ -21,7 +21,7 @@ test('Swiss spelling, no markup in any string (the page renders with textContent
 });
 
 test('every error key of api.js and every step has a string', () => {
-  for (const k of ['errOutsideCh', 'errBadFrame', 'errRateLimit', 'errBusy', 'errTooComplex', 'errSource', 'errBuildFailed', 'errServer', 'errHuman', 'verifying', 'humanNote',
+  for (const k of ['errOutsideCh', 'errBadFrame', 'errRateLimit', 'errBusy', 'errTooComplex', 'errSource', 'errBuildFailed', 'errServer', 'errHuman', 'errExpired', 'verifying', 'humanNote',
     'stepQueued', 'stepCutting', 'stepTerrain', 'stepWorld', 'stepRace', 'stepDone']) assert.ok(k in STRINGS.en, k);
 });
 
@@ -29,4 +29,14 @@ test('translate picks the language, falls back to English, then to the key; name
   assert.equal(translate('de', 'build'), 'Bauen'); assert.equal(translate('en', 'build'), 'Build'); assert.equal(translate('fr', 'build'), 'Build');
   assert.equal(translate('de', 'nope'), 'nope');
   assert.equal(translate('en', 'sizeKm', 2.5, 3), '2.5 × 3 km'); assert.equal(translate('de', 'queuedAt', 3), 'In der Warteschlange (Nr. 3)');
+});
+
+test('formatKm: the region of the browser decides, de without a region is de-CH, a broken tag falls back', () => {
+  assert.equal(formatKm(2.5, 'de', 'de-DE'), '2,5');
+  assert.equal(formatKm(2.5, 'de', 'de-CH'), '2.5');
+  assert.equal(formatKm(2.5, 'de', 'en-US'), '2.5');   // page language de, browser en: de-CH
+  assert.equal(formatKm(2.5, 'en', 'en-GB'), '2.5');
+  assert.equal(formatKm(3, 'en', ''), '3');
+  assert.equal(formatKm(2.25, 'en', 'x_@@'), '2.25');   // invalid tag: no throw
+  assert.equal(numberLocale('de', 'de'), 'de-CH'); assert.equal(numberLocale('en', undefined), 'en');
 });

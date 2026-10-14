@@ -33,6 +33,20 @@ export function clampRect([e0, n0, e1, n1], fixed) {
   return [east ? e0 : e1 - w, south ? n0 : n1 - h, east ? e0 + w : e1, south ? n0 + h : n1];
 }
 
+const OPPOSITE = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' };
+
+// after a corner is dragged past the opposite one the rectangle flips; the corner that stayed still (the dragged
+// corner's old opposite) is now a different corner of the re-ordered rect. Return it so clampRect keeps it fixed.
+export function fixedCornerAfterResize(rect0, corner, rect) {
+  const west = corner === 'nw' || corner === 'sw', north = corner === 'nw' || corner === 'ne';
+  const fixedE = west ? rect0[2] : rect0[0], fixedN = north ? rect0[1] : rect0[3];
+  const fixedIsWest = fixedE === rect[0] && fixedE !== rect[2], fixedIsEast = fixedE === rect[2] && fixedE !== rect[0];
+  const fixedIsSouth = fixedN === rect[1] && fixedN !== rect[3], fixedIsNorth = fixedN === rect[3] && fixedN !== rect[1];
+  const [defaultNs, defaultEw] = OPPOSITE[corner];
+  const ns = fixedIsNorth ? 'n' : fixedIsSouth ? 's' : defaultNs, ew = fixedIsEast ? 'e' : fixedIsWest ? 'w' : defaultEw;
+  return ns + ew;
+}
+
 export function moveRect([e0, n0, e1, n1], dE, dN) {
   return [e0 + dE, n0 + dN, e1 + dE, n1 + dN];
 }
