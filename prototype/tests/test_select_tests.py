@@ -101,3 +101,18 @@ def test_durations_table_sums_per_file_and_sorts_slowest_first(tmp_path):
     table = st.durations_table(xml)
     assert table.index("`test_b.py`") < table.index("`test_a.py`")
     assert "| `test_b.py` | 1 | 1 | 10.0 |" in table and "| `test_a.py` | 2 | 0 | 3.5 |" in table
+
+
+def test_the_real_map_only_names_test_files_that_exist():
+    existing = st.existing_tests()
+    for glob, tests in json.loads((HERE / "test-map.json").read_text(encoding="utf-8")).items():
+        for name in tests:
+            assert name in existing, f"{glob} -> {name}"
+
+
+def test_the_real_map_globs_match_a_file_in_the_repo():
+    root = HERE.parents[1]
+    files = [p.relative_to(root).as_posix() for p in root.rglob("*")
+             if p.is_file() and not {".git", ".worktrees", "node_modules"} & set(p.relative_to(root).parts)]
+    for glob in json.loads((HERE / "test-map.json").read_text(encoding="utf-8")):
+        assert any(st.fnmatch.fnmatchcase(f, glob) for f in files), f"{glob} matches nothing"
