@@ -380,3 +380,65 @@ def test_find_comment_asks_gh_to_filter_by_the_marker():
     run = FakeRun((["gh", "api", "repos/o/r/issues/7/comments", "--paginate", "--jq"], ""))
     assert vr.find_comment(run, "o/r", 7) is None
     assert "<!-- visual-test-runs -->" in run.calls[0][0][-1]
+
+
+def _browser_collector():
+    collector = _collector()
+    _run_test(collector, "prototype/tests/test_a.py::visual", browsers=1)
+    return collector
+
+
+def _gh_with_open_pr():
+    return FakeRun((["git", "rev-parse", "--short", "HEAD"], "abc1234\n"),
+                   (["gh", "api", "repos/o/r/issues/7/comments", "--paginate"], ""),
+                   (["gh", "api", "--method", "POST"], ""))
+
+
+ON_PR = {"GITHUB_REPOSITORY": "o/r", "GITHUB_REF": "refs/pull/7/merge"}
+
+
+def test_a_session_without_a_browser_leaves_nothing_and_runs_nothing(tmp_path):
+    collector = _collector()
+    _run_test(collector, "t.py::pure")
+    run = FakeRun()
+    assert vr.finish_session(collector, ON_PR, None, tmp_path / ".test-runs", run) == []
+    assert run.calls == [] and not (tmp_path / ".test-runs").exists()
+
+
+def test_a_browser_session_on_a_pr_writes_the_record_and_posts(tmp_path):
+    run = _gh_with_open_pr()
+    lines = vr.finish_session(_browser_collector(), ON_PR, None, tmp_path / ".test-runs", run)
+    assert len(list((tmp_path / ".test-runs").glob("*.json"))) == 1
+    assert any(cmd[3] == "POST" for cmd, _ in run.api_calls() if len(cmd) > 3)
+    assert any("PR#7" in line for line in lines)
+
+
+def test_without_an_open_pr_only_the_file_is_written(tmp_path):
+    run = FakeRun((["git", "rev-parse", "--short", "HEAD"], "abc1234\n"),
+                  (["git", "rev-parse", "--abbrev-ref", "HEAD"], "scratch\n"),
+                  (["gh", "pr", "list"], "null\n"))
+    lines = vr.finish_session(_browser_collector(), {}, None, tmp_path / ".test-runs", run)
+    assert len(list((tmp_path / ".test-runs").glob("*.json"))) == 1
+    assert run.api_calls() == []
+    assert not any("could not" in line for line in lines)
+
+
+def test_a_gh_failure_is_one_warning_and_the_file_stays(tmp_path):
+    run = FakeRun((["git", "rev-parse", "--short", "HEAD"], "abc1234\n"),
+                  (["gh", "api"], vr.CommandError("gh api exited 1: bad credentials")))
+    lines = vr.finish_session(_browser_collector(), ON_PR, None, tmp_path / ".test-runs", run)
+    assert len(list((tmp_path / ".test-runs").glob("*.json"))) == 1
+    warnings = [line for line in lines if "could not post" in line]
+    assert len(warnings) == 1 and "bad credentials" in warnings[0]
+
+
+def test_an_unexpected_error_is_reported_not_raised(tmp_path):
+    blocker = tmp_path / "blocked"
+    blocker.write_text("a file where the directory should go")
+    lines = vr.finish_session(_browser_collector(), ON_PR, None, blocker / ".test-runs", _gh_with_open_pr())
+    assert len(lines) == 1 and "not recorded" in lines[0]
+
+
+def test_no_line_mentions_the_gpu_endpoint(tmp_path):
+    lines = vr.finish_session(_browser_collector(), ON_PR, "http://gpu.example:9223", tmp_path / ".test-runs", _gh_with_open_pr())
+    assert not any("gpu.example" in line for line in lines)

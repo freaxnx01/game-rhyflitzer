@@ -265,3 +265,26 @@ def upsert_comment(run, repo, pr, record):
         run(["gh", "api", "--method", "PATCH", f"repos/{repo}/issues/comments/{existing['id']}", "--input", "-"], stdin=payload)
     else:
         run(["gh", "api", "--method", "POST", f"repos/{repo}/issues/{pr}/comments", "--input", "-"], stdin=payload)
+
+
+def _post(record, env, run):
+    pr = find_pr_number(env, run)
+    if pr is None:
+        return None
+    upsert_comment(run, repo_name(env, run), pr, record)
+    return f"visual tests: updated the comment on PR#{pr}"
+
+
+def finish_session(collector, env, gpu_endpoint, directory, run=run_command):
+    if not collector.has_browser():
+        return []
+    try:   # the recorder must never change the session's exit status
+        record = build_record(collector, env, gpu_endpoint, commit_sha(env, run))
+        lines = [f"visual tests: record written to {write_record(record, directory).name}"]
+        try:
+            posted = _post(record, env, run)
+        except CommandError as error:
+            return [*lines, f"visual tests: could not post to the PR ({error})"]
+        return [*lines, posted] if posted else lines
+    except Exception as error:
+        return [f"visual tests: not recorded ({error})"]
