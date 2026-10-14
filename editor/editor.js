@@ -164,7 +164,7 @@ async function poll(t0, gen) {
     if (!r.ok) throw new Error(String(r.status));
     const job = parseJob(await r.json());
     if (gen !== pollGen) return;
-    S.misses = 0; applyJob(job, t0);
+    S.misses = 0; show('lost', false); applyJob(job, t0);
   } catch (e) {
     if (gen !== pollGen) return;
     if (e instanceof JobFormatError) return fail('errServer');   // a malformed answer will not get better
