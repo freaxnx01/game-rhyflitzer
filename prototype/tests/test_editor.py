@@ -216,7 +216,7 @@ def test_cached_world_is_done_at_once_and_free_driving_is_said(server):
     ((413, {"error": "too-large"}), [], "The server is not reachable. Check your connection and try again."),
     ((202, job("queued", position=1)), [(200, job("failed", error="source-unreachable"))], "A data source is not reachable right now. Try again later."),
     ((202, job("queued", position=1)), [(200, job("failed", error="timeout"))], "The build failed. Try a different frame."),
-    ((202, job("queued", position=1)), [(200, job("expired"))], "The build failed. Try a different frame."),
+    ((202, job("queued", position=1)), [(200, job("expired"))], "This world has expired. Build it again."),
 ])
 def test_every_error_has_a_sentence_and_change_the_frame_returns(server, post, script, text):
     with sync_playwright() as p:

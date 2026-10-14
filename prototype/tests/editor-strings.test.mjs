@@ -21,7 +21,7 @@ test('Swiss spelling, no markup in any string (the page renders with textContent
 });
 
 test('every error key of api.js and every step has a string', () => {
-  for (const k of ['errOutsideCh', 'errBadFrame', 'errRateLimit', 'errBusy', 'errTooComplex', 'errSource', 'errBuildFailed', 'errServer', 'errHuman', 'verifying', 'humanNote',
+  for (const k of ['errOutsideCh', 'errBadFrame', 'errRateLimit', 'errBusy', 'errTooComplex', 'errSource', 'errBuildFailed', 'errServer', 'errHuman', 'errExpired', 'verifying', 'humanNote',
     'stepQueued', 'stepCutting', 'stepTerrain', 'stepWorld', 'stepRace', 'stepDone']) assert.ok(k in STRINGS.en, k);
 });
 
