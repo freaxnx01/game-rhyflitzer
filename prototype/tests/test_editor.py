@@ -245,6 +245,12 @@ def test_root_editor_html_redirects_with_the_bbox_from_167(server):
     assert junk == EHR   # the default frame, no error
 
 
+def test_root_editor_html_meta_refresh_only_without_javascript():
+    html = (ROOT / "editor.html").read_text(encoding="utf-8")
+    assert re.search(r"<noscript>\s*<meta http-equiv=\"refresh\"[^>]*url=editor/\"\s*>\s*</noscript>", html)
+    assert html.count("http-equiv") == 1 and 'location.replace("editor/" + location.search + location.hash)' in html
+
+
 def test_the_human_check_runs_only_when_build_is_pressed_and_shows_its_state(server):
     api = Api(challenge_delay=1.0)
     with sync_playwright() as p:
