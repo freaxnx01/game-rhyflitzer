@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-10-14 11:31` The **region editor** now counts anonymously which **places** people frame and build: Gemeinde names, the frame size and a position rounded to about 5 km, never the exact frame. No cookies, no IP address stored, and nothing changes if you block it. The **Privacy** note sits under the map.
+
 ### Fixed
 
 - `2026-10-14 11:16` In some **generated worlds** a **stream** lost its first metres of water and the browser console showed an error; streams now draw in full.
