@@ -426,6 +426,48 @@ def test_a_poll_answer_arriving_after_change_the_frame_is_ignored(server):
     assert errs == [] and got == "edit"
 
 
+def test_connection_lost_appears_after_three_misses_not_two(server):
+    api = Api(script=[(500, {})])   # every poll misses; the last answer repeats
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn")
+        page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=20000)
+        deadline = time.time() + 20
+        while api.gets != 2 and time.time() < deadline:
+            page.wait_for_timeout(250)
+        assert api.gets == 2
+        assert page.evaluate("() => document.querySelector('#lost').hidden") is True   # not after two misses
+        while api.gets != 3 and time.time() < deadline:
+            page.wait_for_timeout(250)
+        assert api.gets == 3
+        page.wait_for_function("() => !document.querySelector('#lost').hidden", timeout=5000)
+        text = page.text_content("#lost")
+        b.close()
+    assert errs == [] and text == "Connection lost, retrying…"
+
+
+def test_a_hidden_tab_does_not_poll_a_visible_one_polls_at_once(server):
+    api = Api(script=[(200, job("queued", position=1))])
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.click("#buildbtn")
+        page.wait_for_function("() => window.__ed.state() === 'queued'", timeout=20000)
+        page.evaluate("() => Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })")
+        g = api.gets
+        page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+        page.wait_for_timeout(600)
+        assert api.gets == g   # a hidden tab does not poll
+        t0 = time.time()
+        page.evaluate("() => Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })")
+        page.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+        while api.gets <= g and time.time() - t0 < 3:
+            page.wait_for_timeout(100)
+        grew_at = time.time() - t0
+        b.close()
+    assert errs == [] and api.gets > g   # the page polls at once, not after the 2 s delay
+    assert grew_at < 1   # grew within 1 s of the event
+
+
 def test_the_language_switch_reaches_every_text(server):
     probe = """() => ({ frame: document.querySelector('#frame .body').getAttribute('aria-label'), handle: document.querySelector('#frame .h.nw').getAttribute('aria-label'),
         map: document.querySelector('#map').getAttribute('aria-label'), title: document.title, navLabel: document.querySelector('#game-nav').getAttribute('aria-label'),
