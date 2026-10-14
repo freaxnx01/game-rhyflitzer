@@ -99,6 +99,9 @@ function schedulePreview() {
   clearTimeout(previewTimer); const seq = ++previewSeq; S.name = undefined; S.race = null; S.exists = false;
   previewTimer = setTimeout(() => preview(seq), 400);
 }
+function cancelPreview() {   // outside Switzerland: nothing to name, nothing to ask the service
+  clearTimeout(previewTimer); previewSeq++; S.name = null; S.race = null; S.exists = false;
+}
 async function preview(seq) {
   const rect = S.rect;
   const nameP = fetch(identifyUrl(centre(rect), new Date().getFullYear())).then((r) => (r.ok ? r.json() : null)).then(gemeindeName).catch(() => null);
@@ -111,7 +114,7 @@ async function preview(seq) {
 function commit(rect) {
   S.rect = rect; frame.setRect(rect); S.inside = S.outline ? rectInside(rect, S.outline) : null;
   history.replaceState(null, '', `?bbox=${formatBbox(rect)}`);
-  if (S.state === 'edit' && S.inside) schedulePreview();
+  if (S.state === 'edit') { if (S.inside) schedulePreview(); else cancelPreview(); }
   render();
 }
 

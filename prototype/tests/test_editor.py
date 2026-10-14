@@ -16,6 +16,7 @@ ROOT = Path(__file__).parents[2]
 API = re.search(r"WORLD_HOST = '([^']+)'", (ROOT / "prototype" / "worlds.js").read_text(encoding="utf-8")).group(1)   # the one host constant, #167
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
 EHR = [2667000, 1259750, 2669000, 1261750]
+HOLE = [2650250, 1250250, 2652250, 1252250]   # inside the outline's hole: outside Switzerland
 ID = "0123456789ab"
 # a square country 2600000..2700000 / 1200000..1300000 with a 3 x 4 km hole (a Büsingen) at 2650000..2653000 / 1250000..1254000
 OUTLINE = {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [
@@ -47,7 +48,7 @@ class Api:
     def __init__(self, post=(202, job("queued", position=3)), script=(), meta=(200, META),
                  preview=(200, {"id": ID, "exists": False, "name": "Ehrendingen", "gemeinden": ["Ehrendingen"], "raceOk": False}), challenge=None, challenge_delay=0.0):
         self.post = [post] if isinstance(post, tuple) else list(post)
-        self.script, self.preview, self.meta, self.posts, self.gets = list(script), preview, meta, [], 0
+        self.script, self.preview, self.meta, self.posts, self.gets, self.previews = list(script), preview, meta, [], 0, 0
         self.challenge_answer, self.challenge_delay, self.challenges = challenge, challenge_delay, 0
 
     def route(self, r):
@@ -57,7 +58,7 @@ class Api:
         elif url.endswith("/api/challenge"):
             self.challenges += 1; time.sleep(self.challenge_delay); st, body = self.challenge_answer or (200, challenge())
         elif "/api/preview" in url:
-            st, body = self.preview
+            self.previews += 1; st, body = self.preview
         elif f"/api/jobs/{ID}" in url:
             self.gets += 1; st, body = self.script.pop(0) if len(self.script) > 1 else self.script[0]
         elif url.endswith(f"/worlds/{ID}/meta.json"):
@@ -140,6 +141,23 @@ def test_outside_switzerland_and_the_hole_disable_build(server):
         b.close()
     assert errs == [] and out == {"d": True, "msg": "The frame must lie entirely inside Switzerland.", "hidden": False, "red": True}
     assert hole is True and back is False
+
+
+def test_a_frame_moved_outside_switzerland_drops_name_note_and_pending_preview(server):
+    api = Api()
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, api)
+        page.wait_for_function("() => document.querySelector('#name').textContent.includes('Ehrendingen') && !document.querySelector('#warn').hidden", timeout=20000)
+        page.evaluate("(r) => window.__ed.setRect(r)", HOLE)
+        now = page.evaluate("() => ({ name: document.querySelector('#name').textContent, warn: document.querySelector('#warn').hidden, pv: window.__ed.preview() })")
+        before = api.previews
+        page.evaluate("([a, h]) => { window.__ed.setRect(a); window.__ed.setRect(h); }", [[2667250, 1259750, 2669250, 1261750], HOLE])   # inside, then outside within 400 ms
+        page.wait_for_timeout(1200)   # a leaked timer would have fired its preview by now
+        after = api.previews
+        b.close()
+    assert errs == []
+    assert now == {"name": "—", "warn": True, "pv": {"name": None, "race": None, "exists": False}}
+    assert after == before
 
 
 def test_build_queued_steps_done_drive_share_download(server):
