@@ -263,3 +263,120 @@ def test_a_huge_history_stays_under_the_limit_and_keeps_all_rows():
     assert len(body) <= vr.BODY_LIMIT
     assert sum(line.startswith("| 2026") for line in body.splitlines()) == 40
     assert vr.decode_data(body)["runs"][-1]["count"] == 400
+
+
+class FakeRun:
+    """Stands in for run_command: answers by command prefix, records every call."""
+
+    def __init__(self, *answers):
+        self.answers, self.calls = answers, []
+
+    def __call__(self, cmd, stdin=None):
+        self.calls.append((cmd, stdin))
+        for prefix, answer in self.answers:
+            if cmd[:len(prefix)] == prefix:
+                if isinstance(answer, Exception):
+                    raise answer
+                return answer
+        raise AssertionError(f"unexpected command {cmd}")
+
+    def api_calls(self):
+        return [(cmd, stdin) for cmd, stdin in self.calls if cmd[:2] == ["gh", "api"]]
+
+
+def test_run_command_returns_stdout():
+    assert vr.run_command([sys.executable, "-c", "print('hi')"]) == "hi\n"
+
+
+def test_run_command_passes_stdin():
+    assert vr.run_command([sys.executable, "-c", "import sys; print(sys.stdin.read().upper())"], stdin="abc") == "ABC\n"
+
+
+def test_run_command_raises_on_a_non_zero_exit():
+    with pytest.raises(vr.CommandError, match="exited 3"):
+        vr.run_command([sys.executable, "-c", "import sys; sys.exit(3)"])
+
+
+def test_run_command_raises_on_a_missing_binary():
+    with pytest.raises(vr.CommandError):
+        vr.run_command(["definitely-not-a-binary-332"])
+
+
+def test_run_command_raises_on_a_timeout():
+    with pytest.raises(vr.CommandError):
+        vr.run_command([sys.executable, "-c", "import time; time.sleep(5)"], timeout=0.5)
+
+
+def test_commit_prefers_the_pr_head_sha_then_github_sha_then_git():
+    git = FakeRun((["git", "rev-parse", "--short", "HEAD"], "feed123\n"))
+    assert vr.commit_sha({"PR_HEAD_SHA": "1234567890abcdef", "GITHUB_SHA": "ffffffffff"}, git) == "1234567"
+    assert vr.commit_sha({"GITHUB_SHA": "abcdefabcdef"}, git) == "abcdefa"
+    assert vr.commit_sha({}, git) == "feed123"
+    assert vr.commit_sha({}, FakeRun((["git"], vr.CommandError("no git")))) == "unknown"
+
+
+def test_pr_number_comes_straight_from_a_pull_request_ref():
+    run = FakeRun()
+    assert vr.find_pr_number({"GITHUB_REF": "refs/pull/332/merge"}, run) == 332
+    assert run.calls == []
+
+
+def test_pr_number_is_looked_up_by_branch_otherwise():
+    run = FakeRun((["git", "rev-parse", "--abbrev-ref", "HEAD"], "feature/x\n"),
+                  (["gh", "pr", "list", "--head", "feature/x"], "7\n"))
+    assert vr.find_pr_number({"GITHUB_REF": "refs/heads/feature/x"}, run) == 7
+
+
+@pytest.mark.parametrize("branch, listing", [("main", "null\n"), ("main", "\n"), ("HEAD", "7\n")])
+def test_no_pr_when_none_is_open_or_the_checkout_is_detached(branch, listing):
+    run = FakeRun((["git", "rev-parse", "--abbrev-ref", "HEAD"], branch + "\n"), (["gh", "pr", "list"], listing))
+    assert vr.find_pr_number({}, run) is None
+
+
+def test_lookup_failures_propagate_as_command_errors():
+    run = FakeRun((["git", "rev-parse", "--abbrev-ref", "HEAD"], "x\n"), (["gh", "pr", "list"], vr.CommandError("no auth")))
+    with pytest.raises(vr.CommandError):
+        vr.find_pr_number({}, run)
+
+
+def test_repo_comes_from_the_environment_or_gh():
+    assert vr.repo_name({"GITHUB_REPOSITORY": "o/r"}, FakeRun()) == "o/r"
+    assert vr.repo_name({}, FakeRun((["gh", "repo", "view"], "o2/r2\n"))) == "o2/r2"
+
+
+def test_first_upsert_posts_a_new_comment_with_the_body_on_stdin():
+    run = FakeRun((["gh", "api", "repos/o/r/issues/7/comments", "--paginate"], ""),
+                  (["gh", "api", "--method", "POST", "repos/o/r/issues/7/comments"], ""))
+    vr.upsert_comment(run, "o/r", 7, _record())
+    command, stdin = run.api_calls()[-1]
+    assert command[-2:] == ["--input", "-"]
+    body = json.loads(stdin)["body"]
+    assert body.startswith("<!-- visual-test-runs -->") and "| 2026-10-14 12:30 |" in body
+
+
+def test_second_upsert_edits_the_existing_comment_and_appends_a_row():
+    first = vr.render_comment(_data(_record(commit="first", started="2026-10-14T08:00:00Z")))
+    existing = json.dumps({"id": 99, "body": first})
+    run = FakeRun((["gh", "api", "repos/o/r/issues/7/comments", "--paginate"], existing + "\n"),
+                  (["gh", "api", "--method", "PATCH", "repos/o/r/issues/comments/99"], ""))
+    vr.upsert_comment(run, "o/r", 7, _record(commit="second", started="2026-10-14T09:00:00Z"))
+    command, stdin = run.api_calls()[-1]
+    assert command[3] == "PATCH"
+    body = json.loads(stdin)["body"]
+    assert [line.startswith("| 2026") for line in body.splitlines()].count(True) == 2
+    assert not any(c[0][3] == "POST" for c in run.api_calls() if len(c[0]) > 3)
+
+
+def test_unreadable_data_in_the_existing_comment_starts_the_history_over():
+    existing = json.dumps({"id": 99, "body": "<!-- visual-test-runs -->\nhand edited"})
+    run = FakeRun((["gh", "api", "repos/o/r/issues/7/comments", "--paginate"], existing + "\n"),
+                  (["gh", "api", "--method", "PATCH"], ""))
+    vr.upsert_comment(run, "o/r", 7, _record())
+    body = json.loads(run.api_calls()[-1][1])["body"]
+    assert [line.startswith("| 2026") for line in body.splitlines()].count(True) == 1
+
+
+def test_find_comment_asks_gh_to_filter_by_the_marker():
+    run = FakeRun((["gh", "api", "repos/o/r/issues/7/comments", "--paginate", "--jq"], ""))
+    assert vr.find_comment(run, "o/r", 7) is None
+    assert "<!-- visual-test-runs -->" in run.calls[0][0][-1]

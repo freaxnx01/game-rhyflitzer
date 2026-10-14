@@ -24,6 +24,8 @@ ZURICH = ZoneInfo("Europe/Zurich")
 BODY_LIMIT = 60000
 TESTS_CELL_LIMIT = 120
 MARKS = {"passed": "✓", "failed": "✗", "error": "✗", "skipped": "○"}
+PR_REF = re.compile(r"refs/pull/(\d+)/merge")
+COMMAND_TIMEOUT = 15
 
 
 def where_from(env, hostname=socket.gethostname):
@@ -205,3 +207,61 @@ def render_comment(data):
         _trim_once(data)
         body = _body(data)
     return body
+
+
+class CommandError(Exception):
+    pass
+
+
+def run_command(cmd, stdin=None, timeout=COMMAND_TIMEOUT):
+    try:
+        done = subprocess.run(cmd, input=stdin, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise CommandError(f"{cmd[0]}: {error}") from error
+    if done.returncode != 0:
+        raise CommandError(f"{' '.join(cmd[:3])} exited {done.returncode}: {done.stderr.strip()[:200]}")
+    return done.stdout
+
+
+def commit_sha(env, run):
+    for key in ("PR_HEAD_SHA", "GITHUB_SHA"):   # on pull_request events GITHUB_SHA is the merge commit
+        value = (env.get(key) or "").strip()
+        if value:
+            return value[:7]
+    try:
+        return run(["git", "rev-parse", "--short", "HEAD"]).strip() or "unknown"
+    except CommandError:
+        return "unknown"
+
+
+def find_pr_number(env, run):
+    match = PR_REF.fullmatch(env.get("GITHUB_REF", ""))
+    if match:
+        return int(match.group(1))
+    branch = run(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip()
+    if branch in ("", "HEAD"):
+        return None
+    number = run(["gh", "pr", "list", "--head", branch, "--state", "open", "--json", "number", "-q", ".[0].number"]).strip()
+    return int(number) if number.isdigit() else None
+
+
+def repo_name(env, run):
+    return env.get("GITHUB_REPOSITORY") or run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).strip()
+
+
+def find_comment(run, repo, pr):
+    keep = f'.[] | select(.body | contains("{MARKER}")) | {{id: .id, body: .body}}'   # one JSON object per line, whatever the paging
+    for line in run(["gh", "api", f"repos/{repo}/issues/{pr}/comments", "--paginate", "--jq", keep]).splitlines():
+        if line.strip():
+            return json.loads(line)
+    return None
+
+
+def upsert_comment(run, repo, pr, record):
+    existing = find_comment(run, repo, pr)
+    data = (existing and decode_data(existing["body"])) or empty_data()
+    payload = json.dumps({"body": render_comment(append_run(data, record))})
+    if existing:
+        run(["gh", "api", "--method", "PATCH", f"repos/{repo}/issues/comments/{existing['id']}", "--input", "-"], stdin=payload)
+    else:
+        run(["gh", "api", "--method", "POST", f"repos/{repo}/issues/{pr}/comments", "--input", "-"], stdin=payload)
