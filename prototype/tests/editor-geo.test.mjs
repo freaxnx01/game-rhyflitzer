@@ -2,7 +2,7 @@
 // move/resize, ?bbox=, rectangle inside the Switzerland outline. Pure module, node --test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GRID, MIN_SIDE, MAX_SIDE, DEFAULT_RECT, wgsToLv95, lv95ToWgs, snapRect, clampRect, moveRect, resizeRect, sizeKm, centre, corners, parseBbox, formatBbox, rectInside } from '../../editor/geo.js';
+import { GRID, MIN_SIDE, MAX_SIDE, DEFAULT_RECT, wgsToLv95, lv95ToWgs, snapRect, clampRect, moveRect, resizeRect, sizeKm, centre, corners, parseBbox, formatBbox, rectInside, fixedCornerAfterResize } from '../../editor/geo.js';
 
 const EHR = [2667000, 1259750, 2669000, 1261750];   // 2 x 2 km around Ehrendingen, LV95 (the #166 test frame)
 const near = (a, b, tol, m) => assert.ok(Math.abs(a - b) <= tol, `${m}: ${a} vs ${b}`);
@@ -66,4 +66,20 @@ test('rectInside: inside, crossing the border, outside, a corner in the hole, th
   assert.equal(rectInside([2649500, 1249500, 2653500, 1253500], OUTLINE), false);          // the hole's corners are inside the frame
   assert.equal(rectInside([2653250, 1250000, 2655250, 1252000], OUTLINE), true);           // beside the hole
   assert.equal(rectInside(EHR, { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: [OUTLINE.geometry.coordinates] } }), true);
+});
+
+test('fixedCornerAfterResize: the corner opposite the dragged one, also after the rect flipped', () => {
+  assert.equal(fixedCornerAfterResize(EHR, 'se', EHR), 'nw');   // no flip: the old OPPOSITE table
+  assert.equal(fixedCornerAfterResize(EHR, 'nw', EHR), 'se');
+  const flipped = [2660000, 1259750, 2667000, 1261750];   // se dragged 9 km west past the west edge, re-ordered
+  assert.equal(fixedCornerAfterResize(EHR, 'se', flipped), 'ne');   // the fixed (old nw) point is now the east edge
+  const both = [2669000, 1257750, 2671000, 1259750];      // nw dragged past the south-east corner on both axes, re-ordered
+  assert.equal(fixedCornerAfterResize(EHR, 'nw', both), 'nw');   // the fixed (old se) point is now its north-west corner
+  assert.equal(fixedCornerAfterResize(EHR, 'ne', [2667000, 1259750, 2667000, 1261750]), 'sw');   // zero width: tie falls back to the old default
+});
+
+test('flipped drag over 4 km keeps the fixed corner where it was', () => {
+  const flipped = [2660000, 1259750, 2667000, 1261750];
+  const fixed = fixedCornerAfterResize(EHR, 'se', flipped);
+  assert.deepEqual(clampRect(snapRect(flipped), fixed), [2663000, 1259750, 2667000, 1261750]);   // east edge 2667000 stays; today's 'nw' gives 2660000..2664000
 });

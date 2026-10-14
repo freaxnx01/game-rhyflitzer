@@ -128,6 +128,17 @@ def test_drag_moves_and_snaps_corner_resizes_and_clamps_keyboard_moves(server):
     assert r3[0] == r2[0] - 250 and r3[2] == r2[2] - 250 and r3[3] - r3[1] == 3750 and r3[1] == r2[1]
 
 
+def test_a_corner_dragged_past_the_opposite_one_keeps_the_fixed_corner(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api())
+        se = page.locator("#frame .h.se").bounding_box(); sx, sy = se["x"] + 22, se["y"] + 22
+        drag(page, sx, sy, sx - 600, sy - 30)   # far west past the west edge (flips, exceeds 4 km), slightly up
+        r = page.evaluate("() => window.__ed.rect()")
+        b.close()
+    assert errs == []
+    assert r[2] == EHR[0] and r[3] == EHR[3] and r[2] - r[0] == 4000   # the old nw point stays as the ne corner
+
+
 def test_outside_switzerland_and_the_hole_disable_build(server):
     with sync_playwright() as p:
         b, page, errs = open_page(p, server, Api())

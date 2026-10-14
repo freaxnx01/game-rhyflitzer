@@ -1,8 +1,6 @@
 // #169: the frame overlay. A DOM box above the Leaflet container (sibling of #map, so dragging it never pans the map) with a
 // draggable body and four 44 px corner handles. Positions follow the projected LV95 corners on every map move.
-import { GRID, snapRect, clampRect, moveRect, resizeRect, corners } from './geo.js';
-
-const OPPOSITE = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' };
+import { GRID, snapRect, clampRect, moveRect, resizeRect, corners, fixedCornerAfterResize } from './geo.js';
 
 export function createFrame(map, el, { toLv95, toLatLng, labels, onGhost, onCommit }) {
   let rect = null, drag = null;
@@ -43,7 +41,7 @@ export function createFrame(map, el, { toLv95, toLatLng, labels, onGhost, onComm
   }
   function end() {
     if (!drag) return;
-    const fixed = drag.corner ? OPPOSITE[drag.corner] : 'sw'; drag = null;
+    const fixed = drag.corner ? fixedCornerAfterResize(drag.rect0, drag.corner, rect) : 'sw'; drag = null;
     commit(clampRect(snapRect(rect), fixed));
   }
   const orient = ([a, b, c, d]) => [Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d)];   // a corner dragged past its opposite
