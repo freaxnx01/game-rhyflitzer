@@ -52,6 +52,17 @@ const de = {
 
 export const STRINGS = { en, de };
 
+export function numberLocale(lang, navLang = '') {   // regional formatting follows the OS region, not the UI language; de without a region is de-CH
+  const tag = String(navLang || '');
+  return tag.toLowerCase().startsWith(lang) && tag.includes('-') ? tag : lang === 'de' ? 'de-CH' : 'en';
+}
+
+export function formatKm(value, lang, navLang) {
+  const options = { maximumFractionDigits: 2 };
+  try { return new Intl.NumberFormat(numberLocale(lang, navLang), options).format(value); }
+  catch (e) { return new Intl.NumberFormat(lang === 'de' ? 'de-CH' : 'en', options).format(value); }
+}
+
 export function translate(lang, key, ...args) {
   const table = STRINGS[lang] || en;
   const value = key in table ? table[key] : key in en ? en[key] : key;

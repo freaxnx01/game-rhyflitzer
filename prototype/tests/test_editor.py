@@ -70,9 +70,9 @@ class Api:
         r.fulfill(status=st, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, body=json.dumps(body))
 
 
-def open_page(p, server, api, query=f"?bbox={','.join(map(str, EHR))}", viewport=(900, 700), lang=None, outline=OUTLINE):
+def open_page(p, server, api, query=f"?bbox={','.join(map(str, EHR))}", viewport=(900, 700), lang=None, outline=OUTLINE, locale="en-US"):
     b = p.chromium.launch()
-    ctx = b.new_context(viewport={"width": viewport[0], "height": viewport[1]}, locale="en-US", has_touch=viewport[0] < 500)
+    ctx = b.new_context(viewport={"width": viewport[0], "height": viewport[1]}, locale=locale, has_touch=viewport[0] < 500)
     if lang:
         ctx.add_init_script(f"try {{ localStorage.setItem('gg-lang', '{lang}'); }} catch (e) {{}}")
     page = ctx.new_page(); errs = []; page.on("pageerror", lambda e: errs.append(str(e)))
@@ -316,6 +316,27 @@ def test_download_packs_the_three_files_into_a_zip(server):
         names, world = sorted(z.namelist()), z.read("world.json")
     assert errs == [] and name == f"rhyflitzer-{ID}.zip"
     assert names == ["LICENSE-ODbL.txt", "meta.json", "terrain.mmh", "world.json"] and world == FILES["world.json"]
+
+
+def test_space_on_the_download_link_downloads_the_world(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api(post=(200, job("ready", "done"))))
+        page.click("#buildbtn"); page.wait_for_function("() => window.__ed.state() === 'done'", timeout=20000)
+        page.focus("#dlbtn")
+        with page.expect_download() as info:
+            page.keyboard.press("Space")
+        name = info.value.suggested_filename
+        b.close()
+    assert errs == [] and name == f"rhyflitzer-{ID}.zip"
+
+
+def test_the_size_follows_the_browser_region_de_de(server):
+    with sync_playwright() as p:
+        b, page, errs = open_page(p, server, Api(), lang="de", locale="de-DE")
+        page.evaluate("() => window.__ed.setRect([2667000, 1259750, 2669500, 1261750])")   # 2.5 km wide
+        size = page.evaluate("() => document.querySelector('#size').textContent")
+        b.close()
+    assert errs == [] and size == "2,5 × 2 km"
 
 
 @pytest.mark.parametrize("preview", [(404, {}), (429, {"error": "preview-rate-limit"}), (200, {"id": ID, "exists": False, "name": None, "gemeinden": [], "raceOk": None, "reason": "no-road-index"})])

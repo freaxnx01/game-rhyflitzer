@@ -2,7 +2,7 @@
 import { DEFAULT_RECT, parseBbox, formatBbox, sizeKm, centre, lv95ToWgs, wgsToLv95, corners, rectInside } from './geo.js';
 import { WMTS_URL, WMTS_ATTRIBUTION, STEPS, previewUrl, identifyUrl, gemeindeName, parsePreview,
   jobsUrl, jobUrl, fileUrl, metaUrl, shareUrl, driveUrl, parseJob, JobFormatError, parseMeta, errorKey, failKey, pollDelay } from './api.js';
-import { translate } from './strings.js';
+import { translate, formatKm } from './strings.js';
 import { createFrame } from './frame.js';
 import { solveHuman, HumanCheckError } from './human.js';
 import { packWorldZip } from '../prototype/worlds.js';   // #167
@@ -38,8 +38,9 @@ function applyStaticStrings() {
 }
 
 function renderEdit() {
+  const fmt = (v) => formatKm(v, window.GG_LANG, navigator.language);
   const { w, h } = sizeKm(S.rect);
-  setText('size', t('sizeKm', w, h));
+  setText('size', t('sizeKm', fmt(w), fmt(h)));
   setText('name', S.name === undefined ? t('nameLoading') : S.name || t('nameNone'));
   show('chmsg', S.inside === false || S.outline === null); setText('chmsg', S.outline === null ? t('outlineLoading') : t('outsideCh'));
   $('chmsg').className = S.outline === null ? 'hint' : 'err';
@@ -199,6 +200,8 @@ function backToEdit() { S.state = 'edit'; S.job = null; S.errKey = null; S.dlFai
 $('buildbtn').addEventListener('click', build);
 $('newbtn').addEventListener('click', backToEdit); $('changebtn').addEventListener('click', backToEdit);
 $('dlbtn').addEventListener('click', downloadWorld);
+$('dlbtn').addEventListener('keydown', (e) => { if (e.key === ' ') e.preventDefault(); });   // no page scroll; a button acts on keyup
+$('dlbtn').addEventListener('keyup', (e) => { if (e.key === ' ') e.currentTarget.click(); });
 $('copybtn').addEventListener('click', async () => {
   const input = $('sharein');
   try { await navigator.clipboard.writeText(input.value); } catch (e) { input.select(); document.execCommand && document.execCommand('copy'); }
