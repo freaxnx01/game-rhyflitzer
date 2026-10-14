@@ -53,14 +53,14 @@ def test_select_node_tests_and_pipeline_and_service_run_no_browser_test():
 def test_select_an_unmapped_game_file_falls_back_to_the_smoke_set():
     for path in ("prototype/index.html", "prototype/world.js", "index.html", "data/world_hochrhein.json", "prototype/textures/a.jpg"):
         files, reasons, _ = pick(path)
-        assert files == ["test_smoke.py"], path
-        assert "d:" in reasons["test_smoke.py"][0]
+        assert files == sorted(st.SMOKE), path
+        assert all("d:" in reasons[n][0] for n in st.SMOKE)
 
 
 def test_select_tooling_changes_run_smoke_and_the_selector_unit_tests():
     for path in ("prototype/tests/conftest.py", "prototype/tests/select_tests.py", "prototype/tests/test-map.json",
                 ".github/workflows/tests.yml"):
-        assert pick(path)[0] == ["test_select_tests.py", "test_smoke.py"], path
+        assert pick(path)[0] == sorted(st.SELF_TESTS + st.SMOKE), path
 
 
 def test_select_a_selection_is_deduplicated_and_sorted():
@@ -72,7 +72,7 @@ def test_select_a_selection_is_deduplicated_and_sorted():
 def test_cap_keeps_the_smoke_set_and_the_changed_tests_when_more_than_eight_are_selected():
     wide = {"prototype/wide.js": [f"test_extra{i}.py" for i in range(10)]}
     files, _, capped = pick("prototype/wide.js", "prototype/tests/test_extra3.py", "prototype/world.js", test_map=wide)
-    assert capped and files == ["test_extra3.py", "test_smoke.py"]
+    assert capped and files == sorted(("test_extra3.py",) + st.SMOKE)
 
 
 def test_cap_leaves_exactly_eight_alone():
@@ -116,3 +116,8 @@ def test_the_real_map_globs_match_a_file_in_the_repo():
              if p.is_file() and not {".git", ".worktrees", "node_modules"} & set(p.relative_to(root).parts)]
     for glob in json.loads((HERE / "test-map.json").read_text(encoding="utf-8")):
         assert any(st.fnmatch.fnmatchcase(f, glob) for f in files), f"{glob} matches nothing"
+
+
+def test_smoke_set_is_a_few_named_tests_of_existing_files():
+    assert 1 <= len(st.SMOKE) <= 3
+    assert all("::" in n and (HERE / n.split("::")[0]).is_file() for n in st.SMOKE)

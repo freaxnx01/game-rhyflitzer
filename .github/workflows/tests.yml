@@ -68,7 +68,7 @@ jobs:
         if: steps.select.outputs.count != '0'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python -m pytest $(cat "$RUNNER_TEMP/selected.txt") -q --junitxml="$RUNNER_TEMP/junit.xml"
+        run: python -m pytest $(cat "$RUNNER_TEMP/selected.txt") -v --junitxml="$RUNNER_TEMP/junit.xml"
 
       - name: Durations
         if: always() && steps.select.outputs.count != '0'

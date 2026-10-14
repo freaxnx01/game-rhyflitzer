@@ -14,7 +14,10 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 TESTS = "prototype/tests"
-SMOKE = ("test_smoke.py",)            # rule d: loads the whole game, with and without the world file, asserts a clean console
+# rule d: three quick whole-game checks, not all of test_smoke.py — its [osm] cases take ~4 min each
+# even on the GPU browser, and the whole file overran the 30-minute job on SwiftShader (PR#333)
+SMOKE = ("test_smoke.py::test_bundled_terrain_loads_without_upload", "test_smoke.py::test_camera_cycles_with_c",
+         "test_smoke.py::test_nitro_and_jump_menu")
 SELF_TESTS = ("test_select_tests.py",)  # rule e: pure, no browser
 CAP = 8
 TOOLING = (f"{TESTS}/conftest.py", f"{TESTS}/select_tests.py", f"{TESTS}/test-map.json", f"{TESTS}/gpu_browser.py",
@@ -44,7 +47,7 @@ def select(paths, test_map, existing):
     reasons, changed = {}, set()
 
     def add(name, why):
-        if name in existing:
+        if name.split("::")[0] in existing:
             reasons.setdefault(name, []).append(why)
 
     for path in paths:
