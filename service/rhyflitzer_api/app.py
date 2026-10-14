@@ -255,6 +255,14 @@ def world_file(request: Request) -> Response:
     return FileResponse(path, media_type=media, headers={"Cache-Control": cache})
 
 
+CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def clean_text(value, limit: int) -> str:
+    """Gallery text is the owner's, shown by the game as text; control characters never belong in it."""
+    return CONTROL.sub("", str(value)).strip()[:limit]
+
+
 def is_admin(request: Request, settings: Settings) -> bool:
     """Bearer token from the Docker secret file; no file or an empty file means admin is off (fail closed)."""
     path = settings.admin_token_file
@@ -288,12 +296,18 @@ async def gallery(request: Request) -> JSONResponse:
         return error(400, "bad-request", "the body must be JSON")
     if not isinstance(body, dict):
         return error(400, "bad-request", "the body must be a JSON object")
-    title = str(body.get("title", "")).strip()[:80]
+    title = clean_text(body.get("title", ""), 80)
     if not title:
         return error(400, "bad-request", "a title is required")
-    await run_in_threadpool(store.set_gallery, wid, title, str(body.get("description", "")).strip()[:300])
+    await run_in_threadpool(store.set_gallery, wid, title, clean_text(body.get("description", ""), 300))
     log.info("Added world %s to the gallery as %s", wid, title, extra=logs.fields(world=wid))
     return JSONResponse({"id": wid, "gallery": True, "title": title})
+
+
+def gallery_index(request: Request) -> JSONResponse:
+    """The curated worlds, in the owner's order; public (it is what the start screen shows). A plain def: the SQLite
+    read runs in the threadpool, not on the event loop (#296)."""
+    return JSONResponse(request.app.state.store.gallery_list(), headers={"Cache-Control": "public, max-age=60"})
 
 
 def get_challenge(request: Request) -> JSONResponse:
@@ -324,6 +338,7 @@ async def get_preview(request: Request) -> JSONResponse:
 ROUTES = [
     Route("/api/challenge", get_challenge, methods=["GET"]),
     Route("/api/preview", get_preview, methods=["GET"]),
+    Route("/api/gallery", gallery_index, methods=["GET"]),
     Route("/api/jobs", create_job, methods=["POST"]),
     Route("/api/jobs/{wid}", get_job, methods=["GET"]),
     Route("/api/worlds/{wid}", world_status, methods=["GET"]),
@@ -346,7 +361,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None, get
     return app
 
 
-ADMIN_ROUTES = [Route("/api/admin/gallery/{wid}", gallery, methods=["PUT", "DELETE"])]
+ADMIN_ROUTES = [Route("/api/admin/gallery/{wid}", gallery, methods=["PUT", "DELETE"]),
+                Route("/api/gallery", gallery_index, methods=["GET"])]   # so the CLI reads and writes through one host
 
 
 def create_admin_app(settings: Settings | None = None, store: Store | None = None) -> Starlette:

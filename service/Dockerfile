@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir --require-hashes -r service/requirements.lock
 COPY pipeline/ pipeline/
 COPY prototype/ prototype/
 COPY service/rhyflitzer_api/ service/rhyflitzer_api/
+COPY scripts/gallery.py scripts/gallery.py
 ENV PYTHONPATH=/app/pipeline:/app/service PYTHONUNBUFFERED=1 DATA_DIR=/data
 RUN useradd --system --uid 10001 app && mkdir /data && chown app /data
 USER app

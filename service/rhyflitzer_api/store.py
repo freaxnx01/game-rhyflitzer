@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS worlds (
   id TEXT PRIMARY KEY, lv95 TEXT NOT NULL, state TEXT NOT NULL, step TEXT, error TEXT, message TEXT,
   ip_hash TEXT, attempts INTEGER NOT NULL DEFAULT 0, not_before REAL NOT NULL DEFAULT 0, created REAL NOT NULL,
   started REAL, finished REAL, last_played REAL, size INTEGER NOT NULL DEFAULT 0,
-  gallery INTEGER NOT NULL DEFAULT 0, title TEXT, description TEXT);
+  gallery INTEGER NOT NULL DEFAULT 0, title TEXT, description TEXT, gallery_at REAL);
 CREATE INDEX IF NOT EXISTS worlds_queue ON worlds(state, not_before, created);
 CREATE TABLE IF NOT EXISTS builds (day TEXT NOT NULL, ip_hash TEXT NOT NULL, world TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS salts (day TEXT PRIMARY KEY, salt TEXT NOT NULL);
@@ -38,6 +38,7 @@ REQUEUE = ("INSERT INTO worlds(id, lv95, state, ip_hash, created) VALUES (?, ?, 
            "ip_hash = excluded.ip_hash, attempts = 0, not_before = 0, created = excluded.created, started = NULL, "
            "finished = NULL, last_played = NULL, size = 0")
 PLAYED_AT = "COALESCE(last_played, finished)"
+GALLERY_MAX = 50   # #170: at most this many curated worlds are listed
 NET_ACTIVE = ("SELECT COUNT(*) FROM worlds w JOIN net_builds n ON n.world = w.id AND n.created = w.created "
               "WHERE w.state IN ('queued', 'building') AND n.net_hash IN (?, ?)")
 
@@ -105,6 +106,12 @@ class Store:
         self._lock = threading.Lock()
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Databases created before #170 lack worlds.gallery_at (the gallery order); CREATE TABLE IF NOT EXISTS leaves them as they were."""
+        if "gallery_at" not in {r["name"] for r in self._q("PRAGMA table_info(worlds)")}:
+            self._x("ALTER TABLE worlds ADD COLUMN gallery_at REAL")
 
     # -- plumbing -------------------------------------------------------------------------------------------
     def _q(self, sql: str, args=()) -> list[dict]:
@@ -241,11 +248,19 @@ class Store:
         self._x("DELETE FROM net_builds WHERE day < ?", (day,))
 
     # -- gallery, health, kv --------------------------------------------------------------------------------
-    def set_gallery(self, wid: str, title: str, description: str) -> None:
-        self._x("UPDATE worlds SET gallery = 1, title = ?, description = ? WHERE id = ?", (title, description, wid))
+    def set_gallery(self, wid: str, title: str, description: str, now: float | None = None) -> None:
+        """Adds or replaces the entry; a replaced entry keeps its place, a re-added one goes to the end."""
+        self._x("UPDATE worlds SET gallery = 1, title = ?, description = ?, gallery_at = COALESCE(gallery_at, ?) WHERE id = ?",
+                (title, description, time.time() if now is None else now, wid))
 
-    def unset_gallery(self, wid: str) -> None:
-        self._x("UPDATE worlds SET gallery = 0 WHERE id = ?", (wid,))
+    def unset_gallery(self, wid: str, now: float | None = None) -> None:
+        """Back to normal retention with a fresh 30 days: the world may have gone unplayed for longer while pinned."""
+        self._x("UPDATE worlds SET gallery = 0, gallery_at = NULL, last_played = ? WHERE id = ?",
+                (time.time() if now is None else now, wid))
+
+    def gallery_list(self, limit: int = GALLERY_MAX) -> list[dict]:
+        return self._q("SELECT id, title, description FROM worlds WHERE gallery = 1 AND state = 'ready' "
+                       "ORDER BY gallery_at, id LIMIT ?", (limit,))
 
     def replace_roadgrid(self, rows) -> None:
         def swap(db):

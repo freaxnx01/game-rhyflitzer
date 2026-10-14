@@ -15,6 +15,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-13 23:01` A **Worlds** row on the start screen lists hand-picked worlds built with the region editor: hover one for its description, click it and you drive there. Without any picked worlds, or offline, the row is not shown.
 - `2026-10-13 21:05` The minimap names the motorway now: the **A3** is drawn red and "A3" sits on it, the way it already did in the hand-drawn map.
 - `2026-10-13 20:43` The **brake lights** glow brighter red when you brake, with the lights on or off.
 - `2026-10-13 20:22` The **F1** key list has a search field now: it is focused as soon as the help opens, and typing filters the keys by their label or their description, ignoring capitals and umlauts — type „ton" to find **Ton aus**, or „F3" to find the debug row. No game key fires while the help is open. <kbd>Esc</kbd> closes the help.
