@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
 import { sampled, trisHeightAt, motorwayLabelSpots } from '../world.js';
 
@@ -805,6 +805,32 @@ test('treeCollider_TreeOnTerrain_IsACircleAtTheTrunkUpToTheCrownTop', () => {
   const o = treeCollider(100, -50, 10, 4);
   const r = treeTrunkR(10);
   assert.deepEqual(o, { x: 100, z: -50, hw: r, hd: r, c: 1, s: 0, h: 14, circle: r, low: true });   // low: a car above the crown top passes over
+});
+
+test('forestCollider_ForestTree_IsTheTrunkCircleFlaggedForest', () => {
+  const o = forestCollider(100, -50, 10, 4), t = treeCollider(100, -50, 10, 4);
+  assert.equal(o.forest, true);
+  for (const k of ['x', 'z', 'hw', 'hd', 'c', 's', 'h', 'circle', 'low']) assert.equal(o[k], t[k], k);
+});
+
+test('floorDrag_InsideAWoodOffTheRoad_IsTheForestDrag', () => {
+  assert.equal(floorDrag(true, 3), FOREST_FLOOR.drag);
+});
+
+test('floorDrag_OnARoadThroughAWood_IsZero', () => {
+  assert.equal(floorDrag(true, 0), 0);
+  assert.equal(floorDrag(true, -1), 0);
+});
+
+test('floorDrag_OutsideAWood_IsZero', () => {
+  assert.equal(floorDrag(false, 50), 0);
+});
+
+test('FOREST_FLOOR_RhyflitzerCruise_RoughlyHalvesOnTheForestFloor', () => {   // v = (accel - 0.6) / (accel / top + drag), Rhyflitzer drive table
+  const cruise = (drag) => (16 - 0.6) / (16 / 60 + drag);
+  const road = cruise(0.12), wood = cruise(0.12 + FOREST_FLOOR.drag);
+  assert.ok(road > 38 && road < 42, road);
+  assert.ok(wood > 17 && wood < 23, wood);
 });
 
 test('layoutFromWorld draws trail roads as gravel (#127)', () => {

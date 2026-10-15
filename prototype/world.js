@@ -798,6 +798,13 @@ export const TREE_TRUNK = 0.06;
 export function treeTrunkR(h) { return TREE_TRUNK * h; }
 export function treeCollider(x, z, h, base) { const r = treeTrunkR(h); return { x, z, hw: r, hd: r, c: 1, s: 0, h: base + h, circle: r, low: true }; }
 
+// #211: an OSM forest tree is solid at the trunk exactly like a scattered tree (#131); `forest` keeps #100's pontoon exception in collide()
+export function forestCollider(x, z, h, base) { return { ...treeCollider(x, z, h, base), forest: true }; }
+
+// #211: the forest floor rolls heavier than grass or asphalt; added to stepCar's rolling drag. Roads through a wood stay road.
+export const FOREST_FLOOR = { drag: 0.4 };
+export function floorDrag(inWood, roadD) { return inWood && roadD > 0 ? FOREST_FLOOR.drag : 0; }
+
 // #273: pick a point by its coordinates, not by its index, so a bigger world does not change which points a check sees
 export function sampled(x, z, pct) {
   const h = (Math.imul(Math.round(x * 4), 73856093) ^ Math.imul(Math.round(z * 4), 19349663)) >>> 0;
