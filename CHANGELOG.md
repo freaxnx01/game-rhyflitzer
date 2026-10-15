@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-15 15:26` Houses on a **slope** now stand where they really stand instead of at their lowest corner, so roofs are no longer too low (the **Bodenackerstrasse** row houses are about 1.4 m taller on the terrain model) and the downhill side reaches down to the ground.
 - `2026-10-14 11:16` In some **generated worlds** a **stream** lost its first metres of water and the browser console showed an error; streams now draw in full.
 - `2026-10-14 09:19` In the **region editor**, "**Connection lost**, retrying…" now goes away as soon as the connection is back, instead of staying while your world is still building.
 - `2026-10-14 06:55` The **region editor** keeps the right **place name**, takes the right **corner** when a frame is pulled inside out, says when a **world has expired**, sizes follow the **language region**, and **Space** downloads the world.
