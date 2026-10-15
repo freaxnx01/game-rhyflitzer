@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
 import { sampled, trisHeightAt, motorwayLabelSpots } from '../world.js';
+import { ringCentroid, buildingBase, SLOPE_CAP, SKIRT_MARGIN } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -136,10 +137,10 @@ test('roadNameAt: on a named road, off it, unnamed, nearest of two', () => {
 });
 
 test('addrLabels: only numbered buildings, roof-top heights, landmarks', () => {
-  const B = [{ addr: '6a–6d', h: 20, rh: 1.5, roof: 'flat', rect: [10, 20, 60, 22, 0] }, { addr: '5', h: 6, roof: 'gable', rect: [1, 2, 12, 8, 0] },
-    { addr: '7', h: 2, roof: 'flat', rect: [3, 4, 10, 10, 0] }, { h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0] }];
+  const B = [{ id: 101, addr: '6a–6d', h: 20, rh: 1.5, roof: 'flat', rect: [10, 20, 60, 22, 0] }, { id: 102, addr: '5', h: 6, roof: 'gable', rect: [1, 2, 12, 8, 0] },
+    { id: 103, addr: '7', h: 2, roof: 'flat', rect: [3, 4, 10, 10, 0] }, { id: 104, h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0] }];
   assert.deepEqual(addrLabels(B, { hallenbad: { x: 5, z: 6, addr: '2' }, chimney: { x: 0, z: 0 } }), [
-    { t: '6a–6d', x: 10, z: 20, top: 21.5 }, { t: '5', x: 1, z: 2, top: 6 + 0.4 * 8 }, { t: '7', x: 3, z: 4, top: 3 }, { t: '2', x: 5, z: 6, top: 9 }]);
+    { t: '6a–6d', x: 10, z: 20, top: 21.5, id: 101 }, { t: '5', x: 1, z: 2, top: 6 + 0.4 * 8, id: 102 }, { t: '7', x: 3, z: 4, top: 3, id: 103 }, { t: '2', x: 5, z: 6, top: 9 }]);
   assert.deepEqual(addrLabels([]), []);
 });
 
@@ -1152,4 +1153,39 @@ test('dropRepeats: consecutive repeated points go, the rest stays (#319)', () =>
   assert.deepEqual(dropRepeats([[0, 0], [5, 0], [0, 0]]), [[0, 0], [5, 0], [0, 0]]);   // only consecutive repeats
   assert.deepEqual(dropRepeats([[1, 2]]), [[1, 2]]);
   assert.deepEqual(dropRepeats([]), []);
+});
+
+const SQ = [[0, 0], [10, 0], [10, 10], [0, 10]];
+
+test('ringCentroid: area centroid of a square and of an L, either winding', () => {
+  assert.deepEqual(ringCentroid(SQ), [5, 5]);
+  assert.deepEqual(ringCentroid([...SQ].reverse()), [5, 5]);
+  const L = [[0, 0], [10, 0], [10, 2], [2, 2], [2, 10], [0, 10]];
+  const [cx, cz] = ringCentroid(L);
+  assert.ok(Math.abs(cx - 116 / 36) < 1e-9 && Math.abs(cz - 116 / 36) < 1e-9);
+});
+
+test('ringCentroid: a degenerate ring falls back to the vertex mean', () => {
+  assert.deepEqual(ringCentroid([[0, 0], [4, 0], [8, 0]]), [4, 0]);
+});
+
+test('buildingBase: flat ground keeps base = low, walls end 0.3 m below', () => {
+  const r = buildingBase(SQ, () => 100);
+  assert.ok(Math.abs(r.base - 100) < 1e-9 && Math.abs(r.low - 100) < 1e-9 && Math.abs(r.bottom - 99.7) < 1e-9);
+});
+
+test('buildingBase: a slope puts the base at the centroid ground, not the lowest point', () => {
+  const r = buildingBase(SQ, (x) => 100 + 0.1 * x);
+  assert.ok(Math.abs(r.base - 100.5) < 1e-9 && r.low === 100 && Math.abs(r.bottom - 99.7) < 1e-9);
+});
+
+test('buildingBase: a cliff is clamped to low + cap, never higher', () => {
+  const r = buildingBase(SQ, (x) => (x < 5 ? 0 : 50));
+  assert.equal(r.base, SLOPE_CAP);
+  assert.equal(r.low, 0);
+});
+
+test('buildingBase: a centroid below the lowest vertex never sinks the base under low', () => {
+  const r = buildingBase(SQ, (x, z) => (x === 5 && z === 5 ? -3 : 0));
+  assert.equal(r.base, 0);
 });

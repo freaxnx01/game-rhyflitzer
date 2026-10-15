@@ -360,7 +360,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats } from './world.js';
+import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, buildingBase, SKIRT_MARGIN } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows } from './helpfilter.js';
@@ -963,16 +963,17 @@ function smileKreiselAt(x, z, inner = 10.5) { // three tilted steel smiley discs
 }
 function flatBuilding(x, z, w, d, h, rot, c, role = 'hall') { const b = terrainH(x, z); box(w, h + 2, d, x, b - 2, z, rot, col(c), role, role === 'hall' ? [8, h] : [4, 3], 0); addOBB(x, z, w, d, rot, b + h); }
 // OSM footprint -> walls (one quad per edge, outward-facing) + flat roof (triangulated); base = lowest terrain under the ring
-function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], uPerFace = false) {
+function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], uPerFace = false, bottom = null) {
   let area = 0; for (let i = 0; i < ring.length; i++) { const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length]; area += x0 * z1 - x1 * z0; } if (area > 0) ring = ring.slice().reverse();
   const pos = [], nrm = [], uv = []; let along = 0;
+  const y0 = Math.min(base - 2, bottom ?? base - 2);
   for (let i = 0; i < ring.length; i++) {
     const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length], L2 = Math.hypot(x1 - x0, z1 - z0); if (L2 < 0.05) continue;
-    const nx = -(z1 - z0) / L2, nz = (x1 - x0) / L2, y0 = base - 2, y1 = base + h;
+    const nx = -(z1 - z0) / L2, nz = (x1 - x0) / L2, y1 = base + h;
     const A = [x0, y0, z0], B = [x1, y0, z1], C = [x1, y1, z1], D = [x0, y1, z0];
     for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(nx, 0, nz); }
     // uPerFace (#45): u restarts on every edge, so a tile boundary sits on each corner; cumulative otherwise, so no seam shows mid-wall
-    const u0 = uPerFace ? 0 : along / tile[0], u1 = (uPerFace ? L2 : along + L2) / tile[0], v0 = -2 / tile[1], v1 = h / tile[1]; along += L2;
+    const u0 = uPerFace ? 0 : along / tile[0], u1 = (uPerFace ? L2 : along + L2) / tile[0], v0 = (y0 - base) / tile[1], v1 = h / tile[1]; along += L2;
     uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
   }
   rawGeo(pos, nrm, uv, 0, 0, 0, c, role);
@@ -982,8 +983,9 @@ function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], u
   rawGeo(rp, rn, ru, 0, 0, 0, roofC || col('#9aa0a8'), 'roofFlat');
 }
 const INDUSTRIAL = { walls: ['#f1f3f5', '#e3e7eb', '#d6dbe0'], band: '#1f5fae', roof: '#9aa0a8' };
+const BUILDING_BASE = new Map(); window.__mm.buildingBases = BUILDING_BASE;
 function osmBuilding(b) {
-  const [cx, cz, w, d, rot] = b.rect; let base = Infinity; for (const [x, z] of b.ring) base = Math.min(base, terrainH(x, z));
+  const [cx, cz, w, d, rot] = b.rect; const { base, bottom } = buildingBase(b.ring, terrainH); BUILDING_BASE.set(b.id, { base, low: bottom + SKIRT_MARGIN, bottom });
   // measured buildings (hsrc 'dsm', #17): eaves h and ridge rh from swissSURFACE3D; a measured flat roof is drawn flat
   const dsm = b.hsrc === 'dsm';
   // #45: the Bodenackerstrasse row houses get their own facade role and a tile per unit and storey, in both paths. The PLASTER colour
@@ -992,13 +994,14 @@ function osmBuilding(b) {
   if (b.roof === 'gable' && !(dsm && b.rh < 0.6)) {
     const floors = Math.max(1, Math.round(b.h / 3)); const wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]);
     const h = dsm ? b.h : floors * 3 + 0.4; const door = rnd() < 0.5 ? 'wall' : 'wallDoor';
-    box(w, h + 3, d, cx, base - 3, cz, rot, row ? col('#ffffff') : wc, row ? 'rowHouse' : door, row ? rowHouseTile(b) : [4, 3], 3.1);
+    const drop = Math.max(3, base - bottom);
+    box(w, h + drop, d, cx, base - drop, cz, rot, row ? col('#ffffff') : wc, row ? 'rowHouse' : door, row ? rowHouseTile(b) : [4, 3], 3.1);
     gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, row ? col('#ffffff') : wc, 0.45, row ? ROW_GABLE_END : GABLE_END_WALL); addOBB(cx, cz, w, d, rot, base + h); return;
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
   const wc = col(ind ? INDUSTRIAL.walls[Math.floor(rr(0, 3))] : PLASTER[Math.floor(rr(0, PLASTER.length))]);
-  if (row) extrudeFootprint(b.ring, base, h, col('#ffffff'), 'rowHouse', col('#8f8a84'), rowHouseTile(b), true);
-  else extrudeFootprint(b.ring, base, h, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, h] : [4, 3]);
+  if (row) extrudeFootprint(b.ring, base, h, col('#ffffff'), 'rowHouse', col('#8f8a84'), rowHouseTile(b), true, bottom);
+  else extrudeFootprint(b.ring, base, h, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, h] : [4, 3], false, bottom);
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: base + h, ring: b.ring });   // #36: walls drawn from the ring collide as the ring; the rectangle stays for the grid, free() and the camera
 }
 function lot(x, z, w, d, rot, c = '#b8b0a0') { const g = new THREE.PlaneGeometry(w, d, 4, 4); g.rotateX(-Math.PI / 2); g.rotateY(-rot); g.translate(x, 0, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, terrainH(p.getX(i), p.getZ(i)) + 0.035); const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * w / 4, u.getY(i) * d / 4); colorize(g, col(c)); push('roadPlain', g); }
@@ -1655,7 +1658,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group); if (CAVE_MODE.dark) scene.add(CAVE_MODE.dark);   // #201
 // house numbers (#12, OSM addr): camera-facing sprites over the buildings within 60 m of the car; a pool of 40, refilled every 250 ms, one material per number
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0, ticks: 0 };
-if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = terrainH(it.x, it.z) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
+if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = (BUILDING_BASE.get(it.id)?.base ?? terrainH(it.x, it.z)) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
 for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(3.2, 1.2, 1); s.visible = false; LABELS.pool.push(s); scene.add(s); }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
 function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 256, 96, 'rgba(20,23,29,.82)', '#f5efe0', '700 64px "Barlow Condensed", sans-serif', '#f5efe0'), depthWrite: false }); LABELS.mat.set(t, m); return m; }
@@ -2831,7 +2834,7 @@ $('debughelp').addEventListener('click', toggleDebugLegend);
 $('debuglegend').addEventListener('click', e => e.stopPropagation());
 // building heights (data h, +rh, hsrc) over the buildings within 60 m: own grid, sprite pool and LRU, built like the house numbers (LABELS)
 const DEBUG_H = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [] };
-if (L) for (const it of heightLabels(L.buildings)) { const g = terrainH(it.x, it.z); it.y = g + it.top + 4; it.floor = g + 2; gridAdd(DEBUG_H.grid, it.x, it.z, it.x, it.z, it); }
+if (L) for (const it of heightLabels(L.buildings)) { const g = BUILDING_BASE.get(it.id)?.base ?? terrainH(it.x, it.z); it.y = g + it.top + 4; it.floor = g + 2; gridAdd(DEBUG_H.grid, it.x, it.z, it.x, it.z, it); }
 for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(6.4, 1.2, 1); s.renderOrder = 10; s.visible = false; DEBUG_H.pool.push(s); scene.add(s); }
 function debugMat(t) { let m = DEBUG_H.mat.get(t); if (m) DEBUG_H.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 512, 96, 'rgba(14,30,8,.85)', '#b6ff7a', '700 56px "Barlow Condensed", sans-serif', '#b6ff7a'), depthWrite: false, depthTest: false }); DEBUG_H.mat.set(t, m); return m; }
 function trimDebugMats() { const inUse = new Set(DEBUG_H.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of DEBUG_H.mat) { if (DEBUG_H.mat.size <= DEBUG_H.cap) return; if (inUse.has(m)) continue; DEBUG_H.mat.delete(t); m.map.dispose(); m.dispose(); } }

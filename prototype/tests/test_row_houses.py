@@ -90,3 +90,26 @@ def test_hand_layout_has_no_row_houses(server):
         br.close()
     assert counts.get("rowHouses", 0) == 0
     assert "rowHouse" not in roles
+
+
+@needs_world
+def test_buildings_stand_on_the_centroid_ground_and_walls_reach_the_low_point(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        try:
+            r = page.evaluate("""() => {
+                const m = window.__mm.buildingBases; if (!m) return null;
+                const rows = [...m.values()];
+                return { n: rows.length,
+                         floating: rows.filter(v => v.bottom > v.low - 0.29).length,
+                         belowLow: rows.filter(v => v.base < v.low - 1e-6).length,
+                         overCap: rows.filter(v => v.base > v.low + 4 + 1e-6).length,
+                         lifted: rows.filter(v => v.base - v.low > 0.01).length,
+                         row: [...m].filter(([id]) => id === 171822953).map(([, v]) => v.base - v.low) };
+            }""")
+        finally:
+            b.close()
+    assert r is not None, "window.__mm.buildingBases missing"
+    assert r["n"] > 1500 and r["floating"] == 0 and r["belowLow"] == 0 and r["overCap"] == 0
+    assert r["lifted"] > 100
+    assert r["row"][0] > 0.1                       # 4a-4f lifted: 0.28 m on the 16 m game mesh (the DTM gives 1.48 m; A6)
