@@ -70,7 +70,7 @@ def test_ehrendingen_loads_and_j_reaches_boendlern_and_the_wanderweg(server):
 
 @needs_ehr
 def test_ehrendingen_has_its_osm_woods(server):
-    """#13: the second region draws its own OSM woods (edge walls included), and no forest tree reaches a road."""
+    """#13: the second region draws its own OSM woods (trunks solid), and no forest tree reaches a road."""
     forests = json.loads(EHR_WORLD.read_text(encoding="utf-8")).get("forests", [])
     if not forests:
         pytest.skip("Ehrendingen world predates #13")
@@ -80,7 +80,7 @@ def test_ehrendingen_has_its_osm_woods(server):
         on_road = page.evaluate("() => window.__mm.treesOnRoad()")
         b.close()
     assert f["polys"] == len(forests), f
-    assert f["trees"] > 5000 and f["walls"] > 1000 and f["thinned"] == 0, f
+    assert f["trees"] > 5000 and f["solid"] == f["trees"] and f["thinned"] == 0, f
     assert on_road == 0
 
 

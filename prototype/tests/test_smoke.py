@@ -505,7 +505,8 @@ def test_forest_loaded(server):
     f = info["mm"]["counts"]["forest"]
     assert f["polys"] == len(forests)
     assert 20000 <= f["edge"] and 10000 <= f["fill"] and f["edge"] + f["fill"] <= 85000, f
-    assert 0 < f["trees"] <= f["edge"] + f["fill"] and f["walls"] >= 5000 and 100 <= f["tiles"] <= 350, f
+    assert 0 < f["trees"] <= f["edge"] + f["fill"] and f["solid"] == f["trees"] and 100 <= f["tiles"] <= 350, f
+    assert "walls" not in f, f
     assert msgs == []
     info, _ = load(server, block_world=True)
     assert "forest" not in info["mm"]["counts"]
@@ -553,10 +554,24 @@ def _forest_approach(world):
     pytest.skip("no straight wood edge with open ground in front of it")
 
 
+GAP_JS = """([sx, sz, th, rc]) => {
+  const ux = Math.cos(th), uz = Math.sin(th), px = -uz, pz = ux;
+  for (let off = -20; off <= 20; off += 1) {
+    const ox = sx + px * off, oz = sz + pz * off; let clear = true;
+    for (let d = 0; d <= 60 && clear; d += 0.5) {
+      const x = ox + ux * d, z = oz + uz * d, push = window.__mm.pushAt(x, z, window.__mm.probe(x, z).terrain + 0.5);
+      clear = Math.hypot(push.dx, push.dz) < 0.01 && window.__mm.probe(x, z).water === null;
+    }
+    if (clear) return [ox, oz];
+  }
+  return null;
+}"""
+
+
 @pytest.mark.skipif(not world_forests(), reason="world file predates #13: rebuild it with pipeline/osm.py build")
-def test_forest_edge_blocks_the_car(server):
-    """#13: only the edge of a wood collides. Driving straight at a wood from 25 m out for 3 s (15 m/s, gas held) the
-    car is stopped at the trunks: it ends outside the wood, less than 27 m from where it started."""
+def test_forest_edge_lets_the_car_in(server):
+    """#211: no wall at the wood edge. Driving straight at a wood from 25 m out (from rest, gas held 3 s) through a gap
+    between edge trees, the car ends inside the wood, more than 30 m from where it started."""
     world = json.loads(WORLD.read_text(encoding="utf-8"))
     sx, sz, th, ring = _forest_approach(world)
     with sync_playwright() as p:
@@ -564,10 +579,14 @@ def test_forest_edge_blocks_the_car(server):
         page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         page.goto(f"{server}/prototype/index.html")
         page.wait_for_function("() => window.__mm && window.__mm.sim && window.__mm.counts.forest && document.querySelector('#worldstatus')?.textContent", timeout=240000)
-        r = page.evaluate(f"() => window.__mm.sim({sx}, {sz}, {th}, 15, 3)")
+        rc = page.evaluate("() => { const v = window.__mm.vehicle(); return v.collision.r * v.scale; }")
+        start = page.evaluate(GAP_JS, [sx, sz, th, rc])
+        assert start is not None, "no trunk-free 60 m line through this wood edge"
+        r = page.evaluate(f"() => window.__mm.sim({start[0]}, {start[1]}, {th}, 0, 3)")
+        inside = page.evaluate(f"() => window.__mm.inWood({r['x']}, {r['z']})")
         br.close()
-    assert not _in_ring(ring, r["x"], r["z"]), r
-    assert math.hypot(r["x"] - sx, r["z"] - sz) < 27, r
+    assert inside, r
+    assert math.hypot(r["x"] - start[0], r["z"] - start[1]) > 30, (r, start)
 
 
 def _osm_state(server, strip_forests):
@@ -589,11 +608,11 @@ def _osm_state(server, strip_forests):
 
 
 @pytest.mark.skipif(not world_forests(), reason="world file predates #13: rebuild it with pipeline/osm.py build")
-def test_forest_walls_stay_off_the_minimap(server):
-    """#13 review: the edge walls are solid for the car but are not buildings, so the static minimap (which paints every
+def test_forest_trees_stay_off_the_minimap(server):
+    """#211: the forest trunks are solid for the car but are not buildings, so the static minimap (which paints every
     OBB) must draw exactly as many rectangles with the woods as without them."""
     with_woods, without = _osm_state(server, False), _osm_state(server, True)
-    assert with_woods["forest"] and with_woods["forest"]["walls"] >= 5000, with_woods
+    assert with_woods["forest"] and with_woods["forest"]["solid"] >= 20000, with_woods
     assert with_woods["mapBoxes"] == without["mapBoxes"], (with_woods["mapBoxes"], without["mapBoxes"])
 
 
