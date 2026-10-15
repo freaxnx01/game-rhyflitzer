@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Changed
+
+- `2026-10-15 19:18` **Start screen** is tidier: the list of keys is gone from it. Press <kbd>F1</kbd> (or <kbd>?</kbd>) any time to see all keys.
+
 ### Added
 
 - `2026-10-14 11:31` The **region editor** now counts anonymously which **places** people frame and build: Gemeinde names, the frame size and a position rounded to about 5 km, never the exact frame. No cookies, no IP address stored, and nothing changes if you block it. The **Privacy** note sits under the map.
