@@ -1,0 +1,78 @@
+name: Tests
+
+on:
+  pull_request:        # every PR into any branch; no paths filter, a required check that never reports blocks the merge forever
+  workflow_dispatch:
+
+permissions:           # pull-requests/issues write: the Visual-tests PR comment (#332). A fork PR gets a read-only token, the recorder only warns.
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests        # the required-check name: do not rename without updating the ruleset
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_VERSION: "1.63.0"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 0   # the diff base (origin/<base branch>) must be available
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38  # v6.5.0
+        with:
+          node-version: "24"
+
+      - name: Node tests
+        run: node --test prototype/tests/*.test.mjs
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r pipeline/requirements.txt pytest "playwright==${PLAYWRIGHT_VERSION}"
+
+      - name: Select the affected browser tests
+        id: select
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base="origin/${BASE_REF:-main}"
+          git diff --name-only "$base"...HEAD \
+            | python prototype/tests/select_tests.py select --summary "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/selected.txt"
+          cat "$RUNNER_TEMP/selected.txt"
+          echo "count=$(grep -c . "$RUNNER_TEMP/selected.txt" || true)" >> "$GITHUB_OUTPUT"
+          if ! grep -q . "$RUNNER_TEMP/selected.txt"; then echo "no browser tests affected"; fi
+
+      - name: Cache the Playwright browsers
+        if: steps.select.outputs.count != '0'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+
+      - name: Install Chromium
+        if: steps.select.outputs.count != '0'
+        run: python -m playwright install --with-deps chromium
+
+      - name: Browser tests
+        if: steps.select.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -m pytest $(cat "$RUNNER_TEMP/selected.txt") -v --junitxml="$RUNNER_TEMP/junit.xml"
+
+      - name: Durations
+        if: always() && steps.select.outputs.count != '0'
+        run: |
+          if [ -f "$RUNNER_TEMP/junit.xml" ]; then
+            python prototype/tests/select_tests.py durations "$RUNNER_TEMP/junit.xml" >> "$GITHUB_STEP_SUMMARY"
+          fi
