@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PONTOON_CFG, bankNormal, marchToWater, marchToLand, atRhineBank, crossingLine, pontoonLocal, pontoonSurfaceAt, drivableLength, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonHulls, pontoonPrompt } from '../pontoon.js';
+import { PONTOON_CFG, bankNormal, marchToWater, marchToLand, atRhineBank, crossingLine, pontoonLocal, pontoonSurfaceAt, drivableLength, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, pontoonHulls, nearDeck, pontoonPrompt } from '../pontoon.js';
 
 // a straight east-west Rhine between z 50 and 150 (water = negative), the car on the south bank (z < 50), a road strip at z 190..196 on the north bank
 const river = (x, z) => Math.abs(z - 100) - 50;
@@ -142,8 +142,20 @@ test('pontoonHulls: one box per laid floating bay, along x across, water-relativ
   assert.equal(pontoonHulls({ ...d, built: 0.5 }).length, 11);                      // 12 bays laid, bay 0 is a ramp
 });
 
-test('pontoonPrompt', () => {
-  assert.equal(pontoonPrompt(null, false), null); assert.equal(pontoonPrompt(null, true), 'build'); assert.equal(pontoonPrompt({}, true), 'remove'); assert.equal(pontoonPrompt({}, false), 'remove');
+test('nearDeck: within removeReach of the segment a-b, on the deck included', () => {
+  const d = { ...crossingLine(env(), 0, 25), built: 1 };
+  assert.equal(nearDeck(null, 0, 0), false);
+  assert.equal(nearDeck(d, 0, 25), true);                       // where it was built
+  assert.equal(nearDeck(d, d.a[0], d.a[1] - 1000), false);      // far away
+  const mid = [(d.a[0] + d.b[0]) / 2, (d.a[1] + d.b[1]) / 2];
+  assert.equal(nearDeck(d, mid[0], mid[1]), true);              // on the deck
+  assert.equal(nearDeck(d, d.b[0] - d.uz * 40, d.b[1] + d.ux * 40), false);   // 40 m abeam
+});
+
+test('pontoonPrompt: remove only near a deck, build only at a bank without one', () => {
+  assert.equal(pontoonPrompt(null, false, false), null); assert.equal(pontoonPrompt(null, true, false), 'build');
+  assert.equal(pontoonPrompt({}, true, true), 'remove'); assert.equal(pontoonPrompt({}, false, true), 'remove');
+  assert.equal(pontoonPrompt({}, true, false), null); assert.equal(pontoonPrompt({}, false, false), null);
 });
 
 test('pontoonCorridor: the deck lane plus a run-up on both banks, so forest-edge walls (#175) do not block the ramps', () => {

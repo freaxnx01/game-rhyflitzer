@@ -3,7 +3,7 @@
 // env = { dist(x, z), nameAt(x, z), waterLevel(x, z), roadAt(x, z), bridgeNear(x, z), ground(x, z) }: the world's adapters, so tests use a synthetic river.
 import { bridgeAccepts } from './world.js';
 
-export const PONTOON_CFG = { reach: 30, maxWidth: 400, roadReach: 80, apron: 6, hw: 2.2, deckAbove: 0.9, maxGrade: 0.15, minRamp: 6, maxRamp: 60, bay: 6, buildSecs: 3, bridgeClear: 25, sweepDeg: [0, 5, -5, 10, -10, 15, -15, 20, -20, 25, -25], dropH: 1.5, dropSecs: 0.4, minGrad: 0.2, nameFrom: 2, nameTo: 12, nameStep: 2 };
+export const PONTOON_CFG = { reach: 30, removeReach: 30, maxWidth: 400, roadReach: 80, apron: 6, hw: 2.2, deckAbove: 0.9, maxGrade: 0.15, minRamp: 6, maxRamp: 60, bay: 6, buildSecs: 3, bridgeClear: 25, sweepDeg: [0, 5, -5, 10, -10, 15, -15, 20, -20, 25, -25], dropH: 1.5, dropSecs: 0.4, minGrad: 0.2, nameFrom: 2, nameTo: 12, nameStep: 2 };
 
 // unit vector towards the water: minus the SDF gradient (central differences over ±h); null where the field is flat (no bank near)
 export function bankNormal(dist, x, z, h = 4, cfg = PONTOON_CFG) {
@@ -98,8 +98,14 @@ export function stepPontoon(d, dt, cfg = PONTOON_CFG) {
   return d.dir < 0 && built === 0 ? null : { ...d, built };
 }
 export function togglePontoon(d) { return { ...d, dir: -d.dir }; }
-// the HUD line: 'remove' while a deck exists, 'build' at a bank, else nothing
-export function pontoonPrompt(deck, atBank) { return deck ? 'remove' : atBank ? 'build' : null; }
+// the car is within removeReach of the deck segment a-b (on it counts as 0): where the take-down hint and U apply
+export function nearDeck(d, x, z, cfg = PONTOON_CFG) {
+  if (!d) return false;
+  const [t, s] = pontoonLocal(d, x, z), tc = Math.max(0, Math.min(d.len, t));
+  return Math.hypot(t - tc, s) <= cfg.removeReach;
+}
+// the HUD line: 'remove' while near a deck, 'build' at a bank, else nothing
+export function pontoonPrompt(deck, atBank, near) { return deck ? (near ? 'remove' : null) : atBank ? 'build' : null; }
 
 // one frame per bay for the meshes: centre, surface heights at both ends, floating (a hull) or on the ramp (legs)
 export function bayFrames(d, cfg = PONTOON_CFG) {
