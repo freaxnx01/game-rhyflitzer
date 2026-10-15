@@ -15,6 +15,7 @@ BANK = (1404.4, -425.5)            # Innermattstrasse, 20 m from the water, faci
 NORTH = -math.pi / 2
 INLAND = (1882.9, -292.2)          # the Sisseln start, 120+ m from the water
 AT_BRIDGE = (-1231.6, 539.7)       # Fridolinsbrücke CH approach (primary_link), 20 m from the water, 4 m from a bridge piece
+HUEBEL = (-703.3, 1419.1)          # the Hübel mouth, ~2.8 km from the Sisseln bridge (#307)
 
 
 def open_world(p, server, start="#startbtn"):
@@ -122,6 +123,23 @@ def test_u_again_removes_the_bridge_and_drops_a_car_on_it(server):
         assert gone["on"] is False
         page.evaluate("([x, z, th]) => window.__mm.sim(x, z, th, 0, 0.5)", [mid[0], mid[1], NORTH])
         assert car(page)["water"] is not None
+        b.close()
+
+
+@needs_world
+def test_remove_hint_and_u_only_near_the_built_bridge(server):
+    """#307: with a deck up, the take-down hint and U act only within 30 m of it -- not 2.8 km away in the Hübel tunnel."""
+    with sync_playwright() as p:
+        b, page = open_world(p, server)
+        build(page)
+        assert pontoon(page)["prompt"] == "remove"        # where it was built
+        place(page, HUEBEL, 0)
+        assert pontoon(page)["prompt"] is None
+        page.keyboard.press("KeyU")
+        assert pontoon(page)["dir"] == 1                  # nothing was taken down
+        place(page, BANK, NORTH)
+        page.keyboard.press("KeyU")
+        assert pontoon(page)["dir"] == -1
         b.close()
 
 
