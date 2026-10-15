@@ -137,10 +137,10 @@ test('roadNameAt: on a named road, off it, unnamed, nearest of two', () => {
 });
 
 test('addrLabels: only numbered buildings, roof-top heights, landmarks', () => {
-  const B = [{ addr: '6a–6d', h: 20, rh: 1.5, roof: 'flat', rect: [10, 20, 60, 22, 0] }, { addr: '5', h: 6, roof: 'gable', rect: [1, 2, 12, 8, 0] },
-    { addr: '7', h: 2, roof: 'flat', rect: [3, 4, 10, 10, 0] }, { h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0] }];
+  const B = [{ id: 101, addr: '6a–6d', h: 20, rh: 1.5, roof: 'flat', rect: [10, 20, 60, 22, 0] }, { id: 102, addr: '5', h: 6, roof: 'gable', rect: [1, 2, 12, 8, 0] },
+    { id: 103, addr: '7', h: 2, roof: 'flat', rect: [3, 4, 10, 10, 0] }, { id: 104, h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0] }];
   assert.deepEqual(addrLabels(B, { hallenbad: { x: 5, z: 6, addr: '2' }, chimney: { x: 0, z: 0 } }), [
-    { t: '6a–6d', x: 10, z: 20, top: 21.5 }, { t: '5', x: 1, z: 2, top: 6 + 0.4 * 8 }, { t: '7', x: 3, z: 4, top: 3 }, { t: '2', x: 5, z: 6, top: 9 }]);
+    { t: '6a–6d', x: 10, z: 20, top: 21.5, id: 101 }, { t: '5', x: 1, z: 2, top: 6 + 0.4 * 8, id: 102 }, { t: '7', x: 3, z: 4, top: 3, id: 103 }, { t: '2', x: 5, z: 6, top: 9 }]);
   assert.deepEqual(addrLabels([]), []);
 });
 

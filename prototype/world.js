@@ -572,7 +572,7 @@ export function rowUnits(addr) { const m = /^\d+([a-z])[–-]\d+([a-z])$/.exec(a
 export function rowHouseTile(b) { const w = Math.max(b.rect[2], b.rect[3]), h = Math.max(b.h, 3); return [w / rowUnits(b.addr), h / Math.max(1, Math.round(h / 3))]; }
 // #12: house-number labels (OSM addr) at the footprint centre
 export function addrLabels(buildings, landmarks = {}) {
-  return [...buildings.filter(b => b.addr).map(b => ({ t: b.addr, x: b.rect[0], z: b.rect[1], top: roofTop(b) })),
+  return [...buildings.filter(b => b.addr).map(b => ({ t: b.addr, x: b.rect[0], z: b.rect[1], top: roofTop(b), id: b.id })),
           ...Object.values(landmarks).filter(l => l.addr).map(l => ({ t: l.addr, x: l.x, z: l.z, top: 9 }))];
 }
 export function pickLabels(items, x, z, maxDist = 60, maxN = 40) {

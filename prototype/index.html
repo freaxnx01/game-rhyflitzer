@@ -1658,7 +1658,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group); if (CAVE_MODE.dark) scene.add(CAVE_MODE.dark);   // #201
 // house numbers (#12, OSM addr): camera-facing sprites over the buildings within 60 m of the car; a pool of 40, refilled every 250 ms, one material per number
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0, ticks: 0 };
-if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = terrainH(it.x, it.z) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
+if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = (BUILDING_BASE.get(it.id)?.base ?? terrainH(it.x, it.z)) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
 for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(3.2, 1.2, 1); s.visible = false; LABELS.pool.push(s); scene.add(s); }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
 function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 256, 96, 'rgba(20,23,29,.82)', '#f5efe0', '700 64px "Barlow Condensed", sans-serif', '#f5efe0'), depthWrite: false }); LABELS.mat.set(t, m); return m; }
@@ -2834,7 +2834,7 @@ $('debughelp').addEventListener('click', toggleDebugLegend);
 $('debuglegend').addEventListener('click', e => e.stopPropagation());
 // building heights (data h, +rh, hsrc) over the buildings within 60 m: own grid, sprite pool and LRU, built like the house numbers (LABELS)
 const DEBUG_H = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [] };
-if (L) for (const it of heightLabels(L.buildings)) { const g = terrainH(it.x, it.z); it.y = g + it.top + 4; it.floor = g + 2; gridAdd(DEBUG_H.grid, it.x, it.z, it.x, it.z, it); }
+if (L) for (const it of heightLabels(L.buildings)) { const g = BUILDING_BASE.get(it.id)?.base ?? terrainH(it.x, it.z); it.y = g + it.top + 4; it.floor = g + 2; gridAdd(DEBUG_H.grid, it.x, it.z, it.x, it.z, it); }
 for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(6.4, 1.2, 1); s.renderOrder = 10; s.visible = false; DEBUG_H.pool.push(s); scene.add(s); }
 function debugMat(t) { let m = DEBUG_H.mat.get(t); if (m) DEBUG_H.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 512, 96, 'rgba(14,30,8,.85)', '#b6ff7a', '700 56px "Barlow Condensed", sans-serif', '#b6ff7a'), depthWrite: false, depthTest: false }); DEBUG_H.mat.set(t, m); return m; }
 function trimDebugMats() { const inUse = new Set(DEBUG_H.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of DEBUG_H.mat) { if (DEBUG_H.mat.size <= DEBUG_H.cap) return; if (inUse.has(m)) continue; DEBUG_H.mat.delete(t); m.map.dispose(); m.dispose(); } }
