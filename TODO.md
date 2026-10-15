@@ -75,6 +75,9 @@ Still open:
 ## Tooling
 
 - Update the `freax-agent-skills` marketplace: the local `sync-ai-instructions` is 0.2.0 and still fetches the removed `ui-*` skills (404). Upstream `freaxnx01/agent-skills` fixed that in 0.4.0 (`2b8f6eb`, 2026-07-26). Run `claude plugin marketplace update freax-agent-skills`, then update the plugins via `/plugin`; other plugins from that marketplace are likely stale too.
+- [ ] **Pipeline App on game-rhyflitzer (blocks the `tests` ruleset, #330 Task 5).** Pipeline PRs are opened with `GITHUB_TOKEN`, so they never trigger the `tests` workflow, and the agent can't push `.github/workflows/` files.
+  1. You: GitHub → Settings → Applications → Installed GitHub Apps → the agent-workflow App → Configure → Repository access → add game-rhyflitzer; accept the **Workflows** permission if asked.
+  2. Then tell Claude "go": it sets `PIPELINE_APP_ID` / `PIPELINE_APP_PRIVATE_KEY` from Passbolt "GitHub App agent-workflow", passes them through in `agent.yml`, checks that a pipeline PR triggers `tests`, then creates the ruleset (`tests` required, admin bypass; payload in PR#333's body / `docs/superpowers/plans/2026-10-14-ci-affected-tests.md` Task 5).
 
 ## UI mockups (design/mockups/)
 
