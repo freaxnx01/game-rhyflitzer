@@ -16,6 +16,7 @@ def load(server, block_world: bool):
         b = p.chromium.launch(args=ARGS)
         page = b.new_page(viewport={"width": 640, "height": 360})
         page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.route("**/api/gallery", lambda r: r.fulfill(status=404, body=""))   # the deployed API sends no CORS header to a localhost page (#170); stubbed like test_gallery.py -- the gallery is not under test here
         msgs = []
         page.on("pageerror", lambda e: msgs.append((str(e), "")))
         page.on("console", lambda m: msgs.append((m.text, m.location.get("url", ""))) if m.type in ("error", "warning") else None)
@@ -503,7 +504,7 @@ def test_forest_loaded(server):
     forests = world_forests()
     info, msgs = load(server, block_world=False)
     f = info["mm"]["counts"]["forest"]
-    assert f["polys"] == len(forests)
+    assert f["polys"] == len(forests) - 1, f   # #214: clearWoods drops the Fridolinsinsel wood (REGION.openWoods)
     assert 20000 <= f["edge"] and 10000 <= f["fill"] and f["edge"] + f["fill"] <= 85000, f
     assert 0 < f["trees"] <= f["edge"] + f["fill"] and f["solid"] == f["trees"] and 100 <= f["tiles"] <= 350, f
     assert "walls" not in f, f
