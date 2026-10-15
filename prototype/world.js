@@ -543,6 +543,25 @@ export function roadNameAt(cands, x, z, margin = 1) {
 }
 // roof top above the base, as osmBuilding draws it (roughly); shared by the house-number (#12) and debug height (#39) labels
 export function roofTop(b) { return typeof b.rh === 'number' ? b.h + b.rh : b.roof === 'gable' ? b.h + 0.4 * Math.min(b.rect[2], b.rect[3]) : Math.max(b.h, 3); }
+// #91: a building stands on the ground under its footprint centroid, the reference the pipeline measured h against
+// (pipeline/building_heights.py), not the lowest point under the outline. Never more than SLOPE_CAP above that lowest point
+// (cliffs, the Rhine bank), and its walls reach SKIRT_MARGIN below it so the downhill side does not float.
+export const SLOPE_CAP = 4;
+export const SKIRT_MARGIN = 0.3;
+export function ringCentroid(ring) {
+  let a = 0, cx = 0, cz = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length], k = x0 * z1 - x1 * z0;
+    a += k; cx += (x0 + x1) * k; cz += (z0 + z1) * k;
+  }
+  if (Math.abs(a) < 1e-6) return [ring.reduce((s, p) => s + p[0], 0) / ring.length, ring.reduce((s, p) => s + p[1], 0) / ring.length];
+  return [cx / (3 * a), cz / (3 * a)];
+}
+export function buildingBase(ring, groundAt, cap = SLOPE_CAP) {
+  let low = Infinity; for (const [x, z] of ring) low = Math.min(low, groundAt(x, z));
+  const [cx, cz] = ringCentroid(ring);
+  return { base: Math.min(Math.max(groundAt(cx, cz), low), low + cap), low, bottom: low - SKIRT_MARGIN };
+}
 // #45: the Bodenackerstrasse row houses in Sisseln, by OSM way id -- the six-unit blocks 3-21 plus the three-unit block 16a-16c.
 // Picked by id, not by addr: 6a-6d and 1a-1d share the a-x pattern and are the big blocks next door.
 export const ROW_HOUSE_IDS = new Set([512632899, 171822953, 171822664, 171822908, 171822930, 171822939, 171822935, 171822913, 171822943, 171822937, 171822949, 171822938, 171822934, 171822932, 171822933, 171822799]);
