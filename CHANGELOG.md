@@ -12,6 +12,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 - `2026-10-14 11:31` The **region editor** now counts anonymously which **places** people frame and build: Gemeinde names, the frame size and a position rounded to about 5 km, never the exact frame. No cookies, no IP address stored, and nothing changes if you block it. The **Privacy** note sits under the map.
 
+### Changed
+
+- `2026-10-15 20:28` You can now **drive into the woods** and **between the trees**: the invisible wall at the forest edge is gone, every trunk stops the car like a post, and the **forest floor** is slower than the road.
+
 ### Fixed
 
 - `2026-10-14 11:16` In some **generated worlds** a **stream** lost its first metres of water and the browser console showed an error; streams now draw in full.

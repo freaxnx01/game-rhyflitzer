@@ -2,6 +2,15 @@
 
 Manual playtests still owed. Tick an item once it has been played in the browser (live: https://github.freaxnx01.ch/game-rhyflitzer/), and note what was found.
 
+## Drive into the woods (#211)
+
+- [ ] Drive off-road into the Sisslerwald: no wall at the edge, the car rolls in between the trees and is clearly slower than on grass.
+- [ ] Hit a forest trunk: the car stops at it, the damage bar rises, the crash sound plays (both tree styles).
+- [ ] Squeeze through a narrow gap between two trunks: passes where it looks wide enough, stops where it doesn't.
+- [ ] Roads through a wood: full speed, no bumps.
+- [ ] Pontoon bridge ends in the woods: the car drives on and off.
+- [ ] Helicopter low over a wood: stays above the crowns, no jitter. Chase camera inside a wood: no annoying zoom jumps.
+
 ## Region south to Flugplatz Schupfart (#47, PR #243 — merged 2026-10-11) and the Fridolinsbrücke banks (#259, PR #262)
 
 The map now reaches the Tafeljura; the terrain is an 8 m grid (was 4 m). **J** → „flugplatz" (or the Schupfart chip) puts the car on the road by the airfield.
@@ -59,7 +68,7 @@ The gate is in **J** from the start; the cavern is secret, so start on a fresh p
 - [ ] Inside: the tower reads as the Eiffel Tower, warm and visibly lit, the ceiling dark rock; the car drives between the legs; the chase camera never pops into the hill (also when driving in and out at the portal). {go: hideout.tower}
 - [ ] Drive and fly over the hill: it is solid, looks untouched (no lines or grooves along the tunnel, no stone poking out over the cavern), and flying over it is no find.
 - [ ] **F** inside is refused with „No sky down here"; the helicopter over the hill floors on the grass. {go: hideout.tower}
-- [ ] No trees or forest edge walls in the trench, the tunnel or the cavern.
+- [ ] No trees in the trench, the tunnel or the cavern.
 
 ## Underwater Rhine (#101, PR #159)
 
