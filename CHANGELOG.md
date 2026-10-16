@@ -23,6 +23,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-26 19:56` **+ Build your own world…** opens the **region editor** in a **new tab**, so the game stays where you left it.
 - `2026-10-26 18:47` The **Regional Bus** now has a detailed **3D model**: a real twelve-metre low-floor city bus with its curved windscreen, doors, mirrors on stalks, roof hatches and twin rear tyres, painted in the same Postauto look (yellow, white roof, black window band, red stripe) with "811 Sisseln" on its displays. Model „Mercedes+CITARO+II+RATP" by moussasy.sy715 (Sketchfab), CC BY 4.0, repainted and without logos or lettering.
 - `2026-10-26 17:00` Inside the **6c stair hall**, **B** takes you straight out: from any floor or the roof you stand on the street in front of the entrance.
 - `2026-10-26 15:35` New vehicle: the **Regional Bus**, a twelve-metre Swiss **Postauto-look** bus in yellow with a white roof, a black window band and a red stripe, with "Sisseln" on its display. It is slow off the line, wide in the corners and heavy in a crash, and its **whole length** hits walls and knocks over lamps and bins. Choose it in the car selection or start with `?vehicle=bus`.
