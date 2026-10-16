@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
+import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rollingDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
 import { sampled, trisHeightAt, motorwayLabelSpots } from '../world.js';
 
@@ -820,6 +820,18 @@ test('floorDrag_InsideAWoodOffTheRoad_IsTheForestDrag', () => {
 test('floorDrag_OnARoadThroughAWood_IsZero', () => {
   assert.equal(floorDrag(true, 0), 0);
   assert.equal(floorDrag(true, -1), 0);
+});
+
+test('rollingDrag_WetInAWoodOffTheRoad_AddsTheForestDragToTheWetDrag', () => {
+  assert.equal(rollingDrag(true, 0.9, true, 3), 0.9 + FOREST_FLOOR.drag);
+});
+
+test('rollingDrag_WetOutsideAWood_IsTheWetDragAlone', () => {
+  assert.equal(rollingDrag(true, 0.9, false, 50), 0.9);
+});
+
+test('rollingDrag_DryInAWoodOffTheRoad_IsBaseDragPlusForestDrag', () => {
+  assert.equal(rollingDrag(false, 0.9, true, 3), 0.12 + FOREST_FLOOR.drag);
 });
 
 test('floorDrag_OutsideAWood_IsZero', () => {

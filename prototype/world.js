@@ -804,6 +804,8 @@ export function forestCollider(x, z, h, base) { return { ...treeCollider(x, z, h
 // #211: the forest floor rolls heavier than grass or asphalt; added to stepCar's rolling drag. Roads through a wood stay road.
 export const FOREST_FLOOR = { drag: 0.4 };
 export function floorDrag(inWood, roadD) { return inWood && roadD > 0 ? FOREST_FLOOR.drag : 0; }
+// the forest floor drag stacks on top of the wet (underwater) drag as well as the dry rolling drag
+export function rollingDrag(wet, wetDrag, inWood, roadD) { return (wet ? wetDrag : 0.12) + floorDrag(inWood, roadD); }
 
 // #273: pick a point by its coordinates, not by its index, so a bigger world does not change which points a check sees
 export function sampled(x, z, pct) {
