@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Changed
+
+- `2026-10-15 19:18` **Start screen** is tidier: the list of keys is gone from it. Press <kbd>F1</kbd> (or <kbd>?</kbd>) any time to see all keys.
+
 ### Added
 
 - `2026-10-16 12:16` The start screen's **Worlds** row now ends with **+ Build your own world…**, which opens the **region editor**. The row stays even when no gallery worlds load, so the way to the editor is always there.

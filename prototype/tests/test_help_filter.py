@@ -9,7 +9,7 @@ READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worlds
 T = 120000
 
 
-def open_page(p, server, locale="de-CH"):
+def open_start_screen(p, server, locale="de-CH"):
     b = p.chromium.launch(args=ARGS)
     ctx = b.new_context(viewport={"width": 1280, "height": 720}, locale=locale)
     page = ctx.new_page()
@@ -19,6 +19,11 @@ def open_page(p, server, locale="de-CH"):
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/prototype/index.html")
     page.wait_for_function(READY, timeout=240000)
+    return b, page, errors
+
+
+def open_page(p, server, locale="de-CH"):
+    b, page, errors = open_start_screen(p, server, locale)
     page.click("#startbtn")
     return b, page, errors
 
@@ -29,6 +34,20 @@ def help_rows(page):
         const spans = [...document.querySelectorAll('#help .keys span')].filter(s => !s.hidden);
         return { kbdCount: kbds.length, spanText: spans.map(s => s.textContent) };
     }""")
+
+
+def test_start_screen_has_no_key_list_but_f1_opens_help(server):
+    """#224: the keys live in F1, not on the crowded start panel."""
+    with sync_playwright() as p:
+        b, page, errors = open_start_screen(p, server)
+        panel_keys = page.locator("#overlay .keys").count()
+        page.keyboard.press("F1")
+        page.wait_for_function("() => !document.querySelector('#help').hidden", timeout=T)
+        rows = help_rows(page)
+        b.close()
+    assert panel_keys == 0
+    assert rows["kbdCount"] > 10
+    assert errors == []
 
 
 def test_f1_focuses_the_search_and_typing_filters(server):
