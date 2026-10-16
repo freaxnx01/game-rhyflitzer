@@ -69,6 +69,7 @@ def test_worlds_row_ends_with_the_editor_link(server, world_host):
         last = page.evaluate("() => { const r = document.querySelector('#worldsrow'); return [...r.querySelectorAll('button, a')].map(e => e.id || e.textContent).at(-1); }")
         assert last == "buildworld"
         assert page.get_attribute("#buildworld", "href") == "../editor.html"
+        assert page.get_attribute("#buildworld", "target") == "_blank" and "noopener" in page.get_attribute("#buildworld", "rel")
         assert page.text_content("#buildworld") == "+ Build your own world…"
         page.evaluate("() => window.ggSetLang('de')")
         assert page.text_content("#buildworld") == "+ Eigene Welt bauen…"
