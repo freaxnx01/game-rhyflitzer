@@ -347,7 +347,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats } from './world.js';
+import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows } from './helpfilter.js';
@@ -539,7 +539,15 @@ const PONTOON = { deck: null, error: null, group: null };
 function onBridge(x, z, y) {
   const ph = pontoonHit(PONTOON.deck, x, z, y); if (ph) return ph;
   // an abutment (#78) is solid ground at any height: nothing drives under one, so a car or a J spot lands on it, not on the bank road it buries
-  if (L) { for (const b of gridQuery(BRIDGE_GRID, x, z, 1)) { const n = nearestOnPolyline(b.r.pts, x, z); if ((n.d <= b.hw || inHeroDeck(b, x, z, n.d)) && ownsEnd(b, x, z) && (b.approach || bridgeAccepts(bridgeSurfaceAt(b, n.t), y))) return { b, t: n.t, osm: true }; } return null; }
+  if (L) { let fill = null;
+    for (const b of gridQuery(BRIDGE_GRID, x, z, 1)) {
+      // #227: past an open end of a generic deck the ground is fill (the bank road), not a flat deck plateau; a deck hit still wins
+      if (b.kind === 'generic' && !b.approach) { const f = endFrame(b.r.pts, x, z); if (f.e !== 0) {
+        const k = f.e > 0 ? 1 : 0, t = k ? b.len : 0;
+        if (!fill && b['fade' + k] !== false && f.along <= Math.max(b.hw, b['reach' + k] || 0) && f.across <= b.hw && bridgeAccepts(bridgeSurfaceAt(b, t), y)) fill = { b, t, osm: true, fill: true };
+        continue; } }
+      const n = nearestOnPolyline(b.r.pts, x, z); if ((n.d <= b.hw || inHeroDeck(b, x, z, n.d)) && ownsEnd(b, x, z) && (b.approach || bridgeAccepts(bridgeSurfaceAt(b, n.t), y))) return { b, t: n.t, osm: true }; }
+    return fill; }
   for (const b of BRIDGES) { const [t, s] = bridgeLocal(b, x, z); if (t >= -2 && t <= b.len + 2 && Math.abs(s) <= b.hw) return { b, t }; } return null; }
 function segDist(px, pz, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; const t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1); return Math.hypot(px - ax - dx * t, pz - az - dz * t); }
 function riverDist(x, z) { if (SDF) return SDF(x, z); let m = 1e9; for (let i = 0; i < RIVER.pts.length - 1; i++) m = Math.min(m, segDist(x, z, ...RIVER.pts[i], ...RIVER.pts[i + 1])); return m - RIVER.hw; }
@@ -633,7 +641,18 @@ function buildStoneChain() {
   const seen = new Set(); banks.forEach((k, i) => { for (const ap of approachPieces(k, H[i], seen)) addApproach(ap, H[i]); });
   for (const o of opens) if (OSM_BRIDGES.some(x => x.approach && near(x.r.pts[0], o.p, 0.5))) o.b['fade' + o.k] = false;   // an end that continues as an abutment is a joint too
 }
-function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatSwitchEnds(); buildStoneChain(); }
+// #227: a generic deck end takes the lowest bank top its continuing roads reach within END_SEAT.reach m (seatEnd); an end joined only
+// to another bridge piece has no continuing road and keeps its height. The broad-phase grid gets the fill run past a lifted end.
+function seatGenericEnds() {
+  for (const b of OSM_BRIDGES) { if (b.kind !== 'generic' || b.approach) continue;
+    for (const k of [0, 1]) { const p = b.r.pts, end = k ? p[p.length - 1] : p[0], prev = k ? p[p.length - 2] : p[1];
+      const roads = roadsFrom(end, new Set()); if (!roads.length) continue;
+      const seat = roads.map(({ pts }) => seatEnd(sampleH(cutPolyline(pts, END_SEAT.reach)))).reduce((a, s) => s.h < a.h ? s : a);
+      b['h' + k] = seat.h; b['reach' + k] = seat.reach;
+      if (seat.reach > b.hw) { const d = Math.hypot(end[0] - prev[0], end[1] - prev[1]) || 1, ux = (end[0] - prev[0]) / d, uz = (end[1] - prev[1]) / d;
+        gridAddSegment(BRIDGE_GRID, end[0], end[1], end[0] + ux * seat.reach, end[1] + uz * seat.reach, b.hw * 2, b); } } }
+}
+function fillBridgeHeights() { for (const b of OSM_BRIDGES) { const p = b.r.pts; b.h0 = terrainH(p[0][0], p[0][1]); b.h1 = terrainH(p[p.length - 1][0], p[p.length - 1][1]); } seatGenericEnds(); seatSwitchEnds(); buildStoneChain(); }
 // #42: inside a grade's band (the track fan over the Südspange cutting) a deck end lying on another deck is a switch: it
 // takes that deck's surface, not the ground's, so the fan is one level slab (two passes for a switch on a switch)
 const inGradeBand = (x, z) => !!L && L.grades.some((g) => nearestOnPolyline(g.pts, x, z).d < g.hw + GRADE_BAND);
@@ -798,7 +817,7 @@ function surfH(grid, x, z) { let h = -Infinity; for (const { sf, i } of gridQuer
 const LEVELS = createLevels(); const SURFACE_GRID = OBB_GRID;
 function groundH(x, z, y) { return LEVELS.isSurface() ? surfaceGroundH(x, z, y) : LEVELS.groundAt(x, z, y); }
 function surfaceGroundH(x, z, y) {
-  const ob = onBridge(x, z, y); if (ob && !ob.b.approach) return ob.pontoon ? pontoonSurfaceAt(ob.b, ob.t) : ob.osm ? bridgeSurfaceAt(ob.b, ob.t) : bridgeProfile(ob.b, ob.t);
+  const ob = onBridge(x, z, y); if (ob && !ob.b.approach && !ob.fill) return ob.pontoon ? pontoonSurfaceAt(ob.b, ob.t) : ob.osm ? bridgeSurfaceAt(ob.b, ob.t) : bridgeProfile(ob.b, ob.t);
   // #78: an abutment is fill, not a deck -- the ground is the higher of the fill and the bank or road already there, so it meets both
   // without a step. Pinning it to the fill alone leaves one wherever the road ribbon is draped above the bare terrain (0.4 m at Bad Säckingen).
   const fill = ob ? bridgeSurfaceAt(ob.b, ob.t) : -Infinity;
@@ -1483,6 +1502,13 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     strip(pts, b.r.w, 0, b.kind === 'wood' ? 'wood' : 'roadOsm', col('#ffffff'), 8, hs);
     strip(pts, b.r.w + 1.2, -0.6, b.kind === 'wood' ? 'wood' : 'stone', col('#c8c2b6'), 4, hf);
     for (const s of [-1, 1]) strip(offsetPolyline(pts, s * (b.r.w / 2 + 0.3)), 0.35, 0.9, b.kind === 'wood' ? 'wood' : 'stone', col('#d8d2c6'), 4, hs);
+    // #227: a lifted end gets a pad over its fill, laid on the physics ground itself so the car never floats over the drawn road
+    for (const k of [0, 1]) { const p = b.r.pts, end = k ? p[p.length - 1] : p[0], prev = k ? p[p.length - 2] : p[1];
+      if (b['h' + k] <= terrainH(end[0], end[1]) + 0.05) continue;
+      const run = Math.max(b.hw, b['reach' + k] || 0), d = Math.hypot(end[0] - prev[0], end[1] - prev[1]) || 1, ux = (end[0] - prev[0]) / d, uz = (end[1] - prev[1]) / d;
+      const pad = resample([end, [end[0] + ux * run, end[1] + uz * run]], 1), gh = (x, z) => groundH(x, z, 1e4);
+      strip(pad, b.r.w, 0.02, 'roadOsm', col('#ffffff'), 8, gh);
+      strip(pad, b.r.w + 1.2, -0.6, 'stone', col('#c8c2b6'), 4, gh); }
   }
   // #76 rail decks: a stone box per <= 10 m piece with its top at the deck surface, the track on top
   for (const b of RAIL_DECKS) {
@@ -2413,7 +2439,7 @@ window.__mm.grassOverRoad = (pct = 10, only = null) => { const ray = new THREE.R
 window.__mm.roadDist = () => roadDist(P.x, P.z);
 // #127: is the car on a gravel trail (the Wanderweg)? the nearest road piece in ROAD_GRID, by its centre line
 window.__mm.onTrail = () => { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, P.x, P.z, 32)) { const d = segDist(P.x, P.z, ...r.pts[i], ...r.pts[i + 1]); if (!best || d < best.d) best = { d, r }; } return !!(best && best.r.trail); };
-const isDeck = (ob) => !!ob && !ob.b.approach;   // #78: an abutment is road on fill, not a bridge (keeps #79's "not on a bridge")
+const isDeck = (ob) => !!ob && !ob.b.approach && !ob.fill;   // #78 abutment, #227 fill past a generic end: road on fill, not a bridge
 // y (#201): an explicit start height, e.g. the cave floor under the hill (the default is the ground seen from the sky)
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 window.__mm.step = (secs, hold = ['KeyW']) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };   // #101: like sim, but from where the car is now (no placement)
