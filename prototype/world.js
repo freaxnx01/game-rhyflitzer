@@ -122,7 +122,11 @@ export function layoutFromWorld(w) {
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
 // Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends; an end
 // flagged fade0/fade1 === false is a joint with the next piece of a chain (#78) and keeps the full offset.
-export function bridgeDeckOffset(b, t) { const a = b.fade0 === false ? Infinity : t, e = b.fade1 === false ? Infinity : b.len - t; return 0.3 * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
+// #227: an end seated on its bank (seat0/seat1) carries its deck line DECK_OFFSET below the bank top, so the surface meets the bank
+// at the end and keeps the full offset. Fading it there instead puts a 6 % ramp in the last 5 m of the deck, and the kink where that
+// ramp meets the level bank threw the car off the Sägeweg bridge.
+export const DECK_OFFSET = 0.3;
+export function bridgeDeckOffset(b, t) { const a = b.fade0 === false || b.seat0 ? Infinity : t, e = b.fade1 === false || b.seat1 ? Infinity : b.len - t; return DECK_OFFSET * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
 export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
 
 // #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;

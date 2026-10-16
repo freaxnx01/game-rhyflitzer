@@ -1218,3 +1218,16 @@ test('endFrame measures along and across from the end a point is past (#227)', (
   const b = endFrame(pts, 9, 14);           // beyond the last vertex: the last segment points +z
   assert.equal(b.e, 1); assert.ok(Math.abs(b.along - 4) < 1e-9); assert.ok(Math.abs(b.across - 1) < 1e-9);
 });
+
+import { DECK_OFFSET } from '../world.js';
+test('a seated bridge end keeps the deck offset instead of fading it into a ramp (#227)', () => {
+  const open = { h0: 10, h1: 10, len: 30 };
+  assert.equal(bridgeDeckOffset(open, 0), 0);                    // an open end fades to the terrain (#78)
+  assert.equal(bridgeDeckOffset(open, 2.5), 0.15);
+  assert.equal(bridgeDeckOffset(open, 7), DECK_OFFSET);
+  // #227: a seated end's deck line sits DECK_OFFSET below the bank top, so the surface meets the bank without the 6 % fade ramp
+  const seated = { ...open, h0: 10 - DECK_OFFSET, h1: 10 - DECK_OFFSET, seat0: true };   // a level deck line DECK_OFFSET under the bank top
+  assert.equal(bridgeSurfaceAt(seated, 0), 10);
+  assert.equal(bridgeSurfaceAt(seated, 2.5), 10);
+  assert.equal(bridgeDeckOffset(seated, 30), 0);                 // the far end is still open
+});

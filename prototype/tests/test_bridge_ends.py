@@ -14,6 +14,13 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 # Sägeweg centre line: w700036726 (west) -> bridge w80728459 -> w80728460 -> w1532972168 (east)
 LINE = [(1756.8, 1165.2), (1805.9, 1160.0), (1825.8, 1155.0), (1852.1, 1148.3), (1865.7, 1144.9), (1870.5, 1143.8), (1885.6, 1142.9)]
 WEST_END, EAST_END = (1825.8, 1155.0), (1852.1, 1148.3)
+# `__mm.sim` holds one heading, so a drive is a straight chord. The 61.7 m from the bend at (1805.9, 1160.0) to (1865.7, 1144.9) is
+# straight within 3 cm and holds both deck ends, so a car driven along it stays on the carriageway. The chords from the issue's own
+# start points (1885.6, 1142.9) / (1756.8, 1165.2) run up to 3.5 m off it, over bare field: they hit a pre-existing 0.40 m step at
+# (1821.3, 1153.8), where the approach road's drawn ribbon ends 0.40 m above the terrain under it. Measured 2026-10-16, that sample is
+# 25.9097 on this branch and 25.9097 on main -- a road-drape step, not a bridge end, and the one that still launched the car there.
+STRAIGHT = (LINE[1], LINE[4])
+ON_ROAD = 1.5                                 # m off the centre line: half a 3 m carriageway
 
 
 def resample(pts, step=1.0):
@@ -57,13 +64,48 @@ def test_saegeweg_ground_has_no_step_at_the_deck_ends(page):
     assert rises[worst] <= 0.35, (worst, g[max(0, worst - 4):worst + 5])     # 2026-10-15: 0.82 (west) and 1.04 (east) in one metre
 
 
+def off_road(x, z):
+    """metres from the Sägeweg centre line"""
+    def seg(a, b):
+        dx, dz = b[0] - a[0], b[1] - a[1]
+        t = max(0.0, min(1.0, ((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz)))
+        return math.dist((x, z), (a[0] + dx * t, a[1] + dz * t))
+    return min(seg(a, b) for a, b in zip(LINE, LINE[1:]))
+
+
+def saegeweg_span(page):
+    """x from the west deck end to the east one, each pushed out by that end's fill run: the ground the bridge owns"""
+    b = next(b for b in page.evaluate("() => window.__mm.genericBridges()")
+             if min(math.dist(p, WEST_END) for p in b["pts"]) < 1 and min(math.dist(p, EAST_END) for p in b["pts"]) < 1)
+    return WEST_END[0] - max(b["run0"], b["run1"]), EAST_END[0] + max(b["run0"], b["run1"])
+
+
+def on_road(trace):
+    return [r for r in trace if off_road(r["x"], r["z"]) <= ON_ROAD]         # past the straight stretch the chord leaves the road
+
+
 @pytest.mark.parametrize("v", [22, 32])
-@pytest.mark.parametrize("start,toward", [((1885.6, 1142.9), WEST_END), ((1756.8, 1165.2), EAST_END)], ids=["westbound", "eastbound"])
+@pytest.mark.parametrize("start,toward", [(STRAIGHT[1], STRAIGHT[0]), (STRAIGHT[0], STRAIGHT[1])], ids=["westbound", "eastbound"])
 def test_drive_over_the_saegeweg_bridge_without_a_jump(page, v, start, toward):
+    """on the deck and over both seated ends -- the ground #227 moves"""
+    lo, hi = saegeweg_span(page)
     th = math.atan2(toward[1] - start[1], toward[0] - start[0])
-    trace = drive(page, start[0], start[1], th, 4.0, v)
-    air = [r["y"] - r["ground"] for r in trace]
-    assert max(air) <= 0.3, max(zip(air, trace), key=lambda a: a[0])         # 2026-10-15: 22.3 m westbound, 5.4 m eastbound
+    on = on_road(drive(page, start[0], start[1], th, 4.0, v))
+    span = [r for r in on if lo <= r["x"] <= hi]
+    assert min(r["x"] for r in span) <= WEST_END[0] and max(r["x"] for r in span) >= EAST_END[0], [(r["x"], r["z"]) for r in span]
+    air = [r["y"] - r["ground"] for r in span]
+    assert max(air) <= 0.3, max(zip(air, span), key=lambda a: a[0])          # 2026-10-15: 22.3 m westbound, 5.4 m eastbound
+
+
+@pytest.mark.parametrize("v", [22, 32])
+def test_the_bank_road_west_of_the_bridge_is_no_worse_than_before(page, v):
+    """The drawn road ribbon carries a pre-existing 0.15 m bump at the bank top 4.4 m west of the deck, where it ends 0.17 m over
+    the terrain: 25.397 / 25.481 / 25.551 / 25.502 at x = 1819.00 / 1820.46 / 1821.43 / 1822.89, the same on main and here
+    (2026-10-16, measured with the fill excluded). Filling a bank can level a dip, never a bump, so a car crossing it at 110 km/h
+    still hops about a metre. #227 must not add to that."""
+    th = math.atan2(STRAIGHT[0][1] - STRAIGHT[1][1], STRAIGHT[0][0] - STRAIGHT[1][0])
+    air = [r["y"] - r["ground"] for r in on_road(drive(page, STRAIGHT[1][0], STRAIGHT[1][1], th, 4.0, v))]
+    assert max(air) <= 1.1, max(air)                                        # main 2026-10-16: 21.7 m (22 m/s), 17.3 m (32 m/s)
 
 
 def test_fewer_bridge_ends_rise_more_than_a_metre_in_one_metre(page):

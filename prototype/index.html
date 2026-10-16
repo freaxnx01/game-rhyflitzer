@@ -347,7 +347,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats } from './world.js';
+import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows } from './helpfilter.js';
@@ -605,7 +605,7 @@ for (const kind of ['wood', 'stone']) { const seed = OSM_BRIDGES.findIndex(b => 
 let STONE_AXIS = null;   // #78: the stone chain's deck line, bank point -> bank point, once the chain is a two-bank crossing
 // #78: roads (no bridges, none in skip) with an endpoint within 0.5 m of p, each oriented away from p
 const roadsFrom = (p, skip) => { const out = []; for (const r of ROADS) { if (r.bridge || skip.has(r)) continue; const a = r.pts[0], e = r.pts[r.pts.length - 1]; if (Math.hypot(a[0] - p[0], a[1] - p[1]) <= 0.5) out.push({ r, pts: r.pts }); else if (Math.hypot(e[0] - p[0], e[1] - p[1]) <= 0.5) out.push({ r, pts: [...r.pts].reverse() }); } return out; };
-const sampleH = (pts, step = 1) => { const n = Math.floor(polylineLength(pts) / step), hs = []; for (let k = 0; k <= n; k++) { const q = cutPolyline(pts, k * step), [x, z] = q[q.length - 1]; hs.push(terrainH(x, z)); } return hs; };
+const sampleH = (pts, step = 1, h = terrainH) => { const n = Math.floor(polylineLength(pts) / step), hs = []; for (let k = 0; k <= n; k++) { const q = cutPolyline(pts, k * step), [x, z] = q[q.length - 1]; hs.push(h(x, z)); } return hs; };
 // #78: height of the bank an open end sits under: the mean over its roads of the terrain at the bank top, walking on (first continuation) up to 60 m
 function bankHeight(ends) { const tops = []; for (const p of ends) for (const first of roadsFrom(p, new Set())) { let pts = first.pts; const seen = new Set([first.r]); while (polylineLength(pts) < 60) { const on = roadsFrom(pts[pts.length - 1], seen)[0]; if (!on) break; seen.add(on.r); pts = [...pts, ...on.pts.slice(1)]; } const hs = sampleH(cutPolyline(pts, 60)); tops.push(hs[bankTop(hs)]); } return tops.length ? tops.reduce((s, h) => s + h, 0) / tops.length : null; }
 // #78: arc length where the terrain along pts first reaches h (1 m samples, linear between), null if it does not within maxS
@@ -643,12 +643,15 @@ function buildStoneChain() {
 }
 // #227: a generic deck end takes the lowest bank top its continuing roads reach within END_SEAT.reach m (seatEnd); an end joined only
 // to another bridge piece has no continuing road and keeps its height. The broad-phase grid gets the fill run past a lifted end.
-function seatGenericEnds() {
+// `surf` is the surface the bank top is read from: the bare terrain while the world is still being laid out, the ground the car
+// actually drives on (roadTopH) once the road ribbons exist -- seating a metre below those leaves the bank climbing past the end.
+function seatGenericEnds(surf = terrainH) {
   for (const b of OSM_BRIDGES) { if (b.kind !== 'generic' || b.approach) continue;
     for (const k of [0, 1]) { const p = b.r.pts, end = k ? p[p.length - 1] : p[0], prev = k ? p[p.length - 2] : p[1];
       const roads = roadsFrom(end, new Set()); if (!roads.length) continue;
-      const seat = roads.map(({ pts }) => seatEnd(sampleH(cutPolyline(pts, END_SEAT.reach)))).reduce((a, s) => s.h < a.h ? s : a);
-      b['h' + k] = seat.h; b['reach' + k] = seat.reach;
+      const seat = roads.map(({ pts }) => seatEnd(sampleH(cutPolyline(pts, END_SEAT.reach), 1, surf))).reduce((a, s) => s.h < a.h ? s : a);
+      b['seat' + k] = seat.reach > 0; b['reach' + k] = seat.reach;
+      b['h' + k] = seat.h - (b['seat' + k] ? DECK_OFFSET : 0);   // the deck line; bridgeSurfaceAt puts the driven surface back on the bank top
       if (seat.reach > b.hw) { const d = Math.hypot(end[0] - prev[0], end[1] - prev[1]) || 1, ux = (end[0] - prev[0]) / d, uz = (end[1] - prev[1]) / d;
         gridAddSegment(BRIDGE_GRID, end[0], end[1], end[0] + ux * seat.reach, end[1] + uz * seat.reach, b.hw * 2, b); } } }
 }
@@ -803,6 +806,9 @@ const STREAM_GRID = makeGrid(32);   // centre-line streams (the Sissle): water d
 function registerSurface(sf, grid = SURF_GRID) { for (let i = 0; i < sf.pts.length - 1; i++) gridAddSegment(grid, ...sf.pts[i], ...sf.pts[i + 1], sf.hw + 1, { sf, i }); return sf; }
 // interpolated with the strip's own split into triangles (A,B,C) and (A,C,D), A/B = left/right at i, D/C at i + 1
 function roadSurfH(x, z) { return surfH(SURF_GRID, x, z); }
+// #227: the ground a car on a road actually drives on -- the drawn ribbon where there is one (it lies up to 0.3 m over the bare
+// terrain on a bank), the terrain elsewhere. A bridge end is seated on this, not on the terrain under it.
+const roadTopH = (x, z) => Math.max(terrainH(x, z), roadSurfH(x, z));
 // #273: junction and road-end discs (roadPlain): drawn coarser than the roads under them, so the car drives on the drawn disc
 const DISC_GRID = makeGrid(32);
 function discSurfH(x, z) { let h = -Infinity; for (const d of gridQuery(DISC_GRID, x, z, 0)) if ((x - d.x) ** 2 + (z - d.z) ** 2 <= d.r * d.r) h = Math.max(h, trisHeightAt(d.tris, x, z)); return h; }
@@ -1374,6 +1380,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   // roads
   const ROAD_SURF = new Map();
   for (const r of ROADS) if (!(L && r.bridge)) ROAD_SURF.set(r, registerSurface(ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true).userData.surf));
+  if (L) seatGenericEnds(roadTopH);   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
     const mats = {}, geos = {};
     for (const r of ROADS) if (!r.bridge) for (const { pts, spec } of markLines(r)) {
@@ -1504,7 +1511,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
     for (const s of [-1, 1]) strip(offsetPolyline(pts, s * (b.r.w / 2 + 0.3)), 0.35, 0.9, b.kind === 'wood' ? 'wood' : 'stone', col('#d8d2c6'), 4, hs);
     // #227: a lifted end gets a pad over its fill, laid on the physics ground itself so the car never floats over the drawn road
     for (const k of [0, 1]) { const p = b.r.pts, end = k ? p[p.length - 1] : p[0], prev = k ? p[p.length - 2] : p[1];
-      if (b['h' + k] <= terrainH(end[0], end[1]) + 0.05) continue;
+      if (!b['seat' + k]) continue;
       const run = Math.max(b.hw, b['reach' + k] || 0), d = Math.hypot(end[0] - prev[0], end[1] - prev[1]) || 1, ux = (end[0] - prev[0]) / d, uz = (end[1] - prev[1]) / d;
       const pad = resample([end, [end[0] + ux * run, end[1] + uz * run]], 1), gh = (x, z) => groundH(x, z, 1e4);
       strip(pad, b.r.w, 0.02, 'roadOsm', col('#ffffff'), 8, gh);
@@ -2467,6 +2474,8 @@ window.__mm.openCutFaces = (step = 0.5) => {
   return { checked, count: out.length, open: out.slice(0, 30), unique: unique(out), trough: trough.length, troughUnique: unique(trough), troughPts: trough };
 };
 window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone' && !b.approach).map(b => b.r.id), approaches: OSM_BRIDGES.filter(b => b.approach).length, banks: STONE_AXIS ? [{ x: STONE_AXIS.a[0], z: STONE_AXIS.a[1], h: STONE_AXIS.ha }, { x: STONE_AXIS.e[0], z: STONE_AXIS.e[1], h: STONE_AXIS.he }] : [] });
+// #227: the generic decks with the ground each of them owns -- the deck itself, plus the fill run past each seated end
+window.__mm.genericBridges = () => OSM_BRIDGES.filter(b => b.kind === 'generic' && !b.approach).map(b => ({ id: b.r.id, pts: b.r.pts, hw: b.hw, h0: b.h0, h1: b.h1, run0: Math.max(b.hw, b.reach0 || 0), run1: Math.max(b.hw, b.reach1 || 0) }));
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.vehicle = () => structuredClone(VEH);
