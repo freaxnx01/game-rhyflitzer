@@ -699,10 +699,10 @@ def test_the_opening_seen_from_inside_the_tunnel_is_as_bright_as_outside(server)
 
 
 RECORD_RIDE = """async () => {
-  const rows = []; const t0 = performance.now();
+  const rows = []; const t0 = performance.now(); let rode = false;
   while (performance.now() - t0 < 200000) {
     await new Promise(r => requestAnimationFrame(r));
-    const l = window.__mm.lift(); if (l.phase === 'idle' && rows.length) break;
+    const l = window.__mm.lift(); if (l.phase !== 'idle') rode = true; else if (rode) break;
     rows.push({ phase: l.phase, scroll: l.scroll, indicator: l.indicator });
   }
   return rows;
