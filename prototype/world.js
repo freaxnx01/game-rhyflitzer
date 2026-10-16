@@ -500,6 +500,24 @@ export function pastEnd(pts, x, z) {
 }
 // #78: height on the straight deck line from bank point a (height ha) to bank point b (height hb), clamped at both banks
 export function deckLine(a, ha, b, hb, x, z) { const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1, u = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)); return ha + (hb - ha) * u; }
+// #227: a generic bridge end sits where the OSM node is, partway down the bank (swissALTI3D removes bridges). Seat it on the bank
+// top its road reaches within END_SEAT.reach m, lifting at most maxLift; hs = bare terrain every 1 m along that road, hs[0] at the end
+export const END_SEAT = { reach: 12, maxLift: 3 };
+export function seatEnd(hs, u = END_SEAT) {
+  const k = bankTop(hs), keep = { h: hs[0], reach: 0 };
+  if (k === 0 || k === hs.length - 1) return keep;
+  if (hs[k] - hs[0] > u.maxLift) return keep;
+  return { h: Math.max(hs[0], hs[k]), reach: k };
+}
+// #227: where (x, z) lies relative to the polyline end it is past: e = pastEnd, along = metres beyond that end along its last
+// segment, across = metres off that segment's line; on the polyline (e = 0) both are 0
+export function endFrame(pts, x, z) {
+  const e = pastEnd(pts, x, z);
+  if (e === 0) return { e, along: 0, across: 0 };
+  const n = pts.length, [ex, ez] = e > 0 ? pts[n - 1] : pts[0], [px, pz] = e > 0 ? pts[n - 2] : pts[1];
+  const len = Math.hypot(ex - px, ez - pz) || 1, ux = (ex - px) / len, uz = (ez - pz) / len, dx = x - ex, dz = z - ez;
+  return { e, along: dx * ux + dz * uz, across: Math.abs(dx * uz - dz * ux) };
+}
 // #78: the first s metres of a polyline
 export function cutPolyline(pts, s) {
   const out = [pts[0]]; let acc = 0; s = Math.max(0, s);

@@ -1191,3 +1191,30 @@ test('dropRepeats: consecutive repeated points go, the rest stays (#319)', () =>
   assert.deepEqual(dropRepeats([[1, 2]]), [[1, 2]]);
   assert.deepEqual(dropRepeats([]), []);
 });
+
+import { seatEnd, endFrame, END_SEAT } from '../world.js';
+// #227: bare terrain every 1 m along the Sägeweg from the deck ends of w80728459 (measured 2026-10-15)
+const SAEGEWEG_W = [24.43, 24.8, 25.17, 25.37, 25.38, 25.36, 25.3, 25.24, 25.19, 25.13, 25.07, 25.02, 24.96];
+const SAEGEWEG_E = [24.62, 25.08, 25.53, 25.99, 26.17, 26.19, 26.22, 26.24, 26.27, 26.3, 26.32, 26.35, 26.37];
+test('seatEnd lifts a bridge end to the bank top its road reaches within 12 m (#227)', () => {
+  assert.deepEqual(seatEnd(SAEGEWEG_W), { h: 25.37, reach: 3 });
+  assert.deepEqual(seatEnd(SAEGEWEG_E), { h: 26.17, reach: 4 });
+});
+test('seatEnd keeps the end where the road is already flat, falls away, or keeps climbing (#227)', () => {
+  assert.deepEqual(seatEnd([5, 5.02, 5.04, 5.06, 5.08, 5.1, 5.12, 5.14, 5.16, 5.18, 5.2, 5.22, 5.24]), { h: 5, reach: 0 });
+  assert.deepEqual(seatEnd([5, 4.8, 4.6, 4.4, 4.2, 4, 3.8, 3.6, 3.4, 3.2, 3, 2.8, 2.6]), { h: 5, reach: 0 });
+  assert.deepEqual(seatEnd([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]), { h: 0, reach: 0 });   // no bank top within 12 m
+});
+test('seatEnd does not lift more than END_SEAT.maxLift (#227)', () => {
+  assert.equal(END_SEAT.maxLift, 3);
+  assert.deepEqual(seatEnd([0, 1, 2, 3, 3.5, 3.52, 3.54, 3.56, 3.58, 3.6, 3.62, 3.64, 3.66]), { h: 0, reach: 0 });
+  assert.deepEqual(seatEnd([0, 1, 2, 2.5, 2.52, 2.54, 2.56, 2.58, 2.6, 2.62, 2.64, 2.66, 2.68]), { h: 2.5, reach: 3 });
+});
+test('endFrame measures along and across from the end a point is past (#227)', () => {
+  const pts = [[0, 0], [10, 0], [10, 10]];
+  assert.deepEqual(endFrame(pts, 5, 1), { e: 0, along: 0, across: 0 });
+  const a = endFrame(pts, -3, 2);           // behind the first vertex: the first segment points +x, so "on" is -x
+  assert.equal(a.e, -1); assert.ok(Math.abs(a.along - 3) < 1e-9); assert.ok(Math.abs(a.across - 2) < 1e-9);
+  const b = endFrame(pts, 9, 14);           // beyond the last vertex: the last segment points +z
+  assert.equal(b.e, 1); assert.ok(Math.abs(b.along - 4) < 1e-9); assert.ok(Math.abs(b.across - 1) < 1e-9);
+});
