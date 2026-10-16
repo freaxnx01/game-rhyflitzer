@@ -56,6 +56,20 @@ def test_empty_or_broken_gallery_changes_nothing(server, world_host, status, bod
     url, _ = world_host
     with sync_playwright() as p:
         b, page = boot(p, server, url, status, body)
-        assert not page.is_visible("#worldsrow") and page.evaluate("() => window.__mm.gallery") == []
+        assert page.evaluate("() => window.__mm.gallery") == [] and page.locator("#worldsbtns button").count() == 0
+        assert page.is_visible("#buildworld")   # the way to the editor stays, even without a gallery
         assert page.get_attribute("#region-hochrhein", "aria-pressed") == "true" and page.is_visible("#startbtn")
+        b.close()
+
+
+def test_worlds_row_ends_with_the_editor_link(server, world_host):
+    url, _ = world_host
+    with sync_playwright() as p:
+        b, page = boot(p, server, url, 200, json.dumps(TWO))
+        last = page.evaluate("() => { const r = document.querySelector('#worldsrow'); return [...r.querySelectorAll('button, a')].map(e => e.id || e.textContent).at(-1); }")
+        assert last == "buildworld"
+        assert page.get_attribute("#buildworld", "href") == "../editor.html"
+        assert page.text_content("#buildworld") == "+ Build your own world…"
+        page.evaluate("() => window.ggSetLang('de')")
+        assert page.text_content("#buildworld") == "+ Eigene Welt bauen…"
         b.close()

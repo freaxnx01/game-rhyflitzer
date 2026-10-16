@@ -95,8 +95,8 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 /* #127: the region choice. The loaded region's button is outlined like a focused one. */
 .regionrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:10px 0}
 .regionrow .btn[aria-pressed="true"]{outline:3px solid var(--sun)}
-/* #170: the curated worlds row. Hidden until the gallery has entries, so a fresh install looks exactly as before. */
-.regionrow[hidden]{display:none}
+/* #170: the curated worlds row. Always shown, because it ends with the way to the editor; the worlds join it once the gallery answers. */
+#buildworld{text-decoration:none}
 #worldsdesc{flex-basis:100%;font-size:14px;color:var(--steel-l);min-height:1.2em;margin:0}
 .btn.small{height:40px;padding:0 14px;font-size:17px;display:inline-flex;align-items:center;box-shadow:3px 3px 0 var(--ink)}
 .btn[hidden]{display:none}
@@ -298,9 +298,10 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <button id="region-ehrendingen" class="btn small" type="button" aria-pressed="false">Ehrendingen</button>
       <button id="region-world" class="btn small" type="button" aria-pressed="true" hidden></button>
     </div>
-    <div id="worldsrow" class="regionrow" hidden>
+    <div id="worldsrow" class="regionrow">
       <span id="worldslabel" data-i18n="worldsRow">Worlds</span>
       <span id="worldsbtns" style="display:contents"></span>
+      <a id="buildworld" class="btn small" href="../editor.html" data-i18n="buildYourOwn">+ Build your own world…</a>
       <p id="worldsdesc" role="status"></p>
     </div>
     <div class="terrainrow">
@@ -2932,7 +2933,7 @@ if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);
 requestAnimationFrame(loop);
 
 /* #170: the curated worlds from the API. Not awaited: play never waits for the gallery; any failure leaves the row
-   hidden. Deliberately without an abort timer -- a timer cannot tell a slow API from a page busy with its first
+   with the editor link only. Deliberately without an abort timer -- a timer cannot tell a slow API from a page busy with its first
    frames, and it aborts requests whose answer has already arrived. */
 async function showGallery() {
   const worlds = await loadGallery({ host: worldHost(location.href), fetch: (u, o) => fetch(u, o) });
@@ -2954,7 +2955,6 @@ async function showGallery() {
     b.onclick = () => { if (w.id !== current) location.search = worldSearch(location.search, w.id); };
     box.appendChild(b);
   }
-  $('worldsrow').hidden = false;
 }
 showGallery();
 </script>
