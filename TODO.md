@@ -98,7 +98,7 @@ The mockups are the visual spec for all menus and the HUD. They come from a Clau
 - Graphic style "Original" targets the Midtown Madness 2 look (2000), not MM1: filtered textures, hard fog. UI stays Y2K chunky.
 - HUD layout (HUD.dc.html, already implemented in prototype/index.html): speedometer + gear + damage bottom left, large rectangular map with labels bottom right, position + checkpoint pips top left, arrow + distance top center, timer + toasts top right.
 - v0 has no traffic, pedestrians or cops. Race setup shows them as "v1" instead of dead sliders.
-- Open decision: title screen A (Main.dc.html, Sunset Steel) vs B (TitleB.dc.html, Blue Chrome). Ask before building the title screen.
+- Title screen: **A (Main.dc.html, Sunset Steel)**, decided 2026-10-16 over B (TitleB.dc.html, Blue Chrome). Redesign tracked in #346.
 
 ### When implementing screens in the prototype
 - Build them as plain HTML/CSS overlays in prototype/index.html, matching the mockup markup (sizes scaled to the viewport, not fixed 1920×1080). They must work at phone width.
