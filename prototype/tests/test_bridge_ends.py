@@ -108,6 +108,15 @@ def test_the_bank_road_west_of_the_bridge_is_no_worse_than_before(page, v):
     assert max(air) <= 1.1, max(air)                                        # main 2026-10-16: 21.7 m (22 m/s), 17.3 m (32 m/s)
 
 
+def test_the_fill_past_an_end_is_land_and_the_sissle_keeps_its_water(page):
+    """The fill reaches at most its run past an end, on the land side, so `waterLevelAt` reports no water there -- as it did for the
+    flat deck plateau before it. The Sissle beside the deck must not be swallowed with it."""
+    land = [(1828.0, 1154.4), (1823.0, 1155.7), (1855.0, 1147.6), (1857.0, 1147.1)]       # on the deck, and in the fill past each end
+    probes = page.evaluate(f"() => {json.dumps(land + [(1839.0, 1141.5), (1839.0, 1161.5)])}.map(([x, z]) => window.__mm.probe(x, z).water)")
+    assert probes[:len(land)] == [None] * len(land), probes
+    assert all(w is not None for w in probes[len(land):]), probes               # the stream 10 m either side of the deck
+
+
 def test_fewer_bridge_ends_rise_more_than_a_metre_in_one_metre(page):
     """the survey from the spec: every OSM road bridge end, 0.5 m inside the deck, then 0..12 m straight on"""
     world = json.loads((DATA / "world_hochrhein.json").read_text(encoding="utf-8"))
