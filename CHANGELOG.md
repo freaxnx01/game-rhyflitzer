@@ -23,6 +23,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-16 19:45` The car no longer takes off at the end of the **Sägeweg bridge over the Sissle**. Small bridges now meet the road on the bank at its height, instead of ending half a metre to a metre and a half lower with a ramp behind them.
 - `2026-10-15 19:19` Der Hinweis "U · Pontonbrücke abbauen" erscheint nur noch in der Nähe der gebauten Brücke, nicht mehr irgendwo auf der Karte (zum Beispiel im Hübel-Tunnel). U baut die Brücke ebenfalls nur noch dort ab.
 - `2026-10-14 11:16` In some **generated worlds** a **stream** lost its first metres of water and the browser console showed an error; streams now draw in full.
 - `2026-10-14 09:19` In the **region editor**, "**Connection lost**, retrying…" now goes away as soon as the connection is back, instead of staying while your world is still building.

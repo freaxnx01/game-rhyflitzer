@@ -122,7 +122,11 @@ export function layoutFromWorld(w) {
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
 // Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends; an end
 // flagged fade0/fade1 === false is a joint with the next piece of a chain (#78) and keeps the full offset.
-export function bridgeDeckOffset(b, t) { const a = b.fade0 === false ? Infinity : t, e = b.fade1 === false ? Infinity : b.len - t; return 0.3 * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
+// #227: an end seated on its bank (seat0/seat1) carries its deck line DECK_OFFSET below the bank top, so the surface meets the bank
+// at the end and keeps the full offset. Fading it there instead puts a 6 % ramp in the last 5 m of the deck, and the kink where that
+// ramp meets the level bank threw the car off the Sägeweg bridge.
+export const DECK_OFFSET = 0.3;
+export function bridgeDeckOffset(b, t) { const a = b.fade0 === false || b.seat0 ? Infinity : t, e = b.fade1 === false || b.seat1 ? Infinity : b.len - t; return DECK_OFFSET * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
 export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
 
 // #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;
@@ -500,6 +504,24 @@ export function pastEnd(pts, x, z) {
 }
 // #78: height on the straight deck line from bank point a (height ha) to bank point b (height hb), clamped at both banks
 export function deckLine(a, ha, b, hb, x, z) { const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1, u = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)); return ha + (hb - ha) * u; }
+// #227: a generic bridge end sits where the OSM node is, partway down the bank (swissALTI3D removes bridges). Seat it on the bank
+// top its road reaches within END_SEAT.reach m, lifting at most maxLift; hs = bare terrain every 1 m along that road, hs[0] at the end
+export const END_SEAT = { reach: 12, maxLift: 3 };
+export function seatEnd(hs, u = END_SEAT) {
+  const k = bankTop(hs), keep = { h: hs[0], reach: 0 };
+  if (k === 0 || k === hs.length - 1) return keep;
+  if (hs[k] - hs[0] > u.maxLift) return keep;
+  return { h: Math.max(hs[0], hs[k]), reach: k };
+}
+// #227: where (x, z) lies relative to the polyline end it is past: e = pastEnd, along = metres beyond that end along its last
+// segment, across = metres off that segment's line; on the polyline (e = 0) both are 0
+export function endFrame(pts, x, z) {
+  const e = pastEnd(pts, x, z);
+  if (e === 0) return { e, along: 0, across: 0 };
+  const n = pts.length, [ex, ez] = e > 0 ? pts[n - 1] : pts[0], [px, pz] = e > 0 ? pts[n - 2] : pts[1];
+  const len = Math.hypot(ex - px, ez - pz) || 1, ux = (ex - px) / len, uz = (ez - pz) / len, dx = x - ex, dz = z - ez;
+  return { e, along: dx * ux + dz * uz, across: Math.abs(dx * uz - dz * ux) };
+}
 // #78: the first s metres of a polyline
 export function cutPolyline(pts, s) {
   const out = [pts[0]]; let acc = 0; s = Math.max(0, s);
