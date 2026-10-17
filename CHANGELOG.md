@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-10-17 12:00` **Eigene Welten** zeigen jetzt auch die Häuser an Wohnstrassen, nicht nur an den Hauptstrassen. Die Welten sind dadurch dichter bebaut.
 - `2026-10-15 19:18` **Start screen** is tidier: the list of keys is gone from it. Press <kbd>F1</kbd> (or <kbd>?</kbd>) any time to see all keys.
 
 ### Added
