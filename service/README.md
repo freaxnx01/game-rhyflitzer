@@ -148,6 +148,35 @@ never as an argument (there is no `--token` flag).
 
 ## Operations
 
+### Rebuild gallery worlds after a pipeline fix
+
+When the pipeline is updated (e.g., #352 residential houses), pinned gallery worlds need to be rebuilt to pick up the changes. World ids stay the same (the `PIPELINE_VERSION` is not bumped), so the rebuild does not create a new entry in the gallery.
+
+After the `rhyflitzer-api` and `rhyflitzer-worker` images are rebuilt and restarted on the server:
+
+```bash
+# 1. List which worlds are pinned (public, no token)
+ssh ionos1 "docker exec rhyflitzer-admin python scripts/gallery.py list"
+
+# 2. Re-queue each pinned id. The worker rebuilds from the stored frame and publishes 
+#    with one rename (replaces worlds/<id>); gallery flag and share link survive (REQUEUE logic).
+#    The world leaves /api/gallery until its build is ready again (minutes): the list shows ready worlds only.
+#    Note: PIPELINE_VERSION is NOT bumped, so the id remains the same.
+ssh ionos1 "docker exec -i rhyflitzer-worker python -" <<'PY'
+import sqlite3, time
+db = sqlite3.connect("/data/service.sqlite3")
+for wid in ("<id1>", "<id2>", "<id3>"):
+    db.execute("UPDATE worlds SET state='queued', step=NULL, error=NULL, message=NULL, attempts=0, "
+               "not_before=0, created=?, started=NULL, finished=NULL WHERE id=? AND gallery=1", (time.time(), wid))
+db.commit()
+PY
+
+# 3. Watch the worker: docker logs -f rhyflitzer-worker
+#    Then check /api/gallery lists them again and open one to confirm it has the new content.
+```
+
+### General operations
+
 - Human check: `ALTCHA_COST` (default 5000, about 1 s on a phone; raise to tighten). Preview threshold: `RACE_MIN_ROAD_M` (default 3000).
 - The worker is the same image started with `python -m rhyflitzer_api.worker` (3 GB cap, 2 cores).
 - Health: `/api/health`. Logs: `docker logs rhyflitzer-worker | jq .`.

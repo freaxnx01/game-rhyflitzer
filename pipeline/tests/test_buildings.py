@@ -132,3 +132,41 @@ def test_keep_ids_keep_far_small_buildings_but_not_excluded_sheds_or_outside():
 def test_keep_ids_default_keeps_nothing_extra():
     bl, _ = B.build([house(1, 0, 400)], MAIN, CLIP)
     assert bl == []
+
+
+def street(cls, z):
+    return {"cls": cls, "pts": [[-500, z], [500, z]]}
+
+
+def test_default_ignores_residential_streets():
+    bl, _ = B.build([house(1, 0, 520)], [street("residential", 500)], CLIP)
+    assert bl == []
+
+
+@pytest.mark.parametrize("cls", ["residential", "living_street", "unclassified", "service"])
+def test_generated_rule_keeps_houses_along_a_counted_street(cls):
+    bl, stats = B.build([house(1, 0, 520)], [street(cls, 500)], CLIP, near_classes=B.NEAR_GENERATED)
+    assert [b["id"] for b in bl] == [1]
+    assert stats["kept_near"] == 1
+
+
+@pytest.mark.parametrize("cls", ["motorway", "motorway_link", "pedestrian", "footway", "path", "steps", "cycleway"])
+def test_generated_rule_ignores_uncounted_classes(cls):
+    bl, _ = B.build([house(1, 0, 520)], [street(cls, 500)], CLIP, near_classes=B.NEAR_GENERATED)
+    assert bl == []
+
+
+def test_generated_rule_keeps_main_roads_and_still_drops_far_sheds():
+    roads = [street("tertiary", 0), street("residential", 500)]
+    areas = [house(1, 0, 20), house(2, 0, 520), house(3, 0, 800)]      # 2 is 20 m from residential; 3 is 300 m from every street
+    bl, _ = B.build(areas, roads, CLIP, near_classes=B.NEAR_GENERATED)
+    assert sorted(b["id"] for b in bl) == [1, 2]
+
+
+def test_house_set_back_from_the_street_but_on_a_service_lane_is_kept():
+    """#352: Hofwiesenstrasse 13 is 38.9 m from the residential street and 3.4 m from a service lane."""
+    street_only = [street("residential", 500)]
+    with_lane = street_only + [street("service", 535)]
+    setback = house(1, 0, 545, d=6)                                    # edge at z 542: 42 m from the street, 7 m from the lane
+    assert B.build([setback], with_lane, CLIP, near_classes=B.NEAR_GENERATED)[0][0]["id"] == 1
+    assert B.build([setback], street_only, CLIP, near_classes=B.NEAR_GENERATED)[0] == []
