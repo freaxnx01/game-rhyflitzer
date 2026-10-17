@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction } from '../foot.js';
 import { footView } from '../camera.js';
 import { colliderPush } from '../world.js';
+import { translate } from '../strings.js';
 
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 const IDLE = { fwd: 0, side: 0, turn: 0, lift: 0 };
@@ -142,4 +143,14 @@ test('colliderPush_Ring_DelegatesToRingPush', () => {
   assert.equal(colliderPush(o, 8, 0, 0.5), null);
   const hit = colliderPush(o, 5.2, 0, 0.5);
   close(hit.wx, 1, 1e-6); close(hit.pen, 0.3, 1e-6);
+});
+
+test('footStrings_BothLanguages_SwissGerman', () => {
+  const keys = ['footOut', 'footIn', 'footHover', 'footWalk', 'footStopFirst', 'footNoRoom', 'footTooFar', 'notCountedFoot', 'keyFoot'];
+  for (const k of keys) {
+    const en = translate('en', k), de = translate('de', k);
+    assert.ok(en && en !== k, `en ${k}`); assert.ok(de && de !== k && de !== en, `de ${k}`);
+    assert.ok(!de.includes('ß'), `de ${k} uses ss`);
+  }
+  assert.match(translate('en', 'footOut'), /Z/); assert.match(translate('de', 'footOut'), /Zu Fuss/);
 });
