@@ -813,6 +813,19 @@ export function ringPush(ring, x, z, r) {
   return { wx: (x - px) * k, wz: (z - pz) * k, pen: inside ? r + d : r - d };
 }
 
+// #202: the push-out of a circle (x, z, r) from one collider -- OBB, circle or ring -- as collide() has always computed it, now
+// shared by the car (collide, which adds the impact response) and the walker (collideFoot, position only). null: no contact.
+export function colliderPush(o, x, z, r) {
+  if (o.ring) return ringPush(o.ring, x, z, r);
+  const dx = x - o.x, dz = z - o.z;
+  if (o.circle) { const dd = Math.hypot(dx, dz) || 1e-4; return dd > r + o.circle ? null : { wx: dx / dd, wz: dz / dd, pen: r + o.circle - dd }; }
+  const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c;
+  let nx = lx - Math.max(-o.hw, Math.min(o.hw, lx)), nz = lz - Math.max(-o.hd, Math.min(o.hd, lz)), d = Math.hypot(nx, nz);
+  if (d > r) return null;
+  if (d < 1e-4) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px; } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz; } } else { nx /= d; nz /= d; }
+  return { wx: nx * o.c - nz * o.s, wz: nx * o.s + nz * o.c, pen: r - d };
+}
+
 // #131: trees are solid at the trunk, not the crown -- one circle per tree, in the shape collide() already reads
 // (circle, like the Smile-Kreisel island); hw/hd = r so the coarse bounds, heliFloor and the camera box test work as is.
 // Billboard trunks are ~0.04 h wide in radius, the cone style's ~0.14 h: one value in between for both styles.
