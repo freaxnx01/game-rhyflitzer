@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction } from '../foot.js';
 import { footView } from '../camera.js';
+import { colliderPush } from '../world.js';
 
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 const IDLE = { fwd: 0, side: 0, turn: 0, lift: 0 };
@@ -112,4 +113,33 @@ test('footView_EyeHeightAndPitch', () => {
   close(v.at[0], 11, 1e-9); close(v.at[1], 3.7, 1e-9); close(v.at[2], 3, 1e-9);
   const up = footView(0, 0, 0, Math.PI / 2, 0.5, 1.7);
   assert.ok(up.at[1] > 1.7, 'positive pitch looks up'); assert.ok(up.at[2] > 0, 'heading pi/2 looks +z');
+});
+
+test('colliderPush_Obb_PushesOutAlongTheNearestFace', () => {
+  const o = { x: 0, z: 0, hw: 5, hd: 2, c: 1, s: 0, h: 10 };
+  assert.equal(colliderPush(o, 10, 0, 0.5), null);
+  const hit = colliderPush(o, 5.2, 0, 0.5);
+  close(hit.wx, 1, 1e-9); close(hit.wz, 0, 1e-9); close(hit.pen, 0.3, 1e-9);
+  const deep = colliderPush(o, 0, 1.5, 0.5);   // centre inside: out through the closer face (z)
+  close(deep.wz, 1, 1e-9); close(deep.pen, 1, 1e-9);
+});
+
+test('colliderPush_RotatedObb_NormalInWorldFrame', () => {
+  const o = { x: 0, z: 0, hw: 5, hd: 2, c: 0, s: 1, h: 10 };   // heading +z: hw runs along z
+  const hit = colliderPush(o, 0, 5.2, 0.5);
+  close(hit.wx, 0, 1e-9); close(hit.wz, 1, 1e-9); close(hit.pen, 0.3, 1e-9);
+});
+
+test('colliderPush_Circle', () => {
+  const o = { x: 0, z: 0, hw: 1, hd: 1, c: 1, s: 0, h: 10, circle: 1 };
+  assert.equal(colliderPush(o, 2, 0, 0.5), null);
+  const hit = colliderPush(o, 0, 1.2, 0.5);
+  close(hit.wz, 1, 1e-9); close(hit.pen, 0.3, 1e-9);
+});
+
+test('colliderPush_Ring_DelegatesToRingPush', () => {
+  const ring = [[-5, -5], [5, -5], [5, 5], [-5, 5]], o = { x: 0, z: 0, hw: 5, hd: 5, c: 1, s: 0, h: 10, ring };
+  assert.equal(colliderPush(o, 8, 0, 0.5), null);
+  const hit = colliderPush(o, 5.2, 0, 0.5);
+  close(hit.wx, 1, 1e-6); close(hit.pen, 0.3, 1e-6);
 });
