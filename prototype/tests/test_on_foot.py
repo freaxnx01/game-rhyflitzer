@@ -111,3 +111,44 @@ def test_walls_stop_the_walker_and_hover_lands_on_the_roof(server):
     assert up["hover"] is True and up["y"] > o["h"], (up, o)
     assert local_x(over) < o["hw"], (over, o)                               # over the roof now
     assert landed["hover"] is False and abs(landed["y"] - o["h"]) < 0.05, (landed, o)   # standing on it, not inside
+
+
+def test_a_get_out_makes_the_run_not_count_and_checkpoints_wait_for_the_car(server):
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = SISSELN
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")   # the car takes checkpoint 1 (Bahnhof Sisseln)
+        page.wait_for_function("() => window.__mm.blitz().done === 1", timeout=60000)
+        press_z(page)
+        assert foot(page)["on"] is True
+        cx, cz = page.evaluate("() => window.__mm.blitz().cps[1]")   # checkpoint 2 (Sisslerfeld)
+        page.evaluate(f"() => window.__mm.place({cx}, {cz}, 0)")     # the walker stands right in it
+        foot_sim(page, 0.5)
+        state = page.evaluate("() => ({ flags: window.__mm.raceFlags(), done: window.__mm.blitz().done })")
+        b.close()
+    assert errors == []
+    assert state["flags"]["walked"] is True, state
+    assert state["done"] == 1, state                           # checkpoint 2 waits for the car
+
+
+def test_mouse_look_turns_and_pitches_and_a_lost_lock_pauses_once(server):
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = SISSELN
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        th0 = foot(page)["th"]
+        looked = page.evaluate("() => window.__mm.footLook(200, -200)")
+        page.evaluate("() => window.__mm.footUnlock()")
+        page.wait_for_timeout(200)
+        paused = page.evaluate("() => !document.querySelector('#pause').hidden")
+        page.keyboard.press("Escape"); page.wait_for_timeout(200)   # resume
+        press_z(page)                                               # back in (still beside the car)
+        page.evaluate("() => window.__mm.footUnlock()")             # the unlock after getting in must not pause
+        page.wait_for_timeout(200)
+        after_in = page.evaluate("() => ({ paused: !document.querySelector('#pause').hidden, foot: window.__mm.foot().on })")
+        b.close()
+    assert errors == []
+    assert looked["th"] > th0 and looked["pitch"] > 0, looked
+    assert paused is True
+    assert after_in == {"paused": False, "foot": False}, after_in
