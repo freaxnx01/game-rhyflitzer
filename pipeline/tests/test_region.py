@@ -184,3 +184,38 @@ def test_one_boundary_read_and_both_tile_caches_pruned(tmp_path, monkeypatch):
                        cache=tmp_path / "cache", dsm=False, tile_cache_bytes=150)
     assert len(reads) == 1                                                    # osm.build_world reuses the lines
     assert [len(list((tmp_path / "cache" / n).glob("*.tif"))) for n in ("swissalti3d", "swisssurface3d")] == [1, 1]
+
+
+def test_region_build_world_uses_near_generated_for_buildings(tmp_path, monkeypatch):
+    """Generated worlds pass near_classes=world_buildings.NEAR_GENERATED to osm.build_world()."""
+    import world_buildings
+    monkeypatch.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
+    no_race(monkeypatch)
+    captured_kwargs = []
+    real_build = region.osm.world_buildings.build
+    monkeypatch.setattr(region.osm.world_buildings, "build",
+                        lambda *a, **kw: (captured_kwargs.append(kw), real_build(*a, **kw))[1])
+    region.build_world(synth_osm.RECT, tmp_path / "out", pbf=synth_osm.write(tmp_path / "synth.osm"),
+                       cache=tmp_path / "cache", dsm=False)
+    assert len(captured_kwargs) == 1
+    assert captured_kwargs[0].get("near_classes") == world_buildings.NEAR_GENERATED
+
+
+def test_osm_build_world_defaults_to_main_roads_only(tmp_path, monkeypatch):
+    """Direct osm.build_world() calls with anchors_path=None still default to MAIN (no change for hand-made regions)."""
+    import world_buildings
+    monkeypatch.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
+    no_race(monkeypatch)
+    captured_kwargs = []
+    real_build = region.osm.world_buildings.build
+    monkeypatch.setattr(region.osm.world_buildings, "build",
+                        lambda *a, **kw: (captured_kwargs.append(kw), real_build(*a, **kw))[1])
+    # Simulate a direct osm.build_world() call (e.g., from cmd_build)
+    pbf_path = synth_osm.write(tmp_path / "synth.osm")
+    data = region.osm_read.read(pbf_path, geo.Frame(47.43, 8.6))
+    boundary_items = region.world_boundaries.read(pbf_path, geo.Frame(47.43, 8.6))
+    clip_box = (-1000.0, -1000.0, 1000.0, 1000.0)
+    region.osm.build_world(str(pbf_path), None, (0, 0, 0, 0), (47.43, 8.6), 30.0, 1000.0, None, None,
+                           clip_box=clip_box, data=data, boundary_items=boundary_items)
+    assert len(captured_kwargs) == 1
+    assert captured_kwargs[0].get("near_classes") == world_buildings.MAIN

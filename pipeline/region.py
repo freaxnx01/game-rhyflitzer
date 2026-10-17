@@ -22,6 +22,7 @@ import places
 import race
 import terrain
 import world_boundaries
+import world_buildings
 
 PIPELINE_VERSION = "1"
 PAD = 1000.0                       # m of OSM around the frame (roads and woods at the edge, Gemeinde lines)
@@ -128,7 +129,8 @@ def _world(pbf, out_dir: Path, rect, cache: Path, dsm: bool, step):
     data = osm_read.read(Path(pbf), fr)
     boundary_items = world_boundaries.read(Path(pbf), fr)
     world = osm.build_world(pbf, out_dir / "terrain.mmh", frame_mod.lonlat_bbox(rect), org, 30.0, 1000.0, None,
-                            cache if dsm else None, clip_box=box, data=data, boundary_items=boundary_items)
+                            cache if dsm else None, clip_box=box, data=data, boundary_items=boundary_items,
+                            near_classes=world_buildings.NEAR_GENERATED)
     world["sources"] += ["Terrain: swissALTI3D © swisstopo"] + (["Building heights: swissSURFACE3D © swisstopo"] if dsm else [])
     lines = [(names, line) for _, names, line in boundary_items]
     return world, data, lines, shapely.box(*box), header
