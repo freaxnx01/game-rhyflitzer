@@ -371,7 +371,8 @@ import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKey
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
-import { DRONE, droneSway } from './camera.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction } from './foot.js';
+import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
 import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
@@ -1956,7 +1957,7 @@ const SHADOW_STATE = { y: 0, pitch: 0, roll: 0, wet: false, air: 0 };
 function restShadow() { SHADOW_STATE.y = P.y; SHADOW_STATE.pitch = 0; SHADOW_STATE.roll = 0; SHADOW_STATE.wet = false; SHADOW_STATE.air = 0; }
 // a positive roll means the right side of the car is up, so the quad's local +z edge has to rise: rotation about +x lowers it, hence -roll.
 // On the turntable (#7) stepTurntable shows the car whatever V or the eye views say, so the shadow follows the car there too
-function drawShadow() { shadowMesh.visible = shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !CARSEL.on && !!CAM_VIEWS[camView].eye, hidden: !CARSEL.on && HUD.carHidden }); if (!shadowMesh.visible) return; const shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(P.x + shift.x, SHADOW_STATE.y + SHADOW.lift, P.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -P.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }
+function drawShadow() { shadowMesh.visible = shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !CARSEL.on && !FOOT.on && !!CAM_VIEWS[camView].eye, hidden: !CARSEL.on && !FOOT.on && HUD.carHidden }); if (!shadowMesh.visible) return; const at = FOOT.on ? FOOT.car : P, shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(at.x + shift.x, SHADOW_STATE.y + SHADOW.lift, at.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -at.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }   // #202: on foot the shadow stays under the parked car
 // #126: the gull-wing doors open while the car waits on the start screen; written by stepDoors (loop), read by drawDoors (loop) only
 const DOOR_STATE = { open: 0, target: 0 };
 function stepDoors(dt) { DOOR_STATE.target = doorTarget(R.state, Math.hypot(P.vx, P.vz)); DOOR_STATE.open = stepDoor(DOOR_STATE.open, DOOR_STATE.target, dt); }
@@ -2145,7 +2146,7 @@ const LIFT_RIDE = createLift();
 const CAB = new THREE.Mesh(new THREE.CylinderGeometry(14, 14, 16, 24, 1, true), new THREE.MeshLambertMaterial({ side: THREE.BackSide, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
 CAB.visible = false; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
 const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : ROOM_Y;
-function liftOnPlatform() { return !!HIDE && onLiftPlatform(P.x, P.z) && Math.abs(P.y - levelFloorY()) < 1; }
+function liftOnPlatform() { return !FOOT.on && !!HIDE && onLiftPlatform(P.x, P.z) && Math.abs(P.y - levelFloorY()) < 1; }
 function liftIndicator(text) { const el = $('liftfloor'); el.hidden = text === null; if (text !== null) el.textContent = text; }
 function stepLift(dt) {
   if (!HIDE) return;
@@ -2174,7 +2175,7 @@ window.__mm.lift = () => ({ phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, floor:
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };
 // #270: the car lights switch — head + tail together, session only (not persisted). #271 (hazard) and #230 (brake) share this state.
 const LIGHTS = { head: false, hazard: false, braking: false };
-const keys = {}; addEventListener('keydown', e => { if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129) */ if (e.code === 'Tab') e.preventDefault(); if (e.repeat) return; keys[e.code] = true; if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'F3') { e.preventDefault(); toggleDebug(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129) */ if (e.code === 'Tab') e.preventDefault(); if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'F3') { e.preventDefault(); toggleDebug(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
@@ -2259,7 +2260,7 @@ function stepWreck(dt) {
   }
   stepSmoke(dt);
 }
-function resetCar() { if (WRECK_S.on) endWreck(); stopAuto('reset'); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
+function resetCar() { if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
@@ -2316,6 +2317,55 @@ function takeOff() { if (!flyAllowed(LEVELS.id, flyZone())) { toast(tr('hideoutN
   stopAuto('reset'); const s = heliStart(P.x, P.z, P.y, P.th, heliGround(P.x, P.z)); FLY.on = true; FLY.v = s.v; FLY.alt = s.alt; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
 function land() { if (!LEVELS.isSurface()) { P.safe = [P.x, P.z, P.th]; resetCar(); toast(tr('heliLanded')); return; }   // the room: down onto its floor right here
   const spot = landingSpot(nearestJumpable(P.x, P.z)); if (!spot) { toast(tr('heliNoRoad')); return; } P.safe = [spot.x, spot.z, spot.th]; resetCar(); toast(tr('heliLanded')); }
+// #202 on foot (Z): FOOT is the walker's state and P is the walker (so map, compass and HUD follow, as for the helicopter);
+// the car stays where stepCar last put it, FOOT.car is that pose. R, J, the map, the beam and Start end it through resetCar
+const FOOT = { on: false, hover: false, vy: 0, pitch: 0, car: null };
+const parked = () => parkedBox(FOOT.car, CAR_SIZE);
+function pressZ() { if (FOOT.on) getIn(); else getOut(); }
+function canGetOut() { return $('overlay').hidden && !FLY.on && !WRECK_S.on && !LIFT_RIDE.busy && !CARSEL.on && !PAUSE.on && !P.air && P.splash === 0; }
+function getOut() {
+  if (!canGetOut()) return;
+  if (Math.hypot(P.vx, P.vz) >= 0.5) { toast(tr('footStopFirst')); return; }
+  const car0 = { x: P.x, z: P.z, y: P.y, th: P.th }, spot = exitSpots(car0, CAR_SIZE).find(s => footFree(s.x, s.z, car0.y));
+  if (!spot) { toast(tr('footNoRoom')); return; }
+  stopAuto('reset'); Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, car: car0 }); flames.visible = false;
+  P.x = spot.x; P.z = spot.z; P.y = groundH(spot.x, spot.z, car0.y + 1); P.vx = P.vz = P.vy = 0;
+  if (R.state === 'racing' || R.state === 'armed') R.walked = true;
+  toast(tr('footOut'));
+}
+function getIn() {
+  if (carReach(P.x, P.z, parked()) > WALKER.enterReach) { toast(tr('footTooFar')); return; }
+  const c = FOOT.car; endFoot(); P.x = c.x; P.z = c.z; P.y = c.y; P.th = c.th; P.vx = P.vz = P.vy = 0; toast(tr('footIn'));
+}
+// off before the pointer is let go, so the unlock event does not pause (see the pointerlockchange listener)
+function endFoot() { if (!FOOT.on) return; FOOT.on = false; FOOT.car = null; if (document.pointerLockElement) document.exitPointerLock(); }
+function toggleHover() { FOOT.hover = !FOOT.hover; FOOT.vy = 0; toast(tr(FOOT.hover ? 'footHover' : 'footWalk')); }
+// the car's collider filters (collide), plus: a box whose top is under your feet does not block (you stand on it or hover over it).
+// Bridge parapets have a constant h, not a height, so for them only the deck rule (y0) counts
+function footBlocks(o, x, z, y, under) {
+  if (under && !o.secret && !o.parked) return false;
+  if (o.bridge) return y >= (o.y0 ?? 0.4);
+  if (y >= o.h - 0.05) return false;
+  return !(o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, x, z));
+}
+const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2), ...(FOOT.car ? [parked()] : [])];
+function footFree(x, z, y0) { const y = groundH(x, z, y0 + 1), under = caveInside(); if (waterLevelAt(x, z, y) !== null) return false; return !footSolids(x, z).some(o => footBlocks(o, x, z, y, under) && colliderPush(o, x, z, WALKER.radius)); }
+function collideFoot(r) { const under = caveInside(); for (const o of footSolids(P.x, P.z)) { if (!footBlocks(o, P.x, P.z, P.y, under)) continue; const hit = colliderPush(o, P.x, P.z, r); if (hit) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } } }
+const footFloorAt = (x, z, y) => footFloor(groundH(x, z, y), footSolids(x, z), x, z, y);
+// hover stays in the level: the room's helicopter clamp; on the surface hoverMaxAgl over the ground and, under the hill, the eye under the ceiling
+function clampHover() {
+  if (!LEVELS.isSurface()) { const c = roomFlyClamp(P.x, P.y, P.z, ROOM.layout); P.x = c.x; P.y = c.y; P.z = c.z; return; }
+  P.y = Math.min(P.y, groundH(P.x, P.z, P.y) + WALKER.hoverMaxAgl);
+  const lid = caveInside() ? ceilingH(P.x, P.z) : null; if (lid !== null) P.y = Math.min(P.y, lid - WALKER.eye - 0.3);
+}
+function stepOnFoot(dt) {
+  LIGHTS.braking = false;
+  const s = stepFoot({ x: P.x, z: P.z, y: P.y, th: P.th, vy: FOOT.vy, hover: FOOT.hover }, footInput(keys), dt, footFloorAt);
+  P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = s.vx; P.vz = s.vz; FOOT.vy = s.vy;
+  collideFoot(WALKER.radius); if (FOOT.hover) clampHover(); followCave();
+}
+function footMouse(dx, dy) { const l = footLook(P.th, FOOT.pitch, dx, dy); P.th = l.th; FOOT.pitch = l.pitch; }
+function footCamera() { const v = footView(P.x, P.y, P.z, P.th, FOOT.pitch, WALKER.eye); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); }
 // #100: pontoon bridge (U). Rules in pontoon.js; here the world adapters, the key, the step and the hooks (meshes: buildPontoonMeshes below)
 const pontoonEnv = () => ({ dist: riverDist, nameAt: L ? (x, z) => WATER.nameAt(x, z) : () => 'Rhein', waterLevel: (x, z) => (L && REAL ? WATER.levelAt(x, z) : 0) ?? 0, roadAt: (x, z) => roadDist(x, z) <= 0, bridgeNear: L ? (x, z) => [...gridQuery(BRIDGE_GRID, x, z, PONTOON_CFG.bridgeClear)].some(b => b.kind !== 'rail' && nearestOnPolyline(b.r.pts, x, z).d <= PONTOON_CFG.bridgeClear) : (x, z) => BRIDGES.some(b => segDist(x, z, ...b.a, ...b.b) <= PONTOON_CFG.bridgeClear), ground: (x, z) => groundH(x, z, 1e4) });
 const PONTOON_ERR = { noBank: 'pontoonNoBank', noFarBank: 'pontoonNoFarBank', hasBridge: 'pontoonHasBridge' };
@@ -2383,6 +2433,11 @@ window.__mm.naviWalk = (stepM = 20, maxSteps = 500) => { const seen = []; let n 
 window.__mm.nearestRoad = (x, z) => nearestJumpable(x, z);
 window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, alt: FLY.alt, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
+window.__mm.foot = () => ({ on: FOOT.on, hover: FOOT.hover, x: P.x, y: P.y, z: P.z, th: P.th, pitch: FOOT.pitch, car: FOOT.car && { ...FOOT.car }, carVisible: car.visible, carMesh: { x: car.position.x, z: car.position.z }, cam: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, ground: groundH(P.x, P.z, P.y) });
+window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
+window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); return window.__mm.foot(); };
+// tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
+window.__mm.nearestSolid = (x, z) => { let best = null, bd = Infinity; for (const o of OBB) { if (o.bridge || o.low || o.secret || o.ring || o.circle) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best && { x: best.x, z: best.z, hw: best.hw, hd: best.hd, c: best.c, s: best.s, h: best.h }; };
 // water vs drawn ground at a point: is the water surface above the ground mesh there (visible) or under it?
 // from above, is water the first thing seen at these points (not grass or a field), and is the car wet there? Bridges and roads are skipped
 window.__mm.roles = () => Object.keys(MESH);
@@ -2524,8 +2579,7 @@ function stepCar(dt) {
   if (wl !== null) { if (P.splash === 0) { SFX.splash(); P.hinted = false; } const was = P.splash; P.splash += dt; P.vy = 0; if (P.y > gh2 + 0.15) { const k = Math.exp(-UW.drag * dt); P.vx *= k; P.vz *= k; P.y = Math.max(P.y - UW.sink * dt, gh2); } else P.y = gh2; if (was < 0.35 && P.splash >= 0.35) toast(tr('fishes'), TOAST_S.event); if (!P.hinted && P.splash >= UW.hintAt) { P.hinted = true; toast(tr('underwaterHint'), TOAST_S.event); } }
   else { P.splash = 0; P.vy -= 22 * gravityScale(SURP) * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (landingHurts(P.vy)) { const s = impactStrength(-P.vy); crashHit(s); SFX.crash(s); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (LEVELS.isSurface() && !dead && roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump; #105: a wreck does not move the safe spot (the new car comes to the last road position, not wherever the wreck rolled)
   collide(carRadius());
-  // #102 / #201: under the hill? cave mode follows the car (#277: the find is the lift ride's, see liftEvent)
-  if (HIDE) { const inside = caveInside(), deep = caveSwitch(inside ? caveDepth(P.x, P.z, HIDE.portal) : -Infinity, CAVE_MODE.on); if (deep !== CAVE_MODE.on) setCave(deep); if (!(ROOM.eiffel && ROOM.eiffel.started) && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }   // the model downloads near the Hübel; the room swaps it in
+  followCave();
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
@@ -2534,6 +2588,8 @@ function stepCar(dt) {
   const shLeft = groundH(P.x - rx * SHADOW.roll, P.z - rz * SHADOW.roll, P.y), shRight = groundH(P.x + rx * SHADOW.roll, P.z + rz * SHADOW.roll, P.y), tilt = groundTilt(gh2, gh2 + slope * 2, gh2 - slope * 2, shLeft, shRight, 2, SHADOW.roll);
   SHADOW_STATE.y = gh2; SHADOW_STATE.pitch = air ? 0 : tilt.pitch; SHADOW_STATE.roll = air ? 0 : tilt.roll; SHADOW_STATE.wet = wl !== null; SHADOW_STATE.air = P.y - gh2;
 }
+// #102 / #201: under the hill? cave mode follows the car or the walker (#277: the find is the lift ride's, see liftEvent)
+function followCave() { if (!HIDE) return; const inside = caveInside(), deep = caveSwitch(inside ? caveDepth(P.x, P.z, HIDE.portal) : -Infinity, CAVE_MODE.on); if (deep !== CAVE_MODE.on) setCave(deep); if (!(ROOM.eiffel && ROOM.eiffel.started) && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }   // the model downloads near the Hübel; the room swaps it in
 
 // ---------- camera ----------
 const camPos = new THREE.Vector3(START.x + 12, 20, START.z);
@@ -2551,11 +2607,11 @@ function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm
 function underCeiling(x, z, y) { const lid = caveInside() ? ceilingH(x, z) : null; return lid === null ? y : Math.min(y, lid - 1); }
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
-  if (!v.drone || FLY.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
-  const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
+  if (!v.drone || FLY.on || FOOT.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
+  const back = !!keys.KeyB && $('overlay').hidden && !FOOT.on, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
-  car.visible = !v.eye && !HUD.carHidden && !FLY.on; heli.visible = FLY.on;
-  if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }
+  car.visible = FOOT.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
+  if (FOOT.on) footCamera(); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }
   else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const under = caveInside(), test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge || (under && !o.secret)) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
     const drone = !!v.drone; if (drone) { CAM.t += dt; const sw = droneSway(CAM.t); target.x -= fz * sw.side; target.z += fx * sw.side; target.y += sw.up; }   // #93: hover on the car's true right vector (-fz, fx), not on b, so B does not flip it
     if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
@@ -2577,7 +2633,7 @@ function drawMirrorQuad(r) { const b = MIRROR.border, y = innerHeight - r.y - r.
   try { renderer.setViewport(r.x - b, y - b, r.w + 2 * b, r.h + 2 * b); renderer.setScissor(r.x - b, y - b, r.w + 2 * b, r.h + 2 * b); renderer.setClearColor(0x8a93a3, 1); renderer.clear(true, true, false);   // a flat steel frame between --steel and --steel-l, the HUD's plates in one colour
   renderer.setViewport(r.x, y, r.w, r.h); renderer.setScissor(r.x, y, r.w, r.h); renderer.render(MIR.scene, MIR.ortho);
   } finally { renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.setClearColor(c, ca); renderer.autoClear = ac; } }   // a throw must not leave the main picture scissored
-function drawMirror(frozen) { const was = MIR.visible; MIR.visible = mirrorVisible({ view: CAM_VIEWS[camView].k, back: CAM.back, flying: FLY.on, overlay: !$('overlay').hidden, fullMap: !!keys.Tab, touch: MIR.touch, carsel: CARSEL.on }); if (!MIR.visible) { syncHudDrop(0); return; }
+function drawMirror(frozen) { const was = MIR.visible; MIR.visible = mirrorVisible({ view: CAM_VIEWS[camView].k, back: CAM.back, flying: FLY.on || FOOT.on, overlay: !$('overlay').hidden, fullMap: !!keys.Tab, touch: MIR.touch, carsel: CARSEL.on }); if (!MIR.visible) { syncHudDrop(0); return; }
   if (!frozen) { MIR.frame++; if (mirrorDue(MIR.frame, was)) renderMirrorTarget(); } else if (!was) renderMirrorTarget(); MIR.rect = mirrorRect(innerWidth); syncHudDrop(mirrorHudDrop(MIR.rect)); drawMirrorQuad(MIR.rect); }
 function syncHudDrop(px) { if (px === MIR.hudDrop) return; MIR.hudDrop = px; $('tc').style.setProperty('--mirror-drop', px + 'px'); }   // the arrow, distance, names and toast move under the glass, only on a change
 window.__mm.mirror = () => { const l = MIR.cam.getWorldDirection(new THREE.Vector3()); return { visible: MIR.visible, renders: MIR.renders, frame: MIR.frame, rect: { ...MIR.rect }, pos: MIR.cam.position.toArray(), look: [l.x, l.y, l.z] }; };
@@ -2816,7 +2872,7 @@ window.__mm.map = () => { const [cx, cz] = mapToWorld(mapC.width / 2, mapC.heigh
 // #165: double-click (mouse) or double-tap (touch) on the 3D view beams the car to the ground point under the pointer; a blocked spot (water, a building) snaps to the nearest road within 30 m. Through placeOnRoad, so a race is flagged as a jump
 const BEAM = { ray: new THREE.Raycaster(), ndc: new THREE.Vector2(), t: 0, tapT: 0, tapX: 0, tapY: 0, last: null };
 const BEAM_ROLES = ['grass', 'field', 'road', 'roadOsm', 'roadPlain'];
-const beamAllowed = () => $('overlay').hidden && $('jump').hidden && $('help').hidden && !PAUSE.on && !CARSEL.on && !FLY.on;
+const beamAllowed = () => $('overlay').hidden && $('jump').hidden && $('help').hidden && !PAUSE.on && !CARSEL.on && !FLY.on && !FOOT.on;
 function beamPick(cx, cy) { BEAM.ndc.set(cx / innerWidth * 2 - 1, 1 - cy / innerHeight * 2); BEAM.ray.setFromCamera(BEAM.ndc, camera); BEAM.ray.far = 4000; const hit = BEAM.ray.intersectObjects(BEAM_ROLES.map(r => MESH[r]).filter(Boolean), false)[0]; return hit ? { x: hit.point.x, z: hit.point.z } : null; }
 function spotBlocked(x, z) { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; P.y = groundH(x, z, -Infinity); P.vx = P.vz = 0; collide(carRadius()); const pushed = Math.hypot(P.x - x, P.z - z) > 0.05; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return pushed || waterLevelAt(x, z, 1e4) !== null; }
 function beamTo(cx, cy) { if (!beamAllowed() || performance.now() - BEAM.t < 500) return; BEAM.t = performance.now(); const hit = beamPick(cx, cy), spot = hit && beamSpot(hit.x, hit.z, { blocked: spotBlocked, nearestRoad: nearestJumpable }); BEAM.last = spot; if (!spot) { toast(tr('beamNone')); return; } placeOnRoad(spot.x, spot.z, spot.th ?? P.th, tr('beamed')); }
@@ -2949,7 +3005,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepRace(dt); stepLift(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: Math.hypot(P.vx, P.vz) * 3.6, gas: P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepRace(dt); stepLift(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);
