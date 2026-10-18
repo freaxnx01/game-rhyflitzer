@@ -10,6 +10,7 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 MAIN = {"trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link"}
+NEAR_GENERATED = MAIN | {"residential", "living_street", "unclassified", "service"}
 SKIP = {"roof", "carport", "construction", "ruins"}
 FLOORS = {"house": 2, "detached": 2, "semidetached_house": 2, "residential": 2, "yes": 2, "terrace": 2,
           "apartments": 4, "farm": 1.5, "barn": 1.5, "commercial": 3, "retail": 3, "office": 3,
@@ -99,8 +100,8 @@ def _assign_numbers(recs, polys, own, addr_nodes, stats):
             stats[src] += 1
 
 
-def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=(), addr_nodes=(), keep_ids=frozenset()):
-    main = [shapely.LineString(r["pts"]) for r in roads if r["cls"] in MAIN and len(r["pts"]) >= 2]
+def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=(), addr_nodes=(), keep_ids=frozenset(), near_classes=MAIN):
+    main = [shapely.LineString(r["pts"]) for r in roads if r["cls"] in near_classes and len(r["pts"]) >= 2]
     tree = STRtree(main) if main else None
     sites = shapely.unary_union(list(industrial)) if industrial else None
     quarters = shapely.unary_union(list(keep_all)) if keep_all else None   # areas where every house is kept, near a main road or not

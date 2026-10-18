@@ -89,9 +89,10 @@ def cmd_cut(a) -> int:
 
 
 def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path, dsm_cache=None, *,
-                clip_box=None, data=None, boundary_items=None) -> dict:
+                clip_box=None, data=None, boundary_items=None, near_classes=world_buildings.MAIN) -> dict:
     """clip_box (game x0, z0, x1, z1) overrides the clip from the lon/lat bbox; data reuses an osm_read result and
-    boundary_items a world_boundaries.read result; anchors_path None means no hand anchors (#166: generated worlds)."""
+    boundary_items a world_boundaries.read result; anchors_path None means no hand anchors (#166: generated worlds);
+    near_classes selects which street types are used to keep nearby buildings (MAIN for hand-made regions, NEAR_GENERATED for generated worlds)."""
     frame = geo.Frame(*origin)
     if clip_box is None:
         xs, zs = frame.to_game([bbox[0], bbox[2]], [bbox[3], bbox[1]])
@@ -117,7 +118,8 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     buildings, stats = world_buildings.build(data.areas, osm_roads, clip, house_dist, big_area,
                                              anchors_mod.exclude_ids(spec), sites,
                                              anchors_mod.keep_all_boxes(spec, resolved),
-                                             addr_nodes=data.addr_nodes, keep_ids=anchors_mod.keep_ids(spec))
+                                             addr_nodes=data.addr_nodes, keep_ids=anchors_mod.keep_ids(spec),
+                                             near_classes=near_classes)
     props, prop_stats = world_props.build(data.prop_nodes, data.areas, osm_roads, clip)
     parking, park_stats = world_parking.build(data.areas, data.ways, buildings, osm_roads, clip)
     forests, forest_stats = world_forests.build(data.areas, osm_roads + game_roads, clip)
