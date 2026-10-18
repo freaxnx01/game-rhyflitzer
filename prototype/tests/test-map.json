@@ -26,6 +26,7 @@
   "prototype/regions.js": ["test_region.py"],
   "prototype/worlds.js": ["test_world.py"],
   "prototype/gallery.js": ["test_gallery.py"],
+  "prototype/startscreen.js": ["test_start_screen.py"],
   "prototype/sound.js": ["test_sound.py"],
   "prototype/impact.js": ["test_crash.py"],
   "prototype/wreck.js": ["test_wreck.py"],
