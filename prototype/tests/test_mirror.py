@@ -1,6 +1,9 @@
 """#92: rear-view mirror. Hand-traced layout (no data files). The headless renderer draws under 1 fps, so every
 check polls the end state (visible flag, render/frame counters) -- wait for arrival, never a fixed sleep."""
+import pytest
 from playwright.sync_api import sync_playwright
+
+pytestmark = pytest.mark.render   # #303: counts the mirror's render passes, which only happen while drawing
 
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]

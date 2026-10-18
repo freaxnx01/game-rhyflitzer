@@ -3,7 +3,10 @@ Hand layout (world + terrain blocked). Slow (Playwright): run in the foreground.
 import re
 import struct
 
+import pytest
 from playwright.sync_api import sync_playwright
+
+pytestmark = pytest.mark.render   # #303: every test here reads the drawn canvas (the saved PNG)
 
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]

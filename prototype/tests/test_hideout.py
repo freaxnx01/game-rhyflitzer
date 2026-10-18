@@ -676,6 +676,7 @@ def crop_brightness(page):
     return ImageStat.Stat(img.crop((int(w * 0.42), int(h * 0.35), int(w * 0.58), int(h * 0.55)))).mean[0]
 
 
+@pytest.mark.render   # #303: reads the drawn canvas (photoUrl)
 @needs_world
 def test_the_opening_seen_from_inside_the_tunnel_is_as_bright_as_outside(server):
     """Standing 10 m inside looking out of the portal, the picture at the opening is daylight, not black ('it should never be dark
