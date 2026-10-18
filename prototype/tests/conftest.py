@@ -9,6 +9,7 @@ import pytest
 from playwright.sync_api import BrowserType
 
 import gpu_browser
+import shared_browser
 import visual_runs
 
 ROOT = Path(__file__).parents[2]
@@ -18,6 +19,8 @@ GPU = {"endpoint": None, "launch": None}
 # #332: records every session that launched a browser; wraps whatever BrowserType.launch is current (after the GPU patch)
 RUNS = visual_runs.Collector()
 RUN_HOOK = {"launch": None}
+# #303: the browser pool of the test module that is currently running
+POOL = {"current": None}
 
 
 def _install_gpu_hook(config):
@@ -31,6 +34,7 @@ def _install_gpu_hook(config):
 
 
 def pytest_configure(config):
+    config.addinivalue_line("markers", "render: needs real drawing (pixels, render counters); no-render is off for it (#303)")
     _install_gpu_hook(config)
     RUNS.start()
     RUN_HOOK["launch"] = BrowserType.launch
@@ -69,6 +73,41 @@ def pytest_sessionfinish(session, exitstatus):
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     for line in lines:
         reporter.write_line(line) if reporter else print(line)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _shared_browser(request):
+    """#303: one browser process per test file, no-render unless a test is marked `render`.
+    MM_SHARED_BROWSER=0 gives every test its own process, MM_RENDER=1 renders everywhere (together: today's behaviour)."""
+    from playwright.sync_api import sync_playwright
+    started = {}
+
+    def launch(*args, **kwargs):
+        if "pw" not in started:
+            started["pw"] = sync_playwright().start()
+        return started["pw"].chromium.launch(*args, **kwargs)   # goes through the GPU hook and the run counter
+
+    pool = shared_browser.BrowserPool(launch, reuse=os.environ.get("MM_SHARED_BROWSER") != "0")
+    module, original = request.module, getattr(request.module, "sync_playwright", None)
+    if original is not None:
+        module.sync_playwright = shared_browser.shared_sync_playwright(pool)
+    POOL["current"] = pool
+    yield
+    POOL["current"] = None
+    pool.close_all()
+    if "pw" in started:
+        started["pw"].stop()
+    if original is not None:
+        module.sync_playwright = original
+
+
+@pytest.fixture(autouse=True)
+def _render_mode(request):
+    """#303: a test marked `render` (or MM_RENDER=1) draws for real; everything else runs without a picture."""
+    pool = POOL["current"]
+    if pool is not None:
+        pool.norender = request.node.get_closest_marker("render") is None and os.environ.get("MM_RENDER") != "1"
+    yield
 
 
 @pytest.fixture(scope="session")
