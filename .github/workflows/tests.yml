@@ -8,6 +8,10 @@ on:
         description: "Run every browser test file, not just the ones the diff affects"
         type: boolean
         default: false
+      hosted:
+        description: "Use GitHub-hosted runners (SwiftShader) even though the GPU runners could take the job"
+        type: boolean
+        default: false
 
 permissions:           # pull-requests/issues write: the Visual-tests PR comment (#332). A fork PR gets a read-only token, the recorder only warns.
   contents: read
@@ -21,6 +25,7 @@ concurrency:
 env:
   PLAYWRIGHT_VERSION: "1.63.0"
   MAX_SHARDS: 8          # browser-test jobs in parallel; public repos get 20 hosted jobs at once
+  MAX_SHARDS_GPU: 2      # one per homelab GPU runner (#369); each runs one job at a time
   TESTS_PER_SHARD: 3     # fewer tests than this per job aren't worth another Chromium install
 
 jobs:
@@ -32,6 +37,8 @@ jobs:
     outputs:
       count: ${{ steps.split.outputs.count }}
       shards: ${{ steps.split.outputs.shards }}
+      runner: ${{ steps.runner.outputs.labels }}
+      gpu: ${{ steps.runner.outputs.gpu }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -68,9 +75,30 @@ jobs:
             | python prototype/tests/select_tests.py select --summary "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/selected.txt"
           cat "$RUNNER_TEMP/selected.txt"
 
+      # #369: the homelab GPU runners take runs from this repo's own branches only. A fork PR never reaches them: it
+      # stays on ubuntu-latest. The runners keep nothing between jobs and can't reach the LAN (mydocker-compose,
+      # services/gh-runner-gpu); agent-workflow#548 records why this public repo may use them for tests.
+      - name: Pick the runners
+        id: runner
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          HOSTED: ${{ inputs.hosted }}
+        run: |
+          gpu=false
+          if [ "$HOSTED" != true ]; then
+            if [ "$EVENT" = workflow_dispatch ] || { [ "$EVENT" = pull_request ] && [ "$HEAD_REPO" = "$REPO" ]; }; then gpu=true; fi
+          fi
+          if [ "$gpu" = true ]; then labels='["self-hosted","gpu-browser"]'; else labels='["ubuntu-latest"]'; fi
+          echo "gpu=$gpu" >> "$GITHUB_OUTPUT"; echo "labels=$labels" >> "$GITHUB_OUTPUT"; echo "browser tests on $labels"
+
       - name: Split the tests into shards
         id: split
+        env:
+          GPU: ${{ steps.runner.outputs.gpu }}
         run: |
+          [ "$GPU" = true ] && MAX_SHARDS=$MAX_SHARDS_GPU
           : > ids.txt
           if grep -q . "$RUNNER_TEMP/selected.txt"; then
             python -m pytest --collect-only -q $(cat "$RUNNER_TEMP/selected.txt") | grep '::' > ids.txt || true
@@ -94,8 +122,10 @@ jobs:
   browser:
     needs: plan
     if: needs.plan.outputs.count != '0'
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}
     timeout-minutes: 30
+    env:
+      GPU: ${{ needs.plan.outputs.gpu }}
     strategy:
       fail-fast: false
       matrix:
@@ -104,21 +134,25 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        if: env.GPU != 'true'   # the GPU runner image has Python, the requirements, Playwright and Chromium baked in
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: pipeline/requirements.txt
 
       - name: Install Python dependencies
+        if: env.GPU != 'true'
         run: pip install -r pipeline/requirements.txt pytest "playwright==${PLAYWRIGHT_VERSION}"
 
       - name: Cache the Playwright browsers
+        if: env.GPU != 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
 
       - name: Install Chromium
+        if: env.GPU != 'true'
         run: python -m playwright install --with-deps chromium
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
@@ -132,6 +166,10 @@ jobs:
         run: |
           awk -v n="$SHARDS" -v k="$SHARD" '(NR - 1) % n == k' ids.txt > "$RUNNER_TEMP/mine.txt"
           cat "$RUNNER_TEMP/mine.txt"
+
+      - name: Start Chromium on the GPU
+        if: env.GPU == 'true'
+        run: echo "PW_CDP_ENDPOINT=$(start-gpu-chrome)" >> "$GITHUB_ENV"   # the tests' GPU-browser hook (#324)
 
       - name: Browser tests
         env:
