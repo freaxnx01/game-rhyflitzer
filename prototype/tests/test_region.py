@@ -23,10 +23,17 @@ def boot(p, server, query="", block=()):
     return b, page
 
 
+def open_worlds(page):
+    """#346: the region rows moved into the Worlds dialog behind the start screen's World button."""
+    page.click("#worldbtn")
+    page.wait_for_function("() => !document.querySelector('#worlds').hidden", timeout=30000)
+
+
 def test_default_is_hochrhein_and_marked(server):
     with sync_playwright() as p:
         b, page = boot(p, server)
         assert page.evaluate("() => window.__mm.region") == "hochrhein"
+        open_worlds(page)
         assert page.get_attribute("#region-hochrhein", "aria-pressed") == "true"
         assert page.get_attribute("#region-ehrendingen", "aria-pressed") == "false"
         b.close()
@@ -35,8 +42,10 @@ def test_default_is_hochrhein_and_marked(server):
 def test_choosing_ehrendingen_reloads_with_the_parameter_and_keeps_vehicle(server):
     with sync_playwright() as p:
         b, page = boot(p, server, "?vehicle=delorean", block=["**/data/world_ehrendingen.json"])
-        with page.expect_navigation():
-            page.click("#region-ehrendingen")
+        open_worlds(page)
+        page.click("#region-ehrendingen")                     # #346: selecting is free, only DRIVE HERE reloads
+        page.click("#drivebtn", no_wait_after=True)
+        page.wait_for_url(lambda u: "region=ehrendingen" in u, wait_until="commit", timeout=240000)
         assert "region=ehrendingen" in page.url and "vehicle=delorean" in page.url
         b.close()
 
@@ -85,12 +94,12 @@ def test_ehrendingen_has_its_osm_woods(server):
 
 
 def test_start_screen_buttons_are_not_covered_by_the_game_nav(server):
-    """The fixed #game-nav footer must not sit on the region buttons (or hide the language toggle) on the start screen."""
+    """The fixed #game-nav footer must not sit on the start screen's own buttons (or hide the language toggle)."""
     with sync_playwright() as p:
         b, page = boot(p, server)
-        got = page.evaluate("""() => ['#region-hochrhein', '#region-ehrendingen', '#gg-lang-toggle'].map(sel => {
+        got = page.evaluate("""() => ['#worldbtn', '#stylebtn2', '#gg-lang-toggle'].map(sel => {
             const el = document.querySelector(sel), r = el.getBoundingClientRect();
             return [sel, document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el];
         })""")
         b.close()
-    assert got == [["#region-hochrhein", True], ["#region-ehrendingen", True], ["#gg-lang-toggle", True]]
+    assert got == [["#worldbtn", True], ["#stylebtn2", True], ["#gg-lang-toggle", True]]

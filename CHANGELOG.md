@@ -10,6 +10,9 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-10-18 17:46` The **start screen** has a new look: a big **Map Madness** sign over the sunset, the edition plate under it, and a steel bar with **Start · Blitz · Surprise hunt · Choose car**. The line above the bar tells you what the button under your mouse (or keyboard focus) does — and when you come back it shows the mode you last played. <kbd>Tab</kbd> walks the buttons, <kbd>Enter</kbd> starts.
+- `2026-10-18 17:46` **Worlds** have their own screen now, behind the **World** button: pick a region or a world someone built, read its description, best time and where its data comes from, then press **Drive here**. Loading a terrain file or a world **.zip** moved there too, under **Files**; removing a saved world asks before it does it.
+- `2026-10-18 17:46` After a race the button of the mode you just played reads **Again**.
 - `2026-10-17 12:00` **Eigene Welten** zeigen jetzt auch die Häuser an Wohnstrassen, nicht nur an den Hauptstrassen. Die Welten sind dadurch dichter bebaut.
 - `2026-10-15 19:18` **Start screen** is tidier: the list of keys is gone from it. Press <kbd>F1</kbd> (or <kbd>?</kbd>) any time to see all keys.
 

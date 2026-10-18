@@ -56,7 +56,8 @@ def lit_counts(page):
 def test_choose_car_opens_the_screen_with_the_compact(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
-        assert page.evaluate("() => [...document.querySelector('#overlay .row').children].map(b => b.id)") == ["startbtn", "blitzbtn", "huntbtn", "carbtn", "stylebtn2"]
+        assert page.evaluate("() => [...document.querySelector('#overlay .bar .row').children].map(b => b.id)") == ["startbtn", "blitzbtn", "huntbtn", "carbtn"]
+        assert page.evaluate("() => [...document.querySelector('#overlay .row.secondary').children].map(b => b.id).slice(0, 2)") == ["worldbtn", "stylebtn2"]
         open_carsel(page)
         wait_frames(page)
         got = carsel(page)

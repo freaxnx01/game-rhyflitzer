@@ -33,7 +33,8 @@ def test_blitz_button_starts_a_countdown_that_checkpoints_top_up(server):
         b, page, errors = open_page(p, server)
         assert text(page, "#blitzbtn") == "Blitz"
         assert page.locator("kbd", has_text="Blitz").count() == 0           # Blitz is a button, not a key: explained in the start text instead
-        assert "90 seconds" in text(page, "#blitzhint")
+        page.hover("#blitzbtn")                                 # #346: the Blitz explanation is the mode text while BLITZ has hover or focus
+        assert "90 seconds" in text(page, "#ovtext")
         page.click("#blitzbtn")
         page.wait_for_function("() => document.getElementById('overlay').hidden", timeout=T)
         s = blitz(page)
@@ -70,7 +71,7 @@ def test_the_clock_counts_down_only_while_racing_and_ends_the_run_at_zero(server
         r = text(page, "#result")
         assert "Time's up" in r and "0 / 5 checkpoints" in r
         assert page.evaluate("() => localStorage.getItem('mm.blitzBest')") is None
-        assert text(page, "#blitzbtn") == "Retry" and text(page, "#startbtn") == "Start"
+        assert text(page, "#blitzbtn") == "Again" and text(page, "#startbtn") == "Start"
         assert errors == []
         b.close()
 

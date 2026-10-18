@@ -196,7 +196,7 @@ def test_result_screen_rerenders(server):
         page.click("#gg-lang-toggle")
         de = page.evaluate("() => [document.querySelector('#result').textContent, document.querySelector('#startbtn').textContent, document.querySelector('#ovtext').textContent]")
         b.close()
-    assert en[1] == "Retry" and "Finished" in en[0] and "best" in en[0], en
+    assert en[1] == "Again" and "Finished" in en[0] and "best" in en[0], en
     assert de[1] == "Nochmals" and "Im Ziel" in de[0] and "Bestzeit" in de[0], de
     assert de[2].startswith("Münsterplatz erreicht")
     assert errors == []
