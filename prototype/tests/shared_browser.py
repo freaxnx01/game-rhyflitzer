@@ -13,6 +13,7 @@ NORENDER_SCRIPT = "window.__MM_NORENDER = true;"
 class BrowserProxy:
     def __init__(self, real, pool, owned):
         self.real, self._pool, self._owned = real, pool, owned
+        self._contexts = []
 
     def _prepared(self, target):
         if self._pool.norender:
@@ -20,16 +21,23 @@ class BrowserProxy:
         return target
 
     def new_context(self, *args, **kwargs):
-        return self._prepared(self.real.new_context(*args, **kwargs))
+        context = self.real.new_context(*args, **kwargs)
+        self._contexts.append(context)
+        return self._prepared(context)
 
     def new_page(self, *args, **kwargs):
-        return self._prepared(self.real.new_page(*args, **kwargs))
+        page = self.real.new_page(*args, **kwargs)
+        self._contexts.append(page.context)
+        return self._prepared(page)
 
     def close(self):
         if self._owned:
             self.real.close()
             return
-        for context in list(self.real.contexts):
+        # Only what this test created. `real.contexts` also holds a CDP browser's own default context, and closing that
+        # one makes Playwright drop the whole connection: the next test then reconnects while the old one is going down.
+        contexts, self._contexts = self._contexts, []
+        for context in contexts:
             context.close()
 
     def __getattr__(self, name):

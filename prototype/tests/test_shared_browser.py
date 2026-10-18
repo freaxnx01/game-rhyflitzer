@@ -8,11 +8,16 @@ class FakeContext:
     def close(self): self.closed = True
 
 
+class FakePage:
+    def __init__(self, context): self.context = context
+    def add_init_script(self, script): self.context.add_init_script(script)
+
+
 class FakeBrowser:
     def __init__(self): self.contexts, self.connected, self.closes = [], True, 0
     def is_connected(self): return self.connected
     def new_context(self, **kw): c = FakeContext(); self.contexts.append(c); return c
-    def new_page(self, **kw): return self.new_context()   # the page stands in for its context: it has add_init_script
+    def new_page(self, **kw): return FakePage(self.new_context())
     def close(self): self.closes += 1
 
 
@@ -43,6 +48,17 @@ def test_close_closes_the_contexts_but_not_the_process():
     assert all(c.closed for c in launched[0].contexts) and launched[0].closes == 0
 
 
+def test_close_leaves_a_context_the_test_did_not_create_open():
+    """CDP: the remote browser's own default context is in `contexts`, and closing it disconnects the whole connection."""
+    pool, launched = make_pool()
+    proxy = pool.get((), {})
+    default = FakeContext(); launched[0].contexts.append(default)
+    mine = proxy.new_context()
+    page = proxy.new_page()
+    proxy.close()
+    assert mine.closed and page.context.closed and not default.closed
+
+
 def test_close_all_closes_every_process_once():
     pool, launched = make_pool()
     pool.get((), {}); pool.get((["--y"],), {})
@@ -62,14 +78,14 @@ def test_norender_adds_the_init_script_to_pages_and_contexts():
     pool, _ = make_pool()
     pool.norender = True
     proxy = pool.get((), {})
-    assert proxy.new_page().scripts == [sb.NORENDER_SCRIPT]
+    assert proxy.new_page().context.scripts == [sb.NORENDER_SCRIPT]
     assert proxy.new_context().scripts == [sb.NORENDER_SCRIPT]
 
 
 def test_render_mode_adds_no_init_script():
     pool, _ = make_pool()
     pool.norender = False
-    assert pool.get((), {}).new_page().scripts == []
+    assert pool.get((), {}).new_page().context.scripts == []
 
 
 def test_the_stand_in_hands_out_pool_browsers_and_never_stops_anything():
