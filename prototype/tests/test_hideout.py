@@ -770,3 +770,134 @@ def test_cave_switches_happen_deep_in_the_tunnel_not_at_the_portal(server):
         went_in = first(ins, key, off); went_out = first(outs, key, not off)
         assert 35 <= went_in <= 50, (key, "in", went_in)
         assert 30 <= went_out <= 45 and went_out < went_in, (key, "out", went_out)
+
+
+# ---------- #361: the tunnel ring, the star of rooms, the dark switch ----------
+
+def ride(page, h, level):
+    """Stand the car at rest in the cabin; the loop's own frames count the dwell. Down from the tunnel side, up from the ring side."""
+    page.evaluate(LIFT_FAST)
+    lx, lz = h["lift"]["c"]; th = h["lift"]["th"] if level == "ring" else h["lift"]["th"] + math.pi
+    page.evaluate(f"() => window.__mm.place({lx}, {lz}, {th})")
+    page.wait_for_function(RIDE_DONE, arg=level, timeout=240000)
+
+
+def into_room(page, k, room_id):
+    """From the ring level: drive from 45 m into spoke k past the switch (s 52)."""
+    s = page.evaluate(f"() => window.__mm.spoke({k}, 45)")
+    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th']}, 10, 2, ['KeyW'], -600)")
+    page.wait_for_function(f"() => window.__mm.below().level === '{room_id}'", timeout=120000)
+
+
+def back_to_ring(page, k):
+    """From room k at 60 m into its spoke: drive back out past the switch (s 48)."""
+    s = page.evaluate(f"() => window.__mm.spoke({k}, 60)")
+    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th'] + math.pi}, 10, 2, ['KeyW'], -600)")
+    page.wait_for_function("() => window.__mm.below().level === 'ring'", timeout=120000)
+
+
+@needs_world
+def test_ride_down_lands_in_the_ring_and_finds_the_hideout(server):
+    """The ride ends on the ring level with door B open; the find toast comes only now; only the Eiffel spoke is signed; no room is built yet."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        assert page.evaluate("() => window.__mm.hideout().found") is False
+        ride(page, h, "ring")
+        lift = page.evaluate("() => window.__mm.lift()"); below = page.evaluate("() => window.__mm.below()")
+        toast = page.evaluate("() => window.__mm.toast()"); car = page.evaluate("() => window.__mm.car()")
+        found = page.evaluate("() => window.__mm.hideout().found"); stored = page.evaluate("() => localStorage.getItem('mm.hideout')")
+        br.close()
+    assert errors == []
+    assert lift["cabin"] == "bottom" and lift["level"] == "ring" and lift["door"] > 0.9, lift
+    assert below["level"] == "ring" and below["ring"] is True and below["built"] is None and below["signs"] == ["La Tour Eiffel"], below
+    assert len(below["rooms"]) == 8 and below["rooms"][0] == "eiffel", below
+    assert abs(car["y"] + 600) < 1.0 and found is True and stored == "1"
+    assert "Hideout found" in toast["text"] or "Versteck gefunden" in toast["text"], toast
+
+
+@needs_world
+def test_spoke_zero_leads_into_the_eiffel_room_and_back_to_the_ring(server):
+    """Driving along spoke 0 past its dark stretch switches the level to the Eiffel room (no teleport, no toast, speed kept); driving
+    back switches to the ring again. The switch has hysteresis: 50 m in is still the ring either way."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        s = page.evaluate("() => window.__mm.spoke(0, 45)")
+        page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th']}, 10, 0.1, [], -600)")
+        before = page.evaluate("() => ({ below: window.__mm.below(), car: window.__mm.car() })")
+        into_room(page, 0, "eiffel")
+        room = page.evaluate("() => ({ below: window.__mm.below(), car: window.__mm.car(), lvl: window.__mm.level() })")
+        s50 = page.evaluate("() => window.__mm.spoke(0, 50)")
+        page.evaluate(f"() => window.__mm.sim({s50['x']}, {s50['z']}, {s50['th']}, 0, 0.1, [], -600)")
+        mid = page.evaluate("() => window.__mm.below().level")
+        back_to_ring(page, 0)
+        ring = page.evaluate("() => window.__mm.below()")
+        br.close()
+    assert errors == []
+    assert before["below"]["level"] == "ring" and before["below"]["spoke"]["k"] == 0 and before["below"]["built"] == 0, before
+    assert room["below"]["level"] == "eiffel" and room["below"]["built"] == 0 and room["lvl"]["id"] == "eiffel", room
+    assert abs(room["car"]["y"] + 600) < 1.0, room
+    assert mid == "eiffel", mid               # standing at s 50 inside the room level stays there (switch back only at s <= 48)
+    assert ring["level"] == "ring" and ring["built"] == 0, ring
+
+
+@needs_world
+def test_one_room_built_at_a_time_and_empty_rooms_have_no_object(server):
+    """Entering room 3's spoke builds room 3 (no tower, no Eiffel count) and nothing else; going back into room 0 builds the Eiffel room and
+    throws room 3's meshes away."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        into_room(page, 3, "room3")
+        three = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
+        back_to_ring(page, 3)
+        into_room(page, 0, "eiffel")
+        zero = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
+        br.close()
+    assert errors == []
+    assert three["below"]["built"] == 3 and three["below"]["level"] == "room3" and "eiffel" not in three["counts"], three
+    assert three["below"]["object"] is False, three
+    assert zero["below"]["built"] == 0 and zero["counts"]["eiffel"] == 1 and zero["below"]["object"] is True, zero
+
+
+@needs_world
+def test_r_in_the_ring_and_in_a_room(server):
+    """R on the ring level puts the car back at the lift exit's ring end (50 m from the lift centre along the heading); R in a room puts it
+    at the room's portal, inside the lawn, and keeps the level."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        s = page.evaluate("() => window.__mm.spoke(5, 30)")
+        page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th']}, 0, 0.1, [], -600)")
+        page.keyboard.press("KeyR"); page.wait_for_timeout(300)
+        in_ring = page.evaluate("() => ({ car: window.__mm.car(), lvl: window.__mm.level().id })")
+        into_room(page, 0, "eiffel")
+        page.evaluate("() => window.__mm.step(1, [])")
+        page.keyboard.press("KeyR"); page.wait_for_timeout(300)
+        in_room = page.evaluate("() => ({ car: window.__mm.car(), lvl: window.__mm.level().id, room: window.__mm.hideout().room })")
+        br.close()
+    assert errors == []
+    lx, lz = h["lift"]["c"]
+    assert in_ring["lvl"] == "ring" and abs(math.hypot(in_ring["car"]["x"] - lx, in_ring["car"]["z"] - lz) - 50) < 1, in_ring
+    room = in_room["room"]; px, pz = room["portal"]["c"]
+    assert in_room["lvl"] == "eiffel" and math.hypot(in_room["car"]["x"] - px, in_room["car"]["z"] - pz) < 25, in_room
+
+
+@needs_world
+def test_helicopter_is_refused_on_the_ring_level_and_in_a_spoke(server):
+    """F stays refused below in the ring and its tunnels (no sky), with the usual toast; the car stays on the ground."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        s = page.evaluate("() => window.__mm.spoke(2, 30)")
+        results = []
+        for spot in (None, s):
+            if spot:
+                page.evaluate(f"() => window.__mm.sim({spot['x']}, {spot['z']}, {spot['th']}, 0, 0.1, [], -600)")
+            page.keyboard.press("KeyF"); page.wait_for_timeout(500)
+            results.append(page.evaluate("() => ({ toast: window.__mm.toast().text, flying: window.__mm.fly().on, y: window.__mm.car().y, lvl: window.__mm.level().id })"))
+        br.close()
+    assert errors == []
+    for r in results:
+        assert ("sky" in r["toast"] or "Himmel" in r["toast"]) and r["flying"] is False and abs(r["y"] + 600) < 1.0 and r["lvl"] == "ring", r
