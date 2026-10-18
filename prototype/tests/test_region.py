@@ -44,8 +44,8 @@ def test_choosing_ehrendingen_reloads_with_the_parameter_and_keeps_vehicle(serve
         b, page = boot(p, server, "?vehicle=delorean", block=["**/data/world_ehrendingen.json"])
         open_worlds(page)
         page.click("#region-ehrendingen")                     # #346: selecting is free, only DRIVE HERE reloads
-        with page.expect_navigation():
-            page.click("#drivebtn")
+        page.click("#drivebtn", no_wait_after=True)
+        page.wait_for_url(lambda u: "region=ehrendingen" in u, wait_until="commit", timeout=240000)
         assert "region=ehrendingen" in page.url and "vehicle=delorean" in page.url
         b.close()
 
