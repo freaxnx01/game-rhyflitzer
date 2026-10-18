@@ -169,6 +169,8 @@ def test_the_minimap_shows_the_route_while_driving(server):
         page.keyboard.press("KeyO")
         frames(page)
         assert route_pixels(page) < 20
+        # the HUD line refreshes on a 250 ms tick; three frames only span that on a slow renderer, so wait for the tick
+        page.wait_for_function("() => document.getElementById('autoline').textContent === ''", timeout=5000)
         assert page.text_content("#autoline") == ""
         b.close()
 
