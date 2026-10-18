@@ -7,3 +7,9 @@ export const DRONE = { rate: 2.5, aimRate: 4, aimAhead: 4, aimUp: 1, swaySide: 0
 export function droneSway(t, cfg = DRONE) {
   return { side: Math.sin(2 * Math.PI * cfg.swaySideHz * t) * cfg.swaySide, up: Math.sin(2 * Math.PI * cfg.swayUpHz * t) * cfg.swayUp };
 }
+
+// #202: the walker's first-person view: the eye `eye` metres over the feet, looking along th, pitched up by `pitch` (rad)
+export function footView(x, y, z, th, pitch, eye) {
+  const ey = y + eye, cp = Math.cos(pitch);
+  return { eye: [x, ey, z], at: [x + Math.cos(th) * cp * 10, ey + Math.sin(pitch) * 10, z + Math.sin(th) * cp * 10] };
+}

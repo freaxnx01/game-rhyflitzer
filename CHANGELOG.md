@@ -15,6 +15,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-17 18:55` **Get out of the car** with <kbd>Z</kbd> and walk around in first person: <kbd>W</kbd>/<kbd>S</kbd> walk, <kbd>A</kbd>/<kbd>D</kbd> sidestep, the arrow keys or the mouse (click the landscape) turn, <kbd>Space</kbd> jumps. <kbd>F</kbd> switches to **hovering** like in Minecraft — <kbd>Space</kbd> up, <kbd>Shift</kbd> down — so you can float up beside the Eiffel Tower in the hideout. Walls, trees and the tower's legs stop you. Stand next to the car and press <kbd>Z</kbd> to get back in. Getting out during a race is allowed, but that run does not count, and checkpoints only count with the car.
 - `2026-10-16 12:16` The start screen's **Worlds** row now ends with **+ Build your own world…**, which opens the **region editor**. The row stays even when no gallery worlds load, so the way to the editor is always there.
 - `2026-10-14 11:31` The **region editor** now counts anonymously which **places** people frame and build: Gemeinde names, the frame size and a position rounded to about 5 km, never the exact frame. No cookies, no IP address stored, and nothing changes if you block it. The **Privacy** note sits under the map.
 
