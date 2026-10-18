@@ -2800,8 +2800,8 @@ function revertModeText() { showModeText(focusedMode() ?? SHOWN.mode); }
 function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('startbtn').textContent = tr(done && !blitz && !hunt ? 'retry' : 'start'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); if (done) $('result').innerHTML = resultHtml(R.last); for (const id of Object.keys(MODE_BTN)) $(id).disabled = !!WORLD_GONE; }
 // the tags, the edition plate and the sticker name the loaded world, so they follow the language and the chosen car
 function renderStartScreen() { $('edition').textContent = editionText(REGION, tr); $('worldbtn').textContent = tr('worldBtn', REGION.name); $('cartagname').textContent = tr('carTag', vehicleText(tr, CHOICE.id, 'name')); const sticker = REGION.generated ? null : REGION.id === 'ehrendingen' ? 'stickerEhrendingen' : 'stickerHochrhein'; $('sticker').hidden = !sticker; $('sticker').textContent = sticker ? tr(sticker) : ''; }
-const firstModeButton = () => Object.keys(MODE_BTN).map($).find(b => !b.hidden) || $('carbtn');
-function focusStart() { if (WORLD_GONE) { $('worldbtn').focus(); return; } firstModeButton().focus(); }   // the error state has no mode to start
+const firstModeButton = () => Object.keys(MODE_BTN).map($).find(b => !b.hidden);   // RACELESS hides two of the three, never all
+function focusStart() { (WORLD_GONE ? $('worldbtn') : firstModeButton()).focus(); }   // the error state has no mode to start
 if (RACELESS) for (const id of ['startbtn', 'blitzbtn']) $(id).hidden = true;
 for (const id of Object.keys(MODE_BTN)) { const b = $(id); b.addEventListener('focus', () => showModeText(MODE_BTN[id])); b.addEventListener('mouseenter', () => showModeText(MODE_BTN[id])); b.addEventListener('blur', revertModeText); b.addEventListener('mouseleave', revertModeText); }
 $('startbtn').onclick = () => { SFX.start(); startRace(); };
