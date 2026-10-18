@@ -3,6 +3,11 @@ name: Tests
 on:
   pull_request:        # every PR into any branch; no paths filter, a required check that never reports blocks the merge forever
   workflow_dispatch:
+    inputs:
+      all:
+        description: "Run every browser test file, not just the ones the diff affects"
+        type: boolean
+        default: false
 
 permissions:           # pull-requests/issues write: the Visual-tests PR comment (#332). A fork PR gets a read-only token, the recorder only warns.
   contents: read
@@ -51,7 +56,13 @@ jobs:
       - name: Select the affected browser tests
         env:
           BASE_REF: ${{ github.base_ref }}
+          ALL: ${{ inputs.all }}
         run: |
+          if [ "$ALL" = true ]; then
+            ls prototype/tests/test_*.py > "$RUNNER_TEMP/selected.txt"
+            cat "$RUNNER_TEMP/selected.txt"
+            exit 0
+          fi
           base="origin/${BASE_REF:-main}"
           git diff --name-only "$base"...HEAD \
             | python prototype/tests/select_tests.py select --summary "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/selected.txt"
