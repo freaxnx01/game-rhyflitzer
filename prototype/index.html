@@ -4,7 +4,7 @@
 <title>Map Madness</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&display=swap">
 <style>
-:root{color-scheme:dark;--charcoal:#1c1f26;--ink:#14171d;--sun:#ffc61a;--signal:#ff7a1a;--cream:#f5efe0;--steel:#7d8593;--steel-l:#b9bfc9;--go:#7fe0a0;--red:#e0322d}
+:root{color-scheme:dark;--charcoal:#1c1f26;--ink:#14171d;--sun:#ffc61a;--signal:#ff7a1a;--burnt:#c24a00;--cream:#f5efe0;--steel:#7d8593;--steel-l:#b9bfc9;--go:#7fe0a0;--red:#e0322d}
 html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charcoal);color:var(--cream);font-family:'Barlow Condensed','Arial Narrow',sans-serif}
 #gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .plate{position:fixed;background:rgba(20,23,29,.82);border:4px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l);padding:6px 14px;box-sizing:border-box}
@@ -78,7 +78,9 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #map{display:block;width:400px;height:200px;pointer-events:auto;touch-action:none;cursor:crosshair}
 @media (max-width:900px){#speedo{width:130px;height:130px}#map{width:240px;height:120px}#time{font-size:30px}#gear{display:none}#tl{min-width:140px}}
 #br.full{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);z-index:20}#br.full #map{width:min(92vw,calc((100vh - 80px) * 2));height:auto}
-#overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(28,31,38,.55),rgba(10,8,20,.92));padding:16px;box-sizing:border-box;overflow:auto}
+/* #346 "Sunset Steel": the start screen is full-bleed over the live scene; the mockup's sky stops carry alpha, so the
+   scene shows through and the title still reads as sunset over whatever sky the current style renders. */
+#overlay{position:fixed;inset:0;z-index:10;display:block;padding:0;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;background:radial-gradient(ellipse at center,transparent 55%,rgba(10,8,20,.55)),linear-gradient(180deg,rgba(26,18,54,.78),rgba(90,38,71,.62) 35%,rgba(200,83,47,.45) 62%,rgba(240,147,60,.35) 80%,rgba(247,198,94,.3))}
 #overlay[hidden]{display:none}
 .panel{max-width:640px;width:100%;background:linear-gradient(#3a404b,#23272f);border:5px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l);box-shadow:8px 8px 0 var(--ink);padding:26px 28px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px}
 .panel h1{margin:0;font-family:Bungee,sans-serif;font-weight:400;font-size:clamp(40px,8vw,72px);line-height:.9;color:var(--sun);transform:skewX(-8deg);text-shadow:4px 4px 0 #c24a00,8px 8px 0 var(--ink);text-wrap:balance}
@@ -91,22 +93,78 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 .btn.primary{background:linear-gradient(#ffe27a,#ffc61a 45%,#ff9a1a);border-color:#fff2b8 #a04a00 #a04a00 #fff2b8}
 .btn:active{transform:translate(4px,4px);box-shadow:1px 1px 0 var(--ink)}
 .btn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
-.terrainrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;background:var(--ink);border:3px solid;border-color:#0b0d12 #4a515e #4a515e #0b0d12}
-/* #127: the region choice. The loaded region's button is outlined like a focused one. */
-.regionrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:10px 0}
-.regionrow .btn[aria-pressed="true"]{outline:3px solid var(--sun)}
-/* #170: the curated worlds row. Always shown, because it ends with the way to the editor; the worlds join it once the gallery answers. */
-#buildworld{text-decoration:none}
-#worldsdesc{flex-basis:100%;font-size:14px;color:var(--steel-l);min-height:1.2em;margin:0}
 .btn.small{height:40px;padding:0 14px;font-size:17px;display:inline-flex;align-items:center;box-shadow:3px 3px 0 var(--ink)}
 .btn[hidden]{display:none}
 .btn.small:focus-within,label.btn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
-#worldgone{margin:10px 0;padding:10px 12px;background:var(--ink);border:3px solid #a04a00}#worldgone[hidden]{display:none}#worldgone h2{margin:0 0 4px;font-size:22px;color:var(--sun)}#worldgone p{margin:4px 0 8px;font-size:16px}#worldgone .row{display:flex;flex-wrap:wrap;gap:10px}#worldgone a.btn{display:inline-flex;align-items:center;text-decoration:none}#worldgone a.btn[hidden],#worldgone [hidden]{display:none}
-#mmhstatus,#worldstatus,#worldfilestatus{font-size:15px;font-weight:600;color:var(--steel-l)}
+/* #346 start screen: tags, logo + edition plate, the one text slot, the sticker, the steel bar and the footer */
+.start{min-height:100%;display:flex;flex-direction:column;color:var(--cream)}
+.tags{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:24px 32px 0}
+.start .sub,.tag{padding:6px 14px;background:rgba(20,23,29,.75);border:2px solid #4a515e;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
+.tag i{display:inline-block;width:10px;height:10px;margin-right:8px;background:var(--sun);box-shadow:0 0 8px var(--sun);vertical-align:1px}
+.logo{display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px 16px 0;text-align:center}
+.start h1{margin:0;font-family:Bungee,sans-serif;font-weight:400;font-size:clamp(56px,11vw,150px);line-height:.9;letter-spacing:-2px;color:var(--sun);transform:skewX(-9deg);-webkit-text-stroke:3px var(--charcoal);text-shadow:4px 4px 0 var(--signal),8px 8px 0 var(--burnt),12px 12px 0 #6b2400,16px 16px 0 var(--charcoal),0 0 60px rgba(255,122,26,.55)}
+.edition{display:flex;align-items:center;gap:14px}
+.edition i{height:4px;width:120px;background:linear-gradient(90deg,rgba(255,198,26,0),var(--sun))}.edition i:last-child{background:linear-gradient(90deg,var(--sun),rgba(255,198,26,0))}
+.edition span{padding:6px 20px;background:linear-gradient(#3a3f4b,#1c1f26);border:3px solid;border-color:#8d96a3 #2a2e38 #2a2e38 #8d96a3;font-size:22px;font-weight:800;font-style:italic;letter-spacing:3px;text-transform:uppercase;color:var(--sun)}
+.mid{flex:1;position:relative;display:flex;align-items:flex-end;padding:24px 32px}
+.slot{max-width:560px;padding:12px 16px;background:rgba(20,23,29,.78);border:3px solid;border-color:#4a515e var(--ink) var(--ink) #4a515e}
+.slot p{margin:0;font-size:19px;font-weight:600;line-height:1.35}
+#sticker{position:absolute;right:10%;bottom:30%;max-width:260px;padding:12px 18px;transform:rotate(-7deg);background:var(--sun);border:5px solid var(--charcoal);box-shadow:8px 8px 0 var(--charcoal);color:var(--charcoal);font-size:20px;font-weight:800;font-style:italic;line-height:1.05;text-transform:uppercase;text-align:center}#sticker[hidden]{display:none}
+.bar{padding:18px 32px 14px;background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3;box-shadow:0 -12px 30px rgba(0,0,0,.5)}
+.bar .row{justify-content:center;gap:16px}.bar .row.secondary{margin-top:12px;gap:10px}
+.bar .row:not(.secondary) .btn{min-width:180px}
+.btn:hover:not(:disabled){background:linear-gradient(#ffe27a,#ffc61a 45%,#ff9a1a);border-color:#fff2b8 #a04a00 #a04a00 #fff2b8}
+.btn:disabled{cursor:default;color:#2a2e38;background:#5f6673;border-color:#737b88 #3a404b #3a404b #737b88;box-shadow:none}
+.foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding:8px 32px calc(64px + env(safe-area-inset-bottom,0px))}
+.foot p{margin:0}#blurb{font-size:14px;color:var(--steel-l)}.foot .status{flex-basis:100%;font-size:13px;color:var(--steel-l)}
+.link{background:none;border:0;padding:0;font:inherit;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--sun);text-decoration:underline;cursor:pointer}.link[hidden]{display:none}
+#worldgone{padding:0 0 8px;margin:0 0 8px;border:0;border-bottom:3px solid #a04a00}#worldgone[hidden]{display:none}#worldgone h2{margin:0 0 4px;font-size:22px;color:var(--sun)}#worldgone p{margin:4px 0 8px;font-size:16px}#worldgone .row{display:flex;flex-wrap:wrap;gap:10px}#worldgone a.btn{display:inline-flex;align-items:center;text-decoration:none}#worldgone a.btn[hidden],#worldgone [hidden]{display:none}
+#mmhstatus,#worldstatus,#worldfilestatus,#wpworld,#wpterrain{font-size:inherit;font-weight:600;color:var(--steel-l)}
 #mmhstatus.real,#worldstatus.real{color:var(--go)}
 #worldstatus{display:block}
-#result{font-size:48px;font-weight:800;font-style:italic;color:var(--sun);line-height:1}
+#result{font-size:48px;font-weight:800;font-style:italic;color:var(--sun);line-height:1;margin-bottom:8px}#result[hidden]{display:none}
 #result small{display:block;font-size:18px;color:var(--steel-l);font-style:normal;letter-spacing:2px;text-transform:uppercase}
+/* #346 Worlds dialog: RaceSetup vocabulary -- sunken list well on the left, raised preview on the right, steel footer */
+#worlds{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;gap:14px;padding:16px 24px 0;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;background:radial-gradient(ellipse at center,rgba(28,31,38,.7),rgba(10,8,20,.95));color:var(--cream)}#worlds[hidden]{display:none}
+.ws-head{display:flex;align-items:baseline;gap:16px}
+.ws-head h1{margin:0;font-family:Bungee,sans-serif;font-weight:400;font-size:clamp(28px,5vw,48px);color:var(--sun);transform:skewX(-8deg)}
+.ws-sub{flex:1;font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
+.ws-body{display:flex;gap:18px;flex:1;min-height:0}
+.ws-list{flex:0 0 min(380px,40%);padding:12px;background:var(--ink);border:3px solid;border-color:#0b0d12 #4a515e #4a515e #0b0d12;display:flex;flex-direction:column;gap:14px}
+.regionrow{display:flex;flex-direction:column;gap:4px}
+.ws-label{font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel)}
+.ws-row{height:48px;padding:0 14px;text-align:left;font-family:inherit;font-size:20px;font-weight:800;font-style:italic;line-height:1;letter-spacing:1px;text-transform:uppercase;color:var(--cream);background:#1c1f26;border:0;border-left:4px solid transparent;cursor:pointer}
+.ws-row:hover{background:#2a2e38}
+.ws-row[aria-pressed="true"]{color:var(--sun);border-left-color:var(--sun);background:#23272f}
+.ws-row:focus-visible{outline:3px solid var(--sun);outline-offset:-3px}.ws-row[hidden]{display:none}
+.ws-empty{margin:4px 0;padding:10px;border:2px dashed #4a515e;font-size:14px;color:var(--steel-l)}.ws-empty[hidden]{display:none}
+#buildworld{text-decoration:none;align-self:flex-start;margin-top:6px}
+.ws-preview{flex:1;min-width:0;padding:16px 18px;background:linear-gradient(#3a404b,#23272f);border:5px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l);box-shadow:8px 8px 0 var(--ink);display:flex;flex-direction:column;gap:8px}
+.ws-name{font-size:40px;font-weight:800;font-style:italic;letter-spacing:1px;text-transform:uppercase;color:var(--sun);line-height:1;overflow-wrap:anywhere}
+#worldsdesc{margin:0;font-size:16px;font-weight:600;min-height:1.2em}
+.ws-line{margin:0;font-size:15px}.ws-line:empty{display:none}
+.ws-files{margin-top:auto;padding:10px 12px;background:var(--ink);border:3px solid;border-color:#0b0d12 #4a515e #4a515e #0b0d12}
+.ws-files summary{cursor:pointer;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel)}
+.terrainrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-top:10px}
+#worldforgetask{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600}#worldforgetask[hidden]{display:none}
+.ws-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 -24px;padding:14px 24px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3;box-shadow:0 -12px 30px rgba(0,0,0,.5)}
+.ws-source{font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
+/* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
+body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
+body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
+body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast){display:none}
+@media (max-width:600px){
+  .tags{padding:10px 12px 0}.start .sub,.tag{font-size:11px;padding:4px 8px;letter-spacing:1px}
+  .logo{padding:14px 12px 0;gap:8px}.start h1{font-size:48px;letter-spacing:-1px;text-shadow:3px 3px 0 var(--signal),6px 6px 0 var(--burnt),9px 9px 0 var(--charcoal)}
+  .edition i{width:28px}.edition span{font-size:15px;padding:4px 10px}
+  .mid{padding:12px 12px 10px}.slot{padding:8px 10px}.slot p{font-size:15px}#sticker{display:none}
+  .bar{position:sticky;bottom:0;padding:10px 12px}
+  .bar .row:not(.secondary){display:grid;grid-template-columns:1fr 1fr;gap:8px}.bar .row:not(.secondary) .btn{min-width:0;height:48px;padding:0 8px;font-size:20px}
+  .bar .row.secondary{gap:8px}#worldbtn{flex-basis:100%}.bar .row.secondary .btn{flex:1;padding:0 8px;font-size:15px}
+  .foot{padding:8px 12px calc(16px + env(safe-area-inset-bottom,0px))}#blurb{font-size:13px}
+  #worlds{padding:12px 16px 0;gap:10px}.ws-body{flex-direction:column;flex:none}.ws-list{flex:none}.ws-preview{box-shadow:none;padding:10px 12px}.ws-name{font-size:26px}#worldsdesc{display:none}
+  .ws-foot{margin:0 -16px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}.ws-source{display:none}.ws-foot .btn{flex:1}
+}
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
 @media (pointer:coarse){#touch{display:block}}
 #touch button{position:absolute;pointer-events:auto;width:84px;height:84px;border-radius:50%;background:rgba(20,23,29,.6);border:4px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:30px;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none}
@@ -260,50 +318,100 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <button id="tH" type="button" aria-label="Handbrake" data-i18n-aria="handbrake">H</button>
 </div>
 
+<!-- #346 "Sunset Steel" start screen (title mockup A): full-bleed, no card. One text slot under the logo carries the
+     error state, the result and the mode text of whichever mode has focus or hover; the steel bar is 4 + 4 buttons. -->
 <div id="overlay">
-  <div class="panel">
-    <div class="sub" data-i18n="sub">Codename Rhyflitzer · Prototype v0.2</div>
-    <h1>Map Madness</h1>
-    <div id="worldgone" hidden role="alert">
-      <h2 id="worldgonetitle"></h2>
-      <p id="worldgonetext"></p>
-      <div class="row"><a id="buildagain" class="btn primary" href="../editor.html"></a><button id="drivehere" class="btn" type="button"></button></div>
+  <div class="start">
+    <div class="tags">
+      <div class="sub" data-i18n="sub">Codename Rhyflitzer · Prototype v0.2</div>
+      <div id="cartag" class="tag" aria-hidden="true"><i></i><span id="cartagname"></span></div>
     </div>
-    <p id="ovtext">Sisseln → Sisslerfeld → Stein → Bad Säckingen. Five checkpoints in any order, then the finish at the Münsterplatz. The Holzbrücke is for pedestrians. Nobody told the timer.</p>
-    <div id="result" hidden></div>
-    <p id="blitzhint" data-i18n="blitzIntro" style="font-size:15px;margin:6px 0">The same five checkpoints and the finish — but the clock counts down. 90 seconds to start, every checkpoint adds 60. Finish with time left for a rank.</p>
-    <div class="row">
-      <button id="startbtn" class="btn primary" type="button">Start</button>
-      <button id="blitzbtn" class="btn" type="button">Blitz</button>
-      <button id="huntbtn" class="btn" type="button" data-i18n="hunt">Surprise hunt</button>
-      <button id="carbtn" class="btn" type="button" data-i18n="chooseCar">Choose car</button>
-      <button id="stylebtn2" class="btn" type="button">Style: Original</button>
+    <div class="logo">
+      <h1>Map Madness</h1>
+      <div class="edition"><i></i><span id="edition"></span><i></i></div>
     </div>
-    <div class="regionrow">
-      <span data-i18n="region">Region</span>
-      <button id="region-hochrhein" class="btn small" type="button" aria-pressed="true">Hochrhein</button>
-      <button id="region-ehrendingen" class="btn small" type="button" aria-pressed="false">Ehrendingen</button>
-      <button id="region-world" class="btn small" type="button" aria-pressed="true" hidden></button>
+    <div class="mid">
+      <div class="slot">
+        <div id="worldgone" hidden role="alert">
+          <h2 id="worldgonetitle"></h2>
+          <p id="worldgonetext"></p>
+          <div class="row"><a id="buildagain" class="btn primary" href="../editor.html"></a><button id="drivehere" class="btn" type="button"></button></div>
+        </div>
+        <div id="result" hidden></div>
+        <p id="ovtext" aria-live="polite">Building the world…</p>
+      </div>
+      <div id="sticker" hidden aria-hidden="true"></div>
     </div>
-    <div id="worldsrow" class="regionrow">
-      <span id="worldslabel" data-i18n="worldsRow">Worlds</span>
-      <span id="worldsbtns" style="display:contents"></span>
-      <a id="buildworld" class="btn small" href="../editor.html" data-i18n="buildYourOwn">+ Build your own world…</a>
-      <p id="worldsdesc" role="status"></p>
+    <div class="bar">
+      <div class="row">
+        <button id="startbtn" class="btn primary" type="button" disabled>Start</button>
+        <button id="blitzbtn" class="btn" type="button" disabled>Blitz</button>
+        <button id="huntbtn" class="btn" type="button" disabled data-i18n="hunt">Surprise hunt</button>
+        <button id="carbtn" class="btn" type="button" data-i18n="chooseCar">Choose car</button>
+      </div>
+      <div class="row secondary">
+        <button id="worldbtn" class="btn small" type="button"></button>
+        <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
+        <button id="tutorialbtn" class="btn small" type="button" hidden data-i18n="tutorial">Tutorial</button>
+        <button id="newsbtn" class="btn small" type="button" hidden data-i18n="whatsNew">What's new</button>
+      </div>
     </div>
-    <div class="terrainrow">
-      <label for="mmhfile" class="btn small" data-i18n="loadTerrain">Load terrain (.mmh)</label>
-      <input id="mmhfile" type="file" accept=".mmh" hidden>
-      <button id="mmhclear" class="btn small" type="button" hidden data-i18n="useMadeUp">Use made-up terrain</button>
-      <label for="worldfile" class="btn small" data-i18n="loadWorldFile">Load world file (.zip)</label>
-      <input id="worldfile" type="file" accept=".zip,application/zip" hidden>
-      <button id="worlddl" class="btn small" type="button" hidden data-i18n="downloadWorld">Download world</button>
-      <button id="worldforget" class="btn small" type="button" hidden data-i18n="forgetWorld">Remove saved copy</button>
-      <span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span>
-      <span id="worldfilestatus" role="status"></span>
+    <div class="foot">
+      <p id="blurb">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
+      <button id="creditsbtn" class="link" type="button" hidden data-i18n="credits">Credits</button>
+      <p class="status"><span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span></p>
     </div>
-    <p id="blurb" style="font-size:14px;color:var(--steel-l)">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
   </div>
+</div>
+
+<!-- #346 Worlds dialog: the region picker, the gallery (#170) and the terrain / world-file controls moved off the
+     start screen. A row selects, only DRIVE HERE reloads the page with ?region= / ?world=. -->
+<div id="worlds" hidden role="dialog" aria-modal="true" aria-labelledby="worldstitle">
+  <div class="ws-head">
+    <h1 id="worldstitle" data-i18n="worldsTitle">Worlds</h1>
+    <span class="ws-sub" data-i18n="worldsSub">Choose where to drive</span>
+    <button id="worldsback" class="btn" type="button" data-i18n="carselBack">‹ Back</button>
+  </div>
+  <div class="ws-body">
+    <div class="ws-list">
+      <div class="regionrow" role="group" aria-labelledby="regionslabel">
+        <span id="regionslabel" class="ws-label" data-i18n="region">Region</span>
+        <button id="region-hochrhein" class="ws-row" type="button" aria-pressed="true">Hochrhein</button>
+        <button id="region-ehrendingen" class="ws-row" type="button" aria-pressed="false">Ehrendingen</button>
+        <button id="region-world" class="ws-row" type="button" aria-pressed="true" hidden></button>
+      </div>
+      <div id="worldsrow" class="regionrow" role="group" aria-labelledby="worldslabel">
+        <span id="worldslabel" class="ws-label" data-i18n="worldsRow">Worlds</span>
+        <span id="worldsbtns" style="display:contents"></span>
+        <p id="worldsempty" class="ws-empty" hidden data-i18n="worldsEmpty"></p>
+        <a id="buildworld" class="btn small" href="../editor.html" data-i18n="buildYourOwn">+ Build your own world…</a>
+      </div>
+    </div>
+    <div class="ws-preview">
+      <div id="wpname" class="ws-name"></div>
+      <p id="worldsdesc" role="status"></p>
+      <p id="wpworld" class="ws-line"></p>
+      <p id="wpterrain" class="ws-line"></p>
+      <p id="wpbest" class="ws-line"></p>
+      <details id="wpfiles" class="ws-files" open>
+        <summary data-i18n="filesTitle">Files</summary>
+        <div class="terrainrow">
+          <label for="mmhfile" class="btn small" data-i18n="loadTerrain">Load terrain (.mmh)</label>
+          <input id="mmhfile" type="file" accept=".mmh" hidden>
+          <button id="mmhclear" class="btn small" type="button" hidden data-i18n="useMadeUp">Use made-up terrain</button>
+          <label for="worldfile" class="btn small" data-i18n="loadWorldFile">Load world file (.zip)</label>
+          <input id="worldfile" type="file" accept=".zip,application/zip" hidden>
+          <button id="worlddl" class="btn small" type="button" hidden data-i18n="downloadWorld">Download world</button>
+          <button id="worldforget" class="btn small" type="button" hidden data-i18n="forgetWorld">Remove saved copy</button>
+          <span id="worldforgetask" hidden><span data-i18n="removeAsk">Really remove?</span>
+            <button id="worldforgetyes" class="btn small" type="button" data-i18n="removeYes">Yes</button>
+            <button id="worldforgetno" class="btn small" type="button" data-i18n="removeNo">No</button></span>
+          <span id="worldfilestatus" role="status"></span>
+        </div>
+      </details>
+    </div>
+  </div>
+  <div class="ws-foot"><span id="wpsource" class="ws-source"></span><button id="drivebtn" class="btn primary" type="button" data-i18n="driveHere">Drive here ›</button></div>
 </div>
 
 <!-- #7 car selection: the stage is a see-through cut-out onto the live scene (the real car turns on it); the subtitle is the current mode -->
@@ -368,6 +476,7 @@ import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTime
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
+import { lastModeFrom, modeTextKey, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
@@ -2175,7 +2284,7 @@ window.__mm.lift = () => ({ phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, floor:
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };
 // #270: the car lights switch — head + tail together, session only (not persisted). #271 (hazard) and #230 (brake) share this state.
 const LIGHTS = { head: false, hazard: false, braking: false };
-const keys = {}; addEventListener('keydown', e => { if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129) */ if (e.code === 'Tab') e.preventDefault(); if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'F3') { e.preventDefault(); toggleDebug(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight', 'Tab'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'F3') { e.preventDefault(); toggleDebug(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
@@ -2658,7 +2767,7 @@ window.__mm.toast = () => ({ text: $('toast').textContent, shown: $('toast').cla
 function fadeToast(dt) { if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } }   // also while paused (review of #90)
 // #167: a generated world without a race has no checkpoints to drive: the surprise hunt is its only run
 const RACELESS = !!REGION.generated && !REGION.race;
-function startRace(mode = 'trial', rng = Math.random) { if (RACELESS) mode = 'hunt'; R.mode = mode; const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = !hunt; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = [START.x, START.z, START.th]; clearNavi(); resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); }
+function startRace(mode = 'trial', rng = Math.random) { if (RACELESS) mode = 'hunt'; R.mode = mode; try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = !hunt; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = [START.x, START.z, START.th]; clearNavi(); resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); }
 function startHuntRun(hunt, rng, cands = PRESENT_CANDS) { const spots = hunt ? pickPresentSpots(cands, START, rng).map(s => ({ ...s, y: groundH(s.x, s.z) })) : []; HUNT_RUN = { spots, found: spots.map(() => false), bag: [], rng, endIn: 0 }; presentObjs.forEach((o, i) => { const s = spots[i]; o.g.visible = !!s; if (s) o.g.position.set(s.x, s.y, s.z); }); confetti.parts = []; confetti.pts.visible = false; }
 const modeKey = () => R.mode === 'hunt' ? 'modeHunt' : R.mode === 'blitz' ? 'modeBlitz' : 'mode';   // #7: the car screen's subtitle shows the same mode
 function renderModeLine() { const hunt = R.mode === 'hunt', blitz = R.mode === 'blitz'; $('tl').querySelector('.mode').textContent = tr(modeKey(), REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's
@@ -2680,16 +2789,57 @@ function timeUp() { stopAuto('reset'); R.state = 'finished'; R.timeUp = true; R.
 const penalties = () => `${R.jumped ? tr('notCountedJump') : ''}${R.auto ? tr('notCountedAuto') : ''}${R.flown ? tr('notCountedHeli') : ''}${R.walked ? tr('notCountedFoot') : ''}${R.pontoon ? tr('notCountedPontoon') : ''}${R.swapped ? tr('notCountedSwap') : ''}`;
 const notes = () => `${penalties()}${R.shortcut ? tr('viaHolz') : ''}`;
 function resultHtml(last) { if (last.timeUp) return `<small>${tr('blitzTimeUp')}</small>${tr('blitzCps', last.done)}`; if (last.mode === 'blitz') return `<small>${tr(last.rec ? 'newRecord' : 'blitzRank')}</small>${last.rank}<small>${tr('blitzLeft', fmt(last.left).replace(/<[^>]+>/g, ''))}${notes()}${tr('blitzBest', R.blitzBest === null ? null : fmt(R.blitzBest).replace(/<[^>]+>/g, ''))}</small>`; if (last.mode === 'hunt') return `<small>${tr(last.rec ? 'newRecord' : 'huntAllFound')}</small>${fmt(last.t)}<small>${penalties()}${tr('bestLower')} ${R.huntBest === null ? '—' : fmt(R.huntBest)}</small>`; return `<small>${tr(last.rec ? 'newRecord' : 'finished')}</small>${fmt(last.t)}<small>${notes()}${tr('bestLower')} ${fmt(R.best)}</small>`; }
+// #346: the one text slot shows the mode that has focus or hover; with nothing focused it shows the mode last played
+const SHOWN = { mode: lastModeFrom((() => { try { return localStorage.getItem('mm.lastMode'); } catch (e) { return null; } })(), RACELESS) };
+const MODE_BTN = { startbtn: 'trial', blitzbtn: 'blitz', huntbtn: 'hunt' };
+const focusedMode = () => MODE_BTN[document.activeElement && document.activeElement.id] ?? null;
+function modeText(mode) { const done = R.state === 'finished' && mode === R.mode; return tr(done ? (R.timeUp ? 'blitzTimeUpText' : mode === 'blitz' ? 'blitzFinishedText' : mode === 'hunt' ? 'huntFinishedText' : REGION.strings.finished) : modeTextKey(mode, REGION.strings)); }
+function showModeText(mode) { $('ovtext').textContent = modeText(mode); }
+function revertModeText() { showModeText(focusedMode() ?? SHOWN.mode); }
 // the overlay doubles as the start and the result screen, so its texts depend on the race state
-function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; $('ovtext').textContent = tr(done ? (R.timeUp ? 'blitzTimeUpText' : blitz ? 'blitzFinishedText' : hunt ? 'huntFinishedText' : REGION.strings.finished) : REGION.strings.intro); $('startbtn').textContent = tr(done && !blitz && !hunt ? 'retry' : 'start'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); if (done) $('result').innerHTML = resultHtml(R.last); }
-if (RACELESS) for (const id of ['startbtn', 'blitzbtn', 'blitzhint']) $(id).hidden = true;
+function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('startbtn').textContent = tr(done && !blitz && !hunt ? 'retry' : 'start'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); if (done) $('result').innerHTML = resultHtml(R.last); for (const id of Object.keys(MODE_BTN)) $(id).disabled = !!WORLD_GONE; }
+// the tags, the edition plate and the sticker name the loaded world, so they follow the language and the chosen car
+function renderStartScreen() { $('edition').textContent = editionText(REGION, tr); $('worldbtn').textContent = tr('worldBtn', REGION.name); $('cartagname').textContent = tr('carTag', vehicleText(tr, CHOICE.id, 'name')); const sticker = REGION.generated ? null : REGION.id === 'ehrendingen' ? 'stickerEhrendingen' : 'stickerHochrhein'; $('sticker').hidden = !sticker; $('sticker').textContent = sticker ? tr(sticker) : ''; }
+const firstModeButton = () => Object.keys(MODE_BTN).map($).find(b => !b.hidden) || $('carbtn');
+function focusStart() { if (WORLD_GONE) { $('worldbtn').focus(); return; } firstModeButton().focus(); }   // the error state has no mode to start
+if (RACELESS) for (const id of ['startbtn', 'blitzbtn']) $(id).hidden = true;
+for (const id of Object.keys(MODE_BTN)) { const b = $(id); b.addEventListener('focus', () => showModeText(MODE_BTN[id])); b.addEventListener('mouseenter', () => showModeText(MODE_BTN[id])); b.addEventListener('blur', revertModeText); b.addEventListener('mouseleave', revertModeText); }
 $('startbtn').onclick = () => { SFX.start(); startRace(); };
 $('blitzbtn').onclick = () => { SFX.start(); startRace('blitz'); };
 $('huntbtn').onclick = () => { SFX.start(); startRace('hunt'); };
-// the overlay doubles as the start and the result screen, so its texts depend on the race state
-// #127: the region row. The loaded region is the pressed one (on a fallback that is Hochrhein); clicking it does nothing.
+window.__mm.startScreen = () => ({ mode: SHOWN.mode, text: $('ovtext').textContent, worldsOpen: WORLDS.on, sel: WORLDS.sel, focus: document.activeElement ? document.activeElement.id : '' });
+// ---------- #346 Worlds dialog: the region choice (#127) and the curated worlds (#170). A row selects, DRIVE HERE reloads. ----------
 if (REGION.generated) { const w = $('region-world'); w.hidden = false; w.textContent = REGION.name; }   // textContent, never innerHTML: the name is data
-for (const id of Object.keys(REGIONS)) { const b = $('region-' + id); b.setAttribute('aria-pressed', String(id === REGION.id)); b.onclick = () => { if (id !== REGION.id) location.search = regionSearch(location.search, id); }; }
+const CURRENT_SEL = GEN ? { kind: 'world', id: WORLD_ID } : { kind: 'region', id: REGION.id };
+const WORLDS = { on: false, sel: { ...CURRENT_SEL } };
+const GALLERY = new Map();   // #170: the curated worlds by id, filled by showGallery()
+const sameSel = (a, b) => a.kind === b.kind && a.id === b.id;
+const rows = () => [...$('worlds').querySelectorAll('.ws-row:not([hidden])')];
+const rowSel = (b) => b.id === 'region-world' ? { ...CURRENT_SEL } : b.dataset.worldId ? { kind: 'world', id: b.dataset.worldId } : { kind: 'region', id: b.id.slice('region-'.length) };
+const rowFor = (sel) => rows().find(b => sameSel(rowSel(b), sel));
+const rowKey = (b) => b.id || b.dataset.worldId;
+function selName(sel) { if (sel.kind === 'region') return REGIONS[sel.id].name; const w = GALLERY.get(sel.id); return w ? w.title : sameSel(sel, CURRENT_SEL) ? REGION.name : sel.id; }
+function selDesc(sel) { if (sel.kind === 'region') return tr(REGIONS[sel.id].strings.intro); const w = GALLERY.get(sel.id); return w ? w.description : sameSel(sel, CURRENT_SEL) ? tr(REGION.strings.intro) : ''; }
+function renderWorldsList() { for (const b of rows()) { const on = sameSel(rowSel(b), WORLDS.sel); b.setAttribute('aria-pressed', String(on)); b.tabIndex = on ? 0 : -1; } }
+// only the loaded world can show its world and terrain lines: nothing else is known about an unloaded one (#346 A14)
+function renderWorldsPreview() {
+  const sel = WORLDS.sel, current = sameSel(sel, CURRENT_SEL), name = selName(sel);
+  $('wpname').textContent = name;
+  $('worldsdesc').textContent = selDesc(sel);
+  $('wpworld').textContent = current ? $('worldstatus').textContent : '';
+  $('wpterrain').textContent = current ? $('mmhstatus').textContent : '';
+  let best = null; try { best = localStorage.getItem(bestKeyFor(sel, REGIONS)); } catch (e) { }
+  $('wpbest').textContent = tr('wpBest', best === null ? '—' : fmt(+best).replace(/<[^>]+>/g, ''));
+  $('wpsource').textContent = current && !L ? name : tr('wpSource', name);
+}
+function selectRow(sel) { WORLDS.sel = { ...sel }; renderWorldsList(); renderWorldsPreview(); }
+function openWorlds() { WORLDS.on = true; for (const k in keys) keys[k] = false; closeHelp(); $('wpfiles').open = !matchMedia('(max-width:600px)').matches; selectRow(WORLDS.sel); $('overlay').hidden = true; $('worlds').hidden = false; rowFor(WORLDS.sel)?.focus(); }
+function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overlay').hidden = false; $('worldbtn').focus(); }
+function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
+function moveWorldsFocus(step) { const list = rows(), next = list.find(b => rowKey(b) === nextFocus(list.map(rowKey), rowKey(document.activeElement), step)); if (!next) return; selectRow(rowSel(next)); next.focus(); }
+function worldsKey(e) { const act = worldsKeyAction(e, document.activeElement && document.activeElement.classList.contains('ws-row')); if (act === 'back') { e.preventDefault(); closeWorlds(); } else if (act === 'next' || act === 'prev') { e.preventDefault(); moveWorldsFocus(act === 'next' ? 1 : -1); } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while a world is chosen
+for (const b of rows()) b.onclick = () => selectRow(rowSel(b));
+$('worldbtn').onclick = openWorlds; $('worldsback').onclick = closeWorlds; $('drivebtn').onclick = driveSelection;
 // ---------- car selection (#7): the live car on a turntable, stats from the table, paint, garage; Race! starts the current mode ----------
 const CARSEL = { on: false, spin: { angle: 0, idle: SPIN_RESUME }, dir: 0, drag: 0, dragX: null, swap: null };   // swap: {id, paint} at entry while the pause menu's Change vehicle is open (#189), else null
 function openCarSel() { CARSEL.on = true; CARSEL.dir = 0; CARSEL.drag = 0; CARSEL.dragX = null; CARSEL.spin = { angle: P.th - 0.6, idle: SPIN_RESUME }; for (const k in keys) keys[k] = false; closeHelp(); $('overlay').hidden = true; $('carsel').hidden = false; renderCarSel(); $('csrace').focus(); }
@@ -2699,7 +2849,7 @@ function leaveVehicleSwap() { CARSEL.swap = null; CARSEL.on = false; CARSEL.dir 
 function restoreVehicleSwap() { const { id, paint } = CARSEL.swap; if (id !== CHOICE.id) selectVehicle(id); if (paint !== CHOICE.paint) { applyPaint(paint); saveChoice(); } leaveVehicleSwap(); }
 function cancelVehicleSwap() { restoreVehicleSwap(); $('pause').hidden = false; $('pausevehicle').focus(); }
 function applyVehicleSwap() { if (CARSEL.swap.id !== CHOICE.id) R.swapped = true; leaveVehicleSwap(); closePause(); }
-function selectVehicle(id) { if (!Object.hasOwn(VEHICLES, id)) return; CHOICE.id = id; setVehicle(VEHICLES[id]); applyPaint(CHOICE.paint); saveChoice(); renderCarSelKeepFocus(); }
+function selectVehicle(id) { if (!Object.hasOwn(VEHICLES, id)) return; CHOICE.id = id; setVehicle(VEHICLES[id]); applyPaint(CHOICE.paint); saveChoice(); renderCarSelKeepFocus(); renderStartScreen(); }   // #346: the start screen's car tag follows the pick
 function stepVehicle(step) { const ids = Object.keys(VEHICLES); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
 function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.preventDefault(); closeCarSel(); } else if (act === 'spin') { e.preventDefault(); CARSEL.dir = e.code === 'ArrowLeft' ? -1 : 1; } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while choosing, browser default kept
 function carselKeyUp(e) { if ((e.code === 'ArrowLeft' && CARSEL.dir < 0) || (e.code === 'ArrowRight' && CARSEL.dir > 0)) CARSEL.dir = 0; }
@@ -2726,7 +2876,7 @@ function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; if (do
 function closePause() { if (!PAUSE.on) return; if (CARSEL.swap) restoreVehicleSwap(); /* every exit from the pause undoes an open vehicle change (#189) */ PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
 function restartRace() { closePause(); startRace(R.mode); }
 function resetMode() { R.mode = 'trial'; R.left = 0; R.timeUp = false; SURP = { turbo: 0, moon: 0 }; startHuntRun(false, Math.random); }   // back to the plain time trial: no Blitz clock, no boxes, no confetti, no surprise running; every way out to the start screen calls this
-function toMainMenu() { closePause(); R.state = 'ready'; R.t = 0; resetMode(); clearNavi(); P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderModeLine(); renderOverlay(); $('overlay').hidden = false; $('startbtn').focus(); }   // the run is abandoned, never recorded; R.best untouched
+function toMainMenu() { closePause(); R.state = 'ready'; R.t = 0; resetMode(); clearNavi(); P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderModeLine(); renderOverlay(); $('overlay').hidden = false; focusStart(); }   // the run is abandoned, never recorded; R.best untouched
 // A3 (user decision 2026-10-03): with the clock running, ask first; 'armed' goes straight back
 function chooseMainMenu() { if (needsAbandonConfirm(R.state)) openAbandon(); else toMainMenu(); }
 function openAbandon() { PAUSE.confirm = true; $('pause').hidden = true; $('abandon').hidden = false; $(ABANDON_BUTTONS[0]).focus(); }
@@ -2788,6 +2938,7 @@ function renderStatus() {
   $('mmhstatus').textContent = REAL ? tr('terrainMeasured', REAL_SRC === 'uploaded', REAL.hdr.w, REAL.hdr.h, REAL.hdr.step, REAL.hdr.sources.join(' · ')) : tr('terrainMadeUp');
   $('blurb').textContent = tr(L ? REGION.strings.blurb : 'blurbHand');
   $('worldstatus').textContent = L ? tr('worldOsm', L.roads.length, L.buildings.length, L.sources.join(' · ')) : tr('worldHand');
+  if (WORLDS.on) renderWorldsPreview();   // #346: the preview shows the same two lines for the loaded world
 }
 $('mmhfile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const buf = await f.arrayBuffer(); parseMMH(buf); $('mmhstatus').textContent = tr('terrainSaving'); if (!(await idbSet(REGION.idbKey, buf))) throw new Error(tr('errNoStorage')); location.reload(); } catch (err) { $('mmhstatus').textContent = tr('terrainCouldNotLoad', err.message); $('mmhstatus').classList.remove('real'); } };
 $('mmhclear').onclick = async () => { await idbSet(REGION.idbKey, null); location.reload(); };
@@ -2816,7 +2967,10 @@ $('worlddl').onclick = async (e) => {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 };
 $('worldforget').hidden = !(GEN && GEN.from === 'file');
-$('worldforget').onclick = async () => { await idbSet(savedKey(WORLD_ID), null); location.reload(); };
+// #346: removing a saved copy is the one destructive control in the dialog, so it asks inline before it runs (flow decision 4)
+$('worldforget').onclick = () => { $('worldforget').hidden = true; $('worldforgetask').hidden = false; $('worldforgetyes').focus(); };
+$('worldforgetno').onclick = () => { $('worldforgetask').hidden = true; $('worldforget').hidden = false; $('worldforget').focus(); };
+$('worldforgetyes').onclick = async () => { await idbSet(savedKey(WORLD_ID), null); location.reload(); };
 // #167: the expired / offline / invalid link panel above the intro text
 function renderWorldGone() {
   $('worldgone').hidden = !WORLD_GONE;
@@ -2830,11 +2984,14 @@ function renderWorldGone() {
   $('buildagain').href = editorUrl(bbox);
   $('drivehere').textContent = tr('driveHochrhein');
 }
-$('drivehere').onclick = () => { WORLD_GONE = null; window.__mm.worldGone = null; history.replaceState(null, '', location.pathname + regionSearch(location.search, 'hochrhein')); renderWorldGone(); };
+$('drivehere').onclick = () => { WORLD_GONE = null; window.__mm.worldGone = null; history.replaceState(null, '', location.pathname + regionSearch(location.search, 'hochrhein')); renderWorldGone(); renderOverlay(); focusStart(); };   // #346: the mode buttons come back out of the error state
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
-function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); }
+function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); }
 addEventListener('gg-langchange', rerenderAll); rerenderAll();
+/* #346: with a mode button focused, Enter starts and the slot explains it. On a touch device nothing is focused, so the
+   slot keeps showing the mode last played and a tap on a mode button starts it directly (wireframe, "Mode text on touch"). */
+if (!matchMedia('(pointer:coarse)').matches) focusStart();
 window.__mm.finishNow = () => finish();   // test hook (#9): show the result screen without driving the course
 window.__mm.raceNow = (t = 12.5, dmg = 0.4) => { R.state = 'racing'; R.t = t; P.dmg = dmg; };   // test hook (#189): a running race with a clock and damage, in zero frames
 window.__mm.hunt = () => ({ mode: R.mode, state: R.state, found: R.done, total: HUNT_RUN.spots.length, spots: HUNT_RUN.spots.map(s => [s.x, s.z, s.y]), timers: { ...SURP }, gravity: gravityScale(SURP), dmg: P.dmg, best: R.huntBest, last: R.last ? { ...R.last } : null, cpsVisible: cpObjs.every(c => c.g.visible), boxesVisible: presentObjs.filter(o => o.g.visible).length, confetti: confetti.pts.visible });
@@ -3023,23 +3180,25 @@ requestAnimationFrame(loop);
 async function showGallery() {
   const worlds = await loadGallery({ host: worldHost(location.href), fetch: (u, o) => fetch(u, o) });
   window.__mm.gallery = worlds.map((w) => w.id);
+  for (const w of worlds) GALLERY.set(w.id, w);
+  $('worldsempty').hidden = worlds.length > 0;
   if (!worlds.length) return;
-  const box = $('worldsbtns'), desc = $('worldsdesc'), current = GEN ? WORLD_ID : null;
+  const box = $('worldsbtns'), desc = $('worldsdesc');
   for (const w of worlds) {
     const b = document.createElement('button');
-    b.className = 'btn small';
+    b.className = 'ws-row';
     b.type = 'button';
     b.textContent = w.title;
     b.dataset.worldId = w.id;
-    b.setAttribute('aria-pressed', String(w.id === current));
     const say = () => { desc.textContent = w.description; };
     b.onmouseenter = say;
     b.onfocus = say;
-    b.onmouseleave = () => { desc.textContent = ''; };
+    b.onmouseleave = () => { desc.textContent = selDesc(WORLDS.sel); };   // back to what the selected row says, not blank
     b.onblur = b.onmouseleave;
-    b.onclick = () => { if (w.id !== current) location.search = worldSearch(location.search, w.id); };
+    b.onclick = () => selectRow({ kind: 'world', id: w.id });
     box.appendChild(b);
   }
+  renderWorldsList();
 }
 showGallery();
 </script>
@@ -3053,7 +3212,7 @@ showGallery();
   /* Wider screens keep the nav (the language toggle lives in it) but drop it to the
      bottom edge while the start/result dialog is open, clear of that dialog's buttons. */
   body:has(#overlay:not([hidden])) #game-nav { bottom: calc(8px + env(safe-area-inset-bottom,0px)) !important; }
-  @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav, body:has(#carsel:not([hidden])) #game-nav, body:has(#pause:not([hidden])) #game-nav, body:has(#abandon:not([hidden])) #game-nav { display: none !important; } }
+  @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav, body:has(#worlds:not([hidden])) #game-nav, body:has(#carsel:not([hidden])) #game-nav, body:has(#pause:not([hidden])) #game-nav, body:has(#abandon:not([hidden])) #game-nav { display: none !important; } }
 </style>
 <script src="./version.js"></script>
 <script src="./i18n.js"></script>
