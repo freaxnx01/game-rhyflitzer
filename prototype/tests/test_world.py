@@ -70,6 +70,16 @@ def boot(p, server, host, wid=None, extra="", size=(480, 270)):
     return b, page
 
 
+def open_worlds(page, files=False):
+    """#346: the region rows, the gallery and the file controls moved into the Worlds dialog. Under 600 px the FILES
+    <details> opens collapsed by design, so a test that needs the file controls asks for them."""
+    page.click("#worldbtn")
+    page.wait_for_function("() => !document.querySelector('#worlds').hidden", timeout=T)
+    if files:
+        page.evaluate("() => { document.getElementById('wpfiles').open = true; }")
+        page.wait_for_selector("label[for=worldfile]", state="visible", timeout=T)
+
+
 @needs_ehr
 def test_world_loads_from_the_host(server, world_host):
     url, root = world_host
@@ -78,10 +88,14 @@ def test_world_loads_from_the_host(server, world_host):
         b, page = boot(p, server, url, ID)
         assert page.evaluate("() => [window.__mm.region, window.__mm.layout]") == [f"world:{ID}", "osm"]
         assert page.evaluate("() => window.__mm.world") == {"id": ID, "from": "host", "name": "Testdorf"}
-        assert page.is_visible("#region-world") and page.text_content("#region-world") == "Testdorf"
-        assert page.get_attribute("#region-hochrhein", "aria-pressed") == "false"
+        assert page.text_content("#edition") == "Testdorf"     # #346: a generated world names itself on the plate, without "Edition"
         assert page.is_visible("#startbtn") and page.is_visible("#blitzbtn")
         assert "Testdorf" in page.text_content("#modetext")
+        open_worlds(page)
+        assert page.is_visible("#region-world") and page.text_content("#region-world") == "Testdorf"
+        assert page.get_attribute("#region-world", "aria-pressed") == "true"
+        assert page.get_attribute("#region-hochrhein", "aria-pressed") == "false"
+        page.keyboard.press("Escape")
         page.evaluate("() => document.getElementById('startbtn').click()")
         page.keyboard.press("KeyJ")
         assert {"n": "Testkirche", "g": "Testdorf"} in page.evaluate("() => window.__mm.jumpList()")
@@ -95,7 +109,7 @@ def test_world_without_race_is_free_driving(server, world_host):
     with sync_playwright() as p:
         b, page = boot(p, server, url, FREE_ID)
         assert page.evaluate("() => window.__mm.world.id") == FREE_ID
-        assert not page.is_visible("#startbtn") and not page.is_visible("#blitzbtn") and not page.is_visible("#blitzhint")
+        assert not page.is_visible("#startbtn") and not page.is_visible("#blitzbtn")
         assert page.is_visible("#huntbtn")
         c = page.evaluate("() => window.__mm.car()")
         x0, x1, z0, z1 = BOX
@@ -112,6 +126,7 @@ def test_download_world_zip(server, world_host):
     d = make_world(root, ID)
     with sync_playwright() as p:
         b, page = boot(p, server, url, ID)
+        open_worlds(page, files=True)
         with page.expect_download() as dl:
             page.click("#worlddl")
         path = dl.value.path()
@@ -128,6 +143,7 @@ def test_download_button_only_in_a_generated_world(server, world_host):
     url, _ = world_host
     with sync_playwright() as p:
         b, page = boot(p, server, url)
+        open_worlds(page, files=True)
         assert not page.is_visible("#worlddl") and page.is_visible("label[for=worldfile]")
         b.close()
 
@@ -168,14 +184,18 @@ def test_upload_world_zip_plays_offline(server, world_host, tmp_path):
         f.unlink()
     with sync_playwright() as p:
         b, page = boot(p, server, url)
+        open_worlds(page, files=True)
         with page.expect_navigation(wait_until="commit", timeout=T):
             page.set_input_files("#worldfile", str(z))
         page.wait_for_function("() => window.__mm && window.__mm.sim", timeout=T)
         assert f"world={FILE_ID}" in page.url
         assert page.evaluate("() => window.__mm.world.from") == "file"
+        open_worlds(page, files=True)
         assert page.is_visible("#worldforget")
+        page.click("#worldforget")                             # #346: removing a saved copy asks first
+        assert page.is_visible("#worldforgetask") and not page.is_visible("#worldforget")
         with page.expect_navigation(wait_until="commit", timeout=T):
-            page.click("#worldforget")
+            page.click("#worldforgetyes")
         page.wait_for_function("() => window.__mm && window.__mm.sim", timeout=T)
         assert "never existed" in page.text_content("#worldgonetext")
         b.close()
@@ -197,6 +217,7 @@ def test_bad_zips_are_refused(server, world_host, tmp_path):
              make_zip(tmp_path / "id.zip", d, replace={"meta.json": json.dumps(bad_meta).encode()})]
     with sync_playwright() as p:
         b, page = boot(p, server, url)
+        open_worlds(page, files=True)
         start = page.url
         for z in cases:
             page.evaluate("() => { document.getElementById('worldfilestatus').textContent = ''; }")
@@ -215,10 +236,14 @@ def test_world_name_is_text(server, world_host):
     make_world(root, XSS_ID, name=PAYLOAD)
     with sync_playwright() as p:
         b, page = boot(p, server, url, XSS_ID)
+        assert page.text_content("#edition") == PAYLOAD
+        open_worlds(page)
         assert page.text_content("#region-world") == PAYLOAD
+        assert page.locator("#worlds img").count() == 0
+        page.keyboard.press("Escape")
         page.evaluate("() => document.getElementById('startbtn').click()")
         page.keyboard.press("KeyJ")
-        assert page.locator("#overlay img, #jumplist img, #jumpchips img, #toast img").count() == 0
+        assert page.locator("#overlay img, #worlds img, #jumplist img, #jumpchips img, #toast img").count() == 0
         assert page.evaluate("() => window.__xss") is None
         b.close()
 

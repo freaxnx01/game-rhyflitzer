@@ -76,7 +76,7 @@ def test_collecting_all_five_ends_with_a_result_and_a_best(server):
         skip_celebration(page)
         page.wait_for_function("() => !document.querySelector('#overlay').hidden", timeout=T)
         assert "All presents found!" in page.text_content("#result") or "New record!" in page.text_content("#result")
-        assert page.text_content("#huntbtn") == "Retry" and page.text_content("#startbtn") == "Start"
+        assert page.text_content("#huntbtn") == "Again" and page.text_content("#startbtn") == "Start"
         assert page.evaluate("localStorage.getItem('mm.huntBest')") is not None
         assert errors == []
         b.close()
