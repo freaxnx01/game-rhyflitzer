@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls } from '../debug.js';
+import { debugFromQuery, noRenderFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls } from '../debug.js';
 import { translate } from '../strings.js';
 
 const ORIGIN = { lat: 47.5506, lon: 7.9671, E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };   // data/world_hochrhein.json
@@ -142,4 +142,13 @@ test('mapUrls: all three links for a WGS84 position, null without one', () => {
   const pos = { x: 0, z: 0, E: 2639781.3, N: 1266787.1, lat: 47.5506, lon: 7.9671 };
   assert.deepEqual(mapUrls(pos, 86.6), { osm: osmUrl(47.5506, 7.9671), maps: googleMapsUrl(47.5506, 7.9671), street: streetViewUrl(47.5506, 7.9671, 86.6) });
   assert.equal(mapUrls({ x: 1, z: 2, E: null, N: null, lat: null, lon: null }, 0), null);
+});
+
+// #303: logic tests do not need a picture -- the no-render switch the test harness sets
+test('noRenderFromQuery: ?norender or the init-script flag switch drawing off, 0/false/off/no and nothing leave it on', () => {
+  for (const q of ['?norender', '?norender=1', '?x=1&norender', '?norender=TRUE']) assert.equal(noRenderFromQuery(q, undefined), true, q);
+  for (const q of ['', '?', '?norender=0', '?norender=false', '?norender=Off', '?norender=no', '?norenderx=1']) assert.equal(noRenderFromQuery(q, undefined), false, q);
+  assert.equal(noRenderFromQuery('', true), true);
+  assert.equal(noRenderFromQuery('', false), false);
+  assert.equal(noRenderFromQuery('?norender', false), true);
 });
