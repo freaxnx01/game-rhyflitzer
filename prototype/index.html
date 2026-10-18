@@ -460,10 +460,11 @@ import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chape
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
-import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, onLiftPlatform, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, linkPts, stubPts, nodeR, pointBounds } from './hideout.js';
+import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
-import { eiffelRoom, ROOM_Y, flyAllowed, roomFlyClamp, roomFlyAlt } from './rooms.js';
+import { eiffelRoom, ROOM_Y, flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, isRoomLevel } from './rooms.js';
+import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -864,7 +865,7 @@ function makeCut(c) {
 // #102 / #201: the hideout's cuts (hideout.js: T1, the rooms and corridors of the cave system) ride the same patch machinery,
 // from their own array: CUTS stays rail-only for __mm.crossings and the #119 walls. Built on the measured terrain only -- the
 // made-up hills have no Hübel.
-const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...caveCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, stubs: 0, lidTris: 0, floorTris: 0, lidCells: new Set(), floor: null, ring: {}, rooms: null, lights: [] }; })() : null;
+const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...caveCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, lidTris: 0, floorTris: 0, lidCells: new Set(), floor: null, ring: {}, rooms: null, lights: [] }; })() : null;
 // the rail arms (ARMS) plus the hideout's cuts: everything that lowers the patches
 const patchCuts = () => HIDE ? [...ARMS, ...HIDE.cuts.filter((c) => c.depth > 0)] : ARMS;
 function cutFloorMin(x, z) {
@@ -1215,9 +1216,10 @@ function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/
   const roof = new THREE.ConeGeometry(5.4 * Math.SQRT2, 2.8, 4, 1, true); roof.rotateY(Math.PI / 4 - rot); roof.translate(x, b + 8.25 + 1.4, z); colorize(roof, col('#7a8878')); push('roofFlat', roof);
   addOBB(x, z, 3.3, 3.3, rot, b + 5.5);
 }
-// #102 / #201: the hideout -- trough walls along T1 (the #119 pattern without decks), ring walls around R0 and N1 between
-// their exits, walls along every corridor, bricked-up stubs with „KEIN ZUTRITT" signs, the reservoir gate at the portal,
-// gravel on every floor, lamps and lights in R0, and the lift lobby at T2b's end (#277, lobbyBuild). Every OBB is `secret`: the static map skips it, and free() (the trees on the hill) ignores it.
+// #102 / #361: the hideout -- trough walls along T1 (the #119 pattern without decks), the lift hall's ring wall (its one
+// opening towards T1), the reservoir gate at the portal, gravel down T1, a concrete disc and lamps in the hall, and the
+// drive-through freight lift itself (liftBuild). Every OBB is `secret`: the static map skips it, free() (the trees on the
+// hill) ignores it.
 function hideoutBuild() {
   const h = HIDEOUT, u = TUNNEL, a = hideoutAxis(h), g0 = meshH(a.mouth[0], a.mouth[1]), floor = (s) => floorAt(s, g0, h), stone = col('#b8b2a6'), gravel = col('#cfc3ac'), inner = h.hw + u.margin;
   // topAt(x, z): the wall's top over each corner, so a block on a slope follows the hill instead of poking out of it; the
@@ -1230,27 +1232,11 @@ function hideoutBuild() {
   for (const w of wallStations(a.pts, [[0, h.length]], inner + u.wall / 2, 2)) {
     const wf = floor(w.t), ground = meshH(w.x + w.nx * (u.wall / 2 + 0.5), w.z + w.nz * (u.wall / 2 + 0.5));
     if (ground - wf <= 0.1) continue;
-    if (roomAt(w.x, w.z, -u.wall)) continue;   // the corridor's walls stop just inside R0, where the ring takes over
+    if (roomAt(w.x, w.z, -u.wall)) continue;   // the wall stops just inside the hall, where its ring takes over
     wallBox(w.x, w.z, w.len + 0.05, w.rot, wf, w.t >= HIDE.portal ? (x, z) => Math.min(lidTop(x, z), wf + TUNNEL_CEIL + 0.1) : () => ground + 1);
   }
-  // #201: the ring walls of R0, N1 and the lobby (#277), one arc between each pair of exits, up to the hill's underside (their ceiling)
-  for (const id of ['r0', 'n1', 'lobby']) {
-    const n = CAVE.nodes[id], R = nodeR(n, u) - u.wall / 2, top = id === 'lobby' ? () => fl + n.ceiling + 0.1 : lidTop; HIDE.ring[id] = [];
-    for (const arc of ringArcs(id, u)) for (const r of ringStations(n.c[0], n.c[1], R, Math.max(1, Math.round(24 * (arc.a1 - arc.a0) / (2 * Math.PI))), arc.a0, arc.a1)) { HIDE.ring[id].push(r); wallBox(r.x, r.z, r.len, r.rot, fl, top); }
-  }
-  // #201: the corridors' walls (T2a, T2b: up to their 12 m ceiling; the stubs: up to the hill), stopping just inside the rooms
-  const corridorWalls = (pts, hw, top) => { const len = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]); for (const w of wallStations(pts, [[0, len]], hw + u.margin + u.wall / 2, 2)) { if (roomAt(w.x, w.z, -u.wall)) continue; wallBox(w.x, w.z, w.len + 0.05, w.rot, fl, top); } };
-  for (const l of CAVE.links) corridorWalls(linkPts(l), l.hw, () => fl + l.ceiling + 0.1);
-  // #201: a stub is bricked up at its end: a wall across the whole corridor from the floor to the hill, solid, with the sign
-  // on its room-facing side (place-style, untranslated like the gate's)
-  for (const s of CAVE.stubs) {
-    const pts = stubPts(s, u); corridorWalls(pts, s.hw, lidTop);
-    const dx = Math.cos(s.heading), dz = Math.sin(s.heading), ex = pts[1][0] - dx * 0.6, ez = pts[1][1] - dz * 0.6, rot = s.heading + Math.PI / 2, w = 2 * (s.hw + u.margin + u.wall);
-    box(w, lidTop(ex, ez) - fl, 1.2, ex, fl, ez, rot, stone, 'stone', [4, 3], 0);
-    pushOBB({ x: ex, z: ez, hw: w / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: fl + 400, secret: true });
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.7), new THREE.MeshBasicMaterial({ map: textTex('KEIN ZUTRITT', 1024, 180, '#f2c230', '#1a1a1a', '800 120px "Barlow Condensed", sans-serif'), transparent: true }));
-    sign.position.set(ex - dx * 0.62, fl + 2.2, ez - dz * 0.62); sign.rotation.y = Math.atan2(-dx, -dz); signs.add(sign); HIDE.stubs++;
-  }
+  // #361: the lift hall's ring wall, one arc leaving only T1's doorway open, up to the hill's underside
+  { const n = CAVE.nodes.hall, R = nodeR(n, u) - u.wall / 2; HIDE.ring.hall = []; for (const arc of ringArcs('hall', u)) for (const r of ringStations(n.c[0], n.c[1], R, Math.max(1, Math.round(24 * (arc.a1 - arc.a0) / (2 * Math.PI))), arc.a0, arc.a1)) { HIDE.ring.hall.push(r); wallBox(r.x, r.z, r.len, r.rot, fl, lidTop); } }
   // the gate: piers in the margins, a lintel over the 9 m opening up to 1 m over the hillside, the sign on its outer face
   const ps = HIDE.portal, px = a.mouth[0] + a.ux * ps, pz = a.mouth[1] + a.uz * ps, pf = floor(ps), rot = h.heading + Math.PI / 2, nx = -a.uz, nz = a.ux;
   for (const side of [-1, 1]) { const d = side * (h.hw + u.margin / 2), x = px + nx * d, z = pz + nz * d; box(u.margin, 5, 1.2, x, pf, z, rot, stone, 'stone', [4, 3], 0); pushOBB({ x, z, hw: u.margin / 2, hd: 0.6, c: Math.cos(rot), s: Math.sin(rot), h: pf + 5, secret: true }); }
@@ -1271,47 +1257,51 @@ function hideoutBuild() {
     CAVE_MODE.dark = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
     CAVE_MODE.dark.renderOrder = 5; CAVE_MODE.dark.frustumCulled = false; CAVE_MODE.dark.name = 'tunnelDark';
   }
-  // floor: gravel down T1 (draped on the cut), over R0 and N1 up to their rings' inner faces, along every corridor (the lobby's floor is lobbyBuild's)
-  const [cx, cz] = CAVE.nodes.r0.c;
+  // floor: gravel down T1 (draped on the cut), a concrete disc in the hall
+  const [cx, cz] = CAVE.nodes.hall.c;
   ribbon(a.pts, h.hw, 0.04, 'gravel', gravel, 8, true);
-  for (const id of ['r0', 'n1']) disc(...CAVE.nodes[id].c, nodeR(CAVE.nodes[id], u) - u.wall, 0.04, 'gravel', gravel);
-  for (const l of CAVE.links) ribbon(linkPts(l), l.hw, fl + 0.04, 'gravel', gravel);
-  for (const s of CAVE.stubs) ribbon(stubPts(s, u), s.hw, fl + 0.04, 'gravel', gravel);
-  // R0's light: two warm point lights, four lamp posts on the diagonals (the chimney's lamp pattern). three r170 lights in
-  // physical units: 120 cd with decay 2 gives ~0.8 at the centre, 12 m off (the sun is 0.8); 36 m of range ends inside the hill
-  for (const m of caveLamps(h).filter(m => m.room === 'r0')) { const l = new THREE.PointLight(0xffd9a0, m.intensity, m.distance, m.decay); l.position.set(m.x, fl + m.y, m.z); l.userData.kind = 'point'; CAVE_MODE.group.add(l); HIDE.lights.push(l); }
+  disc(cx, cz, nodeR(CAVE.nodes.hall, u) - u.wall, 0.04, 'stone', col('#9aa0a6'));
+  // the hall's light: two warm point lights, four lamp posts on the diagonals (the chimney's lamp pattern). three r170 lights in
+  // physical units: 180 cd with decay 2 gives ~0.8 at the centre, 16 m off (the sun is 0.8); 60 m of range ends inside the hill
+  for (const m of caveLamps(h).filter(m => m.room === 'hall')) { const l = new THREE.PointLight(0xffd9a0, m.intensity, m.distance, m.decay); l.position.set(m.x, fl + m.y, m.z); l.userData.kind = 'point'; CAVE_MODE.group.add(l); HIDE.lights.push(l); }
+  const off = (nodeR(CAVE.nodes.hall, u) - 6) / Math.SQRT2;
   for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-    const x = cx + ox * 10.6, z = cz + oz * 10.6;   // 15 m out on the diagonals
+    const x = cx + ox * off, z = cz + oz * off;
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.set(x, fl + 1.3, z);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffd27a })); head.position.set(x, fl + 2.8, z);
     signs.add(pole, head); HIDE.lamps++;
   }
-  // #201: the rooms for the tests: centre, floor radius; the lobby with its ceiling
-  HIDE.rooms = {};
-  for (const id in CAVE.nodes) HIDE.rooms[id] = { c: CAVE.nodes[id].c, r: nodeR(CAVE.nodes[id], u) };
-  Object.assign(HIDE.rooms.lobby, { ceiling: fl + CAVE.nodes.lobby.ceiling });
-  lobbyBuild(fl);
+  // #361: the room for the tests: centre, floor radius
+  HIDE.rooms = { hall: { c: CAVE.nodes.hall.c, r: nodeR(CAVE.nodes.hall, u) } };
+  liftBuild('top', fl, CAVE_MODE.group);
 }
-// #277: the lift lobby at the end of T2b -- concrete floor, the dark steel platform with yellow edge strips, the lamps of caveLamps. The
-// lift's gate bar drops across the platform's front during a ride (stepLift). Drawn only under the hill, like the rest of the group.
-const LIFT_GATE = { cave: null, room: null };
-function liftGateMesh() {   // a bar over the platform front: up (open) = 4.6 m, down (shut) = 1.4 m
-  const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0xe0b020 })); m.userData.role = 'liftgate'; return m;
-}
-function placeGate(mesh, y0) { mesh.userData.y0 = y0; mesh.position.set(LIFT.c[0] + Math.cos(LIFT.th) * LIFT.hd, y0 + 4.6, LIFT.c[1] + Math.sin(LIFT.th) * LIFT.hd); mesh.rotation.y = -LIFT.th; }
-function liftPlatformMeshes(y0, group) {   // y0 = the floor; group = where to add them
+// #277 / #361: the freight lift's cabin deck and shaft house -- dark steel deck with yellow edge strips, concrete shaft
+// walls from liftColliders (the working door's panel in steel grey with a yellow stripe, sliding up into its lintel's
+// pocket as it opens), a lintel over the opening and a roof slab. Drawn once per level: 'top' in the lift hall (this
+// task), 'bottom' in the tunnel ring (#361 Task 6). LIFT_DOORS[level] holds the door panel so stepLift can animate it.
+const LIFT_DOORS = { top: null, bottom: null };
+function liftBuild(level, y0, group) {
   const [cx, cz] = LIFT.c, f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], v = [-f[1], f[0]];
   const deck = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd, 0.3, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0x3a3f46 })); deck.position.set(cx, y0 + 0.15, cz); deck.rotation.y = -LIFT.th; group.add(deck);
   for (const [a, b, w, d] of [[LIFT.hd - 0.25, 0, 0.5, 2 * LIFT.hw], [-LIFT.hd + 0.25, 0, 0.5, 2 * LIFT.hw], [0, LIFT.hw - 0.25, 2 * LIFT.hd, 0.5], [0, -LIFT.hw + 0.25, 2 * LIFT.hd, 0.5]]) {
     const strip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), new THREE.MeshLambertMaterial({ color: 0xe0b020 })); strip.position.set(cx + f[0] * a + v[0] * b, y0 + 0.32, cz + f[1] * a + v[1] * b); strip.rotation.y = -LIFT.th; group.add(strip);
   }
-  const gate = liftGateMesh(); placeGate(gate, y0); group.add(gate); return gate;
-}
-function lobbyBuild(fl) {
-  const u = TUNNEL, n = CAVE.nodes.lobby, group = CAVE_MODE.group;
-  disc(...n.c, nodeR(n, u) - u.wall, 0.04, 'stone', col('#9aa0a6'));
-  LIFT_GATE.cave = liftPlatformMeshes(fl, group);
-  for (const m of caveLamps().filter(m => m.room === 'lobby')) { const l = new THREE.PointLight(0xffe2b0, m.intensity, m.distance, m.decay); l.position.set(m.x, fl + m.y, m.z); l.userData.kind = 'point'; group.add(l); HIDE.lights.push(l); }
+  for (const o of liftColliders(level, y0)) {
+    const hgt = o.liftDoor ? LIFT.door.h : o.h - y0;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(2 * o.hw, hgt, 2 * o.hd), new THREE.MeshLambertMaterial({ color: o.liftDoor ? 0x3a3f46 : 0x9aa0a6 }));
+    mesh.position.set(o.x, y0 + hgt / 2, o.z); mesh.rotation.y = -LIFT.th; group.add(mesh);
+    if (o.liftDoor) {
+      mesh.userData.y0 = y0; LIFT_DOORS[o.liftDoor] = mesh;
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(2 * o.hw + 0.05, 0.3, 2 * o.hd), new THREE.MeshBasicMaterial({ color: 0xe0b020 })); stripe.position.y = hgt / 2 - 0.3; mesh.add(stripe);
+    }
+    if (level === 'top') pushOBB(o);   // on the ring level the same colliders come from underground.js's ringColliders() (Task 6)
+  }
+  const d = liftDoor(level);   // the lintel over the working door's opening, up to the shaft's own height
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.door.hw, LIFT.height - LIFT.door.h, LIFT.wall), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 }));
+  lintel.position.set(d.x, y0 + LIFT.door.h + (LIFT.height - LIFT.door.h) / 2, d.z); lintel.rotation.y = -LIFT.th; group.add(lintel);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(2 * (LIFT.hd + LIFT.wall), LIFT.wall, 2 * (LIFT.hw + LIFT.wall)), new THREE.MeshLambertMaterial({ color: 0x9aa0a6 }));
+  roof.position.set(cx, y0 + LIFT.height + LIFT.wall / 2, cz); roof.rotation.y = -LIFT.th; group.add(roof);
+  if (level === 'top') pushOBB({ x: cx, z: cz, hw: LIFT.hd + LIFT.wall, hd: LIFT.hw + LIFT.wall, c: f[0], s: f[1], h: y0 + LIFT.height + LIFT.wall, low: true, secret: true });
 }
 // ---------- street furniture (props) ----------
 // One low-poly model per prop kind, merged into a single geometry so each kind draws as one InstancedMesh.
@@ -2245,36 +2235,43 @@ function eiffelFootprints() {
 window.__mm.eiffel = () => ROOM.eiffel ? { ...ROOM.eiffel, feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
-// #277: the freight lift. LIFT_RIDE is the lift.js state machine driven by the car on the platform; the switch of level happens at the
-// midpoint of the descent, behind the cab. Input is locked for the ride; the camera keeps its mode and is carried by the same y step.
+// #277 / #361: the drive-through freight lift. LIFT_RIDE is the lift.js state machine driven by the car in the cabin; the
+// level switches (both the layout and the cabin itself) at the midpoint of the descent, behind the cab. Input is locked for
+// the ride; the camera keeps its mode and is carried by the same y step. Each level's door opens as the car comes near it
+// while the cabin sits there (stepLift animates both panels from LIFT_RIDE.doorAt).
 const LIFT_RIDE = createLift();
-const CAB = new THREE.Mesh(new THREE.CylinderGeometry(14, 14, 16, 24, 1, true), new THREE.MeshLambertMaterial({ side: THREE.BackSide, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
-CAB.visible = false; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
+const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshLambertMaterial({ side: THREE.BackSide, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
+CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
 const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : ROOM_Y;
-function liftOnPlatform() { return !FOOT.on && !!HIDE && onLiftPlatform(P.x, P.z) && Math.abs(P.y - levelFloorY()) < 1; }
 function liftIndicator(text) { const el = $('liftfloor'); el.hidden = text === null; if (text !== null) el.textContent = text; }
 function stepLift(dt) {
   if (!HIDE) return;
-  const ev = LIFT_RIDE.step(dt, { onPlatform: liftOnPlatform(), speed: Math.hypot(P.vx, P.vz), dir: LEVELS.isSurface() ? 'down' : 'up' });
+  const level = LEVELS.isSurface() ? 'top' : LEVELS.id === 'ring' ? 'bottom' : null;
+  if (level === null) { CAB.visible = false; return; }   // no ride inside a room: only hide the cab if it was still showing
+  const onPlatform = !FOOT.on && inCabin(P.x, P.z, carRadius()) && Math.abs(P.y - levelFloorY()) < 1;
+  const ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level), level, speed: Math.hypot(P.vx, P.vz), dir: level === 'top' ? 'down' : 'up' });
   for (const e of ev) liftEvent(e);
-  const gate = LIFT_RIDE.gate; for (const m of [LIFT_GATE.cave, LIFT_GATE.room]) if (m) m.position.y = m.userData.y0 + 4.6 - 3.2 * gate;
-  CAB.visible = LIFT_RIDE.busy; if (CAB.visible) { CAB.position.set(P.x, P.y + 7, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
+  for (const doorLevel of ['top', 'bottom']) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
+  CAB.visible = LIFT_RIDE.phase === 'descending'; if (CAB.visible) { CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
   const fl = LIFT_RIDE.floor(); liftIndicator(fl === null ? null : String(fl).replace('-', '−'));
 }
 const LIFT_TIMES_TOTAL = () => { const t = LIFT_RIDE.times; return t.close + t.ride + t.open; };
 function liftEvent(e) {
-  if (e.type === 'start') { stopAuto('reset'); P.vx = P.vz = P.vy = 0; if (R.state === 'racing' || R.state === 'armed') R.jumped = true; SFX.hum(LIFT_TIMES_TOTAL()); if (e.dir === 'down') roomBuild(); }
+  if (e.type === 'start') { stopAuto('reset'); P.vx = P.vz = P.vy = 0; if (R.state === 'racing' || R.state === 'armed') R.jumped = true; SFX.hum(LIFT_TIMES_TOTAL()); }
   else if (e.type === 'switch') liftSwitch(e.dir);
   else if (e.type === 'done' && e.dir === 'down' && HIDE && !HIDE.found) foundHideout();
 }
+// #361: down lands in the tunnel ring (built on the first ride, #308: only its own meshes exist, not any room's); up lands
+// just outside door A, facing further out towards the tunnel -- nobody has to turn to drive out through the gate.
 function liftSwitch(dir) {
-  const before = P.y; LEVELS.set(dir === 'down' ? 'eiffel' : 'surface');
-  P.y = LEVELS.isSurface() ? HIDE.floor : ROOM_Y; P.safe = [LIFT.c[0], LIFT.c[1], LIFT.th];   // R now returns to this lift, on whichever level
+  const before = P.y;
+  if (dir === 'down') { ringBuild(); LEVELS.set('ring'); P.y = BELOW_Y; const s = ringSpawn(); P.safe = [s.x, s.z, s.th]; }
+  else { LEVELS.set('surface'); P.y = HIDE.floor; const d = liftDoor('top'), f = [Math.cos(d.th), Math.sin(d.th)]; P.safe = [d.x + f[0] * 6, d.z + f[1] * 6, d.th]; }
   camPos.y += P.y - before; camera.position.copy(camPos);   // carry the chase camera down with the car; it keeps its mode and offset
   restShadow(); car.position.y = P.y;
 }
 window.__mm.liftTimes = (t) => { LIFT_RIDE.setTimes(t); return LIFT_RIDE.times; };   // tests: a ride of 1 s instead of 8 (headless renders ~1 fps and the loop clamps dt to 0.05)
-window.__mm.lift = () => ({ phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
+window.__mm.lift = () => ({ phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };
@@ -2323,7 +2320,7 @@ const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg
 const JUMP_ENTRIES = REGION.generated ? REGION.jlist.map(e => ({ ...e })) : L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
 const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
-function placeOnRoad(x, z, th, name) { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); CAB.visible = false; liftIndicator(null); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
+function placeOnRoad(x, z, th, name) { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; liftIndicator(null); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
 function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, jumpHeading(p, best), p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
 // along the road, turned towards the landmark (#79); a look point (#102) turns the car straight at it, off the road's line
@@ -2557,7 +2554,7 @@ window.__mm.underwater = () => ({ on: UWS.on, fogDensity: scene.fog && scene.fog
 window.__mm.fishPose = (i) => { const m = new THREE.Matrix4(); FISH.mesh.getMatrixAt(i, m); return Array.from(m.elements).map(v => +v.toFixed(4)); };
 window.__mm.nearestSchool = (x, z) => Math.min(...FISH.schools.map(s => Math.hypot(s.x - x, s.z - z)));
 // #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
-window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.r0.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.r0.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, stubs: HIDE.stubs, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms, lift: { c: LIFT.c, th: LIFT.th, hw: LIFT.hw, hd: LIFT.hd }, room: ROOM.layout && { centre: ROOM.layout.centre, tower: ROOM.layout.tower, spawn: ROOM.layout.spawn, towerView: ROOM.layout.towerView, half: ROOM.layout.half, y: ROOM.layout.y } } : null;
+window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.hall.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.hall.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms, lift: { c: LIFT.c, th: LIFT.th, hw: LIFT.hw, hd: LIFT.hd, doors: { top: liftDoor('top'), bottom: liftDoor('bottom') } }, room: ROOM.layout && { centre: ROOM.layout.centre, tower: ROOM.layout.tower, spawn: ROOM.layout.spawn, towerView: ROOM.layout.towerView, half: ROOM.layout.half, y: ROOM.layout.y } } : null;
 window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH; window.__mm.roomAt = roomAt; window.__mm.ceilingAt = ceilingH;   // #201
 // #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
 window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), hit = ray.intersectObjects(Object.values(MESH), false)[0]; return hit ? { role: hit.object.userData.role, y: hit.point.y } : null; };
@@ -2663,7 +2660,7 @@ window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)
 // #277: under the hill only the cave's own walls (secret) count -- a forest edge wall over the lobby used to stop the car on the lift platform
-function collide(r) { const under = caveInside(); for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (under && !o.secret) continue; if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; if (o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, P.x, P.z)) continue; /* #100: the pontoon's ends lie in the woods */ const hit = colliderPush(o, P.x, P.z, r); if (!hit) continue; const { wx, wz, pen } = hit; P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; { const s = impactStrength(-vn); crashHit(s); SFX.crash(s); } } } }
+function collide(r) { const under = caveInside(); for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (under && !o.secret) continue; if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; if (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9) continue; /* #361: an open lift door is no obstacle */ if (o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, P.x, P.z)) continue; /* #100: the pontoon's ends lie in the woods */ const hit = colliderPush(o, P.x, P.z, r); if (!hit) continue; const { wx, wz, pen } = hit; P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; { const s = impactStrength(-vn); crashHit(s); SFX.crash(s); } } } }
 function stepCar(dt) {
   LIGHTS.braking = false;   // #230: reset every step so it never sticks (airborne, flying, coasting)
   if (LIFT_RIDE.busy) { P.vx = P.vz = P.vy = 0; car.position.set(P.x, P.y, P.z); return; }   // #277: input is locked for the ride
@@ -2717,7 +2714,7 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
   car.visible = FOOT.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
   if (FOOT.on) footCamera(); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }
-  else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const under = caveInside(), test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge || (under && !o.secret)) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
+  else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const under = caveInside(), test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge || (under && !o.secret) || (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
     const drone = !!v.drone; if (drone) { CAM.t += dt; const sw = droneSway(CAM.t); target.x -= fz * sw.side; target.z += fx * sw.side; target.y += sw.up; }   // #93: hover on the car's true right vector (-fz, fx), not on b, so B does not flip it
     if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
     const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim; camera.lookAt(look); }
@@ -3146,7 +3143,7 @@ function testhubGo(target) {
   const s = target.spot;
   if (s.room) {   // #277: a room below: build it, jump there like any jump (race flagged, toast), then step down into it
     roomBuild(); if (!(ROOM.eiffel && ROOM.eiffel.started)) loadEiffel();
-    placeOnRoad(s.x, s.z, s.th, target.label); LEVELS.set('eiffel'); P.safe = [s.x, s.z, s.th]; resetCar();
+    placeOnRoad(s.x, s.z, s.th, target.label); LIFT_RIDE.place('bottom'); LEVELS.set('eiffel'); P.safe = [s.x, s.z, s.th]; resetCar();
     camPos.set(s.x - Math.cos(s.th) * 12, P.y + 4, s.z - Math.sin(s.th) * 12); camera.position.copy(camPos); restShadow(); return;
   }
   placeOnRoad(s.x, s.z, s.th, target.label);
