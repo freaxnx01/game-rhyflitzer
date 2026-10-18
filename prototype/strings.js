@@ -17,16 +17,13 @@ const en = {
   finishedText: 'Münsterplatz reached. Retry for a better line, or take the other bridge next time.',
   start: 'Start',
   retry: 'Again',
-  /* #346 Sunset Steel start screen: the tags, the edition plate, the sticker and the slot entries that have no handler yet */
+  /* #346 Sunset Steel start screen: the tags, the edition plate, the sticker and the slot entries */
   edition: (n) => `${n} Edition`,
   worldBtn: (n) => `World: ${n} ▸`,
   carTag: (n) => `Car: ${n}`,
   huntIntro: 'Five presents hide somewhere in the world, somewhere new every time. Follow the arrow, find them all, beat your time.',
   stickerHochrhein: 'Bridge is for pedestrians. We checked. Still jumping.',
   stickerEhrendingen: 'Wanderweg is for hikers. We checked. Still drifting.',
-  tutorial: 'Tutorial',
-  whatsNew: "What's new",
-  credits: 'Credits',
   /* #346 Worlds dialog */
   worldsTitle: 'Worlds',
   worldsSub: 'Choose where to drive',
@@ -330,9 +327,6 @@ const de = {
   huntIntro: 'Fünf Geschenke verstecken sich irgendwo in der Welt, jedes Mal woanders. Folge dem Pfeil, finde alle, schlag Deine Zeit.',
   stickerHochrhein: 'Die Brücke ist für Fussgänger. Haben wir geprüft. Springen trotzdem.',
   stickerEhrendingen: 'Der Wanderweg ist für Wanderer. Haben wir geprüft. Driften trotzdem.',
-  tutorial: 'Tutorial',
-  whatsNew: 'Neu',
-  credits: 'Credits',
   /* #346 Welten-Dialog */
   worldsTitle: 'Welten',
   worldsSub: 'Wähle, wo Du fährst',

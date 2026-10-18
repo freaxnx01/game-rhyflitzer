@@ -61,13 +61,10 @@ New markup, replacing `index.html:262-306`. Every existing id and handler is kep
       <div class="row secondary">
         <button id="worldbtn" class="btn small" type="button"></button>                              <!-- new -->
         <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
-        <button id="tutorialbtn" class="btn small" type="button" hidden data-i18n="tutorial"></button> <!-- new, slot for #268 -->
-        <button id="newsbtn" class="btn small" type="button" hidden data-i18n="whatsNew"></button>     <!-- new, slot for #263 -->
       </div>
     </div>
     <div class="foot">
       <p id="blurb">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
-      <button id="creditsbtn" class="link" type="button" hidden data-i18n="credits"></button>        <!-- new, slot for #267 -->
       <p class="status"><span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span></p>
     </div>
   </div>
@@ -85,12 +82,11 @@ New markup, replacing `index.html:262-306`. Every existing id and handler is kep
 - **Mode-text slot.** Holds, in this order, `#worldgone` (error state), `#result` (result view) and `#ovtext`.
   `#ovtext` gets `aria-live="polite"`. `#blitzhint` is removed: the Blitz intro is now the mode text while BLITZ
   has focus or hover.
-- **Steel bar.** Primary row 1–4 and secondary row 5–8. `#worldbtn` reads `tr('worldBtn', REGION.name)`
+- **Steel bar.** Primary row 1–4 and secondary row 5–6. `#worldbtn` reads `tr('worldBtn', REGION.name)`
   ("World: Hochrhein ▸") and opens the Worlds dialog. `#stylebtn2` keeps its id and its text format
-  (`renderStyleName()` unchanged). 7 and 8 are `hidden` buttons with labels in `strings.js` and no handler; the
-  footer's `#creditsbtn` is the same for 9. They exist so the phone grid and the focus order are real now and the
-  three follow-up issues each flip one `hidden` (flow decision 2).
-- **Footer.** `#blurb` (unchanged source: `renderStatus()`), the Credits slot, and the status line. `#mmhstatus`
+  (`renderStyleName()` unchanged). 7 TUTORIAL, 8 WHAT'S NEW and the footer's 9 CREDITS are not built here — each
+  follow-up issue adds its own button (see A5).
+- **Footer.** `#blurb` (unchanged source: `renderStatus()`) and the status line. `#mmhstatus`
   stays in the start screen footer, with `#worldstatus` still created by `$('mmhstatus').after(s)`
   (`index.html:2692`). Reason: eight Playwright files wait with `page.wait_for_selector("#mmhstatus.real")`,
   which requires the element to be *visible*; the Worlds preview shows the same two lines through its own
@@ -256,8 +252,7 @@ closing re-shows the overlay and focuses `#worldbtn`.
 - **Slot:** `max-width:560px; padding:12px 16px; background:rgba(20,23,29,.78); border:3px solid; border-color:#4a515e
   var(--ink) var(--ink) #4a515e`. `#result` styles unchanged. `#worldgone` keeps its red-brown border.
 - **Footer:** `padding:8px 32px calc(64px + env(safe-area-inset-bottom,0px))` — the fixed `#game-nav` sits 8 px above
-  the bottom while the overlay is open (`index.html:2956`), so the blurb must clear it. `.link` button = text link
-  look (`background:none;border:0;color:var(--sun);text-decoration:underline;font:inherit`).
+  the bottom while the overlay is open (`index.html:2956`), so the blurb must clear it.
 - **Layering:** `#overlay{z-index:10}`, `#worlds{z-index:12}`; `#carsel` 15, `#help` 21, `#pause` 30 stay above.
 - **Hide the HUD under the overlay:** `body:has(#overlay:not([hidden])) :is(#tl,#tr,#tc,#bl,#br,#stylebtn,#pausebtn,#touch){display:none}`
   — the same mechanism `#carsel` uses (`index.html:161`). `#debug` and `#toast` stay (F3 and toasts work on the
@@ -325,8 +320,8 @@ which is exactly the list above minus `test_pause.py` and `test_help_filter.py`;
   Do not run the two concurrently; whichever lands second rebases. #202 does not touch the overlay markup.
 - **PR#344** (editor link in a new tab): one attribute on `#buildworld` plus a `test_gallery.py` line — trivial
   rebase either way, keep the anchor on one line.
-- **#263 What's new, #267 Credits, #268 Tutorial:** each unhides its slot (`#newsbtn`, `#creditsbtn`,
-  `#tutorialbtn`) and adds its handler; `mm.newsSeen` and the NEW dot are #263's.
+- **#263 What's new, #267 Credits, #268 Tutorial:** each adds its own button (`#newsbtn`, `#creditsbtn`,
+  `#tutorialbtn`), its string and its handler; `mm.newsSeen` and the NEW dot are #263's.
 - **#170** (closed): `showGallery()` keeps its contract (`window.__mm.gallery`, `#worldsbtns button`,
   `#worldsdesc` on hover/focus); only the click action and the container move.
 
@@ -360,11 +355,11 @@ which is exactly the list above minus `test_pause.py` and `test_help_filter.py`;
 - **A4** [high] Clicking a row selects; only DRIVE HERE reloads. Rejected: keep click = reload and make DRIVE HERE
   a duplicate. Flow 1b draws the reload from "DRIVE HERE" only, and the wireframe's loading note ("re-select
   cancels and restarts") presumes selecting is cheap.
-- **A5** [med] 7 TUTORIAL, 8 WHAT'S NEW and 9 CREDITS are built as `hidden` buttons with their labels in
-  `strings.js` and no handlers. Rejected: no markup at all (as the #224 spec chose for the credits slot). Flow
-  decision 2 says "#346 builds only the slots" and "each stays hidden until its issue lands"; with the buttons in
-  place the phone grid (`[6 STYLE][7 TUT][8 •]`) and the focus order can be verified now, and each follow-up is a
-  one-attribute change. Cost: three hidden elements and three unused strings until the issues land.
+- **A5** [med] ~~7 TUTORIAL, 8 WHAT'S NEW and 9 CREDITS are built as `hidden` buttons with their labels in
+  `strings.js` and no handlers.~~ **Reversed in review:** no markup at all (as the #224 spec chose for the credits
+  slot). Nothing un-hides or wires the three buttons, so they were scaffolding for unannounced features, and a
+  `hidden` button verifies neither the phone grid nor the focus order — both skip it. Each issue adds its own
+  button (and its string) when it lands; the secondary row is 2 buttons until then.
 - **A6** [med] `en.retry` becomes "Again" (de "Nochmals" already means that). Rejected: leaving "Retry" and
   ignoring the wording in flow decision 1, or adding a second key. The decision names the word; the three test
   assertions on "Retry" (`test_blitz.py:73`, `test_hunt.py:79`, `test_i18n.py:199`) are one-word edits whose intent

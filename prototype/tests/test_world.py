@@ -16,6 +16,7 @@ BOX = [-1520, 1840, -2225, 2065]
 LV95 = [2666500, 1257750, 2670000, 1261750]
 PAYLOAD = '<img src=x onerror="window.__xss=1">'
 T = 240000
+MODES_DISABLED = "() => ['startbtn', 'blitzbtn', 'huntbtn'].map(i => document.getElementById(i).disabled)"
 
 
 def flat_mmh(path, box):
@@ -158,12 +159,17 @@ def test_expired_link_offers_build_again(server, world_host):
         assert page.evaluate("() => window.__mm.worldGone.reason") == "expired"
         assert page.get_attribute("#buildagain", "href").endswith("editor.html?bbox=" + ",".join(map(str, LV95)))
         assert "expired" in page.text_content("#worldgonetitle")
+        assert page.evaluate(MODES_DISABLED) == [True, True, True]     # #346: the error state has no world to drive
+        assert page.evaluate("() => document.activeElement.id") == "worldbtn"
         page.click("#drivehere")
         assert not page.is_visible("#worldgone") and "world=" not in page.url
+        assert page.evaluate(MODES_DISABLED) == [False, False, False]  # DRIVE HERE brings the three mode buttons back…
+        assert page.evaluate("() => document.activeElement.id") == "startbtn"    # …and focuses the first of them
         b.close()
         b, page = boot(p, server, url, "999988887777")
         assert "never existed" in page.text_content("#worldgonetext")
         assert page.get_attribute("#buildagain", "href").endswith("editor.html")
+        assert page.evaluate(MODES_DISABLED) == [True, True, True]     # every reason disables them, not just "expired"
         b.close()
 
 

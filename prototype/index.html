@@ -117,7 +117,6 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 .btn:disabled{cursor:default;color:#2a2e38;background:#5f6673;border-color:#737b88 #3a404b #3a404b #737b88;box-shadow:none}
 .foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding:8px 32px calc(64px + env(safe-area-inset-bottom,0px))}
 .foot p{margin:0}#blurb{font-size:14px;color:var(--steel-l)}.foot .status{flex-basis:100%;font-size:13px;color:var(--steel-l)}
-.link{background:none;border:0;padding:0;font:inherit;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--sun);text-decoration:underline;cursor:pointer}.link[hidden]{display:none}
 #worldgone{padding:0 0 8px;margin:0 0 8px;border:0;border-bottom:3px solid #a04a00}#worldgone[hidden]{display:none}#worldgone h2{margin:0 0 4px;font-size:22px;color:var(--sun)}#worldgone p{margin:4px 0 8px;font-size:16px}#worldgone .row{display:flex;flex-wrap:wrap;gap:10px}#worldgone a.btn{display:inline-flex;align-items:center;text-decoration:none}#worldgone a.btn[hidden],#worldgone [hidden]{display:none}
 #mmhstatus,#worldstatus,#worldfilestatus,#wpworld,#wpterrain{font-size:inherit;font-weight:600;color:var(--steel-l)}
 #mmhstatus.real,#worldstatus.real{color:var(--go)}
@@ -319,7 +318,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 </div>
 
 <!-- #346 "Sunset Steel" start screen (title mockup A): full-bleed, no card. One text slot under the logo carries the
-     error state, the result and the mode text of whichever mode has focus or hover; the steel bar is 4 + 4 buttons. -->
+     error state, the result and the mode text of whichever mode has focus or hover; the steel bar is 4 + 2 buttons. -->
 <div id="overlay">
   <div class="start">
     <div class="tags">
@@ -352,13 +351,10 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <div class="row secondary">
         <button id="worldbtn" class="btn small" type="button"></button>
         <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
-        <button id="tutorialbtn" class="btn small" type="button" hidden data-i18n="tutorial">Tutorial</button>
-        <button id="newsbtn" class="btn small" type="button" hidden data-i18n="whatsNew">What's new</button>
       </div>
     </div>
     <div class="foot">
       <p id="blurb">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
-      <button id="creditsbtn" class="link" type="button" hidden data-i18n="credits">Credits</button>
       <p class="status"><span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span></p>
     </div>
   </div>

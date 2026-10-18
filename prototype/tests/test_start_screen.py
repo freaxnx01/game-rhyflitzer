@@ -6,7 +6,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
 T = 240000
 BAR = ["startbtn", "blitzbtn", "huntbtn", "carbtn"]
-SECONDARY = ["worldbtn", "stylebtn2", "tutorialbtn", "newsbtn"]
+SECONDARY = ["worldbtn", "stylebtn2"]
 
 
 def boot(p, server, viewport=(1280, 720), touch=False):
@@ -26,12 +26,11 @@ def ids(page, sel):
 
 
 def test_bar_order_focus_order_and_enter_starts(server):
-    """The steel bar is 4 + 4 buttons in wireframe order, Tab walks it, Enter on the focused button starts."""
+    """The steel bar is 4 + 2 buttons in wireframe order, Tab walks it, Enter on the focused button starts."""
     with sync_playwright() as p:
         b, page, errors = boot(p, server)
         bar = ids(page, "#overlay .bar .row:not(.secondary) > button")
         secondary = ids(page, "#overlay .bar .row.secondary > button")
-        hidden = page.evaluate("() => ['tutorialbtn', 'newsbtn', 'creditsbtn'].map(i => document.getElementById(i).hidden)")
         first = page.evaluate("() => document.activeElement.id")
         order = []
         for _ in range(5):
@@ -43,7 +42,6 @@ def test_bar_order_focus_order_and_enter_starts(server):
         b.close()
     assert bar == BAR, bar
     assert secondary == SECONDARY, secondary
-    assert hidden == [True, True, True]
     assert first == "startbtn"
     assert order == ["blitzbtn", "huntbtn", "carbtn", "worldbtn", "stylebtn2"], order
     assert errors == []
