@@ -768,7 +768,7 @@ def back_to_ring(page, k):
 
 @needs_world
 def test_ride_down_lands_in_the_ring_and_finds_the_hideout(server):
-    """Drive into the cabin, stand still: door shuts, descent, the ring-side door opens; the find toast comes only now; only the Eiffel spoke is signed; no room is built yet."""
+    """Drive into the cabin, stand still: door shuts, descent, the ring-side door opens; the find toast comes only now; only the Eiffel and Atomium spokes are signed; no room is built yet."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         h = page.evaluate("() => window.__mm.hideout()")
@@ -783,8 +783,8 @@ def test_ride_down_lands_in_the_ring_and_finds_the_hideout(server):
         br.close()
     assert errors == []
     assert lift["cabin"] == "bottom" and lift["level"] == "ring" and lift["door"] > 0.9, lift
-    assert below["level"] == "ring" and below["ring"] is True and below["built"] is None and below["signs"] == ["La Tour Eiffel"], below
-    assert len(below["rooms"]) == 8 and below["rooms"][0] == "eiffel", below
+    assert below["level"] == "ring" and below["ring"] is True and below["built"] is None and below["signs"] == ["La Tour Eiffel", "Atomium"], below
+    assert len(below["rooms"]) == 8 and below["rooms"][:2] == ["eiffel", "atomium"], below
     assert hud == {"arrow": False, "dist": False, "cpname": False}, hud        # no checkpoint arrow / distance / label below
     assert abs(car["y"] + 600) < 1.0 and found is True and stored == "1"
     assert cave_on is False and labels == [] and body_below is True
@@ -834,6 +834,30 @@ def test_one_room_built_at_a_time_and_empty_rooms_have_no_object(server):
     assert three["below"]["built"] == 3 and three["below"]["level"] == "room3" and "eiffel" not in three["counts"], three
     assert three["below"]["object"] is False, three
     assert zero["below"]["built"] == 0 and zero["counts"]["eiffel"] == 1 and zero["below"]["object"] is True, zero
+
+
+@needs_world
+def test_atomium_room_builds_loads_its_model_on_entering_and_has_solid_feet(server):
+    """#355: entering spoke 1 builds the Atomium room and fetches atomium.glb then (not before); the model stands 101 m tall on the floor,
+    keeps its own textures, has no terrain patch, and the central column and a bipod foot are solid while the space between is free."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith("atomium.glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        assert page.evaluate("() => window.__mm.atomium()") is None and requests == []
+        into_room(page, 1, "atomium")
+        page.wait_for_function("() => window.__mm.atomium() && window.__mm.atomium().loaded === true", timeout=120000)
+        a = page.evaluate("() => window.__mm.atomium()")
+        info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
+        push = page.evaluate("() => { const t = window.__mm.below().tower, f = window.__mm.atomium().feet; return { column: window.__mm.pushAt(t.x, t.z, -600), foot: window.__mm.pushAt(t.x + f[1][0], t.z + f[1][1], -600), between: window.__mm.pushAt(t.x - 30, t.z, -600) }; }")
+        br.close()
+    assert errors == []
+    assert len(requests) == 1 and requests[0].endswith("/prototype/assets/models/atomium.glb"), requests
+    assert a["placeholder"] is False and 8000 <= a["tris"] <= 12000 and abs(a["height"] - 101.3) < 0.1 and a["material"] is None, a
+    assert info["below"]["built"] == 1 and info["below"]["object"] is True and info["counts"].get("atomium") == 1 and "eiffel" not in info["counts"], info
+    assert math.hypot(push["column"]["dx"], push["column"]["dz"]) > 5 and math.hypot(push["foot"]["dx"], push["foot"]["dz"]) > 5, push
+    assert math.hypot(push["between"]["dx"], push["between"]["dz"]) < 0.01, push
 
 
 @needs_world

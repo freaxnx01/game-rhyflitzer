@@ -22,6 +22,11 @@ export const CAVE = {
 // model's footprints (__mm.eiffelFootprints): vertices below 20 m span x 36.8..69.7, z 36.8..68.6 per quadrant; the placeholder's legs end on them.
 // #201 look: metalness low -- without an environment map a metallic surface only swallows the floodlight, it reflects nothing
 export const EIFFEL = { h: 330, feet: [[-53, -53], [53, -53], [53, 53], [-53, 53]], footHw: 17, footH: 60, url: './assets/models/eiffel_tower.glb', colour: 0x6b4a32, roughness: 0.6, metalness: 0.1, loadWithin: 400 };
+// #355: the Atomium (Brussels, 102 m), life size at scale 1. anchor: the model's own sphere-frame axis and ground, measured from its
+// vertices (axis x -1.5, z 3.0; the ground platform at y 0.99), which the room centre and floor take. feet: [x, z, half width] relative
+// to that axis -- the central column and entrance block (solid up to the lowest sphere's first metres), then the three bipod legs, 120 degrees
+// apart at about 48 m, each with its stairs and fence; hw per foot fits the vertices below 12 m (the car drives between and under the spheres).
+export const ATOMIUM = { key: 'atomium', h: 101.3, scale: 1, anchor: [-1.5, 0.99, 3.0], feet: [[0, 0, 14], [-49, 0, 10], [24.5, -43, 10], [29, 48, 10]], footHw: 10, footH: 30, url: './assets/models/atomium.glb', loadWithin: 400 };
 // #201: the extent of [x, z] points -- a loop, not Math.min(...spread): the real model's leg has far more vertices than V8's argument limit
 export function pointBounds(points) {
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
