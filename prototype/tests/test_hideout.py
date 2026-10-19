@@ -783,7 +783,7 @@ def test_ride_down_lands_in_the_ring_and_finds_the_hideout(server):
         br.close()
     assert errors == []
     assert lift["cabin"] == "bottom" and lift["level"] == "ring" and lift["door"] > 0.9, lift
-    assert below["level"] == "ring" and below["ring"] is True and below["built"] is None and below["signs"] == ["La Tour Eiffel", "Atomium"], below
+    assert below["level"] == "ring" and below["ring"] is True and below["built"] is None and below["signs"] == [], below
     assert len(below["rooms"]) == 8 and below["rooms"][:2] == ["eiffel", "atomium"], below
     assert hud == {"arrow": False, "dist": False, "cpname": False}, hud        # no checkpoint arrow / distance / label below
     assert abs(car["y"] + 600) < 1.0 and found is True and stored == "1"

@@ -24,8 +24,8 @@ test('ROOMS_EightRooms_OnlyTheEiffelAndTheAtomiumHaveAnObject', () => {
   assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
 });
 
-test('spokeSigns_TheRealRooms_SignTheEiffelAndTheAtomiumOnly', () => {
-  const signs = spokeSigns(ROOMS); assert.deepEqual(signs.map(s => [s.k, s.text]), [[0, 'La Tour Eiffel'], [1, 'Atomium']]);
+test('spokeSigns_TheRealRooms_AreKeptAsASurpriseForNow', () => {
+  const signs = spokeSigns(ROOMS); assert.deepEqual(signs.map(s => [s.k, s.text]), []);
 });
 
 test('roomLayout_FloorIs600mDown500mSquare_PortalAtTheSpokesEnd', () => {

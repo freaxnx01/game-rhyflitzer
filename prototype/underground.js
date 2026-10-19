@@ -105,11 +105,12 @@ export function ringSpawn() {
   const [cx, cz] = LIFT.c, f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], d = RING.r - RING.hw - 2;
   return { x: cx + f[0] * d, z: cz + f[1] * d, th: LIFT.th };
 }
-// one sign per room that has both a name and its object, hung at its spoke's mouth on the ring side
+// one sign per room that has both a name and its object, hung at its spoke's mouth on the ring side -- unless the room is
+// kept as a surprise (signed: false)
 export function spokeSigns(rooms) {
   const out = [];
   rooms.forEach((room, k) => {
-    if (!room.object || !room.name) return;
+    if (!room.object || !room.name || room.signed === false) return;
     const f = spokeFrame(k);
     out.push({ k, text: room.name, x: f.start[0] - f.u[0] * 0.6, z: f.start[1] - f.u[1] * 0.6, y: BELOW_Y + (SPOKE.ceiling + RING.ceiling) / 2, th: f.a + Math.PI });
   });

@@ -71,6 +71,7 @@ test('spokeSigns_OnlyRoomsWithAnObjectAreSigned', () => {
   const f = spokeFrame(0); assert.ok(Math.hypot(signs[0].x - f.start[0], signs[0].z - f.start[1]) < 1.5, 'at the spoke mouth');
   assert.ok(signs[0].y > BELOW_Y + SPOKE.ceiling && signs[0].y < BELOW_Y + RING.ceiling, 'over the opening, under the ring ceiling');
   assert.deepEqual(spokeSigns([{ id: 'x', name: 'Atomium', object: null }]), [], 'a named room without its object stays unsigned');
+  assert.deepEqual(spokeSigns([{ id: 'x', name: 'Atomium', object: {}, signed: false }]), [], 'a room kept as a surprise (signed: false) stays unsigned');
 });
 
 // #373: one colour per spoke, and the band's fade against the dark stretch (both levels draw the same thing over s 30..70)
