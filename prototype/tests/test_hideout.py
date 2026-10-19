@@ -647,18 +647,60 @@ def test_cave_light_stays_daylight_until_the_deep_point_and_the_tunnel_darkens_l
 
 
 def crop_brightness(page):
-    """Mean grey of the frame's middle (the opening, looking out of the portal), from the game's own next-frame PNG."""
+    """Mean grey of the frame's middle (the opening, looking out of the portal) and the brightest grey of the whole frame,
+    from the game's own next-frame PNG."""
     import base64, io
     from PIL import Image, ImageStat
     url = page.evaluate("() => window.__mm.photoUrl()")
     img = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("L"); w, h = img.size
-    return ImageStat.Stat(img.crop((int(w * 0.42), int(h * 0.35), int(w * 0.58), int(h * 0.55)))).mean[0]
+    return ImageStat.Stat(img.crop((int(w * 0.42), int(h * 0.35), int(w * 0.58), int(h * 0.55)))).mean[0], img.getextrema()[1]
+
+
+GL_PROBE = """async () => {
+  const c = document.createElement('canvas'); c.width = c.height = 8;
+  const gl = c.getContext('webgl2', { antialias: true });           // like the game's renderer
+  const game = document.getElementById('gl').getContext('webgl2');
+  const info = game && game.getExtension('WEBGL_debug_renderer_info');
+  const out = { read: null, blob: null, lost: game ? game.isContextLost() : null,
+                renderer: info ? game.getParameter(info.UNMASKED_RENDERER_WEBGL) : null };
+  if (!gl) return out;
+  gl.clearColor(1, 1, 1, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  const px = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); out.read = px[0];
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));    // the game's photo path (capturePhoto)
+  if (!blob) return out;
+  const bmp = await createImageBitmap(blob); const d = document.createElement('canvas'); d.width = d.height = 8;
+  const g = d.getContext('2d'); g.drawImage(bmp, 0, 0); out.blob = g.getImageData(4, 4, 1, 1).data[0];
+  return out;
+}"""
+
+
+def frame_verdict(max_grey, probe):
+    """'picture' if the frame has any non-black pixel; 'no-readback' if it is all black and this browser cannot return a
+    WebGL picture (game context lost, or the white control canvas does not come back white); otherwise 'black'."""
+    if max_grey > 0:
+        return "picture"
+    if probe.get("lost") or probe.get("read") != 255 or probe.get("blob") != 255:
+        return "no-readback"
+    return "black"
+
+
+def test_frame_verdict_tells_no_readback_from_a_black_picture():
+    """#345: an all-black frame is 'no-readback' only when this browser cannot return a WebGL picture at all."""
+    ok = {"read": 255, "blob": 255, "lost": False, "renderer": "x"}
+    assert frame_verdict(12, ok) == "picture"
+    assert frame_verdict(12, {**ok, "blob": 0, "lost": True}) == "picture"
+    assert frame_verdict(0, ok) == "black"
+    assert frame_verdict(0, {**ok, "lost": True}) == "no-readback"
+    assert frame_verdict(0, {**ok, "blob": 0}) == "no-readback"
+    assert frame_verdict(0, {**ok, "read": 0}) == "no-readback"
+    assert frame_verdict(0, {**ok, "blob": None}) == "no-readback"
 
 
 @needs_world
 def test_the_opening_seen_from_inside_the_tunnel_is_as_bright_as_outside(server):
     """Standing 10 m inside looking out of the portal, the picture at the opening is daylight, not black ('it should never be dark
-    outside'). Compared with the same view from 15 m outside the gate."""
+    outside'). Compared with the same view from 15 m outside the gate. An all-black frame from a browser that cannot read back
+    WebGL skips (#345)."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         h = page.evaluate("() => window.__mm.hideout()")
@@ -668,13 +710,16 @@ def test_the_opening_seen_from_inside_the_tunnel_is_as_bright_as_outside(server)
             page.evaluate(f"() => {{ window.__mm.place({x}, {z}, {th}); window.__mm.sim({x}, {z}, {th}, 0.1, 0.05, [], window.__mm.car().y); }}")
             page.wait_for_timeout(4000)
             return page.evaluate("() => window.__mm.cave()"), crop_brightness(page)
-        inside, bi = shot(10)
-        outside, bo = shot(-15)
+        inside, (bi, _) = shot(10)
+        outside, (bo, bo_max) = shot(-15)
+        probe = page.evaluate(GL_PROBE)
         br.close()
     assert errors == []
     assert inside["inside"] is True and outside["inside"] is False, (inside, outside)
-    assert bo > 25, f"the outside reference is itself dark: {bo}"
-    assert bi > 0.7 * bo, f"the opening seen from 10 m inside is dark: {bi:.0f} vs outside {bo:.0f}"
+    if frame_verdict(bo_max, probe) == "no-readback":
+        pytest.skip(f"#345: this browser returns no WebGL picture, so brightness cannot be measured: {probe}")
+    assert bo > 25, f"the outside reference is itself dark: {bo} ({probe})"
+    assert bi > 0.7 * bo, f"the opening seen from 10 m inside is dark: {bi:.0f} vs outside {bo:.0f} ({probe})"
 
 
 RECORD_RIDE = """async () => {
