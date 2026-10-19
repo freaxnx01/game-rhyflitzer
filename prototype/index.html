@@ -1281,10 +1281,10 @@ function hideoutBuild() {
 // walls from liftColliders (the working door's panel in steel grey with a yellow stripe, sliding up into its lintel's
 // pocket as it opens), a lintel over the opening and a roof slab. Drawn once per level: 'top' in the lift hall (this
 // task), 'bottom' in the tunnel ring (#361 Task 6). LIFT_DOORS[level] holds the door panel so stepLift can animate it.
-const LIFT_DOORS = { top: null, bottom: null };
+const LIFT_DOORS = { top: null, bottom: null }, LIFT_DECKS = { top: null, bottom: null };
 function liftBuild(level, y0, group) {
   const [cx, cz] = LIFT.c, f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], v = [-f[1], f[0]];
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd, 0.3, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0x3a3f46 })); deck.position.set(cx, y0 + 0.15, cz); deck.rotation.y = -LIFT.th; group.add(deck);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd, 0.3, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0x3a3f46 })); deck.position.set(cx, y0 + 0.15, cz); deck.rotation.y = -LIFT.th; group.add(deck); LIFT_DECKS[level] = deck;
   for (const [a, b, w, d] of [[LIFT.hd - 0.25, 0, 0.5, 2 * LIFT.hw], [-LIFT.hd + 0.25, 0, 0.5, 2 * LIFT.hw], [0, LIFT.hw - 0.25, 2 * LIFT.hd, 0.5], [0, -LIFT.hw + 0.25, 2 * LIFT.hd, 0.5]]) {
     const strip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), new THREE.MeshLambertMaterial({ color: 0xe0b020 })); strip.position.set(cx + f[0] * a + v[0] * b, y0 + 0.32, cz + f[1] * a + v[1] * b); strip.rotation.y = -LIFT.th; group.add(strip);
   }
@@ -2469,9 +2469,11 @@ function liftSwitch(dir) {
   else { LEVELS.set('surface'); P.y = HIDE.floor; const d = liftDoor('top'), f = [Math.cos(d.th), Math.sin(d.th)]; P.safe = [d.x + f[0] * 6, d.z + f[1] * 6, d.th]; }
   camPos.y += P.y - before; camera.position.copy(camPos);   // carry the chase camera down with the car; it keeps its mode and offset
   restShadow(); car.position.y = P.y;
+  followCave();   // #382: up in the hall at once, not when stepCar runs again after the ride -- else the deck, the shaft house and the cave look are missing for the ride's second half
 }
 window.__mm.liftTimes = (t) => { LIFT_RIDE.setTimes(t); return LIFT_RIDE.times; };   // tests: a ride of 1 s instead of 8 (headless renders ~1 fps and the loop clamps dt to 0.05)
-window.__mm.lift = () => ({ phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
+const drawn = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return !!o; };   // visible, and every parent up to the scene too
+window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };

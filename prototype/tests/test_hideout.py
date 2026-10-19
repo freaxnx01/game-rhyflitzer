@@ -716,6 +716,38 @@ def test_lift_shaft_pattern_rises_riding_down_and_sinks_riding_up(server):
     assert nums(up)[0] == -12 and nums(up)[-1] > -12 and nums(up) == sorted(nums(up)), nums(up)
 
 
+RECORD_DECK = """async () => {
+  const rows = []; const t0 = performance.now(); let rode = false;
+  while (performance.now() - t0 < 200000) {
+    await new Promise(r => requestAnimationFrame(r));
+    const l = window.__mm.lift(); if (l.phase !== 'idle') rode = true; else if (rode) break;
+    rows.push({ phase: l.phase, level: l.level, deck: l.deck, trees: window.__mm.cave().treesVisible });
+  }
+  return rows;
+}"""
+
+
+@needs_world
+def test_the_cabin_deck_stays_drawn_through_the_whole_ride_both_ways(server):
+    """#382: riding up, the level switches to the surface at the ride's midpoint (floor -6); the hall's deck and shaft house (the cave
+    group) were only drawn again once the car could drive (followCave in stepCar), so for half the ride the car stood on the hill's
+    blotchy ground with the forest and the day look on. In every frame of both rides the deck under the car is drawn."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring"); page.evaluate("() => window.__mm.liftTimes({dwell: 0.1, close: 0.1, ride: 2, open: 0.3})")
+        down = page.evaluate(RECORD_DECK)
+        page.wait_for_function(RIDE_DONE, arg="ring", timeout=240000)
+        enter_cabin(page, h, "surface"); page.evaluate("() => window.__mm.liftTimes({dwell: 0.1, close: 0.1, ride: 2, open: 0.3})")
+        up = page.evaluate(RECORD_DECK)
+        br.close()
+    assert errors == []
+    for rows in (down, up):
+        assert {r["level"] for r in rows} == {"surface", "ring"}, rows   # the ride crosses the switch: both levels are sampled
+        assert all(r["deck"] for r in rows), [r for r in rows if not r["deck"]]
+        assert not any(r["trees"] for r in rows), [r for r in rows if r["trees"]]   # the forest on the hill is never drawn in the shaft
+
+
 SWITCH_PROBE = """async ({x, z, th, y}) => {
   window.__mm.place(x, z, th); window.__mm.sim(x, z, th, 0.1, 0.05, [], y);
   const c = window.__mm.cave(); return { inside: c.inside, on: c.on, trees: c.treesVisible, shadows: c.shadows, group: c.visible };
