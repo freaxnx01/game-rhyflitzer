@@ -72,3 +72,31 @@ test('spokeSigns_OnlyRoomsWithAnObjectAreSigned', () => {
   assert.ok(signs[0].y > BELOW_Y + SPOKE.ceiling && signs[0].y < BELOW_Y + RING.ceiling, 'over the opening, under the ring ceiling');
   assert.deepEqual(spokeSigns([{ id: 'x', name: 'Atomium', object: null }]), [], 'a named room without its object stays unsigned');
 });
+
+// #373: one colour per spoke, and the band's fade against the dark stretch (both levels draw the same thing over s 30..70)
+import { SPOKE_COLOURS, spokeColour, darkAlphaAt, bandAlphaAt } from '../underground.js';
+
+test('spokeColour_EightDistinctReadableColours_StablePerSpoke', () => {
+  assert.equal(SPOKE_COLOURS.length, SPOKE.n);
+  assert.equal(new Set(SPOKE_COLOURS.map(c => c.hex)).size, SPOKE.n, 'all hex values differ');
+  assert.equal(new Set(SPOKE_COLOURS.map(c => c.name)).size, SPOKE.n, 'all names differ');
+  for (const c of SPOKE_COLOURS) assert.match(c.hex, /^#[0-9a-f]{6}$/, c.hex);
+  for (let k = 0; k < SPOKE.n; k++) { assert.deepEqual(spokeColour(k), SPOKE_COLOURS[k]); assert.deepEqual(spokeColour(k), spokeColour(k)); }
+  assert.deepEqual(spokeColour(SPOKE.n), spokeColour(0), 'wraps'); assert.deepEqual(spokeColour(-1), spokeColour(SPOKE.n - 1), 'wraps below zero');
+  for (let i = 0; i < SPOKE.n; i++) for (let j = i + 1; j < SPOKE.n; j++) {   // readable: neighbours on the ring (and any pair) are well apart in RGB
+    const a = SPOKE_COLOURS[i].rgb, b = SPOKE_COLOURS[j].rgb, d = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    assert.ok(d > 0.3, `${SPOKE_COLOURS[i].name} vs ${SPOKE_COLOURS[j].name}: ${d}`);
+  }
+  for (const c of SPOKE_COLOURS) { assert.equal(c.rgb.length, 3); c.rgb.forEach((v, i) => close(v, parseInt(c.hex.slice(1 + 2 * i, 3 + 2 * i), 16) / 255, 1e-9, c.hex)); }
+});
+
+test('darkAlphaAt_BlackOverTheDarkStretch_FadingTenMetresEachSide', () => {
+  const [d0, d1] = SPOKE.dark;
+  assert.equal(darkAlphaAt(d0 - 10), 0); assert.equal(darkAlphaAt(0), 0); assert.equal(darkAlphaAt(d1 + 10), 0); assert.equal(darkAlphaAt(100), 0);
+  assert.equal(darkAlphaAt(d0), 1); assert.equal(darkAlphaAt((d0 + d1) / 2), 1); assert.equal(darkAlphaAt(d1), 1);
+  close(darkAlphaAt(d0 - 5), 0.5); close(darkAlphaAt(d1 + 5), 0.5);
+  for (let s = d0 - 10; s < d0; s += 0.5) assert.ok(darkAlphaAt(s) <= darkAlphaAt(s + 0.5), `rises at ${s}`);
+  for (let s = d1; s < d1 + 10; s += 0.5) assert.ok(darkAlphaAt(s) >= darkAlphaAt(s + 0.5), `falls at ${s}`);
+  for (let s = 0; s <= 100; s += 1) close(bandAlphaAt(s), 1 - darkAlphaAt(s), 1e-12, `band is the dark's complement at ${s}`);
+  assert.equal(bandAlphaAt(5), 1); assert.equal(bandAlphaAt(50), 0); assert.equal(bandAlphaAt(90), 1);
+});

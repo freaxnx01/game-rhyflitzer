@@ -1,14 +1,32 @@
 // #361: the hideout below the lift -- pure layout (no three.js, no DOM): the tunnel ring round the lift shaft, the exit from
 // the lift into it, the eight star-shaped spokes 45 degrees apart, the dark stretch where each spoke switches the active
 // level (ring <-> its room, with hysteresis so jitter near the switch point does not flicker), the ring's colliders and
-// ceiling, where the car respawns in the ring, and the name signs over a spoke mouth once its room has its object. Unit-
-// tested with `node --test prototype/tests/underground.test.mjs`.
+// ceiling, where the car respawns in the ring, the name signs over a spoke mouth once its room has its object, and (#373)
+// each spoke's own colour with the fade of its band against the dark stretch. Unit-tested with
+// `node --test prototype/tests/underground.test.mjs`.
 import { LIFT, liftColliders, ringStations } from './hideout.js';
 
 export const BELOW_Y = -600;
 export const RING = { r: 60, hw: 8, ceiling: 9, wall: 1 };
 export const EXIT = { from: LIFT.hd, to: RING.r - RING.hw, hw: 5, ceiling: 7 };
 export const SPOKE = { n: 8, len: 100, hw: 5, ceiling: 7, phase: Math.PI / 8, dark: [40, 60], switchIn: 52, switchOut: 48, ringEnd: 70, roomStart: 30 };
+// #373: one colour per spoke, metro-line style -- eight hues a kid tells apart at a glance, none garish under the ring's warm light.
+// rgb is the hex as 0..1 for vertex colours. A room may reuse its spoke's colour later (spokeColour(k)).
+const hexRgb = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+export const SPOKE_COLOURS = [['red', '#d9262a'], ['orange', '#ee7a1e'], ['yellow', '#f5d435'], ['green', '#3fb24f'], ['cyan', '#2cb7dc'], ['blue', '#2f5ed1'], ['purple', '#9450cf'], ['pink', '#e95fa6']]
+  .map(([name, hex]) => ({ name, hex, rgb: hexRgb(hex) }));
+export function spokeColour(k) { return SPOKE_COLOURS[((k % SPOKE.n) + SPOKE.n) % SPOKE.n]; }
+// how black the dark stretch's lining is at s metres into a spoke: fully over dark[0]..dark[1], fading in and out over 10 m each
+// side (smoothstep), nothing beyond. The colour band is its complement, so it is gone wherever the lining is solid and both
+// levels draw the same thing over the stretch they share.
+const smooth = (t) => { const u = Math.min(1, Math.max(0, t)); return u * u * (3 - 2 * u); };
+export function darkAlphaAt(s) {
+  const [d0, d1] = SPOKE.dark;
+  if (s < d0) return smooth((s - (d0 - 10)) / 10);
+  if (s <= d1) return 1;
+  return smooth(((d1 + 10) - s) / 10);
+}
+export function bandAlphaAt(s) { return 1 - darkAlphaAt(s); }
 
 // spoke k's frame: a = its angle off the lift's centre, u = outward unit vector, v = across it, start = the ring's outer
 // edge, end = SPOKE.len further out
