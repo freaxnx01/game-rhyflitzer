@@ -464,7 +464,7 @@ import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, inCabin, liftDoor, ne
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
 import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout } from './rooms.js';
-import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT } from './underground.js';
+import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -2150,18 +2150,83 @@ LEVELS.onChange((id) => {
   setBelowLook(id === 'surface' ? 'surface' : id === 'ring' ? 'ring' : 'room');
 });
 const gridOf = (list) => { const g = makeGrid(32); for (const o of list) { const e = o.hw + o.hd; gridAdd(g, o.x - e, o.z - e, o.x + e, o.z + e, o); } return g; };
-// a box standing on y0 whose long axis points along heading a (the colliders' c/s), centred at (x, z)
-function orientedBox(w, h, d, x, z, y0, a, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y0 + h / 2, z); m.rotation.y = -a; return m; }
-const CONCRETE = () => new THREE.MeshLambertMaterial({ color: 0x9a9aa0 });
+// a box standing on y0 whose long axis points along heading a (the colliders' c/s), centred at (x, z); with `tile`, its texture repeats every tile metres
+function orientedBox(w, h, d, x, z, y0, a, mat, tile) { const g = new THREE.BoxGeometry(w, h, d); if (tile) tileUV(g, w, h, d, tile); const m = new THREE.Mesh(g, mat); m.position.set(x, y0 + h / 2, z); m.rotation.y = -a; return m; }
+// a box's UVs in world metres (one texture repeat per `tile` metres on every face) instead of one repeat per face
+function tileUV(g, w, h, d, tile) { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4), [su, sv] = f < 2 ? [d, h] : f > 3 ? [w, h] : [w, d]; uv.setXY(i, uv.getX(i) * su / tile, uv.getY(i) * sv / tile); } return g; }
+function tileRing(g, R, tile) { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 2 * R / tile, uv.getY(i) * 2 * R / tile); return g; }   // a RingGeometry's planar UVs (0..1 over its outer radius R) in metres
+// #373: the ring level's concrete -- formwork panels (2 x 2 m) with tie holes, seams, drips and a shade of their own on the walls and
+// ceilings; poured 4 m slabs with joints and wear on the floors. One 256 px canvas = 4 m. Built on the first ride down with a seeded
+// rng of their own, so the world's seeded sequence stays what it is; the materials are per call (a room's go with disposeGroup).
+const RING_TEX = {};
+function ringTextures() {
+  if (RING_TEX.wall) return RING_TEX;
+  const r = rng(373), rb = (a, b) => a + r() * (b - a);
+  const grain = (g, w, h, base, amt, n) => { g.fillStyle = base; g.fillRect(0, 0, w, h); for (let i = 0; i < n; i++) { const v = Math.floor(rb(-amt, amt)); g.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},.3)`; g.fillRect(rb(0, w), rb(0, h), rb(2, 7), rb(2, 7)); } };
+  const stain = (g, x, y, rad, a) => { const gr = g.createRadialGradient(x, y, 1, x, y, rad); gr.addColorStop(0, `rgba(52,48,42,${a})`); gr.addColorStop(1, 'rgba(52,48,42,0)'); g.fillStyle = gr; g.fillRect(x - rad, y - rad, 2 * rad, 2 * rad); };
+  RING_TEX.wall = makeTex(256, 256, (g, w, h) => {
+    grain(g, w, h, '#8f9094', 9, 700);
+    for (let py = 0; py < h; py += 128) for (let px = 0; px < w; px += 128) {
+      const v = Math.floor(rb(-8, 8)); g.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},.35)`; g.fillRect(px, py, 128, 128);
+      for (const [hx, hy] of [[32, 32], [96, 32], [32, 96], [96, 96]]) {   // the tie holes, a rust drip under some (canvas y down = wall down)
+        g.fillStyle = '#5e5f63'; g.beginPath(); g.arc(px + hx, py + hy, 3, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(px + hx - 3, py + hy + 3, 6, 1);
+        if (r() < 0.3) { g.fillStyle = 'rgba(110,70,40,.16)'; g.fillRect(px + hx - 2, py + hy + 4, 3, rb(8, 30)); }
+      }
+    }
+    for (let i = 0; i < 5; i++) stain(g, rb(0, w), rb(0, h), rb(22, 50), 0.22);
+    g.fillStyle = 'rgba(0,0,0,.4)'; for (let x = 0; x < w; x += 128) g.fillRect(x, 0, 2, h); for (let y = 0; y < h; y += 128) g.fillRect(0, y, w, 2);
+    g.fillStyle = 'rgba(255,255,255,.14)'; for (let x = 2; x < w; x += 128) g.fillRect(x, 0, 1, h); for (let y = 2; y < h; y += 128) g.fillRect(0, y, w, 1);
+  });
+  RING_TEX.floor = makeTex(256, 256, (g, w, h) => {
+    grain(g, w, h, '#75777b', 11, 900);
+    for (let i = 0; i < 6; i++) stain(g, rb(0, w), rb(0, h), rb(16, 40), 0.2);
+    g.fillStyle = 'rgba(0,0,0,.42)'; g.fillRect(0, 0, w, 3); g.fillRect(0, 0, 3, h); g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(0, 3, w, 1); g.fillRect(3, 0, 1, h);
+  });
+  return RING_TEX;
+}
+const CONCRETE = () => new THREE.MeshLambertMaterial({ map: ringTextures().wall });
+const CONCRETE_CEILING = () => new THREE.MeshLambertMaterial({ map: ringTextures().wall, color: 0xa6a7ab });
+const CONCRETE_FLOOR = () => new THREE.MeshLambertMaterial({ map: ringTextures().floor });
+const PAINT_YELLOW = [0.85, 0.69, 0.19];
+// #373: spoke k's colour (spokeColour) over s0..s1 of it: a band at 2.4..3 m along both walls, a yellow edge line on the floor each
+// side, and -- when the stretch starts at the mouth -- a frame of two pilasters and a beam round the opening on the ring wall, so
+// a spoke can be picked from the ring. The alpha is bandAlphaAt, the dark lining's complement: both levels draw the same thing
+// over the 30..70 m they share, and nothing shows where the lining is solid. One merged mesh per call, no light.
+function spokeColours(group, k, y0, s0, s1) {
+  const fr = spokeFrame(k), c = spokeColour(k).rgb, parts = [];
+  const at = (sv, d, y) => [fr.start[0] + fr.u[0] * sv + fr.v[0] * d, y, fr.start[1] + fr.u[1] * sv + fr.v[1] * d];
+  const strip = (col, edge0, edge1, n) => {   // 2 m segments between s0 and s1, the colour's alpha fading with the dark stretch
+    const pos = [], nor = [], col4 = [], idx = [], N = Math.max(1, Math.ceil((s1 - s0) / 2));
+    for (let i = 0; i <= N; i++) { const sv = s0 + (s1 - s0) * i / N, al = bandAlphaAt(sv); for (const e of [edge0(sv), edge1(sv)]) { pos.push(...e); nor.push(...n); col4.push(col[0], col[1], col[2], al); } }
+    for (let i = 0; i < N; i++) { const q = 2 * i; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col4, 4)); g.setIndex(idx); parts.push(g);
+  };
+  const block = (len, hgt, dep, sv, d, yb) => {   // a solid block of the colour, len along the spoke, dep across it, standing on yb
+    const g = new THREE.BoxGeometry(len, hgt, dep); g.deleteAttribute('uv'); const n = g.attributes.position.count, col4 = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) col4.set([c[0], c[1], c[2], 1], i * 4); g.setAttribute('color', new THREE.BufferAttribute(col4, 4));
+    g.rotateY(-fr.a); g.translate(...at(sv, d, yb + hgt / 2)); parts.push(g);
+  };
+  for (const side of [-1, 1]) {
+    const d = side * (SPOKE.hw - 0.03), n = [-side * fr.v[0], 0, -side * fr.v[1]];
+    strip(c, sv => at(sv, d, y0 + 2.4), sv => at(sv, d, y0 + 3.0), n);
+    strip(PAINT_YELLOW, sv => at(sv, side * (SPOKE.hw - 0.5), y0 + 0.02), sv => at(sv, side * (SPOKE.hw - 0.65), y0 + 0.02), [0, 1, 0]);
+  }
+  if (s0 <= 0) {
+    const dp = SPOKE.hw + RING.wall + 0.4;   // the pilasters flat on the ring wall either side of the opening, the beam filling the reveal over it up to the lintel's foot
+    for (const side of [-1, 1]) block(0.08, SPOKE.ceiling + 0.8, 0.8, -RING.wall - 0.04, side * dp, y0);
+    block(RING.wall + 0.08, 0.4, 2 * dp + 0.8, -RING.wall / 2 - 0.04, 0, y0 + SPOKE.ceiling);   // 0.4 m tall: a name sign (spokeSigns, from 7.4 m up) sits on it, not in it
+  }
+  const m = new THREE.Mesh(mergeGeometries(parts, false), new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, side: THREE.DoubleSide }));
+  m.renderOrder = 4; m.frustumCulled = false; group.add(m);
+}
 // the dark stretch's lining (#361): a black, vertex-alpha skin just inside spoke k's walls, floor and ceiling over s in
 // [dark0 - 10, dark1 + 10] -- fully black on [dark0, dark1], fading out over 10 m each side. Both levels draw the same skin, so the
 // level switch inside it shows nothing.
 function spokeLining(group, k, y0) {
   const fr = spokeFrame(k), hw = SPOKE.hw - 0.05, top = y0 + SPOKE.ceiling - 0.05, s0 = SPOKE.dark[0] - 10, s1 = SPOKE.dark[1] + 10, N = Math.round((s1 - s0) / 2);
-  const smooth = (t) => t * t * (3 - 2 * t), alphaAt = (sv) => sv < SPOKE.dark[0] ? smooth((sv - s0) / 10) : sv <= SPOKE.dark[1] ? 1 : smooth((s1 - sv) / 10);
   const pos = [], col4 = [], idx = [];
   for (let i = 0; i <= N; i++) {
-    const sv = s0 + i * 2, cx = fr.start[0] + fr.u[0] * sv, cz = fr.start[1] + fr.u[1] * sv, al = alphaAt(sv);
+    const sv = s0 + i * 2, cx = fr.start[0] + fr.u[0] * sv, cz = fr.start[1] + fr.u[1] * sv, al = darkAlphaAt(sv);
     for (const [side, y] of [[-1, y0 + 0.07], [-1, top], [1, top], [1, y0 + 0.07]]) { pos.push(cx + fr.v[0] * hw * side, y, cz + fr.v[1] * hw * side); col4.push(0, 0, 0, al); }
   }
   for (let i = 0; i < N; i++) for (let q = 0; q < 4; q++) { const p = i * 4 + q, r = i * 4 + (q + 1) % 4; idx.push(p, r, p + 4, r, r + 4, p + 4); }
@@ -2179,30 +2244,34 @@ function blackCap(group, k, sAt, y0) {   // a black plane across spoke k at s = 
 function ringBuild() {
   if (RING_L.built) return; RING_L.built = true;
   const y0 = BELOW_Y, [cx, cz] = LIFT.c, group = new THREE.Group(); RING_L.group = group; group.visible = false;
-  const f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], flat = new THREE.MeshLambertMaterial({ color: 0x7c8086 }), wallMat = CONCRETE();
-  const slab = (w, d, x, z, yTop, a) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), flat); m.position.set(x, yTop - 0.15, z); m.rotation.y = -a; group.add(m); };
-  // floors: the ring annulus, the exit strip, the spoke strips
-  const floor = new THREE.Mesh(new THREE.RingGeometry(RING.r - RING.hw, RING.r + RING.hw, 96, 1), flat); floor.geometry.rotateX(-Math.PI / 2); floor.position.set(cx, y0 + 0.02, cz); group.add(floor);
-  const em = (EXIT.from + EXIT.to) / 2; slab(EXIT.to - EXIT.from, 2 * EXIT.hw, cx + f[0] * em, cz + f[1] * em, y0, LIFT.th);
-  const ceilMat = new THREE.MeshLambertMaterial({ color: 0x6c7076 });
-  const ceil = new THREE.Mesh(new THREE.RingGeometry(RING.r - RING.hw, RING.r + RING.hw, 96, 1), ceilMat); ceil.geometry.rotateX(Math.PI / 2); ceil.position.set(cx, y0 + RING.ceiling, cz); group.add(ceil);
-  slab(EXIT.to - EXIT.from, 2 * EXIT.hw, cx + f[0] * em, cz + f[1] * em, y0 + EXIT.ceiling + 0.3, LIFT.th);
+  const f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], floorMat = CONCRETE_FLOOR(), ceilMat = CONCRETE_CEILING(), wallMat = CONCRETE();
+  const slab = (w, d, x, z, yTop, a, mat) => { const m = new THREE.Mesh(tileUV(new THREE.BoxGeometry(w, 0.3, d), w, 0.3, d, 4), mat); m.position.set(x, yTop - 0.15, z); m.rotation.y = -a; group.add(m); };
+  // floors: the ring annulus, the exit strip, the spoke strips -- concrete slabs (#373), the texture in world metres
+  const floor = new THREE.Mesh(tileRing(new THREE.RingGeometry(RING.r - RING.hw, RING.r + RING.hw, 96, 1), RING.r + RING.hw, 4), floorMat); floor.geometry.rotateX(-Math.PI / 2); floor.position.set(cx, y0 + 0.02, cz); group.add(floor);
+  const em = (EXIT.from + EXIT.to) / 2; slab(EXIT.to - EXIT.from, 2 * EXIT.hw, cx + f[0] * em, cz + f[1] * em, y0, LIFT.th, floorMat);
+  const ceil = new THREE.Mesh(tileRing(new THREE.RingGeometry(RING.r - RING.hw, RING.r + RING.hw, 96, 1), RING.r + RING.hw, 4), ceilMat); ceil.geometry.rotateX(Math.PI / 2); ceil.position.set(cx, y0 + RING.ceiling, cz); group.add(ceil);
+  slab(EXIT.to - EXIT.from, 2 * EXIT.hw, cx + f[0] * em, cz + f[1] * em, y0 + EXIT.ceiling + 0.3, LIFT.th, ceilMat);
+  // #373: yellow edge lines -- round the ring 0.5 m in from both walls, and along the exit strip (the spokes' come with spokeColours)
+  const lines = [], lineAt = (r) => { const g = new THREE.RingGeometry(r - 0.15, r, 96, 1); g.rotateX(-Math.PI / 2); g.translate(cx, y0 + 0.035, cz); lines.push(g); };
+  lineAt(RING.r - RING.hw + 0.5); lineAt(RING.r + RING.hw - 0.5);
+  for (const side of [-1, 1]) { const g = new THREE.BoxGeometry(EXIT.to - EXIT.from, 0.01, 0.15); g.rotateY(-LIFT.th); const off = side * (EXIT.hw - 0.575); g.translate(cx + f[0] * em - f[1] * off, y0 + 0.02, cz + f[1] * em + f[0] * off); lines.push(g); }
+  group.add(new THREE.Mesh(mergeGeometries(lines, false), new THREE.MeshLambertMaterial({ color: 0xd8b030 })));
   const strips = [];   // emissive ceiling light strips, merged
   const stripAt = (x, z, yy, a, len, wid) => { const g = new THREE.BoxGeometry(len, 0.08, wid); g.rotateY(-a); g.translate(x, yy, z); strips.push(g.toNonIndexed()); };
   for (let i = 0; i < 32; i++) { const a = (i + 0.5) / 32 * 2 * Math.PI; stripAt(cx + Math.cos(a) * RING.r, cz + Math.sin(a) * RING.r, y0 + RING.ceiling - 0.05, a + Math.PI / 2, 8, 0.6); }
   for (const t of [18, 30, 42]) stripAt(cx + f[0] * t, cz + f[1] * t, y0 + EXIT.ceiling - 0.05, LIFT.th, 6, 0.6);
   for (let k = 0; k < SPOKE.n; k++) {
     const fr = spokeFrame(k), mid = SPOKE.ringEnd / 2;
-    slab(SPOKE.ringEnd, 2 * SPOKE.hw, fr.start[0] + fr.u[0] * mid, fr.start[1] + fr.u[1] * mid, y0, fr.a);
-    slab(SPOKE.ringEnd, 2 * SPOKE.hw, fr.start[0] + fr.u[0] * mid, fr.start[1] + fr.u[1] * mid, y0 + SPOKE.ceiling + 0.3, fr.a);
+    slab(SPOKE.ringEnd, 2 * SPOKE.hw, fr.start[0] + fr.u[0] * mid, fr.start[1] + fr.u[1] * mid, y0, fr.a, floorMat);
+    slab(SPOKE.ringEnd, 2 * SPOKE.hw, fr.start[0] + fr.u[0] * mid, fr.start[1] + fr.u[1] * mid, y0 + SPOKE.ceiling + 0.3, fr.a, ceilMat);
     for (let sv = 8; sv <= 32; sv += 12) stripAt(fr.start[0] + fr.u[0] * sv, fr.start[1] + fr.u[1] * sv, y0 + SPOKE.ceiling - 0.05, fr.a, 6, 0.6);
-    const lintel = orientedBox(1, RING.ceiling - SPOKE.ceiling, 2 * (SPOKE.hw + RING.wall), fr.start[0] + fr.u[0] * 0.5, fr.start[1] + fr.u[1] * 0.5, y0 + SPOKE.ceiling, fr.a, wallMat); group.add(lintel);   // closes the 2 m between the spoke's roof and the ring's
-    spokeLining(group, k, y0); blackCap(group, k, SPOKE.ringEnd, y0);
+    const lintel = orientedBox(1, RING.ceiling - SPOKE.ceiling, 2 * (SPOKE.hw + RING.wall), fr.start[0] + fr.u[0] * 0.5, fr.start[1] + fr.u[1] * 0.5, y0 + SPOKE.ceiling, fr.a, wallMat, 4); group.add(lintel);   // closes the 2 m between the spoke's roof and the ring's
+    spokeColours(group, k, y0, 0, SPOKE.ringEnd); spokeLining(group, k, y0); blackCap(group, k, SPOKE.ringEnd, y0);
   }
   group.add(new THREE.Mesh(mergeGeometries(strips, false), new THREE.MeshBasicMaterial({ color: 0xfff1d0 })));
   // walls: every collider of the ring except the lift's own shaft house (liftBuild draws that)
   const all = ringColliders(), liftN = liftColliders('bottom', y0).length;
-  for (const o of all.slice(0, all.length - liftN)) group.add(orientedBox(2 * o.hw, o.h - y0, 2 * o.hd, o.x, o.z, y0, Math.atan2(o.s, o.c), wallMat));
+  for (const o of all.slice(0, all.length - liftN)) group.add(orientedBox(2 * o.hw, o.h - y0, 2 * o.hd, o.x, o.z, y0, Math.atan2(o.s, o.c), wallMat, 4));
   liftBuild('bottom', y0, group);
   // the name signs: over the spoke's mouth, facing into the ring; only rooms with an object (spokeSigns)
   for (const sg of spokeSigns(ROOMS)) {
@@ -2213,10 +2282,10 @@ function ringBuild() {
   for (const L of ROOM.layouts) LEVELS.register(L.id, { groundAt: L.groundAt, colliders: gridOf(L.colliders), ceilingAt: L.ceilingAt });
   scene.add(group);
 }
-function disposeGroup(group) {   // free a thrown-away room: its own geometry, materials and textures -- never the forest's shared tree meshes or TEX.grass
+function disposeGroup(group) {   // free a thrown-away room: its own geometry, materials and textures -- never the forest's shared tree meshes, TEX.grass or the ring's concrete
   group.traverse(o => {
     if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose();
-    for (const m of [].concat(o.material || [])) { if (m.map && m.map !== TEX.grass) m.map.dispose(); m.dispose(); }
+    for (const m of [].concat(o.material || [])) { if (m.map && m.map !== TEX.grass && m.map !== RING_TEX.wall && m.map !== RING_TEX.floor) m.map.dispose(); m.dispose(); }
   });
 }
 // #361 / #308: build room k's meshes (the previous room's are thrown away; the loaded Eiffel GLB stays in memory and is re-attached).
@@ -2259,17 +2328,17 @@ function roomTrees(group, R) {   // the forest's cone + trunk, one InstancedMesh
   cone.computeBoundingSphere(); trunk.computeBoundingSphere(); group.add(cone, trunk);
 }
 function roomPortal(group, R) {   // #361: the tunnel portal in the tree ring -- a concrete face across the near edge with the 10 x 7 m opening, and the spoke's tunnel (s 30..100) behind it
-  const [px, pz] = R.portal.c, a = R.portal.th, f = [Math.cos(a), Math.sin(a)], v = [-f[1], f[0]], y = R.y, mat = CONCRETE();
+  const [px, pz] = R.portal.c, a = R.portal.th, f = [Math.cos(a), Math.sin(a)], v = [-f[1], f[0]], y = R.y, mat = CONCRETE(), floorMat = CONCRETE_FLOOR();
   const at = (da, db) => [px + f[0] * da + v[0] * db, pz + f[1] * da + v[1] * db];
-  const part = (len, hgt, dep, da, db, y0) => { const [x, z] = at(da, db); group.add(orientedBox(len, hgt, dep, x, z, y0, a, mat)); };
+  const part = (len, hgt, dep, da, db, y0, m = mat) => { const [x, z] = at(da, db); group.add(orientedBox(len, hgt, dep, x, z, y0, a, m, 4)); };
   const wingW = 15 - R.portal.hw;   // the face is 30 m wide: two wings of 10 m either side of the 10 m opening, 14 m high
   for (const side of [-1, 1]) part(1, 14, wingW, 0, side * (R.portal.hw + wingW / 2), y);
   part(1, 14 - R.portal.h, 2 * R.portal.hw, 0, 0, y + R.portal.h);   // the lintel over the opening
   const tun = SPOKE.len - SPOKE.roomStart, sideH = R.portal.h;
   for (const side of [-1, 1]) { part(tun + 6, sideH, 1, (6 - tun) / 2, side * (R.portal.hw + 0.5), y); }   // side walls from the cap to 6 m into the lawn, as the colliders
-  part(tun, 0.3, 2 * R.portal.hw, -tun / 2, 0, y - 0.3);                                                  // floor
-  part(tun, 0.3, 2 * R.portal.hw + 2, -tun / 2, 0, y + sideH);                                           // roof
-  const k = R.k; spokeLining(group, k, y); blackCap(group, k, SPOKE.roomStart, y);
+  part(tun, 0.3, 2 * R.portal.hw, -tun / 2, 0, y - 0.3, floorMat);                                        // floor
+  part(tun, 0.3, 2 * R.portal.hw + 2, -tun / 2, 0, y + sideH, CONCRETE_CEILING());                        // roof
+  const k = R.k; spokeColours(group, k, y, SPOKE.roomStart, SPOKE.len); spokeLining(group, k, y); blackCap(group, k, SPOKE.roomStart, y);
 }
 function roomClouds(group, R) {   // ~36 soft white sprites high above the room, drifting nowhere (the camera never leaves the 500 m square)
   const tex = makeTex(256, 128, (g, w, h) => { g.clearRect(0, 0, w, h); for (const [x, yy, r] of [[90, 70, 46], [140, 60, 52], [185, 74, 40], [120, 82, 40], [160, 84, 34]]) { const gr = g.createRadialGradient(x, yy, 2, x, yy, r); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); } }, { alpha: true });
