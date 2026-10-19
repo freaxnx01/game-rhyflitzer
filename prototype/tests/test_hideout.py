@@ -659,7 +659,10 @@ def rendered_frame(page, tries=5):
         if img.getextrema() != (0, 0):
             return img
         page.wait_for_timeout(500)
-    raise AssertionError(f"the rendered frame was entirely black {tries} times in a row (renderer/GPU problem)")
+    state = page.evaluate("""async () => { const c = document.getElementById('gl'), gl = c.getContext('webgl2');
+      return { lost: gl ? gl.isContextLost() : 'none', glError: gl ? gl.getError() : null, size: [c.width, c.height], frameMs: await window.__mm.frameMs(10),
+               car: window.__mm.car(), cave: window.__mm.cave() }; }""")
+    raise AssertionError(f"the rendered frame was entirely black {tries} times in a row (renderer/GPU problem): {state}")
 
 
 def crop_brightness(page):
