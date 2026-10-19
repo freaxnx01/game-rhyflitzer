@@ -23,10 +23,26 @@ def boot(p, server, query="", block=()):
     return b, page
 
 
+PRESS_STATE = """sel => {
+  const el = document.querySelector(sel); if (!el) return 'missing';
+  const r = el.getBoundingClientRect();
+  if (el.closest('[hidden]') || getComputedStyle(el).visibility === 'hidden' || !r.width || !r.height) return 'hidden';
+  return el.disabled ? 'disabled' : 'ready';
+}"""
+
+
+def press(page, sel, timeout=240000):
+    """#345: click like a player, without Playwright's frame-bound actionability wait. Under SwiftShader this page draws at
+    0.07-0.24 fps, and waiting for 'stable' across animation frames took 17-27 s per click. Waits on DOM state (polled every
+    250 ms, not per frame), then clicks from a timer so a click that navigates cannot break the evaluate."""
+    page.wait_for_function(f"sel => ({PRESS_STATE})(sel) === 'ready'", arg=sel, polling=250, timeout=timeout)
+    page.evaluate("sel => { setTimeout(() => document.querySelector(sel).click(), 0); }", sel)
+
+
 def open_worlds(page):
     """#346: the region rows moved into the Worlds dialog behind the start screen's World button."""
-    page.click("#worldbtn")
-    page.wait_for_function("() => !document.querySelector('#worlds').hidden", timeout=30000)
+    press(page, "#worldbtn")
+    page.wait_for_function("() => !document.querySelector('#worlds').hidden", polling=250, timeout=30000)
 
 
 def test_default_is_hochrhein_and_marked(server):
@@ -43,8 +59,8 @@ def test_choosing_ehrendingen_reloads_with_the_parameter_and_keeps_vehicle(serve
     with sync_playwright() as p:
         b, page = boot(p, server, "?vehicle=delorean", block=["**/data/world_ehrendingen.json"])
         open_worlds(page)
-        page.click("#region-ehrendingen")                     # #346: selecting is free, only DRIVE HERE reloads
-        page.click("#drivebtn", no_wait_after=True)
+        press(page, "#region-ehrendingen")                    # #346: selecting is free, only DRIVE HERE reloads
+        press(page, "#drivebtn")
         page.wait_for_url(lambda u: "region=ehrendingen" in u, wait_until="commit", timeout=240000)
         assert "region=ehrendingen" in page.url and "vehicle=delorean" in page.url
         b.close()
@@ -102,4 +118,15 @@ def test_start_screen_buttons_are_not_covered_by_the_game_nav(server):
             return [sel, document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el];
         })""")
         b.close()
-    assert got == [["#worldbtn", True], ["#stylebtn2", True], ["#gg-lang-toggle", True]]
+        assert got == [["#worldbtn", True], ["#stylebtn2", True], ["#gg-lang-toggle", True]]
+
+
+def test_press_waits_for_a_hidden_button(server):
+    """#345: press() clicks only what a player could click; a button inside the closed Worlds dialog times out."""
+    with sync_playwright() as p:
+        b, page = boot(p, server)
+        assert page.evaluate(f"() => ({PRESS_STATE})('#drivebtn')") == "hidden"
+        with pytest.raises(Exception, match="Timeout"):
+            press(page, "#drivebtn", timeout=2000)
+        assert page.evaluate("() => document.querySelector('#worlds').hidden") is True
+        b.close()
