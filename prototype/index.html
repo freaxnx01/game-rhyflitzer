@@ -2169,8 +2169,8 @@ function ringTextures() {
     for (let py = 0; py < h; py += 128) for (let px = 0; px < w; px += 128) {
       const v = Math.floor(rb(-8, 8)); g.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},.35)`; g.fillRect(px, py, 128, 128);
       for (const [hx, hy] of [[32, 32], [96, 32], [32, 96], [96, 96]]) {   // the tie holes, a rust drip under some (canvas y down = wall down)
-        g.fillStyle = '#56575b'; g.beginPath(); g.arc(px + hx, py + hy, 4, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(px + hx - 4, py + hy + 4, 8, 1);
-        if (r() < 0.4) { g.fillStyle = 'rgba(110,70,40,.18)'; g.fillRect(px + hx - 2, py + hy + 5, 4, rb(10, 34)); }
+        g.fillStyle = '#5e5f63'; g.beginPath(); g.arc(px + hx, py + hy, 3, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(px + hx - 3, py + hy + 3, 6, 1);
+        if (r() < 0.3) { g.fillStyle = 'rgba(110,70,40,.16)'; g.fillRect(px + hx - 2, py + hy + 4, 3, rb(8, 30)); }
       }
     }
     for (let i = 0; i < 5; i++) stain(g, rb(0, w), rb(0, h), rb(22, 50), 0.22);
@@ -2212,9 +2212,9 @@ function spokeColours(group, k, y0, s0, s1) {
     strip(PAINT_YELLOW, sv => at(sv, side * (SPOKE.hw - 0.5), y0 + 0.02), sv => at(sv, side * (SPOKE.hw - 0.65), y0 + 0.02), [0, 1, 0]);
   }
   if (s0 <= 0) {
-    const dp = SPOKE.hw + RING.wall + 0.4;   // the pilasters flat on the ring wall either side of the opening, the beam filling the reveal over it up to the lintel
+    const dp = SPOKE.hw + RING.wall + 0.4;   // the pilasters flat on the ring wall either side of the opening, the beam filling the reveal over it up to the lintel's foot
     for (const side of [-1, 1]) block(0.08, SPOKE.ceiling + 0.8, 0.8, -RING.wall - 0.04, side * dp, y0);
-    block(RING.wall + 0.08, 0.8, 2 * dp + 0.8, -RING.wall / 2 - 0.04, 0, y0 + SPOKE.ceiling);
+    block(RING.wall + 0.08, 0.4, 2 * dp + 0.8, -RING.wall / 2 - 0.04, 0, y0 + SPOKE.ceiling);   // 0.4 m tall: a name sign (spokeSigns, from 7.4 m up) sits on it, not in it
   }
   const m = new THREE.Mesh(mergeGeometries(parts, false), new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, side: THREE.DoubleSide }));
   m.renderOrder = 4; m.frustumCulled = false; group.add(m);
