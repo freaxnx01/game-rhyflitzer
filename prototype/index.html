@@ -2339,7 +2339,7 @@ function stepLift(dt) {
   const level = LEVELS.isSurface() ? 'top' : LEVELS.id === 'ring' ? 'bottom' : null;
   if (level === null) { CAB.visible = false; return; }   // no ride inside a room: only hide the cab if it was still showing
   const onPlatform = !FOOT.on && inCabin(P.x, P.z, carRadius()) && Math.abs(P.y - levelFloorY()) < 1;
-  const ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level), level, speed: Math.hypot(P.vx, P.vz), dir: level === 'top' ? 'down' : 'up' });
+  const speed = Math.hypot(P.vx, P.vz), ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level, LIFT, speed), level, speed, dir: level === 'top' ? 'down' : 'up' });
   for (const e of ev) liftEvent(e);
   for (const doorLevel of ['top', 'bottom']) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
   CAB.visible = LIFT_RIDE.phase === 'descending'; if (CAB.visible) { CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }

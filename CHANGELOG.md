@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-10-19 19:44` The **lift door** in the hideout now opens in time even when you race into the hall at full speed, instead of the car crashing into the half-open door.
+
 ### Changed
 
 - `2026-10-18 22:18` The **hideout in the Hübel** is rebuilt: the tunnel now leads straight to a big round hall with a **freight lift** whose doors open as you drive up — even a bus fits. Down below a **tunnel ring** leads to **eight rooms**; the one signed **La Tour Eiffel** is the Eiffel Tower's, the other seven are still waiting for their landmark. The way back is the same in reverse, no U-turn. <kbd>R</kbd> brings you back to the lift exit in the ring, or to the portal of the room you are in; the helicopter (<kbd>F</kbd>) still flies in the rooms, but not in the ring, the tunnels or the lift.
