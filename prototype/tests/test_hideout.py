@@ -908,6 +908,49 @@ def test_spoke_zero_leads_into_the_eiffel_room_and_back_to_the_ring(server):
     assert ring["level"] == "ring" and ring["built"] == 0, ring
 
 
+def frame_brightness(page):
+    """Mean grey of the whole rendered frame (the canvas only, no HUD), from the game's own next-frame PNG."""
+    import base64, io
+    from PIL import Image, ImageStat
+    url = page.evaluate("() => window.__mm.photoUrl()")
+    return ImageStat.Stat(Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("L")).mean[0]
+
+
+SPOKE_STEP = """async ({k, s, back}) => {
+  const p = window.__mm.spoke(k, s), th = back ? p.th + Math.PI : p.th;
+  window.__mm.place(p.x, p.z, th); window.__mm.sim(p.x, p.z, th, 3, 0.05, [], -600);
+  for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+  const b = window.__mm.below(); return { level: b.level, dark: b.dark, fog: b.fog };
+}"""
+
+
+@needs_world
+def test_spoke_fades_into_the_room_and_back_without_a_blackout_or_a_cut(server):
+    """#379: ring -> room and back went almost fully black for ~4 s, then the room (lit tunnel, sky, landmark) appeared in one cut.
+    Stepping 2 m at a time through spoke 0 both ways: the dark fade changes in small steps, the level swaps only where the fade is
+    full (so the swap shows nothing), the picture's brightness never jumps, and it never goes pure black."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        runs = {}
+        for name, ss, back in (("in", range(16, 85, 2), False), ("out", range(84, 15, -2), True)):
+            page.evaluate(SPOKE_STEP, {"k": 0, "s": ss[0], "back": back}); page.wait_for_timeout(1500)   # the chase camera settles after the jump
+            rows = []
+            for s in ss:
+                r = page.evaluate(SPOKE_STEP, {"k": 0, "s": s, "back": back}); r["s"] = s; r["lum"] = frame_brightness(page); rows.append(r)
+            runs[name] = rows
+        br.close()
+    assert errors == []
+    for name, rows in runs.items():
+        assert {r["level"] for r in rows} == {"ring", "eiffel"}, name
+        for a, b in zip(rows, rows[1:]):
+            assert abs(b["dark"] - a["dark"]) <= 0.2, (name, a, b)
+            if a["level"] != b["level"]:
+                assert a["dark"] == 1 and b["dark"] == 1, ("the level swapped in view", name, a, b)
+            assert abs(b["lum"] - a["lum"]) <= 12, ("a cut in the picture", name, a["s"], b["s"], round(a["lum"]), round(b["lum"]))
+        assert min(r["lum"] for r in rows) > 3, ("pure black", name, [(r["s"], round(r["lum"])) for r in rows])
+
+
 @needs_world
 def test_one_room_built_at_a_time_and_empty_rooms_have_no_object(server):
     """Entering room 3's spoke builds room 3 (no tower, no Eiffel count) and nothing else; going back into room 0 builds the Eiffel room and
