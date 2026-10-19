@@ -1,9 +1,9 @@
 // #277 / #361: the room template -- pure layout (no three.js, no DOM): a 500 x 500 m lawn at ROOM_Y under the Hübel, facing
 // along its own spoke, the object (if any) in its centre, a closed ring of trees at the edge with a gap only at the
 // portal, gravel paths, and the tunnel stub leading back to the portal. Eight rooms share this template (ROOMS); only the
-// Eiffel room (room 0) has an object today. index.html builds the meshes from a room's layout the first time its spoke is
+// Eiffel room (room 0) and the Atomium room (room 1) have an object today. index.html builds the meshes from a room's layout the first time its spoke is
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test prototype/tests/rooms.test.mjs`.
-import { EIFFEL } from './hideout.js';
+import { EIFFEL, ATOMIUM } from './hideout.js';
 import { BELOW_Y, SPOKE, spokeFrame } from './underground.js';
 
 export const ROOM_Y = BELOW_Y, ROOM_HALF = 250;
@@ -11,11 +11,11 @@ const TREE_ROWS = [6, 12], TREE_STEP = 4;   // rows at ROOM_HALF - 6 and - 12 fr
 const GAP = SPOKE.hw + 1;   // the portal gap left in the near tree-ring edge and its wall strip
 const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };   // small LCG, deterministic
 
-// #361: eight rooms, star-shaped round the ring; only the Eiffel room has its object and name today (#355 etc add the rest,
+// #361: eight rooms, star-shaped round the ring; only the Eiffel and Atomium rooms have their object and name today (#355 was the Atomium; the rest follow,
 // one issue per landmark) -- an empty room's spoke stays unsigned (spokeSigns in underground.js) so it raises no expectations.
 export const ROOMS = [
   { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL },
-  { id: 'room1', name: null, object: null },
+  { id: 'atomium', name: 'Atomium', object: ATOMIUM },
   { id: 'room2', name: null, object: null },
   { id: 'room3', name: null, object: null },
   { id: 'room4', name: null, object: null },
@@ -46,7 +46,7 @@ export function roomLayout(k, room = ROOMS[k]) {
   colliders.push(atBox(tunA0 - 0.5, 0, 0.5, SPOKE.hw));
   // the object's feet (solid up to its footH; the car drives between and under them) -- only the rooms with an object have any
   const feet = (room.object && room.object.feet)
-    ? room.object.feet.map(([fx, fz]) => ({ x: cx + fx, z: cz + fz, hw: room.object.footHw, hd: room.object.footHw, c: 1, s: 0, h: ROOM_Y + room.object.footH }))
+    ? room.object.feet.map(([fx, fz, hw = room.object.footHw]) => ({ x: cx + fx, z: cz + fz, hw, hd: hw, c: 1, s: 0, h: ROOM_Y + room.object.footH }))
     : [];
   colliders.push(...feet);
   // two rows of trees all the way round the square (Chebyshev distance from the centre), jittered along and across the row,

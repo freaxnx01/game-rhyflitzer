@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel } from '../rooms.js';
-import { EIFFEL } from '../hideout.js';
-import { SPOKE, spokeFrame } from '../underground.js';
+import { EIFFEL, ATOMIUM } from '../hideout.js';
+import { SPOKE, spokeFrame, spokeSigns } from '../underground.js';
 
 const CAR_R = 2.6, rooms = ROOMS.map((_, k) => roomLayout(k)), room = rooms[0];
 const inside = (o, x, z, r = 0) => { const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; return Math.abs(lx) <= o.hw + r && Math.abs(lz) <= o.hd + r; };
@@ -16,10 +16,16 @@ const reach = (R, step = 4) => {   // flood fill in the room's frame from the sp
   return { seen, step };
 };
 
-test('ROOMS_EightRooms_OnlyTheEiffelHasAnObject', () => {
-  assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'room1', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
-  assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel'); for (const r of ROOMS.slice(1)) { assert.equal(r.object, null); assert.equal(r.name, null); }
-  assert.ok(isRoomLevel('eiffel') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
+test('ROOMS_EightRooms_OnlyTheEiffelAndTheAtomiumHaveAnObject', () => {
+  assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'atomium', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
+  assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel');
+  assert.equal(ROOMS[1].object, ATOMIUM); assert.equal(ROOMS[1].name, 'Atomium');
+  for (const r of ROOMS.slice(2)) { assert.equal(r.object, null); assert.equal(r.name, null); }
+  assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
+});
+
+test('spokeSigns_TheRealRooms_SignTheEiffelAndTheAtomiumOnly', () => {
+  const signs = spokeSigns(ROOMS); assert.deepEqual(signs.map(s => [s.k, s.text]), [[0, 'La Tour Eiffel'], [1, 'Atomium']]);
 });
 
 test('roomLayout_FloorIs600mDown500mSquare_PortalAtTheSpokesEnd', () => {
@@ -34,7 +40,7 @@ test('roomLayout_FloorIs600mDown500mSquare_PortalAtTheSpokesEnd', () => {
 test('roomLayout_TheEiffelTowerIsCentredWithLegCollidersOnTheFeet_EmptyRoomsHaveNone', () => {
   assert.deepEqual([room.tower.x, room.tower.z], room.centre); assert.equal(room.feet.length, 4);
   EIFFEL.feet.forEach(([fx, fz], i) => { assert.equal(room.feet[i].x, room.tower.x + fx); assert.equal(room.feet[i].z, room.tower.z + fz); assert.equal(room.feet[i].hw, EIFFEL.footHw); assert.ok(blocked(room, room.feet[i].x, room.feet[i].z, 0)); });
-  for (const R of rooms.slice(1)) { assert.equal(R.tower, null); assert.deepEqual(R.feet, []); assert.equal(R.towerView, null); assert.ok(!blocked(R, ...R.centre)); }
+  for (const R of rooms.slice(2)) { assert.equal(R.tower, null); assert.deepEqual(R.feet, []); assert.equal(R.towerView, null); assert.ok(!blocked(R, ...R.centre)); }
 });
 
 test('roomLayout_SpaceUnderTheTowerIsDrivable_AndReachableFromThePortal', () => {
@@ -86,4 +92,25 @@ test('roomLayout_CeilingOnlyInThePortalTunnel', () => {
   const R = rooms[1]; assert.equal(R.ceilingAt(...R.centre), null);
   const [x, z] = toWorld(R, -ROOM_HALF - 40, 0); assert.equal(R.ceilingAt(x, z), ROOM_Y + SPOKE.ceiling);
   assert.deepEqual(eiffelRoom().centre, room.centre);
+});
+
+const atomium = rooms[1];
+test('roomLayout_TheAtomiumIsCentredWithColliderPerBipodFootAndOneForTheCentralColumn', () => {
+  assert.deepEqual([atomium.tower.x, atomium.tower.z], atomium.centre); assert.equal(atomium.feet.length, 4);
+  ATOMIUM.feet.forEach(([fx, fz, hw], i) => { const f = atomium.feet[i]; assert.equal(f.x, atomium.tower.x + fx); assert.equal(f.z, atomium.tower.z + fz); assert.equal(f.hw, hw); assert.equal(f.h, ROOM_Y + ATOMIUM.footH); assert.ok(blocked(atomium, f.x, f.z, 0)); });
+  assert.deepEqual(ATOMIUM.feet[0].slice(0, 2), [0, 0], 'the first one is the central column on the axis');
+  const legs = ATOMIUM.feet.slice(1).map(([x, z]) => Math.atan2(z, x) * 180 / Math.PI).sort((a, b) => a - b);
+  assert.ok(Math.abs(legs[1] - legs[0] - 120) < 8 && Math.abs(legs[2] - legs[1] - 120) < 8, `the three bipods stand 120 degrees apart: ${legs}`);
+  assert.ok(ATOMIUM.h > 95 && ATOMIUM.h < 110, 'life size, the real one is 102 m');
+});
+
+test('roomLayout_BetweenTheAtomiumsLegsIsDrivable_AndReachableFromThePortal', () => {
+  for (const [x, z] of [[-30, 0], [30, 0], [0, 40], [0, -40], [-30, 40], [-30, -40], [50, 0]]) assert.ok(!blocked(atomium, atomium.tower.x + x, atomium.tower.z + z), `blocked at ${x},${z}`);
+  const r = reach(atomium); assert.ok(r.seen.has('0,0') === false, 'the column is solid'); assert.ok(r.seen.size > 4000);
+  assert.ok([...r.seen].some(k => { const [i, j] = k.split(',').map(Number); return Math.hypot(i * r.step, j * r.step) < 70; }), 'the car gets up to the legs');
+});
+
+test('roomLayout_TheAtomiumsTowerViewLooksAtItFromTheLawn', () => {
+  const v = atomium.towerView, d = Math.hypot(atomium.tower.x - v.x, atomium.tower.z - v.z); assert.ok(d > 120 && d < 180, `${d}`);
+  assert.ok(Math.abs(Math.atan2(atomium.tower.z - v.z, atomium.tower.x - v.x) - v.th) < 0.02); assert.ok(!blocked(atomium, v.x, v.z));
 });

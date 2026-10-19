@@ -1,0 +1,6 @@
+„Atomium" by Sebastian S. (SketchUp 3D Warehouse, 2013):
+https://3dwarehouse.sketchup.com/model/68a2be51efafd7a5b3132afb1c62c517/Atomium
+
+atomium.glb in this folder is a modified copy: converted to glTF 2.0 (Blender export) with the "Google Earth Terrain"
+ground patch removed so its texture does not ship; the model itself and its textures are unchanged. The game uses it
+unbranded for this non-commercial project and credits it in the F1 help, README.md and CHANGELOG.md.

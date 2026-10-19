@@ -277,7 +277,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd>F1 · ?</kbd><span data-i18n="keyHelp">this help</span>
     </div>
     <div id="helpnone" hidden data-i18n="helpNone">No key matches</div>
-    <small data-i18n="creditEiffel" style="display:block;margin-top:8px;color:var(--steel-l)"></small></div>
+    <small data-i18n="creditEiffel" style="display:block;margin-top:8px;color:var(--steel-l)"></small>
+    <small data-i18n="creditAtomium" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
   <div id="jump" hidden><div id="jumptitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small id="jumphint">type to search · ↑↓ choose · Enter confirms · Esc closes</small></div>
   <div id="bl">
     <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer" data-i18n-aria="speedoAria">
@@ -460,7 +461,7 @@ import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chape
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
-import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
+import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
 import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout } from './rooms.js';
@@ -2128,7 +2129,7 @@ addEventListener('resize', resize);
 const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.name = 'surfaceRoot'; scene.add(surfaceRoot);
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
-const ROOM = { layouts: HIDE ? ROOMS.map((r, k) => roomLayout(k)) : null, layout: null, built: null, group: null, cab: null, eiffel: null, model: null, placeholder: null };
+const ROOM = { layouts: HIDE ? ROOMS.map((r, k) => roomLayout(k)) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null };
 const RING_L = { built: false, group: null };
 const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.group, ROOM.cab]);
 const roomIndex = (id) => ROOMS.findIndex(r => r.id === id);
@@ -2291,11 +2292,12 @@ function disposeGroup(group) {   // free a thrown-away room: its own geometry, m
 // #361 / #308: build room k's meshes (the previous room's are thrown away; the loaded Eiffel GLB stays in memory and is re-attached).
 function ensureRoom(k) {
   if (ROOM.built === k) return;
-  if (ROOM.group) { scene.remove(ROOM.group); if (ROOM.model && ROOM.model.parent === ROOM.group) ROOM.group.remove(ROOM.model); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; }
+  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; }
   const R = ROOM.layouts[k], group = new THREE.Group(); ROOM.group = group; ROOM.layout = R; ROOM.built = k; group.visible = false;
   roomMeshes(group, R); scene.add(group);
-  if (R.object) window.__mm.counts.eiffel = 1; else delete window.__mm.counts.eiffel;
-  if (R.object && ROOM.model) attachModel();
+  for (const r of ROOMS) if (r.object) delete window.__mm.counts[r.object.key || 'eiffel'];
+  if (R.object) window.__mm.counts[R.object.key || 'eiffel'] = 1;
+  if (R.object && ROOM.models[k]) attachModel(k); else if (R.object && R.object.url && R.object !== EIFFEL && !modelState(k).started) loadModel(k);   // #355: the other models fetch when their spoke is entered
   group.visible = true; renderer.compile(scene, camera); group.visible = LEVELS.id === R.id;   // the room's programs exist before the doors open
 }
 // the room's meshes (#277): lawn, gravel, two rows of trees, clouds, the portal in the tree ring, and -- only with an object -- the tower
@@ -2305,7 +2307,7 @@ function roomMeshes(group, R) {
   const lawnTex = TEX.grass.clone(); lawnTex.wrapS = lawnTex.wrapT = THREE.RepeatWrapping; lawnTex.repeat.set(2 * R.half / 8, 2 * R.half / 8); lawnTex.needsUpdate = true;
   const lawn = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshLambertMaterial({ map: lawnTex, color: 0xb8d89a })); lawn.geometry.rotateX(-Math.PI / 2); lawn.geometry.rotateY(-a); lawn.position.set(cx, y, cz); group.add(lawn);
   for (const p of R.paths) group.add(flatStrip(p.pts, p.hw, y + 0.08, 0xcfc3ac));
-  roomTrees(group, R); if (R.object) roomTower(group, R); roomPortal(group, R); roomClouds(group, R);
+  roomTrees(group, R); if (R.object === EIFFEL) roomTower(group, R); roomPortal(group, R); roomClouds(group, R);
   // sunlit surfaces need no lights of their own: the style's hemisphere + sun (setBelowLook) light the room
 }
 
@@ -2360,37 +2362,42 @@ function roomTower(group, R) {
   const mesh = new THREE.Mesh(mergeGeometries(geos, false), new THREE.MeshLambertMaterial({ color: EIFFEL.colour })); mesh.userData.role = 'eiffel';
   group.add(mesh); ROOM.placeholder = mesh;
 }
-const eiffelState = () => (ROOM.eiffel ||= { loaded: false, placeholder: true, started: false, error: null, tris: 0, height: null, base: null, material: null });
-function attachModel() { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeholder); ROOM.placeholder = null; } ROOM.group.add(ROOM.model); eiffelState().loaded = true; ROOM.eiffel.placeholder = false; }
+const modelState = (k) => (ROOM.states[k] ||= { loaded: false, placeholder: k === 0, started: false, error: null, tris: 0, height: null, base: null, material: null });
+function attachModel(k) { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeholder); ROOM.placeholder = null; } ROOM.group.add(ROOM.models[k]); modelState(k).loaded = true; ROOM.states[k].placeholder = false; }
 // #201: the life-size model („Eiffel Tower" by Johnson Martin, CC BY 4.0), fetched once the car is near the Hübel: the loader and
 // the meshopt decoder come from three/addons (the importmap), every mesh gets one shared Eiffel-brown material, the whole is
 // scaled to EIFFEL.h and stood on the room's floor, and the placeholder goes. Offline or blocked, the placeholder stays.
-async function loadEiffel() {
-  const E = eiffelState(); E.started = true;
-  console.info('Loading the Eiffel Tower model from', EIFFEL.url);
+// #355: the same loader serves every room's model (ROOMS[k].object.url): the Eiffel Tower is repainted in one brown material and scaled
+// to its height; the Atomium keeps its own textured materials and is placed life size by its anchor (axis + ground, measured in the file).
+async function loadModel(k) {
+  const O = ROOMS[k].object, E = modelState(k), name = k === 0 ? 'Eiffel Tower' : 'Atomium'; E.started = true;
+  console.info(`Loading the ${name} model from`, O.url);
   try {
     const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
     const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
-    const gltf = await loader.loadAsync(EIFFEL.url), root = gltf.scene, mat = new THREE.MeshStandardMaterial({ color: EIFFEL.colour, roughness: EIFFEL.roughness, metalness: EIFFEL.metalness });
+    const gltf = await loader.loadAsync(O.url), root = gltf.scene, mat = O.colour !== undefined ? new THREE.MeshStandardMaterial({ color: O.colour, roughness: O.roughness, metalness: O.metalness }) : null;
     let tris = 0;
-    root.traverse(o => { if (!o.isMesh) return; o.material = mat; o.castShadow = o.receiveShadow = false; o.userData.role = 'eiffel'; if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
-    const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), s = EIFFEL.h / size.y, { x: cx, z: cz } = ROOM.layouts[0].tower, fl = ROOM.layouts[0].y;
-    root.scale.setScalar(s); root.position.set(cx - s * (box.min.x + box.max.x) / 2, fl - s * box.min.y, cz - s * (box.min.z + box.max.z) / 2);
-    ROOM.model = root;
-    Object.assign(E, { tris, height: size.y * s, base: Math.max(size.x, size.z) * s, material: '#' + mat.color.getHexString() });
-    if (ROOM.built === 0) attachModel();
-    console.info(`Eiffel Tower model loaded: ${tris} triangles, ${(size.y * s).toFixed(1)} m tall`);
-  } catch (err) { console.warn('Eiffel Tower model not loaded, keeping the placeholder:', err); E.error = String(err); }
+    root.traverse(o => { if (!o.isMesh) return; if (mat) o.material = mat; o.castShadow = o.receiveShadow = false; o.userData.role = O.key || 'eiffel'; if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+    const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), { x: cx, z: cz } = ROOM.layouts[k].tower, fl = ROOM.layouts[k].y;
+    const s = O.scale || O.h / size.y, [ax, ay, az] = O.anchor || [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2];
+    root.scale.setScalar(s); root.position.set(cx - s * ax, fl - s * ay, cz - s * az);
+    ROOM.models[k] = root;
+    Object.assign(E, { tris, height: O.anchor ? O.h : size.y * s, base: Math.max(size.x, size.z) * s, material: mat ? '#' + mat.color.getHexString() : null });
+    if (ROOM.built === k) attachModel(k);
+    console.info(`${name} model loaded: ${tris} triangles, ${E.height.toFixed(1)} m tall`);
+  } catch (err) { console.warn(`${name} model not loaded:`, err); E.error = String(err); }
 }
+const loadEiffel = () => loadModel(0);
 // #201: the per-quadrant footprint of the loaded model's vertices below 20 m, relative to the tower centre (to measure EIFFEL.feet)
 function eiffelFootprints() {
-  if (!ROOM.model) return null;
+  const model = ROOM.models[0]; if (!model) return null;
   const { x: cx, z: cz } = ROOM.layouts[0].tower, fl = ROOM.layouts[0].y, v = new THREE.Vector3(), boxes = [[], [], [], []];
-  ROOM.model.updateWorldMatrix(true, true);
-  ROOM.model.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y > fl + 20) continue; boxes[(v.x < cx ? 0 : 1) + (v.z < cz ? 0 : 2)].push([v.x - cx, v.z - cz]); } });
+  model.updateWorldMatrix(true, true);
+  model.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y > fl + 20) continue; boxes[(v.x < cx ? 0 : 1) + (v.z < cz ? 0 : 2)].push([v.x - cx, v.z - cz]); } });
   return boxes.filter(b => b.length).map(pointBounds);
 }
-window.__mm.eiffel = () => ROOM.eiffel ? { ...ROOM.eiffel, feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
+window.__mm.eiffel = () => ROOM.states[0] ? { ...ROOM.states[0], feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
+window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.feet, footHw: ATOMIUM.footHw } : null;   // #355
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
 // #277 / #361: the drive-through freight lift. LIFT_RIDE is the lift.js state machine driven by the car in the cabin; the
@@ -2728,7 +2735,7 @@ window.__mm.nearestSchool = (x, z) => Math.min(...FISH.schools.map(s => Math.hyp
 // #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
 window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.hall.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.hall.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms, lift: { c: LIFT.c, th: LIFT.th, hw: LIFT.hw, hd: LIFT.hd, doors: { top: liftDoor('top'), bottom: liftDoor('bottom') } }, room: ROOM.layouts && { centre: ROOM.layouts[0].centre, tower: ROOM.layouts[0].tower, spawn: ROOM.layouts[0].spawn, towerView: ROOM.layouts[0].towerView, half: ROOM.layouts[0].half, y: ROOM.layouts[0].y, portal: ROOM.layouts[0].portal } } : null;
 // #361: where the car is below -- the level, the spoke it is in (k, s), which room's meshes exist, whether that room has an object, the signs; spoke(k, s) is a point on spoke k for the tests
-window.__mm.below = () => ({ level: LEVELS.id, spoke: spokeAt(P.x, P.z), built: ROOM.built, object: ROOM.layout ? !!ROOM.layout.object : null, rooms: ROOMS.map(r => r.id), signs: spokeSigns(ROOMS).map(sg => sg.text), ring: RING_L.built });
+window.__mm.below = () => ({ level: LEVELS.id, spoke: spokeAt(P.x, P.z), built: ROOM.built, object: ROOM.layout ? !!ROOM.layout.object : null, tower: ROOM.layout && ROOM.layout.tower, rooms: ROOMS.map(r => r.id), signs: spokeSigns(ROOMS).map(sg => sg.text), ring: RING_L.built });
 window.__mm.spoke = (k, sv) => { const fr = spokeFrame(k); return { x: fr.start[0] + fr.u[0] * sv, z: fr.start[1] + fr.u[1] * sv, th: fr.a }; };
 window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH; window.__mm.roomAt = roomAt; window.__mm.ceilingAt = ceilingH;   // #201
 // #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
@@ -2866,7 +2873,7 @@ function stepCar(dt) {
   SHADOW_STATE.y = gh2; SHADOW_STATE.pitch = air ? 0 : tilt.pitch; SHADOW_STATE.roll = air ? 0 : tilt.roll; SHADOW_STATE.wet = wl !== null; SHADOW_STATE.air = P.y - gh2;
 }
 // #102 / #201: under the hill? cave mode follows the car or the walker (#277: the find is the lift ride's, see liftEvent)
-function followCave() { if (!HIDE) return; const inside = caveInside(), deep = caveSwitch(inside ? caveDepth(P.x, P.z, HIDE.portal) : -Infinity, CAVE_MODE.on); if (deep !== CAVE_MODE.on) setCave(deep); if (!(ROOM.eiffel && ROOM.eiffel.started) && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }   // the model downloads near the Hübel; the room swaps it in
+function followCave() { if (!HIDE) return; const inside = caveInside(), deep = caveSwitch(inside ? caveDepth(P.x, P.z, HIDE.portal) : -Infinity, CAVE_MODE.on); if (deep !== CAVE_MODE.on) setCave(deep); if (!(ROOM.states[0] && ROOM.states[0].started) && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }   // the model downloads near the Hübel; the room swaps it in
 
 // ---------- camera ----------
 const camPos = new THREE.Vector3(START.x + 12, 20, START.z);
@@ -3317,7 +3324,7 @@ function testhubGo(target) {
   if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else jumpTo(target.entry); return; }
   const s = target.spot;
   if (s.room) {   // #277: a room below: build it, jump there like any jump (race flagged, toast), then step down into it
-    ringBuild(); ensureRoom(0); if (!(ROOM.eiffel && ROOM.eiffel.started)) loadEiffel();
+    ringBuild(); ensureRoom(0); if (!(ROOM.states[0] && ROOM.states[0].started)) loadEiffel();
     placeOnRoad(s.x, s.z, s.th, target.label); LIFT_RIDE.place('bottom'); LEVELS.set('eiffel'); P.safe = [s.x, s.z, s.th]; resetCar();
     camPos.set(s.x - Math.cos(s.th) * 12, P.y + 4, s.z - Math.sin(s.th) * 12); camera.position.copy(camPos); restShadow(); return;
   }
