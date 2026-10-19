@@ -2431,7 +2431,7 @@ window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const 
 // the ride; the camera keeps its mode and is carried by the same y step. Each level's door opens as the car comes near it
 // while the cabin sits there (stepLift animates both panels from LIFT_RIDE.doorAt).
 const LIFT_RIDE = createLift();
-const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshLambertMaterial({ side: THREE.BackSide, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
+const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshBasicMaterial({ side: THREE.BackSide, color: 0x5e5e5e, fog: false, transparent: true, depthWrite: false, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
 CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
 const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : BELOW_Y;
 function liftIndicator(text) { const el = $('liftfloor'); el.hidden = text === null; if (text !== null) el.textContent = text; }
@@ -2444,7 +2444,8 @@ function stepLift(dt) {
   const speed = Math.hypot(P.vx, P.vz), ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level, LIFT, speed), level, speed, dir: level === 'top' ? 'down' : 'up' });
   for (const e of ev) liftEvent(e);
   for (const doorLevel of ['top', 'bottom']) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
-  CAB.visible = LIFT_RIDE.phase === 'descending'; if (CAB.visible) { CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
+  CAB.material.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
+    CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
   const fl = LIFT_RIDE.floor(); liftIndicator(fl === null ? null : String(fl).replace('-', '−'));
 }
 // #361: the dark switch. On the ring level, entering spoke k builds room k's meshes; by position and with hysteresis (underground.js)

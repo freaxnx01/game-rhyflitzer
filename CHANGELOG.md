@@ -10,7 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
-- `2026-10-19 22:40` Riding the **lift up** from the ring, the car now stays on the lift's dark deck the whole way. Halfway up, the floor used to turn into blotchy hill ground until the lift arrived.
+- `2026-10-19 22:40` Riding the **lift up** from the ring, the car now stays on the lift's dark deck the whole way. Halfway up, the floor used to turn into blotchy hill ground until the lift arrived. The shaft walls now fade in as the door shuts and out as it opens, so they no longer pop.
 - `2026-10-19 19:44` The **lift door** in the hideout now opens in time even when you race into the hall at full speed, instead of the car crashing into the half-open door.
 
 ### Changed
