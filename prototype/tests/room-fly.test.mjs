@@ -1,15 +1,18 @@
 // The helicopter in the Eiffel room -- pure permission and clamp. node --test prototype/tests/room-fly.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, roomFlyCeiling, ROOM_Y, ROOM_HALF, ROOM_FLY } from '../room-eiffel.js';
+import { flyAllowed, roomFlyClamp, roomFlyAlt, roomFlyCeiling, ROOM_Y, ROOM_HALF, ROOM_FLY, roomLayout, eiffelRoom } from '../rooms.js';
 import { stepHeli, heliFloor, heliStart } from '../heli.js';
-import { eiffelRoom } from '../room-eiffel.js';
 
 const room = eiffelRoom(), [cx, cz] = room.centre;
 
 test('flyAllowed_RoomLevel_AllowedExceptDuringTheRide', () => {
   assert.equal(flyAllowed('eiffel', 'room'), true);
   assert.equal(flyAllowed('eiffel', 'lift'), false);
+});
+
+test('flyAllowed_EveryRoomButNotTheRing', () => {
+  assert.equal(flyAllowed('room4', 'room'), true); assert.equal(flyAllowed('ring', 'ring'), false); assert.equal(flyAllowed('ring', 'room'), false);
 });
 
 test('flyAllowed_SurfaceZones_OnlyUnderOpenSky', () => {
@@ -23,9 +26,17 @@ test('roomFlyClamp_InsideTheBox_Unchanged', () => {
 });
 
 test('roomFlyClamp_PushedOutward_StopsInsideTheTreeRing', () => {
-  const r = roomFlyClamp(cx + 9999, ROOM_Y + 50, cz - 9999);
-  assert.equal(r.x, cx + ROOM_FLY.wall); assert.equal(r.z, cz - ROOM_FLY.wall);
+  const { f, v } = room.frame;
+  const r = roomFlyClamp(cx + f[0] * 9999 + v[0] * 9999, ROOM_Y + 50, cz + f[1] * 9999 + v[1] * 9999);
+  const a = (r.x - cx) * f[0] + (r.z - cz) * f[1], b = (r.x - cx) * v[0] + (r.z - cz) * v[1];
+  assert.ok(Math.abs(a - ROOM_FLY.wall) < 1e-6 && Math.abs(b - ROOM_FLY.wall) < 1e-6);
   assert.ok(ROOM_FLY.wall < ROOM_HALF - 12 - 5, 'a few metres inside the inner tree row');
+});
+
+test('roomFlyClamp_InARotatedRoom_ClampsInItsOwnFrame', () => {
+  const R = roomLayout(3), f = R.frame.f, v = R.frame.v, far = roomFlyClamp(R.centre[0] + f[0] * 9999, ROOM_Y + 50, R.centre[1] + f[1] * 9999, R);
+  const a = (far.x - R.centre[0]) * f[0] + (far.z - R.centre[1]) * f[1], b = (far.x - R.centre[0]) * v[0] + (far.z - R.centre[1]) * v[1];
+  assert.ok(Math.abs(a - ROOM_FLY.wall) < 1e-6 && Math.abs(b) < 1e-6, `${a}, ${b}`);
 });
 
 test('roomFlyClamp_PushedUp_StopsAtTheCeilingAboveTheTower', () => {

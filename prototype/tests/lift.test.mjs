@@ -90,3 +90,33 @@ test('floor_DownAndUp_CountsMinus1ToMinus12AndBack', () => {
   assert.deepEqual(seq('down'), [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12]);
   assert.deepEqual(seq('up'), [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1]);
 });
+
+// #361: the cabin's level and its two proximity-driven doors
+const NEAR = { onPlatform: false, near: true, level: 'top', speed: 3, dir: 'down' };
+const AWAY = { onPlatform: false, near: false, level: 'top', speed: 3, dir: 'down' };
+
+test('door_OpensWhenTheCarComesNearOnTheCabinsLevel_AndClosesWhenItLeaves', () => {
+  const l = createLift(); assert.equal(l.cabin, 'top'); assert.equal(l.door, 0);
+  run(l, LIFT_TIMES.open / 2, NEAR); assert.ok(l.door > 0.4 && l.door < 0.6, `${l.door}`);
+  run(l, LIFT_TIMES.open, NEAR); assert.equal(l.door, 1); assert.equal(l.doorAt('top'), 1); assert.equal(l.doorAt('bottom'), 0);
+  run(l, LIFT_TIMES.close + 0.1, AWAY); assert.equal(l.door, 0);
+});
+
+test('door_StaysShutWhenTheCabinIsOnTheOtherLevel', () => {
+  const l = createLift(); run(l, 3, { ...NEAR, level: 'bottom' }); assert.equal(l.door, 0); assert.equal(l.doorAt('bottom'), 0);
+  assert.deepEqual(run(l, 3, { onPlatform: true, near: true, level: 'bottom', speed: 0, dir: 'up' }), [], 'no ride from the wrong level');
+});
+
+test('ride_ShutsTheDoorFlipsTheCabinAtTheSwitchAndOpensTheArrivalDoor', () => {
+  const l = createLift(), T = LIFT_TIMES; run(l, T.dwell + 0.05); assert.equal(l.phase, 'closing'); assert.equal(l.cabin, 'top');
+  run(l, T.close + T.ride / 2 - 0.2); assert.equal(l.door, 0); assert.equal(l.cabin, 'top');
+  run(l, 0.4); assert.equal(l.cabin, 'bottom', 'flipped at the midpoint');
+  run(l, T.ride / 2 + T.open + 0.1, { onPlatform: true, near: true, level: 'bottom', speed: 0, dir: 'down' });
+  assert.equal(l.phase, 'idle'); assert.equal(l.doorAt('bottom'), 1); assert.equal(l.doorAt('top'), 0);
+});
+
+test('place_PutsTheCabinOnALevelWithItsDoorShut', () => {
+  const l = createLift(); run(l, 2, NEAR); l.place('bottom'); assert.equal(l.cabin, 'bottom'); assert.equal(l.door, 0);
+  run(l, 2, { ...NEAR, level: 'bottom' }); assert.equal(l.doorAt('bottom'), 1);
+  l.abort(); l.place('top'); assert.equal(l.cabin, 'top'); assert.equal(l.phase, 'idle');
+});

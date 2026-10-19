@@ -35,3 +35,8 @@ test('onChange_FiresWithTheNewAndTheOldLevelAfterTheSwitch', () => {
   lv.set('eiffel'); lv.set('eiffel'); lv.onJump();
   assert.deepEqual(seen, [['eiffel', 'surface', 'eiffel'], ['surface', 'eiffel', 'surface']]);
 });
+
+test('ceilingAt_IsTheCurrentLevels_OrNull', () => {
+  const lv = make(); lv.register('ring', { groundAt: () => -600, colliders: {}, ceilingAt: () => -591 });
+  assert.equal(lv.ceilingAt(0, 0), null); lv.set('ring'); assert.equal(lv.ceilingAt(0, 0), -591);
+});

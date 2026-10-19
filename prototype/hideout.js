@@ -1,24 +1,22 @@
-// #102 / #201: the secret hideout in the Hübel -- pure helpers (no three.js, no DOM): the T1 tunnel axis, the cave system
-// behind it (#201: a graph of disc rooms and straight corridors on one floor, each a cut in the rail-underpass model of
-// world.js with its own parameter set), the roofed / tree-free predicates, the ring arcs between a room's exits, the capped
-// ceilings, the line-of-sight test that keeps the lobby hidden from the gate, the freight-lift platform (#277), and the placeholder Eiffel Tower as
-// primitive descriptors. Unit-tested with `node --test prototype/tests/hideout.test.mjs`.
+// #102 / #201 / #361: the secret hideout in the Hübel -- pure helpers (no three.js, no DOM): the T1 tunnel axis, the lift
+// hall at its end (#361 replaced the #201 cave system of rooms and corridors with it), the roofed / tree-free predicates,
+// the ring arcs round the hall's one exit, the capped ceilings, the drive-through freight lift (#277 / #361), and the
+// placeholder Eiffel Tower as primitive descriptors. Unit-tested with `node --test prototype/tests/hideout.test.mjs`.
 import { UNDERPASS, armReach } from './world.js';
 
 // mouth = the hill-side edge of the Hübel (centre line [-703.3, 1419.1] + w/2 + margin), heading = the steepest rise (probe 2026-10-09)
-export const HIDEOUT = { mouth: [-703.7, 1423.6], heading: 95 * Math.PI / 180, length: 105, hw: 4.5, grade: 0.05, cavernHw: 20, roofDepth: 5.5, towerH: 33, key: 'mm.hideout' };
+export const HIDEOUT = { mouth: [-703.7, 1423.6], heading: 95 * Math.PI / 180, length: 105, hw: 4.5, grade: 0.05, cavernHw: 23, roofDepth: 5.5, towerH: 33, key: 'mm.hideout' };
 export const TUNNEL = { ...UNDERPASS, grade: 0.05, maxDepth: 80 };
 // #201: every corridor is a tunnel 12 m high (T1 from the gate on too); rooms with ceiling 'lid' keep the hill's underside
 export const TUNNEL_CEIL = 12;
 const deg = (d) => d * Math.PI / 180, step = (p, a, l) => [p[0] + Math.cos(a) * l, p[1] + Math.sin(a) * l];
-const R0 = step(HIDEOUT.mouth, HIDEOUT.heading, HIDEOUT.length);   // T1's end, the #102 cavern's centre (-712.8, 1528.2)
-// #201: the cave system. r is the cut's hw (nodeR adds margin + wall/2, as cavernR does for R0); every room stands on the one
-// floor f0 of the whole system (T1's end). The lobby is a small lit room at T2b's end, ceiling 14 m (#277 replaced the #201 hall
-// with it). N1 is the bend where T2a turns south into T2b: three exits need its radius.
+const R0 = step(HIDEOUT.mouth, HIDEOUT.heading, HIDEOUT.length);   // T1's end, the lift hall's centre (-712.8, 1528.2)
+// #361: T1 ends in the lift hall, radius 25 m (cavernHw 23 + margin + wall/2); the #201 cave system of further rooms and
+// corridors is gone -- the hall is the only node, with no links or stubs.
 export const CAVE = {
-  nodes: { r0: { c: R0, r: 20, ceiling: 'lid' }, n1: { c: step(R0, deg(185), 90), r: 12, ceiling: 'lid' }, lobby: { c: [-790, 1855], r: 20, ceiling: 14 } },
-  links: [{ id: 't2a', from: 'r0', to: 'n1', hw: 4.5, ceiling: TUNNEL_CEIL }, { id: 't2b', from: 'n1', to: 'lobby', hw: 4.5, ceiling: TUNNEL_CEIL }],
-  stubs: [{ id: 'stubE', node: 'r0', heading: deg(45), len: 15, hw: 4.5, ceiling: 'lid' }, { id: 'stubW', node: 'n1', heading: deg(185), len: 15, hw: 4.5, ceiling: 'lid' }],
+  nodes: { hall: { c: R0, r: HIDEOUT.cavernHw, ceiling: 'lid' } },
+  links: [],
+  stubs: [],
 };
 // #201: the life-size tower. feet: the four foot boxes (relative to the room's tower centre, metres), measured 2026-10-11 from the loaded
 // model's footprints (__mm.eiffelFootprints): vertices below 20 m span x 36.8..69.7, z 36.8..68.6 per quadrant; the placeholder's legs end on them.
@@ -31,15 +29,13 @@ export function pointBounds(points) {
   return { x0, x1, z0, z1, n: points.length };
 }
 
-// #276: the cave's floor lamps as point lights (relative to the floor): two in R0 along T1's axis, two in the lobby along T2b's axis.
-// A lamp low over the road makes a hot spot (1/d^2 at 3 m is 100x the value 30 m off) that the car drives into and out of in a
-// second, so they hang high: the light under them stays a gentle swell. three r170 physical units (cd), distance = hard cut-off.
-export const CAVE_LAMPS = { r0: { off: 12, y: 9, intensity: 180, distance: 60, decay: 2 }, lobby: { off: 10, y: 8, intensity: 90, distance: 44, decay: 2 } };
+// #276 / #361: the hall's floor lamps as point lights (relative to the floor), two along T1's axis. A lamp low over the
+// road makes a hot spot (1/d^2 at 3 m is 100x the value 30 m off) that the car drives into and out of in a second, so
+// they hang high: the light under them stays a gentle swell. three r170 physical units (cd), distance = hard cut-off.
+export const CAVE_LAMPS = { hall: { off: 16, y: 9, intensity: 180, distance: 60, decay: 2 } };
 export function caveLamps(h = HIDEOUT) {
-  const a = hideoutAxis(h), [cx, cz] = a.centre, [p, q] = linkPts(CAVE.links[1]), len = Math.hypot(q[0] - p[0], q[1] - p[1]), ux = (q[0] - p[0]) / len, uz = (q[1] - p[1]) / len;
-  const [hx, hz] = CAVE.nodes.lobby.c, out = [];
-  for (const k of [-1, 1]) out.push({ room: 'r0', x: cx + a.ux * CAVE_LAMPS.r0.off * k, z: cz + a.uz * CAVE_LAMPS.r0.off * k, ...CAVE_LAMPS.r0 });
-  for (const k of [-1, 1]) out.push({ room: 'lobby', x: hx + ux * CAVE_LAMPS.lobby.off * k, z: hz + uz * CAVE_LAMPS.lobby.off * k, ...CAVE_LAMPS.lobby });
+  const a = hideoutAxis(h), [cx, cz] = a.centre, out = [];
+  for (const k of [-1, 1]) out.push({ room: 'hall', x: cx + a.ux * CAVE_LAMPS.hall.off * k, z: cz + a.uz * CAVE_LAMPS.hall.off * k, ...CAVE_LAMPS.hall });
   return out;
 }
 // what the point lamps add on a floor patch at (x, z) facing up: intensity / d^decay x cos, times three's distance window
@@ -52,14 +48,38 @@ export function lampLight(lamps, x, z) {
   return sum;
 }
 
-// #277: the freight-lift platform in the lobby: centre = the lobby's centre, heading = down T2b, hw across, hd along. The room's lift
-// house stands on the same x/z (the ride only changes y), so one rectangle serves both levels.
-const T2B = [CAVE.nodes.n1.c, CAVE.nodes.lobby.c];
-export const LIFT = { c: CAVE.nodes.lobby.c, th: Math.atan2(T2B[1][1] - T2B[0][1], T2B[1][0] - T2B[0][0]), hw: 5, hd: 8 };
+// #361: the freight lift in the lift hall, on T1's axis: cabin 8 x 22 m, a door at each end of the one driving axis. Door A (towards
+// the tunnel) works on the surface ('top'), door B (away from it) on the ring level below ('bottom'); the other end is a wall there.
+export const LIFT = { c: CAVE.nodes.hall.c, th: HIDEOUT.heading, hw: 4, hd: 11, door: { hw: 3, h: 5 }, wall: 0.5, height: 8, near: 15 };
 // is (x, z) inside the platform's rectangle (pad > 0 grows it)
 export function onLiftPlatform(x, z, pad = 0, l = LIFT) {
   const dx = x - l.c[0], dz = z - l.c[1], along = dx * Math.cos(l.th) + dz * Math.sin(l.th), across = -dx * Math.sin(l.th) + dz * Math.cos(l.th);
   return Math.abs(along) <= l.hd + pad && Math.abs(across) <= l.hw + pad;
+}
+const liftAt = (l, a, b) => [l.c[0] + Math.cos(l.th) * a - Math.sin(l.th) * b, l.c[1] + Math.sin(l.th) * a + Math.cos(l.th) * b];
+// is the whole vehicle (half-length halfLen) inside the cabin
+export function inCabin(x, z, halfLen = 0, l = LIFT) {
+  const dx = x - l.c[0], dz = z - l.c[1];
+  return Math.abs(dx * Math.cos(l.th) + dz * Math.sin(l.th)) <= l.hd - halfLen && Math.abs(-dx * Math.sin(l.th) + dz * Math.cos(l.th)) <= l.hw;
+}
+// the door at a level: 'top' is door A (towards the tunnel, the end the car reaches first), 'bottom' is door B (away from it)
+export function liftDoor(level, l = LIFT) {
+  const k = level === 'top' ? -1 : 1, [x, z] = liftAt(l, k * l.hd, 0);
+  return { x, z, th: level === 'top' ? l.th + Math.PI : l.th };
+}
+// within l.near of that door, or already in the cabin
+export function nearLiftDoor(x, z, level, l = LIFT) {
+  const d = liftDoor(level, l);
+  return Math.hypot(x - d.x, z - d.z) <= l.near || onLiftPlatform(x, z, 0, l);
+}
+// the shaft house's OBBs at a level: side walls, the shut end, the working door's jambs and panel (the panel carries { liftDoor: level })
+export function liftColliders(level, y, l = LIFT) {
+  const w = l.wall, h = y + l.height, c = Math.cos(l.th), s = Math.sin(l.th), open = level === 'top' ? -1 : 1, end = l.hd + w / 2, jamb = (l.hw - l.door.hw) / 2;
+  const box = (a, b, hw, hd, extra = {}) => { const [x, z] = liftAt(l, a, b); return { x, z, hw, hd, c, s, h, secret: true, ...extra }; };
+  return [box(0, l.hw + w / 2, l.hd + w, w / 2), box(0, -(l.hw + w / 2), l.hd + w, w / 2),
+    box(-open * end, 0, w / 2, l.hw + w),
+    box(open * end, l.door.hw + jamb, w / 2, jamb), box(open * end, -(l.door.hw + jamb), w / 2, jamb),
+    box(open * end, 0, w / 2, l.door.hw, { liftDoor: level })];
 }
 
 export function hideoutAxis(h = HIDEOUT) {
@@ -102,16 +122,14 @@ export function nodeR(n, u = TUNNEL) { return n.r + u.margin + u.wall / 2; }
 export function linkPts(l) { return [CAVE.nodes[l.from].c, CAVE.nodes[l.to].c]; }
 // a stub starts on the node's disc edge (a wall thickness inside it, so the cut and the disc overlap) and runs len m out
 export function stubPts(s, u = TUNNEL) { const n = CAVE.nodes[s.node], a = step(n.c, s.heading, nodeR(n, u) - u.wall); return [a, step(a, s.heading, s.len)]; }
-// a flat disc: the #102 trick, a 0.1 m polyline through the centre whose hw makes cutFloorAt level over the disc
-const disc = (id, c, r, f0, depth, u) => { const e = 0.05; return { id, pts: [[c[0] - e, c[1]], [c[0] + e, c[1]]], t: e, hw: r, flat: 1, f0, u, x: c[0], z: c[1], depth, reach: [1, 1], roundEnds: true, capped: null }; };
 // a level corridor: t at its start, flat past its end, reach to its end; roundEnds keeps the floor level past both ends
 const corridor = (id, pts, hw, f0, depth, u) => { const len = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]); return { id, pts, t: 0, hw, flat: 1e9, f0, u, x: (pts[0][0] + pts[1][0]) / 2, z: (pts[0][1] + pts[1][1]) / 2, depth, reach: [0, len], roundEnds: true, capped: null }; };
-// every cut of the system on T1's floor f0: T1 and R0 as #102 built them, then N1, the links, the lobby and the stubs
+// every cut of the system on T1's floor f0: T1 and the hall as #102 built them, plus any links/stubs (#361: none today)
 export function caveCuts(groundAt, h = HIDEOUT, u = TUNNEL) {
-  const { tunnel, cavern, f0 } = hideoutCuts(groundAt, h, u), dep = (c) => groundAt(c[0], c[1]) - f0, N = CAVE.nodes;
-  tunnel.id = 't1'; cavern.id = 'r0';
-  const cuts = [tunnel, cavern, disc('n1', N.n1.c, N.n1.r, f0, dep(N.n1.c), u),
-    ...CAVE.links.map(l => corridor(l.id, linkPts(l), l.hw, f0, dep(linkPts(l)[1]), u)), disc('lobby', N.lobby.c, N.lobby.r, f0, dep(N.lobby.c), u),
+  const { tunnel, cavern, f0 } = hideoutCuts(groundAt, h, u), dep = (c) => groundAt(c[0], c[1]) - f0;
+  tunnel.id = 't1'; cavern.id = 'hall';
+  const cuts = [tunnel, cavern,
+    ...CAVE.links.map(l => corridor(l.id, linkPts(l), l.hw, f0, dep(linkPts(l)[1]), u)),
     ...CAVE.stubs.map(s => corridor(s.id, stubPts(s, u), s.hw, f0, dep(stubPts(s, u)[1]), u))];
   return { cuts, f0 };
 }
@@ -182,7 +200,7 @@ export function ringArcs(id, u = TUNNEL) {
     if (l.to === id) exits.push({ a: Math.atan2(CAVE.nodes[l.from].c[1] - n.c[1], CAVE.nodes[l.from].c[0] - n.c[0]), hw: l.hw });
   }
   for (const s of CAVE.stubs) if (s.node === id) exits.push({ a: s.heading, hw: s.hw });
-  if (id === 'r0') exits.push({ a: HIDEOUT.heading + Math.PI, hw: HIDEOUT.hw });
+  if (id === 'hall') exits.push({ a: HIDEOUT.heading + Math.PI, hw: HIDEOUT.hw });
   const half = (e) => Math.asin(Math.min(1, (e.hw + u.margin + u.wall) / R)), out = [];
   const sorted = exits.map(e => ({ a: ((e.a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI), half: half(e) })).sort((p, q) => p.a - q.a);
   for (let i = 0; i < sorted.length; i++) {
@@ -202,17 +220,6 @@ export function ceilingAt(x, z, meshAt, portal, h = HIDEOUT, u = TUNNEL) {
   const { s, d } = axisCoords(x, z, h);
   if (d <= h.hw + u.margin + u.wall / 2 && s >= portal && s <= h.length) return Math.min(lid, floorAt(s, g0, h, u) + TUNNEL_CEIL);
   return null;
-}
-// the air of the system in plan: the room discs, the corridors (to the wall's inner face) and T1's corridor from the mouth
-function inCaveAir(x, z, h = HIDEOUT, u = TUNNEL) {
-  if (roomAt(x, z, 0, u) || corridorAt(x, z, -u.wall / 2, u)) return true;
-  const { s, d } = axisCoords(x, z, h); return d <= h.hw + u.margin && s >= -1 && s <= h.length;
-}
-// is the straight line a -> b (in plan) interrupted by rock anywhere? sampled every 0.5 m
-export function sightBlocked(a, b) {
-  const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) * 2);
-  for (let k = 0; k <= n; k++) if (!inCaveAir(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n)) return true;
-  return false;
 }
 // The Eiffel Tower at h metres (1:10 at 33), base y = 0, centred on (0, 0), unrotated: four legs of three tapered segments
 // (base corners +-6.25 -> 1st floor +-3.5 at 5.7 -> 2nd floor +-2.0 at 11.5 -> top +-0.9 at 27.6), X braces on the two lower
