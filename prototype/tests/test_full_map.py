@@ -59,13 +59,16 @@ def on_map(page, x, z):
 
 
 def test_tab_does_nothing_on_the_start_screen(server):
+    """#346 hides the minimap behind the start screen: holding Tab neither goes full nor shows it."""
     with sync_playwright() as p:
         b, page = open_hand(p, server)
         page.keyboard.down("Tab"); wait_frames(page)
-        held = mm(page); width = box(page, "#map")["width"]
+        held = mm(page)
+        br_full = page.evaluate("() => document.getElementById('br').classList.contains('full')")
+        map_hidden = page.locator("#map").is_hidden()
         page.keyboard.up("Tab")
         b.close()
-    assert held["full"] is False and width == pytest.approx(400, abs=1)
+    assert held["full"] is False and br_full is False and map_hidden is True
 
 
 def test_hold_tab_shows_the_whole_map_big_and_centred(server):
