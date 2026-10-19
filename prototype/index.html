@@ -3352,13 +3352,14 @@ function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttrib
 // X therefore just raises this flag, and loop() reads it right after renderer.render() -- no per-frame cost otherwise.
 let photoPending = false;
 let photoSink = null;   // #251: set by photoDataUrl(); the next capture goes there instead of into a download
-function capturePhoto() { const sink = photoSink || savePhoto; photoSink = null; photoPending = false; canvas.toBlob(sink, 'image/png'); }
-function blobToDataUrl(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('photo failed')); r.readAsDataURL(blob); }); }
+// the test sink reads the canvas synchronously (toDataURL), in the task that drew it: on the gpu-odroid CI runner (Intel UHD, ANGLE)
+// toBlob sometimes read the already discarded drawing buffer and returned an all-black frame (mean 0.0 for a daylight view)
+function capturePhoto() { photoPending = false; if (photoSink) { const sink = photoSink; photoSink = null; sink(canvas.toDataURL('image/png')); return; } canvas.toBlob(savePhoto, 'image/png'); }
 // #251: the Testhub screenshot -- the frame X would save, as a PNG data URL (no HUD: it is the canvas only)
 function photoDataUrl() {
   if (photoSink) return Promise.reject(new Error('screenshot already pending'));
   return new Promise((resolve, reject) => {
-    photoSink = blob => { if (!blob) reject(new Error('photo failed')); else blobToDataUrl(blob).then(resolve, reject); };
+    photoSink = url => { if (!url || url.length < 32) reject(new Error('photo failed')); else resolve(url); };
     photoPending = true;
   });
 }
