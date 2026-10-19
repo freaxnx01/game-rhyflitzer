@@ -113,7 +113,9 @@ def test_t1_into_the_hall_opens_door_a_and_is_no_find(server):
         r = page.evaluate(f"() => window.__mm.sim({MOUTH_ROAD[0]}, {MOUTH_ROAD[1]}, {HEADING}, 16, 4, ['KeyW'])")
         in_t1 = page.evaluate("() => ({ found: window.__mm.hideout().found, stored: localStorage.getItem('mm.hideout'), room: window.__mm.roomAt(window.__mm.car().x, window.__mm.car().z), cave: window.__mm.cave(), door: window.__mm.lift().door })")
         (px, pz), th = t1_point(h, 30)
-        far = page.evaluate(f"() => {{ window.__mm.sim({px}, {pz}, {th}, 0, 0.1, [], {h['floor']}); return window.__mm.lift(); }}")
+        # standing still 30 m out for longer than the door's closing time: the drive in at 16 m/s may already have reached the
+        # speed-scaled door reach (nearLiftDoor), so the door is judged once it had time to shut, not 0.1 s after the teleport
+        far = page.evaluate(f"() => {{ window.__mm.sim({px}, {pz}, {th}, 0, 1.5, [], {h['floor']}); return window.__mm.lift(); }}")
         r2 = page.evaluate(f"() => window.__mm.sim({px}, {pz}, {th}, 10, 2.5, ['KeyW'], {h['floor']})")
         near = page.evaluate("() => window.__mm.lift()")
         found = page.evaluate("() => window.__mm.hideout().found")
