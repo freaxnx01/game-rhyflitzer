@@ -910,10 +910,8 @@ def test_spoke_zero_leads_into_the_eiffel_room_and_back_to_the_ring(server):
 
 def frame_brightness(page):
     """Mean grey of the whole rendered frame (the canvas only, no HUD), from the game's own next-frame PNG."""
-    import base64, io
-    from PIL import Image, ImageStat
-    url = page.evaluate("() => window.__mm.photoUrl()")
-    return ImageStat.Stat(Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("L")).mean[0]
+    from PIL import ImageStat
+    return ImageStat.Stat(rendered_frame(page)).mean[0]
 
 
 SPOKE_STEP = """async ({k, s, back}) => {
