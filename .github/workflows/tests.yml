@@ -58,7 +58,7 @@ jobs:
           cache-dependency-path: pipeline/requirements.txt
 
       - name: Install Python dependencies
-        run: pip install -r pipeline/requirements.txt pytest "playwright==${PLAYWRIGHT_VERSION}"
+        run: pip install -r pipeline/requirements.txt pytest pillow "playwright==${PLAYWRIGHT_VERSION}"
 
       - name: Select the affected browser tests
         env:
@@ -142,7 +142,7 @@ jobs:
 
       - name: Install Python dependencies
         if: env.GPU != 'true'
-        run: pip install -r pipeline/requirements.txt pytest "playwright==${PLAYWRIGHT_VERSION}"
+        run: pip install -r pipeline/requirements.txt pytest pillow "playwright==${PLAYWRIGHT_VERSION}"
 
       - name: Cache the Playwright browsers
         if: env.GPU != 'true'
