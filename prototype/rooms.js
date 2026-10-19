@@ -14,8 +14,8 @@ const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return
 // #361: eight rooms, star-shaped round the ring; only the Eiffel and Atomium rooms have their object and name today (#355 was the Atomium; the rest follow,
 // one issue per landmark) -- an empty room's spoke stays unsigned (spokeSigns in underground.js) so it raises no expectations.
 export const ROOMS = [
-  { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL },
-  { id: 'atomium', name: 'Atomium', object: ATOMIUM },
+  { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL, signed: false },   // signed: false -- unsigned for now, so finding them stays a surprise
+  { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false },
   { id: 'room2', name: null, object: null },
   { id: 'room3', name: null, object: null },
   { id: 'room4', name: null, object: null },
