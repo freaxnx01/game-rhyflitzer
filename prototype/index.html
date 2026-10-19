@@ -453,6 +453,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { SPECIES, treeSpecies, treeParts, treeColour, billShape } from './trees.js';
 import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
@@ -1748,8 +1749,8 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   const FOREST_TREES = [];
   if (L && WOODS.length) {
     const edges = forestEdges(WOODS, FOREST), placed = forestTrees(WOODS, FOREST, edges, rng(13));
-    for (const [x, z, h] of [...placed.edge, ...placed.fill])
-      if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && !(HIDE && inHideout(x, z)) && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h]);
+    for (const [kind, list] of [['edge', placed.edge], ['fill', placed.fill]]) for (const [x, z, h] of list)   // #359: the kind picks the species mix
+      if (free(x, z, 2) && railDist(x, z) > 7 && streamH(x, z) === -Infinity && !(HIDE && inHideout(x, z)) && PARKING.clear(x, z, TREE_CROWN * h)) FOREST_TREES.push([x, z, h, 0, kind]);
     for (const [x, z, h] of FOREST_TREES) addSolid(forestCollider(x, z, h, lidGround(x, z)));   // #211: after the placement loop, so free() above never sees a trunk; not in OBB, so off the minimap
     window.__mm.counts.forest = { polys: WOODS.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, solid: FOREST_TREES.length };
   }
@@ -1846,31 +1847,62 @@ for (const role in parts) { const g = mergeGeometries(parts[role], false); const
 const boundaryY = (x, z) => Math.max(terrainH(x, z), roadSurfH(x, z), waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0) ?? -Infinity) + 0.25;
 const BOUNDS = new THREE.Group(); BOUNDS.visible = false; scene.add(BOUNDS);
 if (L && L.boundaries.length) BOUNDS.add(new THREE.Mesh(mergeGeometries(L.boundaries.map(b => ribbonGeo(b.pts, 0.75, 0, 4, false, p => boundaryY(p[0], p[1]))), false), new THREE.MeshBasicMaterial({ color: 0xff3fb4, transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })));
-const treeGeos = []; for (const t of window.__TREES) { const [x, z, h] = t; t[3] = terrainH(x, z); for (const rot of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(h * 0.9, h); g.translate(0, h / 2, 0); g.rotateY(rot + rr(-0.2, 0.2)); g.translate(x, t[3], z); colorize(g, col('#ffffff')); treeGeos.push(g); } }
+// #359: four species (prototype/trees.js) in the retro low-poly look. Unit crowns are radius 1, height 1, base at y = 0: a cone, or a
+// faceted ball (an icosahedron squashed to height 1); unit trunks are height 1, base at 0. 'single' = closed, finer (today's 7-segment cone +
+// 6-segment trunk); 'forest' = open-ended, coarser (today's 14 triangles for a spruce). The birch trunk is white with dark marks on a few faces.
+function treeGeometries(detail) {
+  const fine = detail === 'single', unit = g => { g.translate(0, 0.5, 0); return g; };
+  const ball = new THREE.IcosahedronGeometry(1, 0); ball.scale(1, 0.5, 1);
+  const birch = (fine ? new THREE.CylinderGeometry(0.12, 0.16, 1, 6, 1, true) : new THREE.CylinderGeometry(0.12, 0.16, 1, 4, 1, true)).toNonIndexed();
+  { const n = birch.attributes.position.count, rgb = new Float32Array(n * 3); for (let v = 0; v < n; v++) { const mark = Math.floor(v / 3) % 3 === 1 ? 0.22 : 0.9; rgb[v * 3] = mark; rgb[v * 3 + 1] = mark; rgb[v * 3 + 2] = mark * 0.97; } birch.setAttribute('color', new THREE.BufferAttribute(rgb, 3)); }
+  return {
+    crowns: { cone: unit(fine ? new THREE.ConeGeometry(1, 1, 7) : new THREE.ConeGeometry(1, 1, 6, 1, true)), ball: unit(ball) },
+    trunks: { bark: unit(fine ? new THREE.CylinderGeometry(0.12, 0.16, 1, 6) : new THREE.CylinderGeometry(0.12, 0.16, 1, 4, 1, true)), birch: unit(birch) },
+  };
+}
+const TREE_GEO = { single: treeGeometries('single'), forest: treeGeometries('forest') };
+const TREE_MAT = { crown: new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, roughness: 1 }), bark: new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 }), birch: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, flatShading: true, roughness: 1 }) };
+const TREE_UP = new THREE.Vector3(0, 1, 0);
+// one InstancedMesh per species and part for trees [x, z, h, y, kind]; jitter[i] = [u1, u2] is the tree's colour jitter (the caller's rng, in its order)
+function speciesMeshes(trees, G, jitter, shadows) {
+  const by = new Map(SPECIES.map(s => [s, []])); trees.forEach((t, i) => by.get(treeSpecies(t[0], t[1], t[4])).push(i));
+  const out = [], m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
+  for (const [s, idx] of by) {
+    if (!idx.length) continue;
+    const kinds = treeParts(s, 1), crown = new THREE.InstancedMesh(G.crowns[kinds.crown.kind], TREE_MAT.crown, idx.length), trunk = new THREE.InstancedMesh(G.trunks[kinds.trunk.kind], TREE_MAT[kinds.trunk.kind], idx.length);
+    idx.forEach((ti, i) => {
+      const [x, z, h, y] = trees[ti], p = treeParts(s, h), [u1, u2] = jitter[ti];
+      q.setFromAxisAngle(TREE_UP, u1 * Math.PI * 2);   // the ball's facets turned per tree, so a row never looks stamped
+      m.compose(new THREE.Vector3(x, y + p.crown.y, z), q, new THREE.Vector3(p.crown.sx, p.crown.sy, p.crown.sx)); crown.setMatrixAt(i, m);
+      c.setHSL(...treeColour(s, u1, u2)); crown.setColorAt(i, c);
+      m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(p.trunk.sx, p.trunk.sy, p.trunk.sx)); trunk.setMatrixAt(i, m);
+    });
+    for (const im of [crown, trunk]) { im.castShadow = shadows; im.computeBoundingSphere(); im.userData.species = s; im.userData.part = im === crown ? 'crown' : 'trunk'; out.push(im); }
+  }
+  return out;
+}
+const treeGeos = []; for (const t of window.__TREES) { const [x, z, h] = t; t[3] = terrainH(x, z); t[4] = 'single'; const b = billShape(treeSpecies(x, z, 'single')); for (const rot of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(h * 0.9 * b.w, h); g.translate(0, h / 2, 0); g.rotateY(rot + rr(-0.2, 0.2)); g.translate(x, t[3], z); colorize(g, new THREE.Color(...b.tint)); treeGeos.push(g); } }
 const treeBill = new THREE.Mesh(mergeGeometries(treeGeos, false)); treeBill.userData.role = 'tree'; scene.add(treeBill);
-const coneG = new THREE.ConeGeometry(1, 1, 7); coneG.translate(0, 0.5, 0); const trunkG = new THREE.CylinderGeometry(0.12, 0.16, 1, 6); trunkG.translate(0, 0.5, 0);
-const treeCone = new THREE.InstancedMesh(coneG, new THREE.MeshStandardMaterial({ color: 0x4f8a4a, flatShading: true, roughness: 1 }), window.__TREES.length); const treeTrunk = new THREE.InstancedMesh(trunkG, new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 }), window.__TREES.length);
-{ const m = new THREE.Matrix4(), c = new THREE.Color(); window.__TREES.forEach(([x, z, h, ty], i) => { m.compose(new THREE.Vector3(x, ty + h * 0.28, z), new THREE.Quaternion(), new THREE.Vector3(h * 0.42, h * 0.75, h * 0.42)); treeCone.setMatrixAt(i, m); c.setHSL(0.3 + rr(-0.04, 0.04), 0.4, 0.3 + rr(0, 0.12)); treeCone.setColorAt(i, c); m.compose(new THREE.Vector3(x, ty, z), new THREE.Quaternion(), new THREE.Vector3(h * 0.9, h * 0.3, h * 0.9)); treeTrunk.setMatrixAt(i, m); }); treeCone.castShadow = treeTrunk.castShadow = true; scene.add(treeCone, treeTrunk); }
-// #13: forest trees per 512 m tile -- one InstancedMesh per tile and representation, so three.js culls whole tiles; 14 triangles per tree, no shadows
+const TREE_SOLID = speciesMeshes(window.__TREES, TREE_GEO.single, window.__TREES.map(() => [rnd(), rnd()]), true); scene.add(...TREE_SOLID);
+// #13: forest trees per 512 m tile -- one InstancedMesh per tile, species and part, so three.js culls whole tiles; 14..28 triangles per tree, no shadows
 const FOREST_MESHES = [];
 { const tiles = new Map(); for (const t of window.__FOREST) { t[3] = lidGround(t[0], t[1]); const k = tileKey(t[0], t[1], FOREST_BUDGET.tile); if (!tiles.has(k)) tiles.set(k, []); tiles.get(k).push(t); }
-  const fcone = new THREE.ConeGeometry(1, 1, 6, 1, true); fcone.translate(0, 0.5, 0); const ftrunk = new THREE.CylinderGeometry(0.12, 0.16, 1, 4, 1, true); ftrunk.translate(0, 0.5, 0);
   const fbill = mergeGeometries([0, Math.PI / 2].map(r => { const g = new THREE.PlaneGeometry(0.9, 1); g.translate(0, 0.5, 0); g.rotateY(r); return g; }), false); colorize(fbill, col('#ffffff'));
-  const coneMat = new THREE.MeshStandardMaterial({ color: 0x4f8a4a, flatShading: true, roughness: 1 }), trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 });
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color(), frnd = rng(31);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color(), frnd = rng(31);
   for (const list of tiles.values()) {
-    const cone = new THREE.InstancedMesh(fcone, coneMat, list.length), trunk = new THREE.InstancedMesh(ftrunk, trunkMat, list.length), bill = new THREE.InstancedMesh(fbill, new THREE.MeshBasicMaterial(), list.length);
-    list.forEach(([x, z, h, ty], i) => {
-      q.identity(); m.compose(new THREE.Vector3(x, ty + h * 0.28, z), q, new THREE.Vector3(h * 0.42, h * 0.75, h * 0.42)); cone.setMatrixAt(i, m);
-      c.setHSL(0.3 + (frnd() - 0.5) * 0.08, 0.4, 0.3 + frnd() * 0.12); cone.setColorAt(i, c);
-      m.compose(new THREE.Vector3(x, ty, z), q, new THREE.Vector3(h * 0.9, h * 0.3, h * 0.9)); trunk.setMatrixAt(i, m);
-      q.setFromAxisAngle(up, (frnd() - 0.5) * 0.4); m.compose(new THREE.Vector3(x, ty, z), q, new THREE.Vector3(h, h, h)); bill.setMatrixAt(i, m);
+    const bill = new THREE.InstancedMesh(fbill, new THREE.MeshBasicMaterial(), list.length), jitter = [];
+    list.forEach(([x, z, h, ty, kind], i) => {
+      jitter.push([frnd(), frnd()]);
+      const b = billShape(treeSpecies(x, z, kind));
+      q.setFromAxisAngle(TREE_UP, (frnd() - 0.5) * 0.4); m.compose(new THREE.Vector3(x, ty, z), q, new THREE.Vector3(h * b.w, h, h * b.w)); bill.setMatrixAt(i, m); bill.setColorAt(i, c.setRGB(...b.tint));
     });
-    for (const im of [cone, trunk, bill]) { im.computeBoundingSphere(); scene.add(im); }
-    FOREST_MESHES.push({ cone, trunk, bill });
+    bill.computeBoundingSphere(); scene.add(bill);
+    const solid = speciesMeshes(list, TREE_GEO.forest, jitter, false); scene.add(...solid);
+    FOREST_MESHES.push({ solid, bill });
   }
   if (window.__mm.counts.forest) window.__mm.counts.forest.tiles = tiles.size;
 }
+window.__mm.treeSpecies = () => { const n = { single: {}, forest: {} }, add = (to, im) => { if (im.userData.part === 'crown') to[im.userData.species] = (to[im.userData.species] || 0) + im.count; }; for (const im of TREE_SOLID) add(n.single, im); for (const f of FOREST_MESHES) for (const im of f.solid) add(n.forest, im); return n; };
 // checkpoints and finish
 const cpMat = new THREE.MeshBasicMaterial({ color: 0xffc61a, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }), cpMatDone = new THREE.MeshBasicMaterial({ color: 0x7fe0a0, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false });
 const cpObjs = CPS.map((c) => { const g = new THREE.Group(); const pillar = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 40, 16, 1, true), cpMat); pillar.position.y = 20; const ring = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.35, 8, 24), new THREE.MeshBasicMaterial({ color: 0xffc61a })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.6; g.add(pillar, ring); g.position.set(c.x, groundH(c.x, c.z), c.z); scene.add(g); return { g, pillar, ring, done: false }; });
@@ -2076,7 +2108,7 @@ const STYLES = {
 let styleKey = 'original';
 function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on) setCave(true); if (!LEVELS.isSurface()) setBelowLook(LEVELS.id === 'ring' ? 'ring' : 'room'); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
-function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey]; treeBill.visible = on && St.trees === 'bill'; treeCone.visible = treeTrunk.visible = on && St.trees === 'cone'; for (const f of FOREST_MESHES) { f.bill.visible = on && St.trees === 'bill'; f.cone.visible = f.trunk.visible = on && St.trees === 'cone'; } }
+function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.solid) im.visible = solid; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
 // light without shadows, no trees, no sun disc; off restores the style (modelled on setUnderwater; the two are never both on).
 // Look (#201 polish): density 0.0009 keeps the summit 350 m away at ~10 % fog, not 30 %; the cool blue-grey ambient at 0.55
@@ -2319,15 +2351,9 @@ function flatStrip(pts, hw, y, colour) {   // a flat ribbon on the lawn: two tri
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: colour, side: THREE.DoubleSide })); m.renderOrder = 1; return m;
 }
-function roomTrees(group, R) {   // the forest's cone + trunk, one InstancedMesh each (about 1000 trees, 7 + 6 triangles per tree)
-  const cone = new THREE.InstancedMesh(coneG, new THREE.MeshStandardMaterial({ color: 0x4f8a4a, flatShading: true, roughness: 1 }), R.trees.length);
-  const trunk = new THREE.InstancedMesh(trunkG, new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 }), R.trees.length);
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color(), r = rng(278);
-  R.trees.forEach(([x, z, h], i) => {
-    m.compose(new THREE.Vector3(x, R.y + h * 0.28, z), q, new THREE.Vector3(h * 0.42, h * 0.75, h * 0.42)); cone.setMatrixAt(i, m); c.setHSL(0.3 + (r() - 0.5) * 0.08, 0.4, 0.3 + r() * 0.12); cone.setColorAt(i, c);
-    m.compose(new THREE.Vector3(x, R.y, z), q, new THREE.Vector3(h * 0.9, h * 0.3, h * 0.9)); trunk.setMatrixAt(i, m);
-  });
-  cone.computeBoundingSphere(); trunk.computeBoundingSphere(); group.add(cone, trunk);
+function roomTrees(group, R) {   // #359: the single trees' species meshes (edge mix), about 1000 trees, no shadows
+  const r = rng(278), trees = R.trees.map(([x, z, h]) => [x, z, h, R.y, 'edge']);
+  group.add(...speciesMeshes(trees, TREE_GEO.single, trees.map(() => [r(), r()]), false));
 }
 function roomPortal(group, R) {   // #361: the tunnel portal in the tree ring -- a concrete face across the near edge with the 10 x 7 m opening, and the spoke's tunnel (s 30..100) behind it
   const [px, pz] = R.portal.c, a = R.portal.th, f = [Math.cos(a), Math.sin(a)], v = [-f[1], f[0]], y = R.y, mat = CONCRETE(), floorMat = CONCRETE_FLOOR();
@@ -2743,7 +2769,7 @@ window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector
 window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay, visible: l.visible && l.parent.visible, kind: l.userData.kind, target: l.isSpotLight ? l.target.position.toArray() : null, angle: l.angle ?? null, penumbra: l.penumbra ?? null })) : null;
 window.__mm.hideoutRing = () => HIDE && HIDE.ring ? Object.fromEntries(Object.entries(HIDE.ring).map(([id, ring]) => [id, ring.map(r => ({ ...r, wall: TUNNEL.wall }))])) : null;   // #201: { r0, n1 }
 // #201: cave mode as the tests see it; the lights; the last frame's draw calls; the tower; the static map's pixel over (x, z)
-window.__mm.cave = () => ({ dark: !!CAVE_MODE.dark && CAVE_MODE.dark.visible, inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, k: CAVE_MODE.k, hemi: hemi.intensity, sun: sun.intensity, skyTop: '#' + skyMat.uniforms.top.value.getHexString(), fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || treeCone.visible || FOREST_MESHES.some(f => f.bill.visible || f.cone.visible), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
+window.__mm.cave = () => ({ dark: !!CAVE_MODE.dark && CAVE_MODE.dark.visible, inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, k: CAVE_MODE.k, hemi: hemi.intensity, sun: sun.intensity, skyTop: '#' + skyMat.uniforms.top.value.getHexString(), fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || TREE_SOLID.some(im => im.visible) || FOREST_MESHES.some(f => f.bill.visible || f.solid.some(im => im.visible)), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
 window.__mm.level = () => ({ id: LEVELS.id, grid: OBB_GRID === SURFACE_GRID ? 'surface' : 'room', y: P.y });
 window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, level: LEVELS.id });
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
