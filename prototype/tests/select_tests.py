@@ -21,7 +21,7 @@ SMOKE = ("test_smoke.py::test_bundled_terrain_loads_without_upload", "test_smoke
 SELF_TESTS = ("test_select_tests.py",)  # rule e: pure, no browser
 CAP = 8
 TOOLING = (f"{TESTS}/conftest.py", f"{TESTS}/select_tests.py", f"{TESTS}/test-map.json", f"{TESTS}/gpu_browser.py",
-           ".github/workflows/tests.yml")
+           f"{TESTS}/hermetic_api.py", ".github/workflows/tests.yml")
 GAME_PREFIXES = ("prototype/", "editor/", "data/", "vendor/")
 GAME_FILES = ("editor.html", "index.html")
 

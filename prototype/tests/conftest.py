@@ -6,9 +6,10 @@ from functools import partial
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import BrowserType
+from playwright.sync_api import Browser, BrowserType
 
 import gpu_browser
+import hermetic_api
 import visual_runs
 
 ROOT = Path(__file__).parents[2]
@@ -18,6 +19,8 @@ GPU = {"endpoint": None, "launch": None}
 # #332: records every session that launched a browser; wraps whatever BrowserType.launch is current (after the GPU patch)
 RUNS = visual_runs.Collector()
 RUN_HOOK = {"launch": None}
+# #348: every new browser context answers the production /api/gallery, so no test reaches the deployed API
+API_HOOK = {"new_context": None, "new_page": None}
 
 
 def _install_gpu_hook(config):
@@ -30,7 +33,21 @@ def _install_gpu_hook(config):
     BrowserType.launch = gpu_browser.remote_launch(endpoint, BrowserType.launch)
 
 
+def _install_api_hook():
+    API_HOOK["new_context"], API_HOOK["new_page"] = Browser.new_context, Browser.new_page
+    Browser.new_context = hermetic_api.hermetic_new_context(Browser.new_context)
+    Browser.new_page = hermetic_api.hermetic_new_page(Browser.new_page)
+
+
+def _remove_api_hook():
+    if API_HOOK["new_context"] is None:
+        return
+    Browser.new_context, Browser.new_page = API_HOOK["new_context"], API_HOOK["new_page"]
+    API_HOOK["new_context"] = API_HOOK["new_page"] = None
+
+
 def pytest_configure(config):
+    _install_api_hook()
     _install_gpu_hook(config)
     RUNS.start()
     RUN_HOOK["launch"] = BrowserType.launch
@@ -44,6 +61,7 @@ def pytest_unconfigure(config):
     if GPU["launch"] is not None:
         BrowserType.launch = GPU["launch"]
         GPU["endpoint"] = GPU["launch"] = None
+    _remove_api_hook()
 
 
 def pytest_report_header(config):
