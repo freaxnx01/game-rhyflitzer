@@ -647,12 +647,25 @@ def test_cave_light_stays_daylight_until_the_deep_point_and_the_tunnel_darkens_l
         assert by[d]["fog"] == "#07080a" and by[d]["dark"] is False and by[d]["on"] is True, (d, by[d])
 
 
+def rendered_frame(page, tries=5):
+    """The game's own next-frame PNG as a grey PIL image. A capture with every pixel 0 is no game frame (even the darkest spoke
+    frame has the lit car in it): the gpu-odroid CI runner (Intel UHD) now and then hands one back -- a daylight view read 0.0 --
+    so it is taken again; a frame that stays all black is reported as such, not as a cut or a dark scene."""
+    import base64, io
+    from PIL import Image
+    for _ in range(tries):
+        url = page.evaluate("() => window.__mm.photoUrl()")
+        img = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("L")
+        if img.getextrema() != (0, 0):
+            return img
+        page.wait_for_timeout(500)
+    raise AssertionError(f"the rendered frame was entirely black {tries} times in a row (renderer/GPU problem)")
+
+
 def crop_brightness(page):
     """Mean grey of the frame's middle (the opening, looking out of the portal), from the game's own next-frame PNG."""
-    import base64, io
-    from PIL import Image, ImageStat
-    url = page.evaluate("() => window.__mm.photoUrl()")
-    img = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("L"); w, h = img.size
+    from PIL import ImageStat
+    img = rendered_frame(page); w, h = img.size
     return ImageStat.Stat(img.crop((int(w * 0.42), int(h * 0.35), int(w * 0.58), int(h * 0.55)))).mean[0]
 
 
