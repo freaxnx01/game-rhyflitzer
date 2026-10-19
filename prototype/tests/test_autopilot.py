@@ -165,11 +165,11 @@ def test_the_minimap_shows_the_route_while_driving(server):
         drive_to(page, "Fridolinsm")
         frames(page)
         assert route_pixels(page) > 200
-        assert page.text_content("#autoline").startswith("AUTOPILOT → Fridolinsmünster")
+        page.wait_for_function("() => document.getElementById('autoline').textContent.startsWith('AUTOPILOT → Fridolinsmünster')", timeout=120000)
         page.keyboard.press("KeyO")
         frames(page)
         assert route_pixels(page) < 20
-        assert page.text_content("#autoline") == ""
+        page.wait_for_function("() => document.getElementById('autoline').textContent === ''", timeout=120000)   # refreshed every 250 ms
         b.close()
 
 
