@@ -3529,6 +3529,15 @@ showGallery();
   var d = document;
   var built = new Date(d.lastModified);
   if (isNaN(built)) return;
+  // #353: document.lastModified has no zone. Chromium writes it in the host's zone but new Date() reads it in the page's,
+  // so under an emulated zone the time shifts. The response header is absolute GMT: prefer it, keep the fallback.
+  function ready() { window.__buildTimeReady = true; }
+  try {
+    fetch(location.href, { method: "HEAD", cache: "no-store" }).then(function (r) {
+      var h = r.headers.get("last-modified"), t = h ? new Date(h) : null;
+      if (t && !isNaN(t)) built = t;
+    }).catch(function () { }).then(ready);
+  } catch (e) { ready(); }
   var WORDS = {
     en: { now: "just now", d: ["day", "days"], h: ["hour", "hours"], m: ["minute", "minutes"] },
     de: { now: "gerade eben", d: ["Tag", "Tagen"], h: ["Stunde", "Stunden"], m: ["Minute", "Minuten"] }
