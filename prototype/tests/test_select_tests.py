@@ -6,7 +6,7 @@ import select_tests as st
 
 HERE = Path(__file__).parent
 EXISTING = {"test_smoke.py", "test_heli.py", "test_pontoon.py", "test_select_tests.py", "test_vehicles.py", "test_wheels.py",
-            "test_credits.py"} | {f"test_extra{i}.py" for i in range(10)}
+            "test_credits.py", "test_shared_browser.py"} | {f"test_extra{i}.py" for i in range(10)}
 MAP = {"prototype/heli*.js": ["test_heli.py"], "prototype/pontoon.js": ["test_pontoon.py"],
        "README.md": ["test_credits.py"], "prototype/tests/test_vehicles.py": ["test_wheels.py"]}
 
@@ -59,7 +59,7 @@ def test_select_an_unmapped_game_file_falls_back_to_the_smoke_set():
 
 def test_select_tooling_changes_run_smoke_and_the_selector_unit_tests():
     for path in ("prototype/tests/conftest.py", "prototype/tests/select_tests.py", "prototype/tests/test-map.json",
-                ".github/workflows/tests.yml"):
+                "prototype/tests/shared_browser.py", ".github/workflows/tests.yml"):
         assert pick(path)[0] == sorted(st.SELF_TESTS + st.SMOKE), path
 
 
@@ -121,3 +121,8 @@ def test_the_real_map_globs_match_a_file_in_the_repo():
 def test_smoke_set_is_a_few_named_tests_of_existing_files():
     assert 1 <= len(st.SMOKE) <= 3
     assert all("::" in n and (HERE / n.split("::")[0]).is_file() for n in st.SMOKE)
+
+
+def test_the_pure_unit_tests_of_the_test_tooling_are_in_the_self_test_set():
+    """#303: shared_browser.py's own tests are pure, so a tooling change must run them."""
+    assert "test_shared_browser.py" in st.SELF_TESTS

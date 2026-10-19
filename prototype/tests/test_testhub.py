@@ -138,6 +138,7 @@ def test_registers_when_the_client_was_there_before_the_game(server):
     assert "uw.boat" in ids and any(i.startswith("j.") for i in ids), ids
 
 
+@pytest.mark.render   # #303: reads the drawn canvas (the Testhub screenshot hook)
 def test_screenshot_hook_returns_a_png_data_url_and_rejects_a_second_request(server):
     with sync_playwright() as p:
         b, page, errors, _ = new_page(p, server, "?dev=1", block_world=True)

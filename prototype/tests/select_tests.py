@@ -18,10 +18,10 @@ TESTS = "prototype/tests"
 # even on the GPU browser, and the whole file overran the 30-minute job on SwiftShader (PR#333)
 SMOKE = ("test_smoke.py::test_bundled_terrain_loads_without_upload", "test_smoke.py::test_camera_cycles_with_c",
          "test_smoke.py::test_nitro_and_jump_menu")
-SELF_TESTS = ("test_select_tests.py",)  # rule e: pure, no browser
+SELF_TESTS = ("test_select_tests.py", "test_shared_browser.py")  # rule e: pure, no browser
 CAP = 8
 TOOLING = (f"{TESTS}/conftest.py", f"{TESTS}/select_tests.py", f"{TESTS}/test-map.json", f"{TESTS}/gpu_browser.py",
-           ".github/workflows/tests.yml")
+           f"{TESTS}/shared_browser.py", ".github/workflows/tests.yml")
 GAME_PREFIXES = ("prototype/", "editor/", "data/", "vendor/")
 GAME_FILES = ("editor.html", "index.html")
 

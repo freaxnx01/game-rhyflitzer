@@ -7,6 +7,13 @@ export function debugFromQuery(search) {
   return p.has('debug') && !OFF.has(p.get('debug').toLowerCase());
 }
 
+// #303: logic tests do not need a picture. ?norender, or window.__MM_NORENDER = true (a test's init script), skips drawing.
+export function noRenderFromQuery(search, flag) {
+  if (flag === true) return true;
+  const p = new URLSearchParams(search);
+  return p.has('norender') && !OFF.has(p.get('norender').toLowerCase());
+}
+
 // the game frame is LV95 shifted to the world origin, x east, z south (pipeline/geo.py Frame.lv95_to_game)
 export function gameToLv95(origin, x, z) {
   if (!origin || typeof origin.E !== 'number' || typeof origin.N !== 'number') return null;
