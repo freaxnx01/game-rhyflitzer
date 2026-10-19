@@ -1,5 +1,6 @@
 // #102 / #201: the secret hideout in the Hübel and its cave system -- pure helpers. node --test prototype/tests/hideout.test.mjs
 import { test } from 'node:test';
+import { LIFT_TIMES } from '../lift.js';
 import assert from 'node:assert/strict';
 import { HIDEOUT, TUNNEL, CAVE, EIFFEL, TUNNEL_CEIL, hideoutAxis, axisCoords, floorAt, hideoutCuts, portalS, cavernR, inCavern, inHideout, segmentInHideout, ringStations, eiffelParts,
   nodeR, LIFT, onLiftPlatform, inCabin, liftDoor, nearLiftDoor, liftColliders, caveCuts, roomAt, corridorAt, caveRoofed, ringArcs, ceilingAt, linkPts, pointBounds } from '../hideout.js';
@@ -202,6 +203,14 @@ test('liftDoor_AFacesTheTunnelAbove_BFacesAwayBelow', () => {
   assert.ok(nearLiftDoor(a.x - f[0] * 14.5, a.z - f[1] * 14.5, 'top')); assert.ok(!nearLiftDoor(a.x - f[0] * 15.5, a.z - f[1] * 15.5, 'top'));
   assert.ok(nearLiftDoor(...LIFT.c, 'top') && nearLiftDoor(...LIFT.c, 'bottom'), 'in the cabin counts as near');
   assert.ok(LIFT.door.hw * 2 >= 6 && LIFT.door.h >= 5);
+});
+
+test('nearLiftDoor_AFastCar_CountsAsNearEarlyEnoughForTheDoorToBeOpenWhenItArrives', () => {
+  const f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], a = liftDoor('top'), v = 75 / 3.6;
+  const at = (d) => [a.x - f[0] * d, a.z - f[1] * d];
+  assert.ok(nearLiftDoor(...at(v * LIFT_TIMES.open + 1), 'top', LIFT, v), 'at 75 km/h the door starts opening at least its opening time before the car reaches it');
+  assert.ok(!nearLiftDoor(...at(v * LIFT_TIMES.open + 1), 'top', LIFT, 0), 'standing still that far away does not open it');
+  assert.ok(!nearLiftDoor(...at(15.5), 'top'), 'without a speed the reach is unchanged');
 });
 
 test('liftColliders_TheWorkingDoorIsTheOnlyGap_TheOtherEndIsShut', () => {

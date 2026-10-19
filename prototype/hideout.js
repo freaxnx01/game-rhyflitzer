@@ -50,7 +50,7 @@ export function lampLight(lamps, x, z) {
 
 // #361: the freight lift in the lift hall, on T1's axis: cabin 8 x 22 m, a door at each end of the one driving axis. Door A (towards
 // the tunnel) works on the surface ('top'), door B (away from it) on the ring level below ('bottom'); the other end is a wall there.
-export const LIFT = { c: CAVE.nodes.hall.c, th: HIDEOUT.heading, hw: 4, hd: 11, door: { hw: 3, h: 5 }, wall: 0.5, height: 8, near: 15 };
+export const LIFT = { c: CAVE.nodes.hall.c, th: HIDEOUT.heading, hw: 4, hd: 11, door: { hw: 3, h: 5 }, wall: 0.5, height: 8, near: 15, lead: 1.5 };
 // is (x, z) inside the platform's rectangle (pad > 0 grows it)
 export function onLiftPlatform(x, z, pad = 0, l = LIFT) {
   const dx = x - l.c[0], dz = z - l.c[1], along = dx * Math.cos(l.th) + dz * Math.sin(l.th), across = -dx * Math.sin(l.th) + dz * Math.cos(l.th);
@@ -67,10 +67,11 @@ export function liftDoor(level, l = LIFT) {
   const k = level === 'top' ? -1 : 1, [x, z] = liftAt(l, k * l.hd, 0);
   return { x, z, th: level === 'top' ? l.th + Math.PI : l.th };
 }
-// within l.near of that door, or already in the cabin
-export function nearLiftDoor(x, z, level, l = LIFT) {
+// within l.near of that door -- or, at speed, within l.lead seconds of it, so the 1 s door is open when a fast car arrives --
+// or already in the cabin
+export function nearLiftDoor(x, z, level, l = LIFT, speed = 0) {
   const d = liftDoor(level, l);
-  return Math.hypot(x - d.x, z - d.z) <= l.near || onLiftPlatform(x, z, 0, l);
+  return Math.hypot(x - d.x, z - d.z) <= Math.max(l.near, speed * l.lead) || onLiftPlatform(x, z, 0, l);
 }
 // the shaft house's OBBs at a level: side walls, the shut end, the working door's jambs and panel (the panel carries { liftDoor: level })
 export function liftColliders(level, y, l = LIFT) {
