@@ -166,6 +166,12 @@ export function caveBlend(depth, fade = CAVE_FADE) { const t = Math.min(1, Math.
 export const TUNNEL_DARK = 0.6;
 export const CAVE_SWITCH_IN = 42, CAVE_SWITCH_OUT = 36;
 export function caveSwitch(depth, wasOn) { return depth >= CAVE_SWITCH_IN || (wasOn && depth > CAVE_SWITCH_OUT); }
+// #379: the cave look as one continuous function of the depth (no hysteresis needed, nothing to flicker): the day up to
+// CAVE_LOOK_FADE[0] m past the portal (the opening seen from there stays daylight), the full cave look from CAVE_LOOK_FADE[1] m on --
+// before CAVE_SWITCH_OUT, so the hard switches happen with the picture already fully faded. Light, fog, sky, the hall's lamps and
+// the portal's veil all follow it.
+export const CAVE_LOOK_FADE = [12, 36];
+export function caveLookK(depth, fade = CAVE_LOOK_FADE) { const t = Math.min(1, Math.max(0, (depth - fade[0]) / (fade[1] - fade[0]))); return t * t * (3 - 2 * t); }
 export function caveDepth(x, z, portal, h = HIDEOUT, u = TUNNEL) {
   const { s, d } = axisCoords(x, z, h);
   return d <= h.hw + u.margin + u.wall / 2 && s >= portal && s <= h.length - cavernR(h, u) ? s - portal : Infinity;

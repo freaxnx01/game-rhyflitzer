@@ -267,3 +267,18 @@ test('caveSwitch_JitterAroundTheThreshold_DoesNotFlicker', () => {
 test('caveSwitch_InTheRoomsAndOutsideTheCave_IsOnOrOff', () => {
   assert.equal(caveSwitch(Infinity, false), true); assert.equal(caveSwitch(-Infinity, true), false);
 });
+
+// #379: the cave look (light, fog, sky, the hall's lamps, the portal veil) is one continuous function of the depth -- no boolean
+// swap, so hovering anywhere never flickers; it is still day where the opening is near and fully cave before the hard switches
+import { caveLookK, CAVE_LOOK_FADE } from '../hideout.js';
+test('caveLookK_AlongTheTunnel_ContinuousMonotonicFromDayToCave', () => {
+  const [d0, d1] = CAVE_LOOK_FADE;
+  assert.equal(caveLookK(-Infinity), 0); assert.equal(caveLookK(-10), 0); assert.equal(caveLookK(d0), 0); assert.equal(caveLookK(d1), 1); assert.equal(caveLookK(Infinity), 1);
+  assert.ok(d1 - d0 >= 20, 'a fade over 20+ m, not a step');
+  let prev = 0;
+  for (let d = -5; d <= 90; d += 0.25) { const k = caveLookK(d); assert.ok(k >= prev - 1e-12, `monotonic at ${d}`); assert.ok(k - prev < 0.03, `no jump at ${d}: ${k - prev}`); prev = k; }
+});
+test('caveLookK_AtTheOpeningAndAtTheHardSwitches_IsDayAndFullCave', () => {
+  assert.equal(caveLookK(10), 0, 'standing 10 m in, the scene is still the day (the opening stays bright)');
+  assert.equal(caveLookK(CAVE_SWITCH_OUT), 1); assert.equal(caveLookK(CAVE_SWITCH_IN), 1);   // the forest/shadow switches happen behind a full fade
+});
