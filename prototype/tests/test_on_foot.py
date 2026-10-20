@@ -9,9 +9,10 @@ from playwright.sync_api import sync_playwright
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 SISSELN = (1780, 560)   # a vertex of the hand Bahnhofstrasse and checkpoint 1 (Bahnhof Sisseln)
+ROAD = (1660, 330)      # another vertex of that road, 230+ m from every checkpoint: no checkpoint toast can replace a "Stop first"
 
 
-def open_hand(p, server):
+def open_hand(p, server, start="#startbtn"):
     b = p.chromium.launch(args=ARGS)
     page = b.new_page(viewport={"width": 1280, "height": 720})
     errors = []
@@ -20,7 +21,7 @@ def open_hand(p, server):
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/prototype/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
-    page.click("#startbtn")
+    page.click(start)
     return b, page, errors
 
 
@@ -44,7 +45,7 @@ def press_z(page):
 def test_z_gets_out_and_back_in_next_to_the_car(server):
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server)
-        x, z = SISSELN
+        x, z = ROAD
         page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 10, 0.05, [])")   # rolling at ~10 m/s
         press_z(page)
         moving = {"foot": foot(page)["on"], "toast": toast(page)}
@@ -167,3 +168,73 @@ def test_n_held_on_foot_doubles_the_walking_speed(server):
     assert 4.0 < plain < 5.0, plain
     assert abs(fast - 2 * plain) < 0.5, (plain, fast)
     assert errors == []
+
+
+FAKE_LOCK = """() => { const gl = document.getElementById('gl'); window.__lockCalls = 0; let held = null;
+  Object.defineProperty(document, 'pointerLockElement', { get: () => held, configurable: true });
+  gl.requestPointerLock = () => { window.__lockCalls++; held = gl; document.dispatchEvent(new Event('pointerlockchange')); };
+  document.exitPointerLock = () => { held = null; document.dispatchEvent(new Event('pointerlockchange')); }; }"""   # headless Chromium cannot lock the pointer
+
+
+def test_a_double_click_on_foot_beams_and_never_takes_the_mouse(server):   # #403
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = ROAD
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        page.evaluate(FAKE_LOCK)
+        pick = page.evaluate("() => window.__mm.beamPick(1000, 200)")
+        page.mouse.dblclick(1000, 200)
+        page.wait_for_timeout(700)
+        double = page.evaluate("() => ({ calls: window.__lockCalls, beam: window.__mm.beam(), foot: window.__mm.foot().on })")
+        press_z(page)
+        page.mouse.click(640, 360)
+        page.wait_for_timeout(100)
+        early = page.evaluate("() => window.__lockCalls")
+        page.wait_for_timeout(600)
+        single = page.evaluate("() => ({ calls: window.__lockCalls, foot: window.__mm.foot().on })")
+        b.close()
+    assert errors == []
+    assert pick is not None
+    assert double["calls"] == 0 and double["beam"] is not None and double["foot"] is False, double   # the car was beamed, the walk ended
+    assert early == 0 and single == {"calls": 1, "foot": True}, (early, single)                     # a single click still grabs the mouse, after the delay
+
+
+def test_j_and_f1_on_foot_let_the_mouse_go_and_keep_their_dialog(server):   # #365
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = ROAD
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        res = {}
+        for key, dialog in (("KeyJ", "#jump"), ("F1", "#help")):
+            page.evaluate(FAKE_LOCK)
+            page.evaluate("() => document.getElementById('gl').requestPointerLock()")
+            page.keyboard.press(key)
+            page.wait_for_timeout(200)
+            res[key] = page.evaluate("([d]) => ({ locked: !!document.pointerLockElement, open: !document.querySelector(d).hidden, paused: !document.querySelector('#pause').hidden, foot: window.__mm.foot().on })", [dialog])
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(200)
+        b.close()
+    assert errors == []
+    for key in res:
+        assert res[key] == {"locked": False, "open": True, "paused": False, "foot": True}, (key, res[key])
+
+
+def test_time_up_on_foot_ends_the_walk_and_lets_the_mouse_go(server):   # #365
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server, start="#blitzbtn")
+        x, z = ROAD
+        page.keyboard.down("KeyW")                                           # armed -> racing
+        page.wait_for_function("() => window.__mm.blitz().left < 90", timeout=120000)
+        page.keyboard.up("KeyW")
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        page.evaluate(FAKE_LOCK)
+        page.evaluate("() => document.getElementById('gl').requestPointerLock()")
+        page.evaluate("() => window.__mm.blitzSetLeft(0.15)")
+        page.wait_for_function("() => window.__mm.blitz().timeUp", timeout=120000)
+        after = page.evaluate("() => ({ foot: window.__mm.foot().on, locked: !!document.pointerLockElement, result: !document.querySelector('#result').hidden, paused: !document.querySelector('#pause').hidden })")
+        b.close()
+    assert errors == []
+    assert after == {"foot": False, "locked": False, "result": True, "paused": False}, after
