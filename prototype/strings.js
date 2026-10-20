@@ -327,7 +327,7 @@ const de = {
   carTag: (n) => `Auto: ${n}`,
   huntIntro: 'Fünf Geschenke verstecken sich irgendwo in der Welt, jedes Mal woanders. Folge dem Pfeil, finde alle, schlag Deine Zeit.',
   stickerHochrhein: 'Die Brücke ist für Fussgänger. Wissen wir. Wir fahren trotzdem drüber.',
-  stickerEhrendingen: 'Der Wanderweg ist für Wanderer. Haben wir geprüft. Driften trotzdem.',
+  stickerEhrendingen: 'Der Wanderweg ist für Wanderer. Wissen wir. Wir driften trotzdem drauf.',
   /* #346 Welten-Dialog */
   worldsTitle: 'Welten',
   worldsSub: 'Wähle, wo Du fährst',
