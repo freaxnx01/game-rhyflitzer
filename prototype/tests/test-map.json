@@ -32,6 +32,8 @@
   "prototype/sound.js": ["test_sound.py"],
   "prototype/impact.js": ["test_crash.py"],
   "prototype/wreck.js": ["test_wreck.py"],
+  "prototype/tyres.js": ["test_tyres.py"],
+  "vendor/crashcat/*": ["test_tyres.py"],
   "prototype/presents.js": ["test_hunt.py"],
   "prototype/underwater.js": ["test_underwater.py"],
   "prototype/lights.js": ["test_lights.py"],
