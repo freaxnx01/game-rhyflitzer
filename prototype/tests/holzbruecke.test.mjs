@@ -110,7 +110,7 @@ test('chapelPlan: a polygonal chapel is a half-hexagon out from the wall, a pent
 });
 
 test('BORDER_OldAndNew_AreSteppedEightPointTwoMetresAndPaintedNarrow', () => {
-  assert.deepEqual(BORDER, { old: 102, shift: 8.2, width: 0.18 });
+  assert.deepEqual(BORDER, { old: 102, shift: 8.2, width: 0.3 });
 });
 
 test('borderCrossing_StraightBridge_PointIsMeasuredFromTheSaeckingenEnd', () => {

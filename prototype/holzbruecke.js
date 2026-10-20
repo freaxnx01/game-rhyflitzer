@@ -20,7 +20,7 @@ export const HOLZ = {
 
 // #396: the CH/DE border painted across the deck. old: the 1808 Talweg line, 102 m of German bridge from the Saeckingen end; the new
 // Rhine centre line lies shift m further towards Stein (110 m of German bridge, rounded; 102 + 8.2 = 110.2). width: paint, in m.
-export const BORDER = { old: 102, shift: 8.2, width: 0.18 };
+export const BORDER = { old: 102, shift: 8.2, width: 0.3 };
 
 // Stein is the eastern end; fractions and chapel sides count from there, and the direction of an OSM way is no contract
 export function orientEastWest(pts) { return pts[0][0] >= pts[pts.length - 1][0] ? pts : pts.slice().reverse(); }
