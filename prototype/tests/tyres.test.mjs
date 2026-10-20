@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from '../../vendor/crashcat/crashcat.min.js';
-import { TYRE, PHYS, rowPlacements, pyramidPlacements, tyreSlots, fixedSteps, carBox, slowdown, tyreProfile, createTyrePhysics, createTyreStacks } from '../tyres.js';
+import { TYRE, PHYS, PAINT, RUBBER, RIM, TREAD, rowPlacements, pyramidPlacements, tyreSlots, fixedSteps, carBox, slowdown, tyreProfile, tyreTriangles, tyreVertexColours, paintFor, buildTyreGeometry, buildTyreMaterial, createTyrePhysics, createTyreStacks } from '../tyres.js';
 
 const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e, `${a} vs ${b}`);
 
@@ -49,8 +49,49 @@ test('slowdown_NothingGained_IsZeroAndTheCapHolds', () => {
   assert.ok(slowdown(100, 14) < PHYS.slowCap);
 });
 
-test('tyreProfile_HoleIsGreyRim_AndTreadIsRubber', () => {
-  const p = tyreProfile(); assert.ok(p.some(q => q[2] === 1) && p.some(q => q[2] === 0)); assert.ok(p.every(q => q[0] <= TYRE.r + 1e-9));
+test('tyreProfile_HoleIsGreyRimAndUnpainted_TreadAndSidewallsArePainted', () => {
+  const p = tyreProfile(), rim = p.filter(q => q[2] === RIM), painted = p.filter(q => q[3] === 1);
+  assert.ok(rim.length >= 2 && rim.every(q => q[3] === 0 && q[0] < TYRE.hole)); assert.ok(painted.length >= 6 && painted.every(q => q[2] === 1));
+  assert.ok(p.every(q => q[0] <= TYRE.r + 1e-9 && Math.abs(q[1]) <= TYRE.w / 2 + 1e-9)); assert.deepEqual(p[0], p[p.length - 1]);
+});
+
+test('tyreProfile_Grooves_AreRubberNotchesBelowTheTreadRadius', () => {
+  const p = tyreProfile(), grooves = p.filter(q => q[2] === RUBBER && q[3] === 0);
+  assert.equal(grooves.length, TREAD.grooves * 2); grooves.forEach(q => near(q[0], TYRE.r - TREAD.depth));
+  for (let i = 0; i < grooves.length; i += 2) { near(grooves[i + 1][1] - grooves[i][1], TREAD.width); assert.ok(Math.abs(grooves[i][1]) < TYRE.w / 2 - 0.04); }
+});
+
+test('tyreProfile_OutsideRunsBottomToTop_SoTheLatheFacesOutward', () => {
+  const tread = tyreProfile().filter(q => q[0] === TYRE.r).map(q => q[1]);   // an inside-out lathe (the outside traversed top down) renders only its far inner faces
+  assert.ok(tread.length >= 4); for (let i = 1; i < tread.length; i++) assert.ok(tread[i] > tread[i - 1], `tread row ${i} runs downward`);
+});
+
+test('tyreTriangles_DefaultSegments_StayWellUnderTheBudget', () => {
+  assert.ok(tyreTriangles() <= 600 && tyreTriangles() >= 300, `${tyreTriangles()} triangles`); assert.equal(tyreTriangles(10), (tyreProfile().length - 1) * 20);
+});
+
+test('tyreVertexColours_RepeatTheProfilePerSegment', () => {
+  const p = tyreProfile(), v = tyreVertexColours(p, p.length * 3);
+  assert.equal(v.colour.length, p.length * 9); assert.equal(v.paint.length, p.length * 3);
+  for (let i = 0; i < p.length * 3; i++) { near(v.colour[i * 3], p[i % p.length][2], 1e-6); near(v.colour[i * 3 + 2], p[i % p.length][2], 1e-6); near(v.paint[i], p[i % p.length][3]); }
+});
+
+test('paintFor_AlternatesUpAStack_AndIsOffsetBetweenNeighbouringStacks', () => {
+  const slots = tyreSlots([{ x: 0, z: 0, n: 4 }, { x: 1, z: 0, n: 4 }], 0);
+  assert.deepEqual(slots.map(paintFor), ['red', 'white', 'red', 'white', 'white', 'red', 'white', 'red']);
+  assert.ok(PAINT.red[0] > 0.6 && PAINT.red[1] < 0.3 && PAINT.white.every(c => c > 0.8 && c < 0.97));
+});
+
+test('buildTyreGeometry_FakeLathe_GetsColourAndPaintAttributes', () => {
+  const attrs = {}, THREE = { ...fakeThree(), LatheGeometry: class { constructor(pts, seg) { this.attributes = { position: { count: pts.length * (seg + 1) } }; } setAttribute(k, a) { attrs[k] = a; } }, BufferAttribute: class { constructor(a, n) { this.array = a; this.itemSize = n; } } };
+  const g = buildTyreGeometry(THREE, 4), n = tyreProfile().length * 5;
+  assert.equal(g.attributes.position.count, n); assert.equal(attrs.color.array.length, n * 3); assert.equal(attrs.paint.array.length, n); assert.equal(attrs.paint.itemSize, 1);
+});
+
+test('buildTyreMaterial_ShaderHook_MasksTheInstanceColourWithThePaintAttribute', () => {
+  const m = buildTyreMaterial(fakeThree()), shader = { vertexShader: '#include <common>\n#include <color_vertex>\n' };
+  m.onBeforeCompile(shader);
+  assert.ok(shader.vertexShader.includes('attribute float paint;') && shader.vertexShader.includes('instanceColor.xyz, paint') && !shader.vertexShader.includes('<color_vertex>'));
 });
 
 test('createTyreStacks_EngineFailsToLoad_StaysStaticAndNeverThrows', async () => {
@@ -67,8 +108,8 @@ function fakeThree() {
   class G { constructor() { this.attributes = { position: { count: 8 } }; } setAttribute() {} dispose() {} }
   return {
     Vector2: V, Vector3: V, Quaternion: class { set() { return this; } }, Matrix4: class { compose() { return this; } },
-    LatheGeometry: G, BufferAttribute: class {}, DynamicDrawUsage: 1, MeshLambertMaterial: class { dispose() {} },
-    Group: class { add() {} }, InstancedMesh: class { constructor(g, m) { this.geometry = g; this.material = m; this.instanceMatrix = { setUsage() {} }; } setMatrixAt() {} dispose() {} },
+    LatheGeometry: G, BufferAttribute: class {}, DynamicDrawUsage: 1, MeshLambertMaterial: class { dispose() {} }, Color: class { setRGB() { return this; } },
+    Group: class { add() {} }, InstancedMesh: class { constructor(g, m) { this.geometry = g; this.material = m; this.instanceMatrix = { setUsage() {} }; } setMatrixAt() {} setColorAt() {} dispose() {} },
   };
 }
 

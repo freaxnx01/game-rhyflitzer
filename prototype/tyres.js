@@ -168,18 +168,57 @@ export function createTyrePhysics(C, placements, groundY, size = 60) {
   return { count: n, slots, step, reset, pose, poseSleeping, state, asleep, world };
 }
 
-// ---------- the look: low-poly black rubber, a grey rim in the hole, one instanced mesh for every tyre ----------
+// ---------- the look: low-poly tyres painted red and white like a track barrier, black rubber in the grooves and the hole, a grey rim ----------
+// #416: two paints, a little weathered: the hydrant's red from index.html toned down, and a warm off-white. Alternating per tyre up a stack,
+// offset between neighbouring stacks, so a pyramid reads as a checker
+export const PAINT = { red: [0.78, 0.18, 0.14], white: [0.95, 0.92, 0.85] };
+export const RUBBER = 0.07, RIM = 0.52;
+export const TREAD = { grooves: 2, width: 0.024, depth: 0.014, segments: 16 };
+
+// which paint a tyre gets: red on even levels of even stacks, white next to it, both ways
+export function paintFor(slot) { return (slot.level + slot.stack) % 2 === 0 ? 'red' : 'white'; }
+
+// [radius, y, shade, painted]: shade is the vertex grey (rubber, rim or 1 under paint), painted 1 where the instance colour applies
+// (tread ribs and both sidewalls), 0 in the grooves and the hole. Hard edges by doubled points. Written top down from the rim and
+// reversed at the end: the lathe winds its faces outward only when the outside is traversed bottom to top
 export function tyreProfile() {
-  const { r, w, hole } = TYRE, h = w / 2, rim = hole - 0.01, bevel = 0.04;
-  // [radius, y, colour 0 = rubber, 1 = rim], hard colour edges by doubled points
-  return [[rim, -h + 0.02, 1], [rim, h - 0.02, 1], [hole, h, 0], [r - bevel, h, 0], [r, h - bevel, 0], [r, -h + bevel, 0], [r - bevel, -h, 0], [hole, -h, 0], [rim, -h + 0.02, 1]];
+  const { r, w, hole } = TYRE, h = w / 2, rim = hole - 0.01, bevel = 0.04, { grooves, width, depth } = TREAD;
+  const out = [[rim, -h + 0.02, RIM, 0], [rim, h - 0.02, RIM, 0], [hole, h, 1, 1], [r - bevel, h, 1, 1], [r, h - bevel, 1, 1]];
+  for (let g = 1; g <= grooves; g++) {
+    const y = h - bevel - (h * 2 - bevel * 2) * g / (grooves + 1);
+    out.push([r, y + width / 2, 1, 1], [r - depth, y + width / 2, RUBBER, 0], [r - depth, y - width / 2, RUBBER, 0], [r, y - width / 2, 1, 1]);
+  }
+  out.push([r, -h + bevel, 1, 1], [r - bevel, -h, 1, 1], [hole, -h, 1, 1], [rim, -h + 0.02, RIM, 0]);
+  return out.reverse();
 }
 
-export function buildTyreGeometry(THREE, segments = 14) {
-  const prof = tyreProfile(), g = new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), segments), count = g.attributes.position.count, col = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) { const rim = prof[i % prof.length][2] === 1; col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = rim ? 0.52 : 0.07; }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+// triangles of one tyre: a lathe makes two per profile span and segment
+export function tyreTriangles(segments = TREAD.segments) { return (tyreProfile().length - 1) * segments * 2; }
+
+// the vertex colours and the paint mask of a lathe over `profile` with `count` vertices (the lathe repeats the profile per segment)
+export function tyreVertexColours(profile, count) {
+  const colour = new Float32Array(count * 3), paint = new Float32Array(count);
+  for (let i = 0; i < count; i++) { const p = profile[i % profile.length]; colour[i * 3] = colour[i * 3 + 1] = colour[i * 3 + 2] = p[2]; paint[i] = p[3]; }
+  return { colour, paint };
+}
+
+export function buildTyreGeometry(THREE, segments = TREAD.segments) {
+  const prof = tyreProfile(), g = new THREE.LatheGeometry(prof.map(p => new THREE.Vector2(p[0], p[1])), segments), v = tyreVertexColours(prof, g.attributes.position.count);
+  g.setAttribute('color', new THREE.BufferAttribute(v.colour, 3));
+  g.setAttribute('paint', new THREE.BufferAttribute(v.paint, 1));
   return g;
+}
+
+// Lambert, flat shaded, vertex colours; the instance colour (the paint) only multiplies where the `paint` attribute is 1, so the
+// hole and the grooves keep their rubber and rim greys under both paints
+export function buildTyreMaterial(THREE) {
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  m.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float paint;')
+      .replace('#include <color_vertex>', 'vColor = color;\n#ifdef USE_INSTANCING_COLOR\n\tvColor *= mix(vec3(1.0), instanceColor.xyz, paint);\n#endif');
+  };
+  return m;
 }
 
 const ENGINE_URL = '../vendor/crashcat/crashcat.min.js';
@@ -188,8 +227,9 @@ const ENGINE_URL = '../vendor/crashcat/crashcat.min.js';
 export function createTyreStacks(scene, THREE, placements, groundHeightFn, opts = {}) {
   const group = new THREE.Group(), cx = placements.reduce((s, p) => s + p.x, 0) / placements.length, cz = placements.reduce((s, p) => s + p.z, 0) / placements.length;
   const groundY = groundHeightFn(cx, cz), slots = tyreSlots(placements, groundY);
-  const mesh = new THREE.InstancedMesh(buildTyreGeometry(THREE), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), slots.length);
+  const mesh = new THREE.InstancedMesh(buildTyreGeometry(THREE), buildTyreMaterial(THREE), slots.length), tint = new THREE.Color();
   mesh.frustumCulled = false; mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); group.add(mesh); scene.add(group);
+  slots.forEach((s, i) => mesh.setColorAt(i, tint.setRGB(...PAINT[paintFor(s)])));   // the paint never changes, so it is uploaded once
   const m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), pos = [0, 0, 0], quat = [0, 0, 0, 1];
   const S = { phys: null, failed: false, loading: true, since: 0, steps: 0, lastHit: -1, disposed: false };
 
