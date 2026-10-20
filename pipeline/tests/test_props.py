@@ -17,6 +17,13 @@ ROAD = {"cls": "residential", "w": 6.0, "bridge": False, "pts": [[-200, 0], [200
     ({"emergency": "fire_hydrant", "fire_hydrant:type": "underground"}, None),
     ({"emergency": "fire_hydrant", "fire_hydrant:type": "pipe"}, None),
     ({"amenity": "bench"}, "bench"),
+    ({"amenity": "waste_basket", "waste": "dog_excrement"}, "robidog"),
+    ({"amenity": "waste_basket", "waste": "dog_excrement;trash"}, "robidog"),
+    ({"waste": "dog_excrement"}, "robidog"),
+    ({"vending": "excrement_bags"}, "robidog"),
+    ({"amenity": "vending_machine", "vending": "excrement_bags"}, "robidog"),
+    ({"amenity": "dog_toilet"}, "robidog"),
+    ({"amenity": "waste_basket", "waste": "trash"}, "bin"),
     ({"amenity": "waste_basket"}, "bin"),
     ({"amenity": "bicycle_parking"}, "bike_rack"),
     ({"amenity": "recycling", "recycling:glass_bottles": "yes"}, "glass_container"),
@@ -86,3 +93,11 @@ def test_band_of_a_wider_road_counts_even_if_a_narrow_road_is_nearer():
     props, _ = WP.build([node(1, 50, 3.6, highway="street_lamp")], [], [narrow, wide], CLIP)
     for p in props:
         assert abs(p["z"] - 7.5) >= 4.0 + 0.6 - 1e-6 and abs(p["z"]) >= 1.5 + 0.6 - 1e-6, p
+
+
+def test_robidog_nodes_are_read_as_props():
+    import osm_read
+    assert osm_read.is_prop_node({"waste": "dog_excrement"})
+    assert osm_read.is_prop_node({"vending": "excrement_bags"})
+    assert osm_read.is_prop_node({"amenity": "dog_toilet"})
+    assert not osm_read.is_prop_node({"amenity": "vending_machine", "vending": "drinks"})
