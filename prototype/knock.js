@@ -247,7 +247,7 @@ export function createKnock(deps) {
   const DROPS = 220, drops = Array.from({ length: DROPS }, () => ({ on: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0 }));
   const dropMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.1, 0), new THREE.MeshBasicMaterial({ color: 0xcfeaff, transparent: true, opacity: 0.8, depthWrite: false }), DROPS);
   dropMesh.frustumCulled = false; dropMesh.visible = false; parent.add(dropMesh);
-  const fountains = [];   // { x, y, z, left, acc }
+  const fountains = []; let dropsLive = false;   // fountains: { x, y, z, left, acc }
   const CLOTH_N = 30, cloths = Array.from({ length: CLOTH_N * CLOTH_TYPES.length }, (_, n) => ({ on: false, rest: true, type: CLOTH_TYPES[Math.floor(n / CLOTH_N)], slot: n % CLOTH_N, owner: null, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, rz: 0, wx: 0, wy: 0, wz: 0, t: 0, phase: 0, color: 0xffffff }));
   const clothMesh = {};
   const flat = (w, d) => { const g = new THREE.BoxGeometry(w, 0.03, d); return g; };
@@ -275,7 +275,7 @@ export function createKnock(deps) {
 
   function startFountain(x, y, z) {
     const s = fountainSeconds(rng); fountains.push({ x, y, z, left: s, acc: 0 }); if (fountains.length > 3) fountains.shift();
-    hiss(s); dropMesh.visible = true;
+    hiss(s); dropMesh.visible = true; dropsLive = true;
   }
 
   function knock(a, action, speed) {
@@ -340,15 +340,17 @@ export function createKnock(deps) {
     fountainsAndCloth(dt) {
       let live = false;
       for (let n = fountains.length - 1; n >= 0; n--) { const f = fountains[n]; f.left -= dt; if (f.left <= 0) { fountains.splice(n, 1); continue; } f.acc += dt * 60; while (f.acc >= 1) { f.acc -= 1; const d = drops.find(x => !x.on); if (d) newDrop(d, f.x, f.y, f.z, rng); } }
-      for (let i = 0; i < DROPS; i++) { const d = drops[i]; if (d.on) { stepDrop(d, dt, terrainH(d.x, d.z)); live = true; } pos.set(d.x, d.y, d.z); m4.compose(pos, q.identity(), d.on ? one : zero); dropMesh.setMatrixAt(i, m4); }
-      if (live || fountains.length) dropMesh.instanceMatrix.needsUpdate = true; else if (dropMesh.visible) { dropMesh.visible = false; }
+      if (fountains.length || dropsLive) {   // idle: no loop, no upload
+        for (let i = 0; i < DROPS; i++) { const d = drops[i]; if (d.on) { stepDrop(d, dt, terrainH(d.x, d.z)); live = true; } pos.set(d.x, d.y, d.z); m4.compose(pos, q.identity(), d.on ? one : zero); dropMesh.setMatrixAt(i, m4); }
+        dropMesh.instanceMatrix.needsUpdate = true; dropsLive = live; if (!live && !fountains.length) dropMesh.visible = false;
+      }
       for (const c of cloths) { if (!c.on || c.rest) continue; stepCloth(c, dt, terrainH(c.x, c.z)); setCloth(c); }
     },
     restoreAll() {
       for (const a of active) restore(a); active.length = 0;
       fountains.length = 0; for (const d of drops) d.on = false;
       for (const c of cloths) if (c.on) hideCloth(c);
-      dropMesh.visible = false;
+      dropMesh.visible = false; dropsLive = false;
     },
     resetCount() { state.count = 0; onCount(0); },
     debug() { return { count: state.count, started: state.started, loose: active.length, resting: active.filter(a => a.hit && (a.hit.rest || a.hit.done)).length, bent: active.filter(a => a.hit && a.hit.bend).length, fountains: fountains.length, drops: drops.filter(d => d.on).length, cloths: cloths.filter(c => c.on).length, kinds: active.map(a => a.kind) }; },
