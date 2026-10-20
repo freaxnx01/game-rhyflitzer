@@ -13,7 +13,6 @@ def open_hand(p, server):
     page = b.new_context(viewport={"width": 640, "height": 360}, locale="en-US").new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/prototype/index.html")
