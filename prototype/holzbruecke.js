@@ -21,6 +21,8 @@ export const HOLZ = {
 // #396: the CH/DE border painted across the deck. old: the 1808 Talweg line, 102 m of German bridge from the Saeckingen end; the new
 // Rhine centre line lies shift m further towards Stein (110 m of German bridge, rounded; 102 + 8.2 = 110.2). width: paint, in m.
 export const BORDER = { old: 102, shift: 8.2, width: 0.3 };
+// #396: a 30 cm line is hard to double-click; each line also gets a never drawn pick strip this wide (the lines are 8.2 m apart)
+export const BORDER_PICK_WIDTH = 1.6;
 
 // Stein is the eastern end; fractions and chapel sides count from there, and the direction of an OSM way is no contract
 export function orientEastWest(pts) { return pts[0][0] >= pts[pts.length - 1][0] ? pts : pts.slice().reverse(); }
@@ -113,4 +115,11 @@ export function borderCrossing(pts, d, halfWidth) {
   if (d < 0 || d > len) throw new Error(`holzbruecke: ${d} m from the Saeckingen end is not on the bridge (${len.toFixed(1)} m long)`);
   const s = station(line, len - d);
   return { x: s.x, z: s.z, ux: s.ux, uz: s.uz, t: s.t, a: [s.x + s.uz * halfWidth, s.z - s.ux * halfWidth], b: [s.x - s.uz * halfWidth, s.z + s.ux * halfWidth] };
+}
+
+// #396: which border line a double-click picked -- the line whose pick strip is the nearest of the raycaster's hits, or null
+export function pickedBorder(hits, lines) {
+  const hit = hits.reduce((best, h) => best && best.distance <= h.distance ? best : h, null);
+  const line = hit && lines.find(l => l.pick === hit.object);
+  return line ? line.kind : null;
 }

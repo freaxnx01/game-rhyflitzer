@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, borderCrossing } from '../holzbruecke.js';
+import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from '../holzbruecke.js';
 
 // the bridge line of data/world_hochrhein.json (OSM w85692214), Stein -> Säckingen
 const LINE = [[-1079.9, -75.0], [-1111.5, -79.5], [-1135.8, -81.8], [-1161.9, -81.5], [-1220.4, -86.8], [-1284.7, -94.2]];
@@ -134,4 +134,24 @@ test('borderCrossing_RealLine_NewBorderLiesTowardsSteinOfTheOldOne', () => {
 
 test('borderCrossing_BeyondTheBridge_Throws', () => {
   assert.throws(() => borderCrossing([[200, 0], [0, 0]], 250, 2.6), /bridge/);
+});
+
+// #396: the double-click on a border line is tested against a wider, never drawn strip per line
+test('BORDER_PICK_WIDTH_IsWiderThanThePaintButNarrowerThanTheGapBetweenTheLines', () => {
+  assert.ok(BORDER_PICK_WIDTH > BORDER.width && BORDER_PICK_WIDTH < BORDER.shift);
+});
+
+const LINES = [{ kind: 'old', pick: { id: 'o' } }, { kind: 'new', pick: { id: 'n' } }];
+
+test('pickedBorder_NoHits_IsNull', () => {
+  assert.equal(pickedBorder([], LINES), null);
+});
+
+test('pickedBorder_HitsOnBothStrips_NamesTheNearerLine', () => {
+  assert.equal(pickedBorder([{ distance: 30, object: LINES[0].pick }, { distance: 21, object: LINES[1].pick }], LINES), 'new');
+  assert.equal(pickedBorder([{ distance: 12, object: LINES[0].pick }, { distance: 21, object: LINES[1].pick }], LINES), 'old');
+});
+
+test('pickedBorder_HitOnSomethingElse_IsNull', () => {
+  assert.equal(pickedBorder([{ distance: 5, object: { id: 'deck' } }], LINES), null);
 });

@@ -177,6 +177,14 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #pause,#abandon{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(10,8,20,.55);padding:16px;box-sizing:border-box;overflow:auto}
 #pause[hidden],#abandon[hidden]{display:none}
 #pause .panel,#abandon .panel{max-width:420px}
+/* #396: the info popup on the Holzbrücke's border lines -- the backdrop takes the click outside, the box looks like #jump */
+#borderinfo{position:fixed;inset:0;z-index:22;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}#borderinfo[hidden]{display:none}
+#borderinfo .box{width:460px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;padding:14px 18px 16px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700;font-size:17px;line-height:1.3}
+#borderinfo .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}#borderinfotitle{font-weight:800;font-size:20px}
+#borderinfox{flex:none;font:inherit;font-size:16px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:0 7px;line-height:24px;cursor:pointer}#borderinfox:hover,#borderinfox:focus-visible{border-color:var(--sun);color:var(--sun);outline:none}
+#borderinfo .bline{display:grid;grid-template-columns:30px 48px 1fr;gap:0 8px;align-items:baseline;padding:5px 6px;margin:0 -6px;border:2px solid transparent}#borderinfo .bline.sel{border-color:var(--sun);background:rgba(255,198,26,.12)}
+#borderinfo .bline i{display:block;height:6px;align-self:center}#borderinfo .bline em{font-style:normal;font-weight:600;color:var(--steel-l)}#borderinfo .bline small{display:block;font-size:15px;font-weight:600;color:var(--steel-l)}
+#borderinfotext{margin:12px 0 10px;font-weight:600}#borderinfosrc{color:var(--steel-l);font-weight:600}#borderinfosrc a{color:#8fd8e8}
 #pause .col,#abandon .col{display:flex;flex-direction:column;gap:12px}
 #pause .btn,#abandon .btn{width:100%;height:auto;min-height:56px;padding:8px 14px;font-size:clamp(18px,5.5vw,26px);white-space:normal;overflow-wrap:anywhere}
 #abandon h1{font-size:clamp(26px,9vw,44px);overflow-wrap:anywhere}
@@ -438,6 +446,13 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <small data-i18n="pauseHint">Esc · P: resume</small>
   </div>
 </div>
+<!-- #396: the info popup on the Holzbrücke's border lines; filled by renderBorderInfo() -->
+<div id="borderinfo" hidden role="dialog" aria-modal="true" aria-labelledby="borderinfotitle"><div class="box">
+  <div class="head"><div id="borderinfotitle"></div><button id="borderinfox" type="button">✕</button></div>
+  <div id="borderinfolines"></div>
+  <p id="borderinfotext"></p>
+  <div id="borderinfosrc"></div>
+</div></div>
 <div id="abandon" hidden role="alertdialog" aria-modal="true" aria-labelledby="abandontitle">
   <div class="panel">
     <h1 id="abandontitle" data-i18n="abandonTitle">Abandon this run?</h1>
@@ -458,7 +473,7 @@ import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSa
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows } from './helpfilter.js';
-import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, borderCrossing } from './holzbruecke.js';
+import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -1565,14 +1580,16 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
         quad(V(at(a), topY(a)), V(at(b), topY(b)), C, D, roofC, 'roof'); } }
     // #396: the old (white, Talweg) and the new (yellow, Rhine centre line) CH/DE border painted across the deck; always shown, outside BOUNDS (G)
     const borders = [['old', BORDER.old, 0xffffff], ['new', BORDER.old + BORDER.shift, 0xffd400]].map(([kind, d, color]) => {
-      const c = borderCrossing(pts, d, hw), w = BORDER.width / 2, lift = 0.1, pos = [];
-      const at = (e, k) => { const x = e[0] + c.ux * k * w, z = e[1] + c.uz * k * w; return [x, hs(x, z) + lift, z]; };
-      const [A, B, C, D] = [at(c.a, -1), at(c.b, -1), at(c.b, 1), at(c.a, 1)];
-      for (const v of [A, B, C, A, C, D, A, C, B, A, D, C]) pos.push(...v);
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-      const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      const c = borderCrossing(pts, d, hw), lift = 0.1;
+      const strip = (width) => {   // a flat strip of that width across the deck, centred on the crossing
+        const w = width / 2, pos = [], at = (e, k) => { const x = e[0] + c.ux * k * w, z = e[1] + c.uz * k * w; return [x, hs(x, z) + lift, z]; };
+        const [A, B, C, D] = [at(c.a, -1), at(c.b, -1), at(c.b, 1), at(c.a, 1)];
+        for (const v of [A, B, C, A, C, D, A, C, B, A, D, C]) pos.push(...v);
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g; };
+      const m = new THREE.Mesh(strip(BORDER.width), new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
       m.name = 'border-' + kind;
-      return { kind, mesh: m, t: c.t, x: c.x, z: c.z, fromSaeckingen: d };
+      const pick = new THREE.Mesh(strip(BORDER_PICK_WIDTH)); pick.name = 'borderpick-' + kind;   // the double-click target: wider, never added to the scene
+      return { kind, mesh: m, pick, t: c.t, x: c.x, z: c.z, fromSaeckingen: d };
     });
     BORDER_LINES.push(...borders); window.__mm.borderLines = borders;
     window.__mm.counts.holzbruecke = { frames: frames.length, piers: piers.length, chapels: H.chapels.length, pierFeet: piers.map(p => ({ x: p.x, z: p.z, base: pierBase })) };
@@ -2528,7 +2545,7 @@ window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };
 // #270: the car lights switch — head + tail together, session only (not persisted). #271 (hazard) and #230 (brake) share this state.
 const LIGHTS = { head: false, hazard: false, braking: false };
-const keys = {}; addEventListener('keydown', e => { if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'F3') { e.preventDefault(); toggleDebug(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'F3') { e.preventDefault(); toggleDebug(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
@@ -3237,9 +3254,32 @@ function renderWorldGone() {
   $('drivehere').textContent = tr('driveHochrhein');
 }
 $('drivehere').onclick = () => { WORLD_GONE = null; window.__mm.worldGone = null; history.replaceState(null, '', location.pathname + regionSearch(location.search, 'hochrhein')); renderWorldGone(); renderOverlay(); focusStart(); };   // #346: the mode buttons come back out of the error state
+// #396: a double-click / double-tap on one of the Holzbrücke's two border lines opens the info popup instead of beaming; the lines are
+// tested first, against their wider pick strips (occluders are ignored, like the beam ignores them). Open, the game is frozen like
+// the jump list: keys released, no simulation. Esc, ✕ or a click on the backdrop closes it; the sources open in a new tab.
+const BORDERINFO = { open: false, line: null };
+const BORDER_SOURCES = [
+  ['Aargauer Zeitung', 'https://www.aargauerzeitung.ch/aargau/fricktal/bad-saeckingenstein-die-schweiz-verliert-terrain-die-deutsch-schweizerische-landesgrenze-verschiebt-sich-auf-der-holzbruecke-um-820-meter-richtung-stein-ld.2466800'],
+  ['Blick', 'https://www.blick.ch/politik/das-steckt-hinter-dem-strich-auf-der-bruecke-deutschland-waechst-um-8-2-meter-auf-kosten-der-schweiz-id22143603.html'],
+  ['swisstopo', 'https://www.swisstopo.admin.ch/de/einheitlicher-vertrag-soll-verlauf-und-unterhalt-der-staatsgrenze-mit-deutschland-regeln']];
+function borderPick(cx, cy) { BEAM.ndc.set(cx / innerWidth * 2 - 1, 1 - cy / innerHeight * 2); BEAM.ray.setFromCamera(BEAM.ndc, camera); BEAM.ray.far = 4000; return pickedBorder(BEAM.ray.intersectObjects(BORDER_LINES.map(b => b.pick), false), BORDER_LINES); }
+function borderOrBeam(cx, cy) { if (!beamAllowed()) return; const line = borderPick(cx, cy); if (line) openBorderInfo(line); else beamTo(cx, cy); }
+function renderBorderInfo() {
+  const row = (kind, color, colorKey, detail) => `<div class="bline${kind === BORDERINFO.line ? ' sel' : ''}" data-kind="${kind}"><i style="background:${color}"></i><em>${tr(colorKey)}</em><div>${tr(kind === 'new' ? 'borderNew' : 'borderOld')}${detail.map(k => `<small>${tr(k)}</small>`).join('')}</div></div>`;
+  $('borderinfotitle').textContent = tr('borderTitle'); $('borderinfox').setAttribute('aria-label', tr('borderClose')); $('borderinfox').title = tr('borderClose');
+  $('borderinfolines').innerHTML = row('new', '#ffd400', 'borderYellow', ['borderNewShift', 'borderNewLen']) + row('old', '#ffffff', 'borderWhite', ['borderOldLen']);
+  $('borderinfotext').textContent = tr('borderText');
+  $('borderinfosrc').innerHTML = `${tr('borderSources')}: ${BORDER_SOURCES.map(([name, url]) => `<a href="${url}" target="_blank" rel="noopener">${name}</a>`).join(' · ')}`;
+}
+function openBorderInfo(line) { for (const k in keys) keys[k] = false; BORDERINFO.open = true; BORDERINFO.line = line; renderBorderInfo(); $('borderinfo').hidden = false; $('borderinfox').focus(); }
+function closeBorderInfo() { BORDERINFO.open = false; $('borderinfo').hidden = true; $('borderinfox').blur(); }
+function borderInfoKey(e) { if (e.code === 'Escape') { e.preventDefault(); if (!e.repeat) closeBorderInfo(); } }   // Esc closes, a held key never does; Tab moves between ✕ and the sources, everything else is swallowed
+$('borderinfox').addEventListener('click', closeBorderInfo);
+$('borderinfo').addEventListener('click', e => { if (e.target === $('borderinfo')) closeBorderInfo(); });   // the backdrop, not the box
+window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BORDERINFO.open, line: BORDERINFO.line });   // test hooks (#396): the line under a pointer position, the popup's state
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
-function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); }
+function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); }
 addEventListener('gg-langchange', rerenderAll); rerenderAll();
 /* #346: with a mode button focused, Enter starts and the slot explains it. On a touch device nothing is focused, so the
    slot keeps showing the mode last played and a tap on a mode button starts it directly (wireframe, "Mode text on touch"). */
@@ -3281,11 +3321,11 @@ window.__mm.map = () => { const [cx, cz] = mapToWorld(mapC.width / 2, mapC.heigh
 // #165: double-click (mouse) or double-tap (touch) on the 3D view beams the car to the ground point under the pointer; a blocked spot (water, a building) snaps to the nearest road within 30 m. Through placeOnRoad, so a race is flagged as a jump
 const BEAM = { ray: new THREE.Raycaster(), ndc: new THREE.Vector2(), t: 0, tapT: 0, tapX: 0, tapY: 0, last: null };
 const BEAM_ROLES = ['grass', 'field', 'road', 'roadOsm', 'roadPlain'];
-const beamAllowed = () => $('overlay').hidden && $('jump').hidden && $('help').hidden && !PAUSE.on && !CARSEL.on && !FLY.on && !FOOT.on;
+const beamAllowed = () => $('overlay').hidden && $('jump').hidden && $('help').hidden && !BORDERINFO.open && !PAUSE.on && !CARSEL.on && !FLY.on && !FOOT.on;
 function beamPick(cx, cy) { BEAM.ndc.set(cx / innerWidth * 2 - 1, 1 - cy / innerHeight * 2); BEAM.ray.setFromCamera(BEAM.ndc, camera); BEAM.ray.far = 4000; const hit = BEAM.ray.intersectObjects(BEAM_ROLES.map(r => MESH[r]).filter(Boolean), false)[0]; return hit ? { x: hit.point.x, z: hit.point.z } : null; }
 function spotBlocked(x, z) { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; P.y = groundH(x, z, -Infinity); P.vx = P.vz = 0; collide(carRadius()); const pushed = Math.hypot(P.x - x, P.z - z) > 0.05; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return pushed || waterLevelAt(x, z, 1e4) !== null; }
 function beamTo(cx, cy) { if (!beamAllowed() || performance.now() - BEAM.t < 500) return; BEAM.t = performance.now(); const hit = beamPick(cx, cy), spot = hit && beamSpot(hit.x, hit.z, { blocked: spotBlocked, nearestRoad: nearestJumpable }); BEAM.last = spot; if (!spot) { toast(tr('beamNone')); return; } placeOnRoad(spot.x, spot.z, spot.th ?? P.th, tr('beamed')); }
-$('gl').addEventListener('dblclick', e => beamTo(e.clientX, e.clientY));
+$('gl').addEventListener('dblclick', e => borderOrBeam(e.clientX, e.clientY));
 // #202: on foot a click on the landscape grabs the mouse for looking around; the browser lets it go on Esc (and Chrome keeps that
 // Esc keydown to itself), so losing the lock on foot opens the pause -- openPause is a no-op when already paused or not in a run
 $('gl').addEventListener('click', () => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; try { $('gl').requestPointerLock()?.catch?.(() => {}); } catch (e) { } });
@@ -3293,7 +3333,7 @@ document.addEventListener('mousemove', e => { if (FOOT.on && document.pointerLoc
 function footLockLost() { if (!document.pointerLockElement && FOOT.on) openPause(); }
 document.addEventListener('pointerlockchange', footLockLost);
 window.__mm.footUnlock = () => footLockLost();   // tests: headless Chromium cannot lock the pointer; this is the release path
-$('gl').addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - BEAM.tapT < 300 && Math.hypot(e.clientX - BEAM.tapX, e.clientY - BEAM.tapY) < 30) { BEAM.tapT = 0; beamTo(e.clientX, e.clientY); return; } BEAM.tapT = t; BEAM.tapX = e.clientX; BEAM.tapY = e.clientY; });
+$('gl').addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - BEAM.tapT < 300 && Math.hypot(e.clientX - BEAM.tapX, e.clientY - BEAM.tapY) < 30) { BEAM.tapT = 0; borderOrBeam(e.clientX, e.clientY); return; } BEAM.tapT = t; BEAM.tapX = e.clientX; BEAM.tapY = e.clientY; });
 window.__mm.beamPick = beamPick; window.__mm.beam = () => BEAM.last && { ...BEAM.last };   // test hooks (#165): the pick under a pointer position, the last landing (null before the first beam)
 // #18: the route still ahead, cyan with a dark outline, and a dot at the destination
 // the route line: the autopilot's while it drives, else the Navi's (with both on it is the same route) (#106)
@@ -3420,7 +3460,7 @@ applyStyle('original'); resize();
 // #201: compile the cave look up front (the lit materials' programs differ with the lights and the fog type), so the door costs no hitch
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
-function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
+function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
   const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepRace(dt); stepLift(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
