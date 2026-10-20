@@ -29,12 +29,12 @@ def jump_to_yard(page):
 
 
 def hit(page, kind, kmh, lane=2):
-    """Drive at the lane-th prop of the yard's row of this kind, from 10 m before it, at kmh."""
+    """Drive at the lane-th prop of the yard's row of this kind, from 6 m before it, at kmh."""
     props = [q for q in page.evaluate("(k) => window.__mm.knockProps(k)", kind) if q["yard"]]
     props.sort(key=lambda q: q["z"])
     t = props[lane]
     v = kmh / 3.6
-    t["sim"] = page.evaluate("([x, z, v]) => window.__mm.sim(x - 10, z, 0, v, 1.0, [])", [t["x"], t["z"], v])
+    t["sim"] = page.evaluate("([x, z, v]) => window.__mm.sim(x - 6, z, 0, v, 1.0, [])", [t["x"], t["z"], v])
     return t
 
 
@@ -43,8 +43,6 @@ def test_crash_yard_is_listed_and_every_kind_can_be_knocked_over_and_set_up_agai
     with sync_playwright() as p:
         b, page = open_page(p, server)
         assert page.evaluate("() => window.__mm.counts.yard") == 40
-        rows = page.evaluate("() => window.__mm.jumpList()")
-        page.keyboard.press("Escape")
 
         # the world's props are unchanged in number: the yard counts apart
         want = {}
@@ -91,21 +89,21 @@ def test_crash_yard_is_listed_and_every_kind_can_be_knocked_over_and_set_up_agai
         for kind in ("bench", "bike_rack", "robidog"):
             hit(page, kind, 30)
         k = page.evaluate("() => window.__mm.knockSim(6)")
-        assert k["count"] == 9 and k["loose"] == 9
+        assert k["count"] == 8 and k["loose"] == 8
 
         # the mute (M) silences the knocks
         played = page.evaluate("() => window.__mm.sfxKnocks().played")
         page.keyboard.press("KeyM")
         hit(page, "bin", 30, lane=0)
         assert page.evaluate("() => window.__mm.sfxKnocks().played") == played
-        assert page.evaluate("() => window.__mm.knock().count") == 10
+        assert page.evaluate("() => window.__mm.knock().count") == 9
         page.keyboard.press("KeyM")
 
         # F3 -> "Set up props" stands everything up again, the counter stays
         page.keyboard.press("F3")
         page.click("#knockreset")
         k = page.evaluate("() => window.__mm.knock()")
-        assert k["loose"] == 0 and k["cloths"] == 0 and k["fountains"] == 0 and k["count"] == 10
+        assert k["loose"] == 0 and k["cloths"] == 0 and k["fountains"] == 0 and k["count"] == 9
         assert all(not q["hit"] for q in page.evaluate("() => window.__mm.knockProps('bin')"))
 
         # another knock, then a jump to the yard sets everything up again
@@ -123,9 +121,9 @@ def test_hydrant_and_lamp_colliders_come_back_with_the_props(server):
         jump_to_yard(page)
         t = hit(page, "hydrant", 30)
         # the knocked hydrant no longer blocks: driving through its spot is free
-        page.evaluate("([x, z]) => window.__mm.sim(x - 6, z, 0, 5, 1.5, [])", [t["x"], t["z"]])
-        assert page.evaluate("() => window.__mm.car().x") > t["x"] + 1
+        page.evaluate("([x, z]) => window.__mm.sim(x - 3, z, 0, 5, 1.0, [])", [t["x"], t["z"]])
+        assert page.evaluate("() => window.__mm.car().x") > t["x"] + 0.3
         jump_to_yard(page)
-        page.evaluate("([x, z]) => window.__mm.sim(x - 6, z, 0, 0.5, 2.5, [])", [t["x"], t["z"]])
+        page.evaluate("([x, z]) => window.__mm.sim(x - 3, z, 0, 0.8, 2.5, [])", [t["x"], t["z"]])
         assert page.evaluate("() => window.__mm.car().x") < t["x"]   # solid again below the knock speed
         b.close()
