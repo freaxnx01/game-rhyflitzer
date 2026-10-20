@@ -1281,10 +1281,10 @@ function hideoutBuild() {
 // walls from liftColliders (the working door's panel in steel grey with a yellow stripe, sliding up into its lintel's
 // pocket as it opens), a lintel over the opening and a roof slab. Drawn once per level: 'top' in the lift hall (this
 // task), 'bottom' in the tunnel ring (#361 Task 6). LIFT_DOORS[level] holds the door panel so stepLift can animate it.
-const LIFT_DOORS = { top: null, bottom: null };
+const LIFT_DOORS = { top: null, bottom: null }, LIFT_DECKS = { top: null, bottom: null };
 function liftBuild(level, y0, group) {
   const [cx, cz] = LIFT.c, f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], v = [-f[1], f[0]];
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd, 0.3, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0x3a3f46 })); deck.position.set(cx, y0 + 0.15, cz); deck.rotation.y = -LIFT.th; group.add(deck);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd, 0.3, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0x3a3f46 })); deck.position.set(cx, y0 + 0.15, cz); deck.rotation.y = -LIFT.th; group.add(deck); LIFT_DECKS[level] = deck;
   for (const [a, b, w, d] of [[LIFT.hd - 0.25, 0, 0.5, 2 * LIFT.hw], [-LIFT.hd + 0.25, 0, 0.5, 2 * LIFT.hw], [0, LIFT.hw - 0.25, 2 * LIFT.hd, 0.5], [0, -LIFT.hw + 0.25, 2 * LIFT.hd, 0.5]]) {
     const strip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), new THREE.MeshLambertMaterial({ color: 0xe0b020 })); strip.position.set(cx + f[0] * a + v[0] * b, y0 + 0.32, cz + f[1] * a + v[1] * b); strip.rotation.y = -LIFT.th; group.add(strip);
   }
@@ -2431,7 +2431,7 @@ window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const 
 // the ride; the camera keeps its mode and is carried by the same y step. Each level's door opens as the car comes near it
 // while the cabin sits there (stepLift animates both panels from LIFT_RIDE.doorAt).
 const LIFT_RIDE = createLift();
-const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshLambertMaterial({ side: THREE.BackSide, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
+const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshBasicMaterial({ side: THREE.BackSide, color: 0x5e5e5e, fog: false, transparent: true, depthWrite: false, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
 CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
 const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : BELOW_Y;
 function liftIndicator(text) { const el = $('liftfloor'); el.hidden = text === null; if (text !== null) el.textContent = text; }
@@ -2444,7 +2444,8 @@ function stepLift(dt) {
   const speed = Math.hypot(P.vx, P.vz), ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level, LIFT, speed), level, speed, dir: level === 'top' ? 'down' : 'up' });
   for (const e of ev) liftEvent(e);
   for (const doorLevel of ['top', 'bottom']) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
-  CAB.visible = LIFT_RIDE.phase === 'descending'; if (CAB.visible) { CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
+  CAB.material.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
+    CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
   const fl = LIFT_RIDE.floor(); liftIndicator(fl === null ? null : String(fl).replace('-', '−'));
 }
 // #361: the dark switch. On the ring level, entering spoke k builds room k's meshes; by position and with hysteresis (underground.js)
@@ -2469,9 +2470,11 @@ function liftSwitch(dir) {
   else { LEVELS.set('surface'); P.y = HIDE.floor; const d = liftDoor('top'), f = [Math.cos(d.th), Math.sin(d.th)]; P.safe = [d.x + f[0] * 6, d.z + f[1] * 6, d.th]; }
   camPos.y += P.y - before; camera.position.copy(camPos);   // carry the chase camera down with the car; it keeps its mode and offset
   restShadow(); car.position.y = P.y;
+  followCave();   // #382: up in the hall at once, not when stepCar runs again after the ride -- else the deck, the shaft house and the cave look are missing for the ride's second half
 }
 window.__mm.liftTimes = (t) => { LIFT_RIDE.setTimes(t); return LIFT_RIDE.times; };   // tests: a ride of 1 s instead of 8 (headless renders ~1 fps and the loop clamps dt to 0.05)
-window.__mm.lift = () => ({ phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
+const drawn = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return !!o; };   // visible, and every parent up to the scene too
+window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, blinker: null, water: '', waterT: 0, road: '' };
