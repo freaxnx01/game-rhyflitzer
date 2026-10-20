@@ -398,6 +398,8 @@ Explicitly *after* the three above, because the sidewalk graph is the weakest OS
 behaviour (threat zones, wall-hug, dive) is the part the sources document least. It also needs a
 product decision the sources make for us: in MM the player cannot hit a pedestrian at all. For a
 Swiss village game that question should go to the maintainer before any code.
+**Decided 2026-10-20 by the maintainer: no.** As in MM, the player cannot run pedestrians over —
+they always get out of the way, and no car ever hits one.
 
 ---
 
