@@ -1,5 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="../favicon.png" sizes="32x32" type="image/png">
 <title>Map Madness</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&display=swap">
@@ -1814,7 +1815,7 @@ for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(3.2, 1.
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
 function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 256, 96, 'rgba(20,23,29,.82)', '#f5efe0', '700 64px "Barlow Condensed", sans-serif', '#f5efe0'), depthWrite: false }); LABELS.mat.set(t, m); return m; }
 function trimLabelMats() { const inUse = new Set(LABELS.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of LABELS.mat) { if (LABELS.mat.size <= LABELS.cap) return; if (inUse.has(m)) continue; LABELS.mat.delete(t); m.map.dispose(); m.dispose(); } }
-function updateLabels(x, z) { LABELS.ticks++; if (!LEVELS.isSurface()) { LABELS.shown = []; for (const s of LABELS.pool) s.visible = false; return; }   // #277: none below (the surface world is hidden anyway)
+function updateLabels(x, z) { LABELS.ticks++; if (!LEVELS.isSurface() || CAVE_MODE.on) { LABELS.shown = []; for (const s of LABELS.pool) s.visible = false; return; }   // #277: none below (the surface world is hidden anyway)
   LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
 // #16: big village names over the villages (Midtown Madness style): camera-facing, drawn over everything and unfogged, hidden inside the
 // village; one sprite per village, created the first time its name shows (the web font has loaded by then).
@@ -1823,9 +1824,9 @@ const VILLAGE_SIGNS = { shown: [], sprites: new Map(), ground: new Map(L ? REGIO
 function villageTex(t) { return makeTex(1024, 160, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = '800 120px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineWidth = 14; g.strokeStyle = 'rgba(20,23,29,.85)'; g.strokeText(t, w / 2, h / 2 + 4); g.fillStyle = '#f5efe0'; g.fillText(t, w / 2, h / 2 + 4); }, { alpha: true }); }
 function villageSprite(t) { let s = VILLAGE_SIGNS.sprites.get(t); if (!s) { s = new THREE.Sprite(new THREE.SpriteMaterial({ map: villageTex(t), transparent: true, depthTest: false, depthWrite: false, fog: false })); VILLAGE_SIGNS.sprites.set(t, s); scene.add(s); } return s; }
 function updateVillageNames(x, z) {   // #258: none inside the cave (no sky; the sprites ignore depth, so they would show through the rock)
-  VILLAGE_SIGNS.shown = L && !CAVE_MODE.on && LEVELS.isSurface() ? villageNames(REGION.villages, x, z, VILLAGE_SIGNS.border) : [];
+  VILLAGE_SIGNS.shown = L && !CAVE_MODE.on && CAVE_MODE.k < 1 && LEVELS.isSurface() ? villageNames(REGION.villages, x, z, VILLAGE_SIGNS.border) : [];
   for (const s of VILLAGE_SIGNS.sprites.values()) s.visible = false;
-  VILLAGE_SIGNS.shown.forEach((l, rank) => { const s = villageSprite(l.t); s.visible = true; s.material.opacity = l.opacity; s.renderOrder = 20 - rank; s.scale.set(l.h * 1024 / 160, l.h, 1); s.position.set(l.x, VILLAGE_SIGNS.ground.get(l.t) + 70 + l.h / 2, l.z); });
+  VILLAGE_SIGNS.shown.forEach((l, rank) => { const s = villageSprite(l.t); s.visible = true; s.material.opacity = l.opacity * (1 - CAVE_MODE.k); s.renderOrder = 20 - rank; s.scale.set(l.h * 1024 / 160, l.h, 1); s.position.set(l.x, VILLAGE_SIGNS.ground.get(l.t) + 70 + l.h / 2, l.z); });
 }
 const camera = new THREE.PerspectiveCamera(62, 1, 0.5, 4200);
 // #92: rear-view mirror -- a second camera into a small render target, drawn as a quad in an inset of the main canvas (see drawMirror)
@@ -2756,7 +2757,7 @@ function stepOnFoot(dt) {
   collideFoot(WALKER.radius); if (FOOT.hover) clampHover(); followCave();
 }
 function footMouse(dx, dy) { const l = footLook(P.th, FOOT.pitch, dx, dy); P.th = l.th; FOOT.pitch = l.pitch; }
-function footCamera() { const v = footView(P.x, P.y, P.z, P.th, FOOT.pitch, WALKER.eye); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); }
+function footCamera() { const v = footView(P.x, P.y, P.z, P.th, FOOT.pitch, WALKER.eye, CAM.back); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); }
 // #100: pontoon bridge (U). Rules in pontoon.js; here the world adapters, the key, the step and the hooks (meshes: buildPontoonMeshes below)
 const pontoonEnv = () => ({ dist: riverDist, nameAt: L ? (x, z) => WATER.nameAt(x, z) : () => 'Rhein', waterLevel: (x, z) => (L && REAL ? WATER.levelAt(x, z) : 0) ?? 0, roadAt: (x, z) => roadDist(x, z) <= 0, bridgeNear: L ? (x, z) => [...gridQuery(BRIDGE_GRID, x, z, PONTOON_CFG.bridgeClear)].some(b => b.kind !== 'rail' && nearestOnPolyline(b.r.pts, x, z).d <= PONTOON_CFG.bridgeClear) : (x, z) => BRIDGES.some(b => segDist(x, z, ...b.a, ...b.b) <= PONTOON_CFG.bridgeClear), ground: (x, z) => groundH(x, z, 1e4) });
 const PONTOON_ERR = { noBank: 'pontoonNoBank', noFarBank: 'pontoonNoFarBank', hasBridge: 'pontoonHasBridge' };
@@ -3005,7 +3006,7 @@ function underCeiling(x, z, y) { const lid = LEVELS.isSurface() ? (caveInside() 
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
   if (!v.drone || FLY.on || FOOT.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
-  const back = !!keys.KeyB && $('overlay').hidden && !FOOT.on, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
+  const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   /* #408: on foot too */ // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
   car.visible = FOOT.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
   if (FOOT.on) footCamera(); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }
@@ -3073,7 +3074,7 @@ function applySurprise(s) { if (s.id === 'hop') { if (!FLY.on) { P.y += 0.3; P.v
 function endHunt() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); const t = R.t, clean = !R.jumped && !R.auto && !R.flown && !R.walked && !R.pontoon && !R.swapped; let rec = false; if (clean && isNewHuntBest(R.huntBest, t)) { rec = R.huntBest !== null; R.huntBest = t; try { localStorage.setItem('mm.huntBest', String(t)); } catch (e) { } } R.last = { t, rec, mode: 'hunt' }; HUNT_RUN.endIn = HUNT.celebrate; }
 function showHuntResult() { HUNT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'hunt') return; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 function finish() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); const t = R.t, clean = !R.jumped && !R.auto && !R.flown && !R.walked && !R.pontoon && !R.swapped; let rec = false; if (R.mode === 'blitz') { const rank = blitzRank(R.left); if (clean && blitzNewBest(R.blitzBest, R.left)) { rec = R.blitzBest !== null; R.blitzBest = R.left; try { localStorage.setItem('mm.blitzBest', String(R.left)); } catch (e) { } } R.last = { mode: 'blitz', t, left: R.left, rank, rec }; } else { if (clean && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem(REGION.bestKey, String(t)); } catch (e) { } } R.last = { mode: 'trial', t, rec }; } $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
-function timeUp() { stopAuto('reset'); R.state = 'finished'; R.timeUp = true; R.last = { mode: 'blitz', timeUp: true, done: R.done }; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }   // #128: the Blitz clock hit zero — no rank, no best, no sound
+function timeUp() { endFoot(); /* #365: no pointer lock / stepOnFoot behind the result screen */ stopAuto('reset'); R.state = 'finished'; R.timeUp = true; R.last = { mode: 'blitz', timeUp: true, done: R.done }; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }   // #128: the Blitz clock hit zero — no rank, no best, no sound
 const penalties = () => `${R.jumped ? tr('notCountedJump') : ''}${R.auto ? tr('notCountedAuto') : ''}${R.flown ? tr('notCountedHeli') : ''}${R.walked ? tr('notCountedFoot') : ''}${R.pontoon ? tr('notCountedPontoon') : ''}${R.swapped ? tr('notCountedSwap') : ''}`;
 const notes = () => `${penalties()}${R.shortcut ? tr('viaHolz') : ''}`;
 function resultHtml(last) { if (last.timeUp) return `<small>${tr('blitzTimeUp')}</small>${tr('blitzCps', last.done)}`; if (last.mode === 'blitz') return `<small>${tr(last.rec ? 'newRecord' : 'blitzRank')}</small>${last.rank}<small>${tr('blitzLeft', fmt(last.left).replace(/<[^>]+>/g, ''))}${notes()}${tr('blitzBest', R.blitzBest === null ? null : fmt(R.blitzBest).replace(/<[^>]+>/g, ''))}</small>`; if (last.mode === 'hunt') return `<small>${tr(last.rec ? 'newRecord' : 'huntAllFound')}</small>${fmt(last.t)}<small>${penalties()}${tr('bestLower')} ${R.huntBest === null ? '—' : fmt(R.huntBest)}</small>`; return `<small>${tr(last.rec ? 'newRecord' : 'finished')}</small>${fmt(last.t)}<small>${notes()}${tr('bestLower')} ${fmt(R.best)}</small>`; }
@@ -3192,7 +3193,7 @@ function renderJump() {
   $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`).join('') : '';
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
-function openJump(mode) { for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
+function openJump(mode) { releaseFootLock(); for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
 function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
 function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else if (r.wreck) jumpToWreck(r.n); else jumpTo(r); }
 function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
@@ -3209,7 +3210,7 @@ $('jumpchips').addEventListener('click', e => { const b = e.target.closest('butt
 // #249: the F1 help has a search field — typing filters the key list, and no game key fires while it is open.
 function helpRows() { const kids = [...$('help').querySelector('.keys').children]; const rows = []; for (let i = 0; i < kids.length; i += 2) rows.push({ index: i, keys: kids[i].textContent, text: kids[i + 1].textContent, kbd: kids[i], span: kids[i + 1] }); return rows; }
 function renderHelp() { const matched = new Set(filterHelpRows(helpRows(), $('helpq').value).map(r => r.index)); for (const r of helpRows()) r.kbd.hidden = r.span.hidden = !matched.has(r.index); $('helpnone').hidden = matched.size !== 0; }
-function openHelp() { for (const k in keys) keys[k] = false; $('helpq').value = ''; $('help').hidden = false; renderHelp(); $('helpq').focus(); }
+function openHelp() { releaseFootLock(); for (const k in keys) keys[k] = false; $('helpq').value = ''; $('help').hidden = false; renderHelp(); $('helpq').focus(); }
 function closeHelp() { $('help').hidden = true; $('helpq').blur(); $('helpq').value = ''; }
 function helpKey(e) {
   if (e.code === 'F1' || e.code === 'Escape') { e.preventDefault(); if (!e.repeat) closeHelp(); return; }   // F1 or Esc closes; a held key never closes it
@@ -3290,7 +3291,7 @@ function renderBorderInfo() {
   $('borderinfotext').textContent = tr('borderText');
   $('borderinfosrc').innerHTML = `${tr('borderSources')}: ${BORDER_SOURCES.map(([name, url]) => `<a href="${url}" target="_blank" rel="noopener">${name}</a>`).join(' · ')}`;
 }
-function openBorderInfo(line) { for (const k in keys) keys[k] = false; BORDERINFO.open = true; BORDERINFO.line = line; renderBorderInfo(); $('borderinfo').hidden = false; $('borderinfox').focus(); }
+function openBorderInfo(line) { releaseFootLock(); for (const k in keys) keys[k] = false; BORDERINFO.open = true; BORDERINFO.line = line; renderBorderInfo(); $('borderinfo').hidden = false; $('borderinfox').focus(); }
 function closeBorderInfo() { BORDERINFO.open = false; $('borderinfo').hidden = true; $('borderinfox').blur(); }
 function borderInfoKey(e) { if (e.code === 'Escape') { e.preventDefault(); if (!e.repeat) closeBorderInfo(); } }   // Esc closes, a held key never does; Tab moves between ✕ and the sources, everything else is swallowed
 $('borderinfox').addEventListener('click', closeBorderInfo);
@@ -3343,16 +3344,23 @@ window.__mm.map = () => { const [cx, cz] = mapToWorld(mapC.width / 2, mapC.heigh
 // #165: double-click (mouse) or double-tap (touch) on the 3D view beams the car to the ground point under the pointer; a blocked spot (water, a building) snaps to the nearest road within 30 m. Through placeOnRoad, so a race is flagged as a jump
 const BEAM = { ray: new THREE.Raycaster(), ndc: new THREE.Vector2(), t: 0, tapT: 0, tapX: 0, tapY: 0, last: null };
 const BEAM_ROLES = ['grass', 'field', 'road', 'roadOsm', 'roadPlain'];
-const beamAllowed = () => $('overlay').hidden && $('jump').hidden && $('help').hidden && !BORDERINFO.open && !PAUSE.on && !CARSEL.on && !FLY.on && !FOOT.on;
+const beamAllowed = () => $('overlay').hidden && $('jump').hidden && $('help').hidden && !BORDERINFO.open && !PAUSE.on && !CARSEL.on && !FLY.on;   /* #403: on foot too -- beaming lands through resetCar, which ends the walk */
 function beamPick(cx, cy) { BEAM.ndc.set(cx / innerWidth * 2 - 1, 1 - cy / innerHeight * 2); BEAM.ray.setFromCamera(BEAM.ndc, camera); BEAM.ray.far = 4000; const hit = BEAM.ray.intersectObjects(BEAM_ROLES.map(r => MESH[r]).filter(Boolean), false)[0]; return hit ? { x: hit.point.x, z: hit.point.z } : null; }
 function spotBlocked(x, z) { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; P.y = groundH(x, z, -Infinity); P.vx = P.vz = 0; collide(carRadius()); const pushed = Math.hypot(P.x - x, P.z - z) > 0.05; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return pushed || waterLevelAt(x, z, 1e4) !== null; }
 function beamTo(cx, cy) { if (!beamAllowed() || performance.now() - BEAM.t < 500) return; BEAM.t = performance.now(); const hit = beamPick(cx, cy), spot = hit && beamSpot(hit.x, hit.z, { blocked: spotBlocked, nearestRoad: nearestJumpable }); BEAM.last = spot; if (!spot) { toast(tr('beamNone')); return; } placeOnRoad(spot.x, spot.z, spot.th ?? P.th, tr('beamed')); }
 $('gl').addEventListener('dblclick', e => borderOrBeam(e.clientX, e.clientY));
 // #202: on foot a click on the landscape grabs the mouse for looking around; the browser lets it go on Esc (and Chrome keeps that
 // Esc keydown to itself), so losing the lock on foot opens the pause -- openPause is a no-op when already paused or not in a run
-$('gl').addEventListener('click', () => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; try { $('gl').requestPointerLock()?.catch?.(() => {}); } catch (e) { } });
+// #403: the lock waits out the double-click interval, so a double-click reaches borderOrBeam with the cursor still there; a dblclick cancels it
+let footLockTimer = 0;
+$('gl').addEventListener('click', () => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; clearTimeout(footLockTimer); footLockTimer = setTimeout(() => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; try { $('gl').requestPointerLock()?.catch?.(() => {}); } catch (e) { } }, FOOT_LOCK_DELAY); });
+$('gl').addEventListener('dblclick', () => clearTimeout(footLockTimer));
 document.addEventListener('mousemove', e => { if (FOOT.on && document.pointerLockElement === $('gl')) footMouse(e.movementX, e.movementY); });
-function footLockLost() { if (!document.pointerLockElement && FOOT.on) openPause(); }
+const FOOT_LOCK_DELAY = 300;
+// #365: J, F1 (and O, I) open dialogs that need the mouse: let the lock go first, and do not read that as the Esc-pause (the dialog stays open)
+let footLockQuiet = false;
+function releaseFootLock() { if (FOOT.on && document.pointerLockElement) { footLockQuiet = true; document.exitPointerLock(); } }
+function footLockLost() { if (document.pointerLockElement) return; if (footLockQuiet) { footLockQuiet = false; return; } if (FOOT.on) openPause(); }
 document.addEventListener('pointerlockchange', footLockLost);
 window.__mm.footUnlock = () => footLockLost();   // tests: headless Chromium cannot lock the pointer; this is the release path
 $('gl').addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - BEAM.tapT < 300 && Math.hypot(e.clientX - BEAM.tapX, e.clientY - BEAM.tapY) < 30) { BEAM.tapT = 0; borderOrBeam(e.clientX, e.clientY); return; } BEAM.tapT = t; BEAM.tapX = e.clientX; BEAM.tapY = e.clientY; });

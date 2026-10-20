@@ -620,6 +620,32 @@ def test_village_names_hidden_inside_the_cave_and_back_outside(server):
 
 
 @needs_world
+def test_village_names_fade_out_with_the_tunnel_light_before_the_hard_switch(server):
+    """#380: SCHUPFART floated in the access tunnel T1: the sprites ignore depth and only the hard cave switch (42 m in) hid them.
+    They now follow the cave look (the portal veil), so the name is half gone at 24 m and gone for good by 36 m."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        mx, mz = h["mouth"]; ps = h["portalS"]; ux, uz = math.cos(HEADING), math.sin(HEADING)
+        page.evaluate(f"() => window.__mm.place({mx + ux * (ps - 30)}, {mz + uz * (ps - 30)}, {HEADING})")
+        page.wait_for_function("() => window.__mm.villageSprites().length > 0", timeout=120000)
+        rows = {}
+        for d in (24, 38):
+            x, z = mx + ux * (ps + d), mz + uz * (ps + d)
+            page.evaluate(f"() => {{ window.__mm.place({x}, {z}, {HEADING}); window.__mm.sim({x}, {z}, {HEADING}, 0.1, 0.05, [], window.__mm.car().y); }}")
+            page.wait_for_timeout(1500)
+            rows[d] = page.evaluate("() => ({ veil: window.__mm.cave().veil, sprites: window.__mm.villageSprites().map(s => [s.t, s.opacity]), names: window.__mm.villages().map(v => [v.t, v.opacity]) })")
+        br.close()
+    assert errors == []
+    mid = rows[24]
+    assert 0.2 < mid["veil"] < 0.8, mid
+    for t, opacity in mid["sprites"]:
+        base = dict(mid["names"])[t]
+        assert abs(opacity - base * (1 - mid["veil"])) < 0.05, (t, opacity, base, mid["veil"])
+    assert rows[38]["sprites"] == [], rows[38]
+
+
+@needs_world
 def test_cave_light_stays_daylight_until_the_deep_point_and_the_tunnel_darkens_locally(server):
     """Driving in from 30 m outside the gate to 60 m into the tunnel: the scene's fog, sky, ambient and sun are the day's own until the
     deep point (CAVE_SWITCH_IN), where the whole cave look takes over; before that the tunnel's lining is what darkens it. The

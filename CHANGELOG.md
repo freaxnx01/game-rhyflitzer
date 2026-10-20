@@ -17,6 +17,11 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-20 18:23` On foot, hold **B** to **look back**, like in the car: the view turns around at once while you hold it, walking or hovering, and snaps forward when you let go. Your walking direction does not change.
+- `2026-10-20 18:09` Phones now lay the game out at the **real screen width**: the page asked for no mobile viewport, so the phone layouts (touch buttons, overlays, start screen) never kicked in on an actual phone.
+- `2026-10-20 18:09` On foot, a **double-click** now does what it does in the car: it opens the border popup on the Holzbrücke lines or **beams** you to the spot. Before, the first click already grabbed the mouse for looking around. Mouse-look now starts a moment after a single click.
+- `2026-10-20 18:09` The village name (e.g. **SCHUPFART**) no longer floats inside the **hideout tunnel**: it fades out together with the daylight as you drive in, and is gone before the cave begins.
+- `2026-10-20 18:09` When the **Blitz clock runs out while you are on foot**, the walk now ends and the mouse is released, so the result screen can be clicked right away. **J**, **F1** and the other pop-ups also let go of the mouse on foot, so you can use them without pressing Esc first.
 - `2026-10-20 10:55` The German **Ehrendingen sticker** on the start screen now reads „Der Wanderweg ist für Wanderer. Wissen wir. Wir driften trotzdem drauf.“ instead of „… Haben wir geprüft. Driften trotzdem.“
 - `2026-10-20 10:53` The German **Hochrhein sticker** on the start screen now reads „Die Brücke ist für Fussgänger. Wissen wir. Wir fahren trotzdem drüber.“ instead of the stiff „… Haben wir geprüft. Springen trotzdem.“
 - `2026-10-19 23:40` Driving through a **spoke** from the hideout ring to a room (and back), the screen no longer goes black for seconds and then jumps to the room. The tunnel now **fades** into a dark haze where the car stays visible, and the room's lit tunnel, the sky and the landmark slowly come up out of it.

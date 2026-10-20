@@ -9,7 +9,9 @@ export function droneSway(t, cfg = DRONE) {
 }
 
 // #202: the walker's first-person view: the eye `eye` metres over the feet, looking along th, pitched up by `pitch` (rad)
-export function footView(x, y, z, th, pitch, eye) {
+// #408: back = true looks over the shoulder (the heading turned by half a circle, the pitch kept)
+export function footView(x, y, z, th, pitch, eye, back = false) {
+  if (back) th += Math.PI;
   const ey = y + eye, cp = Math.cos(pitch);
   return { eye: [x, ey, z], at: [x + Math.cos(th) * cp * 10, ey + Math.sin(pitch) * 10, z + Math.sin(th) * cp * 10] };
 }

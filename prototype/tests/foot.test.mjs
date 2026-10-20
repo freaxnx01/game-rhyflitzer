@@ -182,3 +182,13 @@ test('keyFoot_MentionsNitro_InBothLanguages', () => {
   assert.match(translate('en', 'keyFoot'), /N \(hold\)/);
   assert.match(translate('de', 'keyFoot'), /N \(halten\)/);
 });
+
+test('footView_Back_LooksOverTheShoulderWithTheSamePitch', () => {
+  const f = footView(0, 0, 0, 0, 0.5, 1.7), b = footView(0, 0, 0, 0, 0.5, 1.7, true);
+  close(b.at[0], -f.at[0], 1e-9); close(b.at[2], f.at[2], 1e-9); close(b.at[1], f.at[1], 1e-9);
+  assert.deepEqual(b.eye, f.eye);
+});
+
+test('footKeyAction_KeyB_PassesThrough', () => {
+  assert.equal(footKeyAction('KeyB'), 'pass');
+});
