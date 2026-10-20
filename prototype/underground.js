@@ -27,6 +27,15 @@ export function darkAlphaAt(s) {
   return smooth(((d1 + 10) - s) / 10);
 }
 export function bandAlphaAt(s) { return 1 - darkAlphaAt(s); }
+// #379: the spoke's own look fades to the dark (thick near-black fog, low light) instead of a black-out: 0 up to SPOKE_FADE[0], rising
+// to 1 at [1], 1 to [2], back to 0 at [3]. Both switch points lie inside [1]..[2], so ring and room show the same picture when the level swaps.
+export const SPOKE_FADE = [28, 46, 54, 72];
+export function spokeDarkAt(s, f = SPOKE_FADE) {
+  const ramp = (t) => Math.min(1, Math.max(0, t));   // linear, not smoothstep: the flattest steepest step, so the picture changes evenly
+  if (s <= f[1]) return ramp((s - f[0]) / (f[1] - f[0]));
+  if (s <= f[2]) return 1;
+  return ramp((f[3] - s) / (f[3] - f[2]));
+}
 
 // spoke k's frame: a = its angle off the lift's centre, u = outward unit vector, v = across it, start = the ring's outer
 // edge, end = SPOKE.len further out

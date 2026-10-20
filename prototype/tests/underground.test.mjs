@@ -101,3 +101,15 @@ test('darkAlphaAt_BlackOverTheDarkStretch_FadingTenMetresEachSide', () => {
   for (let s = 0; s <= 100; s += 1) close(bandAlphaAt(s), 1 - darkAlphaAt(s), 1e-12, `band is the dark's complement at ${s}`);
   assert.equal(bandAlphaAt(5), 1); assert.equal(bandAlphaAt(50), 0); assert.equal(bandAlphaAt(90), 1);
 });
+
+// #379: how far the spoke's look has gone over to the dark (fog thick and near-black, light down) at s metres into it -- 0 in the ring
+// and in the room's lit tunnel, 1 round both switch points so the level swap shows nothing, continuous in between (a fade, no cut)
+import { spokeDarkAt, SPOKE_FADE } from '../underground.js';
+test('spokeDarkAt_AlongTheSpoke_ContinuousAndFullAtBothSwitchPoints', () => {
+  assert.equal(spokeDarkAt(0), 0); assert.equal(spokeDarkAt(SPOKE_FADE[0]), 0); assert.equal(spokeDarkAt(SPOKE_FADE[3]), 0); assert.equal(spokeDarkAt(SPOKE.len), 0);
+  assert.equal(spokeDarkAt(SPOKE.switchIn), 1); assert.equal(spokeDarkAt(SPOKE.switchOut), 1);
+  assert.ok(SPOKE_FADE[1] - SPOKE_FADE[0] >= 12 && SPOKE_FADE[3] - SPOKE_FADE[2] >= 12, 'fades of 12+ m each side');
+  let prev = 0;
+  for (let s = 0; s <= SPOKE.len; s += 0.25) { const q = spokeDarkAt(s); assert.ok(Math.abs(q - prev) < 0.04, `no jump at ${s}: ${prev} -> ${q}`); prev = q; }
+  assert.ok(SPOKE_FADE[3] - SPOKE_FADE[0] <= 45, 'the dim stretch is shorter than the old 20 m black + 2 x 10 m fade + margin');
+});

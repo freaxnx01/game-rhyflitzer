@@ -466,7 +466,7 @@ import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, LIFT, inCabin, lif
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
 import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout } from './rooms.js';
-import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt } from './underground.js';
+import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -2156,9 +2156,25 @@ const ROOM_LOOK = { fog: '#cfe2f3', density: 0.00045, skyTop: '#3f7fd6', skyHor:
 // #361: the tunnel ring and its spokes -- a dim concrete cave: near-black haze, warm grey ambient, no sun (the ceiling strips are emissive)
 const RING_LOOK = { fog: '#0b0c0e', density: 0.006, skyTop: '#0b0c0e', skyHor: '#0b0c0e', hemiSky: '#fff2dc', hemiGround: '#8a8478', hemi: 1.3, sun: 0 };
 function setBelowLook(kind) {   // 'surface' | 'ring' | 'room'
-  if (kind === 'surface') { const St = STYLES[styleKey]; scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; sunSprite.visible = !UWS.on; treesVisible(!CAVE_MODE.on); return; }   // as setCave(false): no style rebuild, no shader recompile
-  const L2 = kind === 'ring' ? RING_LOOK : ROOM_LOOK; scene.fog = new THREE.FogExp2(col(L2.fog), L2.density); skyMat.uniforms.top.value.set(L2.skyTop); skyMat.uniforms.hor.value.set(L2.skyHor);
-  hemi.color.set(L2.hemiSky); hemi.groundColor.set(L2.hemiGround); hemi.intensity = L2.hemi; sun.intensity = L2.sun; sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room';
+  if (kind === 'surface') { BELOW.kind = 'surface'; const St = STYLES[styleKey]; scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; sunSprite.visible = !UWS.on; treesVisible(!CAVE_MODE.on); return; }   // as setCave(false): no style rebuild, no shader recompile
+  BELOW.kind = kind; BELOW.q = -1; fadeBelowLook(spokeDarkHere()); sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room';
+}
+// #379: in a spoke the level's own look fades over to SPOKE_DARK (spokeDarkAt, underground.js) and back, instead of a black-out and a cut:
+// thick near-black fog that swallows whatever lies 15+ m ahead, light turned down but never off. Both switch points lie where the fade is
+// full, so the ring and the room show the very same picture when the level swaps; past them the room's lit tunnel and sky (or the ring's
+// lights) come up out of the dark.
+const SPOKE_DARK = { fog: '#050506', density: 0.09, skyTop: '#050506', skyHor: '#050506', hemiSky: '#fff2dc', hemiGround: '#8a8478', hemi: 0.9, sun: 0 };
+const SPOKE_LINING_MAX = 0.5;   // the dark stretch's lining at its darkest: the fog does most of the darkening now, the walls never go pure black
+const BELOW = { kind: null, q: -1, fog: new THREE.FogExp2(0x000000, 0.001) };
+function spokeDarkHere() { const sp = LEVELS.isSurface() ? null : spokeAt(P.x, P.z); return sp ? spokeDarkAt(sp.s) : 0; }
+function fadeBelowLook(q) {
+  if (!BELOW.kind || BELOW.kind === 'surface' || q === BELOW.q) return;
+  const base = BELOW.kind === 'ring' ? RING_LOOK : ROOM_LOOK, m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;
+  // the fog's colour stays dark until the fog itself has thinned (else the thick fog half-way glows as a pale mist in the room's tunnel);
+  // its density goes geometrically, so the exp2 fog clears evenly over the fade, not all at its end
+  BELOW.fog.color.set(blendLook({ c: base.fog }, { c: SPOKE_DARK.fog }, 1 - Math.pow(1 - q, 4)).c); BELOW.fog.density = base.density * Math.pow(SPOKE_DARK.density / base.density, q);
+  scene.fog = BELOW.fog; skyMat.uniforms.top.value.set(m.skyTop); skyMat.uniforms.hor.value.set(m.skyHor);
+  hemi.color.set(m.hemiSky); hemi.groundColor.set(m.hemiGround); hemi.intensity = m.hemi; sun.intensity = m.sun;
 }
 // #101: under the surface -- murky blue-green fog, the sky sphere in the same colour, dimmer and cooler light, no sun disc; off restores the style.
 // The bed content (boulders, weed, fish, wrecks) is only drawn while under: through the 0.96-opaque surface nobody sees it anyway.
@@ -2275,7 +2291,7 @@ function spokeLining(group, k, y0) {
   const fr = spokeFrame(k), hw = SPOKE.hw - 0.05, top = y0 + SPOKE.ceiling - 0.05, s0 = SPOKE.dark[0] - 10, s1 = SPOKE.dark[1] + 10, N = Math.round((s1 - s0) / 2);
   const pos = [], col4 = [], idx = [];
   for (let i = 0; i <= N; i++) {
-    const sv = s0 + i * 2, cx = fr.start[0] + fr.u[0] * sv, cz = fr.start[1] + fr.u[1] * sv, al = darkAlphaAt(sv);
+    const sv = s0 + i * 2, cx = fr.start[0] + fr.u[0] * sv, cz = fr.start[1] + fr.u[1] * sv, al = SPOKE_LINING_MAX * darkAlphaAt(sv);
     for (const [side, y] of [[-1, y0 + 0.07], [-1, top], [1, top], [1, y0 + 0.07]]) { pos.push(cx + fr.v[0] * hw * side, y, cz + fr.v[1] * hw * side); col4.push(0, 0, 0, al); }
   }
   for (let i = 0; i < N; i++) for (let q = 0; q < 4; q++) { const p = i * 4 + q, r = i * 4 + (q + 1) % 4; idx.push(p, r, p + 4, r, r + 4, p + 4); }
@@ -2467,7 +2483,9 @@ function stepLift(dt) {
 // #361: the dark switch. On the ring level, entering spoke k builds room k's meshes; by position and with hysteresis (underground.js)
 // the active level swaps ring <-> room k inside the spoke's black stretch -- no teleport, no race flag, no toast; the car keeps x, y, z and speed.
 function stepSpokes() {
-  if (LEVELS.isSurface() || !RING_L.built || FOOT.on) return;   // on foot (#202) the walker stays on the car's level: the spoke's cap stops it
+  if (LEVELS.isSurface() || !RING_L.built) return;
+  fadeBelowLook(spokeDarkHere());
+  if (FOOT.on) return;   // on foot (#202) the walker stays on the car's level: the spoke's cap stops it
   const sp = spokeAt(P.x, P.z); if (LEVELS.id === 'ring' && sp && sp.s > 0) ensureRoom(sp.k);
   const next = belowLevelAt(LEVELS.id, P.x, P.z, ROOMS.map(r => r.id)); if (next === LEVELS.id) return;
   LEVELS.set(next); const at = next === 'ring' ? ringSpawn() : ROOM.layouts[roomIndex(next)].spawn; P.safe = [at.x, at.z, at.th];
@@ -2780,7 +2798,7 @@ window.__mm.nearestSchool = (x, z) => Math.min(...FISH.schools.map(s => Math.hyp
 // #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
 window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.hall.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.hall.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms, lift: { c: LIFT.c, th: LIFT.th, hw: LIFT.hw, hd: LIFT.hd, doors: { top: liftDoor('top'), bottom: liftDoor('bottom') } }, room: ROOM.layouts && { centre: ROOM.layouts[0].centre, tower: ROOM.layouts[0].tower, spawn: ROOM.layouts[0].spawn, towerView: ROOM.layouts[0].towerView, half: ROOM.layouts[0].half, y: ROOM.layouts[0].y, portal: ROOM.layouts[0].portal } } : null;
 // #361: where the car is below -- the level, the spoke it is in (k, s), which room's meshes exist, whether that room has an object, the signs; spoke(k, s) is a point on spoke k for the tests
-window.__mm.below = () => ({ level: LEVELS.id, spoke: spokeAt(P.x, P.z), built: ROOM.built, object: ROOM.layout ? !!ROOM.layout.object : null, tower: ROOM.layout && ROOM.layout.tower, rooms: ROOMS.map(r => r.id), signs: spokeSigns(ROOMS).map(sg => sg.text), ring: RING_L.built });
+window.__mm.below = () => ({ dark: BELOW.q, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, level: LEVELS.id, spoke: spokeAt(P.x, P.z), built: ROOM.built, object: ROOM.layout ? !!ROOM.layout.object : null, tower: ROOM.layout && ROOM.layout.tower, rooms: ROOMS.map(r => r.id), signs: spokeSigns(ROOMS).map(sg => sg.text), ring: RING_L.built });
 window.__mm.spoke = (k, sv) => { const fr = spokeFrame(k); return { x: fr.start[0] + fr.u[0] * sv, z: fr.start[1] + fr.u[1] * sv, th: fr.a }; };
 window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH; window.__mm.roomAt = roomAt; window.__mm.ceilingAt = ceilingH;   // #201
 // #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
