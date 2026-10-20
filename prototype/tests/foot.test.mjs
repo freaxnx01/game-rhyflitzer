@@ -6,7 +6,7 @@ import { colliderPush } from '../world.js';
 import { translate } from '../strings.js';
 
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
-const IDLE = { fwd: 0, side: 0, turn: 0, lift: 0 };
+const IDLE = { fwd: 0, side: 0, turn: 0, lift: 0, nitro: 0 };
 const flat = (h = 0) => () => h;
 const run = (s, input, secs, floorAt = flat()) => { for (let i = 0; i < secs * 60; i++) s = stepFoot(s, input, 1 / 60, floorAt); return s; };
 const at = (o) => ({ x: 0, z: 0, y: 0, th: 0, vy: 0, hover: false, ...o });
@@ -14,11 +14,12 @@ const box = (o) => ({ x: 0, z: 0, hw: 5, hd: 5, c: 1, s: 0, h: 10, ...o });
 
 test('footInput_Keys_MapToAxes', () => {
   assert.deepEqual(footInput({}), IDLE);
-  assert.deepEqual(footInput({ KeyW: true, KeyD: true, ArrowRight: true, Space: true }), { fwd: 1, side: 1, turn: 1, lift: 1 });
-  assert.deepEqual(footInput({ ArrowDown: true, KeyA: true, ArrowLeft: true, ShiftLeft: true }), { fwd: -1, side: -1, turn: -1, lift: -1 });
+  assert.deepEqual(footInput({ KeyW: true, KeyD: true, ArrowRight: true, Space: true }), { fwd: 1, side: 1, turn: 1, lift: 1, nitro: 0 });
+  assert.deepEqual(footInput({ ArrowDown: true, KeyA: true, ArrowLeft: true, ShiftLeft: true }), { fwd: -1, side: -1, turn: -1, lift: -1, nitro: 0 });
   assert.equal(footInput({ ArrowUp: true }).fwd, 1);
   assert.equal(footInput({ ShiftRight: true }).lift, -1);
-  assert.equal(footInput({ KeyN: true, ControlLeft: true }).fwd, 0, 'nitro and handbrake do nothing on foot');
+  assert.equal(footInput({ KeyN: true, ControlLeft: true }).fwd, 0, 'N and handbrake do not walk by themselves');
+  assert.equal(footInput({ KeyN: true }).nitro, 1);
 });
 
 test('stepFoot_WalkForward_MovesAtWalkSpeedAlongHeading', () => {
@@ -153,4 +154,31 @@ test('footStrings_BothLanguages_SwissGerman', () => {
     assert.ok(!de.includes('ß'), `de ${k} uses ss`);
   }
   assert.match(translate('en', 'footOut'), /Z/); assert.match(translate('de', 'footOut'), /Zu Fuss/);
+});
+
+// #404: N held on foot doubles the horizontal speed (walk 4.5 -> 9, hover 11 -> 22); climb and sink stay as they are
+test('stepFoot_WalkWithNitro_IsTwiceAsFast', () => {
+  const s = run(at(), { ...IDLE, fwd: 1, nitro: 1 }, 2);
+  close(s.x, 2 * 2 * WALKER.walk, 1e-6);
+  assert.equal(WALKER.nitro, 2);
+});
+
+test('stepFoot_HoverWithNitro_IsTwiceAsFastButClimbsAsBefore', () => {
+  const s = run(at({ hover: true, y: 20 }), { ...IDLE, fwd: 1, lift: 1, nitro: 1 }, 1, flat(0));
+  close(s.x, 2 * WALKER.hover, 1e-6); close(s.y, 20 + WALKER.climb, 1e-6);
+});
+
+test('stepFoot_NitroWithoutMovement_DoesNothing', () => {
+  const s = run(at(), { ...IDLE, nitro: 1 }, 1);
+  close(s.x, 0, 1e-9); close(s.z, 0, 1e-9);
+});
+
+test('stepFoot_DiagonalWithNitro_IsNotFasterThanStraight', () => {
+  const s = run(at(), { ...IDLE, fwd: 1, side: 1, nitro: 1 }, 1);
+  close(Math.hypot(s.x, s.z), 2 * WALKER.walk, 1e-6);
+});
+
+test('keyFoot_MentionsNitro_InBothLanguages', () => {
+  assert.match(translate('en', 'keyFoot'), /N \(hold\)/);
+  assert.match(translate('de', 'keyFoot'), /N \(halten\)/);
 });

@@ -152,3 +152,18 @@ def test_mouse_look_turns_and_pitches_and_a_lost_lock_pauses_once(server):
     assert looked["th"] > th0 and looked["pitch"] > 0, looked
     assert paused is True
     assert after_in == {"paused": False, "foot": False}, after_in
+
+
+def test_n_held_on_foot_doubles_the_walking_speed(server):
+    """#404: N is nitro on foot; the car stays parked and nothing else reacts to it."""
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        press_z(page)
+        a = foot(page); foot_sim(page, 1, ["KeyW"]); b1 = foot(page)
+        plain = math.hypot(b1["x"] - a["x"], b1["z"] - a["z"])
+        foot_sim(page, 1, ["KeyW", "KeyN"]); c = foot(page)
+        fast = math.hypot(c["x"] - b1["x"], c["z"] - b1["z"])
+        b.close()
+    assert 4.0 < plain < 5.0, plain
+    assert abs(fast - 2 * plain) < 0.5, (plain, fast)
+    assert errors == []
