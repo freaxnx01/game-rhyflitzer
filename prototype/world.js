@@ -769,6 +769,69 @@ export function nationalBorder(boundaries, de = BORDER_DE, tol = 1) {
   }
   return chain;
 }
+// #397: the ring of the first wood that contains the point (the Fridolinsinsel is an OSM wood), or null
+export function ringAround(forests, pt) { return forests.find(f => inRing(f.ring, pt[0], pt[1]))?.ring ?? null; }
+// #397: the OLD national border (the Talweg of 1808). There is no data source for it; this is an APPROXIMATION from the press reports
+// (Aargauer Zeitung 2023, Blick 2026, swisstopo 2025): the treaty moved the line only at the Holzbrücke and around the Fridolinsinsel,
+// so the old line is the new one (nationalBorder) with two local deviations and equal everywhere else.
+//  crossing [x, z]: where the old line crosses the bridge (the old deck line); the new line is pulled there, fading out over reach m.
+//  island: a ring; where the new line hugs its shore the old one runs through the island's middle (half CH, half DE), fading out over ramp m.
+const smooth = (u) => { const c = Math.min(1, Math.max(0, u)); return c * c * (3 - 2 * c); };
+function lineSample(pts, cum, s) {
+  let i = 0; while (i < pts.length - 2 && cum[i + 1] < s) i++;
+  const L = cum[i + 1] - cum[i] || 1, u = Math.min(1, Math.max(0, (s - cum[i]) / L)), dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1], l = Math.hypot(dx, dz) || 1;
+  return { p: [pts[i][0] + dx * u, pts[i][1] + dz * u], n: [-dz / l, dx / l] };
+}
+// the midline of where the normal through p cuts the ring, as a displacement along the normal; null when it misses the ring
+function islandShift(ring, p, n) {
+  const ts = [];
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length], ea = (a[0] - p[0]) * -n[1] + (a[1] - p[1]) * n[0], eb = (b[0] - p[0]) * -n[1] + (b[1] - p[1]) * n[0];
+    if ((ea > 0) === (eb > 0)) continue;
+    const u = ea / (ea - eb); ts.push((a[0] + (b[0] - a[0]) * u - p[0]) * n[0] + (a[1] + (b[1] - a[1]) * u - p[1]) * n[1]);
+  }
+  return ts.length < 2 ? null : (Math.min(...ts) + Math.max(...ts)) / 2;
+}
+export function oldNationalBorder(border, { crossing = null, island = null, reach = 60, ramp = 60, step = 4 } = {}) {
+  const cum = [0]; for (let i = 1; i < border.length; i++) cum.push(cum[i - 1] + Math.hypot(border[i][0] - border[i - 1][0], border[i][1] - border[i - 1][1]));
+  const features = [];   // {a, b, at(s) -> [dx, dz]}
+  if (crossing) {
+    const q = nearestOnPolyline(border, crossing[0], crossing[1]), at = pointAtLength(border, q.t), D = [crossing[0] - at[0], crossing[1] - at[1]];
+    features.push({ a: q.t - reach, b: q.t + reach, at: (s) => { const w = 1 - smooth(Math.abs(s - q.t) / reach); return [D[0] * w, D[1] * w]; } });
+  }
+  if (island) {
+    const ts = island.map(v => nearestOnPolyline(border, v[0], v[1]).t), s0 = Math.min(...ts), s1 = Math.max(...ts), valid = [];
+    for (let s = s0; s <= s1 + 1e-9; s += step / 2) { const { p, n } = lineSample(border, cum, s), t = islandShift(island, p, n); if (t !== null) valid.push({ s, d: [n[0] * t, n[1] * t] }); }
+    if (valid.length) {
+      const lo = valid[0].s, hi = valid.at(-1).s;
+      features.push({ a: lo - ramp, b: hi + ramp, at: (s) => {
+        const v = valid.reduce((best, c) => Math.abs(c.s - s) < Math.abs(best.s - s) ? c : best), out = Math.max(lo - s, s - hi, 0), w = 1 - smooth(out / ramp);
+        return [v.d[0] * w, v.d[1] * w]; } });
+    }
+  }
+  if (!features.length) return border.map(p => p.slice());
+  const inside = (s) => features.some(f => s > f.a && s < f.b), entries = [];
+  border.forEach((p, i) => { if (!inside(cum[i])) entries.push([cum[i], p.slice()]); });
+  for (const f of features) {
+    const a = Math.max(0, f.a), b = Math.min(cum.at(-1), f.b), n = Math.max(1, Math.ceil((b - a) / step));
+    for (let k = 0; k <= n; k++) {
+      const s = a + (b - a) * k / n, { p } = lineSample(border, cum, s);
+      const d = features.reduce((acc, g) => { const e = s > g.a && s < g.b ? g.at(s) : [0, 0]; return [acc[0] + e[0], acc[1] + e[1]]; }, [0, 0]);
+      entries.push([s, [p[0] + d[0], p[1] + d[1]]]);
+    }
+  }
+  return entries.sort((x, y) => x[0] - y[0]).map(e => e[1]);
+}
+// the stretches of the old line that lie more than gap metres from the new one: where both are drawn, the coincident part is drawn once
+export function apartRuns(old, border, gap = 0.4) {
+  const runs = []; let run = null;
+  for (const p of old) {
+    if (nearestOnPolyline(border, p[0], p[1]).d > gap) (run ??= []).push(p);
+    else if (run) { runs.push(run); run = null; }
+  }
+  if (run) runs.push(run);
+  return runs;
+}
 function crossZ(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
 function segmentsCross(a, b, c, d) { return (crossZ(c, d, a) > 0) !== (crossZ(c, d, b) > 0) && (crossZ(a, b, c) > 0) !== (crossZ(a, b, d) > 0); }
 // The border splits the world in two (it ends on the world edge): an even number of crossings means the same bank.
