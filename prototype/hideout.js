@@ -27,6 +27,10 @@ export const EIFFEL = { h: 330, feet: [[-53, -53], [53, -53], [53, 53], [-53, 53
 // to that axis -- the central column and entrance block (solid up to the lowest sphere's first metres), then the three bipod legs, 120 degrees
 // apart at about 48 m, each with its stairs and fence; hw per foot fits the vertices below 12 m (the car drives between and under the spheres).
 export const ATOMIUM = { key: 'atomium', h: 101.3, scale: 1, anchor: [-1.5, 0.99, 3.0], feet: [[0, 0, 14], [-49, 0, 10], [24.5, -43, 10], [29, 48, 10]], footHw: 10, footH: 30, url: './assets/models/atomium.glb', loadWithin: 400 };
+// #422: the RMS Titanic (269 m, 1912), life size: scale 269 m / the model's 10686 length units. anchor: the hull's bottom centre in model units (bbox middle
+// x 1580.3, z 346.9, keel at y 0). alongV: the ship lies along the room's own cross axis, broadside to the portal. hull: [along-ship offset from the centre,
+// half length, half width] per 22 m section, measured 2026-10-20 from the optimised model's vertices (widths incl. bridge wings, +0.3 m); solid up to hullH.
+export const TITANIC = { key: 'titanic', h: 72.9, scale: 0.0251728, anchor: [1580.26, 0, 346.9], alongV: true, flat: true, length: 269, hull: [[-123.3, 11.2, 11.8], [-100.9, 11.2, 13.0], [-78.5, 11.2, 14.3], [-56.0, 11.2, 14.7], [-33.6, 11.2, 14.8], [-11.2, 11.2, 14.8], [11.2, 11.2, 14.8], [33.6, 11.2, 14.8], [56.0, 11.2, 14.8], [78.5, 11.2, 15.3], [100.9, 11.2, 12.5], [123.3, 11.2, 9.6]], hullH: 75, url: './assets/models/titanic.glb', loadWithin: 400 };
 // #201: the extent of [x, z] points -- a loop, not Math.min(...spread): the real model's leg has far more vertices than V8's argument limit
 export function pointBounds(points) {
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;

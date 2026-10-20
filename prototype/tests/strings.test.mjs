@@ -23,6 +23,11 @@ test('the Eiffel Tower model is credited in both languages (#201)', () => {
   assert.match(translate('de', 'creditEiffel'), /Johnson Martin.*CC BY 4\.0/);
 });
 
+test('the Titanic model is credited in both languages (#422)', () => {
+  assert.match(translate('en', 'creditTitanic'), /RMS Titanic.*Union.*CC BY 4\.0/);
+  assert.match(translate('de', 'creditTitanic'), /RMS Titanic.*Union.*CC BY 4\.0/);
+});
+
 test('German strings use Swiss spelling (no sharp s)', () => {
   for (const [key, value] of Object.entries(STRINGS.de)) assert.ok(!render(value).includes('ß'), key);
 });
