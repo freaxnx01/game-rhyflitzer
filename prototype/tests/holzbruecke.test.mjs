@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan } from '../holzbruecke.js';
+import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, borderCrossing } from '../holzbruecke.js';
 
 // the bridge line of data/world_hochrhein.json (OSM w85692214), Stein -> Säckingen
 const LINE = [[-1079.9, -75.0], [-1111.5, -79.5], [-1135.8, -81.8], [-1161.9, -81.5], [-1220.4, -86.8], [-1284.7, -94.2]];
@@ -107,4 +107,31 @@ test('chapelPlan: a polygonal chapel is a half-hexagon out from the wall, a pent
     outline: [[-2, 0], [-1, 3], [1, 3], [2, 0]], eave: [[-2.3, 0], [-1.15, 3.3], [1.15, 3.3], [2.3, 0]] });
   assert.deepEqual(chapelPlan({ kind: 'pent', depth: 1, length: 2 }, 0.3), {
     outline: [[-1, 0], [-1, 1], [1, 1], [1, 0]], eave: [[-1.3, 0], [-1.3, 1.3], [1.3, 1.3], [1.3, 0]] });
+});
+
+test('BORDER_OldAndNew_AreSteppedEightPointTwoMetresAndPaintedNarrow', () => {
+  assert.deepEqual(BORDER, { old: 102, shift: 8.2, width: 0.3 });
+});
+
+test('borderCrossing_StraightBridge_PointIsMeasuredFromTheSaeckingenEnd', () => {
+  const east = [[200, 0], [0, 0]];   // Stein first, Saeckingen last
+  const c = borderCrossing(east, 102, 2.6);
+  assert.ok(near(c.x, 102) && near(c.z, 0));
+  assert.ok(near(c.ux, -1) && near(c.uz, 0));
+  assert.ok(near(c.t, 98));
+});
+
+test('borderCrossing_StraightBridge_EndsSpanTheDeckAcrossTheBridge', () => {
+  const c = borderCrossing([[200, 0], [0, 0]], 110.2, 2.6);
+  assert.ok(near(c.a[0], 110.2) && near(c.b[0], 110.2));
+  assert.ok(near(Math.abs(c.a[1] - c.b[1]), 5.2));
+});
+
+test('borderCrossing_RealLine_NewBorderLiesTowardsSteinOfTheOldOne', () => {
+  const o = borderCrossing(LINE, BORDER.old, 2.6), n = borderCrossing(LINE, BORDER.old + BORDER.shift, 2.6);
+  assert.ok(near(o.t - n.t, 8.2, 1e-9));
+});
+
+test('borderCrossing_BeyondTheBridge_Throws', () => {
+  assert.throws(() => borderCrossing([[200, 0], [0, 0]], 250, 2.6), /bridge/);
 });

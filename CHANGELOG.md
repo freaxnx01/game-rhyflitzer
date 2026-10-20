@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-10-20 10:56` The **Holzbrücke** now shows the Swiss/German **border** painted across the deck, twice: the **old** border from 1808 as a **white** line and the **new** one (the middle of the Rhine, 8.2 m further towards Stein) as a **yellow** line. Both are always there, even with the boundaries switched off, and you simply drive over them.
+
 ### Fixed
 
 - `2026-10-20 10:55` The German **Ehrendingen sticker** on the start screen now reads „Der Wanderweg ist für Wanderer. Wissen wir. Wir driften trotzdem drauf.“ instead of „… Haben wir geprüft. Driften trotzdem.“

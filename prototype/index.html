@@ -458,7 +458,7 @@ import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSa
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows } from './helpfilter.js';
-import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan } from './holzbruecke.js';
+import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, borderCrossing } from './holzbruecke.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -970,6 +970,7 @@ const parts = {};
 const UWS = { on: false };   // #101: true while the camera is under the water surface (setUnderwater switches the look)
 // #201: cave mode -- on while the car is under the hill (caveInside); group = the lobby's lights and platform, drawn only then (setCave)
 const CAVE_MODE = { on: false, group: null, dark: null, veil: null, k: 0 };
+const BORDER_LINES = [];   // #396: the Holzbrücke's border lines, built in heroWood and added to the scene once it exists
 function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.toNonIndexed() : geo); }
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
@@ -1562,6 +1563,18 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
       for (let k = 0; k < 3; k++) { const a = eave[k], b = eave[k + 1]; if (a[0] === b[0]) continue;   // the pent one's side gables are wall, not roof
         const [C, D] = ch.kind === 'pent' ? [V(at([b[0], 0]), H.eave), V(at([a[0], 0]), H.eave)] : [apex, apex];
         quad(V(at(a), topY(a)), V(at(b), topY(b)), C, D, roofC, 'roof'); } }
+    // #396: the old (white, Talweg) and the new (yellow, Rhine centre line) CH/DE border painted across the deck; always shown, outside BOUNDS (G)
+    const borders = [['old', BORDER.old, 0xffffff], ['new', BORDER.old + BORDER.shift, 0xffd400]].map(([kind, d, color]) => {
+      const c = borderCrossing(pts, d, hw), w = BORDER.width / 2, lift = 0.1, pos = [];
+      const at = (e, k) => { const x = e[0] + c.ux * k * w, z = e[1] + c.uz * k * w; return [x, hs(x, z) + lift, z]; };
+      const [A, B, C, D] = [at(c.a, -1), at(c.b, -1), at(c.b, 1), at(c.a, 1)];
+      for (const v of [A, B, C, A, C, D, A, C, B, A, D, C]) pos.push(...v);
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      m.name = 'border-' + kind;
+      return { kind, mesh: m, t: c.t, x: c.x, z: c.z, fromSaeckingen: d };
+    });
+    BORDER_LINES.push(...borders); window.__mm.borderLines = borders;
     window.__mm.counts.holzbruecke = { frames: frames.length, piers: piers.length, chapels: H.chapels.length, pierFeet: piers.map(p => ({ x: p.x, z: p.z, base: pierBase })) };
   }
   // #78: the stone chain drawn per piece along its polyline (the Fridolinsbrücke bends and splits into two carriageways at Stein, so one
@@ -1775,6 +1788,7 @@ const canvas = document.getElementById('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); renderer.outputColorSpace = THREE.SRGBColorSpace;
 { const an = renderer.capabilities.getMaxAnisotropy(); for (const t of Object.values(TEX)) { t.anisotropy = an; t.needsUpdate = true; } }
 const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group); if (CAVE_MODE.dark) scene.add(CAVE_MODE.dark); if (CAVE_MODE.veil) scene.add(CAVE_MODE.veil);   // #201
+for (const b of BORDER_LINES) scene.add(b.mesh);   // #396: the Holzbrücke's border lines, always shown
 // house numbers (#12, OSM addr): camera-facing sprites over the buildings within 60 m of the car; a pool of 40, refilled every 250 ms, one material per number
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0, ticks: 0 };
 if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = terrainH(it.x, it.z) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
