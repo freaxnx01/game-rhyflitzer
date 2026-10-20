@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-20 10:53` The German **Hochrhein sticker** on the start screen now reads „Die Brücke ist für Fussgänger. Wissen wir. Wir fahren trotzdem drüber.“ instead of the stiff „… Haben wir geprüft. Springen trotzdem.“
 - `2026-10-19 23:40` Driving through a **spoke** from the hideout ring to a room (and back), the screen no longer goes black for seconds and then jumps to the room. The tunnel now **fades** into a dark haze where the car stays visible, and the room's lit tunnel, the sky and the landmark slowly come up out of it.
 - `2026-10-19 23:10` Driving into the **hideout tunnel**, the light now **fades** from day to the warm cave light over the first stretch of tunnel. The lift door at the end is already in view from the gate and no longer pops up, and stopping halfway no longer makes the picture flicker. Driving out, the dark opening slowly turns back into sunlight and trees.
 - `2026-10-19 22:40` Riding the **lift up** from the ring, the car now stays on the lift's dark deck the whole way. Halfway up, the floor used to turn into blotchy hill ground until the lift arrived. The shaft walls now fade in as the door shuts and out as it opens, so they no longer pop.
