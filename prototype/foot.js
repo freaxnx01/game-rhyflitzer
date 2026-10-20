@@ -1,27 +1,28 @@
 // #202: on foot (Z) -- the walker's pure model, no three.js, no DOM. Unit-tested with `node --test prototype/tests/*.test.mjs`.
 // Same frame as the car: x east, z south, th = heading (0 = +x, grows to the right). Units m, m/s, m/s², rad.
-export const WALKER = { eye: 1.7, radius: 0.35, walk: 4.5, hover: 11, climb: 6, turnRate: 2.2, gravity: 22, jumpV: 6, stepUp: 0.6, enterReach: 2.5, exitGap: 0.6, mouse: 0.0025, pitchMax: 1.4, hoverMaxAgl: 150 };
+export const WALKER = { eye: 1.7, radius: 0.35, walk: 4.5, hover: 11, nitro: 2, climb: 6, turnRate: 2.2, gravity: 22, jumpV: 6, stepUp: 0.6, enterReach: 2.5, exitGap: 0.6, mouse: 0.0025, pitchMax: 1.4, hoverMaxAgl: 150 };
 
 const held = (keys, codes) => codes.some(c => keys[c]);
 const axis = (plus, minus) => (plus ? 1 : 0) - (minus ? 1 : 0);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// W/S or up/down walk, A/D sidestep, left/right turn (the keyboard-only look), Space up (or jump), Shift down
+// W/S or up/down walk, A/D sidestep, left/right turn (the keyboard-only look), Space up (or jump), Shift down, N held = nitro (#404)
 export function footInput(keys) {
   return {
     fwd: axis(held(keys, ['KeyW', 'ArrowUp']), held(keys, ['KeyS', 'ArrowDown'])),
     side: axis(held(keys, ['KeyD']), held(keys, ['KeyA'])),
     turn: axis(held(keys, ['ArrowRight']), held(keys, ['ArrowLeft'])),
     lift: axis(held(keys, ['Space']), held(keys, ['ShiftLeft', 'ShiftRight'])),
+    nitro: held(keys, ['KeyN']) ? 1 : 0,
   };
 }
 
-// one fixed step: turn, move along the heading (diagonals not faster), then the height -- floorAt(x, z, y) is asked at the new spot
+// one fixed step: turn, move along the heading (diagonals not faster; nitro doubles the horizontal speed, not the climb), then the height -- floorAt(x, z, y) is asked at the new spot
 export function stepFoot(s, input, dt, floorAt, cfg = WALKER) {
   const th = s.th + input.turn * cfg.turnRate * dt, fx = Math.cos(th), fz = Math.sin(th);
   let mx = input.fwd * fx - input.side * fz, mz = input.fwd * fz + input.side * fx;
   const m = Math.hypot(mx, mz); if (m > 1) { mx /= m; mz /= m; }
-  const speed = s.hover ? cfg.hover : cfg.walk, vx = mx * speed, vz = mz * speed, x = s.x + vx * dt, z = s.z + vz * dt;
+  const speed = (s.hover ? cfg.hover : cfg.walk) * (input.nitro ? cfg.nitro : 1), vx = mx * speed, vz = mz * speed, x = s.x + vx * dt, z = s.z + vz * dt;
   const moved = { ...s, x, z, th, vx, vz }, floor = floorAt(x, z, s.y);
   return s.hover ? hoverStep(moved, input, dt, floor, cfg) : walkStep(moved, input, dt, floor, cfg);
 }
