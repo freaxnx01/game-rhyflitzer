@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-20 11:47` **Double-click** (or double-tap) one of the two **border lines on the Holzbrücke** and a popup tells you what they are: the new yellow line in the middle of the Rhine, 8.2 m closer to Stein, the old white Talweg line from 1808, the Fridolinsinsel now wholly German, and the treaty behind it — with links to the sources. The line you clicked is highlighted; the game waits while you read. Esc, ✕ or a click outside closes it. In German and English.
 - `2026-10-20 10:56` The **Holzbrücke** now shows the Swiss/German **border** painted across the deck, twice: the **old** border from 1808 as a **white** line and the **new** one (the middle of the Rhine, 8.2 m further towards Stein) as a **yellow** line. Both are always there, even with the boundaries switched off, and you simply drive over them.
 
 ### Fixed
