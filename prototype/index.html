@@ -2757,7 +2757,7 @@ function stepOnFoot(dt) {
   collideFoot(WALKER.radius); if (FOOT.hover) clampHover(); followCave();
 }
 function footMouse(dx, dy) { const l = footLook(P.th, FOOT.pitch, dx, dy); P.th = l.th; FOOT.pitch = l.pitch; }
-function footCamera() { const v = footView(P.x, P.y, P.z, P.th, FOOT.pitch, WALKER.eye); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); }
+function footCamera() { const v = footView(P.x, P.y, P.z, P.th, FOOT.pitch, WALKER.eye, CAM.back); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); }
 // #100: pontoon bridge (U). Rules in pontoon.js; here the world adapters, the key, the step and the hooks (meshes: buildPontoonMeshes below)
 const pontoonEnv = () => ({ dist: riverDist, nameAt: L ? (x, z) => WATER.nameAt(x, z) : () => 'Rhein', waterLevel: (x, z) => (L && REAL ? WATER.levelAt(x, z) : 0) ?? 0, roadAt: (x, z) => roadDist(x, z) <= 0, bridgeNear: L ? (x, z) => [...gridQuery(BRIDGE_GRID, x, z, PONTOON_CFG.bridgeClear)].some(b => b.kind !== 'rail' && nearestOnPolyline(b.r.pts, x, z).d <= PONTOON_CFG.bridgeClear) : (x, z) => BRIDGES.some(b => segDist(x, z, ...b.a, ...b.b) <= PONTOON_CFG.bridgeClear), ground: (x, z) => groundH(x, z, 1e4) });
 const PONTOON_ERR = { noBank: 'pontoonNoBank', noFarBank: 'pontoonNoFarBank', hasBridge: 'pontoonHasBridge' };
@@ -3006,7 +3006,7 @@ function underCeiling(x, z, y) { const lid = LEVELS.isSurface() ? (caveInside() 
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
   if (!v.drone || FLY.on || FOOT.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
-  const back = !!keys.KeyB && $('overlay').hidden && !FOOT.on, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
+  const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   /* #408: on foot too */ // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
   car.visible = FOOT.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
   if (FOOT.on) footCamera(); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }

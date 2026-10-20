@@ -17,6 +17,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-20 18:23` On foot, hold **B** to **look back**, like in the car: the view turns around at once while you hold it, walking or hovering, and snaps forward when you let go. Your walking direction does not change.
 - `2026-10-20 18:09` Phones now lay the game out at the **real screen width**: the page asked for no mobile viewport, so the phone layouts (touch buttons, overlays, start screen) never kicked in on an actual phone.
 - `2026-10-20 18:09` On foot, a **double-click** now does what it does in the car: it opens the border popup on the Holzbrücke lines or **beams** you to the spot. Before, the first click already grabbed the mouse for looking around. Mouse-look now starts a moment after a single click.
 - `2026-10-20 18:09` The village name (e.g. **SCHUPFART**) no longer floats inside the **hideout tunnel**: it fades out together with the daylight as you drive in, and is gone before the cave begins.

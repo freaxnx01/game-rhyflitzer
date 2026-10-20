@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 SISSELN = (1780, 560)   # a vertex of the hand Bahnhofstrasse and checkpoint 1 (Bahnhof Sisseln)
-ROAD = (1660, 330)      # another vertex of that road, 230+ m from every checkpoint: no checkpoint toast can replace a "Stop first"
+ROAD = (1810, 610)      # on the same Bahnhofstrasse, 56 m past checkpoint 1 (Sisseln, trigger radius 7 m): its toast cannot replace a "Stop first"
 
 
 def open_hand(p, server, start="#startbtn"):
@@ -50,9 +50,10 @@ def test_z_gets_out_and_back_in_next_to_the_car(server):
         press_z(page)
         moving = {"foot": foot(page)["on"], "toast": toast(page)}
         page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        page.wait_for_function(f"() => Math.abs(window.__mm.foot().carMesh.x - {x}) < 0.01", timeout=60000)   # the mesh catches up with the placement (a slow renderer draws it a frame late)
         press_z(page)
         out = foot(page)
-        page.wait_for_function("() => window.__mm.foot().cam.y > window.__mm.foot().y + 1.5", timeout=60000)
+        page.wait_for_function("() => Math.abs(window.__mm.foot().cam.y - window.__mm.foot().y - 1.7) < 0.05", timeout=120000)   # the eye has eased down
         out_cam = foot(page)
         out_toast = toast(page)
         walked = foot_sim(page, 3, ["KeyS"])   # walk backwards, away from the car's side
@@ -183,8 +184,9 @@ def test_a_double_click_on_foot_beams_and_never_takes_the_mouse(server):   # #40
         page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
         press_z(page)
         page.evaluate(FAKE_LOCK)
-        pick = page.evaluate("() => window.__mm.beamPick(1000, 200)")
-        page.mouse.dblclick(1000, 200)
+        px, py = page.evaluate("() => { for (let y = 700; y > 380; y -= 20) for (const x of [400, 640, 880]) if (window.__mm.beamPick(x, y)) return [x, y]; return [0, 0]; }")
+        pick = page.evaluate("([x, y]) => window.__mm.beamPick(x, y)", [px, py])
+        page.mouse.dblclick(px, py)
         page.wait_for_timeout(700)
         double = page.evaluate("() => ({ calls: window.__lockCalls, beam: window.__mm.beam(), foot: window.__mm.foot().on })")
         press_z(page)
@@ -238,3 +240,21 @@ def test_time_up_on_foot_ends_the_walk_and_lets_the_mouse_go(server):   # #365
         b.close()
     assert errors == []
     assert after == {"foot": False, "locked": False, "result": True, "paused": False}, after
+
+
+def test_b_held_on_foot_looks_back_and_snaps_forward_again(server):   # #408
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = ROAD
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        page.wait_for_function("() => Math.abs(window.__mm.foot().cam.y - window.__mm.foot().y - 1.7) < 0.05", timeout=120000)
+        ahead = page.evaluate("() => window.__mm.cam().look")
+        page.keyboard.down("KeyB")
+        page.wait_for_function("(a) => { const d = window.__mm.cam().look; return d[0] * a[0] + d[2] * a[2] < -0.5; }", arg=ahead, timeout=120000)
+        held = {"look": page.evaluate("() => window.__mm.cam().look"), "foot": foot(page)["on"], "th": foot(page)["th"]}
+        page.keyboard.up("KeyB")
+        page.wait_for_function("(a) => { const d = window.__mm.cam().look; return d[0] * a[0] + d[2] * a[2] > 0.5; }", arg=ahead, timeout=120000)
+        b.close()
+    assert errors == []
+    assert held["foot"] is True and abs(held["th"]) < 0.01, held        # still on foot, the heading (and so the walking direction) unchanged
