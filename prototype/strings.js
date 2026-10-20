@@ -83,6 +83,7 @@ const en = {
   // ---- HUD ----
   mode: (r) => `Time trial · ${r}`,
   checkpointsLabel: 'checkpoints',
+  knockedLabel: 'knocked over',
   ready: 'Ready',
   cpTarget: (number, name) => `Checkpoint ${number} · ${name}`,
   finishTarget: (name) => `Finish · ${name}`,
@@ -402,6 +403,7 @@ const de = {
   bestLower: 'Bestzeit',
   mode: (r) => `Zeitfahren · ${r}`,
   checkpointsLabel: 'Checkpoints',
+  knockedLabel: 'umgefahren',
   ready: 'Bereit',
   cpTarget: (number, name) => `Checkpoint ${number} · ${name}`,
   finishTarget: (name) => `Ziel · ${name}`,
