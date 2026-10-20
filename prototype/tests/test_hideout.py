@@ -639,19 +639,36 @@ def test_cave_light_stays_daylight_until_the_deep_point_and_the_tunnel_darkens_l
     by = dict(rows); day = by[-30]
     assert day["fog"] == "#e8bd8c" and day["dark"] is True, day
     for d, r in rows:
-        if d <= 35:
+        if d <= 10:   # #379: the day look holds where the opening is near; from there to the deep point it fades (test_t1_fades...)
             assert r["fog"] == day["fog"] and r["skyTop"] == day["skyTop"] and r["hemi"] == day["hemi"] and r["sun"] == day["sun"], (d, r)
+        if d <= 35:
             assert r["dark"] is True and r["on"] is False, (d, r)
     for d in (45, 50, 60):
         assert by[d]["fog"] == "#07080a" and by[d]["dark"] is False and by[d]["on"] is True, (d, by[d])
 
 
+def rendered_frame(page, tries=5):
+    """The game's own next-frame PNG as a grey PIL image. A capture with every pixel 0 is no game frame (even the darkest spoke
+    frame has the lit car in it): the gpu-odroid CI runner (Intel UHD) now and then hands one back -- a daylight view read 0.0 --
+    so it is taken again; a frame that stays all black is reported as such, not as a cut or a dark scene."""
+    import base64, io
+    from PIL import Image
+    for _ in range(tries):
+        url = page.evaluate("() => window.__mm.photoUrl()")
+        img = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("L")
+        if img.getextrema() != (0, 0):
+            return img
+        page.wait_for_timeout(500)
+    state = page.evaluate("""async () => { const c = document.getElementById('gl'), gl = c.getContext('webgl2');
+      return { lost: gl ? gl.isContextLost() : 'none', glError: gl ? gl.getError() : null, size: [c.width, c.height], frameMs: await window.__mm.frameMs(10),
+               car: window.__mm.car(), cave: window.__mm.cave() }; }""")
+    raise AssertionError(f"the rendered frame was entirely black {tries} times in a row (renderer/GPU problem): {state}")
+
+
 def crop_brightness(page):
     """Mean grey of the frame's middle (the opening, looking out of the portal), from the game's own next-frame PNG."""
-    import base64, io
-    from PIL import Image, ImageStat
-    url = page.evaluate("() => window.__mm.photoUrl()")
-    img = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))).convert("L"); w, h = img.size
+    from PIL import ImageStat
+    img = rendered_frame(page); w, h = img.size
     return ImageStat.Stat(img.crop((int(w * 0.42), int(h * 0.35), int(w * 0.58), int(h * 0.55)))).mean[0]
 
 
@@ -774,11 +791,53 @@ def test_cave_switches_happen_deep_in_the_tunnel_not_at_the_portal(server):
     assert any(r["inside"] for d, r in ins if 0 < d <= 10), "the car is under the hill a few metres in"
     for d, r in ins + outs:
         if d <= 30:
-            assert r["trees"] is True and r["shadows"] is True and r["group"] is False and r["on"] is False, (d, r)
-    for key, off in (("trees", False), ("shadows", False), ("group", True), ("on", True)):
+            assert r["trees"] is True and r["shadows"] is True and r["on"] is False, (d, r)
+        if d <= 10:
+            assert r["group"] is False, (d, r)   # #379: the hall's lamps fade in with the look (test_t1_fades...), not switched at the deep point
+    for key, off in (("trees", False), ("shadows", False), ("on", True)):
         went_in = first(ins, key, off); went_out = first(outs, key, not off)
         assert 35 <= went_in <= 50, (key, "in", went_in)
         assert 30 <= went_out <= 45 and went_out < went_in, (key, "out", went_out)
+
+
+T1_STEP = """async ({x, z, th}) => {
+  window.__mm.place(x, z, th); window.__mm.sim(x, z, th, 3, 0.05, [], window.__mm.car().y);
+  for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+  const c = window.__mm.cave(); return { k: c.k, group: c.visible, veil: c.veil, lining: c.lining, lamps: c.lamps, house: c.liftHouse, on: c.on, hemi: c.hemi };
+}"""
+
+
+@needs_world
+def test_t1_fades_between_day_and_cave_without_a_cut_both_ways(server):
+    """#379: driving into T1 the view jumped at 42 m from the day look (grey end, no hall) to the cave look (lit hall, lift door), and
+    driving out from dark to sunlight and trees at 36 m. Stepping 2 m at a time both ways: the look's blend k, the hall lamps, the
+    lining and the portal's veil change in small steps only, the lift house is drawn the whole way (no pop-in), the lamps' group only
+    appears or goes while it gives no light, and the rendered middle of the picture never jumps."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        mx, mz = h["mouth"]; ps = h["portalS"]; ux, uz = math.cos(HEADING), math.sin(HEADING)
+        runs = {}
+        for name, ds, th in (("in", range(-6, 61, 2), HEADING), ("out", range(60, -7, -2), HEADING + math.pi)):
+            rows = []; d0 = ds[0]
+            page.evaluate(T1_STEP, {"x": mx + ux * (ps + d0), "z": mz + uz * (ps + d0), "th": th}); page.wait_for_timeout(1500)   # the chase camera settles after the jump
+            for d in ds:
+                r = page.evaluate(T1_STEP, {"x": mx + ux * (ps + d), "z": mz + uz * (ps + d), "th": th}); r["d"] = d; r["lum"] = crop_brightness(page); rows.append(r)
+            runs[name] = rows
+        hover = [page.evaluate(T1_STEP, {"x": mx + ux * (ps + 39 + 2.5 * math.sin(i)), "z": mz + uz * (ps + 39 + 2.5 * math.sin(i)), "th": HEADING}) for i in range(12)]
+        br.close()
+    assert errors == []
+    for name, rows in runs.items():
+        assert rows[0]["k"] == 0 or rows[-1]["k"] == 0, name
+        assert max(r["k"] for r in rows) == 1, name
+        assert all(r["house"] for r in rows), (name, [r["d"] for r in rows if not r["house"]])
+        for a, b in zip(rows, rows[1:]):
+            assert abs(b["k"] - a["k"]) <= 0.2, (name, a["d"], b["d"], a["k"], b["k"])
+            assert abs(b["veil"] - a["veil"]) <= 0.2 and abs(b["lining"] - a["lining"]) <= 0.2, (name, a, b)
+            if a["group"] != b["group"]:
+                assert max(a["k"], b["k"]) <= 0.05, ("the lamps popped", name, a, b)
+            assert abs(b["lum"] - a["lum"]) <= 15, ("a cut in the picture", name, a["d"], b["d"], round(a["lum"]), round(b["lum"]))
+    assert len({r["on"] for r in hover}) == 1 and max(r["k"] for r in hover) - min(r["k"] for r in hover) < 0.05, hover   # no flicker hovering at the deep point
 
 
 # ---------- #361: the tunnel ring, the star of rooms, the dark switch ----------

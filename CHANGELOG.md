@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-19 23:10` Driving into the **hideout tunnel**, the light now **fades** from day to the warm cave light over the first stretch of tunnel. The lift door at the end is already in view from the gate and no longer pops up, and stopping halfway no longer makes the picture flicker. Driving out, the dark opening slowly turns back into sunlight and trees.
 - `2026-10-19 22:40` Riding the **lift up** from the ring, the car now stays on the lift's dark deck the whole way. Halfway up, the floor used to turn into blotchy hill ground until the lift arrived. The shaft walls now fade in as the door shuts and out as it opens, so they no longer pop.
 - `2026-10-19 19:44` The **lift door** in the hideout now opens in time even when you race into the hall at full speed, instead of the car crashing into the half-open door.
 
