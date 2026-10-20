@@ -458,7 +458,7 @@ import { motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSa
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows } from './helpfilter.js';
-import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan } from './holzbruecke.js';
+import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, borderCrossing } from './holzbruecke.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -1562,6 +1562,18 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
       for (let k = 0; k < 3; k++) { const a = eave[k], b = eave[k + 1]; if (a[0] === b[0]) continue;   // the pent one's side gables are wall, not roof
         const [C, D] = ch.kind === 'pent' ? [V(at([b[0], 0]), H.eave), V(at([a[0], 0]), H.eave)] : [apex, apex];
         quad(V(at(a), topY(a)), V(at(b), topY(b)), C, D, roofC, 'roof'); } }
+    // #396: the old (white, Talweg) and the new (yellow, Rhine centre line) CH/DE border painted across the deck; always shown, outside BOUNDS (G)
+    const borders = [['old', BORDER.old, 0xffffff], ['new', BORDER.old + BORDER.shift, 0xffd400]].map(([kind, d, color]) => {
+      const c = borderCrossing(pts, d, hw), w = BORDER.width / 2, lift = 0.1, pos = [];
+      const at = (e, k) => { const x = e[0] + c.ux * k * w, z = e[1] + c.uz * k * w; return [x, hs(x, z) + lift, z]; };
+      const [A, B, C, D] = [at(c.a, -1), at(c.b, -1), at(c.b, 1), at(c.a, 1)];
+      for (const v of [A, B, C, A, C, D, A, C, B, A, D, C]) pos.push(...v);
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+      m.name = 'border-' + kind; scene.add(m);
+      return { kind, mesh: m, t: c.t, x: c.x, z: c.z, fromSaeckingen: d };
+    });
+    window.__mm.borderLines = borders;
     window.__mm.counts.holzbruecke = { frames: frames.length, piers: piers.length, chapels: H.chapels.length, pierFeet: piers.map(p => ({ x: p.x, z: p.z, base: pierBase })) };
   }
   // #78: the stone chain drawn per piece along its polyline (the Fridolinsbrücke bends and splits into two carriageways at Stein, so one

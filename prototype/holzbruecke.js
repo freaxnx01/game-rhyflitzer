@@ -18,6 +18,10 @@ export const HOLZ = {
   ],
 };
 
+// #396: the CH/DE border painted across the deck. old: the 1808 Talweg line, 102 m of German bridge from the Saeckingen end; the new
+// Rhine centre line lies shift m further towards Stein (110 m of German bridge, rounded; 102 + 8.2 = 110.2). width: paint, in m.
+export const BORDER = { old: 102, shift: 8.2, width: 0.18 };
+
 // Stein is the eastern end; fractions and chapel sides count from there, and the direction of an OSM way is no contract
 export function orientEastWest(pts) { return pts[0][0] >= pts[pts.length - 1][0] ? pts : pts.slice().reverse(); }
 
@@ -100,4 +104,13 @@ export function chapelPlan(ch, overhang) {
   const half = ch.length / 2, k = ch.kind === 'pent' ? 1 : 0.5;
   const ring = (h, d) => [[-h, 0], [-h * k, d], [h * k, d], [h, 0]];
   return { outline: ring(half, ch.depth), eave: ring(half + overhang, ch.depth + overhang) };
+}
+
+// where the border crosses the bridge, d metres from the Saeckingen end (pts run Stein -> Saeckingen): the point, the bridge heading
+// there, t the arc length from Stein, and a, b the two deck edges (halfWidth to either side) the painted line runs between
+export function borderCrossing(pts, d, halfWidth) {
+  const line = distinct(pts), len = polylineLength(line);
+  if (d < 0 || d > len) throw new Error(`holzbruecke: ${d} m from the Saeckingen end is not on the bridge (${len.toFixed(1)} m long)`);
+  const s = station(line, len - d);
+  return { x: s.x, z: s.z, ux: s.ux, uz: s.uz, t: s.t, a: [s.x + s.uz * halfWidth, s.z - s.ux * halfWidth], b: [s.x - s.uz * halfWidth, s.z + s.ux * halfWidth] };
 }

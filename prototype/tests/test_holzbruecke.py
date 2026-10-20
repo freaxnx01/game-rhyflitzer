@@ -94,3 +94,20 @@ def test_car_crosses_every_bend(bridge):
 
 def test_no_console_errors(bridge):
     assert bridge["msgs"] == []
+
+
+def test_border_lines_are_always_shown_at_102_and_110_2_metres_from_saeckingen(server):
+    """#396: the old (white) and the new (yellow) CH/DE border are painted across the deck, visible with the G boundaries off."""
+    pts = bridge_line(); length = sum(math.dist(a, b) for a, b in zip(pts, pts[1:]))
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 480, "height": 270})
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/prototype/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
+        lines = page.evaluate("() => (window.__mm.borderLines || []).map(l => ({ kind: l.kind, t: l.t, visible: l.mesh.visible, color: l.mesh.material.color.getHex(), inScene: !!l.mesh.parent }))")
+        br.close()
+    by = {l["kind"]: l for l in lines}
+    assert set(by) == {"old", "new"}, lines
+    assert by["old"]["color"] == 0xffffff and by["new"]["color"] == 0xffd400
+    assert all(l["visible"] and l["inScene"] for l in lines)
+    assert abs((length - by["old"]["t"]) - 102) < 0.01 and abs((length - by["new"]["t"]) - 110.2) < 0.01
