@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { oldNationalBorder, apartRuns } from '../world.js';
+import { borderCrossing, BORDER } from '../holzbruecke.js';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rollingDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
 import { sampled, trisHeightAt, motorwayLabelSpots } from '../world.js';
@@ -1231,3 +1233,53 @@ test('a seated bridge end keeps the deck offset instead of fading it into a ramp
   assert.equal(bridgeSurfaceAt(seated, 2.5), 10);
   assert.equal(bridgeDeckOffset(seated, 30), 0);                 // the far end is still open
 });
+
+// #397: the old (Talweg, 1808) national border -- the new line with a local deviation at the Holzbrücke and the Fridolinsinsel
+const NEW_LINE = [[0, -500], [0, 0], [0, 500]];   // runs north-south; east is x+
+test('oldNationalBorder: without a crossing and an island the old border is the new one', () => {
+  assert.deepEqual(oldNationalBorder(NEW_LINE), NEW_LINE);
+});
+
+test('oldNationalBorder: passes through the old crossing point and is the new line beyond the reach', () => {
+  const old = oldNationalBorder(NEW_LINE, { crossing: [-8, 100], reach: 60 });
+  assert.ok(old.some(p => Math.hypot(p[0] + 8, p[1] - 100) < 1e-6), 'a vertex sits on the old crossing');
+  assert.deepEqual(old[0], [0, -500]);
+  assert.deepEqual(old.at(-1), [0, 500]);
+  for (const p of old) if (Math.abs(p[1] - 100) >= 60) assert.equal(p[0], 0);
+  for (const p of old) assert.ok(p[0] <= 0 && p[0] >= -8 - 1e-9, 'no overshoot');
+});
+
+test('oldNationalBorder: runs through the middle of the island where the new line hugs its shore', () => {
+  const island = [[-30, 100], [-2, 100], [-2, 300], [-30, 300]];   // the new line (x = 0) passes 2 m east of it
+  const old = oldNationalBorder(NEW_LINE, { island, ramp: 50 });
+  const inside = old.filter(p => p[1] >= 105 && p[1] <= 295);
+  assert.ok(inside.length > 20);
+  for (const p of inside) assert.ok(Math.abs(p[0] + 16) < 1e-6, `x ${p[0]} is the island midline`);
+  assert.deepEqual(old[0], [0, -500]);
+  for (const p of old) if (p[1] < 40 || p[1] > 360) assert.equal(p[0], 0);
+  for (let i = 1; i < old.length; i++) assert.ok(Math.abs(old[i][0] - old[i - 1][0]) < 3, 'no jump');
+});
+
+test('apartRuns: only the stretches where the old line leaves the new one', () => {
+  const same = oldNationalBorder(NEW_LINE);
+  assert.deepEqual(apartRuns(same, NEW_LINE), []);
+  const old = oldNationalBorder(NEW_LINE, { crossing: [-8, 100], reach: 60 });
+  const runs = apartRuns(old, NEW_LINE, 0.3);
+  assert.equal(runs.length, 1);
+  assert.ok(runs[0].some(p => Math.abs(p[0] + 8) < 1e-6));
+  assert.ok(runs[0][0][1] > 40 && runs[0].at(-1)[1] < 160);
+});
+
+test('oldNationalBorder: the real data -- old crosses the Holzbrücke at its old deck line, runs through the Fridolinsinsel', { skip: !existsSync(new URL('../../data/world_hochrhein.json', import.meta.url)) }, () => {
+  const w = JSON.parse(readFileSync(new URL('../../data/world_hochrhein.json', import.meta.url), 'utf8'));
+  const bridge = w.roads.find(r => r.id === 85692214).pts;   // Stein -> Säckingen
+  const oldPt = borderCrossing(bridge, BORDER.old, 2.5);
+  const island = w.forests.find(f => f.ring.some(p => Math.hypot(p[0] + 1222, p[1] - 166) < 40)).ring;
+  const border = nationalBorder(w.boundaries, BORDER_DE), old = oldNationalBorder(border, { crossing: [oldPt.x, oldPt.z], island });
+  assert.ok(nearestOnPolyline(old, oldPt.x, oldPt.z).d < 0.5, 'the old line meets the old deck line');
+  assert.ok(nearestOnPolyline(border, oldPt.x, oldPt.z).d > 5, 'and the new one does not');
+  const mid = old.filter(p => p[0] > -1300 && p[0] < -1100 && p[1] > 130 && p[1] < 200);
+  assert.ok(mid.length > 5 && mid.every(p => pointInRing(island, p)), 'old runs inside the island');
+  assert.ok(border.filter(p => p[0] > -1300 && p[0] < -1100 && p[1] > 130 && p[1] < 200).every(p => nearestOnPolyline([...island, island[0]], p[0], p[1]).d < 6), 'new hugs the island shore (OSM puts it within a few m of the wood edge)');
+});
+function pointInRing(ring, p) { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) if ((ring[i][1] > p[1]) !== (ring[j][1] > p[1]) && p[0] < (ring[j][0] - ring[i][0]) * (p[1] - ring[i][1]) / (ring[j][1] - ring[i][1]) + ring[i][0]) c = !c; return c; }

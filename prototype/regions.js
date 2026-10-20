@@ -10,7 +10,7 @@ export const REGIONS = {
     idbKey: 'terrain', bestKey: 'mm.best2', strings: { intro: 'intro', finished: 'finishedText', blurb: 'blurbOsm' },
     villages: VILLAGES, gemeinden: GEMEINDEN, landmarks: LANDMARK_INFO, borderDe: BORDER_DE,   // borderDe: German Gemeinde names that make a boundary line the national border (#73)
     motorwayRef: 'A3',   // #226: every motorway in this world is the A3
-    treeBox: [-3100, 3100, -1800, 1900], forestAbove: 18, handFallback: true, openWoods: [[-1222, 166]],   // #214: the Fridolinsinsel is an OSM wood; its edge walls stopped the car on the bed, so the wood is dropped
+    treeBox: [-3100, 3100, -1800, 1900], forestAbove: 18, handFallback: true, openWoods: [[-1222, 166]], island: [-1222, 166],   // #214: the Fridolinsinsel is an OSM wood; its edge walls stopped the car on the bed, so the wood is dropped
   },
   ehrendingen: {
     id: 'ehrendingen', name: 'Ehrendingen', world: '../data/world_ehrendingen.json', terrain: '../data/terrain_ehrendingen.mmh',
