@@ -79,3 +79,12 @@ export function footKeyAction(code) {
   if (code === 'KeyF') return 'hover';
   return FOOT_BLOCKED.has(code) ? 'block' : 'pass';
 }
+
+// footsteps: one step per `stride` metres walked on the ground (nitro strides longer but at twice the speed, so the steps come faster).
+// The strides are longer than a real pace because the walker moves at 4.5 m/s. `acc` is the distance carried over; hovering or airborne walks nothing.
+export const STEP_STRIDE = { walk: 2, nitro: 2.6 };
+export function footSteps(acc, dist, nitro, grounded, stride = STEP_STRIDE) {
+  if (!grounded || !(dist > 0)) return { acc: grounded ? acc : 0, steps: 0 };
+  const len = nitro ? stride.nitro : stride.walk, total = acc + dist, steps = Math.floor(total / len);
+  return { acc: total - steps * len, steps };
+}

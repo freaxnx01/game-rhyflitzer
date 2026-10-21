@@ -92,3 +92,6 @@ export function playHorn(ac, dest, horn, when) {
   for (const f of horn.notes) for (const cents of [-6, 6]) { const o = ac.createOscillator(); o.type = horn.wave; o.frequency.value = f; o.detune.value = cents; o.connect(band); o.start(when); o.stop(end + 0.02); }
   return end;
 }
+
+// a footstep: a soft low thud plus a short lowpassed scuff, pitch and level varied a little by r1, r2 in [0, 1)
+export function stepVoice(r1, r2) { return { freq: 85 * (0.85 + 0.3 * r1), cutoff: 500 + 400 * r2, gain: 0.16 * (0.85 + 0.3 * r2) }; }

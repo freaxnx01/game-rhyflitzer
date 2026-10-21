@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction } from '../foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE } from '../foot.js';
 import { footView } from '../camera.js';
 import { colliderPush } from '../world.js';
 import { translate } from '../strings.js';
@@ -191,4 +191,25 @@ test('footView_Back_LooksOverTheShoulderWithTheSamePitch', () => {
 
 test('footKeyAction_KeyB_PassesThrough', () => {
   assert.equal(footKeyAction('KeyB'), 'pass');
+});
+
+test('footSteps: one step per stride walked, the remainder carries over', () => {
+  assert.deepEqual(footSteps(0, 1, false, true), { acc: 1, steps: 0 });
+  const r = footSteps(1, 1.5, false, true);
+  assert.equal(r.steps, 1); assert.ok(Math.abs(r.acc - 0.5) < 1e-9);
+  const total = Array.from({ length: 100 }, () => 0.1).reduce((st, d) => { const r = footSteps(st.acc, d, false, true); return { acc: r.acc, steps: st.steps + r.steps }; }, { acc: 0, steps: 0 });
+  assert.equal(total.steps, 5);   // 10 m / 2 m
+});
+
+test('footSteps: nitro strides longer but at double speed still steps faster per second', () => {
+  assert.ok(STEP_STRIDE.nitro > STEP_STRIDE.walk);
+  assert.ok(2 / STEP_STRIDE.nitro > 1 / STEP_STRIDE.walk);
+  assert.equal(footSteps(0, STEP_STRIDE.walk, true, true).steps, 0);
+  assert.equal(footSteps(0, STEP_STRIDE.nitro, true, true).steps, 1);
+});
+
+test('footSteps: silent while airborne or hovering, standing still and a bad distance make no step', () => {
+  assert.deepEqual(footSteps(1.5, 10, false, false), { acc: 0, steps: 0 });
+  assert.deepEqual(footSteps(1.5, 0, false, true), { acc: 1.5, steps: 0 });
+  assert.deepEqual(footSteps(1.5, NaN, false, true), { acc: 1.5, steps: 0 });
 });
