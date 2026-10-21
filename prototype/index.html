@@ -2527,7 +2527,7 @@ function eiffelFootprints() {
 }
 window.__mm.eiffel = () => ROOM.states[0] ? { ...ROOM.states[0], feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
 window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.feet, footHw: ATOMIUM.footHw } : null;   // #355
-window.__mm.titanic = () => ROOM.states[3] ? { ...ROOM.states[3], hull: TITANIC.hull, length: TITANIC.length } : null;   // #422
+window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length } : null;   // #422
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
 // #277 / #361: the drive-through freight lift. LIFT_RIDE is the lift.js state machine driven by the car in the cabin; the

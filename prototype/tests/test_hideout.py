@@ -1020,7 +1020,7 @@ def test_atomium_room_builds_loads_its_model_on_entering_and_has_solid_feet(serv
 
 @needs_world
 def test_titanic_room_builds_loads_its_model_on_entering_and_has_a_solid_hull(server):
-    """#422: entering spoke 3 builds the Titanic room and fetches titanic.glb then (not before); the ship lies 269 m long along the room's cross
+    """#422: entering spoke 7 builds the Titanic room and fetches titanic.glb then (not before); the ship lies 269 m long along the room's cross
     axis, 73 m tall on the floor, and the hull is solid amidships while the lawn beside it and past its ends is free."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
@@ -1028,17 +1028,17 @@ def test_titanic_room_builds_loads_its_model_on_entering_and_has_a_solid_hull(se
         page.on("request", lambda r: requests.append(r.url) if r.url.endswith("titanic.glb") else None)
         h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
         assert page.evaluate("() => window.__mm.titanic()") is None and requests == []
-        into_room(page, 3, "room3")
+        into_room(page, 7, "room7")
         page.wait_for_function("() => window.__mm.titanic() && window.__mm.titanic().loaded === true", timeout=180000)
         t = page.evaluate("() => window.__mm.titanic()")
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
-        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(7, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
           return { mid: p(0, 0), bow: p(0, 125), side: p(40, 0), end: p(0, 150) }; }""")
         br.close()
     assert errors == []
     assert len(requests) == 1 and requests[0].endswith("/prototype/assets/models/titanic.glb"), requests
     assert t["placeholder"] is False and 250000 <= t["tris"] <= 330000 and abs(t["height"] - 72.9) < 0.1 and t["length"] == 269, t
-    assert info["below"]["built"] == 3 and info["below"]["object"] is True and info["counts"].get("titanic") == 1 and "eiffel" not in info["counts"], info
+    assert info["below"]["built"] == 7 and info["below"]["object"] is True and info["counts"].get("titanic") == 1 and "eiffel" not in info["counts"], info
     assert math.hypot(push["mid"]["dx"], push["mid"]["dz"]) > 0.5 and math.hypot(push["bow"]["dx"], push["bow"]["dz"]) > 2, push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("side", "end")), push
 

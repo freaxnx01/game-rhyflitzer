@@ -1,7 +1,7 @@
 // #277 / #361: the room template -- pure layout (no three.js, no DOM): a 500 x 500 m lawn at ROOM_Y under the Hübel, facing
 // along its own spoke, the object (if any) in its centre, a closed ring of trees at the edge with a gap only at the
 // portal, gravel paths, and the tunnel stub leading back to the portal. Eight rooms share this template (ROOMS); only the
-// Eiffel, Atomium (room 1) and Titanic (room 3; room 2 is kept for the Vasa, #421) rooms have an object today. index.html builds the meshes from a room's layout the first time its spoke is
+// Eiffel, Atomium (room 1) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test prototype/tests/rooms.test.mjs`.
 import { EIFFEL, ATOMIUM, TITANIC } from './hideout.js';
 import { BELOW_Y, SPOKE, spokeFrame } from './underground.js';
@@ -17,12 +17,16 @@ export const ROOMS = [
   { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL, signed: false },   // signed: false -- unsigned for now, so finding them stays a surprise
   { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false },
   { id: 'room2', name: null, object: null },
-  { id: 'room3', name: 'Titanic', object: TITANIC, signed: false },
+  { id: 'room3', name: null, object: null },
   { id: 'room4', name: null, object: null },
   { id: 'room5', name: null, object: null },
   { id: 'room6', name: null, object: null },
-  { id: 'room7', name: null, object: null },
+  { id: 'room7', name: 'Titanic', object: TITANIC, signed: false },
 ];
+// #422: the free rooms in the order new objects take them -- from the lift outwards, left and right in turn. The lift's exit meets
+// the ring between spoke 7 (front left) and spoke 0 (front right, the Eiffel); 1 (the Atomium) follows on the right, so the Titanic
+// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift.
+export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
 export const isRoomLevel = (id) => ROOMS.some(r => r.id === id);
 
 // #422: the gravel lane round a ship's hull -- a closed stadium (two straights, two half circles), 25 m off the widest beam; w = its half width

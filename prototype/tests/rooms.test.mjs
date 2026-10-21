@@ -1,8 +1,8 @@
 // #277 / #361: the room template -- pure. node --test prototype/tests/rooms.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel } from '../rooms.js';
-import { EIFFEL, ATOMIUM, TITANIC } from '../hideout.js';
+import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel, NEXT_ROOMS } from '../rooms.js';
+import { EIFFEL, ATOMIUM, TITANIC, LIFT } from '../hideout.js';
 import { SPOKE, spokeFrame, spokeSigns } from '../underground.js';
 
 const CAR_R = 2.6, rooms = ROOMS.map((_, k) => roomLayout(k)), room = rooms[0];
@@ -20,9 +20,18 @@ test('ROOMS_EightRooms_OnlyTheEiffelAtomiumAndTitanicHaveAnObject', () => {
   assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'atomium', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
   assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel');
   assert.equal(ROOMS[1].object, ATOMIUM); assert.equal(ROOMS[1].name, 'Atomium');
-  assert.equal(ROOMS[3].object, TITANIC); assert.equal(ROOMS[3].name, 'Titanic'); assert.equal(ROOMS[3].signed, false);
-  for (const r of [ROOMS[2], ...ROOMS.slice(4)]) { assert.equal(r.object, null); assert.equal(r.name, null); }   // room 2 is kept for the Vasa (#421)
+  assert.equal(ROOMS[7].object, TITANIC); assert.equal(ROOMS[7].name, 'Titanic'); assert.equal(ROOMS[7].signed, false);
+  for (const r of ROOMS.slice(2, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }
   assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
+});
+
+test('NEXT_ROOMS_NewObjectsFillFromTheLiftOutwards_LeftAndRightInTurn', () => {
+  const off = (k) => { const d = spokeFrame(k).a - LIFT.th; return Math.atan2(Math.sin(d), Math.cos(d)); };   // signed angle off the lift's exit
+  assert.deepEqual([...NEXT_ROOMS].sort(), [2, 3, 4, 5, 6, 7]);
+  for (const side of [-1, 1]) { const d = NEXT_ROOMS.filter(k => Math.sign(off(k)) === side).map(k => Math.abs(off(k))); assert.deepEqual(d, [...d].sort((x, y) => x - y), 'each side fills outwards'); }
+  for (let i = 1; i < NEXT_ROOMS.length - 1; i++) assert.notEqual(Math.sign(off(NEXT_ROOMS[i])), Math.sign(off(NEXT_ROOMS[i - 1])), 'the sides alternate');
+  const used = ROOMS.flatMap((r, k) => r.object ? [k] : []), taken = used.filter(k => k > 1);
+  assert.deepEqual(taken, [...NEXT_ROOMS.slice(0, taken.length)].sort(), 'the objects beyond Eiffel and Atomium sit in the first NEXT_ROOMS');
 });
 
 test('spokeSigns_TheRealRooms_AreKeptAsASurpriseForNow', () => {
@@ -116,7 +125,7 @@ test('roomLayout_TheAtomiumsTowerViewLooksAtItFromTheLawn', () => {
   assert.ok(Math.abs(Math.atan2(atomium.tower.z - v.z, atomium.tower.x - v.x) - v.th) < 0.02); assert.ok(!blocked(atomium, v.x, v.z));
 });
 
-const titanic = rooms[3];
+const titanic = rooms[7];
 test('roomLayout_TheTitanicIsCentredAndLifeSize_WithTwelveHullSectionsAlongTheCrossAxis', () => {
   assert.deepEqual([titanic.tower.x, titanic.tower.z], titanic.centre); assert.equal(titanic.hull.length, TITANIC.hull.length); assert.deepEqual(titanic.feet, []);
   assert.equal(TITANIC.length, 269, 'the real ship is 269 m'); assert.ok(TITANIC.h > 60 && TITANIC.h < 80, 'keel to masthead, the real one is about 73 m');
