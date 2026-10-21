@@ -1,7 +1,7 @@
 // #277 / #361: the room template -- pure. node --test prototype/tests/rooms.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel, NEXT_ROOMS } from '../rooms.js';
+import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel, NEXT_ROOMS, shipRing, shipBasin, rimColliders, WATER_LIFT, QUAY, RIM } from '../rooms.js';
 import { EIFFEL, ATOMIUM, TITANIC, LIFT } from '../hideout.js';
 import { SPOKE, spokeFrame, spokeSigns } from '../underground.js';
 
@@ -137,11 +137,38 @@ test('roomLayout_TheTitanicIsCentredAndLifeSize_WithTwelveHullSectionsAlongTheCr
   }
 });
 
-test('roomLayout_TheTitanicsHullIsSolid_TheCarDrivesRoundIt_AndReachesBothSides', () => {
+test('roomLayout_TheTitanicsHullIsSolid_TheCarDrivesRoundItOnTheQuay_AndReachesBothSides', () => {
   assert.ok(blocked(titanic, ...titanic.centre)); assert.ok(blocked(titanic, ...toWorld(titanic, 0, 130)), 'near the bow or stern');
-  assert.ok(!blocked(titanic, ...toWorld(titanic, 0, 150)), 'past the end is open');
+  const { w, end, lane } = titanic.basin;
+  assert.ok(!blocked(titanic, ...toWorld(titanic, 0, lane.end)), 'the quay past the end is open');
   const r = reach(titanic), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
-  assert.ok(!cell(0, 0) && cell(-40, 0) && cell(40, 0) && cell(0, 160) && cell(0, -160), 'both sides and both ends are reachable'); assert.ok(r.seen.size > 4000);
+  const q = Math.round((lane.w + 2) / r.step) * r.step, qe = Math.round((lane.end + 2) / r.step) * r.step;
+  assert.ok(!cell(0, 0) && cell(-q, 0) && cell(q, 0) && cell(0, qe) && cell(0, -qe), 'both sides and both ends of the quay are reachable'); assert.ok(r.seen.size > 3000);
+  assert.ok(!cell(w - 4, 0) && !cell(0, end - 4), 'the water is not reachable');
+});
+
+// #422: the ship floats -- the water basin round the hull, kerbed, with the quay lane outside it
+test('shipBasin_IsAStadiumRoundTheBeamAtTheWaterline_WithTheLaneAsQuayOutside', () => {
+  const beam = Math.max(...TITANIC.hull.map(s => s[2])), b = shipBasin(TITANIC);
+  assert.equal(b.waterline, TITANIC.draught); assert.equal(TITANIC.draught, 10.5, 'the real ship drew 10.5 m');
+  assert.ok(Math.abs(b.w - (beam + TITANIC.basin)) < 1e-9 && Math.abs(b.end - (TITANIC.length / 2 + TITANIC.basin + 5)) < 1e-9, `${b.w} ${b.end}`);
+  assert.equal(b.y, ROOM_Y + WATER_LIFT); assert.ok(WATER_LIFT > 0.08, 'the surface lies above the gravel');
+  assert.ok(Math.abs(b.lane.w - b.w - QUAY) < 1e-9 && Math.abs(b.lane.end - b.end - QUAY) < 1e-9, 'the lane runs QUAY m outside the water');
+  const r25 = shipRing(TITANIC, 25); assert.ok(Math.abs(r25.w - beam - 25) < 1e-9 && Math.abs(r25.end - TITANIC.length / 2 - 30) < 1e-9 && Math.abs(r25.c + r25.w - r25.end) < 1e-9, 'the old 25 m lane: ends 30 m past bow and stern');
+  assert.ok(b.lane.end < ROOM_HALF - 30, 'inside the trees');
+});
+
+test('roomLayout_TheTitanicsBasinIsClosedRoundTheShip_ItsKerbBlocksTheCarButNotTheHelicopter', () => {
+  const b = titanic.basin, pts = b.pts;
+  assert.deepEqual(pts[0], pts[pts.length - 1], 'closed'); assert.equal(b.rim.length, pts.length - 1);
+  for (const p of pts) { const [a, bb] = toLocal(titanic, ...p); assert.ok(Math.abs(a) <= b.w + 1e-6 && Math.abs(bb) <= b.end + 1e-6); }
+  for (const c of b.rim) { assert.equal(c.h, ROOM_Y + RIM.h); assert.equal(c.low, true); assert.ok(titanic.colliders.includes(c)); }
+  assert.ok(blocked(titanic, ...toWorld(titanic, b.w, 0), 0.5) && blocked(titanic, ...toWorld(titanic, 0, b.end), 0.5), 'kerb on the beam side and past the end');
+  assert.ok(!blocked(titanic, ...toWorld(titanic, b.w + QUAY, 0)) && !blocked(titanic, ...toWorld(titanic, -b.w - QUAY, 0)), 'the quay is free');
+  assert.ok(!blocked(titanic, ...toWorld(titanic, b.w - 6, 0), 0), 'the water inside the kerb is open ground (it is the kerb that keeps the car out)');
+  const [[ax, az], [bx, bz]] = [pts[0], pts[1]], [c] = rimColliders([[ax, az], [bx, bz]], 0);
+  assert.ok(Math.abs(c.x - (ax + bx) / 2) < 1e-9 && Math.abs(Math.hypot(c.c, c.s) - 1) < 1e-9 && c.hw > Math.hypot(bx - ax, bz - az) / 2, 'one kerb box per segment, overlapping a little');
+  for (const [x, z] of titanic.paths[1].pts) assert.ok(!blocked(titanic, x, z), 'the lane stays off the kerb');
 });
 
 test('roomLayout_TheTitanicsGravelLaneRoundsTheHullWithoutCrossingIt', () => {
