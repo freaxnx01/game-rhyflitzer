@@ -60,7 +60,7 @@ def test_f3_toggles_the_panel_and_the_hand_layout_has_no_lv95(server):
     assert text.startswith("x ") and "LV95 —" in text and "bldg —" in text, text
     assert on["pos"]["E"] is None and on["heights"] == [] and on["sprites"] == 0
     assert off is False and hidden_again
-    assert "F3" in help_text and "debug" in help_text.lower()
+    assert "Ctrl" in help_text and "debug" in help_text.lower()
 
 
 @pytest.mark.parametrize("query,expected", [("?debug", True), ("?debug=1", True), ("?debug=0", False)])

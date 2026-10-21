@@ -1,4 +1,4 @@
-// #39: pure helpers for the debug overlay (F3 / ?debug) -- no three.js, no DOM. Unit-tested with `node --test prototype/tests/*.test.mjs`.
+// #39: pure helpers for the debug overlay (Ctrl+D, F3 alias / ?debug) -- no three.js, no DOM. Unit-tested with `node --test prototype/tests/*.test.mjs`.
 import { roofTop } from './world.js';
 
 const OFF = new Set(['0', 'false', 'off', 'no']);
@@ -82,3 +82,6 @@ export function lineLabelKey(line) {
   const hit = LINE_LABELS.find(([prefix]) => line.startsWith(prefix));
   return hit ? hit[1] : null;
 }
+
+// Ctrl+D opens the panel (F3 is awkward on a Chromebook); F3 stays as a silent alias. Takes a KeyboardEvent-like { code, ctrlKey }.
+export function isDebugKey(key) { return key.code === 'F3' || (key.code === 'KeyD' && !!key.ctrlKey); }

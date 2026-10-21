@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls } from '../debug.js';
+import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls, isDebugKey } from '../debug.js';
 import { translate } from '../strings.js';
 
 const ORIGIN = { lat: 47.5506, lon: 7.9671, E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };   // data/world_hochrhein.json
@@ -142,4 +142,13 @@ test('mapUrls: all three links for a WGS84 position, null without one', () => {
   const pos = { x: 0, z: 0, E: 2639781.3, N: 1266787.1, lat: 47.5506, lon: 7.9671 };
   assert.deepEqual(mapUrls(pos, 86.6), { osm: osmUrl(47.5506, 7.9671), maps: googleMapsUrl(47.5506, 7.9671), street: streetViewUrl(47.5506, 7.9671, 86.6) });
   assert.equal(mapUrls({ x: 1, z: 2, E: null, N: null, lat: null, lon: null }, 0), null);
+});
+
+test('isDebugKey: Ctrl+D opens the panel, F3 stays as an alias, a bare D (steering) and Ctrl+other keys do not', () => {
+  assert.equal(isDebugKey({ code: 'KeyD', ctrlKey: true }), true);
+  assert.equal(isDebugKey({ code: 'F3' }), true);
+  assert.equal(isDebugKey({ code: 'KeyD', ctrlKey: false }), false);
+  assert.equal(isDebugKey({ code: 'KeyD' }), false);
+  assert.equal(isDebugKey({ code: 'KeyA', ctrlKey: true }), false);
+  assert.equal(isDebugKey({ code: 'ControlLeft', ctrlKey: true }), false);
 });
