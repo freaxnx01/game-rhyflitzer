@@ -27,6 +27,13 @@ export function yardProps(y = CRASH_YARD) {
   });
   return out;
 }
+// #416: tyre stacks in a row of their own after the last prop row, across the lane. Eight tyres each, a hand apart so the car
+// meets a wall of them; `x` is a gap of one row beyond the last prop row, still well inside the yard's far edge
+export const TYRE_STACKS = { count: 4, tyres: 8, spacing: 1.2, rowsAfter: 1 };
+export function yardTyreStacks(y = CRASH_YARD, t = TYRE_STACKS) {
+  const x = y.x0 + y.runUp + (KIND_ORDER.length - 1 + t.rowsAfter) * y.rowGap, zc = yardCentreZ(y);
+  return Array.from({ length: t.count }, (_, i) => ({ x, z: +(zc + (i - (t.count - 1) / 2) * t.spacing).toFixed(2), n: t.tyres }));
+}
 // trees, fields and the like keep out of the yard (and a margin)
 export const inYard = (x, z, pad = 0, y = CRASH_YARD) => x > y.x0 - pad && x < y.x0 + y.length + pad && z > y.z0 - pad && z < y.z0 + y.width + pad;
 export const yardFor = (regionId) => (regionId === CRASH_YARD.region ? CRASH_YARD : null);
