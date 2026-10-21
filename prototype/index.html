@@ -1403,6 +1403,8 @@ function propGeometries() {
 }
 // lamps and hydrants are thin but solid; the rest is decoration until the fun-physics follow-up
 let TYRES = null;   // #416: the Crash-Platz's tyre stacks, built on first approach
+const KROW = { props: 0, tyres: 0, t: 0 };   // the "knocked over" row counts knocked props and tyres off their start pose
+function showKnockRow() { const n = KROW.props + KROW.tyres; $('knockn').textContent = n; $('knockrow').style.display = n ? '' : 'none'; }
 let KNOCK = null;   // #415: knock.js's controller, built with the props
 const PROP_SOLID = { lamp: { size: 0.3, h: 6 }, hydrant: { size: 0.4, h: 0.9 } };
 // car parks (#40): asphalt draped 1 cm under the road ribbons, white bay lines on top, a "P" sign where the lot has a name
@@ -1453,7 +1455,7 @@ function propMeshes(props) {
   }
   const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
   KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); return kcar; },
-    play: (sound, level) => SFX.knock(sound, level), hiss: (s) => SFX.hiss(s), onCount: (n) => { $('knockn').textContent = n; $('knockrow').style.display = n ? '' : 'none'; } });
+    play: (sound, level) => SFX.knock(sound, level), hiss: (s) => SFX.hiss(s), onCount: (n) => { KROW.props = n; showKnockRow(); } });
   window.__mm.knock = () => KNOCK.debug(); window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length, tyreStacks: yardTyreStacks(YARD) } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit, at: a.hit && !a.hit.bend ? { x: a.hit.x, z: a.hit.z } : null })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
 }
 // #415: the Crash-Platz's board at the head of the run-up lane, yellow like the checkpoint signs
@@ -2852,8 +2854,9 @@ function stepTyres(dt) {
   if (FOOT.on) { TYRES.step(dt, null); return; }   // the parked car does not push tyres
   tcar.x = P.x; tcar.y = P.y; tcar.z = P.z; tcar.th = P.th; tcar.vx = P.vx; tcar.vz = P.vz; if (CAR_SIZE) { tcar.l = CAR_SIZE.l; tcar.w = CAR_SIZE.w; tcar.h = CAR_SIZE.h; }
   const slow = TYRES.step(dt, tcar); if (slow > 0) { P.vx *= 1 - slow; P.vz *= 1 - slow; }   // the tyres take a little of the car's speed
+  if ((KROW.t += dt) > 0.25) { KROW.t = 0; const d = TYRES.state().displaced; if (d !== KROW.tyres) { KROW.tyres = d; showKnockRow(); } }   // so the Set up props button also shows when only tyres fell
 }
-function resetProps() { if (KNOCK) KNOCK.restoreAll(); if (TYRES) TYRES.reset(); }   // #415 props and #416 tyres
+function resetProps() { if (KNOCK) KNOCK.restoreAll(); if (TYRES) TYRES.reset(); KROW.tyres = 0; showKnockRow(); }   // #415 props and #416 tyres
 window.__mm.tyreState = () => TYRES ? TYRES.state() : null;
 window.__mm.tyreReset = () => { if (TYRES) TYRES.reset(); };
 window.__mm.sfxTyres = () => SFX.tyres();
