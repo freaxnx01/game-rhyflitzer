@@ -18,7 +18,7 @@ export const KINDS = {
   robidog:           { r: 0.35, h: 1.3, th: 0.25, push: 1.0, up: 4.5, slow: 0.02, sound: 'clatter', long: false },
   bench:             { r: 0.75, h: 0.9, th: 0.3, push: 0.75, up: 3.5, slow: 0.05, sound: 'wood', long: true },
   bike_rack:         { r: 1.0, h: 0.6, th: 0.3, push: 0.8, up: 3.5, slow: 0.04, sound: 'clang', long: true },
-  glass_container:   { r: 1.0, h: 1.6, th: 0.75, push: 0.55, up: 4.5, slow: 0.08, sound: 'glass', long: false },
+  glass_container:   { r: 1.1, h: 1.25, th: 0.5, push: 0.55, up: 4.5, slow: 0.08, sound: 'glass', long: true },   // #429: three compartments in a row, 3.3 x 1 m
   clothes_container: { r: 0.9, h: 2.0, th: 0.6, push: 0.55, up: 4.5, slow: 0.08, sound: 'clothes', long: false },
   hydrant:           { r: 0.4, h: 0.9, th: 0.13, push: 1.0, up: 5.5, slow: 0.03, sound: 'hydrant', long: false },
   lamp:              { r: 0.3, h: 6.0, th: 0.08, push: 0, up: 0, slow: 0.12, sound: 'lamp', long: false },

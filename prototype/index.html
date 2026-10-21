@@ -1380,9 +1380,19 @@ function propGeometries() {
     }
     out.bike_rack = mergeGeometries(pieces, false);
   }
-  { // glass container: green box with a darker lid and two round throw-in openings, 1.5 x 1.5 x 1.6 m
-    const holes = [-0.35, 0.35].map(x => { const g = new THREE.CylinderGeometry(0.17, 0.17, 0.12, 8); g.translate(x, 1.5, 0); return paint(g, '#15211a'); });
-    out.glass_container = mergeGeometries([slab(1.5, 1.4, 1.5, '#2f6d4a', 0, 0, 0), slab(1.56, 0.16, 1.56, '#245639', 0, 1.4, 0), ...holes], false);
+  { // #429 glass container (Altglas): three compartments in a row along +x for green, brown and clear glass, each 1 x 1 x 1 m with
+    // a darker lid, a round rubber-collared throw-in hole on top and a bottle symbol on both long sides, on a dark skid; 3.3 x 1 x 1.25 m
+    const pieces = [slab(3.3, 0.08, 1.0, DARK, 0, 0, 0)];
+    const flat = (g, x, y, z) => { g.scale(1, 1, 0.35); g.translate(x, y, z); return g; };   // a half-round relief standing proud of the face
+    const bottle = (x, z, c) => [paint(flat(new THREE.CylinderGeometry(0.1, 0.1, 0.34, 8), x, 0.5, z), c), paint(flat(new THREE.CylinderGeometry(0.045, 0.06, 0.16, 8), x, 0.75, z), c), paint(flat(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 8), x, 0.85, z), c)];
+    [['#2f7d3a', '#245c2c', '#f2f0e8'], ['#6e4a2a', '#4e331c', '#f2f0e8'], ['#e6e4dc', '#b9b7af', '#3a404b']].forEach(([body, lid, sign], i) => {
+      const x = (i - 1) * 1.1;
+      pieces.push(slab(1.0, 1.0, 1.0, body, x, 0.08, 0), slab(1.04, 0.1, 1.04, lid, x, 1.08, 0));
+      const collar = new THREE.CylinderGeometry(0.2, 0.2, 0.06, 10); collar.translate(x, 1.21, 0); pieces.push(paint(collar, '#2a2d33'));
+      const hole = new THREE.CylinderGeometry(0.15, 0.15, 0.03, 10); hole.translate(x, 1.245, 0); pieces.push(paint(hole, '#0c0f10'));
+      for (const z of [-0.5, 0.5]) pieces.push(...bottle(x, z, sign));
+    });
+    out.glass_container = mergeGeometries(pieces, false);
   }
   { // clothes container: tall grey-white box with a grey hood and a deposit flap, 1.2 x 1.2 x 2 m
     out.clothes_container = mergeGeometries([slab(1.2, 1.7, 1.2, '#dfe0dc', 0, 0, 0), slab(1.26, 0.22, 1.26, GREY, 0, 1.7, 0),
