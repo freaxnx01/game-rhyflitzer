@@ -1,7 +1,7 @@
 // #416: tyre stacks that collapse with real physics (crashcat, vendored under vendor/crashcat/).
 // Layers: the pure helpers (layout, fixed timestep, car box) and the physics core (createTyrePhysics, engine injected, no THREE) are unit-tested
 // in node; createTyreStacks adds the meshes and loads the engine lazily, so nothing is fetched unless a stack is placed.
-export const TYRE = { r: 0.3, w: 0.25, hole: 0.16, mass: 9, friction: 0.85, restitution: 0.12, linearDamping: 0.35, angularDamping: 1.6 };
+export const TYRE = { r: 0.45, w: 0.375, hole: 0.24, mass: 30.375, friction: 0.85, restitution: 0.12, linearDamping: 0.35, angularDamping: 1.6 };
 export const STACK_GAP = 0.004;          // m between stacked tyres at build time, so nothing starts in penetration
 export const PHYS = { dt: 1 / 60, maxSteps: 4, near: 22, carMass: 2500, slowCap: 0.05, impactMin: 1.4, carLift: 0.2, calmAfter: 14, fellBelow: 2 };   // calmAfter: s awake with no car near before the stragglers are put to sleep; fellBelow: m under the ground = lost, frozen
 export const SOLVER = { velocityIterations: 20, positionIterations: 4, penetrationSlop: 0.02, baumgarteFactor: 0.2, convexRadius: 0.05, timeBeforeSleep: 0.5, pointVelocitySleepThreshold: 0.03 };
