@@ -260,17 +260,6 @@ export function createTyreStacks(scene, THREE, placements, groundHeightFn, opts 
       return r.slow;
     } catch (e) { S.phys = null; S.failed = true; console.warn('Tyre physics stopped, the stacks stand still:', e && e.message); return 0; }
   }
-  // a tyre that fell off the yard is frozen; once the car has left and everything has rolled for calmAfter seconds, what still creeps goes to sleep
-  function calm(dt, close) {
-    flags.awakeFor = close ? 0 : flags.awakeFor + dt;
-    const all = flags.awakeFor > PHYS.calmAfter;
-    for (let i = 0; i < n; i++) {
-      const b = body(i); if (b.sleeping) continue;
-      const v = b.motionProperties.linearVelocity;
-      if (b.position[1] < groundY - PHYS.fellBelow || all && Math.hypot(v[0], v[1], v[2]) < 2) C.rigidBody.sleep(world, b);
-    }
-  }
-
   function reset() { if (S.phys) { try { S.phys.reset(); } catch (e) { S.phys = null; S.failed = true; } } upload(true); }
   function dispose() { S.disposed = true; S.phys = null; scene.remove(group); mesh.geometry.dispose(); mesh.material.dispose(); mesh.dispose(); }
   function state() {
