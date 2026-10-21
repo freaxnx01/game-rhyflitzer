@@ -10,6 +10,10 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-21-enterable-buildings-register-design.md` (issue #409, epic #414).
 
+**Wireframes:** approved 2026-10-21, `docs/design/enterable-buildings/wireframe.md` (phase 1 of the UI workflow is done; build to it, do not redesign).
+
+**Maintainer decisions (2026-10-21):** `E` on foot only (car: right blinker); hideout objects (Eiffel, Atomium) listed in the J filter and on the minimap only after `HIDE.found`; Titanic is not in the register (four entries exactly); the J chip stays mouse/touch only (default).
+
 ## Global Constraints
 
 - Buildless static game: no packages, no framework, no new assets (CLAUDE.md). The glow is a three.js primitive.

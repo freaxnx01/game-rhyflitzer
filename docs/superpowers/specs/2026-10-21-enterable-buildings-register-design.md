@@ -1,6 +1,6 @@
 # Enterable buildings: marker, prompt, register and Jump filter (#409)
 
-Status: enriched 2026-10-21 (epic #414, first part). Entering itself is **not** here: it is #411 (6c) and #412 (hideout
+Status: enriched 2026-10-21, maintainer decisions applied 2026-10-21 (epic #414, first part). Entering itself is **not** here: it is #411 (6c) and #412 (hideout
 objects), #413 (spiral stair, blocked on the model). This issue is the shared groundwork they all use.
 
 ## Goal
@@ -15,6 +15,16 @@ On foot (Z, #202) the player can tell which buildings and objects can be entered
 Nothing here walks through a door. The interface (`id`, names de/en, position, kind, `ready`, entrances, `secret`) is what #411 and #412 build on.
 
 ## Maintainer decisions this spec rests on
+
+Confirmed 2026-10-21:
+
+- **Key `E`, on foot only.** In the car `E` stays the right blinker.
+- **Hideout objects (Eiffel, Atomium) are listed** in the J "Enterable" filter (and on the minimap) **only after `HIDE.found`**.
+- **Titanic is not in the register.**
+- **Wireframes approved** (saved under `docs/design/enterable-buildings/`).
+- The J chip stays mouse/touch only (default, see the open question below).
+
+Earlier:
 
 - Enterable now or later: entries for things that are not yet enterable exist from day one with `ready: false` (#410-#413 flip them).
 - On foot only; nothing shows while driving.
@@ -55,8 +65,7 @@ So no key is free in the car context. **Picked: `E`**, valid **only while FOOT.o
 `footKeyAction('KeyE')` already returns `'block'` (the car's keys are swallowed, `foot.js` `FOOT_BLOCKED`), so the blinker cannot fire there
 and the key is dead weight. `E` also reads as "Enter", which the prompt spells out. `footKeyAction('KeyE')` changes from `'block'` to
 a new `'enter'`; the car context is untouched (`KeyE` while driving is still the right blinker, pinned by `test_smoke.py`). The issue's remark
-"E and Enter are taken" is true for driving; it does not hold on foot. Fallback if the maintainer dislikes the double use: `Digit2`
-(free everywhere; `Digit1` is the hazard lights).
+"E and Enter are taken" is true for driving; it does not hold on foot. Confirmed by the maintainer (2026-10-21).
 
 Touch: out of scope, like the whole of on-foot mode (spec 2026-10-17).
 
@@ -141,41 +150,11 @@ key binding inside the dialog, which also keeps the search field's typing). It c
 - State: `JUMP.enterable` (boolean) reset to `false` in `openJump`, like `JUMP.g`.
 - The mechanism is a pure `jumpRowsFor(entries, enterables, { q, g, enterable }, revealed)` in `enterables.js`, so `index.html` only renders.
 
-### Wireframes (approval gate for the UI workflow)
+### Wireframes (approved 2026-10-21)
 
-J dialog, filter off and on (`[x]` = chip on):
-
-```
- Jump to
- +--------------------------------------------+      +--------------------------------------------+
- | Search landmarks                           |      | Search landmarks                           |
- +--------------------------------------------+      +--------------------------------------------+
- [All][Bad Säckingen][Stein]...[Sisseln][Enterable]   [All][Bad Säckingen]...[Sisseln][x Enterable]
- Fridolinsmünster              Bad Säckingen          Plattform Sisslerfeld                   soon
- Holzbrücke                    Bad Säckingen          Bodenackerstrasse 6c                    soon
- ...                                                  Reservoir Hübel                      Münchwilen
- type to search · ↑↓ choose · Enter confirms · Esc    (after the hideout is found:
-                                                       Eiffelturm / Atomium  Münchwilen)
-```
-
-(the `soon` rows are dimmed; "Enterable" is `Begehbar` in German)
-
-On foot, at an entrance (bottom prompt line; the glow is a soft light on the door, 15 m out):
-
-```
- far (> 15 m)         glow (15 m .. 2.5 m)          at the door (<= 2.5 m)
- +----------------+   +------------------------+    +------------------------+
- |                |   |                        |    |                        |
- |   [building]   |   |   [building]           |    |   [building]           |
- |    |  |        |   |    | ||  <- soft glow  |    |    | ||   (full glow) |
- |                |   |                        |    |                        |
- |                |   |                        |    |      E · Enter         |
- +----------------+   +------------------------+    +------------------------+
-```
-
-Minimap: `▯` door glyph (5 x 7 px) on the ready building, over the map, in the usual map yellow.
-
-Flow (one line): foot on + ready entrance within 15 m -> glow; within 2.5 m -> prompt `E · Enter`; `E` -> handler of the entry (#411/#412), else toast.
+The ASCII wireframes (J dialog with the "Enterable" chip off and on, the on-foot glow and prompt states, the minimap glyph, the one-line
+flow) were approved by the maintainer on 2026-10-21 and are saved in `docs/design/enterable-buildings/wireframe.md` (repo convention,
+phase 1 of the UI workflow). They are not repeated here.
 
 ## Strings (de + en, Swiss spelling)
 
@@ -213,7 +192,7 @@ Flow (one line): foot on + ready entrance within 15 m -> glow; within 2.5 m -> p
 
 ## Open questions (for the maintainer)
 
-1. Key `E` on foot only (this spec) or `Digit2` everywhere? 
-2. Hideout objects: stay secret in J/minimap until the hideout is found (this spec, keeps the surprise), or list them from the start?
-3. Titanic (room 7): not listed, as #412 names only Eiffel and Atomium. Add it as `ready: false` too?
-4. Should the J chip also be reachable by keyboard (e.g. a key inside the dialog)? Today no chip is.
+1. Should the J chip also be reachable by keyboard (e.g. a key inside the dialog)? **Default kept:** no, the chip is mouse/touch only like the
+   Gemeinde chips today; revisit only if asked.
+
+Resolved 2026-10-21: key `E` on foot only; hideout objects secret until the hideout is found; Titanic not listed; wireframes approved.

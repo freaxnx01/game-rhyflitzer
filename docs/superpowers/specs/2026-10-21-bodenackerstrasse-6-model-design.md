@@ -1,7 +1,7 @@
 # Bodenackerstrasse 6 (6a–6d, Sisseln): the block modelled from the outside (#410)
 
-Status: enriched 2026-10-21 (epic #414). Sibling specs: #409 (`2026-10-21-enterable-buildings-register-design.md`, the
-register this model feeds), #411 (entering 6c: stair tower, lift, a window per landing, the roof — **not designed here**).
+Status: enriched 2026-10-21, maintainer decisions applied 2026-10-21 (epic #414). Sibling specs: #409 (`2026-10-21-enterable-buildings-register-design.md`, the
+register this model feeds), #411 (entering 6c: stair hall, lift, a window per landing, the roof — **not designed here**).
 
 ## Intent
 
@@ -9,19 +9,30 @@ Today the block Bodenackerstrasse 6a–6d is one generic flat-roofed extrusion o
 `hall` texture (`h > 8`). Make it recognisable from the street without copying anything:
 
 - **ten storeys** per house (federal building register GWR: EGID 586285 6a, 586283 6b, 586282 6c, 586284 6d, `gastw` 10),
-- the **stepped plan** of the swisstopo 3D buildings, with the four **white stair towers** rising above the roof,
-- the four small **glass entrance porches** (glass sides, flat roof) in front of the houses,
+- the **stepped plan** of the swisstopo 3D buildings,
+- the four small **glass entrance porches** (glass sides, flat roof, a door leaf) on the street side, taken straight from the four
+  projections of the OSM footprint,
+- a white, windowless **roof-top stair/lift housing** above the roof behind each porch (assumption, still open: Q1),
 - an **own façade texture** in the game's canvas style: white plaster, a regular window grid with dark window bands and
-  roller-shutter boxes, plain white stair towers on the street side.
+  roller-shutter boxes on the street side and the ends; on the back side the same plaster with **recessed loggias** (flush, no
+  protrusion).
 
-And it must stay a **data-driven model**: the floor levels, the stair-tower positions and the porch entrances are exported
+And it must stay a **data-driven model**: the floor levels, the stair positions and the porch entrances are exported
 by a pure module so that #411 reuses them instead of measuring the mesh.
 
 Maintainer decisions (issue #410 and its 2026-10-20 comment) that are settled here:
 
 - Own texture only. Google Street View (Bodenackerstrasse, June 2023) and map.geo.admin.ch are **references to look at**,
-  never pixel sources. The maintainer's own photos may be used directly (rectified, tiled) — optional, see Q5.
+  never pixel sources. The painted tile is the deliverable (decision 2026-10-21: no photos; default kept).
 - Porches are glass on the sides with a flat roof, not solid boxes.
+
+Decisions of 2026-10-21 applied in this version:
+
+- The four projections on the street side of the OSM footprint **are the glass entrance porches** (not stair towers). The stair halls
+  lie inside the body directly behind each porch.
+- The porch door is on the **front, facing the street** (+v).
+- House order: **6a is the north end**, 6c is the third entrance from the north (`houseOrder: 'northToSouth'` confirmed).
+- The back side has **recessed loggias that do not project** from the façade: a second texture tile, no extra geometry.
 
 ## Privacy rule
 
@@ -46,8 +57,8 @@ swisstopo), 2026-10-21:
 
 `h / 10 = 2.53 m` per storey: the ten window rows the Street View reference shows fit the measured eaves height, so the
 model takes **storeys = 10** as data and derives the storey pitch from the world's `h` (no second height source).
-`rh` = 1.4 m is a 95th percentile over the whole roof; the four small towers (≈ 2 % of the roof area) do not register in
-it, so **the tower rise is not measurable from our data** (Q1).
+`rh` = 1.4 m is a 95th percentile over the whole roof; a small roof-top housing (≈ 2 % of the roof area) would not register in
+it, so **whether there is one, and its rise, is not measurable from our data** (Q1).
 
 ### The footprint in the block's own frame
 
@@ -64,29 +75,33 @@ in that frame (m, rounded), walking the ring:
 ```
 
 So OSM already carries the **stepped plan**: four houses of ≈ 15 m along `u`, each shifted across by 1–4 m, and on the
-street side **four projections of 2.3–2.4 m × 2.6–3.2 m, one per house** at `u ≈ −23.2, −10.6, 4.3, 19.1`. The generic
-extrusion draws all of this today; what it lacks is height, towers above the roof, porches and the right skin.
+street side **four projections of 2.3–2.4 m × 2.6–3.2 m, one per house** at `u ≈ −23.2, −10.6, 4.3, 19.1`: these are the glass
+entrance porches. The generic extrusion draws all of this today as full-height boxes; what it lacks is the right height split
+(porch 3 m, body 25 m), the glass, the roof-top housing and the right skin.
 
 Plan view (not to scale; `N` up = +u):
 
 ```
                  u +30  ─────────────────────── north end wall (main street 8 m beyond)
                         │                     │
-   back (west)   v −6   │   house D           ▐▌ tower 4  (u 19.1)     ← porch 4 in front (v +)
+   back (west)   v −6   │   6a                 ▐▌ porch 4  (u 19.1)  ← glass porch, stair hall behind it
                         │ ─ step ─            │
-                        │   house C          ▐▌  tower 3  (u  4.3)     ← porch 3
+                        │   6b                 ▐▌ porch 3  (u  4.3)
                  v −11  │ ─ step ─            │
-                        │   house B           ▐▌ tower 2  (u −10.6)    ← porch 2
+                        │   6c                 ▐▌ porch 2  (u −10.6)
                         │ ─ step ─            │
-                        │   house A           ▐▌ tower 1  (u −23.2)    ← porch 1
+                        │   6d                 ▐▌ porch 1  (u −23.2)
                  u −30  ─────────────────────── south end wall
                              street side (east, v +)  →  Bodenackerstrasse branch at ~17 m
 ```
 
-**Interpretation (A2):** the four projections are the **stair towers** — the issue describes white, windowless towers on
-the street side that rise above the roofline, and these bumps are the only per-house features in the outline. The
-**porches are not in OSM** (too small): they are added in front of each tower. If the maintainer says the projections
-are the porches instead, only `bodenackerTowers` changes its source (Q2).
+(The house names follow `houseOrder: 'northToSouth'`: the northern porch, `u +19.1`,
+is 6a and **6c is the third entrance from the north**, `u −10.6`.)
+
+**Interpretation (confirmed 2026-10-21):** the four projections are the **glass entrance porches**. They are in OSM, so the porch
+footprint is read from the ring (`bodenackerPorches`); nothing is invented in front of the façade. The **stair halls** lie inside
+the body directly behind each porch (`stairs[i]`, a rectangle between the façade line and 3.0 m into the body). Their interior is
+#411's design; this spec only exports where they are.
 
 ## Geometry
 
@@ -96,30 +111,39 @@ sample on the ring, as `osmBuilding` does today) — the module never samples te
 
 | Part | Geometry | Role / look |
 |---|---|---|
-| **Body** | the OSM ring **without the four bumps** (`bodenackerBody`), extruded `base−2 … base+h` (h = 25.3 from the world) | `bodenacker` façade texture, tile = one window module × one storey (`[4.0, h/10]`), `uPerFace` so the grid restarts at every step |
+| **Body** | the OSM ring **without the four bumps** (`bodenackerBody`), extruded `base−2 … base+h` (h = 25.3 from the world) | walls by face (`bodenackerWalls`): street side and ends `bodenacker` window tile, back side `bodenackerLoggia` tile; tile = one module × one storey (`[4.0, h/10]`), `uPerFace` so the grid restarts at every step |
 | **Parapet band** | the same body ring extruded `base+h … base+h+0.5`, its top is the roof slab | `plasterWhite`, roof `roofFlat` gravel `#8f8a84` (as today) |
-| **Stair towers ×4** | `box()` per bump: width = bump width (≈ 2.4), depth = bump depth + 0.2 (overlapping into the body so no seam shows), `base−2 … base+h+0.5+towerRise`, `towerRise = 2.6` (≈ one storey, Q1), flat top | `plasterWhite` on all faces (no windows on the street side) |
-| **Porches ×4** | centred on the tower, in front of it (towards +v): footprint 4.0 wide (u) × 3.0 deep (v), 3.0 high. Four corner posts 0.15 × 0.15 (dark grey `#3a3f47`), a roof slab 4.2 × 0.25 × 3.2 (light grey `#c9ccd0`, `plasterWhite` role with colour), two **side panes** and a **front pane** of glass; the front pane is split into two side lights and a **door leaf** 1.0 wide, drawn as a separate 0.05 m thin box (`#3a3f47` frame, glass centre) so #411 can swing or hide it | new role `glass` (see below) |
-| **Collision** | `pushOBB` with `ring = the original OSM ring` (body + towers = exactly the OSM outline, as #36 collides walls where they are drawn); one `addOBB` per porch (solid box, 3.0 high; the walker stands on top of a porch only by hovering, `WALKER.stepUp` 0.6) | unchanged mechanics |
+| **Porches ×4** | footprint = the OSM bump (≈ 2.4 wide × 2.9–3.2 deep), `h = 3.0`. Four corner posts 0.15 × 0.15 (dark grey `#3a3f47`), a flat roof slab (footprint + 0.1 overhang, 0.25 thick, light grey `#c9ccd0`, `plasterWhite` role with colour), two **side panes** (on the two u-sides) and a **front pane** of glass on the street face; the front pane is split into two side lights and a **door leaf** 1.0 wide, drawn as a separate 0.05 m thin box (`#3a3f47` frame, glass centre) so #411 can swing or hide it. The rear is the body façade | new role `glass` (see below) |
+| **Roof-top stair/lift housing ×4** | assumption (Q1): `box()` on the roof slab, footprint = porch width × 3.0 m, placed directly **behind** each porch (inside the body outline, front face on the façade line), height `housingRise = 2.6` (≈ one storey), flat top | `plasterWhite` on all faces, windowless |
+| **Collision** | `pushOBB` with `ring = the original OSM ring` (body + porches = exactly the OSM outline, as #36 collides walls where they are drawn); no extra OBBs. The porches are solid for walker and car (3 m glass boxes; the walker cannot get on top of one) until #411 opens a door | unchanged mechanics |
 
 Elevation of the street side (one house, not to scale):
 
 ```
-          ┌──┐  tower top  base + h + 0.5 + 2.6
+          ┌──┐  housing top  base + h + 0.5 + 2.6   (Q1)
    ───────┤  ├───────  parapet  base + h + 0.5
-   ▭▭ ▭▭ ▭│  │▭ ▭▭ ▭   storey 10        ▭ = dark window band with shutter box
-   ▭▭ ▭▭ ▭│  │▭ ▭▭ ▭   storey 9
-      …   │  │  …      (10 rows, pitch h/10 = 2.53 m)
-   ▭▭ ▭▭ ▭│  │▭ ▭▭ ▭   storey 1 (ground floor)
-   ───────┴┌─┴┐──────  ground = base
-           │ ▯ │       glass porch, 3.0 m high, flat roof, door leaf ▯ in the front pane
+   ▭▭ ▭▭ ▭▭▭ ▭▭ ▭▭   storey 10        ▭ = dark window band with shutter box
+   ▭▭ ▭▭ ▭▭▭ ▭▭ ▭▭   storey 9
+      …              (10 rows, pitch h/10 = 2.53 m)
+   ▭▭ ▭▭ ▭▭▭ ▭▭ ▭▭   storey 1 (ground floor)
+   ──────┌───┐──────  ground = base
+         │ ▯ │       glass porch (the OSM bump), 3.0 m high, flat roof, door leaf ▯ in the front pane
+```
+
+Back side (west), one house, flush — nothing projects:
+
+```
+   ───────────────  parapet
+   ░░▌▌░░░░▌▌░░░░   storey 10     ░ = recessed dark loggia opening, ▌ = railing band (painted)
+   ░░▌▌░░░░▌▌░░░░   storey 9
+      …
 ```
 
 ### Heights the module exports (the #411 contract)
 
-`bodenackerFloors(base, h, storeys = 10)` → `{ pitch, floors: [y_1 … y_10], roof, towerTop }` with `floors[k] = base + k·pitch`
+`bodenackerFloors(base, h, storeys = 10)` → `{ pitch, floors: [y_1 … y_10], roof, housingTop }` with `floors[k] = base + k·pitch`
 (k = 0 is the ground floor at `base`), `roof = base + h + 0.5` (the walkable slab, on top of the parapet band — the parapet
-is 0.5 m of white wall below the slab, not a rim above it; a rim is Q4), `towerTop = roof + towerRise`.
+is 0.5 m of white wall below the slab, not a rim above it; a rim is Q2), `housingTop = roof + housingRise`.
 `h` is the world's measured eaves height, so the ten rows of the texture and the ten floor levels agree by construction.
 
 ### Roles and materials
@@ -129,7 +153,12 @@ is 0.5 m of white wall below the slab, not a rim above it; a rim is Q4), `towerT
   a **dark window band** x 20–236: roller-shutter box `#9a9ea3` with slat lines (y 30–48), dark glass `#2f3844` (y 48–100)
   with a lighter reflection and one mullion at x 128 (two lights per module), a `#4a4f57` frame 3 px around the band, a
   sill shadow y 100–104. Painted from the description of the reference, not traced.
-- `TEX.plasterWhite` (64 × 64): the same speckled white, nothing else. Used by the towers, the parapet band and the porch
+- `TEX.bodenackerLoggia` (256 × 128, same module and plaster): the back side. Same plaster, speckle and storey joint; instead of the
+  window band a **recessed loggia opening** x 20–236, y 30–100: dark inner wall `#3b3f46`, an inner top shadow (`rgba(0,0,0,.35)`,
+  y 30–42), light reveal strips on the left and right (`#d9d6cd`, 6 px wide) to read as depth, and a **railing band** y 74–100
+  (`#6b7078` rail line at y 74, vertical bars every 8 px, `rgba(255,255,255,.10)` glass tint). Painted flat on the same wall plane:
+  **no geometry is added and nothing projects**, the depth is only suggested by the texture.
+- `TEX.plasterWhite` (64 × 64): the same speckled white, nothing else. Used by the roof-top housing, the parapet band and the porch
   roof slab (colour tints it).
 - New role **`glass`** in `mat(role)` (`index.html` "mat: (role) =>"): `MeshPhongMaterial({ color: 0xbfd6e4, vertexColors: true,
   transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: DoubleSide, depthWrite: false })`. Pushed like every
@@ -137,9 +166,9 @@ is 0.5 m of white wall below the slab, not a rim above it; a rim is Q4), `towerT
   windscreen (`2026-10-10-windscreen-glass-design.md`) is a car material, not a world role.
 - Roof: `roofFlat` (existing gravel) with the existing flat-roof colour.
 
-Cost: two ring extrusions, four tower boxes, four porches of ≈ 9 boxes/planes each — ≈ 50 more parts in a world of
-2,664 buildings, all merged into the existing per-role meshes. No new textures beyond two small canvases, no new draw
-calls beyond the one `glass` material.
+Cost: two ring extrusions (body walls split in two roles), four housing boxes, four porches of ≈ 9 boxes/planes each — ≈ 50 more
+parts in a world of 2,664 buildings, all merged into the existing per-role meshes. No new textures beyond three small canvases, no
+new draw calls beyond the one `glass` material.
 
 ## How it plugs into the building pipeline
 
@@ -153,12 +182,12 @@ if (isBodenacker6(b)) { bodenackerBuilding(b, base, h); return; }          // #4
 ```
 
 - `isBodenacker6(b)` is `b.id === BODENACKER6.id` (`bodenacker6.js`). Picked by **OSM way id**, like the row houses
-  (`ROW_HOUSE_IDS`): the a–d address pattern is shared by the twin block 1a–1d, which stays generic (Q6).
+  (`ROW_HOUSE_IDS`): the a–d address pattern is shared by the twin block 1a–1d, which stays generic (Q3).
 - The branch sits **after** the `rr()` draw and never calls `rr()`/`rnd()` itself, so every later building keeps its
   colour — the same care #45 took for the row houses.
-- `bodenackerBuilding(b, base, h)` calls `bodenackerLayout(b, base, h)` once and draws from the result: body, parapet band,
-  towers, porches, OBBs. It stores the layout on `window.__mm.bodenacker6` (a function returning it, for tests and for
-  #411's own debug checks) and bumps `window.__mm.counts.bodenacker6`.
+- `bodenackerBuilding(b, base, h)` calls `bodenackerLayout(b, base, h)` once and draws from the result: body walls (per face role),
+  parapet band, porches, roof-top housings, OBB. It stores the layout on `window.__mm.bodenacker6` (a function returning it, for
+  tests and for #411's own debug checks) and bumps `window.__mm.counts.bodenacker6`.
 - The gable path is never taken for this building (`roof: 'flat'`, `rh` 1.4 < 1.5 and not a gable); if a future world
   rebuild changed that, the branch would simply not fire and the Playwright check below goes red — fail loudly, no silent
   fallback.
@@ -171,31 +200,33 @@ if (isBodenacker6(b)) { bodenackerBuilding(b, base, h); return; }          // #4
 ```js
 export const BODENACKER6 = {
   id: 171822634, storeys: 10, houses: ['6a', '6b', '6c', '6d'],
-  houseOrder: 'northToSouth',          // Q3: which tower is which house; one constant, nothing else assumes it
-  towerRise: 2.6, parapet: 0.5,        // m above the roof slab / white band under the slab
+  houseOrder: 'northToSouth',          // confirmed 2026-10-21: 6a at the north end; one constant, nothing else assumes it
+  housingRise: 2.6, parapet: 0.5,      // m above the roof slab (Q1) / white band under the slab
   moduleWidth: 4.0,                    // façade texture tile width (one window module)
-  porch: { w: 4.0, d: 3.0, h: 3.0, door: 1.0, post: 0.15, slab: 0.25 },
-  bumpMinDepth: 1.5, bumpMaxWidth: 4.0 // what counts as a tower bump in the ring
+  porch: { h: 3.0, door: 1.0, post: 0.15, slab: 0.25, overhang: 0.1 },
+  stair: { d: 3.0 },                   // depth of the stair hall behind the façade line (m into the body)
+  bumpMinDepth: 1.5, bumpMaxWidth: 4.0 // what counts as a porch bump in the ring
 };
 export function isBodenacker6(b)                         // b.id === BODENACKER6.id
 export function bodenackerFrame(rect)                    // { cx, cz, rot, toWorld(u, v) → [x, z], toLocal(x, z) → [u, v], outTh, inTh }
 export function simplifyRing(points, tol = 0.15)         // drops collinear vertices (local frame)
-export function bodenackerTowers(ring, frame)            // [{ house, u, v0 (façade), v1 (tip), w, d }] sorted along u, houses assigned by houseOrder
-export function bodenackerBody(ring, frame, towers)      // the local ring with the tower bumps replaced by the façade line
-export function bodenackerPorches(towers, frame)         // [{ house, u, v, w, d, h, entrance: { x, z, th, w } }]
-export function bodenackerFloors(base, h, storeys)       // { pitch, floors, roof, towerTop }
-export function bodenackerLayout(b, base, h)             // { frame, towers, body, porches, floors, ring: b.ring } — the one object index.html draws from
-export function bodenackerHouse(layout, house)           // { tower, porch } for '6a' … '6d'; throws on an unknown house
+export function bodenackerPorches(ring, frame, cfg)      // [{ house, u, v0 (façade), v1 (tip), w, d, h, entrance: { x, z, th, w } }] sorted along u, houses by houseOrder
+export function bodenackerBody(ring, frame, porches)     // the local ring with the porch bumps replaced by the façade line
+export function bodenackerWalls(body, frame)             // [{ a: [x, z], b: [x, z], face: 'street' | 'back' | 'end' }] by the outward normal's v component
+export function bodenackerStairs(porches, cfg)           // [{ house, u, w, d, vFront (= porch v0), vBack }] the stair hall footprint behind each porch
+export function bodenackerFloors(base, h, storeys)       // { pitch, floors, roof, housingTop }
+export function bodenackerLayout(b, base, h)             // { frame, porches, stairs, body, walls, floors, ring: b.ring } — the one object index.html draws from
+export function bodenackerHouse(layout, house)           // { porch, stair } for '6a' … '6d'; throws on an unknown house
 ```
 
 - `frame.outTh` is the heading of +v (out of the house into the street), `frame.inTh = outTh + π` the direction you walk
-  **in**; `entrance = { x, z, th: inTh, w: porch.door }` on the porch's street face is exactly #409's absolute entrance
+  **in**; `porch.entrance = { x, z, th: inTh, w: porch.door }` on the porch's street face is exactly #409's absolute entrance
   format, so #411 fills `ENTERABLE_INFO[…].entrances` from `bodenackerHouse(layout, '6c').porch.entrance` and flips `ready`.
-- `towers[i]` gives #411 the stair tower's footprint in the block frame (`u`, `v0`, `w`, `d`) and `floors` the landing
-  heights; where the stair hall extends into the body, how the lift sits, and the landing windows are #411's design.
+- `stairs[i]` gives #411 the stair hall's footprint in the block frame (`u`, `w`, `d`, `vFront`, `vBack`) directly behind the
+  porch, and `floors` the landing heights; how the lift sits and the landing windows are #411's design.
 - Nothing in the module knows about levels, the walker or three.js; it is unit-tested with node like `holzbruecke.js`.
 
-### Tower detection (why derived, not hard-coded)
+### Porch detection (why derived, not hard-coded)
 
 The bumps are found in the ring rather than typed in: after `simplifyRing` (the OSM outline splits the bump tops into
 two collinear edges), a bump is a run of three edges — out along +v by ≥ `bumpMinDepth`, along u by ≤ `bumpMaxWidth`,
@@ -207,11 +238,11 @@ against the real ring from `data/world_hochrhein.json`.
 
 ## Façade texture design (own work)
 
-Reference only: white plaster, regular window grid, dark window bands, roller-shutter boxes, windowless white towers.
+Reference only: white plaster, regular window grid, dark window bands, roller-shutter boxes, recessed loggias on the back.
 
-One tile = **one window module (4.0 m) × one storey (2.53 m)**, repeated with `uPerFace` so every façade segment starts
-on a module boundary (the steps of the plan then read as real corners, not as a cut window). Painted elements (canvas
-256 × 128, y = 0 is the top of the storey):
+One tile = **one module (4.0 m) × one storey (2.53 m)**, repeated with `uPerFace` so every façade segment starts
+on a module boundary (the steps of the plan then read as real corners, not as a cut window). Painted elements of
+`TEX.bodenacker` (canvas 256 × 128, y = 0 is the top of the storey):
 
 1. plaster `#f1efe8` + speckle (local LCG, 220 dots, ±12 grey)
 2. storey joint: `rgba(0,0,0,.07)` y 0–3
@@ -220,9 +251,12 @@ on a module boundary (the steps of the plan then read as real corners, not as a 
 5. glass `#2f3844`: x 20–236, y 48–100; reflection `rgba(255,255,255,.14)` on the left third; mullion `#4a4f57` x 126–130
 6. sill shadow `rgba(0,0,0,.22)`: x 17–239, y 100–104
 
-Not painted: balconies, railings, the hedge, the ground-floor difference (Q4/Q5). The back (west) side gets the same tile
-(Q4). If the maintainer supplies own photos, they replace step 1–6 by a rectified photo tile of the **same 4.0 × 2.53 m
-module**, so the geometry and the UV layout stay (Q5).
+`TEX.bodenackerLoggia` shares steps 1–2 and replaces 3–6 by the recessed loggia opening and railing band described under "Roles
+and materials". `bodenackerWalls` decides the tile per wall: outward normal with a clearly negative v component (`< −0.5`) is
+`'back'` → `bodenackerLoggia`; positive v → `'street'` and the ±u end walls `'end'` → `bodenacker`.
+
+Not painted: hedges, the ground-floor difference. The painted tiles are the deliverable (no photos, decision 2026-10-21); they
+could later be swapped for rectified photo tiles of the same 4.0 × 2.53 m module without touching geometry or UV layout.
 
 ## Testing approach
 
@@ -230,49 +264,52 @@ Buildless stack: node unit tests on the pure module are the real gate; one Playw
 page. Playwright runs in the foreground only, after commit and push (CLAUDE.md).
 
 - **Node (`prototype/tests/bodenacker6.test.mjs`)**: frame round trip and headings; `simplifyRing` drops the collinear
-  split; a synthetic 2-bump ring yields two towers with the right `u`, `v0`, `v1`, `w`, `d`; the real ring (read from
-  `data/world_hochrhein.json`, skipped when missing) yields **four** towers at `u ≈ −23.2, −10.6, 4.3, 19.1` (±0.3) and
-  a body ring with 4 × 3 fewer edges; floors: `pitch = h/10`, `floors[0] = base`, `floors[9] = base + 9·pitch`,
-  `roof = base + h + 0.5`; porches sit in front of the tips, `entrance.th = inTh`; `bodenackerHouse` honours `houseOrder`
-  and throws on `'6e'`; a ring with three bumps throws.
+  split; a synthetic 2-bump ring yields two porches with the right `u`, `v0`, `v1`, `w`, `d`; the real ring (read from
+  `data/world_hochrhein.json`, skipped when missing) yields **four** porches at `u ≈ −23.2, −10.6, 4.3, 19.1` (±0.3) and
+  a body ring with 4 × 3 fewer edges; porch `h = 3.0`, `entrance.th = inTh`, entrance on the +v face of the bump; `bodenackerStairs`
+  sits behind the façade line (`vBack = v0 − 3.0`) with the porch's `u` and `w`; `bodenackerWalls` classifies the back steps as
+  `'back'`, the street run as `'street'`, the ends as `'end'`; floors: `pitch = h/10`, `floors[0] = base`, `floors[9] = base + 9·pitch`,
+  `roof = base + h + 0.5`; `bodenackerHouse` honours `houseOrder` (`'6a'` = largest `u`, `'6c'` = third from the north) and throws on `'6e'`; a ring
+  with three bumps throws.
 - **Playwright (`prototype/tests/test_bodenacker6.py`, pattern of `test_row_houses.py`)**: with the world, `__mm.counts.bodenacker6 == 1`,
-  `__mm.bodenacker6()` returns 4 towers and 4 porches; `wallRoleAt` from 12 m outside the east façade **between two towers**
-  hits `bodenacker`, aimed at a tower above the roof (`up = h + 1.5`) hits `plasterWhite`; `roles()` contains `glass`. The
-  hand layout (world blocked) has no `bodenacker6` count. One file, three tests; also re-run `test_row_houses.py` (its
-  `OTHER_ID` is this block) and `test_building_collision.py`.
+  `__mm.bodenacker6()` returns 4 porches and 4 stairs; `wallRoleAt` from 12 m outside the east façade **between two porches**
+  hits `bodenacker`, from outside the **west** façade hits `bodenackerLoggia`, aimed at a housing above the roof (`up = h + 1.5`)
+  hits `plasterWhite`; aimed at a porch front at 1.5 m hits `glass`; `roles()` contains `glass`. The hand layout (world blocked)
+  has no `bodenacker6` count. One file, three tests; also re-run `test_row_houses.py` (its `OTHER_ID` is this block) and
+  `test_building_collision.py`.
 - No frame-rate check: ≈ 50 parts.
 
 ## Acceptance criteria
 
-- [ ] The block shows ten storeys of the own façade texture, four white stair towers above the roof on the street side,
-      four glass porches with a flat roof and a door leaf, on the OSM footprint; no Street View or geo.admin pixels anywhere.
-- [ ] `bodenacker6.js` exports the contract above; node tests green; the real ring yields four towers.
+- [ ] The block shows ten storeys of the own façade texture, four glass entrance porches (the OSM projections: glass sides, flat
+      roof, a door leaf facing the street), a white windowless housing above the roof behind each porch, and flush recessed-loggia
+      tiles on the back side, on the OSM footprint; no Street View or geo.admin pixels anywhere.
+- [ ] `bodenacker6.js` exports the contract above; node tests green; the real ring yields four porches.
 - [ ] Other buildings' colours unchanged (no new `rr()` draw before `osmBuilding` returns for this block).
-- [ ] Collisions: car and walker are blocked by the body, the towers and the porches as before (ring OBB + porch OBBs).
+- [ ] Collisions: car and walker are blocked by the body and the porches as before (ring OBB).
 - [ ] Playwright check green; `test_row_houses.py` and `test_building_collision.py` still green.
 - [ ] CHANGELOG entry in player voice, naming only the address; nothing personal in code, tests, commits or the issue.
 
 ## Assumptions
 
 - **A1** [high] Height = the world's measured `h` (25.3 m) with `storeys = 10` as data; no second height source.
-- **A2** [med] The four OSM projections are the stair towers; the porches are added in front of them (Q2).
-- **A3** [med] Tower rise above the roof slab 2.6 m, flat (Q1).
-- **A4** [med] Porch 4.0 × 3.0 × 3.0 m, door in the street-facing pane, centred (Q2).
-- **A5** [low] House order along the block north → south = 6a → 6d (Q3). One constant; #411 keys on `'6c'` through it.
-- **A6** [high] Same façade tile on all sides; towers plain on all faces (Q4).
-- **A7** [high] Picked by OSM id; the twin block 1a–1d stays generic (Q6).
+- **A2** [high] The four OSM projections are the glass entrance porches (confirmed 2026-10-21); the stair halls lie in the body
+  directly behind each porch.
+- **A3** [med] A white windowless roof-top stair/lift housing rises 2.6 m above the roof slab behind each porch, flat (Q1, still open).
+- **A4** [high] Porch height 3.0 m, door leaf in the street-facing (+v) pane, centred (door side confirmed 2026-10-21).
+- **A5** [high] House order along the block north → south = 6a → 6d (confirmed); one constant, #411 keys on `'6c'` through it.
+- **A6** [high] Street side and ends: window tile; back (west) side: recessed-loggia tile, flush (confirmed 2026-10-21).
+- **A7** [high] Picked by OSM id; the twin block 1a–1d stays generic (Q3).
+- **A8** [high] Painted own tile, no photos (default kept).
 
 ## Open questions for the maintainer
 
-1. **Tower rise:** how far do the stair towers rise above the roof (≈ one storey assumed)? map.geo.admin.ch 3D shows the
-   roof heights per part on click; or an own photo.
-2. **Projections:** are the four 2.4 × 3 m bumps in the footprint the stair towers (assumed) or the porches themselves?
-   And is the porch door on the street-facing pane (assumed) or on a side pane?
-3. **House order:** which end is 6a — the north end near the main street (assumed) or the south end? map.geo.admin's
-   address layer answers it; it decides which porch #411 marks as 6c.
-4. **Back side:** same window grid on the west façade (assumed), or balconies there? A parapet rim above the roof slab
-   (not assumed: the 0.5 m white band is under the slab, so the roof edge stays walkable for #411)?
-5. **Own photos:** will the maintainer provide rectified photos for the texture, or is the painted tile the deliverable?
-   Both keep the same 4.0 × 2.53 m module.
-6. **Twin block 1a–1d** (`171822635`, the same plan type by its outline, measured `h` 11.8): out of scope here; worth its
+1. **Roof-top housing:** is there a stair/lift housing above the roof behind each porch, and how far does it rise (≈ one storey,
+   2.6 m assumed)? map.geo.admin.ch 3D shows the roof heights per part on click; or an own photo. If there is none, set
+   `housingRise` to 0 and nothing else changes.
+2. **Parapet rim:** a rim above the roof slab? (Default: no; the 0.5 m white band is under the slab, so the roof edge stays walkable for #411.)
+3. **Twin block 1a–1d** (`171822635`, the same plan type by its outline, measured `h` 11.8): out of scope here; worth its
    own issue if the maintainer wants it to match.
+
+Resolved 2026-10-21: projections are the glass porches; porch door at the front; 6a at the north end; back side has flush recessed
+loggias; painted tile kept (no photos).
