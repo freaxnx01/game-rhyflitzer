@@ -1,0 +1,6 @@
+„RMS Titanic" by Union (Sketchfab), CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/):
+https://sketchfab.com/3d-models/rms-titanic-f0a6aa63294f45a2bf330c28502b2b67
+
+titanic.glb in this folder is a modified copy: decimated (about 590k to 316k triangles, kept whole where thinning opened holes in the hull plating), vertex normals dropped (the game shades it flat),
+the line geometry removed, meshes merged per material, and compressed (meshopt); the textures are unchanged. The game credits it in the
+F1 help, README.md and CHANGELOG.md.

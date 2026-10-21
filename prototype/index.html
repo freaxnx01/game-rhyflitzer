@@ -290,7 +290,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     </div>
     <div id="helpnone" hidden data-i18n="helpNone">No key matches</div>
     <small data-i18n="creditEiffel" style="display:block;margin-top:8px;color:var(--steel-l)"></small>
-    <small data-i18n="creditAtomium" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
+    <small data-i18n="creditAtomium" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
+    <small data-i18n="creditTitanic" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
   <div id="jump" hidden><div id="jumptitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small id="jumphint">type to search · ↑↓ choose · Enter confirms · Esc closes</small></div>
   <div id="bl">
     <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer" data-i18n-aria="speedoAria">
@@ -481,7 +482,7 @@ import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chape
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
-import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
+import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
 import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout } from './rooms.js';
@@ -2495,18 +2496,20 @@ function attachModel(k) { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeho
 // scaled to EIFFEL.h and stood on the room's floor, and the placeholder goes. Offline or blocked, the placeholder stays.
 // #355: the same loader serves every room's model (ROOMS[k].object.url): the Eiffel Tower is repainted in one brown material and scaled
 // to its height; the Atomium keeps its own textured materials and is placed life size by its anchor (axis + ground, measured in the file).
+// #422: the Titanic's file has no normals (smaller, and welded so it could be simplified): flat shading takes them from the screen-space derivatives.
 async function loadModel(k) {
-  const O = ROOMS[k].object, E = modelState(k), name = k === 0 ? 'Eiffel Tower' : 'Atomium'; E.started = true;
+  const O = ROOMS[k].object, E = modelState(k), name = ROOMS[k].name; E.started = true;
   console.info(`Loading the ${name} model from`, O.url);
   try {
     const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
     const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
     const gltf = await loader.loadAsync(O.url), root = gltf.scene, mat = O.colour !== undefined ? new THREE.MeshStandardMaterial({ color: O.colour, roughness: O.roughness, metalness: O.metalness }) : null;
     let tris = 0;
-    root.traverse(o => { if (!o.isMesh) return; if (mat) o.material = mat; o.castShadow = o.receiveShadow = false; o.userData.role = O.key || 'eiffel'; if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+    root.traverse(o => { if (!o.isMesh) return; if (mat) o.material = mat; if (O.flat) o.material.flatShading = true; o.castShadow = o.receiveShadow = false; o.userData.role = O.key || 'eiffel'; if (!O.flat && !o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
     const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), { x: cx, z: cz } = ROOM.layouts[k].tower, fl = ROOM.layouts[k].y;
     const s = O.scale || O.h / size.y, [ax, ay, az] = O.anchor || [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2];
-    root.scale.setScalar(s); root.position.set(cx - s * ax, fl - s * ay, cz - s * az);
+    const v = ROOM.layouts[k].frame.v, th = O.alongV ? -Math.atan2(v[1], v[0]) : 0;   // #422: a ship's long axis (model x) lies along the room's cross axis; the anchor turns with it
+    root.scale.setScalar(s); root.rotation.y = th; root.position.set(cx - s * (ax * Math.cos(th) + az * Math.sin(th)), fl - s * ay, cz - s * (-ax * Math.sin(th) + az * Math.cos(th)));
     ROOM.models[k] = root;
     Object.assign(E, { tris, height: O.anchor ? O.h : size.y * s, base: Math.max(size.x, size.z) * s, material: mat ? '#' + mat.color.getHexString() : null });
     if (ROOM.built === k) attachModel(k);
@@ -2524,6 +2527,7 @@ function eiffelFootprints() {
 }
 window.__mm.eiffel = () => ROOM.states[0] ? { ...ROOM.states[0], feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
 window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.feet, footHw: ATOMIUM.footHw } : null;   // #355
+window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length } : null;   // #422
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
 // #277 / #361: the drive-through freight lift. LIFT_RIDE is the lift.js state machine driven by the car in the cabin; the

@@ -1,9 +1,9 @@
 // #277 / #361: the room template -- pure layout (no three.js, no DOM): a 500 x 500 m lawn at ROOM_Y under the Hübel, facing
 // along its own spoke, the object (if any) in its centre, a closed ring of trees at the edge with a gap only at the
 // portal, gravel paths, and the tunnel stub leading back to the portal. Eight rooms share this template (ROOMS); only the
-// Eiffel room (room 0) and the Atomium room (room 1) have an object today. index.html builds the meshes from a room's layout the first time its spoke is
+// Eiffel, Atomium (room 1) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test prototype/tests/rooms.test.mjs`.
-import { EIFFEL, ATOMIUM } from './hideout.js';
+import { EIFFEL, ATOMIUM, TITANIC } from './hideout.js';
 import { BELOW_Y, SPOKE, spokeFrame } from './underground.js';
 
 export const ROOM_Y = BELOW_Y, ROOM_HALF = 250;
@@ -11,7 +11,7 @@ const TREE_ROWS = [6, 12], TREE_STEP = 4;   // rows at ROOM_HALF - 6 and - 12 fr
 const GAP = SPOKE.hw + 1;   // the portal gap left in the near tree-ring edge and its wall strip
 const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };   // small LCG, deterministic
 
-// #361: eight rooms, star-shaped round the ring; only the Eiffel and Atomium rooms have their object and name today (#355 was the Atomium; the rest follow,
+// #361: eight rooms, star-shaped round the ring; only the Eiffel, Atomium and Titanic rooms have their object and name today (#355 was the Atomium, #422 the Titanic; the rest follow,
 // one issue per landmark) -- an empty room's spoke stays unsigned (spokeSigns in underground.js) so it raises no expectations.
 export const ROOMS = [
   { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL, signed: false },   // signed: false -- unsigned for now, so finding them stays a surprise
@@ -21,9 +21,22 @@ export const ROOMS = [
   { id: 'room4', name: null, object: null },
   { id: 'room5', name: null, object: null },
   { id: 'room6', name: null, object: null },
-  { id: 'room7', name: null, object: null },
+  { id: 'room7', name: 'Titanic', object: TITANIC, signed: false },
 ];
+// #422: the free rooms in the order new objects take them -- from the lift outwards, left and right in turn. The lift's exit meets
+// the ring between spoke 7 (front left) and spoke 0 (front right, the Eiffel); 1 (the Atomium) follows on the right, so the Titanic
+// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift.
+export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
 export const isRoomLevel = (id) => ROOMS.some(r => r.id === id);
+
+// #422: the gravel lane round a ship's hull -- a closed stadium (two straights, two half circles), 25 m off the widest beam; w = its half width
+function stadium(obj, loc) {
+  const w = Math.max(...obj.hull.map(s => s[2])) + 25, c = obj.length / 2 + 30 - w, pts = [];
+  for (let i = 0; i <= 16; i++) { const p = i / 16 * Math.PI; pts.push(loc(w * Math.cos(p), c + w * Math.sin(p))); }
+  for (let i = 0; i <= 16; i++) { const p = Math.PI + i / 16 * Math.PI; pts.push(loc(w * Math.cos(p), -c + w * Math.sin(p))); }
+  pts.push(pts[0]);
+  return { pts, w };
+}
 
 export function roomLayout(k, room = ROOMS[k]) {
   const sp = spokeFrame(k), f = sp.u, v = sp.v, P = sp.end;
@@ -49,6 +62,11 @@ export function roomLayout(k, room = ROOMS[k]) {
     ? room.object.feet.map(([fx, fz, hw = room.object.footHw]) => ({ x: cx + fx, z: cz + fz, hw, hd: hw, c: 1, s: 0, h: ROOM_Y + room.object.footH }))
     : [];
   colliders.push(...feet);
+  // #422: a ship lies along the room's cross axis; its hull is a row of boxes (centre along the ship, half length, half width), solid up to hullH
+  const hull = (room.object && room.object.hull)
+    ? room.object.hull.map(([along, hl, hwAcross]) => ({ ...box(0, along, hwAcross, hl), h: ROOM_Y + room.object.hullH }))
+    : [];
+  colliders.push(...hull);
   // two rows of trees all the way round the square (Chebyshev distance from the centre), jittered along and across the row,
   // with a gap left near the portal so the tunnel opens into the lawn
   const rand = rng(277), trees = [];
@@ -61,9 +79,11 @@ export function roomLayout(k, room = ROOMS[k]) {
       trees.push([...loc(x, z), 9 + rand() * 6]);
     }
   }
-  // gravel: portal -> centre loop, and the loop round the centre (radius 95 m, outside the feet)
-  const loop = Array.from({ length: 33 }, (_, i) => [cx + Math.cos(i / 32 * 2 * Math.PI) * 95, cz + Math.sin(i / 32 * 2 * Math.PI) * 95]);
-  const start = at(10, 0), end = [cx - f[0] * 95, cz - f[1] * 95], paths = [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];
+  // gravel: portal -> centre loop, and the loop round the centre (radius 95 m, outside the feet); a ship gets a stadium round its hull instead
+  const dock = room.object && room.object.hull ? stadium(room.object, loc) : null;
+  const loop = dock ? dock.pts : Array.from({ length: 33 }, (_, i) => [cx + Math.cos(i / 32 * 2 * Math.PI) * 95, cz + Math.sin(i / 32 * 2 * Math.PI) * 95]);
+  const reachA = dock ? dock.w : 95;
+  const start = at(10, 0), end = [cx - f[0] * reachA, cz - f[1] * reachA], paths = [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];
   const view = [cx - f[0] * 150, cz - f[1] * 150];
   return {
     id: room.id, k, y: ROOM_Y, half: ROOM_HALF, centre, frame: { f, v }, groundAt: () => ROOM_Y,
@@ -71,7 +91,7 @@ export function roomLayout(k, room = ROOMS[k]) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? ROOM_Y + SPOKE.ceiling : null;
     },
-    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, colliders, trees, paths,
+    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, colliders, trees, paths,
     portal: { c: P, th: Math.atan2(f[1], f[0]), hw: SPOKE.hw, h: SPOKE.ceiling },
     spawn: { x: at(20, 0)[0], z: at(20, 0)[1], th: Math.atan2(f[1], f[0]) },
     towerView: room.object ? { x: view[0], z: view[1], th: Math.atan2(f[1], f[0]) } : null,

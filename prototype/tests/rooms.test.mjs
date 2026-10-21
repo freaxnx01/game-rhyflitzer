@@ -1,8 +1,8 @@
 // #277 / #361: the room template -- pure. node --test prototype/tests/rooms.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel } from '../rooms.js';
-import { EIFFEL, ATOMIUM } from '../hideout.js';
+import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel, NEXT_ROOMS } from '../rooms.js';
+import { EIFFEL, ATOMIUM, TITANIC, LIFT } from '../hideout.js';
 import { SPOKE, spokeFrame, spokeSigns } from '../underground.js';
 
 const CAR_R = 2.6, rooms = ROOMS.map((_, k) => roomLayout(k)), room = rooms[0];
@@ -16,12 +16,22 @@ const reach = (R, step = 4) => {   // flood fill in the room's frame from the sp
   return { seen, step };
 };
 
-test('ROOMS_EightRooms_OnlyTheEiffelAndTheAtomiumHaveAnObject', () => {
+test('ROOMS_EightRooms_OnlyTheEiffelAtomiumAndTitanicHaveAnObject', () => {
   assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'atomium', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
   assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel');
   assert.equal(ROOMS[1].object, ATOMIUM); assert.equal(ROOMS[1].name, 'Atomium');
-  for (const r of ROOMS.slice(2)) { assert.equal(r.object, null); assert.equal(r.name, null); }
+  assert.equal(ROOMS[7].object, TITANIC); assert.equal(ROOMS[7].name, 'Titanic'); assert.equal(ROOMS[7].signed, false);
+  for (const r of ROOMS.slice(2, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }
   assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
+});
+
+test('NEXT_ROOMS_NewObjectsFillFromTheLiftOutwards_LeftAndRightInTurn', () => {
+  const off = (k) => { const d = spokeFrame(k).a - LIFT.th; return Math.atan2(Math.sin(d), Math.cos(d)); };   // signed angle off the lift's exit
+  assert.deepEqual([...NEXT_ROOMS].sort(), [2, 3, 4, 5, 6, 7]);
+  for (const side of [-1, 1]) { const d = NEXT_ROOMS.filter(k => Math.sign(off(k)) === side).map(k => Math.abs(off(k))); assert.deepEqual(d, [...d].sort((x, y) => x - y), 'each side fills outwards'); }
+  for (let i = 1; i < NEXT_ROOMS.length - 1; i++) assert.notEqual(Math.sign(off(NEXT_ROOMS[i])), Math.sign(off(NEXT_ROOMS[i - 1])), 'the sides alternate');
+  const used = ROOMS.flatMap((r, k) => r.object ? [k] : []), taken = used.filter(k => k > 1);
+  assert.deepEqual(taken, [...NEXT_ROOMS.slice(0, taken.length)].sort(), 'the objects beyond Eiffel and Atomium sit in the first NEXT_ROOMS');
 });
 
 test('spokeSigns_TheRealRooms_AreKeptAsASurpriseForNow', () => {
@@ -40,7 +50,7 @@ test('roomLayout_FloorIs600mDown500mSquare_PortalAtTheSpokesEnd', () => {
 test('roomLayout_TheEiffelTowerIsCentredWithLegCollidersOnTheFeet_EmptyRoomsHaveNone', () => {
   assert.deepEqual([room.tower.x, room.tower.z], room.centre); assert.equal(room.feet.length, 4);
   EIFFEL.feet.forEach(([fx, fz], i) => { assert.equal(room.feet[i].x, room.tower.x + fx); assert.equal(room.feet[i].z, room.tower.z + fz); assert.equal(room.feet[i].hw, EIFFEL.footHw); assert.ok(blocked(room, room.feet[i].x, room.feet[i].z, 0)); });
-  for (const R of rooms.slice(2)) { assert.equal(R.tower, null); assert.deepEqual(R.feet, []); assert.equal(R.towerView, null); assert.ok(!blocked(R, ...R.centre)); }
+  for (const R of rooms.filter(r => !r.object)) { assert.equal(R.tower, null); assert.deepEqual(R.feet, []); assert.equal(R.towerView, null); assert.ok(!blocked(R, ...R.centre)); }
 });
 
 test('roomLayout_SpaceUnderTheTowerIsDrivable_AndReachableFromThePortal', () => {
@@ -49,7 +59,7 @@ test('roomLayout_SpaceUnderTheTowerIsDrivable_AndReachableFromThePortal', () => 
 });
 
 test('roomLayout_TheTreeRingIsClosed_TheOnlyWayOutIsThePortalTunnel', () => {
-  for (const R of [rooms[0], rooms[3]]) {
+  for (const R of [rooms[0], rooms[3], rooms[4]]) {
     const r = reach(R), lim = ROOM_HALF - 3;
     for (const k of r.seen) {
       const [i, j] = k.split(',').map(Number), a = i * r.step, b = j * r.step;
@@ -62,7 +72,7 @@ test('roomLayout_TheTreeRingIsClosed_TheOnlyWayOutIsThePortalTunnel', () => {
 });
 
 test('roomLayout_TreesStandInTwoClosedRows_WithAGapOnlyAtThePortal', () => {
-  for (const R of [rooms[0], rooms[5]]) {
+  for (const R of [rooms[0], rooms[3], rooms[5]]) {
     const local = R.trees.map(t => [...toLocal(R, t[0], t[1]), t[2]]), cheb = ([a, b]) => Math.max(Math.abs(a), Math.abs(b));
     assert.ok(R.trees.length > 600); for (const t of local) { assert.ok(cheb(t) > ROOM_HALF - 16 && cheb(t) < ROOM_HALF - 2); assert.ok(t[2] >= 8 && t[2] <= 15); }
     const edge = (sel, along) => local.filter(sel).map(along).sort((p, q) => p - q), gaps = (xs) => xs.slice(1).map((x, i) => [x - xs[i], x]);
@@ -73,7 +83,7 @@ test('roomLayout_TreesStandInTwoClosedRows_WithAGapOnlyAtThePortal', () => {
 });
 
 test('roomLayout_PathsRunFromThePortalToTheCentreAndAroundIt_SpawnFacesIn', () => {
-  for (const R of [rooms[0], rooms[2]]) {
+  for (const R of [rooms[0], rooms[2], rooms[3]]) {
     assert.equal(R.paths.length, 2); const [toCentre, loop] = R.paths;
     assert.ok(Math.hypot(toCentre.pts[0][0] - R.portal.c[0], toCentre.pts[0][1] - R.portal.c[1]) < 25, 'starts at the portal');
     const end = toCentre.pts[toCentre.pts.length - 1]; assert.ok(Math.hypot(end[0] - R.centre[0], end[1] - R.centre[1]) < 120);
@@ -113,4 +123,36 @@ test('roomLayout_BetweenTheAtomiumsLegsIsDrivable_AndReachableFromThePortal', ()
 test('roomLayout_TheAtomiumsTowerViewLooksAtItFromTheLawn', () => {
   const v = atomium.towerView, d = Math.hypot(atomium.tower.x - v.x, atomium.tower.z - v.z); assert.ok(d > 120 && d < 180, `${d}`);
   assert.ok(Math.abs(Math.atan2(atomium.tower.z - v.z, atomium.tower.x - v.x) - v.th) < 0.02); assert.ok(!blocked(atomium, v.x, v.z));
+});
+
+const titanic = rooms[7];
+test('roomLayout_TheTitanicIsCentredAndLifeSize_WithTwelveHullSectionsAlongTheCrossAxis', () => {
+  assert.deepEqual([titanic.tower.x, titanic.tower.z], titanic.centre); assert.equal(titanic.hull.length, TITANIC.hull.length); assert.deepEqual(titanic.feet, []);
+  assert.equal(TITANIC.length, 269, 'the real ship is 269 m'); assert.ok(TITANIC.h > 60 && TITANIC.h < 80, 'keel to masthead, the real one is about 73 m');
+  const ends = TITANIC.hull.map(([a, hl]) => [a - hl, a + hl]).flat(); assert.ok(Math.abs(Math.min(...ends) + 134.5) < 1 && Math.abs(Math.max(...ends) - 134.5) < 1, 'the sections span the whole length');
+  for (const [i, [along, , hw]] of TITANIC.hull.entries()) {
+    const [x, z] = toWorld(titanic, 0, along), c = titanic.hull[i];
+    assert.ok(Math.abs(c.x - x) < 1e-6 && Math.abs(c.z - z) < 1e-6); assert.equal(c.h, ROOM_Y + TITANIC.hullH);
+    assert.ok(blocked(titanic, x, z, 0)); assert.ok(blocked(titanic, ...toWorld(titanic, hw - 1, along), 0), 'the beam is solid'); assert.ok(!blocked(titanic, ...toWorld(titanic, hw + CAR_R + 1, along)), 'open beside it');
+  }
+});
+
+test('roomLayout_TheTitanicsHullIsSolid_TheCarDrivesRoundIt_AndReachesBothSides', () => {
+  assert.ok(blocked(titanic, ...titanic.centre)); assert.ok(blocked(titanic, ...toWorld(titanic, 0, 130)), 'near the bow or stern');
+  assert.ok(!blocked(titanic, ...toWorld(titanic, 0, 150)), 'past the end is open');
+  const r = reach(titanic), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
+  assert.ok(!cell(0, 0) && cell(-40, 0) && cell(40, 0) && cell(0, 160) && cell(0, -160), 'both sides and both ends are reachable'); assert.ok(r.seen.size > 4000);
+});
+
+test('roomLayout_TheTitanicsGravelLaneRoundsTheHullWithoutCrossingIt', () => {
+  const [toShip, lane] = titanic.paths;
+  for (const [x, z] of lane.pts) assert.ok(!blocked(titanic, x, z), `the lane runs into the hull at ${x},${z}`);
+  for (const [x, z] of toShip.pts) assert.ok(!blocked(titanic, x, z), 'the way from the portal is free');
+  const [a] = toLocal(titanic, ...toShip.pts[toShip.pts.length - 1]), laneA = lane.pts.map(p => toLocal(titanic, ...p)[0]);
+  assert.ok(Math.abs(a + Math.max(...laneA)) < 1, 'the way ends on the lane');
+  const bs = lane.pts.map(p => toLocal(titanic, ...p)[1]); assert.ok(Math.max(...bs) > TITANIC.length / 2 && Math.max(...bs) < ROOM_HALF - 30, 'the lane goes round both ends, inside the trees');
+});
+
+test('roomLayout_TheTitanicsTowerViewLooksAtItBroadsideFromTheLawn', () => {
+  const v = titanic.towerView, d = Math.hypot(titanic.tower.x - v.x, titanic.tower.z - v.z); assert.ok(d > 120 && d < 180, `${d}`); assert.ok(!blocked(titanic, v.x, v.z));
 });
