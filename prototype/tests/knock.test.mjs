@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KNOCKABLE, knockAction, touches, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER } from '../knock.js';
+import { KINDS, KNOCKABLE, knockAction, touches, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER } from '../knock.js';
 
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
 
@@ -82,14 +82,44 @@ test('cloth: thrown up, flutters down slowly (terminal speed), lies flat', () =>
   assert.ok(t > 1.5, 'stays in the air for a while: ' + t);
 });
 
+test('cloth (#427): from the container top it is down in about 2-3.5 s, whatever the throw', () => {
+  for (const r of [0, 0.5, 0.999]) {
+    const c = newCloth({}, 0, 1.4, 0, 'sock', () => r); let t = 0, top = 0;
+    for (; !c.rest && t < 30; t += 1 / 60) { stepCloth(c, 1 / 60, 0); top = Math.max(top, c.y); }
+    assert.ok(c.rest && t >= 1.8 && t <= 3.5, 'airborne ' + t + ' s at rng ' + r);
+    assert.ok(top < 3.5, 'rises less than 2.1 m above the start: ' + top);
+  }
+});
+
+test('lying props (#428): solid for the car, shoved along its direction by its speed, then settle again', () => {
+  const b = { kind: 'bin', x: 10, y: 0.25, z: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, rz: 1.57, wx: 0, wy: 0, wz: 0, rest: true, t: 5, bounces: 3 };
+  assert.ok(shovable(b) && !shovable({ ...b, rest: false, vy: 3 }) && !shovable({ ...b, bend: true }));
+  assert.ok(touchesLying('bin', b, { x: 9, y: 0.3, z: 0, r: 1.0 }), 'touches');
+  assert.ok(!touchesLying('bin', b, { x: 7, y: 0.3, z: 0, r: 1.0 }), 'too far');
+  assert.ok(!touchesLying('bin', b, { x: 9.5, y: 3, z: 0, r: 1.0 }), 'flown over');
+  assert.equal(shove('bin', b, { vx: 0.2, vz: 0 }), false, 'too slow: leaned against'); assert.ok(b.rest);
+  assert.equal(shove('bin', b, { vx: 8, vz: 0 }, () => 0.5), true, 'fresh shove from rest');
+  assert.ok(!b.rest && b.vx > 5 && Math.abs(b.vz) < 1e-9);
+  const slow = { ...b, vx: 0, vz: 0, rest: true }; shove('bin', slow, { vx: 3, vz: 0 }, () => 0.5);
+  assert.ok(slow.vx < b.vx, 'scales with the car speed');
+  assert.equal(shove('bin', b, { vx: 8, vz: 0 }, () => 0.5), false, 'already sliding: no new scrape');
+  const x0 = b.x; let n = 0; while (!b.rest && n++ < 600) stepBody(b, 1 / 60, 0);
+  assert.ok(b.rest && b.x > x0 + 0.5 && b.x < x0 + 6, 'slid a little and settled: ' + (b.x - x0));
+  assert.ok(lyingR('bench') >= lyingR('bin') && SHOVE_MIN > 0);
+});
+
 test('soundPlan: every recipe has events, gains scale with the level, times stay short', () => {
-  for (const s of ['clatter', 'wood', 'clang', 'lamp', 'glass', 'clothes', 'hydrant']) {
+  for (const s of ['clatter', 'wood', 'clang', 'lamp', 'glass', 'clink', 'scrape', 'clothes', 'hydrant']) {
     const loud = soundPlan(s, 1, seq(0.5)), soft = soundPlan(s, 0.3, seq(0.5));
     assert.ok(loud.length >= 3, s);
     assert.ok(Math.max(...loud.map(e => e.gain)) <= 1 && Math.max(...loud.map(e => e.t + e.dur)) < 2.5, s);
     assert.ok(Math.max(...soft.map(e => e.gain)) < Math.max(...loud.map(e => e.gain)), s);
     assert.ok(loud.every(e => (e.noise || e.tone) && e.dur > 0 && e.gain > 0), s);
   }
+  const g = soundPlan('glass', 1, seq(0.5, 0.2, 0.8)), end = Math.max(...g.map(e => e.t + e.dur));
+  assert.ok(g.length >= 60 && end > 0.8 && end < 1.6, 'glass: rich and about a second: ' + g.length + ' events, ' + end + ' s');
+  assert.ok(g.filter(e => e.noise && e.noise.freq >= 3500 && e.dur >= 0.2).length >= 3, 'glass: several bright shatter bursts');
+  assert.ok(soundPlan('clink', 1, seq(0.5)).filter(e => e.tone && e.tone.f0 > 2000).length >= 8, 'clink: tinkling bottles');
   assert.deepEqual(soundPlan('nothing', 1), []);
   assert.ok(hissPlan(9).every(e => e.dur === 9 && e.noise));
   assert.ok(soundLevel(2) < soundLevel(20) && soundLevel(100) === 1);
