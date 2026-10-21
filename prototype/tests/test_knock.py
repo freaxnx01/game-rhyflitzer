@@ -127,3 +127,30 @@ def test_hydrant_and_lamp_colliders_come_back_with_the_props(server):
         page.evaluate("([x, z]) => window.__mm.sim(x - 3, z, 0, 0.8, 2.5, [])", [t["x"], t["z"]])
         assert page.evaluate("() => window.__mm.car().x") < t["x"]   # solid again below the knock speed
         b.close()
+
+
+@needs_world
+def test_yard_has_a_concrete_ground_and_a_lying_prop_is_shoved_not_driven_through(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        g = page.evaluate("() => window.__mm.counts.yardGround")   # #426: one slab over the whole rectangle, a few cm over the terrain
+        assert g and g["cells"] >= 100 and 0.02 <= g["lift"] <= 0.08 and g["length"] == 110 and g["width"] == 44
+        jump_to_yard(page)
+
+        # knock a bench over and let it settle (#428)
+        hit(page, "bench", 30)
+        page.evaluate("() => window.__mm.knockSim(12)")
+        lying = [q for q in page.evaluate("() => window.__mm.knockProps('bench')") if q["yard"] and q["hit"]][0]
+        assert page.evaluate("() => window.__mm.knock().resting") == 1
+        count = page.evaluate("() => window.__mm.knock().count")
+        before = lying["at"]
+
+        # drive into it from 4 m away: the car does not pass through, the prop moves along, and nothing is knocked again
+        car = page.evaluate("([x, z]) => { const r = window.__mm.sim(x - 4, z, 0, 6, 0.6, [], null, true); window.__mm.place(r.x, r.z); return r; }", [before["x"], before["z"]])   # park the car so the live loop does not keep driving
+        page.evaluate("() => window.__mm.knockSim(4)")
+        after = [q for q in page.evaluate("() => window.__mm.knockProps('bench')") if q["yard"] and q["hit"]][0]["at"]
+        assert after["x"] > before["x"] + 0.3, "shoved along the car's direction"
+        assert car["x"] < after["x"] + 0.2, "the car did not drive past the lying prop"
+        k = page.evaluate("() => window.__mm.knock()")
+        assert k["count"] == count and k["resting"] == 1, "no new knock, it settles again"
+        b.close()

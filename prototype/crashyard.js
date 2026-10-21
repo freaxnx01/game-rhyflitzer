@@ -19,11 +19,11 @@ export function yardStart(y = CRASH_YARD) { return { x: y.x0 + 6, z: yardCentreZ
 // the J dialog's point: the middle of the rows
 export const yardEntryPoint = (y = CRASH_YARD) => [y.x0 + y.runUp + (KIND_ORDER.length * y.rowGap) / 2, yardCentreZ(y)];
 
-// one row per kind across the lane; benches and racks lie across it so the car meets the broad side
+// one row per kind across the lane; benches, racks and glass containers lie across it so the car meets the broad side
 export function yardProps(y = CRASH_YARD) {
   const out = [], zc = yardCentreZ(y), mid = (y.perRow - 1) / 2;
   KIND_ORDER.forEach((kind, r) => {
-    for (let i = 0; i < y.perRow; i++) out.push({ kind, x: y.x0 + y.runUp + r * y.rowGap, z: +(zc + (i - mid) * y.spacing).toFixed(1), rot: kind === 'bench' || kind === 'bike_rack' ? +(Math.PI / 2).toFixed(2) : 0 });
+    for (let i = 0; i < y.perRow; i++) out.push({ kind, x: y.x0 + y.runUp + r * y.rowGap, z: +(zc + (i - mid) * y.spacing).toFixed(1), rot: kind === 'bench' || kind === 'bike_rack' || kind === 'glass_container' ? +(Math.PI / 2).toFixed(2) : 0 });
   });
   return out;
 }

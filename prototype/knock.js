@@ -18,7 +18,7 @@ export const KINDS = {
   robidog:           { r: 0.35, h: 1.3, th: 0.25, push: 1.0, up: 4.5, slow: 0.02, sound: 'clatter', long: false },
   bench:             { r: 0.75, h: 0.9, th: 0.3, push: 0.75, up: 3.5, slow: 0.05, sound: 'wood', long: true },
   bike_rack:         { r: 1.0, h: 0.6, th: 0.3, push: 0.8, up: 3.5, slow: 0.04, sound: 'clang', long: true },
-  glass_container:   { r: 1.0, h: 1.6, th: 0.75, push: 0.55, up: 4.5, slow: 0.08, sound: 'glass', long: false },
+  glass_container:   { r: 1.1, h: 1.25, th: 0.5, push: 0.55, up: 4.5, slow: 0.08, sound: 'glass', long: true },   // #429: three compartments in a row, 3.3 x 1 m
   clothes_container: { r: 0.9, h: 2.0, th: 0.6, push: 0.55, up: 4.5, slow: 0.08, sound: 'clothes', long: false },
   hydrant:           { r: 0.4, h: 0.9, th: 0.13, push: 1.0, up: 5.5, slow: 0.03, sound: 'hydrant', long: false },
   lamp:              { r: 0.3, h: 6.0, th: 0.08, push: 0, up: 0, slow: 0.12, sound: 'lamp', long: false },
@@ -39,6 +39,26 @@ export function knockAction(kind, speed) {
 export function touches(kind, px, pz, groundY, car) {
   const k = KINDS[kind], dx = car.x - px, dz = car.z - pz, r = car.r + k.r;
   return dx * dx + dz * dz < r * r && car.y < groundY + k.h;
+}
+
+// #428: a prop lying on the ground is still solid. Its footprint is a circle round its centre; the car shoves it along its own
+// direction (scaled by its speed) instead of driving through. Pure: returns true when the car circle touches the lying body.
+export const SHOVE_MIN = 0.5;   // m/s: slower than this the car just leans against it
+export const lyingR = (kind) => { const k = KINDS[kind]; return k.long ? k.r : Math.max(k.th, k.h * 0.4); };
+export function touchesLying(kind, b, car) {
+  const k = KINDS[kind], dx = car.x - b.x, dz = car.z - b.z, r = car.r + lyingR(kind);
+  return dx * dx + dz * dz < r * r && car.y < b.y + k.th;
+}
+// is the body down on the ground (lying still, or sliding along it) and so open to a shove?
+export const shovable = (b) => !b.bend && (b.rest || (b.vy === 0 && b.t > 0.5));
+// pushes the body along the car's velocity; wakes a resting one so stepBody slides and settles it. true when it was at rest (a fresh scrape)
+export function shove(kind, b, car, rng = Math.random) {
+  const k = KINDS[kind], speed = Math.hypot(car.vx, car.vz);
+  if (!(speed >= SHOVE_MIN)) return false;
+  const was = b.rest, s = speed * k.push * 0.9, ux = car.vx / speed, uz = car.vz / speed;
+  if (b.vx * ux + b.vz * uz < s) { b.vx = ux * s; b.vz = uz * s; }
+  b.wy = (rng() - 0.5) * 2 * Math.min(2, speed * 0.2); b.rest = false;
+  return was;
 }
 
 // ---------- spatial grid: cell -> list of prop indices; the query fills a reused array ----------
@@ -133,7 +153,7 @@ export const CLOTH_COLOURS = [0xe63946, 0xf4a261, 0xf9c74f, 0x90be6d, 0x43aa8b, 
 export function newCloth(c, x, y, z, type, rng = Math.random) {
   const a = rng() * Math.PI * 2, s = 1.5 + rng() * 4;
   c.type = type; c.on = true; c.rest = false; c.t = 0; c.phase = rng() * 6.28; c.color = CLOTH_COLOURS[Math.floor(rng() * CLOTH_COLOURS.length)];
-  c.x = x; c.y = y; c.z = z; c.vx = Math.cos(a) * s; c.vz = Math.sin(a) * s; c.vy = 6 + rng() * 6;
+  c.x = x; c.y = y; c.z = z; c.vx = Math.cos(a) * s; c.vz = Math.sin(a) * s; c.vy = 4 + rng() * 2.5;
   c.rx = rng() * 6.28; c.ry = rng() * 6.28; c.rz = rng() * 6.28; c.wx = (rng() - 0.5) * 9; c.wy = (rng() - 0.5) * 9; c.wz = (rng() - 0.5) * 9;
   return c;
 }
@@ -141,7 +161,7 @@ export function newCloth(c, x, y, z, type, rng = Math.random) {
 export function stepCloth(c, dt, gy) {
   if (!c.on || c.rest) return;
   c.t += dt;
-  c.vy -= 9 * dt; if (c.vy < -1.4) c.vy = -1.4;
+  c.vy -= 12 * dt; if (c.vy < -1.2) c.vy = -1.2;
   const drag = Math.exp(-1.6 * dt); c.vx *= drag; c.vz *= drag;
   c.x += (c.vx + Math.sin(c.t * 3.1 + c.phase) * 1.2) * dt; c.z += (c.vz + Math.cos(c.t * 2.7 + c.phase) * 1.2) * dt; c.y += c.vy * dt;
   c.rx += c.wx * dt; c.ry += c.wy * dt; c.rz += c.wz * dt;
@@ -177,10 +197,19 @@ export function soundPlan(sound, level, rng = Math.random) {
       ev.push(...bell(0, 190, 0.55 * v, 1.5), noiseEv(0, 0.08, 0.35 * v, 'bandpass', 900, 1.2), toneEv(0.55, 0.3, 0.3 * v, 120, 60), ...bell(0.62, 230, 0.2 * v, 0.7));
       break;
     }
-    case 'glass': {     // shatter: a burst, then a rain of splinters
-      ev.push(noiseEv(0, 0.18, 0.55 * v, 'highpass', 3500, 0.7));
-      for (let i = 0; i < 14; i++) { const t = 0.03 + rng() * 0.6; ev.push(toneEv(t, 0.08 + rng() * 0.08, (0.25 - t * 0.2) * v, 2500 + rng() * 3500, 2000 + rng() * 2000, 'sine'), noiseEv(t, 0.05, 0.12 * v, 'highpass', 5000, 1)); }
+    case 'glass': {     // shatter: three bright bursts, a rain of splinters and bottles clinking, over ~1 s (#430)
+      [[0, 0.55], [0.11, 0.4], [0.27, 0.3]].forEach(([t, g]) => ev.push(noiseEv(t, 0.2, g * v, 'highpass', 3500 + t * 4000, 0.7), toneEv(t, 0.09, g * 0.5 * v, 3200 + rng() * 2500, 2000 + rng() * 1500, 'sine')));
+      for (let i = 0; i < 22; i++) { const t = 0.03 + rng() * 0.85; ev.push(toneEv(t, 0.08 + rng() * 0.08, (0.25 - t * 0.2) * v, 2500 + rng() * 3500, 2000 + rng() * 2000, 'sine'), noiseEv(t, 0.05, 0.12 * v, 'highpass', 5000, 1)); }
+      for (let i = 0; i < 6; i++) ev.push(...bell(0.05 + i * 0.14 + rng() * 0.08, 1900 + rng() * 1700, (0.2 - i * 0.02) * v, 0.28));   // bottles clinking
       ev.push(toneEv(0, 0.1, 0.35 * v, 120, 60));
+      break;
+    }
+    case 'clink': {     // a tumbling glass container bouncing: a few bright bottle clinks (#430)
+      for (let i = 0; i < 4; i++) ev.push(...bell(i * 0.07 + rng() * 0.05, 2100 + rng() * 1800, (0.28 - i * 0.05) * v, 0.25), noiseEv(i * 0.07, 0.04, 0.1 * v, 'highpass', 6000, 1));
+      break;
+    }
+    case 'scrape': {    // a lying prop shoved over the ground: a dull scrape and a soft thud (#428)
+      ev.push(noiseEv(0, 0.3, 0.35 * v, 'lowpass', 600 + rng() * 300, 0.8), noiseEv(0.03, 0.2, 0.15 * v, 'bandpass', 1500, 1), toneEv(0, 0.12, 0.3 * v, 130, 60));
       break;
     }
     case 'clothes': {   // a soft thud and a whoosh of fabric
@@ -324,6 +353,10 @@ export function createKnock(deps) {
           }
         }
       }
+      for (let n = 0; n < active.length; n++) {   // #428: lying props near the car are solid: shoved along, never knocked again
+        const a = active[n], b = a.hit; if (!c || !b || !shovable(b) || Math.abs(b.x - c.x) > 4 || Math.abs(b.z - c.z) > 4) continue;
+        if (touchesLying(a.kind, b, c) && shove(a.kind, b, c, rng)) { play('scrape', soundLevel(Math.hypot(c.vx, c.vz)) * 0.5); slow = Math.max(slow, KINDS[a.kind].slow * 0.5); }
+      }
       return slow;
     },
     animate(dt) {
@@ -332,7 +365,7 @@ export function createKnock(deps) {
         const a = active[n], b = a.hit; if (!b) { active.splice(n, 1); continue; }
         a.age += dt;
         if (b.bend) { if (!b.done) { b.t += dt; writeBend(a); if (b.t > 1.1) b.done = true; } }
-        else if (!b.rest) { if (stepBody(b, dt, terrainH(b.x, b.z))) play(KINDS[a.kind].sound === 'glass' ? 'clatter' : KINDS[a.kind].sound === 'clothes' ? 'clothes' : 'wood', soundLevel(Math.min(10, -b.vy)) * 0.5); writeBody(a); }
+        else if (!b.rest) { if (stepBody(b, dt, terrainH(b.x, b.z))) play(KINDS[a.kind].sound === 'glass' ? 'clink' : KINDS[a.kind].sound === 'clothes' ? 'clothes' : 'wood', soundLevel(Math.min(10, -b.vy)) * 0.5); writeBody(a); }
         if (restoreDue(a.age, Math.hypot(a.p.x - cx, a.p.z - cz))) { restore(a); active.splice(n, 1); }
       }
       this.fountainsAndCloth(dt);

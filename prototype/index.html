@@ -567,6 +567,7 @@ TEX.hall = makeTex(256, 256, (g, w, h) => { g.fillStyle = '#d2d6da'; g.fillRect(
 TEX.hallBand = makeTex(256, 256, (g, w, h) => { g.fillStyle = '#eef1f4'; g.fillRect(0, 0, w, h); g.fillStyle = '#e2e6ea'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 2, h); g.fillStyle = '#39424c'; for (let x = 12; x < w; x += 42) g.fillRect(x, 60, 26, 70); g.fillStyle = '#2b333c'; for (let x = 12; x < w; x += 42) g.fillRect(x, 60, 26, 4); g.fillStyle = '#1f5fae'; g.fillRect(0, h - 70, w, 26); g.fillStyle = '#17497f'; g.fillRect(0, h - 46, w, 3); });
 TEX.road = makeTex(512, 1024, (g, w, h) => { noise(g, w, h, '#57565a', 22, 2400); asphalt(g, w, h, 5, 4); g.fillStyle = '#e8e2c8'; g.fillRect(w / 2 - 8, 0, 16, 360); g.fillRect(w / 2 - 8, 512, 16, 360); g.fillRect(12, 0, 12, h); g.fillRect(w - 24, 0, 12, h); });
 TEX.roadPlain = makeTex(512, 512, (g, w, h) => { noise(g, w, h, '#57565a', 22, 1600); asphalt(g, w, h, 4, 4); });
+TEX.concrete = makeTex(256, 256, (g, w, h) => { noise(g, w, h, '#b6b6b1', 12, 2600); g.strokeStyle = 'rgba(90,90,90,.10)'; g.lineWidth = 1; g.strokeRect(0, 0, w, h); });   // #426: the Crash-Platz's slab, light grey, no markings (no rr beyond noise's own: the yard is OSM-path only)
 TEX.grass = makeTex(256, 256, (g, w, h) => noise(g, w, h, '#c9c9b6', 26, 3000));
 TEX.field = makeTex(256, 256, (g, w, h) => { noise(g, w, h, '#d4c9b2', 12, 800); g.fillStyle = 'rgba(90,70,40,.25)'; for (let y = 0; y < h; y += 12) g.fillRect(0, y, w, 4); });
 TEX.water = makeTex(512, 512, (g, w, h) => { noise(g, w, h, '#3f6f96', 16, 2500); g.strokeStyle = 'rgba(210,230,245,.28)'; g.lineWidth = 2; for (let i = 0; i < 160; i++) { const y = rr(0, h), x = rr(0, w), L = rr(20, 90); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + L / 2, y + rr(-4, 4), x + L, y); g.stroke(); } g.fillStyle = 'rgba(20,50,80,.25)'; for (let i = 0; i < 60; i++) g.fillRect(rr(0, w), rr(0, h), rr(30, 120), 2); });
@@ -1379,9 +1380,19 @@ function propGeometries() {
     }
     out.bike_rack = mergeGeometries(pieces, false);
   }
-  { // glass container: green box with a darker lid and two round throw-in openings, 1.5 x 1.5 x 1.6 m
-    const holes = [-0.35, 0.35].map(x => { const g = new THREE.CylinderGeometry(0.17, 0.17, 0.12, 8); g.translate(x, 1.5, 0); return paint(g, '#15211a'); });
-    out.glass_container = mergeGeometries([slab(1.5, 1.4, 1.5, '#2f6d4a', 0, 0, 0), slab(1.56, 0.16, 1.56, '#245639', 0, 1.4, 0), ...holes], false);
+  { // #429 glass container (Altglas): three compartments in a row along +x for green, brown and clear glass, each 1 x 1 x 1 m with
+    // a darker lid, a round rubber-collared throw-in hole on top and a bottle symbol on both long sides, on a dark skid; 3.3 x 1 x 1.25 m
+    const pieces = [slab(3.3, 0.08, 1.0, DARK, 0, 0, 0)];
+    const flat = (g, x, y, z) => { g.scale(1, 1, 0.35); g.translate(x, y, z); return g; };   // a half-round relief standing proud of the face
+    const bottle = (x, z, c) => [paint(flat(new THREE.CylinderGeometry(0.1, 0.1, 0.34, 8), x, 0.5, z), c), paint(flat(new THREE.CylinderGeometry(0.045, 0.06, 0.16, 8), x, 0.75, z), c), paint(flat(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 8), x, 0.85, z), c)];
+    [['#2f7d3a', '#245c2c', '#f2f0e8'], ['#6e4a2a', '#4e331c', '#f2f0e8'], ['#e6e4dc', '#b9b7af', '#3a404b']].forEach(([body, lid, sign], i) => {
+      const x = (i - 1) * 1.1;
+      pieces.push(slab(1.0, 1.0, 1.0, body, x, 0.08, 0), slab(1.04, 0.1, 1.04, lid, x, 1.08, 0));
+      const collar = new THREE.CylinderGeometry(0.2, 0.2, 0.06, 10); collar.translate(x, 1.21, 0); pieces.push(paint(collar, '#2a2d33'));
+      const hole = new THREE.CylinderGeometry(0.15, 0.15, 0.03, 10); hole.translate(x, 1.245, 0); pieces.push(paint(hole, '#0c0f10'));
+      for (const z of [-0.5, 0.5]) pieces.push(...bottle(x, z, sign));
+    });
+    out.glass_container = mergeGeometries(pieces, false);
   }
   { // clothes container: tall grey-white box with a grey hood and a deposit flap, 1.2 x 1.2 x 2 m
     out.clothes_container = mergeGeometries([slab(1.2, 1.7, 1.2, '#dfe0dc', 0, 0, 0), slab(1.26, 0.22, 1.26, GREY, 0, 1.7, 0),
@@ -1441,9 +1452,18 @@ function propMeshes(props) {
   const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
   KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); return kcar; },
     play: (sound, level) => SFX.knock(sound, level), hiss: (s) => SFX.hiss(s), onCount: (n) => { $('knockn').textContent = n; $('knockrow').style.display = n ? '' : 'none'; } });
-  window.__mm.knock = () => KNOCK.debug(); window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
+  window.__mm.knock = () => KNOCK.debug(); window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit, at: a.hit && !a.hit.bend ? { x: a.hit.x, z: a.hit.z } : null })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
 }
 // #415: the Crash-Platz's board at the head of the run-up lane, yellow like the checkpoint signs
+// #426: a concrete slab over the whole Crash-Platz rectangle, like a big car park but with no markings; 4 cm over the terrain on a 5 m grid
+function yardGround(y) {
+  const nx = Math.ceil(y.length / 5), nz = Math.ceil(y.width / 5), pos = [], uv = [], idx = [];
+  for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = y.x0 + y.length * i / nx, z = y.z0 + y.width * j / nz; pos.push(x, terrainH(x, z) + 0.04, z); uv.push(x / 4, z / 4); }
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1; idx.push(a, c, b, b, c, d); }   // face up (+y)
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: TEX.concrete, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.receiveShadow = true; decals.add(m);
+  window.__mm.counts.yardGround = { cells: nx * nz, x0: y.x0, z0: y.z0, length: y.length, width: y.width, lift: 0.04 };
+}
 function crashSign() {
   const s = yardStart(YARD), x = s.x + 4, z = s.z - 5, b = terrainH(x, z), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
   pole.position.set(x, b + 1.4, z); signs.add(pole);
@@ -1776,7 +1796,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   }
   if (RAMP) rampMesh();   // the Sprungschanze, in both layouts: groundH raises the ground there in both (#80)
   if (L) for (const b of L.buildings) osmBuilding(b);
-  if (L && (L.props.length || YARD)) propMeshes(YARD ? [...L.props, ...yardProps(YARD).map(p => ({ ...p, yard: true }))] : L.props); if (YARD) crashSign();   // #415
+  if (L && (L.props.length || YARD)) propMeshes(YARD ? [...L.props, ...yardProps(YARD).map(p => ({ ...p, yard: true }))] : L.props); if (YARD) { crashSign(); yardGround(YARD); }   // #415, #426
   if (L && L.parking.length) parkingMeshes(L.parking);
   if (L) { // landmarks on their real positions (the Plattform Sisslerfeld as a hand-built placeholder until the detailed model)
     const lm = L.anchors.landmarks, at = (k) => lm[k];
@@ -2935,7 +2955,7 @@ window.__mm.roadDist = () => roadDist(P.x, P.z);
 window.__mm.onTrail = () => { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, P.x, P.z, 32)) { const d = segDist(P.x, P.z, ...r.pts[i], ...r.pts[i + 1]); if (!best || d < best.d) best = { d, r }; } return !!(best && best.r.trail); };
 const isDeck = (ob) => !!ob && !ob.b.approach && !ob.fill;   // #78 abutment, #227 fill past a generic end: road on fill, not a bridge
 // y (#201): an explicit start height, e.g. the cave floor under the hill (the default is the ground seen from the sky)
-window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
+window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 window.__mm.step = (secs, hold = ['KeyW']) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };   // #101: like sim, but from where the car is now (no placement)
 window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: isDeck(onBridge(P.x, P.z, P.y)), water: waterLevelAt(P.x, P.z, P.y), submerged: submerged(P.y, waterLevelAt(P.x, P.z, P.y)) });
 window.__mm.damage = () => ({ dmg: P.dmg, wrecked: WRECK_S.on, t: WRECK_S.t, wheelsOff: car.userData.wheels.filter(w => w.d).length, smoke: SMOKE.pool.filter(s => s.visible).length, wheels: car.userData.wheels.map(w => { const p = w.steer.getWorldPosition(new THREE.Vector3()); return { x: p.x, y: p.y, z: p.z }; }), safe: [...P.safe] });   // #105
