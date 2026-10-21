@@ -49,6 +49,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 @media (pointer:coarse){#debug{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px))}}
 #debugtext>div::before{content:attr(data-label);display:inline-block;min-width:11ch;color:#7f9a6a}
 #debuglinks{display:flex;gap:6px;margin-top:4px;white-space:normal}#debuglinks[hidden]{display:none}#debuglinks button{font:inherit;color:#8fd8e8;background:none;border:1px solid #3a404b;padding:1px 6px;cursor:pointer}
+#knockreset{display:block;margin-top:6px;padding:4px 10px;font:inherit;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 #debug{padding-right:36px}#debughelp{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font:inherit;line-height:18px;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 /* the open legend must not push the panel (and its ? button) off screen, so it scrolls once the space the panel's anchor leaves is used up */
 #debuglegend{max-width:min(380px,calc(100vw - 72px));max-height:calc(100vh - 420px);overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
@@ -235,6 +236,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div id="tl" class="plate">
     <div class="mode" id="modetext">Time trial · Hochrhein</div>
     <div class="cps"><span id="cpn">0</span> / <span id="cpt">5</span> <span data-i18n="checkpointsLabel">checkpoints</span></div>
+    <div class="cps" id="knockrow" style="display:none"><span data-i18n="knockedLabel">knocked over</span>: <span id="knockn">0</span></div>
     <div id="pips"><div></div><div></div><div></div><div></div><div></div></div>
   </div>
   <div id="tc">
@@ -317,7 +319,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
-  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div></div>
+  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
 </div>
 
 <div id="touch">
@@ -510,6 +512,8 @@ import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, 
 import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, seededRng, nextSurprise, tickSurprises, gravityScale, nearestPresent, canCollect, isNewHuntBest, confettiBurst, stepConfetti } from './presents.js';
 import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
 import { LAMP, lampState } from './lights.js';
+import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
+import { yardFor, yardProps, yardStart, inYard, yardEntry } from './crashyard.js';   // #415
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -1080,7 +1084,8 @@ function addSolid(o) { const e = o.hw + o.hd; gridAdd(OBB_GRID, o.x - e, o.z - e
 let RAIL_GRID = null;   // built on first use (RAIL_PTS is defined further down)
 function railDist(x, z) { if (!RAIL_GRID) { RAIL_GRID = makeGrid(64); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) for (let i = 0; i < pts.length - 1; i++) gridAddSegment(RAIL_GRID, ...pts[i], ...pts[i + 1], 12, [pts[i], pts[i + 1]]); } let m = 1e9; for (const [a, b] of gridQuery(RAIL_GRID, x, z, 1)) m = Math.min(m, segDist(x, z, ...a, ...b)); return m; }
 function roadDist(x, z, reach = 32) { let m = 1e9; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) m = Math.min(m, segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) - r.w / 2); return m; }
-function free(x, z, rad) { if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (!o.secret && Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
+const YARD = L ? yardFor(REGION.id) : null;   // #415: the Crash-Platz keeps trees, fields and houses out
+function free(x, z, rad) { if (YARD && inYard(x, z, rad + 3, YARD)) return false; if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (!o.secret && Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
 const PLASTER = ['#e9dfc8', '#e5cfa8', '#d9c2a0', '#f0e6d6', '#d8c9b8', '#e8d3b0', '#cdb894', '#f2e0c0', '#dfe3d8', '#e6d4c4'];
 const ROOFS = ['#8a3a2a', '#7a3f30', '#9a4a34', '#6e3a30', '#5a4a48', '#8a5a3a'];
 function house(x, z, rot, w, d, floors, style) { const b = terrainH(x, z), h = floors * 3 + 0.4, wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]); box(w, h + 3, d, x, b - 3, z, rot, wc, rnd() < 0.5 ? 'wall' : 'wallDoor', [4, 3], 3.1); const rh = style === 'oldtown' ? Math.min(w, d) * 0.55 : Math.min(w, d) * 0.4; if (w >= d) gable(w, d, b + h, rh, x, z, rot, rc, wc); else gable(d, w, b + h, rh, x, z, rot + Math.PI / 2, rc, wc); addOBB(x, z, w, d, rot, b + h); }
@@ -1361,6 +1366,10 @@ function propGeometries() {
     const lid = new THREE.CylinderGeometry(0.21, 0.21, 0.05, 10); lid.translate(0, 0.97, 0);
     out.bin = mergeGeometries([post(0.045, 0.72, GREY), paint(body, '#5f6b55'), paint(lid, '#3f4a38')], false);
   }
+  { // #415 Robidog: the green Swiss dog-waste bin on a post, a bag dispenser under the lid, 1.3 m
+    const GREEN = '#2f7d3a';
+    out.robidog = mergeGeometries([post(0.04, 0.72, GREY), slab(0.42, 0.52, 0.32, GREEN, 0, 0.72, 0), slab(0.48, 0.06, 0.38, '#245c2c', 0, 1.24, 0), slab(0.3, 0.16, 0.06, '#f4f1e6', 0, 1.0, 0.18), slab(0.32, 0.04, 0.08, '#1d4a24', 0, 0.96, 0.18), slab(0.16, 0.16, 0.02, '#f2c230', 0, 0.78, 0.165)], false);
+  }
   { // bike parking: a row of five hoops along +x, 3 m long
     const pieces = [];
     for (const x of [-1.5, -0.75, 0, 0.75, 1.5]) {
@@ -1380,6 +1389,7 @@ function propGeometries() {
   return out;
 }
 // lamps and hydrants are thin but solid; the rest is decoration until the fun-physics follow-up
+let KNOCK = null;   // #415: knock.js's controller, built with the props
 const PROP_SOLID = { lamp: { size: 0.3, h: 6 }, hydrant: { size: 0.4, h: 0.9 } };
 // car parks (#40): asphalt draped 1 cm under the road ribbons, white bay lines on top, a "P" sign where the lot has a name
 function parkingMeshes(lots) {
@@ -1416,16 +1426,28 @@ function propMeshes(props) {
   const geos = propGeometries(), byKind = {};
   for (const p of props) (byKind[p.kind] ||= []).push(p);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), at = new THREE.Vector3();
-  window.__mm.counts.props = {};
+  window.__mm.counts.props = {}; window.__mm.counts.yard = props.filter(p => p.yard).length; const groups = {};
   for (const kind in byKind) {
     const list = byKind[kind];
     const mesh = new THREE.InstancedMesh(geos[kind], new THREE.MeshLambertMaterial({ vertexColors: true }), list.length);
     list.forEach((p, i) => { q.setFromAxisAngle(up, -p.rot); at.set(p.x, terrainH(p.x, p.z), p.z); m4.compose(at, q, one); mesh.setMatrixAt(i, m4); });
     mesh.castShadow = true; signs.add(mesh);
-    window.__mm.counts.props[kind] = list.length;
+    const worldN = list.filter(p => !p.yard).length; if (worldN) window.__mm.counts.props[kind] = worldN;   // #415: the yard's own props are counted apart (counts.yard)
     const solid = PROP_SOLID[kind];
-    if (solid) for (const p of list) addOBB(p.x, p.z, solid.size, solid.size, 0, terrainH(p.x, p.z) + solid.h);
+    if (solid) for (const p of list) { addOBB(p.x, p.z, solid.size, solid.size, 0, terrainH(p.x, p.z) + solid.h); p.obb = OBB[OBB.length - 1]; }   // #415: knock.js switches the collider off when the prop goes over
+    groups[kind] = { mesh, list };
   }
+  const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
+  KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); return kcar; },
+    play: (sound, level) => SFX.knock(sound, level), hiss: (s) => SFX.hiss(s), onCount: (n) => { $('knockn').textContent = n; $('knockrow').style.display = n ? '' : 'none'; } });
+  window.__mm.knock = () => KNOCK.debug(); window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
+}
+// #415: the Crash-Platz's board at the head of the run-up lane, yellow like the checkpoint signs
+function crashSign() {
+  const s = yardStart(YARD), x = s.x + 4, z = s.z - 5, b = terrainH(x, z), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+  pole.position.set(x, b + 1.4, z); signs.add(pole);
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.9), new THREE.MeshBasicMaterial({ map: textTex(tr('crashYard'), 512, 180, '#f5c400', '#111111', '700 120px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
+  board.position.set(x, b + 2.5, z); board.rotation.y = -Math.PI / 2; signs.add(board);   // faces the arriving car (heading +x)
 }
 function stationAt(x, z, rot, name) { const b = terrainH(x, z); box(26, 6, 8, x, b - 2, z, rot, col('#e0d8c8'), 'wallDoor', [4, 3], 2.1); gable(26, 8, b + 4, 2.2, x, z, rot, col('#5a4a48'), col('#e0d8c8')); addOBB(x, z, 26, 8, rot, b + 4); box(60, 0.6, 3, x, b, z + 8, rot, col('#c8c2b6'), 'stone', [4, 2], 0); if (name) stationSign(name, x, z, rot, b); }
 // #12: blue Swiss station board on both long facades (signW's 'ch' style), just under the eaves
@@ -1753,7 +1775,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
   }
   if (RAMP) rampMesh();   // the Sprungschanze, in both layouts: groundH raises the ground there in both (#80)
   if (L) for (const b of L.buildings) osmBuilding(b);
-  if (L && L.props.length) propMeshes(L.props);
+  if (L && (L.props.length || YARD)) propMeshes(YARD ? [...L.props, ...yardProps(YARD).map(p => ({ ...p, yard: true }))] : L.props); if (YARD) crashSign();   // #415
   if (L && L.parking.length) parkingMeshes(L.parking);
   if (L) { // landmarks on their real positions (the Plattform Sisslerfeld as a hand-built placeholder until the detailed model)
     const lm = L.anchors.landmarks, at = (k) => lm[k];
@@ -2573,7 +2595,7 @@ document.getElementById('stylebtn').onclick = toggleStyle; document.getElementBy
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
   let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set();   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other
-  const gate = { t: -Infinity, s: 0 }, rec = { count: 0, last: null };   // #104: the crash retrigger gate, and what it let through (for the tests)
+  const knockAt = {}, kn = { played: 0, last: null }, gate = { t: -Infinity, s: 0 }, rec = { count: 0, last: null };   // #104: the crash retrigger gate, and what it let through (for the tests)
   const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(limit); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
   function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0 }; return eng; }
   function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted || holds.size) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
@@ -2588,6 +2610,10 @@ const SFX = (() => {
     crash(s) { if (muted || holds.size) return; const voice = crashVoice(s, VEH.sound.crash); if (!voice) return; const a = ctx(); if (!crashGate(gate, a.currentTime, s)) return; playCrash(a, a.master, voice); rec.count++; rec.last = { s, t: a.currentTime }; },   // #104: s = impactStrength(closing speed); a scrape (s = 0) and a muted or paused game queue nothing
     crashes() { return { count: rec.count, last: rec.last }; },
     splash() { burst(0.6, 900, 0.5, 0.4); },
+    // #415: a knocked-over prop (knock.js's recipes) and the fountain's hiss; the mute and the holds apply like everywhere else
+    knock(sound, level) { if (muted || holds.size) return; const a = ctx(), t = a.currentTime; if (t - (knockAt[sound] ?? -1) < 0.04) return; knockAt[sound] = t; playPlan(a, a.master, soundPlan(sound, level)); kn.played++; kn.last = sound; },
+    knocks() { return { ...kn }; },
+    hiss(seconds) { if (muted || holds.size) return; const a = ctx(); playPlan(a, a.master, hissPlan(seconds), 'swell'); kn.hisses = (kn.hisses || 0) + 1; },
     // #277: the lift's hum, a 55 Hz sawtooth through a low-pass for `dur` seconds
     hum(dur) { if (muted || holds.size) return; const a = ctx(), o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.value = 52; f.type = 'lowpass'; f.frequency.value = 220; g.gain.setValueAtTime(0, a.currentTime); g.gain.linearRampToValueAtTime(0.28, a.currentTime + 0.4); g.gain.setValueAtTime(0.28, a.currentTime + Math.max(0.4, dur - 0.5)); g.gain.linearRampToValueAtTime(0, a.currentTime + dur); o.connect(f); f.connect(g); g.connect(a.master); o.start(); o.stop(a.currentTime + dur + 0.05); },
     horn() { if (muted || holds.size) return; const a = ctx(); playHorn(a, a.master, VEH.sound.horn, a.currentTime); },
@@ -2604,6 +2630,7 @@ const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg
    #167: a generated world uses REGION.jlist instead of landmarkEntries. */
 const JUMP_ENTRIES = REGION.generated ? REGION.jlist.map(e => ({ ...e })) : L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
 const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
+if (YARD) { const at = JUMP_ENTRIES.map(e => e.g).lastIndexOf(YARD.gemeinde); JUMP_ENTRIES.splice(at + 1, 0, yardEntry(tr('crashYard'), YARD)); }   // #415: always listed (the Crash-Platz), after its Gemeinde's last landmark, named in the game language
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 function placeOnRoad(x, z, th, name) { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; liftIndicator(null); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
@@ -2612,6 +2639,7 @@ function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(
 function jumpHeading(p, best) { if (p.look) return Math.atan2(p.look[1] - best.z, p.look[0] - best.x); return p.j ? faceToward(best.th, best.x, best.z, p.x, p.z) : best.th; }
 const RAMP_RUNUP = 40;   // J → Sprungschanze: metres of run-up before the ramp's low edge, enough to launch from standstill (#80)
 function jumpToRamp(name) { if (!RAMP) return; const s = rampApproach(RAMP, RAMP_RUNUP); placeOnRoad(s.x, s.z, s.th, name); }   // off road: R returns to the run-up
+const jumpToYard = (name) => { if (!YARD) return; const s = yardStart(YARD); placeOnRoad(s.x, s.z, s.th, name); };   // #415: the head of the run-up lane, facing the rows; resetCar stands every prop up again
 const WRECK_RUNUP = 8;
 function jumpToWreck(name) { const c = UWS.counts; if (!c || !c.wreck) return; const [bx, bz] = c.wreck, th = Math.atan2(c.wreckCar[1] - bz, c.wreckCar[0] - bx), px = bx - Math.cos(th) * WRECK_RUNUP, pz = bz - Math.sin(th) * WRECK_RUNUP, wet = waterLevelAt(px, pz, 1e4) !== null, x = wet ? px : bx, z = wet ? pz : bz, road = nearestJumpable(bx, bz); if (!road) return; placeOnRoad(road.x, road.z, road.th, name); P.x = x; P.z = z; P.th = th; P.y = groundH(x, z, -Infinity); restShadow(); camPos.set(x - Math.cos(th) * 12, P.y + 3, z - Math.sin(th) * 12); }
 function randomSpot() { const segs = []; let total = 0; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1]; total += Math.hypot(bx - ax, bz - az); segs.push([ax, az, bx, bz, total]); } } if (!total) return; const u = Math.random() * total, [ax, az, bx, bz] = segs.find(s => s[4] >= u) || segs[segs.length - 1], t = Math.random(); placeOnRoad(ax + (bx - ax) * t, az + (bz - az) * t, Math.atan2(bz - az, bx - ax) + (Math.random() < 0.5 ? 0 : Math.PI), tr('randomSpot')); }
@@ -2647,7 +2675,7 @@ function stepWreck(dt) {
   }
   stepSmoke(dt);
 }
-function resetCar() { if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
+function resetCar() { if (KNOCK) KNOCK.restoreAll(); /* #415 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
@@ -2737,7 +2765,7 @@ function footBlocks(o, x, z, y, under) {
   if (y >= o.h - 0.05) return false;
   return !(o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, x, z));
 }
-const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2), ...(FOOT.car ? [parked()] : [])];
+const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off).concat((FOOT.car ? [parked()] : []));
 function footFree(x, z, y0) { const y = groundH(x, z, y0 + 1), under = caveInside(); if (waterLevelAt(x, z, y) !== null) return false; return !footSolids(x, z).some(o => footBlocks(o, x, z, y, under) && colliderPush(o, x, z, WALKER.radius)); }
 function collideFoot(r) { const under = caveInside(); for (const o of footSolids(P.x, P.z)) { if (!footBlocks(o, P.x, P.z, P.y, under)) continue; const hit = colliderPush(o, P.x, P.z, r); if (hit) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } } }
 const footFloorAt = (x, z, y) => footFloor(groundH(x, z, y), footSolids(x, z), x, z, y);
@@ -2819,6 +2847,7 @@ window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, hea
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
 window.__mm.sfxCrashes = () => SFX.crashes();
+window.__mm.sfxKnocks = () => SFX.knocks();   // #415
 window.__mm.navi = () => { const d = NAVIS.last && naviDescribe(NAVIS.last); return { on: NAVIS.on, dest: NAVIS.dest && { n: NAVIS.dest.n, x: NAVIS.dest.x, z: NAVIS.dest.z }, len: NAVIS.route ? NAVIS.route.len : 0, s: NAVIS.last ? NAVIS.last.s : null, left: NAVIS.last ? NAVIS.last.left : null, off: NAVIS.last ? NAVIS.last.off : null, type: d ? d.type : null, kind: d ? d.kind : null, dist: d ? d.dist : null, text: NAVIS.text, replans: NAVIS.replans }; };
 window.__mm.naviStart = (d) => { const e = typeof d === 'string' ? destEntries().find(x => x.n === d) : d; return e ? startNavi(e) : false; };
 window.__mm.naviSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepNavi(1 / 60); return window.__mm.navi(); };
@@ -2956,7 +2985,7 @@ window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)
 // #277: under the hill only the cave's own walls (secret) count -- a forest edge wall over the lobby used to stop the car on the lift platform
-function collide(r) { const under = caveInside(); for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (under && !o.secret) continue; if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; if (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9) continue; /* #361: an open lift door is no obstacle */ if (o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, P.x, P.z)) continue; /* #100: the pontoon's ends lie in the woods */ const hit = colliderPush(o, P.x, P.z, r); if (!hit) continue; const { wx, wz, pen } = hit; P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; { const s = impactStrength(-vn); crashHit(s); SFX.crash(s); } } } }
+function collide(r) { const under = caveInside(); for (const o of gridQuery(OBB_GRID, P.x, P.z, r + 2)) { if (under && !o.secret) continue; if (o.off) continue; /* #415: a knocked-over lamp or hydrant */ if (Math.abs(o.x - P.x) > o.hw + o.hd + r + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + r + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; if (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9) continue; /* #361: an open lift door is no obstacle */ if (o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, P.x, P.z)) continue; /* #100: the pontoon's ends lie in the woods */ const hit = colliderPush(o, P.x, P.z, r); if (!hit) continue; const { wx, wz, pen } = hit; P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; { const s = impactStrength(-vn); crashHit(s); SFX.crash(s); } } } }
 function stepCar(dt) {
   LIGHTS.braking = false;   // #230: reset every step so it never sticks (airborne, flying, coasting)
   if (LIFT_RIDE.busy) { P.vx = P.vz = P.vy = 0; car.position.set(P.x, P.y, P.z); return; }   // #277: input is locked for the ride
@@ -2976,6 +3005,7 @@ function stepCar(dt) {
   // at UW.sink, braked by the water, and once down it lies on the bed and follows it down AND up (the shelf back to the shore)
   if (wl !== null) { if (P.splash === 0) { SFX.splash(); P.hinted = false; } const was = P.splash; P.splash += dt; P.vy = 0; if (P.y > gh2 + 0.15) { const k = Math.exp(-UW.drag * dt); P.vx *= k; P.vz *= k; P.y = Math.max(P.y - UW.sink * dt, gh2); } else P.y = gh2; if (was < 0.35 && P.splash >= 0.35) toast(tr('fishes'), TOAST_S.event); if (!P.hinted && P.splash >= UW.hintAt) { P.hinted = true; toast(tr('underwaterHint'), TOAST_S.event); } }
   else { P.splash = 0; P.vy -= 22 * gravityScale(SURP) * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (landingHurts(P.vy)) { const s = impactStrength(-P.vy); crashHit(s); SFX.crash(s); } P.y = gh2; const lift = gh2 - groundH(P.x - P.vx * dt, P.z - P.vz * dt, P.y); P.vy = Math.max(0, (L && lift > 1 ? 0 : lift) / dt * 0.6); if (P.vy < 1) P.vy = 0; } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (LEVELS.isSurface() && !dead && roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump; #105: a wreck does not move the safe spot (the new car comes to the last road position, not wherever the wreck rolled)
+  if (KNOCK) { const sl = KNOCK.step(); if (sl) { P.vx *= 1 - sl; P.vz *= 1 - sl; } }   // #415: knocked-over props go first, so their colliders are off for this step
   collide(carRadius());
   followCave();
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
@@ -3056,7 +3086,7 @@ window.__mm.toast = () => ({ text: $('toast').textContent, shown: $('toast').cla
 function fadeToast(dt) { if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } }   // also while paused (review of #90)
 // #167: a generated world without a race has no checkpoints to drive: the surprise hunt is its only run
 const RACELESS = !!REGION.generated && !REGION.race;
-function startRace(mode = 'trial', rng = Math.random) { if (RACELESS) mode = 'hunt'; R.mode = mode; try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = !hunt; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = [START.x, START.z, START.th]; clearNavi(); resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); }
+function startRace(mode = 'trial', rng = Math.random) { if (RACELESS) mode = 'hunt'; R.mode = mode; try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = !hunt; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = [START.x, START.z, START.th]; clearNavi(); if (KNOCK) KNOCK.resetCount(); /* #415 */ resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); }
 function startHuntRun(hunt, rng, cands = PRESENT_CANDS) { const spots = hunt ? pickPresentSpots(cands, START, rng).map(s => ({ ...s, y: groundH(s.x, s.z) })) : []; HUNT_RUN = { spots, found: spots.map(() => false), bag: [], rng, endIn: 0 }; presentObjs.forEach((o, i) => { const s = spots[i]; o.g.visible = !!s; if (s) o.g.position.set(s.x, s.y, s.z); }); confetti.parts = []; confetti.pts.visible = false; }
 const modeKey = () => R.mode === 'hunt' ? 'modeHunt' : R.mode === 'blitz' ? 'modeBlitz' : 'mode';   // #7: the car screen's subtitle shows the same mode
 function renderModeLine() { const hunt = R.mode === 'hunt', blitz = R.mode === 'blitz'; $('tl').querySelector('.mode').textContent = tr(modeKey(), REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's
@@ -3181,7 +3211,7 @@ window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.
 // 'jump' (J) lists the landmarks and the random spot; 'drive' (O, #18) and 'navi' (I, #106) share the landmarks + streets rows
 const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
-function destEntries() { return [...JUMP_ENTRIES.filter(e => !e.wreck), ...AUTOP.streets]; }
+function destEntries() { return [...JUMP_ENTRIES.filter(e => !e.wreck && !e.yard), ...AUTOP.streets]; }
 function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : JUMP_ENTRIES; }
 function jumpRows() { const rows = filterLandmarks(jumpEntries(), JUMP.q, JUMP.g); return DEST_MODES.has(JUMP.mode) ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }]; }
 function renderJump() {
@@ -3195,7 +3225,7 @@ function renderJump() {
 }
 function openJump(mode) { releaseFootLock(); for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
 function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
-function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else if (r.wreck) jumpToWreck(r.n); else jumpTo(r); }
+function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else if (r.wreck) jumpToWreck(r.n); else if (r.yard) jumpToYard(r.n); else jumpTo(r); }
 function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
 function jumpKey(e) {
   if (e.code === 'Tab') { e.preventDefault(); return; }   // #129: the focus (and the typing) stays in the search field
@@ -3393,6 +3423,8 @@ $('debuglinks').addEventListener('click', e => { e.stopPropagation(); const b = 
 // #74: ? toggles the legend; neither the button nor the legend copies the panel, and the button drops focus (Enter is the horn)
 function toggleDebugLegend(e) { e.stopPropagation(); const lg = $('debuglegend'); lg.hidden = !lg.hidden; e.currentTarget.setAttribute('aria-expanded', String(!lg.hidden)); e.currentTarget.blur(); }
 $('debughelp').addEventListener('click', toggleDebugLegend);
+// #415: stand every knocked-over prop up again (no copy of the panel, no focus left for Enter = horn)
+$('knockreset').addEventListener('click', e => { e.stopPropagation(); if (KNOCK) KNOCK.restoreAll(); e.currentTarget.blur(); });
 $('debuglegend').addEventListener('click', e => e.stopPropagation());
 // building heights (data h, +rh, hsrc) over the buildings within 60 m: own grid, sprite pool and LRU, built like the house numbers (LABELS)
 const DEBUG_H = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [] };
@@ -3468,7 +3500,7 @@ function testhubContext() {
   };
 }
 function testhubGo(target) {
-  if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else jumpTo(target.entry); return; }
+  if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else if (target.entry.yard) jumpToYard(target.label); else jumpTo(target.entry); return; }
   const s = target.spot;
   if (s.room) {   // #277: a room below: build it, jump there like any jump (race flagged, toast), then step down into it
     ringBuild(); ensureRoom(0); if (!(ROOM.states[0] && ROOM.states[0].started)) loadEiffel();
@@ -3491,7 +3523,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepRace(dt); stepLift(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepRace(dt); stepLift(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);

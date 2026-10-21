@@ -17,6 +17,10 @@ def classify(tags) -> str | None:
         return None if tags.get("fire_hydrant:type") in SKIP_HYDRANT else "hydrant"
     if tags.get("highway") == "street_lamp":
         return "lamp"
+    # #415: the green Swiss dog-waste bins; often tagged amenity=waste_basket too, so this must win over `bin`
+    if "dog_excrement" in tags.get("waste", "").split(";") or tags.get("vending") == "excrement_bags" \
+            or tags.get("amenity") == "dog_toilet":
+        return "robidog"
     amenity = tags.get("amenity")
     if amenity == "bench":
         return "bench"

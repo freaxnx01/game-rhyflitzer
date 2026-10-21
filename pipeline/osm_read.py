@@ -33,7 +33,9 @@ PROP_AMENITIES = {"bench", "waste_basket", "bicycle_parking", "recycling"}
 
 def is_prop_node(tags) -> bool:
     return (tags.get("emergency") == "fire_hydrant" or tags.get("highway") == "street_lamp"
-            or tags.get("amenity") in PROP_AMENITIES)
+            or tags.get("amenity") in PROP_AMENITIES
+            or "dog_excrement" in tags.get("waste", "").split(";") or tags.get("vending") == "excrement_bags"
+            or tags.get("amenity") == "dog_toilet")   # #415: Robidog
 
 
 @dataclass
