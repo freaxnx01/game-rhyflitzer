@@ -25,7 +25,7 @@ def test_the_yard_tyre_stacks_collapse_when_hit_and_set_up_props_restores_them(s
         b, page = open_page(p, server)
         assert page.evaluate("() => window.__mm.tyreState()") is None, "nothing is built away from the Crash-Platz"
         stacks = page.evaluate("() => window.__mm.yard().tyreStacks")
-        assert len(stacks) >= 3 and all(s["n"] == 8 for s in stacks), stacks
+        assert len(stacks) >= 6 and all(s["n"] == 10 for s in stacks), stacks
         jump_to_yard(page)
         wait_engine(page)
         fresh = page.evaluate("() => window.__mm.tyreState()")
@@ -52,9 +52,9 @@ def test_the_yard_tyre_stacks_collapse_when_hit_and_set_up_props_restores_them(s
         jump_to_yard(page)
         jumped = page.evaluate("() => window.__mm.tyreState()")
         b.close()
-    assert fresh["count"] == 8 * len(stacks) and fresh["awake"] == 0 and fresh["displaced"] == 0, fresh
+    assert fresh["count"] == 10 * len(stacks) and fresh["awake"] == 0 and fresh["displaced"] == 0, fresh
     assert still["awake"] == 0 and still["displaced"] == 0, still
-    assert hit["displaced"] > fresh["count"] / 3, hit
+    assert hit["displaced"] > fresh["count"] / 4, hit   # the car is ~1.8 m wide: it takes the one or two stacks it drives through
     assert rest["upright"] < rest["count"], rest
     assert thuds["count"] >= 1, thuds
     assert row_before and only_tyres and row_shown and row_after, (row_before, only_tyres, row_shown, row_after)   # hit only tyres: the row shows, Set up props hides it

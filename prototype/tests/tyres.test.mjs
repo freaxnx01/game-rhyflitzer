@@ -103,6 +103,12 @@ test('createTyreStacks_EngineFailsToLoad_StaysStaticAndNeverThrows', async () =>
   assert.equal(t.state().count, 5); t.reset(); t.dispose();
 });
 
+import { yardTyreStacks } from '../crashyard.js';
+
+test('TYRE_Size_IsOneAndAHalfTimesTheOriginal', () => {
+  near(TYRE.r, 0.45); near(TYRE.w, 0.375); near(TYRE.mass, 9 * 1.5 ** 3);
+});
+
 function fakeThree() {
   class V { constructor(x = 0, y = 0, z = 0) { Object.assign(this, { x, y, z }); } set(x, y, z) { Object.assign(this, { x, y, z }); return this; } }
   class G { constructor() { this.attributes = { position: { count: 8 } }; } setAttribute() {} dispose() {} }
@@ -152,4 +158,16 @@ test('reset_AfterACrash_PutsEveryStackBackUprightAndAsleep', () => {
   const P = createTyrePhysics(C, pyramidPlacements(100, 0, 0), 0), car = { ...CAR, x: 80, vx: 50 / 3.6 };
   for (let i = 0; i < 4 * 60; i++) { car.x += car.vx / 60; P.step(1 / 60, car); }
   assert.ok(P.state().displaced > 0); P.reset(); const s = P.state(); assert.equal(s.displaced, 0); assert.equal(s.upright, s.count); assert.equal(s.awake, 0);
+});
+
+test('step_YardStacksLeftAlone_StayStandingForSixtySeconds', () => {
+  const P = createTyrePhysics(C, yardTyreStacks(), 0); run(P, 60, FAR); const s = P.state();
+  assert.equal(s.awake, 0); assert.equal(s.displaced, 0); assert.equal(s.upright, s.count);
+});
+
+test('step_CarDrivenThroughYardStacksAt50kmh_CollapsesThemAndTheyComeToRest', () => {
+  const st = yardTyreStacks(), P = createTyrePhysics(C, st, 0), car = { ...CAR, x: st[0].x - 20, z: st[2].z + 0.6, vx: 50 / 3.6 };
+  for (let i = 0; i < 6 * 60; i++) { car.x += car.vx / 60; const r = P.step(1 / 60, car); car.vx *= 1 - r.slow; }
+  Object.assign(car, FAR); run(P, 30, car);
+  const s = P.state(); assert.ok(s.displaced > s.count * 0.15, `displaced ${s.displaced} of ${s.count}`); assert.equal(s.awake, 0);
 });

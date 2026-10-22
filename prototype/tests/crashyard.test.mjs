@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CRASH_YARD as Y, KIND_ORDER, yardProps, yardStart, inYard, yardFor, yardEntryPoint, yardTyreStacks } from '../crashyard.js';
+import { TYRE } from '../tyres.js';
 import { KNOCKABLE } from '../knock.js';
 
 test('the yard has every knockable kind, five of each, all inside the free rectangle', () => {
@@ -26,15 +27,17 @@ test('inYard honours the margin, yardFor only answers for its own region', () =>
   assert.equal(yardFor('hochrhein'), Y); assert.equal(yardFor('ehrendingen'), null);
 });
 
-test('yardTyreStacks_Default_FourStacksOfEightInsideTheYardClearOfPropsAndRunUp', () => {
+test('yardTyreStacks_Default_SixStacksOfTenInsideTheYardClearOfPropsAndEdge', () => {
   const stacks = yardTyreStacks(), props = yardProps(), start = yardStart();
-  assert.equal(stacks.length, 4);
+  assert.equal(stacks.length, 6);
   for (const s of stacks) {
-    assert.equal(s.n, 8);
+    assert.equal(s.n, 10);
     assert.ok(inYard(s.x, s.z, -3), `stack ${s.x},${s.z} well inside`);
     assert.ok(s.x - Y.x0 > Y.runUp, 'not in the run-up lane');
     assert.ok(props.every(p => Math.hypot(p.x - s.x, p.z - s.z) >= 6), 'clear of every prop');
+    assert.ok(Y.x0 + Y.length - s.x >= 5, 'a clear run-out behind the stacks');
   }
-  for (let i = 1; i < stacks.length; i++) assert.ok(Math.hypot(stacks[i].x - stacks[i - 1].x, stacks[i].z - stacks[i - 1].z) >= 0.7, 'stacks do not overlap');
+  for (let i = 1; i < stacks.length; i++) assert.ok(Math.hypot(stacks[i].x - stacks[i - 1].x, stacks[i].z - stacks[i - 1].z) >= TYRE.r * 2 + 0.3, 'stacks (1.5x tyres) do not overlap and leave a gap');
   assert.ok(stacks.every(s => s.x > start.x), 'beyond the lane head');
+  assert.ok(stacks.length * stacks[0].n <= 60, 'physics body budget');
 });
