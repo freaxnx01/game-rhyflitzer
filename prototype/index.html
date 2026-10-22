@@ -77,6 +77,7 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #br{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);border:4px solid;border-color:var(--steel-l) #3a404b #3a404b var(--steel-l);box-shadow:5px 5px 0 var(--ink)}
 #br .bar{display:flex;justify-content:space-between;padding:3px 8px;background:linear-gradient(#4a515e,#2a2e38);border-bottom:2px solid var(--ink);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
 #br .bar b{color:var(--sun)}
+#mapfloor{margin-left:8px;color:var(--sun);font-weight:700}
 #map{display:block;width:400px;height:200px;pointer-events:auto;touch-action:none;cursor:crosshair}
 @media (max-width:900px){#speedo{width:130px;height:130px}#map{width:240px;height:120px}#time{font-size:30px}#gear{display:none}#tl{min-width:140px}}
 #br.full{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);z-index:20}#br.full #map{width:min(92vw,calc((100vh - 80px) * 2));height:auto}
@@ -318,7 +319,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     </div>
   </div>
   <div id="br">
-    <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><b>N ↑</b></div>
+    <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><span id="mapfloor" hidden></span><b>N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
@@ -505,6 +506,8 @@ import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps } from './foot.js';
 import { walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
+import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { createTowerLift } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
@@ -1226,7 +1229,12 @@ function porchMesh(p, frame, ground) {
   box(p.w + 2 * P.overhang, P.slab, p.d + 2 * P.overhang, rx, ground + P.h, rz, frame.rot, col('#c9ccd0'), 'plasterWhite', [4, 3], 0);
   for (const du of [-1, 1]) paneSide(frame, p.u + du * p.w / 2, p.v0, p.v1, ground, ground + P.h);
   for (const du of [-1, 1]) paneStreet(frame, Math.min(p.u + du * P.door / 2, p.u + du * p.w / 2), Math.max(p.u + du * P.door / 2, p.u + du * p.w / 2), p.v1, ground, ground + P.h);
-  box(P.door, 2.2, 0.05, p.entrance.x, ground, p.entrance.z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);
+  if (p.house !== '6c') box(P.door, 2.2, 0.05, p.entrance.x, ground, p.entrance.z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);   // #411: 6c gets a hinged leaf instead (buildInterior)
+}
+function obbBox(o, y0, y1) {   // #411: an OBB footprint as a box geometry, world position (the room code's kerbs use the same rotation)
+  const g = new THREE.BoxGeometry(2 * o.hw, y1 - y0, 2 * o.hd);
+  g.rotateY(-Math.atan2(o.s, o.c)); g.translate(o.x, (y0 + y1) / 2, o.z);
+  return g;
 }
 // #410: the block Bodenackerstrasse 6a–6d from its own model (prototype/bodenacker6.js): ten storeys of the own façade tile
 // on the OSM footprint without the porch bumps (loggia tile on the back), a white parapet band under the gravel roof slab,
@@ -1239,6 +1247,7 @@ function bodenackerBuilding(b, base, h) {
   const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
   extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'));   // the band's top is the roof slab
   for (const s of L.stairs) {
+    if (s.house === '6c') continue;   // #411: 6c's housing is the stair tower's own outline (below), not the merged box
     const [x, z] = L.frame.toWorld(s.u, (s.vFront + s.vBack) / 2);
     box(s.w, BODENACKER6.housingRise, s.d, x, L.floors.roof, z, L.frame.rot, white, 'plasterWhite', [4, 3], 0);
   }
@@ -1250,7 +1259,17 @@ function bodenackerBuilding(b, base, h) {
     }
     porchMesh(p, L.frame, ground);
   }
-  pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: L.floors.roof, ring: b.ring });   // the OSM outline = body + porches, as before
+  pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: L.floors.roof, ring: b.ring, bodenacker6: true });   // the OSM outline = body + porches, as before; #411: tagged so the walker can be let in
+  {   // #411: the stair hall of 6c as a walkway set, built in place once. eg = the terrain at the door, or the ring's base if lower (A4)
+    const porch = bodenackerHouse(L, INT.house).porch, entrance = porch.entrance, eg = Math.max(L.floors.floors[0], terrainH(entrance.x, entrance.z));
+    INT.hall = stairHall(entrance, { w: porch.w, d: porch.d }, L.floors, eg);
+    hallRoofSlab(INT.hall, L.body.map(([u, v]) => L.frame.toWorld(u, v)));
+    INT.lift = createTowerLift(INT.hall.levels);
+    INT.cabin = { ...INT.hall.cabinRect, y: INT.lift.y };   // the dynamic slab: stepInterior keeps its y on the lift
+    INT.hall.walk.slabs.push(INT.cabin);
+    const hg = INT.hall.housing, f = INT.hall.frame, [hx, hz] = f.toWorld((hg.a0 + hg.a1) / 2, (hg.b0 + hg.b1) / 2);
+    INT.housingGeo = obbBox({ x: hx, z: hz, hw: (hg.a1 - hg.a0) / 2, hd: (hg.b1 - hg.b0) / 2, c: f.c, s: f.s }, hg.y0, hg.y1);   // the tower outline as the permanent low-poly housing
+  }
   window.__mm.counts.bodenacker6 = 1; window.__mm.bodenacker6 = () => L;
   return true;
 }
@@ -1593,6 +1612,9 @@ function sign(txt, kind, px, py, faceDeg) { signW(txt, kind, ...W(px, py), faceD
 function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(txt, 512, 256, '#1c5fb0', '#ffffff', '700 120px "Barlow Condensed", sans-serif', '#ffffff') : textTex(txt, 512, 256, '#ffcc00', '#111111', '700 120px "Barlow Condensed", sans-serif', '#111111'); const g = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), [new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 })]); board.position.y = 2.4; const pole = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }); for (const s of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), pole); p.position.set(s, 1.5, 0); g.add(p); } g.add(board); g.position.set(x, groundH(x, z), z); g.rotation.y = faceDeg * Math.PI / 180; g.traverse(o => o.castShadow = true); signs.add(g); }
 
 const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795], [1960, 740]]);   // hand-traced Basel–Koblenz line stand-in
+// #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
+// indoor is additive behind INT.hall (null until bodenackerBuilding built it); every glue function guards on it.
+const INT = { hall: null, house: '6c', on: false, group: null, housing: null, lift: null, cabin: null, door: { open: 0, target: 0 }, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null };
 // ---------- build the world ----------
 {
   const { GW, GD } = TGRID;
@@ -2034,6 +2056,7 @@ const FISH_TMP = { m: new THREE.Matrix4(), q: new THREE.Quaternion(), up: new TH
 function stepFish(dt, force = false) { if (!FISH.mesh || (!UWS.on && !force)) return; FISH.t += dt; const { m, q, up, p, one, pose } = FISH_TMP; let i = 0; for (const s of FISH.schools) for (let k = 0; k < s.n; k++) { const f = schoolPose(s, k, FISH.t, pose); p.set(f.x, f.y, f.z); q.setFromAxisAngle(up, -f.th); m.compose(p, q, one); FISH.mesh.setMatrixAt(i++, m); } FISH.mesh.instanceMatrix.needsUpdate = true; }
 buildUnderwater();
 for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; }
+if (INT.housingGeo) { INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing); }   // #411: 6c's housing over the stair tower, its own mesh so the interior can hide it; applyStyle sets its material
 // Gemeinde boundaries (#48, OSM admin_level 8): a magenta strip on the ground, the road or the water, hidden until G; its own group outside MESH, so applyStyle and the collision code never see it
 const boundaryY = (x, z) => Math.max(terrainH(x, z), roadSurfH(x, z), waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0) ?? -Infinity) + 0.25;
 const BOUNDS = new THREE.Group(); BOUNDS.visible = false; scene.add(BOUNDS);
@@ -2310,7 +2333,7 @@ const STYLES = {
     mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', bodenacker: '#f1efe8', bodenackerLoggia: '#f1efe8', plasterWhite: '#f1efe8', glass: '#bfd6e4', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'bodenacker', 'bodenackerLoggia', 'plasterWhite', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(LEVELS.id === 'ring' ? 'ring' : 'room'); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(LEVELS.id === 'ring' ? 'ring' : 'room'); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
 function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.solid) im.visible = solid; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
@@ -2730,7 +2753,7 @@ window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 
 const HUD = { carHidden: false, bounds: false, borders: false, blinker: null, water: '', waterT: 0, road: '' };
 // #270: the car lights switch — head + tail together, session only (not persisted). #271 (hazard) and #230 (brake) share this state.
 const LIGHTS = { head: false, hazard: false, braking: false };
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code, footIndoors()); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -2789,8 +2812,9 @@ if (YARD) { const at = JUMP_ENTRIES.map(e => e.g).lastIndexOf(YARD.gemeinde); JU
 // #409: the enterable-buildings register, resolved once. #411 / #412 add ENTER_HANDLERS[id] = (entry, entrance) => ...
 const hideoutRoomCentres = () => ({ eiffel: roomLayout(0).centre, atomium: roomLayout(1).centre });   // pure layout maths (rooms.js): resolvable even where the hideout itself is not built; the entries stay secret until HIDE.found
 const ENTERABLES = enterableEntries(ENTERABLE_INFO, L ? L.anchors.landmarks : {}, L ? L.buildings : [], hideoutRoomCentres());
-{ const lay = window.__mm.bodenacker6 && window.__mm.bodenacker6(), e = ENTERABLES.find(q => q.id === 'bodenackerstrasse-6c'); if (lay && e) e.entrances = [{ ...bodenackerHouse(lay, '6c').porch.entrance }]; }   // #411: the 6c glass porch is the entrance (still ready: false until #411 flips it)
+{ const lay = window.__mm.bodenacker6 && window.__mm.bodenacker6(), e = ENTERABLES.find(q => q.id === 'bodenackerstrasse-6c'); if (lay && e) e.entrances = [{ ...bodenackerHouse(lay, '6c').porch.entrance }]; }   // #411: the 6c glass porch is the entrance (its position is the hall's own entrance)
 const ENTER_HANDLERS = {};
+ENTER_HANDLERS['bodenackerstrasse-6c'] = () => { INT.door.target = 1; };   // #411: E at the porch swings the door open; it shuts again when the walker has walked away
 const secretRevealed = () => !!(HIDE && HIDE.found);
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 function placeOnRoad(x, z, th, name) { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; liftIndicator(null); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
@@ -2902,7 +2926,7 @@ const parked = () => parkedBox(FOOT.car, CAR_SIZE);
 // #412: the walkway set around the walker -- the slabs, ramps, walls and ceilings of the interior it is in. It starts empty
 // (outdoors every walkway query answers "nothing"), and the interior of a building fills it while the walker is in it (6c, #411).
 const WALKS = emptyWalkways();
-const footIndoors = () => walkwayCeiling(WALKS, P.x, P.z, P.y) !== null;   // a walkway ceiling over the head = inside
+if (INT.hall) Object.assign(WALKS, INT.hall.walk);   // #411: the hall of 6c is the walkway set around the walker (its arrays, by reference: the door leaves and the cabin slab stay live in both)
 const ENTER_GLOW = { sprites: new Map(), shown: [], tex: null };   // #409: one pooled additive sprite per entrance
 function enterGlowTexture() {
   if (ENTER_GLOW.tex) return ENTER_GLOW.tex;
@@ -2966,13 +2990,47 @@ function footBlocks(o, x, z, y, under) {
   if (y >= o.h - 0.05) return false;
   return !(o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, x, z));
 }
-const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off).concat((FOOT.car ? [parked()] : []));
+const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !(o.bodenacker6 && INT.bodyOff)).concat((FOOT.car ? [parked()] : []));
 function footFree(x, z, y0) { const y = groundH(x, z, y0 + 1), under = caveInside(); if (waterLevelAt(x, z, y) !== null) return false; return !footSolids(x, z).some(o => footBlocks(o, x, z, y, under) && colliderPush(o, x, z, WALKER.radius)); }
 function collideFoot(r) { const under = caveInside(); for (const o of footSolids(P.x, P.z)) { if (!footBlocks(o, P.x, P.z, P.y, under)) continue; const hit = colliderPush(o, P.x, P.z, r); if (hit) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } } }
 // #412: the walkway walls push too, applied like collideFoot does -- walkwayPush() keeps only those active at the walker's height,
 // so a wall of another storey never moves the walker
 function collideWalkways(r) { for (const hit of walkwayPush(WALKS, P.x, P.z, P.y, r)) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } }
-const footFloorAt = (x, z, y) => footFloor(groundH(x, z, y), footSolids(x, z), x, z, y, WALKER, walkwayFloor(WALKS, x, z, y));
+// #411: inside 6c the terrain under the building must not lift the walker -- the EG slab (levels[0]) is the ground source there
+const footFloorAt = (x, z, y) => footFloor(INT.indoors && INT.hall ? INT.hall.levels[0] - 1 : groundH(x, z, y), footSolids(x, z), x, z, y, WALKER, walkwayFloor(WALKS, x, z, y));
+// #411: the interior state of 6c, stepped from stepOnFoot, the main loop and footSim -- area, roof, HUD floor, the door
+function updateInterior() {
+  if (!INT.hall) return;
+  if (!FOOT.on) {   // in the car or in a dialog: the door still shuts behind the walker, the HUD goes dark
+    if (doorShouldClose(INT.hall, P.x, P.z, 'out')) INT.door.target = 0;
+    if (INT.indoors || INT.area !== 'out' || INT.prompt) { INT.indoors = false; INT.bodyOff = false; INT.onRoof = false; INT.area = 'out'; INT.prompt = null; }
+    $('mapfloor').hidden = true;
+    return;
+  }
+  INT.area = hallArea(INT.hall, P.x, P.z);
+  const roof = INT.hall.levels[INT.hall.levels.length - 1];
+  INT.onRoof = P.y >= roof - 0.1 && walkwayFloor(INT.hall.walk, P.x, P.z, P.y) !== null;
+  INT.indoors = INT.area !== 'out' || INT.onRoof;
+  INT.bodyOff = bodyColliderOff(INT.hall, P.x, P.z, INT.door.open > 0.5);
+  INT.floor = floorAtY(INT.hall.levels, P.y);
+  if (doorShouldClose(INT.hall, P.x, P.z, INT.area)) INT.door.target = 0;
+  $('mapfloor').hidden = !INT.indoors;
+  $('mapfloor').textContent = hudFloorText(INT.house, INT.floor, window.GG_LANG);
+}
+function interiorFoot() {   // #411: the hall's own walls and ceilings, applied after collideFoot/collideWalkways
+  if (!INT.hall) return;
+  for (let pass = 0; pass < 2; pass++) for (const h of walkwayPush(INT.hall.walk, P.x, P.z, P.y, WALKER.radius)) { P.x += h.wx * h.pen; P.z += h.wz * h.pen; }
+  const fl = footFloorAt(P.x, P.z, P.y), b = headBump({ y: P.y, vy: FOOT.vy }, fl, walkwayCeiling(INT.hall.walk, P.x, P.z, P.y));
+  P.y = b.y; FOOT.vy = b.vy;
+  if (INT.indoors && FOOT.hover) { FOOT.hover = false; FOOT.vy = 0; }   // a hover that flew in through the open door ends at the threshold
+}
+function stepInterior(dt) {
+  if (!INT.hall) return;
+  updateInterior();
+  INT.door.open += (INT.door.target - INT.door.open) * Math.min(1, dt * 4);   // eases to the target and snaps within 0.01
+  if (Math.abs(INT.door.target - INT.door.open) < 0.01) INT.door.open = INT.door.target;
+  wallByTag(INT.hall, 'porch:door').off = INT.door.open > 0.6;
+}
 // hover stays in the level: the room's helicopter clamp; on the surface hoverMaxAgl over the ground and, under the hill, the eye under the ceiling
 function clampHover() {
   if (!LEVELS.isSurface()) {   // a room: its own helicopter clamp; the ring and the spokes: only under their ceiling
@@ -2984,12 +3042,13 @@ function clampHover() {
 }
 function stepOnFoot(dt) {
   LIGHTS.braking = false;
+  updateInterior();   // #411: area, indoors, bodyOff, floor, the door target -- before the step moves the walker
   let s = stepFoot({ x: P.x, z: P.z, y: P.y, th: P.th, vy: FOOT.vy, hover: FOOT.hover }, footInput(keys), dt, footFloorAt);
   const ceil = walkwayCeiling(WALKS, s.x, s.z, s.y);   // #412: the storey above stops a jump (or a rise) through it
   if (ceil !== null) s = headBump(s, footFloorAt(s.x, s.z, s.y), ceil);
   const x0 = P.x, z0 = P.z;
   P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = s.vx; P.vz = s.vz; FOOT.vy = s.vy;
-  collideFoot(WALKER.radius); collideWalkways(WALKER.radius); if (FOOT.hover) clampHover(); followCave();
+  collideFoot(WALKER.radius); collideWalkways(WALKER.radius); interiorFoot(); if (FOOT.hover) clampHover(); followCave();
   const st = footSteps(FOOT.stride, Math.hypot(P.x - x0, P.z - z0), keys.KeyN, !FOOT.hover && FOOT.vy === 0); FOOT.stride = st.acc; if (st.steps > 0) SFX.step();
 }
 function footMouse(dx, dy) { const l = footLook(P.th, FOOT.pitch, dx, dy); P.th = l.th; FOOT.pitch = l.pitch; }
@@ -3081,7 +3140,14 @@ window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
 window.__mm.foot = () => ({ on: FOOT.on, hover: FOOT.hover, x: P.x, y: P.y, z: P.z, th: P.th, pitch: FOOT.pitch, car: FOOT.car && { ...FOOT.car }, carVisible: car.visible, carMesh: { x: car.position.x, z: car.position.z }, cam: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, ground: groundH(P.x, P.z, P.y) });
 window.__mm.walkways = (set) => { if (set) Object.assign(WALKS, set); return WALKS; };   // #412: the walkway set around the walker; tests put an interior's set in (empty = outdoors)
-window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
+// #411: the interior of 6c as the tests see it. updateInterior() first, so a headless read is fresh even between frames.
+window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
+  y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
+  lift: INT.lift && { at: INT.lift.at, y: INT.lift.y, door: INT.lift.door, busy: INT.lift.busy, moving: INT.lift.moving },
+  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, pad: INT.pad });
+window.__mm.interiorSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(); };
+window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; };   // tests: put the walker on a storey of 6c
+window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
 window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); return window.__mm.foot(); };
 // tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
 window.__mm.nearestSolid = (x, z) => { let best = null, bd = Infinity; for (const o of OBB) { if (o.bridge || o.low || o.secret || o.ring || o.circle) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best && { x: best.x, z: best.z, hw: best.hw, hd: best.hd, c: best.c, s: best.s, h: best.h }; };
@@ -3090,7 +3156,7 @@ window.__mm.nearestSolid = (x, z) => { let best = null, bd = Infinity; for (cons
 window.__mm.roles = () => Object.keys(MESH);
 // #45: role of the first merged mesh a horizontal ray from (x, z) towards (tx, tz) hits, `up` m above the terrain at the target
 // #201: with up1 the ray climbs: from `up` over the ground at (x, z) to terrain + up1 over the target; the cave group's meshes count while drawn
-window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); const hit = ray.intersectObjects([...Object.values(MESH), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).find(h => h.object.userData.role); return hit ? hit.object.userData.role : null; };
+window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); const hit = ray.intersectObjects([...Object.values(MESH), ...(INT.housing ? [INT.housing] : []), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).find(h => h.object.userData.role); return hit ? hit.object.userData.role : null; };
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
 window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x, z, 1e4), bridge: !!onBridge(x, z, 1e4) });
 // #101: the riverbed under (x, z): groundH's value, the water surface, the bedDepth, and where the drawn terrain is (raycast on the grass mesh)
@@ -3787,7 +3853,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);

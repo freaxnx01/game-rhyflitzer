@@ -1,0 +1,81 @@
+"""#411 stage 1: entering Bodenackerstrasse 6c. Slow (Playwright): run in the foreground."""
+import math
+import re
+from pathlib import Path
+
+import pytest
+from playwright.sync_api import sync_playwright
+
+WORLD = Path(__file__).parents[2] / "data" / "world_hochrhein.json"
+MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
+ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
+needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+
+
+def open_world(p, server):
+    b = p.chromium.launch(args=ARGS)
+    page = b.new_page(viewport={"width": 960, "height": 540})
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+    page.goto(f"{server}/prototype/index.html")
+    page.wait_for_function("() => window.__mm && window.__mm.sim && window.__mm.bodenacker6 && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    page.click("#startbtn")
+    return b, page, errors
+
+
+def hall_point(page, a, b):
+    """World x, z of the hall frame point (a into the building, b to the right) -- stairhall.js's frame."""
+    return page.evaluate("""([a, b]) => { const i = window.__mm.interior(), e = i.entrance, d = i.porch.d, th = e.th, c = Math.cos(th), s = Math.sin(th);
+        const ox = e.x + c * d, oz = e.z + s * d; return [ox + c * a - s * b, oz + s * a + c * b, th]; }""", [a, b])
+
+
+def stand(page, a, b, face=0.0, level=None):
+    """Put the walker at the hall point (a, b), facing the hall's heading + face, on the given level (None: the terrain)."""
+    x, z, th = hall_point(page, a, b)
+    page.evaluate("([x, z, th]) => window.__mm.place(x, z, th)", [x, z, th + face])
+    if level is not None:
+        page.evaluate("(k) => window.__mm.setFootY(window.__mm.interior().levels[k])", level)
+    return x, z, th
+
+
+def key(page, name, ms=150):
+    page.keyboard.press(name)
+    page.wait_for_timeout(ms)
+
+
+def foot_sim(page, secs, hold=()):
+    return page.evaluate("([s, h]) => window.__mm.footSim(s, h)", [secs, list(hold)])
+
+
+def interior(page):
+    return page.evaluate("() => window.__mm.interior()")
+
+
+@needs_world
+def test_e_opens_the_door_and_the_hall_is_reachable_on_foot(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        info = page.evaluate("() => ({ e: window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance, d: window.__mm.bodenacker6().porches.find(p => p.house === '6c').d })")
+        e, d = info["e"], info["d"]
+        # the car 12 m in front of the door, then out; the walker is put 1.2 m in front of the door, facing in
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 1.2, z - Math.sin(th) * 1.2, th)", [e["x"], e["z"], e["th"]])
+        outside = interior(page)
+        page.wait_for_function("() => window.__mm.enterables.prompt() === 'bodenackerstrasse-6c'", timeout=120000)   # the prompt needs one rendered frame (stepEnter); headless draws under 1 fps
+        key(page, "e", 300)
+        foot_sim(page, 1.2)
+        opened = interior(page)
+        foot_sim(page, 3.5, ["KeyW"])                      # in through the porch, into the hall (the back wall stops it)
+        inside = interior(page)
+        key(page, "f", 200)                                 # F: no hover indoors
+        hover = page.evaluate("() => window.__mm.foot().hover")
+        b.close()
+    assert errors == []
+    assert outside["hall"] is True and outside["area"] == "out" and outside["indoors"] is False, outside
+    assert opened["door"] > 0.9, opened
+    assert inside["area"] == "tower" and inside["indoors"] is True and inside["floor"] == 0, inside
+    assert abs(inside["y"] - inside["levels"][0]) < 0.05, inside
+    assert re.fullmatch(r"6c · (EG|ground floor)", inside["label"]) and inside["hidden"] is False, inside
+    assert hover is False
