@@ -5,6 +5,7 @@ import {
   KINDS, GLOW_RANGE, PROMPT_RANGE, ENTERABLE_INFO, enterableEntries, visibleEnterables,
   enterableName, nearestEntrance, enterPrompt, glowStrength, jumpRowsFor,
 } from '../enterables.js';
+import { STRINGS } from '../strings.js';
 
 const ANCHORS = { plattform: { x: 10, z: 20 } };
 const BUILDINGS = [{ id: 171822634, ring: [[0, 0], [10, 0], [10, 10], [0, 10]] }];
@@ -161,7 +162,24 @@ test('jumpRowsFor_GemeindeAndQuery_Compose', () => {
   assert.deepEqual(rows2.map(r => r.n), ['Plattform Sisslerfeld']);
 });
 
+test('strings_EnterKeys_ExistInBothLanguages', () => {
+  for (const k of ['enterPrompt', 'enterSoon', 'chipEnterable', 'enterableSoon', 'keyEnter']) {
+    const en = STRINGS.en[k], de = STRINGS.de[k];
+    assert.equal(typeof en, 'string', `en ${k}`); assert.ok(en.length > 0, `en ${k}`);
+    assert.equal(typeof de, 'string', `de ${k}`); assert.ok(de.length > 0, `de ${k}`);
+  }
+  assert.ok(STRINGS.en.enterPrompt.startsWith('E · '), STRINGS.en.enterPrompt);
+  assert.ok(STRINGS.de.enterPrompt.startsWith('E · '), STRINGS.de.enterPrompt);
+  assert.ok(!STRINGS.de.enterableSoon.includes('ß'), 'Swiss spelling');
+});
+
 test('enterables_Text_NamesNoFlatFloorOrSide', () => {
   const forbidden = /wohnung|flat|stock|floor|etage|links|rechts|left|right|seite|side/i;
   assert.ok(!forbidden.test(JSON.stringify(ENTERABLE_INFO)), 'the register names only the public address');
+  for (const lang of ['en', 'de']) {
+    const texts = ['enterPrompt', 'enterSoon', 'chipEnterable', 'enterableSoon', 'keyEnter']
+      .map(k => STRINGS[lang][k]).filter(t => typeof t === 'string');
+    assert.equal(texts.length, 5, `the ${lang} strings exist for the check`);
+    for (const t of texts) assert.ok(!forbidden.test(t), `${lang} "${t}"`);
+  }
 });
