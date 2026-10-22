@@ -222,3 +222,21 @@ test('footSteps: silent while airborne or hovering, standing still and a bad dis
   assert.deepEqual(footSteps(1.5, 0, false, true), { acc: 1.5, steps: 0 });
   assert.deepEqual(footSteps(1.5, NaN, false, true), { acc: 1.5, steps: 0 });
 });
+
+// #412: the walkway surfaces under the walker (a slab or stair ramp inside a building) are a second floor source next to
+// the ground and the world's boxes; and indoors hover is blocked -- no flying through the storeys
+test('footFloor_WalkwayAboveTheGround_IsTheFloorWhenWithinStepUp', () => {
+  assert.equal(footFloor(0, [], 0, 0, 5, WALKER, 5), 5);
+  assert.equal(footFloor(0, [], 0, 0, 5, WALKER, null), 0, 'no walkway under you: the ground');
+  assert.equal(footFloor(8, [], 0, 0, 5, WALKER, 5), 8, 'a ground above the walkway still wins');
+  assert.equal(footFloor(0, [box({ h: 1 })], 0, 0, 0.5, WALKER, 3), 3, 'the highest of the three sources');
+});
+
+test('footKeyAction_HoverIndoors_IsBlockedAndOutdoorsStaysAsBefore', () => {
+  assert.equal(footKeyAction('KeyF'), 'hover');
+  assert.equal(footKeyAction('KeyF', false), 'hover');
+  assert.equal(footKeyAction('KeyF', true), 'block');
+  assert.equal(footKeyAction('KeyC', true), 'block', 'C does nothing on foot: the view is first person already');
+  assert.equal(footKeyAction('KeyW', true), 'pass');
+  assert.equal(footKeyAction('KeyE', true), 'enter');
+});
