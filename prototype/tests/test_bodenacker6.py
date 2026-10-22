@@ -87,7 +87,10 @@ def test_facades_by_side_and_the_roof_housing_is_plain(server):
 
         stair = stairs[2]                             # third entrance from the south = 6c's stair (u 4.3): housing above the roof
         x, z = to_world(stair["u"], stair["vFront"] + 12.0); tx, tz = to_world(stair["u"], stair["vFront"] - 1.0)
-        housing = hit(x, z, tx, tz, h + 1.5)
+        # the aim height is the housing's mid-height above the terrain at the target (the ground rises ~2 m over the ring's base)
+        up_housing = ((layout["floors"]["roof"] + layout["floors"]["housingTop"]) / 2
+                      - page.evaluate(f"() => window.__mm.probe({tx}, {tz})")["terrain"])
+        housing = hit(x, z, tx, tz, up_housing)
 
         porch = porches[2]                             # its porch: a glass side light in the street pane, beside the door leaf
         u_light = porch["u"] + (porch["entrance"]["w"] / 2 + porch["w"] / 2) / 2

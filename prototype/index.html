@@ -1211,17 +1211,18 @@ function paneStreet(frame, u0, u1, v, y0, y1) {
 }
 // #410: one entrance porch: dark posts, a flat roof slab with an overhang, two glass side panes, and the street pane split
 // into two side lights around the solid door leaf (which #411 can swing or hide). The rear is the body façade.
-function porchMesh(p, frame, base) {
+// ground = the porch's own ground: the block sits on sloping terrain, and base (the ring's lowest sample) would bury it.
+function porchMesh(p, frame, ground) {
   const P = BODENACKER6.porch, vc = (p.v0 + p.v1) / 2;
   for (const du of [-1, 1]) for (const dv of [-1, 1]) {
     const [x, z] = frame.toWorld(p.u + du * (p.w / 2 - P.post / 2), vc + dv * (p.d / 2 - P.post / 2));
-    box(P.post, P.h, P.post, x, base, z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);
+    box(P.post, P.h, P.post, x, ground, z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);
   }
   const [rx, rz] = frame.toWorld(p.u, vc);
-  box(p.w + 2 * P.overhang, P.slab, p.d + 2 * P.overhang, rx, base + P.h, rz, frame.rot, col('#c9ccd0'), 'plasterWhite', [4, 3], 0);
-  for (const du of [-1, 1]) paneSide(frame, p.u + du * p.w / 2, p.v0, p.v1, base, base + P.h);
-  for (const du of [-1, 1]) paneStreet(frame, p.u + du * P.door / 2, p.u + du * p.w / 2, p.v1, base, base + P.h);
-  box(P.door, 2.2, 0.05, p.entrance.x, base, p.entrance.z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);
+  box(p.w + 2 * P.overhang, P.slab, p.d + 2 * P.overhang, rx, ground + P.h, rz, frame.rot, col('#c9ccd0'), 'plasterWhite', [4, 3], 0);
+  for (const du of [-1, 1]) paneSide(frame, p.u + du * p.w / 2, p.v0, p.v1, ground, ground + P.h);
+  for (const du of [-1, 1]) paneStreet(frame, Math.min(p.u + du * P.door / 2, p.u + du * p.w / 2), Math.max(p.u + du * P.door / 2, p.u + du * p.w / 2), p.v1, ground, ground + P.h);
+  box(P.door, 2.2, 0.05, p.entrance.x, ground, p.entrance.z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);
 }
 // #410: the block Bodenackerstrasse 6a–6d from its own model (prototype/bodenacker6.js): ten storeys of the own façade tile
 // on the OSM footprint without the porch bumps (loggia tile on the back), a white parapet band under the gravel roof slab,
@@ -1237,7 +1238,14 @@ function bodenackerBuilding(b, base, h) {
     const [x, z] = L.frame.toWorld(s.u, (s.vFront + s.vBack) / 2);
     box(s.w, BODENACKER6.housingRise, s.d, x, L.floors.roof, z, L.frame.rot, white, 'plasterWhite', [4, 3], 0);
   }
-  for (const p of L.porches) porchMesh(p, L.frame, base);
+  for (const p of L.porches) {
+    let ground = Infinity;
+    for (const [du, dv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const [x, z] = L.frame.toWorld(p.u + du * p.w / 2, (p.v0 + p.v1) / 2 + dv * p.d / 2);
+      ground = Math.min(ground, terrainH(x, z));
+    }
+    porchMesh(p, L.frame, ground);
+  }
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: L.floors.roof, ring: b.ring });   // the OSM outline = body + porches, as before
   window.__mm.counts.bodenacker6 = 1; window.__mm.bodenacker6 = () => L;
   return true;
