@@ -93,7 +93,7 @@ def test_j_opens_the_landmark_list_with_focus_in_the_search_field(server):
         assert r[0] == {"n": "Fridolinsmünster", "g": "Bad Säckingen"}
         assert r[-1] == {"n": "Random spot", "g": None}
         chips = page.eval_on_selector_all("#jumpchips button", "bs => bs.map(b => b.textContent)")
-        assert chips == CHIPS
+        assert chips == CHIPS + ["Enterable"]   # #409: the spec adds the Enterable chip after the Gemeinde chips
         page.keyboard.type("münst")
         assert names(page) == ["Fridolinsmünster", "Random spot"]
         page.fill("#jumpq", "")
