@@ -283,3 +283,29 @@ def test_e_on_foot_at_a_ready_entrance_shows_the_prompt_and_reaches_the_toast(se
     assert shown == "E · Enter", shown
     assert pressed["toast"] == "Not enterable yet" and not pressed["blinker"], pressed
     assert gone == "", gone
+
+
+def test_a_ready_entrance_glows_on_foot_only(server):   # #409
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = ROAD
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        page.evaluate(f"() => window.__mm.enterables.setReady('plattform-sisslerfeld', true, [{x + 12}, {z}])")
+
+        def glows_at(dx):
+            page.evaluate(f"() => window.__mm.place({x + 12 - dx}, {z}, 0)")
+            page.wait_for_timeout(300)
+            return page.evaluate("() => window.__mm.enterables.glows()")
+
+        mid, near, far = glows_at(10), glows_at(2), glows_at(20)
+        page.evaluate(f"() => window.__mm.place({x + 2}, {z}, 0)")   # back next to the car, 10 m from the entrance
+        press_z(page)
+        page.wait_for_timeout(300)
+        driving = page.evaluate("() => ({ foot: window.__mm.foot().on, glows: window.__mm.enterables.glows() })")
+        page.evaluate("() => window.__mm.enterables.setReady('plattform-sisslerfeld', false)")
+        b.close()
+    assert errors == []
+    assert len(mid) == 1 and 0 < mid[0]["opacity"] < 1, mid
+    assert near[0]["opacity"] == 1 and far == [], (near, far)
+    assert driving == {"foot": False, "glows": []}, driving

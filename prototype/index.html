@@ -519,7 +519,7 @@ import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled
 import { LAMP, lampState } from './lights.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
-import { ENTERABLE_INFO, GLOW_RANGE, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
+import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -2896,8 +2896,38 @@ function land() { if (!LEVELS.isSurface()) { P.safe = [P.x, P.z, P.th]; resetCar
 // the car stays where stepCar last put it, FOOT.car is that pose. R, J, the map, the beam and Start end it through resetCar
 const FOOT = { on: false, hover: false, vy: 0, pitch: 0, stride: 0, car: null };
 const parked = () => parkedBox(FOOT.car, CAR_SIZE);
+const ENTER_GLOW = { sprites: new Map(), shown: [], tex: null };   // #409: one pooled additive sprite per entrance
+function enterGlowTexture() {
+  if (ENTER_GLOW.tex) return ENTER_GLOW.tex;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d').createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,236,190,1)'); g.addColorStop(0.45, 'rgba(255,214,140,0.45)'); g.addColorStop(1, 'rgba(255,200,120,0)');
+  const x = c.getContext('2d'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  return (ENTER_GLOW.tex = new THREE.CanvasTexture(c));
+}
+function enterGlowSprite(key) {
+  let sp = ENTER_GLOW.sprites.get(key);
+  if (!sp) { sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: enterGlowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); sp.visible = false; scene.add(sp); ENTER_GLOW.sprites.set(key, sp); }
+  return sp;
+}
+const reducedMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+function stepEnterGlow() {   // on foot only: every ready, visible entrance on the walker's level glows softly from GLOW_RANGE
+  for (const sp of ENTER_GLOW.sprites.values()) sp.visible = false;
+  ENTER_GLOW.shown = [];
+  if (!FOOT.on) return;
+  const pulse = reducedMotion() ? 1 : 0.85 + 0.15 * Math.sin(performance.now() / 500);
+  for (const e of visibleEnterables(ENTERABLES, secretRevealed())) {
+    if (!e.ready || e.level !== LEVELS.id) continue;
+    e.entrances.forEach((en, i) => {
+      const k = glowStrength(Math.hypot(P.x - en.x, P.z - en.z)); if (k <= 0) return;
+      const sp = enterGlowSprite(e.id + ':' + i), w = en.w || 1.5;
+      sp.position.set(en.x, groundH(en.x, en.z, P.y) + 1.2, en.z); sp.scale.set(w * 2, 2.4, 1); sp.material.opacity = k * pulse; sp.visible = true;
+      ENTER_GLOW.shown.push({ id: e.id, opacity: +k.toFixed(3) });
+    });
+  }
+}
 function pressEnter() { const n = HUD.enter; if (!n) return; const h = ENTER_HANDLERS[n.entry.id]; if (h) h(n.entry, n.entrance); else toast(tr('enterSoon')); }   // #409: E on foot at a ready entrance
-function stepEnter() {   // #409: the E prompt at a ready entrance (on foot only; the car keeps E as the right blinker)
+function stepEnter() {
+  stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; the car keeps E as the right blinker)
   const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
   HUD.enter = enterPrompt(near) && near;
   if (HUD.enter) { $('prompt').textContent = tr('enterPrompt'); HUD.enterShown = true; } else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
@@ -3445,6 +3475,7 @@ $('help').querySelector('.keys').addEventListener('click', e => { const kids = [
 window.__mm.enterables = {   // #409: test hooks
   list: () => ENTERABLES.map(e => ({ id: e.id, ready: e.ready, secret: e.secret, x: e.x, z: e.z, entrances: e.entrances.length })),
   setReady: (id, ready, at) => { let e = ENTERABLES.find(q => q.id === id); const info = ENTERABLE_INFO.find(q => q.id === id); if (!e && at && info) { e = { ...info, x: at[0], z: at[1], entrances: [] }; ENTERABLES.push(e); } if (!e) return false; e.ready = !!ready; if (at) { e.x = at[0]; e.z = at[1]; e.entrances = [{ x: at[0], z: at[1], th: 0, w: 2 }]; } return true; },
+  glows: () => ENTER_GLOW.shown.map(g => ({ ...g })),
   prompt: () => HUD.enter ? HUD.enter.entry.id : null,
 };
 window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g }));
