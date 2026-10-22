@@ -87,3 +87,9 @@ test('the abandon question focuses Cancel first and wraps', () => {
   assert.equal(nextFocus(ABANDON_BUTTONS, 'abandoncancel', -1), 'abandonok');
   assert.equal(nextFocus(ABANDON_BUTTONS, 'pausemenu', 1), 'abandoncancel');
 });
+
+test('Ctrl+D is the debug key in the pause menu and the abandon question too; a bare D is swallowed', () => {
+  assert.equal(pauseKeyAction(key('KeyD', { ctrlKey: true }), PAUSED), 'debug');
+  assert.equal(pauseKeyAction(key('KeyD', { ctrlKey: true }), CONFIRM), 'debug');
+  assert.equal(pauseKeyAction(key('KeyD'), PAUSED), 'ignore');
+});

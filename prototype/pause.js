@@ -1,4 +1,5 @@
 // #83: pure rules for the pause menu -- no DOM, no three.js. Unit-tested with `node --test prototype/tests/*.test.mjs`.
+import { isDebugKey } from './debug.js';
 
 // the menu's buttons, in focus order (ids in prototype/index.html)
 export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pauserestart', 'pausemenu'];
@@ -40,12 +41,12 @@ function confirmAction(key) {
   return menuAction(key);
 }
 
-// shared by both dialogs: focus moves, F3, every other key swallowed
+// shared by both dialogs: focus moves, Ctrl+D / F3, every other key swallowed
 function menuAction(key) {
   if (NEXT.has(key.code)) return 'next';
   if (PREV.has(key.code)) return 'prev';
   if (key.code === 'Tab') return key.shiftKey ? 'prev' : 'next';
-  if (key.code === 'F3') return 'debug';
+  if (isDebugKey(key)) return 'debug';
   return 'ignore';
 }
 
