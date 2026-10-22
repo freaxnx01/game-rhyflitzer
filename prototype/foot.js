@@ -45,11 +45,12 @@ const inside = (o, x, z) => {
   return Math.abs(dx * o.c + dz * o.s) <= o.hw && Math.abs(-dx * o.s + dz * o.c) <= o.hd;
 };
 
-// the floor under the walker: the ground, or the top of a non-bridge box under you that is at most stepUp above your feet
-export function footFloor(ground, boxes, x, z, y, cfg = WALKER) {
+// the floor under the walker: the ground, the top of a non-bridge box under you that is at most stepUp above your feet,
+// #412: plus `walkway`, the walkwayFloor(...) of the walkway surfaces under you (a slab or stair ramp inside a building) or null -- the second source
+export function footFloor(ground, boxes, x, z, y, cfg = WALKER, walkway = null) {
   let top = ground;
   for (const o of boxes) if (!o.bridge && o.h <= y + cfg.stepUp && o.h > top && inside(o, x, z)) top = o.h;
-  return top;
+  return walkway !== null && walkway > top ? walkway : top;
 }
 
 // mouse look: right turns right (th grows, like D steering), up looks up; pitch clamped
@@ -73,10 +74,10 @@ export function carReach(x, z, b) {
   return Math.hypot(Math.max(0, Math.abs(lx) - b.hw), Math.max(0, Math.abs(lz) - b.hd));
 }
 
-// keydown on foot: F toggles hover, E enters a building (#409); the car's own controls are swallowed; everything else is handled as usual
+// keydown on foot: F toggles hover (blocked indoors, #412), E enters a building (#409); the car's own controls are swallowed; everything else is handled as usual
 const FOOT_BLOCKED = new Set(['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyL', 'Digit1', 'KeyV']);
-export function footKeyAction(code) {
-  if (code === 'KeyF') return 'hover';
+export function footKeyAction(code, indoors = false) {
+  if (code === 'KeyF') return indoors ? 'block' : 'hover';
   if (code === 'KeyE') return 'enter';
   return FOOT_BLOCKED.has(code) ? 'block' : 'pass';
 }
