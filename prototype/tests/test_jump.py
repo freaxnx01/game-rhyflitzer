@@ -521,3 +521,25 @@ def test_flugplatz_schupfart_is_listed_and_jumpable(server):
         c = car(page)
         assert math.hypot(c["x"] - ax, c["z"] - az) < road + 30
         b.close()
+
+
+@needs_world
+def test_enterable_chip_lists_the_register_and_composes_with_the_gemeinde_chip(server):   # #409
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.keyboard.press("KeyJ")
+        page.click("#jumpchips button[data-enterable]")
+        listed = rows(page)
+        assert sorted(r["n"] for r in listed) == ["Bodenackerstrasse 6c", "Plattform Sisslerfeld", "Reservoir H\u00fcbel"], listed
+        assert [r["n"] for r in listed if r.get("soon")] == [r["n"] for r in listed if r["n"] != "Reservoir H\u00fcbel"]
+        page.click('#jumpchips button[data-g="Sisseln"]')
+        assert names(page) == ["Bodenackerstrasse 6c"]
+        page.click("#jumpchips button[data-enterable]")
+        assert "Random spot" in names(page) and len(names(page)) == len(SISSELN_ROWS) + 1
+        page.keyboard.press("Escape")
+        page.keyboard.press("KeyJ")
+        assert "Random spot" in names(page), "reopening J starts with the filter off"
+        page.keyboard.press("Escape")
+        page.keyboard.press("KeyO")
+        assert page.query_selector("#jumpchips button[data-enterable]") is None
+        b.close()

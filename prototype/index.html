@@ -62,7 +62,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
 #jump input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}
 #jump .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}#jump .chips button{font:inherit;font-size:13px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 8px;cursor:pointer}#jump .chips button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}
-#jump ul{list-style:none;margin:6px 0;padding:0;max-height:50vh;overflow-y:auto}#jump li{display:flex;justify-content:space-between;gap:12px;cursor:pointer;padding:3px 4px}#jump li span{color:var(--steel-l);font-weight:600}#jump li:hover,#jump li.sel{color:#ffc61a}#jump small{color:var(--steel-l)}
+#jump ul{list-style:none;margin:6px 0;padding:0;max-height:50vh;overflow-y:auto}#jump li{display:flex;justify-content:space-between;gap:12px;cursor:pointer;padding:3px 4px}#jump li span{color:var(--steel-l);font-weight:600}#jump li:hover,#jump li.sel{color:#ffc61a}#jump li.soon{opacity:.55}#jump small{color:var(--steel-l)}
 #bl{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
 #speedo{width:200px;height:200px}
 #gear{display:flex;flex-direction:column;gap:6px}
@@ -519,7 +519,7 @@ import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled
 import { LAMP, lampState } from './lights.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
-import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
+import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -2782,10 +2782,10 @@ const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg
 /* J: the 3D landmarks (landmarks.js), searched by name and filtered by Gemeinde; hand layout: the race points, no Gemeinde.
    #167: a generated world uses REGION.jlist instead of landmarkEntries. */
 const JUMP_ENTRIES = REGION.generated ? REGION.jlist.map(e => ({ ...e })) : L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
-const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
+const JUMP = { q: '', g: null, enterable: false, sel: 0, rows: [], mode: 'jump' };
 if (YARD) { const at = JUMP_ENTRIES.map(e => e.g).lastIndexOf(YARD.gemeinde); JUMP_ENTRIES.splice(at + 1, 0, yardEntry(tr('crashYard'), YARD)); }   // #415: always listed (the Crash-Platz), after its Gemeinde's last landmark, named in the game language
 // #409: the enterable-buildings register, resolved once. #411 / #412 add ENTER_HANDLERS[id] = (entry, entrance) => ...
-const hideoutRoomCentres = () => HIDE ? { eiffel: roomLayout(0).centre, atomium: roomLayout(1).centre } : {};
+const hideoutRoomCentres = () => ({ eiffel: roomLayout(0).centre, atomium: roomLayout(1).centre });   // pure layout maths (rooms.js): resolvable even where the hideout itself is not built; the entries stay secret until HIDE.found
 const ENTERABLES = enterableEntries(ENTERABLE_INFO, L ? L.anchors.landmarks : {}, L ? L.buildings : [], hideoutRoomCentres());
 const ENTER_HANDLERS = {};
 const secretRevealed = () => !!(HIDE && HIDE.found);
@@ -3423,17 +3423,21 @@ const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
 function destEntries() { return [...JUMP_ENTRIES.filter(e => !e.wreck && !e.yard), ...AUTOP.streets]; }
 function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : JUMP_ENTRIES; }
-function jumpRows() { const rows = filterLandmarks(jumpEntries(), JUMP.q, JUMP.g); return DEST_MODES.has(JUMP.mode) ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }]; }
+function jumpRows() {
+  if (DEST_MODES.has(JUMP.mode)) return filterLandmarks(jumpEntries(), JUMP.q, JUMP.g);
+  const rows = jumpRowsFor(JUMP_ENTRIES, ENTERABLES, { q: JUMP.q, g: JUMP.g, enterable: JUMP.enterable, lang: window.GG_LANG === 'de' ? 'de' : 'en' }, secretRevealed());   // #409: the Enterable chip narrows the list to the register
+  return JUMP.enterable ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }];
+}
 function renderJump() {
   const drive = DEST_MODES.has(JUMP.mode), toNavi = JUMP.mode === 'navi'; JUMP.rows = jumpRows(); JUMP.sel = Math.min(JUMP.sel, JUMP.rows.length - 1);
   $('jumptitle').textContent = tr(toNavi ? 'naviTitle' : drive ? 'driveTitle' : 'jumpTitle'); $('jumphint').textContent = tr(toNavi ? 'naviHint' : drive ? 'driveHint' : 'jumpHint');
   /* #176: street and place names come from OSM, so every name is escaped; tr('streetIn') keeps its own markup, so only its argument is escaped */
-  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${i === JUMP.sel ? ' class="sel"' : ''}>${esc(r.n)}<span>${r.street ? tr('streetIn', esc(r.g)) : esc(r.g)}</span></li>`).join('');
+  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${(i === JUMP.sel ? ' class="sel' : ' class="') + (r.soon ? ' soon' : '') + '"'}>${esc(r.n)}<span>${r.soon ? tr('enterableSoon') : r.street ? tr('streetIn', esc(r.g)) : esc(r.g)}</span></li>`).join('');
   /* data-g round-trips through the browser's attribute decoding, so the click handler still reads the raw name from dataset.g */
-  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`).join('') : '';
+  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`).join('') + (drive ? '' : `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`) : '';
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
-function openJump(mode) { releaseFootLock(); for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
+function openJump(mode) { releaseFootLock(); for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.enterable = false; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
 function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
 function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else if (r.wreck) jumpToWreck(r.n); else if (r.yard) jumpToYard(r.n); else jumpTo(r); }
 function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
@@ -3446,7 +3450,7 @@ function jumpKey(e) {
 $('jumpq').addEventListener('input', () => { JUMP.q = $('jumpq').value; JUMP.sel = 0; renderJump(); });
 $('jumplist').addEventListener('click', e => { const li = e.target.closest('li'); if (li) pickJump(+li.dataset.i); });
 $('jumpchips').addEventListener('mousedown', e => e.preventDefault());   // keeps the focus (and the typing) in the search field
-$('jumpchips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; JUMP.g = b.dataset.g === 'All' ? null : b.dataset.g; JUMP.sel = 0; renderJump(); });
+$('jumpchips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.enterable) JUMP.enterable = !JUMP.enterable; else JUMP.g = b.dataset.g === 'All' ? null : b.dataset.g; JUMP.sel = 0; renderJump(); });
 // #249: the F1 help has a search field — typing filters the key list, and no game key fires while it is open.
 function helpRows() { const kids = [...$('help').querySelector('.keys').children]; const rows = []; for (let i = 0; i < kids.length; i += 2) rows.push({ index: i, keys: kids[i].textContent, text: kids[i + 1].textContent, kbd: kids[i], span: kids[i + 1] }); return rows; }
 const HELP = { sel: -1 };   // #190: index (in helpRows) of the selected command row
@@ -3478,7 +3482,7 @@ window.__mm.enterables = {   // #409: test hooks
   glows: () => ENTER_GLOW.shown.map(g => ({ ...g })),
   prompt: () => HUD.enter ? HUD.enter.entry.id : null,
 };
-window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g }));
+window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g, ...(r.soon ? { soon: true } : {}) }));
 if (REAL) { $('mmhstatus').classList.add('real'); $('mmhclear').hidden = REAL_SRC !== 'uploaded'; }
 { const s = document.createElement('span'); s.id = 'worldstatus'; if (L) s.classList.add('real'); $('mmhstatus').after(s); }
 let WORLD_FILE_ERR = null;   // #167: the code of the last refused world file; the status line shows it until the next attempt
