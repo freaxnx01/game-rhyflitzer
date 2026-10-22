@@ -175,3 +175,12 @@ test('pontoon bridge texts exist in both languages (#100)', () => {
   assert.equal(translate('de', 'notCountedPontoon'), 'mit Pontonbrücke, zählt nicht · ');
   for (const k of ['pontoonBuilding', 'pontoonRemoving', 'pontoonNoFarBank', 'keyPontoon']) { assert.notEqual(translate('de', k), k, k); assert.notEqual(translate('en', k), k, k); }
 });
+
+test('lift strings exist in both languages (#411)', () => {
+  for (const key of ['liftCall', 'liftPadTitle', 'keyLift']) {
+    assert.ok(translate('en', key), `en ${key}`); assert.ok(translate('de', key), `de ${key}`);
+    assert.notEqual(translate('en', key), key, `en ${key} is a real text`);
+  }
+  assert.match(translate('de', 'liftCall'), /^E · Lift rufen$/);
+  assert.match(translate('en', 'liftCall'), /^E · call the lift$/);
+});

@@ -156,6 +156,10 @@ const en = {
   chipEnterable: 'Enterable',
   enterableSoon: 'soon',
   keyEnter: 'on foot, at a glowing door: enter',
+  // ---- the lift of an enterable building (#411) ----
+  liftCall: 'E · call the lift',
+  liftPadTitle: 'Lift',
+  keyLift: 'in the lift: 0-9 pick the floor (0 = ground floor), D the roof',
   randomSpot: 'Random spot',
   fromMap: 'From the map',
   debugOn: 'Debug on',
@@ -486,6 +490,10 @@ const de = {
   chipEnterable: 'Begehbar',
   enterableSoon: 'bald',
   keyEnter: 'zu Fuss, an einer leuchtenden Tür: betreten',
+  // ---- der Lift eines begehbaren Gebäudes (#411) ----
+  liftCall: 'E · Lift rufen',
+  liftPadTitle: 'Lift',
+  keyLift: 'im Lift: 0-9 wählt das Stockwerk (0 = EG), D das Dach',
   randomSpot: 'Zufälliger Ort',
   fromMap: 'Von der Karte',
   debugOn: 'Debug an',
