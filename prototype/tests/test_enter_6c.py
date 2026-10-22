@@ -103,3 +103,34 @@ def test_the_hall_is_built_near_and_gone_far_and_the_window_looks_out(server):
     assert near["built"] is True and far["built"] is False, (near, far)
     assert built["meshes"] > 0
     assert ray["dist"] is None or ray["dist"] > 4, ray      # nothing of the building is in the way: the window is a hole
+
+
+@needs_world
+def test_lift_to_the_fifth_floor_and_to_the_roof(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        stand(page, 0.7, 0.4, math.pi / 2, level=0)         # on the EG landing, facing the lift (to the right)
+        foot_sim(page, 0.3)
+        key(page, "e", 200)                                 # call the lift (it stands at the EG: the door just opens)
+        page.evaluate("() => window.__mm.interiorSim(1.5)")
+        foot_sim(page, 1.0, ["KeyW"])                       # into the cabin
+        in_cabin = interior(page)
+        key(page, "5", 200)                                 # the fifth floor
+        foot_sim(page, 9)                                   # the trip takes 7.06 s (door + 12.65 m at 2.5 m/s + door); the door's 4 s hold from the arrival must still cover the step-out below
+        at5 = interior(page)
+        foot_sim(page, 1.0, ["KeyS"])                       # out onto the landing
+        out5 = interior(page)
+        foot_sim(page, 1.0, ["KeyW"])                       # back in
+        key(page, "d", 200)                                 # D = Dach
+        foot_sim(page, 20)
+        atroof = interior(page)
+        b.close()
+    assert errors == []
+    assert in_cabin["pad"] is True and in_cabin["lift"]["at"] == 0, in_cabin
+    assert at5["lift"]["at"] == 5 and abs(at5["y"] - at5["levels"][5]) < 0.1, at5
+    assert re.fullmatch(r"6c · (5\. OG|5th floor)", at5["label"]), at5
+    assert out5["area"] == "tower" and abs(out5["y"] - out5["levels"][5]) < 0.1, out5
+    assert atroof["floor"] == 10 and abs(atroof["y"] - atroof["levels"][10]) < 0.1, atroof

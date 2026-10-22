@@ -78,6 +78,12 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #br .bar{display:flex;justify-content:space-between;padding:3px 8px;background:linear-gradient(#4a515e,#2a2e38);border-bottom:2px solid var(--ink);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
 #br .bar b{color:var(--sun)}
 #mapfloor{margin-left:8px;color:var(--sun);font-weight:700}
+#liftpad{position:fixed;right:10px;bottom:calc(240px + env(safe-area-inset-bottom,0px));z-index:15;background:rgba(20,23,29,.82);border:2px solid var(--steel-l);border-radius:10px;padding:10px 12px;color:var(--cream);text-align:center;box-shadow:4px 4px 0 var(--ink)}
+#liftpad .padtitle{font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+#liftpad .padgrid{display:grid;grid-template-columns:repeat(3,48px);gap:6px}
+#liftpad button{width:48px;height:48px;border-radius:8px;border:2px solid var(--steel-l);background:#23272f;color:var(--cream);font:800 18px 'Barlow Condensed',sans-serif;cursor:pointer}
+#liftpad button.on{background:var(--sun);border-color:var(--ink);color:var(--ink)}
+#liftpad button:disabled{opacity:.45;cursor:default}
 #map{display:block;width:400px;height:200px;pointer-events:auto;touch-action:none;cursor:crosshair}
 @media (max-width:900px){#speedo{width:130px;height:130px}#map{width:240px;height:120px}#time{font-size:30px}#gear{display:none}#tl{min-width:140px}}
 #br.full{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);z-index:20}#br.full #map{width:min(92vw,calc((100vh - 80px) * 2));height:auto}
@@ -318,6 +324,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <div class="plate"><span data-i18n="trip">Trip</span><b id="trip">0.0</b> km<div id="odo" style="font-size:12px;letter-spacing:1px;color:var(--steel-l)">Total 0 km · K resets trip</div></div>
     </div>
   </div>
+  <div id="liftpad" hidden><div class="padtitle" data-i18n="liftPadTitle">Lift</div><div class="padgrid"></div></div>
   <div id="br">
     <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><span id="mapfloor" hidden></span><b>N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
@@ -507,7 +514,7 @@ import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps } from './foot.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { createTowerLift } from './towerlift.js';   // #411: its lift, 11 stops
+import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
@@ -2766,7 +2773,13 @@ window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 
 const HUD = { carHidden: false, bounds: false, borders: false, blinker: null, water: '', waterT: 0, road: '' };
 // #270: the car lights switch — head + tail together, session only (not persisted). #271 (hazard) and #230 (brake) share this state.
 const LIGHTS = { head: false, hazard: false, braking: false };
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a floor (0 = EG) and D the roof; consumed before the walk keys, so D does not sidestep
+  if (!INT.pad || !FOOT.on) return false;
+  const m = /^(?:Digit|Numpad)([0-9])$/.exec(e.code), k = m ? Number(m[1]) : e.code === 'KeyD' ? 10 : null;
+  if (k === null) return false;
+  e.preventDefault(); INT.lift.call(k); return true;
+}
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (liftPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -2969,12 +2982,14 @@ function stepEnterGlow() {   // on foot only: every ready, visible entrance on t
     });
   }
 }
-function pressEnter() { const n = HUD.enter; if (!n) return; const h = ENTER_HANDLERS[n.entry.id]; if (h) h(n.entry, n.entrance); else toast(tr('enterSoon')); }   // #409: E on foot at a ready entrance
+function pressEnter() { if (INT.prompt && INT.indoors) { INT.lift.call(INT.floor); return; } const n = HUD.enter; if (!n) return; const h = ENTER_HANDLERS[n.entry.id]; if (h) h(n.entry, n.entrance); else toast(tr('enterSoon')); }   // #409: E on foot at a ready entrance; #411: inside 6c, E at the lift gap calls the cabin
 function stepEnter() {
   stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; the car keeps E as the right blinker)
   const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
   HUD.enter = enterPrompt(near) && near;
-  if (HUD.enter) { $('prompt').textContent = tr('enterPrompt'); HUD.enterShown = true; } else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
+  if (HUD.enter) { $('prompt').textContent = tr('enterPrompt'); HUD.enterShown = true; }   // #411: written every frame, so the pontoon wipe cannot eat it
+  else if (INT.prompt) { $('prompt').textContent = INT.prompt; }
+  else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
 }
 function pressZ() { if (FOOT.on) getIn(); else getOut(); }
 function canGetOut() { return $('overlay').hidden && !FLY.on && !WRECK_S.on && !LIFT_RIDE.busy && !CARSEL.on && !PAUSE.on && !P.air && P.splash === 0; }
@@ -3051,6 +3066,24 @@ function stepInterior(dt) {
     const s = (p.userData.k === INT.lift.at ? INT.lift.door : 0) * (STAIRHALL.liftDoor.a1 - STAIRHALL.liftDoor.a0);
     p.position.set(s * INT.hall.frame.c, 0, s * INT.hall.frame.s);
   }
+  const { a, b } = INT.hall.frame.fromWorld(P.x, P.z), sh = STAIRHALL.shaft;
+  const inCabin = FOOT.on && INT.indoors && a >= sh.a0 && a <= sh.a1 && b >= sh.b0 && b <= sh.b1 && Math.abs(P.y - INT.lift.y) < 0.5;
+  for (const ev of INT.lift.step(dt, { occupied: inCabin })) liftTowerEvent(ev);   // the ride: closing, moving (the cabin slab carries the walker), opening
+  INT.cabin.y = INT.lift.y;
+  for (let k = 0; k <= STAIRHALL.storeys; k++) wallByTag(INT.hall, `lift:${k}`).off = INT.lift.doorOpenAt(k);
+  setLiftPad(inCabin);
+  INT.prompt = FOOT.on && INT.area === 'tower' && !inCabin && Math.hypot(a - 0.7, b - 1.275) < 1.3 ? tr('liftCall') : null;   // E by the gap calls the lift to this storey
+}
+function liftTowerEvent(ev) { if (ev.type === 'start') SFX.hum(2 * TOWER_LIFT.door + ev.ride); }   // the ride's hum, as long as the trip takes
+// #411: the lift's keypad, shown while the walker stands in the cabin (setLiftPad)
+const LIFT_PAD = { btns: [] };
+function relabelLiftPad() { for (const btn of LIFT_PAD.btns) btn.textContent = keypadLabel(+btn.dataset.level, window.GG_LANG); $('liftpad').querySelector('.padtitle').textContent = tr('liftPadTitle'); }
+function setLiftPad(inCabin) {
+  if (!INT.hall || !INT.lift) return;
+  INT.pad = !!inCabin;
+  $('liftpad').hidden = !INT.pad;
+  if (!INT.pad) return;
+  for (const btn of LIFT_PAD.btns) { const k = +btn.dataset.level; btn.disabled = INT.lift.busy; btn.classList.toggle('on', k === INT.lift.at); }
 }
 // #411: the hall's own meshes, built in place within 40 m of the entrance and disposed beyond 55 m. One merged mesh per
 // material for the static boxes; the door leaf, the lift leaves and the cabin are their own objects (they move per frame).
@@ -3728,7 +3761,16 @@ window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BOR
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); }
-addEventListener('gg-langchange', rerenderAll); rerenderAll();
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
+{ const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
+  for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+    const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
+    btn.addEventListener('click', () => INT.lift && INT.lift.call(k));
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); INT.lift && INT.lift.call(k); }, { passive: false });
+    grid.appendChild(btn); LIFT_PAD.btns.push(btn);
+  }
+  relabelLiftPad();
+}
 /* #346: with a mode button focused, Enter starts and the slot explains it. On a touch device nothing is focused, so the
    slot keeps showing the mode last played and a tap on a mode button starts it directly (wireframe, "Mode text on touch"). */
 if (!matchMedia('(pointer:coarse)').matches) focusStart();

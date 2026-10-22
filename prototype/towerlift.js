@@ -33,7 +33,7 @@ export function createTowerLift(levels, cfg = TOWER_LIFT) {
           machine.setTimes({ ride: Math.max(cfg.minRide, Math.abs(levels[target] - levels[from]) / cfg.speed) });
           machine.step(0, { onPlatform: false });       // re-arm after the last ride
           machine.step(dt, { onPlatform: true, speed: 0, dir: 'down' });
-          t = 0; out.push({ type: 'start', level: target });
+          t = 0; out.push({ type: 'start', level: target, ride: machine.times.ride });   // ride: the seconds this trip takes (the hum's length)
         } else machine.step(dt, { onPlatform: false, near: occupied || idle < cfg.hold });
         return out;
       }
