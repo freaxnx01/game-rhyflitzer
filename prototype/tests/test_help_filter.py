@@ -138,3 +138,32 @@ def test_question_mark_is_typed_not_toggling(server):
     assert help_open is True
     assert field_value == "?"
     assert errors == []
+
+
+def test_ctrl_p_opens_command_search_and_enter_runs_a_row(server):
+    """#190: Ctrl+P opens the help (and does not pause), Enter runs the selected row, a hold row does nothing."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, locale="en-US")
+        page.keyboard.press("Control+p")
+        page.wait_for_function("() => !document.querySelector('#help').hidden", timeout=T)
+        focus = page.evaluate("() => document.activeElement.id")
+        paused = page.evaluate("() => !document.querySelector('#pause').hidden")
+        page.keyboard.type("look back")
+        selected = page.evaluate("() => document.querySelector('#help .keys kbd.sel')?.textContent")
+        page.keyboard.press("Enter")
+        hold_stays_open = page.evaluate("() => !document.querySelector('#help').hidden")
+        page.fill("#helpq", "camera")
+        page.keyboard.press("Enter")
+        page.wait_for_function("() => document.querySelector('#help').hidden", timeout=T)
+        cam = page.evaluate("() => window.__mm.camView")
+        page.keyboard.press("Control+p")
+        page.wait_for_function("() => !document.querySelector('#help').hidden", timeout=T)
+        page.keyboard.press("Control+p")
+        page.wait_for_function("() => document.querySelector('#help').hidden", timeout=T)
+        b.close()
+    assert focus == "helpq"
+    assert paused is False
+    assert selected == "B"
+    assert hold_stays_open is True
+    assert cam == 1
+    assert errors == []

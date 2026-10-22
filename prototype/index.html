@@ -28,7 +28,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #best{font-size:16px;font-weight:600;color:var(--steel)}
 #toast{margin-top:10px;max-width:calc(100vw - 48px);box-sizing:border-box;padding:8px 18px;background:linear-gradient(#ffe27a,#ffc61a 50%,#ff9a1a);border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);transform:rotate(-3deg);color:var(--ink);font-size:24px;font-weight:800;font-style:italic;text-transform:uppercase;line-height:1.05;text-align:center;opacity:0;transition:opacity .2s}
 #toast.show{opacity:1}
-#help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:21;padding:14px 22px;background:rgba(20,23,29,.94);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;max-height:90vh;overflow:auto}#help .keys{margin:8px 0}#help input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}#helpnone{color:var(--steel-l);font-weight:600;margin:8px 0}
+#help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:21;padding:14px 22px;background:rgba(20,23,29,.94);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;max-height:90vh;overflow:auto}#help .keys{margin:8px 0}#help input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}#help .keys .sel{background:#2d3544;color:#ffc61a}#help .keys span.hold{opacity:.55}#help .keys kbd.hold{opacity:.55}#help .keys span.hold::after{content:attr(data-tag);margin-left:8px;padding:0 6px;border:1px solid #4a515e;font-size:.8em}#help .keys kbd,#help .keys span{cursor:pointer}#helpnone{color:var(--steel-l);font-weight:600;margin:8px 0}
 #compass{position:fixed;right:16px;top:calc(124px + env(safe-area-inset-top,0px));width:76px;height:76px}
 #blink{display:flex;gap:10px;justify-content:center;font-size:22px;font-weight:800;color:#3a404b;text-shadow:1px 1px 0 var(--ink)}#blink .on{color:#ff9a1a}
 #watername{font-size:15px;font-weight:700;letter-spacing:2px;color:#9fd8ff;text-shadow:2px 2px 0 var(--ink);min-height:18px}
@@ -256,39 +256,40 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   </div>
   <div id="navi" hidden><svg id="navarrow" viewBox="0 0 160 120" aria-hidden="true"><polygon points="80,4 156,84 118,84 118,116 42,116 42,84 4,84" fill="#3ddcff" stroke="#1c1f26" stroke-width="6" stroke-linejoin="round"/></svg><div id="navdist"></div><div id="navtext"></div><div id="navdest"></div></div>
   <svg id="compass" viewBox="-50 -50 100 100" aria-label="Compass" data-i18n-aria="compassAria"><circle r="47" fill="rgba(20,23,29,.82)" stroke="#b9bfc9" stroke-width="4"/><g id="rose" font-family="Barlow Condensed" font-weight="800" font-size="17" text-anchor="middle" fill="#f5efe0"><text y="-28" fill="#ff7a1a">N</text><text x="31" y="6" data-i18n="compassEast">E</text><text y="40">S</text><text x="-31" y="6">W</text><path d="M0,-22 L5,0 L0,22 L-5,0 Z" fill="none" stroke="#3a404b" stroke-width="2"/></g><polygon points="0,-44 -6,-34 6,-34" fill="#ffc61a"/></svg>
-  <div id="help" hidden><div style="font-weight:800;font-size:20px" data-i18n="helpTitle">Keys · F1 closes</div><input id="helpq" type="search" autocomplete="off" spellcheck="false" aria-label="Search keys" placeholder="Search keys" data-i18n-aria="helpSearch" data-i18n-placeholder="helpSearch"><div class="keys">
-      <kbd>Space</kbd><span data-i18n="keyAccel">accelerate (W or ↑ also work)</span>
-      <kbd>A D</kbd><span data-i18n="keySteer">or ← →: steer · <b>S</b> / ↓ brake, reverse</span>
-      <kbd>Ctrl</kbd><span data-i18n="keyHandbrake">handbrake (drift)</span>
-      <kbd>N</kbd><span data-i18n="keyNitro">Nitro (hold)</span>
-      <kbd>Tab</kbd><span data-i18n="keyTab">full map (hold)</span>
-      <kbd>Q · E</kbd><span data-i18n="keySignals">Turn signals left · right</span>
-      <kbd>L</kbd><span data-i18n="keyLights">Lights on · off</span>
-      <kbd>1</kbd><span data-i18n="keyHazard">Hazard lights on · off</span>
-      <kbd>H · Enter</kbd><span data-i18n="keyHorn">horn</span>
-      <kbd>C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper · drone</span>
-      <kbd>B</kbd><span data-i18n="keyLookBack">look back (hold)</span>
-      <kbd>V</kbd><span data-i18n="keyCar">show / hide the car</span>
-      <kbd>G</kbd><span data-i18n="keyBounds">show / hide the Gemeinde boundaries</span>
-      <kbd>Y</kbd><span data-i18n="keyBorders">show / hide the national borders: new yellow, old white</span>
-      <kbd>J</kbd><span data-i18n="keyJump">jump to a landmark</span>
-      <kbd>2×</kbd><span data-i18n="keyBeam">double-click or double-tap the landscape: beam the car there (in a race it does not count)</span>
-      <kbd>O</kbd><span data-i18n="keyAuto">autopilot: drive to a place or street (O again, steering, gas or brake: you drive)</span>
-      <kbd>I</kbd><span data-i18n="keyNavi">navigation: route, turn arrow and directions to a street or landmark (O drives it too)</span>
-      <kbd>F</kbd><span data-i18n="keyHeli">helicopter: take off · land (Space climbs, Shift sinks)</span>
-      <kbd>Z</kbd><span data-i18n="keyFoot">get out · back in. On foot: W/S walk, A/D sidestep, ←/→ or the mouse turn, F hover on/off, Space up (hover) or jump, Shift down</span>
-      <kbd>U</kbd><span data-i18n="keyPontoon">pontoon bridge: build · remove (at the Rhine bank)</span>
-      <kbd>+ · -</kbd><span data-i18n="keyZoom">zoom the map 1× · 2× · 4× · 8× (or the mouse wheel over it) · double-click or double-tap the map: put the car on the road there</span>
-      <kbd>K</kbd><span data-i18n="keyTrip">reset the trip odometer</span>
-      <kbd>R</kbd><span data-i18n="keyReset">back on the road</span>
-      <kbd>T</kbd><span data-i18n="keyStyle">toggle graphic style</span>
-      <kbd>X</kbd><span data-i18n="keyPhoto">photo: save the view as a PNG</span>
-      <kbd>M</kbd><span data-i18n="keyMute">mute</span>
-      <kbd>Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
-      <kbd>Ctrl · D</kbd><span data-i18n="keyDebug">debug: coordinates, building heights, map links (click the panel to copy · ?debug in the URL)</span>
-      <kbd>F1 · ?</kbd><span data-i18n="keyHelp">this help</span>
+  <div id="help" hidden><div style="font-weight:800;font-size:20px" data-i18n="helpTitle">Commands · Ctrl+P or F1 closes</div><input id="helpq" type="search" autocomplete="off" spellcheck="false" aria-label="Search commands" placeholder="Search commands" data-i18n-aria="helpSearch" data-i18n-placeholder="helpSearch"><div class="keys">
+      <kbd data-cmd="hold">Space</kbd><span data-i18n="keyAccel">accelerate (W or ↑ also work)</span>
+      <kbd data-cmd="hold">A D</kbd><span data-i18n="keySteer">or ← →: steer · <b>S</b> / ↓ brake, reverse</span>
+      <kbd data-cmd="hold">Ctrl</kbd><span data-i18n="keyHandbrake">handbrake (drift)</span>
+      <kbd data-cmd="hold">N</kbd><span data-i18n="keyNitro">Nitro (hold)</span>
+      <kbd data-cmd="hold">Tab</kbd><span data-i18n="keyTab">full map (hold)</span>
+      <kbd data-cmd="KeyQ">Q · E</kbd><span data-i18n="keySignals">Turn signals left · right</span>
+      <kbd data-cmd="KeyL">L</kbd><span data-i18n="keyLights">Lights on · off</span>
+      <kbd data-cmd="Digit1">1</kbd><span data-i18n="keyHazard">Hazard lights on · off</span>
+      <kbd data-cmd="KeyH">H · Enter</kbd><span data-i18n="keyHorn">horn</span>
+      <kbd data-cmd="KeyC">C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper · drone</span>
+      <kbd data-cmd="hold">B</kbd><span data-i18n="keyLookBack">look back (hold)</span>
+      <kbd data-cmd="KeyV">V</kbd><span data-i18n="keyCar">show / hide the car</span>
+      <kbd data-cmd="KeyG">G</kbd><span data-i18n="keyBounds">show / hide the Gemeinde boundaries</span>
+      <kbd data-cmd="KeyY">Y</kbd><span data-i18n="keyBorders">show / hide the national borders: new yellow, old white</span>
+      <kbd data-cmd="KeyJ">J</kbd><span data-i18n="keyJump">jump to a landmark</span>
+      <kbd data-cmd="none">2×</kbd><span data-i18n="keyBeam">double-click or double-tap the landscape: beam the car there (in a race it does not count)</span>
+      <kbd data-cmd="KeyO">O</kbd><span data-i18n="keyAuto">autopilot: drive to a place or street (O again, steering, gas or brake: you drive)</span>
+      <kbd data-cmd="KeyI">I</kbd><span data-i18n="keyNavi">navigation: route, turn arrow and directions to a street or landmark (O drives it too)</span>
+      <kbd data-cmd="KeyF">F</kbd><span data-i18n="keyHeli">helicopter: take off · land (Space climbs, Shift sinks)</span>
+      <kbd data-cmd="KeyZ">Z</kbd><span data-i18n="keyFoot">get out · back in. On foot: W/S walk, A/D sidestep, ←/→ or the mouse turn, F hover on/off, Space up (hover) or jump, Shift down</span>
+      <kbd data-cmd="KeyU">U</kbd><span data-i18n="keyPontoon">pontoon bridge: build · remove (at the Rhine bank)</span>
+      <kbd data-cmd="Equal|+">+ · -</kbd><span data-i18n="keyZoom">zoom the map 1× · 2× · 4× · 8× (or the mouse wheel over it) · double-click or double-tap the map: put the car on the road there</span>
+      <kbd data-cmd="KeyK">K</kbd><span data-i18n="keyTrip">reset the trip odometer</span>
+      <kbd data-cmd="KeyR">R</kbd><span data-i18n="keyReset">back on the road</span>
+      <kbd data-cmd="KeyT">T</kbd><span data-i18n="keyStyle">toggle graphic style</span>
+      <kbd data-cmd="KeyX">X</kbd><span data-i18n="keyPhoto">photo: save the view as a PNG</span>
+      <kbd data-cmd="KeyM">M</kbd><span data-i18n="keyMute">mute</span>
+      <kbd data-cmd="KeyP">Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
+      <kbd data-cmd="ctrl+KeyD">Ctrl · D</kbd><span data-i18n="keyDebug">debug: coordinates, building heights, map links (click the panel to copy · ?debug in the URL)</span>
+      <kbd data-cmd="none">Ctrl · P</kbd><span data-i18n="keyCmdSearch">command search: type, ↑ ↓ choose, Enter runs it</span>
+      <kbd data-cmd="none">F1 · ?</kbd><span data-i18n="keyHelp">this help</span>
     </div>
-    <div id="helpnone" hidden data-i18n="helpNone">No key matches</div>
+    <div id="helpnone" hidden data-i18n="helpNone">No command matches</div>
     <small data-i18n="creditEiffel" style="display:block;margin-top:8px;color:var(--steel-l)"></small>
     <small data-i18n="creditAtomium" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditTitanic" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
@@ -477,7 +478,7 @@ import { SPECIES, treeSpecies, treeParts, treeColour, billShape } from './trees.
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
-import { filterHelpRows } from './helpfilter.js';
+import { filterHelpRows, isHoldCommand, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
@@ -2625,7 +2626,7 @@ window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 
 const HUD = { carHidden: false, bounds: false, borders: false, blinker: null, water: '', waterT: 0, road: '' };
 // #270: the car lights switch — head + tail together, session only (not persisted). #271 (hazard) and #230 (brake) share this state.
 const LIGHTS = { head: false, hazard: false, braking: false };
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -3305,15 +3306,29 @@ $('jumpchips').addEventListener('mousedown', e => e.preventDefault());   // keep
 $('jumpchips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; JUMP.g = b.dataset.g === 'All' ? null : b.dataset.g; JUMP.sel = 0; renderJump(); });
 // #249: the F1 help has a search field — typing filters the key list, and no game key fires while it is open.
 function helpRows() { const kids = [...$('help').querySelector('.keys').children]; const rows = []; for (let i = 0; i < kids.length; i += 2) rows.push({ index: i, keys: kids[i].textContent, text: kids[i + 1].textContent, kbd: kids[i], span: kids[i + 1] }); return rows; }
-function renderHelp() { const matched = new Set(filterHelpRows(helpRows(), $('helpq').value).map(r => r.index)); for (const r of helpRows()) r.kbd.hidden = r.span.hidden = !matched.has(r.index); $('helpnone').hidden = matched.size !== 0; }
-function openHelp() { releaseFootLock(); for (const k in keys) keys[k] = false; $('helpq').value = ''; $('help').hidden = false; renderHelp(); $('helpq').focus(); }
+const HELP = { sel: -1 };   // #190: index (in helpRows) of the selected command row
+function renderHelp() {
+  const rows = helpRows(); const matched = new Set(filterHelpRows(rows, $('helpq').value).map(r => r.index)); const visible = rows.filter(r => matched.has(r.index)).map(r => r.index);
+  if (!visible.includes(HELP.sel)) HELP.sel = visible.length ? visible[0] : -1;
+  for (const r of rows) { const hold = isHoldCommand(r.kbd.dataset.cmd); r.kbd.hidden = r.span.hidden = !matched.has(r.index); r.kbd.classList.toggle('hold', hold); r.span.classList.toggle('hold', hold); r.span.dataset.tag = hold ? tr('helpHold') : ''; const on = r.index === HELP.sel; r.kbd.classList.toggle('sel', on); r.span.classList.toggle('sel', on); if (on) r.kbd.scrollIntoView({ block: 'nearest' }); }
+  $('helpnone').hidden = matched.size !== 0;
+}
+function openHelp() { releaseFootLock(); for (const k in keys) keys[k] = false; $('helpq').value = ''; HELP.sel = -1; $('help').hidden = false; renderHelp(); $('helpq').focus(); }
 function closeHelp() { $('help').hidden = true; $('helpq').blur(); $('helpq').value = ''; }
+function runHelpRow(index) {   // #190: close the help, then press the row's key as the player would — the normal handler applies its own rules
+  const row = helpRows().find(r => r.index === index); const init = row && commandEventInit(row.kbd.dataset.cmd);
+  if (!init) return;
+  closeHelp(); dispatchEvent(new KeyboardEvent('keydown', init)); dispatchEvent(new KeyboardEvent('keyup', init));
+}
 function helpKey(e) {
-  if (e.code === 'F1' || e.code === 'Escape') { e.preventDefault(); if (!e.repeat) closeHelp(); return; }   // F1 or Esc closes; a held key never closes it
+  if (e.code === 'F1' || e.code === 'Escape' || (e.code === 'KeyP' && e.ctrlKey)) { e.preventDefault(); if (!e.repeat) closeHelp(); return; }   // F1, Esc or Ctrl+P closes; a held key never closes it
   if (e.code === 'Tab') { e.preventDefault(); return; }   // the focus (and the typing) stays in the search field
+  if (e.code === 'ArrowDown' || e.code === 'ArrowUp') { e.preventDefault(); const visible = helpRows().filter(r => !r.kbd.hidden).map(r => r.index); HELP.sel = moveSelection(visible, HELP.sel, e.code === 'ArrowDown' ? 1 : -1); renderHelp(); return; }
+  if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); if (!e.repeat) runHelpRow(HELP.sel); return; }
   // everything else is typed into the field — no preventDefault, no game handling
 }
-$('helpq').addEventListener('input', renderHelp);
+$('helpq').addEventListener('input', () => { HELP.sel = -1; renderHelp(); });
+$('help').querySelector('.keys').addEventListener('click', e => { const kids = [...e.currentTarget.children]; const i = kids.indexOf(e.target.closest('kbd, span')); if (i >= 0) runHelpRow(i - (i % 2)); });
 window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g }));
 if (REAL) { $('mmhstatus').classList.add('real'); $('mmhclear').hidden = REAL_SRC !== 'uploaded'; }
 { const s = document.createElement('span'); s.id = 'worldstatus'; if (L) s.classList.add('real'); $('mmhstatus').after(s); }

@@ -121,11 +121,11 @@ test('pause menu texts exist in both languages (#83)', () => {
 });
 
 test('F1 help search and no-match hint exist in both languages (#249)', () => {
-  assert.equal(translate('en', 'helpSearch'), 'Search keys');
-  assert.equal(translate('de', 'helpSearch'), 'Tasten suchen');
-  assert.equal(translate('en', 'helpNone'), 'No key matches');
-  assert.equal(translate('de', 'helpNone'), 'Keine Taste passt');
-  for (const k of ['helpSearch', 'helpNone']) {
+  assert.equal(translate('en', 'helpSearch'), 'Search commands');
+  assert.equal(translate('de', 'helpSearch'), 'Befehle suchen');
+  assert.equal(translate('en', 'helpNone'), 'No command matches');
+  assert.equal(translate('de', 'helpNone'), 'Kein Befehl passt');
+  for (const k of ['helpSearch', 'helpNone', 'helpHold', 'keyCmdSearch']) {
     assert.notEqual(translate('en', k), k, k);
     assert.notEqual(translate('de', k), k, k);
   }
