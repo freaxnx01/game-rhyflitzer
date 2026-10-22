@@ -480,6 +480,7 @@ import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLin
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
+import { isBodenacker6, bodenackerLayout, BODENACKER6 } from './bodenacker6.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -603,6 +604,41 @@ TEX.rowHouse = makeTex(256, 128, (g, w, h) => {
   g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(106, 54, 40, 48);                      // reflection
   g.fillStyle = '#e3b31f'; g.fillRect(153, 50, 4, 56);                                     // mullion
   g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(96, 112, 118, 4);                            // sill shadow
+});
+// #410: Bodenackerstrasse 6a–6d -- one window module x one storey per tile (4 x h/10 m): white plaster with a dark window band
+// and a roller-shutter box (street side and ends). Painted from the description of the reference, not traced; no rr() here,
+// so the seeded RNG sequence stays the same
+TEX.bodenacker = makeTex(256, 128, (g, w, h) => {
+  g.fillStyle = '#f1efe8'; g.fillRect(0, 0, w, h);
+  let s = 45; const lr = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;   // local LCG: speckle without touching the world seed
+  for (let i = 0; i < 220; i++) { const v = Math.floor(lr() * 12); g.fillStyle = `rgba(${200 - v},${196 - v},${186 - v},.22)`; g.fillRect(lr() * w, lr() * h, 2 + lr() * 4, 2 + lr() * 4); }
+  g.fillStyle = 'rgba(0,0,0,.07)'; g.fillRect(0, 0, w, 3);                                 // storey joint
+  g.fillStyle = '#4a4f57'; g.fillRect(17, 27, 222, 77);                                    // window band frame
+  g.fillStyle = '#9a9ea3'; g.fillRect(20, 30, 216, 18);                                    // roller-shutter box
+  g.fillStyle = 'rgba(0,0,0,.16)'; for (let y = 32; y < 48; y += 4) g.fillRect(20, y, 216, 1);   // slats
+  g.fillStyle = '#2f3844'; g.fillRect(20, 48, 216, 52);                                   // glass
+  g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(20, 48, 72, 52);                       // reflection on the left third
+  g.fillStyle = '#4a4f57'; g.fillRect(126, 48, 4, 52);                                     // mullion: two lights per module
+  g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(17, 100, 222, 4);                            // sill shadow
+});
+// #410: the back side of the same block -- a recessed loggia opening painted flat on the wall plane: no geometry, nothing projects
+TEX.bodenackerLoggia = makeTex(256, 128, (g, w, h) => {
+  g.fillStyle = '#f1efe8'; g.fillRect(0, 0, w, h);
+  let s = 45; const lr = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 220; i++) { const v = Math.floor(lr() * 12); g.fillStyle = `rgba(${200 - v},${196 - v},${186 - v},.22)`; g.fillRect(lr() * w, lr() * h, 2 + lr() * 4, 2 + lr() * 4); }
+  g.fillStyle = 'rgba(0,0,0,.07)'; g.fillRect(0, 0, w, 3);
+  g.fillStyle = '#3b3f46'; g.fillRect(20, 30, 216, 70);                                     // recessed dark opening
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(20, 30, 216, 12);                            // inner top shadow
+  g.fillStyle = 'rgba(255,255,255,.10)'; g.fillRect(20, 74, 216, 26);                      // glass tint of the railing band
+  g.fillStyle = '#d9d6cd'; g.fillRect(20, 30, 6, 70); g.fillRect(230, 30, 6, 70);         // light reveal strips: reads as depth
+  g.fillStyle = '#6b7078'; g.fillRect(20, 74, 216, 2);                                    // rail line
+  for (let x = 24; x < 236; x += 8) g.fillRect(x, 76, 1, 24);                              // railing bars
+});
+// #410: plain speckled white for the roof-top housing, the parapet band and the porch roof slab (colour tints it)
+TEX.plasterWhite = makeTex(64, 64, (g, w, h) => {
+  g.fillStyle = '#f1efe8'; g.fillRect(0, 0, w, h);
+  let s = 45; const lr = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 60; i++) { const v = Math.floor(lr() * 12); g.fillStyle = `rgba(${200 - v},${196 - v},${186 - v},.22)`; g.fillRect(lr() * w, lr() * h, 2 + lr() * 3, 2 + lr() * 3); }
 });
 // #87: gable ends of a row house -- plain plaster only. The tile above is 256 x 128: yellow panel at x 0-29, window frame at
 // x 96-214 / y 22-116, storey joint at y 0-3 (canvas y flips to v). u 0.14-0.35, v 0.05-0.90 is speckled white with nothing
@@ -1146,9 +1182,65 @@ function osmBuilding(b) {
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
   const wc = col(ind ? INDUSTRIAL.walls[Math.floor(rr(0, 3))] : PLASTER[Math.floor(rr(0, PLASTER.length))]);
+  if (isBodenacker6(b) && bodenackerBuilding(b, base, h)) return;   // #410: own model; the rr() draw above keeps every later colour
   if (row) extrudeFootprint(b.ring, base, h, col('#ffffff'), 'rowHouse', col('#8f8a84'), rowHouseTile(b), true);
   else extrudeFootprint(b.ring, base, h, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, h] : [4, 3]);
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: base + h, ring: b.ring });   // #36: walls drawn from the ring collide as the ring; the rectangle stays for the grid, free() and the camera
+}
+// #410: one vertical quad per body wall (extrudeFootprint draws whole rings only); u restarts per wall, like its uPerFace
+function wallQuads(walls, base, h, c, role, tile) {
+  for (const w of walls) {
+    const L2 = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]); if (L2 < 0.05) continue;
+    const nx = -(w.b[1] - w.a[1]) / L2, nz = (w.b[0] - w.a[0]) / L2, [x0, z0] = w.a, [x1, z1] = w.b, y0 = base - 2, y1 = base + h;
+    const pos = [], nrm = [];
+    for (const v of [[x0, y0, z0], [x1, y0, z1], [x1, y1, z1], [x0, y0, z0], [x1, y1, z1], [x0, y1, z0]]) { pos.push(...v); nrm.push(nx, 0, nz); }
+    const u1 = L2 / tile[0], v0 = -2 / tile[1], v1 = h / tile[1];
+    rawGeo(pos, nrm, [0, v0, u1, v0, u1, v1, 0, v0, u1, v1, 0, v1], 0, 0, 0, c, role);
+  }
+}
+// #410: a glass pane at local u spanning v0..v1 (side of a porch), facing +u; and one at local v spanning u0..u1 (street face)
+function paneSide(frame, u, v0, v1, y0, y1) {
+  const g = new THREE.PlaneGeometry(v1 - v0, y1 - y0); g.rotateY(Math.PI / 2); g.rotateY(-frame.rot);
+  const [x, z] = frame.toWorld(u, (v0 + v1) / 2); g.translate(x, (y0 + y1) / 2, z);
+  colorize(g, col('#bfd6e4')); push('glass', g);
+}
+function paneStreet(frame, u0, u1, v, y0, y1) {
+  const g = new THREE.PlaneGeometry(u1 - u0, y1 - y0); g.rotateY(-frame.rot);
+  const [x, z] = frame.toWorld((u0 + u1) / 2, v); g.translate(x, (y0 + y1) / 2, z);
+  colorize(g, col('#bfd6e4')); push('glass', g);
+}
+// #410: one entrance porch: dark posts, a flat roof slab with an overhang, two glass side panes, and the street pane split
+// into two side lights around the solid door leaf (which #411 can swing or hide). The rear is the body façade.
+function porchMesh(p, frame, base) {
+  const P = BODENACKER6.porch, vc = (p.v0 + p.v1) / 2;
+  for (const du of [-1, 1]) for (const dv of [-1, 1]) {
+    const [x, z] = frame.toWorld(p.u + du * (p.w / 2 - P.post / 2), vc + dv * (p.d / 2 - P.post / 2));
+    box(P.post, P.h, P.post, x, base, z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);
+  }
+  const [rx, rz] = frame.toWorld(p.u, vc);
+  box(p.w + 2 * P.overhang, P.slab, p.d + 2 * P.overhang, rx, base + P.h, rz, frame.rot, col('#c9ccd0'), 'plasterWhite', [4, 3], 0);
+  for (const du of [-1, 1]) paneSide(frame, p.u + du * p.w / 2, p.v0, p.v1, base, base + P.h);
+  for (const du of [-1, 1]) paneStreet(frame, p.u + du * P.door / 2, p.u + du * p.w / 2, p.v1, base, base + P.h);
+  box(P.door, 2.2, 0.05, p.entrance.x, base, p.entrance.z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);
+}
+// #410: the block Bodenackerstrasse 6a–6d from its own model (prototype/bodenacker6.js): ten storeys of the own façade tile
+// on the OSM footprint without the porch bumps (loggia tile on the back), a white parapet band under the gravel roof slab,
+// a windowless white roof-top housing behind each porch (Q1) and the four glass entrance porches. No rr() here.
+function bodenackerBuilding(b, base, h) {
+  let L; try { L = bodenackerLayout(b, base, h); } catch (e) { console.warn(e.message); return false; }   // fail loudly, never a hole
+  const tile = [BODENACKER6.moduleWidth, L.floors.pitch], white = col('#ffffff');
+  wallQuads(L.walls.filter(w => w.face === 'back'), base, h, white, 'bodenackerLoggia', tile);
+  wallQuads(L.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile);
+  const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
+  extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'));   // the band's top is the roof slab
+  for (const s of L.stairs) {
+    const [x, z] = L.frame.toWorld(s.u, (s.vFront + s.vBack) / 2);
+    box(s.w, BODENACKER6.housingRise, s.d, x, L.floors.roof, z, L.frame.rot, white, 'plasterWhite', [4, 3], 0);
+  }
+  for (const p of L.porches) porchMesh(p, L.frame, base);
+  pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: L.floors.roof, ring: b.ring });   // the OSM outline = body + porches, as before
+  window.__mm.counts.bodenacker6 = 1; window.__mm.bodenacker6 = () => L;
+  return true;
 }
 function lot(x, z, w, d, rot, c = '#b8b0a0') { const g = new THREE.PlaneGeometry(w, d, 4, 4); g.rotateX(-Math.PI / 2); g.rotateY(-rot); g.translate(x, 0, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, terrainH(p.getX(i), p.getZ(i)) + 0.035); const u = g.attributes.uv; for (let i = 0; i < u.count; i++) u.setXY(i, u.getX(i) * w / 4, u.getY(i) * d / 4); colorize(g, col(c)); push('roadPlain', g); }
 // w, d: hall footprint (hand path 28 x 26 with an outdoor pool; OSM: the mapped footprint, no invented pool)
@@ -2201,9 +2293,9 @@ const heli = new THREE.Group(), rotor = new THREE.Group(); heli.visible = false;
 // full-strength sky reflection clips to white, so it is toned down; smooth has ACES to roll the highlights off and gets 1.0.
 const STYLES = {
   original: { nameKey: 'styleOriginal', sky: ['#3d6fb5', '#e8bd8c'], fog: () => new THREE.Fog(col('#e8bd8c'), 320, 1400), hemi: 0.95, sunI: 0.75, shadows: false, carShadow: 0.55, pixel: Math.min(1.5, window.devicePixelRatio || 1), trees: 'bill', tone: THREE.NoToneMapping, carEnv: 0.45,
-    mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, rowHouse: TEX.rowHouse, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadOsm: TEX.asphaltOnly, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96, side: THREE.DoubleSide }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } return m; } },
+    mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, rowHouse: TEX.rowHouse, bodenacker: TEX.bodenacker, bodenackerLoggia: TEX.bodenackerLoggia, plasterWhite: TEX.plasterWhite, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadOsm: TEX.asphaltOnly, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96, side: THREE.DoubleSide }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ color: 0xbfd6e4, vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } return m; } },
   smooth: { nameKey: 'styleSmooth', sky: ['#5d9be0', '#f2d9c4'], fog: () => new THREE.FogExp2(col('#f2d9c4'), 0.00095), hemi: 0.55, sunI: 1.6, shadows: true, carShadow: 0.3, pixel: Math.min(2, window.devicePixelRatio || 1), trees: 'cone', tone: THREE.ACESFilmicToneMapping, carEnv: 1.0,
-    mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
+    mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', bodenacker: '#f1efe8', bodenackerLoggia: '#f1efe8', plasterWhite: '#f1efe8', glass: '#bfd6e4', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ color: col(flat), vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'bodenacker', 'bodenackerLoggia', 'plasterWhite', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
 function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(LEVELS.id === 'ring' ? 'ring' : 'room'); renderStyleName(); resize(); }

@@ -13,7 +13,7 @@ needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py
 
 ROW_IDS = {512632899, 171822953, 171822664, 171822908, 171822930, 171822939, 171822935, 171822913,
            171822943, 171822937, 171822949, 171822938, 171822934, 171822932, 171822933, 171822799}
-OTHER_ID = 171822634   # Bodenackerstrasse 6a–6d: next door, a–d address range, eight storeys — not a row house
+OTHER_ID = 171822634   # Bodenackerstrasse 6a–6d: next door, a–d address range, ten storeys — not a row house
 
 
 def open_page(p, server, block_world=False):
