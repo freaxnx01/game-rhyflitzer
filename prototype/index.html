@@ -481,7 +481,7 @@ import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLin
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
-import { isBodenacker6, bodenackerLayout, BODENACKER6 } from './bodenacker6.js';
+import { isBodenacker6, bodenackerLayout, bodenackerHouse, BODENACKER6 } from './bodenacker6.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -2787,6 +2787,7 @@ if (YARD) { const at = JUMP_ENTRIES.map(e => e.g).lastIndexOf(YARD.gemeinde); JU
 // #409: the enterable-buildings register, resolved once. #411 / #412 add ENTER_HANDLERS[id] = (entry, entrance) => ...
 const hideoutRoomCentres = () => ({ eiffel: roomLayout(0).centre, atomium: roomLayout(1).centre });   // pure layout maths (rooms.js): resolvable even where the hideout itself is not built; the entries stay secret until HIDE.found
 const ENTERABLES = enterableEntries(ENTERABLE_INFO, L ? L.anchors.landmarks : {}, L ? L.buildings : [], hideoutRoomCentres());
+{ const lay = window.__mm.bodenacker6 && window.__mm.bodenacker6(), e = ENTERABLES.find(q => q.id === 'bodenackerstrasse-6c'); if (lay && e) e.entrances = [{ ...bodenackerHouse(lay, '6c').porch.entrance }]; }   // #411: the 6c glass porch is the entrance (still ready: false until #411 flips it)
 const ENTER_HANDLERS = {};
 const secretRevealed = () => !!(HIDE && HIDE.found);
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
