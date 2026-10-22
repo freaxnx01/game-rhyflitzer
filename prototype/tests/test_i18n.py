@@ -69,7 +69,7 @@ def test_stored_language_wins_over_the_browser(server):
         })""")
         b.close()
     assert shown["lang"] == "de"
-    assert "Blinker links · rechts" in shown["help"] and "Tasten · F1 schliesst" in shown["help"], shown["help"]
+    assert "Blinker links · rechts" in shown["help"] and "Befehle · Ctrl+P oder F1 schliesst" in shown["help"], shown["help"]
     assert shown["jumpTitle"] == "Springen nach"
     assert shown["jumpSearch"] == "Wahrzeichen suchen"
     assert shown["jumpHint"].startswith("tippen zum Suchen")
