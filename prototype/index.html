@@ -62,7 +62,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
 #jump input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}
 #jump .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}#jump .chips button{font:inherit;font-size:13px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 8px;cursor:pointer}#jump .chips button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}
-#jump ul{list-style:none;margin:6px 0;padding:0;max-height:50vh;overflow-y:auto}#jump li{display:flex;justify-content:space-between;gap:12px;cursor:pointer;padding:3px 4px}#jump li span{color:var(--steel-l);font-weight:600}#jump li:hover,#jump li.sel{color:#ffc61a}#jump small{color:var(--steel-l)}
+#jump ul{list-style:none;margin:6px 0;padding:0;max-height:50vh;overflow-y:auto}#jump li{display:flex;justify-content:space-between;gap:12px;cursor:pointer;padding:3px 4px}#jump li span{color:var(--steel-l);font-weight:600}#jump li:hover,#jump li.sel{color:#ffc61a}#jump li.soon{opacity:.55}#jump small{color:var(--steel-l)}
 #bl{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
 #speedo{width:200px;height:200px}
 #gear{display:flex;flex-direction:column;gap:6px}
@@ -277,6 +277,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="KeyI">I</kbd><span data-i18n="keyNavi">navigation: route, turn arrow and directions to a street or landmark (O drives it too)</span>
       <kbd data-cmd="KeyF">F</kbd><span data-i18n="keyHeli">helicopter: take off · land (Space climbs, Shift sinks)</span>
       <kbd data-cmd="KeyZ">Z</kbd><span data-i18n="keyFoot">get out · back in. On foot: W/S walk, A/D sidestep, ←/→ or the mouse turn, F hover on/off, Space up (hover) or jump, Shift down</span>
+      <kbd data-cmd="KeyE">E</kbd><span data-i18n="keyEnter">on foot, at a glowing door: enter</span>
       <kbd data-cmd="KeyU">U</kbd><span data-i18n="keyPontoon">pontoon bridge: build · remove (at the Rhine bank)</span>
       <kbd data-cmd="Equal|+">+ · -</kbd><span data-i18n="keyZoom">zoom the map 1× · 2× · 4× · 8× (or the mouse wheel over it) · double-click or double-tap the map: put the car on the road there</span>
       <kbd data-cmd="KeyK">K</kbd><span data-i18n="keyTrip">reset the trip odometer</span>
@@ -480,7 +481,7 @@ import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLin
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
-import { isBodenacker6, bodenackerLayout, BODENACKER6 } from './bodenacker6.js';
+import { isBodenacker6, bodenackerLayout, bodenackerHouse, BODENACKER6 } from './bodenacker6.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -518,6 +519,7 @@ import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled
 import { LAMP, lampState } from './lights.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
+import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -2726,7 +2728,7 @@ window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 
 const HUD = { carHidden: false, bounds: false, borders: false, blinker: null, water: '', waterT: 0, road: '' };
 // #270: the car lights switch — head + tail together, session only (not persisted). #271 (hazard) and #230 (brake) share this state.
 const LIGHTS = { head: false, hazard: false, braking: false };
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -2780,8 +2782,14 @@ const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg
 /* J: the 3D landmarks (landmarks.js), searched by name and filtered by Gemeinde; hand layout: the race points, no Gemeinde.
    #167: a generated world uses REGION.jlist instead of landmarkEntries. */
 const JUMP_ENTRIES = REGION.generated ? REGION.jlist.map(e => ({ ...e })) : L ? landmarkEntries(REGION.landmarks, L.anchors.landmarks, L.buildings, REGION.gemeinden) : [...CPS, FINISH].map(c => ({ n: c.n, g: null, x: c.x, z: c.z }));
-const JUMP = { q: '', g: null, sel: 0, rows: [], mode: 'jump' };
+const JUMP = { q: '', g: null, enterable: false, sel: 0, rows: [], mode: 'jump' };
 if (YARD) { const at = JUMP_ENTRIES.map(e => e.g).lastIndexOf(YARD.gemeinde); JUMP_ENTRIES.splice(at + 1, 0, yardEntry(tr('crashYard'), YARD)); }   // #415: always listed (the Crash-Platz), after its Gemeinde's last landmark, named in the game language
+// #409: the enterable-buildings register, resolved once. #411 / #412 add ENTER_HANDLERS[id] = (entry, entrance) => ...
+const hideoutRoomCentres = () => ({ eiffel: roomLayout(0).centre, atomium: roomLayout(1).centre });   // pure layout maths (rooms.js): resolvable even where the hideout itself is not built; the entries stay secret until HIDE.found
+const ENTERABLES = enterableEntries(ENTERABLE_INFO, L ? L.anchors.landmarks : {}, L ? L.buildings : [], hideoutRoomCentres());
+{ const lay = window.__mm.bodenacker6 && window.__mm.bodenacker6(), e = ENTERABLES.find(q => q.id === 'bodenackerstrasse-6c'); if (lay && e) e.entrances = [{ ...bodenackerHouse(lay, '6c').porch.entrance }]; }   // #411: the 6c glass porch is the entrance (still ready: false until #411 flips it)
+const ENTER_HANDLERS = {};
+const secretRevealed = () => !!(HIDE && HIDE.found);
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 function placeOnRoad(x, z, th, name) { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; liftIndicator(null); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
@@ -2889,6 +2897,42 @@ function land() { if (!LEVELS.isSurface()) { P.safe = [P.x, P.z, P.th]; resetCar
 // the car stays where stepCar last put it, FOOT.car is that pose. R, J, the map, the beam and Start end it through resetCar
 const FOOT = { on: false, hover: false, vy: 0, pitch: 0, stride: 0, car: null };
 const parked = () => parkedBox(FOOT.car, CAR_SIZE);
+const ENTER_GLOW = { sprites: new Map(), shown: [], tex: null };   // #409: one pooled additive sprite per entrance
+function enterGlowTexture() {
+  if (ENTER_GLOW.tex) return ENTER_GLOW.tex;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d').createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,236,190,1)'); g.addColorStop(0.45, 'rgba(255,214,140,0.45)'); g.addColorStop(1, 'rgba(255,200,120,0)');
+  const x = c.getContext('2d'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  return (ENTER_GLOW.tex = new THREE.CanvasTexture(c));
+}
+function enterGlowSprite(key) {
+  let sp = ENTER_GLOW.sprites.get(key);
+  if (!sp) { sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: enterGlowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); sp.visible = false; scene.add(sp); ENTER_GLOW.sprites.set(key, sp); }
+  return sp;
+}
+const reducedMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+function stepEnterGlow() {   // on foot only: every ready, visible entrance on the walker's level glows softly from GLOW_RANGE
+  for (const sp of ENTER_GLOW.sprites.values()) sp.visible = false;
+  ENTER_GLOW.shown = [];
+  if (!FOOT.on) return;
+  const pulse = reducedMotion() ? 1 : 0.85 + 0.15 * Math.sin(performance.now() / 500);
+  for (const e of visibleEnterables(ENTERABLES, secretRevealed())) {
+    if (!e.ready || e.level !== LEVELS.id) continue;
+    e.entrances.forEach((en, i) => {
+      const k = glowStrength(Math.hypot(P.x - en.x, P.z - en.z)); if (k <= 0) return;
+      const sp = enterGlowSprite(e.id + ':' + i), w = en.w || 1.5;
+      sp.position.set(en.x, groundH(en.x, en.z, P.y) + 1.2, en.z); sp.scale.set(w * 2, 2.4, 1); sp.material.opacity = k * pulse; sp.visible = true;
+      ENTER_GLOW.shown.push({ id: e.id, opacity: +k.toFixed(3) });
+    });
+  }
+}
+function pressEnter() { const n = HUD.enter; if (!n) return; const h = ENTER_HANDLERS[n.entry.id]; if (h) h(n.entry, n.entrance); else toast(tr('enterSoon')); }   // #409: E on foot at a ready entrance
+function stepEnter() {
+  stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; the car keeps E as the right blinker)
+  const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
+  HUD.enter = enterPrompt(near) && near;
+  if (HUD.enter) { $('prompt').textContent = tr('enterPrompt'); HUD.enterShown = true; } else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
+}
 function pressZ() { if (FOOT.on) getIn(); else getOut(); }
 function canGetOut() { return $('overlay').hidden && !FLY.on && !WRECK_S.on && !LIFT_RIDE.busy && !CARSEL.on && !PAUSE.on && !P.air && P.splash === 0; }
 function getOut() {
@@ -3380,17 +3424,21 @@ const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
 function destEntries() { return [...JUMP_ENTRIES.filter(e => !e.wreck && !e.yard), ...AUTOP.streets]; }
 function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : JUMP_ENTRIES; }
-function jumpRows() { const rows = filterLandmarks(jumpEntries(), JUMP.q, JUMP.g); return DEST_MODES.has(JUMP.mode) ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }]; }
+function jumpRows() {
+  if (DEST_MODES.has(JUMP.mode)) return filterLandmarks(jumpEntries(), JUMP.q, JUMP.g);
+  const rows = jumpRowsFor(JUMP_ENTRIES, ENTERABLES, { q: JUMP.q, g: JUMP.g, enterable: JUMP.enterable, lang: window.GG_LANG === 'de' ? 'de' : 'en' }, secretRevealed());   // #409: the Enterable chip narrows the list to the register
+  return JUMP.enterable ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }];
+}
 function renderJump() {
   const drive = DEST_MODES.has(JUMP.mode), toNavi = JUMP.mode === 'navi'; JUMP.rows = jumpRows(); JUMP.sel = Math.min(JUMP.sel, JUMP.rows.length - 1);
   $('jumptitle').textContent = tr(toNavi ? 'naviTitle' : drive ? 'driveTitle' : 'jumpTitle'); $('jumphint').textContent = tr(toNavi ? 'naviHint' : drive ? 'driveHint' : 'jumpHint');
   /* #176: street and place names come from OSM, so every name is escaped; tr('streetIn') keeps its own markup, so only its argument is escaped */
-  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${i === JUMP.sel ? ' class="sel"' : ''}>${esc(r.n)}<span>${r.street ? tr('streetIn', esc(r.g)) : esc(r.g)}</span></li>`).join('');
+  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${(i === JUMP.sel ? ' class="sel' : ' class="') + (r.soon ? ' soon' : '') + '"'}>${esc(r.n)}<span>${r.soon ? tr('enterableSoon') : r.street ? tr('streetIn', esc(r.g)) : esc(r.g)}</span></li>`).join('');
   /* data-g round-trips through the browser's attribute decoding, so the click handler still reads the raw name from dataset.g */
-  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`).join('') : '';
+  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`).join('') + (drive ? '' : `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`) : '';
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
-function openJump(mode) { releaseFootLock(); for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
+function openJump(mode) { releaseFootLock(); for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.enterable = false; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
 function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
 function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else if (r.wreck) jumpToWreck(r.n); else if (r.yard) jumpToYard(r.n); else jumpTo(r); }
 function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
@@ -3403,7 +3451,7 @@ function jumpKey(e) {
 $('jumpq').addEventListener('input', () => { JUMP.q = $('jumpq').value; JUMP.sel = 0; renderJump(); });
 $('jumplist').addEventListener('click', e => { const li = e.target.closest('li'); if (li) pickJump(+li.dataset.i); });
 $('jumpchips').addEventListener('mousedown', e => e.preventDefault());   // keeps the focus (and the typing) in the search field
-$('jumpchips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; JUMP.g = b.dataset.g === 'All' ? null : b.dataset.g; JUMP.sel = 0; renderJump(); });
+$('jumpchips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.enterable) JUMP.enterable = !JUMP.enterable; else JUMP.g = b.dataset.g === 'All' ? null : b.dataset.g; JUMP.sel = 0; renderJump(); });
 // #249: the F1 help has a search field — typing filters the key list, and no game key fires while it is open.
 function helpRows() { const kids = [...$('help').querySelector('.keys').children]; const rows = []; for (let i = 0; i < kids.length; i += 2) rows.push({ index: i, keys: kids[i].textContent, text: kids[i + 1].textContent, kbd: kids[i], span: kids[i + 1] }); return rows; }
 const HELP = { sel: -1 };   // #190: index (in helpRows) of the selected command row
@@ -3429,7 +3477,14 @@ function helpKey(e) {
 }
 $('helpq').addEventListener('input', () => { HELP.sel = -1; renderHelp(); });
 $('help').querySelector('.keys').addEventListener('click', e => { const kids = [...e.currentTarget.children]; const i = kids.indexOf(e.target.closest('kbd, span')); if (i >= 0) runHelpRow(i - (i % 2)); });
-window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g }));
+window.__mm.enterables = {   // #409: test hooks
+  list: () => ENTERABLES.map(e => ({ id: e.id, ready: e.ready, secret: e.secret, x: e.x, z: e.z, entrances: e.entrances.length })),
+  setReady: (id, ready, at) => { let e = ENTERABLES.find(q => q.id === id); const info = ENTERABLE_INFO.find(q => q.id === id); if (!e && at && info) { e = { ...info, x: at[0], z: at[1], entrances: [] }; ENTERABLES.push(e); } if (!e) return false; e.ready = !!ready; if (at) { e.x = at[0]; e.z = at[1]; e.entrances = [{ x: at[0], z: at[1], th: 0, w: 2 }]; } return true; },
+  mapMarks: () => MAP_MARKS.list.map(m => ({ ...m })),
+  glows: () => ENTER_GLOW.shown.map(g => ({ ...g })),
+  prompt: () => HUD.enter ? HUD.enter.entry.id : null,
+};
+window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g, ...(r.soon ? { soon: true } : {}) }));
 if (REAL) { $('mmhstatus').classList.add('real'); $('mmhclear').hidden = REAL_SRC !== 'uploaded'; }
 { const s = document.createElement('span'); s.id = 'worldstatus'; if (L) s.classList.add('real'); $('mmhstatus').after(s); }
 let WORLD_FILE_ERR = null;   // #167: the code of the last refused world file; the status line shows it until the next attempt
@@ -3580,7 +3635,23 @@ window.__mm.beamPick = beamPick; window.__mm.beam = () => BEAM.last && { ...BEAM
 // the route line: the autopilot's while it drives, else the Navi's (with both on it is the same route) (#106)
 function currentRoute() { return AUTOP.on ? { route: AUTOP.st.route, s: AUTOP.st.s } : NAVIS.on ? { route: NAVIS.route, s: NAVIS.st.s } : null; }
 function drawRoute(v, route, s) { let i = 0; while (i < route.pts.length - 2 && route.cum[i + 1] <= s) i++; mg.beginPath(); mg.moveTo(...mapPt(v, P.x, P.z)); for (let k = i + 1; k < route.pts.length; k++) mg.lineTo(...mapPt(v, route.pts[k][0], route.pts[k][1])); mg.lineJoin = 'round'; mg.lineWidth = 7; mg.strokeStyle = '#1c1f26'; mg.stroke(); mg.lineWidth = 4; mg.strokeStyle = '#3ddcff'; mg.stroke(); const [ex, ey] = mapPt(v, ...route.pts[route.pts.length - 1]); mg.beginPath(); mg.arc(ex, ey, 7, 0, 7); mg.fillStyle = '#3ddcff'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = '#1c1f26'; mg.stroke(); }
-function drawMap() { const v = mapView(), w = mapC.width, h = mapC.height; mg.drawImage(mapStatic, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); if (HUD.bounds) mg.drawImage(mapBounds, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); if (HUD.borders) mg.drawImage(mapBorders, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); { const cr = currentRoute(); if (cr) drawRoute(v, cr.route, cr.s); } if (PONTOON.deck) { const d = PONTOON.deck, A = mapPt(v, d.a[0], d.a[1]), B = mapPt(v, d.b[0], d.b[1]); mg.lineCap = 'round'; mg.beginPath(); mg.moveTo(A[0], A[1]); mg.lineTo(B[0], B[1]); mg.strokeStyle = '#1e2414'; mg.lineWidth = 5; mg.stroke(); mg.strokeStyle = '#8a8f5a'; mg.lineWidth = 3; mg.stroke(); } if (R.mode !== 'hunt') { CPS.forEach((c, i) => { const d = cpObjs[i].done, [cx, cy] = mapPt(v, c.x, c.z); mg.beginPath(); mg.arc(cx, cy, 7, 0, 7); mg.fillStyle = d ? '#7fe0a0' : (R.target && R.target.i === i ? '#ffc61a' : '#4a515e'); mg.fill(); mg.lineWidth = 2; mg.strokeStyle = d ? '#1c1f26' : '#ffc61a'; mg.stroke(); if (!d) { mg.fillStyle = R.target && R.target.i === i ? '#1c1f26' : '#ffc61a'; mg.font = '800 11px "Barlow Condensed", sans-serif'; mg.textAlign = 'center'; mg.fillText(String(i + 1), cx, cy + 4); mg.textAlign = 'left'; } }); } else { HUNT_RUN.spots.forEach((s, i) => { if (HUNT_RUN.found[i]) return; const [cx, cy] = mapPt(v, s.x, s.z); mg.beginPath(); mg.arc(cx, cy, 6, 0, 7); mg.fillStyle = '#ff5fb0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = R.target && R.target.i === i ? '#ffc61a' : '#1c1f26'; mg.stroke(); }); } const [px, py] = mapPt(v, P.x, P.z); if (R.mode !== 'hunt') { const [fx, fy] = mapPt(v, FINISH.x, FINISH.z); mg.fillStyle = R.done === 5 ? '#e0322d' : '#6a2a2a'; mg.fillRect(fx - 6, fy - 6, 12, 12); mg.strokeStyle = '#1c1f26'; mg.strokeRect(fx - 6, fy - 6, 12, 12); } mg.save(); mg.translate(px, py); mg.rotate(P.th); mg.beginPath(); mg.moveTo(10, 0); mg.lineTo(-7, 6); mg.lineTo(-4, 0); mg.lineTo(-7, -6); mg.closePath(); mg.fillStyle = '#f5efe0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = '#1c1f26'; mg.stroke(); mg.restore(); }
+const MAP_MARKS = { list: [] };
+function enterableMapMarks() {   // #409: ready, visible entrances on the surface; the hideout objects collapse to one mark at the Hübel
+  const marks = [], seen = new Set();
+  for (const e of visibleEnterables(ENTERABLES, secretRevealed())) {
+    if (!e.ready) continue;
+    if (e.level === 'surface') { marks.push({ id: e.id, x: e.x, z: e.z }); continue; }
+    const at = JUMP_ENTRIES.find(j => j.n === e.landmark);
+    if (at && !seen.has(e.landmark)) { seen.add(e.landmark); marks.push({ id: e.id, x: at.x, z: at.z }); }
+  }
+  return marks;
+}
+function drawEnterableDoor(v, m) {   // a small door: dark plate, light frame, a dot for the handle
+  const [x, y] = mapPt(v, m.x, m.z); if (x < -8 || y < -8 || x > mapC.width + 8 || y > mapC.height + 8) return;
+  mg.fillStyle = '#1c1f26'; mg.fillRect(x - 3.5, y - 5, 7, 10); mg.strokeStyle = '#f5efe0'; mg.lineWidth = 1; mg.strokeRect(x - 3, y - 4.5, 6, 9);
+  mg.fillStyle = '#ffc61a'; mg.fillRect(x + 1, y, 1.5, 1.5);
+}
+function drawMap() { const v = mapView(), w = mapC.width, h = mapC.height; mg.drawImage(mapStatic, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); if (HUD.bounds) mg.drawImage(mapBounds, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); if (HUD.borders) mg.drawImage(mapBorders, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); { const cr = currentRoute(); if (cr) drawRoute(v, cr.route, cr.s); } if (PONTOON.deck) { const d = PONTOON.deck, A = mapPt(v, d.a[0], d.a[1]), B = mapPt(v, d.b[0], d.b[1]); mg.lineCap = 'round'; mg.beginPath(); mg.moveTo(A[0], A[1]); mg.lineTo(B[0], B[1]); mg.strokeStyle = '#1e2414'; mg.lineWidth = 5; mg.stroke(); mg.strokeStyle = '#8a8f5a'; mg.lineWidth = 3; mg.stroke(); } if (R.mode !== 'hunt') { CPS.forEach((c, i) => { const d = cpObjs[i].done, [cx, cy] = mapPt(v, c.x, c.z); mg.beginPath(); mg.arc(cx, cy, 7, 0, 7); mg.fillStyle = d ? '#7fe0a0' : (R.target && R.target.i === i ? '#ffc61a' : '#4a515e'); mg.fill(); mg.lineWidth = 2; mg.strokeStyle = d ? '#1c1f26' : '#ffc61a'; mg.stroke(); if (!d) { mg.fillStyle = R.target && R.target.i === i ? '#1c1f26' : '#ffc61a'; mg.font = '800 11px "Barlow Condensed", sans-serif'; mg.textAlign = 'center'; mg.fillText(String(i + 1), cx, cy + 4); mg.textAlign = 'left'; } }); } else { HUNT_RUN.spots.forEach((s, i) => { if (HUNT_RUN.found[i]) return; const [cx, cy] = mapPt(v, s.x, s.z); mg.beginPath(); mg.arc(cx, cy, 6, 0, 7); mg.fillStyle = '#ff5fb0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = R.target && R.target.i === i ? '#ffc61a' : '#1c1f26'; mg.stroke(); }); } MAP_MARKS.list = enterableMapMarks(); for (const m of MAP_MARKS.list) drawEnterableDoor(v, m); const [px, py] = mapPt(v, P.x, P.z); if (R.mode !== 'hunt') { const [fx, fy] = mapPt(v, FINISH.x, FINISH.z); mg.fillStyle = R.done === 5 ? '#e0322d' : '#6a2a2a'; mg.fillRect(fx - 6, fy - 6, 12, 12); mg.strokeStyle = '#1c1f26'; mg.strokeRect(fx - 6, fy - 6, 12, 12); } mg.save(); mg.translate(px, py); mg.rotate(P.th); mg.beginPath(); mg.moveTo(10, 0); mg.lineTo(-7, 6); mg.lineTo(-4, 0); mg.lineTo(-7, -6); mg.closePath(); mg.fillStyle = '#f5efe0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = '#1c1f26'; mg.stroke(); mg.restore(); }
 // compass bearing: 0 = north (-z), 90 = east (+x)
 const bearing = () => ((Math.atan2(Math.cos(P.th), -Math.sin(P.th)) * 180 / Math.PI) + 360) % 360;
 const COMPASS_PTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -3704,7 +3775,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);

@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-22 15:29` **Buildings you can enter** get their own marker on foot (**Z**): the door glows softly from about 15 m, at the door the bottom line says **E · Enter**, the minimap shows a small door, and the Jump dialog (**J**) has a new **Enterable** filter that lists just these places. Nothing can be entered yet: the first buildings open up in the next updates, and until then the markers stay hidden. In the car, **E** is still the right blinker.
 - `2026-10-22 11:47` The block **Bodenackerstrasse 6a–6d** in Sisseln now looks like the real thing from the outside: **ten storeys**, four **glass entrance porches** with a flat roof on the street side, and recessed loggias on the back. The façade is the game's own painted texture (white plaster, dark window bands with roller-shutter boxes).
 - `2026-10-22 12:00` The key help is now a **command search**: press **Ctrl+P** (or F1 or ?), type part of what you want, pick a line with **↑ ↓** and press **Enter** (or click it) to run it, for example „camera“ or „photo“. Keys that only work while held, like the brake or looking back, are greyed out with a „hold“ tag and do nothing. Esc, Ctrl+P or F1 close it again.
 - `2026-10-21 17:00` The **debug panel** now opens with **Ctrl+D** instead of F3, which is awkward on a Chromebook. The press does not steer right or bookmark the page. **F3** still works too, and the help shows the new key.
