@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-22 12:00` The key help is now a **command search**: press **Ctrl+P** (or F1 or ?), type part of what you want, pick a line with **↑ ↓** and press **Enter** (or click it) to run it, for example „camera“ or „photo“. Keys that only work while held, like the brake or looking back, are greyed out with a „hold“ tag and do nothing. Esc, Ctrl+P or F1 close it again.
 - `2026-10-21 17:00` The **debug panel** now opens with **Ctrl+D** instead of F3, which is awkward on a Chromebook. The press does not steer right or bookmark the page. **F3** still works too, and the help shows the new key.
 - `2026-10-21 18:30` The **Titanic** in its hideout room now **floats**: the ship sits in a **water basin** that fills the floor around the hull, sunk to its real 10.5 m waterline, with the Rhine's glossy water lapping the hull and hiding everything below it. A low stone **kerb** rings the basin and the gravel lane runs round it as the **quay**, so you drive round the ship as before but never into the water; the helicopter (<kbd>F</kbd>) flies over it.
 - `2026-10-21 17:10` **Footsteps!** Walking on foot (**Z**) now makes soft step sounds, each a little different. They come with the distance you walk, faster when you run with **N**, and stay silent while you hover, jump or fall. **M** mutes them.
