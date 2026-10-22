@@ -73,10 +73,11 @@ export function carReach(x, z, b) {
   return Math.hypot(Math.max(0, Math.abs(lx) - b.hw), Math.max(0, Math.abs(lz) - b.hd));
 }
 
-// keydown on foot: F toggles hover; the car's own controls are swallowed; everything else is handled as usual
-const FOOT_BLOCKED = new Set(['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyE', 'KeyL', 'Digit1', 'KeyV']);
+// keydown on foot: F toggles hover, E enters a building (#409); the car's own controls are swallowed; everything else is handled as usual
+const FOOT_BLOCKED = new Set(['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyL', 'Digit1', 'KeyV']);
 export function footKeyAction(code) {
   if (code === 'KeyF') return 'hover';
+  if (code === 'KeyE') return 'enter';
   return FOOT_BLOCKED.has(code) ? 'block' : 'pass';
 }
 

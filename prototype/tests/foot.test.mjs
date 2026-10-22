@@ -105,8 +105,17 @@ test('parkedBox_AndCarReach_MeasureToTheBody', () => {
 
 test('footKeyAction_FTogglesHover_CarKeysBlocked_RestPass', () => {
   assert.equal(footKeyAction('KeyF'), 'hover');
-  for (const k of ['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyE', 'KeyL', 'Digit1', 'KeyV']) assert.equal(footKeyAction(k), 'block', k);
+  for (const k of ['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyL', 'Digit1', 'KeyV']) assert.equal(footKeyAction(k), 'block', k);
   for (const k of ['KeyR', 'KeyJ', 'KeyM', 'KeyT', 'KeyX', 'KeyG', 'KeyK', 'Tab', 'Space', 'KeyW', 'F1', 'F3', 'Escape']) assert.equal(footKeyAction(k), 'pass', k);
+});
+
+// #409: E enters a building on foot (the register decides whether one is near); in the car E stays the right blinker
+test('footKeyAction_KeyE_IsEnter', () => {
+  assert.equal(footKeyAction('KeyE'), 'enter');
+});
+
+test('footKeyAction_OtherCarKeys_StayBlocked', () => {
+  for (const k of ['KeyQ', 'KeyH', 'Enter', 'Digit1']) assert.equal(footKeyAction(k), 'block', k);
 });
 
 test('footView_EyeHeightAndPitch', () => {
