@@ -164,3 +164,19 @@ def test_zoom_keys_on_digit_codes_never_place_the_car(server):
     assert (zoom_eq, zoom_plus) == (2, 4)
     assert dist(after_eq, (start["x"], start["z"])) < 1 and dist(after_plus, (start["x"], start["z"])) < 1, (start, after_eq, after_plus)
     assert flags["jumped"] is False
+
+
+def test_a_ready_enterable_gets_a_door_glyph_and_a_not_ready_one_does_not(server):   # #409
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        marks = lambda: page.evaluate("() => { const m = window.__mm.enterables.mapMarks(); return m.map(q => q.id); }")
+        settle = lambda: page.wait_for_timeout(400)   # the minimap redraws every frame
+        settle(); none = marks()
+        page.evaluate(f"() => window.__mm.enterables.setReady('plattform-sisslerfeld', true, [{SISSELN[0]}, {SISSELN[1]}])")
+        settle(); ready = marks()
+        page.evaluate("() => window.__mm.enterables.setReady('eiffel', true)")   # a hideout object, the hideout not found yet
+        settle(); secret = marks()
+        page.evaluate("() => { window.__mm.enterables.setReady('eiffel', false); window.__mm.enterables.setReady('plattform-sisslerfeld', false); }")
+        settle(); back = marks()
+        b.close()
+    assert none == [] and ready == ["plattform-sisslerfeld"] and secret == ["plattform-sisslerfeld"] and back == [], (none, ready, secret, back)
