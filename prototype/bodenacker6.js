@@ -81,3 +81,45 @@ export function bodenackerBody(ring, frame, porches, cfg = BODENACKER6) {
   for (const b of scanBumps(simple, cfg)) { drop.add((b.i + 1) % simple.length); drop.add((b.i + 2) % simple.length); }
   return simplifyRing(simple.filter((_, k) => !drop.has(k)));
 }
+
+// the stair hall footprint directly behind each porch: the porch's plan size, cfg.stair.d into the body
+export function bodenackerStairs(porches, cfg = BODENACKER6) {
+  return porches.map(p => ({ house: p.house, u: p.u, w: p.w, d: cfg.stair.d, vFront: p.v0, vBack: p.v0 - cfg.stair.d }));
+}
+
+const shoelace = (pts) => pts.reduce((s, p, i) => s + p[0] * pts[(i + 1) % pts.length][1] - pts[(i + 1) % pts.length][0] * p[1], 0) / 2;
+
+// one wall per body edge, in world coordinates, classified by the outward normal's v component
+export function bodenackerWalls(body, frame) {
+  let ring = body.slice();
+  if (shoelace(ring) > 0) ring.reverse();                    // normalise the winding: outward = right of the walking direction
+  const walls = [];
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i], q = ring[(i + 1) % ring.length];
+    const [ax, az] = frame.toWorld(p[0], p[1]), [bx, bz] = frame.toWorld(q[0], q[1]);
+    const L2 = Math.hypot(bx - ax, bz - az);
+    if (L2 < 0.05) continue;
+    const nx = -(bz - az) / L2, nz = (bx - ax) / L2, nv = nx * Math.cos(frame.outTh) + nz * Math.sin(frame.outTh);
+    walls.push({ a: [ax, az], b: [bx, bz], face: nv < -0.5 ? 'back' : nv > 0.5 ? 'street' : 'end' });
+  }
+  return walls;
+}
+
+export function bodenackerFloors(base, h, cfg = BODENACKER6) {
+  const pitch = h / cfg.storeys;
+  const floors = Array.from({ length: cfg.storeys }, (_, k) => base + k * pitch);
+  return { pitch, floors, roof: base + h + cfg.parapet, housingTop: base + h + cfg.parapet + cfg.housingRise };
+}
+
+export function bodenackerLayout(b, base, h, cfg = BODENACKER6) {
+  const frame = bodenackerFrame(b.rect);
+  const porches = bodenackerPorches(b.ring, frame, cfg);
+  return { frame, porches, stairs: bodenackerStairs(porches, cfg), body: bodenackerBody(b.ring, frame, porches, cfg),
+    walls: bodenackerWalls(bodenackerBody(b.ring, frame, porches, cfg), frame), floors: bodenackerFloors(base, h, cfg), ring: b.ring };
+}
+
+export function bodenackerHouse(layout, house) {
+  const porch = layout.porches.find(p => p.house === house), stair = layout.stairs.find(s => s.house === house);
+  if (!porch || !stair) throw new Error(`bodenacker6: unknown house ${house}`);
+  return { porch, stair };
+}

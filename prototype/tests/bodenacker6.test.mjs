@@ -81,3 +81,43 @@ test('bodenackerBody_RealRing_NoVertexBeyondTheFacadeLineAndFewerVertices', { sk
   assert.ok(body.length < simple.length, `body ${body.length} vs ${simple.length}`);
   assert.ok(body.every(([, v]) => v <= facadeMax + 0.5), 'no porch bump left in the body ring');
 });
+
+import { bodenackerStairs, bodenackerWalls, bodenackerFloors, bodenackerLayout, bodenackerHouse } from '../bodenacker6.js';
+
+test('bodenackerStairs_OnePorch_BehindTheFacadeLineWithTheSamePlanSize', () => {
+  const [s] = bodenackerStairs([{ house: '6c', u: 4.3, v0: 3.8, v1: 7.0, w: 2.4, d: 3.2 }]);
+  assert.deepEqual(s, { house: '6c', u: 4.3, w: 2.4, d: 3.0, vFront: 3.8, vBack: 3.8 - 3.0 });
+});
+
+test('bodenackerWalls_Rectangle_BackStreetAndEnds', () => {
+  const faces = bodenackerWalls([[-20, -6], [20, -6], [20, 6], [-20, 6]], IDENTITY).map(w => w.face).sort();
+  assert.deepEqual(faces, ['back', 'end', 'end', 'street']);
+});
+
+test('bodenackerFloors_TenStoreys_PitchIsHOverTen', () => {
+  const f = bodenackerFloors(300, 25.3);
+  assert.ok(near(f.pitch, 2.53));
+  assert.equal(f.floors.length, 10);
+  assert.equal(f.floors[0], 300);
+  assert.ok(near(f.floors[9], 300 + 9 * 2.53));
+  assert.ok(near(f.roof, 325.8) && near(f.housingTop, 328.4));
+});
+
+test('bodenackerLayout_RealBlock_FourPorchesStairsAndBackWalls', { skip: !block() && 'run pipeline/osm.py build first' }, () => {
+  const b = block(), L = bodenackerLayout(b, 300, b.h);
+  assert.equal(L.porches.length, 4); assert.equal(L.stairs.length, 4);
+  for (const p of L.porches) { const [, v] = L.frame.toLocal(p.entrance.x, p.entrance.z); assert.ok(v >= p.v1 - 1e-6, `entrance v ${v}`); assert.ok(near(p.entrance.th, L.frame.inTh)); }
+  assert.ok(L.walls.some(w => w.face === 'back') && L.walls.some(w => w.face === 'street') && L.walls.some(w => w.face === 'end'));
+  assert.equal(L.ring, b.ring);
+});
+
+test('bodenackerHouse_6c_IsTheThirdEntranceFromTheNorth', { skip: !block() && 'run pipeline/osm.py build first' }, () => {
+  const L = bodenackerLayout(block(), 300, 25.3), h = bodenackerHouse(L, '6c');
+  assert.equal(h.porch.house, '6c'); assert.equal(h.stair.house, '6c'); assert.equal(h.porch.u, h.stair.u);
+  assert.ok(Math.abs(h.porch.u - -10.6) < 0.3);                                   // houseOrder 'northToSouth'
+  assert.ok(bodenackerHouse(L, '6a').porch.u > h.porch.u);
+});
+
+test('bodenackerHouse_UnknownHouse_Throws', () => {
+  assert.throws(() => bodenackerHouse({ porches: [], stairs: [] }, '6e'), /unknown house 6e/);
+});
