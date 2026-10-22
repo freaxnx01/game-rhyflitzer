@@ -258,3 +258,28 @@ def test_b_held_on_foot_looks_back_and_snaps_forward_again(server):   # #408
         b.close()
     assert errors == []
     assert held["foot"] is True and abs(held["th"]) < 0.01, held        # still on foot, the heading (and so the walking direction) unchanged
+
+
+def test_e_on_foot_at_a_ready_entrance_shows_the_prompt_and_reaches_the_toast(server):   # #409
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = ROAD
+        page.evaluate("() => { window.GG_LANG = 'en'; }")
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        page.evaluate(f"() => window.__mm.enterables.setReady('plattform-sisslerfeld', true, [{x + 12}, {z}])")
+        page.evaluate(f"() => window.__mm.place({x + 10}, {z}, 0)")   # 2 m from the entrance
+        page.wait_for_function("() => window.__mm.enterables.prompt() === 'plattform-sisslerfeld'", timeout=60000)
+        shown = page.evaluate("() => document.querySelector('#prompt').textContent")
+        page.keyboard.press("KeyE")
+        page.wait_for_timeout(200)
+        pressed = {"toast": toast(page), "blinker": page.evaluate("() => window.__mm.hud().blinker")}
+        page.evaluate(f"() => window.__mm.place({x - 20}, {z}, 0)")   # 32 m away
+        page.wait_for_function("() => window.__mm.enterables.prompt() === null", timeout=60000)
+        gone = page.evaluate("() => document.querySelector('#prompt').textContent")
+        page.evaluate("() => window.__mm.enterables.setReady('plattform-sisslerfeld', false)")
+        b.close()
+    assert errors == []
+    assert shown == "E · Enter", shown
+    assert pressed["toast"] == "Not enterable yet" and not pressed["blinker"], pressed
+    assert gone == "", gone
