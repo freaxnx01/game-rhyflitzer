@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gearAt, targetRpm, engineStep, engineMix, rotorMix, checkSound, RPM_RATE, ROTOR } from '../sound.js';
+import { gearAt, targetRpm, engineStep, engineMix, rotorMix, checkSound, RPM_RATE, ROTOR, stepVoice } from '../sound.js';
 
 // a copy of VEHICLES.compact.sound in prototype/index.html (#14); test_sound.py checks the game's own table passes checkSound
 const SOUND = () => ({
@@ -119,4 +119,11 @@ test('engineMix: a dead engine (a wreck, #105) is silent and has no nitro hiss, 
   assert.equal(dead.hiss, 0);
   assert.equal(dead.road, 0.15);
   assert.ok(engineMix(s, IN({ kmh: 60, gas: 1 }), engine).gain > 0);
+});
+
+test('stepVoice: a soft low thud, the pitch varies with the dice but stays in range', () => {
+  const lo = stepVoice(0, 0), hi = stepVoice(0.999, 0.999);
+  assert.ok(lo.freq < hi.freq); assert.ok(lo.freq >= 70 && hi.freq <= 110);
+  assert.ok(lo.cutoff >= 500 && hi.cutoff <= 900);
+  assert.ok(lo.gain > 0 && hi.gain <= 0.2);
 });
