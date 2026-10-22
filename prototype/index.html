@@ -505,7 +505,7 @@ import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps } from './foot.js';
-import { walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
+import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { createTowerLift } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
@@ -1235,6 +1235,10 @@ function obbBox(o, y0, y1) {   // #411: an OBB footprint as a box geometry, worl
   const g = new THREE.BoxGeometry(2 * o.hw, y1 - y0, 2 * o.hd);
   g.rotateY(-Math.atan2(o.s, o.c)); g.translate(o.x, (y0 + y1) / 2, o.z);
   return g;
+}
+function hallRect(f, a0, a1, b0, b1) {   // #411: a rectangle in the hall's own (a, b) frame as an OBB footprint
+  const [x, z] = f.toWorld((a0 + a1) / 2, (b0 + b1) / 2);
+  return { x, z, hw: (a1 - a0) / 2, hd: (b1 - b0) / 2, c: f.c, s: f.s };
 }
 // #410: the block Bodenackerstrasse 6a–6d from its own model (prototype/bodenacker6.js): ten storeys of the own façade tile
 // on the OSM footprint without the porch bumps (loggia tile on the back), a white parapet band under the gravel roof slab,
@@ -2056,7 +2060,16 @@ const FISH_TMP = { m: new THREE.Matrix4(), q: new THREE.Quaternion(), up: new TH
 function stepFish(dt, force = false) { if (!FISH.mesh || (!UWS.on && !force)) return; FISH.t += dt; const { m, q, up, p, one, pose } = FISH_TMP; let i = 0; for (const s of FISH.schools) for (let k = 0; k < s.n; k++) { const f = schoolPose(s, k, FISH.t, pose); p.set(f.x, f.y, f.z); q.setFromAxisAngle(up, -f.th); m.compose(p, q, one); FISH.mesh.setMatrixAt(i++, m); } FISH.mesh.instanceMatrix.needsUpdate = true; }
 buildUnderwater();
 for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; }
-if (INT.housingGeo) { INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing); }   // #411: 6c's housing over the stair tower, its own mesh so the interior can hide it; applyStyle sets its material
+if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own meshes so the interior can hide them; applyStyle sets the material
+  INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing);
+  const h = INT.hall, rd = STAIRHALL.roofDoor;   // the dark roof-door panel on the housing's left face
+  INT.housingPanel = new THREE.Mesh(obbBox(hallRect(h.frame, rd.a0, rd.a1, h.housing.b0 - 0.02, h.housing.b0), h.levels[STAIRHALL.storeys], h.levels[STAIRHALL.storeys] + rd.h), new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }));
+  scene.add(INT.housingPanel);
+  const p = h.porch, [dx, dz] = h.frame.toWorld(-p.d, STAIRHALL.door / 2);   // the hinged entrance leaf: permanent (visible from far), swings inward on E
+  const leaf = new THREE.Mesh(new THREE.BoxGeometry(STAIRHALL.door, STAIRHALL.frontDoor.h, 0.05), new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }));
+  leaf.position.set(STAIRHALL.door / 2, STAIRHALL.frontDoor.h / 2, 0);
+  INT.doorLeaf = new THREE.Group(); INT.doorLeaf.position.set(dx, h.levels[0], dz); INT.doorLeaf.add(leaf); scene.add(INT.doorLeaf);
+}
 // Gemeinde boundaries (#48, OSM admin_level 8): a magenta strip on the ground, the road or the water, hidden until G; its own group outside MESH, so applyStyle and the collision code never see it
 const boundaryY = (x, z) => Math.max(terrainH(x, z), roadSurfH(x, z), waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0) ?? -Infinity) + 0.25;
 const BOUNDS = new THREE.Group(); BOUNDS.visible = false; scene.add(BOUNDS);
@@ -3030,6 +3043,75 @@ function stepInterior(dt) {
   INT.door.open += (INT.door.target - INT.door.open) * Math.min(1, dt * 4);   // eases to the target and snaps within 0.01
   if (Math.abs(INT.door.target - INT.door.open) < 0.01) INT.door.open = INT.door.target;
   wallByTag(INT.hall, 'porch:door').off = INT.door.open > 0.6;
+  const dEnt = Math.hypot(P.x - INT.hall.entrance.x, P.z - INT.hall.entrance.z);
+  if (!INT.on && dEnt < 40) buildInterior(); else if (INT.on && dEnt > 55) disposeInterior();   // hysteresis, checked every frame (foot or car)
+  if (INT.doorLeaf) INT.doorLeaf.rotation.y = Math.PI / 2 - INT.hall.entrance.th - INT.door.open * 1.75;   // ~100 degrees open, swung inward
+  if (INT.cabinMesh) INT.cabinMesh.position.y = INT.lift.y;
+  if (INT.liftPanels) for (const p of INT.liftPanels) {   // the leaf slides open only where the cabin stands
+    const s = (p.userData.k === INT.lift.at ? INT.lift.door : 0) * (STAIRHALL.liftDoor.a1 - STAIRHALL.liftDoor.a0);
+    p.position.set(s * INT.hall.frame.c, 0, s * INT.hall.frame.s);
+  }
+}
+// #411: the hall's own meshes, built in place within 40 m of the entrance and disposed beyond 55 m. One merged mesh per
+// material for the static boxes; the door leaf, the lift leaves and the cabin are their own objects (they move per frame).
+function buildInterior() {
+  if (INT.on || !INT.hall) return;
+  const h = INT.hall, f = h.frame, lv = h.levels, N = STAIRHALL.storeys;
+  const M = { concrete: new THREE.MeshLambertMaterial({ color: 0x9a9a96, emissive: 0x2b2b2b }), tread: new THREE.MeshLambertMaterial({ color: 0xb9b6ae, emissive: 0x2b2b2b }), plaster: new THREE.MeshLambertMaterial({ color: 0xefece4, emissive: 0x2b2b2b }), wood: new THREE.MeshLambertMaterial({ color: 0x5b4636, emissive: 0x2b2b2b }), dark: new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }), cabin: new THREE.MeshLambertMaterial({ color: 0xd9d9d3, emissive: 0x2b2b2b }), cabinFloor: new THREE.MeshLambertMaterial({ color: 0x6a6a66, emissive: 0x2b2b2b }) };
+  INT.mats = Object.values(M);
+  const parts = { concrete: [], tread: [], plaster: [], wood: [] };
+  const put = (k, o, y0, y1) => { if (y1 - y0 > 0.001) parts[k].push(obbBox(o, y0, y1)); };
+  for (const s of h.walk.slabs) if (s.hw && s !== INT.cabin) put('concrete', s, s.y - WALKWAY.thick, s.y);   // the polygon roof deck is #410's; the cabin slab is the shell below
+  for (const r of h.walk.ramps) for (let i = 0; i < 7; i++) {   // seven treads per flight, each at the ramp surface of its middle
+    const u = -r.hw + (i + 0.5) * (2 * r.hw / 7), y = r.y0 + (r.y1 - r.y0) * (u + r.hw) / (2 * r.hw);
+    put('tread', { x: r.x + r.c * u, z: r.z + r.s * u, hw: r.hw / 7, hd: r.hd, c: r.c, s: r.s }, y - WALKWAY.thick, y);
+  }
+  for (const w of h.walk.walls) {
+    if (w.tag === 'edge' || w.tag === 'roofDoor' || w.tag === 'porch:door' || /^lift:/.test(w.tag)) continue;   // the roof rail is invisible; the leaves are their own meshes
+    if (/^porch:/.test(w.tag)) continue;   // #410's porchMesh already draws the porch's glass panes; the walkway walls carry their collision
+    const win = /^front:([1-9])$/.exec(w.tag);
+    if (win) {   // the landing window: the storey's wall as four boxes around the opening (collision stays the whole wall)
+      const wd = h.windows[+win[1] - 1], t = STAIRHALL.wall;
+      put('plaster', hallRect(f, 0, t, STAIRHALL.b0, STAIRHALL.b1), w.y0, wd.y0);
+      put('plaster', hallRect(f, 0, t, STAIRHALL.b0, STAIRHALL.b1), wd.y1, w.y1);
+      put('plaster', hallRect(f, 0, t, STAIRHALL.b0, wd.b0), wd.y0, wd.y1);
+      put('plaster', hallRect(f, 0, t, wd.b1, STAIRHALL.b1), wd.y0, wd.y1);
+      continue;
+    }
+    put('plaster', w, w.y0 - (w.y0 === lv[0] ? 0.3 : 0), w.vy1 ?? w.y1);   // 0.3 m below the EG for the floor edge
+  }
+  put('concrete', hallRect(f, 0, STAIRHALL.depth, STAIRHALL.b0, STAIRHALL.b1), h.housingTop - 0.15, h.housingTop);   // the housing's lid
+  for (const d of h.flatDoors) put('wood', hallRect(f, d.a - 0.45, d.a + 0.45, d.b, d.b + 0.06), d.y, d.y + 2.05);   // closed, plain, no number
+  const g = new THREE.Group();
+  for (const k in parts) if (parts[k].length) g.add(new THREE.Mesh(mergeGeometries(parts[k], false), M[k]));
+  INT.liftPanels = [];
+  for (let k = 0; k <= N; k++) {   // one sliding leaf per level in the divider gap; it opens where the cabin stands
+    const p = new THREE.Mesh(obbBox(hallRect(f, STAIRHALL.liftDoor.a0, STAIRHALL.liftDoor.a1, 1.2, 1.35), lv[k], lv[k] + STAIRHALL.liftDoor.h), M.dark);
+    p.userData.k = k; g.add(p); INT.liftPanels.push(p);
+  }
+  const cab = new THREE.Group(), sh = STAIRHALL.shaft;   // the cabin shell, open towards the divider gap; the group rides on the lift's y
+  const walls = [], floor = [];
+  const wall = (a0, a1, b0, b1, y0, y1) => walls.push(obbBox(hallRect(f, a0, a1, b0, b1), y0, y1));
+  floor.push(obbBox(hallRect(f, sh.a0, sh.a1, sh.b0, sh.b1), 0, 0.1));
+  wall(sh.a0, sh.a1, sh.b1 - 0.06, sh.b1, 0.1, 2.3); wall(sh.a0, sh.a0 + 0.06, sh.b0, sh.b1, 0.1, 2.3); wall(sh.a1 - 0.06, sh.a1, sh.b0, sh.b1, 0.1, 2.3);
+  walls.push(obbBox(hallRect(f, sh.a0, sh.a1, sh.b0, sh.b1), 2.3, 2.4));   // the cabin's ceiling
+  cab.add(new THREE.Mesh(mergeGeometries(walls, false), M.cabin), new THREE.Mesh(mergeGeometries(floor, false), M.cabinFloor));
+  const [lx, lz] = f.toWorld((sh.a0 + sh.a1) / 2, (sh.b0 + sh.b1) / 2);
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.5), new THREE.MeshBasicMaterial({ color: 0xfff1cf }));   // a light panel under the cabin's ceiling
+  lamp.position.set(lx, 2.28, lz);
+  cab.add(lamp); cab.position.y = INT.lift.y; g.add(cab); INT.cabinMesh = cab;
+  INT.group = g; INT.on = true; scene.add(g);
+  if (INT.housing) INT.housing.visible = false;
+  if (INT.housingPanel) INT.housingPanel.visible = false;
+}
+function disposeInterior() {
+  if (!INT.group) return;
+  INT.group.traverse(o => o.geometry?.dispose());
+  for (const m of INT.mats || []) m.dispose?.();
+  scene.remove(INT.group);
+  INT.group = null; INT.cabinMesh = null; INT.liftPanels = null; INT.on = false;
+  if (INT.housing) INT.housing.visible = true;
+  if (INT.housingPanel) INT.housingPanel.visible = true;
 }
 // hover stays in the level: the room's helicopter clamp; on the surface hoverMaxAgl over the ground and, under the hill, the eye under the ceiling
 function clampHover() {
@@ -3146,6 +3228,8 @@ window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.o
   lift: INT.lift && { at: INT.lift.at, y: INT.lift.y, door: INT.lift.door, busy: INT.lift.busy, moving: INT.lift.moving },
   entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, pad: INT.pad });
 window.__mm.interiorSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(); };
+window.__mm.interiorCount = () => ({ meshes: INT.group ? INT.group.children.length : 0 });   // the built group's own objects (merged meshes, leaves, cabin)
+window.__mm.interiorRay = () => { camera.updateMatrixWorld(); const rc = new THREE.Raycaster(camera.getWorldPosition(new THREE.Vector3()), camera.getWorldDirection(new THREE.Vector3())); rc.camera = camera; const hit = rc.intersectObjects(scene.children, true).find(h => h.object.visible); return { dist: hit ? hit.distance : null, role: hit ? (hit.object.userData.role || hit.object.name || '') : null }; };   // what the eye looks at (material.side counts, as rendering does: the A3 check; sprites need rc.camera)
 window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; };   // tests: put the walker on a storey of 6c
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
 window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); return window.__mm.foot(); };

@@ -79,3 +79,27 @@ def test_e_opens_the_door_and_the_hall_is_reachable_on_foot(server):
     assert abs(inside["y"] - inside["levels"][0]) < 0.05, inside
     assert re.fullmatch(r"6c · (EG|ground floor)", inside["label"]) and inside["hidden"] is False, inside
     assert hover is False
+
+
+@needs_world
+def test_the_hall_is_built_near_and_gone_far_and_the_window_looks_out(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        page.wait_for_function("() => window.__mm.interior().built", timeout=120000)   # the build needs one rendered frame (stepInterior); headless draws under 1 fps
+        near = interior(page)
+        built = page.evaluate("() => window.__mm.interiorCount()")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 90, z - Math.sin(th) * 90, th)", [e["x"], e["z"], e["th"]])
+        foot_sim(page, 0.5)
+        far = interior(page)
+        # look straight out through the window of the 3rd-floor landing
+        stand(page, 0.7, 0.0, math.pi, level=3)             # on the 3rd-floor landing, facing out of the building
+        foot_sim(page, 0.2)
+        ray = page.evaluate("() => window.__mm.interiorRay()")
+        b.close()
+    assert errors == []
+    assert near["built"] is True and far["built"] is False, (near, far)
+    assert built["meshes"] > 0
+    assert ray["dist"] is None or ray["dist"] > 4, ray      # nothing of the building is in the way: the window is a hole
