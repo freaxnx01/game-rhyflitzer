@@ -1019,9 +1019,10 @@ def test_atomium_room_builds_loads_its_model_on_entering_and_has_solid_feet(serv
 
 
 @needs_world
-def test_titanic_room_builds_loads_its_model_on_entering_and_has_a_solid_hull(server):
+def test_titanic_room_builds_loads_its_model_on_entering_and_has_a_solid_hull(server, tmp_path):
     """#422: entering spoke 7 builds the Titanic room and fetches titanic.glb then (not before); the ship lies 269 m long along the room's cross
-    axis, 73 m tall on the floor, and the hull is solid amidships while the lawn beside it and past its ends is free."""
+    axis, 73 m tall, sunk by its 10.5 m draught into a kerbed water basin, and the hull is solid amidships while the water beside it is open
+    ground, the kerb stops the car and the quay lane outside it and past the ends is free. Leaves a screenshot of the ship in tmp_path."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         requests = []
@@ -1033,14 +1034,21 @@ def test_titanic_room_builds_loads_its_model_on_entering_and_has_a_solid_hull(se
         t = page.evaluate("() => window.__mm.titanic()")
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
         push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(7, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
-          return { mid: p(0, 0), bow: p(0, 125), side: p(40, 0), end: p(0, 150) }; }""")
+          const b = window.__mm.titanic().basin; return { mid: p(0, 0), bow: p(0, 125), side: p(40, 0), end: p(0, 150), kerb: p(b.w, 0), kerbEnd: p(0, b.end), quay: p(b.lane.w, 0), quayEnd: p(0, b.lane.end) }; }""")
+        view = page.evaluate("() => { const r = window.__mm.hideout().room, v = window.__mm.below().tower, th = window.__mm.spoke(7, 0).th; return { x: v.x - Math.cos(th) * 150, z: v.z - Math.sin(th) * 150, th, y: r.y }; }")
+        page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "titanic-basin.png"))
         br.close()
+    print("screenshot:", tmp_path / "titanic-basin.png")
     assert errors == []
     assert len(requests) == 1 and requests[0].endswith("/prototype/assets/models/titanic.glb"), requests
     assert t["placeholder"] is False and 250000 <= t["tris"] <= 330000 and abs(t["height"] - 72.9) < 0.1 and t["length"] == 269, t
     assert info["below"]["built"] == 7 and info["below"]["object"] is True and info["counts"].get("titanic") == 1 and "eiffel" not in info["counts"], info
     assert math.hypot(push["mid"]["dx"], push["mid"]["dz"]) > 0.5 and math.hypot(push["bow"]["dx"], push["bow"]["dz"]) > 2, push
-    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("side", "end")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("side", "end", "quay", "quayEnd")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.3 for k in ("kerb", "kerbEnd")), push
+    assert t["draught"] == 10.5 and abs(t["keel"] - (view["y"] - 10.5)) < 0.01 and t["basin"]["y"] > view["y"], (t, view)
 
 
 @needs_world

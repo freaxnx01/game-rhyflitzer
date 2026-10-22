@@ -485,7 +485,7 @@ import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout } from './rooms.js';
+import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM } from './rooms.js';
 import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
@@ -2464,7 +2464,7 @@ function roomMeshes(group, R) {
   const lawnTex = TEX.grass.clone(); lawnTex.wrapS = lawnTex.wrapT = THREE.RepeatWrapping; lawnTex.repeat.set(2 * R.half / 8, 2 * R.half / 8); lawnTex.needsUpdate = true;
   const lawn = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshLambertMaterial({ map: lawnTex, color: 0xb8d89a })); lawn.geometry.rotateX(-Math.PI / 2); lawn.geometry.rotateY(-a); lawn.position.set(cx, y, cz); group.add(lawn);
   for (const p of R.paths) group.add(flatStrip(p.pts, p.hw, y + 0.08, 0xcfc3ac));
-  roomTrees(group, R); if (R.object === EIFFEL) roomTower(group, R); roomPortal(group, R); roomClouds(group, R);
+  roomTrees(group, R); if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); roomPortal(group, R); roomClouds(group, R);
   // sunlit surfaces need no lights of their own: the style's hemisphere + sun (setBelowLook) light the room
 }
 
@@ -2475,6 +2475,21 @@ function flatStrip(pts, hw, y, colour) {   // a flat ribbon on the lawn: two tri
   });
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: colour, side: THREE.DoubleSide })); m.renderOrder = 1; return m;
+}
+// #422: the ship's water -- one fan of triangles over the basin's stadium (rooms.js), the Rhine's water texture tiled every 12 m with its specular
+// gloss, opaque (what lies below the waterline is sunk under the lawn, so nothing has to show through), and the kerb round its edge: one box
+// per rim segment, merged into one mesh
+function roomBasin(group, R) {
+  const B = R.basin, [cx, cz] = R.centre, pos = [cx, B.y, cz], uv = [cx / 12, cz / 12], idx = [];
+  for (const [x, z] of B.pts) { pos.push(x, B.y, z); uv.push(x / 12, z / 12); }
+  for (let i = 1; i < B.pts.length; i++) idx.push(0, i + 1, i);   // the stadium runs counter-clockwise seen from above (+y), so (centre, next, this) faces up
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  if (g.attributes.normal.getY(0) < 0) { g.setIndex(idx.map((_, i, a) => a[i - i % 3 + (2 - i % 3)])); g.computeVertexNormals(); }   // a room frame turned the other way: flip the fan
+  const tex = TEX.water.clone(); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.needsUpdate = true;
+  const water = new THREE.Mesh(g, new THREE.MeshPhongMaterial({ map: tex, color: 0xa9cfe6, shininess: 160, specular: 0xd8e8ff })); water.renderOrder = 1; water.userData.role = 'water'; group.add(water);
+  const kerbs = [];
+  for (const c of B.rim) { const k = new THREE.BoxGeometry(2 * c.hw, RIM.h, 2 * c.hd); k.rotateY(-Math.atan2(c.s, c.c)); k.translate(c.x, R.y + RIM.h / 2, c.z); kerbs.push(k); }
+  group.add(new THREE.Mesh(mergeGeometries(kerbs, false), new THREE.MeshLambertMaterial({ color: 0xb8b2a6 })));
 }
 function roomTrees(group, R) {   // #359: the single trees' species meshes (edge mix), about 1000 trees, no shadows
   const r = rng(278), trees = R.trees.map(([x, z, h]) => [x, z, h, R.y, 'edge']);
@@ -2533,7 +2548,7 @@ async function loadModel(k) {
     const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), { x: cx, z: cz } = ROOM.layouts[k].tower, fl = ROOM.layouts[k].y;
     const s = O.scale || O.h / size.y, [ax, ay, az] = O.anchor || [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2];
     const v = ROOM.layouts[k].frame.v, th = O.alongV ? -Math.atan2(v[1], v[0]) : 0;   // #422: a ship's long axis (model x) lies along the room's cross axis; the anchor turns with it
-    root.scale.setScalar(s); root.rotation.y = th; root.position.set(cx - s * (ax * Math.cos(th) + az * Math.sin(th)), fl - s * ay, cz - s * (-ax * Math.sin(th) + az * Math.cos(th)));
+    root.scale.setScalar(s); root.rotation.y = th; root.position.set(cx - s * (ax * Math.cos(th) + az * Math.sin(th)), fl - s * ay - (O.draught || 0), cz - s * (-ax * Math.sin(th) + az * Math.cos(th)));   // #422: a ship sinks by its draught, to its waterline in the basin
     ROOM.models[k] = root;
     Object.assign(E, { tris, height: O.anchor ? O.h : size.y * s, base: Math.max(size.x, size.z) * s, material: mat ? '#' + mat.color.getHexString() : null });
     if (ROOM.built === k) attachModel(k);
@@ -2551,7 +2566,7 @@ function eiffelFootprints() {
 }
 window.__mm.eiffel = () => ROOM.states[0] ? { ...ROOM.states[0], feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
 window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.feet, footHw: ATOMIUM.footHw } : null;   // #355
-window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length } : null;   // #422
+window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
 // #277 / #361: the drive-through freight lift. LIFT_RIDE is the lift.js state machine driven by the car in the cabin; the
