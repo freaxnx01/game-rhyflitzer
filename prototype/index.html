@@ -503,6 +503,8 @@ import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, LIFT, inC
 import { createLift, shaftScrollDelta } from './lift.js';
 import { createLevels } from './levels.js';
 import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM } from './rooms.js';
+import { FRIES } from './fries.js';
+import { buildFries, friesTriangles } from './friesmesh.js';
 import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
@@ -2501,7 +2503,7 @@ addEventListener('resize', resize);
 const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.name = 'surfaceRoot'; scene.add(surfaceRoot);
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
-const ROOM = { layouts: HIDE ? ROOMS.map((r, k) => roomLayout(k)) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null };
+const ROOM = { layouts: HIDE ? ROOMS.map((r, k) => roomLayout(k)) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null };
 const RING_L = { built: false, group: null };
 const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.group, ROOM.cab]);
 const roomIndex = (id) => ROOMS.findIndex(r => r.id === id);
@@ -2664,7 +2666,7 @@ function disposeGroup(group) {   // free a thrown-away room: its own geometry, m
 // #361 / #308: build room k's meshes (the previous room's are thrown away; the loaded Eiffel GLB stays in memory and is re-attached).
 function ensureRoom(k) {
   if (ROOM.built === k) return;
-  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; }
+  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; }
   const R = ROOM.layouts[k], group = new THREE.Group(); ROOM.group = group; ROOM.layout = R; ROOM.built = k; group.visible = false;
   roomMeshes(group, R); scene.add(group);
   for (const r of ROOMS) if (r.object) delete window.__mm.counts[r.object.key || 'eiffel'];
@@ -2679,7 +2681,7 @@ function roomMeshes(group, R) {
   const lawnTex = TEX.grass.clone(); lawnTex.wrapS = lawnTex.wrapT = THREE.RepeatWrapping; lawnTex.repeat.set(2 * R.half / 8, 2 * R.half / 8); lawnTex.needsUpdate = true;
   const lawn = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshLambertMaterial({ map: lawnTex, color: 0xb8d89a })); lawn.geometry.rotateX(-Math.PI / 2); lawn.geometry.rotateY(-a); lawn.position.set(cx, y, cz); group.add(lawn);
   for (const p of R.paths) group.add(flatStrip(p.pts, p.hw, y + 0.08, 0xcfc3ac));
-  roomTrees(group, R); if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); roomPortal(group, R); roomClouds(group, R);
+  roomTrees(group, R); if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); if (R.figure) roomFigure(group, R); roomPortal(group, R); roomClouds(group, R);
   // sunlit surfaces need no lights of their own: the style's hemisphere + sun (setBelowLook) light the room
 }
 
@@ -2705,6 +2707,12 @@ function roomBasin(group, R) {
   const kerbs = [];
   for (const c of B.rim) { const k = new THREE.BoxGeometry(2 * c.hw, RIM.h, 2 * c.hd); k.rotateY(-Math.atan2(c.s, c.c)); k.translate(c.x, R.y + RIM.h / 2, c.z); kerbs.push(k); }
   group.add(new THREE.Mesh(mergeGeometries(kerbs, false), new THREE.MeshLambertMaterial({ color: 0xb8b2a6 })));
+}
+// #451: the fries figure beside the Atomium (fries.js places it, friesmesh.js builds it): stood on the floor at its spot, turned to face the portal;
+// it goes with the room's group (disposeGroup) and ROOM.figure tells the debug hook what was built
+function roomFigure(group, R) {
+  const fig = buildFries(FRIES); fig.position.set(R.figure.x, R.y, R.figure.z); fig.rotation.y = -R.figure.th; group.add(fig);
+  ROOM.figure = { x: R.figure.x, z: R.figure.z, th: R.figure.th, y: R.y, h: FRIES.plinth.h + FRIES.h, tris: friesTriangles(fig), colliders: R.figure.colliders.length };
 }
 function roomTrees(group, R) {   // #359: the single trees' species meshes (edge mix), about 1000 trees, no shadows
   const r = rng(278), trees = R.trees.map(([x, z, h]) => [x, z, h, R.y, 'edge']);
@@ -2781,6 +2789,7 @@ function eiffelFootprints() {
 }
 window.__mm.eiffel = () => ROOM.states[0] ? { ...ROOM.states[0], feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
 window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.feet, footHw: ATOMIUM.footHw } : null;   // #355
+window.__mm.fries = () => ROOM.figure && ROOM.group && ROOM.group.children.some(o => o.children.some(c => c.userData.role === 'fries')) ? { ...ROOM.figure, built: ROOM.built } : null;   // #451: the figure of the room built now
 window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
