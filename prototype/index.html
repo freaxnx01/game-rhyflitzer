@@ -59,7 +59,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 @media (max-width:900px){#debuglegend{max-height:calc(100vh - 290px)}}
 @media (pointer:coarse){#debug{padding-right:48px}#debughelp{width:36px;height:36px;line-height:32px}#debuglegend{max-height:calc(100vh - 400px)}}
 /* #178: the grown panel (legend + map links) now reaches the toast band when anchored at top:120px; drop it below the toast */
-@media (pointer:coarse) and (orientation:portrait){#debug{top:calc(310px + env(safe-area-inset-top,0px))}}
+@media (pointer:coarse) and (orientation:portrait){#debug{top:calc(324px + env(safe-area-inset-top,0px))}}   /* #353: below the toast (its slot sits under four 18 px HUD lines) */
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
 /* #hud is pointer-events:none, so the dialog has to opt back in to be clickable at all */
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
@@ -4257,6 +4257,15 @@ showGallery();
   var d = document;
   var built = new Date(d.lastModified);
   if (isNaN(built)) return;
+  // #353: document.lastModified has no zone. Chromium writes it in the host's zone but new Date() reads it in the page's,
+  // so under an emulated zone the time shifts. The response header is absolute GMT: prefer it, keep the fallback.
+  function ready() { window.__buildTimeReady = true; }
+  try {
+    fetch(location.href, { method: "HEAD", cache: "no-store" }).then(function (r) {
+      var h = r.headers.get("last-modified"), t = h ? new Date(h) : null;
+      if (t && !isNaN(t)) built = t;
+    }).catch(function () { }).then(ready);
+  } catch (e) { ready(); }
   var WORDS = {
     en: { now: "just now", d: ["day", "days"], h: ["hour", "hours"], m: ["minute", "minutes"] },
     de: { now: "gerade eben", d: ["Tag", "Tagen"], h: ["Stunde", "Stunden"], m: ["Minute", "Minuten"] }

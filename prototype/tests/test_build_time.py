@@ -26,6 +26,7 @@ def open_page(p, server, locale, tz, now, last_modified=BUILT):
     page.route("**/prototype/index.html", stamp)
     page.goto(f"{server}/prototype/index.html", wait_until="domcontentloaded", timeout=240000)
     page.wait_for_selector("#version-badge a", state="attached", timeout=240000)
+    page.wait_for_function("() => window.__buildTimeReady === true", timeout=240000)   # #353: built from the header
     return b, page
 
 
