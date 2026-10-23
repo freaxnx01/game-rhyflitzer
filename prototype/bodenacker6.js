@@ -105,6 +105,13 @@ export function bodenackerWalls(body, frame) {
   return walls;
 }
 
+// #445: what stands on sloping ground. stand = the level the block (or a porch) is meant to stand on, ground = the terrain under it:
+// the floor is the higher of the two, and where the ground lies lower a foundation skirt fills the gap (sunk `below` m so no slope shows under it)
+export function bodenackerPlinth(stand, ground, below = 0.3) {
+  const floor = Math.max(stand, ground);
+  return { floor, skirt: floor - ground > 0.02 ? { y0: ground - below, y1: floor } : null };
+}
+
 export function bodenackerFloors(base, h, cfg = BODENACKER6) {
   const pitch = h / cfg.storeys;
   const floors = Array.from({ length: cfg.storeys }, (_, k) => base + k * pitch);

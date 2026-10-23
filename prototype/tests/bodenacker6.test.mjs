@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { BODENACKER6, isBodenacker6, bodenackerFrame, simplifyRing } from '../bodenacker6.js';
+import { BODENACKER6, isBodenacker6, bodenackerFrame, simplifyRing, bodenackerPlinth } from '../bodenacker6.js';
 
 const RECT = [2039.57, -366.12, 60.9, 22.08, -1.7023];   // data/world_hochrhein.json, OSM w171822634 (© OpenStreetMap contributors, ODbL)
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -120,4 +120,17 @@ test('bodenackerHouse_6c_IsTheThirdEntranceFromTheNorth', { skip: !block() && 'r
 
 test('bodenackerHouse_UnknownHouse_Throws', () => {
   assert.throws(() => bodenackerHouse({ porches: [], stairs: [] }, '6e'), /unknown house 6e/);
+});
+// #445: the block stands on the terrain at its door (street side); a foundation skirt reaches from there down the slope.
+// The same rule seats each porch: on the block's level, with its own skirt where its ground lies lower, or on its own higher ground.
+test('bodenackerPlinth_GroundBelowTheStand_FloorAtTheStandAndASkirtDownToTheGround', () => {
+  assert.deepEqual(bodenackerPlinth(10.54, 7.15), { floor: 10.54, skirt: { y0: 7.15 - 0.3, y1: 10.54 } });
+});
+
+test('bodenackerPlinth_GroundAboveTheStand_FloorOnTheGroundWithoutASkirt', () => {
+  assert.deepEqual(bodenackerPlinth(10.54, 11.32), { floor: 11.32, skirt: null });
+});
+
+test('bodenackerPlinth_GroundAtTheStand_NoSkirt', () => {
+  assert.deepEqual(bodenackerPlinth(10.54, 10.53), { floor: 10.54, skirt: null });
 });

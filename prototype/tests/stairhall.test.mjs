@@ -61,10 +61,8 @@ function climb(h, k) {
   return out;
 }
 
-// the door sits above the block's lowest ground on a slope (#411): the hall's pitch is squeezed so the top landing stays under the roof
-const SQUEEZED = { ...FLOORS, pitch: 2.19 };
-for (const [name, floors] of [['', FLOORS], ['_OnASlopeWithASqueezedPitch', SQUEEZED]]) test(`stairHall_EveryStorey_CanBeClimbedWithoutAJumpOrABump${name}`, () => {
-  const h = hall(floors);
+test('stairHall_EveryStorey_CanBeClimbedWithoutAJumpOrABump', () => {
+  const h = hall();
   for (let k = 0; k < 10; k++) {
     let y = h.levels[k];
     for (const [x, z] of climb(h, k)) {
