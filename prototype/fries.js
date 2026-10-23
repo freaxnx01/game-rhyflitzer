@@ -10,9 +10,9 @@ export const FRIES = {
   shoe: { len: 4.0, w: 1.8, h: 1.4, sole: 0.35, gap: 1.15, splay: 18 * Math.PI / 180, fwd: 0.9 },   // gap: shoe centre off the axis; fwd: the toes point ahead
   sock: { r: 0.5, h: 1.2, cuff: 0.3 },
   leg: { r: 0.3, top: 7.6 },            // the legs end inside the cone
-  cone: { tip: 5.2, top: 14.0, r: 4.3, lip: 0.35 },
+  cone: { tip: 4.6, top: 14.5, r: 3.7, lip: 0.35 },   // about 1.3 times taller than wide, as the real paper cone
   fries: { n: 26, w: 0.95, lenMin: 4.5, lenMax: 8.5, tilt: 35 * Math.PI / 180, sink: 2.0 },   // sink: the bases stand this deep inside the cone's top
-  face: { browY: 11.7, eyeY: 10.9, noseY: 10.2, mouthY: 9.3, eyeZ: 1.35 },
+  face: { browY: 12.1, eyeY: 11.3, noseY: 10.5, mouthY: 9.5, eyeZ: 1.3 },
 };
 
 const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
