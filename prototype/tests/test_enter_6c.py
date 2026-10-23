@@ -64,6 +64,7 @@ def test_e_opens_the_door_and_the_hall_is_reachable_on_foot(server):
         page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 1.2, z - Math.sin(th) * 1.2, th)", [e["x"], e["z"], e["th"]])
         outside = interior(page)
         page.wait_for_function("() => window.__mm.enterables.prompt() === 'bodenackerstrasse-6c'", timeout=120000)   # the prompt needs one rendered frame (stepEnter); headless draws under 1 fps
+        toast = page.evaluate("() => window.__mm.toast()")
         key(page, "e", 300)
         foot_sim(page, 1.2)
         opened = interior(page)
@@ -74,6 +75,7 @@ def test_e_opens_the_door_and_the_hall_is_reachable_on_foot(server):
         b.close()
     assert errors == []
     assert outside["hall"] is True and outside["area"] == "out" and outside["indoors"] is False, outside
+    assert toast["shown"] is False, toast   # #445: the on-foot hint has made way for the prompt
     assert opened["door"] > 0.9, opened
     assert inside["area"] == "tower" and inside["indoors"] is True and inside["floor"] == 0, inside
     assert abs(inside["y"] - inside["levels"][0]) < 0.05, inside
@@ -184,3 +186,20 @@ def test_the_shut_porch_door_stops_the_walker_without_e(server):
         b.close()
     assert errors == []
     assert shut["area"] != "tower" and shut["door"] == 0, shut
+
+
+@needs_world
+def test_the_block_stands_on_the_door_level_and_the_hall_uses_the_facade_pitch(server):   # #445
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        info = page.evaluate("""() => { const L = window.__mm.bodenacker6(), e = L.porches.find(p => p.house === '6c').entrance, i = window.__mm.interior();
+            const lowest = Math.min(...L.ring.map(([x, z]) => window.__mm.probe(x, z).terrain));
+            return { floors: L.floors, door: window.__mm.probe(e.x, e.z).terrain, lowest, levels: i.levels }; }""")
+        b.close()
+    assert errors == []
+    assert abs(info["floors"]["floors"][0] - info["door"]) < 0.01, info                  # the EG is the terrain at the door, not the ring's lowest sample
+    assert info["door"] - info["lowest"] > 1.0, info                                     # (which lies well below it: the slope the skirt covers)
+    assert abs(info["floors"]["pitch"] - 2.53) < 0.01, info
+    for k in range(10):
+        assert abs(info["levels"][k] - info["floors"]["floors"][k]) < 1e-6, (k, info)   # the landings are the façade's storeys
+    assert info["levels"][9] + 2.5 < info["levels"][10], info                            # the 9th landing has full headroom under the roof

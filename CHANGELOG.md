@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-10-23 11:30` **Bodenackerstrasse 6c** touch-ups: the block now stands on the level of its entrance, with a plain concrete **foundation** running down the slope, so the stair hall has the **real storey height** again and every landing window sits level with the façade's windows, with full headroom under the roof. The **stair hall** is easier to read: light walls, dark stone treads with a light edge, a handrail along every flight, and a **light panel** on every landing. The **E · Enter** prompt at the door is now a clear badge, and the on-foot hint no longer sits on top of it.
+
 ### Added
 
 - `2026-10-23 09:47` **Walk into Bodenackerstrasse 6c!** On foot (**Z**), walk up to the glass entrance of the block at **Bodenackerstrasse 6c** in Sisseln and press **E**: the door swings open. Inside there is a stair hall with a **lift** (the buttons **EG, 1-9 and Dach**, or the keys **0-9** and **D**; **E** calls it on every floor), a **window on every floor** to look out over the real Sisseln, and a door at the top onto the **roof**, where you can walk right up to the edge. The HUD shows where you are ("6c · 4. OG"). Hovering (**F**) is off inside.

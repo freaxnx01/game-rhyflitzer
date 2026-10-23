@@ -35,6 +35,9 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #roadname{font-size:15px;font-weight:700;letter-spacing:2px;color:#f5efe0;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #autoline{font-size:15px;font-weight:700;letter-spacing:2px;color:#3ddcff;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #prompt{font-size:15px;font-weight:700;letter-spacing:2px;color:#d8e8a0;text-shadow:2px 2px 0 var(--ink);min-height:18px}
+/* #445: an action prompt ("E · Enter", "E · call the lift") as a badge: the key as a cap, larger and brighter than the info lines above it */
+#prompt:not(:empty){margin-top:4px;padding:5px 14px 5px 8px;background:rgba(20,23,29,.88);border:3px solid #eaffb0;box-shadow:4px 4px 0 var(--ink);font-size:22px;letter-spacing:1px;color:#eaffb0;text-shadow:none;text-transform:uppercase;line-height:1}
+#prompt:not(:empty)::first-letter{display:inline-block;margin-right:4px;padding:1px 9px;background:#eaffb0;color:var(--ink)}
 /* #106 Navi panel: right edge, under the compass and the pause button, above the minimap */
 #navi{position:fixed;right:16px;top:calc(260px + env(safe-area-inset-top,0px));width:180px;max-width:calc(100vw - 32px);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}#navi[hidden]{display:none}
 #navarrow{width:56px;height:42px;transition:transform .12s linear}
@@ -490,7 +493,7 @@ import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLin
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
-import { isBodenacker6, bodenackerLayout, bodenackerHouse, BODENACKER6 } from './bodenacker6.js';
+import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, BODENACKER6 } from './bodenacker6.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -1201,14 +1204,15 @@ function osmBuilding(b) {
   else extrudeFootprint(b.ring, base, h, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, h] : [4, 3]);
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: base + h, ring: b.ring });   // #36: walls drawn from the ring collide as the ring; the rectangle stays for the grid, free() and the camera
 }
-// #410: one vertical quad per body wall (extrudeFootprint draws whole rings only); u restarts per wall, like its uPerFace
-function wallQuads(walls, base, h, c, role, tile) {
+// #410: one vertical quad per body wall (extrudeFootprint draws whole rings only); u restarts per wall, like its uPerFace.
+// below: how far under base the quads reach (2 m like extrudeFootprint; 0 where a foundation skirt carries the wall on, #445)
+function wallQuads(walls, base, h, c, role, tile, below = 2) {
   for (const w of walls) {
     const L2 = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]); if (L2 < 0.05) continue;
-    const nx = -(w.b[1] - w.a[1]) / L2, nz = (w.b[0] - w.a[0]) / L2, [x0, z0] = w.a, [x1, z1] = w.b, y0 = base - 2, y1 = base + h;
+    const nx = -(w.b[1] - w.a[1]) / L2, nz = (w.b[0] - w.a[0]) / L2, [x0, z0] = w.a, [x1, z1] = w.b, y0 = base - below, y1 = base + h;
     const pos = [], nrm = [];
     for (const v of [[x0, y0, z0], [x1, y0, z1], [x1, y1, z1], [x0, y0, z0], [x1, y1, z1], [x0, y1, z0]]) { pos.push(...v); nrm.push(nx, 0, nz); }
-    const u1 = L2 / tile[0], v0 = -2 / tile[1], v1 = h / tile[1];
+    const u1 = L2 / tile[0], v0 = -below / tile[1], v1 = h / tile[1];
     rawGeo(pos, nrm, [0, v0, u1, v0, u1, v1, 0, v0, u1, v1, 0, v1], 0, 0, 0, c, role);
   }
 }
@@ -1243,6 +1247,11 @@ function obbBox(o, y0, y1) {   // #411: an OBB footprint as a box geometry, worl
   g.rotateY(-Math.atan2(o.s, o.c)); g.translate(o.x, (y0 + y1) / 2, o.z);
   return g;
 }
+function slopedBar(x0, y0, z0, x1, y1, z1, r) {   // #445: a square bar of half-width r from one point to another (a handrail along a flight)
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, run = Math.hypot(dx, dz), g = new THREE.BoxGeometry(Math.hypot(run, dy), 2 * r, 2 * r);
+  g.rotateZ(Math.atan2(dy, run)); g.rotateY(-Math.atan2(dz, dx)); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  return g;
+}
 function hallRect(f, a0, a1, b0, b1) {   // #411: a rectangle in the hall's own (a, b) frame as an OBB footprint
   const [x, z] = f.toWorld((a0 + a1) / 2, (b0 + b1) / 2);
   return { x, z, hw: (a1 - a0) / 2, hd: (b1 - b0) / 2, c: f.c, s: f.s };
@@ -1250,11 +1259,16 @@ function hallRect(f, a0, a1, b0, b1) {   // #411: a rectangle in the hall's own 
 // #410: the block Bodenackerstrasse 6a–6d from its own model (prototype/bodenacker6.js): ten storeys of the own façade tile
 // on the OSM footprint without the porch bumps (loggia tile on the back), a white parapet band under the gravel roof slab,
 // a windowless white roof-top housing behind each porch (Q1) and the four glass entrance porches. No rr() here.
-function bodenackerBuilding(b, base, h) {
-  let L; try { L = bodenackerLayout(b, base, h); } catch (e) { console.warn(e.message); return false; }   // fail loudly, never a hole
-  const tile = [BODENACKER6.moduleWidth, L.floors.pitch], white = col('#ffffff');
-  wallQuads(L.walls.filter(w => w.face === 'back'), base, h, white, 'bodenackerLoggia', tile);
-  wallQuads(L.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile);
+// #445: the terrain under the block falls by some metres along it. The block stands on the terrain at 6c's door (street side),
+// so the hall's storeys are the façade's; a plain concrete foundation skirt runs from there down the slope to the ring's lowest ground.
+function bodenackerBuilding(b, lowest, h) {
+  let L; try { L = bodenackerLayout(b, lowest, h); } catch (e) { console.warn(e.message); return false; }   // fail loudly, never a hole
+  const door = bodenackerHouse(L, INT.house).porch.entrance, plinth = bodenackerPlinth(terrainH(door.x, door.z), lowest), base = plinth.floor;
+  L = bodenackerLayout(b, base, h);
+  const tile = [BODENACKER6.moduleWidth, L.floors.pitch], white = col('#ffffff'), concrete = col('#c4bfb4');
+  if (plinth.skirt) wallQuads(L.walls, plinth.skirt.y0, plinth.skirt.y1 - plinth.skirt.y0, concrete, 'stone', [4, 4], 0);
+  wallQuads(L.walls.filter(w => w.face === 'back'), base, h, white, 'bodenackerLoggia', tile, plinth.skirt ? 0 : 2);
+  wallQuads(L.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
   const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
   extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'));   // the band's top is the roof slab
   for (const s of L.stairs) {
@@ -1262,20 +1276,20 @@ function bodenackerBuilding(b, base, h) {
     const [x, z] = L.frame.toWorld(s.u, (s.vFront + s.vBack) / 2);
     box(s.w, BODENACKER6.housingRise, s.d, x, L.floors.roof, z, L.frame.rot, white, 'plasterWhite', [4, 3], 0);
   }
-  for (const p of L.porches) {
+  for (const p of L.porches) {   // each porch on the block's level with its own skirt down to its ground, or on its ground where that lies higher
     let ground = Infinity;
     for (const [du, dv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
       const [x, z] = L.frame.toWorld(p.u + du * p.w / 2, (p.v0 + p.v1) / 2 + dv * p.d / 2);
       ground = Math.min(ground, terrainH(x, z));
     }
-    porchMesh(p, L.frame, ground);
+    const pp = bodenackerPlinth(base, ground);
+    porchMesh(p, L.frame, pp.floor);
+    if (pp.skirt) { const [x, z] = L.frame.toWorld(p.u, (p.v0 + p.v1) / 2); box(p.w, pp.skirt.y1 - pp.skirt.y0, p.d, x, pp.skirt.y0, z, L.frame.rot, concrete, 'stone', [4, 4], 0); }
   }
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: L.floors.roof, ring: b.ring, bodenacker6: true });   // the OSM outline = body + porches, as before; #411: tagged so the walker can be let in
-  {   // #411: the stair hall of 6c as a walkway set, built in place once. eg = the terrain at the door, or the ring's base if lower (A4)
-    const porch = bodenackerHouse(L, INT.house).porch, entrance = porch.entrance, eg = Math.max(L.floors.floors[0], terrainH(entrance.x, entrance.z));
-    // on a slope the door lies above the block's lowest ground: squeeze the storeys so the 9th landing stays under the roof (never a taller pitch than the façade's)
-    const fit = { ...L.floors, pitch: Math.min(L.floors.pitch, (L.floors.roof - BODENACKER6.parapet - eg) / BODENACKER6.storeys) };
-    INT.hall = stairHall(entrance, { w: porch.w, d: porch.d }, fit, eg);
+  {   // #411: the stair hall of 6c as a walkway set, built in place once. The EG is the block's level = the terrain at the door (#445)
+    const porch = bodenackerHouse(L, INT.house).porch, entrance = porch.entrance;
+    INT.hall = stairHall(entrance, { w: porch.w, d: porch.d }, L.floors, base);
     hallRoofSlab(INT.hall, L.body.map(([u, v]) => L.frame.toWorld(u, v)));
     INT.lift = createTowerLift(INT.hall.levels);
     INT.cabin = { ...INT.hall.cabinRect, y: INT.lift.y };   // the dynamic slab: stepInterior keeps its y on the lift
@@ -2989,6 +3003,7 @@ function stepEnter() {
   stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; the car keeps E as the right blinker)
   const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
   HUD.enter = enterPrompt(near) && near;
+  if (HUD.enter && !HUD.enterShown && $('toast').textContent === tr('footOut')) { toastT = 0; $('toast').classList.remove('show'); }   // #445: the on-foot hint sits right under the prompt and would crowd it
   if (HUD.enter) { $('prompt').textContent = tr('enterPrompt'); HUD.enterShown = true; }   // #411: written every frame, so the pontoon wipe cannot eat it
   else if (INT.prompt) { $('prompt').textContent = INT.prompt; }
   else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
@@ -3103,15 +3118,27 @@ function setLiftPad(inCabin) {
 function buildInterior() {
   if (INT.on || !INT.hall) return;
   const h = INT.hall, f = h.frame, lv = h.levels, N = STAIRHALL.storeys;
-  const M = { concrete: new THREE.MeshLambertMaterial({ color: 0x9a9a96, emissive: 0x2b2b2b }), tread: new THREE.MeshLambertMaterial({ color: 0xb9b6ae, emissive: 0x2b2b2b }), plaster: new THREE.MeshLambertMaterial({ color: 0xefece4, emissive: 0x2b2b2b }), wood: new THREE.MeshLambertMaterial({ color: 0x5b4636, emissive: 0x2b2b2b }), dark: new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }), cabin: new THREE.MeshLambertMaterial({ color: 0xd9d9d3, emissive: 0x2b2b2b }), cabinFloor: new THREE.MeshLambertMaterial({ color: 0x6a6a66, emissive: 0x2b2b2b }) };
+  // #445: contrasting materials so the stairs read -- light plaster walls, dark stone treads with a light nosing, a dark handrail, light-grey landings
+  const M = { concrete: new THREE.MeshLambertMaterial({ color: 0xb4b2ac, emissive: 0x33322f }), tread: new THREE.MeshLambertMaterial({ color: 0x5a5753, emissive: 0x1a1918 }), nosing: new THREE.MeshLambertMaterial({ color: 0xdedad0, emissive: 0x3c3b38 }), plaster: new THREE.MeshLambertMaterial({ color: 0xf3efe6, emissive: 0x47453f }), rail: new THREE.MeshLambertMaterial({ color: 0x2b2f36, emissive: 0x111214 }), wood: new THREE.MeshLambertMaterial({ color: 0x5b4636, emissive: 0x2b2b2b }), dark: new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }), cabin: new THREE.MeshLambertMaterial({ color: 0xd9d9d3, emissive: 0x2b2b2b }), cabinFloor: new THREE.MeshLambertMaterial({ color: 0x6a6a66, emissive: 0x2b2b2b }), lamp: new THREE.MeshBasicMaterial({ color: 0xfff3d6 }) };
   INT.mats = Object.values(M);
-  const parts = { concrete: [], tread: [], plaster: [], wood: [] };
+  const parts = { concrete: [], tread: [], nosing: [], plaster: [], rail: [], wood: [], lamp: [] };
   const put = (k, o, y0, y1) => { if (y1 - y0 > 0.001) parts[k].push(obbBox(o, y0, y1)); };
   for (const s of h.walk.slabs) if (s.hw && s !== INT.cabin) put('concrete', s, s.y - WALKWAY.thick, s.y);   // the polygon roof deck is #410's; the cabin slab is the shell below
-  for (const r of h.walk.ramps) for (let i = 0; i < 7; i++) {   // seven treads per flight, each at the ramp surface of its middle
-    const u = -r.hw + (i + 0.5) * (2 * r.hw / 7), y = r.y0 + (r.y1 - r.y0) * (u + r.hw) / (2 * r.hw);
-    put('tread', { x: r.x + r.c * u, z: r.z + r.s * u, hw: r.hw / 7, hd: r.hd, c: r.c, s: r.s }, y - WALKWAY.thick, y);
+  for (const r of h.walk.ramps) {
+    const tw = r.hw / 7;
+    for (let i = 0; i < 7; i++) {   // seven treads per flight, each at the ramp surface of its middle; a light strip along its front edge
+      const u = -r.hw + (i + 0.5) * 2 * tw, y = r.y0 + (r.y1 - r.y0) * (u + r.hw) / (2 * r.hw);
+      put('tread', { x: r.x + r.c * u, z: r.z + r.s * u, hw: tw, hd: r.hd, c: r.c, s: r.s }, y - WALKWAY.thick, y);
+      put('nosing', { x: r.x + r.c * (u - tw + 0.025), z: r.z + r.s * (u - tw + 0.025), hw: 0.025, hd: r.hd, c: r.c, s: r.s }, y - 0.04, y + 0.005);
+    }
+    parts.rail.push(slopedBar(r.x - r.c * r.hw + r.s * (r.hd - 0.08), r.y0 + 0.95, r.z - r.s * r.hw - r.c * (r.hd - 0.08),
+      r.x + r.c * r.hw + r.s * (r.hd - 0.08), r.y1 + 0.95, r.z + r.s * r.hw - r.c * (r.hd - 0.08), 0.03));   // the handrail along the flight's outer wall
   }
+  for (let k = 0; k <= N; k++) {   // a light panel under each landing's ceiling (the next landing's slab; the housing's lid on the roof)
+    const y = k < N ? lv[k + 1] - WALKWAY.thick : h.housingTop - 0.15;
+    put('lamp', hallRect(f, 0.45, 1.05, -0.2, 0.2), y - 0.03, y - 0.005);
+  }
+  for (let k = 0; k < N - 1; k++) put('lamp', hallRect(f, 3.8, 4.4, -0.2, 0.2), (lv[k + 1] + lv[k + 2]) / 2 - WALKWAY.thick - 0.03, (lv[k + 1] + lv[k + 2]) / 2 - WALKWAY.thick - 0.005);   // and under each half landing above
   for (const w of h.walk.walls) {
     if (w.tag === 'edge' || w.tag === 'roofDoor' || w.tag === 'porch:door' || /^lift:/.test(w.tag)) continue;   // the roof rail is invisible; the leaves are their own meshes
     if (/^porch:/.test(w.tag)) continue;   // #410's porchMesh already draws the porch's glass panes; the walkway walls carry their collision
