@@ -1,7 +1,12 @@
 """#236: the Hatchback. Slow (Playwright): run in the foreground."""
+import pytest
 from playwright.sync_api import sync_playwright
 
 from test_carselect import open_page, wait_frames
+from test_lights import start_hand as start_lights, wait_lights
+from test_photo import NAME_RE, start_hand as start_photo
+from test_vehicles import open_hand as open_hand_plain
+from test_wheels import START, drive
 
 STATS_JS = "() => window.__mm.carStats()"
 
@@ -122,3 +127,103 @@ def test_a_failed_load_falls_back_to_the_compact_with_a_toast(server):
     assert got["toast"]["shown"] and "Hatchback" in got["toast"]["text"], got["toast"]
     assert again == {"state": "failed", "id": "compact"}, again
     assert not [u for u in requests if "missing.glb" in u], requests
+
+
+def hatch_hand(p, server):
+    """The hand-traced page (no world, 320 x 180) with the hatchback loaded and built."""
+    b, page = open_hand_plain(p, server)
+    load(page)
+    use_hatchback(page)
+    return b, page
+
+
+def test_hatchback_drives_wheels_roll_and_only_the_fronts_steer(server):
+    gas = "() => window.__mm.sim(1882.9, -292.2, Math.PI, 0, 4).speed"
+    with sync_playwright() as p:
+        b, page = open_hand_plain(p, server)
+        compact = page.evaluate(gas)
+        load(page)
+        use_hatchback(page)
+        hatch = page.evaluate(gas)
+        tops = page.evaluate("() => [window.__mm.vehicles().compact.drive.top, window.__mm.vehicle().drive.top]")
+        right = drive(page, "KeyD")
+        straight = drive(page, "KeyW", 1.5)
+        rolled = drive(page, "KeyW", 0.5)
+        b.close()
+    assert len(right["front"]) == 2 and len(right["rear"]) == 2, right
+    assert all(y < -0.2 for y in right["front"]), right
+    assert all(abs(y) < 1e-6 for y in right["rear"]), right
+    assert rolled["spin"] != straight["spin"], (straight, rolled)
+    assert tops[1] > tops[0] and hatch > compact * 1.03, (compact, hatch, tops)   # livelier than the compact: higher top speed, stronger pull
+
+
+SEQUENCE = """() => {
+  const m = window.__mm;
+  m.setDamage(0.95);
+  const safe = [...m.damage().safe];
+  m.sim(1236.5, -127, Math.PI, 15, 1.6, []);
+  const hit = m.damage();
+  m.wreckSim(1.5);
+  const mid = m.damage(), car = m.car();
+  m.wreckSim(1.6);
+  return { safe, hit, mid, car, end: m.damage() };
+}"""
+
+
+def test_hatchback_damage_smokes_and_wrecks_at_one_hundred_percent(server):
+    with sync_playwright() as p:
+        b, page = hatch_hand(p, server)
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        r = page.evaluate(SEQUENCE)
+        after = page.evaluate("() => window.__mm.gltfVehicle().wheels")
+        b.close()
+    assert r["hit"]["wrecked"] and r["hit"]["dmg"] == 1 and r["hit"]["wheelsOff"] == 4, r["hit"]
+    assert r["mid"]["smoke"] > 0, r["mid"]
+    assert max(abs(w["x"] - r["car"]["x"]) + abs(w["z"] - r["car"]["z"]) for w in r["mid"]["wheels"]) > 2, "the wheels flew off the car"
+    assert not r["end"]["wrecked"] and r["end"]["dmg"] == 0 and r["end"]["wheelsOff"] == 0, r["end"]
+    assert after == 4 and not errors, (after, errors)
+
+
+def test_hatchback_lights_follow_the_switches(server):
+    with sync_playwright() as p:
+        b, page = start_lights(p, server)
+        load(page)
+        use_hatchback(page)
+        wait_lights(page)
+        lamps = page.evaluate("() => window.__mm.gltfVehicle().lamps")
+        page.keyboard.press("KeyL")
+        page.wait_for_function("() => window.__mm.gltfVehicle().lamps.headLevel === 2.0", timeout=120000)
+        page.keyboard.press("KeyL")
+        page.wait_for_function("() => window.__mm.gltfVehicle().lamps.headLevel === 0.35", timeout=120000)
+        page.evaluate("() => window.__mm.step(2, ['KeyW'])")
+        page.keyboard.down("KeyS")
+        page.wait_for_function("() => window.__mm.gltfVehicle().lamps.tailLevel === 2.4", timeout=120000)
+        page.keyboard.up("KeyS")
+        b.close()
+    assert lamps["head"] >= 1 and lamps["tail"] >= 1, lamps
+
+
+def test_hatchback_shadow_and_photo_and_mirror_work(server):
+    with sync_playwright() as p:
+        b, page = start_photo(p, server)
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        load(page)
+        use_hatchback(page)
+        wait_frames(page, 3)
+        size = page.evaluate("() => window.__mm.carSize()")
+        shadow = page.evaluate("() => window.__mm.shadow()")
+        page.keyboard.press("KeyC")
+        page.keyboard.press("KeyC")
+        page.wait_for_function("() => window.__mm.camView === 2 && window.__mm.mirror().visible", timeout=120000)
+        with page.expect_download(timeout=120000) as info:
+            page.keyboard.press("KeyX")
+        name = info.value.suggested_filename
+        toast = page.evaluate("() => window.__mm.toast()")
+        b.close()
+    assert shadow["visible"] is True, shadow
+    assert shadow["size"][0] == pytest.approx(size["l"] * 0.92 + 1.0, abs=0.02), (shadow, size)
+    assert shadow["size"][1] == pytest.approx(size["w"] * 0.92 + 1.0, abs=0.02), (shadow, size)
+    assert NAME_RE.match(name) and toast["text"] == "Photo taken", (name, toast)   # the PNG itself is test_photo.py's business
+    assert not errors, errors
