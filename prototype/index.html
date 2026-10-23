@@ -591,7 +591,14 @@ TEX.hall = makeTex(256, 256, (g, w, h) => { g.fillStyle = '#d2d6da'; g.fillRect(
 TEX.hallBand = makeTex(256, 256, (g, w, h) => { g.fillStyle = '#eef1f4'; g.fillRect(0, 0, w, h); g.fillStyle = '#e2e6ea'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 2, h); g.fillStyle = '#39424c'; for (let x = 12; x < w; x += 42) g.fillRect(x, 60, 26, 70); g.fillStyle = '#2b333c'; for (let x = 12; x < w; x += 42) g.fillRect(x, 60, 26, 4); g.fillStyle = '#1f5fae'; g.fillRect(0, h - 70, w, 26); g.fillStyle = '#17497f'; g.fillRect(0, h - 46, w, 3); });
 TEX.road = makeTex(512, 1024, (g, w, h) => { noise(g, w, h, '#57565a', 22, 2400); asphalt(g, w, h, 5, 4); g.fillStyle = '#e8e2c8'; g.fillRect(w / 2 - 8, 0, 16, 360); g.fillRect(w / 2 - 8, 512, 16, 360); g.fillRect(12, 0, 12, h); g.fillRect(w - 24, 0, 12, h); });
 TEX.roadPlain = makeTex(512, 512, (g, w, h) => { noise(g, w, h, '#57565a', 22, 1600); asphalt(g, w, h, 4, 4); });
-TEX.concrete = makeTex(256, 256, (g, w, h) => { noise(g, w, h, '#b6b6b1', 12, 2600); g.strokeStyle = 'rgba(90,90,90,.10)'; g.lineWidth = 1; g.strokeRect(0, 0, w, h); });   // #426: the Crash-Platz's slab, light grey, no markings (no rr beyond noise's own: the yard is OSM-path only)
+// #426: the Crash-Platz's slab, light grey, no markings. noise()'s speckle drawn from a local LCG, not rr(): the texture is built on
+// every page, so rr() here shifted the seeded hand layout behind it (#439)
+TEX.concrete = makeTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#b6b6b1'; g.fillRect(0, 0, w, h);
+  let s = 45; const lr = (a, b) => a + (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff * (b - a);   // local LCG: speckle without touching the world seed
+  for (let i = 0; i < 2600; i++) { const v = Math.floor(lr(-12, 12)); g.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},.35)`; g.fillRect(lr(0, w), lr(0, h), lr(2, 8), lr(2, 8)); }
+  g.strokeStyle = 'rgba(90,90,90,.10)'; g.lineWidth = 1; g.strokeRect(0, 0, w, h);
+});
 TEX.grass = makeTex(256, 256, (g, w, h) => noise(g, w, h, '#c9c9b6', 26, 3000));
 TEX.field = makeTex(256, 256, (g, w, h) => { noise(g, w, h, '#d4c9b2', 12, 800); g.fillStyle = 'rgba(90,70,40,.25)'; for (let y = 0; y < h; y += 12) g.fillRect(0, y, w, 4); });
 TEX.water = makeTex(512, 512, (g, w, h) => { noise(g, w, h, '#3f6f96', 16, 2500); g.strokeStyle = 'rgba(210,230,245,.28)'; g.lineWidth = 2; for (let i = 0; i < 160; i++) { const y = rr(0, h), x = rr(0, w), L = rr(20, 90); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + L / 2, y + rr(-4, 4), x + L, y); g.stroke(); } g.fillStyle = 'rgba(20,50,80,.25)'; for (let i = 0; i < 60; i++) g.fillRect(rr(0, w), rr(0, h), rr(30, 120), 2); });
