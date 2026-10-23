@@ -53,11 +53,13 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #debugtext>div::before{content:attr(data-label);display:inline-block;min-width:11ch;color:#7f9a6a}
 #debuglinks{display:flex;gap:6px;margin-top:4px;white-space:normal}#debuglinks[hidden]{display:none}#debuglinks button{font:inherit;color:#8fd8e8;background:none;border:1px solid #3a404b;padding:1px 6px;cursor:pointer}
 #knockreset{display:block;margin-top:6px;padding:4px 10px;font:inherit;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
-#debug{padding-right:36px}#debughelp{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font:inherit;line-height:18px;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
-/* the open legend must not push the panel (and its ? button) off screen, so it scrolls once the space the panel's anchor leaves is used up */
-#debuglegend{max-width:min(380px,calc(100vw - 72px));max-height:calc(100vh - 420px);overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
-@media (max-width:900px){#debuglegend{max-height:calc(100vh - 290px)}}
-@media (pointer:coarse){#debug{padding-right:48px}#debughelp{width:36px;height:36px;line-height:32px}#debuglegend{max-height:calc(100vh - 400px)}}
+/* #439: a real phone lays out at its device width (#354), so the panel stops at the viewport edge and its lines wrap, keeping the ? on screen */
+#debug{padding-right:36px;box-sizing:border-box;max-width:calc(100vw - 32px)}#debugtext>div{white-space:pre-wrap}#debughelp{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font:inherit;line-height:18px;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
+/* the open legend must not push the panel (and its ? button) off screen, so it scrolls once the space the panel's anchor leaves is used up;
+   the budgets include the 36 px "Set up props" row under the legend (#415, #439) */
+#debuglegend{max-width:min(380px,calc(100vw - 72px));max-height:calc(100vh - 456px);overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
+@media (max-width:900px){#debuglegend{max-height:calc(100vh - 326px)}}
+@media (pointer:coarse){#debug{padding-right:48px}#debughelp{width:36px;height:36px;line-height:32px}#debuglegend{max-height:calc(100vh - 436px)}}
 /* #178: the grown panel (legend + map links) now reaches the toast band when anchored at top:120px; drop it below the toast */
 @media (pointer:coarse) and (orientation:portrait){#debug{top:calc(310px + env(safe-area-inset-top,0px))}}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
@@ -591,7 +593,14 @@ TEX.hall = makeTex(256, 256, (g, w, h) => { g.fillStyle = '#d2d6da'; g.fillRect(
 TEX.hallBand = makeTex(256, 256, (g, w, h) => { g.fillStyle = '#eef1f4'; g.fillRect(0, 0, w, h); g.fillStyle = '#e2e6ea'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 2, h); g.fillStyle = '#39424c'; for (let x = 12; x < w; x += 42) g.fillRect(x, 60, 26, 70); g.fillStyle = '#2b333c'; for (let x = 12; x < w; x += 42) g.fillRect(x, 60, 26, 4); g.fillStyle = '#1f5fae'; g.fillRect(0, h - 70, w, 26); g.fillStyle = '#17497f'; g.fillRect(0, h - 46, w, 3); });
 TEX.road = makeTex(512, 1024, (g, w, h) => { noise(g, w, h, '#57565a', 22, 2400); asphalt(g, w, h, 5, 4); g.fillStyle = '#e8e2c8'; g.fillRect(w / 2 - 8, 0, 16, 360); g.fillRect(w / 2 - 8, 512, 16, 360); g.fillRect(12, 0, 12, h); g.fillRect(w - 24, 0, 12, h); });
 TEX.roadPlain = makeTex(512, 512, (g, w, h) => { noise(g, w, h, '#57565a', 22, 1600); asphalt(g, w, h, 4, 4); });
-TEX.concrete = makeTex(256, 256, (g, w, h) => { noise(g, w, h, '#b6b6b1', 12, 2600); g.strokeStyle = 'rgba(90,90,90,.10)'; g.lineWidth = 1; g.strokeRect(0, 0, w, h); });   // #426: the Crash-Platz's slab, light grey, no markings (no rr beyond noise's own: the yard is OSM-path only)
+// #426: the Crash-Platz's slab, light grey, no markings. noise()'s speckle drawn from a local LCG, not rr(): the texture is built on
+// every page, so rr() here shifted the seeded hand layout behind it (#439)
+TEX.concrete = makeTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#b6b6b1'; g.fillRect(0, 0, w, h);
+  let s = 45; const lr = (a, b) => a + (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff * (b - a);   // local LCG: speckle without touching the world seed
+  for (let i = 0; i < 2600; i++) { const v = Math.floor(lr(-12, 12)); g.fillStyle = `rgba(${128 + v},${128 + v},${128 + v},.35)`; g.fillRect(lr(0, w), lr(0, h), lr(2, 8), lr(2, 8)); }
+  g.strokeStyle = 'rgba(90,90,90,.10)'; g.lineWidth = 1; g.strokeRect(0, 0, w, h);
+});
 TEX.grass = makeTex(256, 256, (g, w, h) => noise(g, w, h, '#c9c9b6', 26, 3000));
 TEX.field = makeTex(256, 256, (g, w, h) => { noise(g, w, h, '#d4c9b2', 12, 800); g.fillStyle = 'rgba(90,70,40,.25)'; for (let y = 0; y < h; y += 12) g.fillRect(0, y, w, 4); });
 TEX.water = makeTex(512, 512, (g, w, h) => { noise(g, w, h, '#3f6f96', 16, 2500); g.strokeStyle = 'rgba(210,230,245,.28)'; g.lineWidth = 2; for (let i = 0; i < 160; i++) { const y = rr(0, h), x = rr(0, w), L = rr(20, 90); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + L / 2, y + rr(-4, 4), x + L, y); g.stroke(); } g.fillStyle = 'rgba(20,50,80,.25)'; for (let i = 0; i < 60; i++) g.fillRect(rr(0, w), rr(0, h), rr(30, 120), 2); });
