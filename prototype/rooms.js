@@ -4,6 +4,7 @@
 // Eiffel, Atomium (room 1) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test prototype/tests/rooms.test.mjs`.
 import { EIFFEL, ATOMIUM, TITANIC } from './hideout.js';
+import { FRIES, friesPlacement } from './fries.js';
 import { BELOW_Y, SPOKE, spokeFrame } from './underground.js';
 
 export const ROOM_Y = BELOW_Y, ROOM_HALF = 250;
@@ -15,7 +16,7 @@ const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return
 // one issue per landmark) -- an empty room's spoke stays unsigned (spokeSigns in underground.js) so it raises no expectations.
 export const ROOMS = [
   { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL, signed: false },   // signed: false -- unsigned for now, so finding them stays a surprise
-  { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false },
+  { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false, figure: FRIES },   // #451: the fries figure stands beside the Atomium
   { id: 'room2', name: null, object: null },
   { id: 'room3', name: null, object: null },
   { id: 'room4', name: null, object: null },
@@ -91,6 +92,9 @@ export function roomLayout(k, room = ROOMS[k]) {
   // #422: the ship floats in a basin of water, kerbed; the gravel lane runs round it as the quay
   const basin = (room.object && room.object.hull) ? shipBasin(room.object) : null;
   if (basin) { basin.pts = stadium(basin, loc); basin.rim = rimColliders(basin.pts, ROOM_Y); colliders.push(...basin.rim); }
+  // #451: a figure beside the object (the fries figure in the Atomium room), on its plinth collider
+  const figure = room.figure ? friesPlacement({ centre, frame: { f, v }, portal: { c: P }, y: ROOM_Y }, room.figure) : null;
+  if (figure) colliders.push(...figure.colliders);
   // two rows of trees all the way round the square (Chebyshev distance from the centre), jittered along and across the row,
   // with a gap left near the portal so the tunnel opens into the lawn
   const rand = rng(277), trees = [];
@@ -114,7 +118,7 @@ export function roomLayout(k, room = ROOMS[k]) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? ROOM_Y + SPOKE.ceiling : null;
     },
-    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, colliders, trees, paths,
+    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, colliders, trees, paths,
     portal: { c: P, th: Math.atan2(f[1], f[0]), hw: SPOKE.hw, h: SPOKE.ceiling },
     spawn: { x: at(20, 0)[0], z: at(20, 0)[1], th: Math.atan2(f[1], f[0]) },
     towerView: room.object ? { x: view[0], z: view[1], th: Math.atan2(f[1], f[0]) } : null,
