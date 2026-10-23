@@ -1273,7 +1273,9 @@ function bodenackerBuilding(b, base, h) {
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: L.floors.roof, ring: b.ring, bodenacker6: true });   // the OSM outline = body + porches, as before; #411: tagged so the walker can be let in
   {   // #411: the stair hall of 6c as a walkway set, built in place once. eg = the terrain at the door, or the ring's base if lower (A4)
     const porch = bodenackerHouse(L, INT.house).porch, entrance = porch.entrance, eg = Math.max(L.floors.floors[0], terrainH(entrance.x, entrance.z));
-    INT.hall = stairHall(entrance, { w: porch.w, d: porch.d }, L.floors, eg);
+    // on a slope the door lies above the block's lowest ground: squeeze the storeys so the 9th landing stays under the roof (never a taller pitch than the façade's)
+    const fit = { ...L.floors, pitch: Math.min(L.floors.pitch, (L.floors.roof - BODENACKER6.parapet - eg) / BODENACKER6.storeys) };
+    INT.hall = stairHall(entrance, { w: porch.w, d: porch.d }, fit, eg);
     hallRoofSlab(INT.hall, L.body.map(([u, v]) => L.frame.toWorld(u, v)));
     INT.lift = createTowerLift(INT.hall.levels);
     INT.cabin = { ...INT.hall.cabinRect, y: INT.lift.y };   // the dynamic slab: stepInterior keeps its y on the lift
@@ -1625,7 +1627,7 @@ function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(t
 const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795], [1960, 740]]);   // hand-traced Basel–Koblenz line stand-in
 // #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
 // indoor is additive behind INT.hall (null until bodenackerBuilding built it); every glue function guards on it.
-const INT = { hall: null, house: '6c', on: false, group: null, housing: null, lift: null, cabin: null, door: { open: 0, target: 0 }, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null };
+const INT = { hall: null, house: '6c', on: false, group: null, housing: null, lift: null, cabin: null, door: { open: 0, target: 0 }, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null, roofDoorOpen: false, roofDoorAmt: 0 };
 // ---------- build the world ----------
 {
   const { GW, GD } = TGRID;
@@ -3066,6 +3068,7 @@ function stepInterior(dt) {
     const s = (p.userData.k === INT.lift.at ? INT.lift.door : 0) * (STAIRHALL.liftDoor.a1 - STAIRHALL.liftDoor.a0);
     p.position.set(s * INT.hall.frame.c, 0, s * INT.hall.frame.s);
   }
+  stepRoofDoor(dt);
   const { a, b } = INT.hall.frame.fromWorld(P.x, P.z), sh = STAIRHALL.shaft;
   const inCabin = FOOT.on && INT.indoors && a >= sh.a0 && a <= sh.a1 && b >= sh.b0 && b <= sh.b1 && Math.abs(P.y - INT.lift.y) < 0.5;
   for (const ev of INT.lift.step(dt, { occupied: inCabin })) liftTowerEvent(ev);   // the ride: closing, moving (the cabin slab carries the walker), opening
@@ -3073,6 +3076,16 @@ function stepInterior(dt) {
   for (let k = 0; k <= STAIRHALL.storeys; k++) wallByTag(INT.hall, `lift:${k}`).off = INT.lift.doorOpenAt(k);
   setLiftPad(inCabin);
   INT.prompt = FOOT.on && INT.area === 'tower' && !inCabin && Math.hypot(a - 0.7, b - 1.275) < 1.3 ? tr('liftCall') : null;   // E by the gap calls the lift to this storey
+}
+// #411: the housing's door onto the roof opens by itself when the walker comes within 1.5 m and closes beyond 3 m (hysteresis)
+function stepRoofDoor(dt) {
+  const h = INT.hall, rd = STAIRHALL.roofDoor, [dx, dz] = h.frame.toWorld((rd.a0 + rd.a1) / 2, (STAIRHALL.b0 - 1.2) / 2);
+  const near = FOOT.on && P.y > h.levels[STAIRHALL.storeys] - 0.5 ? Math.hypot(P.x - dx, P.z - dz) : Infinity;
+  INT.roofDoorOpen = near < 1.5 ? true : near > 3 ? false : INT.roofDoorOpen;
+  INT.roofDoorAmt += ((INT.roofDoorOpen ? 1 : 0) - INT.roofDoorAmt) * Math.min(1, dt * 4);
+  if (Math.abs((INT.roofDoorOpen ? 1 : 0) - INT.roofDoorAmt) < 0.01) INT.roofDoorAmt = INT.roofDoorOpen ? 1 : 0;
+  wallByTag(h, 'roofDoor').off = INT.roofDoorAmt > 0.6;
+  if (INT.roofPanel) { const s = INT.roofDoorAmt * (rd.a1 - rd.a0); INT.roofPanel.position.set(s * h.frame.c, 0, s * h.frame.s); }
 }
 function liftTowerEvent(ev) { if (ev.type === 'start') SFX.hum(2 * TOWER_LIFT.door + ev.ride); }   // the ride's hum, as long as the trip takes
 // #411: the lift's keypad, shown while the walker stands in the cabin (setLiftPad)
@@ -3122,6 +3135,9 @@ function buildInterior() {
     const p = new THREE.Mesh(obbBox(hallRect(f, STAIRHALL.liftDoor.a0, STAIRHALL.liftDoor.a1, 1.2, 1.35), lv[k], lv[k] + STAIRHALL.liftDoor.h), M.dark);
     p.userData.k = k; g.add(p); INT.liftPanels.push(p);
   }
+  const rd = STAIRHALL.roofDoor, rtop = lv[N];   // the roof door: a dark leaf in the housing's left wall that slides along the wall
+  INT.roofPanel = new THREE.Mesh(obbBox(hallRect(f, rd.a0, rd.a1, STAIRHALL.b0, STAIRHALL.b0 + 0.15), rtop, rtop + rd.h), M.dark);
+  g.add(INT.roofPanel);
   const cab = new THREE.Group(), sh = STAIRHALL.shaft;   // the cabin shell, open towards the divider gap; the group rides on the lift's y
   const walls = [], floor = [];
   const wall = (a0, a1, b0, b1, y0, y1) => walls.push(obbBox(hallRect(f, a0, a1, b0, b1), y0, y1));
@@ -3142,7 +3158,7 @@ function disposeInterior() {
   INT.group.traverse(o => o.geometry?.dispose());
   for (const m of INT.mats || []) m.dispose?.();
   scene.remove(INT.group);
-  INT.group = null; INT.cabinMesh = null; INT.liftPanels = null; INT.on = false;
+  INT.group = null; INT.cabinMesh = null; INT.liftPanels = null; INT.roofPanel = null; INT.on = false;
   if (INT.housing) INT.housing.visible = true;
   if (INT.housingPanel) INT.housingPanel.visible = true;
 }

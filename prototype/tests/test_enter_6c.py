@@ -144,11 +144,12 @@ def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
         page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
         key(page, "z", 300)
         stand(page, 0.7, 0.4, math.pi / 2, level=0)
+        foot_sim(page, 0.3)
         key(page, "e", 200)
         page.evaluate("() => window.__mm.interiorSim(1.5)")
         foot_sim(page, 1.0, ["KeyW"])
         key(page, "d", 200)
-        foot_sim(page, 16)                                  # to the roof
+        foot_sim(page, 20)                                  # to the roof
         lobby = interior(page)
         stand(page, 0.8, -0.2, -math.pi / 2, level=10)      # in the roof lobby, facing the door in the left wall
         foot_sim(page, 1.5, ["KeyW"])                       # through the door
@@ -159,6 +160,7 @@ def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
         hover = page.evaluate("() => window.__mm.foot().hover")
         b.close()
     assert errors == []
+    assert lobby["levels"][9] < lobby["levels"][10] - 1.0, lobby   # the 9th landing lies under the roof even where the door sits above the block's lowest ground
     assert lobby["floor"] == 10, lobby
     assert outside["area"] == "out" and abs(outside["y"] - outside["levels"][10]) < 0.1, outside
     assert abs(edge["y"] - edge["levels"][10]) < 0.1, edge   # still on the roof, not fallen

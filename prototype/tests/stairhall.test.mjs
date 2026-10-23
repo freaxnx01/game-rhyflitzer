@@ -6,7 +6,7 @@ import { STAIRHALL, stairHall, hallLevels, floorAtY, floorLabel, keypadLabel, hu
 
 const EG = 312.4, FLOORS = { pitch: 2.53, floors: Array.from({ length: 10 }, (_, k) => EG + k * 2.53), roof: EG + 25.3 + 0.5, housingTop: EG + 25.3 + 0.5 + 2.6 };
 const ENTRANCE = { x: 2100, z: -380, th: 0.7, w: 1.0 }, PORCH = { w: 2.3, d: 2.9 };
-const hall = () => stairHall(ENTRANCE, PORCH, FLOORS, EG);
+const hall = (floors = FLOORS) => stairHall(ENTRANCE, PORCH, floors, EG);
 const at = (h, a, b) => h.frame.toWorld(a, b);
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} vs ${b}`);
 
@@ -61,8 +61,10 @@ function climb(h, k) {
   return out;
 }
 
-test('stairHall_EveryStorey_CanBeClimbedWithoutAJumpOrABump', () => {
-  const h = hall();
+// the door sits above the block's lowest ground on a slope (#411): the hall's pitch is squeezed so the top landing stays under the roof
+const SQUEEZED = { ...FLOORS, pitch: 2.19 };
+for (const [name, floors] of [['', FLOORS], ['_OnASlopeWithASqueezedPitch', SQUEEZED]]) test(`stairHall_EveryStorey_CanBeClimbedWithoutAJumpOrABump${name}`, () => {
+  const h = hall(floors);
   for (let k = 0; k < 10; k++) {
     let y = h.levels[k];
     for (const [x, z] of climb(h, k)) {

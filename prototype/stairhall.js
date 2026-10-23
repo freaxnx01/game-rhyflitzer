@@ -95,8 +95,9 @@ export function stairHall(entrance, porch, floors, eg, cfg = STAIRHALL) {
   wall('rail', land, land + 0.1, -1.2, -0.1, roof, roof + cfg.rail);
   // under the right flight and the half landing the EG headroom is too low to walk
   // (1.0 m high so that a walker on the half landing, 1.265 up, is not held by them; vy1 = how tall they are drawn)
-  walk.walls.push({ ...rectAB(f, 2.05, depth - t, 0.1, 1.2), y0: L(0), y1: L(0) + 1.0, vy1: L(0) + 2.5, tag: 'under:r' });
-  walk.walls.push({ ...rectAB(f, aFl, depth - t, -1.2, -0.1), y0: L(0), y1: L(0) + 1.0, vy1: L(0) + 2.5, tag: 'under:l' });
+  const under = L(0) + 1.0 * Math.min(1, floors.pitch / 2.53);   // scales with a squeezed pitch (the hall on a slope), so the flight above it still clears
+  walk.walls.push({ ...rectAB(f, 2.05, depth - t, 0.1, 1.2), y0: L(0), y1: under, vy1: L(0) + 2.5, tag: 'under:r' });
+  walk.walls.push({ ...rectAB(f, aFl, depth - t, -1.2, -0.1), y0: L(0), y1: under, vy1: L(0) + 2.5, tag: 'under:l' });
   // the divider between landing and shaft: a lift door gap per level (leaf = the door, lintel above it)
   const d = cfg.liftDoor;
   wall('divider:l', t, d.a0, 1.2, 1.35, L(0), top);
