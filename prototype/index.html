@@ -220,6 +220,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 .cs-split{display:flex;justify-content:space-between;gap:12px}#cspaintname{color:var(--sun)}
 .cs-name{font-size:clamp(28px,3.2vw,48px);font-weight:800;font-style:italic;text-transform:uppercase;line-height:1;color:var(--sun);text-shadow:3px 3px 0 var(--ink)}
 .cs-desc{font-size:18px;font-weight:600;line-height:1.3;margin-top:4px}
+.cs-loading{font-size:15px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#8d96a3;margin-top:8px}
 .cs-stats{display:flex;flex-direction:column;gap:8px;padding:8px 10px;background:var(--ink);border:3px solid;border-color:#0b0d12 #4a515e #4a515e #0b0d12}
 .cs-stat{display:grid;grid-template-columns:minmax(0,1fr) 2fr 36px;gap:10px;align-items:center}
 .cs-stat .cs-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:1px}
@@ -444,7 +445,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div class="cs-body">
     <div id="csstage"><div id="cscount" class="cs-tag"></div><button id="csprev" class="cs-arrow" type="button" aria-label="Previous car" data-i18n-aria="carselPrev">‹</button><button id="csnext" class="cs-arrow" type="button" aria-label="Next car" data-i18n-aria="carselNext">›</button><div class="cs-hint" data-i18n="carselRotate">Rotate · drag or ← →</div></div>
     <div class="cs-info">
-      <div><div id="csclass" class="cs-label"></div><div id="csname" class="cs-name"></div><div id="csdesc" class="cs-desc"></div></div>
+      <div><div id="csclass" class="cs-label"></div><div id="csname" class="cs-name"></div><div id="csdesc" class="cs-desc"></div><div id="csloading" class="cs-loading" hidden></div></div>
       <div id="csstats" class="cs-stats"></div>
       <div><div class="cs-label cs-split"><span data-i18n="paintLabel">Paint</span><span id="cspaintname"></span></div><div id="cspaints" class="cs-swatches"></div></div>
       <div class="cs-garage"><div id="csgaragelabel" class="cs-label"></div><div id="csgarage" class="cs-tiles"></div></div>
@@ -504,7 +505,7 @@ import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM } from './
 import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
-import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
+import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
@@ -533,7 +534,7 @@ import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, s
 import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
 import { LAMP, lampState } from './lights.js';
 import { HATCHBACK, wheelPlan } from './hatchback.js';   // #236: the first glTF car
-import { loadStep, buildableId, modelUrl, lampRole } from './gltfvehicle.js';
+import { loadStep, buildableId, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -2313,6 +2314,8 @@ const MODELS = { compact: buildCompact, delorean: buildDelorean, gltf: buildGltf
 // ---------- #236: glTF cars -- one cache entry per vehicle id, built into the car group like any other model ----------
 const GLTF_CARS = {};                                  // id -> { state, scene, mats, tris, promise }
 const GLTF_LAMPS = { head: [], tail: [] };             // the lamp materials of the car that is built right now (applyLamps writes them)
+let PENDING_SWAP = null;                              // a glTF car that arrived while a race was running: it is built at the next reset or start
+const WANTED = new Set();                             // ids whose load has a completion handler
 const gltfState = (id) => GLTF_CARS[id]?.state ?? 'idle';
 const gltfEntry = (id) => (GLTF_CARS[id] ??= { state: 'idle', scene: null, mats: null, tris: 0, promise: null });
 // once per file: materials sorted by role (paint, glass, lamps), glass see-through, every standard material lit by the car sky map, geometry marked shared
@@ -2949,7 +2952,7 @@ function stepWreck(dt) {
   }
   stepSmoke(dt);
 }
-function resetCar() { resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
+function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
@@ -3666,11 +3669,24 @@ function leaveVehicleSwap() { CARSEL.swap = null; CARSEL.on = false; CARSEL.dir 
 function restoreVehicleSwap() { const { id, paint } = CARSEL.swap; if (id !== CHOICE.id) selectVehicle(id); if (paint !== CHOICE.paint) { applyPaint(paint); saveChoice(); } leaveVehicleSwap(); }
 function cancelVehicleSwap() { restoreVehicleSwap(); $('pause').hidden = false; $('pausevehicle').focus(); }
 function applyVehicleSwap() { if (CARSEL.swap.id !== CHOICE.id) R.swapped = true; leaveVehicleSwap(); closePause(); }
-function selectVehicle(id) { if (!Object.hasOwn(VEHICLES, id)) return; CHOICE.id = id; setVehicle(VEHICLES[id]); applyPaint(CHOICE.paint); saveChoice(); renderCarSelKeepFocus(); renderStartScreen(); }   // #346: the start screen's car tag follows the pick
+function selectVehicle(id) {
+  if (!Object.hasOwn(VEHICLES, id)) return;
+  const def = VEHICLES[id]; CHOICE.id = id;
+  if (def.gltf) wantVehicleModel(id);
+  if (def.gltf && gltfState(id) === 'failed') { vehicleFailed(id); return; }
+  if (buildableId(id, def, gltfState(id)) === id) setVehicle(def);   // a glTF car that is not ready yet leaves the stage car as it is
+  applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen)); saveChoice(); renderCarSelKeepFocus(); renderStartScreen();   // #346: the start screen's car tag follows the pick
+}
+// #236: the glTF car's file is fetched once, on the first pick; the swap waits for a safe moment, a failure falls back (the stored choice is kept: the next visit tries again)
+function wantVehicleModel(id) { if (WANTED.has(id)) return; WANTED.add(id); loadVehicleModel(id).then(ok => (ok ? vehicleLoaded : vehicleFailed)(id)); }
+function swapInVehicle(id) { const def = VEHICLES[id]; PENDING_SWAP = null; setVehicle(def); applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen)); renderCarSelKeepFocus(); renderStartScreen(); }
+function vehicleLoaded(id) { if (CHOICE.id !== id || VEH.gltf?.id === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
+function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); toast(tr('vehicleLoadFailed', vehicleText(tr, id, 'name')), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); }
+function applyPendingSwap() { if (PENDING_SWAP && CHOICE.id === PENDING_SWAP && gltfState(PENDING_SWAP) === 'ready') swapInVehicle(PENDING_SWAP); PENDING_SWAP = null; }
 function stepVehicle(step) { const ids = Object.keys(VEHICLES); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
 function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.preventDefault(); closeCarSel(); } else if (act === 'spin') { e.preventDefault(); CARSEL.dir = e.code === 'ArrowLeft' ? -1 : 1; } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while choosing, browser default kept
 function carselKeyUp(e) { if ((e.code === 'ArrowLeft' && CARSEL.dir < 0) || (e.code === 'ArrowRight' && CARSEL.dir > 0)) CARSEL.dir = 0; }
-function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = vehicleText(tr, CHOICE.id, 'class'); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc');
+function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = vehicleText(tr, CHOICE.id, 'class'); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc'); const gst = def.gltf ? gltfState(def.gltf.id) : 'ready'; $('csloading').hidden = !(gst === 'idle' || gst === 'loading'); $('csloading').textContent = tr('carselLoading', vehicleText(tr, CHOICE.id, 'name')); $('csrace').disabled = raceBlocked(def, gst);
   const bars = statBars(def); $('csstats').innerHTML = STAT_KEYS.map(k => `<div class="cs-stat"><div class="cs-label">${tr(STAT_LABEL_KEYS[k])}</div><div class="cs-cells">${barCells(bars[k]).map(c => `<i class="${c}"></i>`).join('')}</div><div class="cs-score">${bars[k]}</div></div>`).join('');
   const can = paintable(def), cur = PAINTS.find(p => p.id === CHOICE.paint) || PAINTS[0]; $('cspaintname').textContent = can ? tr(cur.nameKey) : tr('paintFixed'); $('cspaints').innerHTML = PAINTS.map(p => `<button type="button" data-paint="${esc(p.id)}" aria-label="${esc(tr(p.nameKey))}" title="${esc(tr(p.nameKey))}" aria-pressed="${p.id === CHOICE.paint}" style="background:${p.hex}"${can ? '' : ' disabled'}></button>`).join('');
   /* #176: a vehicle id is data (registerVehicle, future glTF vehicles) and vehicleText falls back to the raw id, so both are escaped */
@@ -3680,10 +3696,11 @@ function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveO
 function renderCarSelKeepFocus() { const a = document.activeElement, sel = a?.dataset?.paint ? `[data-paint="${CSS.escape(a.dataset.paint)}"]` : a?.dataset?.id ? `[data-id="${CSS.escape(a.dataset.id)}"]` : null; renderCarSel(); if (sel) $('carsel').querySelector(sel)?.focus(); }
 $('carbtn').onclick = openCarSel; $('csback').onclick = closeCarSel; $('csprev').onclick = () => stepVehicle(-1); $('csnext').onclick = () => stepVehicle(1);
 $('csrace').onclick = () => { if (CARSEL.swap) { applyVehicleSwap(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; SFX.start(); startRace(R.mode); };
-$('cspaints').onclick = (e) => { const b = e.target.closest('button[data-paint]'); if (!b || b.disabled) return; applyPaint(b.dataset.paint); saveChoice(); renderCarSelKeepFocus(); };
+$('cspaints').onclick = (e) => { const b = e.target.closest('button[data-paint]'); if (!b || b.disabled) return; Object.assign(CHOICE, withPaint(CHOICE, b.dataset.paint)); applyPaint(b.dataset.paint); saveChoice(); renderCarSelKeepFocus(); };
 $('csgarage').onclick = (e) => { const b = e.target.closest('button[data-id]'); if (b) selectVehicle(b.dataset.id); };
 { const st = $('csstage'); st.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; CARSEL.dragX = e.clientX; st.setPointerCapture(e.pointerId); }); st.addEventListener('pointermove', e => { if (CARSEL.dragX === null) return; CARSEL.drag += e.clientX - CARSEL.dragX; CARSEL.dragX = e.clientX; }); for (const t of ['pointerup', 'pointercancel']) st.addEventListener(t, () => { CARSEL.dragX = null; }); }
 window.__mm.carsel = () => { const ids = Object.keys(VEHICLES); return { open: CARSEL.on, id: CHOICE.id, index: ids.indexOf(CHOICE.id), count: ids.length, paint: CHOICE.paint, paintable: paintable(VEH), bars: statBars(VEH), bodyColor: carMats.body.color.getHexString(), angle: CARSEL.spin.angle, focus: document.activeElement?.id || '', carVisible: car.visible }; };
+if (VEHICLES[CHOICE.id].gltf) wantVehicleModel(CHOICE.id);   // #236: the page started with the fallback car; the glTF car swaps in when its file arrives
 window.__mm.registerVehicle = (id, def) => { checkVehicle(def); VEHICLES[id] = structuredClone(def); if (CARSEL.on) renderCarSel(); };   // test hook: a further table entry (tractor / bus: #6)
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };
