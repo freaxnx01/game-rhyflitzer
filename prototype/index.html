@@ -3681,7 +3681,7 @@ function selectVehicle(id) {
 function wantVehicleModel(id) { if (WANTED.has(id)) return; WANTED.add(id); loadVehicleModel(id).then(ok => (ok ? vehicleLoaded : vehicleFailed)(id)); }
 function swapInVehicle(id) { const def = VEHICLES[id]; PENDING_SWAP = null; setVehicle(def); applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen)); renderCarSelKeepFocus(); renderStartScreen(); }
 function vehicleLoaded(id) { if (CHOICE.id !== id || VEH.gltf?.id === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
-function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); toast(tr('vehicleLoadFailed', vehicleText(tr, id, 'name')), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); }
+function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); const name = vehicleText(tr, id, 'name'); toast(tr('vehicleLoadFailed', name), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); }
 function applyPendingSwap() { if (PENDING_SWAP && CHOICE.id === PENDING_SWAP && gltfState(PENDING_SWAP) === 'ready') swapInVehicle(PENDING_SWAP); PENDING_SWAP = null; }
 function stepVehicle(step) { const ids = Object.keys(VEHICLES); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
 function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.preventDefault(); closeCarSel(); } else if (act === 'spin') { e.preventDefault(); CARSEL.dir = e.code === 'ArrowLeft' ? -1 : 1; } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while choosing, browser default kept
