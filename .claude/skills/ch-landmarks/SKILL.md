@@ -90,8 +90,15 @@ Exit-Code ≠ 0 heisst: mindestens ein Landmark wurde nicht geschrieben. Nicht i
 ## Koordinaten im Spiel
 
 `x = E − origin.e`, `y = H − origin.h`, `z = −(N − origin.n)` — Meter, Y-up, echte Rotation
-(Winding bleibt erhalten). Die Geometrie ist bereits verschoben: im Spiel **ohne** zusätzliche
-Position an `(0,0,0)` einhängen. Der Nullpunkt steht auch in `index.json → origin`.
+(Winding bleibt erhalten). Die Geometrie ist relativ zu `landmarks.yaml → origin` verschoben
+(steht auch in `index.json → origin`).
+
+**Achtung: Das ist nicht der Welt-Ursprung des Spiels.** Die Spielwelt rechnet ab
+`pipeline/geo.py` `DEFAULT_ORIGIN` (47.5506, 7.9671) ≈ LV95 E 2639781.35 / N 1266787.08.
+Der Landmark-Nullpunkt (E 2640000 / N 1267000) liegt rund 219 m östlich und 213 m nördlich davon.
+Ein GLB darum **nicht** an `(0,0,0)` einhängen, sondern um `x = origin.e − E_welt`,
+`z = −(origin.n − N_welt)` verschieben (heute ≈ `x +218.65`, `z −212.92`). Den Höhen-Bezug
+(`origin.h` gegenüber dem `y` der Spielwelt) vor dem Einbau am Gelände nachmessen, nicht annehmen.
 
 ```js
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
