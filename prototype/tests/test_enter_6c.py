@@ -134,3 +134,32 @@ def test_lift_to_the_fifth_floor_and_to_the_roof(server):
     assert re.fullmatch(r"6c · (5\. OG|5th floor)", at5["label"]), at5
     assert out5["area"] == "tower" and abs(out5["y"] - out5["levels"][5]) < 0.1, out5
     assert atroof["floor"] == 10 and abs(atroof["y"] - atroof["levels"][10]) < 0.1, atroof
+
+
+@needs_world
+def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        stand(page, 0.7, 0.4, math.pi / 2, level=0)
+        key(page, "e", 200)
+        page.evaluate("() => window.__mm.interiorSim(1.5)")
+        foot_sim(page, 1.0, ["KeyW"])
+        key(page, "d", 200)
+        foot_sim(page, 16)                                  # to the roof
+        lobby = interior(page)
+        stand(page, 0.8, -0.2, -math.pi / 2, level=10)      # in the roof lobby, facing the door in the left wall
+        foot_sim(page, 1.5, ["KeyW"])                       # through the door
+        outside = interior(page)
+        foot_sim(page, 12, ["KeyW"])                        # on towards the edge: the rail must stop it
+        edge = interior(page)
+        key(page, "f", 200)
+        hover = page.evaluate("() => window.__mm.foot().hover")
+        b.close()
+    assert errors == []
+    assert lobby["floor"] == 10, lobby
+    assert outside["area"] == "out" and abs(outside["y"] - outside["levels"][10]) < 0.1, outside
+    assert abs(edge["y"] - edge["levels"][10]) < 0.1, edge   # still on the roof, not fallen
+    assert re.fullmatch(r"6c · (Dach|roof)", edge["label"]) and hover is False, edge
