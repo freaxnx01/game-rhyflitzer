@@ -3672,11 +3672,11 @@ function cancelVehicleSwap() { restoreVehicleSwap(); $('pause').hidden = false; 
 function applyVehicleSwap() { if (CARSEL.swap.id !== CHOICE.id) R.swapped = true; leaveVehicleSwap(); closePause(); }
 function selectVehicle(id) {
   if (!Object.hasOwn(VEHICLES, id)) return;
-  const def = VEHICLES[id]; CHOICE.id = id;
+  const def = VEHICLES[id], previous = VEHICLES[CHOICE.id]; CHOICE.id = id;
   if (def.gltf) wantVehicleModel(id);
   if (def.gltf && gltfState(id) === 'failed') { vehicleFailed(id); return; }
   if (buildableId(id, def, gltfState(id)) === id) setVehicle(def);   // a glTF car that is not ready yet leaves the stage car as it is
-  applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen)); saveChoice(); renderCarSelKeepFocus(); renderStartScreen();   // #346: the start screen's car tag follows the pick
+  applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen, 'navy', previous)); saveChoice(); renderCarSelKeepFocus(); renderStartScreen();   // #346: the start screen's car tag follows the pick
 }
 // #236: the glTF car's file is fetched once, on the first pick; the swap waits for a safe moment, a failure falls back (the stored choice is kept: the next visit tries again)
 function wantVehicleModel(id) { if (WANTED.has(id)) return; WANTED.add(id); loadVehicleModel(id).then(ok => (ok ? vehicleLoaded : vehicleFailed)(id)); }

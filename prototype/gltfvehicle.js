@@ -20,9 +20,12 @@ export function modelUrl(def, search) {
   return override && GLB_OVERRIDE.test(override) && !override.includes('..') ? override : def.gltf.url;
 }
 
-// selecting a vehicle with a default paint: the untouched factory paint becomes it; a paint the player chose (even the factory colour) stays
-export function paintOnSelect(def, currentPaint, paintChosen = false, factoryPaint = 'navy') {
-  return !paintChosen && currentPaint === factoryPaint && def.defaultPaint ? def.defaultPaint : currentPaint;
+// selecting a vehicle: a paint the player chose (even the factory colour) stays everywhere; an automatic paint -- the untouched factory
+// paint, or the previous car's default paint -- follows the new car (its default paint, else the factory paint); any other paint is kept
+export function paintOnSelect(def, currentPaint, paintChosen = false, factoryPaint = 'navy', previousDef = null) {
+  if (paintChosen) return currentPaint;
+  const automatic = currentPaint === factoryPaint || currentPaint === previousDef?.defaultPaint;
+  return automatic ? def.defaultPaint || factoryPaint : currentPaint;
 }
 
 export function lampRole(extras) { return extras?.lamp === 'head' || extras?.lamp === 'tail' ? extras.lamp : null; }

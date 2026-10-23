@@ -132,3 +132,11 @@ test('withPaint_PlayerPicksPaint_MarksItChosenWithoutMutating', () => {
   assert.deepEqual(withPaint(before, 'navy'), { id: 'compact', paint: 'navy', paintChosen: true });
   assert.deepEqual(before, { id: 'compact', paint: 'navy' });
 });
+
+test('paintOnSelect_UnchosenDefaultPaint_ReturnsToTheFactoryNavyOnACarWithoutDefault', () => {
+  assert.equal(paintOnSelect(COMPACT, 'swiss', false, 'navy', HATCHBACK), 'navy', 'the hatchback red was never chosen: the compact shows navy again');
+  assert.equal(paintOnSelect(COMPACT, 'swiss', true, 'navy', HATCHBACK), 'swiss', 'a chosen paint stays everywhere');
+  assert.equal(paintOnSelect(HATCHBACK, 'swiss', false, 'navy', HATCHBACK), 'swiss', 're-selecting the hatchback keeps its red');
+  assert.equal(paintOnSelect(COMPACT, 'ice', false, 'navy', HATCHBACK), 'ice', 'an old stored paint without the flag is left alone');
+  assert.equal(paintOnSelect(HATCHBACK, 'navy', false, 'navy', COMPACT), 'swiss', 'compact -> hatchback still turns the factory navy red');
+});
