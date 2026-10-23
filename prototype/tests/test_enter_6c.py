@@ -108,6 +108,20 @@ def test_the_hall_is_built_near_and_gone_far_and_the_window_looks_out(server):
 
 
 @needs_world
+def test_the_hall_front_wall_stays_behind_the_facade(server):
+    """#453: the hall's front wall on the façade line z-fought with the façade (flicker from the street); it is set back."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 30, z - Math.sin(th) * 30, th)", [e["x"], e["z"], e["th"]])
+        page.wait_for_function("() => window.__mm.interior().built", timeout=120000)   # built from 40 m, in the car too
+        gap = page.evaluate("() => window.__mm.interiorFaceA()")
+        b.close()
+    assert errors == []
+    assert gap >= 0.02, gap
+
+
+@needs_world
 def test_lift_to_the_fifth_floor_and_to_the_roof(server):
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
