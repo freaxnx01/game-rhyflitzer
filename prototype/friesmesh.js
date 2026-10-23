@@ -77,7 +77,7 @@ export function buildFries(cfg = FRIES) {
   const fryHand = new THREE.Vector3(front(F.fryY) + 1.6, H + F.fryY, 2.4), armY = F.mouthY + 0.5, thumbHand = new THREE.Vector3(front(armY) + 1.1, H + armY + 0.6, -3.6);
   tube('skin', 0.45, new THREE.Vector3(0.3, H + F.fryY - 0.5, 1.0), fryHand);
   ball('skin', 0.8, fryHand.x, fryHand.y, fryHand.z, 1, 0.9, 1);
-  box('fry', cfg.fries.w, cfg.fries.w, 4.6, fryHand.x + 0.3, fryHand.y + 0.2, fryHand.z - 1.9, 0.12, 0, 0);
+  box('fry', 1.0, 1.0, 4.2, fryHand.x + 0.3, fryHand.y + 0.2, fryHand.z - 1.7, 0.12, 0, 0);   // one fry of the bundle's kind, a little slimmer so the face stays readable over it
   tube('skin', 0.45, new THREE.Vector3(0.3, H + armY - 0.4, -1.4), thumbHand);
   ball('skin', 0.8, thumbHand.x, thumbHand.y, thumbHand.z, 1, 0.95, 1);
   add('skin', place(new THREE.CylinderGeometry(0.28, 0.3, 1.4, 10), thumbHand.x + 0.1, thumbHand.y + 1.1, thumbHand.z, 0, 0, 0.15));
