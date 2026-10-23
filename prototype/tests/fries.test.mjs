@@ -26,15 +26,18 @@ test('coneRadiusAt_IsZeroAtTheTipAndTheFullRadiusAtTheTop', () => {
 test('fryBundle_IsDeterministic_ChunkyFriesOfVariedLengthAndTiltFromInsideTheConesTop', () => {
   const a = fryBundle(FRIES), b = fryBundle(FRIES);
   assert.deepEqual(a, b); assert.equal(a.length, FRIES.fries.n);
-  const lens = new Set(), tilts = new Set();
+  const lens = new Set(), tilts = new Set(), quadrants = new Set();
   for (const f of a) {
-    assert.ok(Math.hypot(f.x, f.z) <= FRIES.cone.r - FRIES.fries.w / 2, 'the base is inside the cone top');
+    assert.ok(Math.hypot(f.x, f.z) <= FRIES.cone.r + FRIES.fries.spread + 1e-9, 'the base stands over the cone top, at most `spread` beyond the mouth');
     assert.ok(f.len >= FRIES.fries.lenMin - 1e-9 && f.len <= FRIES.fries.lenMax + 1e-9, `length ${f.len}`);
     assert.ok(f.tilt >= 0 && f.tilt <= FRIES.fries.tilt + 1e-9, `tilt ${f.tilt}`);
-    assert.ok(f.shade >= 0.85 && f.shade <= 1.05, `shade ${f.shade}`);
-    lens.add(f.len.toFixed(2)); tilts.add(f.tilt.toFixed(2));
+    assert.ok(f.shade >= 0.9 && f.shade <= 1.1, `shade ${f.shade}`);
+    lens.add(f.len.toFixed(2)); tilts.add(f.tilt.toFixed(2)); quadrants.add((f.x < 0 ? 0 : 1) + (f.z < 0 ? 0 : 2));
   }
   assert.ok(lens.size > 8 && tilts.size > 8, 'varied, not a row of the same fry');
+  assert.equal(quadrants.size, 4, 'the bundle fills the whole circle, not a fan');
+  assert.ok(FRIES.fries.w >= FRIES.fries.lenMax / 5, 'chunky: the sticks are at least a fifth as wide as long');
+  assert.ok(a.filter(f => Math.hypot(f.x, f.z) > FRIES.cone.r - FRIES.fries.w).length >= 8, 'a ring of fries stands at and beyond the mouth');
 });
 
 test('friesPlacement_BesideTheAtomium_ClearOfItsFeetAndSpheres_OffThePathsAndTheDriveLine', () => {
