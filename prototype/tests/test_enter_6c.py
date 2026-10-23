@@ -123,6 +123,10 @@ def test_lift_to_the_fifth_floor_and_to_the_roof(server):
         at5 = interior(page)
         foot_sim(page, 1.0, ["KeyS"])                       # out onto the landing
         out5 = interior(page)
+        stand(page, 0.7, 0.4, math.pi / 2, level=5)         # the door has shut behind the walker: back by the gap, call the lift again
+        foot_sim(page, 0.3)
+        key(page, "e", 200)
+        page.evaluate("() => window.__mm.interiorSim(1.5)")
         foot_sim(page, 1.0, ["KeyW"])                       # back in
         key(page, "d", 200)                                 # D = Dach
         foot_sim(page, 20)
@@ -165,3 +169,18 @@ def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
     assert outside["area"] == "out" and abs(outside["y"] - outside["levels"][10]) < 0.1, outside
     assert abs(edge["y"] - edge["levels"][10]) < 0.1, edge   # still on the roof, not fallen
     assert re.fullmatch(r"6c · (Dach|roof)", edge["label"]) and hover is False, edge
+
+
+@needs_world
+def test_the_shut_porch_door_stops_the_walker_without_e(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 4, z - Math.sin(th) * 4, th)", [e["x"], e["z"], e["th"]])
+        foot_sim(page, 4.0, ["KeyW"])                       # straight at the shut door, never pressing E
+        shut = interior(page)
+        b.close()
+    assert errors == []
+    assert shut["area"] != "tower" and shut["door"] == 0, shut
