@@ -93,7 +93,7 @@ def test_p_pauses_and_game_keys_are_silent(server):
         page.wait_for_function("() => !window.__mm.pause().on", timeout=T)
         b.close()
     assert still
-    assert silent == {"keys": [], "jump": False, "help": False, "view": view, "focus": "pauserestart"}   # Tab moved the focus
+    assert silent == {"keys": [], "jump": False, "help": False, "view": view, "focus": "pausevehicle"}   # Tab moved the focus (#189: Change vehicle follows Resume)
     assert dbg1 != dbg0
     assert errors == []
 
