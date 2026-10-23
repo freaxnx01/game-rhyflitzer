@@ -12,7 +12,7 @@ export const HATCHBACK = {
       filter: { idle: 500, open: 3000, offLoad: 0.55, q: 1.8 }, gain: { idle: 0.06, rev: 0.06, load: 0.1 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
     horn: { notes: [392, 494], dur: 0.9, gain: 0.22, band: 1400, wave: 'square' },
     crash: { weight: 1, thump: 72, noise: 1900, gain: 1 } },
-  blinkers: [[2.12, 0.62, 0.74], [-2.14, 0.7, 0.74]],   // mirrored to ±z; the indicator boxes of the compact, at this body
+  blinkers: [[2.12, 0.62, 0.74], [-2.10, 0.7, 0.74]],   // mirrored to ±z; the indicator boxes of the compact, at this body
 };
 
 export const WHEEL_NODES = ['wheel_FL', 'wheel_FR', 'wheel_RL', 'wheel_RR'];
