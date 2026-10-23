@@ -10,7 +10,7 @@ export const PROMPT_RANGE = 2.5;   // = WALKER.enterReach: from here the E promp
 
 export const ENTERABLE_INFO = [
   { id: 'bodenackerstrasse-6c', kind: 'building', name: { de: 'Bodenackerstrasse 6c', en: 'Bodenackerstrasse 6c' },
-    gemeinde: 'Sisseln', landmark: 'Bodenackerstrasse 6c', building: 171822634, level: 'surface', ready: false, secret: false, entrances: [] },
+    gemeinde: 'Sisseln', landmark: 'Bodenackerstrasse 6c', building: 171822634, level: 'surface', ready: true, secret: false, entrances: [] },   // #411: enterable (the runtime fills entrances from the porch)
   { id: 'plattform-sisslerfeld', kind: 'tower', name: { de: 'Plattform Sisslerfeld', en: 'Plattform Sisslerfeld' },
     gemeinde: 'Münchwilen', landmark: 'Plattform Sisslerfeld', anchor: 'plattform', level: 'surface', ready: false, secret: false, entrances: [] },
   { id: 'eiffel', kind: 'hideout', name: { de: 'Eiffelturm', en: 'Eiffel Tower' }, gemeinde: 'Münchwilen',

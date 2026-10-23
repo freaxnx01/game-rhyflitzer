@@ -45,9 +45,10 @@ test('enterableEntries_AllShippedEntriesNotReady', () => {
   const es = resolved();
   assert.equal(es.length, 4);
   assert.deepEqual(es.map(e => e.id), ['bodenackerstrasse-6c', 'plattform-sisslerfeld', 'eiffel', 'atomium']);
-  for (const e of es) assert.equal(e.ready, false, e.id);
+  assert.deepEqual(es.filter(e => !e.ready).map(e => e.id), ['plattform-sisslerfeld', 'eiffel', 'atomium'], 'everything but 6c, which #411 made enterable');
   assert.deepEqual(es.filter(e => e.secret).map(e => e.id), ['eiffel', 'atomium']);
   const six = es.find(e => e.id === 'bodenackerstrasse-6c');
+  assert.equal(six.ready, true);
   assert.deepEqual([six.x, six.z], [5, 5], 'the building ring mean');
   const plat = es.find(e => e.id === 'plattform-sisslerfeld');
   assert.deepEqual([plat.x, plat.z], [10, 20]);
@@ -136,7 +137,7 @@ test('jumpRowsFor_FilterOff_ReturnsJumpEntriesFiltered', () => {
 test('jumpRowsFor_EnterableOn_ReturnsLandmarkRowsOfVisibleEntries', () => {
   const rows = jumpRowsFor(JUMP_ROWS, resolved(), { q: '', g: null, enterable: true }, false);
   assert.deepEqual(rows.map(r => r.n), ['Plattform Sisslerfeld', 'Reservoir Hübel', 'Bodenackerstrasse 6c'], 'J order');
-  assert.deepEqual(rows.map(r => r.soon), [true, undefined, true]);
+  assert.deepEqual(rows.map(r => r.soon), [true, undefined, undefined]);
   assert.deepEqual([rows[0].x, rows[0].z, rows[0].j], [10, 20, [78.1, 861.4]], 'the J row, jumpable as before');
   assert.deepEqual([rows[1].x, rows[1].z], [-712.8, 1528.2], 'the hideout landmark row, once');
 });
@@ -182,4 +183,12 @@ test('enterables_Text_NamesNoFlatFloorOrSide', () => {
     assert.equal(texts.length, 5, `the ${lang} strings exist for the check`);
     for (const t of texts) assert.ok(!forbidden.test(t), `${lang} "${t}"`);
   }
+});
+
+test('ENTERABLE_INFO_BodenackerstrasseSixC_IsReadyAndStillNamesOnlyTheAddress', () => {
+  const e = ENTERABLE_INFO.find(x => x.id === 'bodenackerstrasse-6c');
+  assert.equal(e.ready, true);
+  assert.equal(e.secret, false);
+  assert.equal(e.kind, 'building');
+  assert.deepEqual(e.name, { de: 'Bodenackerstrasse 6c', en: 'Bodenackerstrasse 6c' });
 });
