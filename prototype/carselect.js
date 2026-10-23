@@ -55,11 +55,14 @@ export function parseChoice(raw, validIds, validPaintIds) {
     if (!obj || typeof obj !== 'object') return { ...DEFAULT_CHOICE };
     const id = validIds.includes(obj.id) ? obj.id : DEFAULT_CHOICE.id;
     const paint = validPaintIds.includes(obj.paint) ? obj.paint : DEFAULT_CHOICE.paint;
-    return { id, paint };
+    return obj.paintChosen === true ? { id, paint, paintChosen: true } : { id, paint };   // #236: the flag marks a paint the player picked (old stored choices have none)
   } catch (e) {
     return { ...DEFAULT_CHOICE };
   }
 }
+
+// withPaint (#236): the player picked a paint — remember it as chosen, so a vehicle's default paint never overrides it
+export function withPaint(choice, paint) { return { ...choice, paint, paintChosen: true }; }
 
 // initialChoice: merge stored choice with ?vehicle= query param (query wins for this load)
 export function initialChoice(stored, search, validIds, validPaintIds) {
@@ -67,7 +70,7 @@ export function initialChoice(stored, search, validIds, validPaintIds) {
   // extract ?vehicle=<id> from the search string
   const vehicleMatch = search.match(/[?&]vehicle=([^&]*)/);
   if (vehicleMatch && validIds.includes(vehicleMatch[1])) {
-    return { id: vehicleMatch[1], paint: parsed.paint };
+    return { ...parsed, id: vehicleMatch[1] };
   }
   return parsed;
 }

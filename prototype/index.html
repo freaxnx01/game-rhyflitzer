@@ -220,6 +220,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 .cs-split{display:flex;justify-content:space-between;gap:12px}#cspaintname{color:var(--sun)}
 .cs-name{font-size:clamp(28px,3.2vw,48px);font-weight:800;font-style:italic;text-transform:uppercase;line-height:1;color:var(--sun);text-shadow:3px 3px 0 var(--ink)}
 .cs-desc{font-size:18px;font-weight:600;line-height:1.3;margin-top:4px}
+.cs-loading{font-size:15px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#8d96a3;margin-top:8px}
 .cs-stats{display:flex;flex-direction:column;gap:8px;padding:8px 10px;background:var(--ink);border:3px solid;border-color:#0b0d12 #4a515e #4a515e #0b0d12}
 .cs-stat{display:grid;grid-template-columns:minmax(0,1fr) 2fr 36px;gap:10px;align-items:center}
 .cs-stat .cs-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:1px}
@@ -304,7 +305,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div id="helpnone" hidden data-i18n="helpNone">No command matches</div>
     <small data-i18n="creditEiffel" style="display:block;margin-top:8px;color:var(--steel-l)"></small>
     <small data-i18n="creditAtomium" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
-    <small data-i18n="creditTitanic" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
+    <small data-i18n="creditTitanic" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
+    <small data-i18n="creditHatchback" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
   <div id="jump" hidden><div id="jumptitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small id="jumphint">type to search · ↑↓ choose · Enter confirms · Esc closes</small></div>
   <div id="bl">
     <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer" data-i18n-aria="speedoAria">
@@ -444,7 +446,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div class="cs-body">
     <div id="csstage"><div id="cscount" class="cs-tag"></div><button id="csprev" class="cs-arrow" type="button" aria-label="Previous car" data-i18n-aria="carselPrev">‹</button><button id="csnext" class="cs-arrow" type="button" aria-label="Next car" data-i18n-aria="carselNext">›</button><div class="cs-hint" data-i18n="carselRotate">Rotate · drag or ← →</div></div>
     <div class="cs-info">
-      <div><div id="csclass" class="cs-label"></div><div id="csname" class="cs-name"></div><div id="csdesc" class="cs-desc"></div></div>
+      <div><div id="csclass" class="cs-label"></div><div id="csname" class="cs-name"></div><div id="csdesc" class="cs-desc"></div><div id="csloading" class="cs-loading" hidden></div></div>
       <div id="csstats" class="cs-stats"></div>
       <div><div class="cs-label cs-split"><span data-i18n="paintLabel">Paint</span><span id="cspaintname"></span></div><div id="cspaints" class="cs-swatches"></div></div>
       <div class="cs-garage"><div id="csgaragelabel" class="cs-label"></div><div id="csgarage" class="cs-tiles"></div></div>
@@ -504,7 +506,7 @@ import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM } from './
 import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
-import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
+import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
@@ -532,6 +534,8 @@ import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, 
 import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, seededRng, nextSurprise, tickSurprises, gravityScale, nearestPresent, canCollect, isNewHuntBest, confettiBurst, stepConfetti } from './presents.js';
 import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
 import { LAMP, lampState } from './lights.js';
+import { HATCHBACK, wheelPlan } from './hatchback.js';   // #236: the first glTF car
+import { loadStep, buildableId, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -2204,6 +2208,7 @@ const VEHICLES = {
         filter: { idle: 380, open: 2200, offLoad: 0.5, q: 1.4 }, gain: { idle: 0.06, rev: 0.05, load: 0.09 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
       horn: { notes: [370, 466], dur: 0.9, gain: 0.22, band: 1200, wave: 'square' },
       crash: { weight: 1, thump: 80, noise: 2200, gain: 1 } } },   // the PRV V6 sits behind the cabin: lazier revs, darker filter, a lower horn than the compact's
+  hatchback: HATCHBACK,   // #236: a glTF car (prototype/assets/hatchback.glb), lazy-loaded; the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -2306,7 +2311,53 @@ function buildDelorean(g, v) {
   box(0.05, 0.1, 1.2, carMats.dark, 2.08, 0.36, 0);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex('AG · 1981', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-2.11, 0.46, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
 }
-const MODELS = { compact: buildCompact, delorean: buildDelorean };
+const MODELS = { compact: buildCompact, delorean: buildDelorean, gltf: buildGltfVehicle };
+// ---------- #236: glTF cars -- one cache entry per vehicle id, built into the car group like any other model ----------
+const GLTF_CARS = {};                                  // id -> { state, scene, mats, tris, promise }
+const GLTF_LAMPS = { head: [], tail: [] };             // the lamp materials of the car that is built right now (applyLamps writes them)
+let PENDING_SWAP = null;                              // a glTF car that arrived while a race was running: it is built at the next reset or start
+const WANTED = new Set();                             // ids whose load has a completion handler
+const gltfState = (id) => GLTF_CARS[id]?.state ?? 'idle';
+const gltfEntry = (id) => (GLTF_CARS[id] ??= { state: 'idle', scene: null, mats: null, tris: 0, promise: null });
+// once per file: materials sorted by role (paint, glass, lamps), glass see-through, every standard material lit by the car sky map, geometry marked shared
+function prepareGltfScene(e, root) {
+  const mats = new Set(); e.tris = 0;
+  root.traverse(o => { if (!o.isMesh) return; const m = o.material, g = o.geometry; if (!g.attributes.normal) g.computeVertexNormals(); e.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.userData.sharedGeo = true; mats.add(m); if (m.userData.glass) { m.transparent = true; m.depthWrite = false; o.userData.glass = true; } });
+  e.mats = { all: [...mats], paint: [...mats].find(m => m.userData.paint) ?? null, head: [...mats].filter(m => lampRole(m.userData) === 'head'), tail: [...mats].filter(m => lampRole(m.userData) === 'tail') };
+  for (const m of mats) if (m.isMeshStandardMaterial) { CAR_ENV_MATS.push(m); SHARED_CAR_MATS.add(m); }
+  buildCarEnv(STYLES[styleKey]);
+}
+// loads the file once (idle -> loading -> ready | failed, loadStep), caches the scene; resolves true when the car is ready, never throws
+function loadVehicleModel(id) {
+  const e = gltfEntry(id), def = VEHICLES[id];
+  if (e.promise) return e.promise;
+  e.state = loadStep(e.state, 'want');
+  if (e.state !== 'loading') return Promise.resolve(e.state === 'ready');
+  console.info(`Loading the ${id} model from`, modelUrl(def, location.search));
+  e.promise = (async () => {
+    try {
+      const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
+      const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+      const gltf = await loader.loadAsync(modelUrl(def, location.search));
+      wheelPlan(wheelNames(gltf.scene));   // fails fast when a wheel node is missing
+      e.scene = gltf.scene; prepareGltfScene(e, e.scene); e.state = loadStep(e.state, 'loaded');
+      console.info(`${id} model loaded: ${Math.round(e.tris)} triangles`); return true;
+    } catch (err) { console.warn(`${id} model not loaded:`, err); e.state = loadStep(e.state, 'error'); return false; }
+  })();
+  return e.promise;
+}
+// the cached wheel nodes move under steer > roll groups at their centre, the same shape buildWheels makes (drawWheels, detachWheels and the wheel tests work unchanged)
+function wireWheels(g, root) {
+  g.userData.wheels = [];
+  for (const { name, front } of wheelPlan(wheelNames(root))) { const node = root.getObjectByName(name), steer = new THREE.Group(), roll = new THREE.Group(); steer.position.copy(node.position); node.position.set(0, 0, 0); roll.add(node); steer.add(roll); g.add(steer); g.userData.wheels.push({ front, steer, roll, d: null, home: steer.position.clone(), spun: 0 }); }
+}
+function wheelNames(root) { const names = []; root.traverse(o => names.push(o.name)); return names; }
+function addBlinkers(spots) { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [x, y, z] of spots) for (const [side, s] of [['left', -1], ['right', 1]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, y, s * z); BLINK[side].add(b); } }
+function buildGltfVehicle(g, v) {
+  const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true);
+  wireWheels(g, root); g.add(root); addBlinkers(v.blinkers);
+  GLTF_LAMPS.head = e.mats.head; GLTF_LAMPS.tail = e.mats.tail;
+}
 // #101: 24 bubbles rising from the car's rear while it is in the water, wobbling a little; re-spawned at the car when they reach the surface or after 3 s
 const bubbles = new THREE.Group(); bubbles.visible = false; scene.add(bubbles);
 { const tex = makeTex(32, 32, (g, w, h) => { g.clearRect(0, 0, w, h); const r = g.createRadialGradient(16, 16, 0, 16, 16, 15); r.addColorStop(0, 'rgba(255,255,255,.12)'); r.addColorStop(0.6, 'rgba(230,248,255,.18)'); r.addColorStop(0.82, 'rgba(255,255,255,.95)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc(11, 10, 3, 0, 7); g.fill(); }, { alpha: true }); const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.55, depthWrite: false }); for (let i = 0; i < 24; i++) { const s = new THREE.Sprite(mat); const r = rr(0.06, 0.16); s.scale.set(r * 2, r * 2, 1); s.userData.age = 0; s.userData.v = 0.8 + r * 3; s.userData.k = i; bubbles.add(s); } }
@@ -2323,13 +2374,13 @@ function bakeShadow(box) { const size = shadowSize(box), fu = SHADOW.margin / (s
 const SHARED_CAR_MATS = new Set(Object.values(carMats));   // shared across builds (and restyled by applyStyle): never disposed
 // #164: the lofted hull carries a material array (paint + glass), so unwrap it -- a Set.has on the array itself would never
 // match a shared material and the array would then be disposed as if it were one
-function freeCar() { const mats = new Set(); car.traverse(o => { o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
+function freeCar() { const mats = new Set(); car.traverse(o => { if (!o.userData.sharedGeo) o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
 let CAR_SIZE = null;   // #124: body box measured once per build (buildCar), so readers never touch the car
 function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
-function buildCar() { if (WRECK_S.on) endWreck(); freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
+function buildCar() { if (WRECK_S.on) endWreck(); freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; GLTF_LAMPS.head = GLTF_LAMPS.tail = []; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
 // fail fast, before anything is swapped: only procedural builders and circle collision exist so far
-function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}' (glTF loading is not implemented yet)`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); checkSound(def.sound); checkCrash(def.sound.crash); }
-function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def); buildCar(); }   // own copy: a later change to def cannot skip checkVehicle
+function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}'`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); checkSound(def.sound); checkCrash(def.sound.crash); }
+function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def.gltf && buildableId(def.gltf.id, def, gltfState(def.gltf.id)) !== def.gltf.id ? VEHICLES[def.gltf.fallback] : def); buildCar(); }   // #236: a glTF vehicle that is not ready builds its fallback, never half a model   // own copy: a later change to def cannot skip checkVehicle
 const carRadius = () => VEH.collision.r * VEH.scale;   // circle only (checkVehicle); OBB: #6
 // #7: the player's vehicle and paint (localStorage mm.car; ?vehicle=<id> wins for this load, #126), restored before the first frame
 const CHOICE = initialChoice((() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), location.search, Object.keys(VEHICLES), PAINTS.map(p => p.id));
@@ -2902,7 +2953,7 @@ function stepWreck(dt) {
   }
   stepSmoke(dt);
 }
-function resetCar() { resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
+function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
@@ -3410,6 +3461,8 @@ window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone
 window.__mm.genericBridges = () => OSM_BRIDGES.filter(b => b.kind === 'generic' && !b.approach).map(b => ({ id: b.r.id, pts: b.r.pts, hw: b.hw, h0: b.h0, h1: b.h1, run0: Math.max(b.hw, b.reach0 || 0), run1: Math.max(b.hw, b.reach1 || 0) }));
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
+window.__mm.loadVehicle = (id) => loadVehicleModel(id);   // #236: resolves true when the glTF car is ready
+window.__mm.gltfVehicle = (id = 'hatchback') => { const e = GLTF_CARS[id]; return { state: e?.state ?? 'idle', tris: Math.round(e?.tris ?? 0), materials: (e?.mats?.all ?? []).map(m => m.name), wheels: car.userData.wheels?.length ?? 0, paintColor: e?.mats?.paint ? '#' + e.mats.paint.color.getHexString() : null, lamps: { head: e?.mats?.head.length ?? 0, tail: e?.mats?.tail.length ?? 0, headLevel: e?.mats?.head[0]?.emissiveIntensity ?? null, tailLevel: e?.mats?.tail[0]?.emissiveIntensity ?? null } }; };
 window.__mm.vehicle = () => structuredClone(VEH);
 window.__mm.carSize = () => ({ ...CAR_SIZE });   // #69: body box in world metres, measured at build time (measureCar)
 // #163: read-only, for the test. size = the quad in world metres, rot = [roll, yaw, pitch] (order YZX), shift = the sun offset,
@@ -3617,11 +3670,24 @@ function leaveVehicleSwap() { CARSEL.swap = null; CARSEL.on = false; CARSEL.dir 
 function restoreVehicleSwap() { const { id, paint } = CARSEL.swap; if (id !== CHOICE.id) selectVehicle(id); if (paint !== CHOICE.paint) { applyPaint(paint); saveChoice(); } leaveVehicleSwap(); }
 function cancelVehicleSwap() { restoreVehicleSwap(); $('pause').hidden = false; $('pausevehicle').focus(); }
 function applyVehicleSwap() { if (CARSEL.swap.id !== CHOICE.id) R.swapped = true; leaveVehicleSwap(); closePause(); }
-function selectVehicle(id) { if (!Object.hasOwn(VEHICLES, id)) return; CHOICE.id = id; setVehicle(VEHICLES[id]); applyPaint(CHOICE.paint); saveChoice(); renderCarSelKeepFocus(); renderStartScreen(); }   // #346: the start screen's car tag follows the pick
+function selectVehicle(id) {
+  if (!Object.hasOwn(VEHICLES, id)) return;
+  const def = VEHICLES[id], previous = VEHICLES[CHOICE.id]; CHOICE.id = id;
+  if (def.gltf) wantVehicleModel(id);
+  if (def.gltf && gltfState(id) === 'failed') { vehicleFailed(id); return; }
+  if (buildableId(id, def, gltfState(id)) === id) setVehicle(def);   // a glTF car that is not ready yet leaves the stage car as it is
+  applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen, 'navy', previous)); saveChoice(); renderCarSelKeepFocus(); renderStartScreen();   // #346: the start screen's car tag follows the pick
+}
+// #236: the glTF car's file is fetched once, on the first pick; the swap waits for a safe moment, a failure falls back (the stored choice is kept: the next visit tries again)
+function wantVehicleModel(id) { if (WANTED.has(id)) return; WANTED.add(id); loadVehicleModel(id).then(ok => (ok ? vehicleLoaded : vehicleFailed)(id)); }
+function swapInVehicle(id) { const def = VEHICLES[id]; PENDING_SWAP = null; setVehicle(def); applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen)); renderCarSelKeepFocus(); renderStartScreen(); }
+function vehicleLoaded(id) { if (CHOICE.id !== id || VEH.gltf?.id === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
+function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); const name = vehicleText(tr, id, 'name'); toast(tr('vehicleLoadFailed', name), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); }
+function applyPendingSwap() { if (PENDING_SWAP && CHOICE.id === PENDING_SWAP && gltfState(PENDING_SWAP) === 'ready') swapInVehicle(PENDING_SWAP); PENDING_SWAP = null; }
 function stepVehicle(step) { const ids = Object.keys(VEHICLES); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
 function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.preventDefault(); closeCarSel(); } else if (act === 'spin') { e.preventDefault(); CARSEL.dir = e.code === 'ArrowLeft' ? -1 : 1; } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while choosing, browser default kept
 function carselKeyUp(e) { if ((e.code === 'ArrowLeft' && CARSEL.dir < 0) || (e.code === 'ArrowRight' && CARSEL.dir > 0)) CARSEL.dir = 0; }
-function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = vehicleText(tr, CHOICE.id, 'class'); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc');
+function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = vehicleText(tr, CHOICE.id, 'class'); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc'); const gst = def.gltf ? gltfState(def.gltf.id) : 'ready'; $('csloading').hidden = !(gst === 'idle' || gst === 'loading'); $('csloading').textContent = tr('carselLoading', vehicleText(tr, CHOICE.id, 'name')); $('csrace').disabled = raceBlocked(def, gst);
   const bars = statBars(def); $('csstats').innerHTML = STAT_KEYS.map(k => `<div class="cs-stat"><div class="cs-label">${tr(STAT_LABEL_KEYS[k])}</div><div class="cs-cells">${barCells(bars[k]).map(c => `<i class="${c}"></i>`).join('')}</div><div class="cs-score">${bars[k]}</div></div>`).join('');
   const can = paintable(def), cur = PAINTS.find(p => p.id === CHOICE.paint) || PAINTS[0]; $('cspaintname').textContent = can ? tr(cur.nameKey) : tr('paintFixed'); $('cspaints').innerHTML = PAINTS.map(p => `<button type="button" data-paint="${esc(p.id)}" aria-label="${esc(tr(p.nameKey))}" title="${esc(tr(p.nameKey))}" aria-pressed="${p.id === CHOICE.paint}" style="background:${p.hex}"${can ? '' : ' disabled'}></button>`).join('');
   /* #176: a vehicle id is data (registerVehicle, future glTF vehicles) and vehicleText falls back to the raw id, so both are escaped */
@@ -3631,10 +3697,11 @@ function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveO
 function renderCarSelKeepFocus() { const a = document.activeElement, sel = a?.dataset?.paint ? `[data-paint="${CSS.escape(a.dataset.paint)}"]` : a?.dataset?.id ? `[data-id="${CSS.escape(a.dataset.id)}"]` : null; renderCarSel(); if (sel) $('carsel').querySelector(sel)?.focus(); }
 $('carbtn').onclick = openCarSel; $('csback').onclick = closeCarSel; $('csprev').onclick = () => stepVehicle(-1); $('csnext').onclick = () => stepVehicle(1);
 $('csrace').onclick = () => { if (CARSEL.swap) { applyVehicleSwap(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; SFX.start(); startRace(R.mode); };
-$('cspaints').onclick = (e) => { const b = e.target.closest('button[data-paint]'); if (!b || b.disabled) return; applyPaint(b.dataset.paint); saveChoice(); renderCarSelKeepFocus(); };
+$('cspaints').onclick = (e) => { const b = e.target.closest('button[data-paint]'); if (!b || b.disabled) return; Object.assign(CHOICE, withPaint(CHOICE, b.dataset.paint)); applyPaint(b.dataset.paint); saveChoice(); renderCarSelKeepFocus(); };
 $('csgarage').onclick = (e) => { const b = e.target.closest('button[data-id]'); if (b) selectVehicle(b.dataset.id); };
 { const st = $('csstage'); st.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; CARSEL.dragX = e.clientX; st.setPointerCapture(e.pointerId); }); st.addEventListener('pointermove', e => { if (CARSEL.dragX === null) return; CARSEL.drag += e.clientX - CARSEL.dragX; CARSEL.dragX = e.clientX; }); for (const t of ['pointerup', 'pointercancel']) st.addEventListener(t, () => { CARSEL.dragX = null; }); }
 window.__mm.carsel = () => { const ids = Object.keys(VEHICLES); return { open: CARSEL.on, id: CHOICE.id, index: ids.indexOf(CHOICE.id), count: ids.length, paint: CHOICE.paint, paintable: paintable(VEH), bars: statBars(VEH), bodyColor: carMats.body.color.getHexString(), angle: CARSEL.spin.angle, focus: document.activeElement?.id || '', carVisible: car.visible }; };
+if (VEHICLES[CHOICE.id].gltf) wantVehicleModel(CHOICE.id);   // #236: the page started with the fallback car; the glTF car swaps in when its file arrives
 window.__mm.registerVehicle = (id, def) => { checkVehicle(def); VEHICLES[id] = structuredClone(def); if (CARSEL.on) renderCarSel(); };   // test hook: a further table entry (tractor / bus: #6)
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };
@@ -3958,7 +4025,7 @@ const DMG_FMT = new Intl.NumberFormat(navigator.language, { style: 'percent' });
 function showDamage() { const pct = Math.round(P.dmg * 100); if (pct === HUD.dmgPct) return; HUD.dmgPct = pct; $('dmg').firstElementChild.style.width = pct + '%'; $('dmg').classList.toggle('crit', pct >= 75); $('dmg').setAttribute('aria-valuenow', String(pct)); $('dmgpct').textContent = DMG_FMT.format(pct / 100); }
 // #270: applies the shared lamp state (#270 head/tail, #271 hazard, #230 brake) to the compact's shared materials and the DeLorean's
 // local lamp materials, and drives the blinker boxes + HUD arrows. Called from hud() every frame, where the blinker block used to live.
-function applyLamps() { const flashOn = Math.floor(performance.now() / 350) % 2 === 0; const s = lampState({ head: LIGHTS.head, hazard: LIGHTS.hazard, blinker: HUD.blinker, braking: LIGHTS.braking, flashOn }); carMats.lampHead.emissiveIntensity = s.headLevel; carMats.lampTail.emissiveIntensity = s.tailLevel; if (delLamps.head) delLamps.head.color.setHex(0xfff6d0).multiplyScalar(s.headLevel / LAMP.head.off); if (delLamps.tail) delLamps.tail.color.setHex(0xe0322d).multiplyScalar(s.tailLevel / LAMP.tail.off); $('blL').className = s.left ? 'on' : ''; $('blR').className = s.right ? 'on' : ''; BLINK.left.visible = s.left; BLINK.right.visible = s.right; }
+function applyLamps() { const flashOn = Math.floor(performance.now() / 350) % 2 === 0; const s = lampState({ head: LIGHTS.head, hazard: LIGHTS.hazard, blinker: HUD.blinker, braking: LIGHTS.braking, flashOn }); carMats.lampHead.emissiveIntensity = s.headLevel; carMats.lampTail.emissiveIntensity = s.tailLevel; for (const m of GLTF_LAMPS.head) m.emissiveIntensity = s.headLevel; for (const m of GLTF_LAMPS.tail) m.emissiveIntensity = s.tailLevel; if (delLamps.head) delLamps.head.color.setHex(0xfff6d0).multiplyScalar(s.headLevel / LAMP.head.off); if (delLamps.tail) delLamps.tail.color.setHex(0xe0322d).multiplyScalar(s.tailLevel / LAMP.tail.off); $('blL').className = s.left ? 'on' : ''; $('blR').className = s.right ? 'on' : ''; BLINK.left.visible = s.left; BLINK.right.visible = s.right; }
 function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; renderOdo(); try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } applyLamps(); if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; HUD.road = roadNameAt(gridQuery(ROAD_GRID, P.x, P.z, 1), P.x, P.z); $('roadname').textContent = HUD.road; $('autoline').textContent = AUTOP.on ? tr('autoLine', AUTOP.dest.n, ((AUTOP.st.route.len - AUTOP.st.s) / 1000).toFixed(1)) : ''; { const pp = pontoonPrompt(PONTOON.deck, !FLY.on && atRhineBank(pontoonEnv(), P.x, P.z), nearDeck(PONTOON.deck, P.x, P.z)); $('prompt').textContent = pp ? tr(pp === 'build' ? 'pontoonBuild' : 'pontoonRemove') : ''; } } if (performance.now() - LABELS.t > 250) { LABELS.t = performance.now(); updateLabels(P.x, P.z); } updateVillageNames(P.x, P.z); $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gi = gearAt(kmh, VEH.sound.gears); $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); showDamage(); if (R.mode === 'blitz') { $('time').innerHTML = fmt(R.left); $('time').classList.toggle('low', R.left < BLITZ.low); $('best').textContent = tr('blitzBest', R.blitzBest === null ? null : fmt(R.blitzBest).replace(/<[^>]+>/g, '')); } else { $('time').innerHTML = fmt(R.t); $('time').classList.remove('low'); const hb = R.mode === 'hunt' ? R.huntBest : R.best; $('best').textContent = tr('best', hb === null ? null : fmt(hb).replace(/<[^>]+>/g, '')); } $('arrow').style.visibility = R.target ? '' : 'hidden'; if (!R.target) { $('dist').textContent = ''; $('cpname').textContent = ''; }   // every present found: nothing left to point at
   if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = R.target.hunt ? tr('presentTarget') : R.target.i < 0 ? tr('finishTarget', R.target.n) : tr('cpTarget', R.target.i + 1, R.target.n); } updateNaviPanel(); fadeToast(dt); debugTick(); clampDebugHeights(); setFullMap(!!keys.Tab && $('overlay').hidden); drawMap(); }
 
