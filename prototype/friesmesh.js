@@ -9,7 +9,8 @@ const COLOURS = {
   plinth: 0x2b2e34, skin: 0xe8a878, black: 0x151515, white: 0xf6f6f2, iris: 0x22b4c6, pupil: 0x0c0c0c, tongue: 0xd8485c,
   shoe: 0x5c3b2a, sole: 0xe48ba3, sock: 0xf2c530, cuff: 0xd23028, lace: 0xe9e2d4, fryTop: 0xc89a1c, lid: 0xd9d6cc,
 };
-const FRY_YELLOW = new THREE.Color(0xf2c42c), UP = new THREE.Vector3(0, 1, 0);
+// the fries' yellow: bright and warm, with a little emissive so the shaded side never goes olive under the hemisphere light
+const FRY_YELLOW = new THREE.Color(0xf8d126), FRY_GLOW = 0x5c4608, UP = new THREE.Vector3(0, 1, 0);
 
 // the cone's paper: white with a blue diamond lattice, and the face's skin-coloured patch on the front (u = 0.25 faces +x on a ConeGeometry)
 function coneTexture(cfg) {
@@ -18,8 +19,8 @@ function coneTexture(cfg) {
   g.strokeStyle = '#2f80d8'; g.lineWidth = 9; g.lineCap = 'round';
   for (let k = -h; k < w + h; k += 96) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k + h, h); g.stroke(); g.beginPath(); g.moveTo(k + h, 0); g.lineTo(k, h); g.stroke(); }
   const span = cfg.cone.top - cfg.cone.tip, vOf = (y) => 1 - (y - cfg.cone.tip) / span;   // canvas v = 0 at the top of the cone
-  const fx = w * 0.25, fy = h * (vOf(cfg.face.noseY) - 0.02), ry = h * (vOf(cfg.face.mouthY - 1.1) - vOf(cfg.face.browY + 0.9)) / 2;
-  g.fillStyle = '#e8a878'; g.beginPath(); g.ellipse(fx, fy, w * 0.11, ry, 0, 0, Math.PI * 2); g.fill();
+  const fx = w * 0.25, fy = h * (vOf(cfg.face.noseY) - 0.03), ry = h * (vOf(cfg.face.mouthY - 1.2) - vOf(cfg.face.browY + 0.8)) / 2;
+  g.fillStyle = '#e8a878'; g.beginPath(); g.ellipse(fx, fy, w * 0.135, ry, 0, 0, Math.PI * 2); g.fill();   // the full front width of the upper cone
   g.strokeStyle = 'rgba(120,60,30,.35)'; g.lineWidth = 6; g.stroke();
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return tex;
 }
@@ -60,33 +61,35 @@ export function buildFries(cfg = FRIES) {
   const coneMesh = new THREE.Mesh(cone, new THREE.MeshLambertMaterial({ map: coneTexture(cfg) })); coneMesh.userData.role = 'fries'; group.add(coneMesh);
   add('white', place(new THREE.TorusGeometry(C.r, C.lip / 2, 8, 36), 0, H + C.top, 0, Math.PI / 2));
   add('fryTop', place(new THREE.CircleGeometry(C.r - 0.1, 28), 0, H + C.top - 0.3, 0, -Math.PI / 2));
-  // the face on the front (+x): bushy brows, one open turquoise eye (-z, the viewer's right), one squinting (+z), a big nose, the tongue out
+  // the face, painted big and flat on the upper front (+x) of the cone: bushy brows just under the rim, one large open turquoise eye (-z, the
+  // viewer's right), one squinting (+z), a big nose, the tongue out. The features sit on the surface (flattened along x), only the nose stands out.
   const front = (y) => coneRadiusAt(y, C);
-  for (const side of [-1, 1]) box('black', 1.9, 0.5, 0.45, front(F.browY) + 0.1, H + F.browY + (side < 0 ? 0 : -0.25), side * F.eyeZ, 0, 0, side * 0.3);
-  ball('white', 0.75, front(F.eyeY) + 0.2, H + F.eyeY, -F.eyeZ, 0.55, 1, 1);
-  ball('iris', 0.4, front(F.eyeY) + 0.55, H + F.eyeY, -F.eyeZ, 0.5, 1, 1);
-  ball('pupil', 0.18, front(F.eyeY) + 0.72, H + F.eyeY, -F.eyeZ, 0.5, 1, 1);
-  ball('skin', 0.65, front(F.eyeY) + 0.15, H + F.eyeY - 0.1, F.eyeZ, 0.5, 0.7, 1);   // the squinting eye's puffed lid
-  add('black', place(new THREE.TorusGeometry(0.55, 0.08, 6, 16, Math.PI), front(F.eyeY) + 0.45, H + F.eyeY - 0.3, F.eyeZ, 0, Math.PI / 2, Math.PI));
-  ball('skin', 0.75, front(F.noseY) + 0.75, H + F.noseY, 0, 1.5, 1.0, 1.15);
-  box('black', 0.2, 0.12, 1.5, front(F.mouthY) + 0.2, H + F.mouthY + 0.45, 0.3, 0, 0, 0);
-  ball('tongue', 0.6, front(F.mouthY) + 0.9, H + F.mouthY - 0.1, 0.9, 1.6, 0.35, 0.9, 0.5, -0.2);
-  // the arms: the viewer's-left hand (+z) holds a single fry across in front of the mouth, the other (-z) gives a thumbs up
-  const armY = F.mouthY + 0.5, fryHand = new THREE.Vector3(front(armY) + 1.6, H + armY - 0.1, 2.5), thumbHand = new THREE.Vector3(front(armY) + 1.1, H + armY + 0.6, -3.4);
-  tube('skin', 0.45, new THREE.Vector3(0.3, H + armY - 0.6, 1.2), fryHand);
+  for (const side of [-1, 1]) box('black', 2.6, 0.6, 0.35, front(F.browY) + 0.05, H + F.browY + (side < 0 ? 0 : -0.3), side * F.eyeZ, 0, 0, side * 0.3);
+  ball('white', 1.0, front(F.eyeY) + 0.05, H + F.eyeY, -F.eyeZ, 0.35, 1, 1);
+  ball('iris', 0.55, front(F.eyeY) + 0.3, H + F.eyeY, -F.eyeZ, 0.3, 1, 1);
+  ball('pupil', 0.25, front(F.eyeY) + 0.45, H + F.eyeY, -F.eyeZ, 0.3, 1, 1);
+  ball('skin', 0.95, front(F.eyeY) + 0.02, H + F.eyeY - 0.1, F.eyeZ, 0.3, 0.75, 1);   // the squinting eye's puffed lid
+  add('black', place(new THREE.TorusGeometry(0.75, 0.1, 6, 16, Math.PI), front(F.eyeY) + 0.3, H + F.eyeY - 0.35, F.eyeZ, 0, Math.PI / 2, Math.PI));
+  ball('skin', 0.95, front(F.noseY) + 0.9, H + F.noseY, 0, 1.5, 1.0, 1.15);
+  box('black', 0.2, 0.14, 1.9, front(F.mouthY) + 0.1, H + F.mouthY + 0.5, 0.4, 0, 0, 0);
+  ball('tongue', 0.7, front(F.mouthY) + 0.8, H + F.mouthY - 0.1, 1.0, 1.6, 0.35, 0.9, 0.5, -0.3);
+  // the arms: the viewer's-left hand (+z) holds a single fry across at chin height, a little tilted, under the tongue; the other (-z) gives a thumbs up
+  const fryHand = new THREE.Vector3(front(F.fryY) + 1.6, H + F.fryY, 2.4), armY = F.mouthY + 0.5, thumbHand = new THREE.Vector3(front(armY) + 1.1, H + armY + 0.6, -3.6);
+  tube('skin', 0.45, new THREE.Vector3(0.3, H + F.fryY - 0.5, 1.0), fryHand);
   ball('skin', 0.8, fryHand.x, fryHand.y, fryHand.z, 1, 0.9, 1);
-  box('fry', cfg.fries.w, cfg.fries.w, 4.6, fryHand.x + 0.3, fryHand.y, fryHand.z - 1.9, 0, 0, 0);
+  box('fry', cfg.fries.w, cfg.fries.w, 4.6, fryHand.x + 0.3, fryHand.y + 0.2, fryHand.z - 1.9, 0.12, 0, 0);
   tube('skin', 0.45, new THREE.Vector3(0.3, H + armY - 0.4, -1.4), thumbHand);
   ball('skin', 0.8, thumbHand.x, thumbHand.y, thumbHand.z, 1, 0.95, 1);
   add('skin', place(new THREE.CylinderGeometry(0.28, 0.3, 1.4, 10), thumbHand.x + 0.1, thumbHand.y + 1.1, thumbHand.z, 0, 0, 0.15));
   ball('skin', 0.3, thumbHand.x + 0.1, thumbHand.y + 1.8, thumbHand.z);
   for (const [key, geos] of Object.entries(parts)) {
-    const colour = key === 'fry' ? FRY_YELLOW : COLOURS[key], m = new THREE.Mesh(mergeGeometries(geos, false), new THREE.MeshLambertMaterial({ color: colour }));
+    const mat = key === 'fry' ? new THREE.MeshLambertMaterial({ color: FRY_YELLOW, emissive: FRY_GLOW }) : new THREE.MeshLambertMaterial({ color: COLOURS[key] });
+    const m = new THREE.Mesh(mergeGeometries(geos, false), mat);
     m.userData.role = 'fries'; group.add(m);
   }
   // the bundle: one instanced box, a unit stick standing on its base, scaled to each fry's length and leaned its way
   const bundle = fryBundle(cfg), stick = new THREE.BoxGeometry(cfg.fries.w, 1, cfg.fries.w); stick.translate(0, 0.5, 0);
-  const inst = new THREE.InstancedMesh(stick, new THREE.MeshLambertMaterial({ color: 0xffffff }), bundle.length), col = new THREE.Color();
+  const inst = new THREE.InstancedMesh(stick, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: FRY_GLOW }), bundle.length), col = new THREE.Color();
   bundle.forEach((f, i) => {
     Q.setFromUnitVectors(UP, T.set(Math.sin(f.tilt) * Math.cos(f.az), Math.cos(f.tilt), Math.sin(f.tilt) * Math.sin(f.az)));   // the stick leans outward, its way
     inst.setMatrixAt(i, M.compose(T.set(f.x, H + C.top - cfg.fries.sink, f.z), Q, S.set(1, f.len, 1)));
