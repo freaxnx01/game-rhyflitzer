@@ -31,7 +31,7 @@ Decisions of 2026-10-21 applied in this version:
 - The four projections on the street side of the OSM footprint **are the glass entrance porches** (not stair towers). The stair halls
   lie inside the body directly behind each porch.
 - The porch door is on the **front, facing the street** (+v).
-- House order: **6a is the north end**, 6c is the third entrance from the north (`houseOrder: 'northToSouth'` confirmed).
+- House order: **6d is the north end**, 6c is the second entrance from the north (`houseOrder: 'southToNorth'`, #455: OSM's address points; the first draft had it reversed).
 - The back side has **recessed loggias that do not project** from the façade: a second texture tile, no extra geometry.
 
 ## Privacy rule
@@ -95,8 +95,8 @@ Plan view (not to scale; `N` up = +u):
                              street side (east, v +)  →  Bodenackerstrasse branch at ~17 m
 ```
 
-(The house names follow `houseOrder: 'northToSouth'`: the northern porch, `u +19.1`,
-is 6a and **6c is the third entrance from the north**, `u −10.6`.)
+(The house names follow `houseOrder: 'southToNorth'` (#455): the northern porch, `u +19.1`,
+is 6d and **6c is the second entrance from the north**, `u 4.3`.)
 
 **Interpretation (confirmed 2026-10-21):** the four projections are the **glass entrance porches**. They are in OSM, so the porch
 footprint is read from the ring (`bodenackerPorches`); nothing is invented in front of the façade. The **stair halls** lie inside

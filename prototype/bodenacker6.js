@@ -6,7 +6,7 @@
 
 export const BODENACKER6 = {
   id: 171822634, storeys: 10, houses: ['6a', '6b', '6c', '6d'],
-  houseOrder: 'northToSouth',          // 6a at the north end (confirmed 2026-10-21); 6c is the third entrance from the north
+  houseOrder: 'southToNorth',          // #455: 6a at the south end, 6d at the north, as OSM's address points; 6c is the second entrance from the north
   housingRise: 2.6, parapet: 0.5,      // m above the roof slab (Q1, maintainer decision) / white band under the slab
   moduleWidth: 4.0,                    // façade texture tile width (one window module)
   porch: { h: 3.0, door: 1.0, post: 0.15, slab: 0.25, overhang: 0.1 },

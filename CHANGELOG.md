@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-24 15:40` **Bodenackerstrasse 6c** is now the right entrance: the house numbers ran the wrong way along the block, so the enterable porch was the one of 6b. 6d is at the north end, as on the map.
 - `2026-10-24 11:50` The **roof-top housing over 6c** on the Bodenackerstrasse 6 roof is white like the other three instead of a black box.
 - `2026-10-23 23:40` The **6c stair tower** no longer flickers on the Bodenackerstrasse 6 façade when you drive or walk up to the block: from outside it now looks like the rest of the façade.
 - `2026-10-23 11:30` **Bodenackerstrasse 6c** touch-ups: the block now stands on the level of its entrance, with a plain concrete **foundation** running down the slope, so the stair hall has the **real storey height** again and every landing window sits level with the façade's windows, with full headroom under the roof. The **stair hall** is easier to read: light walls, dark stone treads with a light edge, a handrail along every flight, and a **light panel** on every landing. The **E · Enter** prompt at the door is now a clear badge, and the on-foot hint no longer sits on top of it.
