@@ -1301,7 +1301,7 @@ function bodenackerBuilding(b, lowest, h) {
     INT.cabin = { ...INT.hall.cabinRect, y: INT.lift.y };   // the dynamic slab: stepInterior keeps its y on the lift
     INT.hall.walk.slabs.push(INT.cabin);
     const hg = INT.hall.housing, f = INT.hall.frame, [hx, hz] = f.toWorld((hg.a0 + hg.a1) / 2, (hg.b0 + hg.b1) / 2);
-    INT.housingGeo = obbBox({ x: hx, z: hz, hw: (hg.a1 - hg.a0) / 2, hd: (hg.b1 - hg.b0) / 2, c: f.c, s: f.s }, hg.y0, hg.y1);   // the tower outline as the permanent low-poly housing
+    INT.housingGeo = colorize(obbBox({ x: hx, z: hz, hw: (hg.a1 - hg.a0) / 2, hd: (hg.b1 - hg.b0) / 2, c: f.c, s: f.s }, hg.y0, hg.y1), white);   // the tower outline as the permanent low-poly housing; #453: white vertex colours, the style's material multiplies them in
   }
   window.__mm.counts.bodenacker6 = 1; window.__mm.bodenacker6 = () => L;
   return true;
@@ -3368,6 +3368,7 @@ window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.o
   lift: INT.lift && { at: INT.lift.at, y: INT.lift.y, door: INT.lift.door, busy: INT.lift.busy, moving: INT.lift.moving },
   entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, pad: INT.pad });
 window.__mm.interiorSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(); };
+window.__mm.housingTint = () => { if (!INT.housing) return null; const m = INT.housing.material, c = INT.housing.geometry.attributes.color; if (!m.vertexColors) return 1; return c ? Math.min(...c.array) : 0; };   // #453: the darkest vertex colour the 6c housing's material multiplies in (no colour attribute reads as black)
 window.__mm.interiorFaceA = () => { if (!INT.group || !INT.hall) return null; const f = INT.hall.frame, lv = INT.hall.levels, roof = lv[lv.length - 1], v = new THREE.Vector3(); let min = Infinity; INT.group.updateMatrixWorld(true); INT.group.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= lv[0] + 0.1 || v.y >= roof - 0.01) continue; const a = f.fromWorld(v.x, v.z).a; if (a > -0.05) min = Math.min(min, Math.abs(a)); } }); return min; };   // #453: how close the hall's drawn faces come to the façade line between EG and roof
 window.__mm.interiorCount = () => ({ meshes: INT.group ? INT.group.children.length : 0 });   // the built group's own objects (merged meshes, leaves, cabin)
 window.__mm.interiorRay = () => { camera.updateMatrixWorld(); const rc = new THREE.Raycaster(camera.getWorldPosition(new THREE.Vector3()), camera.getWorldDirection(new THREE.Vector3())); rc.camera = camera; const hit = rc.intersectObjects(scene.children, true).find(h => h.object.visible); return { dist: hit ? hit.distance : null, role: hit ? (hit.object.userData.role || hit.object.name || '') : null }; };   // what the eye looks at (material.side counts, as rendering does: the A3 check; sprites need rc.camera)

@@ -188,6 +188,17 @@ def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
 
 
 @needs_world
+def test_the_6c_roof_housing_is_white_not_black(server):
+    """#453: the housing over the stair tower had no vertex colours, so the default style drew it black from afar."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        tint = page.evaluate("() => window.__mm.housingTint()")
+        b.close()
+    assert errors == []
+    assert tint is not None and tint >= 0.9, tint
+
+
+@needs_world
 def test_the_shut_porch_door_stops_the_walker_without_e(server):
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
