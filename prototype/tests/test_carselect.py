@@ -1,6 +1,7 @@
 """#7: the car selection screen -- Choose car opens it, the live car turns on the stage, stat bars and texts come from the
-vehicle table, paint swatches recolour the body, the choice is remembered, a further table entry appears by itself. main has three
-vehicles: the compact (paintable), the DeLorean look-alike (#126, brushed steel, paint fixed) and the Hatchback (#236, glTF, loaded on demand).
+vehicle table, paint swatches recolour the body, the choice is remembered, a further table entry appears by itself. main has four
+vehicles: the compact (paintable), the DeLorean look-alike (#126, brushed steel, paint fixed), the Hatchback (#236, glTF, loaded on
+demand) and the Little Classic (#463, Mini look-alike, fixed paint, armchair option).
 Hand-traced layout (world + terrain blocked): no data files needed, deterministic and fast.
 Slow (Playwright): run in the foreground."""
 import json
@@ -78,10 +79,10 @@ def test_choose_car_opens_the_screen_with_the_compact(server):
         bars = lit_counts(page)
         b.close()
     assert shown["overlayHidden"] is True and shown["role"] == "dialog" and shown["modal"] == "true"
-    assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 3"
+    assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 4"
     assert shown["name"] == "Sissle Speedster" and shown["cls"] == "Compact · Class B" and shown["desc"].startswith("Small, light")
-    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 10 and shown["tiles"] == ["true", "false", "false"]
-    assert shown["garage"] == "Garage · 3 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
+    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 10 and shown["tiles"] == ["true", "false", "false", "false"]
+    assert shown["garage"] == "Garage · 4 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
     assert bars == [{"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 3, "score": 3}]
     assert got["open"] is True and got["id"] == "compact" and got["paint"] == "navy" and got["focus"] == "csrace"
     assert got["carVisible"] is True and got["bodyColor"] == "1b2d5e" and got["paintable"] is True
@@ -174,9 +175,9 @@ def test_third_vehicle_and_race(server):
         page.wait_for_function("() => document.querySelector('#carsel').hidden && document.querySelector('#overlay').hidden", timeout=T)
         raced = page.evaluate("() => ({ open: window.__mm.carsel().open, top: window.__mm.vehicle().drive.top, stored: localStorage.getItem('mm.car'), mode: window.__mm.blitz().mode })")
         b.close()
-    assert count1 == "Car 1 of 4"
-    assert shown["count"] == "Car 4 of 4" and shown["name"] == "slow" and shown["cls"] == "" and shown["tiles"] == ["false", "false", "false", "true"]
-    assert shown["garage"] == "Garage · 4 vehicles" and shown["top"] == 30
+    assert count1 == "Car 1 of 5"
+    assert shown["count"] == "Car 5 of 5" and shown["name"] == "slow" and shown["cls"] == "" and shown["tiles"] == ["false", "false", "false", "false", "true"]
+    assert shown["garage"] == "Garage · 5 vehicles" and shown["top"] == 30
     assert bars[0] == {"lit": 4, "score": 4} and bars[3] == {"lit": 7, "score": 7}, bars
     assert tile_focus == "slow"
     assert raced["open"] is False and raced["top"] == 30 and raced["mode"] == "trial" and json.loads(raced["stored"]) == {"id": "slow", "paint": "navy"}
@@ -198,7 +199,7 @@ def test_delorean_has_fixed_paint_and_its_own_texts_and_bars(server):
         back = page.evaluate("() => ({ disabled: [...document.querySelectorAll('#cspaints button')].some(b => b.disabled), paintable: window.__mm.carsel().paintable })")
         b.close()
     assert fixed == {"disabled": True, "name": "fixed", "paintable": False}
-    assert texts["count"] == "Car 2 of 3" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class B" and texts["desc"].startswith("Brushed steel")
+    assert texts["count"] == "Car 2 of 4" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class B" and texts["desc"].startswith("Brushed steel")
     assert [b["score"] for b in bars] == [7, 5, 7, 3], bars
     assert back == {"disabled": False, "paintable": True}
     assert errors == []
@@ -213,12 +214,12 @@ def test_phone_layout_de(server):
             title: document.querySelector('#carseltitle').textContent, count: document.querySelector('#cscount').textContent,
             labels: [...document.querySelectorAll('#csstats .cs-label')].map(e => e.textContent),
             scrollW: cs.scrollWidth, docScrollW: document.documentElement.scrollWidth,
-            minBtn: Math.min(...[...cs.querySelectorAll('button')].map(b => b.getBoundingClientRect().height)),
+            minBtn: Math.min(...[...cs.querySelectorAll('button')].filter(b => !b.closest('[hidden]')).map(b => b.getBoundingClientRect().height)),   // #463: skip the hidden armchair row -- a display:none button is no tap target
             swatchRows: new Set([...document.querySelectorAll('#cspaints button')].map(b => Math.round(b.getBoundingClientRect().top))).size,
             nav: getComputedStyle(document.querySelector('#game-nav')).display, touch: getComputedStyle(document.querySelector('#touch')).display,
             race: document.querySelector('#csrace').textContent }; }""")
         b.close()
-    assert got["title"] == "Auto wählen" and got["count"] == "Auto 1 von 3" and got["race"] == "Los! ›"
+    assert got["title"] == "Auto wählen" and got["count"] == "Auto 1 von 4" and got["race"] == "Los! ›"
     assert got["labels"] == ["Höchsttempo", "Beschleunigung", "Handling", "Masse"]
     assert got["scrollW"] <= 360 and got["docScrollW"] <= 360, got
     assert got["minBtn"] >= 44, got
@@ -232,14 +233,14 @@ def test_language_toggle_rerenders_the_open_screen(server):
         b, page, errors = open_page(p, server)
         open_carsel(page)
         page.click("#gg-lang-toggle")
-        page.wait_for_function("() => document.querySelector('#cscount').textContent === 'Auto 1 von 3'", timeout=T)
+        page.wait_for_function("() => document.querySelector('#cscount').textContent === 'Auto 1 von 4'", timeout=T)
         got = page.evaluate("""() => ({ title: document.querySelector('#carseltitle').textContent, name: document.querySelector('#csname').textContent,
             cls: document.querySelector('#csclass').textContent, paint: document.querySelector('#cspaintname').textContent,
             garage: document.querySelector('#csgaragelabel').textContent, race: document.querySelector('#csrace').textContent,
             prev: document.querySelector('#csprev').getAttribute('aria-label'), carbtn: document.querySelector('#carbtn').textContent })""")
         b.close()
     assert got == {"title": "Auto wählen", "name": "Sissle Speedster", "cls": "Kompakt · Klasse B", "paint": "Marine",
-                   "garage": "Garage · 3 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
+                   "garage": "Garage · 4 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
     assert errors == []
 
 
@@ -387,8 +388,10 @@ def test_chair_persists_and_lifts_the_cockpit_eye(server):
     """#463: the toggle straps the armchair to the roof (stored as chair:true in mm.car, still on after a reload), the
     cockpit view moves up into the chair, and the car's measured size stays the bare Mini."""
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server, stored='{"id":"mini"}')
+        b, page, errors = open_page(p, server)   # no stored init script: the reload must see what the page itself saved
         open_carsel(page)
+        page.click('#csgarage button[data-id="mini"]')
+        page.wait_for_function("() => window.__mm.carsel().id === 'mini'", timeout=T)
         off = chair_state(page)
         size_off = page.evaluate("() => window.__mm.carSize()")
         page.click("#cschair")
@@ -398,8 +401,8 @@ def test_chair_persists_and_lifts_the_cockpit_eye(server):
         size_on = page.evaluate("() => window.__mm.carSize()")
         page.click("#csrace")
         page.wait_for_function("() => document.querySelector('#carsel').hidden && document.querySelector('#overlay').hidden", timeout=T)
-        for _ in range(3):
-            page.keyboard.press("KeyC")
+        for _ in range(2):
+            page.keyboard.press("KeyC")        # chase -> near -> cockpit
         wait_frames(page)
         cam_on = page.evaluate("() => window.__mm.cam()")
         page.reload(timeout=240000, wait_until="commit"); page.wait_for_function(READY, timeout=240000)

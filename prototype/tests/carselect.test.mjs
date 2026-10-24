@@ -1,7 +1,7 @@
 // #7: the car selection screen's pure rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAINTS, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY } from '../carselect.js';
+import { PAINTS, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY } from '../carselect.js';
 
 const COMPACT = { model: 'compact', drive: { top: 60, accel: 16, grip: 9, steerRate: 2.6 }, mass: 1.0 };
 const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRate: 2.2 }, mass: 2.5 };   // #6 spec values
@@ -59,6 +59,30 @@ test('parseChoice: a valid choice passes, every kind of garbage falls back field
   assert.deepEqual(parseChoice('{"id":"bus","paint":"zebra"}', IDS, PAINT_IDS), { id: 'bus', paint: 'navy' });
   assert.deepEqual(parseChoice('{"id":"constructor"}', IDS, PAINT_IDS), DEFAULT_CHOICE);
   assert.notEqual(parseChoice(null, IDS, PAINT_IDS), DEFAULT_CHOICE);   // a copy, never the constant itself
+});
+
+test('parseChoice: keeps a true chair flag, drops anything else; an old stored choice reads as chair off', () => {
+  const mini = parseChoice('{"id":"mini","paint":"navy","chair":true}', ['compact', 'mini'], PAINT_IDS);
+  assert.equal(mini.chair, true);
+  assert.deepEqual(mini, { id: 'mini', paint: 'navy', chair: true });   // nothing but the three known fields
+  for (const bad of ['"yes"', '1', 'false', 'null', '[]']) {
+    const c = parseChoice(`{"id":"mini","paint":"navy","chair":${bad}}`, ['compact', 'mini'], PAINT_IDS);
+    assert.ok(!('chair' in c), bad);                                     // absent, not false: old deepEquals stay valid
+  }
+  assert.deepEqual(parseChoice('{"id":"compact","paint":"navy"}', ['compact', 'mini'], PAINT_IDS), { id: 'compact', paint: 'navy' });   // written before the chair existed
+});
+
+test('withChair: on adds the flag, off removes it; chairable: only vehicles that declare the option', () => {
+  assert.deepEqual(withChair({ id: 'mini', paint: 'navy' }, true), { id: 'mini', paint: 'navy', chair: true });
+  assert.deepEqual(withChair({ id: 'mini', paint: 'navy', chair: true }, false), { id: 'mini', paint: 'navy' });
+  assert.equal(chairable({ options: { chair: true } }), true);
+  assert.equal(chairable({ options: { chair: 'yes' } }), false);
+  assert.equal(chairable({}), false);
+  assert.equal(chairable(null), false);
+});
+
+test('statBars: the Little Classic (#463) — top 7, accel 9, handling 9, mass 3', () => {
+  assert.deepEqual(statBars({ drive: { top: 54, accel: 17, grip: 10 }, mass: 0.75 }), { top: 7, accel: 9, handling: 9, mass: 3 });
 });
 
 test('initialChoice: ?vehicle= wins over the stored id for this load, unknown ids are ignored, paint stays', () => {
