@@ -50,7 +50,7 @@ test('bodenackerPorches_SyntheticTwoBumps_FindsBothWithSizesAndEntrance', () => 
   assert.deepEqual(p.map(({ u, v0, v1, w, d, h }) => ({ u, v0, v1, w, d, h })),
     [{ u: -9.2, v0: 6, v1: 9, w: 2.4, d: 3, h: 3 }, { u: 10.8, v0: 6, v1: 9, w: 2.4, d: 3, h: 3 }]);
   assert.deepEqual(p[1].entrance, { x: 10.8, z: 9, th: Math.PI, w: 1.0 });       // on the street face (+v), walking in = -v
-  assert.deepEqual(p.map(x => x.house), ['y', 'x']);                              // north (largest u) is the first house
+  assert.deepEqual(p.map(x => x.house), ['x', 'y']);                              // #455: south (smallest u) is the first house
 });
 
 test('bodenackerPorches_WrongCount_Throws', () => {
@@ -66,9 +66,9 @@ test('bodenackerBody_SyntheticTwoBumps_RingWithoutTheBumps', () => {
 const WORLD = new URL('../../data/world_hochrhein.json', import.meta.url);
 const block = () => existsSync(WORLD) ? JSON.parse(readFileSync(WORLD, 'utf8')).buildings.find(b => b.id === BODENACKER6.id) : null;
 
-test('bodenackerPorches_RealRing_FourPorchesNorthToSouth', { skip: !block() && 'run pipeline/osm.py build first' }, () => {
+test('bodenackerPorches_RealRing_FourPorchesSouthToNorth', { skip: !block() && 'run pipeline/osm.py build first' }, () => {
   const b = block(), f = bodenackerFrame(b.rect), p = bodenackerPorches(b.ring, f);
-  assert.deepEqual(p.map(x => x.house), ['6d', '6c', '6b', '6a']);            // sorted by u ascending; 6a at the north end (largest u)
+  assert.deepEqual(p.map(x => x.house), ['6a', '6b', '6c', '6d']);            // sorted by u ascending; 6d at the north end (largest u), as OSM's address points (#455)
   const us = p.map(x => x.u);
   [-23.2, -10.6, 4.3, 19.1].forEach((u, i) => assert.ok(Math.abs(us[i] - u) < 0.3, `porch ${i} at u ${us[i]}`));
   for (const x of p) { assert.ok(x.w > 2 && x.w < 3, `width ${x.w}`); assert.ok(x.d > 2.4 && x.d < 3.5, `depth ${x.d}`); }
@@ -111,11 +111,11 @@ test('bodenackerLayout_RealBlock_FourPorchesStairsAndBackWalls', { skip: !block(
   assert.equal(L.ring, b.ring);
 });
 
-test('bodenackerHouse_6c_IsTheThirdEntranceFromTheNorth', { skip: !block() && 'run pipeline/osm.py build first' }, () => {
+test('bodenackerHouse_6c_IsTheSecondEntranceFromTheNorth', { skip: !block() && 'run pipeline/osm.py build first' }, () => {
   const L = bodenackerLayout(block(), 300, 25.3), h = bodenackerHouse(L, '6c');
   assert.equal(h.porch.house, '6c'); assert.equal(h.stair.house, '6c'); assert.equal(h.porch.u, h.stair.u);
-  assert.ok(Math.abs(h.porch.u - -10.6) < 0.3);                                   // houseOrder 'northToSouth'
-  assert.ok(bodenackerHouse(L, '6a').porch.u > h.porch.u);
+  assert.ok(Math.abs(h.porch.u - 4.3) < 0.3);                                     // houseOrder 'southToNorth' (#455)
+  assert.ok(bodenackerHouse(L, '6d').porch.u > h.porch.u && bodenackerHouse(L, '6a').porch.u < h.porch.u);
 });
 
 test('bodenackerHouse_UnknownHouse_Throws', () => {
