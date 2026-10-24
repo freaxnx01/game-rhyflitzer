@@ -3747,11 +3747,11 @@ function closeCarSel() { if (CARSEL.swap) { cancelVehicleSwap(); return; } CARSE
 function openVehicleSwap() { if (!PAUSE.on || PAUSE.confirm) return; CARSEL.swap = { id: CHOICE.id, paint: CHOICE.paint, chair: CHOICE.chair === true }; $('pause').hidden = true; openCarSel(); }
 function leaveVehicleSwap() { CARSEL.swap = null; CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; }
 function restoreVehicleSwap() { const { id, paint, chair } = CARSEL.swap; if (id !== CHOICE.id) selectVehicle(id);
-  const chairChanged = (chair === true) !== (CHOICE.chair === true);          // decide before the rebind -- after it the flag is restored
-  if (paint !== CHOICE.paint) applyPaint(paint);
+  if (paint !== CHOICE.paint) { applyPaint(paint); saveChoice(); }             // #189: the paint, as before
+  const chairChanged = (chair === true) !== (CHOICE.chair === true);           // decide before the rebind -- after it the flag is restored
   CHOICE = withChair(CHOICE, chair === true);
-  if (paint !== CHOICE.paint || chairChanged) { applyChair(); saveChoice(); }
-  leaveVehicleSwap(); }   // #189: backing out of a vehicle change undoes the paint -- #463: and the armchair -- exactly as the swap started
+  if (chairChanged) { applyChair(); saveChoice(); }                            // #463: the armchair with it
+  leaveVehicleSwap(); }
 function cancelVehicleSwap() { restoreVehicleSwap(); $('pause').hidden = false; $('pausevehicle').focus(); }
 function applyVehicleSwap() { if (CARSEL.swap.id !== CHOICE.id) R.swapped = true; leaveVehicleSwap(); closePause(); }
 function selectVehicle(id) {
