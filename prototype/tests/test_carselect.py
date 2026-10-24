@@ -355,3 +355,113 @@ def test_car_mesh_follows_the_reset_after_a_run_is_abandoned(server):
     assert max(abs(got["dx"]), abs(got["dy"]), abs(got["dz"])) < 1e-6, got
     assert abs(got["yaw"]) < 1e-6, got
     assert errors == []
+
+
+# ---------- #463: the armchair on the Little Classic's roof ----------
+CHAIR_JS = "() => window.__mm.chair()"
+
+
+def chair_state(page):
+    return page.evaluate("""() => ({ hidden: document.querySelector('#cschairrow').hidden,
+        pressed: document.querySelector('#cschair').getAttribute('aria-pressed'), text: document.querySelector('#cschair').textContent,
+        label: document.querySelector('#cschairrow .cs-label').textContent })""")
+
+
+def test_chair_toggle_only_for_the_mini(server):
+    """#463: the armchair toggle shows only under the Little Classic; the compact, the DeLorean and the Hatchback keep
+    their paint rows as the last option."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, stored='{"id":"mini"}')
+        open_carsel(page)
+        states = {}
+        for vid in ["mini", "hatchback", "delorean", "compact"]:
+            page.wait_for_function(f"() => window.__mm.carsel().id === '{vid}'", timeout=T)
+            states[vid] = page.evaluate("() => document.querySelector('#cschairrow').hidden")
+            page.click("#csprev")
+        b.close()
+    assert states == {"mini": False, "hatchback": True, "delorean": True, "compact": True}, states
+    assert errors == [], errors
+
+
+def test_chair_persists_and_lifts_the_cockpit_eye(server):
+    """#463: the toggle straps the armchair to the roof (stored as chair:true in mm.car, still on after a reload), the
+    cockpit view moves up into the chair, and the car's measured size stays the bare Mini."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, stored='{"id":"mini"}')
+        open_carsel(page)
+        off = chair_state(page)
+        size_off = page.evaluate("() => window.__mm.carSize()")
+        page.click("#cschair")
+        on = chair_state(page)
+        chair = page.evaluate(CHAIR_JS)
+        stored = page.evaluate("() => JSON.parse(localStorage.getItem('mm.car'))")
+        size_on = page.evaluate("() => window.__mm.carSize()")
+        page.click("#csrace")
+        page.wait_for_function("() => document.querySelector('#carsel').hidden && document.querySelector('#overlay').hidden", timeout=T)
+        for _ in range(3):
+            page.keyboard.press("KeyC")
+        wait_frames(page)
+        cam_on = page.evaluate("() => window.__mm.cam()")
+        page.reload(timeout=240000, wait_until="commit"); page.wait_for_function(READY, timeout=240000)
+        reloaded = page.evaluate(CHAIR_JS)
+        b.close()
+    assert off["hidden"] is False and off["pressed"] == "false" and off["text"] == "Off"
+    assert on["pressed"] == "true" and on["text"] == "On"
+    assert chair["on"] is True and chair["visible"] is True, chair
+    assert 2.4 <= chair["eye"][1] <= 2.5, chair
+    assert stored["id"] == "mini" and stored["chair"] is True
+    assert size_on["h"] == pytest.approx(size_off["h"], abs=1e-9) and size_on["h"] == pytest.approx(1.35, abs=0.05)
+    assert cam_on["view"] == 2 and cam_on["d"][1] == pytest.approx(2.45, abs=0.05), cam_on
+    assert reloaded["on"] is True and reloaded["visible"] is True
+    assert errors == [], errors
+
+
+def test_chair_survives_switching_cars(server):
+    """#463: the flag is kept when the player switches to another car and back; the other car never shows a chair."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, stored='{"id":"mini"}')
+        open_carsel(page)
+        page.click("#cschair")
+        page.wait_for_function("() => window.__mm.chair().on === true", timeout=T)
+        page.click('#csgarage button[data-id="compact"]')
+        page.wait_for_function("() => window.__mm.carsel().id === 'compact'", timeout=T)
+        compact_chair = page.evaluate(CHAIR_JS)
+        compact_eye = page.evaluate("() => window.__mm.vehicle().camera.cockpit.eye")
+        page.click('#csgarage button[data-id="mini"]')
+        page.wait_for_function("() => window.__mm.carsel().id === 'mini'", timeout=T)
+        back = page.evaluate(CHAIR_JS)
+        b.close()
+    assert compact_chair["on"] is False and compact_chair["visible"] is False, compact_chair
+    assert compact_eye == [-0.25, 1.22, -0.38], compact_eye
+    assert back["on"] is True and back["visible"] is True, back
+    assert errors == [], errors
+
+
+def test_chair_flag_on_a_car_without_the_option_is_ignored(server):
+    """#463: a stored chair:true on the DeLorean (no chair option) loads without a chair, error or moved eye."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, stored='{"id":"delorean","paint":"navy","chair":true}')
+        chair = page.evaluate(CHAIR_JS)
+        eye = page.evaluate("() => window.__mm.vehicle().camera.cockpit.eye")
+        b.close()
+    assert chair["on"] is False and chair["visible"] is False, chair
+    assert eye == [-0.15, 0.95, -0.38], eye
+    assert errors == [], errors
+
+
+def test_cancelled_swap_restores_the_chair(server):
+    """#189 + #463: opening Change vehicle, toggling the chair, then Esc restores the previous chair state too."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, stored='{"id":"mini"}')
+        pause_in_a_run(page)
+        open_swap(page)
+        page.click("#cschair")
+        page.wait_for_function("() => window.__mm.chair().on === true", timeout=T)
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => !window.__mm.carsel().open", timeout=T)
+        chair = page.evaluate(CHAIR_JS)
+        stored = page.evaluate("() => JSON.parse(localStorage.getItem('mm.car'))")
+        b.close()
+    assert chair["on"] is False and chair["visible"] is False, chair
+    assert stored == {"id": "mini", "paint": "navy"}, stored     # the chair flag is gone, exactly as the swap started
+    assert errors == [], errors
