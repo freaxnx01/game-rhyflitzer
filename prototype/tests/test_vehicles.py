@@ -393,3 +393,67 @@ def test_delorean_rebuilds_free_gpu_memory(server):
         b.close()
     assert last["textures"] <= first["textures"], (first, last)
     assert last["geometries"] <= first["geometries"], (first, last)
+
+
+# ---------- #463: Little Classic (Mini look-alike) ----------
+MINI_JS = "() => { window.__mm.setVehicle(window.__mm.vehicles().mini); }"
+
+
+def test_mini_is_in_the_table_and_true_to_size(server):
+    """#463: 3.05 m long (profile -1.475..1.475 plus the 0.05 bevel), 1.41 m over the wings, 1.35 m to the roof,
+    measured with the front wheels straight (a yawed wheel widens the box)."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(MINI_JS)
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => Math.abs(window.__mm.wheelYaw().yaw) < 1e-3", timeout=120000)
+        model = page.evaluate("() => window.__mm.vehicle().model")
+        size = page.evaluate("() => window.__mm.carSize()")
+        b.close()
+    assert model == "mini"
+    assert size["l"] == pytest.approx(3.05, abs=0.05), size
+    assert size["w"] == pytest.approx(1.41, abs=0.1), size
+    assert size["h"] == pytest.approx(1.35, abs=0.05), size
+
+
+def test_mini_drives_on_par_with_the_compact(server):
+    """#463: top 54 / accel 17 against the compact's 60 / 16: the golden 4 s gas run ends faster than the DeLorean's
+    (top 49 / accel 10) and within 15 % of the compact's 31.47."""
+    gas = "() => window.__mm.sim(1882.9, -292.2, Math.PI, 0, 4).speed"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(DELOREAN_JS)
+        delorean = page.evaluate(gas)
+        page.evaluate(MINI_JS)
+        mini = page.evaluate(gas)
+        b.close()
+    assert mini > delorean, (mini, delorean)
+    assert mini == pytest.approx(GOLDEN["gas"][2], rel=0.15), (mini, GOLDEN["gas"][2])
+
+
+def test_vehicle_query_selects_the_mini(server):
+    """#463: ?vehicle=mini starts with the Little Classic, no page errors."""
+    with sync_playwright() as p:
+        b, page, errors = open_hand_query(p, server, "?vehicle=mini")
+        picked = page.evaluate("() => window.__mm.vehicle().model")
+        b.close()
+    assert picked == "mini"
+    assert errors == [], errors
+
+
+def test_mini_lamps_follow_the_lights(server):
+    """#463: the mini's round lamps are local materials driven by #270/#230/#271 like every car's -- L brightens
+    the head lamps and lights the tail lamps (read through __mm.carLamps, the materials applyLamps writes)."""
+    with sync_playwright() as p:
+        b, page, errors = open_hand_query(p, server, "?vehicle=mini")
+        page.click("#startbtn", timeout=180000)
+        wait_frames(page)
+        off = page.evaluate("() => window.__mm.carLamps()")
+        page.keyboard.press("KeyL")
+        wait_frames(page)
+        on = page.evaluate("() => window.__mm.carLamps()")
+        b.close()
+    assert len(off) == 1 and len(on) == 1, (off, on)
+    assert on[0]["head"][0] > off[0]["head"][0], (off, on)
+    assert on[0]["tail"][0] > off[0]["tail"][0], (off, on)
+    assert errors == [], errors
