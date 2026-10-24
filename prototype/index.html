@@ -235,7 +235,9 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 .cs-tiles button{height:44px;cursor:pointer;padding:0;background:#4a515e;border:3px solid #8d96a3}
 .cs-tiles button[aria-pressed=true]{background:var(--sun);border-color:var(--cream)}
 .cs-foot{margin:0 -24px;padding:16px 24px calc(16px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;gap:12px;background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3}
-.cs-arrow:focus-visible,.cs-swatches button:focus-visible,.cs-tiles button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+.cs-arrow:focus-visible,.cs-swatches button:focus-visible,.cs-tiles button:focus-visible,#cschair:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+#cschair{height:44px;cursor:pointer;padding:0 14px;font-family:inherit;font-size:17px;font-weight:800;font-style:italic;letter-spacing:1px;text-transform:uppercase;color:var(--cream);background:#1c1f26;border:3px solid #8d96a3}
+#cschair[aria-pressed=true]{background:var(--sun);border-color:var(--cream);color:var(--ink)}
 body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{display:none}   /* the speedo, clock and steering buttons mean nothing while choosing a car */
 @media (max-width:700px){#carsel{padding:12px 16px 0;gap:12px}.cs-body{flex-direction:column;flex:none}#csstage{flex:0 0 38vh;min-height:200px}.cs-info{overflow:visible}.cs-stat{grid-template-columns:minmax(0,1fr) 36px;gap:4px 10px}.cs-stat .cs-label{grid-column:1/-1}.cs-swatches button{height:44px}#carsel .cs-foot{position:sticky;bottom:0;margin:0 -16px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}.cs-foot .btn{flex:1;padding:0 10px;font-size:22px}}
 @media (prefers-reduced-motion:reduce){#arrow,#navarrow{transition:none}}
@@ -449,6 +451,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <div><div id="csclass" class="cs-label"></div><div id="csname" class="cs-name"></div><div id="csdesc" class="cs-desc"></div><div id="csloading" class="cs-loading" hidden></div></div>
       <div id="csstats" class="cs-stats"></div>
       <div><div class="cs-label cs-split"><span data-i18n="paintLabel">Paint</span><span id="cspaintname"></span></div><div id="cspaints" class="cs-swatches"></div></div>
+      <div id="cschairrow" hidden><div class="cs-label"><span data-i18n="chairLabel">Armchair on the roof</span></div><button id="cschair" type="button" aria-pressed="false"></button></div>
       <div class="cs-garage"><div id="csgaragelabel" class="cs-label"></div><div id="csgarage" class="cs-tiles"></div></div>
     </div>
   </div>
@@ -508,7 +511,7 @@ import { buildFries, friesTriangles } from './friesmesh.js';
 import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
-import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
+import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
@@ -528,7 +531,7 @@ import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY
 import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
 import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, shadowShown } from './shadow.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
-import { MINI_BODY, MINI_GLASS, CHAIR } from './mini.js';
+import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, stepVoice } from './sound.js';
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
@@ -2353,6 +2356,17 @@ function buildMini(g, v) {
     box(0.05, 0.28, 0.10, tl, -1.505, 0.56, s * 0.48);
     box(0.13, 0.07, 0.09, carMats.steel, 0.45, 0.93, s * 0.685); box(0.03, 0.03, 0.10, carMats.dark, 0.45, 0.90, s * 0.63);
   }
+  // #463: the empty armchair on the roof -- its own child group (skipped by measureCar, so the size checks see the
+  // bare car), centred and facing forward, the seat cushion's top at CHAIR.seatY above the roof; visible per the choice
+  const chair = new THREE.Group(); g.userData.chair = chair; g.add(chair); chair.visible = false;
+  const fab = new THREE.MeshStandardMaterial({ color: 0x9c4a2c, roughness: 0.92, metalness: 0 }), fabD = new THREE.MeshStandardMaterial({ color: 0x7a3820, roughness: 0.92, metalness: 0 }), wood = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.8, metalness: 0 });
+  const cbox = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); chair.add(m); return m; };
+  const roofY = 1.35, seatTop = roofY + CHAIR.seatY, [sl, sh, sw] = CHAIR.seat, [bt, bh, bw] = CHAIR.back, [al, ah, at] = CHAIR.arm, legW = 0.07;
+  cbox(sl, sh, sw, fab, 0, seatTop - sh / 2, 0);                                                       // the seat cushion
+  cbox(bt, bh, bw, fab, -(sl / 2 + bt / 2 - 0.02), seatTop + bh / 2, 0);                               // the backrest, flush at the seat's rear edge
+  for (const s of [-1, 1]) cbox(al, ah, at, fabD, 0, seatTop + ah / 2, s * (sw / 2 + at / 2 - 0.02));   // the two armrests
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) cbox(legW, CHAIR.seatY - sh, legW, wood, sx * (sl / 2 - legW), roofY + (CHAIR.seatY - sh) / 2, sz * (sw / 2 - legW));   // four short legs onto the roof
+  for (const x of [-0.3, 0.3]) cbox(0.12, 0.02, 1.48, carMats.dark, x, roofY + 0.01, 0);                // two straps over the roof and down its edges
   // exposed seams and hinges: the roof gutter, the A-pillar seam, two external door hinges per side
   box(0.82, 0.02, 0.05, carMats.dark, -0.36, 1.355, 0.635); box(0.82, 0.02, 0.05, carMats.dark, -0.36, 1.355, -0.635);
   for (const s of [-1, 1]) { const seam = box(0.05, 0.72, 0.045, carMats.dark, 0.32, 1.13, s * 0.64); seam.rotation.z = Math.atan2(0.56, 0.42); }
@@ -2424,15 +2438,18 @@ const SHARED_CAR_MATS = new Set(Object.values(carMats));   // shared across buil
 // match a shared material and the array would then be disposed as if it were one
 function freeCar() { const mats = new Set(); car.traverse(o => { if (!o.userData.sharedGeo) o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
 let CAR_SIZE = null;   // #124: body box measured once per build (buildCar), so readers never touch the car
-function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out); precise, so spinning wheels don't inflate it
-function buildCar() { if (WRECK_S.on) endWreck(); freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; GLTF_LAMPS.head = GLTF_LAMPS.tail = []; LOCAL_LAMPS.length = 0; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
+function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames && o !== car.userData.chair) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out; #463: the roof armchair too -- the size checks see the bare Mini); precise, so spinning wheels don't inflate it
+function buildCar() { if (WRECK_S.on) endWreck(); freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; GLTF_LAMPS.head = GLTF_LAMPS.tail = []; LOCAL_LAMPS.length = 0; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); applyChair(); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
 // fail fast, before anything is swapped: only procedural builders and circle collision exist so far
 function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}'`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); checkSound(def.sound); checkCrash(def.sound.crash); }
 function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def.gltf && buildableId(def.gltf.id, def, gltfState(def.gltf.id)) !== def.gltf.id ? VEHICLES[def.gltf.fallback] : def); buildCar(); }   // #236: a glTF vehicle that is not ready builds its fallback, never half a model   // own copy: a later change to def cannot skip checkVehicle
 const carRadius = () => VEH.collision.r * VEH.scale;   // circle only (checkVehicle); OBB: #6
 // #7: the player's vehicle and paint (localStorage mm.car; ?vehicle=<id> wins for this load, #126), restored before the first frame
-const CHOICE = initialChoice((() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), location.search, Object.keys(VEHICLES), PAINTS.map(p => p.id));
+let CHOICE = initialChoice((() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), location.search, Object.keys(VEHICLES), PAINTS.map(p => p.id));   // #463: let -- the chair toggle rebinds it (withChair drops the flag when off)
 function saveChoice() { try { localStorage.setItem('mm.car', JSON.stringify(CHOICE)); } catch (e) { } }
+// #463: the armchair on the roof -- on exactly when the choice asks for it on a car that declares the option
+const chairOn = () => CHOICE.chair === true && chairable(VEH);
+function applyChair() { if (car.userData.chair) car.userData.chair.visible = chairOn(); }
 // the body colour: the shared compact material plus any mesh whose material opted in (userData.paint, glTF vehicles with paint: true)
 function applyPaint(id) { const p = PAINTS.find(p => p.id === id) || PAINTS[0]; CHOICE.paint = p.id; carMats.body.color.set(p.hex); car.traverse(o => { if (o.material?.userData?.paint) o.material.color.set(p.hex); }); }
 setVehicle(VEHICLES[CHOICE.id]); applyPaint(CHOICE.paint);
@@ -3585,6 +3602,8 @@ const camPos = new THREE.Vector3(START.x + 12, 20, START.z);
 // offsets per vehicle: VEH.camera[k] (chase: dist/h in world metres; eye views: car-model metres, x forward, y up, side + = right, scaled with the car)
 const CAM_VIEWS = [{ nameKey: 'camChase', k: 'chase' }, { nameKey: 'camNear', k: 'near' }, { nameKey: 'camCockpit', k: 'cockpit', eye: true }, { nameKey: 'camBumper', k: 'bumper', eye: true }, { nameKey: 'camDrone', k: 'drone', drone: true }];
 const vehEye = (k) => VEH.camera[k].eye.map(c => c * VEH.scale);
+const viewEye = (k) => k === 'cockpit' && chairOn() ? VEH.camera.chair.eye.map(c => c * VEH.scale) : vehEye(k);   // #463: with the chair on, the cockpit view sits in the chair
+let SWAY_S = { roll: 0, pitch: 0 };   // #463: the chair's sway state, stepped only in the cockpit view with the chair on
 let camView = 0;
 const CAM = { back: false, t: 0, aim: new THREE.Vector3(), aiming: false };   // #65: B held = look back (read each frame in stepCamera); #93: the drone's clock, lagging aim point and whether it is seeded
 function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm.camView = camView; toast(tr('camera', tr(CAM_VIEWS[camView].nameKey))); }
@@ -3598,7 +3617,10 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   /* #408: on foot too */ // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
   car.visible = FOOT.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
-  if (FOOT.on) footCamera(); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = vehEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos); camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2, P.z + fz * 40 * s + rz * es); }
+  if (FOOT.on) footCamera(); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
+    if (v.k === 'cockpit' && chairOn()) SWAY_S = stepSway(SWAY_S, { steer: WHEEL_STATE.yaw, speed }, dt);   // #463: the chair sways gently, camera only -- driving is unchanged
+    camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2 + (v.k === 'cockpit' && chairOn() ? SWAY_S.pitch : 0), P.z + fz * 40 * s + rz * es);
+    if (v.k === 'cockpit' && chairOn()) camera.rotateZ(SWAY_S.roll); }
   else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const under = caveInside(), test = (t) => { const tx = P.x - bx * dist * t, tz = P.z - bz * dist * t; for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.bridge || (under && !o.secret) || (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && P.y + h * t < o.h) return true; } return false; }; for (let t = 1; t > 0.25; t -= 0.1) { if (test(t)) { dist *= (t - 0.1); h += 1.2; } else break; } const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
     const drone = !!v.drone; if (drone) { CAM.t += dt; const sw = droneSway(CAM.t); target.x -= fz * sw.side; target.z += fx * sw.side; target.y += sw.up; }   // #93: hover on the car's true right vector (-fz, fx), not on b, so B does not flip it
     if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
@@ -3722,9 +3744,14 @@ $('worldbtn').onclick = openWorlds; $('worldsback').onclick = closeWorlds; $('dr
 const CARSEL = { on: false, spin: { angle: 0, idle: SPIN_RESUME }, dir: 0, drag: 0, dragX: null, swap: null };   // swap: {id, paint} at entry while the pause menu's Change vehicle is open (#189), else null
 function openCarSel() { CARSEL.on = true; CARSEL.dir = 0; CARSEL.drag = 0; CARSEL.dragX = null; CARSEL.spin = { angle: P.th - 0.6, idle: SPIN_RESUME }; for (const k in keys) keys[k] = false; closeHelp(); $('overlay').hidden = true; $('carsel').hidden = false; renderCarSel(); $('csrace').focus(); }
 function closeCarSel() { if (CARSEL.swap) { cancelVehicleSwap(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; $('overlay').hidden = false; $('carbtn').focus(); }
-function openVehicleSwap() { if (!PAUSE.on || PAUSE.confirm) return; CARSEL.swap = { id: CHOICE.id, paint: CHOICE.paint }; $('pause').hidden = true; openCarSel(); }
+function openVehicleSwap() { if (!PAUSE.on || PAUSE.confirm) return; CARSEL.swap = { id: CHOICE.id, paint: CHOICE.paint, chair: CHOICE.chair === true }; $('pause').hidden = true; openCarSel(); }
 function leaveVehicleSwap() { CARSEL.swap = null; CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; }
-function restoreVehicleSwap() { const { id, paint } = CARSEL.swap; if (id !== CHOICE.id) selectVehicle(id); if (paint !== CHOICE.paint) { applyPaint(paint); saveChoice(); } leaveVehicleSwap(); }
+function restoreVehicleSwap() { const { id, paint, chair } = CARSEL.swap; if (id !== CHOICE.id) selectVehicle(id);
+  const chairChanged = (chair === true) !== (CHOICE.chair === true);          // decide before the rebind -- after it the flag is restored
+  if (paint !== CHOICE.paint) applyPaint(paint);
+  CHOICE = withChair(CHOICE, chair === true);
+  if (paint !== CHOICE.paint || chairChanged) { applyChair(); saveChoice(); }
+  leaveVehicleSwap(); }   // #189: backing out of a vehicle change undoes the paint -- #463: and the armchair -- exactly as the swap started
 function cancelVehicleSwap() { restoreVehicleSwap(); $('pause').hidden = false; $('pausevehicle').focus(); }
 function applyVehicleSwap() { if (CARSEL.swap.id !== CHOICE.id) R.swapped = true; leaveVehicleSwap(); closePause(); }
 function selectVehicle(id) {
@@ -3747,6 +3774,7 @@ function carselKeyUp(e) { if ((e.code === 'ArrowLeft' && CARSEL.dir < 0) || (e.c
 function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = vehicleText(tr, CHOICE.id, 'class'); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc'); const gst = def.gltf ? gltfState(def.gltf.id) : 'ready'; $('csloading').hidden = !(gst === 'idle' || gst === 'loading'); $('csloading').textContent = tr('carselLoading', vehicleText(tr, CHOICE.id, 'name')); $('csrace').disabled = raceBlocked(def, gst);
   const bars = statBars(def); $('csstats').innerHTML = STAT_KEYS.map(k => `<div class="cs-stat"><div class="cs-label">${tr(STAT_LABEL_KEYS[k])}</div><div class="cs-cells">${barCells(bars[k]).map(c => `<i class="${c}"></i>`).join('')}</div><div class="cs-score">${bars[k]}</div></div>`).join('');
   const can = paintable(def), cur = PAINTS.find(p => p.id === CHOICE.paint) || PAINTS[0]; $('cspaintname').textContent = can ? tr(cur.nameKey) : tr('paintFixed'); $('cspaints').innerHTML = PAINTS.map(p => `<button type="button" data-paint="${esc(p.id)}" aria-label="${esc(tr(p.nameKey))}" title="${esc(tr(p.nameKey))}" aria-pressed="${p.id === CHOICE.paint}" style="background:${p.hex}"${can ? '' : ' disabled'}></button>`).join('');
+  $('cschairrow').hidden = !chairable(def); $('cschair').setAttribute('aria-pressed', String(CHOICE.chair === true)); $('cschair').textContent = tr(CHOICE.chair === true ? 'chairOn' : 'chairOff');   // #463: the armchair toggle, only on cars that declare the option
   /* #176: a vehicle id is data (registerVehicle, future glTF vehicles) and vehicleText falls back to the raw id, so both are escaped */
   $('csgaragelabel').textContent = tr('garageLabel', ids.length); $('csgarage').innerHTML = ids.map(id => `<button type="button" data-id="${esc(id)}" aria-label="${esc(vehicleText(tr, id, 'name'))}" title="${esc(vehicleText(tr, id, 'name'))}" aria-pressed="${id === CHOICE.id}"></button>`).join(''); }
 // the swatch and tile lists are rebuilt with innerHTML: re-find the focused one by its data attribute so Tab / Enter continue where the player was
@@ -3755,9 +3783,11 @@ function renderCarSelKeepFocus() { const a = document.activeElement, sel = a?.da
 $('carbtn').onclick = openCarSel; $('csback').onclick = closeCarSel; $('csprev').onclick = () => stepVehicle(-1); $('csnext').onclick = () => stepVehicle(1);
 $('csrace').onclick = () => { if (CARSEL.swap) { applyVehicleSwap(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; SFX.start(); startRace(R.mode); };
 $('cspaints').onclick = (e) => { const b = e.target.closest('button[data-paint]'); if (!b || b.disabled) return; Object.assign(CHOICE, withPaint(CHOICE, b.dataset.paint)); applyPaint(b.dataset.paint); saveChoice(); renderCarSelKeepFocus(); };
+$('cschair').onclick = () => { if (!chairable(VEH)) return; CHOICE = withChair(CHOICE, !CHOICE.chair); applyChair(); saveChoice(); renderCarSelKeepFocus(); };   // #463: strap the armchair to the roof or take it off -- no rebuild, just the group's visibility
 $('csgarage').onclick = (e) => { const b = e.target.closest('button[data-id]'); if (b) selectVehicle(b.dataset.id); };
 { const st = $('csstage'); st.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; CARSEL.dragX = e.clientX; st.setPointerCapture(e.pointerId); }); st.addEventListener('pointermove', e => { if (CARSEL.dragX === null) return; CARSEL.drag += e.clientX - CARSEL.dragX; CARSEL.dragX = e.clientX; }); for (const t of ['pointerup', 'pointercancel']) st.addEventListener(t, () => { CARSEL.dragX = null; }); }
 window.__mm.carsel = () => { const ids = Object.keys(VEHICLES); return { open: CARSEL.on, id: CHOICE.id, index: ids.indexOf(CHOICE.id), count: ids.length, paint: CHOICE.paint, paintable: paintable(VEH), bars: statBars(VEH), bodyColor: carMats.body.color.getHexString(), angle: CARSEL.spin.angle, focus: document.activeElement?.id || '', carVisible: car.visible }; };
+window.__mm.chair = () => ({ on: chairOn(), visible: car.userData.chair ? car.userData.chair.visible : false, eye: VEH.camera.chair ? VEH.camera.chair.eye.map(c => c * VEH.scale) : null });   // #463: the armchair state (read-only, for the test)
 if (VEHICLES[CHOICE.id].gltf) wantVehicleModel(CHOICE.id);   // #236: the page started with the fallback car; the glTF car swaps in when its file arrives
 window.__mm.registerVehicle = (id, def) => { checkVehicle(def); VEHICLES[id] = structuredClone(def); if (CARSEL.on) renderCarSel(); };   // test hook: a further table entry (tractor / bus: #6)
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
