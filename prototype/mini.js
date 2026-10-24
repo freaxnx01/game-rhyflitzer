@@ -4,11 +4,12 @@
 
 export { profileSize } from './delorean.js';
 
-// rear bottom -> up the rear -> over the roof -> down the bonnet -> bottom. x extremes ±1.475 and the roof at 1.30 give
-// 3.05 m x 1.35 m with the 0.05 m bevel (the real car: 3.05 m long, 1.41 m wide, 1.35 m high, 10" wheels)
-export const MINI_BODY = [[-1.42, 0.20], [-1.475, 0.44], [-1.44, 0.70], [-1.28, 0.84], [-1.02, 0.90], [-0.86, 1.22], [-0.78, 1.30], [0.02, 1.30], [0.42, 1.04], [0.58, 0.88], [0.92, 0.80], [1.32, 0.77], [1.44, 0.72], [1.475, 0.54], [1.42, 0.20], [1.00, 0.18], [-1.00, 0.18]];
+// rear bottom -> up the rear -> over the roof -> down the bonnet -> bottom. x extremes ±1.455 and the roof at 1.30 give
+// 3.01 m x 1.35 m with the 0.05 m bevel; the builder's proud chrome (round lamps, bumpers) lands the car at its real
+// 3.05 m (the series car: 3.05 m long, 1.41 m wide, 1.35 m high, 10" wheels)
+export const MINI_BODY = [[-1.40, 0.20], [-1.455, 0.44], [-1.42, 0.70], [-1.26, 0.84], [-1.00, 0.90], [-0.84, 1.22], [-0.76, 1.30], [0.04, 1.30], [0.44, 1.04], [0.60, 0.88], [0.94, 0.80], [1.34, 0.77], [1.455, 0.70], [1.455, 0.52], [1.40, 0.20], [1.00, 0.18], [-1.00, 0.18]];
 // the cabin: steep rear window, flat roof, raked windscreen, above the belt line (y > 0.85)
-export const MINI_GLASS = [[-0.98, 0.88], [-0.80, 1.16], [-0.06, 1.16], [0.38, 0.92], [0.52, 0.88]];
+export const MINI_GLASS = [[-0.96, 0.88], [-0.78, 1.16], [-0.04, 1.16], [0.40, 0.92], [0.54, 0.88]];
 
 // the empty armchair on the roof: box sizes in model metres, the group centred at x = 0, facing forward. The seat
 // cushion's top sits seatY above the roof (1.35 with the bevel); eye = where the cockpit view watches from.

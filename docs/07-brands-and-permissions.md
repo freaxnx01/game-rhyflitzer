@@ -22,6 +22,7 @@ Not legal advice. Check before publishing.
 | Gemeindewappen Sisseln | Gemeinde Sisseln | Not used yet | Not asked yet |
 | PostAuto (yellow bus, three-tone horn) | PostAuto AG | Planned bus vehicle | **Not asked — decided 2026-10-01.** The bus is a generic yellow coach with no PostAuto logo, lettering or livery details. The three-tone horn (Dü-Da-Do) may be a registered sound mark; the bus gets its own horn chord instead. |
 | DMC DeLorean (DMC-12 shape) | DeLorean Motor Company | Vehicle (#126) | **Not asked — look-alike, decided 2026-10-08.** Built from primitives: brushed-steel body, gull-wing doors, louvred rear window. No DMC logo or lettering on the model, no film references; the name appears only in code, docs and the changelog. |
+| Mini (BMW, classic Mini shape) / Mr. Bean (Tiger Aspect) | BMW AG / Tiger Aspect Productions | Vehicle (#463) | **Not asked — look-alike, decided 2026-10-24.** Built from primitives: citron-green body, matte black bonnet, round head lamps. No Mini or Austin logo, badge, lettering or series name on the model or in the UI; the plate is fictional (AG · 1976); the empty armchair on the roof is the one series nod. The names appear only in code, docs and the changelog. |
 | Plattform Sisslerfeld | Built by Häring (Eiken) apprentices; initiators Christoph Grenacher, Ingo Anders; stands on Münchwilen municipal land | Hero asset (planned) | Not asked yet. Ask Häring for construction plans and dimensions |
 
 ## Who to ask
