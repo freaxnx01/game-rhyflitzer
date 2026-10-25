@@ -8,16 +8,13 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
-### Added
-
-- `2026-10-25 10:00` **Hundekacki**: knock over a green **Robidog** and a handful of brown poo piles fly out and land on the road. They stay there until the props are set up again.
-
 ### Fixed
 
 - `2026-10-23 11:30` **Bodenackerstrasse 6c** touch-ups: the block now stands on the level of its entrance, with a plain concrete **foundation** running down the slope, so the stair hall has the **real storey height** again and every landing window sits level with the façade's windows, with full headroom under the roof. The **stair hall** is easier to read: light walls, dark stone treads with a light edge, a handrail along every flight, and a **light panel** on every landing. The **E · Enter** prompt at the door is now a clear badge, and the on-foot hint no longer sits on top of it.
 
 ### Added
 
+- `2026-10-25 10:00` **Hundekacki**: knock over a green **Robidog** and a handful of brown poo piles fly out and land on the road. They stay there until the props are set up again.
 - `2026-10-24 12:13` The Little Classic has one more trick: in **Choose car** you can strap an **empty armchair** to the roof and drive from up there. The **cockpit view** (press <kbd>C</kbd> twice) sits in the chair and sways gently with the steering and the speed — the driving itself does not change, and the chair stays strapped on across reloads and car changes.
 - `2026-10-24 11:53` A fourth car: the **Little Classic**! A citron-green 1970s city car with a **matte black bonnet**, round head lamps and chrome bumpers, built after Mr. Bean's Mini and true to its size next to the compact. It keeps up with the compact — a little **quicker off the line** and nimbler — has its own buzzy engine with four gears and a thin high horn, and the paint is fixed: the plate reads AG · 1976.
 - `2026-10-23 21:20` Neben dem Atomium im Versteck steht jetzt eine rund 20 m hohe **Pommes-Figur** nach dem Vorbild der Brüsseler Strassenfigur: eine spitze weisse Tüte mit blauem Rautengitter, oben ein dicker Bund gelber Pommes, ein Gesicht mit buschigen Augenbrauen, einem zugekniffenen und einem offenen türkisblauen Auge, grosser Nase und herausgestreckter Zunge, eine Hand hält eine Pommes quer vor den Mund, die andere macht **Daumen hoch**; darunter dünne Beine, gelbe Socken mit rotem Rand und grosse braune Schnürschuhe mit rosa Sohlen auf einem dunklen **Metallsockel**. Sie steht rechts vorne vom Atomium, ausserhalb seiner Füsse; das Auto prallt am Sockel ab, der Helikopter (<kbd>F</kbd>) fliegt darüber.
