@@ -42,3 +42,19 @@ def test_mini_model_swaps_in_from_the_url_and_keeps_the_armchair(server):
     assert chair["on"] and chair["visible"], chair
     assert abs(size["h"] - 1.30) <= 0.05, size   # the chair is not measured
     assert not errors, errors
+
+
+def test_mini_model_lamps_follow_the_lights(server):
+    """The model's head and tail lenses are lamp materials: L raises their emissive level like the Hatchback's."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        load_mini(page)
+        page.click("#startbtn", timeout=180000)   # L only works while driving, not on the start screen
+        wait_frames(page)
+        off = page.evaluate("() => window.__mm.gltfVehicle('mini').lamps")
+        page.keyboard.press("KeyL")
+        wait_frames(page)
+        on = page.evaluate("() => window.__mm.gltfVehicle('mini').lamps")
+        b.close()
+    assert on["headLevel"] > off["headLevel"] and on["tailLevel"] > off["tailLevel"], (off, on)
+    assert not errors, errors
