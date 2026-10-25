@@ -169,6 +169,24 @@ export function stepCloth(c, dt, gy) {
   if (c.y <= gy + 0.03) { c.y = gy + 0.03; c.rest = true; c.rx = c.rz = 0; }   // lies flat, any heading
 }
 
+// ---------- #469: Hundekacki -- a knocked-over Robidog throws a handful of cartoon poo piles ----------
+export const POO_PER_ROBIDOG = 6;
+export const POO_COLOURS = [0x6b4423, 0x7a4e2a, 0x5c3a1e, 0x845a33];
+export function newPoo(c, x, y, z, rng = Math.random) {
+  const a = rng() * Math.PI * 2, s = 1.5 + rng() * 2;
+  c.on = true; c.rest = false; c.t = 0; c.color = POO_COLOURS[Math.floor(rng() * POO_COLOURS.length)];
+  c.x = x; c.y = y; c.z = z; c.vx = Math.cos(a) * s; c.vz = Math.sin(a) * s; c.vy = 3 + rng() * 1.5;
+  c.rx = 0; c.ry = rng() * 6.28; c.rz = 0; c.wx = (rng() - 0.5) * 12; c.wz = (rng() - 0.5) * 12;
+  return c;
+}
+// a lump: plain gravity, tumbles in the air, then sits upright where it lands (any heading)
+export function stepPoo(c, dt, gy) {
+  if (!c.on || c.rest) return;
+  c.t += dt; c.vy -= GRAVITY * dt;
+  c.x += c.vx * dt; c.y += c.vy * dt; c.z += c.vz * dt; c.rx += c.wx * dt; c.rz += c.wz * dt;
+  if (c.y <= gy) { c.y = gy; c.rest = true; c.rx = c.rz = 0; }
+}
+
 // ---------- sounds: a recipe is a list of events; knock.js's player turns it into Web Audio nodes ----------
 // event: { t, dur, gain, noise: { type, freq, q } | tone: { f0, f1, wave } }
 export function soundLevel(speed) { return clamp(0.3 + speed / 22, 0.3, 1); }
@@ -289,6 +307,12 @@ export function createKnock(deps) {
   };
   for (const t of CLOTH_TYPES) { const m = new THREE.InstancedMesh(clothGeo[t], new THREE.MeshLambertMaterial({ color: 0xffffff }), CLOTH_N); m.frustumCulled = false; for (let i = 0; i < CLOTH_N; i++) { m.setMatrixAt(i, hiddenM); m.setColorAt(i, new THREE.Color(0xffffff)); } m.visible = false; parent.add(m); clothMesh[t] = m; }
   const col = new THREE.Color();
+  // #469: a cartoon poo pile, base on y = 0, about 0.3 m tall: three squashed balls, smaller upwards, and a curled tip
+  const ball = (r, y, x = 0) => { const g = new THREE.SphereGeometry(r, 12, 8); g.scale(1, 0.62, 1); g.translate(x, y, 0); return g; };
+  const tip = new THREE.ConeGeometry(0.045, 0.09, 10); tip.rotateZ(-0.5); tip.translate(0.02, 0.255, 0);
+  const POO_N = 24, pooMesh = new THREE.InstancedMesh(merge([ball(0.14, 0.055), ball(0.105, 0.135, 0.01), ball(0.07, 0.2, -0.005), tip]), new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 50 }), POO_N);
+  const poos = Array.from({ length: POO_N }, (_, slot) => ({ on: false, rest: true, slot, owner: null, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, rz: 0, wx: 0, wz: 0, t: 0, color: POO_COLOURS[0] }));
+  pooMesh.frustumCulled = false; for (let i = 0; i < POO_N; i++) { pooMesh.setMatrixAt(i, hiddenM); pooMesh.setColorAt(i, col.setHex(POO_COLOURS[0])); } pooMesh.visible = false; parent.add(pooMesh);
 
   function setCloth(c) {
     const m = clothMesh[c.type]; e.set(c.rx, c.ry, c.rz); q.setFromEuler(e); pos.set(c.x, c.y, c.z); m.setMatrixAt(c.slot, m4.compose(pos, q, one)); m.instanceMatrix.needsUpdate = true;
@@ -300,6 +324,16 @@ export function createKnock(deps) {
       let c = cloths.find(k => k.type === type && !k.on) || cloths.filter(k => k.type === type).sort((a, b) => b.t - a.t)[0];   // none free: recycle the oldest
       newCloth(c, x, y, z, type, rng); c.owner = owner; col.setHex(c.color); clothMesh[type].setColorAt(c.slot, col); clothMesh[type].instanceColor.needsUpdate = true; clothMesh[type].visible = true;
     }
+  }
+
+  function setPoo(c) { e.set(c.rx, c.ry, c.rz); q.setFromEuler(e); pos.set(c.x, c.y, c.z); pooMesh.setMatrixAt(c.slot, m4.compose(pos, q, one)); pooMesh.instanceMatrix.needsUpdate = true; }
+  function hidePoo(c) { c.on = false; c.owner = null; pooMesh.setMatrixAt(c.slot, hiddenM); pooMesh.instanceMatrix.needsUpdate = true; }
+  function throwPoos(x, y, z, owner) {
+    for (let n = 0; n < POO_PER_ROBIDOG; n++) {
+      const c = poos.find(k => !k.on) || poos.slice().sort((a, b) => b.t - a.t)[0];   // none free: recycle the oldest
+      newPoo(c, x, y, z, rng); c.owner = owner; pooMesh.setColorAt(c.slot, col.setHex(c.color)); pooMesh.instanceColor.needsUpdate = true; setPoo(c);
+    }
+    pooMesh.visible = true;
   }
 
   function startFountain(x, y, z) {
@@ -320,6 +354,7 @@ export function createKnock(deps) {
       play(k.sound, soundLevel(speed));
       if (a.kind === 'hydrant') startFountain(a.p.x, gy + 0.5, a.p.z);
       if (a.kind === 'clothes_container') throwClothes(a.p.x, gy + k.h * 0.7, a.p.z, a);
+      if (a.kind === 'robidog') throwPoos(a.p.x, gy + 1.0, a.p.z, a);   // #469
     }
     active.push(a); onCount(state.count);
     return k.slow;
@@ -336,6 +371,7 @@ export function createKnock(deps) {
   function restore(a) {
     a.hit = null; setM(a, standM(a)); if (a.p.obb) a.p.obb.off = false;
     for (const c of cloths) if (c.owner === a) hideCloth(c);
+    for (const c of poos) if (c.owner === a) hidePoo(c);
   }
 
   return {
@@ -378,15 +414,18 @@ export function createKnock(deps) {
         dropMesh.instanceMatrix.needsUpdate = true; dropsLive = live; if (!live && !fountains.length) dropMesh.visible = false;
       }
       for (const c of cloths) { if (!c.on || c.rest) continue; stepCloth(c, dt, terrainH(c.x, c.z)); setCloth(c); }
+      for (const c of poos) { if (!c.on || c.rest) continue; stepPoo(c, dt, terrainH(c.x, c.z)); setPoo(c); }
     },
     restoreAll() {
       for (const a of active) restore(a); active.length = 0;
       fountains.length = 0; for (const d of drops) d.on = false;
       for (const c of cloths) if (c.on) hideCloth(c);
+      for (const c of poos) if (c.on) hidePoo(c);
+      pooMesh.visible = false;
       dropMesh.visible = false; dropsLive = false;
     },
     resetCount() { state.count = 0; onCount(0); },
-    debug() { return { count: state.count, started: state.started, loose: active.length, resting: active.filter(a => a.hit && (a.hit.rest || a.hit.done)).length, bent: active.filter(a => a.hit && a.hit.bend).length, fountains: fountains.length, drops: drops.filter(d => d.on).length, cloths: cloths.filter(c => c.on).length, kinds: active.map(a => a.kind) }; },
+    debug() { return { count: state.count, started: state.started, loose: active.length, resting: active.filter(a => a.hit && (a.hit.rest || a.hit.done)).length, bent: active.filter(a => a.hit && a.hit.bend).length, fountains: fountains.length, drops: drops.filter(d => d.on).length, cloths: cloths.filter(c => c.on).length, poos: poos.filter(c => c.on).length, poosResting: poos.filter(c => c.on && c.rest).length, kinds: active.map(a => a.kind) }; },
     // for tests: the knocked prop's index in its group list, or -1
     knocked(kind) { return active.filter(a => a.kind === kind).map(a => a.i); },
     all() { return all; },

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KNOCKABLE, knockAction, touches, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER } from '../knock.js';
+import { KINDS, KNOCKABLE, knockAction, touches, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, newPoo, stepPoo, POO_PER_ROBIDOG, POO_COLOURS, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER } from '../knock.js';
 
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
 
@@ -88,6 +88,28 @@ test('cloth (#427): from the container top it is down in about 2-3.5 s, whatever
     for (; !c.rest && t < 30; t += 1 / 60) { stepCloth(c, 1 / 60, 0); top = Math.max(top, c.y); }
     assert.ok(c.rest && t >= 1.8 && t <= 3.5, 'airborne ' + t + ' s at rng ' + r);
     assert.ok(top < 3.5, 'rises less than 2.1 m above the start: ' + top);
+  }
+});
+
+test('poo (#469): a Robidog throws a handful, brown, out and up from its top', () => {
+  assert.ok(POO_PER_ROBIDOG >= 4 && POO_PER_ROBIDOG <= 8);
+  for (const r of [0, 0.5, 0.999]) {
+    const c = newPoo({}, 3, 1.1, -2, () => r);
+    assert.ok(c.on && !c.rest && c.vy > 2, 'thrown up: ' + c.vy);
+    assert.ok(Math.hypot(c.vx, c.vz) > 1, 'thrown out');
+    assert.ok(POO_COLOURS.includes(c.color));
+  }
+  for (const col of POO_COLOURS) { const r = col >> 16, g = (col >> 8) & 255, b = col & 255; assert.ok(r > g && g > b, 'brown: ' + col.toString(16)); }
+});
+
+test('poo (#469): falls like a lump, not a cloth, and sits upright where it lands', () => {
+  for (const r of [0, 0.5, 0.999]) {
+    const c = newPoo({}, 0, 1.1, 0, () => r); let t = 0, maxFall = 0;
+    for (; !c.rest && t < 30; t += 1 / 60) { stepPoo(c, 1 / 60, 0.4); maxFall = Math.max(maxFall, -c.vy); }
+    assert.ok(c.rest && t < 1.6, 'down quickly: ' + t);
+    assert.ok(maxFall > 3, 'no flutter: ' + maxFall);
+    assert.equal(c.y, 0.4); assert.equal(c.rx, 0); assert.equal(c.rz, 0);
+    const x = c.x; stepPoo(c, 1 / 60, 0.4); assert.equal(c.x, x, 'stays put once down');
   }
 });
 
