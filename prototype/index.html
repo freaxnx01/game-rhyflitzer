@@ -2220,7 +2220,7 @@ const VEHICLES = {
   // 54 m/s ~ 194 km/h: a little quicker off the line and nimbler than the compact, lighter (loses more speed in a crash);
   // 2.04 m wheelbase, 10" wheels; the cockpit eye sits on the right like the UK car; four gears, a thin high horn
   // #468: the real model (prototype/assets/mini.glb) is built by buildMini once loaded; until then buildMini draws the primitives (fallback: itself)
-  mini: { model: 'mini', gltf: { id: 'mini', url: './assets/mini.glb', fallback: 'mini' }, scale: 1.0, paint: false, wheels: [[1.014, 0.637], [-1.023, 0.637]], wheelR: 0.26,
+  mini: { model: 'mini', gltf: { id: 'mini', url: './assets/mini.glb', fallback: 'mini' }, scale: 1.0, paint: false, wheels: [[1.02, 0.62], [-1.02, 0.62]], wheelR: 0.26,   // the primitives car's wheels; the model's own wheel nodes sit at x 1.014 / -1.023, |z| 0.637
     blinkers: [[1.47, 0.43, 0.51], [-1.47, 0.53, 0.47]],
     drive: { top: 54, topNitro: 85, accel: 17, accelNitro: 34, brake: 24, reverse: 8, reverseMax: 12, grip: 10, gripHandbrake: 1.8, steerRate: 3.0, airSteer: 0.4 },
     mass: 0.75, engineAt: [0.9, 0.6, 0], collision: { shape: 'circle', r: 1.0 }, options: { chair: true },

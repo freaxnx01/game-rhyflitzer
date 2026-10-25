@@ -274,12 +274,14 @@ DELOREAN_JS = "() => { window.__mm.setVehicle(window.__mm.vehicles().delorean); 
 DOORS_JS = "() => window.__mm.doors()"
 
 
-def open_hand_query(p, server, query):
-    """open_hand with a query string on the URL (the hooks are the same)."""
+def open_hand_query(p, server, query, block=()):
+    """open_hand with a query string on the URL (the hooks are the same); block: URL globs answered 404."""
     b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 320, "height": 180})
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+    for glob in block:
+        page.route(glob, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/prototype/index.html{query}")
     page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
@@ -443,9 +445,10 @@ def test_vehicle_query_selects_the_mini(server):
 
 def test_mini_lamps_follow_the_lights(server):
     """#463: the mini's round lamps are local materials driven by #270/#230/#271 like every car's -- L brightens
-    the head lamps and lights the tail lamps (read through __mm.carLamps, the materials applyLamps writes)."""
+    the head lamps and lights the tail lamps (read through __mm.carLamps, the materials applyLamps writes). Since #468
+    these are the primitives stand-in's lamps, so the real model's file is kept away (its lamps: test_mini_model.py)."""
     with sync_playwright() as p:
-        b, page, errors = open_hand_query(p, server, "?vehicle=mini")
+        b, page, errors = open_hand_query(p, server, "?vehicle=mini", block=("**/assets/mini.glb",))
         page.click("#startbtn", timeout=180000)
         wait_frames(page)
         off = page.evaluate("() => window.__mm.carLamps()")
