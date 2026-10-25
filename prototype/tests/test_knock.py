@@ -90,6 +90,7 @@ def test_crash_yard_is_listed_and_every_kind_can_be_knocked_over_and_set_up_agai
             hit(page, kind, 30)
         k = page.evaluate("() => window.__mm.knockSim(6)")
         assert k["count"] == 8 and k["loose"] == 8
+        assert k["poos"] == 6 and k["poosResting"] == 6   # #469: the Robidog's Hundekacki lies on the ground
 
         # the mute (M) silences the knocks
         played = page.evaluate("() => window.__mm.sfxKnocks().played")
@@ -103,7 +104,7 @@ def test_crash_yard_is_listed_and_every_kind_can_be_knocked_over_and_set_up_agai
         page.keyboard.press("F3")
         page.click("#knockreset")
         k = page.evaluate("() => window.__mm.knock()")
-        assert k["loose"] == 0 and k["cloths"] == 0 and k["fountains"] == 0 and k["count"] == 9
+        assert k["loose"] == 0 and k["cloths"] == 0 and k["poos"] == 0 and k["fountains"] == 0 and k["count"] == 9
         assert all(not q["hit"] for q in page.evaluate("() => window.__mm.knockProps('bin')"))
 
         # another knock, then a jump to the yard sets everything up again
