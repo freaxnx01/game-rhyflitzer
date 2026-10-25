@@ -308,7 +308,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <small data-i18n="creditEiffel" style="display:block;margin-top:8px;color:var(--steel-l)"></small>
     <small data-i18n="creditAtomium" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditTitanic" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
-    <small data-i18n="creditHatchback" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
+    <small data-i18n="creditHatchback" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
+    <small data-i18n="creditMini" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
   <div id="jump" hidden><div id="jumptitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small id="jumphint">type to search · ↑↓ choose · Enter confirms · Esc closes</small></div>
   <div id="bl">
     <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer" data-i18n-aria="speedoAria">
@@ -2218,7 +2219,9 @@ const VEHICLES = {
   // #463: Little Classic -- a 1970s city-car look-alike (Mr. Bean's Mini; primitives only, no logo, no lettering).
   // 54 m/s ~ 194 km/h: a little quicker off the line and nimbler than the compact, lighter (loses more speed in a crash);
   // 2.04 m wheelbase, 10" wheels; the cockpit eye sits on the right like the UK car; four gears, a thin high horn
-  mini: { model: 'mini', gltf: null, scale: 1.0, paint: false, wheels: [[1.02, 0.62], [-1.02, 0.62]], wheelR: 0.26,
+  // #468: the real model (prototype/assets/mini.glb) is built by buildMini once loaded; until then buildMini draws the primitives (fallback: itself)
+  mini: { model: 'mini', gltf: { id: 'mini', url: './assets/mini.glb', fallback: 'mini' }, scale: 1.0, paint: false, wheels: [[1.014, 0.637], [-1.023, 0.637]], wheelR: 0.26,
+    blinkers: [[1.47, 0.43, 0.51], [-1.47, 0.53, 0.47]],
     drive: { top: 54, topNitro: 85, accel: 17, accelNitro: 34, brake: 24, reverse: 8, reverseMax: 12, grip: 10, gripHandbrake: 1.8, steerRate: 3.0, airSteer: 0.4 },
     mass: 0.75, engineAt: [0.9, 0.6, 0], collision: { shape: 'circle', r: 1.0 }, options: { chair: true },
     camera: { chase: { dist: 6.9, h: 2.2 }, near: { dist: 4.6, h: 1.6 }, cockpit: { eye: [-0.25, 1.05, 0.33] }, bumper: { eye: [1.45, 0.42, 0] }, drone: { dist: 18, h: 12 }, chair: { eye: CHAIR.eye } },
@@ -2332,6 +2335,7 @@ function buildDelorean(g, v) {
 }
 // ---------- #463: Little Classic -- Citron Green boxy city car, matte black bonnet, round lamps; primitives only, no logo, no lettering ----------
 function buildMini(g, v) {
+  if (gltfState('mini') === 'ready') { buildGltfVehicle(g, v); addChair(g, MINI_GLB_ROOF); return; }
   { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [side, z] of [['left', -0.615], ['right', 0.615]]) for (const x of [1.475, -1.475]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.08, 0.12), m); b.position.set(x, x > 0 ? 0.38 : 0.56, z); BLINK[side].add(b); } }
   const shape = (pts) => { const s = new THREE.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])); s.closePath(); return s; };
   const box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
@@ -2356,22 +2360,26 @@ function buildMini(g, v) {
     box(0.05, 0.28, 0.10, tl, -1.505, 0.56, s * 0.48);
     box(0.13, 0.07, 0.09, carMats.steel, 0.45, 0.93, s * 0.685); box(0.03, 0.03, 0.10, carMats.dark, 0.45, 0.90, s * 0.63);
   }
-  // #463: the empty armchair on the roof -- its own child group (skipped by measureCar, so the size checks see the
-  // bare car), centred and facing forward, the seat cushion's top at CHAIR.seatY above the roof; visible per the choice
-  const chair = new THREE.Group(); g.userData.chair = chair; g.add(chair); chair.visible = false;
-  const fab = new THREE.MeshStandardMaterial({ color: 0x9c4a2c, roughness: 0.92, metalness: 0 }), fabD = new THREE.MeshStandardMaterial({ color: 0x7a3820, roughness: 0.92, metalness: 0 }), wood = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.8, metalness: 0 });
-  const cbox = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); chair.add(m); return m; };
-  const roofY = 1.35, seatTop = roofY + CHAIR.seatY, [sl, sh, sw] = CHAIR.seat, [bt, bh, bw] = CHAIR.back, [al, ah, at] = CHAIR.arm, legW = 0.07;
-  cbox(sl, sh, sw, fab, 0, seatTop - sh / 2, 0);                                                       // the seat cushion
-  cbox(bt, bh, bw, fab, -(sl / 2 + bt / 2 - 0.02), seatTop + bh / 2, 0);                               // the backrest, flush at the seat's rear edge
-  for (const s of [-1, 1]) cbox(al, ah, at, fabD, 0, seatTop + ah / 2, s * (sw / 2 + at / 2 - 0.02));   // the two armrests
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) cbox(legW, CHAIR.seatY - sh, legW, wood, sx * (sl / 2 - legW), roofY + (CHAIR.seatY - sh) / 2, sz * (sw / 2 - legW));   // four short legs onto the roof
-  for (const x of [-0.3, 0.3]) cbox(0.12, 0.02, 1.48, carMats.dark, x, roofY + 0.01, 0);                // two straps over the roof and down its edges
+  addChair(g, 1.35);
   // exposed seams and hinges: the roof gutter, the A-pillar seam, two external door hinges per side
   box(0.82, 0.02, 0.05, carMats.dark, -0.36, 1.355, 0.635); box(0.82, 0.02, 0.05, carMats.dark, -0.36, 1.355, -0.635);
   for (const s of [-1, 1]) { const seam = box(0.05, 0.72, 0.045, carMats.dark, 0.32, 1.13, s * 0.64); seam.rotation.z = Math.atan2(0.56, 0.42); }
   for (const s of [-1, 1]) for (const y of [0.45, 0.82]) box(0.05, 0.09, 0.05, carMats.dark, 0.55, y, s * 0.66);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.11), new THREE.MeshBasicMaterial({ map: textTex('AG · 1976', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-1.51, 0.56, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
+}
+const MINI_GLB_ROOF = 1.30;   // #468: the roof height of mini.glb (tools/prepare-mini.mjs)
+// #463: the empty armchair on the roof -- its own child group (skipped by measureCar, so the size checks see the
+// bare car), centred and facing forward, the seat cushion's top at CHAIR.seatY above the roof; visible per the choice
+function addChair(g, roofY) {
+  const chair = new THREE.Group(); g.userData.chair = chair; g.add(chair); chair.visible = false;
+  const fab = new THREE.MeshStandardMaterial({ color: 0x9c4a2c, roughness: 0.92, metalness: 0 }), fabD = new THREE.MeshStandardMaterial({ color: 0x7a3820, roughness: 0.92, metalness: 0 }), wood = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.8, metalness: 0 });
+  const cbox = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); chair.add(m); return m; };
+  const seatTop = roofY + CHAIR.seatY, [sl, sh, sw] = CHAIR.seat, [bt, bh, bw] = CHAIR.back, [al, ah, at] = CHAIR.arm, legW = 0.07;
+  cbox(sl, sh, sw, fab, 0, seatTop - sh / 2, 0);                                                       // the seat cushion
+  cbox(bt, bh, bw, fab, -(sl / 2 + bt / 2 - 0.02), seatTop + bh / 2, 0);                               // the backrest, flush at the seat's rear edge
+  for (const s of [-1, 1]) cbox(al, ah, at, fabD, 0, seatTop + ah / 2, s * (sw / 2 + at / 2 - 0.02));   // the two armrests
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) cbox(legW, CHAIR.seatY - sh, legW, wood, sx * (sl / 2 - legW), roofY + (CHAIR.seatY - sh) / 2, sz * (sw / 2 - legW));   // four short legs onto the roof
+  for (const x of [-0.3, 0.3]) cbox(0.12, 0.02, 1.48, carMats.dark, x, roofY + 0.01, 0);                // two straps over the roof and down its edges
 }
 const MODELS = { compact: buildCompact, delorean: buildDelorean, mini: buildMini, gltf: buildGltfVehicle };
 // ---------- #236: glTF cars -- one cache entry per vehicle id, built into the car group like any other model ----------
@@ -2416,7 +2424,7 @@ function wireWheels(g, root) {
 function wheelNames(root) { const names = []; root.traverse(o => names.push(o.name)); return names; }
 function addBlinkers(spots) { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [x, y, z] of spots) for (const [side, s] of [['left', -1], ['right', 1]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, y, s * z); BLINK[side].add(b); } }
 function buildGltfVehicle(g, v) {
-  const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true);
+  const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
   wireWheels(g, root); g.add(root); addBlinkers(v.blinkers);
   GLTF_LAMPS.head = e.mats.head; GLTF_LAMPS.tail = e.mats.tail;
 }
@@ -2439,7 +2447,7 @@ const SHARED_CAR_MATS = new Set(Object.values(carMats));   // shared across buil
 function freeCar() { const mats = new Set(); car.traverse(o => { if (!o.userData.sharedGeo) o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); }); for (const m of mats) { m.map?.dispose(); m.dispose(); } }
 let CAR_SIZE = null;   // #124: body box measured once per build (buildCar), so readers never touch the car
 function measureCar() { const rot = car.rotation.clone(); car.rotation.set(0, 0, 0); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames && o !== car.userData.chair) box.expandByObject(o, true); car.rotation.copy(rot); car.updateMatrixWorld(true); const s = box.getSize(new THREE.Vector3()); return { l: s.x, w: s.z, h: s.y }; }   // #69: body box in world metres (mirrors in, nitro flames out; #463: the roof armchair too -- the size checks see the bare Mini); precise, so spinning wheels don't inflate it
-function buildCar() { if (WRECK_S.on) endWreck(); freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; GLTF_LAMPS.head = GLTF_LAMPS.tail = []; LOCAL_LAMPS.length = 0; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); applyChair(); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
+function buildCar() { if (WRECK_S.on) endWreck(); freeCar(); for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.userData.gltfId = null; GLTF_LAMPS.head = GLTF_LAMPS.tail = []; LOCAL_LAMPS.length = 0; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); applyChair(); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
 // fail fast, before anything is swapped: only procedural builders and circle collision exist so far
 function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}'`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported yet, only 'circle' (OBB for long vehicles: #6)`); checkSound(def.sound); checkCrash(def.sound.crash); }
 function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def.gltf && buildableId(def.gltf.id, def, gltfState(def.gltf.id)) !== def.gltf.id ? VEHICLES[def.gltf.fallback] : def); buildCar(); }   // #236: a glTF vehicle that is not ready builds its fallback, never half a model   // own copy: a later change to def cannot skip checkVehicle
@@ -3765,7 +3773,7 @@ function selectVehicle(id) {
 // #236: the glTF car's file is fetched once, on the first pick; the swap waits for a safe moment, a failure falls back (the stored choice is kept: the next visit tries again)
 function wantVehicleModel(id) { if (WANTED.has(id)) return; WANTED.add(id); loadVehicleModel(id).then(ok => (ok ? vehicleLoaded : vehicleFailed)(id)); }
 function swapInVehicle(id) { const def = VEHICLES[id]; PENDING_SWAP = null; setVehicle(def); applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen)); renderCarSelKeepFocus(); renderStartScreen(); }
-function vehicleLoaded(id) { if (CHOICE.id !== id || VEH.gltf?.id === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
+function vehicleLoaded(id) { if (CHOICE.id !== id || car.userData.gltfId === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
 function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); const name = vehicleText(tr, id, 'name'); toast(tr('vehicleLoadFailed', name), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); }
 function applyPendingSwap() { if (PENDING_SWAP && CHOICE.id === PENDING_SWAP && gltfState(PENDING_SWAP) === 'ready') swapInVehicle(PENDING_SWAP); PENDING_SWAP = null; }
 function stepVehicle(step) { const ids = Object.keys(VEHICLES); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }

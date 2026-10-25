@@ -233,6 +233,7 @@ const en = {
   creditAtomium: '3D model „Atomium" by Sebastian S. (SketchUp 3D Warehouse)',
   creditTitanic: '3D model „RMS Titanic" by Union (Sketchfab), CC BY 4.0; decimated and compressed',
   creditHatchback: '3D model „2020 Mazda 3 Hatchback" by OUTPISTON (Sketchfab), CC BY-NC-SA 4.0; simplified, repainted, badges removed',
+  creditMini: '3D model „Mr Bean Car FBX" by Sxi.Sai (Sketchfab), CC BY 4.0; rescaled, recoloured, sticker removed',
   keyHelp: 'this help',
   // ---- pontoon bridge (#100) ----
   pontoonBuild: 'U · build a pontoon bridge',
@@ -577,6 +578,7 @@ const de = {
   creditAtomium: '3D-Modell „Atomium" von Sebastian S. (SketchUp 3D Warehouse)',
   creditTitanic: '3D-Modell „RMS Titanic" von Union (Sketchfab), CC BY 4.0; vereinfacht und komprimiert',
   creditHatchback: '3D-Modell „2020 Mazda 3 Hatchback" von OUTPISTON (Sketchfab), CC BY-NC-SA 4.0; vereinfacht, neu lackiert, Embleme entfernt',
+  creditMini: '3D-Modell „Mr Bean Car FBX" von Sxi.Sai (Sketchfab), CC BY 4.0; neu skaliert, umgefärbt, Aufkleber entfernt',
   keyHelp: 'diese Hilfe',
   // ---- Pontonbrücke (#100) ----
   pontoonBuild: 'U · Pontonbrücke bauen',
