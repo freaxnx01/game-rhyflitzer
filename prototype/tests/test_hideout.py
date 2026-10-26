@@ -1092,3 +1092,33 @@ def test_helicopter_is_refused_on_the_ring_level_and_in_a_spoke(server):
     for r in results:
         assert ("sky" in r["toast"] or "Himmel" in r["toast"]) and r["flying"] is False and abs(r["y"] + 600) < 1.0 and r["lvl"] == "ring", r
 
+
+
+@needs_world
+def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_download(server, tmp_path):
+    """#488: entering spoke 2 builds the Artemis II stack (98.1 m on its mount) and the Orion capsule from primitives -- no model file is
+    fetched; the core, the mount's edge and the capsule are solid, the lawn beside the mount and the capsule's ring are open. Leaves a screenshot."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        assert page.evaluate("() => window.__mm.artemis()") is None
+        into_room(page, 2, "room2")
+        page.wait_for_function("() => window.__mm.artemis() && window.__mm.artemis().built === 2", timeout=120000)
+        a = page.evaluate("() => window.__mm.artemis()")
+        info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(2, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
+          const c = window.__mm.artemis().capsule; return { core: p(0, 0), mount: p(0, 11), beside: p(0, 30), capsule: window.__mm.pushAt(c.x, c.z, -600), ring: p(-50, 45 + 11) }; }""")
+        view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(2, 0).th; return { x: v.x - Math.cos(th) * 150, z: v.z - Math.sin(th) * 150, th }; }")
+        page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "artemis-room.png"))
+        br.close()
+    print("screenshot:", tmp_path / "artemis-room.png")
+    assert errors == []
+    assert requests == [], requests
+    assert a["built"] == 2 and abs(a["h"] - 98.1) < 1e-6 and 1000 <= a["tris"] <= 20000 and a["colliders"] == 5, a
+    assert info["below"]["built"] == 2 and info["below"]["level"] == "room2" and info["below"]["object"] is True and info["counts"].get("artemis") == 1 and "eiffel" not in info["counts"], info
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("core", "mount", "capsule")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("beside", "ring")), push
