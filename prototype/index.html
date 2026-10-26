@@ -2239,13 +2239,13 @@ const VEHICLES = {
       horn: { notes: [466, 587], dur: 0.5, gain: 0.2, band: 1600, wave: 'square' },
       crash: { weight: 0.8, thump: 85, noise: 2400, gain: 1 } } },   // buzzier than the compact: higher idle filter, a thin high horn, a lighter, brighter crash
   // #473: Regional Bus -- a 12.2 m Swiss regional bus in the Postauto look (a Setra S 415 UL as reference; primitives, no logo,
-  // no lettering, no three-tone horn). 22 m/s ~ 79 km/h, sluggish, wide turns, heavy (mass 8: loses little speed and takes
+  // no lettering, no three-tone horn). 27.8 m/s = 100 km/h (raised from 79 km/h after the playtest), sluggish, wide turns, heavy (mass 8: loses little speed and takes
   // little damage in a crash); 6.08 m wheelbase, 2.7 m front overhang; the whole length collides (capsule, see collide);
   // rear diesel, left-hand drive, a deep G major horn chord (bus.js)
   // #478: the real model (prototype/assets/bus.glb) is built by buildBus once loaded; until then buildBus draws the primitives (fallback: itself)
   bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus' }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
     blinkers: [[6.15, 0.62, 1.16], [-5.92, 1.2, 1.16]],   // flush with the nose and the tail (the boxes are 0.12 m deep)
-    drive: { top: 22, topNitro: 30, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
+    drive: { top: 27.8, topNitro: 34, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
     mass: 8, engineAt: [-5.6, 1.4, 0], collision: { shape: 'capsule', r: 1.3, hl: 4.8 },
     camera: { chase: { dist: 14, h: 5 }, near: { dist: 10, h: 4 }, cockpit: { eye: [5.4, 2.3, -0.75] }, bumper: { eye: [6.2, 0.9, 0] }, drone: { dist: 26, h: 16 } },
     sound: { gears: [0, 12, 24, 38, 55, 999],
