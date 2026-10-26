@@ -464,18 +464,18 @@ def test_mini_lamps_follow_the_lights(server):
     assert errors == [], errors
 
 
-# ---------- #473: regional bus (Postauto look) ----------
-BUS_JS = "() => window.__mm.setVehicle(window.__mm.vehicles().bus)"
+# ---------- #473: capsule collision (the regional bus's shape; VEHICLES.bus itself lands with Task 4) ----------
+CAPSULE_JS = "() => { const c = window.__mm.vehicles().compact; c.collision = { shape: 'capsule', r: 1.3, hl: 4.8 }; window.__mm.setVehicle(c); }"
 
 
-def test_bus_nose_and_tail_collide(server):
-    """#473: standing 15.5 m from the island centre the compact is free; the bus facing the island (nose circle
-    at 10.7 m) or facing away (tail circle) is pushed out, straight back without turning."""
+def test_capsule_nose_and_tail_collide(server):
+    """#473: standing 15.5 m from the island centre the compact (circle) is free; a capsule of the same radius
+    facing the island (nose circle at 10.7 m) or facing away (tail circle) is pushed out, straight back without turning."""
     stand = "(th) => { const r = window.__mm.sim(1222.0, -127, th, 0, 0.1, []); return [Math.hypot(r.x - 1206.5, r.z + 127), r.th]; }"
     with sync_playwright() as p:
         b, page = open_hand(p, server)
         compact = page.evaluate(stand, math.pi)
-        page.evaluate(BUS_JS)
+        page.evaluate(CAPSULE_JS)
         nose = page.evaluate(stand, math.pi)
         tail = page.evaluate(stand, 0)
         b.close()

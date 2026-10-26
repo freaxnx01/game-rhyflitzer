@@ -14,6 +14,7 @@ test('capsuleOffsets: a circle is one centre, a capsule spans -hl..+hl with spac
   close(o[0], -4.8, 1e-9); close(o.at(-1), 4.8, 1e-9);
   for (let i = 1; i < o.length; i++) assert.ok(o[i] - o[i - 1] <= 1.3 + 1e-9);
   for (let i = 0; i < o.length; i++) close(o[i], -o[o.length - 1 - i], 1e-9);
+  assert.equal(o[(o.length - 1) / 2], 0);   // odd count (9): the centre circle is exactly 0, no rounding rest
 });
 test('capsuleCircles: offsets run along the heading', () => {
   const [[x0, z0], [x1, z1]] = capsuleCircles(10, 20, Math.PI / 2, [-2, 2]);

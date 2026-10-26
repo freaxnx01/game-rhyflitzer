@@ -26,7 +26,9 @@ export function capsuleOffsets(collision) {
   const { r, hl } = collision;
   if (collision.shape === 'circle') return [0];
   const n = Math.ceil(2 * hl / r) + 1, step = 2 * hl / (n - 1);
-  return Array.from({ length: n }, (_, i) => -hl + i * step);
+  const o = Array.from({ length: n }, (_, i) => -hl + i * step);
+  if (n % 2) o[(n - 1) / 2] = 0;   // odd count: pin the centre circle to exactly 0 — `-hl + m*step` can leave a ~1e-16 rounding rest
+  return o;
 }
 
 // the circle centres in world metres, run along the heading th (th 0 = +x, like P.th)
