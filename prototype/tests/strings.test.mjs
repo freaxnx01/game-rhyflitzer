@@ -176,6 +176,11 @@ test('pontoon bridge texts exist in both languages (#100)', () => {
   for (const k of ['pontoonBuilding', 'pontoonRemoving', 'pontoonNoFarBank', 'keyPontoon']) { assert.notEqual(translate('de', k), k, k); assert.notEqual(translate('en', k), k, k); }
 });
 
+test('keyLeave_BothLanguages_NamesTheBKey', () => {   // #474
+  for (const lang of ['en', 'de']) assert.notEqual(translate(lang, 'keyLeave'), 'keyLeave', lang);
+  assert.notEqual(translate('de', 'keyLeave'), translate('en', 'keyLeave'));
+});
+
 test('lift strings exist in both languages (#411)', () => {
   for (const key of ['liftCall', 'liftPadTitle', 'keyLift']) {
     assert.ok(translate('en', key), `en ${key}`); assert.ok(translate('de', key), `de ${key}`);

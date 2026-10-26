@@ -114,6 +114,12 @@ test('footKeyAction_KeyE_IsEnter', () => {
   assert.equal(footKeyAction('KeyE'), 'enter');
 });
 
+// #474: indoors B takes the walker straight out in front of the entrance; outside it does nothing
+test('footKeyAction_KeyB_LeavesOnlyIndoors', () => {
+  assert.equal(footKeyAction('KeyB', true), 'leave');
+  assert.equal(footKeyAction('KeyB', false), 'pass');
+});
+
 test('footKeyAction_OtherCarKeys_StayBlocked', () => {
   for (const k of ['KeyQ', 'KeyH', 'Enter', 'Digit1']) assert.equal(footKeyAction(k), 'block', k);
 });

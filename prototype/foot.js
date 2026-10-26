@@ -79,6 +79,7 @@ const FOOT_BLOCKED = new Set(['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', '
 export function footKeyAction(code, indoors = false) {
   if (code === 'KeyF') return indoors ? 'block' : 'hover';
   if (code === 'KeyE') return 'enter';
+  if (code === 'KeyB') return indoors ? 'leave' : 'pass';   // #474
   return FOOT_BLOCKED.has(code) ? 'block' : 'pass';
 }
 
