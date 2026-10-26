@@ -56,3 +56,17 @@ def test_mini_model_is_credited_everywhere():
 def test_mini_model_is_committed_and_small():
     glb = ROOT / "prototype" / "assets" / "mini.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 500 * 1024
+
+
+def test_bus_model_is_credited_everywhere():
+    """#478: "Mercedes+CITARO+II+RATP" by moussasy.sy715, CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/bus.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "moussasy.sy715" in t and "CC BY 4.0" in t and "Mercedes+CITARO+II+RATP" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditBus") == 2 and 'data-i18n="creditBus"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_bus_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "bus.glb"
+    assert glb.exists() and 100_000 < glb.stat().st_size <= 800 * 1024
