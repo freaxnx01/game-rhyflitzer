@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   KINDS, GLOW_RANGE, PROMPT_RANGE, ENTERABLE_INFO, enterableEntries, visibleEnterables,
-  enterableName, nearestEntrance, enterPrompt, glowStrength, jumpRowsFor,
+  enterableName, nearestEntrance, enterPrompt, glowStrength, glowAnchor, GLOW_OUT, jumpRowsFor,
 } from '../enterables.js';
 import { STRINGS } from '../strings.js';
 
@@ -110,6 +110,16 @@ test('enterPrompt_WithinPromptRange_AsksForKeyE', () => {
   assert.deepEqual(enterPrompt(near), { id: 't', key: 'KeyE' });
   assert.equal(enterPrompt({ ...near, d: 3 }), null);
   assert.equal(enterPrompt(null), null);
+});
+
+test('glowAnchor_DoorWithHeading_StandsGlowOutMetresOutsideTheDoor', () => {
+  const a = glowAnchor({ x: 10, z: 20, th: Math.PI / 2 });          // walking in = +z, so outside = -z
+  assert.ok(Math.abs(a.x - 10) < 1e-9 && Math.abs(a.z - (20 - GLOW_OUT)) < 1e-9, JSON.stringify(a));
+  assert.ok(GLOW_OUT >= 0.4, 'clear of the door leaf and the porch glass');
+});
+
+test('glowAnchor_NoHeading_AtTheDoor', () => {
+  assert.deepEqual(glowAnchor({ x: 1, z: 2 }), { x: 1, z: 2 });
 });
 
 test('glowStrength_FarEdgeZero_NearOne_MonotoneBetween', () => {

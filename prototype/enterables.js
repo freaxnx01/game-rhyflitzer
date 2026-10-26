@@ -72,6 +72,10 @@ export function nearestEntrance(entries, level, x, z, range) {
 
 export const enterPrompt = (near) => near && near.d <= PROMPT_RANGE ? { id: near.entry.id, key: 'KeyE' } : null;
 
+// the glow stands this far outside the door (against the walking-in heading th): on the door it sank into the leaf and the porch glass
+export const GLOW_OUT = 0.5;
+export const glowAnchor = (en) => en.th === undefined ? { x: en.x, z: en.z } : { x: en.x - Math.cos(en.th) * GLOW_OUT, z: en.z - Math.sin(en.th) * GLOW_OUT };
+
 // 0 at GLOW_RANGE, smoothstepped to 1 at PROMPT_RANGE and nearer
 export function glowStrength(d) {
   const t = Math.max(0, Math.min(1, (GLOW_RANGE - d) / (GLOW_RANGE - PROMPT_RANGE)));

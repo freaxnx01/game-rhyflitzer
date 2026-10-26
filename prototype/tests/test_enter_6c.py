@@ -142,6 +142,26 @@ def test_from_the_porch_the_doorway_looks_into_the_hall_not_onto_the_facade(serv
 
 
 @needs_world
+def test_at_a_hall_wall_the_camera_does_not_cut_through_it(server):
+    """The walker comes within its radius (0.35 m) of a wall; a near plane farther out cut the wall away and showed the village."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        page.wait_for_function("() => window.__mm.interior().built", timeout=120000)
+        foot_sim(page, 0.2)
+        outside = page.evaluate("() => window.__mm.cam().near")
+        stand(page, 2.4, -0.84, -math.pi / 2, level=0)    # on the left flight, 0.36 m from the left wall, facing it
+        foot_sim(page, 0.2)
+        inside = page.evaluate("() => window.__mm.cam().near")
+        b.close()
+    assert errors == []
+    assert inside <= 0.25, inside                           # well inside WALKER.radius (0.35)
+    assert outside == 0.5, outside                          # out of doors the far depth range keeps its precision
+
+
+@needs_world
 def test_lift_to_the_fifth_floor_and_to_the_roof(server):
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
