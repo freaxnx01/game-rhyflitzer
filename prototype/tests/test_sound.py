@@ -112,3 +112,16 @@ def test_flying_mutes_the_engine_and_plays_the_rotor(server):
     assert fly["mix"]["gain"] == 0 and fly["mix"]["road"] == 0 and fly["mix"]["hiss"] == 0, fly
     assert fly["rotor"]["gain"] > 0, fly
     assert ground["mix"]["gain"] > 0 and ground["rotor"]["gain"] == 0, ground
+
+
+def test_getting_out_switches_the_engine_off_and_getting_in_on_again(server):
+    """#475: Z gets out of the car and the engine falls silent; Z again gets back in and it runs."""
+    with sync_playwright() as p:
+        b, page = open_sound(p, server)
+        page.keyboard.press("KeyZ"); page.wait_for_function("() => window.__mm.foot().on", timeout=60000); wait_frames(page, 3)
+        out = page.evaluate("() => window.__mm.audio()")
+        page.keyboard.press("KeyZ"); page.wait_for_function("() => !window.__mm.foot().on", timeout=60000); wait_frames(page, 3)
+        back = page.evaluate("() => window.__mm.audio()")
+        b.close()
+    assert out["mix"]["gain"] == 0 and out["mix"]["hiss"] == 0, out
+    assert back["mix"]["gain"] > 0, back
