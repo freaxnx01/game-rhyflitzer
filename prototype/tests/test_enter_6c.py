@@ -196,6 +196,37 @@ def test_lift_to_the_fifth_floor_and_to_the_roof(server):
     assert atroof["floor"] == 10 and abs(atroof["y"] - atroof["levels"][10]) < 0.1, atroof
 
 
+FAKE_LOCK = """() => { const gl = document.getElementById('gl'); let held = null;
+  Object.defineProperty(document, 'pointerLockElement', { get: () => held, configurable: true });
+  gl.requestPointerLock = () => { held = gl; document.dispatchEvent(new Event('pointerlockchange')); };
+  document.exitPointerLock = () => { held = null; document.dispatchEvent(new Event('pointerlockchange')); }; }"""   # headless Chromium cannot lock the pointer (as test_on_foot.py)
+
+
+@needs_world
+def test_stepping_into_the_cabin_frees_the_mouse_so_the_pad_takes_a_click(server):
+    """A locked pointer has no cursor and sends every click to the canvas: the pad's buttons only took keys."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        page.evaluate(FAKE_LOCK)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        stand(page, 0.7, 0.4, math.pi / 2, level=0)
+        foot_sim(page, 0.3)
+        key(page, "e", 200)
+        page.evaluate("() => window.__mm.interiorSim(1.5)")
+        page.evaluate("() => document.getElementById('gl').requestPointerLock()")   # looking around with the mouse
+        foot_sim(page, 1.0, ["KeyW"])                       # into the cabin: the pad opens
+        in_cabin = page.evaluate("() => ({ pad: window.__mm.interior().pad, locked: !!document.pointerLockElement, paused: !document.querySelector('#pause').hidden })")
+        page.click("#liftpad button[data-level='3']")
+        foot_sim(page, 9)
+        at3 = interior(page)
+        b.close()
+    assert errors == []
+    assert in_cabin == {"pad": True, "locked": False, "paused": False}, in_cabin
+    assert at3["lift"]["at"] == 3, at3
+
+
 @needs_world
 def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
     with sync_playwright() as p:

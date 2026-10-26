@@ -81,7 +81,7 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #br .bar{display:flex;justify-content:space-between;padding:3px 8px;background:linear-gradient(#4a515e,#2a2e38);border-bottom:2px solid var(--ink);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
 #br .bar b{color:var(--sun)}
 #mapfloor{margin-left:8px;color:var(--sun);font-weight:700}
-#liftpad{position:fixed;right:10px;bottom:calc(240px + env(safe-area-inset-bottom,0px));z-index:15;background:rgba(20,23,29,.82);border:2px solid var(--steel-l);border-radius:10px;padding:10px 12px;color:var(--cream);text-align:center;box-shadow:4px 4px 0 var(--ink)}
+#liftpad{position:fixed;pointer-events:auto;right:10px;bottom:calc(240px + env(safe-area-inset-bottom,0px));z-index:15;background:rgba(20,23,29,.82);border:2px solid var(--steel-l);border-radius:10px;padding:10px 12px;color:var(--cream);text-align:center;box-shadow:4px 4px 0 var(--ink)}
 #liftpad .padtitle{font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
 #liftpad .padgrid{display:grid;grid-template-columns:repeat(3,48px);gap:6px}
 #liftpad button{width:48px;height:48px;border-radius:8px;border:2px solid var(--steel-l);background:#23272f;color:var(--cream);font:800 18px 'Barlow Condensed',sans-serif;cursor:pointer}
@@ -3304,9 +3304,11 @@ const LIFT_PAD = { btns: [] };
 function relabelLiftPad() { for (const btn of LIFT_PAD.btns) btn.textContent = keypadLabel(+btn.dataset.level, window.GG_LANG); $('liftpad').querySelector('.padtitle').textContent = tr('liftPadTitle'); }
 function setLiftPad(inCabin) {
   if (!INT.hall || !INT.lift) return;
+  const opens = !!inCabin && !INT.pad;
   INT.pad = !!inCabin;
   $('liftpad').hidden = !INT.pad;
   if (!INT.pad) return;
+  if (opens) releaseFootLock();   // the pad's buttons need the cursor back: a locked pointer has none and clicks the canvas
   for (const btn of LIFT_PAD.btns) { const k = +btn.dataset.level; btn.disabled = INT.lift.busy; btn.classList.toggle('on', k === INT.lift.at); }
 }
 // #411: the hall's own meshes, built in place within 40 m of the entrance and disposed beyond 55 m. One merged mesh per
