@@ -16,12 +16,13 @@ const reach = (R, step = 4) => {   // flood fill in the room's frame from the sp
   return { seen, step };
 };
 
-test('ROOMS_EightRooms_OnlyTheEiffelAtomiumAndTitanicHaveAnObject', () => {
+test('ROOMS_EightRooms_EiffelAtomiumArtemisAndTitanicHaveAnObject', () => {
   assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'atomium', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
   assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel');
   assert.equal(ROOMS[1].object, ATOMIUM); assert.equal(ROOMS[1].name, 'Atomium');
+  assert.equal(ROOMS[2].object, ARTEMIS); assert.equal(ROOMS[2].name, 'Artemis II'); assert.equal(ROOMS[2].signed, false);
   assert.equal(ROOMS[7].object, TITANIC); assert.equal(ROOMS[7].name, 'Titanic'); assert.equal(ROOMS[7].signed, false);
-  for (const r of ROOMS.slice(2, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }
+  for (const r of ROOMS.slice(3, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }
   assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
 });
 
@@ -83,7 +84,7 @@ test('roomLayout_TreesStandInTwoClosedRows_WithAGapOnlyAtThePortal', () => {
 });
 
 test('roomLayout_PathsRunFromThePortalToTheCentreAndAroundIt_SpawnFacesIn', () => {
-  for (const R of [rooms[0], rooms[2], rooms[3]]) {
+  for (const R of [rooms[0], rooms[3], rooms[4]]) {
     assert.equal(R.paths.length, 2); const [toCentre, loop] = R.paths;
     assert.ok(Math.hypot(toCentre.pts[0][0] - R.portal.c[0], toCentre.pts[0][1] - R.portal.c[1]) < 25, 'starts at the portal');
     const end = toCentre.pts[toCentre.pts.length - 1]; assert.ok(Math.hypot(end[0] - R.centre[0], end[1] - R.centre[1]) < 120);
@@ -182,4 +183,32 @@ test('roomLayout_TheTitanicsGravelLaneRoundsTheHullWithoutCrossingIt', () => {
 
 test('roomLayout_TheTitanicsTowerViewLooksAtItBroadsideFromTheLawn', () => {
   const v = titanic.towerView, d = Math.hypot(titanic.tower.x - v.x, titanic.tower.z - v.z); assert.ok(d > 120 && d < 180, `${d}`); assert.ok(!blocked(titanic, v.x, v.z));
+});
+
+// #488: the Artemis II stack and the Orion capsule -- star room 2
+import { ARTEMIS } from '../artemis.js';
+const artemis = rooms[2];
+test('roomLayout_Room2HoldsTheArtemisStackOnTheCentre_AndTheCapsuleBesideIt_UnsignedLikeTheOthers', () => {
+  assert.deepEqual([artemis.tower.x, artemis.tower.z], artemis.centre); assert.deepEqual(artemis.feet, []); assert.equal(artemis.hull.length, 0); assert.equal(artemis.basin, null);
+  assert.ok(artemis.artemis); assert.deepEqual([artemis.artemis.rocket.x, artemis.artemis.rocket.z], artemis.centre);
+  assert.deepEqual([artemis.artemis.capsule.x, artemis.artemis.capsule.z], toWorld(artemis, ...ARTEMIS.capsule.at));
+  assert.ok(artemis.towerView && !blocked(artemis, artemis.towerView.x, artemis.towerView.z));
+  for (const R of rooms.filter(r => r.k !== 2)) assert.equal(R.artemis, null);
+});
+
+test('roomLayout_Room2_MountCoreAndCapsuleAreSolid_TheLawnBetweenAndBothGravelRingsAreFree', () => {
+  const D = ARTEMIS.deck.w / 2, C = ARTEMIS.capsule;
+  assert.ok(blocked(artemis, ...artemis.centre), 'the core'); assert.ok(blocked(artemis, ...toWorld(artemis, 0, D - 1)), 'the mount edge');
+  assert.ok(blocked(artemis, ...toWorld(artemis, ...C.at)), 'the capsule');
+  for (const [a, b] of [[0, D + CAR_R + 2], [-D - CAR_R - 2, 0], [C.at[0], C.at[1] + C.hw * Math.SQRT2 + CAR_R + 1], [-30, 20], [95, 0], [0, -95]]) assert.ok(!blocked(artemis, ...toWorld(artemis, a, b)), `free at ${a},${b}`);
+  for (const [x, z] of artemis.paths[2].pts) assert.ok(!blocked(artemis, x, z), 'the capsule ring is drivable');
+  for (const [x, z] of artemis.paths[1].pts) assert.ok(!blocked(artemis, x, z), 'the 95 m loop is drivable');
+});
+
+test('roomLayout_Room2_ThreePaths_TheThirdRingsTheCapsule_AndTheCarReachesRoundBoth', () => {
+  assert.equal(artemis.paths.length, 3); const ring = artemis.paths[2]; assert.equal(ring.hw, ARTEMIS.capsule.ring.hw); assert.equal(ring.pts.length, 33);
+  for (const [x, z] of ring.pts) assert.ok(Math.abs(Math.hypot(x - artemis.artemis.capsule.x, z - artemis.artemis.capsule.z) - ARTEMIS.capsule.ring.r) < 1e-6);
+  const r = reach(artemis), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
+  assert.ok(!cell(0, 0), 'the rocket is solid'); assert.ok(cell(40, 0) && cell(0, 40) && cell(0, -40), 'the far side and both sides of the mount');
+  const [ca, cb] = ARTEMIS.capsule.at; assert.ok(cell(ca - 12, cb) && cell(ca + 12, cb) && cell(ca, cb + 12) && cell(ca, cb - 12), 'all round the capsule'); assert.ok(r.seen.size > 4000);
 });
