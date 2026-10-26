@@ -122,6 +122,26 @@ def test_the_hall_front_wall_stays_behind_the_facade(server):
 
 
 @needs_world
+def test_from_the_porch_the_doorway_looks_into_the_hall_not_onto_the_facade(server):
+    """#467: the façade ran on behind the porch, windows and all, across the hall's doorway; it is cut open there."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        far = interior(page)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        page.wait_for_function("() => window.__mm.interior().built", timeout=120000)
+        stand(page, -0.8, 0.0, 0.0, level=0)                # in the porch, facing into the building
+        foot_sim(page, 0.2)
+        ray = page.evaluate("() => window.__mm.interiorRay()")
+        near = interior(page)
+        b.close()
+    assert errors == []
+    assert ray["role"] != "bodenacker" and (ray["dist"] is None or ray["dist"] > 1.5), ray
+    assert far["plug"] is True and near["plug"] is False, (far, near)   # the dark backing only while the hall is not built
+
+
+@needs_world
 def test_lift_to_the_fifth_floor_and_to_the_roof(server):
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
