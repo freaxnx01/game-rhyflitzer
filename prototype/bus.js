@@ -14,7 +14,7 @@ export const BUS = {
 
 // the livery, tuned by eye to the maintainer's photo; the LED display is a lit texture, not a lamp
 export const BUS_COLOURS = {
-  body: 0xf5c000, roof: 0xe6e8e8, band: 0x111418, stripe: 0xd6202a, led: 0xff9a1a,
+  body: 0xffcc00, roof: 0xe6e8e8, band: 0x111418, stripe: 0xd6202a, led: 0xff9a1a,
 };
 
 // the horn: a deep G major chord (G3, B3, D4 — no C#/E/A in any octave, unlike the Postauto three-tone horn)

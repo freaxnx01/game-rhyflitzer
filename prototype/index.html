@@ -2405,7 +2405,7 @@ function addChair(g, roofY) {
 function buildBus(g, v) {
   const L = BUS.length / 2, W = BUS.width / 2, fx = L, rx = -L;
   const box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
-  const yellow = new THREE.MeshStandardMaterial({ color: BUS_COLOURS.body, metalness: 0.1, roughness: 0.45 }), roof = new THREE.MeshStandardMaterial({ color: BUS_COLOURS.roof, metalness: 0, roughness: 0.6 });
+  const yellow = new THREE.MeshStandardMaterial({ color: BUS_COLOURS.body, metalness: 0, roughness: 0.4 }), roof = new THREE.MeshStandardMaterial({ color: BUS_COLOURS.roof, metalness: 0, roughness: 0.6 });
   const red = new THREE.MeshStandardMaterial({ color: BUS_COLOURS.stripe, metalness: 0, roughness: 0.5 });
   // lower body: skirts between the wheel arches, one piece above them up to the window band
   const arch = 0.68, [[ax], [bx]] = v.wheels;
