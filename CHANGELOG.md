@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-26 15:45` When you **get out** with Z the engine is switched off: you no longer hear it humming while you walk. Getting back in starts it again.
 - `2026-10-26 13:50` In the **6c stair hall** the walls no longer vanish when you walk close to them: on the narrow stairs you saw straight out into the village.
 - `2026-10-26 13:50` The **glow at the 6c entrance** stands in front of the porch door instead of half behind it and the glass, so you see it from the street.
 - `2026-10-26 11:10` Behind the **Bodenackerstrasse 6c** porch the block now has a real **doorway**: after opening the door you look and walk into the stair hall instead of onto the façade with its windows.

@@ -76,6 +76,11 @@ test('engineMix: louder under load, dips during a shift, road noise grows with s
   assert.equal(engineMix(s, IN({ kmh: 60, air: 1 }), engine).road, 0);
 });
 
+test('engineMix_EngineOff_SilencesEngineRoadAndHiss', () => {
+  const { engine } = SOUND(), m = engineMix({ rpm: 850, gear: 0, shift: 0 }, IN({ nitro: 1, off: true }), engine);
+  assert.deepEqual([m.gain, m.road, m.hiss], [0, 0, 0]);
+});
+
 test('engineMix + rotorMix: flying mutes the engine, road and hiss and brings in the rotor', () => {
   const { engine } = SOUND(), m = engineMix({ rpm: 4000, gear: 2, shift: 0 }, IN({ kmh: 100, gas: 1, nitro: 1, fly: true }), engine);
   assert.deepEqual([m.gain, m.road, m.hiss], [0, 0, 0]);
