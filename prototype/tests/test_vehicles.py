@@ -497,3 +497,44 @@ def test_set_vehicle_rejects_a_malformed_capsule(server):
     assert nohl.startswith("Error: ") and "hl" in nohl, nohl
     assert box.startswith("Error: ") and "capsule" in box, box
     assert model == "compact"
+
+
+# ---------- #473: the regional bus itself ----------
+BUS_JS = "() => window.__mm.setVehicle(window.__mm.vehicles().bus)"
+
+
+def test_bus_is_in_the_table_and_true_to_size(server):
+    """#473: 12.2 m long, 2.55 m wide plus the rabbit-ear mirrors, 3.2 m high with the AC unit."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(BUS_JS)
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => Math.abs(window.__mm.wheelYaw().yaw) < 1e-3", timeout=120000)
+        model = page.evaluate("() => window.__mm.vehicle().model")
+        size = page.evaluate("() => window.__mm.carSize()")
+        b.close()
+    assert model == "bus"
+    assert size["l"] == pytest.approx(12.2, abs=0.1), size
+    assert 2.5 < size["w"] < 3.1, size
+    assert size["h"] == pytest.approx(3.2, abs=0.1), size
+
+
+def test_vehicle_query_selects_the_bus(server):
+    """#473: ?vehicle=bus starts with the bus, no page errors."""
+    with sync_playwright() as p:
+        b, page, errors = open_hand_query(p, server, "?vehicle=bus")
+        picked = page.evaluate("() => window.__mm.vehicle().model")
+        b.close()
+    assert picked == "bus"
+    assert errors == [], errors
+
+
+def test_bus_accelerates_slowly(server):
+    """#473: the golden 4 s gas run ends far below the compact's 31.47 m/s (top 22, accel 4)."""
+    gas = "() => window.__mm.sim(1882.9, -292.2, Math.PI, 0, 4).speed"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(BUS_JS)
+        bus = page.evaluate(gas)
+        b.close()
+    assert bus < 17, bus
