@@ -44,6 +44,17 @@ export function wallYaw(d, th, wx, wz, pen, gain, clamp) {
   return yaw > clamp ? clamp : yaw < -clamp ? -clamp : yaw;
 }
 
+// one hit per obstacle (#473): of all the capsule's circles, only the deepest penetration pushes. push = the game's
+// colliderPush(o, x, z, r); returns that hit and its circle index, or null when no circle touches.
+export function deepestHit(o, circles, r, push) {
+  let best = null;
+  for (let i = 0; i < circles.length; i++) {
+    const hit = push(o, circles[i][0], circles[i][1], r);
+    if (hit && (!best || hit.pen > best.hit.pen)) best = { hit, i };
+  }
+  return best;
+}
+
 // ---------- the horn test's helpers: pitch class (C = 0) and cents off the nearest semitone ----------
 const A4 = 440, ST = 12 / Math.log(2);   // semitones = ST * ln(f / A4)
 export function noteClass(f) {

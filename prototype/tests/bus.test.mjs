@@ -1,7 +1,7 @@
 // #473: the regional bus's pure data — size, livery, capsule collision, wall yaw. Pure module, node --test only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BUS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, noteClass, centsOff } from '../bus.js';
+import { BUS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, noteClass, centsOff, deepestHit } from '../bus.js';
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 
 test('size: 12.2 m long, 2.55 m wide, wheelbase 6.08 m with a 2.7 m front overhang', () => {
@@ -25,6 +25,11 @@ test('wallYaw: zero at the centre and head-on, opposite for nose and tail, clamp
   const nose = wallYaw(4.8, 0, 0, 1, 0.01, 1, 0.05), tail = wallYaw(-4.8, 0, 0, 1, 0.01, 1, 0.05);
   assert.ok(nose !== 0 && Math.sign(nose) === -Math.sign(tail), `${nose} ${tail}`);
   assert.equal(Math.abs(wallYaw(4.8, 0, 0, 1, 10, 1, 0.05)), 0.05);
+});
+test('deepestHit: one hit per obstacle, the deepest circle wins; none -> null', () => {
+  const push = (o, x) => (x > 3 ? { wx: -1, wz: 0, pen: x - 3 } : null);
+  assert.deepEqual(deepestHit({}, [[0, 0], [4, 0], [5, 0]], 1.3, push), { hit: { wx: -1, wz: 0, pen: 2 }, i: 2 });
+  assert.equal(deepestHit({}, [[0, 0]], 1.3, push), null);
 });
 test('horn: a chord without the C#-E-A notes of the three-tone horn', () => {
   assert.ok(BUS_HORN.notes.length >= 2);
