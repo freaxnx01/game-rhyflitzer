@@ -240,7 +240,7 @@ def test_language_toggle_rerenders_the_open_screen(server):
             prev: document.querySelector('#csprev').getAttribute('aria-label'), carbtn: document.querySelector('#carbtn').textContent })""")
         b.close()
     assert got == {"title": "Auto wählen", "name": "Sissle Speedster", "cls": "Kompakt · Klasse B", "paint": "Marine",
-                   "garage": "Garage · 4 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
+                   "garage": "Garage · 5 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
     assert errors == []
 
 
@@ -386,9 +386,12 @@ def test_chair_toggle_only_for_the_mini(server):
 
 def test_chair_persists_and_lifts_the_cockpit_eye(server):
     """#463: the toggle straps the armchair to the roof (stored as chair:true in mm.car, still on after a reload), the
-    cockpit view moves up into the chair, and the car's measured size stays the bare Mini."""
+    cockpit view moves up into the chair, and the car's measured size stays the bare Mini. Since #468 the real model
+    (prototype/assets/mini.glb) could load between the two size reads and swap the car; it is kept away, so this test
+    stays on the primitives stand-in (the model's chair: test_mini_model.py)."""
+    no_glb = lambda page: page.route("**/assets/mini.glb", lambda r: r.fulfill(status=404, body=""))
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server)   # no stored init script: the reload must see what the page itself saved
+        b, page, errors = open_page(p, server, before=no_glb)   # no stored init script: the reload must see what the page itself saved
         open_carsel(page)
         page.click('#csgarage button[data-id="mini"]')
         page.wait_for_function("() => window.__mm.carsel().id === 'mini'", timeout=T)
