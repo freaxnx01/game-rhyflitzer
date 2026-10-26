@@ -12,6 +12,8 @@ on:
         description: "Use GitHub-hosted runners (SwiftShader) even though the GPU runners could take the job"
         type: boolean
         default: false
+  schedule:
+    - cron: "30 2 * * *"   # #389: the whole suite on main every night; the nightly job files the red tests
 
 permissions:           # pull-requests/issues write: the Visual-tests PR comment (#332). A fork PR gets a read-only token, the recorder only warns.
   contents: read
@@ -19,7 +21,7 @@ permissions:           # pull-requests/issues write: the Visual-tests PR comment
   issues: write
 
 concurrency:
-  group: tests-${{ github.event.pull_request.number || github.ref }}
+  group: tests-${{ github.event_name == 'schedule' && 'nightly' || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -63,7 +65,7 @@ jobs:
       - name: Select the affected browser tests
         env:
           BASE_REF: ${{ github.base_ref }}
-          ALL: ${{ inputs.all }}
+          ALL: ${{ inputs.all || github.event_name == 'schedule' }}   # #389: the nightly run takes every file
         run: |
           if [ "$ALL" = true ]; then
             ls prototype/tests/test_*.py > "$RUNNER_TEMP/selected.txt"
@@ -216,3 +218,30 @@ jobs:
         run: |
           echo "plan: $PLAN, browser: $BROWSER"
           [ "$PLAN" = success ] && { [ "$BROWSER" = success ] || [ "$BROWSER" = skipped ]; }
+
+  # #389: on the scheduled full run, one issue per red test that no open issue covers yet (prototype/tests/nightly_report.py)
+  nightly:
+    needs: [plan, browser, tests]
+    if: always() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        continue-on-error: true   # no junit at all is a broken night, and the report says so
+        with:
+          pattern: junit-*
+          path: junit
+
+      - name: File the red tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAN: ${{ needs.plan.result }}
+          SHARDS: ${{ needs.plan.outputs.shards }}
+        run: python3 prototype/tests/nightly_report.py junit

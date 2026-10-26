@@ -1,4 +1,5 @@
 {
+  "prototype/tests/nightly_report.py": ["test_nightly_report.py"],
   "prototype/heli*.js": ["test_heli.py"],
   "prototype/camera.js": ["test_drone.py", "test_look_back.py"],
   "prototype/pontoon.js": ["test_pontoon.py"],
