@@ -52,3 +52,36 @@ test('capsuleParts_ATruncatedConeOnAStand_HeatShieldBelow_TunnelOnTop_StandingOn
   const posts = parts.filter(p => p.colour === ARTEMIS.colours.stand && p.kind === 'cyl'); assert.ok(posts.length >= 4, 'posts'); for (const p of posts) { assert.equal(p.y0, 0); near(p.y1, C.stand.h, 1e-9); assert.ok(Math.hypot(p.x, p.z) < C.r, 'under the shield'); }
   assert.equal(Math.min(...parts.map(p => p.y0)), 0, 'stands on the lawn'); near(Math.max(...parts.map(p => p.y1)), C.stand.h + C.h + C.tunnel.h, 1e-9, 'top');
 });
+import { artemisPlacement } from '../artemis.js';
+import { roomLayout, ROOM_Y, ROOM_HALF } from '../rooms.js';
+
+const R2 = roomLayout(2), inside = (o, x, z, r = 0) => { const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; return Math.abs(lx) <= o.hw + r && Math.abs(lz) <= o.hd + r; };
+const toWorld = (R, a, b) => [R.centre[0] + R.frame.f[0] * a + R.frame.v[0] * b, R.centre[1] + R.frame.f[1] * a + R.frame.v[1] * b];
+const A = artemisPlacement({ centre: R2.centre, frame: R2.frame, portal: R2.portal, y: ROOM_Y }, ARTEMIS);
+
+test('artemisPlacement_RocketOnTheRoomCentre_CapsuleAtItsSpot_FacingThePortal', () => {
+  assert.deepEqual([A.rocket.x, A.rocket.z], R2.centre); near(A.rocket.th, Math.atan2(R2.frame.f[1], R2.frame.f[0]), 1e-9, 'turned to the room frame');
+  assert.deepEqual([A.capsule.x, A.capsule.z], toWorld(R2, ...ARTEMIS.capsule.at));
+  const want = Math.atan2(R2.portal.c[1] - A.capsule.z, R2.portal.c[0] - A.capsule.x); assert.ok(Math.abs(Math.atan2(Math.sin(A.capsule.th - want), Math.cos(A.capsule.th - want))) < 1e-9, 'hatch to the portal');
+  const [a, b] = ARTEMIS.capsule.at; assert.ok(a < 0 && Math.abs(b) > 20 + ARTEMIS.capsule.ring.r, 'on the portal side, off the drive line');
+  assert.ok(Math.hypot(a, b) + ARTEMIS.capsule.ring.r + ARTEMIS.capsule.ring.hw < 95 - 4, 'the ring stays inside the 95 m loop');
+  assert.ok(Math.hypot(a, b) - ARTEMIS.capsule.ring.r - ARTEMIS.capsule.ring.hw > ARTEMIS.pad.w / 2 * Math.SQRT2 + 3, 'the ring is clear of the pad');
+});
+
+test('artemisPlacement_FiveLowColliders_MountCoreBoostersCapsule_SolidToTheirTops', () => {
+  assert.equal(A.colliders.length, 5); for (const c of A.colliders) { assert.equal(c.low, true); assert.ok(c.h > ROOM_Y + 1); }
+  const by = (k) => A.colliders.filter(c => c.artemis === k);
+  const [mount] = by('mount'), [core] = by('core'), srb = by('srb'), [cap] = by('capsule');
+  assert.ok(mount && core && cap && srb.length === 2);
+  near(mount.hw, ARTEMIS.deck.w / 2, 1e-9); near(mount.h, ROOM_Y + ARTEMIS.pad.lift + ARTEMIS.deck.h, 1e-9, 'the mount is 2 m high');
+  assert.ok(core.h >= ROOM_Y + ARTEMIS.h, 'the core is solid to the tip'); assert.ok(core.hw >= ARTEMIS.core.r && core.hw < ARTEMIS.core.r + 1);
+  const toLocal = (x, z) => { const dx = x - R2.centre[0], dz = z - R2.centre[1]; return [dx * R2.frame.f[0] + dz * R2.frame.f[1], dx * R2.frame.v[0] + dz * R2.frame.v[1]]; };
+  for (const s of srb) { const [a, b] = toLocal(s.x, s.z); near(a, 0, 1e-6); near(Math.abs(b), ARTEMIS.srb.off, 1e-6, 'a booster each side along v'); assert.ok(s.h >= ROOM_Y + ARTEMIS.srb.y1 + ARTEMIS.srb.nose && s.h < ROOM_Y + ARTEMIS.core.y1); }
+  assert.deepEqual([cap.x, cap.z], [A.capsule.x, A.capsule.z]); near(cap.h, ROOM_Y + ARTEMIS.capsule.stand.h + ARTEMIS.capsule.h + ARTEMIS.capsule.clear, 1e-9); assert.ok(cap.hw >= ARTEMIS.capsule.r);
+});
+
+test('artemisPlacement_TheRingIsAClosed33PointCircleRoundTheCapsule', () => {
+  assert.equal(A.ring.length, 33); assert.deepEqual(A.ring[0], A.ring[32]);
+  for (const [x, z] of A.ring) near(Math.hypot(x - A.capsule.x, z - A.capsule.z), ARTEMIS.capsule.ring.r, 1e-6);
+  for (const [x, z] of A.ring) for (const c of A.colliders) assert.ok(!inside(c, x, z, 2.6), 'the ring runs clear of every collider');
+});
