@@ -22,6 +22,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-26 18:47` The **Regional Bus** now has a detailed **3D model**: a real twelve-metre low-floor city bus with its curved windscreen, doors, mirrors on stalks, roof hatches and twin rear tyres, painted in the same Postauto look (yellow, white roof, black window band, red stripe) with "811 Sisseln" on its displays. Model „Mercedes+CITARO+II+RATP" by moussasy.sy715 (Sketchfab), CC BY 4.0, repainted and without logos or lettering.
 - `2026-10-26 15:35` New vehicle: the **Regional Bus**, a twelve-metre Swiss **Postauto-look** bus in yellow with a white roof, a black window band and a red stripe, with "Sisseln" on its display. It is slow off the line, wide in the corners and heavy in a crash, and its **whole length** hits walls and knocks over lamps and bins. Choose it in the car selection or start with `?vehicle=bus`.
 - `2026-10-25 10:00` **Hundekacki**: knock over a green **Robidog** and a handful of brown poo piles fly out and land on the road. They stay there until the props are set up again.
 - `2026-10-25 09:12` The **Little Classic** now looks like the real thing: a detailed **3D model** with the proper rounded body, the chrome grille, round lamps, door handles and hubcaps, still in citron green with the matte black bonnet, and the armchair still straps onto its roof. The plates are blank. Model „Mr Bean Car FBX" by Sxi.Sai (Sketchfab), CC BY 4.0, rescaled and recoloured; the simple version stands in while it loads.
