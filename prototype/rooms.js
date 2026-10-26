@@ -1,9 +1,10 @@
 // #277 / #361: the room template -- pure layout (no three.js, no DOM): a 500 x 500 m lawn at ROOM_Y under the Hübel, facing
 // along its own spoke, the object (if any) in its centre, a closed ring of trees at the edge with a gap only at the
 // portal, gravel paths, a ship's water basin, and the tunnel stub leading back to the portal. Eight rooms share this template (ROOMS); only the
-// Eiffel, Atomium (room 1) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
+// Eiffel, Atomium (room 1), Artemis II (room 2) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test prototype/tests/rooms.test.mjs`.
 import { EIFFEL, ATOMIUM, TITANIC } from './hideout.js';
+import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
 import { FRIES, friesPlacement } from './fries.js';
 import { BELOW_Y, SPOKE, spokeFrame } from './underground.js';
 
@@ -17,7 +18,7 @@ const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return
 export const ROOMS = [
   { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL, signed: false },   // signed: false -- unsigned for now, so finding them stays a surprise
   { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false, figure: FRIES },   // #451: the fries figure stands beside the Atomium
-  { id: 'room2', name: null, object: null },
+  { id: 'room2', name: 'Artemis II', object: ARTEMIS, signed: false },   // #488: the SLS stack and the Orion capsule
   { id: 'room3', name: null, object: null },
   { id: 'room4', name: null, object: null },
   { id: 'room5', name: null, object: null },
@@ -26,7 +27,7 @@ export const ROOMS = [
 ];
 // #422: the free rooms in the order new objects take them -- from the lift outwards, left and right in turn. The lift's exit meets
 // the ring between spoke 7 (front left) and spoke 0 (front right, the Eiffel); 1 (the Atomium) follows on the right, so the Titanic
-// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift.
+// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic) and 2 (Artemis II) are taken; 6 is next.
 export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
 export const isRoomLevel = (id) => ROOMS.some(r => r.id === id);
 
@@ -95,6 +96,9 @@ export function roomLayout(k, room = ROOMS[k]) {
   // #451: a figure beside the object (the fries figure in the Atomium room), on its plinth collider
   const figure = room.figure ? friesPlacement({ centre, frame: { f, v }, portal: { c: P }, y: ROOM_Y }, room.figure) : null;
   if (figure) colliders.push(...figure.colliders);
+  // #488: the Artemis II stack on its mount in the centre and the Orion capsule beside it (artemis.js places them; artemismesh.js builds them)
+  const artemis = (room.object && room.object.capsule) ? artemisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: ROOM_Y }, room.object) : null;
+  if (artemis) colliders.push(...artemis.colliders);
   // two rows of trees all the way round the square (Chebyshev distance from the centre), jittered along and across the row,
   // with a gap left near the portal so the tunnel opens into the lawn
   const rand = rng(277), trees = [];
@@ -111,6 +115,7 @@ export function roomLayout(k, room = ROOMS[k]) {
   const loop = basin ? stadium(basin.lane, loc) : Array.from({ length: 33 }, (_, i) => [cx + Math.cos(i / 32 * 2 * Math.PI) * 95, cz + Math.sin(i / 32 * 2 * Math.PI) * 95]);
   const reachA = basin ? basin.lane.w : 95;
   const start = at(10, 0), end = [cx - f[0] * reachA, cz - f[1] * reachA], paths = [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];
+  if (artemis) paths.push({ pts: artemis.ring, hw: room.object.capsule.ring.hw });   // #488: the gravel ring round the Orion capsule
   const view = [cx - f[0] * 150, cz - f[1] * 150];
   return {
     id: room.id, k, y: ROOM_Y, half: ROOM_HALF, centre, frame: { f, v }, groundAt: () => ROOM_Y,
@@ -118,7 +123,7 @@ export function roomLayout(k, room = ROOMS[k]) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? ROOM_Y + SPOKE.ceiling : null;
     },
-    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, colliders, trees, paths,
+    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, artemis, colliders, trees, paths,
     portal: { c: P, th: Math.atan2(f[1], f[0]), hw: SPOKE.hw, h: SPOKE.ceiling },
     spawn: { x: at(20, 0)[0], z: at(20, 0)[1], th: Math.atan2(f[1], f[0]) },
     towerView: room.object ? { x: view[0], z: view[1], th: Math.atan2(f[1], f[0]) } : null,
