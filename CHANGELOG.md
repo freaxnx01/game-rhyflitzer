@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-26 13:50` In the **6c stair hall** the walls no longer vanish when you walk close to them: on the narrow stairs you saw straight out into the village.
+- `2026-10-26 13:50` The **glow at the 6c entrance** stands in front of the porch door instead of half behind it and the glass, so you see it from the street.
 - `2026-10-26 11:10` Behind the **Bodenackerstrasse 6c** porch the block now has a real **doorway**: after opening the door you look and walk into the stair hall instead of onto the façade with its windows.
 - `2026-10-24 15:40` **Bodenackerstrasse 6c** is now the right entrance: the house numbers ran the wrong way along the block, so the enterable porch was the one of 6b. 6d is at the north end, as on the map.
 - `2026-10-24 11:50` The **roof-top housing over 6c** on the Bodenackerstrasse 6 roof is white like the other three instead of a black box.

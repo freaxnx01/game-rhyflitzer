@@ -545,7 +545,7 @@ import { HATCHBACK, wheelPlan } from './hatchback.js';   // #236: the first glTF
 import { loadStep, buildableId, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
-import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
+import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -3116,7 +3116,7 @@ function enterGlowTexture() {
 }
 function enterGlowSprite(key) {
   let sp = ENTER_GLOW.sprites.get(key);
-  if (!sp) { sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: enterGlowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); sp.visible = false; scene.add(sp); ENTER_GLOW.sprites.set(key, sp); }
+  if (!sp) { sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: enterGlowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); sp.renderOrder = 2; sp.visible = false; scene.add(sp); ENTER_GLOW.sprites.set(key, sp); }
   return sp;
 }
 const reducedMotion = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
@@ -3129,8 +3129,8 @@ function stepEnterGlow() {   // on foot only: every ready, visible entrance on t
     if (!e.ready || e.level !== LEVELS.id) continue;
     e.entrances.forEach((en, i) => {
       const k = glowStrength(Math.hypot(P.x - en.x, P.z - en.z)); if (k <= 0) return;
-      const sp = enterGlowSprite(e.id + ':' + i), w = en.w || 1.5;
-      sp.position.set(en.x, groundH(en.x, en.z, P.y) + 1.2, en.z); sp.scale.set(w * 2, 2.4, 1); sp.material.opacity = k * pulse; sp.visible = true;
+      const sp = enterGlowSprite(e.id + ':' + i), w = en.w || 1.5, at = glowAnchor(en);   // in front of the door, drawn after the glass (renderOrder)
+      sp.position.set(at.x, groundH(at.x, at.z, P.y) + 1.2, at.z); sp.scale.set(w * 2, 2.4, 1); sp.material.opacity = k * pulse; sp.visible = true;
       ENTER_GLOW.shown.push({ id: e.id, opacity: +k.toFixed(3) });
     });
   }
@@ -3353,7 +3353,10 @@ function stepOnFoot(dt) {
   const st = footSteps(FOOT.stride, Math.hypot(P.x - x0, P.z - z0), keys.KeyN, !FOOT.hover && FOOT.vy === 0); FOOT.stride = st.acc; if (st.steps > 0) SFX.step();
 }
 function footMouse(dx, dy) { const l = footLook(P.th, FOOT.pitch, dx, dy); P.th = l.th; FOOT.pitch = l.pitch; }
-function footCamera() { const v = footView(P.x, P.y, P.z, P.th, FOOT.pitch, WALKER.eye, CAM.back); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); }
+// indoors the walker comes within WALKER.radius of a wall: the outdoor near plane (0.5 m) cut the wall away and showed the street
+const CAM_NEAR = { out: 0.5, indoors: 0.05 };
+function setCameraNear(near) { if (camera.near === near) return; camera.near = near; camera.updateProjectionMatrix(); }
+function footCamera() { const v = footView(P.x, P.y, P.z, P.th, FOOT.pitch, WALKER.eye, CAM.back); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); setCameraNear(INT.indoors ? CAM_NEAR.indoors : CAM_NEAR.out); }
 // #100: pontoon bridge (U). Rules in pontoon.js; here the world adapters, the key, the step and the hooks (meshes: buildPontoonMeshes below)
 const pontoonEnv = () => ({ dist: riverDist, nameAt: L ? (x, z) => WATER.nameAt(x, z) : () => 'Rhein', waterLevel: (x, z) => (L && REAL ? WATER.levelAt(x, z) : 0) ?? 0, roadAt: (x, z) => roadDist(x, z) <= 0, bridgeNear: L ? (x, z) => [...gridQuery(BRIDGE_GRID, x, z, PONTOON_CFG.bridgeClear)].some(b => b.kind !== 'rail' && nearestOnPolyline(b.r.pts, x, z).d <= PONTOON_CFG.bridgeClear) : (x, z) => BRIDGES.some(b => segDist(x, z, ...b.a, ...b.b) <= PONTOON_CFG.bridgeClear), ground: (x, z) => groundH(x, z, 1e4) });
 const PONTOON_ERR = { noBank: 'pontoonNoBank', noFarBank: 'pontoonNoFarBank', hasBridge: 'pontoonHasBridge' };
@@ -3579,7 +3582,7 @@ window.__mm.carStats = () => { let meshes = 0, triangles = 0; const walk = (o) =
 window.__mm.setStyle = (k) => { if (!Object.hasOwn(STYLES, k)) throw new Error(`Unknown style '${k}'`); applyStyle(k); };
 window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
 window.__mm.camStep = (dt, from) => { if (from) camPos.set(...from); stepCamera(dt); return window.__mm.cam(); };   // #102: one camera step from a given position (the loop's frames are too slow to catch an easing camera)
-window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z] }; };   // back/look: #65
+window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z], near: camera.near }; };   // back/look: #65
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)
 // #277: under the hill only the cave's own walls (secret) count -- a forest edge wall over the lobby used to stop the car on the lift platform
