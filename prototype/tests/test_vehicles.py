@@ -1,6 +1,8 @@
 """#5 vehicle table: a golden trace of today's car (must never change) and proof that the table is really read.
 Hand-traced layout (world + terrain blocked): no data files needed, seeded RNG, deterministic. Never click Start
 before a golden call: once the race runs, the game loop steps the car too."""
+import math
+
 import pytest
 from playwright.sync_api import sync_playwright
 
@@ -59,20 +61,20 @@ def test_golden_trace_of_the_compact_car(server):
 
 
 def test_set_vehicle_validates_and_round_trips(server):
-    """Unknown model and non-circle collision throw (OBB is #6) and leave the active vehicle alone; a plain copy of
-    compact drives exactly like the golden trace."""
+    """Unknown model and a collision shape other than circle/capsule throw (#473) and leave the active vehicle
+    alone; a plain copy of compact drives exactly like the golden trace."""
     bad = """(patch) => { const c = window.__mm.vehicles().compact; c.drive.top = 30; patch(c);
       try { window.__mm.setVehicle(c); return 'no error'; } catch (e) { return e.message; } }"""
     with sync_playwright() as p:
         b, page = open_hand(p, server)
         obb = page.evaluate(f"() => ({bad})(c => {{ c.collision = {{ shape: 'obb', hw: 1.2, hd: 6 }}; }})")
-        model = page.evaluate(f"() => ({bad})(c => {{ c.model = 'bus'; }})")
+        model = page.evaluate(f"() => ({bad})(c => {{ c.model = 'train'; }})")
         top = page.evaluate("() => window.__mm.vehicle().drive.top")
         use_vehicle(page, "")
         got = page.evaluate(GOLDEN_JS)
         b.close()
-    assert "#6" in obb and "obb" in obb, obb
-    assert "bus" in model, model
+    assert "capsule" in obb and "obb" in obb, obb
+    assert "train" in model, model
     assert top == 60
     for k, want in GOLDEN.items():
         assert got[k] == pytest.approx(want, abs=1e-6), (k, got[k], want)
@@ -460,3 +462,79 @@ def test_mini_lamps_follow_the_lights(server):
     assert on[0]["head"][0] > off[0]["head"][0], (off, on)
     assert on[0]["tail"][0] > off[0]["tail"][0], (off, on)
     assert errors == [], errors
+
+
+# ---------- #473: capsule collision (the regional bus's shape; VEHICLES.bus itself lands with Task 4) ----------
+CAPSULE_JS = "() => { const c = window.__mm.vehicles().compact; c.collision = { shape: 'capsule', r: 1.3, hl: 4.8 }; window.__mm.setVehicle(c); }"
+
+
+def test_capsule_nose_and_tail_collide(server):
+    """#473: standing 15.5 m from the island centre the compact (circle) is free; a capsule of the same radius
+    facing the island (nose circle at 10.7 m) or facing away (tail circle) is pushed out, straight back without turning."""
+    stand = "(th) => { const r = window.__mm.sim(1222.0, -127, th, 0, 0.1, []); return [Math.hypot(r.x - 1206.5, r.z + 127), r.th]; }"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        compact = page.evaluate(stand, math.pi)
+        page.evaluate(CAPSULE_JS)
+        nose = page.evaluate(stand, math.pi)
+        tail = page.evaluate(stand, 0)
+        b.close()
+    assert compact[0] == pytest.approx(15.5, abs=0.01), compact
+    assert nose[0] > 15.55 and tail[0] > 15.55, (nose, tail)
+    assert nose[1] == pytest.approx(math.pi, abs=1e-3), nose
+
+
+def test_set_vehicle_rejects_a_malformed_capsule(server):
+    """#473: a capsule needs a positive hl; unknown shapes still throw; the active vehicle stays."""
+    bad = """(patch) => { const c = window.__mm.vehicles().compact; patch(c);
+      try { window.__mm.setVehicle(c); return 'no error'; } catch (e) { return `${e.name}: ${e.message}`; } }"""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        nohl = page.evaluate(f"() => ({bad})(c => {{ c.collision = {{ shape: 'capsule', r: 1.3 }}; }})")
+        box = page.evaluate(f"() => ({bad})(c => {{ c.collision = {{ shape: 'box', r: 1.3 }}; }})")
+        model = page.evaluate("() => window.__mm.vehicle().model")
+        b.close()
+    assert nohl.startswith("Error: ") and "hl" in nohl, nohl
+    assert box.startswith("Error: ") and "capsule" in box, box
+    assert model == "compact"
+
+
+# ---------- #473: the regional bus itself ----------
+BUS_JS = "() => window.__mm.setVehicle(window.__mm.vehicles().bus)"
+
+
+def test_bus_is_in_the_table_and_true_to_size(server):
+    """#473: 12.2 m long, 2.55 m wide plus the rabbit-ear mirrors, 3.2 m high with the AC unit."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(BUS_JS)
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => Math.abs(window.__mm.wheelYaw().yaw) < 1e-3", timeout=120000)
+        model = page.evaluate("() => window.__mm.vehicle().model")
+        size = page.evaluate("() => window.__mm.carSize()")
+        b.close()
+    assert model == "bus"
+    assert size["l"] == pytest.approx(12.2, abs=0.1), size
+    assert 2.5 < size["w"] < 3.1, size
+    assert size["h"] == pytest.approx(3.2, abs=0.1), size
+
+
+def test_vehicle_query_selects_the_bus(server):
+    """#473: ?vehicle=bus starts with the bus, no page errors."""
+    with sync_playwright() as p:
+        b, page, errors = open_hand_query(p, server, "?vehicle=bus")
+        picked = page.evaluate("() => window.__mm.vehicle().model")
+        b.close()
+    assert picked == "bus"
+    assert errors == [], errors
+
+
+def test_bus_accelerates_slowly(server):
+    """#473: the golden 4 s gas run ends far below the compact's 31.47 m/s (top 22, accel 4)."""
+    gas = "() => window.__mm.sim(1882.9, -292.2, Math.PI, 0, 4).speed"
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.evaluate(BUS_JS)
+        bus = page.evaluate(gas)
+        b.close()
+    assert bus < 17, bus

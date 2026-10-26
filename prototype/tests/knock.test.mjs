@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { KINDS, KNOCKABLE, knockAction, touches, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, newPoo, stepPoo, POO_PER_ROBIDOG, POO_COLOURS, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER } from '../knock.js';
+import { KINDS, KNOCKABLE, knockAction, touches, touchesAny, propGrid, nearProps, launch, stepBody, upAxis, pivotOf, bendAngle, BEND_MAX, newDrop, stepDrop, fountainSeconds, newCloth, stepCloth, newPoo, stepPoo, POO_PER_ROBIDOG, POO_COLOURS, touchesLying, shove, shovable, lyingR, SHOVE_MIN, soundPlan, hissPlan, soundLevel, restoreDue, RESTORE_AFTER } from '../knock.js';
 
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
 
@@ -18,6 +18,14 @@ test('touches: inside the summed radii, and not when the car flies over it', () 
   assert.equal(touches('bin', 0, 0, 0, car), true);
   assert.equal(touches('bin', 0, 0, 0, { ...car, x: 1.5 }), false);
   assert.equal(touches('bin', 0, 0, 0, { ...car, y: 3 }), false);
+});
+
+test('touchesAny (#473): a long vehicle knocks a prop at its nose; without circles it is touches()', () => {
+  const car = { x: 0, z: 0, y: 0, r: 1.3 };
+  assert.equal(touchesAny('lamp', 5, 0, 0, car), false);
+  assert.equal(touchesAny('lamp', 5, 0, 0, { ...car, circles: [[-4.8, 0], [0, 0], [4.8, 0]] }), true);
+  assert.equal(touchesAny('lamp', 5, 0, 0, { ...car, y: 9, circles: [[4.8, 0]] }), false);
+  assert.equal(touchesAny('bin', 1.2, 0, 0, { ...car, r: 1 }), touches('bin', 1.2, 0, 0, { ...car, r: 1 }));
 });
 
 test('propGrid/nearProps: finds neighbours, skips far props, reuses the output array', () => {
