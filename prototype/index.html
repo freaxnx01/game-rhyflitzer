@@ -499,7 +499,7 @@ import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLin
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
-import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, BODENACKER6 } from './bodenacker6.js';
+import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, bodenackerDoorway, BODENACKER6 } from './bodenacker6.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -1217,14 +1217,15 @@ function osmBuilding(b) {
 }
 // #410: one vertical quad per body wall (extrudeFootprint draws whole rings only); u restarts per wall, like its uPerFace.
 // below: how far under base the quads reach (2 m like extrudeFootprint; 0 where a foundation skirt carries the wall on, #445)
+// #467: a wall piece's u0 / dy (m) shift its tile along / up, so the pieces around a doorway carry on the uncut wall's tile
 function wallQuads(walls, base, h, c, role, tile, below = 2) {
   for (const w of walls) {
     const L2 = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]); if (L2 < 0.05) continue;
     const nx = -(w.b[1] - w.a[1]) / L2, nz = (w.b[0] - w.a[0]) / L2, [x0, z0] = w.a, [x1, z1] = w.b, y0 = base - below, y1 = base + h;
     const pos = [], nrm = [];
     for (const v of [[x0, y0, z0], [x1, y0, z1], [x1, y1, z1], [x0, y0, z0], [x1, y1, z1], [x0, y1, z0]]) { pos.push(...v); nrm.push(nx, 0, nz); }
-    const u1 = L2 / tile[0], v0 = -below / tile[1], v1 = h / tile[1];
-    rawGeo(pos, nrm, [0, v0, u1, v0, u1, v1, 0, v0, u1, v1, 0, v1], 0, 0, 0, c, role);
+    const u0 = (w.u0 || 0) / tile[0], u1 = u0 + L2 / tile[0], dy = w.dy || 0, v0 = (dy - below) / tile[1], v1 = (dy + h) / tile[1];
+    rawGeo(pos, nrm, [u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1], 0, 0, 0, c, role);
   }
 }
 // #410: a glass pane at local u spanning v0..v1 (side of a porch), facing +u; and one at local v spanning u0..u1 (street face)
@@ -1279,7 +1280,9 @@ function bodenackerBuilding(b, lowest, h) {
   const tile = [BODENACKER6.moduleWidth, L.floors.pitch], white = col('#ffffff'), concrete = col('#c4bfb4');
   if (plinth.skirt) wallQuads(L.walls, plinth.skirt.y0, plinth.skirt.y1 - plinth.skirt.y0, concrete, 'stone', [4, 4], 0);
   wallQuads(L.walls.filter(w => w.face === 'back'), base, h, white, 'bodenackerLoggia', tile, plinth.skirt ? 0 : 2);
-  wallQuads(L.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
+  const fd = STAIRHALL.frontDoor, gap = bodenackerDoorway(L.walls, L.frame, bodenackerHouse(L, INT.house).porch, fd.b1 - fd.b0);   // #467: the façade open behind 6c's porch
+  wallQuads(gap.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
+  wallQuads([{ ...gap.lintel, dy: fd.h }], base + fd.h, h - fd.h, white, 'bodenacker', tile, 0);
   const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
   extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'));   // the band's top is the roof slab
   for (const s of L.stairs) {
@@ -2103,6 +2106,9 @@ if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own mesh
   const leaf = new THREE.Mesh(new THREE.BoxGeometry(STAIRHALL.door, STAIRHALL.frontDoor.h, 0.05), new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }));
   leaf.position.set(STAIRHALL.door / 2, STAIRHALL.frontDoor.h / 2, 0);
   INT.doorLeaf = new THREE.Group(); INT.doorLeaf.position.set(dx, h.levels[0], dz); INT.doorLeaf.add(leaf); scene.add(INT.doorLeaf);
+  const fd = STAIRHALL.frontDoor;   // #467: a dark backing in the façade's doorway while the hall is not built, so the porch glass does not look through the block
+  INT.doorPlug = new THREE.Mesh(obbBox(hallRect(h.frame, 0.05, 0.08, fd.b0, fd.b1), h.levels[0], h.levels[0] + fd.h), new THREE.MeshLambertMaterial({ color: 0x2a2c30, emissive: 0x1a1a1a }));
+  scene.add(INT.doorPlug);
 }
 // Gemeinde boundaries (#48, OSM admin_level 8): a magenta strip on the ground, the road or the water, hidden until G; its own group outside MESH, so applyStyle and the collision code never see it
 const boundaryY = (x, z) => Math.max(terrainH(x, z), roadSurfH(x, z), waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0) ?? -Infinity) + 0.25;
@@ -3314,6 +3320,7 @@ function buildInterior() {
   INT.group = g; INT.on = true; scene.add(g);
   if (INT.housing) INT.housing.visible = false;
   if (INT.housingPanel) INT.housingPanel.visible = false;
+  if (INT.doorPlug) INT.doorPlug.visible = false;
 }
 function disposeInterior() {
   if (!INT.group) return;
@@ -3323,6 +3330,7 @@ function disposeInterior() {
   INT.group = null; INT.cabinMesh = null; INT.liftPanels = null; INT.roofPanel = null; INT.on = false;
   if (INT.housing) INT.housing.visible = true;
   if (INT.housingPanel) INT.housingPanel.visible = true;
+  if (INT.doorPlug) INT.doorPlug.visible = true;
 }
 // hover stays in the level: the room's helicopter clamp; on the surface hoverMaxAgl over the ground and, under the hill, the eye under the ceiling
 function clampHover() {
@@ -3439,7 +3447,7 @@ window.__mm.walkways = (set) => { if (set) Object.assign(WALKS, set); return WAL
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
   y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
   lift: INT.lift && { at: INT.lift.at, y: INT.lift.y, door: INT.lift.door, busy: INT.lift.busy, moving: INT.lift.moving },
-  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, pad: INT.pad });
+  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, pad: INT.pad, plug: INT.doorPlug ? INT.doorPlug.visible : null });
 window.__mm.interiorSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(); };
 window.__mm.housingTint = () => { if (!INT.housing) return null; const m = INT.housing.material, c = INT.housing.geometry.attributes.color; if (!m.vertexColors) return 1; return c ? Math.min(...c.array) : 0; };   // #453: the darkest vertex colour the 6c housing's material multiplies in (no colour attribute reads as black)
 window.__mm.interiorFaceA = () => { if (!INT.group || !INT.hall) return null; const f = INT.hall.frame, lv = INT.hall.levels, roof = lv[lv.length - 1], v = new THREE.Vector3(); let min = Infinity; INT.group.updateMatrixWorld(true); INT.group.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= lv[0] + 0.1 || v.y >= roof - 0.01) continue; const a = f.fromWorld(v.x, v.z).a; if (a > -0.05) min = Math.min(min, Math.abs(a)); } }); return min; };   // #453: how close the hall's drawn faces come to the façade line between EG and roof
