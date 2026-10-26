@@ -40,6 +40,15 @@ export function touches(kind, px, pz, groundY, car) {
   const k = KINDS[kind], dx = car.x - px, dz = car.z - pz, r = car.r + k.r;
   return dx * dx + dz * dz < r * r && car.y < groundY + k.h;
 }
+// #473: a long vehicle carries its collision circles ([x, z] each, radius car.r): the prop is touched by any of them;
+// a car without circles is its single centre circle (touches)
+export function touchesAny(kind, px, pz, groundY, car) {
+  if (!car.circles) return touches(kind, px, pz, groundY, car);
+  const k = KINDS[kind], r = car.r + k.r;
+  if (car.y >= groundY + k.h) return false;
+  for (const [x, z] of car.circles) { const dx = x - px, dz = z - pz; if (dx * dx + dz * dz < r * r) return true; }
+  return false;
+}
 
 // #428: a prop lying on the ground is still solid. Its footprint is a circle round its centre; the car shoves it along its own
 // direction (scaled by its speed) instead of driving through. Pure: returns true when the car circle touches the lying body.
@@ -384,7 +393,7 @@ export function createKnock(deps) {
           nearProps(grid, c.x, c.z, nearBuf);
           for (let n = 0; n < nearBuf.length; n++) {
             const a = all[nearBuf[n]]; if (a.hit) continue;
-            if (!touches(a.kind, a.p.x, a.p.z, terrainH(a.p.x, a.p.z), c)) continue;
+            if (!touchesAny(a.kind, a.p.x, a.p.z, terrainH(a.p.x, a.p.z), c)) continue;
             const act = knockAction(a.kind, speed); if (act) slow = Math.max(slow, knock(a, act, speed));
           }
         }
