@@ -16,7 +16,7 @@
 //                                          front/rear, left (-z) / right (+z); translation = the wheel centre, vertices centred on it
 //   materials: Body (Postauto yellow), Roof (white), Band (black), Stripe (red), Glass { extras: { glass: true } },
 //   LampHead { extras: { lamp: 'head' } }, LampTail { extras: { lamp: 'tail' } }, Display and Plate (one small texture each,
-//   drawn here), and plain colours for the rest; all non-metallic. Extensions: EXT_meshopt_compression only.
+//   drawn here; Display { extras: { overGlass: true } }), and plain colours for the rest; all non-metallic. Extensions: EXT_meshopt_compression only.
 // Look, not brand (#473): the RATP livery, logos, the "Entrée" sticker, the maker's star and "CITARO" / "Mercedes-Benz"
 // lettering are deleted; the destination display reads "811 Sisseln", the plate "AG · 4332".
 import { NodeIO } from '@gltf-transform/core';
@@ -55,10 +55,10 @@ const MATS = {   // the Postauto colours of prototype/bus.js BUS_COLOURS, as lin
   Roof: { base: [...lin(0xe6e8e8), 1], rough: 0.6 },
   Band: { base: [...lin(0x111418), 1], rough: 0.5 },
   Stripe: { base: [...lin(0xd6202a), 1], rough: 0.45 },
-  Glass: { base: [0.02, 0.025, 0.03, 0.55], rough: 0.05, alpha: true, extras: { glass: true } },
+  Glass: { base: [0.012, 0.014, 0.018, 0.8], rough: 0.05, alpha: true, doubleSided: true, extras: { glass: true } },   // tinted like real bus glass: the empty interior only shows faintly; double-sided, the windscreen faces inward
   LampHead: { base: [0.85, 0.85, 0.82, 1], rough: 0.15, emissive: [1, 0.95, 0.8], extras: { lamp: 'head' } },
   LampTail: { base: [0.45, 0.01, 0.01, 1], rough: 0.2, emissive: [0.8, 0.03, 0.02], extras: { lamp: 'tail' } },
-  Display: { base: [1, 1, 1, 1], rough: 0.4, emissive: [1, 1, 1] },
+  Display: { base: [1, 1, 1, 1], rough: 0.4, emissive: [1, 1, 1], extras: { overGlass: true } },   // drawn after the tinted glass: the LEDs shine through
   Plate: { base: [1, 1, 1, 1], rough: 0.5 },
   Metal: { base: [0.6, 0.6, 0.62, 1], rough: 0.4 },
 };
@@ -91,6 +91,7 @@ const role = {};
 for (const [name, r] of Object.entries(MATS)) {
   const m = doc.createMaterial(name).setBaseColorFactor(r.base).setMetallicFactor(0).setRoughnessFactor(r.rough);
   if (r.alpha) m.setAlphaMode('BLEND');
+  if (r.doubleSided) m.setDoubleSided(true);
   if (r.emissive) m.setEmissiveFactor(r.emissive);
   if (r.extras) m.setExtras(r.extras);
   if (textures[name]) { m.setBaseColorTexture(textures[name]); if (r.emissive) m.setEmissiveTexture(textures[name]); }

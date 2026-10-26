@@ -2457,7 +2457,7 @@ const gltfEntry = (id) => (GLTF_CARS[id] ??= { state: 'idle', scene: null, mats:
 // once per file: materials sorted by role (paint, glass, lamps), glass see-through, every standard material lit by the car sky map, geometry marked shared
 function prepareGltfScene(e, root) {
   const mats = new Set(); e.tris = 0;
-  root.traverse(o => { if (!o.isMesh) return; const m = o.material, g = o.geometry; if (!g.attributes.normal) g.computeVertexNormals(); e.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.userData.sharedGeo = true; mats.add(m); if (m.userData.glass) { m.transparent = true; m.depthWrite = false; o.userData.glass = true; } });
+  root.traverse(o => { if (!o.isMesh) return; const m = o.material, g = o.geometry; if (!g.attributes.normal) g.computeVertexNormals(); e.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.userData.sharedGeo = true; mats.add(m); if (m.userData.glass) { m.transparent = true; m.depthWrite = false; o.userData.glass = true; } if (m.userData.overGlass) { m.transparent = true; o.renderOrder = 1; } });   // #478: a display behind tinted glass is drawn after it (the glass writes no depth)
   e.mats = { all: [...mats], paint: [...mats].find(m => m.userData.paint) ?? null, head: [...mats].filter(m => lampRole(m.userData) === 'head'), tail: [...mats].filter(m => lampRole(m.userData) === 'tail') };
   for (const m of mats) if (m.isMeshStandardMaterial) { CAR_ENV_MATS.push(m); SHARED_CAR_MATS.add(m); }
   buildCarEnv(STYLES[styleKey]);
