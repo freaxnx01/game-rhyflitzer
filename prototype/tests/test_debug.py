@@ -181,7 +181,7 @@ def test_panel_shows_world_map_extent(server):
         br, page = open_page(p, server)
         lines = panel_lines(page)
         br.close()
-    assert "map 9.44 × 4.39 km · 41.5 km²" in lines, lines
+    assert "map 9.47 × 7.95 km · 75.3 km²" in lines, lines   # #47 moved the south edge to Flugplatz Schupfart
 
 
 @needs_world

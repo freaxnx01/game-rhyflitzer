@@ -88,7 +88,8 @@ def test_finishing_gives_a_rank_and_saves_the_best_time_left(server):
         r = text(page, "#result")
         assert "Rank" in r and "01:15" in r
         assert page.evaluate("() => +localStorage.getItem('mm.blitzBest')") == 75
-        assert "Best left 01:15" in text(page, "#best")
+        # hud() writes #best once per frame; a headless page draws only while something polls rAF
+        page.wait_for_function("() => document.getElementById('best').textContent.includes('Best left 01:15')", timeout=T)
         page.click("#blitzbtn")                                              # Retry restarts Blitz
         page.wait_for_function("() => document.getElementById('overlay').hidden", timeout=T)
         s = blitz(page)

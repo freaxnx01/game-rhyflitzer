@@ -18,13 +18,16 @@ GOLDEN_JS = """() => { const m = window.__mm, X = 1882.9, Z = -292.2, TH = Math.
 # [x, z, speed] recorded on main @ 6d29cb8 (unchanged code) -- the refactor must reproduce them to 1e-6.
 # nitro and kreisel re-recorded for #69 (compact.scale 1.3 -> 1.0, collision radius 1.69 -> 1.3 m): the smaller car
 # passes the first obstacle on the nitro straight and bounces off the Kreisel island 0.39 m later. The other five never touch anything.
+# gas, nitro and brakeReverse re-recorded for #353: #273 (PR#291, wheels on the drawn road at joints and junction
+# discs, surfH + discSurfH) moved the ground under the hand Bahnhofstrasse by a hair, 0.67 mm over the gas run
+# (found by git bisect, spec 2026-10-19). The other four reproduce bit for bit, so they stay as recorded.
 GOLDEN = {
-    "gas": [1803.968653733491, -292.2, 31.468025543467167],
-    "nitro": [1739.232868382405, -290.63114851912127, 46.21729428938969],
+    "gas": [1803.9693258088223, -292.2, 31.468011729494155],
+    "nitro": [1739.2332947215589, -290.6311891305134, 46.21726908969701],
     "turn": [1882.5171647865836, -267.454153955126, 21.604638849512714],
     "handbrake": [1873.6407168218582, -300.736676160143, 5.796862538598718],
     "coast": [1834.6722120583554, -292.2, 12.614475983585198],
-    "brakeReverse": [1916.5585419172364, -292.2, 13.990973001690463],
+    "brakeReverse": [1916.5563668400166, -292.2, 13.991231330343677],
     "kreisel": [1218.7183244804414, -127, 1.0311994537196747],
 }
 
