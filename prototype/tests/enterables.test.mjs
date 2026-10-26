@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   KINDS, GLOW_RANGE, PROMPT_RANGE, ENTERABLE_INFO, enterableEntries, visibleEnterables,
-  enterableName, nearestEntrance, enterPrompt, glowStrength, glowAnchor, GLOW_OUT, jumpRowsFor,
+  enterableName, nearestEntrance, enterPrompt, glowStrength, glowAnchor, GLOW_OUT, exitSpot, EXIT_OUT, jumpRowsFor,
 } from '../enterables.js';
 import { STRINGS } from '../strings.js';
 
@@ -116,6 +116,13 @@ test('glowAnchor_DoorWithHeading_StandsGlowOutMetresOutsideTheDoor', () => {
   const a = glowAnchor({ x: 10, z: 20, th: Math.PI / 2 });          // walking in = +z, so outside = -z
   assert.ok(Math.abs(a.x - 10) < 1e-9 && Math.abs(a.z - (20 - GLOW_OUT)) < 1e-9, JSON.stringify(a));
   assert.ok(GLOW_OUT >= 0.4, 'clear of the door leaf and the porch glass');
+});
+
+test('exitSpot_DoorWithHeading_StandsExitOutMetresOutsideFacingAway', () => {   // #474
+  const s = exitSpot({ x: 10, z: 20, th: Math.PI / 2 });           // walking in = +z: outside = -z, facing -z
+  assert.ok(Math.abs(s.x - 10) < 1e-9 && Math.abs(s.z - (20 - EXIT_OUT)) < 1e-9, JSON.stringify(s));
+  assert.ok(Math.abs(Math.cos(s.th)) < 1e-9 && Math.abs(Math.sin(s.th) + 1) < 1e-9, JSON.stringify(s));
+  assert.ok(EXIT_OUT > GLOW_OUT, 'clear of the door leaf, past the glow');
 });
 
 test('glowAnchor_NoHeading_AtTheDoor', () => {

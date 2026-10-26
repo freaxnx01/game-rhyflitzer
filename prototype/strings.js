@@ -156,6 +156,7 @@ const en = {
   chipEnterable: 'Enterable',
   enterableSoon: 'soon',
   keyEnter: 'on foot, at a glowing door: enter',
+  keyLeave: 'inside a building: straight out, in front of the entrance',
   // ---- the lift of an enterable building (#411) ----
   liftCall: 'E · call the lift',
   liftPadTitle: 'Lift',
@@ -507,6 +508,7 @@ const de = {
   chipEnterable: 'Begehbar',
   enterableSoon: 'bald',
   keyEnter: 'zu Fuss, an einer leuchtenden Tür: betreten',
+  keyLeave: 'in einem Gebäude: direkt hinaus, vor den Eingang',
   // ---- der Lift eines begehbaren Gebäudes (#411) ----
   liftCall: 'E · Lift rufen',
   liftPadTitle: 'Lift',
