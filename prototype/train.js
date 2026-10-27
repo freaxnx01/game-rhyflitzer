@@ -91,3 +91,89 @@ export function divergingApproaches(g, back, cfg = TRAIN_CFG) {
   }
   return out;
 }
+
+export const trainInput = (keys) => ({ throttle: keys.KeyW || keys.ArrowUp ? 1 : 0, brake: keys.KeyS || keys.ArrowDown ? 1 : 0 });
+
+// heavy and slow: steam up to top, a long coast, the brake stops and (held at rest) reverses up to reverseMax; throttle while reversing brakes first
+export function speedStep(v, input, dt, cfg = TRAIN_CFG) {
+  if (input.brake) return v > 0 ? Math.max(0, v - cfg.brake * dt) : Math.max(-cfg.reverseMax, v - cfg.accel * dt);
+  if (input.throttle) return v < 0 ? Math.min(0, v + cfg.brake * dt) : Math.min(cfg.top, v + cfg.accel * dt);
+  return v > 0 ? Math.max(0, v - cfg.coast * dt) : Math.min(0, v + cfg.coast * dt);
+}
+
+// the track ahead in the direction of motion, node by node: the choice at the first diverging switch, straight after it
+function* trackAhead(g, st, cfg) {
+  let cur = st, choice = st.choice || 0, total = 0;
+  for (let guard = 0; guard < 256; guard++) {
+    const nx = nodeAhead(g, cur);
+    total += nx.dist;
+    const br = branchesAt(g, nx.node, nx.arrived, wrap(outHeading(g, nx.arrived, cfg) + Math.PI), cfg);
+    yield { node: nx.node, dist: total, branches: br };
+    const pick = pickBranch(br, br.length > 1 ? choice : 0);
+    if (!pick) return;
+    if (br.length > 1) choice = 0;
+    cur = enter(g, cur, pick);
+  }
+}
+
+export function distToEnd(g, st, cfg = TRAIN_CFG) {
+  for (const n of trackAhead(g, st, cfg)) {
+    if (n.dist > cfg.endBrakeDist + cfg.endGap) return Infinity;
+    if (!n.branches.length) return n.dist;
+  }
+  return Infinity;
+}
+
+export function nextSwitch(g, st, cfg = TRAIN_CFG) {
+  for (const n of trackAhead(g, st, cfg)) {
+    if (n.dist > cfg.switchLook) return null;
+    if (n.branches.length > 1) return n;
+  }
+  return null;
+}
+
+// d >= 0 metres along the motion, across nodes (the choice applies at the first diverging switch and resets there)
+function advance(g, st, d, cfg) {
+  let cur = st;
+  for (let guard = 0; guard < 64; guard++) {
+    const nx = nodeAhead(g, cur), m = motion(cur);
+    if (d <= nx.dist) return { ...cur, s: cur.s + m * d };
+    d -= nx.dist;
+    const br = branchesAt(g, nx.node, nx.arrived, wrap(outHeading(g, nx.arrived, cfg) + Math.PI), cfg), pick = pickBranch(br, br.length > 1 ? cur.choice : 0);
+    if (!pick) return { ...cur, s: m > 0 ? g.edges[cur.edge].len : 0 };
+    cur = { ...enter(g, cur, pick), choice: br.length > 1 ? 0 : cur.choice };
+  }
+  return cur;
+}
+
+// one step: speed, then the buffer-stop cap (stop endGap metres before a dead end ahead, one 'trackEnd' event), then the move
+export function stepTrain(st, input, g, dt, cfg = TRAIN_CFG) {
+  let v = speedStep(st.v, input, dt, cfg);
+  const events = [], room = distToEnd(g, { ...st, v }, cfg) - cfg.endGap;
+  if (v !== 0 && room !== Infinity) v = Math.sign(v) * Math.min(Math.abs(v), Math.sqrt(2 * cfg.brake * Math.max(0, room)));
+  if (v !== 0 && room <= 0.05) {
+    if (!st.atEnd) events.push({ type: 'trackEnd' });
+    return { state: { ...st, v: 0, atEnd: true }, events };
+  }
+  const moved = advance(g, { ...st, v }, Math.min(Math.abs(v) * dt, Math.max(0, room)), cfg);
+  return { state: { ...moved, atEnd: v === 0 ? st.atEnd : false }, events };
+}
+
+export function poseAt(g, st) {
+  const e = g.edges[st.edge], s = Math.min(Math.max(st.s, 0), e.len);
+  let lo = 0, hi = e.cum.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (e.cum[mid] <= s) lo = mid; else hi = mid; }
+  const a = e.pts[lo], b = e.pts[hi], t = (s - e.cum[lo]) / (e.cum[hi] - e.cum[lo]);
+  return { x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, th: wrap(Math.atan2(b[1] - a[1], b[0] - a[0]) + (st.dir < 0 ? Math.PI : 0)) };
+}
+
+// chuffs (a smoke puff and a steam sound each) per second: chuffsPerRev per driving-wheel turn, an idle trickle at rest
+export function chuffEmit(acc, v, dt, cfg = TRAIN_CFG) {
+  const rate = Math.max(cfg.idleChuff, Math.abs(v) / (2 * Math.PI * cfg.wheelR) * cfg.chuffsPerRev), total = acc + rate * dt, n = Math.floor(total);
+  return { acc: total - n, n };
+}
+
+// keydown in the loco: Q/E the next switch, H the whistle, R back to Sisseln, C the camera; the car's own keys are swallowed
+const TRAIN_KEYS = { KeyQ: 'left', KeyE: 'right', KeyH: 'whistle', KeyR: 'reset', KeyC: 'camera' };
+const TRAIN_BLOCKED = new Set(['KeyF', 'KeyX', 'KeyU', 'KeyO', 'KeyI', 'KeyL', 'Digit1', 'KeyV', 'Enter', 'NumpadEnter']);
+export function trainKeyAction(code) { return TRAIN_KEYS[code] ?? (TRAIN_BLOCKED.has(code) ? 'block' : 'pass'); }
