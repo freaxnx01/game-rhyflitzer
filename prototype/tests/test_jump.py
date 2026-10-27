@@ -531,7 +531,7 @@ def test_enterable_chip_lists_the_register_and_composes_with_the_gemeinde_chip(s
         page.click("#jumpchips button[data-enterable]")
         listed = rows(page)
         assert sorted(r["n"] for r in listed) == ["Bodenackerstrasse 6c", "Plattform Sisslerfeld", "Reservoir H\u00fcbel"], listed
-        assert [r["n"] for r in listed if r.get("soon")] == [r["n"] for r in listed if r["n"] != "Reservoir H\u00fcbel"]
+        assert [r["n"] for r in listed if r.get("soon")] == ["Plattform Sisslerfeld"], listed   # #411 made the 6c enterable (ready); the secret Hübel never shows "soon"
         page.click('#jumpchips button[data-g="Sisseln"]')
         assert names(page) == ["Bodenackerstrasse 6c"]
         page.click("#jumpchips button[data-enterable]")
