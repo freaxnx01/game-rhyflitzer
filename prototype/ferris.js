@@ -31,3 +31,19 @@ export function legSegments(cfg = FERRIS) {
     legs.push({ a: [sa * cfg.frame.a, 0, sb * cfg.frame.b], b: [sa * cfg.frame.a, cfg.hub.y, 0], r: cfg.frame.r });
   return legs;
 }
+
+// where the wheel stands in a room ({ centre, frame: { f, v }, portal: { c }, y } as artemisPlacement takes it):
+// on the room centre, the axle along the room's f (the portal sees the wheel face-on); four `low` foot colliders
+// (the car stops on the floor, the helicopter / hovering walker pass over each top, index.html collide()).
+// The rim and gondolas have none: the lowest one hangs 6 m clear over the lawn.
+export function ferrisPlacement(room, cfg = FERRIS) {
+  const [cx, cz] = room.centre, { f, v } = room.frame, y = room.y;
+  const th = Math.atan2(f[1], f[0]);
+  const loc = (a, b) => [cx + f[0] * a + v[0] * b, cz + f[1] * a + v[1] * b];
+  const colliders = [];
+  for (const sa of [-1, 1]) for (const sb of [-1, 1]) {
+    const [x, z] = loc(sa * cfg.frame.a, sb * cfg.frame.b);
+    colliders.push({ x, z, hw: cfg.collider.hw, hd: cfg.collider.hw, c: f[0], s: f[1], h: y + cfg.hub.y + cfg.collider.over, low: true, ferris: 'foot' });
+  }
+  return { wheel: { x: cx, z: cz, th }, colliders };
+}

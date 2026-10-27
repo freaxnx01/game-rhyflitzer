@@ -28,3 +28,20 @@ test('legSegments_FourLegsFromTheFeetUpToTheAxleEnds_TwoFramesEitherSideOfTheWhe
   for (const l of legs) { assert.equal(l.a[1], 0); near(l.b[1], FERRIS.hub.y, 1e-9); near(l.b[2], 0, 1e-9, 'meet on the axle line'); near(Math.abs(l.a[0]), F.a, 1e-9); near(Math.abs(l.a[2]), F.b, 1e-9); assert.equal(l.r, F.r); }
   assert.deepEqual(new Set(legs.map(l => Math.sign(l.a[0]) + ',' + Math.sign(l.a[2]))).size, 4);
 });
+
+import { ferrisPlacement } from '../ferris.js';
+import { roomLayout, ROOM_Y } from '../rooms.js';
+
+const R6 = roomLayout(6), P = ferrisPlacement({ centre: R6.centre, frame: R6.frame, portal: R6.portal, y: ROOM_Y }, FERRIS);
+const toLocal = (R, x, z) => { const dx = x - R.centre[0], dz = z - R.centre[1]; return [dx * R.frame.f[0] + dz * R.frame.f[1], dx * R.frame.v[0] + dz * R.frame.v[1]]; };
+
+test('ferrisPlacement_WheelOnTheRoomCentre_AxleAlongTheRoomFrame', () => {
+  assert.deepEqual([P.wheel.x, P.wheel.z], R6.centre); near(P.wheel.th, Math.atan2(R6.frame.f[1], R6.frame.f[0]), 1e-9, 'turned to the room frame');
+});
+
+test('ferrisPlacement_FourLowFootCollidersAtTheFrameCorners_SolidToTheHub', () => {
+  assert.equal(P.colliders.length, 4);
+  for (const c of P.colliders) { assert.equal(c.low, true); assert.equal(c.ferris, 'foot'); near(c.hw, FERRIS.collider.hw, 1e-9); near(c.h, ROOM_Y + FERRIS.hub.y + FERRIS.collider.over, 1e-9); }
+  const spots = P.colliders.map(c => toLocal(R6, c.x, c.z).map(Math.round).join(','));
+  assert.deepEqual(spots.sort(), ['-8,-30', '-8,30', '8,-30', '8,30']);
+});
