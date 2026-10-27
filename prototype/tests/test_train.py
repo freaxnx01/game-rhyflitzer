@@ -82,3 +82,39 @@ def test_a_car_reset_ends_the_train_and_leaves_the_loco_where_it_stands(server):
     assert errors == []
     assert not after["t"]["on"] and not after["foot"], after
     assert math.hypot(after["t"]["x"] - before["x"], after["t"]["z"] - before["z"]) < 0.5 and after["t"]["kmh"] == 0, after
+
+
+@needs_world
+def test_q_before_a_switch_takes_the_left_branch_and_the_arrow_shows_it(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        board(page)
+        appr = page.evaluate("() => window.__mm.trainApproaches(30)")
+        a = next(x for x in appr if x["left"] != x["straight"])
+        page.evaluate("(a) => window.__mm.trainPut({ edge: a.edge, s: a.s, dir: a.dir })", a)
+        page.keyboard.press("q")
+        page.wait_for_function("() => document.getElementById('switcharrow').textContent === '←'", timeout=120000)   # the HUD updates in the next frame; headless draws < 1 fps
+        arrow = page.evaluate("() => document.getElementById('switcharrow').textContent")
+        chose = page.evaluate("() => window.__mm.train().choice")
+        page.evaluate("() => window.__mm.trainSim(12, ['KeyW'])")
+        t = page.evaluate("() => window.__mm.train()")
+        b.close()
+    assert errors == []
+    assert chose == -1 and arrow == "←", (chose, arrow)
+    assert a["left"] in t["trail"], (t, a)   # the first edge after the switch was the left branch
+    assert t["choice"] == 0, t
+
+
+@needs_world
+def test_r_puts_the_loco_back_at_sisseln(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        home = page.evaluate("() => window.__mm.train()")
+        board(page)
+        page.evaluate("() => window.__mm.trainSim(8, ['KeyW'])")
+        page.keyboard.press("r")
+        page.wait_for_function("() => window.__mm.train().kmh === 0", timeout=60000)
+        back = page.evaluate("() => window.__mm.train()")
+        b.close()
+    assert errors == []
+    assert back["on"] and math.hypot(back["x"] - home["x"], back["z"] - home["z"]) < 0.5, back
