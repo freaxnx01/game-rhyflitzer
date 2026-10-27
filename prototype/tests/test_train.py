@@ -156,3 +156,48 @@ def test_hold_b_shows_the_loco_from_the_front_and_looks_back_from_the_cab(server
     assert errors == []
     assert chase["ahead"] > 1 and chase["look"] < -0.5, chase
     assert cab["look"] < -0.5, cab
+
+
+@needs_world
+def test_d_on_the_turntable_turns_the_loco_round_and_w_drives_the_other_way(server):
+    """#496: at the start spot in Sisseln the loco stands on the turntable; D turns it 180 deg, then W runs against the old heading."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        board(page)
+        t0 = page.evaluate("() => window.__mm.train()")
+        page.keyboard.press("d")
+        page.wait_for_function("() => window.__mm.train().turning", timeout=60000)
+        page.keyboard.press("a")                                       # ignored while turning
+        mid = page.evaluate("() => window.__mm.trainSim(3)")
+        done = page.evaluate("() => window.__mm.trainSim(4)")
+        page.evaluate("() => window.__mm.trainSim(10, ['KeyW'])")
+        t2 = page.evaluate("() => window.__mm.train()")
+        table = page.evaluate("() => window.__mm.turntable()")
+        b.close()
+    assert errors == []
+    assert mid["turning"], mid
+    assert not done["turning"] and done["kmh"] == 0, done
+    assert abs(math.remainder(done["th"] - t0["th"] - math.pi, 2 * math.pi)) < 0.01, (t0["th"], done["th"])
+    moved = (t2["x"] - done["x"]) * math.cos(t0["th"]) + (t2["z"] - done["z"]) * math.sin(t0["th"])
+    assert moved < -20, moved                                          # forward now runs the other way
+    assert table["placed"] and math.hypot(table["x"] - t0["x"], table["z"] - t0["z"]) < 0.5, table
+
+
+@needs_world
+def test_a_away_from_the_turntable_only_shows_the_hint(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        board(page)
+        page.evaluate("() => window.__mm.trainSim(12, ['KeyW'])")
+        page.evaluate("() => window.__mm.trainSim(9.9, ['KeyS'])")   # 12 m/s down to ~0.1 (S held at rest would start reversing)
+        page.evaluate("() => window.__mm.trainSim(5)")                # coast the rest to a standstill, ~76 m from the turntable
+        t0 = page.evaluate("() => window.__mm.train()")
+        page.keyboard.press("a")
+        page.wait_for_function("() => window.__mm.toast().shown", timeout=60000)
+        hint = page.evaluate("() => window.__mm.toast().text")
+        t1 = page.evaluate("() => window.__mm.trainSim(7)")
+        b.close()
+    assert errors == []
+    assert t0["kmh"] == 0, t0
+    assert "turntable" in hint.lower() or "drehscheibe" in hint.lower(), hint
+    assert not t1["turning"] and abs(math.remainder(t1["th"] - t0["th"], 2 * math.pi)) < 1e-6, (t0, t1)
