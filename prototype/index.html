@@ -527,6 +527,9 @@ import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps } from './foot.js';
+import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches } from './train.js';   // #462
+import { LOCO, wheelTurn, rodOffset } from './loco.js';
+import { buildLoco } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
@@ -2543,7 +2546,7 @@ const SHADOW_STATE = { y: 0, pitch: 0, roll: 0, wet: false, air: 0 };
 function restShadow() { SHADOW_STATE.y = P.y; SHADOW_STATE.pitch = 0; SHADOW_STATE.roll = 0; SHADOW_STATE.wet = false; SHADOW_STATE.air = 0; }
 // a positive roll means the right side of the car is up, so the quad's local +z edge has to rise: rotation about +x lowers it, hence -roll.
 // On the turntable (#7) stepTurntable shows the car whatever V or the eye views say, so the shadow follows the car there too
-function drawShadow() { shadowMesh.visible = shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !CARSEL.on && !FOOT.on && !!CAM_VIEWS[camView].eye, hidden: !CARSEL.on && !FOOT.on && HUD.carHidden }); if (!shadowMesh.visible) return; const at = FOOT.on ? FOOT.car : P, shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(at.x + shift.x, SHADOW_STATE.y + SHADOW.lift, at.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -at.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }   // #202: on foot the shadow stays under the parked car
+function drawShadow() { shadowMesh.visible = !TRAIN.on && shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !CARSEL.on && !FOOT.on && !!CAM_VIEWS[camView].eye, hidden: !CARSEL.on && !FOOT.on && HUD.carHidden }); if (!shadowMesh.visible) return; const at = FOOT.on ? FOOT.car : P, shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(at.x + shift.x, SHADOW_STATE.y + SHADOW.lift, at.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -at.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }   // #202: on foot the shadow stays under the parked car
 // #126: the gull-wing doors open while the car waits on the start screen; written by stepDoors (loop), read by drawDoors (loop) only
 const DOOR_STATE = { open: 0, target: 0 };
 function stepDoors(dt) { DOOR_STATE.target = doorTarget(R.state, Math.hypot(P.vx, P.vz)); DOOR_STATE.open = stepDoor(DOOR_STATE.open, DOOR_STATE.target, dt); }
@@ -3096,6 +3099,17 @@ const SMOKE = { pool: [] };
   for (let i = 0; i < WRECK.smokeMax; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0x4a4a4a, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; s.userData = { age: -1, x: 0, y0: 0, z: 0 }; scene.add(s); SMOKE.pool.push(s); } }
 function emitPuff() { const s = SMOKE.pool.find(p => p.userData.age < 0); if (!s) return; const [ex, ey, ez] = VEH.engineAt ?? [VEH.collision.r, 1, 0], fx = Math.cos(P.th), fz = Math.sin(P.th); Object.assign(s.userData, { age: 0, x: P.x + VEH.scale * (ex * fx - ez * fz), z: P.z + VEH.scale * (ex * fz + ez * fx), y0: P.y + VEH.scale * ey }); }
 function stepSmoke(dt) { for (const s of SMOKE.pool) { const u = s.userData; if (u.age < 0) continue; u.age += dt; const a = smokeAt(u.age); if (!a) { u.age = -1; s.visible = false; continue; } s.position.set(u.x, u.y0 + a.rise, u.z); s.scale.setScalar(a.size); s.material.opacity = a.opacity; s.visible = true; } }
+// #462: the steam loco: a third mode beside FOOT and FLY. TRAIN.st is train.js's state on TRAIN.graph; P mirrors the loco's pose while on.
+// TRAIN.car keeps the parked car's pose (FOOT.car) while you drive, so Z out and back to the car works as from foot.
+const TRAIN = { on: false, st: null, y: 0, car: null, cam: 'chase', mesh: null, graph: null, home: null, acc: 0, puffs: 0, whistles: 0, ended: false };
+{ TRAIN.graph = buildTrackGraph(L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS]);
+  const st = L && L.anchors && L.anchors.landmarks && L.anchors.landmarks.stationSisseln, n = st && nearestOnGraph(TRAIN.graph, st.x, st.z);
+  if (n && n.dist < 200) { TRAIN.home = { edge: n.edge, s: n.s, dir: 1, v: 0, choice: 0, atEnd: false };
+    if (distToEnd(TRAIN.graph, TRAIN.home) !== Infinity) TRAIN.home.dir = -1;   // face away from a buffer stop near the station
+    TRAIN.mesh = buildLoco(); scene.add(TRAIN.mesh); placeLoco(TRAIN.home, null); } }
+function railY(x, z, prevY) { const ribbon = Math.max(terrainH(x, z), roadSurfH(x, z)) + 0.03; return prevY === null ? ribbon : Math.max(ribbon, groundH(x, z, prevY + 1.5)); }
+function placeLoco(st, prevY) { TRAIN.st = { ...st }; const p = poseAt(TRAIN.graph, st); TRAIN.y = railY(p.x, p.z, prevY); TRAIN.mesh.position.set(p.x, TRAIN.y, p.z); TRAIN.mesh.rotation.set(0, -p.th, 0); return p; }
+const locoBox = () => { const p = poseAt(TRAIN.graph, TRAIN.st); return parkedBox({ x: p.x, z: p.z, y: TRAIN.y, th: p.th }, { l: LOCO.length, w: LOCO.width, h: LOCO.height }); };
 // one hit → damage; strength = impactStrength(closing speed), computed by the caller BEFORE the bounce
 function crashHit(strength) { hurt(impactDamage(strength, VEH.mass)); }
 function hurt(amount) { if (WRECK_S.on || !(amount > 0)) return; P.dmg = Math.min(1, P.dmg + amount); if (isWrecked(P.dmg)) startWreck(); }
@@ -3118,7 +3132,7 @@ function stepWreck(dt) {
   }
   stepSmoke(dt);
 }
-function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
+function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endTrain(); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
@@ -3225,7 +3239,28 @@ function stepEnter() {
   else if (INT.prompt) { $('prompt').textContent = INT.prompt; }
   else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
 }
-function pressZ() { if (FOOT.on) getIn(); else getOut(); }
+function pressZ() { if (TRAIN.on) leaveTrain(); else if (FOOT.on) { if (nearLoco()) boardTrain(); else getIn(); } else getOut(); }
+// #462: the loco wins over the car only when it is in reach and nearer than the car
+function nearLoco() { if (!TRAIN.mesh) return false; const d = carReach(P.x, P.z, locoBox()); return d <= WALKER.enterReach && d < carReach(P.x, P.z, parked()); }
+function boardTrain() { TRAIN.car = FOOT.car; FOOT.on = false; if (document.pointerLockElement) document.exitPointerLock(); TRAIN.on = true; TRAIN.cam = 'chase'; syncTrainP(); toast(tr('trainIn')); }
+function leaveTrain() {
+  if (Math.abs(TRAIN.st.v) >= 0.5) { toast(tr('footStopFirst')); return; }
+  const p = poseAt(TRAIN.graph, TRAIN.st), side = p.th + Math.PI / 2, x = p.x + Math.cos(side) * (LOCO.width / 2 + 1.2), z = p.z + Math.sin(side) * (LOCO.width / 2 + 1.2);
+  TRAIN.on = false; Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: TRAIN.car }); TRAIN.car = null;
+  P.x = x; P.z = z; P.y = groundH(x, z, TRAIN.y + 1); P.vx = P.vz = P.vy = 0; P.th = p.th; toast(tr('trainOut'));
+}
+// resetCar (R in the car, J, the map, the beam, Start) leaves the loco where it stands and puts you back in the car
+function endTrain() { if (!TRAIN.on) return; TRAIN.on = false; TRAIN.car = null; TRAIN.st = { ...TRAIN.st, v: 0 }; }
+function syncTrainP() { const p = poseAt(TRAIN.graph, TRAIN.st); P.x = p.x; P.z = p.z; P.y = TRAIN.y; P.th = p.th; P.vx = Math.cos(p.th) * TRAIN.st.v; P.vz = Math.sin(p.th) * TRAIN.st.v; P.vy = 0; P.gas = 0; P.nitro = 0; }
+function stepTrainMode(dt) {
+  const r = stepTrain(TRAIN.st, trainInput(keys), TRAIN.graph, dt), turn = wheelTurn(Math.abs(r.state.v) * dt, LOCO.driverR) * Math.sign(r.state.v || 1);
+  placeLoco(r.state, TRAIN.y);
+  for (const w of TRAIN.mesh.userData.drivers) w.rotation.z -= turn;
+  for (const w of TRAIN.mesh.userData.small) w.rotation.z -= turn * LOCO.driverR / (w.position.y);
+  const a = -TRAIN.mesh.userData.drivers[0].rotation.z, [dx, dy] = rodOffset(a, LOCO.crank);
+  for (const rod of TRAIN.mesh.userData.rods) rod.position.set(rod.userData.home.x + dx, rod.userData.home.y + dy, rod.userData.home.z);
+  syncTrainP();
+}
 function canGetOut() { return $('overlay').hidden && !FLY.on && !WRECK_S.on && !LIFT_RIDE.busy && !CARSEL.on && !PAUSE.on && !P.air && P.splash === 0; }
 function getOut() {
   if (!canGetOut()) return;
@@ -3527,6 +3562,15 @@ window.__mm.nearestRoad = (x, z) => nearestJumpable(x, z);
 window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, alt: FLY.alt, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
 window.__mm.foot = () => ({ on: FOOT.on, hover: FOOT.hover, x: P.x, y: P.y, z: P.z, th: P.th, pitch: FOOT.pitch, car: FOOT.car && { ...FOOT.car }, carVisible: car.visible, carMesh: { x: car.position.x, z: car.position.z }, cam: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, ground: groundH(P.x, P.z, P.y) });
+// #462: the steam loco's state, as the tests see it
+window.__mm.train = () => { const p = TRAIN.st ? poseAt(TRAIN.graph, TRAIN.st) : { x: NaN, z: NaN, th: 0 };
+  return { placed: !!TRAIN.mesh, on: TRAIN.on, foot: FOOT.on, x: p.x, z: p.z, th: p.th, y: TRAIN.y, kmh: Math.abs(TRAIN.st?.v ?? 0) * 3.6, edge: TRAIN.st?.edge, s: TRAIN.st?.s,
+    choice: TRAIN.st?.choice ?? 0, atEnd: !!TRAIN.st?.atEnd, cam: TRAIN.cam, railDist: railDist(p.x, p.z), puffs: TRAIN.puffs, whistles: TRAIN.whistles,
+    next: TRAIN.st ? nextSwitch(TRAIN.graph, TRAIN.st) : null }; };
+window.__mm.trainSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepTrainMode(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.train(); };
+window.__mm.trainPut = (st) => { placeLoco({ v: 0, choice: 0, atEnd: false, ...st }, null); if (TRAIN.on) syncTrainP(); };
+window.__mm.trainApproaches = (back) => divergingApproaches(TRAIN.graph, back);
+window.__mm.resetCar = () => resetCar();
 window.__mm.walkways = (set) => { if (set) Object.assign(WALKS, set); return WALKS; };   // #412: the walkway set around the walker; tests put an interior's set in (empty = outdoors)
 // #411: the interior of 6c as the tests see it. updateInterior() first, so a headless read is fresh even between frames.
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
@@ -3724,12 +3768,19 @@ function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm
 // camera too, not only its target; with the car up on the hill the camera stays where it is
 function underCeiling(x, z, y) { const lid = LEVELS.isSurface() ? (caveInside() ? ceilingH(x, z) : null) : LEVELS.ceilingAt(x, z); return lid === null ? y : Math.min(y, lid - 1); }
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
+// #462: chase = behind the tender and up, looking ahead; cab = the driver's eye on the right-hand side
+function trainCamera(dt) {
+  const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx;
+  if (TRAIN.cam === 'cab') { const [ex, ey, ez] = TRAIN.mesh.userData.cab; camPos.set(P.x + fx * ex + rx * ez, P.y + ey, P.z + fz * ex + rz * ez); camera.position.copy(camPos); camera.lookAt(P.x + fx * 60 + rx * ez, P.y + ey - 0.6, P.z + fz * 60 + rz * ez); return; }
+  const target = new THREE.Vector3(P.x - fx * 14, P.y + 5, P.z - fz * 14);
+  camPos.lerp(target, 1 - Math.exp(-4 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 8, P.y + 2, P.z + fz * 8);
+}
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
   if (!v.drone || FLY.on || FOOT.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   /* #408: on foot too */ // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
-  car.visible = FOOT.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
-  if (FOOT.on) footCamera(); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
+  car.visible = FOOT.on || TRAIN.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
+  if (FOOT.on) footCamera(); else if (TRAIN.on) trainCamera(dt); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
     if (v.k === 'cockpit' && chairOn()) SWAY_S = stepSway(SWAY_S, { steer: WHEEL_STATE.yaw, speed }, dt);   // #463: the chair sways gently, camera only -- driving is unchanged
     camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2 + (v.k === 'cockpit' && chairOn() ? SWAY_S.pitch : 0), P.z + fz * 40 * s + rz * es);
     if (v.k === 'cockpit' && chairOn()) camera.rotateZ(SWAY_S.roll); }
@@ -4288,7 +4339,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);
