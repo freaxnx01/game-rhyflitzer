@@ -119,6 +119,8 @@ const en = {
   camCockpit: 'Cockpit',
   camBumper: 'Bumper',
   camDrone: 'Drone',
+  camTrainChase: 'behind the train',
+  camTrainCab: 'driver\'s cab',
   cpToast: (number, name) => `Checkpoint ${number}/5<br>${small(name)}`,
   // ---- surprise hunt (#108) ----
   hunt: 'Surprise hunt',
@@ -150,6 +152,9 @@ const en = {
   footStopFirst: 'Stop the car first',
   footNoRoom: 'No room to get out here',
   footTooFar: 'Walk back to the car to get in',
+  // ---- the steam locomotive (#462) ----
+  trainIn: 'All aboard! W steam, S brake, Q/E pick the next switch, H whistle, Z get out',
+  trainOut: 'Out of the locomotive',
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Enter',
   enterSoon: 'Not enterable yet',
@@ -471,6 +476,8 @@ const de = {
   camCockpit: 'Cockpit',
   camBumper: 'Stossstange',
   camDrone: 'Drohne',
+  camTrainChase: 'hinter dem Zug',
+  camTrainCab: 'Führerstand',
   cpToast: (number, name) => `Checkpoint ${number}/5<br>${small(name)}`,
   // ---- Überraschungsjagd (#108) ----
   hunt: 'Überraschungsjagd',
@@ -502,6 +509,9 @@ const de = {
   footStopFirst: 'Zuerst anhalten',
   footNoRoom: 'Hier ist kein Platz zum Aussteigen',
   footTooFar: 'Geh zurück zum Auto, um einzusteigen',
+  // ---- die Dampflok (#462) ----
+  trainIn: 'Einsteigen bitte! W Dampf, S bremsen, Q/E nächste Weiche wählen, H pfeifen, Z aussteigen',
+  trainOut: 'Aus der Lok ausgestiegen',
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Betreten',
   enterSoon: 'Noch nicht begehbar',
