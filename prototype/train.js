@@ -167,13 +167,34 @@ export function poseAt(g, st) {
   return { x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, th: wrap(Math.atan2(b[1] - a[1], b[0] - a[0]) + (st.dir < 0 ? Math.PI : 0)) };
 }
 
+// #496: the turntable at the loco's home in Sisseln. At rest within reach of the home spot, the loco turns round on the disc.
+export const TURNTABLE = { radius: 11, reach: 3, turnTime: 6 };
+
+export function onTurntable(g, st, home, cfg = TURNTABLE) {
+  const a = poseAt(g, st), b = poseAt(g, home);
+  return Math.abs(st.v) < 0.05 && Math.hypot(a.x - b.x, a.z - b.z) <= cfg.reach;
+}
+
+// 0 → π over turnTime, a smooth start and stop (smoothstep)
+export function turnAngle(t, cfg = TURNTABLE) {
+  const u = Math.min(1, Math.max(0, t / cfg.turnTime));
+  return Math.PI * u * u * (3 - 2 * u);
+}
+
+// on the disc centre (the home edge at home.s), at rest, facing opposite to st's heading -- st may stand on a neighbouring edge
+export function turnedState(g, st, home) {
+  const want = wrap(poseAt(g, st).th + Math.PI), fwd = poseAt(g, { ...home, dir: 1 }).th;
+  return { ...st, edge: home.edge, s: home.s, dir: Math.abs(wrap(fwd - want)) < Math.PI / 2 ? 1 : -1, v: 0, choice: 0, atEnd: false };
+}
+
 // chuffs (a smoke puff and a steam sound each) per second: chuffsPerRev per driving-wheel turn, an idle trickle at rest
 export function chuffEmit(acc, v, dt, cfg = TRAIN_CFG) {
   const rate = Math.max(cfg.idleChuff, Math.abs(v) / (2 * Math.PI * cfg.wheelR) * cfg.chuffsPerRev), total = acc + rate * dt, n = Math.floor(total);
   return { acc: total - n, n };
 }
 
-// keydown in the loco: Q/E the next switch, H the whistle, R back to Sisseln, C the camera; the car's own keys are swallowed
-const TRAIN_KEYS = { KeyQ: 'left', KeyE: 'right', KeyH: 'whistle', KeyR: 'reset', KeyC: 'camera' };
+// keydown in the loco: Q/E the next switch, H the whistle, R back to Sisseln, C the camera, A/D turn on the turntable (#496);
+// the car's own keys are swallowed
+const TRAIN_KEYS = { KeyQ: 'left', KeyE: 'right', KeyH: 'whistle', KeyR: 'reset', KeyC: 'camera', KeyA: 'turnLeft', KeyD: 'turnRight' };
 const TRAIN_BLOCKED = new Set(['KeyF', 'KeyX', 'KeyU', 'KeyO', 'KeyI', 'KeyL', 'Digit1', 'KeyV', 'Enter', 'NumpadEnter']);
 export function trainKeyAction(code) { return TRAIN_KEYS[code] ?? (TRAIN_BLOCKED.has(code) ? 'block' : 'pass'); }

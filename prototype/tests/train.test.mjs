@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TRAIN_CFG, buildTrackGraph, outHeading, branchesAt, pickBranch, nodeAhead, nearestOnGraph, divergingApproaches, wrap,
-  trainInput, speedStep, distToEnd, nextSwitch, stepTrain, poseAt, chuffEmit, trainKeyAction } from '../train.js';
+  trainInput, speedStep, distToEnd, nextSwitch, stepTrain, poseAt, chuffEmit, trainKeyAction,
+  TURNTABLE, onTurntable, turnAngle, turnedState } from '../train.js';
 
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 const TRUNK = [[0, 0], [50, 0], [100, 0]], STRAIGHT = [[100, 0], [200, 0]], RIGHT = [[100.8, 0.5], [150, 30], [200, 60]], LEFT = [[100, 0], [150, -20], [200, -40]];
@@ -153,4 +154,38 @@ test('trainKeyAction_SwitchWhistleResetCamera_CarKeysBlocked', () => {
   assert.equal(trainKeyAction('KeyH'), 'whistle'); assert.equal(trainKeyAction('KeyR'), 'reset'); assert.equal(trainKeyAction('KeyC'), 'camera');
   for (const k of ['KeyF', 'KeyX', 'KeyU', 'KeyO', 'KeyI', 'KeyL', 'Digit1', 'KeyV', 'Enter', 'NumpadEnter']) assert.equal(trainKeyAction(k), 'block', k);
   for (const k of ['KeyW', 'KeyS', 'KeyM', 'KeyJ', 'KeyT', 'Tab', 'F1', 'Escape']) assert.equal(trainKeyAction(k), 'pass', k);
+});
+
+test('onTurntable_AtRestNearHome_TrueMovingOrFar_False', () => {
+  const g = yGraph(), home = { edge: 0, s: 50, dir: 1, v: 0, choice: 0, atEnd: false };
+  assert.equal(onTurntable(g, { ...home, s: 52 }, home), true);
+  assert.equal(onTurntable(g, { ...home, s: 52, v: 1 }, home), false, 'moving');
+  assert.equal(onTurntable(g, { ...home, s: 54 }, home), false, '4 m off');
+});
+
+test('turnAngle_EasesFromZeroToPi_Clamped', () => {
+  close(turnAngle(0), 0, 1e-9); close(turnAngle(TURNTABLE.turnTime / 2), Math.PI / 2, 1e-9);
+  close(turnAngle(TURNTABLE.turnTime), Math.PI, 1e-9); close(turnAngle(99), Math.PI, 1e-9); close(turnAngle(-1), 0, 1e-9);
+  assert.ok(turnAngle(0.5) < Math.PI * 0.5 / TURNTABLE.turnTime, 'slow start');
+});
+
+test('turnedState_OnHomeEdge_CentredAtRestFacingBack', () => {
+  const g = yGraph(), home = { edge: 0, s: 50, dir: 1, v: 0, choice: 0, atEnd: false };
+  const t = turnedState(g, { ...home, s: 52, choice: 1, atEnd: true }, home);
+  assert.deepEqual({ edge: t.edge, s: t.s, dir: t.dir, v: t.v, choice: t.choice, atEnd: t.atEnd }, { edge: 0, s: 50, dir: -1, v: 0, choice: 0, atEnd: false });
+  close(Math.abs(wrap(poseAt(g, t).th - poseAt(g, home).th)), Math.PI, 1e-6, 'faces back');
+  const back = turnedState(g, t, home);
+  assert.equal(back.dir, 1, 'turning twice faces the start way again');
+});
+
+test('turnedState_FromNeighbouringEdge_StillFlipsTheHeading', () => {
+  const g = yGraph(), home = { edge: 0, s: 99, dir: 1, v: 0, choice: 0, atEnd: false };
+  const across = { edge: 1, s: 1, dir: 1, v: 0, choice: 0, atEnd: false };   // just past the Y node on the straight leg, facing east
+  const t = turnedState(g, across, home);
+  assert.equal(t.edge, 0); assert.equal(t.s, 99);
+  close(Math.abs(wrap(poseAt(g, t).th - poseAt(g, across).th)), Math.PI, 1e-6);
+});
+
+test('trainKeyAction_AD_TurnOnTheTurntable', () => {
+  assert.equal(trainKeyAction('KeyA'), 'turnLeft'); assert.equal(trainKeyAction('KeyD'), 'turnRight');
 });
