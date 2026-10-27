@@ -2,6 +2,7 @@
 // the rail top; the caller sets position and rotation.y = -th like the car. userData.drivers / small spin, userData.rods follow the crank.
 import * as THREE from 'three';
 import { LOCO } from './loco.js';
+import { TURNTABLE } from './train.js';
 
 const mat = (c, extra = {}) => new THREE.MeshLambertMaterial({ color: c, ...extra });
 function box(g, m, x0, x1, y0, y1, w) { const b = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, w), m); b.position.set((x0 + x1) / 2, (y0 + y1) / 2, 0); b.castShadow = true; g.add(b); return b; }
@@ -38,5 +39,25 @@ export function buildLoco() {
     r.position.set((L.drivers[0] + L.drivers[2]) / 2, L.rodY, side * (L.width / 2 - 0.2)); r.userData.home = r.position.clone(); g.add(r); rods.push(r);
   }
   g.userData = { drivers, small, rods, chimney: L.chimney, cab: L.cab };
+  return g;
+}
+
+// #496: the turntable -- a dark pit flush with the rail top, a ring rail on its rim and a turning bridge (userData.bridge) carrying the
+// track. The bridge is symmetric end to end, so it lines up with the track after any half turn.
+export function buildTurntable() {
+  const R = TURNTABLE.radius, g = new THREE.Group(), steel = mat(0x8a8d90), dark = mat(0x2a2724);
+  const pit = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.3, 48), mat(0x3b3631));
+  pit.position.y = -0.17; pit.receiveShadow = true; g.add(pit);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.4, 0.07, 6, 64), steel);
+  ring.rotation.x = Math.PI / 2; ring.position.y = -0.02; g.add(ring);
+  const bridge = new THREE.Group();
+  for (const side of [-1, 1]) {
+    const girder = new THREE.Mesh(new THREE.BoxGeometry(2 * R, 0.6, 0.3), dark);
+    girder.position.set(0, -0.33, side * 1.1); girder.castShadow = true; bridge.add(girder);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(2 * R, 0.08, 0.08), steel);
+    rail.position.set(0, -0.02, side * 0.72); bridge.add(rail);
+  }
+  g.add(bridge);
+  g.userData = { bridge };
   return g;
 }
