@@ -34,6 +34,8 @@ export const LANDMARK_INFO = [
   { name: 'Sprungschanze', gemeinde: 'Sisseln', anchor: 'jumpRamp', ramp: true },     // J puts the car on its run-up, not on a road (#80)
   { name: 'Gemeindehaus Sisseln', gemeinde: 'Sisseln', building: 171822808 },
   { name: 'Schulhaus Sisseln', gemeinde: 'Sisseln', building: 171822721 },
+  { name: 'Neues Schulhaus Sisseln', gemeinde: 'Sisseln', building: 282842878 },   // #507
+  { name: 'Volg Sisseln', gemeinde: 'Sisseln', building: 171822900 },               // #507: Hauptstrasse 17
 ];
 
 // #127: the second region. Positions from the Ehrendingen world (pipeline/anchors_ehrendingen.json, kept buildings).
