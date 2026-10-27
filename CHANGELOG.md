@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-10-27 21:26` **Sisseln** now has **all its buildings** (about 410 more houses, garages and sheds), not only those along the main roads. The **Volg** and the **Neues Schulhaus** are in the J list next to the old Schulhaus.
+
 ### Fixed
 
 - `2026-10-27 20:27` **Restart race** from a room below the **Reservoir Hübel** puts you back on the road at the start again instead of somewhere in the sky.
