@@ -544,7 +544,7 @@ import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, s
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
-import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, stepVoice } from './sound.js';
+import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, stepVoice, WHISTLE } from './sound.js';
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -3059,7 +3059,8 @@ const SFX = (() => {
     // #277: the lift's hum, a 55 Hz sawtooth through a low-pass for `dur` seconds
     hum(dur) { if (muted || holds.size) return; const a = ctx(), o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.value = 52; f.type = 'lowpass'; f.frequency.value = 220; g.gain.setValueAtTime(0, a.currentTime); g.gain.linearRampToValueAtTime(0.28, a.currentTime + 0.4); g.gain.setValueAtTime(0.28, a.currentTime + Math.max(0.4, dur - 0.5)); g.gain.linearRampToValueAtTime(0, a.currentTime + dur); o.connect(f); f.connect(g); g.connect(a.master); o.start(); o.stop(a.currentTime + dur + 0.05); },
     horn() { if (muted || holds.size) return; const a = ctx(); playHorn(a, a.master, VEH.sound.horn, a.currentTime); },
-    whistle() {},   // #462 stub until the sound task wires the two-tone whistle
+    whistle() { if (muted || holds.size) return; const a = ctx(); playHorn(a, a.master, WHISTLE, a.currentTime); },   // #462: the loco's two-tone whistle
+    chuff() { burst(0.16, 380, 0.9, 0.18); },   // #462: one chuff of the cylinders, a short low steam burst
     toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
     hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
     state() { return { ctx: ac ? ac.state : 'none', muted, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix } }; },
@@ -3114,6 +3115,12 @@ const TRAIN = { on: false, st: null, y: 0, car: null, cam: 'chase', mesh: null, 
 function railY(x, z, prevY) { const ribbon = Math.max(terrainH(x, z), roadSurfH(x, z)) + 0.03; return prevY === null ? ribbon : Math.max(ribbon, groundH(x, z, prevY + 1.5)); }
 function placeLoco(st, prevY) { TRAIN.st = { ...st }; const p = poseAt(TRAIN.graph, st); TRAIN.y = railY(p.x, p.z, prevY); TRAIN.mesh.position.set(p.x, TRAIN.y, p.z); TRAIN.mesh.rotation.set(0, -p.th, 0); return p; }
 const locoBox = () => { const p = poseAt(TRAIN.graph, TRAIN.st); return parkedBox({ x: p.x, z: p.z, y: TRAIN.y, th: p.th }, { l: LOCO.length, w: LOCO.width, h: LOCO.height }); };
+// #462: the loco's smoke: light grey puffs from the chimney, shorter-lived and quicker to rise than the wreck's
+const TRAIN_SMOKE = { smokeLife: 1.8, smokeRise: 2.4, smokeMax: 48, pool: [] };
+{ const tex = SMOKE.pool[0].material.map; for (let i = 0; i < TRAIN_SMOKE.smokeMax; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xd8d8d8, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; s.userData = { age: -1, x: 0, y0: 0, z: 0, dx: 0, dz: 0 }; scene.add(s); TRAIN_SMOKE.pool.push(s); } }
+function emitTrainPuff() { const s = TRAIN_SMOKE.pool.find(p => p.userData.age < 0); if (!s) return; const [cx, cy] = TRAIN.mesh.userData.chimney, fx = Math.cos(P.th), fz = Math.sin(P.th);
+  Object.assign(s.userData, { age: 0, x: P.x + fx * cx, z: P.z + fz * cx, y0: TRAIN.y + cy, dx: -fx * Math.abs(TRAIN.st.v) * 0.6, dz: -fz * Math.abs(TRAIN.st.v) * 0.6 }); TRAIN.puffs++; }
+function stepTrainSmoke(dt) { for (const s of TRAIN_SMOKE.pool) { const u = s.userData; if (u.age < 0) continue; u.age += dt; const a = smokeAt(u.age, TRAIN_SMOKE); if (!a) { u.age = -1; s.visible = false; continue; } u.x += u.dx * dt; u.z += u.dz * dt; s.position.set(u.x, u.y0 + a.rise, u.z); s.scale.setScalar(a.size); s.material.opacity = a.opacity; s.visible = true; } }
 // one hit → damage; strength = impactStrength(closing speed), computed by the caller BEFORE the bounce
 function crashHit(strength) { hurt(impactDamage(strength, VEH.mass)); }
 function hurt(amount) { if (WRECK_S.on || !(amount > 0)) return; P.dmg = Math.min(1, P.dmg + amount); if (isWrecked(P.dmg)) startWreck(); }
@@ -3273,6 +3280,8 @@ function stepTrainMode(dt) {
   const a = -TRAIN.mesh.userData.drivers[0].rotation.z, [dx, dy] = rodOffset(a, LOCO.crank);
   for (const rod of TRAIN.mesh.userData.rods) rod.position.set(rod.userData.home.x + dx, rod.userData.home.y + dy, rod.userData.home.z);
   syncTrainP();
+  const c = chuffEmit(TRAIN.acc, TRAIN.st.v, dt); TRAIN.acc = c.acc;
+  for (let i = 0; i < c.n; i++) { emitTrainPuff(); if (Math.abs(TRAIN.st.v) > 0.3) SFX.chuff(); }
 }
 function canGetOut() { return $('overlay').hidden && !FLY.on && !WRECK_S.on && !LIFT_RIDE.busy && !CARSEL.on && !PAUSE.on && !P.air && P.splash === 0; }
 function getOut() {
@@ -4355,7 +4364,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);

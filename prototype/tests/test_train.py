@@ -118,3 +118,18 @@ def test_r_puts_the_loco_back_at_sisseln(server):
         b.close()
     assert errors == []
     assert back["on"] and math.hypot(back["x"] - home["x"], back["z"] - home["z"]) < 0.5, back
+
+
+@needs_world
+def test_steam_smoke_rises_and_h_whistles(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        board(page)
+        page.evaluate("() => window.__mm.trainSim(6, ['KeyW'])")
+        t = page.evaluate("() => window.__mm.train()")
+        page.keyboard.press("h"); page.wait_for_timeout(200)
+        w = page.evaluate("() => window.__mm.train().whistles")
+        b.close()
+    assert errors == []
+    assert t["puffs"] > 5, t
+    assert w == 1, w
