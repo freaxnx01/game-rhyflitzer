@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gearAt, targetRpm, engineStep, engineMix, rotorMix, checkSound, RPM_RATE, ROTOR, stepVoice } from '../sound.js';
+import { gearAt, targetRpm, engineStep, engineMix, rotorMix, checkSound, RPM_RATE, ROTOR, stepVoice, WHISTLE } from '../sound.js';
 
 // a copy of VEHICLES.compact.sound in prototype/index.html (#14); test_sound.py checks the game's own table passes checkSound
 const SOUND = () => ({
@@ -131,4 +131,11 @@ test('stepVoice: a soft low thud, the pitch varies with the dice but stays in ra
   assert.ok(lo.freq < hi.freq); assert.ok(lo.freq >= 70 && hi.freq <= 110);
   assert.ok(lo.cutoff >= 500 && hi.cutoff <= 900);
   assert.ok(lo.gain > 0 && hi.gain <= 0.2);
+});
+
+// #462: the steam loco's whistle, two bright tones through playHorn
+test('WHISTLE_TwoTones_AboveTheCarHorn', () => {
+  assert.equal(WHISTLE.notes.length, 2);
+  for (const f of WHISTLE.notes) assert.ok(f > 500 && f < 1500, f);
+  assert.ok(WHISTLE.dur >= 1 && WHISTLE.gain > 0 && WHISTLE.gain <= 0.25);
 });
