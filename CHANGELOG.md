@@ -23,6 +23,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-27 11:10` **All aboard!** A black **steam locomotive** with a coal tender now stands at **Bahnhof Sisseln**. On foot, walk up to it and press <kbd>Z</kbd> to climb into the cab: <kbd>W</kbd> gives steam, <kbd>S</kbd> brakes and backs up, <kbd>Q</kbd> and <kbd>E</kbd> pick the way at the next switch (the arrow shows it), <kbd>H</kbd> blows the whistle and <kbd>C</kbd> changes the view. It puffs smoke in time with its wheels and runs the real railway along the Rhine; at the end of a siding it stops by itself. <kbd>Z</kbd> gets you out again, <kbd>R</kbd> brings it back to the station.
 - `2026-10-26 22:00` A new **star room** in the Reservoir Hübel hideout: the **Artemis II** rocket stands 98 m tall on its launch pad, and beside it the **Orion capsule** at life size on a stand. Drive round both, or fly over them. Both are built in the game from simple shapes.
 - `2026-10-26 19:56` **+ Build your own world…** opens the **region editor** in a **new tab**, so the game stays where you left it.
 - `2026-10-26 18:47` The **Regional Bus** now has a detailed **3D model**: a real twelve-metre low-floor city bus with its curved windscreen, doors, mirrors on stalks, roof hatches and twin rear tyres, painted in the same Postauto look (yellow, white roof, black window band, red stripe) with "811 Sisseln" on its displays. Model „Mercedes+CITARO+II+RATP" by moussasy.sy715 (Sketchfab), CC BY 4.0, repainted and without logos or lettering.
