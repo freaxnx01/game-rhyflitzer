@@ -3791,18 +3791,18 @@ function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm
 function underCeiling(x, z, y) { const lid = LEVELS.isSurface() ? (caveInside() ? ceilingH(x, z) : null) : LEVELS.ceilingAt(x, z); return lid === null ? y : Math.min(y, lid - 1); }
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
 // #462: chase = behind the tender and up, looking ahead; cab = the driver's eye on the right-hand side
-function trainCamera(dt) {
+function trainCamera(dt, s, snap) {   // #495: s = -1 while B is held: the chase cam in front of the loco, the cab looking back over the tender
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx;
-  if (TRAIN.cam === 'cab') { const [ex, ey, ez] = TRAIN.mesh.userData.cab; camPos.set(P.x + fx * ex + rx * ez, P.y + ey, P.z + fz * ex + rz * ez); camera.position.copy(camPos); camera.lookAt(P.x + fx * 60 + rx * ez, P.y + ey - 0.6, P.z + fz * 60 + rz * ez); return; }
-  const target = new THREE.Vector3(P.x - fx * 14, P.y + 5, P.z - fz * 14);
-  camPos.lerp(target, 1 - Math.exp(-4 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 8, P.y + 2, P.z + fz * 8);
+  if (TRAIN.cam === 'cab') { const [ex, ey, ez] = TRAIN.mesh.userData.cab; camPos.set(P.x + fx * ex + rx * ez, P.y + ey, P.z + fz * ex + rz * ez); camera.position.copy(camPos); camera.lookAt(P.x + fx * 60 * s + rx * ez, P.y + ey - 0.6, P.z + fz * 60 * s + rz * ez); return; }
+  const target = new THREE.Vector3(P.x - fx * 14 * s, P.y + 5, P.z - fz * 14 * s);
+  if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-4 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 8 * s, P.y + 2, P.z + fz * 8 * s);
 }
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
   if (!v.drone || FLY.on || FOOT.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   /* #408: on foot too */ // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
   car.visible = FOOT.on || TRAIN.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
-  if (FOOT.on) footCamera(); else if (TRAIN.on) trainCamera(dt); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
+  if (FOOT.on) footCamera(); else if (TRAIN.on) trainCamera(dt, s, snap); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
     if (v.k === 'cockpit' && chairOn()) SWAY_S = stepSway(SWAY_S, { steer: WHEEL_STATE.yaw, speed }, dt);   // #463: the chair sways gently, camera only -- driving is unchanged
     camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2 + (v.k === 'cockpit' && chairOn() ? SWAY_S.pitch : 0), P.z + fz * 40 * s + rz * es);
     if (v.k === 'cockpit' && chairOn()) camera.rotateZ(SWAY_S.roll); }

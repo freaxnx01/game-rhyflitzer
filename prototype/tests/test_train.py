@@ -133,3 +133,26 @@ def test_steam_smoke_rises_and_h_whistles(server):
     assert errors == []
     assert t["puffs"] > 5, t
     assert w == 1, w
+
+
+@needs_world
+def test_hold_b_shows_the_loco_from_the_front_and_looks_back_from_the_cab(server):
+    """#495: B held in the loco, like in the car (#65): the chase camera swings in front of the loco and looks back at it; the cab looks back over the tender."""
+    ahead = "(() => { const t = window.__mm.train(), c = window.__mm.cam(); return c.d[0] * Math.cos(t.th) + c.d[2] * Math.sin(t.th); })()"
+    look = "(() => { const t = window.__mm.train(), c = window.__mm.cam(); return c.look[0] * Math.cos(t.th) + c.look[2] * Math.sin(t.th); })()"
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        board(page)
+        page.wait_for_function(f"() => {ahead} < -1 && {look} > 0.5", timeout=120000)
+        page.keyboard.down("KeyB")
+        page.wait_for_function(f"() => window.__mm.cam().back === true && {ahead} > 1", timeout=120000)
+        chase = page.evaluate(f"() => ({{ ahead: {ahead}, look: {look} }})")
+        page.keyboard.press("c"); page.wait_for_function("() => window.__mm.train().cam === 'cab'", timeout=60000)
+        page.wait_for_function(f"() => {look} < -0.5", timeout=120000)
+        cab = page.evaluate(f"() => ({{ look: {look} }})")
+        page.keyboard.up("KeyB")
+        page.wait_for_function(f"() => window.__mm.cam().back === false && {look} > 0.5", timeout=120000)
+        b.close()
+    assert errors == []
+    assert chase["ahead"] > 1 and chase["look"] < -0.5, chase
+    assert cab["look"] < -0.5, cab

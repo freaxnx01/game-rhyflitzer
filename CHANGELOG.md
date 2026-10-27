@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-27 16:41` In the **steam loco**, holding **B** now shows it from the front, like looking back in the car; in the cab view you look back over the tender.
 - `2026-10-26 19:53` The **Regional Bus** has **tinted windows**: through the big windscreen you no longer look straight into the empty bus, and the "811 Sisseln" display still shines through clearly.
 - `2026-10-26 16:15` The **lift's keypad** takes a click again: the buttons only reacted to the number keys. Stepping into the cabin also gives you the mouse cursor back.
 - `2026-10-26 15:45` When you **get out** with Z the engine is switched off: you no longer hear it humming while you walk. Getting back in starts it again.
