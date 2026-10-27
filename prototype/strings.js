@@ -155,12 +155,15 @@ const en = {
   // ---- the steam locomotive (#462) ----
   trainIn: 'All aboard! W steam, S brake, Q/E pick the next switch, H whistle, Z get out',
   trainOut: 'Out of the locomotive',
+  trackEnd: 'End of the track',
+  steam: 'Steam',
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Enter',
   enterSoon: 'Not enterable yet',
   chipEnterable: 'Enterable',
   enterableSoon: 'soon',
   keyEnter: 'on foot, at a glowing door: enter',
+  keyTrain: 'in the steam loco (Z at Bahnhof Sisseln): W steam, S brake / reverse, Q · E the next switch left · right, H whistle, C view, R back to the station',
   keyLeave: 'inside a building: straight out, in front of the entrance',
   // ---- the lift of an enterable building (#411) ----
   liftCall: 'E · call the lift',
@@ -512,12 +515,15 @@ const de = {
   // ---- die Dampflok (#462) ----
   trainIn: 'Einsteigen bitte! W Dampf, S bremsen, Q/E nächste Weiche wählen, H pfeifen, Z aussteigen',
   trainOut: 'Aus der Lok ausgestiegen',
+  trackEnd: 'Gleisende',
+  steam: 'Dampf',
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Betreten',
   enterSoon: 'Noch nicht begehbar',
   chipEnterable: 'Begehbar',
   enterableSoon: 'bald',
   keyEnter: 'zu Fuss, an einer leuchtenden Tür: betreten',
+  keyTrain: 'in der Dampflok (Z am Bahnhof Sisseln): W Dampf, S bremsen / rückwärts, Q · E nächste Weiche links · rechts, H pfeifen, C Ansicht, R zurück zum Bahnhof',
   keyLeave: 'in einem Gebäude: direkt hinaus, vor den Eingang',
   // ---- der Lift eines begehbaren Gebäudes (#411) ----
   liftCall: 'E · Lift rufen',
