@@ -154,6 +154,8 @@ const en = {
   footTooFar: 'Walk back to the car to get in',
   // ---- the steam locomotive (#462) ----
   trainIn: 'All aboard! W steam, S brake, Q/E pick the next switch, H whistle, Z get out',
+  turnNotHere: 'Stop on the turntable at Sisseln to turn round',
+  turnDone: 'Loco turned round',
   trainOut: 'Out of the locomotive',
   trackEnd: 'End of the track',
   steam: 'Steam',
@@ -163,7 +165,7 @@ const en = {
   chipEnterable: 'Enterable',
   enterableSoon: 'soon',
   keyEnter: 'on foot, at a glowing door: enter',
-  keyTrain: 'in the steam loco (Z at Bahnhof Sisseln): W steam, S brake / reverse, Q · E the next switch left · right, H whistle, C view, R back to the station',
+  keyTrain: 'in the steam loco (Z at Bahnhof Sisseln): W steam, S brake / reverse, Q · E the next switch left · right, H whistle, C view, R back to the station, A · D turn on the turntable',
   keyLeave: 'inside a building: straight out, in front of the entrance',
   // ---- the lift of an enterable building (#411) ----
   liftCall: 'E · call the lift',
@@ -514,6 +516,8 @@ const de = {
   footTooFar: 'Geh zurück zum Auto, um einzusteigen',
   // ---- die Dampflok (#462) ----
   trainIn: 'Einsteigen bitte! W Dampf, S bremsen, Q/E nächste Weiche wählen, H pfeifen, Z aussteigen',
+  turnNotHere: 'Zum Wenden still auf der Drehscheibe in Sisseln halten',
+  turnDone: 'Lok gewendet',
   trainOut: 'Aus der Lok ausgestiegen',
   trackEnd: 'Gleisende',
   steam: 'Dampf',
@@ -523,7 +527,7 @@ const de = {
   chipEnterable: 'Begehbar',
   enterableSoon: 'bald',
   keyEnter: 'zu Fuss, an einer leuchtenden Tür: betreten',
-  keyTrain: 'in der Dampflok (Z am Bahnhof Sisseln): W Dampf, S bremsen / rückwärts, Q · E nächste Weiche links · rechts, H pfeifen, C Ansicht, R zurück zum Bahnhof',
+  keyTrain: 'in der Dampflok (Z am Bahnhof Sisseln): W Dampf, S bremsen / rückwärts, Q · E nächste Weiche links · rechts, H pfeifen, C Ansicht, R zurück zum Bahnhof, A · D wenden auf der Drehscheibe',
   keyLeave: 'in einem Gebäude: direkt hinaus, vor den Eingang',
   // ---- der Lift eines begehbaren Gebäudes (#411) ----
   liftCall: 'E · Lift rufen',
