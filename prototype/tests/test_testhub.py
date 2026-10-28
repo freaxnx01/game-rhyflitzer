@@ -201,3 +201,25 @@ def test_wreck_j_entry_lands_beside_the_wrecks_like_the_j_list(server):
         b.close()
     assert errors == []
     assert math.hypot(c["x"] - wreck[0], c["z"] - wreck[1]) < 15, (c, wreck)
+
+
+@needs_world
+def test_restart_race_from_the_eiffel_room_lands_on_the_surface_at_the_start(server):
+    """#504: "Restart race" in a room under the Hübel put the car at the start's x/z but kept the room level, so it hung in the sky."""
+    with sync_playwright() as p:
+        b, page, errors, _ = new_page(p, server, "?dev=1", block_world=False)
+        start(page)
+        page.wait_for_function("() => window.ggTesthub && window.ggTesthub.regs['hideout.tower']", timeout=30000)
+        start_pos = car(page)
+        go(page, "hideout.tower")
+        page.wait_for_function("() => window.__mm.level().id === 'eiffel'", timeout=60000)
+        page.keyboard.press("Escape")
+        page.click("#pauserestart")
+        page.wait_for_function("() => document.querySelector('#overlay').hidden", timeout=60000)
+        after, level = car(page), page.evaluate("() => window.__mm.level()")
+        ground = page.evaluate("([x, z]) => window.__mm.ground(x, z, -Infinity)", [after["x"], after["z"]])
+        b.close()
+    assert errors == []
+    assert level["id"] == "surface" and level["grid"] == "surface", level
+    assert math.hypot(after["x"] - start_pos["x"], after["z"] - start_pos["z"]) < 1, (after, start_pos)
+    assert abs(after["y"] - ground) < 1 and abs(after["y"] - start_pos["y"]) < 1, (after, ground, start_pos)
