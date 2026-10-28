@@ -188,3 +188,18 @@ def test_repo_anchors_place_flugplatz_schupfart_in_the_south_strip():
     _, new_edge = F.to_game(geo.DEFAULT_BBOX[2], geo.DEFAULT_BBOX[1])
     assert old_edge < r["z"] < new_edge and -1300 < r["x"] < -1150, r
     assert any(lb["t"] == "SCHUPFART" for lb in spec["labels"])
+
+
+def test_lonlat_polygon_area_resolves_to_game_points():
+    spec = {"areas": {"s": {"lonlat_polygon": [[7.98, 47.55], [7.99, 47.55], [7.99, 47.556]], "keep_all_buildings": True}}}
+    pts = anchors.resolve(spec, OsmData(), F)["areas"]["s"]
+    assert len(pts) == 3 and all(len(p) == 2 for p in pts)
+    x, z = F.to_game(7.99, 47.55)
+    assert pts[1] == [round(float(x), 1), round(float(z), 1)]
+
+
+def test_keep_all_boxes_accepts_polygon_areas():
+    spec = {"areas": {"p": {"lonlat_polygon": [[0, 0]], "keep_all_buildings": True}, "q": {"game_box": [0, 0, 10, 10], "keep_all_buildings": True}}}
+    shapes = anchors.keep_all_boxes(spec, {"areas": {"p": [[0.0, 0.0], [10.0, 0.0], [0.0, 10.0]], "q": [0.0, 0.0, 10.0, 10.0]}})
+    assert shapes[0].contains(shapely.Point(2, 2)) and not shapes[0].contains(shapely.Point(8, 8))
+    assert shapes[1].bounds == (0.0, 0.0, 10.0, 10.0)

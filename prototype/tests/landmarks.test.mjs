@@ -67,8 +67,8 @@ const BUILDINGS_46 = [
   ['Schulhaus Sisseln', 'Sisseln', 171822721],
 ];
 
-test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47 and the Rhine wrecks of #215', () => {
-  assert.equal(LANDMARK_INFO.length, 30);
+test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47 and the Rhine wrecks of #215 and the Neues Schulhaus and the Volg of #507', () => {
+  assert.equal(LANDMARK_INFO.length, 32);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
@@ -80,7 +80,8 @@ test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower
      ['Kursaal', 'Bad Säckingen', 91592556], ['Aqualon Therme', 'Bad Säckingen', 92039355],
      ['Bahnhof Eiken', 'Eiken', 199241726],
      ['Bodenackerstrasse 6c', 'Sisseln', 171822634], ['Bodenackerstrasse 10B', 'Sisseln', 171822943],
-     ['Gemeindehaus Sisseln', 'Sisseln', 171822808], ['Schulhaus Sisseln', 'Sisseln', 171822721]]);
+     ['Gemeindehaus Sisseln', 'Sisseln', 171822808], ['Schulhaus Sisseln', 'Sisseln', 171822721],
+     ['Neues Schulhaus Sisseln', 'Sisseln', 282842878], ['Volg Sisseln', 'Sisseln', 171822900]]);
   assert.deepEqual(LANDMARK_INFO.filter(l => l.gemeinde === 'Eiken').map(l => l.name), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Güggeli-Foodtruck']);
 });
 
