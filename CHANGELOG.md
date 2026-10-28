@@ -24,6 +24,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-28 16:25` New car **Tin Lizzie**, a Ford Model T look-alike: black with a brass radiator, two gears, 72 km/h, a raspy horn. Pick it in the car selection or with `?vehicle=modelt`. 3D model „Ford Model T Downloadable" by Libau Media (robinmikart), CC BY 4.0.
 - `2026-10-27 18:57` The **steam loco** can **turn round**: at its start spot in Sisseln it stands on a **turntable**; stop on it and press <kbd>A</kbd> or <kbd>D</kbd>, and the bridge swings the loco round in a few seconds, so <kbd>W</kbd> drives the other way.
 - `2026-10-27 11:10` **All aboard!** A black **steam locomotive** with a coal tender now stands at **Bahnhof Sisseln**. On foot, walk up to it and press <kbd>Z</kbd> to climb into the cab: <kbd>W</kbd> gives steam, <kbd>S</kbd> brakes and backs up, <kbd>Q</kbd> and <kbd>E</kbd> pick the way at the next switch (the arrow shows it), <kbd>H</kbd> blows the whistle and <kbd>C</kbd> changes the view. It puffs smoke in time with its wheels and runs the real railway along the Rhine; at the end of a siding it stops by itself. <kbd>Z</kbd> gets you out again, <kbd>R</kbd> brings it back to the station.
 - `2026-10-26 22:00` A new **star room** in the Reservoir Hübel hideout: the **Artemis II** rocket stands 98 m tall on its launch pad, and beside it the **Orion capsule** at life size on a stand. Drive round both, or fly over them. Both are built in the game from simple shapes.

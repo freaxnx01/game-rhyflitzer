@@ -70,3 +70,17 @@ def test_bus_model_is_credited_everywhere():
 def test_bus_model_is_committed_and_small():
     glb = ROOT / "prototype" / "assets" / "bus.glb"
     assert glb.exists() and 100_000 < glb.stat().st_size <= 800 * 1024
+
+
+def test_modelt_model_is_credited_everywhere():
+    """#521: "Ford Model T Downloadable" by Libau Media (robinmikart), CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/modelt.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "robinmikart" in t and "CC BY 4.0" in t and "Ford Model T Downloadable" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditModelT") == 2 and 'data-i18n="creditModelT"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_modelt_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "modelt.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 600 * 1024
