@@ -89,6 +89,7 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #liftpad button.on,#freightpad button.on{background:var(--sun);border-color:var(--ink);color:var(--ink)}
 #liftpad button:disabled,#freightpad button:disabled{opacity:.45;cursor:default}
 #freightpad .padgrid{grid-template-columns:96px}#freightpad button{width:96px}
+#freightpad{bottom:calc(60px + env(safe-area-inset-bottom,0px))}   /* #489: lower than the 6c pad, so the Top button stays on screen */
 #map{display:block;width:400px;height:200px;pointer-events:auto;touch-action:none;cursor:crosshair}
 @media (max-width:900px){#speedo{width:130px;height:130px}#map{width:240px;height:120px}#time{font-size:30px}#gear{display:none}#tl{min-width:140px}}
 #br.full{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);z-index:20}#br.full #map{width:min(92vw,calc((100vh - 80px) * 2));height:auto}
