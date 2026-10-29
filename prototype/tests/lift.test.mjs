@@ -180,3 +180,24 @@ test('doorAt_Ring2_OpensOnlyThereAfterTheRide', () => {
   const l = freight(); l.call('ring2'); l.step(0.05, at('top')); run(l, LIFT_TIMES.close + 12 + LIFT_TIMES.open + 0.1, at('ring2'));
   assert.equal(l.doorAt('ring2'), 1); assert.equal(l.doorAt('bottom'), 0); assert.equal(l.doorAt('top'), 0);
 });
+
+// #489: the keypad's keys, labels and buttons
+import { FREIGHT_STOPS, freightKeyStop, freightPadLabel, freightPadView } from '../lift.js';
+
+test('freightKeyStop_ZeroOneTwo_TopRowAndNumpad_NothingElse', () => {
+  assert.deepEqual(['Digit0', 'Digit1', 'Digit2', 'Numpad0', 'Numpad1', 'Numpad2'].map(freightKeyStop), ['top', 'bottom', 'ring2', 'top', 'bottom', 'ring2']);
+  for (const code of ['Digit3', 'Numpad9', 'KeyD', 'KeyR', 'Enter']) assert.equal(freightKeyStop(code), null, code);
+});
+
+test('freightPadLabel_GermanObenRing1Ring2_EnglishTop_FallbackEnglish', () => {
+  assert.deepEqual(FREIGHT_STOPS.map(s => freightPadLabel(s, 'de')), ['Oben', 'Ring 1', 'Ring 2']);
+  assert.deepEqual(FREIGHT_STOPS.map(s => freightPadLabel(s, 'en')), ['Top', 'Ring 1', 'Ring 2']);
+  assert.equal(freightPadLabel('top', 'fr'), 'Top');
+});
+
+test('freightPadView_OwnStopDisabled_ChoiceLit_AllDisabledDuringARide', () => {
+  const l = freight();
+  assert.deepEqual(freightPadView(l), [{ stop: 'top', disabled: true, on: false }, { stop: 'bottom', disabled: false, on: false }, { stop: 'ring2', disabled: false, on: false }]);
+  l.call('ring2'); assert.deepEqual(freightPadView(l).map(b => b.on), [false, false, true]);
+  l.step(0.05, at('top')); assert.deepEqual(freightPadView(l).map(b => [b.disabled, b.on]), [[true, false], [true, false], [true, true]]);
+});

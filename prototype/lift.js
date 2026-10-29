@@ -82,6 +82,13 @@ export function createLift(times = LIFT_TIMES, depth = { top: 0, bottom: times.f
   };
 }
 
+// #489: the keypad. 0 / 1 / 2 (top row or numpad) pick Oben / Ring 1 / Ring 2; any other key is not the pad's
+export function freightKeyStop(code) { const m = /^(?:Digit|Numpad)([0-2])$/.exec(code); return m ? FREIGHT_STOPS[Number(m[1])] : null; }
+export const FREIGHT_LABELS = { de: { top: 'Oben', bottom: 'Ring 1', ring2: 'Ring 2' }, en: { top: 'Top', bottom: 'Ring 1', ring2: 'Ring 2' } };
+export const freightPadLabel = (stop, lang) => (FREIGHT_LABELS[lang] || FREIGHT_LABELS.en)[stop];
+// the buttons, top down: disabled during a ride and at the cabin's own stop; lit = the ride's target, or the stop chosen while idle
+export const freightPadView = (lift) => FREIGHT_STOPS.map(stop => ({ stop, disabled: lift.busy || stop === lift.cabin, on: lift.busy ? stop === lift.target : stop === lift.chosen }));
+
 // the cab's shaft wall texture: how far offset.y moves in dt seconds. three.js samples uv + offset, so a growing offset.y slides the
 // pattern DOWN on screen; riding down the wall has to rise past the car (offset shrinks), riding up it has to sink (offset grows).
 export const SHAFT_SCROLL = 0.5;
