@@ -248,6 +248,7 @@ const en = {
   creditMini: '3D model „Mr Bean Car FBX" by Sxi.Sai (Sketchfab), CC BY 4.0; rescaled, recoloured, sticker removed',
   creditBus: '3D model „Mercedes+CITARO+II+RATP" by moussasy.sy715 (Sketchfab), CC BY 4.0; repainted, logos and lettering removed, wheels simplified',
   creditModelT: '3D model „Ford Model T Downloadable" by Libau Media (robinmikart, Sketchfab), CC BY 4.0; rescaled, new materials, tail lamp added',
+  creditPlattform: 'Plattform Sisslerfeld: measurements courtesy of Verein Plattform Sisslerfeld (construction Häring AG)',
   keyHelp: 'this help',
   // ---- pontoon bridge (#100) ----
   pontoonBuild: 'U · build a pontoon bridge',
@@ -613,6 +614,7 @@ const de = {
   creditMini: '3D-Modell „Mr Bean Car FBX" von Sxi.Sai (Sketchfab), CC BY 4.0; neu skaliert, umgefärbt, Aufkleber entfernt',
   creditBus: '3D-Modell „Mercedes+CITARO+II+RATP" von moussasy.sy715 (Sketchfab), CC BY 4.0; umlackiert, Logos und Schriftzüge entfernt, Räder vereinfacht',
   creditModelT: '3D-Modell „Ford Model T Downloadable" von Libau Media (robinmikart, Sketchfab), CC BY 4.0; neu skaliert, neue Materialien, Rücklicht ergänzt',
+  creditPlattform: 'Plattform Sisslerfeld: Masse freundlicherweise zur Verfügung gestellt vom Verein Plattform Sisslerfeld (Bau Häring AG)',
   keyHelp: 'diese Hilfe',
   // ---- Pontonbrücke (#100) ----
   pontoonBuild: 'U · Pontonbrücke bauen',
