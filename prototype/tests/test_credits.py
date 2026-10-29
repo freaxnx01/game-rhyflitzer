@@ -84,3 +84,17 @@ def test_modelt_model_is_credited_everywhere():
 def test_modelt_model_is_committed_and_small():
     glb = ROOT / "prototype" / "assets" / "modelt.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 600 * 1024
+
+
+def test_rally_model_is_credited_everywhere():
+    """"2013 Hyundai - i20 WRC" by D3NK, 3D Warehouse General Model License -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/rally.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "D3NK" in t and "General Model License" in t and "2013 Hyundai - i20 WRC" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditRally") == 2 and 'data-i18n="creditRally"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_rally_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "rally.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
