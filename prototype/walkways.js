@@ -1,6 +1,6 @@
 // #412: walkable surfaces above the ground -- slabs, stair ramps, walls with a height range, ceilings. Pure: no three.js, no DOM.
 // Every shape is a footprint in the colliders' frame { x, z, hw, hd, c, s } (hw along the heading (c, s), hd across) or, for a slab, a polygon
-// `poly: [[x, z], ...]`; a slab may have `holes: [rect, ...]`. A walkway set is { slabs, ramps, walls, ceilings }:
+// `poly: [[x, z], ...]`; a slab may have `holes: [rect or { poly }, ...]`. A walkway set is { slabs, ramps, walls, ceilings }:
 //   slab    { ..footprint, y }            flat floor, top surface at y
 //   ramp    { ..footprint, y0, y1 }       sloped floor, rises along the heading from y0 (at -hw) to y1 (at +hw)
 //   wall    { ..footprint, y0, y1, off? } blocks only a walker whose body overlaps [y0, y1]; `off: true` = open (a door)
@@ -27,7 +27,7 @@ export function inPoly(poly, x, z) {   // even-odd rule
   return inside;
 }
 
-const inFootprint = (o, x, z) => (o.poly ? inPoly(o.poly, x, z) : inRect(o, x, z)) && !(o.holes || []).some(h => inRect(h, x, z));
+const inFootprint = (o, x, z) => (o.poly ? inPoly(o.poly, x, z) : inRect(o, x, z)) && !(o.holes || []).some(h => inFootprint(h, x, z));
 
 // the ramp's surface height at (x, z), or null off the ramp
 export function rampY(r, x, z) {

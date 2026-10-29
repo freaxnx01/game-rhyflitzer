@@ -122,3 +122,9 @@ test('walkwayPush_Pushed_AwayFromTheWall', () => {
   const [hit] = walkwayPush(walk, 4.7, 0, 0, 0.35);
   assert.ok(hit.wx < 0 && hit.pen > 0);
 });
+
+test('walkwayFloor_SlabWithPolygonHole_NoFloorInTheHole', () => {
+  const walk = { ...emptyWalkways(), slabs: [{ poly: [[-5, -5], [5, -5], [5, 5], [-5, 5]], holes: [{ poly: [[-1, -1], [1, -1], [1, 1], [-1, 1]] }], y: 3 }] };
+  assert.equal(walkwayFloor(walk, 0, 0, 3), null, 'inside the polygon hole');
+  assert.equal(walkwayFloor(walk, 3, 0, 3), 3, 'on the slab');
+});

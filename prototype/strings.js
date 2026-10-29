@@ -162,6 +162,7 @@ const en = {
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Enter',
   enterSoon: 'Not enterable yet',
+  plattformOpen: 'The stair is open -- just walk in',
   chipEnterable: 'Enterable',
   enterableSoon: 'soon',
   keyEnter: 'on foot, at a glowing door: enter',
@@ -248,6 +249,7 @@ const en = {
   creditBus: '3D model „Mercedes+CITARO+II+RATP" by moussasy.sy715 (Sketchfab), CC BY 4.0; repainted, logos and lettering removed, wheels simplified',
   creditModelT: '3D model „Ford Model T Downloadable" by Libau Media (robinmikart, Sketchfab), CC BY 4.0; rescaled, new materials, tail lamp added',
   creditRally: '3D model „2013 Hyundai - i20 WRC" by D3NK (3D Warehouse), General Model License; rescaled, simplified, own livery, emblems removed',
+  creditPlattform: 'Plattform Sisslerfeld: measurements courtesy of Verein Plattform Sisslerfeld (construction Häring AG)',
   keyHelp: 'this help',
   // ---- pontoon bridge (#100) ----
   pontoonBuild: 'U · build a pontoon bridge',
@@ -532,6 +534,7 @@ const de = {
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Betreten',
   enterSoon: 'Noch nicht begehbar',
+  plattformOpen: 'Die Treppe ist offen -- einfach hineingehen',
   chipEnterable: 'Begehbar',
   enterableSoon: 'bald',
   keyEnter: 'zu Fuss, an einer leuchtenden Tür: betreten',
@@ -616,6 +619,7 @@ const de = {
   creditBus: '3D-Modell „Mercedes+CITARO+II+RATP" von moussasy.sy715 (Sketchfab), CC BY 4.0; umlackiert, Logos und Schriftzüge entfernt, Räder vereinfacht',
   creditModelT: '3D-Modell „Ford Model T Downloadable" von Libau Media (robinmikart, Sketchfab), CC BY 4.0; neu skaliert, neue Materialien, Rücklicht ergänzt',
   creditRally: '3D-Modell „2013 Hyundai - i20 WRC" von D3NK (3D Warehouse), General Model License; neu skaliert, vereinfacht, eigene Lackierung, Embleme entfernt',
+  creditPlattform: 'Plattform Sisslerfeld: Masse freundlicherweise zur Verfügung gestellt vom Verein Plattform Sisslerfeld (Bau Häring AG)',
   keyHelp: 'diese Hilfe',
   // ---- Pontonbrücke (#100) ----
   pontoonBuild: 'U · Pontonbrücke bauen',
