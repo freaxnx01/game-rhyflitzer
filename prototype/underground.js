@@ -7,6 +7,7 @@
 import { LIFT, liftColliders, ringStations } from './hideout.js';
 
 export const BELOW_Y = -600;
+export const BELOW2_Y = -1200;   // #489: ring 2 -- its 420 m rooms end 180 m under ring 1's floor
 export const RING = { r: 60, hw: 8, ceiling: 9, wall: 1 };
 export const EXIT = { from: LIFT.hd, to: RING.r - RING.hw, hw: 5, ceiling: 7 };
 export const SPOKE = { n: 8, len: 100, hw: 5, ceiling: 7, phase: Math.PI / 8, dark: [40, 60], switchIn: 52, switchOut: 48, ringEnd: 70, roomStart: 30 };
@@ -54,11 +55,11 @@ export function spokeAt(x, z, pad = 0) {
 }
 // the level the car should be on: the ring switches into a room past switchIn, a room switches back to the ring before
 // switchOut; a spoke foreign to the current room never switches it (only its own spoke, or the ring, can)
-export function belowLevelAt(current, x, z, roomIds) {
+export function belowLevelAt(current, x, z, roomIds, ringId = 'ring') {
   const sp = spokeAt(x, z);
   if (!sp) return current;
-  if (current === 'ring') return sp.s >= SPOKE.switchIn ? roomIds[sp.k] : 'ring';
-  if (roomIds[sp.k] === current) return sp.s <= SPOKE.switchOut ? 'ring' : current;
+  if (current === ringId) return sp.s >= SPOKE.switchIn ? roomIds[sp.k] : ringId;
+  if (roomIds[sp.k] === current) return sp.s <= SPOKE.switchOut ? ringId : current;
   return current;
 }
 // the arcs of a circle left open at each angle in gapAngles (each a half-angle wide), sorted and wrapped
@@ -72,8 +73,8 @@ function arcsWithGaps(gapAngles, half) {
 }
 // the ring's walls (inner, round the shaft; outer, round the spokes), the exit's side walls, each spoke's side walls and
 // end cap, and the lift's own shaft house on this level
-export function ringColliders() {
-  const [cx, cz] = LIFT.c, wall = RING.wall, h = BELOW_Y + RING.ceiling, out = [];
+export function ringColliders(y = BELOW_Y, stop = 'bottom') {
+  const [cx, cz] = LIFT.c, wall = RING.wall, h = y + RING.ceiling, out = [];
   const innerR = RING.r - RING.hw - wall / 2, outerR = RING.r + RING.hw + wall / 2;
   const innerHalf = Math.asin(Math.min(1, (EXIT.hw + wall) / innerR)), outerHalf = Math.asin(Math.min(1, (SPOKE.hw + wall) / outerR));
   const spokeAngles = Array.from({ length: SPOKE.n }, (_, k) => spokeFrame(k).a);
@@ -97,16 +98,16 @@ export function ringColliders() {
     const cap = SPOKE.ringEnd + 0.5;
     out.push({ x: fr.start[0] + fr.u[0] * cap, z: fr.start[1] + fr.u[1] * cap, hw: SPOKE.hw + wall, hd: wall / 2, c: fr.v[0], s: fr.v[1], h, secret: true });
   }
-  return [...out, ...liftColliders('bottom', BELOW_Y)];
+  return [...out, ...liftColliders(stop, y)];
 }
 // the ceiling over (x, z) on the ring level: the cabin, the exit strip, the ring annulus, a spoke, else null (rock)
-export function ringCeilingAt(x, z) {
+export function ringCeilingAt(x, z, y = BELOW_Y) {
   const [cx, cz] = LIFT.c, f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], v = [-f[1], f[0]], dx = x - cx, dz = z - cz;
   const along = dx * f[0] + dz * f[1], across = dx * v[0] + dz * v[1];
-  if (Math.abs(along) <= LIFT.hd + 1 && Math.abs(across) <= LIFT.hw + 1) return BELOW_Y + LIFT.height - 1;
-  if (along >= EXIT.from - 1 && along <= EXIT.to + 1 && Math.abs(across) <= EXIT.hw + 1) return BELOW_Y + EXIT.ceiling;
-  if (Math.abs(Math.hypot(dx, dz) - RING.r) <= RING.hw + RING.wall) return BELOW_Y + RING.ceiling;
-  if (spokeAt(x, z, RING.wall)) return BELOW_Y + SPOKE.ceiling;
+  if (Math.abs(along) <= LIFT.hd + 1 && Math.abs(across) <= LIFT.hw + 1) return y + LIFT.height - 1;
+  if (along >= EXIT.from - 1 && along <= EXIT.to + 1 && Math.abs(across) <= EXIT.hw + 1) return y + EXIT.ceiling;
+  if (Math.abs(Math.hypot(dx, dz) - RING.r) <= RING.hw + RING.wall) return y + RING.ceiling;
+  if (spokeAt(x, z, RING.wall)) return y + SPOKE.ceiling;
   return null;
 }
 // where the car appears when it rides down: the exit's ring end, facing out into the ring
@@ -116,12 +117,21 @@ export function ringSpawn() {
 }
 // one sign per room that has both a name and its object, hung at its spoke's mouth on the ring side -- unless the room is
 // kept as a surprise (signed: false)
-export function spokeSigns(rooms) {
+export function spokeSigns(rooms, y = BELOW_Y) {
   const out = [];
   rooms.forEach((room, k) => {
     if (!room.object || !room.name || room.signed === false) return;
     const f = spokeFrame(k);
-    out.push({ k, text: room.name, x: f.start[0] - f.u[0] * 0.6, z: f.start[1] - f.u[1] * 0.6, y: BELOW_Y + (SPOKE.ceiling + RING.ceiling) / 2, th: f.a + Math.PI });
+    out.push({ k, text: room.name, x: f.start[0] - f.u[0] * 0.6, z: f.start[1] - f.u[1] * 0.6, y: y + (SPOKE.ceiling + RING.ceiling) / 2, th: f.a + Math.PI });
   });
   return out;
 }
+
+// #489: the ring's number on its outer wall straight ahead of the exit (between spokes 7 and 0), facing the lift -- the first
+// thing in view as door B opens. w x h metres, centred half-way up the ring's wall.
+export function ringNumberSign(n, y) {
+  const [cx, cz] = LIFT.c, r = RING.r + RING.hw - 0.1, u = [Math.cos(LIFT.th), Math.sin(LIFT.th)];
+  return { text: String(n), x: cx + u[0] * r, z: cz + u[1] * r, y: y + RING.ceiling / 2, th: LIFT.th + Math.PI, w: 6, h: 6 };
+}
+// #489: ring 2's "space station" -- the concrete tinted steel grey, bluish light strips, fog and ambient (ring 1 keeps its warm cave)
+export const RING2_STYLE = { tint: '#a9b6c8', strip: '#cfe4ff', fog: '#0a0f16', hemiSky: '#d2e4ff', hemiGround: '#5f6b7c' };
