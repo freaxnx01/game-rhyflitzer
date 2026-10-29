@@ -41,16 +41,17 @@ test('enterableInfo_Entries_HaveTheContractFields', () => {
   assert.equal(ids.size, ENTERABLE_INFO.length, 'ids are unique');
 });
 
-test('enterableEntries_AllShippedEntriesNotReady', () => {
+test('enterableEntries_ShippedEntries_ReadyAsBuilt', () => {
   const es = resolved();
   assert.equal(es.length, 4);
   assert.deepEqual(es.map(e => e.id), ['bodenackerstrasse-6c', 'plattform-sisslerfeld', 'eiffel', 'atomium']);
-  assert.deepEqual(es.filter(e => !e.ready).map(e => e.id), ['plattform-sisslerfeld', 'eiffel', 'atomium'], 'everything but 6c, which #411 made enterable');
+  assert.deepEqual(es.filter(e => !e.ready).map(e => e.id), ['eiffel', 'atomium'], 'everything but 6c (#411) and the Plattform (#413)');
   assert.deepEqual(es.filter(e => e.secret).map(e => e.id), ['eiffel', 'atomium']);
   const six = es.find(e => e.id === 'bodenackerstrasse-6c');
   assert.equal(six.ready, true);
   assert.deepEqual([six.x, six.z], [5, 5], 'the building ring mean');
   const plat = es.find(e => e.id === 'plattform-sisslerfeld');
+  assert.equal(plat.ready, true);
   assert.deepEqual([plat.x, plat.z], [10, 20]);
 });
 
@@ -154,7 +155,7 @@ test('jumpRowsFor_FilterOff_ReturnsJumpEntriesFiltered', () => {
 test('jumpRowsFor_EnterableOn_ReturnsLandmarkRowsOfVisibleEntries', () => {
   const rows = jumpRowsFor(JUMP_ROWS, resolved(), { q: '', g: null, enterable: true }, false);
   assert.deepEqual(rows.map(r => r.n), ['Plattform Sisslerfeld', 'Reservoir Hübel', 'Bodenackerstrasse 6c'], 'J order');
-  assert.deepEqual(rows.map(r => r.soon), [true, undefined, undefined]);
+  assert.deepEqual(rows.map(r => r.soon), [undefined, undefined, undefined], 'no dimmed row: 6c (#411) and the Plattform (#413) are ready');
   assert.deepEqual([rows[0].x, rows[0].z, rows[0].j], [10, 20, [78.1, 861.4]], 'the J row, jumpable as before');
   assert.deepEqual([rows[1].x, rows[1].z], [-712.8, 1528.2], 'the hideout landmark row, once');
 });
@@ -200,6 +201,13 @@ test('enterables_Text_NamesNoFlatFloorOrSide', () => {
     assert.equal(texts.length, 5, `the ${lang} strings exist for the check`);
     for (const t of texts) assert.ok(!forbidden.test(t), `${lang} "${t}"`);
   }
+});
+
+test('strings_PlattformOpen_ExistsInBothLanguages', () => {
+  assert.equal(typeof STRINGS.en.plattformOpen, 'string');
+  assert.ok(STRINGS.en.plattformOpen.length > 0);
+  assert.equal(typeof STRINGS.de.plattformOpen, 'string');
+  assert.ok(STRINGS.de.plattformOpen.length > 0);
 });
 
 test('ENTERABLE_INFO_BodenackerstrasseSixC_IsReadyAndStillNamesOnlyTheAddress', () => {

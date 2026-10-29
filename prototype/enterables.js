@@ -12,7 +12,7 @@ export const ENTERABLE_INFO = [
   { id: 'bodenackerstrasse-6c', kind: 'building', name: { de: 'Bodenackerstrasse 6c', en: 'Bodenackerstrasse 6c' },
     gemeinde: 'Sisseln', landmark: 'Bodenackerstrasse 6c', building: 171822634, level: 'surface', ready: true, secret: false, entrances: [] },   // #411: enterable (the runtime fills entrances from the porch)
   { id: 'plattform-sisslerfeld', kind: 'tower', name: { de: 'Plattform Sisslerfeld', en: 'Plattform Sisslerfeld' },
-    gemeinde: 'Münchwilen', landmark: 'Plattform Sisslerfeld', anchor: 'plattform', level: 'surface', ready: false, secret: false, entrances: [] },
+    gemeinde: 'Münchwilen', landmark: 'Plattform Sisslerfeld', anchor: 'plattform', level: 'surface', ready: true, secret: false, entrances: [] },   // #413: the stair is open; the runtime fills entrances from plattformEntrance
   { id: 'eiffel', kind: 'hideout', name: { de: 'Eiffelturm', en: 'Eiffel Tower' }, gemeinde: 'Münchwilen',
     landmark: 'Reservoir Hübel', room: 'eiffel', level: 'eiffel', ready: false, secret: true, entrances: [] },
   { id: 'atomium', kind: 'hideout', name: { de: 'Atomium', en: 'Atomium' }, gemeinde: 'Münchwilen',

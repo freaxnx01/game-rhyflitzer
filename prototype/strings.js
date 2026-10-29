@@ -162,6 +162,7 @@ const en = {
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Enter',
   enterSoon: 'Not enterable yet',
+  plattformOpen: 'The stair is open -- just walk in',
   chipEnterable: 'Enterable',
   enterableSoon: 'soon',
   keyEnter: 'on foot, at a glowing door: enter',
@@ -528,6 +529,7 @@ const de = {
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Betreten',
   enterSoon: 'Noch nicht begehbar',
+  plattformOpen: 'Die Treppe ist offen -- einfach hineingehen',
   chipEnterable: 'Begehbar',
   enterableSoon: 'bald',
   keyEnter: 'zu Fuss, an einer leuchtenden Tür: betreten',
