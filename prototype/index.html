@@ -317,6 +317,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <small data-i18n="creditModelT" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditRally" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditBeetle" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
+    <small data-i18n="creditNewBeetle" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditPlattform" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
   <div id="jump" hidden><div id="jumptitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small id="jumphint">type to search · ↑↓ choose · Enter confirms · Esc closes</small></div>
   <div id="bl">
@@ -560,6 +561,7 @@ import { HATCHBACK, wheelPlan } from './hatchback.js';   // #236: the first glTF
 import { MODEL_T } from './modelt.js';   // #521: Tin Lizzie, a glTF car
 import { RALLY } from './rally.js';   // Rhy Rally, a glTF car
 import { BEETLE } from './beetle.js';   // Ladybug, a glTF car
+import { NEW_BEETLE } from './newbeetle.js';   // Rhy Bubble, a glTF car
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
@@ -2299,6 +2301,7 @@ const VEHICLES = {
   modelt: MODEL_T,   // #521: Tin Lizzie, a Ford Model T look-alike (prototype/assets/modelt.glb); the compact stands in until it is ready
   rally: RALLY,   // Rhy Rally, a 2013 i20 WRC look-alike in our own livery (prototype/assets/rally.glb); the compact stands in until it is ready
   beetle: BEETLE,   // Ladybug, a drag-strip VW Beetle look-alike (prototype/assets/beetle.glb); the compact stands in until it is ready
+  newbeetle: NEW_BEETLE,   // Rhy Bubble, a 1998 New Beetle look-alike, paintable (prototype/assets/newbeetle.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
