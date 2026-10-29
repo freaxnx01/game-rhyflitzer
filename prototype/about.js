@@ -3,7 +3,7 @@
 export const ABOUT_LINKS = Object.freeze({
   midtown: 'https://en.wikipedia.org/wiki/Midtown_Madness',   // the article only: its screenshot is not free, never copy it
   osm: 'https://www.openstreetmap.org/copyright',
-  swisstopo: 'https://www.swisstopo.admin.ch',
+  swisstopo: 'https://www.swisstopo.admin.ch/',
   plattform: 'https://www.plattform-sisslerfeld.com/',
   threejs: 'https://threejs.org',
   crashcat: 'https://github.com/isaac-mason/crashcat',
