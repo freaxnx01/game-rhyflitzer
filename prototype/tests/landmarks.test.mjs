@@ -200,7 +200,7 @@ test('#94 Bergsee, Hallenbad and Plattform are in the J table', () => {
   assert.equal(by('Hallenbad Sissila').gemeinde, 'Sisseln');
   assert.equal(by('Hallenbad Sissila').anchor, 'hallenbad');
   assert.equal(by('Plattform Sisslerfeld').gemeinde, 'Münchwilen');
-  assert.deepEqual(by('Plattform Sisslerfeld').jump, [78.1, 861.4]);
+  assert.deepEqual(by('Plattform Sisslerfeld').jump, [330.0, 418.6]);
   const names = landmarkEntries(LANDMARK_INFO, { hallenbad: { x: 1968, z: -374.2 } }, []).map(x => x.n);
   assert.ok(names.includes('Bergsee') && names.includes('Hallenbad Sissila'));
   assert.deepEqual(filterLandmarks(landmarkEntries(LANDMARK_INFO, {}, []), 'berg', null).map(x => x.n), ['Bergsee']);
@@ -225,9 +225,11 @@ test('#94 world sanity: the Bergsee point lies in the lake, the jump spots on th
   assert.equal(bergseeRoad.n, 'Am Bergsee');
   const plattformRoad = nearestRoad(w.roads, ...by('Plattform Sisslerfeld').jump);
   assert.ok(plattformRoad.d < 3, `Plattform jump spot is ${plattformRoad.d.toFixed(1)} m off the nearest road`);
-  assert.equal(plattformRoad.n, 'Breitenloh');
+  assert.equal(plattformRoad.n, 'Geuerenstrasse');
   const p = w.anchors.landmarks.plattform, j = by('Plattform Sisslerfeld').jump;
   assert.ok(Math.hypot(j[0] - p.x, j[1] - p.z) >= 15, 'Plattform jump spot is clear of the tower');
+  assert.ok(Math.hypot(p.x - 304.75, p.z - 427.08) < 0.5, 'the tower stands on Parzelle 1765 (#526)');
+  assert.equal(nearestRoad(w.roads, p.x, p.z).n, 'Geuerenstrasse', 'the nearest road to the tower is the Geuerenstrasse');
 });
 
 test('landmarkEntries and gemeindenOf take the region Gemeinden (#127)', () => {

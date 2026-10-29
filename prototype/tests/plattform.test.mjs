@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test prototype/tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance } from '../plattform.js';
+import { PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { WALKER } from '../foot.js';
 
@@ -92,4 +92,14 @@ test('plattformEntrance_OutsideTheDoorFacingIn', () => {
   const e = plattformEntrance(F), [dx, dz] = F.polar(0, PLATTFORM.entranceR);
   assert.ok(near(e.x, dx) && near(e.z, dz));
   assert.ok(near(Math.cos(e.th), -Math.cos(0.3)) && near(Math.sin(e.th), -Math.sin(0.3)), 'th points inward');
+});
+
+test('plattformYard_KslPlan_GravelRectAndSixParkingSpaces', () => {
+  const y = plattformYard(plattformFrame(0, 0, 0));
+  assert.equal(y.gravel.length, 4);
+  const us = y.gravel.map(p => p[0]), vs = y.gravel.map(p => p[1]);   // facing 0: u = x, v = z
+  assert.ok(near(Math.max(...us), PLATTFORM.yard.u1) && near(Math.min(...us), PLATTFORM.yard.u0));
+  assert.ok(near(Math.max(...vs) - Math.min(...vs), 26), 'the yard is 26 m wide');
+  assert.equal(y.parking.length, 6);
+  for (const s of y.parking) assert.equal(s.length, 4);
 });
