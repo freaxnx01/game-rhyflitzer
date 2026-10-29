@@ -317,6 +317,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <small data-i18n="creditMini" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditBus" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditModelT" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
+    <small data-i18n="creditEnterprise" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditRally" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditBeetle" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditNewBeetle" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
@@ -520,10 +521,11 @@ import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel } from './rooms.js';
+import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel } from './rooms.js';
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField } from './enterprise.js';   // #491
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
 import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
 import { translate } from './strings.js';
@@ -2665,7 +2667,7 @@ const RING2_LOOK = { ...RING_LOOK, fog: RING2_STYLE.fog, skyTop: RING2_STYLE.fog
 const BELOW_LOOKS = { ring: RING_LOOK, ring2: RING2_LOOK, room: ROOM_LOOK };
 function setBelowLook(kind) {   // 'surface' | 'ring' | 'ring2' | 'room'
   if (kind === 'surface') { BELOW.kind = 'surface'; const St = STYLES[styleKey]; scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; sunSprite.visible = !UWS.on; treesVisible(!CAVE_MODE.on); return; }   // as setCave(false): no style rebuild, no shader recompile
-  BELOW.kind = kind; BELOW.q = -1; fadeBelowLook(spokeDarkHere()); sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room';
+  BELOW.kind = kind; BELOW.q = -1; fadeBelowLook(spokeDarkHere()); sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room' && !(ROOM.layout && ROOM.layout.look === 'space');   // #491: no sun disc under the star dome
 }
 // #379: in a spoke the level's own look fades over to SPOKE_DARK (spokeDarkAt, underground.js) and back, instead of a black-out and a cut:
 // thick near-black fog that swallows whatever lies 15+ m ahead, light turned down but never off. Both switch points lie where the fade is
@@ -2677,7 +2679,7 @@ const BELOW = { kind: null, q: -1, fog: new THREE.FogExp2(0x000000, 0.001) };
 function spokeDarkHere() { const sp = LEVELS.isSurface() ? null : spokeAt(P.x, P.z); return sp ? spokeDarkAt(sp.s) : 0; }
 function fadeBelowLook(q) {
   if (!BELOW.kind || BELOW.kind === 'surface' || q === BELOW.q) return;
-  const base = BELOW_LOOKS[BELOW.kind], m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;
+  const base = BELOW.kind === 'room' && ROOM.layout && ROOM.layout.look === 'space' ? SPACE_LOOK : BELOW_LOOKS[BELOW.kind], m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;   // #491: the Enterprise room keeps its star-dome look
   // the fog's colour stays dark until the fog itself has thinned (else the thick fog half-way glows as a pale mist in the room's tunnel);
   // its density goes geometrically, so the exp2 fog clears evenly over the fade, not all at its end
   BELOW.fog.color.set(blendLook({ c: base.fog }, { c: SPOKE_DARK.fog }, 1 - Math.pow(1 - q, 4)).c); BELOW.fog.density = base.density * Math.pow(SPOKE_DARK.density / base.density, q);
@@ -2873,7 +2875,7 @@ function ensureRoom(k) {
   if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; }
   const R = ROOM.layouts[k], group = new THREE.Group(); ROOM.group = group; ROOM.layout = R; ROOM.built = k; group.visible = false;
   roomMeshes(group, R); scene.add(group);
-  for (const r of ROOMS) if (r.object) delete window.__mm.counts[r.object.key || 'eiffel'];
+  for (const L of ROOM.layouts) if (L.object) delete window.__mm.counts[L.object.key || 'eiffel'];   // #491: both rings, flat layouts
   if (R.object) window.__mm.counts[R.object.key || 'eiffel'] = 1;
   if (R.object && ROOM.models[k]) attachModel(k); else if (R.object && R.object.url && R.object !== EIFFEL && !modelState(k).started) loadModel(k);   // #355: the other models fetch when their spoke is entered
   group.visible = true; renderer.compile(scene, camera); group.visible = LEVELS.id === R.id;   // the room's programs exist before the doors open
@@ -2881,11 +2883,15 @@ function ensureRoom(k) {
 // the room's meshes (#277): lawn, gravel, two rows of trees, clouds, the portal in the tree ring, and -- only with an object -- the tower
 function roomMeshes(group, R) {
   const [cx, cz] = R.centre, y = R.y, a = R.portal.th;
+  if (R.look === 'space') roomSpace(group, R);   // #491: the holodeck grid and the star dome instead of the meadow
+  else {
   // lawn: one plane, the grass texture tiled every 8 m (TEX.grass is the surface's grass; reuse it), turned to the room's own frame
   const lawnTex = TEX.grass.clone(); lawnTex.wrapS = lawnTex.wrapT = THREE.RepeatWrapping; lawnTex.repeat.set(2 * R.half / 8, 2 * R.half / 8); lawnTex.needsUpdate = true;
   const lawn = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshLambertMaterial({ map: lawnTex, color: 0xb8d89a })); lawn.geometry.rotateX(-Math.PI / 2); lawn.geometry.rotateY(-a); lawn.position.set(cx, y, cz); group.add(lawn);
   for (const p of R.paths) group.add(flatStrip(p.pts, p.hw, y + 0.08, 0xcfc3ac));
-  roomTrees(group, R); if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); if (R.figure) roomFigure(group, R); if (R.artemis) roomArtemis(group, R); roomPortal(group, R); roomClouds(group, R);
+  roomTrees(group, R); roomClouds(group, R);
+  }
+  if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); if (R.figure) roomFigure(group, R); if (R.artemis) roomArtemis(group, R); roomPortal(group, R);
   // sunlit surfaces need no lights of their own: the style's hemisphere + sun (setBelowLook) light the room
 }
 
@@ -2952,6 +2958,24 @@ function roomClouds(group, R) {   // ~36 soft white sprites high above the room,
   const r = rng(279);
   for (let i = 0; i < 36; i++) { const a = r() * 2 * Math.PI, d = 700 + r() * 1700, s = 450 + r() * 500; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, opacity: 0.85 })); sp.scale.set(s, s * 0.45, 1); sp.position.set(R.centre[0] + Math.cos(a) * d, R.y + 650 + r() * 450, R.centre[1] + Math.sin(a) * d); group.add(sp); }
 }
+// #491: the holodeck -- one unlit plane with a 10 m grid tile (the lines glow by themselves), a brighter rim along the four walls, and the
+// star dome: a sphere round the room, drawn after the global sky (renderOrder), never fogged, its texture from starField() once per build
+function roomSpace(group, R) {
+  const [cx, cz] = R.centre, y = R.y, a = R.portal.th, { f, v } = R.frame, H = HOLODECK;
+  const tile = makeTex(H.tile, H.tile, (g, w, h) => { g.fillStyle = H.ground; g.fillRect(0, 0, w, h); g.fillStyle = H.sub; g.fillRect(0, h / 2, w, 1); g.fillRect(w / 2, 0, 1, h); g.fillStyle = H.line; g.fillRect(0, 0, w, 2); g.fillRect(0, 0, 2, h); });
+  tile.repeat.set(2 * R.half / H.cell, 2 * R.half / H.cell);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshBasicMaterial({ map: tile })); floor.geometry.rotateX(-Math.PI / 2); floor.geometry.rotateY(-a); floor.position.set(cx, y, cz); floor.userData.role = 'holodeck'; group.add(floor);
+  const e = R.half - H.rimW, corner = (s, t) => [cx + f[0] * s + v[0] * t, cz + f[1] * s + v[1] * t];
+  group.add(flatStrip([corner(-e, -e), corner(e, -e), corner(e, e), corner(-e, e), corner(-e, -e)], H.rimW, y + 0.05, H.rim));
+  const sky = starField(), tex = makeTex(2048, 1024, (g, w, h) => {
+    g.fillStyle = '#03040a'; g.fillRect(0, 0, w, h);
+    for (const c of sky.clouds) { const gr = g.createRadialGradient(c.u * w, c.v * h, 0, c.u * w, c.v * h, c.r * w); gr.addColorStop(0, c.colour + Math.round(c.alpha * 255).toString(16).padStart(2, '0')); gr.addColorStop(1, c.colour + '00'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+    g.fillStyle = `rgba(200,210,255,${sky.band.alpha})`; g.fillRect(0, (sky.band.v - sky.band.width / 2) * h, w, sky.band.width * h);
+    const tint = { white: '255,255,255', blue: '190,210,255', amber: '255,225,190' };
+    for (const s of sky.stars) { g.fillStyle = `rgba(${tint[s.tint]},${s.b})`; g.beginPath(); g.arc(s.u * w, s.v * h, s.r, 0, 2 * Math.PI); g.fill(); if (s.r >= 2.5) { const gr = g.createRadialGradient(s.u * w, s.v * h, 0, s.u * w, s.v * h, s.r * 4); gr.addColorStop(0, `rgba(${tint[s.tint]},0.5)`); gr.addColorStop(1, `rgba(${tint[s.tint]},0)`); g.fillStyle = gr; g.fillRect(s.u * w - s.r * 4, s.v * h - s.r * 4, s.r * 8, s.r * 8); } }
+  }, { alpha: true });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(1500, 32, 16), new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false })); dome.renderOrder = 1; dome.position.set(cx, y, cz); dome.userData.role = 'stardome'; group.add(dome);
+}
 // #201 / #277: the tower's placeholder -- the #102 primitives at 330 m with the legs on the model's feet (hideout.js describes it), one
 // mesh in the room group so the model can take its place. The solid feet are in the layout's colliders (room-eiffel.js)
 function roomTower(group, R) {
@@ -2968,7 +2992,7 @@ function roomTower(group, R) {
   group.add(mesh); ROOM.placeholder = mesh;
 }
 const modelState = (k) => (ROOM.states[k] ||= { loaded: false, placeholder: k === 0, started: false, error: null, tris: 0, height: null, base: null, material: null });
-function attachModel(k) { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeholder); ROOM.placeholder = null; } ROOM.group.add(ROOM.models[k]); modelState(k).loaded = true; ROOM.states[k].placeholder = false; }
+function attachModel(k) { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeholder); ROOM.placeholder = null; } ROOM.group.add(ROOM.models[k]); modelState(k).loaded = true; ROOM.states[k].placeholder = false; if (ROOM.layouts[k].object.lettering) roomLettering(k); }   // #491: the decals need the saucer
 // #201: the life-size model („Eiffel Tower" by Johnson Martin, CC BY 4.0), fetched once the car is near the Hübel: the loader and
 // the meshopt decoder come from three/addons (the importmap), every mesh gets one shared Eiffel-brown material, the whole is
 // scaled to EIFFEL.h and stood on the room's floor, and the placeholder goes. Offline or blocked, the placeholder stays.
@@ -2976,7 +3000,7 @@ function attachModel(k) { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeho
 // to its height; the Atomium keeps its own textured materials and is placed life size by its anchor (axis + ground, measured in the file).
 // #422: the Titanic's file has no normals (smaller, and welded so it could be simplified): flat shading takes them from the screen-space derivatives.
 async function loadModel(k) {
-  const O = ROOMS[k].object, E = modelState(k), name = ROOMS[k].name; E.started = true;
+  const RD = (k < 8 ? ROOMS : ROOMS2)[k % 8], O = RD.object, E = modelState(k), name = RD.name; E.started = true;   // #489 / #491: k is the flat index -- ring 2's room k is 8 + k
   console.info(`Loading the ${name} model from`, O.url);
   try {
     const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
@@ -2985,16 +3009,49 @@ async function loadModel(k) {
     let tris = 0;
     root.traverse(o => { if (!o.isMesh) return; if (mat) o.material = mat; if (O.flat) o.material.flatShading = true; o.castShadow = o.receiveShadow = false; o.userData.role = O.key || 'eiffel'; if (!O.flat && !o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
     const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), { x: cx, z: cz } = ROOM.layouts[k].tower, fl = ROOM.layouts[k].y;
-    const s = O.scale || O.h / size.y, [ax, ay, az] = O.anchor || [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2];
-    const v = ROOM.layouts[k].frame.v, th = O.alongV ? -Math.atan2(v[1], v[0]) : 0;   // #422: a ship's long axis (model x) lies along the room's cross axis; the anchor turns with it
-    root.scale.setScalar(s); root.rotation.y = th; root.position.set(cx - s * (ax * Math.cos(th) + az * Math.sin(th)), fl - s * ay - (O.draught || 0), cz - s * (-ax * Math.sin(th) + az * Math.cos(th)));   // #422: a ship sinks by its draught, to its waterline in the basin
+    let s;
+    if (O.hover !== undefined) {   // #491: a hovering ship, already in metres -- placed by its own numbers, its sections' glow boosted
+      const pl = enterprisePlacement(ROOM.layouts[k], O); s = 1; root.position.set(pl.x, pl.y, pl.z); root.rotation.y = -pl.th; root.userData.base = pl.y; root.userData.th = pl.th;
+      root.traverse(o => { if (o.isMesh && o.material.userData.glow) o.material.emissiveIntensity = O.glow[o.material.userData.glow] || 1; });
+    } else {
+      s = O.scale || O.h / size.y; const [ax, ay, az] = O.anchor || [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2];
+      const v = ROOM.layouts[k].frame.v, th = O.alongV ? -Math.atan2(v[1], v[0]) : 0;   // #422: a ship's long axis (model x) lies along the room's cross axis; the anchor turns with it
+      root.scale.setScalar(s); root.rotation.y = th; root.position.set(cx - s * (ax * Math.cos(th) + az * Math.sin(th)), fl - s * ay - (O.draught || 0), cz - s * (-ax * Math.sin(th) + az * Math.cos(th)));   // #422: a ship sinks by its draught, to its waterline in the basin
+    }
     ROOM.models[k] = root;
     Object.assign(E, { tris, height: O.anchor ? O.h : size.y * s, base: Math.max(size.x, size.z) * s, material: mat ? '#' + mat.color.getHexString() : null });
     if (ROOM.built === k) attachModel(k);
     console.info(`${name} model loaded: ${tris} triangles, ${E.height.toFixed(1)} m tall`);
   } catch (err) { console.warn(`${name} model not loaded:`, err); E.error = String(err); }
 }
-const loadEiffel = () => loadModel(0);
+ const loadEiffel = () => loadModel(0);
+// #491: „U.S.S. ENTERPRISE / NCC-1701-D" draped on the saucer, top and underside: one canvas text plane per line, its grid vertices dropped
+// (top) or lifted (underside) onto the saucer mesh by rays, 0.6 m off the hull; a vertex no ray hits keeps its neighbour's height. The planes
+// are children of the model root (they hover with it) and are built once per loaded model.
+function roomLettering(k) {
+  const root = ROOM.models[k], O = ROOM.layouts[k].object; if (root.userData.lettered) return; root.userData.lettered = true;
+  const saucer = root.getObjectByName('saucer'); if (!saucer) { console.warn('Enterprise: no saucer node, no lettering'); return; }
+  root.updateWorldMatrix(true, true); const ray = new THREE.Raycaster(), p = new THREE.Vector3(), local = new THREE.Vector3(), built = [];
+  for (const d of O.lettering) {
+    const px = Math.round(d.w * 6), py = Math.round(d.h * 6), tex = makeTex(px, py, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = `800 ${Math.round(h * 0.86)}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 2; g.strokeStyle = '#141a26'; g.strokeText(d.text, w / 2, h / 2, w * 0.96); g.fillStyle = '#d8dfe9'; g.fillText(d.text, w / 2, h / 2, w * 0.96); }, { alpha: true });
+    const geo = new THREE.PlaneGeometry(d.w, d.h, 24, 4), F = letteringFrame(d.side); geo.rotateX(F.rx); geo.rotateY(F.ry); geo.translate(d.x, 0, 0);
+    const pos = geo.attributes.position, up = d.side === 'top', dir = new THREE.Vector3(0, up ? -1 : 1, 0); let last = up ? O.h : 0;
+    for (let i = 0; i < pos.count; i++) {
+      local.set(pos.getX(i), up ? 300 : -5, pos.getZ(i)); root.localToWorld(p.copy(local)); ray.set(p, dir.clone().transformDirection(root.matrixWorld)); ray.far = 320;
+      const hit = ray.intersectObject(saucer, false)[0]; if (hit) last = root.worldToLocal(hit.point.clone()).y;
+      pos.setY(i, last + (up ? 0.6 : -0.6));
+    }
+    pos.needsUpdate = true; geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.renderOrder = 2; m.userData.role = 'lettering'; root.add(m); built.push(m);
+  }
+  root.userData.lettering = built.length;
+}
+// #491: the hover bob -- the model root rides a slow sine over its placed height (enterprise.js); the decals are its children and ride along
+function stepEnterprise(dt) {
+  const k = ROOM.built; if (k === null) return; const O = ROOM.layouts[k].object;
+  if (!O || O.hover === undefined || !ROOM.models[k] || !modelState(k).loaded) return;
+  const root = ROOM.models[k]; root.userData.t = (root.userData.t || 0) + dt; root.position.y = root.userData.base + enterpriseHover(root.userData.t, O);
+}
 // #201: the per-quadrant footprint of the loaded model's vertices below 20 m, relative to the tower centre (to measure EIFFEL.feet)
 function eiffelFootprints() {
   const model = ROOM.models[0]; if (!model) return null;
@@ -3008,6 +3065,11 @@ window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.
 window.__mm.fries = () => ROOM.figure && ROOM.group && ROOM.group.children.some(o => o.children.some(c => c.userData.role === 'fries')) ? { ...ROOM.figure, built: ROOM.built } : null;   // #451: the figure of the room built now
 window.__mm.artemis = () => ROOM.artemis && ROOM.built === ROOM.artemis.built ? { ...ROOM.artemis } : null;   // #488: the Artemis stack and the capsule of the room built now
 window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
+window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
+  if (!ROOM.states[8] || ROOM.built !== 8) return null;
+  const m = ROOM.models[8], glow = {}; if (m) m.traverse(o => { if (o.isMesh && o.material.userData.glow) glow[o.material.userData.glow] = o.material.emissiveIntensity; });
+  return { ...ROOM.states[8], hover: ENTERPRISE.hover, length: ENTERPRISE.length, y: m ? m.position.y : null, th: m ? m.userData.th : null, lettering: m ? m.userData.lettering || 0 : 0, look: ROOM.layout.look, sun: sun.intensity, hemi: hemi.intensity, sunDisc: sunSprite.visible, dome: ROOM.group.children.some(o => o.userData.role === 'stardome'), grid: ROOM.group.children.some(o => o.userData.role === 'holodeck'), glow: m ? glow : null };
+};
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
 // #277 / #361: the drive-through freight lift. LIFT_RIDE is the lift.js state machine driven by the car in the cabin; the
@@ -4478,7 +4540,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);
