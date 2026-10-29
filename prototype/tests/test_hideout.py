@@ -86,11 +86,11 @@ LIFT_FAST = "() => window.__mm.liftTimes({dwell: 0.1, close: 0.1, ride: 0.4, ope
 RIDE_DONE = "(lvl) => window.__mm.lift().level === lvl && window.__mm.lift().phase === 'idle'"
 
 
-def enter_cabin(page, h, level):
+def enter_cabin(page, h, level, times=LIFT_FAST):
     """Make the lift fast and stand the car at rest in the cabin (the loop's own frames then count the dwell). `level` is the level it
     rides to: down ('ring') from the tunnel side, up ('surface') from the ring side. The car first steps off the cabin on the level it is
     on, so the lift is armed again after an earlier ride."""
-    page.evaluate(LIFT_FAST)
+    page.evaluate(times)
     lx, lz = h["lift"]["c"]; th = h["lift"]["th"]; d = 30 if level == "surface" else -30; y = -600 if level == "surface" else h["floor"]
     page.evaluate(f"() => window.__mm.sim({lx + math.cos(th) * d}, {lz + math.sin(th) * d}, {th}, 0, 0.1, [], {y})")
     page.evaluate(f"() => window.__mm.place({lx}, {lz}, {th if level == 'ring' else th + math.pi})")
@@ -869,18 +869,18 @@ def test_t1_fades_between_day_and_cave_without_a_cut_both_ways(server):
 # ---------- #361: the tunnel ring, the star of rooms, the dark switch ----------
 
 
-def into_room(page, k, room_id):
+def into_room(page, k, room_id, y=-600):
     """From the ring level: drive from 45 m into spoke k past the switch (s 52)."""
     s = page.evaluate(f"() => window.__mm.spoke({k}, 45)")
-    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th']}, 10, 2, ['KeyW'], -600)")
+    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th']}, 10, 2, ['KeyW'], {y})")
     page.wait_for_function(f"() => window.__mm.below().level === '{room_id}'", timeout=120000)
 
 
-def back_to_ring(page, k):
+def back_to_ring(page, k, ring="ring", y=-600):
     """From room k at 60 m into its spoke: drive back out past the switch (s 48)."""
     s = page.evaluate(f"() => window.__mm.spoke({k}, 60)")
-    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th'] + math.pi}, 10, 2, ['KeyW'], -600)")
-    page.wait_for_function("() => window.__mm.below().level === 'ring'", timeout=120000)
+    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th'] + math.pi}, 10, 2, ['KeyW'], {y})")
+    page.wait_for_function(f"() => window.__mm.below().level === '{ring}'", timeout=120000)
 
 
 @needs_world
@@ -1122,3 +1122,59 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
     assert info["below"]["built"] == 2 and info["below"]["level"] == "room2" and info["below"]["object"] is True and info["counts"].get("artemis") == 1 and "eiffel" not in info["counts"], info
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("core", "mount", "capsule")), push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("beside", "ring")), push
+
+
+# ---------- #489: ring 2 -- the keypad's ride, the space-station look, the walker in the cabin ----------
+
+FREIGHT_SLOW_DWELL = "() => window.__mm.liftTimes({dwell: 30, close: 0.1, ride: 0.4, open: 0.1})"
+PAD_SHOWN = "() => !document.getElementById('freightpad').hidden"
+
+
+@needs_world
+def test_ring2_keypad_rides_down_to_the_space_ring_and_into_a_1000m_room(server):
+    """#489: keypad Oben / Ring 1 / Ring 2; key 2 rides to ring 2 (-1200) without the 30 s dwell; steel-blue, the "2"; room r2room0."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server, "localStorage.setItem('gg-lang', 'de')")
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL)
+        page.wait_for_function(PAD_SHOWN, timeout=120000)
+        labels = page.evaluate("() => [...document.querySelectorAll('#freightpad button')].map(b => [b.textContent, b.disabled])")
+        page.keyboard.press("Digit2")
+        page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        lift = page.evaluate("() => window.__mm.lift()"); below = page.evaluate("() => window.__mm.below()")
+        car = page.evaluate("() => window.__mm.car()")
+        into_room(page, 0, "r2room0", -1200)
+        room = page.evaluate("() => ({ below: window.__mm.below(), lvl: window.__mm.level() })")
+        back_to_ring(page, 0, "ring2", -1200)
+        ring = page.evaluate("() => window.__mm.below().level")
+        br.close()
+    assert errors == []
+    assert labels == [["Oben", True], ["Ring 1", False], ["Ring 2", False]], labels
+    assert lift["cabin"] == "ring2" and lift["level"] == "ring2" and lift["door"] > 0.9, lift
+    assert abs(car["y"] + 1200) < 1.0, car
+    assert below["kind"] == "ring2" and below["ring2"] is True and below["number"] is True and below["fog"] == "#0a0f16", below
+    assert room["below"]["level"] == "r2room0" and room["below"]["built"] == 8 and room["below"]["object"] is False, room
+    assert abs(room["lvl"]["y"] + 1200) < 1.0 and ring == "ring2", (room, ring)
+
+
+@needs_world
+def test_ring2_on_foot_a_click_on_top_rides_up_and_the_parked_car_comes_along(server):
+    """#489: in ring 2 (arrived by car, so disarmed) a walker in the cabin clicks Top: up, the car parked 6 m outside door A."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server, "localStorage.setItem('gg-lang', 'en')")
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL)
+        page.wait_for_function(PAD_SHOWN, timeout=120000)
+        page.keyboard.press("Digit2"); page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        page.keyboard.press("KeyZ"); page.wait_for_function("() => window.__mm.foot().on", timeout=60000)
+        page.wait_for_function(PAD_SHOWN, timeout=60000)
+        labels = page.evaluate("() => [...document.querySelectorAll('#freightpad button')].map(b => b.textContent)")
+        page.click("#freightpad button[data-stop='top']")
+        page.wait_for_function(RIDE_DONE, arg="surface", timeout=240000)
+        foot = page.evaluate("() => window.__mm.foot()"); d = h["lift"]["doors"]["top"]
+        br.close()
+    assert errors == []
+    assert labels == ["Top", "Ring 1", "Ring 2"], labels
+    assert foot["on"] is True and abs(foot["y"] - h["floor"]) < 1.0, foot
+    gx, gz = d["x"] + math.cos(d["th"]) * 6, d["z"] + math.sin(d["th"]) * 6
+    assert math.hypot(foot["car"]["x"] - gx, foot["car"]["z"] - gz) < 0.5 and abs(foot["car"]["y"] - h["floor"]) < 1.0, foot
