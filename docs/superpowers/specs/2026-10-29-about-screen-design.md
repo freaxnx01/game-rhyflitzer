@@ -36,7 +36,7 @@ The game may be featured in the Neue Fricktaler Zeitung (via the Verein Plattfor
 │  Open-World-Arcade-Racer auf echten Geodaten …               │
 │  Inspiriert von Midtown Madness ↗                            │
 │ CREDITS                                                      │
-│  3D-Modelle   (the 8 existing credit* lines)                 │
+│  3D-Modelle   (every credit* line of #help today)            │
 │  Daten        © OpenStreetMap-Mitwirkende (ODbL) ↗ ·         │
 │               swissALTI3D, swissSURFACE3D, swissBOUNDARIES3D,│
 │               swissBUILDINGS3D © swisstopo ↗                 │
@@ -70,7 +70,7 @@ All text in `prototype/strings.js`, `en` and `de` (capitalised Du/Dir). Names ar
 | role of Kiscsi | Idea: race over the Holzbrücke by car | Idee: mit dem Auto über die Holzbrücke düsen | |
 | game text | Open-world arcade racer on real geodata: checkpoint race through Sisseln, Stein and Bad Säckingen on the Hochrhein — the pedestrian-only wooden bridge is fair game. Early prototype. | Open-World-Arcade-Racer auf echten Geodaten: Checkpoint-Rennen durch Sisseln, Stein und Bad Säckingen am Hochrhein, und die Holzbrücke für Fussgänger ist freigegeben. Früher Prototyp. | |
 | inspired | Inspired by Midtown Madness | Inspiriert von Midtown Madness | https://en.wikipedia.org/wiki/Midtown_Madness |
-| models | the 8 existing `credit*` strings (Eiffel, Atomium, Titanic, Hatchback, Mini, Bus, ModelT, Rally) | same | |
+| models | every `credit*` model string that `#help` shows today (on 2026-10-29: Eiffel, Atomium, Titanic, Hatchback, Mini, Bus, ModelT, Rally, Beetle, NewBeetle) | same | |
 | OSM | © OpenStreetMap contributors, ODbL | © OpenStreetMap-Mitwirkende, ODbL | https://www.openstreetmap.org/copyright |
 | swisstopo | Terrain swissALTI3D, building heights swissSURFACE3D, Swiss border swissBOUNDARIES3D, Holzbrücke reference swissBUILDINGS3D © swisstopo | Gelände swissALTI3D, Gebäudehöhen swissSURFACE3D, Landesgrenze swissBOUNDARIES3D, Massstab Holzbrücke swissBUILDINGS3D © swisstopo | https://www.swisstopo.admin.ch |
 | Plattform | existing `creditPlattform`, with „Verein Plattform Sisslerfeld“ as the link | same | https://www.plattform-sisslerfeld.com/ |
@@ -96,13 +96,13 @@ LGL is **not** credited: the shipped terrain lists only `swissALTI3D (c) swissto
 - **`prototype/about.js`** (new, pure, `node --test`): `ABOUT_LINKS` (frozen map id → https URL, the table above) and `aboutKeyAction(e)` → `'back' | 'pass' | 'ignore'`, and `aboutReturn(inRun)` → `'pause' | 'start'`.
 - **`prototype/helpfilter.js`**: `parseCommand('action:<name>')` → `{ kind: 'action', name }`; new `commandAction(cmd)` → the name or `null`; `commandEventInit` returns `null` for actions (nothing to dispatch).
 - **`prototype/pause.js`**: `PAUSE_BUTTONS` gains `'pauseabout'`.
-- **`prototype/index.html`**: the `#about` markup and CSS; `#aboutbtn`, `#pauseabout`, the help row; `openAbout(from)`, `closeAbout()`, `aboutKey(e)` in the keydown chain right after `WORLDS.on`; `runHelpRow` runs actions; the eight `credit*` `<small>` lines move from `#help` into `#about`; `window.__mm.about()` → `{ open, from }`.
+- **`prototype/index.html`**: the `#about` markup and CSS; `#aboutbtn`, `#pauseabout`, the help row; `openAbout(from)`, `closeAbout()`, `aboutKey(e)` in the keydown chain right after `WORLDS.on`; `runHelpRow` runs actions; every `credit*` `<small>` line moves from `#help` into `#about`; `window.__mm.about()` → `{ open, from }`.
 - **`prototype/strings.js`**: the new keys in `en` and `de`.
 
 ## Testing
 
 - Node: `about.test.mjs` (links https and complete, key actions, return target), `helpfilter.test.mjs` (action kind), `pause.test.mjs` (new button order).
-- Playwright `test_about.py` (one file): opens from the start screen and Esc returns with focus; dedication before the people in DOM order; the Tester line; every `#about a[href^="http"]` has `target=_blank` and `rel` containing `noopener` and an href from `ABOUT_LINKS`; the Verein link; German strings with `gg-lang=de`; the pause button opens and Back returns to the pause menu; Ctrl+P → type „about“ → Enter opens it; `#help` holds no `credit*` element any more, `#about` holds all eight.
+- Playwright `test_about.py` (one file): opens from the start screen and Esc returns with focus; dedication before the people in DOM order; the Tester line; every `#about a[href^="http"]` has `target=_blank` and `rel` containing `noopener` and an href from `ABOUT_LINKS`; the Verein link; German strings with `gg-lang=de`; the pause button opens and Back returns to the pause menu; Ctrl+P → type „about“ → Enter opens it; `#help` holds no `credit*` element any more, `#about` holds one per `credit*` key of `STRINGS.en`.
 - Updated: `test_start_screen.py` `SECONDARY` gains `aboutbtn`; `test_credits.py` keeps passing (the `data-i18n="credit…"` attributes still exist, now in `#about`).
 
 ## Out of scope
