@@ -87,3 +87,53 @@ def test_phone_width_never_scrolls_sideways(server):
         wide = page.evaluate("() => { const a = document.getElementById('about'); return [a.scrollWidth, a.clientWidth, document.documentElement.scrollWidth, innerWidth]; }")
         b.close()
     assert wide[0] <= wide[1] and wide[2] <= wide[3], wide
+
+def start_race(page):
+    page.click("#startbtn")
+    page.wait_for_function("() => window.__mm.pause().state === 'armed' || window.__mm.pause().state === 'racing'", timeout=120000)
+
+
+def test_pause_menu_opens_about_and_back_returns_to_the_pause_menu(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        start_race(page)
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=60000)
+        order = page.evaluate("() => [...document.querySelectorAll('#pause .col > button')].map(e => e.id)")
+        page.click("#pauseabout")
+        opened = page.evaluate("() => ({ about: window.__mm.about(), pause: !document.getElementById('pause').hidden })")
+        page.keyboard.press("Escape")
+        after = page.evaluate("() => ({ about: window.__mm.about().open, pauseShown: !document.getElementById('pause').hidden, paused: window.__mm.pause().on, focus: document.activeElement.id })")
+        b.close()
+    assert order == ["pauseresume", "pausevehicle", "pauseabout", "pauserestart", "pausemenu"], order
+    assert opened == {"about": {"open": True, "from": "pause"}, "pause": False}, opened
+    assert after == {"about": False, "pauseShown": True, "paused": True, "focus": "pauseabout"}, after   # Esc goes back, it does not resume
+    assert errors == []
+
+
+def test_command_search_opens_about_on_the_start_screen(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        page.keyboard.press("Control+KeyP")
+        page.wait_for_function("() => !document.getElementById('help').hidden", timeout=60000)
+        page.fill("#helpq", "about")
+        page.keyboard.press("Enter")
+        state = page.evaluate("() => ({ about: window.__mm.about(), help: !document.getElementById('help').hidden })")
+        b.close()
+    assert state == {"about": {"open": True, "from": "start"}, "help": False}, state
+
+
+def test_command_search_during_a_race_pauses_first(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        start_race(page)
+        page.keyboard.press("Control+KeyP")
+        page.wait_for_function("() => !document.getElementById('help').hidden", timeout=60000)
+        page.fill("#helpq", "about")
+        page.keyboard.press("Enter")
+        state = page.evaluate("() => ({ about: window.__mm.about(), paused: window.__mm.pause().on })")
+        page.click("#aboutback")
+        back = page.evaluate("() => ({ pauseShown: !document.getElementById('pause').hidden, paused: window.__mm.pause().on })")
+        b.close()
+    assert state == {"about": {"open": True, "from": "pause"}, "paused": True}, state   # the clock never runs behind the dialog
+    assert back == {"pauseShown": True, "paused": True}, back

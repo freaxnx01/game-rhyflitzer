@@ -134,7 +134,7 @@ def test_keyboard_navigation_and_main_menu_asks_first(server):
         start_text = page.text_content("#startbtn")
         gone = not page.is_visible("#pause") and not page.is_visible("#abandon")
         b.close()
-    assert seen == ["pauseresume", "pausevehicle", "pauserestart", "pausemenu", "pauseresume", "pausemenu", "pauseresume", "pausemenu"]
+    assert seen == ["pauseresume", "pausevehicle", "pauseabout", "pauserestart", "pausemenu", "pauserestart", "pausemenu", "pauseresume"]   # #509: About sits after Change vehicle
     assert q_shown and role == "alertdialog" and q_text == ["Abandon this run?", "Keep driving", "Abandon run"]
     assert (q["on"], q["confirm"], q["focus"], q["t"], q["state"]) == (True, True, "abandoncancel", before["t"], "racing")
     assert (still["on"], still["confirm"]) == (True, True)
@@ -244,7 +244,7 @@ def test_phone_pause_button_and_menu_fit(server):
         page.tap("#pausebtn")
         page.wait_for_function("() => window.__mm.pause().on", timeout=T)
         fit = page.evaluate("""() => ({
-            buttons: ['pauseresume', 'pausevehicle', 'pauserestart', 'pausemenu'].map(id => { const e = document.getElementById(id), r = e.getBoundingClientRect();
+            buttons: ['pauseresume', 'pausevehicle', 'pauseabout', 'pauserestart', 'pausemenu'].map(id => { const e = document.getElementById(id), r = e.getBoundingClientRect();
               return { text: e.textContent, inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, clipped: e.scrollWidth > e.clientWidth }; }),
             pageWidth: document.documentElement.scrollWidth,
             nav: getComputedStyle(document.getElementById('game-nav')).display,

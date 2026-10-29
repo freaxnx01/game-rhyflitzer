@@ -324,6 +324,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="KeyP">Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
       <kbd data-cmd="ctrl+KeyD">Ctrl · D</kbd><span data-i18n="keyDebug">debug: coordinates, building heights, map links (click the panel to copy · ?debug in the URL)</span>
       <kbd data-cmd="none">Ctrl · P</kbd><span data-i18n="keyCmdSearch">command search: type, ↑ ↓ choose, Enter runs it</span>
+      <kbd data-cmd="action:about">ⓘ</kbd><span data-i18n="keyAbout">About Map Madness: dedication, credits, how it is built</span>
       <kbd data-cmd="none">F1 · ?</kbd><span data-i18n="keyHelp">this help</span>
     </div>
     <div id="helpnone" hidden data-i18n="helpNone">No command matches</div></div>
@@ -533,6 +534,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div class="col">
       <button id="pauseresume" class="btn primary" type="button" data-i18n="pauseResume">Resume</button>
       <button id="pausevehicle" class="btn" type="button" data-i18n="pauseVehicle">Change vehicle</button>
+      <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
     </div>
@@ -565,7 +567,7 @@ import { SPECIES, treeSpecies, treeParts, treeColour, billShape } from './trees.
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
-import { filterHelpRows, isHoldCommand, commandEventInit, moveSelection } from './helpfilter.js';
+import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
 import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, bodenackerDoorway, BODENACKER6 } from './bodenacker6.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
@@ -4228,7 +4230,7 @@ function movePauseFocus(step) { $(nextFocus(PAUSE.confirm ? ABANDON_BUTTONS : PA
 const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon, next: () => movePauseFocus(1), prev: () => movePauseFocus(-1), debug: () => toggleDebug(), photo: () => { photoPending = true; } };
 // true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
 function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
-$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap;
+$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause');   // #509
 document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
 window.__mm.closePause = closePause;   // test hook: any non-Esc exit from the pause while the vehicle change is open (#189)
 window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.frame, state: R.state, t: R.t, best: R.best, x: P.x, z: P.z, audio: SFX.state().ctx, focus: document.activeElement?.id || '' });
@@ -4276,8 +4278,12 @@ function renderHelp() {
 }
 function openHelp() { releaseFootLock(); for (const k in keys) keys[k] = false; $('helpq').value = ''; HELP.sel = -1; $('help').hidden = false; renderHelp(); $('helpq').focus(); }
 function closeHelp() { $('help').hidden = true; $('helpq').blur(); $('helpq').value = ''; }
+const HELP_ACTIONS = { about: () => showAbout() };   // #509: command-search rows that run a game function (data-cmd="action:<name>")
 function runHelpRow(index) {   // #190: close the help, then press the row's key as the player would — the normal handler applies its own rules
-  const row = helpRows().find(r => r.index === index); const init = row && commandEventInit(row.kbd.dataset.cmd);
+  const row = helpRows().find(r => r.index === index); if (!row) return;
+  const action = commandAction(row.kbd.dataset.cmd);
+  if (action) { closeHelp(); HELP_ACTIONS[action]?.(); return; }
+  const init = commandEventInit(row.kbd.dataset.cmd);
   if (!init) return;
   closeHelp(); dispatchEvent(new KeyboardEvent('keydown', init)); dispatchEvent(new KeyboardEvent('keyup', init));
 }
