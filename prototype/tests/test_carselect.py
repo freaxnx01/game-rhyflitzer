@@ -79,10 +79,10 @@ def test_choose_car_opens_the_screen_with_the_compact(server):
         bars = lit_counts(page)
         b.close()
     assert shown["overlayHidden"] is True and shown["role"] == "dialog" and shown["modal"] == "true"
-    assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 7"
+    assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 8"
     assert shown["name"] == "Sissle Speedster" and shown["cls"] == "Compact · Class B" and shown["desc"].startswith("Small, light")
     assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 10 and shown["tiles"] == ["true", "false", "false", "false", "false", "false", "false"]
-    assert shown["garage"] == "Garage · 7 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
+    assert shown["garage"] == "Garage · 8 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
     assert bars == [{"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 3, "score": 3}]
     assert got["open"] is True and got["id"] == "compact" and got["paint"] == "navy" and got["focus"] == "csrace"
     assert got["carVisible"] is True and got["bodyColor"] == "1b2d5e" and got["paintable"] is True
@@ -175,9 +175,9 @@ def test_third_vehicle_and_race(server):
         page.wait_for_function("() => document.querySelector('#carsel').hidden && document.querySelector('#overlay').hidden", timeout=T)
         raced = page.evaluate("() => ({ open: window.__mm.carsel().open, top: window.__mm.vehicle().drive.top, stored: localStorage.getItem('mm.car'), mode: window.__mm.blitz().mode })")
         b.close()
-    assert count1 == "Car 1 of 8"
-    assert shown["count"] == "Car 8 of 8" and shown["name"] == "slow" and shown["cls"] == "" and shown["tiles"] == ["false", "false", "false", "false", "false", "false", "false", "true"]
-    assert shown["garage"] == "Garage · 8 vehicles" and shown["top"] == 30
+    assert count1 == "Car 1 of 9"
+    assert shown["count"] == "Car 9 of 9" and shown["name"] == "slow" and shown["cls"] == "" and shown["tiles"] == ["false", "false", "false", "false", "false", "false", "false", "false", "true"]
+    assert shown["garage"] == "Garage · 9 vehicles" and shown["top"] == 30
     assert bars[0] == {"lit": 4, "score": 4} and bars[3] == {"lit": 7, "score": 7}, bars
     assert tile_focus == "slow"
     assert raced["open"] is False and raced["top"] == 30 and raced["mode"] == "trial" and json.loads(raced["stored"]) == {"id": "slow", "paint": "navy"}
@@ -199,7 +199,7 @@ def test_delorean_has_fixed_paint_and_its_own_texts_and_bars(server):
         back = page.evaluate("() => ({ disabled: [...document.querySelectorAll('#cspaints button')].some(b => b.disabled), paintable: window.__mm.carsel().paintable })")
         b.close()
     assert fixed == {"disabled": True, "name": "fixed", "paintable": False}
-    assert texts["count"] == "Car 2 of 7" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class B" and texts["desc"].startswith("Brushed steel")
+    assert texts["count"] == "Car 2 of 8" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class B" and texts["desc"].startswith("Brushed steel")
     assert [b["score"] for b in bars] == [7, 5, 7, 3], bars
     assert back == {"disabled": False, "paintable": True}
     assert errors == []
