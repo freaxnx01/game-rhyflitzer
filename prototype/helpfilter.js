@@ -6,10 +6,12 @@ export function filterHelpRows(rows, query) {
 }
 
 // #190: the help is a command search. Each key row carries a data-cmd: "hold" (only works while held), "none"
-// (the help itself, a gesture: nothing to run), or "[ctrl+]Code[|key]" (the key press that runs it).
+// (the help itself, a gesture: nothing to run), "[ctrl+]Code[|key]" (the key press that runs it), or
+// "action:<name>" (#509: a game function, e.g. the About dialog).
 export function parseCommand(cmd) {
   if (!cmd || cmd === 'none') return { kind: 'none' };
   if (cmd === 'hold') return { kind: 'hold' };
+  if (cmd.startsWith('action:')) return { kind: 'action', name: cmd.slice(7) };
   const ctrlKey = cmd.startsWith('ctrl+');
   const [code, explicitKey] = (ctrlKey ? cmd.slice(5) : cmd).split('|');
   return { kind: 'run', code, key: explicitKey ?? keyForCode(code), ctrlKey };
@@ -22,6 +24,12 @@ function keyForCode(code) {
 }
 
 export const isHoldCommand = cmd => parseCommand(cmd).kind === 'hold';
+
+// #509: the action a row runs instead of a key press, or null
+export function commandAction(cmd) {
+  const c = parseCommand(cmd);
+  return c.kind === 'action' ? c.name : null;
+}
 
 // the event init to dispatch for a row, or null when Enter on it must do nothing
 export function commandEventInit(cmd) {
