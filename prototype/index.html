@@ -514,14 +514,14 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
-import { createLift, shaftScrollDelta } from './lift.js';
+import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT } from './lift.js';
 import { createLevels } from './levels.js';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM } from './rooms.js';
+import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel } from './rooms.js';
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
-import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt } from './underground.js';
+import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -1524,7 +1524,7 @@ function hideoutBuild() {
 // walls from liftColliders (the working door's panel in steel grey with a yellow stripe, sliding up into its lintel's
 // pocket as it opens), a lintel over the opening and a roof slab. Drawn once per level: 'top' in the lift hall (this
 // task), 'bottom' in the tunnel ring (#361 Task 6). LIFT_DOORS[level] holds the door panel so stepLift can animate it.
-const LIFT_DOORS = { top: null, bottom: null }, LIFT_DECKS = { top: null, bottom: null };
+const LIFT_DOORS = { top: null, bottom: null, ring2: null }, LIFT_DECKS = { top: null, bottom: null, ring2: null };
 function liftBuild(level, y0, group) {
   const [cx, cz] = LIFT.c, f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], v = [-f[1], f[0]];
   const deck = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd, 0.3, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0x3a3f46 })); deck.position.set(cx, y0 + 0.15, cz); deck.rotation.y = -LIFT.th; group.add(deck); LIFT_DECKS[level] = deck;
@@ -2611,7 +2611,7 @@ const STYLES = {
     mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', bodenacker: '#f1efe8', bodenackerLoggia: '#f1efe8', plasterWhite: '#f1efe8', glass: '#bfd6e4', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'bodenacker', 'bodenackerLoggia', 'plasterWhite', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(LEVELS.id === 'ring' ? 'ring' : 'room'); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
 function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.solid) im.visible = solid; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
@@ -2654,7 +2654,10 @@ function fadeCave(k) {
 const ROOM_LOOK = { fog: '#cfe2f3', density: 0.00045, skyTop: '#3f7fd6', skyHor: '#d9e9f7', hemiSky: '#e4eeff', hemiGround: '#6f8f55', hemi: 0.85, sun: 1.1 };
 // #361: the tunnel ring and its spokes -- a dim concrete cave: near-black haze, warm grey ambient, no sun (the ceiling strips are emissive)
 const RING_LOOK = { fog: '#0b0c0e', density: 0.006, skyTop: '#0b0c0e', skyHor: '#0b0c0e', hemiSky: '#fff2dc', hemiGround: '#8a8478', hemi: 1.3, sun: 0 };
-function setBelowLook(kind) {   // 'surface' | 'ring' | 'room'
+// #489: ring 2's "space station" -- RING_LOOK in RING2_STYLE's cool colours
+const RING2_LOOK = { ...RING_LOOK, fog: RING2_STYLE.fog, skyTop: RING2_STYLE.fog, skyHor: RING2_STYLE.fog, hemiSky: RING2_STYLE.hemiSky, hemiGround: RING2_STYLE.hemiGround };
+const BELOW_LOOKS = { ring: RING_LOOK, ring2: RING2_LOOK, room: ROOM_LOOK };
+function setBelowLook(kind) {   // 'surface' | 'ring' | 'ring2' | 'room'
   if (kind === 'surface') { BELOW.kind = 'surface'; const St = STYLES[styleKey]; scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; sunSprite.visible = !UWS.on; treesVisible(!CAVE_MODE.on); return; }   // as setCave(false): no style rebuild, no shader recompile
   BELOW.kind = kind; BELOW.q = -1; fadeBelowLook(spokeDarkHere()); sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room';
 }
@@ -2668,7 +2671,7 @@ const BELOW = { kind: null, q: -1, fog: new THREE.FogExp2(0x000000, 0.001) };
 function spokeDarkHere() { const sp = LEVELS.isSurface() ? null : spokeAt(P.x, P.z); return sp ? spokeDarkAt(sp.s) : 0; }
 function fadeBelowLook(q) {
   if (!BELOW.kind || BELOW.kind === 'surface' || q === BELOW.q) return;
-  const base = BELOW.kind === 'ring' ? RING_LOOK : ROOM_LOOK, m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;
+  const base = BELOW_LOOKS[BELOW.kind], m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;
   // the fog's colour stays dark until the fog itself has thinned (else the thick fog half-way glows as a pale mist in the room's tunnel);
   // its density goes geometrically, so the exp2 fog clears evenly over the fade, not all at its end
   BELOW.fog.color.set(blendLook({ c: base.fog }, { c: SPOKE_DARK.fog }, 1 - Math.pow(1 - q, 4)).c); BELOW.fog.density = base.density * Math.pow(SPOKE_DARK.density / base.density, q);
@@ -2692,13 +2695,13 @@ addEventListener('resize', resize);
 const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.name = 'surfaceRoot'; scene.add(surfaceRoot);
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
-const ROOM = { layouts: HIDE ? ROOMS.map((r, k) => roomLayout(k)) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null };
-const RING_L = { built: false, group: null };
-const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.group, ROOM.cab]);
-const roomIndex = (id) => ROOMS.findIndex(r => r.id === id);
+const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null };
+const RING_L = { ring: { built: false, group: null }, ring2: { built: false, group: null, sign: null } };
+const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab]);
+const roomIndex = (id) => (ROOM.layouts ? ROOM.layouts.findIndex(R => R.id === id) : -1);
 function showBelow(id) {   // each below-group is visible only on its own level
-  if (RING_L.group) RING_L.group.visible = id === 'ring';
-  if (ROOM.group) ROOM.group.visible = ROOM.built !== null && id === ROOMS[ROOM.built].id;
+  for (const g of RINGS) if (RING_L[g.id].group) RING_L[g.id].group.visible = id === g.id;
+  if (ROOM.group) ROOM.group.visible = ROOM.built !== null && id === ROOM.layouts[ROOM.built].id;
 }
 LEVELS.onChange((id) => {
   OBB_GRID = LEVELS.colliders;
@@ -2711,7 +2714,7 @@ LEVELS.onChange((id) => {
   }
   showBelow(id);
   document.body.classList.toggle('below', id !== 'surface');
-  setBelowLook(id === 'surface' ? 'surface' : id === 'ring' ? 'ring' : 'room');
+  setBelowLook(belowKind(id));
 });
 const gridOf = (list) => { const g = makeGrid(32); for (const o of list) { const e = o.hw + o.hd; gridAdd(g, o.x - e, o.z - e, o.x + e, o.z + e, o); } return g; };
 // a box standing on y0 whose long axis points along heading a (the colliders' c/s), centred at (x, z); with `tile`, its texture repeats every tile metres
@@ -2805,10 +2808,11 @@ function blackCap(group, k, sAt, y0) {   // a black plane across spoke k at s = 
 // #361: the ring level -- the exit from the lift, the tunnel ring, the eight spokes (s 0..70, black cap at 70), the cabin, the name
 // signs; built once, on the first ride down (or a Testhub room jump). It also registers 'ring' and all eight room levels from their
 // pure layouts (data only, no meshes), so a level switch never has to build anything (#308: a room's meshes come with ensureRoom).
-function ringBuild() {
-  if (RING_L.built) return; RING_L.built = true;
-  const y0 = BELOW_Y, [cx, cz] = LIFT.c, group = new THREE.Group(); RING_L.group = group; group.visible = false;
+function ringBuild(g = RINGS[0]) {
+  const RL = RING_L[g.id]; if (RL.built) return; RL.built = true;
+  const y0 = g.y, [cx, cz] = LIFT.c, group = new THREE.Group(); RL.group = group; group.visible = false;
   const f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], floorMat = CONCRETE_FLOOR(), ceilMat = CONCRETE_CEILING(), wallMat = CONCRETE();
+  const space = g.id === 'ring2'; if (space) for (const m of [floorMat, ceilMat, wallMat]) m.color.multiply(new THREE.Color(RING2_STYLE.tint));
   const slab = (w, d, x, z, yTop, a, mat) => { const m = new THREE.Mesh(tileUV(new THREE.BoxGeometry(w, 0.3, d), w, 0.3, d, 4), mat); m.position.set(x, yTop - 0.15, z); m.rotation.y = -a; group.add(m); };
   // floors: the ring annulus, the exit strip, the spoke strips -- concrete slabs (#373), the texture in world metres
   const floor = new THREE.Mesh(tileRing(new THREE.RingGeometry(RING.r - RING.hw, RING.r + RING.hw, 96, 1), RING.r + RING.hw, 4), floorMat); floor.geometry.rotateX(-Math.PI / 2); floor.position.set(cx, y0 + 0.02, cz); group.add(floor);
@@ -2832,18 +2836,22 @@ function ringBuild() {
     const lintel = orientedBox(1, RING.ceiling - SPOKE.ceiling, 2 * (SPOKE.hw + RING.wall), fr.start[0] + fr.u[0] * 0.5, fr.start[1] + fr.u[1] * 0.5, y0 + SPOKE.ceiling, fr.a, wallMat, 4); group.add(lintel);   // closes the 2 m between the spoke's roof and the ring's
     spokeColours(group, k, y0, 0, SPOKE.ringEnd); spokeLining(group, k, y0); blackCap(group, k, SPOKE.ringEnd, y0);
   }
-  group.add(new THREE.Mesh(mergeGeometries(strips, false), new THREE.MeshBasicMaterial({ color: 0xfff1d0 })));
+  group.add(new THREE.Mesh(mergeGeometries(strips, false), new THREE.MeshBasicMaterial({ color: space ? RING2_STYLE.strip : 0xfff1d0 })));
   // walls: every collider of the ring except the lift's own shaft house (liftBuild draws that)
-  const all = ringColliders(), liftN = liftColliders('bottom', y0).length;
+  const all = ringColliders(y0, g.stop), liftN = liftColliders(g.stop, y0).length;
   for (const o of all.slice(0, all.length - liftN)) group.add(orientedBox(2 * o.hw, o.h - y0, 2 * o.hd, o.x, o.z, y0, Math.atan2(o.s, o.c), wallMat, 4));
-  liftBuild('bottom', y0, group);
+  liftBuild(g.stop, y0, group);
   // the name signs: over the spoke's mouth, facing into the ring; only rooms with an object (spokeSigns)
-  for (const sg of spokeSigns(ROOMS)) {
+  for (const sg of spokeSigns(g.rooms, y0)) {
     const fr = spokeFrame(sg.k), sign = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.2), new THREE.MeshBasicMaterial({ map: textTex(sg.text, 1024, 160, '#d8d2c6', '#2a2a2a', '700 110px "Barlow Condensed", sans-serif'), transparent: true }));
     sign.position.set(sg.x, sg.y, sg.z); sign.rotation.y = Math.atan2(-fr.u[0], -fr.u[1]); group.add(sign);
   }
-  LEVELS.register('ring', { groundAt: () => BELOW_Y, colliders: gridOf(all), ceilingAt: ringCeilingAt });
-  for (const L of ROOM.layouts) LEVELS.register(L.id, { groundAt: L.groundAt, colliders: gridOf(L.colliders), ceilingAt: L.ceilingAt });
+  if (space) {   // #489: the big "2" straight ahead of the exit, facing the lift
+    const n = ringNumberSign(2, y0), plate = new THREE.Mesh(new THREE.PlaneGeometry(n.w, n.h), new THREE.MeshBasicMaterial({ map: textTex(n.text, 512, 512, '#1c2430', '#dfe9f7', '800 440px "Barlow Condensed", sans-serif') }));
+    plate.position.set(n.x, n.y, n.z); plate.rotation.y = Math.atan2(-Math.cos(LIFT.th), -Math.sin(LIFT.th)); group.add(plate); RL.sign = plate;
+  }
+  LEVELS.register(g.id, { groundAt: () => y0, colliders: gridOf(all), ceilingAt: (x, z) => ringCeilingAt(x, z, y0) });
+  for (const L of ROOM.layouts) if (L.ring === g.id) LEVELS.register(L.id, { groundAt: L.groundAt, colliders: gridOf(L.colliders), ceilingAt: L.ceilingAt });
   scene.add(group);
 }
 function disposeGroup(group) {   // free a thrown-away room: its own geometry, materials and textures -- never the forest's shared tree meshes, TEX.grass or the ring's concrete
@@ -2853,6 +2861,7 @@ function disposeGroup(group) {   // free a thrown-away room: its own geometry, m
   });
 }
 // #361 / #308: build room k's meshes (the previous room's are thrown away; the loaded Eiffel GLB stays in memory and is re-attached).
+// #489: k is the flat layout index -- ring 1's room k stays k, ring 2's room k is 8 + k.
 function ensureRoom(k) {
   if (ROOM.built === k) return;
   if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; }
@@ -2999,20 +3008,20 @@ window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const 
 // level switches (both the layout and the cabin itself) at the midpoint of the descent, behind the cab. Input is locked for
 // the ride; the camera keeps its mode and is carried by the same y step. Each level's door opens as the car comes near it
 // while the cabin sits there (stepLift animates both panels from LIFT_RIDE.doorAt).
-const LIFT_RIDE = createLift();
+const LIFT_RIDE = createLift(LIFT_TIMES, FREIGHT_DEPTH);
 const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshBasicMaterial({ side: THREE.BackSide, color: 0x5e5e5e, fog: false, transparent: true, depthWrite: false, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
 CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
-const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : BELOW_Y;
+const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : levelY(LEVELS.id);
 function liftIndicator(text) { const el = $('liftfloor'); el.hidden = text === null; if (text !== null) el.textContent = text; }
 function stepLift(dt) {
   if (!HIDE) return;
   stepSpokes();
-  const level = LEVELS.isSurface() ? 'top' : LEVELS.id === 'ring' ? 'bottom' : null;
+  const level = liftStopAt(LEVELS.id);
   if (level === null) { CAB.visible = false; return; }   // no ride inside a room: only hide the cab if it was still showing
   const onPlatform = !FOOT.on && inCabin(P.x, P.z, carRadius()) && Math.abs(P.y - levelFloorY()) < 1;
-  const speed = Math.hypot(P.vx, P.vz), ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level, LIFT, speed), level, speed, dir: level === 'top' ? 'down' : 'up' });
+  const speed = Math.hypot(P.vx, P.vz), ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level, LIFT, speed), level, speed, to: FREIGHT_DEFAULT[level] });
   for (const e of ev) liftEvent(e);
-  for (const doorLevel of ['top', 'bottom']) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
+  for (const doorLevel of FREIGHT_STOPS) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
   CAB.material.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
     CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
   const fl = LIFT_RIDE.floor(); liftIndicator(fl === null ? null : String(fl).replace('-', '−'));
@@ -3020,32 +3029,31 @@ function stepLift(dt) {
 // #361: the dark switch. On the ring level, entering spoke k builds room k's meshes; by position and with hysteresis (underground.js)
 // the active level swaps ring <-> room k inside the spoke's black stretch -- no teleport, no race flag, no toast; the car keeps x, y, z and speed.
 function stepSpokes() {
-  if (LEVELS.isSurface() || !RING_L.built) return;
+  const g = ringOf(LEVELS.id); if (!g || !RING_L[g.id].built) return;
   fadeBelowLook(spokeDarkHere());
   if (FOOT.on) return;   // on foot (#202) the walker stays on the car's level: the spoke's cap stops it
-  const sp = spokeAt(P.x, P.z); if (LEVELS.id === 'ring' && sp && sp.s > 0) ensureRoom(sp.k);
-  const next = belowLevelAt(LEVELS.id, P.x, P.z, ROOMS.map(r => r.id)); if (next === LEVELS.id) return;
-  LEVELS.set(next); const at = next === 'ring' ? ringSpawn() : ROOM.layouts[roomIndex(next)].spawn; P.safe = [at.x, at.z, at.th];
+  const sp = spokeAt(P.x, P.z); if (LEVELS.id === g.id && sp && sp.s > 0) ensureRoom(RINGS.indexOf(g) * SPOKE.n + sp.k);
+  const next = belowLevelAt(LEVELS.id, P.x, P.z, g.rooms.map(r => r.id), g.id); if (next === LEVELS.id) return;
+  LEVELS.set(next); const at = next === g.id ? ringSpawn() : ROOM.layouts[roomIndex(next)].spawn; P.safe = [at.x, at.z, at.th];
 }
-const LIFT_TIMES_TOTAL = () => { const t = LIFT_RIDE.times; return t.close + t.ride + t.open; };
 function liftEvent(e) {
-  if (e.type === 'start') { stopAuto('reset'); P.vx = P.vz = P.vy = 0; if (R.state === 'racing' || R.state === 'armed') R.jumped = true; SFX.hum(LIFT_TIMES_TOTAL()); }
-  else if (e.type === 'switch') liftSwitch(e.dir);
+  if (e.type === 'start') { stopAuto('reset'); P.vx = P.vz = P.vy = 0; if (R.state === 'racing' || R.state === 'armed') R.jumped = true; SFX.hum(LIFT_RIDE.times.close + e.ride + LIFT_RIDE.times.open); }
+  else if (e.type === 'switch') liftSwitch(e.to);
   else if (e.type === 'done' && e.dir === 'down' && HIDE && !HIDE.found) foundHideout();
 }
 // #361: down lands in the tunnel ring (built on the first ride, #308: only its own meshes exist, not any room's); up lands
 // just outside door A, facing further out towards the tunnel -- nobody has to turn to drive out through the gate.
-function liftSwitch(dir) {
+function liftSwitch(to) {
   const before = P.y;
-  if (dir === 'down') { ringBuild(); LEVELS.set('ring'); P.y = BELOW_Y; const s = ringSpawn(); P.safe = [s.x, s.z, s.th]; }
-  else { LEVELS.set('surface'); P.y = HIDE.floor; const d = liftDoor('top'), f = [Math.cos(d.th), Math.sin(d.th)]; P.safe = [d.x + f[0] * 6, d.z + f[1] * 6, d.th]; }
+  if (to === 'top') { LEVELS.set('surface'); P.y = HIDE.floor; const d = liftDoor('top'), f = [Math.cos(d.th), Math.sin(d.th)]; P.safe = [d.x + f[0] * 6, d.z + f[1] * 6, d.th]; }
+  else { const g = ringOfStop(to); ringBuild(g); LEVELS.set(g.id); P.y = g.y; const s = ringSpawn(); P.safe = [s.x, s.z, s.th]; }
   camPos.y += P.y - before; camera.position.copy(camPos);   // carry the chase camera down with the car; it keeps its mode and offset
   restShadow(); car.position.y = P.y;
   followCave();   // #382: up in the hall at once, not when stepCar runs again after the ride -- else the deck, the shaft house and the cave look are missing for the ride's second half
 }
 window.__mm.liftTimes = (t) => { LIFT_RIDE.setTimes(t); return LIFT_RIDE.times; };   // tests: a ride of 1 s instead of 8 (headless renders ~1 fps and the loop clamps dt to 0.05)
 const drawn = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return !!o; };   // visible, and every parent up to the scene too
-window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
+window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[liftStopAt(LEVELS.id) || 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null, target: LIFT_RIDE.target, chosen: LIFT_RIDE.chosen });
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, borders: false, blinker: null, water: '', waterT: 0, road: '' };
@@ -3240,9 +3248,9 @@ function stepNavi(dt) {
 // #10: F takes off from the car's spot and lands the car on the nearest jumpable road below (not a jump: the flight already marks the run). R, J, the map and Start end a flight through resetCar
 function toggleFly() { if (WRECK_S.on) return; if (FLY.on) land(); else takeOff(); }
 const currentRoom = () => ROOM.layouts && ROOM.layouts[roomIndex(LEVELS.id)];
-const belowRoof = () => LEVELS.id === 'ring' || LEVELS.ceilingAt(P.x, P.z) !== null;   // #361: the ring, its spokes and a room's portal tunnel have no sky
+const belowRoof = () => isRingLevel(LEVELS.id) || LEVELS.ceilingAt(P.x, P.z) !== null;   // #361: the ring, its spokes and a room's portal tunnel have no sky
 const flyZone = () => LIFT_RIDE.busy ? 'lift' : LEVELS.isSurface() ? (roofedAt(P.x, P.z) ? 'roofed' : 'open') : belowRoof() ? 'tunnel' : 'room';
-const heliGround = (x, z) => LEVELS.isSurface() ? skyGroundH(x, z) : BELOW_Y;   // #277: the room's helicopter lands on the room floor, not the surface terrain
+const heliGround = (x, z) => LEVELS.isSurface() ? skyGroundH(x, z) : levelY(LEVELS.id);   // #277: the room's helicopter lands on the room floor, not the surface terrain
 function takeOff() { if (!flyAllowed(LEVELS.id, flyZone())) { toast(tr('hideoutNoSky')); return; }   // #102: no sky under the hill
   stopAuto('reset'); const s = heliStart(P.x, P.z, P.y, P.th, heliGround(P.x, P.z)); FLY.on = true; FLY.v = s.v; FLY.alt = s.alt; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
 function land() { if (!LEVELS.isSurface()) { P.safe = [P.x, P.z, P.th]; resetCar(); toast(tr('heliLanded')); return; }   // the room: down onto its floor right here
@@ -3590,7 +3598,7 @@ function buildPontoonMeshes(d) {
 }
 function updatePontoonMeshes(d) { if (!PONTOON.group) return; PONTOON.group.children.forEach((bay, i) => { bay.visible = bayVisible(d, i); bay.position.y = bayDrop(d, i); }); }
 function freePontoon() { if (!PONTOON.group) return; PONTOON.group.traverse(o => o.geometry?.dispose()); scene.remove(PONTOON.group); PONTOON.group = null; }
-function stepFly(dt) { LIGHTS.braking = false; const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; if (!LEVELS.isSurface()) { const c = roomFlyClamp(P.x, P.y, P.z, currentRoom()); P.x = c.x; P.z = c.z; P.y = c.y; FLY.alt = roomFlyAlt(FLY.alt); }
+function stepFly(dt) { LIGHTS.braking = false; const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; if (!LEVELS.isSurface()) { const room = currentRoom(); const c = roomFlyClamp(P.x, P.y, P.z, room); P.x = c.x; P.z = c.z; P.y = c.y; FLY.alt = roomFlyAlt(FLY.alt, room.fly, room.y); }
   heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; flames.visible = false; }
 // test hooks (prototype/tests): put the car somewhere and read its state
 // #416: the Crash-Platz's tyre stacks (tyres.js). Built the first time the car is near the yard; the physics engine loads then, not before
@@ -3696,7 +3704,7 @@ window.__mm.nearestSchool = (x, z) => Math.min(...FISH.schools.map(s => Math.hyp
 // #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
 window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.hall.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.hall.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms, lift: { c: LIFT.c, th: LIFT.th, hw: LIFT.hw, hd: LIFT.hd, doors: { top: liftDoor('top'), bottom: liftDoor('bottom') } }, room: ROOM.layouts && { centre: ROOM.layouts[0].centre, tower: ROOM.layouts[0].tower, spawn: ROOM.layouts[0].spawn, towerView: ROOM.layouts[0].towerView, half: ROOM.layouts[0].half, y: ROOM.layouts[0].y, portal: ROOM.layouts[0].portal } } : null;
 // #361: where the car is below -- the level, the spoke it is in (k, s), which room's meshes exist, whether that room has an object, the signs; spoke(k, s) is a point on spoke k for the tests
-window.__mm.below = () => ({ dark: BELOW.q, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, level: LEVELS.id, spoke: spokeAt(P.x, P.z), built: ROOM.built, object: ROOM.layout ? !!ROOM.layout.object : null, tower: ROOM.layout && ROOM.layout.tower, rooms: ROOMS.map(r => r.id), signs: spokeSigns(ROOMS).map(sg => sg.text), ring: RING_L.built });
+window.__mm.below = () => ({ dark: BELOW.q, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, level: LEVELS.id, spoke: spokeAt(P.x, P.z), built: ROOM.built, object: ROOM.layout ? !!ROOM.layout.object : null, tower: ROOM.layout && ROOM.layout.tower, rooms: ROOMS.map(r => r.id), signs: spokeSigns(ROOMS).map(sg => sg.text), ring: RING_L.ring.built, ring2: RING_L.ring2.built, kind: BELOW.kind, number: !!RING_L.ring2.sign && drawn(RING_L.ring2.sign) });
 window.__mm.spoke = (k, sv) => { const fr = spokeFrame(k); return { x: fr.start[0] + fr.u[0] * sv, z: fr.start[1] + fr.u[1] * sv, th: fr.a }; };
 window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH; window.__mm.roomAt = roomAt; window.__mm.ceilingAt = ceilingH;   // #201
 // #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
@@ -3882,7 +3890,7 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
     if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
     const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim; camera.lookAt(look); }
   camTail(); }
-function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); const base = LEVELS.isSurface() ? 0 : BELOW_Y; sun.position.set(P.x - 300, base + 400, P.z - 200); sun.target.position.set(P.x, base, P.z);
+function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); const base = LEVELS.isSurface() ? 0 : levelY(LEVELS.id); sun.position.set(P.x - 300, base + 400, P.z - 200); sun.target.position.set(P.x, base, P.z);
   const camWl = waterLevelAt(camera.position.x, camera.position.z, camera.position.y), under = camWl !== null && camera.position.y < camWl; if (under !== UWS.on) setUnderwater(under); }   // #101: the look follows the camera, not the car
 // #7 turntable: orbit the standing car at the chase distance, car.visible whatever V / the eye views say, look target shifted so the car sits in the stage's centre
 function stepTurntable(dt) { CARSEL.spin = spinStep(CARSEL.spin, dt, { dir: CARSEL.dir, drag: CARSEL.drag }); CARSEL.drag = 0; const a = CARSEL.spin.angle, d = VEH.camera.chase.dist * 1.5, h = VEH.camera.chase.h * 0.75, cy = P.y + 0.8 * VEH.scale; car.visible = true; camPos.set(P.x + Math.cos(a) * d, P.y + h, P.z + Math.sin(a) * d); camera.position.copy(camPos); const r = $('csstage').getBoundingClientRect(), ox = (r.left + r.width / 2) / innerWidth * 2 - 1, oy = 1 - (r.top + r.height / 2) / innerHeight * 2; const [sx, sy] = lookShift(ox, oy, Math.hypot(d, h - 0.8 * VEH.scale), camera.fov, camera.aspect); camera.lookAt(P.x + Math.sin(a) * sx, cy + sy, P.z - Math.cos(a) * sx); }   // right vector of a camera at angle a looking at the car: (sin a, 0, -cos a)
