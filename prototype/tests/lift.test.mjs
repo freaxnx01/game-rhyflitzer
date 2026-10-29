@@ -120,3 +120,63 @@ test('place_PutsTheCabinOnALevelWithItsDoorShut', () => {
   run(l, 2, { ...NEAR, level: 'bottom' }); assert.equal(l.doorAt('bottom'), 1);
   l.abort(); l.place('top'); assert.equal(l.cabin, 'top'); assert.equal(l.phase, 'idle');
 });
+
+// #489: the freight lift's three stops
+import { FREIGHT_DEPTH, FREIGHT_DEFAULT } from '../lift.js';
+const freight = () => createLift(LIFT_TIMES, FREIGHT_DEPTH);
+const at = (stop, to = FREIGHT_DEFAULT[stop]) => ({ onPlatform: true, speed: 0, level: stop, to });
+const trip = (l, stop) => run(l, 40, at(stop));   // long enough for any ride
+const floors = (l, input) => { const seen = []; for (let i = 0; i < 2000 && (l.busy || !seen.length); i++) { l.step(0.05, input); const f = l.floor(); if (f !== null && f !== seen[seen.length - 1]) seen.push(f); } return seen; };
+
+test('freight_NoChoiceOnTheSurface_RidesToRing1AsBefore', () => {
+  const l = freight(), ev = run(l, LIFT_TIMES.dwell + 0.05, at('top'));
+  assert.deepEqual(ev.map(e => [e.type, e.to, e.dir]), [['start', 'bottom', 'down']]); assert.equal(ev[0].ride, LIFT_TIMES.ride);
+  trip(l, 'top'); assert.equal(l.cabin, 'bottom'); assert.equal(l.phase, 'idle');
+});
+
+test('freight_NoChoiceInEitherRing_RidesUpToTheSurface', () => {
+  for (const stop of ['bottom', 'ring2']) {
+    const l = freight(); l.place(stop); const ev = run(l, LIFT_TIMES.dwell + 0.05, at(stop));
+    assert.deepEqual(ev.map(e => [e.type, e.to, e.dir]), [['start', 'top', 'up']], stop);
+  }
+});
+
+test('call_Ring2FromTheSurface_StartsAtOnceWithoutTheDwell_TwelveSecondsOfRide', () => {
+  const l = freight(); assert.equal(l.call('ring2'), true); assert.equal(l.chosen, 'ring2');
+  const ev = l.step(0.05, at('top')); assert.deepEqual(ev.map(e => [e.type, e.to, e.dir, e.ride]), [['start', 'ring2', 'down', 12]]);
+  assert.equal(l.target, 'ring2'); assert.equal(l.chosen, null);
+  const all = run(l, LIFT_TIMES.close + 5.9, at('top')); assert.ok(!all.some(e => e.type === 'switch'), 'no switch before the 6 s midpoint');
+  const sw = run(l, 0.2, at('top')).find(e => e.type === 'switch'); assert.equal(sw.to, 'ring2'); assert.equal(l.cabin, 'ring2');
+  run(l, 6 + LIFT_TIMES.open, at('ring2')); assert.equal(l.phase, 'idle');
+});
+
+test('call_AfterArrivingInRing1_RidesOnToRing2_SixSecondsMinus13ToMinus24', () => {
+  const l = freight(); trip(l, 'top'); assert.equal(l.cabin, 'bottom');
+  assert.deepEqual(run(l, 3, at('bottom')), [], 'an arrival disarms the dwell');
+  assert.equal(l.call('ring2'), true);
+  const ev = l.step(0.05, at('bottom')); assert.deepEqual(ev.map(e => [e.type, e.to, e.dir, e.ride]), [['start', 'ring2', 'down', 6]]);
+  const seen = floors(l, at('bottom')); assert.equal(seen[0], -13); assert.equal(seen[seen.length - 1], -24); assert.equal(seen.length, 12);
+});
+
+test('floor_Ring2ToTheSurface_CountsMinus24UpToMinus1', () => {
+  const l = freight(); l.place('ring2'); run(l, LIFT_TIMES.dwell + 0.05, at('ring2'));
+  const seen = floors(l, at('ring2')); assert.equal(seen[0], -24); assert.equal(seen[seen.length - 1], -1); assert.equal(seen.length, 24);
+});
+
+test('call_Refused_WhileBusyAtTheCabinsOwnStopOrForAnUnknownStop', () => {
+  const l = freight(); assert.equal(l.call('top'), false); assert.equal(l.call('ring3'), false); assert.equal(l.call(1), false);
+  run(l, LIFT_TIMES.dwell + 0.05, at('top')); assert.equal(l.busy, true); assert.equal(l.call('ring2'), false); assert.equal(l.target, 'bottom');
+});
+
+test('call_WhileRollingIn_WaitsForRest_AndLeavingThePlatformDropsIt', () => {
+  const l = freight(); l.call('ring2');
+  assert.deepEqual(run(l, 2, { ...at('top'), speed: 3 }), [], 'still rolling');
+  assert.equal(l.step(0.05, at('top'))[0].to, 'ring2');
+  const m = freight(); m.call('ring2'); m.step(0.05, { onPlatform: false, speed: 0, level: 'top' }); assert.equal(m.chosen, null);
+  assert.equal(run(m, LIFT_TIMES.dwell + 0.05, at('top'))[0].to, 'bottom');
+});
+
+test('doorAt_Ring2_OpensOnlyThereAfterTheRide', () => {
+  const l = freight(); l.call('ring2'); l.step(0.05, at('top')); run(l, LIFT_TIMES.close + 12 + LIFT_TIMES.open + 0.1, at('ring2'));
+  assert.equal(l.doorAt('ring2'), 1); assert.equal(l.doorAt('bottom'), 0); assert.equal(l.doorAt('top'), 0);
+});
