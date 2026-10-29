@@ -2,6 +2,8 @@
 
 Short explanations of the graphics and 3D terms used in these docs.
 
+The project's own names (places, landmarks, game features, workflow) are in the [project glossary](12-project-glossary.md).
+
 ## Geometry
 
 **Vertex**: a point in 3D space. The corner of a triangle.

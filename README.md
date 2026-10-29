@@ -41,6 +41,7 @@ three.js, vanilla JS, buildless. Rapier (WASM) for vehicle physics. A separate d
 | [Technical architecture](docs/03-tech-architecture.md) | Stack, hard parts, performance, large worlds, terrain LOD |
 | [Region editor](docs/04-region-editor.md) | Player-picked regions, pipeline design, limits |
 | [Glossary](docs/05-glossary.md) | Graphics and geodata terms explained |
+| [Project glossary](docs/12-project-glossary.md) | Our own names: places and landmarks, game features, world data, workflow |
 | [Photo capture](docs/06-photo-capture.md) | Photogrammetry, GoPro street capture, texture source licences |
 | [Brands and permissions](docs/07-brands-and-permissions.md) | Logos, trademarks, who to ask, permission tracker |
 | [Pipeline: terrain](docs/08-pipeline-terrain.md) | swissALTI3D + LGL DGM1 → `.mmh` heightmap |
