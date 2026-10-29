@@ -191,7 +191,7 @@ def test_build_queued_steps_done_drive_share_download(server):
         b.close()
     assert errs == [] and [p["lv95"] for p in api.posts] == [EHR] and api.gets >= 3 and api.challenges == 1
     assert set(json.loads(base64.b64decode(api.posts[0]["altcha"]))) >= {"challenge", "solution"}   # the widget really solved the stub challenge
-    assert got == {"name": "Ehrendingen · Freienwil", "drive": f"../?world={ID}", "share": f"https://github.freaxnx01.ch/game-rhyflitzer/?world={ID}",
+    assert got == {"name": "Ehrendingen · Freienwil", "drive": f"../?world={ID}", "share": f"https://rhyflitzer.freaxnx01.ch/?world={ID}",
                    "warn": True, "edit": True, "drivePx": 64}
 
 
