@@ -1417,10 +1417,11 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
   const f = plattformFrame(x, z, facing), { core, deck, roof, slab, frame, centrePost } = P;
   const bar = (ax, ay, az, bx, by, bz, t, cc) => { const d = new THREE.Vector3(bx - ax, by - ay, bz - az), len = d.length(); const g = new THREE.BoxGeometry(t, len, t); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); g.translate((ax + bx) / 2, b + (ay + by) / 2, (az + bz) / 2); colorize(g, cc); push(timber, g); };
   const flat = (pts) => { const s = new THREE.Shape(); pts.forEach(([px, pz], i) => i ? s.lineTo(px, -pz) : s.moveTo(px, -pz)); return s; };   // a world-xz outline as a Shape (rotateX(-90 deg) lays it out flat)
+  const insideOut = (g) => { const ix = g.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } };   // reverse the winding only, so the front-side material shows the inside of a shell; the normals stay as they are, so the ceiling is lit like the roof above it and not by the brown ground light alone
   const battens = (from, to, y0, h) => {   // the slatted ring, alternating spruce and dark; three.js theta runs from +z, so world phi = 90 deg - theta
     const segs = Math.round((to - from) / 5), g = new THREE.CylinderGeometry(core.r, core.r, h, segs, 1, true, Math.PI / 2 - facing - to * RAD, (to - from) * RAD).toNonIndexed();
     const p = g.attributes.position, arr = new Float32Array(p.count * 3);
-    for (let i = 0; i < p.count; i++) { const cc = Math.floor(i / 6) % 2 ? col('#4a3a26') : spruce; arr[i * 3] = cc.r; arr[i * 3 + 1] = cc.g; arr[i * 3 + 2] = cc.b; }
+    for (let i = 0; i < p.count; i++) { const cc = Math.floor(i / 6) % 2 ? col('#a08c66') : spruce; arr[i * 3] = cc.r; arr[i * 3 + 1] = cc.g; arr[i * 3 + 2] = cc.b; }
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); g.translate(x, b + y0 + h / 2, z); push(timber, g);
   };
   const pad = new THREE.CircleGeometry(9, 24); pad.rotateX(-Math.PI / 2); pad.translate(x, b + 0.02, z); colorize(pad, col('#cfc3ac')); push('gravel', pad);   // the gravel around the slab
@@ -1436,12 +1437,12 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
   for (const t of stairTreads()) { const segs = Math.max(2, Math.ceil((t.to - t.from) / 5)); const g = new THREE.CylinderGeometry(core.tread, core.tread, 0.05, segs, 1, false, Math.PI / 2 - facing - t.to * RAD, (t.to - t.from) * RAD); g.translate(x, b + t.y - 0.025, z); colorize(g, beam); push(timber, g); }
   const hole = new THREE.Path(); Array.from({ length: deck.opening }, (_, i) => f.polar(i * 360 / deck.opening, core.r)).forEach(([px, pz], i) => i ? hole.lineTo(px, -pz) : hole.moveTo(px, -pz));
   const deckShape = flat(f.triangle(deck.side)); deckShape.holes.push(hole);
-  const deckG = new THREE.ExtrudeGeometry(deckShape, { depth: deck.thick, bevelEnabled: false }); deckG.rotateX(-Math.PI / 2); deckG.translate(0, b + deck.y - deck.thick, 0); colorize(deckG, col('#8a6a44')); push(timber, deckG);
+  const deckG = new THREE.ExtrudeGeometry(deckShape, { depth: deck.thick, bevelEnabled: false }); deckG.rotateX(-Math.PI / 2); deckG.translate(0, b + deck.y - deck.thick, 0); colorize(deckG, col('#e4c98c')); push(timber, deckG);
   const dtri = f.triangle(deck.side);
   for (let i = 0; i < 3; i++) { const [ax, az] = dtri[i], [bx, bz] = dtri[(i + 1) % 3], len = Math.hypot(bx - ax, bz - az);
     box(len, deck.parapet, 0.08, (ax + bx) / 2, b + deck.y, (az + bz) / 2, Math.atan2(bz - az, bx - ax), spruce, timber, [1, 1.5], 0); }
   const roofG = new THREE.ConeGeometry(roof.side / Math.sqrt(3), apex - roof.eaves, 3, 1, true); roofG.rotateY(30 * RAD - facing); roofG.translate(x, b + roof.eaves + (apex - roof.eaves) / 2, z); colorize(roofG, col('#5f6f66')); push('roofFlat', roofG);
-  const under = new THREE.ConeGeometry(roof.side / Math.sqrt(3), apex - roof.eaves, 3, 1, true); under.rotateY(30 * RAD - facing); under.scale(1, -1, 1); under.translate(x, b + roof.eaves - 0.02 - (apex - roof.eaves) / 2, z); colorize(under, col('#3a4440')); push('roofFlat', under);   // flipped: its face shows from the deck, so the roof does not look hollow
+  const under = new THREE.ConeGeometry(roof.side / Math.sqrt(3), apex - roof.eaves, 3, 1, true); under.rotateY(30 * RAD - facing); under.translate(x, b + roof.eaves - 0.02 + (apex - roof.eaves) / 2, z); insideOut(under); colorize(under, col('#d8bf86')); push(timber, under);   // the same cone 2 cm lower, faces turned inward: the rafter underside you see from the deck, so the roof does not look hollow
   PLAT = { frame: f, base: b, walk: plattformWalk(f, b) };
 }
 // #102 / #361: the hideout -- trough walls along T1 (the #119 pattern without decks), the lift hall's ring wall (its one
