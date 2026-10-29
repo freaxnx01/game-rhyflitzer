@@ -80,11 +80,11 @@ def test_house_numbers_appear_near_and_vanish_far(server):
     w = json.loads(WORLD.read_text(encoding="utf-8"))
     b = next(x for x in w["buildings"] if x["id"] == 171822634)        # Bodenackerstrasse 6
     b.setdefault("addr", "6a–6d")
-    cx, cz = b["rect"][0], b["rect"][1]
     rx, rz = rhine_point(w)
     with sync_playwright() as p:
         br, page = open_page(p, server, world=w)
-        page.evaluate(f"() => window.__mm.place({cx + 20}, {cz})")
+        spot = page.evaluate("() => window.__mm.plateSpots('6a–6d')")[0]   # #520: the plate hangs on the street-side façade, near its right corner
+        page.evaluate(f"() => window.__mm.place({spot['x'] + 4 * math.sin(spot['rotY'])}, {spot['z'] + 4 * math.cos(spot['rotY'])})")
         page.wait_for_function("() => window.__mm.labels().some(l => l.t === '6a–6d')", timeout=60000)
         near = page.evaluate("() => window.__mm.labels()")
         page.evaluate(f"() => window.__mm.place({rx}, {rz})")
@@ -136,7 +136,8 @@ def test_label_material_cache_stays_bounded(server):
         br, page = open_page(p, server, world=w)
         cap = page.evaluate("() => window.__mm.labelCache().cap")
         for b in stops:
-            page.evaluate(f"() => window.__mm.place({b['rect'][0] + 2}, {b['rect'][1]})")
+            spot = page.evaluate(f"() => window.__mm.plateSpots('{b['addr']}')")[0]   # #520: drive to the plate, not the footprint centre
+            page.evaluate(f"() => window.__mm.place({spot['x'] + 4 * math.sin(spot['rotY'])}, {spot['z'] + 4 * math.cos(spot['rotY'])})")
             page.wait_for_function(f"() => window.__mm.labels().some(l => l.t === '{b['addr']}')", timeout=60000)
             seen |= {l["t"] for l in page.evaluate("() => window.__mm.labels()")}
             c = page.evaluate("() => window.__mm.labelCache()")
