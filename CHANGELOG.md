@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-29 10:27` New car **Rhy Rally**, a 2013 rally-car look-alike in our own **livery** (light blue, navy and red, start number 8): short gears, quick steering, and the handbrake throws the tail out. Pick it in the car selection or with `?vehicle=rally`. 3D model „2013 Hyundai - i20 WRC" by D3NK (3D Warehouse, General Model License).
 - `2026-10-27 21:26` **Sisseln** now has **all its buildings** (about 410 more houses, garages and sheds), not only those along the main roads. The **Volg** and the **Neues Schulhaus** are in the J list next to the old Schulhaus.
 
 ### Fixed
