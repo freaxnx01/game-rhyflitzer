@@ -590,6 +590,29 @@ function facingFacade(x, z, rot, w, d, road) {
   const nx = Math.sin(f.rotY), nz = Math.cos(f.rotY), shift = Math.max(0, lengths[k] / 2 - PLATE_IN);   // right of a viewer facing -n: (n.z, -n.x)
   return { x: f.x + nz * shift, z: f.z - nx * shift, rotY: f.rotY };
 }
+const MIN_WALL = 3;   // m: shorter ring edges (stair notches, porch sides) are not walls for a plate unless nothing else faces the street
+// #557: a plate on the real footprint: the ring edge facing `target` (nearest, outward normal towards it, >= MIN_WALL), PLATE_OFF off
+// the wall, PLATE_IN in from the edge's right end as seen from outside (middle on a short edge). null target = the +z side.
+export function wallPlate(ring, cx, cz, target) {
+  if (!ring || ring.length < 3) return null;
+  const n = ring.length; let area = 0;
+  for (let i = 0; i < n; i++) { const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n]; area += ax * bz - bx * az; }
+  const sgn = area >= 0 ? 1 : -1, edges = [];
+  for (let i = 0; i < n; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n], dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
+    if (len > 1e-6) edges.push({ ax, az, dx, dz, len, ox: sgn * dz / len, oz: -sgn * dx / len });
+  }
+  const T = target || [cx, cz + 1e6];
+  const dist = (e) => { const u = Math.max(0, Math.min(1, ((T[0] - e.ax) * e.dx + (T[1] - e.az) * e.dz) / (e.len * e.len))); return Math.hypot(T[0] - e.ax - e.dx * u, T[1] - e.az - e.dz * u); };
+  const facing = (e) => (T[0] - (e.ax + e.dx / 2)) * e.ox + (T[1] - (e.az + e.dz / 2)) * e.oz;
+  let pool = edges.filter(e => e.len >= MIN_WALL && facing(e) > 0);
+  if (!pool.length) pool = edges.filter(e => facing(e) > 0);
+  if (!pool.length) pool = edges;
+  if (!pool.length) return null;
+  const e = pool.reduce((a, b) => (dist(b) < dist(a) - 1e-9 ? b : a));
+  const rightIsB = e.dx * e.oz - e.dz * e.ox >= 0, inset = Math.min(PLATE_IN, e.len / 2), s = rightIsB ? e.len - inset : inset;
+  return { x: e.ax + e.dx / e.len * s + e.ox * PLATE_OFF, z: e.az + e.dz / e.len * s + e.oz * PLATE_OFF, rotY: Math.atan2(e.ox, e.oz) };
+}
 export function pickLabels(items, x, z, maxDist = 60, maxN = 40) {
   const out = [];
   for (const it of items) { const d = Math.hypot(it.x - x, it.z - z); if (d <= maxDist) out.push({ ...it, d }); }

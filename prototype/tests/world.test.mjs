@@ -167,6 +167,62 @@ test('addrLabels (#520): a plate on the façade that faces the nearest road, nea
   assert.deepEqual(addrLabels([]), []);
 });
 
+import { wallPlate } from '../world.js';
+// #557: distance from a point to the nearest edge of a ring (a plate sits PLATE_OFF off its wall)
+const ringDist = (ring, p) => {
+  let best = Infinity;
+  for (let i = 0; i < ring.length; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % ring.length], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    const u = L2 ? Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.z - az) * dz) / L2)) : 0;
+    best = Math.min(best, Math.hypot(p.x - ax - dx * u, p.z - az - dz * u));
+  }
+  return best;
+};
+
+test('wallPlate (#557): on the real wall that faces the target, 1 m in from the right end seen from outside', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const L = [[0, 0], [20, 0], [20, 10], [12, 10], [12, 22], [0, 22]];
+  for (const ring of [L, [...L].reverse()]) {
+    // target east of the step: the east wall x=20 (edge z 0..10), plate 0.06 m outside, facing +x
+    const e = wallPlate(ring, 8, 11, [60, 5]);
+    assert.ok(near(e.x, 20.06) && near(e.rotY, Math.PI / 2));
+    assert.ok(near(e.z, 1), 'seen from the east the right end is north (z=0): 1 m in');
+    // target west: the west wall x=0 (22 m), right end seen from the west is south (z=22)
+    const w = wallPlate(ring, 8, 11, [-40, 11]);
+    assert.ok(near(w.x, -0.06) && near(w.rotY, -Math.PI / 2) && near(w.z, 21));   // -pi/2 == 3pi/2: the same west-facing turn
+    // a target in the notch bite: the x=12 wall (z 10..22) faces +x and is the nearest wall facing it
+    const n = wallPlate(ring, 8, 11, [16, 16]);
+    assert.ok(near(n.x, 12.06) && near(n.rotY, Math.PI / 2));
+    assert.ok(ringDist(ring, e) <= 0.1 && ringDist(ring, w) <= 0.1 && ringDist(ring, n) <= 0.1, 'plates hug the ring');
+  }
+});
+
+test('wallPlate (#557): short walls, fallbacks, every plate stays within 0.1 m of the ring', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const L = [[0, 0], [20, 0], [20, 10], [12, 10], [12, 22], [0, 22]];
+  const flat = [[0, 0], [10, 0], [10, 2], [0, 2]];                                      // 10 x 2: only the 2 m east wall faces east
+  const bay = [[0, 0], [10, 0], [10, 4], [12, 4], [12, 6], [10, 6], [10, 10], [0, 10]]; // a 2 m bay on the east wall
+  for (const [ring, target, want] of [
+    [flat, [60, 1], { x: 10.06, z: 1, rotY: Math.PI / 2 }],   // under MIN_WALL but the only wall facing: plate in its middle
+    [bay, [30, 3], { x: 10.06, z: 1, rotY: Math.PI / 2 }],    // the 2 m bay is nearer, but the 4 m wall wins
+  ]) {
+    for (const r of [ring, [...ring].reverse()]) {
+      const p = wallPlate(r, 5, 5, target);
+      assert.ok(near(p.x, want.x) && near(p.z, want.z) && near(p.rotY, want.rotY), `${JSON.stringify(p)} != ${JSON.stringify(want)}`);
+      assert.ok(ringDist(r, p) <= 0.1, 'the plate hugs the ring');
+    }
+  }
+  // no target: the +z side (the greatest-z wall), like the box path's local +z façade
+  for (const r of [L, [...L].reverse()]) {
+    const t = wallPlate(r, 8, 11, null);
+    assert.ok(near(t.x, 11) && near(t.z, 22.06) && near(t.rotY, 0));
+    assert.ok(ringDist(r, t) <= 0.1);
+  }
+  // degenerate rings -> null, so the caller falls back to the box
+  assert.equal(wallPlate([[0, 0]], 0, 0, [1, 1]), null);
+  assert.equal(wallPlate(null, 0, 0, null), null);
+});
+
 test('pickLabels: within 60 m, nearest first, at most 40', () => {
   const items = Array.from({ length: 100 }, (_, k) => ({ t: String(k), x: k, z: 0 }));
   const got = pickLabels(items, 0, 0);
