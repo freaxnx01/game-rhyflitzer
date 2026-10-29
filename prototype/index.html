@@ -551,7 +551,7 @@ import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lif
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
-import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
+import { stepWheelYaw, stepWheelSpin, frontAxleX, plantedWheelY } from './steering.js';
 import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, shadowShown } from './shadow.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
@@ -2318,7 +2318,7 @@ let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras
 
 // ---------- the car: navy compact hatchback ----------
 // the model is drawn true to size (4.66 m, like a Mazda 3; compact.scale 1.0, #69): it fits the 2.5 x 5 m car-park bays. 1.3x made it read less like a toy car; the closer chase cams (6.9 m / 4.6 m) do that now
-const car = new THREE.Group(); scene.add(car);
+const car = new THREE.Group(); car.rotation.order = 'YZX'; scene.add(car);   // #542: like the shadow -- the lean (rotation.x) turns about the car's own forward axis, not the world's x axis
 const WRECK_S = { on: false, t: 0, acc: 0 }, NO_INPUT = {};   // #105: a wreck runs from 100 % damage until the new car; NO_INPUT = the keys and touch buttons a wreck ignores
 const flames = new THREE.Group(); flames.visible = false;
 const BLINK = { left: new THREE.Group(), right: new THREE.Group() }; BLINK.left.visible = BLINK.right.visible = false;
@@ -2593,7 +2593,7 @@ setVehicle(VEHICLES[CHOICE.id]); applyPaint(CHOICE.paint);
 // #132: wheel state is written by stepWheels (from stepCar) only; drawWheels (from the loop) only reads it
 const WHEEL_STATE = { yaw: 0, spin: 0 };
 function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL_STATE.yaw, steer, speed, dt); WHEEL_STATE.spin = stepWheelSpin(WHEEL_STATE.spin, vf, VEH.wheelR * VEH.scale, dt); }
-function drawWheels() { for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.roll.rotation.z = -WHEEL_STATE.spin; } }
+function drawWheels() { const lean = car.rotation.x; for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.x = -lean; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.steer.position.y = plantedWheelY(w.home.y, w.home.z, lean); w.roll.rotation.z = -WHEEL_STATE.spin; } }   // #542: the body leans, the wheels stay on the road
 // #163: shadow state is written by stepCar only; drawShadow (from the loop) only reads it. restShadow seeds it where P.y is set
 // outside the physics step -- the start screen, resetCar, __mm.place, landing from the helicopter
 const SHADOW_STATE = { y: 0, pitch: 0, roll: 0, wet: false, air: 0 };
@@ -3887,6 +3887,9 @@ window.__mm.carSize = () => ({ ...CAR_SIZE });   // #69: body box in world metre
 // #163: read-only, for the test. size = the quad in world metres, rot = [roll, yaw, pitch] (order YZX), shift = the sun offset,
 // ground = the sampled ground under the car, edge = the world height of the quad's left and right edge midpoints (where it really lies)
 window.__mm.shadow = () => { const s = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.updateMatrixWorld(true); const edge = [-0.5, 0.5].map(c => shadowMesh.localToWorld(new THREE.Vector3(0, 0, c)).y); return { visible: shadowMesh.visible, opacity: shadowMesh.material.opacity, size: [shadowMesh.scale.x, shadowMesh.scale.z], pos: [shadowMesh.position.x, shadowMesh.position.y, shadowMesh.position.z], rot: [shadowMesh.rotation.x, shadowMesh.rotation.y, shadowMesh.rotation.z], shift: [s.x, s.z], ground: SHADOW_STATE.y, edge }; };
+// #542: the lowest wheel's bottom above the ground (negative = sunk in), over a simulated stretch with keys held; read-only apart from the drive itself
+function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vector3(); let low = Infinity; for (const w of car.userData.wheels ?? []) { w.steer.getWorldPosition(p); low = Math.min(low, p.y - VEH.wheelR * VEH.scale - groundH(p.x, p.z, p.y)); } return low; }
+window.__mm.driveSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; let worst = Infinity, roll = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); worst = Math.min(worst, wheelClearance()); roll = Math.max(roll, Math.abs(car.rotation.x)); } for (const k of hold) keys[k] = false; return { worst, roll, speed: Math.hypot(P.vx, P.vz) }; };
 window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotation.z], pos: [car.position.x, car.position.y, car.position.z], visible: car.visible });   // #124: read-only, for the test
 window.__mm.kreisel = () => KREISEL.map(k => ({ x: k.x, z: k.z, b: k.b, apron: k.apron, bottom: k.bottom, low: lowestTerrain(k.x, k.z, k.apron), ir: k.ir, ibottom: k.ibottom, ilow: lowestTerrain(k.x, k.z, k.ir) }));
 // #132: wheel state and the wheel groups actually on the car (read-only, for the test)

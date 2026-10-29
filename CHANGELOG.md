@@ -20,8 +20,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-29 17:03` In a **handbrake** turn or a donut the wheels no longer sink into the road: the body leans in the slide, the wheels stay on the ground.
 - `2026-10-29 16:10` **House numbers** no longer float above the roofs: each number is now a **blue Swiss house-number plate** on the wall that faces the street, at door height and near the right-hand corner, as on real houses.
-
 - `2026-10-29 12:20` The **Plattform Sisslerfeld** now stands where it really is, south of the **Geuerenstrasse** on the open Sisslerfeld, with its entrance to the north and its **gravel yard** with six parking spaces.
 - `2026-10-27 20:27` **Restart race** from a room below the **Reservoir Hübel** puts you back on the road at the start again instead of somewhere in the sky.
 - `2026-10-27 16:41` In the **steam loco**, holding **B** now shows it from the front, like looking back in the car; in the cab view you look back over the tender.
