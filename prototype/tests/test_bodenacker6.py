@@ -103,6 +103,41 @@ def test_facades_by_side_and_the_roof_housing_is_plain(server):
     assert pane == "glass", pane
 
 
+PARAPET = 0.5   # BODENACKER6.parapet: the white band between the eaves and the roof slab
+
+
+def ray_from(wall, out=12.0, into=1.0):
+    """A horizontal ray from `out` m in front of a layout wall's midpoint to `into` m behind it (outward = right of a→b, bodenacker6.js)."""
+    (ax, az), (bx, bz) = wall["a"], wall["b"]; length = math.hypot(bx - ax, bz - az)
+    nx, nz = -(bz - az) / length, (bx - ax) / length; mx, mz = (ax + bx) / 2, (az + bz) / 2
+    return mx + nx * out, mz + nz * out, mx - nx * into, mz - nz * into
+
+
+@needs_world
+def test_top_storey_is_one_face_not_the_parapet_band_too(server):
+    """#453: the parapet band reached 2 m down over the top storey, coplanar with the façade: z-fighting while the camera moves."""
+    with sync_playwright() as p:
+        br, page = open_page(p, server)
+        layout = page.evaluate("() => window.__mm.bodenacker6()")
+        fl = layout["floors"]; eaves = fl["roof"] - PARAPET
+        longest = lambda face: max((w for w in layout["walls"] if w["face"] == face),
+                                   key=lambda w: math.hypot(w["b"][0] - w["a"][0], w["b"][1] - w["a"][1]))
+
+        def roles_at(wall, y):
+            x, z, tx, tz = ray_from(wall)
+            up = y - page.evaluate(f"() => window.__mm.probe({tx}, {tz})")["terrain"]
+            return page.evaluate(f"() => window.__mm.wallRolesAt({x}, {z}, {tx}, {tz}, {up})")
+
+        top = eaves - fl["pitch"] / 2
+        street, back, end = (roles_at(longest(f), top) for f in ("street", "back", "end"))
+        band = roles_at(longest("street"), eaves + PARAPET / 2)
+        br.close()
+    assert street == ["bodenacker"], street
+    assert back == ["bodenackerLoggia"], back
+    assert end == ["bodenacker"], end
+    assert band == ["plasterWhite"], band   # the band itself stays, above the eaves
+
+
 def test_hand_layout_has_no_bodenacker_model(server):
     with sync_playwright() as p:
         br, page = open_page(p, server, block_world=True)
