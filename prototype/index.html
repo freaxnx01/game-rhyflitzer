@@ -2070,15 +2070,18 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 { const an = renderer.capabilities.getMaxAnisotropy(); for (const t of Object.values(TEX)) { t.anisotropy = an; t.needsUpdate = true; } }
 const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group); if (CAVE_MODE.dark) scene.add(CAVE_MODE.dark); if (CAVE_MODE.veil) scene.add(CAVE_MODE.veil);   // #201
 for (const b of BORDER_LINES) scene.add(b.mesh);   // #396: the Holzbrücke's border lines, always shown
-// house numbers (#12, OSM addr): camera-facing sprites over the buildings within 60 m of the car; a pool of 40, refilled every 250 ms, one material per number
+// house numbers (#12, OSM addr; #520: Swiss blue plates flat on the façade that faces the nearest road, at door height, not over the roof):
+// the buildings within 60 m of the car; a pool of 40 plates, refilled every 250 ms, one material per number
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0, ticks: 0 };
-if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = terrainH(it.x, it.z) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
-for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(3.2, 1.2, 1); s.visible = false; LABELS.pool.push(s); scene.add(s); }
+const PLATE = { h: 0.5, px: 96, bg: '#1b4c9c', fg: '#ffffff', font: '700 64px "Barlow Condensed", sans-serif', door: 2.4, clear: 1.8, reach: 80 };
+function nearestRoadPoint(x, z) { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, PLATE.reach)) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= PLATE.reach ? best : null; }
+if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks, nearestRoadPoint)) { let base = Infinity; for (const [x, z] of it.foot || [[it.x, it.z]]) base = Math.min(base, terrainH(x, z)); it.y = Math.max(base + PLATE.door, terrainH(it.x, it.z) + PLATE.clear); it.foot = null; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
+{ const plane = new THREE.PlaneGeometry(1, 1); for (let i = 0; i < 40; i++) { const s = new THREE.Mesh(plane); s.visible = false; LABELS.pool.push(s); scene.add(s); } }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
-function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 256, 96, 'rgba(20,23,29,.82)', '#f5efe0', '700 64px "Barlow Condensed", sans-serif', '#f5efe0'), depthWrite: false }); LABELS.mat.set(t, m); return m; }
+function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else { const cw = PLATE.px + 48 * [...t].length; m = new THREE.MeshLambertMaterial({ map: textTex(t, cw, PLATE.px, PLATE.bg, PLATE.fg, PLATE.font, PLATE.fg) }); m.userData.w = PLATE.h * cw / PLATE.px; } LABELS.mat.set(t, m); return m; }
 function trimLabelMats() { const inUse = new Set(LABELS.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of LABELS.mat) { if (LABELS.mat.size <= LABELS.cap) return; if (inUse.has(m)) continue; LABELS.mat.delete(t); m.map.dispose(); m.dispose(); } }
 function updateLabels(x, z) { LABELS.ticks++; if (!LEVELS.isSurface() || CAVE_MODE.on) { LABELS.shown = []; for (const s of LABELS.pool) s.visible = false; return; }   // #277: none below (the surface world is hidden anyway)
-  LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
+  LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.scale.set(s.material.userData.w, PLATE.h, 1); s.position.set(it.x, it.y, it.z); s.rotation.y = it.rotY; } }); trimLabelMats(); }
 // #16: big village names over the villages (Midtown Madness style): camera-facing, drawn over everything and unfogged, hidden inside the
 // village; one sprite per village, created the first time its name shows (the web font has loaded by then).
 // #73: not across the Rhine (national border from L.boundaries) and nothing while inside a village
@@ -3624,7 +3627,8 @@ window.__mm.borders = () => ({ on: HUD.borders, groupVisible: NATB.visible, mesh
 window.__mm.natLines = () => NATLINES;
 window.__mm.mapBorderPixels = () => { const d = mapBorders.getContext('2d').getImageData(0, 0, mapBorders.width, mapBorders.height).data; let yellow = 0, white = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 200) continue; if (d[i] > 230 && d[i + 1] > 190 && d[i + 2] < 60) yellow++; else if (d[i] > 230 && d[i + 1] > 230 && d[i + 2] > 230) white++; } return { yellow, white }; };
 window.__mm.boundaryY = (x, z) => boundaryY(x, z);
-window.__mm.labels = () => LABELS.shown.map(l => ({ t: l.t, x: l.x, z: l.z, d: +l.d.toFixed(1) }));
+window.__mm.labels = () => LABELS.shown.map(l => ({ t: l.t, x: l.x, z: l.z, y: l.y, rotY: l.rotY, d: +l.d.toFixed(1) }));
+window.__mm.labelKinds = () => [...new Set(LABELS.pool.filter(s => s.visible).map(s => s.type))];   // #520: plates (Mesh), not sprites
 window.__mm.labelSprites = () => LABELS.pool.filter(s => s.visible).length;
 window.__mm.labelTick = () => LABELS.ticks;
 window.__mm.labelCache = () => { const live = new Set(LABELS.mat.values()); return { size: LABELS.mat.size, cap: LABELS.cap, live: LABELS.pool.every(s => !s.visible || live.has(s.material)) }; };

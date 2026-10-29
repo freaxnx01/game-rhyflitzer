@@ -573,10 +573,22 @@ export function isRowHouse(b) { return ROW_HOUSE_IDS.has(b.id); }
 export function rowUnits(addr) { const m = /^\d+([a-z])[–-]\d+([a-z])$/.exec(addr || ''); return m ? m[2].charCodeAt(0) - m[1].charCodeAt(0) + 1 : 6; }
 // texture tile for a row house: one unit wide, one whole storey tall (3 m nominal), so the yellow panels fall on the unit joints
 export function rowHouseTile(b) { const w = Math.max(b.rect[2], b.rect[3]), h = Math.max(b.h, 3); return [w / rowUnits(b.addr), h / Math.max(1, Math.round(h / 3))]; }
-// #12: house-number labels (OSM addr) at the footprint centre
-export function addrLabels(buildings, landmarks = {}) {
-  return [...buildings.filter(b => b.addr).map(b => ({ t: b.addr, x: b.rect[0], z: b.rect[1], top: roofTop(b) })),
-          ...Object.values(landmarks).filter(l => l.addr).map(l => ({ t: l.addr, x: l.x, z: l.z, top: 9 }))];
+// #12 / #520: house-number plates (OSM addr) flat on the façade of the drawn box that faces the nearest road; roadAt(x, z) gives
+// that road's nearest point [x, z] or null (then the box's local +z façade). foot = the ring the base height comes from (null for
+// a landmark, which stands on the terrain at its centre).
+export function addrLabels(buildings, landmarks = {}, roadAt = () => null) {
+  const plate = (t, x, z, w, d, rot, foot) => ({ t, ...facingFacade(x, z, rot, w, d, roadAt(x, z)), foot });
+  return [...buildings.filter(b => b.addr).map(b => plate(b.addr, ...b.rect, b.ring)),
+          ...Object.values(landmarks).filter(l => l.addr).map(l => plate(l.addr, l.x, l.z, ...l.size, l.rot || 0, null))];
+}
+const PLATE_OFF = 0.06, PLATE_IN = 1;   // m off the wall (clear of z-fighting); m in from the façade's right corner
+// as in Switzerland: near the right edge of the façade as seen from outside, not in its middle
+function facingFacade(x, z, rot, w, d, road) {
+  const faces = facadeLabels(x, z, rot, w, d, PLATE_OFF), lengths = [w, d, w, d];
+  const facing = (f) => road ? ((f.x - x) * (road[0] - x) + (f.z - z) * (road[1] - z)) / Math.hypot(f.x - x, f.z - z) : 0;
+  const k = faces.reduce((a, f, i) => (facing(f) > facing(faces[a]) ? i : a), 0), f = faces[k];
+  const nx = Math.sin(f.rotY), nz = Math.cos(f.rotY), shift = Math.max(0, lengths[k] / 2 - PLATE_IN);   // right of a viewer facing -n: (n.z, -n.x)
+  return { x: f.x + nz * shift, z: f.z - nx * shift, rotY: f.rotY };
 }
 export function pickLabels(items, x, z, maxDist = 60, maxN = 40) {
   const out = [];

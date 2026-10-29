@@ -137,11 +137,33 @@ test('roadNameAt: on a named road, off it, unnamed, nearest of two', () => {
   assert.equal(roadNameAt([], 0, 0), '');
 });
 
-test('addrLabels: only numbered buildings, roof-top heights, landmarks', () => {
-  const B = [{ addr: '6a–6d', h: 20, rh: 1.5, roof: 'flat', rect: [10, 20, 60, 22, 0] }, { addr: '5', h: 6, roof: 'gable', rect: [1, 2, 12, 8, 0] },
-    { addr: '7', h: 2, roof: 'flat', rect: [3, 4, 10, 10, 0] }, { h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0] }];
-  assert.deepEqual(addrLabels(B, { hallenbad: { x: 5, z: 6, addr: '2' }, chimney: { x: 0, z: 0 } }), [
-    { t: '6a–6d', x: 10, z: 20, top: 21.5 }, { t: '5', x: 1, z: 2, top: 6 + 0.4 * 8 }, { t: '7', x: 3, z: 4, top: 3 }, { t: '2', x: 5, z: 6, top: 9 }]);
+test('addrLabels (#520): a plate on the façade that faces the nearest road, near its right edge as seen from outside', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const same = (got, want) => assert.ok(Object.keys(want).every(k => typeof want[k] === 'number' ? near(got[k], want[k]) : got[k] === want[k]), `${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+  const ring = [[0, 0]];
+  const B = [{ addr: '6a–6d', h: 20, roof: 'flat', rect: [10, 20, 60, 22, 0], ring }, { h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0], ring }];
+  // road south of the block (+z): the +z façade, 11 m + 0.06 m off the centre, facing +z; seen from the south its right edge is
+  // east, so the plate sits 1 m in from the east corner (60 m façade: 29 m right of the centre)
+  const [south] = addrLabels(B, {}, () => [10, 60]);
+  same(south, { t: '6a–6d', x: 10 + 29, z: 20 + 11 + 0.06, rotY: 0 });
+  assert.equal(south.foot, ring, 'the ring travels along, for the base height');
+  assert.equal(addrLabels(B, {}, () => [10, 60]).length, 1, 'only numbered buildings');
+  // road east (+x): the +x façade, half the 60 m length off the centre, turned a quarter; its right edge is north (22 m: 10 m)
+  same(addrLabels(B, {}, () => [200, 20])[0], { x: 10 + 30 + 0.06, z: 20 - 10, rotY: Math.PI / 2 });
+  // road north (-z): right edge west; road west (-x): right edge south
+  same(addrLabels(B, {}, () => [10, -40])[0], { x: 10 - 29, z: 20 - 11 - 0.06, rotY: Math.PI });
+  same(addrLabels(B, {}, () => [-300, 20])[0], { x: 10 - 30 - 0.06, z: 20 + 10, rotY: 3 * Math.PI / 2 });
+  // a rotated house: rot = pi/2 turns the local +z façade (12 m) to -x; seen from the west its right edge is south
+  same(addrLabels([{ addr: '5', h: 6, rect: [0, 0, 12, 8, Math.PI / 2], ring }], {}, () => [-50, 0])[0], { x: -4 - 0.06, z: 5, rotY: -Math.PI / 2 });
+  // a façade under 2 m keeps the plate in its middle
+  same(addrLabels([{ addr: '9', h: 3, rect: [0, 0, 1.5, 4, 0], ring }], {}, () => [0, 50])[0], { x: 0, z: 2.06, rotY: 0 });
+  // no road within reach: the local +z façade
+  same(addrLabels(B, {}, () => null)[0], { x: 39, z: 31.06, rotY: 0 });
+  // landmarks with a number: their own box (x, z, rot, size), no ring
+  const lm = addrLabels([], { hallenbad: { x: 5, z: 6, rot: 0, size: [42, 40], addr: '2' }, chimney: { x: 0, z: 0 } }, () => [5, -100]);
+  assert.equal(lm.length, 1);
+  same(lm[0], { t: '2', x: 5 - 20, z: 6 - 20 - 0.06, rotY: Math.PI });
+  assert.equal(lm[0].foot, null);
   assert.deepEqual(addrLabels([]), []);
 });
 
