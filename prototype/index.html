@@ -313,7 +313,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <small data-i18n="creditTitanic" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditHatchback" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
     <small data-i18n="creditMini" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
-    <small data-i18n="creditBus" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
+    <small data-i18n="creditBus" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
+    <small data-i18n="creditModelT" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
   <div id="jump" hidden><div id="jumptitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small id="jumphint">type to search · ↑↓ choose · Enter confirms · Esc closes</small></div>
   <div id="bl">
     <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer" data-i18n-aria="speedoAria">
@@ -552,6 +553,7 @@ import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, s
 import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
 import { LAMP, lampState } from './lights.js';
 import { HATCHBACK, wheelPlan } from './hatchback.js';   // #236: the first glTF car
+import { MODEL_T } from './modelt.js';   // #521: Tin Lizzie, a glTF car
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
@@ -2262,6 +2264,7 @@ const VEHICLES = {
         filter: { idle: 260, open: 1300, offLoad: 0.45, q: 1.2 }, gain: { idle: 0.07, rev: 0.05, load: 0.1 }, shiftTime: 0.3, shiftDip: 0.5, nitroHiss: 0.07 },
       horn: BUS_HORN,
       crash: { weight: 2, thump: 45, noise: 1000, gain: 1 } } },   // a slow, deep diesel: low revs, dark filter, long shifts; a heavy, dull crash
+  modelt: MODEL_T,   // #521: Tin Lizzie, a Ford Model T look-alike (prototype/assets/modelt.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
