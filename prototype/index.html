@@ -536,6 +536,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -1409,18 +1410,38 @@ function foodTruck(x, z, rot) { // #103 Güggeli food truck: cream box body on f
   addOBB(x, z, 7.1, 2.4, rot, b + 3);
   window.__mm.counts.foodTruck = 1;
 }
-function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/01; timber on the neutral roofFlat noise so it stays bright spruce, the plank texture is too brown): four spruce posts on a 4.2 m square, round batten stair core with X braces, closed parapet box at 5.5-7 m cantilevering past the posts, big overhanging pyramid roof in grey-green sheet metal, apex 11 m
-  const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), spruce = col('#f6dc9a'), beam = col('#dcbf80'), timber = 'roofFlat', R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
-  const bar = (ax, ay, az, bx, by, bz, t, cc) => { const [wax, waz] = R(ax, az), [wbx, wbz] = R(bx, bz); const d = new THREE.Vector3(wbx - wax, by - ay, wbz - waz), len = d.length(); const g = new THREE.BoxGeometry(t, len, t); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); g.translate((wax + wbx) / 2, b + (ay + by) / 2, (waz + wbz) / 2); colorize(g, cc); push(timber, g); };
-  const pad = new THREE.CircleGeometry(7, 24); pad.rotateX(-Math.PI / 2); pad.translate(x, b + 0.04, z); colorize(pad, col('#cfc3ac')); push('gravel', pad);
-  const core = new THREE.CylinderGeometry(1.6, 1.6, 5.5, 24, 1, true).toNonIndexed(); { const p = core.attributes.position, arr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const cc = Math.floor(i / 6) % 2 ? col('#4a3a26') : spruce; arr[i * 3] = cc.r; arr[i * 3 + 1] = cc.g; arr[i * 3 + 2] = cc.b; } core.setAttribute('color', new THREE.BufferAttribute(arr, 3)); } core.translate(x, b + 2.75, z); push(timber, core);
-  for (const [ox, oz] of [[-2.1, -2.1], [2.1, -2.1], [2.1, 2.1], [-2.1, 2.1]]) { const [px, pz] = R(ox, oz); box(0.34, 8.2, 0.34, px, b, pz, rot, spruce, timber, [1, 1], 0); addOBB(px, pz, 0.36, 0.36, rot, b + 8.2); }
-  for (const [ax, az, bx, bz] of [[-2.1, -2.1, 2.1, -2.1], [2.1, -2.1, 2.1, 2.1], [2.1, 2.1, -2.1, 2.1], [-2.1, 2.1, -2.1, -2.1]]) { bar(ax, 0.4, az, bx, 5.1, bz, 0.16, beam); bar(ax, 5.1, az, bx, 0.4, bz, 0.16, beam); bar(ax, 5.15, az, bx, 5.15, bz, 0.22, beam); }
-  for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { bar(ox * 2.1, 3.6, oz * 2.1, ox * 3.55, 5.4, oz * 3.55, 0.16, beam); bar(ox * 2.1, 6.6, oz * 2.1, ox * 4.8, 8.05, oz * 4.8, 0.16, beam); }
-  box(7.5, 1.55, 7.5, x, b + 5.45, z, rot, spruce, timber, [2, 1.5], 0); box(7.6, 0.3, 7.6, x, b + 5.3, z, rot, col('#8a6a44'), timber, [1, 1], 0);
-  box(10.2, 0.14, 10.2, x, b + 8.08, z, rot, beam, timber, [2, 2], 0); box(10.8, 0.28, 10.8, x, b + 8.0, z, rot, col('#2c2e2c'), 'roofFlat', [4, 4], 0);
-  const roof = new THREE.ConeGeometry(5.4 * Math.SQRT2, 2.8, 4, 1, true); roof.rotateY(Math.PI / 4 - rot); roof.translate(x, b + 8.25 + 1.4, z); colorize(roof, col('#7a8878')); push('roofFlat', roof);
-  addOBB(x, z, 3.3, 3.3, rot, b + 5.5);
+function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real plan (Häring montage plans, in plattform.js; timber on the neutral roofFlat noise so it stays bright spruce): a triangular concrete slab on gravel, three spruce posts on a 6 m triangle with X braces, the slatted core cylinder with the stair and its door, the triangular deck on top with the parapet box, and the grey-green pyramid roof. The entrance side faces the nearest road (A5)
+  const b = terrainH(x, z), spruce = col('#f6dc9a'), beam = col('#dcbf80'), timber = 'roofFlat', P = PLATTFORM, RAD = Math.PI / 180;
+  const facing = facingToRoad(x, z, ROADS.filter(r => !r.trail && r.cls !== 'motorway').map(r => r.pts));
+  const f = plattformFrame(x, z, facing), { core, deck, roof, slab, frame, centrePost } = P;
+  const bar = (ax, ay, az, bx, by, bz, t, cc) => { const d = new THREE.Vector3(bx - ax, by - ay, bz - az), len = d.length(); const g = new THREE.BoxGeometry(t, len, t); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); g.translate((ax + bx) / 2, b + (ay + by) / 2, (az + bz) / 2); colorize(g, cc); push(timber, g); };
+  const flat = (pts) => { const s = new THREE.Shape(); pts.forEach(([px, pz], i) => i ? s.lineTo(px, -pz) : s.moveTo(px, -pz)); return s; };   // a world-xz outline as a Shape (rotateX(-90 deg) lays it out flat)
+  const battens = (from, to, y0, h) => {   // the slatted ring, alternating spruce and dark; three.js theta runs from +z, so world phi = 90 deg - theta
+    const segs = Math.round((to - from) / 5), g = new THREE.CylinderGeometry(core.r, core.r, h, segs, 1, true, Math.PI / 2 - facing - to * RAD, (to - from) * RAD).toNonIndexed();
+    const p = g.attributes.position, arr = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) { const cc = Math.floor(i / 6) % 2 ? col('#4a3a26') : spruce; arr[i * 3] = cc.r; arr[i * 3 + 1] = cc.g; arr[i * 3 + 2] = cc.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); g.translate(x, b + y0 + h / 2, z); push(timber, g);
+  };
+  const pad = new THREE.CircleGeometry(9, 24); pad.rotateX(-Math.PI / 2); pad.translate(x, b + 0.02, z); colorize(pad, col('#cfc3ac')); push('gravel', pad);   // the gravel around the slab
+  const slabG = new THREE.ShapeGeometry(flat(f.triangle(slab.side))); slabG.rotateX(-Math.PI / 2); slabG.translate(0, b + 0.04, 0); colorize(slabG, col('#b9b6ae')); push('roadPlain', slabG);
+  const tri = f.triangle(frame.side);
+  for (const [px, pz] of tri) { box(frame.post, roof.eaves, frame.post, px, b, pz, facing, spruce, timber, [1, 1], 0); addOBB(px, pz, 0.26, 0.26, facing, b + roof.eaves); }
+  for (let i = 0; i < 3; i++) { const [ax, az] = tri[i], [bx, bz] = tri[(i + 1) % 3];
+    bar(ax, 0.2, az, bx, frame.braceH, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, 0.2, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, frame.braceH, bz, 0.22, beam); }
+  const apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * Math.tan(roof.pitch * RAD);
+  box(centrePost, apex, centrePost, x, b, z, facing, spruce, timber, [1, 1], 0);   // the central post, no OBB (the walkway wall covers the walker; the car never gets inside the ring)
+  battens(core.door.half, 360 - core.door.half, 0, deck.y);   // the ring, open at the door
+  battens(-core.door.half, core.door.half, core.door.h, deck.y - core.door.h);   // over the door
+  for (const t of stairTreads()) { const segs = Math.max(2, Math.ceil((t.to - t.from) / 5)); const g = new THREE.CylinderGeometry(core.tread, core.tread, 0.05, segs, 1, false, Math.PI / 2 - facing - t.to * RAD, (t.to - t.from) * RAD); g.translate(x, b + t.y - 0.025, z); colorize(g, beam); push(timber, g); }
+  const hole = new THREE.Path(); Array.from({ length: deck.opening }, (_, i) => f.polar(i * 360 / deck.opening, core.r)).forEach(([px, pz], i) => i ? hole.lineTo(px, -pz) : hole.moveTo(px, -pz));
+  const deckShape = flat(f.triangle(deck.side)); deckShape.holes.push(hole);
+  const deckG = new THREE.ExtrudeGeometry(deckShape, { depth: deck.thick, bevelEnabled: false }); deckG.rotateX(-Math.PI / 2); deckG.translate(0, b + deck.y - deck.thick, 0); colorize(deckG, col('#8a6a44')); push(timber, deckG);
+  const dtri = f.triangle(deck.side);
+  for (let i = 0; i < 3; i++) { const [ax, az] = dtri[i], [bx, bz] = dtri[(i + 1) % 3], len = Math.hypot(bx - ax, bz - az);
+    box(len, deck.parapet, 0.08, (ax + bx) / 2, b + deck.y, (az + bz) / 2, Math.atan2(bz - az, bx - ax), spruce, timber, [1, 1.5], 0); }
+  const roofG = new THREE.ConeGeometry(roof.side / Math.sqrt(3), apex - roof.eaves, 3, 1, true); roofG.rotateY(30 * RAD - facing); roofG.translate(x, b + roof.eaves + (apex - roof.eaves) / 2, z); colorize(roofG, col('#5f6f66')); push('roofFlat', roofG);
+  const under = new THREE.ConeGeometry(roof.side / Math.sqrt(3), apex - roof.eaves, 3, 1, true); under.rotateY(30 * RAD - facing); under.scale(1, -1, 1); under.translate(x, b + roof.eaves - 0.02 - (apex - roof.eaves) / 2, z); colorize(under, col('#3a4440')); push('roofFlat', under);   // flipped: its face shows from the deck, so the roof does not look hollow
+  PLAT = { frame: f, base: b, walk: plattformWalk(f, b) };
 }
 // #102 / #361: the hideout -- trough walls along T1 (the #119 pattern without decks), the lift hall's ring wall (its one
 // opening towards T1), the reservoir gate at the portal, gravel down T1, a concrete disc and lamps in the hall, and the
@@ -1669,6 +1690,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
 // #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
 // indoor is additive behind INT.hall (null until bodenackerBuilding built it); every glue function guards on it.
 const INT = { hall: null, house: '6c', on: false, group: null, housing: null, lift: null, cabin: null, door: { open: 0, target: 0 }, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null, roofDoorOpen: false, roofDoorAmt: 0 };
+let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM world only)
 // ---------- build the world ----------
 {
   const { GW, GD } = TGRID;
@@ -1983,7 +2005,7 @@ const INT = { hall: null, house: '6c', on: false, group: null, housing: null, li
   if (L) for (const b of L.buildings) osmBuilding(b);
   if (L && (L.props.length || YARD)) propMeshes(YARD ? [...L.props, ...yardProps(YARD).map(p => ({ ...p, yard: true }))] : L.props); if (YARD) { crashSign(); yardGround(YARD); }   // #415, #426
   if (L && L.parking.length) parkingMeshes(L.parking);
-  if (L) { // landmarks on their real positions (the Plattform Sisslerfeld as a hand-built placeholder until the detailed model)
+  if (L) { // landmarks on their real positions (the Plattform Sisslerfeld, built to the builder's plans (#413))
     const lm = L.anchors.landmarks, at = (k) => lm[k];
     if (at('dsmChimney')) dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140);
     if (at('dsmWaterTower')) waterTower(at('dsmWaterTower').x, at('dsmWaterTower').z, at('dsmWaterTower').h || 59);
@@ -1994,7 +2016,7 @@ const INT = { hall: null, house: '6c', on: false, group: null, housing: null, li
     if (at('muenster')) church(at('muenster').x, at('muenster').z, at('muenster').rot, true);
     if (at('steinChurch')) church(at('steinChurch').x, at('steinChurch').z, at('steinChurch').rot, false);
     for (const k of ['stationStein', 'stationSisseln']) if (at(k)) stationAt(at(k).x, at(k).z, at(k).rot, STATION_NAMES[k]);
-    if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z, at('plattform').rot || 0);
+    if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z);
     if (HIDE) hideoutBuild();   // #102
     for (const s of Object.values(lm)) { if (s.kind === 'baustelle') baustelleSign(s.x, s.z, s.rot); else if (s.kind === 'fahrverbot') fahrverbotSign(s.x, s.z, s.rot); }   // #42
   }
