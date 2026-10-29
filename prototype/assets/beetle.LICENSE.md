@@ -14,5 +14,5 @@
 - The four wheels split into their own nodes (`wheel_FL`, `wheel_FR`, `wheel_RL`, `wheel_RR`) with the origin at the wheel centre, so they roll and steer; the steered front wheels turned straight.
 - The open left door replaced by a mirror image of the closed right door.
 - The photo texture removed: the licence plate is blank, the drag-strip timeslip sticker on the dashboard is gone.
-- The eighteen materials replaced by plain, mostly non-metallic ones of the same colours; the head and tail lamps and the glass got game roles.
+- The eighteen materials replaced by plain, mostly non-metallic ones of the same colours; the body is one white paint material the game colours (red by default), the head and tail lamps and the glass got game roles.
 - Compressed with `EXT_meshopt_compression`.
