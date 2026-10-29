@@ -1261,16 +1261,17 @@ function smileKreiselAt(x, z, inner = 10.5) { // three tilted steel smiley discs
 }
 function flatBuilding(x, z, w, d, h, rot, c, role = 'hall') { const b = terrainH(x, z); box(w, h + 2, d, x, b - 2, z, rot, col(c), role, role === 'hall' ? [8, h] : [4, 3], 0); addOBB(x, z, w, d, rot, b + h); }
 // OSM footprint -> walls (one quad per edge, outward-facing) + flat roof (triangulated); base = lowest terrain under the ring
-function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], uPerFace = false) {
+// #453: below = how far under base the walls reach (2 m skirt into the terrain, like wallQuads); 0 where the extrusion sits on other walls
+function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], uPerFace = false, below = 2) {
   let area = 0; for (let i = 0; i < ring.length; i++) { const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length]; area += x0 * z1 - x1 * z0; } if (area > 0) ring = ring.slice().reverse();
   const pos = [], nrm = [], uv = []; let along = 0;
   for (let i = 0; i < ring.length; i++) {
     const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length], L2 = Math.hypot(x1 - x0, z1 - z0); if (L2 < 0.05) continue;
-    const nx = -(z1 - z0) / L2, nz = (x1 - x0) / L2, y0 = base - 2, y1 = base + h;
+    const nx = -(z1 - z0) / L2, nz = (x1 - x0) / L2, y0 = base - below, y1 = base + h;
     const A = [x0, y0, z0], B = [x1, y0, z1], C = [x1, y1, z1], D = [x0, y1, z0];
     for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(nx, 0, nz); }
     // uPerFace (#45): u restarts on every edge, so a tile boundary sits on each corner; cumulative otherwise, so no seam shows mid-wall
-    const u0 = uPerFace ? 0 : along / tile[0], u1 = (uPerFace ? L2 : along + L2) / tile[0], v0 = -2 / tile[1], v1 = h / tile[1]; along += L2;
+    const u0 = uPerFace ? 0 : along / tile[0], u1 = (uPerFace ? L2 : along + L2) / tile[0], v0 = -below / tile[1], v1 = h / tile[1]; along += L2;
     uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
   }
   rawGeo(pos, nrm, uv, 0, 0, 0, c, role);
@@ -1369,7 +1370,7 @@ function bodenackerBuilding(b, lowest, h) {
   wallQuads(gap.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
   wallQuads([{ ...gap.lintel, dy: fd.h }], base + fd.h, h - fd.h, white, 'bodenacker', tile, 0);
   const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
-  extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'));   // the band's top is the roof slab
+  extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'), [4, 3], false, 0);   // the band's top is the roof slab; #453: no 2 m skirt, it sat coplanar on the top storey's façade (z-fighting)
   for (const s of L.stairs) {
     if (s.house === '6c') continue;   // #411: 6c's housing is the stair tower's own outline (below), not the merged box
     const [x, z] = L.frame.toWorld(s.u, (s.vFront + s.vBack) / 2);
