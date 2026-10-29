@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test prototype/tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads } from '../plattform.js';
+import { PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { WALKER } from '../foot.js';
 
@@ -38,4 +38,58 @@ test('stairTreads_Heights_MatchThePlan', () => {
   assert.ok(near(by('lower:0').y, 0.075) && near(by('lower:16').y, 2.635));
   assert.ok(near(by('podest').y, 2.795) && near(by('upper:0').y, 2.955) && near(by('upper:16').y, 5.515));
   assert.ok(near(by('exit').y, 5.675) && near(by('austritt').y, PLATTFORM.deck.y));
+});
+
+const BASE = 100, F = plattformFrame(0, 0, 0.3), W = plattformWalk(F, BASE);
+
+// walk the stair's centre line (r = 0.8), unrolled angle psi from the door to the end of the Austritt
+function climb(walk, frame, base) {
+  const ys = [];
+  let y = base;
+  for (let psi = 0; psi <= 950; psi += 2) {
+    const [x, z] = frame.polar(psi % 360, 0.8), fl = walkwayFloor(walk, x, z, y);
+    const next = fl === null ? base : fl;
+    ys.push({ psi, y: next, prev: y, ceil: walkwayCeiling(walk, x, z, next) });
+    y = next;
+  }
+  return ys;
+}
+
+test('plattformWalk_StairCentreLine_ClimbsFromTheDoorOntoTheDeck', () => {
+  const path = climb(W, F, BASE);
+  for (const p of path) {
+    assert.ok(p.y - p.prev <= WALKER.stepUp + 1e-9, `step too high at psi ${p.psi}: ${p.prev} -> ${p.y}`);
+    assert.ok(p.y >= p.prev - 1e-9, `drop at psi ${p.psi}: ${p.prev} -> ${p.y}`);
+  }
+  assert.ok(near(path.at(-1).y, BASE + PLATTFORM.deck.y), `ends at ${path.at(-1).y}`);
+});
+
+test('plattformWalk_StairCentreLine_HeadroomAtLeast1p7', () => {
+  for (const p of climb(W, F, BASE)) if (p.ceil !== null) assert.ok(p.ceil - p.y >= 1.7 - 1e-9, `headroom ${(p.ceil - p.y).toFixed(2)} at psi ${p.psi}`);
+});
+
+test('plattformWalk_Deck_WalkableOutsideTheOpeningNotInIt', () => {
+  const deckY = BASE + PLATTFORM.deck.y, [ox, oz] = F.toWorld(2.2, 0), [hx, hz] = F.polar(300, 1.0);
+  assert.equal(walkwayFloor(W, ox, oz, deckY), deckY, 'deck at the base side');
+  assert.notEqual(walkwayFloor(W, hx, hz, deckY), deckY, 'the opening over the lower flight is no deck');
+});
+
+test('plattformWalk_Parapet_PushesBackAtEveryEdgeMidpoint', () => {
+  const deckY = BASE + PLATTFORM.deck.y, tri = F.triangle(PLATTFORM.deck.side);
+  for (let i = 0; i < 3; i++) {
+    const a = tri[i], b = tri[(i + 1) % 3], mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
+    assert.ok(walkwayPush(W, mx, mz, deckY, WALKER.radius).length > 0, `edge ${i}`);
+  }
+});
+
+test('plattformWalk_CoreRing_BlocksExceptAtTheDoor', () => {
+  const [dx, dz] = F.polar(0, PLATTFORM.core.r), [wx, wz] = F.polar(180, PLATTFORM.core.r);
+  assert.equal(walkwayPush(W, dx, dz, BASE, WALKER.radius).filter(h => h).length, 0, 'the door is open at ground level');
+  assert.ok(walkwayPush(W, wx, wz, BASE, WALKER.radius).length > 0, 'the battens block');
+});
+
+test('plattformEntrance_OutsideTheDoorFacingIn', () => {
+  const e = plattformEntrance(F), [dx, dz] = F.polar(0, PLATTFORM.entranceR);
+  assert.ok(near(e.x, dx) && near(e.z, dz));
+  assert.ok(near(Math.cos(e.th), -Math.cos(0.3)) && near(Math.sin(e.th), -Math.sin(0.3)), 'th points inward');
 });

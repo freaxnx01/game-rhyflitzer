@@ -63,3 +63,34 @@ export function sectorPoly(frame, from, to, r0, r1) {
   for (let i = n; i >= 0; i--) pts.push(frame.polar(from + (to - from) * i / n, r0));
   return pts;
 }
+
+// a thin wall along the segment a-b
+const segment = ([ax, az], [bx, bz], y0, y1, tag, thick = 0.1) => {
+  const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
+  return { x: (ax + bx) / 2, z: (az + bz) / 2, hw: len / 2, hd: thick / 2, c: dx / len, s: dz / len, y0, y1, tag };
+};
+
+// the walkway set: treads, landing, exit and Austritt as sector slabs; the deck with its round opening; the batten ring (open at the door
+// up to the door's height), the central post, the railing round the opening and the parapet -- every y absolute (base + ...)
+export function plattformWalk(frame, base, P = PLATTFORM) {
+  const walk = emptyWalkways(), { core, deck } = P, deckY = base + deck.y, half = P.centrePost / 2;
+  for (const t of stairTreads(P)) walk.slabs.push({ poly: sectorPoly(frame, t.from, t.to, half, core.tread), y: base + t.y, tag: t.tag });
+  const opening = { poly: Array.from({ length: deck.opening }, (_, i) => frame.polar(i * 360 / deck.opening, core.r)) };
+  walk.slabs.push({ poly: frame.triangle(deck.side), holes: [opening], y: deckY, tag: 'deck' });
+  for (let a = -core.door.half; a < 360 - core.door.half; a += core.segment) {
+    const door = a + core.segment <= core.door.half;
+    walk.walls.push(segment(frame.polar(a, core.r), frame.polar(a + core.segment, core.r), base + (door ? core.door.h : 0), deckY, door ? 'core:door' : 'core'));
+  }
+  const [cx, cz] = frame.toWorld(0, 0);
+  walk.walls.push({ x: cx, z: cz, hw: half, hd: half, c: Math.cos(frame.facing), s: Math.sin(frame.facing), y0: base, y1: base + P.roof.eaves + 4, tag: 'post' });
+  for (let a = deck.railFrom; a < deck.railTo; a += core.segment) walk.walls.push(segment(frame.polar(a, core.r), frame.polar(a + core.segment, core.r), deckY, deckY + deck.rail, 'rail'));
+  const tri = frame.triangle(deck.side);
+  for (let i = 0; i < 3; i++) walk.walls.push(segment(tri[i], tri[(i + 1) % 3], deckY, deckY + deck.parapet, 'parapet', 0.12));
+  return walk;
+}
+
+// outside the door, `th` = the direction you walk in (enterables.js)
+export function plattformEntrance(frame, P = PLATTFORM) {
+  const [x, z] = frame.polar(0, P.entranceR);
+  return { x, z, th: frame.facing + Math.PI, w: 0.8 };
+}
