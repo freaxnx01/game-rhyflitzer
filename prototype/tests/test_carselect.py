@@ -79,10 +79,10 @@ def test_choose_car_opens_the_screen_with_the_compact(server):
         bars = lit_counts(page)
         b.close()
     assert shown["overlayHidden"] is True and shown["role"] == "dialog" and shown["modal"] == "true"
-    assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 9"
+    assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 10"
     assert shown["name"] == "Sissle Speedster" and shown["cls"] == "Compact · Class B" and shown["desc"].startswith("Small, light")
-    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 10 and shown["tiles"] == ["true"] + ["false"] * 8
-    assert shown["garage"] == "Garage · 9 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
+    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 10 and shown["tiles"] == ["true"] + ["false"] * 9
+    assert shown["garage"] == "Garage · 10 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
     assert bars == [{"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 3, "score": 3}]
     assert got["open"] is True and got["id"] == "compact" and got["paint"] == "navy" and got["focus"] == "csrace"
     assert got["carVisible"] is True and got["bodyColor"] == "1b2d5e" and got["paintable"] is True
@@ -175,9 +175,9 @@ def test_third_vehicle_and_race(server):
         page.wait_for_function("() => document.querySelector('#carsel').hidden && document.querySelector('#overlay').hidden", timeout=T)
         raced = page.evaluate("() => ({ open: window.__mm.carsel().open, top: window.__mm.vehicle().drive.top, stored: localStorage.getItem('mm.car'), mode: window.__mm.blitz().mode })")
         b.close()
-    assert count1 == "Car 1 of 10"
-    assert shown["count"] == "Car 10 of 10" and shown["name"] == "slow" and shown["cls"] == "" and shown["tiles"] == ["false", "false", "false", "false", "false", "false", "false", "false", "false", "true"]
-    assert shown["garage"] == "Garage · 10 vehicles" and shown["top"] == 30
+    assert count1 == "Car 1 of 11"
+    assert shown["count"] == "Car 11 of 11" and shown["name"] == "slow" and shown["cls"] == "" and shown["tiles"] == ["false"] * 10 + ["true"]
+    assert shown["garage"] == "Garage · 11 vehicles" and shown["top"] == 30
     assert bars[0] == {"lit": 4, "score": 4} and bars[3] == {"lit": 7, "score": 7}, bars
     assert tile_focus == "slow"
     assert raced["open"] is False and raced["top"] == 30 and raced["mode"] == "trial" and json.loads(raced["stored"]) == {"id": "slow", "paint": "navy"}
@@ -199,7 +199,7 @@ def test_delorean_has_fixed_paint_and_its_own_texts_and_bars(server):
         back = page.evaluate("() => ({ disabled: [...document.querySelectorAll('#cspaints button')].some(b => b.disabled), paintable: window.__mm.carsel().paintable })")
         b.close()
     assert fixed == {"disabled": True, "name": "fixed", "paintable": False}
-    assert texts["count"] == "Car 2 of 9" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class B" and texts["desc"].startswith("Brushed steel")
+    assert texts["count"] == "Car 2 of 10" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class B" and texts["desc"].startswith("Brushed steel")
     assert [b["score"] for b in bars] == [7, 5, 7, 3], bars
     assert back == {"disabled": False, "paintable": True}
     assert errors == []
@@ -219,7 +219,7 @@ def test_phone_layout_de(server):
             nav: getComputedStyle(document.querySelector('#game-nav')).display, touch: getComputedStyle(document.querySelector('#touch')).display,
             race: document.querySelector('#csrace').textContent }; }""")
         b.close()
-    assert got["title"] == "Auto wählen" and got["count"] == "Auto 1 von 9" and got["race"] == "Los! ›"
+    assert got["title"] == "Auto wählen" and got["count"] == "Auto 1 von 10" and got["race"] == "Los! ›"
     assert got["labels"] == ["Höchsttempo", "Beschleunigung", "Handling", "Masse"]
     assert got["scrollW"] <= 360 and got["docScrollW"] <= 360, got
     assert got["minBtn"] >= 44, got
@@ -233,14 +233,14 @@ def test_language_toggle_rerenders_the_open_screen(server):
         b, page, errors = open_page(p, server)
         open_carsel(page)
         page.click("#gg-lang-toggle")
-        page.wait_for_function("() => document.querySelector('#cscount').textContent === 'Auto 1 von 9'", timeout=T)
+        page.wait_for_function("() => document.querySelector('#cscount').textContent === 'Auto 1 von 10'", timeout=T)
         got = page.evaluate("""() => ({ title: document.querySelector('#carseltitle').textContent, name: document.querySelector('#csname').textContent,
             cls: document.querySelector('#csclass').textContent, paint: document.querySelector('#cspaintname').textContent,
             garage: document.querySelector('#csgaragelabel').textContent, race: document.querySelector('#csrace').textContent,
             prev: document.querySelector('#csprev').getAttribute('aria-label'), carbtn: document.querySelector('#carbtn').textContent })""")
         b.close()
     assert got == {"title": "Auto wählen", "name": "Sissle Speedster", "cls": "Kompakt · Klasse B", "paint": "Marine",
-                   "garage": "Garage · 9 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
+                   "garage": "Garage · 10 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
     assert errors == []
 
 

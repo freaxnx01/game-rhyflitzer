@@ -126,3 +126,17 @@ def test_newbeetle_model_is_credited_everywhere():
 def test_newbeetle_model_is_committed_and_small():
     glb = ROOT / "prototype" / "assets" / "newbeetle.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_tumbler_model_is_credited_everywhere():
+    """"Batmobile-The Dark Knight Tumbler" by Gravity Jack, CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/tumbler.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "Gravity Jack" in t and "CC BY 4.0" in t and "Batmobile-The Dark Knight Tumbler" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditTumbler") == 2 and 'data-i18n="creditTumbler"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_tumbler_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "tumbler.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
