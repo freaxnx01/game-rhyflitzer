@@ -538,7 +538,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -1426,7 +1426,11 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
     for (let i = 0; i < p.count; i++) { const cc = Math.floor(i / 6) % 2 ? col('#a08c66') : spruce; arr[i * 3] = cc.r; arr[i * 3 + 1] = cc.g; arr[i * 3 + 2] = cc.b; }
     g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); g.translate(x, b + y0 + h / 2, z); push(timber, g);
   };
-  const pad = new THREE.CircleGeometry(9, 24); pad.rotateX(-Math.PI / 2); pad.translate(x, b + 0.02, z); colorize(pad, col('#cfc3ac')); push('gravel', pad);   // the gravel around the slab
+  const yard = plattformYard(f);   // #526: the KSL yard replaces the gravel disc -- the 26 x 20 m gravel rectangle (north edge on the road edge) and its six parking spaces, no colliders
+  const yardG = new THREE.ShapeGeometry(flat(yard.gravel)); yardG.rotateX(-Math.PI / 2); yardG.translate(0, b + 0.03, 0); colorize(yardG, col('#cfc3ac')); push('gravel', yardG);
+  const bayLines = yard.parking.flatMap(r => r.map((p, i) => [p[0], p[1], r[(i + 1) % 4][0], r[(i + 1) % 4][1]])), bayPos = [];
+  for (const [p0, p1, p2, p3] of lineQuads(bayLines, 0.12)) for (const [px, pz] of [p0, p1, p2, p0, p2, p3]) bayPos.push(px, b + 0.035, pz);   // the bays, in the parking lots' white line style
+  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(bayPos, 3)); decals.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }))); }
   const slabG = new THREE.ShapeGeometry(flat(f.triangle(slab.side))); slabG.rotateX(-Math.PI / 2); slabG.translate(0, b + 0.04, 0); colorize(slabG, col('#b9b6ae')); push('roadPlain', slabG);
   const tri = f.triangle(frame.side);
   for (const [px, pz] of tri) { box(frame.post, roof.eaves, frame.post, px, b, pz, facing, spruce, timber, [1, 1], 0); addOBB(px, pz, 0.26, 0.26, facing, b + roof.eaves); }

@@ -20,6 +20,8 @@ export const PLATTFORM = {
   deck: { side: 9.84, y: 5.735, thick: 0.3, parapet: 1.24, rail: 1.1, railFrom: 230, railTo: 460, opening: 24 },
   roof: { side: 12.10, eaves: 8.2, pitch: 45 },
   slab: { side: 12.03 },
+  yard: { u0: -12.5, u1: 7.47, v0: -16.5, v1: 9.5 },        // KSL: north edge = the road edge (4 m + inradius 3.47 north of the centroid), 20 m deep, 26 m wide
+  parking: { n: 6, w: 2.5, d: 5, v0: -16.5, u1: 2.47 },     // KSL: 6 spaces 2.50 x 5.00 along the west edge, below a 5 m strip at the road
   entranceR: 2.0,
 };
 const RAD = Math.PI / 180;
@@ -93,4 +95,12 @@ export function plattformWalk(frame, base, P = PLATTFORM) {
 export function plattformEntrance(frame, P = PLATTFORM) {
   const [x, z] = frame.polar(0, P.entranceR);
   return { x, z, th: frame.facing + Math.PI, w: 0.8 };
+}
+
+// the KSL situation plan's yard: the gravel rectangle and the six parking spaces, as world polygons
+export function plattformYard(frame, P = PLATTFORM) {
+  const { yard: g, parking: k } = P;
+  const rect = (u0, u1, v0, v1) => [frame.toWorld(u1, v0), frame.toWorld(u1, v1), frame.toWorld(u0, v1), frame.toWorld(u0, v0)];
+  const parking = Array.from({ length: k.n }, (_, i) => rect(k.u1 - (i + 1) * k.w, k.u1 - i * k.w, k.v0, k.v0 + k.d));
+  return { gravel: rect(g.u0, g.u1, g.v0, g.v1), parking };
 }
