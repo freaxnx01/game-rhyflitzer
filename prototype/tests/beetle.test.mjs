@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BEETLE } from '../beetle.js';
-import { buildableId } from '../gltfvehicle.js';
-import { paintable, statBars } from '../carselect.js';
+import { buildableId, paintOnSelect } from '../gltfvehicle.js';
+import { paintable, statBars, PAINTS } from '../carselect.js';
 import { checkSound, gearAt } from '../sound.js';
 import { checkCrash } from '../impact.js';
 
@@ -38,8 +38,11 @@ test('BEETLE_Gearbox_HasFourForwardGears', () => {
   assert.equal(gearAt(300, BEETLE.sound.gears), 3);
 });
 
-test('BEETLE_StandsInWithTheCompactUntilLoaded_AndKeepsItsRedPaint', () => {
+test('BEETLE_StandsInWithTheCompactUntilLoaded_AndIsPaintableRedFromTheFactory', () => {
   assert.equal(buildableId('beetle', BEETLE, 'loading'), 'compact');
   assert.equal(buildableId('beetle', BEETLE, 'ready'), 'beetle');
-  assert.equal(paintable(BEETLE), false);
+  assert.equal(paintable(BEETLE), true);
+  assert.ok(PAINTS.some(p => p.id === BEETLE.defaultPaint));
+  assert.equal(paintOnSelect(BEETLE, 'navy', false), 'swiss');
+  assert.equal(paintOnSelect(BEETLE, 'meadow', true), 'meadow');
 });

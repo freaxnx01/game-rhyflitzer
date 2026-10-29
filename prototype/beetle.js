@@ -1,10 +1,11 @@
-// beetle.js — the Ladybug vehicle table entry: a red drag-strip VW Beetle look-alike with a nitrous bottle, no badge, no lettering.
+// beetle.js — the Ladybug vehicle table entry: a drag-strip VW Beetle look-alike with a nitrous bottle, no badge, no lettering;
+// paintable, red (swiss) from the factory.
 // Pure module: no DOM, no three.js, so node --test can import it. The model is a glTF file (assets/beetle.glb, tools/prepare-beetle.mjs).
 //
 // Beetle numbers: air-cooled flat four in the tail, light (about 800 kg), a four-speed box, modest top speed (about 137 km/h = 38 m/s)
 // until the nitrous kicks in; the engine over the rear axle makes the tail loose; 2.40 m wheelbase; left-hand drive.
 export const BEETLE = {
-  model: 'gltf', gltf: { id: 'beetle', url: './assets/beetle.glb', fallback: 'compact' }, scale: 1.0, paint: false,
+  model: 'gltf', gltf: { id: 'beetle', url: './assets/beetle.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'swiss',
   wheels: [[1.2, 0.7], [-1.2, 0.7]], wheelR: 0.349,   // the model's own wheel nodes: x ±1.2, |z| 0.704, r 0.329 front / 0.349 rear
   drive: { top: 38, topNitro: 64, accel: 10, accelNitro: 40, brake: 16, reverse: 6, reverseMax: 10, grip: 7.5, gripHandbrake: 1.3, steerRate: 2.6, airSteer: 0.35 },
   mass: 0.85, engineAt: [-1.4, 0.7, 0], collision: { shape: 'circle', r: 1.1 },

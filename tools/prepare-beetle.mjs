@@ -15,7 +15,7 @@
 //     node "body"                          everything that does not turn
 //     node "wheel_FL" "wheel_FR" "wheel_RL" "wheel_RR"
 //                                          front/rear, left (-z) / right (+z); translation = the wheel centre, vertices centred on it
-//   materials: one per role in ROLES; Glass { extras: { glass: true } }, LampHead { extras: { lamp: 'head' } }, LampTail { extras: { lamp: 'tail' } }
+//   materials: one per role in ROLES; Body { extras: { paint: true } } (white, the swatch is the colour), Glass { extras: { glass: true } }, LampHead { extras: { lamp: 'head' } }, LampTail { extras: { lamp: 'tail' } }
 //   extensions: EXT_meshopt_compression only.
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS, EXTMeshoptCompression } from '@gltf-transform/extensions';
@@ -31,7 +31,7 @@ const MATERIAL_ROLES = {
 };
 // colours are linear factors; nothing fully metallic, so the car still reads where the style has no sky map
 const ROLES = {
-  Body: { base: [0.62, 0.012, 0.006, 1], metal: 0, rough: 0.22 },
+  Body: { base: [1, 1, 1, 1], metal: 0, rough: 0.22, extras: { paint: true } },   // white: the game colours it (swiss red by default)
   Black: { base: [0.012, 0.012, 0.012, 1], metal: 0, rough: 0.8 },
   Trim: { base: [0.03, 0.03, 0.032, 1], metal: 0, rough: 0.6 },
   Seat: { base: [0.6, 0.44, 0.2, 1], metal: 0, rough: 0.85 },

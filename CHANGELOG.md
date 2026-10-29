@@ -86,6 +86,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-10-29 19:15` The **Ladybug** can now be **painted** like the Hatchback: red from the factory, any colour from the car selection.
 - `2026-10-26 19:10` The **Regional Bus** is faster: it now reaches **100 km/h** (before 79 km/h), about 120 km/h with nitro. It is still slow off the line and wide in the corners.
 - `2026-10-19 22:30` The woods and the single trees are no longer all the same cone: there are now **four tree species** in the retro low-poly look — slim dark **spruces**, round-crowned **beeches**, **birches** with white trunks (more of them along the forest edges) and tall narrow **poplars** (mostly standing alone). Every tree keeps its species, so a place always looks the same.
 - `2026-10-19 21:02` The spokes in the hideout ring carry **no name signs** for now: which landmark waits behind which coloured spoke is a surprise until you drive in.
