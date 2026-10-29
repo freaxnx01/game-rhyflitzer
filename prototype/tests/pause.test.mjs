@@ -53,7 +53,7 @@ test('X photographs the frozen scene from the pause menu, but not from behind th
 });
 
 test('nextFocus wraps both ways and starts at the first button from anywhere else', () => {
-  assert.deepEqual(PAUSE_BUTTONS, ['pauseresume', 'pausevehicle', 'pauserestart', 'pausemenu']);
+  assert.deepEqual(PAUSE_BUTTONS, ['pauseresume', 'pausevehicle', 'pauseabout', 'pauserestart', 'pausemenu']);   // #509: About after Change vehicle
   assert.equal(nextFocus(PAUSE_BUTTONS, 'pauseresume', 1), 'pausevehicle');
   assert.equal(nextFocus(PAUSE_BUTTONS, 'pausemenu', 1), 'pauseresume');
   assert.equal(nextFocus(PAUSE_BUTTONS, 'pauseresume', -1), 'pausemenu');
