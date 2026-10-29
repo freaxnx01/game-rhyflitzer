@@ -82,12 +82,13 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #br .bar{display:flex;justify-content:space-between;padding:3px 8px;background:linear-gradient(#4a515e,#2a2e38);border-bottom:2px solid var(--ink);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
 #br .bar b{color:var(--sun)}
 #mapfloor{margin-left:8px;color:var(--sun);font-weight:700}
-#liftpad{position:fixed;pointer-events:auto;right:10px;bottom:calc(240px + env(safe-area-inset-bottom,0px));z-index:15;background:rgba(20,23,29,.82);border:2px solid var(--steel-l);border-radius:10px;padding:10px 12px;color:var(--cream);text-align:center;box-shadow:4px 4px 0 var(--ink)}
-#liftpad .padtitle{font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
-#liftpad .padgrid{display:grid;grid-template-columns:repeat(3,48px);gap:6px}
-#liftpad button{width:48px;height:48px;border-radius:8px;border:2px solid var(--steel-l);background:#23272f;color:var(--cream);font:800 18px 'Barlow Condensed',sans-serif;cursor:pointer}
-#liftpad button.on{background:var(--sun);border-color:var(--ink);color:var(--ink)}
-#liftpad button:disabled{opacity:.45;cursor:default}
+#liftpad,#freightpad{position:fixed;pointer-events:auto;right:10px;bottom:calc(240px + env(safe-area-inset-bottom,0px));z-index:15;background:rgba(20,23,29,.82);border:2px solid var(--steel-l);border-radius:10px;padding:10px 12px;color:var(--cream);text-align:center;box-shadow:4px 4px 0 var(--ink)}
+#liftpad .padtitle,#freightpad .padtitle{font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+#liftpad .padgrid,#freightpad .padgrid{display:grid;grid-template-columns:repeat(3,48px);gap:6px}
+#liftpad button,#freightpad button{width:48px;height:48px;border-radius:8px;border:2px solid var(--steel-l);background:#23272f;color:var(--cream);font:800 18px 'Barlow Condensed',sans-serif;cursor:pointer}
+#liftpad button.on,#freightpad button.on{background:var(--sun);border-color:var(--ink);color:var(--ink)}
+#liftpad button:disabled,#freightpad button:disabled{opacity:.45;cursor:default}
+#freightpad .padgrid{grid-template-columns:96px}#freightpad button{width:96px}
 #map{display:block;width:400px;height:200px;pointer-events:auto;touch-action:none;cursor:crosshair}
 @media (max-width:900px){#speedo{width:130px;height:130px}#map{width:240px;height:120px}#time{font-size:30px}#gear{display:none}#tl{min-width:140px}}
 #br.full{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);z-index:20}#br.full #map{width:min(92vw,calc((100vh - 80px) * 2));height:auto}
@@ -343,6 +344,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     </div>
   </div>
   <div id="liftpad" hidden><div class="padtitle" data-i18n="liftPadTitle">Lift</div><div class="padgrid"></div></div>
+  <div id="freightpad" hidden><div class="padtitle" data-i18n="liftPadTitle">Lift</div><div class="padgrid"></div></div>
   <div id="br">
     <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><span id="mapfloor" hidden></span><b>N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
@@ -514,7 +516,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
-import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT } from './lift.js';
+import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
 import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel } from './rooms.js';
 import { FRIES } from './fries.js';
@@ -3017,10 +3019,11 @@ function stepLift(dt) {
   if (!HIDE) return;
   stepSpokes();
   const level = liftStopAt(LEVELS.id);
-  if (level === null) { CAB.visible = false; return; }   // no ride inside a room: only hide the cab if it was still showing
-  const onPlatform = !FOOT.on && inCabin(P.x, P.z, carRadius()) && Math.abs(P.y - levelFloorY()) < 1;
+  if (level === null) { CAB.visible = false; setFreightPad(false); return; }   // no ride inside a room: only hide the cab if it was still showing
+  const onPlatform = inCabin(P.x, P.z, FOOT.on ? 0 : carRadius()) && Math.abs(P.y - levelFloorY()) < 1;
   const speed = Math.hypot(P.vx, P.vz), ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level, LIFT, speed), level, speed, to: FREIGHT_DEFAULT[level] });
   for (const e of ev) liftEvent(e);
+  setFreightPad(onPlatform && level === LIFT_RIDE.cabin);
   for (const doorLevel of FREIGHT_STOPS) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
   CAB.material.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
     CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
@@ -3041,12 +3044,14 @@ function liftEvent(e) {
   else if (e.type === 'switch') liftSwitch(e.to);
   else if (e.type === 'done' && e.dir === 'down' && HIDE && !HIDE.found) foundHideout();
 }
+function parkCarAt([x, z, th], y) { FOOT.car = { ...FOOT.car, x, z, y, th }; car.position.set(x, y, z); car.rotation.set(0, -th, 0); }   // #489: the walker's car rides along
 // #361: down lands in the tunnel ring (built on the first ride, #308: only its own meshes exist, not any room's); up lands
 // just outside door A, facing further out towards the tunnel -- nobody has to turn to drive out through the gate.
 function liftSwitch(to) {
   const before = P.y;
   if (to === 'top') { LEVELS.set('surface'); P.y = HIDE.floor; const d = liftDoor('top'), f = [Math.cos(d.th), Math.sin(d.th)]; P.safe = [d.x + f[0] * 6, d.z + f[1] * 6, d.th]; }
   else { const g = ringOfStop(to); ringBuild(g); LEVELS.set(g.id); P.y = g.y; const s = ringSpawn(); P.safe = [s.x, s.z, s.th]; }
+  if (FOOT.on) parkCarAt(P.safe, P.y);
   camPos.y += P.y - before; camera.position.copy(camPos);   // carry the chase camera down with the car; it keeps its mode and offset
   restShadow(); car.position.y = P.y;
   followCave();   // #382: up in the hall at once, not when stepCar runs again after the ride -- else the deck, the shaft house and the cave look are missing for the ride's second half
@@ -3065,7 +3070,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (liftPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa === 'leave') leaveBuilding(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa === 'leave') leaveBuilding(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -3134,7 +3139,7 @@ ENTER_HANDLERS['plattform-sisslerfeld'] = () => toast(tr('plattformOpen'));   //
 const secretRevealed = () => !!(HIDE && HIDE.found);
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 // back up on the surface with the lift parked at the top: every jump, and since #504 a race (re)start too; true when it came from below
-function leaveBelow() { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; liftIndicator(null); return wasBelow; }
+function leaveBelow() { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; setFreightPad(false); liftIndicator(null); return wasBelow; }
 function placeOnRoad(x, z, th, name) { const wasBelow = leaveBelow(); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
 function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, jumpHeading(p, best), p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
@@ -3372,6 +3377,7 @@ function getOut() {
   toast(tr('footOut'));
 }
 function getIn() {
+  if (LIFT_RIDE.busy) return;
   if (carReach(P.x, P.z, parked()) > WALKER.enterReach) { toast(tr('footTooFar')); return; }
   const c = FOOT.car; endFoot(); P.x = c.x; P.z = c.z; P.y = c.y; P.th = c.th; P.vx = P.vz = P.vy = 0; toast(tr('footIn'));
 }
@@ -3386,7 +3392,7 @@ function footBlocks(o, x, z, y, under) {
   if (y >= o.h - 0.05) return false;
   return !(o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, x, z));
 }
-const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !(o.bodenacker6 && INT.bodyOff)).concat((FOOT.car ? [parked()] : []));
+const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !(o.bodenacker6 && INT.bodyOff) && !(o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)).concat((FOOT.car ? [parked()] : []));
 function footFree(x, z, y0) { const y = groundH(x, z, y0 + 1), under = caveInside(); if (waterLevelAt(x, z, y) !== null) return false; return !footSolids(x, z).some(o => footBlocks(o, x, z, y, under) && colliderPush(o, x, z, WALKER.radius)); }
 function collideFoot(r) { const under = caveInside(); for (const o of footSolids(P.x, P.z)) { if (!footBlocks(o, P.x, P.z, P.y, under)) continue; const hit = colliderPush(o, P.x, P.z, r); if (hit) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } } }
 // #412: the walkway walls push too, applied like collideFoot does -- walkwayPush() keeps only those active at the walker's height,
@@ -3454,6 +3460,21 @@ function stepRoofDoor(dt) {
   if (INT.roofPanel) { const s = INT.roofDoorAmt * (rd.a1 - rd.a0); INT.roofPanel.position.set(s * h.frame.c, 0, s * h.frame.s); }
 }
 function liftTowerEvent(ev) { if (ev.type === 'start') SFX.hum(2 * TOWER_LIFT.door + ev.ride); }   // the ride's hum, as long as the trip takes
+// #489: the freight lift's keypad -- Oben / Ring 1 / Ring 2, shown while the car or the walker stands in the cabin at the cabin's level
+const FREIGHT_PAD = { open: false, btns: [] };
+function relabelFreightPad() { for (const btn of FREIGHT_PAD.btns) btn.textContent = freightPadLabel(btn.dataset.stop, window.GG_LANG); $('freightpad').querySelector('.padtitle').textContent = tr('liftPadTitle'); }
+function setFreightPad(show) {
+  const opens = show && !FREIGHT_PAD.open; FREIGHT_PAD.open = show; $('freightpad').hidden = !show;
+  if (!show) return;
+  if (opens) releaseFootLock();   // the buttons need the cursor back, as on the 6c pad
+  freightPadView(LIFT_RIDE).forEach((b, i) => { FREIGHT_PAD.btns[i].disabled = b.disabled; FREIGHT_PAD.btns[i].classList.toggle('on', b.on); });
+}
+function pickStop(stop) { if (FREIGHT_PAD.open) LIFT_RIDE.call(stop); }
+function freightPadKey(e) {   // 0 / 1 / 2 while the pad is shown -- before the hazard lights' 1
+  if (!FREIGHT_PAD.open) return false;
+  const stop = freightKeyStop(e.code); if (!stop) return false;
+  e.preventDefault(); if (!e.repeat) pickStop(stop); return true;
+}
 // #411: the lift's keypad, shown while the walker stands in the cabin (setLiftPad)
 const LIFT_PAD = { btns: [] };
 function relabelLiftPad() { for (const btn of LIFT_PAD.btns) btn.textContent = keypadLabel(+btn.dataset.level, window.GG_LANG); $('liftpad').querySelector('.padtitle').textContent = tr('liftPadTitle'); }
@@ -3558,6 +3579,7 @@ function clampHover() {
   const lid = caveInside() ? ceilingH(P.x, P.z) : null; if (lid !== null) P.y = Math.min(P.y, lid - WALKER.eye - 0.3);
 }
 function stepOnFoot(dt) {
+  if (LIFT_RIDE.busy) { P.vx = P.vz = 0; return; }   // #489: the walker rides like the car: no input during the ride
   LIGHTS.braking = false;
   updateInterior();   // #411: area, indoors, bodyOff, floor, the door target -- before the step moves the walker
   let s = stepFoot({ x: P.x, z: P.z, y: P.y, th: P.th, vy: FOOT.vy, hover: FOOT.hover }, footInput(keys), dt, footFloorAt);
@@ -4222,7 +4244,7 @@ window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BOR
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); }
-addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
@@ -4231,6 +4253,15 @@ addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); }); r
     grid.appendChild(btn); LIFT_PAD.btns.push(btn);
   }
   relabelLiftPad();
+}
+{ const grid = $('freightpad').querySelector('.padgrid');   // #489: Oben / Ring 1 / Ring 2, top down -- click, tap or 0 / 1 / 2
+  for (const stop of FREIGHT_STOPS) {
+    const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.stop = stop;
+    btn.addEventListener('click', () => pickStop(stop));
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); pickStop(stop); }, { passive: false });
+    grid.appendChild(btn); FREIGHT_PAD.btns.push(btn);
+  }
+  relabelFreightPad();
 }
 /* #346: with a mode button focused, Enter starts and the slot explains it. On a touch device nothing is focused, so the
    slot keeps showing the mode last played and a tap on a mode button starts it directly (wireframe, "Mode text on touch"). */
