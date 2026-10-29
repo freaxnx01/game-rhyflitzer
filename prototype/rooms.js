@@ -5,6 +5,7 @@
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test prototype/tests/rooms.test.mjs`.
 import { EIFFEL, ATOMIUM, TITANIC } from './hideout.js';
 import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
+import { ENTERPRISE } from './enterprise.js';   // #491
 import { FRIES, friesPlacement } from './fries.js';
 import { BELOW_Y, BELOW2_Y, SPOKE, spokeFrame } from './underground.js';
 
@@ -30,9 +31,9 @@ export const ROOMS = [
 // the ring between spoke 7 (front left) and spoke 0 (front right, the Eiffel); 1 (the Atomium) follows on the right, so the Titanic
 // opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic) and 2 (Artemis II) are taken; 6 is next.
 export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
-// #489: ring 2's eight rooms -- empty for now (the Enterprise, #491, takes the first); filled from the lift outwards, right and
-// left in turn (ring 1's rule with nothing taken yet), the two rooms behind the lift last
-export const ROOMS2 = Array.from({ length: SPOKE.n }, (_, k) => ({ id: `r2room${k}`, name: null, object: null }));
+// #489 / #491: ring 2's eight rooms -- the Enterprise took the first; the rest are empty for now. `look`: 'meadow' (the ring-1 template)
+// or 'space' (#491: a holodeck grid under a star dome, no trees, paths or clouds)
+export const ROOMS2 = Array.from({ length: SPOKE.n }, (_, k) => (k === 0 ? { id: 'r2room0', name: 'Enterprise', object: ENTERPRISE, signed: false, look: 'space' } : { id: `r2room${k}`, name: null, object: null }));
 export const NEXT_ROOMS2 = [0, 7, 1, 6, 2, 5, 3, 4];
 // #489: the rings below the lift: level id, the freight lift's stop, depth, room half width, rooms
 export const RINGS = [
@@ -78,7 +79,7 @@ export function rimColliders(pts, y) {
 }
 
 export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
-  const Y = ring.y, HALF = ring.half;   // #489: the ring's depth and room size
+  const Y = ring.y, HALF = ring.half, space = room.look === 'space';   // #489: the ring's depth and room size; #491: no meadow in a space room
   const sp = spokeFrame(k), f = sp.u, v = sp.v, P = sp.end;
   const at = (a, b) => [P[0] + f[0] * a + v[0] * b, P[1] + f[1] * a + v[1] * b];   // portal-relative: a = 0 at the portal, growing into the room
   const centre = at(HALF, 0), [cx, cz] = centre;
@@ -119,7 +120,7 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   // two rows of trees all the way round the square (Chebyshev distance from the centre), jittered along and across the row,
   // with a gap left near the portal so the tunnel opens into the lawn
   const rand = rng(277), trees = [];
-  for (const inset of TREE_ROWS) {
+  if (!space) for (const inset of TREE_ROWS) {   // #491: a space room has no trees
     const r = HALF - inset, n = Math.round(8 * r / TREE_STEP);
     for (let i = 0; i < n; i++) {
       const u = (i / n) * 4, side = Math.floor(u), s = (u - side) * 2 * r - r, j = (rand() - 0.5) * 1.6, k = (rand() - 0.5) * 1.6;
@@ -131,11 +132,11 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   // gravel: portal -> centre loop, and the loop round the centre (radius 95 m, outside the feet); a ship gets the lane round its basin instead
   const loop = basin ? stadium(basin.lane, loc) : Array.from({ length: 33 }, (_, i) => [cx + Math.cos(i / 32 * 2 * Math.PI) * 95, cz + Math.sin(i / 32 * 2 * Math.PI) * 95]);
   const reachA = basin ? basin.lane.w : 95;
-  const start = at(10, 0), end = [cx - f[0] * reachA, cz - f[1] * reachA], paths = [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];
+  const start = at(10, 0), end = [cx - f[0] * reachA, cz - f[1] * reachA], paths = space ? [] : [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];   // #491: a space room has no gravel
   if (artemis) paths.push({ pts: artemis.ring, hw: room.object.capsule.ring.hw });   // #488: the gravel ring round the Orion capsule
   const view = [cx - f[0] * 150, cz - f[1] * 150];
   return {
-    id: room.id, k, ring: ring.id, y: Y, half: HALF, fly: { wall: HALF - 25, ceiling: ROOM_FLY.ceiling }, centre, frame: { f, v }, groundAt: () => Y,
+    id: room.id, k, ring: ring.id, y: Y, half: HALF, look: space ? 'space' : 'meadow', fly: { wall: HALF - 25, ceiling: ROOM_FLY.ceiling }, centre, frame: { f, v }, groundAt: () => Y,
     ceilingAt(x, z) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? Y + SPOKE.ceiling : null;
