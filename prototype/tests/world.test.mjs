@@ -223,6 +223,37 @@ test('wallPlate (#557): short walls, fallbacks, every plate stays within 0.1 m o
   assert.equal(wallPlate(null, 0, 0, null), null);
 });
 
+test('addrLabels (#557): ring buildings use wallPlate, roadAt hears the street', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const L = [[0, 0], [20, 0], [20, 10], [12, 10], [12, 22], [0, 22]];
+  // the building's street reaches roadAt; a landmark passes no street
+  const seen = [];
+  addrLabels([{ addr: '6', st: 'Bodenackerstrasse', rect: [10, 11, 20, 22, 0], ring: L }], {}, (x, z, st) => { seen.push(st); return [60, 5]; });
+  addrLabels([], { hallenbad: { x: 5, z: 6, rot: 0, size: [42, 40], addr: '2' } }, (x, z, st) => { seen.push(st); return [5, -100]; });
+  assert.deepEqual(seen, ['Bodenackerstrasse', undefined]);
+  // a stepped footprint: the plate on the ring's east wall (x=20), not on the rect's (x=30)
+  const [p] = addrLabels([{ addr: '6a–6d', rect: [10, 11, 20, 22, 0], ring: L }], {}, () => [60, 5]);
+  assert.ok(near(p.x, 20.06) && near(p.z, 1) && near(p.rotY, Math.PI / 2));
+  assert.ok(ringDist(L, p) <= 0.1, 'on the real wall');
+  assert.equal(p.foot, L, 'the ring travels along, for the base height');
+  // a degenerate ring (as in the #520 test) keeps the box path
+  const [q] = addrLabels([{ addr: '9', rect: [10, 20, 60, 22, 0], ring: [[0, 0]] }], {}, () => [10, 60]);
+  assert.ok(near(q.x, 39) && near(q.z, 31.06), 'box path, as in #520');
+});
+
+test('addrLabels (#557): every numbered building of both worlds gets its plate on a ring wall', () => {
+  for (const [file, min] of [['world_hochrhein.json', 2000], ['world_ehrendingen.json', 200]]) {
+    if (!existsSync(new URL(`../../data/${file}`, import.meta.url))) continue;
+    const world = JSON.parse(readFileSync(new URL(`../../data/${file}`, import.meta.url), 'utf8'));
+    const numbered = world.buildings.filter(b => b.addr);
+    assert.ok(numbered.length > min, `${file}: ${numbered.length} numbered buildings, cannot pass vacuously`);
+    for (const b of numbered) for (const road of [() => null, () => [b.rect[0] + 30, b.rect[1]], () => [b.rect[0] - 30, b.rect[1]]]) {
+      const [p] = addrLabels([b], {}, road);
+      assert.ok(p && ringDist(b.ring, p) <= 0.3, `${file} building ${b.id} (${b.addr}): plate ${p && [p.x, p.z]} floats off its ring`);
+    }
+  }
+});
+
 test('pickLabels: within 60 m, nearest first, at most 40', () => {
   const items = Array.from({ length: 100 }, (_, k) => ({ t: String(k), x: k, z: 0 }));
   const got = pickLabels(items, 0, 0);

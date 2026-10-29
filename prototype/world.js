@@ -573,13 +573,17 @@ export function isRowHouse(b) { return ROW_HOUSE_IDS.has(b.id); }
 export function rowUnits(addr) { const m = /^\d+([a-z])[–-]\d+([a-z])$/.exec(addr || ''); return m ? m[2].charCodeAt(0) - m[1].charCodeAt(0) + 1 : 6; }
 // texture tile for a row house: one unit wide, one whole storey tall (3 m nominal), so the yellow panels fall on the unit joints
 export function rowHouseTile(b) { const w = Math.max(b.rect[2], b.rect[3]), h = Math.max(b.h, 3); return [w / rowUnits(b.addr), h / Math.max(1, Math.round(h / 3))]; }
-// #12 / #520: house-number plates (OSM addr) flat on the façade of the drawn box that faces the nearest road; roadAt(x, z) gives
-// that road's nearest point [x, z] or null (then the box's local +z façade). foot = the ring the base height comes from (null for
-// a landmark, which stands on the terrain at its centre).
+// #12 / #520 / #557: house-number plates (OSM addr) on the real wall: a ring building gets the ring edge facing the road point
+// (wallPlate), a box (landmark, degenerate ring) the façade of the drawn box that faces it. roadAt(x, z, st) gives the nearest
+// point of the street named st -- the address's own street, when the data has it -- or of any road, as [x, z] or null (then the
+// +z side). foot = the ring the base height comes from (null for a landmark, which stands on the terrain at its centre).
 export function addrLabels(buildings, landmarks = {}, roadAt = () => null) {
-  const plate = (t, x, z, w, d, rot, foot) => ({ t, ...facingFacade(x, z, rot, w, d, roadAt(x, z)), foot });
-  return [...buildings.filter(b => b.addr).map(b => plate(b.addr, ...b.rect, b.ring)),
-          ...Object.values(landmarks).filter(l => l.addr).map(l => plate(l.addr, l.x, l.z, ...l.size, l.rot || 0, null))];
+  const plate = (t, x, z, w, d, rot, foot, st, ring) => {
+    const road = roadAt(x, z, st);
+    return { t, ...(wallPlate(ring, x, z, road) || facingFacade(x, z, rot, w, d, road)), foot };
+  };
+  return [...buildings.filter(b => b.addr).map(b => plate(b.addr, ...b.rect, b.ring, b.st, b.ring)),
+          ...Object.values(landmarks).filter(l => l.addr).map(l => plate(l.addr, l.x, l.z, ...l.size, l.rot || 0, null, undefined, null))];
 }
 const PLATE_OFF = 0.06, PLATE_IN = 1;   // m off the wall (clear of z-fighting); m in from the façade's right corner
 // as in Switzerland: near the right edge of the façade as seen from outside, not in its middle
