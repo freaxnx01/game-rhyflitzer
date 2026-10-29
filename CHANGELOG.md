@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-10-29 21:16` Die **Hausnummern-Schilder** sitzen jetzt auf der **echten Hauswand** statt davor in der Luft, und bei Häusern mit bekannter Strasse hängen sie auf der Seite der **richtigen Strasse** (z.B. Bodenackerstrasse 6: Ostseite zur Bodenackerstrasse, nicht Westseite zum Badweg).
+
 ### Added
 
 - `2026-10-29 16:42` The **U.S.S. Enterprise NCC-1701-D** has taken **ring-2 room 0**: the first spoke right of the lift opens into a **holodeck** — a black grid floor with glowing light-blue lines under a dome of stars — where the ship hangs life size (642.5 m long) over the floor, drifting slowly up and down, its windows, deflector and warp grilles aglow, „U.S.S. ENTERPRISE" and „NCC-1701-D" written across the top and underside of the saucer. 3D model „Enterprise D 2 8 Simple Bake Export" by HaughtyGrayAlien (Sketchfab), CC BY 4.0, decimated and compressed.
