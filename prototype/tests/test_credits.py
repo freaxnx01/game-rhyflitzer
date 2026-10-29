@@ -140,3 +140,17 @@ def test_tumbler_model_is_credited_everywhere():
 def test_tumbler_model_is_committed_and_small():
     glb = ROOT / "prototype" / "assets" / "tumbler.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_coupe_model_is_credited_everywhere():
+    """"2012 BMW 1M" by OUTPISTON, CC BY-NC-SA 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/coupe.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "OUTPISTON" in t and "CC BY-NC-SA 4.0" in t and "2012 BMW 1M" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditCoupe") == 2 and 'data-i18n="creditCoupe"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_coupe_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "coupe.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
