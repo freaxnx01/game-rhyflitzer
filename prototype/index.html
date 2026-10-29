@@ -3104,8 +3104,10 @@ if (YARD) { const at = JUMP_ENTRIES.map(e => e.g).lastIndexOf(YARD.gemeinde); JU
 const hideoutRoomCentres = () => ({ eiffel: roomLayout(0).centre, atomium: roomLayout(1).centre });   // pure layout maths (rooms.js): resolvable even where the hideout itself is not built; the entries stay secret until HIDE.found
 const ENTERABLES = enterableEntries(ENTERABLE_INFO, L ? L.anchors.landmarks : {}, L ? L.buildings : [], hideoutRoomCentres());
 { const lay = window.__mm.bodenacker6 && window.__mm.bodenacker6(), e = ENTERABLES.find(q => q.id === 'bodenackerstrasse-6c'); if (lay && e) e.entrances = [{ ...bodenackerHouse(lay, '6c').porch.entrance }]; }   // #411: the 6c glass porch is the entrance (its position is the hall's own entrance)
+{ const e = ENTERABLES.find(q => q.id === 'plattform-sisslerfeld'); if (PLAT && e) e.entrances = [plattformEntrance(PLAT.frame)]; }   // #413: the door of the batten cylinder
 const ENTER_HANDLERS = {};
 ENTER_HANDLERS['bodenackerstrasse-6c'] = () => { INT.door.target = 1; };   // #411: E at the porch swings the door open; it shuts again when the walker has walked away
+ENTER_HANDLERS['plattform-sisslerfeld'] = () => toast(tr('plattformOpen'));   // #413: nothing to open, the stair is open -- just walk in
 const secretRevealed = () => !!(HIDE && HIDE.found);
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
 // back up on the surface with the lift parked at the top: every jump, and since #504 a race (re)start too; true when it came from below
@@ -3237,7 +3239,7 @@ const parked = () => parkedBox(FOOT.car, CAR_SIZE);
 // #412: the walkway set around the walker -- the slabs, ramps, walls and ceilings of the interior it is in. It starts empty
 // (outdoors every walkway query answers "nothing"), and the interior of a building fills it while the walker is in it (6c, #411).
 const WALKS = emptyWalkways();
-if (INT.hall) Object.assign(WALKS, INT.hall.walk);   // #411: the hall of 6c is the walkway set around the walker (its arrays, by reference: the door leaves and the cabin slab stay live in both)
+for (const set of [INT.hall && INT.hall.walk, PLAT && PLAT.walk]) if (set) for (const k of Object.keys(WALKS)) WALKS[k] = [...WALKS[k], ...set[k]];   // #411 6c hall + #413 Plattform: new arrays, the same piece objects (door leaves, the cabin slab and wallByTag stay live; nothing is pushed after this)
 const ENTER_GLOW = { sprites: new Map(), shown: [], tex: null };   // #409: one pooled additive sprite per entrance
 function enterGlowTexture() {
   if (ENTER_GLOW.tex) return ENTER_GLOW.tex;
@@ -3647,6 +3649,7 @@ window.__mm.trainPut = (st) => { placeLoco({ v: 0, choice: 0, atEnd: false, ...s
 window.__mm.trainApproaches = (back) => divergingApproaches(TRAIN.graph, back);
 window.__mm.resetCar = () => resetCar();
 window.__mm.walkways = (set) => { if (set) Object.assign(WALKS, set); return WALKS; };   // #412: the walkway set around the walker; tests put an interior's set in (empty = outdoors)
+window.__mm.plattform = () => PLAT && { facing: PLAT.frame.facing, base: PLAT.base, x: PLAT.frame.x, z: PLAT.frame.z, deckY: PLAT.base + PLATTFORM.deck.y };   // #413: the tower's frame, for the stair tests
 // #411: the interior of 6c as the tests see it. updateInterior() first, so a headless read is fresh even between frames.
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
   y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
