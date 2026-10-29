@@ -1153,7 +1153,7 @@ def test_ring2_keypad_rides_down_to_the_space_ring_and_into_a_1000m_room(server)
     assert lift["cabin"] == "ring2" and lift["level"] == "ring2" and lift["door"] > 0.9, lift
     assert abs(car["y"] + 1200) < 1.0, car
     assert below["kind"] == "ring2" and below["ring2"] is True and below["number"] is True and below["fog"] == "#0a0f16", below
-    assert room["below"]["level"] == "r2room0" and room["below"]["built"] == 8 and room["below"]["object"] is False, room
+    assert room["below"]["level"] == "r2room0" and room["below"]["built"] == 8 and room["below"]["object"] is True, room   # #491: the Enterprise took the room
     assert abs(room["lvl"]["y"] + 1200) < 1.0 and ring == "ring2", (room, ring)
 
 
@@ -1178,3 +1178,43 @@ def test_ring2_on_foot_a_click_on_top_rides_up_and_the_parked_car_comes_along(se
     assert foot["on"] is True and abs(foot["y"] - h["floor"]) < 1.0, foot
     gx, gz = d["x"] + math.cos(d["th"]) * 6, d["z"] + math.sin(d["th"]) * 6
     assert math.hypot(foot["car"]["x"] - gx, foot["car"]["z"] - gz) < 0.5 and abs(foot["car"]["y"] - h["floor"]) < 1.0, foot
+
+
+# ---------- #491: the Enterprise-D -- ring-2 room 0, the holodeck, the lettering ----------
+
+
+@needs_world
+def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(server, tmp_path):
+    """#491: ring-2 spoke 0 builds the holodeck room and fetches enterprise_d.glb then; the ship hovers 25 m up, bow to the portal, with
+    its lettering; the car drives under it; the look is the space one. Leaves a screenshot from under the saucer in tmp_path."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith("enterprise_d.glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL); page.wait_for_function(PAD_SHOWN, timeout=120000)
+        page.keyboard.press("Digit2"); page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        assert page.evaluate("() => window.__mm.enterprise()") is None and requests == []
+        into_room(page, 0, "r2room0", -1200)
+        page.wait_for_function("() => window.__mm.enterprise() && window.__mm.enterprise().loaded === true", timeout=240000)
+        page.wait_for_timeout(500)
+        e = page.evaluate("() => window.__mm.enterprise()"); below = page.evaluate("() => window.__mm.below()")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.enterprise(), c = Math.cos(e.th), s = Math.sin(e.th);
+          const ship = (x, z) => window.__mm.pushAt(t.x + x * c - z * s, t.z + x * s + z * c, -1200);   // ship frame -> world
+          const th = window.__mm.spoke(0, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], room = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -1200);
+          return { centre: ship(0, 0), hull: ship(-125, 0), saucer: ship(125, 0), bow: ship(300, 0), corner: room(450, 450), corner2: room(-450, -450), wall: room(499, 0) }; }""")
+        under = page.evaluate("() => { const t = window.__mm.below().tower, e = window.__mm.enterprise(), x = 150; return { x: t.x + x * Math.cos(e.th), z: t.z + x * Math.sin(e.th), th: e.th + Math.PI }; }")
+        page.evaluate(f"() => window.__mm.sim({under['x']}, {under['z']}, {under['th']}, 0, 1.5, [], -1200)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "enterprise-under-the-saucer.png"))
+        br.close()
+    print("screenshot:", tmp_path / "enterprise-under-the-saucer.png")
+    assert errors == []
+    assert len(requests) == 1 and requests[0].endswith("/prototype/assets/models/enterprise_d.glb"), requests
+    assert e["placeholder"] is False and 200000 <= e["tris"] <= 260000 and abs(e["height"] - 143.1) < 0.5 and e["length"] == 642.5, e
+    assert abs(e["y"] - (-1200 + 25)) <= 2.0 and e["lettering"] == 4 and e["look"] == "space", e
+    assert e["dome"] is True and e["grid"] is True and e["sunDisc"] is False and e["sun"] >= 2.0 and e["hemi"] <= 0.5, e
+    assert all(v >= 1.6 for v in e["glow"].values()) and e["glow"]["nacelles"] >= 2.5, e["glow"]
+    assert below["level"] == "r2room0" and below["built"] == 8 and below["object"] is True and below["fog"] == "#04050a", below
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("centre", "hull", "saucer", "bow", "corner", "corner2")), push
+    assert math.hypot(push["wall"]["dx"], push["wall"]["dz"]) > 0.3, push
