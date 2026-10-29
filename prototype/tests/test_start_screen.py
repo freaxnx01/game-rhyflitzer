@@ -6,7 +6,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
 T = 240000
 BAR = ["startbtn", "blitzbtn", "huntbtn", "carbtn"]
-SECONDARY = ["worldbtn", "stylebtn2"]
+SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn"]
 
 
 def boot(p, server, viewport=(1280, 720), touch=False):
