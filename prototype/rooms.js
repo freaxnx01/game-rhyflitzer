@@ -25,7 +25,7 @@ export const ROOMS = [
   { id: 'room3', name: null, object: null },
   { id: 'room4', name: null, object: null },
   { id: 'room5', name: null, object: null },
-  { id: 'room6', name: 'Ferris wheel', object: FERRIS, signed: false },   // #513: the wheel and its 32 gondolas
+  { id: 'room6', name: 'Ferris wheel', object: FERRIS, signed: false, look: 'dusk' },   // #513: the wheel and its 48 gondolas; #588: at dusk
   { id: 'room7', name: 'Titanic', object: TITANIC, signed: false },
 ];
 // #422: the free rooms in the order new objects take them -- from the lift outwards, left and right in turn. The lift's exit meets
@@ -140,7 +140,7 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   if (artemis) paths.push({ pts: artemis.ring, hw: room.object.capsule.ring.hw });   // #488: the gravel ring round the Orion capsule
   const view = [cx - f[0] * 150, cz - f[1] * 150];
   return {
-    id: room.id, k, ring: ring.id, y: Y, half: HALF, look: space ? 'space' : 'meadow', fly: { wall: HALF - 25, ceiling: ROOM_FLY.ceiling }, centre, frame: { f, v }, groundAt: () => Y,
+    id: room.id, k, ring: ring.id, y: Y, half: HALF, look: space ? 'space' : (room.look || 'meadow'), fly: { wall: HALF - 25, ceiling: ROOM_FLY.ceiling }, centre, frame: { f, v }, groundAt: () => Y,
     ceilingAt(x, z) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? Y + SPOKE.ceiling : null;
