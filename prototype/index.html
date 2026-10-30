@@ -60,6 +60,8 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#knockreset{flex:none}
 @media (max-width:900px){#debug{max-height:calc(100vh - 166px - env(safe-area-inset-bottom,0px))}}
 @media (pointer:coarse){#debug{padding-right:48px;max-height:calc(100vh - 124px - env(safe-area-inset-top,0px))}#debughelp{width:36px;height:36px;line-height:32px}}
+/* a phone's steering buttons sit in the strip below the panel's anchor (y 460-614 of 844), so the open legend would cover them anyway: they step aside while it is read, like during the car choice (#439) */
+body:has(#debuglegend:not([hidden])) #touch{display:none}
 #debuglegend{flex:0 1 auto;min-height:0;max-width:min(380px,calc(100vw - 72px));overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
 /* #178: the grown panel (legend + map links) now reaches the toast band when anchored at top:120px; drop it below the toast */
 @media (pointer:coarse) and (orientation:portrait){#debug{top:calc(324px + env(safe-area-inset-top,0px));max-height:calc(100vh - 328px - env(safe-area-inset-top,0px))}}   /* #353: below the toast (its slot sits under four 18 px HUD lines) */
