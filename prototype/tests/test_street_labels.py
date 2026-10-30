@@ -53,15 +53,44 @@ def test_hud_names_the_road_under_the_car(server):
 
 
 @needs_world
+def _ring_dist(ring, x, z):
+    """Distance from a point to the nearest edge of a footprint ring (#557)."""
+    best, pts = math.inf, ring + ring[:1]
+    for (ax, az), (bx, bz) in zip(pts, pts[1:]):
+        L2 = (bx - ax) ** 2 + (bz - az) ** 2
+        u = max(0.0, min(1.0, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / L2)) if L2 else 0.0
+        best = min(best, math.dist((x, z), (ax + (bx - ax) * u, az + (bz - az) * u)))
+    return best
+
+
+def test_house_number_is_a_plate_on_the_facade_not_above_the_roof(server):
+    """#520/#557: the number sits flat on a wall of the real footprint (the ring), 0.06 m off it, at door height -- no longer floating in the air or over the roof."""
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    b = next(x for x in w["buildings"] if x["id"] == 25049518)        # addr 5, a plain gable house
+    cx, cz, *_ = b["rect"]
+    with sync_playwright() as p:
+        br, page = open_page(p, server)
+        page.evaluate(f"() => window.__mm.place({cx + 25}, {cz + 25})")
+        page.wait_for_function("() => window.__mm.labels().some(l => l.t === '5')", timeout=60000)
+        lab = min((l for l in page.evaluate("() => window.__mm.labels()") if l["t"] == "5"), key=lambda l: math.dist((l["x"], l["z"]), (cx, cz)))
+        ground = page.evaluate(f"() => window.__mm.ground({lab['x']}, {lab['z']}, -Infinity)")
+        kinds = page.evaluate("() => window.__mm.labelKinds()")
+        br.close()
+    assert _ring_dist(b["ring"], lab["x"], lab["z"]) <= 0.1, (lab, b["ring"])   # on the real wall, not the drawn box
+    assert 1.5 <= lab["y"] - ground <= 3.5, (lab, ground)             # door height, not 1.5 m over the roof
+    assert kinds and set(kinds) == {"Mesh"}, kinds                     # a flat plate, not a camera-facing sprite
+
+
+@needs_world
 def test_house_numbers_appear_near_and_vanish_far(server):
     w = json.loads(WORLD.read_text(encoding="utf-8"))
     b = next(x for x in w["buildings"] if x["id"] == 171822634)        # Bodenackerstrasse 6
     b.setdefault("addr", "6a–6d")
-    cx, cz = b["rect"][0], b["rect"][1]
     rx, rz = rhine_point(w)
     with sync_playwright() as p:
         br, page = open_page(p, server, world=w)
-        page.evaluate(f"() => window.__mm.place({cx + 20}, {cz})")
+        spot = page.evaluate("() => window.__mm.plateSpots('6a–6d')")[0]   # #520: the plate hangs on the street-side façade, near its right corner
+        page.evaluate(f"() => window.__mm.place({spot['x'] + 4 * math.sin(spot['rotY'])}, {spot['z'] + 4 * math.cos(spot['rotY'])})")
         page.wait_for_function("() => window.__mm.labels().some(l => l.t === '6a–6d')", timeout=60000)
         near = page.evaluate("() => window.__mm.labels()")
         page.evaluate(f"() => window.__mm.place({rx}, {rz})")
@@ -113,7 +142,8 @@ def test_label_material_cache_stays_bounded(server):
         br, page = open_page(p, server, world=w)
         cap = page.evaluate("() => window.__mm.labelCache().cap")
         for b in stops:
-            page.evaluate(f"() => window.__mm.place({b['rect'][0] + 2}, {b['rect'][1]})")
+            spot = page.evaluate(f"() => window.__mm.plateSpots('{b['addr']}')")[0]   # #520: drive to the plate, not the footprint centre
+            page.evaluate(f"() => window.__mm.place({spot['x'] + 4 * math.sin(spot['rotY'])}, {spot['z'] + 4 * math.cos(spot['rotY'])})")
             page.wait_for_function(f"() => window.__mm.labels().some(l => l.t === '{b['addr']}')", timeout=60000)
             seen |= {l["t"] for l in page.evaluate("() => window.__mm.labels()")}
             c = page.evaluate("() => window.__mm.labelCache()")

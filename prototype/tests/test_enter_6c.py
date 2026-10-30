@@ -108,6 +108,60 @@ def test_the_hall_is_built_near_and_gone_far_and_the_window_looks_out(server):
 
 
 @needs_world
+def test_the_hall_front_wall_stays_behind_the_facade(server):
+    """#453: the hall's front wall on the façade line z-fought with the façade (flicker from the street); it is set back."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 30, z - Math.sin(th) * 30, th)", [e["x"], e["z"], e["th"]])
+        page.wait_for_function("() => window.__mm.interior().built", timeout=120000)   # built from 40 m, in the car too
+        gap = page.evaluate("() => window.__mm.interiorFaceA()")
+        b.close()
+    assert errors == []
+    assert gap >= 0.02, gap
+
+
+@needs_world
+def test_from_the_porch_the_doorway_looks_into_the_hall_not_onto_the_facade(server):
+    """#467: the façade ran on behind the porch, windows and all, across the hall's doorway; it is cut open there."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        far = interior(page)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        page.wait_for_function("() => window.__mm.interior().built", timeout=120000)
+        stand(page, -0.8, 0.0, 0.0, level=0)                # in the porch, facing into the building
+        foot_sim(page, 0.2)
+        ray = page.evaluate("() => window.__mm.interiorRay()")
+        near = interior(page)
+        b.close()
+    assert errors == []
+    assert ray["role"] != "bodenacker" and (ray["dist"] is None or ray["dist"] > 1.5), ray
+    assert far["plug"] is True and near["plug"] is False, (far, near)   # the dark backing only while the hall is not built
+
+
+@needs_world
+def test_at_a_hall_wall_the_camera_does_not_cut_through_it(server):
+    """The walker comes within its radius (0.35 m) of a wall; a near plane farther out cut the wall away and showed the village."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        page.wait_for_function("() => window.__mm.interior().built", timeout=120000)
+        foot_sim(page, 0.2)
+        outside = page.evaluate("() => window.__mm.cam().near")
+        stand(page, 2.4, -0.84, -math.pi / 2, level=0)    # on the left flight, 0.36 m from the left wall, facing it
+        foot_sim(page, 0.2)
+        inside = page.evaluate("() => window.__mm.cam().near")
+        b.close()
+    assert errors == []
+    assert inside <= 0.25, inside                           # well inside WALKER.radius (0.35)
+    assert outside == 0.5, outside                          # out of doors the far depth range keeps its precision
+
+
+@needs_world
 def test_lift_to_the_fifth_floor_and_to_the_roof(server):
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
@@ -142,6 +196,61 @@ def test_lift_to_the_fifth_floor_and_to_the_roof(server):
     assert atroof["floor"] == 10 and abs(atroof["y"] - atroof["levels"][10]) < 0.1, atroof
 
 
+FAKE_LOCK = """() => { const gl = document.getElementById('gl'); let held = null;
+  Object.defineProperty(document, 'pointerLockElement', { get: () => held, configurable: true });
+  gl.requestPointerLock = () => { held = gl; document.dispatchEvent(new Event('pointerlockchange')); };
+  document.exitPointerLock = () => { held = null; document.dispatchEvent(new Event('pointerlockchange')); }; }"""   # headless Chromium cannot lock the pointer (as test_on_foot.py)
+
+
+@needs_world
+def test_stepping_into_the_cabin_frees_the_mouse_so_the_pad_takes_a_click(server):
+    """A locked pointer has no cursor and sends every click to the canvas: the pad's buttons only took keys."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        page.evaluate(FAKE_LOCK)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        stand(page, 0.7, 0.4, math.pi / 2, level=0)
+        foot_sim(page, 0.3)
+        key(page, "e", 200)
+        page.evaluate("() => window.__mm.interiorSim(1.5)")
+        page.evaluate("() => document.getElementById('gl').requestPointerLock()")   # looking around with the mouse
+        foot_sim(page, 1.0, ["KeyW"])                       # into the cabin: the pad opens
+        in_cabin = page.evaluate("() => ({ pad: window.__mm.interior().pad, locked: !!document.pointerLockElement, paused: !document.querySelector('#pause').hidden })")
+        page.click("#liftpad button[data-level='3']")
+        foot_sim(page, 9)
+        at3 = interior(page)
+        b.close()
+    assert errors == []
+    assert in_cabin == {"pad": True, "locked": False, "paused": False}, in_cabin
+    assert at3["lift"]["at"] == 3, at3
+
+
+@needs_world
+def test_b_takes_the_walker_from_the_fifth_floor_out_in_front_of_the_entrance(server):
+    """#474: B anywhere inside the hall (here the 5th floor landing) puts the walker on the street, 1.5 m outside the porch door, facing away."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        stand(page, 0.7, 0.4, math.pi / 2, level=5)
+        foot_sim(page, 0.3)
+        inside = interior(page)
+        key(page, "b", 300)
+        out = page.evaluate("() => ({ ...window.__mm.interior(), foot: window.__mm.foot() })")
+        b.close()
+    assert errors == []
+    assert inside["indoors"] is True and inside["floor"] == 5, inside
+    assert out["indoors"] is False and out["area"] == "out", out
+    f = out["foot"]
+    assert f["on"] is True, f
+    assert abs(math.hypot(f["x"] - e["x"], f["z"] - e["z"]) - 1.5) < 0.05, (f, e)
+    assert abs(f["y"] - f["ground"]) < 0.3, f
+    assert math.cos(f["th"] - e["th"]) < -0.99, (f["th"], e["th"])
+
+
 @needs_world
 def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
     with sync_playwright() as p:
@@ -171,6 +280,17 @@ def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
     assert outside["area"] == "out" and abs(outside["y"] - outside["levels"][10]) < 0.1, outside
     assert abs(edge["y"] - edge["levels"][10]) < 0.1, edge   # still on the roof, not fallen
     assert re.fullmatch(r"6c · (Dach|roof)", edge["label"]) and hover is False, edge
+
+
+@needs_world
+def test_the_6c_roof_housing_is_white_not_black(server):
+    """#453: the housing over the stair tower had no vertex colours, so the default style drew it black from afar."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        tint = page.evaluate("() => window.__mm.housingTint()")
+        b.close()
+    assert errors == []
+    assert tint is not None and tint >= 0.9, tint
 
 
 @needs_world

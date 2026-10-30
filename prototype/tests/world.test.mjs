@@ -137,12 +137,121 @@ test('roadNameAt: on a named road, off it, unnamed, nearest of two', () => {
   assert.equal(roadNameAt([], 0, 0), '');
 });
 
-test('addrLabels: only numbered buildings, roof-top heights, landmarks', () => {
-  const B = [{ addr: '6a–6d', h: 20, rh: 1.5, roof: 'flat', rect: [10, 20, 60, 22, 0] }, { addr: '5', h: 6, roof: 'gable', rect: [1, 2, 12, 8, 0] },
-    { addr: '7', h: 2, roof: 'flat', rect: [3, 4, 10, 10, 0] }, { h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0] }];
-  assert.deepEqual(addrLabels(B, { hallenbad: { x: 5, z: 6, addr: '2' }, chimney: { x: 0, z: 0 } }), [
-    { t: '6a–6d', x: 10, z: 20, top: 21.5 }, { t: '5', x: 1, z: 2, top: 6 + 0.4 * 8 }, { t: '7', x: 3, z: 4, top: 3 }, { t: '2', x: 5, z: 6, top: 9 }]);
+test('addrLabels (#520): a plate on the façade that faces the nearest road, near its right edge as seen from outside', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const same = (got, want) => assert.ok(Object.keys(want).every(k => typeof want[k] === 'number' ? near(got[k], want[k]) : got[k] === want[k]), `${JSON.stringify(got)} != ${JSON.stringify(want)}`);
+  const ring = [[0, 0]];
+  const B = [{ addr: '6a–6d', h: 20, roof: 'flat', rect: [10, 20, 60, 22, 0], ring }, { h: 6, roof: 'flat', rect: [0, 0, 10, 10, 0], ring }];
+  // road south of the block (+z): the +z façade, 11 m + 0.06 m off the centre, facing +z; seen from the south its right edge is
+  // east, so the plate sits 1 m in from the east corner (60 m façade: 29 m right of the centre)
+  const [south] = addrLabels(B, {}, () => [10, 60]);
+  same(south, { t: '6a–6d', x: 10 + 29, z: 20 + 11 + 0.06, rotY: 0 });
+  assert.equal(south.foot, ring, 'the ring travels along, for the base height');
+  assert.equal(addrLabels(B, {}, () => [10, 60]).length, 1, 'only numbered buildings');
+  // road east (+x): the +x façade, half the 60 m length off the centre, turned a quarter; its right edge is north (22 m: 10 m)
+  same(addrLabels(B, {}, () => [200, 20])[0], { x: 10 + 30 + 0.06, z: 20 - 10, rotY: Math.PI / 2 });
+  // road north (-z): right edge west; road west (-x): right edge south
+  same(addrLabels(B, {}, () => [10, -40])[0], { x: 10 - 29, z: 20 - 11 - 0.06, rotY: Math.PI });
+  same(addrLabels(B, {}, () => [-300, 20])[0], { x: 10 - 30 - 0.06, z: 20 + 10, rotY: 3 * Math.PI / 2 });
+  // a rotated house: rot = pi/2 turns the local +z façade (12 m) to -x; seen from the west its right edge is south
+  same(addrLabels([{ addr: '5', h: 6, rect: [0, 0, 12, 8, Math.PI / 2], ring }], {}, () => [-50, 0])[0], { x: -4 - 0.06, z: 5, rotY: -Math.PI / 2 });
+  // a façade under 2 m keeps the plate in its middle
+  same(addrLabels([{ addr: '9', h: 3, rect: [0, 0, 1.5, 4, 0], ring }], {}, () => [0, 50])[0], { x: 0, z: 2.06, rotY: 0 });
+  // no road within reach: the local +z façade
+  same(addrLabels(B, {}, () => null)[0], { x: 39, z: 31.06, rotY: 0 });
+  // landmarks with a number: their own box (x, z, rot, size), no ring
+  const lm = addrLabels([], { hallenbad: { x: 5, z: 6, rot: 0, size: [42, 40], addr: '2' }, chimney: { x: 0, z: 0 } }, () => [5, -100]);
+  assert.equal(lm.length, 1);
+  same(lm[0], { t: '2', x: 5 - 20, z: 6 - 20 - 0.06, rotY: Math.PI });
+  assert.equal(lm[0].foot, null);
   assert.deepEqual(addrLabels([]), []);
+});
+
+import { wallPlate } from '../world.js';
+// #557: distance from a point to the nearest edge of a ring (a plate sits PLATE_OFF off its wall)
+const ringDist = (ring, p) => {
+  let best = Infinity;
+  for (let i = 0; i < ring.length; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % ring.length], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    const u = L2 ? Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.z - az) * dz) / L2)) : 0;
+    best = Math.min(best, Math.hypot(p.x - ax - dx * u, p.z - az - dz * u));
+  }
+  return best;
+};
+
+test('wallPlate (#557): on the real wall that faces the target, 1 m in from the right end seen from outside', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const L = [[0, 0], [20, 0], [20, 10], [12, 10], [12, 22], [0, 22]];
+  for (const ring of [L, [...L].reverse()]) {
+    // target east of the step: the east wall x=20 (edge z 0..10), plate 0.06 m outside, facing +x
+    const e = wallPlate(ring, 8, 11, [60, 5]);
+    assert.ok(near(e.x, 20.06) && near(e.rotY, Math.PI / 2));
+    assert.ok(near(e.z, 1), 'seen from the east the right end is north (z=0): 1 m in');
+    // target west: the west wall x=0 (22 m), right end seen from the west is south (z=22)
+    const w = wallPlate(ring, 8, 11, [-40, 11]);
+    assert.ok(near(w.x, -0.06) && near(w.rotY, -Math.PI / 2) && near(w.z, 21));   // -pi/2 == 3pi/2: the same west-facing turn
+    // a target in the notch bite: the x=12 wall (z 10..22) faces +x and is the nearest wall facing it
+    const n = wallPlate(ring, 8, 11, [16, 16]);
+    assert.ok(near(n.x, 12.06) && near(n.rotY, Math.PI / 2));
+    assert.ok(ringDist(ring, e) <= 0.1 && ringDist(ring, w) <= 0.1 && ringDist(ring, n) <= 0.1, 'plates hug the ring');
+  }
+});
+
+test('wallPlate (#557): short walls, fallbacks, every plate stays within 0.1 m of the ring', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const L = [[0, 0], [20, 0], [20, 10], [12, 10], [12, 22], [0, 22]];
+  const flat = [[0, 0], [10, 0], [10, 2], [0, 2]];                                      // 10 x 2: only the 2 m east wall faces east
+  const bay = [[0, 0], [10, 0], [10, 4], [12, 4], [12, 6], [10, 6], [10, 10], [0, 10]]; // a 2 m bay on the east wall
+  for (const [ring, target, want] of [
+    [flat, [60, 1], { x: 10.06, z: 1, rotY: Math.PI / 2 }],   // under MIN_WALL but the only wall facing: plate in its middle
+    [bay, [30, 3], { x: 10.06, z: 1, rotY: Math.PI / 2 }],    // the 2 m bay is nearer, but the 4 m wall wins
+  ]) {
+    for (const r of [ring, [...ring].reverse()]) {
+      const p = wallPlate(r, 5, 5, target);
+      assert.ok(near(p.x, want.x) && near(p.z, want.z) && near(p.rotY, want.rotY), `${JSON.stringify(p)} != ${JSON.stringify(want)}`);
+      assert.ok(ringDist(r, p) <= 0.1, 'the plate hugs the ring');
+    }
+  }
+  // no target: the +z side (the greatest-z wall), like the box path's local +z façade
+  for (const r of [L, [...L].reverse()]) {
+    const t = wallPlate(r, 8, 11, null);
+    assert.ok(near(t.x, 11) && near(t.z, 22.06) && near(t.rotY, 0));
+    assert.ok(ringDist(r, t) <= 0.1);
+  }
+  // degenerate rings -> null, so the caller falls back to the box
+  assert.equal(wallPlate([[0, 0]], 0, 0, [1, 1]), null);
+  assert.equal(wallPlate(null, 0, 0, null), null);
+});
+
+test('addrLabels (#557): ring buildings use wallPlate, roadAt hears the street', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const L = [[0, 0], [20, 0], [20, 10], [12, 10], [12, 22], [0, 22]];
+  // the building's street reaches roadAt; a landmark passes no street
+  const seen = [];
+  addrLabels([{ addr: '6', st: 'Bodenackerstrasse', rect: [10, 11, 20, 22, 0], ring: L }], {}, (x, z, st) => { seen.push(st); return [60, 5]; });
+  addrLabels([], { hallenbad: { x: 5, z: 6, rot: 0, size: [42, 40], addr: '2' } }, (x, z, st) => { seen.push(st); return [5, -100]; });
+  assert.deepEqual(seen, ['Bodenackerstrasse', undefined]);
+  // a stepped footprint: the plate on the ring's east wall (x=20), not on the rect's (x=30)
+  const [p] = addrLabels([{ addr: '6a–6d', rect: [10, 11, 20, 22, 0], ring: L }], {}, () => [60, 5]);
+  assert.ok(near(p.x, 20.06) && near(p.z, 1) && near(p.rotY, Math.PI / 2));
+  assert.ok(ringDist(L, p) <= 0.1, 'on the real wall');
+  assert.equal(p.foot, L, 'the ring travels along, for the base height');
+  // a degenerate ring (as in the #520 test) keeps the box path
+  const [q] = addrLabels([{ addr: '9', rect: [10, 20, 60, 22, 0], ring: [[0, 0]] }], {}, () => [10, 60]);
+  assert.ok(near(q.x, 39) && near(q.z, 31.06), 'box path, as in #520');
+});
+
+test('addrLabels (#557): every numbered building of both worlds gets its plate on a ring wall', () => {
+  for (const [file, min] of [['world_hochrhein.json', 2000], ['world_ehrendingen.json', 200]]) {
+    if (!existsSync(new URL(`../../data/${file}`, import.meta.url))) continue;
+    const world = JSON.parse(readFileSync(new URL(`../../data/${file}`, import.meta.url), 'utf8'));
+    const numbered = world.buildings.filter(b => b.addr);
+    assert.ok(numbered.length > min, `${file}: ${numbered.length} numbered buildings, cannot pass vacuously`);
+    for (const b of numbered) for (const road of [() => null, () => [b.rect[0] + 30, b.rect[1]], () => [b.rect[0] - 30, b.rect[1]]]) {
+      const [p] = addrLabels([b], {}, road);
+      assert.ok(p && ringDist(b.ring, p) <= 0.3, `${file} building ${b.id} (${b.addr}): plate ${p && [p.x, p.z]} floats off its ring`);
+    }
+  }
 });
 
 test('pickLabels: within 60 m, nearest first, at most 40', () => {

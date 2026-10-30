@@ -55,7 +55,11 @@ export function parseChoice(raw, validIds, validPaintIds) {
     if (!obj || typeof obj !== 'object') return { ...DEFAULT_CHOICE };
     const id = validIds.includes(obj.id) ? obj.id : DEFAULT_CHOICE.id;
     const paint = validPaintIds.includes(obj.paint) ? obj.paint : DEFAULT_CHOICE.paint;
-    return obj.paintChosen === true ? { id, paint, paintChosen: true } : { id, paint };   // #236: the flag marks a paint the player picked (old stored choices have none)
+    const out = obj.paintChosen === true ? { id, paint, paintChosen: true } : { id, paint };   // #236: the flag marks a paint the player picked (old stored choices have none)
+    // #463: the armchair flag survives only as a real true -- anything else (or nothing, in choices stored before
+    // the chair existed) reads as chair off, and the field stays absent so old deep-equals keep holding
+    if (obj.chair === true) out.chair = true;
+    return out;
   } catch (e) {
     return { ...DEFAULT_CHOICE };
   }
@@ -63,6 +67,13 @@ export function parseChoice(raw, validIds, validPaintIds) {
 
 // withPaint (#236): the player picked a paint — remember it as chosen, so a vehicle's default paint never overrides it
 export function withPaint(choice, paint) { return { ...choice, paint, paintChosen: true }; }
+
+// ---- #463: the armchair option ----
+// chairable: only vehicles that declare the option offer the armchair toggle
+export const chairable = (def) => def?.options?.chair === true;
+
+// withChair: copy of the choice with the chair flag set (on) or absent (off)
+export function withChair(choice, on) { const c = { ...choice }; if (on) c.chair = true; else delete c.chair; return c; }
 
 // initialChoice: merge stored choice with ?vehicle= query param (query wins for this load)
 export function initialChoice(stored, search, validIds, validPaintIds) {

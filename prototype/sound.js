@@ -3,6 +3,8 @@
 
 export const RPM_RATE = { up: 12000, down: 20000 };   // rpm per second the heard rpm may move: revs up fast, drops faster on a shift
 export const ROTOR = { rate: 5.5, ratePerKmh: 0.012, gain: 1.2, cutoff: 260 };   // #10 helicopter: blade thump (Hz), lowpassed noise
+// #462: the steam loco's whistle, two bright tones through playHorn
+export const WHISTLE = { notes: [622, 740], dur: 1.4, gain: 0.2, band: 1600, wave: 'sawtooth' };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -28,8 +30,9 @@ export function engineMix(s, input, engine) {
   const n = clamp((s.rpm - engine.idleRpm) / (engine.limitRpm - engine.idleRpm), 0, 1), load = input.gas ? 1 : 0, F = engine.filter, G = engine.gain;
   const cutoff = (F.idle + (F.open - F.idle) * n) * (load ? 1 : F.offLoad) * (input.nitro ? 1.25 : 1);
   const level = (G.idle + G.rev * n + G.load * load) * (s.shift > 0 ? 1 - engine.shiftDip : 1);
-  return { f0: s.rpm / 60 * engine.cylinders / 2, cutoff, q: F.q * (load ? 1 : 0.6), gain: input.fly || input.dead ? 0 : level,
-    road: input.fly || input.air ? 0 : Math.min(0.25, input.kmh / 400), hiss: input.nitro && !input.fly && !input.dead ? engine.nitroHiss : 0 };
+  const silent = input.fly || input.dead || input.off;   // #475 off: the driver got out and switched the engine off
+  return { f0: s.rpm / 60 * engine.cylinders / 2, cutoff, q: F.q * (load ? 1 : 0.6), gain: silent ? 0 : level,
+    road: input.fly || input.air || input.off ? 0 : Math.min(0.25, input.kmh / 400), hiss: input.nitro && !silent ? engine.nitroHiss : 0 };
 }
 
 export function rotorMix(input) { return input.fly ? { rate: ROTOR.rate + ROTOR.ratePerKmh * input.kmh, gain: ROTOR.gain, cutoff: ROTOR.cutoff } : { rate: ROTOR.rate, gain: 0, cutoff: ROTOR.cutoff }; }

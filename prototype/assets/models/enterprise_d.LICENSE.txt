@@ -1,0 +1,8 @@
+„Enterprise D 2 8 Simple Bake Export" by HaughtyGrayAlien (Sketchfab), CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/):
+https://sketchfab.com/3d-models/enterprise-d-2-8-simple-bake-export-02aeda1aaafd4a3591892ed5a2aeac33
+
+enterprise_d.glb in this folder is a modified copy (tools/prepare-enterprise.mjs): scaled to the ship's real 642.5 m with the bow on +x and the
+lowest hull point on y = 0, the meshes welded and decimated (1 199 440 to 239 884 triangles), merged into one mesh per section (saucer, drive,
+nacelles, aux), the tangents dropped, the metallic factor lowered to 0.25 (the game has no environment map), the materials marked
+extras.glow so the game can boost the emissive maps, the sixteen 1024 px textures converted from PNG to WebP, and the whole compressed
+(meshopt). The textures' content is unchanged. The game credits it in the F1 help, README.md and CHANGELOG.md.

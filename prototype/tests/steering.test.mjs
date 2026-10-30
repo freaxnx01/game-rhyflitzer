@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WHEEL, wheelTargetYaw, stepWheelYaw, stepWheelSpin, frontAxleX } from '../steering.js';
+import { WHEEL, wheelTargetYaw, stepWheelYaw, stepWheelSpin, frontAxleX, plantedWheelY } from '../steering.js';
 
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 
@@ -50,4 +50,17 @@ test('frontAxleX: the largest x', () => {
   assert.equal(frontAxleX([[1.38, 0.86], [-1.38, 0.86]]), 1.38);
   assert.equal(frontAxleX([[-2, 1], [0.5, 1], [3, 1]]), 3);
   assert.equal(frontAxleX([]), -Infinity);
+});
+
+// #542: the body leans (car.rotation.x, about its forward axis at ground level); the wheels must stay on the road
+test('plantedWheelY_NoLean_KeepsTheHomeHeight', () => {
+  assert.equal(plantedWheelY(0.34, 0.86, 0), 0.34);
+});
+
+test('plantedWheelY_Lean_PutsTheWheelCentreBackAtItsHomeHeightInTheWorld', () => {
+  for (const lean of [0.2, -0.2, 0.05]) for (const z of [0.86, -0.86]) {
+    const y = plantedWheelY(0.34, z, lean);
+    // three.js Rx(lean): world y = y cos(lean) - z sin(lean)
+    assert.ok(Math.abs(y * Math.cos(lean) - z * Math.sin(lean) - 0.34) < 1e-9, `lean ${lean} z ${z}`);
+  }
 });

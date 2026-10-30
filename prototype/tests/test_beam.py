@@ -33,17 +33,31 @@ def car(page):
     return page.evaluate("() => window.__mm.car()")
 
 
+GROUND = (1000, 420)   # lower right: terrain about 10 m from the start, below the horizon of the settled chase camera
+
+# touch taps as pointer events in one evaluate, like test_minimap: the game wants two taps < 300 ms apart, while a
+# headless renderer takes ~1 s per frame and dispatches real touchscreen taps a frame (seconds) apart
+TAPS_JS = """([x, y, n]) => { const g = document.querySelector('#gl'); for (let i = 0; i < n; i++) g.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', clientX: x, clientY: y, bubbles: true })); }"""
+
+
+def settle_camera(page):
+    """The chase camera eases in from its first-frame pose; a pick before it settles depends on the frame rate."""
+    page.wait_for_function("""() => { const c = window.__mm.cam().d, p = window.__camPrev; window.__camPrev = c;
+      return !!p && Math.hypot(c[0] - p[0], c[1] - p[1], c[2] - p[2]) < 1e-3; }""", timeout=T, polling="raf")
+
+
 def test_double_click_beams_to_the_clicked_ground_point_and_flags_the_run(server):
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server)
         page.click("#startbtn")
-        wait_frames(page)
+        settle_camera(page)
         start = car(page)
         heading = page.evaluate("() => window.__mm.heading()")
-        pick = page.evaluate("() => window.__mm.beamPick(1000, 200)")        # upper right: ground well away from the car
-        page.mouse.click(1000, 200)
+        pick = page.evaluate(f"() => window.__mm.beamPick({GROUND[0]}, {GROUND[1]})")
+        assert pick is not None, "GROUND is not on the terrain any more"
+        page.mouse.click(*GROUND)
         single = car(page)
-        page.mouse.dblclick(1000, 200)
+        page.mouse.dblclick(*GROUND)
         page.wait_for_function("() => window.__mm.beam() !== null", timeout=T)
         landed = page.evaluate("() => window.__mm.beam()")
         after = car(page)
@@ -65,10 +79,10 @@ def test_double_tap_beams_on_a_touch_screen(server):
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server, touch=True)
         page.click("#startbtn")
-        wait_frames(page)
-        pick = page.evaluate("() => window.__mm.beamPick(1000, 200)")
-        page.touchscreen.tap(1000, 200)
-        page.touchscreen.tap(1000, 200)
+        settle_camera(page)
+        pick = page.evaluate(f"() => window.__mm.beamPick({GROUND[0]}, {GROUND[1]})")
+        assert pick is not None, "GROUND is not on the terrain any more"
+        page.evaluate(TAPS_JS, [GROUND[0], GROUND[1], 2])
         page.wait_for_function("() => window.__mm.beam() !== null", timeout=T)
         landed = page.evaluate("() => window.__mm.beam()")
         b.close()

@@ -6,7 +6,7 @@
 
 export const BODENACKER6 = {
   id: 171822634, storeys: 10, houses: ['6a', '6b', '6c', '6d'],
-  houseOrder: 'northToSouth',          // 6a at the north end (confirmed 2026-10-21); 6c is the third entrance from the north
+  houseOrder: 'southToNorth',          // #455: 6a at the south end, 6d at the north, as OSM's address points; 6c is the second entrance from the north
   housingRise: 2.6, parapet: 0.5,      // m above the roof slab (Q1, maintainer decision) / white band under the slab
   moduleWidth: 4.0,                    // façade texture tile width (one window module)
   porch: { h: 3.0, door: 1.0, post: 0.15, slab: 0.25, overhang: 0.1 },
@@ -103,6 +103,22 @@ export function bodenackerWalls(body, frame) {
     walls.push({ a: [ax, az], b: [bx, bz], face: nv < -0.5 ? 'back' : nv > 0.5 ? 'street' : 'end' });
   }
   return walls;
+}
+
+// #467: the doorway behind a porch: the street wall crossing the porch's axis is cut at u ± w/2 into the two wall pieces either side
+// and the piece over the gap (the lintel, drawn from the door's top up). u0 = the piece's start along the uncut wall, so the façade tile runs on
+export function bodenackerDoorway(walls, frame, porch, w) {
+  const at = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+  for (const [k, wall] of walls.entries()) {
+    const [ua, va] = frame.toLocal(...wall.a), [ub, vb] = frame.toLocal(...wall.b);
+    if (wall.face !== 'street' || Math.abs(ub - ua) < 1e-9) continue;
+    const t0 = (porch.u - w / 2 - ua) / (ub - ua), t1 = (porch.u + w / 2 - ua) / (ub - ua), lo = Math.min(t0, t1), hi = Math.max(t0, t1);
+    if (lo <= 0 || hi >= 1 || Math.abs(va + (vb - va) * (lo + hi) / 2 - porch.v0) > 0.5) continue;
+    const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]), pa = at(wall.a, wall.b, lo), pb = at(wall.a, wall.b, hi);
+    const piece = (a, b, t) => ({ a, b, face: 'street', u0: L * t });
+    return { walls: [...walls.slice(0, k), piece(wall.a, pa, 0), piece(pb, wall.b, hi), ...walls.slice(k + 1)], lintel: piece(pa, pb, lo) };
+  }
+  throw new Error(`bodenacker6: no street wall behind porch ${porch.house}`);
 }
 
 // #445: what stands on sloping ground. stand = the level the block (or a porch) is meant to stand on, ground = the terrain under it:

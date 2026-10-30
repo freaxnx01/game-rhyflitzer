@@ -28,6 +28,11 @@ test('the Titanic model is credited in both languages (#422)', () => {
   assert.match(translate('de', 'creditTitanic'), /RMS Titanic.*Union.*CC BY 4\.0/);
 });
 
+test('the Plattform Sisslerfeld credits its measurements in both languages (#413)', () => {
+  assert.match(translate('en', 'creditPlattform'), /Verein Plattform Sisslerfeld.*Häring AG/);
+  assert.match(translate('de', 'creditPlattform'), /Verein Plattform Sisslerfeld.*Häring AG/);
+});
+
 test('German strings use Swiss spelling (no sharp s)', () => {
   for (const [key, value] of Object.entries(STRINGS.de)) assert.ok(!render(value).includes('ß'), key);
 });
@@ -176,6 +181,11 @@ test('pontoon bridge texts exist in both languages (#100)', () => {
   for (const k of ['pontoonBuilding', 'pontoonRemoving', 'pontoonNoFarBank', 'keyPontoon']) { assert.notEqual(translate('de', k), k, k); assert.notEqual(translate('en', k), k, k); }
 });
 
+test('keyLeave_BothLanguages_NamesTheBKey', () => {   // #474
+  for (const lang of ['en', 'de']) assert.notEqual(translate(lang, 'keyLeave'), 'keyLeave', lang);
+  assert.notEqual(translate('de', 'keyLeave'), translate('en', 'keyLeave'));
+});
+
 test('lift strings exist in both languages (#411)', () => {
   for (const key of ['liftCall', 'liftPadTitle', 'keyLift']) {
     assert.ok(translate('en', key), `en ${key}`); assert.ok(translate('de', key), `de ${key}`);
@@ -183,4 +193,27 @@ test('lift strings exist in both languages (#411)', () => {
   }
   assert.match(translate('de', 'liftCall'), /^E · Lift rufen$/);
   assert.match(translate('en', 'liftCall'), /^E · call the lift$/);
+});
+
+test('About (#564): Kiscsi\'s ideas name the bridge, Robidogs and flying poo piles, then "and many more"', () => {
+  assert.match(translate('en', 'aboutRoleKiscsi'), /Holzbrücke.*Robidogs.*poo piles.*many other ideas …$/);
+  assert.match(translate('de', 'aboutRoleKiscsi'), /Holzbrücke.*Robidogs.*Häufchen.*viele andere Ideen mehr …$/);
+});
+
+test('About (#564): every agent and LLM of the pipeline is listed in both languages', () => {
+  const rows = ['Impl', 'Review', 'Design', 'Local', 'Early', 'Helper', 'Mockup'];
+  for (const lang of ['en', 'de']) {
+    for (const r of rows) {
+      assert.ok(translate(lang, `aboutAg${r}Role`).length > 0, `${lang} ${r}Role`);
+      assert.ok(translate(lang, `aboutAg${r}`).length > 0, `${lang} ${r}`);
+    }
+    const all = rows.map((r) => translate(lang, `aboutAg${r}`)).join(' | ');
+    for (const needle of ['OpenCode', 'GLM 5.3', 'Claude Code', 'Sonnet', 'Fable', 'Opus', 'Haiku', 'Claude Design']) assert.ok(all.includes(needle), `${lang}: ${needle}`);
+  }
+});
+
+test('About (#564): the tab labels exist in both languages', () => {
+  assert.equal(translate('en', 'aboutTabPeople'), 'People');
+  assert.equal(translate('de', 'aboutTabPeople'), 'Leute');
+  assert.equal(translate('de', 'aboutBuiltTitle'), 'So ist es gebaut');
 });

@@ -31,12 +31,13 @@ WORLD103 = "foodTruck" in _world_anchor_keys()          # world rebuilt with the
 needs_world103 = pytest.mark.skipif(not WORLD103, reason="world not rebuilt for #103 (Task 4 of docs/superpowers/plans/2026-10-03-food-truck-eiken.md)")
 WORLD47 = "flugplatzSchupfart" in _world_anchor_keys()  # world rebuilt for #47 (south to Schupfart)
 needs_world47 = pytest.mark.skipif(not WORLD47, reason="world not rebuilt for #47 (Tasks 8-10 of docs/superpowers/plans/2026-10-10-region-south-schupfart.md)")
+WORLD507 = WORLD.exists() and "sisseln" in json.loads(WORLD.read_text(encoding="utf-8"))["anchors"]["areas"]   # world rebuilt for #507 (every building in Sisseln)
 CHIPS = ["All", "Bad Säckingen", "Stein", "Münchwilen"] + (["Schupfart"] if WORLD47 else []) + ["Eiken", "Sisseln"]
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
     + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Crash yard"]
-ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) are fixed points, listed in any world
+ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) are fixed points, listed in any world
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
-    + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else [])
+    + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else []) + (["Neues Schulhaus Sisseln", "Volg Sisseln"] if WORLD507 else [])
 
 
 def open_page(p, server, block_world=False):
@@ -531,7 +532,7 @@ def test_enterable_chip_lists_the_register_and_composes_with_the_gemeinde_chip(s
         page.click("#jumpchips button[data-enterable]")
         listed = rows(page)
         assert sorted(r["n"] for r in listed) == ["Bodenackerstrasse 6c", "Plattform Sisslerfeld", "Reservoir H\u00fcbel"], listed
-        assert [r["n"] for r in listed if r.get("soon")] == [r["n"] for r in listed if r["n"] != "Reservoir H\u00fcbel"]
+        assert [r["n"] for r in listed if r.get("soon")] == ["Plattform Sisslerfeld"], listed   # #411 made the 6c enterable (ready); the secret Hübel never shows "soon"
         page.click('#jumpchips button[data-g="Sisseln"]')
         assert names(page) == ["Bodenackerstrasse 6c"]
         page.click("#jumpchips button[data-enterable]")
