@@ -611,8 +611,8 @@ import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField } from './enterprise.js';   // #491
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
-import { FERRIS, wheelAngle } from './ferris.js';   // #513
-import { buildWheel, setWheelAngle, ferrisTriangles } from './ferrismesh.js';
+import { FERRIS, wheelAngle, DUSK_LOOK } from './ferris.js';   // #513; #588: the dusk look
+import { buildWheel, setWheelAngle, ferrisTriangles, setWheelLights, buildFireworks, setFireworks } from './ferrismesh.js';
 import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
@@ -2770,7 +2770,7 @@ const RING2_LOOK = { ...RING_LOOK, fog: RING2_STYLE.fog, skyTop: RING2_STYLE.fog
 const BELOW_LOOKS = { ring: RING_LOOK, ring2: RING2_LOOK, room: ROOM_LOOK };
 function setBelowLook(kind) {   // 'surface' | 'ring' | 'ring2' | 'room'
   if (kind === 'surface') { BELOW.kind = 'surface'; const St = STYLES[styleKey]; scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; sunSprite.visible = !UWS.on; treesVisible(!CAVE_MODE.on); return; }   // as setCave(false): no style rebuild, no shader recompile
-  BELOW.kind = kind; BELOW.q = -1; fadeBelowLook(spokeDarkHere()); sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room' && !(ROOM.layout && ROOM.layout.look === 'space');   // #491: no sun disc under the star dome
+  BELOW.kind = kind; BELOW.q = -1; fadeBelowLook(spokeDarkHere()); sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room' && !(ROOM.layout && (ROOM.layout.look === 'space' || ROOM.layout.look === 'dusk'));   // #491: no sun disc under the star dome
 }
 // #379: in a spoke the level's own look fades over to SPOKE_DARK (spokeDarkAt, underground.js) and back, instead of a black-out and a cut:
 // thick near-black fog that swallows whatever lies 15+ m ahead, light turned down but never off. Both switch points lie where the fade is
@@ -2782,7 +2782,7 @@ const BELOW = { kind: null, q: -1, fog: new THREE.FogExp2(0x000000, 0.001) };
 function spokeDarkHere() { const sp = LEVELS.isSurface() ? null : spokeAt(P.x, P.z); return sp ? spokeDarkAt(sp.s) : 0; }
 function fadeBelowLook(q) {
   if (!BELOW.kind || BELOW.kind === 'surface' || q === BELOW.q) return;
-  const base = BELOW.kind === 'room' && ROOM.layout && ROOM.layout.look === 'space' ? SPACE_LOOK : BELOW_LOOKS[BELOW.kind], m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;   // #491: the Enterprise room keeps its star-dome look
+  const base = BELOW.kind === 'room' && ROOM.layout && ROOM.layout.look === 'space' ? SPACE_LOOK : BELOW.kind === 'room' && ROOM.layout && ROOM.layout.look === 'dusk' ? DUSK_LOOK : BELOW_LOOKS[BELOW.kind], m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;   // #491: the Enterprise room keeps its star-dome look; #588: the Ferris room its dusk
   // the fog's colour stays dark until the fog itself has thinned (else the thick fog half-way glows as a pale mist in the room's tunnel);
   // its density goes geometrically, so the exp2 fog clears evenly over the fade, not all at its end
   BELOW.fog.color.set(blendLook({ c: base.fog }, { c: SPOKE_DARK.fog }, 1 - Math.pow(1 - q, 4)).c); BELOW.fog.density = base.density * Math.pow(SPOKE_DARK.density / base.density, q);
@@ -3044,11 +3044,13 @@ function roomArtemis(group, R) {
 // ROOM.ferris tells the debug hook what was built, stepFerris turns it.
 function roomFerris(group, R) {
   const w = buildWheel(FERRIS); w.group.position.set(R.ferris.wheel.x, R.y, R.ferris.wheel.z); w.group.rotation.y = -R.ferris.wheel.th; group.add(w.group);
-  ROOM.ferris = { built: R.k, handle: w, angle: 0, h: FERRIS.h, gondolas: w.gondolas.length, tris: ferrisTriangles(w.group), colliders: R.ferris.colliders.length };
+  const fw = buildFireworks(FERRIS); w.group.add(fw.points);   // #588: in the wheel's frame but not in the rotating part
+  ROOM.ferris = { built: R.k, handle: w, fw, angle: 0, h: FERRIS.h, gondolas: w.gondolas.length, tris: ferrisTriangles(w.group), colliders: R.ferris.colliders.length, leds: w.ledList.length };
 }
 function stepFerris() {   // #513: the wheel's turn -- visual only, from the wall clock so it never depends on the frame rate
   if (!ROOM.ferris || ROOM.built !== ROOM.ferris.built) return;
   ROOM.ferris.angle = wheelAngle(performance.now() / 1000); setWheelAngle(ROOM.ferris.handle, ROOM.ferris.angle);
+  const t = performance.now() / 1000; setWheelLights(ROOM.ferris.handle, t); setFireworks(ROOM.ferris.fw, t);   // #588: the light show and the fireworks, also from the wall clock
 }
 function roomTrees(group, R) {   // #359: the single trees' species meshes (edge mix), about 1000 trees, no shadows
   const r = rng(278), trees = R.trees.map(([x, z, h]) => [x, z, h, R.y, 'edge']);
@@ -3178,7 +3180,7 @@ window.__mm.eiffel = () => ROOM.states[0] ? { ...ROOM.states[0], feet: EIFFEL.fe
 window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.feet, footHw: ATOMIUM.footHw } : null;   // #355
 window.__mm.fries = () => ROOM.figure && ROOM.group && ROOM.group.children.some(o => o.children.some(c => c.userData.role === 'fries')) ? { ...ROOM.figure, built: ROOM.built } : null;   // #451: the figure of the room built now
 window.__mm.artemis = () => ROOM.artemis && ROOM.built === ROOM.artemis.built ? { ...ROOM.artemis } : null;   // #488: the Artemis stack and the capsule of the room built now
-window.__mm.ferris = () => ROOM.ferris && ROOM.built === ROOM.ferris.built ? { built: ROOM.ferris.built, angle: ROOM.ferris.angle, h: ROOM.ferris.h, gondolas: ROOM.ferris.gondolas, tris: ROOM.ferris.tris, colliders: ROOM.ferris.colliders, gondolaAngle: ROOM.ferris.handle.gondolas[0].rotation.x, wheelRotation: ROOM.ferris.handle.wheel.rotation.x } : null;   // #513: the wheel of the room built now
+window.__mm.ferris = () => ROOM.ferris && ROOM.built === ROOM.ferris.built ? { built: ROOM.ferris.built, angle: ROOM.ferris.angle, h: ROOM.ferris.h, gondolas: ROOM.ferris.gondolas, tris: ROOM.ferris.tris, colliders: ROOM.ferris.colliders, gondolaAngle: ROOM.ferris.handle.gondolas[0].rotation.x, wheelRotation: ROOM.ferris.handle.wheel.rotation.x, leds: ROOM.ferris.leds, ledSample: '#' + new THREE.Color().fromArray(ROOM.ferris.handle.leds.instanceColor.array, 0).getHexString(), sparks: ROOM.ferris.fw.live } : null;   // #513: the wheel of the room built now
 window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
 window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
   if (!ROOM.states[8] || ROOM.built !== 8) return null;

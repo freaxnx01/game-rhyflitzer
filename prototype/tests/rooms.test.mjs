@@ -326,3 +326,7 @@ test('roomLayout_Room6_TheCarReachesBothSidesOfTheWheel', () => {
   const r = reach(ferris), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
   assert.ok(cell(0, 0) && cell(0, 45) && cell(0, -45) && cell(45, 0), 'under the rim and on all sides'); assert.ok(r.seen.size > 4000);
 });
+
+test('roomLayout_FerrisRoomSixIsDusk_TheOtherMeadowRoomsStayMeadow', () => {   // #588
+  assert.equal(roomLayout(6).look, 'dusk'); assert.equal(roomLayout(0).look, 'meadow'); assert.equal(roomLayout(1).look, 'meadow');
+});
