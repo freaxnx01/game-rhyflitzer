@@ -240,7 +240,7 @@ def test_plattform_tower_blocks_the_car(server):
         page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
         r = page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 15, 3)")
         br.close()
-    assert r["x"] < a["x"], r   # stopped at the tower, not driven through it
+    assert r["x"] < a["x"] - 1.56, r   # #567: stopped at the core cylinder (r 1.56 m), not only by a far corner post
 
 
 @pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
