@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HATCHBACK, WHEEL_NODES, wheelPlan, wheelEntries, tableWheels } from '../hatchback.js';
-import { loadStep, buildableId, modelUrl, paintOnSelect, lampRole, raceBlocked } from '../gltfvehicle.js';
+import { loadStep, buildableId, buildsOnSelect, modelUrl, paintOnSelect, lampRole, raceBlocked } from '../gltfvehicle.js';
 import { PAINTS, DEFAULT_CHOICE, paintable, statBars, parseChoice, initialChoice, withPaint } from '../carselect.js';
 import { checkSound } from '../sound.js';
 import { checkCrash } from '../impact.js';
@@ -81,6 +81,15 @@ test('buildableId_GltfNotReady_IsTheFallback', () => {
   for (const s of ['idle', 'loading', 'failed']) assert.equal(buildableId('hatchback', HATCHBACK, s), 'compact');
   assert.equal(buildableId('hatchback', HATCHBACK, 'ready'), 'hatchback');
   assert.equal(buildableId('compact', COMPACT, 'idle'), 'compact', 'a procedural car never waits');
+});
+
+test('buildsOnSelect_GltfNotReady_WaitsEvenWhenItsOwnFallback', () => {
+  const MINI = { model: 'mini', gltf: { id: 'mini', fallback: 'mini' } };   // the primitives car stands in for its own model (#468)
+  for (const def of [HATCHBACK, MINI]) {
+    for (const s of ['idle', 'loading']) assert.equal(buildsOnSelect(def, s), false, `${def.model} ${s}: no low-poly flash before the model`);
+    assert.equal(buildsOnSelect(def, 'ready'), true);
+  }
+  assert.equal(buildsOnSelect(COMPACT, 'idle'), true, 'a procedural car builds at once');
 });
 
 test('modelUrl_Override_OnlyAllowListedAssetPaths', () => {

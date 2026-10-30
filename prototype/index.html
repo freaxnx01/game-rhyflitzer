@@ -657,7 +657,7 @@ import { NEW_BEETLE } from './newbeetle.js';   // Rhy Bubble, a glTF car
 import { TUMBLER } from './tumbler.js';   // Rhy Tumbler, a glTF car
 import { COUPE } from './coupe.js';   // Rhy Coupé, a glTF car
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
-import { loadStep, buildableId, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
+import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -4255,7 +4255,7 @@ function selectVehicle(id) {
   const def = VEHICLES[id], previous = VEHICLES[CHOICE.id]; CHOICE.id = id;
   if (def.gltf) wantVehicleModel(id);
   if (def.gltf && gltfState(id) === 'failed') { vehicleFailed(id); return; }
-  if (buildableId(id, def, gltfState(id)) === id) setVehicle(def);   // a glTF car that is not ready yet leaves the stage car as it is
+  if (buildsOnSelect(def, gltfState(id))) setVehicle(def);   // a glTF car that is not ready yet leaves the stage car as it is
   applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen, 'navy', previous)); saveChoice(); renderCarSelKeepFocus(); renderStartScreen();   // #346: the start screen's car tag follows the pick
 }
 // #236: the glTF car's file is fetched once, on the first pick; the swap waits for a safe moment, a failure falls back (the stored choice is kept: the next visit tries again)

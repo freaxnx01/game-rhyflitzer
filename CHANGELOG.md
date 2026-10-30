@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-30 15:32` Stepping through the **garage** no longer shows a **low-poly Mini** (or bus) for a moment before the detailed model: the car on stage stays until the model has loaded, like with every other car.
 - `2026-10-29 21:16` Die **Hausnummern-Schilder** sitzen jetzt auf der **echten Hauswand** statt davor in der Luft, und bei Häusern mit bekannter Strasse hängen sie auf der Seite der **richtigen Strasse** (z.B. Bodenackerstrasse 6: Ostseite zur Bodenackerstrasse, nicht Westseite zum Badweg).
 
 ### Added
