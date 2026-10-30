@@ -109,6 +109,36 @@ def test_several_entrances_become_a_range():
     assert bl[0]["addr"] == "6a–6d"
 
 
+def test_street_from_the_address_nodes():
+    bl, stats = B.build([house(1, 0, 20)], MAIN, CLIP, addr_nodes=[AddrNode(9, "7", 1.0, 21.0, "Bodenackerstrasse")])
+    assert bl[0]["addr"] == "7" and bl[0]["st"] == "Bodenackerstrasse" and stats["street_node"] == 1
+
+
+def test_own_street_wins_over_node_streets():
+    bl, stats = B.build([house(1, 0, 20, tags={"addr:housenumber": "7", "addr:street": "Eigengasse"})], MAIN, CLIP,
+                        addr_nodes=[AddrNode(9, "7", 1.0, 21.0, "Bodenackerstrasse")])
+    assert bl[0]["st"] == "Eigengasse" and stats["street_own"] == 1
+
+
+def test_node_street_majority_and_alphabetical_ties():
+    nodes = [AddrNode(9, "6a", 1.0, 21.0, "A"), AddrNode(10, "6b", 1.5, 21.0, "A"), AddrNode(11, "6c", 2.0, 21.0, "B")]
+    bl, _ = B.build([house(1, 0, 20, tags={"addr:housenumber": "6"})], MAIN, CLIP, addr_nodes=nodes)
+    assert bl[0]["st"] == "A"                                   # the majority wins
+    bl, _ = B.build([house(1, 0, 20, tags={"addr:housenumber": "6"})], MAIN, CLIP,
+                    addr_nodes=[AddrNode(9, "6a", 1.0, 21.0, "Zweg"), AddrNode(10, "6b", 1.5, 21.0, "Agasse")])
+    assert bl[0]["st"] == "Agasse"                               # a tie goes to the alphabetically first
+
+
+def test_no_street_anywhere_leaves_st_out():
+    bl, _ = B.build([house(1, 0, 20, tags={"addr:housenumber": "7"})], MAIN, CLIP, addr_nodes=[AddrNode(9, "7", 1.0, 21.0)])
+    assert bl[0]["addr"] == "7" and "st" not in bl[0]
+
+
+def test_unnumbered_buildings_carry_no_street():
+    bl, _ = B.build([house(1, 0, 20, tags={"addr:street": "Nurstrasse"})], MAIN, CLIP)
+    assert "addr" not in bl[0] and "st" not in bl[0]
+
+
 def test_join_numbers():
     assert B.join_numbers(["10", "9", "9a"]) == "9–10"
     assert B.join_numbers(["1;3"]) == "1–3"

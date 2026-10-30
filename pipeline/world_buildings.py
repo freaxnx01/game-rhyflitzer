@@ -77,8 +77,8 @@ def join_numbers(nums):
 ON_OUTLINE = 0.2                                     # m: a node this close to a footprint counts as on it
 
 
-def node_numbers(polys, addr_nodes):
-    """Address-node numbers per footprint: nodes inside or on the outline (≤ 0.2 m); a node touching several footprints goes to the nearest centroid."""
+def nodes_per_polygon(polys, addr_nodes):
+    """Address nodes per footprint: inside or on the outline (≤ 0.2 m); a node touching several footprints goes to the nearest centroid."""
     out = [[] for _ in polys]
     if not polys or not addr_nodes:
         return out
@@ -88,16 +88,32 @@ def node_numbers(polys, addr_nodes):
         hits.setdefault(int(ni), []).append(int(pi))
     for ni, cand in hits.items():
         best = min(cand, key=lambda i: polys[i].centroid.distance(pts[ni]))
-        out[best].append(addr_nodes[ni].number)
+        out[best].append(addr_nodes[ni])
     return out
 
 
-def _assign_numbers(recs, polys, own, addr_nodes, stats):
-    for rec, mine, nodes in zip(recs, own, node_numbers(polys, addr_nodes)):
-        addr, src = (mine, "addr_own") if mine else (join_numbers(nodes), "addr_node")
+def _assign_numbers(recs, own, per_poly, stats):
+    for rec, mine, nodes in zip(recs, own, per_poly):
+        addr, src = (mine, "addr_own") if mine else (join_numbers([n.number for n in nodes]), "addr_node")
         if addr:
             rec["addr"] = addr
             stats[src] += 1
+
+
+def _pick_street(streets):
+    """The most common node street; ties go to the alphabetically first."""
+    c = Counter(s for s in streets if s)
+    return min(c, key=lambda s: (-c[s], s)) if c else None
+
+
+def _assign_streets(recs, own, per_poly, stats):
+    for rec, mine, nodes in zip(recs, own, per_poly):
+        if "addr" not in rec:
+            continue                                   # only numbered buildings carry a street (#557)
+        street = mine or _pick_street(n.street for n in nodes)
+        if street:
+            rec["st"] = street
+            stats["street_own" if mine else "street_node"] += 1
 
 
 def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=frozenset(), industrial=(), keep_all=(), addr_nodes=(), keep_ids=frozenset(), near_classes=MAIN):
@@ -105,7 +121,7 @@ def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=froz
     tree = STRtree(main) if main else None
     sites = shapely.unary_union(list(industrial)) if industrial else None
     quarters = shapely.unary_union(list(keep_all)) if keep_all else None   # areas where every house is kept, near a main road or not
-    out, polys, own, stats = [], [], [], Counter()
+    out, polys, own, own_street, stats = [], [], [], [], Counter()
     for a in areas:
         t = a.tags
         if "building" not in t or t["building"] == "no":
@@ -135,6 +151,9 @@ def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=froz
         ring = [[round(x, 1), round(z, 1)] for x, z in p.exterior.coords[:-1]]
         rec = {"id": a.id, "h": height(t), "roof": kind, "palette": pal, "rect": rect, "ring": ring}
         out.append(rec); polys.append(p); own.append(join_numbers([t.get("addr:housenumber", "")]))
+        own_street.append(t.get("addr:street", "").strip())
         stats["kept_near" if near else "kept_area" if in_quarter else "kept_landmark" if listed else "kept_big"] += 1
-    _assign_numbers(out, polys, own, addr_nodes, stats)
+    per_poly = nodes_per_polygon(polys, addr_nodes)
+    _assign_numbers(out, own, per_poly, stats)
+    _assign_streets(out, own_street, per_poly, stats)
     return out, dict(stats)

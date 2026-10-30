@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-10-29 21:16` Die **Hausnummern-Schilder** sitzen jetzt auf der **echten Hauswand** statt davor in der Luft, und bei Häusern mit bekannter Strasse hängen sie auf der Seite der **richtigen Strasse** (z.B. Bodenackerstrasse 6: Ostseite zur Bodenackerstrasse, nicht Westseite zum Badweg).
+
 ### Added
 
 - `2026-10-29 21:05` New car **Rhy Coupé**, a 2011 1 Series M Coupé look-alike without the badge: a twin-turbo six driving the rear wheels, **250 km/h**, short and wide, and the tail comes round on the handbrake. **Signal orange** from the factory, and it takes any **paint** from the car selection. Pick it there or with `?vehicle=coupe`. 3D model „2012 BMW 1M" by OUTPISTON (Sketchfab), CC BY-NC-SA 4.0.
