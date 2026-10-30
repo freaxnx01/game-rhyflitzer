@@ -28,6 +28,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-30 09:39` The car no longer drives through the **Plattform Sisslerfeld**: it now stops at the slatted core cylinder, from every side. On foot nothing changes, you still walk in through the door and up the spiral stair to the deck.
 - `2026-10-29 21:50` **Bodenackerstrasse 6**: the top storey no longer flickers with dark stripes when the camera moves. The white band under the roof edge was drawn 2 m down over the top row of windows, in the same plane.
 - `2026-10-29 17:03` In a **handbrake** turn or a donut the wheels no longer sink into the road: the body leans in the slide, the wheels stay on the ground.
 - `2026-10-29 16:10` **House numbers** no longer float above the roofs: each number is now a **blue Swiss house-number plate** on the wall that faces the street, at door height and near the right-hand corner, as on real houses.

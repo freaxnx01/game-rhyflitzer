@@ -97,6 +97,14 @@ export function plattformEntrance(frame, P = PLATTFORM) {
   return { x, z, th: frame.facing + Math.PI, w: 0.8 };
 }
 
+// #567: the core cylinder as one solid circle -- the batten ring and the central post inside it -- for the car, the helicopter
+// floor and the camera. carOnly: footSolids() skips it, so on foot the walkway walls of plattformWalk (open at the door) still rule.
+// No door gap: the gap (2 x door.half at core.r, ~0.81 m) is narrower than any car.
+export function plattformCoreCollider(frame, base, P = PLATTFORM) {
+  const r = P.core.r;
+  return { x: frame.x, z: frame.z, hw: r, hd: r, c: 1, s: 0, h: base + P.roof.eaves, circle: r, carOnly: true };
+}
+
 // the KSL situation plan's yard: the gravel rectangle and the six parking spaces, as world polygons
 export function plattformYard(frame, P = PLATTFORM) {
   const { yard: g, parking: k } = P;

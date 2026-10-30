@@ -25,7 +25,9 @@ def load(server, block_world: bool):
         page.goto(f"{server}/prototype/index.html")
         page.wait_for_selector("#startbtn", timeout=180000)
         page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=180000)
-        info = page.evaluate("() => ({ mm: window.__mm, world: document.querySelector('#worldstatus')?.textContent })")
+        # only the plain fields the tests read: window.__mm.borderLines holds the border meshes, and through mesh.parent the
+        # whole scene -- serialising all of __mm crashes the page in the OSM world
+        info = page.evaluate("() => ({ mm: { layout: window.__mm.layout, counts: window.__mm.counts }, world: document.querySelector('#worldstatus')?.textContent })")
         b.close()
         # own-page errors only: a missing world or terrain file is an accepted 404 (docs/11; the terrain is blocked on purpose
         # here); third-party resources (the Star button's api.github.com call gets rate-limited to 403 after a few runs) are
@@ -240,7 +242,7 @@ def test_plattform_tower_blocks_the_car(server):
         page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=180000)
         r = page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 15, 3)")
         br.close()
-    assert r["x"] < a["x"], r   # stopped at the tower, not driven through it
+    assert r["x"] < a["x"] - 1.56, r   # #567: stopped at the core cylinder (r 1.56 m), not only by a far corner post
 
 
 @pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
