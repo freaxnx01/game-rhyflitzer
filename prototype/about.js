@@ -17,10 +17,25 @@ export const ABOUT_LINKS = Object.freeze({
 });
 
 const PASS = new Set(['Tab', 'Enter', 'NumpadEnter', 'Space']);
+const TAB_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End']);
+
+// #564: the tabs under the fixed dedication; ids match #abouttab-<id> / #aboutpanel-<id> in index.html
+export const ABOUT_TABS = Object.freeze(['people', 'game', 'credits', 'built']);
+
+// the tab a navigation key leads to from `current` (arrows wrap, Home/End jump), null for any other key
+export function aboutTabIndex(code, current) {
+  const n = ABOUT_TABS.length;
+  if (code === 'ArrowRight') return (current + 1) % n;
+  if (code === 'ArrowLeft') return (current - 1 + n) % n;
+  if (code === 'Home') return 0;
+  if (code === 'End') return n - 1;
+  return null;
+}
 
 // like worldsKeyAction (startscreen.js): the dialog owns the keyboard while it is open
 export function aboutKeyAction(e) {
   if (e.code === 'Escape') return 'back';
+  if (TAB_KEYS.has(e.code)) return 'tab';
   return PASS.has(e.code) ? 'pass' : 'ignore';
 }
 

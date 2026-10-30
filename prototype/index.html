@@ -163,11 +163,11 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #worldforgetask{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600}#worldforgetask[hidden]{display:none}
 .ws-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 -24px;padding:14px 24px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3;box-shadow:0 -12px 30px rgba(0,0,0,.5)}
 .ws-source{font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
-/* #509 About: the Worlds dialog's frame, one scrolling column */
-#about{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;gap:16px;padding:16px 24px 24px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;background:var(--ink);color:#f5efe0}
+/* #509 About, #564: the Worlds dialog's frame; the dedication stays fixed on top, the tab panels scroll */
+#about{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;gap:16px;padding:16px 24px 24px;box-sizing:border-box;overflow:hidden;background:var(--ink);color:#f5efe0}
 #about[hidden]{display:none}
-.ab-dedication{padding:20px;text-align:center;background:linear-gradient(#3a404b,#23272f);border:5px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l)}
-#aboutdedication{margin:0 0 16px;font-family:Bungee,sans-serif;font-size:clamp(22px,4vw,36px);line-height:1.2;color:var(--sun)}
+.ab-dedication{padding:14px 20px;text-align:center;background:linear-gradient(#3a404b,#23272f);border:5px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l)}
+#aboutdedication{margin:0;font-family:Bungee,sans-serif;font-size:clamp(22px,4vw,36px);line-height:1.2;color:var(--sun)}
 .ab-people,.ab-credits{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 16px;margin:0;text-align:left}
 .ab-people{max-width:720px;margin:0 auto}
 .ab-people dt{font-size:20px;font-weight:800;font-style:italic;color:var(--sun)}
@@ -176,8 +176,14 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 .ab-credits small{display:block;font-size:15px}
 .ab-sec h2{margin:0 0 8px;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel)}
 .ab-sec p{margin:0 0 6px;font-size:16px;overflow-wrap:anywhere}
+.ab-tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:5px solid var(--steel-l)}
+.ab-tabs [role=tab]{flex:1 1 0;min-width:max-content;min-height:44px;padding:0 14px;font:inherit;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:var(--steel-l);background:#23272f;border:3px solid;border-color:var(--steel) var(--ink) transparent var(--steel)}
+.ab-tabs [role=tab][aria-selected=true]{color:var(--ink);background:var(--steel-l)}
+.ab-tabs [role=tab]:focus-visible{outline:3px solid var(--sun);outline-offset:-3px}
+.ab-panels{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.ab-panel[hidden]{display:none}
 #about a{color:#8fd8e8}
-.ab-foot{color:var(--steel-l)}
+.ab-foot{margin:0;padding-top:10px;border-top:3px solid var(--steel);color:var(--steel-l)}
 /* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
 body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
 body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
@@ -193,7 +199,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
   .bar .row.secondary{gap:8px}#worldbtn{flex-basis:100%}.bar .row.secondary .btn{flex:1;padding:0 8px;font-size:15px}
   .foot{padding:8px 12px calc(16px + env(safe-area-inset-bottom,0px))}#blurb{font-size:13px}
   #worlds{padding:12px 16px 0;gap:10px}.ws-sub{display:none}.ws-body{flex-direction:column;flex:none}.ws-list{flex:none}.ws-preview{box-shadow:none;padding:10px 12px}.ws-name{font-size:26px}#worldsdesc{display:none}
-  #about{padding:12px 16px 16px;gap:12px}.ab-people,.ab-credits{grid-template-columns:minmax(0,1fr)}
+  #about{padding:12px 16px 16px;gap:12px}.ab-tabs [role=tab]{flex-basis:40%;padding:0 8px;letter-spacing:1px}.ab-people,.ab-credits{grid-template-columns:minmax(0,1fr)}
   .ws-foot{margin:0 -16px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}.ws-source{display:none}.ws-foot .btn{flex:1}
 }
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
@@ -464,8 +470,9 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div class="ws-foot"><span id="wpsource" class="ws-source"></span><button id="drivebtn" class="btn primary" type="button" data-i18n="driveHere">Drive here ›</button></div>
 </div>
 
-<!-- #509 About: dedication, people, the game, credits, how it is built. Framed like #worlds; opened from the start screen,
-     the pause menu (#pauseabout) and the command search (action:about). Links get href/target/rel from ABOUT_LINKS. -->
+<!-- #509 About, #564 in tabs: the dedication stays fixed on top, then four tabs -- people, the game, credits, how it is built.
+     Framed like #worlds; opened from the start screen, the pause menu (#pauseabout) and the command search (action:about).
+     Links get href/target/rel from ABOUT_LINKS. -->
 <div id="about" hidden role="dialog" aria-modal="true" aria-labelledby="abouttitle">
   <div class="ws-head">
     <h1 id="abouttitle" data-i18n="aboutTitle">About Map Madness</h1>
@@ -474,42 +481,58 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   </div>
   <section class="ab-dedication">
     <p id="aboutdedication" data-i18n="aboutDedication">This game is dedicated to Juliska</p>
-    <dl class="ab-people">
-      <dt>Tschosi "forwardare"<br>Ätti aka L.A. Brace</dt><dd data-i18n="aboutRoleTschosi"></dd>
-      <dt>Kiscsi</dt><dd data-i18n="aboutRoleKiscsi"></dd>
-    </dl>
   </section>
-  <section class="ab-sec">
-    <h2 data-i18n="aboutGameTitle">The game</h2>
-    <p data-i18n="aboutGame"></p>
-    <p><a data-link="midtown" data-i18n="aboutInspired"></a></p>
-  </section>
-  <section class="ab-sec">
-    <h2 data-i18n="aboutCredits">Credits</h2>
-    <dl class="ab-credits">
-      <dt data-i18n="aboutModels"></dt>
-      <dd>
-        <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
-        <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
-        <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-        <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small>
-      </dd>
-      <dt data-i18n="aboutData"></dt>
-      <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a></dd>
-      <dt>Plattform Sisslerfeld</dt>
-      <dd><a data-link="plattform" data-i18n="creditPlattform"></a></dd>
-      <dt data-i18n="aboutLibs"></dt>
-      <dd><a data-link="threejs">three.js</a> (MIT) · <a data-link="crashcat">crashcat · mathcat</a> (MIT) · <span data-i18n="aboutEditorLibs"></span> <a data-link="leaflet">Leaflet</a> (BSD-2-Clause) · <a data-link="altcha">ALTCHA</a> (MIT)</dd>
-      <dt data-i18n="aboutFonts"></dt>
-      <dd><a data-link="fonts" data-i18n="aboutFontsText"></a></dd>
-    </dl>
-  </section>
-  <section class="ab-sec">
-    <h2 data-i18n="aboutBuiltTitle"></h2>
-    <p data-i18n="aboutBuilt"></p>
-    <p><span data-i18n="aboutRules"></span> <a data-link="aiInstructions">ai-instructions</a> · <span data-i18n="aboutWorkflow"></span> <a data-link="agentWorkflow">agent-workflow</a></p>
-    <p class="ab-foot"><a data-link="source" data-i18n="aboutSource"></a> · <a data-link="glossary" data-i18n="aboutGlossary"></a> · <span id="aboutversion"></span></p>
-  </section>
+  <div class="ab-tabs" role="tablist" aria-labelledby="abouttitle">
+    <button id="abouttab-people" type="button" role="tab" aria-selected="true" aria-controls="aboutpanel-people" data-i18n="aboutTabPeople">People</button>
+    <button id="abouttab-game" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="aboutpanel-game" data-i18n="aboutGameTitle">The game</button>
+    <button id="abouttab-credits" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="aboutpanel-credits" data-i18n="aboutCredits">Credits</button>
+    <button id="abouttab-built" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="aboutpanel-built" data-i18n="aboutBuiltTitle">How it is built</button>
+  </div>
+  <div id="aboutpanels" class="ab-panels">
+    <section id="aboutpanel-people" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-people">
+      <dl class="ab-people">
+        <dt>Tschosi "forwardare"<br>Ätti aka L.A. Brace</dt><dd data-i18n="aboutRoleTschosi"></dd>
+        <dt>Kiscsi</dt><dd data-i18n="aboutRoleKiscsi"></dd>
+      </dl>
+    </section>
+    <section id="aboutpanel-game" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-game" hidden>
+      <p data-i18n="aboutGame"></p>
+      <p><a data-link="midtown" data-i18n="aboutInspired"></a></p>
+    </section>
+    <section id="aboutpanel-credits" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-credits" hidden>
+      <dl class="ab-credits">
+        <dt data-i18n="aboutModels"></dt>
+        <dd>
+          <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
+          <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
+          <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small>
+        </dd>
+        <dt data-i18n="aboutData"></dt>
+        <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a></dd>
+        <dt>Plattform Sisslerfeld</dt>
+        <dd><a data-link="plattform" data-i18n="creditPlattform"></a></dd>
+        <dt data-i18n="aboutLibs"></dt>
+        <dd><a data-link="threejs">three.js</a> (MIT) · <a data-link="crashcat">crashcat · mathcat</a> (MIT) · <span data-i18n="aboutEditorLibs"></span> <a data-link="leaflet">Leaflet</a> (BSD-2-Clause) · <a data-link="altcha">ALTCHA</a> (MIT)</dd>
+        <dt data-i18n="aboutFonts"></dt>
+        <dd><a data-link="fonts" data-i18n="aboutFontsText"></a></dd>
+      </dl>
+    </section>
+    <section id="aboutpanel-built" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-built" hidden>
+      <p data-i18n="aboutBuilt"></p>
+      <dl class="ab-credits ab-agents">
+        <dt data-i18n="aboutAgImplRole"></dt><dd data-i18n="aboutAgImpl"></dd>
+        <dt data-i18n="aboutAgReviewRole"></dt><dd data-i18n="aboutAgReview"></dd>
+        <dt data-i18n="aboutAgDesignRole"></dt><dd data-i18n="aboutAgDesign"></dd>
+        <dt data-i18n="aboutAgLocalRole"></dt><dd data-i18n="aboutAgLocal"></dd>
+        <dt data-i18n="aboutAgEarlyRole"></dt><dd data-i18n="aboutAgEarly"></dd>
+        <dt data-i18n="aboutAgHelperRole"></dt><dd data-i18n="aboutAgHelper"></dd>
+        <dt data-i18n="aboutAgMockupRole"></dt><dd data-i18n="aboutAgMockup"></dd>
+      </dl>
+      <p><span data-i18n="aboutRules"></span> <a data-link="aiInstructions">ai-instructions</a> · <span data-i18n="aboutWorkflow"></span> <a data-link="agentWorkflow">agent-workflow</a></p>
+    </section>
+  </div>
+  <p class="ab-foot"><a data-link="source" data-i18n="aboutSource"></a> · <a data-link="glossary" data-i18n="aboutGlossary"></a> · <span id="aboutversion"></span></p>
 </div>
 
 <!-- #7 car selection: the stage is a see-through cut-out onto the live scene (the real car turns on it); the subtitle is the current mode -->
@@ -591,7 +614,7 @@ import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTime
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
-import { ABOUT_LINKS, aboutKeyAction, aboutReturn } from './about.js';   // #509
+import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
 import { lastModeFrom, modeTextKey, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
@@ -4155,16 +4178,28 @@ function renderWorldsPreview() {
 function selectRow(sel) { WORLDS.sel = { ...sel }; renderWorldsList(); renderWorldsPreview(); }
 function openWorlds() { WORLDS.on = true; for (const k in keys) keys[k] = false; closeHelp(); $('wpfiles').open = !matchMedia('(max-width:600px)').matches; selectRow(WORLDS.sel); $('overlay').hidden = true; $('worlds').hidden = false; rowFor(WORLDS.sel)?.focus(); }
 function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overlay').hidden = false; $('worldbtn').focus(); }
-// ---------- #509 About: the dialog -- over the start screen (Back returns there) or over the paused game (Back returns to the pause menu) ----------
-const ABOUT = { on: false, from: 'start' };
+// ---------- #509 About, #564 in tabs: the dialog -- over the start screen (Back returns there) or over the paused game (Back returns to the pause menu) ----------
+const ABOUT = { on: false, from: 'start', tab: 0 };
 for (const a of document.querySelectorAll('#about a[data-link]')) { a.href = ABOUT_LINKS[a.dataset.link]; a.target = '_blank'; a.rel = 'noopener'; }
 $('aboutversion').textContent = `v${window.GAME_VERSION}`;
-function openAbout(from) { ABOUT.on = true; ABOUT.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('about').hidden = false; $('about').scrollTop = 0; $('aboutback').focus(); }
+const aboutTabs = () => [...document.querySelectorAll('#about [role=tab]')];
+// #564: show tab i (aria-selected, roving tabindex, only its panel visible); focus = move the keyboard focus onto it
+function selectAboutTab(i, focus) { ABOUT.tab = i; aboutTabs().forEach((t, j) => { t.setAttribute('aria-selected', String(j === i)); t.tabIndex = j === i ? 0 : -1; $(t.getAttribute('aria-controls')).hidden = j !== i; }); $('aboutpanels').scrollTop = 0; if (focus) aboutTabs()[i].focus(); }
+aboutTabs().forEach((t, j) => { t.onclick = () => selectAboutTab(j, false); });
+function openAbout(from) { ABOUT.on = true; ABOUT.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('about').hidden = false; selectAboutTab(0, false); $('aboutback').focus(); }
 function closeAbout() { if (!ABOUT.on) return; ABOUT.on = false; $('about').hidden = true; const back = ABOUT.from === 'pause'; $(back ? 'pause' : 'overlay').hidden = false; $(back ? 'pauseabout' : 'aboutbtn').focus(); }
 function showAbout() { if (aboutReturn(inRun()) === 'pause') { openPause(); openAbout('pause'); } else openAbout('start'); }   // from the command search: a run is paused first
-function aboutKey(e) { if (aboutKeyAction(e) === 'back') { e.preventDefault(); if (!e.repeat) closeAbout(); } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while About is open
+function aboutKey(e) {
+  const action = aboutKeyAction(e);
+  if (action === 'back') { e.preventDefault(); if (!e.repeat) closeAbout(); return; }
+  if (action !== 'tab') return;   // 'pass': native Tab / Enter / Space; 'ignore': no game key while About is open
+  const at = aboutTabs().indexOf(document.activeElement);
+  if (at < 0) return;             // arrows outside the tab row do nothing (the game must not see them either: we returned from the keydown chain)
+  e.preventDefault(); selectAboutTab(aboutTabIndex(e.code, at), true);
+}
 $('aboutbtn').onclick = () => openAbout('start'); $('aboutback').onclick = closeAbout;
 window.__mm.about = () => ({ open: ABOUT.on, from: ABOUT.from });
+window.__mm.aboutTab = () => ABOUT_TABS[ABOUT.tab];
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
 function moveWorldsFocus(step) { const list = rows(), next = list.find(b => rowKey(b) === nextFocus(list.map(rowKey), rowKey(document.activeElement), step)); if (!next) return; selectRow(rowSel(next)); next.focus(); }
 function worldsKey(e) { const act = worldsKeyAction(e, document.activeElement && document.activeElement.classList.contains('ws-row')); if (act === 'back') { e.preventDefault(); closeWorlds(); } else if (act === 'next' || act === 'prev') { e.preventDefault(); moveWorldsFocus(act === 'next' ? 1 : -1); } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while a world is chosen

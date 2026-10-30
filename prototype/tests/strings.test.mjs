@@ -194,3 +194,26 @@ test('lift strings exist in both languages (#411)', () => {
   assert.match(translate('de', 'liftCall'), /^E · Lift rufen$/);
   assert.match(translate('en', 'liftCall'), /^E · call the lift$/);
 });
+
+test('About (#564): Kiscsi\'s ideas name the bridge, Robidogs and flying poo piles, then "and many more"', () => {
+  assert.match(translate('en', 'aboutRoleKiscsi'), /Holzbrücke.*Robidogs.*poo piles.*many other ideas …$/);
+  assert.match(translate('de', 'aboutRoleKiscsi'), /Holzbrücke.*Robidogs.*Häufchen.*viele andere Ideen mehr …$/);
+});
+
+test('About (#564): every agent and LLM of the pipeline is listed in both languages', () => {
+  const rows = ['Impl', 'Review', 'Design', 'Local', 'Early', 'Helper', 'Mockup'];
+  for (const lang of ['en', 'de']) {
+    for (const r of rows) {
+      assert.ok(translate(lang, `aboutAg${r}Role`).length > 0, `${lang} ${r}Role`);
+      assert.ok(translate(lang, `aboutAg${r}`).length > 0, `${lang} ${r}`);
+    }
+    const all = rows.map((r) => translate(lang, `aboutAg${r}`)).join(' | ');
+    for (const needle of ['OpenCode', 'GLM 5.3', 'Claude Code', 'Sonnet', 'Fable', 'Opus', 'Haiku', 'Claude Design']) assert.ok(all.includes(needle), `${lang}: ${needle}`);
+  }
+});
+
+test('About (#564): the tab labels exist in both languages', () => {
+  assert.equal(translate('en', 'aboutTabPeople'), 'People');
+  assert.equal(translate('de', 'aboutTabPeople'), 'Leute');
+  assert.equal(translate('de', 'aboutBuiltTitle'), 'So ist es gebaut');
+});
