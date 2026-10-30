@@ -76,7 +76,7 @@ def test_german_texts(server):
         btn = page.inner_text("#aboutbtn")
         page.click("#aboutbtn")
         title, dedication = page.inner_text("#abouttitle"), page.inner_text("#aboutdedication")
-        headers = page.evaluate("() => [...document.querySelectorAll('#about h2[data-i18n]')].map(h => h.dataset.i18n + ':' + h.textContent.trim())")
+        headers = page.evaluate("() => [...document.querySelectorAll('#about [role=tab]')].map(t => t.dataset.i18n + ':' + t.textContent.trim())")
         b.close()
     assert btn == "Über" and title == "Über Map Madness" and dedication == "Dieses Spiel ist Juliska gewidmet"
     assert "aboutCredits:Credits" in headers, headers

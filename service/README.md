@@ -167,7 +167,8 @@ import sqlite3, time
 db = sqlite3.connect("/data/service.sqlite3")
 for wid in ("<id1>", "<id2>", "<id3>"):
     db.execute("UPDATE worlds SET state='queued', step=NULL, error=NULL, message=NULL, attempts=0, "
-               "not_before=0, created=?, started=NULL, finished=NULL WHERE id=? AND gallery=1", (time.time(), wid))
+               "not_before=0, created=?, started=NULL, finished=NULL, last_played=NULL, size=0 "
+               "WHERE id=? AND gallery=1", (time.time(), wid))
 db.commit()
 PY
 

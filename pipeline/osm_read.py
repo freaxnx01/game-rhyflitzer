@@ -71,11 +71,12 @@ class PropNode:
 
 @dataclass
 class AddrNode:
-    """An OSM address point: only the house number is kept (privacy, #12)."""
+    """An OSM address point: house number and street are public map data; a personal name never is (privacy, #12/#557)."""
     id: int
     number: str
     x: float
     z: float
+    street: str = ""
 
 
 @dataclass
@@ -115,7 +116,7 @@ def read(path: Path, frame: Frame) -> OsmData:
                 out.prop_nodes.append(PropNode(o.id, dict(o.tags), float(x), float(z)))
             if "addr:housenumber" in o.tags:
                 x, z = frame.to_game(o.location.lon, o.location.lat)
-                out.addr_nodes.append(AddrNode(o.id, o.tags["addr:housenumber"], float(x), float(z)))
+                out.addr_nodes.append(AddrNode(o.id, o.tags["addr:housenumber"], float(x), float(z), o.tags.get("addr:street", "")))
         elif o.is_way():
             tags = dict(o.tags)
             if not any(k in tags for k in ("highway", "railway", "waterway")):

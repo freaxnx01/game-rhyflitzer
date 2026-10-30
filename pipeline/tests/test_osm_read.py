@@ -53,9 +53,9 @@ def test_prop_nodes(data):
     assert lamp.tags["highway"] == "street_lamp" and isinstance(lamp.x, float)
 
 
-def test_address_nodes_keep_the_number_only(data):
-    assert [(n.id, n.number) for n in data.addr_nodes] == [(50, "7")]
+def test_address_nodes_keep_number_and_street_only(data):
+    assert [(n.id, n.number, n.street) for n in data.addr_nodes] == [(50, "7", "Testweg")]
     n = data.addr_nodes[0]
-    assert set(vars(n)) == {"id", "number", "x", "z"}             # privacy: no name, no street
+    assert set(vars(n)) == {"id", "number", "street", "x", "z"}   # privacy: no personal name; the street is public map data (#557)
     assert isinstance(n.x, float) and isinstance(n.z, float)
     assert 50 not in {m.id for m in data.named_nodes} | {m.id for m in data.prop_nodes}
