@@ -16,12 +16,13 @@ const reach = (R, step = 4) => {   // flood fill in the room's frame from the sp
   return { seen, step };
 };
 
-test('ROOMS_EightRooms_OnlyTheEiffelAtomiumAndTitanicHaveAnObject', () => {
+test('ROOMS_EightRooms_EiffelAtomiumArtemisAndTitanicHaveAnObject', () => {
   assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'atomium', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
   assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel');
   assert.equal(ROOMS[1].object, ATOMIUM); assert.equal(ROOMS[1].name, 'Atomium');
+  assert.equal(ROOMS[2].object, ARTEMIS); assert.equal(ROOMS[2].name, 'Artemis II'); assert.equal(ROOMS[2].signed, false);
   assert.equal(ROOMS[7].object, TITANIC); assert.equal(ROOMS[7].name, 'Titanic'); assert.equal(ROOMS[7].signed, false);
-  for (const r of ROOMS.slice(2, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }
+  for (const r of ROOMS.slice(3, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }
   assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
 });
 
@@ -83,7 +84,7 @@ test('roomLayout_TreesStandInTwoClosedRows_WithAGapOnlyAtThePortal', () => {
 });
 
 test('roomLayout_PathsRunFromThePortalToTheCentreAndAroundIt_SpawnFacesIn', () => {
-  for (const R of [rooms[0], rooms[2], rooms[3]]) {
+  for (const R of [rooms[0], rooms[3], rooms[4]]) {
     assert.equal(R.paths.length, 2); const [toCentre, loop] = R.paths;
     assert.ok(Math.hypot(toCentre.pts[0][0] - R.portal.c[0], toCentre.pts[0][1] - R.portal.c[1]) < 25, 'starts at the portal');
     const end = toCentre.pts[toCentre.pts.length - 1]; assert.ok(Math.hypot(end[0] - R.centre[0], end[1] - R.centre[1]) < 120);
@@ -182,4 +183,123 @@ test('roomLayout_TheTitanicsGravelLaneRoundsTheHullWithoutCrossingIt', () => {
 
 test('roomLayout_TheTitanicsTowerViewLooksAtItBroadsideFromTheLawn', () => {
   const v = titanic.towerView, d = Math.hypot(titanic.tower.x - v.x, titanic.tower.z - v.z); assert.ok(d > 120 && d < 180, `${d}`); assert.ok(!blocked(titanic, v.x, v.z));
+});
+
+// #488: the Artemis II stack and the Orion capsule -- star room 2
+import { ARTEMIS } from '../artemis.js';
+const artemis = rooms[2];
+test('roomLayout_Room2HoldsTheArtemisStackOnTheCentre_AndTheCapsuleBesideIt_UnsignedLikeTheOthers', () => {
+  assert.deepEqual([artemis.tower.x, artemis.tower.z], artemis.centre); assert.deepEqual(artemis.feet, []); assert.equal(artemis.hull.length, 0); assert.equal(artemis.basin, null);
+  assert.ok(artemis.artemis); assert.deepEqual([artemis.artemis.rocket.x, artemis.artemis.rocket.z], artemis.centre);
+  assert.deepEqual([artemis.artemis.capsule.x, artemis.artemis.capsule.z], toWorld(artemis, ...ARTEMIS.capsule.at));
+  assert.ok(artemis.towerView && !blocked(artemis, artemis.towerView.x, artemis.towerView.z));
+  for (const R of rooms.filter(r => r.k !== 2)) assert.equal(R.artemis, null);
+});
+
+test('roomLayout_Room2_MountCoreAndCapsuleAreSolid_TheLawnBetweenAndBothGravelRingsAreFree', () => {
+  const D = ARTEMIS.deck.w / 2, C = ARTEMIS.capsule;
+  assert.ok(blocked(artemis, ...artemis.centre), 'the core'); assert.ok(blocked(artemis, ...toWorld(artemis, 0, D - 1)), 'the mount edge');
+  assert.ok(blocked(artemis, ...toWorld(artemis, ...C.at)), 'the capsule');
+  for (const [a, b] of [[0, D + CAR_R + 2], [-D - CAR_R - 2, 0], [C.at[0], C.at[1] + C.hw * Math.SQRT2 + CAR_R + 1], [-30, 20], [95, 0], [0, -95]]) assert.ok(!blocked(artemis, ...toWorld(artemis, a, b)), `free at ${a},${b}`);
+  for (const [x, z] of artemis.paths[2].pts) assert.ok(!blocked(artemis, x, z), 'the capsule ring is drivable');
+  for (const [x, z] of artemis.paths[1].pts) assert.ok(!blocked(artemis, x, z), 'the 95 m loop is drivable');
+});
+
+test('roomLayout_Room2_ThreePaths_TheThirdRingsTheCapsule_AndTheCarReachesRoundBoth', () => {
+  assert.equal(artemis.paths.length, 3); const ring = artemis.paths[2]; assert.equal(ring.hw, ARTEMIS.capsule.ring.hw); assert.equal(ring.pts.length, 33);
+  for (const [x, z] of ring.pts) assert.ok(Math.abs(Math.hypot(x - artemis.artemis.capsule.x, z - artemis.artemis.capsule.z) - ARTEMIS.capsule.ring.r) < 1e-6);
+  const r = reach(artemis), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
+  assert.ok(!cell(0, 0), 'the rocket is solid'); assert.ok(cell(40, 0) && cell(0, 40) && cell(0, -40), 'the far side and both sides of the mount');
+  const [ca, cb] = ARTEMIS.capsule.at; assert.ok(cell(ca - 12, cb) && cell(ca + 12, cb) && cell(ca, cb + 12) && cell(ca, cb - 12), 'all round the capsule'); assert.ok(r.seen.size > 4000);
+});
+
+// #489: ring 2 -- eight empty 1000 m rooms at -1200, levels of their own
+import { RINGS, ROOMS2, NEXT_ROOMS2, ROOM2_Y, ROOM2_HALF, isRingLevel, ringOf, ringOfStop, liftStopAt, belowKind, levelY, roomFlyClamp, ROOM_FLY } from '../rooms.js';
+import { BELOW_Y } from '../underground.js';
+const rooms2 = ROOMS2.map((r, k) => roomLayout(k, r, RINGS[1]));
+
+test('RINGS_Ring1AsBefore_Ring2EightEmptyRoomsTwiceAsWideAtMinus1200', () => {
+  assert.deepEqual(RINGS.map(g => [g.id, g.stop, g.y, g.half]), [['ring', 'bottom', -600, 250], ['ring2', 'ring2', -1200, 500]]);
+  assert.equal(RINGS[0].rooms, ROOMS); assert.equal(RINGS[1].rooms, ROOMS2);
+  assert.deepEqual(ROOMS2.map(r => r.id), ['r2room0', 'r2room1', 'r2room2', 'r2room3', 'r2room4', 'r2room5', 'r2room6', 'r2room7']);
+  for (const r of ROOMS2.slice(1)) { assert.equal(r.object, null); assert.equal(r.name, null); }   // #491: room 0 holds the Enterprise
+  assert.deepEqual(spokeSigns(ROOMS2), [], 'no signs in ring 2');
+});
+
+test('levelHelpers_BothRings_SurfaceAndRooms', () => {
+  assert.ok(isRoomLevel('r2room0') && isRoomLevel('r2room7') && isRoomLevel('eiffel') && !isRoomLevel('ring2'));
+  assert.ok(isRingLevel('ring') && isRingLevel('ring2') && !isRingLevel('r2room0') && !isRingLevel('surface'));
+  assert.equal(ringOf('r2room5').id, 'ring2'); assert.equal(ringOf('atomium').id, 'ring'); assert.equal(ringOf('ring2').id, 'ring2'); assert.equal(ringOf('surface'), null);
+  assert.equal(ringOfStop('ring2').id, 'ring2'); assert.equal(ringOfStop('bottom').id, 'ring'); assert.equal(ringOfStop('top'), null);
+  assert.deepEqual(['surface', 'ring', 'ring2', 'eiffel', 'r2room3'].map(liftStopAt), ['top', 'bottom', 'ring2', null, null]);
+  assert.deepEqual(['surface', 'ring', 'ring2', 'eiffel', 'r2room3'].map(belowKind), ['surface', 'ring', 'ring2', 'room', 'room']);
+  assert.deepEqual(['surface', 'ring', 'room6', 'ring2', 'r2room1'].map(levelY), [null, -600, -600, -1200, -1200]);
+});
+
+test('roomLayout_Ring1_UnchangedByTheRingParameter', () => {
+  for (let k = 0; k < 8; k++) assert.deepEqual(JSON.stringify(roomLayout(k, ROOMS[k], RINGS[0])), JSON.stringify(rooms[k]));
+  assert.equal(room.half, 250); assert.equal(room.ring, 'ring'); assert.deepEqual(room.fly, { wall: 225, ceiling: 420 });
+});
+
+test('roomLayout_Ring2_ThousandMetreSquareAtItsDepth_PortalAtTheSpokeEnd', () => {
+  rooms2.forEach((R, k) => {
+    assert.equal(R.id, `r2room${k}`); assert.equal(R.ring, 'ring2'); assert.equal(R.y, ROOM2_Y); assert.equal(R.half, ROOM2_HALF); assert.equal(R.groundAt(), -1200);
+    if (k) { assert.equal(R.object, null); assert.equal(R.tower, null); }   // #491: room 0 holds the Enterprise
+    const sp = spokeFrame(k); assert.deepEqual(R.portal.c, sp.end);
+    const [a, b] = toLocal(R, ...sp.end); assert.ok(Math.abs(a + 500) < 1e-6 && Math.abs(b) < 1e-6, 'the portal is 500 m before the centre');
+    for (const o of R.colliders) assert.ok(o.h > ROOM2_Y && o.h < BELOW_Y, 'colliders stand at ring 2 depth');
+  });
+});
+
+test('roomLayout_Ring2_DrivableFromTheSpawnToTheCentreAndTheCorners', () => {
+  for (const R of [rooms2[0], rooms2[5]]) {
+    assert.ok(!blocked(R, R.spawn.x, R.spawn.z) && !blocked(R, ...R.centre));
+    for (const [a, b] of [[450, 450], [450, -450], [-450, 450], [-450, -450], [0, 470]]) assert.ok(!blocked(R, ...toWorld(R, a, b)), `free at ${a}, ${b}`);
+    for (const [a, b] of [[499, 0], [0, -499], [-499, 100]]) assert.ok(blocked(R, ...toWorld(R, a, b)), `walled at ${a}, ${b}`);
+  }
+});
+
+test('roomLayout_Ring2_TwiceTheTreesAlongTheLongerEdge', () => {
+  const n1 = rooms[3].trees.length, n2 = rooms2[3].trees.length;
+  assert.ok(n2 > 1.9 * n1 && n2 < 2.1 * n1, `${n1} -> ${n2}`);
+  for (const [x, z] of rooms2[3].trees) { const [a, b] = toLocal(rooms2[3], x, z); assert.ok(Math.max(Math.abs(a), Math.abs(b)) > 480); }
+});
+
+test('roomFlyClamp_Ring2Room_Wall475Ceiling420OverItsFloor', () => {
+  const R = rooms2[2], f = R.frame.f, v = R.frame.v; assert.deepEqual(R.fly, { wall: 475, ceiling: ROOM_FLY.ceiling });
+  const c = roomFlyClamp(R.centre[0] + f[0] * 9999 + v[0] * 9999, ROOM2_Y + 5000, R.centre[1] + f[1] * 9999 + v[1] * 9999, R);
+  const [a, b] = toLocal(R, c.x, c.z); assert.ok(Math.abs(a - 475) < 1e-6 && Math.abs(b - 475) < 1e-6, `${a}, ${b}`); assert.equal(c.y, ROOM2_Y + 420);
+  assert.ok(ROOM2_Y + ROOM_FLY.ceiling <= BELOW_Y - 100, 'ring 2 rooms end 100+ m under ring 1');
+});
+
+test('NEXT_ROOMS2_AllEight_FromTheLiftOutwards_RightAndLeftInTurn', () => {
+  const off = (k) => { const d = spokeFrame(k).a - LIFT.th; return Math.atan2(Math.sin(d), Math.cos(d)); };
+  assert.deepEqual([...NEXT_ROOMS2].sort(), [0, 1, 2, 3, 4, 5, 6, 7]);
+  for (const side of [-1, 1]) { const d = NEXT_ROOMS2.filter(k => Math.sign(off(k)) === side).map(k => Math.abs(off(k))); assert.deepEqual(d, [...d].sort((x, y) => x - y), 'each side fills outwards'); }
+  assert.ok(off(NEXT_ROOMS2[0]) > 0, 'the first room is right of the exit (as the Eiffel in ring 1)');
+  for (let i = 1; i < 8; i++) assert.notEqual(Math.sign(off(NEXT_ROOMS2[i])), Math.sign(off(NEXT_ROOMS2[i - 1])), 'the sides alternate');
+});
+
+// #491: the Enterprise in ring-2 room 0 -- a holodeck, no meadow
+import { ENTERPRISE } from '../enterprise.js';
+
+test('ROOMS2_RoomZero_HasTheEnterprise_UnsignedWithTheSpaceLook', () => {
+  assert.equal(ROOMS2[0].object, ENTERPRISE); assert.equal(ROOMS2[0].name, 'Enterprise'); assert.equal(ROOMS2[0].signed, false); assert.equal(ROOMS2[0].look, 'space');
+  assert.equal(NEXT_ROOMS2[0], 0, 'it took the first room in line');
+});
+
+test('roomLayout_SpaceLook_NoTreesNoPaths_WallsPortalSpawnAndFlyAsAnyRoom', () => {
+  const R = rooms2[0], M = roomLayout(0, { id: 'r2room0', name: null, object: null }, RINGS[1]);   // the same room as a meadow
+  assert.equal(R.look, 'space'); assert.equal(M.look, 'meadow');
+  assert.deepEqual(R.trees, []); assert.deepEqual(R.paths, []); assert.ok(M.trees.length > 100 && M.paths.length === 2);
+  assert.deepEqual(R.tower, { x: R.centre[0], z: R.centre[1] }); assert.equal(R.object, ENTERPRISE); assert.equal(R.basin, null);
+  assert.equal(R.colliders.length, M.colliders.length, 'the ship adds no collider: nothing comes near the floor');
+  assert.deepEqual(R.fly, M.fly); assert.deepEqual(R.portal, M.portal); assert.deepEqual(R.spawn, M.spawn);
+});
+
+test('roomLayout_SpaceLook_FreeFromTheSpawnToTheCentreAndEveryCorner', () => {
+  const R = rooms2[0];
+  assert.ok(!blocked(R, R.spawn.x, R.spawn.z) && !blocked(R, ...R.centre));
+  for (const [a, b] of [[450, 450], [450, -450], [-450, 450], [-450, -450], [-125, 0], [0, 240]]) assert.ok(!blocked(R, ...toWorld(R, a, b)), `free at ${a}, ${b}`);
+  for (const [a, b] of [[499, 0], [0, -499]]) assert.ok(blocked(R, ...toWorld(R, a, b)), `walled at ${a}, ${b}`);
 });

@@ -86,6 +86,8 @@ def resolve(spec, data, frame) -> dict:
             w, s, e, n = a["lonlat_box"]
             x0, z1 = frame.to_game(w, s); x1, z0 = frame.to_game(e, n)
             out["areas"][name] = [round(float(x0), 1), round(float(z0), 1), round(float(x1), 1), round(float(z1), 1)]
+        elif isinstance(a, dict) and "lonlat_polygon" in a:   # #507: a real outline (e.g. a Gemeinde boundary), as game [x, z] points
+            out["areas"][name] = [[round(float(x), 1), round(float(z), 1)] for x, z in (frame.to_game(lon, lat) for lon, lat in a["lonlat_polygon"])]
     return out
 
 
@@ -108,6 +110,10 @@ def industrial_ids(spec) -> list:
 
 
 def keep_all_boxes(spec, resolved) -> list:
-    """Areas flagged keep_all_buildings, as game-frame boxes (from the resolved anchors)."""
-    return [shapely.box(*resolved["areas"][name]) for name, a in spec.get("areas", {}).items()
+    """Areas flagged keep_all_buildings, as game-frame shapes (from the resolved anchors): a box, or a polygon for a point list (#507)."""
+    return [_area_shape(resolved["areas"][name]) for name, a in spec.get("areas", {}).items()
             if isinstance(a, dict) and a.get("keep_all_buildings") and name in resolved["areas"]]
+
+
+def _area_shape(v):
+    return shapely.Polygon(v) if v and isinstance(v[0], (list, tuple)) else shapely.box(*v)

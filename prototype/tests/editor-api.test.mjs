@@ -9,14 +9,14 @@ const ID = '0123456789ab', EHR = [2667000, 1259750, 2669000, 1261750];
 test('URLs: everything hangs off the one API_BASE; the share link is the game root; Drive is relative', () => {
   assert.match(API_BASE, /^https:\/\/[^/]+$/);
   assert.equal(API_BASE, WORLD_HOST);   // one host in the repo: the game's
-  assert.equal(GAME_URL, 'https://github.freaxnx01.ch/game-rhyflitzer/');
+  assert.equal(GAME_URL, 'https://rhyflitzer.freaxnx01.ch/');
   assert.equal(jobsUrl(), `${API_BASE}/api/jobs`);
   assert.equal(challengeUrl(), `${API_BASE}/api/challenge`);
   assert.equal(jobUrl(ID), `${API_BASE}/api/jobs/${ID}`);   // progress; /api/worlds/<id> is #167's tombstone, not read here
   assert.equal(previewUrl(EHR), `${API_BASE}/api/preview?bbox=2667000,1259750,2669000,1261750`);
   assert.equal(fileUrl(ID, 'world.json'), `${API_BASE}/worlds/${ID}/world.json`);   // #168 has no zip route
   assert.equal(metaUrl(ID), `${API_BASE}/worlds/${ID}/meta.json`);
-  assert.equal(shareUrl(ID), `https://github.freaxnx01.ch/game-rhyflitzer/?world=${ID}`);
+  assert.equal(shareUrl(ID), `https://rhyflitzer.freaxnx01.ch/?world=${ID}`);
   assert.equal(driveUrl(ID), `../?world=${ID}`);
   assert.match(WMTS_URL, /^https:\/\/wmts\.geo\.admin\.ch\/1\.0\.0\/ch\.swisstopo\.pixelkarte-farbe\/default\/current\/3857\/\{z\}\/\{x\}\/\{y\}\.jpeg$/);
   const u = new URL(identifyUrl([2668000, 1260750], 2026));

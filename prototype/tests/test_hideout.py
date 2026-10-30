@@ -86,11 +86,11 @@ LIFT_FAST = "() => window.__mm.liftTimes({dwell: 0.1, close: 0.1, ride: 0.4, ope
 RIDE_DONE = "(lvl) => window.__mm.lift().level === lvl && window.__mm.lift().phase === 'idle'"
 
 
-def enter_cabin(page, h, level):
+def enter_cabin(page, h, level, times=LIFT_FAST):
     """Make the lift fast and stand the car at rest in the cabin (the loop's own frames then count the dwell). `level` is the level it
     rides to: down ('ring') from the tunnel side, up ('surface') from the ring side. The car first steps off the cabin on the level it is
     on, so the lift is armed again after an earlier ride."""
-    page.evaluate(LIFT_FAST)
+    page.evaluate(times)
     lx, lz = h["lift"]["c"]; th = h["lift"]["th"]; d = 30 if level == "surface" else -30; y = -600 if level == "surface" else h["floor"]
     page.evaluate(f"() => window.__mm.sim({lx + math.cos(th) * d}, {lz + math.sin(th) * d}, {th}, 0, 0.1, [], {y})")
     page.evaluate(f"() => window.__mm.place({lx}, {lz}, {th if level == 'ring' else th + math.pi})")
@@ -929,18 +929,18 @@ def test_t1_fades_between_day_and_cave_without_a_cut_both_ways(server):
 # ---------- #361: the tunnel ring, the star of rooms, the dark switch ----------
 
 
-def into_room(page, k, room_id):
+def into_room(page, k, room_id, y=-600):
     """From the ring level: drive from 45 m into spoke k past the switch (s 52)."""
     s = page.evaluate(f"() => window.__mm.spoke({k}, 45)")
-    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th']}, 10, 2, ['KeyW'], -600)")
+    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th']}, 10, 2, ['KeyW'], {y})")
     page.wait_for_function(f"() => window.__mm.below().level === '{room_id}'", timeout=120000)
 
 
-def back_to_ring(page, k):
+def back_to_ring(page, k, ring="ring", y=-600):
     """From room k at 60 m into its spoke: drive back out past the switch (s 48)."""
     s = page.evaluate(f"() => window.__mm.spoke({k}, 60)")
-    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th'] + math.pi}, 10, 2, ['KeyW'], -600)")
-    page.wait_for_function("() => window.__mm.below().level === 'ring'", timeout=120000)
+    page.evaluate(f"() => window.__mm.sim({s['x']}, {s['z']}, {s['th'] + math.pi}, 10, 2, ['KeyW'], {y})")
+    page.wait_for_function(f"() => window.__mm.below().level === '{ring}'", timeout=120000)
 
 
 @needs_world
@@ -1152,3 +1152,129 @@ def test_helicopter_is_refused_on_the_ring_level_and_in_a_spoke(server):
     for r in results:
         assert ("sky" in r["toast"] or "Himmel" in r["toast"]) and r["flying"] is False and abs(r["y"] + 600) < 1.0 and r["lvl"] == "ring", r
 
+
+
+@needs_world
+def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_download(server, tmp_path):
+    """#488: entering spoke 2 builds the Artemis II stack (98.1 m on its mount) and the Orion capsule from primitives -- no model file is
+    fetched; the core, the mount's edge and the capsule are solid, the lawn beside the mount and the capsule's ring are open. Leaves a screenshot."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        assert page.evaluate("() => window.__mm.artemis()") is None
+        into_room(page, 2, "room2")
+        page.wait_for_function("() => window.__mm.artemis() && window.__mm.artemis().built === 2", timeout=120000)
+        a = page.evaluate("() => window.__mm.artemis()")
+        info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(2, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
+          const c = window.__mm.artemis().capsule; return { core: p(0, 0), mount: p(0, 11), beside: p(0, 30), capsule: window.__mm.pushAt(c.x, c.z, -600), ring: p(-50, 45 + 11) }; }""")
+        view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(2, 0).th; return { x: v.x - Math.cos(th) * 150, z: v.z - Math.sin(th) * 150, th }; }")
+        page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "artemis-room.png"))
+        br.close()
+    print("screenshot:", tmp_path / "artemis-room.png")
+    assert errors == []
+    assert requests == [], requests
+    assert a["built"] == 2 and abs(a["h"] - 98.1) < 1e-6 and 1000 <= a["tris"] <= 20000 and a["colliders"] == 5, a
+    assert info["below"]["built"] == 2 and info["below"]["level"] == "room2" and info["below"]["object"] is True and info["counts"].get("artemis") == 1 and "eiffel" not in info["counts"], info
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("core", "mount", "capsule")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("beside", "ring")), push
+
+
+# ---------- #489: ring 2 -- the keypad's ride, the space-station look, the walker in the cabin ----------
+
+FREIGHT_SLOW_DWELL = "() => window.__mm.liftTimes({dwell: 30, close: 0.1, ride: 0.4, open: 0.1})"
+PAD_SHOWN = "() => !document.getElementById('freightpad').hidden"
+
+
+@needs_world
+def test_ring2_keypad_rides_down_to_the_space_ring_and_into_a_1000m_room(server):
+    """#489: keypad Oben / Ring 1 / Ring 2; key 2 rides to ring 2 (-1200) without the 30 s dwell; steel-blue, the "2"; room r2room0."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server, "localStorage.setItem('gg-lang', 'de')")
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL)
+        page.wait_for_function(PAD_SHOWN, timeout=120000)
+        labels = page.evaluate("() => [...document.querySelectorAll('#freightpad button')].map(b => [b.textContent, b.disabled])")
+        page.keyboard.press("Digit2")
+        page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        lift = page.evaluate("() => window.__mm.lift()"); below = page.evaluate("() => window.__mm.below()")
+        car = page.evaluate("() => window.__mm.car()")
+        into_room(page, 0, "r2room0", -1200)
+        room = page.evaluate("() => ({ below: window.__mm.below(), lvl: window.__mm.level() })")
+        back_to_ring(page, 0, "ring2", -1200)
+        ring = page.evaluate("() => window.__mm.below().level")
+        br.close()
+    assert errors == []
+    assert labels == [["Oben", True], ["Ring 1", False], ["Ring 2", False]], labels
+    assert lift["cabin"] == "ring2" and lift["level"] == "ring2" and lift["door"] > 0.9, lift
+    assert abs(car["y"] + 1200) < 1.0, car
+    assert below["kind"] == "ring2" and below["ring2"] is True and below["number"] is True and below["fog"] == "#0a0f16", below
+    assert room["below"]["level"] == "r2room0" and room["below"]["built"] == 8 and room["below"]["object"] is True, room   # #491: the Enterprise took the room
+    assert abs(room["lvl"]["y"] + 1200) < 1.0 and ring == "ring2", (room, ring)
+
+
+@needs_world
+def test_ring2_on_foot_a_click_on_top_rides_up_and_the_parked_car_comes_along(server):
+    """#489: in ring 2 (arrived by car, so disarmed) a walker in the cabin clicks Top: up, the car parked 6 m outside door A."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server, "localStorage.setItem('gg-lang', 'en')")
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL)
+        page.wait_for_function(PAD_SHOWN, timeout=120000)
+        page.keyboard.press("Digit2"); page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        page.keyboard.press("KeyZ"); page.wait_for_function("() => window.__mm.foot().on", timeout=60000)
+        page.wait_for_function(PAD_SHOWN, timeout=60000)
+        labels = page.evaluate("() => [...document.querySelectorAll('#freightpad button')].map(b => b.textContent)")
+        page.click("#freightpad button[data-stop='top']")
+        page.wait_for_function(RIDE_DONE, arg="surface", timeout=240000)
+        foot = page.evaluate("() => window.__mm.foot()"); d = h["lift"]["doors"]["top"]
+        br.close()
+    assert errors == []
+    assert labels == ["Top", "Ring 1", "Ring 2"], labels
+    assert foot["on"] is True and abs(foot["y"] - h["floor"]) < 1.0, foot
+    gx, gz = d["x"] + math.cos(d["th"]) * 6, d["z"] + math.sin(d["th"]) * 6
+    assert math.hypot(foot["car"]["x"] - gx, foot["car"]["z"] - gz) < 0.5 and abs(foot["car"]["y"] - h["floor"]) < 1.0, foot
+
+
+# ---------- #491: the Enterprise-D -- ring-2 room 0, the holodeck, the lettering ----------
+
+
+@needs_world
+def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(server, tmp_path):
+    """#491: ring-2 spoke 0 builds the holodeck room and fetches enterprise_d.glb then; the ship hovers 25 m up, bow to the portal, with
+    its lettering; the car drives under it; the look is the space one. Leaves a screenshot from under the saucer in tmp_path."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith("enterprise_d.glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL); page.wait_for_function(PAD_SHOWN, timeout=120000)
+        page.keyboard.press("Digit2"); page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        assert page.evaluate("() => window.__mm.enterprise()") is None and requests == []
+        into_room(page, 0, "r2room0", -1200)
+        page.wait_for_function("() => window.__mm.enterprise() && window.__mm.enterprise().loaded === true", timeout=240000)
+        page.wait_for_timeout(500)
+        e = page.evaluate("() => window.__mm.enterprise()"); below = page.evaluate("() => window.__mm.below()")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.enterprise(), c = Math.cos(e.th), s = Math.sin(e.th);
+          const ship = (x, z) => window.__mm.pushAt(t.x + x * c - z * s, t.z + x * s + z * c, -1200);   // ship frame -> world
+          const th = window.__mm.spoke(0, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], room = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -1200);
+          return { centre: ship(0, 0), hull: ship(-125, 0), saucer: ship(125, 0), bow: ship(300, 0), corner: room(450, 450), corner2: room(-450, -450), wall: room(499, 0) }; }""")
+        under = page.evaluate("() => { const t = window.__mm.below().tower, e = window.__mm.enterprise(), x = 150; return { x: t.x + x * Math.cos(e.th), z: t.z + x * Math.sin(e.th), th: e.th + Math.PI }; }")
+        page.evaluate(f"() => window.__mm.sim({under['x']}, {under['z']}, {under['th']}, 0, 1.5, [], -1200)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "enterprise-under-the-saucer.png"))
+        br.close()
+    print("screenshot:", tmp_path / "enterprise-under-the-saucer.png")
+    assert errors == []
+    assert len(requests) == 1 and requests[0].endswith("/prototype/assets/models/enterprise_d.glb"), requests
+    assert e["placeholder"] is False and 200000 <= e["tris"] <= 260000 and abs(e["height"] - 143.1) < 0.5 and e["length"] == 642.5, e
+    assert abs(e["y"] - (-1200 + 25)) <= 2.0 and e["lettering"] == 4 and e["look"] == "space", e
+    assert e["dome"] is True and e["grid"] is True and e["sunDisc"] is False and e["sun"] >= 2.0 and e["hemi"] <= 0.5, e
+    assert all(v >= 1.6 for v in e["glow"].values()) and e["glow"]["nacelles"] >= 2.5, e["glow"]
+    assert below["level"] == "r2room0" and below["built"] == 8 and below["object"] is True and below["fog"] == "#04050a", below
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("centre", "hull", "saucer", "bow", "corner", "corner2")), push
+    assert math.hypot(push["wall"]["dx"], push["wall"]["dz"]) > 0.3, push

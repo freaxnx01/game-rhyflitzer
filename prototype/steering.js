@@ -20,4 +20,11 @@ export function stepWheelSpin(spin, vf, wheelR, dt) {
   return (((spin + vf * dt / wheelR) % TAU) + TAU) % TAU;
 }
 
+// #542: the body leans by `lean` about its forward axis at ground level (car.rotation.x); a wheel at (homeY, homeZ) in the car's frame
+// would dip by homeZ * sin(lean) on the outer side. This is the wheel's height in the car's frame that keeps its centre at homeY in
+// the world, like a spring taking up the lean (the wheel is also turned back by -lean so it stands upright).
+export function plantedWheelY(homeY, homeZ, lean) {
+  return (homeY + homeZ * Math.sin(lean)) / Math.cos(lean);
+}
+
 export const frontAxleX = (wheels) => wheels.reduce((m, [x]) => Math.max(m, x), -Infinity);

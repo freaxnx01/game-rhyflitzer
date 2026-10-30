@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterHelpRows, parseCommand, isHoldCommand, commandEventInit, moveSelection } from '../helpfilter.js';
+import { filterHelpRows, parseCommand, isHoldCommand, commandAction, commandEventInit, moveSelection } from '../helpfilter.js';
 
 const rows = [
   { keys: 'M', text: 'Ton aus' },
@@ -53,4 +53,13 @@ test('moveSelection_StepsOverVisibleRowsAndClamps', () => {
 test('moveSelection_UnknownCurrentOrEmpty', () => {
   assert.equal(moveSelection([4, 8], 99, 1), 4);
   assert.equal(moveSelection([], 0, 1), -1);
+});
+test('#509: action:<name> is a command of its own kind, with nothing to dispatch', () => {
+  assert.deepEqual(parseCommand('action:about'), { kind: 'action', name: 'about' });
+  assert.equal(commandAction('action:about'), 'about');
+  assert.equal(commandAction('KeyJ'), null);
+  assert.equal(commandAction('none'), null);
+  assert.equal(commandAction(undefined), null);
+  assert.equal(commandEventInit('action:about'), null);
+  assert.equal(isHoldCommand('action:about'), false);
 });

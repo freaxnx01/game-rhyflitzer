@@ -3,6 +3,8 @@
 
 export const RPM_RATE = { up: 12000, down: 20000 };   // rpm per second the heard rpm may move: revs up fast, drops faster on a shift
 export const ROTOR = { rate: 5.5, ratePerKmh: 0.012, gain: 1.2, cutoff: 260 };   // #10 helicopter: blade thump (Hz), lowpassed noise
+// #462: the steam loco's whistle, two bright tones through playHorn
+export const WHISTLE = { notes: [622, 740], dur: 1.4, gain: 0.2, band: 1600, wave: 'sawtooth' };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 

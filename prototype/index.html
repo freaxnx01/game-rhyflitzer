@@ -71,6 +71,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #gear{display:flex;flex-direction:column;gap:6px}
 #gear .plate{position:static;font-size:16px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
 #gear .plate b{font-family:Bungee,sans-serif;font-size:22px;color:var(--sun);font-weight:400;margin-left:6px}
+#switcharrow{font:800 28px 'Barlow Condensed',sans-serif;min-width:40px;text-align:center}
 #dmg{width:120px;height:12px;background:#2a2e38;border:2px solid var(--ink);margin-top:4px}
 #dmg i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--go),var(--sun))}
 #dmg.crit i{background:linear-gradient(90deg,var(--sun),var(--red))}
@@ -81,12 +82,14 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #br .bar{display:flex;justify-content:space-between;padding:3px 8px;background:linear-gradient(#4a515e,#2a2e38);border-bottom:2px solid var(--ink);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
 #br .bar b{color:var(--sun)}
 #mapfloor{margin-left:8px;color:var(--sun);font-weight:700}
-#liftpad{position:fixed;pointer-events:auto;right:10px;bottom:calc(240px + env(safe-area-inset-bottom,0px));z-index:15;background:rgba(20,23,29,.82);border:2px solid var(--steel-l);border-radius:10px;padding:10px 12px;color:var(--cream);text-align:center;box-shadow:4px 4px 0 var(--ink)}
-#liftpad .padtitle{font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
-#liftpad .padgrid{display:grid;grid-template-columns:repeat(3,48px);gap:6px}
-#liftpad button{width:48px;height:48px;border-radius:8px;border:2px solid var(--steel-l);background:#23272f;color:var(--cream);font:800 18px 'Barlow Condensed',sans-serif;cursor:pointer}
-#liftpad button.on{background:var(--sun);border-color:var(--ink);color:var(--ink)}
-#liftpad button:disabled{opacity:.45;cursor:default}
+#liftpad,#freightpad{position:fixed;pointer-events:auto;right:10px;bottom:calc(240px + env(safe-area-inset-bottom,0px));z-index:15;background:rgba(20,23,29,.82);border:2px solid var(--steel-l);border-radius:10px;padding:10px 12px;color:var(--cream);text-align:center;box-shadow:4px 4px 0 var(--ink)}
+#liftpad .padtitle,#freightpad .padtitle{font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+#liftpad .padgrid,#freightpad .padgrid{display:grid;grid-template-columns:repeat(3,48px);gap:6px}
+#liftpad button,#freightpad button{width:48px;height:48px;border-radius:8px;border:2px solid var(--steel-l);background:#23272f;color:var(--cream);font:800 18px 'Barlow Condensed',sans-serif;cursor:pointer}
+#liftpad button.on,#freightpad button.on{background:var(--sun);border-color:var(--ink);color:var(--ink)}
+#liftpad button:disabled,#freightpad button:disabled{opacity:.45;cursor:default}
+#freightpad .padgrid{grid-template-columns:96px}#freightpad button{width:96px}
+#freightpad{bottom:calc(60px + env(safe-area-inset-bottom,0px))}   /* #489: lower than the 6c pad, so the Top button stays on screen */
 #map{display:block;width:400px;height:200px;pointer-events:auto;touch-action:none;cursor:crosshair}
 @media (max-width:900px){#speedo{width:130px;height:130px}#map{width:240px;height:120px}#time{font-size:30px}#gear{display:none}#tl{min-width:140px}}
 #br.full{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);z-index:20}#br.full #map{width:min(92vw,calc((100vh - 80px) * 2));height:auto}
@@ -160,10 +163,32 @@ body.below #arrow,body.below #dist,body.below #cpname{display:none}   /* the Eif
 #worldforgetask{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600}#worldforgetask[hidden]{display:none}
 .ws-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 -24px;padding:14px 24px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3;box-shadow:0 -12px 30px rgba(0,0,0,.5)}
 .ws-source{font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
+/* #509 About, #564: the Worlds dialog's frame; the dedication stays fixed on top, the tab panels scroll */
+#about{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;gap:16px;padding:16px 24px 24px;box-sizing:border-box;overflow:hidden;background:var(--ink);color:#f5efe0}
+#about[hidden]{display:none}
+.ab-dedication{padding:14px 20px;text-align:center;background:linear-gradient(#3a404b,#23272f);border:5px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l)}
+#aboutdedication{margin:0;font-family:Bungee,sans-serif;font-size:clamp(22px,4vw,36px);line-height:1.2;color:var(--sun)}
+.ab-people,.ab-credits{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 16px;margin:0;text-align:left}
+.ab-people{max-width:720px;margin:0 auto}
+.ab-people dt{font-size:20px;font-weight:800;font-style:italic;color:var(--sun)}
+.ab-people dd,.ab-credits dd{margin:0;font-size:16px;overflow-wrap:anywhere}
+.ab-credits dt{font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
+.ab-credits small{display:block;font-size:15px}
+.ab-sec h2{margin:0 0 8px;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel)}
+.ab-sec p{margin:0 0 6px;font-size:16px;overflow-wrap:anywhere}
+.ab-tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:5px solid var(--steel-l)}
+.ab-tabs [role=tab]{flex:1 1 0;min-width:max-content;min-height:44px;padding:0 14px;font:inherit;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:var(--steel-l);background:#23272f;border:3px solid;border-color:var(--steel) var(--ink) transparent var(--steel)}
+.ab-tabs [role=tab][aria-selected=true]{color:var(--ink);background:var(--steel-l)}
+.ab-tabs [role=tab]:focus-visible{outline:3px solid var(--sun);outline-offset:-3px}
+.ab-panels{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
+.ab-panel[hidden]{display:none}
+#about a{color:#8fd8e8}
+.ab-foot{margin:0;padding-top:10px;border-top:3px solid var(--steel);color:var(--steel-l)}
 /* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
 body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
 body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
-body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast){display:none}
+body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
+body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast){display:none}
 @media (max-width:600px){
   .tags{padding:10px 12px 0}.start .sub,.tag{font-size:11px;padding:4px 8px;letter-spacing:1px}
   .logo{padding:14px 12px 0;gap:8px}.start h1{font-size:48px;letter-spacing:-1px;text-shadow:3px 3px 0 var(--signal),6px 6px 0 var(--burnt),9px 9px 0 var(--charcoal)}
@@ -174,6 +199,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
   .bar .row.secondary{gap:8px}#worldbtn{flex-basis:100%}.bar .row.secondary .btn{flex:1;padding:0 8px;font-size:15px}
   .foot{padding:8px 12px calc(16px + env(safe-area-inset-bottom,0px))}#blurb{font-size:13px}
   #worlds{padding:12px 16px 0;gap:10px}.ws-sub{display:none}.ws-body{flex-direction:column;flex:none}.ws-list{flex:none}.ws-preview{box-shadow:none;padding:10px 12px}.ws-name{font-size:26px}#worldsdesc{display:none}
+  #about{padding:12px 16px 16px;gap:12px}.ab-tabs [role=tab]{flex-basis:40%;padding:0 8px;letter-spacing:1px}.ab-people,.ab-credits{grid-template-columns:minmax(0,1fr)}
   .ws-foot{margin:0 -16px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}.ws-source{display:none}.ws-foot .btn{flex:1}
 }
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
@@ -291,6 +317,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="KeyF">F</kbd><span data-i18n="keyHeli">helicopter: take off · land (Space climbs, Shift sinks)</span>
       <kbd data-cmd="KeyZ">Z</kbd><span data-i18n="keyFoot">get out · back in. On foot: W/S walk, A/D sidestep, ←/→ or the mouse turn, F hover on/off, Space up (hover) or jump, Shift down</span>
       <kbd data-cmd="KeyE">E</kbd><span data-i18n="keyEnter">on foot, at a glowing door: enter</span>
+      <kbd data-cmd="none">W · S · Q · E · H · A · D</kbd><span data-i18n="keyTrain">in the steam loco (Z at Bahnhof Sisseln): W steam, S brake / reverse, Q · E the next switch left · right, H whistle, C view, R back to the station, A · D turn on the turntable</span>
+      <kbd data-cmd="KeyB">B</kbd><span data-i18n="keyLeave">inside a building: straight out, in front of the entrance</span>
       <kbd data-cmd="none">0-9 · D</kbd><span data-i18n="keyLift">in the lift: 0-9 pick the floor (0 = ground floor), D the roof</span>
       <kbd data-cmd="KeyU">U</kbd><span data-i18n="keyPontoon">pontoon bridge: build · remove (at the Rhine bank)</span>
       <kbd data-cmd="Equal|+">+ · -</kbd><span data-i18n="keyZoom">zoom the map 1× · 2× · 4× · 8× (or the mouse wheel over it) · double-click or double-tap the map: put the car on the road there</span>
@@ -302,15 +330,10 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="KeyP">Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
       <kbd data-cmd="ctrl+KeyD">Ctrl · D</kbd><span data-i18n="keyDebug">debug: coordinates, building heights, map links (click the panel to copy · ?debug in the URL)</span>
       <kbd data-cmd="none">Ctrl · P</kbd><span data-i18n="keyCmdSearch">command search: type, ↑ ↓ choose, Enter runs it</span>
+      <kbd data-cmd="action:about">ⓘ</kbd><span data-i18n="keyAbout">About Map Madness: dedication, credits, how it is built</span>
       <kbd data-cmd="none">F1 · ?</kbd><span data-i18n="keyHelp">this help</span>
     </div>
-    <div id="helpnone" hidden data-i18n="helpNone">No command matches</div>
-    <small data-i18n="creditEiffel" style="display:block;margin-top:8px;color:var(--steel-l)"></small>
-    <small data-i18n="creditAtomium" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
-    <small data-i18n="creditTitanic" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
-    <small data-i18n="creditHatchback" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
-    <small data-i18n="creditMini" style="display:block;margin-top:4px;color:var(--steel-l)"></small>
-    <small data-i18n="creditBus" style="display:block;margin-top:4px;color:var(--steel-l)"></small></div>
+    <div id="helpnone" hidden data-i18n="helpNone">No command matches</div></div>
   <div id="jump" hidden><div id="jumptitle">Jump to</div><input id="jumpq" type="search" placeholder="Search landmarks" autocomplete="off" spellcheck="false" aria-label="Search landmarks" data-i18n-aria="jumpSearch" data-i18n-placeholder="jumpSearch"><div class="chips" id="jumpchips"></div><ul id="jumplist"></ul><small id="jumphint">type to search · ↑↓ choose · Enter confirms · Esc closes</small></div>
   <div id="bl">
     <svg id="speedo" viewBox="0 0 300 300" aria-label="Speedometer" data-i18n-aria="speedoAria">
@@ -330,10 +353,12 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div id="gear">
       <div class="plate"><span data-i18n="damage">Damage</span> <b id="dmgpct">0%</b><div id="dmg" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-i18n-aria="damage"><i></i></div></div>
       <div class="plate"><span data-i18n="gear">Gear</span><b id="gearn">N</b></div>
+      <div id="switcharrow" class="plate" hidden></div>
       <div class="plate"><span data-i18n="trip">Trip</span><b id="trip">0.0</b> km<div id="odo" style="font-size:12px;letter-spacing:1px;color:var(--steel-l)">Total 0 km · K resets trip</div></div>
     </div>
   </div>
   <div id="liftpad" hidden><div class="padtitle" data-i18n="liftPadTitle">Lift</div><div class="padgrid"></div></div>
+  <div id="freightpad" hidden><div class="padtitle" data-i18n="liftPadTitle">Lift</div><div class="padgrid"></div></div>
   <div id="br">
     <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><span id="mapfloor" hidden></span><b>N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
@@ -385,6 +410,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <div class="row secondary">
         <button id="worldbtn" class="btn small" type="button"></button>
         <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
+        <button id="aboutbtn" class="btn small" type="button" data-i18n="aboutBtn" style="text-transform:none">About</button>
       </div>
     </div>
     <div class="foot">
@@ -414,7 +440,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <span id="worldslabel" class="ws-label" data-i18n="worldsRow">Worlds</span>
         <span id="worldsbtns" style="display:contents"></span>
         <p id="worldsempty" class="ws-empty" hidden data-i18n="worldsEmpty"></p>
-        <a id="buildworld" class="btn small" href="../editor.html" data-i18n="buildYourOwn">+ Build your own world…</a>
+        <a id="buildworld" class="btn small" href="../editor.html" target="_blank" rel="noopener" data-i18n="buildYourOwn">+ Build your own world…</a>
       </div>
     </div>
     <div class="ws-preview">
@@ -444,6 +470,71 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div class="ws-foot"><span id="wpsource" class="ws-source"></span><button id="drivebtn" class="btn primary" type="button" data-i18n="driveHere">Drive here ›</button></div>
 </div>
 
+<!-- #509 About, #564 in tabs: the dedication stays fixed on top, then four tabs -- people, the game, credits, how it is built.
+     Framed like #worlds; opened from the start screen, the pause menu (#pauseabout) and the command search (action:about).
+     Links get href/target/rel from ABOUT_LINKS. -->
+<div id="about" hidden role="dialog" aria-modal="true" aria-labelledby="abouttitle">
+  <div class="ws-head">
+    <h1 id="abouttitle" data-i18n="aboutTitle">About Map Madness</h1>
+    <span class="ws-sub"></span>
+    <button id="aboutback" class="btn" type="button" data-i18n="carselBack">‹ Back</button>
+  </div>
+  <section class="ab-dedication">
+    <p id="aboutdedication" data-i18n="aboutDedication">This game is dedicated to Juliska</p>
+  </section>
+  <div class="ab-tabs" role="tablist" aria-labelledby="abouttitle">
+    <button id="abouttab-people" type="button" role="tab" aria-selected="true" aria-controls="aboutpanel-people" data-i18n="aboutTabPeople">People</button>
+    <button id="abouttab-game" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="aboutpanel-game" data-i18n="aboutGameTitle">The game</button>
+    <button id="abouttab-credits" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="aboutpanel-credits" data-i18n="aboutCredits">Credits</button>
+    <button id="abouttab-built" type="button" role="tab" aria-selected="false" tabindex="-1" aria-controls="aboutpanel-built" data-i18n="aboutBuiltTitle">How it is built</button>
+  </div>
+  <div id="aboutpanels" class="ab-panels">
+    <section id="aboutpanel-people" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-people">
+      <dl class="ab-people">
+        <dt>Tschosi "forwardare"<br>Ätti aka L.A. Brace</dt><dd data-i18n="aboutRoleTschosi"></dd>
+        <dt>Kiscsi</dt><dd data-i18n="aboutRoleKiscsi"></dd>
+      </dl>
+    </section>
+    <section id="aboutpanel-game" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-game" hidden>
+      <p data-i18n="aboutGame"></p>
+      <p><a data-link="midtown" data-i18n="aboutInspired"></a></p>
+    </section>
+    <section id="aboutpanel-credits" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-credits" hidden>
+      <dl class="ab-credits">
+        <dt data-i18n="aboutModels"></dt>
+        <dd>
+          <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
+          <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
+          <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small>
+        </dd>
+        <dt data-i18n="aboutData"></dt>
+        <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a></dd>
+        <dt>Plattform Sisslerfeld</dt>
+        <dd><a data-link="plattform" data-i18n="creditPlattform"></a></dd>
+        <dt data-i18n="aboutLibs"></dt>
+        <dd><a data-link="threejs">three.js</a> (MIT) · <a data-link="crashcat">crashcat · mathcat</a> (MIT) · <span data-i18n="aboutEditorLibs"></span> <a data-link="leaflet">Leaflet</a> (BSD-2-Clause) · <a data-link="altcha">ALTCHA</a> (MIT)</dd>
+        <dt data-i18n="aboutFonts"></dt>
+        <dd><a data-link="fonts" data-i18n="aboutFontsText"></a></dd>
+      </dl>
+    </section>
+    <section id="aboutpanel-built" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-built" hidden>
+      <p data-i18n="aboutBuilt"></p>
+      <dl class="ab-credits ab-agents">
+        <dt data-i18n="aboutAgImplRole"></dt><dd data-i18n="aboutAgImpl"></dd>
+        <dt data-i18n="aboutAgReviewRole"></dt><dd data-i18n="aboutAgReview"></dd>
+        <dt data-i18n="aboutAgDesignRole"></dt><dd data-i18n="aboutAgDesign"></dd>
+        <dt data-i18n="aboutAgLocalRole"></dt><dd data-i18n="aboutAgLocal"></dd>
+        <dt data-i18n="aboutAgEarlyRole"></dt><dd data-i18n="aboutAgEarly"></dd>
+        <dt data-i18n="aboutAgHelperRole"></dt><dd data-i18n="aboutAgHelper"></dd>
+        <dt data-i18n="aboutAgMockupRole"></dt><dd data-i18n="aboutAgMockup"></dd>
+      </dl>
+      <p><span data-i18n="aboutRules"></span> <a data-link="aiInstructions">ai-instructions</a> · <span data-i18n="aboutWorkflow"></span> <a data-link="agentWorkflow">agent-workflow</a></p>
+    </section>
+  </div>
+  <p class="ab-foot"><a data-link="source" data-i18n="aboutSource"></a> · <a data-link="glossary" data-i18n="aboutGlossary"></a> · <span id="aboutversion"></span></p>
+</div>
+
 <!-- #7 car selection: the stage is a see-through cut-out onto the live scene (the real car turns on it); the subtitle is the current mode -->
 <div id="carsel" hidden role="dialog" aria-modal="true" aria-labelledby="carseltitle">
   <div class="cs-head"><h1 id="carseltitle" data-i18n="carselTitle">Choose car</h1><div id="carselmode" class="cs-sub"></div></div>
@@ -466,6 +557,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div class="col">
       <button id="pauseresume" class="btn primary" type="button" data-i18n="pauseResume">Resume</button>
       <button id="pausevehicle" class="btn" type="button" data-i18n="pauseVehicle">Change vehicle</button>
+      <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
     </div>
@@ -498,19 +590,22 @@ import { SPECIES, treeSpecies, treeParts, treeColour, billShape } from './trees.
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
-import { filterHelpRows, isHoldCommand, commandEventInit, moveSelection } from './helpfilter.js';
+import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
 import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, bodenackerDoorway, BODENACKER6 } from './bodenacker6.js';
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
-import { createLift, shaftScrollDelta } from './lift.js';
+import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, roomLayout, RIM } from './rooms.js';
+import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel } from './rooms.js';
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
-import { BELOW_Y, SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt } from './underground.js';
+import { ARTEMIS } from './artemis.js';
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField } from './enterprise.js';   // #491
+import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
+import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
 import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
@@ -519,23 +614,28 @@ import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTime
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from './pause.js';
+import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
 import { lastModeFrom, modeTextKey, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps } from './foot.js';
+import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
+import { LOCO, wheelTurn, rodOffset } from './loco.js';
+import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
-import { stepWheelYaw, stepWheelSpin, frontAxleX } from './steering.js';
+import { stepWheelYaw, stepWheelSpin, frontAxleX, plantedWheelY } from './steering.js';
 import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, shadowShown } from './shadow.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
-import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, stepVoice } from './sound.js';
+import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, stepVoice, WHISTLE } from './sound.js';
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -543,11 +643,17 @@ import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, s
 import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
 import { LAMP, lampState } from './lights.js';
 import { HATCHBACK, wheelPlan } from './hatchback.js';   // #236: the first glTF car
+import { MODEL_T } from './modelt.js';   // #521: Tin Lizzie, a glTF car
+import { RALLY } from './rally.js';   // Rhy Rally, a glTF car
+import { BEETLE } from './beetle.js';   // Ladybug, a glTF car
+import { NEW_BEETLE } from './newbeetle.js';   // Rhy Bubble, a glTF car
+import { TUMBLER } from './tumbler.js';   // Rhy Tumbler, a glTF car
+import { COUPE } from './coupe.js';   // Rhy Coupé, a glTF car
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
-import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
+import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
@@ -1178,16 +1284,17 @@ function smileKreiselAt(x, z, inner = 10.5) { // three tilted steel smiley discs
 }
 function flatBuilding(x, z, w, d, h, rot, c, role = 'hall') { const b = terrainH(x, z); box(w, h + 2, d, x, b - 2, z, rot, col(c), role, role === 'hall' ? [8, h] : [4, 3], 0); addOBB(x, z, w, d, rot, b + h); }
 // OSM footprint -> walls (one quad per edge, outward-facing) + flat roof (triangulated); base = lowest terrain under the ring
-function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], uPerFace = false) {
+// #453: below = how far under base the walls reach (2 m skirt into the terrain, like wallQuads); 0 where the extrusion sits on other walls
+function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], uPerFace = false, below = 2) {
   let area = 0; for (let i = 0; i < ring.length; i++) { const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length]; area += x0 * z1 - x1 * z0; } if (area > 0) ring = ring.slice().reverse();
   const pos = [], nrm = [], uv = []; let along = 0;
   for (let i = 0; i < ring.length; i++) {
     const [x0, z0] = ring[i], [x1, z1] = ring[(i + 1) % ring.length], L2 = Math.hypot(x1 - x0, z1 - z0); if (L2 < 0.05) continue;
-    const nx = -(z1 - z0) / L2, nz = (x1 - x0) / L2, y0 = base - 2, y1 = base + h;
+    const nx = -(z1 - z0) / L2, nz = (x1 - x0) / L2, y0 = base - below, y1 = base + h;
     const A = [x0, y0, z0], B = [x1, y0, z1], C = [x1, y1, z1], D = [x0, y1, z0];
     for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(nx, 0, nz); }
     // uPerFace (#45): u restarts on every edge, so a tile boundary sits on each corner; cumulative otherwise, so no seam shows mid-wall
-    const u0 = uPerFace ? 0 : along / tile[0], u1 = (uPerFace ? L2 : along + L2) / tile[0], v0 = -2 / tile[1], v1 = h / tile[1]; along += L2;
+    const u0 = uPerFace ? 0 : along / tile[0], u1 = (uPerFace ? L2 : along + L2) / tile[0], v0 = -below / tile[1], v1 = h / tile[1]; along += L2;
     uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1);
   }
   rawGeo(pos, nrm, uv, 0, 0, 0, c, role);
@@ -1286,7 +1393,7 @@ function bodenackerBuilding(b, lowest, h) {
   wallQuads(gap.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
   wallQuads([{ ...gap.lintel, dy: fd.h }], base + fd.h, h - fd.h, white, 'bodenacker', tile, 0);
   const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
-  extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'));   // the band's top is the roof slab
+  extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'), [4, 3], false, 0);   // the band's top is the roof slab; #453: no 2 m skirt, it sat coplanar on the top storey's façade (z-fighting)
   for (const s of L.stairs) {
     if (s.house === '6c') continue;   // #411: 6c's housing is the stair tower's own outline (below), not the merged box
     const [x, z] = L.frame.toWorld(s.u, (s.vFront + s.vBack) / 2);
@@ -1398,18 +1505,43 @@ function foodTruck(x, z, rot) { // #103 Güggeli food truck: cream box body on f
   addOBB(x, z, 7.1, 2.4, rot, b + 3);
   window.__mm.counts.foodTruck = 1;
 }
-function plattformTower(x, z, rot) { // Plattform Sisslerfeld placeholder (docs/01; timber on the neutral roofFlat noise so it stays bright spruce, the plank texture is too brown): four spruce posts on a 4.2 m square, round batten stair core with X braces, closed parapet box at 5.5-7 m cantilevering past the posts, big overhanging pyramid roof in grey-green sheet metal, apex 11 m
-  const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), spruce = col('#f6dc9a'), beam = col('#dcbf80'), timber = 'roofFlat', R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
-  const bar = (ax, ay, az, bx, by, bz, t, cc) => { const [wax, waz] = R(ax, az), [wbx, wbz] = R(bx, bz); const d = new THREE.Vector3(wbx - wax, by - ay, wbz - waz), len = d.length(); const g = new THREE.BoxGeometry(t, len, t); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); g.translate((wax + wbx) / 2, b + (ay + by) / 2, (waz + wbz) / 2); colorize(g, cc); push(timber, g); };
-  const pad = new THREE.CircleGeometry(7, 24); pad.rotateX(-Math.PI / 2); pad.translate(x, b + 0.04, z); colorize(pad, col('#cfc3ac')); push('gravel', pad);
-  const core = new THREE.CylinderGeometry(1.6, 1.6, 5.5, 24, 1, true).toNonIndexed(); { const p = core.attributes.position, arr = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const cc = Math.floor(i / 6) % 2 ? col('#4a3a26') : spruce; arr[i * 3] = cc.r; arr[i * 3 + 1] = cc.g; arr[i * 3 + 2] = cc.b; } core.setAttribute('color', new THREE.BufferAttribute(arr, 3)); } core.translate(x, b + 2.75, z); push(timber, core);
-  for (const [ox, oz] of [[-2.1, -2.1], [2.1, -2.1], [2.1, 2.1], [-2.1, 2.1]]) { const [px, pz] = R(ox, oz); box(0.34, 8.2, 0.34, px, b, pz, rot, spruce, timber, [1, 1], 0); addOBB(px, pz, 0.36, 0.36, rot, b + 8.2); }
-  for (const [ax, az, bx, bz] of [[-2.1, -2.1, 2.1, -2.1], [2.1, -2.1, 2.1, 2.1], [2.1, 2.1, -2.1, 2.1], [-2.1, 2.1, -2.1, -2.1]]) { bar(ax, 0.4, az, bx, 5.1, bz, 0.16, beam); bar(ax, 5.1, az, bx, 0.4, bz, 0.16, beam); bar(ax, 5.15, az, bx, 5.15, bz, 0.22, beam); }
-  for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { bar(ox * 2.1, 3.6, oz * 2.1, ox * 3.55, 5.4, oz * 3.55, 0.16, beam); bar(ox * 2.1, 6.6, oz * 2.1, ox * 4.8, 8.05, oz * 4.8, 0.16, beam); }
-  box(7.5, 1.55, 7.5, x, b + 5.45, z, rot, spruce, timber, [2, 1.5], 0); box(7.6, 0.3, 7.6, x, b + 5.3, z, rot, col('#8a6a44'), timber, [1, 1], 0);
-  box(10.2, 0.14, 10.2, x, b + 8.08, z, rot, beam, timber, [2, 2], 0); box(10.8, 0.28, 10.8, x, b + 8.0, z, rot, col('#2c2e2c'), 'roofFlat', [4, 4], 0);
-  const roof = new THREE.ConeGeometry(5.4 * Math.SQRT2, 2.8, 4, 1, true); roof.rotateY(Math.PI / 4 - rot); roof.translate(x, b + 8.25 + 1.4, z); colorize(roof, col('#7a8878')); push('roofFlat', roof);
-  addOBB(x, z, 3.3, 3.3, rot, b + 5.5);
+function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real plan (Häring montage plans, in plattform.js; timber on the neutral roofFlat noise so it stays bright spruce): a triangular concrete slab on gravel, three spruce posts on a 6 m triangle with X braces, the slatted core cylinder with the stair and its door, the triangular deck on top with the parapet box, and the grey-green pyramid roof. The entrance side faces the nearest road (A5)
+  const b = terrainH(x, z), spruce = col('#f6dc9a'), beam = col('#dcbf80'), timber = 'roofFlat', P = PLATTFORM, RAD = Math.PI / 180;
+  const facing = facingToRoad(x, z, ROADS.filter(r => !r.trail && r.cls !== 'motorway').map(r => r.pts));
+  const f = plattformFrame(x, z, facing), { core, deck, roof, slab, frame, centrePost } = P;
+  const bar = (ax, ay, az, bx, by, bz, t, cc) => { const d = new THREE.Vector3(bx - ax, by - ay, bz - az), len = d.length(); const g = new THREE.BoxGeometry(t, len, t); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize())); g.translate((ax + bx) / 2, b + (ay + by) / 2, (az + bz) / 2); colorize(g, cc); push(timber, g); };
+  const flat = (pts) => { const s = new THREE.Shape(); pts.forEach(([px, pz], i) => i ? s.lineTo(px, -pz) : s.moveTo(px, -pz)); return s; };   // a world-xz outline as a Shape (rotateX(-90 deg) lays it out flat)
+  const insideOut = (g) => { const ix = g.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } };   // reverse the winding only, so the front-side material shows the inside of a shell; the normals stay as they are, so the ceiling is lit like the roof above it and not by the brown ground light alone
+  const battens = (from, to, y0, h) => {   // the slatted ring, alternating spruce and dark; three.js theta runs from +z, so world phi = 90 deg - theta
+    const segs = Math.round((to - from) / 5), g = new THREE.CylinderGeometry(core.r, core.r, h, segs, 1, true, Math.PI / 2 - facing - to * RAD, (to - from) * RAD).toNonIndexed();
+    const p = g.attributes.position, arr = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) { const cc = Math.floor(i / 6) % 2 ? col('#a08c66') : spruce; arr[i * 3] = cc.r; arr[i * 3 + 1] = cc.g; arr[i * 3 + 2] = cc.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); g.translate(x, b + y0 + h / 2, z); push(timber, g);
+  };
+  const yard = plattformYard(f);   // #526: the KSL yard replaces the gravel disc -- the 26 x 20 m gravel rectangle (north edge on the road edge) and its six parking spaces, no colliders
+  const yardG = new THREE.ShapeGeometry(flat(yard.gravel)); yardG.rotateX(-Math.PI / 2); yardG.translate(0, b + 0.03, 0); colorize(yardG, col('#cfc3ac')); push('gravel', yardG);
+  const bayLines = yard.parking.flatMap(r => r.map((p, i) => [p[0], p[1], r[(i + 1) % 4][0], r[(i + 1) % 4][1]])), bayPos = [];
+  for (const [p0, p1, p2, p3] of lineQuads(bayLines, 0.12)) for (const [px, pz] of [p0, p1, p2, p0, p2, p3]) bayPos.push(px, b + 0.035, pz);   // the bays, in the parking lots' white line style
+  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(bayPos, 3)); decals.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }))); }
+  const slabG = new THREE.ShapeGeometry(flat(f.triangle(slab.side))); slabG.rotateX(-Math.PI / 2); slabG.translate(0, b + 0.04, 0); colorize(slabG, col('#b9b6ae')); push('roadPlain', slabG);
+  const tri = f.triangle(frame.side);
+  for (const [px, pz] of tri) { box(frame.post, roof.eaves, frame.post, px, b, pz, facing, spruce, timber, [1, 1], 0); addOBB(px, pz, 0.26, 0.26, facing, b + roof.eaves); }
+  for (let i = 0; i < 3; i++) { const [ax, az] = tri[i], [bx, bz] = tri[(i + 1) % 3];
+    bar(ax, 0.2, az, bx, frame.braceH, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, 0.2, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, frame.braceH, bz, 0.22, beam); }
+  const apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * Math.tan(roof.pitch * RAD);
+  box(centrePost, apex, centrePost, x, b, z, facing, spruce, timber, [1, 1], 0);   // the central post, no OBB (the walkway wall covers the walker; the car never gets inside the ring)
+  battens(core.door.half, 360 - core.door.half, 0, deck.y);   // the ring, open at the door
+  battens(-core.door.half, core.door.half, core.door.h, deck.y - core.door.h);   // over the door
+  for (const t of stairTreads()) { const segs = Math.max(2, Math.ceil((t.to - t.from) / 5)); const g = new THREE.CylinderGeometry(core.tread, core.tread, 0.05, segs, 1, false, Math.PI / 2 - facing - t.to * RAD, (t.to - t.from) * RAD); g.translate(x, b + t.y - 0.025, z); colorize(g, beam); push(timber, g); }
+  const hole = new THREE.Path(); Array.from({ length: deck.opening }, (_, i) => f.polar(i * 360 / deck.opening, core.r)).forEach(([px, pz], i) => i ? hole.lineTo(px, -pz) : hole.moveTo(px, -pz));
+  const deckShape = flat(f.triangle(deck.side)); deckShape.holes.push(hole);
+  const deckG = new THREE.ExtrudeGeometry(deckShape, { depth: deck.thick, bevelEnabled: false }); deckG.rotateX(-Math.PI / 2); deckG.translate(0, b + deck.y - deck.thick, 0); colorize(deckG, col('#e4c98c')); push(timber, deckG);
+  const dtri = f.triangle(deck.side);
+  for (let i = 0; i < 3; i++) { const [ax, az] = dtri[i], [bx, bz] = dtri[(i + 1) % 3], len = Math.hypot(bx - ax, bz - az);
+    box(len, deck.parapet, 0.08, (ax + bx) / 2, b + deck.y, (az + bz) / 2, Math.atan2(bz - az, bx - ax), spruce, timber, [1, 1.5], 0); }
+  const roofG = new THREE.ConeGeometry(roof.side / Math.sqrt(3), apex - roof.eaves, 3, 1, true); roofG.rotateY(30 * RAD - facing); roofG.translate(x, b + roof.eaves + (apex - roof.eaves) / 2, z); colorize(roofG, col('#5f6f66')); push('roofFlat', roofG);
+  const under = new THREE.ConeGeometry(roof.side / Math.sqrt(3), apex - roof.eaves, 3, 1, true); under.rotateY(30 * RAD - facing); under.translate(x, b + roof.eaves - 0.02 + (apex - roof.eaves) / 2, z); insideOut(under); colorize(under, col('#d8bf86')); push(timber, under);   // the same cone 2 cm lower, faces turned inward: the rafter underside you see from the deck, so the roof does not look hollow
+  PLAT = { frame: f, base: b, walk: plattformWalk(f, b) };
 }
 // #102 / #361: the hideout -- trough walls along T1 (the #119 pattern without decks), the lift hall's ring wall (its one
 // opening towards T1), the reservoir gate at the portal, gravel down T1, a concrete disc and lamps in the hall, and the
@@ -1480,7 +1612,7 @@ function hideoutBuild() {
 // walls from liftColliders (the working door's panel in steel grey with a yellow stripe, sliding up into its lintel's
 // pocket as it opens), a lintel over the opening and a roof slab. Drawn once per level: 'top' in the lift hall (this
 // task), 'bottom' in the tunnel ring (#361 Task 6). LIFT_DOORS[level] holds the door panel so stepLift can animate it.
-const LIFT_DOORS = { top: null, bottom: null }, LIFT_DECKS = { top: null, bottom: null };
+const LIFT_DOORS = { top: null, bottom: null, ring2: null }, LIFT_DECKS = { top: null, bottom: null, ring2: null };
 function liftBuild(level, y0, group) {
   const [cx, cz] = LIFT.c, f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], v = [-f[1], f[0]];
   const deck = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd, 0.3, 2 * LIFT.hw), new THREE.MeshLambertMaterial({ color: 0x3a3f46 })); deck.position.set(cx, y0 + 0.15, cz); deck.rotation.y = -LIFT.th; group.add(deck); LIFT_DECKS[level] = deck;
@@ -1658,6 +1790,7 @@ const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795
 // #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
 // indoor is additive behind INT.hall (null until bodenackerBuilding built it); every glue function guards on it.
 const INT = { hall: null, house: '6c', on: false, group: null, housing: null, lift: null, cabin: null, door: { open: 0, target: 0 }, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null, roofDoorOpen: false, roofDoorAmt: 0 };
+let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM world only)
 // ---------- build the world ----------
 {
   const { GW, GD } = TGRID;
@@ -1972,7 +2105,7 @@ const INT = { hall: null, house: '6c', on: false, group: null, housing: null, li
   if (L) for (const b of L.buildings) osmBuilding(b);
   if (L && (L.props.length || YARD)) propMeshes(YARD ? [...L.props, ...yardProps(YARD).map(p => ({ ...p, yard: true }))] : L.props); if (YARD) { crashSign(); yardGround(YARD); }   // #415, #426
   if (L && L.parking.length) parkingMeshes(L.parking);
-  if (L) { // landmarks on their real positions (the Plattform Sisslerfeld as a hand-built placeholder until the detailed model)
+  if (L) { // landmarks on their real positions (the Plattform Sisslerfeld, built to the builder's plans (#413))
     const lm = L.anchors.landmarks, at = (k) => lm[k];
     if (at('dsmChimney')) dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140);
     if (at('dsmWaterTower')) waterTower(at('dsmWaterTower').x, at('dsmWaterTower').z, at('dsmWaterTower').h || 59);
@@ -1983,7 +2116,7 @@ const INT = { hall: null, house: '6c', on: false, group: null, housing: null, li
     if (at('muenster')) church(at('muenster').x, at('muenster').z, at('muenster').rot, true);
     if (at('steinChurch')) church(at('steinChurch').x, at('steinChurch').z, at('steinChurch').rot, false);
     for (const k of ['stationStein', 'stationSisseln']) if (at(k)) stationAt(at(k).x, at(k).z, at(k).rot, STATION_NAMES[k]);
-    if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z, at('plattform').rot || 0);
+    if (at('plattform')) plattformTower(at('plattform').x, at('plattform').z);
     if (HIDE) hideoutBuild();   // #102
     for (const s of Object.values(lm)) { if (s.kind === 'baustelle') baustelleSign(s.x, s.z, s.rot); else if (s.kind === 'fahrverbot') fahrverbotSign(s.x, s.z, s.rot); }   // #42
   }
@@ -2025,15 +2158,20 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 { const an = renderer.capabilities.getMaxAnisotropy(); for (const t of Object.values(TEX)) { t.anisotropy = an; t.needsUpdate = true; } }
 const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group); if (CAVE_MODE.dark) scene.add(CAVE_MODE.dark); if (CAVE_MODE.veil) scene.add(CAVE_MODE.veil);   // #201
 for (const b of BORDER_LINES) scene.add(b.mesh);   // #396: the Holzbrücke's border lines, always shown
-// house numbers (#12, OSM addr): camera-facing sprites over the buildings within 60 m of the car; a pool of 40, refilled every 250 ms, one material per number
-const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], t: 0, ticks: 0 };
-if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks)) { it.y = terrainH(it.x, it.z) + it.top + 1.5; gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
-for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(); s.scale.set(3.2, 1.2, 1); s.visible = false; LABELS.pool.push(s); scene.add(s); }
+// house numbers (#12, OSM addr; #520: Swiss blue plates flat on the façade that faces the nearest road, at door height, not over the roof;
+// #557: on the real ring wall, towards the street the address names when the data has it): the buildings within 60 m of the car;
+// a pool of 40 plates, refilled every 250 ms, one material per number
+const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], all: [], t: 0, ticks: 0 };
+const PLATE = { h: 0.5, px: 96, bg: '#1b4c9c', fg: '#ffffff', font: '700 64px "Barlow Condensed", sans-serif', door: 2.4, clear: 1.8, reach: 80 };
+// #557: with a street name, the nearest point of a road so named; none in reach, or no name: the nearest road of any name
+function nearestRoadPoint(x, z, name) { const scan = (want) => { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, PLATE.reach)) { if (want && r.n !== want) continue; const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= PLATE.reach ? best : null; }; return (name && scan(name)) || scan(); }
+if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks, nearestRoadPoint)) { let base = Infinity; for (const [x, z] of it.foot || [[it.x, it.z]]) base = Math.min(base, terrainH(x, z)); it.y = Math.max(base + PLATE.door, terrainH(it.x, it.z) + PLATE.clear); it.foot = null; LABELS.all.push(it); gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
+{ const plane = new THREE.PlaneGeometry(1, 1); for (let i = 0; i < 40; i++) { const s = new THREE.Mesh(plane); s.visible = false; LABELS.pool.push(s); scene.add(s); } }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
-function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else m = new THREE.SpriteMaterial({ map: textTex(t, 256, 96, 'rgba(20,23,29,.82)', '#f5efe0', '700 64px "Barlow Condensed", sans-serif', '#f5efe0'), depthWrite: false }); LABELS.mat.set(t, m); return m; }
+function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else { const cw = PLATE.px + 48 * [...t].length; m = new THREE.MeshLambertMaterial({ map: textTex(t, cw, PLATE.px, PLATE.bg, PLATE.fg, PLATE.font, PLATE.fg) }); m.userData.w = PLATE.h * cw / PLATE.px; } LABELS.mat.set(t, m); return m; }
 function trimLabelMats() { const inUse = new Set(LABELS.pool.filter(s => s.visible).map(s => s.material)); for (const [t, m] of LABELS.mat) { if (LABELS.mat.size <= LABELS.cap) return; if (inUse.has(m)) continue; LABELS.mat.delete(t); m.map.dispose(); m.dispose(); } }
 function updateLabels(x, z) { LABELS.ticks++; if (!LEVELS.isSurface() || CAVE_MODE.on) { LABELS.shown = []; for (const s of LABELS.pool) s.visible = false; return; }   // #277: none below (the surface world is hidden anyway)
-  LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.position.set(it.x, it.y, it.z); } }); trimLabelMats(); }
+  LABELS.shown = pickLabels(gridQuery(LABELS.grid, x, z, 60), x, z, 60, 40); LABELS.pool.forEach((s, i) => { const it = LABELS.shown[i]; s.visible = !!it; if (it) { s.material = labelMat(it.t); s.scale.set(s.material.userData.w, PLATE.h, 1); s.position.set(it.x, it.y, it.z); s.rotation.y = it.rotY; } }); trimLabelMats(); }
 // #16: big village names over the villages (Midtown Madness style): camera-facing, drawn over everything and unfogged, hidden inside the
 // village; one sprite per village, created the first time its name shows (the web font has loaded by then).
 // #73: not across the Rhine (national border from L.boundaries) and nothing while inside a village
@@ -2239,13 +2377,13 @@ const VEHICLES = {
       horn: { notes: [466, 587], dur: 0.5, gain: 0.2, band: 1600, wave: 'square' },
       crash: { weight: 0.8, thump: 85, noise: 2400, gain: 1 } } },   // buzzier than the compact: higher idle filter, a thin high horn, a lighter, brighter crash
   // #473: Regional Bus -- a 12.2 m Swiss regional bus in the Postauto look (a Setra S 415 UL as reference; primitives, no logo,
-  // no lettering, no three-tone horn). 22 m/s ~ 79 km/h, sluggish, wide turns, heavy (mass 8: loses little speed and takes
+  // no lettering, no three-tone horn). 27.8 m/s = 100 km/h (raised from 79 km/h after the playtest), sluggish, wide turns, heavy (mass 8: loses little speed and takes
   // little damage in a crash); 6.08 m wheelbase, 2.7 m front overhang; the whole length collides (capsule, see collide);
   // rear diesel, left-hand drive, a deep G major horn chord (bus.js)
   // #478: the real model (prototype/assets/bus.glb) is built by buildBus once loaded; until then buildBus draws the primitives (fallback: itself)
   bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus' }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
     blinkers: [[6.15, 0.62, 1.16], [-5.92, 1.2, 1.16]],   // flush with the nose and the tail (the boxes are 0.12 m deep)
-    drive: { top: 22, topNitro: 30, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
+    drive: { top: 27.8, topNitro: 34, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
     mass: 8, engineAt: [-5.6, 1.4, 0], collision: { shape: 'capsule', r: 1.3, hl: 4.8 },
     camera: { chase: { dist: 14, h: 5 }, near: { dist: 10, h: 4 }, cockpit: { eye: [5.4, 2.3, -0.75] }, bumper: { eye: [6.2, 0.9, 0] }, drone: { dist: 26, h: 16 } },
     sound: { gears: [0, 12, 24, 38, 55, 999],
@@ -2253,12 +2391,18 @@ const VEHICLES = {
         filter: { idle: 260, open: 1300, offLoad: 0.45, q: 1.2 }, gain: { idle: 0.07, rev: 0.05, load: 0.1 }, shiftTime: 0.3, shiftDip: 0.5, nitroHiss: 0.07 },
       horn: BUS_HORN,
       crash: { weight: 2, thump: 45, noise: 1000, gain: 1 } } },   // a slow, deep diesel: low revs, dark filter, long shifts; a heavy, dull crash
+  modelt: MODEL_T,   // #521: Tin Lizzie, a Ford Model T look-alike (prototype/assets/modelt.glb); the compact stands in until it is ready
+  rally: RALLY,   // Rhy Rally, a 2013 i20 WRC look-alike in our own livery (prototype/assets/rally.glb); the compact stands in until it is ready
+  beetle: BEETLE,   // Ladybug, a drag-strip VW Beetle look-alike (prototype/assets/beetle.glb); the compact stands in until it is ready
+  newbeetle: NEW_BEETLE,   // Rhy Bubble, a 1998 New Beetle look-alike, paintable (prototype/assets/newbeetle.glb); the compact stands in until it is ready
+  tumbler: TUMBLER,   // Rhy Tumbler, a Dark Knight Tumbler look-alike without the logo (prototype/assets/tumbler.glb); the compact stands in until it is ready
+  coupe: COUPE,   // Rhy Coupé, a 2011 1 Series M Coupé look-alike without the badge, paintable (prototype/assets/coupe.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
 // ---------- the car: navy compact hatchback ----------
 // the model is drawn true to size (4.66 m, like a Mazda 3; compact.scale 1.0, #69): it fits the 2.5 x 5 m car-park bays. 1.3x made it read less like a toy car; the closer chase cams (6.9 m / 4.6 m) do that now
-const car = new THREE.Group(); scene.add(car);
+const car = new THREE.Group(); car.rotation.order = 'YZX'; scene.add(car);   // #542: like the shadow -- the lean (rotation.x) turns about the car's own forward axis, not the world's x axis
 const WRECK_S = { on: false, t: 0, acc: 0 }, NO_INPUT = {};   // #105: a wreck runs from 100 % damage until the new car; NO_INPUT = the keys and touch buttons a wreck ignores
 const flames = new THREE.Group(); flames.visible = false;
 const BLINK = { left: new THREE.Group(), right: new THREE.Group() }; BLINK.left.visible = BLINK.right.visible = false;
@@ -2456,7 +2600,7 @@ const gltfEntry = (id) => (GLTF_CARS[id] ??= { state: 'idle', scene: null, mats:
 // once per file: materials sorted by role (paint, glass, lamps), glass see-through, every standard material lit by the car sky map, geometry marked shared
 function prepareGltfScene(e, root) {
   const mats = new Set(); e.tris = 0;
-  root.traverse(o => { if (!o.isMesh) return; const m = o.material, g = o.geometry; if (!g.attributes.normal) g.computeVertexNormals(); e.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.userData.sharedGeo = true; mats.add(m); if (m.userData.glass) { m.transparent = true; m.depthWrite = false; o.userData.glass = true; } });
+  root.traverse(o => { if (!o.isMesh) return; const m = o.material, g = o.geometry; if (!g.attributes.normal) g.computeVertexNormals(); e.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.userData.sharedGeo = true; mats.add(m); if (m.userData.glass) { m.transparent = true; m.depthWrite = false; o.userData.glass = true; } if (m.userData.overGlass) { m.transparent = true; o.renderOrder = 1; } });   // #478: a display behind tinted glass is drawn after it (the glass writes no depth)
   e.mats = { all: [...mats], paint: [...mats].find(m => m.userData.paint) ?? null, head: [...mats].filter(m => lampRole(m.userData) === 'head'), tail: [...mats].filter(m => lampRole(m.userData) === 'tail') };
   for (const m of mats) if (m.isMeshStandardMaterial) { CAR_ENV_MATS.push(m); SHARED_CAR_MATS.add(m); }
   buildCarEnv(STYLES[styleKey]);
@@ -2533,14 +2677,14 @@ setVehicle(VEHICLES[CHOICE.id]); applyPaint(CHOICE.paint);
 // #132: wheel state is written by stepWheels (from stepCar) only; drawWheels (from the loop) only reads it
 const WHEEL_STATE = { yaw: 0, spin: 0 };
 function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL_STATE.yaw, steer, speed, dt); WHEEL_STATE.spin = stepWheelSpin(WHEEL_STATE.spin, vf, VEH.wheelR * VEH.scale, dt); }
-function drawWheels() { for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.roll.rotation.z = -WHEEL_STATE.spin; } }
+function drawWheels() { const lean = car.rotation.x; for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.x = -lean; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.steer.position.y = plantedWheelY(w.home.y, w.home.z, lean); w.roll.rotation.z = -WHEEL_STATE.spin; } }   // #542: the body leans, the wheels stay on the road
 // #163: shadow state is written by stepCar only; drawShadow (from the loop) only reads it. restShadow seeds it where P.y is set
 // outside the physics step -- the start screen, resetCar, __mm.place, landing from the helicopter
 const SHADOW_STATE = { y: 0, pitch: 0, roll: 0, wet: false, air: 0 };
 function restShadow() { SHADOW_STATE.y = P.y; SHADOW_STATE.pitch = 0; SHADOW_STATE.roll = 0; SHADOW_STATE.wet = false; SHADOW_STATE.air = 0; }
 // a positive roll means the right side of the car is up, so the quad's local +z edge has to rise: rotation about +x lowers it, hence -roll.
 // On the turntable (#7) stepTurntable shows the car whatever V or the eye views say, so the shadow follows the car there too
-function drawShadow() { shadowMesh.visible = shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !CARSEL.on && !FOOT.on && !!CAM_VIEWS[camView].eye, hidden: !CARSEL.on && !FOOT.on && HUD.carHidden }); if (!shadowMesh.visible) return; const at = FOOT.on ? FOOT.car : P, shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(at.x + shift.x, SHADOW_STATE.y + SHADOW.lift, at.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -at.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }   // #202: on foot the shadow stays under the parked car
+function drawShadow() { shadowMesh.visible = !TRAIN.on && shadowShown({ fly: FLY.on, wet: SHADOW_STATE.wet, air: SHADOW_STATE.air, eye: !CARSEL.on && !FOOT.on && !!CAM_VIEWS[camView].eye, hidden: !CARSEL.on && !FOOT.on && HUD.carHidden }); if (!shadowMesh.visible) return; const at = FOOT.on ? FOOT.car : P, shift = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.position.set(at.x + shift.x, SHADOW_STATE.y + SHADOW.lift, at.z + shift.z); shadowMesh.rotation.set(-SHADOW_STATE.roll, -at.th, SHADOW_STATE.pitch); shadowMesh.material.opacity = shadowOpacity(STYLES[styleKey].carShadow, SHADOW_STATE.air); }   // #202: on foot the shadow stays under the parked car
 // #126: the gull-wing doors open while the car waits on the start screen; written by stepDoors (loop), read by drawDoors (loop) only
 const DOOR_STATE = { open: 0, target: 0 };
 function stepDoors(dt) { DOOR_STATE.target = doorTarget(R.state, Math.hypot(P.vx, P.vz)); DOOR_STATE.open = stepDoor(DOOR_STATE.open, DOOR_STATE.target, dt); }
@@ -2562,7 +2706,7 @@ const STYLES = {
     mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', bodenacker: '#f1efe8', bodenackerLoggia: '#f1efe8', plasterWhite: '#f1efe8', glass: '#bfd6e4', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'bodenacker', 'bodenackerLoggia', 'plasterWhite', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(LEVELS.id === 'ring' ? 'ring' : 'room'); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
 function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.solid) im.visible = solid; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
@@ -2605,9 +2749,12 @@ function fadeCave(k) {
 const ROOM_LOOK = { fog: '#cfe2f3', density: 0.00045, skyTop: '#3f7fd6', skyHor: '#d9e9f7', hemiSky: '#e4eeff', hemiGround: '#6f8f55', hemi: 0.85, sun: 1.1 };
 // #361: the tunnel ring and its spokes -- a dim concrete cave: near-black haze, warm grey ambient, no sun (the ceiling strips are emissive)
 const RING_LOOK = { fog: '#0b0c0e', density: 0.006, skyTop: '#0b0c0e', skyHor: '#0b0c0e', hemiSky: '#fff2dc', hemiGround: '#8a8478', hemi: 1.3, sun: 0 };
-function setBelowLook(kind) {   // 'surface' | 'ring' | 'room'
+// #489: ring 2's "space station" -- RING_LOOK in RING2_STYLE's cool colours
+const RING2_LOOK = { ...RING_LOOK, fog: RING2_STYLE.fog, skyTop: RING2_STYLE.fog, skyHor: RING2_STYLE.fog, hemiSky: RING2_STYLE.hemiSky, hemiGround: RING2_STYLE.hemiGround };
+const BELOW_LOOKS = { ring: RING_LOOK, ring2: RING2_LOOK, room: ROOM_LOOK };
+function setBelowLook(kind) {   // 'surface' | 'ring' | 'ring2' | 'room'
   if (kind === 'surface') { BELOW.kind = 'surface'; const St = STYLES[styleKey]; scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.groundColor.set(0x6a5a40); hemi.intensity = St.hemi; sun.intensity = St.sunI; sun.castShadow = St.shadows; renderer.shadowMap.enabled = St.shadows; sunSprite.visible = !UWS.on; treesVisible(!CAVE_MODE.on); return; }   // as setCave(false): no style rebuild, no shader recompile
-  BELOW.kind = kind; BELOW.q = -1; fadeBelowLook(spokeDarkHere()); sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room';
+  BELOW.kind = kind; BELOW.q = -1; fadeBelowLook(spokeDarkHere()); sun.castShadow = false; renderer.shadowMap.enabled = false; sunSprite.visible = kind === 'room' && !(ROOM.layout && ROOM.layout.look === 'space');   // #491: no sun disc under the star dome
 }
 // #379: in a spoke the level's own look fades over to SPOKE_DARK (spokeDarkAt, underground.js) and back, instead of a black-out and a cut:
 // thick near-black fog that swallows whatever lies 15+ m ahead, light turned down but never off. Both switch points lie where the fade is
@@ -2619,7 +2766,7 @@ const BELOW = { kind: null, q: -1, fog: new THREE.FogExp2(0x000000, 0.001) };
 function spokeDarkHere() { const sp = LEVELS.isSurface() ? null : spokeAt(P.x, P.z); return sp ? spokeDarkAt(sp.s) : 0; }
 function fadeBelowLook(q) {
   if (!BELOW.kind || BELOW.kind === 'surface' || q === BELOW.q) return;
-  const base = BELOW.kind === 'ring' ? RING_LOOK : ROOM_LOOK, m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;
+  const base = BELOW.kind === 'room' && ROOM.layout && ROOM.layout.look === 'space' ? SPACE_LOOK : BELOW_LOOKS[BELOW.kind], m = blendLook(base, SPOKE_DARK, q); BELOW.q = q;   // #491: the Enterprise room keeps its star-dome look
   // the fog's colour stays dark until the fog itself has thinned (else the thick fog half-way glows as a pale mist in the room's tunnel);
   // its density goes geometrically, so the exp2 fog clears evenly over the fade, not all at its end
   BELOW.fog.color.set(blendLook({ c: base.fog }, { c: SPOKE_DARK.fog }, 1 - Math.pow(1 - q, 4)).c); BELOW.fog.density = base.density * Math.pow(SPOKE_DARK.density / base.density, q);
@@ -2643,13 +2790,13 @@ addEventListener('resize', resize);
 const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.name = 'surfaceRoot'; scene.add(surfaceRoot);
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
-const ROOM = { layouts: HIDE ? ROOMS.map((r, k) => roomLayout(k)) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null };
-const RING_L = { built: false, group: null };
-const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.group, ROOM.cab]);
-const roomIndex = (id) => ROOMS.findIndex(r => r.id === id);
+const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null };
+const RING_L = { ring: { built: false, group: null }, ring2: { built: false, group: null, sign: null } };
+const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab]);
+const roomIndex = (id) => (ROOM.layouts ? ROOM.layouts.findIndex(R => R.id === id) : -1);
 function showBelow(id) {   // each below-group is visible only on its own level
-  if (RING_L.group) RING_L.group.visible = id === 'ring';
-  if (ROOM.group) ROOM.group.visible = ROOM.built !== null && id === ROOMS[ROOM.built].id;
+  for (const g of RINGS) if (RING_L[g.id].group) RING_L[g.id].group.visible = id === g.id;
+  if (ROOM.group) ROOM.group.visible = ROOM.built !== null && id === ROOM.layouts[ROOM.built].id;
 }
 LEVELS.onChange((id) => {
   OBB_GRID = LEVELS.colliders;
@@ -2662,7 +2809,7 @@ LEVELS.onChange((id) => {
   }
   showBelow(id);
   document.body.classList.toggle('below', id !== 'surface');
-  setBelowLook(id === 'surface' ? 'surface' : id === 'ring' ? 'ring' : 'room');
+  setBelowLook(belowKind(id));
 });
 const gridOf = (list) => { const g = makeGrid(32); for (const o of list) { const e = o.hw + o.hd; gridAdd(g, o.x - e, o.z - e, o.x + e, o.z + e, o); } return g; };
 // a box standing on y0 whose long axis points along heading a (the colliders' c/s), centred at (x, z); with `tile`, its texture repeats every tile metres
@@ -2756,10 +2903,11 @@ function blackCap(group, k, sAt, y0) {   // a black plane across spoke k at s = 
 // #361: the ring level -- the exit from the lift, the tunnel ring, the eight spokes (s 0..70, black cap at 70), the cabin, the name
 // signs; built once, on the first ride down (or a Testhub room jump). It also registers 'ring' and all eight room levels from their
 // pure layouts (data only, no meshes), so a level switch never has to build anything (#308: a room's meshes come with ensureRoom).
-function ringBuild() {
-  if (RING_L.built) return; RING_L.built = true;
-  const y0 = BELOW_Y, [cx, cz] = LIFT.c, group = new THREE.Group(); RING_L.group = group; group.visible = false;
+function ringBuild(g = RINGS[0]) {
+  const RL = RING_L[g.id]; if (RL.built) return; RL.built = true;
+  const y0 = g.y, [cx, cz] = LIFT.c, group = new THREE.Group(); RL.group = group; group.visible = false;
   const f = [Math.cos(LIFT.th), Math.sin(LIFT.th)], floorMat = CONCRETE_FLOOR(), ceilMat = CONCRETE_CEILING(), wallMat = CONCRETE();
+  const space = g.id === 'ring2'; if (space) for (const m of [floorMat, ceilMat, wallMat]) m.color.multiply(new THREE.Color(RING2_STYLE.tint));
   const slab = (w, d, x, z, yTop, a, mat) => { const m = new THREE.Mesh(tileUV(new THREE.BoxGeometry(w, 0.3, d), w, 0.3, d, 4), mat); m.position.set(x, yTop - 0.15, z); m.rotation.y = -a; group.add(m); };
   // floors: the ring annulus, the exit strip, the spoke strips -- concrete slabs (#373), the texture in world metres
   const floor = new THREE.Mesh(tileRing(new THREE.RingGeometry(RING.r - RING.hw, RING.r + RING.hw, 96, 1), RING.r + RING.hw, 4), floorMat); floor.geometry.rotateX(-Math.PI / 2); floor.position.set(cx, y0 + 0.02, cz); group.add(floor);
@@ -2783,18 +2931,22 @@ function ringBuild() {
     const lintel = orientedBox(1, RING.ceiling - SPOKE.ceiling, 2 * (SPOKE.hw + RING.wall), fr.start[0] + fr.u[0] * 0.5, fr.start[1] + fr.u[1] * 0.5, y0 + SPOKE.ceiling, fr.a, wallMat, 4); group.add(lintel);   // closes the 2 m between the spoke's roof and the ring's
     spokeColours(group, k, y0, 0, SPOKE.ringEnd); spokeLining(group, k, y0); blackCap(group, k, SPOKE.ringEnd, y0);
   }
-  group.add(new THREE.Mesh(mergeGeometries(strips, false), new THREE.MeshBasicMaterial({ color: 0xfff1d0 })));
+  group.add(new THREE.Mesh(mergeGeometries(strips, false), new THREE.MeshBasicMaterial({ color: space ? RING2_STYLE.strip : 0xfff1d0 })));
   // walls: every collider of the ring except the lift's own shaft house (liftBuild draws that)
-  const all = ringColliders(), liftN = liftColliders('bottom', y0).length;
+  const all = ringColliders(y0, g.stop), liftN = liftColliders(g.stop, y0).length;
   for (const o of all.slice(0, all.length - liftN)) group.add(orientedBox(2 * o.hw, o.h - y0, 2 * o.hd, o.x, o.z, y0, Math.atan2(o.s, o.c), wallMat, 4));
-  liftBuild('bottom', y0, group);
+  liftBuild(g.stop, y0, group);
   // the name signs: over the spoke's mouth, facing into the ring; only rooms with an object (spokeSigns)
-  for (const sg of spokeSigns(ROOMS)) {
+  for (const sg of spokeSigns(g.rooms, y0)) {
     const fr = spokeFrame(sg.k), sign = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.2), new THREE.MeshBasicMaterial({ map: textTex(sg.text, 1024, 160, '#d8d2c6', '#2a2a2a', '700 110px "Barlow Condensed", sans-serif'), transparent: true }));
     sign.position.set(sg.x, sg.y, sg.z); sign.rotation.y = Math.atan2(-fr.u[0], -fr.u[1]); group.add(sign);
   }
-  LEVELS.register('ring', { groundAt: () => BELOW_Y, colliders: gridOf(all), ceilingAt: ringCeilingAt });
-  for (const L of ROOM.layouts) LEVELS.register(L.id, { groundAt: L.groundAt, colliders: gridOf(L.colliders), ceilingAt: L.ceilingAt });
+  if (space) {   // #489: the big "2" straight ahead of the exit, facing the lift
+    const n = ringNumberSign(2, y0), plate = new THREE.Mesh(new THREE.PlaneGeometry(n.w, n.h), new THREE.MeshBasicMaterial({ map: textTex(n.text, 512, 512, '#1c2430', '#dfe9f7', '800 440px "Barlow Condensed", sans-serif') }));
+    plate.position.set(n.x, n.y, n.z); plate.rotation.y = Math.atan2(-Math.cos(LIFT.th), -Math.sin(LIFT.th)); group.add(plate); RL.sign = plate;
+  }
+  LEVELS.register(g.id, { groundAt: () => y0, colliders: gridOf(all), ceilingAt: (x, z) => ringCeilingAt(x, z, y0) });
+  for (const L of ROOM.layouts) if (L.ring === g.id) LEVELS.register(L.id, { groundAt: L.groundAt, colliders: gridOf(L.colliders), ceilingAt: L.ceilingAt });
   scene.add(group);
 }
 function disposeGroup(group) {   // free a thrown-away room: its own geometry, materials and textures -- never the forest's shared tree meshes, TEX.grass or the ring's concrete
@@ -2804,12 +2956,13 @@ function disposeGroup(group) {   // free a thrown-away room: its own geometry, m
   });
 }
 // #361 / #308: build room k's meshes (the previous room's are thrown away; the loaded Eiffel GLB stays in memory and is re-attached).
+// #489: k is the flat layout index -- ring 1's room k stays k, ring 2's room k is 8 + k.
 function ensureRoom(k) {
   if (ROOM.built === k) return;
-  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; }
+  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; }
   const R = ROOM.layouts[k], group = new THREE.Group(); ROOM.group = group; ROOM.layout = R; ROOM.built = k; group.visible = false;
   roomMeshes(group, R); scene.add(group);
-  for (const r of ROOMS) if (r.object) delete window.__mm.counts[r.object.key || 'eiffel'];
+  for (const L of ROOM.layouts) if (L.object) delete window.__mm.counts[L.object.key || 'eiffel'];   // #491: both rings, flat layouts
   if (R.object) window.__mm.counts[R.object.key || 'eiffel'] = 1;
   if (R.object && ROOM.models[k]) attachModel(k); else if (R.object && R.object.url && R.object !== EIFFEL && !modelState(k).started) loadModel(k);   // #355: the other models fetch when their spoke is entered
   group.visible = true; renderer.compile(scene, camera); group.visible = LEVELS.id === R.id;   // the room's programs exist before the doors open
@@ -2817,11 +2970,15 @@ function ensureRoom(k) {
 // the room's meshes (#277): lawn, gravel, two rows of trees, clouds, the portal in the tree ring, and -- only with an object -- the tower
 function roomMeshes(group, R) {
   const [cx, cz] = R.centre, y = R.y, a = R.portal.th;
+  if (R.look === 'space') roomSpace(group, R);   // #491: the holodeck grid and the star dome instead of the meadow
+  else {
   // lawn: one plane, the grass texture tiled every 8 m (TEX.grass is the surface's grass; reuse it), turned to the room's own frame
   const lawnTex = TEX.grass.clone(); lawnTex.wrapS = lawnTex.wrapT = THREE.RepeatWrapping; lawnTex.repeat.set(2 * R.half / 8, 2 * R.half / 8); lawnTex.needsUpdate = true;
   const lawn = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshLambertMaterial({ map: lawnTex, color: 0xb8d89a })); lawn.geometry.rotateX(-Math.PI / 2); lawn.geometry.rotateY(-a); lawn.position.set(cx, y, cz); group.add(lawn);
   for (const p of R.paths) group.add(flatStrip(p.pts, p.hw, y + 0.08, 0xcfc3ac));
-  roomTrees(group, R); if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); if (R.figure) roomFigure(group, R); roomPortal(group, R); roomClouds(group, R);
+  roomTrees(group, R); roomClouds(group, R);
+  }
+  if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); if (R.figure) roomFigure(group, R); if (R.artemis) roomArtemis(group, R); roomPortal(group, R);
   // sunlit surfaces need no lights of their own: the style's hemisphere + sun (setBelowLook) light the room
 }
 
@@ -2854,6 +3011,18 @@ function roomFigure(group, R) {
   const fig = buildFries(FRIES); fig.position.set(R.figure.x, R.y, R.figure.z); fig.rotation.y = -R.figure.th; group.add(fig);
   ROOM.figure = { x: R.figure.x, z: R.figure.z, th: R.figure.th, y: R.y, h: FRIES.plinth.h + FRIES.h, tris: friesTriangles(fig), colliders: R.figure.colliders.length };
 }
+// #488: the Artemis II stack and the Orion capsule (artemis.js places them, artemismesh.js builds them): a concrete
+// pad on the lawn, the launch mount on it, the rocket standing upright on the mount and the capsule on its stand
+// beside it, both turned to the room's frame / towards the portal. All goes with the room's group (disposeGroup);
+// ROOM.artemis tells the debug hook what was built.
+function roomArtemis(group, R) {
+  const A = R.artemis, [cx, cz] = R.centre, y = R.y, a = R.portal.th;
+  const pad = orientedBox(ARTEMIS.pad.w, ARTEMIS.pad.lift, ARTEMIS.pad.w, cx, cz, y, a, new THREE.MeshLambertMaterial({ color: ARTEMIS.colours.pad })); pad.renderOrder = 1; group.add(pad);
+  group.add(orientedBox(ARTEMIS.deck.w, ARTEMIS.deck.h, ARTEMIS.deck.w, cx, cz, y + ARTEMIS.pad.lift, a, new THREE.MeshLambertMaterial({ color: ARTEMIS.colours.deck })));
+  const rocket = buildRocket(ARTEMIS); rocket.position.set(A.rocket.x, y + ARTEMIS.pad.lift + ARTEMIS.deck.h, A.rocket.z); rocket.rotation.y = -A.rocket.th; group.add(rocket);
+  const cap = buildCapsule(ARTEMIS); cap.position.set(A.capsule.x, y, A.capsule.z); cap.rotation.y = -A.capsule.th; group.add(cap);
+  ROOM.artemis = { built: R.k, rocket: A.rocket, capsule: A.capsule, h: ARTEMIS.h, tris: artemisTriangles(rocket) + artemisTriangles(cap), colliders: A.colliders.length };
+}
 function roomTrees(group, R) {   // #359: the single trees' species meshes (edge mix), about 1000 trees, no shadows
   const r = rng(278), trees = R.trees.map(([x, z, h]) => [x, z, h, R.y, 'edge']);
   group.add(...speciesMeshes(trees, TREE_GEO.single, trees.map(() => [r(), r()]), false));
@@ -2876,6 +3045,24 @@ function roomClouds(group, R) {   // ~36 soft white sprites high above the room,
   const r = rng(279);
   for (let i = 0; i < 36; i++) { const a = r() * 2 * Math.PI, d = 700 + r() * 1700, s = 450 + r() * 500; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, opacity: 0.85 })); sp.scale.set(s, s * 0.45, 1); sp.position.set(R.centre[0] + Math.cos(a) * d, R.y + 650 + r() * 450, R.centre[1] + Math.sin(a) * d); group.add(sp); }
 }
+// #491: the holodeck -- one unlit plane with a 10 m grid tile (the lines glow by themselves), a brighter rim along the four walls, and the
+// star dome: a sphere round the room, drawn after the global sky (renderOrder), never fogged, its texture from starField() once per build
+function roomSpace(group, R) {
+  const [cx, cz] = R.centre, y = R.y, a = R.portal.th, { f, v } = R.frame, H = HOLODECK;
+  const tile = makeTex(H.tile, H.tile, (g, w, h) => { g.fillStyle = H.ground; g.fillRect(0, 0, w, h); g.fillStyle = H.sub; g.fillRect(0, h / 2, w, 1); g.fillRect(w / 2, 0, 1, h); g.fillStyle = H.line; g.fillRect(0, 0, w, 2); g.fillRect(0, 0, 2, h); });
+  tile.repeat.set(2 * R.half / H.cell, 2 * R.half / H.cell);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshBasicMaterial({ map: tile })); floor.geometry.rotateX(-Math.PI / 2); floor.geometry.rotateY(-a); floor.position.set(cx, y, cz); floor.userData.role = 'holodeck'; group.add(floor);
+  const e = R.half - H.rimW, corner = (s, t) => [cx + f[0] * s + v[0] * t, cz + f[1] * s + v[1] * t];
+  group.add(flatStrip([corner(-e, -e), corner(e, -e), corner(e, e), corner(-e, e), corner(-e, -e)], H.rimW, y + 0.05, H.rim));
+  const sky = starField(), tex = makeTex(2048, 1024, (g, w, h) => {
+    g.fillStyle = '#03040a'; g.fillRect(0, 0, w, h);
+    for (const c of sky.clouds) { const gr = g.createRadialGradient(c.u * w, c.v * h, 0, c.u * w, c.v * h, c.r * w); gr.addColorStop(0, c.colour + Math.round(c.alpha * 255).toString(16).padStart(2, '0')); gr.addColorStop(1, c.colour + '00'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+    g.fillStyle = `rgba(200,210,255,${sky.band.alpha})`; g.fillRect(0, (sky.band.v - sky.band.width / 2) * h, w, sky.band.width * h);
+    const tint = { white: '255,255,255', blue: '190,210,255', amber: '255,225,190' };
+    for (const s of sky.stars) { g.fillStyle = `rgba(${tint[s.tint]},${s.b})`; g.beginPath(); g.arc(s.u * w, s.v * h, s.r, 0, 2 * Math.PI); g.fill(); if (s.r >= 2.5) { const gr = g.createRadialGradient(s.u * w, s.v * h, 0, s.u * w, s.v * h, s.r * 4); gr.addColorStop(0, `rgba(${tint[s.tint]},0.5)`); gr.addColorStop(1, `rgba(${tint[s.tint]},0)`); g.fillStyle = gr; g.fillRect(s.u * w - s.r * 4, s.v * h - s.r * 4, s.r * 8, s.r * 8); } }
+  }, { alpha: true });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(1500, 32, 16), new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false })); dome.renderOrder = 1; dome.position.set(cx, y, cz); dome.userData.role = 'stardome'; group.add(dome);
+}
 // #201 / #277: the tower's placeholder -- the #102 primitives at 330 m with the legs on the model's feet (hideout.js describes it), one
 // mesh in the room group so the model can take its place. The solid feet are in the layout's colliders (room-eiffel.js)
 function roomTower(group, R) {
@@ -2892,7 +3079,7 @@ function roomTower(group, R) {
   group.add(mesh); ROOM.placeholder = mesh;
 }
 const modelState = (k) => (ROOM.states[k] ||= { loaded: false, placeholder: k === 0, started: false, error: null, tris: 0, height: null, base: null, material: null });
-function attachModel(k) { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeholder); ROOM.placeholder = null; } ROOM.group.add(ROOM.models[k]); modelState(k).loaded = true; ROOM.states[k].placeholder = false; }
+function attachModel(k) { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeholder); ROOM.placeholder = null; } ROOM.group.add(ROOM.models[k]); modelState(k).loaded = true; ROOM.states[k].placeholder = false; if (ROOM.layouts[k].object.lettering) roomLettering(k); }   // #491: the decals need the saucer
 // #201: the life-size model („Eiffel Tower" by Johnson Martin, CC BY 4.0), fetched once the car is near the Hübel: the loader and
 // the meshopt decoder come from three/addons (the importmap), every mesh gets one shared Eiffel-brown material, the whole is
 // scaled to EIFFEL.h and stood on the room's floor, and the placeholder goes. Offline or blocked, the placeholder stays.
@@ -2900,7 +3087,7 @@ function attachModel(k) { if (ROOM.placeholder) { ROOM.group.remove(ROOM.placeho
 // to its height; the Atomium keeps its own textured materials and is placed life size by its anchor (axis + ground, measured in the file).
 // #422: the Titanic's file has no normals (smaller, and welded so it could be simplified): flat shading takes them from the screen-space derivatives.
 async function loadModel(k) {
-  const O = ROOMS[k].object, E = modelState(k), name = ROOMS[k].name; E.started = true;
+  const RD = (k < 8 ? ROOMS : ROOMS2)[k % 8], O = RD.object, E = modelState(k), name = RD.name; E.started = true;   // #489 / #491: k is the flat index -- ring 2's room k is 8 + k
   console.info(`Loading the ${name} model from`, O.url);
   try {
     const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
@@ -2909,16 +3096,49 @@ async function loadModel(k) {
     let tris = 0;
     root.traverse(o => { if (!o.isMesh) return; if (mat) o.material = mat; if (O.flat) o.material.flatShading = true; o.castShadow = o.receiveShadow = false; o.userData.role = O.key || 'eiffel'; if (!O.flat && !o.geometry.attributes.normal) o.geometry.computeVertexNormals(); tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
     const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3()), { x: cx, z: cz } = ROOM.layouts[k].tower, fl = ROOM.layouts[k].y;
-    const s = O.scale || O.h / size.y, [ax, ay, az] = O.anchor || [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2];
-    const v = ROOM.layouts[k].frame.v, th = O.alongV ? -Math.atan2(v[1], v[0]) : 0;   // #422: a ship's long axis (model x) lies along the room's cross axis; the anchor turns with it
-    root.scale.setScalar(s); root.rotation.y = th; root.position.set(cx - s * (ax * Math.cos(th) + az * Math.sin(th)), fl - s * ay - (O.draught || 0), cz - s * (-ax * Math.sin(th) + az * Math.cos(th)));   // #422: a ship sinks by its draught, to its waterline in the basin
+    let s;
+    if (O.hover !== undefined) {   // #491: a hovering ship, already in metres -- placed by its own numbers, its sections' glow boosted
+      const pl = enterprisePlacement(ROOM.layouts[k], O); s = 1; root.position.set(pl.x, pl.y, pl.z); root.rotation.y = -pl.th; root.userData.base = pl.y; root.userData.th = pl.th;
+      root.traverse(o => { if (o.isMesh && o.material.userData.glow) o.material.emissiveIntensity = O.glow[o.material.userData.glow] || 1; });
+    } else {
+      s = O.scale || O.h / size.y; const [ax, ay, az] = O.anchor || [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2];
+      const v = ROOM.layouts[k].frame.v, th = O.alongV ? -Math.atan2(v[1], v[0]) : 0;   // #422: a ship's long axis (model x) lies along the room's cross axis; the anchor turns with it
+      root.scale.setScalar(s); root.rotation.y = th; root.position.set(cx - s * (ax * Math.cos(th) + az * Math.sin(th)), fl - s * ay - (O.draught || 0), cz - s * (-ax * Math.sin(th) + az * Math.cos(th)));   // #422: a ship sinks by its draught, to its waterline in the basin
+    }
     ROOM.models[k] = root;
     Object.assign(E, { tris, height: O.anchor ? O.h : size.y * s, base: Math.max(size.x, size.z) * s, material: mat ? '#' + mat.color.getHexString() : null });
     if (ROOM.built === k) attachModel(k);
     console.info(`${name} model loaded: ${tris} triangles, ${E.height.toFixed(1)} m tall`);
   } catch (err) { console.warn(`${name} model not loaded:`, err); E.error = String(err); }
 }
-const loadEiffel = () => loadModel(0);
+ const loadEiffel = () => loadModel(0);
+// #491: „U.S.S. ENTERPRISE / NCC-1701-D" draped on the saucer, top and underside: one canvas text plane per line, its grid vertices dropped
+// (top) or lifted (underside) onto the saucer mesh by rays, 0.6 m off the hull; a vertex no ray hits keeps its neighbour's height. The planes
+// are children of the model root (they hover with it) and are built once per loaded model.
+function roomLettering(k) {
+  const root = ROOM.models[k], O = ROOM.layouts[k].object; if (root.userData.lettered) return; root.userData.lettered = true;
+  const saucer = root.getObjectByName('saucer'); if (!saucer) { console.warn('Enterprise: no saucer node, no lettering'); return; }
+  root.updateWorldMatrix(true, true); const ray = new THREE.Raycaster(), p = new THREE.Vector3(), local = new THREE.Vector3(), built = [];
+  for (const d of O.lettering) {
+    const px = Math.round(d.w * 6), py = Math.round(d.h * 6), tex = makeTex(px, py, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = `800 ${Math.round(h * 0.86)}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 2; g.strokeStyle = '#141a26'; g.strokeText(d.text, w / 2, h / 2, w * 0.96); g.fillStyle = '#d8dfe9'; g.fillText(d.text, w / 2, h / 2, w * 0.96); }, { alpha: true });
+    const geo = new THREE.PlaneGeometry(d.w, d.h, 24, 4), F = letteringFrame(d.side); geo.rotateX(F.rx); geo.rotateY(F.ry); geo.translate(d.x, 0, 0);
+    const pos = geo.attributes.position, up = d.side === 'top', dir = new THREE.Vector3(0, up ? -1 : 1, 0); let last = up ? O.h : 0;
+    for (let i = 0; i < pos.count; i++) {
+      local.set(pos.getX(i), up ? 300 : -5, pos.getZ(i)); root.localToWorld(p.copy(local)); ray.set(p, dir.clone().transformDirection(root.matrixWorld)); ray.far = 320;
+      const hit = ray.intersectObject(saucer, false)[0]; if (hit) last = root.worldToLocal(hit.point.clone()).y;
+      pos.setY(i, last + (up ? 0.6 : -0.6));
+    }
+    pos.needsUpdate = true; geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.renderOrder = 2; m.userData.role = 'lettering'; root.add(m); built.push(m);
+  }
+  root.userData.lettering = built.length;
+}
+// #491: the hover bob -- the model root rides a slow sine over its placed height (enterprise.js); the decals are its children and ride along
+function stepEnterprise(dt) {
+  const k = ROOM.built; if (k === null) return; const O = ROOM.layouts[k].object;
+  if (!O || O.hover === undefined || !ROOM.models[k] || !modelState(k).loaded) return;
+  const root = ROOM.models[k]; root.userData.t = (root.userData.t || 0) + dt; root.position.y = root.userData.base + enterpriseHover(root.userData.t, O);
+}
 // #201: the per-quadrant footprint of the loaded model's vertices below 20 m, relative to the tower centre (to measure EIFFEL.feet)
 function eiffelFootprints() {
   const model = ROOM.models[0]; if (!model) return null;
@@ -2930,27 +3150,34 @@ function eiffelFootprints() {
 window.__mm.eiffel = () => ROOM.states[0] ? { ...ROOM.states[0], feet: EIFFEL.feet, footHw: EIFFEL.footHw } : null;
 window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.feet, footHw: ATOMIUM.footHw } : null;   // #355
 window.__mm.fries = () => ROOM.figure && ROOM.group && ROOM.group.children.some(o => o.children.some(c => c.userData.role === 'fries')) ? { ...ROOM.figure, built: ROOM.built } : null;   // #451: the figure of the room built now
+window.__mm.artemis = () => ROOM.artemis && ROOM.built === ROOM.artemis.built ? { ...ROOM.artemis } : null;   // #488: the Artemis stack and the capsule of the room built now
 window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
+window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
+  if (!ROOM.states[8] || ROOM.built !== 8) return null;
+  const m = ROOM.models[8], glow = {}; if (m) m.traverse(o => { if (o.isMesh && o.material.userData.glow) glow[o.material.userData.glow] = o.material.emissiveIntensity; });
+  return { ...ROOM.states[8], hover: ENTERPRISE.hover, length: ENTERPRISE.length, y: m ? m.position.y : null, th: m ? m.userData.th : null, lettering: m ? m.userData.lettering || 0 : 0, look: ROOM.layout.look, sun: sun.intensity, hemi: hemi.intensity, sunDisc: sunSprite.visible, dome: ROOM.group.children.some(o => o.userData.role === 'stardome'), grid: ROOM.group.children.some(o => o.userData.role === 'holodeck'), glow: m ? glow : null };
+};
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
 // #277 / #361: the drive-through freight lift. LIFT_RIDE is the lift.js state machine driven by the car in the cabin; the
 // level switches (both the layout and the cabin itself) at the midpoint of the descent, behind the cab. Input is locked for
 // the ride; the camera keeps its mode and is carried by the same y step. Each level's door opens as the car comes near it
 // while the cabin sits there (stepLift animates both panels from LIFT_RIDE.doorAt).
-const LIFT_RIDE = createLift();
+const LIFT_RIDE = createLift(LIFT_TIMES, FREIGHT_DEPTH);
 const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshBasicMaterial({ side: THREE.BackSide, color: 0x5e5e5e, fog: false, transparent: true, depthWrite: false, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
 CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
-const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : BELOW_Y;
+const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : levelY(LEVELS.id);
 function liftIndicator(text) { const el = $('liftfloor'); el.hidden = text === null; if (text !== null) el.textContent = text; }
 function stepLift(dt) {
   if (!HIDE) return;
   stepSpokes();
-  const level = LEVELS.isSurface() ? 'top' : LEVELS.id === 'ring' ? 'bottom' : null;
-  if (level === null) { CAB.visible = false; return; }   // no ride inside a room: only hide the cab if it was still showing
-  const onPlatform = !FOOT.on && inCabin(P.x, P.z, carRadius()) && Math.abs(P.y - levelFloorY()) < 1;
-  const speed = Math.hypot(P.vx, P.vz), ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level, LIFT, speed), level, speed, dir: level === 'top' ? 'down' : 'up' });
+  const level = liftStopAt(LEVELS.id);
+  if (level === null) { CAB.visible = false; setFreightPad(false); return; }   // no ride inside a room: only hide the cab if it was still showing
+  const onPlatform = inCabin(P.x, P.z, FOOT.on ? 0 : carRadius()) && Math.abs(P.y - levelFloorY()) < 1;
+  const speed = Math.hypot(P.vx, P.vz), ev = LIFT_RIDE.step(dt, { onPlatform, near: nearLiftDoor(P.x, P.z, level, LIFT, speed), level, speed, to: FREIGHT_DEFAULT[level] });
   for (const e of ev) liftEvent(e);
-  for (const doorLevel of ['top', 'bottom']) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
+  setFreightPad(onPlatform && level === LIFT_RIDE.cabin);
+  for (const doorLevel of FREIGHT_STOPS) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
   CAB.material.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
     CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
   const fl = LIFT_RIDE.floor(); liftIndicator(fl === null ? null : String(fl).replace('-', '−'));
@@ -2958,32 +3185,33 @@ function stepLift(dt) {
 // #361: the dark switch. On the ring level, entering spoke k builds room k's meshes; by position and with hysteresis (underground.js)
 // the active level swaps ring <-> room k inside the spoke's black stretch -- no teleport, no race flag, no toast; the car keeps x, y, z and speed.
 function stepSpokes() {
-  if (LEVELS.isSurface() || !RING_L.built) return;
+  const g = ringOf(LEVELS.id); if (!g || !RING_L[g.id].built) return;
   fadeBelowLook(spokeDarkHere());
   if (FOOT.on) return;   // on foot (#202) the walker stays on the car's level: the spoke's cap stops it
-  const sp = spokeAt(P.x, P.z); if (LEVELS.id === 'ring' && sp && sp.s > 0) ensureRoom(sp.k);
-  const next = belowLevelAt(LEVELS.id, P.x, P.z, ROOMS.map(r => r.id)); if (next === LEVELS.id) return;
-  LEVELS.set(next); const at = next === 'ring' ? ringSpawn() : ROOM.layouts[roomIndex(next)].spawn; P.safe = [at.x, at.z, at.th];
+  const sp = spokeAt(P.x, P.z); if (LEVELS.id === g.id && sp && sp.s > 0) ensureRoom(RINGS.indexOf(g) * SPOKE.n + sp.k);
+  const next = belowLevelAt(LEVELS.id, P.x, P.z, g.rooms.map(r => r.id), g.id); if (next === LEVELS.id) return;
+  LEVELS.set(next); const at = next === g.id ? ringSpawn() : ROOM.layouts[roomIndex(next)].spawn; P.safe = [at.x, at.z, at.th];
 }
-const LIFT_TIMES_TOTAL = () => { const t = LIFT_RIDE.times; return t.close + t.ride + t.open; };
 function liftEvent(e) {
-  if (e.type === 'start') { stopAuto('reset'); P.vx = P.vz = P.vy = 0; if (R.state === 'racing' || R.state === 'armed') R.jumped = true; SFX.hum(LIFT_TIMES_TOTAL()); }
-  else if (e.type === 'switch') liftSwitch(e.dir);
+  if (e.type === 'start') { stopAuto('reset'); P.vx = P.vz = P.vy = 0; if (R.state === 'racing' || R.state === 'armed') R.jumped = true; SFX.hum(LIFT_RIDE.times.close + e.ride + LIFT_RIDE.times.open); }
+  else if (e.type === 'switch') liftSwitch(e.to);
   else if (e.type === 'done' && e.dir === 'down' && HIDE && !HIDE.found) foundHideout();
 }
+function parkCarAt([x, z, th], y) { FOOT.car = { ...FOOT.car, x, z, y, th }; car.position.set(x, y, z); car.rotation.set(0, -th, 0); }   // #489: the walker's car rides along
 // #361: down lands in the tunnel ring (built on the first ride, #308: only its own meshes exist, not any room's); up lands
 // just outside door A, facing further out towards the tunnel -- nobody has to turn to drive out through the gate.
-function liftSwitch(dir) {
+function liftSwitch(to) {
   const before = P.y;
-  if (dir === 'down') { ringBuild(); LEVELS.set('ring'); P.y = BELOW_Y; const s = ringSpawn(); P.safe = [s.x, s.z, s.th]; }
-  else { LEVELS.set('surface'); P.y = HIDE.floor; const d = liftDoor('top'), f = [Math.cos(d.th), Math.sin(d.th)]; P.safe = [d.x + f[0] * 6, d.z + f[1] * 6, d.th]; }
+  if (to === 'top') { LEVELS.set('surface'); P.y = HIDE.floor; const d = liftDoor('top'), f = [Math.cos(d.th), Math.sin(d.th)]; P.safe = [d.x + f[0] * 6, d.z + f[1] * 6, d.th]; }
+  else { const g = ringOfStop(to); ringBuild(g); LEVELS.set(g.id); P.y = g.y; const s = ringSpawn(); P.safe = [s.x, s.z, s.th]; }
+  if (FOOT.on) parkCarAt(P.safe, P.y);
   camPos.y += P.y - before; camera.position.copy(camPos);   // carry the chase camera down with the car; it keeps its mode and offset
   restShadow(); car.position.y = P.y;
   followCave();   // #382: up in the hall at once, not when stepCar runs again after the ride -- else the deck, the shaft house and the cave look are missing for the ride's second half
 }
 window.__mm.liftTimes = (t) => { LIFT_RIDE.setTimes(t); return LIFT_RIDE.times; };   // tests: a ride of 1 s instead of 8 (headless renders ~1 fps and the loop clamps dt to 0.05)
 const drawn = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return !!o; };   // visible, and every parent up to the scene too
-window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[LEVELS.isSurface() ? 'top' : 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null });
+window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[liftStopAt(LEVELS.id) || 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null, target: LIFT_RIDE.target, chosen: LIFT_RIDE.chosen });
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Q/E), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, borders: false, blinker: null, water: '', waterT: 0, road: '' };
@@ -2995,7 +3223,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (liftPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; } if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa !== 'pass') { e.preventDefault(); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa === 'leave') leaveBuilding(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) photoPending = true; if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -3037,6 +3265,8 @@ const SFX = (() => {
     // #277: the lift's hum, a 55 Hz sawtooth through a low-pass for `dur` seconds
     hum(dur) { if (muted || holds.size) return; const a = ctx(), o = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.value = 52; f.type = 'lowpass'; f.frequency.value = 220; g.gain.setValueAtTime(0, a.currentTime); g.gain.linearRampToValueAtTime(0.28, a.currentTime + 0.4); g.gain.setValueAtTime(0.28, a.currentTime + Math.max(0.4, dur - 0.5)); g.gain.linearRampToValueAtTime(0, a.currentTime + dur); o.connect(f); f.connect(g); g.connect(a.master); o.start(); o.stop(a.currentTime + dur + 0.05); },
     horn() { if (muted || holds.size) return; const a = ctx(); playHorn(a, a.master, VEH.sound.horn, a.currentTime); },
+    whistle() { if (muted || holds.size) return; const a = ctx(); playHorn(a, a.master, WHISTLE, a.currentTime); },   // #462: the loco's two-tone whistle
+    chuff() { burst(0.16, 380, 0.9, 0.18); },   // #462: one chuff of the cylinders, a short low steam burst
     toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
     hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
     state() { return { ctx: ac ? ac.state : 'none', muted, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix } }; },
@@ -3055,11 +3285,15 @@ if (YARD) { const at = JUMP_ENTRIES.map(e => e.g).lastIndexOf(YARD.gemeinde); JU
 const hideoutRoomCentres = () => ({ eiffel: roomLayout(0).centre, atomium: roomLayout(1).centre });   // pure layout maths (rooms.js): resolvable even where the hideout itself is not built; the entries stay secret until HIDE.found
 const ENTERABLES = enterableEntries(ENTERABLE_INFO, L ? L.anchors.landmarks : {}, L ? L.buildings : [], hideoutRoomCentres());
 { const lay = window.__mm.bodenacker6 && window.__mm.bodenacker6(), e = ENTERABLES.find(q => q.id === 'bodenackerstrasse-6c'); if (lay && e) e.entrances = [{ ...bodenackerHouse(lay, '6c').porch.entrance }]; }   // #411: the 6c glass porch is the entrance (its position is the hall's own entrance)
+{ const e = ENTERABLES.find(q => q.id === 'plattform-sisslerfeld'); if (PLAT && e) e.entrances = [plattformEntrance(PLAT.frame)]; }   // #413: the door of the batten cylinder
 const ENTER_HANDLERS = {};
 ENTER_HANDLERS['bodenackerstrasse-6c'] = () => { INT.door.target = 1; };   // #411: E at the porch swings the door open; it shuts again when the walker has walked away
+ENTER_HANDLERS['plattform-sisslerfeld'] = () => toast(tr('plattformOpen'));   // #413: nothing to open, the stair is open -- just walk in
 const secretRevealed = () => !!(HIDE && HIDE.found);
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
-function placeOnRoad(x, z, th, name) { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; liftIndicator(null); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
+// back up on the surface with the lift parked at the top: every jump, and since #504 a race (re)start too; true when it came from below
+function leaveBelow() { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; setFreightPad(false); liftIndicator(null); return wasBelow; }
+function placeOnRoad(x, z, th, name) { const wasBelow = leaveBelow(); P.safe = [x, z, th]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
 function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, jumpHeading(p, best), p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
 // along the road, turned towards the landmark (#79); a look point (#102) turns the car straight at it, off the road's line
@@ -3080,6 +3314,24 @@ const SMOKE = { pool: [] };
   for (let i = 0; i < WRECK.smokeMax; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0x4a4a4a, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; s.userData = { age: -1, x: 0, y0: 0, z: 0 }; scene.add(s); SMOKE.pool.push(s); } }
 function emitPuff() { const s = SMOKE.pool.find(p => p.userData.age < 0); if (!s) return; const [ex, ey, ez] = VEH.engineAt ?? [VEH.collision.r, 1, 0], fx = Math.cos(P.th), fz = Math.sin(P.th); Object.assign(s.userData, { age: 0, x: P.x + VEH.scale * (ex * fx - ez * fz), z: P.z + VEH.scale * (ex * fz + ez * fx), y0: P.y + VEH.scale * ey }); }
 function stepSmoke(dt) { for (const s of SMOKE.pool) { const u = s.userData; if (u.age < 0) continue; u.age += dt; const a = smokeAt(u.age); if (!a) { u.age = -1; s.visible = false; continue; } s.position.set(u.x, u.y0 + a.rise, u.z); s.scale.setScalar(a.size); s.material.opacity = a.opacity; s.visible = true; } }
+// #462: the steam loco: a third mode beside FOOT and FLY. TRAIN.st is train.js's state on TRAIN.graph; P mirrors the loco's pose while on.
+// TRAIN.car keeps the parked car's pose (FOOT.car) while you drive, so Z out and back to the car works as from foot.
+const TRAIN = { on: false, st: null, y: 0, car: null, cam: 'chase', mesh: null, graph: null, home: null, acc: 0, puffs: 0, whistles: 0, ended: false, turn: null, table: null };
+{ TRAIN.graph = buildTrackGraph(L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS]);
+  const st = L && L.anchors && L.anchors.landmarks && L.anchors.landmarks.stationSisseln, n = st && nearestOnGraph(TRAIN.graph, st.x, st.z);
+  if (n && n.dist < 200) { TRAIN.home = { edge: n.edge, s: n.s, dir: 1, v: 0, choice: 0, atEnd: false };
+    if (distToEnd(TRAIN.graph, TRAIN.home) !== Infinity) TRAIN.home.dir = -1;   // face away from a buffer stop near the station
+    TRAIN.mesh = buildLoco(); scene.add(TRAIN.mesh); placeLoco(TRAIN.home, null);
+    { const h = poseAt(TRAIN.graph, TRAIN.home); TRAIN.table = buildTurntable(); TRAIN.table.position.set(h.x, TRAIN.y, h.z); TRAIN.table.userData.bridge.rotation.y = -h.th; scene.add(TRAIN.table); } } }   // #496
+function railY(x, z, prevY) { const ribbon = Math.max(terrainH(x, z), roadSurfH(x, z)) + 0.03; return prevY === null ? ribbon : Math.max(ribbon, groundH(x, z, prevY + 1.5)); }
+function placeLoco(st, prevY) { TRAIN.st = { ...st }; const p = poseAt(TRAIN.graph, st); TRAIN.y = railY(p.x, p.z, prevY); TRAIN.mesh.position.set(p.x, TRAIN.y, p.z); TRAIN.mesh.rotation.set(0, -p.th, 0); return p; }
+const locoBox = () => { const p = poseAt(TRAIN.graph, TRAIN.st); return parkedBox({ x: p.x, z: p.z, y: TRAIN.y, th: p.th }, { l: LOCO.length, w: LOCO.width, h: LOCO.height }); };
+// #462: the loco's smoke: light grey puffs from the chimney, shorter-lived and quicker to rise than the wreck's
+const TRAIN_SMOKE = { smokeLife: 1.8, smokeRise: 2.4, smokeMax: 48, pool: [] };
+{ const tex = SMOKE.pool[0].material.map; for (let i = 0; i < TRAIN_SMOKE.smokeMax; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xd8d8d8, transparent: true, depthWrite: false, opacity: 0 })); s.visible = false; s.userData = { age: -1, x: 0, y0: 0, z: 0, dx: 0, dz: 0 }; scene.add(s); TRAIN_SMOKE.pool.push(s); } }
+function emitTrainPuff() { const s = TRAIN_SMOKE.pool.find(p => p.userData.age < 0); if (!s) return; const [cx, cy] = TRAIN.mesh.userData.chimney, fx = Math.cos(P.th), fz = Math.sin(P.th);
+  Object.assign(s.userData, { age: 0, x: P.x + fx * cx, z: P.z + fz * cx, y0: TRAIN.y + cy, dx: -fx * Math.abs(TRAIN.st.v) * 0.6, dz: -fz * Math.abs(TRAIN.st.v) * 0.6 }); TRAIN.puffs++; }
+function stepTrainSmoke(dt) { for (const s of TRAIN_SMOKE.pool) { const u = s.userData; if (u.age < 0) continue; u.age += dt; const a = smokeAt(u.age, TRAIN_SMOKE); if (!a) { u.age = -1; s.visible = false; continue; } u.x += u.dx * dt; u.z += u.dz * dt; s.position.set(u.x, u.y0 + a.rise, u.z); s.scale.setScalar(a.size); s.material.opacity = a.opacity; s.visible = true; } }
 // one hit → damage; strength = impactStrength(closing speed), computed by the caller BEFORE the bounce
 function crashHit(strength) { hurt(impactDamage(strength, VEH.mass)); }
 function hurt(amount) { if (WRECK_S.on || !(amount > 0)) return; P.dmg = Math.min(1, P.dmg + amount); if (isWrecked(P.dmg)) startWreck(); }
@@ -3102,7 +3354,7 @@ function stepWreck(dt) {
   }
   stepSmoke(dt);
 }
-function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
+function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endTrain(); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
@@ -3154,9 +3406,9 @@ function stepNavi(dt) {
 // #10: F takes off from the car's spot and lands the car on the nearest jumpable road below (not a jump: the flight already marks the run). R, J, the map and Start end a flight through resetCar
 function toggleFly() { if (WRECK_S.on) return; if (FLY.on) land(); else takeOff(); }
 const currentRoom = () => ROOM.layouts && ROOM.layouts[roomIndex(LEVELS.id)];
-const belowRoof = () => LEVELS.id === 'ring' || LEVELS.ceilingAt(P.x, P.z) !== null;   // #361: the ring, its spokes and a room's portal tunnel have no sky
+const belowRoof = () => isRingLevel(LEVELS.id) || LEVELS.ceilingAt(P.x, P.z) !== null;   // #361: the ring, its spokes and a room's portal tunnel have no sky
 const flyZone = () => LIFT_RIDE.busy ? 'lift' : LEVELS.isSurface() ? (roofedAt(P.x, P.z) ? 'roofed' : 'open') : belowRoof() ? 'tunnel' : 'room';
-const heliGround = (x, z) => LEVELS.isSurface() ? skyGroundH(x, z) : BELOW_Y;   // #277: the room's helicopter lands on the room floor, not the surface terrain
+const heliGround = (x, z) => LEVELS.isSurface() ? skyGroundH(x, z) : levelY(LEVELS.id);   // #277: the room's helicopter lands on the room floor, not the surface terrain
 function takeOff() { if (!flyAllowed(LEVELS.id, flyZone())) { toast(tr('hideoutNoSky')); return; }   // #102: no sky under the hill
   stopAuto('reset'); const s = heliStart(P.x, P.z, P.y, P.th, heliGround(P.x, P.z)); FLY.on = true; FLY.v = s.v; FLY.alt = s.alt; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
 function land() { if (!LEVELS.isSurface()) { P.safe = [P.x, P.z, P.th]; resetCar(); toast(tr('heliLanded')); return; }   // the room: down onto its floor right here
@@ -3168,7 +3420,7 @@ const parked = () => parkedBox(FOOT.car, CAR_SIZE);
 // #412: the walkway set around the walker -- the slabs, ramps, walls and ceilings of the interior it is in. It starts empty
 // (outdoors every walkway query answers "nothing"), and the interior of a building fills it while the walker is in it (6c, #411).
 const WALKS = emptyWalkways();
-if (INT.hall) Object.assign(WALKS, INT.hall.walk);   // #411: the hall of 6c is the walkway set around the walker (its arrays, by reference: the door leaves and the cabin slab stay live in both)
+for (const set of [INT.hall && INT.hall.walk, PLAT && PLAT.walk]) if (set) for (const k of Object.keys(WALKS)) WALKS[k] = [...WALKS[k], ...set[k]];   // #411 6c hall + #413 Plattform: new arrays, the same piece objects (door leaves, the cabin slab and wallByTag stay live; nothing is pushed after this)
 const ENTER_GLOW = { sprites: new Map(), shown: [], tex: null };   // #409: one pooled additive sprite per entrance
 function enterGlowTexture() {
   if (ENTER_GLOW.tex) return ENTER_GLOW.tex;
@@ -3198,6 +3450,7 @@ function stepEnterGlow() {   // on foot only: every ready, visible entrance on t
     });
   }
 }
+function leaveBuilding() { if (!INT.hall || !INT.indoors) return; const s = exitSpot(INT.hall.entrance); P.x = s.x; P.z = s.z; P.th = s.th; P.y = groundH(s.x, s.z, -Infinity); P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.hover = false; updateInterior(); }   // #474: B inside 6c, from any floor or the roof
 function pressEnter() { if (INT.prompt && INT.indoors) { INT.lift.call(INT.floor); return; } const n = HUD.enter; if (!n) return; const h = ENTER_HANDLERS[n.entry.id]; if (h) h(n.entry, n.entrance); else toast(tr('enterSoon')); }   // #409: E on foot at a ready entrance; #411: inside 6c, E at the lift gap calls the cabin
 function stepEnter() {
   stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; the car keeps E as the right blinker)
@@ -3208,7 +3461,63 @@ function stepEnter() {
   else if (INT.prompt) { $('prompt').textContent = INT.prompt; }
   else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
 }
-function pressZ() { if (FOOT.on) getIn(); else getOut(); }
+function pressZ() { if (TRAIN.on) leaveTrain(); else if (FOOT.on) { if (nearLoco()) boardTrain(); else getIn(); } else getOut(); }
+// #462: the loco wins over the car only when it is in reach and nearer than the car
+function nearLoco() { if (!TRAIN.mesh) return false; const d = carReach(P.x, P.z, locoBox()); return d <= WALKER.enterReach && d < carReach(P.x, P.z, parked()); }
+function boardTrain() { TRAIN.car = FOOT.car; FOOT.on = false; if (document.pointerLockElement) document.exitPointerLock(); TRAIN.on = true; TRAIN.cam = 'chase'; syncTrainP(); toast(tr('trainIn')); }
+// #462: Q/E pick the next switch (again = back to straight), H the whistle, R back to Sisseln, C the camera; the stub whistle is replaced in Task 6's sound work
+function trainKey(action) {
+  if (action === 'turnLeft' || action === 'turnRight') { startTurn(action === 'turnLeft' ? -1 : 1); return; }   // #496
+  if (TRAIN.turn && (action === 'left' || action === 'right')) return;   // no switch picking on the turntable
+  if (action === 'left' || action === 'right') { const c = action === 'left' ? -1 : 1; TRAIN.st = { ...TRAIN.st, choice: TRAIN.st.choice === c ? 0 : c }; return; }   // pressing it again goes back to straight
+  if (action === 'whistle') { SFX.whistle(); TRAIN.whistles++; return; }
+  if (action === 'reset') { finishTurn(); placeLoco(TRAIN.home, null); syncTrainP(); return; }
+  if (action === 'camera') { TRAIN.cam = TRAIN.cam === 'chase' ? 'cab' : 'chase'; const k = TRAIN.cam === 'cab' ? 'camTrainCab' : 'camTrainChase'; toast(tr('camera', tr(k))); }
+}
+function leaveTrain() {
+  if (Math.abs(TRAIN.st.v) >= 0.5) { toast(tr('footStopFirst')); return; }
+  finishTurn();
+  const p = poseAt(TRAIN.graph, TRAIN.st), side = p.th + Math.PI / 2, x = p.x + Math.cos(side) * (LOCO.width / 2 + 1.2), z = p.z + Math.sin(side) * (LOCO.width / 2 + 1.2);
+  TRAIN.on = false; Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: TRAIN.car }); TRAIN.car = null;
+  P.x = x; P.z = z; P.y = groundH(x, z, TRAIN.y + 1); P.vx = P.vz = P.vy = 0; P.th = p.th; toast(tr('trainOut'));
+}
+// resetCar (R in the car, J, the map, the beam, Start) leaves the loco where it stands and puts you back in the car
+function endTrain() { if (!TRAIN.on) return; finishTurn(); TRAIN.on = false; TRAIN.car = null; TRAIN.st = { ...TRAIN.st, v: 0 }; }
+function syncTrainP() { const p = poseAt(TRAIN.graph, TRAIN.st); P.x = p.x; P.z = p.z; P.y = TRAIN.y; P.th = p.th; P.vx = Math.cos(p.th) * TRAIN.st.v; P.vz = Math.sin(p.th) * TRAIN.st.v; P.vy = 0; P.gas = 0; P.nitro = 0; }
+// #496: the turntable. startTurn pulls the loco onto the disc centre and starts a half turn (sign -1 left / A, +1 right / D);
+// stepTurn turns the bridge and the loco together; finishTurn lands on the turned state (also called by Z, R and endTrain)
+function startTurn(sign) {
+  if (TRAIN.turn) return;
+  if (!onTurntable(TRAIN.graph, TRAIN.st, TRAIN.home)) { toast(tr('turnNotHere')); return; }
+  const to = turnedState(TRAIN.graph, TRAIN.st, TRAIN.home), centre = { ...to, dir: -to.dir };
+  placeLoco(centre, TRAIN.y); syncTrainP();
+  TRAIN.turn = { t: 0, sign, th0: poseAt(TRAIN.graph, centre).th, to };
+}
+function stepTurn(dt) {
+  const tu = TRAIN.turn; tu.t += dt;
+  if (tu.t >= TURNTABLE.turnTime) { finishTurn(); toast(tr('turnDone')); return; }
+  const th = tu.th0 + tu.sign * turnAngle(tu.t);
+  TRAIN.mesh.rotation.y = -th; TRAIN.table.userData.bridge.rotation.y = -th; P.th = th;
+}
+function finishTurn() {
+  if (!TRAIN.turn) return;
+  const to = TRAIN.turn.to; TRAIN.turn = null;
+  placeLoco(to, TRAIN.y); TRAIN.table.userData.bridge.rotation.y = -poseAt(TRAIN.graph, to).th; syncTrainP();
+}
+function stepTrainMode(dt) {
+  if (TRAIN.turn) { stepTurn(dt); const c = chuffEmit(TRAIN.acc, 0, dt); TRAIN.acc = c.acc; for (let i = 0; i < c.n; i++) emitTrainPuff(); return; }   // #496: W/S do nothing while turning
+  const r = stepTrain(TRAIN.st, trainInput(keys), TRAIN.graph, dt), turn = wheelTurn(Math.abs(r.state.v) * dt, LOCO.driverR) * Math.sign(r.state.v || 1);
+  if (r.state.edge !== TRAIN.st.edge) TRAIN.trail = [...(TRAIN.trail || []), r.state.edge].slice(-8);   // the last edges driven, for the tests
+  for (const ev of r.events) if (ev.type === 'trackEnd') toast(tr('trackEnd'), TOAST_S.event);
+  placeLoco(r.state, TRAIN.y);
+  for (const w of TRAIN.mesh.userData.drivers) w.rotation.z -= turn;
+  for (const w of TRAIN.mesh.userData.small) w.rotation.z -= turn * LOCO.driverR / (w.position.y);
+  const a = -TRAIN.mesh.userData.drivers[0].rotation.z, [dx, dy] = rodOffset(a, LOCO.crank);
+  for (const rod of TRAIN.mesh.userData.rods) rod.position.set(rod.userData.home.x + dx, rod.userData.home.y + dy, rod.userData.home.z);
+  syncTrainP();
+  const c = chuffEmit(TRAIN.acc, TRAIN.st.v, dt); TRAIN.acc = c.acc;
+  for (let i = 0; i < c.n; i++) { emitTrainPuff(); if (Math.abs(TRAIN.st.v) > 0.3) SFX.chuff(); }
+}
 function canGetOut() { return $('overlay').hidden && !FLY.on && !WRECK_S.on && !LIFT_RIDE.busy && !CARSEL.on && !PAUSE.on && !P.air && P.splash === 0; }
 function getOut() {
   if (!canGetOut()) return;
@@ -3221,6 +3530,7 @@ function getOut() {
   toast(tr('footOut'));
 }
 function getIn() {
+  if (LIFT_RIDE.busy) return;
   if (carReach(P.x, P.z, parked()) > WALKER.enterReach) { toast(tr('footTooFar')); return; }
   const c = FOOT.car; endFoot(); P.x = c.x; P.z = c.z; P.y = c.y; P.th = c.th; P.vx = P.vz = P.vy = 0; toast(tr('footIn'));
 }
@@ -3235,7 +3545,7 @@ function footBlocks(o, x, z, y, under) {
   if (y >= o.h - 0.05) return false;
   return !(o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, x, z));
 }
-const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !(o.bodenacker6 && INT.bodyOff)).concat((FOOT.car ? [parked()] : []));
+const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !(o.bodenacker6 && INT.bodyOff) && !(o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)).concat((FOOT.car ? [parked()] : []));
 function footFree(x, z, y0) { const y = groundH(x, z, y0 + 1), under = caveInside(); if (waterLevelAt(x, z, y) !== null) return false; return !footSolids(x, z).some(o => footBlocks(o, x, z, y, under) && colliderPush(o, x, z, WALKER.radius)); }
 function collideFoot(r) { const under = caveInside(); for (const o of footSolids(P.x, P.z)) { if (!footBlocks(o, P.x, P.z, P.y, under)) continue; const hit = colliderPush(o, P.x, P.z, r); if (hit) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } } }
 // #412: the walkway walls push too, applied like collideFoot does -- walkwayPush() keeps only those active at the walker's height,
@@ -3303,6 +3613,21 @@ function stepRoofDoor(dt) {
   if (INT.roofPanel) { const s = INT.roofDoorAmt * (rd.a1 - rd.a0); INT.roofPanel.position.set(s * h.frame.c, 0, s * h.frame.s); }
 }
 function liftTowerEvent(ev) { if (ev.type === 'start') SFX.hum(2 * TOWER_LIFT.door + ev.ride); }   // the ride's hum, as long as the trip takes
+// #489: the freight lift's keypad -- Oben / Ring 1 / Ring 2, shown while the car or the walker stands in the cabin at the cabin's level
+const FREIGHT_PAD = { open: false, btns: [] };
+function relabelFreightPad() { for (const btn of FREIGHT_PAD.btns) btn.textContent = freightPadLabel(btn.dataset.stop, window.GG_LANG); $('freightpad').querySelector('.padtitle').textContent = tr('liftPadTitle'); }
+function setFreightPad(show) {
+  const opens = show && !FREIGHT_PAD.open; FREIGHT_PAD.open = show; $('freightpad').hidden = !show;
+  if (!show) return;
+  if (opens) releaseFootLock();   // the buttons need the cursor back, as on the 6c pad
+  freightPadView(LIFT_RIDE).forEach((b, i) => { FREIGHT_PAD.btns[i].disabled = b.disabled; FREIGHT_PAD.btns[i].classList.toggle('on', b.on); });
+}
+function pickStop(stop) { if (FREIGHT_PAD.open) LIFT_RIDE.call(stop); }
+function freightPadKey(e) {   // 0 / 1 / 2 while the pad is shown -- before the hazard lights' 1
+  if (!FREIGHT_PAD.open) return false;
+  const stop = freightKeyStop(e.code); if (!stop) return false;
+  e.preventDefault(); if (!e.repeat) pickStop(stop); return true;
+}
 // #411: the lift's keypad, shown while the walker stands in the cabin (setLiftPad)
 const LIFT_PAD = { btns: [] };
 function relabelLiftPad() { for (const btn of LIFT_PAD.btns) btn.textContent = keypadLabel(+btn.dataset.level, window.GG_LANG); $('liftpad').querySelector('.padtitle').textContent = tr('liftPadTitle'); }
@@ -3407,6 +3732,7 @@ function clampHover() {
   const lid = caveInside() ? ceilingH(P.x, P.z) : null; if (lid !== null) P.y = Math.min(P.y, lid - WALKER.eye - 0.3);
 }
 function stepOnFoot(dt) {
+  if (LIFT_RIDE.busy) { P.vx = P.vz = 0; return; }   // #489: the walker rides like the car: no input during the ride
   LIGHTS.braking = false;
   updateInterior();   // #411: area, indoors, bodyOff, floor, the door target -- before the step moves the walker
   let s = stepFoot({ x: P.x, z: P.z, y: P.y, th: P.th, vy: FOOT.vy, hover: FOOT.hover }, footInput(keys), dt, footFloorAt);
@@ -3447,7 +3773,7 @@ function buildPontoonMeshes(d) {
 }
 function updatePontoonMeshes(d) { if (!PONTOON.group) return; PONTOON.group.children.forEach((bay, i) => { bay.visible = bayVisible(d, i); bay.position.y = bayDrop(d, i); }); }
 function freePontoon() { if (!PONTOON.group) return; PONTOON.group.traverse(o => o.geometry?.dispose()); scene.remove(PONTOON.group); PONTOON.group = null; }
-function stepFly(dt) { LIGHTS.braking = false; const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; if (!LEVELS.isSurface()) { const c = roomFlyClamp(P.x, P.y, P.z, currentRoom()); P.x = c.x; P.z = c.z; P.y = c.y; FLY.alt = roomFlyAlt(FLY.alt); }
+function stepFly(dt) { LIGHTS.braking = false; const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; if (!LEVELS.isSurface()) { const room = currentRoom(); const c = roomFlyClamp(P.x, P.y, P.z, room); P.x = c.x; P.z = c.z; P.y = c.y; FLY.alt = roomFlyAlt(FLY.alt, room.fly, room.y); }
   heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; flames.visible = false; }
 // test hooks (prototype/tests): put the car somewhere and read its state
 // #416: the Crash-Platz's tyre stacks (tyres.js). Built the first time the car is near the yard; the physics engine loads then, not before
@@ -3481,7 +3807,9 @@ window.__mm.borders = () => ({ on: HUD.borders, groupVisible: NATB.visible, mesh
 window.__mm.natLines = () => NATLINES;
 window.__mm.mapBorderPixels = () => { const d = mapBorders.getContext('2d').getImageData(0, 0, mapBorders.width, mapBorders.height).data; let yellow = 0, white = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 200) continue; if (d[i] > 230 && d[i + 1] > 190 && d[i + 2] < 60) yellow++; else if (d[i] > 230 && d[i + 1] > 230 && d[i + 2] > 230) white++; } return { yellow, white }; };
 window.__mm.boundaryY = (x, z) => boundaryY(x, z);
-window.__mm.labels = () => LABELS.shown.map(l => ({ t: l.t, x: l.x, z: l.z, d: +l.d.toFixed(1) }));
+window.__mm.labels = () => LABELS.shown.map(l => ({ t: l.t, x: l.x, z: l.z, y: l.y, rotY: l.rotY, d: +l.d.toFixed(1) }));
+window.__mm.plateSpots = (t) => LABELS.all.filter(l => l.t === t).map(l => ({ x: l.x, z: l.z, rotY: l.rotY }));   // #520: where a number's plate hangs (tests drive there)
+window.__mm.labelKinds = () => [...new Set(LABELS.pool.filter(s => s.visible).map(s => s.type))];   // #520: plates (Mesh), not sprites
 window.__mm.labelSprites = () => LABELS.pool.filter(s => s.visible).length;
 window.__mm.labelTick = () => LABELS.ticks;
 window.__mm.labelCache = () => { const live = new Set(LABELS.mat.values()); return { size: LABELS.mat.size, cap: LABELS.cap, live: LABELS.pool.every(s => !s.visible || live.has(s.material)) }; };
@@ -3510,7 +3838,18 @@ window.__mm.nearestRoad = (x, z) => nearestJumpable(x, z);
 window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, alt: FLY.alt, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
 window.__mm.foot = () => ({ on: FOOT.on, hover: FOOT.hover, x: P.x, y: P.y, z: P.z, th: P.th, pitch: FOOT.pitch, car: FOOT.car && { ...FOOT.car }, carVisible: car.visible, carMesh: { x: car.position.x, z: car.position.z }, cam: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, ground: groundH(P.x, P.z, P.y) });
+// #462: the steam loco's state, as the tests see it
+window.__mm.train = () => { const p = TRAIN.st ? poseAt(TRAIN.graph, TRAIN.st) : { x: NaN, z: NaN, th: 0 };
+  return { placed: !!TRAIN.mesh, on: TRAIN.on, foot: FOOT.on, x: p.x, z: p.z, th: TRAIN.turn ? P.th : p.th, y: TRAIN.y, kmh: Math.abs(TRAIN.st?.v ?? 0) * 3.6, edge: TRAIN.st?.edge, s: TRAIN.st?.s,
+    choice: TRAIN.st?.choice ?? 0, atEnd: !!TRAIN.st?.atEnd, cam: TRAIN.cam, railDist: railDist(p.x, p.z), puffs: TRAIN.puffs, whistles: TRAIN.whistles, turning: !!TRAIN.turn,
+    next: TRAIN.st ? nextSwitch(TRAIN.graph, TRAIN.st) : null, trail: TRAIN.trail || [] }; };
+window.__mm.turntable = () => ({ placed: !!TRAIN.table, x: TRAIN.table?.position.x, z: TRAIN.table?.position.z });   // #496
+window.__mm.trainSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepTrainMode(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.train(); };
+window.__mm.trainPut = (st) => { placeLoco({ v: 0, choice: 0, atEnd: false, ...st }, null); if (TRAIN.on) syncTrainP(); };
+window.__mm.trainApproaches = (back) => divergingApproaches(TRAIN.graph, back);
+window.__mm.resetCar = () => resetCar();
 window.__mm.walkways = (set) => { if (set) Object.assign(WALKS, set); return WALKS; };   // #412: the walkway set around the walker; tests put an interior's set in (empty = outdoors)
+window.__mm.plattform = () => PLAT && { facing: PLAT.frame.facing, base: PLAT.base, x: PLAT.frame.x, z: PLAT.frame.z, deckY: PLAT.base + PLATTFORM.deck.y };   // #413: the tower's frame, for the stair tests
 // #411: the interior of 6c as the tests see it. updateInterior() first, so a headless read is fresh even between frames.
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
   y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
@@ -3531,7 +3870,10 @@ window.__mm.nearestSolid = (x, z) => { let best = null, bd = Infinity; for (cons
 window.__mm.roles = () => Object.keys(MESH);
 // #45: role of the first merged mesh a horizontal ray from (x, z) towards (tx, tz) hits, `up` m above the terrain at the target
 // #201: with up1 the ray climbs: from `up` over the ground at (x, z) to terrain + up1 over the target; the cave group's meshes count while drawn
-window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); const hit = ray.intersectObjects([...Object.values(MESH), ...(INT.housing ? [INT.housing] : []), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).find(h => h.object.userData.role); return hit ? hit.object.userData.role : null; };
+// #453: every role-tagged hit of that ray, nearest first: wallRoleAt takes the first, wallRolesAt the set at the first hit's distance (± eps) -- two roles there are coplanar faces, i.e. z-fighting
+const wallHits = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); return ray.intersectObjects([...Object.values(MESH), ...(INT.housing ? [INT.housing] : []), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).filter(h => h.object.userData.role); };
+window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const hit = wallHits(x, z, tx, tz, up, up1)[0]; return hit ? hit.object.userData.role : null; };
+window.__mm.wallRolesAt = (x, z, tx, tz, up = 2.5, eps = 0.01) => { const hits = wallHits(x, z, tx, tz, up); return hits.length ? [...new Set(hits.filter(h => h.distance - hits[0].distance <= eps).map(h => h.object.userData.role))].sort() : []; };
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
 window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x, z, 1e4), bridge: !!onBridge(x, z, 1e4) });
 // #101: the riverbed under (x, z): groundH's value, the water surface, the bedDepth, and where the drawn terrain is (raycast on the grass mesh)
@@ -3542,7 +3884,7 @@ window.__mm.nearestSchool = (x, z) => Math.min(...FISH.schools.map(s => Math.hyp
 // #102: the hideout, or null where it does not exist (hand layout, made-up terrain)
 window.__mm.hideout = () => HIDE ? { mouth: HIDE.cuts[0].pts[0], centre: CAVE.nodes.hall.c, portalS: HIDE.portal, floor: HIDE.floor ?? HIDE.f0, lid: lidH(...CAVE.nodes.hall.c), found: HIDE.found, walls: HIDE.walls, lamps: HIDE.lamps, lidTris: HIDE.lidTris, floorTris: HIDE.floorTris, rooms: HIDE.rooms, lift: { c: LIFT.c, th: LIFT.th, hw: LIFT.hw, hd: LIFT.hd, doors: { top: liftDoor('top'), bottom: liftDoor('bottom') } }, room: ROOM.layouts && { centre: ROOM.layouts[0].centre, tower: ROOM.layouts[0].tower, spawn: ROOM.layouts[0].spawn, towerView: ROOM.layouts[0].towerView, half: ROOM.layouts[0].half, y: ROOM.layouts[0].y, portal: ROOM.layouts[0].portal } } : null;
 // #361: where the car is below -- the level, the spoke it is in (k, s), which room's meshes exist, whether that room has an object, the signs; spoke(k, s) is a point on spoke k for the tests
-window.__mm.below = () => ({ dark: BELOW.q, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, level: LEVELS.id, spoke: spokeAt(P.x, P.z), built: ROOM.built, object: ROOM.layout ? !!ROOM.layout.object : null, tower: ROOM.layout && ROOM.layout.tower, rooms: ROOMS.map(r => r.id), signs: spokeSigns(ROOMS).map(sg => sg.text), ring: RING_L.built });
+window.__mm.below = () => ({ dark: BELOW.q, fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, level: LEVELS.id, spoke: spokeAt(P.x, P.z), built: ROOM.built, object: ROOM.layout ? !!ROOM.layout.object : null, tower: ROOM.layout && ROOM.layout.tower, rooms: ROOMS.map(r => r.id), signs: spokeSigns(ROOMS).map(sg => sg.text), ring: RING_L.ring.built, ring2: RING_L.ring2.built, kind: BELOW.kind, number: !!RING_L.ring2.sign && drawn(RING_L.ring2.sign) });
 window.__mm.spoke = (k, sv) => { const fr = spokeFrame(k); return { x: fr.start[0] + fr.u[0] * sv, z: fr.start[1] + fr.u[1] * sv, th: fr.a }; };
 window.__mm.roofed = roofedAt; window.__mm.lidAt = lidH; window.__mm.skyGround = skyGroundH; window.__mm.roomAt = roomAt; window.__mm.ceilingAt = ceilingH;   // #201
 // #102: what a downward ray from the sky hits first at (x, z): the role and the height (the hill must hide the hideout)
@@ -3632,6 +3974,9 @@ window.__mm.carSize = () => ({ ...CAR_SIZE });   // #69: body box in world metre
 // #163: read-only, for the test. size = the quad in world metres, rot = [roll, yaw, pitch] (order YZX), shift = the sun offset,
 // ground = the sampled ground under the car, edge = the world height of the quad's left and right edge midpoints (where it really lies)
 window.__mm.shadow = () => { const s = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.updateMatrixWorld(true); const edge = [-0.5, 0.5].map(c => shadowMesh.localToWorld(new THREE.Vector3(0, 0, c)).y); return { visible: shadowMesh.visible, opacity: shadowMesh.material.opacity, size: [shadowMesh.scale.x, shadowMesh.scale.z], pos: [shadowMesh.position.x, shadowMesh.position.y, shadowMesh.position.z], rot: [shadowMesh.rotation.x, shadowMesh.rotation.y, shadowMesh.rotation.z], shift: [s.x, s.z], ground: SHADOW_STATE.y, edge }; };
+// #542: the lowest wheel's bottom above the ground (negative = sunk in), over a simulated stretch with keys held; read-only apart from the drive itself
+function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vector3(); let low = Infinity; for (const w of car.userData.wheels ?? []) { w.steer.getWorldPosition(p); low = Math.min(low, p.y - VEH.wheelR * VEH.scale - groundH(p.x, p.z, p.y)); } return low; }
+window.__mm.driveSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; let worst = Infinity, roll = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); worst = Math.min(worst, wheelClearance()); roll = Math.max(roll, Math.abs(car.rotation.x)); } for (const k of hold) keys[k] = false; return { worst, roll, speed: Math.hypot(P.vx, P.vz) }; };
 window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotation.z], pos: [car.position.x, car.position.y, car.position.z], visible: car.visible });   // #124: read-only, for the test
 window.__mm.kreisel = () => KREISEL.map(k => ({ x: k.x, z: k.z, b: k.b, apron: k.apron, bottom: k.bottom, low: lowestTerrain(k.x, k.z, k.apron), ir: k.ir, ibottom: k.ibottom, ilow: lowestTerrain(k.x, k.z, k.ir) }));
 // #132: wheel state and the wheel groups actually on the car (read-only, for the test)
@@ -3707,12 +4052,19 @@ function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm
 // camera too, not only its target; with the car up on the hill the camera stays where it is
 function underCeiling(x, z, y) { const lid = LEVELS.isSurface() ? (caveInside() ? ceilingH(x, z) : null) : LEVELS.ceilingAt(x, z); return lid === null ? y : Math.min(y, lid - 1); }
 function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
+// #462: chase = behind the tender and up, looking ahead; cab = the driver's eye on the right-hand side
+function trainCamera(dt, s, snap) {   // #495: s = -1 while B is held: the chase cam in front of the loco, the cab looking back over the tender
+  const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx;
+  if (TRAIN.cam === 'cab') { const [ex, ey, ez] = TRAIN.mesh.userData.cab; camPos.set(P.x + fx * ex + rx * ez, P.y + ey, P.z + fz * ex + rz * ez); camera.position.copy(camPos); camera.lookAt(P.x + fx * 60 * s + rx * ez, P.y + ey - 0.6, P.z + fz * 60 * s + rz * ez); return; }
+  const target = new THREE.Vector3(P.x - fx * 14 * s, P.y + 5, P.z - fz * 14 * s);
+  if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-4 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 8 * s, P.y + 2, P.z + fz * 8 * s);
+}
 function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
   if (!v.drone || FLY.on || FOOT.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   /* #408: on foot too */ // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
-  car.visible = FOOT.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
-  if (FOOT.on) footCamera(); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
+  car.visible = FOOT.on || TRAIN.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
+  if (FOOT.on) footCamera(); else if (TRAIN.on) trainCamera(dt, s, snap); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
     if (v.k === 'cockpit' && chairOn()) SWAY_S = stepSway(SWAY_S, { steer: WHEEL_STATE.yaw, speed }, dt);   // #463: the chair sways gently, camera only -- driving is unchanged
     camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2 + (v.k === 'cockpit' && chairOn() ? SWAY_S.pitch : 0), P.z + fz * 40 * s + rz * es);
     if (v.k === 'cockpit' && chairOn()) camera.rotateZ(SWAY_S.roll); }
@@ -3721,7 +4073,7 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
     if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
     const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim; camera.lookAt(look); }
   camTail(); }
-function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); const base = LEVELS.isSurface() ? 0 : BELOW_Y; sun.position.set(P.x - 300, base + 400, P.z - 200); sun.target.position.set(P.x, base, P.z);
+function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); const base = LEVELS.isSurface() ? 0 : levelY(LEVELS.id); sun.position.set(P.x - 300, base + 400, P.z - 200); sun.target.position.set(P.x, base, P.z);
   const camWl = waterLevelAt(camera.position.x, camera.position.z, camera.position.y), under = camWl !== null && camera.position.y < camWl; if (under !== UWS.on) setUnderwater(under); }   // #101: the look follows the camera, not the car
 // #7 turntable: orbit the standing car at the chase distance, car.visible whatever V / the eye views say, look target shifted so the car sits in the stage's centre
 function stepTurntable(dt) { CARSEL.spin = spinStep(CARSEL.spin, dt, { dir: CARSEL.dir, drag: CARSEL.drag }); CARSEL.drag = 0; const a = CARSEL.spin.angle, d = VEH.camera.chase.dist * 1.5, h = VEH.camera.chase.h * 0.75, cy = P.y + 0.8 * VEH.scale; car.visible = true; camPos.set(P.x + Math.cos(a) * d, P.y + h, P.z + Math.sin(a) * d); camera.position.copy(camPos); const r = $('csstage').getBoundingClientRect(), ox = (r.left + r.width / 2) / innerWidth * 2 - 1, oy = 1 - (r.top + r.height / 2) / innerHeight * 2; const [sx, sy] = lookShift(ox, oy, Math.hypot(d, h - 0.8 * VEH.scale), camera.fov, camera.aspect); camera.lookAt(P.x + Math.sin(a) * sx, cy + sy, P.z - Math.cos(a) * sx); }   // right vector of a camera at angle a looking at the car: (sin a, 0, -cos a)
@@ -3762,7 +4114,7 @@ window.__mm.toast = () => ({ text: $('toast').textContent, shown: $('toast').cla
 function fadeToast(dt) { if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } }   // also while paused (review of #90)
 // #167: a generated world without a race has no checkpoints to drive: the surprise hunt is its only run
 const RACELESS = !!REGION.generated && !REGION.race;
-function startRace(mode = 'trial', rng = Math.random) { if (RACELESS) mode = 'hunt'; R.mode = mode; try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = !hunt; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = [START.x, START.z, START.th]; clearNavi(); if (KNOCK) KNOCK.resetCount(); /* #415 */ resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); }
+function startRace(mode = 'trial', rng = Math.random) { if (RACELESS) mode = 'hunt'; R.mode = mode; try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = !hunt; } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = [START.x, START.z, START.th]; clearNavi(); if (KNOCK) KNOCK.resetCount(); /* #415 */ leaveBelow(); /* #504: a restart in a room below kept its level */ resetCar(); camPos.set(START.x + 12, P.y + 5, START.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); }
 function startHuntRun(hunt, rng, cands = PRESENT_CANDS) { const spots = hunt ? pickPresentSpots(cands, START, rng).map(s => ({ ...s, y: groundH(s.x, s.z) })) : []; HUNT_RUN = { spots, found: spots.map(() => false), bag: [], rng, endIn: 0 }; presentObjs.forEach((o, i) => { const s = spots[i]; o.g.visible = !!s; if (s) o.g.position.set(s.x, s.y, s.z); }); confetti.parts = []; confetti.pts.visible = false; }
 const modeKey = () => R.mode === 'hunt' ? 'modeHunt' : R.mode === 'blitz' ? 'modeBlitz' : 'mode';   // #7: the car screen's subtitle shows the same mode
 function renderModeLine() { const hunt = R.mode === 'hunt', blitz = R.mode === 'blitz'; $('tl').querySelector('.mode').textContent = tr(modeKey(), REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's
@@ -3830,6 +4182,28 @@ function renderWorldsPreview() {
 function selectRow(sel) { WORLDS.sel = { ...sel }; renderWorldsList(); renderWorldsPreview(); }
 function openWorlds() { WORLDS.on = true; for (const k in keys) keys[k] = false; closeHelp(); $('wpfiles').open = !matchMedia('(max-width:600px)').matches; selectRow(WORLDS.sel); $('overlay').hidden = true; $('worlds').hidden = false; rowFor(WORLDS.sel)?.focus(); }
 function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overlay').hidden = false; $('worldbtn').focus(); }
+// ---------- #509 About, #564 in tabs: the dialog -- over the start screen (Back returns there) or over the paused game (Back returns to the pause menu) ----------
+const ABOUT = { on: false, from: 'start', tab: 0 };
+for (const a of document.querySelectorAll('#about a[data-link]')) { a.href = ABOUT_LINKS[a.dataset.link]; a.target = '_blank'; a.rel = 'noopener'; }
+$('aboutversion').textContent = `v${window.GAME_VERSION}`;
+const aboutTabs = () => [...document.querySelectorAll('#about [role=tab]')];
+// #564: show tab i (aria-selected, roving tabindex, only its panel visible); focus = move the keyboard focus onto it
+function selectAboutTab(i, focus) { ABOUT.tab = i; aboutTabs().forEach((t, j) => { t.setAttribute('aria-selected', String(j === i)); t.tabIndex = j === i ? 0 : -1; $(t.getAttribute('aria-controls')).hidden = j !== i; }); $('aboutpanels').scrollTop = 0; if (focus) aboutTabs()[i].focus(); }
+aboutTabs().forEach((t, j) => { t.onclick = () => selectAboutTab(j, false); });
+function openAbout(from) { ABOUT.on = true; ABOUT.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('about').hidden = false; selectAboutTab(0, false); $('aboutback').focus(); }
+function closeAbout() { if (!ABOUT.on) return; ABOUT.on = false; $('about').hidden = true; const back = ABOUT.from === 'pause'; $(back ? 'pause' : 'overlay').hidden = false; $(back ? 'pauseabout' : 'aboutbtn').focus(); }
+function showAbout() { if (aboutReturn(inRun()) === 'pause') { openPause(); openAbout('pause'); } else openAbout('start'); }   // from the command search: a run is paused first
+function aboutKey(e) {
+  const action = aboutKeyAction(e);
+  if (action === 'back') { e.preventDefault(); if (!e.repeat) closeAbout(); return; }
+  if (action !== 'tab') return;   // 'pass': native Tab / Enter / Space; 'ignore': no game key while About is open
+  const at = aboutTabs().indexOf(document.activeElement);
+  if (at < 0) return;             // arrows outside the tab row do nothing (the game must not see them either: we returned from the keydown chain)
+  e.preventDefault(); selectAboutTab(aboutTabIndex(e.code, at), true);
+}
+$('aboutbtn').onclick = () => openAbout('start'); $('aboutback').onclick = closeAbout;
+window.__mm.about = () => ({ open: ABOUT.on, from: ABOUT.from });
+window.__mm.aboutTab = () => ABOUT_TABS[ABOUT.tab];
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
 function moveWorldsFocus(step) { const list = rows(), next = list.find(b => rowKey(b) === nextFocus(list.map(rowKey), rowKey(document.activeElement), step)); if (!next) return; selectRow(rowSel(next)); next.focus(); }
 function worldsKey(e) { const act = worldsKeyAction(e, document.activeElement && document.activeElement.classList.contains('ws-row')); if (act === 'back') { e.preventDefault(); closeWorlds(); } else if (act === 'next' || act === 'prev') { e.preventDefault(); moveWorldsFocus(act === 'next' ? 1 : -1); } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while a world is chosen
@@ -3902,7 +4276,7 @@ function movePauseFocus(step) { $(nextFocus(PAUSE.confirm ? ABANDON_BUTTONS : PA
 const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon, next: () => movePauseFocus(1), prev: () => movePauseFocus(-1), debug: () => toggleDebug(), photo: () => { photoPending = true; } };
 // true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
 function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
-$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap;
+$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause');   // #509
 document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
 window.__mm.closePause = closePause;   // test hook: any non-Esc exit from the pause while the vehicle change is open (#189)
 window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.frame, state: R.state, t: R.t, best: R.best, x: P.x, z: P.z, audio: SFX.state().ctx, focus: document.activeElement?.id || '' });
@@ -3950,8 +4324,12 @@ function renderHelp() {
 }
 function openHelp() { releaseFootLock(); for (const k in keys) keys[k] = false; $('helpq').value = ''; HELP.sel = -1; $('help').hidden = false; renderHelp(); $('helpq').focus(); }
 function closeHelp() { $('help').hidden = true; $('helpq').blur(); $('helpq').value = ''; }
+const HELP_ACTIONS = { about: () => showAbout() };   // #509: command-search rows that run a game function (data-cmd="action:<name>")
 function runHelpRow(index) {   // #190: close the help, then press the row's key as the player would — the normal handler applies its own rules
-  const row = helpRows().find(r => r.index === index); const init = row && commandEventInit(row.kbd.dataset.cmd);
+  const row = helpRows().find(r => r.index === index); if (!row) return;
+  const action = commandAction(row.kbd.dataset.cmd);
+  if (action) { closeHelp(); HELP_ACTIONS[action]?.(); return; }
+  const init = commandEventInit(row.kbd.dataset.cmd);
   if (!init) return;
   closeHelp(); dispatchEvent(new KeyboardEvent('keydown', init)); dispatchEvent(new KeyboardEvent('keyup', init));
 }
@@ -4053,7 +4431,7 @@ window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BOR
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); }
-addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
@@ -4062,6 +4440,15 @@ addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); }); r
     grid.appendChild(btn); LIFT_PAD.btns.push(btn);
   }
   relabelLiftPad();
+}
+{ const grid = $('freightpad').querySelector('.padgrid');   // #489: Oben / Ring 1 / Ring 2, top down -- click, tap or 0 / 1 / 2
+  for (const stop of FREIGHT_STOPS) {
+    const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.stop = stop;
+    btn.addEventListener('click', () => pickStop(stop));
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); pickStop(stop); }, { passive: false });
+    grid.appendChild(btn); FREIGHT_PAD.btns.push(btn);
+  }
+  relabelFreightPad();
 }
 /* #346: with a mode button focused, Enter starts and the slot explains it. On a touch device nothing is focused, so the
    slot keeps showing the mode last played and a tap on a mode button starts it directly (wireframe, "Mode text on touch"). */
@@ -4209,7 +4596,10 @@ function showDamage() { const pct = Math.round(P.dmg * 100); if (pct === HUD.dmg
 // local lamp materials, and drives the blinker boxes + HUD arrows. Called from hud() every frame, where the blinker block used to live.
 function applyLamps() { const flashOn = Math.floor(performance.now() / 350) % 2 === 0; const s = lampState({ head: LIGHTS.head, hazard: LIGHTS.hazard, blinker: HUD.blinker, braking: LIGHTS.braking, flashOn }); carMats.lampHead.emissiveIntensity = s.headLevel; carMats.lampTail.emissiveIntensity = s.tailLevel; for (const m of GLTF_LAMPS.head) m.emissiveIntensity = s.headLevel; for (const m of GLTF_LAMPS.tail) m.emissiveIntensity = s.tailLevel; for (const l of LOCAL_LAMPS) { l.head.color.setHex(0xfff6d0).multiplyScalar(s.headLevel / LAMP.head.off); l.tail.color.setHex(0xe0322d).multiplyScalar(s.tailLevel / LAMP.tail.off); } $('blL').className = s.left ? 'on' : ''; $('blR').className = s.right ? 'on' : ''; BLINK.left.visible = s.left; BLINK.right.visible = s.right; }
 function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttribute('transform', `rotate(${-bearing()})`); $('trip').textContent = P.trip.toFixed(P.trip < 100 ? 1 : 0); HUD.odoT = (HUD.odoT || 0) + dt; if (HUD.odoT > 1) { HUD.odoT = 0; renderOdo(); try { localStorage.setItem('mm.odo', String(P.odo)); } catch (e) { } } applyLamps(); if (performance.now() - HUD.waterT > 250) { HUD.waterT = performance.now(); HUD.water = L ? waterNameNear(P.x, P.z) : ''; $('watername').textContent = HUD.water; HUD.road = roadNameAt(gridQuery(ROAD_GRID, P.x, P.z, 1), P.x, P.z); $('roadname').textContent = HUD.road; $('autoline').textContent = AUTOP.on ? tr('autoLine', AUTOP.dest.n, ((AUTOP.st.route.len - AUTOP.st.s) / 1000).toFixed(1)) : ''; { const pp = pontoonPrompt(PONTOON.deck, !FLY.on && atRhineBank(pontoonEnv(), P.x, P.z), nearDeck(PONTOON.deck, P.x, P.z)); $('prompt').textContent = pp ? tr(pp === 'build' ? 'pontoonBuild' : 'pontoonRemove') : ''; } } if (performance.now() - LABELS.t > 250) { LABELS.t = performance.now(); updateLabels(P.x, P.z); } updateVillageNames(P.x, P.z); $('kmh').textContent = Math.round(kmh); $('needle').setAttribute('transform', `rotate(${-135 + clamp(kmh / 240, 0, 1) * 270} 150 150)`); const gi = gearAt(kmh, VEH.sound.gears); $('gearn').textContent = kmh < 2 ? 'N' : String(gi + 1); showDamage(); if (R.mode === 'blitz') { $('time').innerHTML = fmt(R.left); $('time').classList.toggle('low', R.left < BLITZ.low); $('best').textContent = tr('blitzBest', R.blitzBest === null ? null : fmt(R.blitzBest).replace(/<[^>]+>/g, '')); } else { $('time').innerHTML = fmt(R.t); $('time').classList.remove('low'); const hb = R.mode === 'hunt' ? R.huntBest : R.best; $('best').textContent = tr('best', hb === null ? null : fmt(hb).replace(/<[^>]+>/g, '')); } $('arrow').style.visibility = R.target ? '' : 'hidden'; if (!R.target) { $('dist').textContent = ''; $('cpname').textContent = ''; }   // every present found: nothing left to point at
-  if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = R.target.hunt ? tr('presentTarget') : R.target.i < 0 ? tr('finishTarget', R.target.n) : tr('cpTarget', R.target.i + 1, R.target.n); } updateNaviPanel(); fadeToast(dt); debugTick(); clampDebugHeights(); setFullMap(!!keys.Tab && $('overlay').hidden); drawMap(); }
+  if (R.target) { const dx = R.target.x - P.x, dz = R.target.z - P.z; const ang = Math.atan2(dz, dx) - P.th; $('arrow').style.transform = `rotate(${ang * 180 / Math.PI}deg)`; $('dist').textContent = Math.round(Math.hypot(dx, dz)) + ' m'; $('cpname').textContent = R.target.hunt ? tr('presentTarget') : R.target.i < 0 ? tr('finishTarget', R.target.n) : tr('cpTarget', R.target.i + 1, R.target.n); } updateNaviPanel(); fadeToast(dt); debugTick(); clampDebugHeights(); setFullMap(!!keys.Tab && $('overlay').hidden); drawMap();
+  // #462: the switch arrow (the choice for the next switch) and the steam plate while driving the loco
+  $('switcharrow').hidden = !TRAIN.on || !nextSwitch(TRAIN.graph, TRAIN.st);
+  if (TRAIN.on) { $('switcharrow').textContent = ['←', '↑', '→'][TRAIN.st.choice + 1]; $('gearn').textContent = tr('steam'); } }
 
 // ---------- photo (#113) ----------
 // The renderer has no preserveDrawingBuffer, so the canvas only holds a readable image inside the task that drew it.
@@ -4271,7 +4661,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 requestAnimationFrame(loop);
@@ -4314,7 +4704,7 @@ showGallery();
   /* Wider screens keep the nav (the language toggle lives in it) but drop it to the
      bottom edge while the start/result dialog is open, clear of that dialog's buttons. */
   body:has(#overlay:not([hidden])) #game-nav { bottom: calc(8px + env(safe-area-inset-bottom,0px)) !important; }
-  @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav, body:has(#worlds:not([hidden])) #game-nav, body:has(#carsel:not([hidden])) #game-nav, body:has(#pause:not([hidden])) #game-nav, body:has(#abandon:not([hidden])) #game-nav { display: none !important; } }
+  @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav, body:has(#worlds:not([hidden])) #game-nav, body:has(#about:not([hidden])) #game-nav, body:has(#carsel:not([hidden])) #game-nav, body:has(#pause:not([hidden])) #game-nav, body:has(#abandon:not([hidden])) #game-nav { display: none !important; } }
 </style>
 <script src="./version.js"></script>
 <script src="./i18n.js"></script>
@@ -4325,7 +4715,7 @@ showGallery();
     var q = new URLSearchParams(location.search).get('dev'), stored = null;
     try { if (q === '1') localStorage.setItem('gg-dev', '1'); else if (q === '0') localStorage.removeItem('gg-dev'); stored = localStorage.getItem('gg-dev'); } catch (e) { }
     if (q !== '1' && (q === '0' || stored !== '1')) return;
-    var s = document.createElement('script'); s.src = '/testhub/client.js'; s.async = true; document.head.appendChild(s);
+    var s = document.createElement('script'); s.src = 'https://github.freaxnx01.ch/testhub/client.js'; s.async = true; document.head.appendChild(s);
   })();
 </script>
 <nav id="game-nav" aria-label="Game navigation" style="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(60px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 20px);box-sizing:border-box;flex-wrap:wrap;justify-content:center;row-gap:2px;z-index:2147483647;display:flex;gap:12px;align-items:center;font:600 13px/1.4 system-ui,-apple-system,sans-serif;padding:6px 11px;border-radius:8px;background:rgba(15,17,26,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:.55;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.55">

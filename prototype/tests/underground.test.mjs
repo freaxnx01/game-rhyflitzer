@@ -113,3 +113,53 @@ test('spokeDarkAt_AlongTheSpoke_ContinuousAndFullAtBothSwitchPoints', () => {
   for (let s = 0; s <= SPOKE.len; s += 0.25) { const q = spokeDarkAt(s); assert.ok(Math.abs(q - prev) < 0.04, `no jump at ${s}: ${prev} -> ${q}`); prev = q; }
   assert.ok(SPOKE_FADE[3] - SPOKE_FADE[0] <= 45, 'the dim stretch is shorter than the old 20 m black + 2 x 10 m fade + margin');
 });
+
+// #489: ring 2 -- the same ring at its own depth, its own lift door, its number and its look
+import { BELOW2_Y, ringNumberSign, RING2_STYLE } from '../underground.js';
+const IDS2 = Array.from({ length: 8 }, (_, k) => `r2room${k}`);
+
+test('BELOW2_Y_Ring2LiesSixHundredMetresBelowRing1', () => { assert.equal(BELOW2_Y, -1200); assert.equal(BELOW_Y, -600); });
+
+test('ringColliders_Ring2_TheSameRingAtItsDepth_ItsDoorPanelIsRing2s', () => {
+  const one = ringColliders(), two = ringColliders(BELOW2_Y, 'ring2');
+  assert.equal(two.length, one.length);
+  one.forEach((o, i) => { close(two[i].x, o.x); close(two[i].z, o.z); close(two[i].h - BELOW2_Y, o.h - BELOW_Y, 1e-6, `collider ${i}`); });
+  assert.deepEqual(one.filter(o => o.liftDoor).map(o => o.liftDoor), ['bottom']);
+  assert.deepEqual(two.filter(o => o.liftDoor).map(o => o.liftDoor), ['ring2']);
+});
+
+test('ringCeilingAt_Ring2_SameShapeAtItsDepth', () => {
+  for (const [x, z] of [C, polar(RING.r, LIFT.th + 1), onSpoke(3, 50), polar(RING.r + 30, LIFT.th)]) {
+    const a = ringCeilingAt(x, z), b = ringCeilingAt(x, z, BELOW2_Y);
+    if (a === null) assert.equal(b, null); else close(b - BELOW2_Y, a - BELOW_Y);
+  }
+});
+
+test('belowLevelAt_Ring2_SwitchesBetweenRing2AndOnlyItsOwnRooms', () => {
+  const [x55, z55] = onSpoke(3, 55), [x45, z45] = onSpoke(3, 45), [x50, z50] = onSpoke(3, 50);
+  assert.equal(belowLevelAt('ring2', x55, z55, IDS2, 'ring2'), 'r2room3');
+  assert.equal(belowLevelAt('ring2', x50, z50, IDS2, 'ring2'), 'ring2');
+  assert.equal(belowLevelAt('r2room3', x50, z50, IDS2, 'ring2'), 'r2room3');
+  assert.equal(belowLevelAt('r2room3', x45, z45, IDS2, 'ring2'), 'ring2');
+  assert.equal(belowLevelAt('ring', x55, z55, IDS), 'room3', 'ring 1 unchanged');
+});
+
+test('spokeSigns_AtRing2Depth', () => {
+  const s = spokeSigns([{ object: {}, name: 'X' }], BELOW2_Y)[0];
+  close(s.y, BELOW2_Y + (SPOKE.ceiling + RING.ceiling) / 2);
+});
+
+test('ringNumberSign_Two_OnTheOuterWallStraightAheadOfTheExit_FacingTheLift', () => {
+  const s = ringNumberSign(2, BELOW2_Y);
+  assert.equal(s.text, '2');
+  close(Math.hypot(s.x - C[0], s.z - C[1]), RING.r + RING.hw - 0.1);
+  close(Math.atan2(s.z - C[1], s.x - C[0]), Math.atan2(F[1], F[0]), 1e-9, 'on the exit axis');
+  assert.ok(s.y - s.h / 2 >= BELOW2_Y && s.y + s.h / 2 <= BELOW2_Y + RING.ceiling, 'inside the ring height');
+  assert.equal(spokeAt(s.x, s.z, s.w / 2), null, 'on solid wall, not across a spoke mouth');
+  close(Math.cos(s.th), -F[0]); close(Math.sin(s.th), -F[1]);
+});
+
+test('RING2_STYLE_CoolSteelAndBlueLight_NotRing1sWarmCave', () => {
+  const rgb = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  for (const key of ['tint', 'strip', 'fog', 'hemiSky', 'hemiGround']) { const [r, , b] = rgb(RING2_STYLE[key]); assert.ok(b > r, `${key} ${RING2_STYLE[key]} is bluish`); }
+});

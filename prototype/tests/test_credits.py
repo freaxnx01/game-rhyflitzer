@@ -70,3 +70,87 @@ def test_bus_model_is_credited_everywhere():
 def test_bus_model_is_committed_and_small():
     glb = ROOT / "prototype" / "assets" / "bus.glb"
     assert glb.exists() and 100_000 < glb.stat().st_size <= 800 * 1024
+
+
+def test_modelt_model_is_credited_everywhere():
+    """#521: "Ford Model T Downloadable" by Libau Media (robinmikart), CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/modelt.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "robinmikart" in t and "CC BY 4.0" in t and "Ford Model T Downloadable" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditModelT") == 2 and 'data-i18n="creditModelT"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_modelt_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "modelt.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 600 * 1024
+
+
+def test_rally_model_is_credited_everywhere():
+    """"2013 Hyundai - i20 WRC" by D3NK, 3D Warehouse General Model License -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/rally.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "D3NK" in t and "General Model License" in t and "2013 Hyundai - i20 WRC" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditRally") == 2 and 'data-i18n="creditRally"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_rally_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "rally.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_beetle_model_is_credited_everywhere():
+    """"VW Beetle Florida v2" by Libau Media (robinmikart), CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/beetle.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "robinmikart" in t and "CC BY 4.0" in t and "VW Beetle Florida v2" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditBeetle") == 2 and 'data-i18n="creditBeetle"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_beetle_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "beetle.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 800 * 1024
+
+
+def test_newbeetle_model_is_credited_everywhere():
+    """"1998 Volkswagen New Beetle" by ddiaz-design, CC BY-NC-SA 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/newbeetle.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "ddiaz-design" in t and "CC BY-NC-SA 4.0" in t and "1998 Volkswagen New Beetle" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditNewBeetle") == 2 and 'data-i18n="creditNewBeetle"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_newbeetle_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "newbeetle.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_tumbler_model_is_credited_everywhere():
+    """"Batmobile-The Dark Knight Tumbler" by Gravity Jack, CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/tumbler.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "Gravity Jack" in t and "CC BY 4.0" in t and "Batmobile-The Dark Knight Tumbler" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditTumbler") == 2 and 'data-i18n="creditTumbler"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_tumbler_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "tumbler.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_coupe_model_is_credited_everywhere():
+    """"2012 BMW 1M" by OUTPISTON, CC BY-NC-SA 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "prototype/assets/coupe.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "OUTPISTON" in t and "CC BY-NC-SA 4.0" in t and "2012 BMW 1M" in t, f
+    strings = (ROOT / "prototype" / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditCoupe") == 2 and 'data-i18n="creditCoupe"' in (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+
+
+def test_coupe_model_is_committed_and_small():
+    glb = ROOT / "prototype" / "assets" / "coupe.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
