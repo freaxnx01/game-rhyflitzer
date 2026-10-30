@@ -573,10 +573,49 @@ export function isRowHouse(b) { return ROW_HOUSE_IDS.has(b.id); }
 export function rowUnits(addr) { const m = /^\d+([a-z])[–-]\d+([a-z])$/.exec(addr || ''); return m ? m[2].charCodeAt(0) - m[1].charCodeAt(0) + 1 : 6; }
 // texture tile for a row house: one unit wide, one whole storey tall (3 m nominal), so the yellow panels fall on the unit joints
 export function rowHouseTile(b) { const w = Math.max(b.rect[2], b.rect[3]), h = Math.max(b.h, 3); return [w / rowUnits(b.addr), h / Math.max(1, Math.round(h / 3))]; }
-// #12: house-number labels (OSM addr) at the footprint centre
-export function addrLabels(buildings, landmarks = {}) {
-  return [...buildings.filter(b => b.addr).map(b => ({ t: b.addr, x: b.rect[0], z: b.rect[1], top: roofTop(b) })),
-          ...Object.values(landmarks).filter(l => l.addr).map(l => ({ t: l.addr, x: l.x, z: l.z, top: 9 }))];
+// #12 / #520 / #557: house-number plates (OSM addr) on the real wall: a ring building gets the ring edge facing the road point
+// (wallPlate), a box (landmark, degenerate ring) the façade of the drawn box that faces it. roadAt(x, z, st) gives the nearest
+// point of the street named st -- the address's own street, when the data has it -- or of any road, as [x, z] or null (then the
+// +z side). foot = the ring the base height comes from (null for a landmark, which stands on the terrain at its centre).
+export function addrLabels(buildings, landmarks = {}, roadAt = () => null) {
+  const plate = (t, x, z, w, d, rot, foot, st, ring) => {
+    const road = roadAt(x, z, st);
+    return { t, ...(wallPlate(ring, x, z, road) || facingFacade(x, z, rot, w, d, road)), foot };
+  };
+  return [...buildings.filter(b => b.addr).map(b => plate(b.addr, ...b.rect, b.ring, b.st, b.ring)),
+          ...Object.values(landmarks).filter(l => l.addr).map(l => plate(l.addr, l.x, l.z, ...l.size, l.rot || 0, null, undefined, null))];
+}
+const PLATE_OFF = 0.06, PLATE_IN = 1;   // m off the wall (clear of z-fighting); m in from the façade's right corner
+// as in Switzerland: near the right edge of the façade as seen from outside, not in its middle
+function facingFacade(x, z, rot, w, d, road) {
+  const faces = facadeLabels(x, z, rot, w, d, PLATE_OFF), lengths = [w, d, w, d];
+  const facing = (f) => road ? ((f.x - x) * (road[0] - x) + (f.z - z) * (road[1] - z)) / Math.hypot(f.x - x, f.z - z) : 0;
+  const k = faces.reduce((a, f, i) => (facing(f) > facing(faces[a]) ? i : a), 0), f = faces[k];
+  const nx = Math.sin(f.rotY), nz = Math.cos(f.rotY), shift = Math.max(0, lengths[k] / 2 - PLATE_IN);   // right of a viewer facing -n: (n.z, -n.x)
+  return { x: f.x + nz * shift, z: f.z - nx * shift, rotY: f.rotY };
+}
+const MIN_WALL = 3;   // m: shorter ring edges (stair notches, porch sides) are not walls for a plate unless nothing else faces the street
+// #557: a plate on the real footprint: the ring edge facing `target` (nearest, outward normal towards it, >= MIN_WALL), PLATE_OFF off
+// the wall, PLATE_IN in from the edge's right end as seen from outside (middle on a short edge). null target = the +z side.
+export function wallPlate(ring, cx, cz, target) {
+  if (!ring || ring.length < 3) return null;
+  const n = ring.length; let area = 0;
+  for (let i = 0; i < n; i++) { const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n]; area += ax * bz - bx * az; }
+  const sgn = area >= 0 ? 1 : -1, edges = [];
+  for (let i = 0; i < n; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n], dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
+    if (len > 1e-6) edges.push({ ax, az, dx, dz, len, ox: sgn * dz / len, oz: -sgn * dx / len });
+  }
+  const T = target || [cx, cz + 1e6];
+  const dist = (e) => { const u = Math.max(0, Math.min(1, ((T[0] - e.ax) * e.dx + (T[1] - e.az) * e.dz) / (e.len * e.len))); return Math.hypot(T[0] - e.ax - e.dx * u, T[1] - e.az - e.dz * u); };
+  const facing = (e) => (T[0] - (e.ax + e.dx / 2)) * e.ox + (T[1] - (e.az + e.dz / 2)) * e.oz;
+  let pool = edges.filter(e => e.len >= MIN_WALL && facing(e) > 0);
+  if (!pool.length) pool = edges.filter(e => facing(e) > 0);
+  if (!pool.length) pool = edges;
+  if (!pool.length) return null;
+  const e = pool.reduce((a, b) => (dist(b) < dist(a) - 1e-9 ? b : a));
+  const rightIsB = e.dx * e.oz - e.dz * e.ox >= 0, inset = Math.min(PLATE_IN, e.len / 2), s = rightIsB ? e.len - inset : inset;
+  return { x: e.ax + e.dx / e.len * s + e.ox * PLATE_OFF, z: e.az + e.dz / e.len * s + e.oz * PLATE_OFF, rotY: Math.atan2(e.ox, e.oz) };
 }
 export function pickLabels(items, x, z, maxDist = 60, maxN = 40) {
   const out = [];

@@ -5,7 +5,7 @@ import { WORLD_HOST, isWorldId } from '../prototype/worlds.js';
 
 export { isWorldId };
 export const API_BASE = WORLD_HOST;
-export const GAME_URL = 'https://github.freaxnx01.ch/game-rhyflitzer/';
+export const GAME_URL = 'https://rhyflitzer.freaxnx01.ch/';
 export const WMTS_URL = 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg';
 export const WMTS_ATTRIBUTION = '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>';   // Leaflet's attribution control, own constant
 export const STATUSES = ['queued', 'cutting', 'terrain', 'world', 'race', 'done', 'failed', 'expired'];   // the page's view of #168's state + step

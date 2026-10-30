@@ -8,9 +8,16 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-10-29 21:16` Die **Hausnummern-Schilder** sitzen jetzt auf der **echten Hauswand** statt davor in der Luft, und bei Häusern mit bekannter Strasse hängen sie auf der Seite der **richtigen Strasse** (z.B. Bodenackerstrasse 6: Ostseite zur Bodenackerstrasse, nicht Westseite zum Badweg).
+
 ### Added
 
+- `2026-10-30 09:04` The **About** page is now split into **four tabs**: **People**, **The game**, **Credits** and **How it is built**, so everything fits without scrolling through one long page. The dedication to Juliska stays on top and the links to the source code and glossary stay at the bottom. Switch tabs by tapping them or with the <kbd>←</kbd> <kbd>→</kbd> keys. **How it is built** now names every agent and model that works on the game: OpenCode with GLM, and Claude Code with Sonnet, Fable, Opus and Haiku, plus Claude Design for the mockups. **Kiscsi**'s ideas are credited in full: the Holzbrücke, the Robidogs, the flying poo piles — and many other ideas …
+- `2026-10-29 21:05` New car **Rhy Coupé**, a 2011 1 Series M Coupé look-alike without the badge: a twin-turbo six driving the rear wheels, **250 km/h**, short and wide, and the tail comes round on the handbrake. **Signal orange** from the factory, and it takes any **paint** from the car selection. Pick it there or with `?vehicle=coupe`. 3D model „2012 BMW 1M" by OUTPISTON (Sketchfab), CC BY-NC-SA 4.0.
 - `2026-10-29 16:42` The **U.S.S. Enterprise NCC-1701-D** has taken **ring-2 room 0**: the first spoke right of the lift opens into a **holodeck** — a black grid floor with glowing light-blue lines under a dome of stars — where the ship hangs life size (642.5 m long) over the floor, drifting slowly up and down, its windows, deflector and warp grilles aglow, „U.S.S. ENTERPRISE" and „NCC-1701-D" written across the top and underside of the saucer. 3D model „Enterprise D 2 8 Simple Bake Export" by HaughtyGrayAlien (Sketchfab), CC BY 4.0, decimated and compressed.
+- `2026-10-29 16:32` **About Map Madness**: a new **About** button on the start screen opens a page with the **dedication** („This game is dedicated to Juliska"), the people who helped (tester **Tschosi "forwardare" Ätti aka L.A. Brace**, and **Kiscsi**, whose idea it was to race over the Holzbrücke), what the game is, every **credit** (3D models, OpenStreetMap and swisstopo data, the Verein Plattform Sisslerfeld, libraries, fonts) and **how the game is built** with AI coding agents, with links. The model credits are no longer at the bottom of the command search.
 - `2026-10-29 16:18` New car **Rhy Tumbler**, a matt black armoured car in the style of the Dark Knight Tumbler, without the logo: heavy, rear-wheel drive on giant tyres, and on **nitro** the jet burner nearly doubles its speed. Pick it in the car selection or with `?vehicle=tumbler`. 3D model „Batmobile-The Dark Knight Tumbler" by Gravity Jack (Sketchfab), CC BY 4.0.
 - `2026-10-29 16:01` The **freight lift** in the **Reservoir Hübel** has a **keypad**: Top, Ring 1, Ring 2 (or <kbd>0</kbd> <kbd>1</kbd> <kbd>2</kbd>). **Ring 2** lies deeper still: a steel-blue tunnel ring like a **space station**, a big "2" ahead as the door opens, and eight spokes to **empty rooms twice as wide** as those of ring 1. Standing still in the cabin still takes you to ring 1. The lift now also takes you **on foot**, and your car comes along.
 - `2026-10-29 14:38` New car **Rhy Bubble**, a 1998 New Beetle look-alike: front-wheel drive, friendly handling, about 180 km/h. Sunflower yellow from the factory, and like the Hatchback it takes any **paint** from the car selection. Pick it there or with `?vehicle=newbeetle`. 3D model „1998 Volkswagen New Beetle" by ddiaz-design (Sketchfab), CC BY-NC-SA 4.0.
@@ -20,6 +27,9 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-29 21:50` **Bodenackerstrasse 6**: the top storey no longer flickers with dark stripes when the camera moves. The white band under the roof edge was drawn 2 m down over the top row of windows, in the same plane.
+- `2026-10-29 17:03` In a **handbrake** turn or a donut the wheels no longer sink into the road: the body leans in the slide, the wheels stay on the ground.
+- `2026-10-29 16:10` **House numbers** no longer float above the roofs: each number is now a **blue Swiss house-number plate** on the wall that faces the street, at door height and near the right-hand corner, as on real houses.
 - `2026-10-29 12:20` The **Plattform Sisslerfeld** now stands where it really is, south of the **Geuerenstrasse** on the open Sisslerfeld, with its entrance to the north and its **gravel yard** with six parking spaces.
 - `2026-10-27 20:27` **Restart race** from a room below the **Reservoir Hübel** puts you back on the road at the start again instead of somewhere in the sky.
 - `2026-10-27 16:41` In the **steam loco**, holding **B** now shows it from the front, like looking back in the car; in the cab view you look back over the tender.
@@ -84,6 +94,9 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-10-29 21:50` The game has its own address: **https://rhyflitzer.freaxnx01.ch**. The old one forwards there. On the new address the browser starts with empty storage, so best times and the chosen car are not carried over.
+
+- `2026-10-29 19:15` The **Ladybug** can now be **painted** like the Hatchback: red from the factory, any colour from the car selection.
 - `2026-10-26 19:10` The **Regional Bus** is faster: it now reaches **100 km/h** (before 79 km/h), about 120 km/h with nitro. It is still slow off the line and wide in the corners.
 - `2026-10-19 22:30` The woods and the single trees are no longer all the same cone: there are now **four tree species** in the retro low-poly look — slim dark **spruces**, round-crowned **beeches**, **birches** with white trunks (more of them along the forest edges) and tall narrow **poplars** (mostly standing alone). Every tree keeps its species, so a place always looks the same.
 - `2026-10-19 21:02` The spokes in the hideout ring carry **no name signs** for now: which landmark waits behind which coloured spoke is a surprise until you drive in.

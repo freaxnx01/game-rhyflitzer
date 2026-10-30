@@ -1,7 +1,7 @@
 """The Ladybug's 3D model (prototype/assets/beetle.glb). Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
-from test_carselect import open_page, wait_frames
+from test_carselect import open_carsel, open_page, wait_frames
 
 STATS_JS = "() => window.__mm.carStats()"
 
@@ -54,4 +54,19 @@ def test_beetle_model_lamps_follow_the_lights(server):
         on = page.evaluate("() => window.__mm.gltfVehicle('beetle').lamps")
         b.close()
     assert on["headLevel"] > off["headLevel"] and on["tailLevel"] > off["tailLevel"], (off, on)
+    assert not errors, errors
+
+
+def test_beetle_model_takes_the_chosen_paint(server):
+    """The body is the paint material: red (swiss) from the factory, and a swatch in the car selection recolours it."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, query="?vehicle=beetle")
+        page.wait_for_function("() => window.__mm.gltfVehicle('beetle').state === 'ready'", timeout=180000)
+        factory = page.evaluate("() => window.__mm.gltfVehicle('beetle').paintColor")
+        open_carsel(page)
+        page.click('#cspaints button[data-paint="ice"]')
+        wait_frames(page)
+        chosen = page.evaluate("() => window.__mm.gltfVehicle('beetle').paintColor")
+        b.close()
+    assert factory == "#e0322d" and chosen == "#7fd1ff", (factory, chosen)
     assert not errors, errors
