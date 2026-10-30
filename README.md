@@ -8,6 +8,18 @@ Later: pick any region on a map, and the game builds it into a world you can rac
 
 Dedicated to my daughter.
 
+## Screenshots and videos
+
+**Plattform Sisslerfeld**
+
+<p>
+  <a href="docs/gallery/plattform-1-luftbild.jpg"><img src="docs/gallery/plattform-1-luftbild.jpg" width="32%" alt="Plattform Sisslerfeld from above"></a>
+  <a href="docs/gallery/plattform-2-postauto.jpg"><img src="docs/gallery/plattform-2-postauto.jpg" width="32%" alt="Postauto in front of the Plattform Sisslerfeld"></a>
+  <a href="docs/gallery/plattform-3-aussicht.jpg"><img src="docs/gallery/plattform-3-aussicht.jpg" width="32%" alt="View from the Plattform Sisslerfeld"></a>
+</p>
+
+**Videos:** [YouTube playlist „Rhyflitzer – Map Madness"](https://www.youtube.com/playlist?list=PLZK1QeqP1C2E)
+
 ## Status
 
 Early prototype.
