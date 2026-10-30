@@ -1299,6 +1299,10 @@ def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(ser
         for _ in range(60):
             if sparks > 0: break
             page.wait_for_timeout(500); sparks = max(sparks, page.evaluate("() => window.__mm.ferris().sparks"))
+        led_changed = w1["ledSample"] != w0["ledSample"]   # #588: one LED can hold a colour for a while (sparkle base, a pattern's flat stretch); poll up to 15 s
+        for _ in range(30):
+            if led_changed: break
+            page.wait_for_timeout(500); led_changed = page.evaluate("() => window.__mm.ferris().ledSample") != w0["ledSample"]
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
         push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(6, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
           return { foot: p(17, 62), centre: p(0, 0), beside: p(0, 62) }; }""")
@@ -1311,7 +1315,7 @@ def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(ser
     assert errors == []
     assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design
     assert w0["built"] == 6 and abs(w0["h"] - 265.75) < 1e-6 and w0["gondolas"] == 48 and 1500 <= w0["tris"] <= 150000 and w0["colliders"] == 4, w0
-    assert 1500 <= w0["leds"] <= 2500 and w1["ledSample"] != w0["ledSample"] and sparks > 0, (w0, w1, sparks)   # #588
+    assert 1500 <= w0["leds"] <= 2500 and led_changed and sparks > 0, (w0, w1, sparks)   # #588
     assert w1["angle"] != w0["angle"], (w0, w1)
     assert abs(w1["gondolaAngle"] + w1["wheelRotation"]) < 1e-9, w1
     assert info["below"]["built"] == 6 and info["below"]["level"] == "room6" and info["below"]["object"] is True and info["counts"].get("ferris") == 1 and "eiffel" not in info["counts"], info
