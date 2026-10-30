@@ -1,8 +1,9 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test prototype/tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard } from '../plattform.js';
+import { PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
+import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
@@ -92,6 +93,34 @@ test('plattformEntrance_OutsideTheDoorFacingIn', () => {
   const e = plattformEntrance(F), [dx, dz] = F.polar(0, PLATTFORM.entranceR);
   assert.ok(near(e.x, dx) && near(e.z, dz));
   assert.ok(near(Math.cos(e.th), -Math.cos(0.3)) && near(Math.sin(e.th), -Math.sin(0.3)), 'th points inward');
+});
+
+// #567: the core cylinder is one solid circle for the car; the walker skips it (carOnly) and keeps the walkway walls
+test('plattformCoreCollider_Shape_CircleOverTheCoreUpToTheEaves', () => {
+  const o = plattformCoreCollider(F, BASE);
+  assert.ok(near(o.x, F.x) && near(o.z, F.z), 'centred on the central post');
+  assert.equal(o.circle, PLATTFORM.core.r);
+  assert.equal(o.hw, PLATTFORM.core.r);
+  assert.equal(o.hd, PLATTFORM.core.r);
+  assert.equal(o.h, BASE + PLATTFORM.roof.eaves);
+  assert.equal(o.carOnly, true);
+});
+
+test('plattformCoreCollider_CarCircleAtTheDoor_PushedOutward', () => {
+  const o = plattformCoreCollider(F, BASE), [x, z] = F.polar(0, PLATTFORM.core.r + 0.5), hit = colliderPush(o, x, z, 0.9);
+  assert.ok(hit, 'the door gap does not let a car in');
+  assert.ok(near(hit.pen, 0.4, 1e-9), `pen ${hit.pen}`);
+  assert.ok(near(hit.wx, Math.cos(F.facing), 1e-9) && near(hit.wz, Math.sin(F.facing), 1e-9), 'pushed away from the centre');
+});
+
+test('plattformCoreCollider_CarCircleNearTheCentre_PushedPastTheRing', () => {
+  const o = plattformCoreCollider(F, BASE), [x, z] = F.polar(120, 0.4), hit = colliderPush(o, x, z, 0.9);
+  assert.ok(near(hit.pen, PLATTFORM.core.r + 0.9 - 0.4, 1e-9), `pen ${hit.pen}`);
+});
+
+test('plattformCoreCollider_CarCircleClearOfTheRing_NoHit', () => {
+  const o = plattformCoreCollider(F, BASE), [x, z] = F.polar(240, PLATTFORM.core.r + 0.9 + 0.01);
+  assert.equal(colliderPush(o, x, z, 0.9), null);
 });
 
 test('plattformYard_KslPlan_GravelRectAndSixParkingSpaces', () => {
