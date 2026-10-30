@@ -602,7 +602,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -1505,7 +1505,8 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
   for (let i = 0; i < 3; i++) { const [ax, az] = tri[i], [bx, bz] = tri[(i + 1) % 3];
     bar(ax, 0.2, az, bx, frame.braceH, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, 0.2, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, frame.braceH, bz, 0.22, beam); }
   const apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * Math.tan(roof.pitch * RAD);
-  box(centrePost, apex, centrePost, x, b, z, facing, spruce, timber, [1, 1], 0);   // the central post, no OBB (the walkway wall covers the walker; the car never gets inside the ring)
+  box(centrePost, apex, centrePost, x, b, z, facing, spruce, timber, [1, 1], 0);   // the central post: no collider of its own, it lies inside the core's
+  addSolid(plattformCoreCollider(f, b));   // #567: the core cylinder is solid for the car (one circle over ring and post); carOnly, so on foot the walkway walls of plattformWalk still rule
   battens(core.door.half, 360 - core.door.half, 0, deck.y);   // the ring, open at the door
   battens(-core.door.half, core.door.half, core.door.h, deck.y - core.door.h);   // over the door
   for (const t of stairTreads()) { const segs = Math.max(2, Math.ceil((t.to - t.from) / 5)); const g = new THREE.CylinderGeometry(core.tread, core.tread, 0.05, segs, 1, false, Math.PI / 2 - facing - t.to * RAD, (t.to - t.from) * RAD); g.translate(x, b + t.y - 0.025, z); colorize(g, beam); push(timber, g); }
@@ -3519,7 +3520,7 @@ function footBlocks(o, x, z, y, under) {
   if (y >= o.h - 0.05) return false;
   return !(o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, x, z));
 }
-const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !(o.bodenacker6 && INT.bodyOff) && !(o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)).concat((FOOT.car ? [parked()] : []));
+const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !o.carOnly && !(o.bodenacker6 && INT.bodyOff) && !(o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)).concat((FOOT.car ? [parked()] : []));   // #567: carOnly colliders (the Plattform core) are not the walker's
 function footFree(x, z, y0) { const y = groundH(x, z, y0 + 1), under = caveInside(); if (waterLevelAt(x, z, y) !== null) return false; return !footSolids(x, z).some(o => footBlocks(o, x, z, y, under) && colliderPush(o, x, z, WALKER.radius)); }
 function collideFoot(r) { const under = caveInside(); for (const o of footSolids(P.x, P.z)) { if (!footBlocks(o, P.x, P.z, P.y, under)) continue; const hit = colliderPush(o, P.x, P.z, r); if (hit) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } } }
 // #412: the walkway walls push too, applied like collideFoot does -- walkwayPush() keeps only those active at the walker's height,
