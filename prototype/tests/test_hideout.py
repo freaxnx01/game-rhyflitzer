@@ -1117,7 +1117,7 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
         br.close()
     print("screenshot:", tmp_path / "artemis-room.png")
     assert errors == []
-    assert requests == [], requests
+    assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design (loadWithin, index.html followCave); the room itself fetches nothing
     assert a["built"] == 2 and abs(a["h"] - 98.1) < 1e-6 and 1000 <= a["tris"] <= 20000 and a["colliders"] == 5, a
     assert info["below"]["built"] == 2 and info["below"]["level"] == "room2" and info["below"]["object"] is True and info["counts"].get("artemis") == 1 and "eiffel" not in info["counts"], info
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("core", "mount", "capsule")), push
