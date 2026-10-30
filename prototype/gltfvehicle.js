@@ -12,6 +12,10 @@ export function loadStep(state, event) {
 // the id of the model to build right now: a glTF vehicle that is not ready yet is stood in for by its fallback
 export function buildableId(id, def, state) { return def.gltf && state !== 'ready' ? def.gltf.fallback : id; }
 
+// picking a car in the garage builds it only once its model is ready, so the stage car stays until then -- also for a car that is its own
+// fallback (mini, bus), which would otherwise flash its primitives first; a failed load builds the fallback (vehicleFailed)
+export function buildsOnSelect(def, state) { return !def.gltf || state === 'ready'; }
+
 const GLB_OVERRIDE = /^\.\/assets\/[\w.-]+\.glb$/;
 
 // def.gltf.url; `?glb=./assets/<name>.glb` overrides it (test hook), anything else is ignored

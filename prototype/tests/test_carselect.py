@@ -395,6 +395,7 @@ def test_chair_persists_and_lifts_the_cockpit_eye(server):
         open_carsel(page)
         page.click('#csgarage button[data-id="mini"]')
         page.wait_for_function("() => window.__mm.carsel().id === 'mini'", timeout=T)
+        page.wait_for_function("() => window.__mm.vehicle().model === 'mini'", timeout=T)   # built once the model arrives or fails, never before
         off = chair_state(page)
         size_off = page.evaluate("() => window.__mm.carSize()")
         page.click("#cschair")
@@ -435,6 +436,7 @@ def test_chair_survives_switching_cars(server):
         compact_eye = page.evaluate("() => window.__mm.vehicle().camera.cockpit.eye")
         page.click('#csgarage button[data-id="mini"]')
         page.wait_for_function("() => window.__mm.carsel().id === 'mini'", timeout=T)
+        page.wait_for_function("() => window.__mm.vehicle().model === 'mini'", timeout=T)   # built once the model arrives or fails, never before
         back = page.evaluate(CHAIR_JS)
         b.close()
     assert compact_chair["on"] is False and compact_chair["visible"] is False, compact_chair
