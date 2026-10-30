@@ -55,13 +55,14 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #knockreset{display:block;margin-top:6px;padding:4px 10px;font:inherit;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 /* #439: a real phone lays out at its device width (#354), so the panel stops at the viewport edge and its lines wrap, keeping the ? on screen */
 #debug{padding-right:36px;box-sizing:border-box;max-width:calc(100vw - 32px)}#debugtext>div{white-space:pre-wrap}#debughelp{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font:inherit;line-height:18px;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
-/* the open legend must not push the panel (and its ? button) off screen, so it scrolls once the space the panel's anchor leaves is used up;
-   the budgets include the 36 px "Set up props" row under the legend (#415, #439) */
-#debuglegend{max-width:min(380px,calc(100vw - 72px));max-height:calc(100vh - 456px);overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
-@media (max-width:900px){#debuglegend{max-height:calc(100vh - 326px)}}
-@media (pointer:coarse){#debug{padding-right:48px}#debughelp{width:36px;height:36px;line-height:32px}#debuglegend{max-height:calc(100vh - 436px)}}
+/* the open legend must not push the panel (and its ? button) off screen: the panel is a column capped at the room its anchor leaves (below),
+   and the legend is the one part that gives, so it scrolls instead of the panel growing past the screen edge (#415, #439) */
+#debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#knockreset{flex:none}
+@media (max-width:900px){#debug{max-height:calc(100vh - 166px - env(safe-area-inset-bottom,0px))}}
+@media (pointer:coarse){#debug{padding-right:48px;max-height:calc(100vh - 124px - env(safe-area-inset-top,0px))}#debughelp{width:36px;height:36px;line-height:32px}}
+#debuglegend{flex:0 1 auto;min-height:0;max-width:min(380px,calc(100vw - 72px));overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
 /* #178: the grown panel (legend + map links) now reaches the toast band when anchored at top:120px; drop it below the toast */
-@media (pointer:coarse) and (orientation:portrait){#debug{top:calc(324px + env(safe-area-inset-top,0px))}}   /* #353: below the toast (its slot sits under four 18 px HUD lines) */
+@media (pointer:coarse) and (orientation:portrait){#debug{top:calc(324px + env(safe-area-inset-top,0px));max-height:calc(100vh - 328px - env(safe-area-inset-top,0px))}}   /* #353: below the toast (its slot sits under four 18 px HUD lines) */
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
 /* #hud is pointer-events:none, so the dialog has to opt back in to be clickable at all */
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
