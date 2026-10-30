@@ -1,12 +1,12 @@
 // #513: the Ferris wheel as meshes -- built from ferris.js's numbers (which are pure and unit-tested; this
-// file is not): the rim, the spokes and the hub drum rotate about the axle; the two A-frames, their concrete
+// file is not): the rim, the spokes and the hub drum and the LED instances rotate about the axle; the two A-frames, their concrete
 // feet and the axle stand still; each gondola hangs from a pivot on the rim, and setWheelAngle counter-rotates
 // every pivot, so the gondolas stay upright while the wheel carries them round. One merged mesh per colour for
 // the static parts and the wheel, one small mesh per gondola cabin and roof, userData.role = 'ferris' on every
 // mesh, no textures, no text, no flags, no logos. Verified by the browser test (#513).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { FERRIS, gondolaAngles, legSegments } from './ferris.js';
+import { FERRIS, gondolaAngles, legSegments, ledLayout, ledColour, burstsLive, particle } from './ferris.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -29,7 +29,7 @@ function merged(geos, colour) {
 
 // the wheel and its two A-frames in the wheel's own frame: y = 0 on the floor, +x along the axle (the room's
 // f), the wheel's plane the z-y plane. Returns { group, wheel, gondolas }: `wheel` is the rotating group (rim,
-// spokes, hub drum and the 32 gondola pivots), `gondolas` those pivots -- what setWheelAngle counter-rotates.
+// spokes, hub drum and the 48 gondola pivots), `gondolas` those pivots -- what setWheelAngle counter-rotates.
 export function buildWheel(cfg = FERRIS) {
   const C = cfg.colours, group = new THREE.Group();
   // the static stands: two A-frames (four legs from the feet up to the axle ends, legSegments), a concrete
@@ -41,31 +41,32 @@ export function buildWheel(cfg = FERRIS) {
     f.translate(l.a[0], cfg.frame.foot.h / 2, l.a[2]);
     feet.push(f);
   }
-  const axle = new THREE.CylinderGeometry(0.8, 0.8, cfg.hub.len, 16);
+  const axle = new THREE.CylinderGeometry(1.8, 1.8, cfg.hub.len, 16);
   axle.rotateZ(Math.PI / 2); axle.translate(0, cfg.hub.y, 0);
   steel.push(axle);
   group.add(merged(steel, C.steel), merged(feet, C.foot));
-  // the rotating part: two rim rings at x = +-1.2, 16 spoke pairs (one spoke to each ring per direction) and
+  // the rotating part: two rim rings at x = +-3, 32 spoke pairs (one spoke to each ring per direction) and
   // the hub drum
   const wheel = new THREE.Group();
   wheel.position.set(0, cfg.hub.y, 0);
   const white = [], drumSteel = [];
+  const X = cfg.led.ringX;
   for (const sx of [-1, 1]) {
-    const ring = new THREE.TorusGeometry(cfg.rim, 0.6, 8, 48);
-    ring.rotateY(Math.PI / 2); ring.translate(sx * 1.2, 0, 0);
+    const ring = new THREE.TorusGeometry(cfg.rim, 1.5, 8, 128);
+    ring.rotateY(Math.PI / 2); ring.translate(sx * X, 0, 0);
     white.push(ring);
   }
-  for (let i = 0; i < 16; i++) {
-    const t = i / 16 * 2 * Math.PI, y = cfg.rim * Math.sin(t), z = cfg.rim * Math.cos(t);
-    for (const sx of [-1, 1]) white.push(tube([0, cfg.hub.r * Math.sin(t), cfg.hub.r * Math.cos(t)], [sx * 1.2, y, z], 0.25, 6));
+  for (let i = 0; i < cfg.led.spokes; i++) {
+    const t = i / cfg.led.spokes * 2 * Math.PI, y = cfg.rim * Math.sin(t), z = cfg.rim * Math.cos(t);
+    for (const sx of [-1, 1]) white.push(tube([0, cfg.hub.r * Math.sin(t), cfg.hub.r * Math.cos(t)], [sx * X, y, z], 0.4, 6));
   }
   const drum = new THREE.CylinderGeometry(cfg.hub.r, cfg.hub.r, cfg.hub.len, 24);
   drum.rotateZ(Math.PI / 2);
   drumSteel.push(drum);
   wheel.add(merged(white, C.rim), merged(drumSteel, C.steel));
-  // the 32 gondolas: a pivot on the rim, the cabin hanging `drop` m below it and a flat dark roof on the
+  // the 48 gondolas: a pivot on the rim, the cabin hanging `drop` m below it and a flat dark roof on the
   // cabin -- setWheelAngle counter-rotates the pivot, so the cabin hangs upright at every point of the turn
-  const gondolas = [], G = cfg.gondola, mats = C.gondolas.map(c => new THREE.MeshLambertMaterial({ color: c }));
+  const gondolas = [], G = cfg.gondola, mats = C.gondolas.map(c => new THREE.MeshLambertMaterial({ color: c, emissive: 0x332211 }));   // #588: faint warm glow, lit cabins
   const roofMat = new THREE.MeshLambertMaterial({ color: C.steel });
   for (const [i, t] of gondolaAngles(cfg).entries()) {
     const pivot = new THREE.Group();
@@ -77,8 +78,54 @@ export function buildWheel(cfg = FERRIS) {
     pivot.add(cabin, roof);
     wheel.add(pivot); gondolas.push(pivot);
   }
+  const leds = buildLeds(cfg); wheel.add(leds.mesh);
   group.add(wheel);
-  return { group, wheel, gondolas };
+  return { group, wheel, gondolas, leds: leds.mesh, ledList: leds.list };
+}
+
+// #588: the LEDs as one InstancedMesh (small unlit octahedra, per-instance colour) in the rotating wheel's frame
+function buildLeds(cfg) {
+  const list = ledLayout(cfg), mat = new THREE.MeshBasicMaterial({ toneMapped: false }), mesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.9), mat, list.length), m = new THREE.Matrix4(), c = new THREE.Color(0, 0, 0);
+  for (const l of list) { mesh.setMatrixAt(l.i, m.makeTranslation(l.pos[0], l.pos[1], l.pos[2])); mesh.setColorAt(l.i, c); }
+  mesh.frustumCulled = false; mesh.userData.role = 'ferris';
+  return { mesh, list };
+}
+
+const RGB = [0, 0, 0];
+// the light show at t seconds: every LED's colour from ledColour (one reused array, no allocation)
+export function setWheelLights(handle, t) {
+  const col = handle.leds.instanceColor.array;
+  for (const l of handle.ledList) { ledColour(l, t, RGB); col[l.i * 3] = RGB[0]; col[l.i * 3 + 1] = RGB[1]; col[l.i * 3 + 2] = RGB[2]; }
+  handle.leds.instanceColor.needsUpdate = true;
+}
+
+// #588: the fireworks -- one Points with a fixed pool (5 bursts x 2 salvos x particles), additive vertex colours, in the wheel's frame
+const FW_SLOTS = 10, parsed = new Map();
+export function buildFireworks(cfg = FERRIS) {
+  const n = FW_SLOTS * cfg.fireworks.particles, g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  const points = new THREE.Points(g, new THREE.PointsMaterial({ size: 2.5, sizeAttenuation: true, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  points.frustumCulled = false; points.userData.role = 'ferris';
+  return { points, live: 0 };
+}
+const PART = [0, 0, 0, 0];
+// fills the slots from burstsLive(t); unused slots park at the origin with fade 0 (black adds nothing). Returns the live particle count.
+export function setFireworks(fw, t, cfg = FERRIS) {
+  const P = cfg.fireworks.particles, pos = fw.points.geometry.attributes.position, col = fw.points.geometry.attributes.color, bursts = burstsLive(t, cfg);
+  let live = 0;
+  for (let s = 0; s < FW_SLOTS; s++) {
+    const b = bursts[s]; let rgb = null;
+    if (b) { rgb = parsed.get(b.colour); if (!rgb) { const c = new THREE.Color(b.colour); rgb = [c.r, c.g, c.b]; parsed.set(b.colour, rgb); } }
+    for (let j = 0; j < P; j++) {
+      const k = (s * P + j) * 3;
+      if (!b) { pos.array[k] = pos.array[k + 1] = pos.array[k + 2] = col.array[k] = col.array[k + 1] = col.array[k + 2] = 0; continue; }
+      particle(b, j, t - b.t0, PART, cfg);
+      pos.array[k] = PART[0]; pos.array[k + 1] = PART[1]; pos.array[k + 2] = PART[2]; col.array[k] = rgb[0] * PART[3]; col.array[k + 1] = rgb[1] * PART[3]; col.array[k + 2] = rgb[2] * PART[3];
+    }
+    if (b) live += P;
+  }
+  pos.needsUpdate = true; col.needsUpdate = true; fw.live = live;
+  return live;
 }
 
 // the turn: the wheel rotates about its axle and every gondola pivot counter-rotates by the same angle

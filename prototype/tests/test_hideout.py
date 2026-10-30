@@ -1282,7 +1282,7 @@ def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(serve
 
 @needs_world
 def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(server, tmp_path):
-    """Entering spoke 6 builds the Ferris wheel (112 m, 32 gondolas) from primitives -- no model file is fetched; a foot is solid, the room
+    """Entering spoke 6 builds the Ferris wheel (265.75 m, 48 gondolas, LED show, fireworks) from primitives -- no model file is fetched; a foot is solid, the room
     centre (under the rim) and the lawn beside it are open; the wheel turns and the gondolas hang upright. Leaves a screenshot."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
@@ -1293,12 +1293,16 @@ def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(ser
         into_room(page, 6, "room6")
         page.wait_for_function("() => window.__mm.ferris() && window.__mm.ferris().built === 6", timeout=120000)
         w0 = page.evaluate("() => window.__mm.ferris()")
-        page.wait_for_timeout(1500)
+        page.wait_for_timeout(2500)
         w1 = page.evaluate("() => window.__mm.ferris()")
+        sparks = max(w0["sparks"], w1["sparks"])   # #588: fireworks fire every ~10 s; poll up to 25 s of wall clock
+        for _ in range(60):
+            if sparks > 0: break
+            page.wait_for_timeout(500); sparks = max(sparks, page.evaluate("() => window.__mm.ferris().sparks"))
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
         push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(6, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
-          return { foot: p(8, 30), centre: p(0, 0), beside: p(0, 60) }; }""")
-        view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(6, 0).th; return { x: v.x - Math.cos(th) * 170, z: v.z - Math.sin(th) * 170, th }; }")
+          return { foot: p(17, 62), centre: p(0, 0), beside: p(0, 62) }; }""")
+        view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(6, 0).th; return { x: v.x - Math.cos(th) * 235, z: v.z - Math.sin(th) * 235, th }; }")
         page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
         page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
         page.screenshot(path=str(tmp_path / "ferris-room.png"))
@@ -1306,7 +1310,8 @@ def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(ser
     print("screenshot:", tmp_path / "ferris-room.png")
     assert errors == []
     assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design
-    assert w0["built"] == 6 and abs(w0["h"] - 112) < 1e-6 and w0["gondolas"] == 32 and 1500 <= w0["tris"] <= 30000 and w0["colliders"] == 4, w0
+    assert w0["built"] == 6 and abs(w0["h"] - 265.75) < 1e-6 and w0["gondolas"] == 48 and 1500 <= w0["tris"] <= 150000 and w0["colliders"] == 4, w0
+    assert 1500 <= w0["leds"] <= 2500 and w1["ledSample"] != w0["ledSample"] and sparks > 0, (w0, w1, sparks)   # #588
     assert w1["angle"] != w0["angle"], (w0, w1)
     assert abs(w1["gondolaAngle"] + w1["wheelRotation"]) < 1e-9, w1
     assert info["below"]["built"] == 6 and info["below"]["level"] == "room6" and info["below"]["object"] is True and info["counts"].get("ferris") == 1 and "eiffel" not in info["counts"], info
