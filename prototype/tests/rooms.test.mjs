@@ -16,13 +16,14 @@ const reach = (R, step = 4) => {   // flood fill in the room's frame from the sp
   return { seen, step };
 };
 
-test('ROOMS_EightRooms_EiffelAtomiumArtemisAndTitanicHaveAnObject', () => {
+test('ROOMS_EightRooms_EiffelAtomiumArtemisFerrisAndTitanicHaveAnObject', () => {
   assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'atomium', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
   assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel');
   assert.equal(ROOMS[1].object, ATOMIUM); assert.equal(ROOMS[1].name, 'Atomium');
   assert.equal(ROOMS[2].object, ARTEMIS); assert.equal(ROOMS[2].name, 'Artemis II'); assert.equal(ROOMS[2].signed, false);
+  assert.equal(ROOMS[6].object, FERRIS); assert.equal(ROOMS[6].name, 'Ferris wheel'); assert.equal(ROOMS[6].signed, false);
   assert.equal(ROOMS[7].object, TITANIC); assert.equal(ROOMS[7].name, 'Titanic'); assert.equal(ROOMS[7].signed, false);
-  for (const r of ROOMS.slice(3, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }
+  for (const r of ROOMS.slice(3, 6)) { assert.equal(r.object, null); assert.equal(r.name, null); }
   assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
 });
 
@@ -302,4 +303,26 @@ test('roomLayout_SpaceLook_FreeFromTheSpawnToTheCentreAndEveryCorner', () => {
   assert.ok(!blocked(R, R.spawn.x, R.spawn.z) && !blocked(R, ...R.centre));
   for (const [a, b] of [[450, 450], [450, -450], [-450, 450], [-450, -450], [-125, 0], [0, 240]]) assert.ok(!blocked(R, ...toWorld(R, a, b)), `free at ${a}, ${b}`);
   for (const [a, b] of [[499, 0], [0, -499]]) assert.ok(blocked(R, ...toWorld(R, a, b)), `walled at ${a}, ${b}`);
+});
+
+// #513: the Ferris wheel -- star room 6
+import { FERRIS } from '../ferris.js';
+const ferris = rooms[6];
+test('roomLayout_Room6HoldsTheFerrisWheelOnTheCentre_UnsignedLikeTheOthers', () => {
+  assert.deepEqual([ferris.tower.x, ferris.tower.z], ferris.centre); assert.deepEqual(ferris.feet, []); assert.equal(ferris.hull.length, 0); assert.equal(ferris.basin, null); assert.equal(ferris.artemis, null);
+  assert.ok(ferris.ferris); assert.deepEqual([ferris.ferris.wheel.x, ferris.ferris.wheel.z], ferris.centre);
+  assert.ok(ferris.towerView && !blocked(ferris, ferris.towerView.x, ferris.towerView.z));
+  for (const R of rooms.filter(r => r.k !== 6)) assert.equal(R.ferris, null);
+});
+
+test('roomLayout_Room6_FeetAreSolid_UnderTheWheelAndTheGravelLoopAreFree_TwoPaths', () => {
+  for (const c of ferris.ferris.colliders) assert.ok(blocked(ferris, c.x, c.z, 0), 'a foot');
+  for (const [a, b] of [[0, 0], [0, 20], [95, 0], [0, -95], [-30, 0]]) assert.ok(!blocked(ferris, ...toWorld(ferris, a, b)), `free at ${a},${b}`);
+  assert.equal(ferris.paths.length, 2);
+  for (const [x, z] of ferris.paths[1].pts) assert.ok(!blocked(ferris, x, z), 'the 95 m loop is drivable');
+});
+
+test('roomLayout_Room6_TheCarReachesBothSidesOfTheWheel', () => {
+  const r = reach(ferris), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
+  assert.ok(cell(0, 0) && cell(0, 45) && cell(0, -45) && cell(45, 0), 'under the rim and on all sides'); assert.ok(r.seen.size > 4000);
 });
