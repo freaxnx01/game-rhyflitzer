@@ -39,6 +39,16 @@ function walkStep(s, input, dt, floor, cfg) {
   return y <= floor ? { ...s, y: floor, vy: 0 } : { ...s, y, vy };
 }
 
+// #592: the camera's eye height eases out over a tread snap; the body's y (physics) stays exact.
+export const EYE_EASE = { tau: 0.05, minStep: 0.05 };
+export function easeEye(prev, y, steady, dt, cfg = WALKER, ease = EYE_EASE) {
+  if (!prev || !steady) return { y, off: 0 };
+  const dy = y - prev.y;
+  if (Math.abs(dy) > cfg.stepUp) return { y, off: 0 };
+  const raw = Math.abs(dy) >= ease.minStep ? prev.off - dy : prev.off;
+  return { y, off: clamp(raw * Math.exp(-dt / ease.tau), -cfg.stepUp, cfg.stepUp) };
+}
+
 const inside = (o, x, z) => {
   const dx = x - o.x, dz = z - o.z;
   if (o.circle) return Math.hypot(dx, dz) <= o.circle;
