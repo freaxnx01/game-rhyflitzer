@@ -18,6 +18,14 @@ test('legacyTarget: a site under a base path keeps the base', () => {
   assert.equal(legacyTarget('/game-rhyflitzer/prototype/', '?debug', ''), '/game-rhyflitzer/?debug');
 });
 
+test('legacyTarget: never leaves the site (no open redirect through //host or /\\host)', () => {
+  for (const path of ['/prototype//evil.example', '/prototype///evil.example/x', '/prototype/\\evil.example', '/prototype/\\/evil.example']) {
+    const target = legacyTarget(path, '', '');
+    assert.equal(new URL(target, 'https://rhyflitzer.freaxnx01.ch/').host, 'rhyflitzer.freaxnx01.ch', `${path} -> ${target}`);
+    assert.match(target, /^\/[^/\\]/, `${path} -> ${target}`);
+  }
+});
+
 test('legacyTarget: anything that is not an old prototype path is left alone', () => {
   for (const path of ['/', '/index.html', '/missing.html', '/prototypes/', '/my-prototype/x', '/docs/prototype.md']) {
     assert.equal(legacyTarget(path, '?a', '#b'), null, path);
