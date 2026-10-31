@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-10-31 17:35` **Gras** wächst nicht mehr über den **Asphalt**, wenn eine Strasse quer über einen Geländeknick läuft — etwa auf der **Geuerenstrasse** westlich der Plattform Sisslerfeld, wo auf 40 m grüne Streifen auf der Fahrbahn lagen. Die **Fahrbahnmarkierungen** liegen jetzt auf der gezeichneten Strasse statt darunter zu versinken, und unter dem Widerlager der **Fridolinsbrücke** wird keine Mittellinie mehr in den Stein gemalt.
 - `2026-10-30 16:44` The orange and red bands on the **speedometer** now follow the dial in a clean circle; before, they bulged inward and overlapped between 140 and 160 km/h.
 - `2026-10-30 15:32` Stepping through the **garage** no longer shows a **low-poly Mini** (or bus) for a moment before the detailed model: the car on stage stays until the model has loaded, like with every other car.
 - `2026-10-29 21:16` Die **Hausnummern-Schilder** sitzen jetzt auf der **echten Hauswand** statt davor in der Luft, und bei Häusern mit bekannter Strasse hängen sie auf der Seite der **richtigen Strasse** (z.B. Bodenackerstrasse 6: Ostseite zur Bodenackerstrasse, nicht Westseite zum Badweg).
