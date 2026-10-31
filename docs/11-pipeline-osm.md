@@ -48,8 +48,10 @@ The build (seconds, on any machine):
 
 ```bash
 cd pipeline
+python fields_ch.py fetch --out cache/lwb/hochrhein.geojson   # #506: the cantonal farm parcels (once, ~7 MB)
 python osm.py build --pbf cache/osm/hochrhein.osm.pbf \
-    --mmh ../data/terrain_hochrhein.mmh --out ../data/world_hochrhein.json
+    --mmh ../data/terrain_hochrhein.mmh --out ../data/world_hochrhein.json \
+    --fields cache/lwb/hochrhein.geojson
 ```
 
 Options: `--bbox W S E N`, `--origin LAT LON` (same defaults as `terrain.py`), `--house-dist 30`, `--big-building-area 1000`, `--anchors anchors.json`. Without `--mmh` the water levels fall back to 0.
@@ -76,6 +78,7 @@ Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two 
   "props":     [{ kind, x, z, rot }],
   "parking":   [{ id, name?, ring: [[x, z], ...], holes?, bays, lines: [[ax, az, bx, bz], ...], sign?: [x, z, rot] }],
   "forests":   [{ ring: [[x, z], ...], holes?: [[[x, z], ...]] }],
+  "fields":    [{ kind, ring: [[x, z], ...], holes?, dir, src }],   // #506: kind = cereal|maize|rapeseed|root|fallow|bare|meadow|meadowDry|pasture|orchard|vine, src = lwb|osm
   "boundaries": [{ id, names: [a, b], pts: [[x, z], ...] }],
   "anchors":   { landmarks, cps, labels, areas, start, finish }
 }
@@ -128,6 +131,8 @@ Counts measured on the 2026-10-01 extract while the design was written; the buil
 **Game-only roads (#42).** `anchors.json` `roads` lists roads OSM lacks or tags as track/construction/proposed. Each piece is assembled from OSM ways (whole, or a `from`/`to` sub-range) and hand points and becomes ordinary road entries with a negative id; an optional `path` adds a cycleway ribbon at a fixed offset. `replace` removes the OSM ribbons a game road takes over (within 1 m), `trim` removes ways within `hw + 24 m` of a grade. A `grade` exports `grades[]`: the centreline of the graded stretch, a corridor half-width `hw` and controls `[t, cut]` (metres along it, metres below the uncut terrain; first and last cut 0). Rail within `hw + 24 m` of a grade moves to `railBridges` (layer 1), and the prototype cuts the grade into #76's terrain patch. Game roads are added after the OSM roads are built: buildings, props and car parks see only the OSM roads, so they do not change; the forests see the game roads too, so no wood grows over them. The Südspange ESP Sisslerfeld (Kanton Aargau, kNP 2023) is the first one.
 
 **Forests (#13).** `landuse=forest` and `natural=wood` areas are repaired, clipped and merged into one set of outlines. Every exported road — bridges and footways included — cuts a corridor of `w/2 + 5 m` through them, car parks are cut out with 3 m, parts and holes under 500 m² are dropped, and the rings are simplified by 1 m and rounded to 0.1 m. Names and `leaf_type` are not kept (2 of 595 areas are named). The prototype places the trees itself from the outlines (edge row every 6 m, fill 1/600 m², cap 70,000, seeded). Every forest tree is solid at the trunk like a scattered tree (#131, #211), so the car drives into a wood and between its trees, on a slower forest floor, and drives every road through one. Real extract: about 160 parts, 15.7 km², 248 km of edge, ≈ 115 KB. Design: `docs/superpowers/specs/2026-10-03-forests-design.md`.
+
+**Farm fields (#506).** The Kanton Aargau "Landwirtschaftliche Nutzungsflächen" (geodienste.ch WFS, one `fields_ch.py fetch` into `cache/lwb/`, never inside `build_world`) give a crop per parcel (`lnf_code` → `kind`; overlays and 8xx/9xx dropped); OSM `landuse=farmland|meadow|orchard|vineyard` fills only where the cantonal data has nothing (the German bank), `farmland` getting a deterministic crop by `id % 5`. Every parcel keeps `w/2 + 1 m` off roads (bridges included), 3 m off rail and car parks — the #290 guarantee is made here, structurally — then a 1.5 m grass seam insets each parcel by 0.75 m and parts under 300 m² drop. Rings simplify by 1 m **before** the corridor cut (a simplify afterwards can bulge an edge up to its tolerance back into the 1 m gap; measured 98 violations on the real data, 0 with the right order), and `dir` is the parcel's long side for the furrow direction. Farm identifiers (`identifikator_be`, `nutzungsidentifikator`) are never exported. Real data (2026-10-31): 4730 fetched features, ~3500 parcels, ~2440 ha on the Swiss side, all eleven kinds. Design: `docs/superpowers/specs/2026-10-31-farm-fields-design.md`.
 
 **Water.** Rivers, lakes and riverbanks as polygons, cut into chunks along the river. Each chunk gets a level: the median of the measured terrain inside it, ignoring DEM nodata (exactly 0.0). Chunks with no valid sample inherit their polygon's median, narrow polygons use the terrain at a representative point, and all-nodata means 0.0. The Rhine sits about 5.5 m above the base near Sisseln (the Säckingen power plant reservoir), about -1.5 m downstream, with a step of about 7 m at the Säckingen weir. The base height 284 m is **not** the Sisseln water level.
 
@@ -326,6 +331,7 @@ A world built with the region editor opens as `?world=<12 hex>` (the id is lower
 - The German side is flat at the base height until LGL DGM1 is added to the terrain, so water can sit above flat German banks. Water levels ignore the DEM nodata fill for the same reason.
 - A missing world file is one accepted 404 line in the browser console. Since 2026-10-01 `data/world_hochrhein.json` and `data/terrain_hochrhein.mmh` are committed and served on GitHub Pages (licences in `data/README.md`); the world file is offered under the ODbL. Rebuild and commit both after a pipeline change.
 - Ortstafeln are not from OSM yet. Roofs are flat or gable until step 3.
+- Generated worlds (`osm.py world`, #166) get OSM-fallback fields only: no `fields_ch.py fetch` step is wired there, and `osm_cut.RELATION_FILTERS` does not complete farmland relations (closed ways still work).
 - Props come from OSM positions, which are often a few metres off; the edge rule keeps them out of the lanes, but some end up in a driveway or on a sidewalk. Street furniture that OSM does not map (paper-collection bundles, straw bales) is not there.
 - Markings use the innerorts rhythm everywhere, are not interrupted at junction mouths, and bridge decks carry none.
 - A world file with the right format tag but missing fields is not caught and breaks the page; delete or rebuild the file.
@@ -336,3 +342,4 @@ A world built with the region editor opens as `?world=<12 hex>` (the id is lower
 - Terrain and water levels: swissALTI3D © swisstopo
 - Switzerland outline: swissBOUNDARIES3D © swisstopo
 - Heights of buildings (Swiss side) and the DSM landmarks (chimney, water tower): swissSURFACE3D © swisstopo
+- Farm fields (Swiss side): Landwirtschaftliche Nutzungsflächen © Kanton Aargau, [geodienste.ch](https://geodienste.ch/services/lwb_nutzungsflaechen) (free use, attribution required)

@@ -148,3 +148,61 @@ def test_build_drops_small_parts_and_clips():
     feats = [lwb(513, rect(1900, 0, 2100, 100)), lwb(513, rect(500, 500, 515, 515))]
     fields, stats = WFI.build(feats, [], [], [], CLIP, FRAME)
     assert len(fields) == 1 and poly(fields[0]).bounds[2] <= 2000 and stats["dropped_small"] == 1
+
+
+WORLD = Path(__file__).resolve().parents[2] / "data" / "world_hochrhein.json"
+
+
+def _world_has_lwb_fields() -> bool:
+    """The committed world file carries cantonal fields only when it was built with --fields."""
+    if not WORLD.exists():
+        return False
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    return any(f.get("src") == "lwb" for f in w.get("fields", []))
+
+
+needs_fields_world = pytest.mark.skipif(not _world_has_lwb_fields(),
+                                        reason="data/world_hochrhein.json was not built with --fields (docs/11-pipeline-osm.md)")
+
+
+def test_osm_build_world_wires_fields_geojson_and_sources(tmp_path):
+    """--fields flows through build_world into the world file's fields and sources; without it the OSM fallback runs
+    (the synthetic extract has no farmland, so without --fields the world has no fields at all)."""
+    import frame as frame_mod
+    import osm
+    from tests import synth_osm
+    org = frame_mod.origin(synth_osm.RECT)
+    fr = Frame(*org)
+    pbf = synth_osm.write(tmp_path / "synth.osm")
+
+    def lwb_at(code, x0, z0, x1, z1):
+        ring = rect(x0, z0, x1, z1)
+        coords = [[fr.e0 + x, fr.n0 - z] for x, z in ring] + [[fr.e0 + x0, fr.n0 - z0]]
+        return {"type": "Feature", "properties": {"lnf_code": code, "ist_ueberlagernd": False},
+                "geometry": {"type": "MultiPolygon", "coordinates": [[coords]]}}
+
+    gj = tmp_path / "lwb.geojson"
+    gj.write_text(json.dumps({"type": "FeatureCollection", "features": [
+        lwb_at(513, 0, -250, 200, -60), lwb_at(902, -500, -500, -400, -400)]}), encoding="utf-8")
+    world = osm.build_world(pbf, None, frame_mod.lonlat_bbox(synth_osm.RECT), org, 30.0, 1000.0, None)
+    assert world["fields"] == [] and not any("Kanton Aargau" in s for s in world["sources"])
+    world = osm.build_world(pbf, None, frame_mod.lonlat_bbox(synth_osm.RECT), org, 30.0, 1000.0, None, fields_geojson=gj)
+    assert [f["kind"] for f in world["fields"]] == ["cereal"] and world["fields"][0]["src"] == "lwb"
+    assert any("Kanton Aargau" in s for s in world["sources"])
+
+
+@needs_fields_world
+def test_real_world_fields_cover_the_swiss_side_and_keep_off_roads():
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    fields = w.get("fields", [])
+    assert len(fields) >= 3000, len(fields)
+    assert sum(poly(f).area for f in fields) / 1e4 >= 2500
+    assert {f["kind"] for f in fields} >= set(WFI.KINDS) - {"vine"}      # vines are rare in the bbox; everything else must occur
+    assert {f["src"] for f in fields} == {"lwb", "osm"}
+    assert any("Kanton Aargau" in s for s in w["sources"])
+    corridors = shapely.unary_union([shapely.LineString(r["pts"]).buffer(r["w"] / 2 + WFI.FIELD_GAP - 0.05)
+                                     for r in w["roads"] if len(r["pts"]) > 1])
+    shapely.prepare(corridors)
+    tree = shapely.STRtree([poly(f) for f in fields])
+    hits = [i for i in tree.query(corridors, predicate="intersects")]
+    assert hits == [], f"{len(hits)} fields touch a road corridor, e.g. {fields[hits[0]]['ring'][:2]}"
