@@ -967,18 +967,21 @@ export function trisHeightAt(tris, x, z) {
 // Per quad (A/B = left/right at i, D/C at i + 1, drawn as (A,B,C) and (A,C,D) like ribbonGeo emits them) a lattice at most
 // `across` m apart across and `along` m along, edges included; both ends of the quad take its worst excess. Lifting a quad's
 // four corners by e raises both its triangles by e and its neighbours only rise, so one pass is enough.
+// The whole region's roads are ~9 million samples: the triangle pair and the point handed to hAt are two scratch buffers
+// reused for all of them, so sampling allocates nothing (the browser sits close to its memory budget while a world builds).
 export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
-  const n = left.length, up = new Float64Array(n);
+  const n = left.length, up = new Float64Array(n), tris = new Float64Array(18), at = [0, 0];
   for (let i = 0; i < n - 1; i++) {
-    const A = [left[i][0], hl[i], left[i][1]], B = [right[i][0], hr[i], right[i][1]], C = [right[i + 1][0], hr[i + 1], right[i + 1][1]], D = [left[i + 1][0], hl[i + 1], left[i + 1][1]];
-    const tris = [...A, ...B, ...C, ...A, ...C, ...D];
-    const wide = Math.max(Math.hypot(B[0] - A[0], B[2] - A[2]), Math.hypot(C[0] - D[0], C[2] - D[2])), long = Math.max(Math.hypot(D[0] - A[0], D[2] - A[2]), Math.hypot(C[0] - B[0], C[2] - B[2]));
+    const axl = left[i][0], azl = left[i][1], axr = right[i][0], azr = right[i][1], dxl = left[i + 1][0], dzl = left[i + 1][1], cxr = right[i + 1][0], czr = right[i + 1][1];
+    tris.set([axl, hl[i], azl, axr, hr[i], azr, cxr, hr[i + 1], czr, axl, hl[i], azl, cxr, hr[i + 1], czr, dxl, hl[i + 1], dzl]);
+    const wide = Math.max(Math.hypot(axr - axl, azr - azl), Math.hypot(cxr - dxl, czr - dzl)), long = Math.max(Math.hypot(dxl - axl, dzl - azl), Math.hypot(cxr - axr, czr - azr));
     const nu = Math.max(1, Math.ceil(wide / across)), nv = Math.max(1, Math.ceil(long / along));
     let e = 0;
     for (let a = 0; a <= nu; a++) for (let b = 0; b <= nv; b++) {
-      const u = a / nu, v = b / nv, lx = A[0] + (D[0] - A[0]) * v, lz = A[2] + (D[2] - A[2]) * v, rx = B[0] + (C[0] - B[0]) * v, rz = B[2] + (C[2] - B[2]) * v;
-      const x = lx + (rx - lx) * u, z = lz + (rz - lz) * u, drawn = trisHeightAt(tris, x, z);
-      if (drawn !== -Infinity) e = Math.max(e, hAt([x, z]) - drawn);
+      const u = a / nu, v = b / nv, lx = axl + (dxl - axl) * v, lz = azl + (dzl - azl) * v, rx = axr + (cxr - axr) * v, rz = azr + (czr - azr) * v;
+      at[0] = lx + (rx - lx) * u; at[1] = lz + (rz - lz) * u;
+      const drawn = trisHeightAt(tris, at[0], at[1]);
+      if (drawn !== -Infinity) e = Math.max(e, hAt(at) - drawn);
     }
     up[i] = Math.max(up[i], e); up[i + 1] = Math.max(up[i + 1], e);
   }
