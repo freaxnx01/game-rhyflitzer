@@ -984,3 +984,44 @@ export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
   }
   return up;
 }
+
+// #290: the height of a registered strip (sf = { pts, hw, hl, hr }) at (x, z) with the split it is drawn with -- triangle
+// (A,B,C) where f >= t, (A,C,D) elsewhere, as surfH reads it -- on the nearest segment; null where the strip does not reach
+export function surfTriAt(sf, x, z) {
+  const { pts, hw, hl, hr } = sf; let best = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue;
+    const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / L2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t);
+    if (!best || d < best.d) best = { d, i, t, f: Math.min(1, Math.max(0, (((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2) / hw + 1) / 2)) };
+  }
+  if (!best || best.d > hw + 0.01) return null;
+  const { i, t, f } = best, hA = hl[i], hB = hr[i], hC = hr[i + 1], hD = hl[i + 1];
+  return f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f);
+}
+// #290: pts plus every point where the line crosses a fold of the strip under it -- a segment's transverse edge (s = 0, 1)
+// or its diagonal (t = f) -- so heights from surfTriAt at the points, linear in between, lie on the drawn triangles
+export function surfFolds(sf, pts) {
+  const out = [pts[0]], eps = 1e-4;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const p = pts[k], q = pts[k + 1], us = [], i0 = nearestOnPolyline(sf.pts, (p[0] + q[0]) / 2, (p[1] + q[1]) / 2).i;
+    for (let i = Math.max(0, i0 - 2); i <= Math.min(sf.pts.length - 2, i0 + 2); i++) {
+      const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue;
+      const len = Math.sqrt(L2), local = ([x, z]) => [((x - ax) * dx + (z - az) * dz) / L2, (((x - ax) * -dz + (z - az) * dx) / len / sf.hw + 1) / 2];
+      const [s0, f0] = local(p), [s1, f1] = local(q), ds = s1 - s0, df = f1 - f0, cand = [];
+      if (ds) cand.push(-s0 / ds, (1 - s0) / ds);
+      if (ds !== df) cand.push((f0 - s0) / (ds - df));
+      for (const u of cand) { const s = s0 + ds * u, f = f0 + df * u; if (u > eps && u < 1 - eps && s >= -eps && s <= 1 + eps && f >= -eps && f <= 1 + eps) us.push(u); }
+    }
+    us.sort((a, b) => a - b);
+    let last = 0; for (const u of us) { if (u - last < eps) continue; out.push([p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u]); last = u; }
+    out.push(q);
+  }
+  return out;
+}
+// #290: the runs of consecutive points that pass keep (runs of one point dropped)
+export function keptRuns(pts, keep) {
+  const runs = []; let run = null;
+  for (const p of pts) { if (keep(p)) (run ??= []).push(p); else if (run) { runs.push(run); run = null; } }
+  if (run) runs.push(run);
+  return runs.filter(r => r.length > 1);
+}

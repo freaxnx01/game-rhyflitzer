@@ -5,7 +5,7 @@ import { oldNationalBorder, apartRuns } from '../world.js';
 import { borderCrossing, BORDER } from '../holzbruecke.js';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rollingDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
-import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift } from '../world.js';
+import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift, surfTriAt, surfFolds, keptRuns } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -1413,4 +1413,33 @@ test('ribbonLift leaves a strip on a plane alone', () => {
   const plane = ([x, z]) => 0.1 * x + 0.05 * z;
   const up = ribbonLift(QL, QR, [plane(QL[0]), plane(QL[1])], [plane(QR[0]), plane(QR[1])], plane);
   assert.ok(Math.max(...up) < 1e-9, `up ${[...up]}`);
+});
+
+// #290: a strip one 4 m segment long along +x, hw 2, twisted: corners A (left 0) 0, B (right 0) 1, C (right 1) 0, D (left 1) 1
+const TWIST = { pts: [[0, 0], [4, 0]], hw: 2, hl: [0, 1], hr: [1, 0] };
+
+test('surfTriAt reads the drawn diagonal, not the bilinear centre', () => {
+  assert.ok(Math.abs(surfTriAt(TWIST, 2, 0) - 0) < 1e-9);       // on the diagonal A-C: 0 (bilinear would be 0.5)
+  assert.ok(Math.abs(surfTriAt(TWIST, 0, 0) - 0.5) < 1e-9);     // transverse edge A-B, halfway
+  assert.ok(Math.abs(surfTriAt(TWIST, 1, 0) - 0.25) < 1e-9);    // t 0.25, f 0.5: triangle (A,B,C)
+  assert.equal(surfTriAt(TWIST, 2, 2.5), null);                 // 2.5 m off the centre line, hw 2: not on the strip
+});
+
+test('surfFolds adds the diagonal crossing, so a line between its points stays on the drawn strip', () => {
+  const line = surfFolds(TWIST, [[0, 0], [4, 0]]);
+  assert.deepEqual(line.map(([x, z]) => [+x.toFixed(6), +z.toFixed(6)]), [[0, 0], [2, 0], [4, 0]]);
+  for (const x of [0.5, 1, 1.5, 2.5, 3, 3.5]) {                 // linear between the fold points == the drawn surface
+    const k = x < 2 ? 0 : 1, [a, b] = [line[k], line[k + 1]], u = (x - a[0]) / (b[0] - a[0]);
+    const lin = surfTriAt(TWIST, ...a) * (1 - u) + surfTriAt(TWIST, ...b) * u;
+    assert.ok(Math.abs(lin - surfTriAt(TWIST, x, 0)) < 1e-9, `x ${x}`);
+  }
+});
+
+test('surfFolds leaves a line off the strip as it is', () => {
+  assert.deepEqual(surfFolds(TWIST, [[0, 5], [4, 5]]), [[0, 5], [4, 5]]);
+});
+
+test('keptRuns splits a polyline around the dropped points', () => {
+  const pts = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0]];
+  assert.deepEqual(keptRuns(pts, ([x]) => x !== 2 && x !== 5), [[[0, 0], [1, 0]], [[3, 0], [4, 0]]]);
 });
