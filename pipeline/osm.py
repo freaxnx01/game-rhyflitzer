@@ -222,9 +222,9 @@ def main(argv=None) -> int:
     b.add_argument("--big-building-area", type=float, default=1000.0)
     b.add_argument("--anchors", default=str(Path(__file__).with_name("anchors.json")))
     b.add_argument("--dsm-heights", nargs="?", const="cache", default=None, metavar="CACHE",
-                    help="building heights from swissSURFACE3D minus swissALTI3D (downloads ~40 tiles into CACHE/swisssurface3d)")
+                   help="building heights from swissSURFACE3D minus swissALTI3D (downloads ~40 tiles into CACHE/swisssurface3d)")
     b.add_argument("--fields", default=None, metavar="GEOJSON",
-                    help="#506: cantonal Nutzungsfl\u00e4chen from fields_ch.py fetch; without it fields come from OSM landuse only")
+                   help="#506: cantonal Nutzungsfl\u00e4chen from fields_ch.py fetch; without it fields come from OSM landuse only")
     w = sub.add_parser("world", help="#166: any Swiss rectangle -> world.json + terrain.mmh + meta.json")
     where = w.add_mutually_exclusive_group(required=True)
     where.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), help="lon/lat box, snapped to 250 m LV95")
