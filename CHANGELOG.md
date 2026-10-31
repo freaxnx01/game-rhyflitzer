@@ -22,6 +22,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-31 19:32` New car **Rhy Papaya**, a P1 look-alike without the badge in **papaya orange**: a hybrid V8 behind the seats, 280 km/h, lighter than the Rhy Hyper and with **the most grip** of all cars, the one for corners. Paintable. 3D model „McLaren P1" by hartwelkisaka (Sketchfab), CC BY 4.0.
 - `2026-10-31 19:17` New car **Rhy Hyper**, a Chiron look-alike without the badge and the new **fastest car**: sixteen cylinders behind the seats, **300 km/h** and nitro on top, two-tone blue from the factory. Paint it in any colour, including the new **Racing blue**; the dark side stays. 3D model „Free Bugatti Chiron" by ALIEEEN (Sketchfab), CC BY 4.0.
 - `2026-10-30 21:01` The **Ferris wheel** in **star room 6** has grown into a **record wheel**: 250 m tall with 48 gondolas, at **dusk**. Thousands of LEDs on the rim and spokes play a **light show** that changes every few seconds, and **fireworks** burst over the wheel.
 - `2026-10-30 14:40` A **Ferris wheel** now stands in **star room 6** (the sixth spoke off the ring): 112 m tall with 32 gondolas that always hang upright while the wheel turns slowly. You can drive under the rim; the four feet are solid.

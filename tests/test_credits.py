@@ -168,3 +168,17 @@ def test_hyper_model_is_credited_everywhere():
 def test_hyper_model_is_committed_and_small():
     glb = ROOT / "assets" / "hyper.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_mclaren_model_is_credited_everywhere():
+    """"McLaren P1" by hartwelkisaka, CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "assets/mclaren.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "hartwelkisaka" in t and "CC BY 4.0" in t and "McLaren P1" in t, f
+    strings = (ROOT / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditMclaren") == 2 and 'data-i18n="creditMclaren"' in (ROOT / "index.html").read_text(encoding="utf-8")
+
+
+def test_mclaren_model_is_committed_and_small():
+    glb = ROOT / "assets" / "mclaren.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
