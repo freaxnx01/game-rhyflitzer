@@ -1,4 +1,4 @@
-// prepare-mini.mjs — builds prototype/assets/mini.glb from the Sketchfab "Mr Bean Car FBX" (Sxi.Sai, CC BY 4.0,
+// prepare-mini.mjs — builds assets/mini.glb from the Sketchfab "Mr Bean Car FBX" (Sxi.Sai, CC BY 4.0,
 // https://sketchfab.com/3d-models/mr-bean-car-fbx-428dfc665ab4473fa1cdc42e498e64b2). Issue #468.
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -7,7 +7,7 @@
 //   node prepare-mini.mjs <original.glb> <out.glb>
 // The original is 25 MB (two 4096² PNGs), 9.6k triangles: no simplifying, the size is all texture.
 //
-// Output contract (the same as tools/prepare-hatchback.mjs, what prototype/index.html relies on):
+// Output contract (the same as tools/prepare-hatchback.mjs, what index.html relies on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, footprint centred, length 3.05 m, no node transform left except the wheels'
 //   node "mini"                            the scene root
 //     node "body"                          everything that does not turn

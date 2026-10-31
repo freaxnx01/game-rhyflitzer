@@ -1,7 +1,7 @@
 // #169: the editor's side of the build API (phase 3, #168) and the swisstopo/geo.admin endpoints. Pure: node --test imports it.
-// API_BASE is the game's WORLD_HOST (#167, prototype/worlds.js): the ONE place that knows the host, shared with the game.
+// API_BASE is the game's WORLD_HOST (#167, worlds.js): the ONE place that knows the host, shared with the game.
 import { formatBbox } from './geo.js';
-import { WORLD_HOST, isWorldId } from '../prototype/worlds.js';
+import { WORLD_HOST, isWorldId } from '../worlds.js';
 
 export { isWorldId };
 export const API_BASE = WORLD_HOST;

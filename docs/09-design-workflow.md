@@ -8,7 +8,7 @@ How UI design moves between Claude Design (in the Claude app) and code (Claude C
 |---|---|---|
 | Design canvas "Map Madness UI Mockups" | Claude app (private artifact) | No, it's the editor |
 | Mockup sources (`*.dc.html`, `canvas.json`) | `design/mockups/` in git | **Yes** |
-| Implemented screens | `prototype/index.html` in git | Yes, for code |
+| Implemented screens | `index.html` in git | Yes, for code |
 
 Claude Code in the terminal can't open or edit a Design canvas. Design happens in the Claude app; code happens in the CLI.
 
@@ -32,7 +32,7 @@ Claude reads the existing mockups from the repo, adds the artboard to the same c
 git pull
 ```
 
-> Implement the pause menu from design/mockups/Pause.dc.html in prototype/index.html. Follow the UI mockups section in CLAUDE.md.
+> Implement the pause menu from design/mockups/Pause.dc.html in index.html. Follow the UI mockups section in CLAUDE.md.
 
 ## Rules
 
@@ -88,7 +88,7 @@ Use these; don't invent new ones.
 
 ## Implementing a screen (CLI checklist)
 
-- [ ] Plain HTML/CSS overlay in `prototype/index.html`, matching the mockup markup
+- [ ] Plain HTML/CSS overlay in `index.html`, matching the mockup markup
 - [ ] Scaled to the viewport, not fixed 1920 × 1080; works at phone width
 - [ ] Real `<button>` elements, visible focus, full keyboard navigation
 - [ ] Tokens and fonts from above, nothing new

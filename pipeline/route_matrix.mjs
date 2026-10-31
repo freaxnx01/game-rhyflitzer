@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// #179: the pipeline's bridge to the game's own A* (prototype/route.js), so "drivable" means drivable on the game's
+// #179: the pipeline's bridge to the game's own A* (route.js), so "drivable" means drivable on the game's
 // road graph: one A*, no Python port. Pure stdin -> stdout, no files.
 // stdin:  {"roads": [world roads], "points": [[x, z], ...], "pairs": [[i, j], ...], "maxSnap": 60}
 // stdout: {"snap": [{"x", "z", "d"} | null per point], "len": [route metres | null per pair]}
-import { buildGraph, snapToGraph, findRoute } from '../prototype/route.js';
+import { buildGraph, snapToGraph, findRoute } from '../route.js';
 
 const chunks = [];
 for await (const c of process.stdin) chunks.push(c);

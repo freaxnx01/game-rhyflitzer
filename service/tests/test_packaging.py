@@ -9,8 +9,9 @@ def test_dockerfile_has_osmium_node20_nonroot_and_the_factory():
     assert "FROM node:22-bookworm-slim@sha256:" in text and " AS node" in text and "COPY --from=node /usr/local/bin/node" in text
     assert "osmium-tool" in text and "USER app" in text
     assert '"rhyflitzer_api.app:create_app", "--factory"' in text
-    for path in ("pipeline/", "prototype/", "service/rhyflitzer_api/"):
+    for path in ("pipeline/", "service/rhyflitzer_api/"):
         assert f"COPY {path}" in text
+    assert "COPY route.js world.js ./" in text
 
 
 def test_runtime_dependencies_are_exactly_these():

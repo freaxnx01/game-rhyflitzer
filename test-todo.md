@@ -35,7 +35,7 @@ Screenshots: `docs/ai-notes/screenshots/2026-10-10-suedspange/`. **J** → „s�
 
 Screenshot: `design/screenshots/2026-10-pontoon-bridge-sisseln.png` — hulls 0.5 m out of the water, legs on the bank ramps, posts and rail bar, olive deck: does it read as a military pontoon bridge?
 
-The key is **U** („Übergang"), not **P** as the issue asked: **P** is the pause toggle (`prototype/pause.js:18`). Free letters were L, U, Y and Z; Y/Z sit on the wrong physical key for a Swiss keyboard because the game reads `e.code`.
+The key is **U** („Übergang"), not **P** as the issue asked: **P** is the pause toggle (`pause.js:18`). Free letters were L, U, Y and Z; Y/Z sit on the wrong physical key for a Swiss keyboard because the game reads `e.code`.
 
 - [ ] **J** → Sisseln, drive down the Innermattstrasse to the Rhine. The HUD shows „U · Pontonbrücke bauen"; **U** lays the bridge across in ~3 s, each bay drops in and settles. Does the build read as bay-by-bay, or too fast to see?
 - [ ] **U** again: the bridge disappears from the far end; standing on it you fall in and come back on the Innermattstrasse.
@@ -147,7 +147,7 @@ Screenshot: `docs/ai-notes/screenshots/2026-10-09-underwater.png` — murky blue
 - [ ] #73 repro: drive through Sisseln along the Hauptstrasse eastwards — no MURG (and no other name) over the houses.
 - [ ] On the Rhine bank between Sisseln and Murg, and on a Rhine bridge outside a village: names from both banks fade in; driving away from the river, the other bank's names fade out smoothly.
 - [ ] On the German bank (e.g. north of Murg): MURG and BAD SÄCKINGEN show, the Swiss names don't.
-- [ ] Driving into Sisseln, Stein or Bad Säckingen: the village's own name fades out smoothly and is gone inside the village (radius tuning: `VILLAGES[].r` in `prototype/world.js`).
+- [ ] Driving into Sisseln, Stein or Bad Säckingen: the village's own name fades out smoothly and is gone inside the village (radius tuning: `VILLAGES[].r` in `world.js`).
 - [ ] Far names fade out instead of popping; two names lined up behind each other stay readable (the nearer one on top).
 - [ ] Both graphic styles (T): names are not fogged.
 
@@ -155,10 +155,10 @@ Screenshot: `docs/ai-notes/screenshots/2026-10-09-underwater.png` — murky blue
 
 - [ ] F3 next to Bodenackerstrasse 6: a green height label floats above the house number, readable from the chase camera; the panel bottom left shows x/z/y, LV95, WGS84 and the nearest building. F3 again: everything gone, and the browser's "find" did not open.
 - [ ] Click the panel and paste into a bug report: the LV95 pair finds the spot in map.geo.admin.ch, the WGS84 pair in Google Maps.
-- [ ] Phone: `…/prototype/index.html?debug` opens with the panel on, top left, clear of the steering buttons.
+- [ ] Phone: `…/index.html?debug` opens with the panel on, top left, clear of the steering buttons.
 - [ ] #70: F3, stand right next to Bodenackerstrasse 6 (and the 38 m block at `155170807`) in every camera view (C): the height label is fully readable, sits on the upper façade, and rises back above the roof as you drive away. No visible jitter while driving.
 - [ ] #74: F3, then click **?**: the legend opens below the lines and explains every value; click **?** again to close it. Clicking **?** or the legend does not copy; clicking the lines still does. Switch EN/DE: labels and legend change at once.
-- [ ] #74 phone: `…/prototype/index.html?debug`, tap **?** — the legend is readable, and the panel still leaves the steering buttons free.
+- [ ] #74 phone: `…/index.html?debug`, tap **?** — the legend is readable, and the panel still leaves the steering buttons free.
 
 ## More landmarks in the J list (#46)
 
@@ -311,7 +311,7 @@ Screenshot: `docs/ai-notes/screenshots/2026-10-09-underwater.png` — murky blue
 
 ## Crash sound (#104)
 
-The numbers all live in one table (`sound.crash` per vehicle in `prototype/index.html`: `thump` 70 Hz is the
+The numbers all live in one table (`sound.crash` per vehicle in `index.html`: `thump` 70 Hz is the
 body's note, `noise` 1800 Hz the brightness, `weight` the length, `gain` the level) — tuning is a table edit.
 
 - [ ] Bump a house at about 15 km/h: a short, quiet tick, no bang.
@@ -358,7 +358,7 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 - [ ] F3 next to Bodenackerstrasse 6, then click **OSM**, **Maps** and **Street View**: three new tabs open at that spot, the game tab stays; Street View faces the same way as the car. No "popup blocked" bar.
 - [ ] Clicking a link does not show the "Copied" toast; clicking the text part of the panel still copies.
 - [ ] After a click, Enter honks and does not open another tab.
-- [ ] Phone (`…/prototype/index.html?debug`): the buttons in the top-left panel are tappable and open the map app or a new tab.
+- [ ] Phone (`…/index.html?debug`): the buttons in the top-left panel are tappable and open the map app or a new tab.
 - [ ] On the German side (Bad Säckingen): note what Street View shows where Google has no panorama.
 
 ## Ehrendingen region (#127)
@@ -452,7 +452,7 @@ is exactly what the file holds — the HUD, the minimap and the toast are DOM el
 ## Drone camera (#93)
 
 - [ ] **C** four times from the start: the toast says „Camera: Drone" / „Kamera: Drohne"; the view is high behind the car (about 18 m back, 12 m up) and the car with its shadow is in the picture.
-- [ ] Driving: the drone lags on acceleration and swings out in bends, then catches up; at rest it hovers gently. Does 18 / 12 feel right, or too high / too far? (`VEH.camera.drone` in `prototype/index.html`, `DRONE` in `prototype/camera.js`.)
+- [ ] Driving: the drone lags on acceleration and swings out in bends, then catches up; at rest it hovers gently. Does 18 / 12 feel right, or too high / too far? (`VEH.camera.drone` in `index.html`, `DRONE` in `camera.js`.)
 - [ ] Hold **B** in the drone view: it swings round in front, high, looking back past the car; let go and it returns without swinging through the car.
 - [ ] Beside the LANDI tower (**J** → LANDI) and the DSM halls: the drone pulls in and climbs over tall boxes instead of clipping through them; low houses are passed over.
 - [ ] **F** (helicopter) and back: the helicopter camera is unchanged; landing keeps the drone view if it was selected.

@@ -1,4 +1,4 @@
-// prepare-hatchback.mjs — builds prototype/assets/hatchback.glb from the Sketchfab "2020 Mazda 3 Hatchback" (OUTPISTON,
+// prepare-hatchback.mjs — builds assets/hatchback.glb from the Sketchfab "2020 Mazda 3 Hatchback" (OUTPISTON,
 // CC BY-NC-SA 4.0, https://skfb.ly/pAOpM). Issue #236; pipeline notes in docs/ai-notes/2026-10-22-vehicle-style-test.md.
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -10,7 +10,7 @@
 //     --ratio / --error meshopt simplify start values; the ratio is re-tuned until the result has TARGET_TRIS triangles
 // Memory-heavy (the original is 17 MB / 473k triangles): run under systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0.
 //
-// Output contract (what prototype/index.html and prototype/tests/hatchback_asset.test.mjs rely on):
+// Output contract (what index.html and tests/hatchback_asset.test.mjs rely on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, footprint centred, length 4.46 m, no node transform left except the wheels'
 //   node "hatchback"                       the scene root
 //     node "body"                          everything that does not turn; one mesh, one primitive per material

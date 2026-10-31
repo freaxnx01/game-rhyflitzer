@@ -73,7 +73,7 @@ steht in `landmarks.lock.json`.
    dort kommentieren statt ein zweites anzulegen. In den Body gehört, was die Integration braucht:
    Pfad der GLB, `mode`, Bounds und Dreieckszahl aus der Ausgabe, der Nullpunkt aus
    `landmarks.yaml` samt Versatz zum Welt-Ursprung in `data/world_hochrhein.json`, und was das
-   Spiel an der Stelle heute schon zeigt (z. B. ein Eintrag in `prototype/landmarks.js`), damit
+   Spiel an der Stelle heute schon zeigt (z. B. ein Eintrag in `landmarks.js`), damit
    nichts doppelt steht. Bei `mode: hero` gehört das Nachmodellieren in Blender ins selbe Issue.
 
 Exit-Code ≠ 0 heisst: mindestens ein Landmark wurde nicht geschrieben. Nicht ignorieren.

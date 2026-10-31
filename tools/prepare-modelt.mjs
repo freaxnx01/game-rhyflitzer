@@ -1,4 +1,4 @@
-// prepare-modelt.mjs — builds prototype/assets/modelt.glb from the Sketchfab "Ford Model T Downloadable" (Libau Media / robinmikart,
+// prepare-modelt.mjs — builds assets/modelt.glb from the Sketchfab "Ford Model T Downloadable" (Libau Media / robinmikart,
 // CC BY 4.0, https://sketchfab.com/3d-models/ford-model-t-downloadable-8cb1c1243c394144837a15f4722a2867). Issue #521.
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -7,7 +7,7 @@
 //   node prepare-modelt.mjs <original.glb> <out.glb>
 // The original is 1.2 MB, 30k triangles, plain materials and no textures: no simplifying.
 //
-// Output contract (the same as tools/prepare-hatchback.mjs, what prototype/index.html relies on):
+// Output contract (the same as tools/prepare-hatchback.mjs, what index.html relies on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, origin on the axle midpoint, wheelbase 2.54 m, no node transform left except the wheels'
 //   node "modelt"                          the scene root
 //     node "body"                          everything that does not turn (the spare wheel on the tail included)

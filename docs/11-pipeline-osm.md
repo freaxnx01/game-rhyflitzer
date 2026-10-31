@@ -54,7 +54,7 @@ python osm.py build --pbf cache/osm/hochrhein.osm.pbf \
 
 Options: `--bbox W S E N`, `--origin LAT LON` (same defaults as `terrain.py`), `--house-dist 30`, `--big-building-area 1000`, `--anchors anchors.json`. Without `--mmh` the water levels fall back to 0.
 
-Tests: `cd pipeline && pytest` runs the pipeline tests only (the golden test needs the cut extract and skips without it). Prototype unit tests: `node --test prototype/tests/*.test.mjs` (on Node 24 the folder alone does not work, use the glob). Browser smoke tests (Playwright, headless Chromium with SwiftShader, slow: allow several minutes): one-time setup `cd pipeline && ./.venv/bin/pip install -r requirements-dev.txt && ./.venv/bin/python -m playwright install chromium`, then `cd pipeline && ./.venv/bin/python -m pytest ../prototype/tests -q`. They load the page with and without the world file and put the car into the Rhine and under an overpass; the OSM cases skip without `data/world_hochrhein.json`.
+Tests: `cd pipeline && pytest` runs the pipeline tests only (the golden test needs the cut extract and skips without it). Prototype unit tests: `node --test tests/*.test.mjs` (on Node 24 the folder alone does not work, use the glob). Browser smoke tests (Playwright, headless Chromium with SwiftShader, slow: allow several minutes): one-time setup `cd pipeline && ./.venv/bin/pip install -r requirements-dev.txt && ./.venv/bin/python -m playwright install chromium`, then `cd pipeline && ./.venv/bin/python -m pytest ../tests -q`. They load the page with and without the world file and put the car into the Rhine and under an overpass; the OSM cases skip without `data/world_hochrhein.json`.
 
 Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two or more kept roads), 377 water entries, 1,806 buildings, 142 rail pieces, water SDF 1181 × 550.
 
@@ -179,11 +179,11 @@ minimap. Ehrendingen lists the eight `highway=track` ways of the Wanderweg (Hofr
 `w702208309`); the two residential Hofrain ways are ordinary roads already. Hochrhein has no `trails` key,
 so its world file is byte-for-byte unaffected.
 
-**The region in the game.** `prototype/regions.js` holds the table (data URLs, the IndexedDB and best-time
+**The region in the game.** `regions.js` holds the table (data URLs, the IndexedDB and best-time
 keys, villages, Gemeinden, landmarks, tree box and forest line per region). `?region=ehrendingen` or the
 Region row on the start screen picks one; a region whose world file is missing falls back to Hochrhein with
 a toast. Golden test: `pipeline/tests/test_golden_ehrendingen.py` (skips without the extract); browser test:
-`prototype/tests/test_region.py` (the data case skips without `data/world_ehrendingen.json`).
+`tests/test_region.py` (the data case skips without `data/world_ehrendingen.json`).
 
 ## Any Swiss rectangle: `osm.py world` (#166)
 
@@ -254,7 +254,7 @@ and failing that the frame's LV95 kilometres (`Region 2667/1259`).
 a finish on the road graph, each leg **500–1,200 m along the route** (`LEG_MIN`/`LEG_MAX`), no two race points
 within **300 m** straight-line (`MIN_GAP`), every point at least **150 m inside the frame** (`EDGE`) — checked
 again after snapping, which can move a point by up to `MAX_SNAP` 60 m. The game re-snaps every race point on
-load with its own `snapRoad` (`prototype/index.html`: nearest road that is neither a bridge nor a motorway,
+load with its own `snapRoad` (`index.html`: nearest road that is neither a bridge nor a motorway,
 within 60 m), so a point it would move more than 1 m (`GAME_SNAP_TOL`) — e.g. one on a bridge with a yard road
 beside it — is dropped before the search, and no candidate is sampled on a bridge. Candidates are the J list's named places
 first (village centres excluded), then a point every **400 m** (`SAMPLE`) along the `primary`/`secondary`/
@@ -270,7 +270,7 @@ free-driving world (`region.race` is `null`, `anchors.cps` empty).
 
 **The legs are measured with the game's own A\*, not a Python port.** "Drivable" has to mean drivable on the
 graph *the game* builds — `buildGraph`'s shared-vertex nodes, its `joinTouchingEnds` snapping, its
-largest-component-only rule. So `pipeline/route_matrix.mjs` imports `prototype/route.js` **unchanged** (no copy,
+largest-component-only rule. So `pipeline/route_matrix.mjs` imports `route.js` **unchanged** (no copy,
 no `package.json`) and answers snap points and pair distances over stdin/stdout; `race.route_lengths` runs it
 with Node. A port would duplicate ~150 lines of that logic and drift. Cost: **Node 22+** on the build host —
 the same Node the prototype's `node --test` needs, because `route.js` is an ES module in a `.js` file with no
@@ -294,7 +294,7 @@ cut → terrain → `osm.build_world` (no anchors file, clipped to the frame) �
   extract: {file, modified}, race, counts, sources, license, lastPlayed}`. `license` is the full ODbL notice;
   the world is an OSM derivative database.
 
-**Limits.** The game does not read the `region` block until phase 2, and `prototype/regions.js` is untouched.
+**Limits.** The game does not read the `region` block until phase 2, and `regions.js` is untouched.
 `--extract` needs osmium-tool, so the cut test and a real build skip where it is missing, and the race needs
 Node 22+. Complexity limits and a build queue arrive with the API service in phase 3. Tests cover the whole
 library without the Swiss extract or any network access (`tests/test_frame.py`, `test_osm_cut.py`,
@@ -316,7 +316,7 @@ Automatic: the prototype fetches `data/world_hochrhein.json` at startup. If it i
 
 A world built with the region editor opens as `?world=<12 hex>` (the id is lowercase hex, anything else is ignored like an unknown `?region=`; `?world=` wins over `?region=`).
 
-- **Host.** `WORLD_HOST` in `prototype/worlds.js` (a placeholder until #168 serves it; phase 3 changes it there and nowhere else). The game reads `<host>/worlds/<id>/{world.json,terrain.mmh,meta.json}`, and on a 404/410 asks `<host>/api/worlds/<id>` for `{"status": "expired", "bbox": {"lv95": [...]}}` so the expired-link panel can offer to build the same frame again (`editor.html?bbox=...`). An unreachable host shows the offline text, a damaged world the invalid text. `?worldhost=` overrides the host for tests and playtests on a localhost page, and only to a localhost target.
+- **Host.** `WORLD_HOST` in `worlds.js` (a placeholder until #168 serves it; phase 3 changes it there and nowhere else). The game reads `<host>/worlds/<id>/{world.json,terrain.mmh,meta.json}`, and on a 404/410 asks `<host>/api/worlds/<id>` for `{"status": "expired", "bbox": {"lv95": [...]}}` so the expired-link panel can offer to build the same frame again (`editor.html?bbox=...`). An unreachable host shows the offline text, a damaged world the invalid text. `?worldhost=` overrides the host for tests and playtests on a localhost page, and only to a localhost target.
 - **Zip.** **Download world** (only in a generated world) saves `rhyflitzer-<id>.zip` with `world.json`, `terrain.mmh`, `meta.json` and `LICENSE-ODbL.txt`. **Load world file** accepts such a zip (at most 32 MB; allowlisted names, no traversal, duplicates, encryption or zip64; per-entry caps also while inflating; CRC, JSON shape, `MMH1` header and size are checked) and only then stores it and opens the world. A refused file stores nothing and shows a de/en reason. A saved copy wins over the host and works offline; **Remove saved copy** deletes it.
 - **Storage keys** derive from the id: saved file `world:<id>` and terrain override `terrain:world:<id>` (IndexedDB), best time `mm.best2.world.<id>` (localStorage).
 - **No race.** A world without checkpoints hides the trial and Blitz; the surprise hunt works and the car starts at `anchors.start` (or the frame centre).

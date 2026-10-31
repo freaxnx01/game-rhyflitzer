@@ -1,4 +1,4 @@
-// #169: the region editor's UI texts, en and de. Pure, same shape as prototype/strings.js. Proper names are arguments.
+// #169: the region editor's UI texts, en and de. Pure, same shape as strings.js. Proper names are arguments.
 const en = {
   title: 'Region editor', tagline: 'Drag a frame anywhere in Switzerland — drive there in two minutes.',
   frame: 'Frame', sizeKm: (w, h) => `${w} × ${h} km`, nameLoading: '…', nameNone: '—',

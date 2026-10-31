@@ -38,8 +38,8 @@
     <p id="privacy" class="licence"><span data-i18n="privacy"></span> <a href="https://github.com/freaxnx01/game-rhyflitzer#datenschutz--privacy" target="_blank" rel="noopener" data-i18n="privacyLink"></a></p>
   </aside>
 </main>
-<script src="../prototype/version.js"></script>
-<script src="../prototype/i18n.js"></script>
+<script src="../version.js"></script>
+<script src="../i18n.js"></script>
 <nav id="game-nav" aria-label="Game navigation" data-i18n-aria="navLabel">
   <span id="version-badge" title="Version"></span>
   <span class="dot" aria-hidden="true">·</span><a href="https://github.freaxnx01.ch/games/" data-i18n="navMore">More Games…</a>
@@ -47,7 +47,7 @@
   <span class="dot" aria-hidden="true">·</span><a href="https://github.com/freaxnx01/game-rhyflitzer/issues/new?title=%5BFeedback%5D%20game-rhyflitzer%20editor&labels=feedback" target="_blank" rel="noopener" data-i18n="navFeedback">Feedback</a>
 </nav>
 <script>
-  (function () {   // version badge → CHANGELOG, text only from version.js (same as prototype/index.html)
+  (function () {   // version badge → CHANGELOG, text only from version.js (same as index.html)
     var el = document.getElementById('version-badge'); if (!el) return;
     var a = document.createElement('a'); a.href = 'https://github.com/freaxnx01/game-rhyflitzer/blob/main/CHANGELOG.md'; a.target = '_blank'; a.rel = 'noopener';
     a.textContent = 'v' + (window.GAME_VERSION || '0.0.0'); el.appendChild(a);

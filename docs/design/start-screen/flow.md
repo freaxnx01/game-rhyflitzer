@@ -2,7 +2,7 @@
 
 Phase 2 of the UI workflow for #346. **Approved 2026-10-17.** Wireframe: [wireframe.md](wireframe.md).
 
-Facts from the current code (`prototype/index.html` on main, 2026-10-17):
+Facts from the current code (`index.html` on main, 2026-10-17):
 
 - **Entry points to the overlay:**
   - page load (`?region=` / `?world=`);

@@ -1,4 +1,4 @@
-// prepare-enterprise.mjs — builds prototype/assets/models/enterprise_d.glb from the Sketchfab "Enterprise D 2 8 Simple Bake Export"
+// prepare-enterprise.mjs — builds assets/models/enterprise_d.glb from the Sketchfab "Enterprise D 2 8 Simple Bake Export"
 // (HaughtyGrayAlien, CC BY 4.0, https://sketchfab.com/3d-models/enterprise-d-2-8-simple-bake-export-02aeda1aaafd4a3591892ed5a2aeac33). Issue #491.
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -9,7 +9,7 @@
 // nacelles, "aux" = the pylons, bridge, shuttlebays, deflector and the like), 1000 units long with +z the bow, +y up, and four
 // metal/rough materials with base colour, metallic-roughness, normal and emissive maps, sixteen 1024 px PNGs (4 MB).
 //
-// Output contract (what prototype/index.html and the Enterprise room rely on):
+// Output contract (what index.html and the Enterprise room rely on):
 //   metres, life size: LENGTH_M bow to stern along +x (bow at +x), +y up, +z starboard (right when looking forward); y = 0 is the
 //   lowest point of the hull, x = z = 0 the centre of the ship's bounding-box footprint; no node transform left
 //   node "enterprise"                      the scene root

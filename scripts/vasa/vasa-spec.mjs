@@ -1,5 +1,5 @@
 // #421: the Vasa (Swedish warship, 1628, Vasa Museum Stockholm) as numbers — life-size dimensions, hull lines and the rig table
-// that scripts/vasa/build.mjs turns into prototype/assets/models/vasa.glb. Pure: no three.js, no DOM, so prototype/tests can
+// that scripts/vasa/build.mjs turns into assets/models/vasa.glb. Pure: no three.js, no DOM, so tests can
 // check it. Sources: Vasa Museum / en.wikipedia.org "Vasa (ship)": sparred length 69 m, 47.5 m between perpendiculars,
 // beam 11.7 m, 52.5 m keel to main truck, draught 4.8 m, 64 guns on two gun decks, stern 19.3 m above the keel.
 //

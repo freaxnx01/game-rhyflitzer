@@ -51,7 +51,7 @@ jobs:
           node-version: "24"
 
       - name: Node tests
-        run: node --test prototype/tests/*.test.mjs
+        run: node --test tests/*.test.mjs
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
@@ -68,13 +68,13 @@ jobs:
           ALL: ${{ inputs.all || github.event_name == 'schedule' }}   # #389: the nightly run takes every file
         run: |
           if [ "$ALL" = true ]; then
-            ls prototype/tests/test_*.py > "$RUNNER_TEMP/selected.txt"
+            ls tests/test_*.py > "$RUNNER_TEMP/selected.txt"
             cat "$RUNNER_TEMP/selected.txt"
             exit 0
           fi
           base="origin/${BASE_REF:-main}"
           git diff --name-only "$base"...HEAD \
-            | python prototype/tests/select_tests.py select --summary "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/selected.txt"
+            | python tests/select_tests.py select --summary "$GITHUB_STEP_SUMMARY" > "$RUNNER_TEMP/selected.txt"
           cat "$RUNNER_TEMP/selected.txt"
 
       # #369: the homelab GPU runners take runs from this repo's own branches only. A fork PR never reaches them: it
@@ -208,7 +208,7 @@ jobs:
           for f in junit/*/junit.xml; do
             [ -f "$f" ] || continue
             echo "### $(basename "$(dirname "$f")")" >> "$GITHUB_STEP_SUMMARY"
-            python3 prototype/tests/select_tests.py durations "$f" >> "$GITHUB_STEP_SUMMARY"
+            python3 tests/select_tests.py durations "$f" >> "$GITHUB_STEP_SUMMARY"
           done
 
       - name: Result
@@ -219,7 +219,7 @@ jobs:
           echo "plan: $PLAN, browser: $BROWSER"
           [ "$PLAN" = success ] && { [ "$BROWSER" = success ] || [ "$BROWSER" = skipped ]; }
 
-  # #389: on the scheduled full run, one issue per red test that no open issue covers yet (prototype/tests/nightly_report.py)
+  # #389: on the scheduled full run, one issue per red test that no open issue covers yet (tests/nightly_report.py)
   nightly:
     needs: [plan, browser, tests]
     if: always() && github.event_name == 'schedule'
@@ -244,4 +244,4 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PLAN: ${{ needs.plan.result }}
           SHARDS: ${{ needs.plan.outputs.shards }}
-        run: python3 prototype/tests/nightly_report.py junit
+        run: python3 tests/nightly_report.py junit

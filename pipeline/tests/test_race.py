@@ -11,7 +11,7 @@ CLIP = shapely.box(-1000, -1000, 1000, 1000)
 
 
 def bridge_works() -> bool:
-    """Whether the Node on PATH can run route_matrix.mjs. prototype/route.js is an ES module in a .js file with no
+    """Whether the Node on PATH can run route_matrix.mjs. route.js is an ES module in a .js file with no
     package.json, which Node only recognises as one from v22 (the prototype's own `node --test` needs the same)."""
     try:
         R.route_lengths([{"cls": "residential", "n": "", "bridge": False, "pts": [[0, 0], [10, 0]]}], [], [])
@@ -20,7 +20,7 @@ def bridge_works() -> bool:
     return True
 
 
-needs_node = pytest.mark.skipif(not bridge_works(), reason="no Node 22+ on PATH that can import prototype/route.js")
+needs_node = pytest.mark.skipif(not bridge_works(), reason="no Node 22+ on PATH that can import route.js")
 
 
 def line_lens(n, step):
@@ -135,7 +135,7 @@ def test_candidates_skip_bridges():
 
 
 def test_game_snap_matches_the_games_snaproad():
-    """prototype/index.html snapRoad: nearest road that is neither a bridge nor a motorway, within 60 m, else stay."""
+    """index.html snapRoad: nearest road that is neither a bridge nor a motorway, within 60 m, else stay."""
     roads = [{"cls": "secondary", "bridge": True, "pts": [[-50, 0], [50, 0]]},
              {"cls": "service", "bridge": False, "pts": [[-50, 40], [50, 40]]},
              {"cls": "motorway", "bridge": False, "pts": [[-50, -10], [50, -10]]},

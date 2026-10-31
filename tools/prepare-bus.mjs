@@ -1,4 +1,4 @@
-// prepare-bus.mjs — builds prototype/assets/bus.glb from the Sketchfab "Mercedes+CITARO+II+RATP" (moussasy.sy715, CC BY 4.0,
+// prepare-bus.mjs — builds assets/bus.glb from the Sketchfab "Mercedes+CITARO+II+RATP" (moussasy.sy715, CC BY 4.0,
 // https://sketchfab.com/3d-models/mercedescitaroiiratp-93010eea7663482e8f1ca17168af6d8a). Issue #478.
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -8,7 +8,7 @@
 // The original is a SketchUp export: inches under a 0.0254 node scale, 41 mirrored nodes, 53 fully metallic materials,
 // edge lines as extra primitives, both axles of a side in one node, 50k of its 74k triangles in the wheels.
 //
-// Output contract (the same as tools/prepare-mini.mjs, what prototype/index.html relies on):
+// Output contract (the same as tools/prepare-mini.mjs, what index.html relies on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, centred on the body (not the mirrors), no node transform left except the wheels'
 //   node "bus"                             the scene root
 //     node "body"                          everything that does not turn; one primitive per material
@@ -50,7 +50,7 @@ const ROLES = {
   Metal_Aluminum_Anodized1: 'Metal', Metal_Aluminum_Anodized1_0: 'Metal',
 };
 const lin = (hex) => [16, 8, 0].map(s => ((hex >> s) & 255) / 255).map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-const MATS = {   // the Postauto colours of prototype/bus.js BUS_COLOURS, as linear factors
+const MATS = {   // the Postauto colours of bus.js BUS_COLOURS, as linear factors
   Body: { base: [...lin(0xffcc00), 1], rough: 0.45 },
   Roof: { base: [...lin(0xe6e8e8), 1], rough: 0.6 },
   Band: { base: [...lin(0x111418), 1], rough: 0.5 },

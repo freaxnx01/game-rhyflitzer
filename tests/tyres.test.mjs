@@ -1,0 +1,173 @@
+// #416: tyre stacks -- the pure helpers, then the physics core driven by the vendored engine in node. node --test tests/tyres.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import * as C from '../vendor/crashcat/crashcat.min.js';
+import { TYRE, PHYS, PAINT, RUBBER, RIM, TREAD, rowPlacements, pyramidPlacements, tyreSlots, fixedSteps, carBox, slowdown, tyreProfile, tyreTriangles, tyreVertexColours, paintFor, buildTyreGeometry, buildTyreMaterial, createTyrePhysics, createTyreStacks } from '../tyres.js';
+
+const near = (a, b, e = 1e-9) => assert.ok(Math.abs(a - b) <= e, `${a} vs ${b}`);
+
+test('rowPlacements_ThreeStacksAlongYaw_AreCentredAndEvenlySpaced', () => {
+  const r = rowPlacements(10, 20, 0, [5, 6, 7], 1); assert.equal(r.length, 3);
+  near(r[0].x, 9); near(r[1].x, 10); near(r[2].x, 11); assert.ok(r.every(p => p.z === 20)); assert.deepEqual(r.map(p => p.n), [5, 6, 7]);
+});
+
+test('pyramidPlacements_Default_StacksAreFiveToEightTyresAndDoNotOverlap', () => {
+  const p = pyramidPlacements(0, 0, 0.7);
+  assert.ok(p.length >= 6 && p.every(s => s.n >= 5 && s.n <= 8));
+  for (let i = 0; i < p.length; i++) for (let j = i + 1; j < p.length; j++) assert.ok(Math.hypot(p[i].x - p[j].x, p[i].z - p[j].z) > TYRE.r * 2, `stacks ${i},${j} overlap`);
+});
+
+test('tyreSlots_OneStack_StartsOnTheGroundAndEachTyreSitsOnTheLast', () => {
+  const s = tyreSlots([{ x: 1, z: 2, n: 3 }], 10);
+  assert.equal(s.length, 3); assert.ok(s[0].y > 10 + TYRE.w / 2 - 1e-9 && s[0].y < 10 + TYRE.w / 2 + 0.01);
+  assert.ok(s[1].y - s[0].y > TYRE.w && s[1].y - s[0].y < TYRE.w + 0.01); assert.ok(s.every(t => t.x === 1 && t.z === 2));
+});
+
+test('tyreSlots_SillyHeights_AreClamped', () => {
+  assert.equal(tyreSlots([{ x: 0, z: 0, n: 99 }], 0).length, 12); assert.equal(tyreSlots([{ x: 0, z: 0, n: 0 }], 0).length, 1);
+});
+
+test('fixedSteps_ShortFrame_CarriesTheRemainder', () => {
+  const a = fixedSteps(0, 0.01, 1 / 60, 4); assert.equal(a.n, 0); const b = fixedSteps(a.acc, 0.01, 1 / 60, 4); assert.equal(b.n, 1); near(b.acc, 0.02 - 1 / 60, 1e-9);
+});
+
+test('fixedSteps_LongFrame_IsCappedAndTheRestDropped', () => {
+  const r = fixedSteps(0, 1, 1 / 60, 4); assert.equal(r.n, 4); assert.ok(r.acc < 1 / 60);
+});
+
+test('carBox_HeadingZero_PointsLongSideAlongPlusX', () => {
+  const b = carBox({ x: 1, y: 2, z: 3, th: 0, l: 4, w: 2, h: 1.4 }); b.q.forEach((v, i) => near(v, [0, 0, 0, 1][i])); near(b.hx, 2); near(b.hz, 1); near(b.y, 2 + PHYS.carLift + b.hy);
+});
+
+test('carBox_HeadingQuarterTurn_RotatesPlusXOntoPlusZ', () => {
+  const b = carBox({ x: 0, y: 0, z: 0, th: Math.PI / 2, l: 4, w: 2, h: 1.4 }), [, y, , w] = b.q, ang = 2 * Math.atan2(y, w);
+  near(ang, -Math.PI / 2, 1e-9);   // rotating about +y by -90 degrees takes +x to +z
+});
+
+test('slowdown_NothingGained_IsZeroAndTheCapHolds', () => {
+  assert.equal(slowdown(0, 14), 0); assert.equal(slowdown(500, 0.1), 0); assert.equal(slowdown(1e9, 14), PHYS.slowCap);
+  assert.ok(slowdown(100, 14) < PHYS.slowCap);
+});
+
+test('tyreProfile_HoleIsGreyRimAndUnpainted_TreadAndSidewallsArePainted', () => {
+  const p = tyreProfile(), rim = p.filter(q => q[2] === RIM), painted = p.filter(q => q[3] === 1);
+  assert.ok(rim.length >= 2 && rim.every(q => q[3] === 0 && q[0] < TYRE.hole)); assert.ok(painted.length >= 6 && painted.every(q => q[2] === 1));
+  assert.ok(p.every(q => q[0] <= TYRE.r + 1e-9 && Math.abs(q[1]) <= TYRE.w / 2 + 1e-9)); assert.deepEqual(p[0], p[p.length - 1]);
+});
+
+test('tyreProfile_Grooves_AreRubberNotchesBelowTheTreadRadius', () => {
+  const p = tyreProfile(), grooves = p.filter(q => q[2] === RUBBER && q[3] === 0);
+  assert.equal(grooves.length, TREAD.grooves * 2); grooves.forEach(q => near(q[0], TYRE.r - TREAD.depth));
+  for (let i = 0; i < grooves.length; i += 2) { near(grooves[i + 1][1] - grooves[i][1], TREAD.width); assert.ok(Math.abs(grooves[i][1]) < TYRE.w / 2 - 0.04); }
+});
+
+test('tyreProfile_OutsideRunsBottomToTop_SoTheLatheFacesOutward', () => {
+  const tread = tyreProfile().filter(q => q[0] === TYRE.r).map(q => q[1]);   // an inside-out lathe (the outside traversed top down) renders only its far inner faces
+  assert.ok(tread.length >= 4); for (let i = 1; i < tread.length; i++) assert.ok(tread[i] > tread[i - 1], `tread row ${i} runs downward`);
+});
+
+test('tyreTriangles_DefaultSegments_StayWellUnderTheBudget', () => {
+  assert.ok(tyreTriangles() <= 600 && tyreTriangles() >= 300, `${tyreTriangles()} triangles`); assert.equal(tyreTriangles(10), (tyreProfile().length - 1) * 20);
+});
+
+test('tyreVertexColours_RepeatTheProfilePerSegment', () => {
+  const p = tyreProfile(), v = tyreVertexColours(p, p.length * 3);
+  assert.equal(v.colour.length, p.length * 9); assert.equal(v.paint.length, p.length * 3);
+  for (let i = 0; i < p.length * 3; i++) { near(v.colour[i * 3], p[i % p.length][2], 1e-6); near(v.colour[i * 3 + 2], p[i % p.length][2], 1e-6); near(v.paint[i], p[i % p.length][3]); }
+});
+
+test('paintFor_AlternatesUpAStack_AndIsOffsetBetweenNeighbouringStacks', () => {
+  const slots = tyreSlots([{ x: 0, z: 0, n: 4 }, { x: 1, z: 0, n: 4 }], 0);
+  assert.deepEqual(slots.map(paintFor), ['red', 'white', 'red', 'white', 'white', 'red', 'white', 'red']);
+  assert.ok(PAINT.red[0] > 0.6 && PAINT.red[1] < 0.3 && PAINT.white.every(c => c > 0.8 && c < 0.97));
+});
+
+test('buildTyreGeometry_FakeLathe_GetsColourAndPaintAttributes', () => {
+  const attrs = {}, THREE = { ...fakeThree(), LatheGeometry: class { constructor(pts, seg) { this.attributes = { position: { count: pts.length * (seg + 1) } }; } setAttribute(k, a) { attrs[k] = a; } }, BufferAttribute: class { constructor(a, n) { this.array = a; this.itemSize = n; } } };
+  const g = buildTyreGeometry(THREE, 4), n = tyreProfile().length * 5;
+  assert.equal(g.attributes.position.count, n); assert.equal(attrs.color.array.length, n * 3); assert.equal(attrs.paint.array.length, n); assert.equal(attrs.paint.itemSize, 1);
+});
+
+test('buildTyreMaterial_ShaderHook_MasksTheInstanceColourWithThePaintAttribute', () => {
+  const m = buildTyreMaterial(fakeThree()), shader = { vertexShader: '#include <common>\n#include <color_vertex>\n' };
+  m.onBeforeCompile(shader);
+  assert.ok(shader.vertexShader.includes('attribute float paint;') && shader.vertexShader.includes('instanceColor.xyz, paint') && !shader.vertexShader.includes('<color_vertex>'));
+});
+
+test('createTyreStacks_EngineFailsToLoad_StaysStaticAndNeverThrows', async () => {
+  const added = [], scene = { add: o => added.push(o), remove() {} };
+  const THREE = fakeThree();
+  const t = createTyreStacks(scene, THREE, [{ x: 0, z: 0, n: 5 }], () => 0, { engine: () => Promise.reject(new Error('offline')) });
+  await t.ready;
+  assert.equal(t.state().engine, 'failed'); assert.equal(t.step(1 / 60, { x: 0, y: 0, z: 0, th: 0, vx: 10, vz: 0, l: 4, w: 2, h: 1.4 }), 0);
+  assert.equal(t.state().count, 5); t.reset(); t.dispose();
+});
+
+import { yardTyreStacks } from '../crashyard.js';
+
+test('TYRE_Size_IsOneAndAHalfTimesTheOriginal', () => {
+  near(TYRE.r, 0.45); near(TYRE.w, 0.375); near(TYRE.mass, 9 * 1.5 ** 3);
+});
+
+function fakeThree() {
+  class V { constructor(x = 0, y = 0, z = 0) { Object.assign(this, { x, y, z }); } set(x, y, z) { Object.assign(this, { x, y, z }); return this; } }
+  class G { constructor() { this.attributes = { position: { count: 8 } }; } setAttribute() {} dispose() {} }
+  return {
+    Vector2: V, Vector3: V, Quaternion: class { set() { return this; } }, Matrix4: class { compose() { return this; } },
+    LatheGeometry: G, BufferAttribute: class {}, DynamicDrawUsage: 1, MeshLambertMaterial: class { dispose() {} }, Color: class { setRGB() { return this; } },
+    Group: class { add() {} }, InstancedMesh: class { constructor(g, m) { this.geometry = g; this.material = m; this.instanceMatrix = { setUsage() {} }; } setMatrixAt() {} setColorAt() {} dispose() {} },
+  };
+}
+
+// ---- the engine ----
+const CAR = { x: 0, y: 0, z: 0, th: 0, vx: 0, vz: 0, l: 4.2, w: 1.8, h: 1.4 };
+const FAR = { ...CAR, x: 900, z: 900 };
+const run = (P, secs, car) => { let hits = 0; for (let i = 0; i < secs * 60; i++) { const r = P.step(1 / 60, car); if (r.impact > 0) hits++; } return hits; };
+
+test('createTyrePhysics_FreshStacks_StandUprightAndAsleepAtTheirSlots', () => {
+  const P = createTyrePhysics(C, pyramidPlacements(0, 0, 0), 0); const s = P.state();
+  assert.equal(s.count, P.count); assert.equal(s.awake, 0); assert.equal(s.displaced, 0); assert.equal(s.upright, s.count);
+});
+
+test('step_StacksLeftAloneForSixtySeconds_NeverMoveAtAll', () => {
+  const P = createTyrePhysics(C, pyramidPlacements(0, 0, 0), 0); run(P, 60, FAR); const s = P.state();
+  assert.equal(s.awake, 0); assert.equal(s.displaced, 0); assert.equal(s.upright, s.count);
+});
+
+test('step_CarWithinReachButNotTouching_LeavesTheStacksAsleep', () => {
+  const P = createTyrePhysics(C, pyramidPlacements(100, 0, 0), 0); run(P, 5, { ...CAR, x: 85, z: 12 }); assert.equal(P.state().awake, 0);
+});
+
+test('step_CarDrivenThroughAt50kmh_KnocksOverMostTyresAndTheyComeToRest', () => {
+  const P = createTyrePhysics(C, pyramidPlacements(100, 0, 0), 0), car = { ...CAR, x: 80, vx: 50 / 3.6 };
+  let slowed = 0, knocks = 0;
+  for (let i = 0; i < 6 * 60; i++) { car.x += car.vx / 60; const r = P.step(1 / 60, car); slowed += r.slow; if (r.impact > 0) knocks++; car.vx *= 1 - r.slow; }
+  assert.ok(knocks > 5, `impacts ${knocks}`); assert.ok(car.vx > 50 / 3.6 * 0.8, `the tyres should slow the car only slightly, v=${car.vx}`); assert.ok(slowed > 0);
+  Object.assign(car, FAR); run(P, 25, car);
+  const s = P.state(); assert.ok(s.displaced > s.count * 0.5, `displaced ${s.displaced} of ${s.count}`); assert.ok(s.upright < s.count * 0.8, `still upright ${s.upright}`);
+  assert.equal(s.awake, 0, 'everything comes to rest'); assert.equal(s.far < s.count, true);
+});
+
+test('step_CarDrivenThrough_NoTyreFallsThroughTheGround', () => {
+  const P = createTyrePhysics(C, pyramidPlacements(100, 0, 0), 5), car = { ...CAR, y: 5, x: 80, vx: 50 / 3.6 }, p = [0, 0, 0], q = [0, 0, 0, 1];
+  for (let i = 0; i < 8 * 60; i++) { car.x += car.vx / 60; P.step(1 / 60, car); }
+  for (let i = 0; i < P.count; i++) { P.pose(i, p, q); assert.ok(p[1] > 5 + 0.1, `tyre ${i} at y ${p[1]}`); }
+});
+
+test('reset_AfterACrash_PutsEveryStackBackUprightAndAsleep', () => {
+  const P = createTyrePhysics(C, pyramidPlacements(100, 0, 0), 0), car = { ...CAR, x: 80, vx: 50 / 3.6 };
+  for (let i = 0; i < 4 * 60; i++) { car.x += car.vx / 60; P.step(1 / 60, car); }
+  assert.ok(P.state().displaced > 0); P.reset(); const s = P.state(); assert.equal(s.displaced, 0); assert.equal(s.upright, s.count); assert.equal(s.awake, 0);
+});
+
+test('step_YardStacksLeftAlone_StayStandingForSixtySeconds', () => {
+  const P = createTyrePhysics(C, yardTyreStacks(), 0); run(P, 60, FAR); const s = P.state();
+  assert.equal(s.awake, 0); assert.equal(s.displaced, 0); assert.equal(s.upright, s.count);
+});
+
+test('step_CarDrivenThroughYardStacksAt50kmh_CollapsesThemAndTheyComeToRest', () => {
+  const st = yardTyreStacks(), P = createTyrePhysics(C, st, 0), car = { ...CAR, x: st[0].x - 20, z: st[2].z + 0.6, vx: 50 / 3.6 };
+  for (let i = 0; i < 6 * 60; i++) { car.x += car.vx / 60; const r = P.step(1 / 60, car); car.vx *= 1 - r.slow; }
+  Object.assign(car, FAR); run(P, 30, car);
+  const s = P.state(); assert.ok(s.displaced > s.count * 0.15, `displaced ${s.displaced} of ${s.count}`); assert.equal(s.awake, 0);
+});
