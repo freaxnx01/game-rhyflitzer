@@ -627,7 +627,7 @@ import { lastModeFrom, modeTextKey, editionText, worldsKeyAction, bestKeyFor } f
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps } from './foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
 import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
@@ -3445,7 +3445,7 @@ function land() { if (!LEVELS.isSurface()) { P.safe = [P.x, P.z, P.th]; resetCar
   const spot = landingSpot(nearestJumpable(P.x, P.z)); if (!spot) { toast(tr('heliNoRoad')); return; } P.safe = [spot.x, spot.z, spot.th]; resetCar(); toast(tr('heliLanded')); }
 // #202 on foot (Z): FOOT is the walker's state and P is the walker (so map, compass and HUD follow, as for the helicopter);
 // the car stays where stepCar last put it, FOOT.car is that pose. R, J, the map, the beam and Start end it through resetCar
-const FOOT = { on: false, hover: false, vy: 0, pitch: 0, stride: 0, car: null };
+const FOOT = { on: false, hover: false, vy: 0, pitch: 0, stride: 0, car: null, eye: null };
 const parked = () => parkedBox(FOOT.car, CAR_SIZE);
 // #412: the walkway set around the walker -- the slabs, ramps, walls and ceilings of the interior it is in. It starts empty
 // (outdoors every walkway query answers "nothing"), and the interior of a building fills it while the walker is in it (6c, #411).
@@ -3508,7 +3508,7 @@ function leaveTrain() {
   if (Math.abs(TRAIN.st.v) >= 0.5) { toast(tr('footStopFirst')); return; }
   finishTurn();
   const p = poseAt(TRAIN.graph, TRAIN.st), side = p.th + Math.PI / 2, x = p.x + Math.cos(side) * (LOCO.width / 2 + 1.2), z = p.z + Math.sin(side) * (LOCO.width / 2 + 1.2);
-  TRAIN.on = false; Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: TRAIN.car }); TRAIN.car = null;
+  TRAIN.on = false; Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: TRAIN.car, eye: null }); TRAIN.car = null;
   P.x = x; P.z = z; P.y = groundH(x, z, TRAIN.y + 1); P.vx = P.vz = P.vy = 0; P.th = p.th; toast(tr('trainOut'));
 }
 // resetCar (R in the car, J, the map, the beam, Start) leaves the loco where it stands and puts you back in the car
@@ -3554,7 +3554,7 @@ function getOut() {
   if (Math.hypot(P.vx, P.vz) >= 0.5) { toast(tr('footStopFirst')); return; }
   const car0 = { x: P.x, z: P.z, y: P.y, th: P.th }, spot = exitSpots(car0, CAR_SIZE).find(s => footFree(s.x, s.z, car0.y));
   if (!spot) { toast(tr('footNoRoom')); return; }
-  stopAuto('reset'); Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: car0 }); flames.visible = false;
+  stopAuto('reset'); Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: car0, eye: null }); flames.visible = false;
   P.x = spot.x; P.z = spot.z; P.y = groundH(spot.x, spot.z, car0.y + 1); P.vx = P.vz = P.vy = 0;
   if (R.state === 'racing' || R.state === 'armed') R.walked = true;
   toast(tr('footOut'));
@@ -3565,7 +3565,7 @@ function getIn() {
   const c = FOOT.car; endFoot(); P.x = c.x; P.z = c.z; P.y = c.y; P.th = c.th; P.vx = P.vz = P.vy = 0; toast(tr('footIn'));
 }
 // off before the pointer is let go, so the unlock event does not pause (see the pointerlockchange listener)
-function endFoot() { if (!FOOT.on) return; FOOT.on = false; FOOT.car = null; if (document.pointerLockElement) document.exitPointerLock(); }
+function endFoot() { if (!FOOT.on) return; FOOT.on = false; FOOT.car = null; FOOT.eye = null; if (document.pointerLockElement) document.exitPointerLock(); }
 function toggleHover() { FOOT.hover = !FOOT.hover; FOOT.vy = 0; toast(tr(FOOT.hover ? 'footHover' : 'footWalk')); }
 // the car's collider filters (collide), plus: a box whose top is under your feet does not block (you stand on it or hover over it).
 // Bridge parapets have a constant h, not a height, so for them only the deck rule (y0) counts
@@ -3777,7 +3777,7 @@ function footMouse(dx, dy) { const l = footLook(P.th, FOOT.pitch, dx, dy); P.th 
 // indoors the walker comes within WALKER.radius of a wall: the outdoor near plane (0.5 m) cut the wall away and showed the street
 const CAM_NEAR = { out: 0.5, indoors: 0.05 };
 function setCameraNear(near) { if (camera.near === near) return; camera.near = near; camera.updateProjectionMatrix(); }
-function footCamera() { const v = footView(P.x, P.y, P.z, P.th, FOOT.pitch, WALKER.eye, CAM.back); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); setCameraNear(INT.indoors ? CAM_NEAR.indoors : CAM_NEAR.out); }
+function footCamera(dt) { const steady = !FOOT.hover && FOOT.vy === 0 && !LIFT_RIDE.busy; FOOT.eye = easeEye(FOOT.eye, P.y, steady, dt); const v = footView(P.x, P.y + FOOT.eye.off, P.z, P.th, FOOT.pitch, WALKER.eye, CAM.back); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); setCameraNear(INT.indoors ? CAM_NEAR.indoors : CAM_NEAR.out); }
 // #100: pontoon bridge (U). Rules in pontoon.js; here the world adapters, the key, the step and the hooks (meshes: buildPontoonMeshes below)
 const pontoonEnv = () => ({ dist: riverDist, nameAt: L ? (x, z) => WATER.nameAt(x, z) : () => 'Rhein', waterLevel: (x, z) => (L && REAL ? WATER.levelAt(x, z) : 0) ?? 0, roadAt: (x, z) => roadDist(x, z) <= 0, bridgeNear: L ? (x, z) => [...gridQuery(BRIDGE_GRID, x, z, PONTOON_CFG.bridgeClear)].some(b => b.kind !== 'rail' && nearestOnPolyline(b.r.pts, x, z).d <= PONTOON_CFG.bridgeClear) : (x, z) => BRIDGES.some(b => segDist(x, z, ...b.a, ...b.b) <= PONTOON_CFG.bridgeClear), ground: (x, z) => groundH(x, z, 1e4) });
 const PONTOON_ERR = { noBank: 'pontoonNoBank', noFarBank: 'pontoonNoFarBank', hasBridge: 'pontoonHasBridge' };
@@ -3820,7 +3820,7 @@ function resetProps() { if (KNOCK) KNOCK.restoreAll(); if (TYRES) TYRES.reset();
 window.__mm.tyreState = () => TYRES ? TYRES.state() : null;
 window.__mm.tyreReset = () => { if (TYRES) TYRES.reset(); };
 window.__mm.sfxTyres = () => SFX.tyres();
-window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; restShadow(); };
+window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; FOOT.eye = null; restShadow(); };
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
 window.__mm.ramp = () => RAMP && ({ x0: RAMP.x0, x1: RAMP.x1, z0: RAMP.z0, z1: RAMP.z1, h: RAMP.h });
 // review of #98: largest vertical gap between the drawn ramp top and the surface the car drives on (groundH's ramp), over a grid inside the footprint
@@ -3890,7 +3890,7 @@ window.__mm.housingTint = () => { if (!INT.housing) return null; const m = INT.h
 window.__mm.interiorFaceA = () => { if (!INT.group || !INT.hall) return null; const f = INT.hall.frame, lv = INT.hall.levels, roof = lv[lv.length - 1], v = new THREE.Vector3(); let min = Infinity; INT.group.updateMatrixWorld(true); INT.group.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= lv[0] + 0.1 || v.y >= roof - 0.01) continue; const a = f.fromWorld(v.x, v.z).a; if (a > -0.05) min = Math.min(min, Math.abs(a)); } }); return min; };   // #453: how close the hall's drawn faces come to the façade line between EG and roof
 window.__mm.interiorCount = () => ({ meshes: INT.group ? INT.group.children.length : 0 });   // the built group's own objects (merged meshes, leaves, cabin)
 window.__mm.interiorRay = () => { camera.updateMatrixWorld(); const rc = new THREE.Raycaster(camera.getWorldPosition(new THREE.Vector3()), camera.getWorldDirection(new THREE.Vector3())); rc.camera = camera; const hit = rc.intersectObjects(scene.children, true).find(h => h.object.visible); return { dist: hit ? hit.distance : null, role: hit ? (hit.object.userData.role || hit.object.name || '') : null }; };   // what the eye looks at (material.side counts, as rendering does: the A3 check; sprites need rc.camera)
-window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; };   // tests: put the walker on a storey of 6c
+window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; };   // tests: put the walker on a storey of 6c
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
 window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); return window.__mm.foot(); };
 // tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
@@ -4094,7 +4094,7 @@ function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   /* #408: on foot too */ // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
   car.visible = FOOT.on || TRAIN.on || (!v.eye && !HUD.carHidden && !FLY.on); heli.visible = FLY.on;
-  if (FOOT.on) footCamera(); else if (TRAIN.on) trainCamera(dt, s, snap); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
+  if (FOOT.on) footCamera(dt); else if (TRAIN.on) trainCamera(dt, s, snap); else if (FLY.on) flyCamera(dt); else if (v.eye) { const [ex, ey, es] = viewEye(v.k), rx = -fz, rz = fx; camPos.set(P.x + fx * ex * s + rx * es, P.y + ey, P.z + fz * ex * s + rz * es); camera.position.copy(camPos);
     if (v.k === 'cockpit' && chairOn()) SWAY_S = stepSway(SWAY_S, { steer: WHEEL_STATE.yaw, speed }, dt);   // #463: the chair sways gently, camera only -- driving is unchanged
     camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2 + (v.k === 'cockpit' && chairOn() ? SWAY_S.pitch : 0), P.z + fz * 40 * s + rz * es);
     if (v.k === 'cockpit' && chairOn()) camera.rotateZ(SWAY_S.roll); }
