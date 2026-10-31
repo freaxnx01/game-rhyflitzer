@@ -1,6 +1,4 @@
-# Map Madness
-
-*Codename: Rhyflitzer*
+# Rhyflitzer – Map Madness
 
 An open-world arcade racing game for the browser, in the spirit of Midtown Madness 1. Race through real towns built from open geodata, starting at home on the Hochrhein: Bad Säckingen, Stein, Sisseln and Sisslerfeld, with the Rhine and the old wooden bridge right in the middle.
 

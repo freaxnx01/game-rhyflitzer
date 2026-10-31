@@ -4,7 +4,7 @@ The names this project uses for its own places, features, data and workflow: the
 
 ## The game
 
-**Map Madness**: the game's title (start screen, GamesHub card). **Rhyflitzer** is the repository's name (`game-rhyflitzer`).
+**Rhyflitzer – Map Madness**: the game's title (start screen, browser tab, GamesHub card); Rhyflitzer is the title, Map Madness the subtitle. The repository is called `game-rhyflitzer`.
 
 **Region**: a playable map with its own world and terrain file (`regions.js`). **Hochrhein** is the default; **Ehrendingen** is the second (`?region=ehrendingen`). The region editor builds further ones (see *Generated world*).
 
