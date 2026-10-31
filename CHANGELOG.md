@@ -22,6 +22,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-10-31 20:32` New car **Rhy Bulldog**, an eighties full-size sedan built for the **demolition derby**: a **push bar** on the nose, orange-yellow **flames** on black and the number 77. The heaviest car apart from the bus, so it takes the least damage when ramming, but it is slow (190 km/h) and turns lazily. 3D model „Chevrolet Caprice Classic Sedan" by popit228fm (Sketchfab), CC BY 4.0.
 - `2026-10-31 19:32` New car **Rhy Papaya**, a P1 look-alike without the badge in **papaya orange**: a hybrid V8 behind the seats, 280 km/h, lighter than the Rhy Hyper and with **the most grip** of all cars, the one for corners. Paintable. 3D model „McLaren P1" by hartwelkisaka (Sketchfab), CC BY 4.0.
 - `2026-10-31 19:17` New car **Rhy Hyper**, a Chiron look-alike without the badge and the new **fastest car**: sixteen cylinders behind the seats, **300 km/h** and nitro on top, two-tone blue from the factory. Paint it in any colour, including the new **Racing blue**; the dark side stays. 3D model „Free Bugatti Chiron" by ALIEEEN (Sketchfab), CC BY 4.0.
 - `2026-10-30 21:01` The **Ferris wheel** in **star room 6** has grown into a **record wheel**: 250 m tall with 48 gondolas, at **dusk**. Thousands of LEDs on the rim and spokes play a **light show** that changes every few seconds, and **fireworks** burst over the wheel.
