@@ -116,7 +116,7 @@ export function offsetPolyline(pts, d) {
 export function layoutFromWorld(w) {
   const roads = w.roads.map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
-           rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
+           rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], fields: w.fields || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
@@ -1036,4 +1036,39 @@ export function keptRuns(pts, keep) {
   for (const p of pts) { if (keep(p)) (run ??= []).push(p); else if (run) { runs.push(run); run = null; } }
   if (run) runs.push(run);
   return runs.filter(r => r.length > 1);
+}
+
+// #506: farm fields. kind (world_fields.KINDS in the pipeline) -> vertex colour and ground role (field = furrows, meadow = mown grass).
+export const FIELD_KINDS = Object.freeze({
+  cereal: { color: '#d9c57c', role: 'field' }, maize: { color: '#4e7d38', role: 'field' }, rapeseed: { color: '#cfc94a', role: 'field' },
+  root: { color: '#5f8a3f', role: 'field' }, fallow: { color: '#b9a95f', role: 'meadow' }, bare: { color: '#9b7b55', role: 'field' },
+  meadow: { color: '#86aa4e', role: 'meadow' }, meadowDry: { color: '#a6ad5a', role: 'meadow' }, pasture: { color: '#8db05a', role: 'meadow' },
+  orchard: { color: '#5a8a46', role: 'field' }, vine: { color: '#6d8f4a', role: 'field' },
+});
+
+// #506: texture coordinates of a parcel so the stripes of TEX.field (which vary with v) run along `dir`, the parcel's long side.
+export function fieldUV(x, z, cx, cz, dir, tile = 20) {
+  const c = Math.cos(dir), s = Math.sin(dir), dx = x - cx, dz = z - cz;
+  return [(dx * c + dz * s) / tile, (-dx * s + dz * c) / tile];
+}
+
+// #506: how far to lift each vertex of a draped triangle mesh so every triangle stays on or over hAt([x, z]) (the ribbonLift
+// idea for triangles): a barycentric lattice at most `step` m apart per triangle, the worst excess goes to its three corners.
+// Lifting all three corners by e raises the triangle's plane by exactly e, and a shared vertex taking a neighbour's bigger
+// lift only tilts its own triangle upward, so one pass is enough and the lift is never a lowering.
+export function meshLift(pts, tris, h, hAt, step = 2) {
+  const up = new Float64Array(pts.length);
+  for (const [a, b, c] of tris) {
+    const tri = [pts[a][0], h[a], pts[a][1], pts[b][0], h[b], pts[b][1], pts[c][0], h[c], pts[c][1]];
+    const longest = Math.max(Math.hypot(pts[b][0] - pts[a][0], pts[b][1] - pts[a][1]), Math.hypot(pts[c][0] - pts[b][0], pts[c][1] - pts[b][1]), Math.hypot(pts[a][0] - pts[c][0], pts[a][1] - pts[c][1]));
+    const n = Math.max(1, Math.ceil(longest / step));
+    let e = 0;
+    for (let i = 0; i <= n; i++) for (let j = 0; j <= n - i; j++) {
+      const u = i / n, v = j / n, w = 1 - u - v, x = pts[a][0] * w + pts[b][0] * u + pts[c][0] * v, z = pts[a][1] * w + pts[b][1] * u + pts[c][1] * v;
+      const drawn = trisHeightAt(tri, x, z);
+      if (drawn !== -Infinity) e = Math.max(e, hAt([x, z]) - drawn);
+    }
+    if (e > up[a]) up[a] = e; if (e > up[b]) up[b] = e; if (e > up[c]) up[c] = e;
+  }
+  return up;
 }
