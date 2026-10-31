@@ -294,6 +294,8 @@ def test_grass_and_fields_stay_below_the_road(server, mode):
     assert res["marksBelow"] == 0, res                # road markings lie on the road, not under it
     if mode == "osm":
         assert res["marksSeen"] > 5, res
+        assert len(res["spots"]) >= 15, res                              # #290: the measured spots are on drawn road and grass
+        assert all(s["d"] < 0.01 and s["marksBelow"] == 0 for s in res["spots"]), res["spots"]
 
 
 @pytest.mark.parametrize("mode", ["hand", "osm"])
