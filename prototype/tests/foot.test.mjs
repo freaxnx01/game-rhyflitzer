@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE } from '../foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE, easeEye } from '../foot.js';
 import { footView } from '../camera.js';
 import { colliderPush } from '../world.js';
 import { translate } from '../strings.js';
@@ -245,4 +245,56 @@ test('footKeyAction_HoverIndoors_IsBlockedAndOutdoorsStaysAsBefore', () => {
   assert.equal(footKeyAction('KeyC', true), 'block', 'C does nothing on foot: the view is first person already');
   assert.equal(footKeyAction('KeyW', true), 'pass');
   assert.equal(footKeyAction('KeyE', true), 'enter');
+});
+
+// #592: the camera's eye height eases out over a tread snap (stair rise) while the walker's y stays exact
+const eyeOf = (st, y) => y + st.off;
+
+test('easeEye_TreadSnapUp_EyeDoesNotJump', () => {
+  let st = easeEye(null, 0, true, 1 / 60);
+  const before = eyeOf(st, 0);
+  st = easeEye(st, 0.16, true, 1 / 60);
+  assert.ok(Math.abs(eyeOf(st, 0.16) - before) < 0.16 * 0.4, 'eye moved far less than the 0.16 snap in one frame');
+});
+
+test('easeEye_AfterSnap_ConvergesToBodyWithin015s', () => {
+  let st = easeEye(null, 0, true, 1 / 60);
+  st = easeEye(st, 0.16, true, 1 / 60);
+  for (let i = 0; i < 9; i++) st = easeEye(st, 0.16, true, 1 / 60);
+  assert.ok(Math.abs(st.off) < 0.16 * 0.1);
+});
+
+test('easeEye_StairClimb_NoFrameJumpAboveThreshold', () => {
+  let st = easeEye(null, 0, true, 1 / 60), y = 0, last = eyeOf(st, y), worst = 0;
+  for (let i = 1; i <= 120; i++) {
+    if (i % 8 === 0) y += 0.16;   // a tread every 8 frames, as on the Plattform spiral
+    st = easeEye(st, y, true, 1 / 60);
+    worst = Math.max(worst, Math.abs(eyeOf(st, y) - last)); last = eyeOf(st, y);
+  }
+  assert.ok(worst < 0.08, `worst frame jump ${worst}`);
+});
+
+test('easeEye_StepDown_Symmetric', () => {
+  let st = easeEye(null, 0.16, true, 1 / 60);
+  st = easeEye(st, 0, true, 1 / 60);
+  assert.ok(st.off > 0 && st.off <= 0.16);
+});
+
+test('easeEye_Teleport_NoLag', () => {
+  let st = easeEye(null, 0, true, 1 / 60);
+  st = easeEye(st, 12, true, 1 / 60);   // more than stepUp
+  assert.equal(st.off, 0);
+});
+
+test('easeEye_NotSteady_FollowsBodyExactly', () => {
+  let st = easeEye(null, 0, true, 1 / 60);
+  st = easeEye(st, 0.16, true, 1 / 60);
+  st = easeEye(st, 0.2, false, 1 / 60);   // jump, hover or lift
+  assert.equal(st.off, 0);
+});
+
+test('easeEye_SmallRamp_NotAbsorbed', () => {
+  let st = easeEye(null, 0, true, 1 / 60);
+  st = easeEye(st, 0.02, true, 1 / 60);
+  assert.equal(st.off, 0);
 });
