@@ -593,7 +593,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape } from './trees.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey } from './debug.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
@@ -1212,19 +1212,28 @@ function waterPolys() {
     rawGeo(pos, nrm, uv, 0, 0, 0, col('#ffffff'), 'water');
   }
 }
-// height of a draped ribbon's surface at (x, z): nearest centre segment, interpolated along it and across between the edges
-function surfaceAt(sf, x, z) { const { pts, hw, hl, hr } = sf; let best = null; for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1), d = Math.hypot(x - ax - dx * t, z - az - dz * t); if (!best || d < best.d) { const l = Math.sqrt(L2), side = ((x - ax) * -dz + (z - az) * dx) / l; best = { d, i, t, f: clamp((side / hw + 1) / 2, 0, 1) }; } } const { i, t, f } = best, yl = hl[i] + (hl[i + 1] - hl[i]) * t, yr = hr[i] + (hr[i + 1] - hr[i]) * t; return yl + (yr - yl) * f; }
 function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain); colorize(g, c); push(role, g); return g; }
 function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // mitred polyline strip, shared vertices at joints; hFn: lay it on another surface
   const clean = dropRepeats(src), pts = onTerrain || hFn ? resample(clean, 4) : clean; const hAt = (p) => hFn ? hFn(p) + y : onTerrain ? terrainH(p[0], p[1]) + y : y;
   const L = pts.length, left = [], right = [], dist = [0]; for (let i = 1; i < L; i++) dist.push(dist[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   for (let i = 0; i < L; i++) { const p = pts[i]; const d0 = i > 0 ? [p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]] : null, d1 = i < L - 1 ? [pts[i + 1][0] - p[0], pts[i + 1][1] - p[1]] : null; const nz = (d) => { const l = Math.hypot(d[0], d[1]); return [-d[1] / l, d[0] / l]; }; let n; let sc = hw; if (d0 && d1) { const a = nz(d0), b = nz(d1); n = [a[0] + b[0], a[1] + b[1]]; const l = Math.hypot(n[0], n[1]) || 1; n = [n[0] / l, n[1] / l]; sc = hw / Math.max(0.35, n[0] * a[0] + n[1] * a[1]); } else n = nz(d0 || d1); left.push([p[0] - n[0] * sc, p[1] - n[1] * sc]); right.push([p[0] + n[0] * sc, p[1] + n[1] * sc]); }
-  // edge heights; on terrain, where the ground mesh bulges above a 4 m segment (a fold between the samples), lift both ends of
-  // that segment by the bulge so the strip stays on top. A steady slope has no bulge and stays where it is.
+  // edge heights; on terrain, #290: lift both ends of a quad by the most the ground rises over its drawn triangles anywhere
+  // across and along it (a fold between the edges, or the quad's own twist), so the strip stays on top
   const hl = left.map(hAt), hr = right.map(hAt);
-  if (onTerrain) { const up = new Float32Array(L); for (let i = 0; i < L - 1; i++) { let e = 0; const n = Math.ceil(Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1])); for (let k = 1; k < n; k++) { const t = k / n; for (const [P, H] of [[left, hl], [right, hr]]) e = Math.max(e, hAt([P[i][0] + (P[i + 1][0] - P[i][0]) * t, P[i][1] + (P[i + 1][1] - P[i][1]) * t]) - (H[i] + (H[i + 1] - H[i]) * t)); const cx = (left[i][0] + right[i][0]) / 2 * (1 - t) + (left[i + 1][0] + right[i + 1][0]) / 2 * t, cz = (left[i][1] + right[i][1]) / 2 * (1 - t) + (left[i + 1][1] + right[i + 1][1]) / 2 * t; e = Math.max(e, hAt([cx, cz]) - ((hl[i] + hr[i]) / 2 * (1 - t) + (hl[i + 1] + hr[i + 1]) / 2 * t)); } up[i] = Math.max(up[i], e); up[i + 1] = Math.max(up[i + 1], e); } for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
+  if (onTerrain) { const up = ribbonLift(left, right, hl, hr, hAt); for (let i = 0; i < L; i++) { hl[i] += up[i]; hr[i] += up[i]; } }
   const pos = [], uv = [], nrm = []; for (let i = 0; i < L - 1; i++) { const A = [left[i][0], hl[i], left[i][1]], B = [right[i][0], hr[i], right[i][1]], C = [right[i + 1][0], hr[i + 1], right[i + 1][1]], D = [left[i + 1][0], hl[i + 1], left[i + 1][1]]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } const v0 = dist[i] / tileLen, v1 = dist[i + 1] / tileLen; uv.push(0, v0, 1, v0, 1, v1, 0, v0, 1, v1, 0, v1); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.userData.surf = { pts, hw, hl, hr }; return g;
+}
+// #290: a marking laid on the highest drawn road strip under it -- its own road's and any strip overlapping it (a parallel
+// carriageway) -- with every fold of those strips as a vertex, so it never dips under the drawn road between its points
+function markGeo(run, spec, sf) {
+  if (!sf) return ribbonGeo(run, spec.w / 2, 0.03, spec.dash + spec.gap, true);
+  // a strip counts only where it really covers a point of the run -- a road passing a metre away carries no part of this marking
+  const strips = new Set([sf]); for (const p of run) for (const { sf: o, i } of gridQuery(SURF_GRID, p[0], p[1], 1)) if (segDist(p[0], p[1], ...o.pts[i], ...o.pts[i + 1]) <= o.hw) strips.add(o);
+  let line = run; for (const s of strips) line = surfFolds(s, line);
+  // past the end of every strip (an outer bend's mitre reaches further than the road's half width) there is no drawn road: the terrain carries it
+  const h = (p) => { let y = -Infinity; for (const s of strips) { const v = surfTriAt(s, p[0], p[1]); if (v !== null && v > y) y = v; } return y > -Infinity ? y : terrainH(p[0], p[1]); };
+  return ribbonGeo(line, spec.w / 2, 0.03, spec.dash + spec.gap, false, h);
 }
 function strip(pts, w, y, role, c, tileLen = 8, hFn = null) { const pos = [], uv = [], nrm = []; let dist = 0; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz); const nx = -dz / L * w / 2, nz = dx / L * w / 2; const segs = hFn ? Math.ceil(L / 5) : 1; for (let s = 0; s < segs; s++) { const t0 = s / segs, t1 = (s + 1) / segs; const ax = x0 + dx * t0, az = z0 + dz * t0, bx = x0 + dx * t1, bz = z0 + dz * t1; const ya = hFn ? hFn(ax, az) + y : y, yb = hFn ? hFn(bx, bz) + y : y; const d0 = dist + L * t0, d1 = dist + L * t1; const A = [ax - nx, ya, az - nz], B = [ax + nx, ya, az + nz], C = [bx + nx, yb, bz + nz], D = [bx - nx, yb, bz - nz]; for (const v of [A, B, C, A, C, D]) { pos.push(...v); nrm.push(0, 1, 0); } uv.push(0, d0 / tileLen, 1, d0 / tileLen, 1, d1 / tileLen, 0, d0 / tileLen, 1, d1 / tileLen, 0, d1 / tileLen); } dist += L; } return rawGeo(pos, nrm, uv, 0, 0, 0, c, role); }
 // #201: a 16 m terrain cell as triangles ([x, y, z] x 3) in 4 m sub-blocks: a sub-block whose 5 x 5 samples (1 m apart) all
@@ -1871,12 +1880,14 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   if (L) seatGenericEnds(roadTopH);   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
     const mats = {}, geos = {};
+    const buried = ([x, z]) => { const ob = onBridge(x, z, 1e4); return !!ob && !!ob.b.approach; };   // #290: an abutment (#78) buries its bank road
     for (const r of ROADS) if (!r.bridge) for (const { pts, spec } of markLines(r)) {
       const key = spec.color + spec.dash + spec.gap;
       if (!mats[key]) { mats[key] = new THREE.MeshBasicMaterial({ map: markTex(spec.color === 'yellow' ? '#f2c21a' : '#f4f1e6', spec.dash, spec.gap), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }); geos[key] = []; }
-      const sf = ROAD_SURF.get(r); geos[key].push(ribbonGeo(pts, spec.w / 2, 0.03, spec.dash + spec.gap, !sf, sf ? (p) => surfaceAt(sf, p[0], p[1]) : null));
+      const sf = ROAD_SURF.get(r);
+      for (const run of keptRuns(resample(dropRepeats(pts), 4), (p) => !buried(p))) geos[key].push(markGeo(run, spec, sf));
     }
-    for (const key in geos) marks.add(new THREE.Mesh(mergeGeometries(geos[key], false), mats[key]));
+    for (const key in geos) if (geos[key].length) marks.add(new THREE.Mesh(mergeGeometries(geos[key], false), mats[key]));
   }
   if (!L) for (const r of ROADS) for (const p of r.pts) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
   if (L) for (const r of ROADS) if (!r.bridge) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
@@ -3961,7 +3972,27 @@ window.__mm.treesOnRoad = () => [...(window.__TREES || []), ...(window.__FOREST 
 // playtest: "die Räder versinken im Asphalt" -> how far is the drawn road surface above the height the car drives on?
 window.__mm.sinkCheck = (pct = 10) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.roadPlain, MESH.motorway].filter(Boolean); const pts = []; for (const r of ROADS) if (!r.bridge) for (let i = 0; i < r.pts.length - 1; i++) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0, 0], [0.5, 0], [0.4, 0.7], [0.6, -0.7]]) pts.push([x0 + (x1 - x0) * t + nx * o * r.w / 2, z0 + (z1 - z0) * t + nz * o * r.w / 2]); } if (L) for (const [x, z, r] of L.junctions) for (let a = 0; a < 6; a++) pts.push([x + Math.cos(a) * r * 0.8, z + Math.sin(a) * r * 0.8]); for (const k of KREISEL) for (let a = 0; a < 12; a++) pts.push([k.x + Math.cos(a / 2) * 15, k.z + Math.sin(a / 2) * 15]); const SINK_SPOTS = L ? [[1583, 961], [1524, 916], [1518, 911], [1493, 947], [1573, 958], [1602, 964], [1556, 766]] : [], spots = []; let worst = 0, at = null, bad = 0, done = 0, water = 0; for (const [x, z, fixed] of [...pts.filter(([x, z]) => sampled(x, z, pct)), ...SINK_SPOTS.map(([x, z]) => [x, z, true])]) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 12).length || waterLevelAt(x, z, 1e4) !== null) { water++; continue; } ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(road, false)[0]; if (!h) continue; const d = h.point.y - groundH(x, z, h.point.y); if (fixed) spots.push({ at: [x, z], d }); done++; if (d > 0.08) bad++; if (d > worst) { worst = d; at = [Math.round(x), Math.round(z)]; } } return { worst, at, bad, done, water, spots }; };
 // raycast road points from above: how far does grass or a field rise above the road surface? (playtest: "Feld/Wiese überdeckt Strasse")
-window.__mm.grassOverRoad = (pct = 10, only = null) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.motorway].filter(Boolean), green = [MESH.grass, MESH.field].filter(Boolean); const segs = []; for (const r of ROADS) if (!r.bridge && (only === null || r.n === only)) for (let i = 0; i < r.pts.length - 1; i++) if (sampled(r.pts[i][0], r.pts[i][1], pct)) segs.push([r, i]); let worst = 0, bad = 0, done = 0, marksSeen = 0, marksBelow = 0; for (const [r, i] of segs) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0.5, 0], [0.3, 0.8], [0.7, -0.8]]) { const x = x0 + (x1 - x0) * t + nx * o * (r.w / 2 - 0.3), z = z0 + (z1 - z0) * t + nz * o * (r.w / 2 - 0.3); ray.set(new THREE.Vector3(x, 2000, z), down); const hr = ray.intersectObjects(road, false)[0], hg = ray.intersectObjects(green, false)[0]; if (!hr || !hg) continue; const d = hg.point.y - hr.point.y; if (d > worst) worst = d; if (d > 0.005) bad++; done++; for (const hm of ray.intersectObjects(marks.children, false)) { marksSeen++; if (hm.point.y < hr.point.y) marksBelow++; } } } return { worst, bad, done, marksSeen, marksBelow }; };
+window.__mm.grassOverRoad = (pct = 10, only = null) => {
+  const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), road = [MESH.road, MESH.roadOsm, MESH.motorway].filter(Boolean), green = [MESH.grass, MESH.field].filter(Boolean);
+  let worst = 0, bad = 0, done = 0, marksSeen = 0, marksBelow = 0;
+  // one ray from the sky: how far does the grass or field there stand over the drawn road, and do markings lie under it?
+  const probe = (x, z) => {
+    ray.set(new THREE.Vector3(x, 2000, z), down);
+    const hr = ray.intersectObjects(road, false)[0], hg = ray.intersectObjects(green, false)[0];
+    if (!hr || !hg) return null;
+    const d = hg.point.y - hr.point.y; if (d > worst) worst = d; if (d > 0.005) bad++; done++;
+    let below = 0; for (const hm of ray.intersectObjects(marks.children, false)) { marksSeen++; if (hm.point.y < hr.point.y) { marksBelow++; below++; } }
+    return { d, marksBelow: below };
+  };
+  const segs = []; for (const r of ROADS) if (!r.bridge && (only === null || r.n === only)) for (let i = 0; i < r.pts.length - 1; i++) if (sampled(r.pts[i][0], r.pts[i][1], pct)) segs.push([r, i]);
+  for (const [r, i] of segs) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1], len = Math.hypot(x1 - x0, z1 - z0) || 1, nx = -(z1 - z0) / len, nz = (x1 - x0) / len; for (const [t, o] of [[0.5, 0], [0.3, 0.8], [0.7, -0.8]]) probe(x0 + (x1 - x0) * t + nx * o * (r.w / 2 - 0.3), z0 + (z1 - z0) * t + nz * o * (r.w / 2 - 0.3)); }
+  const GRASS_SPOTS = L && only === null ? [   // #290: the measured spots (issue + Geuerenstrasse feedback 2026-10-29/30)
+    [-2978.85, 610.72], [-2231.9, 705.4], [-4684.35, 3153.85], [1075.85, 1181.1], [1599.56, 962.82], [2632.99, -1038.57], [-1500.65, 5151.7],
+    [-1219.25, 536.25], [-2944.65, 1608.5], [-456.7, 3812.45], [-1483.85, 450.2], [-3385.5, 686.3], [4207.95, -495.3], [1559.75, 1974],
+    [271, 417.74], [274, 417.89], [277, 418.05], [280, 418.2], [283, 418.35], [286, 418.5]] : [], spots = [];
+  for (const [x, z] of GRASS_SPOTS) { const p = probe(x, z); if (p) spots.push({ at: [x, z], d: p.d, marksBelow: p.marksBelow }); }
+  return { worst, bad, done, marksSeen, marksBelow, spots };
+};
 window.__mm.roadDist = () => roadDist(P.x, P.z);
 // #127: is the car on a gravel trail (the Wanderweg)? the nearest road piece in ROAD_GRID, by its centre line
 window.__mm.onTrail = () => { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, P.x, P.z, 32)) { const d = segDist(P.x, P.z, ...r.pts[i], ...r.pts[i + 1]); if (!best || d < best.d) best = { d, r }; } return !!(best && best.r.trail); };

@@ -962,3 +962,78 @@ export function trisHeightAt(tris, x, z) {
   }
   return h;
 }
+
+// #290: how far to lift each vertex of a draped strip so its drawn triangles stay on or over hAt([x, z]) everywhere on it.
+// Per quad (A/B = left/right at i, D/C at i + 1, drawn as (A,B,C) and (A,C,D) like ribbonGeo emits them) a lattice at most
+// `across` m apart across and `along` m along, edges included; both ends of the quad take its worst excess. Lifting a quad's
+// four corners by e raises both its triangles by e and its neighbours only rise, so one pass is enough.
+// The triangle pair and the point handed to hAt are two scratch buffers reused for every sample, so sampling allocates
+// nothing. The region has ~140 000 quads, and reading the ground costs most of the time: where the ground is planar under a
+// quad the drawn triangles lie in that same plane and the lattice finds nothing anywhere, so six points inside the quad go
+// first and the lattice only runs where they show the ground bending over the strip at all (PROBE, 0.1 mm).
+const PROBE = 1e-4;
+export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
+  const n = left.length, up = new Float64Array(n), tris = new Float64Array(18), at = [0, 0];
+  for (let i = 0; i < n - 1; i++) {
+    const axl = left[i][0], azl = left[i][1], axr = right[i][0], azr = right[i][1], dxl = left[i + 1][0], dzl = left[i + 1][1], cxr = right[i + 1][0], czr = right[i + 1][1];
+    tris.set([axl, hl[i], azl, axr, hr[i], azr, cxr, hr[i + 1], czr, axl, hl[i], azl, cxr, hr[i + 1], czr, dxl, hl[i + 1], dzl]);
+    const wide = Math.max(Math.hypot(axr - axl, azr - azl), Math.hypot(cxr - dxl, czr - dzl)), long = Math.max(Math.hypot(dxl - axl, dzl - azl), Math.hypot(cxr - axr, czr - azr));
+    // how far the ground rises over the drawn triangles on an nu x nv lattice over the quad; `inside` leaves its edges out
+    // (the four corners are on the ground by construction, so an edge point only repeats what the neighbour quad sees)
+    const scan = (nu, nv, inside) => {
+      let e = 0;
+      for (let a = inside ? 1 : 0; a <= (inside ? nu - 1 : nu); a++) for (let b = inside ? 1 : 0; b <= (inside ? nv - 1 : nv); b++) {
+        const u = a / nu, v = b / nv, lx = axl + (dxl - axl) * v, lz = azl + (dzl - azl) * v, rx = axr + (cxr - axr) * v, rz = azr + (czr - azr) * v;
+        at[0] = lx + (rx - lx) * u; at[1] = lz + (rz - lz) * u;
+        const drawn = trisHeightAt(tris, at[0], at[1]);
+        if (drawn !== -Infinity) e = Math.max(e, hAt(at) - drawn);
+      }
+      return e;
+    };
+    let e = scan(4, 3, true);
+    if (e > PROBE) e = Math.max(e, scan(Math.max(1, Math.ceil(wide / across)), Math.max(1, Math.ceil(long / along)), false));
+    up[i] = Math.max(up[i], e); up[i + 1] = Math.max(up[i + 1], e);
+  }
+  return up;
+}
+
+// #290: the height of a registered strip (sf = { pts, hw, hl, hr }) at (x, z) with the split it is drawn with -- triangle
+// (A,B,C) where f >= t, (A,C,D) elsewhere, as surfH reads it -- on the nearest segment; null where the strip does not reach
+export function surfTriAt(sf, x, z) {
+  const { pts, hw, hl, hr } = sf; let best = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue;
+    const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / L2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t);
+    if (!best || d < best.d) best = { d, i, t, f: Math.min(1, Math.max(0, (((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2) / hw + 1) / 2)) };
+  }
+  if (!best || best.d > hw + 0.01) return null;
+  const { i, t, f } = best, hA = hl[i], hB = hr[i], hC = hr[i + 1], hD = hl[i + 1];
+  return f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f);
+}
+// #290: pts plus every point where the line crosses a fold of the strip under it -- a segment's transverse edge (s = 0, 1)
+// or its diagonal (t = f) -- so heights from surfTriAt at the points, linear in between, lie on the drawn triangles
+export function surfFolds(sf, pts) {
+  const out = [pts[0]], eps = 1e-4;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const p = pts[k], q = pts[k + 1], us = [], i0 = nearestOnPolyline(sf.pts, (p[0] + q[0]) / 2, (p[1] + q[1]) / 2).i;
+    for (let i = Math.max(0, i0 - 2); i <= Math.min(sf.pts.length - 2, i0 + 2); i++) {
+      const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue;
+      const len = Math.sqrt(L2), local = ([x, z]) => [((x - ax) * dx + (z - az) * dz) / L2, (((x - ax) * -dz + (z - az) * dx) / len / sf.hw + 1) / 2];
+      const [s0, f0] = local(p), [s1, f1] = local(q), ds = s1 - s0, df = f1 - f0, cand = [];
+      if (ds) cand.push(-s0 / ds, (1 - s0) / ds);
+      if (ds !== df) cand.push((f0 - s0) / (ds - df));
+      for (const u of cand) { const s = s0 + ds * u, f = f0 + df * u; if (u > eps && u < 1 - eps && s >= -eps && s <= 1 + eps && f >= -eps && f <= 1 + eps) us.push(u); }
+    }
+    us.sort((a, b) => a - b);
+    let last = 0; for (const u of us) { if (u - last < eps) continue; out.push([p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u]); last = u; }
+    out.push(q);
+  }
+  return out;
+}
+// #290: the runs of consecutive points that pass keep (runs of one point dropped)
+export function keptRuns(pts, keep) {
+  const runs = []; let run = null;
+  for (const p of pts) { if (keep(p)) (run ??= []).push(p); else if (run) { runs.push(run); run = null; } }
+  if (run) runs.push(run);
+  return runs.filter(r => r.length > 1);
+}
