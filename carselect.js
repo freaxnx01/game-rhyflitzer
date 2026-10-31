@@ -14,6 +14,7 @@ export const PAINTS = [
   { id: 'charcoal', hex: '#2a2e38', nameKey: 'paintCharcoal' },
   { id: 'plum', hex: '#7b3fa0', nameKey: 'paintPlum' },       // #25: absorbed into #7
   { id: 'flamingo', hex: '#ff6fa8', nameKey: 'paintFlamingo' }, // #25: absorbed into #7
+  { id: 'racing', hex: '#2266dd', nameKey: 'paintRacing' },   // the Rhy Hyper's factory blue
 ];
 
 export const DEFAULT_CHOICE = { id: 'compact', paint: 'navy' };
