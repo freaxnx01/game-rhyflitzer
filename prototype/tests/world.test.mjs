@@ -5,7 +5,7 @@ import { oldNationalBorder, apartRuns } from '../world.js';
 import { borderCrossing, BORDER } from '../holzbruecke.js';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rollingDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
-import { sampled, trisHeightAt, motorwayLabelSpots } from '../world.js';
+import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -1392,3 +1392,25 @@ test('oldNationalBorder: the real data -- old crosses the Holzbrücke at its old
   assert.ok(border.filter(p => p[0] > -1300 && p[0] < -1100 && p[1] > 130 && p[1] < 200).every(p => nearestOnPolyline([...island, island[0]], p[0], p[1]).d < 6), 'new hugs the island shore (OSM puts it within a few m of the wood edge)');
 });
 function pointInRing(ring, p) { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) if ((ring[i][1] > p[1]) !== (ring[j][1] > p[1]) && p[0] < (ring[j][0] - ring[i][0]) * (p[1] - ring[i][1]) / (ring[j][1] - ring[i][1]) + ring[i][0]) c = !c; return c; }
+
+// #290: one 4 m quad along +x, 4 m wide: left edge z = -2, right edge z = +2 (A = left 0, B = right 0, C = right 1, D = left 1)
+const QL = [[0, -2], [4, -2]], QR = [[0, 2], [4, 2]];
+
+test('ribbonLift lifts a strip over a ridge between its centre and an edge', () => {
+  const ridge = ([, z]) => Math.max(0, 0.1 - Math.abs(z - 1) * 0.2);   // peak 0.1 at z = 1; 0 at both edges and at the centre
+  const up = ribbonLift(QL, QR, [0, 0], [0, 0], ridge);
+  assert.ok(up[0] >= 0.1 - 1e-9 && up[1] >= 0.1 - 1e-9, `up ${[...up]}`);
+});
+
+test('ribbonLift lifts a twisted quad whose drawn diagonal runs under the ground', () => {
+  // corners A 0, B 1, C 0, D 1: the drawn diagonal A-C lies at 0, the ground (bilinear through the corners) at 0.5 mid-quad
+  const ground = ([x, z]) => { const v = x / 4, u = (z + 2) / 4; return (0 * (1 - v) + 1 * v) * (1 - u) + (1 * (1 - v) + 0 * v) * u; };
+  const up = ribbonLift(QL, QR, [0, 1], [1, 0], ground);
+  assert.ok(up[0] >= 0.5 - 1e-9 && up[1] >= 0.5 - 1e-9, `up ${[...up]}`);
+});
+
+test('ribbonLift leaves a strip on a plane alone', () => {
+  const plane = ([x, z]) => 0.1 * x + 0.05 * z;
+  const up = ribbonLift(QL, QR, [plane(QL[0]), plane(QL[1])], [plane(QR[0]), plane(QR[1])], plane);
+  assert.ok(Math.max(...up) < 1e-9, `up ${[...up]}`);
+});

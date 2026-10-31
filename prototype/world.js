@@ -962,3 +962,25 @@ export function trisHeightAt(tris, x, z) {
   }
   return h;
 }
+
+// #290: how far to lift each vertex of a draped strip so its drawn triangles stay on or over hAt([x, z]) everywhere on it.
+// Per quad (A/B = left/right at i, D/C at i + 1, drawn as (A,B,C) and (A,C,D) like ribbonGeo emits them) a lattice at most
+// `across` m apart across and `along` m along, edges included; both ends of the quad take its worst excess. Lifting a quad's
+// four corners by e raises both its triangles by e and its neighbours only rise, so one pass is enough.
+export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
+  const n = left.length, up = new Float64Array(n);
+  for (let i = 0; i < n - 1; i++) {
+    const A = [left[i][0], hl[i], left[i][1]], B = [right[i][0], hr[i], right[i][1]], C = [right[i + 1][0], hr[i + 1], right[i + 1][1]], D = [left[i + 1][0], hl[i + 1], left[i + 1][1]];
+    const tris = [...A, ...B, ...C, ...A, ...C, ...D];
+    const wide = Math.max(Math.hypot(B[0] - A[0], B[2] - A[2]), Math.hypot(C[0] - D[0], C[2] - D[2])), long = Math.max(Math.hypot(D[0] - A[0], D[2] - A[2]), Math.hypot(C[0] - B[0], C[2] - B[2]));
+    const nu = Math.max(1, Math.ceil(wide / across)), nv = Math.max(1, Math.ceil(long / along));
+    let e = 0;
+    for (let a = 0; a <= nu; a++) for (let b = 0; b <= nv; b++) {
+      const u = a / nu, v = b / nv, lx = A[0] + (D[0] - A[0]) * v, lz = A[2] + (D[2] - A[2]) * v, rx = B[0] + (C[0] - B[0]) * v, rz = B[2] + (C[2] - B[2]) * v;
+      const x = lx + (rx - lx) * u, z = lz + (rz - lz) * u, drawn = trisHeightAt(tris, x, z);
+      if (drawn !== -Infinity) e = Math.max(e, hAt([x, z]) - drawn);
+    }
+    up[i] = Math.max(up[i], e); up[i + 1] = Math.max(up[i + 1], e);
+  }
+  return up;
+}
