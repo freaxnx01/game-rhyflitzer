@@ -967,22 +967,31 @@ export function trisHeightAt(tris, x, z) {
 // Per quad (A/B = left/right at i, D/C at i + 1, drawn as (A,B,C) and (A,C,D) like ribbonGeo emits them) a lattice at most
 // `across` m apart across and `along` m along, edges included; both ends of the quad take its worst excess. Lifting a quad's
 // four corners by e raises both its triangles by e and its neighbours only rise, so one pass is enough.
-// The whole region's roads are ~9 million samples: the triangle pair and the point handed to hAt are two scratch buffers
-// reused for all of them, so sampling allocates nothing (the browser sits close to its memory budget while a world builds).
+// The triangle pair and the point handed to hAt are two scratch buffers reused for every sample, so sampling allocates
+// nothing. The region has ~140 000 quads, and reading the ground costs most of the time: where the ground is planar under a
+// quad the drawn triangles lie in that same plane and the lattice finds nothing anywhere, so six points inside the quad go
+// first and the lattice only runs where they show the ground bending over the strip at all (PROBE, 0.1 mm).
+const PROBE = 1e-4;
 export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
   const n = left.length, up = new Float64Array(n), tris = new Float64Array(18), at = [0, 0];
   for (let i = 0; i < n - 1; i++) {
     const axl = left[i][0], azl = left[i][1], axr = right[i][0], azr = right[i][1], dxl = left[i + 1][0], dzl = left[i + 1][1], cxr = right[i + 1][0], czr = right[i + 1][1];
     tris.set([axl, hl[i], azl, axr, hr[i], azr, cxr, hr[i + 1], czr, axl, hl[i], azl, cxr, hr[i + 1], czr, dxl, hl[i + 1], dzl]);
     const wide = Math.max(Math.hypot(axr - axl, azr - azl), Math.hypot(cxr - dxl, czr - dzl)), long = Math.max(Math.hypot(dxl - axl, dzl - azl), Math.hypot(cxr - axr, czr - azr));
-    const nu = Math.max(1, Math.ceil(wide / across)), nv = Math.max(1, Math.ceil(long / along));
-    let e = 0;
-    for (let a = 0; a <= nu; a++) for (let b = 0; b <= nv; b++) {
-      const u = a / nu, v = b / nv, lx = axl + (dxl - axl) * v, lz = azl + (dzl - azl) * v, rx = axr + (cxr - axr) * v, rz = azr + (czr - azr) * v;
-      at[0] = lx + (rx - lx) * u; at[1] = lz + (rz - lz) * u;
-      const drawn = trisHeightAt(tris, at[0], at[1]);
-      if (drawn !== -Infinity) e = Math.max(e, hAt(at) - drawn);
-    }
+    // how far the ground rises over the drawn triangles on an nu x nv lattice over the quad; `inside` leaves its edges out
+    // (the four corners are on the ground by construction, so an edge point only repeats what the neighbour quad sees)
+    const scan = (nu, nv, inside) => {
+      let e = 0;
+      for (let a = inside ? 1 : 0; a <= (inside ? nu - 1 : nu); a++) for (let b = inside ? 1 : 0; b <= (inside ? nv - 1 : nv); b++) {
+        const u = a / nu, v = b / nv, lx = axl + (dxl - axl) * v, lz = azl + (dzl - azl) * v, rx = axr + (cxr - axr) * v, rz = azr + (czr - azr) * v;
+        at[0] = lx + (rx - lx) * u; at[1] = lz + (rz - lz) * u;
+        const drawn = trisHeightAt(tris, at[0], at[1]);
+        if (drawn !== -Infinity) e = Math.max(e, hAt(at) - drawn);
+      }
+      return e;
+    };
+    let e = scan(4, 3, true);
+    if (e > PROBE) e = Math.max(e, scan(Math.max(1, Math.ceil(wide / across)), Math.max(1, Math.ceil(long / along)), false));
     up[i] = Math.max(up[i], e); up[i + 1] = Math.max(up[i + 1], e);
   }
   return up;
