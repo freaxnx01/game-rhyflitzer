@@ -14,7 +14,7 @@ __pycache__/
 /cache/
 .claude/handoffs.md
 
-# visual test records, one JSON per browser test session (see prototype/tests/visual_runs.py)
+# visual test records, one JSON per browser test session (see tests/visual_runs.py)
 .test-runs/
 
 # ch-landmarks skill: swisstopo tile downloads and local Python venv

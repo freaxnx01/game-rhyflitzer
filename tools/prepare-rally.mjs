@@ -1,4 +1,4 @@
-// prepare-rally.mjs — builds prototype/assets/rally.glb from the 3D Warehouse "2013 Hyundai - i20 WRC" by D3NK
+// prepare-rally.mjs — builds assets/rally.glb from the 3D Warehouse "2013 Hyundai - i20 WRC" by D3NK
 // (https://3dwarehouse.sketchup.com/model/4082138f-6179-4762-ba76-d2910a315f27, 3D Warehouse General Model License). Issue #199 / see the PR.
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -7,7 +7,7 @@
 //   node prepare-rally.mjs <original.glb> <out.glb> [--livery <png>]   (--livery also writes the livery texture for a look)
 // The original is 6.3 MB, 55k triangles, plain SketchUp colours (white body) and five grille textures.
 //
-// Output contract (the same as tools/prepare-hatchback.mjs, what prototype/index.html relies on):
+// Output contract (the same as tools/prepare-hatchback.mjs, what index.html relies on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, origin on the axle midpoint, wheelbase 2.57 m, no node transform left except the wheels'
 //   node "rally"                           the scene root
 //     node "body"                          everything that does not turn

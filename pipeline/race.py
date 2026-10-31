@@ -1,5 +1,5 @@
 """#179: automatic race of a generated world -- the start, five checkpoints and a finish on the road graph, with a par
-time. Every leg is measured with the game's own A* (prototype/route.js, through route_matrix.mjs and Node), so a race
+time. Every leg is measured with the game's own A* (route.js, through route_matrix.mjs and Node), so a race
 the pipeline accepts is drivable on the graph the game builds from the same roads."""
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ PAR_KMH = 45.0         # open point in the spec: tune on two or three test world
 MAX_SNAP = 60.0        # m: a candidate farther from the main road network is dropped
 CP_KINDS = {"station", "place_of_worship", "school", "square"}
 CP_RADIUS, STREET_RADIUS = 150.0, 30.0
-GAME_SNAP = 60.0       # m: prototype/index.html snapRoad leaves a race point alone beyond this
+GAME_SNAP = 60.0       # m: index.html snapRoad leaves a race point alone beyond this
 GAME_SNAP_TOL = 1.0    # m: a point the game's snapRoad moves farther than this is dropped
 BRIDGE = Path(__file__).with_name("route_matrix.mjs")
 
@@ -59,7 +59,7 @@ def route_lengths(roads, points, pairs, max_snap: float = MAX_SNAP):
     -> (snaps: [{x, z, d} | None], lens: {(i, j): metres}); pairs without a route are left out."""
     node = shutil.which("node")
     if not node:
-        raise RuntimeError("the race needs Node 22+ on PATH: it measures legs with the game's A* (prototype/route.js)")
+        raise RuntimeError("the race needs Node 22+ on PATH: it measures legs with the game's A* (route.js)")
     req = json.dumps({"roads": roads, "points": [list(p) for p in points], "pairs": [list(p) for p in pairs],
                       "maxSnap": max_snap})
     try:
@@ -76,7 +76,7 @@ def route_lengths(roads, points, pairs, max_snap: float = MAX_SNAP):
 
 
 def game_snap_lines(roads):
-    """The roads the game's snapRoad (prototype/index.html) re-snaps race points to: neither bridges nor motorways."""
+    """The roads the game's snapRoad (index.html) re-snaps race points to: neither bridges nor motorways."""
     lines = [shapely.LineString(r["pts"]) for r in roads
              if not r.get("bridge") and r["cls"] != "motorway" and len(r["pts"]) > 1]
     return lines, shapely.STRtree(lines)
@@ -84,7 +84,7 @@ def game_snap_lines(roads):
 
 def game_snap(lines, x, z):
     """Where the game puts a race point on load: the nearest point of the nearest such road within GAME_SNAP, else
-    the point itself (snapRoad in prototype/index.html)."""
+    the point itself (snapRoad in index.html)."""
     geoms, tree = lines
     p = shapely.Point(x, z)
     hit = tree.query_nearest(p, max_distance=GAME_SNAP, all_matches=False)

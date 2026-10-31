@@ -1,4 +1,4 @@
-// prepare-coupe.mjs — builds prototype/assets/coupe.glb from the Sketchfab "2012 BMW 1M" (OUTPISTON, CC BY-NC-SA 4.0,
+// prepare-coupe.mjs — builds assets/coupe.glb from the Sketchfab "2012 BMW 1M" (OUTPISTON, CC BY-NC-SA 4.0,
 // https://sketchfab.com/3d-models/2012-bmw-1m-b011893b8f8049568610be2abb3ecf8e). In the game: the Rhy Coupé, no badge.
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -10,7 +10,7 @@
 // both the head and the tail lamp inserts is split by which end of the car each face is on. Normals are rebuilt, smooth below a
 // crease angle.
 //
-// Output contract (the same as tools/prepare-hatchback.mjs, what prototype/index.html relies on):
+// Output contract (the same as tools/prepare-hatchback.mjs, what index.html relies on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, origin on the axle midpoint, wheelbase 2.66 m, no node transform left except the wheels'
 //   node "coupe"                           the scene root
 //     node "body"                          everything that does not turn

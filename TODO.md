@@ -3,7 +3,7 @@
 ## Next session prompt
 
 Continue Map Madness (codename Rhyflitzer). Read README.md and docs/ first.
-1. Run pipeline/terrain.py for the default region (Swiss side is automatic), load the .mmh in prototype/index.html, and check the Hauptstrasse climb and curve in Sisseln toward Laufenburg against the real terrain.
+1. Run pipeline/terrain.py for the default region (Swiss side is automatic), load the .mmh in index.html, and check the Hauptstrasse climb and curve in Sisseln toward Laufenburg against the real terrain.
 2. ~~Next pipeline step: roads, river and buildings from OSM (Geofabrik extract + osmium, not the public Overpass API) to replace the hand-traced layout. See docs/04 and docs/08.~~ Done 2026-10-01, see docs/11-pipeline-osm.md.
 
 Status 2026-09-29:
@@ -46,7 +46,7 @@ Follow-ups:
 
 ## OSM world — open from the final review (2026-10-01)
 
-- **Smoke-test console filter too broad** (`prototype/tests/test_smoke.py`, commit 48ef3bf): it ignores every console error from other origins, including three.js on cdn.jsdelivr.net (geometry/shader errors would pass silently). Narrow it to `api.github.com` (the rate-limited Star button) or to "Failed to load resource" messages from other origins.
+- **Smoke-test console filter too broad** (`tests/test_smoke.py`, commit 48ef3bf): it ignores every console error from other origins, including three.js on cdn.jsdelivr.net (geometry/shader errors would pass silently). Narrow it to `api.github.com` (the rate-limited Star button) or to "Failed to load resource" messages from other origins.
 
 ## Playtest feedback (2026-10-01, from the user)
 
@@ -96,12 +96,12 @@ The mockups are the visual spec for all menus and the HUD. They come from a Clau
 
 ### Decisions already made
 - Graphic style "Original" targets the Midtown Madness 2 look (2000), not MM1: filtered textures, hard fog. UI stays Y2K chunky.
-- HUD layout (HUD.dc.html, already implemented in prototype/index.html): speedometer + gear + damage bottom left, large rectangular map with labels bottom right, position + checkpoint pips top left, arrow + distance top center, timer + toasts top right.
+- HUD layout (HUD.dc.html, already implemented in index.html): speedometer + gear + damage bottom left, large rectangular map with labels bottom right, position + checkpoint pips top left, arrow + distance top center, timer + toasts top right.
 - v0 has no traffic, pedestrians or cops. Race setup shows them as "v1" instead of dead sliders.
 - Title screen: **A (Main.dc.html, Sunset Steel)**, decided 2026-10-16 over B (TitleB.dc.html, Blue Chrome). Redesign tracked in #346.
 
 ### When implementing screens in the prototype
-- Build them as plain HTML/CSS overlays in prototype/index.html, matching the mockup markup (sizes scaled to the viewport, not fixed 1920×1080). They must work at phone width.
+- Build them as plain HTML/CSS overlays in index.html, matching the mockup markup (sizes scaled to the viewport, not fixed 1920×1080). They must work at phone width.
 - Real `<button>` elements, visible focus states, keyboard navigation. Menus must be usable with the keyboard alone.
 - No logos of real brands (Sissila, Volg) until docs/07-brands-and-permissions.md says permission is granted.
 - If a screen needs a visual change the mockup doesn't cover, propose it first instead of improvising.

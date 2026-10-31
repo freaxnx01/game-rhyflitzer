@@ -1,0 +1,1039 @@
+// Pure helpers for the OSM world (no three.js, no DOM): spatial grid, water distance field,
+// water levels, polyline tools, world file -> layout. Unit-tested with `node --test tests/`.
+
+export function makeGrid(cell = 32) { return { cell, m: new Map() }; }
+const gk = (i, j) => i + ',' + j;
+export function gridAdd(g, x0, z0, x1, z1, item) {
+  const c = g.cell;
+  for (let i = Math.floor(x0 / c); i <= Math.floor(x1 / c); i++) for (let j = Math.floor(z0 / c); j <= Math.floor(z1 / c); j++) {
+    const k = gk(i, j); let a = g.m.get(k); if (!a) g.m.set(k, a = []); a.push(item);
+  }
+}
+export function gridAddSegment(g, ax, az, bx, bz, pad, item) { gridAdd(g, Math.min(ax, bx) - pad, Math.min(az, bz) - pad, Math.max(ax, bx) + pad, Math.max(az, bz) + pad, item); }
+export function gridQuery(g, x, z, r) {
+  const c = g.cell, out = new Set();
+  for (let i = Math.floor((x - r) / c); i <= Math.floor((x + r) / c); i++) for (let j = Math.floor((z - r) / c); j <= Math.floor((z + r) / c); j++) {
+    const a = g.m.get(gk(i, j)); if (a) for (const it of a) out.add(it);
+  }
+  return out;
+}
+
+function b64(s) { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Int8Array(u.buffer); }
+export function sdfSampler(sdf) {
+  const d = b64(sdf.data), { x0, z0, step, w, h } = sdf;
+  return (x, z) => {
+    const fx = (x - x0) / step, fz = (z - z0) / step;
+    if (fx < 0 || fz < 0 || fx > w - 1 || fz > h - 1) return 127;
+    const i = Math.max(0, Math.min(Math.floor(fx), w - 2)), j = Math.max(0, Math.min(Math.floor(fz), h - 2));
+    const tx = w > 1 ? fx - i : 0, tz = h > 1 ? fz - j : 0;
+    const at = (a, b) => d[Math.min(b, h - 1) * w + Math.min(a, w - 1)];
+    const top = at(i, j) + (at(i + 1, j) - at(i, j)) * tx, bot = at(i, j + 1) + (at(i + 1, j + 1) - at(i, j + 1)) * tx;
+    return top + (bot - top) * tz;
+  };
+}
+
+// The terrain mesh: exact 16 m cells laid from the world's north-west corner, so a region that grows south or east keeps every
+// existing vertex where it was and the ground under a bridge or a road does not shift with the map's extent (#47).
+const MESH_CELL = 16;
+export function terrainGrid(sdf) {
+  if (!sdf) return { GW: 6400, GD: 3800, nx: 400, nz: 240, x0: -3200, z0: -1840, dx: 6400 / 400, dz: 3800 / 240, h: null };
+  const nx = Math.ceil((sdf.w - 1) * sdf.step / MESH_CELL), nz = Math.ceil((sdf.h - 1) * sdf.step / MESH_CELL);
+  return { GW: nx * MESH_CELL, GD: nz * MESH_CELL, nx, nz, x0: sdf.x0, z0: sdf.z0, dx: MESH_CELL, dz: MESH_CELL, h: null };
+}
+
+function inRing(r, x, z) { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, zi] = r[i], [xj, zj] = r[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; }
+export function waterIndex(water) {
+  const items = water.map(w => { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const [x, z] of w.rings[0]) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); } return { w, bb: [a, b, c, d] }; });
+  return { levelAt(x, z) { for (const { w, bb } of items) { if (x < bb[0] || x > bb[2] || z < bb[1] || z > bb[3]) continue; if (inRing(w.rings[0], x, z) && !w.rings.slice(1).some(h => inRing(h, x, z))) return w.level; } return null; },
+    nameAt(x, z) { for (const { w, bb } of items) { if (x < bb[0] || x > bb[2] || z < bb[1] || z > bb[3]) continue; if (inRing(w.rings[0], x, z) && !w.rings.slice(1).some(h => inRing(h, x, z))) return w.name || ''; } return ''; } };
+}
+
+// car parks (#72): is a disc (a tree's footprint) clear of every lot surface? holes are islands, not car park
+function ringDist(r, x, z) {
+  let best = Infinity;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [ax, az] = r[j], [bx, bz] = r[i], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    const t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+    best = Math.min(best, Math.hypot(x - ax - t * dx, z - az - t * dz));
+  }
+  return best;
+}
+export function parkingIndex(lots) {
+  const items = lots.map(l => { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (const [x, z] of l.ring) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); } return { rings: [l.ring, ...(l.holes || [])], bb: [a, b, c, d] }; });
+  return {
+    clear(x, z, r = 0) {
+      for (const { rings, bb } of items) {
+        if (x < bb[0] - r || x > bb[2] + r || z < bb[1] - r || z > bb[3] + r) continue;
+        if (inRing(rings[0], x, z) && !rings.slice(1).some(h => inRing(h, x, z))) return false;
+        if (rings.some(ring => ringDist(ring, x, z) < r)) return false;
+      }
+      return true;
+    },
+  };
+}
+
+// #226: where the minimap writes the motorway ref. Links and stubs are skipped; a way yields one spot per `spacing` metres;
+// a spot within MIN_GAP of an accepted one is dropped, longest ways first (the two carriageways would double-label).
+export function motorwayLabelSpots(roads, spacing = 1500) {
+  const MIN_GAP = 900, MIN_LEN = 300, out = [];
+  const ways = roads.filter(r => r.cls === 'motorway').map(r => ({ r, len: polylineLength(r.pts) })).filter(w => w.len >= MIN_LEN).sort((a, b) => b.len - a.len);
+  for (const { r, len } of ways) {
+    const n = Math.max(1, Math.floor(len / spacing));
+    for (let i = 0; i < n; i++) {
+      const [x, z] = pointAtLength(r.pts, (i + 0.5) / n * len);
+      if (out.every(s => Math.hypot(s.x - x, s.z - z) >= MIN_GAP)) out.push({ x, z });
+    }
+  }
+  return out;
+}
+
+export function polylineLength(pts) { let s = 0; for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return s; }
+// #319: a polyline without consecutive repeated points; a zero-length step has no direction, and a ribbon built on one gets NaN vertices
+export function dropRepeats(pts) { return pts.filter((p, i) => i === 0 || p[0] !== pts[i - 1][0] || p[1] !== pts[i - 1][1]); }
+export function nearestOnPolyline(pts, x, z) {
+  let best = { d: Infinity, t: 0, i: 0 }, acc = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, L = Math.sqrt(L2);
+    const u = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0;
+    const d = Math.hypot(x - ax - dx * u, z - az - dz * u);
+    if (d < best.d) best = { d, t: acc + u * L, i };
+    acc += L;
+  }
+  return best;
+}
+export function offsetPolyline(pts, d) {
+  const n = pts.length, out = [];
+  const nrm = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return [-dz / l, dx / l]; };
+  for (let i = 0; i < n; i++) {
+    const a = i > 0 ? nrm(pts[i - 1], pts[i]) : null, b = i < n - 1 ? nrm(pts[i], pts[i + 1]) : null;
+    let m = a && b ? [a[0] + b[0], a[1] + b[1]] : (a || b); const l = Math.hypot(m[0], m[1]) || 1; m = [m[0] / l, m[1] / l];
+    const k = a && b ? 1 / Math.max(0.35, m[0] * a[0] + m[1] * a[1]) : 1;
+    out.push([pts[i][0] + m[0] * d * k, pts[i][1] + m[1] * d * k].map(v => Math.round(v * 1000) / 1000 + 0));   // +d = right of travel (x east, z south)
+  }
+  return out;
+}
+
+export function layoutFromWorld(w) {
+  const roads = w.roads.map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
+  return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
+           rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
+}
+
+export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
+// Surface sits up to 0.3 m above the deck, fading in over the first/last 5 m so the bridge meets the terrain at both ends; an end
+// flagged fade0/fade1 === false is a joint with the next piece of a chain (#78) and keeps the full offset.
+// #227: an end seated on its bank (seat0/seat1) carries its deck line DECK_OFFSET below the bank top, so the surface meets the bank
+// at the end and keeps the full offset. Fading it there instead puts a 6 % ramp in the last 5 m of the deck, and the kink where that
+// ramp meets the level bank threw the car off the Sägeweg bridge.
+export const DECK_OFFSET = 0.3;
+export function bridgeDeckOffset(b, t) { const a = b.fade0 === false || b.seat0 ? Infinity : t, e = b.fade1 === false || b.seat1 ? Infinity : b.len - t; return DECK_OFFSET * Math.max(0, Math.min(1, Math.min(a, e) / 5)); }
+export function bridgeSurfaceAt(b, t) { return bridgeDeckAt(b, t) + bridgeDeckOffset(b, t); }
+
+// #76: railway bridges over roads. The road dips into a cut so the deck's underside (surface - deck) clears it by `clear` m;
+// the cut ramps out along the road at `grade`, never deeper than `maxDepth`. #119: `wall` m thick stone walls retain the
+// ground beside it instead of grass banks, their face `margin` m out from the road edge.
+// #120: side roads joining inside a cut descend with it on arms ramping at sideGrade (the same street going on: grade).
+export const UNDERPASS = { clear: 4.5, deck: 1.2, lift: 0.04, grade: 0.08, sideGrade: 0.12, margin: 1, wall: 2, maxDepth: 6, apron: 3, runout: 0.25 };
+
+export function pointAtLength(pts, t) {
+  let acc = 0;
+  if (t <= 0) return pts[0].slice();
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], L = Math.hypot(bx - ax, bz - az);
+    if (acc + L >= t) { const u = L ? (t - acc) / L : 0; return [ax + (bx - ax) * u, az + (bz - az) * u]; }
+    acc += L;
+  }
+  return pts[pts.length - 1].slice();
+}
+
+function segmentHit(ax, az, bx, bz, cx, cz, dx, dz) {
+  const rx = bx - ax, rz = bz - az, sx = dx - cx, sz = dz - cz, den = rx * sz - rz * sx;
+  if (Math.abs(den) < 1e-9) return null;
+  const qx = cx - ax, qz = cz - az, u = (qx * sz - qz * sx) / den, v = (qx * rz - qz * rx) / den;
+  return u >= 0 && u <= 1 && v >= 0 && v <= 1 ? { u, v, sin: Math.abs(den) / (Math.hypot(rx, rz) * Math.hypot(sx, sz)) } : null;
+}
+
+export function railRoadCrossings(roads, railBridges) {
+  const out = [];
+  railBridges.forEach((rb, bridge) => {
+    for (const road of roads) {
+      if (road.bridge || (road.layer ?? 0) >= rb.layer) continue;
+      let ta = 0;
+      for (let i = 0; i < road.pts.length - 1; i++) {
+        const [ax, az] = road.pts[i], [bx, bz] = road.pts[i + 1], la = Math.hypot(bx - ax, bz - az);
+        let tb = 0;
+        for (let j = 0; j < rb.pts.length - 1; j++) {
+          const [cx, cz] = rb.pts[j], [dx, dz] = rb.pts[j + 1], lb = Math.hypot(dx - cx, dz - cz), h = segmentHit(ax, az, bx, bz, cx, cz, dx, dz);
+          if (h) out.push({ road, bridge, x: ax + (bx - ax) * h.u, z: az + (bz - az) * h.u, tRoad: ta + la * h.u, tRail: tb + lb * h.v, sin: h.sin });
+          tb += lb;
+        }
+        ta += la;
+      }
+    }
+  });
+  return out;
+}
+
+export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidth / Math.max(0.3, sin) + u.apron; }
+
+// #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at
+// u.grade until it meets the ground. The road ribbon lies u.lift above the floor.
+export function cutFloorTarget(deckMin, ground, u = UNDERPASS) { return Math.max(deckMin - u.deck - u.clear - u.lift, ground - u.maxDepth); }
+// #120: the points the network cannot descend through (dead ends, bridge joins, arms out of budget) keep their ground:
+// f0 >= ground - rise, rise = how far the floor climbs from the crossing to that point along the network
+export function capFloor(f0, caps) {
+  let out = { f0, capped: null };
+  for (const p of caps) { const f = p.ground - p.rise; if (f > out.f0) out = { f0: f, capped: p }; }
+  return out;
+}
+// #120, review of #156: reach -> network -> cap until no cap lifts the floor any more. A cap only ever raises f0, so the last
+// one applied is the shallowest floor seen: if the floor has still not settled after `tries` lifts, the cut keeps that floor
+// (never the deeper one a cap rejected), rebuilds its arms from it and is flagged `unsettled` for the build to report.
+export function settleCut(cut, network, tries = 8) {
+  cut.unsettled = false;
+  for (let k = 0; ; k++) {
+    const net = network(cut), cap = capFloor(cut.f0, net.caps);
+    cut.arms = net.arms;
+    if (!cap.capped) return cut;
+    cut.f0 = cap.f0; cut.capped = cap.capped;
+    if (k === tries) { cut.arms = network(cut).arms; cut.unsettled = true; return cut; }
+  }
+}
+export function cutFloor(c, s, u = UNDERPASS) { return c.f0 + (c.grade ?? u.grade) * Math.max(0, Math.abs(s) - c.flat); }
+// #120: per side of the anchor t, how far a cut or arm reaches and why it stops: the floor meets the ground ('ground', first
+// whole metre), its road piece ends first ('end'), or it is still below the ground after flat + maxDepth / grade ('budget')
+export function armReach(a, groundAt, len, u = UNDERPASS) {
+  const max = a.flat + u.maxDepth / (a.grade ?? u.grade);
+  return [-1, 1].map((dir) => {
+    const room = Math.max(0, dir < 0 ? a.t : len - a.t);   // #156: an anchor on a piece end can land a hair past it
+    for (let s = 0; s <= Math.min(room, max); s++) if (cutFloor(a, s, u) >= groundAt(dir * s) - 1e-9) return { s, why: 'ground' };
+    return room <= max ? { s: room, why: 'end' } : { s: max, why: 'budget' };
+  });
+}
+// #120: the nodes along a cut or arm inside its reach -- junction points on its road and the piece ends it reaches, never its
+// own anchor; s is signed from the anchor; one node per 0.5 m (a piece end on a junction is one node, an end)
+export function armNodes(a, junctions, len) {
+  const out = [], add = (x, z, s, end) => {
+    if (Math.abs(s) <= 0.5 || s < -a.reach[0] - 1e-9 || s > a.reach[1] + 1e-9 || out.some((o) => Math.hypot(o.x - x, o.z - z) < 0.5)) return;
+    out.push({ x, z, s, end });
+  };
+  add(...a.pts[0], -a.t, true); add(...a.pts[a.pts.length - 1], len - a.t, true);
+  for (const [jx, jz] of junctions) { const n = nearestOnPolyline(a.pts, jx, jz); if (n.d < a.hw + 2) add(jx, jz, n.t - a.t, false); }
+  return out;
+}
+const sameStreet = (a, b) => a.id === b.id || (!!a.n && a.n === b.n);
+// #156: how long a side road starting at t on `pts` stays in the corridor of the cut or arm `a` it leaves, and the floor of `a`
+// where it gets out. Leaving square-on that is the corridor's half-width at the junction's own floor; leaving at a slant it is
+// longer, and `a`'s floor climbs under it meanwhile, so the side road waits level at the floor where it gets out -- held at the
+// junction's floor it would sink below `a`'s road and step across its carriageway where its own corridor ends.
+function leaveCorridor(a, pts, t, floor, u) {
+  const half = a.hw + u.margin + u.wall / 2, len = polylineLength(pts);
+  const inside = (s) => { const [x, z] = pointAtLength(pts, t + s); return cutFloorAt(a, x, z, u) !== null; };
+  let best = { flat: half, f0: floor };
+  for (const dir of [-1, 1]) {
+    const room = dir < 0 ? t : len - t;
+    let s = 0;
+    while (s + 0.25 <= room && inside(dir * (s + 0.25))) s += 0.25;
+    if (s + 0.25 <= room) for (let lo = s, hi = s + 0.25, k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (inside(dir * m)) lo = s = m; else hi = m; }
+    if (s <= best.flat + 1e-6) continue;
+    const [x, z] = pointAtLength(pts, t + dir * s);
+    best = { flat: s, f0: cutFloorAt(a, x, z, u) };
+  }
+  return best;
+}
+// #120: every road piece meeting the cut (or one of its arms) at a node below the ground descends with it: an arm anchored
+// there, starting at the floor of the road it leaves and ramping back up at u.grade (same street) or u.sideGrade. Breadth-
+// first, each piece once. What cannot take an arm becomes a cap point for capFloor.
+export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
+  const arms = [], caps = [], used = new Set([cut.road]), queue = [{ a: cut, rise0: 0 }];
+  while (queue.length) {
+    const { a, rise0 } = queue.shift();
+    for (const nd of armNodes(a, junctions, polylineLength(a.pts))) {
+      const floor = cutFloor(a, nd.s, u), g = ground(nd.x, nd.z), rise = rise0 + floor - a.f0;
+      if (floor >= g - 0.05) continue;
+      const touch = roads.filter((o) => o !== a.road && nearestOnPolyline(o.pts, nd.x, nd.z).d < 0.6), open = touch.filter((o) => !o.bridge && (o.layer ?? 0) === 0);
+      if (open.length < touch.length) caps.push({ x: nd.x, z: nd.z, rise, ground: g, kind: 'bridge' });
+      else if (nd.end && !open.length) caps.push({ x: nd.x, z: nd.z, rise, ground: g, kind: 'dead' });
+      for (const o of open) {
+        if (used.has(o)) continue;
+        used.add(o);
+        // a side road crosses the trough it leaves before it can ramp, so it stays level over that corridor (else the floor
+        // steps up by grade * corridor where the parent's corridor ends); the same street going on has no trough to cross
+        const on = sameStreet(o, a.road), t = nearestOnPolyline(o.pts, nd.x, nd.z).t, lev = on ? { flat: 0, f0: floor } : leaveCorridor(a, o.pts, t, floor, u);
+        const arm = { pts: o.pts, road: o, t, hw: o.w / 2, flat: lev.flat, f0: lev.f0, grade: on ? u.grade : u.sideGrade, x: nd.x, z: nd.z };
+        const r = armReach(arm, (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);
+        arm.reach = r.map((p) => p.s); arm.stop = r.map((p) => p.why);
+        // an arm that runs out of budget on a road climbing steeper than its grade ends there, below the ground (capping it
+        // instead lifts the floor above the deck's underside and loses the underpass); from there its floor runs out to the
+        // ground, losing the depth d left at the end over d / u.runout m, so the road has no step (review of #156)
+        arm.out = r.map((p, k) => {
+          const s = k ? p.s : -p.s, d = p.why === 'budget' ? ground(...pointAtLength(o.pts, t + s)) - cutFloor(arm, s, u) : 0;
+          return d > 0 ? { d, len: d / u.runout } : null;
+        });
+        arms.push(arm); queue.push({ a: arm, rise0: rise });
+      }
+    }
+  }
+  return { arms, caps };
+}
+// the floor at (x, z), or null outside the corridor and the reach; past an end with a run-out (`out`, see cutNetwork) it rises
+// from the floor there to `ground` on the centre line, linearly in the depth left
+export function cutFloorAt(c, x, z, u = UNDERPASS, ground = null) {
+  const n = nearestOnPolyline(c.pts, x, z), s = n.t - c.t, k = s < 0 ? 0 : 1, past = Math.abs(s) - c.reach[k];
+  if (n.d > (c.lat ?? c.hw + u.margin + u.wall / 2)) return null;   // #156: lat, if set, keeps the patch bleed behind the wall
+  const b = c.roundEnds ? 0 : beyondEnd(c.pts, x, z, n.t);     // roundEnds (the hideout's cuts): the corridor runs on as a level disc
+  if (b !== 0 && Math.abs(s) < 1e-9) return null;                 // behind an anchor at the road end: the road it leaves covers that
+  if (past <= 0) return cutFloor(c, s + b, u);
+  const o = c.out?.[k];
+  if (!o || !ground || past > o.len) return null;
+  return ground(...pointAtLength(c.pts, n.t)) - o.d * (1 - past / o.len);
+}
+// #156: how far (x, z) lies past the polyline's end along its last segment (+), or behind its start along the first (-), when
+// the nearest road point t is that end; else 0
+function beyondEnd(pts, x, z, t) {
+  const last = pts.length - 1, atStart = t <= 1e-9, atEnd = !atStart && t >= polylineLength(pts) - 1e-9;
+  if (!atStart && !atEnd) return 0;
+  const [ax, az] = atStart ? pts[1] : pts[last - 1], [bx, bz] = atStart ? pts[0] : pts[last], L = Math.hypot(bx - ax, bz - az) || 1;
+  const ext = Math.max(0, ((x - bx) * (bx - ax) + (z - bz) * (bz - az)) / L);
+  return atStart ? -ext : ext;
+}
+// PR #156, option (a): (x, z) lies in a shared trough when its two nearest road corridors face each other across it (the
+// directions to their nearest points within 30 deg of opposite) and their edges there are less than margin + wall + margin
+// apart. No wall fits between them without standing in one of the corridors, so the two roads share one trough with no bank
+// between them to retain (the Bahndammstrasse and the service road beside it). A junction corner is not one: its roads meet.
+export function sharedTrough(x, z, roads, u = UNDERPASS) {
+  const near = roads.map((r) => { const n = nearestOnPolyline(r.pts, x, z), [px, pz] = pointAtLength(r.pts, n.t); return { d: n.d, e: n.d - r.w / 2, hw: r.w / 2, px, pz }; }).sort((p, q) => p.e - q.e);
+  if (near.length < 2 || near[0].d < 1e-9 || near[1].d < 1e-9) return false;
+  const [a, b] = near, facing = ((a.px - x) * (b.px - x) + (a.pz - z) * (b.pz - z)) / (a.d * b.d) <= -Math.cos(Math.PI / 6);
+  return facing && Math.hypot(a.px - b.px, a.pz - b.pz) - a.hw - b.hw < u.margin + u.wall + u.margin;
+}
+// the part of its road a cut or arm lowers, run-outs included: [t0, t1]
+export function armSpan(c) { return [c.t - c.reach[0] - (c.out?.[0]?.len ?? 0), c.t + c.reach[1] + (c.out?.[1]?.len ?? 0)]; }
+export function cutBounds(c, u = UNDERPASS) {
+  const [a, b] = armSpan(c), pad = c.hw + u.margin + u.wall + 1, n = Math.max(1, Math.ceil(b - a));
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (let k = 0; k <= n; k++) { const [x, z] = pointAtLength(c.pts, a + (b - a) * k / n); x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
+  return [x0 - pad, z0 - pad, x1 + pad, z1 + pad];
+}
+
+export function mergeIntervals(iv) {
+  const out = [];
+  for (const [a, b] of [...iv].sort((p, q) => p[0] - q[0])) { const last = out[out.length - 1]; if (last && a <= last[1]) last[1] = Math.max(last[1], b); else out.push([a, b]); }
+  return out;
+}
+// #119: wall pieces along a road over the (merged) spans, `offset` m to each side; (nx, nz) points away from the road.
+// #156: each piece is the chord of the wall line itself (both ends offset along the road's normal there, as wallSpans tests
+// them), so on the outside of a bend the pieces still meet; where the wall line folds back on the inside of a tight bend the
+// piece keeps the road's chord, moved out.
+export function wallStations(pts, intervals, offset, step, sides = [-1, 1]) {
+  const out = [];
+  for (const [a, b] of mergeIntervals(intervals)) {
+    const n = Math.max(1, Math.round((b - a) / step)), len = (b - a) / n;
+    for (let k = 0; k < n; k++) {
+      const t = a + (k + 0.5) * len, [x0, z0] = pointAlong(pts, t - len / 2), [x1, z1] = pointAlong(pts, t + len / 2), rot = Math.atan2(z1 - z0, x1 - x0);
+      for (const side of sides) {
+        const [ax, az] = wallPoint(pts, t - len / 2, offset, side), [bx, bz] = wallPoint(pts, t + len / 2, offset, side);
+        const along = (bx - ax) * Math.cos(rot) + (bz - az) * Math.sin(rot) > 1e-6;
+        const r = along ? Math.atan2(bz - az, bx - ax) : rot, nx = -Math.sin(r) * side, nz = Math.cos(r) * side;
+        out.push(along ? { t, side, len: Math.hypot(bx - ax, bz - az), rot: r, nx, nz, x: (ax + bx) / 2, z: (az + bz) / 2 }
+          : { t, side, len, rot, nx, nz, x: (x0 + x1) / 2 + nx * offset, z: (z0 + z1) / 2 + nz * offset });
+      }
+    }
+  }
+  return out;
+}
+// #156: the cap piece for an acute corner, where a wall run stops short of another road's corridor and the run of that road
+// stops short of this one. a, b: a point q on each road's centre line, its unit normal n towards the corner, its half width hw.
+// The piece lies across the corner's bisector, its centre where its inner face meets both margins, its ends `end` m off both
+// edges (the run-end distance); null at 90 deg or more, where the two runs close the corner themselves.
+export function cornerPiece(a, b, end, u = UNDERPASS) {
+  const cosA = -(a.n[0] * b.n[0] + a.n[1] * b.n[1]), det = a.n[0] * b.n[1] - a.n[1] * b.n[0];
+  if (cosA <= 1e-9 || Math.abs(det) < 1e-9) return null;
+  const sinH = Math.sqrt((1 - cosA) / 2), cosH = Math.sqrt((1 + cosA) / 2), c = u.margin + u.wall / 2 * sinH, len = 2 * (c - end) / cosH;
+  if (len <= 0) return null;
+  const ra = a.n[0] * a.q[0] + a.n[1] * a.q[1] + a.hw + c, rb = b.n[0] * b.q[0] + b.n[1] * b.q[1] + b.hw + c;
+  const x = (ra * b.n[1] - rb * a.n[1]) / det, z = (a.n[0] * rb - b.n[0] * ra) / det;
+  const bx = a.n[0] + b.n[0], bz = a.n[1] + b.n[1], L = Math.hypot(bx, bz), nx = bx / L, nz = bz / L;
+  return { x, z, len, rot: Math.atan2(nz, nx) + Math.PI / 2, nx, nz };
+}
+// the point `offset` m to `side` of the road at t, along the road's normal there (tangent over +-0.1 m, so a vertex gets the mitre)
+export function wallPoint(pts, t, offset, side) {
+  const [x0, z0] = pointAlong(pts, t - 0.1), [x1, z1] = pointAlong(pts, t + 0.1), rot = Math.atan2(z1 - z0, x1 - x0), [x, z] = pointAlong(pts, t);
+  return [x - Math.sin(rot) * side * offset, z + Math.cos(rot) * side * offset];
+}
+// pointAtLength, but past either end it goes on along the end segment (a wall overhang keeps its normal there)
+function pointAlong(pts, t) {
+  const len = polylineLength(pts);
+  if (t >= 0 && t <= len) return pointAtLength(pts, t);
+  const [ax, az] = t < 0 ? pts[0] : pts[pts.length - 1], [bx, bz] = t < 0 ? pts[1] : pts[pts.length - 2], L = Math.hypot(bx - ax, bz - az) || 1, e = t < 0 ? t : len - t;
+  return [ax + (bx - ax) / L * e, az + (bz - az) / L * e];
+}
+// #120: the parts of the spans where the wall centre line (`offset` m to `side`, normal as in wallStations) stays outside
+// `blocked` -- another road's corridor -- sampled every 0.25 m, so a run ends at that road's wall face; bits < 0.5 m dropped
+export function wallSpans(pts, intervals, offset, side, blocked, overhang = 0) {
+  const out = [], len = polylineLength(pts);
+  // on the road, or at most `overhang` m past its ends (#156, see pointAlong): past an end pointAtLength clamps and the normal
+  // is lost (review of #156)
+  for (const [a, b] of mergeIntervals(intervals).map(([a, b]) => [Math.max(-overhang, a), Math.min(len + overhang, b)]).filter(([a, b]) => b - a >= 0.5)) {
+    const n = Math.max(1, Math.ceil((b - a) / 0.25)), freeAt = (t) => !blocked(...wallPoint(pts, t, offset, side));
+    // #156: between a free and a blocked sample, the last free t to the centimetre
+    const edge = (free, blockedT) => { for (let k = 0; k < 6; k++) { const m = (free + blockedT) / 2; if (freeAt(m)) free = m; else blockedT = m; } return free; };
+    let start = null, last = null, prev = null;
+    for (let k = 0; k <= n; k++) {
+      const t = a + (b - a) * k / n, free = freeAt(t);
+      if (free) { if (start === null) start = prev === null ? t : edge(t, prev); last = t; }
+      if ((!free || k === n) && start !== null) { const end = free ? last : edge(last, t); if (end - start >= 0.5) out.push([start, end]); start = null; }
+      prev = t;
+    }
+  }
+  return out;
+}
+
+export function patchCells([bx0, bz0, bx1, bz1], G) {
+  const cl = (v, n) => Math.max(0, Math.min(n - 1, v)), out = [];
+  const i0 = cl(Math.floor((bx0 - G.x0) / G.dx), G.nx), i1 = cl(Math.floor((bx1 - G.x0) / G.dx), G.nx);
+  const j0 = cl(Math.floor((bz0 - G.z0) / G.dz), G.nz), j1 = cl(Math.floor((bz1 - G.z0) / G.dz), G.nz);
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) out.push([i, j]);
+  return out;
+}
+
+// #259: the ground around a stone bridge's banks is drawn in 1 m patches of the smoothed measured terrain, so the bank top an abutment
+// stands on, the roads draped there and the ground the car drives on do not depend on where the coarse 16 m mesh rows fall.
+// Full weight up to `inner` from a bank, blended back to the coarse mesh by `outer`, where the patches meet it without a crack.
+export const FINE_BANK = { inner: 48, outer: 72 };
+export function fineWeight(x, z, centres, { inner, outer } = FINE_BANK) {
+  let d = Infinity; for (const [cx, cz] of centres) d = Math.min(d, Math.hypot(x - cx, z - cz));
+  const t = Math.max(0, Math.min(1, (d - inner) / (outer - inner)));
+  return 1 - t * t * (3 - 2 * t);
+}
+// the cells with any point closer than `outer` to a bank: every edge they share with an unpatched cell lies at outer or beyond
+export function fineCells(centres, G, outer = FINE_BANK.outer) {
+  const out = new Map();
+  for (const [cx, cz] of centres) for (const [i, j] of patchCells([cx - outer, cz - outer, cx + outer, cz + outer], G)) {
+    const x = Math.max(G.x0 + i * G.dx, Math.min(cx, G.x0 + (i + 1) * G.dx)), z = Math.max(G.z0 + j * G.dz, Math.min(cz, G.z0 + (j + 1) * G.dz));
+    if (Math.hypot(x - cx, z - cz) < outer) out.set(i + ',' + j, [i, j]);
+  }
+  return [...out.values()];
+}
+// #259: the measured ground under a bank, low-passed with a tent of half-width r -- the smoothing a linear mesh of r-metre cells
+// gives, but centred on every point, so no row phase enters. Tabulated on a `step` grid anchored at world multiples of step
+// (whatever the box), filtered separably, read bilinearly; box is [x0, z0, x1, z1], reads outside it clamp to its edge.
+export function smoothedGround(h, [bx0, bz0, bx1, bz1], r = 16, step = 2) {
+  const k = Math.round(r / step), x0 = Math.floor(bx0 / step) * step, z0 = Math.floor(bz0 / step) * step;
+  const nx = Math.ceil((bx1 - x0) / step) + 1, nz = Math.ceil((bz1 - z0) / step) + 1, W = nx + 2 * k, D = nz + 2 * k;
+  const wt = []; let ws = 0; for (let a = -k; a <= k; a++) { wt.push(1 - Math.abs(a) / (k + 1)); ws += wt[wt.length - 1]; }
+  const raw = new Float64Array(W * D); for (let j = 0; j < D; j++) for (let i = 0; i < W; i++) raw[j * W + i] = h(x0 + (i - k) * step, z0 + (j - k) * step);
+  const rows = new Float64Array(nx * D); for (let j = 0; j < D; j++) for (let i = 0; i < nx; i++) { let s = 0; for (let a = 0; a <= 2 * k; a++) s += wt[a] * raw[j * W + i + a]; rows[j * nx + i] = s / ws; }
+  const g = new Float64Array(nx * nz); for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { let s = 0; for (let a = 0; a <= 2 * k; a++) s += wt[a] * rows[(j + a) * nx + i]; g[j * nx + i] = s / ws; }
+  return (x, z) => {
+    const fx = Math.max(0, Math.min(nx - 1, (x - x0) / step)), fz = Math.max(0, Math.min(nz - 1, (z - z0) / step));
+    const i = Math.min(Math.floor(fx), nx - 2), j = Math.min(Math.floor(fz), nz - 2), u = fx - i, v = fz - j, at = (a, b) => g[b * nx + a];
+    return (at(i, j) * (1 - u) + at(i + 1, j) * u) * (1 - v) + (at(i, j + 1) * (1 - u) + at(i + 1, j + 1) * u) * v;
+  };
+}
+// the (n+1)^2 vertex heights of cell (i, j) cut into n x n, row-major, from h(x, z)
+export function cellHeights(i, j, G, n, h) {
+  const W = n + 1, p = new Float32Array(W * W);
+  for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) p[b * W + k] = h(G.x0 + (i + k / n) * G.dx, G.z0 + (j + b / n) * G.dz);
+  return p;
+}
+
+export function triLerp(ha, hb, hc, hd, u, v) { return u + v <= 1 ? ha + (hd - ha) * u + (hb - ha) * v : hc + (hb - hc) * (1 - u) + (hd - hc) * (1 - v); }
+
+// #42 grades: a stretch of road on its own vertical profile (the Südspange's cutting and underpass). g = { pts, hw,
+// ctl: [[t, cut]] } from the world file; h0(x, z) = the uncut mesh. A grade is one more source for #76's terrain patch:
+// the ground comes down to the profile inside hw + margin, a 1:bank grass bank rises back beside it (no trough walls),
+// and the depth is 0 at `outer` (never past hw + GRADE_BAND, which the pipeline's BAND mirrors), so the patch meets the
+// coarse mesh. caps [{ t, y, w }]: a rail deck over the corridor holds the profile at y (its underside minus the
+// clearance) for w either side of t and lets it climb back at the underpass grade, so every deck clears the road.
+export const GRADE_BAND = 24;
+export const GRADE_CUT = { margin: UNDERPASS.margin, bank: 2, grade: UNDERPASS.grade };
+export function gradeProfile(g, h0) { return g.ctl.map(([t, cut]) => { const [x, z] = pointAtLength(g.pts, t); return [t, h0(x, z) - cut]; }); }
+export function profileY(prof, t) {
+  if (t <= prof[0][0]) return prof[0][1];
+  for (let i = 1; i < prof.length; i++) if (t <= prof[i][0]) { const [t0, y0] = prof[i - 1], [t1, y1] = prof[i]; return y0 + (y1 - y0) * (t - t0) / ((t1 - t0) || 1); }
+  return prof[prof.length - 1][1];
+}
+export function gradeY(gc, t, u = GRADE_CUT) {
+  let y = profileY(gc.prof, t);
+  for (const c of gc.caps) y = Math.min(y, c.y + u.grade * Math.max(0, Math.abs(t - c.t) - c.w));
+  return y;
+}
+export function gradeCut(g, h0, u = GRADE_CUT, caps = []) {
+  const gc = { pts: g.pts, hw: g.hw, prof: gradeProfile(g, h0), caps, inner: g.hw + u.margin }, len = polylineLength(g.pts);
+  let max = 0;
+  for (let t = 0; t <= len; t += 2) { const [x, z] = pointAtLength(g.pts, t); max = Math.max(max, h0(x, z) - gradeY(gc, t, u)); }
+  for (const c of caps) { const [x, z] = pointAtLength(g.pts, c.t); max = Math.max(max, h0(x, z) - gradeY(gc, c.t, u)); }
+  return { ...gc, outer: Math.min(gc.inner + u.bank * (max + 2), g.hw + GRADE_BAND) };
+}
+export function gradeCutAt(gc, x, z, h0, u = GRADE_CUT) {
+  const n = nearestOnPolyline(gc.pts, x, z);
+  if (n.d >= gc.outer) return 0;
+  const raw = h0(x, z) - gradeY(gc, n.t, u) - Math.max(0, n.d - gc.inner) / u.bank;
+  return Math.max(0, Math.min(raw, (gc.outer - n.d) / u.bank));
+}
+export function gradeCells(gc, G) {
+  const out = [], seen = new Set(), len = polylineLength(gc.pts), r = gc.outer;
+  for (let t = 0; t <= len + 4; t += 4) {
+    const [x, z] = pointAtLength(gc.pts, Math.min(t, len));
+    for (const c of patchCells([x - r - 4, z - r - 4, x + r + 4, z + r + 4], G)) { const k = c[0] + ',' + c[1]; if (!seen.has(k)) { seen.add(k); out.push(c); } }
+  }
+  return out;
+}
+// An OSM bridge is ground for a query at height y only from 1.5 m below its surface upward: a car on the road underneath an overpass
+// is not snapped onto the deck. Callers that pass no height (placement code) keep the plain 2D test.
+export function bridgeAccepts(surface, y) { return y === undefined || y >= surface - 1.5; }
+// #78: indices of the bridge pieces that join the hero piece `seed`: same non-empty name and an endpoint within 0.5 m of the group,
+// generic pieces only (so #76's rail decks never join). The Fridolinsbrücke is four OSM ways.
+export function bridgeChain(pieces, seed) {
+  const out = [seed], name = pieces[seed].name, ends = (p) => [p.pts[0], p.pts[p.pts.length - 1]];
+  const touches = (p) => ends(p).some(e => out.some(j => ends(pieces[j]).some(q => Math.hypot(e[0] - q[0], e[1] - q[1]) <= 0.5)));
+  if (!name) return out;
+  for (let grew = true; grew;) { grew = false; for (let i = 0; i < pieces.length; i++) { const p = pieces[i]; if (out.includes(i) || p.kind !== 'generic' || p.name !== name || !touches(p)) continue; out.push(i); grew = true; } }
+  return out;
+}
+// #78: first sample (1 m apart) whose rise over the next `run` samples is below maxGrade: the top of the bank an approach road climbs.
+// #47: and whose own next metre climbs less than twice that -- one steep last metre of the face (0.25 m on the 8 m terrain) passes the
+// chord test from a sample still on the face, which put the abutment 0.25 m below the bank top
+export function bankTop(hs, maxGrade = 0.08, run = 4) { for (let i = 0; i + run < hs.length; i++) if ((hs[i + run] - hs[i]) / run < maxGrade && hs[i + 1] - hs[i] < 2 * maxGrade) return i; return hs.length - 1; }
+// #78: -1 behind the polyline's first vertex, 1 beyond its last, else 0 (nearestOnPolyline clamps, this does not)
+export function pastEnd(pts, x, z) {
+  const n = pts.length, [ax, az] = pts[0], [bx, bz] = pts[1], [cx, cz] = pts[n - 2], [dx, dz] = pts[n - 1];
+  if ((x - ax) * (bx - ax) + (z - az) * (bz - az) < 0) return -1;
+  return (x - dx) * (dx - cx) + (z - dz) * (dz - cz) > 0 ? 1 : 0;
+}
+// #78: height on the straight deck line from bank point a (height ha) to bank point b (height hb), clamped at both banks
+export function deckLine(a, ha, b, hb, x, z) { const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1, u = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)); return ha + (hb - ha) * u; }
+// #227: a generic bridge end sits where the OSM node is, partway down the bank (swissALTI3D removes bridges). Seat it on the bank
+// top its road reaches within END_SEAT.reach m, lifting at most maxLift; hs = bare terrain every 1 m along that road, hs[0] at the end
+export const END_SEAT = { reach: 12, maxLift: 3 };
+export function seatEnd(hs, u = END_SEAT) {
+  const k = bankTop(hs), keep = { h: hs[0], reach: 0 };
+  if (k === 0 || k === hs.length - 1) return keep;
+  if (hs[k] - hs[0] > u.maxLift) return keep;
+  return { h: Math.max(hs[0], hs[k]), reach: k };
+}
+// #227: where (x, z) lies relative to the polyline end it is past: e = pastEnd, along = metres beyond that end along its last
+// segment, across = metres off that segment's line; on the polyline (e = 0) both are 0
+export function endFrame(pts, x, z) {
+  const e = pastEnd(pts, x, z);
+  if (e === 0) return { e, along: 0, across: 0 };
+  const n = pts.length, [ex, ez] = e > 0 ? pts[n - 1] : pts[0], [px, pz] = e > 0 ? pts[n - 2] : pts[1];
+  const len = Math.hypot(ex - px, ez - pz) || 1, ux = (ex - px) / len, uz = (ez - pz) / len, dx = x - ex, dz = z - ez;
+  return { e, along: dx * ux + dz * uz, across: Math.abs(dx * uz - dz * ux) };
+}
+// #78: the first s metres of a polyline
+export function cutPolyline(pts, s) {
+  const out = [pts[0]]; let acc = 0; s = Math.max(0, s);
+  for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], L = Math.hypot(x1 - x0, z1 - z0); if (acc + L >= s) { const u = L ? (s - acc) / L : 0; out.push([x0 + (x1 - x0) * u, z0 + (z1 - z0) * u]); return out; } out.push(pts[i + 1]); acc += L; }
+  return out;
+}
+// Water surface height at a point: the chunk's level (0 when unknown) inside the water, null on land. Callers test bridges first.
+export function waterSurface(riverDist, level) { return riverDist < 0 ? (level ?? 0) : null; }
+
+// Road markings, metres. Dash/gap/width follow VSS SN 640 850a ("Markierungen: Ausgestaltung und Anwendungsbereiche") as quoted by
+// the cantonal guidelines Luzern vif 653.201 "Richtlinie Markierung" (2024, p. 8: Leitlinie innerorts 3.00 m / 3.00 m, ausserorts
+// 3.00 m / 6.00 m, width 15 cm) and Zürich TBA "Markierungen auf Haupt- und Nebenstrassen" (Radstreifen 3/3, 1/1 across junctions).
+// The norm itself is paywalled, so these are second-hand but consistent. Our roads with a centre line are mostly inner-town, so the
+// innerorts 3/3 rhythm is used everywhere. Not from the norm: the solid line width (taken as the Leitlinie's 15 cm) and the cycle-lane
+// inset (1.3 m, measured on design/reference/2026-09-29_sisseln-hauptstrasse-cycle-lanes.jpg; the usual Radstreifen is 1.25-1.5 m).
+export const MARK = {
+  centre: { dash: 3, gap: 3, w: 0.15, color: 'white' },
+  'centre-solid': { dash: 1, gap: 0, w: 0.15, color: 'white' },
+  cycle: { dash: 3, gap: 3, w: 0.15, color: 'yellow', inset: 1.3 },
+};
+// One-sided cycle lanes also get a white centre line (pipeline contract). Order: left yellow, right yellow, centre.
+export function markLines(r) {
+  const out = [], e = r.w / 2 - MARK.cycle.inset;
+  if (r.mark === 'centre' || r.mark === 'centre-solid') out.push({ pts: r.pts, spec: MARK[r.mark] });
+  if (r.mark === 'cycle' || r.mark === 'cycle-left') out.push({ pts: offsetPolyline(r.pts, -e), spec: MARK.cycle });
+  if (r.mark === 'cycle' || r.mark === 'cycle-right') out.push({ pts: offsetPolyline(r.pts, e), spec: MARK.cycle });
+  if (r.mark === 'cycle-left' || r.mark === 'cycle-right') out.push({ pts: r.pts, spec: MARK.centre });
+  return out;
+}
+
+// #12: name of the road under the car -- the nearest named segment whose centre line is within half its width (+ margin)
+export function roadNameAt(cands, x, z, margin = 1) {
+  let best = '', bd = Infinity;
+  for (const { r, i } of cands) {
+    if (!r.n) continue;
+    const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    const u = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0, d = Math.hypot(x - ax - dx * u, z - az - dz * u);
+    if (d <= r.w / 2 + margin && d < bd) { bd = d; best = r.n; }
+  }
+  return best;
+}
+// roof top above the base, as osmBuilding draws it (roughly); shared by the house-number (#12) and debug height (#39) labels
+export function roofTop(b) { return typeof b.rh === 'number' ? b.h + b.rh : b.roof === 'gable' ? b.h + 0.4 * Math.min(b.rect[2], b.rect[3]) : Math.max(b.h, 3); }
+// #45: the Bodenackerstrasse row houses in Sisseln, by OSM way id -- the six-unit blocks 3-21 plus the three-unit block 16a-16c.
+// Picked by id, not by addr: 6a-6d and 1a-1d share the a-x pattern and are the big blocks next door.
+export const ROW_HOUSE_IDS = new Set([512632899, 171822953, 171822664, 171822908, 171822930, 171822939, 171822935, 171822913, 171822943, 171822937, 171822949, 171822938, 171822934, 171822932, 171822933, 171822799]);
+export function isRowHouse(b) { return ROW_HOUSE_IDS.has(b.id); }
+// house units from the OSM addr range ('3a–3f' -> 6); 6 when the range is missing or unreadable
+export function rowUnits(addr) { const m = /^\d+([a-z])[–-]\d+([a-z])$/.exec(addr || ''); return m ? m[2].charCodeAt(0) - m[1].charCodeAt(0) + 1 : 6; }
+// texture tile for a row house: one unit wide, one whole storey tall (3 m nominal), so the yellow panels fall on the unit joints
+export function rowHouseTile(b) { const w = Math.max(b.rect[2], b.rect[3]), h = Math.max(b.h, 3); return [w / rowUnits(b.addr), h / Math.max(1, Math.round(h / 3))]; }
+// #12 / #520 / #557: house-number plates (OSM addr) on the real wall: a ring building gets the ring edge facing the road point
+// (wallPlate), a box (landmark, degenerate ring) the façade of the drawn box that faces it. roadAt(x, z, st) gives the nearest
+// point of the street named st -- the address's own street, when the data has it -- or of any road, as [x, z] or null (then the
+// +z side). foot = the ring the base height comes from (null for a landmark, which stands on the terrain at its centre).
+export function addrLabels(buildings, landmarks = {}, roadAt = () => null) {
+  const plate = (t, x, z, w, d, rot, foot, st, ring) => {
+    const road = roadAt(x, z, st);
+    return { t, ...(wallPlate(ring, x, z, road) || facingFacade(x, z, rot, w, d, road)), foot };
+  };
+  return [...buildings.filter(b => b.addr).map(b => plate(b.addr, ...b.rect, b.ring, b.st, b.ring)),
+          ...Object.values(landmarks).filter(l => l.addr).map(l => plate(l.addr, l.x, l.z, ...l.size, l.rot || 0, null, undefined, null))];
+}
+const PLATE_OFF = 0.06, PLATE_IN = 1;   // m off the wall (clear of z-fighting); m in from the façade's right corner
+// as in Switzerland: near the right edge of the façade as seen from outside, not in its middle
+function facingFacade(x, z, rot, w, d, road) {
+  const faces = facadeLabels(x, z, rot, w, d, PLATE_OFF), lengths = [w, d, w, d];
+  const facing = (f) => road ? ((f.x - x) * (road[0] - x) + (f.z - z) * (road[1] - z)) / Math.hypot(f.x - x, f.z - z) : 0;
+  const k = faces.reduce((a, f, i) => (facing(f) > facing(faces[a]) ? i : a), 0), f = faces[k];
+  const nx = Math.sin(f.rotY), nz = Math.cos(f.rotY), shift = Math.max(0, lengths[k] / 2 - PLATE_IN);   // right of a viewer facing -n: (n.z, -n.x)
+  return { x: f.x + nz * shift, z: f.z - nx * shift, rotY: f.rotY };
+}
+const MIN_WALL = 3;   // m: shorter ring edges (stair notches, porch sides) are not walls for a plate unless nothing else faces the street
+// #557: a plate on the real footprint: the ring edge facing `target` (nearest, outward normal towards it, >= MIN_WALL), PLATE_OFF off
+// the wall, PLATE_IN in from the edge's right end as seen from outside (middle on a short edge). null target = the +z side.
+export function wallPlate(ring, cx, cz, target) {
+  if (!ring || ring.length < 3) return null;
+  const n = ring.length; let area = 0;
+  for (let i = 0; i < n; i++) { const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n]; area += ax * bz - bx * az; }
+  const sgn = area >= 0 ? 1 : -1, edges = [];
+  for (let i = 0; i < n; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n], dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
+    if (len > 1e-6) edges.push({ ax, az, dx, dz, len, ox: sgn * dz / len, oz: -sgn * dx / len });
+  }
+  const T = target || [cx, cz + 1e6];
+  const dist = (e) => { const u = Math.max(0, Math.min(1, ((T[0] - e.ax) * e.dx + (T[1] - e.az) * e.dz) / (e.len * e.len))); return Math.hypot(T[0] - e.ax - e.dx * u, T[1] - e.az - e.dz * u); };
+  const facing = (e) => (T[0] - (e.ax + e.dx / 2)) * e.ox + (T[1] - (e.az + e.dz / 2)) * e.oz;
+  let pool = edges.filter(e => e.len >= MIN_WALL && facing(e) > 0);
+  if (!pool.length) pool = edges.filter(e => facing(e) > 0);
+  if (!pool.length) pool = edges;
+  if (!pool.length) return null;
+  const e = pool.reduce((a, b) => (dist(b) < dist(a) - 1e-9 ? b : a));
+  const rightIsB = e.dx * e.oz - e.dz * e.ox >= 0, inset = Math.min(PLATE_IN, e.len / 2), s = rightIsB ? e.len - inset : inset;
+  return { x: e.ax + e.dx / e.len * s + e.ox * PLATE_OFF, z: e.az + e.dz / e.len * s + e.oz * PLATE_OFF, rotY: Math.atan2(e.ox, e.oz) };
+}
+export function pickLabels(items, x, z, maxDist = 60, maxN = 40) {
+  const out = [];
+  for (const it of items) { const d = Math.hypot(it.x - x, it.z - z); if (d <= maxDist) out.push({ ...it, d }); }
+  return out.sort((a, b) => a.d - b.d).slice(0, maxN);
+}
+// #38: one label per façade of a w x d hall rotated like box() (rotateY(-rot)) -- façades +z, +x, -z, -x in the local frame, each
+// just off its wall and facing outward, 0.6 x the façade long (at most 20 m) with the sign texture's 16:2.2 aspect.
+export function facadeLabels(x, z, rot, w, d, off = 0.1) {
+  const c = Math.cos(rot), s = Math.sin(rot);
+  return [[0, d / 2 + off, w], [w / 2 + off, 0, d], [0, -(d / 2 + off), w], [-(w / 2 + off), 0, d]].map(([lx, lz, len], k) => {
+    const lw = Math.min(0.6 * len, 20);
+    return { x: x + lx * c - lz * s, z: z + lx * s + lz * c, rotY: -rot + k * Math.PI / 2, w: lw, h: lw * 2.2 / 16 };
+  });
+}
+
+// car parks (#40): split triangles at their longest edge until no edge is longer than maxEdge, so a lot draped on the
+// terrain follows it; midpoints are shared between neighbours. pts: [[x, z]], tris: [[i, j, k]] (winding kept)
+export function subdivideTris(pts, tris, maxEdge) {
+  const out = pts.slice(), done = [], todo = tris.map(t => t.slice()), mid = new Map();
+  const len = (a, b) => Math.hypot(out[a][0] - out[b][0], out[a][1] - out[b][1]);
+  const midpoint = (a, b) => {
+    const key = a < b ? `${a},${b}` : `${b},${a}`;
+    if (!mid.has(key)) { out.push([(out[a][0] + out[b][0]) / 2, (out[a][1] + out[b][1]) / 2]); mid.set(key, out.length - 1); }
+    return mid.get(key);
+  };
+  while (todo.length) {
+    const [a, b, c] = todo.pop();
+    const [p, q, r] = [[a, b, c], [b, c, a], [c, a, b]].reduce((best, e) => len(e[0], e[1]) > len(best[0], best[1]) ? e : best);
+    if (len(p, q) <= maxEdge) { done.push([a, b, c]); continue; }
+    const m = midpoint(p, q);
+    todo.push([p, m, r], [m, q, r]);
+  }
+  return { pts: out, tris: done };
+}
+
+// car parks (#40): each [ax, az, bx, bz] line becomes a quad `width` wide, corners [[x, z] x4] in order around it
+export function lineQuads(lines, width) {
+  const out = [];
+  for (const [ax, az, bx, bz] of lines) {
+    const length = Math.hypot(bx - ax, bz - az);
+    if (!length) continue;
+    const nx = -(bz - az) / length * width / 2, nz = (bx - ax) / length * width / 2;
+    out.push([[ax + nx, az + nz], [bx + nx, bz + nz], [bx - nx, bz - nz], [ax - nx, az - nz]]);
+  }
+  return out;
+}
+
+// forests (#13): woods from the world file -> an 8 m bit mask, edge segments with inward normals, and seeded trees under a budget.
+// mulberry32, the same generator as the page's rnd(); forests get their own seed so the main scatter's sequence stays as it is
+export function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// #214: the woods minus every polygon that contains one of the points [x, z] (an island the OSM draws as a wood).
+// A point clears every polygon it lies in (overlaps included), so pin a point inside exactly the wood you mean.
+export function clearWoods(forests, points) {
+  if (!points || !points.length) return forests;
+  const inRing = (x, z, ring) => { let c = false; for (let i = 0, k = ring.length - 1; i < ring.length; k = i++) { const [xi, zi] = ring[i], [xk, zk] = ring[k]; if ((zi > z) !== (zk > z) && x < xi + (z - zi) * (xk - xi) / (zk - zi)) c = !c; } return c; };
+  return forests.filter(f => !points.some(([x, z]) => inRing(x, z, f.ring)));
+}
+
+export function forestIndex(forests, step = 8) {
+  if (!forests.length) return { w: 0, h: 0, step, x0: 0, z0: 0, mask: new Uint8Array(0), inside: () => false };
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (const f of forests) for (const [x, z] of f.ring) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
+  const w = Math.ceil((x1 - x0) / step) + 1, h = Math.ceil((z1 - z0) / step) + 1, mask = new Uint8Array(w * h);
+  for (const f of forests) {                       // even-odd scanline fill of ring + holes at the grid nodes, OR-ed into the mask
+    const rings = [f.ring, ...(f.holes || [])];
+    let j0 = Infinity, j1 = -Infinity; for (const [, z] of f.ring) { j0 = Math.min(j0, z); j1 = Math.max(j1, z); }
+    for (let j = Math.max(0, Math.ceil((j0 - z0) / step)); j <= Math.min(h - 1, Math.floor((j1 - z0) / step)); j++) {
+      const z = z0 + j * step, xs = [];
+      for (const r of rings) for (let i = 0, k = r.length - 1; i < r.length; k = i++) { const [xi, zi] = r[i], [xk, zk] = r[k]; if ((zi > z) !== (zk > z)) xs.push(xi + (z - zi) * (xk - xi) / (zk - zi)); }
+      xs.sort((a, b) => a - b);
+      for (let n = 0; n + 1 < xs.length; n += 2) { const ia = Math.max(0, Math.ceil((xs[n] - x0) / step)), ib = Math.min(w - 1, Math.floor((xs[n + 1] - x0) / step)); for (let i = ia; i <= ib; i++) mask[j * w + i] = 1; }
+    }
+  }
+  return { w, h, step, x0, z0, mask, inside(x, z) { const i = Math.round((x - x0) / step), j = Math.round((z - z0) / step); return i >= 0 && j >= 0 && i < w && j < h && mask[j * w + i] === 1; } };
+}
+
+export function forestEdges(forests, index, maxLen = 48) {
+  const out = [], s = index.step;
+  for (const f of forests) for (const ring of [f.ring, ...(f.holes || [])]) for (let i = 0, k = ring.length - 1; i < ring.length; k = i++) {
+    const [ax, az] = ring[k], [bx, bz] = ring[i], full = Math.hypot(bx - ax, bz - az); if (full < 0.5) continue;
+    const n = Math.ceil(full / maxLen), len = full / n, ux = (bx - ax) / full, uz = (bz - az) / full, px = -uz, pz = ux;
+    for (let q = 0; q < n; q++) {
+      const x0 = ax + ux * len * q, z0 = az + uz * len * q, x1 = x0 + ux * len, z1 = z0 + uz * len, mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+      let side = 0;
+      for (const d of [0.75 * s, 1.5 * s]) { if (index.inside(mx + px * d, mz + pz * d)) { side = 1; break; } if (index.inside(mx - px * d, mz - pz * d)) { side = -1; break; } }
+      out.push({ x0, z0, x1, z1, mx, mz, len, rot: Math.atan2(z1 - z0, x1 - x0), nx: px * side, nz: pz * side });
+    }
+  }
+  return out;
+}
+
+export const FOREST_BUDGET = { edgeStep: 6, fillArea: 600, cap: 85000, edgeH: [7, 12], fillH: [8, 14], tile: 512 };
+export function forestTrees(forests, index, edges, rnd, budget = FOREST_BUDGET) {
+  const edge = [], fill = [], rr = ([a, b]) => a + rnd() * (b - a);
+  for (const e of edges) {
+    const n = Math.max(1, Math.round(e.len / budget.edgeStep)), ux = (e.x1 - e.x0) / e.len, uz = (e.z1 - e.z0) / e.len;
+    for (let k = 0; k < n; k++) {
+      const t = ((k + 0.5) / n + (rnd() - 0.5) * 0.5 / n) * e.len, d = 0.5 + rnd() * 2.5;
+      edge.push([e.x0 + ux * t + e.nx * d, e.z0 + uz * t + e.nz * d, rr(budget.edgeH)]);
+    }
+  }
+  const g = Math.sqrt(budget.fillArea);
+  for (let z = index.z0; z <= index.z0 + index.h * index.step; z += g) for (let x = index.x0; x <= index.x0 + index.w * index.step; x += g) {
+    const px = x + (rnd() - 0.5) * g, pz = z + (rnd() - 0.5) * g, h = rr(budget.fillH);
+    if (index.inside(px, pz)) fill.push([px, pz, h]);
+  }
+  const keep = Math.max(0, Math.min(fill.length, budget.cap - edge.length));
+  const kept = keep === fill.length ? fill : fill.filter((_, i) => Math.floor((i + 1) * keep / fill.length) > Math.floor(i * keep / fill.length));
+  return { edge, fill: kept, thinned: fill.length - kept.length };
+}
+
+export function tileKey(x, z, size) { return Math.floor(x / size) + ',' + Math.floor(z / size); }
+
+// #16: big village names (Midtown Madness style). Centres are the OSM place=town/village nodes inside the world, converted with
+// pipeline/geo.py Frame(*DEFAULT_ORIGIN).to_game on 2026-10-02; Sisslerfeld has no place node and uses its map label (pipeline/anchors.json).
+// r = rough village radius in metres: within it the village's own name is hidden.
+export const VILLAGES = [
+  { t: 'BAD SÄCKINGEN', x: -1372.9, z: -263.1, r: 800 },   // node 240042433 (town)
+  { t: 'STEIN', x: -981.8, z: 615.7, r: 450 },             // node 240097537
+  { t: 'SISSELN', x: 1677.6, z: -329.8, r: 450 },          // node 240055476
+  { t: 'SISSLERFELD', x: 420, z: 300, r: 600 },            // map label, no place node
+  { t: 'MÜNCHWILEN', x: -299.3, z: 1408.4, r: 350 },       // node 240115055
+  { t: 'MUMPF', x: -3484.8, z: 596.6, r: 450 },            // node 192826016
+  { t: 'MURG', x: 4361.6, z: -689.8, r: 550 },             // node 240124251
+  { t: 'WALLBACH', x: -3984.9, z: -1744.8, r: 450 },       // node 3608448837 (Wallbach, Bad Säckingen)
+  { t: 'EIKEN', x: 1696.8, z: 2139.8, r: 450 },             // node 191017634 (#47: inside the map since the south extension; place nodes via geo.Frame(*DEFAULT_ORIGIN).to_game, 2026-10-10)
+  { t: 'OBERMUMPF', x: -2160.9, z: 2378.8, r: 450 },        // node 1420719124
+  { t: 'OESCHGEN', x: 3788.1, z: 3471.3, r: 450 },          // node 240041868
+  { t: 'SCHUPFART', x: -72.4, z: 4009.3, r: 450 },          // node 240030566
+  { t: 'HELLIKON', x: -3142.8, z: 4582.5, r: 450 },         // node 1592994106
+  { t: 'FRICK', x: 4040.6, z: 4762.8, r: 450 },             // node 191017638
+  { t: 'ZUZGEN', x: -3760.5, z: 2395.7, r: 450 },            // #228: place node 240088266 is west of the world bbox; labelled at its Gemeinde boundary centre
+  { t: 'KAISTEN', x: 3914.7, z: 932.3, r: 450 },             // #228: place node 240042337 is east of the world bbox; labelled at its Gemeinde boundary centre
+  { t: 'WEGENSTETTEN', x: -2165.9, z: 4979.7, r: 450 },     // #228: place node 192817739 is south of the world bbox; labelled at its Gemeinde boundary centre
+  { t: 'GIPF-OBERFRICK', x: 1764.6, z: 5094.5, r: 450 },    // #228: place node 240047695 is south of the world bbox; labelled at its Gemeinde boundary centre
+];
+// #127: Ehrendingen's village names, place nodes converted with geo.Frame(*EHRENDINGEN_ORIGIN).to_game on 2026-10-09
+export const VILLAGES_EHRENDINGEN = [
+  { t: 'UNTEREHRENDINGEN', x: 377.2, z: -995.5, r: 450 },   // node 102311519
+  { t: 'OBEREHRENDINGEN', x: 26.2, z: 127.2, r: 450 },      // node 102311797
+];
+export const VILLAGE_FADE = { in: 200, full: 2600, out: 3400 };
+// Opacity by the car's distance d to the centre: hidden inside r, fades in over f.in, full until f.full, gone at f.out.
+export function villageFade(d, r, f = VILLAGE_FADE) {
+  if (d <= r || d >= f.out) return 0;
+  if (d < r + f.in) return (d - r) / f.in;
+  if (d > f.full) return (f.out - d) / (f.out - f.full);
+  return 1;
+}
+// World height of the name: a constant ~3.4 deg of view beyond 500 m, at least 30 m, at most 180 m.
+export function villageHeight(d) { return Math.max(30, Math.min(180, 0.06 * d)); }
+export function villageLabels(villages, x, z) {
+  const out = [];
+  for (const v of villages) {
+    const d = Math.hypot(v.x - x, v.z - z), opacity = villageFade(d, v.r);
+    if (opacity > 0) out.push({ t: v.t, x: v.x, z: v.z, d, opacity, h: villageHeight(d) });
+  }
+  return out.sort((a, b) => a.d - b.d);
+}
+
+// #228: the minimap names every village at its place node; a hand-placed anchor label stays only if it is not a village (RHEIN, HOLZBRÜCKE)
+export function minimapNames(villages, anchorLabels) {
+  const own = new Set(villages.map(v => v.t));
+  return [...villages.map(({ t, x, z }) => ({ t, x, z })), ...anchorLabels.filter(l => !own.has(l.t)).map(({ t, x, z }) => ({ t, x, z }))];
+}
+
+// #73: the national border runs in the Rhine. It is every #48 Gemeinde line between one German Gemeinde (BORDER_DE, the
+// admin_level=8 relations with a de:amtlicher_gemeindeschluessel) and a Swiss one, joined into one polyline. Names from the
+// other bank are hidden, except within VILLAGE_BANK_FADE metres of the border (on the river and its bridges).
+export const BORDER_DE = ['Bad Säckingen', 'Murg'];
+export const VILLAGE_BANK_FADE = 150;
+function joinPiece(chain, p, same) {
+  if (same(chain.at(-1), p[0])) return chain.concat(p.slice(1));
+  if (same(chain.at(-1), p.at(-1))) return chain.concat(p.slice(0, -1).reverse());
+  if (same(chain[0], p.at(-1))) return p.slice(0, -1).concat(chain);
+  return p.slice(1).reverse().concat(chain);
+}
+// One polyline from the CH/DE border lines, or null when there are none or they don't join end to end.
+export function nationalBorder(boundaries, de = BORDER_DE, tol = 1) {
+  const pieces = boundaries.filter(b => b.names.length === 2 && b.names.filter(n => de.includes(n)).length === 1).map(b => b.pts);
+  if (!pieces.length) return null;
+  const same = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= tol;
+  let chain = pieces.shift().slice();
+  while (pieces.length) {
+    const i = pieces.findIndex(p => [p[0], p.at(-1)].some(e => same(chain[0], e) || same(chain.at(-1), e)));
+    if (i < 0) return null;
+    chain = joinPiece(chain, pieces.splice(i, 1)[0], same);
+  }
+  return chain;
+}
+// #397: the ring of the first wood that contains the point (the Fridolinsinsel is an OSM wood), or null
+export function ringAround(forests, pt) { return forests.find(f => inRing(f.ring, pt[0], pt[1]))?.ring ?? null; }
+// #397: the OLD national border (the Talweg of 1808). There is no data source for it; this is an APPROXIMATION from the press reports
+// (Aargauer Zeitung 2023, Blick 2026, swisstopo 2025): the treaty moved the line only at the Holzbrücke and around the Fridolinsinsel,
+// so the old line is the new one (nationalBorder) with two local deviations and equal everywhere else.
+//  crossing [x, z]: where the old line crosses the bridge (the old deck line); the new line is pulled there, fading out over reach m.
+//  island: a ring; where the new line hugs its shore the old one runs through the island's middle (half CH, half DE), fading out over ramp m.
+const smooth = (u) => { const c = Math.min(1, Math.max(0, u)); return c * c * (3 - 2 * c); };
+function lineSample(pts, cum, s) {
+  let i = 0; while (i < pts.length - 2 && cum[i + 1] < s) i++;
+  const L = cum[i + 1] - cum[i] || 1, u = Math.min(1, Math.max(0, (s - cum[i]) / L)), dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1], l = Math.hypot(dx, dz) || 1;
+  return { p: [pts[i][0] + dx * u, pts[i][1] + dz * u], n: [-dz / l, dx / l] };
+}
+// the midline of where the normal through p cuts the ring, as a displacement along the normal; null when it misses the ring
+function islandShift(ring, p, n) {
+  const ts = [];
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length], ea = (a[0] - p[0]) * -n[1] + (a[1] - p[1]) * n[0], eb = (b[0] - p[0]) * -n[1] + (b[1] - p[1]) * n[0];
+    if ((ea > 0) === (eb > 0)) continue;
+    const u = ea / (ea - eb); ts.push((a[0] + (b[0] - a[0]) * u - p[0]) * n[0] + (a[1] + (b[1] - a[1]) * u - p[1]) * n[1]);
+  }
+  return ts.length < 2 ? null : (Math.min(...ts) + Math.max(...ts)) / 2;
+}
+export function oldNationalBorder(border, { crossing = null, island = null, reach = 60, ramp = 60, step = 4 } = {}) {
+  const cum = [0]; for (let i = 1; i < border.length; i++) cum.push(cum[i - 1] + Math.hypot(border[i][0] - border[i - 1][0], border[i][1] - border[i - 1][1]));
+  const features = [];   // {a, b, at(s) -> [dx, dz]}
+  if (crossing) {
+    const q = nearestOnPolyline(border, crossing[0], crossing[1]), at = pointAtLength(border, q.t), D = [crossing[0] - at[0], crossing[1] - at[1]];
+    features.push({ a: q.t - reach, b: q.t + reach, at: (s) => { const w = 1 - smooth(Math.abs(s - q.t) / reach); return [D[0] * w, D[1] * w]; } });
+  }
+  if (island) {
+    const ts = island.map(v => nearestOnPolyline(border, v[0], v[1]).t), s0 = Math.min(...ts), s1 = Math.max(...ts), valid = [];
+    for (let s = s0; s <= s1 + 1e-9; s += step / 2) { const { p, n } = lineSample(border, cum, s), t = islandShift(island, p, n); if (t !== null) valid.push({ s, d: [n[0] * t, n[1] * t] }); }
+    if (valid.length) {
+      const lo = valid[0].s, hi = valid.at(-1).s;
+      features.push({ a: lo - ramp, b: hi + ramp, at: (s) => {
+        const v = valid.reduce((best, c) => Math.abs(c.s - s) < Math.abs(best.s - s) ? c : best), out = Math.max(lo - s, s - hi, 0), w = 1 - smooth(out / ramp);
+        return [v.d[0] * w, v.d[1] * w]; } });
+    }
+  }
+  if (!features.length) return border.map(p => p.slice());
+  const inside = (s) => features.some(f => s > f.a && s < f.b), entries = [];
+  border.forEach((p, i) => { if (!inside(cum[i])) entries.push([cum[i], p.slice()]); });
+  for (const f of features) {
+    const a = Math.max(0, f.a), b = Math.min(cum.at(-1), f.b), n = Math.max(1, Math.ceil((b - a) / step));
+    for (let k = 0; k <= n; k++) {
+      const s = a + (b - a) * k / n, { p } = lineSample(border, cum, s);
+      const d = features.reduce((acc, g) => { const e = s > g.a && s < g.b ? g.at(s) : [0, 0]; return [acc[0] + e[0], acc[1] + e[1]]; }, [0, 0]);
+      entries.push([s, [p[0] + d[0], p[1] + d[1]]]);
+    }
+  }
+  return entries.sort((x, y) => x[0] - y[0]).map(e => e[1]);
+}
+// the stretches of the old line that lie more than gap metres from the new one: where both are drawn, the coincident part is drawn once
+export function apartRuns(old, border, gap = 0.4) {
+  const runs = []; let run = null;
+  for (const p of old) {
+    if (nearestOnPolyline(border, p[0], p[1]).d > gap) (run ??= []).push(p);
+    else if (run) { runs.push(run); run = null; }
+  }
+  if (run) runs.push(run);
+  return runs;
+}
+function crossZ(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
+function segmentsCross(a, b, c, d) { return (crossZ(c, d, a) > 0) !== (crossZ(c, d, b) > 0) && (crossZ(a, b, c) > 0) !== (crossZ(a, b, d) > 0); }
+// The border splits the world in two (it ends on the world edge): an even number of crossings means the same bank.
+export function sameBank(border, ax, az, bx, bz) {
+  if (!border) return true;
+  let crossings = 0;
+  for (let i = 0; i < border.length - 1; i++) if (segmentsCross([ax, az], [bx, bz], border[i], border[i + 1])) crossings++;
+  return crossings % 2 === 0;
+}
+export function bankFade(border, x, z, w = VILLAGE_BANK_FADE) {
+  if (!border) return 1;
+  return Math.max(0, 1 - nearestOnPolyline(border, x, z).d / w);
+}
+// Inside any village every name is hidden; it comes back over f.in metres as the car leaves the village.
+export function villageQuiet(villages, x, z, f = VILLAGE_FADE) {
+  let quiet = 1;
+  for (const v of villages) quiet = Math.min(quiet, Math.max(0, (Math.hypot(v.x - x, v.z - z) - v.r) / f.in));
+  return quiet;
+}
+export function villageNames(villages, x, z, border = null) {
+  const quiet = villageQuiet(villages, x, z), across = bankFade(border, x, z);
+  return villageLabels(villages, x, z)
+    .map(l => ({ ...l, opacity: Math.min(l.opacity, quiet, sameBank(border, x, z, l.x, l.z) ? 1 : across) }))
+    .filter(l => l.opacity > 0);
+}
+
+// #36: a circle of radius r against a building footprint ring (either winding). null when it is clear; else the unit push
+// (wx, wz) out of the footprint and the overlap pen: r - d from outside, r + d from inside, r with the centre on the wall
+export function ringPush(ring, x, z, r) {
+  let best = Infinity, px = 0, pz = 0, ex = 0, ez = 0, inside = false, area = 0;
+  for (let i = 0, n = ring.length; i < n; i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[(i + 1) % n], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    area += ax * bz - bx * az;
+    if ((az > z) !== (bz > z) && x < ax + (z - az) * dx / dz) inside = !inside;
+    const t = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0, cx = ax + dx * t, cz = az + dz * t, d2 = (x - cx) ** 2 + (z - cz) ** 2;
+    if (d2 < best) { best = d2; px = cx; pz = cz; ex = dx; ez = dz; }
+  }
+  const d = Math.sqrt(best);
+  if (!inside && d > r) return null;
+  if (d < 1e-6) { const L = Math.hypot(ex, ez) || 1, sg = area > 0 ? 1 : -1; return { wx: sg * ez / L, wz: -sg * ex / L, pen: r }; }   // centre on the wall: its outward normal
+  const k = inside ? -1 / d : 1 / d;
+  return { wx: (x - px) * k, wz: (z - pz) * k, pen: inside ? r + d : r - d };
+}
+
+// #202: the push-out of a circle (x, z, r) from one collider -- OBB, circle or ring -- as collide() has always computed it, now
+// shared by the car (collide, which adds the impact response) and the walker (collideFoot, position only). null: no contact.
+export function colliderPush(o, x, z, r) {
+  if (o.ring) return ringPush(o.ring, x, z, r);
+  const dx = x - o.x, dz = z - o.z;
+  if (o.circle) { const dd = Math.hypot(dx, dz) || 1e-4; return dd > r + o.circle ? null : { wx: dx / dd, wz: dz / dd, pen: r + o.circle - dd }; }
+  const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c;
+  let nx = lx - Math.max(-o.hw, Math.min(o.hw, lx)), nz = lz - Math.max(-o.hd, Math.min(o.hd, lz)), d = Math.hypot(nx, nz);
+  if (d > r) return null;
+  if (d < 1e-4) { const px = o.hw - Math.abs(lx), pz = o.hd - Math.abs(lz); if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px; } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz; } } else { nx /= d; nz /= d; }
+  return { wx: nx * o.c - nz * o.s, wz: nx * o.s + nz * o.c, pen: r - d };
+}
+
+// #131: trees are solid at the trunk, not the crown -- one circle per tree, in the shape collide() already reads
+// (circle, like the Smile-Kreisel island); hw/hd = r so the coarse bounds, heliFloor and the camera box test work as is.
+// Billboard trunks are ~0.04 h wide in radius, the cone style's ~0.14 h: one value in between for both styles.
+export const TREE_TRUNK = 0.06;
+export function treeTrunkR(h) { return TREE_TRUNK * h; }
+export function treeCollider(x, z, h, base) { const r = treeTrunkR(h); return { x, z, hw: r, hd: r, c: 1, s: 0, h: base + h, circle: r, low: true }; }
+
+// #211: an OSM forest tree is solid at the trunk exactly like a scattered tree (#131); `forest` keeps #100's pontoon exception in collide()
+export function forestCollider(x, z, h, base) { return { ...treeCollider(x, z, h, base), forest: true }; }
+
+// #211: the forest floor rolls heavier than grass or asphalt; added to stepCar's rolling drag. Roads through a wood stay road.
+export const FOREST_FLOOR = { drag: 0.4 };
+export function floorDrag(inWood, roadD) { return inWood && roadD > 0 ? FOREST_FLOOR.drag : 0; }
+// the forest floor drag stacks on top of the wet (underwater) drag as well as the dry rolling drag
+export function rollingDrag(wet, wetDrag, inWood, roadD) { return (wet ? wetDrag : 0.12) + floorDrag(inWood, roadD); }
+
+// #273: pick a point by its coordinates, not by its index, so a bigger world does not change which points a check sees
+export function sampled(x, z, pct) {
+  const h = (Math.imul(Math.round(x * 4), 73856093) ^ Math.imul(Math.round(z * 4), 19349663)) >>> 0;
+  return h % 100 < pct;
+}
+
+// #273: the height of a triangle list (flat [x, y, z] x 3 per triangle) at (x, z), the highest one there; -Infinity off them all
+export function trisHeightAt(tris, x, z) {
+  let h = -Infinity;
+  for (let k = 0; k < tris.length; k += 9) {
+    const ax = tris[k], ay = tris[k + 1], az = tris[k + 2], bx = tris[k + 3], by = tris[k + 4], bz = tris[k + 5], cx = tris[k + 6], cy = tris[k + 7], cz = tris[k + 8], det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+    if (Math.abs(det) < 1e-12) continue;
+    const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / det, v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / det, w = 1 - u - v;
+    if (u < -1e-9 || v < -1e-9 || w < -1e-9) continue;
+    h = Math.max(h, u * ay + v * by + w * cy);
+  }
+  return h;
+}
+
+// #290: how far to lift each vertex of a draped strip so its drawn triangles stay on or over hAt([x, z]) everywhere on it.
+// Per quad (A/B = left/right at i, D/C at i + 1, drawn as (A,B,C) and (A,C,D) like ribbonGeo emits them) a lattice at most
+// `across` m apart across and `along` m along, edges included; both ends of the quad take its worst excess. Lifting a quad's
+// four corners by e raises both its triangles by e and its neighbours only rise, so one pass is enough.
+// The triangle pair and the point handed to hAt are two scratch buffers reused for every sample, so sampling allocates
+// nothing. The region has ~140 000 quads, and reading the ground costs most of the time: where the ground is planar under a
+// quad the drawn triangles lie in that same plane and the lattice finds nothing anywhere, so six points inside the quad go
+// first and the lattice only runs where they show the ground bending over the strip at all (PROBE, 0.1 mm).
+const PROBE = 1e-4;
+export function ribbonLift(left, right, hl, hr, hAt, across = 0.5, along = 1) {
+  const n = left.length, up = new Float64Array(n), tris = new Float64Array(18), at = [0, 0];
+  for (let i = 0; i < n - 1; i++) {
+    const axl = left[i][0], azl = left[i][1], axr = right[i][0], azr = right[i][1], dxl = left[i + 1][0], dzl = left[i + 1][1], cxr = right[i + 1][0], czr = right[i + 1][1];
+    tris.set([axl, hl[i], azl, axr, hr[i], azr, cxr, hr[i + 1], czr, axl, hl[i], azl, cxr, hr[i + 1], czr, dxl, hl[i + 1], dzl]);
+    const wide = Math.max(Math.hypot(axr - axl, azr - azl), Math.hypot(cxr - dxl, czr - dzl)), long = Math.max(Math.hypot(dxl - axl, dzl - azl), Math.hypot(cxr - axr, czr - azr));
+    // how far the ground rises over the drawn triangles on an nu x nv lattice over the quad; `inside` leaves its edges out
+    // (the four corners are on the ground by construction, so an edge point only repeats what the neighbour quad sees)
+    const scan = (nu, nv, inside) => {
+      let e = 0;
+      for (let a = inside ? 1 : 0; a <= (inside ? nu - 1 : nu); a++) for (let b = inside ? 1 : 0; b <= (inside ? nv - 1 : nv); b++) {
+        const u = a / nu, v = b / nv, lx = axl + (dxl - axl) * v, lz = azl + (dzl - azl) * v, rx = axr + (cxr - axr) * v, rz = azr + (czr - azr) * v;
+        at[0] = lx + (rx - lx) * u; at[1] = lz + (rz - lz) * u;
+        const drawn = trisHeightAt(tris, at[0], at[1]);
+        if (drawn !== -Infinity) e = Math.max(e, hAt(at) - drawn);
+      }
+      return e;
+    };
+    let e = scan(4, 3, true);
+    if (e > PROBE) e = Math.max(e, scan(Math.max(1, Math.ceil(wide / across)), Math.max(1, Math.ceil(long / along)), false));
+    up[i] = Math.max(up[i], e); up[i + 1] = Math.max(up[i + 1], e);
+  }
+  return up;
+}
+
+// #290: the height of a registered strip (sf = { pts, hw, hl, hr }) at (x, z) with the split it is drawn with -- triangle
+// (A,B,C) where f >= t, (A,C,D) elsewhere, as surfH reads it -- on the nearest segment; null where the strip does not reach
+export function surfTriAt(sf, x, z) {
+  const { pts, hw, hl, hr } = sf; let best = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue;
+    const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / L2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t);
+    if (!best || d < best.d) best = { d, i, t, f: Math.min(1, Math.max(0, (((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2) / hw + 1) / 2)) };
+  }
+  if (!best || best.d > hw + 0.01) return null;
+  const { i, t, f } = best, hA = hl[i], hB = hr[i], hC = hr[i + 1], hD = hl[i + 1];
+  return f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f);
+}
+// #290: pts plus every point where the line crosses a fold of the strip under it -- a segment's transverse edge (s = 0, 1)
+// or its diagonal (t = f) -- so heights from surfTriAt at the points, linear in between, lie on the drawn triangles
+export function surfFolds(sf, pts) {
+  const out = [pts[0]], eps = 1e-4;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const p = pts[k], q = pts[k + 1], us = [], i0 = nearestOnPolyline(sf.pts, (p[0] + q[0]) / 2, (p[1] + q[1]) / 2).i;
+    for (let i = Math.max(0, i0 - 2); i <= Math.min(sf.pts.length - 2, i0 + 2); i++) {
+      const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue;
+      const len = Math.sqrt(L2), local = ([x, z]) => [((x - ax) * dx + (z - az) * dz) / L2, (((x - ax) * -dz + (z - az) * dx) / len / sf.hw + 1) / 2];
+      const [s0, f0] = local(p), [s1, f1] = local(q), ds = s1 - s0, df = f1 - f0, cand = [];
+      if (ds) cand.push(-s0 / ds, (1 - s0) / ds);
+      if (ds !== df) cand.push((f0 - s0) / (ds - df));
+      for (const u of cand) { const s = s0 + ds * u, f = f0 + df * u; if (u > eps && u < 1 - eps && s >= -eps && s <= 1 + eps && f >= -eps && f <= 1 + eps) us.push(u); }
+    }
+    us.sort((a, b) => a - b);
+    let last = 0; for (const u of us) { if (u - last < eps) continue; out.push([p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u]); last = u; }
+    out.push(q);
+  }
+  return out;
+}
+// #290: the runs of consecutive points that pass keep (runs of one point dropped)
+export function keptRuns(pts, keep) {
+  const runs = []; let run = null;
+  for (const p of pts) { if (keep(p)) (run ??= []).push(p); else if (run) { runs.push(run); run = null; } }
+  if (run) runs.push(run);
+  return runs.filter(r => r.length > 1);
+}

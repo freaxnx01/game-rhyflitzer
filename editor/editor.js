@@ -6,7 +6,7 @@ import { translate, formatKm } from './strings.js';
 import { createFrame } from './frame.js';
 import { solveHuman, HumanCheckError } from './human.js';
 import { frameData, track, trackPageview, createPreviewReporter } from './analytics.js';
-import { packWorldZip } from '../prototype/worlds.js';   // #167
+import { packWorldZip } from '../worlds.js';   // #167
 
 const $ = (id) => document.getElementById(id);
 const t = (key, ...args) => translate(window.GG_LANG, key, ...args);

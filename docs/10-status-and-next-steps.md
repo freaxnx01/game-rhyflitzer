@@ -17,7 +17,7 @@ Handover from the kickoff sessions (2026-09-28/29). Read this first when picking
 | Textures | No Google Street View / Apple / Bing imagery. Own photos, Mapillary/KartaView (CC BY-SA), swisstopo/LGL aerials. See [06](06-photo-capture.md). |
 | Logos | None until permission is granted. See [07](07-brands-and-permissions.md). |
 
-## Prototype internals (`prototype/index.html`)
+## Prototype internals (`index.html`)
 
 Single-file three.js, buildless. The world comes **from OpenStreetMap** when `data/world_hochrhein.json` exists (built by `pipeline/osm.py`, see [11](11-pipeline-osm.md)); without the file the **hand-traced** fallback below is used:
 
@@ -58,6 +58,6 @@ Single-file three.js, buildless. The world comes **from OpenStreetMap** when `da
 
 ## Tooling notes
 
-- The bridge MCP server only allows Markdown paths (`*.md`, `docs/**/*.md`, `ideas/**/*.md`). Add `pipeline/**`, `prototype/**` and `design/**` to its allowlist so sessions without a clone can commit code.
+- The bridge MCP server only allows Markdown paths (`*.md`, `docs/**/*.md`, `ideas/**/*.md`). Add `pipeline/**`, the game files at the root (`*.js`, `*.html`, `assets/**`, `tests/**`) and `design/**` to its allowlist so sessions without a clone can commit code.
 - Claude app sessions can commit code by attaching the repo with push access (clone in the cloud container).
 - Design round trip between the Claude app and the CLI: see [09](09-design-workflow.md).

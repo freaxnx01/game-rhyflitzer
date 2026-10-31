@@ -1,4 +1,4 @@
-// prepare-beetle.mjs — builds prototype/assets/beetle.glb from the Sketchfab "VW Beetle Florida v2" (Libau Media / robinmikart,
+// prepare-beetle.mjs — builds assets/beetle.glb from the Sketchfab "VW Beetle Florida v2" (Libau Media / robinmikart,
 // CC BY 4.0, https://sketchfab.com/3d-models/vw-beetle-florida-v2-aa3c40db85234d1c9b261c5734ea99a9). Issue #199.
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -9,7 +9,7 @@
 // the texture and the timeslip sticker go, the plate stays blank; the steered front wheels are turned straight, the open left door
 // is replaced by a mirror image of the closed right one. No simplifying.
 //
-// Output contract (the same as tools/prepare-hatchback.mjs, what prototype/index.html relies on):
+// Output contract (the same as tools/prepare-hatchback.mjs, what index.html relies on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, origin on the axle midpoint, wheelbase 2.40 m, no node transform left except the wheels'
 //   node "beetle"                          the scene root
 //     node "body"                          everything that does not turn

@@ -1,4 +1,4 @@
-// prepare-newbeetle.mjs — builds prototype/assets/newbeetle.glb from the Sketchfab "1998 Volkswagen New Beetle" (ddiaz-design,
+// prepare-newbeetle.mjs — builds assets/newbeetle.glb from the Sketchfab "1998 Volkswagen New Beetle" (ddiaz-design,
 // CC BY-NC-SA 4.0, https://sketchfab.com/3d-models/1998-volkswagen-new-beetle-81d1dbbf18e841a184c51f028e652879).
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -9,7 +9,7 @@
 // (front and hatch) and the brake calipers are dropped, the rest simplified to about 30k triangles; normals are rebuilt after
 // simplifying, smooth below a crease angle.
 //
-// Output contract (the same as tools/prepare-hatchback.mjs, what prototype/index.html relies on):
+// Output contract (the same as tools/prepare-hatchback.mjs, what index.html relies on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, origin on the axle midpoint, wheelbase 2.51 m, no node transform left except the wheels'
 //   node "newbeetle"                       the scene root
 //     node "body"                          everything that does not turn

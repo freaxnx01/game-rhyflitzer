@@ -8,7 +8,7 @@ START · BLITZ · SURPRISE HUNT · CHOOSE CAR, a secondary row with WORLD · STY
 TUTORIAL · WHAT'S NEW, Credits in the footer. Region, worlds and file loading move
 to their own Worlds screen.
 
-Sources read: `design/mockups/{Main,StyleSheet,RaceSetup}.dc.html`, `TODO.md` "UI mockups", `prototype/index.html` lines 262–306 (`#overlay .panel`), `prototype/strings.js`, issues #346, #267, #268, #263. All labels below are existing `strings.js` keys unless marked *new*.
+Sources read: `design/mockups/{Main,StyleSheet,RaceSetup}.dc.html`, `TODO.md` "UI mockups", `index.html` lines 262–306 (`#overlay .panel`), `strings.js`, issues #346, #267, #268, #263. All labels below are existing `strings.js` keys unless marked *new*.
 
 ## A. Start screen, desktop 16:9
 

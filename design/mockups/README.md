@@ -19,4 +19,4 @@ Each artboard is 1920 × 1080. Fonts: Bungee (display), Barlow Condensed (UI).
 
 The `.dc.html` files are Claude Design components: HTML markup inside `<x-dc>` plus a small logic script. They reference `./support.js` from the Design runtime, which is not in this repo, so opening them directly in a browser shows the raw markup without layout logic. To edit them visually, open the canvas in Claude, or re-import these files into a new Design canvas.
 
-The 3D backdrops are hand-drawn SVG stand-ins, not engine renders. The real look is defined by `prototype/index.html`.
+The 3D backdrops are hand-drawn SVG stand-ins, not engine renders. The real look is defined by `index.html`.

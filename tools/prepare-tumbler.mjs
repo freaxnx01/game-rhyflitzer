@@ -1,4 +1,4 @@
-// prepare-tumbler.mjs — builds prototype/assets/tumbler.glb from the Sketchfab "Batmobile-The Dark Knight Tumbler" (Gravity Jack,
+// prepare-tumbler.mjs — builds assets/tumbler.glb from the Sketchfab "Batmobile-The Dark Knight Tumbler" (Gravity Jack,
 // CC BY 4.0, https://sketchfab.com/3d-models/batmobile-the-dark-knight-tumbler-7ae346a9724a40faa467a3107dfb09e9).
 //
 // Usage (from a folder OUTSIDE the repo that has the npm packages; the game is buildless and ships no package.json):
@@ -10,7 +10,7 @@
 // textures as 1024 px WebP; the animation goes, the windscreen gets a plain glass material, the head lamp faces (found by their glow
 // in the emissive map) a plain lamp material so they light up with L. The two rear tyres are one part and are split by side.
 //
-// Output contract (the same as tools/prepare-hatchback.mjs, what prototype/index.html relies on):
+// Output contract (the same as tools/prepare-hatchback.mjs, what index.html relies on):
 //   metres, +x forward, +y up, +z right, wheels on y = 0, origin on the axle midpoint, length LENGTH_M, no node transform left except the wheels'
 //   node "tumbler"                         the scene root
 //     node "body"                          everything that does not turn

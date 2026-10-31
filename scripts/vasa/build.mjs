@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// #421: builds prototype/assets/models/vasa.glb — the Vasa (1628) life size, procedurally, from scripts/vasa/vasa-spec.mjs.
+// #421: builds assets/models/vasa.glb — the Vasa (1628) life size, procedurally, from scripts/vasa/vasa-spec.mjs.
 //
-//   node scripts/vasa/build.mjs                 # → prototype/assets/models/vasa.glb (meshopt-compressed via npx @gltf-transform/cli)
+//   node scripts/vasa/build.mjs                 # → assets/models/vasa.glb (meshopt-compressed via npx @gltf-transform/cli)
 //   node scripts/vasa/build.mjs --raw out.glb   # uncompressed, no npx
 //
 // three.js 0.170 is fetched once from jsdelivr into $THREE_DIR (default: <os tmpdir>/rhyflitzer-three-0.170.0); the repo keeps no
@@ -568,7 +568,7 @@ function compress(rawFile, outFile) {
 }
 
 const args = process.argv.slice(2), rawOnly = args.includes('--raw');
-const outFile = args.find((a, i) => i > 0 && args[i - 1] === '--out') || (rawOnly ? args[args.indexOf('--raw') + 1] : null) || path.join(REPO, 'prototype/assets/models/vasa.glb');
+const outFile = args.find((a, i) => i > 0 && args[i - 1] === '--out') || (rawOnly ? args[args.indexOf('--raw') + 1] : null) || path.join(REPO, 'assets/models/vasa.glb');
 const { scene, tris, parts } = build();
 console.info('Vasa built:', JSON.stringify({ ...scene.userData, parts }));
 const glb = await exportGlb(scene);
