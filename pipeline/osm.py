@@ -32,6 +32,7 @@ import osm_read
 import world_boundaries
 import world_buildings
 import world_extra_roads
+import world_fields
 import world_forests
 import world_parking
 import world_props
@@ -89,10 +90,12 @@ def cmd_cut(a) -> int:
 
 
 def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path, dsm_cache=None, *,
-                clip_box=None, data=None, boundary_items=None, near_classes=world_buildings.MAIN) -> dict:
+                clip_box=None, data=None, boundary_items=None, near_classes=world_buildings.MAIN,
+                fields_geojson=None) -> dict:
     """clip_box (game x0, z0, x1, z1) overrides the clip from the lon/lat bbox; data reuses an osm_read result and
     boundary_items a world_boundaries.read result; anchors_path None means no hand anchors (#166: generated worlds);
-    near_classes selects which street types are used to keep nearby buildings (MAIN for hand-made regions, NEAR_GENERATED for generated worlds)."""
+    near_classes selects which street types are used to keep nearby buildings (MAIN for hand-made regions, NEAR_GENERATED for generated worlds);
+    fields_geojson: the cantonal parcels from `fields_ch.py fetch` (EPSG:2056 GeoJSON path); None -> OSM fields only."""
     frame = geo.Frame(*origin)
     if clip_box is None:
         xs, zs = frame.to_game([bbox[0], bbox[2]], [bbox[3], bbox[1]])
@@ -129,6 +132,11 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swissalti3d", 2.0))
         log(f"building heights from swissSURFACE3D: {dict(hstats)}")
     rail, rail_bridges = world_rail.build(data.ways, clip)
+    # #506: the cantonal parcels first (crop per parcel), OSM landuse where they leave room; the cut runs on the
+    # pre-deck rail so a field keeps off a track whether it ends up on a deck or not
+    lwb = json.loads(Path(fields_geojson).read_text(encoding="utf-8"))["features"] if fields_geojson else None
+    fields, field_stats = world_fields.build(lwb, data.areas, osm_roads + game_roads, rail, clip, frame)
+    log(f"fields {len(fields)} {field_stats}")
     rail, rail_bridges = world_extra_roads.deck_rail(grades, rail, rail_bridges)
     if boundary_items is None:
         boundary_items = world_boundaries.read(Path(pbf), frame)
@@ -143,7 +151,8 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "origin": {"lat": origin[0], "lon": origin[1], "E": frame.e0, "N": frame.n0, "crs": "EPSG:2056"},
         "bbox": list(bbox),
         "sources": ["\u00a9 OpenStreetMap contributors, ODbL"]
-                   + (["Water levels: swissALTI3D \u00a9 swisstopo"] if hdr else []),
+                   + (["Water levels: swissALTI3D \u00a9 swisstopo"] if hdr else [])
+                   + (["Fields: Landwirtschaftliche Nutzungsfl\u00e4chen \u00a9 Kanton Aargau, geodienste.ch"] if field_stats.get("lwb") else []),
         "params": {"houseDist": house_dist, "bigBuildingArea": big_area,
                    "built": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                    "pbf": Path(pbf).name},
@@ -159,6 +168,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "props": props,
         "parking": parking,
         "forests": forests,
+        "fields": fields,
         "boundaries": boundaries,
         "anchors": resolved,
     }
@@ -173,7 +183,7 @@ def write_world(path: Path, world: dict) -> None:
 
 def cmd_build(a) -> int:
     world = build_world(a.pbf, a.mmh, tuple(a.bbox), tuple(a.origin), a.house_dist, a.big_building_area, a.anchors,
-                        a.dsm_heights)
+                        a.dsm_heights, fields_geojson=a.fields)
     write_world(a.out, world)
     return 0
 
@@ -212,7 +222,9 @@ def main(argv=None) -> int:
     b.add_argument("--big-building-area", type=float, default=1000.0)
     b.add_argument("--anchors", default=str(Path(__file__).with_name("anchors.json")))
     b.add_argument("--dsm-heights", nargs="?", const="cache", default=None, metavar="CACHE",
-                   help="building heights from swissSURFACE3D minus swissALTI3D (downloads ~40 tiles into CACHE/swisssurface3d)")
+                    help="building heights from swissSURFACE3D minus swissALTI3D (downloads ~40 tiles into CACHE/swisssurface3d)")
+    b.add_argument("--fields", default=None, metavar="GEOJSON",
+                    help="#506: cantonal Nutzungsfl\u00e4chen from fields_ch.py fetch; without it fields come from OSM landuse only")
     w = sub.add_parser("world", help="#166: any Swiss rectangle -> world.json + terrain.mmh + meta.json")
     where = w.add_mutually_exclusive_group(required=True)
     where.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), help="lon/lat box, snapped to 250 m LV95")

@@ -5,7 +5,7 @@ import { oldNationalBorder, apartRuns } from '../world.js';
 import { borderCrossing, BORDER } from '../holzbruecke.js';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rollingDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
-import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift, surfTriAt, surfFolds, keptRuns } from '../world.js';
+import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -1442,4 +1442,38 @@ test('surfFolds leaves a line off the strip as it is', () => {
 test('keptRuns splits a polyline around the dropped points', () => {
   const pts = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0]];
   assert.deepEqual(keptRuns(pts, ([x]) => x !== 2 && x !== 5), [[[0, 0], [1, 0]], [[3, 0], [4, 0]]]);
+});
+
+// #506
+const PIPELINE_KINDS = ['cereal', 'maize', 'rapeseed', 'root', 'fallow', 'bare', 'meadow', 'meadowDry', 'pasture', 'orchard', 'vine'];   // mirrors world_fields.KINDS
+
+test('FIELD_KINDS covers every kind the pipeline emits, with a colour and a ground role', () => {
+  for (const k of PIPELINE_KINDS) { assert.ok(FIELD_KINDS[k], k); assert.match(FIELD_KINDS[k].color, /^#[0-9a-f]{6}$/); assert.ok(['field', 'meadow'].includes(FIELD_KINDS[k].role), k); }
+  assert.deepEqual(Object.keys(FIELD_KINDS).sort(), [...PIPELINE_KINDS].sort());
+});
+
+test('fieldUV runs u along dir and v across it', () => {
+  const [u0, v0] = fieldUV(20, 0, 0, 0, 0);            assert.ok(Math.abs(u0 - 1) < 1e-9 && Math.abs(v0) < 1e-9);
+  const [u1, v1] = fieldUV(0, 20, 0, 0, 0);            assert.ok(Math.abs(u1) < 1e-9 && Math.abs(v1 - 1) < 1e-9);
+  const [u2, v2] = fieldUV(0, 20, 0, 0, Math.PI / 2);  assert.ok(Math.abs(u2 - 1) < 1e-9 && Math.abs(v2) < 1e-9);   // dir along +z: furrows along z
+  const [u3] = fieldUV(10, 0, 0, 0, 0, 10);            assert.ok(Math.abs(u3 - 1) < 1e-9);
+});
+
+test('meshLift lifts a triangle over a ridge inside it and leaves a plane alone', () => {
+  const pts = [[0, 0], [16, 0], [0, 16]], tris = [[0, 1, 2]];
+  const ridge = ([x, z]) => Math.max(0, 0.3 - Math.abs(x + z - 8) * 0.1);   // peak 0.3 along x + z = 8, zero at the vertices
+  const up = meshLift(pts, tris, [0, 0, 0], ridge);
+  assert.ok(up[0] >= 0.3 - 0.02 && up[1] >= 0.3 - 0.02 && up[2] >= 0.3 - 0.02, `up ${[...up]}`);
+  const plane = ([x, z]) => 0.1 * x + 0.05 * z;
+  const flat = meshLift(pts, tris, pts.map(plane), plane);
+  assert.ok(Math.max(...flat) < 1e-9, `flat ${[...flat]}`);
+  const dip = ([x, z]) => -Math.max(0, 0.3 - Math.abs(x + z - 8) * 0.1);    // ground below the triangle: no lift, never a lowering
+  assert.ok(Math.max(...meshLift(pts, tris, [0, 0, 0], dip)) === 0);
+});
+
+test('layoutFromWorld carries fields and defaults to none', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], railBridges: [], grades: [], props: [], parking: [], streams: [], boundaries: [], forests: [], anchors: {}, bbox: [0, 0, 1, 1], sources: [] };
+  assert.deepEqual(layoutFromWorld(base).fields, []);
+  const f = [{ kind: 'cereal', ring: [[0, 0], [10, 0], [10, 10]], dir: 0, src: 'lwb' }];
+  assert.deepEqual(layoutFromWorld({ ...base, fields: f }).fields, f);
 });
