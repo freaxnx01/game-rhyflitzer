@@ -1,4 +1,7 @@
 {
+  "legacy.js": ["test_legacy_urls.py"],
+  "404.html": ["test_legacy_urls.py"],
+  "prototype/index.html": ["test_legacy_urls.py"],
   "tests/nightly_report.py": ["test_nightly_report.py"],
   "heli*.js": ["test_heli.py"],
   "camera.js": ["test_drone.py", "test_look_back.py"],

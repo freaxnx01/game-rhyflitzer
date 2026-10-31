@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map Madness</title>
+<link rel="icon" href="/favicon.png" sizes="32x32" type="image/png">
+<!-- #577: GitHub Pages serves this page for every missing path. An old /prototype/... link goes on to the same
+     path at the site root, with its query and hash; anything else gets a link to the game. -->
+<script type="module">
+import { legacyTarget } from '/legacy.js';
+const target = legacyTarget(location.pathname, location.search, location.hash);
+if (target) location.replace(target);
+</script>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#1c1f26;color:#f5efe0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:20px}
+a{color:#ffc61a}
+</style>
+</head>
+<body>
+<p>Page not found / Seite nicht gefunden. <a href="/">Play Map Madness</a></p>
+</body>
+</html>

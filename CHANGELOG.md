@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-10-31 19:09` Old links that point **deeper** into `/prototype/` (e.g. `/prototype/index.html?world=…`) now reach the game too, and a missing page shows a link to the game instead of GitHub's error page.
 - `2026-10-31 17:51` The game now runs directly at **rhyflitzer.freaxnx01.ch**, without `/prototype/` in the address. Old links and bookmarks still work: they forward to the new address and keep the chosen world, region and car. Best times and the chosen car are kept.
 
 ### Fixed
