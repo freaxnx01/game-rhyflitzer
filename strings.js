@@ -7,7 +7,7 @@ const small = (s) => `<span style="font-size:17px">${s}</span>`;
 
 const en = {
   // ---- start / result screen ----
-  sub: 'Codename Rhyflitzer · Prototype v0.2',
+  sub: 'Map Madness · Prototype v0.2',
   region: 'Region',
   regionMissing: (n) => `No data for ${n} yet — showing Hochrhein`,
   introEhrendingen: 'Oberdorf → Höhtal → Lägernbreite → St. Anna → Tiefenwaag. Five checkpoints in any order, then the finish Im Böndlern. The Wanderweg is for hikers. Nobody told the timer.',
@@ -259,7 +259,7 @@ const en = {
   creditPlattform: 'Plattform Sisslerfeld: measurements courtesy of Verein Plattform Sisslerfeld (construction Häring AG)',
   // ---- #509 About ----
   aboutBtn: 'About',
-  aboutTitle: 'About Map Madness',
+  aboutTitle: 'About Rhyflitzer',
   aboutDedication: 'This game is dedicated to Juliska',
   aboutRoleTschosi: 'Tester · Ehrendingen and the Wanderweg on the horizon',
   aboutRoleKiscsi: 'Ideas: racing over the Holzbrücke, the Robidogs, flying poo piles and many other ideas …',
@@ -277,7 +277,7 @@ const en = {
   aboutFonts: 'Fonts',
   aboutFontsText: 'Bungee and Barlow Condensed (SIL Open Font License, Google Fonts)',
   aboutBuiltTitle: 'How it is built',
-  aboutBuilt: 'Map Madness is built with AI coding agents: every change starts as a GitHub issue, gets a spec and a plan, is implemented test-first by an agent pipeline and reviewed before it ships. Who does what:',
+  aboutBuilt: 'Rhyflitzer is built with AI coding agents: every change starts as a GitHub issue, gets a spec and a plan, is implemented test-first by an agent pipeline and reviewed before it ships. Who does what:',
   aboutAgImplRole: 'Implementation', aboutAgImpl: 'OpenCode with GLM 5.3 (z.ai, via OpenRouter)',
   aboutAgReviewRole: 'Review and re-review', aboutAgReview: 'Claude Code with Claude Sonnet',
   aboutAgDesignRole: 'Design and graphics', aboutAgDesign: 'Claude Code with Claude Fable',
@@ -289,7 +289,7 @@ const en = {
   aboutWorkflow: 'Workflow:',
   aboutSource: 'Source code',
   aboutGlossary: 'Glossary',
-  keyAbout: 'About Map Madness: dedication, credits, how it is built',
+  keyAbout: 'About Rhyflitzer: dedication, credits, how it is built',
   keyHelp: 'this help',
   // ---- pontoon bridge (#100) ----
   pontoonBuild: 'U · build a pontoon bridge',
@@ -440,7 +440,7 @@ const en = {
 };
 
 const de = {
-  sub: 'Codename Rhyflitzer · Prototyp v0.2',
+  sub: 'Map Madness · Prototyp v0.2',
   region: 'Region',
   regionMissing: (n) => `Für ${n} gibt es noch keine Daten — Du siehst den Hochrhein`,
   introEhrendingen: 'Oberdorf → Höhtal → Lägernbreite → St. Anna → Tiefenwaag. Fünf Checkpoints in beliebiger Reihenfolge, dann das Ziel Im Böndlern. Der Wanderweg ist für Wanderer. Das hat der Stoppuhr niemand gesagt.',
@@ -688,7 +688,7 @@ const de = {
   creditPlattform: 'Plattform Sisslerfeld: Masse freundlicherweise zur Verfügung gestellt vom Verein Plattform Sisslerfeld (Bau Häring AG)',
   // ---- #509 Über ----
   aboutBtn: 'Über',
-  aboutTitle: 'Über Map Madness',
+  aboutTitle: 'Über Rhyflitzer',
   aboutDedication: 'Dieses Spiel ist Juliska gewidmet',
   aboutRoleTschosi: 'Tester · Ehrendingen und der Wanderweg am Horizont',
   aboutRoleKiscsi: 'Ideen: Holzbrücke, Robidogs, fliegende Häufchen und viele andere Ideen mehr …',
@@ -706,7 +706,7 @@ const de = {
   aboutFonts: 'Schriften',
   aboutFontsText: 'Bungee und Barlow Condensed (SIL Open Font License, Google Fonts)',
   aboutBuiltTitle: 'So ist es gebaut',
-  aboutBuilt: 'Map Madness entsteht mit KI-Agenten: Jede Änderung beginnt als GitHub-Issue, bekommt eine Spec und einen Plan, wird von einer Agenten-Pipeline testgetrieben umgesetzt und vor dem Einspielen geprüft. Wer was macht:',
+  aboutBuilt: 'Rhyflitzer entsteht mit KI-Agenten: Jede Änderung beginnt als GitHub-Issue, bekommt eine Spec und einen Plan, wird von einer Agenten-Pipeline testgetrieben umgesetzt und vor dem Einspielen geprüft. Wer was macht:',
   aboutAgImplRole: 'Umsetzung', aboutAgImpl: 'OpenCode mit GLM 5.3 (z.ai, über OpenRouter)',
   aboutAgReviewRole: 'Prüfung und erneute Prüfung', aboutAgReview: 'Claude Code mit Claude Sonnet',
   aboutAgDesignRole: 'Design und Grafik', aboutAgDesign: 'Claude Code mit Claude Fable',
@@ -718,7 +718,7 @@ const de = {
   aboutWorkflow: 'Ablauf:',
   aboutSource: 'Quellcode',
   aboutGlossary: 'Glossar',
-  keyAbout: 'Über Map Madness: Widmung, Credits, so entsteht das Spiel',
+  keyAbout: 'Über Rhyflitzer: Widmung, Credits, so entsteht das Spiel',
   keyHelp: 'diese Hilfe',
   // ---- Pontonbrücke (#100) ----
   pontoonBuild: 'U · Pontonbrücke bauen',

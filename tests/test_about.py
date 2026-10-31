@@ -37,7 +37,7 @@ def test_about_opens_from_the_start_screen_and_esc_returns(server):
         b.close()
     assert state == {"open": True, "from": "start"}, state
     assert visible
-    assert title == "About Map Madness"
+    assert title == "About Rhyflitzer"
     assert dedication == "This game is dedicated to Juliska"
     assert 'Tschosi "forwardare"' in people and "Ätti aka L.A. Brace" in people and "Tester" in people and "Kiscsi" in people, people
     assert order, "the dedication comes before the people"
@@ -78,7 +78,7 @@ def test_german_texts(server):
         title, dedication = page.inner_text("#abouttitle"), page.inner_text("#aboutdedication")
         headers = page.evaluate("() => [...document.querySelectorAll('#about [role=tab]')].map(t => t.dataset.i18n + ':' + t.textContent.trim())")
         b.close()
-    assert btn == "Über" and title == "Über Map Madness" and dedication == "Dieses Spiel ist Juliska gewidmet"
+    assert btn == "Über" and title == "Über Rhyflitzer" and dedication == "Dieses Spiel ist Juliska gewidmet"
     assert "aboutCredits:Credits" in headers, headers
 
 

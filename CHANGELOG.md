@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-10-31 20:27` The game is now called **Rhyflitzer – Map Madness**: Rhyflitzer is the title on the start screen, in the browser tab and in the About page, Map Madness the subtitle.
 - `2026-10-31 17:51` The game now runs directly at **rhyflitzer.freaxnx01.ch**, without `/prototype/` in the address. Old links and bookmarks still work: they forward to the new address and keep the chosen world, region and car. Best times and the chosen car are kept.
 
 ### Fixed

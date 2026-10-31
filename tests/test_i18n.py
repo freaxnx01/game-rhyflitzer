@@ -64,6 +64,8 @@ def test_stored_language_wins_over_the_browser(server):
             loadTerrain: document.querySelector('label[for=mmhfile]').textContent,
             useMadeUp: document.querySelector('#mmhclear').textContent,
             sub: document.querySelector('.sub').textContent,
+            h1: document.querySelector('#overlay .logo h1').textContent,
+            docTitle: document.title,
             cps: document.querySelector('#tl .cps').textContent,
             timeLabel: document.querySelector('#tr .lbl').textContent,
         })""")
@@ -78,7 +80,9 @@ def test_stored_language_wins_over_the_browser(server):
     assert shown["map"] == "Karte · Hochrhein ·"
     assert shown["loadTerrain"] == "Gelände laden (.mmh)"
     assert shown["useMadeUp"] == "Erfundenes Gelände verwenden"
-    assert shown["sub"] == "Codename Rhyflitzer · Prototyp v0.2"
+    assert shown["sub"] == "Map Madness · Prototyp v0.2"
+    assert shown["h1"] == "Rhyflitzer"
+    assert shown["docTitle"] == "Rhyflitzer – Map Madness"
     assert shown["cps"] == "0 / 5 Checkpoints"
     assert shown["timeLabel"] == "Zeit"
     assert errors == []
