@@ -217,3 +217,8 @@ test('About (#564): the tab labels exist in both languages', () => {
   assert.equal(translate('de', 'aboutTabPeople'), 'Leute');
   assert.equal(translate('de', 'aboutBuiltTitle'), 'So ist es gebaut');
 });
+
+test('aboutAgis names the canton and the attribution duty in both languages (#506)', () => {
+  assert.match(STRINGS.en.aboutAgis, /Kanton Aargau/); assert.match(STRINGS.en.aboutAgis, /geodienste\.ch/); assert.match(STRINGS.en.aboutAgis, /attribution/i);
+  assert.match(STRINGS.de.aboutAgis, /Kanton Aargau/); assert.match(STRINGS.de.aboutAgis, /Quellenangabe/);
+});

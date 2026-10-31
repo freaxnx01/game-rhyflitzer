@@ -37,6 +37,22 @@ Size reference: about 50 MB CityGML for an average municipality with 5,000 build
 
 Portal: https://opengeodata.lgl-bw.de/
 
+## Switzerland: cantonal farm parcels (geodienste.ch)
+
+The "Landwirtschaftliche Nutzungsflächen" (MGDM 153.1 v2.0) give one parcel per field **with its crop** (`lnf_code`: Winterweizen, Silomais, Winterraps, Kunstwiese, Obstanlage …), the basis of the farm fields (#506). Kanton Aargau serves them over the geodienste.ch WFS — **anonymous access, no registration**:
+
+- Service page: https://geodienste.ch/services/lwb_nutzungsflaechen ("Informationen pro Kanton")
+- Capabilities: `https://geodienste.ch/db/lwb_nutzungsflaechen_v2_0/deu?SERVICE=WFS&REQUEST=GetCapabilities`
+- GetFeature (GeoJSON in EPSG:2056): `SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ms:nutzungsflaechen&SRSNAME=EPSG:2056&BBOX=<minE,minN,maxE,maxN>,EPSG:2056&OUTPUTFORMAT=geojson`, paged with `COUNT`/`STARTINDEX`
+
+Terms for **AG** (service page): *Verfügbarkeit: Frei erhältlich · Open Data: Ja · Nutzungsbedingungen: "Freie Nutzung. Quellenangabe ist Pflicht. Es gelten die kantonalen Nutzungsbedingungen."* BL has the same terms. Farm identifiers (`identifikator_be`, `nutzungsidentifikator`) are never exported to the game. The fetch is a separate pipeline step (never inside `build_world`):
+
+```bash
+cd pipeline && python fields_ch.py fetch --out cache/lwb/hochrhein.geojson
+```
+
+Attribution in the game: "Landwirtschaftliche Nutzungsflächen © Kanton Aargau, geodienste.ch" (About tab, CREDITS.md, the world file's `sources` line). SWISSIMAGE (swisstopo OGD) serves as the visual colour reference only, never as a texture.
+
 ## Textures
 
 No open facade data exists on either side.
