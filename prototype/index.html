@@ -1228,7 +1228,8 @@ function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // 
 // carriageway) -- with every fold of those strips as a vertex, so it never dips under the drawn road between its points
 function markGeo(run, spec, sf) {
   if (!sf) return ribbonGeo(run, spec.w / 2, 0.03, spec.dash + spec.gap, true);
-  const strips = new Set([sf]); for (const p of run) for (const { sf: o } of gridQuery(SURF_GRID, p[0], p[1], 1)) strips.add(o);
+  // a strip counts only where it really covers a point of the run -- a road passing a metre away carries no part of this marking
+  const strips = new Set([sf]); for (const p of run) for (const { sf: o, i } of gridQuery(SURF_GRID, p[0], p[1], 1)) if (segDist(p[0], p[1], ...o.pts[i], ...o.pts[i + 1]) <= o.hw) strips.add(o);
   let line = run; for (const s of strips) line = surfFolds(s, line);
   // past the end of every strip (an outer bend's mitre reaches further than the road's half width) there is no drawn road: the terrain carries it
   const h = (p) => { let y = -Infinity; for (const s of strips) { const v = surfTriAt(s, p[0], p[1]); if (v !== null && v > y) y = v; } return y > -Infinity ? y : terrainH(p[0], p[1]); };
