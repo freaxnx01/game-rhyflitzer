@@ -6,7 +6,7 @@
 //   cp tools/prepare-hyper.mjs <scratch>/hprep/ && cd <scratch>/hprep
 //   systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 node prepare-hyper.mjs <original.glb> <out.glb>
 // The original is 6 MB, about 97k triangles in named parts (body, doors, interior, lamps, four wheels with brakes), 38 materials,
-// some textured. The textures go (plain role materials instead), the grille badge is dropped, the two-tone body keeps its dark
+// some textured. The textures go (plain role materials instead), the grille badge and the tail badge are dropped, the two-tone body keeps its dark
 // side as a fixed colour (only the bright part takes the paint swatch), and the whole car is simplified to the triangle budget.
 // Normals are rebuilt, smooth below a crease angle.
 //
@@ -29,6 +29,8 @@ const TARGET_TRIS = { min: 28000, max: 32000, aim: 30000 }, MAX_TRIES = 6;
 const CREASE = Math.cos(40 * Math.PI / 180);   // faces meeting at a sharper angle keep a hard edge
 // the badge in the grille is the one textured logo; it goes with its material
 const DROP_MATERIALS = new Set(['Logo']);
+// the badge on the tail is geometry in the engine-cover chrome: its faces sit behind x = -1.43 (original units), the cover ahead of it
+const TAIL_BADGE = { node: 'Engine_Silver_0', behindX: -1.43 };
 // original material name -> role; an unmapped name throws, so a different export cannot slip through
 const MATERIAL_ROLES = {
   Body: 'Paint', Darker_Parts: 'DarkBlue', Carbon: 'Carbon', Silver: 'Chrome', Steel: 'Chrome', Mirror: 'Chrome', exhaust: 'Chrome',
@@ -86,6 +88,9 @@ for (const n of meshNodes) for (const p of n.getMesh().listPrimitives()) {
   for (const sem of p.listSemantics()) if (sem !== 'POSITION') p.setAttribute(sem, null);
   all.push({ node: n.getName(), prim: p, role, wheel: WHEEL_MATERIALS.has(src) });
 }
+
+const badge = all.find(a => a.node === TAIL_BADGE.node);
+cutOut(badge.prim, c => c[0] < TAIL_BADGE.behindX).dispose();
 
 // 2. the frame from the tyres; the original already faces +x with its left side on -z: new = k * (x - cx, y - y0, z - cz)
 const tyres = all.filter(a => a.wheel && a.role === 'Rubber').map(a => centreOf(boundsOf([a.prim])));
@@ -157,6 +162,21 @@ function boundsOf(prims) {
     for (const i of idx) { a.getElement(i, v); for (let j = 0; j < 3; j++) { min[j] = Math.min(min[j], v[j]); max[j] = Math.max(max[j], v[j]); } }
   }
   return { min, max };
+}
+
+// moves the faces whose centre passes the test out of the primitive, into a new one that it returns
+function cutOut(prim, test) {
+  const pos = prim.getAttribute('POSITION'), idx = prim.getIndices().getArray(), keep = [], cut = [], v = [];
+  for (let t = 0; t < idx.length; t += 3) {
+    const c = [0, 0, 0];
+    for (let j = 0; j < 3; j++) { pos.getElement(idx[t + j], v); for (let a = 0; a < 3; a++) c[a] += v[a] / 3; }
+    (test(c) ? cut : keep).push(idx[t], idx[t + 1], idx[t + 2]);
+  }
+  if (!cut.length || !keep.length) throw new Error(`prepare-hyper: the split left ${keep.length / 3} / ${cut.length / 3} faces; expected the badge and the engine cover`);
+  const piece = prim.clone();
+  prim.setIndices(prim.getIndices().clone().setArray(new Uint32Array(keep)));
+  piece.setIndices(piece.getIndices().clone().setArray(new Uint32Array(cut)));
+  return piece;
 }
 
 // the accessor is detached first so a shared one is mapped once
