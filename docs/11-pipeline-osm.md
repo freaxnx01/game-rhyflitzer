@@ -51,8 +51,10 @@ cd pipeline
 python fields_ch.py fetch --out cache/lwb/hochrhein.geojson   # #506: the cantonal farm parcels (once, ~7 MB)
 python osm.py build --pbf cache/osm/hochrhein.osm.pbf \
     --mmh ../data/terrain_hochrhein.mmh --out ../data/world_hochrhein.json \
-    --fields cache/lwb/hochrhein.geojson
+    --fields cache/lwb/hochrhein.geojson --dsm-heights cache
 ```
+
+Keep `--dsm-heights` in every rebuild of the committed world: without it the building heights fall back to OSM tags and defaults, and the rebuild silently changes ~2,800 buildings (see *Building heights* below).
 
 Options: `--bbox W S E N`, `--origin LAT LON` (same defaults as `terrain.py`), `--house-dist 30`, `--big-building-area 1000`, `--anchors anchors.json`. Without `--mmh` the water levels fall back to 0.
 
