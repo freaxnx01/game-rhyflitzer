@@ -206,3 +206,13 @@ def test_real_world_fields_cover_the_swiss_side_and_keep_off_roads():
     tree = shapely.STRtree([poly(f) for f in fields])
     hits = [i for i in tree.query(corridors, predicate="intersects")]
     assert hits == [], f"{len(hits)} fields touch a road corridor, e.g. {fields[hits[0]]['ring'][:2]}"
+
+
+def test_small_road_stub_wholly_inside_a_parcel_stays_a_hole():
+    """A footbridge deck inside a meadow leaves a hole under MIN_AREA; dropping it would lay the field over the road."""
+    stub = road([[100, 50], [101.7, 50]], w=1.0)
+    fields, _ = WFI.build([lwb(601, rect(0, 0, 200, 100))], [], [stub], [], CLIP, FRAME)
+    assert len(fields) == 1 and len(fields[0].get("holes", [])) == 1
+    hole = shapely.Polygon(fields[0]["holes"][0])
+    assert hole.area < WFI.MIN_AREA and hole.contains(shapely.Point(100.8, 50))
+    assert not poly(fields[0]).intersects(shapely.LineString(stub["pts"]))

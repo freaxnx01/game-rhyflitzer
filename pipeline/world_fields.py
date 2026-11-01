@@ -120,9 +120,11 @@ def _cuts(areas, roads, rail):
     return shapely.unary_union(cuts) if cuts else None
 
 
-def _entry(kind, p, src):
+def _entry(kind, p, src, cut):
+    """A small hole is kept when a road corridor, track or car park made it: only natural holes under MIN_AREA go."""
     e = {"kind": kind, "ring": _ring(p.exterior.coords)}
-    holes = [_ring(i.coords) for i in p.interiors if shapely.Polygon(i).area >= MIN_AREA]
+    holes = [_ring(i.coords) for i in p.interiors
+             if shapely.Polygon(i).area >= MIN_AREA or (cut is not None and cut.intersects(shapely.Polygon(i)))]
     if holes:
         e["holes"] = holes
     e["dir"] = direction(p)
@@ -164,4 +166,4 @@ def build(features, areas, roads, rail, clip, frame):
     kept.sort(key=lambda t: (t[1].bounds[0], t[1].bounds[1]))
     stats["parts"] = len(kept)
     stats["area_ha"] = round(sum(q.area for _, q, _ in kept) / 1e4)
-    return [_entry(k, q, s) for k, q, s in kept], dict(stats)
+    return [_entry(k, q, s, cut) for k, q, s in kept], dict(stats)
