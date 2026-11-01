@@ -610,7 +610,7 @@ import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, R
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
-import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField } from './enterprise.js';   // #491
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
 import { FERRIS, wheelAngle, DUSK_LOOK } from './ferris.js';   // #513; #588: the dusk look
 import { buildWheel, setWheelAngle, ferrisTriangles, setWheelLights, buildFireworks, setFireworks } from './ferrismesh.js';
@@ -2871,7 +2871,7 @@ addEventListener('resize', resize);
 const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.name = 'surfaceRoot'; scene.add(surfaceRoot);
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
-const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null, ferris: null };
+const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null, ferris: null, dedication: null };
 const RING_L = { ring: { built: false, group: null }, ring2: { built: false, group: null, sign: null } };
 const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab]);
 const roomIndex = (id) => (ROOM.layouts ? ROOM.layouts.findIndex(R => R.id === id) : -1);
@@ -3040,7 +3040,7 @@ function disposeGroup(group) {   // free a thrown-away room: its own geometry, m
 // #489: k is the flat layout index -- ring 1's room k stays k, ring 2's room k is 8 + k.
 function ensureRoom(k) {
   if (ROOM.built === k) return;
-  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; ROOM.ferris = null; }
+  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; ROOM.ferris = null; ROOM.dedication = null; }
   const R = ROOM.layouts[k], group = new THREE.Group(); ROOM.group = group; ROOM.layout = R; ROOM.built = k; group.visible = false;
   roomMeshes(group, R); scene.add(group);
   for (const L of ROOM.layouts) if (L.object) delete window.__mm.counts[L.object.key || 'eiffel'];   // #491: both rings, flat layouts
@@ -3052,6 +3052,7 @@ function ensureRoom(k) {
 function roomMeshes(group, R) {
   const [cx, cz] = R.centre, y = R.y, a = R.portal.th;
   if (R.look === 'space') roomSpace(group, R);   // #491: the holodeck grid and the star dome instead of the meadow
+  if (R.dedication) roomDedication(group, R);
   else {
   // lawn: one plane, the grass texture tiled every 8 m (TEX.grass is the surface's grass; reuse it), turned to the room's own frame
   const lawnTex = TEX.grass.clone(); lawnTex.wrapS = lawnTex.wrapT = THREE.RepeatWrapping; lawnTex.repeat.set(2 * R.half / 8, 2 * R.half / 8); lawnTex.needsUpdate = true;
@@ -3139,6 +3140,26 @@ function roomClouds(group, R) {   // ~36 soft white sprites high above the room,
   const r = rng(279);
   for (let i = 0; i < 36; i++) { const a = r() * 2 * Math.PI, d = 700 + r() * 1700, s = 450 + r() * 500; const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, opacity: 0.85 })); sp.scale.set(s, s * 0.45, 1); sp.position.set(R.centre[0] + Math.cos(a) * d, R.y + 650 + r() * 450, R.centre[1] + Math.sin(a) * d); group.add(sp); }
 }
+// In memory of Sir Patrick Stewart: a dark panel on two posts just inside the Enterprise room's portal (enterprise.js places it), its
+// front a canvas in the hull's lettering font, redrawn when the language changes
+function roomDedication(group, R) {
+  const D = DEDICATION, P = R.dedication, top = P.y + D.lift + D.h;
+  const plaque = new THREE.Group(); plaque.position.set(P.x, P.y, P.z); plaque.rotation.y = Math.atan2(Math.cos(P.face), Math.sin(P.face)); plaque.userData.role = 'dedication';
+  const metal = new THREE.MeshLambertMaterial({ color: 0x1b2230 });
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(D.w, D.h, D.depth), metal); panel.position.y = D.lift + D.h / 2; plaque.add(panel);
+  for (const s of [-1, 1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.25, D.lift + 0.3, 0.25), metal); post.position.set(s * D.w * 0.36, (D.lift + 0.3) / 2, 0); plaque.add(post); }
+  const tex = makeTex(1024, Math.round(1024 * D.h / D.w), drawDedication, { alpha: true });
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(D.w * 0.96, D.h * 0.94), new THREE.MeshBasicMaterial({ map: tex, transparent: true })); face.position.set(0, D.lift + D.h / 2, D.depth / 2 + 0.02); plaque.add(face);
+  group.add(plaque); ROOM.dedication = { tex, top, x: P.x, z: P.z, face: P.face };
+}
+function drawDedication(g, w, h) {
+  g.clearRect(0, 0, w, h); g.strokeStyle = '#c9a45c'; g.lineWidth = 6; g.strokeRect(14, 14, w - 28, h - 28);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; const font = (px, wt = 700) => `${wt} ${px}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+  const lines = [[tr('dedicationLead'), 64, 500, '#9fb2cc'], ['Sir Patrick Stewart', 112, 800, '#e8edf5'], ['1940 – 2026', 70, 600, '#c9a45c'], ['Captain Jean-Luc Picard', 72, 600, '#9fb2cc'], ['„Make it so.“', 72, 500, '#e8edf5']];
+  const gap = h / (lines.length + 1);
+  lines.forEach(([text, px, wt, colour], i) => { g.font = font(px, wt); g.fillStyle = colour; g.fillText(text, w / 2, gap * (i + 1), w - 80); });
+}
+function relabelDedication() { const d = ROOM.dedication; if (!d) return; drawDedication(d.tex.image.getContext('2d'), d.tex.image.width, d.tex.image.height); d.tex.needsUpdate = true; }
 // #491: the holodeck -- one unlit plane with a 10 m grid tile (the lines glow by themselves), a brighter rim along the four walls, and the
 // star dome: a sphere round the room, drawn after the global sky (renderOrder), never fogged, its texture from starField() once per build
 function roomSpace(group, R) {
@@ -3247,6 +3268,7 @@ window.__mm.fries = () => ROOM.figure && ROOM.group && ROOM.group.children.some(
 window.__mm.artemis = () => ROOM.artemis && ROOM.built === ROOM.artemis.built ? { ...ROOM.artemis } : null;   // #488: the Artemis stack and the capsule of the room built now
 window.__mm.ferris = () => ROOM.ferris && ROOM.built === ROOM.ferris.built ? { built: ROOM.ferris.built, angle: ROOM.ferris.angle, h: ROOM.ferris.h, gondolas: ROOM.ferris.gondolas, tris: ROOM.ferris.tris, colliders: ROOM.ferris.colliders, gondolaAngle: ROOM.ferris.handle.gondolas[0].rotation.x, wheelRotation: ROOM.ferris.handle.wheel.rotation.x, leds: ROOM.ferris.leds, ledSample: '#' + new THREE.Color().fromArray(ROOM.ferris.handle.leds.instanceColor.array, 0).getHexString(), sparks: ROOM.ferris.fw.live } : null;   // #513: the wheel of the room built now
 window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
+window.__mm.dedication = () => ROOM.dedication && { x: ROOM.dedication.x, z: ROOM.dedication.z, face: ROOM.dedication.face, top: ROOM.dedication.top, lead: tr('dedicationLead'), solid: (({ dx, dz }) => Math.hypot(dx, dz) > 0.1)(window.__mm.pushAt(ROOM.dedication.x, ROOM.dedication.z, -1200)) };
 window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
   if (!ROOM.states[8] || ROOM.built !== 8) return null;
   const m = ROOM.models[8], glow = {}; if (m) m.traverse(o => { if (o.isMesh && o.material.userData.glow) glow[o.material.userData.glow] = o.material.emissiveIntensity; });
@@ -4563,7 +4585,7 @@ window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BOR
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); }
-addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;

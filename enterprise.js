@@ -25,6 +25,16 @@ export function enterprisePlacement(room, cfg = ENTERPRISE) {
   const bow = [-f[0] * c + v[0] * s, -f[1] * c + v[1] * s];
   return { x: cx, z: cz, y: room.y + cfg.hover, th: Math.atan2(bow[1], bow[0]) };
 }
+// In memory of Sir Patrick Stewart (1940-2026), Captain Jean-Luc Picard: a plaque just inside the room's portal, right of the lane, its
+// front to the way in. a / b portal-relative metres (a into the room, b to the right driving in), w x h the panel, its lower edge `lift`
+// over the floor, `depth` its thickness
+export const DEDICATION = { a: 45, b: 14, w: 8, h: 4.5, lift: 1.2, depth: 0.4 };
+export function dedicationPlacement(room, cfg = DEDICATION) {
+  const [px, pz] = room.portal.c, { f, v } = room.frame;
+  const x = px + f[0] * cfg.a + v[0] * cfg.b, z = pz + f[1] * cfg.a + v[1] * cfg.b;
+  const colliders = [{ x, z, hw: cfg.depth / 2 + 0.2, hd: cfg.w / 2, c: f[0], s: f[1], h: room.y + cfg.lift + cfg.h }];
+  return { x, z, y: room.y, face: Math.atan2(-f[1], -f[0]), colliders };
+}
 export const enterpriseHover = (t, cfg = ENTERPRISE) => cfg.bob.amp * Math.sin(2 * Math.PI * t / cfg.bob.period);
 // a PlaneGeometry (in xy, facing +z, text up = +y) turned so the letters' up points to the bow (+x) and the face away from the hull
 export const letteringFrame = (side) => (side === 'top' ? { rx: -Math.PI / 2, ry: -Math.PI / 2 } : { rx: Math.PI / 2, ry: Math.PI / 2 });

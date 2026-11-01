@@ -227,6 +227,13 @@ test('RINGS_Ring1AsBefore_Ring2EightEmptyRoomsTwiceAsWideAtMinus1200', () => {
   assert.deepEqual(spokeSigns(ROOMS2), [], 'no signs in ring 2');
 });
 
+test('roomLayout_EnterpriseRoom_CarriesTheDedicationAndItsCollider', () => {
+  const L = rooms2[0]; assert.ok(L.dedication, 'the Enterprise room has the plaque');
+  assert.ok(L.colliders.includes(L.dedication.colliders[0]), 'the plaque is solid');
+  for (const r of rooms2.slice(1)) assert.equal(r.dedication, null);
+  for (const r of ROOMS.map((room, k) => roomLayout(k, room))) assert.equal(r.dedication, null);
+});
+
 test('levelHelpers_BothRings_SurfaceAndRooms', () => {
   assert.ok(isRoomLevel('r2room0') && isRoomLevel('r2room7') && isRoomLevel('eiffel') && !isRoomLevel('ring2'));
   assert.ok(isRingLevel('ring') && isRingLevel('ring2') && !isRingLevel('r2room0') && !isRingLevel('surface'));
@@ -294,7 +301,7 @@ test('roomLayout_SpaceLook_NoTreesNoPaths_WallsPortalSpawnAndFlyAsAnyRoom', () =
   assert.equal(R.look, 'space'); assert.equal(M.look, 'meadow');
   assert.deepEqual(R.trees, []); assert.deepEqual(R.paths, []); assert.ok(M.trees.length > 100 && M.paths.length === 2);
   assert.deepEqual(R.tower, { x: R.centre[0], z: R.centre[1] }); assert.equal(R.object, ENTERPRISE); assert.equal(R.basin, null);
-  assert.equal(R.colliders.length, M.colliders.length, 'the ship adds no collider: nothing comes near the floor');
+  assert.equal(R.colliders.length, M.colliders.length + R.dedication.colliders.length, 'the ship adds no collider (nothing comes near the floor); only the plaque does');
   assert.deepEqual(R.fly, M.fly); assert.deepEqual(R.portal, M.portal); assert.deepEqual(R.spawn, M.spawn);
 });
 
