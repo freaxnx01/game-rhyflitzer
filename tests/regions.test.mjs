@@ -40,6 +40,11 @@ test('the national border names are per region: Hochrhein has them, Ehrendingen 
   assert.deepEqual(REGIONS.ehrendingen.borderDe, []);
 });
 
+test('#593: only Hochrhein has a horizon backdrop', () => {
+  assert.equal(REGIONS.hochrhein.backdrop, './data/backdrop_hochrhein.mmh');
+  assert.equal(REGIONS.ehrendingen.backdrop, undefined);
+});
+
 test('every region is complete and its string keys exist', () => {
   for (const [id, r] of Object.entries(REGIONS)) {
     assert.equal(r.id, id);
