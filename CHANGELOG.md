@@ -22,6 +22,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-01 21:45` New car **Rhy Wobbler**, a little seventies **three-wheeler** van with one wheel in front, sunflower yellow and paintable: 137 km/h, light and fragile. Take a corner too fast and it **tips over** onto its side, then gets back on its wheels after a moment (each tip costs 15 % damage). 3D model „Reliant-regal-supervan" by 3DDomino (Sketchfab), CC BY 4.0.
 - `2026-11-01 15:32` From the Plattform deck you now see the **Hotzenwald** rising behind Bad Säckingen and Murg, and the **Jura** and the Rhine valley all round: a hazy **horizon** from the Copernicus height model.
 - `2026-11-01 14:11` In the **Enterprise room** (ring 2), a **memorial plaque** just inside the entrance remembers **Sir Patrick Stewart** (1940–2026), Captain Jean-Luc Picard: „Make it so.“
 - `2026-10-31 20:35` Das **Sisslerfeld** und die ganze Schweizer Seite haben jetzt echte **Äcker und Wiesen**: Winterweizen beige, Mais dunkelgrün, Raps gelb, Wiesen grün — die Parzellen und ihre Furchen folgen den amtlichen Nutzungsflächen des Kantons Aargau, mit Grasstreifen zwischen den Parzellen. Auf der deutschen Seite sind die Felder aus OpenStreetMap.

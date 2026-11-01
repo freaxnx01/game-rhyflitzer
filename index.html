@@ -512,7 +512,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small>
         </dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a></dd>
@@ -661,6 +661,8 @@ import { COUPE } from './coupe.js';   // Rhy Coupé, a glTF car
 import { HYPER } from './hyper.js';   // Rhy Hyper, a glTF car
 import { MCLAREN } from './mclaren.js';   // Rhy Papaya, a glTF car
 import { BULLDOG } from './bulldog.js';   // Rhy Bulldog, a glTF car
+import { WOBBLER } from './wobbler.js';   // Rhy Wobbler, a glTF three-wheeler that tips over
+import { TIP_UP, stepTip, tipped, tipLift, lateralAccel } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
@@ -2478,6 +2480,7 @@ const VEHICLES = {
   hyper: HYPER,   // Rhy Hyper, a 2016 Chiron look-alike without the badge, two-tone, paintable (assets/hyper.glb); the compact stands in until it is ready
   mclaren: MCLAREN,   // Rhy Papaya, a 2013 P1 look-alike without the badge, paintable (assets/mclaren.glb); the compact stands in until it is ready
   bulldog: BULLDOG,   // Rhy Bulldog, a 1980s derby sedan with a push bar and its own flame livery (assets/bulldog.glb); the compact stands in until it is ready
+  wobbler: WOBBLER,   // Rhy Wobbler, a 1970s three-wheeler van look-alike that tips over in fast corners, paintable (assets/wobbler.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -2740,7 +2743,8 @@ function buildCar() { if (WRECK_S.on) endWreck(); freeCar(); VEH_OFFSETS = capsu
  for (const grp of [car, flames, BLINK.left, BLINK.right]) grp.clear(); car.userData.doors = []; car.userData.gltfId = null; GLTF_LAMPS.head = GLTF_LAMPS.tail = []; LOCAL_LAMPS.length = 0; car.scale.setScalar(VEH.scale); car.add(flames, BLINK.left, BLINK.right); MODELS[VEH.model](car, VEH); car.traverse(o => { o.castShadow = true; }); applyChair(); CAR_SIZE = measureCar(); bakeShadow(CAR_SIZE); }
 // fail fast, before anything is swapped: procedural builders and circle or capsule collision (#473) exist so far
 function checkVehicle(def) { if (!Object.hasOwn(MODELS, def.model)) throw new Error(`Unknown vehicle model '${def.model}'`); if (!def.collision) throw new Error(`Vehicle '${def.model}' has no collision entry (expected { shape: 'circle', r })`); if (def.collision.shape !== 'circle' && def.collision.shape !== 'capsule') throw new Error(`Vehicle collision shape '${def.collision.shape}' is not supported, only 'circle' or 'capsule'`); if (def.collision.shape === 'capsule' && !(Number.isFinite(def.collision.r) && def.collision.r > 0 && Number.isFinite(def.collision.hl) && def.collision.hl > 0)) throw new Error(`Vehicle '${def.model}' capsule collision needs a positive r and hl`); checkSound(def.sound); checkCrash(def.sound.crash); }
-function setVehicle(def) { checkVehicle(def); VEH = structuredClone(def.gltf && buildableId(def.gltf.id, def, gltfState(def.gltf.id)) !== def.gltf.id ? VEHICLES[def.gltf.fallback] : def); buildCar(); }   // #236: a glTF vehicle that is not ready builds its fallback, never half a model   // own copy: a later change to def cannot skip checkVehicle
+let TIP_S = TIP_UP;   // the Rhy Wobbler's tip-over (tipover.js): only a vehicle with a `tip` table ever leaves 'up'
+function setVehicle(def) { checkVehicle(def); TIP_S = TIP_UP; VEH = structuredClone(def.gltf && buildableId(def.gltf.id, def, gltfState(def.gltf.id)) !== def.gltf.id ? VEHICLES[def.gltf.fallback] : def); buildCar(); }   // #236: a glTF vehicle that is not ready builds its fallback, never half a model   // own copy: a later change to def cannot skip checkVehicle
 const carRadius = () => VEH.collision.r * VEH.scale;   // the centre circle; the capsule's other circles: carCircles (#473)
 // #473: the active vehicle's collision circles along its long axis (offsets scaled), recomputed in buildCar.
 // A circle vehicle is exactly one centre circle at offset 0, so its collide() arithmetic is unchanged.
@@ -2758,7 +2762,7 @@ setVehicle(VEHICLES[CHOICE.id]); applyPaint(CHOICE.paint);
 // #132: wheel state is written by stepWheels (from stepCar) only; drawWheels (from the loop) only reads it
 const WHEEL_STATE = { yaw: 0, spin: 0 };
 function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL_STATE.yaw, steer, speed, dt); WHEEL_STATE.spin = stepWheelSpin(WHEEL_STATE.spin, vf, VEH.wheelR * VEH.scale, dt); }
-function drawWheels() { const lean = car.rotation.x; for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.x = -lean; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.steer.position.y = plantedWheelY(w.home.y, w.home.z, lean); w.roll.rotation.z = -WHEEL_STATE.spin; } }   // #542: the body leans, the wheels stay on the road
+function drawWheels() { const lean = car.rotation.x - TIP_S.roll; for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.x = -lean; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.steer.position.y = plantedWheelY(w.home.y, w.home.z, lean); w.roll.rotation.z = -WHEEL_STATE.spin; } }   // #542: the body leans, the wheels stay on the road; the tip-over roll lifts them with the body
 // #163: shadow state is written by stepCar only; drawShadow (from the loop) only reads it. restShadow seeds it where P.y is set
 // outside the physics step -- the start screen, resetCar, __mm.place, landing from the helicopter
 const SHADOW_STATE = { y: 0, pitch: 0, roll: 0, wet: false, air: 0 };
@@ -3471,7 +3475,7 @@ function stepWreck(dt) {
   }
   stepSmoke(dt);
 }
-function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endTrain(); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
+function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endTrain(); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; TIP_S = TIP_UP; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
@@ -4128,6 +4132,8 @@ window.__mm.carSize = () => ({ ...CAR_SIZE });   // #69: body box in world metre
 window.__mm.shadow = () => { const s = sunShift(sunDir(), SHADOW.bodyMid * CAR_SIZE.h); shadowMesh.updateMatrixWorld(true); const edge = [-0.5, 0.5].map(c => shadowMesh.localToWorld(new THREE.Vector3(0, 0, c)).y); return { visible: shadowMesh.visible, opacity: shadowMesh.material.opacity, size: [shadowMesh.scale.x, shadowMesh.scale.z], pos: [shadowMesh.position.x, shadowMesh.position.y, shadowMesh.position.z], rot: [shadowMesh.rotation.x, shadowMesh.rotation.y, shadowMesh.rotation.z], shift: [s.x, s.z], ground: SHADOW_STATE.y, edge }; };
 // #542: the lowest wheel's bottom above the ground (negative = sunk in), over a simulated stretch with keys held; read-only apart from the drive itself
 function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vector3(); let low = Infinity; for (const w of car.userData.wheels ?? []) { w.steer.getWorldPosition(p); low = Math.min(low, p.y - VEH.wheelR * VEH.scale - groundH(p.x, p.z, p.y)); } return low; }
+// the Rhy Wobbler: from speed m/s straight ahead, hold the keys for secs; the tip phases seen, the biggest drawn roll and lift, the damage
+window.__mm.tipSim = (speed, secs, hold = []) => { P.vx = Math.cos(P.th) * speed; P.vz = Math.sin(P.th) * speed; for (const k of hold) keys[k] = true; const phases = new Set(); let roll = 0, lift = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); phases.add(TIP_S.phase); roll = Math.max(roll, Math.abs(car.rotation.x)); lift = Math.max(lift, car.position.y - P.y); } for (const k of hold) keys[k] = false; return { phases: [...phases], phase: TIP_S.phase, roll, lift, dmg: P.dmg, speed: Math.hypot(P.vx, P.vz) }; };
 window.__mm.driveSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; let worst = Infinity, roll = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); worst = Math.min(worst, wheelClearance()); roll = Math.max(roll, Math.abs(car.rotation.x)); } for (const k of hold) keys[k] = false; return { worst, roll, speed: Math.hypot(P.vx, P.vz) }; };
 window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotation.z], pos: [car.position.x, car.position.y, car.position.z], visible: car.visible });   // #124: read-only, for the test
 window.__mm.kreisel = () => KREISEL.map(k => ({ x: k.x, z: k.z, b: k.b, apron: k.apron, bottom: k.bottom, low: lowestTerrain(k.x, k.z, k.apron), ir: k.ir, ibottom: k.ibottom, ilow: lowestTerrain(k.x, k.z, k.ir) }));
@@ -4158,15 +4164,17 @@ function stepCar(dt) {
   LIGHTS.braking = false;   // #230: reset every step so it never sticks (airborne, flying, coasting)
   if (LIFT_RIDE.busy) { P.vx = P.vz = P.vy = 0; car.position.set(P.x, P.y, P.z); return; }   // #277: input is locked for the ride
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx; let vf = P.vx * fx + P.vz * fz, vs = P.vx * rx + P.vz * rz; const speed = Math.hypot(P.vx, P.vz);
-  const dead = WRECK_S.on, inp = dead ? NO_INPUT : keys, tch = dead ? NO_INPUT : touch;   // #105: a wreck ignores the keys and the touch buttons (the autopilot was stopped in startWreck)
-  const ap = autoInputs(dt), nitro = ap ? 0 : (inp.KeyN ? 1 : 0), gas = ap ? ap.gas : ((inp.Space || inp.KeyW || inp.ArrowUp || tch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((inp.KeyS || inp.ArrowDown || tch.b) ? 1 : 0), steer = ap ? ap.steer : (((inp.KeyD || inp.ArrowRight || tch.r) ? 1 : 0) - ((inp.KeyA || inp.ArrowLeft || tch.l) ? 1 : 0)), hb = ap ? 0 : ((inp.ControlLeft || inp.ControlRight || tch.h) ? 1 : 0);
+  const dead = WRECK_S.on, down = tipped(TIP_S), inp = dead || down ? NO_INPUT : keys, tch = dead || down ? NO_INPUT : touch;   // #105: a wreck ignores the keys and the touch buttons (the autopilot was stopped in startWreck); so does a car on its side
+  const ap = down ? null : autoInputs(dt), nitro = ap ? 0 : (inp.KeyN ? 1 : 0), gas = ap ? ap.gas : ((inp.Space || inp.KeyW || inp.ArrowUp || tch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((inp.KeyS || inp.ArrowDown || tch.b) ? 1 : 0), steer = ap ? ap.steer : (((inp.KeyD || inp.ArrowRight || tch.r) ? 1 : 0) - ((inp.KeyA || inp.ArrowLeft || tch.l) ? 1 : 0)), hb = ap ? 0 : ((inp.ControlLeft || inp.ControlRight || tch.h) ? 1 : 0);
   const gh = groundH(P.x, P.z, P.y); const air = P.y > gh + 0.15;
   const wet = waterLevelAt(P.x, P.z, P.y) !== null;   // #101: on the riverbed the engine runs, but slowly (every water modifier is gated on wet: the land trace is unchanged)
   P.gas = gas; P.air = air; P.nitro = nitro || (SURP.turbo > 0 && gas) ? 1 : 0; { const d = Math.hypot(P.vx, P.vz) * dt / 1000; P.trip += d; P.odo += d; }
   stepWheels(dt, steer, vf, speed);   // #132: the visible wheel angle and roll follow the same steer input as the physics
-  const D = VEH.drive;
+  const D = VEH.drive, th0 = P.th;
   if (!air) { const top = (P.nitro && !wet ? D.topNitro : D.top) * (wet ? UW.topFactor : 1); if (gas) vf += (P.nitro ? D.accelNitro : D.accel) * (1 - Math.max(0, vf) / top) * dt; LIGHTS.braking = !!((brake || hb) && vf > 0.5); if (brake) { if (vf > 0.5) vf -= D.brake * dt; else vf -= D.reverse * dt * (vf > -D.reverseMax ? 1 : 0); } vf -= vf * (rollingDrag(wet, UW.drag, FOREST.inside(P.x, P.z), roadDist(P.x, P.z)) + (dead ? WRECK.coast : 0)) * dt + Math.sign(vf) * 0.6 * dt; const sl = (groundH(P.x + fx * 3, P.z + fz * 3, P.y) - groundH(P.x - fx * 3, P.z - fz * 3, P.y)) / 6; vf -= 9.81 * sl / Math.sqrt(1 + sl * sl) * dt; if (Math.abs(vf) < 0.3 && !gas && !brake) vf = 0; const grip = hb ? D.gripHandbrake : D.grip; vs *= Math.exp(-grip * dt); const sf = clamp(speed / 6, 0, 1) * (1 / (1 + speed / 30)); P.th += steer * D.steerRate * sf * dt * (vf < 0 ? -1 : 1) + (hb ? steer * 1.2 * clamp(speed / 20, 0, 1) * dt : 0); } else { P.th += steer * D.airSteer * dt; }
-  P.vx = vf * fx + vs * rx; P.vz = vf * fz + vs * rz; P.x += P.vx * dt; P.z += P.vz * dt;
+  P.vx = vf * fx + vs * rx; P.vz = vf * fz + vs * rz;
+  if (VEH.tip) stepTipping(dt, air ? 0 : lateralAccel(vf, th0, P.th, dt));
+  P.x += P.vx * dt; P.z += P.vz * dt;
   // in the water: everything is relative to the surface (wl), which is 0 on the hand path and the chunk level (Rhine above the Säckingen weir ~5.5 m) on the OSM path
   const gh2 = groundH(P.x, P.z, P.y), wl = waterLevelAt(P.x, P.z, P.y);
   // toast(tr('fishes')): the Midtown Madness homage, in the game language (#9). #101: no reset -- the car sinks onto the bed (gh2, see groundH)
@@ -4177,13 +4185,16 @@ function stepCar(dt) {
   collide(carRadius());
   followCave();
   car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
-  const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01;
+  const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01 + TIP_S.roll;
+  if (TIP_S.roll) { const l = tipLift(TIP_S.roll, VEH.tip.pivot * VEH.scale); car.position.set(P.x + rx * l.dz, P.y + l.dy, P.z + rz * l.dz); }   // it rolls over its outer edge, not its centre
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
   // gh2 ± 2 * slope is atan(slope) exactly), the roll costs two new samples to the car's left and right. Airborne, the quad lies flat.
   // A sample that steps away from gh2 (kerb, trough wall, the ramp's side edge) levels that axis, and both angles are clamped (groundTilt).
   const shLeft = groundH(P.x - rx * SHADOW.roll, P.z - rz * SHADOW.roll, P.y), shRight = groundH(P.x + rx * SHADOW.roll, P.z + rz * SHADOW.roll, P.y), tilt = groundTilt(gh2, gh2 + slope * 2, gh2 - slope * 2, shLeft, shRight, 2, SHADOW.roll);
   SHADOW_STATE.y = gh2; SHADOW_STATE.pitch = air ? 0 : tilt.pitch; SHADOW_STATE.roll = air ? 0 : tilt.roll; SHADOW_STATE.wet = wl !== null; SHADOW_STATE.air = P.y - gh2;
 }
+// the Rhy Wobbler: a held fast corner tips it (tipover.js). On its side it slides to a stop; landing hurts like a hit of VEH.tip.hit
+function stepTipping(dt, a) { const was = TIP_S.phase; TIP_S = stepTip(TIP_S, a, dt, VEH.tip); if (was === 'up' && TIP_S.phase === 'falling') toast(tr('tippedOver'), TOAST_S.event); if (TIP_S.landed) { crashHit(VEH.tip.hit); SFX.crash(VEH.tip.hit); } if (tipped(TIP_S)) { const k = Math.exp(-VEH.tip.slide * dt); P.vx *= k; P.vz *= k; } }
 // #102 / #201: under the hill? cave mode follows the car or the walker (#277: the find is the lift ride's, see liftEvent)
 function followCave() { if (!HIDE) return; const inside = caveInside(), depth = inside ? caveDepth(P.x, P.z, HIDE.portal) : -Infinity, deep = caveSwitch(depth, CAVE_MODE.on), k = caveLookK(depth); if (deep !== CAVE_MODE.on) setCave(deep, k); else if (k !== CAVE_MODE.k) fadeCave(k); if (!(ROOM.states[0] && ROOM.states[0].started) && Math.hypot(P.x - HIDEOUT.mouth[0], P.z - HIDEOUT.mouth[1]) < EIFFEL.loadWithin) loadEiffel(); }   // the model downloads near the Hübel; the room swaps it in
 
