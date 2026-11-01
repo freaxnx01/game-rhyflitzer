@@ -1,4 +1,4 @@
-"""#102 / #201 / #277 / #361: the secret hideout in the Hübel -- a straight tunnel (T1) behind the gate into a round lift hall with a
+"""#102 / #201 / #277 / #361: the secret hideout in the Hübel -- a straight tunnel (T1) behind the gate into a round lift hall with a 
 drive-through freight lift; below it a short exit leads into a tunnel ring with eight star-shaped spokes, each ending (after a dark
 stretch where the level switches unseen) in its own 500 m meadow room; the Eiffel Tower stands in room 0. Found when the lift's door
 opens below. Needs the real world and terrain (the hill is swisstopo's). Slow (Playwright): run in the foreground."""
