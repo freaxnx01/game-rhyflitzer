@@ -60,3 +60,19 @@ def test_written_file_round_trips(tmp_path):
     hdr, h = mmh.read_mmh(p)
     assert hdr["kind"] == "backdrop"
     assert np.array_equal(np.isnan(h), np.isnan(out))
+
+
+def test_copernicus_tiles_cover_the_bbox():
+    names = [t[0] for t in backdrop.copernicus_tiles(7.66, 47.33, 8.27, 47.74)]
+    assert names == ["N47_00_E007_00", "N47_00_E008_00"]
+    assert backdrop.copernicus_tiles(7.9, 46.9, 7.95, 47.1)[0][0] == "N46_00_E007_00"
+    assert backdrop.COPERNICUS_URL.format(t="N47_00_E008_00").startswith("https://copernicus-dem-30m.s3.amazonaws.com/")
+
+
+def test_fill_seams_closes_a_one_pixel_seam_and_refuses_a_missing_tile():
+    m = np.arange(100, dtype=np.float32).reshape(10, 10); m[:, 5] = np.nan
+    out = backdrop.fill_seams(m)
+    assert not np.isnan(out).any() and out[3, 5] in (m[3, 4], m[3, 6])
+    m[:, :5] = np.nan
+    with pytest.raises(RuntimeError):
+        backdrop.fill_seams(m)
