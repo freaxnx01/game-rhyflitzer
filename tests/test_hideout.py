@@ -1259,6 +1259,10 @@ def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(serve
         page.wait_for_function("() => window.__mm.enterprise() && window.__mm.enterprise().loaded === true", timeout=240000)
         page.wait_for_timeout(500)
         e = page.evaluate("() => window.__mm.enterprise()"); below = page.evaluate("() => window.__mm.below()")
+        ded = page.evaluate("() => window.__mm.dedication()")   # the plaque for Sir Patrick Stewart just inside the portal
+        page.evaluate(f"() => window.__mm.sim({ded['x']} + 22 * Math.cos({ded['face']}), {ded['z']} + 22 * Math.sin({ded['face']}), {ded['face']} + Math.PI, 0, 1.5, [], -1200)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "enterprise-dedication.png"))
         push = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.enterprise(), c = Math.cos(e.th), s = Math.sin(e.th);
           const ship = (x, z) => window.__mm.pushAt(t.x + x * c - z * s, t.z + x * s + z * c, -1200);   // ship frame -> world
           const th = window.__mm.spoke(0, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], room = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -1200);
@@ -1273,6 +1277,8 @@ def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(serve
     assert len(requests) == 1 and requests[0].endswith("/assets/models/enterprise_d.glb"), requests
     assert e["placeholder"] is False and 200000 <= e["tris"] <= 260000 and abs(e["height"] - 143.1) < 0.5 and e["length"] == 642.5, e
     assert abs(e["y"] - (-1200 + 25)) <= 2.0 and e["lettering"] == 4 and e["look"] == "space", e
+    assert ded is not None and abs(ded["top"] - (-1200 + 1.2 + 4.5)) < 0.01 and ded["lead"] in ("In memory of", "In Erinnerung an"), ded
+    assert ded["solid"], ded   # the car can't drive through it
     assert e["dome"] is True and e["grid"] is True and e["sunDisc"] is False and e["sun"] >= 2.0 and e["hemi"] <= 0.5, e
     assert all(v >= 1.6 for v in e["glow"].values()) and e["glow"]["nacelles"] >= 2.5, e["glow"]
     assert below["level"] == "r2room0" and below["built"] == 8 and below["object"] is True and below["fog"] == "#04050a", below

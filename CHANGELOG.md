@@ -23,6 +23,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Added
 
 - `2026-11-01 15:32` From the Plattform deck you now see the **Hotzenwald** rising behind Bad Säckingen and Murg, and the **Jura** and the Rhine valley all round: a hazy **horizon** from the Copernicus height model.
+- `2026-11-01 14:11` In the **Enterprise room** (ring 2), a **memorial plaque** just inside the entrance remembers **Sir Patrick Stewart** (1940–2026), Captain Jean-Luc Picard: „Make it so.“
 - `2026-10-31 20:35` Das **Sisslerfeld** und die ganze Schweizer Seite haben jetzt echte **Äcker und Wiesen**: Winterweizen beige, Mais dunkelgrün, Raps gelb, Wiesen grün — die Parzellen und ihre Furchen folgen den amtlichen Nutzungsflächen des Kantons Aargau, mit Grasstreifen zwischen den Parzellen. Auf der deutschen Seite sind die Felder aus OpenStreetMap.
 - `2026-10-31 20:32` New car **Rhy Bulldog**, an eighties full-size sedan built for the **demolition derby**: a **push bar** on the nose, orange-yellow **flames** on black and the number 77. The heaviest car apart from the bus, so it takes the least damage when ramming, but it is slow (190 km/h) and turns lazily. 3D model „Chevrolet Caprice Classic Sedan" by popit228fm (Sketchfab), CC BY 4.0.
 - `2026-10-31 19:32` New car **Rhy Papaya**, a P1 look-alike without the badge in **papaya orange**: a hybrid V8 behind the seats, 280 km/h, lighter than the Rhy Hyper and with **the most grip** of all cars, the one for corners. Paintable. 3D model „McLaren P1" by hartwelkisaka (Sketchfab), CC BY 4.0.

@@ -1,7 +1,7 @@
 // #491: the Enterprise-D room -- pure. node --test tests/enterprise.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField } from '../enterprise.js';
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION, dedicationPlacement } from '../enterprise.js';
 
 const close = (a, b, eps = 1e-6, msg) => assert.ok(Math.abs(a - b) <= eps, msg || `${a} ~ ${b}`);
 const room = { centre: [100, -50], y: -1200, frame: { f: [0, 1], v: [-1, 0] }, portal: { c: [100, -550], th: Math.PI / 2 } };
@@ -71,4 +71,20 @@ test('starField_Deterministic_StarsInTheUpperHalf_ThreeNebulaClouds', () => {
   assert.equal(a.clouds.length, 3); for (const c of a.clouds) { assert.ok(c.v < 0.5 && c.r > 0.05 && c.r < 0.3 && c.alpha <= 0.35); assert.match(c.colour, /^#[0-9a-f]{6}$/); }
   assert.ok(a.band.v > 0.1 && a.band.v < 0.5 && a.band.alpha <= 0.1);
   assert.notDeepEqual(starField(7).stars[0], a.stars[0], 'another seed, another sky');
+});
+test('dedicationPlacement_JustInsideThePortal_RightOfTheLane_FacingTheWayIn', () => {
+  const d = dedicationPlacement(room), [px, pz] = room.portal.c, { f, v } = room.frame;
+  const a = (d.x - px) * f[0] + (d.z - pz) * f[1], b = (d.x - px) * v[0] + (d.z - pz) * v[1];
+  close(a, DEDICATION.a); close(b, DEDICATION.b);
+  assert.ok(a > 20 && a < 80, 'seen from the spawn point (20 m in), well clear of the ship'); assert.ok(b > 8, 'beside the lane, not on it');
+  close(Math.cos(d.face), -f[0], 1e-9); close(Math.sin(d.face), -f[1], 1e-9);   // the plaque's front faces the portal
+  assert.equal(d.y, room.y);
+  assert.equal(d.colliders.length, 1); const c = d.colliders[0];
+  assert.deepEqual([c.x, c.z, c.c, c.s], [d.x, d.z, f[0], f[1]]); close(c.hd, DEDICATION.w / 2); assert.ok(c.hw >= DEDICATION.depth / 2 && c.hw < 1);
+  close(c.h, room.y + DEDICATION.lift + DEDICATION.h);
+});
+
+test('DEDICATION_ReadablePanel_FromTheCar', () => {
+  assert.ok(DEDICATION.w >= 6 && DEDICATION.w <= 12 && DEDICATION.h >= 3 && DEDICATION.h <= DEDICATION.w);
+  assert.ok(DEDICATION.lift >= 0.5 && DEDICATION.lift + DEDICATION.h <= 8, 'at eye height from the car, not over it');
 });
