@@ -3,11 +3,22 @@
 
 export const BACKDROP_SCALE = 0.08;               // drawn scaled about the camera: angles stay, 45 km fit inside far 4200 m
 export const CURVE_R = 6371000 / (1 - 0.13);      // earth radius with standard refraction
-export const HAZE = Object.freeze({ min: 0.45, max: 0.88, d0: 2000, len: 8000 });
+// #617: aerial perspective. The distance haze starts at 40 % at the play area's rim (the scene fog has saturated
+// long before) and tends to 97 % far out, so each ridge is a paler layer than the one before it and the farthest
+// fade into the sky. On top the valley haze: ground below VALLEY.top sinks into the fog by VALLEY.k of what is
+// left, so the rim's valley floor (y ~ 0) is as fogged as the play area's edge and only the crests stand out.
+export const HAZE = Object.freeze({ min: 0.40, max: 0.97, d0: 2000, len: 10000 });
+export const VALLEY = Object.freeze({ k: 0.9, top: 350 });
 // the ground palette (index.html groundCol: lo, mid, hi) and a dark Black Forest green for the high ground
 export const TINT_STOPS = Object.freeze([[0, '#6f8a4a'], [120, '#5d7a40'], [350, '#3f5a35'], [800, '#34482e']]);
+export const MOTTLE = 0.08;   // #617: +-8 % per-vertex forest mottle, clearings and canopy at the 250 m grid
 
-export const hazeAt = (d) => HAZE.min + (HAZE.max - HAZE.min) * (1 - Math.exp(-Math.max(d - HAZE.d0, 0) / HAZE.len));
+const distanceHaze = (d) => HAZE.min + (HAZE.max - HAZE.min) * (1 - Math.exp(-Math.max(d - HAZE.d0, 0) / HAZE.len));
+export function hazeAt(d, y = VALLEY.top) {
+  const h = distanceHaze(d), valley = VALLEY.k * Math.min(1, Math.max(0, 1 - y / VALLEY.top));
+  return h + (1 - h) * valley;
+}
+export const mottleAt = (k) => { const x = Math.sin(k * 12.9898 + 78.233) * 43758.5453; return 1 + MOTTLE * (2 * (x - Math.floor(x)) - 1); };
 export const curveDrop = (d) => d * d / (2 * CURVE_R);
 export const backdropVisible = (s) => s.surface && !s.underwater && !s.cave;
 
@@ -33,7 +44,8 @@ function vertices(hdr, data, stops) {
   for (let k = 0; k < n; k++) {
     const y = Number.isFinite(data[k]) ? data[k] : 0;
     position.set([hdr.x0 + (k % hdr.w) * hdr.step, y, hdr.z0 + Math.floor(k / hdr.w) * hdr.step], k * 3);
-    tint.set(tintAt(stops, y), k * 3);
+    const m = mottleAt(k);
+    tint.set(tintAt(stops, y).map((v) => v * m), k * 3);
   }
   return { position, tint };
 }

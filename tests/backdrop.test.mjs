@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, statSync } from 'node:fs';
-import { BACKDROP_SCALE, HAZE, hazeAt, curveDrop, backdropVisible, heightAt, backdropMesh, horizon } from '../backdrop.js';
+import { BACKDROP_SCALE, HAZE, VALLEY, hazeAt, mottleAt, curveDrop, backdropVisible, heightAt, backdropMesh, horizon } from '../backdrop.js';
 import { parseMmh } from '../worlds.js';
 
 const FILE = new URL('../data/backdrop_hochrhein.mmh', import.meta.url);
@@ -17,9 +17,24 @@ const tiny = () => {
 test('hazeAt: floor up to 2 km, rises with distance, stays below max', () => {
   assert.equal(hazeAt(0), HAZE.min);
   assert.equal(hazeAt(2000), HAZE.min);
-  assert.ok(Math.abs(hazeAt(3000) - 0.5) < 0.02);
-  assert.ok(hazeAt(20000) > 0.8 && hazeAt(20000) < HAZE.max);
+  assert.ok(Math.abs(hazeAt(3000) - 0.45) < 0.02);
+  assert.ok(hazeAt(20000) > 0.85 && hazeAt(20000) < HAZE.max);
   assert.ok(hazeAt(9000) > hazeAt(5000));
+});
+
+test('hazeAt: a ridge crest stands out of the haze, the valley floor at the rim is as fogged as the play area (#617)', () => {
+  assert.equal(hazeAt(3000, VALLEY.top), hazeAt(3000));
+  assert.equal(hazeAt(3000, 2000), hazeAt(3000));   // never clearer than the distance haze
+  assert.ok(hazeAt(3000, 0) >= 0.94 && hazeAt(3000, 0) < 1);
+  assert.ok(hazeAt(3000, 0) > hazeAt(3000, 150) && hazeAt(3000, 150) > hazeAt(3000, 350));
+  assert.ok(hazeAt(20000, 0) > hazeAt(3000, 0));
+});
+
+test('mottleAt: deterministic forest mottle within +-8 %', () => {
+  assert.equal(mottleAt(17), mottleAt(17));
+  const v = Array.from({ length: 200 }, (_, k) => mottleAt(k));
+  assert.ok(v.every((m) => m >= 0.92 && m <= 1.08));
+  assert.ok(new Set(v.map((m) => m.toFixed(3))).size > 50);
 });
 
 test('curveDrop: about 6.8 m at 10 km (refraction k = 0.13)', () => {
