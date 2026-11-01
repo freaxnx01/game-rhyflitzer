@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from '../about.js';
 
 test('ABOUT_LINKS: every link https, the agreed set, frozen', () => {
-  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'aiInstructions', 'altcha', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'plattform', 'source', 'swisstopo', 'threejs']);
+  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'plattform', 'source', 'swisstopo', 'threejs']);
   for (const [id, url] of Object.entries(ABOUT_LINKS)) assert.match(url, /^https:\/\/[^\s]+$/, id);
   assert.equal(ABOUT_LINKS.plattform, 'https://www.plattform-sisslerfeld.com/');
   assert.equal(ABOUT_LINKS.midtown, 'https://en.wikipedia.org/wiki/Midtown_Madness');
@@ -42,4 +42,7 @@ test('aboutKeyAction: the tab keys are claimed as tab, the other game keys stay 
   for (const code of ['ArrowLeft', 'ArrowRight', 'Home', 'End']) assert.equal(aboutKeyAction({ code }), 'tab', code);
   for (const code of ['ArrowUp', 'ArrowDown', 'KeyW']) assert.equal(aboutKeyAction({ code }), 'ignore', code);
   assert.equal(aboutKeyAction({ code: 'Escape' }), 'back');
+});
+test('the Aargau parcels are credited with a link (#506)', () => {
+  assert.equal(ABOUT_LINKS.agis, 'https://geodienste.ch/services/lwb_nutzungsflaechen');
 });
