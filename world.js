@@ -1053,20 +1053,30 @@ export function fieldUV(x, z, cx, cz, dir, tile = 20) {
 }
 
 // #506: how far to lift each vertex of a draped triangle mesh so every triangle stays on or over hAt([x, z]) (the ribbonLift
-// idea for triangles): a barycentric lattice at most `step` m apart per triangle, the worst excess goes to its three corners.
+// idea for triangles): a lattice at most `step` m apart per triangle, the worst excess goes to its three corners.
 // Lifting all three corners by e raises the triangle's plane by exactly e, and a shared vertex taking a neighbour's bigger
 // lift only tilts its own triangle upward, so one pass is enough and the lift is never a lowering.
-export function meshLift(pts, tris, h, hAt, step = 2) {
+// The lattice fans out from the vertex opposite the shortest edge: rows at `step` m along the longer sides, each row split at
+// `step` m across. earcut's fans make slivers (48 m long, a few m wide), and a barycentric lattice on those spends
+// (long / step)^2 / 2 lookups on points that all lie on one line -- 10 s over the 350 k triangles of the real fields.
+export function meshLift(pts, tris, h, hAt, step = 3) {
   const up = new Float64Array(pts.length);
-  for (const [a, b, c] of tris) {
+  for (const t of tris) {
+    const lens = [[1, 2], [2, 0], [0, 1]].map(([i, j]) => Math.hypot(pts[t[j]][0] - pts[t[i]][0], pts[t[j]][1] - pts[t[i]][1]));
+    const k = lens.indexOf(Math.min(...lens));                                  // the shortest edge is [t[(k+1)%3], t[(k+2)%3]]
+    const [a, b, c] = [t[k], t[(k + 1) % 3], t[(k + 2) % 3]];                    // a: apex, bc: the shortest edge
     const tri = [pts[a][0], h[a], pts[a][1], pts[b][0], h[b], pts[b][1], pts[c][0], h[c], pts[c][1]];
-    const longest = Math.max(Math.hypot(pts[b][0] - pts[a][0], pts[b][1] - pts[a][1]), Math.hypot(pts[c][0] - pts[b][0], pts[c][1] - pts[b][1]), Math.hypot(pts[a][0] - pts[c][0], pts[a][1] - pts[c][1]));
-    const n = Math.max(1, Math.ceil(longest / step));
+    const rows = Math.max(1, Math.ceil(Math.max(Math.hypot(pts[b][0] - pts[a][0], pts[b][1] - pts[a][1]), Math.hypot(pts[c][0] - pts[a][0], pts[c][1] - pts[a][1])) / step));
     let e = 0;
-    for (let i = 0; i <= n; i++) for (let j = 0; j <= n - i; j++) {
-      const u = i / n, v = j / n, w = 1 - u - v, x = pts[a][0] * w + pts[b][0] * u + pts[c][0] * v, z = pts[a][1] * w + pts[b][1] * u + pts[c][1] * v;
-      const drawn = trisHeightAt(tri, x, z);
-      if (drawn !== -Infinity) e = Math.max(e, hAt([x, z]) - drawn);
+    for (let r = 0; r <= rows; r++) {
+      const s = r / rows, cols = r === 0 ? 0 : Math.max(1, Math.ceil(s * lens[k] / step));
+      const bx = pts[a][0] + s * (pts[b][0] - pts[a][0]), bz = pts[a][1] + s * (pts[b][1] - pts[a][1]);
+      const cx = pts[a][0] + s * (pts[c][0] - pts[a][0]), cz = pts[a][1] + s * (pts[c][1] - pts[a][1]);
+      for (let q = 0; q <= cols; q++) {
+        const f = cols ? q / cols : 0, x = bx + f * (cx - bx), z = bz + f * (cz - bz);
+        const drawn = trisHeightAt(tri, x, z);
+        if (drawn !== -Infinity) e = Math.max(e, hAt([x, z]) - drawn);
+      }
     }
     if (e > up[a]) up[a] = e; if (e > up[b]) up[b] = e; if (e > up[c]) up[c] = e;
   }

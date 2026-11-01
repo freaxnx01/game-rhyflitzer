@@ -1471,6 +1471,18 @@ test('meshLift lifts a triangle over a ridge inside it and leaves a plane alone'
   assert.ok(Math.max(...meshLift(pts, tris, [0, 0, 0], dip)) === 0);
 });
 
+test('meshLift spends lookups by area, not by the longest side, so a sliver stays cheap and still catches a bump', () => {
+  const pts = [[0, 0], [48, 0], [48, 2]], tris = [[0, 1, 2]];                  // an earcut fan sliver: 48 m long, 2 m wide
+  let calls = 0;
+  const bump = ([x, z]) => { calls++; return Math.max(0, 0.4 - Math.hypot(x - 30, z - 1) * 0.2); };   // 0.4 m bump 30 m along
+  const up = meshLift(pts, tris, [0, 0, 0], bump);
+  assert.ok(Math.min(...up) >= 0.4 - 0.2 * 1.5, `up ${[...up]}`);              // sampled within a step of the peak
+  assert.ok(calls < 120, `${calls} lookups`);                                  // the barycentric lattice took ~325 for this shape
+  const fat = [[0, 0], [30, 0], [0, 30]];
+  calls = 0; meshLift(fat, [[0, 1, 2]], [0, 0, 0], bump);
+  assert.ok(calls > 40, `${calls} lookups`);                                   // a real triangle still gets a real lattice
+});
+
 test('layoutFromWorld carries fields and defaults to none', () => {
   const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], railBridges: [], grades: [], props: [], parking: [], streams: [], boundaries: [], forests: [], anchors: {}, bbox: [0, 0, 1, 1], sources: [] };
   assert.deepEqual(layoutFromWorld(base).fields, []);
