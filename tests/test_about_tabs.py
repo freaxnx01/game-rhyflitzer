@@ -1,4 +1,4 @@
-"""#564: the About dialog in tabs -- roles, keyboard, touch, footer always visible, Kiscsi's ideas, the agent list.
+"""#564: the About dialog in tabs -- roles, keyboard, touch, footer always visible, Kicsi's ideas, the agent list.
 Slow (Playwright): run in the foreground, only this file and test_about.py."""
 from playwright.sync_api import sync_playwright
 
@@ -108,7 +108,7 @@ def test_footer_and_tabs_stay_in_view_on_every_tab_desktop_and_phone(server):
             b.close()
 
 
-def test_kiscsis_ideas_and_the_agent_list(server):
+def test_kicsis_ideas_and_the_agent_list(server):
     with sync_playwright() as p:
         b, page, errors = boot(p, server)
         page.click("#aboutbtn")
@@ -116,7 +116,7 @@ def test_kiscsis_ideas_and_the_agent_list(server):
         page.click("#abouttab-built")
         built = page.inner_text("#aboutpanel-built")
         b.close()
-    for word in ["Holzbrücke", "Robidogs", "poo piles", "many other ideas …"]:
+    for word in ["Main tester and source of ideas", "Holzbrücke", "Robidogs", "poo piles", "many other ideas …"]:
         assert word in people, (word, people)
     for word in ["OpenCode", "GLM 5.3", "Claude Sonnet", "Claude Fable", "Claude Opus", "Claude Haiku", "Claude Design"]:
         assert word in built, (word, built)

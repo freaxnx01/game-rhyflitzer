@@ -39,7 +39,8 @@ def test_about_opens_from_the_start_screen_and_esc_returns(server):
     assert visible
     assert title == "About Map Madness"
     assert dedication == "This game is dedicated to Juliska"
-    assert 'Tschosi "forwardare"' in people and "Ätti aka L.A. Brace" in people and "Tester" in people and "Kiscsi" in people, people
+    assert 'Tschosi "forwardare"' in people and "Ätti aka L.A. Brace" in people and "Tester" in people and "Kicsi" in people, people
+    assert people.index("Kicsi") < people.index("Tschosi"), "Kicsi, the main tester, comes first"
     assert order, "the dedication comes before the people"
     assert held == [], held                                             # game keys never reach the game behind the dialog
     assert after == {"about": {"open": False, "from": "start"}, "overlay": True, "focus": "aboutbtn"}, after

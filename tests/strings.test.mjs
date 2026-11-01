@@ -195,9 +195,9 @@ test('lift strings exist in both languages (#411)', () => {
   assert.match(translate('en', 'liftCall'), /^E · call the lift$/);
 });
 
-test('About (#564): Kiscsi\'s ideas name the bridge, Robidogs and flying poo piles, then "and many more"', () => {
-  assert.match(translate('en', 'aboutRoleKiscsi'), /Holzbrücke.*Robidogs.*poo piles.*many other ideas …$/);
-  assert.match(translate('de', 'aboutRoleKiscsi'), /Holzbrücke.*Robidogs.*Häufchen.*viele andere Ideen mehr …$/);
+test('About (#564): Kicsi is the main tester and source of ideas: the bridge, Robidogs and flying poo piles, then "and many more"', () => {
+  assert.match(translate('en', 'aboutRoleKicsi'), /^Main tester and source of ideas: .*Holzbrücke.*Robidogs.*poo piles.*many other ideas …$/);
+  assert.match(translate('de', 'aboutRoleKicsi'), /^Haupttesterin und Ideengeberin: .*Holzbrücke.*Robidogs.*Häufchen.*viele andere Ideen mehr …$/);
 });
 
 test('About (#564): every agent and LLM of the pipeline is listed in both languages', () => {
