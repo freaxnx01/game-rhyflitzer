@@ -5,6 +5,7 @@ export const ABOUT_LINKS = Object.freeze({
   osm: 'https://www.openstreetmap.org/copyright',
   swisstopo: 'https://www.swisstopo.admin.ch/',
   agis: 'https://geodienste.ch/services/lwb_nutzungsflaechen',   // #506: the Aargau farm parcels
+  copernicus: 'https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM',   // #593: the horizon backdrop
   plattform: 'https://www.plattform-sisslerfeld.com/',
   threejs: 'https://threejs.org/',
   crashcat: 'https://github.com/isaac-mason/crashcat',

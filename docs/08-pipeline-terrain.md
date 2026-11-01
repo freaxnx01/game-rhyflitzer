@@ -52,6 +52,27 @@ Header fields: `w`, `h` (samples), `step` (m), `x0`, `z0` (game coordinates of s
 
 The same format will serve the region editor later: one `.mmh` per 1 × 1 km tile.
 
+## Horizon backdrop (#593)
+
+`pipeline/backdrop.py` writes `data/backdrop_hochrhein.mmh`: a coarse height ring around the play area — Hotzenwald,
+Dinkelberg, Jura, the Rhine valley — that the game draws as a hazy, non-drivable silhouette behind the world
+(`backdrop.js`). Same MMH1 format; the header carries `kind: "backdrop"` and `hole` (the play-area extent
+`[x0, z0, x1, z1]`). Samples deep inside the play area are NaN (the hole: the world's own terrain draws there);
+samples at the hole's rim take the play-area `.mmh` height so the backdrop meets the world's edge without a gap.
+The German bank inside the play area stays flat (a DTM is needed there, see the follow-up in #593; the Copernicus
+DEM is a surface model — roads would drape onto canopy and roofs).
+
+Source: Copernicus DEM GLO-30, read anonymously over HTTP range requests from the AWS Open Data bucket
+(`https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_<tile>_DEM/Copernicus_DSM_COG_10_<tile>_DEM.tif`,
+overview level 0 = 2 arc seconds), box-filtered to the 250 m footprint. About 20 MB of range reads, cached under
+`cache/copernicus/`.
+
+```bash
+cd pipeline
+python backdrop.py            # defaults: --terrain ../data/terrain_hochrhein.mmh
+                               #            --out ../data/backdrop_hochrhein.mmh --step 250 --pad 18000
+```
+
 ## Known limits
 
 - The prototype's hand-traced roads, river and buildings are only roughly georeferenced (origin 47.5506 N, 7.9671 E, errors of tens of metres), so a road may sit a few metres beside its real embankment. Fixed by pipeline step 2 ([11](11-pipeline-osm.md)): with `data/world_hochrhein.json` present the layout comes from OSM in the same frame. The hand-traced layout stays as the fallback.
@@ -73,3 +94,4 @@ For the OSM step:
 
 - swissALTI3D: © swisstopo
 - DGM1: Datengrundlage: LGL, www.lgl-bw.de (dl-de/by-2-0)
+- Copernicus DEM GLO-30 (backdrop): produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved
