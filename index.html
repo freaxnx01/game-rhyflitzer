@@ -3155,7 +3155,7 @@ function roomDedication(group, R) {
 function drawDedication(g, w, h) {
   g.clearRect(0, 0, w, h); g.strokeStyle = '#c9a45c'; g.lineWidth = 6; g.strokeRect(14, 14, w - 28, h - 28);
   g.textAlign = 'center'; g.textBaseline = 'middle'; const font = (px, wt = 700) => `${wt} ${px}px "Barlow Condensed", "Arial Narrow", sans-serif`;
-  const lines = [[translate('dedicationLead'), 44, 500, '#9fb2cc'], ['Sir Patrick Stewart', 104, 800, '#e8edf5'], ['1940 – 2026', 50, 600, '#c9a45c'], ['Captain Jean-Luc Picard', 54, 600, '#9fb2cc'], ['„Make it so.“', 50, 500, '#e8edf5']];
+  const lines = [[tr('dedicationLead'), 64, 500, '#9fb2cc'], ['Sir Patrick Stewart', 112, 800, '#e8edf5'], ['1940 – 2026', 70, 600, '#c9a45c'], ['Captain Jean-Luc Picard', 72, 600, '#9fb2cc'], ['„Make it so.“', 72, 500, '#e8edf5']];
   const gap = h / (lines.length + 1);
   lines.forEach(([text, px, wt, colour], i) => { g.font = font(px, wt); g.fillStyle = colour; g.fillText(text, w / 2, gap * (i + 1), w - 80); });
 }
@@ -3268,7 +3268,7 @@ window.__mm.fries = () => ROOM.figure && ROOM.group && ROOM.group.children.some(
 window.__mm.artemis = () => ROOM.artemis && ROOM.built === ROOM.artemis.built ? { ...ROOM.artemis } : null;   // #488: the Artemis stack and the capsule of the room built now
 window.__mm.ferris = () => ROOM.ferris && ROOM.built === ROOM.ferris.built ? { built: ROOM.ferris.built, angle: ROOM.ferris.angle, h: ROOM.ferris.h, gondolas: ROOM.ferris.gondolas, tris: ROOM.ferris.tris, colliders: ROOM.ferris.colliders, gondolaAngle: ROOM.ferris.handle.gondolas[0].rotation.x, wheelRotation: ROOM.ferris.handle.wheel.rotation.x, leds: ROOM.ferris.leds, ledSample: '#' + new THREE.Color().fromArray(ROOM.ferris.handle.leds.instanceColor.array, 0).getHexString(), sparks: ROOM.ferris.fw.live } : null;   // #513: the wheel of the room built now
 window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
-window.__mm.dedication = () => ROOM.dedication && { x: ROOM.dedication.x, z: ROOM.dedication.z, face: ROOM.dedication.face, top: ROOM.dedication.top, lead: translate('dedicationLead'), solid: (({ dx, dz }) => Math.hypot(dx, dz) > 0.1)(window.__mm.pushAt(ROOM.dedication.x, ROOM.dedication.z, -1200)) };
+window.__mm.dedication = () => ROOM.dedication && { x: ROOM.dedication.x, z: ROOM.dedication.z, face: ROOM.dedication.face, top: ROOM.dedication.top, lead: tr('dedicationLead'), solid: (({ dx, dz }) => Math.hypot(dx, dz) > 0.1)(window.__mm.pushAt(ROOM.dedication.x, ROOM.dedication.z, -1200)) };
 window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
   if (!ROOM.states[8] || ROOM.built !== 8) return null;
   const m = ROOM.models[8], glow = {}; if (m) m.traverse(o => { if (o.isMesh && o.material.userData.glow) glow[o.material.userData.glow] = o.material.emissiveIntensity; });
