@@ -8,10 +8,10 @@ const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRa
 const BUS = { model: 'gltf', drive: { top: 22, accel: 4, grip: 6, steerRate: 1.1 }, mass: 8 };
 const IDS = ['compact', 'bus'], PAINT_IDS = PAINTS.map(p => p.id);
 
-test('PAINTS: eleven unique ids and hexes, navy first, purple and pink from #25, one orange, every hex #rrggbb', () => {
-  assert.equal(PAINTS.length, 11);
-  assert.equal(new Set(PAINT_IDS).size, 11);
-  assert.equal(new Set(PAINTS.map(p => p.hex)).size, 11);
+test('PAINTS: twelve unique ids and hexes, navy first, purple and pink from #25, one orange, racing blue for the Rhy Hyper, every hex #rrggbb', () => {
+  assert.equal(PAINTS.length, 12);
+  assert.equal(new Set(PAINT_IDS).size, 12);
+  assert.equal(new Set(PAINTS.map(p => p.hex)).size, 12);
   assert.equal(PAINTS[0].id, 'navy'); assert.equal(PAINTS[0].hex, '#1b2d5e');
   assert.equal(PAINTS.find(p => p.id === 'plum')?.hex, '#7b3fa0');
   assert.equal(PAINTS.find(p => p.id === 'flamingo')?.hex, '#ff6fa8');
