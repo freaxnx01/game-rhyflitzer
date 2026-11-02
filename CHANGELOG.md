@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-02 14:55` When the **Rhy Wobbler** tips over, it now ends up lying **across the road** and **slides on** a good bit further, with a **tyre screech** as it goes over and a **scrape** on the asphalt while it slides.
 - `2026-11-02 14:10` **About → How it is built** no longer dates the Claude Opus implementation („until 10 Oct 2026“); it is listed simply as **Implementation**.
 - `2026-11-01 15:14` **About → People**: **Kicsi** now comes first, as the **main tester and source of ideas**. Her name was misspelled „Kiscsi“ before.
 - `2026-10-31 20:27` The game is now called **Rhyflitzer – Map Madness**: Rhyflitzer is the title on the start screen, in the browser tab and in the About page, Map Madness the subtitle.
