@@ -12,7 +12,8 @@ export const WOBBLER = {
   drive: { top: 38, topNitro: 60, accel: 9, accelNitro: 30, brake: 16, reverse: 6, reverseMax: 10, grip: 7, gripHandbrake: 1.4, steerRate: 2.6, airSteer: 0.35 },
   mass: 0.6, engineAt: [0.9, 0.6, 0], collision: { shape: 'circle', r: 1.0 },
   // full lock holds it up to about 45 km/h; above that, a held corner tips it in under half a second, a tap only rocks it
-  tip: { latAccel: 24, rate: 5, lean: 0.14, fall: 0.55, lie: 1.4, rise: 0.8, pivot: 0.75, slide: 2.5, hit: 0.3 },   // hit: the landing's impact strength (15 % damage)
+  // on its side it slews on round the corner by about 75° (turn) and slides on crosswise for a good second before it stops (slide)
+  tip: { latAccel: 24, rate: 5, lean: 0.14, fall: 0.55, lie: 2.0, rise: 0.8, pivot: 0.75, slide: 1.1, turn: 1.3, turnRate: 2.5, hit: 0.3 },   // hit: the landing's impact strength (15 % damage)
   camera: { chase: { dist: 6.2, h: 2.3 }, near: { dist: 4.2, h: 1.7 }, cockpit: { eye: [-0.1, 1.15, 0.3] }, bumper: { eye: [1.75, 0.5, 0] }, drone: { dist: 18, h: 12 } },
   sound: { gears: [0, 30, 55, 90, 999],
     engine: { cylinders: 4, idleRpm: 900, shiftRpm: 5000, limitRpm: 5500, topKmh: 137, harmonics: [{ mul: 0.5, gain: 0.5, detune: -4 }, { mul: 1, gain: 1, detune: 0 }, { mul: 2, gain: 0.45, detune: 5 }, { mul: 3, gain: 0.2, detune: -6 }],
