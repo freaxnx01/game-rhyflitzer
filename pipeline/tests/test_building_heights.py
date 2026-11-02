@@ -152,15 +152,17 @@ def test_committed_world_has_bodenacker_6_at_its_measured_roof():
 
 
 def test_committed_world_has_no_canopy_ridges():
-    """#630: the file the game loads carries the cap (runs without the swisstopo cache). 210827224 (St. Wendelins-
-    Kapelle) and 390841597 (Evang. Stadtkirche) are the two OSM-tagged tall ones in the Hochrhein world and keep
-    their ridges -- a `tall_ok` id mismatch in `osm.py build_world` would cap the church and fail here."""
+    """#630: the file the game loads carries the cap (runs without the swisstopo cache). 390841597 (Evang. Stadtkirche) is
+    the one OSM-tagged tall building in the Hochrhein world and keeps its ridge; the St. Wendelins-Kapelle 210827224
+    (rh 23.7 on 4.8 m) is canopy and capped by maintainer decision -- a `tall_ok` id mismatch in `osm.py build_world` would cap the church and fail here."""
     import json
     from pathlib import Path
     world = json.loads((Path(__file__).parents[2] / "data" / "world_hochrhein.json").read_text())
     over = {b["id"] for b in world["buildings"]
             if b.get("hsrc") == "dsm" and b["roof"] == "gable" and b["rh"] > min(b["rect"][2], b["rect"][3])}
-    assert over == {210827224, 390841597}, sorted(over)
+    assert over == {390841597}, sorted(over)
+    chapel = next(b for b in world["buildings"] if b["id"] == 210827224)
+    assert chapel["rh"] == 1.9, chapel
     shed = next(b for b in world["buildings"] if b["id"] == 993158962)
     assert shed["rh"] == 3.5 and shed["h"] == 2.5, shed
 
