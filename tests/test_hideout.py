@@ -1308,6 +1308,7 @@ def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(serve
     assert len(requests) == 1 and requests[0].endswith("/assets/models/enterprise_d.glb"), requests
     assert e["placeholder"] is False and 200000 <= e["tris"] <= 260000 and abs(e["height"] - 143.1) < 0.5 and e["length"] == 642.5, e
     assert abs(e["y"] - (-1200 + 25)) <= 2.0 and e["lettering"] == 4 and e["look"] == "space", e
+    assert e["paintedOut"] == 1 and e["drapeMs"] < 1500, ("#607: the baked registry is painted out, the drape stays quick", e)
     assert ded is not None and abs(ded["top"] - (-1200 + 1.2 + 4.5)) < 0.01 and ded["lead"] in ("In memory of", "In Erinnerung an"), ded
     assert ded["solid"], ded   # the car can't drive through it
     assert e["dome"] is True and e["grid"] is True and e["sunDisc"] is False and e["sun"] >= 2.0 and e["hemi"] <= 0.5, e

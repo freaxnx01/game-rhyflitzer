@@ -610,7 +610,7 @@ import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, R
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
-import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
 import { FERRIS, wheelAngle, DUSK_LOOK } from './ferris.js';   // #513; #588: the dusk look
 import { buildWheel, setWheelAngle, ferrisTriangles, setWheelLights, buildFireworks, setFireworks } from './ferrismesh.js';
@@ -3251,7 +3251,7 @@ async function loadModel(k) {
 // 3 px texel ring just outside it (ringMean, enterprise.js) -- the hull colour round the patch. The .glb itself stays as shipped.
 function paintOutBakedLettering(saucer, baked) {
   const map = saucer.material.map;
-  if (!map || !map.image || !map.image.width) { console.warn('Enterprise: no saucer base-colour map, the baked registry stays'); return; }
+  if (!map || !map.image || !map.image.width) { console.warn('Enterprise: no saucer base-colour map, the baked registry stays'); return 0; }
   const src = map.image, w = src.width, h = src.height, c = document.createElement('canvas');
   c.width = w; c.height = h; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0);
   const img = g.getImageData(0, 0, w, h), px = img.data;
@@ -3262,6 +3262,16 @@ function paintOutBakedLettering(saucer, baked) {
     for (let y = rect.y0; y <= rect.y1; y++) for (let x = rect.x0; x <= rect.x1; x++) { const i = (y * w + x) * 4; px[i] = cr; px[i + 1] = cg; px[i + 2] = cb; px[i + 3] = 255; }
   }
   g.putImageData(img, 0, 0); map.image = c; map.needsUpdate = true;
+  return baked.length;
+}
+// #607: the saucer's triangles in the model root's frame (9 floats each), for columnIndex -- the frame the decals are draped in
+function saucerTriangles(root, saucer) {
+  root.updateWorldMatrix(true, true); const M = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(saucer.matrixWorld), out = [], v = new THREE.Vector3();
+  saucer.traverse(o => {
+    if (!o.isMesh) return; const g = o.geometry, p = g.attributes.position, ix = g.index, n = ix ? ix.count : p.count, Mo = o === saucer ? M : new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(o.matrixWorld);
+    for (let i = 0; i < n; i++) { v.fromBufferAttribute(p, ix ? ix.getX(i) : i).applyMatrix4(Mo); out.push(v.x, v.y, v.z); }
+  });
+  return new Float32Array(out);
 }
 // #491 / #607: „U.S.S. ENTERPRISE / NCC-1701-D" draped on the saucer, top and underside: one canvas text plane per line, its grid vertices
 // dropped (top) or lifted (underside) onto the saucer mesh by rays. Each vertex casts a 3 x 3 cluster of rays `spread` m apart
@@ -3271,20 +3281,17 @@ function paintOutBakedLettering(saucer, baked) {
 function roomLettering(k) {
   const root = ROOM.models[k], O = ROOM.layouts[k].object; if (root.userData.lettered) return; root.userData.lettered = true;
   const saucer = root.getObjectByName('saucer'); if (!saucer) { console.warn('Enterprise: no saucer node, no lettering'); return; }
-  if (O.bakedLettering) paintOutBakedLettering(saucer, O.bakedLettering);
-  root.updateWorldMatrix(true, true); const ray = new THREE.Raycaster(), p = new THREE.Vector3(), local = new THREE.Vector3(), built = [];
-  const D = O.drape;
+  if (O.bakedLettering) root.userData.paintedOut = paintOutBakedLettering(saucer, O.bakedLettering);
+  const t0 = performance.now(), hull = columnIndex(saucerTriangles(root, saucer)), built = [], D = O.drape;   // #607: the hull's height field, built once
   for (const d of O.lettering) {
     const px = Math.round(d.w * 6), py = Math.round(d.h * 6), tex = makeTex(px, py, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = `800 ${Math.round(h * 0.86)}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 2; g.strokeStyle = '#141a26'; g.strokeText(d.text, w / 2, h / 2, w * 0.96); g.fillStyle = '#d8dfe9'; g.fillText(d.text, w / 2, h / 2, w * 0.96); }, { alpha: true });
     const geo = new THREE.PlaneGeometry(d.w, d.h, D.seg[0], D.seg[1]), F = letteringFrame(d.side); geo.rotateX(F.rx); geo.rotateY(F.ry); geo.translate(d.x, 0, 0);
-    const pos = geo.attributes.position, up = d.side === 'top', dir = new THREE.Vector3(0, up ? -1 : 1, 0); let last = up ? O.h : 0;
+    const pos = geo.attributes.position, up = d.side === 'top'; let last = up ? O.h : 0;
     for (let i = 0; i < pos.count; i++) {
       let ex = null;
       for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-        local.set(pos.getX(i) + dx * D.spread, up ? 300 : -5, pos.getZ(i) + dz * D.spread); root.localToWorld(p.copy(local)); ray.set(p, dir.clone().transformDirection(root.matrixWorld)); ray.far = 320;
-        const hit = ray.intersectObject(saucer, false)[0]; if (!hit) continue;
-        const y = root.worldToLocal(hit.point.clone()).y;
-        ex = ex === null ? y : up ? Math.max(ex, y) : Math.min(ex, y);
+        const c = columnExtent(hull, pos.getX(i) + dx * D.spread, pos.getZ(i) + dz * D.spread); if (!c) continue;
+        ex = ex === null ? (up ? c.hi : c.lo) : up ? Math.max(ex, c.hi) : Math.min(ex, c.lo);
       }
       if (ex !== null) last = ex;
       pos.setY(i, last + (up ? D.offset : -D.offset));
@@ -3292,7 +3299,7 @@ function roomLettering(k) {
     pos.needsUpdate = true; geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.renderOrder = 2; m.userData.role = 'lettering'; root.add(m); built.push(m);
   }
-  root.userData.lettering = built.length;
+  root.userData.lettering = built.length; root.userData.drapeMs = performance.now() - t0;
 }
 // #491: the hover bob -- the model root rides a slow sine over its placed height (enterprise.js); the decals are its children and ride along
 function stepEnterprise(dt) {
@@ -3319,7 +3326,7 @@ window.__mm.dedication = () => ROOM.dedication && { x: ROOM.dedication.x, z: ROO
 window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
   if (!ROOM.states[8] || ROOM.built !== 8) return null;
   const m = ROOM.models[8], glow = {}; if (m) m.traverse(o => { if (o.isMesh && o.material.userData.glow) glow[o.material.userData.glow] = o.material.emissiveIntensity; });
-  return { ...ROOM.states[8], hover: ENTERPRISE.hover, length: ENTERPRISE.length, y: m ? m.position.y : null, th: m ? m.userData.th : null, lettering: m ? m.userData.lettering || 0 : 0, look: ROOM.layout.look, sun: sun.intensity, hemi: hemi.intensity, sunDisc: sunSprite.visible, dome: ROOM.group.children.some(o => o.userData.role === 'stardome'), grid: ROOM.group.children.some(o => o.userData.role === 'holodeck'), glow: m ? glow : null };
+  return { ...ROOM.states[8], hover: ENTERPRISE.hover, length: ENTERPRISE.length, y: m ? m.position.y : null, th: m ? m.userData.th : null, lettering: m ? m.userData.lettering || 0 : 0, paintedOut: m ? m.userData.paintedOut || 0 : 0, drapeMs: m ? m.userData.drapeMs : null, look: ROOM.layout.look, sun: sun.intensity, hemi: hemi.intensity, sunDisc: sunSprite.visible, dome: ROOM.group.children.some(o => o.userData.role === 'stardome'), grid: ROOM.group.children.some(o => o.userData.role === 'holodeck'), glow: m ? glow : null };
 };
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
