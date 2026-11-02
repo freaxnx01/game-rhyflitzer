@@ -514,7 +514,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small>
         </dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a></dd>
@@ -667,6 +667,8 @@ import { WOBBLER } from './wobbler.js';   // Rhy Wobbler, a glTF three-wheeler t
 import { MIXER } from './mixer.js';   // Rhy Mixer, a glTF concrete mixer truck with a turning drum
 import { FIZZ } from './fizz.js';   // Rhy Fizz, a glTF drinks truck with fairy lights
 import { HARVESTER } from './harvester.js';   // Rhy Harvester, a glTF combine harvester with a turning reel
+import { KNIGHT } from './knight.js';   // Rhy Knight, a glTF sports coupé with a scanner light
+import { scannerLevels, scannerGlow } from './scanner.js';
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan } from './gltfvehicle.js';
@@ -2497,6 +2499,7 @@ const VEHICLES = {
   mixer: MIXER,   // Rhy Mixer, a 1970s cab-over concrete mixer look-alike, three axles, the drum turning, fixed livery (assets/mixer.glb); the compact stands in until it is ready
   fizz: FIZZ,   // Rhy Fizz, a stylised red drinks truck (tractor and box trailer) with fairy lights, no brand, fixed livery (assets/fizz.glb); the compact stands in until it is ready
   harvester: HARVESTER,   // Rhy Harvester, a combine harvester look-alike with a wide header and a turning reel, paintable (assets/harvester.glb); the compact stands in until it is ready
+  knight: KNIGHT,   // Rhy Knight, a black early-eighties sports coupé look-alike with the red scanner light sweeping in the nose, fixed livery (assets/knight.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -2701,7 +2704,7 @@ const gltfEntry = (id) => (GLTF_CARS[id] ??= { state: 'idle', scene: null, mats:
 function prepareGltfScene(e, root) {
   const mats = new Set(); e.tris = 0;
   root.traverse(o => { if (!o.isMesh) return; const m = o.material, g = o.geometry; if (!g.attributes.normal) g.computeVertexNormals(); e.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.userData.sharedGeo = true; mats.add(m); if (m.userData.glass) { m.transparent = true; m.depthWrite = false; o.userData.glass = true; } if (m.userData.overGlass) { m.transparent = true; o.renderOrder = 1; } });   // #478: a display behind tinted glass is drawn after it (the glass writes no depth)
-  e.mats = { all: [...mats], paint: [...mats].find(m => m.userData.paint) ?? null, head: [...mats].filter(m => lampRole(m.userData) === 'head'), tail: [...mats].filter(m => lampRole(m.userData) === 'tail') };
+  e.mats = { all: [...mats], paint: [...mats].find(m => m.userData.paint) ?? null, head: [...mats].filter(m => lampRole(m.userData) === 'head'), tail: [...mats].filter(m => lampRole(m.userData) === 'tail'), scan: [...mats].filter(m => Number.isInteger(m.userData.scan)).sort((a, b) => a.userData.scan - b.userData.scan) };   // scan: the Rhy Knight's scanner segments, left to right
   for (const m of mats) if (m.isMeshStandardMaterial) { CAR_ENV_MATS.push(m); SHARED_CAR_MATS.add(m); }
   buildCarEnv(STYLES[styleKey]);
 }
@@ -2735,6 +2738,7 @@ function buildGltfVehicle(g, v) {
   const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
   wireWheels(g, root); g.add(root); addBlinkers(v.blinkers);
   g.userData.spin = spinPlan(v, wheelNames(root)).map(s => ({ node: root.getObjectByName(s.node), rate: s.rate, turned: 0 }));   // the mixer's drum
+  g.userData.scan = e.mats.scan.length ? { mats: e.mats.scan, t: 0 } : null;   // the Rhy Knight's scanner light
   GLTF_LAMPS.head = e.mats.head; GLTF_LAMPS.tail = e.mats.tail;
 }
 // #101: 24 bubbles rising from the car's rear while it is in the water, wobbling a little; re-spawned at the car when they reach the surface or after 3 s
@@ -2779,6 +2783,7 @@ setVehicle(VEHICLES[CHOICE.id]); applyPaint(CHOICE.paint);
 // #132: wheel state is written by stepWheels (from stepCar) only; drawWheels (from the loop) only reads it
 const WHEEL_STATE = { yaw: 0, spin: 0 };
 function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL_STATE.yaw, steer, speed, dt); WHEEL_STATE.spin = stepWheelSpin(WHEEL_STATE.spin, vf, VEH.wheelR * VEH.scale, dt); }
+function stepScanner(dt) { const sc = car.userData.scan; if (!sc) return; sc.t += dt; scannerLevels(sc.t, sc.mats.length).forEach((level, i) => { sc.mats[i].emissiveIntensity = scannerGlow(level); }); }   // the light sweeps all the time
 function drawWheels() { const lean = car.rotation.x - TIP_S.roll; for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.x = -lean; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.steer.position.y = plantedWheelY(w.home.y, w.home.z, lean); w.roll.rotation.z = -WHEEL_STATE.spin; } }   // #542: the body leans, the wheels stay on the road; the tip-over roll lifts them with the body
 // #163: shadow state is written by stepCar only; drawShadow (from the loop) only reads it. restShadow seeds it where P.y is set
 // outside the physics step -- the start screen, resetCar, __mm.place, landing from the helicopter
@@ -4188,6 +4193,7 @@ function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vec
 // the Rhy Wobbler: from speed m/s straight ahead (0: as it is), hold the keys for secs; the tip phases seen, the biggest drawn roll and
 // lift, the damage, how far the heading turned, and the angle between the motion and the heading at the end
 window.__mm.tipSim = (speed, secs, hold = []) => { const th0 = P.th; if (speed) { P.vx = Math.cos(P.th) * speed; P.vz = Math.sin(P.th) * speed; } for (const k of hold) keys[k] = true; const phases = new Set(); let roll = 0, lift = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); phases.add(TIP_S.phase); roll = Math.max(roll, Math.abs(car.rotation.x)); lift = Math.max(lift, car.position.y - P.y); } for (const k of hold) keys[k] = false; return { phases: [...phases], phase: TIP_S.phase, roll, lift, dmg: P.dmg, speed: Math.hypot(P.vx, P.vz), turned: P.th - th0, slid: Math.atan2(P.vz, P.vx) - P.th }; };
+window.__mm.scanner = () => car.userData.scan?.mats.map(m => m.emissiveIntensity) ?? null;   // read-only: each scanner segment's glow, left to right
 window.__mm.spin = () => (car.userData.spin ?? []).map(s => ({ node: s.node.name, turned: s.turned }));   // read-only: what turns on the car and how far
 window.__mm.driveSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; let worst = Infinity, roll = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); worst = Math.min(worst, wheelClearance()); roll = Math.max(roll, Math.abs(car.rotation.x)); } for (const k of hold) keys[k] = false; return { worst, roll, speed: Math.hypot(P.vx, P.vz) }; };
 window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotation.z], pos: [car.position.x, car.position.y, car.position.z], visible: car.visible });   // #124: read-only, for the test
@@ -4226,6 +4232,7 @@ function stepCar(dt) {
   P.gas = gas; P.air = air; P.nitro = nitro || (SURP.turbo > 0 && gas) ? 1 : 0; { const d = Math.hypot(P.vx, P.vz) * dt / 1000; P.trip += d; P.odo += d; }
   stepWheels(dt, steer, vf, speed);   // #132: the visible wheel angle and roll follow the same steer input as the physics
   for (const s of car.userData.spin ?? []) { s.node.rotateX(s.rate * dt); s.turned += s.rate * dt; }   // e.g. the mixer's drum, always turning
+  stepScanner(dt);
   const D = VEH.drive, th0 = P.th;
   if (!air) { const top = (P.nitro && !wet ? D.topNitro : D.top) * (wet ? UW.topFactor : 1); if (gas) vf += (P.nitro ? D.accelNitro : D.accel) * (1 - Math.max(0, vf) / top) * dt; LIGHTS.braking = !!((brake || hb) && vf > 0.5); if (brake) { if (vf > 0.5) vf -= D.brake * dt; else vf -= D.reverse * dt * (vf > -D.reverseMax ? 1 : 0); } vf -= vf * (rollingDrag(wet, UW.drag, FOREST.inside(P.x, P.z), roadDist(P.x, P.z)) + (dead ? WRECK.coast : 0)) * dt + Math.sign(vf) * 0.6 * dt; const sl = (groundH(P.x + fx * 3, P.z + fz * 3, P.y) - groundH(P.x - fx * 3, P.z - fz * 3, P.y)) / 6; vf -= 9.81 * sl / Math.sqrt(1 + sl * sl) * dt; if (Math.abs(vf) < 0.3 && !gas && !brake) vf = 0; const grip = hb ? D.gripHandbrake : D.grip; if (!down) vs *= Math.exp(-grip * dt);   /* on its side no tyre holds it: it slides sideways */ const sf = clamp(speed / 6, 0, 1) * (1 / (1 + speed / 30)); P.th += steer * D.steerRate * sf * dt * (vf < 0 ? -1 : 1) + (hb ? steer * 1.2 * clamp(speed / 20, 0, 1) * dt : 0); } else { P.th += steer * D.airSteer * dt; }
   P.vx = vf * fx + vs * rx; P.vz = vf * fz + vs * rz;
