@@ -18,11 +18,14 @@ export const HATCHBACK = {
 export const WHEEL_NODES = ['wheel_FL', 'wheel_FR', 'wheel_RL', 'wheel_RR'];
 
 // [{ name, front, side }] in FL FR RL RR order; side -1 = left (-z), +1 = right
+// A truck's further rear axles are optional nodes after the four: wheel_RL2 / wheel_RR2, wheel_RL3 ... in name order
+const EXTRA_REAR = /^wheel_R[LR][2-9]$/;
 export function wheelPlan(nodeNames) {
-  return WHEEL_NODES.map(name => {
+  const extra = nodeNames.filter(n => EXTRA_REAR.test(n)).sort((a, b) => a.slice(8).localeCompare(b.slice(8)) || a.localeCompare(b));
+  return [...WHEEL_NODES.map(name => {
     if (!nodeNames.includes(name)) throw new Error(`hatchback: wheel node ${name} missing`);
-    return { name, front: name[6] === 'F', side: name[7] === 'L' ? -1 : 1 };
-  });
+    return name;
+  }), ...extra].map(name => ({ name, front: name[6] === 'F', side: name[7] === 'L' ? -1 : 1 }));
 }
 
 // centres { name: [x, y, z] } -> plan plus x, z and r (the centre height is the wheel radius)
