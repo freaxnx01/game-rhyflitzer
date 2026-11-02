@@ -4,11 +4,13 @@
 //
 // The lateral acceleration (forward speed x yaw rate) is smoothed, so a tap of the key at speed only rocks it; held over
 // cfg.latAccel, it falls onto the outside of the corner, lies there for cfg.lie seconds and is set back on its wheels.
-// While it is down (any phase but 'up') the game ignores the driver. cfg: { latAccel, rate, lean, fall, lie, rise, pivot, slide }.
+// While it is down (any phase but 'up') the game ignores the driver, and it slews on round the corner (dTh per step, turn in all,
+// eased in at turnRate) so it slides on crosswise. cfg: { latAccel, rate, lean, fall, lie, rise, pivot, slide, turn, turnRate }.
 //   latAccel  m/s², the tipping limit       rate   1/s, how fast the felt load follows the corner
 //   lean      rad, the warning lean at the limit   fall / lie / rise  s, the three phases on the ground
 //   pivot     m, from the centre line to the edge it rolls over   slide  1/s, how fast it stops sliding on its side
-export const TIP_UP = Object.freeze({ phase: 'up', load: 0, roll: 0, side: 0, t: 0, from: 0, landed: false });
+//   turn      rad, how far it slews round while down (optional, 0)   turnRate  1/s, how fast that slew eases in
+export const TIP_UP = Object.freeze({ phase: 'up', load: 0, roll: 0, side: 0, t: 0, from: 0, landed: false, dTh: 0, turnLeft: 0 });
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
@@ -24,22 +26,25 @@ export const tipped = (s) => s.phase !== 'up';
 export function stepTip(s, a, dt, cfg) {
   if (s.phase === 'up') return stepUp(s, a, dt, cfg);
   const t = s.t + dt;
-  if (s.phase === 'falling') {
-    if (t >= cfg.fall) return { ...s, phase: 'down', t: 0, roll: s.side * Math.PI / 2, landed: true };
-    const u = t / cfg.fall;
-    return { ...s, t, roll: s.side * (s.from + (Math.PI / 2 - s.from) * u * u), landed: false };
+  if (s.phase === 'righting') {
+    if (t >= cfg.rise) return TIP_UP;
+    const u = t / cfg.rise;
+    return { ...s, t, roll: s.side * Math.PI / 2 * (1 - u * u * (3 - 2 * u)), landed: false, dTh: 0 };
   }
-  if (s.phase === 'down') return t >= cfg.lie ? { ...s, phase: 'righting', t: 0, landed: false } : { ...s, t, landed: false };
-  if (t >= cfg.rise) return TIP_UP;
-  const u = t / cfg.rise;
-  return { ...s, t, roll: s.side * Math.PI / 2 * (1 - u * u * (3 - 2 * u)), landed: false };
+  const dTh = s.turnLeft * (1 - Math.exp(-(cfg.turnRate ?? 0) * dt)), slew = { dTh, turnLeft: s.turnLeft - dTh };
+  if (s.phase === 'falling') {
+    if (t >= cfg.fall) return { ...s, ...slew, phase: 'down', t: 0, roll: s.side * Math.PI / 2, landed: true };
+    const u = t / cfg.fall;
+    return { ...s, ...slew, t, roll: s.side * (s.from + (Math.PI / 2 - s.from) * u * u), landed: false };
+  }
+  return t >= cfg.lie ? { ...s, ...slew, phase: 'righting', t: 0, landed: false } : { ...s, ...slew, t, landed: false };
 }
 
 function stepUp(s, a, dt, cfg) {
   const load = s.load + (a - s.load) * (1 - Math.exp(-cfg.rate * dt)), side = load > 0 ? -1 : load < 0 ? 1 : 0;   // the outside of the corner
   const roll = side * cfg.lean * clamp01(Math.abs(load) / cfg.latAccel) ** 2;
   if (Math.abs(load) < cfg.latAccel) return { ...TIP_UP, load, roll, side };
-  return { phase: 'falling', load, roll, side, t: 0, from: Math.abs(roll), landed: false };
+  return { phase: 'falling', load, roll, side, t: 0, from: Math.abs(roll), landed: false, dTh: 0, turnLeft: -side * (cfg.turn ?? 0) };   // on round the corner
 }
 
 // the body turns about its outer bottom edge (pivot metres out on the side it falls to), not its centre: the offset of the
@@ -47,4 +52,21 @@ function stepUp(s, a, dt, cfg) {
 export function tipLift(roll, pivot) {
   const cz = pivot * Math.sign(roll);
   return { dy: cz * Math.sin(roll), dz: cz * (1 - Math.cos(roll)) };
+}
+
+// the sounds of a tip-over as a knock.js playPlan list ({ t, dur, gain, tone: { wave, f0, f1 } | noise: { type, freq, q } }):
+// 'start' a tyre screech as it goes over; 'land' a tinny clang and the scrape of the body on the road, as long as the slide
+// lasts (until it is down to 1.5 m/s, see cfg.slide), louder the faster it lands. speed in m/s
+export function tipSounds(event, speed, cfg) {
+  const v = clamp01(speed / 20);
+  if (event === 'start') return [
+    { t: 0, dur: 0.45, gain: 0.1 + 0.1 * v, tone: { wave: 'sawtooth', f0: 1150, f1: 720 } },
+    { t: 0, dur: 0.45, gain: 0.12 + 0.12 * v, noise: { type: 'bandpass', freq: 1500, q: 4 } },
+  ];
+  const slide = Math.max(0.25, Math.log(Math.max(speed, 1.5) / 1.5) / cfg.slide);   // a quarter second at least: the thud of landing
+  return [
+    { t: 0, dur: slide, gain: 0.12 + 0.22 * v, noise: { type: 'bandpass', freq: 2600, q: 1.5 } },
+    { t: 0, dur: slide, gain: 0.1 + 0.15 * v, noise: { type: 'lowpass', freq: 320, q: 0.7 } },
+    { t: 0, dur: 0.35, gain: 0.2 + 0.2 * v, tone: { wave: 'triangle', f0: 620, f1: 410 } },
+  ];
 }

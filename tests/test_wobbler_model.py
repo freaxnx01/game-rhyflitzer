@@ -48,8 +48,9 @@ def test_wobbler_model_takes_the_chosen_paint(server):
 
 
 def test_wobbler_tips_over_in_a_fast_corner_and_gets_back_up(server):
-    """Full lock at 72 km/h: it falls onto its left side (a right-hand corner), the body raised by the roll over its edge,
-    takes 15 % damage on landing, slides to a stop and stands up again; at 40 km/h with the throttle held, the same corner keeps it on its wheels."""
+    """Full lock at 72 km/h: it falls onto its left side (a right-hand corner), the body raised by the roll over its edge, with a
+    tyre screech and, on landing, a scrape; it takes 15 % damage, slews on round the corner until it lies crosswise and slides on
+    sideways; then it stands up again. At 40 km/h with the throttle held, the same corner keeps it on its wheels."""
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
         load_wobbler(page)
@@ -57,14 +58,17 @@ def test_wobbler_tips_over_in_a_fast_corner_and_gets_back_up(server):
         wait_frames(page)
         slow = page.evaluate("() => window.__mm.tipSim(11, 2, ['KeyW', 'KeyD'])")
         page.evaluate("() => window.__mm.resetCar()")
+        before = page.evaluate("() => window.__mm.sfxKnocks().plans || 0")
         fast = page.evaluate("() => window.__mm.tipSim(20, 1.2, ['KeyD'])")
+        plans = page.evaluate("() => window.__mm.sfxKnocks().plans || 0") - before
         later = page.evaluate("() => window.__mm.tipSim(0, 3)")
-        toasts = page.evaluate("() => window.__mm.toast ? window.__mm.toast() : null")
         b.close()
-    print(slow, fast, later, toasts)
     assert slow["phases"] == ["up"] and slow["dmg"] == 0, slow
     assert "falling" in fast["phases"] and fast["phase"] == "down", fast
     assert abs(fast["roll"] - 1.5708) < 0.1 and fast["lift"] > 0.6, fast
-    assert abs(fast["dmg"] - 0.15) < 0.01 and fast["speed"] < 5, fast
+    assert abs(fast["dmg"] - 0.15) < 0.01, fast
+    assert fast["speed"] > 3, f"still sliding: {fast}"
+    assert plans == 2, f"the screech and the landing scrape: {plans}"
     assert later["phase"] == "up" and later["roll"] < 1.6, later
+    assert fast["turned"] + later["turned"] > 1.8, f"slewed on round the corner (with the corner itself): {fast} {later}"
     assert not errors, errors
