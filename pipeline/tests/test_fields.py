@@ -191,6 +191,36 @@ def test_osm_build_world_wires_fields_geojson_and_sources(tmp_path):
     assert any("Kanton Aargau" in s for s in world["sources"])
 
 
+def test_osm_build_world_cuts_the_crash_yard_only_on_hochrhein(tmp_path):
+    """#629: the yard keep-out applies only when origin == geo.DEFAULT_ORIGIN (Hochrhein); other worlds stay uncut."""
+    import frame as frame_mod
+    import geo as geo_mod
+    import osm
+    from tests import synth_osm
+    pbf = synth_osm.write(tmp_path / "synth.osm")
+
+    def parcel(fr, x0, z0, x1, z1):
+        ring = rect(x0, z0, x1, z1)
+        coords = [[fr.e0 + x, fr.n0 - z] for x, z in ring] + [[fr.e0 + x0, fr.n0 - z0]]
+        return {"type": "Feature", "properties": {"lnf_code": 513, "ist_ueberlagernd": False},
+                "geometry": {"type": "MultiPolygon", "coordinates": [[coords]]}}
+
+    gj = tmp_path / "lwb.geojson"
+
+    def world_at(origin):
+        fr = Frame(*origin)
+        gj.write_text(json.dumps({"type": "FeatureCollection",
+                                   "features": [parcel(fr, 500, 650, 800, 850)]}), encoding="utf-8")
+        return osm.build_world(pbf, None, frame_mod.lonlat_bbox(synth_osm.RECT), origin, 30.0, 1000.0, None,
+                               clip_box=(-1000.0, -1000.0, 1500.0, 1000.0), fields_geojson=gj)
+
+    yard_zone = shapely.box(*WFI.CRASH_YARD).buffer(WFI.YARD_GAP - 0.05, join_style="mitre")
+    hochrhein = world_at(geo_mod.DEFAULT_ORIGIN)["fields"]
+    assert hochrhein and all(not poly(f).intersects(yard_zone) for f in hochrhein)
+    other = world_at(frame_mod.origin(synth_osm.RECT))["fields"]
+    assert any(poly(f).intersects(shapely.box(*WFI.CRASH_YARD)) for f in other)
+
+
 @needs_fields_world
 def test_real_world_fields_cover_the_swiss_side_and_keep_off_roads():
     w = json.loads(WORLD.read_text(encoding="utf-8"))

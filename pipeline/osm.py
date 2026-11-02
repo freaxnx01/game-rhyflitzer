@@ -135,7 +135,8 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     # #506: the cantonal parcels first (crop per parcel), OSM landuse where they leave room; the cut runs on the
     # pre-deck rail so a field keeps off a track whether it ends up on a deck or not
     lwb = json.loads(Path(fields_geojson).read_text(encoding="utf-8"))["features"] if fields_geojson else None
-    fields, field_stats = world_fields.build(lwb, data.areas, osm_roads + game_roads, rail, clip, frame)
+    fields, field_stats = world_fields.build(lwb, data.areas, osm_roads + game_roads, rail, clip, frame,
+                                            keep_out=(world_fields.CRASH_YARD,) if tuple(origin) == tuple(geo.DEFAULT_ORIGIN) else ())
     log(f"fields {len(fields)} {field_stats}")
     rail, rail_bridges = world_extra_roads.deck_rail(grades, rail, rail_bridges)
     if boundary_items is None:
