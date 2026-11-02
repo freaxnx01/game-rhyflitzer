@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LANDMARK_INFO, LANDMARK_INFO_EHRENDINGEN } from '../landmarks.js';
-import { TARGET_ID_RE, slugify, jumpTargets, spotTargets, buildTargets } from '../testhub-targets.js';
+import { TARGET_ID_RE, slugify, jumpTargets, spotTargets, roomTargets, buildTargets } from '../testhub-targets.js';
 
 const asEntries = (info) => info.map(i => ({ n: i.name, g: i.gemeinde, x: 0, z: 0 }));
 
@@ -72,6 +72,42 @@ test('spotTargets: hideout tower is a spot in the Eiffel room, at the given pose
 
 test('spotTargets: no underwater / no hideout -> no spots (hand layout, other region)', () => {
   assert.deepEqual(spotTargets({ underwater: null, hideout: null }), []);
+});
+
+// #591: the rings and every room of both rings, one entry per ring: { n, spawn, rooms: [{ id, name, view, spawn }] }
+const RINGS_CTX = [
+  { n: 1, spawn: { x: 1, z: 2, th: 0.5 }, rooms: [
+    { id: 'eiffel', name: 'La Tour Eiffel', view: { x: 10, z: 20, th: 1.5 }, spawn: { x: 3, z: 4, th: 0 } },
+    { id: 'room3', name: null, view: null, spawn: { x: 5, z: 6, th: 2 } },
+  ] },
+  { n: 2, spawn: { x: 1, z: 2, th: 0.5 }, rooms: [
+    { id: 'r2room0', name: 'Enterprise', view: { x: 7, z: 8, th: 1 }, spawn: { x: 0, z: 0, th: 0 } },
+  ] },
+];
+
+test('roomTargets: a ring target at its lift exit, then its rooms, ring by ring', () => {
+  const t = roomTargets(RINGS_CTX);
+  assert.deepEqual(t.map(x => x.id), ['hideout.ring1', 'hideout.r1.eiffel', 'hideout.r1.room3', 'hideout.ring2', 'hideout.r2.r2room0']);
+  assert.deepEqual(t[0], { id: 'hideout.ring1', label: 'Hideout: Ring 1', kind: 'spot', spot: { x: 1, z: 2, th: 0.5, room: 'ring' } });
+  assert.equal(t[3].spot.room, 'ring2');
+});
+
+test('roomTargets: an object room uses its view and name, an empty room its spawn', () => {
+  const t = roomTargets(RINGS_CTX);
+  assert.deepEqual(t[1], { id: 'hideout.r1.eiffel', label: 'Hideout: Ring 1 · La Tour Eiffel', kind: 'spot', spot: { x: 10, z: 20, th: 1.5, room: 'eiffel' } });
+  assert.deepEqual(t[2], { id: 'hideout.r1.room3', label: 'Hideout: Ring 1 · Room 3 (empty)', kind: 'spot', spot: { x: 5, z: 6, th: 2, room: 'room3' } });
+  assert.equal(t[4].label, 'Hideout: Ring 2 · Enterprise');
+});
+
+test('roomTargets: every id is a valid target id; no rings -> no targets', () => {
+  for (const x of roomTargets(RINGS_CTX)) assert.match(x.id, TARGET_ID_RE);
+  assert.deepEqual(roomTargets(null), []);
+});
+
+test('buildTargets: adds the room targets and keeps hideout.tower as it was', () => {
+  const t = buildTargets({ entries: [], underwater: null, hideout: { mouth: [0, 0], heading: 0, tower: { x: 10, z: 20, th: 1.5 } }, rings: RINGS_CTX });
+  assert.ok(t.some(x => x.id === 'hideout.r2.r2room0'));
+  assert.deepEqual(t.find(x => x.id === 'hideout.tower').spot, { x: 10, z: 20, th: 1.5, room: 'eiffel' });
 });
 
 test('buildTargets: J entries first, then the four hidden spots; all ids valid and unique', () => {
