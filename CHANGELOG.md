@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-11-02 14:46` New mode **Cruise**: just drive around, with no clock, no checkpoints and no arrow. It is now the first button on the start screen and the one that starts with Enter; the time trial has its own **Time trial** button.
+
 ### Changed
 
 - `2026-11-02 14:10` **About → How it is built** no longer dates the Claude Opus implementation („until 10 Oct 2026“); it is listed simply as **Implementation**.
