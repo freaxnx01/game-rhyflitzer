@@ -21,6 +21,7 @@ def open_page(p, server, locale="en-US", lang=None):
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+    page.route("**/data/backdrop_hochrhein.mmh", lambda r: r.fulfill(status=404, body=""))   # #614: else the status line gains the horizon source
     page.goto(f"{server}/index.html", timeout=240000)
     page.wait_for_function(READY, timeout=240000)
     return b, page, errors
