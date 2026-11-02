@@ -512,7 +512,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small>
         </dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a></dd>
@@ -662,9 +662,10 @@ import { HYPER } from './hyper.js';   // Rhy Hyper, a glTF car
 import { MCLAREN } from './mclaren.js';   // Rhy Papaya, a glTF car
 import { BULLDOG } from './bulldog.js';   // Rhy Bulldog, a glTF car
 import { WOBBLER } from './wobbler.js';   // Rhy Wobbler, a glTF three-wheeler that tips over
+import { MIXER } from './mixer.js';   // Rhy Mixer, a glTF concrete mixer truck with a turning drum
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
-import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked } from './gltfvehicle.js';
+import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -2489,6 +2490,7 @@ const VEHICLES = {
   mclaren: MCLAREN,   // Rhy Papaya, a 2013 P1 look-alike without the badge, paintable (assets/mclaren.glb); the compact stands in until it is ready
   bulldog: BULLDOG,   // Rhy Bulldog, a 1980s derby sedan with a push bar and its own flame livery (assets/bulldog.glb); the compact stands in until it is ready
   wobbler: WOBBLER,   // Rhy Wobbler, a 1970s three-wheeler van look-alike that tips over in fast corners, paintable (assets/wobbler.glb); the compact stands in until it is ready
+  mixer: MIXER,   // Rhy Mixer, a 1970s cab-over concrete mixer look-alike, three axles, the drum turning, fixed livery (assets/mixer.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -2726,6 +2728,7 @@ function addBlinkers(spots) { const m = new THREE.MeshBasicMaterial({ color: 0xf
 function buildGltfVehicle(g, v) {
   const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
   wireWheels(g, root); g.add(root); addBlinkers(v.blinkers);
+  g.userData.spin = spinPlan(v, wheelNames(root)).map(s => ({ node: root.getObjectByName(s.node), rate: s.rate, turned: 0 }));   // the mixer's drum
   GLTF_LAMPS.head = e.mats.head; GLTF_LAMPS.tail = e.mats.tail;
 }
 // #101: 24 bubbles rising from the car's rear while it is in the water, wobbling a little; re-spawned at the car when they reach the surface or after 3 s
@@ -4142,6 +4145,7 @@ window.__mm.shadow = () => { const s = sunShift(sunDir(), SHADOW.bodyMid * CAR_S
 function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vector3(); let low = Infinity; for (const w of car.userData.wheels ?? []) { w.steer.getWorldPosition(p); low = Math.min(low, p.y - VEH.wheelR * VEH.scale - groundH(p.x, p.z, p.y)); } return low; }
 // the Rhy Wobbler: from speed m/s straight ahead, hold the keys for secs; the tip phases seen, the biggest drawn roll and lift, the damage
 window.__mm.tipSim = (speed, secs, hold = []) => { P.vx = Math.cos(P.th) * speed; P.vz = Math.sin(P.th) * speed; for (const k of hold) keys[k] = true; const phases = new Set(); let roll = 0, lift = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); phases.add(TIP_S.phase); roll = Math.max(roll, Math.abs(car.rotation.x)); lift = Math.max(lift, car.position.y - P.y); } for (const k of hold) keys[k] = false; return { phases: [...phases], phase: TIP_S.phase, roll, lift, dmg: P.dmg, speed: Math.hypot(P.vx, P.vz) }; };
+window.__mm.spin = () => (car.userData.spin ?? []).map(s => ({ node: s.node.name, turned: s.turned }));   // read-only: what turns on the car and how far
 window.__mm.driveSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; let worst = Infinity, roll = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); worst = Math.min(worst, wheelClearance()); roll = Math.max(roll, Math.abs(car.rotation.x)); } for (const k of hold) keys[k] = false; return { worst, roll, speed: Math.hypot(P.vx, P.vz) }; };
 window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotation.z], pos: [car.position.x, car.position.y, car.position.z], visible: car.visible });   // #124: read-only, for the test
 window.__mm.kreisel = () => KREISEL.map(k => ({ x: k.x, z: k.z, b: k.b, apron: k.apron, bottom: k.bottom, low: lowestTerrain(k.x, k.z, k.apron), ir: k.ir, ibottom: k.ibottom, ilow: lowestTerrain(k.x, k.z, k.ir) }));
@@ -4178,6 +4182,7 @@ function stepCar(dt) {
   const wet = waterLevelAt(P.x, P.z, P.y) !== null;   // #101: on the riverbed the engine runs, but slowly (every water modifier is gated on wet: the land trace is unchanged)
   P.gas = gas; P.air = air; P.nitro = nitro || (SURP.turbo > 0 && gas) ? 1 : 0; { const d = Math.hypot(P.vx, P.vz) * dt / 1000; P.trip += d; P.odo += d; }
   stepWheels(dt, steer, vf, speed);   // #132: the visible wheel angle and roll follow the same steer input as the physics
+  for (const s of car.userData.spin ?? []) { s.node.rotateX(s.rate * dt); s.turned += s.rate * dt; }   // e.g. the mixer's drum, always turning
   const D = VEH.drive, th0 = P.th;
   if (!air) { const top = (P.nitro && !wet ? D.topNitro : D.top) * (wet ? UW.topFactor : 1); if (gas) vf += (P.nitro ? D.accelNitro : D.accel) * (1 - Math.max(0, vf) / top) * dt; LIGHTS.braking = !!((brake || hb) && vf > 0.5); if (brake) { if (vf > 0.5) vf -= D.brake * dt; else vf -= D.reverse * dt * (vf > -D.reverseMax ? 1 : 0); } vf -= vf * (rollingDrag(wet, UW.drag, FOREST.inside(P.x, P.z), roadDist(P.x, P.z)) + (dead ? WRECK.coast : 0)) * dt + Math.sign(vf) * 0.6 * dt; const sl = (groundH(P.x + fx * 3, P.z + fz * 3, P.y) - groundH(P.x - fx * 3, P.z - fz * 3, P.y)) / 6; vf -= 9.81 * sl / Math.sqrt(1 + sl * sl) * dt; if (Math.abs(vf) < 0.3 && !gas && !brake) vf = 0; const grip = hb ? D.gripHandbrake : D.grip; vs *= Math.exp(-grip * dt); const sf = clamp(speed / 6, 0, 1) * (1 / (1 + speed / 30)); P.th += steer * D.steerRate * sf * dt * (vf < 0 ? -1 : 1) + (hb ? steer * 1.2 * clamp(speed / 20, 0, 1) * dt : 0); } else { P.th += steer * D.airSteer * dt; }
   P.vx = vf * fx + vs * rx; P.vz = vf * fz + vs * rz;

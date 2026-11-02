@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HATCHBACK, WHEEL_NODES, wheelPlan, wheelEntries, tableWheels } from '../hatchback.js';
-import { loadStep, buildableId, buildsOnSelect, modelUrl, paintOnSelect, lampRole, raceBlocked } from '../gltfvehicle.js';
+import { loadStep, buildableId, buildsOnSelect, modelUrl, paintOnSelect, lampRole, raceBlocked, spinPlan } from '../gltfvehicle.js';
 import { PAINTS, DEFAULT_CHOICE, paintable, statBars, parseChoice, initialChoice, withPaint } from '../carselect.js';
 import { checkSound } from '../sound.js';
 import { checkCrash } from '../impact.js';
@@ -49,6 +49,15 @@ test('wheelPlan_AllFourNodes_FrontsFirstPerSideLeftIsMinusZ', () => {
   assert.deepEqual(wheelPlan([...WHEEL_NODES, 'body']), [
     { name: 'wheel_FL', front: true, side: -1 }, { name: 'wheel_FR', front: true, side: 1 },
     { name: 'wheel_RL', front: false, side: -1 }, { name: 'wheel_RR', front: false, side: 1 }]);
+});
+
+test('wheelPlan_ExtraRearAxleNodes_FollowTheFourAsRearWheels', () => {
+  assert.deepEqual(wheelPlan(['body', 'wheel_RR2', ...WHEEL_NODES, 'wheel_RL2']).slice(4), [
+    { name: 'wheel_RL2', front: false, side: -1 }, { name: 'wheel_RR2', front: false, side: 1 }]);
+});
+
+test('wheelPlan_OtherWheelLikeNames_AreNotWheels', () => {
+  assert.equal(wheelPlan([...WHEEL_NODES, 'wheel_FL2', 'wheel_RL_rim', 'wheel_RLx']).length, 4);
 });
 
 test('wheelPlan_MissingWheel_ThrowsNamingIt', () => {
@@ -103,6 +112,18 @@ test('paintOnSelect_FactoryPaint_BecomesDefaultPaintOtherwiseKept', () => {
   assert.equal(paintOnSelect(HATCHBACK, 'navy'), 'swiss');
   assert.equal(paintOnSelect(HATCHBACK, 'ice'), 'ice');
   assert.equal(paintOnSelect(COMPACT, 'navy'), 'navy', 'a car without defaultPaint keeps the paint');
+});
+
+test('spinPlan_NoSpinTable_IsEmpty', () => {
+  assert.deepEqual(spinPlan({}, ['body']), []);
+});
+
+test('spinPlan_SpinTable_ListsNodeAndRate', () => {
+  assert.deepEqual(spinPlan({ spin: [{ node: 'drum', rate: 1.2 }] }, ['body', 'drum']), [{ node: 'drum', rate: 1.2 }]);
+});
+
+test('spinPlan_NodeMissingFromTheModel_ThrowsNamingIt', () => {
+  assert.throws(() => spinPlan({ spin: [{ node: 'drum', rate: 1.2 }] }, ['body']), /spinning node drum missing/);
 });
 
 test('lampRole_Extras_HeadTailOrNull', () => {

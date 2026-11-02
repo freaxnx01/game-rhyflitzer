@@ -24,6 +24,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-02 11:46` New truck **Rhy Mixer**, a seventies cab-over **concrete mixer** in orange and cream on a red chassis, with three axles and a **drum that keeps turning**. 80 km/h flat out and slow off the line, but it shrugs off almost any knock. 3D model „Magirus D serie mixer truck" by Randonavt (Sketchfab), CC BY 4.0.
 - `2026-11-01 21:45` New car **Rhy Wobbler**, a little seventies **three-wheeler** van with one wheel in front, sunflower yellow and paintable: 137 km/h, light and fragile. Take a corner too fast and it **tips over** onto its side, then gets back on its wheels after a moment (each tip costs 15 % damage). 3D model „Reliant-regal-supervan" by 3DDomino (Sketchfab), CC BY 4.0.
 - `2026-11-01 15:32` From the Plattform deck you now see the **Hotzenwald** rising behind Bad Säckingen and Murg, and the **Jura** and the Rhine valley all round: a hazy **horizon** from the Copernicus height model.
 - `2026-11-01 14:11` In the **Enterprise room** (ring 2), a **memorial plaque** just inside the entrance remembers **Sir Patrick Stewart** (1940–2026), Captain Jean-Luc Picard: „Make it so.“

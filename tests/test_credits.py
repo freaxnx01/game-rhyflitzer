@@ -210,3 +210,17 @@ def test_wobbler_model_is_credited_everywhere():
 def test_wobbler_model_is_committed_and_small():
     glb = ROOT / "assets" / "wobbler.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_mixer_model_is_credited_everywhere():
+    """"Magirus D serie mixer truck" by Randonavt, CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "assets/mixer.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "Randonavt" in t and "CC BY 4.0" in t and "Magirus D serie mixer truck" in t, f
+    strings = (ROOT / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditMixer") == 2 and 'data-i18n="creditMixer"' in (ROOT / "index.html").read_text(encoding="utf-8")
+
+
+def test_mixer_model_is_committed_and_small():
+    glb = ROOT / "assets" / "mixer.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
