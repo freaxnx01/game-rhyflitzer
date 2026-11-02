@@ -47,13 +47,13 @@ function hideoutSpots(h) {
 }
 
 // #591: every ring (at its lift exit) and every room of both rings, for the Testhub and the Ctrl+D panel.
-// The room number in an empty label is its index in its ring: `Room ${k}`.
+// The room number in an empty label is the number in its id: 'room4' -> 'Room 4', 'r2room5' -> 'Room 5'.
 export function roomTargets(rings) {
   if (!rings) return [];
   return rings.flatMap(({ n, spawn, rooms }) => [
     spot(`hideout.ring${n}`, `Hideout: Ring ${n}`, spawn.x, spawn.z, spawn.th, { room: n === 1 ? 'ring' : `ring${n}` }),
     ...rooms.map((r, k) => {
-      const p = r.view || r.spawn, label = r.name ? `Hideout: Ring ${n} · ${r.name}` : `Hideout: Ring ${n} · Room ${k} (empty)`;
+      const p = r.view || r.spawn, no = (r.id.match(/\d+$/) || [])[0] || k, label = r.name ? `Hideout: Ring ${n} · ${r.name}` : `Hideout: Ring ${n} · Room ${no} (empty)`;
       return spot(`hideout.r${n}.${r.id}`, label, p.x, p.z, p.th, { room: r.id });
     }),
   ]);
