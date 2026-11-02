@@ -238,6 +238,14 @@ def test_real_world_fields_cover_the_swiss_side_and_keep_off_roads():
     assert hits == [], f"{len(hits)} fields touch a road corridor, e.g. {fields[hits[0]]['ring'][:2]}"
 
 
+@needs_fields_world
+def test_real_world_fields_keep_off_the_crash_yard():
+    """#629: the committed Hochrhein world has no field within YARD_GAP of the Crash-Platz."""
+    w = json.loads(WORLD.read_text(encoding="utf-8"))
+    zone = shapely.box(*WFI.CRASH_YARD).buffer(WFI.YARD_GAP - 0.05, join_style="mitre")
+    hits = [f for f in w["fields"] if poly(f).intersects(zone)]
+    assert hits == [], f"{len(hits)} fields reach into the Crash-Platz"
+
 def test_build_cuts_keep_out_rectangle():
     """A keep-out rectangle cuts a parcel like the road corridor does, plus the YARD_GAP margin (#629)."""
     feats = [lwb(513, rect(0, 0, 300, 200))]
