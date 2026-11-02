@@ -610,7 +610,7 @@ import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, R
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
-import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
 import { FERRIS, wheelAngle, DUSK_LOOK } from './ferris.js';   // #513; #588: the dusk look
 import { buildWheel, setWheelAngle, ferrisTriangles, setWheelLights, buildFireworks, setFireworks } from './ferrismesh.js';
@@ -3246,21 +3246,47 @@ async function loadModel(k) {
   } catch (err) { console.warn(`${name} model not loaded:`, err); E.error = String(err); }
 }
  const loadEiffel = () => loadModel(0);
-// #491: „U.S.S. ENTERPRISE / NCC-1701-D" draped on the saucer, top and underside: one canvas text plane per line, its grid vertices dropped
-// (top) or lifted (underside) onto the saucer mesh by rays, 0.6 m off the hull; a vertex no ray hits keeps its neighbour's height. The planes
-// are children of the model root (they hover with it) and are built once per loaded model.
+// #607: the saucer's own texture ships with a red "NCC-1701-D / U.S.S. ENTERPRISE" registry column baked in (ENTERPRISE.bakedLettering,
+// px bounds at `size`, margin included), which would double the white canvas lettering: each rect is filled with the mean colour of the
+// 3 px texel ring just outside it (ringMean, enterprise.js) -- the hull colour round the patch. The .glb itself stays as shipped.
+function paintOutBakedLettering(saucer, baked) {
+  const map = saucer.material.map;
+  if (!map || !map.image || !map.image.width) { console.warn('Enterprise: no saucer base-colour map, the baked registry stays'); return; }
+  const src = map.image, w = src.width, h = src.height, c = document.createElement('canvas');
+  c.width = w; c.height = h; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0);
+  const img = g.getImageData(0, 0, w, h), px = img.data;
+  for (const r of baked) {
+    const sx = w / r.size, sy = h / r.size, rect = { x0: Math.round(r.x0 * sx), y0: Math.round(r.y0 * sy), x1: Math.round(r.x1 * sx), y1: Math.round(r.y1 * sy) };
+    const [cr, cg, cb] = ringMean(px, w, h, rect, 3);
+    for (let y = rect.y0; y <= rect.y1; y++) for (let x = rect.x0; x <= rect.x1; x++) { const i = (y * w + x) * 4; px[i] = cr; px[i + 1] = cg; px[i + 2] = cb; px[i + 3] = 255; }
+  }
+  g.putImageData(img, 0, 0); map.image = c; map.needsUpdate = true;
+}
+// #491 / #607: „U.S.S. ENTERPRISE / NCC-1701-D" draped on the saucer, top and underside: one canvas text plane per line, its grid vertices
+// dropped (top) or lifted (underside) onto the saucer mesh by rays. Each vertex casts a 3 x 3 cluster of rays `spread` m apart
+// (ENTERPRISE.drape) and the extreme hit wins -- the highest for the top, the lowest for the underside -- so the plane clears bumps that
+// bulge out between its vertices; a vertex whose whole cluster misses keeps its neighbour's height. The planes sit `offset` m off the hull
+// and are children of the model root (they hover with it), built once per loaded model, after the baked registry is painted out.
 function roomLettering(k) {
   const root = ROOM.models[k], O = ROOM.layouts[k].object; if (root.userData.lettered) return; root.userData.lettered = true;
   const saucer = root.getObjectByName('saucer'); if (!saucer) { console.warn('Enterprise: no saucer node, no lettering'); return; }
+  if (O.bakedLettering) paintOutBakedLettering(saucer, O.bakedLettering);
   root.updateWorldMatrix(true, true); const ray = new THREE.Raycaster(), p = new THREE.Vector3(), local = new THREE.Vector3(), built = [];
+  const D = O.drape;
   for (const d of O.lettering) {
     const px = Math.round(d.w * 6), py = Math.round(d.h * 6), tex = makeTex(px, py, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = `800 ${Math.round(h * 0.86)}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 2; g.strokeStyle = '#141a26'; g.strokeText(d.text, w / 2, h / 2, w * 0.96); g.fillStyle = '#d8dfe9'; g.fillText(d.text, w / 2, h / 2, w * 0.96); }, { alpha: true });
-    const geo = new THREE.PlaneGeometry(d.w, d.h, 24, 4), F = letteringFrame(d.side); geo.rotateX(F.rx); geo.rotateY(F.ry); geo.translate(d.x, 0, 0);
+    const geo = new THREE.PlaneGeometry(d.w, d.h, D.seg[0], D.seg[1]), F = letteringFrame(d.side); geo.rotateX(F.rx); geo.rotateY(F.ry); geo.translate(d.x, 0, 0);
     const pos = geo.attributes.position, up = d.side === 'top', dir = new THREE.Vector3(0, up ? -1 : 1, 0); let last = up ? O.h : 0;
     for (let i = 0; i < pos.count; i++) {
-      local.set(pos.getX(i), up ? 300 : -5, pos.getZ(i)); root.localToWorld(p.copy(local)); ray.set(p, dir.clone().transformDirection(root.matrixWorld)); ray.far = 320;
-      const hit = ray.intersectObject(saucer, false)[0]; if (hit) last = root.worldToLocal(hit.point.clone()).y;
-      pos.setY(i, last + (up ? 0.6 : -0.6));
+      let ex = null;
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        local.set(pos.getX(i) + dx * D.spread, up ? 300 : -5, pos.getZ(i) + dz * D.spread); root.localToWorld(p.copy(local)); ray.set(p, dir.clone().transformDirection(root.matrixWorld)); ray.far = 320;
+        const hit = ray.intersectObject(saucer, false)[0]; if (!hit) continue;
+        const y = root.worldToLocal(hit.point.clone()).y;
+        ex = ex === null ? y : up ? Math.max(ex, y) : Math.min(ex, y);
+      }
+      if (ex !== null) last = ex;
+      pos.setY(i, last + (up ? D.offset : -D.offset));
     }
     pos.needsUpdate = true; geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.renderOrder = 2; m.userData.role = 'lettering'; root.add(m); built.push(m);
