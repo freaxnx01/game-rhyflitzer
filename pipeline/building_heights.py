@@ -5,7 +5,8 @@ roof overhangs don't count) is read from the surface model: the eaves height `h`
 percentile of the samples at least 2 m over the ground, #34) and the ridge height `rh` the rise from there to the top (95th percentile), both over the ground under the
 centre. A flat roof has rh ~ 0. The roof shape follows the ridge (#43): rh >= 1.5 m on a rectangular footprint under
 1,000 m2 is a gable, rh < 0.6 m is flat, in between the footprint heuristic decides. Measured rather than modelled: many houses here have shallow roofs, which a fixed
-0.4 * width gable got badly wrong. A footprint whose roof top is under 2 m was not built yet when the surface was
+0.4 * width gable got badly wrong. A gable whose DSM ridge `rh` exceeds its short side picked up tree canopy and is capped
+to the default rise 0.4 * short side (#630); churches and towers are exempt. A footprint whose roof top is under 2 m was not built yet when the surface was
 flown (2020) and keeps its height. Swiss side only; buildings outside the tiles keep their height.
 """
 from __future__ import annotations
@@ -27,6 +28,30 @@ RIDGE_FLAT = 0.6          # m: under this the roof is flat (the prototype's cut,
 RECT_FILL = 0.85          # footprint share of its rotated rectangle; inclusive here, world_buildings.roof() uses > 0.85
 GABLE_MAX_AREA = 1000.0   # m2: the pipeline's big-building threshold; a bigger hall keeps a flat roof
 ROOF_MAJORITY = 0.5       # share of the footprint samples that must be roof for the eaves to come from roof samples only (#34)
+
+RIDGE_CAP_PER_SIDE = 1.0      # #630: a gable rises at most its short side (a 63 degree pitch); more is tree canopy
+RIDGE_DEFAULT_PER_SIDE = 0.4  # the rise the prototype draws for a gable without a measurement (world.js roofTop)
+TALL_BUILDINGS = {"church", "cathedral", "tower"}   # not chapel: the one tall chapel is canopy (#630)
+TALL_MAN_MADE = {"tower", "chimney", "silo", "water_tower"}
+
+
+def tall_ok(tags):
+    """OSM tags of a building that may legitimately rise above its width: churches, towers (#630)."""
+    return (tags.get("building") in TALL_BUILDINGS or tags.get("amenity") == "place_of_worship"
+            or tags.get("man_made") in TALL_MAN_MADE)
+
+
+def cap_ridge(b):
+    """#630: swissSURFACE3D also measures tree crowns, so a shed under bank trees came out with a 20 m gable. A gable
+    measured higher than its short side gets the default rise 0.4 * short side; the eaves stay. Flat roofs and
+    buildings without a measurement are not touched. True when b changed."""
+    if b.get("hsrc") != "dsm" or b["roof"] != "gable":
+        return False
+    short = min(b["rect"][2], b["rect"][3])
+    if b["rh"] <= RIDGE_CAP_PER_SIDE * short:
+        return False
+    b["rh"] = round(RIDGE_DEFAULT_PER_SIDE * short, 1)
+    return True
 
 
 def roof_shape(kind, rh, fill, area):
@@ -65,9 +90,10 @@ def _tile(tiles, pt):
     return next((ds for box, ds in tiles if box.contains(pt)), None)
 
 
-def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
+def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0, tall_ok_ids=frozenset()):
     """Set b["h"] (eaves), b["rh"] (ridge), b["hsrc"] = "dsm" and b["roof"] from the ridge (#43) where the surface data
-    covers the footprint. Returns stats."""
+    covers the footprint; a gable ridge above the short side is capped (#630) unless the id is in `tall_ok_ids`.
+    Returns stats."""
     dsm, dtm = _open(dsm_paths), _open(dtm_paths)
     stats = Counter()
     try:
@@ -112,6 +138,8 @@ def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
             b["h"] = round(float(np.clip(lo - ground, MIN_H, max_h)), 1)
             b["rh"] = round(max(0.0, hi - lo), 1)
             b["hsrc"] = "dsm"
+            if b["id"] not in tall_ok_ids and cap_ridge(b):
+                stats["ridge_capped"] += 1
             stats["dsm"] += 1
     finally:
         for _, ds in dsm + dtm:

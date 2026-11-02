@@ -127,9 +127,11 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     parking, park_stats = world_parking.build(data.areas, data.ways, buildings, osm_roads, clip)
     forests, forest_stats = world_forests.build(data.areas, osm_roads + game_roads, clip)
     if dsm_cache:
+        tall = {a.id for a in data.areas if building_heights.tall_ok(a.tags)}
         hstats = building_heights.apply(buildings, frame,
                                         terrain.swiss_tiles(bbox, Path(dsm_cache) / "swisssurface3d", 0.5, "ch.swisstopo.swisssurface3d-raster"),
-                                        terrain.swiss_tiles(bbox, Path(dsm_cache) / "swissalti3d", 2.0))
+                                        terrain.swiss_tiles(bbox, Path(dsm_cache) / "swissalti3d", 2.0),
+                                        tall_ok_ids=tall)
         log(f"building heights from swissSURFACE3D: {dict(hstats)}")
     rail, rail_bridges = world_rail.build(data.ways, clip)
     # #506: the cantonal parcels first (crop per parcel), OSM landuse where they leave room; the cut runs on the

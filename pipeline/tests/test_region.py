@@ -219,3 +219,20 @@ def test_osm_build_world_defaults_to_main_roads_only(tmp_path, monkeypatch):
                            clip_box=clip_box, data=data, boundary_items=boundary_items)
     assert len(captured_kwargs) == 1
     assert captured_kwargs[0].get("near_classes") == world_buildings.MAIN
+
+
+def test_osm_build_world_passes_the_tall_area_ids_to_the_ridge_cap(tmp_path, monkeypatch):
+    """#630: with a DSM cache, build_world hands building_heights.apply the ids of every area tall_ok accepts."""
+    monkeypatch.setattr(region.terrain, "sample", lambda b, o, s, c, d: flat_terrain(b, o, s, 0.0, c, d))
+    no_race(monkeypatch)
+    monkeypatch.setattr(region.osm.terrain, "swiss_tiles", lambda *a, **kw: [])
+    monkeypatch.setattr(region.osm.building_heights, "tall_ok", lambda tags: tags.get("landuse") == "forest")
+    captured = []
+    monkeypatch.setattr(region.osm.building_heights, "apply", lambda *a, **kw: (captured.append(kw), {})[1])
+    pbf_path = synth_osm.write(tmp_path / "synth.osm")
+    data = region.osm_read.read(pbf_path, geo.Frame(47.43, 8.6))
+    boundary_items = region.world_boundaries.read(pbf_path, geo.Frame(47.43, 8.6))
+    region.osm.build_world(str(pbf_path), None, (0, 0, 0, 0), (47.43, 8.6), 30.0, 1000.0, None, tmp_path / "cache",
+                           clip_box=(-1000.0, -1000.0, 1000.0, 1000.0), data=data, boundary_items=boundary_items)
+    forests = {a.id for a in data.areas if a.tags.get("landuse") == "forest"}
+    assert forests and len(captured) == 1 and captured[0]["tall_ok_ids"] == forests

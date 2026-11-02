@@ -36,6 +36,7 @@ def tiles(tmp_path):
                     dsm[r, c] = 300.0 + f(x - cx, z - cz)
     put(-40, 0, 12, 10, lambda u, v: 9.0)                            # flat roof, 9 m
     put(40, 0, 10, 8, lambda u, v: 6.0 + 3.2 * (1 - abs(v) / 4))   # gable: eaves 6 m, ridge 3.2 m (= 0.4 * 8)
+    put(0, -60, 6, 10, lambda u, v: 6.0 + 18.0 * (1 - abs(v) / 5))   # canopy: 6 m wide, eaves 6 m, a 18 m spike
     return [tif(tmp_path / "dsm.tif", E0, N0, dsm, 0.5)], [tif(tmp_path / "dtm.tif", E0, N0, dtm, 2.0)]
 
 
@@ -148,3 +149,69 @@ def test_committed_world_has_bodenacker_6_at_its_measured_roof():
     tall = next(b for b in world["buildings"] if b["id"] == 171822634)
     assert tall["hsrc"] == "dsm" and tall["roof"] == "flat" and 24.5 <= tall["h"] <= 26.5, (tall["h"], tall["roof"])
     assert max(b["h"] for b in world["buildings"] if b.get("hsrc") == "dsm") <= 32.5
+
+
+def test_committed_world_has_no_canopy_ridges():
+    """#630: the file the game loads carries the cap (runs without the swisstopo cache). 390841597 (Evang. Stadtkirche) is
+    the one OSM-tagged tall building in the Hochrhein world and keeps its ridge; the St. Wendelins-Kapelle 210827224
+    (rh 23.7 on 4.8 m) is canopy and capped by maintainer decision -- a `tall_ok` id mismatch in `osm.py build_world` would cap the church and fail here."""
+    import json
+    from pathlib import Path
+    world = json.loads((Path(__file__).parents[2] / "data" / "world_hochrhein.json").read_text())
+    over = {b["id"] for b in world["buildings"]
+            if b.get("hsrc") == "dsm" and b["roof"] == "gable" and b["rh"] > min(b["rect"][2], b["rect"][3])}
+    assert over == {390841597}, sorted(over)
+    chapel = next(b for b in world["buildings"] if b["id"] == 210827224)
+    assert chapel["rh"] == 1.9, chapel
+    shed = next(b for b in world["buildings"] if b["id"] == 993158962)
+    assert shed["rh"] == 3.5 and shed["h"] == 2.5, shed
+
+
+def gable(i, w, d, rh, h=2.5):
+    b = bld(i, 0, 0, w, d, "gable", h=h)
+    b["rh"], b["hsrc"] = rh, "dsm"
+    return b
+
+
+def test_cap_ridge_caps_a_canopy_ridge_to_the_default_rise():
+    """#630: way 993158962, a 16.6 x 8.8 m shed under bank trees, shipped with rh 20.4."""
+    b = gable(993158962, 16.6, 8.8, 20.4)
+    assert BH.cap_ridge(b) is True
+    assert b["rh"] == 3.5 and b["h"] == 2.5 and b["roof"] == "gable" and b["hsrc"] == "dsm"
+
+
+def test_cap_ridge_keeps_ordinary_and_steep_roofs():
+    for w, d, rh in [(10.0, 8.0, 3.2), (12.0, 6.0, 4.5), (10.0, 8.0, 8.0), (6.0, 11.0, 6.0)]:  # rh == short side stays
+        b = gable(1, w, d, rh)
+        assert BH.cap_ridge(b) is False and b["rh"] == rh
+
+
+def test_cap_ridge_uses_the_short_side_whichever_way_the_rect_is_turned():
+    a, b = gable(1, 5.0, 12.0, 9.0), gable(2, 12.0, 5.0, 9.0)
+    BH.cap_ridge(a), BH.cap_ridge(b)
+    assert a["rh"] == b["rh"] == 2.0
+
+
+def test_cap_ridge_leaves_flat_roofs_and_unmeasured_buildings_alone():
+    flat = gable(3, 29.3, 60.2, 32.8)
+    flat["roof"] = "flat"
+    osm_only = bld(4, 0, 0, 5, 5, "gable")                  # no rh, no hsrc
+    assert BH.cap_ridge(flat) is False and flat["rh"] == 32.8
+    assert BH.cap_ridge(osm_only) is False and "rh" not in osm_only
+
+
+def test_tall_ok_recognises_churches_and_towers():
+    for tags in [{"building": "church"}, {"building": "yes", "amenity": "place_of_worship"},
+                 {"building": "yes", "man_made": "tower"}, {"man_made": "chimney"}, {"building": "cathedral"}]:
+        assert BH.tall_ok(tags), tags
+    for tags in [{"building": "shed"}, {"building": "yes"}, {"building": "house"}, {"building": "chapel"}, {}]:   # chapel: #630 maintainer decision
+        assert not BH.tall_ok(tags), tags
+
+
+def test_apply_caps_a_canopy_ridge_but_not_a_listed_tall_building(tiles):
+    """#630: the 6 m wide footprint measures a ridge far over its short side; a church id keeps it."""
+    canopy, church = bld(20, 0, -60, 6, 10, "gable"), bld(21, 0, -60, 6, 10, "gable")
+    stats = BH.apply([canopy], FRAME, *tiles)
+    assert canopy["rh"] == 2.4 and stats["ridge_capped"] == 1            # 0.4 * 6 m
+    stats = BH.apply([church], FRAME, *tiles, tall_ok_ids={21})
+    assert church["rh"] > 6.0 and stats["ridge_capped"] == 0
