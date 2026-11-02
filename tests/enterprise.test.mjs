@@ -1,7 +1,7 @@
 // #491: the Enterprise-D room -- pure. node --test tests/enterprise.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION, dedicationPlacement } from '../enterprise.js';
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION, dedicationPlacement, ringMean } from '../enterprise.js';
 
 const close = (a, b, eps = 1e-6, msg) => assert.ok(Math.abs(a - b) <= eps, msg || `${a} ~ ${b}`);
 const room = { centre: [100, -50], y: -1200, frame: { f: [0, 1], v: [-1, 0] }, portal: { c: [100, -550], th: Math.PI / 2 } };
@@ -40,6 +40,24 @@ test('ENTERPRISE_lettering_FourDecalsOnTheSaucer_TopAndUnderside', () => {
     for (const d of of) assert.ok(d.x > 150 && d.x < 300 && d.w <= 200 && d.h >= 12, `${side} ${d.text} on the saucer forward of the bridge`);
     assert.ok(of[0].x > of[1].x, 'the name lies nearer the bow than the registry');
   }
+});
+
+test('ENTERPRISE_bakedLettering_CoversTheRedRegistryColumn', () => {
+  const [r] = ENTERPRISE.bakedLettering; assert.equal(ENTERPRISE.bakedLettering.length, 1); assert.equal(r.size, 1024);
+  assert.ok(r.x0 <= 822 && r.x1 >= 841 && r.y0 <= 233 && r.y1 >= 355, 'x 825-838, y 236-352 with a 3 px margin');
+  assert.ok(r.x1 - r.x0 < 40 && r.y1 - r.y0 < 140, 'no wider than the lettering');
+});
+
+test('ringMean_InnerRectOfOneColourInARingOfAnother_ReturnsTheRing', () => {
+  const w = 10, h = 10, px = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < w * h; i++) px.set([200, 0, 0, 255], i * 4);                          // red everywhere ...
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < 2 || x > 7 || y < 2 || y > 7) px.set([90, 100, 110, 255], (y * w + x) * 4);   // ... grey ring
+  assert.deepEqual(ringMean(px, w, h, { x0: 3, y0: 3, x1: 6, y1: 6 }, 1).map(Math.round), [200, 0, 0], 'a ring inside the red is red');
+  assert.deepEqual(ringMean(px, w, h, { x0: 2, y0: 2, x1: 7, y1: 7 }, 1).map(Math.round), [90, 100, 110], 'the ring just outside is grey');
+});
+
+test('ENTERPRISE_drape_DenserGridLargerOffset', () => {
+  assert.deepEqual(ENTERPRISE.drape, { seg: [96, 12], offset: 1.5, spread: 1 });
 });
 
 test('letteringFrame_LettersUpPointToTheBow_FaceAwayFromTheHull', () => {

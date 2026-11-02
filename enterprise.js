@@ -16,6 +16,14 @@ export const ENTERPRISE = {
     { side: 'top', text: 'U.S.S. ENTERPRISE', x: 235, w: 180, h: 14 }, { side: 'top', text: 'NCC-1701-D', x: 205, w: 150, h: 20 },
     { side: 'bottom', text: 'U.S.S. ENTERPRISE', x: 235, w: 180, h: 14 }, { side: 'bottom', text: 'NCC-1701-D', x: 205, w: 150, h: 20 },
   ],
+  // #607: how a decal is draped on the hull -- the plane's segments (along the text, across it), the metres it keeps clear of it,
+  // and the spacing of the 3 x 3 ray cluster each vertex casts: the lowest hit (top side: the highest) wins, so the plane
+  // clears bumps that bulge out between its vertices
+  drape: { seg: [96, 12], offset: 1.5, spread: 1 },
+  // #607: the model's own saucer texture ships with a red "NCC-1701-D / U.S.S. ENTERPRISE" baked in, which would double the
+  // white canvas lettering -- the column (inclusive px bounds at `size`, measured 2026-11-01: x 825-838, y 236-352, +3 px
+  // margin) is painted over with the hull colour round it at load (paintOutBakedLettering); the .glb itself stays as shipped
+  bakedLettering: [{ size: 1024, x0: 822, y0: 233, x1: 841, y1: 355 }],
   url: './assets/models/enterprise_d.glb', loadWithin: 400,
 };
 
@@ -38,6 +46,17 @@ export function dedicationPlacement(room, cfg = DEDICATION) {
 export const enterpriseHover = (t, cfg = ENTERPRISE) => cfg.bob.amp * Math.sin(2 * Math.PI * t / cfg.bob.period);
 // a PlaneGeometry (in xy, facing +z, text up = +y) turned so the letters' up points to the bow (+x) and the face away from the hull
 export const letteringFrame = (side) => (side === 'top' ? { rx: -Math.PI / 2, ry: -Math.PI / 2 } : { rx: Math.PI / 2, ry: Math.PI / 2 });
+// #607: the mean RGB of the `ring`-px frame of texels round `rect` (inclusive px bounds, minus the rect itself, clamped to the
+// image) -- the hull colour just outside a patch, which the patch is filled with. Pure: works on any RGBA byte array.
+export function ringMean(px, w, h, rect, ring) {
+  let n = 0, r = 0, g = 0, b = 0;
+  for (let y = Math.max(0, rect.y0 - ring); y <= Math.min(h - 1, rect.y1 + ring); y++)
+    for (let x = Math.max(0, rect.x0 - ring); x <= Math.min(w - 1, rect.x1 + ring); x++) {
+      if (x >= rect.x0 && x <= rect.x1 && y >= rect.y0 && y <= rect.y1) continue;   // inside the rect, not the ring
+      const i = (y * w + x) * 4; r += px[i]; g += px[i + 1]; b += px[i + 2]; n++;
+    }
+  return n ? [r / n, g / n, b / n] : [0, 0, 0];
+}
 
 // the room's look (blendLook's keys, as ROOM_LOOK): near-black sky behind the star dome, fog so thin it takes 0.6 % at 1000 m,
 // the sun as a strong key light from the upper front-left of the car, a cool low hemisphere fill
