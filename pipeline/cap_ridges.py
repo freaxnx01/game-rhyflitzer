@@ -5,7 +5,7 @@ every OSM edit since the last stand, #557); this script caps the ridge of every 
 short side, keeps the ids listed in `--keep-ids` (churches, towers) and leaves the rest of the file byte-identical.
 Idempotent: a capped ridge sits at 0.4 * short side, under the line.
 
-    python cap_ridges.py --world ../data/world_hochrhein.json --keep-ids 390841597
+    python cap_ridges.py --world ../data/world_hochrhein.json --keep-ids 210827224,390841597
 """
 from __future__ import annotations
 
