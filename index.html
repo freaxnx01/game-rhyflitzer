@@ -512,7 +512,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small>
         </dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a></dd>
@@ -610,7 +610,7 @@ import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, R
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
-import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
 import { FERRIS, wheelAngle, DUSK_LOOK } from './ferris.js';   // #513; #588: the dusk look
 import { buildWheel, setWheelAngle, ferrisTriangles, setWheelLights, buildFireworks, setFireworks } from './ferrismesh.js';
@@ -664,6 +664,7 @@ import { BULLDOG } from './bulldog.js';   // Rhy Bulldog, a glTF car
 import { WOBBLER } from './wobbler.js';   // Rhy Wobbler, a glTF three-wheeler that tips over
 import { MIXER } from './mixer.js';   // Rhy Mixer, a glTF concrete mixer truck with a turning drum
 import { FIZZ } from './fizz.js';   // Rhy Fizz, a glTF drinks truck with fairy lights
+import { HARVESTER } from './harvester.js';   // Rhy Harvester, a glTF combine harvester with a turning reel
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan } from './gltfvehicle.js';
@@ -2493,6 +2494,7 @@ const VEHICLES = {
   wobbler: WOBBLER,   // Rhy Wobbler, a 1970s three-wheeler van look-alike that tips over in fast corners, paintable (assets/wobbler.glb); the compact stands in until it is ready
   mixer: MIXER,   // Rhy Mixer, a 1970s cab-over concrete mixer look-alike, three axles, the drum turning, fixed livery (assets/mixer.glb); the compact stands in until it is ready
   fizz: FIZZ,   // Rhy Fizz, a stylised red drinks truck (tractor and box trailer) with fairy lights, no brand, fixed livery (assets/fizz.glb); the compact stands in until it is ready
+  harvester: HARVESTER,   // Rhy Harvester, a combine harvester look-alike with a wide header and a turning reel, paintable (assets/harvester.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -3244,26 +3246,60 @@ async function loadModel(k) {
   } catch (err) { console.warn(`${name} model not loaded:`, err); E.error = String(err); }
 }
  const loadEiffel = () => loadModel(0);
-// #491: „U.S.S. ENTERPRISE / NCC-1701-D" draped on the saucer, top and underside: one canvas text plane per line, its grid vertices dropped
-// (top) or lifted (underside) onto the saucer mesh by rays, 0.6 m off the hull; a vertex no ray hits keeps its neighbour's height. The planes
-// are children of the model root (they hover with it) and are built once per loaded model.
+// #607: the saucer's own texture ships with a red "NCC-1701-D / U.S.S. ENTERPRISE" registry column baked in (ENTERPRISE.bakedLettering,
+// px bounds at `size`, margin included), which would double the white canvas lettering: each rect is filled with the mean colour of the
+// 3 px texel ring just outside it (ringMean, enterprise.js) -- the hull colour round the patch. The .glb itself stays as shipped.
+function paintOutBakedLettering(saucer, baked) {
+  const map = saucer.material.map;
+  if (!map || !map.image || !map.image.width) { console.warn('Enterprise: no saucer base-colour map, the baked registry stays'); return 0; }
+  const src = map.image, w = src.width, h = src.height, c = document.createElement('canvas');
+  c.width = w; c.height = h; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0);
+  const img = g.getImageData(0, 0, w, h), px = img.data;
+  for (const r of baked) {
+    const sx = w / r.size, sy = h / r.size, rect = { x0: Math.round(r.x0 * sx), y0: Math.round(r.y0 * sy), x1: Math.round(r.x1 * sx), y1: Math.round(r.y1 * sy) };
+    rect.x0 = Math.max(0, rect.x0); rect.y0 = Math.max(0, rect.y0); rect.x1 = Math.min(w - 1, rect.x1); rect.y1 = Math.min(h - 1, rect.y1);   // clamp to the image, as ringMean does -- a scaled rect past the bounds would wrap onto the next row
+    const [cr, cg, cb] = ringMean(px, w, h, rect, 3);
+    for (let y = rect.y0; y <= rect.y1; y++) for (let x = rect.x0; x <= rect.x1; x++) { const i = (y * w + x) * 4; px[i] = cr; px[i + 1] = cg; px[i + 2] = cb; px[i + 3] = 255; }
+  }
+  g.putImageData(img, 0, 0); map.image = c; map.needsUpdate = true;
+  return baked.length;
+}
+// #607: the saucer's triangles in the model root's frame (9 floats each), for columnIndex -- the frame the decals are draped in
+function saucerTriangles(root, saucer) {
+  root.updateWorldMatrix(true, true); const M = new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(saucer.matrixWorld), out = [], v = new THREE.Vector3();
+  saucer.traverse(o => {
+    if (!o.isMesh) return; const g = o.geometry, p = g.attributes.position, ix = g.index, n = ix ? ix.count : p.count, Mo = o === saucer ? M : new THREE.Matrix4().copy(root.matrixWorld).invert().multiply(o.matrixWorld);
+    for (let i = 0; i < n; i++) { v.fromBufferAttribute(p, ix ? ix.getX(i) : i).applyMatrix4(Mo); out.push(v.x, v.y, v.z); }
+  });
+  return new Float32Array(out);
+}
+// #491 / #607: „U.S.S. ENTERPRISE / NCC-1701-D" draped on the saucer, top and underside: one canvas text plane per line, its grid vertices
+// dropped (top) or lifted (underside) onto the saucer mesh by rays. Each vertex casts a 3 x 3 cluster of rays `spread` m apart
+// (ENTERPRISE.drape) and the extreme hit wins -- the highest for the top, the lowest for the underside -- so the plane clears bumps that
+// bulge out between its vertices; a vertex whose whole cluster misses keeps its neighbour's height. The planes sit `offset` m off the hull
+// and are children of the model root (they hover with it), built once per loaded model, after the baked registry is painted out.
 function roomLettering(k) {
   const root = ROOM.models[k], O = ROOM.layouts[k].object; if (root.userData.lettered) return; root.userData.lettered = true;
   const saucer = root.getObjectByName('saucer'); if (!saucer) { console.warn('Enterprise: no saucer node, no lettering'); return; }
-  root.updateWorldMatrix(true, true); const ray = new THREE.Raycaster(), p = new THREE.Vector3(), local = new THREE.Vector3(), built = [];
+  if (O.bakedLettering) root.userData.paintedOut = paintOutBakedLettering(saucer, O.bakedLettering);
+  const t0 = performance.now(), hull = columnIndex(saucerTriangles(root, saucer)), built = [], D = O.drape;   // #607: the hull's height field, built once
   for (const d of O.lettering) {
     const px = Math.round(d.w * 6), py = Math.round(d.h * 6), tex = makeTex(px, py, (g, w, h) => { g.clearRect(0, 0, w, h); g.font = `800 ${Math.round(h * 0.86)}px "Barlow Condensed", "Arial Narrow", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 2; g.strokeStyle = '#141a26'; g.strokeText(d.text, w / 2, h / 2, w * 0.96); g.fillStyle = '#d8dfe9'; g.fillText(d.text, w / 2, h / 2, w * 0.96); }, { alpha: true });
-    const geo = new THREE.PlaneGeometry(d.w, d.h, 24, 4), F = letteringFrame(d.side); geo.rotateX(F.rx); geo.rotateY(F.ry); geo.translate(d.x, 0, 0);
-    const pos = geo.attributes.position, up = d.side === 'top', dir = new THREE.Vector3(0, up ? -1 : 1, 0); let last = up ? O.h : 0;
+    const geo = new THREE.PlaneGeometry(d.w, d.h, D.seg[0], D.seg[1]), F = letteringFrame(d.side); geo.rotateX(F.rx); geo.rotateY(F.ry); geo.translate(d.x, 0, 0);
+    const pos = geo.attributes.position, up = d.side === 'top'; let last = up ? O.h : 0;
     for (let i = 0; i < pos.count; i++) {
-      local.set(pos.getX(i), up ? 300 : -5, pos.getZ(i)); root.localToWorld(p.copy(local)); ray.set(p, dir.clone().transformDirection(root.matrixWorld)); ray.far = 320;
-      const hit = ray.intersectObject(saucer, false)[0]; if (hit) last = root.worldToLocal(hit.point.clone()).y;
-      pos.setY(i, last + (up ? 0.6 : -0.6));
+      let ex = null;
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+        const c = columnExtent(hull, pos.getX(i) + dx * D.spread, pos.getZ(i) + dz * D.spread); if (!c) continue;
+        ex = ex === null ? (up ? c.hi : c.lo) : up ? Math.max(ex, c.hi) : Math.min(ex, c.lo);
+      }
+      if (ex !== null) last = ex;
+      pos.setY(i, last + (up ? D.offset : -D.offset));
     }
     pos.needsUpdate = true; geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.renderOrder = 2; m.userData.role = 'lettering'; root.add(m); built.push(m);
   }
-  root.userData.lettering = built.length;
+  root.userData.lettering = built.length; root.userData.drapeMs = performance.now() - t0;
 }
 // #491: the hover bob -- the model root rides a slow sine over its placed height (enterprise.js); the decals are its children and ride along
 function stepEnterprise(dt) {
@@ -3290,7 +3326,7 @@ window.__mm.dedication = () => ROOM.dedication && { x: ROOM.dedication.x, z: ROO
 window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
   if (!ROOM.states[8] || ROOM.built !== 8) return null;
   const m = ROOM.models[8], glow = {}; if (m) m.traverse(o => { if (o.isMesh && o.material.userData.glow) glow[o.material.userData.glow] = o.material.emissiveIntensity; });
-  return { ...ROOM.states[8], hover: ENTERPRISE.hover, length: ENTERPRISE.length, y: m ? m.position.y : null, th: m ? m.userData.th : null, lettering: m ? m.userData.lettering || 0 : 0, look: ROOM.layout.look, sun: sun.intensity, hemi: hemi.intensity, sunDisc: sunSprite.visible, dome: ROOM.group.children.some(o => o.userData.role === 'stardome'), grid: ROOM.group.children.some(o => o.userData.role === 'holodeck'), glow: m ? glow : null };
+  return { ...ROOM.states[8], hover: ENTERPRISE.hover, length: ENTERPRISE.length, y: m ? m.position.y : null, th: m ? m.userData.th : null, lettering: m ? m.userData.lettering || 0 : 0, paintedOut: m ? m.userData.paintedOut || 0 : 0, drapeMs: m ? m.userData.drapeMs : null, look: ROOM.layout.look, sun: sun.intensity, hemi: hemi.intensity, sunDisc: sunSprite.visible, dome: ROOM.group.children.some(o => o.userData.role === 'stardome'), grid: ROOM.group.children.some(o => o.userData.role === 'holodeck'), glow: m ? glow : null };
 };
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)

@@ -1,7 +1,7 @@
 // #491: the Enterprise-D room -- pure. node --test tests/enterprise.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION, dedicationPlacement } from '../enterprise.js';
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION, dedicationPlacement, ringMean, columnIndex, columnExtent } from '../enterprise.js';
 
 const close = (a, b, eps = 1e-6, msg) => assert.ok(Math.abs(a - b) <= eps, msg || `${a} ~ ${b}`);
 const room = { centre: [100, -50], y: -1200, frame: { f: [0, 1], v: [-1, 0] }, portal: { c: [100, -550], th: Math.PI / 2 } };
@@ -40,6 +40,37 @@ test('ENTERPRISE_lettering_FourDecalsOnTheSaucer_TopAndUnderside', () => {
     for (const d of of) assert.ok(d.x > 150 && d.x < 300 && d.w <= 200 && d.h >= 12, `${side} ${d.text} on the saucer forward of the bridge`);
     assert.ok(of[0].x > of[1].x, 'the name lies nearer the bow than the registry');
   }
+});
+
+test('ENTERPRISE_bakedLettering_CoversTheRedRegistryColumn', () => {
+  const column = { x: [825, 838], y: [236, 352] }, margin = 3;   // the measured registry in the shipped texture (2026-11-01), independent of the rect under test
+  const [r] = ENTERPRISE.bakedLettering; assert.equal(ENTERPRISE.bakedLettering.length, 1); assert.equal(r.size, 1024);
+  assert.ok(r.x0 <= column.x[0] - margin && r.x1 >= column.x[1] + margin, `x ${r.x0}-${r.x1} must cover 825-838 with a ${margin} px margin`);
+  assert.ok(r.y0 <= column.y[0] - margin && r.y1 >= column.y[1] + margin, `y ${r.y0}-${r.y1} must cover 236-352 with a ${margin} px margin`);
+  assert.ok(r.x1 - r.x0 < 40 && r.y1 - r.y0 < 140, 'no wider than the lettering');
+});
+
+test('ringMean_InnerRectOfOneColourInARingOfAnother_ReturnsTheRing', () => {
+  const w = 10, h = 10, px = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < w * h; i++) px.set([200, 0, 0, 255], i * 4);                          // red everywhere ...
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < 2 || x > 7 || y < 2 || y > 7) px.set([90, 100, 110, 255], (y * w + x) * 4);   // ... grey ring
+  assert.deepEqual(ringMean(px, w, h, { x0: 3, y0: 3, x1: 6, y1: 6 }, 1).map(Math.round), [200, 0, 0], 'a ring inside the red is red');
+  assert.deepEqual(ringMean(px, w, h, { x0: 2, y0: 2, x1: 7, y1: 7 }, 1).map(Math.round), [90, 100, 110], 'the ring just outside is grey');
+});
+
+test('ENTERPRISE_drape_DenserGridLargerOffset', () => {
+  const D = ENTERPRISE.drape;
+  // the drape's math (roomLettering): each vertex ray-casts a 3 x 3 cluster `spread` m apart and rides `offset` m off the
+  // extreme hit -- so offset/spread must be positive to lift the plane and widen the cluster at all
+  assert.ok(D.offset > 0, 'the plane is lifted off the hull'); assert.ok(D.spread > 0, 'the ray cluster spans round each vertex');
+  // a denser grid is what hugs the hull between the decals' own corners -- assert it against the decals it has to hug: PlaneGeometry(d.w, d.h, seg[0], seg[1])
+  // lays (seg + 1) vertices across each decal, so seg must resolve finer than the decals' own extents
+  for (const d of ENTERPRISE.lettering) {
+    assert.ok(D.seg[0] >= d.w / 2, `${d.text}: seg x ${D.seg[0]} resolves finer than one vertex per 2 m of its ${d.w} m width`);
+    assert.ok(D.seg[1] >= d.h / 2, `${d.text}: seg y ${D.seg[1]} resolves finer than one vertex per 2 m of its ${d.h} m height`);
+  }
+  // and denser than the coarsest grid that would still be called a grid (one vertex per decal edge)
+  assert.ok((D.seg[0] + 1) * (D.seg[1] + 1) > ENTERPRISE.lettering.length, 'more vertices than decals, not one quad per plane');
 });
 
 test('letteringFrame_LettersUpPointToTheBow_FaceAwayFromTheHull', () => {
@@ -87,4 +118,24 @@ test('dedicationPlacement_JustInsideThePortal_RightOfTheLane_FacingTheWayIn', ()
 test('DEDICATION_ReadablePanel_FromTheCar', () => {
   assert.ok(DEDICATION.w >= 6 && DEDICATION.w <= 12 && DEDICATION.h >= 3 && DEDICATION.h <= DEDICATION.w);
   assert.ok(DEDICATION.lift >= 0.5 && DEDICATION.lift + DEDICATION.h <= 8, 'at eye height from the car, not over it');
+});
+
+// #607: the drape asks "how high is the hull right under (x, z)" tens of thousands of times; a vertical ray against all 42,600 saucer
+// triangles froze the load for seconds, so the triangles are bucketed in xz cells once and a column only tests its cell's few
+test('columnExtent_ReturnsTheLowestAndHighestHullUnderAPoint_OrNullBesideIt', () => {
+  // two horizontal squares (two triangles each) over x, z in [0, 10]: one at y = 2, one at y = 7; a slanted triangle elsewhere
+  const sq = (y) => [0, y, 0, 10, y, 0, 10, y, 10, 0, y, 0, 10, y, 10, 0, y, 10];
+  const tris = new Float32Array([...sq(2), ...sq(7), 20, 0, 0, 30, 10, 0, 20, 0, 10]);
+  const idx = columnIndex(tris, 4);
+  const near = (e, lo, hi) => e && Math.abs(e.lo - lo) < 1e-6 && Math.abs(e.hi - hi) < 1e-6;
+  assert.ok(near(columnExtent(idx, 5, 5), 2, 7));
+  assert.ok(near(columnExtent(idx, 9.5, 0.5), 2, 7), 'near a corner, in another cell than the centre');
+  assert.equal(columnExtent(idx, 15, 5), null, 'nothing beneath');
+  const s = columnExtent(idx, 25, 2); assert.ok(Math.abs(s.lo - 5) < 1e-6 && s.lo === s.hi, `the slope interpolates: ${JSON.stringify(s)}`);
+});
+
+test('columnIndex_EachCellHoldsOnlyTheTrianglesOverIt', () => {
+  const tris = new Float32Array([0, 0, 0, 1, 0, 0, 0, 0, 1, 100, 0, 100, 101, 0, 100, 100, 0, 101]);
+  const idx = columnIndex(tris, 4), sizes = [...idx.cells.values()].map(c => c.length);
+  assert.equal(Math.max(...sizes), 1, 'two far-apart triangles never share a cell'); assert.equal(idx.cells.size, 2);
 });

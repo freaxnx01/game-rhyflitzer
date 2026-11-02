@@ -19,6 +19,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-02 15:31` The **Enterprise**'s name on the saucer no longer looks doubled: the blurry **red lettering** painted into the model is gone, so only the crisp white „U.S.S. ENTERPRISE“ and „NCC-1701-D“ remain, and underneath the saucer the letters are no longer **swallowed by the hull** in places.
 - `2026-11-02 15:22` No more **towers out of sheds**: buildings under trees no longer carry a roof as tall as the treetops. A garden shed on the Rhine bank at Sisseln had a **20 m pointed roof**; it and 71 other sheds, garages and houses now have a normal roof again. Churches keep their height.
 - `2026-11-02 14:53` No more **field colour** on the **Crash-Platz**: the farm field next to it now stops a few metres short of the yard, so the grey ground stays grey.
 - `2026-11-01 21:52` The **Black Forest** on the horizon no longer stands there as a flat brown wall: seen from the Plattform Sisslerfeld, the Hotzenwald is a **hazy, forested ridge** whose slopes catch the evening light, its foot sinking into the same pale **valley haze** as the fields in front of it, and the farther hills dissolve into the sky. In both looks, Original and Smooth.
@@ -30,6 +31,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-02 15:01` New vehicle **Rhy Harvester**, a **combine harvester** with a header almost ten metres wide and a **reel that keeps turning**; meadow green from the factory and paintable. 40 km/h at best, but it turns tightly. 3D model „Harvester Near Completion" by webbsketches (Sketchfab), CC BY 4.0.
 - `2026-11-02 14:13` New truck **Rhy Fizz**, a big red long-nose **drinks truck** with a box trailer, white trim and **fairy lights** all round that light up with <kbd>L</kbd>. 105 km/h, eight gears, eleven metres long. No brand on it. 3D model „XYZ School - NY marathon - Coca-Cola truck" by leslava (Sketchfab), CC BY 4.0.
 - `2026-11-02 14:08` The **Vasa**, the Swedish warship of 1628, now stands in **star room 3**, life size (69 m with the bowsprit, 52 m to the top of the main mast), dry on its **museum cradle** as in Stockholm: two gun decks with **64 open gunports**, the high carved stern, three masts with their rigging. Drive all the way round it and under the overhanging stern and bowsprit; the hull and the cradle's props are solid.
 - `2026-11-02 11:46` New truck **Rhy Mixer**, a seventies cab-over **concrete mixer** in orange and cream on a red chassis, with three axles and a **drum that keeps turning**. 80 km/h flat out and slow off the line, but it shrugs off almost any knock. 3D model „Magirus D serie mixer truck" by Randonavt (Sketchfab), CC BY 4.0.

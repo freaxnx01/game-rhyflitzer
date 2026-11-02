@@ -16,6 +16,14 @@ export const ENTERPRISE = {
     { side: 'top', text: 'U.S.S. ENTERPRISE', x: 235, w: 180, h: 14 }, { side: 'top', text: 'NCC-1701-D', x: 205, w: 150, h: 20 },
     { side: 'bottom', text: 'U.S.S. ENTERPRISE', x: 235, w: 180, h: 14 }, { side: 'bottom', text: 'NCC-1701-D', x: 205, w: 150, h: 20 },
   ],
+  // #607: how a decal is draped on the hull -- the plane's segments (along the text, across it), the metres it keeps clear of it,
+  // and the spacing of the 3 x 3 ray cluster each vertex casts: the lowest hit (top side: the highest) wins, so the plane
+  // clears bumps that bulge out between its vertices
+  drape: { seg: [96, 12], offset: 1.5, spread: 1 },
+  // #607: the model's own saucer texture ships with a red "NCC-1701-D / U.S.S. ENTERPRISE" baked in, which would double the
+  // white canvas lettering -- the column (inclusive px bounds at `size`, measured 2026-11-01: x 825-838, y 236-352, +3 px
+  // margin) is painted over with the hull colour round it at load (paintOutBakedLettering); the .glb itself stays as shipped
+  bakedLettering: [{ size: 1024, x0: 822, y0: 233, x1: 841, y1: 355 }],
   url: './assets/models/enterprise_d.glb', loadWithin: 400,
 };
 
@@ -38,6 +46,17 @@ export function dedicationPlacement(room, cfg = DEDICATION) {
 export const enterpriseHover = (t, cfg = ENTERPRISE) => cfg.bob.amp * Math.sin(2 * Math.PI * t / cfg.bob.period);
 // a PlaneGeometry (in xy, facing +z, text up = +y) turned so the letters' up points to the bow (+x) and the face away from the hull
 export const letteringFrame = (side) => (side === 'top' ? { rx: -Math.PI / 2, ry: -Math.PI / 2 } : { rx: Math.PI / 2, ry: Math.PI / 2 });
+// #607: the mean RGB of the `ring`-px frame of texels round `rect` (inclusive px bounds, minus the rect itself, clamped to the
+// image) -- the hull colour just outside a patch, which the patch is filled with. Pure: works on any RGBA byte array.
+export function ringMean(px, w, h, rect, ring) {
+  let n = 0, r = 0, g = 0, b = 0;
+  for (let y = Math.max(0, rect.y0 - ring); y <= Math.min(h - 1, rect.y1 + ring); y++)
+    for (let x = Math.max(0, rect.x0 - ring); x <= Math.min(w - 1, rect.x1 + ring); x++) {
+      if (x >= rect.x0 && x <= rect.x1 && y >= rect.y0 && y <= rect.y1) continue;   // inside the rect, not the ring
+      const i = (y * w + x) * 4; r += px[i]; g += px[i + 1]; b += px[i + 2]; n++;
+    }
+  return n ? [r / n, g / n, b / n] : [0, 0, 0];
+}
 
 // the room's look (blendLook's keys, as ROOM_LOOK): near-black sky behind the star dome, fog so thin it takes 0.6 % at 1000 m,
 // the sun as a strong key light from the upper front-left of the car, a cool low hemisphere fill
@@ -53,4 +72,29 @@ export function starField(seed = 1701) {
   for (let i = 0; i < 2200; i++) { const big = r() < 0.015; stars.push({ u: r(), v: r() * 0.68, r: big ? 2.5 + r() * 0.5 : 0.5 + r() * 1.3, b: 0.35 + r() * 0.65, tint: r() < 0.7 ? 'white' : r() < 0.5 ? 'blue' : 'amber' }); }
   const clouds = [{ u: 0.22, v: 0.28, r: 0.17, colour: '#6a3fb0', alpha: 0.32 }, { u: 0.31, v: 0.2, r: 0.12, colour: '#2a8f9c', alpha: 0.28 }, { u: 0.7, v: 0.33, r: 0.2, colour: '#b03f8a', alpha: 0.22 }];
   return { stars, clouds, band: { v: 0.3, alpha: 0.08, width: 0.12 } };
+}
+// #607: the hull height under a point, fast -- `tris` holds the saucer's triangles in the ship frame (9 floats each); columnIndex buckets
+// them by their xz bounds in `cell`-metre squares once, columnExtent then tests only the triangles of the point's cell and returns the
+// lowest and highest hull crossing of the vertical through (x, z), or null when nothing lies beneath. Same answer as a vertical ray
+// from above (hi) or below (lo), without testing every triangle per ray.
+export function columnIndex(tris, cell = 4) {
+  const cells = new Map();
+  for (let t = 0; t < tris.length; t += 9) {
+    const xs = [tris[t], tris[t + 3], tris[t + 6]], zs = [tris[t + 2], tris[t + 5], tris[t + 8]];
+    const i0 = Math.floor(Math.min(...xs) / cell), i1 = Math.floor(Math.max(...xs) / cell), j0 = Math.floor(Math.min(...zs) / cell), j1 = Math.floor(Math.max(...zs) / cell);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i + ',' + j; if (!cells.has(k)) cells.set(k, []); cells.get(k).push(t); }
+  }
+  return { tris, cell, cells };
+}
+export function columnExtent(idx, x, z) {
+  const list = idx.cells.get(Math.floor(x / idx.cell) + ',' + Math.floor(z / idx.cell)); if (!list) return null;
+  const T = idx.tris; let lo = Infinity, hi = -Infinity;
+  for (const t of list) {
+    const ax = T[t], ay = T[t + 1], az = T[t + 2], bx = T[t + 3], by = T[t + 4], bz = T[t + 5], cx = T[t + 6], cy = T[t + 7], cz = T[t + 8];
+    const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz); if (Math.abs(d) < 1e-12) continue;   // edge-on seen from above
+    const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d, v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / d, w = 1 - u - v;
+    if (u < -1e-9 || v < -1e-9 || w < -1e-9) continue;
+    const y = u * ay + v * by + w * cy; if (y < lo) lo = y; if (y > hi) hi = y;
+  }
+  return lo === Infinity ? null : { lo, hi };
 }
