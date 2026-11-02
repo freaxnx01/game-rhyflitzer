@@ -36,6 +36,7 @@ def tiles(tmp_path):
                     dsm[r, c] = 300.0 + f(x - cx, z - cz)
     put(-40, 0, 12, 10, lambda u, v: 9.0)                            # flat roof, 9 m
     put(40, 0, 10, 8, lambda u, v: 6.0 + 3.2 * (1 - abs(v) / 4))   # gable: eaves 6 m, ridge 3.2 m (= 0.4 * 8)
+    put(0, -60, 6, 10, lambda u, v: 6.0 + 18.0 * (1 - abs(v) / 5))   # canopy: 6 m wide, eaves 6 m, a 18 m spike
     return [tif(tmp_path / "dsm.tif", E0, N0, dsm, 0.5)], [tif(tmp_path / "dtm.tif", E0, N0, dtm, 2.0)]
 
 
@@ -189,3 +190,12 @@ def test_tall_ok_recognises_churches_and_towers():
         assert BH.tall_ok(tags), tags
     for tags in [{"building": "shed"}, {"building": "yes"}, {"building": "house"}, {"building": "chapel"}, {}]:   # chapel: #630 maintainer decision
         assert not BH.tall_ok(tags), tags
+
+
+def test_apply_caps_a_canopy_ridge_but_not_a_listed_tall_building(tiles):
+    """#630: the 6 m wide footprint measures a ridge far over its short side; a church id keeps it."""
+    canopy, church = bld(20, 0, -60, 6, 10, "gable"), bld(21, 0, -60, 6, 10, "gable")
+    stats = BH.apply([canopy], FRAME, *tiles)
+    assert canopy["rh"] == 2.4 and stats["ridge_capped"] == 1            # 0.4 * 6 m
+    stats = BH.apply([church], FRAME, *tiles, tall_ok_ids={21})
+    assert church["rh"] > 6.0 and stats["ridge_capped"] == 0

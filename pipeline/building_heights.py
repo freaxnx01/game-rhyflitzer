@@ -5,7 +5,8 @@ roof overhangs don't count) is read from the surface model: the eaves height `h`
 percentile of the samples at least 2 m over the ground, #34) and the ridge height `rh` the rise from there to the top (95th percentile), both over the ground under the
 centre. A flat roof has rh ~ 0. The roof shape follows the ridge (#43): rh >= 1.5 m on a rectangular footprint under
 1,000 m2 is a gable, rh < 0.6 m is flat, in between the footprint heuristic decides. Measured rather than modelled: many houses here have shallow roofs, which a fixed
-0.4 * width gable got badly wrong. A footprint whose roof top is under 2 m was not built yet when the surface was
+0.4 * width gable got badly wrong. A gable whose DSM ridge `rh` exceeds its short side picked up tree canopy and is capped
+to the default rise 0.4 * short side (#630); churches and towers are exempt. A footprint whose roof top is under 2 m was not built yet when the surface was
 flown (2020) and keeps its height. Swiss side only; buildings outside the tiles keep their height.
 """
 from __future__ import annotations
@@ -89,9 +90,10 @@ def _tile(tiles, pt):
     return next((ds for box, ds in tiles if box.contains(pt)), None)
 
 
-def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
+def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0, tall_ok_ids=frozenset()):
     """Set b["h"] (eaves), b["rh"] (ridge), b["hsrc"] = "dsm" and b["roof"] from the ridge (#43) where the surface data
-    covers the footprint. Returns stats."""
+    covers the footprint; a gable ridge above the short side is capped (#630) unless the id is in `tall_ok_ids`.
+    Returns stats."""
     dsm, dtm = _open(dsm_paths), _open(dtm_paths)
     stats = Counter()
     try:
@@ -136,6 +138,8 @@ def apply(buildings, frame, dsm_paths, dtm_paths, min_samples=8, max_h=150.0):
             b["h"] = round(float(np.clip(lo - ground, MIN_H, max_h)), 1)
             b["rh"] = round(max(0.0, hi - lo), 1)
             b["hsrc"] = "dsm"
+            if b["id"] not in tall_ok_ids and cap_ridge(b):
+                stats["ridge_capped"] += 1
             stats["dsm"] += 1
     finally:
         for _, ds in dsm + dtm:
