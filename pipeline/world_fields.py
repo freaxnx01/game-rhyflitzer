@@ -13,10 +13,14 @@ import world_parking
 FIELD_GAP = 1.0      # m beyond the road's half width
 RAIL_GAP = 3.0       # m either side of a track centre line
 PARKING_GAP = 3.0    # m around a car park lot
+YARD_GAP = 3.0       # m around the Crash-Platz (#629)
 SEAM = 1.5           # m of grass between neighbouring parcels (each parcel inset by half)
 SIMPLIFY = 1.0       # m, topology-preserving
 MIN_AREA = 300.0     # m2
 OSM_GAP = 2.0        # m: OSM fields keep this far off any cantonal parcel
+# The Crash-Platz of the Hochrhein world, game metres (x0, z0, x1, z1). Duplicate of CRASH_YARD in crashyard.js
+# (x0, z0, x0 + length, z0 + width); tests/test_fields.py fails when the two drift apart.
+CRASH_YARD = (590.0, 740.0, 700.0, 784.0)
 
 KINDS = ("cereal", "maize", "rapeseed", "root", "fallow", "bare", "meadow", "meadowDry", "pasture", "orchard", "vine")
 # lnf_code (MGDM 153.1 "Nutzungsflächen") -> kind. Exact codes first, then the hundreds' fallbacks.
@@ -113,10 +117,11 @@ def _osm(areas, clip, taken, stats):
     return out
 
 
-def _cuts(areas, roads, rail):
+def _cuts(areas, roads, rail, keep_out=()):
     cuts = [shapely.LineString(r["pts"]).buffer(r["w"] / 2 + FIELD_GAP) for r in roads if len(r["pts"]) > 1]
     cuts += [shapely.LineString(line).buffer(RAIL_GAP) for line in rail if len(line) > 1]
     cuts += [a.geom.buffer(PARKING_GAP, join_style="mitre") for a in areas if world_parking.selected(a.tags)]
+    cuts += [shapely.box(*r).buffer(YARD_GAP, join_style="mitre") for r in keep_out]
     return shapely.unary_union(cuts) if cuts else None
 
 
@@ -132,7 +137,7 @@ def _entry(kind, p, src, cut):
     return e
 
 
-def build(features, areas, roads, rail, clip, frame):
+def build(features, areas, roads, rail, clip, frame, keep_out=()):
     """Fields inside `clip`: cantonal parcels, then OSM where they leave room; minus corridors; inset by SEAM/2."""
     stats = Counter()
     parcels = _lwb(features, clip, frame, stats)
@@ -140,7 +145,7 @@ def build(features, areas, roads, rail, clip, frame):
     parcels += _osm(areas, clip, taken, stats)
     if not parcels:
         return [], {}
-    cut = _cuts(areas, roads, rail)
+    cut = _cuts(areas, roads, rail, keep_out)
     if cut is not None:
         shapely.prepare(cut)
     kept = []

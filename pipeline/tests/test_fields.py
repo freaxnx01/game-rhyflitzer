@@ -208,6 +208,29 @@ def test_real_world_fields_cover_the_swiss_side_and_keep_off_roads():
     assert hits == [], f"{len(hits)} fields touch a road corridor, e.g. {fields[hits[0]]['ring'][:2]}"
 
 
+def test_build_cuts_keep_out_rectangle():
+    """A keep-out rectangle cuts a parcel like the road corridor does, plus the YARD_GAP margin (#629)."""
+    feats = [lwb(513, rect(0, 0, 300, 200))]
+    keep_out = ((100.0, 50.0, 200.0, 100.0),)
+    fields, stats = WFI.build(feats, [], [], [], CLIP, FRAME, keep_out=keep_out)
+    zone = shapely.box(100 - WFI.YARD_GAP + 0.05, 50 - WFI.YARD_GAP + 0.05,
+                       200 + WFI.YARD_GAP - 0.05, 100 + WFI.YARD_GAP - 0.05)
+    assert fields and all(not poly(f).intersects(zone) for f in fields)
+    uncut = WFI.build(feats, [], [], [], CLIP, FRAME)[0]
+    assert sum(poly(f).area for f in fields) < sum(poly(f).area for f in uncut)
+    same = WFI.build(feats, [], [], [], CLIP, FRAME, keep_out=())
+    assert [f["ring"] for f in same[0]] == [f["ring"] for f in uncut]
+
+
+def test_yard_constant_matches_crashyard_js():
+    """WFI.CRASH_YARD mirrors CRASH_YARD in crashyard.js: (x0, z0, x0 + length, z0 + width)."""
+    import re
+    js = (Path(__file__).resolve().parents[2] / "crashyard.js").read_text(encoding="utf-8")
+    x0, z0 = (float(v) for v in re.search(r"x0: *(\d+), z0: *(\d+)", js).groups())
+    length, width = (float(v) for v in re.search(r"length: *(\d+), width: *(\d+)", js).groups())
+    assert WFI.CRASH_YARD == (x0, z0, x0 + length, z0 + width)
+
+
 def test_small_road_stub_wholly_inside_a_parcel_stays_a_hole():
     """A footbridge deck inside a meadow leaves a hole under MIN_AREA; dropping it would lay the field over the road."""
     stub = road([[100, 50], [101.7, 50]], w=1.0)
