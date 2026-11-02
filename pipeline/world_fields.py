@@ -18,8 +18,8 @@ SEAM = 1.5           # m of grass between neighbouring parcels (each parcel inse
 SIMPLIFY = 1.0       # m, topology-preserving
 MIN_AREA = 300.0     # m2
 OSM_GAP = 2.0        # m: OSM fields keep this far off any cantonal parcel
-# The Crash-Platz of the Hochrhein world, game metres (x0, z0, x1, z1). Duplicate of CRASH_YARD in crashyard.js
-# (x0, z0, x0 + length, z0 + width); tests/test_fields.py fails when the two drift apart.
+# The Crash-Platz of the Hochrhein world, game metres (x0, z0, x1, z1): a duplicate of CRASH_YARD in
+# crashyard.js, which stores (x0, z0, length, width).
 CRASH_YARD = (590.0, 740.0, 700.0, 784.0)
 
 KINDS = ("cereal", "maize", "rapeseed", "root", "fallow", "bare", "meadow", "meadowDry", "pasture", "orchard", "vine")
