@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A small, always-visible, context-aware set of controls for newcomers on desktop (key bar, Shift nitro, Comma/Period signals, E as the one context key) and on phones (joystick, Gas/Brake/Jump, three core buttons, context button, ☰ menu), while every existing key keeps working.
+**Goal:** A small, always-visible, context-aware set of controls for newcomers on desktop (key bar, Shift nitro, Comma/Period signals, E as the one context key) and on phones (joystick, Gas/Brake/Jump, core buttons, context button, ☰ menu), while every existing key keeps working.
 
 **Architecture:** A new pure module `controls.js` is the single table of which input triggers which action in which context; the keydown dispatcher in `index.html` asks it for the signal keys and the context key, the key bar and the phone ☰ menu are rendered from it. Phase 2 adds `touch.js` (pure stick maths plus DOM binding) that turns touches into the same `keys[...]` / `touch` writes and synthetic key events the keyboard produces, so the simulation does not know the difference.
 
@@ -22,8 +22,8 @@
 - Turn signals: **Comma** (left) · **Period** (right). Q · E no longer signal in the car. In the steam loco Q · E stay the switches (`train.js` TRAIN_KEYS unchanged).
 - **E is the one context key** on foot: enter a glowing door (outside), leave the building (inside), call the lift (inside at the lift gap). **B is only look-back** (B no longer leaves).
 - Every other key keeps its binding (spec "Bindings that change" list). No player rebinding.
-- Core actions besides driving: **Z** get out/in, **J** jump to a place, **C** camera, **F1** all keys. X (photo) is not core.
-- Key bar: centred at the bottom edge, above `#game-nav`; car `WASD fahren · Shift Nitro · Z aussteigen · J springen · C Kamera · F1 alle Tasten`; foot `WASD gehen · Space springen · Z einsteigen · J springen · C Kamera · F1 …`; highlighted first entry `E eintreten` / `E hinaus` / `E Lift` when the context key has an action. Hidden on phones, in the start screen and in dialogs; `pointer-events:none`, never focusable.
+- Core actions besides driving: **Z** get out/in, **J** jump to a place, **F1** all keys, and **C** camera in the car only. **Camera is not available on foot** (maintainer decision 2026-11-02): `foot.js` keeps blocking `KeyC` on foot, the foot bar has no camera entry, the phone camera button is hidden on foot. X (photo) is not core.
+- Key bar: centred at the bottom edge, above `#game-nav`; car `WASD fahren · Shift Nitro · Z aussteigen · J springen · C Kamera · F1 alle Tasten`; foot `WASD gehen · Space springen · Z einsteigen · J springen · F1 …` (no camera); highlighted first entry `E eintreten` / `E hinaus` / `E Lift` when the context key has an action. Hidden on phones, in the start screen and in dialogs; `pointer-events:none`, never focusable.
 - Pause-menu toggle "Tastenleiste ein/aus", stored in `localStorage` key `mm.keybar` (`'0'` = off, anything else / missing = on), every access wrapped in try/catch.
 - All new UI text in **en and de** in `strings.js` (keys in the same camelCase style; `tests/strings.test.mjs` demands identical key sets and Swiss spelling, no ß).
 - Phone (Phase 2, car and on foot only): all buttons ≥ 44 px, respect `env(safe-area-inset-*)`, multi-touch; shown on `@media (pointer:coarse)` in place of today's `#touch` buttons.
@@ -37,10 +37,6 @@
 3. **Shift during the autopilot.** Holding Shift (nitro) must take over from the autopilot like N does today, or the player's nitro silently does nothing. Pinned in Task 2 (`TAKE_OVER_KEYS` test).
 4. **Key bar covering HUD or the world.** At 1280×720 the bar must not overlap the speedometer (`#bl`) or the minimap (`#br`) and must not swallow clicks. Pinned in Task 4 (bounding-box and `pointer-events` assertions).
 5. **Language switch while playing.** Toggling EN/DE must re-label the key bar and the pause toggle at once, not after the next context change. Pinned in Task 4 (signature includes the language; test toggles `ggSetLang`).
-
-## Open point for the maintainer (does not block Phase 1 start)
-
-- **C on foot.** The spec puts `C Kamera` in the foot bar and a Camera button on the phone on foot, but `foot.js` blocks `KeyC` on foot today (`FOOT_BLOCKED`; `tests/foot.test.mjs` "C does nothing on foot: the view is first person already"). This plan follows the spec literally: the entry and the button are shown, and pressing them on foot does what C does on foot today (nothing). If the maintainer decides otherwise (drop C from the foot bar, or give C a meaning on foot), only the `WALK` list in `controls.js` and the test `coreKeys_CarAndFoot_HaveZJCAndF1` change.
 
 ---
 
@@ -81,10 +77,16 @@ test('entriesFor_EveryContext_HasEntries', () => {
   for (const c of CONTEXTS) assert.ok(entriesFor(c).length > 0, c);
 });
 
-test('coreKeys_CarAndFoot_HaveZJCAndF1', () => {
-  for (const c of ['car', 'foot', 'indoors']) {
+test('coreKeys_Car_HaveZJCAndF1', () => {
+  const keys = entriesFor('car').filter(e => e.core).flatMap(e => e.keys);
+  for (const k of ['KeyZ', 'KeyJ', 'KeyC', 'F1']) assert.ok(keys.includes(k), k);
+});
+
+test('coreKeys_FootAndIndoors_HaveZJAndF1_NoCamera', () => {
+  for (const c of ['foot', 'indoors']) {
     const keys = entriesFor(c).filter(e => e.core).flatMap(e => e.keys);
-    for (const k of ['KeyZ', 'KeyJ', 'KeyC', 'F1']) assert.ok(keys.includes(k), `${c} ${k}`);
+    for (const k of ['KeyZ', 'KeyJ', 'F1']) assert.ok(keys.includes(k), `${c} ${k}`);
+    assert.ok(!entriesFor(c).some(e => e.keys.includes('KeyC') || e.action === 'camera'), `${c} has no KeyC entry`);
   }
 });
 
@@ -127,8 +129,9 @@ test('barEntries_Car_SpecOrder', () => {
 });
 
 test('barEntries_Foot_SpecOrder', () => {
-  assert.deepEqual(barEntries('foot').map(e => e.cap), ['WASD', 'Space', 'Z', 'J', 'C', 'F1']);
+  assert.deepEqual(barEntries('foot').map(e => e.cap), ['WASD', 'Space', 'Z', 'J', 'F1']);
   assert.deepEqual(barEntries('foot').map(e => translate('de', e.label)).slice(0, 3), ['gehen', 'springen', 'einsteigen']);
+  assert.ok(!barEntries('foot').some(e => e.cap === 'C'), 'no camera entry on foot');
 });
 
 test('barEntries_WithContextAction_HighlightedEFirst', () => {
@@ -214,7 +217,7 @@ const WALK = [
   entry('walk', MOVE, { hold: true, core: true, touch: 'button', label: 'barWalk', cap: 'WASD' }),
   entry('jumpUp', ['Space'], { hold: true, core: true, touch: 'button', label: 'barJumpUp', cap: 'Space' }),
   entry('getIn', ['KeyZ'], { core: true, touch: 'button', label: 'barGetIn', cap: 'Z' }),
-  jumpTo(), camera(), help(),
+  jumpTo(), help(),
   entry('context', ['KeyE'], {}),
   entry('down', SHIFT, { hold: true }),
   entry('footNitro', ['KeyN'], { hold: true }),
@@ -556,7 +559,7 @@ def test_bar_follows_the_context_and_the_language(server):
     assert errors == []
     assert car["shown"] and car["text"] == "WASD fahrenShift NitroZ aussteigenJ springenC KameraF1 alle Tasten", car
     assert boxes["pe"] == "none" and not overlap(boxes["bar"], boxes["bl"]) and not overlap(boxes["bar"], boxes["br"]), boxes
-    assert foot["ctx"] == "foot" and foot["text"].startswith("WASD gehenSpace springenZ einsteigen"), foot
+    assert foot["ctx"] == "foot" and foot["text"].startswith("WASD gehenSpace springenZ einsteigen") and "Kamera" not in foot["text"], foot
     assert door["action"] == "enter" and door["text"].startswith("E eintreten"), door
     assert door_en["text"].startswith("E enter"), door_en
 
@@ -648,7 +651,7 @@ window.__mm.keybar = () => { stepKeybar(); const el = $('keybar'); return { show
 - [ ] **Step 1:** Add, in the existing English player-facing voice:
 
 ```markdown
-- `YYYY-MM-DD HH:MM` **New controls for newcomers:** a slim **key bar** at the bottom always shows how to drive and the four core keys (**Z** get out/in, **J** jump to a place, **C** camera, **F1** all keys), and **E** whenever there is something to do right here (enter, go out, call the lift). It can be switched off in the pause menu. **Nitro** is now also on **Shift**, so gas, nitro and look-back (B) can be held together. The **turn signals** moved from Q · E to **Comma · Period**, and **E** (not B) takes you out of a building; B only looks back. In the steam loco Q · E still pick the switches.
+- `YYYY-MM-DD HH:MM` **New controls for newcomers:** a slim **key bar** at the bottom always shows how to drive and the core keys (**Z** get out/in, **J** jump to a place, **F1** all keys, plus **C** camera in the car), and **E** whenever there is something to do right here (enter, go out, call the lift). It can be switched off in the pause menu. **Nitro** is now also on **Shift**, so gas, nitro and look-back (B) can be held together. The **turn signals** moved from Q · E to **Comma · Period**, and **E** (not B) takes you out of a building; B only looks back. In the steam loco Q · E still pick the switches.
 ```
 
 - [ ] **Step 2:** `node --test tests/*.test.mjs` (all), plus the Playwright files of Tasks 3-4 once more. `grep -n "KeyQ\|'KeyB'" index.html` shows only the train help row text and the look-back read (`keys.KeyB`).
@@ -782,7 +785,7 @@ export function bindStick(base, knob, onMove) {
 #tMenuList{position:absolute;pointer-events:auto;right:calc(16px + env(safe-area-inset-right,0px));top:calc(320px + env(safe-area-inset-top,0px));width:min(300px,calc(100vw - 32px));max-height:calc(100vh - 340px - env(safe-area-inset-top,0px));overflow:auto;display:flex;flex-direction:column;gap:4px;background:rgba(20,23,29,.92);border:3px solid var(--steel);padding:6px;box-sizing:border-box}
 #tMenuList[hidden],#touch button[hidden]{display:none}
 #tMenuList button{position:static;width:100%;height:auto;min-height:44px;border-radius:0;font-size:16px;text-align:left;padding:6px 10px}
-#touch:not([data-ctx=car]) :is(#tB,#tH){display:none}
+#touch:not([data-ctx=car]) :is(#tB,#tH,#tC){display:none}
 #touch:is([data-ctx=heli],[data-ctx=train]) :is(#tStick,#tG,#tJ,#tC){display:none}
 ```
 
@@ -844,7 +847,7 @@ ptr = lambda page, sel, t, i, dx=0, dy=0: page.evaluate(PTR, [sel, t, i, dx, dy]
 
   Tests (each asserts `errors == []`):
   1. `test_joystick_steers_while_gas_is_held`: `ptr(#tStick, pointerdown, 1)`, `ptr(#tStick, pointermove, 1, 56, 0)`, `ptr(#tG, pointerdown, 2)`; wait for `window.__mm.drive().gas === 1`; read `window.__mm.touch()`; assert `x == 1` and `g == 1` (two pointers at once); release both, assert `x == 0`.
-  2. `test_z_button_gets_out_and_the_controls_switch_to_foot`: place at `ROAD` (copy from `test_on_foot.py`), `page.tap("#tZ")`, wait `window.__mm.foot().on`; assert `touch().ctx == "foot"`, `#tB` and `#tH` not visible, `#tG` aria-label `springen`; `ptr(#tStick, ...)` forward (`dy=-56`) then `window.__mm.footSim(1, [])` moves the walker (`foot().x` changes).
+  2. `test_z_button_gets_out_and_the_controls_switch_to_foot`: place at `ROAD` (copy from `test_on_foot.py`), `page.tap("#tZ")`, wait `window.__mm.foot().on`; assert `touch().ctx == "foot"`, `#tB`, `#tH` and `#tC` (camera, car only) not visible, `#tG` aria-label `springen`; `ptr(#tStick, ...)` forward (`dy=-56`) then `window.__mm.footSim(1, [])` moves the walker (`foot().x` changes).
   3. `test_context_button_appears_at_a_glowing_door`: on foot, `setReady('plattform-sisslerfeld', true, [x + 12, z])`, place at `x + 10`; wait `#tE` visible with text `eintreten`; tap it; assert the toast is `Noch nicht begehbar` (`enterSoon`, de).
   4. `test_menu_lists_the_rest_and_runs_a_row`: tap `#tMenu`; rows = `#tMenuList button`; assert count `== len(menuEntries('car'))` read via `page.evaluate("async () => (await import('./controls.js')).menuEntries('car').length")`, every row height ≥ 44, a row with `data-cmd="KeyV"` exists; tap it; assert `hud().carVisible` is False and the list is hidden.
   5. `test_phone_layout_fits`: no horizontal scroll (`document.documentElement.scrollWidth <= 390`); every visible control inside the viewport and ≥ 44 px both ways; no two of `#tStick #tG #tB #tH #tZ #tJ #tC #tMenu` overlap; `#keybar` and `#pausekeybar` are `display:none`.
@@ -856,7 +859,7 @@ ptr = lambda page, sel, t, i, dx=0, dy=0: page.evaluate(PTR, [sel, t, i, dx, dy]
 - [ ] **Step 1:** `CHANGELOG.md` `[Unreleased]` `### Changed`:
 
 ```markdown
-- `YYYY-MM-DD HH:MM` **On the phone** you now steer and walk with a **joystick** on the left, with **Gas** and **Brake** on the right (on foot Gas jumps), three round buttons to **get out/in**, **jump to a place** and switch the **camera**, a yellow button for whatever **E** does right here (enter, go out, call the lift), and a **☰ menu** with every other action. On foot, drag a finger across the picture to look around. Helicopter and steam loco are reached through ☰ for now.
+- `YYYY-MM-DD HH:MM` **On the phone** you now steer and walk with a **joystick** on the left, with **Gas** and **Brake** on the right (on foot Gas jumps), round buttons to **get out/in**, **jump to a place** and (in the car) switch the **camera**, a yellow button for whatever **E** does right here (enter, go out, call the lift), and a **☰ menu** with every other action. On foot, drag a finger across the picture to look around. Helicopter and steam loco are reached through ☰ for now.
 ```
 
 - [ ] **Step 2:** All node tests once more; push; open the Phase 2 PR (`feat(touch): phone controls, phase 2 (#535)`, body `Closes #535`).
