@@ -1,7 +1,7 @@
 // #491: the Enterprise-D room -- pure. node --test tests/enterprise.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION, dedicationPlacement, ringMean } from '../enterprise.js';
+import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, SPACE_LOOK, HOLODECK, starField, DEDICATION, dedicationPlacement, ringMean, columnIndex, columnExtent } from '../enterprise.js';
 
 const close = (a, b, eps = 1e-6, msg) => assert.ok(Math.abs(a - b) <= eps, msg || `${a} ~ ${b}`);
 const room = { centre: [100, -50], y: -1200, frame: { f: [0, 1], v: [-1, 0] }, portal: { c: [100, -550], th: Math.PI / 2 } };
@@ -118,4 +118,24 @@ test('dedicationPlacement_JustInsideThePortal_RightOfTheLane_FacingTheWayIn', ()
 test('DEDICATION_ReadablePanel_FromTheCar', () => {
   assert.ok(DEDICATION.w >= 6 && DEDICATION.w <= 12 && DEDICATION.h >= 3 && DEDICATION.h <= DEDICATION.w);
   assert.ok(DEDICATION.lift >= 0.5 && DEDICATION.lift + DEDICATION.h <= 8, 'at eye height from the car, not over it');
+});
+
+// #607: the drape asks "how high is the hull right under (x, z)" tens of thousands of times; a vertical ray against all 42,600 saucer
+// triangles froze the load for seconds, so the triangles are bucketed in xz cells once and a column only tests its cell's few
+test('columnExtent_ReturnsTheLowestAndHighestHullUnderAPoint_OrNullBesideIt', () => {
+  // two horizontal squares (two triangles each) over x, z in [0, 10]: one at y = 2, one at y = 7; a slanted triangle elsewhere
+  const sq = (y) => [0, y, 0, 10, y, 0, 10, y, 10, 0, y, 0, 10, y, 10, 0, y, 10];
+  const tris = new Float32Array([...sq(2), ...sq(7), 20, 0, 0, 30, 10, 0, 20, 0, 10]);
+  const idx = columnIndex(tris, 4);
+  const near = (e, lo, hi) => e && Math.abs(e.lo - lo) < 1e-6 && Math.abs(e.hi - hi) < 1e-6;
+  assert.ok(near(columnExtent(idx, 5, 5), 2, 7));
+  assert.ok(near(columnExtent(idx, 9.5, 0.5), 2, 7), 'near a corner, in another cell than the centre');
+  assert.equal(columnExtent(idx, 15, 5), null, 'nothing beneath');
+  const s = columnExtent(idx, 25, 2); assert.ok(Math.abs(s.lo - 5) < 1e-6 && s.lo === s.hi, `the slope interpolates: ${JSON.stringify(s)}`);
+});
+
+test('columnIndex_EachCellHoldsOnlyTheTrianglesOverIt', () => {
+  const tris = new Float32Array([0, 0, 0, 1, 0, 0, 0, 0, 1, 100, 0, 100, 101, 0, 100, 100, 0, 101]);
+  const idx = columnIndex(tris, 4), sizes = [...idx.cells.values()].map(c => c.length);
+  assert.equal(Math.max(...sizes), 1, 'two far-apart triangles never share a cell'); assert.equal(idx.cells.size, 2);
 });

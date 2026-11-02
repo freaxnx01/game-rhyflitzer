@@ -73,3 +73,28 @@ export function starField(seed = 1701) {
   const clouds = [{ u: 0.22, v: 0.28, r: 0.17, colour: '#6a3fb0', alpha: 0.32 }, { u: 0.31, v: 0.2, r: 0.12, colour: '#2a8f9c', alpha: 0.28 }, { u: 0.7, v: 0.33, r: 0.2, colour: '#b03f8a', alpha: 0.22 }];
   return { stars, clouds, band: { v: 0.3, alpha: 0.08, width: 0.12 } };
 }
+// #607: the hull height under a point, fast -- `tris` holds the saucer's triangles in the ship frame (9 floats each); columnIndex buckets
+// them by their xz bounds in `cell`-metre squares once, columnExtent then tests only the triangles of the point's cell and returns the
+// lowest and highest hull crossing of the vertical through (x, z), or null when nothing lies beneath. Same answer as a vertical ray
+// from above (hi) or below (lo), without testing every triangle per ray.
+export function columnIndex(tris, cell = 4) {
+  const cells = new Map();
+  for (let t = 0; t < tris.length; t += 9) {
+    const xs = [tris[t], tris[t + 3], tris[t + 6]], zs = [tris[t + 2], tris[t + 5], tris[t + 8]];
+    const i0 = Math.floor(Math.min(...xs) / cell), i1 = Math.floor(Math.max(...xs) / cell), j0 = Math.floor(Math.min(...zs) / cell), j1 = Math.floor(Math.max(...zs) / cell);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = i + ',' + j; if (!cells.has(k)) cells.set(k, []); cells.get(k).push(t); }
+  }
+  return { tris, cell, cells };
+}
+export function columnExtent(idx, x, z) {
+  const list = idx.cells.get(Math.floor(x / idx.cell) + ',' + Math.floor(z / idx.cell)); if (!list) return null;
+  const T = idx.tris; let lo = Infinity, hi = -Infinity;
+  for (const t of list) {
+    const ax = T[t], ay = T[t + 1], az = T[t + 2], bx = T[t + 3], by = T[t + 4], bz = T[t + 5], cx = T[t + 6], cy = T[t + 7], cz = T[t + 8];
+    const d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz); if (Math.abs(d) < 1e-12) continue;   // edge-on seen from above
+    const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / d, v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / d, w = 1 - u - v;
+    if (u < -1e-9 || v < -1e-9 || w < -1e-9) continue;
+    const y = u * ay + v * by + w * cy; if (y < lo) lo = y; if (y > hi) hi = y;
+  }
+  return lo === Infinity ? null : { lo, hi };
+}
