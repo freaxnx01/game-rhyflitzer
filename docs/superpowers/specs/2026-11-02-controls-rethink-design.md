@@ -13,7 +13,7 @@ Success:
 
 - A first-time desktop player sees, at all times, how to drive and the four core actions, and what the context key
   does right now.
-- A phone player can drive, walk, get out/in, jump to a place and switch the camera with on-screen controls only.
+- A phone player can drive, walk, get out/in and jump to a place, and switch the camera in the car, with on-screen controls only.
 - Gas, nitro and look-back can be held at the same time on an ordinary keyboard.
 - No key does two different things in the same situation.
 
@@ -21,7 +21,8 @@ Success:
 
 1. **Simple core plus the rest.** A small visible core for newcomers; every other action keeps its key and stays
    reachable through F1 and the command search (Ctrl+P), but is not advertised on screen. No full re-mapping.
-2. **Core actions** (besides driving): **Z** get out / in, **J** jump to a place, **C** camera, **F1** all keys.
+2. **Core actions** (besides driving): **Z** get out / in, **J** jump to a place, **F1** all keys, and **C** camera in the car only.
+   The camera is not available on foot: `foot.js` keeps blocking C there (the view is first person already).
    The photo key X is not in the core; modes that need it (viewpoint hunt #508) show it themselves.
 3. **Nitro on Shift (hold)** in the car. N keeps working as a second key. On foot and in the helicopter Shift keeps
    its meaning (down); there N stays nitro.
@@ -32,6 +33,8 @@ Success:
 7. **E is the one context key** ("action here"): enter a door, leave a building, use the lift. B is only look-back.
    The turn signals move from Q · E to **Comma · Period**. In the steam loco Q · E stay the switches (no signals
    there).
+8. **Camera (C) is not available on foot** (maintainer, 2026-11-02). `foot.js` keeps blocking KeyC on foot as today.
+   The on-foot key bar has no camera entry and the phone camera button is shown only in the car. In the car nothing changes.
 
 ## Desktop
 
@@ -58,7 +61,7 @@ by `foot.js` and `heli.js`).
 - A slim bar centred at the bottom edge, above the `#game-nav` footer, visible while driving or walking (overlay
   hidden). Each entry is a key cap plus one word, localised (de/en):
   - Car: `WASD fahren · Shift Nitro · Z aussteigen · J springen · C Kamera · F1 alle Tasten`
-  - On foot: `WASD gehen · Space springen · Z einsteigen · J springen · C Kamera · F1`
+  - On foot: `WASD gehen · Space springen · Z einsteigen · J springen · F1` (no camera entry)
   - When the context key has an action, an extra highlighted entry first: `E eintreten`, `E hinaus`, `E Lift`.
 - Hidden on phones (the touch controls replace it), in the start screen and in dialogs.
 - A toggle in the pause menu, "Tastenleiste ein/aus", stored in localStorage (wrapped in try/catch, default on).
@@ -72,7 +75,7 @@ Shown instead of today's `#touch` buttons (‹ › ▲ ▼ H) on touch-first dev
   sidestep), the view turns with a one-finger drag on the world as today.
 - **Right: Gas and Brake** buttons (car). On foot the Gas button becomes **Jump**.
 - **Above them, three round buttons:** Get out/in (Z), Jump to a place (J, opens the existing jump dialog),
-  Camera (C).
+  Camera (C), the camera button only in the car (hidden on foot).
 - **Context button:** appears only when the context key has an action (enter, leave, lift), labelled with that action.
 - **☰ menu button** (top corner): a list of every other action, built from the same entries as the command search,
   each a tap target ≥ 44 px.
