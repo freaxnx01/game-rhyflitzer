@@ -637,7 +637,7 @@ import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel } from './rooms.js';
+import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel, isRoomLevel } from './rooms.js';
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
@@ -4912,17 +4912,22 @@ function testhubContext() {
     entries: JUMP_ENTRIES,
     underwater: UWS.counts ? { wreck: UWS.counts.wreck, wreckCar: UWS.counts.wreckCar } : null,
     hideout: HIDE ? { mouth: HIDEOUT.mouth, heading: HIDEOUT.heading, tower: ROOM.layouts[0].towerView } : null,
+    rings: HIDE ? RINGS.map((g, i) => ({ n: i + 1, spawn: ringSpawn(), rooms: ROOM.layouts.filter(L => L.ring === g.id).map(L => ({ id: L.id, name: g.rooms[L.k].name, view: L.towerView, spawn: L.spawn })) })) : null,   // #591
   };
 }
 function testhubGo(target) {
   if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else if (target.entry.yard) jumpToYard(target.label); else jumpTo(target.entry); return; }
   const s = target.spot;
-  if (s.room) {   // #277: a room below: build it, jump there like any jump (race flagged, toast), then step down into it
-    ringBuild(); ensureRoom(0); if (!(ROOM.states[0] && ROOM.states[0].started)) loadEiffel();
-    placeOnRoad(s.x, s.z, s.th, target.label); LIFT_RIDE.place('bottom'); LEVELS.set('eiffel'); P.safe = [s.x, s.z, s.th]; resetCar();
-    camPos.set(s.x - Math.cos(s.th) * 12, P.y + 4, s.z - Math.sin(s.th) * 12); camera.position.copy(camPos); restShadow(); return;
-  }
+  if (s.room) { jumpBelow(s.room, s, target.label); return; }   // #277 / #591: a ring or a room below
   placeOnRoad(s.x, s.z, s.th, target.label);
+}
+// #591: a debug jump to any ring or room below -- build it (rings never visited included), jump there like any jump (race flagged, toast), then step down into it
+function jumpBelow(id, s, label) {
+  const g = ringOf(id); if (!g) return;
+  ringBuild(g);   // registers the ring's and its rooms' levels, so LEVELS.set(id) finds them
+  if (isRoomLevel(id)) { const k = roomIndex(id); ensureRoom(k); if (ROOM.layouts[k].object && !modelState(k).started) loadModel(k); }   // loadModel(0) is what loadEiffel calls
+  placeOnRoad(s.x, s.z, s.th, label); LIFT_RIDE.place(g.stop); LEVELS.set(id); P.y = g.y; P.safe = [s.x, s.z, s.th]; resetCar();
+  camPos.set(s.x - Math.cos(s.th) * 12, P.y + 4, s.z - Math.sin(s.th) * 12); camera.position.copy(camPos); restShadow();
 }
 function testhubRegister(hub) {
   hub.setInfo({ game: 'rhyflitzer', version: window.GAME_VERSION || '0.0.0' });
