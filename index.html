@@ -512,7 +512,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small>
         </dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a></dd>
@@ -663,6 +663,7 @@ import { MCLAREN } from './mclaren.js';   // Rhy Papaya, a glTF car
 import { BULLDOG } from './bulldog.js';   // Rhy Bulldog, a glTF car
 import { WOBBLER } from './wobbler.js';   // Rhy Wobbler, a glTF three-wheeler that tips over
 import { MIXER } from './mixer.js';   // Rhy Mixer, a glTF concrete mixer truck with a turning drum
+import { FIZZ } from './fizz.js';   // Rhy Fizz, a glTF drinks truck with fairy lights
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan } from './gltfvehicle.js';
@@ -2491,6 +2492,7 @@ const VEHICLES = {
   bulldog: BULLDOG,   // Rhy Bulldog, a 1980s derby sedan with a push bar and its own flame livery (assets/bulldog.glb); the compact stands in until it is ready
   wobbler: WOBBLER,   // Rhy Wobbler, a 1970s three-wheeler van look-alike that tips over in fast corners, paintable (assets/wobbler.glb); the compact stands in until it is ready
   mixer: MIXER,   // Rhy Mixer, a 1970s cab-over concrete mixer look-alike, three axles, the drum turning, fixed livery (assets/mixer.glb); the compact stands in until it is ready
+  fizz: FIZZ,   // Rhy Fizz, a stylised red drinks truck (tractor and box trailer) with fairy lights, no brand, fixed livery (assets/fizz.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
