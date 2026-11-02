@@ -16,6 +16,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-02 14:37` No more **field colour** on the **Crash-Platz**: the farm fields now stop a few metres short of the yard.
 - `2026-11-01 21:52` The **Black Forest** on the horizon no longer stands there as a flat brown wall: seen from the Plattform Sisslerfeld, the Hotzenwald is a **hazy, forested ridge** whose slopes catch the evening light, its foot sinking into the same pale **valley haze** as the fields in front of it, and the farther hills dissolve into the sky. In both looks, Original and Smooth.
 - `2026-10-31 17:35` **Gras** wächst nicht mehr über den **Asphalt**, wenn eine Strasse quer über einen Geländeknick läuft — etwa auf der **Geuerenstrasse** westlich der Plattform Sisslerfeld, wo auf 40 m grüne Streifen auf der Fahrbahn lagen. Die **Fahrbahnmarkierungen** liegen jetzt auf der gezeichneten Strasse statt darunter zu versinken, und unter dem Widerlager der **Fridolinsbrücke** wird keine Mittellinie mehr in den Stein gemalt.
 - `2026-10-31 16:41` Walking up **stairs** no longer judders: the view glides over each step.
