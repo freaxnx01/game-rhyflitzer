@@ -5,18 +5,18 @@ from playwright.sync_api import sync_playwright
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
 T = 240000
-BAR = ["startbtn", "blitzbtn", "huntbtn", "carbtn"]
+BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "carbtn"]
 SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn"]
 
 
-def boot(p, server, viewport=(1280, 720), touch=False):
+def boot(p, server, viewport=(1280, 720), touch=False, query=""):
     b = p.chromium.launch(args=ARGS)
     ctx = b.new_context(viewport={"width": viewport[0], "height": viewport[1]}, has_touch=touch, locale="en-US")
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route("**/data/terrain_*.mmh", lambda r: r.fulfill(status=404, body=""))
-    page.goto(f"{server}/index.html")
+    page.goto(f"{server}/index.html{query}")
     page.wait_for_function(READY, timeout=T)
     return b, page, errors
 
@@ -26,7 +26,7 @@ def ids(page, sel):
 
 
 def test_bar_order_focus_order_and_enter_starts(server):
-    """The steel bar is 4 + 2 buttons in wireframe order, Tab walks it, Enter on the focused button starts."""
+    """The steel bar is 5 + 2 buttons in wireframe order, Tab walks it, Enter on the focused button starts."""
     with sync_playwright() as p:
         b, page, errors = boot(p, server)
         bar = ids(page, "#overlay .bar .row:not(.secondary) > button")
@@ -42,15 +42,15 @@ def test_bar_order_focus_order_and_enter_starts(server):
         b.close()
     assert bar == BAR, bar
     assert secondary == SECONDARY, secondary
-    assert first == "startbtn"
-    assert order == ["blitzbtn", "huntbtn", "carbtn", "worldbtn", "stylebtn2"], order
+    assert first == "cruisebtn"
+    assert order == ["startbtn", "blitzbtn", "huntbtn", "carbtn", "worldbtn"], order
     assert errors == []
 
 
 def test_mode_text_follows_focus_and_remembers_the_last_mode(server):
     """One slot, three modes: hover and focus swap the text, blur reverts to the focused or last played mode."""
     with sync_playwright() as p:
-        b, page, errors = boot(p, server)
+        b, page, errors = boot(p, server, query="?mode=trial")   # #551: a trial stays the default here
         trial = page.text_content("#ovtext")
         page.hover("#blitzbtn")
         blitz = page.text_content("#ovtext")
