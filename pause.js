@@ -6,6 +6,11 @@ export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pauseabout', 'paus
 // the „Abandon this run?" question's buttons, Cancel first (it gets the focus)
 export const ABANDON_BUTTONS = ['abandoncancel', 'abandonok'];
 
+// #551: cruise has no race to restart, so its menu drops "Restart race"
+export function pauseButtonsFor(mode) {
+  return mode === 'cruise' ? PAUSE_BUTTONS.filter(id => id !== 'pauserestart') : PAUSE_BUTTONS;
+}
+
 // a pause only makes sense during a run: start / result screen hidden, race armed or running
 export function canPause(overlayHidden, raceState) {
   return overlayHidden && (raceState === 'armed' || raceState === 'racing');
