@@ -73,7 +73,7 @@ def test_mode_text_follows_focus_and_remembers_the_last_mode(server):
     assert "90 seconds" in blitz, blitz
     assert back == trial
     assert "presents" in hunt, hunt
-    assert after_car == trial                    # 4 CAR has no mode text of its own, so the slot falls back to the last played mode
+    assert "No clock" in after_car                  # 4 CAR has no mode text of its own, so the slot falls back to the last played mode -- nothing stored, so cruise (#551)
     assert live == "polite"
     assert stored == "blitz"
     assert default["mode"] == "blitz" and "90 seconds" in default["text"], default
