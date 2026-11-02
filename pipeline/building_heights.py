@@ -28,6 +28,30 @@ RECT_FILL = 0.85          # footprint share of its rotated rectangle; inclusive 
 GABLE_MAX_AREA = 1000.0   # m2: the pipeline's big-building threshold; a bigger hall keeps a flat roof
 ROOF_MAJORITY = 0.5       # share of the footprint samples that must be roof for the eaves to come from roof samples only (#34)
 
+RIDGE_CAP_PER_SIDE = 1.0      # #630: a gable rises at most its short side (a 63 degree pitch); more is tree canopy
+RIDGE_DEFAULT_PER_SIDE = 0.4  # the rise the prototype draws for a gable without a measurement (world.js roofTop)
+TALL_BUILDINGS = {"church", "cathedral", "tower"}   # not chapel: the one tall chapel is canopy (#630)
+TALL_MAN_MADE = {"tower", "chimney", "silo", "water_tower"}
+
+
+def tall_ok(tags):
+    """OSM tags of a building that may legitimately rise above its width: churches, towers (#630)."""
+    return (tags.get("building") in TALL_BUILDINGS or tags.get("amenity") == "place_of_worship"
+            or tags.get("man_made") in TALL_MAN_MADE)
+
+
+def cap_ridge(b):
+    """#630: swissSURFACE3D also measures tree crowns, so a shed under bank trees came out with a 20 m gable. A gable
+    measured higher than its short side gets the default rise 0.4 * short side; the eaves stay. Flat roofs and
+    buildings without a measurement are not touched. True when b changed."""
+    if b.get("hsrc") != "dsm" or b["roof"] != "gable":
+        return False
+    short = min(b["rect"][2], b["rect"][3])
+    if b["rh"] <= RIDGE_CAP_PER_SIDE * short:
+        return False
+    b["rh"] = round(RIDGE_DEFAULT_PER_SIDE * short, 1)
+    return True
+
 
 def roof_shape(kind, rh, fill, area):
     """Roof from the measured ridge (#43). A ridge of at least RIDGE_GABLE on a footprint that fills RECT_FILL of its
