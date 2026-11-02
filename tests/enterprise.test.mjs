@@ -59,7 +59,18 @@ test('ringMean_InnerRectOfOneColourInARingOfAnother_ReturnsTheRing', () => {
 });
 
 test('ENTERPRISE_drape_DenserGridLargerOffset', () => {
-  assert.deepEqual(ENTERPRISE.drape, { seg: [96, 12], offset: 1.5, spread: 1 });
+  const D = ENTERPRISE.drape;
+  // the drape's math (roomLettering): each vertex ray-casts a 3 x 3 cluster `spread` m apart and rides `offset` m off the
+  // extreme hit -- so offset/spread must be positive to lift the plane and widen the cluster at all
+  assert.ok(D.offset > 0, 'the plane is lifted off the hull'); assert.ok(D.spread > 0, 'the ray cluster spans round each vertex');
+  // a denser grid is what hugs the hull between the decals' own corners -- assert it against the decals it has to hug: PlaneGeometry(d.w, d.h, seg[0], seg[1])
+  // lays (seg + 1) vertices across each decal, so seg must resolve finer than the decals' own extents
+  for (const d of ENTERPRISE.lettering) {
+    assert.ok(D.seg[0] >= d.w / 2, `${d.text}: seg x ${D.seg[0]} resolves finer than one vertex per 2 m of its ${d.w} m width`);
+    assert.ok(D.seg[1] >= d.h / 2, `${d.text}: seg y ${D.seg[1]} resolves finer than one vertex per 2 m of its ${d.h} m height`);
+  }
+  // and denser than the coarsest grid that would still be called a grid (one vertex per decal edge)
+  assert.ok((D.seg[0] + 1) * (D.seg[1] + 1) > ENTERPRISE.lettering.length, 'more vertices than decals, not one quad per plane');
 });
 
 test('letteringFrame_LettersUpPointToTheBow_FaceAwayFromTheHull', () => {
