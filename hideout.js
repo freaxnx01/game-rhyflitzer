@@ -33,6 +33,10 @@ export const ATOMIUM = { key: 'atomium', h: 101.3, scale: 1, anchor: [-1.5, 0.99
 // draught: the waterline's height over the keel (the real ship drew 10.5 m); the ship sinks by it into the floor so the water (rooms.js's basin, `basin` m
 // off the widest beam) laps the hull at the waterline and hides what lies below.
 export const TITANIC = { key: 'titanic', h: 72.9, scale: 0.0251728, anchor: [1580.26, 0, 346.9], alongV: true, flat: true, length: 269, hull: [[-123.3, 11.2, 11.8], [-100.9, 11.2, 13.0], [-78.5, 11.2, 14.3], [-56.0, 11.2, 14.7], [-33.6, 11.2, 14.8], [-11.2, 11.2, 14.8], [11.2, 11.2, 14.8], [33.6, 11.2, 14.8], [56.0, 11.2, 14.8], [78.5, 11.2, 15.3], [100.9, 11.2, 12.5], [123.3, 11.2, 9.6]], hullH: 75, draught: 10.5, basin: 45, url: './assets/models/titanic.glb', loadWithin: 400 };
+// #421: the Vasa (1628, Vasa Museum Stockholm), procedural (scripts/vasa/build.mjs): in metres, keel underside at the origin, +x to the bow; the
+// museum cradle's feet at y = -2 stand on the floor. It stands dry (no basin): the hull boxes cover the keel and the cradle's side props
+// (five feet a side, out to 9.8 m), the overhanging stern and bowsprit stay open below. h: main truck plus the 2 m cradle.
+export const VASA = { key: 'vasa', h: 54.5, scale: 1, anchor: [0, -2, 0], alongV: true, dry: true, length: 69, hull: [[-20.3, 2.7, 1.5], [-12.5, 5.1, 9.4], [2.6, 10, 10.4], [17.3, 4.7, 3.0]], hullH: 55, url: './assets/models/vasa.glb', loadWithin: 400 };
 // #201: the extent of [x, z] points -- a loop, not Math.min(...spread): the real model's leg has far more vertices than V8's argument limit
 export function pointBounds(points) {
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;

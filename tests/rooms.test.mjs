@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel, NEXT_ROOMS, shipRing, shipBasin, rimColliders, WATER_LIFT, QUAY, RIM } from '../rooms.js';
-import { EIFFEL, ATOMIUM, TITANIC, LIFT } from '../hideout.js';
+import { EIFFEL, ATOMIUM, TITANIC, VASA, LIFT } from '../hideout.js';
 import { SPOKE, spokeFrame, spokeSigns } from '../underground.js';
 
 const CAR_R = 2.6, rooms = ROOMS.map((_, k) => roomLayout(k)), room = rooms[0];
@@ -16,14 +16,15 @@ const reach = (R, step = 4) => {   // flood fill in the room's frame from the sp
   return { seen, step };
 };
 
-test('ROOMS_EightRooms_EiffelAtomiumArtemisFerrisAndTitanicHaveAnObject', () => {
+test('ROOMS_EightRooms_EiffelAtomiumArtemisVasaFerrisAndTitanicHaveAnObject', () => {
   assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'atomium', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
   assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel');
   assert.equal(ROOMS[1].object, ATOMIUM); assert.equal(ROOMS[1].name, 'Atomium');
   assert.equal(ROOMS[2].object, ARTEMIS); assert.equal(ROOMS[2].name, 'Artemis II'); assert.equal(ROOMS[2].signed, false);
+  assert.equal(ROOMS[3].object, VASA); assert.equal(ROOMS[3].name, 'Vasa'); assert.equal(ROOMS[3].signed, false);
   assert.equal(ROOMS[6].object, FERRIS); assert.equal(ROOMS[6].name, 'Ferris wheel'); assert.equal(ROOMS[6].signed, false);
   assert.equal(ROOMS[7].object, TITANIC); assert.equal(ROOMS[7].name, 'Titanic'); assert.equal(ROOMS[7].signed, false);
-  for (const r of ROOMS.slice(3, 6)) { assert.equal(r.object, null); assert.equal(r.name, null); }
+  for (const r of ROOMS.slice(4, 6)) { assert.equal(r.object, null); assert.equal(r.name, null); }
   assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
 });
 
@@ -125,6 +126,31 @@ test('roomLayout_BetweenTheAtomiumsLegsIsDrivable_AndReachableFromThePortal', ()
 test('roomLayout_TheAtomiumsTowerViewLooksAtItFromTheLawn', () => {
   const v = atomium.towerView, d = Math.hypot(atomium.tower.x - v.x, atomium.tower.z - v.z); assert.ok(d > 120 && d < 180, `${d}`);
   assert.ok(Math.abs(Math.atan2(atomium.tower.z - v.z, atomium.tower.x - v.x) - v.th) < 0.02); assert.ok(!blocked(atomium, v.x, v.z));
+});
+
+// #421: the Vasa stands dry on its museum cradle -- no water basin; the hull and the cradle's side props are solid, the stern and the
+// bowsprit overhang above them, and the gravel loop runs round the ship
+const vasa = rooms[3];
+test('roomLayout_TheVasaIsCentredAndLifeSize_AlongTheCrossAxis_OnItsCradleWithoutWater', () => {
+  assert.deepEqual([vasa.tower.x, vasa.tower.z], vasa.centre); assert.equal(vasa.basin, null, 'a museum ship stands dry'); assert.deepEqual(vasa.feet, []);
+  assert.equal(VASA.length, 69, 'sparred length of the real ship'); assert.ok(VASA.h > 52.5 && VASA.h < 56, 'main truck 52.5 m above the keel, the keel 2 m above the floor');
+  assert.deepEqual(VASA.anchor, [0, -2, 0], 'the cradle feet (floorY = -2) stand on the floor'); assert.equal(VASA.scale, 1);
+  assert.equal(vasa.hull.length, VASA.hull.length);
+  for (const [i, [along, , hw]] of VASA.hull.entries()) {
+    const [x, z] = toWorld(vasa, 0, along), c = vasa.hull[i];
+    assert.ok(Math.abs(c.x - x) < 1e-6 && Math.abs(c.z - z) < 1e-6); assert.equal(c.h, ROOM_Y + VASA.hullH);
+    assert.ok(blocked(vasa, x, z, 0)); assert.ok(blocked(vasa, ...toWorld(vasa, hw - 0.5, along), 0), 'solid out to the cradle props');
+  }
+  for (const [x, b] of [[-16, 6.5], [-9, 8.7], [-2, 9.7], [5, 9.8], [12, 9.2]]) for (const side of [-1, 1]) assert.ok(blocked(vasa, ...toWorld(vasa, side * b, x), 0), `the cradle prop foot at ${x} is solid`);   // scripts/vasa/build.mjs cradle(): five feet a side
+  assert.ok(!blocked(vasa, ...toWorld(vasa, 14, 0)), 'open beside the cradle');
+  assert.ok(!blocked(vasa, ...toWorld(vasa, 0, -30)) && !blocked(vasa, ...toWorld(vasa, 0, 30)), 'the car drives under the stern gallery and the bowsprit');
+});
+
+test('roomLayout_TheVasaIsReachableAllRound_AndTheGravelLoopStaysOffIt', () => {
+  const [toShip, loop] = vasa.paths;
+  for (const [x, z] of [...toShip.pts, ...loop.pts]) assert.ok(!blocked(vasa, x, z), `the gravel runs into the ship at ${x},${z}`);
+  const r = reach(vasa), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
+  assert.ok(!cell(0, 0) && cell(-16, 0) && cell(16, 0) && cell(0, 36) && cell(0, -36), 'both sides and both ends are reachable'); assert.ok(r.seen.size > 4000);
 });
 
 const titanic = rooms[7];

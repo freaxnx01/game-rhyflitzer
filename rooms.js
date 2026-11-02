@@ -1,9 +1,9 @@
 // #277 / #361: the room template -- pure layout (no three.js, no DOM): a 500 x 500 m lawn at ROOM_Y under the Hübel, facing
 // along its own spoke, the object (if any) in its centre, a closed ring of trees at the edge with a gap only at the
 // portal, gravel paths, a ship's water basin, and the tunnel stub leading back to the portal. Eight rooms share this template (ROOMS); only the
-// Eiffel, Atomium (room 1), Artemis II (room 2), Ferris wheel (room 6) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
+// Eiffel, Atomium (room 1), Artemis II (room 2), Vasa (room 3), Ferris wheel (room 6) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test tests/rooms.test.mjs`.
-import { EIFFEL, ATOMIUM, TITANIC } from './hideout.js';
+import { EIFFEL, ATOMIUM, TITANIC, VASA } from './hideout.js';
 import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
 import { ENTERPRISE, DEDICATION, dedicationPlacement } from './enterprise.js';   // #491
 import { FERRIS, ferrisPlacement } from './ferris.js';      // #513
@@ -22,7 +22,7 @@ export const ROOMS = [
   { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL, signed: false },   // signed: false -- unsigned for now, so finding them stays a surprise
   { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false, figure: FRIES },   // #451: the fries figure stands beside the Atomium
   { id: 'room2', name: 'Artemis II', object: ARTEMIS, signed: false },   // #488: the SLS stack and the Orion capsule
-  { id: 'room3', name: null, object: null },
+  { id: 'room3', name: 'Vasa', object: VASA, signed: false },   // #421: the warship on its museum cradle
   { id: 'room4', name: null, object: null },
   { id: 'room5', name: null, object: null },
   { id: 'room6', name: 'Ferris wheel', object: FERRIS, signed: false, look: 'dusk' },   // #513: the wheel and its 48 gondolas; #588: at dusk
@@ -30,7 +30,7 @@ export const ROOMS = [
 ];
 // #422: the free rooms in the order new objects take them -- from the lift outwards, left and right in turn. The lift's exit meets
 // the ring between spoke 7 (front left) and spoke 0 (front right, the Eiffel); 1 (the Atomium) follows on the right, so the Titanic
-// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic), 2 (Artemis II) and 6 (Ferris wheel) are taken; 3 is next.
+// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic), 2 (Artemis II), 6 (Ferris wheel) and 3 (Vasa) are taken; 5 is next.
 export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
 // #489 / #491: ring 2's eight rooms -- the Enterprise took the first; the rest are empty for now. `look`: 'meadow' (the ring-1 template)
 // or 'space' (#491: a holodeck grid under a star dome, no trees, paths or clouds)
@@ -109,8 +109,8 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
     ? room.object.hull.map(([along, hl, hwAcross]) => ({ ...box(0, along, hwAcross, hl), h: Y + room.object.hullH }))
     : [];
   colliders.push(...hull);
-  // #422: the ship floats in a basin of water, kerbed; the gravel lane runs round it as the quay
-  const basin = (room.object && room.object.hull) ? shipBasin(room.object, Y) : null;
+  // #422: the ship floats in a basin of water, kerbed; the gravel lane runs round it as the quay (#421: a `dry` ship stands on the lawn)
+  const basin = (room.object && room.object.hull && !room.object.dry) ? shipBasin(room.object, Y) : null;
   if (basin) { basin.pts = stadium(basin, loc); basin.rim = rimColliders(basin.pts, Y); colliders.push(...basin.rim); }
   // #451: a figure beside the object (the fries figure in the Atomium room), on its plinth collider
   const figure = room.figure ? friesPlacement({ centre, frame: { f, v }, portal: { c: P }, y: Y }, room.figure) : null;
