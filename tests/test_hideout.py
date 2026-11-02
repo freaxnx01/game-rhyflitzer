@@ -1079,6 +1079,37 @@ def test_atomium_room_builds_loads_its_model_on_entering_and_has_solid_feet(serv
 
 
 @needs_world
+def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_cradle(server, tmp_path):
+    """#421: entering spoke 3 builds the Vasa room and fetches vasa.glb then (not before); the ship stands dry along the room's cross axis,
+    its cradle feet on the floor (keel 2 m above it), no water basin; hull and cradle props are solid, beside them and under the overhanging
+    stern and bowsprit the car drives freely. Leaves a screenshot of the ship in tmp_path."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith("vasa.glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        assert page.evaluate("() => window.__mm.vasa()") is None and requests == []
+        into_room(page, 3, "room3")
+        page.wait_for_function("() => window.__mm.vasa() && window.__mm.vasa().loaded === true", timeout=180000)
+        t = page.evaluate("() => window.__mm.vasa()")
+        info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
+          return { mid: p(0, 0), prop: p(9.7, -2), side: p(15, 0), stern: p(0, -32), bowsprit: p(0, 32) }; }""")
+        view = page.evaluate("() => { const r = window.__mm.hideout().room, v = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th; return { x: v.x - Math.cos(th) * 110, z: v.z - Math.sin(th) * 110, th, y: r.y }; }")
+        page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "vasa.png"))
+        br.close()
+    print("screenshot:", tmp_path / "vasa.png")
+    assert errors == []
+    assert len(requests) == 1 and requests[0].endswith("/assets/models/vasa.glb"), requests
+    assert t["placeholder"] is False and 30000 <= t["tris"] <= 150000 and abs(t["height"] - 54.5) < 0.1 and t["length"] == 69, t
+    assert info["below"]["built"] == 3 and info["below"]["object"] is True and info["counts"].get("vasa", 0) >= 1 and "eiffel" not in info["counts"], info
+    assert t["basin"] is None and abs(t["keel"] - (view["y"] + 2)) < 0.01, (t, view)
+    assert math.hypot(push["mid"]["dx"], push["mid"]["dz"]) > 0.5 and math.hypot(push["prop"]["dx"], push["prop"]["dz"]) > 0.3, push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("side", "stern", "bowsprit")), push
+
+
 def test_titanic_room_builds_loads_its_model_on_entering_and_has_a_solid_hull(server, tmp_path):
     """#422: entering spoke 7 builds the Titanic room and fetches titanic.glb then (not before); the ship lies 269 m long along the room's cross
     axis, 73 m tall, sunk by its 10.5 m draught into a kerbed water basin, and the hull is solid amidships while the water beside it is open
