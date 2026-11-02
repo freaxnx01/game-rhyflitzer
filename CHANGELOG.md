@@ -29,6 +29,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-02 15:01` New vehicle **Rhy Harvester**, a **combine harvester** with a header almost ten metres wide and a **reel that keeps turning**; meadow green from the factory and paintable. 40 km/h at best, but it turns tightly. 3D model „Harvester Near Completion" by webbsketches (Sketchfab), CC BY 4.0.
 - `2026-11-02 14:13` New truck **Rhy Fizz**, a big red long-nose **drinks truck** with a box trailer, white trim and **fairy lights** all round that light up with <kbd>L</kbd>. 105 km/h, eight gears, eleven metres long. No brand on it. 3D model „XYZ School - NY marathon - Coca-Cola truck" by leslava (Sketchfab), CC BY 4.0.
 - `2026-11-02 14:08` The **Vasa**, the Swedish warship of 1628, now stands in **star room 3**, life size (69 m with the bowsprit, 52 m to the top of the main mast), dry on its **museum cradle** as in Stockholm: two gun decks with **64 open gunports**, the high carved stern, three masts with their rigging. Drive all the way round it and under the overhanging stern and bowsprit; the hull and the cradle's props are solid.
 - `2026-11-02 11:46` New truck **Rhy Mixer**, a seventies cab-over **concrete mixer** in orange and cream on a red chassis, with three axles and a **drum that keeps turning**. 80 km/h flat out and slow off the line, but it shrugs off almost any knock. 3D model „Magirus D serie mixer truck" by Randonavt (Sketchfab), CC BY 4.0.
