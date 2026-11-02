@@ -43,8 +43,10 @@ test('ENTERPRISE_lettering_FourDecalsOnTheSaucer_TopAndUnderside', () => {
 });
 
 test('ENTERPRISE_bakedLettering_CoversTheRedRegistryColumn', () => {
+  const column = { x: [825, 838], y: [236, 352] }, margin = 3;   // the measured registry in the shipped texture (2026-11-01), independent of the rect under test
   const [r] = ENTERPRISE.bakedLettering; assert.equal(ENTERPRISE.bakedLettering.length, 1); assert.equal(r.size, 1024);
-  assert.ok(r.x0 <= 822 && r.x1 >= 841 && r.y0 <= 233 && r.y1 >= 355, 'x 825-838, y 236-352 with a 3 px margin');
+  assert.ok(r.x0 <= column.x[0] - margin && r.x1 >= column.x[1] + margin, `x ${r.x0}-${r.x1} must cover 825-838 with a ${margin} px margin`);
+  assert.ok(r.y0 <= column.y[0] - margin && r.y1 >= column.y[1] + margin, `y ${r.y0}-${r.y1} must cover 236-352 with a ${margin} px margin`);
   assert.ok(r.x1 - r.x0 < 40 && r.y1 - r.y0 < 140, 'no wider than the lettering');
 });
 
