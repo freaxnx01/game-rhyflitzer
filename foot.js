@@ -84,12 +84,12 @@ export function carReach(x, z, b) {
   return Math.hypot(Math.max(0, Math.abs(lx) - b.hw), Math.max(0, Math.abs(lz) - b.hd));
 }
 
-// keydown on foot: F toggles hover (blocked indoors, #412), E enters a building (#409); the car's own controls are swallowed; everything else is handled as usual
-const FOOT_BLOCKED = new Set(['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyL', 'Digit1', 'Digit2', 'KeyV']);
+// keydown on foot: F toggles hover (blocked indoors, #412), E is the context key (#535: enters a glowing door outside, leaves inside);
+// the car's own controls are swallowed (incl. its signal keys); everything else is handled as usual
+const FOOT_BLOCKED = new Set(['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'Comma', 'Period', 'KeyL', 'Digit1', 'Digit2', 'KeyV']);
 export function footKeyAction(code, indoors = false) {
   if (code === 'KeyF') return indoors ? 'block' : 'hover';
-  if (code === 'KeyE') return 'enter';
-  if (code === 'KeyB') return indoors ? 'leave' : 'pass';   // #474
+  if (code === 'KeyE') return indoors ? 'leave' : 'enter';   // #535: E is the context key (B is only look-back)
   return FOOT_BLOCKED.has(code) ? 'block' : 'pass';
 }
 

@@ -156,6 +156,14 @@ test('trainKeyAction_SwitchWhistleResetCamera_CarKeysBlocked', () => {
   for (const k of ['KeyW', 'KeyS', 'KeyM', 'KeyJ', 'KeyT', 'Tab', 'F1', 'Escape']) assert.equal(trainKeyAction(k), 'pass', k);
 });
 
+// #535: the car's new signal keys do nothing in the loco; Q · E stay the switches
+test('trainKeyAction_SignalKeys_Blocked_QEStaySwitches', () => {
+  assert.equal(trainKeyAction('Comma'), 'block');
+  assert.equal(trainKeyAction('Period'), 'block');
+  assert.equal(trainKeyAction('KeyQ'), 'left');
+  assert.equal(trainKeyAction('KeyE'), 'right');
+});
+
 test('onTurntable_AtRestNearHome_TrueMovingOrFar_False', () => {
   const g = yGraph(), home = { edge: 0, s: 50, dir: 1, v: 0, choice: 0, atEnd: false };
   assert.equal(onTurntable(g, { ...home, s: 52 }, home), true);
