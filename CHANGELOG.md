@@ -19,6 +19,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-03 15:00` The start screen no longer calls the game a **prototype**: under **Rhyflitzer** it now says **Map Madness · v0.2**, with the version always matching the current release. „Early prototype“ is gone from the About text too.
 - `2026-11-02 14:55` When the **Rhy Wobbler** tips over, it now ends up lying **across the road** and **slides on** a good bit further, with a **tyre screech** as it goes over and a **scrape** on the asphalt while it slides.
 - `2026-11-02 14:10` **About → How it is built** no longer dates the Claude Opus implementation („until 10 Oct 2026“); it is listed simply as **Implementation**.
 - `2026-11-01 15:14` **About → People**: **Kicsi** now comes first, as the **main tester and source of ideas**. Her name was misspelled „Kiscsi“ before.

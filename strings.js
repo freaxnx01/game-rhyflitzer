@@ -7,7 +7,6 @@ const small = (s) => `<span style="font-size:17px">${s}</span>`;
 
 const en = {
   // ---- start / result screen ----
-  sub: 'Map Madness · Prototype v0.2',
   region: 'Region',
   regionMissing: (n) => `No data for ${n} yet — showing Hochrhein`,
   introEhrendingen: 'Oberdorf → Höhtal → Lägernbreite → St. Anna → Tiefenwaag. Five checkpoints in any order, then the finish Im Böndlern. The Wanderweg is for hikers. Nobody told the timer.',
@@ -283,7 +282,7 @@ const en = {
   aboutRoleKicsi: 'Main tester and source of ideas: racing over the Holzbrücke, the Robidogs, flying poo piles and many other ideas …',
   aboutTabPeople: 'People',
   aboutGameTitle: 'The game',
-  aboutGame: 'Open-world arcade racer on real geodata: checkpoint race through Sisseln, Stein and Bad Säckingen on the Hochrhein — the pedestrian-only wooden bridge is fair game. Early prototype.',
+  aboutGame: 'Open-world arcade racer on real geodata: checkpoint race through Sisseln, Stein and Bad Säckingen on the Hochrhein — the pedestrian-only wooden bridge is fair game.',
   aboutPrivacy: 'Anonymous statistics: the game counts with Umami (self-hosted on a server in Germany) which car and mode are chosen, how you get around (car, on foot, helicopter, steam loco, hideout), where you jump to, and the rounded length of a race. No cookies, no personal data, no exact positions. Browsers with "Do Not Track" are not counted. If the script is blocked, nothing changes.',
   aboutPrivacyLink: 'Privacy',
   aboutInspired: 'Inspired by Midtown Madness',
@@ -484,7 +483,6 @@ const en = {
 };
 
 const de = {
-  sub: 'Map Madness · Prototyp v0.2',
   region: 'Region',
   regionMissing: (n) => `Für ${n} gibt es noch keine Daten — Du siehst den Hochrhein`,
   introEhrendingen: 'Oberdorf → Höhtal → Lägernbreite → St. Anna → Tiefenwaag. Fünf Checkpoints in beliebiger Reihenfolge, dann das Ziel Im Böndlern. Der Wanderweg ist für Wanderer. Das hat der Stoppuhr niemand gesagt.',
@@ -756,7 +754,7 @@ const de = {
   aboutRoleKicsi: 'Haupttesterin und Ideengeberin: Holzbrücke, Robidogs, fliegende Häufchen und viele andere Ideen mehr …',
   aboutTabPeople: 'Leute',
   aboutGameTitle: 'Das Spiel',
-  aboutGame: 'Open-World-Arcade-Racer auf echten Geodaten: Checkpoint-Rennen durch Sisseln, Stein und Bad Säckingen am Hochrhein, und die Holzbrücke für Fussgänger ist freigegeben. Früher Prototyp.',
+  aboutGame: 'Open-World-Arcade-Racer auf echten Geodaten: Checkpoint-Rennen durch Sisseln, Stein und Bad Säckingen am Hochrhein, und die Holzbrücke für Fussgänger ist freigegeben.',
   aboutPrivacy: 'Anonyme Statistik: Das Spiel zählt mit Umami (selbst gehostet auf einem Server in Deutschland), welches Auto und welcher Modus gewählt werden, wie man sich fortbewegt (Auto, zu Fuss, Helikopter, Dampflok, Hideout), wohin gesprungen wird und die gerundete Dauer eines Rennens. Keine Cookies, keine persönlichen Daten, keine genauen Positionen. Browser mit „Do Not Track“ werden nicht gezählt. Ist das Skript blockiert, ändert sich nichts.',
   aboutPrivacyLink: 'Datenschutz',
   aboutInspired: 'Inspiriert von Midtown Madness',

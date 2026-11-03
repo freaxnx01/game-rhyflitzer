@@ -2,6 +2,7 @@
 fallback, live re-render without a reload, the toggle's blur fix (Enter honks), and the fishes toast following the game
 language. Hand-traced layout (world + terrain blocked): no data files needed, deterministic and fast.
 Slow (Playwright): run in the foreground."""
+import re
 import pytest
 from playwright.sync_api import sync_playwright
 
@@ -83,7 +84,7 @@ def test_stored_language_wins_over_the_browser(server):
     assert shown["map"] == "Karte · Hochrhein ·"
     assert shown["loadTerrain"] == "Gelände laden (.mmh)"
     assert shown["useMadeUp"] == "Erfundenes Gelände verwenden"
-    assert shown["sub"] == "Map Madness · Prototyp v0.2"
+    assert re.fullmatch(r"Map Madness · v\d+\.\d+", shown["sub"]), shown["sub"]   # version from version.js, no "Prototyp"
     assert shown["h1"] == "Rhyflitzer"
     assert shown["docTitle"] == "Rhyflitzer – Map Madness"
     assert shown["cps"] == "0 / 5 Checkpoints"
