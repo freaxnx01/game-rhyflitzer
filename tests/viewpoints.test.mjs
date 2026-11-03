@@ -1,7 +1,7 @@
 // #508: the viewpoint hunt's pure rules
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VIEW, VIEWPOINT_DEFS, viewpointsFor, resolveViewpoints, standsAt, standingAt, aimError, shotPoints, maxPoints } from '../viewpoints.js';
+import { VIEW, VIEWPOINT_DEFS, viewpointsFor, resolveViewpoints, standsAt, standingAt, aimError, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize } from '../viewpoints.js';
 
 const RAD = Math.PI / 180;
 const vp = { id: 'a', n: 'A', subjectN: 'S', x: 0, z: 0, r: 10, minY: -Infinity, sx: 100, sz: 0 };
@@ -64,4 +64,39 @@ test('shotPoints: 150 dead on, less when off, 0 past the aim limit or away from 
 
 test('maxPoints: 150 per viewpoint', () => {
   assert.equal(maxPoints([vp, vp, vp, vp]), 600);
+});
+
+const IDS = ['rheinblick', 'plattform'];
+const JPEG = 'data:image/jpeg;base64,/9j/4AAQSkZJRg==';
+
+test('parseAlbum: keeps valid entries of known viewpoints, drops everything else', () => {
+  assert.deepEqual(parseAlbum(null, IDS), {});
+  assert.deepEqual(parseAlbum('{broken', IDS), {});
+  assert.deepEqual(parseAlbum('[1,2]', IDS), {});
+  const raw = JSON.stringify({
+    rheinblick: { img: JPEG, pts: 140, at: 1 },
+    plattform: { img: 'data:image/png;base64,AAAA', pts: 120, at: 2 },
+    stranger: { img: JPEG, pts: 150, at: 3 },
+  });
+  assert.deepEqual(parseAlbum(raw, IDS), { rheinblick: { img: JPEG, pts: 140, at: 1 } });
+});
+
+test('parseAlbum: rejects script URLs, markup, oversize images and non-numbers', () => {
+  const bad = (e) => parseAlbum(JSON.stringify({ rheinblick: e }), IDS);
+  assert.deepEqual(bad({ img: 'javascript:alert(1)', pts: 1, at: 1 }), {});
+  assert.deepEqual(bad({ img: JPEG + '"><img src=x>', pts: 1, at: 1 }), {});
+  assert.deepEqual(bad({ img: JPEG.slice(0, 23) + 'A'.repeat(ALBUM.maxLen), pts: 1, at: 1 }), {});
+  assert.deepEqual(bad({ img: JPEG, pts: '1', at: 1 }), {});
+});
+
+test('albumWith: a better or equal photo replaces, a worse one does not', () => {
+  const a = { rheinblick: { img: JPEG, pts: 130, at: 1 } };
+  assert.equal(albumWith(a, 'rheinblick', { img: JPEG, pts: 120, at: 2 }), a);
+  assert.equal(albumWith(a, 'rheinblick', { img: JPEG, pts: 130, at: 2 }).rheinblick.at, 2);
+  assert.equal(albumWith(a, 'plattform', { img: JPEG, pts: 101, at: 3 }).plattform.pts, 101);
+});
+
+test('thumbSize: 320 px wide at most, aspect kept', () => {
+  assert.deepEqual(thumbSize(1280, 720), { w: 320, h: 180 });
+  assert.deepEqual(thumbSize(200, 100), { w: 200, h: 100 });
 });

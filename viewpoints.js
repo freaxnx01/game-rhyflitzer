@@ -55,3 +55,29 @@ export function shotPoints(vp, pose) {
 }
 
 export const maxPoints = (spots) => spots.length * (VIEW.base + VIEW.bonus);
+
+// the album (phase 2): per viewpoint the best photo as a small JPEG in localStorage. Read back as untrusted data.
+export const ALBUM = { key: 'mm.viewAlbum', width: 320, quality: 0.8, maxLen: 60000 };
+const JPEG_DATA_URL = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/;
+
+const validEntry = (e) => !!e && typeof e.img === 'string' && e.img.length <= ALBUM.maxLen && JPEG_DATA_URL.test(e.img)
+  && typeof e.pts === 'number' && Number.isFinite(e.pts) && typeof e.at === 'number' && Number.isFinite(e.at);
+
+export function parseAlbum(raw, ids) {
+  let o;
+  try { o = JSON.parse(raw); } catch (e) { return {}; }
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return {};
+  const out = {};
+  for (const id of ids) if (validEntry(o[id])) out[id] = { img: o[id].img, pts: o[id].pts, at: o[id].at };
+  return out;
+}
+
+export function albumWith(album, id, entry) {
+  const old = album[id];
+  return old && old.pts > entry.pts ? album : { ...album, [id]: entry };
+}
+
+export function thumbSize(w, h, maxW = ALBUM.width) {
+  const s = Math.min(1, maxW / w);
+  return { w: Math.round(w * s), h: Math.round(h * s) };
+}
