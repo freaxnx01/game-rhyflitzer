@@ -4327,7 +4327,6 @@ window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counte
 window.__mm.camStep = (dt, from) => { if (from) camPos.set(...from); stepCamera(dt); return window.__mm.cam(); };   // #102: one camera step from a given position (the loop's frames are too slow to catch an easing camera)
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z], near: camera.near }; };   // back/look: #65
 window.__mm.drive = () => ({ gas: P.gas, nitro: P.nitro, back: CAM.back });   // #535
-window.__mm.keysDown = () => ({ ...keys });   // #535
 // speed lost on a hit scales with the impact: a hard hit halves it, scraping along a wall or bridge rail barely slows; a heavier vehicle (VEH.mass) loses less and takes less damage
 // bridge rails only block a car at deck level (hand path: deck at 0; OSM walls carry y0 = lowest deck end - 1.5)
 // #277: under the hill only the cave's own walls (secret) count -- a forest edge wall over the lobby used to stop the car on the lift platform
