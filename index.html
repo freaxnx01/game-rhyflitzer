@@ -235,7 +235,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #touch button{position:absolute;pointer-events:auto;width:84px;height:84px;border-radius:50%;background:rgba(20,23,29,.6);border:4px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:30px;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none}
 #tL{left:20px;bottom:calc(230px + env(safe-area-inset-bottom,0px))}#tR{left:120px;bottom:calc(230px + env(safe-area-inset-bottom,0px))}
 #tG{right:20px;bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:120px;bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tH{right:20px;bottom:calc(300px + env(safe-area-inset-bottom,0px))}
-#keybar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(104px + env(safe-area-inset-bottom,0px));max-width:min(370px,calc(100vw - 32px));display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;padding:5px 12px;box-sizing:border-box;background:rgba(20,23,29,.72);color:var(--cream);font-size:15px;font-weight:700;letter-spacing:1px;pointer-events:none;user-select:none;z-index:4}
+#keybar{max-width:min(560px,calc(100vw - 32px));margin-bottom:6px;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;padding:5px 12px;box-sizing:border-box;background:rgba(20,23,29,.72);color:var(--cream);font-size:15px;font-weight:700;letter-spacing:1px;pointer-events:none;user-select:none}   /* #535: first row of #tc (top centre), so it moves down with the mirror and never meets the speedometer or the minimap */
 #keybar[hidden]{display:none}
 #keybar kbd{font:inherit;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px}
 #keybar .ctx{color:var(--ink);background:var(--sun);padding:0 6px}#keybar .ctx kbd{color:var(--ink);border-color:var(--ink)}
@@ -313,6 +313,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div id="pips"><div></div><div></div><div></div><div></div><div></div></div>
   </div>
   <div id="tc">
+    <div id="keybar" aria-hidden="true"></div>
     <svg id="arrow" viewBox="0 0 160 120" aria-hidden="true"><polygon points="80,4 156,84 118,84 118,116 42,116 42,84 4,84" fill="#ffc61a" stroke="#1c1f26" stroke-width="6" stroke-linejoin="round"/><polygon points="80,26 130,80 104,80 104,102 56,102 56,80 30,80" fill="#ff9a1a"/></svg>
     <div id="dist">— m</div>
     <div id="cpname" data-i18n="ready">Ready</div>
@@ -400,7 +401,6 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><span id="mapfloor" hidden></span><b>N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
   </div>
-  <div id="keybar" aria-hidden="true"></div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
   <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
