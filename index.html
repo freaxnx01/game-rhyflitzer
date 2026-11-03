@@ -52,12 +52,13 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 @media (pointer:coarse){#debug{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px))}}
 #debugtext>div::before{content:attr(data-label);display:inline-block;min-width:11ch;color:#7f9a6a}
 #debuglinks{display:flex;gap:6px;margin-top:4px;white-space:normal}#debuglinks[hidden]{display:none}#debuglinks button{font:inherit;color:#8fd8e8;background:none;border:1px solid #3a404b;padding:1px 6px;cursor:pointer}
+#debugjump{display:flex;gap:6px;align-items:center;margin-top:6px;white-space:normal}#debugjump[hidden]{display:none}#debugjump select,#debugjump button{font:inherit;color:#8fd8e8;background:#14171d;border:1px solid #3a404b;padding:1px 6px}#debugjump select{min-width:0;flex:1}#debugjump button{cursor:pointer}
 #knockreset{display:block;margin-top:6px;padding:4px 10px;font:inherit;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 /* #439: a real phone lays out at its device width (#354), so the panel stops at the viewport edge and its lines wrap, keeping the ? on screen */
 #debug{padding-right:36px;box-sizing:border-box;max-width:calc(100vw - 32px)}#debugtext>div{white-space:pre-wrap}#debughelp{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font:inherit;line-height:18px;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 /* the open legend must not push the panel (and its ? button) off screen: the panel is a column capped at the room its anchor leaves (below),
    and the legend is the one part that gives, so it scrolls instead of the panel growing past the screen edge (#415, #439) */
-#debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#knockreset{flex:none}
+#debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#debugjump,#knockreset{flex:none}
 @media (max-width:900px){#debug{max-height:calc(100vh - 166px - env(safe-area-inset-bottom,0px))}}
 @media (pointer:coarse){#debug{padding-right:48px;max-height:calc(100vh - 124px - env(safe-area-inset-top,0px))}#debughelp{width:36px;height:36px;line-height:32px}}
 /* a phone's steering buttons sit in the strip below the panel's anchor (y 460-614 of 844), so the open legend would cover them anyway: they step aside while it is read, like during the car choice (#439) */
@@ -384,7 +385,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
-  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
+  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
 </div>
 
 <div id="touch">
@@ -4837,6 +4838,13 @@ function toggleDebugLegend(e) { e.stopPropagation(); const lg = $('debuglegend')
 $('debughelp').addEventListener('click', toggleDebugLegend);
 // #415: stand every knocked-over prop up again (no copy of the panel, no focus left for Enter = horn)
 $('knockreset').addEventListener('click', e => { e.stopPropagation(); resetProps(); e.currentTarget.blur(); });
+// #591: jump to any ring or room below from the debug panel -- the same targets as the Testhub
+const DEBUG_JUMPS = HIDE ? buildTargets(testhubContext()).filter(t => t.kind === 'spot' && t.spot.room && t.id !== 'hideout.tower') : [];
+$('debugjump').hidden = !DEBUG_JUMPS.length;
+$('debugjumpsel').replaceChildren(...DEBUG_JUMPS.map((t, i) => Object.assign(document.createElement('option'), { value: String(i), textContent: t.label.replace(/^Hideout: /, '') })));
+$('debugjump').addEventListener('click', e => e.stopPropagation());   // a click in the row does not copy the panel
+$('debugjumpsel').addEventListener('keydown', e => e.stopPropagation());   // the arrow keys choose a room, they do not steer
+$('debugjumpgo').addEventListener('click', e => { const t = DEBUG_JUMPS[+$('debugjumpsel').value]; if (t) testhubGo(t); $('debugjumpsel').blur(); e.currentTarget.blur(); });
 $('debuglegend').addEventListener('click', e => e.stopPropagation());
 // building heights (data h, +rh, hsrc) over the buildings within 60 m: own grid, sprite pool and LRU, built like the house numbers (LABELS)
 const DEBUG_H = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [] };

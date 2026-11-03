@@ -164,6 +164,26 @@ HEADING = 95 * math.pi / 180      # the tunnel axis, as in test_hideout.py
 
 
 @needs_world
+def test_ring_and_room_targets_reach_both_rings_unvisited(server):
+    """#591: every ring and every room of both rings, by id; ring 2 is reached without ever having driven there."""
+    with sync_playwright() as p:
+        b, page, errors, _ = new_page(p, server, "?dev=1", block_world=False)
+        start(page)
+        page.wait_for_function("() => window.ggTesthub && window.ggTesthub.regs['hideout.r2.r2room0']", timeout=30000)
+        ids = reg_ids(page)
+        go(page, "hideout.r2.r2room0"); page.wait_for_function("() => window.__mm.level().id === 'r2room0'", timeout=60000); ent = page.evaluate("() => window.__mm.level()")
+        go(page, "hideout.r1.atomium"); page.wait_for_function("() => window.__mm.level().id === 'atomium'", timeout=60000); ato = page.evaluate("() => window.__mm.level()")
+        go(page, "hideout.ring2"); page.wait_for_function("() => window.__mm.level().id === 'ring2'", timeout=60000); r2 = page.evaluate("() => window.__mm.level()")
+        b.close()
+    assert errors == []
+    assert sum(1 for i in ids if i.startswith("hideout.r1.") or i.startswith("hideout.r2.")) == 16, ids
+    assert {"hideout.ring1", "hideout.ring2", "hideout.tower", "hideout.gate"} <= set(ids), ids
+    assert abs(ent["y"] + 1200) < 1, ent
+    assert abs(ato["y"] + 600) < 1, ato
+    assert abs(r2["y"] + 1200) < 1, r2
+
+
+@needs_world
 def test_hideout_targets_put_the_car_at_the_gate_and_in_the_eiffel_room(server):
     with sync_playwright() as p:
         b, page, errors, _ = new_page(p, server, "?dev=1", block_world=False)
