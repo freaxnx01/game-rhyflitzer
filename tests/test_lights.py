@@ -62,9 +62,9 @@ def test_l_toggles_the_same_levels_on_the_delorean(server):
         b.close()
 
 
-def test_1_toggles_hazard_both_sides_flash_win_over_q_and_yield_to_the_blinker(server):
+def test_1_toggles_hazard_both_sides_flash_win_over_the_signal_and_yield_to_the_blinker(server):
     """#271: 1 toggles the hazard lights — both turn signals flash together, hazard wins over
-    Q (the stored blinker is kept), and switching hazard off shows the stored blinker alone again."""
+    the signal key (the stored blinker is kept), and switching hazard off shows the stored blinker alone again."""
     with sync_playwright() as p:
         b, page = start_hand(p, server)
         wait_lights(page)
@@ -85,8 +85,8 @@ def test_1_toggles_hazard_both_sides_flash_win_over_q_and_yield_to_the_blinker(s
         }""")
         assert on.get("ok"), on
 
-        # Q mid-hazard stores a blinker but does not break the symmetry: hazard still flashes both.
-        page.keyboard.press("KeyQ")
+        # Comma mid-hazard stores a blinker but does not break the symmetry: hazard still flashes both.
+        page.keyboard.press("Comma")
         assert page.evaluate("() => window.__mm.hud().blinker") == "left"
         q = page.evaluate("""() => {
           const start = performance.now();
