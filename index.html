@@ -29,6 +29,7 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 #time.low{color:#ff5a3c}
 #best{font-size:16px;font-weight:600;color:var(--steel)}
 #toast{margin-top:10px;max-width:calc(100vw - 48px);box-sizing:border-box;padding:8px 18px;background:linear-gradient(#ffe27a,#ffc61a 50%,#ff9a1a);border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);transform:rotate(-3deg);color:var(--ink);font-size:24px;font-weight:800;font-style:italic;text-transform:uppercase;line-height:1.05;text-align:center;opacity:0;transition:opacity .2s}
+#toast.big{font-size:34px;padding:12px 24px}
 #toast.show{opacity:1}
 #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:21;padding:14px 22px;background:rgba(20,23,29,.94);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;max-height:90vh;overflow:auto}#help .keys{margin:8px 0}#help input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}#help .keys .sel{background:#2d3544;color:#ffc61a}#help .keys span.hold{opacity:.55}#help .keys kbd.hold{opacity:.55}#help .keys span.hold::after{content:attr(data-tag);margin-left:8px;padding:0 6px;border:1px solid #4a515e;font-size:.8em}#help .keys kbd,#help .keys span{cursor:pointer}#helpnone{color:var(--steel-l);font-weight:600;margin:8px 0}
 #compass{position:fixed;right:16px;top:calc(124px + env(safe-area-inset-top,0px));width:76px;height:76px}
@@ -678,7 +679,7 @@ import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from '.
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
-import { VIEW, viewpointsFor, resolveViewpoints, standingAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize } from './viewpoints.js';   // #508
+import { VIEW, viewpointsFor, resolveViewpoints, standingAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { track as umamiTrack, settle as umamiSettle, trackPageview, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
@@ -4445,8 +4446,8 @@ try { const b = Number(localStorage.getItem('mm.huntBest') || NaN); if (Number.i
 const PRESENT_CANDS = presentCandidates(ROADS, L ? deckFootprints(L.roads, L.railBridges) : []);   // never under a road or rail deck: the box would sit on top, out of reach
 // #508: the viewpoint hunt -- only the OSM world carries the landmark anchors the viewpoints stand on
 const VIEWPOINTS = L ? resolveViewpoints(viewpointsFor(REGION), L.anchors.landmarks, terrainH) : [];
-let VIEW_RUN = { shot: [], pts: [], endIn: 0 };
-function startViewRun() { VIEW_RUN = { shot: VIEWPOINTS.map(() => false), pts: VIEWPOINTS.map(() => 0), endIn: 0 }; }
+let VIEW_RUN = { shot: [], pts: [], endIn: 0, notice: { at: -1, cool: [] } };
+function startViewRun() { VIEW_RUN = { shot: VIEWPOINTS.map(() => false), pts: VIEWPOINTS.map(() => 0), endIn: 0, notice: { at: -1, cool: [] } }; }
 let HUNT_RUN = { spots: [], found: [], bag: [], rng: Math.random, endIn: 0 }, SURP = { turbo: 0, moon: 0 };
 const $ = id => document.getElementById(id);
 function fmt(t) { const m = Math.floor(t / 60), s = Math.floor(t % 60), d = Math.floor((t * 10) % 10); return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}<b>.${d}</b>`; }
@@ -4455,8 +4456,9 @@ const TOAST_S = { info: 4, event: 5, surprise: 10 };   // key presses 4 s, game 
 // toastHtml() is for our own markup in strings.js only (<br>, the small() span) — escape any data argument before passing it.
 let toastT = 0;
 function showToast(secs) { $('toast').classList.add('show'); toastT = secs; }
-function toast(text, secs = TOAST_S.info) { $('toast').textContent = text; showToast(secs); }
-function toastHtml(html, secs = TOAST_S.info) { $('toast').innerHTML = html; showToast(secs); }
+function toast(text, secs = TOAST_S.info) { $('toast').classList.remove('big'); $('toast').textContent = text; showToast(secs); }
+function toastHtml(html, secs = TOAST_S.info) { $('toast').classList.remove('big'); $('toast').innerHTML = html; showToast(secs); }
+function toastBig(text, secs = TOAST_S.surprise) { $('toast').textContent = text; $('toast').classList.add('big'); showToast(secs); }   // #660: the viewpoint arrival, readable from the deck
 window.__mm.toast = () => ({ text: $('toast').textContent, shown: $('toast').classList.contains('show'), left: toastT });
 function fadeToast(dt) { if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } }   // also while paused (review of #90)
 // #167: a generated world without a race has no checkpoints to drive: the surprise hunt is its only run
@@ -4478,7 +4480,16 @@ function stepView(dt) {
   if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing';
   if (R.state === 'racing') R.t += dt;
   if (VIEW_RUN.endIn > 0) { VIEW_RUN.endIn -= dt; if (VIEW_RUN.endIn <= 0) showViewResult(); }
+  if (R.state !== 'finished') {   // #660: say what X is for, at the spot and again when leaving without a photo
+    const r = viewNoticeStep(VIEW_RUN.notice, standingAt(VIEWPOINTS, VIEW_RUN.shot, shotPose()), VIEW_RUN.shot, dt);
+    VIEW_RUN.notice = r.st;
+    if (r.event) showViewNotice(r.event);
+  }
   R.target = R.state === 'finished' ? null : viewTarget(shotPose());
+}
+function showViewNotice(e) {
+  if (e.kind === 'arrive') toastBig(tr('viewArrive', VIEWPOINTS[e.i].subjectN));
+  else toast(tr('viewLeft', VIEWPOINTS[e.i].n), TOAST_S.event);
 }
 function viewTarget(pose) {
   const here = standingAt(VIEWPOINTS, VIEW_RUN.shot, pose);

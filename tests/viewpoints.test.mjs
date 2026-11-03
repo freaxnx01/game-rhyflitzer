@@ -1,7 +1,8 @@
 // #508: the viewpoint hunt's pure rules
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VIEW, VIEWPOINT_DEFS, viewpointsFor, resolveViewpoints, standsAt, standingAt, aimError, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize } from '../viewpoints.js';
+import { VIEW, VIEWPOINT_DEFS, viewpointsFor, resolveViewpoints, standsAt, standingAt, aimError, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep, NOTICE } from '../viewpoints.js';
+import { STRINGS, translate } from '../strings.js';
 
 const RAD = Math.PI / 180;
 const vp = { id: 'a', n: 'A', subjectN: 'S', x: 0, z: 0, r: 10, minY: -Infinity, sx: 100, sz: 0 };
@@ -99,4 +100,35 @@ test('albumWith: a better or equal photo replaces, a worse one does not', () => 
 test('thumbSize: 320 px wide at most, aspect kept', () => {
   assert.deepEqual(thumbSize(1280, 720), { w: 320, h: 180 });
   assert.deepEqual(thumbSize(200, 100), { w: 200, h: 100 });
+});
+
+test('viewNoticeStep: arriving at an open viewpoint announces it once', () => {
+  let r = viewNoticeStep({ at: -1, cool: [] }, 1, [false, false], 0.016);
+  assert.deepEqual(r.event, { kind: 'arrive', i: 1 });
+  r = viewNoticeStep(r.st, 1, [false, false], 0.016);
+  assert.equal(r.event, null);
+});
+test('viewNoticeStep: leaving without a photo reminds, leaving after a scored photo does not', () => {
+  const st = { at: 0, cool: [0, 0] };
+  assert.deepEqual(viewNoticeStep(st, -1, [false, false], 0.016).event, { kind: 'leave', i: 0 });
+  assert.equal(viewNoticeStep(st, -1, [true, false], 0.016).event, null);
+});
+test('viewNoticeStep: edge flicker is silenced by the cooldown, then works again', () => {
+  let r = viewNoticeStep({ at: -1, cool: [] }, 0, [false], 0.016);   // arrive
+  r = viewNoticeStep(r.st, -1, [false], 0.016);                      // leave inside cooldown
+  assert.equal(r.event, null);
+  r = viewNoticeStep(r.st, 0, [false], NOTICE.cooldownS + 1);         // back after the cooldown
+  assert.deepEqual(r.event, { kind: 'arrive', i: 0 });
+});
+
+test('#660: viewArrive/viewLeft exist in both languages, viewAimTarget names the photo, not the goal', () => {
+  for (const lang of ['en', 'de']) {
+    assert.equal(typeof STRINGS[lang].viewArrive, 'function');
+    assert.equal(typeof STRINGS[lang].viewLeft, 'function');
+    assert.ok(translate(lang, 'viewArrive', 'DSM-Kamin').includes('DSM-Kamin'));
+    assert.ok(translate(lang, 'viewArrive', 'DSM-Kamin').includes('X'));
+  }
+  assert.ok(translate('en', 'viewAimTarget', 'DSM-Kamin').startsWith('Photo (X):'));
+  assert.ok(translate('de', 'viewAimTarget', 'DSM-Kamin').includes('Foto (X):'));
+  assert.ok(!translate('de', 'viewAimTarget', 'DSM-Kamin').includes('Ziel'));
 });

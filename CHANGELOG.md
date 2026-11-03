@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-03 20:57` **Aussichtspunkte**: Am Aussichtspunkt sagt das Spiel jetzt deutlich, dass Du zum **Motiv schauen** und <kbd>X</kbd> drücken sollst, und **erinnert Dich**, wenn Du ohne Foto wegfährst. Die Anzeige oben heisst jetzt „**Foto (X)**: Motiv".
+
 - `2026-11-03 18:26` The **loading screen** now sits in the middle of the start screen and tells you what is being built, with a **progress bar**: roads are paved, houses put up, 83 **Robidogs** set up and their bags refilled, fish released into the Rhine …
 - `2026-11-03 17:55` New mode **Viewpoints**: four panorama spots, from the car park above the Rhine with the view to Bad Säckingen to the deck of the Plattform Sisslerfeld (on foot, up the spiral stair). Follow the arrow, stand at the spot, face the sight and press <kbd>X</kbd>: up to 150 points per photo, the better aimed the more. Every scored photo also lands in your **album** (kept in the browser, the best photo per viewpoint), shown when all viewpoints are done.
 - `2026-11-03 17:46` <kbd>Ctrl</kbd> <kbd>H</kbd> **hides the whole HUD** (speedometer, map, compass, buttons) for a clean view of the world, and brings it back. A short message still tells you how to get it back.
