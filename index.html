@@ -133,6 +133,13 @@ body.cruise #tl .cps:not(#knockrow),body.cruise #pips,body.cruise #tr,body.cruis
 .mid{flex:1;position:relative;display:flex;align-items:flex-end;padding:24px 32px}
 .slot{max-width:560px;padding:12px 16px;background:rgba(20,23,29,.78);border:3px solid;border-color:#4a515e var(--ink) var(--ink) #4a515e}
 .slot p{margin:0;font-size:19px;font-weight:600;line-height:1.35}
+/* the loading screen (loading.js): centred over the start screen while the world is built, the usual text slot hidden until then */
+#loadbox{display:none}#overlay.loading .slot{visibility:hidden}
+#overlay.loading #loadbox{display:block;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(600px,calc(100% - 32px));box-sizing:border-box;padding:18px 22px;background:rgba(20,23,29,.86);border:3px solid;border-color:#4a515e var(--ink) var(--ink) #4a515e;text-align:center}
+#loadbox h2{margin:0 0 10px;font-size:22px;font-weight:800;font-style:italic;letter-spacing:3px;text-transform:uppercase;color:var(--sun)}
+#loadmsg{margin:0;font-size:19px;font-weight:600;line-height:1.35;min-height:2.7em}
+.loadbar{height:12px;margin:12px 0 8px;background:#2a2e38;border:2px solid var(--ink)}.loadbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--burnt),var(--sun));transition:width .3s}
+#loadstep{margin:0;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#8d96a3}
 #sticker{position:absolute;right:10%;bottom:30%;max-width:260px;padding:12px 18px;transform:rotate(-7deg);background:var(--sun);border:5px solid var(--charcoal);box-shadow:8px 8px 0 var(--charcoal);color:var(--charcoal);font-size:20px;font-weight:800;font-style:italic;line-height:1.05;text-transform:uppercase;text-align:center}#sticker[hidden]{display:none}
 .bar{padding:18px 32px 14px;background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3;box-shadow:0 -12px 30px rgba(0,0,0,.5)}
 .bar .row{justify-content:center;gap:16px}.bar .row.secondary{margin-top:12px;gap:10px}
@@ -402,7 +409,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 
 <!-- #346 "Sunset Steel" start screen (title mockup A): full-bleed, no card. One text slot under the logo carries the
      error state, the result and the mode text of whichever mode has focus or hover; the steel bar is 4 + 2 buttons. -->
-<div id="overlay">
+<div id="overlay" class="loading">
   <div class="start">
     <div class="tags">
       <div class="sub">Map Madness · <span id="subversion"></span></div>
@@ -423,6 +430,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <p id="ovtext" aria-live="polite">Building the world…</p>
       </div>
       <div id="sticker" hidden aria-hidden="true"></div>
+      <div id="loadbox" role="status" aria-live="polite"><h2 data-i18n="loadTitle">Building the world</h2><p id="loadmsg">Loading …</p><div class="loadbar"><i id="loadfill"></i></div><p id="loadstep"></p></div>
     </div>
     <div class="bar">
       <div class="row">
@@ -708,7 +716,8 @@ import { KNIGHT } from './knight.js';   // Rhy Knight, a glTF sports coupé with
 import { scannerLevels, scannerGlow } from './scanner.js';
 import { BLAZE } from './blaze.js';   // Rhy Blaze, a glTF fire engine with blue lights and a siren
 import { SIREN, hasSiren, toggleSiren, sirenNote, beaconLevels, beaconGlow } from './siren.js';
-import { EXHAUST, exhaustSpots } from './exhaust.js';   // where the nitro flames sit behind a glTF vehicle
+import { EXHAUST, exhaustSpots } from './exhaust.js';
+import { loadProgress, numberLocale } from './loading.js';   // the loading screen's stages   // where the nitro flames sit behind a glTF vehicle
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan } from './gltfvehicle.js';
@@ -739,6 +748,24 @@ function applyStaticStrings() {
   document.getElementById('maptext').textContent = tr('map', REGION.name);
 }
 applyStaticStrings();
+// the loading screen (loading.js): each stage shows its line and moves the bar, then yields one drawn frame, because the building
+// between two stages is synchronous and the browser would not paint before it ends. counts: numbers for the line (roads, houses, ...)
+const LOAD_NUM = new Intl.NumberFormat(numberLocale(window.GG_LANG, navigator.language)), LOAD_LOG = { stage: null, t: performance.now() };
+async function loadStage(stage, counts = {}) {
+  logStageDone();
+  console.info(`Building the world: starting the ${stage} stage.`);
+  const { step, of, fraction } = loadProgress(stage), shown = Object.fromEntries(Object.entries(counts).map(([k, n]) => [k, n ? LOAD_NUM.format(n) : '']));
+  document.getElementById('loadmsg').textContent = tr(`load_${stage}`, shown);
+  document.getElementById('loadfill').style.width = `${Math.round(fraction * 100)}%`;
+  document.getElementById('loadstep').textContent = tr('loadStep', step, of);
+  Object.assign(LOAD_LOG, { stage, t: performance.now() });
+  await nextPaint();
+}
+function logStageDone() { if (LOAD_LOG.stage) console.info(`Building the world: the ${LOAD_LOG.stage} stage took ${Math.round(performance.now() - LOAD_LOG.t)} ms.`); }
+// after one frame (or 100 ms, so a background tab, which gets no frames, keeps building), as a new task: the frame is painted by then
+function nextPaint() { return new Promise((res) => { let done = false; const go = () => { if (done) return; done = true; const ch = new MessageChannel(); ch.port1.onmessage = () => res(); ch.port2.postMessage(0); }; requestAnimationFrame(go); setTimeout(go, 100); }); }
+function endLoading() { logStageDone(); console.info(`Building the world: done after ${Math.round(performance.now())} ms.`); document.getElementById('overlay').classList.remove('loading'); }
+await loadStage('map');
 
 // ---------- helpers ----------
 let seed = 4334;
@@ -954,6 +981,7 @@ if (!GEN) WORLD = await fetch(REGION.world).then(r => r.ok ? r.json() : null).ca
 if (!WORLD && !REGION.handFallback) { REGION_FALLBACK = REGION.name; REGION = REGIONS.hochrhein; WORLD = await fetch(REGION.world).then(r => r.ok ? r.json() : null).catch(() => null); }
 /* measured terrain: an .mmh the player loaded (IndexedDB) wins, else the one published next to the world file.
    #167: a generated world uses GEN.terrain directly, still subject to REGION.idbKey overrides. */
+await loadStage('terrain');
 let REAL_SRC = 'uploaded';
 const REAL = await (async () => { let buf = await idbGet(REGION.idbKey); if (!buf) { REAL_SRC = 'bundled'; buf = GEN ? GEN.terrain : await fetch(REGION.terrain).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null); } if (!buf) return null; try { return parseMMH(buf); } catch (e) { return null; } })();
 const L = WORLD && WORLD.format === 'MMW1' ? layoutFromWorld(WORLD) : null;
@@ -1901,6 +1929,7 @@ const INT = { hall: null, house: '6c', on: false, group: null, housing: null, li
 let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM world only)
 // ---------- build the world ----------
 {
+  await loadStage('ground');
   const { GW, GD } = TGRID;
   const ground = new THREE.PlaneGeometry(GW, GD, TGRID.nx, TGRID.nz); ground.rotateX(-Math.PI / 2); ground.translate(TGRID.x0 + GW / 2, 0, TGRID.z0 + GD / 2);
   const BED_COL = col('#8c7b5a');   // #101: the sandy riverbed
@@ -1958,10 +1987,12 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   }
   if (L) waterPolys();
   if (L && L.fields.length) fieldMeshes();
+  await loadStage('roads', { roads: L ? ROADS.length : 0 });
   // roads
   const ROAD_SURF = new Map();
   for (const r of ROADS) if (!(L && r.bridge)) ROAD_SURF.set(r, registerSurface(ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true).userData.surf));
   if (L) seatGenericEnds(roadTopH);   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
+  await loadStage('markings');
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
     const mats = {}, geos = {};
     const buried = ([x, z]) => { const ob = onBridge(x, z, 1e4); return !!ob && !!ob.b.approach; };   // #290: an abutment (#78) buries its bank road
@@ -1977,6 +2008,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   if (L) for (const r of ROADS) if (!r.bridge) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
   if (L) for (const [x, z, r] of L.junctions) disc(x, z, r, 0.05, 'roadPlain', col('#ffffff'));
   if (!L) for (let a = 0; a < ROADS.length; a++) for (let b = a + 1; b < ROADS.length; b++) if (!(L && (ROADS[a].bridge || ROADS[b].bridge))) for (let i = 0; i < ROADS[a].pts.length - 1; i++) for (let j = 0; j < ROADS[b].pts.length - 1; j++) { const [x1, y1] = ROADS[a].pts[i], [x2, y2] = ROADS[a].pts[i + 1], [x3, y3] = ROADS[b].pts[j], [x4, y4] = ROADS[b].pts[j + 1]; const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4); if (Math.abs(den) < 1e-6) continue; const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den, u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den; if (t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99) disc(x1 + t * (x2 - x1), y1 + t * (y2 - y1), Math.max(ROADS[a].w, ROADS[b].w) / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff')); }
+  await loadStage('bridges');
   // bridges: the stone hero model on one straight span (deck, parapets, piers) -- the hand layout's Fridolinsbrücke and the OSM one while
   // its chain is no two-bank crossing. b: straight span a -> b (len, ux, uz, rot, hw); hAt(t): deck surface height at distance t along it;
   // pierBase: height the piers start at (under the deepest riverbed, underwater.js pierBase). The wooden Holzbrücke is heroWood below.
@@ -2192,6 +2224,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     for (let i = 0; i < NX; i++) for (let j = 0; j < NZ; j++) quad(top(i, j), top(i + 1, j), top(i + 1, j + 1), top(i, j + 1), [2 * i / NX, 3 * j / NZ], [2 * (i + 1) / NX, 3 * j / NZ], [2 * (i + 1) / NX, 3 * (j + 1) / NZ], [2 * i / NX, 3 * (j + 1) / NZ]);   // sloped top, same winding as before
     for (let j = 0; j < NZ; j++) quad(foot(j), foot(j + 1), top(NX, j + 1), top(NX, j), [0, 3 * j / NZ], [0, 3 * (j + 1) / NZ], [2, 3 * (j + 1) / NZ], [2, 3 * j / NZ]);   // back face at x1
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); colorize(g, col('#8a6a48')); push('gravel', g); window.__mm.counts.ramp = 1; }
+  await loadStage('houses', { houses: L ? L.buildings.length : 0 });
   if (!L) { // hand-traced buildings and landmarks; the OSM world places its own below
   for (const [px, py, rot, name] of [[447, 945, -0.14, 'Bahnhof Stein-Säckingen'], [1690, 770, -0.1, 'Bahnhof Sisseln']]) { const [x, z] = W(px, py); stationAt(x, z, rot, name); }
   smileKreisel(1435, 450);
@@ -2214,6 +2247,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   }
   if (RAMP) rampMesh();   // the Sprungschanze, in both layouts: groundH raises the ground there in both (#80)
   if (L) for (const b of L.buildings) osmBuilding(b);
+  await loadStage('props', { robidogs: L ? L.props.filter(p => p.kind === 'robidog').length : 0, lamps: L ? L.props.filter(p => p.kind === 'lamp').length : 0 });
   if (L && (L.props.length || YARD)) propMeshes(YARD ? [...L.props, ...yardProps(YARD).map(p => ({ ...p, yard: true }))] : L.props); if (YARD) { crashSign(); yardGround(YARD); }   // #415, #426
   if (L && L.parking.length) parkingMeshes(L.parking);
   if (L) { // landmarks on their real positions (the Plattform Sisslerfeld, built to the builder's plans (#413))
@@ -2231,6 +2265,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     if (HIDE) hideoutBuild();   // #102
     for (const s of Object.values(lm)) { if (s.kind === 'baustelle') baustelleSign(s.x, s.z, s.rot); else if (s.kind === 'fahrverbot') fahrverbotSign(s.x, s.z, s.rot); }   // #42
   }
+  await loadStage('trees');
   // trees along both banks and scattered
   // #127: only the Hochrhein world has the Sisseln forest box, so another region's trees come from the height alone
   const TREES = [], SW = L ? (L.anchors.areas.sisselnWald || null) : [1960, -520, 2500, -300]; if (!L) { const pts = RIVER.pts; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), ux = (x1 - x0) / L, uz = (z1 - z0) / L; for (let t = 0; t < L; t += 22) for (const s of [-1, 1]) { const o = RIVER.hw + 20 + rr(0, 14); const tx = x0 + ux * t - uz * o * s + rr(-4, 4), tz = z0 + uz * t + ux * o * s + rr(-4, 4); if (!onBridge(tx, tz) && roadDist(tx, tz) > 4 && BRIDGES.every(b => segDist(tx, tz, ...b.a, ...b.b) > 12)) TREES.push([tx, tz, rr(8, 13)]); } } }
@@ -2254,6 +2289,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     window.__mm.counts.forest = { polys: WOODS.length, edge: placed.edge.length, fill: placed.fill.length, thinned: placed.thinned, trees: FOREST_TREES.length, solid: FOREST_TREES.length };
   }
   window.__FOREST = FOREST_TREES;
+  await loadStage('signs');
   streetNames();
   // Ortstafeln: Swiss blue on Hauptstrassen, German yellow across the Rhine (hand path only; OSM city-limit signs are a follow-up)
   if (!L) {
@@ -2333,6 +2369,7 @@ function buildBackdrop(mmh, bytes) {
 }
 const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeTex(128, 128, (g, w, h) => { const r = g.createRadialGradient(64, 64, 4, 64, 64, 64); r.addColorStop(0, 'rgba(255,250,220,1)'); r.addColorStop(0.25, 'rgba(255,230,160,.9)'); r.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = r; g.fillRect(0, 0, w, h); }, { alpha: true }), transparent: true, depthWrite: false, fog: false })); sunSprite.scale.set(320, 320, 1); scene.add(sunSprite);
 const MESH = {};
+await loadStage('river');
 // ---------- #101: the underwater Rhine -- boulders, waterweed, fish schools, two wrecks (all three.js primitives, built once) ----------
 const FISH = { mesh: null, schools: [], t: 0 }, wreck = new THREE.Group(); scene.add(wreck);
 const BED = { stones: null, weed: null };   // the boulders and the waterweed, InstancedMeshes (buildUnderwater)
@@ -2471,6 +2508,7 @@ const confetti = (() => { const n = 80, geo = new THREE.BufferGeometry(); geo.se
 function burstConfetti(x, y, z, rng) { confetti.parts = confettiBurst(confetti.n, rng); confetti.pts.position.set(x, y, z); confetti.pts.visible = true; }
 function drawConfetti(dt) { if (!confetti.parts.length) { confetti.pts.visible = false; return; } confetti.parts = stepConfetti(confetti.parts, dt); const a = confetti.pts.geometry.attributes.position; for (let i = 0; i < confetti.n; i++) { const p = confetti.parts[i]; a.setXYZ(i, p ? p.x : 0, p ? p.y : -1e4, p ? p.z : 0); } a.needsUpdate = true; }
 
+await loadStage('cars');
 // ---------- vehicles (#5): one entry per vehicle, physical units (m, m/s, m/s², rad/s, Hz, km/h); compact = the original car ----------
 // model: builder id in MODELS (gltf: reserved for a glTF file, not loaded yet); wheels: [x, z] in model metres, each mirrored to ±z
 // mass: only the crash response (speed loss and damage / mass); collision: circle radius in model metres (OBB for long vehicles: #6)
@@ -5016,6 +5054,7 @@ if (window.ggTesthub) testhubRegister(window.ggTesthub);
 else addEventListener('gg-testhub-ready', () => testhubRegister(window.ggTesthub), { once: true });
 
 // ---------- loop ----------
+await loadStage('paint');
 applyStyle('original'); resize();
 // #201: compile the cave look up front (the lit materials' programs differ with the lights and the fog type), so the door costs no hitch
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
@@ -5032,6 +5071,7 @@ function trackModeEnd(outcome) { umamiTrack('mode-end', modeEndData({ mode: R.mo
 umamiTrack('game-ready', { region: regionId(REGION), lang: window.GG_LANG || 'en', vehicle: CHOICE.id, vehicle_source: vehicleSource(location.search, (() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), Object.keys(VEHICLES)), mode: SHOWN.mode, touch: matchMedia('(pointer: coarse)').matches ? 'yes' : 'no' });
 setInterval(() => { const now = performance.now(); STATS.vehicle.update(CHOICE.id, now); STATS.activity.update(activityOf({ train: TRAIN.on, level: LEVELS.id, indoors: INT.indoors, house: INT.house, foot: FOOT.on, fly: FLY.on }), now); }, 1000);
 addEventListener('gg-langchange', (e) => umamiTrack('lang', { lang: e.detail.lang }));
+endLoading();
 requestAnimationFrame(loop);
 
 /* #170: the curated worlds from the API. Not awaited: play never waits for the gallery; any failure leaves the row
