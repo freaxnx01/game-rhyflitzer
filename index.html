@@ -144,6 +144,7 @@ body.cruise #tl .cps:not(#knockrow),body.cruise #pips,body.cruise #tr,body.cruis
 #worldstatus{display:block}
 #result{font-size:48px;font-weight:800;font-style:italic;color:var(--sun);line-height:1;margin-bottom:8px}#result[hidden]{display:none}
 #result small{display:block;font-size:18px;color:var(--steel-l);font-style:normal;letter-spacing:2px;text-transform:uppercase}
+#album{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:10px;text-align:left}#album h3{grid-column:1/-1;margin:0;font-size:16px}#album figure{margin:0}#album img,#album .empty::before{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border:2px solid var(--ink)}#album .empty::before{content:'';border-style:dashed;opacity:.5}#album figcaption{font-size:13px}   /* #508 */
 /* #346 Worlds dialog: RaceSetup vocabulary -- sunken list well on the left, raised preview on the right, steel footer */
 #worlds{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;gap:14px;padding:16px 24px 0;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;background:radial-gradient(ellipse at center,rgba(28,31,38,.7),rgba(10,8,20,.95));color:var(--cream)}#worlds[hidden]{display:none}
 .ws-head{display:flex;align-items:baseline;gap:16px}
@@ -657,7 +658,7 @@ import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from '.
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
-import { VIEW, viewpointsFor, resolveViewpoints, standingAt, shotPoints, maxPoints } from './viewpoints.js';   // #508
+import { VIEW, viewpointsFor, resolveViewpoints, standingAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize } from './viewpoints.js';   // #508
 import { track as umamiTrack, settle as umamiSettle, trackPageview, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
@@ -4425,7 +4426,7 @@ function viewShot() {
   if (i < 0) { photoNote = tr('viewMiss'); return; }
   const pts = shotPoints(VIEWPOINTS[i], pose);
   if (!pts) { photoNote = tr('viewAim', VIEWPOINTS[i].subjectN); return; }
-  scoreView(i, pts);
+  scoreView(i, pts); albumPending = i;
 }
 function scoreView(i, pts) {
   VIEW_RUN.shot[i] = true; VIEW_RUN.pts[i] = pts; R.done++; updatePips(); SFX.present();
@@ -4454,7 +4455,19 @@ function modeText(mode) { const done = R.state === 'finished' && mode === R.mode
 function showModeText(mode) { $('ovtext').textContent = modeText(mode); }
 function revertModeText() { showModeText(focusedMode() ?? SHOWN.mode); }
 // the overlay doubles as the start and the result screen, so its texts depend on the race state
-function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('cruisebtn').textContent = tr('cruise'); $('startbtn').textContent = tr(done && R.mode === 'trial' ? 'retry' : 'trial'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); $('viewbtn').textContent = tr(done && R.mode === 'view' ? 'retry' : 'view'); if (done) $('result').innerHTML = resultHtml(R.last); for (const id of Object.keys(MODE_BTN)) $(id).disabled = !!WORLD_GONE; }
+function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('cruisebtn').textContent = tr('cruise'); $('startbtn').textContent = tr(done && R.mode === 'trial' ? 'retry' : 'trial'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); $('viewbtn').textContent = tr(done && R.mode === 'view' ? 'retry' : 'view'); if (done) { $('result').innerHTML = resultHtml(R.last); if (R.last.mode === 'view') renderAlbum(); } for (const id of Object.keys(MODE_BTN)) $(id).disabled = !!WORLD_GONE; }
+// #508: one frame per viewpoint, photo or empty; DOM calls only, the stored strings never reach innerHTML
+function renderAlbum() {
+  const album = loadAlbum(), box = document.createElement('div'), head = document.createElement('h3');
+  box.id = 'album'; head.textContent = tr('albumTitle'); box.append(head);
+  for (const v of VIEWPOINTS) {
+    const e = album[v.id], fig = document.createElement('figure'), cap = document.createElement('figcaption');
+    if (e) { const img = document.createElement('img'); img.src = e.img; img.alt = v.n; fig.append(img); } else fig.classList.add('empty');
+    cap.textContent = `${v.n} · ${e ? tr('albumPts', e.pts) : tr('albumMissing')}`;
+    fig.append(cap); box.append(fig);
+  }
+  $('result').append(box);
+}
 // the tags, the edition plate and the sticker name the loaded world, so they follow the language and the chosen car
 function renderStartScreen() { $('edition').textContent = editionText(REGION, tr); $('worldbtn').textContent = tr('worldBtn', REGION.name); $('cartagname').textContent = tr('carTag', vehicleText(tr, CHOICE.id, 'name')); const sticker = REGION.generated ? null : REGION.id === 'ehrendingen' ? 'stickerEhrendingen' : 'stickerHochrhein'; $('sticker').hidden = !sticker; $('sticker').textContent = sticker ? tr(sticker) : ''; }
 const firstModeButton = () => Object.keys(MODE_BTN).map($).find(b => !b.hidden);   // RACELESS hides two of the four, never all
@@ -4926,7 +4939,12 @@ function hud(dt) { const kmh = Math.hypot(P.vx, P.vz) * 3.6; $('rose').setAttrib
 let photoPending = false;
 let photoSink = null;   // #251: set by photoDataUrl(); the next capture goes there instead of into a download
 let photoNote = null;   // #508: the viewpoint hunt's word on this photo, shown instead of "Photo taken"
-function capturePhoto() { const sink = photoSink || savePhoto; photoSink = null; photoPending = false; canvas.toBlob(sink, 'image/png'); }
+let albumPending = -1;   // #508: the viewpoint the next capture also files in the album
+function capturePhoto() { const sink = photoSink || savePhoto; photoSink = null; photoPending = false; if (albumPending >= 0) { fileAlbumPhoto(albumPending, captureThumb()); albumPending = -1; } canvas.toBlob(sink, 'image/png'); }
+// #508: same task as the render, so the WebGL canvas is still readable (no preserveDrawingBuffer)
+function captureThumb() { const t = thumbSize(canvas.width, canvas.height), c = document.createElement('canvas'); c.width = t.w; c.height = t.h; c.getContext('2d').drawImage(canvas, 0, 0, t.w, t.h); return c.toDataURL('image/jpeg', ALBUM.quality); }
+function loadAlbum() { try { return parseAlbum(localStorage.getItem(ALBUM.key), VIEWPOINTS.map(v => v.id)); } catch (e) { return {}; } }
+function fileAlbumPhoto(i, img) { if (img.length > ALBUM.maxLen) return; const album = albumWith(loadAlbum(), VIEWPOINTS[i].id, { img, pts: VIEW_RUN.pts[i], at: Date.now() }); try { localStorage.setItem(ALBUM.key, JSON.stringify(album)); } catch (e) { } }
 function blobToDataUrl(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('photo failed')); r.readAsDataURL(blob); }); }
 // #251: the Testhub screenshot -- the frame X would save, as a PNG data URL (no HUD: it is the canvas only)
 function photoDataUrl() {
