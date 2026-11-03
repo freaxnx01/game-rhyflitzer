@@ -213,9 +213,9 @@ body.cruise #tl .cps:not(#knockrow),body.cruise #pips,body.cruise #tr,body.cruis
 #about a{color:#8fd8e8}
 .ab-foot{margin:0;padding-top:10px;border-top:3px solid var(--steel);color:var(--steel-l)}
 /* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
-body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
-body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
-body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch),
+body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar),
+body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar),
+body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar),
 body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast){display:none}
 @media (max-width:600px){
   .tags{padding:10px 12px 0}.start .sub,.tag{font-size:11px;padding:4px 8px;letter-spacing:1px}
@@ -235,6 +235,12 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #touch button{position:absolute;pointer-events:auto;width:84px;height:84px;border-radius:50%;background:rgba(20,23,29,.6);border:4px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:30px;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none}
 #tL{left:20px;bottom:calc(230px + env(safe-area-inset-bottom,0px))}#tR{left:120px;bottom:calc(230px + env(safe-area-inset-bottom,0px))}
 #tG{right:20px;bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:120px;bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tH{right:20px;bottom:calc(300px + env(safe-area-inset-bottom,0px))}
+#keybar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(104px + env(safe-area-inset-bottom,0px));max-width:min(760px,calc(100vw - 32px));display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;padding:5px 12px;box-sizing:border-box;background:rgba(20,23,29,.72);color:var(--cream);font-size:15px;font-weight:700;letter-spacing:1px;pointer-events:none;user-select:none;z-index:4}
+#keybar[hidden]{display:none}
+#keybar kbd{font:inherit;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px}
+#keybar .ctx{color:var(--ink);background:var(--sun);padding:0 6px}#keybar .ctx kbd{color:var(--ink);border-color:var(--ink)}
+@media (pointer:coarse){#keybar,#pausekeybar{display:none!important}}
+body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,body:has(#abandon:not([hidden])) #keybar,body:has(#help:not([hidden])) #keybar,body:has(#jump:not([hidden])) #keybar,body:has(#borderinfo:not([hidden])) #keybar{display:none}
 #stylebtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel);color:var(--cream);font-family:inherit;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:6px 14px}
 #stylebtn b{color:var(--sun)}
 #pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
@@ -394,6 +400,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><span id="mapfloor" hidden></span><b>N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
   </div>
+  <div id="keybar" aria-hidden="true"></div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
   <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
@@ -609,6 +616,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <button id="pauseresume" class="btn primary" type="button" data-i18n="pauseResume">Resume</button>
       <button id="pausevehicle" class="btn" type="button" data-i18n="pauseVehicle">Change vehicle</button>
       <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
+      <button id="pausekeybar" class="btn" type="button" aria-pressed="true">Key bar: on</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
     </div>
@@ -676,7 +684,7 @@ import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
-import { actionFor, contextKeyAction } from './controls.js';   // #535
+import { actionFor, contextKeyAction, barEntries, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
 import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
@@ -3724,6 +3732,17 @@ function leaveBuilding() { if (!INT.hall || !INT.indoors) return; const s = exit
 function contextAction() { return FOOT.on ? contextKeyAction({ liftPrompt: INT.indoors && !!INT.prompt, indoors: INT.indoors, doorPrompt: !!HUD.enter }) : null; }
 function runContextKey() { const a = contextAction(); if (a === 'lift') INT.lift.call(INT.floor); else if (a === 'leave') leaveBuilding(); else if (a === 'enter') pressEnter(); }
 function controlContext() { if (FOOT.on) return INT.pad ? 'lift' : INT.indoors ? 'indoors' : 'foot'; if (TRAIN.on) return 'train'; if (FLY.on) return 'heli'; return 'car'; }
+// #535: the key bar -- core keys of the current context, the context key first; rebuilt only when what it shows changes
+const KEYBAR = { on: keybarOnFrom((() => { try { return localStorage.getItem(KEYBAR_KEY); } catch (e) { return null; } })()), sig: '' };
+function stepKeybar() {
+  const ctx = controlContext(), act = contextAction(), sig = `${KEYBAR.on}|${ctx}|${act}|${window.GG_LANG}`;
+  if (sig === KEYBAR.sig) return;
+  KEYBAR.sig = sig; $('keybar').hidden = !KEYBAR.on;
+  $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}><kbd>${x.cap}</kbd> ${tr(x.label)}</span>`).join('');
+}
+function renderKeybarToggle() { const b = $('pausekeybar'); b.textContent = tr(KEYBAR.on ? 'pauseKeybarOn' : 'pauseKeybarOff'); b.setAttribute('aria-pressed', String(KEYBAR.on)); }
+function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } renderKeybarToggle(); stepKeybar(); }
+window.__mm.keybar = () => { stepKeybar(); const el = $('keybar'); return { shown: !el.hidden && getComputedStyle(el).display !== 'none', text: el.textContent, ctx: controlContext(), action: contextAction(), on: KEYBAR.on }; };
 function stepEnter() {
   stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; the car keeps E as the right blinker)
   const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
@@ -4656,7 +4675,7 @@ function movePauseFocus(step) { $(nextFocus(PAUSE.confirm ? ABANDON_BUTTONS : pa
 const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon, next: () => movePauseFocus(1), prev: () => movePauseFocus(-1), debug: () => toggleDebug(), photo: () => { photoPending = true; } };
 // true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
 function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
-$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause');   // #509
+$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause'); $('pausekeybar').onclick = toggleKeybar; renderKeybarToggle();   // #509
 document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
 window.__mm.closePause = closePause;   // test hook: any non-Esc exit from the pause while the vehicle change is open (#189)
 window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.frame, state: R.state, t: R.t, best: R.best, x: P.x, z: P.z, audio: SFX.state().ctx, focus: document.activeElement?.id || '' });
@@ -4811,7 +4830,7 @@ window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BOR
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); }
-addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
+addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
@@ -5067,7 +5086,7 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepFerris(); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) stepOnFoot(dt); else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 if (REGION.backdrop && !GEN) fetch(REGION.backdrop).then((r) => (r.ok ? r.arrayBuffer() : null)).then((buf) => { if (buf) buildBackdrop(parseMMH(buf), buf.byteLength); }).catch(() => {});   // #593: never awaited, startup does not wait for the horizon
