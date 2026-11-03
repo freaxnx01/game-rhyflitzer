@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls, isDebugKey } from '../debug.js';
+import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls, isDebugKey, isHudKey } from '../debug.js';
 import { translate } from '../strings.js';
 
 const ORIGIN = { lat: 47.5506, lon: 7.9671, E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };   // data/world_hochrhein.json
@@ -151,4 +151,11 @@ test('isDebugKey: Ctrl+D opens the panel, F3 stays as an alias, a bare D (steeri
   assert.equal(isDebugKey({ code: 'KeyD' }), false);
   assert.equal(isDebugKey({ code: 'KeyA', ctrlKey: true }), false);
   assert.equal(isDebugKey({ code: 'ControlLeft', ctrlKey: true }), false);
+});
+
+test('isHudKey: Ctrl+H hides and shows the HUD, a bare H (the horn) and Ctrl+D do not', () => {
+  assert.equal(isHudKey({ code: 'KeyH', ctrlKey: true }), true);
+  assert.equal(isHudKey({ code: 'KeyH', ctrlKey: false }), false);
+  assert.equal(isHudKey({ code: 'KeyH' }), false);
+  assert.equal(isHudKey({ code: 'KeyD', ctrlKey: true }), false);
 });
