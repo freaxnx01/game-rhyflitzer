@@ -421,10 +421,12 @@ def test_map_links_hidden_without_a_world_origin(server):
 def test_debug_panel_jumps_to_any_hideout_room(server):
     """#591: Ctrl+D has a Hideout row with both rings and all 16 rooms; Go lands in the room and does not copy the panel."""
     with sync_playwright() as p:
-        br, page = open_page(p, server, query="?debug")
-        page.click("#startbtn")
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 960, "height": 540})   # not open_page: the hideout needs the real terrain, which open_page blocks
+        page.goto(f"{server}/index.html?debug")
+        page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.click("#startbtn", timeout=180000)
         page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
-        install_copy_spy(page)
+        page.evaluate("() => { window.__copied = null; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.__copied = t; return Promise.resolve(); } } }); }")   # served over plain http off localhost, navigator.clipboard is missing
         opts = page.eval_on_selector_all("#debugjumpsel option", "os => os.map(o => o.textContent)")
         page.select_option("#debugjumpsel", label="Ring 1 · Ferris wheel")
         page.click("#debugjumpgo")
