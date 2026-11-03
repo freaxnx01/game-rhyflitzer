@@ -5,8 +5,8 @@ import { MODES, startModeFrom, lastModeFrom, modeTextKey, hasCheckpoints, editio
 
 const key = (code) => ({ code, repeat: false });
 
-test('MODES are cruise and the three race modes in bar order', () => {
-  assert.deepEqual(MODES, ['cruise', 'trial', 'blitz', 'hunt']);
+test('MODES are cruise, the three race modes and the viewpoint hunt in bar order', () => {
+  assert.deepEqual(MODES, ['cruise', 'trial', 'blitz', 'hunt', 'view']);
 });
 
 test('startModeFrom: ?mode= picks a known mode, anything else is cruise', () => {
@@ -70,4 +70,23 @@ test('bestKeyFor: regions use their bestKey, worlds the generated key', () => {
   assert.equal(bestKeyFor({ kind: 'region', id: 'ehrendingen' }, regions), 'mm.best2.ehrendingen');
   assert.equal(bestKeyFor({ kind: 'region', id: 'hochrhein' }, regions), 'mm.best2');
   assert.equal(bestKeyFor({ kind: 'world', id: 'abc123' }, regions), 'mm.best2.world.abc123');
+});
+
+test('startModeFrom: ?mode=view only where the world has viewpoints', () => {
+  assert.equal(startModeFrom('?mode=view', false, true), 'view');
+  assert.equal(startModeFrom('?mode=view', false, false), 'cruise');
+  assert.equal(startModeFrom('?mode=view', false), 'cruise');
+  assert.equal(startModeFrom('?mode=view', true, true), 'cruise');
+  assert.equal(startModeFrom('?mode=trial', false, true), 'trial');
+});
+
+test('lastModeFrom: a stored view needs viewpoints', () => {
+  assert.equal(lastModeFrom('view', false, true), 'view');
+  assert.equal(lastModeFrom('view', false, false), 'cruise');
+  assert.equal(lastModeFrom('hunt', true, true), 'hunt');
+});
+
+test('modeTextKey and hasCheckpoints know the viewpoint hunt', () => {
+  assert.equal(modeTextKey('view', { intro: 'intro' }), 'viewIntro');
+  assert.equal(hasCheckpoints('view'), false);
 });
