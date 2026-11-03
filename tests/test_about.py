@@ -91,6 +91,47 @@ def test_phone_width_never_scrolls_sideways(server):
         b.close()
     assert wide[0] <= wide[1] and wide[2] <= wide[3], wide
 
+
+TOW_LAYOUT = """() => {
+  const q = s => document.querySelector('#about ' + s);
+  const text = document.getElementById('aboutdedication').getBoundingClientRect();
+  const car = q('.ab-car').getBoundingClientRect(), stage = q('.ab-dedication').getBoundingClientRect();
+  return { carRightOfText: car.left >= text.right, inside: text.left >= stage.left && car.right <= stage.right,
+           carWidth: car.width, aria: q('.ab-car').getAttribute('aria-hidden'),
+           transform: getComputedStyle(q('.ab-tow')).transform,
+           anims: q('.ab-tow').getAnimations({ subtree: true }).length };
+}"""
+
+
+def test_dedication_car_drives_in_and_parks_beside_the_text(server):
+    """#613: car, rope and text enter as one unit from the left; afterwards the car stands to the right of the text."""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        page.click("#aboutbtn")
+        running = page.evaluate(TOW_LAYOUT)["anims"]
+        page.evaluate("() => Promise.all(document.querySelector('#about .ab-tow').getAnimations({ subtree: true }).map(a => a.finished))")
+        parked = page.evaluate(TOW_LAYOUT)
+        dedication = page.inner_text("#aboutdedication")
+        b.close()
+    assert running >= 4, running                       # drive, flutter, bob, two wheels
+    assert parked["carRightOfText"] and parked["inside"] and parked["transform"] == "none", parked
+    assert parked["aria"] == "true" and parked["carWidth"] == 72, parked
+    assert dedication == "This game is dedicated to Juliska"
+    assert errors == []
+
+
+def test_dedication_is_static_under_reduced_motion(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, viewport=(375, 740))
+        page.emulate_media(reduced_motion="reduce")
+        page.click("#aboutbtn")
+        parked = page.evaluate(TOW_LAYOUT)
+        b.close()
+    assert parked["anims"] == 0 and parked["transform"] == "none", parked
+    assert parked["carRightOfText"] and parked["inside"] and parked["carWidth"] == 48, parked
+    assert errors == []
+
+
 def start_race(page):
     page.click("#startbtn")
     page.wait_for_function("() => window.__mm.pause().state === 'armed' || window.__mm.pause().state === 'racing'", timeout=120000)
