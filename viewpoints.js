@@ -56,6 +56,22 @@ export function shotPoints(vp, pose) {
 
 export const maxPoints = (spots) => spots.length * (VIEW.base + VIEW.bonus);
 
+// #660: the arrive/leave notices around a viewpoint. st = { at: last index or -1, cool: [] seconds left per viewpoint }
+export const NOTICE = { cooldownS: 8 };
+
+export function viewNoticeStep(st, here, shot, dt) {
+  const cool = st.cool.map((c) => Math.max(0, (c || 0) - dt));
+  if (here === st.at) return { st: { at: st.at, cool }, event: null };
+  let event = null;
+  if (here >= 0) {
+    if (!(cool[here] > 0)) event = { kind: 'arrive', i: here };
+  } else if (st.at >= 0 && !shot[st.at] && !(cool[st.at] > 0)) {
+    event = { kind: 'leave', i: st.at };
+  }
+  if (event) cool[event.i] = NOTICE.cooldownS;
+  return { st: { at: here, cool }, event };
+}
+
 // the album (phase 2): per viewpoint the best photo as a small JPEG in localStorage. Read back as untrusted data.
 export const ALBUM = { key: 'mm.viewAlbum', width: 320, quality: 0.8, maxLen: 60000 };
 const JPEG_DATA_URL = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/;
