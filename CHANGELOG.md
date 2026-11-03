@@ -32,6 +32,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-03 19:57` The **Rhy Harvester's** blue **nitro flames** now come out of the back of the engine, not out of thin air behind the unloading auger.
 - `2026-11-03 18:46` The **Sprungschanze** in the Sisslerfeld now stands on **level ground**, about 70 m further east. It used to sit on the slope of a hollow, so you drove uphill into it, it hardly showed and the car **barely jumped**.
 - `2026-11-02 15:31` The **Enterprise**'s name on the saucer no longer looks doubled: the blurry **red lettering** painted into the model is gone, so only the crisp white „U.S.S. ENTERPRISE“ and „NCC-1701-D“ remain, and underneath the saucer the letters are no longer **swallowed by the hull** in places.
 - `2026-11-02 15:22` No more **towers out of sheds**: buildings under trees no longer carry a roof as tall as the treetops. A garden shed on the Rhine bank at Sisseln had a **20 m pointed roof**; it and 71 other sheds, garages and houses now have a normal roof again. Churches keep their height.

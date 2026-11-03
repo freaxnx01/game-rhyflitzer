@@ -29,3 +29,10 @@ test('exhaustSpots_Height_LowOnTheTail_CappedOnATallTruck', () => {
   assert.ok(carY > CAR.min.y && carY < (CAR.min.y + CAR.max.y) / 2, carY);
   assert.equal(truckY, TRUCK.min.y + EXHAUST.maxH);
 });
+
+test('exhaustSpots_GivenTail_OverridesTheBox_ForAModelWithAnOverhang', () => {
+  const HARVESTER = { min: { x: -6.26, y: 0, z: -4.95 }, max: { x: 5.42, y: 4.2, z: 4.95 } };   // the auger reaches far past the tail
+  const [a, b] = exhaustSpots(HARVESTER, 2, [-3, 1.9]);
+  assert.equal(a[0], -3 - EXHAUST.flameLen / 2 + EXHAUST.overlap);
+  assert.equal(a[1], 1.9); assert.equal(a[2], -b[2]);
+});
