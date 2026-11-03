@@ -10,7 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
-- `2026-11-03 17:55` New mode **Viewpoints**: four panorama spots, from the car park above the Rhine with the view to Bad Säckingen to the deck of the Plattform Sisslerfeld (on foot, up the spiral stair). Follow the arrow, stand at the spot, face the sight and press <kbd>X</kbd>: up to 150 points per photo, the better aimed the more.
+- `2026-11-03 17:55` New mode **Viewpoints**: four panorama spots, from the car park above the Rhine with the view to Bad Säckingen to the deck of the Plattform Sisslerfeld (on foot, up the spiral stair). Follow the arrow, stand at the spot, face the sight and press <kbd>X</kbd>: up to 150 points per photo, the better aimed the more. Every scored photo also lands in your **album** (kept in the browser, the best photo per viewpoint), shown when all viewpoints are done.
 
 - `2026-11-03 14:21` New truck **Rhy Blaze** (German: Rhy Löschi), a red **tanker fire engine** with a crew cab, equipment lockers and twin tyres at the back. Press <kbd>2</kbd> for the **blue lights** and the two-tone **siren**. 100 km/h and heavy. No crest, no lettering. 3D model „Low Poly Fire Truck" by jg-3d (Sketchfab), CC BY 4.0.
 - `2026-11-03 13:17` **About**: the **dedication to Juliska** now drives in. A small orange car tows the text in from the left as a banner, brakes and parks beside it; after that the text stands still and readable as before. With „reduce motion" enabled in the system settings the car and the text are simply shown parked.

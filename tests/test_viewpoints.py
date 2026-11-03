@@ -63,9 +63,11 @@ def test_a_photo_at_rheinblick_aimed_at_the_bridge_scores_once(server):
             page.keyboard.press("KeyX")
         page.wait_for_function("() => window.__mm.toast().text.includes('no viewpoint here')", timeout=T)
         second = page.evaluate("() => window.__mm.views()")
+        album = page.evaluate("() => JSON.parse(localStorage.getItem('mm.viewAlbum') || '{}')")
         b.close()
     assert first["shot"] == 1 and 100 <= first["pts"][0] <= 150, first
     assert second["shot"] == 1 and second["pts"] == first["pts"], second
+    assert album["rheinblick"]["img"].startswith("data:image/jpeg;base64,") and album["rheinblick"]["pts"] == first["pts"][0], album.keys()
     assert errors == []
 
 
@@ -103,4 +105,24 @@ def test_ehrendingen_has_no_viewpoints_and_falls_back_to_cruise(server):
         got = page.evaluate("() => ({ hidden: document.querySelector('#viewbtn').hidden, focus: document.activeElement.id, total: window.__mm.views().total })")
         b.close()
     assert got == {"hidden": True, "focus": "cruisebtn", "total": 0}, got
+    assert errors == []
+
+
+SEED = """localStorage.setItem('mm.viewAlbum', JSON.stringify({
+  rheinblick: { img: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==', pts: 140, at: 1 },
+  plattform: { img: 'javascript:alert(1)', pts: 150, at: 2 } }));"""
+
+
+def test_the_result_screen_shows_the_album_with_empty_frames(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, init=SEED)
+        start_view(page)
+        page.evaluate("() => { for (let i = 0; i < 4; i++) window.__mm.viewScore(i, 120); window.__mm.viewSetEndIn(0.01); }")
+        page.wait_for_function("() => !document.querySelector('#overlay').hidden", timeout=T)
+        got = page.evaluate("""() => [...document.querySelectorAll('#album figure')].map(f => ({
+            img: !!f.querySelector('img'), empty: f.classList.contains('empty'), cap: f.querySelector('figcaption').textContent }))""")
+        b.close()
+    assert len(got) == 4, got
+    assert got[0] == {"img": True, "empty": False, "cap": "Rheinblick Stein · 140 points"}, got
+    assert got[1] == {"img": False, "empty": True, "cap": "Plattform Sisslerfeld · not yet"}, got   # the script URL was dropped
     assert errors == []
