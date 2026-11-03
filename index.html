@@ -175,12 +175,12 @@ body.cruise #tl .cps:not(#knockrow),body.cruise #pips,body.cruise #tr,body.cruis
 /* #613 the dedication drives in: .ab-tow (text, rope, car) enters from the left, the car brakes with a hair of overshoot and parks beside the text.
    .ab-dedication clips so the off-stage unit never widens #about (phone test). Reduced motion: the parked picture, no animation. */
 .ab-dedication{position:relative;overflow:hidden;padding:14px 20px;text-align:center;background:linear-gradient(#3a404b,#23272f);border:5px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l)}
-.ab-tow{display:flex;align-items:center;justify-content:center;animation:ab-drive 2s cubic-bezier(.25,.85,.35,1.1) both}
+.ab-tow{display:flex;align-items:center;justify-content:center;animation:ab-drive 2s cubic-bezier(.25,.85,.35,1.1) forwards}
 #aboutdedication{margin:0;min-width:0;font-family:Bungee,sans-serif;font-size:clamp(22px,4vw,36px);line-height:1.2;color:var(--sun);transform-origin:100% 50%;animation:ab-flutter 2s ease-in-out both}
 .ab-rope{flex:none;width:26px;height:0;margin-left:10px;border-top:3px solid var(--steel-l)}
 .ab-car{flex:none;width:72px;height:36px;overflow:visible;animation:ab-bob .3s ease-in-out 6 both}
 .ab-wheel{transform-box:fill-box;transform-origin:center;animation:ab-spin .4s linear 5 both}
-@keyframes ab-drive{from{transform:translateX(calc(-50vw - 100%))}to{transform:none}}
+@keyframes ab-drive{from{margin-left:calc(-50vw - 100%)}to{margin-left:0}}
 @keyframes ab-flutter{0%,100%{transform:none}20%{transform:skewY(2.5deg)}40%{transform:skewY(-2deg)}60%{transform:skewY(1.5deg)}80%{transform:skewY(-.8deg)}}
 @keyframes ab-bob{0%,100%{transform:none}50%{transform:translateY(-1.5px)}}
 @keyframes ab-spin{to{transform:rotate(360deg)}}
