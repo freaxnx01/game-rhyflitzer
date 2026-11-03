@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-03 12:34` The game now counts **anonymously** which car and mode are chosen, how people get around and where they jump to, so we can see where visitors get stuck. No cookies, no personal data, no exact positions, and nothing changes if you block it; details under **About** and in the README.
 - `2026-11-02 14:46` New mode **Cruise**: just drive around, with no clock, no checkpoints and no arrow. It is now the first button on the start screen and the one that starts with Enter; the time trial has its own **Time trial** button.
 
 ### Changed

@@ -1,4 +1,5 @@
 {
+  "analytics.js": ["test_analytics.py"],
   "legacy.js": ["test_legacy_urls.py"],
   "404.html": ["test_legacy_urls.py"],
   "prototype/index.html": ["test_legacy_urls.py"],
