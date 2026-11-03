@@ -228,17 +228,17 @@ def test_stepping_into_the_cabin_frees_the_mouse_so_the_pad_takes_a_click(server
 
 
 @needs_world
-def test_b_takes_the_walker_from_the_fifth_floor_out_in_front_of_the_entrance(server):
-    """#474: B anywhere inside the hall (here the 5th floor landing) puts the walker on the street, 1.5 m outside the porch door, facing away."""
+def test_e_takes_the_walker_from_the_fifth_floor_out_in_front_of_the_entrance(server):
+    """#474/#535: E anywhere inside the hall away from the lift gap (here the 5th floor landing) puts the walker on the street, 1.5 m outside the porch door, facing away."""
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
         e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
         page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
         key(page, "z", 300)
-        stand(page, 0.7, 0.4, math.pi / 2, level=5)
+        stand(page, 0.7, -0.7, math.pi / 2, level=5)
         foot_sim(page, 0.3)
         inside = interior(page)
-        key(page, "b", 300)
+        key(page, "e", 300)
         out = page.evaluate("() => ({ ...window.__mm.interior(), foot: window.__mm.foot() })")
         b.close()
     assert errors == []
@@ -249,6 +249,25 @@ def test_b_takes_the_walker_from_the_fifth_floor_out_in_front_of_the_entrance(se
     assert abs(math.hypot(f["x"] - e["x"], f["z"] - e["z"]) - 1.5) < 0.05, (f, e)
     assert abs(f["y"] - f["ground"]) < 0.3, f
     assert math.cos(f["th"] - e["th"]) < -0.99, (f["th"], e["th"])
+
+
+@needs_world
+def test_e_at_the_lift_gap_calls_the_lift_and_stays_inside(server):
+    """#535: E at the lift gap is the lift, not the way out."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        e = page.evaluate("() => window.__mm.bodenacker6().porches.find(p => p.house === '6c').entrance")
+        page.evaluate("([x, z, th]) => window.__mm.place(x - Math.cos(th) * 12, z - Math.sin(th) * 12, th)", [e["x"], e["z"], e["th"]])
+        key(page, "z", 300)
+        stand(page, 0.7, 0.4, math.pi / 2, level=5)
+        foot_sim(page, 0.3)
+        key(page, "e", 200)
+        page.evaluate("() => window.__mm.interiorSim(1.5)")
+        after = interior(page)
+        b.close()
+    assert errors == []
+    assert after["indoors"] is True and after["floor"] == 5, after
+    assert after["lift"]["busy"] or after["lift"]["at"] == 5, after
 
 
 @needs_world

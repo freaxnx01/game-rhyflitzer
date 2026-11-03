@@ -26,8 +26,8 @@ export const AUTO = {
   turnAngle: Math.PI / 6, signalBefore: 50, signalAfter: 10, roundaboutSignalBefore: 15,
 };
 
-// a press of any of these hands the car back to the player (touch drive buttons do the same in index.html)
-export const TAKE_OVER_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ControlLeft', 'ControlRight', 'KeyN', 'KeyO']);
+// a press of any of these hands the car back to the player (touch drive buttons do the same in index.html); Shift is nitro too since #535
+export const TAKE_OVER_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ControlLeft', 'ControlRight', 'KeyN', 'ShiftLeft', 'ShiftRight', 'KeyO']);
 
 const keyOf = (p) => Math.round(p[0] * 10) + ',' + Math.round(p[1] * 10);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

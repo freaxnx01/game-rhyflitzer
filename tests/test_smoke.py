@@ -484,7 +484,7 @@ def test_hud_bundle(server):
         wait_frames = lambda: page.wait_for_function("f0 => window.__frames > f0 + 2", arg=page.evaluate("() => window.__frames"), timeout=60000)
         page.keyboard.press("KeyV"); car_off = hud()["carVisible"]; wait_frames(); shadow_off = hud()["shadowVisible"]
         page.keyboard.press("KeyV"); car_on = hud()["carVisible"]; wait_frames(); shadow_on = hud()["shadowVisible"]
-        page.keyboard.press("KeyQ"); left = hud()["blinker"]; page.keyboard.press("KeyE"); right = hud()["blinker"]; page.keyboard.press("KeyE"); off = hud()["blinker"]
+        page.keyboard.press("Comma"); left = hud()["blinker"]; page.keyboard.press("Period"); right = hud()["blinker"]; page.keyboard.press("Period"); off = hud()["blinker"]   # #535: Comma · Period
         page.keyboard.down("Tab"); page.wait_for_function("() => window.__mm.map().full === true", timeout=120000); full_map = page.evaluate("() => window.__mm.map().full"); page.keyboard.up("Tab"); page.wait_for_function("() => window.__mm.map().full === false", timeout=120000); corner_map = page.evaluate("() => window.__mm.map().full")
         page.evaluate(f"() => window.__mm.place({rx}, {rz})"); page.wait_for_function("() => window.__mm.hud().water === 'Rhein'", timeout=60000)
         page.evaluate(f"() => window.__mm.place({sx + sis['w'] / 2 + 8}, {sz})"); page.wait_for_function("() => window.__mm.hud().water === 'Sissle'", timeout=60000)

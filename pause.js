@@ -2,7 +2,7 @@
 import { isDebugKey } from './debug.js';
 
 // the menu's buttons, in focus order (ids in index.html)
-export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pauseabout', 'pauserestart', 'pausemenu'];
+export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pauseabout', 'pausekeybar', 'pauserestart', 'pausemenu'];
 // the „Abandon this run?" question's buttons, Cancel first (it gets the focus)
 export const ABANDON_BUTTONS = ['abandoncancel', 'abandonok'];
 

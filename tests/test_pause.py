@@ -107,7 +107,7 @@ def test_keyboard_navigation_and_main_menu_asks_first(server):
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=T)
         seen = [pause(page)["focus"]]
-        for k in ["ArrowDown", "ArrowDown", "ArrowDown", "ArrowDown", "ArrowUp", "Tab", "Tab", "Shift+Tab"]:   # #509: five buttons — wraps Tab back to Resume, Shift+Tab to Main menu
+        for k in ["ArrowDown"] * 5 + ["ArrowUp", "Tab", "Tab", "Shift+Tab"]:   # #509/#535: six buttons — wraps Tab back to Resume, Shift+Tab to Main menu
             page.keyboard.press(k)
             seen.append(pause(page)["focus"])
         before = pause(page)
@@ -134,7 +134,7 @@ def test_keyboard_navigation_and_main_menu_asks_first(server):
         start_text = page.text_content("#startbtn")
         gone = not page.is_visible("#pause") and not page.is_visible("#abandon")
         b.close()
-    assert seen == ["pauseresume", "pausevehicle", "pauseabout", "pauserestart", "pausemenu", "pauserestart", "pausemenu", "pauseresume", "pausemenu"]   # #509: About sits after Change vehicle
+    assert seen == ["pauseresume", "pausevehicle", "pauseabout", "pausekeybar", "pauserestart", "pausemenu", "pauserestart", "pausemenu", "pauseresume", "pausemenu"]   # #509: About sits after Change vehicle
     assert q_shown and role == "alertdialog" and q_text == ["Abandon this run?", "Keep driving", "Abandon run"]
     assert (q["on"], q["confirm"], q["focus"], q["t"], q["state"]) == (True, True, "abandoncancel", before["t"], "racing")
     assert (still["on"], still["confirm"]) == (True, True)

@@ -109,15 +109,16 @@ test('footKeyAction_FTogglesHover_CarKeysBlocked_RestPass', () => {
   for (const k of ['KeyR', 'KeyJ', 'KeyM', 'KeyT', 'KeyX', 'KeyG', 'KeyK', 'Tab', 'Space', 'KeyW', 'F1', 'F3', 'Escape']) assert.equal(footKeyAction(k), 'pass', k);
 });
 
-// #409: E enters a building on foot (the register decides whether one is near); in the car E stays the right blinker
-test('footKeyAction_KeyE_IsEnter', () => {
-  assert.equal(footKeyAction('KeyE'), 'enter');
+// #409/#535: E is the one context key -- outdoors it enters, indoors it leaves; B is only look-back now
+test('footKeyAction_KeyE_LeavesIndoors_KeyBNeverLeaves', () => {
+  assert.equal(footKeyAction('KeyE', true), 'leave');
+  assert.equal(footKeyAction('KeyE', false), 'enter');
+  assert.equal(footKeyAction('KeyB', true), 'pass');
+  assert.equal(footKeyAction('KeyB', false), 'pass');
 });
 
-// #474: indoors B takes the walker straight out in front of the entrance; outside it does nothing
-test('footKeyAction_KeyB_LeavesOnlyIndoors', () => {
-  assert.equal(footKeyAction('KeyB', true), 'leave');
-  assert.equal(footKeyAction('KeyB', false), 'pass');
+test('footKeyAction_SignalKeys_BlockedOnFoot', () => {
+  for (const k of ['Comma', 'Period', 'KeyQ']) for (const indoors of [false, true]) assert.equal(footKeyAction(k, indoors), 'block', `${k} ${indoors}`);
 });
 
 test('footKeyAction_OtherCarKeys_StayBlocked', () => {
@@ -244,7 +245,7 @@ test('footKeyAction_HoverIndoors_IsBlockedAndOutdoorsStaysAsBefore', () => {
   assert.equal(footKeyAction('KeyF', true), 'block');
   assert.equal(footKeyAction('KeyC', true), 'block', 'C does nothing on foot: the view is first person already');
   assert.equal(footKeyAction('KeyW', true), 'pass');
-  assert.equal(footKeyAction('KeyE', true), 'enter');
+  assert.equal(footKeyAction('KeyE', true), 'leave');
 });
 
 // #592: the camera's eye height eases out over a tread snap (stair rise) while the walker's y stays exact
