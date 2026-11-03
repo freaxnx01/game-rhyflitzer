@@ -400,7 +400,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <div id="overlay">
   <div class="start">
     <div class="tags">
-      <div class="sub" data-i18n="sub">Map Madness · Prototype v0.2</div>
+      <div class="sub">Map Madness · <span id="subversion"></span></div>
       <div id="cartag" class="tag" aria-hidden="true"><i></i><span id="cartagname"></span></div>
     </div>
     <div class="logo">
@@ -4460,6 +4460,7 @@ function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overla
 const ABOUT = { on: false, from: 'start', tab: 0 };
 for (const a of document.querySelectorAll('#about a[data-link]')) { a.href = ABOUT_LINKS[a.dataset.link]; a.target = '_blank'; a.rel = 'noopener'; }
 $('aboutversion').textContent = `v${window.GAME_VERSION}`;
+$('subversion').textContent = `v${window.GAME_VERSION.split('.').slice(0, 2).join('.')}`;   // start-screen tag: major.minor from version.js, never a literal
 const aboutTabs = () => [...document.querySelectorAll('#about [role=tab]')];
 // #564: show tab i (aria-selected, roving tabindex, only its panel visible); focus = move the keyboard focus onto it
 function selectAboutTab(i, focus) { ABOUT.tab = i; aboutTabs().forEach((t, j) => { t.setAttribute('aria-selected', String(j === i)); t.tabIndex = j === i ? 0 : -1; $(t.getAttribute('aria-controls')).hidden = j !== i; }); $('aboutpanels').scrollTop = 0; if (focus) aboutTabs()[i].focus(); }
