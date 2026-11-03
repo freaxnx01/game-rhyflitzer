@@ -160,3 +160,25 @@ def test_phone_layout_and_screenshots(server, tmp_path):
     assert desk["edition"] == "Hochrhein Edition", desk
     assert desk["car"].startswith("Car: "), desk
     assert errors == [] and errors2 == []
+
+
+def test_loading_screen_runs_through_every_stage_then_steps_aside(server):
+    """While the world is built, a centred box names each stage in turn (loading.js, in order); once the start screen is ready
+    it is gone and the usual text slot shows again."""
+    import json, re, subprocess
+    stages = json.loads(subprocess.check_output(["node", "-e", "import('./loading.js').then(m => console.log(JSON.stringify(m.LOAD_STAGES)))"], text=True))
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_context(viewport={"width": 1280, "height": 720}, locale="en-US").new_page()
+        seen, errors = [], []
+        page.on("console", lambda m: seen.extend(re.findall(r"^Building the world: starting the (\w+) stage", m.text)))
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.route("**/data/terrain_*.mmh", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/index.html")
+        page.wait_for_function(READY, timeout=T)
+        page.wait_for_function("() => !document.getElementById('overlay').classList.contains('loading')", timeout=T)
+        box, slot = page.is_visible("#loadbox"), page.is_visible("#ovtext")
+        b.close()
+    assert seen == stages, seen
+    assert not box and slot
+    assert not errors, errors
