@@ -1,5 +1,23 @@
 {
-  "landmarks": {},
+  "landmarks": {
+    "fridolinskapelle-sisseln": {
+      "name": "Fridolinskapelle Sisseln",
+      "file": "fridolinskapelle-sisseln.glb",
+      "bounds": {
+        "min": [
+          1513.3,
+          20.48,
+          -221.29
+        ],
+        "max": [
+          1537.45,
+          44.62,
+          -207.21
+        ]
+      },
+      "attribution": "© swisstopo"
+    }
+  },
   "origin": {
     "crs": "EPSG:2056",
     "e": 2640000,
