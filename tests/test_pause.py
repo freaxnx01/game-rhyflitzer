@@ -14,7 +14,7 @@ HIDE = """(h) => {
 }"""
 
 
-def open_page(p, server, phone=False, start=True):
+def open_page(p, server, phone=False, start=True, query=""):
     b = p.chromium.launch(args=ARGS)
     if phone:
         # has_touch without is_mobile, like every other test here: index.html has no <meta name="viewport">, so
@@ -27,7 +27,7 @@ def open_page(p, server, phone=False, start=True):
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
-    page.goto(f"{server}/index.html")
+    page.goto(f"{server}/index.html{query}")
     page.wait_for_function(READY, timeout=240000)
     if start:
         page.click("#startbtn")
@@ -100,7 +100,7 @@ def test_p_pauses_and_game_keys_are_silent(server):
 
 def test_keyboard_navigation_and_main_menu_asks_first(server):
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server)
+        b, page, errors = open_page(p, server, query="?mode=trial")   # #551: Main menu returns to the preselected mode; here a trial's
         start = page.evaluate("() => window.__mm.car()")
         drive(page)
         page.keyboard.up("Space")
@@ -141,7 +141,7 @@ def test_keyboard_navigation_and_main_menu_asks_first(server):
     assert back_shown and (back["on"], back["focus"], back["t"]) == (True, "pausemenu", before["t"])
     assert on_abandon == "abandonok"
     assert (s["on"], s["confirm"], s["state"], s["t"], s["focus"], s["best"]) == (False, False, "ready", 0, "startbtn", before["best"])
-    assert gone and start_text == "Start"
+    assert gone and start_text == "Time trial"   # #551: the trial button has its own name now
     assert abs(car["x"] - start["x"]) < 0.5 and abs(car["z"] - start["z"]) < 0.5   # back at START (an armed car may settle a little)
     assert errors == []
 

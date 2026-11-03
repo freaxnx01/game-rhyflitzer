@@ -8,7 +8,7 @@ READY = "() => window.__mm && window.__mm.hunt && document.querySelector('#world
 T = 120000
 
 
-def open_page(p, server, locale="en-US", osm=False, init=None):
+def open_page(p, server, locale="en-US", osm=False, init=None, query=""):
     b = p.chromium.launch(args=ARGS)
     page = b.new_context(viewport={"width": 1280, "height": 720}, locale=locale).new_page()
     errors = []
@@ -18,7 +18,7 @@ def open_page(p, server, locale="en-US", osm=False, init=None):
     if not osm:
         page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
-    page.goto(f"{server}/index.html")
+    page.goto(f"{server}/index.html{query}")
     page.wait_for_function(READY, timeout=240000)
     return b, page, errors
 
@@ -76,7 +76,7 @@ def test_collecting_all_five_ends_with_a_result_and_a_best(server):
         skip_celebration(page)
         page.wait_for_function("() => !document.querySelector('#overlay').hidden", timeout=T)
         assert "All presents found!" in page.text_content("#result") or "New record!" in page.text_content("#result")
-        assert page.text_content("#huntbtn") == "Again" and page.text_content("#startbtn") == "Start"
+        assert page.text_content("#huntbtn") == "Again" and page.text_content("#startbtn") == "Time trial"   # #551: the trial button has its own name now
         assert page.evaluate("localStorage.getItem('mm.huntBest')") is not None
         assert errors == []
         b.close()
@@ -177,7 +177,7 @@ def test_osm_layout_boxes_sit_on_the_road_never_on_a_deck(server):
 
 def test_main_menu_after_a_hunt_is_the_time_trial_start_screen(server):
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server)
+        b, page, errors = open_page(p, server, query="?mode=trial")   # #551: Main menu returns to the preselected mode; here a trial's
         page.evaluate("window.__mm.startHunt(3)")
         collect(page, 0)
         assert page.evaluate("window.__mm.hunt().confetti")

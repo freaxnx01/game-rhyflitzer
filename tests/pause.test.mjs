@@ -1,7 +1,7 @@
 // #83: the pause menu's key and focus rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus } from '../pause.js';
+import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from '../pause.js';
 
 const key = (code, extra = {}) => ({ code, shiftKey: false, repeat: false, ...extra });
 const RUN = { paused: false, canPause: true };
@@ -92,4 +92,12 @@ test('Ctrl+D is the debug key in the pause menu and the abandon question too; a 
   assert.equal(pauseKeyAction(key('KeyD', { ctrlKey: true }), PAUSED), 'debug');
   assert.equal(pauseKeyAction(key('KeyD', { ctrlKey: true }), CONFIRM), 'debug');
   assert.equal(pauseKeyAction(key('KeyD'), PAUSED), 'ignore');
+});
+
+test('pauseButtonsFor_Cruise_HasNoRestart', () => {
+  assert.deepEqual(pauseButtonsFor('cruise'), ['pauseresume', 'pausevehicle', 'pauseabout', 'pausemenu']);
+});
+
+test('pauseButtonsFor_RaceModes_AreTheFullMenu', () => {
+  for (const m of ['trial', 'blitz', 'hunt']) assert.deepEqual(pauseButtonsFor(m), PAUSE_BUTTONS, m);
 });

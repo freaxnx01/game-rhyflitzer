@@ -58,8 +58,8 @@ def lit_counts(page):
 
 def test_choose_car_opens_the_screen_with_the_compact(server):
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server)
-        assert page.evaluate("() => [...document.querySelector('#overlay .bar .row').children].map(b => b.id)") == ["startbtn", "blitzbtn", "huntbtn", "carbtn"]
+        b, page, errors = open_page(p, server, query="?mode=trial")   # #551: cruise is the default now; this test stays a trial's
+        assert page.evaluate("() => [...document.querySelector('#overlay .bar .row').children].map(b => b.id)") == ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "carbtn"]
         assert page.evaluate("() => [...document.querySelector('#overlay .row.secondary').children].map(b => b.id).slice(0, 2)") == ["worldbtn", "stylebtn2"]
         open_carsel(page)
         wait_frames(page)
@@ -156,7 +156,7 @@ def test_third_vehicle_and_race(server):
     """A third table entry appears in the counter, ‹ ›, the garage and the bars without any change to the screen; Race! starts
     the run with it, in the current mode. The entry has no strings, so its id is the name. ‹ from the first car wraps to it."""
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server)
+        b, page, errors = open_page(p, server, query="?mode=trial")   # #551: Race! starts the preselected mode; here a trial's
         page.evaluate(f"() => window.__mm.registerVehicle('slow', {SLOW})")
         open_carsel(page)
         count1 = page.text_content("#cscount")

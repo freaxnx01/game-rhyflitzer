@@ -1,26 +1,52 @@
 // #346: pure helpers of the start screen and the Worlds dialog. No DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MODES, lastModeFrom, modeTextKey, editionText, worldsKeyAction, bestKeyFor } from '../startscreen.js';
+import { MODES, startModeFrom, lastModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from '../startscreen.js';
 
 const key = (code) => ({ code, repeat: false });
 
-test('MODES are the three race modes in bar order', () => {
-  assert.deepEqual(MODES, ['trial', 'blitz', 'hunt']);
+test('MODES are cruise and the three race modes in bar order', () => {
+  assert.deepEqual(MODES, ['cruise', 'trial', 'blitz', 'hunt']);
 });
 
-test('lastModeFrom: a stored mode wins, junk falls back to trial, a raceless world is always hunt', () => {
+test('startModeFrom: ?mode= picks a known mode, anything else is cruise', () => {
+  assert.equal(startModeFrom('', false), 'cruise');
+  assert.equal(startModeFrom('?mode=trial', false), 'trial');
+  assert.equal(startModeFrom('?region=ehrendingen&mode=blitz', false), 'blitz');
+  assert.equal(startModeFrom('?mode=hunt', false), 'hunt');
+  assert.equal(startModeFrom('?mode=cruise', false), 'cruise');
+  assert.equal(startModeFrom('?mode=<img onerror=1>', false), 'cruise');
+});
+
+test('startModeFrom: a raceless world offers only cruise and hunt', () => {
+  assert.equal(startModeFrom('?mode=trial', true), 'cruise');
+  assert.equal(startModeFrom('?mode=blitz', true), 'cruise');
+  assert.equal(startModeFrom('?mode=hunt', true), 'hunt');
+  assert.equal(startModeFrom('', true), 'cruise');
+});
+
+test('lastModeFrom: a stored mode wins, junk falls back to cruise, a raceless world keeps only cruise or hunt', () => {
   assert.equal(lastModeFrom('blitz', false), 'blitz');
-  assert.equal(lastModeFrom(null, false), 'trial');
-  assert.equal(lastModeFrom('<img onerror=1>', false), 'trial');
-  assert.equal(lastModeFrom('blitz', true), 'hunt');
+  assert.equal(lastModeFrom('trial', false), 'trial');
+  assert.equal(lastModeFrom(null, false), 'cruise');
+  assert.equal(lastModeFrom('<img onerror=1>', false), 'cruise');
+  assert.equal(lastModeFrom('blitz', true), 'cruise');
+  assert.equal(lastModeFrom('hunt', true), 'hunt');
 });
 
-test('modeTextKey: trial uses the region intro, blitz and hunt their own intro', () => {
+test('modeTextKey: cruise and trial use their intros, blitz and hunt their own intro', () => {
   const strings = { intro: 'introEhrendingen' };
+  assert.equal(modeTextKey('cruise', strings), 'cruiseIntro');
   assert.equal(modeTextKey('trial', strings), 'introEhrendingen');
   assert.equal(modeTextKey('blitz', strings), 'blitzIntro');
   assert.equal(modeTextKey('hunt', strings), 'huntIntro');
+});
+
+test('hasCheckpoints: only the time trial and Blitz race the checkpoints', () => {
+  assert.equal(hasCheckpoints('trial'), true);
+  assert.equal(hasCheckpoints('blitz'), true);
+  assert.equal(hasCheckpoints('hunt'), false);
+  assert.equal(hasCheckpoints('cruise'), false);
 });
 
 test('editionText: built-in regions get the Edition suffix, generated worlds their plain name', () => {

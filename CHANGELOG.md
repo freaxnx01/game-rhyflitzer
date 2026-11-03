@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-11-02 14:46` New mode **Cruise**: just drive around, with no clock, no checkpoints and no arrow. It is now the first button on the start screen and the one that starts with Enter; the time trial has its own **Time trial** button.
+
 ### Changed
 
 - `2026-11-02 14:55` When the **Rhy Wobbler** tips over, it now ends up lying **across the road** and **slides on** a good bit further, with a **tyre screech** as it goes over and a **scrape** on the asphalt while it slides.

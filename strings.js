@@ -15,7 +15,10 @@ const en = {
   blurbOsmEhrendingen: 'Roads, the Wanderweg, houses and the Surb from OpenStreetMap, terrain from swisstopo. Timer starts when you move.',
   intro: 'Sisseln → Sisslerfeld → Stein → Bad Säckingen. Five checkpoints in any order, then the finish at the Münsterplatz. The Holzbrücke is for pedestrians. Nobody told the timer.',
   finishedText: 'Münsterplatz reached. Retry for a better line, or take the other bridge next time.',
-  start: 'Start',
+  trial: 'Time trial',
+  cruise: 'Cruise',
+  modeCruise: (r) => `Cruising · ${r}`,
+  cruiseIntro: 'No clock, no checkpoints. Just drive: cars, on foot, the helicopter, the steam loco. J jumps to any place.',
   retry: 'Again',
   /* #346 Sunset Steel start screen: the tags, the edition plate, the sticker and the slot entries */
   edition: (n) => `${n} Edition`,
@@ -473,7 +476,10 @@ const de = {
   blurbOsmEhrendingen: 'Strassen, Wanderweg, Häuser und die Surb aus OpenStreetMap, Gelände von swisstopo. Die Zeit läuft, sobald Du fährst.',
   intro: 'Sisseln → Sisslerfeld → Stein → Bad Säckingen. Fünf Checkpoints in beliebiger Reihenfolge, dann das Ziel auf dem Münsterplatz. Die Holzbrücke ist für Fussgänger. Das hat der Stoppuhr niemand gesagt.',
   finishedText: 'Münsterplatz erreicht. Nochmals für eine bessere Linie – oder nächstes Mal die andere Brücke.',
-  start: 'Start',
+  trial: 'Zeitfahren',
+  cruise: 'Herumfahren',
+  modeCruise: (r) => `Herumfahren · ${r}`,
+  cruiseIntro: 'Keine Uhr, keine Checkpoints. Einfach fahren: mit dem Auto, zu Fuss, im Helikopter, mit der Dampflok. J springt an jeden Ort.',
   retry: 'Nochmals',
   /* #346 Sunset Steel start screen */
   edition: (n) => `${n}-Edition`,

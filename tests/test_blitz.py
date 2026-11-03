@@ -8,14 +8,14 @@ READY = "() => window.__mm && window.__mm.blitz && document.querySelector('#worl
 T = 120000
 
 
-def open_page(p, server, locale="en-US"):
+def open_page(p, server, locale="en-US", query=""):
     b = p.chromium.launch(args=ARGS)
     page = b.new_context(viewport={"width": 1280, "height": 720}, locale=locale).new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
-    page.goto(f"{server}/index.html")
+    page.goto(f"{server}/index.html{query}")
     page.wait_for_function(READY, timeout=240000)
     return b, page, errors
 
@@ -71,7 +71,7 @@ def test_the_clock_counts_down_only_while_racing_and_ends_the_run_at_zero(server
         r = text(page, "#result")
         assert "Time's up" in r and "0 / 5 checkpoints" in r
         assert page.evaluate("() => localStorage.getItem('mm.blitzBest')") is None
-        assert text(page, "#blitzbtn") == "Again" and text(page, "#startbtn") == "Start"
+        assert text(page, "#blitzbtn") == "Again" and text(page, "#startbtn") == "Time trial"   # #551: the trial button has its own name now
         assert errors == []
         b.close()
 
@@ -115,7 +115,7 @@ def test_a_cheated_finish_shows_the_rank_but_keeps_no_best(server):
 
 def test_abandoning_a_blitz_run_returns_the_start_screen_to_the_time_trial(server):
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server)
+        b, page, errors = open_page(p, server, query="?mode=trial")   # #551: Main menu returns to the preselected mode; here a trial's
         page.click("#blitzbtn")
         page.wait_for_function("() => document.getElementById('overlay').hidden", timeout=T)
         page.keyboard.down("KeyW")                                           # racing, so the abandon dialog appears
@@ -135,7 +135,7 @@ def test_abandoning_a_blitz_run_returns_the_start_screen_to_the_time_trial(serve
 
 def test_the_time_trial_is_untouched_and_german_labels_switch_mid_run(server):
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server)
+        b, page, errors = open_page(p, server, query="?mode=trial")   # #551: this test starts a time trial
         page.click("#startbtn")
         page.wait_for_function("() => document.getElementById('overlay').hidden", timeout=T)
         s = blitz(page)

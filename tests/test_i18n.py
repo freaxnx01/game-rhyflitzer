@@ -10,19 +10,21 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
 
 
-def open_page(p, server, locale="en-US", lang=None):
+def open_page(p, server, locale="en-US", lang=None, query="", lastmode=None):
     """lang: a gg-lang value stored before the page's own scripts run (on every navigation of this context)."""
     b = p.chromium.launch(args=ARGS)
     ctx = b.new_context(locale=locale, viewport={"width": 1280, "height": 720})
     if lang:
         ctx.add_init_script(f"try {{ localStorage.setItem('gg-lang', '{lang}'); }} catch (e) {{}}")
+    if lastmode:
+        ctx.add_init_script(f"try {{ localStorage.setItem('mm.lastMode', '{lastmode}'); }} catch (e) {{}}")   # #551: the unfocused slot falls back to the last played mode
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/backdrop_hochrhein.mmh", lambda r: r.fulfill(status=404, body=""))   # #614: else the status line gains the horizon source
-    page.goto(f"{server}/index.html", timeout=240000)
+    page.goto(f"{server}/index.html{query}", timeout=240000)
     page.wait_for_function(READY, timeout=240000)
     return b, page, errors
 
@@ -37,7 +39,7 @@ def text(page, selector):
 ])
 def test_browser_language_decides_without_a_stored_choice(server, locale, lang, mode):
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server, locale=locale)
+        b, page, errors = open_page(p, server, locale=locale, query="?mode=trial")   # #551: the mode line stays the trial's
         got = page.evaluate("""() => ({ lang: window.GG_LANG, html: document.documentElement.lang,
             toggle: document.querySelector('#game-nav #gg-lang-toggle')?.textContent,
             stored: localStorage.getItem('gg-lang') })""")
@@ -91,7 +93,7 @@ def test_stored_language_wins_over_the_browser(server):
 
 def test_toggle_switches_live_and_persists(server):
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server, locale="en-US")
+        b, page, errors = open_page(p, server, locale="en-US", query="?mode=trial", lastmode="trial")   # #551: the toggle takes the focus, so the slot falls back to the last played mode -- here the trial's
         page.click("#gg-lang-toggle")
         page.wait_for_function("() => document.querySelector('#best').textContent.startsWith('Bestzeit')", timeout=120000)
         live = page.evaluate("""() => ({
@@ -116,7 +118,7 @@ def test_toggle_switches_live_and_persists(server):
     assert live["lang"] == "de" and live["stored"] == "de" and live["html"] == "de" and live["toggle"] == "DE"
     assert live["mode"] == "Zeitfahren · Hochrhein"
     assert live["intro"].startswith("Sisseln → Sisslerfeld") and "Fünf Checkpoints" in live["intro"]
-    assert live["startbtn"] == "Start"
+    assert live["startbtn"] == "Zeitfahren"
     assert live["style2"] == "Stil: Original" and live["stylename"] == "Original"
     assert live["terrain"] == "Gelände: erfunden (sanfte Hügel, nicht gemessen)"
     assert live["world"] == "Welt: von Hand abgezeichnet (keine data/world_hochrhein.json)"
@@ -162,7 +164,7 @@ def test_runtime_texts_follow_the_language(server):
 def test_checkpoint_and_place_names_stay(server):
     def names(lang):
         with sync_playwright() as p:
-            b, page, _ = open_page(p, server, locale="en-US", lang=lang)
+            b, page, _ = open_page(p, server, locale="en-US", lang=lang, query="?mode=trial")   # #551: only a mode with checkpoints fills #cpname
             page.wait_for_function("() => / · /.test(document.querySelector('#cpname').textContent)", timeout=120000)
             got = page.evaluate("""() => ({
                 cp: document.querySelector('#cpname').textContent.split(' · ').slice(1).join(' · '),
