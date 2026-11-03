@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
 T = 240000
-BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "carbtn"]
+BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "carbtn"]
 SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn"]
 
 
@@ -43,7 +43,7 @@ def test_bar_order_focus_order_and_enter_starts(server):
     assert bar == BAR, bar
     assert secondary == SECONDARY, secondary
     assert first == "cruisebtn"
-    assert order == ["startbtn", "blitzbtn", "huntbtn", "carbtn", "worldbtn"], order
+    assert order == ["startbtn", "blitzbtn", "huntbtn", "viewbtn", "carbtn"], order
     assert errors == []
 
 
