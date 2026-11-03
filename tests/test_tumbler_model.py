@@ -59,11 +59,11 @@ def test_tumbler_model_head_lamps_follow_the_lights(server):
 
 def test_nitro_flames_sit_behind_every_gltf_tail_one_centred_on_the_tumbler(server):
     """The Tumbler's jet burner is one flame on the centre line; the Knight and the fire engine get two, side by side. All sit
-    behind the body, in car-local metres (x forward), so they show behind the tail."""
+    behind the body, in car-local metres (x forward), so they show behind the tail; the Harvester's behind its engine, not its auger."""
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
         seen = {}
-        for vid in ("tumbler", "knight", "blaze"):
+        for vid in ("tumbler", "knight", "blaze", "harvester"):
             page.evaluate(f"async () => {{ await window.__mm.loadVehicle('{vid}'); window.__mm.setVehicle(window.__mm.vehicles().{vid}); }}")
             wait_frames(page)
             seen[vid] = {"flames": page.evaluate("() => window.__mm.nitroFlames()"), "l": page.evaluate("() => window.__mm.carSize().l")}
@@ -73,5 +73,8 @@ def test_nitro_flames_sit_behind_every_gltf_tail_one_centred_on_the_tumbler(serv
         zs = sorted(f[2] for f in seen[vid]["flames"])
         assert len(zs) == 2 and zs[0] == -zs[1] and zs[1] > 0, seen
     for vid, s in seen.items():
-        assert all(f[0] < -s["l"] / 2 + 0.2 for f in s["flames"]), (vid, s)
+        if vid != "harvester":
+            assert all(f[0] < -s["l"] / 2 + 0.2 for f in s["flames"]), (vid, s)
+    # the Harvester's box reaches -6.26 m only with the unloading auger, high up: its flames sit at the engine's tail, 1.9 m up
+    assert all(-4 < f[0] < -3 and f[1] == 1.9 for f in seen["harvester"]["flames"]), seen["harvester"]
     assert not errors, errors

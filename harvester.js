@@ -18,4 +18,5 @@ export const HARVESTER = {
     horn: { notes: [196], dur: 0.8, gain: 0.24, band: 900, wave: 'sawtooth' },
     crash: { weight: 2.4, thump: 48, noise: 1100, gain: 1 } },   // a busy diesel that stays near its working revs, four ranges; one deep honk
   blinkers: [[3.55, 3.4, 1.15], [-3.9, 2.8, 1.5]],   // on the cab roof corners and at the back of the grain tank
+  exhaustAt: [-3.0, 1.9],   // the nitro flames at the engine's tail; the box reaches -6.26 only with the unloading auger, 2.5–3.5 m up
 };

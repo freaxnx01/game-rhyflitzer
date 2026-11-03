@@ -2817,7 +2817,7 @@ function addBlinkers(spots) { const m = new THREE.MeshBasicMaterial({ color: 0xf
 function addFlames(spots) { const m = new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 }); for (const [x, y, z] of spots) { const f = new THREE.Mesh(new THREE.ConeGeometry(EXHAUST.flameR, EXHAUST.flameLen, 10), m); f.rotation.z = Math.PI / 2; f.position.set(x, y, z); flames.add(f); } }
 function buildGltfVehicle(g, v) {
   const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
-  wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes)); g.add(root); addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
+  wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes, v.exhaustAt)); g.add(root); addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
   g.userData.spin = spinPlan(v, wheelNames(root)).map(s => ({ node: root.getObjectByName(s.node), rate: s.rate, turned: 0 }));   // the mixer's drum
   g.userData.scan = e.mats.scan.length ? { mats: e.mats.scan, t: 0 } : null;   // the Rhy Knight's scanner light
   g.userData.beacon = e.mats.beacon.length ? e.mats.beacon : null; for (const m of e.mats.beacon) m.emissiveIntensity = beaconGlow(0);   // the Rhy Blaze's blue lights, dark until the siren runs
