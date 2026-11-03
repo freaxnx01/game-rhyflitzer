@@ -10,6 +10,8 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .plate{position:fixed;background:rgba(20,23,29,.82);border:4px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l);padding:6px 14px;box-sizing:border-box}
 #hud{position:fixed;inset:0;pointer-events:none;font-variant-numeric:tabular-nums}
+/* #305: Ctrl+H -- a clean view; the toast still says what happened, the dialogs and the lift pads still open */
+body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #navi,body.hud-off #compass,body.hud-off #bl,body.hud-off #br,body.hud-off #stylebtn,body.hud-off #pausebtn,body.hud-off #debug,body.hud-off #touch{visibility:hidden}
 #tl{left:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:6px;min-width:200px}
 #tl .mode{font-size:16px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel-l)}
 #tl .cps{font-size:22px;font-weight:800;font-style:italic;color:var(--sun);line-height:1}
@@ -52,12 +54,13 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 @media (pointer:coarse){#debug{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px))}}
 #debugtext>div::before{content:attr(data-label);display:inline-block;min-width:11ch;color:#7f9a6a}
 #debuglinks{display:flex;gap:6px;margin-top:4px;white-space:normal}#debuglinks[hidden]{display:none}#debuglinks button{font:inherit;color:#8fd8e8;background:none;border:1px solid #3a404b;padding:1px 6px;cursor:pointer}
+#debugjump{display:flex;gap:6px;align-items:center;margin-top:6px;white-space:normal}#debugjump[hidden]{display:none}#debugjump select,#debugjump button{font:inherit;color:#8fd8e8;background:#14171d;border:1px solid #3a404b;padding:1px 6px}#debugjump select{min-width:0;flex:1}#debugjump button{cursor:pointer}
 #knockreset{display:block;margin-top:6px;padding:4px 10px;font:inherit;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 /* #439: a real phone lays out at its device width (#354), so the panel stops at the viewport edge and its lines wrap, keeping the ? on screen */
 #debug{padding-right:36px;box-sizing:border-box;max-width:calc(100vw - 32px)}#debugtext>div{white-space:pre-wrap}#debughelp{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font:inherit;line-height:18px;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 /* the open legend must not push the panel (and its ? button) off screen: the panel is a column capped at the room its anchor leaves (below),
    and the legend is the one part that gives, so it scrolls instead of the panel growing past the screen edge (#415, #439) */
-#debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#knockreset{flex:none}
+#debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#debugjump,#knockreset{flex:none}
 @media (max-width:900px){#debug{max-height:calc(100vh - 166px - env(safe-area-inset-bottom,0px))}}
 @media (pointer:coarse){#debug{padding-right:48px;max-height:calc(100vh - 124px - env(safe-area-inset-top,0px))}#debughelp{width:36px;height:36px;line-height:32px}}
 /* a phone's steering buttons sit in the strip below the panel's anchor (y 460-614 of 844), so the open legend would cover them anyway: they step aside while it is read, like during the car choice (#439) */
@@ -347,6 +350,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="KeyX">X</kbd><span data-i18n="keyPhoto">photo: save the view as a PNG</span>
       <kbd data-cmd="KeyM">M</kbd><span data-i18n="keyMute">mute</span>
       <kbd data-cmd="KeyP">Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
+      <kbd data-cmd="ctrl+KeyH">Ctrl · H</kbd><span data-i18n="keyHud">hide or show the HUD (speedometer, map, buttons)</span>
       <kbd data-cmd="ctrl+KeyD">Ctrl · D</kbd><span data-i18n="keyDebug">debug: coordinates, building heights, map links (click the panel to copy · ?debug in the URL)</span>
       <kbd data-cmd="none">Ctrl · P</kbd><span data-i18n="keyCmdSearch">command search: type, ↑ ↓ choose, Enter runs it</span>
       <kbd data-cmd="action:about">ⓘ</kbd><span data-i18n="keyAbout">About Rhyflitzer: dedication, credits, how it is built</span>
@@ -385,7 +389,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
-  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
+  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
 </div>
 
 <div id="touch">
@@ -401,7 +405,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <div id="overlay">
   <div class="start">
     <div class="tags">
-      <div class="sub" data-i18n="sub">Map Madness · Prototype v0.2</div>
+      <div class="sub">Map Madness · <span id="subversion"></span></div>
       <div id="cartag" class="tag" aria-hidden="true"><i></i><span id="cartagname"></span></div>
     </div>
     <div class="logo">
@@ -627,7 +631,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape } from './trees.js';
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift } from './world.js';
-import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey } from './debug.js';
+import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
@@ -639,7 +643,7 @@ import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel } from './rooms.js';
+import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel, isRoomLevel } from './rooms.js';
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
@@ -704,6 +708,7 @@ import { KNIGHT } from './knight.js';   // Rhy Knight, a glTF sports coupé with
 import { scannerLevels, scannerGlow } from './scanner.js';
 import { BLAZE } from './blaze.js';   // Rhy Blaze, a glTF fire engine with blue lights and a siren
 import { SIREN, hasSiren, toggleSiren, sirenNote, beaconLevels, beaconGlow } from './siren.js';
+import { EXHAUST, exhaustSpots } from './exhaust.js';   // where the nitro flames sit behind a glTF vehicle
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan } from './gltfvehicle.js';
@@ -2771,9 +2776,10 @@ function wireWheels(g, root) {
 }
 function wheelNames(root) { const names = []; root.traverse(o => names.push(o.name)); return names; }
 function addBlinkers(spots) { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [x, y, z] of spots) for (const [side, s] of [['left', -1], ['right', 1]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, y, s * z); BLINK[side].add(b); } }
+function addFlames(spots) { const m = new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 }); for (const [x, y, z] of spots) { const f = new THREE.Mesh(new THREE.ConeGeometry(EXHAUST.flameR, EXHAUST.flameLen, 10), m); f.rotation.z = Math.PI / 2; f.position.set(x, y, z); flames.add(f); } }
 function buildGltfVehicle(g, v) {
   const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
-  wireWheels(g, root); g.add(root); addBlinkers(v.blinkers);
+  wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes)); g.add(root); addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
   g.userData.spin = spinPlan(v, wheelNames(root)).map(s => ({ node: root.getObjectByName(s.node), rate: s.rate, turned: 0 }));   // the mixer's drum
   g.userData.scan = e.mats.scan.length ? { mats: e.mats.scan, t: 0 } : null;   // the Rhy Knight's scanner light
   g.userData.beacon = e.mats.beacon.length ? e.mats.beacon : null; for (const m of e.mats.beacon) m.emissiveIntensity = beaconGlow(0);   // the Rhy Blaze's blue lights, dark until the siren runs
@@ -3441,7 +3447,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa === 'leave') leaveBuilding(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter') pressEnter(); if (fa === 'leave') leaveBuilding(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } if (e.code === 'KeyQ') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (e.code === 'KeyE') HUD.blinker = HUD.blinker === 'right' ? null : 'right'; if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -4238,6 +4244,7 @@ function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vec
 // lift, the damage, how far the heading turned, and the angle between the motion and the heading at the end
 window.__mm.tipSim = (speed, secs, hold = []) => { const th0 = P.th; if (speed) { P.vx = Math.cos(P.th) * speed; P.vz = Math.sin(P.th) * speed; } for (const k of hold) keys[k] = true; const phases = new Set(); let roll = 0, lift = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); phases.add(TIP_S.phase); roll = Math.max(roll, Math.abs(car.rotation.x)); lift = Math.max(lift, car.position.y - P.y); } for (const k of hold) keys[k] = false; return { phases: [...phases], phase: TIP_S.phase, roll, lift, dmg: P.dmg, speed: Math.hypot(P.vx, P.vz), turned: P.th - th0, slid: Math.atan2(P.vz, P.vx) - P.th }; };
 window.__mm.siren = () => ({ on: SIREN_S.on, beacons: car.userData.beacon?.map(m => m.emissiveIntensity) ?? null, voice: SFX.sirenState() });   // read-only, for the tests
+window.__mm.nitroFlames = () => flames.children.map(f => f.position.toArray());   // read-only: where each nitro flame sits, car-local
 window.__mm.scanner = () => car.userData.scan?.mats.map(m => m.emissiveIntensity) ?? null;   // read-only: each scanner segment's glow, left to right
 window.__mm.spin = () => (car.userData.spin ?? []).map(s => ({ node: s.node.name, turned: s.turned }));   // read-only: what turns on the car and how far
 window.__mm.driveSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; let worst = Infinity, roll = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); worst = Math.min(worst, wheelClearance()); roll = Math.max(roll, Math.abs(car.rotation.x)); } for (const k of hold) keys[k] = false; return { worst, roll, speed: Math.hypot(P.vx, P.vz) }; };
@@ -4292,7 +4299,7 @@ function stepCar(dt) {
   if (KNOCK) { const sl = KNOCK.step(); if (sl) { P.vx *= 1 - sl; P.vz *= 1 - sl; } }   // #415: knocked-over props go first, so their colliders are off for this step
   collide(carRadius());
   followCave();
-  car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
+  car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; { const flick = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04)); for (const f of flames.children) f.scale.y = flick; }   // each cone along its own axis (local y): scaling the group would pull the flames into the body
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01 + TIP_S.roll;
   if (TIP_S.roll) { const l = tipLift(TIP_S.roll, VEH.tip.pivot * VEH.scale); car.position.set(P.x + rx * l.dz, P.y + l.dy, P.z + rz * l.dz); }   // it rolls over its outer edge, not its centre
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
@@ -4513,6 +4520,7 @@ function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overla
 const ABOUT = { on: false, from: 'start', tab: 0 };
 for (const a of document.querySelectorAll('#about a[data-link]')) { a.href = ABOUT_LINKS[a.dataset.link]; a.target = '_blank'; a.rel = 'noopener'; }
 $('aboutversion').textContent = `v${window.GAME_VERSION}`;
+$('subversion').textContent = `v${window.GAME_VERSION.split('.').slice(0, 2).join('.')}`;   // start-screen tag: major.minor from version.js, never a literal
 const aboutTabs = () => [...document.querySelectorAll('#about [role=tab]')];
 // #564: show tab i (aria-selected, roving tabindex, only its panel visible); focus = move the keyboard focus onto it
 function selectAboutTab(i, focus) { ABOUT.tab = i; aboutTabs().forEach((t, j) => { t.setAttribute('aria-selected', String(j === i)); t.tabIndex = j === i ? 0 : -1; $(t.getAttribute('aria-controls')).hidden = j !== i; }); $('aboutpanels').scrollTop = 0; if (focus) aboutTabs()[i].focus(); }
@@ -4877,6 +4885,7 @@ function renderOdo() { $('odo').textContent = tr('odo', P.odo.toFixed(0)); }
 const DEBUG = { on: false, t: 0, sections: [], layers: [], lines: [] };
 function debugSection(fn) { DEBUG.sections.push(fn); }
 function debugLayer(layer) { DEBUG.layers.push(layer); }
+function toggleHudShown() { const off = document.body.classList.toggle('hud-off'); toast(tr(off ? 'hudOff' : 'hudOn')); }   // #305
 function toggleDebug() { DEBUG.on = !DEBUG.on; DEBUG.t = 0; $('debug').hidden = !DEBUG.on; if (!DEBUG.on) for (const l of DEBUG.layers) l.hide(); toast(tr(DEBUG.on ? 'debugOn' : 'debugOff')); }
 // #74: one <div> per panel line; the label is drawn by CSS ::before from data-label, so innerText and the copied text stay the bare values
 function debugLineEl(line) { const el = document.createElement('div'); const key = lineLabelKey(line); el.dataset.label = key ? tr(key) : ''; el.textContent = line; return el; }
@@ -4892,6 +4901,13 @@ function toggleDebugLegend(e) { e.stopPropagation(); const lg = $('debuglegend')
 $('debughelp').addEventListener('click', toggleDebugLegend);
 // #415: stand every knocked-over prop up again (no copy of the panel, no focus left for Enter = horn)
 $('knockreset').addEventListener('click', e => { e.stopPropagation(); resetProps(); e.currentTarget.blur(); });
+// #591: jump to any ring or room below from the debug panel -- the same targets as the Testhub
+const DEBUG_JUMPS = HIDE ? buildTargets(testhubContext()).filter(t => t.kind === 'spot' && t.spot.room && t.id !== 'hideout.tower') : [];
+$('debugjump').hidden = !DEBUG_JUMPS.length;
+$('debugjumpsel').replaceChildren(...DEBUG_JUMPS.map((t, i) => Object.assign(document.createElement('option'), { value: String(i), textContent: t.label.replace(/^Hideout: /, '') })));
+$('debugjump').addEventListener('click', e => e.stopPropagation());   // a click in the row does not copy the panel
+$('debugjumpsel').addEventListener('keydown', e => e.stopPropagation());   // the arrow keys choose a room, they do not steer
+$('debugjumpgo').addEventListener('click', e => { const t = DEBUG_JUMPS[+$('debugjumpsel').value]; if (t) testhubGo(t); $('debugjumpsel').blur(); e.currentTarget.blur(); });
 $('debuglegend').addEventListener('click', e => e.stopPropagation());
 // building heights (data h, +rh, hsrc) over the buildings within 60 m: own grid, sprite pool and LRU, built like the house numbers (LABELS)
 const DEBUG_H = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [] };
@@ -4974,17 +4990,22 @@ function testhubContext() {
     entries: JUMP_ENTRIES,
     underwater: UWS.counts ? { wreck: UWS.counts.wreck, wreckCar: UWS.counts.wreckCar } : null,
     hideout: HIDE ? { mouth: HIDEOUT.mouth, heading: HIDEOUT.heading, tower: ROOM.layouts[0].towerView } : null,
+    rings: HIDE ? RINGS.map((g, i) => ({ n: i + 1, spawn: ringSpawn(), rooms: ROOM.layouts.filter(L => L.ring === g.id).map(L => ({ id: L.id, name: g.rooms[L.k].name, view: L.towerView, spawn: L.spawn })) })) : null,   // #591
   };
 }
 function testhubGo(target) {
   if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else if (target.entry.yard) jumpToYard(target.label); else jumpTo(target.entry); return; }
   const s = target.spot;
-  if (s.room) {   // #277: a room below: build it, jump there like any jump (race flagged, toast), then step down into it
-    ringBuild(); ensureRoom(0); if (!(ROOM.states[0] && ROOM.states[0].started)) loadEiffel();
-    placeOnRoad(s.x, s.z, s.th, target.label); LIFT_RIDE.place('bottom'); LEVELS.set('eiffel'); P.safe = [s.x, s.z, s.th]; resetCar();
-    camPos.set(s.x - Math.cos(s.th) * 12, P.y + 4, s.z - Math.sin(s.th) * 12); camera.position.copy(camPos); restShadow(); return;
-  }
+  if (s.room) { jumpBelow(s.room, s, target.label); return; }   // #277 / #591: a ring or a room below
   placeOnRoad(s.x, s.z, s.th, target.label);
+}
+// #591: a debug jump to any ring or room below -- build it (rings never visited included), jump there like any jump (race flagged, toast), then step down into it
+function jumpBelow(id, s, label) {
+  const g = ringOf(id); if (!g) return;
+  ringBuild(g);   // registers the ring's and its rooms' levels, so LEVELS.set(id) finds them
+  if (isRoomLevel(id)) { const k = roomIndex(id); ensureRoom(k); if (ROOM.layouts[k].object && !modelState(k).started) loadModel(k); }   // loadModel(0) is what loadEiffel calls
+  placeOnRoad(s.x, s.z, s.th, label); LIFT_RIDE.place(g.stop); LEVELS.set(id); P.y = g.y; P.safe = [s.x, s.z, s.th]; resetCar();
+  camPos.set(s.x - Math.cos(s.th) * 12, P.y + 4, s.z - Math.sin(s.th) * 12); camera.position.copy(camPos); restShadow();
 }
 function testhubRegister(hub) {
   hub.setInfo({ game: 'rhyflitzer', version: window.GAME_VERSION || '0.0.0' });

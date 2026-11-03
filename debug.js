@@ -85,3 +85,5 @@ export function lineLabelKey(line) {
 
 // Ctrl+D opens the panel (F3 is awkward on a Chromebook); F3 stays as a silent alias. Takes a KeyboardEvent-like { code, ctrlKey }.
 export function isDebugKey(key) { return key.code === 'F3' || (key.code === 'KeyD' && !!key.ctrlKey); }
+// #305: Ctrl+H hides every HUD element and shows them again; no F key, a Chromebook has none. A bare H stays the horn.
+export function isHudKey(key) { return key.code === 'KeyH' && !!key.ctrlKey; }

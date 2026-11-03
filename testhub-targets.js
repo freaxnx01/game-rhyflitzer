@@ -1,5 +1,5 @@
 // #251: the Testhub jump targets -- pure rules, no DOM, no three.js. Unit-tested with `node --test tests/*.test.mjs`.
-// A target is { id, label, kind, ... }: kind 'jump' carries a J entry, kind 'spot' carries { x, z, th, room? } (room: a level to enter, #277).
+// A target is { id, label, kind, ... }: kind 'jump' carries a J entry, kind 'spot' carries { x, z, th, room? } (room: a level to enter -- the surface, a ring or any room level id, #277 / #591).
 // The car's forward vector is (cos th, sin th) in (x, z), as everywhere in the game.
 
 export const TARGET_ID_RE = /^[a-z0-9._-]+$/;
@@ -46,10 +46,23 @@ function hideoutSpots(h) {
   ];
 }
 
+// #591: every ring (at its lift exit) and every room of both rings, for the Testhub and the Ctrl+D panel.
+// The room number in an empty label is the number in its id: 'room4' -> 'Room 4', 'r2room5' -> 'Room 5'.
+export function roomTargets(rings) {
+  if (!rings) return [];
+  return rings.flatMap(({ n, spawn, rooms }) => [
+    spot(`hideout.ring${n}`, `Hideout: Ring ${n}`, spawn.x, spawn.z, spawn.th, { room: n === 1 ? 'ring' : `ring${n}` }),
+    ...rooms.map((r, k) => {
+      const p = r.view || r.spawn, no = (r.id.match(/\d+$/) || [])[0] || k, label = r.name ? `Hideout: Ring ${n} · ${r.name}` : `Hideout: Ring ${n} · Room ${no} (empty)`;
+      return spot(`hideout.r${n}.${r.id}`, label, p.x, p.z, p.th, { room: r.id });
+    }),
+  ]);
+}
+
 export function spotTargets({ underwater, hideout }) {
   return [...underwaterSpots(underwater), ...hideoutSpots(hideout)];
 }
 
-export function buildTargets({ entries, underwater, hideout }) {
-  return [...jumpTargets(entries), ...spotTargets({ underwater, hideout })];
+export function buildTargets({ entries, underwater, hideout, rings }) {
+  return [...jumpTargets(entries), ...spotTargets({ underwater, hideout }), ...roomTargets(rings)];
 }

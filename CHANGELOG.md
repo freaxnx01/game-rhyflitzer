@@ -11,7 +11,9 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Added
 
 - `2026-11-03 17:55` New mode **Viewpoints**: four panorama spots, from the car park above the Rhine with the view to Bad Säckingen to the deck of the Plattform Sisslerfeld (on foot, up the spiral stair). Follow the arrow, stand at the spot, face the sight and press <kbd>X</kbd>: up to 150 points per photo, the better aimed the more. Every scored photo also lands in your **album** (kept in the browser, the best photo per viewpoint), shown when all viewpoints are done.
-
+- `2026-11-03 17:46` <kbd>Ctrl</kbd> <kbd>H</kbd> **hides the whole HUD** (speedometer, map, compass, buttons) for a clean view of the world, and brings it back. A short message still tells you how to get it back.
+- `2026-11-03 17:37` **For testers:** the debug panel (<kbd>Ctrl</kbd> <kbd>D</kbd>) has a **Hideout** list with every room in **ring 1** and **ring 2**, by name, and both rings themselves. Pick one and press **Go** to be there at once, even in a ring you have never driven to. The Testhub (`?dev=1`) has the same jumps.
+- `2026-11-03 17:28` **Nitro** (<kbd>N</kbd>) now shoots **blue flames** out of the back of every vehicle, the 3D-model cars and trucks too; the **Rhy Tumbler** fires a single jet from the middle of its tail. The flames flicker in place instead of jumping into the body.
 - `2026-11-03 14:21` New truck **Rhy Blaze** (German: Rhy Löschi), a red **tanker fire engine** with a crew cab, equipment lockers and twin tyres at the back. Press <kbd>2</kbd> for the **blue lights** and the two-tone **siren**. 100 km/h and heavy. No crest, no lettering. 3D model „Low Poly Fire Truck" by jg-3d (Sketchfab), CC BY 4.0.
 - `2026-11-03 13:17` **About**: the **dedication to Juliska** now drives in. A small orange car tows the text in from the left as a banner, brakes and parks beside it; after that the text stands still and readable as before. With „reduce motion" enabled in the system settings the car and the text are simply shown parked.
 - `2026-11-03 12:34` The game now counts **anonymously** which car and mode are chosen, how people get around and where they jump to, so we can see where visitors get stuck. No cookies, no personal data, no exact positions, and nothing changes if you block it; details under **About** and in the README.
@@ -19,6 +21,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-03 15:00` The start screen no longer calls the game a **prototype**: under **Rhyflitzer** it now says **Map Madness · v0.2**, with the version always matching the current release. „Early prototype“ is gone from the About text too.
 - `2026-11-02 14:55` When the **Rhy Wobbler** tips over, it now ends up lying **across the road** and **slides on** a good bit further, with a **tyre screech** as it goes over and a **scrape** on the asphalt while it slides.
 - `2026-11-02 14:10` **About → How it is built** no longer dates the Claude Opus implementation („until 10 Oct 2026“); it is listed simply as **Implementation**.
 - `2026-11-01 15:14` **About → People**: **Kicsi** now comes first, as the **main tester and source of ideas**. Her name was misspelled „Kiscsi“ before.

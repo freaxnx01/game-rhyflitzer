@@ -415,3 +415,26 @@ def test_map_links_hidden_without_a_world_origin(server):
         br.close()
     assert hidden and links is None
     assert text.startswith("x ") and "OSM" not in text, text
+
+
+@needs_world
+def test_debug_panel_jumps_to_any_hideout_room(server):
+    """#591: Ctrl+D has a Hideout row with both rings and all 16 rooms; Go lands in the room and does not copy the panel."""
+    with sync_playwright() as p:
+        br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 960, "height": 540})   # not open_page: the hideout needs the real terrain, which open_page blocks
+        page.goto(f"{server}/index.html?debug")
+        page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
+        page.evaluate("() => { window.__copied = null; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.__copied = t; return Promise.resolve(); } } }); }")   # served over plain http off localhost, navigator.clipboard is missing
+        opts = page.eval_on_selector_all("#debugjumpsel option", "os => os.map(o => o.textContent)")
+        page.select_option("#debugjumpsel", label="Ring 1 · Ferris wheel")
+        page.click("#debugjumpgo")
+        page.wait_for_function("() => window.__mm.level().id === 'room6'", timeout=60000)
+        level = page.evaluate("() => window.__mm.level()")
+        page.wait_for_timeout(300)
+        copied = page.evaluate("() => window.__copied")
+        br.close()
+    assert len(opts) == 18 and "Ring 1 · Ferris wheel" in opts and "Ring 2 · Enterprise" in opts and "Ring 2" in opts, opts
+    assert abs(level["y"] + 600) < 1, level
+    assert copied is None                                                    # Go does not copy the panel
