@@ -701,6 +701,7 @@ import { KNIGHT } from './knight.js';   // Rhy Knight, a glTF sports coupé with
 import { scannerLevels, scannerGlow } from './scanner.js';
 import { BLAZE } from './blaze.js';   // Rhy Blaze, a glTF fire engine with blue lights and a siren
 import { SIREN, hasSiren, toggleSiren, sirenNote, beaconLevels, beaconGlow } from './siren.js';
+import { EXHAUST, exhaustSpots } from './exhaust.js';   // where the nitro flames sit behind a glTF vehicle
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan } from './gltfvehicle.js';
@@ -2768,9 +2769,10 @@ function wireWheels(g, root) {
 }
 function wheelNames(root) { const names = []; root.traverse(o => names.push(o.name)); return names; }
 function addBlinkers(spots) { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [x, y, z] of spots) for (const [side, s] of [['left', -1], ['right', 1]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, y, s * z); BLINK[side].add(b); } }
+function addFlames(spots) { const m = new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 }); for (const [x, y, z] of spots) { const f = new THREE.Mesh(new THREE.ConeGeometry(EXHAUST.flameR, EXHAUST.flameLen, 10), m); f.rotation.z = Math.PI / 2; f.position.set(x, y, z); flames.add(f); } }
 function buildGltfVehicle(g, v) {
   const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
-  wireWheels(g, root); g.add(root); addBlinkers(v.blinkers);
+  wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes)); g.add(root); addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
   g.userData.spin = spinPlan(v, wheelNames(root)).map(s => ({ node: root.getObjectByName(s.node), rate: s.rate, turned: 0 }));   // the mixer's drum
   g.userData.scan = e.mats.scan.length ? { mats: e.mats.scan, t: 0 } : null;   // the Rhy Knight's scanner light
   g.userData.beacon = e.mats.beacon.length ? e.mats.beacon : null; for (const m of e.mats.beacon) m.emissiveIntensity = beaconGlow(0);   // the Rhy Blaze's blue lights, dark until the siren runs
@@ -4235,6 +4237,7 @@ function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vec
 // lift, the damage, how far the heading turned, and the angle between the motion and the heading at the end
 window.__mm.tipSim = (speed, secs, hold = []) => { const th0 = P.th; if (speed) { P.vx = Math.cos(P.th) * speed; P.vz = Math.sin(P.th) * speed; } for (const k of hold) keys[k] = true; const phases = new Set(); let roll = 0, lift = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); phases.add(TIP_S.phase); roll = Math.max(roll, Math.abs(car.rotation.x)); lift = Math.max(lift, car.position.y - P.y); } for (const k of hold) keys[k] = false; return { phases: [...phases], phase: TIP_S.phase, roll, lift, dmg: P.dmg, speed: Math.hypot(P.vx, P.vz), turned: P.th - th0, slid: Math.atan2(P.vz, P.vx) - P.th }; };
 window.__mm.siren = () => ({ on: SIREN_S.on, beacons: car.userData.beacon?.map(m => m.emissiveIntensity) ?? null, voice: SFX.sirenState() });   // read-only, for the tests
+window.__mm.nitroFlames = () => flames.children.map(f => f.position.toArray());   // read-only: where each nitro flame sits, car-local
 window.__mm.scanner = () => car.userData.scan?.mats.map(m => m.emissiveIntensity) ?? null;   // read-only: each scanner segment's glow, left to right
 window.__mm.spin = () => (car.userData.spin ?? []).map(s => ({ node: s.node.name, turned: s.turned }));   // read-only: what turns on the car and how far
 window.__mm.driveSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; let worst = Infinity, roll = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); worst = Math.min(worst, wheelClearance()); roll = Math.max(roll, Math.abs(car.rotation.x)); } for (const k of hold) keys[k] = false; return { worst, roll, speed: Math.hypot(P.vx, P.vz) }; };
@@ -4289,7 +4292,7 @@ function stepCar(dt) {
   if (KNOCK) { const sl = KNOCK.step(); if (sl) { P.vx *= 1 - sl; P.vz *= 1 - sl; } }   // #415: knocked-over props go first, so their colliders are off for this step
   collide(carRadius());
   followCave();
-  car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; flames.scale.x = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04));
+  car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; { const flick = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04)); for (const f of flames.children) f.scale.y = flick; }   // each cone along its own axis (local y): scaling the group would pull the flames into the body
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01 + TIP_S.roll;
   if (TIP_S.roll) { const l = tipLift(TIP_S.roll, VEH.tip.pivot * VEH.scale); car.position.set(P.x + rx * l.dz, P.y + l.dy, P.z + rz * l.dz); }   // it rolls over its outer edge, not its centre
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of

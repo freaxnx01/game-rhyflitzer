@@ -16,4 +16,5 @@ export const TUMBLER = {
     horn: { notes: [147, 175], dur: 0.8, gain: 0.25, band: 900, wave: 'sawtooth' },
     crash: { weight: 2.3, thump: 50, noise: 1400, gain: 1.1 } },   // a deep, lumpy V8: low filter, slow automatic shifts, a loud jet hiss on nitro, a low growl for a horn
   blinkers: [[1.85, 0.75, 0.6], [-2.25, 0.9, 0.7]],   // beside the head lamps under the nose and at the tail
+  exhaustPipes: 1,   // the jet burner: one nitro flame in the middle of the tail
 };
