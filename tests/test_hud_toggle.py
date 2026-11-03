@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
-HUD_PARTS = ["#tl", "#tr", "#compass", "#bl", "#br", "#pausebtn", "#arrow"]
+HUD_PARTS = ["#tl", "#tr", "#compass", "#bl", "#br", "#pausebtn", "#arrow", "#game-nav"]
 SHOWN = "(ids) => ids.map(id => { const e = document.querySelector(id); return !!e && getComputedStyle(e).visibility !== 'hidden'; })"
 
 
