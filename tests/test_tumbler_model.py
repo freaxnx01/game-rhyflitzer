@@ -55,3 +55,23 @@ def test_tumbler_model_head_lamps_follow_the_lights(server):
         b.close()
     assert on["headLevel"] > off["headLevel"], (off, on)
     assert not errors, errors
+
+
+def test_nitro_flames_sit_behind_every_gltf_tail_one_centred_on_the_tumbler(server):
+    """The Tumbler's jet burner is one flame on the centre line; the Knight and the fire engine get two, side by side. All sit
+    behind the body, in car-local metres (x forward), so they show behind the tail."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        seen = {}
+        for vid in ("tumbler", "knight", "blaze"):
+            page.evaluate(f"async () => {{ await window.__mm.loadVehicle('{vid}'); window.__mm.setVehicle(window.__mm.vehicles().{vid}); }}")
+            wait_frames(page)
+            seen[vid] = {"flames": page.evaluate("() => window.__mm.nitroFlames()"), "l": page.evaluate("() => window.__mm.carSize().l")}
+        b.close()
+    assert [f[2] for f in seen["tumbler"]["flames"]] == [0], seen
+    for vid in ("knight", "blaze"):
+        zs = sorted(f[2] for f in seen[vid]["flames"])
+        assert len(zs) == 2 and zs[0] == -zs[1] and zs[1] > 0, seen
+    for vid, s in seen.items():
+        assert all(f[0] < -s["l"] / 2 + 0.2 for f in s["flames"]), (vid, s)
+    assert not errors, errors
