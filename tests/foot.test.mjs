@@ -105,7 +105,7 @@ test('parkedBox_AndCarReach_MeasureToTheBody', () => {
 
 test('footKeyAction_FTogglesHover_CarKeysBlocked_RestPass', () => {
   assert.equal(footKeyAction('KeyF'), 'hover');
-  for (const k of ['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyL', 'Digit1', 'KeyV']) assert.equal(footKeyAction(k), 'block', k);
+  for (const k of ['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyL', 'Digit1', 'Digit2', 'KeyV']) assert.equal(footKeyAction(k), 'block', k);
   for (const k of ['KeyR', 'KeyJ', 'KeyM', 'KeyT', 'KeyX', 'KeyG', 'KeyK', 'Tab', 'Space', 'KeyW', 'F1', 'F3', 'Escape']) assert.equal(footKeyAction(k), 'pass', k);
 });
 
