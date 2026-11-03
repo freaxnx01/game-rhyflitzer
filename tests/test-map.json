@@ -44,6 +44,7 @@
   "tyres.js": ["test_tyres.py"],
   "vendor/crashcat/*": ["test_tyres.py"],
   "presents.js": ["test_hunt.py"],
+  "viewpoints.js": ["test_viewpoints.py"],
   "underwater.js": ["test_underwater.py"],
   "lights.js": ["test_lights.py"],
   "debug.js": ["test_debug.py"],

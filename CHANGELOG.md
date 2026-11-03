@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-03 17:55` New mode **Viewpoints**: four panorama spots, from the car park above the Rhine with the view to Bad Säckingen to the deck of the Plattform Sisslerfeld (on foot, up the spiral stair). Follow the arrow, stand at the spot, face the sight and press <kbd>X</kbd>: up to 150 points per photo, the better aimed the more. Every scored photo also lands in your **album** (kept in the browser, the best photo per viewpoint), shown when all viewpoints are done.
 - `2026-11-03 17:46` <kbd>Ctrl</kbd> <kbd>H</kbd> **hides the whole HUD** (speedometer, map, compass, buttons) for a clean view of the world, and brings it back. A short message still tells you how to get it back.
 - `2026-11-03 17:37` **For testers:** the debug panel (<kbd>Ctrl</kbd> <kbd>D</kbd>) has a **Hideout** list with every room in **ring 1** and **ring 2**, by name, and both rings themselves. Pick one and press **Go** to be there at once, even in a ring you have never driven to. The Testhub (`?dev=1`) has the same jumps.
 - `2026-11-03 17:28` **Nitro** (<kbd>N</kbd>) now shoots **blue flames** out of the back of every vehicle, the 3D-model cars and trucks too; the **Rhy Tumbler** fires a single jet from the middle of its tail. The flames flicker in place instead of jumping into the body.
