@@ -196,5 +196,5 @@ export function chuffEmit(acc, v, dt, cfg = TRAIN_CFG) {
 // keydown in the loco: Q/E the next switch, H the whistle, R back to Sisseln, C the camera, A/D turn on the turntable (#496);
 // the car's own keys are swallowed
 const TRAIN_KEYS = { KeyQ: 'left', KeyE: 'right', KeyH: 'whistle', KeyR: 'reset', KeyC: 'camera', KeyA: 'turnLeft', KeyD: 'turnRight' };
-const TRAIN_BLOCKED = new Set(['KeyF', 'KeyX', 'KeyU', 'KeyO', 'KeyI', 'KeyL', 'Digit1', 'KeyV', 'Enter', 'NumpadEnter']);
+const TRAIN_BLOCKED = new Set(['KeyF', 'KeyX', 'KeyU', 'KeyO', 'KeyI', 'KeyL', 'Digit1', 'Digit2', 'KeyV', 'Enter', 'NumpadEnter']);
 export function trainKeyAction(code) { return TRAIN_KEYS[code] ?? (TRAIN_BLOCKED.has(code) ? 'block' : 'pass'); }

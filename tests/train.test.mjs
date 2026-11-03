@@ -152,7 +152,7 @@ test('chuffEmit_RateFollowsTheWheels_TrickleAtRest', () => {
 test('trainKeyAction_SwitchWhistleResetCamera_CarKeysBlocked', () => {
   assert.equal(trainKeyAction('KeyQ'), 'left'); assert.equal(trainKeyAction('KeyE'), 'right');
   assert.equal(trainKeyAction('KeyH'), 'whistle'); assert.equal(trainKeyAction('KeyR'), 'reset'); assert.equal(trainKeyAction('KeyC'), 'camera');
-  for (const k of ['KeyF', 'KeyX', 'KeyU', 'KeyO', 'KeyI', 'KeyL', 'Digit1', 'KeyV', 'Enter', 'NumpadEnter']) assert.equal(trainKeyAction(k), 'block', k);
+  for (const k of ['KeyF', 'KeyX', 'KeyU', 'KeyO', 'KeyI', 'KeyL', 'Digit1', 'Digit2', 'KeyV', 'Enter', 'NumpadEnter']) assert.equal(trainKeyAction(k), 'block', k);
   for (const k of ['KeyW', 'KeyS', 'KeyM', 'KeyJ', 'KeyT', 'Tab', 'F1', 'Escape']) assert.equal(trainKeyAction(k), 'pass', k);
 });
 

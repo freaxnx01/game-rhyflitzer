@@ -266,3 +266,17 @@ def test_knight_model_is_credited_everywhere():
 def test_knight_model_is_committed_and_small():
     glb = ROOT / "assets" / "knight.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_blaze_model_is_credited_everywhere():
+    """"Low Poly Fire Truck" by jg-3d, CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "assets/blaze.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "jg-3d" in t and "CC BY 4.0" in t and "Low Poly Fire Truck" in t, f
+    strings = (ROOT / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditBlaze") == 2 and 'data-i18n="creditBlaze"' in (ROOT / "index.html").read_text(encoding="utf-8")
+
+
+def test_blaze_model_is_committed_and_small():
+    glb = ROOT / "assets" / "blaze.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024

@@ -85,7 +85,7 @@ export function carReach(x, z, b) {
 }
 
 // keydown on foot: F toggles hover (blocked indoors, #412), E enters a building (#409); the car's own controls are swallowed; everything else is handled as usual
-const FOOT_BLOCKED = new Set(['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyL', 'Digit1', 'KeyV']);
+const FOOT_BLOCKED = new Set(['KeyC', 'KeyO', 'KeyI', 'KeyU', 'KeyH', 'Enter', 'NumpadEnter', 'KeyQ', 'KeyL', 'Digit1', 'Digit2', 'KeyV']);
 export function footKeyAction(code, indoors = false) {
   if (code === 'KeyF') return indoors ? 'block' : 'hover';
   if (code === 'KeyE') return 'enter';

@@ -96,5 +96,20 @@ export function playHorn(ac, dest, horn, when) {
   return end;
 }
 
+// a voice that holds a tone until stopped (the Rhy Blaze's siren, siren.js): two slightly detuned oscillators through a band-pass;
+// to(freq, when) glides to the next tone, stop() fades it out. siren: { notes, gain, band, wave }
+export function startSiren(ac, dest, siren) {
+  const band = ac.createBiquadFilter(); band.type = 'bandpass'; band.frequency.value = siren.band; band.Q.value = 0.7;
+  const env = ac.createGain(), t0 = ac.currentTime; env.gain.setValueAtTime(0, t0); env.gain.linearRampToValueAtTime(siren.gain, t0 + 0.05);
+  band.connect(env); env.connect(dest);
+  const oscs = [-5, 5].map(cents => { const o = ac.createOscillator(); o.type = siren.wave; o.frequency.value = siren.notes[0]; o.detune.value = cents; o.connect(band); o.start(t0); return o; });
+  const voice = {
+    freq: siren.notes[0],
+    to(freq, when) { for (const o of oscs) o.frequency.setTargetAtTime(freq, when, 0.012); voice.freq = freq; },
+    stop() { const t = ac.currentTime; env.gain.setTargetAtTime(0, t, 0.03); for (const o of oscs) o.stop(t + 0.25); },
+  };
+  return voice;
+}
+
 // a footstep: a soft low thud plus a short lowpassed scuff, pitch and level varied a little by r1, r2 in [0, 1)
 export function stepVoice(r1, r2) { return { freq: 85 * (0.85 + 0.3 * r1), cutoff: 500 + 400 * r2, gain: 0.16 * (0.85 + 0.3 * r2) }; }
