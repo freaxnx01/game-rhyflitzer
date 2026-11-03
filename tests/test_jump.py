@@ -505,6 +505,26 @@ def test_sprungschanze_drawn_where_the_car_drives_on_measured_terrain(server):
     assert gap < 0.3, f"drawn ramp is {gap:.2f} m off the drive surface"
 
 
+@needs_measured
+def test_sprungschanze_stands_on_level_ground_and_launches_on_measured_terrain(server):
+    """The ramp sat on the east wall of an 8 m hollow: J put the car at the bottom (9 m), the plateau behind the ramp was at
+    21 m, so the ramp dropped only 3 m and barely showed. Run-up, ramp foot and landing must be level, and the jump real."""
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_page(viewport={"width": 1280, "height": 720})
+        page.goto(f"{server}/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.sim && /measured/.test(document.querySelector('#mmhstatus')?.textContent || '')", timeout=240000)
+        page.click("#startbtn", timeout=180000)
+        c = jump_via_dialog(page, "sprung")
+        r = ramp(page)
+        cz = (r["z0"] + r["z1"]) / 2
+        level = page.evaluate(f"() => [{c['x']}, {r['x0']} - 0.5, {r['x1']} + 5, {r['x1']} + 25].map(x => window.__mm.ground(x, {cz}, -Infinity))")
+        top = max(page.evaluate(f"() => [...Array(60)].map((_, i) => window.__mm.sim({c['x']}, {c['z']}, 0, 0, 3 + i / 20)).map(e => e.y - window.__mm.ground(e.x, e.z, -Infinity))"))
+        b.close()
+    assert max(level) - min(level) < 1.5, f"start, ramp foot and landing at {[round(h, 1) for h in level]} m: not level"
+    assert top > 2.5, f"the car rose only {top:.1f} m over the ground"
+
+
 @needs_world47
 def test_flugplatz_schupfart_is_listed_and_jumpable(server):
     """#47: 'flugplatz' finds Flugplatz Schupfart under its own chip; Enter puts the car on the road nearest the airfield."""
