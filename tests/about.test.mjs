@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from '../about.js';
 
 test('ABOUT_LINKS: every link https, the agreed set, frozen', () => {
-  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'plattform', 'source', 'swisstopo', 'threejs']);
+  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'plattform', 'privacy', 'source', 'swisstopo', 'threejs']);
   for (const [id, url] of Object.entries(ABOUT_LINKS)) assert.match(url, /^https:\/\/[^\s]+$/, id);
   assert.equal(ABOUT_LINKS.plattform, 'https://www.plattform-sisslerfeld.com/');
+  assert.equal(ABOUT_LINKS.privacy, 'https://github.com/freaxnx01/game-rhyflitzer#datenschutz--privacy');
   assert.equal(ABOUT_LINKS.midtown, 'https://en.wikipedia.org/wiki/Midtown_Madness');
   assert.equal(ABOUT_LINKS.aiInstructions, 'https://github.com/freaxnx01/ai-instructions');
   assert.equal(ABOUT_LINKS.agentWorkflow, 'https://github.com/freaxnx01/agent-workflow');

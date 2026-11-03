@@ -7,6 +7,7 @@ export const ABOUT_LINKS = Object.freeze({
   agis: 'https://geodienste.ch/services/lwb_nutzungsflaechen',   // #506: the Aargau farm parcels
   copernicus: 'https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM',   // #593: the horizon backdrop
   plattform: 'https://www.plattform-sisslerfeld.com/',
+  privacy: 'https://github.com/freaxnx01/game-rhyflitzer#datenschutz--privacy',   // #538
   threejs: 'https://threejs.org/',
   crashcat: 'https://github.com/isaac-mason/crashcat',
   leaflet: 'https://leafletjs.com/',
