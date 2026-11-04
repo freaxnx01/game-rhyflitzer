@@ -59,5 +59,7 @@
   "pipeline/world_extra_roads.py": ["test_suedspange.py"],
   "pipeline/world_roads.py": ["test_suedspange.py"],
   "pipeline/osm_read.py": ["test_suedspange.py"],
-  "tests/test_vehicles.py": ["test_car_look.py", "test_shadow.py", "test_sound.py", "test_wheels.py"]
+  "tests/test_vehicles.py": ["test_car_look.py", "test_shadow.py", "test_sound.py", "test_wheels.py"],
+  "scripts/shots.py": ["test_shots.py"],
+  "docs/gallery/shots.json": ["test_shots.py"]
 }
