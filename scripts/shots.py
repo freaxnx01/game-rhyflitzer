@@ -28,13 +28,18 @@ GAME = "Rhyflitzer – Map Madness"
 MARK_START, MARK_END = "<!-- shots:start -->", "<!-- shots:end -->"
 
 REQUIRED = ("id", "title", "title_de", "region", "mode", "vehicle", "at", "look_at", "camera", "style", "time", "weather")
-MODES = ("car", "heli", "loco")
-CAMERAS = ("chase", "near", "cockpit", "bumper")   # CAM_VIEWS 0-3; the drone orbits, so "arrived" has no meaning there
+MODES = ("car", "heli", "loco", "foot")
+CAMERAS = ("chase", "near", "cockpit", "bumper", "eye")   # CAM_VIEWS 0-3; the drone orbits, so "arrived" has no meaning there; eye = on foot
+# mode foot: the walker's first-person eye is a free camera (#556 round 2). The car is parked at `park` (out of the frame), the
+# walker hovers `agl` metres over the ground at `at`, facing look_at, pitched by `pitch_deg` (up > 0). camera must be "eye".
+FOOT_AGL = (1.7, 150)      # WALKER.eye .. WALKER.hoverMaxAgl
+FOOT_PITCH = (-80, 80)     # WALKER.pitchMax is 1.4 rad
+STARTS = ("trial", "cruise")   # optional `start`: cruise has no checkpoint pillars and no finish in the frame (default trial)
 STYLES = ("original", "smooth")
 VEHICLES = ("compact", "delorean", "mini", "bus")
 TIMES = ("day",)        # the game has no time of day (spec A3)
 WEATHERS = ("clear",)   # nor weather
-ENUMS = {"mode": MODES, "camera": CAMERAS, "style": STYLES, "vehicle": VEHICLES, "time": TIMES, "weather": WEATHERS}
+ENUMS = {"mode": MODES, "camera": CAMERAS, "style": STYLES, "vehicle": VEHICLES, "time": TIMES, "weather": WEATHERS, "start": STARTS}
 ID_RE = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 NEAR_MAX_M = 600
 COUNT_RANGE = (8, 12)
@@ -61,7 +66,29 @@ def _shot_errors(s: dict, regions, landmarks) -> list[str]:
         errors.append(f"'{sid}': look_at must differ from at by at least 1 m")
     if s.get("mode") == "heli" and not (isinstance(s.get("climb_s"), (int, float)) and 1 <= s["climb_s"] <= 10):
         errors.append(f"'{sid}': mode heli needs climb_s between 1 and 10")
+    if s.get("mode") == "foot":
+        errors += _foot_errors(s)
+    elif s.get("camera") == "eye":
+        errors.append(f"'{sid}': camera eye needs mode foot")
     return errors + _near_errors(s, landmarks)
+
+
+def _in_range(v, lo_hi) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and lo_hi[0] <= v <= lo_hi[1]
+
+
+def _foot_errors(s: dict) -> list[str]:
+    sid = s.get("id", "?")
+    errors = []
+    if s.get("camera") != "eye":
+        errors.append(f"'{sid}': mode foot needs camera eye")
+    if not _is_point(s.get("park")):
+        errors.append(f"'{sid}': mode foot needs park (x, z) where the car waits")
+    if not _in_range(s.get("agl", FOOT_AGL[0]), FOOT_AGL):
+        errors.append(f"'{sid}': agl must be between {FOOT_AGL[0]} and {FOOT_AGL[1]} m")
+    if not _in_range(s.get("pitch_deg", 0), FOOT_PITCH):
+        errors.append(f"'{sid}': pitch_deg must be between {FOOT_PITCH[0]} and {FOOT_PITCH[1]}")
+    return errors
 
 
 def _near_errors(s: dict, landmarks) -> list[str]:
@@ -160,8 +187,8 @@ def visible_chrome(page) -> list[str]:
 
 
 def wait_for_camera_arrival(page, shot: dict) -> None:
-    """Car: camStep until it stops moving. Heli and loco: the camera follows a moving thing, so poll until three polls agree."""
-    if shot["mode"] == "car":
+    """Car and foot: camStep until it stops moving. Heli and loco: the camera follows a moving thing, so poll until three polls agree."""
+    if shot["mode"] in ("car", "foot"):
         result = page.evaluate(SETTLE)
         if result["moved"] >= 0.001:
             raise RuntimeError(f"camera did not arrive after {result['steps']} steps (still moving {result['moved']:.4f} m)")
@@ -178,7 +205,7 @@ def wait_for_camera_arrival(page, shot: dict) -> None:
 
 
 def press_until_camera(page, shot: dict) -> None:
-    want = CAMERAS.index(shot["camera"])
+    want = CAMERAS.index(shot["camera"])   # never "eye": mode foot selects no CAM_VIEW
     for _ in range(len(CAMERAS) + 1):
         if page.evaluate("() => window.__mm.camView") == want:
             return
@@ -191,7 +218,7 @@ def start_game(page, base_url: str, shot: dict, args) -> None:
         page.route("**/data/terrain_*.mmh", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{base_url}/index.html?region={shot['region']}")
     page.wait_for_function(READY, timeout=T)
-    page.click("#startbtn", timeout=T)
+    page.click("#cruisebtn" if shot.get("start") == "cruise" else "#startbtn", timeout=T)
     page.wait_for_function(LOADED, arg=not args.no_terrain, timeout=T)
 
 
@@ -211,8 +238,30 @@ def stage(page, shot: dict) -> None:
             page.wait_for_timeout(1000)
         if not page.evaluate("() => window.__mm.train().on"):
             raise RuntimeError("the steam loco was not boarded: move `at` next to it")
-    if shot["mode"] != "loco":
+    if shot["mode"] == "foot":
+        stage_foot(page, shot)
+    if shot["mode"] in ("car", "heli"):
         press_until_camera(page, shot)
+
+
+MOUSE_RAD = 0.0025   # WALKER.mouse: footLook turns the pitch by -dy * mouse
+
+
+def stage_foot(page, shot: dict) -> None:
+    """Park the car, get out (Z), carry the walker to `at`, hover (F) up to `agl` over the ground, aim the eye."""
+    page.evaluate("([x, z]) => window.__mm.place(x, z, 0)", [shot["park"]["x"], shot["park"]["z"]])
+    page.keyboard.press("KeyZ")
+    page.wait_for_timeout(500)
+    if not page.evaluate("() => window.__mm.foot().on"):
+        raise RuntimeError("could not get out of the car: move `park` to open, flat ground")
+    page.evaluate("([x, z, th]) => window.__mm.place(x, z, th)", [shot["at"]["x"], shot["at"]["z"], heading(shot["at"], shot["look_at"])])
+    page.keyboard.press("KeyF")
+    page.wait_for_timeout(200)
+    if not page.evaluate("() => window.__mm.foot().hover"):
+        raise RuntimeError("the walker did not start hovering")
+    page.evaluate("(agl) => { const f = window.__mm.foot(); window.__mm.setFootY(f.ground + agl - 1.7); }", shot.get("agl", FOOT_AGL[0]))
+    page.evaluate("(dy) => window.__mm.footLook(0, dy)", -math.radians(shot.get("pitch_deg", 0)) / MOUSE_RAD)
+    page.evaluate("() => window.__mm.footSim(0.1)")   # a few walker steps so the hover clamp and the eye settle
 
 
 def clean_frame(page) -> None:

@@ -21,14 +21,14 @@ Dedicated to my daughter.
 <!-- shots:start -->
 <p>
   <a href="docs/gallery/plattform-auto-3840.jpg"><img src="docs/gallery/plattform-auto-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld with the Postauto"></a>
-  <a href="docs/gallery/plattform-dsm-3840.jpg"><img src="docs/gallery/plattform-dsm-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: From the Plattform towards the DSM chimney"></a>
-  <a href="docs/gallery/holzbruecke-aussen-3840.jpg"><img src="docs/gallery/holzbruecke-aussen-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke Bad Säckingen from the Rhine bank"></a>
-  <a href="docs/gallery/holzbruecke-nah-3840.jpg"><img src="docs/gallery/holzbruecke-nah-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke, close, from the Swiss side"></a>
+  <a href="docs/gallery/plattform-dsm-3840.jpg"><img src="docs/gallery/plattform-dsm-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld, the DSM chimney behind"></a>
+  <a href="docs/gallery/holzbruecke-aussen-3840.jpg"><img src="docs/gallery/holzbruecke-aussen-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke Bad Säckingen across the Rhine"></a>
+  <a href="docs/gallery/holzbruecke-nah-3840.jpg"><img src="docs/gallery/holzbruecke-nah-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke, close, along its length"></a>
   <a href="docs/gallery/dsm-sisseln-3840.jpg"><img src="docs/gallery/dsm-sisseln-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: DSM Sisseln and its chimney"></a>
   <a href="docs/gallery/dsm-wasserturm-3840.jpg"><img src="docs/gallery/dsm-wasserturm-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: DSM water tower"></a>
   <a href="docs/gallery/helikopter-rhein-3840.jpg"><img src="docs/gallery/helikopter-rhein-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Helicopter over the Rhine at the Holzbrücke"></a>
   <a href="docs/gallery/dampflok-sisseln-3840.jpg"><img src="docs/gallery/dampflok-sisseln-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Steam loco on the tracks at Bahnhof Sisseln"></a>
-  <a href="docs/gallery/dorfstrasse-hausnummern-3840.jpg"><img src="docs/gallery/dorfstrasse-hausnummern-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Village street with house-number signs"></a>
+  <a href="docs/gallery/dorfstrasse-hausnummern-3840.jpg"><img src="docs/gallery/dorfstrasse-hausnummern-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Hinterdorfstrasse Sisseln with house-number plates"></a>
   <a href="docs/gallery/smile-kreisel-3840.jpg"><img src="docs/gallery/smile-kreisel-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: The Smile roundabout"></a>
   <a href="docs/gallery/muenster-stein-3840.jpg"><img src="docs/gallery/muenster-stein-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Fridolinsmünster"></a>
 </p>
