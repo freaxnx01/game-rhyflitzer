@@ -14,7 +14,7 @@
   { "id": "helikopter-rhein", "title": "Helicopter over the Rhine at the Holzbrücke", "title_de": "Helikopter über dem Rhein bei der Holzbrücke",
     "region": "hochrhein", "mode": "heli", "climb_s": 3, "vehicle": "compact", "at": {"x": -1262.0, "z": -83.4}, "look_at": {"x": -1182.4, "z": -83.4}, "near": "holzbruecke", "camera": "chase", "style": "original", "time": "day", "weather": "clear" },
   { "id": "dampflok-sisseln", "title": "Steam loco on the tracks at Bahnhof Sisseln", "title_de": "Dampflok auf den Schienen beim Bahnhof Sisseln",
-    "region": "hochrhein", "mode": "foot", "start": "cruise", "vehicle": "compact", "at": {"x": 1942.0, "z": 568.0}, "look_at": {"x": 1942.5, "z": 550.5}, "agl": 2.2, "pitch_deg": -2, "park": {"x": 1942.0, "z": 608.0}, "near": "stationSisseln", "camera": "eye", "style": "original", "time": "day", "weather": "clear" },
+    "region": "hochrhein", "mode": "foot", "start": "cruise", "vehicle": "compact", "at": {"x": 1942.0, "z": 568.0}, "look_at": {"x": 1942.5, "z": 550.5}, "agl": 2.2, "pitch_deg": 1, "park": {"x": 1942.0, "z": 608.0}, "near": "stationSisseln", "camera": "eye", "style": "original", "time": "day", "weather": "clear" },
   { "id": "dorfstrasse-hausnummern", "title": "Hinterdorfstrasse Sisseln with house-number plates", "title_de": "Hinterdorfstrasse Sisseln mit Hausnummern-Schildern",
     "region": "hochrhein", "mode": "foot", "vehicle": "compact", "at": {"x": 1668.0, "z": -483.0}, "look_at": {"x": 1674.6, "z": -477.0}, "agl": 1.7, "pitch_deg": 3, "park": {"x": 1620.0, "z": -468.0}, "near": "hallenbad", "camera": "eye", "style": "original", "time": "day", "weather": "clear" },
   { "id": "smile-kreisel", "title": "The Smile roundabout", "title_de": "Der Smile-Kreisel",
