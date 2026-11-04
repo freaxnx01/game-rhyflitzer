@@ -222,3 +222,15 @@ test('aboutAgis names the canton and the attribution duty in both languages (#50
   assert.match(STRINGS.en.aboutAgis, /Kanton Aargau/); assert.match(STRINGS.en.aboutAgis, /geodienste\.ch/); assert.match(STRINGS.en.aboutAgis, /attribution/i);
   assert.match(STRINGS.de.aboutAgis, /Kanton Aargau/); assert.match(STRINGS.de.aboutAgis, /Quellenangabe/);
 });
+
+test('tutorial texts exist in both languages, name the input and address the player as Du (#534)', () => {
+  assert.equal(translate('en', 'tutStepDrive', 'WASD'), 'Drive off with WASD: speed up to 20 km/h and steer a little');
+  assert.equal(translate('de', 'tutStepDrive', 'WASD'), 'Fahr los mit WASD: gib Gas bis 20 km/h und lenk ein wenig');
+  assert.equal(translate('de', 'tutStepCheckpoints', '', 2, 3), 'Folge dem gelben Pfeil durch Checkpoint 2 von 3');
+  assert.match(translate('de', 'tutStepGetIn', 'Z'), /Deinem Auto.*Z$/);
+  assert.equal(translate('de', 'tutButton', 'aussteigen'), '[aussteigen]');
+  assert.equal(translate('en', 'tutMenu', 'Photo'), '☰ → Photo');
+  assert.equal(translate('de', 'tutPause'), 'Tutorial beenden');
+  assert.equal(translate('en', 'tutorial'), 'Tutorial');
+  assert.equal(translate('de', 'modeTutorial', 'Hochrhein'), 'Tutorial · Hochrhein');
+});
