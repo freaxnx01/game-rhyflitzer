@@ -101,3 +101,8 @@ test('pauseButtonsFor_Cruise_HasNoRestart', () => {
 test('pauseButtonsFor_RaceModes_AreTheFullMenu', () => {
   for (const m of ['trial', 'blitz', 'hunt']) assert.deepEqual(pauseButtonsFor(m), PAUSE_BUTTONS, m);
 });
+
+test('pauseButtonsFor_Tutorial_EndsTheTutorialInsteadOfRestartOrMainMenu', () => {
+  assert.deepEqual(pauseButtonsFor('tutorial'), ['pauseresume', 'pausevehicle', 'pauseabout', 'pausekeybar', 'pausetutorial']);
+  assert.ok(!PAUSE_BUTTONS.includes('pausetutorial'), 'the other modes never show it');
+});

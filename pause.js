@@ -6,8 +6,12 @@ export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pauseabout', 'paus
 // the „Abandon this run?" question's buttons, Cancel first (it gets the focus)
 export const ABANDON_BUTTONS = ['abandoncancel', 'abandonok'];
 
+// #534: the tutorial has no race to restart and leaves through "End tutorial" instead of Main menu
+const TUTORIAL_PAUSE = ['pauseresume', 'pausevehicle', 'pauseabout', 'pausekeybar', 'pausetutorial'];
+
 // #551: cruise has no race to restart, so its menu drops "Restart race"
 export function pauseButtonsFor(mode) {
+  if (mode === 'tutorial') return TUTORIAL_PAUSE;
   return mode === 'cruise' ? PAUSE_BUTTONS.filter(id => id !== 'pauserestart') : PAUSE_BUTTONS;
 }
 
