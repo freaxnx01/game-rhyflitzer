@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-07 18:47` The **Hamburg Speicherstadt**, the world's largest warehouse district and a UNESCO World Heritage site, has taken **star room 5** of the hideout (the third room on the left of the lift): a straight **Fleet** (canal) 120 m long, **six red-brick warehouses** (three on each bank, five storeys under gabled roofs, their window bands and a hoist bay facing the water) and **two bridges** that cross the canal in the alleys between the blocks. Drive both quays, cross both bridges and round the canal's ends: the kerbs keep the car out of the water, the parapets keep it on the deck, and the helicopter (<kbd>F</kbd>) flies over the roofs. The whole block is life size and built in the game from simple shapes — not a downloaded model.
+
 - `2026-11-06 23:06` **For testers:** the debug panel (<kbd>Ctrl</kbd> <kbd>D</kbd> or <kbd>F3</kbd>) now has a **Postauto** section: the **fleet clock** with its source (Swiss time, or the <kbd>?patime=</kbd> you gave), and one **row per bus** with line, destination, speed, next stop and distance to you. Click a row and the **camera follows that bus** while your car waits where you left it; <kbd>Esc</kbd> or **Back to car** brings the camera back, and when the bus leaves the map the follow ends by itself.
 
 - `2026-11-06 22:49` **Über** has a new tab **Beim Laden**: all the loading-screen lines to read in peace, with the numbers of houses, roads and Robidogs from the last build.
