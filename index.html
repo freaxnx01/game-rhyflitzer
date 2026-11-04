@@ -235,8 +235,23 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
 @media (pointer:coarse){#touch{display:block}}
 #touch button{position:absolute;pointer-events:auto;width:84px;height:84px;border-radius:50%;background:rgba(20,23,29,.6);border:4px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:30px;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none}
-#tL{left:20px;bottom:calc(230px + env(safe-area-inset-bottom,0px))}#tR{left:120px;bottom:calc(230px + env(safe-area-inset-bottom,0px))}
-#tG{right:20px;bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:120px;bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tH{right:20px;bottom:calc(300px + env(safe-area-inset-bottom,0px))}
+/* #535 phase 2: the stick sits in the left thumb's reach, everything else in the right's, in rows clear of the stick's column
+   (both stay above the speedometer and the minimap at bottom 16). Every control is at least 44 px and keeps off the safe-area insets. */
+#tStick{position:absolute;pointer-events:auto;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px));width:132px;height:132px;box-sizing:border-box;border-radius:50%;background:rgba(20,23,29,.45);border:4px solid var(--steel-l);touch-action:none;user-select:none;-webkit-user-select:none}
+#tStick i{position:absolute;left:34px;top:34px;width:56px;height:56px;border-radius:50%;background:var(--steel-l);pointer-events:none}
+#tG{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:calc(112px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}
+#touch .round,#touch button#tH{width:56px;height:56px;font-size:22px}
+#touch button#tH{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
+#tC{right:calc(84px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
+#tJ{right:calc(148px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
+#tZ{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(356px + env(safe-area-inset-bottom,0px))}
+#touch button#tE{width:auto;min-width:96px;height:48px;border-radius:24px;padding:0 16px;font-size:18px;font-weight:800;letter-spacing:1px;background:var(--sun);color:var(--ink);right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(420px + env(safe-area-inset-bottom,0px))}
+#touch button#tMenu{width:48px;height:48px;border-radius:0;font-size:24px;right:calc(16px + env(safe-area-inset-right,0px));top:calc(264px + env(safe-area-inset-top,0px));bottom:auto}
+#tMenuList{position:absolute;pointer-events:auto;right:calc(16px + env(safe-area-inset-right,0px));top:calc(320px + env(safe-area-inset-top,0px));width:min(300px,calc(100vw - 32px));max-height:calc(100vh - 340px - env(safe-area-inset-top,0px));overflow:auto;display:flex;flex-direction:column;gap:4px;background:rgba(20,23,29,.92);border:3px solid var(--steel);padding:6px;box-sizing:border-box}
+#tMenuList[hidden],#touch button[hidden]{display:none}
+#tMenuList button{position:static;width:100%;height:auto;min-height:44px;border-radius:0;font-size:16px;text-align:left;padding:6px 10px}
+#touch:not([data-ctx=car]) :is(#tB,#tH,#tC){display:none}   /* brake, handbrake and the camera are the car's; on foot Gas is the jump */
+#touch:is([data-ctx=heli],[data-ctx=train]) :is(#tStick,#tG,#tJ,#tC){display:none}   /* helicopter and loco: Z and the menu, dedicated controls are a follow-up */
 #keybar{max-width:min(560px,calc(100vw - 32px));margin-bottom:6px;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;padding:5px 12px;box-sizing:border-box;background:rgba(20,23,29,.72);color:var(--cream);font-size:15px;font-weight:700;letter-spacing:1px;pointer-events:none;user-select:none}   /* #535: first row of #tc (top centre), so it moves down with the mirror and never meets the speedometer or the minimap */
 #keybar[hidden]{display:none}
 #keybar kbd{font:inherit;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px}
@@ -408,12 +423,19 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
 </div>
 
-<div id="touch">
-  <button id="tL" type="button" aria-label="Steer left" data-i18n-aria="steerLeft">‹</button>
-  <button id="tR" type="button" aria-label="Steer right" data-i18n-aria="steerRight">›</button>
+<!-- #535 phase 2: the phone controls -- joystick left, gas/brake/handbrake right, the core round buttons above them,
+     the yellow context button for whatever E does right here, and ☰ for every other action of the current context -->
+<div id="touch" data-ctx="car">
+  <div id="tStick" aria-label="Steer · walk" data-i18n-aria="stickAria"><i></i></div>
   <button id="tG" type="button" aria-label="Accelerate" data-i18n-aria="accelerate">▲</button>
   <button id="tB" type="button" aria-label="Brake" data-i18n-aria="brake">▼</button>
   <button id="tH" type="button" aria-label="Handbrake" data-i18n-aria="handbrake">H</button>
+  <button id="tZ" class="round" type="button" aria-label="get out" data-i18n-aria="barGetOut">Z</button>
+  <button id="tJ" class="round" type="button" aria-label="jump to" data-i18n-aria="barJumpTo">J</button>
+  <button id="tC" class="round" type="button" aria-label="camera" data-i18n-aria="barCamera">C</button>
+  <button id="tE" type="button" hidden></button>
+  <button id="tMenu" type="button" aria-label="All actions" data-i18n-aria="touchMenu" aria-expanded="false">☰</button>
+  <div id="tMenuList" hidden></div>
 </div>
 
 <!-- #346 "Sunset Steel" start screen (title mockup A): full-bleed, no card. One text slot under the logo carries the
@@ -686,7 +708,8 @@ import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
-import { actionFor, contextKeyAction, barEntries, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
+import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
+import { bindStick, TOUCH_LOOK } from './touch.js';   // #535 phase 2
 import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
@@ -3501,8 +3524,32 @@ const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borde
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
 function toggleBorders() { HUD.borders = !HUD.borders; NATB.visible = HUD.borders; toast(tr(!NATLINES ? 'borderLinesNoData' : HUD.borders ? 'borderLinesOn' : 'borderLinesOff')); }
-const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
-for (const [id, k] of [['tL', 'l'], ['tR', 'r'], ['tG', 'g'], ['tB', 'b'], ['tH', 'h']]) { const el = document.getElementById(id); const on = e => { e.preventDefault(); touch[k] = 1; stopAuto('off'); }; const off = e => { e.preventDefault(); touch[k] = 0; }; el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off); }
+// #535: the phone controls -- joystick, Gas (Jump on foot), Brake, Handbrake, Z / J / C, the context button and the ☰ menu.
+// Buttons that stand for a key press dispatch that key, so the dispatcher's own rules apply (as the command search does).
+const touch = { x: 0, y: 0, g: 0, b: 0, h: 0 };
+const pressKey = (cmd) => { const init = commandEventInit(cmd); if (!init) return; dispatchEvent(new KeyboardEvent('keydown', init)); dispatchEvent(new KeyboardEvent('keyup', init)); };
+const stick = document.getElementById('tStick');
+bindStick(stick, stick.firstElementChild, (v) => { touch.x = v.x; touch.y = v.y; if (v.x || v.y) stopAuto('off'); });
+const holdButton = (id, down, up) => { const el = document.getElementById(id); const on = e => { e.preventDefault(); down(); }; const off = e => { e.preventDefault(); up(); };
+  el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off); };
+holdButton('tG', () => { if (FOOT.on) keys.Space = true; else { touch.g = 1; stopAuto('off'); } }, () => { keys.Space = false; touch.g = 0; });   // on foot Gas is Jump
+holdButton('tB', () => { touch.b = 1; stopAuto('off'); }, () => { touch.b = 0; });
+holdButton('tH', () => { touch.h = 1; stopAuto('off'); }, () => { touch.h = 0; });
+for (const [id, cmd] of [['tZ', 'KeyZ'], ['tJ', 'KeyJ'], ['tC', 'KeyC'], ['tE', 'KeyE']]) document.getElementById(id).addEventListener('click', () => pressKey(cmd));
+function closeTouchMenu() { $('tMenuList').hidden = true; $('tMenu').setAttribute('aria-expanded', 'false'); }
+function openTouchMenu() {
+  $('tMenuList').innerHTML = menuEntries(controlContext()).map(m => `<button type="button" data-cmd="${m.cmd}">${tr(m.label)}</button>`).join('');
+  $('tMenuList').hidden = false; $('tMenu').setAttribute('aria-expanded', 'true');
+}
+document.getElementById('tMenu').addEventListener('click', () => { if (document.getElementById('tMenuList').hidden) openTouchMenu(); else closeTouchMenu(); });
+document.getElementById('tMenuList').addEventListener('click', (e) => { const b = e.target.closest('button[data-cmd]'); if (!b) return; closeTouchMenu(); pressKey(b.dataset.cmd); });
+function stepTouch(ctx, act) {
+  $('touch').dataset.ctx = ctx;
+  $('tE').hidden = !act; if (act) $('tE').textContent = tr(contextLabel(act));
+  $('tG').textContent = FOOT.on ? '⤒' : '▲'; $('tG').setAttribute('aria-label', tr(FOOT.on ? 'barJumpUp' : 'accelerate'));
+  $('tZ').setAttribute('aria-label', tr(FOOT.on ? 'barGetIn' : 'barGetOut'));
+}
+window.__mm.touch = () => ({ ...touch, ctx: $('touch').dataset.ctx });
 function toggleStyle() { applyStyle(styleKey === 'original' ? 'smooth' : 'original'); }
 document.getElementById('stylebtn').onclick = toggleStyle; document.getElementById('stylebtn2').onclick = toggleStyle;
 
@@ -3738,6 +3785,7 @@ function controlContext() { if (FOOT.on) return INT.pad ? 'lift' : INT.indoors ?
 const KEYBAR = { on: keybarOnFrom((() => { try { return localStorage.getItem(KEYBAR_KEY); } catch (e) { return null; } })()), sig: '' };
 function stepKeybar() {
   const ctx = controlContext(), act = contextAction(), sig = `${KEYBAR.on}|${ctx}|${act}|${window.GG_LANG}`;
+  stepTouch(ctx, act);   // #535 phase 2: the phone controls follow the same context, every frame (attributes only)
   if (sig === KEYBAR.sig) return;
   KEYBAR.sig = sig; $('keybar').hidden = !KEYBAR.on;
   $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}><kbd>${x.cap}</kbd> ${tr(x.label)}</span>`).join('');
@@ -4028,7 +4076,7 @@ function stepOnFoot(dt) {
   if (LIFT_RIDE.busy) { P.vx = P.vz = 0; return; }   // #489: the walker rides like the car: no input during the ride
   LIGHTS.braking = false;
   updateInterior();   // #411: area, indoors, bodyOff, floor, the door target -- before the step moves the walker
-  let s = stepFoot({ x: P.x, z: P.z, y: P.y, th: P.th, vy: FOOT.vy, hover: FOOT.hover }, footInput(keys), dt, footFloorAt);
+  let s = stepFoot({ x: P.x, z: P.z, y: P.y, th: P.th, vy: FOOT.vy, hover: FOOT.hover }, footInput(keys, touch), dt, footFloorAt);
   const ceil = walkwayCeiling(WALKS, s.x, s.z, s.y);   // #412: the storey above stops a jump (or a rise) through it
   if (ceil !== null) s = headBump(s, footFloorAt(s.x, s.z, s.y), ceil);
   const x0 = P.x, z0 = P.z;
@@ -4343,7 +4391,7 @@ function stepCar(dt) {
   if (LIFT_RIDE.busy) { P.vx = P.vz = P.vy = 0; car.position.set(P.x, P.y, P.z); return; }   // #277: input is locked for the ride
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx; let vf = P.vx * fx + P.vz * fz, vs = P.vx * rx + P.vz * rz; const speed = Math.hypot(P.vx, P.vz);
   const dead = WRECK_S.on, down = tipped(TIP_S), inp = dead || down ? NO_INPUT : keys, tch = dead || down ? NO_INPUT : touch;   // #105: a wreck ignores the keys and the touch buttons (the autopilot was stopped in startWreck); so does a car on its side
-  const ap = down ? null : autoInputs(dt), nitro = ap ? 0 : ((inp.ShiftLeft || inp.ShiftRight || inp.KeyN) ? 1 : 0), gas = ap ? ap.gas : ((inp.Space || inp.KeyW || inp.ArrowUp || tch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((inp.KeyS || inp.ArrowDown || tch.b) ? 1 : 0), steer = ap ? ap.steer : (((inp.KeyD || inp.ArrowRight || tch.r) ? 1 : 0) - ((inp.KeyA || inp.ArrowLeft || tch.l) ? 1 : 0)), hb = ap ? 0 : ((inp.ControlLeft || inp.ControlRight || tch.h) ? 1 : 0);
+  const ap = down ? null : autoInputs(dt), nitro = ap ? 0 : ((inp.ShiftLeft || inp.ShiftRight || inp.KeyN) ? 1 : 0), gas = ap ? ap.gas : ((inp.Space || inp.KeyW || inp.ArrowUp || tch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((inp.KeyS || inp.ArrowDown || tch.b) ? 1 : 0), steer = ap ? ap.steer : Math.max(-1, Math.min(1, ((inp.KeyD || inp.ArrowRight) ? 1 : 0) - ((inp.KeyA || inp.ArrowLeft) ? 1 : 0) + (tch.x || 0))),   /* #535: the phone's stick steers analog (tch is NO_INPUT in a wreck, so tch.x is undefined there) */ hb = ap ? 0 : ((inp.ControlLeft || inp.ControlRight || tch.h) ? 1 : 0);
   const gh = groundH(P.x, P.z, P.y); const air = P.y > gh + 0.15;
   const wet = waterLevelAt(P.x, P.z, P.y) !== null;   // #101: on the riverbed the engine runs, but slowly (every water modifier is gated on wet: the land trace is unchanged)
   P.gas = gas; P.air = air; P.nitro = nitro || (SURP.turbo > 0 && gas) ? 1 : 0; { const d = Math.hypot(P.vx, P.vz) * dt / 1000; P.trip += d; P.odo += d; }
@@ -4926,6 +4974,10 @@ function footLockLost() { if (document.pointerLockElement) return; if (footLockQ
 document.addEventListener('pointerlockchange', footLockLost);
 window.__mm.footUnlock = () => footLockLost();   // tests: headless Chromium cannot lock the pointer; this is the release path
 $('gl').addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - BEAM.tapT < 300 && Math.hypot(e.clientX - BEAM.tapX, e.clientY - BEAM.tapY) < 30) { BEAM.tapT = 0; borderOrBeam(e.clientX, e.clientY); return; } BEAM.tapT = t; BEAM.tapX = e.clientX; BEAM.tapY = e.clientY; });
+const TLOOK = { id: null, x: 0, y: 0 };   // #535: one finger dragged on the world turns the walker (the mouse needs the pointer lock, a finger cannot take it)
+$('gl').addEventListener('pointerdown', e => { if (e.pointerType !== 'touch' || !FOOT.on || TLOOK.id !== null) return; TLOOK.id = e.pointerId; TLOOK.x = e.clientX; TLOOK.y = e.clientY; });
+$('gl').addEventListener('pointermove', e => { if (e.pointerId !== TLOOK.id) return; footMouse((e.clientX - TLOOK.x) * TOUCH_LOOK, (e.clientY - TLOOK.y) * TOUCH_LOOK); TLOOK.x = e.clientX; TLOOK.y = e.clientY; });
+for (const t of ['pointerup', 'pointercancel']) $('gl').addEventListener(t, e => { if (e.pointerId === TLOOK.id) TLOOK.id = null; });
 window.__mm.beamPick = beamPick; window.__mm.beam = () => BEAM.last && { ...BEAM.last };   // test hooks (#165): the pick under a pointer position, the last landing (null before the first beam)
 // #18: the route still ahead, cyan with a dark outline, and a dot at the destination
 // the route line: the autopilot's while it drives, else the Navi's (with both on it is the same route) (#106)

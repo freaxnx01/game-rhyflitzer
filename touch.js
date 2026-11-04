@@ -17,10 +17,12 @@ export function bindStick(base, knob, onMove) {
   let id = null;
   const set = (e) => {
     const r = base.getBoundingClientRect(), v = stickVector(e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2);
-    knob.style.transform = `translate(${v.x * STICK.radius}px, ${-v.y * STICK.radius}px)`; onMove(v);
+    const travel = (base.clientWidth - knob.offsetWidth) / 2;   // full deflection parks the knob against the base's rim, whatever the two are sized
+    knob.style.transform = `translate(${v.x * travel}px, ${-v.y * travel}px)`; onMove(v);
   };
   const end = (e) => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; onMove({ x: 0, y: 0 }); };
-  base.addEventListener('pointerdown', (e) => { if (id !== null) return; e.preventDefault(); id = e.pointerId; base.setPointerCapture?.(id); set(e); });
+  // the capture is a nicety, not a requirement: a pointer id that is not actually down (a synthetic event) makes it throw
+  base.addEventListener('pointerdown', (e) => { if (id !== null) return; e.preventDefault(); id = e.pointerId; try { base.setPointerCapture?.(id); } catch (err) { } set(e); });
   base.addEventListener('pointermove', (e) => { if (e.pointerId === id) set(e); });
   base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
 }

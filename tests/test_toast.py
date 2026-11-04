@@ -90,7 +90,7 @@ def test_start_screen_covers_the_checkpoint_block(server):
 
 STEER_JS = """() => { const r = id => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect();
   return b.width ? [b.left, b.top, b.right, b.bottom] : null; };
-  return { vw: innerWidth, vh: innerHeight, debug: r('debug'), tl: r('tl'), steer: ['tL', 'tR', 'tG', 'tB', 'tH'].map(r) }; }"""
+  return { vw: innerWidth, vh: innerHeight, debug: r('debug'), tl: r('tl'), steer: ['tStick', 'tG', 'tB', 'tH', 'tZ', 'tJ', 'tC', 'tMenu'].map(r) }; }"""
 
 
 def test_debug_panel_clears_the_hud_on_a_phone(server):
