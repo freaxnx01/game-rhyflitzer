@@ -16,6 +16,19 @@ Dedicated to my daughter.
   <a href="docs/gallery/plattform-3-aussicht.jpg"><img src="docs/gallery/plattform-3-aussicht.jpg" width="32%" alt="View from the Plattform Sisslerfeld"></a>
 </p>
 
+**More screenshots** (curated list: [`docs/gallery/shots.json`](docs/gallery/shots.json), click a thumbnail for the 3840x2160 image)
+
+<!-- shots:start -->
+<!-- shots:end -->
+
+Regenerate all images (JPG, 1920x1080 and 3840x2160, into `docs/gallery/`) with one command. It drives the real game, hides the HUD, the footer and the debug panel, and waits until the camera has arrived and the world is loaded:
+
+```bash
+systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0 python scripts/shots.py
+```
+
+Retake single motifs (the GPU browser is unstable; a failed motif is reported with the exact retake command): `python scripts/shots.py --only dsm-sisseln holzbruecke-aussen`. List the motifs with `--list`. After a run, `python scripts/shots.py --readme` rewrites the thumbnails above from `shots.json`. Set `PW_CDP_ENDPOINT` to use the GPU browser, otherwise a local SwiftShader Chromium is used (slow). The same list is the shot list for the video takes. Needs Playwright (`pip install playwright && playwright install chromium`).
+
 **Videos:** [YouTube playlist „Rhyflitzer – Map Madness"](https://www.youtube.com/playlist?list=PLZK1QeqP1C2E)
 
 ## Status
