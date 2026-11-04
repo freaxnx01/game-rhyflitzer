@@ -1359,3 +1359,51 @@ def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(ser
     assert info["below"]["built"] == 6 and info["below"]["level"] == "room6" and info["below"]["object"] is True and info["counts"].get("ferris") == 1 and "eiffel" not in info["counts"], info
     assert math.hypot(push["foot"]["dx"], push["foot"]["dz"]) > 0.5, push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("centre", "beside")), push
+
+
+@needs_world
+def test_ferris_ride_boards_rides_one_turn_gets_out_and_reset_ends_it(server):
+    """On foot at the pad: E boards the lowest gondola, the walker is carried up (peak > 105 m over the room floor), E at the top is refused,
+    after one full turn the walker stands on the pad again; a second ride ends cleanly with R -- the wheel keeps turning without a jump.
+    Uses rideSim (headless renders under 1 fps). The car parks at the pad centre so boarding is certain (the lowest gondola is up to
+    rim*sin(pi/n) = 8.2 m off, the walker a couple more stepping out -- within RIDE.reach), and E is pressed at the top (polled), where the
+    bottom window is certainly far away."""
+    def ang_diff(a, b):
+        return (a - b + math.pi) % (2 * math.pi) - math.pi
+
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        into_room(page, 6, "room6")
+        page.wait_for_function("() => window.__mm.ferris() && window.__mm.ferris().built === 6", timeout=120000)
+        t = page.evaluate("() => window.__mm.below().tower")   # the room centre = the wheel centre = the pad centre
+        th = page.evaluate("() => window.__mm.spoke(6, 0).th")
+        floor = page.evaluate("() => window.__mm.ferrisRide().floor")
+        page.evaluate(f"() => window.__mm.sim({t['x']}, {t['z']}, {th}, 0, 0.2, [], {floor})")   # park the car on the pad centre
+        page.keyboard.press("z"); page.wait_for_function("() => window.__mm.foot().on", timeout=30000)
+        info = page.evaluate("() => window.__mm.ferrisRide()")
+        assert info["phase"] == "idle" and info["action"] == "board", info
+        page.keyboard.press("e")
+        boarded = page.evaluate("() => window.__mm.rideSim(2)")
+        assert boarded["phase"] == "riding", boarded
+        page.keyboard.press("z"); assert page.evaluate("() => window.__mm.ferrisRide().phase") == "riding"      # Z does not get back in the car
+        max_y = boarded["maxY"]
+        while abs(ang_diff(page.evaluate("() => window.__mm.ferrisRide().wheelAngle"), math.pi)) > 0.25:
+            max_y = max(max_y, page.evaluate("() => window.__mm.rideSim(1)")["maxY"])                            # ride up to the top
+        page.keyboard.press("e")                                                                                  # at the top: refused
+        assert page.evaluate("() => window.__mm.ferrisRide().phase") == "riding"
+        while True:
+            done = page.evaluate("() => window.__mm.rideSim(5)")                                                  # the turn takes ~63 s in total
+            max_y = max(max_y, done["maxY"])
+            if done["phase"] == "idle": break
+        assert max_y > floor + 105, (max_y, floor)
+        assert done["foot"] is True and abs(done["y"] - floor) < 0.5, done
+        page.keyboard.press("e"); page.evaluate("() => window.__mm.rideSim(3)")                                   # ride again, then R ends it
+        assert page.evaluate("() => window.__mm.ferrisRide().phase") == "riding"
+        before = page.evaluate("() => window.__mm.ferrisRide().wheelAngle")
+        page.keyboard.press("r")
+        after = page.evaluate("() => ({ ...window.__mm.ferrisRide(), foot: window.__mm.foot().on })")
+        br.close()
+    assert errors == []
+    assert after["phase"] == "idle" and after["foot"] is False, after
+    assert abs(ang_diff(after["wheelAngle"], before)) < 0.05, (before, after)   # the wheel keeps turning from where the ride left it
