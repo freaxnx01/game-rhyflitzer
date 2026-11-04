@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { roomLayout, eiffelRoom, ROOMS, ROOM_Y, ROOM_HALF, isRoomLevel, NEXT_ROOMS, shipRing, shipBasin, rimColliders, WATER_LIFT, QUAY, RIM } from '../rooms.js';
 import { EIFFEL, ATOMIUM, TITANIC, VASA, LIFT } from '../hideout.js';
 import { SPOKE, spokeFrame, spokeSigns } from '../underground.js';
+import { SPEICHER } from '../speicher.js';
 
 const CAR_R = 2.6, rooms = ROOMS.map((_, k) => roomLayout(k)), room = rooms[0];
 const inside = (o, x, z, r = 0) => { const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; return Math.abs(lx) <= o.hw + r && Math.abs(lz) <= o.hd + r; };
@@ -16,15 +17,16 @@ const reach = (R, step = 4) => {   // flood fill in the room's frame from the sp
   return { seen, step };
 };
 
-test('ROOMS_EightRooms_EiffelAtomiumArtemisVasaFerrisAndTitanicHaveAnObject', () => {
+test('ROOMS_EightRooms_EiffelAtomiumArtemisVasaSpeicherstadtFerrisAndTitanicHaveAnObject', () => {
   assert.equal(ROOMS.length, 8); assert.deepEqual(ROOMS.map(r => r.id), ['eiffel', 'atomium', 'room2', 'room3', 'room4', 'room5', 'room6', 'room7']);
   assert.equal(ROOMS[0].object, EIFFEL); assert.equal(ROOMS[0].name, 'La Tour Eiffel');
   assert.equal(ROOMS[1].object, ATOMIUM); assert.equal(ROOMS[1].name, 'Atomium');
   assert.equal(ROOMS[2].object, ARTEMIS); assert.equal(ROOMS[2].name, 'Artemis II'); assert.equal(ROOMS[2].signed, false);
   assert.equal(ROOMS[3].object, VASA); assert.equal(ROOMS[3].name, 'Vasa'); assert.equal(ROOMS[3].signed, false);
+  assert.equal(ROOMS[5].object, SPEICHER); assert.equal(ROOMS[5].name, 'Speicherstadt'); assert.equal(ROOMS[5].signed, false);
   assert.equal(ROOMS[6].object, FERRIS); assert.equal(ROOMS[6].name, 'Ferris wheel'); assert.equal(ROOMS[6].signed, false);
   assert.equal(ROOMS[7].object, TITANIC); assert.equal(ROOMS[7].name, 'Titanic'); assert.equal(ROOMS[7].signed, false);
-  for (const r of ROOMS.slice(4, 6)) { assert.equal(r.object, null); assert.equal(r.name, null); }
+  for (const r of [ROOMS[4]]) { assert.equal(r.object, null); assert.equal(r.name, null); }
   assert.ok(isRoomLevel('eiffel') && isRoomLevel('atomium') && isRoomLevel('room7') && !isRoomLevel('ring') && !isRoomLevel('surface'));
 });
 
@@ -387,4 +389,26 @@ test('roomLayout_Room6_TheCarReachesBothSidesOfTheWheel', () => {
 
 test('roomLayout_FerrisRoomSixIsDusk_TheOtherMeadowRoomsStayMeadow', () => {   // #588
   assert.equal(roomLayout(6).look, 'dusk'); assert.equal(roomLayout(0).look, 'meadow'); assert.equal(roomLayout(1).look, 'meadow');
+});
+
+// #666: the Hamburg Speicherstadt -- star room 5
+const speicher = rooms[5];
+test('roomLayout_Room5HoldsTheSpeicherstadt_FleetOnTheCentre_UnsignedLikeTheOthers', () => {
+  assert.deepEqual([speicher.tower.x, speicher.tower.z], speicher.centre); assert.deepEqual(speicher.feet, []); assert.equal(speicher.hull.length, 0); assert.equal(speicher.basin, null);
+  assert.ok(speicher.speicher); assert.deepEqual([speicher.speicher.water.x, speicher.speicher.water.z], speicher.centre);
+  assert.ok(speicher.towerView && !blocked(speicher, speicher.towerView.x, speicher.towerView.z));
+  for (const R of rooms.filter(r => r.k !== 5)) assert.equal(R.speicher, null);
+});
+
+test('roomLayout_Room5_WarehousesKerbsAndParapetsAreSolid_QuaysAlleysAndDecksAreFree', () => {
+  for (const [a, b] of [[0, 26], [-40, -26], [50, 6], [-20 - 5, 0], [20 + 5, 0], [60.5, 0]]) assert.ok(blocked(speicher, ...toWorld(speicher, a, b), 0), `solid at ${a},${b}`);
+  for (const [a, b] of [[0, 11], [-50, -11], [20, 0], [-20, 4], [20, 25], [95, 0], [0, -95], [-66, 0]]) assert.ok(!blocked(speicher, ...toWorld(speicher, a, b)), `free at ${a},${b}`);
+  for (const P of speicher.paths) for (const [x, z] of P.pts) assert.ok(!blocked(speicher, x, z), 'every gravel path is drivable');
+});
+
+test('roomLayout_Room5_FourPaths_QuayRingAndConnector_TheCarCrossesTheBridgesButNotTheWater', () => {
+  assert.equal(speicher.paths.length, 4); assert.equal(speicher.paths[2].hw, SPEICHER.quay.hw); assert.equal(speicher.paths[2].pts.length, 5); assert.equal(speicher.paths[3].pts.length, 2);
+  const r = reach(speicher), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
+  assert.ok(cell(20, 0) && cell(-20, 0), 'both bridge decks'); assert.ok(cell(0, 12) && cell(0, -12), 'both quays');
+  assert.ok(!cell(0, 0) && !cell(-40, 0) && !cell(40, 0), 'the water is not reachable'); assert.ok(r.seen.size > 4000);
 });
