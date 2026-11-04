@@ -106,4 +106,4 @@ def test_debug_panel_clears_the_hud_on_a_phone(server):
     assert d and d[0] >= 0 and d[1] >= 0 and d[2] <= r["vw"] and d[3] <= r["vh"], r
     assert not overlaps(d, r["tl"]), r
     for s in r["steer"]:
-        assert s and not overlaps(d, s), (s, r)
+        assert s is None or not overlaps(d, s), (s, r)   # a control is out of the way either by stepping aside (#touch hides while the legend is read) or by not overlapping
