@@ -18,7 +18,7 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 #pips{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:4px}
 #pips div{height:14px;background:#2a2e38;border:2px solid var(--steel)}
 #pips div.on{background:var(--sun);border-color:var(--ink)}
-#tc{position:fixed;left:50%;top:calc(12px + var(--mirror-drop,0px) + env(safe-area-inset-top,0px));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;z-index:1}
+#tc{position:fixed;left:50%;top:calc(12px + var(--mirror-drop,0px) + env(safe-area-inset-top,0px));transform:translateX(-50%);width:max-content;max-width:100vw;display:flex;flex-direction:column;align-items:center;gap:2px;z-index:1}
 #arrow{width:80px;height:60px;transition:transform .12s linear}
 #dist{background:rgba(20,23,29,.82);border:3px solid var(--sun);padding:2px 14px;font-size:26px;font-weight:800;font-style:italic;color:var(--sun);line-height:1.1}
 #cpname{font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;text-shadow:2px 2px 0 var(--ink)}
@@ -38,6 +38,7 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 #roadname{font-size:15px;font-weight:700;letter-spacing:2px;color:#f5efe0;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #autoline{font-size:15px;font-weight:700;letter-spacing:2px;color:#3ddcff;text-shadow:2px 2px 0 var(--ink);min-height:18px}
 #prompt{font-size:15px;font-weight:700;letter-spacing:2px;color:#d8e8a0;text-shadow:2px 2px 0 var(--ink);min-height:18px}
+#autoline:empty,#prompt:empty{display:none}   /* #535: the key bar takes the room these two reserved, so the toast stays in the upper half */
 /* #445: an action prompt ("E · Enter", "E · call the lift") as a badge: the key as a cap, larger and brighter than the info lines above it */
 #prompt:not(:empty){margin-top:4px;padding:5px 14px 5px 8px;background:rgba(20,23,29,.88);border:3px solid #eaffb0;box-shadow:4px 4px 0 var(--ink);font-size:22px;letter-spacing:1px;color:#eaffb0;text-shadow:none;text-transform:uppercase;line-height:1}
 #prompt:not(:empty)::first-letter{display:inline-block;margin-right:4px;padding:1px 9px;background:#eaffb0;color:var(--ink)}
