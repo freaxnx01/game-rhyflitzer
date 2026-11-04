@@ -106,3 +106,23 @@ def test_no_png_and_only_declared_images_in_the_gallery_folder():
     generated = {f"{i}-{w}.jpg" for i in ids for w in (1920, 3840)}
     stray = {n for n in names if n.endswith(".jpg") and not n.startswith("plattform-") and n not in generated}
     assert not stray, stray
+
+
+WORLD = ROOT / "data" / "world_hochrhein.json"
+
+
+def test_hidden_selectors_cover_the_hud_the_toast_and_the_footer():
+    for sel in ("#tl", "#tr", "#compass", "#bl", "#br", "#game-nav", "#debug", "#toast", "#arrow"):
+        assert sel in shots.HIDDEN_SELECTORS
+    assert "visibility:hidden!important" in shots.HIDE_CSS and "#game-nav" in shots.HIDE_CSS
+
+
+@pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+def test_smoke_one_motif_is_shot_in_two_sizes_without_hud(tmp_path):
+    PIL = pytest.importorskip("PIL.Image")
+    code = shots.main(["--only", "plattform-auto", "--size", "320x180", "--out", str(tmp_path), "--no-terrain"])
+    assert code == 0   # capture_shot raises (exit 1) if any HIDDEN_SELECTORS element or #overlay is visible before the shot
+    small, big = (tmp_path / n for n in shots.output_names("plattform-auto", 320))
+    assert small.exists() and big.exists()
+    assert PIL.open(small).size == (320, 180) and PIL.open(big).size == (640, 360)
+    assert small.read_bytes()[:3] == b"\xff\xd8\xff"   # a JPEG, not a PNG
