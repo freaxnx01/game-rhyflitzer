@@ -1,6 +1,7 @@
 """#535 phase 2: the phone controls -- the joystick steers while gas is held, Z switches the set to the walker's,
-the context button shows up at a glowing door, the menu lists every other action, and it all fits a 390x844 screen.
+the context button shows up at a glowing door, the menu lists every other action, and it all fits a tall and a short phone.
 Hand-traced layout (world + terrain blocked). Slow (Playwright): run in the foreground."""
+import pytest
 from playwright.sync_api import sync_playwright
 
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
@@ -29,10 +30,10 @@ def overlap(a, b):
     return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
 
 
-def open_phone(p, server):
+def open_phone(p, server, vp=VP):
     """has_touch without is_mobile (see test_pause.py): index.html has no <meta name="viewport">, so is_mobile would lay out at 980 px."""
     b = p.chromium.launch(args=ARGS)
-    ctx = b.new_context(viewport=VP, has_touch=True, locale="de-CH")
+    ctx = b.new_context(viewport=vp, has_touch=True, locale="de-CH")
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -107,7 +108,7 @@ def test_context_button_appears_at_a_glowing_door(server):
         b.close()
     assert errors == []
     assert label == "eintreten", label
-    assert toast == "Noch nicht begehbar", toast                     # the same E the keyboard presses, through the same handler
+    assert toast == "Die Treppe ist offen -- einfach hineingehen", toast   # the entrance's own handler, i.e. the same E the keyboard presses
 
 
 def test_menu_lists_the_rest_and_runs_a_row(server):
@@ -129,20 +130,21 @@ def test_menu_lists_the_rest_and_runs_a_row(server):
     assert closed is True                                            # a chosen action closes the menu again
 
 
-def test_phone_layout_fits(server):
+@pytest.mark.parametrize("vp", [VP, {"width": 360, "height": 640}])   # a tall and a short phone: the short one is where a column runs out of room
+def test_phone_layout_fits(server, vp):
     with sync_playwright() as p:
-        b, page, errors = open_phone(p, server)
+        b, page, errors = open_phone(p, server, vp)
         scroll_width = page.evaluate("() => document.documentElement.scrollWidth")
-        boxes = page.evaluate(BOXES, CONTROLS)
+        boxes = page.evaluate(BOXES, CONTROLS + ["#pausebtn"])
         bars = page.evaluate("""() => ({ keybar: getComputedStyle(document.querySelector('#keybar')).display,
             pausekeybar: getComputedStyle(document.querySelector('#pausekeybar')).display })""")
         b.close()
     shown = {k: v for k, v in boxes.items() if v}
     assert errors == []
-    assert scroll_width <= VP["width"], scroll_width
-    assert len(shown) == len(CONTROLS), boxes                        # every control of the car context is there
+    assert scroll_width <= vp["width"], scroll_width
+    assert set(shown) == set(CONTROLS + ["#pausebtn"]), boxes         # every control of the car context is there
     for name, box in shown.items():
-        assert box[0] >= 0 and box[1] >= 0 and box[2] <= VP["width"] and box[3] <= VP["height"], (name, box)
+        assert box[0] >= 0 and box[1] >= 0 and box[2] <= vp["width"] and box[3] <= vp["height"], (name, box)
         assert box[2] - box[0] >= 44 and box[3] - box[1] >= 44, (name, box)
     names = list(shown)
     for i, a in enumerate(names):

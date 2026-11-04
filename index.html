@@ -235,19 +235,22 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
 @media (pointer:coarse){#touch{display:block}}
 #touch button{position:absolute;pointer-events:auto;width:84px;height:84px;border-radius:50%;background:rgba(20,23,29,.6);border:4px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:30px;font-weight:800;touch-action:none;user-select:none;-webkit-user-select:none}
-/* #535 phase 2: the stick sits in the left thumb's reach, everything else in the right's, in rows clear of the stick's column
-   (both stay above the speedometer and the minimap at bottom 16). Every control is at least 44 px and keeps off the safe-area insets. */
+/* #535 phase 2: two bottom-anchored thumb columns -- the stick plus the camera, the menu and the context button on the left,
+   gas/brake plus the handbrake, jump and Z on the right. Every control is at least 44 px and keeps off the safe-area insets.
+   The columns are measured from the bottom edge only, never from the top: on a short phone (360x640) a third right-hand row
+   would reach up into #pausebtn (top 208), and the right column stops below it on purpose. */
 #tStick{position:absolute;pointer-events:auto;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px));width:132px;height:132px;box-sizing:border-box;border-radius:50%;background:rgba(20,23,29,.45);border:4px solid var(--steel-l);touch-action:none;user-select:none;-webkit-user-select:none}
 #tStick i{position:absolute;left:34px;top:34px;width:56px;height:56px;border-radius:50%;background:var(--steel-l);pointer-events:none}
 #tG{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}#tB{right:calc(112px + env(safe-area-inset-right,0px));bottom:calc(200px + env(safe-area-inset-bottom,0px))}
 #touch .round,#touch button#tH{width:56px;height:56px;font-size:22px}
 #touch button#tH{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
-#tC{right:calc(84px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
-#tJ{right:calc(148px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
-#tZ{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(356px + env(safe-area-inset-bottom,0px))}
-#touch button#tE{width:auto;min-width:96px;height:48px;border-radius:24px;padding:0 16px;font-size:18px;font-weight:800;letter-spacing:1px;background:var(--sun);color:var(--ink);right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(420px + env(safe-area-inset-bottom,0px))}
-#touch button#tMenu{width:48px;height:48px;border-radius:0;font-size:24px;right:calc(16px + env(safe-area-inset-right,0px));top:calc(264px + env(safe-area-inset-top,0px));bottom:auto}
-#tMenuList{position:absolute;pointer-events:auto;right:calc(16px + env(safe-area-inset-right,0px));top:calc(320px + env(safe-area-inset-top,0px));width:min(300px,calc(100vw - 32px));max-height:calc(100vh - 340px - env(safe-area-inset-top,0px));overflow:auto;display:flex;flex-direction:column;gap:4px;background:rgba(20,23,29,.92);border:3px solid var(--steel);padding:6px;box-sizing:border-box}
+#tJ{right:calc(84px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
+#tZ{right:calc(148px + env(safe-area-inset-right,0px));bottom:calc(292px + env(safe-area-inset-bottom,0px))}
+#tC{left:calc(76px + env(safe-area-inset-left,0px));bottom:calc(356px + env(safe-area-inset-bottom,0px))}
+#touch button#tE{width:auto;min-width:96px;height:48px;border-radius:24px;padding:0 16px;font-size:18px;font-weight:800;letter-spacing:1px;background:var(--sun);color:var(--ink);left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(420px + env(safe-area-inset-bottom,0px))}
+#touch button#tMenu{width:48px;height:48px;border-radius:0;font-size:24px;left:calc(20px + env(safe-area-inset-left,0px));bottom:calc(356px + env(safe-area-inset-bottom,0px))}
+/* open, the list is what you are reading: it takes the whole left side and may cover the controls and the speedometer behind it */
+#tMenuList{position:absolute;pointer-events:auto;left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(300px,calc(100vw - 32px));max-height:calc(100vh - 120px - env(safe-area-inset-top,0px));overflow:auto;display:flex;flex-direction:column;gap:4px;background:rgba(20,23,29,.92);border:3px solid var(--steel);padding:6px;box-sizing:border-box}
 #tMenuList[hidden],#touch button[hidden]{display:none}
 #tMenuList button{position:static;width:100%;height:auto;min-height:44px;border-radius:0;font-size:16px;text-align:left;padding:6px 10px}
 #touch:not([data-ctx=car]) :is(#tB,#tH,#tC){display:none}   /* brake, handbrake and the camera are the car's; on foot Gas is the jump */
@@ -3549,7 +3552,7 @@ function stepTouch(ctx, act) {
   $('tG').textContent = FOOT.on ? '⤒' : '▲'; $('tG').setAttribute('aria-label', tr(FOOT.on ? 'barJumpUp' : 'accelerate'));
   $('tZ').setAttribute('aria-label', tr(FOOT.on ? 'barGetIn' : 'barGetOut'));
 }
-window.__mm.touch = () => ({ ...touch, ctx: $('touch').dataset.ctx });
+window.__mm.touch = () => { stepTouch(controlContext(), contextAction()); return { ...touch, ctx: $('touch').dataset.ctx }; };   // steps first, like __mm.keybar: a headless renderer draws under 1 fps
 function toggleStyle() { applyStyle(styleKey === 'original' ? 'smooth' : 'original'); }
 document.getElementById('stylebtn').onclick = toggleStyle; document.getElementById('stylebtn2').onclick = toggleStyle;
 
