@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-06 15:27` You can now **ride the Ferris wheel** in the hideout's star room 6: get out of the car with <kbd>Z</kbd>, walk to the **boarding platform** under the wheel and press <kbd>E</kbd> at the lowest gondola. The wheel carries you **once round** (the view from the top is over 250 m high); at the bottom you get out again, or press <kbd>E</kbd> there to get out early. While you ride the wheel turns faster than usual.
+
 - `2026-11-05 17:41` Short link **rhyflitzer.freaxnx01.ch/nfz** for the article in the Neue Fricktaler Zeitung: easy to type from the paper, it opens the game and the visit counts as coming from the NFZ in the anonymous stats.
 
 - `2026-11-05 00:22` New mode **Tutorial** for newcomers: step by step it shows how to **drive** and **brake**, follow the **arrow** through three checkpoints, use **nitro**, **jump** to the Plattform Sisslerfeld with <kbd>J</kbd>, get out with <kbd>Z</kbd>, walk up onto the deck, take a **photo** of the DSM chimney with <kbd>X</kbd> and get back in. Each step ticks itself off as soon as you have done it, and the line under the arrow always says what to do next (on a phone in touch words). On your first visit the start screen offers the tutorial first; <kbd>Esc</kbd> → **End tutorial** leaves it at any time.
