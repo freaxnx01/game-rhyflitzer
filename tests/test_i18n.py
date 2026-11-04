@@ -63,7 +63,7 @@ def test_stored_language_wins_over_the_browser(server):
             east: document.querySelector('#rose text:nth-of-type(2)').textContent,
             compass: document.querySelector('#compass').getAttribute('aria-label'),
             speedo: document.querySelector('#speedo').getAttribute('aria-label'),
-            steerLeft: document.querySelector('#tL').getAttribute('aria-label'),
+            stick: document.querySelector('#tStick').getAttribute('aria-label'),
             map: document.querySelector('#maptext').textContent,
             loadTerrain: document.querySelector('label[for=mmhfile]').textContent,
             useMadeUp: document.querySelector('#mmhclear').textContent,
@@ -80,7 +80,7 @@ def test_stored_language_wins_over_the_browser(server):
     assert shown["jumpSearch"] == "Wahrzeichen suchen"
     assert shown["jumpHint"].startswith("tippen zum Suchen")
     assert shown["east"] == "O" and shown["compass"] == "Kompass" and shown["speedo"] == "Tachometer"
-    assert shown["steerLeft"] == "Links lenken"
+    assert shown["stick"] == "Lenken · gehen"
     assert shown["map"] == "Karte · Hochrhein ·"
     assert shown["loadTerrain"] == "Gelände laden (.mmh)"
     assert shown["useMadeUp"] == "Erfundenes Gelände verwenden"

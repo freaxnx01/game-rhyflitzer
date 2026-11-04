@@ -90,7 +90,7 @@ def test_start_screen_covers_the_checkpoint_block(server):
 
 STEER_JS = """() => { const r = id => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect();
   return b.width ? [b.left, b.top, b.right, b.bottom] : null; };
-  return { vw: innerWidth, vh: innerHeight, debug: r('debug'), tl: r('tl'), steer: ['tL', 'tR', 'tG', 'tB', 'tH'].map(r) }; }"""
+  return { vw: innerWidth, vh: innerHeight, debug: r('debug'), tl: r('tl'), steer: ['tStick', 'tG', 'tB', 'tH', 'tZ', 'tJ', 'tC', 'tMenu'].map(r) }; }"""
 
 
 def test_debug_panel_clears_the_hud_on_a_phone(server):
@@ -106,4 +106,4 @@ def test_debug_panel_clears_the_hud_on_a_phone(server):
     assert d and d[0] >= 0 and d[1] >= 0 and d[2] <= r["vw"] and d[3] <= r["vh"], r
     assert not overlaps(d, r["tl"]), r
     for s in r["steer"]:
-        assert s and not overlaps(d, s), (s, r)
+        assert s is None or not overlaps(d, s), (s, r)   # a control is out of the way either by stepping aside (#touch hides while the legend is read) or by not overlapping
