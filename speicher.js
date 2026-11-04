@@ -36,3 +36,35 @@ export function warehouseParts(cfg = SPEICHER) {
   }
   return parts;
 }
+
+// where the Fleet, the warehouses and the bridges stand in a room ({ centre, frame: { f, v }, portal: { c }, y } as
+// artemisPlacement takes it): the water slab on the centre, the quay ring with its connector as gravel polylines
+// (world points), and the colliders, all `low` (the car stops on the floor, the helicopter / hovering walker pass
+// over each top, index.html collide()) -- 6 warehouses solid to their ridge + 2, 8 kerbs 0.6 m high (three segments
+// per bank with a gap at each bridge, plus an end cap either end) and 4 bridge parapets. The decks have none: the
+// parapets keep the car on them, the floor stays flat. speicher.js cannot import rooms.js (it would be circular),
+// so the kerb carries its own copy of the RIM numbers.
+export function speicherPlacement(room, cfg = SPEICHER) {
+  const [cx, cz] = room.centre, { f, v } = room.frame, y = room.y;
+  const th = Math.atan2(f[1], f[0]);
+  const loc = (a, b) => [cx + f[0] * a + v[0] * b, cz + f[1] * a + v[1] * b];
+  const B = cfg.block, F = cfg.fleet, Q = cfg.quay, BR = cfg.bridge;
+  const box = (a, b, hw, hd, h, speicher) => { const [x, z] = loc(a, b); return { x, z, hw, hd, c: f[0], s: f[1], h, low: true, speicher }; };
+  const colliders = [];
+  for (const side of [-1, 1]) for (const a of B.at)   // the six warehouses, solid to ridge + 2 m
+    colliders.push(box(a, side * (B.front + B.depth / 2), B.len / 2, B.depth / 2, y + B.ridge + 2, 'warehouse'));
+  for (const side of [-1, 1]) {   // each bank's kerb in three segments, an ~11 m gap at each bridge deck
+    const gap = BR.hw + 0.3, spans = [[-F.len / 2, BR.at[0] - gap], [BR.at[0] + gap, BR.at[1] - gap], [BR.at[1] + gap, F.len / 2]];
+    for (const [a0, a1] of spans) colliders.push(box((a0 + a1) / 2, side * F.hw, (a1 - a0) / 2, F.kerb.hd, y + F.kerb.h, 'kerb'));
+  }
+  for (const s of [-1, 1])   // the two end caps closing the canal either end
+    colliders.push(box(s * (F.len / 2 + 0.5), 0, 0.5, F.hw + F.kerb.hd, y + F.kerb.h, 'kerb'));
+  for (const a of BR.at) for (const s of [-1, 1])   // two parapets per bridge, thin along f, spanning the deck
+    colliders.push(box(a + s * BR.hw, 0, BR.rail.hd, BR.span, y + BR.rail.h, 'rail'));
+  const water = { x: cx, z: cz, th, len: F.len, wid: 2 * F.hw, y: y + F.lift };
+  const bridges = BR.at.map(a => { const [x, z] = loc(a, 0); return { x, z, th, wid: 2 * BR.hw, len: 2 * BR.span, y: y + BR.lift }; });
+  const quay = [[-Q.endA, -Q.b], [Q.endA, -Q.b], [Q.endA, Q.b], [-Q.endA, Q.b], [-Q.endA, -Q.b]].map(([a, b]) => loc(a, b));   // closed ring along both quays and across both ends
+  const HAIR = 1e-6;   // a micrometre off the axis: mapping a world point back into the room frame leaves ~1e-13 noise in b, and the hair keeps the connector's rounded local b at +0, not -0
+  const connector = [loc(-cfg.loop, HAIR), loc(-Q.endA, HAIR)];   // the room's 95 m loop -> the quay ring
+  return { water, bridges, quay, connector, colliders };
+}
