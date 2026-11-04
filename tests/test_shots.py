@@ -88,3 +88,21 @@ def test_splice_readme_replaces_only_the_marked_span():
     assert out == "before\n<!-- shots:start -->\nNEW\n<!-- shots:end -->\nafter\n"
     with pytest.raises(SystemExit):
         shots.splice_readme("no markers", "NEW")
+
+
+def test_the_committed_shot_list_is_valid():
+    listed = shots.load_shots()
+    assert shots.validate_shots(listed, shots.region_ids(ROOT), shots.load_landmarks(ROOT)) == []
+
+
+def test_region_ids_come_from_regions_js():
+    assert shots.region_ids(ROOT) == REGIONS
+
+
+def test_no_png_and_only_declared_images_in_the_gallery_folder():
+    names = {p.name for p in (ROOT / "docs" / "gallery").iterdir()}
+    assert not [n for n in names if n.endswith(".png")]
+    ids = {s["id"] for s in shots.load_shots()}
+    generated = {f"{i}-{w}.jpg" for i in ids for w in (1920, 3840)}
+    stray = {n for n in names if n.endswith(".jpg") and not n.startswith("plattform-") and n not in generated}
+    assert not stray, stray
