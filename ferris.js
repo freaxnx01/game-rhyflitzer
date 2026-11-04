@@ -17,6 +17,7 @@ export const FERRIS = {
   collider: { hw: 8, over: 2 },                             // foot squares, solid to the hub + over
   led: { rimStep: 2, spokes: 32, spokeN: 24, ringX: 3 },    // ~2 m between rim LEDs, 32 spoke pairs, 24 LEDs per spoke, rim rings at x = +-ringX
   fireworks: { every: 10, perSalvo: [3, 5], particles: 120, life: 2.5, speed: [25, 45], g: 9.81, colours: ['#ff4d4d', '#ffd23f', '#5ce1ff', '#7dff6b', '#ff7be5', '#ffffff'] },
+  pad: { hw: 5, hd: 20, lift: 0.12 },                      // #516: gravel boarding pad under the rim: 10 m along the axle x 40 m across (hd covers the bottom window's exit, #588)
   colours: { rim: 0xf2f2ee, steel: 0x3a3d42, foot: 0x8a8d92, gondolas: [0xc9503f, 0x3f7fc9, 0xe0b13a, 0x4aa36b, 0xd9d9d9, 0x8a5fb3] },
 };
 
@@ -48,7 +49,7 @@ export function ferrisPlacement(room, cfg = FERRIS) {
     const [x, z] = loc(sa * cfg.frame.a, sb * cfg.frame.b);
     colliders.push({ x, z, hw: cfg.collider.hw, hd: cfg.collider.hw, c: f[0], s: f[1], h: y + cfg.hub.y + cfg.collider.over, low: true, ferris: 'foot' });
   }
-  return { wheel: { x: cx, z: cz, th }, colliders };
+  return { wheel: { x: cx, z: cz, th }, colliders, pad: { x: cx, z: cz, th, hw: cfg.pad.hw, hd: cfg.pad.hd } };
 }
 
 // #588: the light show -- ~2300 LEDs on both rim rings and along the spokes, in the rotating wheel's frame (hub at the
