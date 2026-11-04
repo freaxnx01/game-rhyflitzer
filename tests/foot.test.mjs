@@ -22,6 +22,13 @@ test('footInput_Keys_MapToAxes', () => {
   assert.equal(footInput({ KeyN: true }).nitro, 1);
 });
 
+// #535 phase 2: the phone joystick walks and sidesteps through the same input object the keys fill
+test('footInput_Stick_AddsToTheKeys_Clamped', () => {
+  assert.deepEqual(footInput({}, { x: 0.5, y: -1 }), { fwd: -1, side: 0.5, turn: 0, lift: 0, nitro: 0 });
+  assert.equal(footInput({ KeyW: true }, { x: 0, y: 1 }).fwd, 1);
+  assert.deepEqual(footInput({ KeyW: true }), footInput({ KeyW: true }, null));
+});
+
 test('stepFoot_WalkForward_MovesAtWalkSpeedAlongHeading', () => {
   const s = run(at({ th: Math.PI / 2 }), { ...IDLE, fwd: 1 }, 2);
   close(s.x, 0, 1e-6); close(s.z, 2 * WALKER.walk, 1e-6); close(s.y, 0, 1e-9);
