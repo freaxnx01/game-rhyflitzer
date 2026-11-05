@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-05 00:22` New mode **Tutorial** for newcomers: step by step it shows how to **drive** and **brake**, follow the **arrow** through three checkpoints, use **nitro**, **jump** to the Plattform Sisslerfeld with <kbd>J</kbd>, get out with <kbd>Z</kbd>, walk up onto the deck, take a **photo** of the DSM chimney with <kbd>X</kbd> and get back in. Each step ticks itself off as soon as you have done it, and the line under the arrow always says what to do next (on a phone in touch words). On your first visit the start screen offers the tutorial first; <kbd>Esc</kbd> → **End tutorial** leaves it at any time.
+
 - `2026-11-03 20:57` **Aussichtspunkte**: Am Aussichtspunkt sagt das Spiel jetzt deutlich, dass Du zum **Motiv schauen** und <kbd>X</kbd> drücken sollst, und **erinnert Dich**, wenn Du ohne Foto wegfährst. Die Anzeige oben heisst jetzt „**Foto (X)**: Motiv".
 
 - `2026-11-03 18:26` The **loading screen** now sits in the middle of the start screen and tells you what is being built, with a **progress bar**: roads are paved, houses put up, 83 **Robidogs** set up and their bags refilled, fish released into the Rhine …
