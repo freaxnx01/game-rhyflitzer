@@ -90,8 +90,10 @@ function advance(st) {
   return { ...st, i, hold: 0, done: st.steps[i] === 'done' };
 }
 
-export function tutorialHint(st, foot, coarse) {
+// onTop: on foot at the top of the Plattform; the way back to the car starts down the stair, so that step names it and how to look around
+export function tutorialHint(st, foot, coarse, onTop = false) {
   const d = stepDef(tutorialStepId(st));
+  if (d.id === 'getIn' && foot && onTop) return { key: coarse ? 'tutStepDownTouch' : 'tutStepDown', how: howTo(stepDef('climb'), coarse), n: st.cp + 1, of: st.cps };
   if (d.needs === 'car' && foot) return { key: 'tutNeedCar', how: howTo(stepDef('getIn'), coarse), n: 0, of: 0 };
   if (d.needs === 'foot' && !foot) return { key: 'tutNeedFoot', how: howTo(stepDef('getOut'), coarse), n: 0, of: 0 };
   return { key: d.hint, how: howTo(d, coarse), n: st.cp + 1, of: st.cps };

@@ -102,7 +102,12 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
         page.wait_for_function(AIMED_AT_DSM, timeout=120000)
         page.keyboard.press("KeyX")
         wait_step(page, "getIn")
+        page.wait_for_function("() => window.__mm.tutorial().target?.label === 'Stair down'", timeout=T)
+        top = page.evaluate("() => window.__mm.tutorial().target")
+        hints["down"] = hint(page)
         page.evaluate("([x, z]) => window.__mm.place(x, z)", [out["x"], out["z"]])
+        page.wait_for_function("() => window.__mm.tutorial().target?.label === 'Your car'", timeout=T)
+        hints["back"] = hint(page)
         page.keyboard.press("z")
         page.wait_for_function("() => window.__mm.tutorial().done", timeout=T)
         end = page.evaluate("() => ({ ...window.__mm.tutorial(), flag: localStorage.getItem('mm.tutorialDone'), toast: window.__mm.toast().text })")
@@ -113,6 +118,8 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
     assert "WASD" in hints["drive"] and "20 km/h" in hints["drive"], hints
     assert "checkpoint 1 of 3" in hints["checkpoints"], hints
     assert "Shift" in hints["nitro"] and "J" in hints["jump"] and "WASD" in hints["climb"], hints
+    assert "stair" in hints["down"] and "mouse" in hints["down"] and "car" in hints["back"], hints
+    assert math.hypot(top["x"] - plat["x"], top["z"] - plat["z"]) < 2, top   # the arrow on the deck points at the stair, not over the parapet at the car
     assert end["step"] == "done" and end["done"] is True and end["flag"] == "1", end
     assert end["toast"].startswith("Well done!"), end
     assert errors == []

@@ -724,7 +724,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -4616,17 +4616,19 @@ function announceTutorial(a, b) {
   const ok = tr('tutStepOk', b.i, b.steps.length - 1);
   if (tutorialStepId(a) === 'photo') photoNote = ok; else toast(ok, TUT.toastS);   // the photo's own toast carries it, so "Photo saved" does not replace it
 }
+const tutOnTop = () => FOOT.on && !!PLAT && Math.hypot(P.x - PLAT.frame.x, P.z - PLAT.frame.z) <= TUT_VP.r && P.y >= PLAT.base + PLATTFORM.stair.exit.y - 0.05;   // on the deck or the top of the stair, not yet on the way down
 function tutorialTarget(st) {
   const id = tutorialStepId(st), c = TUT_DEF.cps[st.cp];
   if (id === 'checkpoints' && c) return { x: c.x, z: c.z, i: st.cp, tutLabel: tr('tutCpTarget', st.cp + 1, st.cps) };
   if (id === 'climb') return { x: TUT_VP.x, z: TUT_VP.z, i: -2, tutLabel: TUT_VP.n };
   if (id === 'photo') return { x: TUT_VP.sx, z: TUT_VP.sz, i: -2, tutLabel: tr('viewAimTarget', TUT_VP.subjectN) };
+  if (id === 'getIn' && tutOnTop()) { const [x, z] = stairHeadTarget(PLAT.frame, P.x, P.z); return { x, z, i: -2, tutLabel: tr('tutStairTarget') }; }
   if (id === 'getIn' && FOOT.car) return { x: FOOT.car.x, z: FOOT.car.z, i: -2, tutLabel: tr('tutCarTarget') };
   return null;
 }
 function placeTutMark(st) { const c = tutorialStepId(st) === 'checkpoints' && TUT_DEF.cps[st.cp]; tutMark.visible = !!c; if (c) tutMark.position.set(c.x, groundH(c.x, c.z), c.z); }
 const howText = (how) => how.via === 'key' ? tr('tutKey', how.cap) : tr(how.via === 'button' ? 'tutButton' : 'tutMenu', tr(how.label));
-function renderTutorialHint() { const h = tutorialHint(TUT_RUN.st, FOOT.on, TUT_COARSE), text = tr(h.key, h.how ? howText(h.how) : '', h.n, h.of); if ($('tuthint').textContent !== text) $('tuthint').textContent = text; }   // written only on a change
+function renderTutorialHint() { const h = tutorialHint(TUT_RUN.st, FOOT.on, TUT_COARSE, tutOnTop()), text = tr(h.key, h.how ? howText(h.how) : '', h.n, h.of); if ($('tuthint').textContent !== text) $('tuthint').textContent = text; }   // written only on a change
 function finishTutorial() { markTutorialDone(); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); R.last = { mode: 'tutorial' }; R.target = null; tutMark.visible = false; $('tuthint').textContent = tr('tutResultNext'); toastBig(tr('tutDoneBig')); TUT_RUN.endIn = TUT.endS; }
 function showTutorialResult() { TUT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'tutorial') return; endFoot(); $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; $(!$('viewbtn').hidden ? 'viewbtn' : 'cruisebtn').focus(); }   // #534: the suggestion -- Viewpoints next
 function markTutorialDone() { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { } START_MODE = startModeFrom(location.search, RACELESS, VIEWPOINTS.length > 0, true); $('tutorialbtn').classList.remove('first'); }
@@ -4990,7 +4992,7 @@ window.__mm.huntSetEndIn = (s) => { HUNT_RUN.endIn = s; };   // tests: shorten t
 window.__mm.views = () => ({ mode: R.mode, state: R.state, shot: R.done, total: VIEWPOINTS.length, spots: VIEWPOINTS.map(s => ({ id: s.id, x: s.x, z: s.z, sx: s.sx, sz: s.sz })), pts: [...VIEW_RUN.pts], target: R.target && R.target.view ? { view: R.target.view, n: R.target.n, i: R.target.i } : null, pose: shotPose(), last: R.last ? { ...R.last } : null });
 window.__mm.viewScore = (i, pts) => scoreView(i, pts);   // tests: score viewpoint i without getting there (the Plattform needs the stair)
 window.__mm.viewSetEndIn = (s) => { VIEW_RUN.endIn = s; };   // tests: skip the 2 s before the result screen
-window.__mm.tutorial = () => ({ step: tutorialStepId(TUT_RUN.st), done: TUT_RUN.st.done });   // #534: read-only
+window.__mm.tutorial = () => ({ step: tutorialStepId(TUT_RUN.st), done: TUT_RUN.st.done, target: R.target && { x: R.target.x, z: R.target.z, label: R.target.tutLabel } });   // #534: read-only
 
 // ---------- HUD & map ----------
 const mapC = $('map'), mg = mapC.getContext('2d');
