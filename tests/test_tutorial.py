@@ -119,7 +119,7 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
     assert "checkpoint 1 of 3" in hints["checkpoints"], hints
     assert "Shift" in hints["nitro"] and "J" in hints["jump"] and "WASD" in hints["climb"], hints
     assert "stair" in hints["down"] and "mouse" in hints["down"] and "car" in hints["back"], hints
-    assert math.hypot(top["x"] - plat["x"], top["z"] - plat["z"]) < 2, top   # the arrow on the deck points at the stair, not over the parapet at the car
+    assert math.hypot(top["x"] - plat["x"], top["z"] - plat["z"]) <= 2.41, top   # the arrow on the deck leads round the rail to the stair (2.4 m from the centre), not over the parapet at the car
     assert end["step"] == "done" and end["done"] is True and end["flag"] == "1", end
     assert end["toast"].startswith("Well done!"), end
     assert errors == []
