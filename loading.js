@@ -20,3 +20,8 @@ export function numberLocale(lang, navLang) {
   if (navLang && navLang.includes('-')) return navLang;
   return lang === 'de' ? 'de-CH' : navLang || 'en';
 }
+
+// #695: every stage's line as the loading screen showed it, for About; counts[stage] = the formatted counts loadStage used
+export function loadLines(t, counts) {
+  return LOAD_STAGES.map((s) => t(`load_${s}`, counts[s] || {}));
+}

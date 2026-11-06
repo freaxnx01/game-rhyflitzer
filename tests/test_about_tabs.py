@@ -4,7 +4,7 @@ from playwright.sync_api import sync_playwright
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
-IDS = ["people", "game", "credits", "built"]
+IDS = ["people", "game", "credits", "built", "loading"]
 
 
 def boot(p, server, locale="en-US", viewport=(1280, 720), touch=False):
@@ -41,7 +41,8 @@ def test_tab_roles_and_first_tab_active_on_open(server):
         ["abouttab-people", "true", 0, "aboutpanel-people", "People"],
         ["abouttab-game", "false", -1, "aboutpanel-game", "The game"],
         ["abouttab-credits", "false", -1, "aboutpanel-credits", "Credits"],
-        ["abouttab-built", "false", -1, "aboutpanel-built", "How it is built"]], info["tabs"]
+        ["abouttab-built", "false", -1, "aboutpanel-built", "How it is built"],
+        ["abouttab-loading", "false", -1, "aboutpanel-loading", "While loading"]], info["tabs"]
     assert info["labelled"] == [[f"aboutpanel-{i}", f"abouttab-{i}"] for i in IDS], info["labelled"]
     assert info["tab"] == "people" and open_panels == ["aboutpanel-people"], (info, open_panels)
     assert errors == []
@@ -60,8 +61,8 @@ def test_arrow_keys_home_end_and_the_game_never_sees_them(server):
         page.keyboard.press("KeyW")
         held = page.evaluate("() => window.__mm.keysDown()")
         b.close()
-    assert seen == [("game", "abouttab-game"), ("credits", "abouttab-credits"), ("built", "abouttab-built"),
-                    ("people", "abouttab-people"), ("built", "abouttab-built"), ("people", "abouttab-people")], seen
+    assert seen == [("game", "abouttab-game"), ("credits", "abouttab-credits"), ("loading", "abouttab-loading"),
+                    ("people", "abouttab-people"), ("loading", "abouttab-loading"), ("people", "abouttab-people")], seen
     assert held == [], held
     assert errors == []
 
@@ -129,5 +130,24 @@ def test_german_tabs_and_ideas(server):
         labels = page.evaluate("() => [...document.querySelectorAll('#about [role=tab]')].map(t => t.textContent.trim())")
         people = page.inner_text("#aboutpanel-people")
         b.close()
-    assert labels == ["Leute", "Das Spiel", "Credits", "So ist es gebaut"], labels
+    assert labels == ["Leute", "Das Spiel", "Credits", "So ist es gebaut", "Beim Laden"], labels
     assert "Robidogs" in people and "fliegende Häufchen" in people and "viele andere Ideen mehr …" in people, people
+
+
+def test_loading_tab_lists_every_loading_line_and_follows_the_language(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        page.click("#aboutbtn")
+        page.click("#abouttab-loading")
+        en = page.evaluate("() => [...document.querySelectorAll('#aboutloadlist li')].map(li => li.textContent)")
+        visible = page.is_visible("#aboutloadlist")
+        page.evaluate("() => window.ggSetLang('de')")
+        de = page.evaluate("() => [...document.querySelectorAll('#aboutloadlist li')].map(li => li.textContent)")
+        tab = page.text_content("#abouttab-loading")
+        b.close()
+    assert visible
+    assert len(en) == 13 and en[0] == "Fetching the map from OpenStreetMap …" and en[-1] == "Hanging up the sun, warming up the engine …", en
+    assert len(de) == 13 and de[0] == "Karte bei OpenStreetMap abholen …" and de[2] == "Rhein einfüllen, Wiesen mähen …", de
+    assert tab == "Beim Laden", tab
+    assert not any("undefined" in l or l.startswith("load_") for l in en + de), (en, de)
+    assert errors == []

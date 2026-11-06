@@ -24,18 +24,19 @@ test('aboutReturn: over the paused game during a run, else the start screen', ()
   assert.equal(aboutReturn(false), 'start');
 });
 
-test('ABOUT_TABS: the four tabs in order, frozen', () => {
-  assert.deepEqual([...ABOUT_TABS], ['people', 'game', 'credits', 'built']);
+test('ABOUT_TABS: the five tabs in order, frozen', () => {
+  assert.deepEqual([...ABOUT_TABS], ['people', 'game', 'credits', 'built', 'loading']);
   assert.ok(Object.isFrozen(ABOUT_TABS));
 });
 
 test('aboutTabIndex: arrows wrap, Home/End jump, other keys give null', () => {
   assert.equal(aboutTabIndex('ArrowRight', 0), 1);
-  assert.equal(aboutTabIndex('ArrowRight', 3), 0);
+  assert.equal(aboutTabIndex('ArrowRight', 3), 4);
+  assert.equal(aboutTabIndex('ArrowRight', 4), 0);
   assert.equal(aboutTabIndex('ArrowLeft', 1), 0);
-  assert.equal(aboutTabIndex('ArrowLeft', 0), 3);
+  assert.equal(aboutTabIndex('ArrowLeft', 0), 4);
   assert.equal(aboutTabIndex('Home', 2), 0);
-  assert.equal(aboutTabIndex('End', 1), 3);
+  assert.equal(aboutTabIndex('End', 1), 4);
   for (const code of ['ArrowUp', 'ArrowDown', 'KeyW', 'Tab']) assert.equal(aboutTabIndex(code, 1), null, code);
 });
 
