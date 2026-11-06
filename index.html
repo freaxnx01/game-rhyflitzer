@@ -1483,6 +1483,9 @@ function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], u
   rawGeo(rp, rn, ru, 0, 0, 0, roofC || col('#9aa0a8'), 'roofFlat');
 }
 const INDUSTRIAL = { walls: ['#f1f3f5', '#e3e7eb', '#d6dbe0'], band: '#1f5fae', roof: '#9aa0a8' };
+// #649: the swissBUILDINGS3D placements for this world, filled before the house loop (none without measured terrain or outside
+// the region their OSM building is in). let at module level: osmBuilding and the GLB loader below see them across the build block
+let CH_LM = [], CH_LM_BY_OSM = new Map();
 // #649: a building a landmark replaces draws nothing, but stays solid as its ring up to the landmark's top
 function landmarkReplaces(b, base) {
   const lm = CH_LM_BY_OSM.get(b.id); if (!lm) return false;
@@ -2300,8 +2303,8 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   }
   if (RAMP) rampMesh();   // the Sprungschanze, in both layouts: groundH raises the ground there in both (#80)
   // #649: swissBUILDINGS3D landmarks; none without measured terrain or outside the region their OSM building is in
-  const CH_LM = (L && REAL && L.origin) ? chLandmarksFor(await fetch('assets/landmarks/index.json').then(r => r.ok ? r.json() : null).catch(() => null), REGION.id, L.origin, REAL.hdr.base) : [];
-  const CH_LM_BY_OSM = new Map(CH_LM.map(c => [c.osm, c]));
+  CH_LM = (L && REAL && L.origin) ? chLandmarksFor(await fetch('assets/landmarks/index.json').then(r => r.ok ? r.json() : null).catch(() => null), REGION.id, L.origin, REAL.hdr.base) : [];
+  CH_LM_BY_OSM = new Map(CH_LM.map(c => [c.osm, c]));
   window.__mm.counts.chLandmarks = { placed: [], replaced: [] };
   if (L) for (const b of L.buildings) osmBuilding(b);
   await loadStage('props', { robidogs: L ? L.props.filter(p => p.kind === 'robidog').length : 0, lamps: L ? L.props.filter(p => p.kind === 'lamp').length : 0 });
@@ -2362,6 +2365,28 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 { const an = renderer.capabilities.getMaxAnisotropy(); for (const t of Object.values(TEX)) { t.anisotropy = an; t.needsUpdate = true; } }
 const scene = new THREE.Scene(); scene.add(decals, signs, marks); if (CAVE_MODE.group) scene.add(CAVE_MODE.group); if (CAVE_MODE.dark) scene.add(CAVE_MODE.dark); if (CAVE_MODE.veil) scene.add(CAVE_MODE.veil);   // #201
 for (const b of BORDER_LINES) scene.add(b.mesh);   // #396: the Holzbrücke's border lines, always shown
+// #649: the swissBUILDINGS3D landmarks, untextured: plaster walls and a dark roof by face normal; DoubleSide because CityGML
+// normals are not consistent. Async: the start does not wait for them (so it stands here, after the scene it adds to exists).
+if (CH_LM.length) (async () => {
+  const [{ GLTFLoader }, { DRACOLoader }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/loaders/DRACOLoader.js')]);
+  const loader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/gltf/'));
+  const wall = col('#ece6da'), roof = col('#5d4a40');
+  for (const lm of CH_LM) {
+    try {
+      const gltf = await loader.loadAsync(`assets/landmarks/${lm.file}`);
+      gltf.scene.traverse(o => {
+        if (!o.isMesh) return;
+        const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry; g.computeVertexNormals();
+        const n = g.attributes.normal, c = new Float32Array(n.count * 3);
+        for (let i = 0; i < n.count; i++) { const k = roofOrWall(n.getY(i)) === 'roof' ? roof : wall; c[i * 3] = k.r; c[i * 3 + 1] = k.g; c[i * 3 + 2] = k.b; }
+        g.setAttribute('color', new THREE.BufferAttribute(c, 3)); o.geometry = g;
+        o.material = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }); o.castShadow = o.receiveShadow = true;
+      });
+      gltf.scene.name = lm.id; gltf.scene.position.set(lm.offset.x, lm.offset.y, lm.offset.z); scene.add(gltf.scene);
+      window.__mm.counts.chLandmarks.placed.push(lm.id);
+    } catch (e) { console.warn(`landmark ${lm.id} not loaded`, e); }
+  }
+})();
 // house numbers (#12, OSM addr; #520: Swiss blue plates flat on the façade that faces the nearest road, at door height, not over the roof;
 // #557: on the real ring wall, towards the street the address names when the data has it): the buildings within 60 m of the car;
 // a pool of 40 plates, refilled every 250 ms, one material per number
@@ -4160,6 +4185,7 @@ window.__mm.tyreReset = () => { if (TYRES) TYRES.reset(); };
 window.__mm.sfxTyres = () => SFX.tyres();
 window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; FOOT.eye = null; restShadow(); };
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
+window.__mm.landmarkBox = (id) => { const o = scene.getObjectByName(id); if (!o) return null; const b = new THREE.Box3().setFromObject(o); return { min: b.min.toArray(), max: b.max.toArray() }; };   // #649
 window.__mm.ramp = () => RAMP && ({ x0: RAMP.x0, x1: RAMP.x1, z0: RAMP.z0, z1: RAMP.z1, h: RAMP.h });
 // review of #98: largest vertical gap between the drawn ramp top and the surface the car drives on (groundH's ramp), over a grid inside the footprint
 window.__mm.rampGap = () => { if (!RAMP) return 0; const { x0, x1, z0, z1, h } = RAMP, ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0); let gap = 0; for (let i = 1; i < 10; i++) for (let j = 1; j < 8; j++) { const x = x0 + (x1 - x0) * i / 10, z = z0 + (z1 - z0) * j / 8; ray.set(new THREE.Vector3(x, 1e4, z), down); const side = MESH.gravel.material.side; MESH.gravel.material.side = THREE.DoubleSide; const hit = ray.intersectObject(MESH.gravel, false)[0]; MESH.gravel.material.side = side; if (!hit) return Infinity; gap = Math.max(gap, Math.abs(hit.point.y - (terrainH(x, z) + h * (x - x0) / (x1 - x0)))); } return gap; };
