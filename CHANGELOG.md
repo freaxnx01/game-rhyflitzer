@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-06 18:32` **Postautos** now drive **line 133** Frick – Eiken – Sisseln – Stein-Säckingen by the real weekday timetable (Swiss time): they stop at every stop, slow down at junctions, signal, and show line and destination on the display. A Postauto waits if you stand in its way, and you bounce off it if you ram it. Every stop has its sign at the kerb. Timetable data: opentransportdata.swiss.
+
 - `2026-11-05 17:41` Short link **rhyflitzer.freaxnx01.ch/nfz** for the article in the Neue Fricktaler Zeitung: easy to type from the paper, it opens the game and the visit counts as coming from the NFZ in the anonymous stats.
 
 - `2026-11-05 00:22` New mode **Tutorial** for newcomers: step by step it shows how to **drive** and **brake**, follow the **arrow** through three checkpoints, use **nitro**, **jump** to the Plattform Sisslerfeld with <kbd>J</kbd>, get out with <kbd>Z</kbd>, walk up onto the deck, take a **photo** of the DSM chimney with <kbd>X</kbd> and get back in. Each step ticks itself off as soon as you have done it, and the line under the arrow always says what to do next (on a phone in touch words). On your first visit the start screen offers the tutorial first; <kbd>Esc</kbd> → **End tutorial** leaves it at any time.
