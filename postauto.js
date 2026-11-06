@@ -117,9 +117,10 @@ export function tripWindow(trip, calls, route, cfg = PA) {
   };
 }
 
-// the trip's own clock for wall time `now`: a trip past midnight runs on the service day (> 86400); null outside its window
+// the trip's own clock for wall time `now`: a trip past midnight runs on the service day (> 86400), one spawning before a
+// just-after-midnight departure opens the evening before (< 0); null outside its window
 export function tripTime(win, now) {
-  for (const t of [now, now + DAY]) if (t >= win.from && t < win.to) return t;
+  for (const t of [now - DAY, now, now + DAY]) if (t >= win.from && t < win.to) return t;
   return null;
 }
 

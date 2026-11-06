@@ -3738,9 +3738,10 @@ function buildPostautoMesh(trip) {
   return g;
 }
 // frees the LED texture and material, the blinker geometry and material -- never the shared glTF geometry (userData.sharedGeo)
+// or materials (SHARED_CAR_MATS, like freeCar: the clone shares them with the cached scene, the player's bus and every other Postauto)
 function disposePostautoMesh(g) {
   const mats = new Set();
-  g.traverse((o) => { if (!o.userData.sharedGeo) o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m) mats.add(m); });
+  g.traverse((o) => { if (!o.userData.sharedGeo) o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); });
   for (const m of mats) { m.map?.dispose(); m.dispose(); }
 }
 // steps the fleet on the wall clock, re-syncing every second and re-placing everything after a clock jump

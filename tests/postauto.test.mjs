@@ -96,6 +96,7 @@ test('tripCalls: a call at a stop not on the route drops the trip', () => {
   assert.equal(tripCalls({ ...TRIP, calls: [['1', 1, 1], ['99', 2, 2]] }, R), null);
   assert.equal(tripTime({ from: 10, to: 20 }, 15), 15);
   assert.equal(tripTime({ from: 86390, to: 86500 }, 50), 86450);
+  assert.equal(tripTime({ from: -60, to: 500 }, 86380), -20);   // a window opening before midnight, seen the evening before
   assert.equal(tripTime({ from: 10, to: 20 }, 25), null);
 });
 
