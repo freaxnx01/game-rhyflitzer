@@ -54,6 +54,8 @@ The project's own names (places, landmarks, game features, workflow) are in the 
 
 **Render resolution**: the resolution the scene is actually drawn at. Rendering lower and scaling up gives the chunky retro look and saves performance.
 
+**Z-fighting**: two surfaces at (almost) the same depth, e.g. a farm field laid a few centimetres over the meadow. The depth buffer cannot tell which is in front, so pixels of the lower surface flicker through, worse with distance (from the helicopter). Fixed by a larger gap, a polygon offset, or drawing only one of the two.
+
 **Style profile**: in this project, a bundle of materials, lighting and post-processing that can be swapped at runtime to change the graphic style without touching the world data.
 
 ## Performance
