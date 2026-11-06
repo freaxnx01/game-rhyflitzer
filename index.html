@@ -685,6 +685,7 @@ import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceTowar
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
 import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, bodenackerDoorway, BODENACKER6 } from './bodenacker6.js';
+import { chLandmarksFor, roofOrWall } from './chlandmarks.js';   // #649: swissBUILDINGS3D landmarks
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -1482,6 +1483,13 @@ function extrudeFootprint(ring, base, h, c, role, roofC = null, tile = [4, 3], u
   rawGeo(rp, rn, ru, 0, 0, 0, roofC || col('#9aa0a8'), 'roofFlat');
 }
 const INDUSTRIAL = { walls: ['#f1f3f5', '#e3e7eb', '#d6dbe0'], band: '#1f5fae', roof: '#9aa0a8' };
+// #649: a building a landmark replaces draws nothing, but stays solid as its ring up to the landmark's top
+function landmarkReplaces(b, base) {
+  const lm = CH_LM_BY_OSM.get(b.id); if (!lm) return false;
+  const [cx, cz, w, d, rot] = b.rect;
+  pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(base + 3, lm.top), ring: b.ring });
+  window.__mm.counts.chLandmarks.replaced.push(b.id); return true;
+}
 function osmBuilding(b) {
   const [cx, cz, w, d, rot] = b.rect; let base = Infinity; for (const [x, z] of b.ring) base = Math.min(base, terrainH(x, z));
   // measured buildings (hsrc 'dsm', #17): eaves h and ridge rh from swissSURFACE3D; a measured flat roof is drawn flat
@@ -1492,11 +1500,13 @@ function osmBuilding(b) {
   if (b.roof === 'gable' && !(dsm && b.rh < 0.6)) {
     const floors = Math.max(1, Math.round(b.h / 3)); const wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]);
     const h = dsm ? b.h : floors * 3 + 0.4; const door = rnd() < 0.5 ? 'wall' : 'wallDoor';
+    if (landmarkReplaces(b, base)) return;   // #649: after all the branch's rr()/rnd() draws, so every later building keeps its colours
     box(w, h + 3, d, cx, base - 3, cz, rot, row ? col('#ffffff') : wc, row ? 'rowHouse' : door, row ? rowHouseTile(b) : [4, 3], 3.1);
     gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, row ? col('#ffffff') : wc, 0.45, row ? ROW_GABLE_END : GABLE_END_WALL); addOBB(cx, cz, w, d, rot, base + h); return;
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
   const wc = col(ind ? INDUSTRIAL.walls[Math.floor(rr(0, 3))] : PLASTER[Math.floor(rr(0, PLASTER.length))]);
+  if (landmarkReplaces(b, base)) return;   // #649: after the branch's rr() draw, so every later building keeps its colours
   if (isBodenacker6(b) && bodenackerBuilding(b, base, h)) return;   // #410: own model; the rr() draw above keeps every later colour
   if (row) extrudeFootprint(b.ring, base, h, col('#ffffff'), 'rowHouse', col('#8f8a84'), rowHouseTile(b), true);
   else extrudeFootprint(b.ring, base, h, wc, ind ? 'hallBand' : (h > 8 ? 'hall' : 'wall'), col(ind ? INDUSTRIAL.roof : '#8f8a84'), !ind && h > 8 ? [8, h] : [4, 3]);
@@ -2289,6 +2299,10 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   for (const r of ROADS) if (r.houses) housesAlong(r);
   }
   if (RAMP) rampMesh();   // the Sprungschanze, in both layouts: groundH raises the ground there in both (#80)
+  // #649: swissBUILDINGS3D landmarks; none without measured terrain or outside the region their OSM building is in
+  const CH_LM = (L && REAL && L.origin) ? chLandmarksFor(await fetch('assets/landmarks/index.json').then(r => r.ok ? r.json() : null).catch(() => null), REGION.id, L.origin, REAL.hdr.base) : [];
+  const CH_LM_BY_OSM = new Map(CH_LM.map(c => [c.osm, c]));
+  window.__mm.counts.chLandmarks = { placed: [], replaced: [] };
   if (L) for (const b of L.buildings) osmBuilding(b);
   await loadStage('props', { robidogs: L ? L.props.filter(p => p.kind === 'robidog').length : 0, lamps: L ? L.props.filter(p => p.kind === 'lamp').length : 0 });
   if (L && (L.props.length || YARD)) propMeshes(YARD ? [...L.props, ...yardProps(YARD).map(p => ({ ...p, yard: true }))] : L.props); if (YARD) { crashSign(); yardGround(YARD); }   // #415, #426
