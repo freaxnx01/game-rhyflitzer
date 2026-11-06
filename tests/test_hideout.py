@@ -1080,9 +1080,10 @@ def test_atomium_room_builds_loads_its_model_on_entering_and_has_solid_feet(serv
 
 @needs_world
 def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_cradle(server, tmp_path):
-    """#421: entering spoke 3 builds the Vasa room and fetches vasa.glb then (not before); the ship stands dry along the room's cross axis,
-    its cradle feet on the floor (keel 2 m above it), no water basin; hull and cradle props are solid, beside them and under the overhanging
-    stern and bowsprit the car drives freely. Leaves a screenshot of the ship in tmp_path."""
+    """#421: entering spoke 3 builds the Vasa room and fetches vasa.glb then (not before); the ship stands dry, turned 45 degrees from the room's
+    cross axis (bow forward-right), its cradle feet on the floor and the keel 5 m above it, no water basin. The car drives under the keel
+    from end to end, beside the cradle and under the stern and bowsprit; the cradle feet are solid, and so is the hull above the keel (a car
+    up there is pushed). Leaves a screenshot of the ship in tmp_path."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         requests = []
@@ -1093,8 +1094,10 @@ def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_crad
         page.wait_for_function("() => window.__mm.vasa() && window.__mm.vasa().loaded === true", timeout=180000)
         t = page.evaluate("() => window.__mm.vasa()")
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
-        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
-          return { mid: p(0, 0), prop: p(9.7, -2), side: p(15, 0), stern: p(0, -32), bowsprit: p(0, 32) }; }""")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], r = Math.PI / 4,
+            ax = [v[0] * Math.cos(r) + f[0] * Math.sin(r), v[1] * Math.cos(r) + f[1] * Math.sin(r)], ac = [f[0] * Math.cos(r) - v[0] * Math.sin(r), f[1] * Math.cos(r) - v[1] * Math.sin(r)],
+            y = window.__mm.hideout().room.y, p = (a, b, h = 0) => window.__mm.pushAt(t.x + ac[0] * a + ax[0] * b, t.z + ac[1] * a + ax[1] * b, y + h);
+          return { mid: p(0, 0), keel: p(0, -10), hull: p(0, 0, 6), prop: p(9.72, -2), side: p(16, 0), stern: p(0, -32), bowsprit: p(0, 32) }; }""")
         view = page.evaluate("() => { const r = window.__mm.hideout().room, v = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th; return { x: v.x - Math.cos(th) * 110, z: v.z - Math.sin(th) * 110, th, y: r.y }; }")
         page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
         page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
@@ -1103,11 +1106,11 @@ def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_crad
     print("screenshot:", tmp_path / "vasa.png")
     assert errors == []
     assert len(requests) == 1 and requests[0].endswith("/assets/models/vasa.glb"), requests
-    assert t["placeholder"] is False and 30000 <= t["tris"] <= 150000 and abs(t["height"] - 54.5) < 0.1 and t["length"] == 69, t
+    assert t["placeholder"] is False and 30000 <= t["tris"] <= 150000 and abs(t["height"] - 57.5) < 0.1 and t["length"] == 69, t
     assert info["below"]["built"] == 3 and info["below"]["object"] is True and info["counts"].get("vasa", 0) >= 1 and "eiffel" not in info["counts"], info
-    assert t["basin"] is None and abs(t["keel"] - (view["y"] + 2)) < 0.01, (t, view)
-    assert math.hypot(push["mid"]["dx"], push["mid"]["dz"]) > 0.5 and math.hypot(push["prop"]["dx"], push["prop"]["dz"]) > 0.3, push
-    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("side", "stern", "bowsprit")), push
+    assert t["basin"] is None and abs(t["keel"] - (view["y"] + 5)) < 0.01, (t, view)
+    assert math.hypot(push["hull"]["dx"], push["hull"]["dz"]) > 0.5 and math.hypot(push["prop"]["dx"], push["prop"]["dz"]) > 0.3, push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("mid", "keel", "side", "stern", "bowsprit")), push
 
 
 def test_titanic_room_builds_loads_its_model_on_entering_and_has_a_solid_hull(server, tmp_path):

@@ -7,7 +7,7 @@ import { SPOKE, spokeFrame, spokeSigns } from '../underground.js';
 
 const CAR_R = 2.6, rooms = ROOMS.map((_, k) => roomLayout(k)), room = rooms[0];
 const inside = (o, x, z, r = 0) => { const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; return Math.abs(lx) <= o.hw + r && Math.abs(lz) <= o.hd + r; };
-const blocked = (R, x, z, r = CAR_R) => R.colliders.some(o => inside(o, x, z, r));
+const blocked = (R, x, z, r = CAR_R) => R.colliders.some(o => !(o.bridge && ROOM_Y < o.y0) && inside(o, x, z, r));   // a car on the floor: an overhead deck (bridge, y0) does not stop it
 const toWorld = (R, a, b) => [R.centre[0] + R.frame.f[0] * a + R.frame.v[0] * b, R.centre[1] + R.frame.f[1] * a + R.frame.v[1] * b];   // a: towards the far edge, b: across
 const toLocal = (R, x, z) => { const dx = x - R.centre[0], dz = z - R.centre[1]; return [dx * R.frame.f[0] + dz * R.frame.f[1], dx * R.frame.v[0] + dz * R.frame.v[1]]; };
 const reach = (R, step = 4) => {   // flood fill in the room's frame from the spawn, 8 neighbours
@@ -128,29 +128,54 @@ test('roomLayout_TheAtomiumsTowerViewLooksAtItFromTheLawn', () => {
   assert.ok(Math.abs(Math.atan2(atomium.tower.z - v.z, atomium.tower.x - v.x) - v.th) < 0.02); assert.ok(!blocked(atomium, v.x, v.z));
 });
 
-// #421: the Vasa stands dry on its museum cradle -- no water basin; the hull and the cradle's side props are solid, the stern and the
-// bowsprit overhang above them, and the gravel loop runs round the ship
+// #421: the Vasa stands dry on its museum cradle -- no water basin. The cradle lifts the keel VASA.keelClear m over the floor, so the car
+// drives under the ship from end to end; the hull is solid only from there up, the cradle's feet and the low rails between them are solid
+// from the floor. The ship stands turned by VASA.turn: the bow points forward-right, the three-quarter view as you drive in.
 const vasa = rooms[3];
-test('roomLayout_TheVasaIsCentredAndLifeSize_AlongTheCrossAxis_OnItsCradleWithoutWater', () => {
+const shipToWorld = (R, p, q) => { const t = VASA.turn, c = Math.cos(t), s = Math.sin(t); return toWorld(R, p * c + q * s, -p * s + q * c); };   // p: across the ship (starboard -), q: along it (bow +)
+const VASA_FEET = [[-16, 6.52], [-9, 8.71], [-2, 9.72], [5, 9.76], [12, 9.25]];   // scripts/vasa/build.mjs cradle(): along, out -- five feet a side
+test('roomLayout_TheVasaIsCentredLifeSizeAndTurned45Degrees_TheBowForwardRight', () => {
   assert.deepEqual([vasa.tower.x, vasa.tower.z], vasa.centre); assert.equal(vasa.basin, null, 'a museum ship stands dry'); assert.deepEqual(vasa.feet, []);
-  assert.equal(VASA.length, 69, 'sparred length of the real ship'); assert.ok(VASA.h > 52.5 && VASA.h < 56, 'main truck 52.5 m above the keel, the keel 2 m above the floor');
-  assert.deepEqual(VASA.anchor, [0, -2, 0], 'the cradle feet (floorY = -2) stand on the floor'); assert.equal(VASA.scale, 1);
+  assert.equal(VASA.length, 69, 'sparred length of the real ship'); assert.equal(VASA.scale, 1);
+  assert.equal(VASA.keelClear, 5); assert.deepEqual(VASA.anchor, [0, -VASA.keelClear, 0], 'the cradle feet stand on the floor, the keel 5 m over it');
+  assert.ok(Math.abs(VASA.h - (52.5 + VASA.keelClear)) < 0.5, 'main truck 52.5 m above the keel, plus the cradle');
+  close45(VASA.turn);
+  const [bx, bz] = shipToWorld(vasa, 0, 1), d = [bx - vasa.centre[0], bz - vasa.centre[1]], f = vasa.frame.f, v = vasa.frame.v;
+  assert.ok(Math.abs(d[0] * f[0] + d[1] * f[1] - Math.SQRT1_2) < 1e-9 && Math.abs(d[0] * v[0] + d[1] * v[1] - Math.SQRT1_2) < 1e-9, 'the bow points into the room and to the right');
+});
+function close45(t) { assert.ok(Math.abs(t - Math.PI / 4) < 1e-12, `turn ${t}`); }
+
+test('roomLayout_TheVasaHullIsSolidOnlyAboveTheKeel_TheCarDrivesUnderItEndToEnd', () => {
   assert.equal(vasa.hull.length, VASA.hull.length);
-  for (const [i, [along, , hw]] of VASA.hull.entries()) {
-    const [x, z] = toWorld(vasa, 0, along), c = vasa.hull[i];
-    assert.ok(Math.abs(c.x - x) < 1e-6 && Math.abs(c.z - z) < 1e-6); assert.equal(c.h, ROOM_Y + VASA.hullH);
-    assert.ok(blocked(vasa, x, z, 0)); assert.ok(blocked(vasa, ...toWorld(vasa, hw - 0.5, along), 0), 'solid out to the cradle props');
+  const t = VASA.turn;
+  for (const [i, [along]] of VASA.hull.entries()) {
+    const [x, z] = shipToWorld(vasa, 0, along), c = vasa.hull[i];
+    assert.ok(Math.abs(c.x - x) < 1e-6 && Math.abs(c.z - z) < 1e-6, `section ${i} on the turned keel line`);
+    assert.equal(c.h, ROOM_Y + VASA.hullH); assert.equal(c.bridge, true); assert.equal(c.y0, ROOM_Y + VASA.keelClear - 1, 'solid from just under the keel up');
+    const [ax, az] = shipToWorld(vasa, 1, 0); assert.ok(Math.abs(c.c - (ax - vasa.centre[0])) < 1e-9 && Math.abs(c.s - (az - vasa.centre[1])) < 1e-9, 'the box turns with the ship');
   }
-  for (const [x, b] of [[-16, 6.5], [-9, 8.7], [-2, 9.7], [5, 9.8], [12, 9.2]]) for (const side of [-1, 1]) assert.ok(blocked(vasa, ...toWorld(vasa, side * b, x), 0), `the cradle prop foot at ${x} is solid`);   // scripts/vasa/build.mjs cradle(): five feet a side
-  assert.ok(!blocked(vasa, ...toWorld(vasa, 14, 0)), 'open beside the cradle');
-  assert.ok(!blocked(vasa, ...toWorld(vasa, 0, -30)) && !blocked(vasa, ...toWorld(vasa, 0, 30)), 'the car drives under the stern gallery and the bowsprit');
+  for (let q = -36; q <= 36; q += 2) assert.ok(!blocked(vasa, ...shipToWorld(vasa, 0, q)), `the lane under the keel is open at ${q}`);
+  assert.ok(!blocked(vasa, ...vasa.centre), 'right under the main mast');
 });
 
-test('roomLayout_TheVasaIsReachableAllRound_AndTheGravelLoopStaysOffIt', () => {
+test('roomLayout_TheVasaCradleFeetAndRailsAreSolid_TheLaneOpensOnlyAtTheEnds', () => {
+  for (const side of [-1, 1]) {
+    for (const [q, out] of VASA_FEET) assert.ok(blocked(vasa, ...shipToWorld(vasa, side * out, q), 0), `the cradle foot at ${q} is solid`);
+    for (let k = 0; k + 1 < VASA_FEET.length; k++) {
+      const [q0, o0] = VASA_FEET[k], [q1, o1] = VASA_FEET[k + 1];
+      assert.ok(blocked(vasa, ...shipToWorld(vasa, side * (o0 + o1) / 2, (q0 + q1) / 2), 0), `the rail between the feet at ${q0} and ${q1} is solid`);
+    }
+    assert.ok(!blocked(vasa, ...shipToWorld(vasa, side * 16, 0)), 'open beside the cradle');
+  }
+  assert.ok(!blocked(vasa, ...shipToWorld(vasa, 0, -30)) && !blocked(vasa, ...shipToWorld(vasa, 0, 30)), 'the car drives under the stern gallery and the bowsprit');
+});
+
+test('roomLayout_TheVasaIsReachableAllRoundAndUnderneath_AndTheGravelLoopStaysOffIt', () => {
   const [toShip, loop] = vasa.paths;
   for (const [x, z] of [...toShip.pts, ...loop.pts]) assert.ok(!blocked(vasa, x, z), `the gravel runs into the ship at ${x},${z}`);
-  const r = reach(vasa), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
-  assert.ok(!cell(0, 0) && cell(-16, 0) && cell(16, 0) && cell(0, 36) && cell(0, -36), 'both sides and both ends are reachable'); assert.ok(r.seen.size > 4000);
+  const r = reach(vasa), cell = ([x, z]) => { const [a, b] = toLocal(vasa, x, z); return r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step)); };
+  for (const [p, q] of [[0, 0], [0, -8], [0, 8], [-16, 0], [16, 0], [0, 36], [0, -36]]) assert.ok(cell(shipToWorld(vasa, p, q)), `reachable at ${p},${q}`);
+  assert.ok(r.seen.size > 4000);
 });
 
 const titanic = rooms[7];
