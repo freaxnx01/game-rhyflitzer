@@ -86,6 +86,13 @@ def test_build_keeps_travel_direction_after_clip():
     assert r["stops"][0]["z"] == -4.5 and r["stops"][0]["s"] == 500.0   # heading west: right = -z
 
 
+def test_build_keeps_a_route_that_doubles_back_whole():
+    # line 133 runs out and back on the same street: shapely's intersection splits such a line at every overlap
+    d = _data([(0, 0), (1000, 0), (500, 0), (500, 300)], [], {})
+    (r,), _ = wb.build(d, ROAD, shapely.box(-10, -500, 2000, 500))
+    assert r["cut"] == [False, False] and r["len"] == 1800.0
+
+
 def test_build_drops_stops_far_off_the_line_and_routes_outside():
     d = _data([(0, 0), (1000, 0)], [21], {21: ((500, 40), {"name": "A", "uic_ref": "8500001"})})
     (r,), stats = wb.build(d, ROAD, shapely.box(-10, -500, 2000, 500))

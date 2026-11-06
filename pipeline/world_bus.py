@@ -153,6 +153,8 @@ def _parts(geom) -> list:
 
 def _clipped(line, clip):
     """The longest part of the line inside the map, in travel direction; None when nothing is left."""
+    if clip.covers(line):  # intersection() splits a line that doubles back at every overlap
+        return line
     parts = [p for p in _parts(line.intersection(clip)) if not p.is_empty and p.length > 0]
     if not parts:
         return None
