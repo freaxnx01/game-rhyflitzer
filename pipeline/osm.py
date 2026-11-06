@@ -31,6 +31,7 @@ import terrain
 import osm_read
 import world_boundaries
 import world_buildings
+import world_bus
 import world_extra_roads
 import world_fields
 import world_forests
@@ -124,6 +125,11 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
                                              addr_nodes=data.addr_nodes, keep_ids=anchors_mod.keep_ids(spec),
                                              near_classes=near_classes)
     props, prop_stats = world_props.build(data.prop_nodes, data.areas, osm_roads, clip)
+    bus_lines = anchors_mod.bus_lines(spec)
+    bus_routes = []
+    if bus_lines:        # #682: PostAuto routes and kerb-side stops; no `bus` anchors key, no busRoutes key
+        bus_routes, bus_stats = world_bus.build(world_bus.read(Path(pbf), frame, bus_lines), roads, clip)
+        log(f"bus routes {len(bus_routes)} {dict(bus_stats)}")
     parking, park_stats = world_parking.build(data.areas, data.ways, buildings, osm_roads, clip)
     forests, forest_stats = world_forests.build(data.areas, osm_roads + game_roads, clip)
     if dsm_cache:
@@ -174,6 +180,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "fields": fields,
         "boundaries": boundaries,
         "anchors": resolved,
+        **({"busRoutes": bus_routes} if bus_lines else {}),
     }
 
 
