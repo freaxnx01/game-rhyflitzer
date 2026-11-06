@@ -18,6 +18,25 @@ def _world():
     return json.loads(WORLD.read_text(encoding="utf-8"))
 
 
+def _seg_dist(x, z, a, b):
+    dx, dz = b[0] - a[0], b[1] - a[1]; l2 = dx * dx + dz * dz
+    t = 0 if not l2 else max(0.0, min(1.0, ((x - a[0]) * dx + (z - a[1]) * dz) / l2))
+    return math.hypot(x - a[0] - dx * t, z - a[1] - dz * t)
+
+
+def _ring_dist(ring, x, z):
+    return min(_seg_dist(x, z, ring[i], ring[(i + 1) % len(ring)]) for i in range(len(ring)))
+
+
+def _inside(ring, x, z):
+    c = False
+    for i in range(len(ring)):
+        (x0, z0), (x1, z1) = ring[i], ring[(i + 1) % len(ring)]
+        if (z0 > z) != (z1 > z) and x < x0 + (z - z0) * (x1 - x0) / (z1 - z0):
+            c = not c
+    return c
+
+
 def open_world(p, server):
     b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
     page.goto(f"{server}/index.html")
@@ -62,7 +81,8 @@ def test_flat_osm_box_is_replaced(server):
 @needs_world
 def test_car_stops_at_the_chapel(server):
     """The chapel stays solid as its ring (#36 pattern): driving west along the lane east of the chapel (nothing
-    else within 12 m), the car stops with its collision circle on the east wall of way 171822707's ring."""
+    else within 12 m), the car stops outside the ring, its collision circle touching it (the tilted east wall
+    deflects it a little along the wall, so which wall or corner it stops at is left open)."""
     ring = next(x for x in _world()["buildings"] if x["id"] == 171822707)["ring"]
     a, b2 = max(zip(ring, ring[1:] + ring[:1]), key=lambda e: max(e[0][0], e[1][0]))   # the east wall, greatest x
     z0 = (a[1] + b2[1]) / 2
@@ -75,4 +95,5 @@ def test_car_stops_at_the_chapel(server):
         finally:
             b.close()
     assert r["speed"] < 1, r
-    assert abs(r["x"] - rad - wall) < 0.3, (r, rad, wall)
+    assert not _inside(ring, r["x"], r["z"]), r
+    assert _ring_dist(ring, r["x"], r["z"]) <= rad + 0.5, (r, rad)   # stopped at the chapel, not anywhere in the lane
