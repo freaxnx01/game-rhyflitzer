@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6">
+  <node id="1" lat="47.5506" lon="7.9671"/>
+  <node id="2" lat="47.5506" lon="7.9684"/>
+  <node id="3" lat="47.5506" lon="7.9697"/>
+  <node id="4" lat="47.5506" lon="7.9710"/>
+  <node id="5" lat="47.5506" lon="7.9723"/>
+  <node id="31" lat="47.5509" lon="7.96995"/>
+  <node id="32" lat="47.5509" lon="7.97075"/>
+  <node id="33" lat="47.5503" lon="7.97035"/>
+  <node id="21" lat="47.55062" lon="7.96712"><tag k="public_transport" v="stop_position"/><tag k="name" v="Alpha"/><tag k="uic_ref" v="8500001"/></node>
+  <node id="22" lat="47.55062" lon="7.96842"><tag k="public_transport" v="stop_position"/><tag k="name" v="Beta"/></node>
+  <node id="23" lat="47.55062" lon="7.96972"><tag k="public_transport" v="platform"/><tag k="name" v="Gamma"/><tag k="uic_ref" v="8500002"/></node>
+  <way id="11"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/></way>
+  <way id="12"><nd ref="3"/><nd ref="2"/><tag k="highway" v="primary"/></way>
+  <way id="13"><nd ref="3"/><nd ref="31"/><nd ref="32"/><nd ref="4"/><nd ref="33"/><nd ref="3"/><tag k="highway" v="primary"/><tag k="junction" v="roundabout"/></way>
+  <way id="14"><nd ref="4"/><nd ref="5"/><tag k="highway" v="primary"/></way>
+  <relation id="700">
+    <member type="way" ref="11" role=""/>
+    <member type="way" ref="12" role=""/>
+    <member type="way" ref="13" role=""/>
+    <member type="way" ref="14" role=""/>
+    <member type="node" ref="21" role="stop"/>
+    <member type="node" ref="22" role="stop"/>
+    <member type="node" ref="23" role="platform"/>
+    <tag k="type" v="route"/><tag k="route" v="bus"/><tag k="ref" v="133"/>
+    <tag k="name" v="Bus 133: A → B"/><tag k="from" v="A"/><tag k="to" v="B"/>
+  </relation>
+  <relation id="701">
+    <member type="way" ref="11" role=""/>
+    <member type="way" ref="12" role=""/>
+    <member type="way" ref="13" role=""/>
+    <member type="way" ref="14" role=""/>
+    <member type="node" ref="21" role="stop"/>
+    <tag k="type" v="route"/><tag k="route" v="bus"/><tag k="ref" v="999"/><tag k="name" v="Bus 999"/>
+  </relation>
+  <relation id="702">
+    <member type="way" ref="11" role=""/>
+    <tag k="type" v="route"/><tag k="route" v="train"/><tag k="ref" v="133"/>
+  </relation>
+</osm>

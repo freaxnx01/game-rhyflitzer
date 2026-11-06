@@ -7,6 +7,7 @@
 !/data/world_ehrendingen.json
 !/data/terrain_ehrendingen.mmh
 !/data/backdrop_hochrhein.mmh
+!/data/timetable_hochrhein.json
 __pycache__/
 
 # local git worktrees (see CLAUDE.md "Git Worktrees")
