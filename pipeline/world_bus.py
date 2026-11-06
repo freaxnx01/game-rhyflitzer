@@ -174,12 +174,15 @@ def _road_widths(roads):
     return shapely.STRtree(geoms), widths
 
 
-def _stop(point, part, width):
-    """A stop at the kerb on the right of travel: the projected point plus the right normal x (w/2 + KERB)."""
+def _stop(point, part, tree, widths):
+    """A stop at the kerb on the right of travel: the projected point plus the right normal x (w/2 + KERB).
+    The width is the nearest road's at the point *on the route*, so a platform node on a pavement does not
+    pick up a side street."""
     s = part.project(shapely.Point(point))
     on = part.interpolate(s)
     if math.dist((on.x, on.y), point) > MAX_STOP_OFF:
         return None
+    width = widths[tree.nearest(on)]
     before = part.interpolate(max(s - 1.0, 0.0))
     after = part.interpolate(min(s + 1.0, part.length))
     dx, dz = after.x - before.x, after.y - before.y
@@ -201,7 +204,7 @@ def _stops(route: Route, data: BusData, part, tree, widths, stats: Counter) -> l
         if uic in seen or node not in data.node_xy:
             continue
         seen.add(uic)
-        placed = _stop(data.node_xy[node], part, widths[tree.nearest(shapely.Point(data.node_xy[node]))])
+        placed = _stop(data.node_xy[node], part, tree, widths)
         if placed is None:
             stats["stop-off-line"] += 1
             continue
