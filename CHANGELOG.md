@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-06 23:06` **For testers:** the debug panel (<kbd>Ctrl</kbd> <kbd>D</kbd> or <kbd>F3</kbd>) now has a **Postauto** section: the **fleet clock** with its source (Swiss time, or the <kbd>?patime=</kbd> you gave), and one **row per bus** with line, destination, speed, next stop and distance to you. Click a row and the **camera follows that bus** while your car waits where you left it; <kbd>Esc</kbd> or **Back to car** brings the camera back, and when the bus leaves the map the follow ends by itself.
+
 - `2026-11-06 22:49` **Über** has a new tab **Beim Laden**: all the loading-screen lines to read in peace, with the numbers of houses, roads and Robidogs from the last build.
 
 - `2026-11-06 19:45` In the Ferris wheel room a **sign** by the entrance now lists what you can do, and two new keys work there, in the car or on foot: <kbd>3</kbd> fires a **firework** salvo right away, <kbd>4</kbd> switches the wheel's **light show** to the next pattern.
