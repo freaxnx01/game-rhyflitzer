@@ -69,7 +69,7 @@ Real build, 2026-10-01: 2,616 road pieces, 2,309 junctions (nodes shared by two 
   "format": "MMW1",
   "origin": { lat, lon, E, N, crs },  "bbox": [W, S, E, N],  "sources": [...],
   "params": { houseDist, bigBuildingArea, built, pbf },
-  "roads":     [{ id, n, cls, w, mark, bridge, layer, pts: [[x, z], ...] }],
+  "roads":     [{ id, n, cls, w, mark, bridge, layer, oneway?, lanes?, pts: [[x, z], ...] }],
   "junctions": [[x, z, r], ...],
   "grades": [{ pts: [[x, z], ...], hw, ctl: [[t, cut], ...] }],
   "water":     [{ kind, level, rings: [[[x, z], ...], ...] }],
@@ -91,6 +91,8 @@ Coordinates are game metres (x east, z south), rounded to 0.1 m; `props[].rot` i
 ## Rules
 
 **Roads.** Drivable OSM highways (motorway down to service roads; footways only when they are bridges; tunnels, driveways and parking aisles skipped), split into pieces where tags change. Width from the `width` tag, else a default per class (motorway 14 m, primary 9 m, residential 5.5 m, service 4 m). Junctions come from shared nodes. Bridges carry `bridge: true` and a `layer`. Railway bridges (`railway=rail` with a `bridge` tag) leave `rail` and go to `railBridges` with their `layer` (1 when untagged); pieces that share an endpoint are merged per layer. The prototype lifts them onto rail decks and cuts the road underneath (#76).
+
+**oneway and lanes (#679).** Both keys are optional and written only when known. `oneway: true` means the road is one-way and `pts` runs in the travel direction (ways tagged `oneway=-1` are reversed at build). One-way is implicit for `junction=roundabout`/`circular`, `motorway` and `motorway_link`; an explicit other value (`no`, `reversible`, `alternating`) wins, and then no key is written. `lanes` is the OSM `lanes` total (per carriageway on a one-way road), absent when unknown. Trails carry neither key.
 
 **Buildings.** Kept if within **30 m** of a drivable street, plus every building of **1,000 m²** or more, wherever it stands, so Sisslerfeld does not go empty. For hand-made regions (Hochrhein, Ehrendingen), drivable means main roads (trunk, primary, secondary, tertiary and links). For generated worlds (#166), drivable also includes residential, living_street, unclassified and service streets. Dropped: `roof`, `carport`, `construction`, `ruins`, footprints under 20 m², and the footprints listed in `exclude_buildings` in `anchors.json` (the DSM chimney, the DSM water tower and the Plattform Sisslerfeld; a fourth id there, the Holzbrücke, is a `man_made=bridge` and not a building). Height from `height` (80 % is walls), else `building:levels` × 3 m, else a default per type; the pipeline applies no height floor, the prototype clamps flat buildings to at least 3 m. Gable roof if the footprint is under 250 m² and at least 85 % of its rotated rectangle, otherwise flat; for measured buildings the ridge overrides this (see Building heights). Buildings inside DSM-Firmenich get the industrial palette. Real roofs come in step 3.
 

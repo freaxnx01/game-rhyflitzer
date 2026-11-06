@@ -373,3 +373,8 @@ def test_issue229_no_stream_ribbon_lies_on_a_road(world):
         ribbon = shapely.LineString(s["pts"]).buffer(s["w"] / 2, cap_style="flat")
         for line, w in roads:
             assert ribbon.intersection(line.buffer(w / 2)).area <= 1.0, (s["name"], s["w"])
+
+
+def test_roundabout_has_oneway_and_lanes(world):
+    ring = [r for r in world["roads"] if r["id"] == 672824132]
+    assert ring and all(r["oneway"] is True and r["lanes"] == 2 for r in ring)
