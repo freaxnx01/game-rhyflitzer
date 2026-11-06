@@ -1,7 +1,7 @@
 // #18: autopilot — road graph, A* route, turn signals, speed and steering rules. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, cumulative, laneOffset, rightOf, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
+import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, cumulative, laneOffset, rightOf, routeLaneOffset, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
 
 const road = (pts, cls = 'residential', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -243,4 +243,15 @@ test('rightOf moves a point to the right of the direction of travel (east -> sou
   const [wx, wz] = rightOf(west, cumulative(west), 50, 1.5);
   assert.ok(near(wx, 50) && near(wz, -1.5));
   assert.deepEqual(rightOf(east, cumulative(east), 50, 0), [50, 0]);
+});
+
+test('routeLaneOffset: per-road offset, blended across a change of road without a jump', () => {
+  const g = buildGraph([road([[-100, 0], [0, 0]], 'residential', { w: 6 }), road([[0, 0], [100, 0]], 'residential', { w: 6, oneway: true })]);
+  const r = findRoute(g, snapToGraph(g, -90, 0), [snapToGraph(g, 90, 0)]);
+  assert.equal(routeLaneOffset(r, 20), 1.5);
+  assert.equal(routeLaneOffset(r, 170), 0);
+  const mid = routeLaneOffset(r, 90); // the junction is at s = 90 (the route starts at x = -90)
+  assert.ok(mid > 0 && mid < 1.5);
+  let prev = routeLaneOffset(r, 75);
+  for (let s = 76; s < 105; s++) { const o = routeLaneOffset(r, s); assert.ok(Math.abs(o - prev) < 0.2); prev = o; }
 });

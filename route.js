@@ -270,6 +270,16 @@ export function steerToward(route, s, x, z, th, speed) {
 }
 
 const segAt = (route, s) => { let i = 0; while (i < route.road.length - 1 && route.cum[i + 1] <= s) i++; return i; };
+
+// Lane offset at progress s on a route: the mean of the road offsets over AUTO.laneBlend either side, so it slides across junctions
+export function routeLaneOffset(route, s) {
+  let sum = 0, n = 0;
+  for (let q = s - AUTO.laneBlend; q <= s + AUTO.laneBlend + 1e-9; q += AUTO.laneBlend / 4) {
+    sum += laneOffset(route.road[segAt(route, clamp(q, 0, route.len))]);
+    n++;
+  }
+  return sum / n;
+}
 const roadKmh = (r) => CLASS_KMH[r.cls] ?? AUTO.defaultKmh;
 
 // Speed the autopilot aims for at progress s, m/s: the road class, slower on and near bridges, slower before bends,
