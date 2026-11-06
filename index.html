@@ -694,7 +694,7 @@ import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel, isRoomLevel } from './rooms.js';
+import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, shipFrame, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel, isRoomLevel } from './rooms.js';
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
@@ -3486,7 +3486,7 @@ async function loadModel(k) {
       root.traverse(o => { if (o.isMesh && o.material.userData.glow) o.material.emissiveIntensity = O.glow[o.material.userData.glow] || 1; });
     } else {
       s = O.scale || O.h / size.y; const [ax, ay, az] = O.anchor || [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2];
-      const v = ROOM.layouts[k].frame.v, th = O.alongV ? -Math.atan2(v[1], v[0]) : 0;   // #422: a ship's long axis (model x) lies along the room's cross axis; the anchor turns with it
+      const { f, v } = ROOM.layouts[k].frame, bow = shipFrame(f, v, O.turn).axis, th = O.alongV ? -Math.atan2(bow[1], bow[0]) : 0;   // #422: a ship's long axis (model x) lies along the room's cross axis (#421: turned by O.turn); the anchor turns with it
       root.scale.setScalar(s); root.rotation.y = th; root.position.set(cx - s * (ax * Math.cos(th) + az * Math.sin(th)), fl - s * ay - (O.draught || 0), cz - s * (-ax * Math.sin(th) + az * Math.cos(th)));   // #422: a ship sinks by its draught, to its waterline in the basin
     }
     ROOM.models[k] = root;

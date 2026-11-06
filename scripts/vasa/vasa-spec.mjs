@@ -21,7 +21,7 @@ export const VASA = {
     main: { x: -1.5, truck: 52.5, rake: 2, yard: 29.0, shrouds: 8 },
     mizzen: { x: -14.5, truck: 36.0, rake: 4, yard: 22.0, shrouds: 5 },
   },
-  floorY: -2.0,                       // the museum cradle keeps the keel this far above the hall floor
+  floorY: -5.0,                       // the museum cradle keeps the keel this far above the hall floor (#421: high enough to drive under)
   ports: { lower: 12, upper: 12 },    // gunports per side per gun deck (48 × 24-pounders) + 4 + 3 per side on the castles + 2 chase = 64
 };
 

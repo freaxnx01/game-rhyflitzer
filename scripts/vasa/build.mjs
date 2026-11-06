@@ -508,8 +508,7 @@ function quarterGalleries(b) {
 
 // ---------- the museum cradle ----------
 function cradle(b) {
-  const steel = colour(STEEL), y0 = VASA.floorY;
-  for (let x = -17; x <= 17; x += 4.25) box(b, [x, y0 / 2, 0], [1.0, -y0, 1.5], steel, [1, 0, 0]);
+  const steel = colour(STEEL), y0 = VASA.floorY;   // no keel blocks: the lane under the keel stays open for the car (#421), the side props carry the ship
   for (const side of [1, -1]) {
     const feet = [];
     for (const x of [-16, -9, -2, 5, 12]) {

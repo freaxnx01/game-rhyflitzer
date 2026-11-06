@@ -79,6 +79,27 @@ export function rimColliders(pts, y) {
   return rim;
 }
 
+// #421: a ship's frame in the room: axis = where the bow points (the room's cross axis v, turned by `turn` towards the far wall f),
+// across = to port (f when unturned). Pure.
+export function shipFrame(f, v, turn = 0) {
+  const c = Math.cos(turn), s = Math.sin(turn);
+  return { axis: [v[0] * c + f[0] * s, v[1] * c + f[1] * s], across: [f[0] * c - v[0] * s, f[1] * c - v[1] * s] };
+}
+// #421: the museum cradle's feet (solid from the floor) and the low rails linking them along each side; at(p, q) maps ship coordinates
+// (p across, q along) to the world
+export function cradleColliders(cr, at, y) {
+  const out = [];
+  for (const side of [-1, 1]) {
+    const feet = cr.feet.map(([q, o]) => at(side * o, q));
+    for (const [x, z] of feet) { const [ax, az] = at(1, 0), [ox, oz] = at(0, 0); out.push({ x, z, hw: cr.footHw, hd: cr.footHw, c: ax - ox, s: az - oz, h: y + cr.footH }); }
+    for (let k = 0; k + 1 < feet.length; k++) {
+      const [x0, z0] = feet[k], [x1, z1] = feet[k + 1], dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);
+      out.push({ x: (x0 + x1) / 2, z: (z0 + z1) / 2, hw: len / 2, hd: cr.railHd, c: dx / len, s: dz / len, h: y + cr.railH, low: true });
+    }
+  }
+  return out;
+}
+
 export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   const Y = ring.y, HALF = ring.half, space = room.look === 'space';   // #489: the ring's depth and room size; #491: no meadow in a space room
   const sp = spokeFrame(k), f = sp.u, v = sp.v, P = sp.end;
@@ -104,11 +125,16 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
     ? room.object.feet.map(([fx, fz, hw = room.object.footHw]) => ({ x: cx + fx, z: cz + fz, hw, hd: hw, c: 1, s: 0, h: Y + room.object.footH }))
     : [];
   colliders.push(...feet);
-  // #422: a ship lies along the room's cross axis; its hull is a row of boxes (centre along the ship, half length, half width), solid up to hullH
-  const hull = (room.object && room.object.hull)
-    ? room.object.hull.map(([along, hl, hwAcross]) => ({ ...box(0, along, hwAcross, hl), h: Y + room.object.hullH }))
+  // #422: a ship lies along the room's cross axis (#421: turned by `turn` towards the far wall); its hull is a row of boxes (centre along the
+  // ship, half length, half width), solid up to hullH -- and, for a ship high on its cradle (keelClear), only from just under the keel up
+  const ship = (room.object && room.object.hull) ? shipFrame(f, v, room.object.turn) : null;
+  const shipAt = (p, q) => [cx + ship.across[0] * p + ship.axis[0] * q, cz + ship.across[1] * p + ship.axis[1] * q];
+  const deck = (room.object && room.object.keelClear) ? { bridge: true, y0: Y + room.object.keelClear - 1 } : {};
+  const hull = ship
+    ? room.object.hull.map(([along, hl, hwAcross]) => { const [x, z] = shipAt(0, along); return { x, z, hw: hwAcross, hd: hl, c: ship.across[0], s: ship.across[1], h: Y + room.object.hullH, ...deck }; })
     : [];
   colliders.push(...hull);
+  if (ship && room.object.cradle) colliders.push(...cradleColliders(room.object.cradle, shipAt, Y));
   // #422: the ship floats in a basin of water, kerbed; the gravel lane runs round it as the quay (#421: a `dry` ship stands on the lawn)
   const basin = (room.object && room.object.hull && !room.object.dry) ? shipBasin(room.object, Y) : null;
   if (basin) { basin.pts = stadium(basin, loc); basin.rim = rimColliders(basin.pts, Y); colliders.push(...basin.rim); }

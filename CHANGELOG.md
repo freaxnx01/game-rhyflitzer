@@ -34,6 +34,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-06 19:48` The **Vasa** now stands **turned 45 degrees**, bow forward-right, so you see her three-quarter on as you drive in, and **high on her cradle**: the keel is 5 m up, so you can **drive right under the ship** from stern to bow between the steel props.
 - `2026-11-06 17:42` The **Enterprise** now carries its name and registry only on **top of the saucer**. Underneath, the white letters ran into the **windows** and bumps of the hull, so they are gone there.
 - `2026-11-06 16:59` The **Fridolinskapelle** in Sisseln now looks like a chapel: a 3D model from swisstopo's swissBUILDINGS3D with its ridge roof and **turret** replaces the flat box.
 - `2026-11-04 13:13` **On the phone** you now steer and walk with a **joystick** on the left, with **Gas** and **Brake** on the right (on foot Gas jumps), round buttons to **get out/in**, **jump to a place** and (in the car) switch the **camera**, a yellow button for whatever <kbd>E</kbd> does right here (enter, go out, call the lift), and a **☰ menu** with every other action. On foot, drag a finger across the picture to look around. Helicopter and steam loco are reached through ☰ for now.
