@@ -1,7 +1,7 @@
 // #18: autopilot — road graph, A* route, turn signals, speed and steering rules. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
+import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, cumulative, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
 
 const road = (pts, cls = 'residential', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -173,15 +173,47 @@ test('routeSignals_RouteThroughRoundabout_BlinksOnlyAtTheExit', () => {
   assert.equal(sigs.length, 1);
   assert.ok(Math.abs(sigs[0].s - (100 + 12 * Math.PI / 2)) < 2, 'the signal sits at the exit point');
   assert.equal(blinkerAt(sigs, 90), null, 'not before the entry');
-  assert.equal(blinkerAt(sigs, 100), null, 'not at the entry');
+  assert.equal(blinkerAt(sigs, 99), null, 'not before the entry');
   assert.ok(blinkerAt(sigs, sigs[0].s - 5));
   assert.equal(blinkerAt(sigs, sigs[0].s + 40), null);
 });
 
-test('routeSignals_RoundaboutExit_SideFollowsTheRingDirection', () => {
-  const a = routeSignals(roundaboutRoute([112, 0], [0, 112]))[0].side;
-  const b = routeSignals(roundaboutRoute([112, 0], [0, -112]))[0].side;
-  assert.notEqual(a, b);   // opposite ways round the ring, opposite exit side
+// a counter-clockwise ring (Rechtsverkehr: angle decreases on the x-east / z-south map), entered from the east arm,
+// left after `exitNo` quarter turns; joints at the three arm vertices like a real graph route
+const ccwPt = (k) => { const a = -k / 32 * Math.PI * 2; return [Math.round(Math.cos(a) * 12000) / 1000, Math.round(Math.sin(a) * 12000) / 1000]; };
+const CCW_RING = road(Array.from({ length: 33 }, (_, k) => ccwPt(k % 32)), 'primary');
+const ccwRoute = (exitNo) => {
+  const pts = [[112, 0], ccwPt(0)], rd = [road([[112, 0], ccwPt(0)], 'primary')];
+  for (let k = 1; k <= exitNo * 8; k++) { pts.push(ccwPt(k)); rd.push(CCW_RING); }
+  const e = ccwPt(exitNo * 8), out = [e[0] * 9, e[1] * 9];
+  pts.push(out); rd.push(road([e, out], 'primary'));
+  const cum = cumulative(pts);
+  const joints = [{ s: cum[1], deg: 3 }];   // the entry arm
+  for (let k = 1; k <= exitNo; k++) joints.push({ s: cum[1 + k * 8], deg: 3 });   // the arm at every quarter turn, the last one is the exit
+  return { pts, cum, road: rd, len: cum[cum.length - 1], joints };
+};
+
+for (const n of [1, 2, 3]) {
+  test(`routeSignals_CounterClockwiseRingExit${n}_SignalsRight`, () => {
+    const sigs = routeSignals(ccwRoute(n));
+    assert.equal(sigs.length, 1);
+    assert.equal(sigs[0].side, 'right');
+  });
+}
+
+test('routeSignals_RingExit1_StartsAtTheEntry', () => {
+  const r = ccwRoute(1), sg = routeSignals(r)[0];
+  assert.equal(sg.from, r.cum[1]);
+  assert.equal(blinkerAt([sg], r.cum[1] - 1), null);
+  assert.equal(blinkerAt([sg], r.cum[1] + 1), 'right');
+});
+
+test('routeSignals_RingExit3_StartsAtThePreviousExit', () => {
+  const r = ccwRoute(3), sg = routeSignals(r)[0];
+  assert.equal(sg.from, r.cum[1 + 2 * 8]);   // the arm of exit 2
+  assert.equal(blinkerAt([sg], r.cum[1 + 2 * 8] - 1), null);
+  assert.equal(blinkerAt([sg], r.cum[1 + 2 * 8] + 1), 'right');
+  assert.equal(sg.to, sg.s + AUTO.signalAfter);
 });
 
 test('routeSignals_RouteEndingInsideTheRing_HasNoSignal', () => {
