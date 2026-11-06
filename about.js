@@ -23,8 +23,8 @@ export const ABOUT_LINKS = Object.freeze({
 const PASS = new Set(['Tab', 'Enter', 'NumpadEnter', 'Space']);
 const TAB_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End']);
 
-// #564: the tabs under the fixed dedication; ids match #abouttab-<id> / #aboutpanel-<id> in index.html
-export const ABOUT_TABS = Object.freeze(['people', 'game', 'credits', 'built']);
+// #564: the tabs under the fixed dedication; ids match #abouttab-<id> / #aboutpanel-<id> in index.html. #695: 'loading' = the loading screen's lines, to read in peace
+export const ABOUT_TABS = Object.freeze(['people', 'game', 'credits', 'built', 'loading']);
 
 // the tab a navigation key leads to from `current` (arrows wrap, Home/End jump), null for any other key
 export function aboutTabIndex(code, current) {
