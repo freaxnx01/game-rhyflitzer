@@ -42,13 +42,20 @@ def _edge_dist(ring, x, z):
     return best
 
 
-def _cereal_field_around(x, z):
-    """The cereal parcel whose ring contains (x, z), from the served world file."""
+def _cereal_field_around(x, z, near=60.0):
+    """The cereal parcel around (x, z) (its ring comes within `near` m of the point), from the served world file."""
+    best = None
     w = json.loads(WORLD.read_text(encoding="utf-8"))
     for f in w.get("fields", []):
-        if f.get("kind") == "cereal" and _inside(f["ring"], x, z) and not _in_holes(f.get("holes"), x, z):
+        if f.get("kind") != "cereal":
+            continue
+        if _inside(f["ring"], x, z) and not _in_holes(f.get("holes"), x, z):
             return f
-    return None
+        d = _edge_dist(f["ring"], x, z)
+        if best is None or d < best[0]:
+            best = (d, f)
+    assert best and best[0] <= near, f"no cereal field within {near} m of ({x}, {z})"
+    return best[1]
 
 
 def _field_samples(f, cx, cz, span=250.0, step=25.0, margin=15.0, cap=140):
