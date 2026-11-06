@@ -24,6 +24,17 @@ landmarks:
       tolerance_m: 1.0
     mode: hero          # Hülle als Massstab; Fachwerk wird in Blender gebaut
 
+  # Fridolinskapelle Sisseln: Punkt = Mittelpunkt des OSM-Grundrisses way 171822707 (2026-11-03)
+  - id: fridolinskapelle-sisseln
+    name: Fridolinskapelle Sisseln
+    select:
+      point: [2641525.99, 1267212.11]
+    expect:             # Werte aus --inspect (2026-11-03): EGID 263106794, Höchstpunkt mit Turm
+      typ: "Sakrales Gebäude"
+      roof_max: 324.6
+      tolerance_m: 1.0
+    mode: block
+
   # Areal-Beispiel: Eckpunkte im Viewer abklicken, dann --inspect laufen lassen
   # - id: feldschloesschen-rheinfelden
   #   name: Brauerei Feldschlösschen
