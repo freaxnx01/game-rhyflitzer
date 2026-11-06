@@ -89,3 +89,37 @@ def test_junction_needs_two_kept_ways():
     way_nodes = {1: [1, 7, 2], 2: [7, 8], 3: [1, 9], 4: [2, 10]}
     _, junctions = R.build(ways, nodes, way_nodes, shapely.box(-1000, -1000, 1000, 1000))
     assert junctions == [[50.0, 0.0, pytest.approx(3.8)]]
+
+
+@pytest.mark.parametrize("tags,d", [
+    ({"highway": "tertiary"}, 0),
+    ({"highway": "tertiary", "oneway": "yes"}, 1),
+    ({"highway": "tertiary", "oneway": "true"}, 1),
+    ({"highway": "tertiary", "oneway": "1"}, 1),
+    ({"highway": "tertiary", "oneway": "-1"}, -1),
+    ({"highway": "tertiary", "oneway": "reverse"}, -1),
+    ({"highway": "tertiary", "oneway": "no"}, 0),
+    ({"highway": "tertiary", "oneway": "reversible"}, 0),
+    ({"highway": "tertiary", "oneway": "alternating"}, 0),
+    ({"highway": "primary", "junction": "roundabout"}, 1),
+    ({"highway": "primary", "junction": "circular"}, 1),
+    ({"highway": "primary", "junction": "roundabout", "oneway": "no"}, 0),
+    ({"highway": "motorway"}, 1),
+    ({"highway": "motorway_link"}, 1),
+    ({"highway": "motorway", "oneway": "no"}, 0),
+    ({"highway": "trunk"}, 0),
+])
+def test_oneway_dir(tags, d):
+    assert R.oneway_dir(tags) == d
+
+
+@pytest.mark.parametrize("tags,n", [
+    ({"highway": "tertiary"}, None),
+    ({"highway": "tertiary", "lanes": "2"}, 2),
+    ({"highway": "tertiary", "lanes": "1"}, 1),
+    ({"highway": "tertiary", "lanes": "0"}, None),
+    ({"highway": "tertiary", "lanes": "2;3"}, None),
+    ({"highway": "tertiary", "lanes": "many"}, None),
+])
+def test_lane_count(tags, n):
+    assert R.lane_count(tags) == n

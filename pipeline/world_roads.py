@@ -67,6 +67,30 @@ def marking(tags) -> str:
     return "centre-solid" if tags.get("overtaking") == "no" else "centre"
 
 
+IMPLICIT_ONEWAY = ("motorway", "motorway_link")
+
+
+def oneway_dir(tags) -> int:
+    """1 = one-way along the way, -1 = one-way against it (oneway=-1), 0 = two-way or not a plain one-way (#679).
+    OSM defaults apply when the tag is absent: roundabouts and motorways are one-way."""
+    value = tags.get("oneway")
+    if value in ("yes", "true", "1"):
+        return 1
+    if value in ("-1", "reverse"):
+        return -1
+    if value is not None:
+        return 0
+    if tags.get("junction") in ("roundabout", "circular") or tags.get("highway") in IMPLICIT_ONEWAY:
+        return 1
+    return 0
+
+
+def lane_count(tags):
+    """The OSM `lanes` tag as an int (total for a two-way road, per carriageway for a one-way one), else None (#679)."""
+    value = tags.get("lanes", "")
+    return int(value) if value.isdigit() and int(value) >= 1 else None
+
+
 def _radius(a, b, c) -> float:
     ab = math.dist(a, b); bc = math.dist(b, c); ca = math.dist(c, a)
     cross = abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
