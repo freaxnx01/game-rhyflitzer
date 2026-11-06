@@ -1,7 +1,7 @@
 // #18: autopilot — road graph, A* route, turn signals, speed and steering rules. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, cumulative, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
+import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, cumulative, laneOffset, rightOf, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
 
 const road = (pts, cls = 'residential', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -222,4 +222,25 @@ test('routeSignals_RouteEndingInsideTheRing_HasNoSignal', () => {
 
 test('routeSignals_RouteStartingInsideTheRing_HasNoRingSignal', () => {
   assert.deepEqual(routeSignals(roundaboutRoute([12, 0], [0, 112])).filter((sg) => sg.from !== undefined), []);
+});
+
+test('laneOffset: half a lane to the right on a two-way road, capped; none on oneway, roundabouts and links', () => {
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'residential', { w: 6 })), 1.5);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'primary', { w: 12, lanes: 4 })), 1.5);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'primary', { w: 20 })), 2);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'residential', { oneway: true })), 0);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'primary_link')), 0);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'residential', { w: 0 })), 0);
+  const ring = Array.from({ length: 13 }, (_, i) => [15 * Math.cos(i * Math.PI / 6), 15 * Math.sin(i * Math.PI / 6)]);
+  ring[12] = [...ring[0]];
+  assert.equal(laneOffset(road(ring)), 0);
+});
+
+test('rightOf moves a point to the right of the direction of travel (east -> south, west -> north)', () => {
+  const east = [[0, 0], [100, 0]], west = [[100, 0], [0, 0]];
+  const [ex, ez] = rightOf(east, cumulative(east), 50, 1.5);
+  assert.ok(near(ex, 50) && near(ez, 1.5));
+  const [wx, wz] = rightOf(west, cumulative(west), 50, 1.5);
+  assert.ok(near(wx, 50) && near(wz, -1.5));
+  assert.deepEqual(rightOf(east, cumulative(east), 50, 0), [50, 0]);
 });
