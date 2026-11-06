@@ -91,6 +91,17 @@ export function plattformWalk(frame, base, P = PLATTFORM) {
   return walk;
 }
 
+// the way down from the deck (#534 tutorial), a point to walk at: round the rail along the deck until the gap in it is in clear view,
+// then the gap, and from inside the opening the first step that leaves the deck level
+const GAP_VIEW = 60, ROUND_R = 2.4;
+export function stairHeadTarget(frame, x, z, P = PLATTFORM) {
+  const { core, stair: { sector, upper, austritt } } = P, r = Math.hypot(x - frame.x, z - frame.z);
+  if (r < core.r) return frame.polar(upper.from + sector * (upper.n - 0.5), core.tread * 0.7);
+  const gap = (austritt.from + austritt.to) / 2, at = Math.atan2(z - frame.z, x - frame.x) / RAD - frame.facing / RAD;
+  const off = ((gap - at + 540) % 360 + 360) % 360 - 180;
+  return Math.abs(off) <= GAP_VIEW ? frame.polar(gap, core.r) : frame.polar(at + Math.sign(off) * GAP_VIEW, ROUND_R);
+}
+
 // outside the door, `th` = the direction you walk in (enterables.js)
 export function plattformEntrance(frame, P = PLATTFORM) {
   const [x, z] = frame.polar(0, P.entranceR);

@@ -40,6 +40,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-05 17:54` **Tutorial:** Oben auf der Plattform zeigt der Pfeil im letzten Schritt jetzt den Weg zur Treppe statt über das Geländer zum Auto, und der Hinweis erklärt, wie Du Dich umschaust.
 - `2026-11-04 22:07` **Hinweise** stehen wieder in der oberen Bildhälfte: Die neue Tastenleiste hatte sie nach unten geschoben, in schmalen Fenstern bis über die Strasse. Auf dem Phone umbrechen sie nicht mehr so früh.
 - `2026-11-03 23:28` <kbd>Ctrl</kbd> <kbd>H</kbd> now also hides the **website footer** (version, More Games, Source) at the bottom, so the view is completely clean.
 - `2026-11-03 19:57` The **Rhy Harvester's** blue **nitro flames** now come out of the back of the engine, not out of thin air behind the unloading auger.

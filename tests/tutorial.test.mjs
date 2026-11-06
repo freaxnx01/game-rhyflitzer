@@ -166,3 +166,9 @@ test('tutorialHint_WrongBody_SaysGetInOrGetOutFirst', () => {
   assert.deepEqual(tutorialHint(at('photo'), false, false), { key: 'tutNeedFoot', how: { via: 'key', cap: 'Z' }, n: 0, of: 0 });
   assert.equal(tutorialHint(at('jump'), true, false).key, 'tutStepJump', 'J works on foot too');
 });
+test('tutorialHint_OnTopOfTheTower_NamesTheStairAndHowToLookAround', () => {
+  assert.deepEqual(tutorialHint(at('getIn'), true, false, true), { key: 'tutStepDown', how: { via: 'key', cap: 'WASD' }, n: 1, of: 3 });
+  assert.equal(tutorialHint(at('getIn'), true, true, true).key, 'tutStepDownTouch');
+  assert.equal(tutorialHint(at('getIn'), true, false, false).key, 'tutStepGetIn', 'down the stair it is the car again');
+  assert.equal(tutorialHint(at('photo'), true, false, true).key, 'tutStepPhoto', 'only on the way back');
+});
