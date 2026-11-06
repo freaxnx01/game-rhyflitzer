@@ -265,7 +265,7 @@ export function trackRoute(route, x, z, sPrev) {
 
 export function steerToward(route, s, x, z, th, speed) {
   const look = clamp(AUTO.lookMin + AUTO.lookPerMs * speed, AUTO.lookMin, AUTO.lookMax);
-  const p = pointAt(route.pts, route.cum, s + look), alpha = wrap(Math.atan2(p[1] - z, p[0] - x) - th);
+  const s2 = s + look, p = rightOf(route.pts, route.cum, s2, routeLaneOffset(route, s2)), alpha = wrap(Math.atan2(p[1] - z, p[0] - x) - th);
   return { steer: clamp(alpha * AUTO.steerGain, -1, 1), alpha };
 }
 

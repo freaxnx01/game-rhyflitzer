@@ -255,3 +255,13 @@ test('routeLaneOffset: per-road offset, blended across a change of road without 
   let prev = routeLaneOffset(r, 75);
   for (let s = 76; s < 105; s++) { const o = routeLaneOffset(r, s); assert.ok(Math.abs(o - prev) < 0.2); prev = o; }
 });
+
+test('steerToward aims at the right lane: a car on the lane centre steers less than one on the centre line', () => {
+  const g = buildGraph([road([[-200, 0], [200, 0]], 'residential', { w: 6 })]);
+  const r = findRoute(g, snapToGraph(g, -150, 0), [snapToGraph(g, 150, 0)]);
+  const onCentre = steerToward(r, 100, -50, 0, 0, 10), inLane = steerToward(r, 100, -50, 1.5, 0, 10);
+  assert.ok(onCentre.steer > 0.01);
+  assert.ok(Math.abs(inLane.steer) < Math.abs(onCentre.steer));
+  const back = findRoute(g, snapToGraph(g, 150, 0), [snapToGraph(g, -150, 0)]);
+  assert.ok(steerToward(back, 100, 50, 0, Math.PI, 10).steer > 0.01);
+});
