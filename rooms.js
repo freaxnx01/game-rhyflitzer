@@ -120,7 +120,7 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   if (artemis) colliders.push(...artemis.colliders);
   // #513: the Ferris wheel in the centre (ferris.js places it; ferrismesh.js builds it): four foot colliders, the car drives under the rim
   const ferris = (room.object && room.object.gondola) ? ferrisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: ROOM_Y }, room.object) : null;
-  if (ferris) colliders.push(...ferris.colliders);
+  if (ferris) colliders.push(...ferris.colliders, ...ferris.sign.colliders);
   // the plaque for Sir Patrick Stewart just inside the Enterprise room's portal (enterprise.js places it)
   const dedication = room.dedication ? dedicationPlacement({ portal: { c: P }, frame: { f, v }, y: Y }, room.dedication) : null;
   if (dedication) colliders.push(...dedication.colliders);

@@ -373,6 +373,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="none">2×</kbd><span data-i18n="keyBeam">double-click or double-tap the landscape: beam the car there (in a race it does not count)</span>
       <kbd data-cmd="KeyO">O</kbd><span data-i18n="keyAuto">autopilot: drive to a place or street (O again, steering, gas or brake: you drive)</span>
       <kbd data-cmd="KeyI">I</kbd><span data-i18n="keyNavi">navigation: route, turn arrow and directions to a street or landmark (O drives it too)</span>
+      <kbd data-cmd="Digit3">3</kbd><span data-i18n="keyFerrisFireworks">Ferris wheel room: fire a firework salvo</span>
+      <kbd data-cmd="Digit4">4</kbd><span data-i18n="keyFerrisShow">Ferris wheel room: next light show</span>
       <kbd data-cmd="KeyF">F</kbd><span data-i18n="keyHeli">helicopter: take off · land (Space climbs, Shift sinks)</span>
       <kbd data-cmd="KeyZ">Z</kbd><span data-i18n="keyFoot">get out · back in. On foot: W/S walk, A/D sidestep, ←/→ or the mouse turn, F hover on/off, Space up (hover) or jump, Shift down</span>
       <kbd data-cmd="KeyE">E</kbd><span data-i18n="keyEnter">on foot, at a glowing door: enter</span>
@@ -698,7 +700,7 @@ import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
-import { FERRIS, wheelAngle, DUSK_LOOK } from './ferris.js';   // #513; #588: the dusk look
+import { FERRIS, wheelAngle, DUSK_LOOK, FERRIS_KEYS, nextPatternShift, patternAt } from './ferris.js';   // #513; #588: the dusk look
 import { buildWheel, setWheelAngle, ferrisTriangles, setWheelLights, buildFireworks, setFireworks } from './ferrismesh.js';
 import { RIDE as RIDE_CFG, toWheel, fromWheel, rideIdle, rideBegin, rideStep, rideAngle, rideFeet, rideAction, lowestGondola, gondolaPose, eyeShift, clockOffset } from './ferrisride.js';   // #516
 import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
@@ -3068,7 +3070,7 @@ addEventListener('resize', resize);
 const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.name = 'surfaceRoot'; scene.add(surfaceRoot);
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
-const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null, ferris: null, dedication: null };
+const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null, ferris: null, ferrisSign: null, dedication: null };
 const RING_L = { ring: { built: false, group: null }, ring2: { built: false, group: null, sign: null } };
 const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab]);
 const roomIndex = (id) => (ROOM.layouts ? ROOM.layouts.findIndex(R => R.id === id) : -1);
@@ -3237,7 +3239,7 @@ function disposeGroup(group) {   // free a thrown-away room: its own geometry, m
 // #489: k is the flat layout index -- ring 1's room k stays k, ring 2's room k is 8 + k.
 function ensureRoom(k) {
   if (ROOM.built === k) return;
-  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; ROOM.ferris = null; ROOM.dedication = null; }
+  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; ROOM.ferris = null; ROOM.ferrisSign = null; ROOM.dedication = null; }
   const R = ROOM.layouts[k], group = new THREE.Group(); ROOM.group = group; ROOM.layout = R; ROOM.built = k; group.visible = false;
   roomMeshes(group, R); scene.add(group);
   for (const L of ROOM.layouts) if (L.object) delete window.__mm.counts[L.object.key || 'eiffel'];   // #491: both rings, flat layouts
@@ -3313,12 +3315,51 @@ function roomFerris(group, R) {
   const pd = R.ferris.pad, { hw, hd, lift } = FERRIS.pad;
   group.add(flatStrip([fromWheel(pd, 0, -hd), fromWheel(pd, 0, hd)], hw, R.y + lift, 0xb9ae96));
   group.add(flatStrip([fromWheel(pd, -hw, 0), fromWheel(pd, hw, 0)], 0.25, R.y + lift + 0.02, 0xe0b13a));
+  roomFerrisSign(group, R);
   ROOM.ferris = { built: R.k, handle: w, fw, angle: 0, h: FERRIS.h, gondolas: w.gondolas.length, tris: ferrisTriangles(w.group), colliders: R.ferris.colliders.length, leds: w.ledList.length };
 }
+// the instructions sign just inside the portal (ferris.js places it), built like the Enterprise plaque: a panel on two posts with a canvas front, redrawn on a language change
+function roomFerrisSign(group, R) {
+  const D = FERRIS.sign, P = R.ferris.sign, sign = new THREE.Group(); sign.position.set(P.x, P.y, P.z); sign.rotation.y = Math.atan2(Math.cos(P.face), Math.sin(P.face)); sign.userData.role = 'ferris-sign';
+  const wood = new THREE.MeshLambertMaterial({ color: 0x2a3a52 });
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(D.w, D.h, D.depth), wood); panel.position.y = D.lift + D.h / 2; sign.add(panel);
+  for (const s of [-1, 1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.25, D.lift + 0.3, 0.25), wood); post.position.set(s * D.w * 0.36, (D.lift + 0.3) / 2, 0); sign.add(post); }
+  const tex = makeTex(1024, Math.round(1024 * D.h / D.w), drawFerrisSign, { alpha: true });
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(D.w * 0.96, D.h * 0.94), new THREE.MeshBasicMaterial({ map: tex, transparent: true })); face.position.set(0, D.lift + D.h / 2, D.depth / 2 + 0.02); sign.add(face);
+  group.add(sign); ROOM.ferrisSign = { tex, x: P.x, z: P.z, face: P.face };
+}
+function drawFerrisSign(g, w, h) {
+  g.clearRect(0, 0, w, h); g.strokeStyle = '#e0b13a'; g.lineWidth = 6; g.strokeRect(14, 14, w - 28, h - 28);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '800 96px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillStyle = '#e0b13a'; g.fillText(tr('ferrisSignTitle'), w / 2, h * 0.17, w - 80);
+  ['ferrisSignRide', 'ferrisSignFireworks', 'ferrisSignShow'].forEach((key, i) => drawKeyLine(g, tr(key), w / 2, h * (0.4 + 0.22 * i), w - 90));
+}
+// one line of text where {X} is drawn as a key cap, centred on cx, shrunk to fit maxW
+function drawKeyLine(g, text, cx, y, maxW) {
+  const parts = text.split(/(\{[^}]+\})/).filter(Boolean); let px = 58;
+  const width = () => { g.font = `600 ${px}px "Barlow Condensed", "Arial Narrow", sans-serif`; return parts.reduce((a, p) => a + g.measureText(p[0] === '{' ? p.slice(1, -1) : p).width + (p[0] === '{' ? px * 0.5 : 0), 0); };
+  while (px > 24 && width() > maxW) px -= 2;
+  let x = cx - width() / 2; g.textAlign = 'left';
+  for (const p of parts) {
+    if (p[0] !== '{') { g.fillStyle = '#e8edf5'; g.fillText(p, x, y); x += g.measureText(p).width; continue; }
+    const k = p.slice(1, -1), kw = g.measureText(k).width + px * 0.5;
+    g.fillStyle = '#e0b13a'; g.beginPath(); g.roundRect(x, y - px * 0.55, kw, px * 1.1, 8); g.fill(); g.fillStyle = '#1b2230'; g.fillText(k, x + px * 0.25, y); x += kw;
+  }
+  g.textAlign = 'center';
+}
+function relabelFerrisSign() { const d = ROOM.ferrisSign; if (!d) return; drawFerrisSign(d.tex.image.getContext('2d'), d.tex.image.width, d.tex.image.height); d.tex.needsUpdate = true; }
 function stepFerris() {   // #513: the wheel's turn -- visual only, from the wall clock so it never depends on the frame rate
   if (!ROOM.ferris || ROOM.built !== ROOM.ferris.built) return;
   ROOM.ferris.angle = currentWheelAngle(); setWheelAngle(ROOM.ferris.handle, ROOM.ferris.angle);   // #516: the ride drives or holds the wheel
-  const t = performance.now() / 1000; setWheelLights(ROOM.ferris.handle, t); setFireworks(ROOM.ferris.fw, t);   // #588: the light show and the fireworks, also from the wall clock
+  const t = performance.now() / 1000; setWheelLights(ROOM.ferris.handle, t + FX.shift); setFireworks(ROOM.ferris.fw, t, FERRIS, FX.salvos);   // #588: the light show and the fireworks, also from the wall clock
+}
+// the Ferris room's keys (3 fireworks, 4 light show): FX.salvos are the start times of the manual salvos (wall clock, s), FX.shift the show clock's skip
+const FX = { salvos: [], shift: 0 }, FX_SHOW_TOAST = { chase: 'ferrisShowChase', pulse: 'ferrisShowPulse', sparkle: 'ferrisShowSparkle', fade: 'ferrisShowFade' };
+function pressFerrisFx(code) {   // true when the key was one of the room's and the walker or car is in the built Ferris room
+  const F = ROOM.ferris; if (!F || ROOM.built !== F.built || LEVELS.id !== ROOM.layout.id) return false;
+  const t = performance.now() / 1000;
+  if (code === FERRIS_KEYS.fireworks) { FX.salvos = FX.salvos.filter(s => t - s < FERRIS.fireworks.life + 2).concat(t); toast(tr('ferrisFireworks')); return true; }
+  if (code === FERRIS_KEYS.show) { FX.shift = nextPatternShift(t, FX.shift); toast(tr(FX_SHOW_TOAST[patternAt(t + FX.shift).a])); return true; }
+  return false;
 }
 // #516: riding the Ferris wheel on foot (ferrisride.js is the pure state machine). RIDE.s is the ride's state,
 // RIDE.offset the resting wheel's clock offset, RIDE.leave a requested early exit.
@@ -3538,6 +3579,7 @@ window.__mm.ferrisRide = () => {
 window.__mm.rideSim = (secs) => { let maxY = -Infinity; for (let i = 0; i < secs * 60; i++) { if (FOOT.on && RIDE.s.phase !== 'idle') stepRide(1 / 60); stepFerris(); maxY = Math.max(maxY, P.y); } stepCamera(1 / 60); return { ...window.__mm.ferrisRide(), maxY, y: P.y, foot: FOOT.on }; };
 window.__mm.vasa = () => ROOM.states[3] ? { ...ROOM.states[3], hull: VASA.hull, length: VASA.length, keel: ROOM.models[3] ? ROOM.models[3].position.y : null, basin: ROOM.layouts[3].basin } : null;   // #421
 window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
+window.__mm.ferrisFx = () => ({ salvos: FX.salvos.length, shift: FX.shift, pattern: patternAt(performance.now() / 1000 + FX.shift).a, sparks: ROOM.ferris ? ROOM.ferris.fw.live : 0, sign: ROOM.ferrisSign ? { x: ROOM.ferrisSign.x, z: ROOM.ferrisSign.z } : null });   // the Ferris room's keys 3 / 4 and the sign
 window.__mm.dedication = () => ROOM.dedication && { x: ROOM.dedication.x, z: ROOM.dedication.z, face: ROOM.dedication.face, top: ROOM.dedication.top, lead: tr('dedicationLead'), solid: (({ dx, dz }) => Math.hypot(dx, dz) > 0.1)(window.__mm.pushAt(ROOM.dedication.x, ROOM.dedication.z, -1200)) };
 window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
   if (!ROOM.states[8] || ROOM.built !== 8) return null;
@@ -3610,7 +3652,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -5137,7 +5179,7 @@ window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BOR
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); }
-addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
+addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;

@@ -18,6 +18,7 @@ export const FERRIS = {
   led: { rimStep: 2, spokes: 32, spokeN: 24, ringX: 3 },    // ~2 m between rim LEDs, 32 spoke pairs, 24 LEDs per spoke, rim rings at x = +-ringX
   fireworks: { every: 10, perSalvo: [3, 5], particles: 120, life: 2.5, speed: [25, 45], g: 9.81, colours: ['#ff4d4d', '#ffd23f', '#5ce1ff', '#7dff6b', '#ff7be5', '#ffffff'] },
   pad: { hw: 5, hd: 20, lift: 0.12 },                      // #516: gravel boarding pad under the rim: 10 m along the axle x 40 m across (hd covers the bottom window's exit, #588)
+  sign: { a: 45, b: 14, w: 7, h: 4.6, lift: 1.2, depth: 0.4 },   // the instructions sign just inside the portal, right of the lane (like the Enterprise room's plaque): a into the room, b to the right driving in
   colours: { rim: 0xf2f2ee, steel: 0x3a3d42, foot: 0x8a8d92, gondolas: [0xc9503f, 0x3f7fc9, 0xe0b13a, 0x4aa36b, 0xd9d9d9, 0x8a5fb3] },
 };
 
@@ -49,8 +50,18 @@ export function ferrisPlacement(room, cfg = FERRIS) {
     const [x, z] = loc(sa * cfg.frame.a, sb * cfg.frame.b);
     colliders.push({ x, z, hw: cfg.collider.hw, hd: cfg.collider.hw, c: f[0], s: f[1], h: y + cfg.hub.y + cfg.collider.over, low: true, ferris: 'foot' });
   }
-  return { wheel: { x: cx, z: cz, th }, colliders, pad: { x: cx, z: cz, th, hw: cfg.pad.hw, hd: cfg.pad.hd } };
+  return { wheel: { x: cx, z: cz, th }, colliders, sign: signPlacement(room, cfg), pad: { x: cx, z: cz, th, hw: cfg.pad.hw, hd: cfg.pad.hd } };
 }
+
+// the sign with the Ferris room's keys: portal-relative like enterprise.js's dedicationPlacement, its front to the way in, one box collider
+export function signPlacement(room, cfg = FERRIS) {
+  const [px, pz] = room.portal.c, { f, v } = room.frame, S = cfg.sign;
+  const x = px + f[0] * S.a + v[0] * S.b, z = pz + f[1] * S.a + v[1] * S.b;
+  return { x, z, y: room.y, face: Math.atan2(-f[1], -f[0]), colliders: [{ x, z, hw: S.depth / 2 + 0.2, hd: S.w / 2, c: f[0], s: f[1], h: room.y + S.lift + S.h }] };
+}
+
+// the two keys of the room (KeyboardEvent.code): the free digits next to 1 hazard / 2 siren -- every letter is taken in the car or on foot
+export const FERRIS_KEYS = { fireworks: 'Digit3', show: 'Digit4' };
 
 // #588: the light show -- ~2300 LEDs on both rim rings and along the spokes, in the rotating wheel's frame (hub at the
 // origin). Rim: { kind 'rim', ring +-1, u 0..1 round the ring }; spoke: { kind 'spoke', spoke, side +-1, s 0..1 hub to rim }.
@@ -63,13 +74,17 @@ export function ledLayout(cfg = FERRIS) {
 }
 
 export const PATTERNS = ['chase', 'pulse', 'sparkle', 'fade'];
-const PATTERN_LEN = 18, CROSSFADE = 1.5;
+export const PATTERN_LEN = 18;
+const CROSSFADE = 1.5;
 
 // which pattern runs at t seconds (and which follows, with how much of the crossfade is done)
 export function patternAt(t) {
   const n = PATTERNS.length, k = Math.floor(t / PATTERN_LEN), local = t - k * PATTERN_LEN, a = ((k % n) + n) % n, fade = local - (PATTERN_LEN - CROSSFADE);
   return fade > 0 ? { a: PATTERNS[a], b: PATTERNS[(a + 1) % n], mix: fade / CROSSFADE } : { a: PATTERNS[a], b: PATTERNS[a], mix: 0 };
 }
+
+// the key's "next pattern": the new shift (seconds added to the show clock) that puts t + shift on the start of the pattern after the current one
+export function nextPatternShift(t, shift = 0) { return (Math.floor((t + shift) / PATTERN_LEN) + 1) * PATTERN_LEN - t; }
 
 // seeded hash of an integer -> [0, 1) (no Math.random: every peer and every run sees the same show)
 export function hash01(n) { let x = Math.imul(n | 0, 0x9e3779b1) ^ 0x85ebca6b; x = Math.imul(x ^ (x >>> 15), 0x2c1b3c6d); x = Math.imul(x ^ (x >>> 12), 0x297a2d39); x ^= x >>> 15; return (x >>> 0) / 4294967296; }
@@ -107,10 +122,17 @@ export function salvoAt(n, cfg = FERRIS) {
   return out;
 }
 
-// the bursts alive at t seconds (age in [0, life)): from this salvo and the one before it
-export function burstsLive(t, cfg = FERRIS) {
+// the salvo a player fires by key at `start` seconds: the seeded salvo of that moment, its bursts starting at the press (within 2 s)
+export function manualSalvo(start, cfg = FERRIS) {
+  const n = 1000 + Math.floor(start * 100);
+  return salvoAt(n, cfg).map(b => ({ ...b, t0: start + (b.t0 - n * cfg.fireworks.every) }));
+}
+
+// the bursts alive at t seconds (age in [0, life)): from this salvo and the one before it, plus any manual salvos (`extras`: their start times)
+export function burstsLive(t, cfg = FERRIS, extras = []) {
   const FW = cfg.fireworks, n = Math.floor(t / FW.every), live = [];
   for (const s of [n - 1, n]) if (s >= 0) for (const b of salvoAt(s, cfg)) { const age = t - b.t0; if (age >= 0 && age < FW.life) live.push(b); }
+  for (const start of extras) if (t >= start && t < start + 2 + FW.life) for (const b of manualSalvo(start, cfg)) { const age = t - b.t0; if (age >= 0 && age < FW.life) live.push(b); }
   return live;
 }
 

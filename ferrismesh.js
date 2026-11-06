@@ -99,8 +99,8 @@ export function setWheelLights(handle, t) {
   handle.leds.instanceColor.needsUpdate = true;
 }
 
-// #588: the fireworks -- one Points with a fixed pool (5 bursts x 2 salvos x particles), additive vertex colours, in the wheel's frame
-const FW_SLOTS = 10, parsed = new Map();
+// #588: the fireworks -- one Points with a fixed pool (5 bursts x 4 salvos x particles: two automatic, room for manual ones on top), additive vertex colours, in the wheel's frame
+const FW_SLOTS = 20, parsed = new Map();
 export function buildFireworks(cfg = FERRIS) {
   const n = FW_SLOTS * cfg.fireworks.particles, g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
@@ -109,9 +109,9 @@ export function buildFireworks(cfg = FERRIS) {
   return { points, live: 0 };
 }
 const PART = [0, 0, 0, 0];
-// fills the slots from burstsLive(t); unused slots park at the origin with fade 0 (black adds nothing). Returns the live particle count.
-export function setFireworks(fw, t, cfg = FERRIS) {
-  const P = cfg.fireworks.particles, pos = fw.points.geometry.attributes.position, col = fw.points.geometry.attributes.color, bursts = burstsLive(t, cfg);
+// fills the slots from burstsLive(t, cfg, extras) (extras: the start times of the manual salvos); unused slots park at the origin with fade 0 (black adds nothing). Returns the live particle count.
+export function setFireworks(fw, t, cfg = FERRIS, extras = []) {
+  const P = cfg.fireworks.particles, pos = fw.points.geometry.attributes.position, col = fw.points.geometry.attributes.color, bursts = burstsLive(t, cfg, extras);
   let live = 0;
   for (let s = 0; s < FW_SLOTS; s++) {
     const b = bursts[s]; let rgb = null;
