@@ -158,3 +158,49 @@ export function busTarget(route, s, stopS, gap, cfg = PA) {
   if (gap !== null) v = Math.min(v, ahead(0, s + gap, cfg.hardBrake));
   return v;
 }
+
+function arrive(b, t, cfg) {
+  const stop = b.calls[b.k], last = b.k === b.calls.length - 1 && !b.trip.toOutside;
+  b.s = stop.s; b.v = 0; b.phase = 'stand';
+  b.until = last ? t + cfg.layover : Math.max(stop.dep, t + cfg.minDwell);
+}
+
+function standStep(b, t) {
+  if (t < b.until) return;
+  if (b.k >= b.calls.length - 1 && !b.trip.toOutside) { b.phase = 'done'; return; }
+  b.k++; b.phase = 'drive'; b.leftAt = t;
+}
+
+function driveStep(b, t, dt, gap, cfg) {
+  const stop = b.k < b.calls.length ? b.calls[b.k] : null;
+  const target = busTarget(b.route, b.s, stop ? stop.s : null, gap, cfg);
+  b.v = Math.max(0, b.v + clamp(target - b.v, -cfg.hardBrake * dt, cfg.accel * dt));
+  b.s += b.v * dt;
+  if (stop && (b.s >= stop.s || (stop.s - b.s < cfg.arrive && b.v < 1))) arrive(b, t, cfg);
+  else if (!stop && b.s >= b.route.len - 2) b.phase = 'done';
+}
+
+// one step of a bus at wall time `now`; gap = obstacleGap for the player, or null
+export function stepBus(b, now, dt, gap, cfg = PA) {
+  const t = now + b.shift;
+  if (b.phase === 'stand') standStep(b, t);
+  else if (b.phase === 'drive') driveStep(b, t, dt, gap, cfg);
+}
+
+// left when pulling out of a stop, right when pulling in (A6), the route's turn and roundabout signals otherwise
+export function busBlinker(b, now, cfg = PA) {
+  if (b.phase !== 'drive') return null;
+  if (now + b.shift - b.leftAt < cfg.pullOutSecs) return 'left';
+  const stop = b.calls[b.k];
+  if (stop && stop.s - b.s < cfg.pullIn) return 'right';
+  return blinkerAt(b.route.signals, b.s);
+}
+
+// metres the bus may still drive before the player in its lane ahead (A0b, A7); null when he is not in the way
+export function obstacleGap(route, s, player, cfg = PA) {
+  const tr = trackRoute(route, player.x, player.z, s), ahead = tr.s - s;
+  if (!(ahead > 0) || ahead > cfg.look) return null;
+  const [lx, lz] = rightOf(route.pts, route.cum, tr.s, busOffset(route, tr.s, cfg));
+  if (Math.hypot(player.x - lx, player.z - lz) > BUS.width / 2 + player.r + cfg.sideClear) return null;
+  return Math.max(0, ahead - BUS.length / 2 - player.r - cfg.gap);
+}

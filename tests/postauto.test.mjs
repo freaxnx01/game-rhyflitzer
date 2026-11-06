@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildGraph } from '../route.js';
 import { BUS } from '../bus.js';
-import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip } from '../postauto.js';
+import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
+  busTarget, stepBus, busBlinker, obstacleGap } from '../postauto.js';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 const road = (pts, cls = 'primary', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
@@ -96,4 +97,61 @@ test('tripCalls: a call at a stop not on the route drops the trip', () => {
   assert.equal(tripTime({ from: 10, to: 20 }, 15), 15);
   assert.equal(tripTime({ from: 86390, to: 86500 }, 50), 86450);
   assert.equal(tripTime({ from: 10, to: 20 }, 25), null);
+});
+
+// runs a bus from wall time t0 for secs at 20 Hz; player(t) gives { x, z, r } or null; returns the samples
+function run(b, t0, secs, player = () => null, dt = 0.05) {
+  const out = [];
+  for (let t = t0; t < t0 + secs; t += dt) {
+    const p = player(t), gap = p && b.phase === 'drive' ? obstacleGap(b.route, b.s, p) : null;
+    stepBus(b, t, dt, gap);
+    out.push({ t, s: b.s, v: b.v, phase: b.phase, k: b.k, blinker: busBlinker(b, t) });
+  }
+  return out;
+}
+
+test('stepBus: leaves on time, stops at the next stop, stands until the departure time', () => {
+  const b = placeTrip(TRIP, R, 35950), log = run(b, 35950, 180);
+  const left = log.find((x) => x.phase === 'drive');
+  assert.ok(left.t >= 36000 && left.t < 36000.1);
+  const at = log.find((x) => x.t >= 36100);
+  assert.equal(at.phase, 'stand'); assert.equal(at.k, 1); assert.equal(at.s, 400);
+  const again = log.find((x) => x.k === 2 && x.phase === 'drive');
+  assert.ok(again.t >= 36120);
+});
+
+test('stepBus: a late bus stands the minimum dwell only', () => {
+  const late = { ...TRIP, calls: [['1', 36000, 36000], ['2', 36005, 36005], ['3', 36200, 36200]] };
+  const log = run(placeTrip(late, R, 35999), 35999, 120);
+  const arrive = log.find((x) => x.k === 1 && x.phase === 'stand'), leave = log.find((x) => x.k === 2);
+  assert.ok(near(leave.t - arrive.t, PA.minDwell, 0.11));
+});
+
+test('stepBus: 30 km/h through the junction, blinkers at the stop, gone after the layover', () => {
+  const log = run(placeTrip(TRIP, R, 36115), 36115, 160);
+  const junction = log.filter((x) => x.s > 500 - PA.junctionBefore && x.s < 500 + PA.junctionAfter);
+  assert.ok(junction.length && junction.every((x) => x.v <= PA.junctionKmh / 3.6 + 0.15));   // + one 20 Hz step of braking lag
+  assert.ok(log.some((x) => x.s > 600 && x.s < 850 && x.v > PA.junctionKmh / 3.6 + 1));   // primary: faster again after it
+  assert.equal(log.find((x) => x.phase === 'drive').blinker, 'left');                     // pulling out of stop 2
+  assert.equal(log.find((x) => x.phase === 'drive' && x.s > 900 - PA.pullIn + 1).blinker, 'right');
+  const end = log.find((x) => x.k === 2 && x.phase === 'stand');
+  assert.equal(log.find((x) => x.phase === 'done')?.t >= end.t + PA.layover - 0.1, true);
+});
+
+test('obstacleGap: the player in the lane ahead, not beside, behind or far ahead', () => {
+  const p = (x, z) => ({ x, z, r: 1 });
+  assert.ok(near(obstacleGap(R, 270, p(300, 1.5)), 30 - BUS.length / 2 - 1 - PA.gap));
+  assert.equal(obstacleGap(R, 270, p(300, -3)), null);
+  assert.equal(obstacleGap(R, 270, p(200, 1.5)), null);
+  assert.equal(obstacleGap(R, 270, p(270 + PA.look + 5, 1.5)), null);
+});
+
+test('stepBus: waits for a player in the lane and drives on when he leaves', () => {
+  const b = placeTrip(TRIP, R, 36050);   // driving to stop 2 (s 400) from s 250
+  const blocked = run(b, 36050, 20, () => ({ x: 330, z: 1.5, r: 1 }));
+  const last = blocked[blocked.length - 1];
+  assert.equal(last.v, 0);
+  assert.ok(last.s <= 330 - BUS.length / 2 - 1 - PA.gap + 0.5 && last.s > 300);
+  const free = run(b, 36070, 60);
+  assert.ok(free.some((x) => x.k === 1 && x.phase === 'stand' && x.s === 400));
 });
