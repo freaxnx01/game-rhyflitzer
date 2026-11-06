@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-06 18:32` **Postautos** now drive **line 133** Frick – Eiken – Sisseln – Stein-Säckingen by the real weekday timetable (Swiss time): they stop at every stop, slow down at junctions, signal, and show line and destination on the display. A Postauto waits if you stand in its way, and you bounce off it if you ram it. Every stop has its sign at the kerb. Timetable data: opentransportdata.swiss.
+
 - `2026-11-06 15:27` You can now **ride the Ferris wheel** in the hideout's star room 6: get out of the car with <kbd>Z</kbd>, walk to the **boarding platform** under the wheel and press <kbd>E</kbd> at the lowest gondola. The wheel carries you **once round** (the view from the top is over 250 m high); at the bottom you get out again, or press <kbd>E</kbd> there to get out early. While you ride the wheel turns faster than usual.
 
 - `2026-11-05 17:41` Short link **rhyflitzer.freaxnx01.ch/nfz** for the article in the Neue Fricktaler Zeitung: easy to type from the paper, it opens the game and the visit counts as coming from the NFZ in the anonymous stats.

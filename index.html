@@ -598,7 +598,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small>
         </dd>
         <dt data-i18n="aboutData"></dt>
-        <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a></dd>
+        <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a><br><a data-link="otd" data-i18n="aboutTimetable"></a></dd>
         <dt>Plattform Sisslerfeld</dt>
         <dd><a data-link="plattform" data-i18n="creditPlattform"></a></dd>
         <dt data-i18n="aboutLibs"></dt>
@@ -708,6 +708,7 @@ import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintabl
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
+import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, stopFaceDeg } from './postauto.js';   // #500
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
@@ -3774,6 +3775,92 @@ function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
+// ---------- #500: Postautos on their lines by the weekday timetable (postauto.js) ----------
+// The timetable loads in the background after the world, never blocking play. The clock is real Europe/Zurich time (A0a),
+// unless ?patime=HH:MM starts it at a fixed time for testers (A11); a jump > PA.resync re-places the fleet (A3).
+const POSTAUTO = { ready: false, routes: new Map(), trips: [], buses: [], meshes: new Map(), colliders: [], group: new THREE.Group(), prev: null, syncT: 0, modelFailed: false };
+scene.add(POSTAUTO.group);
+const PATIME = parsePatime(new URLSearchParams(location.search).get('patime')), PATIME_T0 = performance.now();
+function postautoClock() { return PATIME === null ? zurichSeconds(new Date()) : (PATIME + (performance.now() - PATIME_T0) / 1000) % 86400; }
+async function loadPostauto() {
+  if (!L || !REGION.timetable || !L.busRoutes.length) return;
+  console.info('Loading the Postauto timetable from', REGION.timetable);
+  const tt = await fetch(REGION.timetable).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!tt || tt.format !== 'MMT1') { console.warn('No Postauto timetable: file missing or not MMT1'); return; }
+  const g = autoGraph();
+  for (const br of L.busRoutes) POSTAUTO.routes.set(br.id, busRoute(br, ROADS, g));
+  POSTAUTO.trips = tt.trips.filter((t) => POSTAUTO.routes.has(t.route));
+  POSTAUTO.ready = true;
+  console.info(`Postauto timetable loaded: ${POSTAUTO.trips.length} trips on ${POSTAUTO.routes.size} routes (feed ${tt.feed?.version})`);
+}
+// line and destination on a lit plane, orange on black like the player bus's display (#478)
+function ledTexture({ line, dest }) {
+  return makeTex(1024, 128, (g, w, h) => {
+    g.fillStyle = '#0d0d0d'; g.fillRect(0, 0, w, h); g.fillStyle = g.strokeStyle = '#ff9a1a'; g.lineWidth = 6;
+    g.strokeRect(8, 12, 170, h - 24); g.font = '700 84px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(line, 93, h / 2 + 4);
+    let size = 84; do { g.font = `700 ${size}px "Barlow Condensed", sans-serif`; size -= 4; } while (g.measureText(dest).width > w - 220 && size > 30);
+    g.textAlign = 'left'; g.fillText(dest, 200, h / 2 + 4);
+  });
+}
+// one Postauto: a clone of bus.glb (shared geometry and materials), an LED with line and destination, own blinkers.
+// No wireWheels/addBlinkers: those write the player's globals (BLINK, GLTF_LAMPS), a second bus must not (spec A8).
+function buildPostautoMesh(trip) {
+  const g = new THREE.Group(), root = GLTF_CARS.bus.scene.clone(true); g.rotation.order = 'YZX'; g.add(root);
+  const box = new THREE.Box3().setFromObject(root);
+  const led = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.24), new THREE.MeshBasicMaterial({ map: ledTexture(ledText(trip)) }));
+  led.position.set(box.max.x + 0.03, box.max.y - 0.32, 0); led.rotation.y = Math.PI / 2; g.add(led);   // A9: 0.32 m under the roof, checked on a screenshot
+  const blink = { left: new THREE.Group(), right: new THREE.Group() }, geo = new THREE.BoxGeometry(0.12, 0.12, 0.22), m = new THREE.MeshBasicMaterial({ color: 0xff9a1a });
+  for (const [x, y, z] of VEHICLES.bus.blinkers) for (const [side, s] of [['left', -1], ['right', 1]]) { const b = new THREE.Mesh(geo, m); b.position.set(x, y, s * z); blink[side].add(b); }
+  g.add(blink.left, blink.right); g.userData.blink = blink; g.userData.led = ledText(trip);
+  return g;
+}
+// frees the LED texture and material, the blinker geometry and material -- never the shared glTF geometry (userData.sharedGeo)
+// or materials (SHARED_CAR_MATS, like freeCar: the clone shares them with the cached scene, the player's bus and every other Postauto)
+function disposePostautoMesh(g) {
+  const mats = new Set();
+  g.traverse((o) => { if (!o.userData.sharedGeo) o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); });
+  for (const m of mats) { m.map?.dispose(); m.dispose(); }
+}
+// steps the fleet on the wall clock, re-syncing every second and re-placing everything after a clock jump
+function stepPostauto(dt) {
+  if (!POSTAUTO.ready) return;
+  const now = postautoClock(), jumped = POSTAUTO.prev !== null && fleetJumped(POSTAUTO.prev, now, dt);
+  POSTAUTO.syncT -= dt;
+  if (jumped || POSTAUTO.syncT <= 0) { POSTAUTO.buses = syncFleet(jumped ? [] : POSTAUTO.buses, POSTAUTO.trips, POSTAUTO.routes, now); POSTAUTO.syncT = 1; }
+  POSTAUTO.prev = now;
+  if (POSTAUTO.buses.some((b) => b.phase !== 'done') && gltfState('bus') === 'idle') loadVehicleModel('bus');
+  const surface = LEVELS.isSurface(), flashOn = Math.floor(performance.now() / 350) % 2 === 0;
+  const player = { x: P.x, z: P.z, r: FOOT.on ? WALKER.radius : carRadius() };
+  POSTAUTO.colliders = [];
+  const alive = new Set();
+  for (const b of POSTAUTO.buses) {
+    if (b.phase === 'done') continue;
+    const level = b.y === undefined || Math.abs(P.y - b.y) < PA.above;   // a player on a bridge above or in the air is not in the way
+    const gap = surface && b.phase === 'drive' && level ? obstacleGap(b.route, b.s, player) : null;
+    stepBus(b, now, dt, gap);
+    if (b.phase === 'done') continue;
+    alive.add(b.key);
+    if (surface) drawPostauto(b, flashOn);
+  }
+  for (const [key, g] of POSTAUTO.meshes) if (!alive.has(key)) { POSTAUTO.group.remove(g); disposePostautoMesh(g); POSTAUTO.meshes.delete(key); }
+  POSTAUTO.group.visible = surface;
+}
+function drawPostauto(b, flashOn) {
+  const p = busPose(b.route, b.s), c = Math.cos(p.th), s = Math.sin(p.th), half = BUS.wheelbase / 2;
+  const yF = groundH(p.x + c * half, p.z + s * half, (b.y ?? 0) + 1), yR = groundH(p.x - c * half, p.z - s * half, (b.y ?? 0) + 1);
+  b.y = (yF + yR) / 2;
+  POSTAUTO.colliders.push(busCollider(p.x, p.z, p.th, b.y));
+  if (gltfState('bus') !== 'ready') {
+    if (gltfState('bus') === 'failed' && !POSTAUTO.modelFailed) { POSTAUTO.modelFailed = true; console.warn('Postauto model not available: no buses are drawn (A8)'); }
+    return;
+  }
+  let g = POSTAUTO.meshes.get(b.key);
+  if (!g) { g = buildPostautoMesh(b.trip); POSTAUTO.meshes.set(b.key, g); POSTAUTO.group.add(g); }
+  g.position.set(p.x, b.y, p.z); g.rotation.set(0, -p.th, Math.atan2(yF - yR, BUS.wheelbase));   // pitched like the car: the nose up on an uphill road
+  const side = busBlinker(b, postautoClock());
+  g.userData.blink.left.visible = flashOn && side === 'left'; g.userData.blink.right.visible = flashOn && side === 'right';
+}
 function autoGoals(dest) { if (dest.street) return dest.goals; const s = snapToGraph(AUTOP.graph, dest.x, dest.z, 400); return s ? [s] : []; }
 function planGoals(goals, fromX, fromZ) { return findRoute(AUTOP.graph, snapToGraph(AUTOP.graph, fromX, fromZ), goals); }   // #106: the one A* call, shared with the Navi
 function planRoute() { const route = planGoals(AUTOP.goals, P.x, P.z); if (!route) return false; AUTOP.st = { route, s: 0, signals: routeSignals(route), stuckT: 0 }; return true; }
@@ -3983,9 +4070,9 @@ function footBlocks(o, x, z, y, under) {
   if (y >= o.h - 0.05) return false;
   return !(o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, x, z));
 }
-const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !o.carOnly && !(o.bodenacker6 && INT.bodyOff) && !(o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)).concat((FOOT.car ? [parked()] : []));   // #567: carOnly colliders (the Plattform core) are not the walker's
+const footSolids = (x, z) => [...gridQuery(OBB_GRID, x, z, WALKER.radius + 2)].filter(o => !o.off && !o.carOnly && !(o.bodenacker6 && INT.bodyOff) && !(o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)).concat((FOOT.car ? [parked()] : []), POSTAUTO.colliders);   // #567: carOnly colliders (the Plattform core) are not the walker's; #500: Postautos too
 function footFree(x, z, y0) { const y = groundH(x, z, y0 + 1), under = caveInside(); if (waterLevelAt(x, z, y) !== null) return false; return !footSolids(x, z).some(o => footBlocks(o, x, z, y, under) && colliderPush(o, x, z, WALKER.radius)); }
-function collideFoot(r) { const under = caveInside(); for (const o of footSolids(P.x, P.z)) { if (!footBlocks(o, P.x, P.z, P.y, under)) continue; const hit = colliderPush(o, P.x, P.z, r); if (hit) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } } }
+function collideFoot(r) { const under = caveInside(); for (const o of footSolids(P.x, P.z)) { if (!footBlocks(o, P.x, P.z, P.y, under)) continue; const hit = colliderPush(o, P.x, P.z, r); if (hit) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } } }   // #500: the Postautos are solid too (last drawn frame)
 // #412: the walkway walls push too, applied like collideFoot does -- walkwayPush() keeps only those active at the walker's height,
 // so a wall of another storey never moves the walker
 function collideWalkways(r) { for (const hit of walkwayPush(WALKS, P.x, P.z, P.y, r)) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } }
@@ -4260,6 +4347,8 @@ window.__mm.raceFlags = () => ({ jumped: !!R.jumped, flown: !!R.flown, walked: !
 window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, done: R.done, rank: R.last?.rank ?? null, best: R.blitzBest, cps: CPS.map(c => [c.x, c.z]), finish: [FINISH.x, FINISH.z] });   // #128
 window.__mm.blitzSetLeft = (s) => { R.left = s; };
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
+window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'),   // #500: read-only, for the test
+  buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null }; }) });
 // drive headless: step the car and the race at 1/60 s while the autopilot is on, at most secs seconds
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
@@ -4485,7 +4574,7 @@ window.__mm.drive = () => ({ gas: P.gas, nitro: P.nitro, back: CAM.back });   //
 // so its arithmetic is unchanged. A hit at an offset d != 0 also turns the car a little, so it scrapes past a corner
 // instead of sticking (wallYaw: the push's torque about the centre, clamped to a few degrees).
 const YAW_GAIN = 1.0, YAW_CLAMP = 0.05;
-function collide(r) { const under = caveInside(); const reach = VEH.collision.shape === 'capsule' ? r + VEH.collision.hl * VEH.scale : r; for (const o of gridQuery(OBB_GRID, P.x, P.z, reach + 2)) { if (under && !o.secret) continue; if (o.off) continue; /* #415: a knocked-over lamp or hydrant */ if (Math.abs(o.x - P.x) > o.hw + o.hd + reach + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + reach + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; if (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9) continue; /* #361: an open lift door is no obstacle */ if (o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, P.x, P.z)) continue; /* #100: the pontoon's ends lie in the woods */ const best = deepestHit(o, carCircles(), r, colliderPush); /* from where the last push left the car, like the single circle before */ if (!best) continue; const { wx, wz, pen } = best.hit; P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; { const s = impactStrength(-vn); crashHit(s); SFX.crash(s); } } const d = VEH_OFFSETS[best.i]; if (d !== 0) P.th += wallYaw(d, P.th, wx, wz, pen, YAW_GAIN, YAW_CLAMP); } }
+function collide(r) { const under = caveInside(); const reach = VEH.collision.shape === 'capsule' ? r + VEH.collision.hl * VEH.scale : r; for (const o of [...gridQuery(OBB_GRID, P.x, P.z, reach + 2), ...POSTAUTO.colliders]) { if (under && !o.secret) continue; if (o.off) continue; /* #415: a knocked-over lamp or hydrant */ if (Math.abs(o.x - P.x) > o.hw + o.hd + reach + 2 || Math.abs(o.z - P.z) > o.hw + o.hd + reach + 2) continue; if (o.bridge && P.y < (o.y0 ?? 0.4)) continue; if (o.low && P.y >= o.h - 0.2) continue; if (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9) continue; /* #361: an open lift door is no obstacle */ if (o.forest && PONTOON.deck && pontoonCorridor(PONTOON.deck, P.x, P.z)) continue; /* #100: the pontoon's ends lie in the woods */ const best = deepestHit(o, carCircles(), r, colliderPush); /* from where the last push left the car, like the single circle before */ if (!best) continue; const { wx, wz, pen } = best.hit; P.x += wx * pen; P.z += wz * pen; const vn = P.vx * wx + P.vz * wz; if (vn < 0) { P.vx -= wx * vn * 1.25; P.vz -= wz * vn * 1.25; const keep = 1 - Math.min(0.5, -vn * 0.025 / VEH.mass); P.vx *= keep; P.vz *= keep; { const s = impactStrength(-vn); crashHit(s); SFX.crash(s); } } const d = VEH_OFFSETS[best.i]; if (d !== 0) P.th += wallYaw(d, P.th, wx, wz, pen, YAW_GAIN, YAW_CLAMP); } }
 function stepCar(dt) {
   LIGHTS.braking = false;   // #230: reset every step so it never sticks (airborne, flying, coasting)
   if (LIFT_RIDE.busy) { P.vx = P.vz = P.vy = 0; car.position.set(P.x, P.y, P.z); return; }   // #277: input is locked for the ride
@@ -5309,9 +5398,11 @@ applyStyle('original'); resize();
 if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
+loadPostauto();   // #500: the timetable loads in the background, never blocking play
+for (const br of L?.busRoutes ?? []) for (const st of br.stops) busStop(st.x, st.z, st.name, stopFaceDeg(st.rot));   // #500, A10: a sign at every stop, board facing the road
 if (REGION.backdrop && !GEN) fetch(REGION.backdrop).then((r) => (r.ok ? r.arrayBuffer() : null)).then((buf) => { if (buf) buildBackdrop(parseMMH(buf), buf.byteLength); }).catch(() => {});   // #593: never awaited, startup does not wait for the horizon
 // #538: Umami bookkeeping. Coarse ids only (see analytics.js). Vehicle and activity are sampled once a second (the interval also runs while the pause menu freezes the loop, where a car swap happens); modes and jumps are one-line calls from startRace, finish, endHunt, timeUp, toMainMenu and placeOnRoad.
 const STATS = { lastMode: null, vehicle: createChangeReporter({ name: 'vehicle', initial: CHOICE.id, shape: vehicleData }), activity: createChangeReporter({ name: 'activity', initial: 'car', shape: activityData }) };

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from '../about.js';
 
 test('ABOUT_LINKS: every link https, the agreed set, frozen', () => {
-  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'plattform', 'privacy', 'source', 'swisstopo', 'threejs']);
+  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'otd', 'plattform', 'privacy', 'source', 'swisstopo', 'threejs']);
   for (const [id, url] of Object.entries(ABOUT_LINKS)) assert.match(url, /^https:\/\/[^\s]+$/, id);
   assert.equal(ABOUT_LINKS.plattform, 'https://www.plattform-sisslerfeld.com/');
   assert.equal(ABOUT_LINKS.privacy, 'https://github.com/freaxnx01/game-rhyflitzer#datenschutz--privacy');
@@ -49,4 +49,7 @@ test('the Aargau parcels are credited with a link (#506)', () => {
 });
 test('the horizon backdrop is credited with a link (#593)', () => {
   assert.equal(ABOUT_LINKS.copernicus, 'https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM');
+});
+test('ABOUT_LINKS: the Postauto timetable source (#500)', () => {
+  assert.equal(ABOUT_LINKS.otd, 'https://opentransportdata.swiss/');
 });

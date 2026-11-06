@@ -1490,6 +1490,13 @@ test('layoutFromWorld carries fields and defaults to none', () => {
   assert.deepEqual(layoutFromWorld({ ...base, fields: f }).fields, f);
 });
 
+test('layoutFromWorld passes busRoutes, empty without them (#500)', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], anchors: {}, bbox: [0, 0, 1, 1] };
+  const br = [{ id: 7, line: '133', pts: [[0, 0], [1, 0]], stops: [] }];
+  assert.deepEqual(layoutFromWorld({ ...base, busRoutes: br }).busRoutes, br);
+  assert.deepEqual(layoutFromWorld(base).busRoutes, []);
+});
+
 test('depthOffsetFor_surfaceRoles_fieldsOverTerrainRoadsOverFields', () => {
   assert.equal(depthOffsetFor('grass'), null);
   assert.ok(depthOffsetFor('field') < 0 && depthOffsetFor('meadow') === depthOffsetFor('field'));
