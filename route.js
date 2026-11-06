@@ -24,6 +24,7 @@ export const AUTO = {
   defaultKmh: 30, bridgeKmh: 30, bridgeMargin: 20, uturnSpeed: 4,
   arriveDist: 8, offRoute: 20, stuckSecs: 4,
   turnAngle: Math.PI / 6, signalBefore: 50, signalAfter: 10,
+  laneOffsetMax: 2, laneBlend: 8,
 };
 
 // a press of any of these hands the car back to the player (touch drive buttons do the same in index.html); Shift is nitro too since #535
@@ -47,6 +48,21 @@ export function pointAt(pts, cum, s) {
   while (cum[i + 1] < s) i++;
   const u = (s - cum[i]) / ((cum[i + 1] - cum[i]) || 1);
   return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * u, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * u];
+}
+
+// Metres to the right of a road's centre line where a car drives: the centre of the innermost right lane.
+// Oneway roads, roundabouts and ramps (*_link) have no opposite lane, so 0. Reused by Postautos (#500) and traffic (#364).
+export function laneOffset(r) {
+  if (!(r.w > 0) || r.oneway || r.cls.endsWith('_link') || isRoundabout(r)) return 0;
+  return Math.min(AUTO.laneOffsetMax, r.w / (2 * (r.lanes > 0 ? r.lanes : 2)));
+}
+
+// The point on a polyline at s, moved off metres to the right of the local direction of travel (x east, z south)
+export function rightOf(pts, cum, s, off) {
+  const p = pointAt(pts, cum, s);
+  if (!off) return p;
+  const a = pointAt(pts, cum, s - 1), b = pointAt(pts, cum, s + 1), dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+  return len ? [p[0] - (dz / len) * off, p[1] + (dx / len) * off] : p;
 }
 
 function project(a, b, x, z) {
@@ -249,11 +265,21 @@ export function trackRoute(route, x, z, sPrev) {
 
 export function steerToward(route, s, x, z, th, speed) {
   const look = clamp(AUTO.lookMin + AUTO.lookPerMs * speed, AUTO.lookMin, AUTO.lookMax);
-  const p = pointAt(route.pts, route.cum, s + look), alpha = wrap(Math.atan2(p[1] - z, p[0] - x) - th);
+  const s2 = s + look, p = rightOf(route.pts, route.cum, s2, routeLaneOffset(route, s2)), alpha = wrap(Math.atan2(p[1] - z, p[0] - x) - th);
   return { steer: clamp(alpha * AUTO.steerGain, -1, 1), alpha };
 }
 
 const segAt = (route, s) => { let i = 0; while (i < route.road.length - 1 && route.cum[i + 1] <= s) i++; return i; };
+
+// Lane offset at progress s on a route: the mean of the road offsets over AUTO.laneBlend either side, so it slides across junctions
+export function routeLaneOffset(route, s) {
+  let sum = 0, n = 0;
+  for (let q = s - AUTO.laneBlend; q <= s + AUTO.laneBlend + 1e-9; q += AUTO.laneBlend / 4) {
+    sum += laneOffset(route.road[segAt(route, clamp(q, 0, route.len))]);
+    n++;
+  }
+  return sum / n;
+}
 const roadKmh = (r) => CLASS_KMH[r.cls] ?? AUTO.defaultKmh;
 
 // Speed the autopilot aims for at progress s, m/s: the road class, slower on and near bridges, slower before bends,
