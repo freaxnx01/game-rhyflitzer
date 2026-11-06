@@ -23,7 +23,7 @@ export const AUTO = {
   brakeAccel: 4, latAccel: 3.5, chord: 16, sampleStep: 5,
   defaultKmh: 30, bridgeKmh: 30, bridgeMargin: 20, uturnSpeed: 4,
   arriveDist: 8, offRoute: 20, stuckSecs: 4,
-  turnAngle: Math.PI / 6, signalBefore: 50, signalAfter: 10, roundaboutSignalBefore: 15,
+  turnAngle: Math.PI / 6, signalBefore: 50, signalAfter: 10,
 };
 
 // a press of any of these hands the car back to the player (touch drive buttons do the same in index.html); Shift is nitro too since #535
@@ -196,31 +196,27 @@ export function turnAt(route, s, w = 10) {
   return Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
 }
 
-// Signed heading change over the route segments i0..i1 (> 0 turns right): the way round a ring
-function headingChange(route, i0, i1) {
-  let total = 0;
-  for (let i = i0; i < i1; i++) {
-    const [a, b, c] = [route.pts[i], route.pts[i + 1], route.pts[i + 2]];
-    const d1 = [b[0] - a[0], b[1] - a[1]], d2 = [c[0] - b[0], c[1] - b[1]];
-    total += Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
-  }
-  return total;
-}
-
-// Stretches of the route that run around a roundabout: { sIn, sOut, right }
+// Stretches of the route that run around a roundabout: { sIn, sOut }
 function ringRuns(route) {
   const runs = [];
   for (let i = 0; i < route.road.length; i++) {
     if (!isRoundabout(route.road[i])) continue;
     let k = i;
     while (k + 1 < route.road.length && route.road[k + 1] === route.road[i]) k++;
-    runs.push({ sIn: route.cum[i], sOut: route.cum[k + 1], right: headingChange(route, i, k) > 0 });
+    runs.push({ sIn: route.cum[i], sOut: route.cum[k + 1] });
     i = k;
   }
   return runs;
 }
 
-// Turn signals: at junctions (3+ roads) where the route turns by AUTO.turnAngle or more; on a roundabout only when leaving it
+// Where the exit signal of a ring run goes on: at the previous exit the route passes (an arm of degree 3+ inside the run), else at the entry
+function ringSignalStart(route, run) {
+  const passed = route.joints.filter((j) => j.deg >= 3 && j.s > run.sIn + 0.5 && j.s < run.sOut - 0.5);
+  return passed.length ? passed[passed.length - 1].s : run.sIn;
+}
+
+// Turn signals: at junctions (3+ roads) where the route turns by AUTO.turnAngle or more; on a roundabout only when
+// leaving it: always right (Swiss rule, Art. 41b VRV), from the previous exit or the entry
 export function routeSignals(route) {
   const runs = ringRuns(route), out = [];
   for (const j of route.joints) {
@@ -230,7 +226,7 @@ export function routeSignals(route) {
   }
   for (const r of runs) {
     if (r.sIn <= 0 || r.sOut >= route.len - 0.5) continue;
-    out.push({ s: r.sOut, side: r.right ? 'right' : 'left', from: r.sOut - AUTO.roundaboutSignalBefore, to: r.sOut + AUTO.signalAfter });
+    out.push({ s: r.sOut, side: 'right', from: ringSignalStart(route, r), to: r.sOut + AUTO.signalAfter });
   }
   return out.sort((a, b) => a.s - b.s);
 }
