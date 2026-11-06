@@ -5353,27 +5353,36 @@ $('debugjumpsel').addEventListener('keydown', e => e.stopPropagation());   // th
 $('debugjumpgo').addEventListener('click', e => { const t = DEBUG_JUMPS[+$('debugjumpsel').value]; if (t) testhubGo(t); $('debugjumpsel').blur(); e.currentTarget.blur(); });
 $('debuglegend').addEventListener('click', e => e.stopPropagation());
 // #707: the Postauto section -- the fleet clock and one row per bus on the same 250 ms debugTick (A10), or the empty state
-// with the next departure. Rows are matched by bus.key, so a redraw between mousedown and click does not lose the target.
+// with the next departure. The row buttons are reused while the bus list is unchanged: a rebuild every tick would take the
+// node out from under a click and reset hover and scroll. Rows are matched by bus.key, so a redraw does not lose the target.
 function drawPostautoPanel() {
   const pa = $('debugpa');
   if (!POSTAUTO.ready) { pa.hidden = true; return; }
   pa.hidden = false;
   $('debugpaclock').textContent = clockLine(postautoClock(), PATIME, tr);
-  const buses = POSTAUTO.buses.filter((b) => b.phase !== 'done'), player = { x: P.x, z: P.z };
+  const buses = POSTAUTO.buses.filter((b) => b.phase !== 'done'), rows = $('debugparows');
   if (!buses.length) {
     const next = nextDeparture(POSTAUTO.trips, postautoClock());
-    const lines = [tr('dbgPaEmpty'), next ? tr('dbgPaNext', { time: hhmmss(next.dep).slice(0, 5), line: next.line, to: next.to }) : null].filter(Boolean);
-    $('debugparows').replaceChildren(...lines.map((text) => Object.assign(document.createElement('div'), { textContent: text })));
+    const keys = `e${next ? next.dep : ''}`;   // redrawn only when the next departure changes
+    if (rows.dataset.keys !== keys) {
+      rows.dataset.keys = keys;
+      const lines = [tr('dbgPaEmpty'), next ? tr('dbgPaNext', { time: hhmmss(next.dep).slice(0, 5), line: next.line, to: next.to }) : null].filter(Boolean);
+      rows.replaceChildren(...lines.map((text) => Object.assign(document.createElement('div'), { textContent: text })));
+    }
     return;
   }
-  $('debugparows').replaceChildren(...buses.map((b) => {
-    const p = busPose(b.route, b.s);
+  const keys = buses.map((b) => b.key).join('|');
+  if (rows.dataset.keys !== keys) {
+    rows.dataset.keys = keys;
+    rows.replaceChildren(...buses.map((b) => { const el = document.createElement('button'); el.type = 'button'; el.dataset.key = b.key; return el; }));
+  }
+  const player = { x: P.x, z: P.z };
+  buses.forEach((b, i) => {
+    const el = rows.children[i], p = busPose(b.route, b.s);
     const row = busRow({ key: b.key, line: String(b.trip.line), to: b.trip.to, phase: b.phase, v: b.v, k: b.k, n: b.calls.length, x: p.x, z: p.z }, player, tr);
-    const el = document.createElement('button');
-    el.type = 'button'; el.dataset.key = row.key; el.textContent = `${row.line1}\n${row.line2}`;
-    if (POSTAUTO.follow === row.key) el.classList.add('on');
-    return el;
-  }));
+    el.textContent = `${row.line1}\n${row.line2}`;
+    el.classList.toggle('on', POSTAUTO.follow === row.key);
+  });
 }
 // follow mode (A2): the camera becomes the bus's chase cam, the car and the game state stay untouched. Only the surface
 // can start it (A9) -- below ground the rows still list, the click is ignored.
