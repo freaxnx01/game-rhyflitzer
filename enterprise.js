@@ -11,10 +11,10 @@ export const ENTERPRISE = {
   yaw: Math.PI / 6,                            // bow towards the portal, turned 30 degrees to the right: the three-quarter view on approach
   bob: { amp: 1.5, period: 14 },               // a slow hover, metres and seconds
   glow: { saucer: 1.6, drive: 1.6, aux: 1.8, nacelles: 2.6 },   // emissiveIntensity per section (the materials' extras.glow): windows, deflector, warp grilles + bussards
-  // canvas text draped on the saucer (ship frame: x along the ship, the text runs across it, w metres wide, h metres tall)
+  // canvas text draped on the saucer (ship frame: x along the ship, the text runs across it, w metres wide, h metres tall); top only --
+  // underneath, the decals ran into the windows and bumps of the hull
   lettering: [
     { side: 'top', text: 'U.S.S. ENTERPRISE', x: 235, w: 180, h: 14 }, { side: 'top', text: 'NCC-1701-D', x: 205, w: 150, h: 20 },
-    { side: 'bottom', text: 'U.S.S. ENTERPRISE', x: 235, w: 180, h: 14 }, { side: 'bottom', text: 'NCC-1701-D', x: 205, w: 150, h: 20 },
   ],
   // #607: how a decal is draped on the hull -- the plane's segments (along the text, across it), the metres it keeps clear of it,
   // and the spacing of the 3 x 3 ray cluster each vertex casts: the lowest hit (top side: the highest) wins, so the plane
