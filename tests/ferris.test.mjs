@@ -120,3 +120,11 @@ test('DUSK_LOOK_HasTheSameShapeAsRoomLook', () => {
   for (const k of ['fog', 'density', 'skyTop', 'skyHor', 'hemiSky', 'hemiGround', 'hemi', 'sun']) assert.ok(k in DUSK_LOOK, k);
   assert.equal(DUSK_LOOK.skyHor, '#f0875a');
 });
+
+test('ferrisPlacement_BoardingPad_CentredUnderTheHubTurnedToTheRoomFrame', () => {   // #516
+  assert.deepEqual(P.pad, { x: R6.centre[0], z: R6.centre[1], th: P.wheel.th, hw: FERRIS.pad.hw, hd: FERRIS.pad.hd });
+  assert.equal(FERRIS.pad.hw, 5);
+  assert.equal(FERRIS.pad.hd, 20);   // #588: scaled with the 250 m wheel -- it must cover the bottom window's exit at rim·sin(0.15) = 18.7 m
+  assert.equal(roomLayout(6).paths.length, 2);   // the pad is no third path (A8)
+  for (const k of [0, 1, 2, 3, 4, 5, 7]) assert.equal(roomLayout(k).ferris, null);   // no other room has a pad
+});

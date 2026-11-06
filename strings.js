@@ -217,6 +217,9 @@ const en = {
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Enter',
   enterSoon: 'Not enterable yet',
+  ridePrompt: 'E · Ride the Ferris wheel',   // #516
+  rideExit: 'E · Get out',
+  rideWait: 'You can get out at the bottom',
   plattformOpen: 'The stair is open -- just walk in',
   chipEnterable: 'Enterable',
   enterableSoon: 'soon',
@@ -780,6 +783,9 @@ const de = {
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Betreten',
   enterSoon: 'Noch nicht begehbar',
+  ridePrompt: 'E · Riesenrad fahren',   // #516
+  rideExit: 'E · Aussteigen',
+  rideWait: 'Aussteigen kannst Du unten',
   plattformOpen: 'Die Treppe ist offen -- einfach hineingehen',
   chipEnterable: 'Begehbar',
   enterableSoon: 'bald',
