@@ -3331,7 +3331,7 @@ function roomFerrisSign(group, R) {
 function drawFerrisSign(g, w, h) {
   g.clearRect(0, 0, w, h); g.strokeStyle = '#e0b13a'; g.lineWidth = 6; g.strokeRect(14, 14, w - 28, h - 28);
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '800 96px "Barlow Condensed", "Arial Narrow", sans-serif'; g.fillStyle = '#e0b13a'; g.fillText(tr('ferrisSignTitle'), w / 2, h * 0.17, w - 80);
-  ['ferrisSignRide', 'ferrisSignFireworks', 'ferrisSignShow'].forEach((key, i) => drawKeyLine(g, tr(key), w / 2, h * (0.4 + 0.22 * i), w - 90));
+  ['ferrisSignRide', 'ferrisSignBoard', 'ferrisSignFireworks', 'ferrisSignShow'].forEach((key, i) => drawKeyLine(g, tr(key), w / 2, h * (0.37 + 0.16 * i + (i >= 2 ? 0.04 : 0)), w - 90));   // the ride on two lines, so every line keeps a size readable from the lane
 }
 // one line of text where {X} is drawn as a key cap, centred on cx, shrunk to fit maxW
 function drawKeyLine(g, text, cx, y, maxW) {
