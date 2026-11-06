@@ -34,7 +34,7 @@ Format `MMW1` stays: adding optional keys is backwards compatible. `docs/11-pipe
 - **A5** [med] `oneway=reversible|alternating` and `oneway:bicycle`-style keys are ignored (treated as two-way). Rejected: a tri-state. Probe: 0 such values in the extract.
 - **A6** [med] No `roundabout` flag is added; consumers can derive it later from `oneway` plus geometry, or a follow-up adds `junction`. Rejected: scope creep beyond the title; #680 can ask for it.
 - **A7** [med] The format version stays `MMW1`; no loader change. Evidence: `world.js:548-551` and `world.js:305` read named keys only. Rejected: bumping the format for optional keys.
-- **A8** [med] The implementer rebuilds `data/world_hochrhein.json` and `data/world_ehrendingen.json` locally from the cached extracts (`pipeline/cache/osm/`, gitignored); if an extract is missing it ships code and tests and says so in the PR, leaving the rebuild to the maintainer. Rejected: committing a hand-edited JSON (`data/README.md:3` forbids it).
+- **A8** [confirmed] (Maintainer, 2026-11-06: "Agent liefert Code, ich baue lokal": a local session with the caches rebuilds the data and pushes it to the same PR) The implementer rebuilds `data/world_hochrhein.json` and `data/world_ehrendingen.json` locally from the cached extracts (`pipeline/cache/osm/`, gitignored); if an extract is missing it ships code and tests and says so in the PR, leaving the rebuild to the maintainer. Rejected: committing a hand-edited JSON (`data/README.md:3` forbids it).
 
 ## Consequences
 
