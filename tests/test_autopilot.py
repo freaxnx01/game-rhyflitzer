@@ -108,7 +108,8 @@ def test_autopilot_blinks_leaving_a_roundabout_not_entering(server):
         ring = [sg for sg in signals if "from" in sg]
         assert len(ring) == 1, signals
         exit_signal = ring[0]
-        assert exit_signal["to"] - exit_signal["from"] == 25
+        assert exit_signal["side"] == "right", exit_signal
+        assert exit_signal["from"] < exit_signal["s"] and exit_signal["to"] - exit_signal["s"] == 10
         inside = [sg for sg in signals if sg is not exit_signal and exit_signal["s"] - 90 < sg["s"] < exit_signal["s"] + 1]
         assert inside == [], "no signal at the entry or on the ring"
         r = page.evaluate("() => window.__mm.autoSim(150)")

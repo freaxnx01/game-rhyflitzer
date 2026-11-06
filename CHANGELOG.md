@@ -40,6 +40,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-06 15:37` The autopilot now signals **right** when it leaves a roundabout, as in Swiss traffic: no signal on the way in, and on the way out the blinker goes on from the previous exit (for the first exit from the entry) until just after the exit. Before, it signalled left on almost every exit.
 - `2026-11-05 17:54` **Tutorial:** Oben auf der Plattform zeigt der Pfeil im letzten Schritt jetzt den Weg zur Treppe statt über das Geländer zum Auto, und der Hinweis erklärt, wie Du Dich umschaust.
 - `2026-11-04 22:07` **Hinweise** stehen wieder in der oberen Bildhälfte: Die neue Tastenleiste hatte sie nach unten geschoben, in schmalen Fenstern bis über die Strasse. Auf dem Phone umbrechen sie nicht mehr so früh.
 - `2026-11-03 23:28` <kbd>Ctrl</kbd> <kbd>H</kbd> now also hides the **website footer** (version, More Games, Source) at the bottom, so the view is completely clean.
