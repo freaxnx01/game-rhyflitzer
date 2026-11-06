@@ -8,6 +8,7 @@ export const REGIONS = {
   hochrhein: {
     id: 'hochrhein', name: 'Hochrhein', world: './data/world_hochrhein.json', terrain: './data/terrain_hochrhein.mmh',
     backdrop: './data/backdrop_hochrhein.mmh',   // #593: Hotzenwald, Jura, Rhine valley on the horizon
+    timetable: './data/timetable_hochrhein.json',   // #500: Postauto weekday timetable (#682, opentransportdata.swiss)
     idbKey: 'terrain', bestKey: 'mm.best2', strings: { intro: 'intro', finished: 'finishedText', blurb: 'blurbOsm' },
     villages: VILLAGES, gemeinden: GEMEINDEN, landmarks: LANDMARK_INFO, borderDe: BORDER_DE,   // borderDe: German Gemeinde names that make a boundary line the national border (#73)
     motorwayRef: 'A3',   // #226: every motorway in this world is the A3

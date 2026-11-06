@@ -45,6 +45,11 @@ test('#593: only Hochrhein has a horizon backdrop', () => {
   assert.equal(REGIONS.ehrendingen.backdrop, undefined);
 });
 
+test('REGIONS: only Hochrhein has a Postauto timetable (#500)', () => {
+  assert.equal(REGIONS.hochrhein.timetable, './data/timetable_hochrhein.json');
+  assert.equal(REGIONS.ehrendingen.timetable, undefined);
+});
+
 test('every region is complete and its string keys exist', () => {
   for (const [id, r] of Object.entries(REGIONS)) {
     assert.equal(r.id, id);

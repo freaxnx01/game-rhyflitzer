@@ -1489,3 +1489,10 @@ test('layoutFromWorld carries fields and defaults to none', () => {
   const f = [{ kind: 'cereal', ring: [[0, 0], [10, 0], [10, 10]], dir: 0, src: 'lwb' }];
   assert.deepEqual(layoutFromWorld({ ...base, fields: f }).fields, f);
 });
+
+test('layoutFromWorld passes busRoutes, empty without them (#500)', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], anchors: {}, bbox: [0, 0, 1, 1] };
+  const br = [{ id: 7, line: '133', pts: [[0, 0], [1, 0]], stops: [] }];
+  assert.deepEqual(layoutFromWorld({ ...base, busRoutes: br }).busRoutes, br);
+  assert.deepEqual(layoutFromWorld(base).busRoutes, []);
+});
