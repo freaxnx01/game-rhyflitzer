@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildGraph } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
-  busTarget, stepBus, busBlinker, obstacleGap } from '../postauto.js';
+  busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText, stopFaceDeg } from '../postauto.js';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 const road = (pts, cls = 'primary', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
@@ -154,4 +154,34 @@ test('stepBus: waits for a player in the lane and drives on when he leaves', () 
   assert.ok(last.s <= 330 - BUS.length / 2 - 1 - PA.gap + 0.5 && last.s > 300);
   const free = run(b, 36070, 60);
   assert.ok(free.some((x) => x.k === 1 && x.phase === 'stand' && x.s === 400));
+});
+
+const ROUTES = new Map([[1, R]]);
+
+test('syncFleet: starts buses for open windows, keeps finished ones until the window closes, caps the count', () => {
+  assert.equal(syncFleet([], [TRIP], ROUTES, 35000).length, 0);
+  const fleet = syncFleet([], [TRIP], ROUTES, 35950);
+  assert.equal(fleet.length, 1);
+  assert.equal(syncFleet(fleet, [TRIP], ROUTES, 35951).length, 1);   // no second bus for the same trip
+  fleet[0].phase = 'done';
+  const kept = syncFleet(fleet, [TRIP], ROUTES, 36250);
+  assert.equal(kept.length, 1); assert.equal(kept[0].phase, 'done');   // not placed again
+  assert.equal(syncFleet(kept, [TRIP], ROUTES, 36300).length, 0);
+  assert.equal(syncFleet([], [TRIP], ROUTES, 35950, { ...PA, maxBuses: 0 }).length, 0);
+  assert.equal(syncFleet([], [{ ...TRIP, route: 99 }], ROUTES, 35950).length, 0);   // unknown route
+});
+
+test('fleetJumped: more than PA.resync beyond the frame time', () => {
+  assert.equal(fleetJumped(100, 100.05, 0.05), false);
+  assert.equal(fleetJumped(100, 130, 0.05), true);
+  assert.equal(fleetJumped(86399, 1, 0.05), true);   // midnight: placed again, harmless
+});
+
+test('busCollider, ledText, stopFaceDeg', () => {
+  const o = busCollider(10, 20, Math.PI / 2, 5);
+  assert.equal(o.hw, BUS.length / 2); assert.equal(o.hd, BUS.width / 2);
+  assert.ok(near(o.c, 0) && near(o.s, 1)); assert.equal(o.h, 5 + BUS.height); assert.equal(o.low, true);
+  assert.deepEqual(ledText(TRIP), { line: '133', dest: 'Ende, Bahnhof' });
+  assert.ok(near(stopFaceDeg(0), 180));          // travel east: local -z (shelter) points south, right of travel
+  assert.ok(near(stopFaceDeg(Math.PI / 2), 90));  // travel south: shelter to the west
 });

@@ -204,3 +204,33 @@ export function obstacleGap(route, s, player, cfg = PA) {
   if (Math.hypot(player.x - lx, player.z - lz) > BUS.width / 2 + player.r + cfg.sideClear) return null;
   return Math.max(0, ahead - BUS.length / 2 - player.r - cfg.gap);
 }
+
+// ---------- the fleet ----------
+// the buses for `now`: running ones kept, finished ones kept (hidden) until their window closes so they are not placed
+// again, a new bus for every trip whose window is open; at most cfg.maxBuses running
+export function syncFleet(buses, trips, routes, now, cfg = PA) {
+  const kept = buses.filter((b) => b.phase !== 'done' || tripTime(b.win, now) !== null), have = new Set(kept.map((b) => b.key));
+  let running = kept.filter((b) => b.phase !== 'done').length;
+  for (const trip of trips) {
+    if (running >= cfg.maxBuses) break;
+    const route = routes.get(trip.route);
+    if (!route || have.has(tripKey(trip))) continue;
+    const b = placeTrip(trip, route, now, cfg);
+    if (!b) continue;
+    kept.push(b); have.add(b.key); running++;
+  }
+  return kept;
+}
+
+// the wall clock moved by more than the frame (tab hidden, pause, ?patime, midnight): place every bus again
+export function fleetJumped(prev, now, dt, cfg = PA) { return Math.abs(now - prev - dt) > cfg.resync; }
+
+// a solid box the player bounces off (A0b); `low` with h: a car on the roof is not pushed (collide() rule)
+export function busCollider(x, z, th, y) {
+  return { x, z, hw: BUS.length / 2, hd: BUS.width / 2, c: Math.cos(th), s: Math.sin(th), low: true, h: y + BUS.height, postauto: true };
+}
+
+export function ledText(trip) { return { line: String(trip.line), dest: trip.to }; }
+
+// busStop(..., faceDeg) turns local -z (the shelter) to world (-sin, -cos): pi - rot puts it right of travel, the board facing the road
+export function stopFaceDeg(rot) { return (Math.PI - rot) * 180 / Math.PI; }
