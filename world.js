@@ -1046,6 +1046,12 @@ export const FIELD_KINDS = Object.freeze({
   orchard: { color: '#5a8a46', role: 'field' }, vine: { color: '#6d8f4a', role: 'field' },
 });
 
+// #688: the ground layers are a few cm apart (fields 0.02 m, roads 0.04 m over the terrain); from the helicopter the depth
+// buffer cannot resolve that and the terrain flickers through. A polygon offset per role keeps the order at any range:
+// terrain, then fields and meadows, then roads (more negative = drawn nearer). The Crash-Platz slab uses -3 (yardGround).
+export const SURFACE_DEPTH_OFFSET = Object.freeze({ field: -1, meadow: -1, road: -2, roadOsm: -2, roadPlain: -2, motorway: -2, gravel: -2 });
+export function depthOffsetFor(role) { return SURFACE_DEPTH_OFFSET[role] ?? null; }
+
 // #506: texture coordinates of a parcel so the stripes of TEX.field (which vary with v) run along `dir`, the parcel's long side.
 export function fieldUV(x, z, cx, cz, dir, tile = 20) {
   const c = Math.cos(dir), s = Math.sin(dir), dx = x - cx, dz = z - cz;
