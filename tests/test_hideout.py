@@ -1407,3 +1407,36 @@ def test_ferris_ride_boards_rides_one_turn_gets_out_and_reset_ends_it(server):
     assert errors == []
     assert after["phase"] == "idle" and after["foot"] is False, after
     assert abs(ang_diff(after["wheelAngle"], before)) < 0.05, (before, after)   # the wheel keeps turning from where the ride left it
+
+
+def test_ferris_room_sign_is_solid_and_keys_3_and_4_fire_fireworks_and_switch_the_light_show(server):
+    """In star room 6 a sign stands inside the portal beside the lane (solid, the lane itself is open); key 3 fires a firework salvo at once
+    (a toast, sparks within ~2 s) and key 4 switches the light show to the next pattern. Both keys do nothing outside the room."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        page.keyboard.press("3"); page.keyboard.press("4")
+        outside = page.evaluate("() => window.__mm.ferrisFx()")
+        into_room(page, 6, "room6")
+        page.wait_for_function("() => window.__mm.ferris() && window.__mm.ferris().built === 6", timeout=120000)
+        fx0 = page.evaluate("() => window.__mm.ferrisFx()")
+        push = page.evaluate("""() => { const s = window.__mm.ferrisFx().sign, th = window.__mm.spoke(6, 0).th, v = [-Math.sin(th), Math.cos(th)];
+          return { lane: window.__mm.pushAt(s.x - v[0] * 14, s.z - v[1] * 14, -600), sign: window.__mm.pushAt(s.x, s.z, -600) }; }""")
+        page.keyboard.press("4")
+        fx1 = page.evaluate("() => window.__mm.ferrisFx()")
+        toast_show = page.inner_text("#toast")
+        page.keyboard.press("3")
+        fx2 = page.evaluate("() => window.__mm.ferrisFx()")
+        toast_fw = page.inner_text("#toast")
+        sparks = 0
+        for _ in range(40):
+            sparks = max(sparks, page.evaluate("() => { window.__mm.rideSim(1); return window.__mm.ferrisFx().sparks; }"))
+            if sparks > 0: break
+            page.wait_for_timeout(100)
+        br.close()
+    assert errors == []
+    assert outside["salvos"] == 0 and outside["shift"] == 0, outside   # not in the room: nothing happens
+    assert fx0["sign"] is not None and fx0["salvos"] == 0
+    assert math.hypot(push["sign"]["dx"], push["sign"]["dz"]) > 0.5 and math.hypot(push["lane"]["dx"], push["lane"]["dz"]) < 0.01, push
+    assert fx1["pattern"] != fx0["pattern"] and fx1["shift"] > 0 and "light show" in toast_show.lower(), (fx0, fx1, toast_show)
+    assert fx2["salvos"] == 1 and "fireworks" in toast_fw.lower() and sparks > 0, (fx2, toast_fw, sparks)

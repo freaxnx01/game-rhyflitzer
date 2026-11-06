@@ -128,3 +128,52 @@ test('ferrisPlacement_BoardingPad_CentredUnderTheHubTurnedToTheRoomFrame', () =>
   assert.equal(roomLayout(6).paths.length, 2);   // the pad is no third path (A8)
   for (const k of [0, 1, 2, 3, 4, 5, 7]) assert.equal(roomLayout(k).ferris, null);   // no other room has a pad
 });
+
+import { manualSalvo, nextPatternShift, FERRIS_KEYS, PATTERN_LEN } from '../ferris.js';
+
+test('burstsLive_WithoutExtraSalvos_IsUnchanged', () => {
+  for (const t of [0.5, 3, 12.2, 31]) assert.deepEqual(burstsLive(t, FERRIS, []), burstsLive(t, FERRIS));
+});
+
+test('manualSalvo_StartsAtThePressAndIsDeterministic', () => {
+  const a = manualSalvo(100.5, FERRIS), b = manualSalvo(100.5, FERRIS), FW = FERRIS.fireworks;
+  assert.deepEqual(a, b); assert.ok(a.length >= FW.perSalvo[0] && a.length <= FW.perSalvo[1]);
+  for (const x of a) { assert.ok(x.t0 >= 100.5 && x.t0 < 102.5, 'bursts start within 2 s of the press'); assert.equal(x.centre.length, 3); }
+  assert.notDeepEqual(manualSalvo(100.5, FERRIS).map(x => x.centre), manualSalvo(107.25, FERRIS).map(x => x.centre), 'a different press makes a different salvo');
+});
+
+test('burstsLive_ExtraSalvo_FiresImmediatelyOnTopOfTheAutomaticOne', () => {
+  const FW = FERRIS.fireworks, t = FW.every * 3 + 8;   // a quiet gap late in a period
+  assert.equal(burstsLive(t, FERRIS).length, 0);
+  const live = burstsLive(t + 1.5, FERRIS, [t]);
+  assert.ok(live.length > 0, 'the manual salvo is alive');
+  for (const b of live) { const age = t + 1.5 - b.t0; assert.ok(age >= 0 && age < FW.life); }
+  assert.equal(burstsLive(t - 0.01, FERRIS, [t]).length, 0, 'nothing before the press');
+  const late = t + 2 + FW.life + 0.1; assert.deepEqual(burstsLive(late, FERRIS, [t]), burstsLive(late, FERRIS), 'gone after the life');
+  const auto = burstsLive(FW.every + 0.8, FERRIS).length;
+  assert.ok(burstsLive(FW.every + 0.8, FERRIS, [FW.every + 0.5]).length >= auto, 'adds to the automatic salvo');
+});
+
+test('nextPatternShift_JumpsToTheStartOfTheNextPattern_AndCycles', () => {
+  let shift = 0, t = 5.3; const seen = [];
+  for (let i = 0; i < PATTERNS.length; i++) {
+    shift = nextPatternShift(t, shift);
+    const p = patternAt(t + shift); assert.equal(p.mix, 0); near(((t + shift) % PATTERN_LEN + PATTERN_LEN) % PATTERN_LEN, 0, 1e-9, 'at the start of a pattern');
+    seen.push(p.a); t += 0.7;
+  }
+  assert.deepEqual(seen, [PATTERNS[1], PATTERNS[2], PATTERNS[3], PATTERNS[0]], 'cycles through the four patterns in order');
+});
+
+test('FERRIS_KEYS_AreTheFreeDigits3And4', () => {
+  assert.deepEqual(FERRIS_KEYS, { fireworks: 'Digit3', show: 'Digit4' });
+});
+
+test('ferrisPlacement_Sign_JustInsideThePortalBesideTheLane_FacingTheWayIn_AndSolid', () => {
+  const S = P.sign, [px, pz] = R6.portal.c, { f, v } = R6.frame, c = FERRIS.sign;
+  near((S.x - px) * f[0] + (S.z - pz) * f[1], c.a, 1e-9, 'a into the room'); near((S.x - px) * v[0] + (S.z - pz) * v[1], c.b, 1e-9, 'b to the side');
+  assert.ok(Math.abs(c.b) > 4 + c.w / 2, 'clear of the 8 m wide drive-in lane'); assert.ok(c.a < 100, 'near the portal, before the wheel');
+  near(S.face, Math.atan2(-f[1], -f[0]), 1e-9, 'front towards the portal');
+  assert.equal(S.colliders.length, 1); near(S.colliders[0].hd, c.w / 2, 1e-9); assert.ok(S.colliders[0].h > ROOM_Y + c.lift);
+  assert.equal(P.colliders.length, 4, 'the sign does not change the foot colliders');
+  assert.ok(R6.colliders.includes(R6.ferris.sign.colliders[0]), 'roomLayout adds the sign collider');
+});

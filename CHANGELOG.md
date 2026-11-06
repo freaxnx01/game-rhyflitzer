@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-06 19:45` In the Ferris wheel room a **sign** by the entrance now lists what you can do, and two new keys work there, in the car or on foot: <kbd>3</kbd> fires a **firework** salvo right away, <kbd>4</kbd> switches the wheel's **light show** to the next pattern.
+
 - `2026-11-06 18:32` **Postautos** now drive **line 133** Frick – Eiken – Sisseln – Stein-Säckingen by the real weekday timetable (Swiss time): they stop at every stop, slow down at junctions, signal, and show line and destination on the display. A Postauto waits if you stand in its way, and you bounce off it if you ram it. Every stop has its sign at the kerb. Timetable data: opentransportdata.swiss.
 
 - `2026-11-06 15:27` You can now **ride the Ferris wheel** in the hideout's star room 6: get out of the car with <kbd>Z</kbd>, walk to the **boarding platform** under the wheel and press <kbd>E</kbd> at the lowest gondola. The wheel carries you **once round** (the view from the top is over 250 m high); at the bottom you get out again, or press <kbd>E</kbd> there to get out early. While you ride the wheel turns faster than usual.
