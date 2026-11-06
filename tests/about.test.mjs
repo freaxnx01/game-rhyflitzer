@@ -31,7 +31,7 @@ test('ABOUT_TABS: the five tabs in order, frozen', () => {
 
 test('aboutTabIndex: arrows wrap, Home/End jump, other keys give null', () => {
   assert.equal(aboutTabIndex('ArrowRight', 0), 1);
-  assert.equal(aboutTabIndex('ArrowRight', 3), 0);
+  assert.equal(aboutTabIndex('ArrowRight', 3), 4);
   assert.equal(aboutTabIndex('ArrowRight', 4), 0);
   assert.equal(aboutTabIndex('ArrowLeft', 1), 0);
   assert.equal(aboutTabIndex('ArrowLeft', 0), 4);
