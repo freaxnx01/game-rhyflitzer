@@ -98,3 +98,63 @@ export function busPose(route, s, cfg = PA) {
   const [x, z] = at(s), a = at(s - 3), b = at(s + 3);
   return { x, z, th: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
+
+// ---------- the timetable (#682 MMT1): calls [uic, arr, dep] in seconds after midnight of the service day ----------
+export const tripKey = (trip) => `${trip.route}:${trip.calls[0][2]}`;
+
+export function tripCalls(trip, route) {
+  const calls = trip.calls.map(([uic, arr, dep]) => ({ uic: String(uic), s: route.stopS.get(String(uic)), arr, dep }));
+  return calls.length >= 2 && calls.every((c) => c.s !== undefined) ? calls : null;
+}
+
+// when the bus is in the world (A5): 90 s before the first departure (or entering at the map edge) to 60 s after the
+// last arrival (or leaving at the map edge)
+export function tripWindow(trip, calls, route, cfg = PA) {
+  const first = calls[0], last = calls[calls.length - 1];
+  return {
+    from: trip.fromOutside ? first.arr - first.s / cfg.edgeSpeed : first.dep - cfg.spawnBefore,
+    to: trip.toOutside ? last.dep + (route.len - last.s) / cfg.edgeSpeed : last.arr + cfg.layover,
+  };
+}
+
+// the trip's own clock for wall time `now`: a trip past midnight runs on the service day (> 86400); null outside its window
+export function tripTime(win, now) {
+  for (const t of [now, now + DAY]) if (t >= win.from && t < win.to) return t;
+  return null;
+}
+
+// a bus where the timetable says it is at `now` (a trip's window opens, or the clock jumped); null outside the window
+export function placeTrip(trip, route, now, cfg = PA) {
+  const calls = tripCalls(trip, route);
+  if (!calls) return null;
+  const win = tripWindow(trip, calls, route, cfg), t = tripTime(win, now);
+  if (t === null) return null;
+  const n = calls.length, base = { key: tripKey(trip), trip, route, calls, win, shift: t - now, leftAt: -Infinity };
+  const stand = (k, until) => ({ ...base, k, phase: 'stand', s: calls[k].s, v: 0, until });
+  const drive = (k, s) => ({ ...base, k, phase: 'drive', s, v: busTarget(route, s, k < n ? calls[k].s : null, null, cfg), until: 0 });
+  if (t < calls[0].arr) return trip.fromOutside ? drive(0, Math.max(0, calls[0].s - (calls[0].arr - t) * cfg.edgeSpeed)) : stand(0, calls[0].dep);
+  for (let k = 0; k < n; k++) {
+    const c = calls[k];
+    if (t < c.arr) { const p = calls[k - 1]; return drive(k, p.s + (c.s - p.s) * clamp((t - p.dep) / ((c.arr - p.dep) || 1), 0, 1)); }
+    if (k < n - 1 && t < c.dep) return stand(k, c.dep);
+  }
+  const last = calls[n - 1];
+  if (!trip.toOutside) return stand(n - 1, last.arr + cfg.layover);
+  return t < last.dep ? stand(n - 1, last.dep) : drive(n, Math.min(route.len, last.s + (t - last.dep) * cfg.edgeSpeed));
+}
+
+// ---------- driving (kinematic, A1) ----------
+// the speed to aim for at s, m/s: route.js's class/bridge/curve speed, 30 km/h at junctions (A4), a stop at the next call,
+// and a stop `gap` metres ahead for the player (A7)
+export function busTarget(route, s, stopS, gap, cfg = PA) {
+  const ahead = (v, q, a) => Math.sqrt(v * v + 2 * a * Math.max(0, q - s));
+  let v = Math.min(targetSpeed(route, s), cfg.topKmh / 3.6);
+  for (const j of route.joints) {
+    if (j.deg < 3 || j.s < s - cfg.junctionAfter) continue;
+    if (j.s - cfg.junctionBefore > s + 100) break;
+    v = Math.min(v, ahead(cfg.junctionKmh / 3.6, j.s - cfg.junctionBefore, cfg.brake));
+  }
+  if (stopS !== null) v = Math.min(v, ahead(0, stopS, cfg.brake));
+  if (gap !== null) v = Math.min(v, ahead(0, s + gap, cfg.hardBrake));
+  return v;
+}
