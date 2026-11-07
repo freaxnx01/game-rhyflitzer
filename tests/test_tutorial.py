@@ -52,6 +52,21 @@ def caps(page):
     return page.evaluate("() => [...document.querySelectorAll('#tuthint kbd')].map(k => k.textContent)")
 
 
+def cross_boxes(page):
+    """#700: where the cross caps actually sit -- the layout is geometry, not text order (#700 review)."""
+    return page.evaluate(
+        """() => [...document.querySelectorAll('#tuthint .caps.cross')].map(c => [...c.querySelectorAll('kbd')]
+            .map(k => { const r = k.getBoundingClientRect(); return [r.x, r.y, r.right, r.bottom]; }))"""
+    )
+
+
+def assert_cross(crosses):
+    """#700: the top cap on its own row, centred over the middle of the three below -- not a scrambled row."""
+    for top, left, down, right in crosses:
+        assert top[3] < left[1] and abs(left[1] - down[1]) < 1 and abs(left[1] - right[1]) < 1, crosses
+        assert abs(top[0] + top[2] - down[0] - down[2]) < 2 and left[0] < down[0] < right[0], crosses
+
+
 def test_first_visit_preselects_the_tutorial_and_a_returning_player_gets_cruise(server):
     with sync_playwright() as p:
         b, page, errors = boot(p, server, "?firstvisit=1")
@@ -77,6 +92,7 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
         page.wait_for_function("() => document.querySelector('#tuthint').textContent !== ''", timeout=T)
         hints = {"drive": hint(page)}
         kbds = {"drive": caps(page)}
+        crosses = {"drive": cross_boxes(page)}
         node = page.evaluate("() => { window.__tutNode = document.querySelector('#tuthint').firstChild; return true; }")
         page.wait_for_timeout(500)
         kept = page.evaluate("() => document.querySelector('#tuthint').firstChild === window.__tutNode")   # not rewritten while the hint stays the same
@@ -131,6 +147,7 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
     assert "checkpoint 1 of 3" in hints["checkpoints"], hints
     assert "Shift" in hints["nitro"] and "J" in hints["jump"] and "WASD" in hints["climb"], hints
     assert kbds["drive"] == ["W", "A", "S", "D", "↑", "←", "↓", "→"] and " or " in hints["drive"], (kbds, hints)   # #700: the two crosses
+    assert_cross(crosses["drive"])   # #700: and both really sit as a cross, not a scrambled row
     assert kbds["climb"] == kbds["drive"] and kbds["nitro"] == ["Shift"] and kbds["checkpoints"] == [], kbds
     assert node and kept, "the banner was rewritten on an unchanged hint"
     assert "stair" in hints["down"] and "mouse" in hints["down"] and "car" in hints["back"], hints
