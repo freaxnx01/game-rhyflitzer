@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-07 22:38` **For testers:** <kbd>?patime=</kbd> and <kbd>?pasp=</kbd> in the URL now **combine** — a link like `?patime=07:30&pasp=10` starts the fleet clock at 07:30 *and* runs it at 10×, instead of silently dropping the time-lapse factor.
 - `2026-11-07 21:27` The **Postautos** now turn their **wheels** with their speed, you can no longer see through the **bus floor** (the Regional Bus too), and a passing Postauto can be heard: an **engine** that gets louder as it comes closer.
 
 ### Changed
@@ -20,6 +21,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-07 22:18` Im F3-Feld **Postauto** lässt sich die Uhrzeit der Postautos setzen, auf **Echtzeit** zurückstellen und im **Zeitraffer** (bis 60-fach) laufen lassen.
 - `2026-11-07 21:27` Die **Postautos** der Linie 133 sind jetzt auf der **Minikarte** und auf der grossen Karte (<kbd>Tab</kbd>) als gelbe Pfeile zu sehen; auf der grossen Karte steht die Liniennummer dabei und die Strecke ist schwach eingezeichnet.
 
 - `2026-11-06 23:06` **For testers:** the debug panel (<kbd>Ctrl</kbd> <kbd>D</kbd> or <kbd>F3</kbd>) now has a **Postauto** section: the **fleet clock** with its source (Swiss time, or the <kbd>?patime=</kbd> you gave), and one **row per bus** with line, destination, speed, next stop and distance to you. Click a row and the **camera follows that bus** while your car waits where you left it; <kbd>Esc</kbd> or **Back to car** brings the camera back, and when the bus leaves the map the follow ends by itself.

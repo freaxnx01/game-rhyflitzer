@@ -62,6 +62,7 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 #debugpa{flex:0 1 auto;min-height:0;overflow-y:auto;margin-top:6px;padding-top:4px;border-top:1px solid #3a404b;white-space:normal}#debugpa[hidden]{display:none}#debugpatitle{color:#7f9a6a}
 #debugpa button{font:inherit;color:#8fd8e8;background:none;border:1px solid #3a404b;padding:1px 6px;cursor:pointer;white-space:pre-wrap;text-align:left}
 #debugparows{display:flex;flex-direction:column;gap:2px;margin-top:2px}#debugparows button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}
+#debugpaset{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px}#debugpaset input,#debugpaset select{font:inherit;color:#8fd8e8;background:#14171d;border:1px solid #3a404b;padding:1px 6px}#debugpaset input{width:5.5ch}#debugpaset input.bad{border-color:#e55}#debugpaset label{font:inherit;color:#8fd8e8}
 #debugpaback{margin-top:4px}
 #debugjump{display:flex;gap:6px;align-items:center;margin-top:6px;white-space:normal}#debugjump[hidden]{display:none}#debugjump select,#debugjump button{font:inherit;color:#8fd8e8;background:#14171d;border:1px solid #3a404b;padding:1px 6px}#debugjump select{min-width:0;flex:1}#debugjump button{cursor:pointer}
 #knockreset{display:block;margin-top:6px;padding:4px 10px;font:inherit;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
@@ -436,7 +437,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
-  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debugpa" hidden><div id="debugpatitle" data-i18n="dbgPaTitle">Postauto</div><div id="debugpaclock"></div><div id="debugparows"></div><button id="debugpaback" type="button" hidden data-i18n="dbgPaBack">Back to car</button></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
+  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debugpa" hidden><div id="debugpatitle" data-i18n="dbgPaTitle">Postauto</div><div id="debugpaclock"></div><div id="debugpaset"><input id="debugpatime" type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" aria-label="Fleet time (HH:MM)" data-i18n-aria="dbgPaTimeLabel"> <button id="debugpasetgo" type="button" data-i18n="dbgPaSet">Set</button> <button id="debugpawall" type="button" data-i18n="dbgPaWall">Real time</button> <label for="debugpaspeed" data-i18n="dbgPaSpeed">Time-lapse</label> <select id="debugpaspeed"></select></div><div id="debugparows"></div><button id="debugpaback" type="button" hidden data-i18n="dbgPaBack">Back to car</button></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
 </div>
 
 <!-- #535 phase 2: the phone controls -- joystick left, gas/brake/handbrake right, the core round buttons above them,
@@ -728,6 +729,7 @@ import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices } from './postautofx.js';   // #709
 import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
+import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
@@ -3857,10 +3859,14 @@ function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS);
 // ---------- #500: Postautos on their lines by the weekday timetable (postauto.js) ----------
 // The timetable loads in the background after the world, never blocking play. The clock is real Europe/Zurich time (A0a),
 // unless ?patime=HH:MM starts it at a fixed time for testers (A11); a jump > PA.resync re-places the fleet (A3).
-const POSTAUTO = { ready: false, routes: new Map(), trips: [], buses: [], meshes: new Map(), colliders: [], group: new THREE.Group(), prev: null, syncT: 0, modelFailed: false, follow: null };
+const POSTAUTO = { ready: false, routes: new Map(), trips: [], buses: [], meshes: new Map(), colliders: [], group: new THREE.Group(), prev: null, syncT: 0, forceSync: false, modelFailed: false, follow: null };
 scene.add(POSTAUTO.group);
-const PATIME = parsePatime(new URLSearchParams(location.search).get('patime')), PATIME_T0 = performance.now();
-function postautoClock() { return PATIME === null ? zurichSeconds(new Date()) : (PATIME + (performance.now() - PATIME_T0) / 1000) % 86400; }
+// #726: the fleet clock -- Europe/Zurich wall time, or set from the panel / ?patime=HH:MM, at a ?pasp= time-lapse factor
+const PA_QUERY = clockFromQuery(new URLSearchParams(location.search).get('patime'), new URLSearchParams(location.search).get('pasp'));
+// patime and pasp combine (setFactor rebases without a jump and keeps `given`)
+let PACLOCK = PA_QUERY.patime !== null ? setTime(wallClock(), PA_QUERY.patime, performance.now()) : wallClock();
+if (PA_QUERY.factor > 1) PACLOCK = setFactor(PACLOCK, PA_QUERY.factor, performance.now(), zurichSeconds(new Date()));
+function postautoClock() { return clockNow(PACLOCK, performance.now(), zurichSeconds(new Date())); }
 async function loadPostauto() {
   if (!L || !REGION.timetable || !L.busRoutes.length) return;
   console.info('Loading the Postauto timetable from', REGION.timetable);
@@ -3928,7 +3934,10 @@ function disposePostautoMesh(g) {
 // steps the fleet on the wall clock, re-syncing every second and re-placing everything after a clock jump
 function stepPostauto(dt) {
   if (!POSTAUTO.ready) return;
-  const now = postautoClock(), jumped = POSTAUTO.prev !== null && fleetJumped(POSTAUTO.prev, now, dt);
+  // #726: buses step in fleet time -- dt scaled by the clock factor, sub-stepped so braking and stop checks see small steps
+  const now = postautoClock(), f = PACLOCK.factor, dtF = dt * f;
+  const jumped = POSTAUTO.forceSync || (POSTAUTO.prev !== null && fleetJumped(POSTAUTO.prev, now, dtF, { resync: jumpLimit(f, PA.resync) }));
+  POSTAUTO.forceSync = false;
   POSTAUTO.syncT -= dt;
   if (jumped || POSTAUTO.syncT <= 0) { POSTAUTO.buses = syncFleet(jumped ? [] : POSTAUTO.buses, POSTAUTO.trips, POSTAUTO.routes, now); POSTAUTO.syncT = 1; }
   POSTAUTO.prev = now;
@@ -3937,11 +3946,12 @@ function stepPostauto(dt) {
   const player = { x: P.x, z: P.z, r: FOOT.on ? WALKER.radius : carRadius() };
   POSTAUTO.colliders = [];
   const alive = new Set();
+  const { n, h } = fleetSteps(dtF);
   for (const b of POSTAUTO.buses) {
     if (b.phase === 'done') continue;
     const level = b.y === undefined || Math.abs(P.y - b.y) < PA.above;   // a player on a bridge above or in the air is not in the way
     const gap = surface && b.phase === 'drive' && level ? obstacleGap(b.route, b.s, player) : null;
-    stepBus(b, now, dt, gap);
+    for (let i = 0; i < n && b.phase !== 'done'; i++) stepBus(b, now - dtF + (i + 1) * h, h, gap);
     if (b.phase === 'done') continue;
     alive.add(b.key);
     if (surface) drawPostauto(b, flashOn, dt);
@@ -5439,7 +5449,7 @@ function drawPostautoPanel() {
   const pa = $('debugpa');
   if (!POSTAUTO.ready) { pa.hidden = true; return; }
   pa.hidden = false;
-  $('debugpaclock').textContent = clockLine(postautoClock(), PATIME, tr);
+  $('debugpaclock').textContent = clockLine(postautoClock(), { given: PACLOCK.given, factor: PACLOCK.factor, wall: PACLOCK.mode === 'wall' }, tr);   // #726
   const buses = POSTAUTO.buses.filter((b) => b.phase !== 'done'), rows = $('debugparows');
   if (!buses.length) {
     const next = nextDeparture(POSTAUTO.trips, postautoClock());
@@ -5474,6 +5484,20 @@ function startFollow(key) {
 function stopFollow() { POSTAUTO.follow = null; $('debugpaback').hidden = true; }
 $('debugparows').addEventListener('click', (e) => { e.stopPropagation(); const b = e.target.closest('button[data-key]'); if (!b) return; startFollow(b.dataset.key); b.blur(); });   // blur: Enter is the horn
 $('debugpaback').addEventListener('click', (e) => { e.stopPropagation(); stopFollow(); e.currentTarget.blur(); });
+// #726: set the fleet clock and a time-lapse factor from the panel. Typing must not reach the window key handler
+// (Enter = horn, arrows steer, F3, Esc pause), so every key event on the field and the select stops at the row.
+const PA_SPEED_SEL = $('debugpaspeed');
+PA_SPEED_SEL.replaceChildren(...PA_SPEEDS.map((f) => Object.assign(document.createElement('option'), { value: String(f), textContent: `${f}×` })));
+PA_SPEED_SEL.value = String(PACLOCK.factor);
+for (const id of ['debugpatime', 'debugpaspeed']) for (const type of ['keydown', 'keyup', 'keypress']) $(id).addEventListener(type, (e) => e.stopPropagation());
+$('debugpaset').addEventListener('click', (e) => e.stopPropagation());   // a click in the row does not copy the panel
+function syncClockUrl() { const u = new URL(location.href), q = clockQuery(PACLOCK); for (const [k, v] of Object.entries(q)) v === null ? u.searchParams.delete(k) : u.searchParams.set(k, v); history.replaceState(null, '', u); }
+function applyPaTime() { const secs = parsePatime($('debugpatime').value.trim()); $('debugpatime').classList.toggle('bad', secs === null); if (secs === null) return;
+  PACLOCK = setTime(PACLOCK, secs, performance.now()); POSTAUTO.forceSync = true; syncClockUrl(); }
+$('debugpasetgo').addEventListener('click', (e) => { applyPaTime(); e.currentTarget.blur(); });
+$('debugpatime').addEventListener('keydown', (e) => { if (e.key === 'Enter') { applyPaTime(); e.currentTarget.blur(); } else if (e.key === 'Escape') e.currentTarget.blur(); });   // Esc does not pause while typing
+$('debugpawall').addEventListener('click', (e) => { PACLOCK = wallClock(); PA_SPEED_SEL.value = '1'; $('debugpatime').classList.remove('bad'); POSTAUTO.forceSync = true; syncClockUrl(); e.currentTarget.blur(); });
+PA_SPEED_SEL.addEventListener('change', (e) => { PACLOCK = setFactor(PACLOCK, parseFactor(e.currentTarget.value), performance.now(), zurichSeconds(new Date())); syncClockUrl(); e.currentTarget.blur(); });
 // building heights (data h, +rh, hsrc) over the buildings within 60 m: own grid, sprite pool and LRU, built like the house numbers (LABELS)
 const DEBUG_H = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [] };
 if (L) for (const it of heightLabels(L.buildings)) { const g = terrainH(it.x, it.z); it.y = g + it.top + 4; it.floor = g + 2; gridAdd(DEBUG_H.grid, it.x, it.z, it.x, it.z, it); }
