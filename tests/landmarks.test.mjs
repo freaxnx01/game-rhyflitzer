@@ -68,7 +68,7 @@ const BUILDINGS_46 = [
 ];
 
 test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47 and the Rhine wrecks of #215 and the Neues Schulhaus and the Volg of #507', () => {
-  assert.equal(LANDMARK_INFO.length, 32);
+  assert.equal(LANDMARK_INFO.length, 33);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
@@ -78,21 +78,26 @@ test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower
     [['Schloss Schönau (Trompeterschloss)', 'Bad Säckingen', 390621357], ['Gallusturm', 'Bad Säckingen', 25835477],
      ['Diebsturm', 'Bad Säckingen', 92036948], ['Bahnhof Bad Säckingen', 'Bad Säckingen', 25049518],
      ['Kursaal', 'Bad Säckingen', 91592556], ['Aqualon Therme', 'Bad Säckingen', 92039355],
+     ['Kirche Bruder Klaus', 'Stein', 407386050],
      ['Bahnhof Eiken', 'Eiken', 199241726],
      ['Bodenackerstrasse 6c', 'Sisseln', 171822634], ['Bodenackerstrasse 10B', 'Sisseln', 171822943],
      ['Gemeindehaus Sisseln', 'Sisseln', 171822808], ['Schulhaus Sisseln', 'Sisseln', 171822721],
      ['Neues Schulhaus Sisseln', 'Sisseln', 282842878], ['Volg Sisseln', 'Sisseln', 171822900]]);
+  assert.deepEqual(LANDMARK_INFO.filter(l => l.gemeinde === 'Stein').map(l => l.name), ['Kirche Bruder Klaus', 'Reformierte Kirche', 'Bahnhof Stein-Säckingen']);
+  assert.equal(LANDMARK_INFO.some(l => l.anchor === 'steinChurch'), false);
   assert.deepEqual(LANDMARK_INFO.filter(l => l.gemeinde === 'Eiken').map(l => l.name), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Güggeli-Foodtruck']);
 });
 
 test('#46 entries resolve from their buildings, sort into their Gemeinde and are found accent-blind', () => {
   const square = (id, x) => ({ id: String(id), ring: [[x, 0], [x + 10, 0], [x + 10, 10], [x, 10]] });
-  const buildings = BUILDINGS_46.map(([, , id], i) => square(id, i * 100));
+  const buildings = [...BUILDINGS_46.map(([, , id], i) => square(id, i * 100)), square(407386050, 900)];   // #715: Kirche Bruder Klaus; the Reformierte Kirche is an at
   const e = landmarkEntries(LANDMARK_INFO, {}, buildings);              // no anchors: the building entries, plus the anchorless fixed points of #125 and #94
   const expected = BUILDINGS_46.map(([n, g]) => [n, g]);
   expected.splice(expected.findIndex(([n]) => n === 'Aqualon Therme') + 1, 0, ['Bergsee', 'Bad Säckingen']);
   expected.splice(expected.findIndex(([n]) => n === 'Bergsee') + 1, 0, ['Rhein-Wracks', 'Bad Säckingen']);
-  expected.splice(expected.findIndex(([n]) => n === 'Rhein-Wracks') + 1, 0, ['Reservoir Hübel', 'Münchwilen']);
+  expected.splice(expected.findIndex(([n]) => n === 'Rhein-Wracks') + 1, 0, ['Kirche Bruder Klaus', 'Stein']);
+  expected.splice(expected.findIndex(([n]) => n === 'Kirche Bruder Klaus') + 1, 0, ['Reformierte Kirche', 'Stein']);
+  expected.splice(expected.findIndex(([n]) => n === 'Reformierte Kirche') + 1, 0, ['Reservoir Hübel', 'Münchwilen']);
   expected.splice(expected.findIndex(([n]) => n === 'Bahnhof Eiken') + 1, 0, ['Südspange Sisslerfeld', 'Eiken']);
   assert.deepEqual(e.map(x => [x.n, x.g]), expected);
   assert.deepEqual(e.find(x => x.n === 'Kursaal'), { n: 'Kursaal', g: 'Bad Säckingen', x: 405, z: 5 });
@@ -124,11 +129,11 @@ test('the Fridolinsbrücke jumps to the Swiss approach, east of the deck end (#7
 test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found by "landi"', () => {
   const anchors = { dsmChimney: { x: 1065.2, z: 345.1 }, stationSisseln: { x: 1854.2, z: 685.8 }, landiTurm: { x: 1832.7, z: 627.7 } };
   const e = landmarkEntries(LANDMARK_INFO, anchors, [{ id: '199241726', ring: [[2600, 900], [2610, 900], [2610, 910], [2600, 910]] }]);
-  assert.deepEqual(e.map(x => x.n), ['Bergsee', 'Rhein-Wracks', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
+  assert.deepEqual(e.map(x => x.n), ['Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld']);
   assert.deepEqual(e.find(x => x.n === 'LANDI-Turm'), { n: 'LANDI-Turm', g: 'Eiken', x: 1832.7, z: 627.7 });
   assert.deepEqual(filterLandmarks(e, 'landi', null).map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(filterLandmarks(e, 'LANDI', 'Eiken').map(x => x.n), ['LANDI-Turm']);
-  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Bergsee', 'Rhein-Wracks', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
+  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld']);   // anchor missing: skipped
 });
 
 test('#103 Güggeli-Foodtruck resolves from its anchor, sits last in Eiken and is found by "gugg", "food" and "GÜGGELI"', () => {
@@ -280,6 +285,6 @@ test('landmarkEntries_LookPoint_IsPassedThrough (#102)', () => {
 test('#47: Flugplatz Schupfart sits in its own Gemeinde, between Münchwilen and Eiken', () => {
   const e = landmarkEntries(LANDMARK_INFO, { flugplatzSchupfart: { x: -1219.4, z: 4633.6 } }, []);
   assert.deepEqual(e.find(x => x.n === 'Flugplatz Schupfart'), { n: 'Flugplatz Schupfart', g: 'Schupfart', x: -1219.4, z: 4633.6 });
-  assert.deepEqual(gemeindenOf(e, GEMEINDEN), ['Bad Säckingen', 'Münchwilen', 'Schupfart', 'Eiken']);
+  assert.deepEqual(gemeindenOf(e, GEMEINDEN), ['Bad Säckingen', 'Stein', 'Münchwilen', 'Schupfart', 'Eiken']);   // #715: the Reformierte Kirche lists Stein in any world
   assert.deepEqual(filterLandmarks(e, 'flugplatz', null).map(x => x.n), ['Flugplatz Schupfart']);
 });

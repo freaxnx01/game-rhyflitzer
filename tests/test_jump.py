@@ -35,7 +35,7 @@ WORLD507 = WORLD.exists() and "sisseln" in json.loads(WORLD.read_text(encoding="
 CHIPS = ["All", "Bad Säckingen", "Stein", "Münchwilen"] + (["Schupfart"] if WORLD47 else []) + ["Eiken", "Sisseln"]
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
     + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Crash yard"]
-ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) are fixed points, listed in any world
+ALL_ROWS = (25 if WORLD46 else 18) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) are fixed points, listed in any world; #715: Kirche Stein became the two churches of Stein
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else []) + (["Neues Schulhaus Sisseln", "Volg Sisseln"] if WORLD507 else [])
 
@@ -146,11 +146,13 @@ def test_arrows_move_the_selection_and_click_jumps(server):
         page.keyboard.press("KeyJ")
         page.click('#jumpchips button[data-g="Stein"]')
         sel = lambda: page.text_content("#jumplist li.sel")
-        assert sel().startswith("Kirche Stein")
+        assert sel().startswith("Kirche Bruder Klaus")
+        page.keyboard.press("ArrowDown")
+        assert sel().startswith("Reformierte Kirche")
         page.keyboard.press("ArrowDown")
         assert sel().startswith("Bahnhof Stein-Säckingen")
         page.keyboard.press("ArrowDown"); page.keyboard.press("ArrowDown")   # Random spot, then wrap
-        assert sel().startswith("Kirche Stein")
+        assert sel().startswith("Kirche Bruder Klaus")
         page.keyboard.press("ArrowUp")
         assert sel().startswith("Random spot")
         page.click("#jumplist li:has-text('Bahnhof Stein-Säckingen')")
@@ -552,7 +554,7 @@ def test_enterable_chip_lists_the_register_and_composes_with_the_gemeinde_chip(s
         page.click("#jumpchips button[data-enterable]")
         listed = rows(page)
         assert sorted(r["n"] for r in listed) == ["Bodenackerstrasse 6c", "Plattform Sisslerfeld", "Reservoir H\u00fcbel"], listed
-        assert [r["n"] for r in listed if r.get("soon")] == ["Plattform Sisslerfeld"], listed   # #411 made the 6c enterable (ready); the secret Hübel never shows "soon"
+        assert [r["n"] for r in listed if r.get("soon")] == [], listed   # no dimmed row: the 6c (#411) and the Plattform (#413: the stair is open, ENTERABLE_INFO ready) are ready; the secret Hübel never shows "soon" (this assert was stale from #411 until #715's run caught it)
         page.click('#jumpchips button[data-g="Sisseln"]')
         assert names(page) == ["Bodenackerstrasse 6c"]
         page.click("#jumpchips button[data-enterable]")

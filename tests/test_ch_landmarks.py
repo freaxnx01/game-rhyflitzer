@@ -68,14 +68,62 @@ def test_chapel_model_stands_on_its_footprint_and_terrain(server):
 
 @needs_world
 def test_flat_osm_box_is_replaced(server):
-    """The flat OSM box 171822707 draws nothing (the model stands in its place) and keeps its collider as its ring."""
+    """The flat OSM boxes 171822707 and 407386050 draw nothing (the models stand in their place) and keep their colliders as their rings."""
     with sync_playwright() as p:
         b, page = open_world(p, server)
         try:
             replaced = page.evaluate("() => window.__mm.counts.chLandmarks.replaced")
         finally:
             b.close()
-    assert replaced == [171822707]
+    assert sorted(replaced) == [171822707, 407386050]
+
+
+CHURCHES = {"kirche-bruder-klaus-stein": (-1201.67, 696.04), "reformierte-kirche-stein": (-1177.97, 795.86)}   # rect centres
+REFORMED_RECT = [-1177.97, 795.86, 34.75, 26.71, -2.7343]
+
+
+@needs_world
+def test_churches_of_stein_stand_on_their_footprints(server):
+    """#715: both models sit over their OSM footprints (box centre within 6 m of the rect centre: the towers pull the box) and on the terrain."""
+    with sync_playwright() as p:
+        b, page = open_world(p, server)
+        try:
+            page.wait_for_function("() => ['kirche-bruder-klaus-stein', 'reformierte-kirche-stein'].every(id => (window.__mm.counts.chLandmarks?.placed || []).includes(id))", timeout=120000)
+            out = {}
+            for lm in CHURCHES:
+                box = page.evaluate(f"() => window.__mm.landmarkBox('{lm}')")
+                cx, cz = (box["min"][0] + box["max"][0]) / 2, (box["min"][2] + box["max"][2]) / 2
+                out[lm] = (cx, cz, box, page.evaluate(f"() => window.__mm.ground({cx}, {cz})"))
+        finally:
+            b.close()
+    for lm, (cx, cz, box, ground) in out.items():
+        assert math.hypot(cx - CHURCHES[lm][0], cz - CHURCHES[lm][1]) < 6, (lm, cx, cz)
+        assert 14 <= box["max"][1] - ground <= 22, (lm, box, ground)   # towers: 17.4 m (Bruder Klaus) and 16.2 m (reformed) measuredHeight
+        assert box["min"][1] <= ground + 0.5, (lm, box, ground)
+
+
+@needs_world
+def test_car_stops_at_the_reformed_church(server):
+    """#715: the reformed church has no OSM building in the world file; its own rect keeps it solid."""
+    cx, cz, w, d, rot = REFORMED_RECT
+    c, s = math.cos(rot), math.sin(rot)
+    ring = [[cx + c * sx * w / 2 - s * sz * d / 2, cz + s * sx * w / 2 + c * sz * d / 2] for sx, sz in [(-1, -1), (1, -1), (1, 1), (-1, 1)]]
+    start_x, start_z = cx - c * (w / 2 + 8), cz - s * (w / 2 + 8)   # 8 m outside the rect along its long axis, driving at it
+    with sync_playwright() as p:
+        b, page = open_world(p, server)
+        try:
+            r = page.evaluate(f"() => window.__mm.sim({start_x}, {start_z}, {rot}, 0, 4)")
+        finally:
+            b.close()
+    assert r["speed"] < 1, r
+    assert not _inside(ring, r["x"], r["z"]), r
+
+
+def test_placeholder_church_is_gone():
+    """#715: the hand-made 'Kirche Stein' at (-812.8, 406.4) is not built any more."""
+    root = Path(__file__).parents[1]
+    assert "steinChurch" not in json.loads((root / "pipeline" / "anchors.json").read_text(encoding="utf-8"))["landmarks"]
+    assert "steinChurch" not in (root / "index.html").read_text(encoding="utf-8")
 
 
 @needs_world
