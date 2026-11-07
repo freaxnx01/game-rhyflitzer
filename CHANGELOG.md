@@ -55,6 +55,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-07 21:06` A **Postauto's line and destination** now sit in the bus's own **display** — front, side, and at the rear the line number — instead of floating **in front of the windscreen** on top of the old baked „**811 Sisseln**". The baked text is gone from every Postauto; your own bus keeps its display exactly as it was.
+
 - `2026-11-06 17:51` From the **helicopter** the meadow no longer **flickers through the fields**; roads still lie on top of them.
 - `2026-11-06 16:43` The autopilot now drives on the **right-hand side** of the road instead of in the middle; on one-way streets, ramps and roundabouts it keeps to the middle.
 - `2026-11-06 15:37` The autopilot now signals **right** when it leaves a roundabout, as in Swiss traffic: no signal on the way in, and on the way out the blinker goes on from the previous exit (for the first exit from the entry) until just after the exit. Before, it signalled left on almost every exit.
