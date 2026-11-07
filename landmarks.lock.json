@@ -30,5 +30,42 @@
     ],
     "zmax": 324.62,
     "resolved_at": "2026-11-03T16:27:21+00:00"
+  },
+  "kirche-bruder-klaus-stein": {
+    "mode": "block",
+    "output": "assets/landmarks/kirche-bruder-klaus-stein.glb",
+    "tiles": [
+      {
+        "item": "swissbuildings3d_3_0_2024_1049-33",
+        "asset": "swissbuildings3d_3_0_2024_1049-33_2056_5728.citygml.zip",
+        "multihash": "1220BFC4FABACF19FAF316B5532994F9D13086F1DBB281A7E721A7653BE5AA94A255"
+      }
+    ],
+    "gml_ids": [
+      "ID_246DE8A5-5FA8-469B-92F4-9646178E7294"
+    ],
+    "zmax": 316.46,
+    "resolved_at": "2026-11-07T18:19:53+00:00"
+  },
+  "reformierte-kirche-stein": {
+    "mode": "block",
+    "output": "assets/landmarks/reformierte-kirche-stein.glb",
+    "tiles": [
+      {
+        "item": "swissbuildings3d_3_0_2024_1049-33",
+        "asset": "swissbuildings3d_3_0_2024_1049-33_2056_5728.citygml.zip",
+        "multihash": "1220BFC4FABACF19FAF316B5532994F9D13086F1DBB281A7E721A7653BE5AA94A255"
+      },
+      {
+        "item": "swissbuildings3d_3_0_2024_1069-11",
+        "asset": "swissbuildings3d_3_0_2024_1069-11_2056_5728.citygml.zip",
+        "multihash": "1220F4B5A6795CA9569F0442CD068F4A3FF70FC11FA672665E55628D580FEB128494"
+      }
+    ],
+    "gml_ids": [
+      "ID_4A07ABA9-3943-4163-86E3-5C93CCECB54C"
+    ],
+    "zmax": 315.46,
+    "resolved_at": "2026-11-07T18:21:00+00:00"
   }
 }
