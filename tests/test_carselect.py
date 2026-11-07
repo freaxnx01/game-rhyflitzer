@@ -473,3 +473,31 @@ def test_cancelled_swap_restores_the_chair(server):
     assert chair["on"] is False and chair["visible"] is False, chair
     assert stored == {"id": "mini", "paint": "navy"}, stored     # the chair flag is gone, exactly as the swap started
     assert errors == [], errors
+
+
+def test_vehicle_change_while_flying_shows_the_car_not_the_heli(server):
+    """#693: in flight, Change vehicle must show the car on the turntable; the heli is hidden while it is open
+    and visible again after Back (pause still open) and after Drive on (still flying)."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.click("#startbtn", timeout=T)
+        page.keyboard.press("KeyF")
+        page.wait_for_function("() => window.__mm.fly().on && window.__mm.fly().heliVisible", timeout=T)
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=T)
+        open_swap(page)
+        wait_frames(page)
+        open_state = page.evaluate("() => ({ heli: window.__mm.fly().heliVisible, car: window.__mm.carsel().carVisible })")
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => !window.__mm.carsel().open && window.__mm.pause().on", timeout=T)
+        back_state = page.evaluate("() => ({ heli: window.__mm.fly().heliVisible, flying: window.__mm.fly().on })")
+        open_swap(page)
+        page.evaluate(CLICK, "#csrace")
+        page.wait_for_function("() => !window.__mm.carsel().open && !window.__mm.pause().on", timeout=T)
+        wait_frames(page)
+        drive_state = page.evaluate("() => ({ heli: window.__mm.fly().heliVisible, flying: window.__mm.fly().on })")
+        b.close()
+    assert open_state == {"heli": False, "car": True}
+    assert back_state == {"heli": True, "flying": True}
+    assert drive_state == {"heli": True, "flying": True}
+    assert errors == []

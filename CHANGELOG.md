@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-07 22:23` **Change vehicle while flying** now shows your **car** on the turntable instead of the helicopter. You are still in the air afterwards, and the helicopter is back as soon as you drive on or go back.
+
 - `2026-11-07 21:27` The **Postautos** now turn their **wheels** with their speed, you can no longer see through the **bus floor** (the Regional Bus too), and a passing Postauto can be heard: an **engine** that gets louder as it comes closer.
 
 ### Changed
