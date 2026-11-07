@@ -2664,7 +2664,7 @@ const VEHICLES = {
   // little damage in a crash); 6.08 m wheelbase, 2.7 m front overhang; the whole length collides (capsule, see collide);
   // rear diesel, left-hand drive, a deep G major horn chord (bus.js)
   // #478: the real model (assets/bus.glb) is built by buildBus once loaded; until then buildBus draws the primitives (fallback: itself)
-  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', doubleSided: ['Plain_7'] },   // #709: the underbody shell faces down only, so the floor is see-through from inside unless Plain_7 is drawn from both sides scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
+  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', doubleSided: ['Plain_7'] }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // #709: doubleSided -- the underbody shell faces down only, so the floor is see-through from inside unless Plain_7 is drawn from both sides; the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
     blinkers: [[6.15, 0.62, 1.16], [-5.92, 1.2, 1.16]],   // flush with the nose and the tail (the boxes are 0.12 m deep)
     drive: { top: 27.8, topNitro: 34, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
     mass: 8, engineAt: [-5.6, 1.4, 0], collision: { shape: 'capsule', r: 1.3, hl: 4.8 },
@@ -3910,6 +3910,12 @@ function paintBusDisplay(root, text) {
 // No wireWheels/addBlinkers: those write the player's globals (BLINK, GLTF_LAMPS), a second bus must not (spec A8).
 function buildPostautoMesh(trip) {
   const g = new THREE.Group(), root = GLTF_CARS.bus.scene.clone(true); g.rotation.order = 'YZX'; g.add(root);
+  g.userData.wheelRolls = wheelPlan(wheelNames(root)).map(({ name }) => {   // #709: the same roll group wireWheels makes, on this clone only -- no global is touched
+    const node = root.getObjectByName(name), parent = node.parent, roll = new THREE.Group();
+    roll.position.copy(node.position); node.position.set(0, 0, 0); parent.add(roll); roll.add(node);
+    return roll;
+  });
+  g.userData.spin = 0;
   const text = ledText(trip);
   console.info(`Painting line ${text.line} to ${text.dest} onto the bus display`);
   if (paintBusDisplay(root, text) === 0) console.warn('Postauto model has no Display material: no line/destination shown');
@@ -3944,12 +3950,12 @@ function stepPostauto(dt) {
     stepBus(b, now, dt, gap);
     if (b.phase === 'done') continue;
     alive.add(b.key);
-    if (surface) drawPostauto(b, flashOn);
+    if (surface) drawPostauto(b, flashOn, dt);
   }
   for (const [key, g] of POSTAUTO.meshes) if (!alive.has(key)) { POSTAUTO.group.remove(g); disposePostautoMesh(g); POSTAUTO.meshes.delete(key); }
   POSTAUTO.group.visible = surface;
 }
-function drawPostauto(b, flashOn) {
+function drawPostauto(b, flashOn, dt) {
   const p = busPose(b.route, b.s), c = Math.cos(p.th), s = Math.sin(p.th), half = BUS.wheelbase / 2;
   const yF = groundH(p.x + c * half, p.z + s * half, (b.y ?? 0) + 1), yR = groundH(p.x - c * half, p.z - s * half, (b.y ?? 0) + 1);
   b.y = (yF + yR) / 2;
@@ -3963,6 +3969,8 @@ function drawPostauto(b, flashOn) {
   g.position.set(p.x, b.y, p.z); g.rotation.set(0, -p.th, Math.atan2(yF - yR, BUS.wheelbase));   // pitched like the car: the nose up on an uphill road
   const side = busBlinker(b, postautoClock());
   g.userData.blink.left.visible = flashOn && side === 'left'; g.userData.blink.right.visible = flashOn && side === 'right';
+  g.userData.spin = stepWheelSpin(g.userData.spin, b.v, VEHICLES.bus.wheelR, dt);   // #709: like drawWheels; a standing bus (v 0) keeps its wheels still
+  for (const roll of g.userData.wheelRolls) roll.rotation.z = -g.userData.spin;
 }
 function autoGoals(dest) { if (dest.street) return dest.goals; const s = snapToGraph(AUTOP.graph, dest.x, dest.z, 400); return s ? [s] : []; }
 function planGoals(goals, fromX, fromZ) { return findRoute(AUTOP.graph, snapToGraph(AUTOP.graph, fromX, fromZ), goals); }   // #106: the one A* call, shared with the Navi
@@ -4451,8 +4459,10 @@ window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, don
 window.__mm.blitzSetLeft = (s) => { R.left = s; };
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
 window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'), follow: POSTAUTO.follow,   // #500: read-only, for the test; #707: the followed bus key and the panel's DOM state
+  floorSided: gltfState('bus') === 'ready' ? (GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null) : null,   // #709: THREE.DoubleSide = 2
+  voices: SFX.state().busVoices,
   panel: { rows: document.querySelectorAll('#debugparows button').length, clock: $('debugpaclock').textContent },
-  buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null }; }) });
+  buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null, wheelSpin: POSTAUTO.meshes.get(b.key)?.userData.spin ?? null }; }) });
 window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the baked Display material must stay shared and untouched
   const cached = GLTF_CARS.bus?.mats?.all.find((m) => m.name === 'Display') ?? null;
   return { cachedMapWidth: cached?.map?.image?.width ?? null,
