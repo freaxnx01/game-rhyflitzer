@@ -70,3 +70,15 @@ def test_coupe_model_takes_the_chosen_paint(server):
         b.close()
     assert factory == "#ff7a1a" and chosen == "#7fd1ff", (factory, chosen)
     assert not errors, errors
+
+
+def test_coupe_right_wheels_face_out_like_the_left_ones(server):
+    """The original mirrors the right wheels; baked as they were, their tyres and rims turned inside out (culled from outside,
+    so the car seemed to run on bare rims). Every wheel shows the same share of faces turned outwards."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        load_coupe(page)
+        facing = page.evaluate("() => window.__mm.wheelFacing()")
+        b.close()
+    assert len(facing) == 4 and min(facing) > 0.8 and max(facing) - min(facing) < 0.02, facing
+    assert not errors, errors
