@@ -44,3 +44,11 @@ test('clockFromQuery_ParsesPatimeAndFactor', () => {
   assert.deepEqual(clockFromQuery(null, '30'), { patime: null, factor: 30 });
   assert.deepEqual(clockFromQuery('25:99', '7'), { patime: null, factor: 1 });
 });
+test('clockFromQuery_ThenInit_CombinesPatimeAndFactor', () => {
+  const q = clockFromQuery('07:30', '10');
+  let c = q.patime !== null ? setTime(wallClock(), q.patime, 1000) : wallClock();
+  if (q.factor > 1) c = setFactor(c, q.factor, 1000, 0);
+  assert.equal(c.mode, 'set'); assert.equal(c.given, 27000); assert.equal(c.factor, 10);
+  assert.equal(clockNow(c, 1000, 0), 27000);
+  assert.equal(clockNow(c, 2000, 0), 27010);
+});
