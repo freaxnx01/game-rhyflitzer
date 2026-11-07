@@ -47,6 +47,11 @@ def hint(page):
     return page.text_content("#tuthint")
 
 
+def caps(page):
+    """#700: the keys in the banner as key graphics -- one <kbd> per key."""
+    return page.evaluate("() => [...document.querySelectorAll('#tuthint kbd')].map(k => k.textContent)")
+
+
 def test_first_visit_preselects_the_tutorial_and_a_returning_player_gets_cruise(server):
     with sync_playwright() as p:
         b, page, errors = boot(p, server, "?firstvisit=1")
@@ -71,9 +76,14 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
         begin = page.evaluate("() => ({ ...window.__mm.car(), road: window.__mm.roadDist(), line: document.querySelector('#tl .mode').textContent, pips: document.querySelector('#pips').children.length, clock: getComputedStyle(document.querySelector('#tr')).display })")
         page.wait_for_function("() => document.querySelector('#tuthint').textContent !== ''", timeout=T)
         hints = {"drive": hint(page)}
+        kbds = {"drive": caps(page)}
+        node = page.evaluate("() => { window.__tutNode = document.querySelector('#tuthint').firstChild; return true; }")
+        page.wait_for_timeout(500)
+        kept = page.evaluate("() => document.querySelector('#tuthint').firstChild === window.__tutNode")   # not rewritten while the hint stays the same
         hold_until(page, ["KeyW", "KeyD"], "brake")
         hold_until(page, ["KeyS"], "checkpoints")
         hints["checkpoints"] = hint(page)
+        kbds["checkpoints"] = caps(page)
         roads = []
         for k, cp in enumerate(defs["cps"], start=1):
             page.evaluate("([x, z]) => window.__mm.place(x, z, 0)", [cp["x"], cp["z"]])
@@ -82,6 +92,7 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
                 page.wait_for_function("(k) => window.__mm.toast().text === `Checkpoint ${k}/3`", arg=k, timeout=T)
         wait_step(page, "nitro")
         hints["nitro"] = hint(page)
+        kbds["nitro"] = caps(page)
         hold_until(page, ["ShiftLeft", "KeyW"], "jump")
         hints["jump"] = hint(page)
         page.keyboard.press("KeyJ")
@@ -93,6 +104,7 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
         wait_step(page, "climb")
         out = page.evaluate("() => window.__mm.foot()")
         hints["climb"] = hint(page)
+        kbds["climb"] = caps(page)
         plat = page.evaluate("() => window.__mm.plattform()")
         u = 9.84 / (2 * math.sqrt(3)) - 1   # 1 m inside the deck edge, as in test_plattform_stair.py
         x, z = plat["x"] + u * math.cos(plat["facing"]), plat["z"] + u * math.sin(plat["facing"])
@@ -118,6 +130,9 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
     assert "WASD" in hints["drive"] and "20 km/h" in hints["drive"], hints
     assert "checkpoint 1 of 3" in hints["checkpoints"], hints
     assert "Shift" in hints["nitro"] and "J" in hints["jump"] and "WASD" in hints["climb"], hints
+    assert kbds["drive"] == ["W", "A", "S", "D", "↑", "←", "↓", "→"] and " or " in hints["drive"], (kbds, hints)   # #700: the two crosses
+    assert kbds["climb"] == kbds["drive"] and kbds["nitro"] == ["Shift"] and kbds["checkpoints"] == [], kbds
+    assert node and kept, "the banner was rewritten on an unchanged hint"
     assert "stair" in hints["down"] and "mouse" in hints["down"] and "car" in hints["back"], hints
     assert math.hypot(top["x"] - plat["x"], top["z"] - plat["z"]) <= 2.41, top   # the arrow on the deck leads round the rail to the stair (2.4 m from the centre), not over the parapet at the car
     assert end["step"] == "done" and end["done"] is True and end["flag"] == "1", end
@@ -153,8 +168,10 @@ def test_on_a_phone_the_hint_speaks_touch_and_german(server):
         page.wait_for_function("() => document.querySelector('#overlay').hidden", timeout=T)
         page.wait_for_function("() => document.querySelector('#tuthint').textContent !== ''", timeout=T)
         got = page.evaluate("""async () => ({ hint: document.querySelector('#tuthint').textContent, pips: document.querySelector('#pips').children.length,
+            kbd: document.querySelectorAll('#tuthint kbd').length,
             steps: (await import('./tutorial.js')).stepsFor(true).length - 1 })""")
         b.close()
     assert got["hint"].startswith("Fahr los mit ") and "WASD" not in got["hint"], got
+    assert got["kbd"] == 0, got   # touch hints stay text (#700)
     assert got["pips"] == got["steps"], got
     assert errors == []
