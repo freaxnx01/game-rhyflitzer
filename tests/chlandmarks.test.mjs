@@ -39,6 +39,25 @@ test('REPLACES_Chapel_isWay171822707InHochrhein', () => {
   assert.deepEqual(REPLACES['fridolinskapelle-sisseln'], { osm: 171822707, region: 'hochrhein' });
 });
 
+const INDEX3 = { origin: LM, landmarks: { ...INDEX.landmarks,
+  'kirche-bruder-klaus-stein': { file: 'kirche-bruder-klaus-stein.glb', bounds: { min: [-1441.34, 14.68, 883.74], max: [-1399.91, 36.46, 929.24] } },
+  'reformierte-kirche-stein': { file: 'reformierte-kirche-stein.glb', bounds: { min: [-1410.64, 15.63, 990.39], max: [-1376.15, 35.46, 1022.79] } } } };
+
+test('REPLACES_ChurchesOfStein_BruderKlausReplacesItsBox_ReformedHasItsOwnRect', () => {
+  assert.deepEqual(REPLACES['kirche-bruder-klaus-stein'], { osm: 407386050, region: 'hochrhein' });
+  assert.deepEqual(REPLACES['reformierte-kirche-stein'], { osm: null, region: 'hochrhein', rect: [-1177.97, 795.86, 34.75, 26.71, -2.7343] });
+});
+
+test('chLandmarksFor_hochrhein_placesAllThree_andPassesTheRectThrough', () => {
+  const placed = chLandmarksFor(INDEX3, 'hochrhein', WORLD, 284);
+  assert.deepEqual(placed.map(c => c.id), ['fridolinskapelle-sisseln', 'kirche-bruder-klaus-stein', 'reformierte-kirche-stein']);
+  const ref = placed.find(c => c.id === 'reformierte-kirche-stein');
+  assert.equal(ref.osm, null);
+  assert.deepEqual(ref.rect, [-1177.97, 795.86, 34.75, 26.71, -2.7343]);
+  assert.ok(Math.abs(ref.top - (35.46 - 4)) < 1e-9, ref.top);
+  assert.equal('rect' in placed.find(c => c.id === 'kirche-bruder-klaus-stein'), false);
+});
+
 test('roofOrWall_byNormal_roofFacesUpWallsStand', () => {
   assert.equal(roofOrWall(0.9), 'roof');
   assert.equal(roofOrWall(0.4), 'roof');
