@@ -8,14 +8,21 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-11-07 22:38` **For testers:** <kbd>?patime=</kbd> and <kbd>?pasp=</kbd> in the URL now **combine** — a link like `?patime=07:30&pasp=10` starts the fleet clock at 07:30 *and* runs it at 10×, instead of silently dropping the time-lapse factor.
+- `2026-11-07 21:27` The **Postautos** now turn their **wheels** with their speed, you can no longer see through the **bus floor** (the Regional Bus too), and a passing Postauto can be heard: an **engine** that gets louder as it comes closer.
+
 ### Changed
 
 - `2026-11-07 21:24` The **Postauto stops** are now Swiss: a steel-frame sign with the yellow **Haltestellentafel**, the stop's name and a row for each line and direction (with a little bus, no brand), a **timetable frame** at eye height, the glass shelter behind the pole, and the yellow **zigzag** on the road along the kerb. Pole and shelter stand beside the kerb, clear of the standing Postauto and off the road — also at the bends at Industriezone Rütti and the two stations, where the bus used to stand through the shelter.
+- `2026-11-07 20:17` The **churches of Stein** now stand where they really are, with their real shape and towers (swisstopo 3D buildings): the **Kirche Bruder Klaus** on the Schulstrasse and the **Reformierte Kirche** on the Gartenstrasse. The made-up church on the field by the Münchwilerstrasse is gone; <kbd>J</kbd> → Stein lists both churches.
 - `2026-11-07 19:48` **Postautos** no longer cut bends at sharp angles: like a real 12 m bus they now **swing wide** through corners and junctions on a smooth curve. Stops are unchanged.
 
 ### Added
 
-- `2026-11-07 18:47` The **Hamburg Speicherstadt**, the world's largest warehouse district and a UNESCO World Heritage site, has taken **star room 5** of the hideout (the third room on the left of the lift): a straight **Fleet** (canal) 120 m long, **six red-brick warehouses** (three on each bank, five storeys under gabled roofs, their window bands and a hoist bay facing the water) and **two bridges** that cross the canal in the alleys between the blocks. Drive both quays, cross both bridges and round the canal's ends: the kerbs keep the car out of the water, the parapets keep it on the deck, and the helicopter (<kbd>F</kbd>) flies over the roofs. The whole block is life size and built in the game from simple shapes — not a downloaded model.
+- `2026-11-07 22:18` Im F3-Feld **Postauto** lässt sich die Uhrzeit der Postautos setzen, auf **Echtzeit** zurückstellen und im **Zeitraffer** (bis 60-fach) laufen lassen.
+- `2026-11-07 21:27` Die **Postautos** der Linie 133 sind jetzt auf der **Minikarte** und auf der grossen Karte (<kbd>Tab</kbd>) als gelbe Pfeile zu sehen; auf der grossen Karte steht die Liniennummer dabei und die Strecke ist schwach eingezeichnet.
 
 - `2026-11-06 23:06` **For testers:** the debug panel (<kbd>Ctrl</kbd> <kbd>D</kbd> or <kbd>F3</kbd>) now has a **Postauto** section: the **fleet clock** with its source (Swiss time, or the <kbd>?patime=</kbd> you gave), and one **row per bus** with line, destination, speed, next stop and distance to you. Click a row and the **camera follows that bus** while your car waits where you left it; <kbd>Esc</kbd> or **Back to car** brings the camera back, and when the bus leaves the map the follow ends by itself.
 
@@ -60,8 +67,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-07 21:21` The **Rhy Coupé's** right wheels have their **tyres** back: they were turned inside out, so from the outside the car seemed to run on bare rims.
 - `2026-11-07 21:06` A **Postauto's line and destination** now sit in the bus's own **display** — front, side, and at the rear the line number — instead of floating **in front of the windscreen** on top of the old baked „**811 Sisseln**". The baked text is gone from every Postauto; your own bus keeps its display exactly as it was.
-
 - `2026-11-06 17:51` From the **helicopter** the meadow no longer **flickers through the fields**; roads still lie on top of them.
 - `2026-11-06 16:43` The autopilot now drives on the **right-hand side** of the road instead of in the middle; on one-way streets, ramps and roundabouts it keeps to the middle.
 - `2026-11-06 15:37` The autopilot now signals **right** when it leaves a roundabout, as in Swiss traffic: no signal on the way in, and on the way out the blinker goes on from the previous exit (for the first exit from the entry) until just after the exit. Before, it signalled left on almost every exit.

@@ -5,6 +5,10 @@
 // which OSM building each landmark replaces, and where; the export's index.json knows nothing of OSM
 export const REPLACES = {
   'fridolinskapelle-sisseln': { osm: 171822707, region: 'hochrhein' },   // building=chapel, Schulhausstrasse 6.1, Sisseln
+  'kirche-bruder-klaus-stein': { osm: 407386050, region: 'hochrhein' },  // #715: Kath. Kirche Hl. Bruder Klaus, Schulstrasse 5, Stein
+  // #715: Reformierte Kirche, Gartenstrasse 9, Stein (w88836292): not in the world file (#716), so no box to replace; rect = its
+  // collider, the OSM footprint through pipeline world_buildings.roof() (world frame [cx, cz, w, d, rot])
+  'reformierte-kirche-stein': { osm: null, region: 'hochrhein', rect: [-1177.97, 795.86, 34.75, 26.71, -2.7343] },
 };
 
 export function landmarkOffset(lm, world, base) {
@@ -17,7 +21,7 @@ export function chLandmarksFor(index, regionId, world, base) {
   return Object.entries(index.landmarks).flatMap(([id, lm]) => {
     const r = REPLACES[id];
     if (!r || r.region !== regionId) return [];
-    return [{ id, file: lm.file, offset, top: lm.bounds.max[1] + offset.y, osm: r.osm }];
+    return [{ id, file: lm.file, offset, top: lm.bounds.max[1] + offset.y, osm: r.osm, ...(r.rect ? { rect: r.rect } : {}) }];
   });
 }
 
