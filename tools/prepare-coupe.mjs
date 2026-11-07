@@ -72,6 +72,7 @@ const meshNodes = root.listNodes().filter(n => n.getMesh());
 for (const n of meshNodes) {
   if (n.getMesh().listParents().filter(p => p.propertyType === 'Node').length > 1) n.setMesh(n.getMesh().clone());
   transformMesh(n.getMesh(), n.getWorldMatrix());
+  if (determinant(n.getWorldMatrix()) < 0) n.getMesh().listPrimitives().forEach(reverseWinding);   // the right wheels are mirrored copies: baked as they are, they turn inside out
 }
 const all = [];
 for (const n of meshNodes) for (const p of n.getMesh().listPrimitives()) {
@@ -145,6 +146,15 @@ console.log('wrote', output, 'triangles', docTris(doc), 'materials', root.listMa
 function centreOf(b) { return [0, 1, 2].map(i => (b.min[i] + b.max[i]) / 2); }
 function primTris(p) { return (p.getIndices() ? p.getIndices().getCount() : p.getAttribute('POSITION').getCount()) / 3; }
 function docTris(d) { return d.getRoot().listMeshes().flatMap(m => m.listPrimitives()).reduce((n, p) => n + primTris(p), 0); }
+
+function determinant(m) { return m[0] * (m[5] * m[10] - m[6] * m[9]) - m[4] * (m[1] * m[10] - m[2] * m[9]) + m[8] * (m[1] * m[6] - m[2] * m[5]); }
+
+// swaps two corners of every face (on a copy of the indices, which parts of the original share), so the front side faces out again
+function reverseWinding(prim) {
+  const idx = Array.from(prim.getIndices().getArray());
+  for (let t = 0; t < idx.length; t += 3) [idx[t + 1], idx[t + 2]] = [idx[t + 2], idx[t + 1]];
+  prim.setIndices(prim.getIndices().clone().setArray(new Uint32Array(idx)));
+}
 
 // indexed vertices only: parts of the original share one vertex buffer
 function boundsOf(prims) {
