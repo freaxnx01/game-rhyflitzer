@@ -48,21 +48,22 @@ def test_stops_lay_out_clear_of_the_standing_bus_at_ruetti(server):
         page.on("pageerror", lambda e: errors.append(str(e)))
         assert not errors
         bus = None
-        for route, k, arr in calls[:4]:   # one attempt per trip that calls at Rütti, until the bus stands there
+        for route, k, arr in calls[:2]:   # a stall after the call time re-places the fleet past the stop; one retry
             # patime has minute resolution: arr-40 lands in the minute before the Rütti call, so the fleet's
-            # time-based first placement puts the bus a few hundred metres short and it brakes in from there
-            page.goto(f"{server}/index.html?patime={hhmm(arr - 40)}")
+            # time-based first placement puts the bus a few hundred metres short; it brakes in from there, and the
+            # last metres are slow under SwiftShader (the sim runs at frame rate), so the poll waits long
+            page.goto(f"{server}/index.html?patime={hhmm(arr - 40)}", timeout=120000)
             page.wait_for_function("() => window.__mm && window.__mm.busStops && window.__mm.postauto && window.__mm.postauto().ready", timeout=240000)
             try:
                 page.wait_for_function(
                     f"() => window.__mm.postauto().buses.some(x => x.phase === 'stand' && x.k === {k} && x.route === '{route}')",
-                    timeout=150000)
+                    timeout=360000)
             except Exception:
                 continue   # a stall re-placed the fleet past the stop; the next trip calls again
             bus = next(x for x in page.evaluate("() => window.__mm.postauto().buses")
                        if x["phase"] == "stand" and x["k"] == k and x["route"] == route)
             break
-        assert bus, "no bus stood at Industriezone Rütti within 4 trips"
+        assert bus, "no bus stood at Industriezone Rütti within 2 trips"
         stops = page.evaluate("() => window.__mm.busStops()")
         assert len(stops) == 20 and all(s["shelter"] for s in stops)
         assert all(s["rows"] for s in stops), "every sign has at least one line row"
