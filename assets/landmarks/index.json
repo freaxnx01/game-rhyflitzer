@@ -16,6 +16,40 @@
         ]
       },
       "attribution": "© swisstopo"
+    },
+    "kirche-bruder-klaus-stein": {
+      "name": "Kath. Kirche Hl. Bruder Klaus Stein",
+      "file": "kirche-bruder-klaus-stein.glb",
+      "bounds": {
+        "min": [
+          -1441.34,
+          14.68,
+          883.74
+        ],
+        "max": [
+          -1399.91,
+          36.46,
+          929.24
+        ]
+      },
+      "attribution": "© swisstopo"
+    },
+    "reformierte-kirche-stein": {
+      "name": "Reformierte Kirche Stein",
+      "file": "reformierte-kirche-stein.glb",
+      "bounds": {
+        "min": [
+          -1410.64,
+          15.63,
+          990.39
+        ],
+        "max": [
+          -1376.15,
+          35.46,
+          1022.79
+        ]
+      },
+      "attribution": "© swisstopo"
     }
   },
   "origin": {
