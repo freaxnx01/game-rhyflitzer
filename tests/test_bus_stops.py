@@ -56,12 +56,12 @@ def test_stops_lay_out_clear_of_the_standing_bus_at_ruetti(server):
             page.wait_for_function("() => window.__mm && window.__mm.busStops && window.__mm.postauto && window.__mm.postauto().ready", timeout=240000)
             try:
                 page.wait_for_function(
-                    f"() => window.__mm.postauto().buses.some(x => x.phase === 'stand' && x.k === {k} && x.route === '{route}')",
+                    f"() => window.__mm.postauto().buses.some(x => x.phase === 'stand' && x.k === {k} && String(x.route) === '{route}')",
                     timeout=360000)
             except Exception:
                 continue   # a stall re-placed the fleet past the stop; the next trip calls again
             bus = next(x for x in page.evaluate("() => window.__mm.postauto().buses")
-                       if x["phase"] == "stand" and x["k"] == k and x["route"] == route)
+                       if x["phase"] == "stand" and x["k"] == k and str(x["route"]) == str(route))
             break
         assert bus, "no bus stood at Industriezone Rütti within 2 trips"
         stops = page.evaluate("() => window.__mm.busStops()")
