@@ -2,7 +2,7 @@
 // World metres, x east, z south; heading th = atan2(dz, dx) like route.js. A bus is kinematic: progress s along its route,
 // drawn on the lane line; it is never pushed (spec A0b, A1).
 import { makeGrid, gridAddSegment, gridQuery } from './world.js';
-import { cumulative, pointAt, isRoutable, routeSignals, blinkerAt, trackRoute, targetSpeed, rightOf, routeLaneOffset } from './route.js';
+import { cumulative, pointAt, isRoutable, routeSignals, blinkerAt, trackRoute, targetSpeed, routeLaneOffset } from './route.js';
 import { BUS } from './bus.js';
 
 export const PA = {
@@ -139,8 +139,7 @@ export function lanePoint(route, s, cfg = PA) {
 }
 
 export function busPose(route, s, cfg = PA) {
-  const at = (q) => rightOf(route.pts, route.cum, q, busOffset(route, q, cfg));
-  const [x, z] = at(s), a = at(s - 3), b = at(s + 3);
+  const [x, z] = lanePoint(route, s, cfg), a = lanePoint(route, s - 3, cfg), b = lanePoint(route, s + 3, cfg);
   return { x, z, th: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
 
@@ -246,7 +245,7 @@ export function busBlinker(b, now, cfg = PA) {
 export function obstacleGap(route, s, player, cfg = PA) {
   const tr = trackRoute(route, player.x, player.z, s), ahead = tr.s - s;
   if (!(ahead > 0) || ahead > cfg.look) return null;
-  const [lx, lz] = rightOf(route.pts, route.cum, tr.s, busOffset(route, tr.s, cfg));
+  const [lx, lz] = lanePoint(route, tr.s, cfg);
   if (Math.hypot(player.x - lx, player.z - lz) > BUS.width / 2 + player.r + cfg.sideClear) return null;
   return Math.max(0, ahead - BUS.length / 2 - player.r - cfg.gap);
 }

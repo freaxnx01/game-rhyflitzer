@@ -190,7 +190,27 @@ test('busCollider, ledText, stopFaceDeg', () => {
 
 // #710: the bus swings through bends on a smoothed driving line
 const bendRoute = (pts, stops = []) => { const rd = road(pts); return busRoute({ id: 9, line: '133', pts, stops }, [rd], buildGraph([rd])); };
+const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+// the smallest radius the bus's heading change implies, metres, over [from, to]
+const minRadius = (route, from, to) => {
+  let worst = 0;
+  for (let s = from; s < to; s += 0.25) worst = Math.max(worst, Math.abs(wrapA(busPose(route, s + 0.25).th - busPose(route, s).th)) / 0.25);
+  return 1 / worst;
+};
 const oldLane = (route, s) => rightOf(route.pts, route.cum, s, busOffset(route, s));
+
+test('driveLine_RightAngleCorner_RadiusAtLeast8AndCutsAtMost4_5m', () => {
+  const R1 = bendRoute([[0, 0], [100, 0], [100, 100]]);   // east, then south: a right turn
+  assert.ok(minRadius(R1, 60, 140) >= 8, `radius ${minRadius(R1, 60, 140)}`);
+  let cut = 0;
+  for (let s = 60; s < 140; s += 0.5) { const [x, z] = lanePoint(R1, s), [ox, oz] = oldLane(R1, s); cut = Math.max(cut, Math.hypot(x - ox, z - oz)); }
+  assert.ok(cut > 1 && cut <= 4.5, `cut ${cut}`);
+});
+
+test('driveLine_ClusterOfShortLegs_RadiusAtLeast8', () => {
+  const R2 = bendRoute([[0, 0], [100, 0], [104.4, 4.4], [104.4, 30], [104.4, 130]]);   // 45 degrees, 6 m, 45 degrees
+  assert.ok(minRadius(R2, 60, 150) >= 8, `radius ${minRadius(R2, 60, 150)}`);
+});
 
 test('driveLine_StraightRoad_PoseUnchanged', () => {
   for (const s of [20, 250, 500, 777]) {
@@ -205,4 +225,16 @@ test('driveLine_StopBesideCorner_PoseAtStopUnchanged', () => {
   const [x, z] = lanePoint(R3, 105), [ox, oz] = oldLane(R3, 105);
   assert.ok(Math.hypot(x - ox, z - oz) <= 0.1);
   assert.ok(near(R3.stopS.get('1'), 105));
+});
+
+test('busPose_InABend_SwingsInsideThePolylineCorner', () => {
+  const R4 = bendRoute([[0, 0], [100, 0], [100, 100]]);
+  const p = busPose(R4, 100), [ox, oz] = oldLane(R4, 100);   // at the polyline corner a smoothed bus is well inside it
+  assert.ok(Math.hypot(p.x - ox, p.z - oz) > 1.5, `pose ${p.x}, ${p.z}`);
+});
+
+test('obstacleGap_InABend_FollowsTheBusLane', () => {
+  const R5 = bendRoute([[0, 0], [100, 0], [100, 100]]);
+  const [lx, lz] = lanePoint(R5, 105);   // a player standing exactly on the bus's lane, ahead
+  assert.ok(obstacleGap(R5, 90, { x: lx, z: lz, r: 1 }) !== null);
 });
