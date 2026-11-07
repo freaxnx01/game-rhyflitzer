@@ -276,6 +276,3 @@ export function busCollider(x, z, th, y) {
 }
 
 export function ledText(trip) { return { line: String(trip.line), dest: trip.to }; }
-
-// busStop(..., faceDeg) turns local -z (the shelter) to world (-sin, -cos): pi - rot puts it right of travel, the board facing the road
-export function stopFaceDeg(rot) { return (Math.PI - rot) * 180 / Math.PI; }

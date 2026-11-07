@@ -52,13 +52,20 @@ test('stopLayout: a bus standing across the kerb slides the stop along the road,
   assert.ok(roadEdgeDist(...lay.pole, roads) >= STOP.poleRoad - 1e-9);
 });
 
-test('stopLayout: no clear spot within reach -> sign only, shelter null', () => {
+test('stopLayout: no clear spot within reach -> sign only, on the best-clearance pole, shelter null', () => {
   // asphalt on both sides: a 6 m road and a parallel 30 m apron right behind the kerb
   const roads = [road([[0, 0], [200, 0]], 6), road([[0, 19], [200, 19]], 30)];
   const stop = { uic: '1', name: 'S', s: 100, x: 100, z: 3.5, rot: 0 };
   const lay = stopLayout(stop, [POSE], roads);
   assert.equal(lay.shelter, null);
   assert.ok(Array.isArray(lay.pole));
+  // every candidate sits on the apron's asphalt, so the score falls with every push out: the best-clearance
+  // candidate is the nearest one (shift 0, push 0), not the last shift+push the generator produced
+  assert.equal(lay.shift, 0);
+  assert.equal(lay.pushed, 0);
+  assert.ok(near(lay.pole[0], 100) && near(lay.pole[1], 4.1));
+  const score = (p) => Math.min(rectClearance(...p, POSE, STAND), roadEdgeDist(...p, roads));
+  assert.ok(score(lay.pole) >= score([100 + STOP.shift * STOP.maxShift, 3.5 + STOP.poleOut + STOP.maxPush]));
 });
 
 test('stopLayout: westward travel mirrors the side', () => {

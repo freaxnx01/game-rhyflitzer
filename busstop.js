@@ -55,17 +55,20 @@ export function stopLayout(stop, poses, roads, bus = BUS, cfg = STOP) {
   const u = [Math.cos(stop.rot), Math.sin(stop.rot)], n = [-u[1], u[0]];   // along the kerb; away from the road (right of travel)
   const mid = (cfg.shelter.front + cfg.shelter.back) / 2;
   const clearance = (x, z) => Math.min(...poses.map((p) => rectClearance(x, z, p, bus)));
-  let last = null;
+  let best = null, bestScore = -Infinity;
   for (const c of candidates(cfg)) {
     const out = cfg.poleOut + c.push;
     const pole = [stop.x + u[0] * c.shift + n[0] * out, stop.z + u[1] * c.shift + n[1] * out];
     const cx = pole[0] + n[0] * mid, cz = pole[1] + n[1] * mid, corners = shelterCorners(cx, cz, u, n, cfg);
-    last = { x: stop.x, z: stop.z, yaw: stop.rot, pole, shelter: { x: cx, z: cz, corners }, shift: c.shift, pushed: c.push };
+    const lay = { x: stop.x, z: stop.z, yaw: stop.rot, pole, shelter: { x: cx, z: cz, corners }, shift: c.shift, pushed: c.push };
+    const score = Math.min(clearance(...pole), roadEdgeDist(...pole, roads));
+    if (score > bestScore) { bestScore = score; best = lay; }
     const ok = clearance(...pole) >= cfg.clear && roadEdgeDist(...pole, roads) >= cfg.poleRoad
       && corners.every(([x, z]) => clearance(x, z) >= cfg.clear && roadEdgeDist(x, z, roads) >= 0);
-    if (ok) return last;
+    if (ok) return lay;
   }
-  return { ...last, shelter: null };
+  // no candidate clears: the sign alone on the pole with the best achieved clearance, not the furthest-fetched one
+  return { ...best, shelter: null };
 }
 
 export function zigzagLine(route, s, roadW, cfg = STOP) {
