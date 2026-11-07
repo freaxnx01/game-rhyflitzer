@@ -58,3 +58,49 @@ def test_f3_lists_buses_and_follow_returns_to_car(server):
         assert not page.evaluate("() => window.__mm.pause().on")   # the first Esc ends the follow, it does not pause
         assert not errors
         b.close()
+
+
+@needs_data
+def test_f3_sets_clock_and_time_lapse(server):
+    """#726: Setzen/Echtzeit/Zeitraffer from the panel; typing must not drive the car."""
+    trip = json.loads(TT.read_text(encoding="utf-8"))["trips"][0]
+    set_to = hhmm(trip["calls"][1][2] + 60)   # a time this trip is mid-drive, so the fleet is never empty
+    set_at = trip["calls"][1][2] + 60
+    with sync_playwright() as p:
+        b, page, errors = open_at(p, server, hhmm(trip["calls"][0][2] + 60))
+        page.wait_for_function("() => window.__mm.postauto().buses.length > 0", timeout=120000)
+        page.keyboard.press("F3")
+        page.click("#startbtn")
+        page.wait_for_function("() => document.getElementById('overlay').hidden")
+        # Setzen: typing (arrows steer, Space is the handbrake) applies on Enter and leaves the field
+        car0 = page.evaluate("() => window.__mm.pause()")
+        page.focus("#debugpatime")
+        page.fill("#debugpatime", set_to)
+        page.keyboard.press("ArrowUp")
+        page.keyboard.press("Space")
+        page.keyboard.press("Enter")
+        car1 = page.evaluate("() => window.__mm.pause()")
+        assert abs(car1["x"] - car0["x"]) < 0.5 and abs(car1["z"] - car0["z"]) < 0.5   # no key reached the car
+        page.wait_for_function("() => window.__mm.postauto().buses.length > 0", timeout=120000)   # re-placed at the new time
+        clock1 = page.evaluate("() => window.__mm.postauto().clock")
+        assert abs(((clock1 - set_at) % 86400 + 86400) % 86400) < 5   # the fleet clock jumps there, then runs on
+        assert page.evaluate("() => new URLSearchParams(location.search).get('patime')") == set_to
+        # Zeitraffer 10x: the clock runs at 10x without a jump, the bus drives on (no re-place), the URL carries pasp
+        buses1 = {x["key"]: x["s"] for x in page.evaluate("() => window.__mm.postauto().buses")}
+        page.select_option("#debugpaspeed", "10")
+        page.wait_for_timeout(2000)
+        page.wait_for_function("() => document.getElementById('debugpaclock').textContent.includes('10×')", timeout=120000)
+        st = page.evaluate("() => window.__mm.postauto()")
+        clock2 = st["clock"]
+        assert 15 <= ((clock2 - clock1) % 86400 + 86400) % 86400 <= 30   # 2 s real at 10x = ~20 s fleet
+        now = {x["key"]: x["s"] for x in st["buses"]}
+        shared = [k for k in buses1 if k in now]
+        assert shared and all(now[k] >= buses1[k] for k in shared)
+        assert page.evaluate("() => new URLSearchParams(location.search).get('pasp')") == "10"
+        assert "10×" in st["panel"]["clock"]
+        # Echtzeit: back to the Europe/Zurich wall clock, the URL params go, the panel text follows
+        page.click("#debugpawall")
+        page.wait_for_function("() => new URLSearchParams(location.search).get('patime') === null && new URLSearchParams(location.search).get('pasp') === null")
+        page.wait_for_function("() => document.getElementById('debugpaclock').textContent.includes('real time')", timeout=120000)   # locale en-US
+        assert not errors
+        b.close()
