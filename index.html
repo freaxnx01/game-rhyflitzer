@@ -786,7 +786,7 @@ import { loadLines, loadProgress, numberLocale } from './loading.js';   // the l
 // where the nitro flames sit behind a glTF vehicle
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
-import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan } from './gltfvehicle.js';
+import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, doubleSidedNames } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -2664,7 +2664,7 @@ const VEHICLES = {
   // little damage in a crash); 6.08 m wheelbase, 2.7 m front overhang; the whole length collides (capsule, see collide);
   // rear diesel, left-hand drive, a deep G major horn chord (bus.js)
   // #478: the real model (assets/bus.glb) is built by buildBus once loaded; until then buildBus draws the primitives (fallback: itself)
-  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus' }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
+  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', doubleSided: ['Plain_7'] },   // #709: the underbody shell faces down only, so the floor is see-through from inside unless Plain_7 is drawn from both sides scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
     blinkers: [[6.15, 0.62, 1.16], [-5.92, 1.2, 1.16]],   // flush with the nose and the tail (the boxes are 0.12 m deep)
     drive: { top: 27.8, topNitro: 34, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
     mass: 8, engineAt: [-5.6, 1.4, 0], collision: { shape: 'capsule', r: 1.3, hl: 4.8 },
@@ -2890,9 +2890,10 @@ const WANTED = new Set();                             // ids whose load has a co
 const gltfState = (id) => GLTF_CARS[id]?.state ?? 'idle';
 const gltfEntry = (id) => (GLTF_CARS[id] ??= { state: 'idle', scene: null, mats: null, tris: 0, promise: null });
 // once per file: materials sorted by role (paint, glass, lamps), glass see-through, every standard material lit by the car sky map, geometry marked shared
-function prepareGltfScene(e, root) {
+function prepareGltfScene(e, root, def) {
   const mats = new Set(); e.tris = 0;
   root.traverse(o => { if (!o.isMesh) return; const m = o.material, g = o.geometry; if (!g.attributes.normal) g.computeVertexNormals(); e.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.userData.sharedGeo = true; mats.add(m); if (m.userData.glass) { m.transparent = true; m.depthWrite = false; o.userData.glass = true; } if (m.userData.overGlass) { m.transparent = true; o.renderOrder = 1; } });   // #478: a display behind tinted glass is drawn after it (the glass writes no depth)
+  for (const n of doubleSidedNames(def, [...mats].map(m => m.name))) for (const m of mats) if (m.name === n) m.side = THREE.DoubleSide;   // #709: the bus floor seen from inside (back-face culled in the file)
   e.mats = { all: [...mats], paint: [...mats].find(m => m.userData.paint) ?? null, head: [...mats].filter(m => lampRole(m.userData) === 'head'), tail: [...mats].filter(m => lampRole(m.userData) === 'tail'), scan: [...mats].filter(m => Number.isInteger(m.userData.scan)).sort((a, b) => a.userData.scan - b.userData.scan), beacon: [...mats].filter(m => Number.isInteger(m.userData.beacon)).sort((a, b) => a.userData.beacon - b.userData.beacon) };   // scan: the Rhy Knight's scanner segments, left to right; beacon: the Rhy Blaze's blue lights, left and right
   for (const m of mats) if (m.isMeshStandardMaterial) { CAR_ENV_MATS.push(m); SHARED_CAR_MATS.add(m); }
   buildCarEnv(STYLES[styleKey]);
@@ -2910,7 +2911,7 @@ function loadVehicleModel(id) {
       const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
       const gltf = await loader.loadAsync(modelUrl(def, location.search));
       wheelPlan(wheelNames(gltf.scene));   // fails fast when a wheel node is missing
-      e.scene = gltf.scene; prepareGltfScene(e, e.scene); e.state = loadStep(e.state, 'loaded');
+      e.scene = gltf.scene; prepareGltfScene(e, e.scene, def); e.state = loadStep(e.state, 'loaded');
       console.info(`${id} model loaded: ${Math.round(e.tris)} triangles`); return true;
     } catch (err) { console.warn(`${id} model not loaded:`, err); e.state = loadStep(e.state, 'error'); return false; }
   })();
