@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-07 21:26` The **keys now look like keys**: in the tutorial, the hint shows the movement keys as the **W A S D** cluster the way it sits on the keyboard, "or" the **arrow keys** next to it, and every other key (<kbd>Shift</kbd>, <kbd>Z</kbd>, <kbd>J</kbd>, <kbd>X</kbd>) as its own key cap. The key bar at the bottom shows <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> as four keys instead of one "WASD", which a tester had read as a word to type.
 - `2026-11-07 19:48` **Postautos** no longer cut bends at sharp angles: like a real 12 m bus they now **swing wide** through corners and junctions on a smooth curve. Stops are unchanged.
 
 ### Added

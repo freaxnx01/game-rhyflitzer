@@ -23,6 +23,8 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 #dist{background:rgba(20,23,29,.82);border:3px solid var(--sun);padding:2px 14px;font-size:26px;font-weight:800;font-style:italic;color:var(--sun);line-height:1.1}
 #cpname{font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;text-shadow:2px 2px 0 var(--ink)}
 #tuthint{max-width:min(560px,calc(100vw - 32px));margin-top:4px;padding:6px 12px;box-sizing:border-box;background:rgba(20,23,29,.88);border:3px solid var(--sun);color:var(--cream);font-size:18px;font-weight:700;letter-spacing:.5px;line-height:1.25;text-align:center;text-shadow:none}#tuthint:empty{display:none}   /* #534: the tutorial's instruction, its own line so a toast never replaces it */
+#tuthint kbd,#keybar kbd{display:inline-block;min-width:1.1em;text-align:center}#tuthint kbd{font:inherit;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px;line-height:1.2}
+.caps{display:inline-flex;gap:2px;vertical-align:baseline}.caps.cross{display:inline-grid;grid-template-columns:repeat(3,auto);gap:2px;vertical-align:middle}.caps.cross kbd:first-child{grid-column:2}   /* #700: W / ↑ on top, the other three below */
 #tr{right:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;align-items:flex-end}
 #tr .lbl{font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel-l)}
 #time{font-size:44px;font-weight:800;font-style:italic;line-height:1}
@@ -740,6 +742,7 @@ import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
+import { capsRow, capsCross } from './keycaps.js';   // #700
 import { bindStick, TOUCH_LOOK } from './touch.js';   // #535 phase 2
 import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
@@ -4069,7 +4072,7 @@ function stepKeybar() {
   stepTouch(ctx, act);   // #535 phase 2: the phone controls follow the same context, every frame (attributes only)
   if (sig === KEYBAR.sig) return;
   KEYBAR.sig = sig; $('keybar').hidden = !KEYBAR.on;
-  $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}><kbd>${x.cap}</kbd> ${tr(x.label)}</span>`).join('');
+  $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}>${capsRow(x.cap)} ${tr(x.label)}</span>`).join('');   // #700: one cap per key
 }
 function renderKeybarToggle() { const b = $('pausekeybar'); b.textContent = tr(KEYBAR.on ? 'pauseKeybarOn' : 'pauseKeybarOff'); b.setAttribute('aria-pressed', String(KEYBAR.on)); }
 function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } renderKeybarToggle(); stepKeybar(); }
@@ -4921,8 +4924,12 @@ function tutorialTarget(st) {
   return null;
 }
 function placeTutMark(st) { const c = tutorialStepId(st) === 'checkpoints' && TUT_DEF.cps[st.cp]; tutMark.visible = !!c; if (c) tutMark.position.set(c.x, groundH(c.x, c.z), c.z); }
-const howText = (how) => how.via === 'key' ? tr('tutKey', how.cap) : tr(how.via === 'button' ? 'tutButton' : 'tutMenu', tr(how.label));
-function renderTutorialHint() { const h = tutorialHint(TUT_RUN.st, FOOT.on, TUT_COARSE, tutOnTop()), text = tr(h.key, h.how ? howText(h.how) : '', h.n, h.of); if ($('tuthint').textContent !== text) $('tuthint').textContent = text; }   // written only on a change
+// #700: the keys as key graphics -- the move keys as the WASD cross "or" the arrow cross, any other key as one cap; touch stays text
+const HOW_MARK = '\^A';
+const howHtml = (how) => how.via !== 'key' ? esc(tr(how.via === 'button' ? 'tutButton' : 'tutMenu', tr(how.label)))
+  : how.cap === 'WASD' ? `${capsCross('WASD')} ${esc(tr('tutOr'))} ${capsCross('Arrows')}` : capsRow(how.cap);
+function tutorialHintHtml(h) { const parts = tr(h.key, HOW_MARK, h.n, h.of).split(HOW_MARK); return parts.length > 1 && h.how ? esc(parts[0]) + howHtml(h.how) + esc(parts.slice(1).join('')) : esc(parts.join('')); }
+function renderTutorialHint() { const el = $('tuthint'), html = tutorialHintHtml(tutorialHint(TUT_RUN.st, FOOT.on, TUT_COARSE, tutOnTop())); if (el.dataset.html === html && el.textContent !== '') return; el.dataset.html = html; el.innerHTML = html; }   // written only on a change (aria-live); a cleared banner is written again
 function finishTutorial() { markTutorialDone(); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); R.last = { mode: 'tutorial' }; R.target = null; tutMark.visible = false; $('tuthint').textContent = tr('tutResultNext'); toastBig(tr('tutDoneBig')); TUT_RUN.endIn = TUT.endS; }
 function showTutorialResult() { TUT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'tutorial') return; endFoot(); $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; $(!$('viewbtn').hidden ? 'viewbtn' : 'cruisebtn').focus(); }   // #534: the suggestion -- Viewpoints next
 function markTutorialDone() { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { } START_MODE = startModeFrom(location.search, RACELESS, VIEWPOINTS.length > 0, true); $('tutorialbtn').classList.remove('first'); }
