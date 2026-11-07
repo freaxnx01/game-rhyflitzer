@@ -49,13 +49,16 @@ z = −1.2 (so from −0.3 to −2.1), glass back wall at z = −2.05, group yaw
   ch. 4.4.3.2.1 "Haltestellentafeln: Standort, Form und Anbringung", tp-info.ch).
 - On the asphalt a **yellow zigzag line** along the kerb marks the stop: SSV Art. 79a Abs. 3
   "Zickzacklinien (gelb; 6.21) kennzeichnen Haltestellen des öffentlichen Linienverkehrs".
-- The current PostAuto Haltestellentafel (since the 2023 logo change) shows **"PostAuto" in black on yellow**,
-  no posthorn; the posthorn stays on the vehicles (Berner Zeitung, "Ulrich Burri kritisiert das Logo ohne
-  Posthorn"; PostAuto press: "Alle Postautos und Haltestellen erscheinen in Postgelb"). The stop name is on its own
-  plate below, the line numbers on small plates.
+- The real PostAuto Haltestellentafel (user photo of the stop "Wilen", Menzingen) hangs in a **bent steel tube
+  frame**, an inverted U of two vertical round tubes joined by a rounded top bar; one leg runs on down as the pole.
+  The plate is **landscape**, in horizontal bands: a Postgelb header band (posthorn at the left, the PostAuto logo
+  with the red cross at the right), a white band with the stop name large and bold and the municipality smaller
+  below it, then one yellow row per line and direction ("133  Frick, Bahnhof"), thin white separators between rows.
+  Postgelb for all of it (PostAuto press: "Alle Postautos und Haltestellen erscheinen in Postgelb").
 
-Nothing of the Post's logo or typeface is copied: the sign uses the game's own font (Barlow Condensed) and plain
-words. The game stays non-commercial.
+Nothing of the Post's branding is copied: no "PostAuto" wordmark, no posthorn, no cross (A5). The header carries
+a plain black bus pictogram drawn procedurally; text uses the game's own font (Barlow Condensed). The game stays
+non-commercial and keeps third-party things unbranded.
 
 ## Design
 
@@ -100,11 +103,21 @@ No DOM, no three.js. Exports:
 `rotation.y = −layout.yaw`, the same sign convention as the bus mesh, `index.html:3933`; local +z is `n`, away
 from the road, local +x along `u`):
 
-- **Pole** 3 m, radius 0.04, grey `#9aa0a8`, at `layout.pole`.
-- **Haltestellentafel** at 2.5 m: a portrait plane 0.5 × 0.75 m (canvas 256 × 384 via `makeTex`): top band
-  Postgelb `#ffcc00` with "PostAuto" in black (Barlow Condensed 700), middle a white plate with the stop name in
-  black (shrunk to fit, long names on two lines like "Stein-Säckingen / Bahnhof"), bottom a yellow line plate with
-  the line number "133". Double-sided. The board faces the road (`yaw`), its long side along the bus.
+- **Frame and pole** (grey `#9aa0a8`, tube radius 0.04): an inverted U, as on the real sign. The pole leg stands at
+  `layout.pole` and runs 0 to 2.9 m; the second leg stands 1.0 m further along the kerb (local −x) and runs 2.15 to
+  2.9 m; a top bar joins them at 2.9 m, with a sphere at each top corner for the rounding.
+- **Haltestellentafel** hanging inside the U, centre 0.5 m beside the pole (local x −0.5), y 2.5 m: a landscape plane
+  0.9 × 0.55 m (canvas 512 × 312 via `makeTex`), horizontal bands top to bottom: (1) a Postgelb `#ffcc00` header band
+  (62 px) with a black bus pictogram at the left (procedural canvas: rounded body, window cut-outs, two wheels) and
+  the right side plain, no wordmark; (2) a white band with the stop name large and bold in black (Barlow
+  Condensed 700, shrunk to fit, two lines for long names like "Stein-Säckingen / Bahnhof"); (3) one Postgelb row
+  per line and direction ("133  Frick, Bahnhof": number, then destination, black), 60 px each (at most 3, shrunk to
+  fit), thin white separators between rows. The white band takes the height the rows leave. Double-sided; faces the
+  road (`yaw`), its long side along the bus.
+- **Rows** come from `stopRows` (`busstop.js`): one row per route that calls at the point and does not end there,
+  destination = the route's `to` ("Frick, Bahnhof", "Stein-Säckingen, Bahnhof"). So Frick Bahnhof shows one row
+  (to Stein-Säckingen), Rütti and the other shared points show what the routes through them show. The municipality is
+  not drawn (A10).
 - **Fahrplantafel** at 1.6 m: 0.42 × 0.6 m frame (dark `#2b2f36` box 0.03 m deep) with a white sheet carrying a
   yellow header strip and 8 grey text lines (procedural, no real times). Facing the road.
 - **Shelter** (only when `layout.shelter`): the existing roof and glass back wall (`index.html:1994` sizes),
@@ -125,7 +138,8 @@ routes. `buildGraph` over the 3673 roads costs 129 ms in node and is cached in `
 
 ### 4. Debug hook
 
-`window.__mm.busStops()` returns `[{ uic, name, route, x, z, yaw, pole, shelter, pushed }]` for the Playwright test.
+`window.__mm.busStops()` returns `[{ uic, name, route, x, z, yaw, pole, shelter, pushed, rows }]` for the Playwright
+test (`rows`: `[{ line, dest }]`, the sign's rows).
 
 ## Assumptions
 
@@ -142,13 +156,20 @@ routes. `buildGraph` over the 3673 roads costs 129 ms in node and is cached in `
 - **A4** [med] Clearance 0.5 m to the bus and to any asphalt edge, pole 0.6 m beyond the stop point (1.1 m beyond
   the asphalt edge on a straight road). Rejected: raising `PA.kerbGap` so the bus stands further from the kerb —
   that changes the bus, which looks right already.
+- **A10** [med] The municipality (Gemeinde) line under the stop name is omitted. The world data has no municipality
+  per stop: `stops[]` carry `uic`, `name` ("Frick Bahnhof"), `s`, `x`, `z`, `rot`, and the name has no separate
+  place field. Rejected: guessing it from the name or from OSM boundaries (a data build, out of scope).
+- **A11** [med] The pole is the clear-checked point. The plate hangs 0.5 m beside it and the second leg 1.0 m
+  (along the kerb), at 2.15 m and higher, so at a bend a corner of the plate may reach closer than 0.5 m to the bus
+  roof. Not checked in `stopLayout`; the sign is 0.6 m or more beyond the stop point, as far out as the pole.
 - **A9** [high] One stop is drawn per distinct point (`uic`, `x`, `z`), checked against the standing poses of every
   route that calls there. Rejected: one per route stop, which draws two poles on the same spot at Rütti and
   Stein-Säckingen today (`index.html:5538` loops both routes).
-- **A5** [med] The Swiss look is: "PostAuto" wordmark in black on Postgelb, stop-name plate, line plate, timetable
-  frame, yellow zigzag on the road (SSV 6.21). No posthorn: the current PostAuto stop sign has none, and the horn is
-  the Post's mark. Rejected: a generic bus pictogram instead of the wordmark (the game already names the line
-  "Postauto 133" everywhere, and the wordmark is plain text in the game's own font).
+- **A5** [confirmed] The sign has the real sign's shape and colour but no brand. Answer: "Neutral: gelb + Bus-Piktogramm".
+  Postgelb `#ffcc00` landscape plate in an inverted-U steel frame, stop-name band, one row per line and direction,
+  timetable frame, yellow zigzag on the road (SSV 6.21), but **no "PostAuto" wordmark, no posthorn, no cross**: a
+  simple black procedural bus pictogram in the header instead. Reason: the game keeps third-party things unbranded.
+  Rejected: the "PostAuto" wordmark in the game's font.
 - **A6** [med] The yellow zigzag is part of the stop (16 m along the kerb, 0.5 m wide). Rejected: sign and shelter
   only — the zigzag is the most recognisable Swiss stop marking and costs one decal per stop.
 - **A7** [high] If no candidate within ±12 m along the kerb and 2 m of push is clear, the stop keeps the sign and
@@ -172,4 +193,4 @@ routes. `buildGraph` over the 3673 roads costs 129 ms in node and is cached in `
 
 - A collision box for the pole or the shelter (the player drives through them today, as before).
 - Changing the bus's stand position or heading at bends (`busPose` chord).
-- Named destination plates per direction on the line plate.
+- The municipality line on the sign (A10).

@@ -4,8 +4,9 @@
 numbers and the sources.
 
 **Goal:** every Postauto stop is drawn from a computed layout (`busstop.js`) that keeps pole and shelter ≥ 0.5 m from
-every standing bus and off every road, and looks Swiss: "PostAuto" Haltestellentafel with stop-name and line plate,
-timetable frame, glass shelter behind the pole, yellow zigzag (SSV 6.21) along the kerb.
+every standing bus and off every road, and looks Swiss but unbranded: Haltestellentafel (landscape, yellow header with a black bus pictogram, white stop-name
+band, one yellow row per line and direction) in an inverted-U steel frame, timetable frame, glass shelter behind the
+pole, yellow zigzag (SSV 6.21) along the kerb. No "PostAuto" wordmark, no posthorn (spec A5).
 
 **Global constraints**
 
@@ -31,6 +32,9 @@ timetable frame, glass shelter behind the pole, yellow zigzag (SSV 6.21) along t
 - `stopLayout(stop, poses, roads, bus = BUS, cfg = STOP) -> { x, z, yaw, pole: [x, z], shelter: { x, z, corners: [[x, z] × 4] } | null, shift, pushed }`
 - `zigzagLine(route, s, roadW, cfg = STOP) -> [[x, z], …]` (`route = { pts, cum, len }` as `busRoute` builds it)
 - `stopKey(st) -> string` = `` `${st.uic}:${st.x}:${st.z}` ``
+- `stopRows(calls) -> [{ line, dest }]`: `calls = [{ line, dest, last }]`, one per route that calls at the point
+  (`dest` = the route's `to`, `last` = the stop is the route's final stop). Drops `last` calls, dedupes by
+  line + dest, sorted by line then dest. These are the rows of the sign.
 
 - [ ] **Write the failing tests** (`tests/busstop.test.mjs`):
 
@@ -39,7 +43,7 @@ timetable frame, glass shelter behind the pole, yellow zigzag (SSV 6.21) along t
 import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey } from '../busstop.js';
+import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows } from '../busstop.js';
 import { buildGraph, cumulative } from '../route.js';
 import { BUS } from '../bus.js';
 import { busRoute, busPose } from '../postauto.js';
@@ -118,6 +122,14 @@ test('stopKey: one key per distinct point', () => {
   assert.equal(stopKey({ uic: '8582522', x: 1965.8, z: 834.1 }), '8582522:1965.8:834.1');
 });
 
+test('stopRows: one row per line and direction, none for a route that ends here', () => {
+  const rows = stopRows([{ line: '133', dest: 'Stein-Säckingen, Bahnhof', last: false }, { line: '133', dest: 'Frick, Bahnhof', last: true }]);
+  assert.deepEqual(rows, [{ line: '133', dest: 'Stein-Säckingen, Bahnhof' }]);
+  const both = stopRows([{ line: '133', dest: 'Stein-Säckingen, Bahnhof', last: false }, { line: '133', dest: 'Frick, Bahnhof', last: false }, { line: '133', dest: 'Frick, Bahnhof', last: false }]);
+  assert.deepEqual(both, [{ line: '133', dest: 'Frick, Bahnhof' }, { line: '133', dest: 'Stein-Säckingen, Bahnhof' }]);   // deduped, sorted
+  assert.ok(rows.every((r) => !/postauto/i.test(r.dest)), 'no brand text on the sign');
+});
+
 // the real world: every stop keeps its shelter, nothing of it within 0.5 m of a standing bus or on asphalt
 const WORLD = new URL('../data/world_hochrhein.json', import.meta.url);
 test('world_hochrhein: all 20 stop points lay out clear of every standing bus and every road', { skip: !fs.existsSync(WORLD) }, () => {
@@ -132,6 +144,15 @@ test('world_hochrhein: all 20 stop points lay out clear of every standing bus an
     for (const p of lay.shelter.corners) assert.ok(roadEdgeDist(...p, L.roads) >= -1e-9, `${st.name}: shelter on asphalt`);
     assert.ok(Math.abs(lay.shift) <= 6 && lay.pushed <= 2, `${st.name}: shift ${lay.shift} push ${lay.pushed}`);
   }
+});
+
+test('world_hochrhein: every stop point has at least one row; Frick Bahnhof shows only the way to Stein-Säckingen', { skip: !fs.existsSync(WORLD) }, () => {
+  const L = JSON.parse(fs.readFileSync(WORLD, 'utf8')), calls = new Map();
+  for (const br of L.busRoutes) for (const [i, st] of br.stops.entries()) { const k = stopKey(st); if (!calls.has(k)) calls.set(k, { st, calls: [] }); calls.get(k).calls.push({ line: br.line, dest: br.to, last: i === br.stops.length - 1 }); }
+  for (const { st, calls: c } of calls.values()) assert.ok(stopRows(c).length >= 1, `${st.name}: no row`);
+  const frick = [...calls.values()].filter(({ st }) => st.uic === '8500583');
+  assert.ok(frick.length >= 1);
+  for (const { calls: c } of frick) assert.ok(stopRows(c).every((r) => r.dest === 'Stein-Säckingen, Bahnhof'));
 });
 ```
 
@@ -157,6 +178,13 @@ export const STOP = {
 };
 
 export const stopKey = (st) => `${st.uic}:${st.x}:${st.z}`;
+
+// the sign's rows: one per line and direction that leaves this point; a route that ends here has no row
+export function stopRows(calls) {
+  const seen = new Map();
+  for (const c of calls) if (!c.last) seen.set(`${c.line}|${c.dest}`, { line: c.line, dest: c.dest });
+  return [...seen.values()].sort((a, b) => a.line.localeCompare(b.line) || a.dest.localeCompare(b.dest));
+}
 
 export function rectClearance(px, pz, pose, size) {
   const dx = px - pose.x, dz = pz - pose.z, c = Math.cos(pose.th), s = Math.sin(pose.th);
@@ -228,7 +256,7 @@ exported for the test, import `busRoute` and build the route from a `br` instead
 **Files:** `index.html`, `CHANGELOG.md`
 
 **Interfaces:**
-- `busStop(layout, name, line)` replaces `busStop(x, z, name, faceDeg)` (`index.html:1994`).
+- `busStop(layout, name, rows)` replaces `busStop(x, z, name, faceDeg)` (`index.html:1994`); `rows = [{ line, dest }]` from `stopRows`.
 - `buildBusStops()` (new, next to the loop at `index.html:5538`): builds `POSTAUTO.routes`, dedupes stops by
   `stopKey`, computes layouts, draws stops and zigzags, fills `POSTAUTO.stops` for the hook.
 - `window.__mm.busStops()` → `POSTAUTO.stops` (plain data).
@@ -236,7 +264,7 @@ exported for the test, import `busRoute` and build the route from a `br` instead
 - [ ] **Import** at `index.html:728`, next to the `postauto.js` import:
 
 ```js
-import { STOP, stopLayout, zigzagLine, stopKey } from './busstop.js';   // #712
+import { STOP, stopLayout, zigzagLine, stopKey, stopRows } from './busstop.js';   // #712
 ```
 
 Keep `stopFaceDeg` in the `postauto.js` import list only if something else still uses it; otherwise drop it
@@ -245,20 +273,32 @@ from the import (the export and its test in `postauto.js` stay).
 - [ ] **Textures** (near `textTex`, `index.html:947`), two small canvas textures:
 
 ```js
-// #712: the Haltestellentafel -- "PostAuto" black on Postgelb, the stop name on a white plate, the line plate; portrait 2:3
-function stopSignTex(name, line) {
-  return makeTex(256, 384, (g, w, h) => {
-    g.fillStyle = '#ffcc00'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#111111'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '700 64px "Barlow Condensed", sans-serif'; g.fillText('PostAuto', w / 2, 56);
-    g.fillStyle = '#ffffff'; g.fillRect(12, 104, w - 24, 168);
-    g.fillStyle = '#111111';
+// #712: the Haltestellentafel -- landscape 0.9 x 0.55 m: Postgelb header with a black bus pictogram (no wordmark, spec A5), white
+// stop-name band, one Postgelb row per line and direction with thin white separators
+function busPictogram(g, x, y, h) {   // procedural, black: rounded body, yellow window cut-outs, two wheels
+  const w = h * 1.9;
+  g.fillStyle = '#111111'; g.beginPath(); g.roundRect(x, y, w, h * 0.78, h * 0.14); g.fill();
+  g.fillStyle = '#ffcc00'; for (let i = 0; i < 4; i++) g.fillRect(x + w * (0.08 + i * 0.22), y + h * 0.12, w * 0.17, h * 0.28);
+  g.fillStyle = '#111111'; for (const cx of [0.25, 0.75]) { g.beginPath(); g.arc(x + w * cx, y + h * 0.8, h * 0.17, 0, Math.PI * 2); g.fill(); }
+}
+function stopSignTex(name, rows) {
+  return makeTex(512, 312, (g, w, h) => {
+    const headH = 62, rowH = Math.min(60, Math.floor(126 / Math.max(1, rows.length))), rowsTop = h - rows.length * rowH;
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffcc00'; g.fillRect(0, 0, w, headH);
+    busPictogram(g, 16, 10, 42);
+    g.fillStyle = '#111111'; g.textBaseline = 'middle';
     const parts = name.includes(',') ? name.split(',').map((t) => t.trim()) : name.length > 14 && name.includes(' ') ? [name.slice(0, name.lastIndexOf(' ')), name.slice(name.lastIndexOf(' ') + 1)] : [name];
-    const size = parts.some((t) => t.length > 12) ? 40 : 52;
-    g.font = `700 ${size}px "Barlow Condensed", sans-serif`;
-    parts.forEach((t, i) => g.fillText(t, w / 2, 188 + (i - (parts.length - 1) / 2) * (size + 8)));
-    g.fillStyle = '#111111'; g.fillRect(12, 292, w - 24, 2);
-    g.font = '700 56px "Barlow Condensed", sans-serif'; g.fillText(String(line), w / 2, 338);
+    const size = parts.length > 1 || parts.some((t) => t.length > 12) ? 52 : 72, mid = (headH + rowsTop) / 2;
+    g.textAlign = 'center'; g.font = `700 ${size}px "Barlow Condensed", sans-serif`;
+    parts.forEach((t, i) => g.fillText(t, w / 2, mid + (i - (parts.length - 1) / 2) * (size + 6)));
+    rows.forEach((r, i) => {
+      const y = rowsTop + i * rowH;
+      g.fillStyle = '#ffcc00'; g.fillRect(0, y, w, rowH);
+      if (i) { g.fillStyle = '#ffffff'; g.fillRect(0, y, w, 3); }
+      g.fillStyle = '#111111'; g.textAlign = 'left'; g.font = `700 ${Math.round(rowH * 0.7)}px "Barlow Condensed", sans-serif`;
+      g.fillText(r.line, 20, y + rowH / 2 + 2); g.fillText(r.dest, 110, y + rowH / 2 + 2);
+    });
   }, { alpha: true });
 }
 // #712: the Fahrplantafel -- a white sheet with a yellow header and grey lines, no real times
@@ -282,13 +322,17 @@ not. The zigzag material is `transparent: true` so the cleared pixels show the a
   `index.html:5535`: `car.rotation.y = -START.th`):
 
 ```js
-// #712: one stop from its layout (busstop.js): pole with the Haltestellentafel and the timetable frame at layout.pole, the
-// glass shelter at layout.shelter (null: sign only). Local +x along the kerb, +z away from the road.
-function busStop(layout, name, line) {
+// #712: one stop from its layout (busstop.js): the inverted-U steel frame with the Haltestellentafel (its pole leg at layout.pole)
+// and the timetable frame, the glass shelter at layout.shelter (null: sign only). Local +x along the kerb, +z away from the road.
+function busStop(layout, name, rows) {
   const g = new THREE.Group(), b = terrainH(...layout.pole);
   const px = layout.pole[0] - layout.x, pz = layout.pole[1] - layout.z;   // world offsets of the pole from the stop point
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.y = 1.5; g.add(pole);
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.75), new THREE.MeshBasicMaterial({ map: stopSignTex(name, line), side: THREE.DoubleSide })); sign.position.set(0, 2.55, -0.05); g.add(sign);
+  const steel = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 });
+  const tube = (x, y0, y1) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, y1 - y0, 8), steel); m.position.set(x, (y0 + y1) / 2, 0); g.add(m); };
+  tube(0, 0, 2.9); tube(-1, 2.15, 2.9);   // the pole leg and the short leg of the inverted U
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1, 8), steel); bar.rotation.z = Math.PI / 2; bar.position.set(-0.5, 2.9, 0); g.add(bar);
+  for (const x of [0, -1]) { const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), steel); knob.position.set(x, 2.9, 0); g.add(knob); }   // rounded top corners
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55), new THREE.MeshBasicMaterial({ map: stopSignTex(name, rows), side: THREE.DoubleSide })); sign.position.set(-0.5, 2.5, -0.05); g.add(sign);
   const frame = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.03), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); frame.position.set(0, 1.6, -0.05); g.add(frame);
   const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: timetableTex() })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
   if (layout.shelter) {
@@ -304,7 +348,7 @@ function busStop(layout, name, line) {
 }
 ```
 
-The whole group is anchored at the pole, so the shelter's local z runs from `S.front` to `S.back` behind it —
+The plate hangs inside the U, 0.5 m beside the pole leg, in the plane 0.05 m on the road side of the frame. The whole group is anchored at the pole, so the shelter's local z runs from `S.front` to `S.back` behind it —
 the same offsets `stopLayout` used for the corners. The sign plane and the frame sit at local z = −0.05 (the
 road side of the pole), facing the road; `DoubleSide` keeps the plate readable from the pavement.
 
@@ -341,13 +385,13 @@ function buildBusStops() {
   const g = autoGraph();
   for (const br of L.busRoutes) if (!POSTAUTO.routes.has(br.id)) POSTAUTO.routes.set(br.id, busRoute(br, ROADS, g));
   const byKey = new Map();
-  for (const br of L.busRoutes) { const R = POSTAUTO.routes.get(br.id); for (const st of R.stops) { const k = stopKey(st); if (!byKey.has(k)) byKey.set(k, { st, R, poses: [], line: br.line }); byKey.get(k).poses.push(busPose(R, st.s)); } }
+  for (const br of L.busRoutes) { const R = POSTAUTO.routes.get(br.id); for (const [i, st] of R.stops.entries()) { const k = stopKey(st); if (!byKey.has(k)) byKey.set(k, { st, R, poses: [], calls: [] }); const e = byKey.get(k); e.poses.push(busPose(R, st.s)); e.calls.push({ line: br.line, dest: br.to, last: i === R.stops.length - 1 }); } }
   POSTAUTO.stops = [];
-  for (const { st, R, poses, line } of byKey.values()) {
-    const lay = stopLayout(st, poses, ROADS);
-    busStop(lay, st.name, line);
+  for (const { st, R, poses, calls } of byKey.values()) {
+    const lay = stopLayout(st, poses, ROADS), rows = stopRows(calls);
+    busStop(lay, st.name, rows);
     stopZigzag(R, st.s, roadWidthAt(st.x, st.z));
-    POSTAUTO.stops.push({ uic: st.uic, name: st.name, x: st.x, z: st.z, yaw: lay.yaw, pole: lay.pole, shelter: lay.shelter, shift: lay.shift, pushed: lay.pushed });
+    POSTAUTO.stops.push({ uic: st.uic, name: st.name, x: st.x, z: st.z, yaw: lay.yaw, pole: lay.pole, shelter: lay.shelter, shift: lay.shift, pushed: lay.pushed, rows });
   }
 }
 buildBusStops();   // #712: before loadPostauto's fetch, so the stops stand without a timetable too
@@ -356,14 +400,15 @@ buildBusStops();   // #712: before loadPostauto's fetch, so the stops stand with
 In `loadPostauto` (`index.html:3874`) change the route line to reuse what `buildBusStops` built:
 `for (const br of L.busRoutes) if (!POSTAUTO.routes.has(br.id)) POSTAUTO.routes.set(br.id, busRoute(br, ROADS, g));`
 — keep the `autoGraph()` call there (it is cached). Add `stops: []` to the `POSTAUTO` literal
-(`index.html:3864`). `br.line` is the line number in `busRoutes[]` (`'133'`); check the field name in the world
-file (`busRoute` reads `br.line`, `postauto.js:76`).
+(`index.html:3864`). `br.line` is the line number and `br.to` the destination ("Frick, Bahnhof") in `busRoutes[]`; check the field
+names in the world file (`busRoute` reads `br.line`, `postauto.js:76`). `R.stops` keeps the world's stop order, so
+the last entry is the route's final stop. The municipality is not in the data and is not drawn (spec A10).
 
 - [ ] **Hand-placed Sisseln stop** (`index.html:2318`): it has no route and no bus. Replace the call with a
   synthetic layout so it draws through the same function:
 
 ```js
-  { const [x, z] = V(812, 722); busStop(stopLayout({ x, z, rot: Math.PI }, [], ROADS), 'Breitenacher', '133'); }
+  { const [x, z] = V(812, 722); busStop(stopLayout({ x, z, rot: Math.PI }, [], ROADS), 'Breitenacher', [{ line: '133', dest: 'Frick, Bahnhof' }, { line: '133', dest: 'Stein-Säckingen, Bahnhof' }]); }
 ```
 
 `stopLayout` with an empty `poses` list only checks the roads (`Math.min()` of nothing is `Infinity`, so the bus
@@ -380,7 +425,7 @@ window.__mm.busStops = () => POSTAUTO.stops;   // #712: the laid-out stops, for 
 - [ ] **CHANGELOG** (`[Unreleased]` → `### Changed`, player voice, timestamp like the others):
 
 ```markdown
-- `2026-11-07 HH:MM` The **Postauto stops** are now Swiss: a pole with the yellow **"PostAuto" Haltestellentafel**, the stop's name and the line plate, a **timetable frame** at eye height, the glass shelter behind the pole, and the yellow **zigzag** on the road along the kerb. Pole and shelter stand beside the kerb, clear of the standing Postauto and off the road — also at the bends at Industriezone Rütti and the two stations, where the bus used to stand through the shelter.
+- `2026-11-07 HH:MM` The **Postauto stops** are now Swiss: a steel-frame sign with the yellow **Haltestellentafel**, the stop's name and a row for each line and direction (with a little bus, no brand), a **timetable frame** at eye height, the glass shelter behind the pole, and the yellow **zigzag** on the road along the kerb. Pole and shelter stand beside the kerb, clear of the standing Postauto and off the road — also at the bends at Industriezone Rütti and the two stations, where the bus used to stand through the shelter.
 ```
 
 - [ ] **Verify in node first:** `node --test tests/*.test.mjs` (Task 1's world test is the gate for the layout).
@@ -442,6 +487,10 @@ def test_stops_lay_out_clear_of_the_standing_bus_at_ruetti(server):
         page.wait_for_function("() => window.__mm && window.__mm.busStops && window.__mm.postauto && window.__mm.postauto().ready", timeout=240000)
         stops = page.evaluate("() => window.__mm.busStops()")
         assert len(stops) == 20 and all(s["shelter"] for s in stops)
+        assert all(s["rows"] for s in stops), "every sign has at least one line row"
+        frick = next(s for s in stops if s["uic"] == "8500583")
+        assert [r["dest"] for r in frick["rows"]] == ["Stein-Säckingen, Bahnhof"]
+        assert not any("postauto" in (s["name"] + " ".join(r["dest"] for r in s["rows"])).lower() for s in stops), "no brand text on the signs"
         page.wait_for_function(f"() => window.__mm.postauto().buses.some(x => x.phase === 'stand' && x.k === {k})", timeout=180000)
         page.clock.set_fixed_time(page.evaluate("() => Date.now()"))
         bus = next(x for x in page.evaluate("() => window.__mm.postauto().buses") if x["phase"] == "stand" and x["k"] == k)
