@@ -83,17 +83,22 @@ def test_f3_sets_clock_and_time_lapse(server):
         car1 = page.evaluate("() => window.__mm.pause()")
         assert abs(car1["x"] - car0["x"]) < 0.5 and abs(car1["z"] - car0["z"]) < 0.5   # no key reached the car
         page.wait_for_function("() => window.__mm.postauto().buses.length > 0", timeout=120000)   # re-placed at the new time
-        clock1 = page.evaluate("() => window.__mm.postauto().clock")
+        c1 = page.evaluate("() => ({ clock: window.__mm.postauto().clock, t: performance.now() })")
+        clock1 = c1["clock"]
         assert abs(((clock1 - set_at) % 86400 + 86400) % 86400) < 5   # the fleet clock jumps there, then runs on
         assert page.evaluate("() => new URLSearchParams(location.search).get('patime')") == set_to
         # Zeitraffer 10x: the clock runs at 10x without a jump, the bus drives on (no re-place), the URL carries pasp
         buses1 = {x["key"]: x["s"] for x in page.evaluate("() => window.__mm.postauto().buses")}
+        t_sel = page.evaluate("() => performance.now()")
         page.select_option("#debugpaspeed", "10")
         page.wait_for_timeout(2000)
         page.wait_for_function("() => document.getElementById('debugpaclock').textContent.includes('10×')", timeout=120000)
-        st = page.evaluate("() => window.__mm.postauto()")
+        st = page.evaluate("() => ({ ...window.__mm.postauto(), t: performance.now() })")
         clock2 = st["clock"]
-        assert 15 <= ((clock2 - clock1) % 86400 + 86400) % 86400 <= 30   # 2 s real at 10x = ~20 s fleet
+        # measured against the page's own real time: under SwiftShader the steps between the reads take seconds
+        ran = ((clock2 - clock1) % 86400 + 86400) % 86400
+        expect = (t_sel - c1["t"]) / 1000 + 10 * (st["t"] - t_sel) / 1000   # 1x until the select, 10x after
+        assert ran >= 15 and abs(ran - expect) <= 5, (ran, expect)
         now = {x["key"]: x["s"] for x in st["buses"]}
         shared = [k for k in buses1 if k in now]
         assert shared and all(now[k] >= buses1[k] for k in shared)
