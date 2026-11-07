@@ -44,6 +44,22 @@ def test_postauto_drives_line_133_with_led(server):
 
 
 @needs_data
+def test_postauto_display_uses_the_models_own_slot(server):
+    trip = json.loads(TT.read_text(encoding="utf-8"))["trips"][0]
+    with sync_playwright() as p:
+        b, page, errors = open_at(p, server, hhmm(trip["calls"][1][2] + 60))
+        page.wait_for_function("() => window.__mm.postautoDisplay().buses.length > 0", timeout=120000)
+        d = page.evaluate("() => window.__mm.postautoDisplay()")
+        assert d["cachedMapWidth"] == 512            # the shared baked texture is untouched
+        for bus in d["buses"]:
+            assert bus["planes"] == 0                # no floating plane any more
+            assert bus["displays"] == 1 and bus["own"] and bus["ownMap"] and bus["flipY"] is False
+            assert bus["led"]["line"] == "133" and bus["led"]["dest"]
+        assert not errors
+        b.close()
+
+
+@needs_data
 def test_player_bounces_off_a_standing_postauto(server):
     trip = json.loads(TT.read_text(encoding="utf-8"))["trips"][0]
     # the clock would run on while SwiftShader renders; freeze it the moment the bus stands,
