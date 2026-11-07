@@ -37,6 +37,14 @@ export function lampRole(extras) { return extras?.lamp === 'head' || extras?.lam
 // the Race! button waits while a glTF vehicle is idle or loading; a failed load falls back, so it must not hang
 export function raceBlocked(def, state) { return Boolean(def.gltf) && (state === 'idle' || state === 'loading'); }
 
+// #709: materials the model needs drawn from both sides (the bus's underbody shell faces down only, so from inside it is culled);
+// def.gltf.doubleSided [name]; fails fast when the model lacks a named material
+export function doubleSidedNames(def, materialNames) {
+  const names = def.gltf?.doubleSided ?? [];
+  for (const n of names) if (!materialNames.includes(n)) throw new Error(`gltfvehicle: double-sided material ${n} missing`);
+  return names;
+}
+
 // parts that turn all the time about their node's local x axis (the mixer's drum): def.spin [{ node, rate rad/s }];
 // fails fast when the model lacks a named node
 export function spinPlan(def, nodeNames) {
