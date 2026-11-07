@@ -5374,6 +5374,11 @@ function drawEnterableDoor(v, m) {   // a small door: dark plate, light frame, a
 const BUS_MARK = { fill: '#ffcc00', ink: '#1c1f26', scale: 0.8 };
 function postautoMapMarks() { return POSTAUTO.ready ? busMarks(POSTAUTO.buses, b => busPose(b.route, b.s)) : []; }
 function drawPostautoMarks(v) {
+  if (MAP.full && POSTAUTO.ready) {
+    mg.save(); mg.globalAlpha = 0.35; mg.lineWidth = 2; mg.lineJoin = 'round'; mg.strokeStyle = BUS_MARK.fill;
+    for (const r of POSTAUTO.routes.values()) { mg.beginPath(); r.pts.forEach(([x, z], i) => { const [px, py] = mapPt(v, x, z); if (i) mg.lineTo(px, py); else mg.moveTo(px, py); }); mg.stroke(); }
+    mg.restore();
+  }
   for (const m of postautoMapMarks()) {
     const [x, y] = mapPt(v, m.x, m.z); if (!onCanvas(x, y, mapC.width, mapC.height)) continue;
     mg.save(); mg.translate(x, y); mg.rotate(m.th); mg.scale(BUS_MARK.scale, BUS_MARK.scale); mg.beginPath(); mg.moveTo(10, 0); mg.lineTo(-7, 6); mg.lineTo(-4, 0); mg.lineTo(-7, -6); mg.closePath();
