@@ -726,6 +726,7 @@ import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, stopFaceDeg } from './postauto.js';   // #500
+import { pickVoices } from './postautofx.js';   // #709
 import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
@@ -3734,6 +3735,7 @@ const SFX = (() => {
   let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set();   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other
   const knockAt = {}, kn = { played: 0, last: null }, gate = { t: -Infinity, s: 0 }, rec = { count: 0, last: null };   // #104: the crash retrigger gate, and what it let through (for the tests)
   const steps = { count: 0 }; let tyreAt = -1, siren = null; const tyreHits = { count: 0, last: null };   // #416
+  const bv = new Map();   // #709: bus key -> { eng, es }, the Postauto engine voices
   const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(limit); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
   function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0 }; return eng; }
   function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted || holds.size) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
@@ -3770,7 +3772,21 @@ const SFX = (() => {
     chuff() { burst(0.16, 380, 0.9, 0.18); },   // #462: one chuff of the cylinders, a short low steam burst
     toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
     hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
-    state() { return { ctx: ac ? ac.state : 'none', muted, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix } }; },
+    // #709: one engine voice per audible Postauto (the bus preset), level scaled by distance; a voice that drops out of the list fades and is freed
+    busEngines(list, dt) {
+      if (!ac) return;
+      const want = new Set(list.map((v) => v.key)), t = ac.currentTime, pre = VEHICLES.bus.sound;
+      for (const [key, s] of bv) if (!want.has(key)) { s.eng.out.gain.setTargetAtTime(0, t, 0.05); setTimeout(() => stopEngine(s.eng), 400); bv.delete(key); }
+      for (const v of list) {
+        let s = bv.get(v.key);
+        if (!s) { s = { eng: buildEngine(ac, ac.master, pre.engine), es: { rpm: pre.engine.idleRpm, gear: 0, shift: 0 } }; bv.set(v.key, s); }
+        const input = { kmh: v.kmh, gas: v.kmh > 1, nitro: false, air: false, fly: false };
+        s.es = engineStep(s.es, input, pre, dt);
+        const mix = engineMix(s.es, input, pre.engine);
+        applyEngine(s.eng, { ...mix, gain: mix.gain * v.gain, road: mix.road * v.gain, hiss: 0 }, t);
+      }
+    },
+    state() { return { ctx: ac ? ac.state : 'none', muted, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
@@ -3952,6 +3968,8 @@ function stepPostauto(dt) {
     alive.add(b.key);
     if (surface) drawPostauto(b, flashOn, dt);
   }
+  const ear = { x: camera.position.x, z: camera.position.z };   // #709: the camera hears, so follow mode and the drone camera sound right
+  SFX.busEngines(surface ? pickVoices(POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, phase: b.phase, v: b.v, x: p.x, z: p.z }; }), ear) : [], dt);
   for (const [key, g] of POSTAUTO.meshes) if (!alive.has(key)) { POSTAUTO.group.remove(g); disposePostautoMesh(g); POSTAUTO.meshes.delete(key); }
   POSTAUTO.group.visible = surface;
 }

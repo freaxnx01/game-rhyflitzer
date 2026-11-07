@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-11-07 21:27` The **Postautos** now turn their **wheels** with their speed, you can no longer see through the **bus floor** (the Regional Bus too), and a passing Postauto can be heard: an **engine** that gets louder as it comes closer.
+
 ### Changed
 
 - `2026-11-07 19:48` **Postautos** no longer cut bends at sharp angles: like a real 12 m bus they now **swing wide** through corners and junctions on a smooth curve. Stops are unchanged.
