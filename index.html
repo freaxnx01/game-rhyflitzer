@@ -725,7 +725,8 @@ import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintabl
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
-import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, stopFaceDeg } from './postauto.js';   // #500
+import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText } from './postauto.js';   // #500
+import { STOP, stopLayout, zigzagLine, stopKey, stopRows } from './busstop.js';   // #712
 import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
@@ -946,6 +947,45 @@ TEX.plasterWhite = makeTex(64, 64, (g, w, h) => {
 // painted on it. Three (u, v) pairs: eave-left, eave-right, ridge, in gable()'s tri() order
 const ROW_GABLE_END = { role: 'rowHouse', uv: [0.14, 0.05, 0.35, 0.05, 0.245, 0.90] };
 const textTex = (txt, w, h, bg, fg, font, border) => makeTex(w, h, (g) => { g.clearRect(0, 0, w, h); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); } if (border) { g.strokeStyle = border; g.lineWidth = h * 0.06; g.strokeRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1); } g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + h * 0.03); }, { alpha: true });
+// #712: the Haltestellentafel -- landscape 0.9 x 0.55 m: Postgelb header with a black bus pictogram (no wordmark, spec A5), white
+// stop-name band, one Postgelb row per line and direction with thin white separators
+function busPictogram(g, x, y, h) {   // procedural, black: rounded body, yellow window cut-outs, two wheels
+  const w = h * 1.9;
+  g.fillStyle = '#111111'; g.beginPath(); g.roundRect(x, y, w, h * 0.78, h * 0.14); g.fill();
+  g.fillStyle = '#ffcc00'; for (let i = 0; i < 4; i++) g.fillRect(x + w * (0.08 + i * 0.22), y + h * 0.12, w * 0.17, h * 0.28);
+  g.fillStyle = '#111111'; for (const cx of [0.25, 0.75]) { g.beginPath(); g.arc(x + w * cx, y + h * 0.8, h * 0.17, 0, Math.PI * 2); g.fill(); }
+}
+function stopSignTex(name, rows) {
+  return makeTex(512, 312, (g, w, h) => {
+    const headH = 62, rowH = Math.min(60, Math.floor(126 / Math.max(1, rows.length))), rowsTop = h - rows.length * rowH;
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffcc00'; g.fillRect(0, 0, w, headH);
+    busPictogram(g, 16, 10, 42);
+    g.fillStyle = '#111111'; g.textBaseline = 'middle';
+    const parts = name.includes(',') ? name.split(',').map((t) => t.trim()) : name.length > 14 && name.includes(' ') ? [name.slice(0, name.lastIndexOf(' ')), name.slice(name.lastIndexOf(' ') + 1)] : [name];
+    const size = parts.length > 1 || parts.some((t) => t.length > 12) ? 52 : 72, mid = (headH + rowsTop) / 2;
+    g.textAlign = 'center'; g.font = `700 ${size}px "Barlow Condensed", sans-serif`;
+    parts.forEach((t, i) => g.fillText(t, w / 2, mid + (i - (parts.length - 1) / 2) * (size + 6)));
+    rows.forEach((r, i) => {
+      const y = rowsTop + i * rowH;
+      g.fillStyle = '#ffcc00'; g.fillRect(0, y, w, rowH);
+      if (i) { g.fillStyle = '#ffffff'; g.fillRect(0, y, w, 3); }
+      g.fillStyle = '#111111'; g.textAlign = 'left'; g.font = `700 ${Math.round(rowH * 0.7)}px "Barlow Condensed", sans-serif`;
+      g.fillText(r.line, 20, y + rowH / 2 + 2); g.fillText(r.dest, 110, y + rowH / 2 + 2);
+    });
+  }, { alpha: true });
+}
+// #712: the Fahrplantafel -- a white sheet with a yellow header and grey lines, no real times
+function timetableTex() {
+  return makeTex(128, 192, (g, w, h) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffcc00'; g.fillRect(0, 0, w, 28);
+    g.fillStyle = '#111111'; g.font = '700 18px "Barlow Condensed", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('133', 8, 14);
+    g.fillStyle = '#9a9a9a'; for (let y = 44; y < h - 8; y += 14) { g.fillRect(8, y, 20, 4); g.fillRect(36, y, w - 44, 4); }
+  }, { alpha: true });
+}
+// #712: SSV 6.21 -- one yellow zigzag per 2 m tile, repeats along the ribbon
+const zigzagTex = () => makeTex(64, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.strokeStyle = '#f5c400'; g.lineWidth = 10; g.lineJoin = 'miter'; g.beginPath(); g.moveTo(8, 0); g.lineTo(w - 8, h / 2); g.lineTo(8, h); g.stroke(); });
 
 // ---------- world layout (traced from the OSM screenshot, pixel coords) ----------
 let RIVER = { hw: 42 * S, pts: WP([[1960, 262], [1700, 255], [1500, 250], [1300, 245], [1100, 232], [950, 208], [800, 182], [690, 170], [600, 205], [545, 290], [518, 390], [506, 470], [484, 555], [458, 635], [446, 700], [422, 758], [362, 790], [255, 765], [130, 705], [-40, 640]]) };
@@ -1992,7 +2032,40 @@ function crashSign() {
 function stationAt(x, z, rot, name) { const b = terrainH(x, z); box(26, 6, 8, x, b - 2, z, rot, col('#e0d8c8'), 'wallDoor', [4, 3], 2.1); gable(26, 8, b + 4, 2.2, x, z, rot, col('#5a4a48'), col('#e0d8c8')); addOBB(x, z, 26, 8, rot, b + 4); box(60, 0.6, 3, x, b, z + 8, rot, col('#c8c2b6'), 'stone', [4, 2], 0); if (name) stationSign(name, x, z, rot, b); }
 // #12: blue Swiss station board on both long facades (signW's 'ch' style), just under the eaves
 function stationSign(name, x, z, rot, b) { const mat = new THREE.MeshLambertMaterial({ map: textTex(name, 1024, 170, '#1c5fb0', '#ffffff', '700 110px "Barlow Condensed", sans-serif', '#ffffff') }); for (const s of [1, -1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.5), mat); m.position.set(x - s * 4.06 * Math.sin(rot), b + 2.9, z + s * 4.06 * Math.cos(rot)); m.rotation.y = -rot + (s < 0 ? Math.PI : 0); signs.add(m); } STATION_SIGNS.push({ t: name, x, z }); }
-function busStop(x, z, name, faceDeg) { const b = terrainH(x, z); const g = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 })); pole.position.y = 1.5; const board = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.5), new THREE.MeshBasicMaterial({ map: textTex(name, 512, 214, '#f5c400', '#111111', '700 88px "Barlow Condensed", sans-serif', '#111111'), side: THREE.DoubleSide })); board.position.set(0, 2.7, 0.06); const shelter = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, 1.8), new THREE.MeshLambertMaterial({ color: 0x4a515e })); shelter.position.set(0, 2.5, -1.2); const back = new THREE.Mesh(new THREE.BoxGeometry(4, 2.4, 0.1), new THREE.MeshPhongMaterial({ color: 0x8fb2c8, transparent: true, opacity: 0.5 })); back.position.set(0, 1.3, -2.05); g.add(pole, board, shelter, back); g.position.set(x, b, z); g.rotation.y = faceDeg * Math.PI / 180; signs.add(g); }
+// #712: one stop from its layout (busstop.js): the inverted-U steel frame with the Haltestellentafel (its pole leg at layout.pole)
+// and the timetable frame, the glass shelter at layout.shelter (null: sign only). Local +x along the kerb, +z away from the road.
+function busStop(layout, name, rows) {
+  const g = new THREE.Group(), b = terrainH(...layout.pole);
+  const steel = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 });
+  const tube = (x, y0, y1) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, y1 - y0, 8), steel); m.position.set(x, (y0 + y1) / 2, 0); g.add(m); };
+  tube(0, 0, 2.9); tube(-1, 2.15, 2.9);   // the pole leg and the short leg of the inverted U
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1, 8), steel); bar.rotation.z = Math.PI / 2; bar.position.set(-0.5, 2.9, 0); g.add(bar);
+  for (const x of [0, -1]) { const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), steel); knob.position.set(x, 2.9, 0); g.add(knob); }   // rounded top corners
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55), new THREE.MeshBasicMaterial({ map: stopSignTex(name, rows), side: THREE.DoubleSide })); sign.position.set(-0.5, 2.5, -0.05); g.add(sign);
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.03), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); frame.position.set(0, 1.6, -0.05); g.add(frame);
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: timetableTex() })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
+  if (layout.shelter) {
+    const S = STOP.shelter, mid = (S.front + S.back) / 2;   // the shelter centre is mid metres further out than the pole
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(S.w, 0.15, S.d), new THREE.MeshLambertMaterial({ color: 0x4a515e })); roof.position.set(0, S.h + 0.1, mid); g.add(roof);
+    const glass = new THREE.MeshPhongMaterial({ color: 0x8fb2c8, transparent: true, opacity: 0.5 });
+    const back = new THREE.Mesh(new THREE.BoxGeometry(S.w, S.h, 0.06), glass); back.position.set(0, S.h / 2, S.back - 0.05); g.add(back);
+    for (const sd of [-1, 1]) { const side = new THREE.Mesh(new THREE.BoxGeometry(0.06, S.h, S.d), glass); side.position.set(sd * (S.w / 2 - 0.03), S.h / 2, mid); g.add(side); }
+    for (const sd of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, S.h, 6), new THREE.MeshLambertMaterial({ color: 0x4a515e })); post.position.set(sd * (S.w / 2 - 0.1), S.h / 2, S.front + 0.1); g.add(post); }
+  }
+  g.position.set(layout.pole[0], b, layout.pole[1]); g.rotation.y = -layout.yaw;
+  signs.add(g);
+}
+// #712: the yellow zigzag (SSV 6.21) along the kerb, 16 m centred on the stand point, on the road surface
+let ZIGZAG_TEX = null;
+function stopZigzag(route, s, roadW) {
+  const line = zigzagLine(route, s, roadW);
+  if (line.length < 2) return;
+  ZIGZAG_TEX ??= zigzagTex();
+  const geo = ribbonGeo(line, STOP.zigzag.w / 2, 0.05, 2, true);
+  decals.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: ZIGZAG_TEX, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })));
+}
+// #712: the width of the road nearest a point (the stop's road), 6 m when none is within reach
+function roadWidthAt(x, z) { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, x, z, 8)) { const d = segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) - r.w / 2; if (!best || d < best.d) best = { d, w: r.w }; } return best ? best.w : 6; }
 
 // street-name decals and place-name signs (built as separate meshes)
 const decals = new THREE.Group(), signs = new THREE.Group(), marks = new THREE.Group();
@@ -2316,7 +2389,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   church(...V(190, 395), 0.1, 'chapel');
   for (const [px, py, w, d, rot] of [[1250, 250, 14, 44, 0], [1290, 250, 14, 44, 0], [1160, 380, 12, 40, 0], [1210, 470, 12, 40, 0], [1260, 470, 12, 40, 0], [1150, 590, 12, 40, 0], [1200, 590, 12, 40, 0], [1260, 590, 12, 40, 0], [1050, 480, 40, 12, 0], [1110, 600, 40, 12, 0], [1040, 300, 40, 12, 0]]) { const [x, z] = V(px, py); if (free(x, z, Math.hypot(w, d) / 2 - 4)) { const b = terrainH(x, z); box(w, 9, d, x, b - 3, z, rot, col('#e9dfc8'), 'wall', [4, 3], 3.1); gable(Math.max(w, d), Math.min(w, d), b + 6, Math.min(w, d) * 0.45, x, z, rot + (w >= d ? 0 : Math.PI / 2), col('#7a3f30'), col('#e9dfc8')); addOBB(x, z, w, d, rot, b + 6); } }
   { const [x, z] = V(985, 465), b = terrainH(x, z); disc(x, z, 8, 0.045, 'roadPlain', col('#ffffff')); const isl = new THREE.CylinderGeometry(3, 3.3, 0.4, 16); isl.translate(x, b + 0.25, z); colorize(isl, col('#7aa356')); push('field', isl); addOBB(x, z, 4, 4, 0, b + 0.6); }
-  busStop(...V(812, 722), 'Breitenacher', 180);
+  { const [x, z] = V(812, 722); busStop(stopLayout({ x, z, rot: 0 }, [], ROADS), 'Breitenacher', [{ line: '133', dest: 'Frick, Bahnhof' }, { line: '133', dest: 'Stein-Säckingen, Bahnhof' }]); }   // #712: rot 0 = away from the road is +z here; no route, no zigzag
   { const [x, z] = V(1010, 440); const t = new THREE.PlaneGeometry(14, 1.6); const m = new THREE.Mesh(t, new THREE.MeshBasicMaterial({ map: textTex('Privat Parkplatz Rhyblick', 1024, 118, null, 'rgba(245,239,224,.9)', '700 72px "Barlow Condensed", sans-serif'), transparent: true })); m.rotation.x = -Math.PI / 2; m.position.set(V(818, 385)[0], terrainH(...V(818, 385)) + 0.08, V(818, 385)[1]); decals.add(m); }
   // churches: Sisseln village church, Stein chapel, the Fridolinsmünster
   church(...W(640, 660), 1.4, false); church(...W(436, 432), 0.12, true);
@@ -3862,7 +3935,7 @@ function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS);
 // ---------- #500: Postautos on their lines by the weekday timetable (postauto.js) ----------
 // The timetable loads in the background after the world, never blocking play. The clock is real Europe/Zurich time (A0a),
 // unless ?patime=HH:MM starts it at a fixed time for testers (A11); a jump > PA.resync re-places the fleet (A3).
-const POSTAUTO = { ready: false, routes: new Map(), trips: [], buses: [], meshes: new Map(), colliders: [], group: new THREE.Group(), prev: null, syncT: 0, modelFailed: false, follow: null };
+const POSTAUTO = { ready: false, routes: new Map(), trips: [], buses: [], stops: [], meshes: new Map(), colliders: [], group: new THREE.Group(), prev: null, syncT: 0, modelFailed: false, follow: null };
 scene.add(POSTAUTO.group);
 const PATIME = parsePatime(new URLSearchParams(location.search).get('patime')), PATIME_T0 = performance.now();
 function postautoClock() { return PATIME === null ? zurichSeconds(new Date()) : (PATIME + (performance.now() - PATIME_T0) / 1000) % 86400; }
@@ -3872,7 +3945,7 @@ async function loadPostauto() {
   const tt = await fetch(REGION.timetable).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (!tt || tt.format !== 'MMT1') { console.warn('No Postauto timetable: file missing or not MMT1'); return; }
   const g = autoGraph();
-  for (const br of L.busRoutes) POSTAUTO.routes.set(br.id, busRoute(br, ROADS, g));
+  for (const br of L.busRoutes) if (!POSTAUTO.routes.has(br.id)) POSTAUTO.routes.set(br.id, busRoute(br, ROADS, g));   // #712: routes already built by buildBusStops; kept for a timetable that arrives first
   POSTAUTO.trips = tt.trips.filter((t) => POSTAUTO.routes.has(t.route));
   POSTAUTO.ready = true;
   console.info(`Postauto timetable loaded: ${POSTAUTO.trips.length} trips on ${POSTAUTO.routes.size} routes (feed ${tt.feed?.version})`);
@@ -4449,6 +4522,7 @@ window.__mm.raceFlags = () => ({ jumped: !!R.jumped, flown: !!R.flown, walked: !
 window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, done: R.done, rank: R.last?.rank ?? null, best: R.blitzBest, cps: CPS.map(c => [c.x, c.z]), finish: [FINISH.x, FINISH.z] });   // #128
 window.__mm.blitzSetLeft = (s) => { R.left = s; };
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
+window.__mm.busStops = () => POSTAUTO.stops;   // #712: the laid-out stops, for the test
 window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'), follow: POSTAUTO.follow,   // #500: read-only, for the test; #707: the followed bus key and the panel's DOM state
   panel: { rows: document.querySelectorAll('#debugparows button').length, clock: $('debugpaclock').textContent },
   buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null }; }) });
@@ -5564,7 +5638,33 @@ function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000))
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play
-for (const br of L?.busRoutes ?? []) for (const st of br.stops) busStop(st.x, st.z, st.name, stopFaceDeg(st.rot));   // #500, A10: a sign at every stop, board facing the road
+// #712: routes first (busPose needs them), then one stop per distinct point, laid out clear of every bus that stands there.
+// Rows aggregate per stop (uic): Frick Bahnhof has two points 5 m apart, and the 11533941 one is a pure terminus --
+// per-point calls would leave its sign without a single row.
+function buildBusStops() {
+  if (!L || !L.busRoutes?.length) return;
+  const g = autoGraph();
+  for (const br of L.busRoutes) if (!POSTAUTO.routes.has(br.id)) POSTAUTO.routes.set(br.id, busRoute(br, ROADS, g));
+  const byKey = new Map(), rowsByUic = new Map();
+  for (const br of L.busRoutes) {
+    const R = POSTAUTO.routes.get(br.id);
+    for (const [i, st] of R.stops.entries()) {
+      const k = stopKey(st);
+      if (!byKey.has(k)) byKey.set(k, { st, R, poses: [] });
+      byKey.get(k).poses.push(busPose(R, st.s));
+      if (!rowsByUic.has(st.uic)) rowsByUic.set(st.uic, []);
+      rowsByUic.get(st.uic).push({ line: br.line, dest: br.to, last: i === R.stops.length - 1 });
+    }
+  }
+  POSTAUTO.stops = [];
+  for (const { st, R, poses } of byKey.values()) {
+    const lay = stopLayout(st, poses, ROADS), rows = stopRows(rowsByUic.get(st.uic));
+    busStop(lay, st.name, rows);
+    stopZigzag(R, st.s, roadWidthAt(st.x, st.z));
+    POSTAUTO.stops.push({ uic: st.uic, name: st.name, x: st.x, z: st.z, yaw: lay.yaw, pole: lay.pole, shelter: lay.shelter, shift: lay.shift, pushed: lay.pushed, rows });
+  }
+}
+buildBusStops();   // #712: before loadPostauto's fetch, so the stops stand without a timetable too
 if (REGION.backdrop && !GEN) fetch(REGION.backdrop).then((r) => (r.ok ? r.arrayBuffer() : null)).then((buf) => { if (buf) buildBackdrop(parseMMH(buf), buf.byteLength); }).catch(() => {});   // #593: never awaited, startup does not wait for the horizon
 // #538: Umami bookkeeping. Coarse ids only (see analytics.js). Vehicle and activity are sampled once a second (the interval also runs while the pause menu freezes the loop, where a car swap happens); modes and jumps are one-line calls from startRace, finish, endHunt, timeUp, toMainMenu and placeOnRoad.
 const STATS = { lastMode: null, vehicle: createChangeReporter({ name: 'vehicle', initial: CHOICE.id, shape: vehicleData }), activity: createChangeReporter({ name: 'activity', initial: 'car', shape: activityData }) };
