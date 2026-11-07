@@ -730,6 +730,7 @@ import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices } from './postautofx.js';   // #709
 import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
+import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
@@ -3881,10 +3882,13 @@ function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS);
 // ---------- #500: Postautos on their lines by the weekday timetable (postauto.js) ----------
 // The timetable loads in the background after the world, never blocking play. The clock is real Europe/Zurich time (A0a),
 // unless ?patime=HH:MM starts it at a fixed time for testers (A11); a jump > PA.resync re-places the fleet (A3).
-const POSTAUTO = { ready: false, routes: new Map(), trips: [], buses: [], meshes: new Map(), colliders: [], group: new THREE.Group(), prev: null, syncT: 0, modelFailed: false, follow: null };
+const POSTAUTO = { ready: false, routes: new Map(), trips: [], buses: [], meshes: new Map(), colliders: [], group: new THREE.Group(), prev: null, syncT: 0, forceSync: false, modelFailed: false, follow: null };
 scene.add(POSTAUTO.group);
-const PATIME = parsePatime(new URLSearchParams(location.search).get('patime')), PATIME_T0 = performance.now();
-function postautoClock() { return PATIME === null ? zurichSeconds(new Date()) : (PATIME + (performance.now() - PATIME_T0) / 1000) % 86400; }
+// #726: the fleet clock -- Europe/Zurich wall time, or set from the panel / ?patime=HH:MM, at a ?pasp= time-lapse factor
+const PA_QUERY = clockFromQuery(new URLSearchParams(location.search).get('patime'), new URLSearchParams(location.search).get('pasp'));
+let PACLOCK = PA_QUERY.patime !== null ? setTime(wallClock(), PA_QUERY.patime, performance.now()) : wallClock();
+if (PA_QUERY.patime === null && PA_QUERY.factor > 1) PACLOCK = setFactor(PACLOCK, PA_QUERY.factor, performance.now(), zurichSeconds(new Date()));
+function postautoClock() { return clockNow(PACLOCK, performance.now(), zurichSeconds(new Date())); }
 async function loadPostauto() {
   if (!L || !REGION.timetable || !L.busRoutes.length) return;
   console.info('Loading the Postauto timetable from', REGION.timetable);
@@ -3952,7 +3956,10 @@ function disposePostautoMesh(g) {
 // steps the fleet on the wall clock, re-syncing every second and re-placing everything after a clock jump
 function stepPostauto(dt) {
   if (!POSTAUTO.ready) return;
-  const now = postautoClock(), jumped = POSTAUTO.prev !== null && fleetJumped(POSTAUTO.prev, now, dt);
+  // #726: buses step in fleet time -- dt scaled by the clock factor, sub-stepped so braking and stop checks see small steps
+  const now = postautoClock(), f = PACLOCK.factor, dtF = dt * f;
+  const jumped = POSTAUTO.forceSync || (POSTAUTO.prev !== null && fleetJumped(POSTAUTO.prev, now, dtF, { resync: jumpLimit(f, PA.resync) }));
+  POSTAUTO.forceSync = false;
   POSTAUTO.syncT -= dt;
   if (jumped || POSTAUTO.syncT <= 0) { POSTAUTO.buses = syncFleet(jumped ? [] : POSTAUTO.buses, POSTAUTO.trips, POSTAUTO.routes, now); POSTAUTO.syncT = 1; }
   POSTAUTO.prev = now;
@@ -3961,11 +3968,12 @@ function stepPostauto(dt) {
   const player = { x: P.x, z: P.z, r: FOOT.on ? WALKER.radius : carRadius() };
   POSTAUTO.colliders = [];
   const alive = new Set();
+  const { n, h } = fleetSteps(dtF);
   for (const b of POSTAUTO.buses) {
     if (b.phase === 'done') continue;
     const level = b.y === undefined || Math.abs(P.y - b.y) < PA.above;   // a player on a bridge above or in the air is not in the way
     const gap = surface && b.phase === 'drive' && level ? obstacleGap(b.route, b.s, player) : null;
-    stepBus(b, now, dt, gap);
+    for (let i = 0; i < n && b.phase !== 'done'; i++) stepBus(b, now - dtF + (i + 1) * h, h, gap);
     if (b.phase === 'done') continue;
     alive.add(b.key);
     if (surface) drawPostauto(b, flashOn, dt);
@@ -5463,7 +5471,7 @@ function drawPostautoPanel() {
   const pa = $('debugpa');
   if (!POSTAUTO.ready) { pa.hidden = true; return; }
   pa.hidden = false;
-  $('debugpaclock').textContent = clockLine(postautoClock(), PATIME, tr);
+  $('debugpaclock').textContent = clockLine(postautoClock(), { given: PACLOCK.given, factor: PACLOCK.factor, wall: PACLOCK.mode === 'wall' }, tr);   // #726
   const buses = POSTAUTO.buses.filter((b) => b.phase !== 'done'), rows = $('debugparows');
   if (!buses.length) {
     const next = nextDeparture(POSTAUTO.trips, postautoClock());

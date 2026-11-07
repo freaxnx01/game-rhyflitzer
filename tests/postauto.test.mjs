@@ -6,6 +6,7 @@ import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
   busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText, stopFaceDeg,
   driveLine, drivePoint, lanePoint } from '../postauto.js';
+import { fleetSteps } from '../paclock.js';   // #726
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 const road = (pts, cls = 'primary', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
@@ -111,6 +112,17 @@ function run(b, t0, secs, player = () => null, dt = 0.05) {
   }
   return out;
 }
+
+// #726: the same fleet seconds in sub-steps of at most 0.05 s (a 60x frame at the dt clamp) keep the timetable
+test('stepBus: sub-stepped fleet time keeps the timetable', () => {
+  const a = placeTrip(TRIP, R, 36050), b = placeTrip(TRIP, R, 36050);
+  run(a, 36050, 30);   // 30 s of fleet time in 0.05 s steps
+  const { n, h } = fleetSteps(3);   // one 60x frame: 3 s of fleet time
+  assert.ok(n === 60 && h <= 0.05 + 1e-12);
+  for (let f = 0; f < 10; f++) for (let i = 0; i < n && b.phase !== 'done'; i++) stepBus(b, 36050 + f * 3 + (i + 1) * h, h, null);
+  assert.equal(a.k, b.k); assert.equal(a.phase, b.phase);
+  assert.ok(Math.abs(a.s - b.s) < 15);
+});
 
 test('stepBus: leaves on time, stops at the next stop, stands until the departure time', () => {
   const b = placeTrip(TRIP, R, 35950), log = run(b, 35950, 180);
