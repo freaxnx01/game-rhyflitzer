@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Changed
+
+- `2026-11-07 20:17` The **churches of Stein** now stand where they really are, with their real shape and towers (swisstopo 3D buildings): the **Kirche Bruder Klaus** on the Schulstrasse and the **Reformierte Kirche** on the Gartenstrasse. The made-up church on the field by the Münchwilerstrasse is gone; <kbd>J</kbd> → Stein lists both churches.
+
 ### Added
 
 - `2026-11-07 18:47` The **Hamburg Speicherstadt**, the world's largest warehouse district and a UNESCO World Heritage site, has taken **star room 5** of the hideout (the third room on the left of the lift): a straight **Fleet** (canal) 120 m long, **six red-brick warehouses** (three on each bank, five storeys under gabled roofs, their window bands and a hoist bay facing the water) and **two bridges** that cross the canal in the alleys between the blocks. Drive both quays, cross both bridges and round the canal's ends: the kerbs keep the car out of the water, the parapets keep it on the deck, and the helicopter (<kbd>F</kbd>) flies over the roofs. The whole block is life size and built in the game from simple shapes — not a downloaded model.
