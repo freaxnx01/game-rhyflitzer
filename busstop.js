@@ -46,7 +46,8 @@ function shelterCorners(cx, cz, u, n, cfg) {
   return [[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([a, b]) => [cx + u[0] * hw * a + n[0] * hd * b, cz + u[1] * hw * a + n[1] * hd * b]);
 }
 
-// along the kerb first (0, +1, -1, +2, -2 ...), then out; the first clear candidate wins
+// candidate order (spec: 2026-11-07-swiss-bus-stops-design): shift along the kerb 0, +1, -1, +2, -2 ... ±maxShift,
+// and for each shift the push 0, 0.25 ... maxPush further out; the first clear candidate wins
 function* candidates(cfg) {
   for (let k = 0; k * cfg.shift <= cfg.maxShift; k++) for (const sgn of k ? [1, -1] : [1]) for (let p = 0; p <= cfg.maxPush + 1e-9; p += cfg.push) yield { shift: sgn * k * cfg.shift, push: p };
 }

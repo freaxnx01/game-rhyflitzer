@@ -3944,8 +3944,7 @@ async function loadPostauto() {
   console.info('Loading the Postauto timetable from', REGION.timetable);
   const tt = await fetch(REGION.timetable).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (!tt || tt.format !== 'MMT1') { console.warn('No Postauto timetable: file missing or not MMT1'); return; }
-  const g = autoGraph();
-  for (const br of L.busRoutes) if (!POSTAUTO.routes.has(br.id)) POSTAUTO.routes.set(br.id, busRoute(br, ROADS, g));   // #712: routes already built by buildBusStops; kept for a timetable that arrives first
+  ensureBusRoutes();   // #712: routes already built by buildBusStops (same synchronous tick); the guard inside keeps this safe regardless
   POSTAUTO.trips = tt.trips.filter((t) => POSTAUTO.routes.has(t.route));
   POSTAUTO.ready = true;
   console.info(`Postauto timetable loaded: ${POSTAUTO.trips.length} trips on ${POSTAUTO.routes.size} routes (feed ${tt.feed?.version})`);
@@ -5641,10 +5640,16 @@ loadPostauto();   // #500: the timetable loads in the background, never blocking
 // #712: routes first (busPose needs them), then one stop per distinct point, laid out clear of every bus that stands there.
 // Rows aggregate per stop (uic): Frick Bahnhof has two points 5 m apart, and the 11533941 one is a pure terminus --
 // per-point calls would leave its sign without a single row.
-function buildBusStops() {
+// The one place bus routes are built: idempotent (the guard makes a second call a no-op), so buildBusStops and
+// loadPostauto share it without relying on execution order -- buildBusStops runs synchronously before the fetch resumes.
+function ensureBusRoutes() {
   if (!L || !L.busRoutes?.length) return;
   const g = autoGraph();
   for (const br of L.busRoutes) if (!POSTAUTO.routes.has(br.id)) POSTAUTO.routes.set(br.id, busRoute(br, ROADS, g));
+}
+function buildBusStops() {
+  if (!L || !L.busRoutes?.length) return;
+  ensureBusRoutes();
   const byKey = new Map(), rowsByUic = new Map();
   for (const br of L.busRoutes) {
     const R = POSTAUTO.routes.get(br.id);
