@@ -15,7 +15,8 @@ export const LANDMARK_INFO = [
   { name: 'Aqualon Therme', gemeinde: 'Bad Säckingen', building: 92039355 },
   { name: 'Bergsee', gemeinde: 'Bad Säckingen', at: [-2349, -2207], jump: [-2281.8, -2179.9] },   // #94: the OSM lake "Bergsee" above Bad Säckingen (its ring mean); J lands on Am Bergsee, facing across the water
   { name: 'Rhein-Wracks', gemeinde: 'Bad Säckingen', at: [-1088.4, -406.4], wreck: true },   // #215: the capsized rowing boat and the rusty car on the Rhine bed (#101); J puts the car on the bed beside them (index.html jumpToWreck, position from the built wrecks); at is only the list position
-  { name: 'Kirche Stein', gemeinde: 'Stein', anchor: 'steinChurch' },
+  { name: 'Kirche Bruder Klaus', gemeinde: 'Stein', building: 407386050 },        // #715: Kath. Kirche Hl. Bruder Klaus, Schulstrasse 5 (the swissBUILDINGS3D model stands on this box)
+  { name: 'Reformierte Kirche', gemeinde: 'Stein', at: [-1177.97, 795.86] },      // #715: Gartenstrasse 9 (w88836292, not in the world file, #716): its rect centre
   { name: 'Bahnhof Stein-Säckingen', gemeinde: 'Stein', anchor: 'stationStein' },
   { name: 'Plattform Sisslerfeld', gemeinde: 'Münchwilen', anchor: 'plattform', jump: [330.0, 418.6], look: [304.75, 427.08] },   // #94 / #526: the tower stands on Parzelle 1765 south of the Geuerenstrasse; J lands 25 m east of it on the Geuerenstrasse, looking at it
   { name: 'Reservoir Hübel', gemeinde: 'Münchwilen', at: [-712.8, 1528.2], jump: [-703.3, 1419.1], look: [-703.7, 1423.6] },   // #102: the hideout in the Hübel (always listed, the name keeps the tower secret); J lands on the Hübel looking at the gate (look: the tunnel mouth)
