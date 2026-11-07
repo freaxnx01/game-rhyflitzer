@@ -1,10 +1,11 @@
 // #500: Postautos drive line 133 by the weekday timetable. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGraph } from '../route.js';
+import { buildGraph, rightOf } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
-  busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText, stopFaceDeg } from '../postauto.js';
+  busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText, stopFaceDeg,
+  driveLine, drivePoint, lanePoint } from '../postauto.js';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 const road = (pts, cls = 'primary', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
@@ -185,4 +186,23 @@ test('busCollider, ledText, stopFaceDeg', () => {
   assert.deepEqual(ledText(TRIP), { line: '133', dest: 'Ende, Bahnhof' });
   assert.ok(near(stopFaceDeg(0), 180));          // travel east: local -z (shelter) points south, right of travel
   assert.ok(near(stopFaceDeg(Math.PI / 2), 90));  // travel south: shelter to the west
+});
+
+// #710: the bus swings through bends on a smoothed driving line
+const bendRoute = (pts, stops = []) => { const rd = road(pts); return busRoute({ id: 9, line: '133', pts, stops }, [rd], buildGraph([rd])); };
+const oldLane = (route, s) => rightOf(route.pts, route.cum, s, busOffset(route, s));
+
+test('driveLine_StraightRoad_PoseUnchanged', () => {
+  for (const s of [20, 250, 500, 777]) {
+    const [x, z] = lanePoint(R, s), [ox, oz] = oldLane(R, s);
+    assert.ok(near(x, ox) && near(z, oz), `s ${s}`);
+  }
+});
+
+test('driveLine_StopBesideCorner_PoseAtStopUnchanged', () => {
+  const st = { uic: '1', name: 'S1', s: 105, x: 97, z: 105, rot: 0 };   // 5 m after the corner, kerb right of southward travel
+  const R3 = bendRoute([[0, 0], [100, 0], [100, 100], [100, 300]], [st]);
+  const [x, z] = lanePoint(R3, 105), [ox, oz] = oldLane(R3, 105);
+  assert.ok(Math.hypot(x - ox, z - oz) <= 0.1);
+  assert.ok(near(R3.stopS.get('1'), 105));
 });
