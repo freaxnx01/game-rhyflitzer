@@ -1,7 +1,7 @@
 # Postautos on the minimap and the full map (#711): implementation plan
 
-**Goal:** one yellow arrow per active Postauto on the map canvas (minimap and full map), the line number on the full map, optionally
-the line 133 route as a faint line on the full map.
+**Goal:** one yellow arrow per active Postauto on the map canvas (minimap and full map), the line number on the full map,
+and the line 133 route as a faint line on the full map.
 
 **Spec:** `docs/superpowers/specs/2026-11-07-postauto-map-markers-design.md`. **Stack:** buildless browser game, `node --test` for pure logic,
 one Playwright test.
@@ -154,7 +154,7 @@ def test_postauto_on_the_map(server):
 - [ ] **Step 2:** run once, foreground, `timeout=600000`: `python3 -m pytest tests/test_postauto_map.py -x -q`. Expect PASS (skips without the timetable data).
 - [ ] **Step 3:** commit `test(map): Postauto marks on the map (#711)`.
 
-### Task 4: Line 133 route on the full map [med]
+### Task 4: Line 133 route on the full map
 
 **Files:** modify `index.html` only.
 

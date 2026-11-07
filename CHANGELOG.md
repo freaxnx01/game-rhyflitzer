@@ -12,6 +12,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 - `2026-11-07 20:17` The **churches of Stein** now stand where they really are, with their real shape and towers (swisstopo 3D buildings): the **Kirche Bruder Klaus** on the Schulstrasse and the **Reformierte Kirche** on the Gartenstrasse. The made-up church on the field by the Münchwilerstrasse is gone; <kbd>J</kbd> → Stein lists both churches.
 
+- `2026-11-07 19:48` **Postautos** no longer cut bends at sharp angles: like a real 12 m bus they now **swing wide** through corners and junctions on a smooth curve. Stops are unchanged.
+
 ### Added
 
 - `2026-11-07 18:47` The **Hamburg Speicherstadt**, the world's largest warehouse district and a UNESCO World Heritage site, has taken **star room 5** of the hideout (the third room on the left of the lift): a straight **Fleet** (canal) 120 m long, **six red-brick warehouses** (three on each bank, five storeys under gabled roofs, their window bands and a hoist bay facing the water) and **two bridges** that cross the canal in the alleys between the blocks. Drive both quays, cross both bridges and round the canal's ends: the kerbs keep the car out of the water, the parapets keep it on the deck, and the helicopter (<kbd>F</kbd>) flies over the roofs. The whole block is life size and built in the game from simple shapes — not a downloaded model.
@@ -58,6 +60,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-10-31 17:51` The game now runs directly at **rhyflitzer.freaxnx01.ch**, without `/prototype/` in the address. Old links and bookmarks still work: they forward to the new address and keep the chosen world, region and car. Best times and the chosen car are kept.
 
 ### Fixed
+
+- `2026-11-07 21:06` A **Postauto's line and destination** now sit in the bus's own **display** — front, side, and at the rear the line number — instead of floating **in front of the windscreen** on top of the old baked „**811 Sisseln**". The baked text is gone from every Postauto; your own bus keeps its display exactly as it was.
 
 - `2026-11-06 17:51` From the **helicopter** the meadow no longer **flickers through the fields**; roads still lie on top of them.
 - `2026-11-06 16:43` The autopilot now drives on the **right-hand side** of the road instead of in the middle; on one-way streets, ramps and roundabouts it keeps to the middle.

@@ -29,7 +29,7 @@ enterable doors, but not where the buses are.
 - **`drawPostautoMarks(v)` in `index.html`**, called from `drawMap()` right before the player arrow, so the player stays on top.
   Per mark: a yellow arrow (`#ffcc00`, dark outline, the player's shape at 80 % size) rotated by `th`; on the full map the
   line number is drawn next to it in the checkpoint font (`800 12px "Barlow Condensed"`) with a dark outline.
-- **Optional route line:** on the full map only, the line 133 route as a faint yellow polyline (alpha 0.35, 2 px) under the arrows.
+- **Route line:** on the full map only, the line 133 route as a faint yellow polyline (alpha 0.35, 2 px) under the arrows.
 - **Test hook** `window.__mm.mapBuses()` returns `{ full, marks: [{ key, line, px, py, th, label }] }` (canvas px).
 - No change to `buildPostautoMesh`, `busPose`, `postauto.js` (parallel issues #710, #713).
 
@@ -42,7 +42,7 @@ enterable doors, but not where the buses are.
 - **A3** [med] Arrow size 80 % of the player arrow on both maps, yellow `#ffcc00`, dark outline. Rejected: a bus-shaped rectangle (too small to
   read on the 200 px high minimap, `index.html:112`). Size and colour are playtest tuning.
 - **A4** [med] The line number shows on the full map only, not on the minimap; at 400x200 CSS px a three-digit label would cover the road.
-- **A5** [med] The faint line 133 route on the full map is included (the issue says optional). It is one loop over `POSTAUTO.routes`; drop Task 4 if unwanted.
+- **A5** [confirmed] The faint line 133 route on the full map is included. Answer: "Ja, feine Linie". It is one loop over `POSTAUTO.routes` (Task 4).
 - **A6** [high] A mark disappears with the bus (`phase === 'done'`); a bus standing at a stop stays on the map. Rejected: hiding standing buses.
 - **A7** [med] No new i18n strings: the only text is the line number.
 

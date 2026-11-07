@@ -2,7 +2,7 @@
 // World metres, x east, z south; heading th = atan2(dz, dx) like route.js. A bus is kinematic: progress s along its route,
 // drawn on the lane line; it is never pushed (spec A0b, A1).
 import { makeGrid, gridAddSegment, gridQuery } from './world.js';
-import { cumulative, pointAt, isRoutable, routeSignals, blinkerAt, trackRoute, targetSpeed, rightOf, routeLaneOffset } from './route.js';
+import { cumulative, pointAt, isRoutable, routeSignals, blinkerAt, trackRoute, targetSpeed, routeLaneOffset } from './route.js';
 import { BUS } from './bus.js';
 
 export const PA = {
@@ -12,6 +12,7 @@ export const PA = {
   pullIn: 25, pullOut: 15, kerbGap: 0.3, pullOutSecs: 4,                 // A6
   look: 40, sideClear: 0.5, gap: 2, above: 3,                            // A7
   maxBuses: 8, resync: 5, reach: 2,
+  smoothHalf: 10, smoothStopFree: 8, smoothStopFull: 20,               // #710
 };
 const DAY = 86400;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -77,6 +78,7 @@ export function busRoute(br, roads, graph, cfg = PA) {
   route.signals = routeSignals(route);
   route.stops = br.stops.map((st) => { const [cx, cz] = pointAt(pts, cum, st.s); return { ...st, uic: String(st.uic), kerb: Math.hypot(st.x - cx, st.z - cz) }; }).sort((a, b) => a.s - b.s);
   route.stopS = new Map(route.stops.map((st) => [st.uic, st.s]));
+  route.drive = driveLine(pts, cum, route.stops.map((st) => st.s), cfg);
   return route;
 }
 
@@ -93,9 +95,51 @@ export function busOffset(route, s, cfg = PA) {
   return off;
 }
 
+// ---------- the driving line (#710): the centre line with its corners rounded, so a 12 m bus swings through bends ----------
+// one point per metre of original arc length s: the mean of the polyline over s +- smoothHalf (a box filter: a 90 degree
+// corner becomes a bend of about smoothHalf metres radius, clusters of short legs included). Stops and the route ends keep
+// the original line: the weight rises from 0 at smoothStopFree to 1 at smoothStopFull metres of s away.
+function resampled(pts, cum) {
+  const len = cum[cum.length - 1], out = [];
+  let i = 0;
+  for (let k = 0; k <= Math.floor(len) + 1; k++) {
+    const s = Math.min(k, len);
+    while (i < pts.length - 2 && cum[i + 1] < s) i++;
+    const u = clamp((s - cum[i]) / ((cum[i + 1] - cum[i]) || 1), 0, 1);
+    out.push([pts[i][0] + (pts[i + 1][0] - pts[i][0]) * u, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * u]);
+  }
+  return out;
+}
+
+export function driveLine(pts, cum, stopS, cfg = PA) {
+  const base = resampled(pts, cum), last = base.length - 1, len = cum[cum.length - 1], half = Math.round(cfg.smoothHalf);
+  const span = cfg.smoothStopFull - cfg.smoothStopFree;
+  const out = base.map((o, k) => {
+    const near = Math.min(k, len - k, ...stopS.map((q) => Math.abs(q - k))), w = smooth(clamp((near - cfg.smoothStopFree) / span, 0, 1));
+    if (w === 0) return o;
+    let ax = 0, az = 0;
+    for (let q = -half; q <= half; q++) { const p = base[clamp(k + q, 0, last)]; ax += p[0]; az += p[1]; }
+    const n = 2 * half + 1;
+    return [o[0] + w * (ax / n - o[0]), o[1] + w * (az / n - o[1])];
+  });
+  return { pts: out };
+}
+
+export function drivePoint(drive, s) {
+  const f = clamp(s, 0, drive.pts.length - 1), i = Math.min(Math.floor(f), drive.pts.length - 2), u = f - i, a = drive.pts[i], b = drive.pts[i + 1];
+  return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+}
+
+// the lane point the bus is drawn on: busOffset metres right of the driving line's direction of travel
+export function lanePoint(route, s, cfg = PA) {
+  const p = drivePoint(route.drive, s), off = busOffset(route, s, cfg);
+  if (!off) return p;
+  const a = drivePoint(route.drive, s - 1), b = drivePoint(route.drive, s + 1), dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+  return len ? [p[0] - (dz / len) * off, p[1] + (dx / len) * off] : p;
+}
+
 export function busPose(route, s, cfg = PA) {
-  const at = (q) => rightOf(route.pts, route.cum, q, busOffset(route, q, cfg));
-  const [x, z] = at(s), a = at(s - 3), b = at(s + 3);
+  const [x, z] = lanePoint(route, s, cfg), a = lanePoint(route, s - 3, cfg), b = lanePoint(route, s + 3, cfg);
   return { x, z, th: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
 
@@ -201,7 +245,7 @@ export function busBlinker(b, now, cfg = PA) {
 export function obstacleGap(route, s, player, cfg = PA) {
   const tr = trackRoute(route, player.x, player.z, s), ahead = tr.s - s;
   if (!(ahead > 0) || ahead > cfg.look) return null;
-  const [lx, lz] = rightOf(route.pts, route.cum, tr.s, busOffset(route, tr.s, cfg));
+  const [lx, lz] = lanePoint(route, tr.s, cfg);
   if (Math.hypot(player.x - lx, player.z - lz) > BUS.width / 2 + player.r + cfg.sideClear) return null;
   return Math.max(0, ahead - BUS.length / 2 - player.r - cfg.gap);
 }
