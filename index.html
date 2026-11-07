@@ -726,6 +726,7 @@ import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, stopFaceDeg } from './postauto.js';   // #500
+import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
@@ -3876,30 +3877,48 @@ async function loadPostauto() {
   POSTAUTO.ready = true;
   console.info(`Postauto timetable loaded: ${POSTAUTO.trips.length} trips on ${POSTAUTO.routes.size} routes (feed ${tt.feed?.version})`);
 }
-// line and destination on a lit plane, orange on black like the player bus's display (#478)
-function ledTexture({ line, dest }) {
-  return makeTex(1024, 128, (g, w, h) => {
-    g.fillStyle = '#0d0d0d'; g.fillRect(0, 0, w, h); g.fillStyle = g.strokeStyle = '#ff9a1a'; g.lineWidth = 6;
-    g.strokeRect(8, 12, 170, h - 24); g.font = '700 84px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(line, 93, h / 2 + 4);
-    let size = 84; do { g.font = `700 ${size}px "Barlow Condensed", sans-serif`; size -= 4; } while (g.measureText(dest).width > w - 220 && size > 30);
-    g.textAlign = 'left'; g.fillText(dest, 200, h / 2 + 4);
+// line and destination as the display texture, orange on black like the player bus's baked display (#478)
+function displayTexture({ line, dest }) {
+  const tex = makeTex(DISPLAY_TEX.w, DISPLAY_TEX.h, (g, w, h) => {
+    g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, w, h);
+    const measure = (s, size) => { g.font = `700 ${size}px "Barlow Condensed", sans-serif`; return g.measureText(s).width; };
+    const layout = displayLayout({ line, dest }, measure);
+    g.fillStyle = '#ff9a1a'; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.font = `700 ${layout.line.size}px "Barlow Condensed", sans-serif`; g.fillText(line, layout.line.x, layout.line.y);
+    g.font = `700 ${layout.dest.size}px "Barlow Condensed", sans-serif`; g.fillText(dest, layout.dest.x, layout.dest.y);
   });
+  tex.flipY = false;   // the glTF display UVs run v downwards with Repeat wrapping, unlike a canvas texture's default
+  return tex;
 }
-// one Postauto: a clone of bus.glb (shared geometry and materials), an LED with line and destination, own blinkers.
+// paints line and destination onto every mesh that sits behind tinted glass (the one Display primitive with its front,
+// side and rear quads): a cloned material with its own map, so the cached glTF materials (SHARED_CAR_MATS) and the
+// player's bus keep their baked display (#713, spec A3). Returns how many meshes were painted.
+function paintBusDisplay(root, text) {
+  let painted = 0;
+  root.traverse((o) => {
+    if (!o.isMesh || !o.material?.userData?.overGlass) return;
+    const m = o.material.clone();
+    m.map = m.emissiveMap = displayTexture(text);
+    o.material = m;
+    painted++;
+  });
+  return painted;
+}
+// one Postauto: a clone of bus.glb (shared geometry and materials), line and destination on the model's own Display
+// material (cloned and repainted per bus, all three quads at once), own blinkers.
 // No wireWheels/addBlinkers: those write the player's globals (BLINK, GLTF_LAMPS), a second bus must not (spec A8).
 function buildPostautoMesh(trip) {
   const g = new THREE.Group(), root = GLTF_CARS.bus.scene.clone(true); g.rotation.order = 'YZX'; g.add(root);
-  const box = new THREE.Box3().setFromObject(root);
-  const led = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.24), new THREE.MeshBasicMaterial({ map: ledTexture(ledText(trip)) }));
-  led.position.set(box.max.x + 0.03, box.max.y - 0.32, 0); led.rotation.y = Math.PI / 2; g.add(led);   // A9: 0.32 m under the roof, checked on a screenshot
+  const text = ledText(trip);
+  console.info(`Painting line ${text.line} to ${text.dest} onto the bus display`);
+  if (paintBusDisplay(root, text) === 0) console.warn('Postauto model has no Display material: no line/destination shown');
   const blink = { left: new THREE.Group(), right: new THREE.Group() }, geo = new THREE.BoxGeometry(0.12, 0.12, 0.22), m = new THREE.MeshBasicMaterial({ color: 0xff9a1a });
   for (const [x, y, z] of VEHICLES.bus.blinkers) for (const [side, s] of [['left', -1], ['right', 1]]) { const b = new THREE.Mesh(geo, m); b.position.set(x, y, s * z); blink[side].add(b); }
-  g.add(blink.left, blink.right); g.userData.blink = blink; g.userData.led = ledText(trip);
+  g.add(blink.left, blink.right); g.userData.blink = blink; g.userData.led = text;
   return g;
 }
-// frees the LED texture and material, the blinker geometry and material -- never the shared glTF geometry (userData.sharedGeo)
-// or materials (SHARED_CAR_MATS, like freeCar: the clone shares them with the cached scene, the player's bus and every other Postauto)
+// frees the cloned display material and its texture, the blinker geometry and material -- never the shared glTF geometry
+// (userData.sharedGeo) or materials (SHARED_CAR_MATS, like freeCar: the clone shares them with the cached scene, the player's bus and every other Postauto)
 function disposePostautoMesh(g) {
   const mats = new Set();
   g.traverse((o) => { if (!o.userData.sharedGeo) o.geometry?.dispose(); for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m && !SHARED_CAR_MATS.has(m)) mats.add(m); });
@@ -4433,6 +4452,16 @@ window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null
 window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'), follow: POSTAUTO.follow,   // #500: read-only, for the test; #707: the followed bus key and the panel's DOM state
   panel: { rows: document.querySelectorAll('#debugparows button').length, clock: $('debugpaclock').textContent },
   buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null }; }) });
+window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the baked Display material must stay shared and untouched
+  const cached = GLTF_CARS.bus?.mats?.all.find((m) => m.name === 'Display') ?? null;
+  return { cachedMapWidth: cached?.map?.image?.width ?? null,
+    buses: [...POSTAUTO.meshes].map(([key, g]) => {
+      const planes = [], displays = [];
+      g.traverse((o) => { if (o.geometry?.type === 'PlaneGeometry') planes.push(o); if (o.isMesh && o.material?.userData?.overGlass) displays.push(o); });
+      const m = displays[0]?.material;
+      return { key, planes: planes.length, displays: displays.length, own: !!m && m !== cached, ownMap: !!m?.map && m.map !== cached?.map, flipY: m?.map?.flipY ?? null, led: g.userData.led };
+    }) };
+};
 // drive headless: step the car and the race at 1/60 s while the autopilot is on, at most secs seconds
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
