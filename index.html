@@ -3887,8 +3887,9 @@ const POSTAUTO = { ready: false, routes: new Map(), trips: [], buses: [], meshes
 scene.add(POSTAUTO.group);
 // #726: the fleet clock -- Europe/Zurich wall time, or set from the panel / ?patime=HH:MM, at a ?pasp= time-lapse factor
 const PA_QUERY = clockFromQuery(new URLSearchParams(location.search).get('patime'), new URLSearchParams(location.search).get('pasp'));
+// patime and pasp combine (setFactor rebases without a jump and keeps `given`)
 let PACLOCK = PA_QUERY.patime !== null ? setTime(wallClock(), PA_QUERY.patime, performance.now()) : wallClock();
-if (PA_QUERY.patime === null && PA_QUERY.factor > 1) PACLOCK = setFactor(PACLOCK, PA_QUERY.factor, performance.now(), zurichSeconds(new Date()));
+if (PA_QUERY.factor > 1) PACLOCK = setFactor(PACLOCK, PA_QUERY.factor, performance.now(), zurichSeconds(new Date()));
 function postautoClock() { return clockNow(PACLOCK, performance.now(), zurichSeconds(new Date())); }
 async function loadPostauto() {
   if (!L || !REGION.timetable || !L.busRoutes.length) return;

@@ -16,12 +16,13 @@ def hhmm(secs):
     return f"{secs // 3600:02d}:{secs // 60 % 60:02d}"
 
 
-def open_at(p, server, patime):
+def open_at(p, server, patime, pasp=None):
     b = p.chromium.launch(args=ARGS)
     page = b.new_page(viewport={"width": 1280, "height": 720}, locale="en-US")
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    page.goto(f"{server}/index.html?patime={patime}")
+    query = f"patime={patime}" + (f"&pasp={pasp}" if pasp else "")
+    page.goto(f"{server}/index.html?{query}")
     page.wait_for_function("() => window.__mm && window.__mm.sim && window.__mm.postauto && window.__mm.postauto().ready", timeout=240000)
     return b, page, errors
 
@@ -102,5 +103,36 @@ def test_f3_sets_clock_and_time_lapse(server):
         page.click("#debugpawall")
         page.wait_for_function("() => new URLSearchParams(location.search).get('patime') === null && new URLSearchParams(location.search).get('pasp') === null")
         page.wait_for_function("() => document.getElementById('debugpaclock').textContent.includes('real time')", timeout=120000)   # locale en-US
+        assert not errors
+        b.close()
+
+
+@needs_data
+def test_f3_url_init_combines_patime_and_pasp(server):
+    """#726: ?patime=07:30&pasp=10 starts at that time AND runs at 10x -- the factor is not dropped."""
+    trip = json.loads(TT.read_text(encoding="utf-8"))["trips"][0]
+    set_at = trip["calls"][1][2] + 60   # a time this trip is mid-drive, so the fleet is never empty
+    with sync_playwright() as p:
+        b, page, errors = open_at(p, server, hhmm(set_at), pasp=10)
+        page.wait_for_function("() => window.__mm.postauto().buses.length > 0", timeout=120000)
+        clock1 = page.evaluate("() => window.__mm.postauto().clock")
+        # no jump: the clock runs on from patime at 10x, so at most 10x the real load/elapsed
+        # seconds are on top -- a jump or a wrong base (wall time) is far outside this bound
+        assert ((clock1 - set_at) % 86400 + 86400) % 86400 < 600
+        # the time-lapse factor from the URL is live: the clock advances 10x the real elapsed
+        # (sample performance.now() alongside -- headless load times vary, a fixed window does not)
+        s1 = page.evaluate("() => ({ c: window.__mm.postauto().clock, p: performance.now() })")
+        page.wait_for_timeout(2000)
+        s2 = page.evaluate("() => ({ c: window.__mm.postauto().clock, p: performance.now() })")
+        delta = ((s2["c"] - s1["c"]) % 86400 + 86400) % 86400
+        expect10 = (s2["p"] - s1["p"]) / 1000 * 10
+        assert abs(delta - expect10) < 5   # 10x, not 1x (the dropped-factor regression reads ~expect10/10)
+        # the panel reflects both: the source time and the factor, the select is at 10x
+        page.keyboard.press("F3")
+        page.wait_for_function("() => window.__mm.postauto().panel.rows > 0", timeout=120000)
+        st = page.evaluate("() => window.__mm.postauto()")
+        assert "10×" in st["panel"]["clock"]
+        assert page.evaluate("() => document.getElementById('debugpaspeed').value") == "10"
+        assert page.evaluate("() => new URLSearchParams(location.search).get('pasp')") == "10"
         assert not errors
         b.close()

@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-07 22:38` **For testers:** <kbd>?patime=</kbd> and <kbd>?pasp=</kbd> in the URL now **combine** — a link like `?patime=07:30&pasp=10` starts the fleet clock at 07:30 *and* runs it at 10×, instead of silently dropping the time-lapse factor.
 - `2026-11-07 21:27` The **Postautos** now turn their **wheels** with their speed, you can no longer see through the **bus floor** (the Regional Bus too), and a passing Postauto can be heard: an **engine** that gets louder as it comes closer.
 
 ### Changed
