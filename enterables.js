@@ -5,7 +5,7 @@
 import { foldText } from './landmarks.js';
 
 export const KINDS = ['building', 'tower', 'hideout'];
-export const GLOW_RANGE = 15;   // the entrance glows from here (on foot)
+export const GLOW_RANGE = 60;   // the entrance glows from here (on foot); #702: = the tutorial's jump radius TUT.jumpNearM, so the door glows when you get out
 export const PROMPT_RANGE = 2.5;   // = WALKER.enterReach: from here the E prompt shows
 
 export const ENTERABLE_INFO = [
@@ -79,10 +79,10 @@ export const EXIT_OUT = 1.5;
 export const exitSpot = (en) => ({ x: en.x - Math.cos(en.th) * EXIT_OUT, z: en.z - Math.sin(en.th) * EXIT_OUT, th: en.th + Math.PI });
 export const glowAnchor = (en) => en.th === undefined ? { x: en.x, z: en.z } : { x: en.x - Math.cos(en.th) * GLOW_OUT, z: en.z - Math.sin(en.th) * GLOW_OUT };
 
-// 0 at GLOW_RANGE, smoothstepped to 1 at PROMPT_RANGE and nearer
+// 0 at GLOW_RANGE, 1 at PROMPT_RANGE and nearer; #702: smoothstep of sqrt(t) rises early (~0.4 at 50 m, ~0.8 at 30 m) yet fades in at the edge
 export function glowStrength(d) {
-  const t = Math.max(0, Math.min(1, (GLOW_RANGE - d) / (GLOW_RANGE - PROMPT_RANGE)));
-  return t * t * (3 - 2 * t);
+  const t = Math.max(0, Math.min(1, (GLOW_RANGE - d) / (GLOW_RANGE - PROMPT_RANGE))), s = Math.sqrt(t);
+  return s * s * (3 - 2 * s);
 }
 
 const soon = (row, ready) => ready ? { ...row } : { ...row, soon: true };

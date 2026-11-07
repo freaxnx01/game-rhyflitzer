@@ -14,6 +14,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-07 22:19` The **glow at an entrance** (Plattform Sisslerfeld, Bodenackerstrasse 6c) now shows from **60 m** away on foot instead of 15 m, and is clearly bright well before you reach the door. In the tutorial, the Plattform door is already glowing when you get out after the jump.
+
 - `2026-11-07 20:17` The **churches of Stein** now stand where they really are, with their real shape and towers (swisstopo 3D buildings): the **Kirche Bruder Klaus** on the Schulstrasse and the **Reformierte Kirche** on the Gartenstrasse. The made-up church on the field by the Münchwilerstrasse is gone; <kbd>J</kbd> → Stein lists both churches.
 
 - `2026-11-07 19:48` **Postautos** no longer cut bends at sharp angles: like a real 12 m bus they now **swing wide** through corners and junctions on a smooth curve. Stops are unchanged.

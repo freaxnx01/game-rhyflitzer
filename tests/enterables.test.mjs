@@ -6,6 +6,7 @@ import {
   enterableName, nearestEntrance, enterPrompt, glowStrength, glowAnchor, GLOW_OUT, exitSpot, EXIT_OUT, jumpRowsFor,
 } from '../enterables.js';
 import { STRINGS } from '../strings.js';
+import { TUT } from '../tutorial.js';
 
 const ANCHORS = { plattform: { x: 10, z: 20 } };
 const BUILDINGS = [{ id: 171822634, ring: [[0, 0], [10, 0], [10, 10], [0, 10]] }];
@@ -131,9 +132,9 @@ test('glowAnchor_NoHeading_AtTheDoor', () => {
 });
 
 test('glowStrength_FarEdgeZero_NearOne_MonotoneBetween', () => {
-  assert.equal(GLOW_RANGE, 15);
+  assert.equal(GLOW_RANGE, 60);
   assert.equal(PROMPT_RANGE, 2.5);
-  for (const d of [15, 15.1, 40]) assert.equal(glowStrength(d), 0, `d=${d}`);
+  for (const d of [60, 60.1, 100]) assert.equal(glowStrength(d), 0, `d=${d}`);
   for (const d of [2.5, 2, 0, -1]) assert.equal(glowStrength(d), 1, `d=${d}`);
   let prev = 1;
   for (let d = PROMPT_RANGE + 0.01; d < GLOW_RANGE; d += 0.01) {
@@ -142,6 +143,13 @@ test('glowStrength_FarEdgeZero_NearOne_MonotoneBetween', () => {
     assert.ok(k < 1 && k > 0, k);
     prev = k;
   }
+});
+
+test('glowStrength_TutorialJumpRadius_GlowsEarlyWithoutPopping', () => {   // #702
+  assert.ok(GLOW_RANGE >= TUT.jumpNearM, 'after the tutorial jump the door is in glow range');
+  assert.ok(glowStrength(59) < 0.1, `edge fades in: ${glowStrength(59)}`);
+  assert.ok(glowStrength(50) > 0.3, `visible at 50 m: ${glowStrength(50)}`);
+  assert.ok(glowStrength(30) > 0.75, `clear at 30 m: ${glowStrength(30)}`);
 });
 
 test('jumpRowsFor_FilterOff_ReturnsJumpEntriesFiltered', () => {
