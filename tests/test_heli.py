@@ -202,3 +202,18 @@ def test_no_landing_without_a_road_below(server):
         b.close()
     assert state["on"] is True, state
     assert "road" in toast.lower(), toast
+
+
+def test_the_helicopter_leans_into_speed_and_turns(server):
+    """#731: pitch (nose down) with speed, roll into the turn; the drawn model follows the state."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        take_off(page)
+        level = fly(page)
+        fwd = fly_sim(page, 3, ["KeyW"])
+        turn = fly_sim(page, 1, ["KeyW", "KeyD"])
+        b.close()
+    assert abs(level["pitch"]) < 0.01 and abs(level["roll"]) < 0.01, level
+    assert fwd["pitch"] > 0.1 and fwd["drawnPitch"] > 0.1, fwd
+    assert turn["roll"] > 0.1 and turn["drawnRoll"] > 0.1, turn

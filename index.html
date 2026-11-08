@@ -3069,7 +3069,10 @@ function drawDoors() { for (const d of car.userData.doors ?? []) d.hinge.rotatio
 // #10 helicopter (F): FLY is the flight state, P stays the position (so map, compass and HUD follow); a generic procedural model, no operator livery
 const FLY = { on: false, v: 0, vy: 0, pitch: 0, roll: 0, assist: null, t: 0, load: 0 };
 const heli = new THREE.Group(), rotor = new THREE.Group(); heli.visible = false; scene.add(heli);
+heli.rotation.order = 'YZX';   // yaw outermost, then pitch, then roll about the model's own axes (nose +x, right +z)
 { const body = new THREE.MeshLambertMaterial({ color: 0xffc61a }), dark = new THREE.MeshLambertMaterial({ color: 0x2a2e38 }), glass = carMats.glass; const cab = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 12), body); cab.scale.set(1.6, 1, 1); cab.position.y = 1.6; const win = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 8), glass); win.userData.glass = true; win.scale.set(1.4, 0.8, 1.05); win.position.set(1.1, 1.9, 0); const boom = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 0.5), body); boom.position.set(-4.5, 1.9, 0); const fin = new THREE.Mesh(new THREE.BoxGeometry(1, 1.8, 0.15), body); fin.position.set(-6.8, 2.6, 0); heli.add(cab, win, boom, fin); for (const s of [-1, 1]) { const skid = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, 0.15), dark); skid.position.set(0, 0.1, s * 1.2); heli.add(skid); } const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.8, 8), dark); mast.position.y = 3; heli.add(mast); for (const a of [0, Math.PI / 2]) { const blade = new THREE.Mesh(new THREE.BoxGeometry(11, 0.06, 0.35), dark); blade.rotation.y = a; rotor.add(blade); } rotor.position.y = 3.4; heli.add(rotor); heli.traverse(o => { o.castShadow = true; }); }
+// #731: the rotor reads as a disc, not as strobing bars (adapted from mrdoob/slop-newyork (MIT) js/controllers.js: translucent disc, opacity 0.13, depthWrite off)
+{ const disc = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 0.02, 32), new THREE.MeshBasicMaterial({ color: 0xc8d8e8, transparent: true, opacity: 0.13, side: THREE.DoubleSide, depthWrite: false })); rotor.add(disc); }
 
 // ---------- style profiles ----------
 // carShadow (#163): base opacity of the car's shadow decal. original has no shadow map, so the decal is the whole shadow;
@@ -4491,7 +4494,7 @@ function stepFly(dt) { LIGHTS.braking = false; const ground = heliGround(P.x, P.
   const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, vy: FLY.vy, pitch: FLY.pitch, roll: FLY.roll, assist: FLY.assist }, input, dt, ground, floor, HELI, room ? roomFlyCeiling(room.fly, room.y) : ground + HELI.maxAgl);
   P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.vy = s.vy; FLY.pitch = s.pitch; FLY.roll = s.roll; FLY.assist = s.assist; FLY.t += dt; FLY.load = heliLoad(s.v, s.vy, input);
   if (room) { const c = roomFlyClamp(P.x, P.y, P.z, room); P.x = c.x; P.z = c.z; P.y = c.y; }
-  heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; flames.visible = false; }
+  heli.position.set(P.x, P.y + heliBob(FLY.t), P.z); heli.rotation.set(s.roll, -P.th, -s.pitch); rotor.rotation.y += dt * 24; flames.visible = false; }
 // test hooks (tests): put the car somewhere and read its state
 // #416: the Crash-Platz's tyre stacks (tyres.js). Built the first time the car is near the yard; the physics engine loads then, not before
 const tcar = { x: 0, y: 0, z: 0, th: 0, vx: 0, vz: 0, l: 4, w: 1.8, h: 1.4 };
@@ -4569,7 +4572,7 @@ window.__mm.naviSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepNavi(1
 // The Navi only reads the car, so no physics is needed; `seen` collects every 'type:kind' the panel would have shown.
 window.__mm.naviWalk = (stepM = 20, maxSteps = 500) => { const seen = []; let n = 0; for (; n < maxSteps && NAVIS.on; n++) { const r = NAVIS.route, s = Math.min(r.len, NAVIS.st.s + stepM), [x, z] = pointAt(r.pts, r.cum, s); window.__mm.place(x, z); stepNavi(1 / 60); if (NAVIS.last) { const d = naviDescribe(NAVIS.last); seen.push(d.type + ':' + (d.kind || '')); } } return { ...window.__mm.navi(), seen: [...new Set(seen)], steps: n }; };
 window.__mm.nearestRoad = (x, z) => nearestJumpable(x, z);
-window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, vy: FLY.vy, pitch: FLY.pitch, roll: FLY.roll, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
+window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, vy: FLY.vy, pitch: FLY.pitch, roll: FLY.roll, drawnPitch: -heli.rotation.z, drawnRoll: heli.rotation.x, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
 window.__mm.foot = () => ({ on: FOOT.on, hover: FOOT.hover, x: P.x, y: P.y, z: P.z, th: P.th, pitch: FOOT.pitch, car: FOOT.car && { ...FOOT.car }, carVisible: car.visible, carMesh: { x: car.position.x, z: car.position.z }, cam: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, ground: groundH(P.x, P.z, P.y) });
 // #462: the steam loco's state, as the tests see it
