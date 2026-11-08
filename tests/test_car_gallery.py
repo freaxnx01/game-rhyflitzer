@@ -21,7 +21,8 @@ def open_gallery(page):
 
 def test_gallery_shows_every_vehicle_with_a_photo_name_and_class(server):
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server)
+        warnings = []   # loadVehicleModel says why a model did not load
+        b, page, errors = open_page(p, server, before=lambda pg: pg.on("console", lambda m: warnings.append(m.text) if "not loaded" in m.text else None))
         before = page.evaluate("() => window.__mm.carStats()")
         open_gallery(page)
         assert page.is_hidden("#csstage") and page.is_hidden("#carsel .cs-info"), "the grid takes the turntable's place"
@@ -33,7 +34,7 @@ def test_gallery_shows_every_vehicle_with_a_photo_name_and_class(server):
         state = carsel(page)
         b.close()
     assert [t["id"] for t in g["tiles"]] == g["ids"] and len(g["ids"]) == state["count"], g
-    assert not [t for t in g["tiles"] if t["failed"]], g
+    assert not [t for t in g["tiles"] if t["failed"]], (g, warnings)
     assert all(t["name"] and t["cls"] for t in texts), texts
     assert [t["id"] for t in texts if t["pressed"] == "true"] == ["compact"], texts
     assert all(s > 12 for s in spread.values()), spread
