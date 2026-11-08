@@ -32,7 +32,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
-- `2026-11-08 12:37` New car in the garage: the **Rhy Estate** (German **Rhy Kombi**), a family estate of about 2011 with a clattering diesel, 207 km/h and room for the dog, Rhine blue or any colour you like; it drives straight past **bus stops**. 3D model „2009 Skoda Octavia Combi" by tonielpro520 (Sketchfab), CC BY 4.0.
+- `2026-11-08 12:37` New car in the garage: the **Rhy Estate** (German **Rhy Kombi**), a family estate of about 2011 with a clattering diesel, 207 km/h and room for the dog, **silver metallic** from the factory or any colour you like; it drives straight past **bus stops**. 3D model „2009 Skoda Octavia Combi" by tonielpro520 (Sketchfab), CC BY 4.0. Silver metallic is a new paint for every paintable car.
 - `2026-11-07 22:18` Im F3-Feld **Postauto** lässt sich die Uhrzeit der Postautos setzen, auf **Echtzeit** zurückstellen und im **Zeitraffer** (bis 60-fach) laufen lassen.
 - `2026-11-07 21:27` Die **Postautos** der Linie 133 sind jetzt auf der **Minikarte** und auf der grossen Karte (<kbd>Tab</kbd>) als gelbe Pfeile zu sehen; auf der grossen Karte steht die Liniennummer dabei und die Strecke ist schwach eingezeichnet.
 

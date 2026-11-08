@@ -15,7 +15,13 @@ export const PAINTS = [
   { id: 'plum', hex: '#7b3fa0', nameKey: 'paintPlum' },       // #25: absorbed into #7
   { id: 'flamingo', hex: '#ff6fa8', nameKey: 'paintFlamingo' }, // #25: absorbed into #7
   { id: 'racing', hex: '#2266dd', nameKey: 'paintRacing' },   // the Rhy Hyper's factory blue
+  { id: 'silver', hex: '#c3c7cc', nameKey: 'paintSilver', finish: { metalness: 0.55, roughness: 0.3 } },   // silver metallic, the Rhy Estate's
 ];
+
+// the surface a paint gives the body: a paint with its own finish (silver metallic) brings it, every other one keeps the model's
+export function paintFinish(paint, base) {
+  return paint.finish ? { ...paint.finish } : { metalness: base.metalness, roughness: base.roughness };
+}
 
 export const DEFAULT_CHOICE = { id: 'compact', paint: 'navy' };
 

@@ -81,7 +81,7 @@ def test_choose_car_opens_the_screen_with_the_compact(server):
     assert shown["overlayHidden"] is True and shown["role"] == "dialog" and shown["modal"] == "true"
     assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 21"
     assert shown["name"] == "Sissle Speedster" and shown["cls"] == "Compact · Class B" and shown["desc"].startswith("Small, light")
-    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 11 and shown["tiles"] == ["true"] + ["false"] * 20
+    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 12 and shown["tiles"] == ["true"] + ["false"] * 20
     assert shown["garage"] == "Garage · 21 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
     assert bars == [{"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 3, "score": 3}]
     assert got["open"] is True and got["id"] == "compact" and got["paint"] == "navy" and got["focus"] == "csrace"

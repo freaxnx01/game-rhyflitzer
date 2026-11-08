@@ -41,3 +41,20 @@ def test_estate_wheels_face_outwards(server):
         b.close()
     assert len(facing) == 4 and min(facing) > 0.6 and max(facing) - min(facing) < 0.05, facing
     assert not errors, errors
+
+
+def test_silver_metallic_is_metallic_and_another_paint_takes_it_back(server):
+    """Silver metallic brings its own finish (metalness 0.55); navy afterwards gives the body its own finish back."""
+    from test_carselect import open_carsel
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        load_estate(page)
+        open_carsel(page)
+        page.click("#cspaints button[data-paint=silver]")
+        silver = page.evaluate("() => ({ name: document.querySelector('#cspaintname').textContent, body: window.__mm.carMats().body })")
+        page.click("#cspaints button[data-paint=navy]")
+        navy = page.evaluate("() => window.__mm.carMats().body")
+        b.close()
+    assert silver["name"] == "Silver metallic" and silver["body"]["metalness"] == 0.55 and silver["body"]["color"] == "#c3c7cc", silver
+    assert navy["metalness"] == 0 and navy["color"] == "#1b2d5e", navy
+    assert not errors, errors

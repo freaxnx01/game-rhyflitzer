@@ -1,23 +1,32 @@
 // #7: the car selection screen's pure rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAINTS, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY } from '../carselect.js';
+import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY } from '../carselect.js';
 
 const COMPACT = { model: 'compact', drive: { top: 60, accel: 16, grip: 9, steerRate: 2.6 }, mass: 1.0 };
 const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRate: 2.2 }, mass: 2.5 };   // #6 spec values
 const BUS = { model: 'gltf', drive: { top: 22, accel: 4, grip: 6, steerRate: 1.1 }, mass: 8 };
 const IDS = ['compact', 'bus'], PAINT_IDS = PAINTS.map(p => p.id);
 
-test('PAINTS: twelve unique ids and hexes, navy first, purple and pink from #25, one orange, racing blue for the Rhy Hyper, every hex #rrggbb', () => {
-  assert.equal(PAINTS.length, 12);
-  assert.equal(new Set(PAINT_IDS).size, 12);
-  assert.equal(new Set(PAINTS.map(p => p.hex)).size, 12);
+test('PAINTS: thirteen unique ids and hexes, navy first, purple and pink from #25, one orange, racing blue for the Rhy Hyper, silver metallic last, every hex #rrggbb', () => {
+  assert.equal(PAINTS.length, 13);
+  assert.equal(new Set(PAINT_IDS).size, 13);
+  assert.equal(new Set(PAINTS.map(p => p.hex)).size, 13);
+  assert.equal(PAINTS.at(-1).id, 'silver');
   assert.equal(PAINTS[0].id, 'navy'); assert.equal(PAINTS[0].hex, '#1b2d5e');
   assert.equal(PAINTS.find(p => p.id === 'plum')?.hex, '#7b3fa0');
   assert.equal(PAINTS.find(p => p.id === 'flamingo')?.hex, '#ff6fa8');
   assert.deepEqual(PAINTS.filter(p => p.hex === '#ff7a1a').map(p => p.id), ['signal']);   // #25's orange is the mockup's Signal, not a second entry
   for (const p of PAINTS) { assert.match(p.hex, /^#[0-9a-f]{6}$/, p.id); assert.ok(p.nameKey.startsWith('paint'), p.id); }
   assert.deepEqual(DEFAULT_CHOICE, { id: 'compact', paint: 'navy' });
+});
+
+test('paintFinish_SilverIsMetallic_EveryOtherPaintKeepsTheModelsOwnFinish', () => {
+  const base = { metalness: 0.25, roughness: 0.35 }, silver = PAINTS.find(p => p.id === 'silver');
+  const f = paintFinish(silver, base);
+  assert.ok(f.metalness > base.metalness && f.metalness < 1, 'metallic, but not a mirror: the car still reads without a sky map');
+  assert.deepEqual(paintFinish(PAINTS.find(p => p.id === 'navy'), base), base);
+  assert.deepEqual(paintFinish(PAINTS.find(p => p.id === 'navy'), { metalness: 0, roughness: 0.38 }), { metalness: 0, roughness: 0.38 });
 });
 
 test('statBars: compact 8 / 8 / 8 / 3, tractor and bus from the #6 table, integers clamped to 1..10', () => {
