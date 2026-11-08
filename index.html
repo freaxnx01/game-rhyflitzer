@@ -729,6 +729,7 @@ import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTime
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText } from './postauto.js';   // #500
 import { STOP, stopLayout, zigzagLine, stopKey, stopRows } from './busstop.js';   // #712
+import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices } from './postautofx.js';   // #709
 import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
@@ -2073,6 +2074,48 @@ function stopZigzag(route, s, roadW) {
 }
 // #712: the width of the road nearest a point (the stop's road), 6 m when none is within reach
 function roadWidthAt(x, z) { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, x, z, 8)) { const d = segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) - r.w / 2; if (!best || d < best.d) best = { d, w: r.w }; } return best ? best.w : 6; }
+// #745: the LED face of the Sisseln speed display: dark, or amber km/h over a green smile / red frown
+function drawSpeedPanel(g, w, h, state) {
+  g.fillStyle = '#07080a'; g.fillRect(0, 0, w, h);
+  if (!state.on) return;
+  const c = panelColors(state);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = c.digits; g.font = `italic 800 ${Math.round(h * 0.42)}px "Barlow Condensed", sans-serif`; g.fillText(String(state.kmh), w / 2, h * 0.27);
+  g.globalAlpha = 0.6; g.font = `700 ${Math.round(h * 0.08)}px "Barlow Condensed", sans-serif`; g.fillText('km/h', w / 2, h * 0.5); g.globalAlpha = 1;
+  const cx = w / 2, cy = h * 0.76, r = h * 0.15;
+  g.strokeStyle = c.face; g.fillStyle = c.face; g.lineWidth = h * 0.025; g.lineCap = 'round';
+  g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
+  for (const sd of [-1, 1]) { g.beginPath(); g.arc(cx + sd * r * 0.38, cy - r * 0.3, r * 0.09, 0, Math.PI * 2); g.fill(); }
+  g.beginPath();
+  if (state.happy) g.arc(cx, cy + r * 0.05, r * 0.55, Math.PI * 0.15, Math.PI * 0.85);           // smile: arc below the centre, ends up
+  else g.arc(cx, cy + r * 0.75, r * 0.55, Math.PI * 1.15, Math.PI * 1.85);                       // frown: arc above the mouth line, ends down
+  g.stroke();
+}
+// #745: pole, anthracite housing and the live LED face, at the fixed foot, facing the straight from the Smile-Kreisel
+let SPEEDSIGN = null;
+function speedDisplayBuild() {
+  const cfg = SPEED_DISPLAY, g = new THREE.Group(), b = terrainH(cfg.x, cfg.z), PN = cfg.panel;
+  const steel = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.8, 8), steel); pole.position.y = 1.4; g.add(pole);
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(PN.w, PN.h, 0.12), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); housing.position.y = PN.y; g.add(housing);
+  const canvas = document.createElement('canvas'); canvas.width = cfg.tex.w; canvas.height = cfg.tex.h;
+  const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(PN.w - 0.08, PN.h - 0.08), new THREE.MeshBasicMaterial({ map: tex })); face.position.set(0, PN.y, 0.065); g.add(face);
+  g.position.set(cfg.x, b, cfg.z); g.rotation.y = faceYaw(cfg); signs.add(g);
+  SPEEDSIGN = { tex, canvas, key: null, state: { on: false }, redraws: 0, x: cfg.x, z: cfg.z, yaw: g.rotation.y };
+  drawSpeedPanel(canvas.getContext('2d'), canvas.width, canvas.height, SPEEDSIGN.state); tex.needsUpdate = true;   // the dark face once; FOOT/TRAIN/FLY are not declared yet at this point
+}
+// #745: per frame; redraws the canvas only when the shown value changes (relabelFerrisSign pattern)
+function stepSpeedDisplay() {
+  if (!SPEEDSIGN) return;
+  const state = displayState({ x: P.x, z: P.z, vx: P.vx, vz: P.vz, ground: !FOOT.on && !TRAIN.on && !FLY.on });
+  const key = displayKey(state);
+  SPEEDSIGN.state = state;
+  if (key === SPEEDSIGN.key) return;
+  SPEEDSIGN.key = key; SPEEDSIGN.redraws++;
+  drawSpeedPanel(SPEEDSIGN.canvas.getContext('2d'), SPEEDSIGN.canvas.width, SPEEDSIGN.canvas.height, state);
+  SPEEDSIGN.tex.needsUpdate = true;
+}
 
 // street-name decals and place-name signs (built as separate meshes)
 const decals = new THREE.Group(), signs = new THREE.Group(), marks = new THREE.Group();
@@ -2423,6 +2466,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     if (at('landiTurm')) { const t = at('landiTurm'); siloTower(t.x, t.z, t.rot, t.size[0], t.size[1], t.h); }
     if (at('foodTruck')) foodTruck(at('foodTruck').x, at('foodTruck').z, at('foodTruck').rot || 0);
     if (at('smileKreisel')) { const k = at('smileKreisel'); const rb = ROADS.filter(r => r.pts.length > 4 && Math.hypot(r.pts[0][0] - r.pts[r.pts.length - 1][0], r.pts[0][1] - r.pts[r.pts.length - 1][1]) < 0.5).map(r => { const q = r.pts.slice(0, -1), cx = q.reduce((a, p) => a + p[0], 0) / q.length, cz = q.reduce((a, p) => a + p[1], 0) / q.length; return { r, cx, cz, rad: q.reduce((a, p) => a + Math.hypot(p[0] - cx, p[1] - cz), 0) / q.length }; }).filter(o => Math.hypot(o.cx - k.x, o.cz - k.z) < 30).sort((a, b) => Math.hypot(a.cx - k.x, a.cz - k.z) - Math.hypot(b.cx - k.x, b.cz - k.z))[0]; if (rb) smileKreiselAt(rb.cx, rb.cz, Math.max(2.5, rb.rad - rb.r.w / 2)); else smileKreiselAt(k.x, k.z); }
+    if (at('smileKreisel')) speedDisplayBuild();   // #745: the speed display on the Hauptstrasse into Sisseln, same world as the roundabout
     if (at('hallenbad')) { const hb = at('hallenbad'); if (hb.size) hallenbad(hb.x, hb.z, hb.rot, hb.size[0], hb.size[1], false); else hallenbad(hb.x, hb.z, hb.rot); }
     if (at('muenster')) church(at('muenster').x, at('muenster').z, at('muenster').rot, true);
     for (const k of ['stationStein', 'stationSisseln']) if (at(k)) stationAt(at(k).x, at(k).z, at(k).rot, STATION_NAMES[k]);
@@ -4598,6 +4642,7 @@ window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, don
 window.__mm.blitzSetLeft = (s) => { R.left = s; };
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
 window.__mm.busStops = () => POSTAUTO.stops;   // #712: the laid-out stops, for the test
+window.__mm.speedDisplay = () => { stepSpeedDisplay(); return SPEEDSIGN ? { x: SPEEDSIGN.x, z: SPEEDSIGN.z, yaw: SPEEDSIGN.yaw, key: SPEEDSIGN.key, state: SPEEDSIGN.state, redraws: SPEEDSIGN.redraws } : null; };   // #745: steps first (headless draws under 1 fps)
 window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'), follow: POSTAUTO.follow,   // #500: read-only, for the test; #707: the followed bus key and the panel's DOM state
   floor: gltfState('bus') === 'ready' ? { faces: GLTF_CARS.bus.floorFaces, shellSide: GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null } : null,   // #709: the floor copy; the shell stays THREE.FrontSide = 0 (#723)
   voices: SFX.state().busVoices,
@@ -5774,7 +5819,7 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play
