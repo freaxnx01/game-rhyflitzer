@@ -148,3 +148,23 @@ export function vehicleText(tr, id, part) {
   const text = tr(key);
   return text === key ? (part === 'name' ? id : '') : text;
 }
+
+// ---- garage gallery (#626): every vehicle at once, each photographed live ----
+// the photo: px size, vertical field of view (deg), view from the front-left (yaw from the nose, pitch from level, rad), room around the car
+export const THUMB = { w: 320, h: 200, fov: 30, yaw: 0.75, pitch: 0.28, margin: 1.08 };
+
+// thumbView(box) — eye and look target for the photo of a car standing at the origin, nose +x, its right side +z; box: {min, max} [x, y, z] in metres.
+// The distance fits the box's bounding sphere into the frame's width (a car seen from the side is long and low), so a 12 m bus and a
+// Mini fill the frame alike.
+export function thumbView(box, cfg = THUMB) {
+  if (![box.min, box.max].every(c => Array.isArray(c) && c.length === 3 && c.every(Number.isFinite))) throw new Error('thumbView: box needs min and max, three finite numbers each');
+  const at = box.min.map((lo, i) => (lo + box.max[i]) / 2), r = Math.hypot(...box.min.map((lo, i) => box.max[i] - lo)) / 2;
+  const halfW = Math.atan(Math.tan((cfg.fov / 2) * Math.PI / 180) * cfg.w / cfg.h), dist = r * cfg.margin / Math.sin(halfW), cp = Math.cos(cfg.pitch);
+  return { eye: [at[0] + dist * cp * Math.cos(cfg.yaw), at[1] + dist * Math.sin(cfg.pitch), at[2] - dist * cp * Math.sin(cfg.yaw)], at };
+}
+
+// the photo cache key: a paintable car is photographed once per paint, a car in its own colours once
+export function thumbKey(id, paint, canPaint) { return canPaint ? `${id}|${paint}` : id; }
+
+// the next car to photograph: the current one first, then table order; cached (has) and not yet loaded (ready) cars are skipped
+export function nextThumb(ids, current, has, ready) { return [current, ...ids].find(id => ids.includes(id) && !has(id) && ready(id)) ?? null; }

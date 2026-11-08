@@ -1,7 +1,7 @@
 // #7: the car selection screen's pure rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY } from '../carselect.js';
+import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY, THUMB, thumbView, thumbKey, nextThumb } from '../carselect.js';
 
 const COMPACT = { model: 'compact', drive: { top: 60, accel: 16, grip: 9, steerRate: 2.6 }, mass: 1.0 };
 const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRate: 2.2 }, mass: 2.5 };   // #6 spec values
@@ -142,4 +142,36 @@ test('vehicleText: strings when they exist, the id as the name otherwise, never 
   assert.equal(vehicleText(tr, 'compact', 'desc'), '');
   assert.equal(vehicleText(tr, 'bus', 'name'), 'bus');
   assert.equal(vehicleText(tr, 'bus', 'class'), '');
+});
+
+// #626: the garage gallery
+test('thumbView: looks at the box centre from the front-left, as close as the bounding sphere fits the frame\'s width', () => {
+  const box = { min: [-2.3, 0, -0.9], max: [2.2, 1.5, 0.9] }, v = thumbView(box);
+  assert.deepEqual(v.at.map(c => +c.toFixed(6)), [-0.05, 0.75, 0]);
+  const d = v.eye.map((c, i) => c - v.at[i]), dist = Math.hypot(...d), r = Math.hypot(4.5, 1.5, 1.8) / 2;
+  assert.ok(d[0] > 0 && d[1] > 0 && d[2] < 0, `front (+x), above, left (-z): ${d}`);
+  const halfW = Math.atan(Math.tan((THUMB.fov / 2) * Math.PI / 180) * THUMB.w / THUMB.h);
+  assert.ok(dist * Math.sin(halfW) >= r && dist * Math.sin(halfW) < r * 1.2, `the bounding sphere just fits the horizontal field of view: ${dist}`);
+  const bus = thumbView({ min: [-6, 0, -1.3], max: [6, 3.2, 1.3] });
+  assert.ok(Math.hypot(...bus.eye.map((c, i) => c - bus.at[i])) > dist * 2, 'a 12 m bus is photographed from further away');
+});
+
+test('thumbView: fails fast on a box that is not three finite numbers per corner', () => {
+  assert.throws(() => thumbView({ min: [0, 0], max: [1, 1, 1] }), /thumbView/);
+  assert.throws(() => thumbView({ min: [0, NaN, 0], max: [1, 1, 1] }), /thumbView/);
+});
+
+test('thumbKey: a paintable car needs a photo per paint, a car in its own colours one photo', () => {
+  assert.equal(thumbKey('compact', 'navy', true), 'compact|navy');
+  assert.notEqual(thumbKey('compact', 'navy', true), thumbKey('compact', 'silver', true));
+  assert.equal(thumbKey('bus', 'navy', false), thumbKey('bus', 'silver', false));
+});
+
+test('nextThumb: the current car first, then table order; skips cached and not-yet-loaded cars; null when nothing is left', () => {
+  const ids = ['compact', 'bus', 'estate', 'mini'];
+  assert.equal(nextThumb(ids, 'estate', () => false, () => true), 'estate');
+  assert.equal(nextThumb(ids, 'estate', id => id === 'estate', () => true), 'compact');
+  assert.equal(nextThumb(ids, 'compact', id => id === 'compact', id => id !== 'bus'), 'estate');
+  assert.equal(nextThumb(ids, 'compact', () => true, () => true), null);
+  assert.equal(nextThumb(ids, 'compact', () => false, () => false), null);
 });
