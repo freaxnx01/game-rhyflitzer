@@ -607,7 +607,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small><small data-i18n="creditEstate"></small>
         </dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a><br><a data-link="otd" data-i18n="aboutTimetable"></a></dd>
@@ -784,6 +784,7 @@ import { HARVESTER } from './harvester.js';   // Rhy Harvester, a glTF combine h
 import { KNIGHT } from './knight.js';   // Rhy Knight, a glTF sports coupé with a scanner light
 import { scannerLevels, scannerGlow } from './scanner.js';
 import { BLAZE } from './blaze.js';   // Rhy Blaze, a glTF fire engine with blue lights and a siren
+import { ESTATE } from './estate.js';   // Rhy Estate, a glTF family estate of about 2011
 import { SIREN, hasSiren, toggleSiren, sirenNote, beaconLevels, beaconGlow } from './siren.js';
 import { EXHAUST, exhaustSpots } from './exhaust.js';
 import { loadLines, loadProgress, numberLocale } from './loading.js';   // the loading screen's stages; #695: loadLines fills About's Beim Laden tab
@@ -2800,6 +2801,7 @@ const VEHICLES = {
   harvester: HARVESTER,   // Rhy Harvester, a combine harvester look-alike with a wide header and a turning reel, paintable (assets/harvester.glb); the compact stands in until it is ready
   knight: KNIGHT,   // Rhy Knight, a black early-eighties sports coupé look-alike with the red scanner light sweeping in the nose, fixed livery (assets/knight.glb); the compact stands in until it is ready
   blaze: BLAZE,   // Rhy Blaze, a red European tanker fire engine look-alike, blue lights and siren on 2, fixed livery (assets/blaze.glb); the compact stands in until it is ready
+  estate: ESTATE,   // Rhy Estate, a 2009–2013 Octavia Combi look-alike without the badge, paintable (assets/estate.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
