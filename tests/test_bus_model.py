@@ -56,3 +56,17 @@ def test_bus_model_lamps_follow_the_lights(server):
         b.close()
     assert on["headLevel"] > off["headLevel"] and on["tailLevel"] > off["tailLevel"], (off, on)
     assert not errors, errors
+
+
+def test_bus_is_yellow_outside_and_has_a_floor_inside(server):
+    """#723 drew the dark interior lining (Plain_7) from both sides to close the floor; it also lines walls and roof, so from
+    outside it covered the yellow body. Now a ray onto the flank hits the Body, and a ray down in the cabin hits the floor copy."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        load_bus(page)
+        flank = page.evaluate("() => window.__mm.carRay([0, 0.7, 4], [0, 0, -1])")
+        floor = page.evaluate("() => window.__mm.carRay([0.5, 2.2, 0], [0, -1, 0])")
+        b.close()
+    assert flank and [h["material"] for h in flank if h["d"] < flank[0]["d"] + 0.01] == ["Body"], flank   # nothing drawn on top of the paint
+    assert floor and floor[0]["material"] == "Plain_7" and 0.1 < floor[0]["y"] < 0.5, floor
+    assert not errors, errors
