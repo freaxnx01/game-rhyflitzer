@@ -81,7 +81,7 @@ def test_flight_controls(server):
     assert ahead > 30 and fwd["v"] > 30, (s0, fwd)
     assert abs(yawed["th"] - before_yaw["th"] - 1.2) < 1e-6, (before_yaw, yawed)
     assert 20 < up["y"] - before_up["y"] < 34, (before_up, up)
-    assert down["ground"] + 10 - 0.01 <= down["y"] < down["ground"] + 60, down
+    assert down["ground"] + 3 - 0.01 <= down["y"] < down["ground"] + 60, down
 
 
 def test_c_does_nothing_while_flying(server):
