@@ -11,7 +11,7 @@ const MOVING = (v, y = 50) => ({ ...at(y), v });
 const box = (o) => ({ x: 0, z: 0, hw: 5, hd: 5, c: 1, s: 0, h: 30, ...o });
 
 test('HELI: the agreed flight constants', () => {
-  assert.deepEqual(HELI, { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 20, accelNitro: 30, drag: 1.8,
+  assert.deepEqual(HELI, { takeoffAgl: 120, clearance: 3, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 20, accelNitro: 30, drag: 1.8,
     rest: 0.05, yawRate: 1.2, climb: 16, climbAccel: 22, climbDrag: 3.5, assistStop: 5, pitchMax: 0.24, rollMax: 0.28, tiltRate: 5,
     bobAmp: 0.18, bobRate: 2.6, rotorMargin: 8, landRadius: 150, camDist: 16, camH: 6, camAhead: 8, camUp: 2, camRate: 8.5, camSpeedRate: 3 });
 });

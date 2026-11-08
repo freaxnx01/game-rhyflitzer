@@ -3,10 +3,11 @@
 // #731: handling, attitude and chase camera adapted from mrdoob/slop-newyork (MIT) js/controllers.js updateHelicopter, js/cameras.js:
 // speed brakes exponentially (drag) instead of a linear ramp, the climb is a vertical speed with damping instead of a lagging target
 // altitude, and the machine leans (pitch nose down with speed, roll into the turn) -- see docs/superpowers/specs/2026-11-07-heli-flight-feel-design.md
-export const HELI = { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 20, accelNitro: 30, drag: 1.8,
+export const HELI = { takeoffAgl: 120, clearance: 3, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 20, accelNitro: 30, drag: 1.8,
   rest: 0.05, yawRate: 1.2, climb: 16, climbAccel: 22, climbDrag: 3.5, assistStop: 5, pitchMax: 0.24, rollMax: 0.28, tiltRate: 5,
   bobAmp: 0.18, bobRate: 2.6, rotorMargin: 8, landRadius: 150, camDist: 16, camH: 6, camAhead: 8, camUp: 2, camRate: 8.5, camSpeedRate: 3 };
 // rotorMargin covers the model: nose 3.9 m, tail rotor 7.85 m and blades 6 m from the hub (#99). landRadius: F lands only with a road this close (review of #84)
+// clearance: the skids hang about 3 m over the road, the field or a roof -- low enough to skim along a street (playtest 2026-11-08)
 // rest: below this speed the exponential brake snaps to 0 (a hover stays put). assistStop: take-off assist ends this far below its goal
 // (the climb coasts climb / climbDrag = 4.6 m after the last push)
 
