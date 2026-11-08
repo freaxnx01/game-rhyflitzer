@@ -10,21 +10,31 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-08 12:26` The **Regional Bus** and the **Postautos** are **yellow** again instead of dark grey; the floor stays closed when you look in through the windows.
 - `2026-11-07 22:38` **For testers:** <kbd>?patime=</kbd> and <kbd>?pasp=</kbd> in the URL now **combine** — a link like `?patime=07:30&pasp=10` starts the fleet clock at 07:30 *and* runs it at 10×, instead of silently dropping the time-lapse factor.
 - `2026-11-07 21:27` The **Postautos** now turn their **wheels** with their speed, you can no longer see through the **bus floor** (the Regional Bus too), and a passing Postauto can be heard: an **engine** that gets louder as it comes closer.
 
 ### Changed
 
 - `2026-11-08 09:29` The **trees** in the Smooth style have a new look: lumpy broadleaf crowns in several greens, spruces with tiers, slim birches, poplars and the **Hochstamm fruit trees** of the Fricktal, every tree a little different, and the crowns **sway in the wind**. Woods far away stay as light to draw as before, so phones keep their frame rate.
+
 - `2026-11-08 08:59` The **helicopter** flies much more like a real one: it **leans** forward when it speeds up and **banks** into turns, **climbs and sinks** the moment you press <kbd>Space</kbd> or <kbd>Shift</kbd>, **brakes smoothly** when you let go, and the camera now follows **closer and steadier** behind it. The rotor shows as a **disc** and sounds harder while climbing. Flight model after the helicopter in slop-newyork (MIT).
+
 - `2026-11-08 08:54` Rhyflitzer now lives at the short address **rhyflitzer.ch**. The old address rhyflitzer.freaxnx01.ch (including the `/nfz` link) forwards there, and the editor's share links point to the new address.
+
 - `2026-11-08 08:30` Visits on the upcoming short addresses **rhyflitzer.ch** and **freax.games** are counted in the stats too (game and editor), so nothing is lost when the game moves there.
+
+- `2026-11-07 21:26` The **keys now look like keys**: in the tutorial, the hint shows the movement keys as the **W A S D** cluster the way it sits on the keyboard, "or" the **arrow keys** next to it, and every other key (<kbd>Shift</kbd>, <kbd>Z</kbd>, <kbd>J</kbd>, <kbd>X</kbd>) as its own key cap. The key bar at the bottom shows <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> as four keys instead of one "WASD", which a tester had read as a word to type.
+
 - `2026-11-07 21:24` The **Postauto stops** are now Swiss: a steel-frame sign with the yellow **Haltestellentafel**, the stop's name and a row for each line and direction (with a little bus, no brand), a **timetable frame** at eye height, the glass shelter behind the pole, and the yellow **zigzag** on the road along the kerb. Pole and shelter stand beside the kerb, clear of the standing Postauto and off the road — also at the bends at Industriezone Rütti and the two stations, where the bus used to stand through the shelter.
+
 - `2026-11-07 20:17` The **churches of Stein** now stand where they really are, with their real shape and towers (swisstopo 3D buildings): the **Kirche Bruder Klaus** on the Schulstrasse and the **Reformierte Kirche** on the Gartenstrasse. The made-up church on the field by the Münchwilerstrasse is gone; <kbd>J</kbd> → Stein lists both churches.
+
 - `2026-11-07 19:48` **Postautos** no longer cut bends at sharp angles: like a real 12 m bus they now **swing wide** through corners and junctions on a smooth curve. Stops are unchanged.
 
 ### Added
 
+- `2026-11-08 12:37` New car in the garage: the **Rhy Estate** (German **Rhy Kombi**), a family estate of about 2011 with a clattering diesel, 207 km/h and room for the dog, **silver metallic** from the factory or any colour you like; it drives straight past **bus stops**. 3D model „2009 Skoda Octavia Combi" by tonielpro520 (Sketchfab), CC BY 4.0. Silver metallic is a new paint for every paintable car.
 - `2026-11-07 22:18` Im F3-Feld **Postauto** lässt sich die Uhrzeit der Postautos setzen, auf **Echtzeit** zurückstellen und im **Zeitraffer** (bis 60-fach) laufen lassen.
 - `2026-11-07 21:27` Die **Postautos** der Linie 133 sind jetzt auf der **Minikarte** und auf der grossen Karte (<kbd>Tab</kbd>) als gelbe Pfeile zu sehen; auf der grossen Karte steht die Liniennummer dabei und die Strecke ist schwach eingezeichnet.
 

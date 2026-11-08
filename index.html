@@ -23,6 +23,8 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 #dist{background:rgba(20,23,29,.82);border:3px solid var(--sun);padding:2px 14px;font-size:26px;font-weight:800;font-style:italic;color:var(--sun);line-height:1.1}
 #cpname{font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;text-shadow:2px 2px 0 var(--ink)}
 #tuthint{max-width:min(560px,calc(100vw - 32px));margin-top:4px;padding:6px 12px;box-sizing:border-box;background:rgba(20,23,29,.88);border:3px solid var(--sun);color:var(--cream);font-size:18px;font-weight:700;letter-spacing:.5px;line-height:1.25;text-align:center;text-shadow:none}#tuthint:empty{display:none}   /* #534: the tutorial's instruction, its own line so a toast never replaces it */
+#tuthint kbd,#keybar kbd{display:inline-block;min-width:1.1em;text-align:center}#tuthint kbd{font:inherit;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px;line-height:1.2}
+.caps{display:inline-flex;gap:2px;vertical-align:baseline}.caps.cross{display:inline-grid;grid-template-columns:repeat(3,auto);gap:2px;vertical-align:middle}.caps.cross kbd:first-child{grid-column:2}.caps.cross kbd:nth-child(2){grid-area:2/1}.caps.cross kbd:nth-child(3){grid-area:2/2}.caps.cross kbd:nth-child(4){grid-area:2/3}   /* #700: W / ↑ on top, the other three below -- all four cells explicit: the row flow would fill row 1 around the top key */
 #tr{right:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;align-items:flex-end}
 #tr .lbl{font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel-l)}
 #time{font-size:44px;font-weight:800;font-style:italic;line-height:1}
@@ -317,7 +319,7 @@ body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,b
 .cs-stat .cs-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:1px}
 .cs-cells{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}.cs-cells i{display:block;height:16px;background:#2a2e38}.cs-cells i.lit{background:var(--sun)}.cs-cells i.tip{background:#ff9a1a}
 .cs-score{font-size:20px;font-weight:800;text-align:right}
-.cs-swatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.cs-swatches{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
 .cs-swatches button{height:clamp(40px,5.5vh,56px);cursor:pointer;padding:0;border:4px solid;border-color:#fff #3a404b #3a404b #fff}
 .cs-swatches button[aria-pressed=true]{border:5px solid var(--cream);box-shadow:0 0 0 3px var(--sun),4px 4px 0 var(--ink)}
 .cs-swatches button:disabled{cursor:default;opacity:.4}
@@ -607,7 +609,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small><small data-i18n="creditEstate"></small>
         </dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a><br><a data-link="otd" data-i18n="aboutTimetable"></a></dd>
@@ -721,7 +723,7 @@ import { RIDE as RIDE_CFG, toWheel, fromWheel, rideIdle, rideBegin, rideStep, ri
 import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
-import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
+import { PAINTS, paintFinish, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
@@ -744,6 +746,7 @@ import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
+import { capsRow, capsCross } from './keycaps.js';   // #700
 import { bindStick, TOUCH_LOOK } from './touch.js';   // #535 phase 2
 import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
@@ -784,13 +787,14 @@ import { HARVESTER } from './harvester.js';   // Rhy Harvester, a glTF combine h
 import { KNIGHT } from './knight.js';   // Rhy Knight, a glTF sports coupé with a scanner light
 import { scannerLevels, scannerGlow } from './scanner.js';
 import { BLAZE } from './blaze.js';   // Rhy Blaze, a glTF fire engine with blue lights and a siren
+import { ESTATE } from './estate.js';   // Rhy Estate, a glTF family estate of about 2011
 import { SIREN, hasSiren, toggleSiren, sirenNote, beaconLevels, beaconGlow } from './siren.js';
 import { EXHAUST, exhaustSpots } from './exhaust.js';
 import { loadLines, loadProgress, numberLocale } from './loading.js';   // the loading screen's stages; #695: loadLines fills About's Beim Laden tab
 // where the nitro flames sit behind a glTF vehicle
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
-import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, doubleSidedNames } from './gltfvehicle.js';
+import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, floorPlan, floorTriangles } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -2775,7 +2779,7 @@ const VEHICLES = {
   // little damage in a crash); 6.08 m wheelbase, 2.7 m front overhang; the whole length collides (capsule, see collide);
   // rear diesel, left-hand drive, a deep G major horn chord (bus.js)
   // #478: the real model (assets/bus.glb) is built by buildBus once loaded; until then buildBus draws the primitives (fallback: itself)
-  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', doubleSided: ['Plain_7'] }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // #709: doubleSided -- the underbody shell faces down only, so the floor is see-through from inside unless Plain_7 is drawn from both sides; the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
+  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', floor: { material: 'Plain_7', maxY: 0.4 } }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // #709: floor -- the underbody (Plain_7, down at y 0.24) faces down only, so from inside the road showed through; its copy faces up. Plain_7 also lines walls and roof: drawn from both sides it hid the yellow (#723); the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
     blinkers: [[6.15, 0.62, 1.16], [-5.92, 1.2, 1.16]],   // flush with the nose and the tail (the boxes are 0.12 m deep)
     drive: { top: 27.8, topNitro: 34, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
     mass: 8, engineAt: [-5.6, 1.4, 0], collision: { shape: 'capsule', r: 1.3, hl: 4.8 },
@@ -2800,6 +2804,7 @@ const VEHICLES = {
   harvester: HARVESTER,   // Rhy Harvester, a combine harvester look-alike with a wide header and a turning reel, paintable (assets/harvester.glb); the compact stands in until it is ready
   knight: KNIGHT,   // Rhy Knight, a black early-eighties sports coupé look-alike with the red scanner light sweeping in the nose, fixed livery (assets/knight.glb); the compact stands in until it is ready
   blaze: BLAZE,   // Rhy Blaze, a red European tanker fire engine look-alike, blue lights and siren on 2, fixed livery (assets/blaze.glb); the compact stands in until it is ready
+  estate: ESTATE,   // Rhy Estate, a 2009–2013 Octavia Combi look-alike without the badge, paintable (assets/estate.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
 
@@ -3004,10 +3009,24 @@ const gltfEntry = (id) => (GLTF_CARS[id] ??= { state: 'idle', scene: null, mats:
 function prepareGltfScene(e, root, def) {
   const mats = new Set(); e.tris = 0;
   root.traverse(o => { if (!o.isMesh) return; const m = o.material, g = o.geometry; if (!g.attributes.normal) g.computeVertexNormals(); e.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; o.userData.sharedGeo = true; mats.add(m); if (m.userData.glass) { m.transparent = true; m.depthWrite = false; o.userData.glass = true; } if (m.userData.overGlass) { m.transparent = true; o.renderOrder = 1; } });   // #478: a display behind tinted glass is drawn after it (the glass writes no depth)
-  for (const n of doubleSidedNames(def, [...mats].map(m => m.name))) for (const m of mats) if (m.name === n) m.side = THREE.DoubleSide;   // #709: the bus floor seen from inside (back-face culled in the file)
+  const floor = floorPlan(def, [...mats].map(m => m.name)); e.floorFaces = floor ? addFloorFromAbove(root, floor) : 0;   // #709: the bus floor seen from inside (back-face culled in the file)
   e.mats = { all: [...mats], paint: [...mats].find(m => m.userData.paint) ?? null, head: [...mats].filter(m => lampRole(m.userData) === 'head'), tail: [...mats].filter(m => lampRole(m.userData) === 'tail'), scan: [...mats].filter(m => Number.isInteger(m.userData.scan)).sort((a, b) => a.userData.scan - b.userData.scan), beacon: [...mats].filter(m => Number.isInteger(m.userData.beacon)).sort((a, b) => a.userData.beacon - b.userData.beacon) };   // scan: the Rhy Knight's scanner segments, left to right; beacon: the Rhy Blaze's blue lights, left and right
   for (const m of mats) if (m.isMeshStandardMaterial) { CAR_ENV_MATS.push(m); SHARED_CAR_MATS.add(m); }
   buildCarEnv(STYLES[styleKey]);
+}
+// #709: a copy of the floor's down-facing faces, drawn from behind, so it shows from above; returns how many faces it holds
+function addFloorFromAbove(root, floor) {
+  const meshes = []; root.updateMatrixWorld(true); root.traverse(o => { if (o.isMesh && o.material.name === floor.material) meshes.push(o); });
+  let faces = 0;
+  for (const o of meshes) {
+    const g = o.geometry, at = g.attributes.position, v = new THREE.Vector3(), pos = new Float32Array(at.count * 3);
+    for (let i = 0; i < at.count; i++) { v.fromBufferAttribute(at, i).applyMatrix4(o.matrixWorld); pos.set([v.x, v.y, v.z], 3 * i); }
+    const tri = floorTriangles(pos, g.index ? g.index.array : [...Array(at.count).keys()], floor.maxY); if (!tri.length) continue;
+    const fg = g.clone(); fg.setIndex(tri); const m = o.material.clone(); m.side = THREE.BackSide;
+    const f = new THREE.Mesh(fg, m); f.name = `${o.name}_floor`; f.position.copy(o.position); f.quaternion.copy(o.quaternion); f.scale.copy(o.scale); o.parent.add(f);
+    faces += tri.length / 3;
+  }
+  return faces;
 }
 // loads the file once (idle -> loading -> ready | failed, loadStep), caches the scene; resolves true when the car is ready, never throws
 function loadVehicleModel(id) {
@@ -3082,7 +3101,8 @@ function saveChoice() { try { localStorage.setItem('mm.car', JSON.stringify(CHOI
 const chairOn = () => CHOICE.chair === true && chairable(VEH);
 function applyChair() { if (car.userData.chair) car.userData.chair.visible = chairOn(); }
 // the body colour: the shared compact material plus any mesh whose material opted in (userData.paint, glTF vehicles with paint: true)
-function applyPaint(id) { const p = PAINTS.find(p => p.id === id) || PAINTS[0]; CHOICE.paint = p.id; carMats.body.color.set(p.hex); car.traverse(o => { if (o.material?.userData?.paint) o.material.color.set(p.hex); }); }
+function applyPaint(id) { const p = PAINTS.find(p => p.id === id) || PAINTS[0]; CHOICE.paint = p.id; paintMaterial(carMats.body, p); car.traverse(o => { if (o.material?.userData?.paint) paintMaterial(o.material, p); }); }
+function paintMaterial(m, p) { m.userData.baseFinish ??= { metalness: m.metalness, roughness: m.roughness }; m.color.set(p.hex); Object.assign(m, paintFinish(p, m.userData.baseFinish)); }   // silver metallic brings its own finish; the model's comes back with any other paint
 setVehicle(VEHICLES[CHOICE.id]); applyPaint(CHOICE.paint);
 // #132: wheel state is written by stepWheels (from stepCar) only; drawWheels (from the loop) only reads it
 const WHEEL_STATE = { yaw: 0, spin: 0 };
@@ -4194,7 +4214,7 @@ function stepKeybar() {
   stepTouch(ctx, act);   // #535 phase 2: the phone controls follow the same context, every frame (attributes only)
   if (sig === KEYBAR.sig) return;
   KEYBAR.sig = sig; $('keybar').hidden = !KEYBAR.on;
-  $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}><kbd>${x.cap}</kbd> ${tr(x.label)}</span>`).join('');
+  $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}>${capsRow(x.cap)} ${tr(x.label)}</span>`).join('');   // #700: one cap per key
 }
 function renderKeybarToggle() { const b = $('pausekeybar'); b.textContent = tr(KEYBAR.on ? 'pauseKeybarOn' : 'pauseKeybarOff'); b.setAttribute('aria-pressed', String(KEYBAR.on)); }
 function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } renderKeybarToggle(); stepKeybar(); }
@@ -4579,7 +4599,7 @@ window.__mm.blitzSetLeft = (s) => { R.left = s; };
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
 window.__mm.busStops = () => POSTAUTO.stops;   // #712: the laid-out stops, for the test
 window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'), follow: POSTAUTO.follow,   // #500: read-only, for the test; #707: the followed bus key and the panel's DOM state
-  floorSided: gltfState('bus') === 'ready' ? (GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null) : null,   // #709: THREE.DoubleSide = 2
+  floor: gltfState('bus') === 'ready' ? { faces: GLTF_CARS.bus.floorFaces, shellSide: GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null } : null,   // #709: the floor copy; the shell stays THREE.FrontSide = 0 (#723)
   voices: SFX.state().busVoices,
   panel: { rows: document.querySelectorAll('#debugparows button').length, clock: $('debugpaclock').textContent },
   buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null, wheelSpin: POSTAUTO.meshes.get(b.key)?.userData.spin ?? null }; }) });
@@ -4800,6 +4820,9 @@ window.__mm.kreisel = () => KREISEL.map(k => ({ x: k.x, z: k.z, b: k.b, apron: k
 // #132: wheel state and the wheel groups actually on the car (read-only, for the test)
 // read-only, for the test: per wheel, the share of its faces whose front side looks away from the hub (inside-out wheels show near 0)
 window.__mm.wheelFacing = () => (car.userData.wheels ?? []).map(w => { let out = 0, all = 0; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), m = new THREE.Vector3(); w.roll.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position, idx = o.geometry.index, k = idx ? idx.count : pos.count; for (let t = 0; t < k; t += 3) { const i = j => idx ? idx.getX(t + j) : t + j; a.fromBufferAttribute(pos, i(0)); b.fromBufferAttribute(pos, i(1)); c.fromBufferAttribute(pos, i(2)); n.subVectors(c, b).cross(m.subVectors(a, b)); m.copy(a).add(b).add(c).divideScalar(3); m.z *= 4; all++; if (n.dot(m) >= 0) out++; } }); return all ? out / all : 0; });
+// read-only, for the test: the first parts of the car a ray meets and the renderer draws (front faces, or either side when the
+// material says so), from and along car-local metres; #723: a part at the same distance as the paint fights it and shows instead
+window.__mm.carRay = (from, dir) => { car.updateMatrixWorld(true); const rc = new THREE.Raycaster(new THREE.Vector3(...from).applyMatrix4(car.matrixWorld), new THREE.Vector3(...dir).transformDirection(car.matrixWorld)); const shown = o => { for (; o; o = o.parent) if (!o.visible) return false; return true; }; return rc.intersectObject(car, true).filter(x => x.object.isMesh && shown(x.object) && (x.object.material.side !== THREE.FrontSide || x.face.normal.clone().transformDirection(x.object.matrixWorld).dot(rc.ray.direction) < 0)).slice(0, 4).map(x => ({ material: x.object.material.name, d: x.distance, y: car.worldToLocal(x.point.clone()).y })); };
 window.__mm.wheelYaw = () => { const ws = car.userData.wheels ?? []; return { yaw: WHEEL_STATE.yaw, spin: WHEEL_STATE.spin, front: ws.filter(w => w.front).map(w => w.steer.rotation.y), rear: ws.filter(w => !w.front).map(w => w.steer.rotation.y) }; };
 // #123: the glass actually on the car and the helicopter (read-only, for the test)
 window.__mm.glass = () => { const find = (root) => { let m = null; root.traverse((o) => { if (!m && o.userData.glass) m = Array.isArray(o.material) ? o.material[o.userData.glass] : o.material; }); return m && { color: m.color.getHex(), transparent: m.transparent, opacity: m.opacity }; }; return { car: find(car), heli: find(heli) }; };
@@ -5058,8 +5081,13 @@ function tutorialTarget(st) {
   return null;
 }
 function placeTutMark(st) { const c = tutorialStepId(st) === 'checkpoints' && TUT_DEF.cps[st.cp]; tutMark.visible = !!c; if (c) tutMark.position.set(c.x, groundH(c.x, c.z), c.z); }
-const howText = (how) => how.via === 'key' ? tr('tutKey', how.cap) : tr(how.via === 'button' ? 'tutButton' : 'tutMenu', tr(how.label));
-function renderTutorialHint() { const h = tutorialHint(TUT_RUN.st, FOOT.on, TUT_COARSE, tutOnTop()), text = tr(h.key, h.how ? howText(h.how) : '', h.n, h.of); if ($('tuthint').textContent !== text) $('tuthint').textContent = text; }   // written only on a change
+// #700: the keys as key graphics -- the move keys as the WASD cross "or" the arrow cross, any other key as one cap; touch stays text
+// HOW_MARK rides along as the hint's first tr() argument: a template that doesn't interpolate it yields no split, and the caps are silently dropped (the old howText() had the same gap)
+const HOW_MARK = '\^A';
+const howHtml = (how) => how.via !== 'key' ? esc(tr(how.via === 'button' ? 'tutButton' : 'tutMenu', tr(how.label)))
+  : how.cap === 'WASD' ? `${capsCross('WASD')} ${esc(tr('tutOr'))} ${capsCross('Arrows')}` : capsRow(how.cap);
+function tutorialHintHtml(h) { const parts = tr(h.key, HOW_MARK, h.n, h.of).split(HOW_MARK); return parts.length > 1 && h.how ? esc(parts[0]) + howHtml(h.how) + esc(parts.slice(1).join('')) : esc(parts.join('')); }
+function renderTutorialHint() { const el = $('tuthint'), html = tutorialHintHtml(tutorialHint(TUT_RUN.st, FOOT.on, TUT_COARSE, tutOnTop())); if (el.dataset.html === html && el.textContent !== '') return; el.dataset.html = html; el.innerHTML = html; }   // written only on a change (aria-live); a cleared banner is written again
 function finishTutorial() { markTutorialDone(); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); R.last = { mode: 'tutorial' }; R.target = null; tutMark.visible = false; $('tuthint').textContent = tr('tutResultNext'); toastBig(tr('tutDoneBig')); TUT_RUN.endIn = TUT.endS; }
 function showTutorialResult() { TUT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'tutorial') return; endFoot(); $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; $(!$('viewbtn').hidden ? 'viewbtn' : 'cruisebtn').focus(); }   // #534: the suggestion -- Viewpoints next
 function markTutorialDone() { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { } START_MODE = startModeFrom(location.search, RACELESS, VIEWPOINTS.length > 0, true); $('tutorialbtn').classList.remove('first'); }
