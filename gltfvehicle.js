@@ -37,6 +37,29 @@ export function lampRole(extras) { return extras?.lamp === 'head' || extras?.lam
 // the Race! button waits while a glTF vehicle is idle or loading; a failed load falls back, so it must not hang
 export function raceBlocked(def, state) { return Boolean(def.gltf) && (state === 'idle' || state === 'loading'); }
 
+// #709: a floor the model only draws facing down (the bus's underbody: from inside the cabin it is culled and the road shows
+// through). def.gltf.floor { material, maxY }: that material's faces below maxY that point down get a copy drawn from above.
+// Only those: the same material also lines the walls and the roof, and drawn from both sides it covers the paint (#723).
+// Fails fast when the model lacks the material.
+export function floorPlan(def, materialNames) {
+  const floor = def.gltf?.floor;
+  if (!floor) return null;
+  if (!materialNames.includes(floor.material)) throw new Error(`gltfvehicle: floor material ${floor.material} missing`);
+  return floor;
+}
+
+// the corner indices of the faces that point down with every corner at or below maxY; pos is flat x, y, z in car metres
+export function floorTriangles(pos, index, maxY) {
+  const out = [], y = (i) => pos[3 * i + 1];
+  for (let t = 0; t < index.length; t += 3) {
+    const [a, b, c] = [index[t], index[t + 1], index[t + 2]];
+    if (Math.max(y(a), y(b), y(c)) > maxY) continue;
+    const u = [0, 1, 2].map((k) => pos[3 * b + k] - pos[3 * a + k]), w = [0, 1, 2].map((k) => pos[3 * c + k] - pos[3 * a + k]);
+    if (u[2] * w[0] - u[0] * w[2] < 0) out.push(a, b, c);   // the normal's y
+  }
+  return out;
+}
+
 // parts that turn all the time about their node's local x axis (the mixer's drum): def.spin [{ node, rate rad/s }];
 // fails fast when the model lacks a named node
 export function spinPlan(def, nodeNames) {

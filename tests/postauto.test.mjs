@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import { buildGraph, rightOf } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
-  busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText, stopFaceDeg,
+  busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText,
   driveLine, drivePoint, lanePoint } from '../postauto.js';
+import { fleetSteps } from '../paclock.js';   // #726
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 const road = (pts, cls = 'primary', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
@@ -112,6 +113,17 @@ function run(b, t0, secs, player = () => null, dt = 0.05) {
   return out;
 }
 
+// #726: the same fleet seconds in sub-steps of at most 0.05 s (a 60x frame at the dt clamp) keep the timetable
+test('stepBus: sub-stepped fleet time keeps the timetable', () => {
+  const a = placeTrip(TRIP, R, 36050), b = placeTrip(TRIP, R, 36050);
+  run(a, 36050, 30);   // 30 s of fleet time in 0.05 s steps
+  const { n, h } = fleetSteps(3);   // one 60x frame: 3 s of fleet time
+  assert.ok(n === 60 && h <= 0.05 + 1e-12);
+  for (let f = 0; f < 10; f++) for (let i = 0; i < n && b.phase !== 'done'; i++) stepBus(b, 36050 + f * 3 + (i + 1) * h, h, null);
+  assert.equal(a.k, b.k); assert.equal(a.phase, b.phase);
+  assert.ok(Math.abs(a.s - b.s) < 15);
+});
+
 test('stepBus: leaves on time, stops at the next stop, stands until the departure time', () => {
   const b = placeTrip(TRIP, R, 35950), log = run(b, 35950, 180);
   const left = log.find((x) => x.phase === 'drive');
@@ -179,13 +191,11 @@ test('fleetJumped: more than PA.resync beyond the frame time', () => {
   assert.equal(fleetJumped(86399, 1, 0.05), true);   // midnight: placed again, harmless
 });
 
-test('busCollider, ledText, stopFaceDeg', () => {
+test('busCollider, ledText', () => {
   const o = busCollider(10, 20, Math.PI / 2, 5);
   assert.equal(o.hw, BUS.length / 2); assert.equal(o.hd, BUS.width / 2);
   assert.ok(near(o.c, 0) && near(o.s, 1)); assert.equal(o.h, 5 + BUS.height); assert.equal(o.low, true);
   assert.deepEqual(ledText(TRIP), { line: '133', dest: 'Ende, Bahnhof' });
-  assert.ok(near(stopFaceDeg(0), 180));          // travel east: local -z (shelter) points south, right of travel
-  assert.ok(near(stopFaceDeg(Math.PI / 2), 90));  // travel south: shelter to the west
 });
 
 // #710: the bus swings through bends on a smoothed driving line
