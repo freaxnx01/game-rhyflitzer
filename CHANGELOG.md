@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-08 21:19` The **road markings** show again **from far away**, not only just before you drive over them; the same goes for the **parking bay lines**, the **street names** on the road and the **yellow zigzag** at the bus stops. Since the meadow-flicker fix the road surface had been drawn in front of them at range.
 - `2026-11-08 18:34` After a **handbrake turn** the camera no longer **shakes left and right**: while the car slides sideways, the steering fades out smoothly instead of flipping back and forth every frame.
 - `2026-11-08 12:26` The **Regional Bus** and the **Postautos** are **yellow** again instead of dark grey; the floor stays closed when you look in through the windows.
 - `2026-11-07 22:38` **For testers:** <kbd>?patime=</kbd> and <kbd>?pasp=</kbd> in the URL now **combine** — a link like `?patime=07:30&pasp=10` starts the fleet clock at 07:30 *and* runs it at 10×, instead of silently dropping the time-lapse factor.
