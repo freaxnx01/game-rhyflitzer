@@ -10,19 +10,19 @@ const text = (v) => String(v ?? '').trim().slice(0, MAX_TEXT);
 export function createTracker({ getUmami = () => globalThis.umami, maxQueue = MAX_QUEUE } = {}) {
   const queue = []; let settled = false;
   const live = () => { const u = getUmami(); return u && typeof u.track === 'function' ? u : null; };
-  const deliver = (u, args) => { try { u.track(...args); } catch (e) { /* analytics must never break the game */ } };
-  const drain = (u) => { for (const args of queue.splice(0)) deliver(u, args); };
-  function track(...args) {
+  const deliver = (u, [method, args]) => { try { if (typeof u[method] === 'function') u[method](...args); } catch (e) { /* analytics must never break the game */ } };
+  const drain = (u) => { for (const call of queue.splice(0)) deliver(u, call); };
+  function send(method, args) {
     try {
       const u = live();
-      if (u) { drain(u); deliver(u, args); } else if (!settled && queue.length < maxQueue) queue.push(args);
+      if (u) { drain(u); deliver(u, [method, args]); } else if (!settled && queue.length < maxQueue) queue.push([method, args]);
     } catch (e) { /* see above */ }
   }
   function settle() {
     settled = true;
     try { const u = live(); if (u) drain(u); else queue.length = 0; } catch (e) { /* see above */ }
   }
-  return { track, settle };
+  return { track: (...args) => send('track', args), identify: (data) => send('identify', [data]), settle };
 }
 
 // Path plus the three campaign tags only: ?world= (a share link maps to a person), ?vehicle=, ?dev= never leave the page.
@@ -33,10 +33,14 @@ export function pageUrl(loc) {
   return `${loc.pathname}${query ? `?${query}` : ''}`;
 }
 export const pageviewProps = (props) => ({ ...props, url: pageUrl(globalThis.location) });
+// The campaign tag sits on the pageview only; events after it carry none. Stored as session data (umami.identify) so a
+// segment on the session property `source` also shows the events of those visitors, e.g. readers of the NFZ article.
+export const campaignSource = (search) => text(new URLSearchParams(search ?? '').get('utm_source'));
 
 const shared = createTracker();
 export const track = shared.track, settle = shared.settle;
 export const trackPageview = () => track(pageviewProps);   // Umami's callback form; auto-tracking is off in index.html
+export const identifySource = () => { const source = campaignSource(globalThis.location?.search); if (source) shared.identify({ source }); };   // never an `id` key: that would set a distinct id
 
 export const roundSeconds = (t, step = STEP_S) => (Number.isFinite(t) && t >= 0 ? Math.round(t / step) * step : 0);
 export const regionId = (region) => (region?.generated ? 'world' : text(region?.id) || 'unknown');   // a generated world's id is never sent
