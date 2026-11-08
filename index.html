@@ -741,7 +741,7 @@ import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } f
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from './tutorial.js';   // #534
-import { track as umamiTrack, settle as umamiSettle, trackPageview, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
+import { track as umamiTrack, settle as umamiSettle, trackPageview, identifySource, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from './heli.js';
@@ -799,7 +799,7 @@ import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelec
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
-trackPageview(); if (document.readyState === 'complete') umamiSettle(); else addEventListener('load', umamiSettle, { once: true });   // #538: the pageview waits in the queue for g.js
+trackPageview(); identifySource(); if (document.readyState === 'complete') umamiSettle(); else addEventListener('load', umamiSettle, { once: true });   // #538: the pageview waits in the queue for g.js
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
 // UI language (#9): window.GG_LANG comes from i18n.js, a classic script that has already run (this inline module is deferred).
