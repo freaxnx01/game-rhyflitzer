@@ -16,6 +16,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Changed
 
 - `2026-11-08 08:59` The **helicopter** flies much more like a real one: it **leans** forward when it speeds up and **banks** into turns, **climbs and sinks** the moment you press <kbd>Space</kbd> or <kbd>Shift</kbd>, **brakes smoothly** when you let go, and the camera now follows **closer and steadier** behind it. The rotor shows as a **disc** and sounds harder while climbing. Flight model after the helicopter in slop-newyork (MIT).
+- `2026-11-08 08:54` Rhyflitzer now lives at the short address **rhyflitzer.ch**. The old address rhyflitzer.freaxnx01.ch (including the `/nfz` link) forwards there, and the editor's share links point to the new address.
+- `2026-11-08 08:30` Visits on the upcoming short addresses **rhyflitzer.ch** and **freax.games** are counted in the stats too (game and editor), so nothing is lost when the game moves there.
 - `2026-11-07 21:24` The **Postauto stops** are now Swiss: a steel-frame sign with the yellow **Haltestellentafel**, the stop's name and a row for each line and direction (with a little bus, no brand), a **timetable frame** at eye height, the glass shelter behind the pole, and the yellow **zigzag** on the road along the kerb. Pole and shelter stand beside the kerb, clear of the standing Postauto and off the road — also at the bends at Industriezone Rütti and the two stations, where the bus used to stand through the shelter.
 - `2026-11-07 20:17` The **churches of Stein** now stand where they really are, with their real shape and towers (swisstopo 3D buildings): the **Kirche Bruder Klaus** on the Schulstrasse and the **Reformierte Kirche** on the Gartenstrasse. The made-up church on the field by the Münchwilerstrasse is gone; <kbd>J</kbd> → Stein lists both churches.
 - `2026-11-07 19:48` **Postautos** no longer cut bends at sharp angles: like a real 12 m bus they now **swing wide** through corners and junctions on a smooth curve. Stops are unchanged.
@@ -185,7 +187,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
-- `2026-10-29 21:50` The game has its own address: **https://rhyflitzer.freaxnx01.ch**. The old one forwards there. On the new address the browser starts with empty storage, so best times and the chosen car are not carried over.
+- `2026-10-29 21:50` The game has its own address: **https://rhyflitzer.freaxnx01.ch**. The old one forwards there, and the editor's share links point to the new address. On the new address the browser starts with empty storage, so best times and the chosen car are not carried over.
 
 - `2026-10-29 19:15` The **Ladybug** can now be **painted** like the Hatchback: red from the factory, any colour from the car selection.
 - `2026-10-26 19:10` The **Regional Bus** is faster: it now reaches **100 km/h** (before 79 km/h), about 120 km/h with nitro. It is still slow off the line and wide in the corners.
