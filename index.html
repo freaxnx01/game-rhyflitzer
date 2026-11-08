@@ -795,7 +795,7 @@ import { loadLines, loadProgress, numberLocale } from './loading.js';   // the l
 // where the nitro flames sit behind a glTF vehicle
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
-import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, floorPlan, floorTriangles } from './gltfvehicle.js';
+import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, floorPlan, floorFaces } from './gltfvehicle.js';
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -2823,7 +2823,7 @@ const VEHICLES = {
   // little damage in a crash); 6.08 m wheelbase, 2.7 m front overhang; the whole length collides (capsule, see collide);
   // rear diesel, left-hand drive, a deep G major horn chord (bus.js)
   // #478: the real model (assets/bus.glb) is built by buildBus once loaded; until then buildBus draws the primitives (fallback: itself)
-  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', floor: { material: 'Plain_7', maxY: 0.4 } }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // #709: floor -- the underbody (Plain_7, down at y 0.24) faces down only, so from inside the road showed through; its copy faces up. Plain_7 also lines walls and roof: drawn from both sides it hid the yellow (#723); the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
+  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', floor: { material: 'Plain_7', maxY: 0.4, arches: [{ x: 3.36, y: 0.5, z: 1.12, r: 0.9, zMax: 1.24 }, { x: -2.66, y: 0.5, z: 0.92, r: 0.9, zMax: 1.24 }] } }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // #758: arches -- the wheel arches (Plain_7 too) face the wheel, so from the cabin the wheels showed through; they get the same copy. #709: floor -- the underbody (Plain_7, down at y 0.24) faces down only, so from inside the road showed through; its copy faces up. Plain_7 also lines walls and roof: drawn from both sides it hid the yellow (#723); the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
     blinkers: [[6.15, 0.62, 1.16], [-5.92, 1.2, 1.16]],   // flush with the nose and the tail (the boxes are 0.12 m deep)
     drive: { top: 27.8, topNitro: 34, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
     mass: 8, engineAt: [-5.6, 1.4, 0], collision: { shape: 'capsule', r: 1.3, hl: 4.8 },
@@ -3065,7 +3065,7 @@ function addFloorFromAbove(root, floor) {
   for (const o of meshes) {
     const g = o.geometry, at = g.attributes.position, v = new THREE.Vector3(), pos = new Float32Array(at.count * 3);
     for (let i = 0; i < at.count; i++) { v.fromBufferAttribute(at, i).applyMatrix4(o.matrixWorld); pos.set([v.x, v.y, v.z], 3 * i); }
-    const tri = floorTriangles(pos, g.index ? g.index.array : [...Array(at.count).keys()], floor.maxY); if (!tri.length) continue;
+    const tri = floorFaces(pos, g.index ? g.index.array : [...Array(at.count).keys()], floor); if (!tri.length) continue;
     const fg = g.clone(); fg.setIndex(tri); const m = o.material.clone(); m.side = THREE.BackSide;
     const f = new THREE.Mesh(fg, m); f.name = `${o.name}_floor`; f.position.copy(o.position); f.quaternion.copy(o.quaternion); f.scale.copy(o.scale); o.parent.add(f);
     faces += tri.length / 3;
