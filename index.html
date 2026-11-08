@@ -5332,7 +5332,9 @@ function renderGallery() { $('csgallery').innerHTML = Object.keys(VEHICLES).map(
 function updateTile(id) { const t = $('csgallery').querySelector(`[data-id="${CSS.escape(id)}"]`); if (!t) return; const url = CAR_GALLERY.photos.get(photoKey(id)); if (url) t.querySelector('img').src = url; t.classList.toggle('failed', photoFailed(id)); }
 function hideGallery() { CAR_GALLERY.on = false; $('carsel').classList.remove('cs-gallery-on'); $('csgallery').hidden = true; }
 function closeGallery() { hideGallery(); $('csgallerybtn').focus(); }
-function openGallery() { CAR_GALLERY.on = true; $('carsel').classList.add('cs-gallery-on'); $('csgallery').hidden = false; renderGallery(); for (const id of Object.keys(VEHICLES)) if (VEHICLES[id].gltf) loadVehicleModel(id).then(() => updateTile(id)); $('csgallery').querySelector('[aria-pressed=true]')?.focus(); }   // every glTF file is fetched now; each tile fills when its car is photographed
+function openGallery() { CAR_GALLERY.on = true; $('carsel').classList.add('cs-gallery-on'); $('csgallery').hidden = false; renderGallery(); loadGalleryModels(); $('csgallery').querySelector('[aria-pressed=true]')?.focus(); }
+// every glTF file is fetched now, one after the other (a burst of 15 requests is hard on a phone's connection); each tile fills when its car is photographed
+async function loadGalleryModels() { for (const id of Object.keys(VEHICLES)) if (VEHICLES[id].gltf) { await loadVehicleModel(id); updateTile(id); } }
 $('csgallerybtn').onclick = openGallery;
 $('csgallery').onclick = (e) => { const b = e.target.closest('button[data-id]'); if (!b) return; hideGallery(); selectVehicle(b.dataset.id); $('csrace').focus(); };
 window.__mm.carGallery = () => ({ open: CAR_GALLERY.on, ids: Object.keys(VEHICLES), tiles: [...$('csgallery').querySelectorAll('[data-id]')].map(t => ({ id: t.dataset.id, photo: Boolean(t.querySelector('img').getAttribute('src')), failed: t.classList.contains('failed') })) });
