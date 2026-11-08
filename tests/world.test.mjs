@@ -1512,3 +1512,9 @@ test('DECAL_DEPTH_OFFSET_roadDecals_drawnOverEverySurface', () => {
 });
 
 test('SURFACE_DEPTH_OFFSET_isFrozen', () => { assert.ok(Object.isFrozen(SURFACE_DEPTH_OFFSET)); });
+
+test('world_hochrhein (#761): the Bahnhof Frick is in the world file, the hand-drawn public buildings are not', () => {
+  const ids = new Set(JSON.parse(readFileSync(new URL('../data/world_hochrhein.json', import.meta.url), 'utf8')).buildings.map(b => b.id));
+  assert.ok(ids.has(164951714), 'Bahnhof Frick w164951714');
+  for (const id of [162862443, 162862441, 1280041307, 183386655, 88836292]) assert.equal(ids.has(id), false, `w${id} is drawn by the game`);
+});
