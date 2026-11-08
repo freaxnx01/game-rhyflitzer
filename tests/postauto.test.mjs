@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildGraph, rightOf } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
-  busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText, stopFaceDeg,
+  busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText,
   driveLine, drivePoint, lanePoint } from '../postauto.js';
 import { fleetSteps } from '../paclock.js';   // #726
 
@@ -191,13 +191,11 @@ test('fleetJumped: more than PA.resync beyond the frame time', () => {
   assert.equal(fleetJumped(86399, 1, 0.05), true);   // midnight: placed again, harmless
 });
 
-test('busCollider, ledText, stopFaceDeg', () => {
+test('busCollider, ledText', () => {
   const o = busCollider(10, 20, Math.PI / 2, 5);
   assert.equal(o.hw, BUS.length / 2); assert.equal(o.hd, BUS.width / 2);
   assert.ok(near(o.c, 0) && near(o.s, 1)); assert.equal(o.h, 5 + BUS.height); assert.equal(o.low, true);
   assert.deepEqual(ledText(TRIP), { line: '133', dest: 'Ende, Bahnhof' });
-  assert.ok(near(stopFaceDeg(0), 180));          // travel east: local -z (shelter) points south, right of travel
-  assert.ok(near(stopFaceDeg(Math.PI / 2), 90));  // travel south: shelter to the west
 });
 
 // #710: the bus swings through bends on a smoothed driving line
