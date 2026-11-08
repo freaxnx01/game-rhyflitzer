@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-08 22:41` **All vehicles** at a glance: in **Choose car**, the button next to the garage shows every vehicle as a **picture grid** with name and class; a click picks it.
 - `2026-11-08 19:11` At the **Sisseln** village entrance, on the **Hauptstrasse** between the **Smile-Kreisel** and the **Volg**, a **speed display** now shows your speed as you drive in from the roundabout: **amber km/h** and below it a **green smile** at 50 km/h or under, a **red frown** above. Only for cars heading into the village; it does nothing to the game.
 
 ### Fixed
