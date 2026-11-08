@@ -217,3 +217,25 @@ def test_the_helicopter_leans_into_speed_and_turns(server):
     assert abs(level["pitch"]) < 0.01 and abs(level["roll"]) < 0.01, level
     assert fwd["pitch"] > 0.1 and fwd["drawnPitch"] > 0.1, fwd
     assert turn["roll"] > 0.1 and turn["drawnRoll"] > 0.1, turn
+
+
+def test_the_chase_camera_sits_close_behind_and_does_not_trail(server):
+    """#731: after settling the camera is within ~3x the machine length behind, at a steady distance in fast flight."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        take_off(page)
+        # W stays held so the live loop keeps flying at top speed while the camera settles (flySim releases its holds, and
+        # the loop would brake the machine back to a hover between the reads). The camera moves in the render loop and its
+        # dt is clamped to 0.05 s per frame, so a loaded headless run converges slowly in wall-clock time: poll, don't sleep.
+        page.keyboard.down("KeyW")
+        arrived = "() => { const f = window.__mm.fly(); const d = Math.hypot(f.x - f.cam.x, f.z - f.cam.z); return d > 23 && d < 25; }"
+        page.wait_for_function("() => window.__mm.fly().v >= 39.9", timeout=120000)
+        page.wait_for_function(arrived, timeout=120000)
+        a = page.evaluate("() => { const f = window.__mm.fly(); return Math.hypot(f.x - f.cam.x, f.z - f.cam.z); }")
+        page.wait_for_timeout(2000)
+        page.wait_for_function(arrived, timeout=120000)
+        c = page.evaluate("() => { const f = window.__mm.fly(); return Math.hypot(f.x - f.cam.x, f.z - f.cam.z); }")
+        page.keyboard.up("KeyW")
+        b.close()
+    assert 10 < a < 40 and abs(a - c) < 1.5, (a, c)

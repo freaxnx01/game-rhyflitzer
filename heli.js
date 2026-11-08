@@ -79,6 +79,27 @@ export function heliLoad(v, vy, input, cfg = HELI) {
     + 0.15 * unit(vy / cfg.climb) - 0.08 * unit(-vy / cfg.climb) + 0.1 * Math.abs(input.fwd) + 0.12 * unit(Math.abs(v) / cfg.top));
 }
 
+// #731 chase camera, adapted from mrdoob/slop-newyork (MIT) js/cameras.js: the offset behind the helicopter is eased in the helicopter's
+// own frame (not in world space, which trails a fast target by about speed / rate and swings on turns); only the height base is eased in
+// world space; the distance grows with a smoothed speed. State c = { ox, oy, oz (camera offset), lx, ly, lz (look offset), base, speed }.
+const chaseGoal = (th, speed, cfg) => {
+  const dist = cfg.camDist * (1 + Math.min(0.25, speed * 0.01)) + speed * 0.1, fx = Math.cos(th), fz = Math.sin(th);
+  return { ox: -fx * dist, oy: cfg.camH, oz: -fz * dist, lx: fx * cfg.camAhead, ly: cfg.camUp, lz: fz * cfg.camAhead };
+};
+
+// start from where the camera really is (car camera, or the camera of the last flight), so the take-off glides instead of cutting
+export function heliChaseFrom(cam, p, th, cfg = HELI) {
+  const g = chaseGoal(th, 0, cfg);
+  return { ox: cam.x - p.x, oy: cam.y - p.y, oz: cam.z - p.z, lx: g.lx, ly: g.ly, lz: g.lz, base: p.y, speed: 0 };
+}
+
+export function heliChaseStep(c, p, th, v, dt, cfg = HELI) {
+  const speed = c.speed + (Math.abs(v) - c.speed) * (1 - Math.exp(-cfg.camSpeedRate * dt));
+  const k = 1 - Math.exp(-cfg.camRate * dt), g = chaseGoal(th, speed, cfg), ease = (a, b) => a + (b - a) * k;
+  const base = ease(c.base, p.y), n = { ox: ease(c.ox, g.ox), oy: ease(c.oy, g.oy), oz: ease(c.oz, g.oz), lx: ease(c.lx, g.lx), ly: ease(c.ly, g.ly), lz: ease(c.lz, g.lz), base, speed };
+  return { ...n, pos: { x: p.x + n.ox, y: base + n.oy, z: p.z + n.oz }, look: { x: p.x + n.lx, y: base + n.ly, z: p.z + n.lz } };
+}
+
 // the road to land on: the nearest one ({ d, x, z, th }) if it lies within landRadius, else null -- no teleport to a far road
 export function landingSpot(spot, cfg = HELI) { return spot && spot.d <= cfg.landRadius ? spot : null; }
 

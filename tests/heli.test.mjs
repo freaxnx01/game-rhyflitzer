@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliAltitude, heliBob, heliLoad } from '../heli.js';
+import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliAltitude, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from '../heli.js';
 
 const IDLE = { fwd: 0, yaw: 0, lift: 0, nitro: 0 };
 const NO_TOUCH = { l: 0, r: 0, g: 0, b: 0, h: 0 };
@@ -159,6 +159,28 @@ test('heliLoad: hover 0.45, climbing harder, sinking softer, always within 0..1 
   assert.ok(heliLoad(0, HELI.climb, { ...IDLE, lift: 1 }) > hover + 0.3);
   assert.ok(heliLoad(0, -HELI.climb, { ...IDLE, lift: -1 }) < hover);
   assert.ok(heliLoad(HELI.topNitro, HELI.climb, { fwd: 1, yaw: 0, lift: 1, nitro: 1 }) <= 1);
+});
+
+const P0 = { x: 0, y: 100, z: 0 };
+
+test('heliChaseStep: at rest the camera settles camDist behind and camH above, looking camAhead ahead', () => {
+  let c = heliChaseFrom({ x: -300, y: 40, z: 90 }, P0, 0);
+  for (let i = 0; i < 600; i++) c = heliChaseStep(c, P0, 0, 0, 1 / 60);
+  close(c.pos.x, -HELI.camDist, 1e-3, 'x'); close(c.pos.y, P0.y + HELI.camH, 1e-3, 'y'); close(c.pos.z, 0, 1e-3, 'z');
+  close(c.look.x, HELI.camAhead, 1e-3, 'look x'); close(c.look.y, P0.y + HELI.camUp, 1e-3, 'look y');
+});
+
+test('heliChaseStep: flying straight at constant speed the camera keeps a constant distance (no trailing growth)', () => {
+  let c = heliChaseFrom({ x: -20, y: 106, z: 0 }, P0, 0), p = { ...P0 }, last = 0;
+  for (let i = 0; i < 60 * 12; i++) { p = { ...p, x: p.x + HELI.top / 60 }; c = heliChaseStep(c, p, 0, HELI.top, 1 / 60); if (i === 60 * 10) last = p.x - c.pos.x; }
+  close(p.x - c.pos.x, last, 0.05, 'distance still constant after 10 s');
+  assert.ok(last > HELI.camDist && last < HELI.camDist * 2, String(last));   // pulled back with speed, not by lag
+});
+
+test('heliChaseStep: the offset swings round behind a turning helicopter', () => {
+  let c = heliChaseFrom({ x: -HELI.camDist, y: 106, z: 0 }, P0, 0);
+  for (let i = 0; i < 300; i++) c = heliChaseStep(c, P0, Math.PI / 2, 0, 1 / 60);
+  close(c.pos.x, 0, 1e-3, 'x'); close(c.pos.z, -HELI.camDist, 1e-3, 'z');
 });
 
 test('heliAltitude: metres above the ground, and above sea level only with a datum -- #99', () => {
