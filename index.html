@@ -711,7 +711,7 @@ import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
-import { flyAllowed, roomFlyClamp, roomFlyAlt, ROOMS, ROOMS2, roomLayout, shipFrame, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel, isRoomLevel } from './rooms.js';
+import { flyAllowed, roomFlyClamp, roomFlyCeiling, ROOMS, ROOMS2, roomLayout, shipFrame, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel, isRoomLevel } from './rooms.js';
 import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
@@ -743,7 +743,7 @@ import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, t
 import { track as umamiTrack, settle as umamiSettle, trackPageview, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
 import { photoFileName, canPhoto } from './photo.js';
 import { buildTargets } from './testhub-targets.js';
-import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot } from './heli.js';
+import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
 import { capsRow, capsCross } from './keycaps.js';   // #700
@@ -3122,9 +3122,12 @@ const DOOR_STATE = { open: 0, target: 0 };
 function stepDoors(dt) { DOOR_STATE.target = doorTarget(R.state, Math.hypot(P.vx, P.vz)); DOOR_STATE.open = stepDoor(DOOR_STATE.open, DOOR_STATE.target, dt); }
 function drawDoors() { for (const d of car.userData.doors ?? []) d.hinge.rotation.x = -d.side * DOOR_STATE.open * DOOR.angle; }
 // #10 helicopter (F): FLY is the flight state, P stays the position (so map, compass and HUD follow); a generic procedural model, no operator livery
-const FLY = { on: false, v: 0, alt: 0 };
+const FLY = { on: false, v: 0, vy: 0, pitch: 0, roll: 0, assist: null, t: 0, load: 0, cam: null };
 const heli = new THREE.Group(), rotor = new THREE.Group(); heli.visible = false; scene.add(heli);
+heli.rotation.order = 'YZX';   // yaw outermost, then pitch, then roll about the model's own axes (nose +x, right +z)
 { const body = new THREE.MeshLambertMaterial({ color: 0xffc61a }), dark = new THREE.MeshLambertMaterial({ color: 0x2a2e38 }), glass = carMats.glass; const cab = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 12), body); cab.scale.set(1.6, 1, 1); cab.position.y = 1.6; const win = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 8), glass); win.userData.glass = true; win.scale.set(1.4, 0.8, 1.05); win.position.set(1.1, 1.9, 0); const boom = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 0.5), body); boom.position.set(-4.5, 1.9, 0); const fin = new THREE.Mesh(new THREE.BoxGeometry(1, 1.8, 0.15), body); fin.position.set(-6.8, 2.6, 0); heli.add(cab, win, boom, fin); for (const s of [-1, 1]) { const skid = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, 0.15), dark); skid.position.set(0, 0.1, s * 1.2); heli.add(skid); } const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.8, 8), dark); mast.position.y = 3; heli.add(mast); for (const a of [0, Math.PI / 2]) { const blade = new THREE.Mesh(new THREE.BoxGeometry(11, 0.06, 0.35), dark); blade.rotation.y = a; rotor.add(blade); } rotor.position.y = 3.4; heli.add(rotor); heli.traverse(o => { o.castShadow = true; }); }
+// #731: the rotor reads as a disc, not as strobing bars (adapted from mrdoob/slop-newyork (MIT) js/controllers.js: translucent disc, opacity 0.13, depthWrite off)
+{ const disc = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 0.02, 32), new THREE.MeshBasicMaterial({ color: 0xc8d8e8, transparent: true, opacity: 0.13, side: THREE.DoubleSide, depthWrite: false })); rotor.add(disc); }
 
 // ---------- style profiles ----------
 // carShadow (#163): base opacity of the car's shadow decal. original has no shadow map, so the decal is the whole shadow;
@@ -4157,7 +4160,7 @@ const belowRoof = () => isRingLevel(LEVELS.id) || LEVELS.ceilingAt(P.x, P.z) !==
 const flyZone = () => LIFT_RIDE.busy ? 'lift' : LEVELS.isSurface() ? (roofedAt(P.x, P.z) ? 'roofed' : 'open') : belowRoof() ? 'tunnel' : 'room';
 const heliGround = (x, z) => LEVELS.isSurface() ? skyGroundH(x, z) : levelY(LEVELS.id);   // #277: the room's helicopter lands on the room floor, not the surface terrain
 function takeOff() { if (!flyAllowed(LEVELS.id, flyZone())) { toast(tr('hideoutNoSky')); return; }   // #102: no sky under the hill
-  stopAuto('reset'); const s = heliStart(P.x, P.z, P.y, P.th, heliGround(P.x, P.z)); FLY.on = true; FLY.v = s.v; FLY.alt = s.alt; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
+  stopAuto('reset'); const s = heliStart(P.x, P.z, P.y, P.th, heliGround(P.x, P.z)); FLY.on = true; FLY.v = s.v; FLY.vy = s.vy; FLY.pitch = s.pitch; FLY.roll = s.roll; FLY.assist = s.assist; FLY.cam = null; P.vx = P.vz = P.vy = 0; P.splash = 0; if (R.state === 'racing' || R.state === 'armed') R.flown = true; toast(tr('heliOn')); }
 function land() { if (!LEVELS.isSurface()) { P.safe = [P.x, P.z, P.th]; resetCar(); toast(tr('heliLanded')); return; }   // the room: down onto its floor right here
   const spot = landingSpot(nearestJumpable(P.x, P.z)); if (!spot) { toast(tr('heliNoRoad')); return; } P.safe = [spot.x, spot.z, spot.th]; resetCar(); toast(tr('heliLanded')); }
 // #202 on foot (Z): FOOT is the walker's state and P is the walker (so map, compass and HUD follow, as for the helicopter);
@@ -4542,8 +4545,11 @@ function buildPontoonMeshes(d) {
 }
 function updatePontoonMeshes(d) { if (!PONTOON.group) return; PONTOON.group.children.forEach((bay, i) => { bay.visible = bayVisible(d, i); bay.position.y = bayDrop(d, i); }); }
 function freePontoon() { if (!PONTOON.group) return; PONTOON.group.traverse(o => o.geometry?.dispose()); scene.remove(PONTOON.group); PONTOON.group = null; }
-function stepFly(dt) { LIGHTS.braking = false; const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z); const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, alt: FLY.alt }, heliInput(keys, touch), dt, ground, floor); P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.alt = s.alt; if (!LEVELS.isSurface()) { const room = currentRoom(); const c = roomFlyClamp(P.x, P.y, P.z, room); P.x = c.x; P.z = c.z; P.y = c.y; FLY.alt = roomFlyAlt(FLY.alt, room.fly, room.y); }
-  heli.position.set(P.x, P.y, P.z); heli.rotation.set(0, -P.th, 0); rotor.rotation.y += dt * 30; flames.visible = false; }
+function stepFly(dt) { LIGHTS.braking = false; const ground = heliGround(P.x, P.z), floor = heliFloor(ground, gridQuery(OBB_GRID, P.x, P.z, HELI.rotorMargin + 2), P.x, P.z), room = LEVELS.isSurface() ? null : currentRoom(), input = heliInput(keys, touch);
+  const s = stepHeli({ x: P.x, z: P.z, y: P.y, th: P.th, v: FLY.v, vy: FLY.vy, pitch: FLY.pitch, roll: FLY.roll, assist: FLY.assist }, input, dt, ground, floor, HELI, room ? roomFlyCeiling(room.fly, room.y) : ground + HELI.maxAgl);
+  P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = Math.cos(s.th) * s.v; P.vz = Math.sin(s.th) * s.v; FLY.v = s.v; FLY.vy = s.vy; FLY.pitch = s.pitch; FLY.roll = s.roll; FLY.assist = s.assist; FLY.t += dt; FLY.load = heliLoad(s.v, s.vy, input);
+  if (room) { const c = roomFlyClamp(P.x, P.y, P.z, room); P.x = c.x; P.z = c.z; P.y = c.y; }
+  heli.position.set(P.x, P.y + heliBob(FLY.t), P.z); heli.rotation.set(s.roll, -P.th, -s.pitch); rotor.rotation.y += dt * 24; flames.visible = false; }
 // test hooks (tests): put the car somewhere and read its state
 // #416: the Crash-Platz's tyre stacks (tyres.js). Built the first time the car is near the yard; the physics engine loads then, not before
 const tcar = { x: 0, y: 0, z: 0, th: 0, vx: 0, vz: 0, l: 4, w: 1.8, h: 1.4 };
@@ -4621,7 +4627,7 @@ window.__mm.naviSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepNavi(1
 // The Navi only reads the car, so no physics is needed; `seen` collects every 'type:kind' the panel would have shown.
 window.__mm.naviWalk = (stepM = 20, maxSteps = 500) => { const seen = []; let n = 0; for (; n < maxSteps && NAVIS.on; n++) { const r = NAVIS.route, s = Math.min(r.len, NAVIS.st.s + stepM), [x, z] = pointAt(r.pts, r.cum, s); window.__mm.place(x, z); stepNavi(1 / 60); if (NAVIS.last) { const d = naviDescribe(NAVIS.last); seen.push(d.type + ':' + (d.kind || '')); } } return { ...window.__mm.navi(), seen: [...new Set(seen)], steps: n }; };
 window.__mm.nearestRoad = (x, z) => nearestJumpable(x, z);
-window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, alt: FLY.alt, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible });
+window.__mm.fly = () => ({ on: FLY.on, x: P.x, y: P.y, z: P.z, th: P.th, v: FLY.v, vy: FLY.vy, pitch: FLY.pitch, roll: FLY.roll, drawnPitch: -heli.rotation.z, drawnRoll: heli.rotation.x, ground: groundH(P.x, P.z, 1e4), heliVisible: heli.visible, carVisible: car.visible, cam: { x: camera.position.x, y: camera.position.y, z: camera.position.z } });
 window.__mm.flySim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) stepFly(1 / 60); for (const k of hold) keys[k] = false; return window.__mm.fly(); };
 window.__mm.foot = () => ({ on: FOOT.on, hover: FOOT.hover, x: P.x, y: P.y, z: P.z, th: P.th, pitch: FOOT.pitch, car: FOOT.car && { ...FOOT.car }, carVisible: car.visible, carMesh: { x: car.position.x, z: car.position.z }, cam: { x: camera.position.x, y: camera.position.y, z: camera.position.z }, ground: groundH(P.x, P.z, P.y) });
 // #462: the steam loco's state, as the tests see it
@@ -4896,7 +4902,9 @@ function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm
 // #102: a camera height held 1 m under the hideout's ceiling while the car is down in it (below the hill), the easing
 // camera too, not only its target; with the car up on the hill the camera stays where it is
 function underCeiling(x, z, y) { const lid = LEVELS.isSurface() ? (caveInside() ? ceilingH(x, z) : null) : LEVELS.ceilingAt(x, z); return lid === null ? y : Math.min(y, lid - 1); }
-function flyCamera(dt) { const fx = Math.cos(P.th), fz = Math.sin(P.th); const target = new THREE.Vector3(P.x - fx * HELI.camDist, P.y + HELI.camH, P.z - fz * HELI.camDist); target.y = Math.max(target.y, groundH(target.x, target.z, 1e4) + 5); camPos.lerp(target, 1 - Math.exp(-3 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 20, P.y - 8, P.z + fz * 20); }
+// #10 / #731: one heli chase cam, close and level behind the helicopter, eased in its frame (slop-newyork); C does nothing while flying
+function flyCamera(dt) { if (!FLY.cam) FLY.cam = heliChaseFrom(camPos, P, P.th); const c = FLY.cam = heliChaseStep(FLY.cam, P, P.th, FLY.v, dt);
+  camPos.set(c.pos.x, Math.max(c.pos.y, groundH(c.pos.x, c.pos.z, 1e4) + 5), c.pos.z); camera.position.copy(camPos); camera.lookAt(c.look.x, c.look.y, c.look.z); }
 // #462: chase = behind the tender and up, looking ahead; cab = the driver's eye on the right-hand side
 function trainCamera(dt, s, snap) {   // #495: s = -1 while B is held: the chase cam in front of the loco, the cab looking back over the tender
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx;
@@ -5763,7 +5771,7 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play

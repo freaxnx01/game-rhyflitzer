@@ -63,8 +63,7 @@ def test_f_takes_off_climbs_and_shows_the_helicopter(server):
         toast = text(page, "#toast")
         b.close()
     assert s["on"] is True
-    assert abs(s["alt"] - s["ground"] - 120) < 1e-6, s
-    assert abs(s["y"] - s["ground"] - 120) < 1, s
+    assert abs(s["y"] - s["ground"] - 120) < 6, s
     assert "Helicopter" in toast, toast
 
 
@@ -81,7 +80,7 @@ def test_flight_controls(server):
     ahead = (fwd["x"] - s0["x"]) * math.cos(s0["th"]) + (fwd["z"] - s0["z"]) * math.sin(s0["th"])
     assert ahead > 30 and fwd["v"] > 30, (s0, fwd)
     assert abs(yawed["th"] - before_yaw["th"] - 1.2) < 1e-6, (before_yaw, yawed)
-    assert abs(up["alt"] - before_up["alt"] - 30) < 1e-6, (before_up, up)
+    assert 20 < up["y"] - before_up["y"] < 34, (before_up, up)
     assert down["ground"] + 10 - 0.01 <= down["y"] < down["ground"] + 60, down
 
 
@@ -203,3 +202,40 @@ def test_no_landing_without_a_road_below(server):
         b.close()
     assert state["on"] is True, state
     assert "road" in toast.lower(), toast
+
+
+def test_the_helicopter_leans_into_speed_and_turns(server):
+    """#731: pitch (nose down) with speed, roll into the turn; the drawn model follows the state."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        take_off(page)
+        level = fly(page)
+        fwd = fly_sim(page, 3, ["KeyW"])
+        turn = fly_sim(page, 1, ["KeyW", "KeyD"])
+        b.close()
+    assert abs(level["pitch"]) < 0.01 and abs(level["roll"]) < 0.01, level
+    assert fwd["pitch"] > 0.1 and fwd["drawnPitch"] > 0.1, fwd
+    assert turn["roll"] > 0.1 and turn["drawnRoll"] > 0.1, turn
+
+
+def test_the_chase_camera_sits_close_behind_and_does_not_trail(server):
+    """#731: after settling the camera is within ~3x the machine length behind, at a steady distance in fast flight."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        take_off(page)
+        # W stays held so the live loop keeps flying at top speed while the camera settles (flySim releases its holds, and
+        # the loop would brake the machine back to a hover between the reads). The camera moves in the render loop and its
+        # dt is clamped to 0.05 s per frame, so a loaded headless run converges slowly in wall-clock time: poll, don't sleep.
+        page.keyboard.down("KeyW")
+        arrived = "() => { const f = window.__mm.fly(); const d = Math.hypot(f.x - f.cam.x, f.z - f.cam.z); return d > 23 && d < 25; }"
+        page.wait_for_function("() => window.__mm.fly().v >= 39.9", timeout=120000)
+        page.wait_for_function(arrived, timeout=120000)
+        a = page.evaluate("() => { const f = window.__mm.fly(); return Math.hypot(f.x - f.cam.x, f.z - f.cam.z); }")
+        page.wait_for_timeout(2000)
+        page.wait_for_function(arrived, timeout=120000)
+        c = page.evaluate("() => { const f = window.__mm.fly(); return Math.hypot(f.x - f.cam.x, f.z - f.cam.z); }")
+        page.keyboard.up("KeyW")
+        b.close()
+    assert 10 < a < 40 and abs(a - c) < 1.5, (a, c)
