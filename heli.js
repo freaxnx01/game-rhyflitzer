@@ -1,7 +1,14 @@
 // #10: helicopter flight model (F) -- pure, no three.js, no DOM. Unit-tested with `node --test tests/*.test.mjs`.
 // Units m, m/s, m/s², rad/s. Same frame as the car: x east, z south, th = heading (0 = +x; D makes it grow, like steering).
-export const HELI = { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 12, accelNitro: 24, yawRate: 1.2, climb: 15, follow: 2, rotorMargin: 8, landRadius: 150, camDist: 35, camH: 22 };
+// #731: handling, attitude and chase camera adapted from mrdoob/slop-newyork (MIT) js/controllers.js updateHelicopter, js/cameras.js:
+// speed brakes exponentially (drag) instead of a linear ramp, the climb is a vertical speed with damping instead of a lagging target
+// altitude, and the machine leans (pitch nose down with speed, roll into the turn) -- see docs/superpowers/specs/2026-11-07-heli-flight-feel-design.md
+export const HELI = { takeoffAgl: 120, clearance: 10, maxAgl: 400, top: 40, topNitro: 60, back: 10, accel: 20, accelNitro: 30, drag: 1.8,
+  rest: 0.05, yawRate: 1.2, climb: 16, climbAccel: 22, climbDrag: 3.5, assistStop: 5, pitchMax: 0.24, rollMax: 0.28, tiltRate: 5,
+  bobAmp: 0.18, bobRate: 2.6, rotorMargin: 8, landRadius: 150, camDist: 16, camH: 6, camAhead: 8, camUp: 2, camRate: 8.5, camSpeedRate: 3 };
 // rotorMargin covers the model: nose 3.9 m, tail rotor 7.85 m and blades 6 m from the hub (#99). landRadius: F lands only with a road this close (review of #84)
+// rest: below this speed the exponential brake snaps to 0 (a hover stays put). assistStop: take-off assist ends this far below its goal
+// (the climb coasts climb / climbDrag = 4.6 m after the last push)
 
 const held = (keys, codes) => codes.some(c => keys[c]);
 const axis = (plus, minus) => (plus ? 1 : 0) - (minus ? 1 : 0);
@@ -29,19 +36,47 @@ export function heliFloor(ground, boxes, x, z, cfg = HELI) {
 }
 
 export function heliStart(x, z, y, th, ground, cfg = HELI) {
-  return { x, z, y, th, v: 0, alt: ground + cfg.takeoffAgl };
+  return { x, z, y, th, v: 0, vy: 0, pitch: 0, roll: 0, assist: ground + cfg.takeoffAgl };
 }
 
 const approach = (value, target, maxStep) => value + Math.max(-maxStep, Math.min(maxStep, target - value));
+const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
+const settle = (value, target, rate, dt) => value + (target - value) * Math.min(1, rate * dt);
 
-// one fixed step: yaw, speed towards top / -back / 0, target altitude within [floor, ground + maxAgl], y follows it smoothly but never below the floor
-export function stepHeli(s, input, dt, ground, floor, cfg = HELI) {
+function stepSpeed(v, input, dt, cfg) {
+  if (input.fwd === 0) { const braked = v * Math.max(0, 1 - cfg.drag * dt); return Math.abs(braked) < cfg.rest ? 0 : braked; }
+  const target = input.fwd > 0 ? (input.nitro ? cfg.topNitro : cfg.top) : -cfg.back;
+  return approach(v, target, (input.nitro ? cfg.accelNitro : cfg.accel) * dt);
+}
+
+// the take-off climb: F arms `assist` (goal height); until the player touches Space/Shift or the goal is near, the step climbs as if Space were held
+function stepLift(s, input, cfg) {
+  const assisting = input.lift === 0 && s.assist != null && s.y < s.assist - cfg.assistStop;
+  return { lift: assisting ? 1 : input.lift, assist: assisting ? s.assist : null };
+}
+
+// one fixed step. ceiling defaults to ground + maxAgl; the Eiffel room passes its own
+export function stepHeli(s, input, dt, ground, floor, cfg = HELI, ceiling = ground + cfg.maxAgl) {
   const th = s.th + input.yaw * cfg.yawRate * dt;
-  const target = input.fwd > 0 ? (input.nitro ? cfg.topNitro : cfg.top) : input.fwd < 0 ? -cfg.back : 0;
-  const v = approach(s.v, target, (input.nitro ? cfg.accelNitro : cfg.accel) * dt);
-  const alt = Math.max(floor, Math.min(ground + cfg.maxAgl, s.alt + input.lift * cfg.climb * dt));
-  const y = Math.max(floor, s.y + (alt - s.y) * (1 - Math.exp(-cfg.follow * dt)));
-  return { x: s.x + Math.cos(th) * v * dt, z: s.z + Math.sin(th) * v * dt, y, th, v, alt };
+  const v = stepSpeed(s.v, input, dt, cfg);
+  const { lift, assist } = stepLift(s, input, cfg);
+  let vy = lift !== 0 ? clamp(s.vy + lift * cfg.climbAccel * dt, -cfg.climb, cfg.climb) : s.vy * Math.max(0, 1 - cfg.climbDrag * dt);
+  let y = s.y + vy * dt;
+  if (y > ceiling) { y = ceiling; vy = Math.min(vy, 0); }
+  if (y < floor) { y = floor; vy = Math.max(vy, 0); }
+  const pitch = settle(s.pitch, clamp(v / cfg.top, -1, 1) * cfg.pitchMax, cfg.tiltRate, dt);
+  const roll = settle(s.roll, input.yaw * cfg.rollMax, cfg.tiltRate, dt);
+  return { x: s.x + Math.cos(th) * v * dt, z: s.z + Math.sin(th) * v * dt, y, th, v, vy, pitch, roll, assist };
+}
+
+// drawn only, never physics: a slow swing so the machine is never dead still (slop-newyork: sin(t * 2.6) * 0.18)
+export const heliBob = (t, cfg = HELI) => Math.sin(t * cfg.bobRate) * cfg.bobAmp;
+
+// engine load 0..1 for the rotor sound, ported from slop-newyork js/audio-sources.js helicopterLoad: hover 0.45, collective up harder, down softer
+export function heliLoad(v, vy, input, cfg = HELI) {
+  const unit = (x) => clamp(x, 0, 1);
+  return unit(0.45 + 0.28 * Math.max(input.lift, 0) - 0.16 * Math.max(-input.lift, 0)
+    + 0.15 * unit(vy / cfg.climb) - 0.08 * unit(-vy / cfg.climb) + 0.1 * Math.abs(input.fwd) + 0.12 * unit(Math.abs(v) / cfg.top));
 }
 
 // the road to land on: the nearest one ({ d, x, z, th }) if it lies within landRadius, else null -- no teleport to a far road

@@ -188,8 +188,6 @@ export const eiffelRoom = () => roomLayout(0);
 export const ROOM_FLY = { wall: ROOM_HALF - 25, ceiling: 420 };
 export const flyAllowed = (level, zone) => zone !== 'lift' && (isRoomLevel(level) ? zone === 'room' : level === 'surface' && zone === 'open');
 export const roomFlyCeiling = (cfg = ROOM_FLY, y = ROOM_Y) => y + cfg.ceiling;
-// The target altitude is limited by the ceiling itself, never by the (lagging) current height: clamping it to y pinned the climb at ~0.5 m/s.
-export const roomFlyAlt = (alt, cfg = ROOM_FLY, y = ROOM_Y) => Math.min(alt, roomFlyCeiling(cfg, y));
 export function roomFlyClamp(x, y, z, room = eiffelRoom(), cfg = room.fly) {
   const [cx, cz] = room.centre, { f, v } = room.frame, dx = x - cx, dz = z - cz;
   const a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1], c = (val) => Math.max(-cfg.wall, Math.min(cfg.wall, val));
