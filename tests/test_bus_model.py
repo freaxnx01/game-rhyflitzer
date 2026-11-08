@@ -70,3 +70,22 @@ def test_bus_is_yellow_outside_and_has_a_floor_inside(server):
     assert flank and [h["material"] for h in flank if h["d"] < flank[0]["d"] + 0.01] == ["Body"], flank   # nothing drawn on top of the paint
     assert floor and floor[0]["material"] == "Plain_7" and 0.1 < floor[0]["y"] < 0.5, floor
     assert not errors, errors
+
+
+def test_bus_wheels_are_covered_from_inside_the_cabin(server):
+    """#758: the wheel arches face the wheel, so from the cabin they were culled and the wheels showed through the windscreen.
+    Rays from inside the cabin at each wheel meet an arch cover (Plain_7) before the tyre (Plain_0); the flank still shows Body only."""
+    shots = {"front down": ([3.36, 2.2, 1.0], [0, -1, 0]), "rear down": ([-2.66, 2.2, 0.85], [0, -1, 0]),
+             "front down left": ([3.36, 2.2, -1.0], [0, -1, 0]),
+             "front side": ([3.36, 0.7, 0], [0, 0, 1]), "rear side": ([-2.66, 0.7, 0], [0, 0, 1]),
+             "from the windscreen": ([5.5, 1.6, 0.4], [-2.14, -1.1, 0.72])}
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        load_bus(page)
+        hits = {k: page.evaluate("([f, d]) => window.__mm.carRay(f, d)", [f, d]) for k, (f, d) in shots.items()}
+        flank = page.evaluate("() => window.__mm.carRay([0, 0.7, 4], [0, 0, -1])")
+        b.close()
+    for name, h in hits.items():
+        assert h and h[0]["material"] == "Plain_7", (name, h)   # a cover first, not the tyre
+    assert flank and [h["material"] for h in flank if h["d"] < flank[0]["d"] + 0.01] == ["Body"], flank
+    assert not errors, errors
