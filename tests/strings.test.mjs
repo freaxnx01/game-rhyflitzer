@@ -230,6 +230,9 @@ test('tutorial texts exist in both languages, name the input and address the pla
   assert.match(translate('de', 'tutStepGetIn', 'Z'), /Deinem Auto.*Z$/);
   assert.equal(translate('de', 'tutButton', 'aussteigen'), '[aussteigen]');
   assert.equal(translate('en', 'tutMenu', 'Photo'), '☰ → Photo');
+  assert.equal(translate('en', 'tutOr'), 'or');   // #700: between the WASD and the arrow-key cross
+  assert.equal(translate('de', 'tutOr'), 'oder');
+  assert.ok(!('tutKey' in STRINGS.en) && !('tutKey' in STRINGS.de), 'tutKey has no caller since #700');
   assert.equal(translate('de', 'tutPause'), 'Tutorial beenden');
   assert.equal(translate('en', 'tutorial'), 'Tutorial');
   assert.equal(translate('de', 'modeTutorial', 'Hochrhein'), 'Tutorial · Hochrhein');

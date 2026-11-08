@@ -34,6 +34,7 @@ def test_bar_follows_the_context_and_the_language(server):
         b, page, errors = open_hand(p, server)
         page.evaluate("() => window.ggSetLang('de')")
         car = page.evaluate(BAR)
+        car_kbd = page.evaluate("() => [...document.querySelector('#keybar span').querySelectorAll('kbd')].map(k => k.textContent)")
         boxes = page.evaluate("""() => { const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
           return { bar: r('#keybar'), bl: r('#bl'), br: r('#br'), pe: getComputedStyle(document.querySelector('#keybar')).pointerEvents }; }""")
         x, z = ROAD
@@ -51,6 +52,7 @@ def test_bar_follows_the_context_and_the_language(server):
     overlap = lambda a, c: not (a[2] <= c[0] or c[2] <= a[0] or a[3] <= c[1] or c[3] <= a[1])
     assert errors == []
     assert car["shown"] and car["text"] == "WASD fahrenShift NitroZ aussteigenJ springenC KameraF1 alle Tasten", car
+    assert car_kbd == ["W", "A", "S", "D"], car_kbd   # #700: four caps, not one "WASD"
     assert boxes["pe"] == "none" and not overlap(boxes["bar"], boxes["bl"]) and not overlap(boxes["bar"], boxes["br"]), boxes
     assert foot["ctx"] == "foot" and foot["text"].startswith("WASD gehenSpace springenZ einsteigen") and "Kamera" not in foot["text"], foot
     assert door["action"] == "enter" and door["text"].startswith("E eintreten"), door
