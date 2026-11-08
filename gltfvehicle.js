@@ -60,6 +60,35 @@ export function floorTriangles(pos, index, maxY) {
   return out;
 }
 
+// #758: the wheel arches are drawn like the underbody, facing the wheel, so from the cabin they are culled and the wheels show through the
+// floor. arches [{ x, y, z, r, zMax }]: the wheel's centre (z is its distance from the centre line, either side) and how far round it
+// faces count. Faces that look at the wheel get a copy, but none beyond zMax: out there lies the flank lining (#723).
+export function archTriangles(pos, index, arches) {
+  const out = [], at = (i, k) => pos[3 * i + k];
+  for (let t = 0; t < index.length; t += 3) {
+    const [a, b, c] = [index[t], index[t + 1], index[t + 2]];
+    const m = [0, 1, 2].map((k) => (at(a, k) + at(b, k) + at(c, k)) / 3), side = Math.sign(m[2]) || 1;
+    const u = [0, 1, 2].map((k) => at(b, k) - at(a, k)), w = [0, 1, 2].map((k) => at(c, k) - at(a, k));
+    const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+    const kept = arches.some((r) => Math.hypot(m[0] - r.x, m[1] - r.y) <= r.r && Math.abs(m[2]) <= r.zMax
+      && n[0] * (r.x - m[0]) + n[1] * (r.y - m[1]) + n[2] * (side * r.z - m[2]) > 0);
+    if (kept) out.push(a, b, c);
+  }
+  return out;
+}
+
+// everything that gets a copy drawn from above: the floor's down-facing faces and the wheel arches' faces; no face twice
+export function floorFaces(pos, index, floor) {
+  const out = [], seen = new Set();
+  for (const list of [floorTriangles(pos, index, floor.maxY), archTriangles(pos, index, floor.arches ?? [])]) {
+    for (let k = 0; k < list.length; k += 3) {
+      const key = list.slice(k, k + 3).join();
+      if (!seen.has(key)) { seen.add(key); out.push(list[k], list[k + 1], list[k + 2]); }
+    }
+  }
+  return out;
+}
+
 // parts that turn all the time about their node's local x axis (the mixer's drum): def.spin [{ node, rate rad/s }];
 // fails fast when the model lacks a named node
 export function spinPlan(def, nodeNames) {
