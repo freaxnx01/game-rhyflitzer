@@ -89,6 +89,14 @@ test('engineMix + rotorMix: flying mutes the engine, road and hiss and brings in
   assert.equal(r.gain, ROTOR.gain); assert.ok(Math.abs(r.rate - (ROTOR.rate + ROTOR.ratePerKmh * 100)) < 1e-12);
 });
 
+test('rotorMix: climbing (load above hover) beats faster and louder, sinking slower and softer; no load is the old mix -- #731', () => {
+  const hover = rotorMix(IN({ kmh: 0, fly: true })), up = rotorMix(IN({ kmh: 0, fly: true, load: 0.85 })), down = rotorMix(IN({ kmh: 0, fly: true, load: 0.3 }));
+  assert.equal(rotorMix(IN({ kmh: 0, fly: true, load: ROTOR.hoverLoad })).gain, hover.gain);
+  assert.ok(up.rate > hover.rate && up.gain > hover.gain);
+  assert.ok(down.rate < hover.rate && down.gain < hover.gain);
+  assert.equal(rotorMix(IN({ kmh: 0, load: 0.9 })).gain, 0);   // not flying: silent whatever the load
+});
+
 test('checkSound: the compact preset passes', () => { checkSound(SOUND()); });
 
 test('checkSound: each broken field throws an Error that names it', () => {
