@@ -1,11 +1,11 @@
 // estate.js — the Rhy Estate (de: Rhy Kombi) vehicle table entry: a 2009–2013 Škoda Octavia Combi look-alike, the family estate of
-// about 2011, paintable, Rhine blue from the factory, no badge. Pure module: no DOM, no three.js, so node --test can import it.
+// about 2011, paintable, silver metallic from the factory, no badge. Pure module: no DOM, no three.js, so node --test can import it.
 // The model is a glTF file (assets/estate.glb, tools/prepare-estate.mjs).
 //
 // Octavia numbers: the 2.0 l TDI four in the nose, 140 hp, front-wheel drive, 207 km/h (57.5 m/s), six gears, 0-100 in about
 // 9.6 s, 1.4 t; long, calm and roomy rather than quick; 2.578 m wheelbase; left-hand drive.
 export const ESTATE = {
-  model: 'gltf', gltf: { id: 'estate', url: './assets/estate.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'rhine',
+  model: 'gltf', gltf: { id: 'estate', url: './assets/estate.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'silver',
   wheels: [[1.289, 0.732], [-1.289, 0.732]], wheelR: 0.322,   // the model's own wheel nodes: x ±1.289, |z| 0.732, r 0.322
   drive: { top: 57.5, topNitro: 80, accel: 13.5, accelNitro: 30, brake: 22, reverse: 7, reverseMax: 12, grip: 9, gripHandbrake: 1.6, steerRate: 2.6, airSteer: 0.4 },
   mass: 1.15, engineAt: [1.6, 0.7, 0], collision: { shape: 'circle', r: 1.25 },

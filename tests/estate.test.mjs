@@ -35,9 +35,9 @@ test('ESTATE_Gearbox_HasSixForwardGears', () => {
   assert.equal(gearAt(200, ESTATE.sound.gears), 5);
 });
 
-test('ESTATE_IsPaintable_RhineBlueFromTheFactory', () => {
+test('ESTATE_IsPaintable_SilverMetallicFromTheFactory', () => {
   assert.equal(paintable(ESTATE), true);
-  assert.equal(ESTATE.defaultPaint, 'rhine');
+  assert.equal(ESTATE.defaultPaint, 'silver');
   assert.equal(paintOnSelect(ESTATE, 'meadow', true), 'meadow', 'a chosen paint stays');
   assert.equal(buildableId('estate', ESTATE, 'loading'), 'compact');
   assert.equal(buildableId('estate', ESTATE, 'ready'), 'estate');

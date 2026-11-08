@@ -317,7 +317,7 @@ body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,b
 .cs-stat .cs-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:1px}
 .cs-cells{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}.cs-cells i{display:block;height:16px;background:#2a2e38}.cs-cells i.lit{background:var(--sun)}.cs-cells i.tip{background:#ff9a1a}
 .cs-score{font-size:20px;font-weight:800;text-align:right}
-.cs-swatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.cs-swatches{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
 .cs-swatches button{height:clamp(40px,5.5vh,56px);cursor:pointer;padding:0;border:4px solid;border-color:#fff #3a404b #3a404b #fff}
 .cs-swatches button[aria-pressed=true]{border:5px solid var(--cream);box-shadow:0 0 0 3px var(--sun),4px 4px 0 var(--ink)}
 .cs-swatches button:disabled{cursor:default;opacity:.4}
@@ -721,7 +721,7 @@ import { RIDE as RIDE_CFG, toWheel, fromWheel, rideIdle, rideBegin, rideStep, ri
 import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
-import { PAINTS, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
+import { PAINTS, paintFinish, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME } from './carselect.js';
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
@@ -3098,7 +3098,8 @@ function saveChoice() { try { localStorage.setItem('mm.car', JSON.stringify(CHOI
 const chairOn = () => CHOICE.chair === true && chairable(VEH);
 function applyChair() { if (car.userData.chair) car.userData.chair.visible = chairOn(); }
 // the body colour: the shared compact material plus any mesh whose material opted in (userData.paint, glTF vehicles with paint: true)
-function applyPaint(id) { const p = PAINTS.find(p => p.id === id) || PAINTS[0]; CHOICE.paint = p.id; carMats.body.color.set(p.hex); car.traverse(o => { if (o.material?.userData?.paint) o.material.color.set(p.hex); }); }
+function applyPaint(id) { const p = PAINTS.find(p => p.id === id) || PAINTS[0]; CHOICE.paint = p.id; paintMaterial(carMats.body, p); car.traverse(o => { if (o.material?.userData?.paint) paintMaterial(o.material, p); }); }
+function paintMaterial(m, p) { m.userData.baseFinish ??= { metalness: m.metalness, roughness: m.roughness }; m.color.set(p.hex); Object.assign(m, paintFinish(p, m.userData.baseFinish)); }   // silver metallic brings its own finish; the model's comes back with any other paint
 setVehicle(VEHICLES[CHOICE.id]); applyPaint(CHOICE.paint);
 // #132: wheel state is written by stepWheels (from stepCar) only; drawWheels (from the loop) only reads it
 const WHEEL_STATE = { yaw: 0, spin: 0 };
