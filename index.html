@@ -693,7 +693,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { SPECIES, treeSpecies, treeParts, treeColour, billShape } from './trees.js';
+import { SPECIES, treeSpecies, treeParts, treeColour, billShape, treeHash, lodTier } from './trees.js';
+import { crownFor } from './treegeo.js';
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
@@ -2622,21 +2623,40 @@ if (NATLINES) {
   const strip = (lines, color, lift) => { if (!lines.length) return; NATB.add(new THREE.Mesh(mergeGeometries(lines.map(pts => ribbonGeo(pts, 0.5, 0, 4, false, p => boundaryY(p[0], p[1]) + lift)), false), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }))); };
   strip([NATLINES.new], 0xffd400, 0.1); strip(NATLINES.apart, 0xffffff, 0.15);
 }
-// #359: four species (trees.js) in the retro low-poly look. Unit crowns are radius 1, height 1, base at y = 0: a cone, or a
-// faceted ball (an icosahedron squashed to height 1); unit trunks are height 1, base at 0. 'single' = closed, finer (today's 7-segment cone +
-// 6-segment trunk); 'forest' = open-ended, coarser (today's 14 triangles for a spruce). The birch trunk is white with dark marks on a few faces.
+// #734: crowns come from treegeo.js (pure, lumpy, flat-shaded, vertex-coloured), one per species and LOD tier: 'single' = the
+// fine tier (80-triangle balls, 3-tier spruce), 'forest' = the coarse tier (today's 20-triangle ball and 6-triangle cone).
+// Trunks: 6-segment closed (fine) or 4-segment open (coarse) cylinders; the birch trunk is white with dark marks on a few faces.
+function crownGeometry(species, tier) {
+  const c = crownFor(species, tier), g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(c.position, 3)); g.setAttribute('normal', new THREE.BufferAttribute(c.normal, 3)); g.setAttribute('color', new THREE.BufferAttribute(c.color, 3));
+  return g;
+}
 function treeGeometries(detail) {
-  const fine = detail === 'single', unit = g => { g.translate(0, 0.5, 0); return g; };
-  const ball = new THREE.IcosahedronGeometry(1, 0); ball.scale(1, 0.5, 1);
+  const fine = detail === 'single', tier = fine ? 'fine' : 'coarse', unit = g => { g.translate(0, 0.5, 0); return g; };
   const birch = (fine ? new THREE.CylinderGeometry(0.12, 0.16, 1, 6, 1, true) : new THREE.CylinderGeometry(0.12, 0.16, 1, 4, 1, true)).toNonIndexed();
   { const n = birch.attributes.position.count, rgb = new Float32Array(n * 3); for (let v = 0; v < n; v++) { const mark = Math.floor(v / 3) % 3 === 1 ? 0.22 : 0.9; rgb[v * 3] = mark; rgb[v * 3 + 1] = mark; rgb[v * 3 + 2] = mark * 0.97; } birch.setAttribute('color', new THREE.BufferAttribute(rgb, 3)); }
   return {
-    crowns: { cone: unit(fine ? new THREE.ConeGeometry(1, 1, 7) : new THREE.ConeGeometry(1, 1, 6, 1, true)), ball: unit(ball) },
+    crowns: Object.fromEntries(SPECIES.map(s => [s, crownGeometry(s, tier)])),
     trunks: { bark: unit(fine ? new THREE.CylinderGeometry(0.12, 0.16, 1, 6) : new THREE.CylinderGeometry(0.12, 0.16, 1, 4, 1, true)), birch: unit(birch) },
   };
 }
 const TREE_GEO = { single: treeGeometries('single'), forest: treeGeometries('forest') };
-const TREE_MAT = { crown: new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, roughness: 1 }), bark: new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 }), birch: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, flatShading: true, roughness: 1 }) };
+const TREE_MAT = { crown: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, flatShading: true, roughness: 1 }), bark: new THREE.MeshStandardMaterial({ color: 0x6a4a30, flatShading: true, roughness: 1 }), birch: new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, flatShading: true, roughness: 1 }) };
+// #734: the wind. The crown's vertex shader bends the unit crown by its height (the base stands, the top moves uWind crown
+// radii) with a phase from the tree's position, so neighbours are out of step. uTime is advanced by the loop while playing.
+const TREE_WIND = { time: { value: 0 }, amp: { value: 0.035 }, patched: false };
+TREE_MAT.crown.onBeforeCompile = (shader) => {
+  shader.uniforms.uTime = TREE_WIND.time; shader.uniforms.uWind = TREE_WIND.amp;
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
+    .replace('#include <begin_vertex>', ['#include <begin_vertex>',
+      '#ifdef USE_INSTANCING', 'float treePhase = instanceMatrix[3].x * 0.17 + instanceMatrix[3].z * 0.23;', '#else', 'float treePhase = 0.0;', '#endif',
+      'float treeK = position.y * position.y;',
+      'transformed.x += uWind * treeK * sin(uTime * 1.3 + treePhase);',
+      'transformed.z += uWind * treeK * 0.6 * sin(uTime * 0.9 + treePhase * 1.7);'].join('\n'));
+  TREE_WIND.patched = true;
+};
+TREE_MAT.crown.customProgramCacheKey = () => 'tree-wind';
 const TREE_UP = new THREE.Vector3(0, 1, 0);
 // one InstancedMesh per species and part for trees [x, z, h, y, kind]; jitter[i] = [u1, u2] is the tree's colour jitter (the caller's rng, in its order)
 function speciesMeshes(trees, G, jitter, shadows) {
@@ -2644,12 +2664,12 @@ function speciesMeshes(trees, G, jitter, shadows) {
   const out = [], m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
   for (const [s, idx] of by) {
     if (!idx.length) continue;
-    const kinds = treeParts(s, 1), crown = new THREE.InstancedMesh(G.crowns[kinds.crown.kind], TREE_MAT.crown, idx.length), trunk = new THREE.InstancedMesh(G.trunks[kinds.trunk.kind], TREE_MAT[kinds.trunk.kind], idx.length);
+    const kinds = treeParts(s, 1), crown = new THREE.InstancedMesh(G.crowns[s], TREE_MAT.crown, idx.length), trunk = new THREE.InstancedMesh(G.trunks[kinds.trunk.kind], TREE_MAT[kinds.trunk.kind], idx.length);
     idx.forEach((ti, i) => {
       const [x, z, h, y] = trees[ti], p = treeParts(s, h), [u1, u2] = jitter[ti];
       q.setFromAxisAngle(TREE_UP, u1 * Math.PI * 2);   // the ball's facets turned per tree, so a row never looks stamped
       m.compose(new THREE.Vector3(x, y + p.crown.y, z), q, new THREE.Vector3(p.crown.sx, p.crown.sy, p.crown.sx)); crown.setMatrixAt(i, m);
-      c.setHSL(...treeColour(s, u1, u2)); crown.setColorAt(i, c);
+      c.setHSL(...treeColour(s, u1, u2, treeHash(z, x))); crown.setColorAt(i, c);   // #734: u3 = a second hash of the position picks the colour variety
       m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(p.trunk.sx, p.trunk.sy, p.trunk.sx)); trunk.setMatrixAt(i, m);
     });
     for (const im of [crown, trunk]) { im.castShadow = shadows; im.computeBoundingSphere(); im.userData.species = s; im.userData.part = im === crown ? 'crown' : 'trunk'; out.push(im); }
@@ -2672,12 +2692,27 @@ const FOREST_MESHES = [];
       q.setFromAxisAngle(TREE_UP, (frnd() - 0.5) * 0.4); m.compose(new THREE.Vector3(x, ty, z), q, new THREE.Vector3(h * b.w, h, h * b.w)); bill.setMatrixAt(i, m); bill.setColorAt(i, c.setRGB(...b.tint));
     });
     bill.computeBoundingSphere(); scene.add(bill);
-    const solid = speciesMeshes(list, TREE_GEO.forest, jitter, false); scene.add(...solid);
-    FOREST_MESHES.push({ solid, bill });
+    const coarse = speciesMeshes(list, TREE_GEO.forest, jitter, false); scene.add(...coarse);
+    let cx = 0, cz = 0; for (const t of list) { cx += t[0]; cz += t[1]; } cx /= list.length; cz /= list.length;
+    FOREST_MESHES.push({ coarse, fine: null, bill, cx, cz, tier: 'coarse', list, jitter });   // #734: fine is built when the tile first comes within LOD.fineIn
   }
   if (window.__mm.counts.forest) window.__mm.counts.forest.tiles = tiles.size;
 }
-window.__mm.treeSpecies = () => { const n = { single: {}, forest: {} }, add = (to, im) => { if (im.userData.part === 'crown') to[im.userData.species] = (to[im.userData.species] || 0) + im.count; }; for (const im of TREE_SOLID) add(n.single, im); for (const f of FOREST_MESHES) for (const im of f.solid) add(n.forest, im); return n; };
+// #734: the fine tier of one tile, built once, added hidden (stepTreeLod shows it)
+function fineTile(f) { const fine = speciesMeshes(f.list, TREE_GEO.single, f.jitter, false); for (const im of fine) im.visible = false; scene.add(...fine); return fine; }
+const TREES_ON = { solid: false };
+// #734: per frame, each tile shows the tier for its distance to the camera (lodTier's hysteresis keeps a tile from flickering)
+function stepTreeLod() {
+  if (!TREES_ON.solid) return;
+  for (const f of FOREST_MESHES) {
+    const tier = lodTier(Math.hypot(f.cx - camera.position.x, f.cz - camera.position.z), f.tier); if (tier === f.tier) continue;
+    f.tier = tier; if (tier === 'fine' && !f.fine) f.fine = fineTile(f);
+    for (const im of f.coarse) im.visible = tier === 'coarse'; for (const im of f.fine) im.visible = tier === 'fine';
+  }
+}
+window.__mm.treeLod = () => { const r = { fineTiles: 0, coarseTiles: 0, fineTrees: 0, coarseTrees: 0, visibleSolid: 0 }; for (const f of FOREST_MESHES) { r[f.tier + 'Tiles']++; r[f.tier + 'Trees'] += f.list.length; if (f.coarse[0].visible || (f.fine && f.fine[0].visible)) r.visibleSolid++; } return r; };
+window.__mm.treeWind = () => ({ time: TREE_WIND.time.value, amp: TREE_WIND.amp.value, patched: TREE_WIND.patched });
+window.__mm.treeSpecies = () => { const n = { single: {}, forest: {} }, add = (to, im) => { if (im.userData.part === 'crown') to[im.userData.species] = (to[im.userData.species] || 0) + im.count; }; for (const im of TREE_SOLID) add(n.single, im); for (const f of FOREST_MESHES) for (const im of f.coarse) add(n.forest, im); return n; };
 // checkpoints and finish
 const cpMat = new THREE.MeshBasicMaterial({ color: 0xffc61a, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }), cpMatDone = new THREE.MeshBasicMaterial({ color: 0x7fe0a0, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false });
 const cpObjs = CPS.map((c) => { const g = new THREE.Group(); const pillar = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 40, 16, 1, true), cpMat); pillar.position.y = 20; const ring = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.35, 8, 24), new THREE.MeshBasicMaterial({ color: 0xffc61a })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.6; g.add(pillar, ring); g.position.set(c.x, groundH(c.x, c.z), c.z); scene.add(g); return { g, pillar, ring, done: false }; });
@@ -3085,7 +3120,7 @@ const STYLES = {
 let styleKey = 'original';
 function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = MESH[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
-function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.solid) im.visible = solid; } }
+function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; TREES_ON.solid = solid; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.coarse) im.visible = solid && f.tier === 'coarse'; if (f.fine) for (const im of f.fine) im.visible = solid && f.tier === 'fine'; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
 // light without shadows, no trees, no sun disc; off restores the style (modelled on setUnderwater; the two are never both on).
 // Look (#201 polish): density 0.0009 keeps the summit 350 m away at ~10 % fog, not 30 %; the cool blue-grey ambient at 0.55
@@ -4624,7 +4659,7 @@ window.__mm.topAt = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector
 window.__mm.hideoutLights = () => HIDE && HIDE.lights ? HIDE.lights.map(l => ({ x: l.position.x, y: l.position.y, z: l.position.z, intensity: l.intensity, distance: l.distance, decay: l.decay, visible: l.visible && l.parent.visible, kind: l.userData.kind, target: l.isSpotLight ? l.target.position.toArray() : null, angle: l.angle ?? null, penumbra: l.penumbra ?? null })) : null;
 window.__mm.hideoutRing = () => HIDE && HIDE.ring ? Object.fromEntries(Object.entries(HIDE.ring).map(([id, ring]) => [id, ring.map(r => ({ ...r, wall: TUNNEL.wall }))])) : null;   // #201: { r0, n1 }
 // #201: cave mode as the tests see it; the lights; the last frame's draw calls; the tower; the static map's pixel over (x, z)
-window.__mm.cave = () => ({ veil: CAVE_MODE.veil && CAVE_MODE.veil.visible ? CAVE_MODE.veil.material.opacity : 0, lining: CAVE_MODE.dark && CAVE_MODE.dark.visible ? CAVE_MODE.dark.material.opacity : 0, liftHouse: !!LIFT_DOORS.top && LIFT_DOORS.top.parent.visible && LIFT_DOORS.top.visible, lamps: HIDE ? HIDE.lights.map(l => l.intensity) : [], dark: !!CAVE_MODE.dark && CAVE_MODE.dark.visible, inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, k: CAVE_MODE.k, hemi: hemi.intensity, sun: sun.intensity, skyTop: '#' + skyMat.uniforms.top.value.getHexString(), fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || TREE_SOLID.some(im => im.visible) || FOREST_MESHES.some(f => f.bill.visible || f.solid.some(im => im.visible)), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
+window.__mm.cave = () => ({ veil: CAVE_MODE.veil && CAVE_MODE.veil.visible ? CAVE_MODE.veil.material.opacity : 0, lining: CAVE_MODE.dark && CAVE_MODE.dark.visible ? CAVE_MODE.dark.material.opacity : 0, liftHouse: !!LIFT_DOORS.top && LIFT_DOORS.top.parent.visible && LIFT_DOORS.top.visible, lamps: HIDE ? HIDE.lights.map(l => l.intensity) : [], dark: !!CAVE_MODE.dark && CAVE_MODE.dark.visible, inside: caveInside(), visible: !!CAVE_MODE.group && CAVE_MODE.group.visible, on: CAVE_MODE.on, k: CAVE_MODE.k, hemi: hemi.intensity, sun: sun.intensity, skyTop: '#' + skyMat.uniforms.top.value.getHexString(), fog: scene.fog ? '#' + scene.fog.color.getHexString() : null, fogDensity: scene.fog && scene.fog.isFogExp2 ? scene.fog.density : null, shadows: renderer.shadowMap.enabled, treesVisible: treeBill.visible || TREE_SOLID.some(im => im.visible) || FOREST_MESHES.some(f => f.bill.visible || f.coarse.some(im => im.visible) || (f.fine && f.fine.some(im => im.visible))), lights: HIDE ? HIDE.lights.length : 0, programs: renderer.info.programs.length });
 window.__mm.level = () => ({ id: LEVELS.id, grid: OBB_GRID === SURFACE_GRID ? 'surface' : 'room', y: P.y });
 window.__mm.renderInfo = () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, level: LEVELS.id });
 window.__mm.mapPixel = (x, z) => Array.from(mapStatic.getContext('2d').getImageData(Math.round(MX(x)), Math.round(MZ(z)), 1, 1).data).join(',');
@@ -4705,7 +4740,9 @@ window.__mm.roadDist = () => roadDist(P.x, P.z);
 window.__mm.onTrail = () => { let best = null; for (const { r, i } of gridQuery(ROAD_GRID, P.x, P.z, 32)) { const d = segDist(P.x, P.z, ...r.pts[i], ...r.pts[i + 1]); if (!best || d < best.d) best = { d, r }; } return !!(best && best.r.trail); };
 const isDeck = (ob) => !!ob && !ob.b.approach && !ob.fill;   // #78 abutment, #227 fill past a generic end: road on fill, not a bridge
 // y (#201): an explicit start height, e.g. the cave floor under the hill (the default is the ground seen from the sky)
-window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };   // #473: th so a test can see the wall-yaw nudges
+// #734: __mm.sim is assigned at the very end of the load (after the cave pre-compile), because the tests use it as their
+// readiness gate -- a sim that appears before the pre-compile let a test read renderer.info.programs mid-load and see the
+// cave-look programs arrive as "new" ones. #473: th so a test can see the wall-yaw nudges
 window.__mm.step = (secs, hold = ['KeyW']) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); stepTyres(1 / 60); } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };   // #101: like sim, but from where the car is now (no placement)
 window.__mm.car = () => ({ x: P.x, y: P.y, z: P.z, splash: P.splash, ground: groundH(P.x, P.z, P.y), terrain: terrainH(P.x, P.z), bridge: isDeck(onBridge(P.x, P.z, P.y)), water: waterLevelAt(P.x, P.z, P.y), submerged: submerged(P.y, waterLevelAt(P.x, P.z, P.y)) });
 window.__mm.damage = () => ({ dmg: P.dmg, wrecked: WRECK_S.on, t: WRECK_S.t, wheelsOff: car.userData.wheels.filter(w => w.d).length, smoke: SMOKE.pool.filter(s => s.visible).length, wheels: car.userData.wheels.map(w => { const p = w.steer.getWorldPosition(new THREE.Vector3()); return { x: p.x, y: p.y, z: p.z }; }), safe: [...P.safe] });   // #105
@@ -5680,11 +5717,25 @@ else addEventListener('gg-testhub-ready', () => testhubRegister(window.ggTesthub
 // ---------- loop ----------
 await loadStage('paint');
 applyStyle('original'); resize();
-// #201: compile the cave look up front (the lit materials' programs differ with the lights and the fog type), so the door costs no hitch
-if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
+buildBusStops();   // #712: before loadPostauto's fetch, so the stops stand without a timetable too -- and before the pre-compile below (#734): their frame and shelter-glass materials are unique, so built later they cost a first-sight shader hitch wherever a drive first shows one
+// #201: compile the cave look up front (the lit materials' programs differ with the lights and the fog type), so the door costs no hitch.
+// #734: the outside look too -- a material whose meshes first come into view later (the water along a drive, a role the start
+// frustum never shows) otherwise compiles on first sight, mid-drive, which reads as a hitch and as "new" programs in a test.
+if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); renderer.compile(scene, camera); }
+{ // #734: pre-warm the ch-landmarks' program. Their meshes load async (#649: the start does not wait) and every one gets
+  // the same vertex-coloured double-sided lambert, so the program is the same -- compiled once here, a landmark's first
+  // sight mid-drive costs no hitch (and no program the load did not already have).
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute([1, 1, 1, 1, 1, 1, 1, 1, 1], 3));
+  const warm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+  scene.add(warm); renderer.compile(scene, camera); scene.remove(warm);
+}
+window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play
@@ -5720,7 +5771,6 @@ function buildBusStops() {
     POSTAUTO.stops.push({ uic: st.uic, name: st.name, x: st.x, z: st.z, yaw: lay.yaw, pole: lay.pole, shelter: lay.shelter, shift: lay.shift, pushed: lay.pushed, rows });
   }
 }
-buildBusStops();   // #712: before loadPostauto's fetch, so the stops stand without a timetable too
 if (REGION.backdrop && !GEN) fetch(REGION.backdrop).then((r) => (r.ok ? r.arrayBuffer() : null)).then((buf) => { if (buf) buildBackdrop(parseMMH(buf), buf.byteLength); }).catch(() => {});   // #593: never awaited, startup does not wait for the horizon
 // #538: Umami bookkeeping. Coarse ids only (see analytics.js). Vehicle and activity are sampled once a second (the interval also runs while the pause menu freezes the loop, where a car swap happens); modes and jumps are one-line calls from startRace, finish, endHunt, timeUp, toMainMenu and placeOnRoad.
 const STATS = { lastMode: null, vehicle: createChangeReporter({ name: 'vehicle', initial: CHOICE.id, shape: vehicleData }), activity: createChangeReporter({ name: 'activity', initial: 'car', shape: activityData }) };
