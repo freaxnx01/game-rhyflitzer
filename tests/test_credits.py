@@ -280,3 +280,17 @@ def test_blaze_model_is_credited_everywhere():
 def test_blaze_model_is_committed_and_small():
     glb = ROOT / "assets" / "blaze.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_estate_model_is_credited_everywhere():
+    """"2009 Skoda Octavia Combi" by tonielpro520, CC BY 4.0 (Sketchfab) -- README, CHANGELOG, the licence note beside the file, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "assets/estate.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "tonielpro520" in t and "CC BY 4.0" in t and "2009 Skoda Octavia Combi" in t, f
+    strings = (ROOT / "strings.js").read_text(encoding="utf-8")
+    assert strings.count("creditEstate") == 2 and 'data-i18n="creditEstate"' in (ROOT / "index.html").read_text(encoding="utf-8")
+
+
+def test_estate_model_is_committed_and_small():
+    glb = ROOT / "assets" / "estate.glb"
+    assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
