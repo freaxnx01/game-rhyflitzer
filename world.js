@@ -1051,6 +1051,8 @@ export const FIELD_KINDS = Object.freeze({
 // terrain, then fields and meadows, then roads (more negative = drawn nearer). The Crash-Platz slab uses -3 (yardGround).
 export const SURFACE_DEPTH_OFFSET = Object.freeze({ field: -1, meadow: -1, road: -2, roadOsm: -2, roadPlain: -2, motorway: -2, gravel: -2 });
 export function depthOffsetFor(role) { return SURFACE_DEPTH_OFFSET[role] ?? null; }
+// decals on the roads (markings, bay lines, street names, the bus-stop zigzag): nearer than every surface and the slab, factor and units
+export const DECAL_DEPTH_OFFSET = -4;
 
 // #506: texture coordinates of a parcel so the stripes of TEX.field (which vary with v) run along `dir`, the parcel's long side.
 export function fieldUV(x, z, cx, cz, dir, tile = 20) {
