@@ -39,6 +39,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-09 20:09` The **Rhy Wobbler**, the yellow three-wheeler, now sits under **Film & TV** in the vehicle gallery instead of Everyday: it is the Mr Bean car.
+
 - `2026-11-09 16:22` A **tidier driving HUD**: everything but the speedometer, the clock, the checkpoint arrow and the map now fades to a faint ghost four seconds after it last changed and lights up again for three seconds when it does — the mode plate, gear and trip, the road and water names, the best time. The **damage** plate appears only once the car has taken damage, the blinker glyphs only while a signal is on, and the key bar dims after half a minute and returns when you get out, fly or board. The **compass** has moved into the minimap: the car marker has a needle and the map bar shows the heading in degrees. The style button under the road is gone — switch the style in the **pause** menu or with <kbd>T</kbd> — and the footer links show only on the start screen and in pause.
 - `2026-11-08 09:29` The **trees** in the Smooth style have a new look: lumpy broadleaf crowns in several greens, spruces with tiers, slim birches, poplars and the **Hochstamm fruit trees** of the Fricktal, every tree a little different, and the crowns **sway in the wind**. Woods far away stay as light to draw as before, so phones keep their frame rate.
 
