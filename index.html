@@ -85,7 +85,9 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 body:has(#debuglegend:not([hidden])) #touch{display:none}
 #debuglegend{flex:0 1 auto;min-height:0;max-width:min(380px,calc(100vw - 72px));overflow-y:auto;overscroll-behavior:contain;margin-top:6px;padding-top:6px;border-top:1px solid #3a404b;white-space:normal;font-weight:500;color:#d6e8c8;cursor:auto}
 /* #178: the grown panel (legend + map links) now reaches the toast band when anchored at top:120px; drop it below the toast */
-@media (pointer:coarse) and (orientation:portrait){#debug{top:calc(324px + env(safe-area-inset-top,0px));max-height:calc(100vh - 328px - env(safe-area-inset-top,0px))}}   /* #353: below the toast (its slot sits under four 18 px HUD lines) */
+@media (pointer:coarse) and (orientation:portrait){#debug{top:calc(424px + env(safe-area-inset-top,0px));max-height:calc(100vh - 428px - env(safe-area-inset-top,0px));overflow-y:auto}}   /* #353: below the toast; #785 moved #tc down on phones (140 px), its toast now ends near 420 px */
+/* the open Navi panel (right edge, 50vh+8 on narrow screens) and the debug panel share the lower half: the debug panel steps to the left column and scrolls instead of growing under the Navi (the PostAuto rows make it tall by day) */
+@media (max-width:900px){body:has(#navi:not([hidden])) #debug{max-width:calc(100vw - 220px);max-height:calc(100vh - 584px - env(safe-area-inset-bottom,0px));overflow-y:auto}}
 #jump{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;min-width:260px;padding:14px 18px;background:rgba(20,23,29,.92);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;font-weight:700}
 /* #hud is pointer-events:none, so the dialog has to opt back in to be clickable at all */
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
