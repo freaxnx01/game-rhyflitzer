@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-09 10:37` A **car radio**: <kbd>5</kbd> switches it on and off, <kbd>6</kbd> changes between **Rhyflitzer FM** (four freely licensed tracks) and **SRF 3 live**, <kbd>7</kbd> <kbd>8</kbd> skip a track and <kbd>9</kbd> <kbd>0</kbd> set the volume, all while you keep driving; for three seconds a small display shows what is playing. On a phone, the 📻 button next to pause opens the same controls. The start screen plays quiet music, which <kbd>5</kbd> or the Music button switches off; About → Credits names every track.
 - `2026-11-09 09:14` The **All vehicles** grid has **type chips** (Everyday, Sport, Utility, Film & TV) and lists the strongest first. The **class letter** A to D now follows top speed and acceleration, so the Model T is class D and the DeLorean class C.
 - `2026-11-08 22:41` **All vehicles** at a glance: in **Choose car**, the button next to the garage shows every vehicle as a **picture grid** with name and class; a click picks it.
 - `2026-11-08 19:11` At the **Sisseln** village entrance, on the **Hauptstrasse** between the **Smile-Kreisel** and the **Volg**, a **speed display** now shows your speed as you drive in from the roundabout: **amber km/h** and below it a **green smile** at 50 km/h or under, a **red frown** above. Only for cars heading into the village; it does nothing to the game.
