@@ -4,9 +4,12 @@ API's CORS policy, which admits only the Pages origin and makes Chromium log a c
 own page.route() wins over this context route (Playwright: page routes take precedence), so test_gallery.py keeps its
 stub. conftest.py wires it.
 #534: every new context also starts as a returning player (`mm.tutorialDone` set) unless the page URL contains
-`firstvisit`, so the first-visit tutorial preselect does not change what the other tests see."""
+`firstvisit`, so the first-visit tutorial preselect does not change what the other tests see.
+#735: every new context also aborts the SRF 3 stream host, so no browser test reaches the real live stream; a test's own
+page.route() stub (a local mp3) still wins over the context route."""
 GALLERY = "https://rhyflitzer-api.freaxnx01.ch/api/gallery"   # WORLD_HOST in worlds.js + /api/gallery
 CORS = {"Access-Control-Allow-Origin": "*"}
+SRF_GLOB = "https://*.srg-ssr.ch/**"   # #735: the SRF 3 stream and its livestreaming-node-N redirect targets
 
 
 def answer_empty_gallery(route):
@@ -15,6 +18,14 @@ def answer_empty_gallery(route):
 
 def route_gallery(context):
     context.route(GALLERY, answer_empty_gallery)
+
+
+def abort_srf(route):
+    route.abort()
+
+
+def route_srf(context):
+    context.route(SRF_GLOB, abort_srf)
 
 
 # #534: a fresh context is a first visitor and would get the tutorial preselected; tests opt in with ?firstvisit=1
@@ -31,6 +42,7 @@ def hermetic_new_context(original):
     def new_context(self, *args, **kwargs):
         context = original(self, *args, **kwargs)
         route_gallery(context)
+        route_srf(context)
         seed_returning_player(context)
         return context
     return new_context
@@ -41,6 +53,7 @@ def hermetic_new_page(original):
     def new_page(self, *args, **kwargs):
         page = original(self, *args, **kwargs)
         route_gallery(page.context)
+        route_srf(page.context)
         seed_returning_player(page.context)
         return page
     return new_page

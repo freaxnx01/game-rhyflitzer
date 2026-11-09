@@ -2,6 +2,7 @@
 // Pure module: no DOM, no three.js, so node --test can import it. The model is a glTF file (assets/hatchback.glb), built by index.html.
 
 export const HATCHBACK = {
+  type: 'everyday',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'hatchback', url: './assets/hatchback.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'swiss',
   wheels: [[1.36, 0.77], [-1.36, 0.77]], wheelR: 0.33,
   drive: { top: 64, topNitro: 95, accel: 17.5, accelNitro: 36, brake: 25, reverse: 8, reverseMax: 14, grip: 10, gripHandbrake: 1.8, steerRate: 2.7, airSteer: 0.4 },

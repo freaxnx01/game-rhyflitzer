@@ -8,7 +8,7 @@ import { BUS } from './bus.js';
 export const PA = {
   topKmh: 60, junctionKmh: 30, junctionBefore: 10, junctionAfter: 5,   // A4
   accel: 1.2, brake: 2, hardBrake: 5, arrive: 0.5,
-  minDwell: 10, spawnBefore: 90, layover: 60, edgeSpeed: 12,             // A5
+  minDwell: 10, spawnBefore: 90, layover: 60, edgeSpeed: 12, turnMax: 900,   // A5; turnMax: #763 A4
   pullIn: 25, pullOut: 15, kerbGap: 0.3, pullOutSecs: 4,                 // A6
   look: 40, sideClear: 0.5, gap: 2, above: 3,                            // A7
   maxBuses: 8, resync: 5, reach: 2,
@@ -161,6 +161,56 @@ export function tripWindow(trip, calls, route, cfg = PA) {
   };
 }
 
+// ---------- the Umlauf (#763): the bus that arrives at a terminus runs the line's next trip from there ----------
+const firstDep = (t) => t.calls[0][2], lastArr = (t) => t.calls[t.calls.length - 1][1];
+
+// for each trip that ends at a terminus (!toOutside), the same line's next trip from that stop within cfg.turnMax,
+// earliest departure first, one predecessor per trip (A5); not across another arrival of the line at that stop (#767 A6)
+export function linkTrips(trips, cfg = PA) {
+  const next = new Map(), taken = new Set();
+  for (const a of [...trips].sort((x, y) => lastArr(x) - lastArr(y))) {
+    if (a.toOutside) continue;
+    const uic = String(a.calls[a.calls.length - 1][0]);
+    const b = trips.filter((t) => t !== a && !taken.has(tripKey(t)) && !t.fromOutside && t.line === a.line
+      && String(t.calls[0][0]) === uic && firstDep(t) >= lastArr(a) && firstDep(t) - lastArr(a) <= cfg.turnMax)
+      .sort((x, y) => firstDep(x) - firstDep(y))[0];
+    if (!b) continue;
+    // #767: a bus does not wait across another arrival of its line at that stop; the later bus takes the departure
+    const between = (t) => t !== a && t.line === a.line && !t.toOutside && String(t.calls[t.calls.length - 1][0]) === uic
+      && lastArr(t) > lastArr(a) && lastArr(t) < firstDep(b);
+    if (trips.some(between)) continue;
+    next.set(tripKey(a), b); taken.add(tripKey(b));
+  }
+  return next;
+}
+
+const fleetRunsCache = new WeakMap();
+
+// the runs a fleet drives: a run is the chain of same-line trips one bus drives (A1, A6), with contiguous windows
+// split at the timetable arrival; unlinked trips are a run of one leg (A11). Memoised per `trips` array (#726: syncFleet
+// runs every second), recomputed when `routes` or `cfg` differ. `routes`/`cfg` are compared by reference, not content:
+// safe only because index.html's one call site always passes the same, already-fully-populated Map/PA object on every
+// call -- a call site that mutates `routes` or `cfg` after a prior call with the same `trips` array would get stale runs.
+export function fleetRuns(trips, routes, cfg = PA) {
+  const cached = fleetRunsCache.get(trips);
+  if (cached && cached.routes === routes && cached.cfg === cfg) return cached.runs;
+
+  const valid = trips.filter((t) => routes.has(t.route) && tripCalls(t, routes.get(t.route)));
+  const links = linkTrips(valid, cfg), hasPrev = new Set(links.values());
+  const runs = [];
+  for (const first of valid) {
+    if (hasPrev.has(first)) continue;
+    const chain = [first];
+    for (let next = links.get(tripKey(first)); next; next = links.get(tripKey(next))) chain.push(next);
+    const legs = chain.map((trip) => { const route = routes.get(trip.route), calls = tripCalls(trip, route); return { trip, route, calls, win: tripWindow(trip, calls, route, cfg) }; });
+    for (let i = 1; i < legs.length; i++) legs[i].win = { ...legs[i].win, from: lastArr(legs[i - 1].trip) };
+    for (let i = 0; i < legs.length - 1; i++) legs[i].win = { ...legs[i].win, to: lastArr(legs[i].trip) };
+    runs.push({ key: tripKey(chain[0]), legs, win: { from: legs[0].win.from, to: legs[legs.length - 1].win.to } });
+  }
+  fleetRunsCache.set(trips, { routes, cfg, runs });
+  return runs;
+}
+
 // the trip's own clock for wall time `now`: a trip past midnight runs on the service day (> 86400), one spawning before a
 // just-after-midnight departure opens the evening before (< 0); null outside its window
 export function tripTime(win, now) {
@@ -168,11 +218,13 @@ export function tripTime(win, now) {
   return null;
 }
 
-// a bus where the timetable says it is at `now` (a trip's window opens, or the clock jumped); null outside the window
-export function placeTrip(trip, route, now, cfg = PA) {
+// a bus where the timetable says it is at `now` (a trip's window opens, or the clock jumped); null outside the window.
+// `win` overrides the trip's own window (#763): a leg inside a run uses the run's contiguous window instead.
+export function placeTrip(trip, route, now, cfg = PA, win = null) {
   const calls = tripCalls(trip, route);
   if (!calls) return null;
-  const win = tripWindow(trip, calls, route, cfg), t = tripTime(win, now);
+  win = win ?? tripWindow(trip, calls, route, cfg);
+  const t = tripTime(win, now);
   if (t === null) return null;
   const n = calls.length, base = { key: tripKey(trip), trip, route, calls, win, shift: t - now, leftAt: -Infinity };
   const stand = (k, until) => ({ ...base, k, phase: 'stand', s: calls[k].s, v: 0, until });
@@ -186,6 +238,16 @@ export function placeTrip(trip, route, now, cfg = PA) {
   const last = calls[n - 1];
   if (!trip.toOutside) return stand(n - 1, last.arr + cfg.layover);
   return t < last.dep ? stand(n - 1, last.dep) : drive(n, Math.min(route.len, last.s + (t - last.dep) * cfg.edgeSpeed));
+}
+
+// the placement of a run (#763) at wall time `now`: the first leg whose window holds it, carrying the run's key and
+// window so the bus is one continuous entity across a turn; null outside every leg's window
+export function placeRun(run, now, cfg = PA) {
+  for (let i = 0; i < run.legs.length; i++) {
+    const leg = run.legs[i], b = placeTrip(leg.trip, leg.route, now, cfg, leg.win);
+    if (b) return { ...b, key: run.key, legs: run.legs, leg: i, win: run.win };
+  }
+  return null;
 }
 
 // ---------- driving (kinematic, A1) ----------
@@ -204,8 +266,19 @@ export function busTarget(route, s, stopS, gap, cfg = PA) {
   return v;
 }
 
+// true while a run's bus still has a later leg to turn into (#763)
+function hasNext(b) { return !!b.legs && b.leg < b.legs.length - 1; }
+
+// the Umlauf: the bus turns while standing -- the next leg's trip, route and calls, re-posed at its first stop (A7)
+function turn(b, t, cfg) {
+  const next = b.legs[++b.leg];
+  Object.assign(b, { trip: next.trip, route: next.route, calls: next.calls, k: 0, s: next.calls[0].s, v: 0, phase: 'stand',
+    until: Math.max(next.calls[0].dep, t + cfg.minDwell), leftAt: -Infinity });
+}
+
 function arrive(b, t, cfg) {
   const stop = b.calls[b.k], last = b.k === b.calls.length - 1 && !b.trip.toOutside;
+  if (last && hasNext(b)) { turn(b, t, cfg); return; }
   b.s = stop.s; b.v = 0; b.phase = 'stand';
   b.until = last ? t + cfg.layover : Math.max(stop.dep, t + cfg.minDwell);
 }
@@ -221,7 +294,8 @@ function driveStep(b, t, dt, gap, cfg) {
   const target = busTarget(b.route, b.s, stop ? stop.s : null, gap, cfg);
   b.v = Math.max(0, b.v + clamp(target - b.v, -cfg.hardBrake * dt, cfg.accel * dt));
   b.s += b.v * dt;
-  if (stop && (b.s >= stop.s || (stop.s - b.s < cfg.arrive && b.v < 1))) arrive(b, t, cfg);
+  const reach = stop ? Math.min(stop.s, b.route.len - 2) : null;   // targetSpeed brakes to zero 2 m before the route end: a stop beyond that is reached there
+  if (stop && (b.s >= stop.s || (reach - b.s < cfg.arrive && b.v < 1))) arrive(b, t, cfg);
   else if (!stop && b.s >= b.route.len - 2) b.phase = 'done';
 }
 
@@ -251,16 +325,16 @@ export function obstacleGap(route, s, player, cfg = PA) {
 }
 
 // ---------- the fleet ----------
-// the buses for `now`: running ones kept, finished ones kept (hidden) until their window closes so they are not placed
-// again, a new bus for every trip whose window is open; at most cfg.maxBuses running
+// the buses for `now`: running ones kept, finished ones kept (hidden) until their run's window closes so they are not
+// placed again, a new bus for every run whose window is open; at most cfg.maxBuses running. A run (#763) is the chain
+// of same-line trips one bus drives: the key and window are the run's, so a bus that turns at a terminus is one entity.
 export function syncFleet(buses, trips, routes, now, cfg = PA) {
   const kept = buses.filter((b) => b.phase !== 'done' || tripTime(b.win, now) !== null), have = new Set(kept.map((b) => b.key));
   let running = kept.filter((b) => b.phase !== 'done').length;
-  for (const trip of trips) {
+  for (const run of fleetRuns(trips, routes, cfg)) {
     if (running >= cfg.maxBuses) break;
-    const route = routes.get(trip.route);
-    if (!route || have.has(tripKey(trip))) continue;
-    const b = placeTrip(trip, route, now, cfg);
+    if (have.has(run.key)) continue;
+    const b = placeRun(run, now, cfg);
     if (!b) continue;
     kept.push(b); have.add(b.key); running++;
   }
@@ -276,6 +350,3 @@ export function busCollider(x, z, th, y) {
 }
 
 export function ledText(trip) { return { line: String(trip.line), dest: trip.to }; }
-
-// busStop(..., faceDeg) turns local -z (the shelter) to world (-sin, -cos): pi - rot puts it right of travel, the board facing the road
-export function stopFaceDeg(rot) { return (Math.PI - rot) * 180 / Math.PI; }

@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider } from '../plattform.js';
+import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
@@ -152,4 +152,51 @@ test('stairHeadTarget_InViewOfTheGap_PointsAtIt_InTheOpening_AtTheFirstStepDown'
   const step = stairHeadTarget(f, -0.5, 0.5), top = stairTreads().find(q => q.tag === `upper:${stair.upper.n - 1}`);
   assert.ok(angle(step) > top.from - 360 && angle(step) < top.to - 360, 'on the top flight piece below the deck level');
   assert.ok(Math.hypot(...step) < core.tread);
+});
+
+// #701: E at the door jumps to the deck, E on the deck by the stair opening jumps back down
+const gapMid = (PLATTFORM.stair.austritt.from + PLATTFORM.stair.austritt.to) / 2;
+
+test('plattformHop_AtTheDoorOnTheGround_IsUp', () => {
+  const [x, z] = F.polar(0, PLATTFORM.entranceR);
+  assert.equal(plattformHop(F, BASE, { x, z, y: BASE }), 'up');
+  assert.equal(plattformHop(F, BASE, { x, z, y: BASE + 0.6 }), 'up', 'on the lowest steps');
+});
+
+test('plattformHop_FarFromTheDoorOrHighOnTheStair_IsNull', () => {
+  const [fx, fz] = F.polar(0, PLATTFORM.entranceR + 4);
+  assert.equal(plattformHop(F, BASE, { x: fx, z: fz, y: BASE }), null);
+  const [x, z] = F.polar(0, PLATTFORM.entranceR);
+  assert.equal(plattformHop(F, BASE, { x, z, y: BASE + 3 }), null, 'mid-stair: walk');
+});
+
+test('plattformHop_OnTheDeckAtTheStairGap_IsDown', () => {
+  const [x, z] = F.polar(gapMid, PLATTFORM.core.r + 1);
+  assert.equal(plattformHop(F, BASE, { x, z, y: BASE + PLATTFORM.deck.y }), 'down');
+});
+
+test('plattformHop_OnTheDeckFarFromTheGap_IsNull', () => {
+  const [x, z] = F.polar(0, 5);   // the door-side corner area of the deck
+  assert.equal(plattformHop(F, BASE, { x, z, y: BASE + PLATTFORM.deck.y }), null);
+});
+
+test('plattformHopLanding_Up_StandsOnTheDeckBesideTheOpening', () => {
+  const l = plattformHopLanding(F, BASE, 'up');
+  assert.equal(l.y, BASE + PLATTFORM.deck.y);
+  const r = Math.hypot(l.x - F.x, l.z - F.z);
+  assert.ok(r > PLATTFORM.core.r + WALKER.radius, `clear of the opening, r=${r}`);
+  assert.ok(Math.abs(walkwayFloor(W, l.x, l.z, l.y) - l.y) < 0.05, 'the deck slab is under the landing');
+  assert.equal(plattformHop(F, BASE, l), 'down', 'a second E takes the walker straight back');
+});
+
+test('plattformHopLanding_Up_IsInsideTheTutorialViewpoint', () => {   // viewpoints.js: r 6, aboveGround 5
+  const l = plattformHopLanding(F, BASE, 'up');
+  assert.ok(Math.hypot(l.x - F.x, l.z - F.z) <= 6 && l.y >= BASE + 5);
+});
+
+test('plattformHopLanding_Down_StandsOutsideTheDoorOnTheGround', () => {
+  const l = plattformHopLanding(F, BASE, 'down');
+  assert.equal(l.y, BASE);
+  assert.equal(plattformHop(F, BASE, l), 'up', 'a second E takes the walker straight back up');
+  assert.ok(Math.hypot(l.x - F.x, l.z - F.z) > PLATTFORM.core.r + WALKER.radius);
 });

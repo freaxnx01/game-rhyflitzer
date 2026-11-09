@@ -9,11 +9,17 @@ export function hhmmss(secs) {
   return `${pad2(Math.floor(t / 3600))}:${pad2(Math.floor(t / 60) % 60)}:${pad2(Math.floor(t) % 60)}`;
 }
 
-// the fleet clock line: HH:MM:SS and where the clock comes from -- ?patime=HH:MM or the Europe/Zurich wall clock
-export function clockLine(clock, patime, t) {
-  const time = hhmmss(clock);
-  if (patime === null || patime === undefined) return t('dbgPaClockWall', { time });
-  return t('dbgPaClockPatime', { time, given: `${pad2(Math.floor(patime / 3600))}:${pad2(Math.floor(patime / 60) % 60)}` });
+// seconds after midnight -> 'HH:MM' (the set time in the clock line and the address bar)
+export function hhmm(secs) {
+  const t = ((secs % DAY) + DAY) % DAY;
+  return `${pad2(Math.floor(t / 3600))}:${pad2(Math.floor(t / 60) % 60)}`;
+}
+
+// the fleet clock line (#726): HH:MM:SS, the time-lapse factor above 1x, and where the clock comes from --
+// a set time, a factor from real time, or the Europe/Zurich wall clock
+export function clockLine(clock, { given, factor, wall }, t) {
+  const src = wall ? t('dbgPaSrcWall') : given === null ? t('dbgPaSrcWallStart') : t('dbgPaSrcSet', { given: hhmm(given) });
+  return t('dbgPaClock', { time: hhmmss(clock), speed: factor > 1 ? ` · ${factor}×` : '', source: src });
 }
 
 // metres between the bus and the player, as text: m under 1000, else km with one decimal

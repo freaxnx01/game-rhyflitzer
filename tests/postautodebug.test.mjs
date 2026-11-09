@@ -3,16 +3,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from '../postautodebug.js';
 
-const t = (key, a = {}) => ({ dbgPaClockWall: `Uhr ${a.time} (Zürich)`, dbgPaClockPatime: `Uhr ${a.time} (patime ${a.given})`,
+const t = (key, a = {}) => ({ dbgPaClock: `Uhr ${a.time}${a.speed} (${a.source})`, dbgPaSrcWall: 'Echtzeit', dbgPaSrcSet: `gesetzt ${a.given}`, dbgPaSrcWallStart: 'ab Echtzeit',
   dbgPaDrive: `fahrt ${a.kmh}`, dbgPaStand: 'steht', dbgPaStop: `Halt ${a.k}/${a.n}`, dbgPaAway: `${a.dist} entfernt` })[key];
 
 test('hhmmss_WrapsAndPads', () => {
   assert.equal(hhmmss(7 * 3600 + 31 * 60 + 5.9), '07:31:05');
   assert.equal(hhmmss(86400 + 61), '00:01:01');
 });
-test('clockLine_PatimeOrWall', () => {
-  assert.equal(clockLine(27065, 27000, t), 'Uhr 07:31:05 (patime 07:30)');
-  assert.equal(clockLine(27065, null, t), 'Uhr 07:31:05 (Zürich)');
+test('clockLine_SetWallAndLapse', () => {
+  assert.equal(clockLine(27065, { given: 27000, factor: 1, wall: false }, t), 'Uhr 07:31:05 (gesetzt 07:30)');
+  assert.equal(clockLine(27065, { given: 27000, factor: 10, wall: false }, t), 'Uhr 07:31:05 · 10× (gesetzt 07:30)');
+  assert.equal(clockLine(27065, { given: null, factor: 10, wall: false }, t), 'Uhr 07:31:05 · 10× (ab Echtzeit)');
+  assert.equal(clockLine(27065, { given: null, factor: 1, wall: true }, t), 'Uhr 07:31:05 (Echtzeit)');
 });
 test('busRow_DrivingAndStanding', () => {
   const bus = { key: 'a:1', line: '133', to: 'Stein-Säckingen', phase: 'drive', v: 30 / 3.6, k: 3, n: 11, x: 2100, z: 0 };

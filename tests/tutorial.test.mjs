@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { entriesFor } from '../controls.js';
+import { translate } from '../strings.js';
 import { TUT, TUT_KEY, TUTORIAL_STEPS, TUTORIAL_DEFS, tutorialFor, tutorialDoneFrom, keyCap, howTo, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from '../tutorial.js';
 
 const ALL = TUTORIAL_STEPS.map(s => s.id);
@@ -171,4 +172,13 @@ test('tutorialHint_OnTopOfTheTower_NamesTheStairAndHowToLookAround', () => {
   assert.equal(tutorialHint(at('getIn'), true, true, true).key, 'tutStepDownTouch');
   assert.equal(tutorialHint(at('getIn'), true, false, false).key, 'tutStepGetIn', 'down the stair it is the car again');
   assert.equal(tutorialHint(at('photo'), true, false, true).key, 'tutStepPhoto', 'only on the way back');
+});
+
+test('tutorialHint_Climb_TouchHasItsOwnTextAndBothNameTheShortcut', () => {   // #701
+  assert.equal(tutorialHint(at('climb'), true, false).key, 'tutStepClimb');
+  assert.equal(tutorialHint(at('climb'), true, true).key, 'tutStepClimbTouch');
+  for (const lang of ['en', 'de']) {
+    assert.match(translate(lang, 'tutStepClimb', '@', 1, 3), /E/, lang);
+    assert.ok(translate(lang, 'tutStepClimbTouch', '@', 1, 3).includes('@'), `${lang}: the how marker survives`);
+  }
 });

@@ -4,6 +4,7 @@
 // World rally car numbers: 1.6 l turbo four, 300 hp, 1200 kg, geared short (about 200 km/h = 56 m/s), a six-speed sequential box,
 // quick off the line and quick to turn; the handbrake throws the tail out (low handbrake grip); 2.57 m wheelbase; left-hand drive.
 export const RALLY = {
+  type: 'sport',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'rally', url: './assets/rally.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[1.285, 0.83], [-1.285, 0.83]], wheelR: 0.323,   // the model's own wheel nodes: x ±1.285, |z| 0.833 / 0.835, r 0.323
   drive: { top: 56, topNitro: 86, accel: 19, accelNitro: 36, brake: 26, reverse: 8, reverseMax: 14, grip: 10.5, gripHandbrake: 1.2, steerRate: 3.0, airSteer: 0.45 },

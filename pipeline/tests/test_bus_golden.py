@@ -27,12 +27,25 @@ def routes():
 
 
 def test_line_133_routes(routes):
-    assert sorted(routes) == [11533940, 11533941]
-    for r in routes.values():
-        assert r["line"] == "133" and r["cut"] == [False, False] and 7000 < r["len"] < 14000
+    r133 = {i: r for i, r in routes.items() if r["line"] == "133"}
+    assert sorted(r133) == [11533940, 11533941]
+    for r in r133.values():
+        assert r["cut"] == [False, False] and 7000 < r["len"] < 14000
         assert len(r["stops"]) == 11
     assert routes[11533940]["stops"][0]["uic"] == "8500583" and routes[11533940]["stops"][-1]["uic"] == "8572748"
     assert routes[11533941]["stops"][0]["uic"] == "8572748" and routes[11533941]["stops"][-1]["uic"] == "8500583"
+
+
+def test_line_143_routes_leave_the_map_east(routes):
+    r143 = {i: r for i, r in routes.items() if r["line"] == "143"}
+    assert sorted(r143) == [9093371, 11533937]                   # one route per direction (#767 A2)
+    out, back = r143[9093371], r143[11533937]
+    assert out["cut"] == [False, True] and back["cut"] == [True, False]
+    for r in (out, back):
+        assert 7000 < r["len"] < 9000 and len(r["stops"]) == 9
+        assert "8580562" not in [s["uic"] for s in r["stops"]]  # Ritanne lies beyond the east edge (A3)
+    assert out["stops"][0]["uic"] == "8572748" and out["stops"][-1]["uic"] == "8572416"
+    assert back["stops"][0]["uic"] == "8572416" and back["stops"][-1]["uic"] == "8572748"
 
 
 def test_line_133_stops_at_the_right_kerb(routes):
@@ -57,3 +70,11 @@ def test_timetable_matches_the_world():
         assert len(x["calls"]) == 11 and all(c[0] in stops[x["route"]] for c in x["calls"])
         times = [v for c in x["calls"] for v in c[1:]]
         assert times == sorted(times)
+    t143 = [x for x in t["trips"] if x["line"] == "143"]
+    if t143:   # #767: data rebuilt with line 143 (gtfs_fp2026_20261104.zip, --date 2026-11-10)
+        assert len(t143) == 83 and dict(Counter(x["route"] for x in t143)) == {11533937: 42, 9093371: 41}
+        assert sum(x["fromOutside"] for x in t143) == 42 and sum(x["toOutside"] for x in t143) == 40
+        for x in t143:
+            assert all(c[0] in stops[x["route"]] for c in x["calls"])
+            times = [v for c in x["calls"] for v in c[1:]]
+            assert times == sorted(times)

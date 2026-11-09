@@ -2,7 +2,7 @@
 // the graph builders take any BaseAudioContext (AudioContext in the game, OfflineAudioContext in tests) and touch no DOM.
 
 export const RPM_RATE = { up: 12000, down: 20000 };   // rpm per second the heard rpm may move: revs up fast, drops faster on a shift
-export const ROTOR = { rate: 5.5, ratePerKmh: 0.012, gain: 1.2, cutoff: 260 };   // #10 helicopter: blade thump (Hz), lowpassed noise
+export const ROTOR = { rate: 5.5, ratePerKmh: 0.012, gain: 1.2, cutoff: 260, hoverLoad: 0.45, ratePerLoad: 1.5, gainPerLoad: 0.5 };   // #10 helicopter: blade thump (Hz), lowpassed noise. #731: the thump follows the engine load (slop-newyork js/audio-sources.js): 0.45 = hover
 // #462: the steam loco's whistle, two bright tones through playHorn
 export const WHISTLE = { notes: [622, 740], dur: 1.4, gain: 0.2, band: 1600, wave: 'sawtooth' };
 
@@ -35,7 +35,11 @@ export function engineMix(s, input, engine) {
     road: input.fly || input.air || input.off ? 0 : Math.min(0.25, input.kmh / 400), hiss: input.nitro && !silent ? engine.nitroHiss : 0 };
 }
 
-export function rotorMix(input) { return input.fly ? { rate: ROTOR.rate + ROTOR.ratePerKmh * input.kmh, gain: ROTOR.gain, cutoff: ROTOR.cutoff } : { rate: ROTOR.rate, gain: 0, cutoff: ROTOR.cutoff }; }
+export function rotorMix(input) {
+  if (!input.fly) return { rate: ROTOR.rate, gain: 0, cutoff: ROTOR.cutoff };
+  const dl = (input.load ?? ROTOR.hoverLoad) - ROTOR.hoverLoad;
+  return { rate: ROTOR.rate + ROTOR.ratePerKmh * input.kmh + ROTOR.ratePerLoad * dl, gain: ROTOR.gain * (1 + ROTOR.gainPerLoad * dl), cutoff: ROTOR.cutoff };
+}
 
 const num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 // throws an Error naming the first bad field of a vehicle's sound preset
