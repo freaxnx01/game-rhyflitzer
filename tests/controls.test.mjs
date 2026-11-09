@@ -109,3 +109,13 @@ test('keybarOnFrom_DefaultOn_ZeroIsOff', () => {
   assert.equal(keybarOnFrom('0'), false);
   assert.equal(keybarOnFrom('garbage'), true);
 });
+test('actionFor_Digits5To0_AreTheRadioInEveryRunContext_ButNotTheLiftPad', () => {
+  const want = { Digit5: 'radioPower', Digit6: 'radioStation', Digit7: 'radioTrack', Digit8: 'radioTrack', Digit9: 'radioVolume', Digit0: 'radioVolume' };
+  for (const c of ['car', 'foot', 'indoors', 'heli', 'train']) for (const [k, a] of Object.entries(want)) assert.equal(actionFor(c, k), a, `${c} ${k}`);
+  assert.equal(actionFor('lift', 'Digit5'), 'floor');
+  assert.equal(actionFor('car', 'KeyM'), 'mute');   // M stays the global mute
+});
+
+test('radioEntries_AreNotTouchMenuEntries', () => {
+  for (const c of CONTEXTS) assert.ok(!menuEntries(c).some(e => e.action.startsWith('radio')), c);   // the phone has its own 📻 panel
+});

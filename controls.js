@@ -11,6 +11,11 @@ const help = () => entry('help', ['F1'], { core: true, label: 'barAllKeys', cap:
 const jumpTo = () => entry('jump', ['KeyJ'], { core: true, touch: 'button', label: 'barJumpTo', cap: 'J' });
 const camera = () => entry('camera', ['KeyC'], { core: true, touch: 'button', label: 'barCamera', cap: 'C' });
 const menu = (action, keys, label) => entry(action, keys, { touch: 'menu', label });
+// #735: the car radio on the top-row digits 5-0, in every run context (the lift pad's floors take precedence while it is open)
+const radio = () => [
+  entry('radioPower', ['Digit5'], { label: 'keyRadioPower' }), entry('radioStation', ['Digit6'], { label: 'keyRadioStation' }),
+  entry('radioTrack', ['Digit7', 'Digit8'], { label: 'keyRadioTrack' }), entry('radioVolume', ['Digit9', 'Digit0'], { label: 'keyRadioVolume' }),
+];
 
 const CAR = [
   entry('drive', [...MOVE, 'Space'], { hold: true, core: true, touch: 'button', label: 'barDrive', cap: 'WASD' }),
@@ -26,6 +31,7 @@ const CAR = [
   menu('hideCar', ['KeyV'], 'keyCar'), menu('bounds', ['KeyG'], 'keyBounds'), menu('borders', ['KeyY'], 'keyBorders'),
   menu('trip', ['KeyK'], 'keyTrip'), menu('reset', ['KeyR'], 'keyReset'), menu('style', ['KeyT'], 'keyStyle'), menu('photo', ['KeyX'], 'keyPhoto'), menu('mute', ['KeyM'], 'keyMute'),
   entry('pause', ['Escape', 'KeyP'], { label: 'keyPause' }),
+  ...radio(),
 ];
 const WALK = [
   entry('walk', MOVE, { hold: true, core: true, touch: 'button', label: 'barWalk', cap: 'WASD' }),
@@ -37,14 +43,15 @@ const WALK = [
   entry('footNitro', ['KeyN'], { hold: true }),
   entry('lookBack', ['KeyB'], { hold: true, label: 'keyLookBack' }),
   menu('bounds', ['KeyG'], 'keyBounds'), menu('borders', ['KeyY'], 'keyBorders'), menu('style', ['KeyT'], 'keyStyle'), menu('photo', ['KeyX'], 'keyPhoto'), menu('mute', ['KeyM'], 'keyMute'),
+  ...radio(),
 ];
 const TABLE = {
   car: CAR,
   foot: [...WALK, menu('hover', ['KeyF'], 'menuHover')],
   indoors: WALK,
-  heli: [entry('fly', MOVE, { hold: true }), entry('climb', ['Space'], { hold: true }), entry('sink', SHIFT, { hold: true }), entry('heliNitro', ['KeyN'], { hold: true }), menu('land', ['KeyF'], 'keyHeli'), help()],
+  heli: [entry('fly', MOVE, { hold: true }), entry('climb', ['Space'], { hold: true }), entry('sink', SHIFT, { hold: true }), entry('heliNitro', ['KeyN'], { hold: true }), menu('land', ['KeyF'], 'keyHeli'), ...radio(), help()],
   train: [entry('steam', ['KeyW'], { hold: true }), entry('trainBrake', ['KeyS'], { hold: true }), menu('switchLeft', ['KeyQ'], 'menuSwitchLeft'), menu('switchRight', ['KeyE'], 'menuSwitchRight'),
-    menu('whistle', ['KeyH'], 'menuWhistle'), menu('trainReset', ['KeyR'], 'keyReset'), entry('trainCamera', ['KeyC'], {}), entry('turnLeft', ['KeyA'], {}), entry('turnRight', ['KeyD'], {}), entry('leaveTrain', ['KeyZ'], { touch: 'button' }), help()],
+    menu('whistle', ['KeyH'], 'menuWhistle'), menu('trainReset', ['KeyR'], 'keyReset'), entry('trainCamera', ['KeyC'], {}), entry('turnLeft', ['KeyA'], {}), entry('turnRight', ['KeyD'], {}), entry('leaveTrain', ['KeyZ'], { touch: 'button' }), ...radio(), help()],
   lift: [entry('floor', ['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'], {}), entry('roof', ['KeyD'], {}), entry('context', ['KeyE'], {}), help()],
 };
 
