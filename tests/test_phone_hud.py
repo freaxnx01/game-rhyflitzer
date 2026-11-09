@@ -1,5 +1,6 @@
 """#776: on a 390x844 touch phone nothing in the driving HUD overlaps the map, the speedometer or another plate,
-in cruise and in the time trial; the footer and the style button are not shown while driving.
+in cruise and in the time trial; the footer and the style button are not shown while driving, and the pause dialog
+carries the style switch the hidden button took away (a wider touch screen keeps the button instead).
 Slow (Playwright): run in the foreground."""
 from itertools import combinations
 
@@ -28,11 +29,11 @@ RECTS_JS = """() => {
 }"""
 
 
-def open_phone(p, server):
+def open_phone(p, server, width=390, height=844):
     b = p.chromium.launch(args=ARGS)
     # has_touch without is_mobile, like tests/test_pause.py: index.html has no <meta name="viewport">, so mobile
     # emulation would lay the page out at 980 CSS px and no phone media query would fire at all.
-    ctx = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True, locale="de-CH")
+    ctx = b.new_context(viewport={"width": width, "height": height}, has_touch=True, locale="de-CH")
     page = ctx.new_page()
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
@@ -94,6 +95,35 @@ def test_time_trial_phone_hud_long_names_still_clear(server):
         hits, _ = overlaps(page)
         b.close()
     assert hits == []
+
+
+def test_phone_pause_switches_style(server):
+    """#stylebtn is hidden on a phone and there is no T key, so the pause dialog has to carry the style switch."""
+    with sync_playwright() as p:
+        b, page = open_phone(p, server)
+        start(page, "#cruisebtn")
+        page.click("#pausebtn")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=T)
+        shown = page.evaluate("() => getComputedStyle(document.getElementById('pausestyle')).display")
+        before = page.text_content("#pausestyle")
+        page.click("#pausestyle")
+        page.wait_for_function("() => document.getElementById('stylename').textContent === 'Glatt'", timeout=T)
+        after = page.text_content("#pausestyle")
+        b.close()
+    assert shown != "none"
+    assert (before, after) == ("Stil: Original", "Stil: Glatt")
+
+
+def test_tablet_keeps_the_style_button(server):
+    """The #stylebtn hide is for phones only -- a wide touch screen has no HUD overlap and keeps the button."""
+    with sync_playwright() as p:
+        b, page = open_phone(p, server, width=900, height=600)
+        start(page, "#cruisebtn")
+        style, pausestyle = page.evaluate("""() => ['stylebtn', 'pausestyle']
+          .map(id => getComputedStyle(document.getElementById(id)).display)""")
+        b.close()
+    assert style != "none"
+    assert pausestyle == "none"     # the button is on screen, so the dialog does not repeat it
 
 
 def test_start_screen_keeps_footer_hidden(server):

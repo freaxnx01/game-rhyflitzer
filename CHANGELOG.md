@@ -18,7 +18,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
-- `2026-11-09 12:07` On a **phone**, the **footer** ("More Games…", "Source", "Feedback", language), the **style button** and the **arrow with the distance** no longer lie over the **map**, the **speedometer** and the **time-trial plate**. While driving the footer is hidden; the style button is hidden on touch for now (the <kbd>T</kbd> key still works). The **minimap** is a little smaller on a phone, so it leaves the speedometer its corner.
+- `2026-11-09 12:07` On a **phone**, the footer ("More Games…", "Source", "Feedback", language), the style button and the arrow with the distance no longer lie over the map, the speedometer and the time-trial plate. While driving the footer is hidden and the minimap is a little smaller, so the speedometer keeps its corner; the style switch has moved into the **pause** menu, where it changes the look mid-run just as before.
 
 - `2026-11-09 02:42` At the **Frick** and **Stein-Säckingen** terminus, the Postauto that arrives now **turns** and carries straight on as the line's next trip: the destination display switches, and you no longer see **two buses** standing at the same stop at once.
 

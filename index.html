@@ -291,7 +291,10 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,body:has(#abandon:not([hidden])) #keybar,body:has(#help:not([hidden])) #keybar,body:has(#jump:not([hidden])) #keybar,body:has(#borderinfo:not([hidden])) #keybar{display:none}
 #stylebtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel);color:var(--cream);font-family:inherit;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:6px 14px}
 #stylebtn b{color:var(--sun)}
-@media (pointer:coarse){#stylebtn{display:none}}   /* #776: T is a key; on a phone the button lay over the minimap and the speedo (#773 moves it into pause) */
+/* #776: on a phone the button lay over the minimap and the speedo -- only there is it hidden, and only there because
+   the pause dialog carries #pausestyle instead (T still switches on a keyboard); a tablet keeps the button. */
+#pausestyle{display:none}
+@media (max-width:600px) and (pointer:coarse){#stylebtn{display:none}#pausestyle{display:block}}
 #pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
 #pausebtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 /* #735: the phone's car radio -- one small button left of #pausebtn, a 3x2 panel under the pair; desktop has keys only */
@@ -715,6 +718,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div class="col">
       <button id="pauseresume" class="btn primary" type="button" data-i18n="pauseResume">Resume</button>
       <button id="pausevehicle" class="btn" type="button" data-i18n="pauseVehicle">Change vehicle</button>
+      <!-- #776: on a phone #stylebtn is hidden (it lay over the minimap) and there is no T key -- this is the way to switch style mid-run -->
+      <button id="pausestyle" class="btn" type="button">Style: Original</button>
       <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
       <button id="pausekeybar" class="btn" type="button" aria-pressed="true">Key bar: on</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
@@ -3310,7 +3315,7 @@ const HEMI_SKY = { dry: col('#dfe8ff'), wet: col('#8fd0d6') };
 function waterUnderside(on) { const m = MESH.water && MESH.water.material; if (!m || !m.emissive) return; const s = surfaceLook(on); m.emissive.set(s.emissive); m.emissiveIntensity = s.emissiveIntensity; }   // #217: the surface glows while you are under it (and only then)
 
 function setUnderwater(on) { UWS.on = on; const St = STYLES[styleKey]; sunSprite.visible = !on; wreck.visible = on; waterUnderside(on); if (FISH.mesh) FISH.mesh.visible = on; for (const b of [BED.stones, BED.weed]) if (b) b.visible = on; if (on) { scene.fog = new THREE.FogExp2(col(UW.fogColor), UW.fogDensity); skyMat.uniforms.top.value.set(UW.fogColor); skyMat.uniforms.hor.value.set(UW.skyHor); hemi.color.copy(HEMI_SKY.wet); hemi.intensity = St.hemi * UW.hemiFactor; sun.intensity = St.sunI * UW.sunFactor; } else { scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.intensity = St.hemi; sun.intensity = St.sunI; } }
-function renderStyleName() { const name = tr(STYLES[styleKey].nameKey); $('stylename').textContent = name; $('stylebtn2').textContent = `${tr('styleLabel')} ${name}`; }
+function renderStyleName() { const name = tr(STYLES[styleKey].nameKey); $('stylename').textContent = name; for (const id of ['stylebtn2', 'pausestyle']) $(id).textContent = `${tr('styleLabel')} ${name}`; }   // #776: #pausestyle is the phone's style switch
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize);
 
@@ -3935,7 +3940,7 @@ function stepTouch(ctx, act) {
 }
 window.__mm.touch = () => { stepTouch(controlContext(), contextAction()); return { ...touch, ctx: $('touch').dataset.ctx }; };   // steps first, like __mm.keybar: a headless renderer draws under 1 fps
 function toggleStyle() { applyStyle(styleKey === 'original' ? 'smooth' : 'original'); }
-document.getElementById('stylebtn').onclick = toggleStyle; document.getElementById('stylebtn2').onclick = toggleStyle;
+for (const id of ['stylebtn', 'stylebtn2', 'pausestyle']) document.getElementById(id).onclick = toggleStyle;
 
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
