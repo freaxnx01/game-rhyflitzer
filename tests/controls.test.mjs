@@ -77,6 +77,13 @@ test('barEntries_WithContextAction_HighlightedEFirst', () => {
   assert.ok(barEntries('car', null).every(e => !e.highlight));
 });
 
+test('barEntries_HopActions_HighlightedEWithTheirLabels', () => {   // #701
+  for (const [a, en, de] of [['up', 'up to the deck', 'hinauf'], ['down', 'down', 'hinunter']]) {
+    const first = barEntries('foot', a)[0];
+    assert.deepEqual([first.cap, first.highlight, translate('en', first.label), translate('de', first.label)], ['E', true, en, de], a);
+  }
+});
+
 test('barEntries_HeliTrainLift_OnlyAllKeys', () => {
   for (const c of ['heli', 'train', 'lift']) assert.deepEqual(barEntries(c).map(e => e.cap), ['F1'], c);
 });
@@ -96,6 +103,14 @@ test('contextKeyAction_LiftWinsOverLeave_LeaveOverEnter', () => {
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: true, doorPrompt: true }), 'leave');
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true }), 'enter');
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: false }), null);
+});
+
+test('contextKeyAction_HopWinsOverEnter_LiftAndLeaveWinOverHop', () => {   // #701
+  assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true, hop: 'up' }), 'up');
+  assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: false, hop: 'down' }), 'down');
+  assert.equal(contextKeyAction({ liftPrompt: false, indoors: true, doorPrompt: false, hop: 'up' }), 'leave');
+  assert.equal(contextKeyAction({ liftPrompt: true, indoors: true, doorPrompt: false, hop: 'up' }), 'lift');
+  assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true }), 'enter', 'hop is optional');
 });
 
 test('contextLabel_KnownAndUnknown', () => {

@@ -188,6 +188,13 @@ test('keyLeave_BothLanguages_NamesTheBKey', () => {   // #474
   assert.notEqual(translate('de', 'keyLeave'), translate('en', 'keyLeave'));
 });
 
+test('hop strings exist in both languages (#701)', () => {
+  for (const key of ['hopUpPrompt', 'hopDownPrompt', 'keyHop']) {
+    for (const lang of ['en', 'de']) assert.notEqual(translate(lang, key), key, `${lang} ${key}`);
+    assert.notEqual(translate('de', key), translate('en', key), key);
+  }
+});
+
 test('lift strings exist in both languages (#411)', () => {
   for (const key of ['liftCall', 'liftPadTitle', 'keyLift']) {
     assert.ok(translate('en', key), `en ${key}`); assert.ok(translate('de', key), `de ${key}`);

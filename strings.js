@@ -216,6 +216,8 @@ const en = {
   steam: 'Steam',
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Enter',
+  hopUpPrompt: 'E · Up to the deck',   // #701
+  hopDownPrompt: 'E · Down',
   enterSoon: 'Not enterable yet',
   ridePrompt: 'E · Ride the Ferris wheel',   // #516
   rideExit: 'E · Get out',
@@ -226,6 +228,7 @@ const en = {
   keyEnter: 'on foot, at a glowing door: enter',
   keyTrain: 'in the steam loco (Z at Bahnhof Sisseln): W steam, S brake / reverse, Q · E the next switch left · right, H whistle, C view, R back to the station, A · D turn on the turntable',
   keyLeave: 'inside a building: straight out, in front of the entrance',
+  keyHop: 'Plattform Sisslerfeld: at the door up to the deck, on the deck at the stair down to the door',   // #701
   // ---- the lift of an enterable building (#411) ----
   liftCall: 'E · call the lift',
   liftPadTitle: 'Lift',
@@ -298,6 +301,8 @@ const en = {
   barEnter: 'enter',
   barLeave: 'go out',
   barLift: 'lift',
+  barHopUp: 'up to the deck',   // #701
+  barHopDown: 'down',
   menuSignalLeft: 'Turn signal left',
   menuSignalRight: 'Turn signal right',
   menuHover: 'Hover on · off',
@@ -849,6 +854,8 @@ const de = {
   steam: 'Dampf',
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Betreten',
+  hopUpPrompt: 'E · Aufs Deck',   // #701
+  hopDownPrompt: 'E · Hinunter',
   enterSoon: 'Noch nicht begehbar',
   ridePrompt: 'E · Riesenrad fahren',   // #516
   rideExit: 'E · Aussteigen',
@@ -859,6 +866,7 @@ const de = {
   keyEnter: 'zu Fuss, an einer leuchtenden Tür: betreten',
   keyTrain: 'in der Dampflok (Z am Bahnhof Sisseln): W Dampf, S bremsen / rückwärts, Q · E nächste Weiche links · rechts, H pfeifen, C Ansicht, R zurück zum Bahnhof, A · D wenden auf der Drehscheibe',
   keyLeave: 'in einem Gebäude: direkt hinaus, vor den Eingang',
+  keyHop: 'Plattform Sisslerfeld: an der Tür hinauf aufs Deck, auf dem Deck an der Treppe hinunter zur Tür',   // #701
   // ---- der Lift eines begehbaren Gebäudes (#411) ----
   liftCall: 'E · Lift rufen',
   liftPadTitle: 'Lift',
@@ -929,6 +937,8 @@ const de = {
   barEnter: 'eintreten',
   barLeave: 'hinaus',
   barLift: 'Lift',
+  barHopUp: 'hinauf',   // #701
+  barHopDown: 'hinunter',
   menuSignalLeft: 'Blinker links',
   menuSignalRight: 'Blinker rechts',
   menuHover: 'Schweben ein · aus',
