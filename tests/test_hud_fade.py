@@ -47,7 +47,7 @@ def test_secondary_hud_ghosts_after_four_seconds_and_wakes_on_change(server):
     assert after["phases"]["tl"] == "ghost" and after["phases"]["gearplate"] == "ghost" and after["phases"]["tripplate"] == "ghost", after
     assert all(classes.values()), classes
     assert kept == [False, False, False]                      # speed, map, pause never fade
-    assert woke["phases"]["gearplate"] == "awake" and woke["phases"]["tl"] == "ghost"], woke   # only the changed plate wakes
+    assert woke["phases"]["gearplate"] == "awake" and woke["phases"]["tl"] == "ghost", woke   # only the changed plate wakes
     assert still["phases"]["gearplate"] == "awake" and faded["phases"]["gearplate"] == "ghost"], (still, faded)
     assert errors == []
 
