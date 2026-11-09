@@ -34,6 +34,7 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 #toast{margin-top:10px;max-width:calc(100vw - 48px);box-sizing:border-box;padding:8px 18px;background:linear-gradient(#ffe27a,#ffc61a 50%,#ff9a1a);border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);transform:rotate(-3deg);color:var(--ink);font-size:24px;font-weight:800;font-style:italic;text-transform:uppercase;line-height:1.05;text-align:center;opacity:0;transition:opacity .2s}
 #toast.big{font-size:34px;padding:12px 24px}
 #toast.show{opacity:1}
+#toast.radio{transform:none;font-size:18px;font-style:normal;font-weight:700;letter-spacing:1px;padding:6px 14px;background:rgba(20,23,29,.88);color:var(--cream);border:3px solid var(--steel-l);box-shadow:none}   /* #735: the car radio's display -- a small dark plate, not the yellow event toast */
 #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:21;padding:14px 22px;background:rgba(20,23,29,.94);border:4px solid;border-color:#4a515e #0b0d12 #0b0d12 #4a515e;box-shadow:5px 5px 0 var(--ink);color:#fff;max-height:90vh;overflow:auto}#help .keys{margin:8px 0}#help input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}#help .keys .sel{background:#2d3544;color:#ffc61a}#help .keys span.hold{opacity:.55}#help .keys kbd.hold{opacity:.55}#help .keys span.hold::after{content:attr(data-tag);margin-left:8px;padding:0 6px;border:1px solid #4a515e;font-size:.8em}#help .keys kbd,#help .keys span{cursor:pointer}#helpnone{color:var(--steel-l);font-weight:600;margin:8px 0}
 #compass{position:fixed;right:16px;top:calc(124px + env(safe-area-inset-top,0px));width:76px;height:76px}
 #blink{display:flex;gap:10px;justify-content:center;font-size:22px;font-weight:800;color:#3a404b;text-shadow:1px 1px 0 var(--ink)}#blink .on{color:#ff9a1a}
@@ -5128,10 +5129,10 @@ const TOAST_S = { info: 4, event: 5, surprise: 10 };   // key presses 4 s, game 
 // toastHtml() is for our own markup in strings.js only (<br>, the small() span) — escape any data argument before passing it.
 let toastT = 0;
 function showToast(secs) { $('toast').classList.add('show'); toastT = secs; }
-function toast(text, secs = TOAST_S.info) { $('toast').classList.remove('big'); $('toast').textContent = text; showToast(secs); }
-function radioShow(text) { toast(text, RADIO_SHOW_S); }   // #735: temporary, until the radio display task lands
-function toastHtml(html, secs = TOAST_S.info) { $('toast').classList.remove('big'); $('toast').innerHTML = html; showToast(secs); }
-function toastBig(text, secs = TOAST_S.surprise) { $('toast').textContent = text; $('toast').classList.add('big'); showToast(secs); }   // #660: the viewpoint arrival, readable from the deck
+function toast(text, secs = TOAST_S.info) { $('toast').classList.remove('big', 'radio'); $('toast').textContent = text; showToast(secs); }
+function toastHtml(html, secs = TOAST_S.info) { $('toast').classList.remove('big', 'radio'); $('toast').innerHTML = html; showToast(secs); }
+function toastBig(text, secs = TOAST_S.surprise) { $('toast').classList.remove('radio'); $('toast').textContent = text; $('toast').classList.add('big'); showToast(secs); }   // #660: the viewpoint arrival, readable from the deck
+function radioShow(text) { $('toast').classList.remove('big'); $('toast').classList.add('radio'); $('toast').textContent = text; showToast(RADIO_SHOW_S); }   // #735: no HUD widget of its own; any later toast replaces it
 window.__mm.toast = () => ({ text: $('toast').textContent, shown: $('toast').classList.contains('show'), left: toastT });
 function fadeToast(dt) { if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } }   // also while paused (review of #90)
 // #167: a generated world without a race has no checkpoints to drive: the surprise hunt is its only run
