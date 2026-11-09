@@ -237,3 +237,20 @@ test('tutorial texts exist in both languages, name the input and address the pla
   assert.equal(translate('en', 'tutorial'), 'Tutorial');
   assert.equal(translate('de', 'modeTutorial', 'Hochrhein'), 'Tutorial · Hochrhein');
 });
+
+test('the music is credited in both languages, Rob Bery as the author asks (#735)', () => {
+  for (const lang of ['en', 'de']) {
+    assert.match(translate(lang, 'creditMusicMenu'), /Menu \/ Running Title.*Rob Bery.*Rob Bery Art.*CC0/);
+    assert.match(translate(lang, 'creditMusicCoolRider'), /Cool Rider.*Emmraan.*Pixabay/);
+    assert.match(translate(lang, 'creditMusicNeonAfterglow'), /Neon Afterglow.*MemoryArcade.*Pixabay/);
+    assert.match(translate(lang, 'creditMusicCalifornia'), /California Snares and Synths.*Eliza_music.*Pixabay/);
+    assert.match(translate(lang, 'creditSrf3'), /SRF 3/);
+  }
+});
+
+test('the radio display strings render in both languages (#735)', () => {
+  assert.equal(translate('en', 'radioTrack', 'Cool Rider', 'Emmraan'), 'Cool Rider · Emmraan');
+  assert.equal(translate('de', 'radioVolume', 60), 'Lautstärke 60 %');
+  assert.equal(translate('en', 'radioStationSrf'), 'SRF 3 live');
+  assert.match(translate('de', 'radioSrfFail'), /SRF 3.*Rhyflitzer FM/);
+});
