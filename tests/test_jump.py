@@ -34,8 +34,8 @@ needs_world47 = pytest.mark.skipif(not WORLD47, reason="world not rebuilt for #4
 WORLD507 = WORLD.exists() and "sisseln" in json.loads(WORLD.read_text(encoding="utf-8"))["anchors"]["areas"]   # world rebuilt for #507 (every building in Sisseln)
 CHIPS = ["All", "Bad Säckingen", "Stein", "Münchwilen"] + (["Schupfart"] if WORLD47 else []) + ["Eiken", "Sisseln"]
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
-    + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Crash yard"]
-ALL_ROWS = (25 if WORLD46 else 18) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) are fixed points, listed in any world; #715: Kirche Stein became the two churches of Stein
+    + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Fahrzeug-Depot"] + ["Crash yard"]   # #553: the depot is an at, listed in any world, after its Gemeinde's last landmark (before the yard)
+ALL_ROWS = (25 if WORLD46 else 18) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 1 + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) and the Fahrzeug-Depot (#553) are fixed points, listed in any world; #715: Kirche Stein became the two churches of Stein
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else []) + (["Neues Schulhaus Sisseln", "Volg Sisseln"] if WORLD507 else [])
 

@@ -12,14 +12,16 @@ AT_DEPOT = "() => window.__mm.sim(832.3, -107.5, 0, 0, 0.1, [])"
 ALL_BUILT = "() => { const d = window.__mm.depot(); return d.slots.length === window.__mm.carsel().count && d.slots.every(s => s.model === 'gltf' || s.id === window.__mm.carsel().id); }"
 
 
-def open_page(p, server, query=""):
+def open_page(p, server, query="", block_world=True):
+    """block_world: the J list needs the OSM world's landmarks; everything else runs on the hand layout."""
     b = p.chromium.launch(args=ARGS)
     ctx = b.new_context(viewport={"width": 1280, "height": 720}, locale="en-US")
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
-    page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+    if block_world:
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html{query}")
     page.wait_for_function("() => window.__mm && window.__mm.sim && window.__mm.depot && document.querySelector('#worldstatus')?.textContent", timeout=240000)
     return b, page, errors
@@ -208,4 +210,34 @@ def test_too_fast_shows_no_prompt(server):
         b.close()
     assert near_fast is None, (near_fast, fast)
     assert near_stopped == s["id"], (near_stopped, fast, s)
+    assert not errors, errors
+
+
+# ---------- Task 5: the J list row ----------
+def test_j_list_jumps_to_the_depot(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, block_world=False)
+        page.click("#startbtn", timeout=180000)
+        page.keyboard.press("KeyJ")
+        page.wait_for_function("() => !document.querySelector('#jump').hidden", timeout=T)
+        page.keyboard.type("depot")
+        page.keyboard.press("Enter")
+        page.wait_for_function("() => document.querySelector('#jump').hidden", timeout=T)
+        pos = page.evaluate("() => ({ x: window.__mm.car().x, z: window.__mm.car().z, on: window.__mm.depot().on })")
+        b.close()
+    assert math.hypot(pos["x"] - 832.3, pos["z"] + 107.5) < 80, pos
+    assert pos["on"] is True, pos
+    assert not errors, errors
+
+
+def test_no_depot_row_in_ehrendingen(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, query="?region=ehrendingen", block_world=False)
+        page.click("#startbtn", timeout=180000)
+        page.keyboard.press("KeyJ")
+        page.wait_for_function("() => !document.querySelector('#jump').hidden", timeout=T)
+        got = page.evaluate("() => ({ names: window.__mm.jumpList().map(r => r.n), on: window.__mm.depot().on })")
+        b.close()
+    assert "Fahrzeug-Depot" not in got["names"], got
+    assert got["on"] is False, got
     assert not errors, errors

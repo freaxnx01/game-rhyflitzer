@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-09 15:37` At the **DSM car park** in Sisseln every vehicle now stands in a **vehicle depot**: drive or walk up to one and press <kbd>E</kbd> to drive on in it. Find it with <kbd>J</kbd> → *Fahrzeug-Depot*.
 - `2026-11-09 11:24` A **shortcut up the Plattform Sisslerfeld**: on foot at the door press <kbd>E</kbd> (on a phone, tap the button that appears) to jump straight up to the **viewing deck**, and press <kbd>E</kbd> again by the stair opening to jump back down to the door. Walking the stair still works. The tutorial mentions it.
 - `2026-11-09 10:37` A **car radio**: <kbd>5</kbd> switches it on and off, <kbd>6</kbd> changes between **Rhyflitzer FM** (four freely licensed tracks) and **SRF 3 live**, <kbd>7</kbd> <kbd>8</kbd> skip a track and <kbd>9</kbd> <kbd>0</kbd> set the volume, all while you keep driving; for three seconds a small display shows what is playing. On a phone, the 📻 button next to pause opens the same controls. The start screen plays quiet music, which <kbd>5</kbd> or the Music button switches off; About → Credits names every track.
 - `2026-11-09 09:14` The **All vehicles** grid has **type chips** (Everyday, Sport, Utility, Film & TV) and lists the strongest first. The **class letter** A to D now follows top speed and acceleration, so the Model T is class D and the DeLorean class C.
