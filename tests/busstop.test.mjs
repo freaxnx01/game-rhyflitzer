@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines } from '../busstop.js';
+import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider } from '../busstop.js';
 import { buildGraph, cumulative } from '../route.js';
 import { BUS } from '../bus.js';
 import { busRoute, busPose } from '../postauto.js';
@@ -139,5 +139,30 @@ test('world_hochrhein: every stop has at least one row; Frick Bahnhof shows only
   if (L.busRoutes.some((r) => r.line === '143')) {   // #767: after the data rebuild
     for (const { st, calls: c } of calls.values()) if (st.uic === '8572416') assert.deepEqual(stopRows(c), [{ line: '143', dest: 'Laufenburg, Bahnhof' }, { line: '143', dest: 'Stein-Säckingen, Bahnhof' }]);
     for (const { st, calls: c } of calls.values()) if (st.uic === '8572748') assert.deepEqual(stopRows(c), [{ line: '133', dest: 'Frick, Bahnhof' }, { line: '143', dest: 'Laufenburg, Bahnhof' }]);
+  }
+});
+
+// #760: the shelter as one car-only solid box -- solid for the car, the heli floor and the camera; on foot you step in under the roof
+test('shelterCollider: one car-only box over the shelter, hw along the kerb, top at the roof', () => {
+  const lay = { yaw: Math.PI / 6, pole: [0, 0], shelter: { x: 3, z: 4, corners: [] } };
+  const o = shelterCollider(lay, 10);
+  assert.equal(o.x, 3); assert.equal(o.z, 4);
+  assert.ok(near(o.hw, STOP.shelter.w / 2)); assert.ok(near(o.hd, STOP.shelter.d / 2));
+  assert.ok(near(o.c, Math.cos(Math.PI / 6))); assert.ok(near(o.s, Math.sin(Math.PI / 6)));
+  assert.ok(near(o.h, 10 + STOP.shelter.h + 0.25));
+  assert.equal(o.carOnly, true);
+});
+
+test('shelterCollider: a sign-only stop has no collider', () => {
+  assert.equal(shelterCollider({ yaw: 0, pole: [0, 0], shelter: null }, 0), null);
+});
+
+test('shelterCollider: the box covers exactly the shelter corners stopLayout computes', () => {
+  const R = road([[0, 0], [200, 0]]);
+  const lay = stopLayout({ x: 100, z: 3.5, rot: 0 }, [], [R]);
+  const o = shelterCollider(lay, 0);
+  for (const [x, z] of lay.shelter.corners) {
+    const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c;
+    assert.ok(near(Math.abs(lx), o.hw) && near(Math.abs(lz), o.hd), [x, z, lx, lz]);
   }
 });
