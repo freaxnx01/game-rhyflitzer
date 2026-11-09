@@ -78,8 +78,13 @@ def test_postauto_wheels_turn_and_the_floor_shows_from_inside(server):
 
 @needs_data
 def test_player_bounces_off_a_standing_postauto(server):
-    # a bus that stands at its first stop: not one of 143's trips that enter from the map edge (#767)
-    trip = next(t for t in json.loads(TT.read_text(encoding="utf-8"))["trips"] if not t["fromOutside"])
+    # a bus that stands at its first stop for the whole spawn window: not one of 143's trips that enter from the map
+    # edge (#767), and not a trip a same-line bus takes over at that stop (#763 Umlauf) -- that bus may stand only
+    # minDwell (10 s), which a slow renderer misses
+    trips = json.loads(TT.read_text(encoding="utf-8"))["trips"]
+    taken_over = lambda t: any(a["line"] == t["line"] and not a["toOutside"] and a["calls"][-1][0] == t["calls"][0][0]
+                               and 0 <= t["calls"][0][2] - a["calls"][-1][1] <= 900 for a in trips)
+    trip = next(t for t in trips if not t["fromOutside"] and not taken_over(t))
     # the clock would run on while SwiftShader renders; freeze it the moment the bus stands,
     # so the 60 s stand window is still open when the camera and the frames are ready
     with sync_playwright() as p:
