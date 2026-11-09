@@ -45,9 +45,16 @@ def intersect(a, b):
     return a[1] < b[3] and b[1] < a[3] and a[2] < b[4] and b[2] < a[4]
 
 
+def siblings_in_tc(a, b):
+    """#tc is a flex column the browser lays out, so its children cannot overlap each other by layout -- but #arrow
+    is rotated towards the next checkpoint every frame, and a rotated 80x60 box has a bounding box up to 99x99, so it
+    reaches into the row below it whatever the spacing. What matters is the arrow row's distance to everything outside #tc."""
+    return a[0].startswith("tc>") and b[0].startswith("tc>")
+
+
 def overlaps(page):
     boxes = page.evaluate(RECTS_JS)
-    return [(a[0], b[0]) for a, b in combinations(boxes, 2) if intersect(a, b)], {x[0] for x in boxes}
+    return [(a[0], b[0]) for a, b in combinations(boxes, 2) if intersect(a, b) and not siblings_in_tc(a, b)], {x[0] for x in boxes}
 
 
 def start(page, button):

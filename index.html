@@ -115,6 +115,20 @@ body.tutorial #tr{display:none}#tutorialbtn.first{outline:4px solid var(--sun);o
 #freightpad{bottom:calc(60px + env(safe-area-inset-bottom,0px))}   /* #489: lower than the 6c pad, so the Top button stays on screen */
 #map{display:block;width:400px;height:200px;pointer-events:auto;touch-action:none;cursor:crosshair}
 @media (max-width:900px){#speedo{width:130px;height:130px}#map{width:240px;height:120px}#time{font-size:30px}#gear{display:none}#tl{min-width:140px}}
+/* #776: on a phone the two plates share the width between the gutters, the minimap leaves the speedometer its corner,
+   and the arrow row sits under the plates, clear of the compass and of the pause/radio column on the right */
+@media (max-width:600px){
+  #map{width:200px;height:100px}
+  #tl{min-width:0;max-width:calc(100vw - 32px - 8px - 140px)}
+  #tl .mode{font-size:13px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #tr{min-width:0;max-width:140px}#best{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+/* the arrow row only has to step below the plates where the touch column (#pausebtn, #radiobtn) holds the right side;
+   a narrow desktop window keeps the top-centre column where the mirror puts it */
+@media (max-width:600px) and (pointer:coarse){
+  #tc{top:calc(140px + var(--mirror-drop,0px) + env(safe-area-inset-top,0px))}
+  #cpname{max-width:calc(100vw - 248px);text-align:center}
+}
 #br.full{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);z-index:20}#br.full #map{width:min(92vw,calc((100vh - 80px) * 2));height:auto}
 /* #346 "Sunset Steel": the start screen is full-bleed over the live scene; the mockup's sky stops carry alpha, so the
    scene shows through and the title still reads as sunset over whatever sky the current style renders. */
@@ -277,6 +291,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,body:has(#abandon:not([hidden])) #keybar,body:has(#help:not([hidden])) #keybar,body:has(#jump:not([hidden])) #keybar,body:has(#borderinfo:not([hidden])) #keybar{display:none}
 #stylebtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel);color:var(--cream);font-family:inherit;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:6px 14px}
 #stylebtn b{color:var(--sun)}
+@media (pointer:coarse){#stylebtn{display:none}}   /* #776: T is a key; on a phone the button lay over the minimap and the speedo (#773 moves it into pause) */
 #pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
 #pausebtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 /* #735: the phone's car radio -- one small button left of #pausebtn, a 3x2 panel under the pair; desktop has keys only */
@@ -6095,6 +6110,8 @@ showGallery();
      bottom edge while the start/result dialog is open, clear of that dialog's buttons. */
   body:has(#overlay:not([hidden])) #game-nav { bottom: calc(8px + env(safe-area-inset-bottom,0px)) !important; }
   @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav, body:has(#worlds:not([hidden])) #game-nav, body:has(#about:not([hidden])) #game-nav, body:has(#carsel:not([hidden])) #game-nav, body:has(#pause:not([hidden])) #game-nav, body:has(#abandon:not([hidden])) #game-nav { display: none !important; } }
+  /* #776: on a phone the footer is for dialogs only; while driving it lies over the minimap and the speedometer */
+  @media (max-width: 600px) { body:not(:has(:is(#overlay,#worlds,#about,#carsel,#pause,#abandon):not([hidden]))) #game-nav { display: none !important; } }
 </style>
 <script src="./version.js"></script>
 <script src="./i18n.js"></script>
