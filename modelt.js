@@ -4,6 +4,7 @@
 // Model T numbers: 20 hp, about 72 km/h flat out (20 m/s), slow off the line, two forward gears (planetary box), narrow 30" tyres
 // (little grip), weak brakes, 540 kg (light: loses more speed in a crash); 2.54 m wheelbase; left-hand drive; black.
 export const MODEL_T = {
+  type: 'everyday',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'modelt', url: './assets/modelt.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[1.27, 0.6], [-1.27, 0.6]], wheelR: 0.386,   // the model's own wheel nodes: x ±1.27, |z| 0.599, r 0.386
   drive: { top: 20, topNitro: 30, accel: 5, accelNitro: 12, brake: 12, reverse: 4, reverseMax: 6, grip: 6, gripHandbrake: 1.4, steerRate: 2.0, airSteer: 0.3 },

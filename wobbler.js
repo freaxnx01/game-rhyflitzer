@@ -7,6 +7,7 @@
 // onto its side (tipover.js, cfg `tip`) and is set back on its wheels after a moment. The light body takes the most damage.
 // The front wheel is two half-wheel nodes on one centre (wheel_FL, wheel_FR at z 0), so the table's front |z| is 0.
 export const WOBBLER = {
+  type: 'everyday',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'wobbler', url: './assets/wobbler.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'sunflower',
   wheels: [[1.085, 0], [-1.085, 0.61]], wheelR: 0.272,   // the model's own wheel nodes: front x 1.085 on the centre line, rear x -1.085, |z| 0.61
   drive: { top: 38, topNitro: 60, accel: 9, accelNitro: 30, brake: 16, reverse: 6, reverseMax: 10, grip: 7, gripHandbrake: 1.4, steerRate: 2.6, airSteer: 0.35 },

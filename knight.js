@@ -6,6 +6,7 @@
 // Firebird numbers: a 5.0 l V8 in the long nose, rear-wheel drive, four gears, 4.85 m long on a 2.565 m wheelbase, 1.4 t; left-hand
 // drive. The TV car's "turbo boost" is the nitro: 220 km/h (61.1 m/s) flat out, 330 km/h with it.
 export const KNIGHT = {
+  type: 'screen',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'knight', url: './assets/knight.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[1.282, 0.777], [-1.282, 0.777]], wheelR: 0.323,   // the model's own wheel nodes: x ±1.282, |z| 0.777, r 0.323
   drive: { top: 61.1, topNitro: 92, accel: 15, accelNitro: 40, brake: 24, reverse: 8, reverseMax: 13, grip: 9, gripHandbrake: 1.4, steerRate: 2.6, airSteer: 0.4 },

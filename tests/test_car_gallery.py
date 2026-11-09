@@ -82,3 +82,32 @@ def test_gallery_on_a_phone_in_german(server):
         b.close()
     assert label == "Alle Fahrzeuge" and cols == 2 and not wide, (label, cols, wide)
     assert not errors, errors
+
+
+TYPES = ("everyday", "sport", "utility", "screen")
+TILE_TEXT_JS = "() => [...document.querySelectorAll('#csgallery [data-id]')].map(t => [t.dataset.id, t.querySelector('.cs-tclass').textContent])"
+
+
+def test_type_chips_filter_the_gallery_strongest_first(server):
+    """#493: every vehicle has one of the four types; a chip shows only that type, the strongest first, and the class
+    letter comes from the drive values (the Model T is class D, the hypercar class A)."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        open_gallery(page)
+        every = page.evaluate(GALLERY_JS)
+        counts = page.evaluate("() => Object.fromEntries([...document.querySelectorAll('#csgallery [data-type]')].map(c => [c.dataset.type, +c.querySelector('b').textContent]))")
+        page.click("#csgallery [data-type=sport]")
+        sport, sport_text = page.evaluate(GALLERY_JS), dict(page.evaluate(TILE_TEXT_JS))
+        focused = page.evaluate("() => document.activeElement.dataset.type")
+        page.click("#csgallery [data-type=everyday]")
+        everyday_text = dict(page.evaluate(TILE_TEXT_JS))
+        page.click("#csgallery [data-type=all]")
+        back = page.evaluate(GALLERY_JS)
+        b.close()
+    assert set(every["types"].values()) <= set(TYPES), every["types"]
+    assert counts["all"] == len(every["ids"]) == sum(counts[t] for t in TYPES), counts
+    assert sport["type"] == "sport" and [t["id"] for t in sport["tiles"]] == sport["ids"], sport
+    assert {every["types"][i] for i in sport["ids"]} == {"sport"} and sport["ids"][0] in ("hyper", "mclaren"), sport
+    assert sport_text["hyper"].endswith("Class A") and everyday_text["modelt"].endswith("Class D"), (sport_text, everyday_text)
+    assert focused == "sport" and back["ids"] == every["ids"], (focused, back)
+    assert not errors, errors

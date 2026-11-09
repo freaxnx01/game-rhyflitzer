@@ -343,13 +343,14 @@ body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,b
 .cs-tname{padding:4px 10px 0;font-size:20px;font-weight:800;font-style:italic;text-transform:uppercase;line-height:1.05;color:var(--sun)}
 .cs-tclass{padding:0 10px;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--steel-l)}
 .cs-thumb[aria-pressed=true]{border-color:var(--cream);box-shadow:0 0 0 3px var(--sun),4px 4px 0 var(--ink)}
-.cs-thumb:focus-visible,.cs-more:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+.cs-chips{grid-column:1/-1;position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 8px;background:rgba(10,8,20,.92)}.cs-chips button{min-height:36px;padding:0 12px;font:inherit;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--cream);background:none;border:2px solid #8d96a3;cursor:pointer}.cs-chips b{color:var(--steel-l)}.cs-chips button[aria-pressed=true]{color:var(--ink);background:var(--sun);border-color:var(--sun)}.cs-chips button[aria-pressed=true] b{color:var(--ink)}
+.cs-thumb:focus-visible,.cs-more:focus-visible,.cs-chips button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 .cs-foot{margin:0 -24px;padding:16px 24px calc(16px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;gap:12px;background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3}
 .cs-arrow:focus-visible,.cs-swatches button:focus-visible,.cs-tiles button:focus-visible,#cschair:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 #cschair{height:44px;cursor:pointer;padding:0 14px;font-family:inherit;font-size:17px;font-weight:800;font-style:italic;letter-spacing:1px;text-transform:uppercase;color:var(--cream);background:#1c1f26;border:3px solid #8d96a3}
 #cschair[aria-pressed=true]{background:var(--sun);border-color:var(--cream);color:var(--ink)}
 body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{display:none}   /* the speedo, clock and steering buttons mean nothing while choosing a car */
-@media (max-width:700px){#carsel{padding:12px 16px 0;gap:12px}.cs-body{flex-direction:column;flex:none}#csstage{flex:0 0 38vh;min-height:200px}.cs-info{overflow:visible}.cs-stat{grid-template-columns:minmax(0,1fr) 36px;gap:4px 10px}.cs-stat .cs-label{grid-column:1/-1}.cs-swatches button{height:44px}#carsel .cs-foot{position:sticky;bottom:0;margin:0 -16px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}.cs-foot .btn{flex:1;padding:0 10px;font-size:22px}.cs-gallery{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));overflow:visible}.cs-more{min-height:44px}.cs-tname{font-size:17px}}
+@media (max-width:700px){#carsel{padding:12px 16px 0;gap:12px}.cs-body{flex-direction:column;flex:none}#csstage{flex:0 0 38vh;min-height:200px}.cs-info{overflow:visible}.cs-stat{grid-template-columns:minmax(0,1fr) 36px;gap:4px 10px}.cs-stat .cs-label{grid-column:1/-1}.cs-swatches button{height:44px}#carsel .cs-foot{position:sticky;bottom:0;margin:0 -16px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}.cs-foot .btn{flex:1;padding:0 10px;font-size:22px}.cs-gallery{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));overflow:visible}.cs-more,.cs-chips button{min-height:44px}.cs-tname{font-size:17px}}
 @media (prefers-reduced-motion:reduce){#arrow,#navarrow{transition:none}}
 </style>
 
@@ -757,7 +758,7 @@ import { RIDE as RIDE_CFG, toWheel, fromWheel, rideIdle, rideBegin, rideStep, ri
 import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
-import { PAINTS, paintFinish, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, THUMB, thumbView, thumbKey, nextThumb } from './carselect.js';
+import { PAINTS, paintFinish, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, classLine, galleryOrder } from './carselect.js';
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
@@ -2819,7 +2820,7 @@ await loadStage('cars');
 // camera: chase distances in world metres, cockpit/bumper eyes in model metres (x forward, y up, side + = right), scaled with the car; drone: world metres too, not tied to the car's size (#93)
 // sound.crash (#104): weight stretches the crash, thump = the body's note in Hz, noise = the lowpass corner in Hz, gain = its level next to the other sounds
 const VEHICLES = {
-  compact: { model: 'compact', gltf: null, scale: 1.0, wheels: [[1.38, 0.86], [-1.38, 0.86]], wheelR: 0.34,
+  compact: { model: 'compact', type: 'everyday', gltf: null, scale: 1.0, wheels: [[1.38, 0.86], [-1.38, 0.86]], wheelR: 0.34,
     drive: { top: 60, topNitro: 90, accel: 16, accelNitro: 34, brake: 24, reverse: 8, reverseMax: 14, grip: 9, gripHandbrake: 1.8, steerRate: 2.6, airSteer: 0.4 },
     mass: 1.0, engineAt: [1.5, 1.05, 0], collision: { shape: 'circle', r: 1.3 },
     camera: { chase: { dist: 6.9, h: 2.6 }, near: { dist: 4.6, h: 1.85 }, cockpit: { eye: [-0.25, 1.22, -0.38] }, bumper: { eye: [2.35, 0.55, 0] }, drone: { dist: 18, h: 12 } },
@@ -2829,7 +2830,7 @@ const VEHICLES = {
       horn: { notes: [415, 523], dur: 0.9, gain: 0.22, band: 1400, wave: 'square' },
       crash: { weight: 1, thump: 70, noise: 1800, gain: 1 } } },
   // #126: DeLorean look-alike. DMC-12 numbers: 177 km/h = 49 m/s, slow off the line, rear engine (a little less grip), 2.41 m wheelbase, 14"/15" wheels; five-speed box
-  delorean: { model: 'delorean', gltf: null, scale: 1.0, paint: false, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,
+  delorean: { model: 'delorean', type: 'screen', gltf: null, scale: 1.0, paint: false, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,
     drive: { top: 49, topNitro: 80, accel: 10, accelNitro: 26, brake: 22, reverse: 8, reverseMax: 12, grip: 8, gripHandbrake: 1.6, steerRate: 2.4, airSteer: 0.4 },
     mass: 1.0, engineAt: [-1.5, 0.95, 0], collision: { shape: 'circle', r: 1.2 },
     camera: { chase: { dist: 6.9, h: 2.4 }, near: { dist: 4.6, h: 1.7 }, cockpit: { eye: [-0.15, 0.95, -0.38] }, bumper: { eye: [2.15, 0.45, 0] }, drone: { dist: 18, h: 12 } },
@@ -2843,7 +2844,7 @@ const VEHICLES = {
   // 54 m/s ~ 194 km/h: a little quicker off the line and nimbler than the compact, lighter (loses more speed in a crash);
   // 2.04 m wheelbase, 10" wheels; the cockpit eye sits on the right like the UK car; four gears, a thin high horn
   // #468: the real model (assets/mini.glb) is built by buildMini once loaded; until then buildMini draws the primitives (fallback: itself)
-  mini: { model: 'mini', gltf: { id: 'mini', url: './assets/mini.glb', fallback: 'mini' }, scale: 1.0, paint: false, wheels: [[1.02, 0.62], [-1.02, 0.62]], wheelR: 0.26,   // the primitives car's wheels; the model's own wheel nodes sit at x 1.014 / -1.023, |z| 0.637
+  mini: { model: 'mini', type: 'screen', gltf: { id: 'mini', url: './assets/mini.glb', fallback: 'mini' }, scale: 1.0, paint: false, wheels: [[1.02, 0.62], [-1.02, 0.62]], wheelR: 0.26,   // the primitives car's wheels; the model's own wheel nodes sit at x 1.014 / -1.023, |z| 0.637
     blinkers: [[1.47, 0.43, 0.51], [-1.47, 0.53, 0.47]],
     drive: { top: 54, topNitro: 85, accel: 17, accelNitro: 34, brake: 24, reverse: 8, reverseMax: 12, grip: 10, gripHandbrake: 1.8, steerRate: 3.0, airSteer: 0.4 },
     mass: 0.75, engineAt: [0.9, 0.6, 0], collision: { shape: 'circle', r: 1.0 }, options: { chair: true },
@@ -2858,7 +2859,7 @@ const VEHICLES = {
   // little damage in a crash); 6.08 m wheelbase, 2.7 m front overhang; the whole length collides (capsule, see collide);
   // rear diesel, left-hand drive, a deep G major horn chord (bus.js)
   // #478: the real model (assets/bus.glb) is built by buildBus once loaded; until then buildBus draws the primitives (fallback: itself)
-  bus: { model: 'bus', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', floor: { material: 'Plain_7', maxY: 0.4, arches: [{ x: 3.36, y: 0.5, z: 1.12, r: 0.9, zMax: 1.24 }, { x: -2.66, y: 0.5, z: 0.92, r: 0.9, zMax: 1.24 }] } }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // #758: arches -- the wheel arches (Plain_7 too) face the wheel, so from the cabin the wheels showed through; they get the same copy. #709: floor -- the underbody (Plain_7, down at y 0.24) faces down only, so from inside the road showed through; its copy faces up. Plain_7 also lines walls and roof: drawn from both sides it hid the yellow (#723); the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
+  bus: { model: 'bus', type: 'utility', gltf: { id: 'bus', url: './assets/bus.glb', fallback: 'bus', floor: { material: 'Plain_7', maxY: 0.4, arches: [{ x: 3.36, y: 0.5, z: 1.12, r: 0.9, zMax: 1.24 }, { x: -2.66, y: 0.5, z: 0.92, r: 0.9, zMax: 1.24 }] } }, scale: 1.0, paint: false, wheels: [[3.4, 1.05], [-2.68, 1.05]], wheelR: 0.5,   // #758: arches -- the wheel arches (Plain_7 too) face the wheel, so from the cabin the wheels showed through; they get the same copy. #709: floor -- the underbody (Plain_7, down at y 0.24) faces down only, so from inside the road showed through; its copy faces up. Plain_7 also lines walls and roof: drawn from both sides it hid the yellow (#723); the primitives bus's wheels; the model's own wheel nodes sit at x 3.36 / -2.66, |z| 1.12 / 0.92
     blinkers: [[6.15, 0.62, 1.16], [-5.92, 1.2, 1.16]],   // flush with the nose and the tail (the boxes are 0.12 m deep)
     drive: { top: 27.8, topNitro: 34, accel: 4, accelNitro: 8, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.1, airSteer: 0.2 },
     mass: 8, engineAt: [-5.6, 1.4, 0], collision: { shape: 'capsule', r: 1.3, hl: 4.8 },
@@ -5402,7 +5403,7 @@ function applyPendingSwap() { if (PENDING_SWAP && CHOICE.id === PENDING_SWAP && 
 function stepVehicle(step) { const ids = Object.keys(VEHICLES); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
 function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.preventDefault(); if (CAR_GALLERY.on) closeGallery(); else closeCarSel(); } else if (act === 'spin') { e.preventDefault(); CARSEL.dir = e.code === 'ArrowLeft' ? -1 : 1; } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while choosing, browser default kept
 function carselKeyUp(e) { if ((e.code === 'ArrowLeft' && CARSEL.dir < 0) || (e.code === 'ArrowRight' && CARSEL.dir > 0)) CARSEL.dir = 0; }
-function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = vehicleText(tr, CHOICE.id, 'class'); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc'); const gst = def.gltf ? gltfState(def.gltf.id) : 'ready'; $('csloading').hidden = !(gst === 'idle' || gst === 'loading'); $('csloading').textContent = tr('carselLoading', vehicleText(tr, CHOICE.id, 'name')); $('csrace').disabled = raceBlocked(def, gst);
+function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = classLine(tr, CHOICE.id, def); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc'); const gst = def.gltf ? gltfState(def.gltf.id) : 'ready'; $('csloading').hidden = !(gst === 'idle' || gst === 'loading'); $('csloading').textContent = tr('carselLoading', vehicleText(tr, CHOICE.id, 'name')); $('csrace').disabled = raceBlocked(def, gst);
   const bars = statBars(def); $('csstats').innerHTML = STAT_KEYS.map(k => `<div class="cs-stat"><div class="cs-label">${tr(STAT_LABEL_KEYS[k])}</div><div class="cs-cells">${barCells(bars[k]).map(c => `<i class="${c}"></i>`).join('')}</div><div class="cs-score">${bars[k]}</div></div>`).join('');
   const can = paintable(def), cur = PAINTS.find(p => p.id === CHOICE.paint) || PAINTS[0]; $('cspaintname').textContent = can ? tr(cur.nameKey) : tr('paintFixed'); $('cspaints').innerHTML = PAINTS.map(p => `<button type="button" data-paint="${esc(p.id)}" aria-label="${esc(tr(p.nameKey))}" title="${esc(tr(p.nameKey))}" aria-pressed="${p.id === CHOICE.paint}" style="background:${p.hex}"${can ? '' : ' disabled'}></button>`).join('');
   $('cschairrow').hidden = !chairable(def); $('cschair').setAttribute('aria-pressed', String(CHOICE.chair === true)); $('cschair').textContent = tr(CHOICE.chair === true ? 'chairOn' : 'chairOff');   // #463: the armchair toggle, only on cars that declare the option
@@ -5421,7 +5422,7 @@ $('csgarage').onclick = (e) => { const b = e.target.closest('button[data-id]'); 
 // A photo borrows the stage car: rebuilt as that vehicle in the paint a pick would give it, drawn on a studio backdrop into a corner of
 // the canvas just before the frame's own render (which then draws over it), copied out, and the stage car rebuilt as it was. Copying
 // the canvas keeps the game's colour output, which a render target would not. Photos last the session, per vehicle (and paint).
-const CAR_GALLERY = { on: false, photos: new Map(), cam: new THREE.PerspectiveCamera(THUMB.fov, THUMB.w / THUMB.h, 0.1, 500), studio: new THREE.Scene(), shot: document.createElement('canvas') };
+const CAR_GALLERY = { on: false, type: 'all', photos: new Map(), cam: new THREE.PerspectiveCamera(THUMB.fov, THUMB.w / THUMB.h, 0.1, 500), studio: new THREE.Scene(), shot: document.createElement('canvas') };
 CAR_GALLERY.studio.background = new THREE.Color(0x4a515e); CAR_GALLERY.studio.add(new THREE.HemisphereLight(0xdfe8ff, 0x6a5a40, 0.9)); { const l = new THREE.DirectionalLight(0xfff2d8, 0.8); l.position.set(3, 6, -4); CAR_GALLERY.studio.add(l); }
 CAR_GALLERY.shot.width = THUMB.w; CAR_GALLERY.shot.height = THUMB.h;
 const galleryPaint = (id) => paintOnSelect(VEHICLES[id], CHOICE.paint, CHOICE.paintChosen, 'navy', VEHICLES[CHOICE.id]);
@@ -5441,7 +5442,10 @@ function photoVehicle(id) {
 // from the loop, before the frame's render: the next car's photo (none in a wreck: a rebuild would end it)
 function stepGallery() { if (!CAR_GALLERY.on || !CARSEL.on || WRECK_S.on) return; const id = nextThumb(Object.keys(VEHICLES), CHOICE.id, (i) => CAR_GALLERY.photos.has(photoKey(i)), photoReady); if (!id) return; CAR_GALLERY.photos.set(photoKey(id), photoVehicle(id)); updateTile(id); }
 const photoAttr = (id) => { const url = CAR_GALLERY.photos.get(photoKey(id)); return url ? ` src="${url}"` : ''; };
-function renderGallery() { $('csgallery').innerHTML = Object.keys(VEHICLES).map(id => `<button type="button" class="cs-thumb${photoFailed(id) ? ' failed' : ''}" data-id="${esc(id)}" aria-pressed="${id === CHOICE.id}"><img alt="" width="${THUMB.w}" height="${THUMB.h}"${photoAttr(id)}><span class="cs-tname">${esc(vehicleText(tr, id, 'name'))}</span><span class="cs-tclass">${esc(vehicleText(tr, id, 'class'))}</span></button>`).join(''); }
+// #493: the type chips head the grid; the tiles are that type's vehicles, strongest first
+const galleryIds = (type = CAR_GALLERY.type) => galleryOrder(Object.keys(VEHICLES), VEHICLES, type);
+function galleryChips() { return `<div class="cs-chips" role="group" aria-label="${esc(tr('galleryTypes'))}">${['all', ...VEHICLE_TYPES].map(t => `<button type="button" data-type="${t}" aria-pressed="${t === CAR_GALLERY.type}">${esc(tr(`type_${t}`))} <b>${galleryIds(t).length}</b></button>`).join('')}</div>`; }
+function renderGallery() { $('csgallery').innerHTML = galleryChips() + galleryIds().map(id => `<button type="button" class="cs-thumb${photoFailed(id) ? ' failed' : ''}" data-id="${esc(id)}" aria-pressed="${id === CHOICE.id}"><img alt="" width="${THUMB.w}" height="${THUMB.h}"${photoAttr(id)}><span class="cs-tname">${esc(vehicleText(tr, id, 'name'))}</span><span class="cs-tclass">${esc(classLine(tr, id, VEHICLES[id]))}</span></button>`).join(''); }
 function updateTile(id) { const t = $('csgallery').querySelector(`[data-id="${CSS.escape(id)}"]`); if (!t) return; const url = CAR_GALLERY.photos.get(photoKey(id)); if (url) t.querySelector('img').src = url; t.classList.toggle('failed', photoFailed(id)); }
 function hideGallery() { CAR_GALLERY.on = false; $('carsel').classList.remove('cs-gallery-on'); $('csgallery').hidden = true; }
 function closeGallery() { hideGallery(); $('csgallerybtn').focus(); }
@@ -5449,8 +5453,9 @@ function openGallery() { CAR_GALLERY.on = true; $('carsel').classList.add('cs-ga
 // every glTF file is fetched now, one after the other (a burst of 15 requests is hard on a phone's connection); each tile fills when its car is photographed
 async function loadGalleryModels() { for (const id of Object.keys(VEHICLES)) if (VEHICLES[id].gltf) { await loadVehicleModel(id); updateTile(id); } }
 $('csgallerybtn').onclick = openGallery;
-$('csgallery').onclick = (e) => { const b = e.target.closest('button[data-id]'); if (!b) return; hideGallery(); selectVehicle(b.dataset.id); $('csrace').focus(); };
-window.__mm.carGallery = () => ({ open: CAR_GALLERY.on, ids: Object.keys(VEHICLES), tiles: [...$('csgallery').querySelectorAll('[data-id]')].map(t => ({ id: t.dataset.id, photo: Boolean(t.querySelector('img').getAttribute('src')), failed: t.classList.contains('failed') })) });
+function pickGalleryType(type) { CAR_GALLERY.type = type; renderGallery(); $('csgallery').querySelector(`[data-type="${type}"]`).focus(); }
+$('csgallery').onclick = (e) => { const c = e.target.closest('button[data-type]'); if (c) return pickGalleryType(c.dataset.type); const b = e.target.closest('button[data-id]'); if (!b) return; hideGallery(); selectVehicle(b.dataset.id); $('csrace').focus(); };
+window.__mm.carGallery = () => ({ open: CAR_GALLERY.on, type: CAR_GALLERY.type, ids: galleryIds(), types: Object.fromEntries(Object.entries(VEHICLES).map(([id, d]) => [id, d.type])), tiles: [...$('csgallery').querySelectorAll('[data-id]')].map(t => ({ id: t.dataset.id, photo: Boolean(t.querySelector('img').getAttribute('src')), failed: t.classList.contains('failed') })) });
 window.__mm.carsel = () => { const ids = Object.keys(VEHICLES); return { open: CARSEL.on, id: CHOICE.id, index: ids.indexOf(CHOICE.id), count: ids.length, paint: CHOICE.paint, paintable: paintable(VEH), bars: statBars(VEH), bodyColor: carMats.body.color.getHexString(), angle: CARSEL.spin.angle, focus: document.activeElement?.id || '', carVisible: car.visible }; };
 window.__mm.chair = () => ({ on: chairOn(), visible: car.userData.chair ? car.userData.chair.visible : false, eye: VEH.camera.chair ? VEH.camera.chair.eye.map(c => c * VEH.scale) : null });   // #463: the armchair state (read-only, for the test)
 if (VEHICLES[CHOICE.id].gltf) wantVehicleModel(CHOICE.id);   // #236: the page started with the fallback car; the glTF car swaps in when its file arrives

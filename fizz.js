@@ -7,6 +7,7 @@
 // not articulate), five axles, ten wheel nodes (wheel_RL2 .. wheel_RR4 behind the four). Heavy: knocks barely hurt, slow off the
 // line, very wide in the corners.
 export const FIZZ = {
+  type: 'utility',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'fizz', url: './assets/fizz.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[4.551, 1.37], [1.961, 1.37]], wheelR: 0.458,   // the front axle and the first drive axle; behind them x 0.742, -3.653, -4.808
   drive: { top: 29.2, topNitro: 38, accel: 4.5, accelNitro: 10, brake: 10, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.2, airSteer: 0.2 },

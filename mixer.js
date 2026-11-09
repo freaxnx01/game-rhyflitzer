@@ -6,6 +6,7 @@
 // long, 2.5 m wide; left-hand drive. Six wheel nodes: the front axle and the tandem's two (wheel_RL2 / RR2). The heaviest after the
 // bus: it shrugs off knocks, but it is slow off the line and turns wide.
 export const MIXER = {
+  type: 'utility',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'mixer', url: './assets/mixer.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[1.73, 1.04], [-1.02, 0.87]], wheelR: 0.535,   // the model's front axle and the tandem's front axle (the second at x -2.44)
   drive: { top: 22.2, topNitro: 30, accel: 3.5, accelNitro: 8, brake: 9, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.4, airSteer: 0.2 },
