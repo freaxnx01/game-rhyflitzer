@@ -195,7 +195,7 @@ def _stop(point, part, tree, widths):
             "rot": round(math.atan2(dz, dx), 2)}
 
 
-def _stops(route: Route, data: BusData, part, tree, widths, stats: Counter) -> list[dict]:
+def _stops(route: Route, data: BusData, part, clip, tree, widths, stats: Counter) -> list[dict]:
     out, seen = [], set()
     for node in route.stops + route.platforms:
         tags = data.node_tags.get(node, {})
@@ -204,6 +204,9 @@ def _stops(route: Route, data: BusData, part, tree, widths, stats: Counter) -> l
             stats["stop-no-uic"] += 1
             continue
         if uic in seen or node not in data.node_xy:
+            continue
+        if not clip.covers(shapely.Point(data.node_xy[node])):   # #767: beyond the map edge (143's Ritanne)
+            stats["stop-outside"] += 1
             continue
         seen.add(uic)
         placed = _stop(data.node_xy[node], part, tree, widths)
@@ -214,9 +217,25 @@ def _stops(route: Route, data: BusData, part, tree, widths, stats: Counter) -> l
     return sorted(out, key=lambda s: s["s"])
 
 
+def _unique_variants(routes: list[dict], stats: Counter) -> list[dict]:
+    """#767: of several relations of one line with the same in-map stops (143 has two per direction, via Kaisten
+    village or direct, identical inside the map) only the first is kept - routes come sorted by relation id, and it
+    is the one timetable._route_of gives those trips to, so the others would run no bus but draw stops and lines."""
+    kept, seen = [], set()
+    for route in routes:
+        key = (route["line"], tuple(s["uic"] for s in route["stops"]))
+        if key in seen:
+            stats["duplicate-variant"] += 1
+            continue
+        seen.add(key)
+        kept.append(route)
+    return kept
+
+
 def build(data: BusData, roads: list[dict], clip) -> tuple[list[dict], Counter]:
     """One busRoutes entry per route: the chained line clipped to the map, in travel direction,
-    with its kerb-side stops. Of several pieces only the longest is kept (#682, A9)."""
+    with its kerb-side stops. Of several pieces only the longest is kept (#682, A9); of several
+    relations of a line with the same in-map stops only the first (#767)."""
     tree, widths = _road_widths(roads)
     stats: Counter = Counter()
     out = []
@@ -236,5 +255,5 @@ def build(data: BusData, roads: list[dict], clip) -> tuple[list[dict], Counter]:
                     "len": round(part.length, 1),
                     "cut": [math.dist(part.coords[0], line.coords[0]) > CUT_EPS,
                             math.dist(part.coords[-1], line.coords[-1]) > CUT_EPS],
-                    "stops": _stops(route, data, part, tree, widths, stats)})
-    return out, stats
+                    "stops": _stops(route, data, part, clip, tree, widths, stats)})
+    return _unique_variants(out, stats), stats

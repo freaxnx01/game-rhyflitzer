@@ -46,7 +46,7 @@
   "exclude_buildings": [ "w806132044", "w194161080", "w1559348004", "w557475162", "w170395848", "w197688923",
                          "w162862443", "w162862441", "w1280041307", "w183386655", "w88836292" ],
   "keep_buildings": [ "w390621357", "w25835477", "w92036948", "w25049518", "w199241726", "w171822808", "w171822721", "w171822900", "w282842878", "w57688331", "w193882521" ],
-  "bus": { "lines": ["133"] },
+  "bus": { "lines": ["133", "143"] },
   "roads": {
     "suedspange": {
       "src": "#42: kNP Südspange ESP Sisslerfeld, erläuternder Planungsbericht (Kanton Aargau, 2 May 2023), route traced from its text, OSM and swissALTI3D; cross-sections from its §3.5; figures not committed",
