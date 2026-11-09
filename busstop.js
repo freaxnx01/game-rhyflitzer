@@ -78,6 +78,14 @@ export function stopLayout(stop, poses, roads, bus = BUS, cfg = STOP) {
   return { ...best, shelter: null };
 }
 
+// #760: the shelter as one solid box for the car, the helicopter floor and the camera. carOnly: footSolids() skips it,
+// so on foot you step in under the roof. hw along the kerb (u = cos/sin yaw), h absolute: the roof top over the pole's ground.
+export function shelterCollider(layout, base, cfg = STOP) {
+  if (!layout.shelter) return null;
+  const S = cfg.shelter;
+  return { x: layout.shelter.x, z: layout.shelter.z, hw: S.w / 2, hd: S.d / 2, c: Math.cos(layout.yaw), s: Math.sin(layout.yaw), h: base + S.h + 0.25, carOnly: true };
+}
+
 export function zigzagLine(route, s, roadW, cfg = STOP) {
   const a = Math.max(0, s - cfg.zigzag.len / 2), b = Math.min(route.len, s + cfg.zigzag.len / 2), off = roadW / 2 - cfg.zigzag.w / 2;
   const out = [];
