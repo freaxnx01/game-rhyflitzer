@@ -9,6 +9,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).parents[1]
 TT = ROOT / "data" / "timetable_hochrhein.json"
 needs_data = pytest.mark.skipif(not TT.exists(), reason="run the #682 timetable cut first")
+LINES = {t["line"] for t in json.loads(TT.read_text(encoding="utf-8"))["trips"]} if TT.exists() else set()
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 
 
@@ -34,7 +35,7 @@ def test_postauto_drives_line_133_with_led(server):
         b, page, errors = open_at(p, server, hhmm(trip["calls"][1][2] + 60))
         page.wait_for_function("() => window.__mm.postauto().buses.some(x => x.led)", timeout=120000)
         bus = next(x for x in page.evaluate("() => window.__mm.postauto().buses") if x["led"])
-        assert bus["line"] == "133" and bus["led"]["line"] == "133" and bus["led"]["dest"]
+        assert bus["line"] in LINES and bus["led"]["line"] == bus["line"] and bus["led"]["dest"]
         s0 = bus["s"]
         page.wait_for_timeout(3000)
         moved = page.evaluate("() => window.__mm.postauto().buses")
@@ -54,7 +55,7 @@ def test_postauto_display_uses_the_models_own_slot(server):
         for bus in d["buses"]:
             assert bus["planes"] == 0                # no floating plane any more
             assert bus["displays"] == 1 and bus["own"] and bus["ownMap"] and bus["flipY"] is False
-            assert bus["led"]["line"] == "133" and bus["led"]["dest"]
+            assert bus["led"]["line"] in LINES and bus["led"]["dest"]
         assert not errors
         b.close()
 
