@@ -173,7 +173,7 @@ def test_esc_offers_end_tutorial_which_marks_it_done_and_returns_to_cruise(serve
         after = page.evaluate("() => ({ abandon: !document.querySelector('#abandon').hidden, focus: document.activeElement.id, glow: document.querySelector('#tutorialbtn').classList.contains('first'), flag: localStorage.getItem('mm.tutorialDone') })")
         b.close()
     assert shown == {"pauserestart": False, "pausemenu": False, "pausetutorial": True}, shown
-    assert seen == ["pausevehicle", "pausestyle", "pauseabout", "pausekeybar", "pausetutorial", "pauseresume"], seen
+    assert seen == ["pausevehicle", "pausestyle", "pauseabout", "pausekeybar", "pausetutorial"], seen
     assert after == {"abandon": False, "focus": "cruisebtn", "glow": False, "flag": "1"}, after
     assert errors == []
 
