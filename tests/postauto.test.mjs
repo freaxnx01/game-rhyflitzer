@@ -1,6 +1,7 @@
 // #500: Postautos drive line 133 by the weekday timetable. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { buildGraph, rightOf } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
@@ -355,3 +356,40 @@ test('syncFleet_UnlinkedTrip_BehavesAsBefore', () => {
   assert.equal(fleet[0].key, tripKey(TRIP));
   assert.deepEqual(fleet[0].win, tripWindow(TRIP, tripCalls(TRIP, R), R));
 });
+
+// #763: the guard for the whole timetable -- at no terminus do two Postautos ever stand at once
+const TT = JSON.parse(fs.readFileSync(new URL('../data/timetable_hochrhein.json', import.meta.url), 'utf8'));
+
+// one straight synthetic route per route id: stop spacing sized from the timetable's own call-to-call gap at cruise
+// speed (not a flat distance), so a simulated bus arrives close to its scheduled time -- otherwise a short synthetic
+// last leg finishes minutes early, clears its layover before the next trip's window even opens, and hides the bug
+function synthRoutes(trips) {
+  const out = new Map();
+  for (const t of trips) {
+    if (out.has(t.route)) continue;
+    let s = 0;
+    const stops = t.calls.map((c, i) => { if (i > 0) s += Math.max(50, (c[1] - t.calls[i - 1][2]) * (PA.topKmh / 3.6)); return stop(String(c[0]), s); });
+    const rd = road([[0, 0], [s + 200, 0]]);
+    out.set(t.route, busRoute({ id: t.route, line: t.line, pts: [[0, 0], [s + 200, 0]], stops }, [rd], buildGraph([rd])));
+  }
+  return out;
+}
+function standingAtTerminus(fleet) {
+  const by = new Map();
+  for (const b of fleet) if (b.phase === 'stand' && (b.k === 0 || b.k === b.calls.length - 1)) by.set(b.calls[b.k].uic, (by.get(b.calls[b.k].uic) ?? 0) + 1);
+  return [...by].filter(([, n]) => n > 1);
+}
+for (const [name, dt, factor] of [['real time', 1, 1], ['time-lapse 60x', 1, 60]]) {
+  test(`timetable_NoTwoBusesStandOnTheSameTerminusAtOnce_${name}`, () => {
+    const routes = synthRoutes(TT.trips); let fleet = [];
+    const end = 18.5 * 3600, seen = new Set();
+    for (let now = 5.5 * 3600; now < end; now += dt * factor) {
+      fleet = syncFleet(fleet, TT.trips, routes, now);
+      const { n, h } = fleetSteps(dt * factor);
+      for (const b of fleet) for (let i = 0; i < n; i++) stepBus(b, now + (i + 1) * h, h, null);
+      assert.deepEqual(standingAtTerminus(fleet), [], `at ${now}`);
+      for (const b of fleet) seen.add(b.key);
+    }
+    assert.ok(seen.size <= 4);   // 14 trips make a handful of runs, not 14 buses
+  });
+}
