@@ -212,11 +212,13 @@ export function tripTime(win, now) {
   return null;
 }
 
-// a bus where the timetable says it is at `now` (a trip's window opens, or the clock jumped); null outside the window
-export function placeTrip(trip, route, now, cfg = PA) {
+// a bus where the timetable says it is at `now` (a trip's window opens, or the clock jumped); null outside the window.
+// `win` overrides the trip's own window (#763): a leg inside a run uses the run's contiguous window instead.
+export function placeTrip(trip, route, now, cfg = PA, win = null) {
   const calls = tripCalls(trip, route);
   if (!calls) return null;
-  const win = tripWindow(trip, calls, route, cfg), t = tripTime(win, now);
+  win = win ?? tripWindow(trip, calls, route, cfg);
+  const t = tripTime(win, now);
   if (t === null) return null;
   const n = calls.length, base = { key: tripKey(trip), trip, route, calls, win, shift: t - now, leftAt: -Infinity };
   const stand = (k, until) => ({ ...base, k, phase: 'stand', s: calls[k].s, v: 0, until });
@@ -230,6 +232,16 @@ export function placeTrip(trip, route, now, cfg = PA) {
   const last = calls[n - 1];
   if (!trip.toOutside) return stand(n - 1, last.arr + cfg.layover);
   return t < last.dep ? stand(n - 1, last.dep) : drive(n, Math.min(route.len, last.s + (t - last.dep) * cfg.edgeSpeed));
+}
+
+// the placement of a run (#763) at wall time `now`: the first leg whose window holds it, carrying the run's key and
+// window so the bus is one continuous entity across a turn; null outside every leg's window
+export function placeRun(run, now, cfg = PA) {
+  for (let i = 0; i < run.legs.length; i++) {
+    const leg = run.legs[i], b = placeTrip(leg.trip, leg.route, now, cfg, leg.win);
+    if (b) return { ...b, key: run.key, legs: run.legs, leg: i, win: run.win };
+  }
+  return null;
 }
 
 // ---------- driving (kinematic, A1) ----------
@@ -248,8 +260,19 @@ export function busTarget(route, s, stopS, gap, cfg = PA) {
   return v;
 }
 
+// true while a run's bus still has a later leg to turn into (#763)
+function hasNext(b) { return !!b.legs && b.leg < b.legs.length - 1; }
+
+// the Umlauf: the bus turns while standing -- the next leg's trip, route and calls, re-posed at its first stop (A7)
+function turn(b, t, cfg) {
+  const next = b.legs[++b.leg];
+  Object.assign(b, { trip: next.trip, route: next.route, calls: next.calls, k: 0, s: next.calls[0].s, v: 0, phase: 'stand',
+    until: Math.max(next.calls[0].dep, t + cfg.minDwell), leftAt: -Infinity });
+}
+
 function arrive(b, t, cfg) {
   const stop = b.calls[b.k], last = b.k === b.calls.length - 1 && !b.trip.toOutside;
+  if (last && hasNext(b)) { turn(b, t, cfg); return; }
   b.s = stop.s; b.v = 0; b.phase = 'stand';
   b.until = last ? t + cfg.layover : Math.max(stop.dep, t + cfg.minDwell);
 }
@@ -295,16 +318,16 @@ export function obstacleGap(route, s, player, cfg = PA) {
 }
 
 // ---------- the fleet ----------
-// the buses for `now`: running ones kept, finished ones kept (hidden) until their window closes so they are not placed
-// again, a new bus for every trip whose window is open; at most cfg.maxBuses running
+// the buses for `now`: running ones kept, finished ones kept (hidden) until their run's window closes so they are not
+// placed again, a new bus for every run whose window is open; at most cfg.maxBuses running. A run (#763) is the chain
+// of same-line trips one bus drives: the key and window are the run's, so a bus that turns at a terminus is one entity.
 export function syncFleet(buses, trips, routes, now, cfg = PA) {
   const kept = buses.filter((b) => b.phase !== 'done' || tripTime(b.win, now) !== null), have = new Set(kept.map((b) => b.key));
   let running = kept.filter((b) => b.phase !== 'done').length;
-  for (const trip of trips) {
+  for (const run of fleetRuns(trips, routes, cfg)) {
     if (running >= cfg.maxBuses) break;
-    const route = routes.get(trip.route);
-    if (!route || have.has(tripKey(trip))) continue;
-    const b = placeTrip(trip, route, now, cfg);
+    if (have.has(run.key)) continue;
+    const b = placeRun(run, now, cfg);
     if (!b) continue;
     kept.push(b); have.add(b.key); running++;
   }
