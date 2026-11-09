@@ -8,7 +8,7 @@ import { BUS } from './bus.js';
 export const PA = {
   topKmh: 60, junctionKmh: 30, junctionBefore: 10, junctionAfter: 5,   // A4
   accel: 1.2, brake: 2, hardBrake: 5, arrive: 0.5,
-  minDwell: 10, spawnBefore: 90, layover: 60, edgeSpeed: 12,             // A5
+  minDwell: 10, spawnBefore: 90, layover: 60, edgeSpeed: 12, turnMax: 900,   // A5, #763 A4
   pullIn: 25, pullOut: 15, kerbGap: 0.3, pullOutSecs: 4,                 // A6
   look: 40, sideClear: 0.5, gap: 2, above: 3,                            // A7
   maxBuses: 8, resync: 5, reach: 2,
@@ -159,6 +159,50 @@ export function tripWindow(trip, calls, route, cfg = PA) {
     from: trip.fromOutside ? first.arr - first.s / cfg.edgeSpeed : first.dep - cfg.spawnBefore,
     to: trip.toOutside ? last.dep + (route.len - last.s) / cfg.edgeSpeed : last.arr + cfg.layover,
   };
+}
+
+// ---------- the Umlauf (#763): the bus that arrives at a terminus runs the line's next trip from there ----------
+const firstDep = (t) => t.calls[0][2], lastArr = (t) => t.calls[t.calls.length - 1][1];
+
+// for each trip that ends at a terminus (!toOutside), the same line's next trip from that stop within cfg.turnMax,
+// earliest departure first, one predecessor per trip (A5)
+export function linkTrips(trips, cfg = PA) {
+  const next = new Map(), taken = new Set();
+  for (const a of [...trips].sort((x, y) => lastArr(x) - lastArr(y))) {
+    if (a.toOutside) continue;
+    const uic = String(a.calls[a.calls.length - 1][0]);
+    const b = trips.filter((t) => t !== a && !taken.has(tripKey(t)) && !t.fromOutside && t.line === a.line
+      && String(t.calls[0][0]) === uic && firstDep(t) >= lastArr(a) && firstDep(t) - lastArr(a) <= cfg.turnMax)
+      .sort((x, y) => firstDep(x) - firstDep(y))[0];
+    if (!b) continue;
+    next.set(tripKey(a), b); taken.add(tripKey(b));
+  }
+  return next;
+}
+
+const fleetRunsCache = new WeakMap();
+
+// the runs a fleet drives: a run is the chain of same-line trips one bus drives (A1, A6), with contiguous windows
+// split at the timetable arrival; unlinked trips are a run of one leg (A11). Memoised per `trips` array (#726: syncFleet
+// runs every second), recomputed when `routes` or `cfg` differ.
+export function fleetRuns(trips, routes, cfg = PA) {
+  const cached = fleetRunsCache.get(trips);
+  if (cached && cached.routes === routes && cached.cfg === cfg) return cached.runs;
+
+  const valid = trips.filter((t) => routes.has(t.route) && tripCalls(t, routes.get(t.route)));
+  const links = linkTrips(valid, cfg), hasPrev = new Set(links.values());
+  const runs = [];
+  for (const first of valid) {
+    if (hasPrev.has(first)) continue;
+    const chain = [first];
+    for (let next = links.get(tripKey(first)); next; next = links.get(tripKey(next))) chain.push(next);
+    const legs = chain.map((trip) => { const route = routes.get(trip.route), calls = tripCalls(trip, route); return { trip, route, calls, win: tripWindow(trip, calls, route, cfg) }; });
+    for (let i = 1; i < legs.length; i++) legs[i].win = { ...legs[i].win, from: lastArr(legs[i - 1].trip) };
+    for (let i = 0; i < legs.length - 1; i++) legs[i].win = { ...legs[i].win, to: lastArr(legs[i].trip) };
+    runs.push({ key: tripKey(chain[0]), legs, win: { from: legs[0].win.from, to: legs[legs.length - 1].win.to } });
+  }
+  fleetRunsCache.set(trips, { routes, cfg, runs });
+  return runs;
 }
 
 // the trip's own clock for wall time `now`: a trip past midnight runs on the service day (> 86400), one spawning before a

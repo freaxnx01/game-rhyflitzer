@@ -5,7 +5,7 @@ import { buildGraph, rightOf } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
   busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText,
-  driveLine, drivePoint, lanePoint } from '../postauto.js';
+  driveLine, drivePoint, lanePoint, linkTrips, fleetRuns } from '../postauto.js';
 import { fleetSteps } from '../paclock.js';   // #726
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -247,4 +247,42 @@ test('obstacleGap_InABend_FollowsTheBusLane', () => {
   const R5 = bendRoute([[0, 0], [100, 0], [100, 100]]);
   const [lx, lz] = lanePoint(R5, 105);   // a player standing exactly on the bus's lane, ahead
   assert.ok(obstacleGap(R5, 90, { x: lx, z: lz, r: 1 }) !== null);
+});
+
+// #763: the Umlauf -- the bus that arrives at a terminus runs the line's next trip from there
+const leg = (line, from, to, arr, dep, route = 1) => ({ line, route, to: 'Z' + to, fromOutside: false, toOutside: false,
+  calls: [[from, dep - 100, dep], ['2', dep + 100, dep + 100], [to, arr, arr]] });
+
+test('linkTrips_SameLineSameStopWithinLimit_Links', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1240, 1300);
+  assert.equal(linkTrips([a, b]).get(tripKey(a)), b);
+});
+test('linkTrips_OtherLine_DoesNotLink', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = leg('143', '3', '1', 1240, 1300);
+  assert.equal(linkTrips([a, b]).size, 0);
+});
+test('linkTrips_BeyondTurnMaxOrWrongStopOrOutside_DoesNotLink', () => {
+  const a = leg('133', '1', '3', 1000, 800);
+  assert.equal(linkTrips([a, leg('133', '3', '1', 2000, 1000 + PA.turnMax + 1)]).size, 0);
+  assert.equal(linkTrips([a, leg('133', '9', '1', 1240, 1300)]).size, 0);
+  assert.equal(linkTrips([a, { ...leg('133', '3', '1', 1240, 1300), fromOutside: true }]).size, 0);
+  assert.equal(linkTrips([{ ...a, toOutside: true }, leg('133', '3', '1', 1240, 1300)]).size, 0);
+  assert.equal(linkTrips([a, leg('133', '3', '1', 990, 990)]).size, 0);   // departs before the arrival
+});
+test('linkTrips_TwoCandidates_EarliestDepartureWinsAndOnePredecessorEach', () => {
+  const a1 = leg('133', '1', '3', 1000, 800), a2 = leg('133', '1', '3', 1100, 900);
+  const b1 = leg('133', '3', '1', 1200, 1250), b2 = leg('133', '3', '1', 1400, 1450);
+  const m = linkTrips([a1, a2, b1, b2]);
+  assert.equal(m.get(tripKey(a1)), b1); assert.equal(m.get(tripKey(a2)), b2);
+});
+test('fleetRuns_LinkedTrips_OneRunWithContiguousWindowsAtTheArrival', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1240, 1300), c = leg('133', '1', '3', 2300, 2200);   // c far enough past b's arrival (1240) to stay unlinked
+  const runs = fleetRuns([b, a, c], new Map([[1, R]]));
+  assert.equal(runs.length, 2);                                   // a -> b chained, c alone
+  const run = runs.find((r) => r.key === tripKey(a));
+  assert.equal(run.legs.length, 2);
+  assert.equal(run.legs[0].win.to, 1000); assert.equal(run.legs[1].win.from, 1000);   // split at the arrival
+  assert.equal(run.win.from, run.legs[0].win.from); assert.equal(run.win.to, run.legs[1].win.to);
+  assert.deepEqual(fleetRuns([a], new Map([[1, R]]))[0].legs[0].win, tripWindow(a, tripCalls(a, R), R));   // unlinked: as today
+  assert.equal(fleetRuns([a, b], new Map()).length, 0);          // unknown route: no run
 });
