@@ -199,7 +199,7 @@ def test_delorean_has_fixed_paint_and_its_own_texts_and_bars(server):
         back = page.evaluate("() => ({ disabled: [...document.querySelectorAll('#cspaints button')].some(b => b.disabled), paintable: window.__mm.carsel().paintable })")
         b.close()
     assert fixed == {"disabled": True, "name": "fixed", "paintable": False}
-    assert texts["count"] == "Car 2 of 21" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class B" and texts["desc"].startswith("Brushed steel")
+    assert texts["count"] == "Car 2 of 21" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class C" and texts["desc"].startswith("Brushed steel")
     assert [b["score"] for b in bars] == [7, 5, 7, 3], bars
     assert back == {"disabled": False, "paintable": True}
     assert errors == []

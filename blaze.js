@@ -9,6 +9,7 @@
 import { SIREN } from './siren.js';
 
 export const BLAZE = {
+  type: 'utility',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'blaze', url: './assets/blaze.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[1.892, 1.11], [-1.892, 0.989]], wheelR: 0.478,   // the model's own wheel nodes: front x 1.892 |z| 1.11, rear x -1.892 |z| 0.989 (twins), r 0.478
   drive: { top: 27.8, topNitro: 36, accel: 4.5, accelNitro: 10, brake: 10, reverse: 3, reverseMax: 5, grip: 6.5, gripHandbrake: 1.5, steerRate: 1.6, airSteer: 0.2 },

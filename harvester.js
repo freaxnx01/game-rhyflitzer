@@ -6,6 +6,7 @@
 // the unloading auger, the header 9.9 m wide (wider than the collision: it sweeps over kerbs and hedges), big front tyres, small
 // steering rear wheels (here the front ones steer, as on every car in the game). Slow and heavy, but it turns tightly.
 export const HARVESTER = {
+  type: 'utility',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'harvester', url: './assets/harvester.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'meadow',
   wheels: [[1.554, 1.324], [-1.554, 1.273]], wheelR: 0.9,   // the model's own wheel nodes: x ±1.554, |z| 1.324 / 1.273, r 0.9 front / 0.753 rear
   drive: { top: 11.1, topNitro: 16, accel: 2.5, accelNitro: 6, brake: 7, reverse: 2.5, reverseMax: 4, grip: 6, gripHandbrake: 1.5, steerRate: 2.0, airSteer: 0.2 },

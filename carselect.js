@@ -168,3 +168,29 @@ export function thumbKey(id, paint, canPaint) { return canPaint ? `${id}|${paint
 
 // the next car to photograph: the current one first, then table order; cached (has) and not yet loaded (ready) cars are skipped
 export function nextThumb(ids, current, has, ready) { return [current, ...ids].find(id => ids.includes(id) && !has(id) && ready(id)) ?? null; }
+
+// ---- #493: type chips and the power class ----
+// a vehicle's type (def.type) is what the gallery's chips filter by; one without a known type shows under all only
+export const VEHICLE_TYPES = ['everyday', 'sport', 'utility', 'screen'];
+
+// the top-speed and acceleration bars added up (2..20): the power the class letter and the gallery's order go by
+const powerScore = (def) => { const b = statBars(def); return b.top + b.accel; };
+
+// the class letter, computed from the drive values instead of written by hand: A 17+, B 14+, C 10+, D below
+export function powerClass(def) {
+  const s = powerScore(def);
+  return s >= 17 ? 'A' : s >= 14 ? 'B' : s >= 10 ? 'C' : 'D';
+}
+
+// the class line under a name: the type name from the strings, then the computed class
+export function classLine(tr, id, def) {
+  const kind = vehicleText(tr, id, 'class'), cls = tr('powerClass', powerClass(def));
+  return kind ? `${kind} · ${cls}` : cls;
+}
+
+// the gallery's tiles: the vehicles of one type ('all' for every one), strongest first, table order on a tie
+export function galleryOrder(ids, defs, type) {
+  if (type !== 'all' && !VEHICLE_TYPES.includes(type)) throw new Error(`galleryOrder: unknown type ${type}`);
+  const score = new Map(ids.map(id => [id, powerScore(defs[id])]));
+  return ids.filter(id => type === 'all' || defs[id].type === type).sort((a, b) => score.get(b) - score.get(a));
+}
