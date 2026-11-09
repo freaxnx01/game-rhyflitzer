@@ -50,23 +50,38 @@ def on_foot_at(page, x, z, th, y):
 
 
 @needs_world
-def test_e_at_the_door_says_the_stair_is_open(server):
+def test_e_at_the_door_jumps_up_to_the_deck_and_e_at_the_stair_back_down(server):
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
         plat = plattform(page)
-        ex, ez = polar(page, 0, 2.0)   # plattformEntrance: r 2.0 on the door side
+        ex, ez = polar(page, 0, 2.0)
         on_foot_at(page, ex, ez, plat["facing"] + math.pi, plat["base"])
-        page.wait_for_function("() => window.__mm.enterables.prompt() === 'plattform-sisslerfeld'", timeout=120000)   # the prompt needs one rendered frame (stepEnter); headless draws under 1 fps
-        before = page.evaluate("() => window.__mm.toast()")
+        page.wait_for_function("() => window.__mm.platHop() === 'up'", timeout=120000)   # one rendered frame; headless draws under 1 fps
+        prompt = page.evaluate("() => window.__mm.keybar().action")
         key(page, "e", 300)
-        toast = page.evaluate("() => window.__mm.toast()")
-        lang = page.evaluate("() => window.GG_LANG || 'en'")
+        up = page.evaluate("() => ({ ...window.__mm.foot(), hop: window.__mm.platHop() })")
+        page.wait_for_function("() => window.__mm.platHop() === 'down'", timeout=120000)
+        key(page, "e", 300)
+        down = page.evaluate("() => ({ ...window.__mm.foot(), hop: window.__mm.platHop() })")
         b.close()
     assert errors == []
-    assert before["shown"] is False, before   # the on-foot hint has made way for the prompt
-    assert toast["shown"] is True, toast
-    expected = "Die Treppe ist offen -- einfach hineingehen" if lang == "de" else "The stair is open -- just walk in"
-    assert toast["text"] == expected, toast
+    assert prompt == "up", prompt
+    assert abs(up["y"] - plat["deckY"]) < 0.3 and up["hop"] == "down", up
+    assert abs(down["y"] - plat["base"]) < 0.3 and down["hop"] == "up", down
+    assert math.hypot(down["x"] - ex, down["z"] - ez) < 1.5, down
+
+
+@needs_world
+def test_hover_at_the_door_offers_no_hop_and_the_stair_still_works(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        plat = plattform(page)
+        ex, ez = polar(page, 0, 2.0)
+        on_foot_at(page, ex, ez, plat["facing"] + math.pi, plat["base"])
+        page.evaluate("() => { window.__mm.setFootY(window.__mm.plattform().base + 3); }")   # mid-stair height
+        none = page.evaluate("() => window.__mm.platHop()")
+        b.close()
+    assert none is None and errors == []
 
 
 @needs_world
