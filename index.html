@@ -124,6 +124,8 @@ body.tutorial #tr{display:none}#tutorialbtn.first{outline:4px solid var(--sun);o
    and the arrow row sits under the plates, clear of the pause/radio column on the right */
 @media (max-width:600px){
   #map{width:200px;height:100px}
+  /* #773: the heading joins N ↑ in the map bar -- two tight lines instead of one bar wide enough to reach over the speedo */
+  #br .bar{flex-wrap:wrap}#br .bar b{margin-left:auto}
   #tl{min-width:0;max-width:calc(100vw - 32px - 8px - 140px)}
   #tl .mode{font-size:13px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #tr{min-width:0;max-width:140px}#best{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
