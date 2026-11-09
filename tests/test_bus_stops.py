@@ -80,3 +80,22 @@ def test_stops_lay_out_clear_of_the_standing_bus_at_ruetti(server):
             assert clearance(px, pz, bus) >= 0.5 - 1e-6, (stop["name"], px, pz, bus)
         assert not errors
         b.close()
+
+
+@needs_data
+def test_car_stops_at_a_shelter_instead_of_driving_through(server):
+    with sync_playwright() as p:
+        b, page = open_paused(p, server)
+        stop = next(s for s in page.evaluate("() => window.__mm.busStops()") if s["uic"] == RUETTI)
+        sx, sz, yaw = stop["shelter"]["x"], stop["shelter"]["z"], stop["yaw"]
+        nx, nz = -math.sin(yaw), math.cos(yaw)                     # away from the road, through the shelter
+        hd = 1.8 / 2
+        start = (sx - nx * (hd + 8), sz - nz * (hd + 8))           # on the road side, nose at the shelter
+        page.evaluate("([x, z, th]) => window.__mm.place(x, z, th)", [*start, math.atan2(nz, nx)])
+        page.evaluate("() => window.__mm.driveSim(4, ['ArrowUp'])")
+        car = page.evaluate("() => window.__mm.car()")
+        depth = (car["x"] - sx) * nx + (car["z"] - sz) * nz        # along n from the shelter centre
+        moved = (car["x"] - start[0]) * nx + (car["z"] - start[1]) * nz
+        b.close()
+    assert moved > 3, f"the car did not drive towards the shelter ({moved:.2f} m)"
+    assert depth < -hd, f"the car centre is {depth:.2f} m along n -- inside or past the shelter (face at {-hd})"
