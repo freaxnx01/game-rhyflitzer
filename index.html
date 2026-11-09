@@ -780,6 +780,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor 
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
+import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor } from './radio.js';   // #735
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -3866,7 +3867,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; } const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -3902,7 +3903,7 @@ document.getElementById('stylebtn').onclick = toggleStyle; document.getElementBy
 
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
-  let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set();   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other
+  let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set(); const holdFns = [];   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other.   #735: the radio follows every hold
   const knockAt = {}, kn = { played: 0, last: null }, gate = { t: -Infinity, s: 0 }, rec = { count: 0, last: null };   // #104: the crash retrigger gate, and what it let through (for the tests)
   const steps = { count: 0 }; let tyreAt = -1, siren = null; const tyreHits = { count: 0, last: null };   // #416
   const bv = new Map();   // #709: bus key -> { eng, es }, the Postauto engine voices
@@ -3941,7 +3942,9 @@ const SFX = (() => {
     sirenState() { return siren ? { freq: siren.freq } : null; },   // #462: the loco's two-tone whistle
     chuff() { burst(0.16, 380, 0.9, 0.18); },   // #462: one chuff of the cylinders, a short low steam burst
     toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
-    hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
+    graph() { const a = ctx(); return { ac: a, master: a.master }; },   // #735: the radio routes its <audio> elements into the master (so M mutes it too)
+    onHold(fn) { holdFns.push(fn); },
+    hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); for (const fn of holdFns) fn(holds.size > 0); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
     // #709: one engine voice per audible Postauto (the bus preset), level scaled by distance; a voice that drops out of the list fades and is freed
     busEngines(list, dt) {
       if (!ac) return;
@@ -3960,6 +3963,89 @@ const SFX = (() => {
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
+// #735: the car radio -- Rhyflitzer FM (the four tracks in assets/music) or SRF 3 live -- and the start screen's menu music.
+// Three <audio> elements, made on first use (preload none: nothing is fetched before a src is set), each through its own gain
+// into the SFX master. A run is on while R.state is not 'ready' (the result screen keeps the radio); tick() notices the change.
+const RADIO = (() => {
+  const load = (k, from) => { let v = null; try { v = localStorage.getItem(k); } catch (e) { } return from(v); };
+  const save = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { } };
+  const S = { on: load(RADIO_STORE.on, radioOnFrom), station: load(RADIO_STORE.station, stationFrom), vol: load(RADIO_STORE.vol, volumeFrom),
+    menuOn: load(RADIO_STORE.menu, menuMusicOnFrom), track: 0, inRun: false, menuArmed: false, held: false, failed: 0 };
+  const els = {}; let watch = null;
+  const now = () => performance.now() / 1000;
+  function voice(name) {
+    if (els[name]) return els[name];
+    const { ac, master } = SFX.graph(), el = new Audio(); el.crossOrigin = 'anonymous'; el.preload = 'none';
+    const gain = ac.createGain(); gain.gain.value = 0; ac.createMediaElementSource(el).connect(gain); gain.connect(master);
+    const v = els[name] = { el, gain, want: false };
+    if (name === 'fm') el.addEventListener('ended', () => { S.track = nextTrack(S.track); apply(); });
+    if (name === 'srf') {
+      el.addEventListener('playing', () => { if (watch) { watch.playing = true; watch.waitingSince = null; } });
+      for (const ev of ['waiting', 'stalled']) el.addEventListener(ev, () => { if (watch && watch.waitingSince === null) watch.waitingSince = now(); });
+      el.addEventListener('error', () => { if (watch) watch.error = true; });   // offline, blocked, a failed CORS check (crossorigin)
+    }
+    return v;
+  }
+  const level = (v, g) => v.gain.gain.setTargetAtTime(g, SFX.graph().ac.currentTime, 0.1);
+  function start(v) { v.want = true; const p = v.el.play(); if (p && p.catch) p.catch(() => { }); }   // a refused or interrupted play() never throws
+  function fadeOut(name) { const v = els[name]; if (!v || !v.want) return; v.want = false; level(v, 0); setTimeout(() => { if (!v.want) v.el.pause(); }, 500); }
+  function playFm() { const v = voice('fm'), t = TRACKS[S.track]; if (!v.el.src.endsWith(t.src)) v.el.src = t.src; level(v, trackGain(S.vol, t.gainDb)); start(v); }
+  function playSrf() { const v = voice('srf'); v.el.src = SRF3_URL; level(v, trackGain(S.vol)); watch = { since: now(), playing: false, waitingSince: null, error: false }; start(v); }
+  function stopSrf() { watch = null; const v = els.srf; if (!v) return; v.want = false; v.el.pause(); if (v.el.getAttribute('src')) { v.el.removeAttribute('src'); v.el.load(); } }   // drop the src: a paused live stream would keep downloading
+  function playMenu() { const v = voice('menu'); if (!v.el.getAttribute('src')) { v.el.src = MENU_TRACK.src; v.el.loop = true; } level(v, menuGain(S.vol)); start(v); }
+  // what plays follows from the state alone; every command and every run change ends here
+  function apply() {
+    if (S.held) return;
+    const radio = S.inRun && S.on;
+    if (radio && S.station === 'fm') playFm(); else fadeOut('fm');
+    if (radio && S.station === 'srf3') { if (!watch) playSrf(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
+    if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else fadeOut('menu');
+  }
+  const nowText = () => { const d = displayFor(S); return '📻 ' + tr(d.key, ...d.args); };
+  function fail() {   // SRF 3 did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
+    stopSrf(); S.station = 'fm'; S.failed++; save(RADIO_STORE.station, 'fm'); apply(); radioShow('📻 ' + tr('radioSrfFail'));
+  }
+  function menuCmd(action) {   // on the start screen only 5 does something: the menu music on / off
+    if (action !== 'power') return;
+    S.menuOn = !S.menuOn; S.menuArmed = true; save(RADIO_STORE.menu, S.menuOn ? 1 : 0); apply(); renderMusicBtn(); radioShow('📻 ' + tr(S.menuOn ? 'menuMusicOn' : 'menuMusicOff'));
+  }
+  function cmd(action) {
+    if (!S.inRun) { menuCmd(action); return; }
+    if (action === 'power') { S.on = !S.on; save(RADIO_STORE.on, S.on ? 1 : 0); }
+    if (action === 'station') { S.station = S.station === 'fm' ? 'srf3' : 'fm'; S.on = true; save(RADIO_STORE.station, S.station); save(RADIO_STORE.on, 1); }
+    if (action === 'next' && S.station === 'fm') S.track = nextTrack(S.track);
+    if (action === 'prev' && S.station === 'fm') S.track = prevTrack(S.track);
+    if (action === 'down' || action === 'up') { S.vol = stepVolume(S.vol, action === 'up' ? 1 : -1); save(RADIO_STORE.vol, S.vol); }
+    apply();
+    radioShow(action === 'down' || action === 'up' ? '📻 ' + tr('radioVolume', S.vol * 10) : nowText());
+  }
+  SFX.onHold((held) => {   // pause menu, hidden tab: everything stops; on release FM goes on where it was, SRF 3 reloads (live, not time-shifted)
+    if (held === S.held) return;
+    S.held = held;
+    if (held) { for (const v of Object.values(els)) v.el.pause(); stopSrf(); return; }
+    apply();
+  });
+  return {
+    cmd,
+    tick() {
+      const run = R.state !== 'ready';
+      if (run !== S.inRun) { S.inRun = run; apply(); if (run && S.on) radioShow(nowText()); }
+      if (watch && !S.held && srfVerdict(watch, now()) === 'fail') fail();
+    },
+    armMenu() { if (S.menuArmed) return; S.menuArmed = true; apply(); },   // the first input after loading: only now is the menu track fetched
+    menuOn: () => S.menuOn,
+    state() {
+      const p = (n) => !!els[n] && !els[n].el.paused, src = (n) => (els[n] && els[n].el.getAttribute('src')) || null;
+      return { on: S.on, station: S.station, track: S.track, vol: S.vol, menuOn: S.menuOn, inRun: S.inRun, menuArmed: S.menuArmed, held: S.held, failed: S.failed,
+        playing: { fm: p('fm'), srf: p('srf'), menu: p('menu') }, src: { fm: src('fm'), srf: src('srf'), menu: src('menu') } };
+    },
+  };
+})();
+function radioKey(e) {   // #735: 5-0 are the radio (start screen: 5 = menu music). The lift pads have consumed their digits before this
+  const action = radioKeyAction(e); if (!action) return false;
+  e.preventDefault(); if (action !== 'ignore') RADIO.cmd(action); return true;
+}
+function renderMusicBtn() { }   // #735: replaced in the start-screen wiring below
 
 // ---------- car state & physics ----------
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, hinted: false, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
@@ -4676,6 +4762,7 @@ window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the 
 // drive headless: step the car and the race at 1/60 s while the autopilot is on, at most secs seconds
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
+window.__mm.radio = () => RADIO.state();   // #735
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
 window.__mm.sfxCrashes = () => SFX.crashes();
@@ -5042,6 +5129,7 @@ const TOAST_S = { info: 4, event: 5, surprise: 10 };   // key presses 4 s, game 
 let toastT = 0;
 function showToast(secs) { $('toast').classList.add('show'); toastT = secs; }
 function toast(text, secs = TOAST_S.info) { $('toast').classList.remove('big'); $('toast').textContent = text; showToast(secs); }
+function radioShow(text) { toast(text, RADIO_SHOW_S); }   // #735: temporary, until the radio display task lands
 function toastHtml(html, secs = TOAST_S.info) { $('toast').classList.remove('big'); $('toast').innerHTML = html; showToast(secs); }
 function toastBig(text, secs = TOAST_S.surprise) { $('toast').textContent = text; $('toast').classList.add('big'); showToast(secs); }   // #660: the viewpoint arrival, readable from the deck
 window.__mm.toast = () => ({ text: $('toast').textContent, shown: $('toast').classList.contains('show'), left: toastT });
@@ -5051,7 +5139,7 @@ const RACELESS = !!REGION.generated && !REGION.race;
 let START_MODE = startModeFrom(location.search, RACELESS, VIEWPOINTS.length > 0, !TUT_ON || tutorialDoneStored());   // #551: cruise unless ?mode= names another one; #508: the viewpoint hunt only where the world has viewpoints; #534: the tutorial on a first visit
 R.mode = START_MODE;
 const startPose = (mode) => mode === 'tutorial' && TUT_ON ? [TUT_DEF.start.x, TUT_DEF.start.z, TUT_DEF.start.th] : [START.x, START.z, START.th];   // #534: the tutorial starts on the Geuerenstrasse, west of the Plattform
-function startRace(mode = 'trial', rng = Math.random) { if (RACELESS && mode !== 'cruise') mode = 'hunt'; R.mode = mode; trackModeStart(mode); try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = hasCheckpoints(mode); } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = startPose(mode); clearNavi(); if (KNOCK) KNOCK.resetCount(); /* #415 */ leaveBelow(); /* #504: a restart in a room below kept its level */ resetCar(); camPos.set(P.x + (mode === 'tutorial' ? -12 : 12), P.y + 5, P.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); startViewRun(); startTutorialRun(); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); if (mode === 'view') toast(tr('viewStart'), TOAST_S.event); }
+function startRace(mode = 'trial', rng = Math.random) { if (RACELESS && mode !== 'cruise') mode = 'hunt'; R.mode = mode; trackModeStart(mode); try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = hasCheckpoints(mode); } finishG.visible = false; R.done = 0; R.t = 0; R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = startPose(mode); clearNavi(); if (KNOCK) KNOCK.resetCount(); /* #415 */ leaveBelow(); /* #504: a restart in a room below kept its level */ resetCar(); camPos.set(P.x + (mode === 'tutorial' ? -12 : 12), P.y + 5, P.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); startViewRun(); startTutorialRun(); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); if (mode === 'view') toast(tr('viewStart'), TOAST_S.event); RADIO.tick(); }
 function startHuntRun(hunt, rng, cands = PRESENT_CANDS) { const spots = hunt ? pickPresentSpots(cands, START, rng).map(s => ({ ...s, y: groundH(s.x, s.z) })) : []; HUNT_RUN = { spots, found: spots.map(() => false), bag: [], rng, endIn: 0 }; presentObjs.forEach((o, i) => { const s = spots[i]; o.g.visible = !!s; if (s) o.g.position.set(s.x, s.y, s.z); }); confetti.parts = []; confetti.pts.visible = false; }
 const modeKey = () => R.mode === 'tutorial' ? 'modeTutorial' : R.mode === 'cruise' ? 'modeCruise' : R.mode === 'view' ? 'modeView' : R.mode === 'hunt' ? 'modeHunt' : R.mode === 'blitz' ? 'modeBlitz' : 'mode';   // #7: the car screen's subtitle shows the same mode; #534: the tutorial's line
 function renderModeLine() { document.body.classList.toggle('cruise', R.mode === 'cruise'); document.body.classList.toggle('tutorial', R.mode === 'tutorial'); const hunt = R.mode === 'hunt', view = R.mode === 'view', blitz = R.mode === 'blitz', tut = R.mode === 'tutorial'; $('tl').querySelector('.mode').textContent = tr(modeKey(), REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : view ? 'viewsLabel' : tut ? 'tutStepsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : view ? VIEWPOINTS.length : tut ? TUT_RUN.st.steps.length - 1 : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's; #534: the tutorial counts its steps
@@ -5355,7 +5443,7 @@ function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; if (do
 function closePause() { if (!PAUSE.on) return; if (CARSEL.swap) restoreVehicleSwap(); /* every exit from the pause undoes an open vehicle change (#189) */ PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
 function restartRace() { closePause(); startRace(R.mode); }
 function resetMode() { R.mode = START_MODE; R.left = 0; R.timeUp = false; SURP = { turbo: 0, moon: 0 }; startHuntRun(false, Math.random); startViewRun(); startTutorialRun(); }   // #551: back to the preselected mode: no Blitz clock, no boxes, no confetti, no surprise running; every way out to the start screen calls this; #508: no viewpoint run either; #534: no tutorial run either
-function toMainMenu() { if (R.state === 'racing' || R.state === 'armed') trackModeEnd('abandoned'); closePause(); R.state = 'ready'; R.t = 0; resetMode(); clearNavi(); P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderModeLine(); renderOverlay(); $('overlay').hidden = false; focusStart(); }   // the run is abandoned, never recorded; R.best untouched
+function toMainMenu() { if (R.state === 'racing' || R.state === 'armed') trackModeEnd('abandoned'); closePause(); R.state = 'ready'; R.t = 0; resetMode(); clearNavi(); P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderModeLine(); renderOverlay(); $('overlay').hidden = false; focusStart(); RADIO.tick(); }   // the run is abandoned, never recorded; R.best untouched
 // A3 (user decision 2026-10-03): with the clock running, ask first; 'armed' goes straight back
 function chooseMainMenu() { if (needsAbandonConfirm(R.state)) openAbandon(); else toMainMenu(); }
 function openAbandon() { PAUSE.confirm = true; $('pause').hidden = true; $('abandon').hidden = false; $(ABANDON_BUTTONS[0]).focus(); }
@@ -5913,6 +6001,10 @@ umamiTrack('game-ready', { region: regionId(REGION), lang: window.GG_LANG || 'en
 setInterval(() => { const now = performance.now(); STATS.vehicle.update(CHOICE.id, now); STATS.activity.update(activityOf({ train: TRAIN.on, level: LEVELS.id, indoors: INT.indoors, house: INT.house, foot: FOOT.on, fly: FLY.on }), now); }, 1000);
 addEventListener('gg-langchange', (e) => umamiTrack('lang', { lang: e.detail.lang }));
 endLoading();
+// #735: the menu music's file is fetched on the first input after loading, never during it; tick() follows run start / end and the SRF 3 watchdog
+addEventListener('pointerdown', () => RADIO.armMenu(), { once: true });
+addEventListener('keydown', () => RADIO.armMenu(), { once: true });
+setInterval(() => RADIO.tick(), 500);
 requestAnimationFrame(loop);
 
 /* #170: the curated worlds from the API. Not awaited: play never waits for the gallery; any failure leaves the row
