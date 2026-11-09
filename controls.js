@@ -62,7 +62,7 @@ export function actionFor(context, code) {
   return hit ? hit.action : null;
 }
 
-const CONTEXT_LABELS = { enter: 'barEnter', leave: 'barLeave', lift: 'barLift' };
+const CONTEXT_LABELS = { enter: 'barEnter', leave: 'barLeave', lift: 'barLift', up: 'barHopUp', down: 'barHopDown' };
 export const contextLabel = (action) => CONTEXT_LABELS[action] ?? null;
 
 export function barEntries(context, contextAction = null) {
@@ -85,10 +85,11 @@ export function conflicts() {
   return out;
 }
 
-// E on foot: the lift (inside, at the lift gap) wins over leaving, leaving (anywhere else inside) over a glowing door
-export function contextKeyAction({ liftPrompt, indoors, doorPrompt }) {
+// E on foot: the lift (inside, at the lift gap) wins over leaving, leaving over a hop (#701: up / down the Plattform) over a glowing door
+export function contextKeyAction({ liftPrompt, indoors, doorPrompt, hop = null }) {
   if (liftPrompt) return 'lift';
   if (indoors) return 'leave';
+  if (hop) return hop;
   return doorPrompt ? 'enter' : null;
 }
 

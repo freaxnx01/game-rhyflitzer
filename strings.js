@@ -170,11 +170,12 @@ const en = {
   tutStepNitro: (how) => `Hold ${how} for nitro, one second`,
   tutStepJump: (how) => `Press ${how}, type “Plattform” and pick Plattform Sisslerfeld`,
   tutStepGetOut: (how) => `Get out with ${how}`,
-  tutStepClimb: (how) => `Walk with ${how} through the door and up the stair onto the deck`,
+  tutStepClimb: (how) => `Walk with ${how} through the door and up the stair onto the deck, or press E at the door to jump up`,   // #701
+  tutStepClimbTouch: (how) => `Walk with ${how} through the door and up the stair onto the deck, or tap the button at the door to jump up`,
   tutStepPhoto: (how) => `Face the DSM chimney (follow the arrow) and take a photo with ${how}`,
   tutStepGetIn: (how) => `Walk back to your car and get in with ${how}`,
-  tutStepDown: (how) => `Walk with ${how} to the stair (follow the arrow) and down. To look around: click and move the mouse`,
-  tutStepDownTouch: (how) => `Walk with ${how} to the stair (follow the arrow) and down. To look around: swipe across the picture`,
+  tutStepDown: (how) => `Walk with ${how} to the stair (follow the arrow) and down, or press E at the stair to jump down. To look around: click and move the mouse`,
+  tutStepDownTouch: (how) => `Walk with ${how} to the stair (follow the arrow) and down, or tap the button at the stair to jump down. To look around: swipe across the picture`,
   tutStairTarget: 'Stair down',
   tutNeedCar: (how) => `Get back in the car first: ${how}`,
   tutNeedFoot: (how) => `Get out first: ${how}`,
@@ -216,6 +217,8 @@ const en = {
   steam: 'Steam',
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Enter',
+  hopUpPrompt: 'E · Up to the deck',   // #701
+  hopDownPrompt: 'E · Down',
   enterSoon: 'Not enterable yet',
   ridePrompt: 'E · Ride the Ferris wheel',   // #516
   rideExit: 'E · Get out',
@@ -226,6 +229,7 @@ const en = {
   keyEnter: 'on foot, at a glowing door: enter',
   keyTrain: 'in the steam loco (Z at Bahnhof Sisseln): W steam, S brake / reverse, Q · E the next switch left · right, H whistle, C view, R back to the station, A · D turn on the turntable',
   keyLeave: 'inside a building: straight out, in front of the entrance',
+  keyHop: 'Plattform Sisslerfeld: at the door up to the deck, on the deck at the stair down to the door',   // #701
   // ---- the lift of an enterable building (#411) ----
   liftCall: 'E · call the lift',
   liftPadTitle: 'Lift',
@@ -298,6 +302,8 @@ const en = {
   barEnter: 'enter',
   barLeave: 'go out',
   barLift: 'lift',
+  barHopUp: 'up to the deck',   // #701
+  barHopDown: 'down',
   menuSignalLeft: 'Turn signal left',
   menuSignalRight: 'Turn signal right',
   menuHover: 'Hover on · off',
@@ -803,11 +809,12 @@ const de = {
   tutStepNitro: (how) => `Halte ${how} gedrückt für Nitro, eine Sekunde lang`,
   tutStepJump: (how) => `Drück ${how}, tipp „Plattform“ und wähl Plattform Sisslerfeld`,
   tutStepGetOut: (how) => `Steig aus mit ${how}`,
-  tutStepClimb: (how) => `Geh mit ${how} durch die Tür und die Treppe hoch auf die Plattform`,
+  tutStepClimb: (how) => `Geh mit ${how} durch die Tür und die Treppe hoch auf die Plattform, oder drück E an der Tür, um hinaufzuspringen`,   // #701
+  tutStepClimbTouch: (how) => `Geh mit ${how} durch die Tür und die Treppe hoch auf die Plattform, oder tipp an der Tür auf die Taste, um hinaufzuspringen`,
   tutStepPhoto: (how) => `Schau zum DSM-Kamin (folge dem Pfeil) und mach ein Foto mit ${how}`,
   tutStepGetIn: (how) => `Geh zurück zu Deinem Auto und steig ein mit ${how}`,
-  tutStepDown: (how) => `Geh mit ${how} zur Treppe (folge dem Pfeil) und hinunter. Zum Umschauen: klicken und die Maus bewegen`,
-  tutStepDownTouch: (how) => `Geh mit ${how} zur Treppe (folge dem Pfeil) und hinunter. Zum Umschauen: übers Bild wischen`,
+  tutStepDown: (how) => `Geh mit ${how} zur Treppe (folge dem Pfeil) und hinunter, oder drück E an der Treppe, um hinunterzuspringen. Zum Umschauen: klicken und die Maus bewegen`,
+  tutStepDownTouch: (how) => `Geh mit ${how} zur Treppe (folge dem Pfeil) und hinunter, oder tipp an der Treppe auf die Taste, um hinunterzuspringen. Zum Umschauen: übers Bild wischen`,
   tutStairTarget: 'Treppe hinunter',
   tutNeedCar: (how) => `Steig zuerst wieder ins Auto: ${how}`,
   tutNeedFoot: (how) => `Steig zuerst aus: ${how}`,
@@ -849,6 +856,8 @@ const de = {
   steam: 'Dampf',
   // ---- enterable buildings (#409) ----
   enterPrompt: 'E · Betreten',
+  hopUpPrompt: 'E · Aufs Deck',   // #701
+  hopDownPrompt: 'E · Hinunter',
   enterSoon: 'Noch nicht begehbar',
   ridePrompt: 'E · Riesenrad fahren',   // #516
   rideExit: 'E · Aussteigen',
@@ -859,6 +868,7 @@ const de = {
   keyEnter: 'zu Fuss, an einer leuchtenden Tür: betreten',
   keyTrain: 'in der Dampflok (Z am Bahnhof Sisseln): W Dampf, S bremsen / rückwärts, Q · E nächste Weiche links · rechts, H pfeifen, C Ansicht, R zurück zum Bahnhof, A · D wenden auf der Drehscheibe',
   keyLeave: 'in einem Gebäude: direkt hinaus, vor den Eingang',
+  keyHop: 'Plattform Sisslerfeld: an der Tür hinauf aufs Deck, auf dem Deck an der Treppe hinunter zur Tür',   // #701
   // ---- der Lift eines begehbaren Gebäudes (#411) ----
   liftCall: 'E · Lift rufen',
   liftPadTitle: 'Lift',
@@ -929,6 +939,8 @@ const de = {
   barEnter: 'eintreten',
   barLeave: 'hinaus',
   barLift: 'Lift',
+  barHopUp: 'hinauf',   // #701
+  barHopDown: 'hinunter',
   menuSignalLeft: 'Blinker links',
   menuSignalRight: 'Blinker rechts',
   menuHover: 'Schweben ein · aus',

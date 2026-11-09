@@ -108,6 +108,28 @@ export function plattformEntrance(frame, P = PLATTFORM) {
   return { x, z, th: frame.facing + Math.PI, w: 0.8 };
 }
 
+// #701: E at the door puts the walker on the deck, E on the deck by the stair opening puts them outside the door
+export const HOP = { doorReach: 2.5, stairReach: 3.2, lowest: 1.0, deckSlack: 0.5, landR: 0.9, outside: 0.4 };
+const gapAngle = (P) => (P.stair.austritt.from + P.stair.austritt.to) / 2;
+
+export function plattformHop(frame, base, pos, P = PLATTFORM) {
+  const up = pos.y - base <= HOP.lowest, deck = pos.y >= base + P.deck.y - HOP.deckSlack;
+  if (!up && !deck) return null;
+  const [px, pz] = up ? frame.polar(0, P.entranceR) : frame.polar(gapAngle(P), P.core.r);
+  const reach = up ? HOP.doorReach : HOP.stairReach;
+  if (Math.hypot(pos.x - px, pos.z - pz) > reach) return null;
+  return up ? 'up' : 'down';
+}
+
+export function plattformHopLanding(frame, base, dir, P = PLATTFORM) {
+  if (dir === 'up') {
+    const gap = gapAngle(P), [x, z] = frame.polar(gap, P.core.r + HOP.landR);
+    return { x, z, th: frame.facing + gap * RAD, y: base + P.deck.y };
+  }
+  const [x, z] = frame.polar(0, P.entranceR + HOP.outside);
+  return { x, z, th: frame.facing, y: base };
+}
+
 // #567: the core cylinder as one solid circle -- the batten ring and the central post inside it -- for the car, the helicopter
 // floor and the camera. carOnly: footSolids() skips it, so on foot the walkway walls of plattformWalk (open at the door) still rule.
 // No door gap: the gap (2 x door.half at core.r, ~0.81 m) is narrower than any car.

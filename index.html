@@ -407,6 +407,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="KeyF">F</kbd><span data-i18n="keyHeli">helicopter: take off · land (Space climbs, Shift sinks)</span>
       <kbd data-cmd="KeyZ">Z</kbd><span data-i18n="keyFoot">get out · back in. On foot: W/S walk, A/D sidestep, ←/→ or the mouse turn, F hover on/off, Space up (hover) or jump, Shift down</span>
       <kbd data-cmd="KeyE">E</kbd><span data-i18n="keyEnter">on foot, at a glowing door: enter</span>
+      <kbd data-cmd="KeyE">E</kbd><span data-i18n="keyHop">Plattform Sisslerfeld: at the door up to the deck, on the deck at the stair down to the door</span>
       <kbd data-cmd="none">W · S · Q · E · H · A · D</kbd><span data-i18n="keyTrain">in the steam loco (Z at Bahnhof Sisseln): W steam, S brake / reverse, Q · E the next switch left · right, H whistle, C view, R back to the station, A · D turn on the turntable</span>
       <kbd data-cmd="KeyE">E</kbd><span data-i18n="keyLeave">inside a building: straight out, in front of the entrance</span>
       <kbd data-cmd="none">0-9 · D</kbd><span data-i18n="keyLift">in the lift: 0-9 pick the floor (0 = ground floor), D the roof</span>
@@ -789,7 +790,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -4377,10 +4378,13 @@ function stepEnterGlow() {   // on foot only: every ready, visible entrance on t
 }
 function leaveBuilding() { if (!INT.hall || !INT.indoors) return; const s = exitSpot(INT.hall.entrance); P.x = s.x; P.z = s.z; P.th = s.th; P.y = groundH(s.x, s.z, -Infinity); P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.hover = false; updateInterior(); }   // #474: B inside 6c, from any floor or the roof
  function pressEnter() { const n = HUD.enter; if (!n) return; const h = ENTER_HANDLERS[n.entry.id]; if (h) h(n.entry, n.entrance); else toast(tr('enterSoon')); }   // #409: E on foot at a ready entrance
-// #535: E is the one context key on foot -- lift (at the lift gap) > leave (inside) > enter (at a glowing door)
-function contextAction() { return FOOT.on ? contextKeyAction({ liftPrompt: INT.indoors && !!INT.prompt, indoors: INT.indoors, doorPrompt: !!HUD.enter }) : null; }
+// #701: the Plattform shortcut -- 'up' at the door, 'down' on the deck by the stair; not while hovering
+const platHop = () => FOOT.on && !FOOT.hover && PLAT ? plattformHop(PLAT.frame, PLAT.base, P) : null;
+function platHopGo(dir) { const l = plattformHopLanding(PLAT.frame, PLAT.base, dir); P.x = l.x; P.z = l.z; P.th = l.th; P.y = l.y; P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.eye = null; restShadow(); }
+// #535: E is the one context key on foot -- lift (at the lift gap) > leave (inside) > hop (#701) > enter (at a glowing door)
+function contextAction() { return FOOT.on ? contextKeyAction({ liftPrompt: INT.indoors && !!INT.prompt, indoors: INT.indoors, doorPrompt: !!HUD.enter, hop: platHop() }) : null; }
 function runContextKey() { if (pressRide()) return;   // #516: E boards the wheel / gets out -- one more enterable thing, before the doors
-  const a = contextAction(); if (a === 'lift') INT.lift.call(INT.floor); else if (a === 'leave') leaveBuilding(); else if (a === 'enter') pressEnter(); }
+  const a = contextAction(); if (a === 'lift') INT.lift.call(INT.floor); else if (a === 'leave') leaveBuilding(); else if (a === 'up' || a === 'down') platHopGo(a); else if (a === 'enter') pressEnter(); }
 function controlContext() { if (FOOT.on) return INT.pad ? 'lift' : INT.indoors ? 'indoors' : 'foot'; if (TRAIN.on) return 'train'; if (FLY.on) return 'heli'; return 'car'; }
 // #535: the key bar -- core keys of the current context, the context key first; rebuilt only when what it shows changes
 const KEYBAR = { on: keybarOnFrom((() => { try { return localStorage.getItem(KEYBAR_KEY); } catch (e) { return null; } })()), sig: '' };
@@ -4400,6 +4404,7 @@ function stepEnter() {
   if (ra.do === 'board' || ra.do === 'leave') { $('prompt').textContent = tr(ra.do === 'board' ? 'ridePrompt' : 'rideExit'); HUD.enterShown = true; return; }
   const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
   HUD.enter = enterPrompt(near) && near;
+  const hop = platHop(); if (hop) { $('prompt').textContent = tr(hop === 'up' ? 'hopUpPrompt' : 'hopDownPrompt'); HUD.enterShown = true; return; }   // #701: the shortcut's prompt wins over the plain "Enter"
   if (HUD.enter && !HUD.enterShown && $('toast').textContent === tr('footOut')) { toastT = 0; $('toast').classList.remove('show'); }   // #445: the on-foot hint sits right under the prompt and would crowd it
   if (HUD.enter) { $('prompt').textContent = tr('enterPrompt'); HUD.enterShown = true; }   // #411: written every frame, so the pontoon wipe cannot eat it
   else if (INT.prompt) { $('prompt').textContent = INT.prompt; }
@@ -4819,6 +4824,7 @@ window.__mm.trainApproaches = (back) => divergingApproaches(TRAIN.graph, back);
 window.__mm.resetCar = () => resetCar();
 window.__mm.walkways = (set) => { if (set) Object.assign(WALKS, set); return WALKS; };   // #412: the walkway set around the walker; tests put an interior's set in (empty = outdoors)
 window.__mm.plattform = () => PLAT && { facing: PLAT.frame.facing, base: PLAT.base, x: PLAT.frame.x, z: PLAT.frame.z, deckY: PLAT.base + PLATTFORM.deck.y };   // #413: the tower's frame, for the stair tests
+window.__mm.platHop = () => platHop();   // #701: tests
 // #411: the interior of 6c as the tests see it. updateInterior() first, so a headless read is fresh even between frames.
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
   y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
