@@ -1,11 +1,12 @@
 // #500: Postautos drive line 133 by the weekday timetable. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { buildGraph, rightOf } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
   busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText,
-  driveLine, drivePoint, lanePoint } from '../postauto.js';
+  driveLine, drivePoint, lanePoint, linkTrips, fleetRuns, placeRun } from '../postauto.js';
 import { fleetSteps } from '../paclock.js';   // #726
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -247,4 +248,157 @@ test('obstacleGap_InABend_FollowsTheBusLane', () => {
   const R5 = bendRoute([[0, 0], [100, 0], [100, 100]]);
   const [lx, lz] = lanePoint(R5, 105);   // a player standing exactly on the bus's lane, ahead
   assert.ok(obstacleGap(R5, 90, { x: lx, z: lz, r: 1 }) !== null);
+});
+
+// #763: the Umlauf -- the bus that arrives at a terminus runs the line's next trip from there
+const leg = (line, from, to, arr, dep, route = 1) => ({ line, route, to: 'Z' + to, fromOutside: false, toOutside: false,
+  calls: [[from, dep - 100, dep], ['2', dep + 100, dep + 100], [to, arr, arr]] });
+
+test('linkTrips_SameLineSameStopWithinLimit_Links', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1240, 1300);
+  assert.equal(linkTrips([a, b]).get(tripKey(a)), b);
+});
+test('linkTrips_OtherLine_DoesNotLink', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = leg('143', '3', '1', 1240, 1300);
+  assert.equal(linkTrips([a, b]).size, 0);
+});
+test('linkTrips_BeyondTurnMaxOrWrongStopOrOutside_DoesNotLink', () => {
+  const a = leg('133', '1', '3', 1000, 800);
+  assert.equal(linkTrips([a, leg('133', '3', '1', 2000, 1000 + PA.turnMax + 1)]).size, 0);
+  assert.equal(linkTrips([a, leg('133', '9', '1', 1240, 1300)]).size, 0);
+  assert.equal(linkTrips([a, { ...leg('133', '3', '1', 1240, 1300), fromOutside: true }]).size, 0);
+  assert.equal(linkTrips([{ ...a, toOutside: true }, leg('133', '3', '1', 1240, 1300)]).size, 0);
+  assert.equal(linkTrips([a, leg('133', '3', '1', 990, 990)]).size, 0);   // departs before the arrival
+});
+test('linkTrips_TwoCandidates_EarliestDepartureWinsAndOnePredecessorEach', () => {
+  const a1 = leg('133', '1', '3', 1000, 800), a2 = leg('133', '1', '3', 1100, 900);
+  const b1 = leg('133', '3', '1', 1200, 1250), b2 = leg('133', '3', '1', 1400, 1450);
+  const m = linkTrips([a1, a2, b1, b2]);
+  assert.equal(m.get(tripKey(a1)), b1); assert.equal(m.get(tripKey(a2)), b2);
+});
+test('fleetRuns_LinkedTrips_OneRunWithContiguousWindowsAtTheArrival', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1240, 1300), c = leg('133', '1', '3', 2300, 2200);   // c far enough past b's arrival (1240) to stay unlinked
+  const runs = fleetRuns([b, a, c], new Map([[1, R]]));
+  assert.equal(runs.length, 2);                                   // a -> b chained, c alone
+  const run = runs.find((r) => r.key === tripKey(a));
+  assert.equal(run.legs.length, 2);
+  assert.equal(run.legs[0].win.to, 1000); assert.equal(run.legs[1].win.from, 1000);   // split at the arrival
+  assert.equal(run.win.from, run.legs[0].win.from); assert.equal(run.win.to, run.legs[1].win.to);
+  assert.deepEqual(fleetRuns([a], new Map([[1, R]]))[0].legs[0].win, tripWindow(a, tripCalls(a, R), R));   // unlinked: as today
+  assert.equal(fleetRuns([a, b], new Map()).length, 0);          // unknown route: no run
+});
+
+// a second route for the return direction: the same physical road as R, but its own pts (and so its own s) run the
+// other way, so a linked trip can drive forward (increasing s) on its own route after the turn
+const R2 = busRoute({ id: 2, line: '133', pts: [[1000, 0], [500, 0], [0, 0]], stops: [stop('3', 100), stop('2', 400), stop('1', 900)] }, ROADS, G);
+const ROUTES2 = new Map([[1, R], [2, R2]]);
+
+test('stepBus_ArrivalAtLinkedTerminus_TurnsIntoTheNextTripAndKeepsTheKey', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = { ...leg('133', '3', '1', 1240, 1300, 2) };
+  const [fleet] = syncFleet([], [a, b], ROUTES2, 900);
+  const key = fleet.key; assert.equal(key, tripKey(a));
+  for (let now = 900; fleet.trip === a && now < 1300; now += 0.5) stepBus(fleet, now, 0.5, null);
+  assert.equal(fleet.key, key); assert.equal(fleet.trip, b); assert.equal(fleet.route, R2);
+  assert.equal(fleet.phase, 'stand'); assert.equal(fleet.k, 0); assert.equal(fleet.s, R2.stopS.get('3'));
+  assert.equal(ledText(fleet.trip).dest, 'Z1');
+  assert.ok(fleet.until >= 1300);
+  assert.equal(syncFleet([fleet], [a, b], ROUTES2, 1100).length, 1);   // no second bus for b
+});
+
+test('stepBus_LateArrivalAfterNextDeparture_StandsMinDwellThenLeavesLate', () => {
+  // a's scheduled run to the terminus (105 s) is far too tight for the 500 m left to drive (like the existing "late
+  // bus" test): the real arrival lands after b's scheduled departure (915), so the turn keeps minDwell and leaves
+  // late rather than departing on (an already past) schedule
+  const a = leg('133', '1', '3', 905, 800), b = leg('133', '3', '1', 1240, 915, 2);
+  const [fleet] = syncFleet([], [a, b], ROUTES2, 800);
+  let arriveT = null;
+  for (let now = 800; now < 1100 && arriveT === null; now += 0.5) {
+    const before = fleet.trip;
+    stepBus(fleet, now, 0.5, null);
+    if (before === a && fleet.trip === b) arriveT = now;
+  }
+  assert.ok(arriveT !== null && arriveT > 915);                 // arrives after b's scheduled departure: late
+  assert.equal(fleet.phase, 'stand'); assert.equal(fleet.k, 0);
+  assert.ok(near(fleet.until, arriveT + PA.minDwell));
+});
+
+test('stepBus_LinkedTurn_ThenDrivesTheNextRouteToItsEnd', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1240, 1300, 2);
+  const [fleet] = syncFleet([], [a, b], ROUTES2, 900);
+  for (let now = 900; fleet.trip === a && now < 1300; now += 0.5) stepBus(fleet, now, 0.5, null);   // turn
+  for (let now = 1300; fleet.phase === 'stand' && now < 1310; now += 0.5) stepBus(fleet, now, 0.5, null);   // depart on time
+  assert.equal(fleet.phase, 'drive'); assert.equal(fleet.k, 1); assert.equal(fleet.leg, 1);
+  for (let now = 1310; fleet.phase !== 'done' && now < 2000; now += 0.5) stepBus(fleet, now, 0.5, null);
+  assert.equal(fleet.phase, 'done');
+});
+
+test('placeRun_ClockJump_PlacesTheLegForNow', () => {
+  const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1500, 1300, 2);   // b's own calls stay chronological, unlike the linking fixtures above (which only read its endpoints)
+  const run = fleetRuns([a, b], ROUTES2)[0];
+  assert.equal(placeRun(run, 900).trip, a);                       // driving leg a
+  const afterA = placeRun(run, 1100);                             // arrival passed: standing at b's first stop, b's destination
+  assert.equal(afterA.trip, b); assert.equal(afterA.phase, 'stand'); assert.equal(afterA.k, 0);
+  assert.equal(placeRun(run, 1320).trip, b);                      // driving b
+  assert.equal(placeRun(run, 1500 + 60 + 10_000), null);          // past the window
+});
+
+test('syncFleet_ShortTurnaround_NeverTwoBusesOnTheSameStand', () => {   // fails on main: 60 s gap, layover 60, spawnBefore 90
+  const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1060, 1060, 2);
+  for (let now = 700; now < 1400; now += 5) {
+    const fleet = syncFleet([], [a, b], ROUTES2, now).filter((x) => x.phase === 'stand' && x.k === 0 && x.calls[0].uic === '3');
+    assert.ok(fleet.length <= 1, `at ${now}`);
+  }
+});
+
+test('syncFleet_UnlinkedTrip_BehavesAsBefore', () => {
+  const fleet = syncFleet([], [TRIP], ROUTES, 35950);
+  assert.equal(fleet.length, 1);
+  assert.equal(fleet[0].key, tripKey(TRIP));
+  assert.deepEqual(fleet[0].win, tripWindow(TRIP, tripCalls(TRIP, R), R));
+});
+
+// #763: the guard for the whole timetable -- at no terminus do two Postautos ever stand at once
+const TT = JSON.parse(fs.readFileSync(new URL('../data/timetable_hochrhein.json', import.meta.url), 'utf8'));
+
+// one straight synthetic route per route id: stop spacing sized from the timetable's own call-to-call gap at cruise
+// speed (not a flat distance), so a simulated bus arrives close to its scheduled time -- otherwise a short synthetic
+// last leg finishes minutes early, clears its layover before the next trip's window even opens, and hides the bug
+function synthRoutes(trips) {
+  const out = new Map();
+  for (const t of trips) {
+    if (out.has(t.route)) continue;
+    let s = 0;
+    const stops = t.calls.map((c, i) => { if (i > 0) s += Math.max(50, (c[1] - t.calls[i - 1][2]) * (PA.topKmh / 3.6)); return stop(String(c[0]), s); });
+    const rd = road([[0, 0], [s + 200, 0]]);
+    out.set(t.route, busRoute({ id: t.route, line: t.line, pts: [[0, 0], [s + 200, 0]], stops }, [rd], buildGraph([rd])));
+  }
+  return out;
+}
+function standingAtTerminus(fleet) {
+  const by = new Map();
+  for (const b of fleet) if (b.phase === 'stand' && (b.k === 0 || b.k === b.calls.length - 1)) by.set(b.calls[b.k].uic, (by.get(b.calls[b.k].uic) ?? 0) + 1);
+  return [...by].filter(([, n]) => n > 1);
+}
+for (const [name, dt, factor] of [['real time', 1, 1], ['time-lapse 60x', 1, 60]]) {
+  test(`timetable_NoTwoBusesStandOnTheSameTerminusAtOnce_${name}`, () => {
+    const routes = synthRoutes(TT.trips); let fleet = [];
+    const end = 18.5 * 3600, seen = new Set();
+    for (let now = 5.5 * 3600; now < end; now += dt * factor) {
+      fleet = syncFleet(fleet, TT.trips, routes, now);
+      const { n, h } = fleetSteps(dt * factor);
+      for (const b of fleet) for (let i = 0; i < n; i++) stepBus(b, now + (i + 1) * h, h, null);
+      assert.deepEqual(standingAtTerminus(fleet), [], `at ${now}`);
+      for (const b of fleet) seen.add(b.key);
+    }
+    assert.ok(seen.size <= 4);   // 14 trips make a handful of runs, not 14 buses
+  });
+}
+
+// #763 (found by the Playwright run): Frick's last stop lies 0.3 m before the route end, inside the 2 m where route.js's
+// targetSpeed brakes to zero -- the bus stopped 1.7 m short of the stop, never arrived and never turned
+test('stepBus_StopWithinTwoMetresOfRouteEnd_StillArrives', () => {
+  const rd = road([[0, 0], [500, 0]]), r = busRoute({ id: 7, line: '133', pts: [[0, 0], [500, 0]], stops: [stop('1', 100), stop('2', 499.7)] }, [rd], buildGraph([rd]));
+  const trip = { line: '133', route: 7, to: 'Ende', fromOutside: false, toOutside: false, calls: [['1', 36000, 36000], ['2', 36100, 36100]] };
+  const b = placeTrip(trip, r, 36001), log = run(b, 36001, 200);
+  assert.ok(log.some((x) => x.k === 1 && x.phase === 'stand' && x.s === 499.7));
 });

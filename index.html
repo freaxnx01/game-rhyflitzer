@@ -4192,7 +4192,9 @@ function paintBusDisplay(root, text) {
   let painted = 0;
   root.traverse((o) => {
     if (!o.isMesh || !o.material?.userData?.overGlass) return;
-    const m = o.material.clone();
+    const m = o.material.userData.ownDisplay ? o.material : o.material.clone();   // #763: a repaint reuses the bus's own clone, so the mesh, wheels and blinkers stay
+    if (m.userData.ownDisplay) m.map?.dispose();   // never the shared glTF map on a first paint
+    m.userData.ownDisplay = true;
     m.map = m.emissiveMap = displayTexture(text);
     o.material = m;
     painted++;
@@ -4209,14 +4211,22 @@ function buildPostautoMesh(trip) {
     roll.position.copy(node.position); node.position.set(0, 0, 0); parent.add(roll); roll.add(node);
     return roll;
   });
-  g.userData.spin = 0;
-  const text = ledText(trip);
-  console.info(`Painting line ${text.line} to ${text.dest} onto the bus display`);
-  if (paintBusDisplay(root, text) === 0) console.warn('Postauto model has no Display material: no line/destination shown');
+  g.userData.spin = 0; g.userData.root = root;
+  repaintBusLed(g, trip);
   const blink = { left: new THREE.Group(), right: new THREE.Group() }, geo = new THREE.BoxGeometry(0.12, 0.12, 0.22), m = new THREE.MeshBasicMaterial({ color: 0xff9a1a });
   for (const [x, y, z] of VEHICLES.bus.blinkers) for (const [side, s] of [['left', -1], ['right', 1]]) { const b = new THREE.Mesh(geo, m); b.position.set(x, y, s * z); blink[side].add(b); }
-  g.add(blink.left, blink.right); g.userData.blink = blink; g.userData.led = text;
+  g.add(blink.left, blink.right); g.userData.blink = blink;
   return g;
+}
+// repaints the Display material when the trip's line/destination changed since the last paint (#763): the Umlauf turns
+// a bus onto its next trip in place -- same b.key, same mesh, b.trip swapped -- so the baked LED needs a repaint too, not
+// just a new mesh
+function repaintBusLed(g, trip) {
+  const text = ledText(trip);
+  if (g.userData.led && g.userData.led.line === text.line && g.userData.led.dest === text.dest) return;
+  console.info(`Painting line ${text.line} to ${text.dest} onto the bus display`);
+  if (paintBusDisplay(g.userData.root, text) === 0) console.warn('Postauto model has no Display material: no line/destination shown');
+  g.userData.led = text;
 }
 // frees the cloned display material and its texture, the blinker geometry and material -- never the shared glTF geometry
 // (userData.sharedGeo) or materials (SHARED_CAR_MATS, like freeCar: the clone shares them with the cached scene, the player's bus and every other Postauto)
@@ -4266,6 +4276,7 @@ function drawPostauto(b, flashOn, dt) {
   }
   let g = POSTAUTO.meshes.get(b.key);
   if (!g) { g = buildPostautoMesh(b.trip); POSTAUTO.meshes.set(b.key, g); POSTAUTO.group.add(g); }
+  else repaintBusLed(g, b.trip);
   g.position.set(p.x, b.y, p.z); g.rotation.set(0, -p.th, Math.atan2(yF - yR, BUS.wheelbase));   // pitched like the car: the nose up on an uphill road
   const side = busBlinker(b, postautoClock());
   g.userData.blink.left.visible = flashOn && side === 'left'; g.userData.blink.right.visible = flashOn && side === 'right';
@@ -4767,7 +4778,7 @@ window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), m
   floor: gltfState('bus') === 'ready' ? { faces: GLTF_CARS.bus.floorFaces, shellSide: GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null } : null,   // #709: the floor copy; the shell stays THREE.FrontSide = 0 (#723)
   voices: SFX.state().busVoices,
   panel: { rows: document.querySelectorAll('#debugparows button').length, clock: $('debugpaclock').textContent },
-  buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null, wheelSpin: POSTAUTO.meshes.get(b.key)?.userData.spin ?? null }; }) });
+  buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, leg: b.leg ?? 0, legs: b.legs?.length ?? 1, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null, wheelSpin: POSTAUTO.meshes.get(b.key)?.userData.spin ?? null }; }) });
 window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the baked Display material must stay shared and untouched
   const cached = GLTF_CARS.bus?.mats?.all.find((m) => m.name === 'Display') ?? null;
   return { cachedMapWidth: cached?.map?.image?.width ?? null,
