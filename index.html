@@ -853,6 +853,7 @@ import { loadLines, loadProgress, numberLocale } from './loading.js';   // the l
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, floorPlan, floorFaces } from './gltfvehicle.js';
+import { DEPOT, depotLayout, nearestSlot } from './depot.js';   // #553: the vehicle depot's pure layout rules
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -5466,14 +5467,25 @@ const galleryPaint = (id) => paintOnSelect(VEHICLES[id], CHOICE.paint, CHOICE.pa
 const photoKey = (id) => thumbKey(id, galleryPaint(id), paintable(VEHICLES[id]));
 const photoReady = (id) => !VEHICLES[id].gltf || gltfState(id) === 'ready';
 const photoFailed = (id) => Boolean(VEHICLES[id].gltf) && gltfState(id) === 'failed';
+// #553: run fn with the stage car rebuilt as that vehicle in that paint; afterwards the driven car, its paint, its lamps
+// and its pose come back exactly as they were (the same save / restore a gallery photo always did, now shared with the depot)
+function withStageVehicle(id, paint, fn) {
+  const keep = { veh: VEH, paint: CHOICE.paint, tip: TIP_S, siren: SIREN_S.on, pos: car.position.clone(), rot: car.rotation.clone(), shown: [flames.visible, BLINK.left.visible, BLINK.right.visible, car.visible] };
+  setVehicle(VEHICLES[id]); applyPaint(paint);
+  try { fn(car); } finally {
+    scene.add(car); setVehicle(keep.veh); applyPaint(keep.paint); TIP_S = keep.tip; SIREN_S.on = keep.siren;
+    car.position.copy(keep.pos); car.rotation.copy(keep.rot); [flames.visible, BLINK.left.visible, BLINK.right.visible, car.visible] = keep.shown;
+  }
+}
 function photoVehicle(id) {
-  const paint = galleryPaint(id), keep = { veh: VEH, paint: CHOICE.paint, tip: TIP_S, siren: SIREN_S.on, pos: car.position.clone(), rot: car.rotation.clone(), shown: [flames.visible, BLINK.left.visible, BLINK.right.visible, car.visible] };
-  setVehicle(VEHICLES[id]); applyPaint(paint); car.position.set(0, 0, 0); car.rotation.set(0, 0, 0); flames.visible = BLINK.left.visible = BLINK.right.visible = false; car.visible = true;
-  CAR_GALLERY.studio.add(car); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true);
-  const v = thumbView({ min: box.min.toArray(), max: box.max.toArray() }); CAR_GALLERY.cam.position.set(...v.eye); CAR_GALLERY.cam.lookAt(...v.at);
-  const pr = renderer.getPixelRatio(); renderer.setViewport(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissor(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissorTest(true); renderer.render(CAR_GALLERY.studio, CAR_GALLERY.cam); renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
-  const gl = renderer.domElement; CAR_GALLERY.shot.getContext('2d').drawImage(gl, 0, gl.height - THUMB.h, THUMB.w, THUMB.h, 0, 0, THUMB.w, THUMB.h); const url = CAR_GALLERY.shot.toDataURL('image/jpeg', 0.85);
-  scene.add(car); setVehicle(keep.veh); applyPaint(keep.paint); TIP_S = keep.tip; SIREN_S.on = keep.siren; car.position.copy(keep.pos); car.rotation.copy(keep.rot); [flames.visible, BLINK.left.visible, BLINK.right.visible, car.visible] = keep.shown;
+  let url = null;
+  withStageVehicle(id, galleryPaint(id), () => {
+    car.position.set(0, 0, 0); car.rotation.set(0, 0, 0); flames.visible = BLINK.left.visible = BLINK.right.visible = false; car.visible = true;
+    CAR_GALLERY.studio.add(car); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true);
+    const v = thumbView({ min: box.min.toArray(), max: box.max.toArray() }); CAR_GALLERY.cam.position.set(...v.eye); CAR_GALLERY.cam.lookAt(...v.at);
+    const pr = renderer.getPixelRatio(); renderer.setViewport(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissor(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissorTest(true); renderer.render(CAR_GALLERY.studio, CAR_GALLERY.cam); renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
+    const gl = renderer.domElement; CAR_GALLERY.shot.getContext('2d').drawImage(gl, 0, gl.height - THUMB.h, THUMB.w, THUMB.h, 0, 0, THUMB.w, THUMB.h); url = CAR_GALLERY.shot.toDataURL('image/jpeg', 0.85);
+  });
   return url;
 }
 // from the loop, before the frame's render: the next car's photo (none in a wreck: a rebuild would end it)
@@ -5497,6 +5509,69 @@ window.__mm.carsel = () => { const ids = Object.keys(VEHICLES); return { open: C
 window.__mm.chair = () => ({ on: chairOn(), visible: car.userData.chair ? car.userData.chair.visible : false, eye: VEH.camera.chair ? VEH.camera.chair.eye.map(c => c * VEH.scale) : null });   // #463: the armchair state (read-only, for the test)
 if (VEHICLES[CHOICE.id].gltf) wantVehicleModel(CHOICE.id);   // #236: the page started with the fallback car; the glTF car swaps in when its file arrives
 window.__mm.registerVehicle = (id, def) => { checkVehicle(def); VEHICLES[id] = structuredClone(def); if (CARSEL.on) renderCarSel(); };   // test hook: a further table entry (tractor / bus: #6)
+// ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
+// The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
+// materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
+const DEPOT_S = { on: REGION.id === 'hochrhein' && !REGION.generated, slots: null, built: new Map(), solids: new Map(), loadChain: Promise.resolve() };
+function depotNear() { return null; }   // Task 4 wires E, the prompt and the swap; nothing is in reach before that
+// the parked body's colour of a freshly built stage car, read inside the build (before the restore recolours it)
+function stagePaint(g, def) {
+  let paintMat = null;
+  g.traverse(o => { if (!paintMat && o.isMesh && o.material?.userData?.paint) paintMat = o.material; });
+  const col = paintMat ? paintMat.color : paintable(def) ? carMats.body.color : null;
+  return col ? '#' + col.getHexString() : null;
+}
+function buildDepotSlot(s) {
+  const def = VEHICLES[s.id], old = DEPOT_S.built.get(s.id);
+  if (def.gltf) DEPOT_S.loadChain = DEPOT_S.loadChain.then(() => loadVehicleModel(s.id));   // one file at a time, like the gallery
+  let mesh = null, paint = null;
+  withStageVehicle(s.id, paintOnSelect(def, 'navy', false, 'navy', def), (stage) => {
+    const drop = new Set([flames, BLINK.left, BLINK.right]);
+    const dropIdx = stage.children.map((c, i) => drop.has(c) ? i : -1).filter(i => i >= 0);
+    const g = stage.clone(true);
+    for (const i of dropIdx.sort((a, b) => b - a)) g.remove(g.children[i]);   // no flames, no blinkers on a parked car
+    g.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); });
+    paint = stagePaint(g, def); mesh = g;
+  });
+  if (old) scene.remove(old.mesh);   // the fallback makes way for the real model
+  mesh.position.set(s.x, groundH(s.x, s.z, -Infinity), s.z);
+  mesh.rotation.set(0, -s.th, 0);
+  mesh.visible = s.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show;
+  scene.add(mesh);
+  DEPOT_S.built.set(s.id, { mesh, model: !def.gltf || gltfState(s.id) === 'ready' ? 'gltf' : 'fallback', paint });
+  if (!DEPOT_S.solids.has(s.id)) {
+    const solid = { x: s.x, z: s.z, hw: s.l / 2, hd: s.w / 2, c: Math.cos(s.th), s: Math.sin(s.th), h: 3, depot: s.id, off: s.id === CHOICE.id };
+    addSolid(solid); DEPOT_S.solids.set(s.id, solid);
+  }
+}
+// once per frame: lay the slots out on the first visit, build at most one parked mesh, keep the driven slot empty and far ones hidden
+function stepDepot() {
+  if (!DEPOT_S.on || WRECK_S.on) return;
+  const dist = Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z);
+  if (!DEPOT_S.slots) {
+    if (dist > DEPOT.build) return;
+    try { DEPOT_S.slots = depotLayout(Object.keys(VEHICLES), VEHICLES); } catch (e) { console.warn(e.message); DEPOT_S.slots = []; }
+  }
+  const next = DEPOT_S.slots.find(sl => { const b = DEPOT_S.built.get(sl.id); return !b || (b.model === 'fallback' && gltfState(sl.id) === 'ready'); });
+  if (next) buildDepotSlot(next);
+  const show = dist < DEPOT.show;
+  for (const sl of DEPOT_S.slots) {
+    const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
+    if (!b || !solid) continue;
+    const driven = sl.id === CHOICE.id;
+    b.mesh.visible = show && !driven;
+    solid.off = driven;
+  }
+}
+window.__mm.depot = () => ({
+  on: DEPOT_S.on, near: depotNear(),
+  slots: (DEPOT_S.slots ?? []).map(sl => {
+    const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
+    return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l,
+      shown: !!b && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
+      solid: !!solid && !solid.off, model: b ? b.model : null, paint: b ? b.paint : null };
+  }),
+});
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };
 const inRun = () => canPause($('overlay').hidden, R.state);
@@ -6025,7 +6100,7 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play
