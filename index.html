@@ -785,7 +785,7 @@ import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText } from './postauto.js';   // #500
-import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines } from './busstop.js';   // #712
+import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider } from './busstop.js';   // #712
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices } from './postautofx.js';   // #709
@@ -2118,6 +2118,7 @@ function busStop(layout, name, rows) {
     const back = new THREE.Mesh(new THREE.BoxGeometry(S.w, S.h, 0.06), glass); back.position.set(0, S.h / 2, S.back - 0.05); g.add(back);
     for (const sd of [-1, 1]) { const side = new THREE.Mesh(new THREE.BoxGeometry(0.06, S.h, S.d), glass); side.position.set(sd * (S.w / 2 - 0.03), S.h / 2, mid); g.add(side); }
     for (const sd of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, S.h, 6), new THREE.MeshLambertMaterial({ color: 0x4a515e })); post.position.set(sd * (S.w / 2 - 0.1), S.h / 2, S.front + 0.1); g.add(post); }
+    addSolid(shelterCollider(layout, b));   // #760: solid for the car, heli floor and camera; carOnly, so on foot you step in under the roof
   }
   g.position.set(layout.pole[0], b, layout.pole[1]); g.rotation.y = -layout.yaw;
   signs.add(g);
