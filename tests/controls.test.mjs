@@ -98,6 +98,14 @@ test('contextKeyAction_LiftWinsOverLeave_LeaveOverEnter', () => {
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: false }), null);
 });
 
+test('contextKeyAction_BoardOnlyWhenNothingElseIsUp', () => {
+  assert.equal(contextKeyAction({ boardPrompt: true }), 'board');
+  assert.equal(contextKeyAction({ doorPrompt: true, boardPrompt: true }), 'enter');   // a door beats a parked car
+  assert.equal(contextKeyAction({ indoors: true, boardPrompt: true }), 'leave');
+  assert.equal(contextKeyAction({}), null);
+  assert.equal(contextLabel('board'), 'barBoard');
+});
+
 test('contextLabel_KnownAndUnknown', () => {
   assert.equal(contextLabel('leave'), 'barLeave');
   assert.equal(contextLabel(null), null);
