@@ -15,6 +15,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-09 02:42` At the **Frick** and **Stein-Säckingen** terminus, the Postauto that arrives now **turns** and carries straight on as the line's next trip: the destination display switches, and you no longer see **two buses** standing at the same stop at once.
+
 - `2026-11-08 22:50` The **Bahnhof Frick** stands again, and with it about 90 other **churches, chapels, stations, schools and town halls** that were missing because they are not on a main road.
 
 - `2026-11-08 22:23` The **helicopter** can now fly **low**: holding <kbd>Shift</kbd> it sinks to about **3 m** over the road, the field or a roof instead of stopping 10 m up, so you can skim along a street.

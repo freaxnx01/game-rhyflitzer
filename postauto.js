@@ -8,7 +8,7 @@ import { BUS } from './bus.js';
 export const PA = {
   topKmh: 60, junctionKmh: 30, junctionBefore: 10, junctionAfter: 5,   // A4
   accel: 1.2, brake: 2, hardBrake: 5, arrive: 0.5,
-  minDwell: 10, spawnBefore: 90, layover: 60, edgeSpeed: 12, turnMax: 900,   // A5, #763 A4
+  minDwell: 10, spawnBefore: 90, layover: 60, edgeSpeed: 12, turnMax: 900,   // A5; turnMax: #763 A4
   pullIn: 25, pullOut: 15, kerbGap: 0.3, pullOutSecs: 4,                 // A6
   look: 40, sideClear: 0.5, gap: 2, above: 3,                            // A7
   maxBuses: 8, resync: 5, reach: 2,
