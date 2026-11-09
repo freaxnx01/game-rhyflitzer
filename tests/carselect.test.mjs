@@ -1,7 +1,7 @@
 // #7: the car selection screen's pure rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY, THUMB, thumbView, thumbKey, nextThumb } from '../carselect.js';
+import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, powerClass, classLine, galleryOrder } from '../carselect.js';
 
 const COMPACT = { model: 'compact', drive: { top: 60, accel: 16, grip: 9, steerRate: 2.6 }, mass: 1.0 };
 const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRate: 2.2 }, mass: 2.5 };   // #6 spec values
@@ -174,4 +174,33 @@ test('nextThumb: the current car first, then table order; skips cached and not-y
   assert.equal(nextThumb(ids, 'compact', id => id === 'compact', id => id !== 'bus'), 'estate');
   assert.equal(nextThumb(ids, 'compact', () => true, () => true), null);
   assert.equal(nextThumb(ids, 'compact', () => false, () => false), null);
+});
+
+// ---- #493: type chips and the power class ----
+const car = (top, accel, type) => ({ type, mass: 1, drive: { top, accel, grip: 9 } });
+
+test('powerClass: the top-speed and acceleration bars together give A (17+), B (14+), C (10+), D', () => {
+  assert.equal(powerClass(car(83.3, 21)), 'A');   // the hypercar: 10 + 10
+  assert.equal(powerClass(car(56, 19)), 'A');     // the rally car: 7 + 10
+  assert.equal(powerClass(car(60, 16)), 'B');     // the compact: 8 + 8
+  assert.equal(powerClass(car(49, 10)), 'C');     // the DeLorean: 7 + 5
+  assert.equal(powerClass(car(38, 9)), 'C');      // the three-wheeler: 5 + 5
+  assert.equal(powerClass(car(20, 5)), 'D');      // the Model T: 3 + 3, not class A any more
+  assert.throws(() => powerClass({ mass: 1, drive: { top: 60 } }), /numeric/);
+});
+
+test('classLine: the type name from the strings, then the computed class; the class alone when a vehicle has no type name', () => {
+  const table = { veh_compact_class: 'Compact', powerClass: (c) => `Class ${c}` }, tr = (k, ...a) => typeof table[k] === 'function' ? table[k](...a) : table[k] ?? k;
+  assert.equal(classLine(tr, 'compact', car(60, 16)), 'Compact · Class B');
+  assert.equal(classLine(tr, 'custom', car(20, 5)), 'Class D');
+});
+
+test('galleryOrder: the chosen type only, strongest first, table order on a tie; all shows every vehicle', () => {
+  const defs = { compact: car(60, 16, 'everyday'), hyper: car(83.3, 21, 'sport'), modelt: car(20, 5, 'everyday'), estate: car(57.5, 13.5, 'everyday'), knight: car(61.1, 15, 'screen'), odd: car(50, 10) };
+  const ids = Object.keys(defs);
+  assert.deepEqual(VEHICLE_TYPES, ['everyday', 'sport', 'utility', 'screen']);
+  assert.deepEqual(galleryOrder(ids, defs, 'everyday'), ['compact', 'estate', 'modelt']);
+  assert.deepEqual(galleryOrder(ids, defs, 'all'), ['hyper', 'compact', 'knight', 'estate', 'odd', 'modelt']);   // compact and knight tie at 16
+  assert.deepEqual(galleryOrder(ids, defs, 'utility'), []);
+  assert.throws(() => galleryOrder(ids, defs, 'boats'), /type/);
 });

@@ -5,6 +5,7 @@
 // New Beetle numbers: 2.0 l four in the nose, front-wheel drive, about 180 km/h (50 m/s), five gears, 1200 kg, friendly and
 // stable rather than sharp; 2.51 m wheelbase; left-hand drive.
 export const NEW_BEETLE = {
+  type: 'everyday',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'newbeetle', url: './assets/newbeetle.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'sunflower',
   wheels: [[1.255, 0.736], [-1.255, 0.736]], wheelR: 0.317,   // the model's own wheel nodes: x ±1.255, |z| 0.736, r 0.317
   drive: { top: 50, topNitro: 75, accel: 13, accelNitro: 30, brake: 22, reverse: 7, reverseMax: 12, grip: 9, gripHandbrake: 1.6, steerRate: 2.7, airSteer: 0.4 },

@@ -5,6 +5,7 @@
 // Octavia numbers: the 2.0 l TDI four in the nose, 140 hp, front-wheel drive, 207 km/h (57.5 m/s), six gears, 0-100 in about
 // 9.6 s, 1.4 t; long, calm and roomy rather than quick; 2.578 m wheelbase; left-hand drive.
 export const ESTATE = {
+  type: 'everyday',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'estate', url: './assets/estate.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'silver',
   wheels: [[1.289, 0.732], [-1.289, 0.732]], wheelR: 0.322,   // the model's own wheel nodes: x ±1.289, |z| 0.732, r 0.322
   drive: { top: 57.5, topNitro: 80, accel: 13.5, accelNitro: 30, brake: 22, reverse: 7, reverseMax: 12, grip: 9, gripHandbrake: 1.6, steerRate: 2.6, airSteer: 0.4 },
