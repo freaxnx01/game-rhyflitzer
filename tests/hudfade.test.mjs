@@ -9,6 +9,16 @@ test('FADE_S_AreTheDecidedSeconds', () => {
   assert.deepEqual(FADED, ['tl', 'dmgplate', 'gearplate', 'tripplate', 'watername', 'roadname', 'autoline', 'prompt', 'best']);
 });
 
+test('phase_AccumulatedFloatTime_AtExactlyTheHoldIsGhost', () => {
+  // the browser accumulates t in ~0.05 s steps and __mm.hudFade(secs) adds secs to that sum, so "4 s later"
+  // computes as t - since === 3.9999999999999996 -- the boundary must not wobble on float noise (#773)
+  const f = createFader(0);
+  sample(f, { dmgplate: '30%' }, 0.3831999999999999);
+  assert.equal(phase(f, 'dmgplate'), 'awake');
+  sample(f, { dmgplate: '30%' }, 4.3831999999999995);
+  assert.equal(phase(f, 'dmgplate'), 'ghost');
+});
+
 test('phase_FreshValue_HoldsFourSecondsThenGhosts', () => {
   const f = createFader(0);
   sample(f, { roadname: 'Bahnhofstrasse' }, 0);

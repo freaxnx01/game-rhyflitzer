@@ -23,10 +23,14 @@ export function sample(f, values, t) {
   return f;
 }
 
+// the clock is a sum of ~0.05 s steps, so "exactly the hold later" cancels to 3.9999999999999996 -- the phase boundary
+// must not wobble on float noise
+const FADE_EPS = 1e-9;
+
 export function phase(f, id) {
   const it = f.items[id];
   if (!it || it.value === null) return 'hidden';
-  return f.t - it.since < (it.changed ? FADE_S.wake : FADE_S.hold) ? 'awake' : 'ghost';
+  return f.t - it.since < (it.changed ? FADE_S.wake : FADE_S.hold) - FADE_EPS ? 'awake' : 'ghost';
 }
 
 export function phases(f) { return Object.fromEntries(Object.keys(f.items).map(id => [id, phase(f, id)])); }
@@ -35,7 +39,7 @@ export function phases(f) { return Object.fromEntries(Object.keys(f.items).map(i
 export function createKeybar(t = 0) { return { sig: null, since: t }; }
 export function keybarPhase(k, sig, t) {
   if (k.sig !== sig) { k.sig = sig; k.since = t; }
-  return t - k.since < FADE_S.keybar ? 'awake' : 'ghost';
+  return t - k.since < FADE_S.keybar - FADE_EPS ? 'awake' : 'ghost';
 }
 
 // what a mode shows at all -- mirrors the CSS in index.html: body.cruise hides the clock, the pips and the target
