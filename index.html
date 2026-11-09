@@ -4424,8 +4424,9 @@ function stepEnter() {
   if (ra.do === 'board' || ra.do === 'leave') { $('prompt').textContent = tr(ra.do === 'board' ? 'ridePrompt' : 'rideExit'); HUD.enterShown = true; return; }
   const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
   HUD.enter = enterPrompt(near) && near;
-  const hop = platHop(); if (hop) { $('prompt').textContent = tr(hop === 'up' ? 'hopUpPrompt' : 'hopDownPrompt'); HUD.enterShown = true; return; }   // #701: the shortcut's prompt wins over the plain "Enter"
-  if (HUD.enter && !HUD.enterShown && $('toast').textContent === tr('footOut')) { toastT = 0; $('toast').classList.remove('show'); }   // #445: the on-foot hint sits right under the prompt and would crowd it
+  const hop = platHop();
+  if ((HUD.enter || hop) && !HUD.enterShown && $('toast').textContent === tr('footOut')) { toastT = 0; $('toast').classList.remove('show'); }   // #445, #783: the on-foot hint sits right under either prompt and would crowd it
+  if (hop) { $('prompt').textContent = tr(hop === 'up' ? 'hopUpPrompt' : 'hopDownPrompt'); HUD.enterShown = true; return; }   // #701: the shortcut's prompt wins over the plain "Enter"
   if (HUD.enter) { $('prompt').textContent = tr('enterPrompt'); HUD.enterShown = true; }   // #411: written every frame, so the pontoon wipe cannot eat it
   else if (INT.prompt) { $('prompt').textContent = INT.prompt; }
   else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
