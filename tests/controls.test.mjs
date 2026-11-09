@@ -98,6 +98,14 @@ test('labels_EveryLabelExistsInBothLanguages', () => {
   for (const c of CONTEXTS) for (const e of entriesFor(c)) if (e.label) for (const l of ['en', 'de']) assert.notEqual(translate(l, e.label), e.label, `${c} ${e.action} ${l}`);
 });
 
+test('contextKeyAction_BoardOnlyWhenNothingElseIsUp', () => {   // #553
+  assert.equal(contextKeyAction({ boardPrompt: true }), 'board');
+  assert.equal(contextKeyAction({ doorPrompt: true, boardPrompt: true }), 'enter');   // a door beats a parked car
+  assert.equal(contextKeyAction({ indoors: true, boardPrompt: true }), 'leave');
+  assert.equal(contextKeyAction({}), null);
+  assert.equal(contextLabel('board'), 'barBoard');
+});
+
 test('contextKeyAction_LiftWinsOverLeave_LeaveOverEnter', () => {
   assert.equal(contextKeyAction({ liftPrompt: true, indoors: true, doorPrompt: true }), 'lift');
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: true, doorPrompt: true }), 'leave');

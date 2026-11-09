@@ -62,7 +62,7 @@ export function actionFor(context, code) {
   return hit ? hit.action : null;
 }
 
-const CONTEXT_LABELS = { enter: 'barEnter', leave: 'barLeave', lift: 'barLift', up: 'barHopUp', down: 'barHopDown' };
+const CONTEXT_LABELS = { enter: 'barEnter', leave: 'barLeave', lift: 'barLift', up: 'barHopUp', down: 'barHopDown', board: 'barBoard' };   // #553
 export const contextLabel = (action) => CONTEXT_LABELS[action] ?? null;
 
 export function barEntries(context, contextAction = null) {
@@ -86,11 +86,13 @@ export function conflicts() {
 }
 
 // E on foot: the lift (inside, at the lift gap) wins over leaving, leaving over a hop (#701: up / down the Plattform) over a glowing door
-export function contextKeyAction({ liftPrompt, indoors, doorPrompt, hop = null }) {
+// over a parked depot vehicle (#553)
+export function contextKeyAction({ liftPrompt, indoors, doorPrompt, hop = null, boardPrompt }) {
   if (liftPrompt) return 'lift';
   if (indoors) return 'leave';
   if (hop) return hop;
-  return doorPrompt ? 'enter' : null;
+  if (doorPrompt) return 'enter';
+  return boardPrompt ? 'board' : null;
 }
 
 export const KEYBAR_KEY = 'mm.keybar';

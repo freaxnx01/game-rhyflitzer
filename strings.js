@@ -300,6 +300,7 @@ const en = {
   barJumpUp: 'jump',
   barGetIn: 'get in',
   barEnter: 'enter',
+  barBoard: 'get in',   // #553
   barLeave: 'go out',
   barLift: 'lift',
   barHopUp: 'up to the deck',   // #701
@@ -937,6 +938,7 @@ const de = {
   barJumpUp: 'springen',
   barGetIn: 'einsteigen',
   barEnter: 'eintreten',
+  barBoard: 'einsteigen',   // #553
   barLeave: 'hinaus',
   barLift: 'Lift',
   barHopUp: 'hinauf',   // #701
