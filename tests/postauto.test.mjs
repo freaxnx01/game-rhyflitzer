@@ -393,3 +393,12 @@ for (const [name, dt, factor] of [['real time', 1, 1], ['time-lapse 60x', 1, 60]
     assert.ok(seen.size <= 4);   // 14 trips make a handful of runs, not 14 buses
   });
 }
+
+// #763 (found by the Playwright run): Frick's last stop lies 0.3 m before the route end, inside the 2 m where route.js's
+// targetSpeed brakes to zero -- the bus stopped 1.7 m short of the stop, never arrived and never turned
+test('stepBus_StopWithinTwoMetresOfRouteEnd_StillArrives', () => {
+  const rd = road([[0, 0], [500, 0]]), r = busRoute({ id: 7, line: '133', pts: [[0, 0], [500, 0]], stops: [stop('1', 100), stop('2', 499.7)] }, [rd], buildGraph([rd]));
+  const trip = { line: '133', route: 7, to: 'Ende', fromOutside: false, toOutside: false, calls: [['1', 36000, 36000], ['2', 36100, 36100]] };
+  const b = placeTrip(trip, r, 36001), log = run(b, 36001, 200);
+  assert.ok(log.some((x) => x.k === 1 && x.phase === 'stand' && x.s === 499.7));
+});

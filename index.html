@@ -4083,7 +4083,9 @@ function paintBusDisplay(root, text) {
   let painted = 0;
   root.traverse((o) => {
     if (!o.isMesh || !o.material?.userData?.overGlass) return;
-    const m = o.material.clone();
+    const m = o.material.userData.ownDisplay ? o.material : o.material.clone();   // #763: a repaint reuses the bus's own clone, so the mesh, wheels and blinkers stay
+    if (m.userData.ownDisplay) m.map?.dispose();   // never the shared glTF map on a first paint
+    m.userData.ownDisplay = true;
     m.map = m.emissiveMap = displayTexture(text);
     o.material = m;
     painted++;
@@ -4667,7 +4669,7 @@ window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), m
   floor: gltfState('bus') === 'ready' ? { faces: GLTF_CARS.bus.floorFaces, shellSide: GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null } : null,   // #709: the floor copy; the shell stays THREE.FrontSide = 0 (#723)
   voices: SFX.state().busVoices,
   panel: { rows: document.querySelectorAll('#debugparows button').length, clock: $('debugpaclock').textContent },
-  buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null, wheelSpin: POSTAUTO.meshes.get(b.key)?.userData.spin ?? null }; }) });
+  buses: POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, line: b.trip.line, to: b.trip.to, route: b.route.id, phase: b.phase, k: b.k, s: b.s, v: b.v, x: p.x, z: p.z, th: p.th, y: b.y, leg: b.leg ?? 0, legs: b.legs?.length ?? 1, blinker: busBlinker(b, postautoClock()), led: POSTAUTO.meshes.get(b.key)?.userData.led ?? null, wheelSpin: POSTAUTO.meshes.get(b.key)?.userData.spin ?? null }; }) });
 window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the baked Display material must stay shared and untouched
   const cached = GLTF_CARS.bus?.mats?.all.find((m) => m.name === 'Display') ?? null;
   return { cachedMapWidth: cached?.map?.image?.width ?? null,

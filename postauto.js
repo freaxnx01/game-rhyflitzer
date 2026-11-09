@@ -290,7 +290,8 @@ function driveStep(b, t, dt, gap, cfg) {
   const target = busTarget(b.route, b.s, stop ? stop.s : null, gap, cfg);
   b.v = Math.max(0, b.v + clamp(target - b.v, -cfg.hardBrake * dt, cfg.accel * dt));
   b.s += b.v * dt;
-  if (stop && (b.s >= stop.s || (stop.s - b.s < cfg.arrive && b.v < 1))) arrive(b, t, cfg);
+  const reach = stop ? Math.min(stop.s, b.route.len - 2) : null;   // targetSpeed brakes to zero 2 m before the route end: a stop beyond that is reached there
+  if (stop && (b.s >= stop.s || (reach - b.s < cfg.arrive && b.v < 1))) arrive(b, t, cfg);
   else if (!stop && b.s >= b.route.len - 2) b.phase = 'done';
 }
 
