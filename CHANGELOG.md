@@ -15,6 +15,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-08 22:50` The **Bahnhof Frick** stands again, and with it about 90 other **churches, chapels, stations, schools and town halls** that were missing because they are not on a main road.
+
 - `2026-11-08 22:23` The **helicopter** can now fly **low**: holding <kbd>Shift</kbd> it sinks to about **3 m** over the road, the field or a roof instead of stopping 10 m up, so you can skim along a street.
 - `2026-11-08 22:21` Looking into the **Regional Bus** or a **Postauto** from the front, through the windscreen, you no longer see the **wheels from inside** the cabin: the **wheel arches** are closed now.
 - `2026-11-08 21:19` The **road markings** show again **from far away**, not only just before you drive over them; the same goes for the **parking bay lines**, the **street names** on the road and the **yellow zigzag** at the bus stops. Since the meadow-flicker fix the road surface had been drawn in front of them at range.
