@@ -10,6 +10,9 @@ from test_carselect import ARGS, MMH_ROUTE, T, wait_frames
 DEPOT_JS = "() => window.__mm.depot()"
 AT_DEPOT = "() => window.__mm.sim(832.3, -107.5, 0, 0, 0.1, [])"
 ALL_BUILT = "() => { const d = window.__mm.depot(); return d.slots.length === window.__mm.carsel().count && d.slots.every(s => s.model === 'gltf' || s.id === window.__mm.carsel().id); }"
+# only one test waits for every glTF (21 models is a heavy load on a CI GPU); the others need every slot placed, or one model
+ALL_PLACED = "() => { const d = window.__mm.depot(); return d.slots.length === window.__mm.carsel().count && d.slots.every(s => s.model); }"
+HYPER_GLTF = "() => window.__mm.depot().slots.some(s => s.id === 'hyper' && s.model === 'gltf')"
 
 
 def open_page(p, server, query="", block_world=True):
@@ -56,7 +59,7 @@ def test_parked_cars_are_solid_and_far_ones_hidden(server):
         b, page, errors = open_page(p, server)
         page.click("#startbtn", timeout=180000)
         page.evaluate(AT_DEPOT)
-        page.wait_for_function(ALL_BUILT, timeout=240000)
+        page.wait_for_function(ALL_PLACED, timeout=240000)
         d = depot(page)
         high = [s for s in d["slots"] if abs(s["th"] + math.pi / 2) < 1e-9 and s["id"] != "compact"]
         target = min(high, key=lambda s: math.hypot(s["x"] - 832.3, s["z"] + 107.5))
@@ -80,7 +83,7 @@ def test_parked_paint_ignores_later_repaints(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
         page.evaluate(AT_DEPOT)
-        page.wait_for_function(ALL_BUILT, timeout=240000)
+        page.wait_for_function(HYPER_GLTF, timeout=240000)
         before = {s["id"]: s for s in depot(page)["slots"]}["hyper"]
         page.click("#carbtn")
         page.wait_for_function("() => window.__mm.carsel().open", timeout=T)

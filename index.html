@@ -5550,6 +5550,9 @@ function stagePaint(g, def) {
   const col = paintMat ? paintMat.color : paintable(def) ? carMats.body.color : null;
   return col ? '#' + col.getHexString() : null;
 }
+// a replaced parked mesh frees its own geometry and its cloned materials -- never the shared glTF geometry (userData.sharedGeo)
+// nor a material's map (each clone shares it with the stage build and the glTF cache)
+function disposeParked(g) { g.traverse(o => { if (!o.isMesh) return; if (!o.userData.sharedGeo) o.geometry.dispose(); for (const m of [].concat(o.material)) m.dispose(); }); }
 function buildDepotSlot(s) {
   const def = VEHICLES[s.id], old = DEPOT_S.built.get(s.id);
   if (def.gltf) DEPOT_S.loadChain = DEPOT_S.loadChain.then(() => loadVehicleModel(s.id));   // one file at a time, like the gallery
@@ -5562,7 +5565,7 @@ function buildDepotSlot(s) {
     g.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); });
     paint = stagePaint(g, def); mesh = g;
   });
-  if (old) scene.remove(old.mesh);   // the fallback makes way for the real model
+  if (old) { scene.remove(old.mesh); disposeParked(old.mesh); }   // the fallback makes way for the real model
   mesh.position.set(s.x, groundH(s.x, s.z, -Infinity), s.z);
   mesh.rotation.set(0, -s.th, 0);
   mesh.visible = s.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show;
