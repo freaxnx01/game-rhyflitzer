@@ -48,7 +48,7 @@ def test_secondary_hud_ghosts_after_four_seconds_and_wakes_on_change(server):
     assert all(classes.values()), classes
     assert kept == [False, False, False]                      # speed, map, pause never fade
     assert woke["phases"]["gearplate"] == "awake" and woke["phases"]["tl"] == "ghost", woke   # only the changed plate wakes
-    assert still["phases"]["gearplate"] == "awake" and faded["phases"]["gearplate"] == "ghost"], (still, faded)
+    assert still["phases"]["gearplate"] == "awake" and faded["phases"]["gearplate"] == "ghost", (still, faded)
     assert errors == []
 
 
@@ -79,7 +79,7 @@ def test_key_bar_ghosts_after_thirty_seconds_and_returns_on_a_new_context(server
         page.wait_for_function("() => window.__mm.keybar().ctx === 'foot'", timeout=T)
         foot = page.evaluate(FADE, 0)
         b.close()
-    assert car["keybar"] == "awake" and later["keybar"] == "ghost" and foot["keybar"] == "awake"], (car, later, foot)
+    assert car["keybar"] == "awake" and later["keybar"] == "ghost" and foot["keybar"] == "awake", (car, later, foot)
     assert errors == []
 
 
