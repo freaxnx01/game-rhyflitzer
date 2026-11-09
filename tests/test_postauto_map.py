@@ -8,6 +8,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).parents[1]
 TT = ROOT / "data" / "timetable_hochrhein.json"
 needs_data = pytest.mark.skipif(not TT.exists(), reason="run the #682 timetable cut first")
+LINES = {t["line"] for t in json.loads(TT.read_text(encoding="utf-8"))["trips"]} if TT.exists() else set()
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 
 
@@ -35,7 +36,7 @@ def test_postauto_on_the_map(server):
         buses = page.evaluate("() => window.__mm.postauto().buses")
         got = page.evaluate("() => window.__mm.mapBuses()")
         assert len(got["marks"]) == len(buses)
-        assert all(m["line"] == "133" and m["label"] is None for m in got["marks"])   # minimap: no label
+        assert all(m["line"] in LINES and m["label"] is None for m in got["marks"])   # minimap: no label
         m = got["marks"][0]
         if 0 <= m["px"] <= 800 and 0 <= m["py"] <= 400:
             yellow = page.evaluate("""([x, y]) => { const d = document.getElementById('map').getContext('2d').getImageData(Math.round(x) - 6, Math.round(y) - 6, 12, 12).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 230 && d[i + 1] > 170 && d[i + 2] < 60) n++; return n; }""", [m["px"], m["py"]])
@@ -44,7 +45,7 @@ def test_postauto_on_the_map(server):
         page.wait_for_function("() => document.getElementById('overlay').hidden")
         page.keyboard.down("Tab")
         page.wait_for_function("() => window.__mm.mapBuses().full", timeout=10000)
-        assert page.evaluate("() => window.__mm.mapBuses().marks.every(m => m.label === '133')")
+        assert page.evaluate("() => window.__mm.mapBuses().marks.every(m => m.label === m.line)")
         page.keyboard.up("Tab")
         assert errors == []
         b.close()

@@ -23,6 +23,12 @@ export function stopRows(calls) {
   return [...seen.values()].sort((a, b) => a.line.localeCompare(b.line) || a.dest.localeCompare(b.dest));
 }
 
+// a route ends at its last stop only when it ends inside the map; a cut route (#767: 143 at Breitenacher) drives on
+export const stopEnds = (i, n, cut) => i === n - 1 && !(cut && cut[1]);
+
+// the Fahrplantafel header (#767): the stop's own lines, once each
+export const sheetLines = (rows) => [...new Set(rows.map((r) => r.line))].sort((a, b) => a.localeCompare(b)).join(' ');
+
 export function rectClearance(px, pz, pose, size) {
   const dx = px - pose.x, dz = pz - pose.z, c = Math.cos(pose.th), s = Math.sin(pose.th);
   const u = dx * c + dz * s, v = -dx * s + dz * c;

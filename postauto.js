@@ -165,7 +165,7 @@ export function tripWindow(trip, calls, route, cfg = PA) {
 const firstDep = (t) => t.calls[0][2], lastArr = (t) => t.calls[t.calls.length - 1][1];
 
 // for each trip that ends at a terminus (!toOutside), the same line's next trip from that stop within cfg.turnMax,
-// earliest departure first, one predecessor per trip (A5)
+// earliest departure first, one predecessor per trip (A5); not across another arrival of the line at that stop (#767 A6)
 export function linkTrips(trips, cfg = PA) {
   const next = new Map(), taken = new Set();
   for (const a of [...trips].sort((x, y) => lastArr(x) - lastArr(y))) {
@@ -175,6 +175,10 @@ export function linkTrips(trips, cfg = PA) {
       && String(t.calls[0][0]) === uic && firstDep(t) >= lastArr(a) && firstDep(t) - lastArr(a) <= cfg.turnMax)
       .sort((x, y) => firstDep(x) - firstDep(y))[0];
     if (!b) continue;
+    // #767: a bus does not wait across another arrival of its line at that stop; the later bus takes the departure
+    const between = (t) => t !== a && t.line === a.line && !t.toOutside && String(t.calls[t.calls.length - 1][0]) === uic
+      && lastArr(t) > lastArr(a) && lastArr(t) < firstDep(b);
+    if (trips.some(between)) continue;
     next.set(tripKey(a), b); taken.add(tripKey(b));
   }
   return next;

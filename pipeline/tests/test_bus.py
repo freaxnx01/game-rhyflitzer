@@ -101,6 +101,27 @@ def test_build_drops_stops_far_off_the_line_and_routes_outside():
     assert out == [] and stats["outside"] == 1
 
 
+def test_build_drops_stops_beyond_the_map_edge():
+    # #767: Ritanne's stop node lies 10.7 m past the east edge and used to snap onto the clipped line's end
+    d = _data([(0, 0), (1000, 0)], [21, 22],
+              {21: ((790, 3), {"name": "In", "uic_ref": "8500001"}),
+               22: ((810, 3), {"name": "Out", "uic_ref": "8500002"})})
+    (r,), stats = wb.build(d, ROAD, shapely.box(-10, -50, 800, 50))
+    assert r["cut"] == [False, True]
+    assert [s["uic"] for s in r["stops"]] == ["8500001"] and stats["stop-outside"] == 1
+
+
+def test_build_keeps_one_route_per_line_and_in_map_stops():
+    # #767: two OSM variants of 143 per direction are the same line inside the map; the lowest id is kept
+    routes = [wb.Route(700, {"ref": "143"}, [1], [21], []), wb.Route(701, {"ref": "143"}, [1], [21], []),
+              wb.Route(702, {"ref": "133"}, [1], [21], [])]
+    d = wb.BusData(routes=routes, way_nodes={1: [0, 1]},
+                   node_xy={0: (0, 0), 1: (1000, 0), 21: (200, 0)},
+                   node_tags={21: {"name": "A", "uic_ref": "8500001"}})
+    out, stats = wb.build(d, ROAD, shapely.box(-10, -500, 2000, 500))
+    assert [r["id"] for r in out] == [700, 702] and stats["duplicate-variant"] == 1
+
+
 def test_build_world_emits_bus_routes_only_with_the_anchors_key(tmp_path):
     spec = tmp_path / "a.json"
     spec.write_text(json.dumps({"bus": {"lines": ["133"]}}))

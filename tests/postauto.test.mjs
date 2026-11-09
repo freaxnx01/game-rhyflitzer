@@ -270,11 +270,19 @@ test('linkTrips_BeyondTurnMaxOrWrongStopOrOutside_DoesNotLink', () => {
   assert.equal(linkTrips([{ ...a, toOutside: true }, leg('133', '3', '1', 1240, 1300)]).size, 0);
   assert.equal(linkTrips([a, leg('133', '3', '1', 990, 990)]).size, 0);   // departs before the arrival
 });
-test('linkTrips_TwoCandidates_EarliestDepartureWinsAndOnePredecessorEach', () => {
+test('linkTrips_TwoCandidates_TheLastArrivalBeforeADepartureTakesIt', () => {
+  // #767 (A6): a2 arrives between a1's arrival and b1's departure, so a1 does not take b1 -- a2 does
   const a1 = leg('133', '1', '3', 1000, 800), a2 = leg('133', '1', '3', 1100, 900);
   const b1 = leg('133', '3', '1', 1200, 1250), b2 = leg('133', '3', '1', 1400, 1450);
   const m = linkTrips([a1, a2, b1, b2]);
-  assert.equal(m.get(tripKey(a1)), b1); assert.equal(m.get(tripKey(a2)), b2);
+  assert.equal(m.get(tripKey(a2)), b1); assert.equal(m.has(tripKey(a1)), false); assert.equal(m.size, 1);
+});
+test('linkTrips_AnotherArrivalBeforeTheDeparture_TheLaterBusTakesIt', () => {
+  // #767: 143 at Stein-Saeckingen, two arrivals before one departure -- the earlier bus must not wait across the later one
+  const a1 = leg('143', '1', '3', 1000, 800), a2 = leg('143', '1', '3', 1600, 1400), b = leg('143', '3', '1', 2000, 1900);
+  const m = linkTrips([a1, a2, b]);
+  assert.equal(m.has(tripKey(a1)), false);
+  assert.equal(m.get(tripKey(a2)), b);
 });
 test('fleetRuns_LinkedTrips_OneRunWithContiguousWindowsAtTheArrival', () => {
   const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1240, 1300), c = leg('133', '1', '3', 2300, 2200);   // c far enough past b's arrival (1240) to stay unlinked
@@ -364,9 +372,9 @@ const TT = JSON.parse(fs.readFileSync(new URL('../data/timetable_hochrhein.json'
 // speed (not a flat distance), so a simulated bus arrives close to its scheduled time -- otherwise a short synthetic
 // last leg finishes minutes early, clears its layover before the next trip's window even opens, and hides the bug
 function synthRoutes(trips) {
-  const out = new Map();
-  for (const t of trips) {
-    if (out.has(t.route)) continue;
+  const out = new Map(), longest = new Map();
+  for (const t of trips) if (t.calls.length > (longest.get(t.route)?.calls.length ?? 0)) longest.set(t.route, t);   // #767: 143's short trips have 7 and 2 calls
+  for (const t of longest.values()) {
     let s = 0;
     const stops = t.calls.map((c, i) => { if (i > 0) s += Math.max(50, (c[1] - t.calls[i - 1][2]) * (PA.topKmh / 3.6)); return stop(String(c[0]), s); });
     const rd = road([[0, 0], [s + 200, 0]]);
@@ -376,7 +384,10 @@ function synthRoutes(trips) {
 }
 function standingAtTerminus(fleet) {
   const by = new Map();
-  for (const b of fleet) if (b.phase === 'stand' && (b.k === 0 || b.k === b.calls.length - 1)) by.set(b.calls[b.k].uic, (by.get(b.calls[b.k].uic) ?? 0) + 1);
+  for (const b of fleet) {
+    const first = b.k === 0 && !b.trip.fromOutside, last = b.k === b.calls.length - 1 && !b.trip.toOutside;   // #767: 143's Breitenacher is a through stop
+    if (b.phase === 'stand' && (first || last)) by.set(b.calls[b.k].uic, (by.get(b.calls[b.k].uic) ?? 0) + 1);
+  }
   return [...by].filter(([, n]) => n > 1);
 }
 for (const [name, dt, factor] of [['real time', 1, 1], ['time-lapse 60x', 1, 60]]) {
@@ -388,7 +399,7 @@ for (const [name, dt, factor] of [['real time', 1, 1], ['time-lapse 60x', 1, 60]
       const { n, h } = fleetSteps(dt * factor);
       for (const b of fleet) for (let i = 0; i < n; i++) stepBus(b, now + (i + 1) * h, h, null);
       assert.deepEqual(standingAtTerminus(fleet), [], `at ${now}`);
-      for (const b of fleet) seen.add(b.key);
+      for (const b of fleet) if (b.trip.line === '133') seen.add(b.key);
     }
     assert.ok(seen.size <= 4);   // 14 trips make a handful of runs, not 14 buses
   });
