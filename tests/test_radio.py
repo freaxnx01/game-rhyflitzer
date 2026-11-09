@@ -84,7 +84,8 @@ def test_keys_drive_the_radio_and_show_the_display(server):
         page.keyboard.press("5")
         page.wait_for_function("() => !window.__mm.radio().on && !window.__mm.radio().playing.fm", timeout=T)
         assert page.evaluate("() => localStorage.getItem('mm.radio')") == "0"
-        page.wait_for_function("() => !window.__mm.toast().shown", timeout=T)   # the display fades after 3 s
+        shown = page.evaluate("() => window.__mm.toast()")   # the fade runs on game time (dt clamped, under 1 fps headless): assert the 3 s budget, not the wall clock
+        assert "Radio off" in shown["text"] and 0 < shown["left"] <= 3, shown
         assert errors == [], errors
         b.close()
 
