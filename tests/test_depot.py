@@ -92,3 +92,120 @@ def test_parked_paint_ignores_later_repaints(server):
     assert before["paint"] == "#2266dd", before                      # the Rhy Hyper's factory racing blue
     assert after["paint"] == "#2266dd", after
     assert not errors, errors
+
+
+# ---------- Task 4: boarding with E ----------
+HYPER_MODEL = "() => window.__mm.depot().slots.some(s => s.id === 'hyper' && s.model)"
+
+
+def board_from_car(page, target):
+    """Stand still 2 m in front of the target's nose, wait for the prompt, press E."""
+    s = [s for s in page.evaluate(DEPOT_JS)["slots"] if s["id"] == target][0]
+    page.evaluate("(s) => window.__mm.sim(s.x + Math.cos(s.th) * (s.l / 2 + 2), s.z + Math.sin(s.th) * (s.l / 2 + 2), s.th + Math.PI, 0, 0.2, [])", s)
+    page.wait_for_function(f"() => window.__mm.depot().near === '{target}'", timeout=T)
+    page.keyboard.press("KeyE")
+    page.wait_for_function(f"() => window.__mm.carsel().id === '{target}'", timeout=T)
+    wait_frames(page)
+
+
+def slots_by_id(page):
+    return {s["id"]: s for s in depot(page)["slots"]}
+
+
+def test_e_in_the_car_boards_the_parked_vehicle(server):
+    """Boards the hypercar before its model is loaded; the compact goes home, the hypercar's slot empties."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.click("#startbtn", timeout=180000)
+        page.evaluate(AT_DEPOT)
+        page.wait_for_function(HYPER_MODEL, timeout=T)
+        board_from_car(page, "hyper")
+        d = depot(page)
+        b.close()
+    slot = {s["id"]: s for s in d["slots"]}
+    assert slot["compact"]["shown"] and slot["compact"]["solid"], slot["compact"]
+    assert not slot["hyper"]["shown"] and not slot["hyper"]["solid"], slot["hyper"]
+    assert not errors, errors
+
+
+def test_boarding_on_foot(server):
+    """Z next to the strip, walk up: the key bar offers E 'get in', E boards, the compact goes home."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.click("#startbtn", timeout=180000)
+        page.evaluate(AT_DEPOT)
+        page.wait_for_function("() => window.__mm.depot().slots.some(s => s.model)", timeout=T)
+        target = min((s for s in depot(page)["slots"] if s["id"] != "compact" and abs(s["th"] + math.pi / 2) < 1e-9),
+                     key=lambda s: math.hypot(s["x"] - 832.3, s["z"] + 107.5))
+        nose = (target["x"] + math.cos(target["th"]) * target["l"] / 2, target["z"] + math.sin(target["th"]) * target["l"] / 2)
+        q = (target["x"] + math.cos(target["th"]) * (target["l"] / 2 + 2), target["z"] + math.sin(target["th"]) * (target["l"] / 2 + 2))
+        page.evaluate(f"() => window.__mm.sim({target['x'] + 4}, -107.5, {-math.pi / 2}, 0, 0.1, [])")
+        page.keyboard.press("KeyZ")                                  # get out on the aisle, clear of the rows
+        page.wait_for_function("() => window.__mm.foot().on", timeout=T)
+        f = page.evaluate("() => window.__mm.foot()")
+        turn = math.atan2(q[1] - f["z"], q[0] - f["x"]) - f["th"]     # aim the walker at the nose + 2 m
+        turn = (turn + math.pi) % (2 * math.pi) - math.pi
+        page.evaluate(f"() => window.__mm.footLook({turn / 0.0025}, 0)")
+        page.evaluate("([s, h]) => window.__mm.footSim(s, h)", [math.hypot(q[0] - f["x"], q[1] - f["z"]) / 4.5, ["KeyW"]])
+        page.wait_for_function(f"() => window.__mm.depot().near === '{target['id']}'", timeout=T)
+        bar = page.evaluate("() => window.__mm.keybar()")
+        prompt = page.evaluate("() => document.querySelector('#prompt').textContent")
+        page.keyboard.press("KeyE")
+        page.wait_for_function(f"() => window.__mm.carsel().id === '{target['id']}'", timeout=T)
+        wait_frames(page)
+        d = depot(page)
+        on_foot = page.evaluate("() => window.__mm.foot().on")
+        b.close()
+    assert bar["action"] == "board" and "get in" in bar["text"], bar
+    assert "get in" in prompt, prompt
+    assert on_foot is False
+    slot = {s["id"]: s for s in d["slots"]}
+    assert slot["compact"]["shown"] and slot["compact"]["solid"], slot["compact"]
+    assert not slot[target["id"]]["shown"] and not slot[target["id"]]["solid"], slot[target["id"]]
+    assert not errors, errors
+
+
+def test_boarding_during_a_run_marks_it_swapped(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, query="?mode=trial")
+        page.click("#startbtn", timeout=180000)
+        page.evaluate(AT_DEPOT)
+        page.wait_for_function(HYPER_MODEL, timeout=T)
+        board_from_car(page, "hyper")
+        flags = page.evaluate("() => window.__mm.raceFlags()")
+        b.close()
+    assert flags["swapped"] is True, flags
+    assert not errors, errors
+
+
+def test_e_elsewhere_in_the_car_does_nothing(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.click("#startbtn", timeout=180000)
+        page.evaluate("() => window.__mm.sim(1810, 610, 0, 0, 0.1, [])")   # the Bahnhofstrasse, far from the depot
+        page.keyboard.press("KeyE")
+        wait_frames(page)
+        got = page.evaluate("() => ({ id: window.__mm.carsel().id, near: window.__mm.depot().near })")
+        b.close()
+    assert got == {"id": "compact", "near": None}, got
+    assert not errors, errors
+
+
+def test_too_fast_shows_no_prompt(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.click("#startbtn", timeout=180000)
+        page.evaluate(AT_DEPOT)
+        page.wait_for_function("() => window.__mm.depot().slots.some(s => s.model)", timeout=T)
+        s = min((x for x in depot(page)["slots"] if x["id"] != "compact" and abs(x["th"] + math.pi / 2) < 1e-9),
+                key=lambda x: math.hypot(x["x"] - 832.3, x["z"] + 107.5))
+        qx, qz = s["x"] + math.cos(s["th"]) * (s["l"] / 2 + 2), s["z"] + math.sin(s["th"]) * (s["l"] / 2 + 2)
+        th = math.atan2(s["z"] - qz, s["x"] - qx)
+        fast = page.evaluate(f"() => window.__mm.sim({qx}, {qz}, {th}, 10, 0.05, [])")   # 10 m/s, 2 m off the nose
+        near_fast = depot(page)["near"]
+        page.evaluate(f"() => window.__mm.sim({fast['x']}, {fast['z']}, {th}, 0, 0.05, [])")
+        near_stopped = depot(page)["near"]
+        b.close()
+    assert near_fast is None, (near_fast, fast)
+    assert near_stopped == s["id"], (near_stopped, fast, s)
+    assert not errors, errors

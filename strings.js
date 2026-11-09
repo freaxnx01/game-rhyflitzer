@@ -222,6 +222,8 @@ const en = {
   enterSoon: 'Not enterable yet',
   ridePrompt: 'E · Ride the Ferris wheel',   // #516
   rideExit: 'E · Get out',
+  depotPrompt: (n) => `E: get in — ${n}`,   // #553
+  depotIn: (n) => `Now driving: ${n}`,   // #553
   rideWait: 'You can get out at the bottom',
   plattformOpen: 'The stair is open -- just walk in',
   chipEnterable: 'Enterable',
@@ -862,6 +864,8 @@ const de = {
   enterSoon: 'Noch nicht begehbar',
   ridePrompt: 'E · Riesenrad fahren',   // #516
   rideExit: 'E · Aussteigen',
+  depotPrompt: (n) => `E: Einsteigen — ${n}`,   // #553
+  depotIn: (n) => `Jetzt am Steuer: ${n}`,   // #553
   rideWait: 'Aussteigen kannst Du unten',
   plattformOpen: 'Die Treppe ist offen -- einfach hineingehen',
   chipEnterable: 'Begehbar',
