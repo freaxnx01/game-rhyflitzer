@@ -11,7 +11,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 .plate{position:fixed;background:rgba(20,23,29,.82);border:4px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l);padding:6px 14px;box-sizing:border-box}
 #hud{position:fixed;inset:0;pointer-events:none;font-variant-numeric:tabular-nums}
 /* #305: Ctrl+H -- a clean view; the toast still says what happened, the dialogs and the lift pads still open */
-body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #navi,body.hud-off #compass,body.hud-off #bl,body.hud-off #br,body.hud-off #stylebtn,body.hud-off #pausebtn,body.hud-off #debug,body.hud-off #touch,body.hud-off #game-nav{visibility:hidden}
+body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #navi,body.hud-off #compass,body.hud-off #bl,body.hud-off #br,body.hud-off #stylebtn,body.hud-off #pausebtn,body.hud-off #debug,body.hud-off #touch,body.hud-off #game-nav,body.hud-off #radiobtn,body.hud-off #radiopanel{visibility:hidden}
 #tl{left:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:6px;min-width:200px}
 #tl .mode{font-size:16px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel-l)}
 #tl .cps{font-size:22px;font-weight:800;font-style:italic;color:var(--sun);line-height:1}
@@ -229,9 +229,9 @@ body.tutorial #tr{display:none}#tutorialbtn.first{outline:4px solid var(--sun);o
 #about a{color:#8fd8e8}
 .ab-foot{margin:0;padding-top:10px;border-top:3px solid var(--steel);color:var(--steel-l)}
 /* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
-body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar),
-body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar),
-body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar),
+body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
+body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
+body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#compass,#stylebtn,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
 body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast){display:none}
 @media (max-width:600px){
   .tags{padding:10px 12px 0}.start .sub,.tag{font-size:11px;padding:4px 8px;letter-spacing:1px}
@@ -279,6 +279,12 @@ body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,b
 #stylebtn b{color:var(--sun)}
 #pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
 #pausebtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+/* #735: the phone's car radio -- one small button left of #pausebtn, a 3x2 panel under the pair; desktop has keys only */
+#radiobtn{display:none;position:fixed;right:72px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-size:22px}
+@media (pointer:coarse){#radiobtn{display:block}}
+#radiopanel{position:fixed;right:16px;top:calc(264px + env(safe-area-inset-top,0px));display:grid;grid-template-columns:repeat(3,48px);gap:6px;padding:6px;background:rgba(20,23,29,.92);border:3px solid var(--steel);pointer-events:auto;z-index:5}
+#radiopanel[hidden]{display:none}
+#radiopanel button{width:48px;height:48px;padding:0;background:rgba(20,23,29,.6);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;cursor:pointer}
 /* #83: light, even dim so the frozen scene, HUD and debug panel stay readable behind the menu */
 #pause,#abandon{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(10,8,20,.55);padding:16px;box-sizing:border-box;overflow:auto}
 #pause[hidden],#abandon[hidden]{display:none}
@@ -454,6 +460,15 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   </div>
   <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
+  <button id="radiobtn" type="button" aria-label="Car radio" data-i18n-aria="radioAria" aria-expanded="false" aria-controls="radiopanel">📻</button>
+  <div id="radiopanel" hidden role="group" aria-label="Car radio" data-i18n-aria="radioAria">
+    <button type="button" data-radio="power" aria-label="Radio on · off" data-i18n-aria="radioPowerBtn">⏻</button>
+    <button type="button" data-radio="prev" aria-label="Previous track" data-i18n-aria="radioPrevBtn">◀</button>
+    <button type="button" data-radio="next" aria-label="Next track" data-i18n-aria="radioNextBtn">▶</button>
+    <button type="button" data-radio="station" aria-label="Switch station" data-i18n-aria="radioStationBtn">⇄</button>
+    <button type="button" data-radio="down" aria-label="Quieter" data-i18n-aria="radioDownBtn">−</button>
+    <button type="button" data-radio="up" aria-label="Louder" data-i18n-aria="radioUpBtn">+</button>
+  </div>
   <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debugpa" hidden><div id="debugpatitle" data-i18n="dbgPaTitle">Postauto</div><div id="debugpaclock"></div><div id="debugpaset"><input id="debugpatime" type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" aria-label="Fleet time (HH:MM)" data-i18n-aria="dbgPaTimeLabel"> <button id="debugpasetgo" type="button" data-i18n="dbgPaSet">Set</button> <button id="debugpawall" type="button" data-i18n="dbgPaWall">Real time</button> <label for="debugpaspeed" data-i18n="dbgPaSpeed">Time-lapse</label> <select id="debugpaspeed"></select></div><div id="debugparows"></div><button id="debugpaback" type="button" hidden data-i18n="dbgPaBack">Back to car</button></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
 </div>
 
@@ -5443,7 +5458,7 @@ const PAUSE = { on: false, confirm: false, frame: 0 };
 const inRun = () => canPause($('overlay').hidden, R.state);
 const holdSound = (on) => SFX.hold('menu', on);   // #14: one of several hold reasons -- a hidden tab holds 'tab' and must not release this one
 const PAUSE_ALL = [...new Set([...PAUSE_BUTTONS, ...pauseButtonsFor('tutorial')])];   // #534: every button any mode shows
-function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; if (document.pointerLockElement) document.exitPointerLock(); for (const k in keys) keys[k] = false; closeHelp(); closeJump(); $('pause').hidden = false; holdSound(true); for (const id of PAUSE_ALL) $(id).hidden = !pauseButtonsFor(R.mode).includes(id); $(PAUSE_BUTTONS[0]).focus(); }
+function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; setRadioPanel(false); if (document.pointerLockElement) document.exitPointerLock(); for (const k in keys) keys[k] = false; closeHelp(); closeJump(); $('pause').hidden = false; holdSound(true); for (const id of PAUSE_ALL) $(id).hidden = !pauseButtonsFor(R.mode).includes(id); $(PAUSE_BUTTONS[0]).focus(); }
 function closePause() { if (!PAUSE.on) return; if (CARSEL.swap) restoreVehicleSwap(); /* every exit from the pause undoes an open vehicle change (#189) */ PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
 function restartRace() { closePause(); startRace(R.mode); }
 function resetMode() { R.mode = START_MODE; R.left = 0; R.timeUp = false; SURP = { turbo: 0, moon: 0 }; startHuntRun(false, Math.random); startViewRun(); startTutorialRun(); }   // #551: back to the preselected mode: no Blitz clock, no boxes, no confetti, no surprise running; every way out to the start screen calls this; #508: no viewpoint run either; #534: no tutorial run either
@@ -5457,6 +5472,12 @@ const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon,
 // true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
 function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
 $('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('pausetutorial').onclick = quitTutorial; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause'); $('pausekeybar').onclick = toggleKeybar; renderKeybarToggle();   // #509
+// #735: the phone's radio -- 📻 opens six buttons that run what 5-0 do; it closes on a second tap, on pause and after 6 s untouched
+const RADIO_PANEL = { closeAt: 0 };
+function setRadioPanel(open) { $('radiopanel').hidden = !open; $('radiobtn').setAttribute('aria-expanded', String(open)); RADIO_PANEL.closeAt = open ? performance.now() + 6000 : 0; }
+$('radiobtn').onclick = () => setRadioPanel($('radiopanel').hidden);
+$('radiopanel').addEventListener('click', (e) => { const b = e.target.closest('[data-radio]'); if (!b) return; RADIO.cmd(b.dataset.radio); RADIO_PANEL.closeAt = performance.now() + 6000; b.blur(); });
+setInterval(() => { if (RADIO_PANEL.closeAt && performance.now() > RADIO_PANEL.closeAt) setRadioPanel(false); }, 500);
 document.addEventListener('visibilitychange', () => { if (document.hidden) openPause(); });
 window.__mm.closePause = closePause;   // test hook: any non-Esc exit from the pause while the vehicle change is open (#189)
 window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.frame, state: R.state, t: R.t, best: R.best, x: P.x, z: P.z, audio: SFX.state().ctx, focus: document.activeElement?.id || '' });
