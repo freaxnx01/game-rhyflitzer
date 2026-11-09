@@ -511,6 +511,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="worldbtn" class="btn small" type="button"></button>
         <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
         <button id="aboutbtn" class="btn small" type="button" data-i18n="aboutBtn" style="text-transform:none">About</button>
+        <button id="musicbtn" class="btn small" type="button" aria-pressed="true" style="text-transform:none">Music: on</button>
       </div>
     </div>
     <div class="foot">
@@ -4046,7 +4047,6 @@ function radioKey(e) {   // #735: 5-0 are the radio (start screen: 5 = menu musi
   const action = radioKeyAction(e); if (!action) return false;
   e.preventDefault(); if (action !== 'ignore') RADIO.cmd(action); return true;
 }
-function renderMusicBtn() { }   // #735: replaced in the start-screen wiring below
 
 // ---------- car state & physics ----------
 const P = { x: START.x, z: START.z, y: 0, vy: 0, th: START.th, vx: 0, vz: 0, dmg: 0, safe: [START.x, START.z, START.th], splash: 0, hinted: false, trip: 0, odo: (() => { try { return +localStorage.getItem('mm.odo') || 0; } catch (e) { return 0; } })() };
@@ -5289,6 +5289,9 @@ if (START_MODE === 'tutorial' && TUT_ON) { SHOWN.mode = 'tutorial'; if (!tutoria
 for (const id of Object.keys(MODE_BTN)) { const b = $(id); b.addEventListener('focus', () => showModeText(MODE_BTN[id])); b.addEventListener('mouseenter', () => showModeText(MODE_BTN[id])); b.addEventListener('blur', revertModeText); b.addEventListener('mouseleave', revertModeText); }
 $('cruisebtn').onclick = () => { SFX.start(); startRace('cruise'); };
 $('startbtn').onclick = () => { SFX.start(); startRace(); };
+function renderMusicBtn() { const on = RADIO.menuOn(), b = $('musicbtn'); b.textContent = tr(on ? 'menuMusicOn' : 'menuMusicOff'); b.setAttribute('aria-pressed', String(on)); }   // #735 / #549
+$('musicbtn').onclick = () => RADIO.cmd('power');   // no run is on behind the start screen, so this is the menu music's switch
+renderMusicBtn();
 $('blitzbtn').onclick = () => { SFX.start(); startRace('blitz'); };
 $('huntbtn').onclick = () => { SFX.start(); startRace('hunt'); };
 $('viewbtn').onclick = () => { SFX.start(); startRace('view'); };
@@ -5608,7 +5611,7 @@ window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BOR
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); }
-addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too
+addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
