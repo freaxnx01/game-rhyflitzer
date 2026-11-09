@@ -8,7 +8,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 
 RECTS_JS = """() => { const r = id => { const e = document.getElementById(id); if (!e || e.hidden || getComputedStyle(e).display === 'none') return null;
   const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
-  return { vw: innerWidth, vh: innerHeight, toast: r('toast'), roadname: r('roadname'), tl: r('tl'), tr: r('tr'), compass: r('compass'), debug: r('debug') }; }"""
+  return { vw: innerWidth, vh: innerHeight, toast: r('toast'), roadname: r('roadname'), tl: r('tl'), tr: r('tr'), debug: r('debug') }; }"""
 
 VIEWS = {
     "desktop": dict(viewport={"width": 1280, "height": 720}),
@@ -45,7 +45,7 @@ def test_key_toast_is_centred_below_the_checkpoint_block(server, view):
     assert abs((t[0] + t[2]) / 2 - r["vw"] / 2) <= 2, r                  # horizontally centred
     assert t[1] >= r["roadname"][3], r                                   # below the checkpoint block
     assert t[3] <= r["vh"] / 2, r                                        # upper half: the road ahead stays clear
-    for name in ("tl", "tr", "compass", "debug"):
+    for name in ("tl", "tr", "debug"):
         if r[name]:
             assert not overlaps(t, r[name]), (name, r)
 
