@@ -72,16 +72,34 @@ def test_e_at_the_door_jumps_up_to_the_deck_and_e_at_the_stair_back_down(server)
 
 
 @needs_world
-def test_hover_at_the_door_offers_no_hop_and_the_stair_still_works(server):
+def test_the_hop_prompt_clears_the_get_out_toast(server):
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        ex, ez = polar(page, 0, 2.0)
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", [ex, ez])   # in the car, at the door
+        key(page, "z", 300)                                              # get out: toast(tr('footOut'))
+        page.wait_for_function("() => window.__mm.platHop() === 'up'", timeout=120000)
+        page.wait_for_timeout(1500)                                      # a few more frames
+        state = page.evaluate("() => ({ prompt: document.querySelector('#prompt').textContent, toastShown: document.querySelector('#toast').classList.contains('show') })")
+        b.close()
+    assert errors == []
+    assert state["prompt"] != "" and not state["toastShown"], state
+
+
+@needs_world
+def test_hover_at_the_door_offers_no_hop(server):
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
         plat = plattform(page)
         ex, ez = polar(page, 0, 2.0)
         on_foot_at(page, ex, ez, plat["facing"] + math.pi, plat["base"])
         page.evaluate("() => { window.__mm.setFootY(window.__mm.plattform().base + 3); }")   # mid-stair height
+        key(page, "f")   # hover on
+        hover_on = page.evaluate("() => window.__mm.foot().hover")
         none = page.evaluate("() => window.__mm.platHop()")
         b.close()
     assert none is None and errors == []
+    assert hover_on   # F really turned hover on, so the null hop is the hover guard's doing
 
 
 @needs_world

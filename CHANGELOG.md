@@ -19,6 +19,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-09 16:13` Getting out of the car at the **Plattform Sisslerfeld** door no longer leaves the "you got out" hint **on top of** the "up to the deck" prompt: the hint disappears as the prompt appears.
+
 - `2026-11-09 14:23` During a **handbrake donut next to a building** the camera no longer **pumps in and out** and up to a high view on every spin: it now glides in smoothly, stays close while the wall is near, and only then eases back out.
 
 - `2026-11-09 12:07` On a **phone**, the footer ("More Games…", "Source", "Feedback", language), the style button and the arrow with the distance no longer lie over the map, the speedometer and the time-trial plate. While driving the footer is hidden and the minimap is a little smaller, so the speedometer keeps its corner; the style switch has moved into the **pause** menu, where it changes the look mid-run just as before.
