@@ -60,8 +60,7 @@ def test_stored_language_wins_over_the_browser(server):
             jumpTitle: document.querySelector('#jump > div').textContent,
             jumpSearch: document.querySelector('#jumpq').placeholder,
             jumpHint: document.querySelector('#jump small').textContent,
-            east: document.querySelector('#rose text:nth-of-type(2)').textContent,
-            compass: document.querySelector('#compass').getAttribute('aria-label'),
+            heading: document.querySelector('#maphead').textContent,
             speedo: document.querySelector('#speedo').getAttribute('aria-label'),
             stick: document.querySelector('#tStick').getAttribute('aria-label'),
             map: document.querySelector('#maptext').textContent,
@@ -79,7 +78,7 @@ def test_stored_language_wins_over_the_browser(server):
     assert shown["jumpTitle"] == "Springen nach"
     assert shown["jumpSearch"] == "Wahrzeichen suchen"
     assert shown["jumpHint"].startswith("tippen zum Suchen")
-    assert shown["east"] == "O" and shown["compass"] == "Kompass" and shown["speedo"] == "Tachometer"
+    assert shown["heading"].endswith("°") and shown["speedo"] == "Tachometer"   # #773: the heading is in the map bar; the de east letter is covered by hudfade.test.mjs
     assert shown["stick"] == "Lenken · gehen"
     assert shown["map"] == "Karte · Hochrhein ·"
     assert shown["loadTerrain"] == "Gelände laden (.mmh)"

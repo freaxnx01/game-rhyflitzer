@@ -164,7 +164,7 @@ def load_shots(path: Path = SHOTS_FILE) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-HIDDEN_SELECTORS = ("#tl", "#tr", "#compass", "#bl", "#br", "#pausebtn", "#arrow", "#game-nav", "#debug", "#toast", "#keybar", "#navi", "#stylebtn", "#touch")
+HIDDEN_SELECTORS = ("#tl", "#tr", "#bl", "#br", "#pausebtn", "#arrow", "#game-nav", "#debug", "#toast", "#keybar", "#navi", "#touch", "#radiobtn", "#radiopanel")   # #773: #compass and #stylebtn are gone
 # the #305 class (no toast, unlike the Ctrl+H key) plus the elements it leaves visible: the toast, the arrow, the key bar
 HIDE_CSS = ",".join(HIDDEN_SELECTORS) + "{visibility:hidden!important}"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
