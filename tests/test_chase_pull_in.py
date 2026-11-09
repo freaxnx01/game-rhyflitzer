@@ -50,3 +50,25 @@ def test_donut_next_to_a_building_moves_the_camera_smoothly(server, dt):
     assert jump_h <= MAX_JUMP_H_M, (jump_h, rows)
     assert not any(r["inside"] for r in rows), [i for i, r in enumerate(rows) if r["inside"]]
     assert not errors, errors
+
+
+# The car stands `gap` m off the block's +x face, facing away from it: the ideal chase spot (7 m back) is inside the block.
+PARKED_JS = """([gap, margin]) => { const m = window.__mm, q = m.carPose().pos, o = m.nearestSolid(q[0], q[2]);
+  const sx = o.x + o.c * (o.hw + gap), sz = o.z + o.s * (o.hw + gap), th = Math.atan2(o.s, o.c);
+  m.place(sx, sz, th); m.step(0.1, [], 1 / 60); let c = null; for (let i = 0; i < 240; i++) c = m.camStep(1 / 60);
+  const p = m.carPose().pos, x = p[0] + c.d[0], y = p[1] + c.d[1], z = p[2] + c.d[2], dx = x - o.x, dz = z - o.z;
+  const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c;
+  return { d: Math.hypot(c.d[0], c.d[2]), y: c.d[1], inside: Math.abs(lx) < o.hw + margin && Math.abs(lz) < o.hd + margin && y < o.h }; }"""
+
+
+def test_parked_with_the_back_to_a_wall_the_camera_stays_in_front_of_it(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.click("#startbtn", timeout=180000)
+        wait_frames(page)
+        cam = page.evaluate(PARKED_JS, [3.0, WALL_MARGIN_M])
+        b.close()
+    assert cam["inside"] is False, cam
+    assert cam["d"] < 3.0, cam                 # pulled in to the free strip between car and wall
+    assert cam["y"] < 6.0, cam                 # no bird's-eye view
+    assert not errors, errors
