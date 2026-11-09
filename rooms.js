@@ -1,11 +1,10 @@
 // #277 / #361: the room template -- pure layout (no three.js, no DOM): a 500 x 500 m lawn at ROOM_Y under the Hübel, facing
 // along its own spoke, the object (if any) in its centre, a closed ring of trees at the edge with a gap only at the
 // portal, gravel paths, a ship's water basin, and the tunnel stub leading back to the portal. Eight rooms share this template (ROOMS); only the
-// Eiffel, Atomium (room 1), Artemis II (room 2), Vasa (room 3), Speicherstadt (room 5), Ferris wheel (room 6) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
+// Eiffel, Atomium (room 1), Artemis II (room 2), Vasa (room 3), Ferris wheel (room 6) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test tests/rooms.test.mjs`.
 import { EIFFEL, ATOMIUM, TITANIC, VASA } from './hideout.js';
 import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
-import { SPEICHER, speicherPlacement } from './speicher.js';   // #666
 import { ENTERPRISE, DEDICATION, dedicationPlacement } from './enterprise.js';   // #491
 import { FERRIS, ferrisPlacement } from './ferris.js';      // #513
 import { FRIES, friesPlacement } from './fries.js';
@@ -25,13 +24,13 @@ export const ROOMS = [
   { id: 'room2', name: 'Artemis II', object: ARTEMIS, signed: false },   // #488: the SLS stack and the Orion capsule
   { id: 'room3', name: 'Vasa', object: VASA, signed: false },   // #421: the warship on its museum cradle
   { id: 'room4', name: null, object: null },
-  { id: 'room5', name: 'Speicherstadt', object: SPEICHER, signed: false },   // #666: the Fleet, six warehouses, two bridges
+  { id: 'room5', name: null, object: null },
   { id: 'room6', name: 'Ferris wheel', object: FERRIS, signed: false, look: 'dusk' },   // #513: the wheel and its 48 gondolas; #588: at dusk
   { id: 'room7', name: 'Titanic', object: TITANIC, signed: false },
 ];
 // #422: the free rooms in the order new objects take them -- from the lift outwards, left and right in turn. The lift's exit meets
 // the ring between spoke 7 (front left) and spoke 0 (front right, the Eiffel); 1 (the Atomium) follows on the right, so the Titanic
-// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic), 2 (Artemis II), 6 (Ferris wheel), 3 (Vasa) and 5 (Speicherstadt) are taken; 4 is next.
+// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic), 2 (Artemis II), 6 (Ferris wheel) and 3 (Vasa) are taken; 5 is next.
 export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
 // #489 / #491: ring 2's eight rooms -- the Enterprise took the first; the rest are empty for now. `look`: 'meadow' (the ring-1 template)
 // or 'space' (#491: a holodeck grid under a star dome, no trees, paths or clouds)
@@ -145,9 +144,6 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   // #488: the Artemis II stack on its mount in the centre and the Orion capsule beside it (artemis.js places them; artemismesh.js builds them)
   const artemis = (room.object && room.object.capsule) ? artemisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: Y }, room.object) : null;
   if (artemis) colliders.push(...artemis.colliders);
-  // #666: a part of the Hamburg Speicherstadt (speicher.js places it; speichermesh.js builds it): Fleet, six warehouses, two bridges
-  const speicher = (room.object && room.object.fleet) ? speicherPlacement({ centre, frame: { f, v }, portal: { c: P }, y: Y }, room.object) : null;
-  if (speicher) colliders.push(...speicher.colliders);
   // #513: the Ferris wheel in the centre (ferris.js places it; ferrismesh.js builds it): four foot colliders, the car drives under the rim
   const ferris = (room.object && room.object.gondola) ? ferrisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: ROOM_Y }, room.object) : null;
   if (ferris) colliders.push(...ferris.colliders, ...ferris.sign.colliders);
@@ -171,7 +167,6 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   const reachA = basin ? basin.lane.w : 95;
   const start = at(10, 0), end = [cx - f[0] * reachA, cz - f[1] * reachA], paths = space ? [] : [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];   // #491: a space room has no gravel
   if (artemis) paths.push({ pts: artemis.ring, hw: room.object.capsule.ring.hw });   // #488: the gravel ring round the Orion capsule
-  if (speicher) paths.push({ pts: speicher.quay, hw: room.object.quay.hw }, { pts: speicher.connector, hw: room.object.quay.hw });   // #666: the quay ring round the Fleet and its connector
   const view = [cx - f[0] * 150, cz - f[1] * 150];
   return {
     id: room.id, k, ring: ring.id, y: Y, half: HALF, look: space ? 'space' : (room.look || 'meadow'), fly: { wall: HALF - 25, ceiling: ROOM_FLY.ceiling }, centre, frame: { f, v }, groundAt: () => Y,
@@ -179,7 +174,7 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? Y + SPOKE.ceiling : null;
     },
-    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, artemis, speicher, ferris, dedication, colliders, trees, paths,
+    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, artemis, ferris, dedication, colliders, trees, paths,
     portal: { c: P, th: Math.atan2(f[1], f[0]), hw: SPOKE.hw, h: SPOKE.ceiling },
     spawn: { x: at(20, 0)[0], z: at(20, 0)[1], th: Math.atan2(f[1], f[0]) },
     towerView: room.object ? { x: view[0], z: view[1], th: Math.atan2(f[1], f[0]) } : null,
@@ -193,8 +188,6 @@ export const eiffelRoom = () => roomLayout(0);
 export const ROOM_FLY = { wall: ROOM_HALF - 25, ceiling: 420 };
 export const flyAllowed = (level, zone) => zone !== 'lift' && (isRoomLevel(level) ? zone === 'room' : level === 'surface' && zone === 'open');
 export const roomFlyCeiling = (cfg = ROOM_FLY, y = ROOM_Y) => y + cfg.ceiling;
-// The target altitude is limited by the ceiling itself, never by the (lagging) current height: clamping it to y pinned the climb at ~0.5 m/s.
-export const roomFlyAlt = (alt, cfg = ROOM_FLY, y = ROOM_Y) => Math.min(alt, roomFlyCeiling(cfg, y));
 export function roomFlyClamp(x, y, z, room = eiffelRoom(), cfg = room.fly) {
   const [cx, cz] = room.centre, { f, v } = room.frame, dx = x - cx, dz = z - cz;
   const a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1], c = (val) => Math.max(-cfg.wall, Math.min(cfg.wall, val));

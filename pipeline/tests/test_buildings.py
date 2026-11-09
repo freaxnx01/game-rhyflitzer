@@ -200,3 +200,35 @@ def test_house_set_back_from_the_street_but_on_a_service_lane_is_kept():
     setback = house(1, 0, 545, d=6)                                    # edge at z 542: 42 m from the street, 7 m from the lane
     assert B.build([setback], with_lane, CLIP, near_classes=B.NEAR_GENERATED)[0][0]["id"] == 1
     assert B.build([setback], street_only, CLIP, near_classes=B.NEAR_GENERATED)[0] == []
+
+
+def test_public_buildings_are_kept_far_from_main_roads():
+    """#761: the Bahnhof Frick (375 m from a main road, 281 m2) and #716 the Reformierte Kirche Stein were dropped."""
+    far = [house(1, 0, 400, tags={"building": "train_station"}),
+           house(2, 0, 450, tags={"building": "church"}),
+           house(3, 0, 500, tags={"building": "school"}),
+           house(4, 0, 550),                                                                     # ordinary house: dropped
+           house(5, 0, 600, tags={"building": "chapel"}),                                        # public but excluded
+           Area(6, True, {"building": "civic"}, shapely.box(0, 700, 3, 703)),                    # 9 m2 < 20
+           house(7, 0, 1500, tags={"building": "public"})]                                       # outside the clip
+    bl, stats = B.build(far, MAIN, CLIP, exclude_ids={5})
+    assert [b["id"] for b in bl] == [1, 2, 3]
+    assert stats["kept_public"] == 3
+    assert stats["excluded_landmark"] == 1
+
+
+@pytest.mark.parametrize("kind", sorted(B.PUBLIC))
+def test_every_public_type_is_kept(kind):
+    bl, _ = B.build([house(1, 0, 400, tags={"building": kind})], MAIN, CLIP)
+    assert [b["id"] for b in bl] == [1]
+
+
+def test_public_set_is_the_agreed_one():
+    assert B.PUBLIC == {"train_station", "church", "chapel", "public", "civic", "government", "school", "kindergarten",
+                        "transportation"}
+
+
+def test_near_public_building_counts_as_near():
+    bl, stats = B.build([house(1, 0, 20, tags={"building": "church"})], MAIN, CLIP)
+    assert [b["id"] for b in bl] == [1]
+    assert stats.get("kept_near") == 1 and "kept_public" not in stats

@@ -37,12 +37,56 @@ export function lampRole(extras) { return extras?.lamp === 'head' || extras?.lam
 // the Race! button waits while a glTF vehicle is idle or loading; a failed load falls back, so it must not hang
 export function raceBlocked(def, state) { return Boolean(def.gltf) && (state === 'idle' || state === 'loading'); }
 
-// #709: materials the model needs drawn from both sides (the bus's underbody shell faces down only, so from inside it is culled);
-// def.gltf.doubleSided [name]; fails fast when the model lacks a named material
-export function doubleSidedNames(def, materialNames) {
-  const names = def.gltf?.doubleSided ?? [];
-  for (const n of names) if (!materialNames.includes(n)) throw new Error(`gltfvehicle: double-sided material ${n} missing`);
-  return names;
+// #709: a floor the model only draws facing down (the bus's underbody: from inside the cabin it is culled and the road shows
+// through). def.gltf.floor { material, maxY }: that material's faces below maxY that point down get a copy drawn from above.
+// Only those: the same material also lines the walls and the roof, and drawn from both sides it covers the paint (#723).
+// Fails fast when the model lacks the material.
+export function floorPlan(def, materialNames) {
+  const floor = def.gltf?.floor;
+  if (!floor) return null;
+  if (!materialNames.includes(floor.material)) throw new Error(`gltfvehicle: floor material ${floor.material} missing`);
+  return floor;
+}
+
+// the corner indices of the faces that point down with every corner at or below maxY; pos is flat x, y, z in car metres
+export function floorTriangles(pos, index, maxY) {
+  const out = [], y = (i) => pos[3 * i + 1];
+  for (let t = 0; t < index.length; t += 3) {
+    const [a, b, c] = [index[t], index[t + 1], index[t + 2]];
+    if (Math.max(y(a), y(b), y(c)) > maxY) continue;
+    const u = [0, 1, 2].map((k) => pos[3 * b + k] - pos[3 * a + k]), w = [0, 1, 2].map((k) => pos[3 * c + k] - pos[3 * a + k]);
+    if (u[2] * w[0] - u[0] * w[2] < 0) out.push(a, b, c);   // the normal's y
+  }
+  return out;
+}
+
+// #758: the wheel arches are drawn like the underbody, facing the wheel, so from the cabin they are culled and the wheels show through the
+// floor. arches [{ x, y, z, r, zMax }]: the wheel's centre (z is its distance from the centre line, either side) and how far round it
+// faces count. Faces that look at the wheel get a copy, but none beyond zMax: out there lies the flank lining (#723).
+export function archTriangles(pos, index, arches) {
+  const out = [], at = (i, k) => pos[3 * i + k];
+  for (let t = 0; t < index.length; t += 3) {
+    const [a, b, c] = [index[t], index[t + 1], index[t + 2]];
+    const m = [0, 1, 2].map((k) => (at(a, k) + at(b, k) + at(c, k)) / 3), side = Math.sign(m[2]) || 1;
+    const u = [0, 1, 2].map((k) => at(b, k) - at(a, k)), w = [0, 1, 2].map((k) => at(c, k) - at(a, k));
+    const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+    const kept = arches.some((r) => Math.hypot(m[0] - r.x, m[1] - r.y) <= r.r && Math.abs(m[2]) <= r.zMax
+      && n[0] * (r.x - m[0]) + n[1] * (r.y - m[1]) + n[2] * (side * r.z - m[2]) > 0);
+    if (kept) out.push(a, b, c);
+  }
+  return out;
+}
+
+// everything that gets a copy drawn from above: the floor's down-facing faces and the wheel arches' faces; no face twice
+export function floorFaces(pos, index, floor) {
+  const out = [], seen = new Set();
+  for (const list of [floorTriangles(pos, index, floor.maxY), archTriangles(pos, index, floor.arches ?? [])]) {
+    for (let k = 0; k < list.length; k += 3) {
+      const key = list.slice(k, k + 3).join();
+      if (!seen.has(key)) { seen.add(key); out.push(list[k], list[k + 1], list[k + 2]); }
+    }
+  }
+  return out;
 }
 
 // parts that turn all the time about their node's local x axis (the mixer's drum): def.spin [{ node, rate rad/s }];

@@ -6,6 +6,7 @@
 // 77.8 m/s, a step under the Rhy Hyper), seven gears, 0-100 in 2.8 s, 1395 kg; 2.67 m wheelbase. Lighter than the Hyper and with
 // the most grip in the game: the corner car.
 export const MCLAREN = {
+  type: 'sport',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'mclaren', url: './assets/mclaren.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'signal',
   wheels: [[1.335, 0.822], [-1.335, 0.794]], wheelR: 0.327,   // the model's own wheel nodes: x ±1.335, |z| 0.822 / 0.794, r 0.323 / 0.33
   drive: { top: 77.8, topNitro: 100, accel: 20, accelNitro: 38, brake: 32, reverse: 8, reverseMax: 14, grip: 11.25, gripHandbrake: 1.4, steerRate: 3.1, airSteer: 0.45 },

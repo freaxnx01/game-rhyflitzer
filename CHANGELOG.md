@@ -8,13 +8,51 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-11-09 14:06` **PostAuto line 143** now runs too, about every half hour from early morning until late evening: from **Stein-Säckingen Bahnhof** past Novartis, Syngenta and DSM to **Sisseln Unterdorf** and **Sisseln Breitenacher**, then on towards **Kaisten and Laufenburg** — it leaves the map at the eastern edge and comes back in from there. Unterdorf and Breitenacher get bus stops; the signs at the stops both lines share list **133 and 143**.
+- `2026-11-09 11:24` A **shortcut up the Plattform Sisslerfeld**: on foot at the door press <kbd>E</kbd> (on a phone, tap the button that appears) to jump straight up to the **viewing deck**, and press <kbd>E</kbd> again by the stair opening to jump back down to the door. Walking the stair still works. The tutorial mentions it.
+- `2026-11-09 10:37` A **car radio**: <kbd>5</kbd> switches it on and off, <kbd>6</kbd> changes between **Rhyflitzer FM** (four freely licensed tracks) and **SRF 3 live**, <kbd>7</kbd> <kbd>8</kbd> skip a track and <kbd>9</kbd> <kbd>0</kbd> set the volume, all while you keep driving; for three seconds a small display shows what is playing. On a phone, the 📻 button next to pause opens the same controls. The start screen plays quiet music, which <kbd>5</kbd> or the Music button switches off; About → Credits names every track.
+- `2026-11-09 09:14` The **All vehicles** grid has **type chips** (Everyday, Sport, Utility, Film & TV) and lists the strongest first. The **class letter** A to D now follows top speed and acceleration, so the Model T is class D and the DeLorean class C.
+- `2026-11-08 22:41` **All vehicles** at a glance: in **Choose car**, the button next to the garage shows every vehicle as a **picture grid** with name and class; a click picks it.
+- `2026-11-08 19:11` At the **Sisseln** village entrance, on the **Hauptstrasse** between the **Smile-Kreisel** and the **Volg**, a **speed display** now shows your speed as you drive in from the roundabout: **amber km/h** and below it a **green smile** at 50 km/h or under, a **red frown** above. Only for cars heading into the village; it does nothing to the game.
+
 ### Fixed
 
+- `2026-11-09 16:13` Getting out of the car at the **Plattform Sisslerfeld** door no longer leaves the "you got out" hint **on top of** the "up to the deck" prompt: the hint disappears as the prompt appears.
+
+- `2026-11-09 14:23` During a **handbrake donut next to a building** the camera no longer **pumps in and out** and up to a high view on every spin: it now glides in smoothly, stays close while the wall is near, and only then eases back out.
+
+- `2026-11-09 12:07` On a **phone**, the footer ("More Games…", "Source", "Feedback", language), the style button and the arrow with the distance no longer lie over the map, the speedometer and the time-trial plate. While driving the footer is hidden and the minimap is a little smaller, so the speedometer keeps its corner; the style switch has moved into the **pause** menu, where it changes the look mid-run just as before.
+
+- `2026-11-09 02:42` At the **Frick** and **Stein-Säckingen** terminus, the Postauto that arrives now **turns** and carries straight on as the line's next trip: the destination display switches, and you no longer see **two buses** standing at the same stop at once.
+
+- `2026-11-08 22:50` The **Bahnhof Frick** stands again, and with it about 90 other **churches, chapels, stations, schools and town halls** that were missing because they are not on a main road.
+
+- `2026-11-08 22:23` The **helicopter** can now fly **low**: holding <kbd>Shift</kbd> it sinks to about **3 m** over the road, the field or a roof instead of stopping 10 m up, so you can skim along a street.
+- `2026-11-08 22:21` Looking into the **Regional Bus** or a **Postauto** from the front, through the windscreen, you no longer see the **wheels from inside** the cabin: the **wheel arches** are closed now.
+- `2026-11-08 21:19` The **road markings** show again **from far away**, not only just before you drive over them; the same goes for the **parking bay lines**, the **street names** on the road and the **yellow zigzag** at the bus stops. Since the meadow-flicker fix the road surface had been drawn in front of them at range.
+- `2026-11-08 18:34` After a **handbrake turn** the camera no longer **shakes left and right**: while the car slides sideways, the steering fades out smoothly instead of flipping back and forth every frame.
+- `2026-11-08 12:26` The **Regional Bus** and the **Postautos** are **yellow** again instead of dark grey; the floor stays closed when you look in through the windows.
+- `2026-11-07 22:38` **For testers:** <kbd>?patime=</kbd> and <kbd>?pasp=</kbd> in the URL now **combine** — a link like `?patime=07:30&pasp=10` starts the fleet clock at 07:30 *and* runs it at 10×, instead of silently dropping the time-lapse factor.
 - `2026-11-07 21:27` The **Postautos** now turn their **wheels** with their speed, you can no longer see through the **bus floor** (the Regional Bus too), and a passing Postauto can be heard: an **engine** that gets louder as it comes closer.
 
 ### Changed
 
+- `2026-11-09 16:22` A **tidier driving HUD**: everything but the speedometer, the clock, the checkpoint arrow and the map now fades to a faint ghost four seconds after it last changed and lights up again for three seconds when it does — the mode plate, gear and trip, the road and water names, the best time. The **damage** plate appears only once the car has taken damage, the blinker glyphs only while a signal is on, and the key bar dims after half a minute and returns when you get out, fly or board. The **compass** has moved into the minimap: the car marker has a needle and the map bar shows the heading in degrees. The style button under the road is gone — switch the style in the **pause** menu or with <kbd>T</kbd> — and the footer links show only on the start screen and in pause.
+- `2026-11-08 09:29` The **trees** in the Smooth style have a new look: lumpy broadleaf crowns in several greens, spruces with tiers, slim birches, poplars and the **Hochstamm fruit trees** of the Fricktal, every tree a little different, and the crowns **sway in the wind**. Woods far away stay as light to draw as before, so phones keep their frame rate.
+
+- `2026-11-08 08:59` The **helicopter** flies much more like a real one: it **leans** forward when it speeds up and **banks** into turns, **climbs and sinks** the moment you press <kbd>Space</kbd> or <kbd>Shift</kbd>, **brakes smoothly** when you let go, and the camera now follows **closer and steadier** behind it. The rotor shows as a **disc** and sounds harder while climbing. Flight model after the helicopter in slop-newyork (MIT).
+
+- `2026-11-08 08:54` Rhyflitzer now lives at the short address **rhyflitzer.ch**. The old address rhyflitzer.freaxnx01.ch (including the `/nfz` link) forwards there, and the editor's share links point to the new address.
+
+- `2026-11-08 08:30` Visits on the upcoming short addresses **rhyflitzer.ch** and **freax.games** are counted in the stats too (game and editor), so nothing is lost when the game moves there.
+
 - `2026-11-07 22:19` The **glow at an entrance** (Plattform Sisslerfeld, Bodenackerstrasse 6c) now shows from **60 m** away on foot instead of 15 m, and is clearly bright well before you reach the door. In the tutorial, the Plattform door is already glowing when you get out after the jump.
+
+- `2026-11-07 21:26` The **keys now look like keys**: in the tutorial, the hint shows the movement keys as the **W A S D** cluster the way it sits on the keyboard, "or" the **arrow keys** next to it, and every other key (<kbd>Shift</kbd>, <kbd>Z</kbd>, <kbd>J</kbd>, <kbd>X</kbd>) as its own key cap. The key bar at the bottom shows <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> as four keys instead of one "WASD", which a tester had read as a word to type.
+
+- `2026-11-07 21:24` The **Postauto stops** are now Swiss: a steel-frame sign with the yellow **Haltestellentafel**, the stop's name and a row for each line and direction (with a little bus, no brand), a **timetable frame** at eye height, the glass shelter behind the pole, and the yellow **zigzag** on the road along the kerb. Pole and shelter stand beside the kerb, clear of the standing Postauto and off the road — also at the bends at Industriezone Rütti and the two stations, where the bus used to stand through the shelter.
 
 - `2026-11-07 20:17` The **churches of Stein** now stand where they really are, with their real shape and towers (swisstopo 3D buildings): the **Kirche Bruder Klaus** on the Schulstrasse and the **Reformierte Kirche** on the Gartenstrasse. The made-up church on the field by the Münchwilerstrasse is gone; <kbd>J</kbd> → Stein lists both churches.
 
@@ -22,7 +60,9 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
-- `2026-11-07 18:47` The **Hamburg Speicherstadt**, the world's largest warehouse district and a UNESCO World Heritage site, has taken **star room 5** of the hideout (the third room on the left of the lift): a straight **Fleet** (canal) 120 m long, **six red-brick warehouses** (three on each bank, five storeys under gabled roofs, their window bands and a hoist bay facing the water) and **two bridges** that cross the canal in the alleys between the blocks. Drive both quays, cross both bridges and round the canal's ends: the kerbs keep the car out of the water, the parapets keep it on the deck, and the helicopter (<kbd>F</kbd>) flies over the roofs. The whole block is life size and built in the game from simple shapes — not a downloaded model.
+- `2026-11-08 12:37` New car in the garage: the **Rhy Estate** (German **Rhy Kombi**), a family estate of about 2011 with a clattering diesel, 207 km/h and room for the dog, **silver metallic** from the factory or any colour you like; it drives straight past **bus stops**. 3D model „2009 Skoda Octavia Combi" by tonielpro520 (Sketchfab), CC BY 4.0. Silver metallic is a new paint for every paintable car.
+- `2026-11-07 22:18` Im F3-Feld **Postauto** lässt sich die Uhrzeit der Postautos setzen, auf **Echtzeit** zurückstellen und im **Zeitraffer** (bis 60-fach) laufen lassen.
+- `2026-11-07 21:27` Die **Postautos** der Linie 133 sind jetzt auf der **Minikarte** und auf der grossen Karte (<kbd>Tab</kbd>) als gelbe Pfeile zu sehen; auf der grossen Karte steht die Liniennummer dabei und die Strecke ist schwach eingezeichnet.
 
 - `2026-11-06 23:06` **For testers:** the debug panel (<kbd>Ctrl</kbd> <kbd>D</kbd> or <kbd>F3</kbd>) now has a **Postauto** section: the **fleet clock** with its source (Swiss time, or the <kbd>?patime=</kbd> you gave), and one **row per bus** with line, destination, speed, next stop and distance to you. Click a row and the **camera follows that bus** while your car waits where you left it; <kbd>Esc</kbd> or **Back to car** brings the camera back, and when the bus leaves the map the follow ends by itself.
 
@@ -184,7 +224,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
-- `2026-10-29 21:50` The game has its own address: **https://rhyflitzer.freaxnx01.ch**. The old one forwards there. On the new address the browser starts with empty storage, so best times and the chosen car are not carried over.
+- `2026-10-29 21:50` The game has its own address: **https://rhyflitzer.freaxnx01.ch**. The old one forwards there, and the editor's share links point to the new address. On the new address the browser starts with empty storage, so best times and the chosen car are not carried over.
 
 - `2026-10-29 19:15` The **Ladybug** can now be **painted** like the Hatchback: red from the factory, any colour from the car selection.
 - `2026-10-26 19:10` The **Regional Bus** is faster: it now reaches **100 km/h** (before 79 km/h), about 120 km/h with nitro. It is still slow off the line and wide in the corners.

@@ -60,8 +60,7 @@ def test_stored_language_wins_over_the_browser(server):
             jumpTitle: document.querySelector('#jump > div').textContent,
             jumpSearch: document.querySelector('#jumpq').placeholder,
             jumpHint: document.querySelector('#jump small').textContent,
-            east: document.querySelector('#rose text:nth-of-type(2)').textContent,
-            compass: document.querySelector('#compass').getAttribute('aria-label'),
+            heading: document.querySelector('#maphead').textContent,
             speedo: document.querySelector('#speedo').getAttribute('aria-label'),
             stick: document.querySelector('#tStick').getAttribute('aria-label'),
             map: document.querySelector('#maptext').textContent,
@@ -79,7 +78,7 @@ def test_stored_language_wins_over_the_browser(server):
     assert shown["jumpTitle"] == "Springen nach"
     assert shown["jumpSearch"] == "Wahrzeichen suchen"
     assert shown["jumpHint"].startswith("tippen zum Suchen")
-    assert shown["east"] == "O" and shown["compass"] == "Kompass" and shown["speedo"] == "Tachometer"
+    assert shown["heading"].endswith("°") and shown["speedo"] == "Tachometer"   # #773: the heading is in the map bar; the de east letter is covered by hudfade.test.mjs
     assert shown["stick"] == "Lenken · gehen"
     assert shown["map"] == "Karte · Hochrhein ·"
     assert shown["loadTerrain"] == "Gelände laden (.mmh)"
@@ -104,7 +103,7 @@ def test_toggle_switches_live_and_persists(server):
             intro: document.querySelector('#ovtext').textContent,
             startbtn: document.querySelector('#startbtn').textContent,
             style2: document.querySelector('#stylebtn2').textContent,
-            stylename: document.querySelector('#stylename').textContent,
+            pausestyle: document.querySelector('#pausestyle').textContent,
             terrain: document.querySelector('#mmhstatus').textContent,
             world: document.querySelector('#worldstatus').textContent,
             blurb: document.querySelector('#blurb').textContent,
@@ -112,7 +111,7 @@ def test_toggle_switches_live_and_persists(server):
             lastJump: [...document.querySelectorAll('#jump li')].at(-1).textContent,
         })""")
         page.keyboard.press("KeyT")
-        smooth = text(page, "#stylename")
+        smooth = text(page, "#pausestyle")
         page.reload(timeout=240000); page.wait_for_function(READY, timeout=240000)
         after_reload = text(page, "#tl .mode")
         b.close()
@@ -120,13 +119,13 @@ def test_toggle_switches_live_and_persists(server):
     assert live["mode"] == "Zeitfahren · Hochrhein"
     assert live["intro"].startswith("Sisseln → Sisslerfeld") and "Fünf Checkpoints" in live["intro"]
     assert live["startbtn"] == "Zeitfahren"
-    assert live["style2"] == "Stil: Original" and live["stylename"] == "Original"
+    assert live["style2"] == "Stil: Original" and live["pausestyle"] == "Stil: Original"   # #773: #stylename went with #stylebtn
     assert live["terrain"] == "Gelände: erfunden (sanfte Hügel, nicht gemessen)"
     assert live["world"] == "Welt: von Hand abgezeichnet (keine data/world_hochrhein.json)"
     assert "Die Zeit läuft" in live["blurb"]
     assert live["odo"].endswith("K setzt Trip zurück"), live["odo"]
     assert live["lastJump"] == "Zufälliger Ort"
-    assert smooth == "Glatt"
+    assert smooth == "Stil: Glatt"
     assert after_reload == "Zeitfahren · Hochrhein"
     assert errors == []
 

@@ -23,6 +23,7 @@
   "beam.js": ["test_beam.py"],
   "blitz.js": ["test_blitz.py"],
   "route.js": ["test_navi.py", "test_autopilot.py"],
+  "busstop.js": ["test_bus_stops.py"],
   "navi.js": ["test_navi.py"],
   "photo.js": ["test_photo.py"],
   "hideout.js": ["test_hideout.py"],

@@ -155,10 +155,12 @@ test('car selection texts exist in both languages (#7)', () => {
   assert.equal(translate('de', 'carselCount', 2, 3), 'Auto 2 von 3');
   assert.equal(translate('de', 'garageLabel', 1), 'Garage · 1 Fahrzeug');
   assert.equal(translate('de', 'garageLabel', 3), 'Garage · 3 Fahrzeuge');
-  assert.equal(translate('de', 'veh_compact_class'), 'Kompakt · Klasse B');
+  assert.equal(translate('de', 'veh_compact_class'), 'Kompakt');   // #493: the class letter is computed, see powerClass
+  assert.equal(translate('de', 'powerClass', 'B'), 'Klasse B');
+  for (const t of ['all', 'everyday', 'sport', 'utility', 'screen']) for (const l of ['en', 'de']) assert.notEqual(translate(l, `type_${t}`), `type_${t}`, `${l} ${t}`);
   assert.equal(translate('de', 'carselRace'), 'Los! ›');
   assert.equal(translate('en', 'veh_delorean_name'), 'Rhy Gullwing');
-  assert.equal(translate('de', 'veh_delorean_class'), 'Edelstahl-Coupé · Klasse B');
+  assert.equal(translate('de', 'veh_delorean_class'), 'Edelstahl-Coupé');
   for (const k of ['veh_delorean_class', 'veh_delorean_desc']) for (const l of ['en', 'de']) assert.notEqual(translate(l, k), k, `${l} ${k}`);
   for (const k of ['carselTitle', 'carselPrev', 'carselNext', 'carselRotate', 'statTop', 'statAccel', 'statHandling', 'statMass', 'paintLabel', 'paintFixed', 'paintNavy', 'paintSunflower', 'paintSignal', 'paintSwiss', 'paintFlamingo', 'paintPlum', 'paintRhine', 'paintIce', 'paintMeadow', 'paintCream', 'paintCharcoal', 'carselBack', 'veh_compact_desc']) assert.notEqual(translate('de', k), k, k);
 });
@@ -184,6 +186,13 @@ test('pontoon bridge texts exist in both languages (#100)', () => {
 test('keyLeave_BothLanguages_NamesTheBKey', () => {   // #474
   for (const lang of ['en', 'de']) assert.notEqual(translate(lang, 'keyLeave'), 'keyLeave', lang);
   assert.notEqual(translate('de', 'keyLeave'), translate('en', 'keyLeave'));
+});
+
+test('hop strings exist in both languages (#701)', () => {
+  for (const key of ['hopUpPrompt', 'hopDownPrompt', 'keyHop', 'tutStepClimbTouch']) {
+    for (const lang of ['en', 'de']) assert.notEqual(translate(lang, key, '@'), key, `${lang} ${key}`);
+    assert.notEqual(translate('de', key, '@'), translate('en', key, '@'), key);
+  }
 });
 
 test('lift strings exist in both languages (#411)', () => {
@@ -230,7 +239,27 @@ test('tutorial texts exist in both languages, name the input and address the pla
   assert.match(translate('de', 'tutStepGetIn', 'Z'), /Deinem Auto.*Z$/);
   assert.equal(translate('de', 'tutButton', 'aussteigen'), '[aussteigen]');
   assert.equal(translate('en', 'tutMenu', 'Photo'), '☰ → Photo');
+  assert.equal(translate('en', 'tutOr'), 'or');   // #700: between the WASD and the arrow-key cross
+  assert.equal(translate('de', 'tutOr'), 'oder');
+  assert.ok(!('tutKey' in STRINGS.en) && !('tutKey' in STRINGS.de), 'tutKey has no caller since #700');
   assert.equal(translate('de', 'tutPause'), 'Tutorial beenden');
   assert.equal(translate('en', 'tutorial'), 'Tutorial');
   assert.equal(translate('de', 'modeTutorial', 'Hochrhein'), 'Tutorial · Hochrhein');
+});
+
+test('the music is credited in both languages, Rob Bery as the author asks (#735)', () => {
+  for (const lang of ['en', 'de']) {
+    assert.match(translate(lang, 'creditMusicMenu'), /Menu \/ Running Title.*Rob Bery.*Rob Bery Art.*CC0/);
+    assert.match(translate(lang, 'creditMusicCoolRider'), /Cool Rider.*Emmraan.*Pixabay/);
+    assert.match(translate(lang, 'creditMusicNeonAfterglow'), /Neon Afterglow.*MemoryArcade.*Pixabay/);
+    assert.match(translate(lang, 'creditMusicCalifornia'), /California Snares and Synths.*Eliza_music.*Pixabay/);
+    assert.match(translate(lang, 'creditSrf3'), /SRF 3/);
+  }
+});
+
+test('the radio display strings render in both languages (#735)', () => {
+  assert.equal(translate('en', 'radioTrack', 'Cool Rider', 'Emmraan'), 'Cool Rider · Emmraan');
+  assert.equal(translate('de', 'radioVolume', 60), 'Lautstärke 60 %');
+  assert.equal(translate('en', 'radioStationSrf'), 'SRF 3 live');
+  assert.match(translate('de', 'radioSrfFail'), /SRF 3.*Rhyflitzer FM/);
 });

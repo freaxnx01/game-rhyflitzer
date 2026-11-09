@@ -1,23 +1,32 @@
 // #7: the car selection screen's pure rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAINTS, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY } from '../carselect.js';
+import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, powerClass, classLine, galleryOrder } from '../carselect.js';
 
 const COMPACT = { model: 'compact', drive: { top: 60, accel: 16, grip: 9, steerRate: 2.6 }, mass: 1.0 };
 const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRate: 2.2 }, mass: 2.5 };   // #6 spec values
 const BUS = { model: 'gltf', drive: { top: 22, accel: 4, grip: 6, steerRate: 1.1 }, mass: 8 };
 const IDS = ['compact', 'bus'], PAINT_IDS = PAINTS.map(p => p.id);
 
-test('PAINTS: twelve unique ids and hexes, navy first, purple and pink from #25, one orange, racing blue for the Rhy Hyper, every hex #rrggbb', () => {
-  assert.equal(PAINTS.length, 12);
-  assert.equal(new Set(PAINT_IDS).size, 12);
-  assert.equal(new Set(PAINTS.map(p => p.hex)).size, 12);
+test('PAINTS: thirteen unique ids and hexes, navy first, purple and pink from #25, one orange, racing blue for the Rhy Hyper, silver metallic last, every hex #rrggbb', () => {
+  assert.equal(PAINTS.length, 13);
+  assert.equal(new Set(PAINT_IDS).size, 13);
+  assert.equal(new Set(PAINTS.map(p => p.hex)).size, 13);
+  assert.equal(PAINTS.at(-1).id, 'silver');
   assert.equal(PAINTS[0].id, 'navy'); assert.equal(PAINTS[0].hex, '#1b2d5e');
   assert.equal(PAINTS.find(p => p.id === 'plum')?.hex, '#7b3fa0');
   assert.equal(PAINTS.find(p => p.id === 'flamingo')?.hex, '#ff6fa8');
   assert.deepEqual(PAINTS.filter(p => p.hex === '#ff7a1a').map(p => p.id), ['signal']);   // #25's orange is the mockup's Signal, not a second entry
   for (const p of PAINTS) { assert.match(p.hex, /^#[0-9a-f]{6}$/, p.id); assert.ok(p.nameKey.startsWith('paint'), p.id); }
   assert.deepEqual(DEFAULT_CHOICE, { id: 'compact', paint: 'navy' });
+});
+
+test('paintFinish_SilverIsMetallic_EveryOtherPaintKeepsTheModelsOwnFinish', () => {
+  const base = { metalness: 0.25, roughness: 0.35 }, silver = PAINTS.find(p => p.id === 'silver');
+  const f = paintFinish(silver, base);
+  assert.ok(f.metalness > base.metalness && f.metalness < 1, 'metallic, but not a mirror: the car still reads without a sky map');
+  assert.deepEqual(paintFinish(PAINTS.find(p => p.id === 'navy'), base), base);
+  assert.deepEqual(paintFinish(PAINTS.find(p => p.id === 'navy'), { metalness: 0, roughness: 0.38 }), { metalness: 0, roughness: 0.38 });
 });
 
 test('statBars: compact 8 / 8 / 8 / 3, tractor and bus from the #6 table, integers clamped to 1..10', () => {
@@ -133,4 +142,65 @@ test('vehicleText: strings when they exist, the id as the name otherwise, never 
   assert.equal(vehicleText(tr, 'compact', 'desc'), '');
   assert.equal(vehicleText(tr, 'bus', 'name'), 'bus');
   assert.equal(vehicleText(tr, 'bus', 'class'), '');
+});
+
+// #626: the garage gallery
+test('thumbView: looks at the box centre from the front-left, as close as the bounding sphere fits the frame\'s width', () => {
+  const box = { min: [-2.3, 0, -0.9], max: [2.2, 1.5, 0.9] }, v = thumbView(box);
+  assert.deepEqual(v.at.map(c => +c.toFixed(6)), [-0.05, 0.75, 0]);
+  const d = v.eye.map((c, i) => c - v.at[i]), dist = Math.hypot(...d), r = Math.hypot(4.5, 1.5, 1.8) / 2;
+  assert.ok(d[0] > 0 && d[1] > 0 && d[2] < 0, `front (+x), above, left (-z): ${d}`);
+  const halfW = Math.atan(Math.tan((THUMB.fov / 2) * Math.PI / 180) * THUMB.w / THUMB.h);
+  assert.ok(dist * Math.sin(halfW) >= r && dist * Math.sin(halfW) < r * 1.2, `the bounding sphere just fits the horizontal field of view: ${dist}`);
+  const bus = thumbView({ min: [-6, 0, -1.3], max: [6, 3.2, 1.3] });
+  assert.ok(Math.hypot(...bus.eye.map((c, i) => c - bus.at[i])) > dist * 2, 'a 12 m bus is photographed from further away');
+});
+
+test('thumbView: fails fast on a box that is not three finite numbers per corner', () => {
+  assert.throws(() => thumbView({ min: [0, 0], max: [1, 1, 1] }), /thumbView/);
+  assert.throws(() => thumbView({ min: [0, NaN, 0], max: [1, 1, 1] }), /thumbView/);
+});
+
+test('thumbKey: a paintable car needs a photo per paint, a car in its own colours one photo', () => {
+  assert.equal(thumbKey('compact', 'navy', true), 'compact|navy');
+  assert.notEqual(thumbKey('compact', 'navy', true), thumbKey('compact', 'silver', true));
+  assert.equal(thumbKey('bus', 'navy', false), thumbKey('bus', 'silver', false));
+});
+
+test('nextThumb: the current car first, then table order; skips cached and not-yet-loaded cars; null when nothing is left', () => {
+  const ids = ['compact', 'bus', 'estate', 'mini'];
+  assert.equal(nextThumb(ids, 'estate', () => false, () => true), 'estate');
+  assert.equal(nextThumb(ids, 'estate', id => id === 'estate', () => true), 'compact');
+  assert.equal(nextThumb(ids, 'compact', id => id === 'compact', id => id !== 'bus'), 'estate');
+  assert.equal(nextThumb(ids, 'compact', () => true, () => true), null);
+  assert.equal(nextThumb(ids, 'compact', () => false, () => false), null);
+});
+
+// ---- #493: type chips and the power class ----
+const car = (top, accel, type) => ({ type, mass: 1, drive: { top, accel, grip: 9 } });
+
+test('powerClass: the top-speed and acceleration bars together give A (17+), B (14+), C (10+), D', () => {
+  assert.equal(powerClass(car(83.3, 21)), 'A');   // the hypercar: 10 + 10
+  assert.equal(powerClass(car(56, 19)), 'A');     // the rally car: 7 + 10
+  assert.equal(powerClass(car(60, 16)), 'B');     // the compact: 8 + 8
+  assert.equal(powerClass(car(49, 10)), 'C');     // the DeLorean: 7 + 5
+  assert.equal(powerClass(car(38, 9)), 'C');      // the three-wheeler: 5 + 5
+  assert.equal(powerClass(car(20, 5)), 'D');      // the Model T: 3 + 3, not class A any more
+  assert.throws(() => powerClass({ mass: 1, drive: { top: 60 } }), /numeric/);
+});
+
+test('classLine: the type name from the strings, then the computed class; the class alone when a vehicle has no type name', () => {
+  const table = { veh_compact_class: 'Compact', powerClass: (c) => `Class ${c}` }, tr = (k, ...a) => typeof table[k] === 'function' ? table[k](...a) : table[k] ?? k;
+  assert.equal(classLine(tr, 'compact', car(60, 16)), 'Compact · Class B');
+  assert.equal(classLine(tr, 'custom', car(20, 5)), 'Class D');
+});
+
+test('galleryOrder: the chosen type only, strongest first, table order on a tie; all shows every vehicle', () => {
+  const defs = { compact: car(60, 16, 'everyday'), hyper: car(83.3, 21, 'sport'), modelt: car(20, 5, 'everyday'), estate: car(57.5, 13.5, 'everyday'), knight: car(61.1, 15, 'screen'), odd: car(50, 10) };
+  const ids = Object.keys(defs);
+  assert.deepEqual(VEHICLE_TYPES, ['everyday', 'sport', 'utility', 'screen']);
+  assert.deepEqual(galleryOrder(ids, defs, 'everyday'), ['compact', 'estate', 'modelt']);
+  assert.deepEqual(galleryOrder(ids, defs, 'all'), ['hyper', 'compact', 'knight', 'estate', 'odd', 'modelt']);   // compact and knight tie at 16
+  assert.deepEqual(galleryOrder(ids, defs, 'utility'), []);
+  assert.throws(() => galleryOrder(ids, defs, 'boats'), /type/);
 });

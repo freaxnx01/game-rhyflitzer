@@ -3,11 +3,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createTracker, pageUrl, pageviewProps, createChangeReporter, roundSeconds, regionId, vehicleSource, vehicleData,
-  activityOf, activityData, modeData, modeEndData, jumpData, MAX_TEXT,
+  activityOf, activityData, modeData, modeEndData, jumpData, MAX_TEXT, campaignSource,
 } from '../analytics.js';
 
 const MODES = ['trial', 'blitz', 'hunt'];
-const fakeUmami = () => { const calls = []; return { calls, track: (...a) => calls.push(a) }; };
+const fakeUmami = () => { const calls = [], ids = []; return { calls, ids, track: (...a) => calls.push(a), identify: (...a) => ids.push(a) }; };
 
 test('tracker: sends straight to umami when it is there', () => {
   const u = fakeUmami(), t = createTracker({ getUmami: () => u });
@@ -147,4 +147,28 @@ test('change reporter: at most max events per page view', () => {
   const { r, sent } = reporter({ max: 2 });
   for (let i = 0; i < 6; i++) { r.update(i % 2 ? 'a' : 'b', i * 10000); r.update(i % 2 ? 'a' : 'b', i * 10000 + 2500); }
   assert.equal(sent.length, 2);
+});
+
+test('tracker: identify waits for umami like track and keeps the order with it', () => {
+  let u; const t = createTracker({ getUmami: () => u });
+  t.track('a'); t.identify({ source: 'nfz' }); t.track('b');
+  u = fakeUmami(); t.settle();
+  assert.deepEqual(u.calls.map((c) => c[0]), ['a', 'b']);
+  assert.deepEqual(u.ids, [[{ source: 'nfz' }]]);
+});
+
+test('tracker: identify on an umami without identify (old g.js) is a silent no-op', () => {
+  const calls = [], t = createTracker({ getUmami: () => ({ track: (...a) => calls.push(a) }) });
+  assert.doesNotThrow(() => t.identify({ source: 'nfz' }));
+  t.track('x');
+  assert.deepEqual(calls, [['x']]);
+});
+
+test('campaignSource: utm_source only, trimmed and capped, empty without one', () => {
+  assert.equal(campaignSource('?utm_source=nfz&utm_medium=artikel'), 'nfz');
+  assert.equal(campaignSource('?world=abc&utm_source=%20nfz%20'), 'nfz');
+  assert.equal(campaignSource('?world=abc'), '');
+  assert.equal(campaignSource(''), '');
+  assert.equal(campaignSource(undefined), '');
+  assert.equal(campaignSource(`?utm_source=${'x'.repeat(100)}`).length, MAX_TEXT);
 });

@@ -237,7 +237,7 @@ def test_room_helicopter_climbs_past_the_tower_top_and_sinks_back(server):
         sunk = page.evaluate("() => window.__mm.flySim(15, ['ShiftLeft'])")
         br.close()
     assert errors == []
-    assert mid["y"] > -600 + 120 + 100, mid                 # 10 s of Space: far above the +120 m take-off height
+    assert mid["y"] > -600 + 120, mid                 # 10 s of Space at 16 m/s, no 120 m head start
     assert top["y"] > -600 + 330, top                       # 22 s: above the tower top
     assert top["y"] <= -600 + 420 + 0.5 and capped["y"] <= -600 + 420 + 0.5 and capped["y"] > -600 + 395, capped
     assert sunk["y"] < capped["y"] - 150, (capped, sunk)    # Shift sinks

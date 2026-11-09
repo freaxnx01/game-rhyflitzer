@@ -5,6 +5,7 @@
 // 1M numbers: a 3.0 l twin-turbo straight six in the nose, rear-wheel drive, 250 km/h (69.4 m/s, limited), six gears, 0-100 in
 // 4.9 s, 1495 kg; short and wide, so it turns in sharply and the tail comes round on the handbrake; 2.66 m wheelbase; left-hand drive.
 export const COUPE = {
+  type: 'sport',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'coupe', url: './assets/coupe.glb', fallback: 'compact' }, scale: 1.0, paint: true, defaultPaint: 'signal',
   wheels: [[1.33, 0.746], [-1.33, 0.746]], wheelR: 0.306,   // the model's own wheel nodes: x ±1.33, |z| 0.746, r 0.306
   drive: { top: 69.4, topNitro: 95, accel: 18.5, accelNitro: 36, brake: 27, reverse: 8, reverseMax: 14, grip: 10, gripHandbrake: 1.3, steerRate: 2.9, airSteer: 0.4 },
