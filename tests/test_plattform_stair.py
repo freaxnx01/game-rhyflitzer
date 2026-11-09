@@ -87,16 +87,19 @@ def test_the_hop_prompt_clears_the_get_out_toast(server):
 
 
 @needs_world
-def test_hover_at_the_door_offers_no_hop_and_the_stair_still_works(server):
+def test_hover_at_the_door_offers_no_hop(server):
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
         plat = plattform(page)
         ex, ez = polar(page, 0, 2.0)
         on_foot_at(page, ex, ez, plat["facing"] + math.pi, plat["base"])
         page.evaluate("() => { window.__mm.setFootY(window.__mm.plattform().base + 3); }")   # mid-stair height
+        key(page, "f")   # hover on
+        hover_on = page.evaluate("() => window.__mm.foot().hover")
         none = page.evaluate("() => window.__mm.platHop()")
         b.close()
     assert none is None and errors == []
+    assert hover_on   # F really turned hover on, so the null hop is the hover guard's doing
 
 
 @needs_world
