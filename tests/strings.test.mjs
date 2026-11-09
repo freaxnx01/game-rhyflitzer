@@ -189,9 +189,9 @@ test('keyLeave_BothLanguages_NamesTheBKey', () => {   // #474
 });
 
 test('hop strings exist in both languages (#701)', () => {
-  for (const key of ['hopUpPrompt', 'hopDownPrompt', 'keyHop']) {
-    for (const lang of ['en', 'de']) assert.notEqual(translate(lang, key), key, `${lang} ${key}`);
-    assert.notEqual(translate('de', key), translate('en', key), key);
+  for (const key of ['hopUpPrompt', 'hopDownPrompt', 'keyHop', 'tutStepClimbTouch']) {
+    for (const lang of ['en', 'de']) assert.notEqual(translate(lang, key, '@'), key, `${lang} ${key}`);
+    assert.notEqual(translate('de', key, '@'), translate('en', key, '@'), key);
   }
 });
 
