@@ -11,7 +11,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 .plate{position:fixed;background:rgba(20,23,29,.82);border:4px solid;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l);padding:6px 14px;box-sizing:border-box}
 #hud{position:fixed;inset:0;pointer-events:none;font-variant-numeric:tabular-nums}
 /* #305: Ctrl+H -- a clean view; the toast still says what happened, the dialogs and the lift pads still open */
-body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #navi,body.hud-off #bl,body.hud-off #br,body.hud-off #stylebtn,body.hud-off #pausebtn,body.hud-off #debug,body.hud-off #touch,body.hud-off #game-nav,body.hud-off #radiobtn,body.hud-off #radiopanel{visibility:hidden}
+body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #navi,body.hud-off #bl,body.hud-off #br,body.hud-off body.hud-off #pausebtn,body.hud-off #debug,body.hud-off #touch,body.hud-off #game-nav,body.hud-off #radiobtn,body.hud-off #radiopanel{visibility:hidden}
 #tl{left:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:6px;min-width:200px}
 #tl .mode{font-size:16px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel-l)}
 #tl .cps{font-size:22px;font-weight:800;font-style:italic;color:var(--sun);line-height:1}
@@ -248,9 +248,9 @@ body.tutorial #tr{display:none}#tutorialbtn.first{outline:4px solid var(--sun);o
 #about a{color:#8fd8e8}
 .ab-foot{margin:0;padding-top:10px;border-top:3px solid var(--steel);color:var(--steel-l)}
 /* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
-body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#stylebtn,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
-body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#stylebtn,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
-body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#stylebtn,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
+body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
+body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
+body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
 body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast){display:none}
 @media (max-width:600px){
   .tags{padding:10px 12px 0}.start .sub,.tag{font-size:11px;padding:4px 8px;letter-spacing:1px}
@@ -294,12 +294,6 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #keybar .ctx{color:var(--ink);background:var(--sun);padding:0 6px}#keybar .ctx kbd{color:var(--ink);border-color:var(--ink)}
 @media (pointer:coarse){#keybar,#pausekeybar{display:none!important}}
 body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,body:has(#abandon:not([hidden])) #keybar,body:has(#help:not([hidden])) #keybar,body:has(#jump:not([hidden])) #keybar,body:has(#borderinfo:not([hidden])) #keybar{display:none}
-#stylebtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel);color:var(--cream);font-family:inherit;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:6px 14px}
-#stylebtn b{color:var(--sun)}
-/* #776: on a phone the button lay over the minimap and the speedo -- only there is it hidden, and only there because
-   the pause dialog carries #pausestyle instead (T still switches on a keyboard); a tablet keeps the button. */
-#pausestyle{display:none}
-@media (max-width:600px) and (pointer:coarse){#stylebtn{display:none}#pausestyle{display:block}}
 #pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
 #pausebtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 /* #735: the phone's car radio -- one small button left of #pausebtn, a 3x2 panel under the pair; desktop has keys only */
@@ -482,7 +476,6 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div class="bar"><span><span id="maptext">Map · Hochrhein ·</span> <span id="mapzoom">1×</span></span><span id="mapfloor" hidden></span><b><span id="maphead">N 0°</span> · N ↑</b></div>
     <canvas id="map" width="800" height="400"></canvas>
   </div>
-  <button id="stylebtn" type="button"><span data-i18n="styleLabel">Style:</span> <b id="stylename">Original</b> · T</button>
   <button id="pausebtn" type="button" aria-label="Pause" data-i18n-aria="pauseAria">II</button>
   <button id="radiobtn" type="button" aria-label="Car radio" data-i18n-aria="radioAria" aria-expanded="false" aria-controls="radiopanel">📻</button>
   <div id="radiopanel" hidden role="group" aria-label="Car radio" data-i18n-aria="radioAria">
@@ -722,7 +715,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div class="col">
       <button id="pauseresume" class="btn primary" type="button" data-i18n="pauseResume">Resume</button>
       <button id="pausevehicle" class="btn" type="button" data-i18n="pauseVehicle">Change vehicle</button>
-      <!-- #776: on a phone #stylebtn is hidden (it lay over the minimap) and there is no T key -- this is the way to switch style mid-run -->
+      <!-- #773: the style switch while driving (T on a keyboard) -->
       <button id="pausestyle" class="btn" type="button">Style: Original</button>
       <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
       <button id="pausekeybar" class="btn" type="button" aria-pressed="true">Key bar: on</button>
@@ -3320,7 +3313,7 @@ const HEMI_SKY = { dry: col('#dfe8ff'), wet: col('#8fd0d6') };
 function waterUnderside(on) { const m = MESH.water && MESH.water.material; if (!m || !m.emissive) return; const s = surfaceLook(on); m.emissive.set(s.emissive); m.emissiveIntensity = s.emissiveIntensity; }   // #217: the surface glows while you are under it (and only then)
 
 function setUnderwater(on) { UWS.on = on; const St = STYLES[styleKey]; sunSprite.visible = !on; wreck.visible = on; waterUnderside(on); if (FISH.mesh) FISH.mesh.visible = on; for (const b of [BED.stones, BED.weed]) if (b) b.visible = on; if (on) { scene.fog = new THREE.FogExp2(col(UW.fogColor), UW.fogDensity); skyMat.uniforms.top.value.set(UW.fogColor); skyMat.uniforms.hor.value.set(UW.skyHor); hemi.color.copy(HEMI_SKY.wet); hemi.intensity = St.hemi * UW.hemiFactor; sun.intensity = St.sunI * UW.sunFactor; } else { scene.fog = St.fog(); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); hemi.color.copy(HEMI_SKY.dry); hemi.intensity = St.hemi; sun.intensity = St.sunI; } }
-function renderStyleName() { const name = tr(STYLES[styleKey].nameKey); $('stylename').textContent = name; for (const id of ['stylebtn2', 'pausestyle']) $(id).textContent = `${tr('styleLabel')} ${name}`; }   // #776: #pausestyle is the phone's style switch
+function renderStyleName() { const name = tr(STYLES[styleKey].nameKey); for (const id of ['stylebtn2', 'pausestyle']) $(id).textContent = `${tr('styleLabel')} ${name}`; }   // #773: the pause dialog and the start screen carry the style switch; T too
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize);
 
@@ -3945,7 +3938,7 @@ function stepTouch(ctx, act) {
 }
 window.__mm.touch = () => { stepTouch(controlContext(), contextAction()); return { ...touch, ctx: $('touch').dataset.ctx }; };   // steps first, like __mm.keybar: a headless renderer draws under 1 fps
 function toggleStyle() { applyStyle(styleKey === 'original' ? 'smooth' : 'original'); }
-for (const id of ['stylebtn', 'stylebtn2', 'pausestyle']) document.getElementById(id).onclick = toggleStyle;
+for (const id of ['stylebtn2', 'pausestyle']) document.getElementById(id).onclick = toggleStyle;
 
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
@@ -6132,7 +6125,7 @@ showGallery();
 </script>
 
 <!-- game-nav (hub overlay: version badge, links, star). Centred and raised
-     above #stylebtn: the HUD owns both bottom corners (#bl, #br). -->
+     clear of the HUD's bottom corners (#bl, #br). -->
 <style>
   /* Phones: the start/result dialog, the pause menu and its abandon question
      fill the screen and the wrapped nav would sit on their buttons, so show
@@ -6141,8 +6134,8 @@ showGallery();
      bottom edge while the start/result dialog is open, clear of that dialog's buttons. */
   body:has(#overlay:not([hidden])) #game-nav { bottom: calc(8px + env(safe-area-inset-bottom,0px)) !important; }
   @media (max-width: 600px) { body:has(#overlay:not([hidden])) #game-nav, body:has(#worlds:not([hidden])) #game-nav, body:has(#about:not([hidden])) #game-nav, body:has(#carsel:not([hidden])) #game-nav, body:has(#pause:not([hidden])) #game-nav, body:has(#abandon:not([hidden])) #game-nav { display: none !important; } }
-  /* #776: on a phone the footer is for dialogs only; while driving it lies over the minimap and the speedometer */
-  @media (max-width: 600px) { body:not(:has(:is(#overlay,#worlds,#about,#carsel,#pause,#abandon):not([hidden]))) #game-nav { display: none !important; } }
+  /* #776, #773: the footer is for dialogs only; while driving it is clutter (and on a phone it lay over the minimap) */
+  body:not(:has(:is(#overlay,#worlds,#about,#carsel,#pause,#abandon):not([hidden]))) #game-nav { display: none !important; }
 </style>
 <script src="./version.js"></script>
 <script src="./i18n.js"></script>

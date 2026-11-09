@@ -104,7 +104,7 @@ def test_toggle_switches_live_and_persists(server):
             intro: document.querySelector('#ovtext').textContent,
             startbtn: document.querySelector('#startbtn').textContent,
             style2: document.querySelector('#stylebtn2').textContent,
-            stylename: document.querySelector('#stylename').textContent,
+            pausestyle: document.querySelector('#pausestyle').textContent,
             terrain: document.querySelector('#mmhstatus').textContent,
             world: document.querySelector('#worldstatus').textContent,
             blurb: document.querySelector('#blurb').textContent,
@@ -112,7 +112,7 @@ def test_toggle_switches_live_and_persists(server):
             lastJump: [...document.querySelectorAll('#jump li')].at(-1).textContent,
         })""")
         page.keyboard.press("KeyT")
-        smooth = text(page, "#stylename")
+        smooth = text(page, "#pausestyle")
         page.reload(timeout=240000); page.wait_for_function(READY, timeout=240000)
         after_reload = text(page, "#tl .mode")
         b.close()
@@ -120,13 +120,13 @@ def test_toggle_switches_live_and_persists(server):
     assert live["mode"] == "Zeitfahren · Hochrhein"
     assert live["intro"].startswith("Sisseln → Sisslerfeld") and "Fünf Checkpoints" in live["intro"]
     assert live["startbtn"] == "Zeitfahren"
-    assert live["style2"] == "Stil: Original" and live["stylename"] == "Original"
+    assert live["style2"] == "Stil: Original" and live["pausestyle"] == "Stil: Original"   # #773: #stylename went with #stylebtn
     assert live["terrain"] == "Gelände: erfunden (sanfte Hügel, nicht gemessen)"
     assert live["world"] == "Welt: von Hand abgezeichnet (keine data/world_hochrhein.json)"
     assert "Die Zeit läuft" in live["blurb"]
     assert live["odo"].endswith("K setzt Trip zurück"), live["odo"]
     assert live["lastJump"] == "Zufälliger Ort"
-    assert smooth == "Glatt"
+    assert smooth == "Stil: Glatt"
     assert after_reload == "Zeitfahren · Hochrhein"
     assert errors == []
 
