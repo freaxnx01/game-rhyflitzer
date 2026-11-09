@@ -184,7 +184,9 @@ const fleetRunsCache = new WeakMap();
 
 // the runs a fleet drives: a run is the chain of same-line trips one bus drives (A1, A6), with contiguous windows
 // split at the timetable arrival; unlinked trips are a run of one leg (A11). Memoised per `trips` array (#726: syncFleet
-// runs every second), recomputed when `routes` or `cfg` differ.
+// runs every second), recomputed when `routes` or `cfg` differ. `routes`/`cfg` are compared by reference, not content:
+// safe only because index.html's one call site always passes the same, already-fully-populated Map/PA object on every
+// call -- a call site that mutates `routes` or `cfg` after a prior call with the same `trips` array would get stale runs.
 export function fleetRuns(trips, routes, cfg = PA) {
   const cached = fleetRunsCache.get(trips);
   if (cached && cached.routes === routes && cached.cfg === cfg) return cached.runs;
