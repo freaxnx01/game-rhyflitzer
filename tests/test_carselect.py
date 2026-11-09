@@ -176,7 +176,7 @@ def test_third_vehicle_and_race(server):
         raced = page.evaluate("() => ({ open: window.__mm.carsel().open, top: window.__mm.vehicle().drive.top, stored: localStorage.getItem('mm.car'), mode: window.__mm.blitz().mode })")
         b.close()
     assert count1 == "Car 1 of 22"
-    assert shown["count"] == "Car 22 of 22" and shown["name"] == "slow" and shown["cls"] == "" and shown["tiles"] == ["false"] * 21 + ["true"]
+    assert shown["count"] == "Car 22 of 22" and shown["name"] == "slow" and shown["cls"] == "Class C" and shown["tiles"] == ["false"] * 21 + ["true"]   # #493: no type name, but the class is computed from its drive values
     assert shown["garage"] == "Garage · 22 vehicles" and shown["top"] == 30
     assert bars[0] == {"lit": 4, "score": 4} and bars[3] == {"lit": 7, "score": 7}, bars
     assert tile_focus == "slow"
