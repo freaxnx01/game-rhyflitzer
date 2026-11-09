@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows } from '../busstop.js';
+import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines } from '../busstop.js';
 import { buildGraph, cumulative } from '../route.js';
 import { BUS } from '../bus.js';
 import { busRoute, busPose } from '../postauto.js';
@@ -96,13 +96,28 @@ test('stopRows: one row per line and direction, none for a route that ends here'
   assert.ok(rows.every((r) => !/postauto/i.test(r.dest)), 'no brand text on the sign');
 });
 
+test('stopEnds_LastStopOfARouteThatEndsInTheMap_EndsThere', () => {
+  assert.equal(stopEnds(10, 11, [false, false]), true);
+  assert.equal(stopEnds(9, 11, [false, false]), false);
+  assert.equal(stopEnds(8, 9, undefined), true);            // no cut flags: ends at its last stop
+});
+test('stopEnds_LastInMapStopOfARouteThatLeavesTheMap_DoesNotEnd', () => {
+  assert.equal(stopEnds(8, 9, [false, true]), false);       // 143 at Breitenacher drives on to Kaisten
+  assert.equal(stopEnds(8, 9, [true, false]), true);
+});
+test('sheetLines_RowsOfTwoLines_EachLineOnceSorted', () => {
+  assert.equal(sheetLines([{ line: '143', dest: 'A' }, { line: '133', dest: 'B' }, { line: '143', dest: 'C' }]), '133 143');
+  assert.equal(sheetLines([{ line: '133', dest: 'B' }]), '133');
+  assert.equal(sheetLines([]), '');
+});
+
 // the real world: every stop keeps its shelter, nothing of it within 0.5 m of a standing bus or on asphalt
 const WORLD = new URL('../data/world_hochrhein.json', import.meta.url);
-test('world_hochrhein: all 20 stop points lay out clear of every standing bus and every road', { skip: !fs.existsSync(WORLD) }, () => {
+test('world_hochrhein: every stop point lays out clear of every standing bus and every road', { skip: !fs.existsSync(WORLD) }, () => {
   const L = JSON.parse(fs.readFileSync(WORLD, 'utf8'));
   const G = buildGraph(L.roads), byKey = new Map();
   for (const br of L.busRoutes) { const R = busRoute(br, L.roads, G); for (const st of R.stops) { const k = stopKey(st); if (!byKey.has(k)) byKey.set(k, { st, poses: [] }); byKey.get(k).poses.push(busPose(R, st.s)); } }
-  assert.equal(byKey.size, 20);
+  assert.equal(byKey.size, L.busRoutes.some((r) => r.line === '143') ? 24 : 20);
   for (const { st, poses } of byKey.values()) {
     const lay = stopLayout(st, poses, L.roads);
     assert.ok(lay.shelter, `${st.name}: no shelter`);
@@ -116,9 +131,13 @@ test('world_hochrhein: all 20 stop points lay out clear of every standing bus an
 // per-point calls would leave it without a single row (AC: every stop has at least one)
 test('world_hochrhein: every stop has at least one row; Frick Bahnhof shows only the way to Stein-Säckingen', { skip: !fs.existsSync(WORLD) }, () => {
   const L = JSON.parse(fs.readFileSync(WORLD, 'utf8')), calls = new Map();
-  for (const br of L.busRoutes) for (const [i, st] of br.stops.entries()) { if (!calls.has(st.uic)) calls.set(st.uic, { st, calls: [] }); calls.get(st.uic).calls.push({ line: br.line, dest: br.to, last: i === br.stops.length - 1 }); }
+  for (const br of L.busRoutes) for (const [i, st] of br.stops.entries()) { if (!calls.has(st.uic)) calls.set(st.uic, { st, calls: [] }); calls.get(st.uic).calls.push({ line: br.line, dest: br.to, last: stopEnds(i, br.stops.length, br.cut) }); }
   for (const { st, calls: c } of calls.values()) assert.ok(stopRows(c).length >= 1, `${st.name}: no row`);
   const frick = [...calls.values()].filter(({ st }) => st.uic === '8500583');
   assert.ok(frick.length >= 1);
   for (const { calls: c } of frick) assert.deepEqual(stopRows(c), [{ line: '133', dest: 'Stein-Säckingen, Bahnhof' }]);
+  if (L.busRoutes.some((r) => r.line === '143')) {   // #767: after the data rebuild
+    for (const { st, calls: c } of calls.values()) if (st.uic === '8572416') assert.deepEqual(stopRows(c), [{ line: '143', dest: 'Laufenburg, Bahnhof' }, { line: '143', dest: 'Stein-Säckingen, Bahnhof' }]);
+    for (const { st, calls: c } of calls.values()) if (st.uic === '8572748') assert.deepEqual(stopRows(c), [{ line: '133', dest: 'Frick, Bahnhof' }, { line: '143', dest: 'Laufenburg, Bahnhof' }]);
+  }
 });

@@ -784,7 +784,7 @@ import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText } from './postauto.js';   // #500
-import { STOP, stopLayout, zigzagLine, stopKey, stopRows } from './busstop.js';   // #712
+import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines } from './busstop.js';   // #712
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices } from './postautofx.js';   // #709
@@ -1041,11 +1041,11 @@ function stopSignTex(name, rows) {
   }, { alpha: true });
 }
 // #712: the Fahrplantafel -- a white sheet with a yellow header and grey lines, no real times
-function timetableTex() {
+function timetableTex(label) {
   return makeTex(128, 192, (g, w, h) => {
     g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
     g.fillStyle = '#ffcc00'; g.fillRect(0, 0, w, 28);
-    g.fillStyle = '#111111'; g.font = '700 18px "Barlow Condensed", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('133', 8, 14);
+    g.fillStyle = '#111111'; g.font = '700 18px "Barlow Condensed", sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(label, 8, 14);
     g.fillStyle = '#9a9a9a'; for (let y = 44; y < h - 8; y += 14) { g.fillRect(8, y, 20, 4); g.fillRect(36, y, w - 44, 4); }
   }, { alpha: true });
 }
@@ -2108,7 +2108,7 @@ function busStop(layout, name, rows) {
   for (const x of [0, -1]) { const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), steel); knob.position.set(x, 2.9, 0); g.add(knob); }   // rounded top corners
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55), new THREE.MeshBasicMaterial({ map: stopSignTex(name, rows), side: THREE.DoubleSide })); sign.position.set(-0.5, 2.5, -0.05); g.add(sign);
   const frame = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.03), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); frame.position.set(0, 1.6, -0.05); g.add(frame);
-  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: timetableTex() })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: timetableTex(sheetLines(rows)) })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
   if (layout.shelter) {
     const S = STOP.shelter, mid = (S.front + S.back) / 2;   // the shelter centre is mid metres further out than the pole
     const roof = new THREE.Mesh(new THREE.BoxGeometry(S.w, 0.15, S.d), new THREE.MeshLambertMaterial({ color: 0x4a515e })); roof.position.set(0, S.h + 0.1, mid); g.add(roof);
@@ -6050,7 +6050,7 @@ function buildBusStops() {
       if (!byKey.has(k)) byKey.set(k, { st, R, poses: [] });
       byKey.get(k).poses.push(busPose(R, st.s));
       if (!rowsByUic.has(st.uic)) rowsByUic.set(st.uic, []);
-      rowsByUic.get(st.uic).push({ line: br.line, dest: br.to, last: i === R.stops.length - 1 });
+      rowsByUic.get(st.uic).push({ line: br.line, dest: br.to, last: stopEnds(i, R.stops.length, br.cut) });
     }
   }
   POSTAUTO.stops = [];
