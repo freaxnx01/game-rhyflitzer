@@ -9,7 +9,7 @@ test('poleTop_rect_endsBelowTopEdge', () => {
   assert.ok(near(poleTop({ shape: 'rect', y: 2.4, h: 1.2 }), 3.0 - 0.02));
 });
 test('poleTop_disc_endsBelowDiscTopAndWhereDiscCoversPole', () => {
-  const p = { shape: 'disc', y: 2.1, d: 0.886 };   // Fahrverbot: 0.9 panel, 4/256 border gap each side
+  const p = { shape: 'disc', y: 2.1, d: 0.886 };   // Fahrverbot: 0.9 panel, 2/256 border gap each side
   const top = poleTop(p);
   assert.ok(top < 2.1 + 0.443);
   const half = Math.sqrt(0.443 ** 2 - (top + 0.02 - 2.1) ** 2);   // chord at the pole's end
