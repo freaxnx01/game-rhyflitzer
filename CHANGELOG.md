@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-10 20:21` Hold <kbd>Tab</kbd> and turn the **mouse wheel** to **zoom the big map** in and out (1x to 8x) towards the cursor. The big map opens at 1x each time and its zoom is separate from the **minimap**.
 - `2026-11-10 20:19` The **menu music** now plays while the world is **loading**: it starts by itself where the browser allows it, otherwise with the first **click** or <kbd>key</kbd> press on the loading screen. Switched off, nothing changes.
 - `2026-11-10 20:17` **Eric** is now in the **About** screen's people tab, credited for his **vehicle ideas**.
 - `2026-11-10 19:22` A **contact address** in the footer ("Kontakt"/"Contact") and under About → The game: write to the game without a GitHub account.
