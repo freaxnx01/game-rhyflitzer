@@ -4,6 +4,10 @@
 import { BUS } from './bus.js';
 import { rightOf } from './route.js';
 
+// #795: the Haltestellentafel is printed on both sides. Local +z points away from the road, so the road face is
+// turned by PI; both are single-sided, a DoubleSide plane shows its back mirrored. z is behind the frame at -0.05.
+export const SIGN_FACES = [{ z: -0.052, rotY: Math.PI }, { z: -0.048, rotY: 0 }];
+
 export const STOP = {
   poleOut: 0.6,                 // m: the pole this far beyond the stop point, away from the road
   clear: 0.5,                   // m: pole and shelter to every standing bus; shelter to every asphalt edge
