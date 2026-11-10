@@ -709,7 +709,8 @@ export function forestEdges(forests, index, maxLen = 48) {
   return out;
 }
 
-export const FOREST_BUDGET = { edgeStep: 6, fillArea: 600, cap: 85000, edgeH: [7, 12], fillH: [8, 14], tile: 512 };
+// #461: one interior tree per 300 m2 (~17 m apart, 33 per ha; was 600 m2 and thinned to ~6 per ha by the cap on the Hochrhein world); cap 150000 holds edge 71k + fill 78k unthinned
+export const FOREST_BUDGET = { edgeStep: 6, fillArea: 300, cap: 150000, edgeH: [7, 12], fillH: [8, 14], tile: 512 };
 export function forestTrees(forests, index, edges, rnd, budget = FOREST_BUDGET) {
   const edge = [], fill = [], rr = ([a, b]) => a + rnd() * (b - a);
   for (const e of edges) {

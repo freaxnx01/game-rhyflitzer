@@ -1062,12 +1062,12 @@ test('forestEdges: inward normals point to the centre, long edges are split, sli
   assert.deepEqual(forestEdges([], forestIndex([])), []);
 });
 
-test('forestTrees: seeded, edge every 6 m, fill one per 600 m2, cap thins the fill only', () => {
+test('forestTrees: seeded, edge every 6 m, fill one per 300 m2 (#461), cap thins the fill only', () => {
   const fi = forestIndex([SQUARE]), edges = forestEdges([SQUARE], fi);
   const a = forestTrees([SQUARE], fi, edges, rng(13)), b = forestTrees([SQUARE], fi, edges, rng(13));
   assert.deepEqual(a, b);
   assert.ok(Math.abs(a.edge.length - 400 / 6) <= 8, a.edge.length);       // 12 segments x round(33.3 / 6) = 72
-  assert.ok(Math.abs(a.fill.length - 10000 / 600) <= 10, a.fill.length);   // the 8 m mask rounds the square out to ~104 m
+  assert.ok(Math.abs(a.fill.length - 10000 / 300) <= 14, a.fill.length);   // the 8 m mask rounds the square out to ~104 m
   assert.equal(a.thinned, 0);
   for (const [x, z, h] of a.edge) { assert.ok(x > -0.01 && x < 100.01 && z > -0.01 && z < 100.01); assert.ok(h >= 7 && h < 12); }
   for (const [, , h] of a.fill) assert.ok(h >= 8 && h < 14);
@@ -1259,6 +1259,17 @@ test('forestTrees: the committed Hochrhein world keeps its fill above 10000 unde
   const placed = forestTrees(forests, fi, forestEdges(forests, fi), rng(13));
   assert.ok(placed.edge.length >= 20000, placed.edge.length);
   assert.ok(placed.fill.length >= 10000, `edge ${placed.edge.length}, fill ${placed.fill.length}, thinned ${placed.thinned}`);
+  assert.ok(placed.edge.length + placed.fill.length <= FOREST_BUDGET.cap);
+});
+
+test('forestTrees: the Hochrhein interiors are not thinned and reach 30 trees per hectare (#461)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const world = JSON.parse(readFileSync(new URL('../data/world_hochrhein.json', import.meta.url), 'utf8'));
+  const forests = layoutFromWorld(world).forests, fi = forestIndex(forests);
+  const placed = forestTrees(forests, fi, forestEdges(forests, fi), rng(13));
+  assert.equal(placed.thinned, 0, 'the cap must not thin the interiors');
+  const maskHa = fi.mask.reduce((n, v) => n + v, 0) * fi.step * fi.step / 1e4;   // wood nodes x 64 m2
+  assert.ok(placed.fill.length / maskHa >= 30, `fill ${placed.fill.length} on ${maskHa.toFixed(0)} ha`);
   assert.ok(placed.edge.length + placed.fill.length <= FOREST_BUDGET.cap);
 });
 
