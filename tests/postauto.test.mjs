@@ -382,11 +382,15 @@ function synthRoutes(trips) {
   }
   return out;
 }
+// #808: a terminus is a stop *point* (the world's uic:x:z per route and stop), not a uic (three lines end at Frick Bahnhof)
+const WORLD_DATA = JSON.parse(fs.readFileSync(new URL('../data/world_hochrhein.json', import.meta.url), 'utf8'));
+const POINT = new Map(WORLD_DATA.busRoutes.flatMap((r) => r.stops.map((s) => [`${r.id}:${s.uic}`, `${s.uic}:${s.x}:${s.z}`])));
+const pointOf = (b) => POINT.get(`${b.trip.route}:${b.calls[b.k].uic}`) ?? b.calls[b.k].uic;
 function standingAtTerminus(fleet) {
   const by = new Map();
   for (const b of fleet) {
     const first = b.k === 0 && !b.trip.fromOutside, last = b.k === b.calls.length - 1 && !b.trip.toOutside;   // #767: 143's Breitenacher is a through stop
-    if (b.phase === 'stand' && (first || last)) by.set(b.calls[b.k].uic, (by.get(b.calls[b.k].uic) ?? 0) + 1);
+    if (b.phase === 'stand' && (first || last)) by.set(pointOf(b), (by.get(pointOf(b)) ?? 0) + 1);
   }
   return [...by].filter(([, n]) => n > 1);
 }
