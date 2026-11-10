@@ -663,6 +663,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <dl class="ab-people">
         <dt>Kicsi</dt><dd data-i18n="aboutRoleKicsi"></dd>
         <dt>Tschosi "forwardare"<br>Ätti aka L.A. Brace</dt><dd data-i18n="aboutRoleTschosi"></dd>
+        <dt>Eric</dt><dd data-i18n="aboutRoleEric"></dd>
       </dl>
     </section>
     <section id="aboutpanel-game" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-game" hidden>
@@ -670,6 +671,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <p><a data-link="midtown" data-i18n="aboutInspired"></a></p>
       <p data-i18n="aboutPrivacy"></p>
       <p><a data-link="privacy" data-i18n="aboutPrivacyLink"></a></p>
+      <p><span data-i18n="aboutContact"></span> <a id="aboutcontact"></a></p>
     </section>
     <section id="aboutpanel-credits" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-credits" hidden>
       <dl class="ab-credits">
@@ -791,7 +793,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
-import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
+import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
 import { flyAllowed, roomFlyClamp, roomFlyCeiling, ROOMS, ROOMS2, roomLayout, shipFrame, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel, isRoomLevel } from './rooms.js';
 import { FRIES } from './fries.js';
@@ -813,6 +815,7 @@ import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTime
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, tripKey, thankDue, markThanked } from './postauto.js';   // #500
 import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider, SIGN_FACES } from './busstop.js';   // #712
+import { poleTop, signPanelZ, POLE_R, FACE_GAP } from './signpole.js';   // #822
 import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindow, cellTime, liveStops, clockText, minutesUntil, stopInReach } from './timetable.js';   // #801
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
@@ -822,7 +825,7 @@ import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautode
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
-import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
+import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from './tutorial.js';   // #534
@@ -840,7 +843,7 @@ import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInp
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
-import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
@@ -852,7 +855,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor 
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
-import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor } from './radio.js';   // #735
+import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -931,6 +934,9 @@ function logStageDone() { if (LOAD_LOG.stage) console.info(`Building the world: 
 // after one frame (or 100 ms, so a background tab, which gets no frames, keeps building), as a new task: the frame is painted by then
 function nextPaint() { return new Promise((res) => { let done = false; const go = () => { if (done) return; done = true; const ch = new MessageChannel(); ch.port1.onmessage = () => res(); ch.port2.postMessage(0); }; requestAnimationFrame(go); setTimeout(go, 100); }); }
 function endLoading() { logStageDone(); console.info(`Building the world: done after ${Math.round(performance.now())} ms.`); document.getElementById('overlay').classList.remove('loading'); }
+// #841: the menu music starts now, not after the world is built; RADIO adopts the element (voice('menu')) once it exists
+const EARLY_MENU = (() => { const get = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  return createEarlyMenu({ menuOn: menuMusicOnFrom(get(RADIO_STORE.menu)), vol: volumeFrom(get(RADIO_STORE.vol)), makeAudio: () => new Audio(), target: window }); })();
 await loadStage('map');
 
 // ---------- helpers ----------
@@ -1376,8 +1382,16 @@ function cutFloorMin(x, z) {
   return f;
 }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
+// #477: 6c's porch and hall footprint. The EG is the terrain at the entrance (#445), but the ground a little further in can lie above it:
+// the pads lower the terrain patches there below the slab (stairhall.js terrainPads). '6c' = INT.house, which is declared further down.
+function hallTerrainPads() {
+  const b = L.buildings.find(isBodenacker6); if (!b) return [];
+  let porch; try { porch = bodenackerHouse(bodenackerLayout(b, 0, Math.max(b.h, 3)), '6c').porch; } catch (e) { return []; }   // the building code warns about a failing layout
+  return terrainPads(porch.entrance, { w: porch.w, d: porch.d }, terrainH(porch.entrance.x, porch.entrance.z));
+}
 function buildCuts() {
   const crossings = railRoadCrossings(L.roads, L.railBridges);
+  const PADS = hallTerrainPads();   // #477: the ground under 6c's porch and stair hall, lowered below the EG slab
   for (const g of L.grades) GRADE_CUTS.push(gradeCut(g, meshH, GRADE_CUT, gradeCaps(g, crossings)));
   for (const c of crossings) CUTS.push(makeCut(c));
   // #156: a lowered patch vertex reaches PATCH_BLEED on (the diagonal of a 1 m cell): lat ends the lowering that far inside the
@@ -1387,10 +1401,11 @@ function buildCuts() {
   if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);
   const fillCell = (i, j) => {
     const p = new Float32Array(W * W); let lowered = false;
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z), padFloorAt(PADS, x, z) ?? Infinity); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
     return { p, lowered };
   };
   for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
+  if (PADS.length) for (const [i, j] of patchCells(padBounds(PADS), G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
   // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
   // without 2 x CUT_N^2 more triangles to draw)
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
@@ -1824,23 +1839,23 @@ function signTextures() {
 function signPanel(g, tex, w, h, y) {
   for (const back of [false, true]) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex, color: back ? 0x6a6f78 : 0xffffff, transparent: true, alphaTest: 0.5 }));
-    m.position.set(0, y, back ? -0.02 : 0.02); if (back) m.rotation.y = Math.PI; g.add(m);
+    m.position.set(0, y, signPanelZ(back)); if (back) m.rotation.y = Math.PI; g.add(m);
   }
 }
-function roadSign(kind, x, z, rot, build) {
-  const g = new THREE.Group(), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 8), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
-  pole.position.y = 1.3; g.add(pole); build(g, signTextures());
+function roadSign(kind, x, z, rot, build, panel) {   // #822: panel = the main panel's shape for poleTop
+  const top = poleTop(panel), g = new THREE.Group(), pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 8), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+  pole.position.y = top / 2; g.add(pole); build(g, signTextures());
   g.position.set(x, terrainH(x, z), z); g.rotation.y = Math.PI / 2 - rot; g.traverse(o => o.castShadow = true); signs.add(g);
   ROAD_SIGNS.push({ kind, x, z });
 }
 function baustelleSign(x, z, rot) {
   roadSign('baustelle', x, z, rot, (g, T) => {
-    signPanel(g, T.tri, 1.0, 1.0, 2.15); signPanel(g, T.baustelle, 1.0, 0.25, 1.5);
+    signPanel(g, T.tri, 1.0, 1.0, 2.15); signPanel(g, T.baustelle, 1.0, 0.25, 1.5);   // #822: panel (and the plate below it) covers the pole
     for (const side of [-1, 1]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.0, 0.1), new THREE.MeshLambertMaterial({ map: T.bake })); b.position.set(side * 1.2, 0.5, 0); g.add(b); }   // Leitbaken
-  });
+  }, { shape: 'tri', apex: 2.15 + 0.5 - 1.0 * 10 / 256, slope: 0.536 });   // #822: apex 2.611, half-width per metre (120/256)/(224/256) = 0.536
 }
 function fahrverbotSign(x, z, rot) {
-  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); });
+  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); }, { shape: 'disc', y: 2.1, d: 0.9 * 248 / 256 });   // #822: 4/256 border gap each side
 }
 function foodTruck(x, z, rot) { // #103 Güggeli food truck: cream box body on four wheels, red cab in front (local +x), serving hatch and awning on the local -z side, hand-painted roof board; generic look, no logo (docs/07); solid
   const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
@@ -2083,12 +2098,14 @@ function parkingMeshes(lots) {
   decals.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET })));
 }
 function parkingSign([x, z, rot], name) {
-  const b = terrainH(x, z), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
-  pole.position.set(x, b + 1.3, z); signs.add(pole);
+  const b = terrainH(x, z), nx = Math.sin(-rot), nz = Math.cos(-rot),   // #822: the board's normal; the panel moves along it, the pole stays behind
+    top = Math.min(2.6, poleTop({ shape: 'rect', y: 2.3, h: 0.7 })),
+    pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+  pole.position.set(x, b + top / 2, z); signs.add(pole);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  board.position.set(x, b + 2.3, z); board.rotation.y = -rot; signs.add(board);
+  board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; signs.add(board);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  plate.position.set(x, b + 1.75, z); plate.rotation.y = -rot; signs.add(plate);
+  plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; signs.add(plate);
 }
 function propMeshes(props) {
   const geos = propGeometries(), byKind = {};
@@ -2124,7 +2141,7 @@ function crashSign() {
   const s = yardStart(YARD), x = s.x + 4, z = s.z - 5, b = terrainH(x, z), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
   pole.position.set(x, b + 1.4, z); signs.add(pole);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.9), new THREE.MeshBasicMaterial({ map: textTex(tr('crashYard'), 512, 180, '#f5c400', '#111111', '700 120px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  board.position.set(x, b + 2.5, z); board.rotation.y = -Math.PI / 2; signs.add(board);   // faces the arriving car (heading +x)
+  board.position.set(x + FACE_GAP + 0.01, b + 2.5, z); board.rotation.y = -Math.PI / 2; signs.add(board);   // faces the arriving car (heading +x); #822: off the pole's face along its normal
 }
 function stationAt(x, z, rot, name) { const b = terrainH(x, z); box(26, 6, 8, x, b - 2, z, rot, col('#e0d8c8'), 'wallDoor', [4, 3], 2.1); gable(26, 8, b + 4, 2.2, x, z, rot, col('#5a4a48'), col('#e0d8c8')); addOBB(x, z, 26, 8, rot, b + 4); box(60, 0.6, 3, x, b, z + 8, rot, col('#c8c2b6'), 'stone', [4, 2], 0); if (name) stationSign(name, x, z, rot, b); }
 // #12: blue Swiss station board on both long facades (signW's 'ch' style), just under the eaves
@@ -2187,7 +2204,8 @@ let SPEEDSIGN = null;
 function speedDisplayBuild() {
   const cfg = SPEED_DISPLAY, g = new THREE.Group(), b = terrainH(cfg.x, cfg.z), PN = cfg.panel;
   const steel = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 });
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.8, 8), steel); pole.position.y = 1.4; g.add(pole);
+  const top = poleTop({ shape: 'rect', y: PN.y, h: PN.h }, POLE_R, 0.05);   // #822: pole ends 5 cm under the housing top
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 8), steel); pole.position.y = top / 2; g.add(pole);
   const housing = new THREE.Mesh(new THREE.BoxGeometry(PN.w, PN.h, 0.12), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); housing.position.y = PN.y; g.add(housing);
   const canvas = document.createElement('canvas'); canvas.width = cfg.tex.w; canvas.height = cfg.tex.h;
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
@@ -2217,7 +2235,7 @@ const STATION_SIGNS = [], STATION_NAMES = { stationStein: 'Bahnhof Stein-Säckin
 const nameTex = {};
 function streetNames() { for (const r of ROADS) { if (L && !/^(motorway|trunk|primary|secondary|tertiary)/.test(r.cls)) continue; if (!nameTex[r.n]) nameTex[r.n] = textTex(r.n, 1024, 128, null, 'rgba(245,239,224,.92)', '700 84px "Barlow Condensed", sans-serif'); const mat = new THREE.MeshBasicMaterial({ map: nameTex[r.n], transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET }); for (let i = 0; i < r.pts.length - 1; i++) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1]; const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz); if (L < 70) continue; const n = Math.max(1, Math.floor(L / 220)); for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; const len = Math.min(r.w * 5, L * 0.6), wid = len / 8; const g = new THREE.PlaneGeometry(len, wid); g.rotateX(-Math.PI / 2); let ang = Math.atan2(dz, dx); if (Math.cos(ang) < 0) ang += Math.PI; g.rotateY(-ang); const m = new THREE.Mesh(g, mat); const mx = x0 + dx * t, mz = z0 + dz * t; m.position.set(mx, terrainH(mx, mz) + 0.09, mz); decals.add(m); } } } }
 function sign(txt, kind, px, py, faceDeg) { signW(txt, kind, ...W(px, py), faceDeg); }
-function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(txt, 512, 256, '#1c5fb0', '#ffffff', '700 120px "Barlow Condensed", sans-serif', '#ffffff') : textTex(txt, 512, 256, '#ffcc00', '#111111', '700 120px "Barlow Condensed", sans-serif', '#111111'); const g = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), [new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 })]); board.position.y = 2.4; const pole = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }); for (const s of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), pole); p.position.set(s, 1.5, 0); g.add(p); } g.add(board); g.position.set(x, groundH(x, z), z); g.rotation.y = faceDeg * Math.PI / 180; g.traverse(o => o.castShadow = true); signs.add(g); }
+function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(txt, 512, 256, '#1c5fb0', '#ffffff', '700 120px "Barlow Condensed", sans-serif', '#ffffff') : textTex(txt, 512, 256, '#ffcc00', '#111111', '700 120px "Barlow Condensed", sans-serif', '#111111'); const g = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), [new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 })]); board.position.y = 2.4; const pole = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }); for (const s of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.95, 6), pole); p.position.set(s, 1.475, -0.09); g.add(p); } g.add(board); g.position.set(x, groundH(x, z), z); g.rotation.y = faceDeg * Math.PI / 180; g.traverse(o => o.castShadow = true); signs.add(g); }   // #822: poles behind the 0.08 deep board, 5 cm under its top
 
 const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795], [1960, 740]]);   // hand-traced Basel–Koblenz line stand-in
 // #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
@@ -3901,8 +3919,10 @@ window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const 
 // the ride; the camera keeps its mode and is carried by the same y step. Each level's door opens as the car comes near it
 // while the cabin sits there (stepLift animates both panels from LIFT_RIDE.doorAt).
 const LIFT_RIDE = createLift(LIFT_TIMES, FREIGHT_DEPTH);
-const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshBasicMaterial({ side: THREE.BackSide, color: 0x5e5e5e, fog: false, transparent: true, depthWrite: false, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
-CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
+const CAB_WALL_MAT = new THREE.MeshBasicMaterial({ side: THREE.BackSide, color: 0x5e5e5e, fog: false, transparent: true, depthWrite: false, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) });
+const CAB_CAP_MAT = CAB_WALL_MAT.clone(); CAB_CAP_MAT.map = CAB_WALL_MAT.map.clone(); CAB_CAP_MAT.map.needsUpdate = true;   // #603: ceiling and floor: the same look, never scrolled
+const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), CAB_FACE_SCROLLS.map(scrolls => scrolls ? CAB_WALL_MAT : CAB_CAP_MAT));
+CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; for (const m of [CAB_WALL_MAT, CAB_CAP_MAT]) { m.map.wrapS = m.map.wrapT = THREE.RepeatWrapping; m.map.repeat.set(4, 2); }
 const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : levelY(LEVELS.id);
 function liftIndicator(text) { const el = $('liftfloor'); el.hidden = text === null; if (text !== null) el.textContent = text; }
 function stepLift(dt) {
@@ -3915,8 +3935,8 @@ function stepLift(dt) {
   for (const e of ev) liftEvent(e);
   setFreightPad(onPlatform && level === LIFT_RIDE.cabin);
   for (const doorLevel of FREIGHT_STOPS) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
-  CAB.material.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
-    CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
+  CAB_WALL_MAT.opacity = CAB_CAP_MAT.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
+    { const c = cabCentre(LIFT, P.y, 3.5); CAB.position.set(c.x, c.y, c.z); } CAB_WALL_MAT.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
   const fl = LIFT_RIDE.floor(); liftIndicator(fl === null ? null : String(fl).replace('-', '−'));
 }
 // #361: the dark switch. On the ring level, entering spoke k builds room k's meshes; by position and with hysteresis (underground.js)
@@ -3948,7 +3968,7 @@ function liftSwitch(to) {
 }
 window.__mm.liftTimes = (t) => { LIFT_RIDE.setTimes(t); return LIFT_RIDE.times; };   // tests: a ride of 1 s instead of 8 (headless renders ~1 fps and the loop clamps dt to 0.05)
 const drawn = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return !!o; };   // visible, and every parent up to the scene too
-window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[liftStopAt(LEVELS.id) || 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null, target: LIFT_RIDE.target, chosen: LIFT_RIDE.chosen });
+window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[liftStopAt(LEVELS.id) || 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB_WALL_MAT.map.offset.y, capScroll: CAB_CAP_MAT.map.offset.y, cabAt: [CAB.position.x, CAB.position.z], indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null, target: LIFT_RIDE.target, chosen: LIFT_RIDE.chosen });
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Comma/Period, #535), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, borders: false, blinker: null, water: '', waterT: 0, road: '' };
@@ -4068,7 +4088,8 @@ const RADIO = (() => {
   const now = () => performance.now() / 1000;
   function voice(name) {
     if (els[name]) return els[name];
-    const { ac, master } = SFX.graph(), el = new Audio(); el.crossOrigin = 'anonymous'; el.preload = 'none';
+    const { ac, master } = SFX.graph(), early = name === 'menu' ? EARLY_MENU.take() : null, el = early || new Audio();
+    if (!early) { el.crossOrigin = 'anonymous'; el.preload = 'none'; }   // #841: an adopted element keeps its same-origin src and is already playing
     const gain = ac.createGain(); gain.gain.value = 0; ac.createMediaElementSource(el).connect(gain); gain.connect(master);
     const v = els[name] = { el, gain, want: false };
     if (name === 'fm') el.addEventListener('ended', () => { S.track = nextTrack(S.track); apply(); });
@@ -4092,7 +4113,7 @@ const RADIO = (() => {
     const radio = S.inRun && S.on;
     if (radio && S.station === 'fm') playFm(); else fadeOut('fm');
     if (radio && S.station === 'srf3') { if (!watch) playSrf(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
-    if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else fadeOut('menu');
+    if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else { fadeOut('menu'); if (S.inRun || !S.menuOn) EARLY_MENU.drop(); }   // #841: an element nobody adopted must not outlive the start screen
   }
   const nowText = () => { const d = displayFor(S); return '📻 ' + tr(d.key, ...d.args); };
   function fail() {   // SRF 3 did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
@@ -4714,10 +4735,12 @@ function buildInterior() {
   const h = INT.hall, f = h.frame, lv = h.levels, N = STAIRHALL.storeys;
   // #445: contrasting materials so the stairs read -- light plaster walls, dark stone treads with a light nosing, a dark handrail, light-grey landings
   const M = { concrete: new THREE.MeshLambertMaterial({ color: 0xb4b2ac, emissive: 0x33322f }), tread: new THREE.MeshLambertMaterial({ color: 0x5a5753, emissive: 0x1a1918 }), nosing: new THREE.MeshLambertMaterial({ color: 0xdedad0, emissive: 0x3c3b38 }), plaster: new THREE.MeshLambertMaterial({ color: 0xf3efe6, emissive: 0x47453f }), rail: new THREE.MeshLambertMaterial({ color: 0x2b2f36, emissive: 0x111214 }), wood: new THREE.MeshLambertMaterial({ color: 0x5b4636, emissive: 0x2b2b2b }), dark: new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }), cabin: new THREE.MeshLambertMaterial({ color: 0xd9d9d3, emissive: 0x2b2b2b }), cabinFloor: new THREE.MeshLambertMaterial({ color: 0x6a6a66, emissive: 0x2b2b2b }), lamp: new THREE.MeshBasicMaterial({ color: 0xfff3d6 }) };
+  INT.groundMat = M.ground = M.concrete.clone(); M.ground.polygonOffset = true; M.ground.polygonOffsetFactor = M.ground.polygonOffsetUnits = GROUND_DEPTH_OFFSET;   // #477: the EG slabs lie within cm of the grass; they win the depth test
   INT.mats = Object.values(M);
-  const parts = { concrete: [], tread: [], nosing: [], plaster: [], rail: [], wood: [], lamp: [] };
+  const parts = { ground: [], concrete: [], tread: [], nosing: [], plaster: [], rail: [], wood: [], lamp: [] };
   const put = (k, o, y0, y1) => { if (y1 - y0 > 0.001) parts[k].push(obbBox(o, y0, y1)); };
-  for (const s of h.walk.slabs) if (s.hw && s !== INT.cabin) put('concrete', s, s.y - WALKWAY.thick, s.y);   // the polygon roof deck is #410's; the cabin slab is the shell below
+  const onGround = new Set(groundSlabs(h));
+  for (const s of h.walk.slabs) if (s.hw && s !== INT.cabin) put(onGround.has(s) ? 'ground' : 'concrete', s, s.y - WALKWAY.thick, s.y);   // the polygon roof deck is #410's; the cabin slab is the shell below
   for (const r of h.walk.ramps) {
     const tw = r.hw / 7;
     for (let i = 0; i < 7; i++) {   // seven treads per flight, each at the ramp surface of its middle; a light strip along its front edge
@@ -4945,7 +4968,7 @@ window.__mm.platHop = () => platHop();   // #701: tests
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
   y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
   lift: INT.lift && { at: INT.lift.at, y: INT.lift.y, door: INT.lift.door, busy: INT.lift.busy, moving: INT.lift.moving },
-  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, pad: INT.pad, plug: INT.doorPlug ? INT.doorPlug.visible : null });
+  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, groundSlab: INT.group && INT.groundMat ? { meshes: INT.group.children.filter(o => o.material === INT.groundMat).length, offset: INT.groundMat.polygonOffset ? INT.groundMat.polygonOffsetFactor : null } : null, pad: INT.pad, plug: INT.doorPlug ? INT.doorPlug.visible : null });
 window.__mm.interiorSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(); };
 window.__mm.housingTint = () => { if (!INT.housing) return null; const m = INT.housing.material, c = INT.housing.geometry.attributes.color; if (!m.vertexColors) return 1; return c ? Math.min(...c.array) : 0; };   // #453: the darkest vertex colour the 6c housing's material multiplies in (no colour attribute reads as black)
 window.__mm.interiorFaceA = () => { if (!INT.group || !INT.hall) return null; const f = INT.hall.frame, lv = INT.hall.levels, roof = lv[lv.length - 1], v = new THREE.Vector3(); let min = Infinity; INT.group.updateMatrixWorld(true); INT.group.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= lv[0] + 0.1 || v.y >= roof - 0.01) continue; const a = f.fromWorld(v.x, v.z).a; if (a > -0.05) min = Math.min(min, Math.abs(a)); } }); return min; };   // #453: how close the hall's drawn faces come to the façade line between EG and roof
@@ -5417,7 +5440,9 @@ function modeText(mode) { const done = R.state === 'finished' && mode === R.mode
 function showModeText(mode) { $('ovtext').textContent = modeText(mode); }
 function revertModeText() { showModeText(focusedMode() ?? SHOWN.mode); }
 // the overlay doubles as the start and the result screen, so its texts depend on the race state
-function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('cruisebtn').textContent = tr('cruise'); $('startbtn').textContent = tr(done && R.mode === 'trial' ? 'retry' : 'trial'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); $('viewbtn').textContent = tr(done && R.mode === 'view' ? 'retry' : 'view'); $('tutorialbtn').textContent = tr('tutorial'); if (done) { $('result').innerHTML = resultHtml(R.last); if (R.last.mode === 'view') renderAlbum(); } for (const id of Object.keys(MODE_BTN)) $(id).disabled = !!WORLD_GONE; }
+function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('cruisebtn').textContent = tr('cruise'); $('startbtn').textContent = tr(done && R.mode === 'trial' ? 'retry' : 'trial'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); $('viewbtn').textContent = tr(done && R.mode === 'view' ? 'retry' : 'view'); $('tutorialbtn').textContent = tr('tutorial'); if (done) { $('result').innerHTML = resultHtml(R.last); if (R.last.mode === 'view') renderAlbum(); } renderModeButtons(); }
+// #561: a glTF car picked by URL or stored choice is still loading: the start waits like the car select's Race! (#236: no swap mid-race)
+function renderModeButtons() { const blocked = !!WORLD_GONE || raceBlocked(VEHICLES[CHOICE.id], gltfState(CHOICE.id)); for (const id of Object.keys(MODE_BTN)) $(id).disabled = blocked; }
 // #508: one frame per viewpoint, photo or empty; DOM calls only, the stored strings never reach innerHTML
 function renderAlbum() {
   const album = loadAlbum(), box = document.createElement('div'), head = document.createElement('h3');
@@ -5480,6 +5505,14 @@ function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overla
 // ---------- #509 About, #564 in tabs: the dialog -- over the start screen (Back returns there) or over the paused game (Back returns to the pause menu) ----------
 const ABOUT = { on: false, from: 'start', tab: 0 };
 for (const a of document.querySelectorAll('#about a[data-link]')) { a.href = ABOUT_LINKS[a.dataset.link]; a.target = '_blank'; a.rel = 'noopener'; }
+// #853: the contact address is only ever written by JS, per language (footer link + the About line to copy by hand)
+function renderContact() {
+  const lang = window.GG_LANG, href = contactHref(lang);
+  $('navcontact').href = href;
+  $('aboutcontact').href = href;
+  $('aboutcontact').textContent = contactAddress(lang);
+}
+renderContact();
 $('aboutversion').textContent = `v${window.GAME_VERSION}`;
 $('subversion').textContent = `v${window.GAME_VERSION.split('.').slice(0, 2).join('.')}`;   // start-screen tag: major.minor from version.js, never a literal
 const aboutTabs = () => [...document.querySelectorAll('#about [role=tab]')];
@@ -5533,8 +5566,8 @@ function selectVehicle(id) {
 // #236: the glTF car's file is fetched once, on the first pick; the swap waits for a safe moment, a failure falls back (the stored choice is kept: the next visit tries again)
 function wantVehicleModel(id) { if (WANTED.has(id)) return; WANTED.add(id); loadVehicleModel(id).then(ok => (ok ? vehicleLoaded : vehicleFailed)(id)); }
 function swapInVehicle(id) { const def = VEHICLES[id]; PENDING_SWAP = null; setVehicle(def); applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen)); renderCarSelKeepFocus(); renderStartScreen(); }
-function vehicleLoaded(id) { if (CHOICE.id !== id || car.userData.gltfId === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
-function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); const name = vehicleText(tr, id, 'name'); toast(tr('vehicleLoadFailed', name), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); }
+function vehicleLoaded(id) { renderModeButtons(); if (CHOICE.id !== id || car.userData.gltfId === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
+function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); const name = vehicleText(tr, id, 'name'); toast(tr('vehicleLoadFailed', name), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); renderModeButtons(); }
 function applyPendingSwap() { if (PENDING_SWAP && CHOICE.id === PENDING_SWAP && gltfState(PENDING_SWAP) === 'ready') swapInVehicle(PENDING_SWAP); PENDING_SWAP = null; }
 function stepVehicle(step) { const ids = Object.keys(VEHICLES); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
 function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.preventDefault(); if (CAR_GALLERY.on) closeGallery(); else closeCarSel(); } else if (act === 'spin') { e.preventDefault(); CARSEL.dir = e.code === 'ArrowLeft' ? -1 : 1; } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while choosing, browser default kept
@@ -6003,7 +6036,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too
+addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #853: the contact address too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
@@ -6421,9 +6454,10 @@ umamiTrack('game-ready', { region: regionId(REGION), lang: window.GG_LANG || 'en
 setInterval(() => { const now = performance.now(); STATS.vehicle.update(CHOICE.id, now); STATS.activity.update(activityOf({ train: TRAIN.on, level: LEVELS.id, indoors: INT.indoors, house: INT.house, foot: FOOT.on, fly: FLY.on }), now); }, 1000);
 addEventListener('gg-langchange', (e) => umamiTrack('lang', { lang: e.detail.lang }));
 endLoading();
-// #735: the menu music's file is fetched on the first input after loading, never during it; tick() follows run start / end and the SRF 3 watchdog
+// #735/#841: the menu track now starts during loading; armMenu adopts it. Without a gesture during loading the first input after it still arms, as before; tick() follows run start / end and the SRF 3 watchdog
 addEventListener('pointerdown', () => RADIO.armMenu(), { once: true });
 addEventListener('keydown', () => RADIO.armMenu(), { once: true });
+if (EARLY_MENU.gestured()) RADIO.armMenu();
 setInterval(() => RADIO.tick(), 500);
 requestAnimationFrame(loop);
 
@@ -6491,6 +6525,8 @@ showGallery();
   <a href="https://github.com/freaxnx01/game-rhyflitzer" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Source</a>
   <span style="color:#5a6072" aria-hidden="true">·</span>
   <a href="https://github.com/freaxnx01/game-rhyflitzer/issues/new?title=%5BFeedback%5D%20game-rhyflitzer&labels=feedback" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Feedback</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a id="navcontact" data-i18n="navContact" style="color:#8fd8e8;text-decoration:none">Contact</a>
   <span style="color:#5a6072" aria-hidden="true">·</span>
   <a class="github-button" href="https://github.com/freaxnx01/game-rhyflitzer" data-icon="octicon-star" data-size="small" data-show-count="true" aria-label="Star freaxnx01/game-rhyflitzer on GitHub">Star</a>
 </nav>
