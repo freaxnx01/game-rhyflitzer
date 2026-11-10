@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, SLAT, HANDRAIL } from '../plattform.js';
+import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, roofRafters, SLAT, HANDRAIL } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
@@ -210,6 +210,19 @@ test('coreSlats_RailRange_ContinuesToUnderTheHandrail', () => {
   assert.equal(parapet.length, 46);   // 230..355 and 0..95
   assert.ok(s.filter(q => near(q.y1, 5.735)).length === 26);
   assert.ok(s.find(q => near(q.phi, 100)).y1 === 5.735 && near(s.find(q => near(q.phi, 95)).y1, top));
+});
+
+// #855: the rafters under each roof face -- 15 per face, the middle one running to the apex line, the outer ones stopping short at the hip
+test('roofRafters_15PerFace_RunFromEaveToHip', () => {
+  const r = roofRafters(), ri = 12.10 / (2 * Math.sqrt(3));
+  assert.equal(r.length, 45);
+  for (const f of [0, 1, 2]) {
+    const face = r.filter(q => q.face === f);
+    assert.equal(face.length, 15);
+    assert.ok(near(face[7].u, 0) && near(face[7].d, ri));          // the middle rafter reaches the apex line
+    assert.ok(near(face[0].u, -5.6) && face[0].d > 0 && face[0].d < ri);
+    assert.ok(face.every(q => Math.abs(q.u) <= 12.10 / 2));
+  }
 });
 
 test('plattformHopLanding_Down_StandsOutsideTheDoorOnTheGround', () => {

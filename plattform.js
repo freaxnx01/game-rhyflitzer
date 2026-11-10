@@ -160,3 +160,15 @@ export function coreSlats(P = PLATTFORM, n = 72) {
   }
   return out;
 }
+
+// #855: the rafters under each roof face, perpendicular to the eave: u = offset along the eave from the face centre,
+// d = the horizontal run inward from the eave to the hip (the rafter rises d * tan(pitch))
+export const RAFTER = { pitch: 0.8, t: 0.12, drop: 0.2, tail: 0.25 };
+export function roofRafters(P = PLATTFORM, pitch = RAFTER.pitch) {
+  const side = P.roof.side, ri = side / (2 * Math.sqrt(3)), m = Math.floor(side / pitch), out = [];
+  for (let face = 0; face < 3; face++) for (let j = 0; j < m; j++) {
+    const u = (j - (m - 1) / 2) * pitch;
+    out.push({ face, u, d: ri * (1 - Math.abs(u) / (side / 2)) });
+  }
+  return out;
+}
