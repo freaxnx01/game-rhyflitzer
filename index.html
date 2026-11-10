@@ -810,13 +810,13 @@ import { PAINTS, paintFinish, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cy
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
-import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, tripKey } from './postauto.js';   // #500
+import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, tripKey, thankDue, markThanked } from './postauto.js';   // #500
 import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider, SIGN_FACES } from './busstop.js';   // #712
 import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindow, cellTime, liveStops, clockText, minutesUntil, stopInReach } from './timetable.js';   // #801
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices } from './postautofx.js';   // #709
-import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
+import { DISPLAY_TEX, displayLayout, REAR_TEX, SMILEY, rearLayout, thanksLayout, splitRearTriangles, normalizeUv } from './busdisplay.js';   // #713, #800
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
@@ -4256,22 +4256,52 @@ function displayTexture({ line, dest }) {
   tex.flipY = false;   // the glTF display UVs run v downwards with Repeat wrapping, unlike a canvas texture's default
   return tex;
 }
-// paints line and destination onto every mesh that sits behind tinted glass (the one Display primitive with its front,
-// side and rear quads): a cloned material with its own map, so the cached glTF materials (SHARED_CAR_MATS) and the
-// player's bus keep their baked display (#713, spec A3). Returns how many meshes were painted.
-function paintBusDisplay(root, text) {
-  let painted = 0;
-  root.traverse((o) => {
-    if (!o.isMesh || !o.material?.userData?.overGlass) return;
-    const m = o.material.userData.ownDisplay ? o.material : o.material.clone();   // #763: a repaint reuses the bus's own clone, so the mesh, wheels and blinkers stay
-    if (m.userData.ownDisplay) m.map?.dispose();   // never the shared glTF map on a first paint
-    m.userData.ownDisplay = true;
-    m.map = m.emissiveMap = displayTexture(text);
-    o.material = m;
-    painted++;
+// #800: the rear quad's own texture -- the line number centred, or a smiley + thank-you text while `thanks` holds
+function rearTexture({ line, thanks }) {
+  const tex = makeTex(REAR_TEX.w, REAR_TEX.h, (g, w, h) => {
+    g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ff9a1a'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    const measure = (s, size) => { g.font = `700 ${size}px "Barlow Condensed", sans-serif`; return g.measureText(s).width; };
+    if (!thanks) { const l = rearLayout(line, measure); g.font = `700 ${l.size}px "Barlow Condensed", sans-serif`; g.fillText(line, l.x, l.y); return; }
+    const l = thanksLayout(thanks, measure);
+    SMILEY.forEach((row, r) => [...row].forEach((c, q) => {
+      if (c !== '#') return;
+      g.beginPath(); g.arc(l.smiley.x + (q + 0.5) * l.smiley.cell, l.smiley.y + (r + 0.5) * l.smiley.cell, l.smiley.cell * 0.4, 0, 7); g.fill();
+    }));
+    g.font = `700 ${l.text.size}px "Barlow Condensed", sans-serif`; g.fillText(thanks, l.text.x, l.text.y);
   });
-  return painted;
+  tex.flipY = false;
+  return tex;
 }
+// #800 (A9): the Display meshes of a Postauto, found by the overGlass marker on its (possibly already split) material
+const displayMeshes = (root) => { const out = []; root.traverse((o) => { if (o.isMesh && (Array.isArray(o.material) ? o.material[0] : o.material)?.userData?.overGlass) out.push(o); }); return out; };
+// splits the rear quad into its own geometry group (no model rebuild): clones the geometry, finds the rear triangles
+// by position (tools/prepare-bus.mjs: +x is forward, so the rear sits at the most negative x) and renormalises their
+// UVs to 0..1 so the rear texture can use the whole quad. False when no separable rear quad is found.
+function splitDisplayRear(o) {
+  const geo = o.geometry.clone(), uv = geo.attributes.uv, count = geo.attributes.position.count;
+  const index = geo.index ? Array.from(geo.index.array) : Array.from({ length: count }, (_, i) => i);
+  const { rear, rest } = splitRearTriangles(geo.attributes.position.array, index);
+  const shared = rear.some((v) => rest.includes(v));
+  if (!rear.length || !uv || shared) { geo.dispose(); console.warn('Postauto Display: no separable rear quad, no thank-you on the rear'); return false; }
+  normalizeUv(uv.array, rear);
+  geo.setIndex([...rest, ...rear]); geo.clearGroups(); geo.addGroup(0, rest.length, 0); geo.addGroup(rest.length, rear.length, 1);
+  o.geometry = geo; o.userData.sharedGeo = false;   // freed by disposePostautoMesh
+  return true;
+}
+// #800: gives a Display mesh its own geometry (split rear group) and material array [front/side, rear] on first use;
+// the shared glTF map is never carried over to the clones (painted immediately after)
+function ownDisplayMaterials(o) {
+  if (!o.userData.ownDisplay) {
+    const base = o.material, split = splitDisplayRear(o), front = base.clone(), rear = split ? base.clone() : null;
+    for (const m of [front, rear]) if (m) m.map = m.emissiveMap = null;   // never dispose the shared map
+    o.material = rear ? [front, rear] : front; o.userData.ownDisplay = true;
+  }
+  return Array.isArray(o.material) ? { front: o.material[0], rear: o.material[1] } : { front: o.material, rear: null };
+}
+function setDisplayMap(m, tex) { m.map?.dispose(); m.map = m.emissiveMap = tex; }
+function paintFront(root, text) { const meshes = displayMeshes(root); for (const o of meshes) setDisplayMap(ownDisplayMaterials(o).front, displayTexture(text)); return meshes.length; }
+function paintRear(root, text) { for (const o of displayMeshes(root)) { const { rear } = ownDisplayMaterials(o); if (rear) setDisplayMap(rear, rearTexture(text)); } }
 // one Postauto: a clone of bus.glb (shared geometry and materials), line and destination on the model's own Display
 // material (cloned and repainted per bus, all three quads at once), own blinkers.
 // No wireWheels/addBlinkers: those write the player's globals (BLINK, GLTF_LAMPS), a second bus must not (spec A8).
@@ -4292,11 +4322,13 @@ function buildPostautoMesh(trip) {
 // repaints the Display material when the trip's line/destination changed since the last paint (#763): the Umlauf turns
 // a bus onto its next trip in place -- same b.key, same mesh, b.trip swapped -- so the baked LED needs a repaint too, not
 // just a new mesh
-function repaintBusLed(g, trip) {
-  const text = ledText(trip);
-  if (g.userData.led && g.userData.led.line === text.line && g.userData.led.dest === text.dest) return;
-  console.info(`Painting line ${text.line} to ${text.dest} onto the bus display`);
-  if (paintBusDisplay(g.userData.root, text) === 0) console.warn('Postauto model has no Display material: no line/destination shown');
+function repaintBusLed(g, trip, thanks = null) {
+  const text = { ...ledText(trip), thanks }, prev = g.userData.led;
+  const frontSame = !!prev && prev.line === text.line && prev.dest === text.dest;
+  if (frontSame && prev.thanks === text.thanks) return;
+  console.info(`Painting line ${text.line} to ${text.dest}${thanks ? ' with the thank-you' : ''} onto the bus display`);
+  if (!frontSame && paintFront(g.userData.root, text) === 0) console.warn('Postauto model has no Display material: no line/destination shown');
+  paintRear(g.userData.root, text);
   g.userData.led = text;
 }
 // frees the cloned display material and its texture, the blinker geometry and material -- never the shared glTF geometry
@@ -4318,7 +4350,7 @@ function stepPostauto(dt) {
   POSTAUTO.prev = now;
   if (POSTAUTO.buses.some((b) => b.phase !== 'done') && gltfState('bus') === 'idle') loadVehicleModel('bus');
   const surface = LEVELS.isSurface(), flashOn = Math.floor(performance.now() / 350) % 2 === 0;
-  const player = { x: P.x, z: P.z, r: FOOT.on ? WALKER.radius : carRadius() };
+  const player = { x: P.x, z: P.z, v: Math.hypot(P.vx, P.vz), r: FOOT.on ? WALKER.radius : carRadius() };
   POSTAUTO.colliders = [];
   const alive = new Set();
   const { n, h } = fleetSteps(dtF);
@@ -4328,6 +4360,7 @@ function stepPostauto(dt) {
     const gap = surface && b.phase === 'drive' && level ? obstacleGap(b.route, b.s, player) : null;
     for (let i = 0; i < n && b.phase !== 'done'; i++) stepBus(b, now - dtF + (i + 1) * h, h, gap);
     if (b.phase === 'done') continue;
+    if (surface && thankDue(b, now + b.shift, player)) markThanked(b, now + b.shift);
     alive.add(b.key);
     if (surface) drawPostauto(b, flashOn, dt);
   }
@@ -4347,7 +4380,7 @@ function drawPostauto(b, flashOn, dt) {
   }
   let g = POSTAUTO.meshes.get(b.key);
   if (!g) { g = buildPostautoMesh(b.trip); POSTAUTO.meshes.set(b.key, g); POSTAUTO.group.add(g); }
-  else repaintBusLed(g, b.trip);
+  else repaintBusLed(g, b.trip, b.thanksUntil > postautoClock() + b.shift ? tr('paThanks') : null);
   g.position.set(p.x, b.y, p.z); g.rotation.set(0, -p.th, Math.atan2(yF - yR, BUS.wheelbase));   // pitched like the car: the nose up on an uphill road
   const side = busBlinker(b, postautoClock());
   g.userData.blink.left.visible = flashOn && side === 'left'; g.userData.blink.right.visible = flashOn && side === 'right';
@@ -4868,9 +4901,10 @@ window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the 
   return { cachedMapWidth: cached?.map?.image?.width ?? null,
     buses: [...POSTAUTO.meshes].map(([key, g]) => {
       const planes = [], displays = [];
-      g.traverse((o) => { if (o.geometry?.type === 'PlaneGeometry') planes.push(o); if (o.isMesh && o.material?.userData?.overGlass) displays.push(o); });
-      const m = displays[0]?.material;
-      return { key, planes: planes.length, displays: displays.length, own: !!m && m !== cached, ownMap: !!m?.map && m.map !== cached?.map, flipY: m?.map?.flipY ?? null, led: g.userData.led };
+      g.traverse((o) => { if (o.geometry?.type === 'PlaneGeometry') planes.push(o); if (o.isMesh && (Array.isArray(o.material) ? o.material[0] : o.material)?.userData?.overGlass) displays.push(o); });
+      const mat = displays[0]?.material, m = Array.isArray(mat) ? mat[0] : mat;
+      return { key, planes: planes.length, displays: displays.length, own: !!m && m !== cached, ownMap: !!m?.map && m.map !== cached?.map, flipY: m?.map?.flipY ?? null, led: g.userData.led,
+        frontMap: m?.map?.uuid ?? null, rearMap: Array.isArray(mat) ? mat[1].map?.uuid ?? null : null, split: Array.isArray(mat) };   // #800
     }) };
 };
 // drive headless: step the car and the race at 1/60 s while the autopilot is on, at most secs seconds
