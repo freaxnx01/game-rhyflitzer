@@ -163,3 +163,9 @@ export const wallByTag = (hall, tag) => hall.walk.walls.find(w => w.tag === tag)
 // what a walker at the door of the entrance can do: the leaf opens by E; it shuts again when the walker is `closeAt` m away
 export const DOOR_CLOSE_AT = 4;
 export const doorShouldClose = (hall, x, z, area) => area === 'out' && Math.hypot(x - hall.entrance.x, z - hall.entrance.z) > DOOR_CLOSE_AT;
+
+// #477: the EG is the terrain at the door, so the porch's and the hall's ground slabs sit within centimetres of the grass (0 to
+// 3 cm over the footprint, measured): drawn with a plain depth test the grass z-fights through them. Their drawing is pulled
+// towards the camera by this polygon offset (factor and units, as the road decals' DECAL_DEPTH_OFFSET); collision is untouched.
+export const GROUND_DEPTH_OFFSET = -4;
+export const groundSlabs = (hall) => hall.walk.slabs.filter(s => s.hw && s.y === hall.levels[0]);
