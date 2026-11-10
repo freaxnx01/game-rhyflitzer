@@ -63,3 +63,7 @@ test('WOBBLER_Paint_IsSunflowerFromTheFactory', () => {
   assert.equal(buildableId('wobbler', WOBBLER, 'loading'), 'compact');
   assert.equal(buildableId('wobbler', WOBBLER, 'ready'), 'wobbler');
 });
+
+test('WOBBLER_type_IsFilmAndTv_BecauseOfMrBean', () => {
+  assert.equal(WOBBLER.type, 'screen');   // the three-wheeler is the Mr Bean car, so the gallery files it under Film & TV
+});
