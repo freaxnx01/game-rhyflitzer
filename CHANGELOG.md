@@ -35,6 +35,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 - `2026-11-10 16:05` In the **glass porch** and on the **ground floor** of the **Bodenackerstrasse 6c** stair hall the **grass** no longer shows through the floor.
 
+- `2026-11-10 15:52` In the hideout's **freight lift** all **four shaft walls** now slide past during the ride, whichever way the car stands in the cabin, while the **ceiling** and **floor** stay still.
+
 - `2026-11-10 15:39` **Change vehicle** from the pause menu after a **rollover** or a **wreck** now shows the car **upright** with all its **wheels** on the stage, instead of lying on its side with the wheels beside it.
 
 - `2026-11-10 15:36` The **house number** no longer floats in the air in front of the **Fridolinskapelle** in Sisseln: the churches drawn from the real 3D models (the chapel and the Catholic church in Stein) carry no number plate any more.
