@@ -833,6 +833,7 @@ import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, 
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
 import { FADED, createFader, resetFader, sample, phase, phases, createKeybar, keybarPhase, visibleInMode, headingText } from './hudfade.js';   // #773
+import { clampCentre, zoomAt } from './mapzoom.js';   // #843
 import { capsRow, capsCross } from './keycaps.js';   // #700
 import { bindStick, TOUCH_LOOK } from './touch.js';   // #535 phase 2
 import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
@@ -6048,23 +6049,28 @@ if (L) { const g = mapBounds.getContext('2d'); g.strokeStyle = '#ff3fb4'; g.line
 // #397: the national borders on the minimap, solid yellow (new) and white (old, only where it leaves the new one), drawn over mapStatic only while Y is on
 const mapBorders = document.createElement('canvas'); mapBorders.width = mapC.width; mapBorders.height = mapC.height;
 if (NATLINES) { const g = mapBorders.getContext('2d'); g.lineWidth = 2; g.lineCap = 'round'; g.lineJoin = 'round'; for (const [lines, color] of [[[NATLINES.new], '#ffd400'], [NATLINES.apart, '#ffffff']]) { g.strokeStyle = color; for (const pts of lines) { g.beginPath(); pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } }
-// minimap zoom (#11): 1x = the whole region; zoomed in, the view follows the car but stays on the map. The view is a crop of mapStatic (base 1x canvas px ox/oy = its centre). Tab held (#77): MAP.full shows the whole region big, MAP.zoom is kept
-const MAP = { zoom: 1, full: false, wheel: 0, tapT: 0, tapX: 0, tapY: 0, placedT: 0 }, ZOOMS = [1, 2, 4, 8];
-function mapView() { const z = MAP.full ? 1 : MAP.zoom, w = mapC.width, h = mapC.height; return { z, ox: clamp(MX(P.x), w / 2 / z, w - w / 2 / z), oy: clamp(MZ(P.z), h / 2 / z, h - h / 2 / z) }; }
+// minimap zoom (#11): 1x = the whole region; zoomed in, the view follows the car but stays on the map. The view is a crop of mapStatic (base 1x canvas px ox/oy = its centre). Tab held (#77): MAP.full shows the whole region big; #843: the big map has its own zoom MAP.fz, reset to 1x on open
+const MAP = { zoom: 1, full: false, wheel: 0, tapT: 0, tapX: 0, tapY: 0, placedT: 0, fz: 1, fx: 0, fy: 0 }, ZOOMS = [1, 2, 4, 8];
+function mapView() { const w = mapC.width, h = mapC.height; if (MAP.full) return { z: MAP.fz, ox: clampCentre(MAP.fx, w, MAP.fz), oy: clampCentre(MAP.fy, h, MAP.fz) }; const z = MAP.zoom; return { z, ox: clamp(MX(P.x), w / 2 / z, w - w / 2 / z), oy: clamp(MZ(P.z), h / 2 / z, h - h / 2 / z) }; }
 const mapPt = (v, x, z) => [(MX(x) - v.ox) * v.z + mapC.width / 2, (MZ(z) - v.oy) * v.z + mapC.height / 2];
 const worldToMap = (x, z) => mapPt(mapView(), x, z);
 const mapToWorld = (px, py) => { const v = mapView(), bx = (px - mapC.width / 2) / v.z + v.ox, by = (py - mapC.height / 2) / v.z + v.oy; return [(bx - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, (by - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0]; };
 function stepMapZoom(dir) { MAP.zoom = ZOOMS[clamp(ZOOMS.indexOf(MAP.zoom) + dir, 0, ZOOMS.length - 1)]; renderMapZoom(); }
-function renderMapZoom() { $('mapzoom').textContent = (MAP.full ? 1 : MAP.zoom) + '×'; }
+function renderMapZoom() { $('mapzoom').textContent = (MAP.full ? MAP.fz : MAP.zoom) + '×'; }
 // #77: hold Tab = full map; #br gets the class `full` (CSS centres and enlarges it), only on a change
-function setFullMap(full) { if (full === MAP.full || (full && !LEVELS.isSurface())) return; MAP.full = full; $('br').classList.toggle('full', full); renderMapZoom(); }
-mapC.addEventListener('wheel', e => { e.preventDefault(); MAP.wheel += e.deltaY * (e.deltaMode ? 40 : 1); if (Math.abs(MAP.wheel) < 100) return; stepMapZoom(MAP.wheel < 0 ? 1 : -1); MAP.wheel = 0; }, { passive: false });   // one notch (100) = one step; trackpad deltas add up
+function setFullMap(full) { if (full === MAP.full || (full && !LEVELS.isSurface())) return; MAP.full = full; if (full) { MAP.fz = 1; MAP.fx = mapC.width / 2; MAP.fy = mapC.height / 2; } $('br').classList.toggle('full', full); renderMapZoom(); }
+function wheelStep(e, dir) {
+  if (!MAP.full) return stepMapZoom(dir);
+  const r = mapC.getBoundingClientRect(), v = zoomAt(mapView(), dir, (e.clientX - r.left) * mapC.width / r.width, (e.clientY - r.top) * mapC.height / r.height, mapC.width, mapC.height, ZOOMS);
+  MAP.fz = v.z; MAP.fx = v.ox; MAP.fy = v.oy; renderMapZoom();   // #843: the big map has its own zoom, the minimap's MAP.zoom stays
+}
+mapC.addEventListener('wheel', e => { e.preventDefault(); MAP.wheel += e.deltaY * (e.deltaMode ? 40 : 1); if (Math.abs(MAP.wheel) < 100) return; wheelStep(e, MAP.wheel < 0 ? 1 : -1); MAP.wheel = 0; }, { passive: false });   // one notch (100) = one step; trackpad deltas add up
 // double-click (mouse) on the map: the car goes onto the nearest jumpable road there, like J (a jump during a race). Placements < 500 ms apart are one gesture
 function placeFromMap(e) { if (performance.now() - MAP.placedT < 500) return; MAP.placedT = performance.now(); const r = mapC.getBoundingClientRect(), [x, z] = mapToWorld((e.clientX - r.left) * mapC.width / r.width, (e.clientY - r.top) * mapC.height / r.height); jumpTo({ n: tr('fromMap'), x, z }); }
 mapC.addEventListener('dblclick', placeFromMap);
 // double-tap (touch): mobile browsers do not fire dblclick reliably, so two taps < 300 ms and < 30 px apart
 mapC.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - MAP.tapT < 300 && Math.hypot(e.clientX - MAP.tapX, e.clientY - MAP.tapY) < 30) { MAP.tapT = 0; placeFromMap(e); return; } MAP.tapT = t; MAP.tapX = e.clientX; MAP.tapY = e.clientY; });
-window.__mm.map = () => { const [cx, cz] = mapToWorld(mapC.width / 2, mapC.height / 2); return { zoom: MAP.zoom, full: MAP.full, cx, cz }; }; window.__mm.mapToWorld = mapToWorld; window.__mm.worldToMap = worldToMap;
+window.__mm.map = () => { const [cx, cz] = mapToWorld(mapC.width / 2, mapC.height / 2); return { zoom: MAP.zoom, full: MAP.full, fullZoom: MAP.fz, cx, cz }; }; window.__mm.mapToWorld = mapToWorld; window.__mm.worldToMap = worldToMap;
 window.__mm.mapBuses = () => { const v = mapView(); return { full: MAP.full, marks: postautoMapMarks().map(m => { const [px, py] = mapPt(v, m.x, m.z); return { key: m.key, line: m.line, px, py, th: m.th, label: markLabel(m, MAP.full) }; }) }; };   // #711: read-only, for the test
 // #165: double-click (mouse) or double-tap (touch) on the 3D view beams the car to the ground point under the pointer; a blocked spot (water, a building) snaps to the nearest road within 30 m. Through placeOnRoad, so a race is flagged as a jump
 const BEAM = { ray: new THREE.Raycaster(), ndc: new THREE.Vector2(), t: 0, tapT: 0, tapX: 0, tapY: 0, last: null };
