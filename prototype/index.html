@@ -7,7 +7,8 @@
 <!-- #577: the game moved from prototype/ to the site root; old links keep their ?world=/?region=/?vehicle= and #hash.
      Keep this file: old links and bookmarks point here (tests/legacy.test.mjs, tests/test_legacy_urls.py). -->
 <meta http-equiv="refresh" content="0; url=../">
-<script>location.replace("../" + location.search + location.hash);</script>
+<script>try { var r = document.referrer; if (r && new URL(r).origin !== location.origin) sessionStorage.setItem("legacy-referrer", r); } catch (e) {}   // #663: Umami should see the real source, not this stub
+location.replace("../" + location.search + location.hash);</script>
 </head>
 <body>
 <p><a href="../">Play Rhyflitzer</a></p>
