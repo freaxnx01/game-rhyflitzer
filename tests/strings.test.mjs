@@ -209,6 +209,11 @@ test('About (#564): Kicsi is the main tester and source of ideas: the bridge, Ro
   assert.match(translate('de', 'aboutRoleKicsi'), /^Haupttesterin und Ideengeberin: .*Holzbrücke.*Robidogs.*Häufchen.*viele andere Ideen mehr …$/);
 });
 
+test('About: Eric is credited for his vehicle ideas (#851), in both languages', () => {
+  assert.match(translate('en', 'aboutRoleEric'), /^Ideas for vehicles: .*motorcycle.*$/);
+  assert.match(translate('de', 'aboutRoleEric'), /^Ideengeber für Fahrzeuge: .*Motorrad.*$/);
+});
+
 test('About (#564): every agent and LLM of the pipeline is listed in both languages', () => {
   const rows = ['Impl', 'Review', 'Design', 'Local', 'Early', 'Helper', 'Mockup'];
   for (const lang of ['en', 'de']) {
