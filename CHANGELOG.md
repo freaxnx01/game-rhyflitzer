@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-10 20:17` **Eric** is now in the **About** screen's people tab, credited for his **vehicle ideas**.
 - `2026-11-10 19:22` A **contact address** in the footer ("Kontakt"/"Contact") and under About → The game: write to the game without a GitHub account.
 - `2026-11-10 11:34` At every **PostAuto stop** press <kbd>E</kbd> at the board — on foot or from the car — to see the next **departures** there, with the minutes until each one. From there, or from the pause menu → *Fahrplan*, each line's whole **timetable** opens: all stops of a direction with the next four runs, <kbd>◀</kbd> <kbd>▶</kbd> for earlier and later ones, and a 🚌 where a bus is on its way right now.
 - `2026-11-10 11:19` In the hideout's **ring 2**, the room next to the USS Enterprise now holds the **Space Shuttle Enterprise** in **launch position** on the whole of **Launch Pad 39A**: the orbiter on its orange tank between the two boosters, on the launch platform over the **flame trench** (drive through it, right under the rocket), with the lattice tower, its arms, the swung-back service structure and the water tower, life size.
