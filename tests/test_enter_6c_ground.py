@@ -1,16 +1,17 @@
 """#477: grass shows through the 6c porch and stair-hall floor. The EG is the terrain at the door, so the ground slabs lie within
-centimetres of the grass (never above the slab, but 0 to 3 cm below it: a plain depth test z-fights). The slabs are drawn with a
-polygon offset that pulls them in front. Slow (Playwright): run in the foreground."""
+centimetres of the grass, and further in or to the side the ground can rise above it (0.21 m on the test world). The terrain patches under
+the footprint are lowered (stairhall.js terrainPads), and the slabs are drawn with a polygon offset that wins the last centimetres. Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
 from test_enter_6c import key, needs_world, open_world
 
 FOOTPRINT = """() => { const i = window.__mm.interior(), e = i.entrance, d = i.porch.d, th = e.th, c = Math.cos(th), s = Math.sin(th);
-  const ox = e.x + c * d, oz = e.z + s * d, eg = i.levels[0]; let worst = -Infinity, n = 0;
+  const ox = e.x + c * d, oz = e.z + s * d, eg = i.levels[0]; let worst = -Infinity, n = 0, at = null;
   for (let a = -d; a <= 4.85; a += 0.25) for (let b = -1.35; b <= 2.65; b += 0.25) {
+    if (a < 0 && Math.abs(b) > i.porch.w / 2) continue;   // the porch is narrower than the hall
     const x = ox + c * a - s * b, z = oz + s * a + c * b, hit = window.__mm.rayHits(x, z).grass;
-    worst = Math.max(worst, Math.max(window.__mm.probe(x, z).terrain, hit ?? -Infinity) - eg); n++; }
-  return { worst, n }; }"""
+    const over = Math.max(window.__mm.probe(x, z).terrain, hit ?? -Infinity) - eg; if (over > worst) { worst = over; at = [a, b]; } n++; }
+  return { worst, n, at }; }"""
 
 
 @needs_world
@@ -25,5 +26,5 @@ def test_ground_slabs_stay_above_the_grass_and_are_drawn_in_front(server):
         foot = page.evaluate(FOOTPRINT)
         b.close()
     assert errors == []
-    assert foot["n"] > 100 and foot["worst"] <= 0.005, foot                  # terrain and drawn grass nowhere above the slab top
+    assert foot["n"] > 100 and foot["worst"] <= 0.02, foot                    # terrain and drawn grass at most 2 cm above the slab top (the polygon offset covers that); before the pads: 0.21 m
     assert info["groundSlab"]["meshes"] == 1 and info["groundSlab"]["offset"] < 0, info["groundSlab"]

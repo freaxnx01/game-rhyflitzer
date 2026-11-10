@@ -169,3 +169,36 @@ export const doorShouldClose = (hall, x, z, area) => area === 'out' && Math.hypo
 // towards the camera by this polygon offset (factor and units, as the road decals' DECAL_DEPTH_OFFSET); collision is untouched.
 export const GROUND_DEPTH_OFFSET = -4;
 export const groundSlabs = (hall) => hall.walk.slabs.filter(s => s.hw && s.y === hall.levels[0]);
+
+// #477: the ground under the porch and the hall may rise above the EG (the terrain at the door) a little further in or to the sides.
+// The terrain patches (CUT_CELLS) are lowered there the way the cuts lower them: `sink` m below the EG in the hall and the porch,
+// but only `edge` m (a level landing) from the entrance on, for `keep` m, where the ground has to meet the street's. `grow` covers the patch
+// vertices just outside the footprint, so the interpolation between a lowered and an untouched vertex stays under the slab inside.
+export const TERRAIN_PAD = { sink: 0.3, edge: 0.02, keep: 1.5, grow: 1.0 };
+export function terrainPads(entrance, porch, eg, cfg = STAIRHALL, pad = TERRAIN_PAD) {
+  const f = hallFrame(entrance, porch.d), g = pad.grow, w = porch.w / 2 + g;
+  return [
+    { ...rectAB(f, -porch.d - g, -porch.d + pad.keep, -w, w), floor: eg - pad.edge },
+    { ...rectAB(f, -porch.d + pad.keep, 0, -w, w), floor: eg - pad.sink },
+    { ...rectAB(f, 0, cfg.depth + g, cfg.b0 - g, cfg.b1 + g), floor: eg - pad.sink },
+  ];
+}
+// the lowered ground at (x, z): the lowest pad floor there, null outside every pad
+export function padFloorAt(pads, x, z) {
+  let floor = null;
+  for (const p of pads) {
+    const dx = x - p.x, dz = z - p.z;
+    if (Math.abs(dx * p.c + dz * p.s) > p.hw || Math.abs(-dx * p.s + dz * p.c) > p.hd) continue;
+    floor = floor === null ? p.floor : Math.min(floor, p.floor);
+  }
+  return floor;
+}
+// [x0, z0, x1, z1] around all pads (the cut machinery's `bounds`)
+export function padBounds(pads) {
+  const b = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const p of pads) {
+    const ex = Math.abs(p.hw * p.c) + Math.abs(p.hd * p.s), ez = Math.abs(p.hw * p.s) + Math.abs(p.hd * p.c);
+    b[0] = Math.min(b[0], p.x - ex); b[1] = Math.min(b[1], p.z - ez); b[2] = Math.max(b[2], p.x + ex); b[3] = Math.max(b[3], p.z + ez);
+  }
+  return b;
+}

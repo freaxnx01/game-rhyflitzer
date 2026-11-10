@@ -840,7 +840,7 @@ import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInp
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
-import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
@@ -1376,8 +1376,16 @@ function cutFloorMin(x, z) {
   return f;
 }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
+// #477: 6c's porch and hall footprint. The EG is the terrain at the entrance (#445), but the ground a little further in can lie above it:
+// the pads lower the terrain patches there below the slab (stairhall.js terrainPads). '6c' = INT.house, which is declared further down.
+function hallTerrainPads() {
+  const b = L.buildings.find(isBodenacker6); if (!b) return [];
+  let porch; try { porch = bodenackerHouse(bodenackerLayout(b, 0, Math.max(b.h, 3)), '6c').porch; } catch (e) { return []; }   // the building code warns about a failing layout
+  return terrainPads(porch.entrance, { w: porch.w, d: porch.d }, terrainH(porch.entrance.x, porch.entrance.z));
+}
 function buildCuts() {
   const crossings = railRoadCrossings(L.roads, L.railBridges);
+  const PADS = hallTerrainPads();   // #477: the ground under 6c's porch and stair hall, lowered below the EG slab
   for (const g of L.grades) GRADE_CUTS.push(gradeCut(g, meshH, GRADE_CUT, gradeCaps(g, crossings)));
   for (const c of crossings) CUTS.push(makeCut(c));
   // #156: a lowered patch vertex reaches PATCH_BLEED on (the diagonal of a 1 m cell): lat ends the lowering that far inside the
@@ -1387,10 +1395,11 @@ function buildCuts() {
   if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);
   const fillCell = (i, j) => {
     const p = new Float32Array(W * W); let lowered = false;
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z), padFloorAt(PADS, x, z) ?? Infinity); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
     return { p, lowered };
   };
   for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
+  if (PADS.length) for (const [i, j] of patchCells(padBounds(PADS), G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
   // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
   // without 2 x CUT_N^2 more triangles to draw)
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
