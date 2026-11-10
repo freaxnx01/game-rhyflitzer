@@ -106,6 +106,18 @@ test('contextKeyAction_BoardOnlyWhenNothingElseIsUp', () => {   // #553
   assert.equal(contextLabel('board'), 'barBoard');
 });
 
+test('contextKeyAction_TimetableOnlyWhenNothingElseIsUp', () => {   // #801
+  assert.equal(contextKeyAction({ stopPrompt: true }), 'timetable');
+  assert.equal(contextKeyAction({ boardPrompt: true, stopPrompt: true }), 'board');
+  assert.equal(contextKeyAction({ doorPrompt: true, stopPrompt: true }), 'enter');
+  assert.equal(contextKeyAction({ hop: 'up', stopPrompt: true }), 'up');
+  assert.equal(contextKeyAction({ indoors: true, stopPrompt: true }), 'leave');
+  assert.equal(contextLabel('timetable'), 'barTimetable');
+  for (const l of ['en', 'de']) for (const k of ['barTimetable', 'ttPrompt', 'ttPauseBtn', 'ttDepartures', 'ttNone', 'keyTimetable', 'ttEarlier', 'ttLater', 'ttBus']) assert.notEqual(translate(l, k), k, `${l} ${k}`);
+  assert.equal(translate('de', 'ttLine', '143'), 'Linie 143');
+  assert.equal(translate('en', 'ttIn', 5), "in 5'");
+});
+
 test('contextKeyAction_LiftWinsOverLeave_LeaveOverEnter', () => {
   assert.equal(contextKeyAction({ liftPrompt: true, indoors: true, doorPrompt: true }), 'lift');
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: true, doorPrompt: true }), 'leave');
