@@ -62,3 +62,39 @@ def test_car_load_failure_keeps_taxi(poc_page):
     assert errors == []
     assert poc_page.evaluate("window.__poc.state().car") == "taxi"
     assert len([w for w in warnings if "bulldog.glb" in w]) == 1
+
+
+ATTACH_JS = """async (useHelper) => {
+  const THREE = await import('three/webgpu');
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+  const attach = await import('./js/poc-car-attach.js');
+  const loader = useHelper ? attach.createCarLoader() : new GLTFLoader();
+  const chassisPivot = new THREE.Group();
+  const standIn = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+  chassisPivot.add(standIn);
+  const tire = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1));
+  const entity = { chassisPivot, wheels: [{ tire }] };
+  const body = await attach.attachGltfBody(entity, loader);
+  if (!body) return { loaded: false };
+  const model = chassisPivot.children.find((c) => c !== standIn);
+  model.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(model);
+  let skinned = 0;
+  model.traverse((n) => { if (n.isSkinnedMesh) skinned++; });
+  return { loaded: true, lamps: body.lamps.length, taxiHidden: !standIn.visible && !tire.visible,
+           lengthZ: box.max.z - box.min.z, minY: box.min.y, skinned };
+}"""
+
+
+def test_attach_gltf_body_loads_bulldog(poc_page):
+    # no WebGPU on purpose: the import map is there, the renderer never starts
+    poc_page.add_init_script("delete Navigator.prototype.gpu; delete navigator.gpu;")
+    poc_page.goto(poc_page.poc_url)
+    poc_page.wait_for_selector("#no-webgpu", state="visible", timeout=30000)
+    result = poc_page.evaluate(ATTACH_JS, True)
+    print("attach result:", result)
+    assert result["loaded"] is True
+    assert result["lamps"] >= 2
+    assert result["taxiHidden"] is True
+    assert abs(result["lengthZ"] - 5.05) <= 0.05
+    assert abs(result["minY"]) <= 0.02

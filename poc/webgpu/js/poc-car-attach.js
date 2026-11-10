@@ -1,10 +1,19 @@
 // PoC: loads assets/bulldog.glb onto the demo car entity in place of the taxi meshes.
 import * as THREE from 'three/webgpu';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { CAR_URL, TAXI_LENGTH_M, fitScale, lampMaterials } from './poc-car.js';
 
 // The model's front points along +x, the demo car's along +z. Rotating by angle t about y sends x to (cos t, 0, -sin t),
 // so t = -PI/2 maps model +x onto +z.
 const FORWARD_TURN_Y = -Math.PI / 2;
+
+// bulldog.glb requires EXT_meshopt_compression, so the loader needs the decoder
+export function createCarLoader() {
+  const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
+  return loader;
+}
 
 function hideTaxi(entity) {
   for (const child of entity.chassisPivot.children) {

@@ -26,8 +26,7 @@ import {
 import { PersonCrowd, PersonRig } from './pedestrians.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
 import { bryantParkLawn } from './landmarks.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'; // PoC
-import { attachGltfBody } from './poc-car-attach.js'; // PoC
+import { attachGltfBody, createCarLoader } from './poc-car-attach.js'; // PoC
 import { polygonContact } from './building-collision.js';
 
 // Player models, animation and movement for walking, driving, cycling and flying.
@@ -625,7 +624,7 @@ class ThirdPersonControllerManager {
     };
     // PoC: the entity stays synchronous; the Rhyflitzer body replaces the taxi meshes once bulldog.glb has loaded
     entity.bodyKind = 'taxi';
-    entity.bodyReady = attachGltfBody(entity, new GLTFLoader()).then((body) => {
+    entity.bodyReady = attachGltfBody(entity, createCarLoader()).then((body) => {
       if (body) entity.bodyKind = 'bulldog';
       return body;
     });
