@@ -43,5 +43,17 @@ export function aboutKeyAction(e) {
   return PASS.has(e.code) ? 'pass' : 'ignore';
 }
 
+// #853: the contact address per language, in parts: only JS joins them, so the shipped HTML holds no address for crawlers
+const CONTACT = Object.freeze({ de: ['kontakt', 'rhyflitzer.ch'], en: ['hello', 'freax.games'] });
+
+export function contactAddress(lang) {
+  const [user, host] = CONTACT[lang] ?? CONTACT.en;
+  return [user, host].join('@');
+}
+
+export function contactHref(lang) {
+  return ['mailto', contactAddress(lang)].join(':');
+}
+
 // where Back leads: in a run the dialog sits over the paused game, otherwise over the start screen
 export const aboutReturn = (inRun) => (inRun ? 'pause' : 'start');
