@@ -9,7 +9,6 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).parents[1]
 TT = ROOT / "data" / "timetable_hochrhein.json"
 needs_data = pytest.mark.skipif(not TT.exists(), reason="run the #682 timetable cut first")
-LINES = {t["line"] for t in json.loads(TT.read_text(encoding="utf-8"))["trips"]} if TT.exists() else set()
 # The bus stands at Rütti only by driving in: the timetable has arr == dep there, so no placement is ever "inside the
 # dwell" (placeTrip re-places a clock past the call as already driving on), and the real-time run depended on SwiftShader
 # frame gaps staying under PA.resync (5 s) for the minute before the call -- a gap re-places the fleet past the stop. The
@@ -70,10 +69,13 @@ def test_stops_lay_out_clear_of_the_standing_bus_at_ruetti(server):
                 break
         assert bus, "no bus stood at Industriezone Rütti under the stepped clock"
         stops = page.evaluate("() => window.__mm.busStops()")
-        assert len(stops) == (24 if "143" in LINES else 20) and all(s["shelter"] for s in stops)
+        world = json.loads((ROOT / "data" / "world_hochrhein.json").read_text(encoding="utf-8"))
+        points = {(s["uic"], s["x"], s["z"]) for r in world["busRoutes"] for s in r["stops"]}
+        assert len(stops) == len(points)        # one pole per stop point, whatever lines run (#808)
+        assert all(s["shelter"] or s["name"] == "Stein-Säckingen Bahnhof" for s in stops)   # #808 A8
         assert all(s["rows"] for s in stops), "every sign has at least one line row"
-        frick = next(s for s in stops if s["uic"] == "8500583")
-        assert [r["dest"] for r in frick["rows"]] == ["Stein-Säckingen, Bahnhof"]
+        dests = [r["dest"] for r in next(s for s in stops if s["uic"] == "8500583")["rows"]]
+        assert "Stein-Säckingen, Bahnhof" in dests and "Frick, Bahnhof" not in dests
         assert not any("postauto" in (s["name"] + " ".join(r["dest"] for r in s["rows"])).lower() for s in stops), "no brand text on the signs"
         stop = next(s for s in stops if s["uic"] == RUETTI)
         for px, pz in [stop["pole"], *stop["shelter"]["corners"]]:
