@@ -263,7 +263,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
   .edition i{width:28px}.edition span{font-size:15px;padding:4px 10px}
   .mid{padding:12px 12px 10px}.slot{padding:8px 10px}.slot p{font-size:15px}#sticker{display:none}
   .bar{position:sticky;bottom:0;padding:10px 12px}
-  .bar .row:not(.secondary){display:grid;grid-template-columns:1fr 1fr;gap:8px}.bar .row:not(.secondary) .btn{min-width:0;height:48px;padding:0 8px;font-size:20px}#cruisebtn{grid-column:1/-1}#viewbtn:not([hidden])~#carbtn{grid-column:1/-1}#tutorialbtn:not([hidden])~#carbtn{grid-column:auto}   /* #551: cruise spans the full first row, trial/blitz/hunt/car keep their 2x2; #508: hunt + view share a row, the car button gets the full next row; #534: tutorial + car share the last row */
+  .bar .row:not(.secondary){display:grid;grid-template-columns:1fr 1fr;gap:8px}.bar .row:not(.secondary) .btn{min-width:0;height:48px;padding:0 8px;font-size:20px}#cruisebtn{grid-column:1/-1}#viewbtn:not([hidden])~#carbtn{grid-column:1/-1}#tutorialbtn:not([hidden])~#carbtn{grid-column:auto}#mpbtn{grid-column:1/-1}   /* #551: cruise spans the full first row, trial/blitz/hunt/car keep their 2x2; #508: hunt + view share a row, the car button gets the full next row; #534: tutorial + car share the last row */
   .bar .row.secondary{gap:8px}#worldbtn{flex-basis:100%}.bar .row.secondary .btn{flex:1;padding:0 8px;font-size:15px}
   .foot{padding:8px 12px calc(16px + env(safe-area-inset-bottom,0px))}#blurb{font-size:13px}
   #worlds{padding:12px 16px 0;gap:10px}.ws-sub{display:none}.ws-body{flex-direction:column;flex:none}.ws-list{flex:none}.ws-preview{box-shadow:none;padding:10px 12px}.ws-name{font-size:26px}#worldsdesc{display:none}
@@ -338,6 +338,36 @@ table.ttgrid button{font:inherit;color:#f5efe0;background:none;border:2px solid 
 #pause .btn,#abandon .btn{width:100%;height:auto;min-height:56px;padding:8px 14px;font-size:clamp(18px,5.5vw,26px);white-space:normal;overflow-wrap:anywhere}
 #abandon h1{font-size:clamp(26px,9vw,44px);overflow-wrap:anywhere}
 #pause small,#abandon small{font-size:15px;font-weight:600;color:var(--steel-l)}
+/* #834 multiplayer part 1: the connect dialog and the lobby -- the pause menu's frame and dim over the start screen */
+#mp,#mplobby{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(10,8,20,.55);padding:16px;box-sizing:border-box;overflow:auto}
+#mp[hidden],#mplobby[hidden]{display:none}
+#mp .panel,#mplobby .panel{max-width:520px;gap:10px}
+#mp h1,#mplobby h1{margin:0;font-size:clamp(24px,7vw,36px)}
+#mp .btn,#mplobby .btn{width:100%;height:auto;min-height:48px;padding:6px 14px;font-size:clamp(16px,4.5vw,22px);white-space:normal;overflow-wrap:anywhere}
+#mp small,#mplobby small{font-size:15px;font-weight:600;color:var(--steel-l)}
+.mp-label{display:block;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--steel-l)}
+.mp-split{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.mp-hint{margin:0;font-size:15px;font-weight:600;color:var(--steel-l)}
+#mp input,#mp textarea{font:inherit;font-size:16px;width:100%;box-sizing:border-box;color:#fff;background:rgba(10,12,16,.6);border:3px solid;border-color:var(--ink) var(--steel-l) var(--steel-l) var(--ink);padding:6px 8px}
+#mp textarea{resize:vertical;word-break:break-all;line-height:1.25}
+#mp input:focus-visible,#mp textarea:focus-visible{outline:none;border-color:var(--sun)}
+.mp-roles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#mpclock{font-size:15px;font-weight:700;color:var(--sun);text-transform:none;letter-spacing:0}
+#mpstatus,#mplobbystatus{margin:0;font-size:16px;font-weight:700;min-height:1.2em}
+#mpstatus.bad,#mplobbystatus.bad{color:#ff9d7a}
+.mp-players{display:flex;flex-direction:column;gap:6px}
+.mp-row{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:baseline;padding:6px 8px;background:rgba(10,12,16,.45);border-left:5px solid var(--steel-l)}
+.mp-row.ready{border-left-color:#8fd8e8}
+.mp-row b{font-weight:800;font-size:18px;overflow-wrap:anywhere}
+.mp-row em{font-style:normal;font-size:15px;font-weight:600;color:var(--steel-l);grid-column:1/-1}
+.mp-row .mp-flag{font-size:15px;font-weight:700;color:var(--steel-l)}
+.mp-row.ready .mp-flag{color:#8fd8e8}
+.mp-class{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#mpclassbtns{display:flex;gap:6px;flex-wrap:wrap}
+#mpclassbtns button{font:inherit;font-size:16px;font-weight:700;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 9px;cursor:pointer}
+#mpclassbtns button[aria-pressed=true]{border-color:var(--sun);color:var(--sun);background:rgba(255,198,26,.12)}
+#mpclassbtns button:hover,#mpclassbtns button:focus-visible{border-color:var(--sun);outline:none}
+@media (max-width:700px){.mp-roles{grid-template-columns:1fr}}
 /* #7 car selection: full-screen dialog without a background -- the stage is a see-through cut-out onto the live scene and its
    huge box-shadow dims everything around it; header, panel and footer sit above the dim (z-index 1) */
 #carsel{position:fixed;inset:0;z-index:15;display:flex;flex-direction:column;gap:14px;padding:16px 24px 0;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;color:var(--cream)}
@@ -559,6 +589,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="viewbtn" class="btn" type="button" disabled data-i18n="view">Viewpoints</button>
         <button id="tutorialbtn" class="btn" type="button" disabled data-i18n="tutorial">Tutorial</button>
         <button id="carbtn" class="btn" type="button" data-i18n="chooseCar">Choose car</button>
+        <button id="mpbtn" class="btn" type="button" data-i18n="mpBtn">Race friends</button>
       </div>
       <div class="row secondary">
         <button id="worldbtn" class="btn small" type="button"></button>
@@ -730,6 +761,62 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <div class="cs-foot"><button id="csback" class="btn" type="button" data-i18n="carselBack">‹ Back</button><button id="csrace" class="btn primary" type="button" data-i18n="carselRace">Race! ›</button></div>
 </div>
 
+<!-- #834 multiplayer part 1: connect. The players swap the codes themselves (chat, mail) -- there is no server and no login. -->
+<div id="mp" hidden role="dialog" aria-modal="true" aria-labelledby="mptitle">
+  <div class="panel">
+    <h1 id="mptitle" data-i18n="mpTitle">Race friends</h1>
+    <small data-i18n="mpSub"></small>
+    <div>
+      <label class="mp-label" for="mpname" data-i18n="mpNameLabel">Your name</label>
+      <input id="mpname" type="text" maxlength="24" autocomplete="nickname" data-i18n-placeholder="mpNamePlaceholder">
+    </div>
+    <div id="mproles" class="mp-roles">
+      <button id="mphostbtn" class="btn primary" type="button" data-i18n="mpHost">Create a race</button>
+      <button id="mpguestbtn" class="btn" type="button" data-i18n="mpGuest">Join a race</button>
+    </div>
+    <p id="mphint" class="mp-hint"></p>
+    <!-- a guest pastes the host's code here -->
+    <div id="mpinbox" hidden>
+      <label class="mp-label" for="mpin" data-i18n="mpHostCodeLabel"></label>
+      <textarea id="mpin" rows="3" spellcheck="false" autocapitalize="off"></textarea>
+      <button id="mpmake" class="btn primary" type="button" data-i18n="mpMakeAnswer"></button>
+    </div>
+    <!-- our own code: copy it out, with the countdown of its five minutes -->
+    <div id="mpoutbox" hidden>
+      <div class="mp-label mp-split"><span id="mpoutlabel"></span><span id="mpclock"></span></div>
+      <textarea id="mpcode" rows="3" readonly spellcheck="false"></textarea>
+      <button id="mpcopy" class="btn" type="button" data-i18n="mpCopy">Copy</button>
+    </div>
+    <!-- the host pastes the guest's answer back -->
+    <div id="mpanswerbox" hidden>
+      <label class="mp-label" for="mpanswerin" data-i18n="mpAnswerLabel"></label>
+      <textarea id="mpanswerin" rows="3" spellcheck="false" autocapitalize="off"></textarea>
+      <button id="mpaccept" class="btn primary" type="button" data-i18n="mpAnswerIn"></button>
+    </div>
+    <p id="mpstatus" role="status"></p>
+    <button id="mpregion" class="btn" type="button" hidden data-i18n="mpSwitchRegion"></button>
+    <button id="mpclose" class="btn" type="button" data-i18n="carselBack">‹ Back</button>
+  </div>
+</div>
+<!-- #834 the lobby: names, cars, the class the host sets and the ready flags, the same list on every device -->
+<div id="mplobby" hidden role="dialog" aria-modal="true" aria-labelledby="mplobbytitle">
+  <div class="panel">
+    <h1 id="mplobbytitle" data-i18n="mpLobbyTitle">Lobby</h1>
+    <small id="mplobbysub"></small>
+    <div id="mpplayers" class="mp-players"></div>
+    <div id="mpclassrow" class="mp-class" hidden>
+      <span class="mp-label" data-i18n="mpClassLabel">Class</span>
+      <span id="mpclassbtns"></span>
+    </div>
+    <p id="mpclasstext" class="mp-hint"></p>
+    <button id="mppick" class="btn primary" type="button" data-i18n="mpPickCar">Pick a car</button>
+    <button id="mpready" class="btn" type="button" aria-pressed="false"></button>
+    <button id="mpinvite" class="btn" type="button" hidden data-i18n="mpMakeCode"></button>
+    <button id="mpleave" class="btn" type="button" data-i18n="mpLeave"></button>
+    <p id="mplobbystatus" role="status"></p>
+  </div>
+</div>
+
 <div id="pause" hidden role="dialog" aria-modal="true" aria-labelledby="pausetitle">
   <div class="panel">
     <h1 id="pausetitle" data-i18n="pauseTitle">Paused</h1>
@@ -790,6 +877,9 @@ import { chLandmarksFor, roofOrWall, plateBuildings } from './chlandmarks.js';  
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
+import { encodeCode, decodeCode, parseMessage, cleanName, CODE_TTL, CLASSES, MAX_PLAYERS } from './netcodec.js';   // #834: multiplayer codes and messages
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage } from './netrace.js';
+import { createLink, STUN, HOST_ID } from './netlink.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
@@ -3959,7 +4049,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (netOpen()) { netKey(e); return; }   /* #834: the connect dialog and the lobby swallow the game keys -- a name is typed into an input */ if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -5507,10 +5597,12 @@ function worldsKey(e) { const act = worldsKeyAction(e, document.activeElement &&
 for (const b of rows()) b.onclick = () => selectRow(rowSel(b));
 $('worldbtn').onclick = openWorlds; $('worldsback').onclick = closeWorlds; $('drivebtn').onclick = driveSelection;
 // ---------- car selection (#7): the live car on a turntable, stats from the table, paint, garage; Race! starts the current mode ----------
-const CARSEL = { on: false, spin: { angle: 0, idle: SPIN_RESUME }, dir: 0, drag: 0, dragX: null, swap: null };   // swap: {id, paint} at entry while the pause menu's Change vehicle is open (#189), else null
+const CARSEL = { on: false, spin: { angle: 0, idle: SPIN_RESUME }, dir: 0, drag: 0, dragX: null, swap: null, mp: false };   // swap: {id, paint} at entry while the pause menu's Change vehicle is open (#189), else null; mp: opened from the multiplayer lobby (#834), so only the host's class is offered and the primary button takes the car
+// #834: the cars the picker offers -- every one, or only those of the class the host set while the pick comes from the lobby
+function pickableIds() { const ids = Object.keys(VEHICLES); return CARSEL.mp && NET.lobby ? ids.filter((id) => carFits(NET.lobby.cls, VEHICLES[id])) : ids; }
 function showcaseCar() { if (WRECK_S.on) endWreck(); TIP_S = TIP_UP; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); }   // #625: the stage shows the car intact and on its wheels, never the wreck or the rollover the pause froze (a swap mid-race frames no steps to right it)
 function openCarSel() { hideGallery(); showcaseCar(); CARSEL.on = true; CARSEL.dir = 0; CARSEL.drag = 0; CARSEL.dragX = null; CARSEL.spin = { angle: P.th - 0.6, idle: SPIN_RESUME }; for (const k in keys) keys[k] = false; closeHelp(); $('overlay').hidden = true; $('carsel').hidden = false; renderCarSel(); $('csrace').focus(); }
-function closeCarSel() { if (CARSEL.swap) { cancelVehicleSwap(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; $('overlay').hidden = false; $('carbtn').focus(); }
+function closeCarSel() { if (CARSEL.swap) { cancelVehicleSwap(); return; } if (CARSEL.mp) { leaveLobbyCarSel(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; $('overlay').hidden = false; $('carbtn').focus(); }
 function openVehicleSwap() { if (!PAUSE.on || PAUSE.confirm) return; CARSEL.swap = { id: CHOICE.id, paint: CHOICE.paint, chair: CHOICE.chair === true }; $('pause').hidden = true; openCarSel(); }
 function leaveVehicleSwap() { CARSEL.swap = null; CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; }
 function restoreVehicleSwap() { const { id, paint, chair } = CARSEL.swap; if (id !== CHOICE.id) selectVehicle(id);
@@ -5535,10 +5627,10 @@ function swapInVehicle(id) { const def = VEHICLES[id]; PENDING_SWAP = null; setV
 function vehicleLoaded(id) { if (CHOICE.id !== id || car.userData.gltfId === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
 function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); const name = vehicleText(tr, id, 'name'); toast(tr('vehicleLoadFailed', name), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); }
 function applyPendingSwap() { if (PENDING_SWAP && CHOICE.id === PENDING_SWAP && gltfState(PENDING_SWAP) === 'ready') swapInVehicle(PENDING_SWAP); PENDING_SWAP = null; }
-function stepVehicle(step) { const ids = Object.keys(VEHICLES); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
+function stepVehicle(step) { const ids = pickableIds(); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
 function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.preventDefault(); if (CAR_GALLERY.on) closeGallery(); else closeCarSel(); } else if (act === 'spin') { e.preventDefault(); CARSEL.dir = e.code === 'ArrowLeft' ? -1 : 1; } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while choosing, browser default kept
 function carselKeyUp(e) { if ((e.code === 'ArrowLeft' && CARSEL.dir < 0) || (e.code === 'ArrowRight' && CARSEL.dir > 0)) CARSEL.dir = 0; }
-function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = Object.keys(VEHICLES), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = classLine(tr, CHOICE.id, def); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc'); const gst = def.gltf ? gltfState(def.gltf.id) : 'ready'; $('csloading').hidden = !(gst === 'idle' || gst === 'loading'); $('csloading').textContent = tr('carselLoading', vehicleText(tr, CHOICE.id, 'name')); $('csrace').disabled = raceBlocked(def, gst);
+function renderCarSel() { $('csrace').dataset.i18n = CARSEL.mp ? 'mpTake' : CARSEL.swap ? 'carselDriveOn' : 'carselRace'; $('csrace').textContent = tr($('csrace').dataset.i18n); const ids = pickableIds(), i = Math.max(0, ids.indexOf(CHOICE.id)), def = VEHICLES[CHOICE.id] || VEH; $('carselmode').textContent = tr(modeKey(), REGION.name); $('cscount').textContent = tr('carselCount', i + 1, ids.length); $('csclass').textContent = classLine(tr, CHOICE.id, def); $('csname').textContent = vehicleText(tr, CHOICE.id, 'name'); $('csdesc').textContent = vehicleText(tr, CHOICE.id, 'desc'); const gst = def.gltf ? gltfState(def.gltf.id) : 'ready'; $('csloading').hidden = !(gst === 'idle' || gst === 'loading'); $('csloading').textContent = tr('carselLoading', vehicleText(tr, CHOICE.id, 'name')); $('csrace').disabled = raceBlocked(def, gst);
   const bars = statBars(def); $('csstats').innerHTML = STAT_KEYS.map(k => `<div class="cs-stat"><div class="cs-label">${tr(STAT_LABEL_KEYS[k])}</div><div class="cs-cells">${barCells(bars[k]).map(c => `<i class="${c}"></i>`).join('')}</div><div class="cs-score">${bars[k]}</div></div>`).join('');
   const can = paintable(def), cur = PAINTS.find(p => p.id === CHOICE.paint) || PAINTS[0]; $('cspaintname').textContent = can ? tr(cur.nameKey) : tr('paintFixed'); $('cspaints').innerHTML = PAINTS.map(p => `<button type="button" data-paint="${esc(p.id)}" aria-label="${esc(tr(p.nameKey))}" title="${esc(tr(p.nameKey))}" aria-pressed="${p.id === CHOICE.paint}" style="background:${p.hex}"${can ? '' : ' disabled'}></button>`).join('');
   $('cschairrow').hidden = !chairable(def); $('cschair').setAttribute('aria-pressed', String(CHOICE.chair === true)); $('cschair').textContent = tr(CHOICE.chair === true ? 'chairOn' : 'chairOff');   // #463: the armchair toggle, only on cars that declare the option
@@ -5548,7 +5640,7 @@ function renderCarSel() { $('csrace').dataset.i18n = CARSEL.swap ? 'carselDriveO
 // #176: CSS.escape, because a vehicle id is data and a quote in it would otherwise break the selector
 function renderCarSelKeepFocus() { const a = document.activeElement, sel = a?.dataset?.paint ? `[data-paint="${CSS.escape(a.dataset.paint)}"]` : a?.dataset?.id ? `[data-id="${CSS.escape(a.dataset.id)}"]` : null; renderCarSel(); if (sel) $('carsel').querySelector(sel)?.focus(); }
 $('carbtn').onclick = openCarSel; $('csback').onclick = () => { if (CAR_GALLERY.on) closeGallery(); else closeCarSel(); }; $('csprev').onclick = () => stepVehicle(-1); $('csnext').onclick = () => stepVehicle(1);
-$('csrace').onclick = () => { if (CARSEL.swap) { applyVehicleSwap(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; SFX.start(); startRace(R.mode); };
+$('csrace').onclick = () => { if (CARSEL.swap) { applyVehicleSwap(); return; } if (CARSEL.mp) { netTakeCar(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; SFX.start(); startRace(R.mode); };
 $('cspaints').onclick = (e) => { const b = e.target.closest('button[data-paint]'); if (!b || b.disabled) return; Object.assign(CHOICE, withPaint(CHOICE, b.dataset.paint)); applyPaint(b.dataset.paint); saveChoice(); renderCarSelKeepFocus(); };
 $('cschair').onclick = () => { if (!chairable(VEH)) return; CHOICE = withChair(CHOICE, !CHOICE.chair); applyChair(); saveChoice(); renderCarSelKeepFocus(); };   // #463: strap the armchair to the roof or take it off -- no rebuild, just the group's visibility
 $('csgarage').onclick = (e) => { const b = e.target.closest('button[data-id]'); if (b) selectVehicle(b.dataset.id); };
@@ -5586,10 +5678,10 @@ function photoVehicle(id) {
   return url;
 }
 // from the loop, before the frame's render: the next car's photo (none in a wreck: a rebuild would end it)
-function stepGallery() { if (!CAR_GALLERY.on || !CARSEL.on || WRECK_S.on) return; const id = nextThumb(Object.keys(VEHICLES), CHOICE.id, (i) => CAR_GALLERY.photos.has(photoKey(i)), photoReady); if (!id) return; CAR_GALLERY.photos.set(photoKey(id), photoVehicle(id)); updateTile(id); }
+function stepGallery() { if (!CAR_GALLERY.on || !CARSEL.on || WRECK_S.on) return; const id = nextThumb(pickableIds(), CHOICE.id, (i) => CAR_GALLERY.photos.has(photoKey(i)), photoReady); if (!id) return; CAR_GALLERY.photos.set(photoKey(id), photoVehicle(id)); updateTile(id); }
 const photoAttr = (id) => { const url = CAR_GALLERY.photos.get(photoKey(id)); return url ? ` src="${url}"` : ''; };
 // #493: the type chips head the grid; the tiles are that type's vehicles, strongest first
-const galleryIds = (type = CAR_GALLERY.type) => galleryOrder(Object.keys(VEHICLES), VEHICLES, type);
+const galleryIds = (type = CAR_GALLERY.type) => galleryOrder(pickableIds(), VEHICLES, type);
 function galleryChips() { return `<div class="cs-chips" role="group" aria-label="${esc(tr('galleryTypes'))}">${['all', ...VEHICLE_TYPES].map(t => `<button type="button" data-type="${t}" aria-pressed="${t === CAR_GALLERY.type}">${esc(tr(`type_${t}`))} <b>${galleryIds(t).length}</b></button>`).join('')}</div>`; }
 function renderGallery() { $('csgallery').innerHTML = galleryChips() + galleryIds().map(id => `<button type="button" class="cs-thumb${photoFailed(id) ? ' failed' : ''}" data-id="${esc(id)}" aria-pressed="${id === CHOICE.id}"><img alt="" width="${THUMB.w}" height="${THUMB.h}"${photoAttr(id)}><span class="cs-tname">${esc(vehicleText(tr, id, 'name'))}</span><span class="cs-tclass">${esc(classLine(tr, id, VEHICLES[id]))}</span></button>`).join(''); }
 function updateTile(id) { const t = $('csgallery').querySelector(`[data-id="${CSS.escape(id)}"]`); if (!t) return; const url = CAR_GALLERY.photos.get(photoKey(id)); if (url) t.querySelector('img').src = url; t.classList.toggle('failed', photoFailed(id)); }
@@ -5606,6 +5698,260 @@ window.__mm.carsel = () => { const ids = Object.keys(VEHICLES); return { open: C
 window.__mm.chair = () => ({ on: chairOn(), visible: car.userData.chair ? car.userData.chair.visible : false, eye: VEH.camera.chair ? VEH.camera.chair.eye.map(c => c * VEH.scale) : null });   // #463: the armchair state (read-only, for the test)
 if (VEHICLES[CHOICE.id].gltf) wantVehicleModel(CHOICE.id);   // #236: the page started with the fallback car; the glTF car swaps in when its file arrives
 window.__mm.registerVehicle = (id, def) => { checkVehicle(def); VEHICLES[id] = structuredClone(def); if (CARSEL.on) renderCarSel(); };   // test hook: a further table entry (tractor / bus: #6)
+// ---------- #834 multiplayer part 1: connect and the lobby ----------
+// The pure parts live elsewhere: netcodec.js validates the codes and every inbound message, netrace.js holds the lobby
+// rules, netlink.js owns the RTCPeerConnections. This is only the glue: the dialogs, who may change what, and the renders.
+// The host owns the lobby and sends a `lobby` message to every guest after each change; a guest renders what arrives and
+// asks the host for everything else. Nothing a peer sends reaches the game state without going through parseMessage.
+const NET = {
+  role: null,          // 'H' host, 'G' guest, null while not in a race
+  link: null,          // createLink() once a role is chosen
+  lobby: null,         // the host's own netrace lobby, or the last `lobby` message a guest received
+  you: null,           // this device's player id inside that lobby
+  name: null,          // the name this device says hello with
+  bad: 0,              // inbound messages parseMessage refused, over the whole session (__mm.net().bad)
+  slots: new Map(),    // host only: netlink peer id -> lobby player id
+  slot: null,          // host only: the peer id the code on screen belongs to
+  codeAt: 0,           // Unix seconds the shown code was made; 0 when none is shown
+  clock: null,         // the countdown's interval
+  pending: null,       // a host code held back while the region question is open
+};
+const MP_NAME_KEY = 'mm.mpName', MP_JOIN_KEY = 'mm.mpJoin';
+const MP_ERR = { size: 'mpErrSize', format: 'mpErrFormat', version: 'mpErrVersion', role: 'mpErrRole', expired: 'mpErrExpired' };
+const nowSec = () => Math.floor(Date.now() / 1000);
+const netOpen = () => !$('mp').hidden || !$('mplobby').hidden;
+// the ids that exist in this build: parseMessage refuses a car, paint or region the game does not have
+const netCtx = () => ({ carIds: new Set(Object.keys(VEHICLES)), paintIds: new Set(PAINTS.map((p) => p.id)), regions: new Set(Object.keys(REGIONS)) });
+const netIce = () => (new URLSearchParams(location.search).get('netice') === 'none' ? [] : STUN);   // ?netice=none: loopback only, for the browser test
+const storedMpName = () => { try { return localStorage.getItem(MP_NAME_KEY) || ''; } catch (e) { return ''; } };
+
+function netSay(text) { const p = $('mpstatus'); p.textContent = text; p.classList.remove('bad'); }
+function netWarn(text) { const p = $('mpstatus'); p.textContent = text; p.classList.add('bad'); }
+function netTrouble(text) { if ($('mplobby').hidden) netWarn(text); else toast(text, TOAST_S.event); }
+
+// ---- the code's five minutes, counted down next to it ----
+function stopCodeClock() { if (NET.clock) clearInterval(NET.clock); NET.clock = null; NET.codeAt = 0; $('mpclock').textContent = ''; }
+function tickCodeClock() {
+  const left = Math.max(0, CODE_TTL - (nowSec() - NET.codeAt));
+  $('mpclock').textContent = tr('mpExpiresIn', `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
+  if (left === 0) { stopCodeClock(); netWarn(tr('mpCodeGone')); }
+}
+function startCodeClock(madeAt) { stopCodeClock(); NET.codeAt = madeAt; NET.clock = setInterval(tickCodeClock, 1000); tickCodeClock(); }
+
+function netLink() {
+  if (!NET.link) NET.link = createLink({ iceServers: netIce(), onMessage: netMessage, onPeerState: netPeerState });
+  return NET.link;
+}
+
+// ---- the connect dialog ----
+function openMp() {
+  $('mpname').value = storedMpName(); $('mpname').disabled = false;
+  $('mproles').hidden = false; $('mphint').textContent = '';
+  for (const id of ['mpinbox', 'mpoutbox', 'mpanswerbox', 'mpregion']) $(id).hidden = true;
+  $('mpin').value = ''; $('mpanswerin').value = ''; $('mpcode').value = '';
+  stopCodeClock(); netSay('');
+  $('mp').hidden = false; $('mpname').focus();
+}
+// Back: while guests are already in the lobby it is the lobby that is behind this dialog, otherwise the start screen
+function netBack() { if (NET.lobby && NET.slots.size > 0) { stopCodeClock(); openLobby(); return; } netLeave(); }
+function netKey(e) { if (e.code === 'Escape') { e.preventDefault(); netBack(); } }
+
+function netTakeName() {
+  const name = cleanName($('mpname').value);
+  if (!name) { netWarn(tr('mpNeedName')); return null; }
+  try { localStorage.setItem(MP_NAME_KEY, name); } catch (e) { /* a private window keeps nothing */ }
+  NET.name = name;
+  return name;
+}
+
+// ---- host ----
+async function netHostStart() {
+  const name = netTakeName();
+  if (!name) return;
+  NET.role = 'H'; NET.lobby = createLobby(REGION.id, name); NET.you = 0;
+  $('mproles').hidden = true; $('mpname').disabled = true; $('mphint').textContent = tr('mpHostHint');
+  await netHostCode();
+}
+// one code per guest: netlink opens a fresh connection for the next free slot and this wraps its offer into a code
+async function netHostCode() {
+  netSay(tr('mpMaking'));
+  const offer = await netLink().hostOffer();
+  if (!offer) { netWarn(tr('mpFull')); return; }
+  NET.slot = offer.id;
+  const made = nowSec();
+  $('mpcode').value = await encodeCode('H', offer.sdp, REGION.id, made);
+  $('mpoutlabel').textContent = tr('mpCodeLabel');
+  $('mpoutbox').hidden = false; $('mpanswerbox').hidden = false; $('mpanswerin').value = '';
+  startCodeClock(made); netSay('');
+}
+async function netHostAccept() {
+  const code = await decodeCode($('mpanswerin').value.trim(), 'G', nowSec());
+  if (!code.ok) { netWarn(tr(MP_ERR[code.error])); return; }
+  await netLink().hostAccept(NET.slot, code.sdp);
+  stopCodeClock();
+  $('mpoutbox').hidden = true; $('mpanswerbox').hidden = true;
+  netSay(tr('mpWaiting'));
+}
+
+// ---- guest ----
+function netGuestRole() { NET.role = 'G'; $('mproles').hidden = true; $('mphint').textContent = tr('mpGuestHint'); $('mpinbox').hidden = false; }
+async function netGuestAnswer() {
+  if (!netTakeName()) return;
+  const code = await decodeCode($('mpin').value.trim(), 'H', nowSec());
+  if (!code.ok) { netWarn(tr(MP_ERR[code.error])); return; }
+  if (code.g !== REGION.id) { netAskRegion(code.g); return; }
+  netSay(tr('mpMaking'));
+  const answer = await netLink().guestAnswer(code.sdp);
+  const made = nowSec();
+  $('mpcode').value = await encodeCode('G', answer, null, made);
+  $('mpoutlabel').textContent = tr('mpCodeLabel');
+  $('mpinbox').hidden = true; $('mpname').disabled = true; $('mpoutbox').hidden = false;
+  startCodeClock(made); netSay(tr('mpWaiting'));
+}
+// A1: the lobby's region is the one the host has loaded. Switching region reloads the page, so the code is parked in
+// sessionStorage and the join screen reopens with it filled in.
+function netAskRegion(id) {
+  const region = REGIONS[id];
+  if (!region) { netWarn(tr('mpErrFormat')); return; }
+  NET.pending = $('mpin').value.trim();
+  $('mpregion').dataset.region = id; $('mpregion').hidden = false;
+  netWarn(tr('mpOtherRegion', region.name)); $('mpregion').focus();
+}
+
+// ---- messages ----
+function netMessage(peerId, raw) {
+  const msg = parseMessage(raw, netCtx());
+  if (!msg) { NET.bad++; return; }
+  if (NET.role === 'H') netHostMessage(peerId, msg); else netGuestMessage(msg);
+}
+function netHostMessage(peerId, msg) {
+  if (msg.type === 'hello') { netHostHello(peerId, msg.name); return; }
+  const id = NET.slots.get(peerId);
+  if (id === undefined) return;                          // nothing a peer sends counts before its hello
+  if (msg.type === 'bye') { netHostDrop(peerId); return; }
+  if (msg.type === 'pick') {
+    const picked = pickCar(NET.lobby, id, msg.car, msg.paint, VEHICLES);
+    NET.lobby = picked.lobby;
+    if (!picked.ok) NET.link.send(peerId, { type: 'deny', reason: picked.reason });
+  } else if (msg.type === 'ready') NET.lobby = setReady(NET.lobby, id, msg.on);
+  else return;                                           // `lobby` and `deny` are the host's to send, never a guest's
+  netHostBroadcast();
+}
+function netHostHello(peerId, name) {
+  if (NET.slots.has(peerId)) return;                     // a repeated hello changes nothing
+  const added = addPlayer(NET.lobby, name);
+  if (!added) { NET.link.send(peerId, { type: 'deny', reason: 'full' }); NET.link.close(peerId); return; }
+  NET.lobby = added.lobby; NET.slots.set(peerId, added.id);
+  openLobby(); netHostBroadcast();
+}
+function netHostBroadcast() {
+  for (const [peerId, id] of NET.slots) NET.link.send(peerId, lobbyMessage(NET.lobby, id));
+  renderLobby();
+}
+function netHostDrop(peerId) {
+  const id = NET.slots.get(peerId);
+  const gone = id === undefined ? null : NET.lobby.players.find((p) => p.id === id);
+  if (id !== undefined) { NET.lobby = removePlayer(NET.lobby, id); NET.slots.delete(peerId); }
+  NET.link.close(peerId);
+  if (gone) toast(tr('mpGuestLeft', gone.name), TOAST_S.event);
+  netHostBroadcast();
+}
+function netGuestMessage(msg) {
+  if (msg.type === 'lobby') { NET.lobby = msg; NET.you = msg.you; openLobby(); return; }
+  if (msg.type === 'deny') { toast(tr(msg.reason === 'full' ? 'mpFull' : 'mpDenyClass'), TOAST_S.event); return; }
+  if (msg.type === 'bye') netHostGone();
+}
+function netPeerState(peerId, state) {
+  if (state === 'timeout') { netTrouble(tr('mpIceFail')); return; }
+  if (state === 'open') { if (NET.role === 'G') NET.link.send(HOST_ID, { type: 'hello', name: NET.name }); return; }
+  if (!['disconnected', 'failed', 'closed'].includes(state)) return;
+  if (NET.role === 'G') netHostGone(); else if (NET.link) netHostDrop(peerId);
+}
+// there is no host migration in v1: a guest whose host is gone goes back to the start screen
+function netHostGone() { if (NET.role !== 'G') return; netLeave(); toast(tr('mpHostLost'), TOAST_S.surprise); }
+
+// ---- the lobby ----
+function openLobby() {
+  const first = $('mplobby').hidden;
+  stopCodeClock(); $('mp').hidden = true; $('mplobby').hidden = false;
+  renderLobby();
+  if (first) $('mppick').focus();
+}
+function netRowHtml(player) {
+  const car = player.car ? `${vehicleText(tr, player.car, 'name')} · ${classLine(tr, player.car, VEHICLES[player.car])}` : tr('mpNoCar');
+  const marks = [player.id === 0 ? tr('mpHostMark') : null, player.id === NET.you ? tr('mpYou') : null].filter(Boolean);
+  return `<div class="mp-row${player.ready ? ' ready' : ''}"><b>${esc(player.name)}</b><span class="mp-flag">${esc(tr(player.ready ? 'mpReadyMark' : 'mpWaitMark'))}</span><em>${esc([car, ...marks].join(' · '))}</em></div>`;
+}
+function renderLobby() {
+  const lobby = NET.lobby;
+  if (!lobby) return;
+  const host = NET.role === 'H', me = lobby.players.find((p) => p.id === NET.you);
+  $('mplobbysub').textContent = tr('mpLobbySub', REGIONS[lobby.region] ? REGIONS[lobby.region].name : lobby.region);
+  $('mpplayers').innerHTML = lobby.players.map(netRowHtml).join('');
+  $('mpclassrow').hidden = !host;
+  if (host) $('mpclassbtns').innerHTML = ['all', ...CLASSES].map((c) => `<button type="button" data-cls="${c}" aria-pressed="${c === lobby.cls}">${esc(c === 'all' ? tr('mpClassAll') : tr('mpClassOne', c))}</button>`).join('');
+  $('mpclasstext').textContent = host ? '' : tr('mpClassSetByHost');
+  $('mpready').textContent = tr(me && me.ready ? 'mpUnready' : 'mpReady');
+  $('mpready').setAttribute('aria-pressed', String(!!(me && me.ready)));
+  $('mpready').disabled = !me || !me.car;
+  $('mpinvite').hidden = !host || lobby.players.length >= MAX_PLAYERS;
+  // A4: no start button in part 1 -- the line says when the field would be ready to go (#837 adds the countdown)
+  $('mplobbystatus').textContent = tr(canStart(lobby) ? 'mpAllReady' : lobby.players.length < 2 ? 'mpNeedMore' : 'mpNeedReady');
+}
+function netSetReady(on) {
+  if (NET.role === 'H') { NET.lobby = setReady(NET.lobby, NET.you, on); netHostBroadcast(); return; }
+  NET.link.send(HOST_ID, { type: 'ready', on });
+}
+// the existing picker, filtered to the class (pickableIds) and with "take this car" instead of "race"
+function openLobbyCarSel() {
+  CARSEL.mp = true;
+  if (pickableIds().length === 0) { CARSEL.mp = false; toast(tr('mpClassEmpty'), TOAST_S.event); return; }
+  if (!pickableIds().includes(CHOICE.id)) selectVehicle(pickableIds()[0]);
+  $('mplobby').hidden = true; openCarSel();
+}
+function leaveLobbyCarSel() { CARSEL.mp = false; CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; $('overlay').hidden = false; $('mplobby').hidden = false; renderLobby(); $('mppick').focus(); }
+function netTakeCar() {
+  if (NET.role === 'H') {
+    const picked = pickCar(NET.lobby, NET.you, CHOICE.id, CHOICE.paint, VEHICLES);
+    if (!picked.ok) { toast(tr('mpDenyClass'), TOAST_S.event); return; }
+    NET.lobby = picked.lobby; netHostBroadcast();
+  } else NET.link.send(HOST_ID, { type: 'pick', car: CHOICE.id, paint: CHOICE.paint });
+  leaveLobbyCarSel();
+}
+function netLeave() {
+  if (NET.link) { NET.link.broadcast({ type: 'bye' }); NET.link.closeAll(); }
+  stopCodeClock();
+  Object.assign(NET, { role: null, link: null, lobby: null, you: null, name: null, slots: new Map(), slot: null, pending: null });
+  CARSEL.mp = false;
+  $('mp').hidden = true; $('mplobby').hidden = true; $('carsel').hidden = true; $('overlay').hidden = false;
+  $('mpbtn').focus();
+}
+
+$('mpbtn').onclick = openMp;
+$('mpclose').onclick = netBack;
+$('mphostbtn').onclick = netHostStart;
+$('mpguestbtn').onclick = () => { netGuestRole(); $('mpin').focus(); };
+$('mpmake').onclick = netGuestAnswer;
+$('mpaccept').onclick = netHostAccept;
+$('mpinvite').onclick = async () => { $('mplobby').hidden = true; $('mp').hidden = false; netSay(''); await netHostCode(); };
+$('mpcopy').onclick = () => {
+  if (!navigator.clipboard) { netWarn(tr('copyFailed')); return; }
+  navigator.clipboard.writeText($('mpcode').value).then(() => { $('mpcopy').textContent = tr('mpCopied'); }, () => netWarn(tr('copyFailed')));
+};
+$('mpregion').onclick = () => { try { sessionStorage.setItem(MP_JOIN_KEY, NET.pending); } catch (e) { /* no session storage: the code has to be pasted again */ } location.search = regionSearch(location.search, $('mpregion').dataset.region); };
+$('mpclassbtns').onclick = (e) => { const b = e.target.closest('button[data-cls]'); if (!b || NET.role !== 'H') return; NET.lobby = setClass(NET.lobby, b.dataset.cls, VEHICLES); netHostBroadcast(); };
+$('mppick').onclick = openLobbyCarSel;
+$('mpready').onclick = () => { const me = NET.lobby && NET.lobby.players.find((p) => p.id === NET.you); if (me) netSetReady(!me.ready); };
+$('mpleave').onclick = netLeave;
+// A5: a guest would need the same world file, and the code cannot carry one
+if (REGION.generated) $('mpbtn').hidden = true;
+// the join the region switch parked: reopen the guest screen with the code already in the field
+{
+  let parked = null;
+  try { parked = sessionStorage.getItem(MP_JOIN_KEY); sessionStorage.removeItem(MP_JOIN_KEY); } catch (e) { /* nothing parked */ }
+  if (parked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = parked; $('mpmake').focus(); }
+}
+window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [] });
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
 // materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
