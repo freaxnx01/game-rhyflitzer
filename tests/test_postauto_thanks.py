@@ -1,7 +1,6 @@
 """#800: a Postauto's rear display thanks the player for waiting while it pulls out of a stop. Slow (Playwright):
 run in the foreground."""
 import json
-import math
 
 from playwright.sync_api import sync_playwright
 
@@ -30,11 +29,12 @@ def test_waiting_behind_a_departing_bus_thanks_on_the_rear_only(server):
         assert bus, "no bus stood at Industriezone Rütti under the stepped clock"
         key = bus["key"]
 
-        # fine-grained (one frame at a time) stepping from here: the departure and the 4 s thank-you window are
-        # both too short to survive being sampled only once per page.clock.run_for(250) chunk
+        # back to 1x for the departure (setFactor keeps the fleet time): at 60x the bus pulls 16 m clear and drives
+        # out of the 40 m / 10 s thank-you window between two samples on a slow renderer (hosted CI)
+        page.evaluate("""() => { const sel = document.getElementById('debugpaspeed'); sel.value = '1'; sel.dispatchEvent(new Event('change')); }""")
         depart_s, pose = None, None
-        for _ in range(300):
-            page.clock.run_for(16)
+        for _ in range(900):   # up to 90 s of fleet time: the rest of the dwell and the pull-out
+            page.clock.run_for(100)
             cur = next((x for x in page.evaluate("() => window.__mm.postauto().buses") if x["key"] == key), None)
             if not cur:
                 continue
@@ -50,14 +50,20 @@ def test_waiting_behind_a_departing_bus_thanks_on_the_rear_only(server):
         assert before["split"], "the rear quad did not split off its own material"
         front_before, rear_before = before["frontMap"], before["rearMap"]
 
-        # place the player 15 m behind the bus, in its lane
-        th = pose["th"]
-        px, pz = pose["x"] - 15 * math.cos(th), pose["z"] - 15 * math.sin(th)
-        page.evaluate("([x, z, t]) => window.__mm.place(x, z, t)", [px, pz, th])
+        # wait until the bus is 15 m further on, then put the player where the bus itself stood (in its lane, 15 m
+        # behind): along the heading would miss the lane on a bend (3.2 m off at Rütti, thankLane is 2.5 m)
+        cur = pose
+        for _ in range(50):
+            page.clock.run_for(100)
+            cur = next((x for x in page.evaluate("() => window.__mm.postauto().buses") if x["key"] == key), cur)
+            if cur["s"] - pose["s"] >= 15:
+                break
+        assert cur["s"] - pose["s"] >= 15, "the bus did not drive on after pulling out"
+        page.evaluate("([x, z, t]) => window.__mm.place(x, z, t)", [pose["x"], pose["z"], pose["th"]])
 
         thanked = None
-        for _ in range(60):
-            page.clock.run_for(16)
+        for _ in range(40):
+            page.clock.run_for(100)
             cur = next((x for x in page.evaluate("() => window.__mm.postauto().buses") if x["key"] == key), None)
             if cur and cur["led"] and cur["led"].get("thanks"):
                 thanked = cur
@@ -70,8 +76,8 @@ def test_waiting_behind_a_departing_bus_thanks_on_the_rear_only(server):
         assert mid["frontMap"] == front_before, "the front display changed too"
 
         ended = False
-        for _ in range(30):
-            page.clock.run_for(16)
+        for _ in range(80):   # thankSecs is 4 s
+            page.clock.run_for(100)
             cur = next((x for x in page.evaluate("() => window.__mm.postauto().buses") if x["key"] == key), None)
             if cur and not (cur["led"] and cur["led"].get("thanks")):
                 ended = True
