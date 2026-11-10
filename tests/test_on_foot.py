@@ -281,7 +281,7 @@ def test_e_on_foot_at_a_ready_entrance_shows_the_prompt_and_reaches_the_toast(se
         b.close()
     assert errors == []
     assert shown == "E · Enter", shown
-    assert pressed["toast"] == "Not enterable yet" and not pressed["blinker"], pressed
+    assert pressed["toast"] == "The stair is open -- just walk in" and not pressed["blinker"], pressed   # #413: the Plattform's own E handler
     assert gone == "", gone
 
 
