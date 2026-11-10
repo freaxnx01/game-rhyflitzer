@@ -813,6 +813,7 @@ import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTime
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, tripKey, thankDue, markThanked } from './postauto.js';   // #500
 import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider, SIGN_FACES } from './busstop.js';   // #712
+import { poleTop, signPanelZ, POLE_R, FACE_GAP } from './signpole.js';   // #822
 import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindow, cellTime, liveStops, clockText, minutesUntil, stopInReach } from './timetable.js';   // #801
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
@@ -1823,23 +1824,23 @@ function signTextures() {
 function signPanel(g, tex, w, h, y) {
   for (const back of [false, true]) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex, color: back ? 0x6a6f78 : 0xffffff, transparent: true, alphaTest: 0.5 }));
-    m.position.set(0, y, back ? -0.02 : 0.02); if (back) m.rotation.y = Math.PI; g.add(m);
+    m.position.set(0, y, signPanelZ(back)); if (back) m.rotation.y = Math.PI; g.add(m);
   }
 }
-function roadSign(kind, x, z, rot, build) {
-  const g = new THREE.Group(), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 8), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
-  pole.position.y = 1.3; g.add(pole); build(g, signTextures());
+function roadSign(kind, x, z, rot, build, panel) {   // #822: panel = the main panel's shape for poleTop
+  const top = poleTop(panel), g = new THREE.Group(), pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 8), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+  pole.position.y = top / 2; g.add(pole); build(g, signTextures());
   g.position.set(x, terrainH(x, z), z); g.rotation.y = Math.PI / 2 - rot; g.traverse(o => o.castShadow = true); signs.add(g);
   ROAD_SIGNS.push({ kind, x, z });
 }
 function baustelleSign(x, z, rot) {
   roadSign('baustelle', x, z, rot, (g, T) => {
-    signPanel(g, T.tri, 1.0, 1.0, 2.15); signPanel(g, T.baustelle, 1.0, 0.25, 1.5);
+    signPanel(g, T.tri, 1.0, 1.0, 2.15); signPanel(g, T.baustelle, 1.0, 0.25, 1.5);   // #822: panel (and the plate below it) covers the pole
     for (const side of [-1, 1]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.0, 0.1), new THREE.MeshLambertMaterial({ map: T.bake })); b.position.set(side * 1.2, 0.5, 0); g.add(b); }   // Leitbaken
-  });
+  }, { shape: 'tri', apex: 2.15 + 0.5 - 1.0 * 10 / 256, slope: 0.536 });   // #822: apex 2.611, half-width per metre (120/256)/(224/256) = 0.536
 }
 function fahrverbotSign(x, z, rot) {
-  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); });
+  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); }, { shape: 'disc', y: 2.1, d: 0.9 * 248 / 256 });   // #822: 4/256 border gap each side
 }
 function foodTruck(x, z, rot) { // #103 Güggeli food truck: cream box body on four wheels, red cab in front (local +x), serving hatch and awning on the local -z side, hand-painted roof board; generic look, no logo (docs/07); solid
   const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
@@ -2082,12 +2083,14 @@ function parkingMeshes(lots) {
   decals.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET })));
 }
 function parkingSign([x, z, rot], name) {
-  const b = terrainH(x, z), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
-  pole.position.set(x, b + 1.3, z); signs.add(pole);
+  const b = terrainH(x, z), nx = Math.sin(-rot), nz = Math.cos(-rot),   // #822: the board's normal; the panel moves along it, the pole stays behind
+    top = Math.min(2.6, poleTop({ shape: 'rect', y: 2.3, h: 0.7 })),
+    pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+  pole.position.set(x, b + top / 2, z); signs.add(pole);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  board.position.set(x, b + 2.3, z); board.rotation.y = -rot; signs.add(board);
+  board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; signs.add(board);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  plate.position.set(x, b + 1.75, z); plate.rotation.y = -rot; signs.add(plate);
+  plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; signs.add(plate);
 }
 function propMeshes(props) {
   const geos = propGeometries(), byKind = {};
@@ -2123,7 +2126,7 @@ function crashSign() {
   const s = yardStart(YARD), x = s.x + 4, z = s.z - 5, b = terrainH(x, z), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
   pole.position.set(x, b + 1.4, z); signs.add(pole);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.9), new THREE.MeshBasicMaterial({ map: textTex(tr('crashYard'), 512, 180, '#f5c400', '#111111', '700 120px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  board.position.set(x, b + 2.5, z); board.rotation.y = -Math.PI / 2; signs.add(board);   // faces the arriving car (heading +x)
+  board.position.set(x + FACE_GAP + 0.01, b + 2.5, z); board.rotation.y = -Math.PI / 2; signs.add(board);   // faces the arriving car (heading +x); #822: off the pole's face along its normal
 }
 function stationAt(x, z, rot, name) { const b = terrainH(x, z); box(26, 6, 8, x, b - 2, z, rot, col('#e0d8c8'), 'wallDoor', [4, 3], 2.1); gable(26, 8, b + 4, 2.2, x, z, rot, col('#5a4a48'), col('#e0d8c8')); addOBB(x, z, 26, 8, rot, b + 4); box(60, 0.6, 3, x, b, z + 8, rot, col('#c8c2b6'), 'stone', [4, 2], 0); if (name) stationSign(name, x, z, rot, b); }
 // #12: blue Swiss station board on both long facades (signW's 'ch' style), just under the eaves
@@ -2186,7 +2189,8 @@ let SPEEDSIGN = null;
 function speedDisplayBuild() {
   const cfg = SPEED_DISPLAY, g = new THREE.Group(), b = terrainH(cfg.x, cfg.z), PN = cfg.panel;
   const steel = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 });
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.8, 8), steel); pole.position.y = 1.4; g.add(pole);
+  const top = poleTop({ shape: 'rect', y: PN.y, h: PN.h }, POLE_R, 0.05);   // #822: pole ends 5 cm under the housing top
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 8), steel); pole.position.y = top / 2; g.add(pole);
   const housing = new THREE.Mesh(new THREE.BoxGeometry(PN.w, PN.h, 0.12), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); housing.position.y = PN.y; g.add(housing);
   const canvas = document.createElement('canvas'); canvas.width = cfg.tex.w; canvas.height = cfg.tex.h;
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
@@ -2216,7 +2220,7 @@ const STATION_SIGNS = [], STATION_NAMES = { stationStein: 'Bahnhof Stein-Säckin
 const nameTex = {};
 function streetNames() { for (const r of ROADS) { if (L && !/^(motorway|trunk|primary|secondary|tertiary)/.test(r.cls)) continue; if (!nameTex[r.n]) nameTex[r.n] = textTex(r.n, 1024, 128, null, 'rgba(245,239,224,.92)', '700 84px "Barlow Condensed", sans-serif'); const mat = new THREE.MeshBasicMaterial({ map: nameTex[r.n], transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET }); for (let i = 0; i < r.pts.length - 1; i++) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1]; const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz); if (L < 70) continue; const n = Math.max(1, Math.floor(L / 220)); for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; const len = Math.min(r.w * 5, L * 0.6), wid = len / 8; const g = new THREE.PlaneGeometry(len, wid); g.rotateX(-Math.PI / 2); let ang = Math.atan2(dz, dx); if (Math.cos(ang) < 0) ang += Math.PI; g.rotateY(-ang); const m = new THREE.Mesh(g, mat); const mx = x0 + dx * t, mz = z0 + dz * t; m.position.set(mx, terrainH(mx, mz) + 0.09, mz); decals.add(m); } } } }
 function sign(txt, kind, px, py, faceDeg) { signW(txt, kind, ...W(px, py), faceDeg); }
-function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(txt, 512, 256, '#1c5fb0', '#ffffff', '700 120px "Barlow Condensed", sans-serif', '#ffffff') : textTex(txt, 512, 256, '#ffcc00', '#111111', '700 120px "Barlow Condensed", sans-serif', '#111111'); const g = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), [new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 })]); board.position.y = 2.4; const pole = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }); for (const s of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), pole); p.position.set(s, 1.5, 0); g.add(p); } g.add(board); g.position.set(x, groundH(x, z), z); g.rotation.y = faceDeg * Math.PI / 180; g.traverse(o => o.castShadow = true); signs.add(g); }
+function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(txt, 512, 256, '#1c5fb0', '#ffffff', '700 120px "Barlow Condensed", sans-serif', '#ffffff') : textTex(txt, 512, 256, '#ffcc00', '#111111', '700 120px "Barlow Condensed", sans-serif', '#111111'); const g = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), [new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 })]); board.position.y = 2.4; const pole = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }); for (const s of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.95, 6), pole); p.position.set(s, 1.475, -0.09); g.add(p); } g.add(board); g.position.set(x, groundH(x, z), z); g.rotation.y = faceDeg * Math.PI / 180; g.traverse(o => o.castShadow = true); signs.add(g); }   // #822: poles behind the 0.08 deep board, 5 cm under its top
 
 const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795], [1960, 740]]);   // hand-traced Basel–Koblenz line stand-in
 // #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
