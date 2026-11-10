@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-10 09:49` **Rhyflitzer FM** plays two more tracks in the spirit of 80s West Coast soft rock: **„The 1980s Soft Rock Groove" by Michael-Vault** and **„Melrose Place Soft Rock" by DigiCompo**. <kbd>8</kbd> skips to them after the four tracks so far; About → Credits names them.
 - `2026-11-09 19:58` <kbd>J</kbd> now reaches **every village** in the world, from Wallbach and Mumpf to Frick and Murg, with the **Bahnhof Frick**, Mumpf and Murg; the villages are split into a **CH** and a **DE** row, and each entry says which side of the Rhine it is on.
 - `2026-11-09 15:37` At the **DSM car park** in Sisseln every vehicle now stands in a **vehicle depot**: drive or walk up to one and press <kbd>E</kbd> to drive on in it. Find it with <kbd>J</kbd> → *Fahrzeug-Depot*.
 - `2026-11-09 14:06` **PostAuto line 143** now runs too, about every half hour from early morning until late evening: from **Stein-Säckingen Bahnhof** past Novartis, Syngenta and DSM to **Sisseln Unterdorf** and **Sisseln Breitenacher**, then on towards **Kaisten and Laufenburg** — it leaves the map at the eastern edge and comes back in from there. Unterdorf and Breitenacher get bus stops; the signs at the stops both lines share list **133 and 143**.
