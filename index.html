@@ -851,7 +851,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor 
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
-import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor } from './radio.js';   // #735
+import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -930,6 +930,9 @@ function logStageDone() { if (LOAD_LOG.stage) console.info(`Building the world: 
 // after one frame (or 100 ms, so a background tab, which gets no frames, keeps building), as a new task: the frame is painted by then
 function nextPaint() { return new Promise((res) => { let done = false; const go = () => { if (done) return; done = true; const ch = new MessageChannel(); ch.port1.onmessage = () => res(); ch.port2.postMessage(0); }; requestAnimationFrame(go); setTimeout(go, 100); }); }
 function endLoading() { logStageDone(); console.info(`Building the world: done after ${Math.round(performance.now())} ms.`); document.getElementById('overlay').classList.remove('loading'); }
+// #841: the menu music starts now, not after the world is built; RADIO adopts the element (voice('menu')) once it exists
+const EARLY_MENU = (() => { const get = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  return createEarlyMenu({ menuOn: menuMusicOnFrom(get(RADIO_STORE.menu)), vol: volumeFrom(get(RADIO_STORE.vol)), makeAudio: () => new Audio(), target: window }); })();
 await loadStage('map');
 
 // ---------- helpers ----------
@@ -4067,7 +4070,8 @@ const RADIO = (() => {
   const now = () => performance.now() / 1000;
   function voice(name) {
     if (els[name]) return els[name];
-    const { ac, master } = SFX.graph(), el = new Audio(); el.crossOrigin = 'anonymous'; el.preload = 'none';
+    const { ac, master } = SFX.graph(), early = name === 'menu' ? EARLY_MENU.take() : null, el = early || new Audio();
+    if (!early) { el.crossOrigin = 'anonymous'; el.preload = 'none'; }   // #841: an adopted element keeps its same-origin src and is already playing
     const gain = ac.createGain(); gain.gain.value = 0; ac.createMediaElementSource(el).connect(gain); gain.connect(master);
     const v = els[name] = { el, gain, want: false };
     if (name === 'fm') el.addEventListener('ended', () => { S.track = nextTrack(S.track); apply(); });
@@ -4091,7 +4095,7 @@ const RADIO = (() => {
     const radio = S.inRun && S.on;
     if (radio && S.station === 'fm') playFm(); else fadeOut('fm');
     if (radio && S.station === 'srf3') { if (!watch) playSrf(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
-    if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else fadeOut('menu');
+    if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else { fadeOut('menu'); if (S.inRun || !S.menuOn) EARLY_MENU.drop(); }   // #841: an element nobody adopted must not outlive the start screen
   }
   const nowText = () => { const d = displayFor(S); return '📻 ' + tr(d.key, ...d.args); };
   function fail() {   // SRF 3 did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
@@ -6415,9 +6419,10 @@ umamiTrack('game-ready', { region: regionId(REGION), lang: window.GG_LANG || 'en
 setInterval(() => { const now = performance.now(); STATS.vehicle.update(CHOICE.id, now); STATS.activity.update(activityOf({ train: TRAIN.on, level: LEVELS.id, indoors: INT.indoors, house: INT.house, foot: FOOT.on, fly: FLY.on }), now); }, 1000);
 addEventListener('gg-langchange', (e) => umamiTrack('lang', { lang: e.detail.lang }));
 endLoading();
-// #735: the menu music's file is fetched on the first input after loading, never during it; tick() follows run start / end and the SRF 3 watchdog
+// #735/#841: the menu track now starts during loading; armMenu adopts it. Without a gesture during loading the first input after it still arms, as before; tick() follows run start / end and the SRF 3 watchdog
 addEventListener('pointerdown', () => RADIO.armMenu(), { once: true });
 addEventListener('keydown', () => RADIO.armMenu(), { once: true });
+if (EARLY_MENU.gestured()) RADIO.armMenu();
 setInterval(() => RADIO.tick(), 500);
 requestAnimationFrame(loop);
 
