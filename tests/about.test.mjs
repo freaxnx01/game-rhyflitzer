@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from '../about.js';
+import { readFileSync } from 'node:fs';
+import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from '../about.js';
 
 test('ABOUT_LINKS: every link https, the agreed set, frozen', () => {
   assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'otd', 'plattform', 'privacy', 'source', 'swisstopo', 'threejs']);
@@ -53,4 +54,21 @@ test('the horizon backdrop is credited with a link (#593)', () => {
 });
 test('ABOUT_LINKS: the Postauto timetable source (#500)', () => {
   assert.equal(ABOUT_LINKS.otd, 'https://opentransportdata.swiss/');
+});
+
+test('contactAddress: German and English address, unknown language falls back to English', () => {
+  assert.equal(contactAddress('de'), 'kontakt@rhyflitzer.ch');
+  assert.equal(contactAddress('en'), 'hello@freax.games');
+  assert.equal(contactAddress('fr'), 'hello@freax.games');
+  assert.equal(contactAddress(undefined), 'hello@freax.games');
+});
+
+test('contactHref: mailto plus the address of the language', () => {
+  assert.equal(contactHref('de'), 'mailto:kontakt@rhyflitzer.ch');
+  assert.equal(contactHref('en'), 'mailto:hello@freax.games');
+});
+
+test('index.html carries no contact address and no mailto (#853: crawlers read the raw HTML)', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  for (const bad of ['kontakt@', 'hello@', '@rhyflitzer.ch', '@freax.games', 'mailto:']) assert.ok(!html.includes(bad), bad);
 });

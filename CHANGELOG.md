@@ -8,9 +8,14 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Fixed
+
+- `2026-11-10 15:35` On **road signs** (Fahrverbot, Baustelle), the **place-name boards**, the **P and Crash-Platz signs** and the **speed display** in Sisseln, the **pole** no longer sticks out above the sign or through its face: it ends behind the panel.
+
 ### Added
 
-- `2026-11-10 19:00` **Eric** is now in the **About** screen's people tab, credited for his **vehicle ideas**.
+- `2026-11-10 20:17` **Eric** is now in the **About** screen's people tab, credited for his **vehicle ideas**.
+- `2026-11-10 19:22` A **contact address** in the footer ("Kontakt"/"Contact") and under About → The game: write to the game without a GitHub account.
 - `2026-11-10 11:34` At every **PostAuto stop** press <kbd>E</kbd> at the board — on foot or from the car — to see the next **departures** there, with the minutes until each one. From there, or from the pause menu → *Fahrplan*, each line's whole **timetable** opens: all stops of a direction with the next four runs, <kbd>◀</kbd> <kbd>▶</kbd> for earlier and later ones, and a 🚌 where a bus is on its way right now.
 - `2026-11-10 11:19` In the hideout's **ring 2**, the room next to the USS Enterprise now holds the **Space Shuttle Enterprise** in **launch position** on the whole of **Launch Pad 39A**: the orbiter on its orange tank between the two boosters, on the launch platform over the **flame trench** (drive through it, right under the rocket), with the lattice tower, its arms, the swung-back service structure and the water tower, life size.
 - `2026-11-10 11:18` **PostAuto lines 134 and 135** now run too, so more Postautos are on the road at once: **134** from **Frick Bahnhof** through Oeschgen, Eiken and Münchwilen to **Stein-Säckingen Bahnhof** and back; **135** from **Frick Bahnhof** out of the map at the eastern edge towards **Aarau** or **Laufenburg**, and back in. The signs at Frick Bahnhof list **133, 134 and 135**.
@@ -26,6 +31,12 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-11-08 19:11` At the **Sisseln** village entrance, on the **Hauptstrasse** between the **Smile-Kreisel** and the **Volg**, a **speed display** now shows your speed as you drive in from the roundabout: **amber km/h** and below it a **green smile** at 50 km/h or under, a **red frown** above. Only for cars heading into the village; it does nothing to the game.
 
 ### Fixed
+
+- `2026-11-10 18:16` A car with its own 3D model picked by **link** (`?vehicle=…`) or remembered from last time: the **start buttons wait** until the model has loaded, so the race starts in the **real car** instead of the blue stand-in.
+
+- `2026-11-10 16:05` In the **glass porch** and on the **ground floor** of the **Bodenackerstrasse 6c** stair hall the **grass** no longer shows through the floor.
+
+- `2026-11-10 15:52` In the hideout's **freight lift** all **four shaft walls** now slide past during the ride, whichever way the car stands in the cabin, while the **ceiling** and **floor** stay still.
 
 - `2026-11-10 15:39` **Change vehicle** from the pause menu after a **rollover** or a **wreck** now shows the car **upright** with all its **wheels** on the stage, instead of lying on its side with the wheels beside it.
 

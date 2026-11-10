@@ -93,3 +93,9 @@ export const freightPadView = (lift) => FREIGHT_STOPS.map(stop => ({ stop, disab
 // pattern DOWN on screen; riding down the wall has to rise past the car (offset shrinks), riding up it has to sink (offset grows).
 export const SHAFT_SCROLL = 0.5;
 export function shaftScrollDelta(dir, phase, dt) { return phase === 'descending' ? (dir === 'down' ? -1 : 1) * dt * SHAFT_SCROLL : 0; }
+
+// #603: the cab box's six faces in BoxGeometry order (px, nx, py, ny, pz, nz): the four walls take the scrolling shaft texture,
+// the ceiling (py) and floor (ny) a static one. The cab sits on the lift's axis, not on the car: the shaft's walls stand at
+// +-hw / +-hd, only 0.1 m outside the cab's, so a car parked off-centre would push one cab wall behind the concrete one.
+export const CAB_FACE_SCROLLS = [true, true, false, false, true, true];
+export const cabCentre = (lift, floorY, halfHeight) => ({ x: lift.c[0], y: floorY + halfHeight, z: lift.c[1] });
