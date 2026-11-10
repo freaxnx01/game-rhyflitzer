@@ -221,6 +221,8 @@ const en = {
   enterSoon: 'Not enterable yet',
   ridePrompt: 'E · Ride the Ferris wheel',   // #516
   rideExit: 'E · Get out',
+  depotPrompt: (n) => `E: get in — ${n}`,   // #553
+  depotIn: (n) => `Now driving: ${n}`,   // #553
   rideWait: 'You can get out at the bottom',
   plattformOpen: 'The stair is open -- just walk in',
   chipEnterable: 'Enterable',
@@ -299,6 +301,7 @@ const en = {
   barJumpUp: 'jump',
   barGetIn: 'get in',
   barEnter: 'enter',
+  barBoard: 'get in',   // #553
   barLeave: 'go out',
   barLift: 'lift',
   barHopUp: 'up to the deck',   // #701
@@ -407,6 +410,8 @@ const en = {
   creditMusicCoolRider: '„Cool Rider" by Emmraan (Pixabay), Pixabay Content License',
   creditMusicNeonAfterglow: '„Neon Afterglow" by MemoryArcade (Pixabay), Pixabay Content License',
   creditMusicCalifornia: '„California Snares and Synths" by Eliza_music (Pixabay), Pixabay Content License',
+  creditMusicSoftRockGroove: '„The 1980s Soft Rock Groove" by Michael-Vault (Pixabay), Pixabay Content License',
+  creditMusicMelrose: '„Melrose Place Soft Rock" by DigiCompo (Pixabay), Pixabay Content License',
   creditMusicMenu: '„Menu / Running Title" by Rob Bery · Rob Bery Art (OpenGameArt), CC0',
   creditSrf3: 'SRF 3 live: the live stream of Schweizer Radio und Fernsehen, played unchanged',
   creditKnight: '3D model „KITT - Knight Rider" by thenerdybirdy (Sketchfab), CC BY 4.0; rescaled, plain interior materials, the number plate removed, the scanner light rebuilt to sweep',
@@ -859,6 +864,8 @@ const de = {
   enterSoon: 'Noch nicht begehbar',
   ridePrompt: 'E · Riesenrad fahren',   // #516
   rideExit: 'E · Aussteigen',
+  depotPrompt: (n) => `E: Einsteigen — ${n}`,   // #553
+  depotIn: (n) => `Jetzt am Steuer: ${n}`,   // #553
   rideWait: 'Aussteigen kannst Du unten',
   plattformOpen: 'Die Treppe ist offen -- einfach hineingehen',
   chipEnterable: 'Begehbar',
@@ -935,6 +942,7 @@ const de = {
   barJumpUp: 'springen',
   barGetIn: 'einsteigen',
   barEnter: 'eintreten',
+  barBoard: 'einsteigen',   // #553
   barLeave: 'hinaus',
   barLift: 'Lift',
   barHopUp: 'hinauf',   // #701
@@ -1043,6 +1051,8 @@ const de = {
   creditMusicCoolRider: '„Cool Rider" von Emmraan (Pixabay), Pixabay Content License',
   creditMusicNeonAfterglow: '„Neon Afterglow" von MemoryArcade (Pixabay), Pixabay Content License',
   creditMusicCalifornia: '„California Snares and Synths" von Eliza_music (Pixabay), Pixabay Content License',
+  creditMusicSoftRockGroove: '„The 1980s Soft Rock Groove" von Michael-Vault (Pixabay), Pixabay Content License',
+  creditMusicMelrose: '„Melrose Place Soft Rock" von DigiCompo (Pixabay), Pixabay Content License',
   creditMusicMenu: '„Menu / Running Title" von Rob Bery · Rob Bery Art (OpenGameArt), CC0',
   creditSrf3: 'SRF 3 live: der Livestream von Schweizer Radio und Fernsehen, unverändert abgespielt',
   creditKnight: '3D-Modell „KITT - Knight Rider" von thenerdybirdy (Sketchfab), CC BY 4.0; neu skaliert, schlichte Materialien im Innenraum, Nummernschild entfernt, das Lauflicht neu aufgebaut, damit es hin und her läuft',

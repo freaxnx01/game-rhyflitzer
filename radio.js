@@ -4,13 +4,16 @@
 // NOT the short https://stream.srg-ssr.ch/m/drs3/mp3_128: it redirects to plain http://, blocked as mixed content
 export const SRF3_URL = 'https://stream.srg-ssr.ch/srgssr/srf3/mp3/128';
 export const STATIONS = Object.freeze(['fm', 'srf3']);
-// the four tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
-// (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB)
+// the six tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
+// (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB; the soft-rock pair,
+// 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks)
 export const TRACKS = Object.freeze([
   { id: 'cool-rider', title: 'Cool Rider', artist: 'Emmraan', src: 'assets/music/cool-rider.mp3', gainDb: -6 },
   { id: 'neon-afterglow', title: 'Neon Afterglow', artist: 'MemoryArcade', src: 'assets/music/neon-afterglow.mp3', gainDb: 0 },
   { id: 'california-snares-and-synths', title: 'California Snares and Synths', artist: 'Eliza_music', src: 'assets/music/california-snares-and-synths.mp3', gainDb: 0 },
   { id: 'menu-running-title', title: 'Menu / Running Title', artist: 'Rob Bery', src: 'assets/music/menu-running-title.mp3', gainDb: 0 },
+  { id: 'soft-rock-groove', title: 'The 1980s Soft Rock Groove', artist: 'Michael-Vault', src: 'assets/music/soft-rock-groove.mp3', gainDb: 0 },
+  { id: 'melrose-place-soft-rock', title: 'Melrose Place Soft Rock', artist: 'DigiCompo', src: 'assets/music/melrose-place-soft-rock.mp3', gainDb: 0 },
 ]);
 export const MENU_TRACK = TRACKS[3];
 export const VOLUME = Object.freeze({ min: 0, max: 10, start: 6 });

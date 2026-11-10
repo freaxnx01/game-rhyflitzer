@@ -8,6 +8,7 @@ export const SPEED_DISPLAY = {
   limit: 50,                         // km/h: at or under -> happy
   range: 120, lateral: 10,           // m: lights up this far before the sign, within this much of the approach axis
   minKmh: 3,                         // km/h: dark for a standing car
+  delay: 2,                          // s: the panel shows the reading from this long ago, so passing it you see your earlier speed
   panel: { w: 0.8, h: 1.2, y: 2.2 }, // m: housing size and centre height
   tex: { w: 256, h: 384 },           // px: the LED face canvas
 };
@@ -31,3 +32,13 @@ export function displayState(car, cfg = SPEED_DISPLAY) {
 export const displayKey = (s) => s.on ? `${s.kmh}:${s.happy ? 'h' : 's'}` : 'off';
 
 export const panelColors = (s) => ({ digits: '#ffb000', face: s.happy ? '#39d353' : '#ff3b30' });
+
+// the panel's lag: record() every frame on the game clock, shown() the newest reading at least `delay` seconds old
+// (dark until there is one). After passing, the last on-reading stays up for `delay` seconds, then goes dark.
+export function delayedReading(delay = SPEED_DISPLAY.delay) {
+  const q = [];
+  return {
+    record(t, state) { q.push({ t, state }); while (q.length > 1 && q[1].t <= t - delay) q.shift(); },
+    shown(t) { return q.length && q[0].t <= t - delay ? q[0].state : { on: false }; },
+  };
+}
