@@ -49,6 +49,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-10 15:34` The **Viewpoints** mode no longer shows a **running clock**: the score never depended on time, so the timer is gone from the screen and the result shows only your photos and points. Hunt and Blitz keep their clocks.
+
 - `2026-11-10 08:29` The **smiley speed display** in Sisseln now lags like a real radar sign: it shows your speed from **two seconds ago**, so as you pass it you see how fast you came in, and after you pass it the last reading stays up for a moment.
 
 - `2026-11-09 20:09` The **Rhy Wobbler**, the yellow three-wheeler, now sits under **Film & TV** in the vehicle gallery instead of Everyday: it is the Mr Bean car.
