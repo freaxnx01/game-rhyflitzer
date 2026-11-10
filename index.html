@@ -811,7 +811,7 @@ import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, tripKey } from './postauto.js';   // #500
-import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider } from './busstop.js';   // #712
+import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider, SIGN_FACES } from './busstop.js';   // #712
 import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindow, cellTime, liveStops, clockText, minutesUntil, stopInReach } from './timetable.js';   // #801
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
@@ -2136,7 +2136,8 @@ function busStop(layout, name, rows) {
   tube(0, 0, 2.9); tube(-1, 2.15, 2.9);   // the pole leg and the short leg of the inverted U
   const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1, 8), steel); bar.rotation.z = Math.PI / 2; bar.position.set(-0.5, 2.9, 0); g.add(bar);
   for (const x of [0, -1]) { const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), steel); knob.position.set(x, 2.9, 0); g.add(knob); }   // rounded top corners
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55), new THREE.MeshBasicMaterial({ map: stopSignTex(name, rows), side: THREE.DoubleSide })); sign.position.set(-0.5, 2.5, -0.05); g.add(sign);
+  const signMat = new THREE.MeshBasicMaterial({ map: stopSignTex(name, rows) });   // FrontSide: a DoubleSide back would be mirrored (#795)
+  for (const f of SIGN_FACES) { const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55), signMat); sign.position.set(-0.5, 2.5, f.z); sign.rotation.y = f.rotY; sign.userData.signFace = true; g.add(sign); }
   const frame = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.03), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); frame.position.set(0, 1.6, -0.05); g.add(frame);
   const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: timetableTex(sheetLines(rows)) })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
   if (layout.shelter) {
@@ -4855,6 +4856,7 @@ window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, don
 window.__mm.blitzSetLeft = (s) => { R.left = s; };
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
 window.__mm.busStops = () => POSTAUTO.stops;   // #712: the laid-out stops, for the test
+window.__mm.stopSignFaces = () => { signs.updateMatrixWorld(true); const n = new THREE.Vector3(); return signs.children.map((g) => ({ x: g.position.x, z: g.position.z, faces: g.children.filter((m) => m.userData.signFace).map((m) => { n.set(0, 0, 1).transformDirection(m.matrixWorld); return { nx: n.x, nz: n.z, side: m.material.side }; }) })).filter((s) => s.faces.length); };   // #795: read-only, the built sign faces, for the test
 window.__mm.speedDisplay = (dt = 0) => { stepSpeedDisplay(dt); return SPEEDSIGN ? { x: SPEEDSIGN.x, z: SPEEDSIGN.z, yaw: SPEEDSIGN.yaw, key: SPEEDSIGN.key, state: SPEEDSIGN.state, redraws: SPEEDSIGN.redraws } : null; };   // #745: steps first (headless draws under 1 fps); dt advances the panel's lag clock
 window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'), follow: POSTAUTO.follow,   // #500: read-only, for the test; #707: the followed bus key and the panel's DOM state
   floor: gltfState('bus') === 'ready' ? { faces: GLTF_CARS.bus.floorFaces, shellSide: GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null } : null,   // #709: the floor copy; the shell stays THREE.FrontSide = 0 (#723)

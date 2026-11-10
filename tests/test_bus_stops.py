@@ -101,3 +101,25 @@ def test_car_stops_at_a_shelter_instead_of_driving_through(server):
         b.close()
     assert moved > 3, f"the car did not drive towards the shelter ({moved:.2f} m)"
     assert depth < -hd, f"the car centre is {depth:.2f} m along n -- inside or past the shelter (face at {-hd})"
+
+@needs_data
+def test_stop_signs_face_the_road_and_are_single_sided(server):
+    """#795: the road-side face must look at the road (a DoubleSide back face reads mirrored); no face is double-sided."""
+    with sync_playwright() as p:
+        b, page = open_paused(p, server)
+        stops = page.evaluate("() => window.__mm.busStops()")
+        built = page.evaluate("() => window.__mm.stopSignFaces()")
+        b.close()
+    assert built, "no stop sign was built"
+    checked = 0
+    for stop in stops:
+        match = [s for s in built if abs(s["x"] - stop["pole"][0]) < 1e-3 and abs(s["z"] - stop["pole"][1]) < 1e-3]
+        assert len(match) == 1, stop["name"]
+        faces = match[0]["faces"]
+        assert len(faces) == 2, stop["name"]
+        assert all(f["side"] == 0 for f in faces), "FrontSide (0), not DoubleSide (2)"
+        away = (-math.sin(stop["yaw"]), math.cos(stop["yaw"]))      # world direction away from the road
+        dots = sorted(f["nx"] * away[0] + f["nz"] * away[1] for f in faces)
+        assert dots[0] < -0.999 and dots[1] > 0.999, (stop["name"], dots)
+        checked += 1
+    assert checked == len(stops)

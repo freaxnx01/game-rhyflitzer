@@ -25,6 +25,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-10 11:25` The **PostAuto stop signs** read correctly now: the **stop name** and the **line rows** were mirrored when you drove past, and the back of the sign is printed the right way round too.
+
 - `2026-11-10 11:25` Visits through an **old /prototype/ link** now show up in the stats under their real **referrer** (e.g. reddit.com) instead of the forwarding page `/prototype/`.
 
 - `2026-11-09 16:13` Getting out of the car at the **Plattform Sisslerfeld** door no longer leaves the "you got out" hint **on top of** the "up to the deck" prompt: the hint disappears as the prompt appears.
