@@ -1,69 +1,99 @@
 # Postauto thanks display (#800) Implementation Plan
 
-Goal: rear display shows smiley + "Vielen Dank!"/"Thank you!" for 4 s when the player waits behind a departing Postauto.
-Spec: `docs/superpowers/specs/2026-11-10-postauto-thanks-display-design.md` (assumptions A1-A8 are fixed, do not re-decide).
-Tests: `node --test tests/<name>.test.mjs`. Do not run the whole Playwright suite; run only the one new file (Task 5) with
-`pipeline/.venv/bin/python -m pytest tests/test_postauto_thanks.py`. Commit per task.
+Goal: the rear display (own material, own texture) shows a smiley + "Vielen Dank!"/"Thank you!" for 4 s when the player waits
+behind a departing Postauto; front and side never change.
+Spec: `docs/superpowers/specs/2026-11-10-postauto-thanks-display-design.md` (A1-A10 are fixed, do not re-decide). No model
+rebuild: the rear quad is split off at runtime (A9).
+Tests: `node --test tests/<name>.test.mjs`. No whole Playwright suite: only the new file (Task 5) and `tests/test_postauto.py` via
+`pipeline/.venv/bin/python -m pytest <file>`. Commit per task.
 
-## Task 1: busdisplay.js layout (tests/busdisplay.test.mjs)
+## Task 1: busdisplay.js (tests/busdisplay.test.mjs)
 
-Append the failing test first:
+Failing tests first (`measure` already exists in the file):
 
 ```js
-import { thanksLayout, SMILEY } from '../busdisplay.js';
-test('thanksLayout_TwoWords_FitTheRearWindow', () => {
+import { REAR_TEX, SMILEY, rearLayout, thanksLayout, splitRearTriangles, normalizeUv } from '../busdisplay.js';
+test('rearLayout_LineNumber_CentredAndFits', () => {
+  const l = rearLayout('1234', measure);
+  assert.equal(l.x, REAR_TEX.w / 2);
+  assert.ok(measure('1234', l.size) <= 0.92 * REAR_TEX.w);
+});
+test('thanksLayout_TextFitsAndSitsBelowTheSmiley', () => {
   for (const text of ['Vielen Dank!', 'Thank you!']) {
     const l = thanksLayout(text, measure);
-    assert.equal(l.lines.length, 2);
-    for (const ln of l.lines) assert.ok(ln.x + measure(ln.text, ln.size) <= 0.22 * DISPLAY_TEX.w, ln.text);
-    assert.ok(l.lines[0].x > l.smiley.x + 7 * l.smiley.cell - 1e-9);
+    assert.ok(measure(text, l.text.size) <= 0.92 * REAR_TEX.w, text);
+    assert.ok(l.smiley.y + 7 * l.smiley.cell < l.text.y - 0.5 * l.text.size);
   }
+  assert.ok(SMILEY.length === 7 && SMILEY.every((r) => r.length === 7));
 });
-test('thanksLayout_Smiley_IsSevenBySevenInsideTheWindow', () => {
-  assert.equal(SMILEY.length, 7);
-  assert.ok(SMILEY.every((r) => r.length === 7));
-  const { smiley } = thanksLayout('Thank you!', measure);
-  assert.ok(smiley.x >= 0.004 * DISPLAY_TEX.w && smiley.y >= 0 && smiley.y + 7 * smiley.cell <= DISPLAY_TEX.h);
+// two quads: the tail at x = -5.8 (vertices 0-3) and the nose at x = 5.8 (4-7)
+const POS = [-5.8, 2.5, -0.2, -5.8, 2.5, 0.2, -5.8, 2.8, 0.2, -5.8, 2.8, -0.2, 5.8, 2.4, -1, 5.8, 2.4, 1, 5.8, 2.7, 1, 5.8, 2.7, -1];
+const IDX = [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7];
+test('splitRearTriangles_TwoQuads_SeparatesTheTail', () => {
+  const { rear, rest } = splitRearTriangles(POS, IDX);
+  assert.deepEqual(rear, [0, 1, 2, 0, 2, 3]);
+  assert.deepEqual(rest, [4, 5, 6, 4, 6, 7]);
+});
+test('normalizeUv_RearVertices_CoverZeroToOne', () => {
+  const uv = [0.004, 0.1, 0.22, 0.1, 0.22, 0.9, 0.004, 0.9, 0.5, 0.5, 0.9, 0.5, 0.9, 0.6, 0.5, 0.6];
+  normalizeUv(uv, [0, 1, 2, 0, 2, 3]);
+  assert.deepEqual(uv.slice(0, 8), [0, 0, 1, 0, 1, 1, 0, 1]);
+  assert.deepEqual(uv.slice(8), [0.5, 0.5, 0.9, 0.5, 0.9, 0.6, 0.5, 0.6]);   // the other quad is untouched
 });
 ```
 
-Append to `busdisplay.js` (reuses `fit`, which takes `h`; here the start size is 0.4*h):
+Implement (append to `busdisplay.js`; `MIN_SIZE` exists there):
 
 ```js
-// #800: the thank-you block, drawn only inside the rear quad's u window (0.004..0.22): a 7x7 dot smiley left, the text
-// split at the space into two lines right of it. '#' = lit dot.
+export const REAR_TEX = { w: 330, h: 200 };
+function fitWidth(text, maxW, start, measure) {
+  let size = start;
+  while (size > MIN_SIZE && measure(text, size) > maxW) size -= 2;
+  return size;
+}
+export function rearLayout(line, measure, tex = REAR_TEX) {
+  return { x: tex.w / 2, y: 0.72 * tex.h, size: fitWidth(line, 0.92 * tex.w, 0.7 * tex.h, measure) };
+}
 export const SMILEY = ['..###..', '.#...#.', '#.#.#.#', '#.....#', '#.#.#.#', '.#.#.#.', '..###..'];
-export function thanksLayout(text, measure, tex = DISPLAY_TEX) {
-  const cell = 8, x0 = 0.004 * tex.w, limit = 0.215 * tex.w, tx = x0 + 7 * cell + 8;
-  const words = text.split(' ');
-  return {
-    smiley: { x: x0, y: (tex.h - 7 * cell) / 2, cell },
-    lines: words.map((w, i) => ({ text: w, x: tx, y: (i === 0 ? 0.46 : 0.88) * tex.h, size: fit(w, tx, limit, measure, tex.h / 0.75 * 0.4) })),
-  };
+export function thanksLayout(text, measure, tex = REAR_TEX) {
+  const cell = 12;
+  return { smiley: { x: (tex.w - 7 * cell) / 2, y: 0.08 * tex.h, cell },
+    text: { x: tex.w / 2, y: 0.94 * tex.h, size: fitWidth(text, 0.92 * tex.w, 0.26 * tex.h, measure) } };
+}
+// +x is forward (tools/prepare-bus.mjs:12): triangles within tol m of the most negative x are the rear quad
+export function splitRearTriangles(pos, index, tol = 0.1) {
+  let minX = Infinity;
+  for (let i = 0; i < pos.length; i += 3) minX = Math.min(minX, pos[i]);
+  const rear = [], rest = [];
+  for (let t = 0; t < index.length; t += 3) {
+    const tri = [index[t], index[t + 1], index[t + 2]];
+    (tri.every((v) => pos[3 * v] <= minX + tol) ? rear : rest).push(...tri);
+  }
+  return { rear, rest };
+}
+// scales these vertices' UVs to 0..1 in place
+export function normalizeUv(uv, vertices) {
+  const ids = [...new Set(vertices)], us = ids.map((i) => uv[2 * i]), vs = ids.map((i) => uv[2 * i + 1]);
+  const u0 = Math.min(...us), v0 = Math.min(...vs), du = Math.max(...us) - u0 || 1, dv = Math.max(...vs) - v0 || 1;
+  for (const i of ids) { uv[2 * i] = (uv[2 * i] - u0) / du; uv[2 * i + 1] = (uv[2 * i + 1] - v0) / dv; }
 }
 ```
 
-Note: `fit` starts at `0.75 * h`, so passing `tex.h / 0.75 * 0.4` gives a start size of 0.4 * tex.h (about 51 px).
-Run `node --test tests/busdisplay.test.mjs`.
-
 ## Task 2: postauto.js decision (tests/postauto.test.mjs)
 
-Failing tests first (add `thankDue, markThanked` to the existing import from `../postauto.js`, and `routeLaneOffset` to the
-`../route.js` import). Fixture `R` (route along z = 0, x east) already exists in the file:
+Failing tests first (add `thankDue, markThanked` to the `../postauto.js` import and `routeLaneOffset` to the `../route.js`
+import; fixture `R`, a route along z = 0, x east, exists in the file):
 
 ```js
 const lane = (s) => routeLaneOffset(R, s);
 const dep = (over = {}) => ({ phase: 'drive', route: R, s: 105, leftAt: 100, shift: 0, ...over });
 const behind = (back, v = 0, dz = 0) => ({ x: 105 - back, z: lane(105 - back) + dz, v, r: 1 });
-test('thankDue_PlayerWaitsBehind_True', () => assert.equal(thankDue(dep(), 102, behind(25)), true));
-test('thankDue_PlayerOvertakesBeside_False', () => assert.equal(thankDue(dep(), 102, behind(2)), false));
-test('thankDue_PlayerAhead_False', () => assert.equal(thankDue(dep(), 102, behind(-20)), false));
-test('thankDue_PlayerFar_False', () => assert.equal(thankDue(dep(), 102, behind(60)), false));
-test('thankDue_PlayerFast_False', () => assert.equal(thankDue(dep(), 102, behind(25, 12)), false));
-test('thankDue_PlayerInOtherLane_False', () => assert.equal(thankDue(dep(), 102, behind(25, 0, 5)), false));
-test('thankDue_LongAfterDeparture_False', () => assert.equal(thankDue(dep(), 111, behind(25)), false));
-test('thankDue_BusPlacedWhileDriving_False', () => assert.equal(thankDue(dep({ leftAt: -Infinity }), 102, behind(25)), false));
-test('thankDue_BusStanding_False', () => assert.equal(thankDue(dep({ phase: 'stand' }), 102, behind(25)), false));
+const CASES = [['PlayerWaitsBehind', dep(), 102, behind(25), true], ['PlayerOvertakesBeside', dep(), 102, behind(2), false],
+  ['PlayerAhead', dep(), 102, behind(-20), false], ['PlayerFar', dep(), 102, behind(60), false],
+  ['PlayerFast', dep(), 102, behind(25, 12), false], ['PlayerInOtherLane', dep(), 102, behind(25, 0, 5), false],
+  ['LongAfterDeparture', dep(), 111, behind(25), false], ['BusPlacedWhileDriving', dep({ leftAt: -Infinity }), 102, behind(25), false],
+  ['BusStanding', dep({ phase: 'stand' }), 102, behind(25), false]];
+for (const [name, b, t, player, want] of CASES) test(`thankDue_${name}_${want}`, () => assert.equal(thankDue(b, t, player), want));
 test('markThanked_OncePerDeparture_ThenAgainAfterNextDeparture', () => {
   const b = dep();
   markThanked(b, 102);
@@ -74,13 +104,10 @@ test('markThanked_OncePerDeparture_ThenAgainAfterNextDeparture', () => {
 });
 ```
 
-Implement in `postauto.js`. Add to `PA`: `thankBehind: 40, thankLane: 2.5, thankKmh: 20, thankWindow: 10, thankSecs: 4,` (a
-line `// #800`). Add after `obstacleGap`:
+Implement in `postauto.js`. In `PA` add a line `thankBehind: 40, thankLane: 2.5, thankKmh: 20, thankWindow: 10, thankSecs: 4,   // #800`. After `obstacleGap`:
 
 ```js
-// #800: should the bus thank the player at fleet time t? He waits behind the bus that just left a stop: 6..40 m behind its
-// centre, in its lane, slow. `thankedAt` remembers the departure (leftAt) already thanked. player { x, z, v, r }.
-// trackRoute only scans 10 m behind its seed, so it is seeded thankBehind / 2 back.
+// #800: does the player (x, z, v) wait behind the bus that just left a stop? trackRoute scans only 10 m behind its seed, hence the offset
 export function thankDue(b, t, player, cfg = PA) {
   if (b.phase !== 'drive' || b.thankedAt === b.leftAt || !(t - b.leftAt < cfg.thankWindow)) return false;
   if (player.v > cfg.thankKmh / 3.6) return false;
@@ -91,49 +118,95 @@ export function thankDue(b, t, player, cfg = PA) {
 export function markThanked(b, t, cfg = PA) { b.thankedAt = b.leftAt; b.thanksUntil = t + cfg.thankSecs; }
 ```
 
-Run `node --test tests/postauto.test.mjs`.
 
 ## Task 3: strings.js
 
-Add `paThanks: 'Thank you!'` to `en` and `paThanks: 'Vielen Dank!'` to `de` (next to the `dbgPa*` keys, comment `// #800`).
-Run `node --test tests/strings.test.mjs`.
+Add `paThanks: 'Thank you!'` to `en` and `paThanks: 'Vielen Dank!'` to `de`, next to the `dbgPa*` keys (comment `// #800`).
 
-## Task 4: index.html wiring (no new test file; covered by Task 5)
+## Task 4: index.html wiring (covered by Task 5)
 
-1. Import: `import { DISPLAY_TEX, displayLayout, thanksLayout, SMILEY } from './busdisplay.js';` and add `thankDue, markThanked` to the `./postauto.js` import (line ~787).
-2. `displayTexture({ line, dest, thanks })`: after drawing line and dest, when `thanks` is set (not null):
-
-```js
-    if (thanks) {
-      const tl = thanksLayout(thanks, measure), rear = 0.22 * w;
-      g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, rear, h);   // wipe the line number; the destination (u > 0.254) stays
-      g.fillStyle = '#ff9a1a';
-      SMILEY.forEach((row, r) => [...row].forEach((c, q) => { if (c === '#') { g.beginPath(); g.arc(tl.smiley.x + (q + 0.5) * tl.smiley.cell, tl.smiley.y + (r + 0.5) * tl.smiley.cell, tl.smiley.cell * 0.4, 0, 7); g.fill(); } }));
-      for (const ln of tl.lines) { g.font = `700 ${ln.size}px "Barlow Condensed", sans-serif`; g.fillText(ln.text, ln.x, ln.y); }
-    }
-```
-
-3. `repaintBusLed(g, trip, thanks = null)`: `const text = { ...ledText(trip), thanks };` and compare `g.userData.led.thanks === text.thanks` too in the early return. Callers: `buildPostautoMesh` keeps `repaintBusLed(g, trip)`; `drawPostauto` becomes `repaintBusLed(g, b.trip, thanksText(b))` where `const thanksText = (b) => (b.thanksUntil > postautoClock() + b.shift ? tr('paThanks') : null);` (define next to `drawPostauto`; for a new mesh the first frame is repainted on the next call, which is fine).
-4. In `stepPostauto`, `player` gets the speed: `const player = { x: P.x, z: P.z, v: Math.hypot(P.vx, P.vz), r: ... }`, and after the `stepBus` loop, before `if (b.phase === 'done') continue;`:
+1. Imports: `import { DISPLAY_TEX, displayLayout, REAR_TEX, SMILEY, rearLayout, thanksLayout, splitRearTriangles, normalizeUv } from './busdisplay.js';` and add `thankDue, markThanked` to the `./postauto.js` import (line ~787).
+2. Next to `displayTexture` (line ~4205), add:
 
 ```js
-    if (surface && thankDue(b, now + b.shift, player)) markThanked(b, now + b.shift);
+function rearTexture({ line, thanks }) {
+  const tex = makeTex(REAR_TEX.w, REAR_TEX.h, (g, w, h) => {
+    g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ff9a1a'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    const measure = (s, size) => { g.font = `700 ${size}px "Barlow Condensed", sans-serif`; return g.measureText(s).width; };
+    if (!thanks) { const l = rearLayout(line, measure); g.font = `700 ${l.size}px "Barlow Condensed", sans-serif`; g.fillText(line, l.x, l.y); return; }
+    const l = thanksLayout(thanks, measure);
+    SMILEY.forEach((row, r) => [...row].forEach((c, q) => {
+      if (c !== '#') return;
+      g.beginPath(); g.arc(l.smiley.x + (q + 0.5) * l.smiley.cell, l.smiley.y + (r + 0.5) * l.smiley.cell, l.smiley.cell * 0.4, 0, 7); g.fill();
+    }));
+    g.font = `700 ${l.text.size}px "Barlow Condensed", sans-serif`; g.fillText(thanks, l.text.x, l.text.y);
+  });
+  tex.flipY = false;
+  return tex;
+}
 ```
 
-(`now` is the fleet clock at frame end; `now + b.shift` is the bus's own time, as `stepBus` uses.)
-Run `node --test tests/*.test.mjs`.
+3. Replace `paintBusDisplay` (and its comment) by the functions below. The Display mesh gets, on its first paint, its own
+   geometry copy with two groups and a material array `[front/side, rear]`; the cached glTF stays untouched.
 
-## Task 5: Playwright (tests/test_postauto_thanks.py, foreground, only this file)
+```js
+const displayMeshes = (root) => { const out = []; root.traverse((o) => { if (o.isMesh && (Array.isArray(o.material) ? o.material[0] : o.material)?.userData?.overGlass) out.push(o); }); return out; };
+// #800 (A9): own geometry copy, rear quad = group 1; false when none found
+function splitDisplayRear(o) {
+  const geo = o.geometry.clone(), uv = geo.attributes.uv, count = geo.attributes.position.count;
+  const index = geo.index ? Array.from(geo.index.array) : Array.from({ length: count }, (_, i) => i);
+  const { rear, rest } = splitRearTriangles(geo.attributes.position.array, index);
+  const shared = rear.some((v) => rest.includes(v));
+  if (!rear.length || !uv || shared) { geo.dispose(); console.warn('Postauto Display: no separable rear quad, no thank-you on the rear'); return false; }
+  normalizeUv(uv.array, rear);
+  geo.setIndex([...rest, ...rear]); geo.clearGroups(); geo.addGroup(0, rest.length, 0); geo.addGroup(rest.length, rear.length, 1);
+  o.geometry = geo; o.userData.sharedGeo = false;   // freed by disposePostautoMesh
+  return true;
+}
+function ownDisplayMaterials(o) {
+  if (!o.userData.ownDisplay) {
+    const base = o.material, split = splitDisplayRear(o), front = base.clone(), rear = split ? base.clone() : null;
+    for (const m of [front, rear]) if (m) m.map = m.emissiveMap = null;   // never dispose the shared map
+    o.material = rear ? [front, rear] : front; o.userData.ownDisplay = true;
+  }
+  return Array.isArray(o.material) ? { front: o.material[0], rear: o.material[1] } : { front: o.material, rear: null };
+}
+function setDisplayMap(m, tex) { m.map?.dispose(); m.map = m.emissiveMap = tex; }
+function paintFront(root, text) { const meshes = displayMeshes(root); for (const o of meshes) setDisplayMap(ownDisplayMaterials(o).front, displayTexture(text)); return meshes.length; }
+function paintRear(root, text) { for (const o of displayMeshes(root)) { const { rear } = ownDisplayMaterials(o); if (rear) setDisplayMap(rear, rearTexture(text)); } }
+```
 
-Reuse the stepped clock helpers: `from test_bus_stops import open_paused, set_fleet_clock, hhmm, TT, needs_data, RUETTI`
-(if tests are not importable as modules, copy the three small helpers as `test_postauto_143.py` does). Test:
-`test_waiting_behind_a_departing_bus_shows_thanks_then_returns`. Flow: read the earliest `RUETTI` call `arr` like the
-existing test, `set_fleet_clock(page, hhmm(arr - 60), 60)`, step `page.clock.run_for(250)` until a bus has `phase == "stand"`
-at that stop; place the player 15 m behind it: `page.evaluate("([x,z,th]) => window.__mm.place(x,z,th)", [bus.x - 15*cos(th), bus.z - 15*sin(th), th])`;
-keep stepping until `bus["led"]["thanks"]` is truthy (max 60 frames); assert it equals `"Thank you!"` (page locale en-US); then
-step up to 30 more frames and assert `led["thanks"]` is `None` and `led["line"]` is unchanged; assert no page errors.
-Commit and push before running it; the test needs ~2 min.
+4. `repaintBusLed(g, trip, thanks = null)` becomes:
+
+```js
+function repaintBusLed(g, trip, thanks = null) {
+  const text = { ...ledText(trip), thanks }, prev = g.userData.led;
+  const frontSame = !!prev && prev.line === text.line && prev.dest === text.dest;
+  if (frontSame && prev.thanks === text.thanks) return;
+  console.info(`Painting line ${text.line} to ${text.dest}${thanks ? ' with the thank-you' : ''} onto the bus display`);
+  if (!frontSame && paintFront(g.userData.root, text) === 0) console.warn('Postauto model has no Display material: no line/destination shown');
+  paintRear(g.userData.root, text);
+  g.userData.led = text;
+}
+```
+
+   `buildPostautoMesh` keeps its call. In `drawPostauto` use `else repaintBusLed(g, b.trip, b.thanksUntil > postautoClock() + b.shift ? tr('paThanks') : null);`.
+5. `stepPostauto`: `player` gets `v: Math.hypot(P.vx, P.vz)`; after the `stepBus` loop, before `if (b.phase === 'done') continue;` add `if (surface && thankDue(b, now + b.shift, player)) markThanked(b, now + b.shift);`.
+6. `__mm.postautoDisplay` (line ~4822): `const m = displays[0]?.material;` becomes `const mat = displays[0]?.material, m = Array.isArray(mat) ? mat[0] : mat;` and the returned object gains `frontMap: m?.map?.uuid ?? null, rearMap: Array.isArray(mat) ? mat[1].map?.uuid ?? null : null, split: Array.isArray(mat)`. The existing `displays === 1`, `own`, `ownMap`, `flipY` fields then describe the front material as before.
+
+Run `node --test tests/*.test.mjs` after each task.
+
+## Task 5: Playwright (tests/test_postauto_thanks.py, foreground, only this file and tests/test_postauto.py)
+
+Reuse `open_paused`, `set_fleet_clock`, `hhmm`, `TT`, `needs_data`, `RUETTI` from `test_bus_stops.py` (copy them if the import fails).
+Test `test_waiting_behind_a_departing_bus_thanks_on_the_rear_only`: as in the existing Rütti test (earliest `arr`,
+`set_fleet_clock(page, hhmm(arr - 60), 60)`, `page.clock.run_for(250)` until a bus has `phase == "stand"` there). Read
+`postautoDisplay()` for its key: `split` is true; keep `frontMap`, `rearMap`. `window.__mm.place(x - 15*cos(th), z - 15*sin(th), th)`
+puts the player behind it. Step until `postauto().buses[].led.thanks` is truthy (max 60 frames): it equals `"Thank you!"` (en-US),
+`rearMap` changed, `frontMap` did not. Step up to 30 more frames: `led.thanks` is None, `frontMap` unchanged. No page errors.
+Commit and push before running (about 2 min).
 
 ## Task 6: CHANGELOG.md
 
-Under `[Unreleased]` add, in the player's voice: "Postautos bedanken sich: Wartest Du hinter einem Postauto, das gerade von der Haltestelle losfährt, zeigt seine Anzeige für vier Sekunden einen Smiley und «Vielen Dank!»."
+Under `[Unreleased]` add: "Postautos bedanken sich: Wartest Du hinter einem Postauto, das gerade von der Haltestelle losfährt, zeigt seine Heckanzeige für vier Sekunden einen Smiley und «Vielen Dank!»."
