@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-10 10:02` In the hideout's **ring 2**, the room next to the USS Enterprise now holds the **Space Shuttle Enterprise** in **launch position**: the orbiter upright on its white external tank between the two boosters, on the launch platform, life size (56 m), as it stood on Launch Pad 39A in 1979.
+
 - `2026-11-10 09:49` **Rhyflitzer FM** plays two more tracks in the spirit of 80s West Coast soft rock: **„The 1980s Soft Rock Groove" by Michael-Vault** and **„Melrose Place Soft Rock" by DigiCompo**. <kbd>8</kbd> skips to them after the four tracks so far; About → Credits names them.
 - `2026-11-09 19:58` <kbd>J</kbd> now reaches **every village** in the world, from Wallbach and Mumpf to Frick and Murg, with the **Bahnhof Frick**, Mumpf and Murg; the villages are split into a **CH** and a **DE** row, and each entry says which side of the Rhine it is on.
 - `2026-11-09 15:37` At the **DSM car park** in Sisseln every vehicle now stands in a **vehicle depot**: drive or walk up to one and press <kbd>E</kbd> to drive on in it. Find it with <kbd>J</kbd> → *Fahrzeug-Depot*.

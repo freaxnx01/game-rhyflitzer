@@ -7,9 +7,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ARTEMIS, rocketParts, capsuleParts } from './artemis.js';
 
 // one merged mesh per colour: the parts of `parts` in the group's own frame, plus `extra` geometries per colour key
-function partsGroup(parts, extra = {}) {
+// (#811: shared with shuttlemesh.js, which passes its own role)
+export function partsGroup(parts, extra = {}, role = 'artemis') {
   const group = new THREE.Group(), byColour = {};
-  const add = (colour, g) => (byColour[colour] ||= []).push(g.toNonIndexed());
+  const add = (colour, g) => (byColour[colour] ||= []).push(g.index ? g.toNonIndexed() : g);   // #811: extruded shapes come non-indexed
   for (const p of parts) {
     const g = new THREE.CylinderGeometry(p.r1, p.r0, p.y1 - p.y0, 32);   // three's radiusTop first
     g.translate(p.x, (p.y0 + p.y1) / 2, p.z);
@@ -18,7 +19,7 @@ function partsGroup(parts, extra = {}) {
   for (const [colour, geos] of Object.entries(extra)) for (const g of geos) add(colour, g);
   for (const [colour, geos] of Object.entries(byColour)) {
     const m = new THREE.Mesh(mergeGeometries(geos, false), new THREE.MeshLambertMaterial({ color: Number(colour) }));
-    m.userData.role = 'artemis'; group.add(m);
+    m.userData.role = role; group.add(m);
   }
   return group;
 }
