@@ -351,7 +351,7 @@ table.ttgrid button{font:inherit;color:#f5efe0;background:none;border:2px solid 
 #mp input,#mp textarea{font:inherit;font-size:16px;width:100%;box-sizing:border-box;color:#fff;background:rgba(10,12,16,.6);border:3px solid;border-color:var(--ink) var(--steel-l) var(--steel-l) var(--ink);padding:6px 8px}
 #mp textarea{resize:vertical;word-break:break-all;line-height:1.25}
 #mp input:focus-visible,#mp textarea:focus-visible{outline:none;border-color:var(--sun)}
-.mp-roles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mp-roles{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mp-roles[hidden]{display:none}
 #mpclock{font-size:15px;font-weight:700;color:var(--sun);text-transform:none;letter-spacing:0}
 #mpstatus,#mplobbystatus{margin:0;font-size:16px;font-weight:700;min-height:1.2em}
 #mpstatus.bad,#mplobbystatus.bad{color:#ff9d7a}
@@ -362,7 +362,7 @@ table.ttgrid button{font:inherit;color:#f5efe0;background:none;border:2px solid 
 .mp-row em{font-style:normal;font-size:15px;font-weight:600;color:var(--steel-l);grid-column:1/-1}
 .mp-row .mp-flag{font-size:15px;font-weight:700;color:var(--steel-l)}
 .mp-row.ready .mp-flag{color:#8fd8e8}
-.mp-class{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.mp-class{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.mp-class[hidden]{display:none}
 #mpclassbtns{display:flex;gap:6px;flex-wrap:wrap}
 #mpclassbtns button{font:inherit;font-size:16px;font-weight:700;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 9px;cursor:pointer}
 #mpclassbtns button[aria-pressed=true]{border-color:var(--sun);color:var(--sun);background:rgba(255,198,26,.12)}
@@ -5952,6 +5952,7 @@ if (REGION.generated) $('mpbtn').hidden = true;
   if (parked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = parked; $('mpmake').focus(); }
 }
 window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [] });
+window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
 // materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
