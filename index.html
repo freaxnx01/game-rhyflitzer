@@ -4173,7 +4173,6 @@ const RADIO = (() => {
       if (watch && !S.held && srfVerdict(watch, now()) === 'fail') fail();
     },
     armMenu() { if (S.menuArmed) return; S.menuArmed = true; apply(); },   // the first input after loading: only now is the menu track fetched
-    on: () => S.on,
     menuOn: () => S.menuOn,
     state() {
       const p = (n) => !!els[n] && !els[n].el.paused, src = (n) => (els[n] && els[n].el.getAttribute('src')) || null;
@@ -4962,6 +4961,7 @@ window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the 
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
 window.__mm.radio = () => RADIO.state();   // #735
+window.__mm.sfxGraph = () => SFX.graph();   // #842: the hub (graph().master) and the effects bus (ac.master), read-only, for the tests
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
 window.__mm.sfxCrashes = () => SFX.crashes();

@@ -7,8 +7,8 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
 
 
-def boot(p, server, locale="en-US", viewport=(1280, 720)):
-    b = p.chromium.launch(args=ARGS)
+def boot(p, server, locale="en-US", viewport=(1280, 720), args=ARGS):
+    b = p.chromium.launch(args=args)
     ctx = b.new_context(viewport={"width": viewport[0], "height": viewport[1]}, locale=locale)
     page = ctx.new_page()
     errors = []
@@ -64,6 +64,39 @@ def test_m_and_the_dialog_share_the_sound_switch(server):
     assert on == {"on": True, "vol": 10}, on
     assert slid == {"sound": {"on": True, "vol": 4}, "pct": "Volume 40 %", "ls": {"on": "1", "vol": "4"}}, slid
     assert kept == {"on": True, "vol": 4}, kept
+    assert errors == []
+
+
+def test_m_mutes_only_the_effects_the_music_keeps_playing(server):
+    """The headline of #842: M closes the effects bus only; the menu music keeps flowing to the hub. The taps are
+    real, not state: one AnalyserNode on the hub (graph().master, where the radio routes its <audio> elements) and
+    the effects bus gain (ac.master, what M zeroes). playing.menu stays true even if the radio were rewired into
+    the effects bus -- only the taps would notice the music going silent with it."""
+    tap = """async () => {
+      const g = window.__mm.sfxGraph();
+      if (!window.__tap) {
+        const a = g.ac.createAnalyser(); a.fftSize = 2048; g.master.connect(a); window.__tap = a;
+      }
+      const peak = (an) => { const d = new Float32Array(an.fftSize); an.getFloatTimeDomainData(d);
+        return d.reduce((p, v) => Math.max(p, Math.abs(v)), 0); };
+      let hub = 0;
+      for (let i = 0; i < 12; i++) { await new Promise(r => setTimeout(r, 120)); hub = Math.max(hub, peak(window.__tap)); }
+      return { distinct: g.master !== g.ac.master, effGain: g.ac.master.gain.value, hub,
+               muted: window.__mm.audio().muted, music: window.__mm.radio().playing.menu };
+    }"""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, args=ARGS + ["--autoplay-policy=no-user-gesture-required"])
+        page.keyboard.press("Shift")                                 # any first input arms the menu music (#735)
+        page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=120000)
+        before = page.evaluate(tap)
+        page.keyboard.press("KeyM")
+        after = page.evaluate(tap)
+        b.close()
+    assert before["distinct"] is True and before["effGain"] == 1, before   # the hub and the effects bus are two nodes, the bus open
+    assert before["hub"] > 1e-3, before                            # the music really flows through the hub
+    assert after["effGain"] == 0 and after["muted"] is True, after  # M closed the effects bus
+    assert after["music"] is True, after                           # ...and the music element keeps playing
+    assert after["hub"] > 1e-3, after                               # its samples still reach the hub past the closed bus
     assert errors == []
 
 
