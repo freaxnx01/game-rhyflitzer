@@ -8,7 +8,7 @@ OSM way 171822707) the blue house-number plate floats in front of the building.
 ## Measured cause
 
 Measured in node: the chapel GLB (Draco, decoded with `draco3d` in a temp dir), moved by `chLandmarksFor`'s offset
-(`chlandmarks.js:17`, `landmarkOffset`: x +218.654, z -212.919, no scale, no rotation), against the OSM ring in
+(`chlandmarks.js:14`, `landmarkOffset`: x +218.654, z -212.919, no scale, no rotation), against the OSM ring in
 `data/world_hochrhein.json` and the plate `addrLabels` (`world.js:580`) computes with `nearestRoadPoint`'s rule
 (`index.html:2637`).
 
