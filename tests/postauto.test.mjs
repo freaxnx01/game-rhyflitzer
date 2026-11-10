@@ -418,17 +418,17 @@ test('stepBus_StopWithinTwoMetresOfRouteEnd_StillArrives', () => {
   assert.ok(log.some((x) => x.k === 1 && x.phase === 'stand' && x.s === 499.7));
 });
 
-// #796: the weekday timetable has trips of two lines inside the map at the same time (133 runs in the peaks, 143 all day)
+// #796: the weekday timetable has trips of several lines inside the map at the same time (133 runs in the peaks; 134, 143 all day; 135 since #808)
 const REAL_WORLD = new URL('../data/world_hochrhein.json', import.meta.url);
 const REAL_TT = new URL('../data/timetable_hochrhein.json', import.meta.url);
 const linesAt = (routes, trips, hhmm) => {
   const [h, m] = hhmm.split(':').map(Number);
   return [...new Set(syncFleet([], trips, routes, h * 3600 + m * 60).filter((b) => b.phase !== 'done').map((b) => b.trip.line))].sort();
 };
-test('realData_PeakHour_TwoLinesOnTheRoadAtOnce', { skip: !fs.existsSync(REAL_WORLD) || !fs.existsSync(REAL_TT) }, () => {
+test('realData_PeakAndNoon_SeveralLinesOnTheRoadAtOnce', { skip: !fs.existsSync(REAL_WORLD) || !fs.existsSync(REAL_TT) }, () => {
   const L = JSON.parse(fs.readFileSync(REAL_WORLD, 'utf8')), tt = JSON.parse(fs.readFileSync(REAL_TT, 'utf8'));
   const G = buildGraph(L.roads), routes = new Map(L.busRoutes.map((br) => [br.id, busRoute(br, L.roads, G)]));
-  assert.deepEqual(linesAt(routes, tt.trips, '07:00'), ['133', '143']);
-  assert.deepEqual(linesAt(routes, tt.trips, '16:30'), ['133', '143']);
-  assert.deepEqual(linesAt(routes, tt.trips, '12:00'), ['143']);   // 133 has no trip in the map between 09:18 and 14:43
+  assert.deepEqual(linesAt(routes, tt.trips, '07:00'), ['133', '134', '143']);
+  assert.deepEqual(linesAt(routes, tt.trips, '16:30'), ['133', '134', '143']);
+  assert.deepEqual(linesAt(routes, tt.trips, '12:00'), ['134', '135', '143']);   // 133 has no trip in the map between 09:18 and 14:43
 });
