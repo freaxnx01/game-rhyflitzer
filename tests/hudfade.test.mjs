@@ -95,13 +95,14 @@ test('keybarPhase_ThirtySecondsPerContext_NewSignatureRestarts', () => {
   assert.equal(keybarPhase(k, 'true|foot|enter|en', 60), 'awake');  // a door's E action is a new context too
 });
 
-test('visibleInMode_MirrorsTheCruiseAndTutorialCss', () => {
+test('visibleInMode_MirrorsTheCruiseTutorialAndViewCss', () => {
   for (const id of ['tr', 'best', 'cps', 'pips', 'arrow', 'dist', 'cpname']) assert.equal(visibleInMode(id, 'cruise'), false, id);
   for (const id of ['tl', 'roadname', 'watername', 'gearplate', 'dmgplate', 'tripplate', 'keybar', 'br', 'speedo']) assert.equal(visibleInMode(id, 'cruise'), true, id);
-  assert.equal(visibleInMode('tr', 'tutorial'), false);
-  assert.equal(visibleInMode('best', 'tutorial'), false);
+  for (const m of ['tutorial', 'view']) { assert.equal(visibleInMode('tr', m), false, m); assert.equal(visibleInMode('best', m), false, m); }
   assert.equal(visibleInMode('arrow', 'tutorial'), true);
-  for (const m of ['trial', 'blitz', 'hunt', 'view']) for (const id of ['tr', 'best', 'pips', 'arrow', 'tl']) assert.equal(visibleInMode(id, m), true, `${m} ${id}`);
+  assert.equal(visibleInMode('pips', 'view'), true);
+  assert.equal(visibleInMode('arrow', 'view'), true);
+  for (const m of ['trial', 'blitz', 'hunt']) for (const id of ['tr', 'best', 'pips', 'arrow', 'tl']) assert.equal(visibleInMode(id, m), true, `${m} ${id}`);
 });
 
 test('headingText_RoundsAndNamesTheEightPoints_WithTheEastLetter', () => {
