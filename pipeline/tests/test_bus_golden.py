@@ -48,6 +48,25 @@ def test_line_143_routes_leave_the_map_east(routes):
     assert back["stops"][0]["uic"] == "8572416" and back["stops"][-1]["uic"] == "8572748"
 
 
+def test_line_134_stays_inside_the_map(routes):
+    r134 = {i: r for i, r in routes.items() if r["line"] == "134"}
+    assert sorted(r134) == [9093370, 11530930]
+    for r in r134.values():
+        assert r["cut"] == [False, False] and 8000 < r["len"] < 9500 and len(r["stops"]) == 13
+    assert routes[9093370]["stops"][0]["uic"] == "8572748" and routes[11530930]["stops"][0]["uic"] == "8500583"
+
+
+def test_line_135_leaves_the_map_east_of_frick(routes):
+    r135 = {i: r for i, r in routes.items() if r["line"] == "135"}
+    assert sorted(r135) == [367215, 10888046, 10888047, 10888048, 20345371, 20345372]
+    for i in (367215, 10888047, 20345371):               # Frick Bahnhof, out of the map (Aarau, Laufenburg)
+        assert r135[i]["cut"] == [False, True] and r135[i]["stops"][0]["uic"] == "8500583"
+    for i in (10888046, 10888048, 20345372):             # into the map, ending at Frick Bahnhof
+        assert r135[i]["cut"] == [True, False] and r135[i]["stops"][-1]["uic"] == "8500583"
+    assert all(len(r["stops"]) in (3, 4) and r["len"] < 2500 for r in r135.values())
+    assert all(len(r["stops"]) >= 2 for r in routes.values())     # servable (#808)
+
+
 def test_line_133_stops_at_the_right_kerb(routes):
     for r in routes.values():
         line = shapely.LineString(r["pts"])
@@ -75,6 +94,17 @@ def test_timetable_matches_the_world():
         assert len(t143) == 83 and dict(Counter(x["route"] for x in t143)) == {11533937: 42, 9093371: 41}
         assert sum(x["fromOutside"] for x in t143) == 42 and sum(x["toOutside"] for x in t143) == 40
         for x in t143:
+            assert all(c[0] in stops[x["route"]] for c in x["calls"])
+            times = [v for c in x["calls"] for v in c[1:]]
+            assert times == sorted(times)
+    for line, counts, out_n, in_n in (("134", {11530930: 28, 9093370: 27}, 0, 0),
+                                      ("135", {367215: 34, 10888046: 31, 10888047: 30, 10888048: 33, 20345371: 4, 20345372: 5}, 68, 69)):
+        own = [x for x in t["trips"] if x["line"] == line]
+        if not own:   # #808: until the data rebuild
+            continue
+        assert dict(Counter(x["route"] for x in own)) == counts
+        assert sum(x["toOutside"] for x in own) == out_n and sum(x["fromOutside"] for x in own) == in_n
+        for x in own:
             assert all(c[0] in stops[x["route"]] for c in x["calls"])
             times = [v for c in x["calls"] for v in c[1:]]
             assert times == sorted(times)
