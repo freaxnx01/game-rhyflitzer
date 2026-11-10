@@ -286,6 +286,7 @@ const en = {
   dbgPaNext: (a) => `next ${a.time} · ${a.line} → ${a.to}`,
   dbgPaBack: 'Back to car',
   dbgPaGone: 'Postauto left the map',
+  paThanks: 'Thank you!',   // #800
   dbgLegend: '<b>car</b> x east, z south, y height, in metres (game frame) · heading in degrees, 0 = north, clockwise<br><b>Swiss</b> LV95 east / north in metres (EPSG:2056)<br><b>GPS</b> WGS84 latitude, longitude in degrees<br><b>nearest</b> bldg &lt;OSM id&gt; · &lt;h&gt; m +&lt;rh&gt; &lt;source&gt; — the building nearest the car. h = wall height up to the eaves, +rh = roof height on top (only when measured). dsm = height measured from swisstopo’s digital surface model (swissSURFACE3D) minus the terrain model, osm = OpenStreetMap height, levels or a default for the building type. 2.5 m is the lowest wall height a measured (dsm) building gets. The same text floats above each roof within 60 m.<br><b>car body</b> length × width × height of the car’s body box in metres<br><b>world</b> width × depth of the drawn map in km, and its area<br>Click the panel to copy all lines.',
   boundsOn: 'Gemeinde boundaries on',
   boundsOff: 'Gemeinde boundaries off',
@@ -941,6 +942,7 @@ const de = {
   dbgPaNext: (a) => `nächste Abfahrt ${a.time} · ${a.line} → ${a.to}`,
   dbgPaBack: 'Zurück zum Auto',
   dbgPaGone: 'Das Postauto hat die Karte verlassen',
+  paThanks: 'Vielen Dank!',   // #800
   dbgLegend: '<b>Auto</b> x Osten, z Süden, y Höhe, in Metern (Spielkoordinaten) · Kurs in Grad, 0 = Norden, im Uhrzeigersinn<br><b>Schweiz</b> LV95 Ost / Nord in Metern (EPSG:2056)<br><b>GPS</b> WGS84 Breite, Länge in Grad<br><b>nächstes</b> bldg &lt;OSM-ID&gt; · &lt;h&gt; m +&lt;rh&gt; &lt;Quelle&gt; — das Gebäude, das dem Auto am nächsten ist. h = Wandhöhe bis zur Traufe, +rh = Dachhöhe darüber (nur wenn gemessen). dsm = digitales Oberflächenmodell (DSM): Höhe gemessen aus dem Oberflächenmodell von swisstopo (swissSURFACE3D) minus Geländemodell, osm = Höhe, Geschosse oder Standardwert je Gebäudetyp aus OpenStreetMap. 2.5 m ist die kleinste Wandhöhe eines gemessenen (dsm) Gebäudes. Derselbe Text schwebt im Umkreis von 60 m über jedem Dach.<br><b>Karosserie</b> Länge × Breite × Höhe der Karosserie in Metern<br><b>Welt</b> Breite × Tiefe der gezeichneten Karte in km, und ihre Fläche<br>Ein Klick aufs Panel kopiert alle Zeilen.',
   boundsOn: 'Gemeindegrenzen an',
   boundsOff: 'Gemeindegrenzen aus',

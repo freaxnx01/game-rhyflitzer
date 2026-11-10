@@ -2,11 +2,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { buildGraph, rightOf } from '../route.js';
+import { buildGraph, rightOf, routeLaneOffset } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
   busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText,
-  driveLine, drivePoint, lanePoint, linkTrips, fleetRuns, placeRun } from '../postauto.js';
+  driveLine, drivePoint, lanePoint, linkTrips, fleetRuns, placeRun, thankDue, markThanked } from '../postauto.js';
 import { fleetSteps } from '../paclock.js';   // #726
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -435,4 +435,24 @@ test('realData_PeakHour_TwoLinesOnTheRoadAtOnce', { skip: !fs.existsSync(REAL_WO
   }
   const noon = linesAt(routes, tt.trips, '12:00');
   assert.ok(noon.length >= 2 && !noon.includes('133'), `12:00: ${noon}`);   // 133 has no trip in the map between 09:18 and 14:43
+});
+
+// #800: does the player wait behind a Postauto that just left a stop?
+const lane = (s) => routeLaneOffset(R, s);
+const dep = (over = {}) => ({ phase: 'drive', route: R, s: 105, leftAt: 100, shift: 0, ...over });
+const behind = (back, v = 0, dz = 0) => ({ x: 105 - back, z: lane(105 - back) + dz, v, r: 1 });
+const CASES = [['PlayerWaitsBehind', dep(), 102, behind(25), true], ['PlayerOvertakesBeside', dep(), 102, behind(2), false],
+  ['PlayerAhead', dep(), 102, behind(-20), false], ['PlayerFar', dep(), 102, behind(60), false],
+  ['PlayerFast', dep(), 102, behind(25, 12), false], ['PlayerInOtherLane', dep(), 102, behind(25, 0, 5), false],
+  ['LongAfterDeparture', dep(), 111, behind(25), false], ['BusPlacedWhileDriving', dep({ leftAt: -Infinity }), 102, behind(25), false],
+  ['BusStanding', dep({ phase: 'stand' }), 102, behind(25), false]];
+for (const [name, b, t, player, want] of CASES) test(`thankDue_${name}_${want}`, () => assert.equal(thankDue(b, t, player), want));
+
+test('markThanked_OncePerDeparture_ThenAgainAfterNextDeparture', () => {
+  const b = dep();
+  markThanked(b, 102);
+  assert.equal(b.thanksUntil, 102 + PA.thankSecs);
+  assert.equal(thankDue(b, 103, behind(25)), false);
+  b.leftAt = 300;
+  assert.equal(thankDue(b, 302, behind(25)), true);
 });

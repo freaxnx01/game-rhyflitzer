@@ -13,6 +13,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-11-10 11:34` At every **PostAuto stop** press <kbd>E</kbd> at the board — on foot or from the car — to see the next **departures** there, with the minutes until each one. From there, or from the pause menu → *Fahrplan*, each line's whole **timetable** opens: all stops of a direction with the next four runs, <kbd>◀</kbd> <kbd>▶</kbd> for earlier and later ones, and a 🚌 where a bus is on its way right now.
 - `2026-11-10 11:19` In the hideout's **ring 2**, the room next to the USS Enterprise now holds the **Space Shuttle Enterprise** in **launch position** on the whole of **Launch Pad 39A**: the orbiter on its orange tank between the two boosters, on the launch platform over the **flame trench** (drive through it, right under the rocket), with the lattice tower, its arms, the swung-back service structure and the water tower, life size.
 - `2026-11-10 11:18` **PostAuto lines 134 and 135** now run too, so more Postautos are on the road at once: **134** from **Frick Bahnhof** through Oeschgen, Eiken and Münchwilen to **Stein-Säckingen Bahnhof** and back; **135** from **Frick Bahnhof** out of the map at the eastern edge towards **Aarau** or **Laufenburg**, and back in. The signs at Frick Bahnhof list **133, 134 and 135**.
+- `2026-11-10 10:18` **Postautos say thank you**: wait behind a Postauto that is just pulling out of a stop, and its **rear display** shows a **smiley** and "Vielen Dank!" ("Thank you!" in English) for four seconds. The front and side displays keep showing line and destination.
 - `2026-11-10 09:49` **Rhyflitzer FM** plays two more tracks in the spirit of 80s West Coast soft rock: **„The 1980s Soft Rock Groove" by Michael-Vault** and **„Melrose Place Soft Rock" by DigiCompo**. <kbd>8</kbd> skips to them after the four tracks so far; About → Credits names them.
 - `2026-11-09 19:58` <kbd>J</kbd> now reaches **every village** in the world, from Wallbach and Mumpf to Frick and Murg, with the **Bahnhof Frick**, Mumpf and Murg; the villages are split into a **CH** and a **DE** row, and each entry says which side of the Rhine it is on.
 - `2026-11-09 15:37` At the **DSM car park** in Sisseln every vehicle now stands in a **vehicle depot**: drive or walk up to one and press <kbd>E</kbd> to drive on in it. Find it with <kbd>J</kbd> → *Fahrzeug-Depot*.
@@ -25,7 +26,11 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-10 15:39` **Change vehicle** from the pause menu after a **rollover** or a **wreck** now shows the car **upright** with all its **wheels** on the stage, instead of lying on its side with the wheels beside it.
+
 - `2026-11-10 15:36` The **house number** no longer floats in the air in front of the **Fridolinskapelle** in Sisseln: the churches drawn from the real 3D models (the chapel and the Catholic church in Stein) carry no number plate any more.
+
+- `2026-11-10 15:34` The **woods** are **denser inside**: the interior of a forest now carries about five times as many trees as before, so from the helicopter the wood reads as a closed canopy instead of a thin edge around bare ground.
 
 - `2026-11-10 11:25` The **PostAuto stop signs** read correctly now: the **stop name** and the **line rows** were mirrored when you drove past, and the back of the sign is printed the right way round too.
 
