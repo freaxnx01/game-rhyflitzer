@@ -418,7 +418,7 @@ test('stepBus_StopWithinTwoMetresOfRouteEnd_StillArrives', () => {
   assert.ok(log.some((x) => x.k === 1 && x.phase === 'stand' && x.s === 499.7));
 });
 
-// #796: the weekday timetable has trips of two lines inside the map at the same time (133 runs in the peaks, 143 all day)
+// #796: the weekday timetable has trips of several lines inside the map at the same time (133 runs in the peaks only)
 const REAL_WORLD = new URL('../data/world_hochrhein.json', import.meta.url);
 const REAL_TT = new URL('../data/timetable_hochrhein.json', import.meta.url);
 const linesAt = (routes, trips, hhmm) => {
@@ -428,7 +428,11 @@ const linesAt = (routes, trips, hhmm) => {
 test('realData_PeakHour_TwoLinesOnTheRoadAtOnce', { skip: !fs.existsSync(REAL_WORLD) || !fs.existsSync(REAL_TT) }, () => {
   const L = JSON.parse(fs.readFileSync(REAL_WORLD, 'utf8')), tt = JSON.parse(fs.readFileSync(REAL_TT, 'utf8'));
   const G = buildGraph(L.roads), routes = new Map(L.busRoutes.map((br) => [br.id, busRoute(br, L.roads, G)]));
-  assert.deepEqual(linesAt(routes, tt.trips, '07:00'), ['133', '143']);
-  assert.deepEqual(linesAt(routes, tt.trips, '16:30'), ['133', '143']);
-  assert.deepEqual(linesAt(routes, tt.trips, '12:00'), ['143']);   // 133 has no trip in the map between 09:18 and 14:43
+  // line-agnostic (#808 added 134 and 135): the peaks have 133 among several lines, midday several lines without 133
+  for (const hhmm of ['07:00', '16:30']) {
+    const at = linesAt(routes, tt.trips, hhmm);
+    assert.ok(at.length >= 2 && at.includes('133'), `${hhmm}: ${at}`);
+  }
+  const noon = linesAt(routes, tt.trips, '12:00');
+  assert.ok(noon.length >= 2 && !noon.includes('133'), `12:00: ${noon}`);   // 133 has no trip in the map between 09:18 and 14:43
 });
