@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { REPLACES, landmarkOffset, chLandmarksFor, roofOrWall } from '../chlandmarks.js';
+import { REPLACES, landmarkOffset, chLandmarksFor, roofOrWall, plateBuildings } from '../chlandmarks.js';
 
 const LM = { crs: 'EPSG:2056', e: 2640000, n: 1267000, h: 280 };
 const WORLD = { E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };
@@ -63,4 +63,28 @@ test('roofOrWall_byNormal_roofFacesUpWallsStand', () => {
   assert.equal(roofOrWall(0.4), 'roof');
   assert.equal(roofOrWall(0.1), 'wall');
   assert.equal(roofOrWall(-1), 'wall');
+});
+
+test('plateBuildings_replacedBuilding_isDropped', () => {
+  const B = [{ id: 1, addr: '1' }, { id: 171822707, addr: '6.1' }, { id: 3, addr: '3' }];
+  const replaced = new Map([[171822707, { id: 'fridolinskapelle-sisseln' }]]);
+  assert.deepEqual(plateBuildings(B, replaced).map(b => b.id), [1, 3]);
+});
+
+test('plateBuildings_nothingReplaced_keepsEveryBuildingInOrder', () => {
+  const B = [{ id: 1 }, { id: 2 }];
+  assert.deepEqual(plateBuildings(B, new Map()), B);
+  assert.deepEqual(plateBuildings(B, undefined), B);
+});
+
+test('plateBuildings_realHochrhein_dropsOnlyThePlacedLandmarks', async () => {
+  const fs = await import('node:fs');
+  const world = JSON.parse(fs.readFileSync(new URL('../data/world_hochrhein.json', import.meta.url)));
+  const index = JSON.parse(fs.readFileSync(new URL('../assets/landmarks/index.json', import.meta.url)));
+  const placed = chLandmarksFor(index, 'hochrhein', world.origin, 284);
+  const byOsm = new Map(placed.filter(c => c.osm != null).map(c => [c.osm, c]));
+  const kept = plateBuildings(world.buildings, byOsm);
+  assert.ok(!kept.some(b => b.id === 171822707), 'Fridolinskapelle has no plate');
+  assert.ok(!kept.some(b => b.id === 407386050), 'Kirche Bruder Klaus has no plate');
+  assert.equal(kept.length, world.buildings.length - byOsm.size, 'every other building stays');
 });
