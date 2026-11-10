@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding } from '../plattform.js';
+import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, SLAT, HANDRAIL } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
@@ -192,6 +192,24 @@ test('plattformHopLanding_Up_StandsOnTheDeckBesideTheOpening', () => {
 test('plattformHopLanding_Up_IsInsideTheTutorialViewpoint', () => {   // viewpoints.js: r 6, aboveGround 5
   const l = plattformHopLanding(F, BASE, 'up');
   assert.ok(Math.hypot(l.x - F.x, l.z - F.z) <= 6 && l.y >= BASE + 5);
+});
+
+// #855: the core as single spruce slats -- one per angle, door slats starting at the lintel, the rail range continuing as the parapet
+test('coreSlats_72At5Deg_DoorSlatsStartAtLintel', () => {
+  const s = coreSlats();
+  assert.equal(s.length, 72);
+  assert.ok(s.every((q, i) => near(q.phi, i * 5)));
+  const door = s.filter(q => q.y0 > 0);
+  assert.equal(door.length, 7);   // 345..360 and 0..15 deg, inclusive edges
+  assert.ok(door.every(q => near(q.y0, 2.2)));
+});
+
+test('coreSlats_RailRange_ContinuesToUnderTheHandrail', () => {
+  const s = coreSlats(), top = 5.735 + 1.1 - HANDRAIL.h;
+  const parapet = s.filter(q => near(q.y1, top));
+  assert.equal(parapet.length, 46);   // 230..355 and 0..95
+  assert.ok(s.filter(q => near(q.y1, 5.735)).length === 26);
+  assert.ok(s.find(q => near(q.phi, 100)).y1 === 5.735 && near(s.find(q => near(q.phi, 95)).y1, top));
 });
 
 test('plattformHopLanding_Down_StandsOutsideTheDoorOnTheGround', () => {

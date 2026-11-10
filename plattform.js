@@ -145,3 +145,18 @@ export function plattformYard(frame, P = PLATTFORM) {
   const parking = Array.from({ length: k.n }, (_, i) => rect(k.u1 - (i + 1) * k.w, k.u1 - i * k.w, k.v0, k.v0 + k.d));
   return { gravel: rect(g.u0, g.u1, g.v0, g.v1), parking };
 }
+
+// #855: the core as single spruce slats, one per angle: from the ground (the door lintel inside the door) up to the deck, and
+// inside the rail range (the parapet round the stair opening) on up to the underside of the handrail ring
+export const SLAT = { w: 0.09, d: 0.06 }, HANDRAIL = { h: 0.1, half: 0.07 };
+const inArc = (phi, from, to) => { const a = ((phi - from) % 360 + 360) % 360; return a < to - from; };
+export function coreSlats(P = PLATTFORM, n = 72) {
+  const { core, deck } = P, out = [];
+  for (let i = 0; i < n; i++) {
+    const phi = i * 360 / n, off = ((phi + 180) % 360 + 360) % 360 - 180;
+    const y0 = Math.abs(off) <= core.door.half ? core.door.h : 0;
+    const y1 = inArc(phi, deck.railFrom, deck.railTo) ? deck.y + deck.rail - HANDRAIL.h : deck.y;
+    out.push({ phi, y0, y1 });
+  }
+  return out;
+}
