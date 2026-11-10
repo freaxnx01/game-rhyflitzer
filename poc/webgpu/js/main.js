@@ -18,7 +18,7 @@ import { CameraSystem, CAMERA_PRESETS } from './cameras.js';
 import { LightingSystem } from './lighting.js';
 import { NYCMapSystem } from './nyc-map.js';
 import { setupSceneCulling, updateSceneCulling } from './scene-culling.js';
-import { CityAudioSystem } from './audio-system.js';
+// PoC: no audio in this slice (CityAudioSystem not imported)
 // PoC: WebGPU gate
 import { hasWebGPU } from './poc-gate.js';
 // PoC: T / R look keys
@@ -146,6 +146,10 @@ async function initApp() {
   ], streetDetails.signalIntersections);
   markInit('traffic');
   const highwayTraffic = createHighwayTraffic(scene, cityGrid.highwayLanes);
+  // PoC: car-only slice. Traffic (pedestrians live in its group) and highway traffic stay built for the road network and
+  // road paint, but are hidden and never updated.
+  trafficSystem.group.visible = false;
+  highwayTraffic.group.visible = false;
   await showLoadingStage('Adding road markings...', 'roadPaint');
   buildRoadPaint(scene, trafficSystem.network, cityGrid.roadPaint);
   markInit('roadPaint');
@@ -153,51 +157,14 @@ async function initApp() {
   // 4. Initialize Third-Person Controllers (Person, Car, Cyclist, Helicopter) & Multi-Camera System
   await showLoadingStage('Preparing player, vehicles and controls...', 'controllers');
   const controllerManager = new ThirdPersonControllerManager(scene, allColliders);
-  // Reuse teleport placement so saved players return at rest, close to their last positions.
-  try {
-    const saved = JSON.parse(localStorage.getItem('nyc-player-state'));
-    if (saved?.version === 1) {
-      for (const mode of Object.keys(controllerManager.entities)) {
-        const p = saved.entities?.[mode];
-        if (!p || ![p.x, p.y, p.z, p.heading].every(Number.isFinite)) continue;
-        controllerManager.setMode(mode);
-        controllerManager.teleportActiveTo(p.x, p.z, p.heading, p.y);
-      }
-      controllerManager.setMode(Object.hasOwn(controllerManager.entities, saved.activeMode) ? saved.activeMode : 'car');
-    }
-  } catch { /* Missing or unavailable storage does not prevent playing. */ }
-
-  function savePlayerState() {
-    try {
-      const entities = Object.fromEntries(Object.entries(controllerManager.entities).map(([mode, entity]) => [mode, {
-        x: entity.position.x, y: entity.position.y, z: entity.position.z, heading: entity.heading
-      }]));
-      localStorage.setItem('nyc-player-state', JSON.stringify({ version: 1, activeMode: controllerManager.activeMode, entities }));
-    } catch { /* Storage may be disabled or full. */ }
-  }
+  // PoC: no saved-player restore or save; the car always starts at Times Square.
+  controllerManager.setMode('car');
+  const spawn = TELEPORT_LOCATIONS.timessq;
+  controllerManager.teleportActiveTo(spawn.x, spawn.z, spawn.heading);
 
   const cameraSystem = new CameraSystem(renderer.domElement, controllerManager);
   const touchControls = new TouchControls(controllerManager);
-  const soundButton = document.getElementById('btn-sound');
-  const audioSystem = new CityAudioSystem({ controllerManager, trafficSystem, highwayTraffic, streetDetails }, {
-    onStateChange: updateSoundButton
-  });
-  function updateSoundButton() {
-    if (!soundButton) return;
-    soundButton.disabled = !audioSystem.supported;
-    soundButton.setAttribute('aria-pressed', String(audioSystem.enabled));
-    soundButton.setAttribute('aria-label', audioSystem.enabled ? 'Mute sound' : 'Enable sound');
-    soundButton.title = audioSystem.supported ? `${audioSystem.enabled ? 'Mute' : 'Enable'} sound [N]` : 'Web Audio is unavailable';
-    soundButton.querySelector('use').setAttribute('href', audioSystem.enabled ? '#i-sound' : '#i-sound-off');
-  }
-  soundButton?.addEventListener('click', () => audioSystem.setEnabled(!audioSystem.enabled));
-  updateSoundButton();
-  // pagehide also covers navigation away on mobile; preserve the context across back-forward cache restores.
-  window.addEventListener('pagehide', (event) => {
-    savePlayerState();
-    if (!event.persisted) audioSystem.dispose();
-  });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) savePlayerState(); });
+  // PoC: no audio system, no sound button, no save-on-pagehide
   markInit('controllers');
 
   // Island-wide static geometry: chunk & distance-cull the small props, shadow stand-ins for the big casters
@@ -211,8 +178,7 @@ async function initApp() {
   // Initialize static world matrices once, including the chunks and shadow proxies created above.
   // Crowd, tree and building-detail animation changes instance/pose buffers, not Object3D transforms.
   const dynamicRoots = [
-    trafficSystem.group,
-    highwayTraffic.group,
+    // PoC: traffic groups are hidden and static, so they are not dynamic roots
     scene.getObjectByName('StoreClusteredLights'),
     scene.getObjectByName('StreetClusteredLights'),
     ...Object.values(controllerManager.entities).map((entity) => entity.mesh),
@@ -286,8 +252,7 @@ async function initApp() {
   const elControlsHint = document.getElementById('hud-controls-hint');
   const gamepadControls = new GamepadControls(controllerManager, cameraSystem, {
     onCycleMode: (step) => {
-      const modes = ['person', 'car', 'cyclist', 'helicopter'];
-      selectMode(modes[(modes.indexOf(controllerManager.activeMode) + step + modes.length) % modes.length]);
+      // PoC: mode locked to car, nothing to cycle
     },
     onCycleCamera: cycleCamera,
     onToggleMap: () => mapSystem.toggleFullMap(!mapSystem.isFullMapOpen),
@@ -569,18 +534,7 @@ async function initApp() {
       pocApplyWetness();
     }
     switch (e.code) {
-      case 'Digit1':
-        selectMode('person');
-        break;
-      case 'Digit2':
-        selectMode('car');
-        break;
-      case 'Digit3':
-        selectMode('cyclist');
-        break;
-      case 'Digit4':
-        selectMode('helicopter');
-        break;
+      // PoC: mode keys 1-4 removed, the mode is locked to car
       case 'Digit5':
         selectCamera('chase', true);
         break;
@@ -605,12 +559,7 @@ async function initApp() {
       case 'KeyH':
         if (hudToggleBtn) hudToggleBtn.click();
         break;
-      case 'KeyN':
-        if (!e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) audioSystem.setEnabled(!audioSystem.enabled);
-        break;
-      case 'KeyB':
-        if (!e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && !mapSystem.isFullMapOpen) audioSystem.honk(controllerManager.getActiveEntity());
-        break;
+      // PoC: N (sound) and B (horn) removed with the audio system
     }
   });
 
@@ -642,7 +591,9 @@ async function initApp() {
       pocWet = Boolean(value);
       pocApplyWetness();
     },
-    state: () => ({ time: lightingSystem.activePresetId, wet: pocWet, roadWetness: cityUniforms.uRoadWetness.value, car: controllerManager.entities.car.bodyKind }),
+    state: () => ({ time: lightingSystem.activePresetId, wet: pocWet, roadWetness: cityUniforms.uRoadWetness.value, car: controllerManager.entities.car.bodyKind,
+      mode: controllerManager.activeMode, // PoC
+      position: { x: controllerManager.getActiveEntity().position.x, z: controllerManager.getActiveEntity().position.z } }),
   };
   // the web fonts change the buttons' widths once they arrive
   if (document.fonts) document.fonts.ready.then(placeModeIndicator);
@@ -732,7 +683,6 @@ async function initApp() {
   let elapsed = 0;
   let frameCount = 0;
   let fpsTimer = 0;
-  let nextPlayerSave = 0;
   let warmedUp = false; // see the first frame below
 
   if (elFps) elFps.textContent = '60';
@@ -748,26 +698,13 @@ async function initApp() {
     controllerManager.update(dt, elapsed, cameraSystem.initialized ? cameraSystem.currentPos : null);
     cameraSystem.update(dt, elapsed);
     streetDetails.signalClock.value = elapsed;
-    trafficSystem.update(
-      dt,
-      elapsed,
-      cameraSystem.currentPos,
-      controllerManager.getActiveEntity(),
-      controllerManager.activeMode,
-      cameraSystem.camera
-    );
-    highwayTraffic.update(dt, cameraSystem.camera, controllerManager.getActiveEntity(), controllerManager.activeMode);
-    if (!document.hidden && now >= nextPlayerSave) {
-      savePlayerState();
-      nextPlayerSave = now + 5000;
-    }
+    // PoC: traffic, highway traffic and the player-state autosave are not updated in this slice
     if (boroughs.update) boroughs.update(elapsed); // Roosevelt Island Tramway cabins
     cityBlocks.update(cameraSystem.currentPos.x, cameraSystem.currentPos.z);
     if (cityBlocks.updateLights) cityBlocks.updateLights(cameraSystem.camera);
     if (streetDetails.update) streetDetails.update(cameraSystem.camera);
     lightingSystem.update(cameraSystem.currentPos);
     mapSystem.update();
-    audioSystem.update(dt, elapsed, cameraSystem.camera, lightingSystem.activePresetId === 'midnight');
     if (warmedUp) updateSceneCulling(cameraSystem.camera.position); // the warm-up frame draws every chunk
     // Traffic collisions can move the player after controller updates; finalize moving hierarchies here.
     for (const root of dynamicRoots) root.updateMatrixWorld();
@@ -807,7 +744,6 @@ async function initApp() {
         initTimings = null;
         setLoadingProgress(1);
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
-        audioSystem.ready = true;
       });
     }
 

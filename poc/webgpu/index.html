@@ -64,7 +64,7 @@
   <link rel="modulepreload" href="./js/audio-events.js" />
   <link rel="modulepreload" href="./js/audio-sources.js" />
   <link rel="modulepreload" href="./js/audio-acoustics.js" />
-  <link rel="modulepreload" href="./js/audio-system.js" />
+  <!-- PoC: audio not used, no modulepreload -->
   <link rel="modulepreload" href="./js/main.js" />
   <script type="module" src="./js/main.js"></script>
   <!-- Inter (UI) & Overpass (street-name signs: modelled on Highway Gothic, the US road sign typeface) -->
@@ -163,9 +163,7 @@
         <svg class="icon" aria-hidden="true"><use href="#i-map"/></svg><span class="tool-label">Map</span><kbd>M</kbd>
       </button>
       <span class="toolbar-divider" aria-hidden="true"></span>
-      <button id="btn-sound" class="tool-btn icon-only" type="button" title="Mute sound [N]" aria-label="Mute sound" aria-pressed="true">
-        <svg class="icon" aria-hidden="true"><use href="#i-sound"/></svg>
-      </button>
+      <!-- PoC: sound button removed, no audio -->
       <button id="btn-toggle-hud" class="tool-btn icon-only" type="button" title="Clean view: hide the HUD [H]" aria-label="Hide HUD" aria-pressed="false">
         <svg class="icon icon-hide" aria-hidden="true"><use href="#i-eye"/></svg><svg class="icon icon-show" aria-hidden="true"><use href="#i-eye-off"/></svg>
       </button>
@@ -200,21 +198,7 @@
     <div id="hud-controls-hint" class="controls-hint"></div>
     <!-- PoC: look keys hint -->
     <p id="poc-look-hint" style="margin:0 0 6px;font:12px system-ui,sans-serif;color:#8fd8e8;text-align:center;opacity:.85">T Tageszeit · R Nass/Trocken</p>
-    <nav id="mode-switch" class="panel mode-switch" aria-label="Third-Person Navigation Mode">
-      <span class="mode-indicator" aria-hidden="true"></span>
-      <button id="mode-person" class="mode-btn" data-mode="person" type="button" title="Person [1]">
-        <svg class="icon" aria-hidden="true"><use href="#i-walk"/></svg><span class="mode-label">Walk</span><kbd>1</kbd>
-      </button>
-      <button id="mode-car" class="mode-btn active" data-mode="car" type="button" title="Car · Yellow Cab [2]">
-        <svg class="icon" aria-hidden="true"><use href="#i-car"/></svg><span class="mode-label">Drive</span><kbd>2</kbd>
-      </button>
-      <button id="mode-cyclist" class="mode-btn" data-mode="cyclist" type="button" title="Cyclist [3]">
-        <svg class="icon" aria-hidden="true"><use href="#i-bike"/></svg><span class="mode-label">Cycle</span><kbd>3</kbd>
-      </button>
-      <button id="mode-helicopter" class="mode-btn" data-mode="helicopter" type="button" title="Helicopter [4]">
-        <svg class="icon" aria-hidden="true"><use href="#i-heli"/></svg><span class="mode-label">Fly</span><kbd>4</kbd>
-      </button>
-    </nav>
+    <!-- PoC: mode switch removed, the mode is locked to car -->
   </footer>
 
   <!-- Bottom-Right: Speed Cluster & Camera Switcher -->

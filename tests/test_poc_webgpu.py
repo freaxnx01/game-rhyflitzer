@@ -98,3 +98,20 @@ def test_attach_gltf_body_loads_bulldog(poc_page):
     assert result["taxiHidden"] is True
     assert abs(result["lengthZ"] - 5.05) <= 0.05
     assert abs(result["minY"]) <= 0.02
+
+
+def test_spawns_at_times_square(poc_page):
+    # a far-away saved position must not win: the PoC always starts the car at Times Square
+    poc_page.add_init_script(
+        "localStorage.setItem('nyc-player-state', JSON.stringify({version: 1, activeMode: 'helicopter',"
+        " entities: {helicopter: {x: 5000, y: 100, z: 5000, heading: 0}, car: {x: 5000, y: 0, z: 5000, heading: 0}}}));"
+    )
+    poc_page.goto(poc_page.poc_url)
+    poc_page.wait_for_function(READY, timeout=120000)
+    if poc_page.is_visible("#no-webgpu"):
+        pytest.skip("no WebGPU adapter in this browser")
+    state = poc_page.evaluate("window.__poc.state()")
+    spawn = poc_page.evaluate("import('./js/city-config.js').then((m) => m.TELEPORT_LOCATIONS.timessq)")
+    assert state["mode"] == "car"
+    distance = ((state["position"]["x"] - spawn["x"]) ** 2 + (state["position"]["z"] - spawn["z"]) ** 2) ** 0.5
+    assert distance <= 30
