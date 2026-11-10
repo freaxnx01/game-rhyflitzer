@@ -1,7 +1,7 @@
 // #811: the Space Shuttle Enterprise in launch position -- pure. node --test tests/shuttle.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SHUTTLE, stackParts, stackTop, wingOutline, tailOutline, orbiterExtent, shuttlePlacement } from '../shuttle.js';
+import { SHUTTLE, stackParts, stackTop, wingOutline, tailOutline, orbiterExtent, shuttlePlacement, stackFrame } from '../shuttle.js';
 import { roomLayout, RINGS, ROOM2_Y } from '../rooms.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg || ''}: ${a} vs ${b}`);
@@ -52,8 +52,13 @@ test('orbiterExtent_BellyClearsTheTank_WingsClearTheBoosters_NoseUnderTheTankTip
 const ring2 = RINGS.find(g => g.id === 'ring2'), R = roomLayout(7, ring2.rooms[7], ring2);
 const S = shuttlePlacement({ centre: R.centre, frame: R.frame, y: ROOM2_Y }, SHUTTLE);
 
-test('shuttlePlacement_StackOnTheRoomCentre_TurnedToTheFrame_OrbiterOnTheVSide', () => {
-  assert.deepEqual([S.stack.x, S.stack.z], R.centre); near(S.stack.th, Math.atan2(R.frame.f[1], R.frame.f[0]), 1e-9);
+test('shuttlePlacement_StackOnTheRoomCentre_Turned45Degrees_TheOrbiterFacesThePortalThreeQuarterOn', () => {
+  assert.deepEqual([S.stack.x, S.stack.z], R.centre); near(SHUTTLE.turn, Math.PI / 4, 1e-9);
+  const { x: X, z: Z } = stackFrame(R.frame.f, R.frame.v, SHUTTLE.turn), dot = (p, q) => p[0] * q[0] + p[1] * q[1];
+  near(S.stack.th, Math.atan2(X[1], X[0]), 1e-9); near(dot(X, Z), 0, 1e-9, 'square'); near(Math.hypot(...X), 1, 1e-9);
+  near(dot(X, R.frame.f), Math.SQRT1_2, 1e-9, 'the boosters line 45° off the room axis');
+  const toPortal = [R.portal.c[0] - R.centre[0], R.portal.c[1] - R.centre[1]], n = Math.hypot(...toPortal);
+  near(dot(Z, toPortal) / n, Math.SQRT1_2, 1e-9, 'the orbiter side half turned to the portal');
 });
 
 test('shuttlePlacement_SixLowColliders_MountTankBoostersOrbiter_SolidToTheirTops', () => {
@@ -63,7 +68,9 @@ test('shuttlePlacement_SixLowColliders_MountTankBoostersOrbiter_SolidToTheirTops
   assert.ok(mount && et && body && wings && srb.length === 2);
   near(mount.h, deckTop, 1e-9, 'the platform'); near(mount.hw, SHUTTLE.deck.w / 2, 1e-9); near(mount.hd, SHUTTLE.deck.d / 2, 1e-9);
   assert.ok(et.h >= deckTop + SHUTTLE.h);
-  const toLocal = (x, z) => { const dx = x - R.centre[0], dz = z - R.centre[1]; return [dx * R.frame.f[0] + dz * R.frame.f[1], dx * R.frame.v[0] + dz * R.frame.v[1]]; };
+  const { x: X, z: Z } = stackFrame(R.frame.f, R.frame.v, SHUTTLE.turn);
+  const toLocal = (x, z) => { const dx = x - R.centre[0], dz = z - R.centre[1]; return [dx * X[0] + dz * X[1], dx * Z[0] + dz * Z[1]]; };
+  for (const o of S.colliders) { near(o.c, X[0], 1e-9); near(o.s, X[1], 1e-9); }
   for (const s of srb) { const [a, b] = toLocal(s.x, s.z); near(Math.abs(a), SHUTTLE.srb.off, 1e-6); near(b, 0, 1e-6); }
   const E = orbiterExtent(SHUTTLE);
   for (const o of [body, wings]) { const [a, b] = toLocal(o.x, o.z); near(a, 0, 1e-6); assert.ok(b - o.hd >= E.z0 - 1e-6 && b + o.hd <= E.z1 + 1e-6, 'within the orbiter'); }
