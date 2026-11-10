@@ -8,9 +8,9 @@
 <!-- #577: GitHub Pages serves this page for every missing path. An old /prototype/... link goes on to the same
      path at the site root, with its query and hash; anything else gets a link to the game. -->
 <script type="module">
-import { legacyTarget } from '/legacy.js';
+import { legacyTarget, stashReferrer } from '/legacy.js';
 const target = legacyTarget(location.pathname, location.search, location.hash);
-if (target) location.replace(target);
+if (target) { stashReferrer(document.referrer, location.origin, sessionStorage); location.replace(target); }
 </script>
 <style>
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:#1c1f26;color:#f5efe0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:20px}
