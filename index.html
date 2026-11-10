@@ -774,7 +774,7 @@ import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
-import { SHUTTLE } from './shuttle.js';   // #811
+import { SHUTTLE, stackBase } from './shuttle.js';   // #811
 import { buildShuttle } from './shuttlemesh.js';
 import { FERRIS, wheelAngle, DUSK_LOOK, FERRIS_KEYS, nextPatternShift, patternAt } from './ferris.js';   // #513; #588: the dusk look
 import { buildWheel, setWheelAngle, ferrisTriangles, setWheelLights, buildFireworks, setFireworks } from './ferrismesh.js';
@@ -3569,16 +3569,14 @@ function roomArtemis(group, R) {
   const cap = buildCapsule(ARTEMIS); cap.position.set(A.capsule.x, y, A.capsule.z); cap.rotation.y = -A.capsule.th; group.add(cap);
   ROOM.artemis = { built: R.k, rocket: A.rocket, capsule: A.capsule, h: ARTEMIS.h, tris: artemisTriangles(rocket) + artemisTriangles(cap), colliders: A.colliders.length };
 }
-// #811: the Space Shuttle Enterprise in launch position (shuttle.js places it, shuttlemesh.js builds it): a concrete pad
-// on the floor, the mobile launcher platform on it, the stack upright on the platform, all turned 45° from the room's axis
-// (shuttle.js stackFrame) so the portal sees the orbiter three-quarter on. All goes with the room's group (disposeGroup);
-// ROOM.shuttle tells the debug hook what was built.
+// #811: the Space Shuttle Enterprise on Launch Pad 39A (shuttle.js places it, shuttlemesh.js builds it): the hardstand with
+// the flame trench, the platform, the stack, the tower with its arms, the service structure and the water tower, one group
+// stood on the floor at the room centre and turned 45° from the room's axis (shuttle.js stackFrame) so the portal sees the
+// orbiter three-quarter on. All goes with the room's group (disposeGroup); ROOM.shuttle tells the debug hook what was built.
 function roomShuttle(group, R) {
-  const S = R.shuttle, [cx, cz] = R.centre, y = R.y, a = S.stack.th;
-  const pad = orientedBox(SHUTTLE.pad.w, SHUTTLE.pad.lift, SHUTTLE.pad.w, cx, cz, y, a, new THREE.MeshLambertMaterial({ color: SHUTTLE.colours.pad })); pad.renderOrder = 1; group.add(pad);
-  group.add(orientedBox(SHUTTLE.deck.w, SHUTTLE.deck.h, SHUTTLE.deck.d, cx, cz, y + SHUTTLE.pad.lift, a, new THREE.MeshLambertMaterial({ color: SHUTTLE.colours.deck })));
-  const stack = buildShuttle(SHUTTLE); stack.position.set(S.stack.x, y + SHUTTLE.pad.lift + SHUTTLE.deck.h, S.stack.z); stack.rotation.y = -S.stack.th; group.add(stack);
-  ROOM.shuttle = { built: ROOM.built, stack: S.stack, h: SHUTTLE.h, tris: artemisTriangles(stack), colliders: S.colliders.length };
+  const S = R.shuttle, pad = buildShuttle(SHUTTLE);
+  pad.position.set(S.stack.x, R.y, S.stack.z); pad.rotation.y = -S.stack.th; group.add(pad);
+  ROOM.shuttle = { built: ROOM.built, stack: S.stack, h: SHUTTLE.h, base: R.y + stackBase(SHUTTLE), tris: artemisTriangles(pad), colliders: S.colliders.length };
 }
 // #513: the Ferris wheel (ferris.js places it, ferrismesh.js builds it): stood on the floor at the room centre, turned to the
 // room's frame (the axle along f, so the portal sees the wheel face-on). All goes with the room's group (disposeGroup);

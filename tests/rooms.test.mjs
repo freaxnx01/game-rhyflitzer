@@ -390,8 +390,8 @@ test('roomLayout_FerrisRoomSixIsDusk_TheOtherMeadowRoomsStayMeadow', () => {   /
 });
 
 // #811: the Space Shuttle Enterprise in launch position -- ring 2, room 7 (the second in line after the Enterprise)
-import { SHUTTLE, stackFrame } from '../shuttle.js';
-const shuttleRoom = rooms2[7], blocked2 = (R, x, z, r = CAR_R) => R.colliders.some(o => inside(o, x, z, r));
+import { SHUTTLE, stackFrame, padLayout } from '../shuttle.js';
+const shuttleRoom = rooms2[7], blocked2 = (R, x, z, r = CAR_R) => R.colliders.some(o => !(o.bridge && ROOM2_Y < o.y0) && inside(o, x, z, r));   // a car on the floor
 test('ROOMS2_Room7_HoldsTheSpaceShuttle_SecondInLine_UnsignedWithTheSpaceLook_NoPlaque', () => {
   assert.equal(ROOMS2[7].object, SHUTTLE); assert.equal(ROOMS2[7].name, 'Space Shuttle Enterprise'); assert.equal(ROOMS2[7].signed, false);
   assert.equal(ROOMS2[7].look, 'space'); assert.equal(ROOMS2[7].dedication, undefined); assert.equal(NEXT_ROOMS2[1], 7, 'it took the next room in line');
@@ -400,11 +400,14 @@ test('ROOMS2_Room7_HoldsTheSpaceShuttle_SecondInLine_UnsignedWithTheSpaceLook_No
   for (const R of [...rooms, ...rooms2].filter(r => r !== shuttleRoom)) assert.equal(R.shuttle, null);
 });
 
-test('roomLayout_ShuttleRoom_PlatformIsSolid_TheFloorRoundItAndTheWayInAreFree', () => {
-  const W = SHUTTLE.deck.w / 2, D = SHUTTLE.deck.d / 2, { x: X, z: Z } = stackFrame(shuttleRoom.frame.f, shuttleRoom.frame.v, SHUTTLE.turn);
+test('roomLayout_ShuttleRoom_HardstandIsSolid_TheTrenchUnderTheRocketAndTheWayInAreFree', () => {
+  const H = SHUTTLE.pad.hard, L = padLayout(SHUTTLE), { x: X, z: Z } = stackFrame(shuttleRoom.frame.f, shuttleRoom.frame.v, SHUTTLE.turn);
   const onStack = (a, b) => [shuttleRoom.centre[0] + X[0] * a + Z[0] * b, shuttleRoom.centre[1] + X[1] * a + Z[1] * b];
-  assert.ok(blocked2(shuttleRoom, ...shuttleRoom.centre), 'the tank'); assert.ok(blocked2(shuttleRoom, ...onStack(W - 1, D - 1)), 'the platform corner');
-  for (const [a, b] of [[W + CAR_R + 2, 0], [-W - CAR_R - 2, 0], [0, D + CAR_R + 2], [0, -D - CAR_R - 2]]) assert.ok(!blocked2(shuttleRoom, ...onStack(a, b)), `free beside the platform at ${a},${b}`);
+  for (const [a, b] of [[20, 0], [-20, 30], [40, -40], [L.fss.x, L.fss.z]]) assert.ok(blocked2(shuttleRoom, ...onStack(a, b)), `the hardstand at ${a},${b}`);
+  for (let b = -H.d / 2 - 10; b <= H.d / 2 + 10; b += 5) assert.ok(!blocked2(shuttleRoom, ...onStack(0, b)), `the trench is open at ${b}, right under the rocket`);
+  assert.ok(blocked2(shuttleRoom, ...onStack(L.trench.x[1] + 1, 0)), 'the trench wall');
+  for (const [a, b] of [[H.w / 2 + CAR_R + 2, 0], [-H.w / 2 - CAR_R - 2, 0], [30, H.d / 2 + CAR_R + 2]]) assert.ok(!blocked2(shuttleRoom, ...onStack(a, b)), `free round the hardstand at ${a},${b}`);
+  assert.ok(blocked2(shuttleRoom, ...onStack(L.water.x, L.water.z)), 'the water tower');
   for (const [a, b] of [[-200, 0], [-400, 30], [-60, 60]]) assert.ok(!blocked2(shuttleRoom, ...toWorld(shuttleRoom, a, b)), `free on the way in at ${a},${b}`);
   assert.ok(shuttleRoom.towerView && !blocked2(shuttleRoom, shuttleRoom.towerView.x, shuttleRoom.towerView.z));
 });
