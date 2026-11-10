@@ -223,6 +223,17 @@ const en = {
   rideExit: 'E · Get out',
   depotPrompt: (n) => `E: get in — ${n}`,   // #553
   depotIn: (n) => `Now driving: ${n}`,   // #553
+  // ---- the PostAuto timetable (#801) ----
+  ttPrompt: 'E: timetable',
+  ttPauseBtn: 'Timetable',
+  ttDepartures: 'Departures',
+  ttLine: (n) => `Line ${n}`,
+  ttIn: (m) => `in ${m}'`,
+  ttNone: 'No more departures today',
+  ttEarlier: 'Earlier runs',
+  ttLater: 'Later runs',
+  ttBus: 'Bus underway, last stop passed',
+  ttOut: (to) => `(→ ${to})`,
   rideWait: 'You can get out at the bottom',
   plattformOpen: 'The stair is open -- just walk in',
   chipEnterable: 'Enterable',
@@ -231,6 +242,7 @@ const en = {
   keyTrain: 'in the steam loco (Z at Bahnhof Sisseln): W steam, S brake / reverse, Q · E the next switch left · right, H whistle, C view, R back to the station, A · D turn on the turntable',
   keyLeave: 'inside a building: straight out, in front of the entrance',
   keyHop: 'Plattform Sisslerfeld: at the door up to the deck, on the deck at the stair down to the door',   // #701
+  keyTimetable: "at a PostAuto stop's board: the timetable (on foot or in the car)",   // #801
   // ---- the lift of an enterable building (#411) ----
   liftCall: 'E · call the lift',
   liftPadTitle: 'Lift',
@@ -302,6 +314,7 @@ const en = {
   barGetIn: 'get in',
   barEnter: 'enter',
   barBoard: 'get in',   // #553
+  barTimetable: 'timetable',   // #801
   barLeave: 'go out',
   barLift: 'lift',
   barHopUp: 'up to the deck',   // #701
@@ -866,6 +879,17 @@ const de = {
   rideExit: 'E · Aussteigen',
   depotPrompt: (n) => `E: Einsteigen — ${n}`,   // #553
   depotIn: (n) => `Jetzt am Steuer: ${n}`,   // #553
+  // ---- der Postauto-Fahrplan (#801) ----
+  ttPrompt: 'E: Fahrplan',
+  ttPauseBtn: 'Fahrplan',
+  ttDepartures: 'Abfahrten',
+  ttLine: (n) => `Linie ${n}`,
+  ttIn: (m) => `in ${m}'`,
+  ttNone: 'Heute keine Abfahrten mehr',
+  ttEarlier: 'Frühere Kurse',
+  ttLater: 'Spätere Kurse',
+  ttBus: 'Bus unterwegs, zuletzt an diesem Halt',
+  ttOut: (to) => `(→ ${to})`,
   rideWait: 'Aussteigen kannst Du unten',
   plattformOpen: 'Die Treppe ist offen -- einfach hineingehen',
   chipEnterable: 'Begehbar',
@@ -874,6 +898,7 @@ const de = {
   keyTrain: 'in der Dampflok (Z am Bahnhof Sisseln): W Dampf, S bremsen / rückwärts, Q · E nächste Weiche links · rechts, H pfeifen, C Ansicht, R zurück zum Bahnhof, A · D wenden auf der Drehscheibe',
   keyLeave: 'in einem Gebäude: direkt hinaus, vor den Eingang',
   keyHop: 'Plattform Sisslerfeld: an der Tür hinauf aufs Deck, auf dem Deck an der Treppe hinunter zur Tür',   // #701
+  keyTimetable: 'an der Postauto-Haltestellentafel: der Fahrplan (zu Fuss oder im Auto)',   // #801
   // ---- der Lift eines begehbaren Gebäudes (#411) ----
   liftCall: 'E · Lift rufen',
   liftPadTitle: 'Lift',
@@ -943,6 +968,7 @@ const de = {
   barGetIn: 'einsteigen',
   barEnter: 'eintreten',
   barBoard: 'einsteigen',   // #553
+  barTimetable: 'Fahrplan',   // #801
   barLeave: 'hinaus',
   barLift: 'Lift',
   barHopUp: 'hinauf',   // #701
