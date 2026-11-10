@@ -28,17 +28,21 @@ def test_speed_display_shows_speed_and_smiley_for_cars_from_the_kreisel(server):
         sign = page.evaluate("() => window.__mm.speedDisplay()")
         assert sign and abs(sign["x"] - 1465.45) < 0.01 and abs(sign["z"] + 158.27) < 0.01
         assert sign["state"] == {"on": False}
-        # 70 m before the sign on the straight, 60 km/h towards the village: on, over the limit
+        # 70 m before the sign on the straight, 60 km/h towards the village: the panel lags 2 s, so still dark at once
         page.evaluate(f"() => window.__mm.sim(1395.6, -153.9, {TH}, 60 / 3.6, 0.1)")
-        s = page.evaluate("() => window.__mm.speedDisplay().state")
+        assert page.evaluate("() => window.__mm.speedDisplay(0).state") == {"on": False}
+        s = page.evaluate("() => window.__mm.speedDisplay(2.05).state")   # 2.05 s on the lag clock: the 60 km/h reading
         assert s["on"] and s["kmh"] > 50 and s["happy"] is False
-        # same spot at 30 km/h: on, happy
+        # same spot at 30 km/h: at once still the old reading over the limit, 2 s later on, happy
         page.evaluate(f"() => window.__mm.sim(1395.6, -153.9, {TH}, 30 / 3.6, 0.1)")
-        s = page.evaluate("() => window.__mm.speedDisplay().state")
+        s = page.evaluate("() => window.__mm.speedDisplay(0).state")
+        assert s["on"] and s["happy"] is False
+        s = page.evaluate("() => window.__mm.speedDisplay(2.05).state")
         assert s["on"] and s["kmh"] <= 50 and s["happy"] is True
-        # past the sign, driving back towards the roundabout: the back of the sign, dark
+        # past the sign, driving back towards the roundabout: the back of the sign, dark once the lag has run out
         page.evaluate(f"() => window.__mm.sim(1480, -175, {TH + 3.14159}, 40 / 3.6, 0.1)")
-        assert page.evaluate("() => window.__mm.speedDisplay().state") == {"on": False}
+        page.evaluate("() => window.__mm.speedDisplay(2.05)")
+        assert page.evaluate("() => window.__mm.speedDisplay(2.05).state") == {"on": False}
         assert page.evaluate("() => window.__mm.speedDisplay().redraws") >= 3
         assert not errors
         b.close()

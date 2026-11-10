@@ -786,7 +786,7 @@ import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTime
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText } from './postauto.js';   // #500
 import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider } from './busstop.js';   // #712
-import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors } from './speeddisplay.js';   // #745
+import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices } from './postautofx.js';   // #709
 import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
@@ -2163,13 +2163,16 @@ function speedDisplayBuild() {
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   const face = new THREE.Mesh(new THREE.PlaneGeometry(PN.w - 0.08, PN.h - 0.08), new THREE.MeshBasicMaterial({ map: tex })); face.position.set(0, PN.y, 0.065); g.add(face);
   g.position.set(cfg.x, b, cfg.z); g.rotation.y = faceYaw(cfg); signs.add(g);
-  SPEEDSIGN = { tex, canvas, key: null, state: { on: false }, redraws: 0, x: cfg.x, z: cfg.z, yaw: g.rotation.y };
+  SPEEDSIGN = { tex, canvas, key: null, state: { on: false }, redraws: 0, t: 0, reading: delayedReading(), x: cfg.x, z: cfg.z, yaw: g.rotation.y };
   drawSpeedPanel(canvas.getContext('2d'), canvas.width, canvas.height, SPEEDSIGN.state); tex.needsUpdate = true;   // the dark face once; FOOT/TRAIN/FLY are not declared yet at this point
 }
-// #745: per frame; redraws the canvas only when the shown value changes (relabelFerrisSign pattern)
-function stepSpeedDisplay() {
+// #745: per frame; redraws the canvas only when the shown value changes (relabelFerrisSign pattern). The panel lags by
+// SPEED_DISPLAY.delay on the game clock (paused game, paused lag): it shows the reading from that long ago.
+function stepSpeedDisplay(dt) {
   if (!SPEEDSIGN) return;
-  const state = displayState({ x: P.x, z: P.z, vx: P.vx, vz: P.vz, ground: !FOOT.on && !TRAIN.on && !FLY.on });
+  SPEEDSIGN.t += dt;
+  SPEEDSIGN.reading.record(SPEEDSIGN.t, displayState({ x: P.x, z: P.z, vx: P.vx, vz: P.vz, ground: !FOOT.on && !TRAIN.on && !FLY.on }));
+  const state = SPEEDSIGN.reading.shown(SPEEDSIGN.t);
   const key = displayKey(state);
   SPEEDSIGN.state = state;
   if (key === SPEEDSIGN.key) return;
@@ -4810,7 +4813,7 @@ window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, don
 window.__mm.blitzSetLeft = (s) => { R.left = s; };
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
 window.__mm.busStops = () => POSTAUTO.stops;   // #712: the laid-out stops, for the test
-window.__mm.speedDisplay = () => { stepSpeedDisplay(); return SPEEDSIGN ? { x: SPEEDSIGN.x, z: SPEEDSIGN.z, yaw: SPEEDSIGN.yaw, key: SPEEDSIGN.key, state: SPEEDSIGN.state, redraws: SPEEDSIGN.redraws } : null; };   // #745: steps first (headless draws under 1 fps)
+window.__mm.speedDisplay = (dt = 0) => { stepSpeedDisplay(dt); return SPEEDSIGN ? { x: SPEEDSIGN.x, z: SPEEDSIGN.z, yaw: SPEEDSIGN.yaw, key: SPEEDSIGN.key, state: SPEEDSIGN.state, redraws: SPEEDSIGN.redraws } : null; };   // #745: steps first (headless draws under 1 fps); dt advances the panel's lag clock
 window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'), follow: POSTAUTO.follow,   // #500: read-only, for the test; #707: the followed bus key and the panel's DOM state
   floor: gltfState('bus') === 'ready' ? { faces: GLTF_CARS.bus.floorFaces, shellSide: GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null } : null,   // #709: the floor copy; the shell stays THREE.FrontSide = 0 (#723)
   voices: SFX.state().busVoices,
@@ -6160,7 +6163,7 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play
