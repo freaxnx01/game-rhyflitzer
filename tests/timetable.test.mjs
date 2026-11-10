@@ -2,6 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections } from '../timetable.js';
+import { nextRun, runWindow, cellTime, liveStops, clockText, minutesUntil, stopInReach } from '../timetable.js';
+import { tripKey } from '../postauto.js';
 
 const H = (h, m = 0) => h * 3600 + m * 60;
 // line 9 east (route 1, leaves the map), line 9 west (route 2, ends inside), line 10 (route 3, ends at C)
@@ -49,4 +51,57 @@ test('lineDirections_OnePerRoute_LongestTripOrder_SortedByName', () => {
   ]);
   assert.deepEqual(dirs[0].trips.map((t) => t.calls[0][2]), [H(14, 12), H(14, 42), H(15, 0)]);
   assert.equal(TIMETABLE.runs, 4);
+});
+
+const many = { trips: Array.from({ length: 10 }, (_, i) => trip('9', 1, 'East', [['A', H(6 + i)], ['B', H(6 + i, 30)]])) };
+
+test('nextRun_FirstTripNotYetAtItsLastCall', () => {
+  assert.equal(nextRun(many, H(8, 10)), 2);   // the 08:00 run is underway until 08:30
+  assert.equal(nextRun(many, H(8, 31)), 3);
+});
+
+test('runWindow_FourFromNext_PagesByFour', () => {
+  const w = runWindow(many, H(8, 10), 0);
+  assert.deepEqual([w.start, w.next, w.trips.length, w.canPrev, w.canNext], [2, 2, 4, true, true]);
+  assert.equal(runWindow(many, H(8, 10), 1).start, 6);
+  assert.equal(runWindow(many, H(8, 10), -1).start, 0);
+});
+
+test('runWindow_Clamped', () => {
+  const w = runWindow(many, H(8, 10), 5);
+  assert.deepEqual([w.start, w.canNext], [6, false]);
+  assert.equal(runWindow(many, H(8, 10), -5).canPrev, false);
+});
+
+test('runWindow_PastLastRun_StartsAtFirst', () => {
+  assert.equal(runWindow(many, H(23, 50), 0).start, 0);
+});
+
+test('cellTime_DepOrNullWhenSkipped', () => {
+  assert.equal(cellTime(TRIPS[2], 'B'), H(15, 3));
+  assert.equal(cellTime(TRIPS[2], 'C'), null);
+});
+
+test('liveStops_LastPassedStop_StandingCounts_EdgeDriveLeftOut', () => {
+  const calls = [{ uic: 'A' }, { uic: 'B' }, { uic: 'C' }];
+  const live = liveStops([
+    { trip: TRIPS[0], phase: 'drive', k: 2, calls },
+    { trip: TRIPS[1], phase: 'stand', k: 0, calls },
+    { trip: TRIPS[3], phase: 'drive', k: 0, calls },
+    { trip: TRIPS[4], phase: 'done', k: 1, calls },
+  ]);
+  assert.deepEqual([...live], [[tripKey(TRIPS[0]), 'B'], [tripKey(TRIPS[1]), 'A']]);
+});
+
+test('clockText_RegionalFormat', () => {
+  assert.equal(clockText(H(14, 7), 'de-CH'), '14:07');
+  assert.equal(clockText(H(14, 7) + 86400, 'en-GB'), '14:07');
+  assert.equal(minutesUntil(300), 5);
+  assert.equal(minutesUntil(301), 6);
+});
+
+test('stopInReach_NearestPoleWithinReach', () => {
+  const stops = [{ uic: 'A', pole: [0, 0] }, { uic: 'B', pole: [3, 0] }];
+  assert.equal(stopInReach(stops, 2, 0, 2.5).uic, 'B');
+  assert.equal(stopInReach(stops, 10, 0, 2.5), null);
 });
