@@ -20,7 +20,7 @@ import { NYCMapSystem } from './nyc-map.js';
 import { setupSceneCulling, updateSceneCulling } from './scene-culling.js';
 // PoC: no audio in this slice (CityAudioSystem not imported)
 // PoC: WebGPU gate
-import { hasWebGPU } from './poc-gate.js';
+import { hasWebGPU, wantsForcedWebGL } from './poc-gate.js';
 // PoC: T / R look keys
 import { nextTimePreset, roadWetness, isLookKey } from './poc-look.js';
 import { TIME_PRESETS } from './lighting.js';
@@ -89,6 +89,7 @@ async function initApp() {
   // on multisampled floating-point MRT post-processing render targets, so disable MSAA on Firefox.
   const isFirefox = typeof navigator !== 'undefined' && /Firefox\//.test(navigator.userAgent);
   const renderer = new THREE.WebGPURenderer({
+    forceWebGL: wantsForcedWebGL(location.search), // PoC: ?webgl=1 test hook
     antialias: !isFirefox,
     powerPreference: 'high-performance',
     reversedDepthBuffer: true
@@ -261,10 +262,8 @@ async function initApp() {
 
   // Keyboard guide for each mode: [keys, action]
   const controlHints = {
-    person: [[['W', 'S'], 'Walk / Run'], [['A', 'D'], 'Turn'], [['Space'], 'Jump'], [['Drag'], 'Orbit']],
-    car: [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['B'], 'Horn'], [['Drag'], 'Orbit']],
-    cyclist: [[['W', 'S'], 'Pedal / Brake'], [['Space'], 'Brake'], [['A', 'D'], 'Lean & Turn'], [['Drag'], 'Orbit']],
-    helicopter: [[['W', 'S'], 'Pitch'], [['A', 'D'], 'Yaw'], [['Space', 'E'], 'Ascend'], [['Q', 'C'], 'Descend']]
+    // PoC: car only (mode locked), no horn
+    car: [[['W', 'S'], 'Drive / Reverse'], [['A', 'D'], 'Steer'], [['Drag'], 'Orbit']]
   };
   // Top speeds in mph (controllers.js caps them at 8.2, 36, 19 & 52 m/s): full scale of the speed meter
   const topSpeedMph = { person: 18, car: 81, cyclist: 43, helicopter: 116 };
@@ -498,6 +497,9 @@ async function initApp() {
     onTeleport: teleportTo
   });
 
+  // PoC: no map or teleports in the Midtown slice; M, the gamepad map button and the map's own clicks become no-ops
+  mapSystem.toggleFullMap = () => {};
+
   teleportButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.getAttribute('data-teleport');
@@ -580,6 +582,8 @@ async function initApp() {
   // PoC: a late-loading body picks up the current time's lamp state
   controllerManager.entities.car.bodyReady.then((body) => {
     if (!body) return;
+    const activeEntity = controllerManager.getActiveEntity();
+    if (elMode) elMode.textContent = activeEntity.label; // PoC: label switched to the bulldog
     pocLamps = body.lamps;
     pocApplyLamps();
   });
@@ -777,7 +781,7 @@ async function initApp() {
 
 // PoC: start the renderer only with a real WebGPU adapter, otherwise show #no-webgpu
 async function startWithGate() {
-  if (await hasWebGPU(navigator)) return initApp();
+  if (wantsForcedWebGL(location.search) || await hasWebGPU(navigator)) return initApp();
   document.getElementById('loading-overlay')?.classList.add('hidden');
   document.getElementById('no-webgpu')?.removeAttribute('hidden');
 }

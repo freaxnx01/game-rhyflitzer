@@ -1,9 +1,18 @@
 """WebGPU PoC page (poc/webgpu/): the gate and a clean console. Slow (Playwright): run in the foreground."""
+import os
+
 import pytest
 from playwright.sync_api import sync_playwright
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-unsafe-webgpu"]
 READY = "() => { const m = document.getElementById('no-webgpu'); return (m && !m.hidden) || window.__poc?.ready === true; }"
+
+
+def render_url(page):
+    """The init path needs a real GPU: the homelab GPU browser (PW_CDP_ENDPOINT) runs it through WebGL2 via ?webgl=1."""
+    if not os.environ.get("PW_CDP_ENDPOINT"):
+        pytest.skip("needs the GPU browser (set PW_CDP_ENDPOINT); SwiftShader would take many minutes")
+    return page.poc_url + "?webgl=1"
 
 
 @pytest.fixture
@@ -36,7 +45,7 @@ def test_poc_page_has_no_console_errors(poc_page):
 
 
 def test_look_keys_switch_state(poc_page):
-    poc_page.goto(poc_page.poc_url)
+    poc_page.goto(render_url(poc_page))
     poc_page.wait_for_function(READY, timeout=120000)
     if poc_page.is_visible("#no-webgpu"):
         pytest.skip("no WebGPU adapter in this browser")
@@ -55,7 +64,7 @@ def test_car_load_failure_keeps_taxi(poc_page):
     poc_page.on("pageerror", lambda e: errors.append(str(e)))
     poc_page.on("console", lambda m: warnings.append(m.text) if m.type == "warning" else None)
     poc_page.route("**/bulldog.glb", lambda route: route.abort())
-    poc_page.goto(poc_page.poc_url)
+    poc_page.goto(render_url(poc_page))
     poc_page.wait_for_function(READY, timeout=120000)
     if poc_page.is_visible("#no-webgpu"):
         pytest.skip("no WebGPU adapter in this browser")
@@ -106,12 +115,13 @@ def test_spawns_at_times_square(poc_page):
         "localStorage.setItem('nyc-player-state', JSON.stringify({version: 1, activeMode: 'helicopter',"
         " entities: {helicopter: {x: 5000, y: 100, z: 5000, heading: 0}, car: {x: 5000, y: 0, z: 5000, heading: 0}}}));"
     )
-    poc_page.goto(poc_page.poc_url)
+    poc_page.goto(render_url(poc_page))
     poc_page.wait_for_function(READY, timeout=120000)
     if poc_page.is_visible("#no-webgpu"):
         pytest.skip("no WebGPU adapter in this browser")
     state = poc_page.evaluate("window.__poc.state()")
     spawn = poc_page.evaluate("import('./js/city-config.js').then((m) => m.TELEPORT_LOCATIONS.timessq)")
     assert state["mode"] == "car"
+    assert poc_page.text_content("#hud-active-mode") in ("Rhy Bulldog", "NYC Yellow Taxi")
     distance = ((state["position"]["x"] - spawn["x"]) ** 2 + (state["position"]["z"] - spawn["z"]) ** 2) ** 0.5
     assert distance <= 30

@@ -12,6 +12,8 @@ Proof of concept: a WebGPU city demo running inside the Rhyflitzer repo, separat
     python3 -m http.server 8000   # from the repo root
     # open http://localhost:8000/poc/webgpu/ in a WebGPU-capable browser
 
+`?webgl=1` is a test/compare hook that renders through WebGL2, not WebGPU.
+
 ## Keys
 
 See the demo's own on-screen help (HUD and camera presets).

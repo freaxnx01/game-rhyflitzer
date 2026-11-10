@@ -625,7 +625,10 @@ class ThirdPersonControllerManager {
     // PoC: the entity stays synchronous; the Rhyflitzer body replaces the taxi meshes once bulldog.glb has loaded
     entity.bodyKind = 'taxi';
     entity.bodyReady = attachGltfBody(entity, createCarLoader()).then((body) => {
-      if (body) entity.bodyKind = 'bulldog';
+      if (body) {
+        entity.bodyKind = 'bulldog';
+        entity.label = 'Rhy Bulldog'; // PoC: HUD label follows the attached body, the taxi label stays as fallback
+      }
       return body;
     });
     return entity;
