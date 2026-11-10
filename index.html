@@ -670,6 +670,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <p><a data-link="midtown" data-i18n="aboutInspired"></a></p>
       <p data-i18n="aboutPrivacy"></p>
       <p><a data-link="privacy" data-i18n="aboutPrivacyLink"></a></p>
+      <p><span data-i18n="aboutContact"></span> <a id="aboutcontact"></a></p>
     </section>
     <section id="aboutpanel-credits" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-credits" hidden>
       <dl class="ab-credits">
@@ -823,7 +824,7 @@ import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautode
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
-import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
+import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from './tutorial.js';   // #534
@@ -5496,6 +5497,14 @@ function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overla
 // ---------- #509 About, #564 in tabs: the dialog -- over the start screen (Back returns there) or over the paused game (Back returns to the pause menu) ----------
 const ABOUT = { on: false, from: 'start', tab: 0 };
 for (const a of document.querySelectorAll('#about a[data-link]')) { a.href = ABOUT_LINKS[a.dataset.link]; a.target = '_blank'; a.rel = 'noopener'; }
+// #853: the contact address is only ever written by JS, per language (footer link + the About line to copy by hand)
+function renderContact() {
+  const lang = window.GG_LANG, href = contactHref(lang);
+  $('navcontact').href = href;
+  $('aboutcontact').href = href;
+  $('aboutcontact').textContent = contactAddress(lang);
+}
+renderContact();
 $('aboutversion').textContent = `v${window.GAME_VERSION}`;
 $('subversion').textContent = `v${window.GAME_VERSION.split('.').slice(0, 2).join('.')}`;   // start-screen tag: major.minor from version.js, never a literal
 const aboutTabs = () => [...document.querySelectorAll('#about [role=tab]')];
@@ -6019,7 +6028,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too
+addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #853: the contact address too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
@@ -6502,6 +6511,8 @@ showGallery();
   <a href="https://github.com/freaxnx01/game-rhyflitzer" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Source</a>
   <span style="color:#5a6072" aria-hidden="true">·</span>
   <a href="https://github.com/freaxnx01/game-rhyflitzer/issues/new?title=%5BFeedback%5D%20game-rhyflitzer&labels=feedback" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Feedback</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a id="navcontact" data-i18n="navContact" style="color:#8fd8e8;text-decoration:none">Contact</a>
   <span style="color:#5a6072" aria-hidden="true">·</span>
   <a class="github-button" href="https://github.com/freaxnx01/game-rhyflitzer" data-icon="octicon-star" data-size="small" data-show-count="true" aria-label="Star freaxnx01/game-rhyflitzer on GitHub">Star</a>
 </nav>
