@@ -13,6 +13,10 @@
   - „Melrose Place Soft Rock" by DigiCompo, https://pixabay.com/music/rock-melrose-place-soft-rock-304003/, Pixabay Content License (tagged "AI generated" on Pixabay)
   - „Menu / Running Title" by Rob Bery · Rob Bery Art (OpenGameArt user R0B B3RY), https://opengameart.org/content/menu-running-title, CC0 (re-encoded to 128 kbps)
 - SRF 3 live (https://www.srf.ch/radio-srf-3): the live stream `https://stream.srg-ssr.ch/srgssr/srf3/mp3/128`, played unchanged, not re-hosted
+- WebGPU PoC (`poc/webgpu/`): demo code "Slop New York" (MIT) © Mr.doob (https://github.com/mrdoob/slop-newyork)
+- WebGPU PoC data: NYC Open Data, building footprints and heights and Forestry Tree Points (https://opendata.cityofnewyork.us/); MTA Subway Entrances (https://data.ny.gov/)
+- WebGPU PoC map data: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright)
+- WebGPU PoC car: bulldog.glb from "Chevrolet Caprice Classic Sedan" by popit228fm (https://sketchfab.com/popit228fm), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), source https://sketchfab.com/3d-models/chevrolet-caprice-classic-sedan-96200ce146014b858e2b284c123bbe42
 
 ## slop-newyork (MIT)
 
