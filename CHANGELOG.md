@@ -28,6 +28,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 - `2026-11-10 15:39` **Change vehicle** from the pause menu after a **rollover** or a **wreck** now shows the car **upright** with all its **wheels** on the stage, instead of lying on its side with the wheels beside it.
 
+- `2026-11-10 15:36` The **house number** no longer floats in the air in front of the **Fridolinskapelle** in Sisseln: the churches drawn from the real 3D models (the chapel and the Catholic church in Stein) carry no number plate any more.
+
 - `2026-11-10 15:34` The **woods** are **denser inside**: the interior of a forest now carries about five times as many trees as before, so from the helicopter the wood reads as a closed canopy instead of a thin edge around bare ground.
 
 - `2026-11-10 11:25` The **PostAuto stop signs** read correctly now: the **stop name** and the **line rows** were mirrored when you drove past, and the back of the sign is printed the right way round too.

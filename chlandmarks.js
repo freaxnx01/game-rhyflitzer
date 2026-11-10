@@ -27,3 +27,10 @@ export function chLandmarksFor(index, regionId, world, base) {
 
 // a face whose normal points up more than ~20 degrees from vertical walls is roof
 export function roofOrWall(ny) { return ny > 0.35 ? 'roof' : 'wall'; }
+
+// #823: a building a landmark replaces gets no house-number plate: the plate goes on the OSM ring (addrLabels), and the
+// model's walls do not follow it (the chapel's plate stood 4.4 m in front of the nave)
+export function plateBuildings(buildings, replaced) {
+  if (!replaced) return buildings;
+  return buildings.filter(b => !replaced.has(b.id));
+}

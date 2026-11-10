@@ -786,7 +786,7 @@ import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows,
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
 import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, bodenackerDoorway, BODENACKER6 } from './bodenacker6.js';
-import { chLandmarksFor, roofOrWall } from './chlandmarks.js';   // #649: swissBUILDINGS3D landmarks
+import { chLandmarksFor, roofOrWall, plateBuildings } from './chlandmarks.js';   // #649: swissBUILDINGS3D landmarks
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
@@ -2631,12 +2631,13 @@ if (CH_LM.length) (async () => {
 })();
 // house numbers (#12, OSM addr; #520: Swiss blue plates flat on the façade that faces the nearest road, at door height, not over the roof;
 // #557: on the real ring wall, towards the street the address names when the data has it): the buildings within 60 m of the car;
+// #823: none on a building a swissBUILDINGS3D model replaces (plateBuildings);
 // a pool of 40 plates, refilled every 250 ms, one material per number
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], all: [], t: 0, ticks: 0 };
 const PLATE = { h: 0.5, px: 96, bg: '#1b4c9c', fg: '#ffffff', font: '700 64px "Barlow Condensed", sans-serif', door: 2.4, clear: 1.8, reach: 80 };
 // #557: with a street name, the nearest point of a road so named; none in reach, or no name: the nearest road of any name
 function nearestRoadPoint(x, z, name) { const scan = (want) => { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, PLATE.reach)) { if (want && r.n !== want) continue; const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= PLATE.reach ? best : null; }; return (name && scan(name)) || scan(); }
-if (L) for (const it of addrLabels(L.buildings, L.anchors.landmarks, nearestRoadPoint)) { let base = Infinity; for (const [x, z] of it.foot || [[it.x, it.z]]) base = Math.min(base, terrainH(x, z)); it.y = Math.max(base + PLATE.door, terrainH(it.x, it.z) + PLATE.clear); it.foot = null; LABELS.all.push(it); gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
+if (L) for (const it of addrLabels(plateBuildings(L.buildings, CH_LM_BY_OSM), L.anchors.landmarks, nearestRoadPoint)) { let base = Infinity; for (const [x, z] of it.foot || [[it.x, it.z]]) base = Math.min(base, terrainH(x, z)); it.y = Math.max(base + PLATE.door, terrainH(it.x, it.z) + PLATE.clear); it.foot = null; LABELS.all.push(it); gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
 { const plane = new THREE.PlaneGeometry(1, 1); for (let i = 0; i < 40; i++) { const s = new THREE.Mesh(plane); s.visible = false; LABELS.pool.push(s); scene.add(s); } }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
 function labelMat(t) { let m = LABELS.mat.get(t); if (m) LABELS.mat.delete(t); else { const cw = PLATE.px + 48 * [...t].length; m = new THREE.MeshLambertMaterial({ map: textTex(t, cw, PLATE.px, PLATE.bg, PLATE.fg, PLATE.font, PLATE.fg) }); m.userData.w = PLATE.h * cw / PLATE.px; } LABELS.mat.set(t, m); return m; }
