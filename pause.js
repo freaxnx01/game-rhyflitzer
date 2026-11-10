@@ -2,12 +2,12 @@
 import { isDebugKey } from './debug.js';
 
 // the menu's buttons, in focus order (ids in index.html)
-export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausekeybar', 'pauserestart', 'pausemenu'];
+export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pausekeybar', 'pauserestart', 'pausemenu'];
 // the „Abandon this run?" question's buttons, Cancel first (it gets the focus)
 export const ABANDON_BUTTONS = ['abandoncancel', 'abandonok'];
 
 // #534: the tutorial has no race to restart and leaves through "End tutorial" instead of Main menu
-const TUTORIAL_PAUSE = ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausekeybar', 'pausetutorial'];
+const TUTORIAL_PAUSE = ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pausekeybar', 'pausetutorial'];
 
 // #551: cruise has no race to restart, so its menu drops "Restart race"
 export function pauseButtonsFor(mode) {

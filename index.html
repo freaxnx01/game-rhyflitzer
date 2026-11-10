@@ -250,13 +250,26 @@ body.view #tr{display:none}   /* #824: the viewpoint score never uses time, so n
 .ab-tabs [role=tab]:focus-visible{outline:3px solid var(--sun);outline-offset:-3px}
 .ab-panels{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
 .ab-panel[hidden]{display:none}
-#about a{color:#8fd8e8}
+ #about a{color:#8fd8e8}
 .ab-foot{margin:0;padding-top:10px;border-top:3px solid var(--steel);color:var(--steel-l)}
+/* #842 Settings: the frame like #about, one stacked section now (Audio); #546 appends .st-sec blocks later */
+#settings{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;gap:16px;padding:16px 24px 24px;box-sizing:border-box;overflow:hidden;background:var(--ink);color:#f5efe0}
+#settings[hidden]{display:none}
+.st-panels{flex:1;min-height:0;overflow-y:auto}
+.st-sec h2{margin:0 0 8px;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel)}
+.st-row{display:grid;grid-template-columns:minmax(120px,1fr) auto minmax(160px,2fr) auto;gap:12px 16px;align-items:center;padding:14px 0;border-bottom:3px solid var(--steel)}
+.st-label{font-size:22px;font-weight:800;font-style:italic;letter-spacing:1px;text-transform:uppercase;color:var(--cream)}
+.st-cap{grid-column:1/-1;margin:0;font-size:15px;color:var(--steel-l)}
+.st-val{min-width:9ch}
+#settings input[type=range]{width:100%;height:44px;accent-color:var(--sun);margin:0}
+#settings input[type=range]:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+@media (max-width:600px){.st-row{grid-template-columns:1fr auto}.st-row input{grid-column:1/-1}}
 /* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
 body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
 body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
 body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
-body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast){display:none}
+body:has(#settings:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
+body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast),body:has(#settings:not([hidden])) #tc>:not(#toast){display:none}
 @media (max-width:600px){
   .tags{padding:10px 12px 0}.start .sub,.tag{font-size:11px;padding:4px 8px;letter-spacing:1px}
   .logo{padding:14px 12px 0;gap:8px}.start h1{font-size:48px;letter-spacing:-1px;text-shadow:3px 3px 0 var(--signal),6px 6px 0 var(--burnt),9px 9px 0 var(--charcoal)}
@@ -564,6 +577,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="worldbtn" class="btn small" type="button"></button>
         <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
         <button id="aboutbtn" class="btn small" type="button" data-i18n="aboutBtn" style="text-transform:none">About</button>
+        <button id="settingsbtn" class="btn small" type="button" data-i18n="settingsBtn" style="text-transform:none">Settings</button>
         <button id="musicbtn" class="btn small" type="button" aria-pressed="true" style="text-transform:none">Music: on</button>
       </div>
     </div>
@@ -715,6 +729,26 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <p class="ab-foot"><a data-link="source" data-i18n="aboutSource"></a> · <a data-link="glossary" data-i18n="aboutGlossary"></a> · <span id="aboutversion"></span></p>
 </div>
 
+<!-- #842 Settings, first slice: audio (sound and music). Framed like #about; opened from the start screen (#settingsbtn)
+     and the pause menu (#pausesettings). Later #546 sections (graphics, language, controls) append .st-sec blocks below Audio. -->
+<div id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="settingstitle">
+  <div class="ws-head"><h1 id="settingstitle" data-i18n="setTitle">Settings</h1><span class="ws-sub" data-i18n="setSub">Sound and music</span>
+    <button id="settingsback" class="btn" type="button" data-i18n="carselBack">‹ Back</button></div>
+  <div id="settingspanels" class="st-panels">
+    <section class="st-sec"><h2 data-i18n="setAudio">Audio</h2>
+      <div class="st-row"><span class="st-label" id="setsoundlabel" data-i18n="setSound">Sound</span>
+        <button id="setsound" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setsoundlabel">on</button>
+        <input id="setsoundvol" type="range" min="0" max="10" step="1" aria-labelledby="setsoundlabel">
+        <span id="setsoundpct" class="st-val"></span><p class="st-cap" data-i18n="setSoundCap">engine, horn, crashes …</p></div>
+      <div class="st-row"><span class="st-label" id="setmusiclabel" data-i18n="setMusic">Music</span>
+        <button id="setmusic" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setmusiclabel">on</button>
+        <input id="setmusicvol" type="range" min="0" max="10" step="1" aria-labelledby="setmusiclabel">
+        <span id="setmusicpct" class="st-val"></span><p id="setmusiccap" class="st-cap"></p></div>
+    </section>
+  </div>
+  <p class="ab-foot"><span data-i18n="setHint">Esc: back</span></p>
+</div>
+
 <!-- #7 car selection: the stage is a see-through cut-out onto the live scene (the real car turns on it); the subtitle is the current mode -->
 <div id="carsel" hidden role="dialog" aria-modal="true" aria-labelledby="carseltitle">
   <div class="cs-head"><h1 id="carseltitle" data-i18n="carselTitle">Choose car</h1><div id="carselmode" class="cs-sub"></div></div>
@@ -743,6 +777,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <!-- #801: the PostAuto timetable; hidden in a region without one -->
       <button id="pausetimetable" class="btn" type="button" data-i18n="ttPauseBtn">Timetable</button>
       <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
+      <!-- #842: Settings after About, like the start screen -->
+      <button id="pausesettings" class="btn" type="button" data-i18n="settingsBtn">Settings</button>
       <button id="pausekeybar" class="btn" type="button" aria-pressed="true">Key bar: on</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
@@ -825,6 +861,7 @@ import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautode
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
+import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction, musicCaptionKey } from './settings.js';   // #842
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
@@ -3980,7 +4017,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (SETTINGS.on) { settingsKey(e); return; }   /* #842: the settings dialog swallows the game, M and 5-0 keys while it is open */ if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') { toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); renderSettings(); } if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); }   /* #842: M flips the same Sound switch the dialog shows */ if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -4016,11 +4053,17 @@ for (const id of ['stylebtn2', 'pausestyle']) document.getElementById(id).onclic
 
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
-  let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set(); const holdFns = [];   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other.   #735: the radio follows every hold
+  // #842 (D4): the sound level is persisted like the radio's; '0'/'1' for on/off, 0-10 for the volume
+  const ls = (k) => { let v = null; try { v = localStorage.getItem(k); } catch (e) { } return v; };
+  const save = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { } };
+  const snd = { on: soundOnFrom(ls(SETTINGS_STORE.sound)), vol: soundVolFrom(ls(SETTINGS_STORE.soundVol)) };
+  let ac = null, eng = null, rot = null, muted = !snd.on, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set(); const holdFns = [];   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other.   #735: the radio follows every hold. muted = !snd.on (#842): the early-return guards, and what M reports
+  function applySound() { muted = !snd.on; save(SETTINGS_STORE.sound, snd.on ? 1 : 0); save(SETTINGS_STORE.soundVol, snd.vol); if (ac) ac.master.gain.setTargetAtTime(soundGain(snd.on, snd.vol), ac.currentTime, 0.02); }
   const knockAt = {}, kn = { played: 0, last: null }, gate = { t: -Infinity, s: 0 }, rec = { count: 0, last: null };   // #104: the crash retrigger gate, and what it let through (for the tests)
   const steps = { count: 0 }; let tyreAt = -1, siren = null; const tyreHits = { count: 0, last: null };   // #416
   const bv = new Map();   // #709: bus key -> { eng, es }, the Postauto engine voices
-  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(limit); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
+  // #842 (D1): a.mix is the hub (0.5) into the limiter; a.master is the effects bus at the sound level. The radio bypasses the effects bus, so Sound off leaves the music playing
+  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const hub = ac.createGain(); hub.gain.value = 0.5; hub.connect(limit); ac.mix = hub; const master = ac.createGain(); master.gain.value = soundGain(snd.on, snd.vol); master.connect(hub); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
   function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0 }; return eng; }
   function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted || holds.size) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
   function burst(dur, freq, q, vol) { if (muted || holds.size) return; const a = ctx(); const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(a.master); s.start(); }
@@ -4054,8 +4097,12 @@ const SFX = (() => {
     sirenTo(freq) { if (siren && siren.freq !== freq) { siren.to(freq, ac.currentTime); } },
     sirenState() { return siren ? { freq: siren.freq } : null; },   // #462: the loco's two-tone whistle
     chuff() { burst(0.16, 380, 0.9, 0.18); },   // #462: one chuff of the cylinders, a short low steam burst
-    toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
-    graph() { const a = ctx(); return { ac: a, master: a.master }; },   // #735: the radio routes its <audio> elements into the master (so M mutes it too)
+    toggle() { snd.on = !snd.on; applySound(); return muted; },   // #842: M flips the Sound switch (the effects bus), persisted
+    sound() { return { ...snd }; },
+    setSoundOn(on) { snd.on = !!on; applySound(); },
+    setSoundVol(v) { snd.vol = v; applySound(); },
+    blip() { beep(880, 0.06, 'square', 0.12); },   // #842: one short blip so a Sound slider move is audible
+    graph() { const a = ctx(); return { ac: a, master: a.mix }; },   // #735 / #842 (D1): the radio routes its <audio> elements into the hub, so the Sound switch no longer mutes the music
     onHold(fn) { holdFns.push(fn); },
     hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); for (const fn of holdFns) fn(holds.size > 0); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
     // #709: one engine voice per audible Postauto (the bus preset), level scaled by distance; a voice that drops out of the list fades and is freed
@@ -4072,7 +4119,7 @@ const SFX = (() => {
         applyEngine(s.eng, { ...mix, gain: mix.gain * v.gain, road: mix.road * v.gain, hiss: 0 }, t);
       }
     },
-    state() { return { ctx: ac ? ac.state : 'none', muted, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
+    state() { return { ctx: ac ? ac.state : 'none', muted, sound: { ...snd }, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
@@ -4121,7 +4168,7 @@ const RADIO = (() => {
   }
   function menuCmd(action) {   // on the start screen only 5 does something: the menu music on / off
     if (action !== 'power') return;
-    S.menuOn = !S.menuOn; S.menuArmed = true; save(RADIO_STORE.menu, S.menuOn ? 1 : 0); apply(); renderMusicBtn(); radioShow('📻 ' + tr(S.menuOn ? 'menuMusicOn' : 'menuMusicOff'));
+    S.menuOn = !S.menuOn; S.menuArmed = true; save(RADIO_STORE.menu, S.menuOn ? 1 : 0); apply(); renderMusicBtn(); renderSettings(); radioShow('📻 ' + tr(S.menuOn ? 'menuMusicOn' : 'menuMusicOff'));
   }
   function cmd(action) {
     if (!S.inRun) { menuCmd(action); return; }
@@ -4130,7 +4177,7 @@ const RADIO = (() => {
     if (action === 'next' && S.station === 'fm') S.track = nextTrack(S.track);
     if (action === 'prev' && S.station === 'fm') S.track = prevTrack(S.track);
     if (action === 'down' || action === 'up') { S.vol = stepVolume(S.vol, action === 'up' ? 1 : -1); save(RADIO_STORE.vol, S.vol); }
-    apply();
+    apply(); renderSettings();
     radioShow(action === 'down' || action === 'up' ? '📻 ' + tr('radioVolume', S.vol * 10) : nowText());
   }
   SFX.onHold((held) => {   // pause menu, hidden tab: everything stops; on release FM goes on where it was, SRF 3 reloads (live, not time-shifted)
@@ -4141,6 +4188,7 @@ const RADIO = (() => {
   });
   return {
     cmd,
+    setVolume(v) { S.vol = stepVolume(v, 0); save(RADIO_STORE.vol, S.vol); apply(); },   // #842: the Music slider, no toast
     tick() {
       const run = R.state !== 'ready';
       if (run !== S.inRun) { S.inRun = run; apply(); if (run && S.on) radioShow(nowText()); }
@@ -4937,6 +4985,7 @@ window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the 
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
 window.__mm.radio = () => RADIO.state();   // #735
+window.__mm.sfxGraph = () => SFX.graph();   // #842: the hub (graph().master) and the effects bus (ac.master), read-only, for the tests
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
 window.__mm.sfxCrashes = () => SFX.crashes();
@@ -5535,6 +5584,24 @@ function aboutKey(e) {
 $('aboutbtn').onclick = () => openAbout('start'); $('aboutback').onclick = closeAbout;
 window.__mm.about = () => ({ open: ABOUT.on, from: ABOUT.from });
 window.__mm.aboutTab = () => ABOUT_TABS[ABOUT.tab];
+// ---------- #842 Settings, first slice: audio. Sound = the effects bus (SFX), Music = the menu music on the start screen, the car radio in a run (D3, key 5's rule) ----------
+const SETTINGS = { on: false, from: 'start' };
+// live binding: reads SFX.sound() / RADIO.state() and writes the switches, the ranges, the % texts and the music caption. Runs on open, after every control change and on language change; called from the M / 5 / 9 / 0 / music-button paths too, so the dialog always shows the same values the keys set
+function renderSettings() {
+  const s = SFX.sound(), r = RADIO.state(), musicOn = r.inRun ? r.on : r.menuOn;
+  const sw = (id, on) => { const b = $(id); b.setAttribute('aria-checked', String(on)); b.textContent = tr(on ? 'setOn' : 'setOff'); };
+  sw('setsound', s.on); $('setsoundvol').value = s.vol; $('setsoundpct').textContent = tr('radioVolume', s.vol * 10);
+  sw('setmusic', musicOn); $('setmusicvol').value = r.vol; $('setmusicpct').textContent = tr('radioVolume', r.vol * 10); $('setmusiccap').textContent = tr(musicCaptionKey(r.inRun));
+}
+function openSettings(from) { SETTINGS.on = true; SETTINGS.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('settings').hidden = false; renderSettings(); $('settingsback').focus(); }
+function closeSettings() { if (!SETTINGS.on) return; SETTINGS.on = false; $('settings').hidden = true; const back = SETTINGS.from === 'pause'; $(back ? 'pause' : 'overlay').hidden = false; $(back ? 'pausesettings' : 'settingsbtn').focus(); }
+function settingsKey(e) { if (settingsKeyAction(e) !== 'back') return; e.preventDefault(); if (!e.repeat) closeSettings(); }   // 'pass': native Tab / Enter / Space / range arrows; 'ignore': no game key while the dialog is open
+$('settingsbtn').onclick = () => openSettings('start'); $('pausesettings').onclick = () => openSettings('pause'); $('settingsback').onclick = closeSettings;
+$('setsound').onclick = () => { SFX.setSoundOn(!SFX.sound().on); renderSettings(); };
+$('setsoundvol').oninput = (e) => { SFX.setSoundVol(+e.target.value); SFX.blip(); renderSettings(); };
+$('setmusic').onclick = () => { RADIO.cmd('power'); renderSettings(); };
+$('setmusicvol').oninput = (e) => { RADIO.setVolume(+e.target.value); renderSettings(); };
+window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol }) => ({ on, menuOn, vol }))(RADIO.state()) });
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
 function moveWorldsFocus(step) { const list = rows(), next = list.find(b => rowKey(b) === nextFocus(list.map(rowKey), rowKey(document.activeElement), step)); if (!next) return; selectRow(rowSel(next)); next.focus(); }
 function worldsKey(e) { const act = worldsKeyAction(e, document.activeElement && document.activeElement.classList.contains('ws-row')); if (act === 'back') { e.preventDefault(); closeWorlds(); } else if (act === 'next' || act === 'prev') { e.preventDefault(); moveWorldsFocus(act === 'next' ? 1 : -1); } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while a world is chosen
@@ -6036,7 +6103,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #853: the contact address too
+addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;

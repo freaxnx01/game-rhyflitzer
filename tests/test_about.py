@@ -149,7 +149,7 @@ def test_pause_menu_opens_about_and_back_returns_to_the_pause_menu(server):
         page.keyboard.press("Escape")
         after = page.evaluate("() => ({ about: window.__mm.about().open, pauseShown: !document.getElementById('pause').hidden, paused: window.__mm.pause().on, focus: document.activeElement.id })")
         b.close()
-    assert order == ["pauseresume", "pausevehicle", "pauseabout", "pauserestart", "pausemenu"], order
+    assert order == ["pauseresume", "pausevehicle", "pausestyle", "pausetimetable", "pauseabout", "pausesettings", "pausekeybar", "pauserestart", "pausemenu", "pausetutorial"], order   # every button in the markup, Settings after About (#842); hidden ones the mode never shows included
     assert opened == {"about": {"open": True, "from": "pause"}, "pause": False}, opened
     assert after == {"about": False, "pauseShown": True, "paused": True, "focus": "pauseabout"}, after   # Esc goes back, it does not resume
     assert errors == []

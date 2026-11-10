@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-10 20:23` **Settings** in the main menu and the pause menu: **Sound** and **Music** each with an on/off switch and a volume slider. <kbd>M</kbd>, 5 and 9 / 0 and the Music button change the same values, and the sound setting now survives a reload. <kbd>M</kbd> mutes the effects only; the radio keeps playing.
 - `2026-11-10 20:21` Hold <kbd>Tab</kbd> and turn the **mouse wheel** to **zoom the big map** in and out (1x to 8x) towards the cursor. The big map opens at 1x each time and its zoom is separate from the **minimap**.
 - `2026-11-10 20:19` The **menu music** now plays while the world is **loading**: it starts by itself where the browser allows it, otherwise with the first **click** or <kbd>key</kbd> press on the loading screen. Switched off, nothing changes.
 - `2026-11-10 20:17` **Eric** is now in the **About** screen's people tab, credited for his **vehicle ideas**.

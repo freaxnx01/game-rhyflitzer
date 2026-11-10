@@ -107,7 +107,7 @@ def test_keyboard_navigation_and_main_menu_asks_first(server):
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=T)
         seen = [pause(page)["focus"]]
-        for k in ["ArrowDown"] * 6 + ["ArrowUp", "Tab", "Tab", "Shift+Tab"]:   # #509/#535/#773: seven buttons — wraps Tab back to Resume, Shift+Tab to Main menu
+        for k in ["ArrowDown"] * 7 + ["ArrowUp", "Tab", "Tab", "Shift+Tab"]:   # #509/#535/#773/#842: eight buttons — wraps Tab back to Resume, Shift+Tab to Main menu
             page.keyboard.press(k)
             seen.append(pause(page)["focus"])
         before = pause(page)
@@ -134,7 +134,7 @@ def test_keyboard_navigation_and_main_menu_asks_first(server):
         start_text = page.text_content("#startbtn")
         gone = not page.is_visible("#pause") and not page.is_visible("#abandon")
         b.close()
-    assert seen == ["pauseresume", "pausevehicle", "pausestyle", "pauseabout", "pausekeybar", "pauserestart", "pausemenu", "pauserestart", "pausemenu", "pauseresume", "pausemenu"]   # #509: About sits after Change vehicle; #773: the style switch after it
+    assert seen == ["pauseresume", "pausevehicle", "pausestyle", "pauseabout", "pausesettings", "pausekeybar", "pauserestart", "pausemenu", "pauserestart", "pausemenu", "pauseresume", "pausemenu"]   # #509: About sits after Change vehicle; #842: Settings after About; #773: the style switch after it
     assert q_shown and role == "alertdialog" and q_text == ["Abandon this run?", "Keep driving", "Abandon run"]
     assert (q["on"], q["confirm"], q["focus"], q["t"], q["state"]) == (True, True, "abandoncancel", before["t"], "racing")
     assert (still["on"], still["confirm"]) == (True, True)
@@ -244,7 +244,7 @@ def test_phone_pause_button_and_menu_fit(server):
         page.tap("#pausebtn")
         page.wait_for_function("() => window.__mm.pause().on", timeout=T)
         fit = page.evaluate("""() => ({
-            buttons: ['pauseresume', 'pausevehicle', 'pauseabout', 'pauserestart', 'pausemenu'].map(id => { const e = document.getElementById(id), r = e.getBoundingClientRect();
+            buttons: ['pauseresume', 'pausevehicle', 'pauseabout', 'pausesettings', 'pauserestart', 'pausemenu'].map(id => { const e = document.getElementById(id), r = e.getBoundingClientRect();
               return { text: e.textContent, inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, clipped: e.scrollWidth > e.clientWidth }; }),
             pageWidth: document.documentElement.scrollWidth,
             nav: getComputedStyle(document.getElementById('game-nav')).display,
@@ -253,7 +253,7 @@ def test_phone_pause_button_and_menu_fit(server):
         page.wait_for_function("() => !window.__mm.pause().on", timeout=T)
         b.close()
     assert btn["x"] >= 0 and btn["x"] + btn["width"] <= 360 and btn["width"] >= 44 and btn["height"] >= 44
-    assert [x["text"] for x in fit["buttons"]] == ["Weiter", "Fahrzeug wechseln", "Über", "Rennen neu starten", "Hauptmenü"]   # #509: About after Change vehicle (textContent is the raw string)
+    assert [x["text"] for x in fit["buttons"]] == ["Weiter", "Fahrzeug wechseln", "Über", "Einstellungen", "Rennen neu starten", "Hauptmenü"]   # #509: About after Change vehicle; #842: Settings after it (textContent is the raw string)
     assert all(x["inside"] and not x["clipped"] for x in fit["buttons"])
     assert fit["pageWidth"] <= 360 and fit["nav"] == "none" and fit["label"] == "Pause"
     assert errors == []
