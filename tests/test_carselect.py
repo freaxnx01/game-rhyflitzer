@@ -473,3 +473,27 @@ def test_cancelled_swap_restores_the_chair(server):
     assert chair["on"] is False and chair["visible"] is False, chair
     assert stored == {"id": "mini", "paint": "navy"}, stored     # the chair flag is gone, exactly as the swap started
     assert errors == [], errors
+
+
+# ---------- #625: the preview of a car that rolled over ----------
+def test_choose_car_after_a_rollover_shows_an_upright_car_with_all_its_wheels(server):
+    """#625: a Wobbler on its side (and wrecked, its wheels off) is frozen by the pause; Change vehicle must not show it that way."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        page.evaluate("async () => { await window.__mm.loadVehicle('wobbler'); window.__mm.setVehicle(window.__mm.vehicles().wobbler); }")
+        wait_frames(page)
+        page.click("#startbtn", timeout=T)
+        page.wait_for_function("() => document.querySelector('#overlay').hidden", timeout=T)
+        tip = page.evaluate("() => window.__mm.tipSim(40, 1.3, ['KeyD'])")      # held fast corner: it falls onto its side
+        page.evaluate("() => window.__mm.setDamage(1)")                         # the landing wrecks it: the wheels fly off
+        before = page.evaluate("() => ({ roll: window.__mm.carPose().rot[0], off: window.__mm.damage().wheelsOff })")
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=T)
+        open_swap(page)
+        wait_frames(page, 3)
+        shown = page.evaluate("() => ({ roll: window.__mm.carPose().rot[0], off: window.__mm.damage().wheelsOff, wrecked: window.__mm.damage().wrecked })")
+        b.close()
+    assert tip["phase"] in ("falling", "down") and abs(before["roll"]) > 0.5 and before["off"] > 0, (tip, before)
+    assert abs(shown["roll"]) < 0.05, shown
+    assert shown["off"] == 0 and shown["wrecked"] is False, shown
+    assert errors == []

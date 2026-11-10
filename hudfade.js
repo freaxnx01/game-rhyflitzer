@@ -43,11 +43,12 @@ export function keybarPhase(k, sig, t) {
 }
 
 // what a mode shows at all -- mirrors the CSS in index.html: body.cruise hides the clock, the pips and the target
-// (#551), body.tutorial hides the clock (#534). Blitz, hunt and view are timed and show everything.
+// (#551), body.tutorial hides the clock (#534), body.view hides the clock (#824: the score never uses time). Trial,
+// blitz and hunt are timed and show everything.
 const TRIAL_ONLY = new Set(['tr', 'best', 'cps', 'pips', 'arrow', 'dist', 'cpname']);
 export function visibleInMode(id, mode) {
   if (mode === 'cruise') return !TRIAL_ONLY.has(id);
-  if (mode === 'tutorial') return id !== 'tr' && id !== 'best';
+  if (mode === 'tutorial' || mode === 'view') return id !== 'tr' && id !== 'best';
   return true;
 }
 
