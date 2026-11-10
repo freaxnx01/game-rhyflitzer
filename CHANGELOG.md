@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-10 20:19` The **menu music** now plays while the world is **loading**: it starts by itself where the browser allows it, otherwise with the first **click** or <kbd>key</kbd> press on the loading screen. Switched off, nothing changes.
 - `2026-11-10 20:17` **Eric** is now in the **About** screen's people tab, credited for his **vehicle ideas**.
 - `2026-11-10 19:22` A **contact address** in the footer ("Kontakt"/"Contact") and under About → The game: write to the game without a GitHub account.
 - `2026-11-10 11:34` At every **PostAuto stop** press <kbd>E</kbd> at the board — on foot or from the car — to see the next **departures** there, with the minutes until each one. From there, or from the pause menu → *Fahrplan*, each line's whole **timetable** opens: all stops of a direction with the next four runs, <kbd>◀</kbd> <kbd>▶</kbd> for earlier and later ones, and a 🚌 where a bus is on its way right now.
