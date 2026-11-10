@@ -250,13 +250,26 @@ body.view #tr{display:none}   /* #824: the viewpoint score never uses time, so n
 .ab-tabs [role=tab]:focus-visible{outline:3px solid var(--sun);outline-offset:-3px}
 .ab-panels{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
 .ab-panel[hidden]{display:none}
-#about a{color:#8fd8e8}
+ #about a{color:#8fd8e8}
 .ab-foot{margin:0;padding-top:10px;border-top:3px solid var(--steel);color:var(--steel-l)}
+/* #842 Settings: the frame like #about, one stacked section now (Audio); #546 appends .st-sec blocks later */
+#settings{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;gap:16px;padding:16px 24px 24px;box-sizing:border-box;overflow:hidden;background:var(--ink);color:#f5efe0}
+#settings[hidden]{display:none}
+.st-panels{flex:1;min-height:0;overflow-y:auto}
+.st-sec h2{margin:0 0 8px;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel)}
+.st-row{display:grid;grid-template-columns:minmax(120px,1fr) auto minmax(160px,2fr) auto;gap:12px 16px;align-items:center;padding:14px 0;border-bottom:3px solid var(--steel)}
+.st-label{font-size:22px;font-weight:800;font-style:italic;letter-spacing:1px;text-transform:uppercase;color:var(--cream)}
+.st-cap{grid-column:1/-1;margin:0;font-size:15px;color:var(--steel-l)}
+.st-val{min-width:9ch}
+#settings input[type=range]{width:100%;height:44px;accent-color:var(--sun);margin:0}
+#settings input[type=range]:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+@media (max-width:600px){.st-row{grid-template-columns:1fr auto}.st-row input{grid-column:1/-1}}
 /* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
 body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
 body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
 body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
-body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast){display:none}
+body:has(#settings:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
+body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast),body:has(#settings:not([hidden])) #tc>:not(#toast){display:none}
 @media (max-width:600px){
   .tags{padding:10px 12px 0}.start .sub,.tag{font-size:11px;padding:4px 8px;letter-spacing:1px}
   .logo{padding:14px 12px 0;gap:8px}.start h1{font-size:48px;letter-spacing:-1px;text-shadow:3px 3px 0 var(--signal),6px 6px 0 var(--burnt),9px 9px 0 var(--charcoal)}
@@ -564,6 +577,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="worldbtn" class="btn small" type="button"></button>
         <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
         <button id="aboutbtn" class="btn small" type="button" data-i18n="aboutBtn" style="text-transform:none">About</button>
+        <button id="settingsbtn" class="btn small" type="button" data-i18n="settingsBtn" style="text-transform:none">Settings</button>
         <button id="musicbtn" class="btn small" type="button" aria-pressed="true" style="text-transform:none">Music: on</button>
       </div>
     </div>
@@ -713,6 +727,26 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   <p class="ab-foot"><a data-link="source" data-i18n="aboutSource"></a> · <a data-link="glossary" data-i18n="aboutGlossary"></a> · <span id="aboutversion"></span></p>
 </div>
 
+<!-- #842 Settings, first slice: audio (sound and music). Framed like #about; opened from the start screen (#settingsbtn)
+     and the pause menu (#pausesettings). Later #546 sections (graphics, language, controls) append .st-sec blocks below Audio. -->
+<div id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="settingstitle">
+  <div class="ws-head"><h1 id="settingstitle" data-i18n="setTitle">Settings</h1><span class="ws-sub" data-i18n="setSub">Sound and music</span>
+    <button id="settingsback" class="btn" type="button" data-i18n="carselBack">‹ Back</button></div>
+  <div id="settingspanels" class="st-panels">
+    <section class="st-sec"><h2 data-i18n="setAudio">Audio</h2>
+      <div class="st-row"><span class="st-label" id="setsoundlabel" data-i18n="setSound">Sound</span>
+        <button id="setsound" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setsoundlabel">on</button>
+        <input id="setsoundvol" type="range" min="0" max="10" step="1" aria-labelledby="setsoundlabel">
+        <span id="setsoundpct" class="st-val"></span><p class="st-cap" data-i18n="setSoundCap">engine, horn, crashes …</p></div>
+      <div class="st-row"><span class="st-label" id="setmusiclabel" data-i18n="setMusic">Music</span>
+        <button id="setmusic" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setmusiclabel">on</button>
+        <input id="setmusicvol" type="range" min="0" max="10" step="1" aria-labelledby="setmusiclabel">
+        <span id="setmusicpct" class="st-val"></span><p id="setmusiccap" class="st-cap"></p></div>
+    </section>
+  </div>
+  <p class="ab-foot"><span data-i18n="setHint">Esc: back</span></p>
+</div>
+
 <!-- #7 car selection: the stage is a see-through cut-out onto the live scene (the real car turns on it); the subtitle is the current mode -->
 <div id="carsel" hidden role="dialog" aria-modal="true" aria-labelledby="carseltitle">
   <div class="cs-head"><h1 id="carseltitle" data-i18n="carselTitle">Choose car</h1><div id="carselmode" class="cs-sub"></div></div>
@@ -741,6 +775,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <!-- #801: the PostAuto timetable; hidden in a region without one -->
       <button id="pausetimetable" class="btn" type="button" data-i18n="ttPauseBtn">Timetable</button>
       <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
+      <!-- #842: Settings after About, like the start screen -->
+      <button id="pausesettings" class="btn" type="button" data-i18n="settingsBtn">Settings</button>
       <button id="pausekeybar" class="btn" type="button" aria-pressed="true">Key bar: on</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
