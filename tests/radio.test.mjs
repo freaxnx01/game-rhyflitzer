@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { SRF3_URL, STATIONS, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain,
-  radioOnFrom, menuMusicOnFrom, stationFrom, volumeFrom, srfVerdict, displayFor } from '../radio.js';
+  radioOnFrom, menuMusicOnFrom, stationFrom, volumeFrom, srfVerdict, displayFor, createEarlyMenu, EARLY_GESTURES } from '../radio.js';
 
 const key = (code, o = {}) => ({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, ...o });
 
@@ -98,4 +98,41 @@ test('displayFor_OffSrfAndTrack', () => {
   assert.deepEqual(displayFor({ on: false, station: 'fm', track: 0 }), { key: 'radioOff', args: [] });
   assert.deepEqual(displayFor({ on: true, station: 'srf3', track: 2 }), { key: 'radioStationSrf', args: [] });
   assert.deepEqual(displayFor({ on: true, station: 'fm', track: 1 }), { key: 'radioTrack', args: ['Neon Afterglow', 'MemoryArcade'] });
+});
+
+// #841: the menu music's early start, before RADIO and the SFX graph exist. Audio and target are injected, so these run under node.
+const fakeEl = () => ({ plays: 0, paused: false, rejects: false, play() { this.plays++; return this.rejects ? Promise.reject(new Error('NotAllowedError')) : Promise.resolve(); }, pause() { this.paused = true; } });
+const fakeTarget = () => { const l = {}; return { l, addEventListener(t, f) { (l[t] ||= []).push(f); }, removeEventListener(t, f) { l[t] = (l[t] || []).filter(x => x !== f); }, fire(t) { (l[t] || []).slice().forEach(f => f()); } }; };
+
+test('createEarlyMenu_MusicOff_MakesNothing', () => {
+  const t = fakeTarget(); let made = 0;
+  const e = createEarlyMenu({ menuOn: false, vol: 6, makeAudio: () => { made++; return fakeEl(); }, target: t });
+  assert.equal(made, 0); assert.equal(e.take(), null); assert.equal(e.gestured(), false);
+  assert.deepEqual(Object.keys(t.l), []);
+});
+test('createEarlyMenu_On_SetsUpTheMenuTrackAndTriesToPlayAtOnce', () => {
+  const el = fakeEl();
+  createEarlyMenu({ menuOn: true, vol: 6, makeAudio: () => el, target: fakeTarget() });
+  assert.equal(el.src, MENU_TRACK.src); assert.equal(el.loop, true); assert.equal(el.preload, 'none');
+  assert.equal(el.volume, Math.min(1, menuGain(6))); assert.equal(el.plays, 1);
+});
+test('createEarlyMenu_RefusedPlay_DoesNotThrowAndAGestureRetries', async () => {
+  const el = fakeEl(), t = fakeTarget(); el.rejects = true;
+  const e = createEarlyMenu({ menuOn: true, vol: 6, makeAudio: () => el, target: t });
+  assert.equal(e.gestured(), false);
+  for (const g of EARLY_GESTURES) assert.ok(t.l[g].length === 1, g);
+  t.fire('keydown'); await Promise.resolve();
+  assert.equal(el.plays, 2); assert.equal(e.gestured(), true);
+});
+test('createEarlyMenu_Take_HandsOverOnceAndStopsListening', () => {
+  const el = fakeEl(), t = fakeTarget();
+  const e = createEarlyMenu({ menuOn: true, vol: 6, makeAudio: () => el, target: t });
+  assert.equal(e.take(), el); assert.equal(el.volume, 1); assert.equal(e.take(), null);
+  t.fire('keydown'); assert.equal(el.plays, 1);
+  for (const g of EARLY_GESTURES) assert.equal((t.l[g] || []).length, 0, g);
+});
+test('createEarlyMenu_Drop_PausesAnUntakenElement', () => {
+  const el = fakeEl();
+  const e = createEarlyMenu({ menuOn: true, vol: 6, makeAudio: () => el, target: fakeTarget() });
+  e.drop(); assert.equal(el.paused, true); assert.equal(e.take(), null);
 });

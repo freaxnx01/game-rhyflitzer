@@ -53,6 +53,27 @@ export function volumeFrom(stored) {
   return Number.isInteger(n) && n >= VOLUME.min && n <= VOLUME.max ? n : VOLUME.start;
 }
 
+// #841: the menu music before the world is built. RADIO and the SFX graph do not exist until loading is far along, so a bare
+// element starts here (autoplay tried at once, retried on every gesture) and RADIO adopts it with take(). Pure: audio and target injected.
+export const EARLY_GESTURES = Object.freeze(['pointerdown', 'pointerup', 'keydown', 'touchend']);
+export function createEarlyMenu({ menuOn, vol, makeAudio, target, src = MENU_TRACK.src }) {
+  let el = null, gestured = false, listening = false;
+  const tryPlay = () => { if (!el) return; const p = el.play(); if (p && p.catch) p.catch(() => { }); };   // a refused play() stays silent
+  const onGesture = () => { gestured = true; tryPlay(); };
+  const release = () => { if (listening) { listening = false; for (const g of EARLY_GESTURES) target.removeEventListener(g, onGesture, true); } const e = el; el = null; return e; };   // music off: no element, no listeners, nothing to remove
+  if (menuOn) {
+    el = makeAudio(); el.preload = 'none'; el.loop = true; el.src = src; el.volume = Math.min(1, menuGain(vol));
+    listening = true;
+    for (const g of EARLY_GESTURES) target.addEventListener(g, onGesture, { capture: true, passive: true });
+    tryPlay();
+  }
+  return {
+    gestured: () => gestured,
+    take() { const e = release(); if (e) e.volume = 1; return e; },   // RADIO's gain node sets the level from here on
+    drop() { const e = release(); if (e) e.pause(); },
+  };
+}
+
 // watch = { since: play() asked at (s), playing: 'playing' fired, waitingSince: 'waiting'/'stalled' since (s) or null, error }
 export function srfVerdict(watch, now) {
   if (watch.error) return 'fail';
