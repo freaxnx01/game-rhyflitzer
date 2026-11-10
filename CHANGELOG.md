@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-11-10 22:25` Die **Plattform Sisslerfeld** sieht jetzt aus wie das Original: **weisses Dach**, **Sparren** und **Pfetten** unter dem Dach, **Streben** an den Pfosten, **Lattenwand** mit Lücken und **Brüstung** mit **Handlauf** um den Treppenausstieg, dickere helle Stufen.
+
 ### Fixed
 
 - `2026-11-10 15:35` On **road signs** (Fahrverbot, Baustelle), the **place-name boards**, the **P and Crash-Platz signs** and the **speed display** in Sisseln, the **pole** no longer sticks out above the sign or through its face: it ends behind the panel.
