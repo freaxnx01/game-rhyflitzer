@@ -29,21 +29,24 @@ def test_waiting_behind_a_departing_bus_thanks_on_the_rear_only(server):
         assert bus, "no bus stood at Industriezone Rütti under the stepped clock"
         key = bus["key"]
 
-        # back to 1x for the departure (setFactor keeps the fleet time): at 60x the bus pulls 16 m clear and drives
-        # out of the 40 m / 10 s thank-you window between two samples on a slow renderer (hosted CI)
+        # still at 60x through the rest of the dwell (one 16 ms frame is about a fleet second), then back to 1x the moment
+        # it pulls out (setFactor keeps the fleet time): at 60x the bus leaves the 40 m / 10 s thank-you window between two
+        # samples on a slow renderer, and 1x through the whole dwell is too many frames for the hosted runner
+        cur = bus
+        for _ in range(200):
+            page.clock.run_for(16)
+            cur = next((x for x in page.evaluate("() => window.__mm.postauto().buses") if x["key"] == key), cur)
+            if cur["phase"] == "drive":
+                break
+        assert cur["phase"] == "drive", "the bus never left the stop"
         page.evaluate("""() => { const sel = document.getElementById('debugpaspeed'); sel.value = '1'; sel.dispatchEvent(new Event('change')); }""")
-        depart_s, pose = None, None
-        for _ in range(900):   # up to 90 s of fleet time: the rest of the dwell and the pull-out
+        depart_s, pose = cur["s"], None
+        for _ in range(150):   # 15 s of fleet time: the pull-out is done by 16 m
             page.clock.run_for(100)
             cur = next((x for x in page.evaluate("() => window.__mm.postauto().buses") if x["key"] == key), None)
-            if not cur:
-                continue
-            if cur["phase"] == "drive":
-                if depart_s is None:
-                    depart_s = cur["s"]
-                if cur["s"] - depart_s >= 16:   # back in its lane (busOffset's pull-out blend is done by 15 m)
-                    pose = cur
-                    break
+            if cur and cur["phase"] == "drive" and cur["s"] - depart_s >= 16:   # back in its lane (busOffset's blend is done by 15 m)
+                pose = cur
+                break
         assert pose, "the bus never drove clear of the stop"
 
         before = next(d for d in page.evaluate("() => window.__mm.postautoDisplay().buses") if d["key"] == key)
