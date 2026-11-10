@@ -3,7 +3,6 @@ import pytest
 from playwright.sync_api import sync_playwright
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-unsafe-webgpu"]
-# Message path only for now: window.__poc does not exist yet.
 READY = "() => { const m = document.getElementById('no-webgpu'); return (m && !m.hidden) || window.__poc?.ready === true; }"
 
 
@@ -34,3 +33,18 @@ def test_poc_page_has_no_console_errors(poc_page):
     path = "no-webgpu" if poc_page.is_visible("#no-webgpu") else "webgpu"
     print("SwiftShader path:", path)
     assert errors == []
+
+
+def test_look_keys_switch_state(poc_page):
+    poc_page.goto(poc_page.poc_url)
+    poc_page.wait_for_function(READY, timeout=120000)
+    if poc_page.is_visible("#no-webgpu"):
+        pytest.skip("no WebGPU adapter in this browser")
+    poc_page.keyboard.press("KeyT")
+    assert poc_page.evaluate("window.__poc.state().time") == "midday"
+    poc_page.keyboard.press("KeyR")
+    state = poc_page.evaluate("window.__poc.state()")
+    assert state["wet"] is True and state["roadWetness"] == 0.9
+    poc_page.keyboard.press("KeyT")
+    state = poc_page.evaluate("window.__poc.state()")
+    assert state["wet"] is True and state["roadWetness"] == 0.9

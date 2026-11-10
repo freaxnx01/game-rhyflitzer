@@ -316,4 +316,5 @@ class LightingSystem {
   }
 }
 
-export { LightingSystem };
+// PoC: TIME_PRESETS exported so the T/R keys can restore a preset's own road wetness
+export { LightingSystem, TIME_PRESETS };

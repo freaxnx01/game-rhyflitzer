@@ -21,6 +21,10 @@ import { setupSceneCulling, updateSceneCulling } from './scene-culling.js';
 import { CityAudioSystem } from './audio-system.js';
 // PoC: WebGPU gate
 import { hasWebGPU } from './poc-gate.js';
+// PoC: T / R look keys
+import { nextTimePreset, roadWetness, isLookKey } from './poc-look.js';
+import { TIME_PRESETS } from './lighting.js';
+import { cityUniforms } from './tsl-materials.js';
 
 // Application setup, shader warm-up and frame loop.
 
@@ -362,8 +366,16 @@ async function initApp() {
     selectCamera(CAMERA_PRESETS[(idx + step + n) % n].id, true);
   }
 
+  // PoC: wet-road toggle (R); the preset's own wetness is raised to a floor while on
+  let pocWet = false;
+  function pocApplyWetness() {
+    const preset = TIME_PRESETS[lightingSystem.activePresetId] || TIME_PRESETS.golden;
+    cityUniforms.uRoadWetness.value = roadWetness(preset.roadWetness, pocWet);
+  }
+
   function selectTime(timeId) {
     lightingSystem.applyPreset(timeId);
+    pocApplyWetness(); // PoC
     colorGrade.applyPreset(lightingSystem.activePresetId);
     timeButtons.forEach((btn) => {
       btn.classList.toggle('active', btn.getAttribute('data-time') === timeId);
@@ -541,6 +553,13 @@ async function initApp() {
   // Global keyboard shortcuts for modes (1-4), cameras (V / 5-0), and HUD (H)
   window.addEventListener('keydown', (e) => {
     if (isTypingInField(e)) return;
+    // PoC: T cycles time of day, R toggles wet roads
+    const look = isLookKey(e);
+    if (look === 'time') selectTime(nextTimePreset(lightingSystem.activePresetId));
+    if (look === 'wet') {
+      pocWet = !pocWet;
+      pocApplyWetness();
+    }
     switch (e.code) {
       case 'Digit1':
         selectMode('person');
@@ -601,6 +620,16 @@ async function initApp() {
   selectMode(controllerManager.activeMode);
   selectCamera('chase', true);
   selectTime('golden');
+  // PoC: test hook; ready flips after the first rendered frame
+  window.__poc = {
+    ready: false,
+    setTime: selectTime,
+    setWet(value) {
+      pocWet = Boolean(value);
+      pocApplyWetness();
+    },
+    state: () => ({ time: lightingSystem.activePresetId, wet: pocWet, roadWetness: cityUniforms.uRoadWetness.value }),
+  };
   // the web fonts change the buttons' widths once they arrive
   if (document.fonts) document.fonts.ready.then(placeModeIndicator);
   markInit('ui');
@@ -753,6 +782,7 @@ async function initApp() {
     if (!warmedUp) {
       warmedUp = true;
       markInit('firstFrame');
+      window.__poc.ready = true; // PoC
       // The loading screen stays up until the GPU has got through the first frame (and the pipelines its warm-up
       // compiled), i.e. until the city is actually on screen
       const device = renderer.backend.device;
