@@ -41,6 +41,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-10 08:29` The **smiley speed display** in Sisseln now lags like a real radar sign: it shows your speed from **two seconds ago**, so as you pass it you see how fast you came in, and after you pass it the last reading stays up for a moment.
+
 - `2026-11-09 19:57` The **glass shelters** at the Postauto stops are now **solid**: the car bumps into them like into a wall instead of driving through. On foot you can still step in under the roof.
 
 - `2026-11-09 16:22` A **tidier driving HUD**: everything but the speedometer, the clock, the checkpoint arrow and the map now fades to a faint ghost four seconds after it last changed and lights up again for three seconds when it does — the mode plate, gear and trip, the road and water names, the best time. The **damage** plate appears only once the car has taken damage, the blinker glyphs only while a signal is on, and the key bar dims after half a minute and returns when you get out, fly or board. The **compass** has moved into the minimap: the car marker has a needle and the map bar shows the heading in degrees. The style button under the road is gone — switch the style in the **pause** menu or with <kbd>T</kbd> — and the footer links show only on the start screen and in pause.
