@@ -129,6 +129,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     bus_routes = []
     if bus_lines:        # #682: PostAuto routes and kerb-side stops; no `bus` anchors key, no busRoutes key
         bus_routes, bus_stats = world_bus.build(world_bus.read(Path(pbf), frame, bus_lines), roads, clip)
+        bus_routes = world_bus.servable(bus_routes, bus_stats)
         log(f"bus routes {len(bus_routes)} {dict(bus_stats)}")
     parking, park_stats = world_parking.build(data.areas, data.ways, buildings, osm_roads, clip)
     forests, forest_stats = world_forests.build(data.areas, osm_roads + game_roads, clip)
