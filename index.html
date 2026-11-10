@@ -92,7 +92,7 @@ body:has(#debuglegend:not([hidden])) #touch{display:none}
 /* #hud is pointer-events:none, so the dialog has to opt back in to be clickable at all */
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
 #jump input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}
-#jump .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}#jump .chips button{font:inherit;font-size:13px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 8px;cursor:pointer}#jump .chips button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}
+#jump .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}#jump .chips button{font:inherit;font-size:13px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 8px;cursor:pointer}#jump .chips button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}#jump .chips .crow{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%;align-items:center}#jump .chips .crow b{width:2.2em;color:#8b93a3;font-size:12px}
 #jump ul{list-style:none;margin:6px 0;padding:0;max-height:50vh;overflow-y:auto}#jump li{display:flex;justify-content:space-between;gap:12px;cursor:pointer;padding:3px 4px}#jump li span{color:var(--steel-l);font-weight:600}#jump li:hover,#jump li.sel{color:#ffc61a}#jump li.soon{opacity:.55}#jump small{color:var(--steel-l)}
 #bl{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
 #speedo{width:200px;height:200px}
@@ -757,7 +757,7 @@ import { crownFor } from './treegeo.js';
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
-import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
+import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
 import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, bodenackerDoorway, BODENACKER6 } from './bodenacker6.js';
@@ -5544,9 +5544,15 @@ function renderJump() {
   const drive = DEST_MODES.has(JUMP.mode), toNavi = JUMP.mode === 'navi'; JUMP.rows = jumpRows(); JUMP.sel = Math.min(JUMP.sel, JUMP.rows.length - 1);
   $('jumptitle').textContent = tr(toNavi ? 'naviTitle' : drive ? 'driveTitle' : 'jumpTitle'); $('jumphint').textContent = tr(toNavi ? 'naviHint' : drive ? 'driveHint' : 'jumpHint');
   /* #176: street and place names come from OSM, so every name is escaped; tr('streetIn') keeps its own markup, so only its argument is escaped */
-  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${(i === JUMP.sel ? ' class="sel' : ' class="') + (r.soon ? ' soon' : '') + '"'}>${esc(r.n)}<span>${r.soon ? tr('enterableSoon') : r.street ? tr('streetIn', esc(r.g)) : esc(r.g)}</span></li>`).join('');
+  /* #782: every row with a Gemeinde shows its country when the region has a German list; jumpList() keeps the bare g */
+  const gLabel = r => REGION.gemeindenDe.length && r.g && REGION.gemeinden.includes(r.g) ? `${esc(r.g)} · ${REGION.gemeindenDe.includes(r.g) ? 'DE' : 'CH'}` : esc(r.g);
+  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${(i === JUMP.sel ? ' class="sel' : ' class="') + (r.soon ? ' soon' : '') + '"'}>${esc(r.n)}<span>${r.soon ? tr('enterableSoon') : r.street ? tr('streetIn', esc(r.g)) : gLabel(r)}</span></li>`).join('');
   /* data-g round-trips through the browser's attribute decoding, so the click handler still reads the raw name from dataset.g */
-  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`).join('') + (drive ? '' : `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`) : '';
+  const chip = g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`;
+  $('jumpchips').innerHTML = !L ? '' : drive ? ['All', ...placeChips(jumpEntries())].map(chip).join('')   /* #782: drive and navi keep the single placeChips row */
+    : chip('All') + `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`   /* #782: Enterable moved up beside All */
+      + chipRows(gemeindenOf(JUMP_ENTRIES, REGION.gemeinden), REGION.gemeindenDe).map(row =>
+        `<div class="crow"${row.country ? ` data-country="${row.country}"` : ''}>${row.country ? `<b>${row.country}</b>` : ''}${row.gemeinden.map(chip).join('')}</div>`).join('');
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
 function openJump(mode) { releaseFootLock(); for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.enterable = false; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
