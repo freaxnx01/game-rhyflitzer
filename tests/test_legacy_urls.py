@@ -27,6 +27,15 @@ def test_prototype_link_forwards_to_the_root_with_query_and_hash(server):
         b.close()
 
 
+def test_prototype_link_keeps_the_external_referrer_for_analytics(server):
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        page.goto(f"{server}/prototype/?utm_source=reddit", referer="https://www.reddit.com/r/x/")
+        page.wait_for_function("() => document.title === 'landed'", timeout=30000)
+        assert page.evaluate("() => sessionStorage.getItem('legacy-referrer')") == "https://www.reddit.com/r/x/"
+        b.close()
+
+
 def test_a_deeper_prototype_link_forwards_through_the_404_page(server):
     with sync_playwright() as p:
         b, page = open_page(p, server)
