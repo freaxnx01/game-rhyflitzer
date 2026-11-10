@@ -4360,7 +4360,7 @@ function stepPostauto(dt) {
     const gap = surface && b.phase === 'drive' && level ? obstacleGap(b.route, b.s, player) : null;
     for (let i = 0; i < n && b.phase !== 'done'; i++) stepBus(b, now - dtF + (i + 1) * h, h, gap);
     if (b.phase === 'done') continue;
-    if (surface && thankDue(b, now + b.shift, player)) markThanked(b, now + b.shift);
+    if (surface && level && thankDue(b, now + b.shift, player)) markThanked(b, now + b.shift);
     alive.add(b.key);
     if (surface) drawPostauto(b, flashOn, dt);
   }

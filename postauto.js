@@ -325,11 +325,12 @@ export function obstacleGap(route, s, player, cfg = PA) {
   return Math.max(0, ahead - BUS.length / 2 - player.r - cfg.gap);
 }
 
-// #800: does the player (x, z, v) wait behind the bus that just left a stop? trackRoute scans only 10 m behind its seed, hence the offset
+// #800: does the player (x, z, v) wait behind the bus that just left a stop? trackRoute scans only 10 m behind its seed, so seed at
+// the full thankBehind distance -- its +60 forward reach then still covers all the way back up to the bus itself
 export function thankDue(b, t, player, cfg = PA) {
   if (b.phase !== 'drive' || b.thankedAt === b.leftAt || !(t - b.leftAt < cfg.thankWindow)) return false;
   if (player.v > cfg.thankKmh / 3.6) return false;
-  const tr = trackRoute(b.route, player.x, player.z, b.s - cfg.thankBehind / 2), back = b.s - tr.s;
+  const tr = trackRoute(b.route, player.x, player.z, b.s - cfg.thankBehind), back = b.s - tr.s;
   if (back < BUS.length / 2 || back > cfg.thankBehind) return false;
   return Math.abs(tr.d - Math.abs(routeLaneOffset(b.route, tr.s))) <= cfg.thankLane;
 }
