@@ -1461,18 +1461,20 @@ def test_shuttle_room_builds_the_launch_stack_on_the_holodeck_without_a_download
         into_room(page, 7, "r2room7", -1200)
         page.wait_for_function("() => window.__mm.shuttle() && window.__mm.shuttle().built === 15", timeout=120000)
         s = page.evaluate("() => window.__mm.shuttle()")
-        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(7, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -1200);
-          return { tank: p(0, 0), platform: p(23, -19), front: p(-32, 0), side: p(0, 28), back: p(32, -10) }; }""")
-        for name, a, b in (("shuttle-portal-view", -110, 0), ("shuttle-three-quarter", -70, 70)):
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.shuttle().stack.th, x = [Math.cos(th), Math.sin(th)], z = [-x[1], x[0]], p = (a, b) => window.__mm.pushAt(t.x + x[0] * a + z[0] * b, t.z + x[1] * a + z[1] * b, -1200);
+          return { tank: p(0, 0), platform: p(23, -19), front: p(-30, 0), side: p(0, 26), back: p(30, -10) }; }""")   # in the stack's own frame (turned 45°)
+        turn = page.evaluate("() => { const d = window.__mm.shuttle().stack.th - window.__mm.spoke(7, 0).th; return Math.atan2(Math.sin(d), Math.cos(d)); }")
+        for name, a, b in (("shuttle-portal-view", -200, 0), ("shuttle-three-quarter", -140, 140)):
             cam = page.evaluate(f"() => {{ const t = window.__mm.below().tower, th = window.__mm.spoke(7, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], x = t.x + f[0] * {a} + v[0] * {b}, z = t.z + f[1] * {a} + v[1] * {b}; return {{ x, z, th: Math.atan2(t.z - z, t.x - x) }}; }}")
             page.evaluate(f"() => window.__mm.sim({cam['x']}, {cam['z']}, {cam['th']}, 0, 1.5, [], -1200)")
-            page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+            page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(9000)   # past the "hideout found" toast
             page.screenshot(path=str(tmp_path / f"{name}.png"))
         br.close()
     print("screenshots:", tmp_path)
     assert errors == []
-    assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests
+    assert [u for u in requests if "/assets/models/" in u and not u.endswith("/eiffel_tower.glb")] == [], requests   # surface landmarks (assets/landmarks) may stream in meanwhile
     assert abs(s["h"] - 56.1) < 1e-6 and 1000 <= s["tris"] <= 30000 and s["colliders"] == 6, s
+    assert abs(turn - math.pi / 4) < 1e-6, turn   # turned 45° from the room's axis: the portal sees the orbiter three-quarter on
     assert s["look"] == "space" and s["grid"] is True and s["dome"] is True and s["lawn"] is False, s
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("tank", "platform")), push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("front", "side", "back")), push

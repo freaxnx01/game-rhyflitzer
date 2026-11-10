@@ -3570,15 +3570,15 @@ function roomArtemis(group, R) {
   ROOM.artemis = { built: R.k, rocket: A.rocket, capsule: A.capsule, h: ARTEMIS.h, tris: artemisTriangles(rocket) + artemisTriangles(cap), colliders: A.colliders.length };
 }
 // #811: the Space Shuttle Enterprise in launch position (shuttle.js places it, shuttlemesh.js builds it): a concrete pad
-// on the floor, the mobile launcher platform on it, the stack upright on the platform, turned to the room's frame (the
-// boosters along f, the orbiter on the +v side). All goes with the room's group (disposeGroup); ROOM.shuttle tells the
-// debug hook what was built.
+// on the floor, the mobile launcher platform on it, the stack upright on the platform, all turned 45° from the room's axis
+// (shuttle.js stackFrame) so the portal sees the orbiter three-quarter on. All goes with the room's group (disposeGroup);
+// ROOM.shuttle tells the debug hook what was built.
 function roomShuttle(group, R) {
-  const S = R.shuttle, [cx, cz] = R.centre, y = R.y, a = R.portal.th;
+  const S = R.shuttle, [cx, cz] = R.centre, y = R.y, a = S.stack.th;
   const pad = orientedBox(SHUTTLE.pad.w, SHUTTLE.pad.lift, SHUTTLE.pad.w, cx, cz, y, a, new THREE.MeshLambertMaterial({ color: SHUTTLE.colours.pad })); pad.renderOrder = 1; group.add(pad);
   group.add(orientedBox(SHUTTLE.deck.w, SHUTTLE.deck.h, SHUTTLE.deck.d, cx, cz, y + SHUTTLE.pad.lift, a, new THREE.MeshLambertMaterial({ color: SHUTTLE.colours.deck })));
   const stack = buildShuttle(SHUTTLE); stack.position.set(S.stack.x, y + SHUTTLE.pad.lift + SHUTTLE.deck.h, S.stack.z); stack.rotation.y = -S.stack.th; group.add(stack);
-  ROOM.shuttle = { built: R.k, stack: S.stack, h: SHUTTLE.h, tris: artemisTriangles(stack), colliders: S.colliders.length };
+  ROOM.shuttle = { built: ROOM.built, stack: S.stack, h: SHUTTLE.h, tris: artemisTriangles(stack), colliders: S.colliders.length };
 }
 // #513: the Ferris wheel (ferris.js places it, ferrismesh.js builds it): stood on the floor at the room centre, turned to the
 // room's frame (the axle along f, so the portal sees the wheel face-on). All goes with the room's group (disposeGroup);

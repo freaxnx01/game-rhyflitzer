@@ -5,11 +5,12 @@
 // The pathfinder stack's tank was painted white (only the first flights flew one); Enterprise itself white with a black belly.
 // Unit-tested with `node --test tests/shuttle.test.mjs`.
 //
-// The stack's own frame: y = 0 at the platform's deck top, +x along the room's forward axis (f, the boosters' line),
-// +z across (v, the orbiter's side). The orbiter's own frame: u up its length (0 at the engine exits), w along its span
+// The stack's own frame: y = 0 at the platform's deck top, +x along the boosters' line, +z towards the orbiter; in a room
+// the frame is the room's (f, v) turned by `turn`, so the portal sees the orbiter three-quarter on (stackFrame). The orbiter's own frame: u up its length (0 at the engine exits), w along its span
 // (= stack x), n from the belly to the fin (= stack z).
 export const SHUTTLE = {
   key: 'shuttle', h: 56.1,                                  // deck top to the tank's nose spike
+  turn: Math.PI / 4,                                        // the stack turned 45° from the room's axis: wing and fin face the portal
   pad: { w: 64, lift: 0.15 },                               // concrete slab on the floor, no collider
   deck: { w: 49, d: 41, h: 7.6 },                           // the mobile launcher platform, one collider
   et: { r: 4.2, y0: 9.2, y1: 56.1, dome: 1.4, ogive: 11.5, spike: { r: 0.25, h: 1.2 } },   // 8.4 m across, 46.9 m long
@@ -61,17 +62,23 @@ export function orbiterExtent(cfg = SHUTTLE) {
   return { x1: O.span / 2, y0: O.y0, y1: O.y0 + O.length, z0: O.off - O.body.d / 2, z1: O.off + O.body.d / 2 + fin };
 }
 
-// where the stack stands in a room ({ centre, frame: { f, v }, y }): on the room centre, the boosters along f, the orbiter
-// on the +v side; the colliders, all `low` (the car stops, the helicopter / hovering walker pass over each top)
+// the stack's x (boosters) and z (orbiter) axes in the world: the room's (f, v) turned by `turn` about the vertical
+export function stackFrame(f, v, turn = 0) {
+  const c = Math.cos(turn), s = Math.sin(turn);
+  return { x: [f[0] * c + v[0] * s, f[1] * c + v[1] * s], z: [v[0] * c - f[0] * s, v[1] * c - f[1] * s] };
+}
+
+// where the stack stands in a room ({ centre, frame: { f, v }, y }): on the room centre, turned by `turn`; the colliders,
+// all `low` (the car stops, the helicopter / hovering walker pass over each top)
 export function shuttlePlacement(room, cfg = SHUTTLE) {
-  const [cx, cz] = room.centre, { f } = room.frame, v = room.frame.v, y = room.y;
-  const loc = (a, b) => [cx + f[0] * a + v[0] * b, cz + f[1] * a + v[1] * b];
+  const [cx, cz] = room.centre, y = room.y, { x: X, z: Z } = stackFrame(room.frame.f, room.frame.v, cfg.turn);
+  const loc = (a, b) => [cx + X[0] * a + Z[0] * b, cz + X[1] * a + Z[1] * b];
   const deckTop = y + cfg.pad.lift + cfg.deck.h, E = orbiterExtent(cfg), O = cfg.orbiter;
-  const box = (a, b, hw, hd, h, shuttle) => { const [x, z] = loc(a, b); return { x, z, hw, hd, c: f[0], s: f[1], h, low: true, shuttle }; };
+  const box = (a, b, hw, hd, h, shuttle) => { const [x, z] = loc(a, b); return { x, z, hw, hd, c: X[0], s: X[1], h, low: true, shuttle }; };
   const mount = box(0, 0, cfg.deck.w / 2, cfg.deck.d / 2, deckTop, 'mount');
   const tank = box(0, 0, cfg.et.r + 0.4, cfg.et.r + 0.4, deckTop + cfg.h + 2, 'tank');
   const srbs = [-1, 1].map(s => box(s * cfg.srb.off, 0, cfg.srb.r + 0.35, cfg.srb.r + 0.35, deckTop + cfg.srb.y1 + cfg.srb.nose + 2, 'srb'));
   const fuselage = box(0, (E.z0 + E.z1) / 2, O.body.w / 2 + 0.3, (E.z1 - E.z0) / 2, deckTop + E.y1 + 1, 'fuselage');
   const wings = box(0, E.z0 + O.wingT / 2 + 0.1, O.span / 2, O.wingT / 2 + 0.1, deckTop + O.y0 + Math.max(...O.wing.map(p => p[0])) + 1, 'wings');
-  return { stack: { x: cx, z: cz, th: Math.atan2(f[1], f[0]) }, colliders: [mount, tank, ...srbs, fuselage, wings] };
+  return { stack: { x: cx, z: cz, th: Math.atan2(X[1], X[0]) }, colliders: [mount, tank, ...srbs, fuselage, wings] };
 }
