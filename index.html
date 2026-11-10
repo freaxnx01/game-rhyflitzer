@@ -5506,7 +5506,8 @@ for (const b of rows()) b.onclick = () => selectRow(rowSel(b));
 $('worldbtn').onclick = openWorlds; $('worldsback').onclick = closeWorlds; $('drivebtn').onclick = driveSelection;
 // ---------- car selection (#7): the live car on a turntable, stats from the table, paint, garage; Race! starts the current mode ----------
 const CARSEL = { on: false, spin: { angle: 0, idle: SPIN_RESUME }, dir: 0, drag: 0, dragX: null, swap: null };   // swap: {id, paint} at entry while the pause menu's Change vehicle is open (#189), else null
-function openCarSel() { hideGallery(); CARSEL.on = true; CARSEL.dir = 0; CARSEL.drag = 0; CARSEL.dragX = null; CARSEL.spin = { angle: P.th - 0.6, idle: SPIN_RESUME }; for (const k in keys) keys[k] = false; closeHelp(); $('overlay').hidden = true; $('carsel').hidden = false; renderCarSel(); $('csrace').focus(); }
+function showcaseCar() { if (WRECK_S.on) endWreck(); TIP_S = TIP_UP; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); }   // #625: the stage shows the car intact and on its wheels, never the wreck or the rollover the pause froze (a swap mid-race frames no steps to right it)
+function openCarSel() { hideGallery(); showcaseCar(); CARSEL.on = true; CARSEL.dir = 0; CARSEL.drag = 0; CARSEL.dragX = null; CARSEL.spin = { angle: P.th - 0.6, idle: SPIN_RESUME }; for (const k in keys) keys[k] = false; closeHelp(); $('overlay').hidden = true; $('carsel').hidden = false; renderCarSel(); $('csrace').focus(); }
 function closeCarSel() { if (CARSEL.swap) { cancelVehicleSwap(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; $('overlay').hidden = false; $('carbtn').focus(); }
 function openVehicleSwap() { if (!PAUSE.on || PAUSE.confirm) return; CARSEL.swap = { id: CHOICE.id, paint: CHOICE.paint, chair: CHOICE.chair === true }; $('pause').hidden = true; openCarSel(); }
 function leaveVehicleSwap() { CARSEL.swap = null; CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; }
