@@ -2187,7 +2187,8 @@ let SPEEDSIGN = null;
 function speedDisplayBuild() {
   const cfg = SPEED_DISPLAY, g = new THREE.Group(), b = terrainH(cfg.x, cfg.z), PN = cfg.panel;
   const steel = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 });
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.8, 8), steel); pole.position.y = 1.4; g.add(pole);
+  const top = poleTop({ shape: 'rect', y: PN.y, h: PN.h }, POLE_R, 0.05);   // #822: pole ends 5 cm under the housing top
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 8), steel); pole.position.y = top / 2; g.add(pole);
   const housing = new THREE.Mesh(new THREE.BoxGeometry(PN.w, PN.h, 0.12), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); housing.position.y = PN.y; g.add(housing);
   const canvas = document.createElement('canvas'); canvas.width = cfg.tex.w; canvas.height = cfg.tex.h;
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
