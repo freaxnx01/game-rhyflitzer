@@ -858,6 +858,7 @@ import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautode
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
+import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction, musicCaptionKey } from './settings.js';   // #842
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
@@ -4031,11 +4032,17 @@ for (const id of ['stylebtn2', 'pausestyle']) document.getElementById(id).onclic
 
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
-  let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set(); const holdFns = [];   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other.   #735: the radio follows every hold
+  // #842 (D4): the sound level is persisted like the radio's; '0'/'1' for on/off, 0-10 for the volume
+  const ls = (k) => { let v = null; try { v = localStorage.getItem(k); } catch (e) { } return v; };
+  const save = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { } };
+  const snd = { on: soundOnFrom(ls(SETTINGS_STORE.sound)), vol: soundVolFrom(ls(SETTINGS_STORE.soundVol)) };
+  let ac = null, eng = null, rot = null, muted = !snd.on, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set(); const holdFns = [];   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other.   #735: the radio follows every hold. muted = !snd.on (#842): the early-return guards, and what M reports
+  function applySound() { muted = !snd.on; save(SETTINGS_STORE.sound, snd.on ? 1 : 0); save(SETTINGS_STORE.soundVol, snd.vol); if (ac) ac.master.gain.setTargetAtTime(soundGain(snd.on, snd.vol), ac.currentTime, 0.02); }
   const knockAt = {}, kn = { played: 0, last: null }, gate = { t: -Infinity, s: 0 }, rec = { count: 0, last: null };   // #104: the crash retrigger gate, and what it let through (for the tests)
   const steps = { count: 0 }; let tyreAt = -1, siren = null; const tyreHits = { count: 0, last: null };   // #416
   const bv = new Map();   // #709: bus key -> { eng, es }, the Postauto engine voices
-  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(limit); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
+  // #842 (D1): a.mix is the hub (0.5) into the limiter; a.master is the effects bus at the sound level. The radio bypasses the effects bus, so Sound off leaves the music playing
+  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const hub = ac.createGain(); hub.gain.value = 0.5; hub.connect(limit); ac.mix = hub; const master = ac.createGain(); master.gain.value = soundGain(snd.on, snd.vol); master.connect(hub); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
   function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0 }; return eng; }
   function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted || holds.size) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
   function burst(dur, freq, q, vol) { if (muted || holds.size) return; const a = ctx(); const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(a.master); s.start(); }
@@ -4069,8 +4076,12 @@ const SFX = (() => {
     sirenTo(freq) { if (siren && siren.freq !== freq) { siren.to(freq, ac.currentTime); } },
     sirenState() { return siren ? { freq: siren.freq } : null; },   // #462: the loco's two-tone whistle
     chuff() { burst(0.16, 380, 0.9, 0.18); },   // #462: one chuff of the cylinders, a short low steam burst
-    toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
-    graph() { const a = ctx(); return { ac: a, master: a.master }; },   // #735: the radio routes its <audio> elements into the master (so M mutes it too)
+    toggle() { snd.on = !snd.on; applySound(); return muted; },   // #842: M flips the Sound switch (the effects bus), persisted
+    sound() { return { ...snd }; },
+    setSoundOn(on) { snd.on = !!on; applySound(); },
+    setSoundVol(v) { snd.vol = v; applySound(); },
+    blip() { beep(880, 0.06, 'square', 0.12); },   // #842: one short blip so a Sound slider move is audible
+    graph() { const a = ctx(); return { ac: a, master: a.mix }; },   // #735 / #842 (D1): the radio routes its <audio> elements into the hub, so the Sound switch no longer mutes the music
     onHold(fn) { holdFns.push(fn); },
     hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); for (const fn of holdFns) fn(holds.size > 0); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
     // #709: one engine voice per audible Postauto (the bus preset), level scaled by distance; a voice that drops out of the list fades and is freed
@@ -4087,7 +4098,7 @@ const SFX = (() => {
         applyEngine(s.eng, { ...mix, gain: mix.gain * v.gain, road: mix.road * v.gain, hiss: 0 }, t);
       }
     },
-    state() { return { ctx: ac ? ac.state : 'none', muted, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
+    state() { return { ctx: ac ? ac.state : 'none', muted, sound: { ...snd }, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
