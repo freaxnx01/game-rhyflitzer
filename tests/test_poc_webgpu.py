@@ -4,7 +4,7 @@ import os
 import pytest
 from playwright.sync_api import sync_playwright
 
-ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--enable-unsafe-webgpu"]
+ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = "() => { const m = document.getElementById('no-webgpu'); return (m && !m.hidden) || window.__poc?.ready === true; }"
 
 
@@ -33,14 +33,27 @@ def test_no_webgpu_shows_message(poc_page):
     assert poc_page.locator("#canvas-container canvas").count() == 0
 
 
-def test_poc_page_has_no_console_errors(poc_page):
+def watch_console_errors(page):
     errors = []
-    poc_page.on("pageerror", lambda e: errors.append(str(e)))
-    poc_page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    return errors
+
+
+def test_no_webgpu_path_has_no_console_errors(poc_page):
+    # deterministic everywhere: no WebGPU adapter is assumed, the gate path is taken explicitly
+    errors = watch_console_errors(poc_page)
+    poc_page.add_init_script("delete Navigator.prototype.gpu; delete navigator.gpu;")
     poc_page.goto(poc_page.poc_url)
+    poc_page.wait_for_selector("#no-webgpu", state="visible", timeout=30000)
+    assert errors == []
+
+
+def test_webgl_init_path_has_no_console_errors(poc_page):
+    errors = watch_console_errors(poc_page)
+    poc_page.goto(render_url(poc_page))
     poc_page.wait_for_function(READY, timeout=120000)
-    path = "no-webgpu" if poc_page.is_visible("#no-webgpu") else "webgpu"
-    print("SwiftShader path:", path)
+    assert poc_page.is_hidden("#no-webgpu")
     assert errors == []
 
 
