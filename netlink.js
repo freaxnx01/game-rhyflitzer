@@ -39,6 +39,17 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
 
   function clearTimers(entry) { entry.timers.forEach(clearTimeout); entry.timers = []; }
 
+  // armConnectDeadline(peerId, entry) — still not connected CONNECT_MS after the answer: report the trouble and drop the
+  // peer. The drop matters as much as the message: a host slot an unreachable guest never freed would stay taken for the
+  // rest of the session, and three such attempts would leave the host unable to invite anybody.
+  function armConnectDeadline(peerId, entry) {
+    entry.timers.push(setTimeout(() => {
+      if (entry.pc.connectionState === 'connected') return;
+      onPeerState(peerId, 'timeout');
+      close(peerId);
+    }, CONNECT_MS));
+  }
+
   function attachChannel(peerId, entry, channel) {
     entry[channel.label] = channel;
     channel.addEventListener('message', (e) => { if (typeof e.data === 'string') onMessage(peerId, e.data); });
@@ -75,7 +86,7 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
     if (!entry) return false;
     await entry.pc.setRemoteDescription({ type: 'answer', sdp });
     clearTimers(entry);
-    entry.timers.push(setTimeout(() => { if (entry.pc.connectionState !== 'connected') onPeerState(id, 'timeout'); }, CONNECT_MS));
+    armConnectDeadline(id, entry);
     return true;
   }
 
@@ -90,7 +101,7 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
     await entry.pc.setRemoteDescription({ type: 'offer', sdp });
     await entry.pc.setLocalDescription(await entry.pc.createAnswer());
     await gatherIce(entry.pc);
-    entry.timers.push(setTimeout(() => { if (entry.pc.connectionState !== 'connected') onPeerState(HOST_ID, 'timeout'); }, CONNECT_MS));
+    armConnectDeadline(HOST_ID, entry);
     return entry.pc.localDescription.sdp;
   }
 
