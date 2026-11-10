@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors } from '../speeddisplay.js';
+import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from '../speeddisplay.js';
 
 const S = SPEED_DISPLAY, [ux, uz] = S.approach;
 // a car `back` metres before the sign on the approach axis, driving towards it at `kmh`
@@ -92,4 +92,31 @@ test('SPEED_DISPLAY_StandsBesideTheHauptstrasse_InTheWorldFile', { skip: !fs.exi
     assert.equal(p.r.n, 'Hauptstrasse', `${back} m back`);
     assert.ok(p.d <= 1.5, `${back} m back: ${p.d} m off the centre line`);
   }
+});
+
+// the panel lags: it shows what was measured `delay` seconds ago, like a real radar sign
+const on = (kmh) => ({ on: true, kmh, happy: kmh <= S.limit });
+
+test('SPEED_DISPLAY_delay_isTwoSeconds', () => {
+  assert.equal(S.delay, 2);
+});
+
+test('delayedReading_BeforeTheDelayHasPassed_Off', () => {
+  const r = delayedReading(2);
+  r.record(0, on(60)); r.record(1.9, on(60));
+  assert.deepEqual(r.shown(1.9), { on: false });
+});
+
+test('delayedReading_AfterTheDelay_ShowsTheReadingFromDelaySecondsAgo', () => {
+  const r = delayedReading(2);
+  for (let i = 0; i <= 40; i++) r.record(i * 0.1, on(70 - i));   // braking: 70 km/h at t=0 down to 30 at t=4
+  assert.equal(r.shown(4).kmh, 50);                               // the reading at t=2
+});
+
+test('delayedReading_AfterPassing_KeepsTheOldValueForTheDelayThenOff', () => {
+  const r = delayedReading(2);
+  r.record(0, on(45)); r.record(1, { on: false }); r.record(2.5, { on: false });
+  assert.equal(r.shown(2.5).kmh, 45);        // the reading at t=0.5 is still the t=0 one
+  r.record(3.1, { on: false });
+  assert.deepEqual(r.shown(3.1), { on: false });
 });

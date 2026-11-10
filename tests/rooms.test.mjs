@@ -274,7 +274,7 @@ test('RINGS_Ring1AsBefore_Ring2EightEmptyRoomsTwiceAsWideAtMinus1200', () => {
   assert.deepEqual(RINGS.map(g => [g.id, g.stop, g.y, g.half]), [['ring', 'bottom', -600, 250], ['ring2', 'ring2', -1200, 500]]);
   assert.equal(RINGS[0].rooms, ROOMS); assert.equal(RINGS[1].rooms, ROOMS2);
   assert.deepEqual(ROOMS2.map(r => r.id), ['r2room0', 'r2room1', 'r2room2', 'r2room3', 'r2room4', 'r2room5', 'r2room6', 'r2room7']);
-  for (const r of ROOMS2.slice(1)) { assert.equal(r.object, null); assert.equal(r.name, null); }   // #491: room 0 holds the Enterprise
+  for (const r of ROOMS2.slice(1, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }   // #491: room 0 holds the Enterprise, #811: room 7 the Space Shuttle
   assert.deepEqual(spokeSigns(ROOMS2), [], 'no signs in ring 2');
 });
 
@@ -303,7 +303,7 @@ test('roomLayout_Ring1_UnchangedByTheRingParameter', () => {
 test('roomLayout_Ring2_ThousandMetreSquareAtItsDepth_PortalAtTheSpokeEnd', () => {
   rooms2.forEach((R, k) => {
     assert.equal(R.id, `r2room${k}`); assert.equal(R.ring, 'ring2'); assert.equal(R.y, ROOM2_Y); assert.equal(R.half, ROOM2_HALF); assert.equal(R.groundAt(), -1200);
-    if (k) { assert.equal(R.object, null); assert.equal(R.tower, null); }   // #491: room 0 holds the Enterprise
+    if (k && k !== 7) { assert.equal(R.object, null); assert.equal(R.tower, null); }   // #491: room 0 holds the Enterprise, #811: room 7 the Space Shuttle
     const sp = spokeFrame(k); assert.deepEqual(R.portal.c, sp.end);
     const [a, b] = toLocal(R, ...sp.end); assert.ok(Math.abs(a + 500) < 1e-6 && Math.abs(b) < 1e-6, 'the portal is 500 m before the centre');
     for (const o of R.colliders) assert.ok(o.h > ROOM2_Y && o.h < BELOW_Y, 'colliders stand at ring 2 depth');
@@ -387,4 +387,27 @@ test('roomLayout_Room6_TheCarReachesBothSidesOfTheWheel', () => {
 
 test('roomLayout_FerrisRoomSixIsDusk_TheOtherMeadowRoomsStayMeadow', () => {   // #588
   assert.equal(roomLayout(6).look, 'dusk'); assert.equal(roomLayout(0).look, 'meadow'); assert.equal(roomLayout(1).look, 'meadow');
+});
+
+// #811: the Space Shuttle Enterprise in launch position -- ring 2, room 7 (the second in line after the Enterprise)
+import { SHUTTLE, stackFrame, padLayout } from '../shuttle.js';
+const shuttleRoom = rooms2[7], blocked2 = (R, x, z, r = CAR_R) => R.colliders.some(o => !(o.bridge && ROOM2_Y < o.y0) && inside(o, x, z, r));   // a car on the floor
+test('ROOMS2_Room7_HoldsTheSpaceShuttle_SecondInLine_UnsignedWithTheSpaceLook_NoPlaque', () => {
+  assert.equal(ROOMS2[7].object, SHUTTLE); assert.equal(ROOMS2[7].name, 'Space Shuttle Enterprise'); assert.equal(ROOMS2[7].signed, false);
+  assert.equal(ROOMS2[7].look, 'space'); assert.equal(ROOMS2[7].dedication, undefined); assert.equal(NEXT_ROOMS2[1], 7, 'it took the next room in line');
+  assert.equal(shuttleRoom.look, 'space'); assert.deepEqual(shuttleRoom.paths, []); assert.deepEqual(shuttleRoom.trees, []);
+  assert.ok(shuttleRoom.shuttle); assert.deepEqual([shuttleRoom.shuttle.stack.x, shuttleRoom.shuttle.stack.z], shuttleRoom.centre);
+  for (const R of [...rooms, ...rooms2].filter(r => r !== shuttleRoom)) assert.equal(R.shuttle, null);
+});
+
+test('roomLayout_ShuttleRoom_HardstandIsSolid_TheTrenchUnderTheRocketAndTheWayInAreFree', () => {
+  const H = SHUTTLE.pad.hard, L = padLayout(SHUTTLE), { x: X, z: Z } = stackFrame(shuttleRoom.frame.f, shuttleRoom.frame.v, SHUTTLE.turn);
+  const onStack = (a, b) => [shuttleRoom.centre[0] + X[0] * a + Z[0] * b, shuttleRoom.centre[1] + X[1] * a + Z[1] * b];
+  for (const [a, b] of [[20, 0], [-20, 30], [40, -40], [L.fss.x, L.fss.z]]) assert.ok(blocked2(shuttleRoom, ...onStack(a, b)), `the hardstand at ${a},${b}`);
+  for (let b = -H.d / 2 - 10; b <= H.d / 2 + 10; b += 5) assert.ok(!blocked2(shuttleRoom, ...onStack(0, b)), `the trench is open at ${b}, right under the rocket`);
+  assert.ok(blocked2(shuttleRoom, ...onStack(L.trench.x[1] + 1, 0)), 'the trench wall');
+  for (const [a, b] of [[H.w / 2 + CAR_R + 2, 0], [-H.w / 2 - CAR_R - 2, 0], [30, H.d / 2 + CAR_R + 2]]) assert.ok(!blocked2(shuttleRoom, ...onStack(a, b)), `free round the hardstand at ${a},${b}`);
+  assert.ok(blocked2(shuttleRoom, ...onStack(L.water.x, L.water.z)), 'the water tower');
+  for (const [a, b] of [[-200, 0], [-400, 30], [-60, 60]]) assert.ok(!blocked2(shuttleRoom, ...toWorld(shuttleRoom, a, b)), `free on the way in at ${a},${b}`);
+  assert.ok(shuttleRoom.towerView && !blocked2(shuttleRoom, shuttleRoom.towerView.x, shuttleRoom.towerView.z));
 });

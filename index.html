@@ -92,7 +92,7 @@ body:has(#debuglegend:not([hidden])) #touch{display:none}
 /* #hud is pointer-events:none, so the dialog has to opt back in to be clickable at all */
 #jump{width:420px;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:auto}
 #jump input{width:100%;box-sizing:border-box;margin:8px 0 6px;padding:6px 8px;font:inherit;color:#fff;background:#0b0d12;border:2px solid #4a515e}
-#jump .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}#jump .chips button{font:inherit;font-size:13px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 8px;cursor:pointer}#jump .chips button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}
+#jump .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}#jump .chips button{font:inherit;font-size:13px;color:#f5efe0;background:none;border:2px solid #4a515e;padding:2px 8px;cursor:pointer}#jump .chips button.on{background:#ffc61a;border-color:#ffc61a;color:#14171d}#jump .chips .crow{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%;align-items:center}#jump .chips .crow b{width:2.2em;color:#8b93a3;font-size:12px}
 #jump ul{list-style:none;margin:6px 0;padding:0;max-height:50vh;overflow-y:auto}#jump li{display:flex;justify-content:space-between;gap:12px;cursor:pointer;padding:3px 4px}#jump li span{color:var(--steel-l);font-weight:600}#jump li:hover,#jump li.sel{color:#ffc61a}#jump li.soon{opacity:.55}#jump small{color:var(--steel-l)}
 #bl{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:10px}
 #speedo{width:200px;height:200px}
@@ -664,7 +664,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small><small data-i18n="creditEstate"></small>
         </dd>
         <dt data-i18n="aboutMusic"></dt>
-        <dd><small data-i18n="creditMusicCoolRider"></small><small data-i18n="creditMusicNeonAfterglow"></small><small data-i18n="creditMusicCalifornia"></small><small data-i18n="creditMusicMenu"></small><small data-i18n="creditSrf3"></small></dd>
+        <dd><small data-i18n="creditMusicCoolRider"></small><small data-i18n="creditMusicNeonAfterglow"></small><small data-i18n="creditMusicCalifornia"></small><small data-i18n="creditMusicSoftRockGroove"></small><small data-i18n="creditMusicMelrose"></small><small data-i18n="creditMusicMenu"></small><small data-i18n="creditSrf3"></small></dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a><br><a data-link="otd" data-i18n="aboutTimetable"></a></dd>
         <dt>Plattform Sisslerfeld</dt>
@@ -757,7 +757,7 @@ import { crownFor } from './treegeo.js';
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
-import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, faceToward, rampApproach } from './landmarks.js';
+import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
 import { HOLZ, orientEastWest, joinPolylines, frameStations, pierStations, chapelOpenings, wallCover, inOpening, chapelPlan, BORDER, BORDER_PICK_WIDTH, borderCrossing, pickedBorder } from './holzbruecke.js';
 import { isBodenacker6, bodenackerLayout, bodenackerHouse, bodenackerPlinth, bodenackerDoorway, BODENACKER6 } from './bodenacker6.js';
@@ -774,6 +774,8 @@ import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
+import { SHUTTLE, stackBase } from './shuttle.js';   // #811
+import { buildShuttle } from './shuttlemesh.js';
 import { FERRIS, wheelAngle, DUSK_LOOK, FERRIS_KEYS, nextPatternShift, patternAt } from './ferris.js';   // #513; #588: the dusk look
 import { buildWheel, setWheelAngle, ferrisTriangles, setWheelLights, buildFireworks, setFireworks } from './ferrismesh.js';
 import { RIDE as RIDE_CFG, toWheel, fromWheel, rideIdle, rideBegin, rideStep, rideAngle, rideFeet, rideAction, lowestGondola, gondolaPose, eyeShift, clockOffset } from './ferrisride.js';   // #516
@@ -785,8 +787,8 @@ import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText } from './postauto.js';   // #500
-import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines } from './busstop.js';   // #712
-import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors } from './speeddisplay.js';   // #745
+import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider } from './busstop.js';   // #712
+import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices } from './postautofx.js';   // #709
 import { DISPLAY_TEX, displayLayout } from './busdisplay.js';   // #713
@@ -855,6 +857,7 @@ import { loadLines, loadProgress, numberLocale } from './loading.js';   // the l
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, floorPlan, floorFaces } from './gltfvehicle.js';
+import { DEPOT, depotLayout, nearestSlot } from './depot.js';   // #553: the vehicle depot's pure layout rules
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -2118,6 +2121,7 @@ function busStop(layout, name, rows) {
     const back = new THREE.Mesh(new THREE.BoxGeometry(S.w, S.h, 0.06), glass); back.position.set(0, S.h / 2, S.back - 0.05); g.add(back);
     for (const sd of [-1, 1]) { const side = new THREE.Mesh(new THREE.BoxGeometry(0.06, S.h, S.d), glass); side.position.set(sd * (S.w / 2 - 0.03), S.h / 2, mid); g.add(side); }
     for (const sd of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, S.h, 6), new THREE.MeshLambertMaterial({ color: 0x4a515e })); post.position.set(sd * (S.w / 2 - 0.1), S.h / 2, S.front + 0.1); g.add(post); }
+    addSolid(shelterCollider(layout, b));   // #760: solid for the car, heli floor and camera; carOnly, so on foot you step in under the roof
   }
   g.position.set(layout.pole[0], b, layout.pole[1]); g.rotation.y = -layout.yaw;
   signs.add(g);
@@ -2161,13 +2165,16 @@ function speedDisplayBuild() {
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   const face = new THREE.Mesh(new THREE.PlaneGeometry(PN.w - 0.08, PN.h - 0.08), new THREE.MeshBasicMaterial({ map: tex })); face.position.set(0, PN.y, 0.065); g.add(face);
   g.position.set(cfg.x, b, cfg.z); g.rotation.y = faceYaw(cfg); signs.add(g);
-  SPEEDSIGN = { tex, canvas, key: null, state: { on: false }, redraws: 0, x: cfg.x, z: cfg.z, yaw: g.rotation.y };
+  SPEEDSIGN = { tex, canvas, key: null, state: { on: false }, redraws: 0, t: 0, reading: delayedReading(), x: cfg.x, z: cfg.z, yaw: g.rotation.y };
   drawSpeedPanel(canvas.getContext('2d'), canvas.width, canvas.height, SPEEDSIGN.state); tex.needsUpdate = true;   // the dark face once; FOOT/TRAIN/FLY are not declared yet at this point
 }
-// #745: per frame; redraws the canvas only when the shown value changes (relabelFerrisSign pattern)
-function stepSpeedDisplay() {
+// #745: per frame; redraws the canvas only when the shown value changes (relabelFerrisSign pattern). The panel lags by
+// SPEED_DISPLAY.delay on the game clock (paused game, paused lag): it shows the reading from that long ago.
+function stepSpeedDisplay(dt) {
   if (!SPEEDSIGN) return;
-  const state = displayState({ x: P.x, z: P.z, vx: P.vx, vz: P.vz, ground: !FOOT.on && !TRAIN.on && !FLY.on });
+  SPEEDSIGN.t += dt;
+  SPEEDSIGN.reading.record(SPEEDSIGN.t, displayState({ x: P.x, z: P.z, vx: P.vx, vz: P.vz, ground: !FOOT.on && !TRAIN.on && !FLY.on }));
+  const state = SPEEDSIGN.reading.shown(SPEEDSIGN.t);
   const key = displayKey(state);
   SPEEDSIGN.state = state;
   if (key === SPEEDSIGN.key) return;
@@ -3328,7 +3335,7 @@ addEventListener('resize', resize);
 const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.name = 'surfaceRoot'; scene.add(surfaceRoot);
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
-const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null, ferris: null, ferrisSign: null, dedication: null };
+const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null, shuttle: null, ferris: null, ferrisSign: null, dedication: null };
 const RING_L = { ring: { built: false, group: null }, ring2: { built: false, group: null, sign: null } };
 const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab]);
 const roomIndex = (id) => (ROOM.layouts ? ROOM.layouts.findIndex(R => R.id === id) : -1);
@@ -3497,7 +3504,7 @@ function disposeGroup(group) {   // free a thrown-away room: its own geometry, m
 // #489: k is the flat layout index -- ring 1's room k stays k, ring 2's room k is 8 + k.
 function ensureRoom(k) {
   if (ROOM.built === k) return;
-  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; ROOM.ferris = null; ROOM.ferrisSign = null; ROOM.dedication = null; }
+  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; ROOM.shuttle = null; ROOM.ferris = null; ROOM.ferrisSign = null; ROOM.dedication = null; }
   const R = ROOM.layouts[k], group = new THREE.Group(); ROOM.group = group; ROOM.layout = R; ROOM.built = k; group.visible = false;
   roomMeshes(group, R); scene.add(group);
   for (const L of ROOM.layouts) if (L.object) delete window.__mm.counts[L.object.key || 'eiffel'];   // #491: both rings, flat layouts
@@ -3510,14 +3517,14 @@ function roomMeshes(group, R) {
   const [cx, cz] = R.centre, y = R.y, a = R.portal.th;
   if (R.look === 'space') roomSpace(group, R);   // #491: the holodeck grid and the star dome instead of the meadow
   if (R.dedication) roomDedication(group, R);
-  else {
+  if (R.look !== 'space') {   // #811: every space room skips the meadow, not only the one with the plaque
   // lawn: one plane, the grass texture tiled every 8 m (TEX.grass is the surface's grass; reuse it), turned to the room's own frame
   const lawnTex = TEX.grass.clone(); lawnTex.wrapS = lawnTex.wrapT = THREE.RepeatWrapping; lawnTex.repeat.set(2 * R.half / 8, 2 * R.half / 8); lawnTex.needsUpdate = true;
-  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshLambertMaterial({ map: lawnTex, color: 0xb8d89a })); lawn.geometry.rotateX(-Math.PI / 2); lawn.geometry.rotateY(-a); lawn.position.set(cx, y, cz); group.add(lawn);
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(2 * R.half, 2 * R.half), new THREE.MeshLambertMaterial({ map: lawnTex, color: 0xb8d89a })); lawn.geometry.rotateX(-Math.PI / 2); lawn.geometry.rotateY(-a); lawn.position.set(cx, y, cz); lawn.userData.role = 'lawn'; group.add(lawn);
   for (const p of R.paths) group.add(flatStrip(p.pts, p.hw, y + 0.08, 0xcfc3ac));
   roomTrees(group, R); roomClouds(group, R);
   }
-  if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); if (R.figure) roomFigure(group, R); if (R.artemis) roomArtemis(group, R); if (R.ferris) roomFerris(group, R); roomPortal(group, R);
+  if (R.object === EIFFEL) roomTower(group, R); if (R.basin) roomBasin(group, R); if (R.figure) roomFigure(group, R); if (R.artemis) roomArtemis(group, R); if (R.shuttle) roomShuttle(group, R); if (R.ferris) roomFerris(group, R); roomPortal(group, R);
   // sunlit surfaces need no lights of their own: the style's hemisphere + sun (setBelowLook) light the room
 }
 
@@ -3561,6 +3568,15 @@ function roomArtemis(group, R) {
   const rocket = buildRocket(ARTEMIS); rocket.position.set(A.rocket.x, y + ARTEMIS.pad.lift + ARTEMIS.deck.h, A.rocket.z); rocket.rotation.y = -A.rocket.th; group.add(rocket);
   const cap = buildCapsule(ARTEMIS); cap.position.set(A.capsule.x, y, A.capsule.z); cap.rotation.y = -A.capsule.th; group.add(cap);
   ROOM.artemis = { built: R.k, rocket: A.rocket, capsule: A.capsule, h: ARTEMIS.h, tris: artemisTriangles(rocket) + artemisTriangles(cap), colliders: A.colliders.length };
+}
+// #811: the Space Shuttle Enterprise on Launch Pad 39A (shuttle.js places it, shuttlemesh.js builds it): the hardstand with
+// the flame trench, the platform, the stack, the tower with its arms, the service structure and the water tower, one group
+// stood on the floor at the room centre and turned 45° from the room's axis (shuttle.js stackFrame) so the portal sees the
+// orbiter three-quarter on. All goes with the room's group (disposeGroup); ROOM.shuttle tells the debug hook what was built.
+function roomShuttle(group, R) {
+  const S = R.shuttle, pad = buildShuttle(SHUTTLE);
+  pad.position.set(S.stack.x, R.y, S.stack.z); pad.rotation.y = -S.stack.th; group.add(pad);
+  ROOM.shuttle = { built: ROOM.built, stack: S.stack, h: SHUTTLE.h, base: R.y + stackBase(SHUTTLE), tris: artemisTriangles(pad), colliders: S.colliders.length };
 }
 // #513: the Ferris wheel (ferris.js places it, ferrismesh.js builds it): stood on the floor at the room centre, turned to the
 // room's frame (the axle along f, so the portal sees the wheel face-on). All goes with the room's group (disposeGroup);
@@ -3827,6 +3843,11 @@ window.__mm.eiffel = () => ROOM.states[0] ? { ...ROOM.states[0], feet: EIFFEL.fe
 window.__mm.atomium = () => ROOM.states[1] ? { ...ROOM.states[1], feet: ATOMIUM.feet, footHw: ATOMIUM.footHw } : null;   // #355
 window.__mm.fries = () => ROOM.figure && ROOM.group && ROOM.group.children.some(o => o.children.some(c => c.userData.role === 'fries')) ? { ...ROOM.figure, built: ROOM.built } : null;   // #451: the figure of the room built now
 window.__mm.artemis = () => ROOM.artemis && ROOM.built === ROOM.artemis.built ? { ...ROOM.artemis } : null;   // #488: the Artemis stack and the capsule of the room built now
+window.__mm.shuttle = () => {   // #811: the Space Shuttle stack of the room built now, and which floor the room has
+  if (!ROOM.shuttle || ROOM.built !== ROOM.shuttle.built) return null;
+  const has = (role) => ROOM.group.children.some(o => o.userData.role === role);
+  return { ...ROOM.shuttle, look: ROOM.layout.look, grid: has('holodeck'), dome: has('stardome'), lawn: has('lawn') };
+};
 window.__mm.ferris = () => ROOM.ferris && ROOM.built === ROOM.ferris.built ? { built: ROOM.ferris.built, angle: ROOM.ferris.angle, h: ROOM.ferris.h, gondolas: ROOM.ferris.gondolas, tris: ROOM.ferris.tris, colliders: ROOM.ferris.colliders, gondolaAngle: ROOM.ferris.handle.gondolas[0].rotation.x, wheelRotation: ROOM.ferris.handle.wheel.rotation.x, leds: ROOM.ferris.leds, ledSample: '#' + new THREE.Color().fromArray(ROOM.ferris.handle.leds.instanceColor.array, 0).getHexString(), sparks: ROOM.ferris.fw.live } : null;   // #513: the wheel of the room built now
 // #516: the ride's state for the tests -- headless Chromium renders under 1 fps, so rideSim steps the ride itself
 window.__mm.ferrisRide = () => {
@@ -3910,7 +3931,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction() === 'board') { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -4112,6 +4133,7 @@ let LAST_JUMP = null;   // #534: where the last jump landed [x, z]; the tutorial
 function placeOnRoad(x, z, th, name) { umamiTrack('jump', jumpData(name)); const wasBelow = leaveBelow(); P.safe = [x, z, th]; LAST_JUMP = [x, z]; clearNavi(); resetCar(); if (wasBelow) { camPos.set(x - Math.cos(th) * 12, P.y + 4, z - Math.sin(th) * 12); camera.position.copy(camPos); } if (R.state === 'racing' || R.state === 'armed') R.jumped = true; closeJump(); toast(name); }
 function nearestJumpable(px, pz) { let best = null; for (const r of ROADS) { if (!jumpable(r)) continue; for (let i = 0; i < r.pts.length - 1; i++) { const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = clamp(((px - ax) * dx + (pz - az) * dz) / L2, 0, 1), x = ax + dx * t, z = az + dz * t, d = Math.hypot(px - x, pz - z); if (!best || d < best.d) best = { d, x, z, th: Math.atan2(dz, dx) }; } } return best; }
 function jumpTo(p) { const [tx, tz] = p.j || [p.x, p.z], best = nearestJumpable(tx, tz); if (!best) return; placeOnRoad(best.x, best.z, jumpHeading(p, best), p.n); }   // #79: a landmark's own jump spot (j), facing the landmark
+const jumpToDepot = (name) => placeOnRoad(770, -107.5, 0, name);   // #553: off road like the ramp -- the car park is no road; the strip's west end, mid-depth, facing east down the rows
 // along the road, turned towards the landmark (#79); a look point (#102) turns the car straight at it, off the road's line
 function jumpHeading(p, best) { if (p.look) return Math.atan2(p.look[1] - best.z, p.look[0] - best.x); return p.j ? faceToward(best.th, best.x, best.z, p.x, p.z) : best.th; }
 const RAMP_RUNUP = 40;   // J → Sprungschanze: metres of run-up before the ramp's low edge, enough to launch from standstill (#80)
@@ -4404,9 +4426,13 @@ function leaveBuilding() { if (!INT.hall || !INT.indoors) return; const s = exit
 const platHop = () => FOOT.on && !FOOT.hover && PLAT ? plattformHop(PLAT.frame, PLAT.base, P) : null;
 function platHopGo(dir) { const l = plattformHopLanding(PLAT.frame, PLAT.base, dir); P.x = l.x; P.z = l.z; P.th = l.th; P.y = l.y; P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.eye = null; restShadow(); }
 // #535: E is the one context key on foot -- lift (at the lift gap) > leave (inside) > hop (#701) > enter (at a glowing door)
-function contextAction() { return FOOT.on ? contextKeyAction({ liftPrompt: INT.indoors && !!INT.prompt, indoors: INT.indoors, doorPrompt: !!HUD.enter, hop: platHop() }) : null; }
+// > a parked depot vehicle (#553); in the car E is nothing but the depot's board action
+function contextAction() {
+  if (FOOT.on) return contextKeyAction({ liftPrompt: INT.indoors && !!INT.prompt, indoors: INT.indoors, doorPrompt: !!HUD.enter, hop: platHop(), boardPrompt: !!depotNear() });
+  return depotNear() ? 'board' : null;
+}
 function runContextKey() { if (pressRide()) return;   // #516: E boards the wheel / gets out -- one more enterable thing, before the doors
-  const a = contextAction(); if (a === 'lift') INT.lift.call(INT.floor); else if (a === 'leave') leaveBuilding(); else if (a === 'up' || a === 'down') platHopGo(a); else if (a === 'enter') pressEnter(); }
+  const a = contextAction(); if (a === 'lift') INT.lift.call(INT.floor); else if (a === 'leave') leaveBuilding(); else if (a === 'up' || a === 'down') platHopGo(a); else if (a === 'enter') pressEnter(); else if (a === 'board') boardDepot(depotNear()); }
 function controlContext() { if (FOOT.on) return INT.pad ? 'lift' : INT.indoors ? 'indoors' : 'foot'; if (TRAIN.on) return 'train'; if (FLY.on) return 'heli'; return 'car'; }
 // #535: the key bar -- core keys of the current context, the context key first; rebuilt only when what it shows changes
 const KEYBAR = { on: keybarOnFrom((() => { try { return localStorage.getItem(KEYBAR_KEY); } catch (e) { return null; } })()), sig: '' };
@@ -4421,7 +4447,7 @@ function renderKeybarToggle() { const b = $('pausekeybar'); b.textContent = tr(K
 function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } renderKeybarToggle(); stepKeybar(); }
 window.__mm.keybar = () => { stepKeybar(); const el = $('keybar'); return { shown: !el.hidden && getComputedStyle(el).display !== 'none', text: el.textContent, ctx: controlContext(), action: contextAction(), on: KEYBAR.on }; };
 function stepEnter() {
-  stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; the car keeps E as the right blinker)
+  stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; in the car E boards a parked depot vehicle, #553)
   const ra = rideNow();   // #516: the Ferris wheel's prompt wins at the pad / in the bottom window
   if (ra.do === 'board' || ra.do === 'leave') { $('prompt').textContent = tr(ra.do === 'board' ? 'ridePrompt' : 'rideExit'); HUD.enterShown = true; return; }
   const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
@@ -4431,7 +4457,9 @@ function stepEnter() {
   if (hop) { $('prompt').textContent = tr(hop === 'up' ? 'hopUpPrompt' : 'hopDownPrompt'); HUD.enterShown = true; return; }   // #701: the shortcut's prompt wins over the plain "Enter"
   if (HUD.enter) { $('prompt').textContent = tr('enterPrompt'); HUD.enterShown = true; }   // #411: written every frame, so the pontoon wipe cannot eat it
   else if (INT.prompt) { $('prompt').textContent = INT.prompt; }
-  else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; }
+  else { const dep = depotNear();   // #553: nothing of ride, lift, hop or door is up -- the depot's prompt names the vehicle in reach
+    if (dep) { $('prompt').textContent = tr('depotPrompt', vehicleText(tr, dep, 'name')); HUD.enterShown = true; }
+    else if (HUD.enterShown) { $('prompt').textContent = ''; HUD.enterShown = false; } }
 }
 function pressZ() { if (RIDE.s.phase !== 'idle') return;   // #516: Z does nothing while the wheel carries the walker
   if (TRAIN.on) leaveTrain(); else if (FOOT.on) { if (nearLoco()) boardTrain(); else getIn(); } else getOut(); }
@@ -4801,7 +4829,7 @@ window.__mm.blitz = () => ({ mode: R.mode, left: R.left, timeUp: !!R.timeUp, don
 window.__mm.blitzSetLeft = (s) => { R.left = s; };
 window.__mm.auto = () => ({ on: AUTOP.on, dest: AUTOP.dest ? AUTOP.dest.n : null, len: AUTOP.st ? AUTOP.st.route.len : 0, left: AUTOP.st ? AUTOP.st.route.len - AUTOP.st.s : 0, signals: AUTOP.st ? AUTOP.st.signals.length : 0, signalList: AUTOP.st ? AUTOP.st.signals : [], blinker: HUD.blinker, last: AUTOP.last });
 window.__mm.busStops = () => POSTAUTO.stops;   // #712: the laid-out stops, for the test
-window.__mm.speedDisplay = () => { stepSpeedDisplay(); return SPEEDSIGN ? { x: SPEEDSIGN.x, z: SPEEDSIGN.z, yaw: SPEEDSIGN.yaw, key: SPEEDSIGN.key, state: SPEEDSIGN.state, redraws: SPEEDSIGN.redraws } : null; };   // #745: steps first (headless draws under 1 fps)
+window.__mm.speedDisplay = (dt = 0) => { stepSpeedDisplay(dt); return SPEEDSIGN ? { x: SPEEDSIGN.x, z: SPEEDSIGN.z, yaw: SPEEDSIGN.yaw, key: SPEEDSIGN.key, state: SPEEDSIGN.state, redraws: SPEEDSIGN.redraws } : null; };   // #745: steps first (headless draws under 1 fps); dt advances the panel's lag clock
 window.__mm.postauto = () => ({ ready: POSTAUTO.ready, clock: postautoClock(), model: gltfState('bus'), follow: POSTAUTO.follow,   // #500: read-only, for the test; #707: the followed bus key and the panel's DOM state
   floor: gltfState('bus') === 'ready' ? { faces: GLTF_CARS.bus.floorFaces, shellSide: GLTF_CARS.bus.mats.all.find((m) => m.name === 'Plain_7')?.side ?? null } : null,   // #709: the floor copy; the shell stays THREE.FrontSide = 0 (#723)
   voices: SFX.state().busVoices,
@@ -5471,14 +5499,25 @@ const galleryPaint = (id) => paintOnSelect(VEHICLES[id], CHOICE.paint, CHOICE.pa
 const photoKey = (id) => thumbKey(id, galleryPaint(id), paintable(VEHICLES[id]));
 const photoReady = (id) => !VEHICLES[id].gltf || gltfState(id) === 'ready';
 const photoFailed = (id) => Boolean(VEHICLES[id].gltf) && gltfState(id) === 'failed';
+// #553: run fn with the stage car rebuilt as that vehicle in that paint; afterwards the driven car, its paint, its lamps
+// and its pose come back exactly as they were (the same save / restore a gallery photo always did, now shared with the depot)
+function withStageVehicle(id, paint, fn) {
+  const keep = { veh: VEH, paint: CHOICE.paint, tip: TIP_S, siren: SIREN_S.on, pos: car.position.clone(), rot: car.rotation.clone(), shown: [flames.visible, BLINK.left.visible, BLINK.right.visible, car.visible] };
+  setVehicle(VEHICLES[id]); applyPaint(paint);
+  try { fn(car); } finally {
+    scene.add(car); setVehicle(keep.veh); applyPaint(keep.paint); TIP_S = keep.tip; SIREN_S.on = keep.siren;
+    car.position.copy(keep.pos); car.rotation.copy(keep.rot); [flames.visible, BLINK.left.visible, BLINK.right.visible, car.visible] = keep.shown;
+  }
+}
 function photoVehicle(id) {
-  const paint = galleryPaint(id), keep = { veh: VEH, paint: CHOICE.paint, tip: TIP_S, siren: SIREN_S.on, pos: car.position.clone(), rot: car.rotation.clone(), shown: [flames.visible, BLINK.left.visible, BLINK.right.visible, car.visible] };
-  setVehicle(VEHICLES[id]); applyPaint(paint); car.position.set(0, 0, 0); car.rotation.set(0, 0, 0); flames.visible = BLINK.left.visible = BLINK.right.visible = false; car.visible = true;
-  CAR_GALLERY.studio.add(car); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true);
-  const v = thumbView({ min: box.min.toArray(), max: box.max.toArray() }); CAR_GALLERY.cam.position.set(...v.eye); CAR_GALLERY.cam.lookAt(...v.at);
-  const pr = renderer.getPixelRatio(); renderer.setViewport(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissor(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissorTest(true); renderer.render(CAR_GALLERY.studio, CAR_GALLERY.cam); renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
-  const gl = renderer.domElement; CAR_GALLERY.shot.getContext('2d').drawImage(gl, 0, gl.height - THUMB.h, THUMB.w, THUMB.h, 0, 0, THUMB.w, THUMB.h); const url = CAR_GALLERY.shot.toDataURL('image/jpeg', 0.85);
-  scene.add(car); setVehicle(keep.veh); applyPaint(keep.paint); TIP_S = keep.tip; SIREN_S.on = keep.siren; car.position.copy(keep.pos); car.rotation.copy(keep.rot); [flames.visible, BLINK.left.visible, BLINK.right.visible, car.visible] = keep.shown;
+  let url = null;
+  withStageVehicle(id, galleryPaint(id), () => {
+    car.position.set(0, 0, 0); car.rotation.set(0, 0, 0); flames.visible = BLINK.left.visible = BLINK.right.visible = false; car.visible = true;
+    CAR_GALLERY.studio.add(car); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true);
+    const v = thumbView({ min: box.min.toArray(), max: box.max.toArray() }); CAR_GALLERY.cam.position.set(...v.eye); CAR_GALLERY.cam.lookAt(...v.at);
+    const pr = renderer.getPixelRatio(); renderer.setViewport(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissor(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissorTest(true); renderer.render(CAR_GALLERY.studio, CAR_GALLERY.cam); renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
+    const gl = renderer.domElement; CAR_GALLERY.shot.getContext('2d').drawImage(gl, 0, gl.height - THUMB.h, THUMB.w, THUMB.h, 0, 0, THUMB.w, THUMB.h); url = CAR_GALLERY.shot.toDataURL('image/jpeg', 0.85);
+  });
   return url;
 }
 // from the loop, before the frame's render: the next car's photo (none in a wreck: a rebuild would end it)
@@ -5502,6 +5541,91 @@ window.__mm.carsel = () => { const ids = Object.keys(VEHICLES); return { open: C
 window.__mm.chair = () => ({ on: chairOn(), visible: car.userData.chair ? car.userData.chair.visible : false, eye: VEH.camera.chair ? VEH.camera.chair.eye.map(c => c * VEH.scale) : null });   // #463: the armchair state (read-only, for the test)
 if (VEHICLES[CHOICE.id].gltf) wantVehicleModel(CHOICE.id);   // #236: the page started with the fallback car; the glTF car swaps in when its file arrives
 window.__mm.registerVehicle = (id, def) => { checkVehicle(def); VEHICLES[id] = structuredClone(def); if (CARSEL.on) renderCarSel(); };   // test hook: a further table entry (tractor / bus: #6)
+// ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
+// The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
+// materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
+const DEPOT_S = { on: REGION.id === 'hochrhein' && !REGION.generated, slots: null, built: new Map(), solids: new Map(), loadChain: Promise.resolve() };
+// the parked vehicle in reach of E: on foot within the walker's enterReach, in the car within reachCar and only nearly stopped
+function depotNear() {
+  if (!DEPOT_S.on || !DEPOT_S.slots || WRECK_S.on) return null;
+  if (FOOT.on) return nearestSlot(P.x, P.z, DEPOT_S.slots, CHOICE.id, WALKER.enterReach)?.id ?? null;
+  if (TRAIN.on || FLY.on || Math.hypot(P.vx, P.vz) >= DEPOT.reachSpeed) return null;
+  return nearestSlot(P.x, P.z, DEPOT_S.slots, CHOICE.id, DEPOT.reachCar)?.id ?? null;
+}
+// #553: swap into the parked vehicle in its own slot pose, through the same selectVehicle path as Choose car; the old
+// vehicle is back in its home slot on the next stepDepot frame, a run counts the swap like the pause-menu one
+function boardDepot(id) {
+  const slot = DEPOT_S.slots?.find(s => s.id === id);
+  if (!slot) return;
+  const name = vehicleText(tr, id, 'name');
+  if (FOOT.on) endFoot();
+  selectVehicle(id);
+  P.x = slot.x; P.z = slot.z; P.th = slot.th; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity);
+  WHEEL_STATE.yaw = 0; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow();
+  if (R.state === 'racing' || R.state === 'armed') R.swapped = true;
+  toast(tr('depotIn', name));
+}
+// the parked body's colour of a freshly built stage car, read inside the build (before the restore recolours it)
+function stagePaint(g, def) {
+  let paintMat = null;
+  g.traverse(o => { if (!paintMat && o.isMesh && o.material?.userData?.paint) paintMat = o.material; });
+  const col = paintMat ? paintMat.color : paintable(def) ? carMats.body.color : null;
+  return col ? '#' + col.getHexString() : null;
+}
+// a replaced parked mesh frees its own geometry and its cloned materials -- never the shared glTF geometry (userData.sharedGeo)
+// nor a material's map (each clone shares it with the stage build and the glTF cache)
+function disposeParked(g) { g.traverse(o => { if (!o.isMesh) return; if (!o.userData.sharedGeo) o.geometry.dispose(); for (const m of [].concat(o.material)) m.dispose(); }); }
+function buildDepotSlot(s) {
+  const def = VEHICLES[s.id], old = DEPOT_S.built.get(s.id);
+  if (def.gltf) DEPOT_S.loadChain = DEPOT_S.loadChain.then(() => loadVehicleModel(s.id));   // one file at a time, like the gallery
+  let mesh = null, paint = null;
+  withStageVehicle(s.id, paintOnSelect(def, 'navy', false, 'navy', def), (stage) => {
+    const drop = new Set([flames, BLINK.left, BLINK.right]);
+    const dropIdx = stage.children.map((c, i) => drop.has(c) ? i : -1).filter(i => i >= 0);
+    const g = stage.clone(true);
+    for (const i of dropIdx.sort((a, b) => b - a)) g.remove(g.children[i]);   // no flames, no blinkers on a parked car
+    g.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); });
+    paint = stagePaint(g, def); mesh = g;
+  });
+  if (old) { scene.remove(old.mesh); disposeParked(old.mesh); }   // the fallback makes way for the real model
+  mesh.position.set(s.x, groundH(s.x, s.z, -Infinity), s.z);
+  mesh.rotation.set(0, -s.th, 0);
+  mesh.visible = s.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show;
+  scene.add(mesh);
+  DEPOT_S.built.set(s.id, { mesh, model: !def.gltf || gltfState(s.id) === 'ready' ? 'gltf' : 'fallback', paint });
+  if (!DEPOT_S.solids.has(s.id)) {
+    const solid = { x: s.x, z: s.z, hw: s.l / 2, hd: s.w / 2, c: Math.cos(s.th), s: Math.sin(s.th), h: 3, depot: s.id, off: s.id === CHOICE.id };
+    addSolid(solid); DEPOT_S.solids.set(s.id, solid);
+  }
+}
+// once per frame: lay the slots out on the first visit, build at most one parked mesh, keep the driven slot empty and far ones hidden
+function stepDepot() {
+  if (!DEPOT_S.on || WRECK_S.on) return;
+  const dist = Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z);
+  if (!DEPOT_S.slots) {
+    if (dist > DEPOT.build) return;
+    try { DEPOT_S.slots = depotLayout(Object.keys(VEHICLES), VEHICLES); } catch (e) { console.warn(e.message); DEPOT_S.slots = []; }
+  }
+  const next = DEPOT_S.slots.find(sl => { const b = DEPOT_S.built.get(sl.id); return !b || (b.model === 'fallback' && gltfState(sl.id) === 'ready'); });
+  if (next) buildDepotSlot(next);
+  const show = dist < DEPOT.show;
+  for (const sl of DEPOT_S.slots) {
+    const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
+    if (!b || !solid) continue;
+    const driven = sl.id === CHOICE.id;
+    b.mesh.visible = show && !driven;
+    solid.off = driven;
+  }
+}
+window.__mm.depot = () => ({
+  on: DEPOT_S.on, near: depotNear(),
+  slots: (DEPOT_S.slots ?? []).map(sl => {
+    const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
+    return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l,
+      shown: !!b && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
+      solid: !!solid && !solid.off, model: b ? b.model : null, paint: b ? b.paint : null };
+  }),
+});
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };
 const inRun = () => canPause($('overlay').hidden, R.state);
@@ -5533,7 +5657,7 @@ window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.
 // 'jump' (J) lists the landmarks and the random spot; 'drive' (O, #18) and 'navi' (I, #106) share the landmarks + streets rows
 const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
-function destEntries() { return [...JUMP_ENTRIES.filter(e => !e.wreck && !e.yard), ...AUTOP.streets]; }
+function destEntries() { return [...JUMP_ENTRIES.filter(e => !e.wreck && !e.yard && !e.depot), ...AUTOP.streets]; }   // #553: the autopilot drives roads; the depot, the wreck and the yard land off them
 function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : JUMP_ENTRIES; }
 function jumpRows() {
   if (DEST_MODES.has(JUMP.mode)) return filterLandmarks(jumpEntries(), JUMP.q, JUMP.g);
@@ -5544,14 +5668,20 @@ function renderJump() {
   const drive = DEST_MODES.has(JUMP.mode), toNavi = JUMP.mode === 'navi'; JUMP.rows = jumpRows(); JUMP.sel = Math.min(JUMP.sel, JUMP.rows.length - 1);
   $('jumptitle').textContent = tr(toNavi ? 'naviTitle' : drive ? 'driveTitle' : 'jumpTitle'); $('jumphint').textContent = tr(toNavi ? 'naviHint' : drive ? 'driveHint' : 'jumpHint');
   /* #176: street and place names come from OSM, so every name is escaped; tr('streetIn') keeps its own markup, so only its argument is escaped */
-  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${(i === JUMP.sel ? ' class="sel' : ' class="') + (r.soon ? ' soon' : '') + '"'}>${esc(r.n)}<span>${r.soon ? tr('enterableSoon') : r.street ? tr('streetIn', esc(r.g)) : esc(r.g)}</span></li>`).join('');
+  /* #782: every row with a Gemeinde shows its country when the region has a German list; jumpList() keeps the bare g */
+  const gLabel = r => REGION.gemeindenDe.length && r.g && REGION.gemeinden.includes(r.g) ? `${esc(r.g)} · ${REGION.gemeindenDe.includes(r.g) ? 'DE' : 'CH'}` : esc(r.g);
+  $('jumplist').innerHTML = JUMP.rows.map((r, i) => `<li data-i="${i}"${(i === JUMP.sel ? ' class="sel' : ' class="') + (r.soon ? ' soon' : '') + '"'}>${esc(r.n)}<span>${r.soon ? tr('enterableSoon') : r.street ? tr('streetIn', esc(r.g)) : gLabel(r)}</span></li>`).join('');
   /* data-g round-trips through the browser's attribute decoding, so the click handler still reads the raw name from dataset.g */
-  $('jumpchips').innerHTML = L ? ['All', ...(drive ? placeChips(jumpEntries()) : gemeindenOf(JUMP_ENTRIES, REGION.gemeinden))].map(g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`).join('') + (drive ? '' : `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`) : '';
+  const chip = g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`;
+  $('jumpchips').innerHTML = !L ? '' : drive ? ['All', ...placeChips(jumpEntries())].map(chip).join('')   /* #782: drive and navi keep the single placeChips row */
+    : chip('All') + `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`   /* #782: Enterable moved up beside All */
+      + chipRows(gemeindenOf(JUMP_ENTRIES, REGION.gemeinden), REGION.gemeindenDe).map(row =>
+        `<div class="crow"${row.country ? ` data-country="${row.country}"` : ''}>${row.country ? `<b>${row.country}</b>` : ''}${row.gemeinden.map(chip).join('')}</div>`).join('');
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
 function openJump(mode) { releaseFootLock(); for (const k in keys) keys[k] = false; JUMP.mode = mode; JUMP.q = ''; JUMP.g = null; JUMP.enterable = false; JUMP.sel = 0; $('jumpq').value = ''; $('jump').hidden = false; renderJump(); $('jumpq').focus(); }
 function closeJump() { $('jump').hidden = true; $('jumpq').blur(); }
-function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else if (r.wreck) jumpToWreck(r.n); else if (r.yard) jumpToYard(r.n); else jumpTo(r); }
+function pickJump(i) { const r = JUMP.rows[i]; if (!r) return; if (JUMP.mode === 'navi') startNavi(r); else if (JUMP.mode === 'drive') startAuto(r); else if (r.random) randomSpot(); else if (r.ramp) jumpToRamp(r.n); else if (r.wreck) jumpToWreck(r.n); else if (r.yard) jumpToYard(r.n); else if (r.depot) jumpToDepot(r.n); else jumpTo(r); }
 function moveJumpSel(step) { const n = JUMP.rows.length; JUMP.sel = (JUMP.sel + step + n) % n; renderJump(); }
 function jumpKey(e) {
   if (e.code === 'Tab') { e.preventDefault(); return; }   // #129: the focus (and the typing) stays in the search field
@@ -5596,7 +5726,7 @@ window.__mm.enterables = {   // #409: test hooks
   list: () => ENTERABLES.map(e => ({ id: e.id, ready: e.ready, secret: e.secret, x: e.x, z: e.z, entrances: e.entrances.length })),
   setReady: (id, ready, at) => { let e = ENTERABLES.find(q => q.id === id); const info = ENTERABLE_INFO.find(q => q.id === id); if (!e && at && info) { e = { ...info, x: at[0], z: at[1], entrances: [] }; ENTERABLES.push(e); } if (!e) return false; e.ready = !!ready; if (at) { e.x = at[0]; e.z = at[1]; e.entrances = [{ x: at[0], z: at[1], th: 0, w: 2 }]; } return true; },
   mapMarks: () => MAP_MARKS.list.map(m => ({ ...m })),
-  glows: () => ENTER_GLOW.shown.map(g => ({ ...g })),
+  glows: () => { stepEnterGlow(); return ENTER_GLOW.shown.map(g => ({ ...g })); },   // #702: steps first, like __mm.touch -- a headless renderer draws under 1 fps, so the shown list would stay stale within a test's waits
   prompt: () => HUD.enter ? HUD.enter.entry.id : null,
 };
 window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g, ...(r.soon ? { soon: true } : {}) }));
@@ -6007,7 +6137,7 @@ function testhubContext() {
   };
 }
 function testhubGo(target) {
-  if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else if (target.entry.yard) jumpToYard(target.label); else jumpTo(target.entry); return; }
+  if (target.kind === 'jump') { if (target.entry.ramp) jumpToRamp(target.label); else if (target.entry.wreck) jumpToWreck(target.label); else if (target.entry.yard) jumpToYard(target.label); else if (target.entry.depot) jumpToDepot(target.label); else jumpTo(target.entry); return; }
   const s = target.spot;
   if (s.room) { jumpBelow(s.room, s, target.label); return; }   // #277 / #591: a ring or a room below
   placeOnRoad(s.x, s.z, s.th, target.label);
@@ -6049,7 +6179,7 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play

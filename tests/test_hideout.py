@@ -1443,3 +1443,38 @@ def test_ferris_room_sign_is_solid_and_keys_3_and_4_fire_fireworks_and_switch_th
     assert math.hypot(push["sign"]["dx"], push["sign"]["dz"]) > 0.5 and math.hypot(push["lane"]["dx"], push["lane"]["dz"]) < 0.01, push
     assert fx1["pattern"] != fx0["pattern"] and fx1["shift"] > 0 and "light show" in toast_show.lower(), (fx0, fx1, toast_show)
     assert fx2["salvos"] == 1 and "fireworks" in toast_fw.lower() and sparks > 0, (fx2, toast_fw, sparks)
+
+
+@needs_world
+def test_shuttle_room_builds_the_launch_pad_on_the_holodeck_without_a_download(server, tmp_path):
+    """#811: ring-2 spoke 7 builds the Space Shuttle Enterprise upright on Launch Pad 39A (56.1 m from the deck top, which stands
+    29 m over the floor) from primitives -- no model file is fetched; the holodeck floor and star dome, no meadow; the
+    hardstand is solid, the flame trench under the rocket and the floor round the pad are open. Leaves screenshots in tmp_path."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL); page.wait_for_function(PAD_SHOWN, timeout=120000)
+        page.keyboard.press("Digit2"); page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        assert page.evaluate("() => window.__mm.shuttle()") is None
+        into_room(page, 7, "r2room7", -1200)
+        page.wait_for_function("() => window.__mm.shuttle() && window.__mm.shuttle().built === 15", timeout=120000)
+        s = page.evaluate("() => window.__mm.shuttle()")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.shuttle().stack.th, x = [Math.cos(th), Math.sin(th)], z = [-x[1], x[0]], p = (a, b) => window.__mm.pushAt(t.x + x[0] * a + z[0] * b, t.z + x[1] * a + z[1] * b, -1200);
+          return { hardstand: p(23, -19), tower: p(-31.5, 6), trench: p(0, 0), trenchEnd: p(0, -45), outside: p(75, 0) }; }""")   # in the stack's own frame (turned 45°)
+        turn = page.evaluate("() => { const d = window.__mm.shuttle().stack.th - window.__mm.spoke(7, 0).th; return Math.atan2(Math.sin(d), Math.cos(d)); }")
+        for name, a, b in (("shuttle-portal-view", -230, 0), ("shuttle-three-quarter", -160, 160), ("shuttle-in-the-trench", -45, 45)):
+            cam = page.evaluate(f"() => {{ const t = window.__mm.below().tower, th = window.__mm.spoke(7, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], x = t.x + f[0] * {a} + v[0] * {b}, z = t.z + f[1] * {a} + v[1] * {b}; return {{ x, z, th: Math.atan2(t.z - z, t.x - x) }}; }}")
+            page.evaluate(f"() => window.__mm.sim({cam['x']}, {cam['z']}, {cam['th']}, 0, 1.5, [], -1200)")
+            page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(9000)   # past the "hideout found" toast
+            page.screenshot(path=str(tmp_path / f"{name}.png"))
+        br.close()
+    print("screenshots:", tmp_path)
+    assert errors == []
+    assert [u for u in requests if "/assets/models/" in u and not u.endswith("/eiffel_tower.glb")] == [], requests   # surface landmarks (assets/landmarks) may stream in meanwhile
+    assert abs(s["h"] - 56.1) < 1e-6 and abs(s["base"] - (-1200 + 28.9)) < 1e-6 and 3000 <= s["tris"] <= 60000 and s["colliders"] == 11, s
+    assert abs(turn - math.pi / 4) < 1e-6, turn   # turned 45° from the room's axis: the portal sees the orbiter three-quarter on
+    assert s["look"] == "space" and s["grid"] is True and s["dome"] is True and s["lawn"] is False, s
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("hardstand", "tower")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("trench", "trenchEnd", "outside")), push

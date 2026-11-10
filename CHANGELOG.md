@@ -10,6 +10,11 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-10 11:19` In the hideout's **ring 2**, the room next to the USS Enterprise now holds the **Space Shuttle Enterprise** in **launch position** on the whole of **Launch Pad 39A**: the orbiter on its orange tank between the two boosters, on the launch platform over the **flame trench** (drive through it, right under the rocket), with the lattice tower, its arms, the swung-back service structure and the water tower, life size.
+
+- `2026-11-10 09:49` **Rhyflitzer FM** plays two more tracks in the spirit of 80s West Coast soft rock: **„The 1980s Soft Rock Groove" by Michael-Vault** and **„Melrose Place Soft Rock" by DigiCompo**. <kbd>8</kbd> skips to them after the four tracks so far; About → Credits names them.
+- `2026-11-09 19:58` <kbd>J</kbd> now reaches **every village** in the world, from Wallbach and Mumpf to Frick and Murg, with the **Bahnhof Frick**, Mumpf and Murg; the villages are split into a **CH** and a **DE** row, and each entry says which side of the Rhine it is on.
+- `2026-11-09 15:37` At the **DSM car park** in Sisseln every vehicle now stands in a **vehicle depot**: drive or walk up to one and press <kbd>E</kbd> to drive on in it. Find it with <kbd>J</kbd> → *Fahrzeug-Depot*.
 - `2026-11-09 14:06` **PostAuto line 143** now runs too, about every half hour from early morning until late evening: from **Stein-Säckingen Bahnhof** past Novartis, Syngenta and DSM to **Sisseln Unterdorf** and **Sisseln Breitenacher**, then on towards **Kaisten and Laufenburg** — it leaves the map at the eastern edge and comes back in from there. Unterdorf and Breitenacher get bus stops; the signs at the stops both lines share list **133 and 143**.
 - `2026-11-09 11:24` A **shortcut up the Plattform Sisslerfeld**: on foot at the door press <kbd>E</kbd> (on a phone, tap the button that appears) to jump straight up to the **viewing deck**, and press <kbd>E</kbd> again by the stair opening to jump back down to the door. Walking the stair still works. The tutorial mentions it.
 - `2026-11-09 10:37` A **car radio**: <kbd>5</kbd> switches it on and off, <kbd>6</kbd> changes between **Rhyflitzer FM** (four freely licensed tracks) and **SRF 3 live**, <kbd>7</kbd> <kbd>8</kbd> skip a track and <kbd>9</kbd> <kbd>0</kbd> set the volume, all while you keep driving; for three seconds a small display shows what is playing. On a phone, the 📻 button next to pause opens the same controls. The start screen plays quiet music, which <kbd>5</kbd> or the Music button switches off; About → Credits names every track.
@@ -39,9 +44,14 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-10 08:29` The **smiley speed display** in Sisseln now lags like a real radar sign: it shows your speed from **two seconds ago**, so as you pass it you see how fast you came in, and after you pass it the last reading stays up for a moment.
+
 - `2026-11-09 20:09` The **Rhy Wobbler**, the yellow three-wheeler, now sits under **Film & TV** in the vehicle gallery instead of Everyday: it is the Mr Bean car.
 
+- `2026-11-09 19:57` The **glass shelters** at the Postauto stops are now **solid**: the car bumps into them like into a wall instead of driving through. On foot you can still step in under the roof.
+
 - `2026-11-09 16:22` A **tidier driving HUD**: everything but the speedometer, the clock, the checkpoint arrow and the map now fades to a faint ghost four seconds after it last changed and lights up again for three seconds when it does — the mode plate, gear and trip, the road and water names, the best time. The **damage** plate appears only once the car has taken damage, the blinker glyphs only while a signal is on, and the key bar dims after half a minute and returns when you get out, fly or board. The **compass** has moved into the minimap: the car marker has a needle and the map bar shows the heading in degrees. The style button under the road is gone — switch the style in the **pause** menu or with <kbd>T</kbd> — and the footer links show only on the start screen and in pause.
+
 - `2026-11-08 09:29` The **trees** in the Smooth style have a new look: lumpy broadleaf crowns in several greens, spruces with tiers, slim birches, poplars and the **Hochstamm fruit trees** of the Fricktal, every tree a little different, and the crowns **sway in the wind**. Woods far away stay as light to draw as before, so phones keep their frame rate.
 
 - `2026-11-08 08:59` The **helicopter** flies much more like a real one: it **leans** forward when it speeds up and **banks** into turns, **climbs and sinks** the moment you press <kbd>Space</kbd> or <kbd>Shift</kbd>, **brakes smoothly** when you let go, and the camera now follows **closer and steadier** behind it. The rotor shows as a **disc** and sounds harder while climbing. Flight model after the helicopter in slop-newyork (MIT).
@@ -49,6 +59,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-11-08 08:54` Rhyflitzer now lives at the short address **rhyflitzer.ch**. The old address rhyflitzer.freaxnx01.ch (including the `/nfz` link) forwards there, and the editor's share links point to the new address.
 
 - `2026-11-08 08:30` Visits on the upcoming short addresses **rhyflitzer.ch** and **freax.games** are counted in the stats too (game and editor), so nothing is lost when the game moves there.
+
+- `2026-11-07 22:19` The **glow at an entrance** (Plattform Sisslerfeld, Bodenackerstrasse 6c) now shows from **60 m** away on foot instead of 15 m, and is clearly bright well before you reach the door. In the tutorial, the Plattform door is already glowing when you get out after the jump.
 
 - `2026-11-07 21:26` The **keys now look like keys**: in the tutorial, the hint shows the movement keys as the **W A S D** cluster the way it sits on the keyboard, "or" the **arrow keys** next to it, and every other key (<kbd>Shift</kbd>, <kbd>Z</kbd>, <kbd>J</kbd>, <kbd>X</kbd>) as its own key cap. The key bar at the bottom shows <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> as four keys instead of one "WASD", which a tester had read as a word to type.
 

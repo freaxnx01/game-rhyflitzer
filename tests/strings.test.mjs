@@ -253,6 +253,8 @@ test('the music is credited in both languages, Rob Bery as the author asks (#735
     assert.match(translate(lang, 'creditMusicCoolRider'), /Cool Rider.*Emmraan.*Pixabay/);
     assert.match(translate(lang, 'creditMusicNeonAfterglow'), /Neon Afterglow.*MemoryArcade.*Pixabay/);
     assert.match(translate(lang, 'creditMusicCalifornia'), /California Snares and Synths.*Eliza_music.*Pixabay/);
+    assert.match(translate(lang, 'creditMusicSoftRockGroove'), /The 1980s Soft Rock.*Groove.*Michael-Vault.*Pixabay/);
+    assert.match(translate(lang, 'creditMusicMelrose'), /Melrose Place Soft Rock.*DigiCompo.*Pixabay/);
     assert.match(translate(lang, 'creditSrf3'), /SRF 3/);
   }
 });

@@ -7,6 +7,7 @@ import { EIFFEL, ATOMIUM, TITANIC, VASA } from './hideout.js';
 import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
 import { ENTERPRISE, DEDICATION, dedicationPlacement } from './enterprise.js';   // #491
 import { FERRIS, ferrisPlacement } from './ferris.js';      // #513
+import { SHUTTLE, shuttlePlacement } from './shuttle.js';   // #811
 import { FRIES, friesPlacement } from './fries.js';
 import { BELOW_Y, BELOW2_Y, SPOKE, spokeFrame } from './underground.js';
 
@@ -32,9 +33,13 @@ export const ROOMS = [
 // the ring between spoke 7 (front left) and spoke 0 (front right, the Eiffel); 1 (the Atomium) follows on the right, so the Titanic
 // opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic), 2 (Artemis II), 6 (Ferris wheel) and 3 (Vasa) are taken; 5 is next.
 export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
-// #489 / #491: ring 2's eight rooms -- the Enterprise took the first; the rest are empty for now. `look`: 'meadow' (the ring-1 template)
-// or 'space' (#491: a holodeck grid under a star dome, no trees, paths or clouds)
-export const ROOMS2 = Array.from({ length: SPOKE.n }, (_, k) => (k === 0 ? { id: 'r2room0', name: 'Enterprise', object: ENTERPRISE, signed: false, look: 'space', dedication: DEDICATION } : { id: `r2room${k}`, name: null, object: null }));
+// #489 / #491: ring 2's eight rooms -- the Enterprise took the first, the Space Shuttle Enterprise the second (#811); the rest are empty
+// for now. `look`: 'meadow' (the ring-1 template) or 'space' (#491: a holodeck grid under a star dome, no trees, paths or clouds)
+const TAKEN2 = {
+  0: { name: 'Enterprise', object: ENTERPRISE, signed: false, look: 'space', dedication: DEDICATION },
+  7: { name: 'Space Shuttle Enterprise', object: SHUTTLE, signed: false, look: 'space' },   // #811: OV-101 in launch position
+};
+export const ROOMS2 = Array.from({ length: SPOKE.n }, (_, k) => ({ id: `r2room${k}`, name: null, object: null, ...TAKEN2[k] }));
 export const NEXT_ROOMS2 = [0, 7, 1, 6, 2, 5, 3, 4];
 // #489: the rings below the lift: level id, the freight lift's stop, depth, room half width, rooms
 export const RINGS = [
@@ -147,6 +152,9 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   // #513: the Ferris wheel in the centre (ferris.js places it; ferrismesh.js builds it): four foot colliders, the car drives under the rim
   const ferris = (room.object && room.object.gondola) ? ferrisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: ROOM_Y }, room.object) : null;
   if (ferris) colliders.push(...ferris.colliders, ...ferris.sign.colliders);
+  // #811: the Space Shuttle stack on its launch platform in the centre (shuttle.js places it; shuttlemesh.js builds it)
+  const shuttle = (room.object && room.object.orbiter) ? shuttlePlacement({ centre, frame: { f, v }, y: Y }, room.object) : null;
+  if (shuttle) colliders.push(...shuttle.colliders);
   // the plaque for Sir Patrick Stewart just inside the Enterprise room's portal (enterprise.js places it)
   const dedication = room.dedication ? dedicationPlacement({ portal: { c: P }, frame: { f, v }, y: Y }, room.dedication) : null;
   if (dedication) colliders.push(...dedication.colliders);
@@ -174,7 +182,7 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? Y + SPOKE.ceiling : null;
     },
-    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, artemis, ferris, dedication, colliders, trees, paths,
+    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, artemis, ferris, shuttle, dedication, colliders, trees, paths,
     portal: { c: P, th: Math.atan2(f[1], f[0]), hw: SPOKE.hw, h: SPOKE.ceiling },
     spawn: { x: at(20, 0)[0], z: at(20, 0)[1], th: Math.atan2(f[1], f[0]) },
     towerView: room.object ? { x: view[0], z: view[1], th: Math.atan2(f[1], f[0]) } : null,
