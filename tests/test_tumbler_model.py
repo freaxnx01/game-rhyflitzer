@@ -78,3 +78,14 @@ def test_nitro_flames_sit_behind_every_gltf_tail_one_centred_on_the_tumbler(serv
     # the Harvester's box reaches -6.26 m only with the unloading auger, high up: its flames sit at the engine's tail, 1.9 m up
     assert all(-4 < f[0] < -3 and f[1] == 1.9 for f in seen["harvester"]["flames"]), seen["harvester"]
     assert not errors, errors
+
+
+def test_tumbler_from_the_url_appears_after_loading_even_when_the_race_already_started(server):
+    """#561: ?vehicle=tumbler, race started before the glb arrived: the real model still replaces the fallback, no player action."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server, query="?vehicle=tumbler")
+        page.click("#startbtn", timeout=180000)
+        page.wait_for_function("() => window.__mm.gltfVehicle('tumbler').state === 'ready'", timeout=180000)
+        page.wait_for_function("() => window.__mm.vehicle().gltf?.id === 'tumbler' && window.__mm.carSize().l > 4.5", timeout=30000)
+        b.close()
+    assert not errors, errors
