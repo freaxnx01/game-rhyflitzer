@@ -332,7 +332,8 @@ export function thankDue(b, t, player, cfg = PA) {
   if (player.v > cfg.thankKmh / 3.6) return false;
   const tr = trackRoute(b.route, player.x, player.z, b.s - cfg.thankBehind), back = b.s - tr.s;
   if (back < BUS.length / 2 || back > cfg.thankBehind) return false;
-  return Math.abs(tr.d - Math.abs(routeLaneOffset(b.route, tr.s))) <= cfg.thankLane;
+  const [lx, lz] = lanePoint(b.route, tr.s, cfg);
+  return Math.hypot(player.x - lx, player.z - lz) <= cfg.thankLane;
 }
 export function markThanked(b, t, cfg = PA) { b.thankedAt = b.leftAt; b.thanksUntil = t + cfg.thankSecs; }
 
