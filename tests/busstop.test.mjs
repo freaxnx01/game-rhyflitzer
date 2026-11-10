@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider } from '../busstop.js';
+import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider, SIGN_FACES } from '../busstop.js';
 import { buildGraph, cumulative } from '../route.js';
 import { BUS } from '../bus.js';
 import { busRoute, busPose } from '../postauto.js';
@@ -174,5 +174,25 @@ test('shelterCollider: the box covers exactly the shelter corners stopLayout com
   for (const [x, z] of lay.shelter.corners) {
     const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c;
     assert.ok(near(Math.abs(lx), o.hw) && near(Math.abs(lz), o.hd), [x, z, lx, lz]);
+  }
+});
+// plane normal after rotation.y = r is (sin r, 0, cos r); the group puts local +z away from the road (stopLayout n)
+test('SIGN_FACES: one face looks toward the road, one away, none is double-sided', () => {
+  const nz = SIGN_FACES.map((f) => Math.cos(f.rotY));
+  assert.equal(SIGN_FACES.length, 2);
+  assert.ok(nz.some((v) => near(v, -1)), 'a face toward the road (-z local)');
+  assert.ok(nz.some((v) => near(v, 1)), 'a face away from the road (+z local)');
+  assert.ok(SIGN_FACES.every((f) => f.z < 0), 'both in front of the pole line, behind the frame');
+});
+
+test('SIGN_FACES: for every stop yaw the road-side face normal points at the road', () => {
+  for (const rot of [0, 1, 2.5, -2]) {
+    const lay = stopLayout({ x: 0, z: 0, rot }, [], []);
+    const away = [-Math.sin(lay.yaw), Math.cos(lay.yaw)];                  // world direction of local +z
+    const road = SIGN_FACES.find((f) => Math.cos(f.rotY) < 0);
+    const nLocal = [Math.sin(road.rotY), Math.cos(road.rotY)];             // (x, z) local
+    const c = Math.cos(-lay.yaw), s = Math.sin(-lay.yaw);                  // three.js rotation.y = -yaw
+    const w = [nLocal[0] * c + nLocal[1] * s, -nLocal[0] * s + nLocal[1] * c];
+    assert.ok(w[0] * away[0] + w[1] * away[1] < -0.999);
   }
 });
