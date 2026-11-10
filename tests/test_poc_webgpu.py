@@ -48,3 +48,17 @@ def test_look_keys_switch_state(poc_page):
     poc_page.keyboard.press("KeyT")
     state = poc_page.evaluate("window.__poc.state()")
     assert state["wet"] is True and state["roadWetness"] == 0.9
+
+
+def test_car_load_failure_keeps_taxi(poc_page):
+    warnings, errors = [], []
+    poc_page.on("pageerror", lambda e: errors.append(str(e)))
+    poc_page.on("console", lambda m: warnings.append(m.text) if m.type == "warning" else None)
+    poc_page.route("**/bulldog.glb", lambda route: route.abort())
+    poc_page.goto(poc_page.poc_url)
+    poc_page.wait_for_function(READY, timeout=120000)
+    if poc_page.is_visible("#no-webgpu"):
+        pytest.skip("no WebGPU adapter in this browser")
+    assert errors == []
+    assert poc_page.evaluate("window.__poc.state().car") == "taxi"
+    assert len([w for w in warnings if "bulldog.glb" in w]) == 1

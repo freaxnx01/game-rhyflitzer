@@ -26,6 +26,8 @@ import {
 import { PersonCrowd, PersonRig } from './pedestrians.js';
 import { HEADLIGHTS, createVehicleHeadlight, placeVehicleHeadlight } from './vehicle-lights.js';
 import { bryantParkLawn } from './landmarks.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'; // PoC
+import { attachGltfBody } from './poc-car-attach.js'; // PoC
 import { polygonContact } from './building-collision.js';
 
 // Player models, animation and movement for walking, driving, cycling and flying.
@@ -594,7 +596,7 @@ class ThirdPersonControllerManager {
 
     this.scene.add(root);
 
-    return {
+    const entity = {
       type: 'car',
       label: 'NYC Yellow Taxi',
       mesh: root,
@@ -621,6 +623,13 @@ class ThirdPersonControllerManager {
       chaseDistance: 6.9,
       chaseHeight: 2.12
     };
+    // PoC: the entity stays synchronous; the Rhyflitzer body replaces the taxi meshes once bulldog.glb has loaded
+    entity.bodyKind = 'taxi';
+    entity.bodyReady = attachGltfBody(entity, new GLTFLoader()).then((body) => {
+      if (body) entity.bodyKind = 'bulldog';
+      return body;
+    });
+    return entity;
   }
 
   // =========================================================================

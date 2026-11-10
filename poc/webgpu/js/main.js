@@ -25,6 +25,7 @@ import { hasWebGPU } from './poc-gate.js';
 import { nextTimePreset, roadWetness, isLookKey } from './poc-look.js';
 import { TIME_PRESETS } from './lighting.js';
 import { cityUniforms } from './tsl-materials.js';
+import { isNightPreset, setLampsLit } from './poc-car.js'; // PoC
 
 // Application setup, shader warm-up and frame loop.
 
@@ -373,9 +374,16 @@ async function initApp() {
     cityUniforms.uRoadWetness.value = roadWetness(preset.roadWetness, pocWet);
   }
 
+  // PoC: Rhyflitzer lamp materials, known once bulldog.glb has loaded; lit at twilight and midnight
+  let pocLamps = [];
+  function pocApplyLamps() {
+    setLampsLit(pocLamps, isNightPreset(lightingSystem.activePresetId));
+  }
+
   function selectTime(timeId) {
     lightingSystem.applyPreset(timeId);
     pocApplyWetness(); // PoC
+    pocApplyLamps(); // PoC
     colorGrade.applyPreset(lightingSystem.activePresetId);
     timeButtons.forEach((btn) => {
       btn.classList.toggle('active', btn.getAttribute('data-time') === timeId);
@@ -620,6 +628,12 @@ async function initApp() {
   selectMode(controllerManager.activeMode);
   selectCamera('chase', true);
   selectTime('golden');
+  // PoC: a late-loading body picks up the current time's lamp state
+  controllerManager.entities.car.bodyReady.then((body) => {
+    if (!body) return;
+    pocLamps = body.lamps;
+    pocApplyLamps();
+  });
   // PoC: test hook; ready flips after the first rendered frame
   window.__poc = {
     ready: false,
@@ -628,7 +642,7 @@ async function initApp() {
       pocWet = Boolean(value);
       pocApplyWetness();
     },
-    state: () => ({ time: lightingSystem.activePresetId, wet: pocWet, roadWetness: cityUniforms.uRoadWetness.value }),
+    state: () => ({ time: lightingSystem.activePresetId, wet: pocWet, roadWetness: cityUniforms.uRoadWetness.value, car: controllerManager.entities.car.bodyKind }),
   };
   // the web fonts change the buttons' widths once they arrive
   if (document.fonts) document.fonts.ready.then(placeModeIndicator);
