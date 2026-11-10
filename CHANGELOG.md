@@ -56,6 +56,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 - `2026-11-08 08:30` Visits on the upcoming short addresses **rhyflitzer.ch** and **freax.games** are counted in the stats too (game and editor), so nothing is lost when the game moves there.
 
+- `2026-11-07 22:19` The **glow at an entrance** (Plattform Sisslerfeld, Bodenackerstrasse 6c) now shows from **60 m** away on foot instead of 15 m, and is clearly bright well before you reach the door. In the tutorial, the Plattform door is already glowing when you get out after the jump.
+
 - `2026-11-07 21:26` The **keys now look like keys**: in the tutorial, the hint shows the movement keys as the **W A S D** cluster the way it sits on the keyboard, "or" the **arrow keys** next to it, and every other key (<kbd>Shift</kbd>, <kbd>Z</kbd>, <kbd>J</kbd>, <kbd>X</kbd>) as its own key cap. The key bar at the bottom shows <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> as four keys instead of one "WASD", which a tester had read as a word to type.
 
 - `2026-11-07 21:24` The **Postauto stops** are now Swiss: a steel-frame sign with the yellow **Haltestellentafel**, the stop's name and a row for each line and direction (with a little bus, no brand), a **timetable frame** at eye height, the glass shelter behind the pole, and the yellow **zigzag** on the road along the kerb. Pole and shelter stand beside the kerb, clear of the standing Postauto and off the road — also at the bends at Industriezone Rütti and the two stations, where the bus used to stand through the shelter.

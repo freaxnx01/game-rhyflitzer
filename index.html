@@ -5710,7 +5710,7 @@ window.__mm.enterables = {   // #409: test hooks
   list: () => ENTERABLES.map(e => ({ id: e.id, ready: e.ready, secret: e.secret, x: e.x, z: e.z, entrances: e.entrances.length })),
   setReady: (id, ready, at) => { let e = ENTERABLES.find(q => q.id === id); const info = ENTERABLE_INFO.find(q => q.id === id); if (!e && at && info) { e = { ...info, x: at[0], z: at[1], entrances: [] }; ENTERABLES.push(e); } if (!e) return false; e.ready = !!ready; if (at) { e.x = at[0]; e.z = at[1]; e.entrances = [{ x: at[0], z: at[1], th: 0, w: 2 }]; } return true; },
   mapMarks: () => MAP_MARKS.list.map(m => ({ ...m })),
-  glows: () => ENTER_GLOW.shown.map(g => ({ ...g })),
+  glows: () => { stepEnterGlow(); return ENTER_GLOW.shown.map(g => ({ ...g })); },   // #702: steps first, like __mm.touch -- a headless renderer draws under 1 fps, so the shown list would stay stale within a test's waits
   prompt: () => HUD.enter ? HUD.enter.entry.id : null,
 };
 window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g, ...(r.soon ? { soon: true } : {}) }));

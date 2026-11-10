@@ -281,7 +281,7 @@ def test_e_on_foot_at_a_ready_entrance_shows_the_prompt_and_reaches_the_toast(se
         b.close()
     assert errors == []
     assert shown == "E · Enter", shown
-    assert pressed["toast"] == "Not enterable yet" and not pressed["blinker"], pressed
+    assert pressed["toast"] == "The stair is open -- just walk in" and not pressed["blinker"], pressed   # #413: the Plattform's own E handler
     assert gone == "", gone
 
 
@@ -298,7 +298,7 @@ def test_a_ready_entrance_glows_on_foot_only(server):   # #409
             page.wait_for_timeout(300)
             return page.evaluate("() => window.__mm.enterables.glows()")
 
-        mid, near, far = glows_at(10), glows_at(2), glows_at(20)
+        mid, near, early, far = glows_at(10), glows_at(2), glows_at(20), glows_at(65)   # #702: glows from 60 m
         page.evaluate(f"() => window.__mm.place({x + 2}, {z}, 0)")   # back next to the car, 10 m from the entrance
         press_z(page)
         page.wait_for_timeout(300)
@@ -308,4 +308,5 @@ def test_a_ready_entrance_glows_on_foot_only(server):   # #409
     assert errors == []
     assert len(mid) == 1 and 0 < mid[0]["opacity"] < 1, mid
     assert near[0]["opacity"] == 1 and far == [], (near, far)
+    assert len(early) == 1 and early[0]["opacity"] > 0.5, early
     assert driving == {"foot": False, "glows": []}, driving
