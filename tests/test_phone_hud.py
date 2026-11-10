@@ -107,23 +107,25 @@ def test_phone_pause_switches_style(server):
         shown = page.evaluate("() => getComputedStyle(document.getElementById('pausestyle')).display")
         before = page.text_content("#pausestyle")
         page.click("#pausestyle")
-        page.wait_for_function("() => document.getElementById('stylename').textContent === 'Glatt'", timeout=T)
+        page.wait_for_function("() => document.getElementById('pausestyle').textContent === 'Stil: Glatt'", timeout=T)
         after = page.text_content("#pausestyle")
         b.close()
     assert shown != "none"
     assert (before, after) == ("Stil: Original", "Stil: Glatt")
 
 
-def test_tablet_keeps_the_style_button(server):
-    """The #stylebtn hide is for phones only -- a wide touch screen has no HUD overlap and keeps the button."""
+def test_tablet_has_the_style_switch_in_pause_only(server):
+    """#773: #stylebtn is gone on every device; the pause dialog carries the switch everywhere."""
     with sync_playwright() as p:
         b, page = open_phone(p, server, width=900, height=600)
         start(page, "#cruisebtn")
-        style, pausestyle = page.evaluate("""() => ['stylebtn', 'pausestyle']
-          .map(id => getComputedStyle(document.getElementById(id)).display)""")
+        gone = page.evaluate("() => document.getElementById('stylebtn') === null")
+        page.click("#pausebtn")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=T)
+        pausestyle = page.evaluate("() => getComputedStyle(document.getElementById('pausestyle')).display")
         b.close()
-    assert style != "none"
-    assert pausestyle == "none"     # the button is on screen, so the dialog does not repeat it
+    assert gone
+    assert pausestyle != "none"
 
 
 def test_start_screen_keeps_footer_hidden(server):
