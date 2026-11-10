@@ -3,6 +3,7 @@
 export const ABOUT_LINKS = Object.freeze({
   midtown: 'https://en.wikipedia.org/wiki/Midtown_Madness',   // the article only: its screenshot is not free, never copy it
   osm: 'https://www.openstreetmap.org/copyright',
+  otd: 'https://opentransportdata.swiss/',   // #500: Postauto timetable (terms 5.1: cite as source)
   swisstopo: 'https://www.swisstopo.admin.ch/',
   agis: 'https://geodienste.ch/services/lwb_nutzungsflaechen',   // #506: the Aargau farm parcels
   copernicus: 'https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM',   // #593: the horizon backdrop
@@ -22,8 +23,8 @@ export const ABOUT_LINKS = Object.freeze({
 const PASS = new Set(['Tab', 'Enter', 'NumpadEnter', 'Space']);
 const TAB_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End']);
 
-// #564: the tabs under the fixed dedication; ids match #abouttab-<id> / #aboutpanel-<id> in index.html
-export const ABOUT_TABS = Object.freeze(['people', 'game', 'credits', 'built']);
+// #564: the tabs under the fixed dedication; ids match #abouttab-<id> / #aboutpanel-<id> in index.html. #695: 'loading' = the loading screen's lines, to read in peace
+export const ABOUT_TABS = Object.freeze(['people', 'game', 'credits', 'built', 'loading']);
 
 // the tab a navigation key leads to from `current` (arrows wrap, Home/End jump), null for any other key
 export function aboutTabIndex(code, current) {

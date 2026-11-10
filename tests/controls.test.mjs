@@ -77,6 +77,13 @@ test('barEntries_WithContextAction_HighlightedEFirst', () => {
   assert.ok(barEntries('car', null).every(e => !e.highlight));
 });
 
+test('barEntries_HopActions_HighlightedEWithTheirLabels', () => {   // #701
+  for (const [a, en, de] of [['up', 'up to the deck', 'hinauf'], ['down', 'down', 'hinunter']]) {
+    const first = barEntries('foot', a)[0];
+    assert.deepEqual([first.cap, first.highlight, translate('en', first.label), translate('de', first.label)], ['E', true, en, de], a);
+  }
+});
+
 test('barEntries_HeliTrainLift_OnlyAllKeys', () => {
   for (const c of ['heli', 'train', 'lift']) assert.deepEqual(barEntries(c).map(e => e.cap), ['F1'], c);
 });
@@ -91,11 +98,27 @@ test('labels_EveryLabelExistsInBothLanguages', () => {
   for (const c of CONTEXTS) for (const e of entriesFor(c)) if (e.label) for (const l of ['en', 'de']) assert.notEqual(translate(l, e.label), e.label, `${c} ${e.action} ${l}`);
 });
 
+test('contextKeyAction_BoardOnlyWhenNothingElseIsUp', () => {   // #553
+  assert.equal(contextKeyAction({ boardPrompt: true }), 'board');
+  assert.equal(contextKeyAction({ doorPrompt: true, boardPrompt: true }), 'enter');   // a door beats a parked car
+  assert.equal(contextKeyAction({ indoors: true, boardPrompt: true }), 'leave');
+  assert.equal(contextKeyAction({}), null);
+  assert.equal(contextLabel('board'), 'barBoard');
+});
+
 test('contextKeyAction_LiftWinsOverLeave_LeaveOverEnter', () => {
   assert.equal(contextKeyAction({ liftPrompt: true, indoors: true, doorPrompt: true }), 'lift');
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: true, doorPrompt: true }), 'leave');
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true }), 'enter');
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: false }), null);
+});
+
+test('contextKeyAction_HopWinsOverEnter_LiftAndLeaveWinOverHop', () => {   // #701
+  assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true, hop: 'up' }), 'up');
+  assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: false, hop: 'down' }), 'down');
+  assert.equal(contextKeyAction({ liftPrompt: false, indoors: true, doorPrompt: false, hop: 'up' }), 'leave');
+  assert.equal(contextKeyAction({ liftPrompt: true, indoors: true, doorPrompt: false, hop: 'up' }), 'lift');
+  assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true }), 'enter', 'hop is optional');
 });
 
 test('contextLabel_KnownAndUnknown', () => {
@@ -108,4 +131,14 @@ test('keybarOnFrom_DefaultOn_ZeroIsOff', () => {
   assert.equal(keybarOnFrom('1'), true);
   assert.equal(keybarOnFrom('0'), false);
   assert.equal(keybarOnFrom('garbage'), true);
+});
+test('actionFor_Digits5To0_AreTheRadioInEveryRunContext_ButNotTheLiftPad', () => {
+  const want = { Digit5: 'radioPower', Digit6: 'radioStation', Digit7: 'radioTrack', Digit8: 'radioTrack', Digit9: 'radioVolume', Digit0: 'radioVolume' };
+  for (const c of ['car', 'foot', 'indoors', 'heli', 'train']) for (const [k, a] of Object.entries(want)) assert.equal(actionFor(c, k), a, `${c} ${k}`);
+  assert.equal(actionFor('lift', 'Digit5'), 'floor');
+  assert.equal(actionFor('car', 'KeyM'), 'mute');   // M stays the global mute
+});
+
+test('radioEntries_AreNotTouchMenuEntries', () => {
+  for (const c of CONTEXTS) assert.ok(!menuEntries(c).some(e => e.action.startsWith('radio')), c);   // the phone has its own 📻 panel
 });

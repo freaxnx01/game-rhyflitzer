@@ -5,8 +5,8 @@ import { MODES, startModeFrom, lastModeFrom, modeTextKey, hasCheckpoints, editio
 
 const key = (code) => ({ code, repeat: false });
 
-test('MODES are cruise, the three race modes and the viewpoint hunt in bar order', () => {
-  assert.deepEqual(MODES, ['cruise', 'trial', 'blitz', 'hunt', 'view']);
+test('MODES are cruise, the three race modes, the viewpoint hunt and the tutorial in bar order', () => {
+  assert.deepEqual(MODES, ['cruise', 'trial', 'blitz', 'hunt', 'view', 'tutorial']);
 });
 
 test('startModeFrom: ?mode= picks a known mode, anything else is cruise', () => {
@@ -89,4 +89,25 @@ test('lastModeFrom: a stored view needs viewpoints', () => {
 test('modeTextKey and hasCheckpoints know the viewpoint hunt', () => {
   assert.equal(modeTextKey('view', { intro: 'intro' }), 'viewIntro');
   assert.equal(hasCheckpoints('view'), false);
+});
+
+test('startModeFrom_FirstVisit_PreselectsTheTutorialWhereThereAreViewpoints', () => {
+  assert.equal(startModeFrom('', false, true, false), 'tutorial');
+  assert.equal(startModeFrom('', false, true, true), 'cruise');
+  assert.equal(startModeFrom('', false, true), 'cruise', 'done is the default');
+  assert.equal(startModeFrom('?mode=blitz', false, true, false), 'blitz', '?mode= wins');
+  assert.equal(startModeFrom('', false, false, false), 'cruise', 'no viewpoints, no tutorial');
+  assert.equal(startModeFrom('', true, true, false), 'cruise', 'a raceless world has no tutorial');
+  assert.equal(startModeFrom('?mode=tutorial', false, true, true), 'tutorial');
+  assert.equal(startModeFrom('?mode=tutorial', false, false, false), 'cruise');
+});
+
+test('lastModeFrom_NeverReopensTheTutorial', () => {
+  assert.equal(lastModeFrom('tutorial', false, true), 'cruise');
+  assert.equal(lastModeFrom('view', false, true), 'view');
+});
+
+test('modeTextKey_Tutorial_HasItsIntro_AndNoCheckpoints', () => {
+  assert.equal(modeTextKey('tutorial', { intro: 'introHochrhein' }), 'tutorialIntro');
+  assert.equal(hasCheckpoints('tutorial'), false);
 });

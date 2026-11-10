@@ -1,4 +1,4 @@
-"""Buildings: OSM footprints along the main roads (and all big ones), height, roof type, palette."""
+"""Buildings: OSM footprints along the main roads, all big ones and all public ones (#761), height, roof type, palette."""
 from __future__ import annotations
 
 import math
@@ -12,6 +12,7 @@ from shapely.validation import make_valid
 MAIN = {"trunk", "trunk_link", "primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link"}
 NEAR_GENERATED = MAIN | {"residential", "living_street", "unclassified", "service"}
 SKIP = {"roof", "carport", "construction", "ruins"}
+PUBLIC = {"train_station", "church", "chapel", "public", "civic", "government", "school", "kindergarten", "transportation"}   # #761: kept wherever they stand
 FLOORS = {"house": 2, "detached": 2, "semidetached_house": 2, "residential": 2, "yes": 2, "terrace": 2,
           "apartments": 4, "farm": 1.5, "barn": 1.5, "commercial": 3, "retail": 3, "office": 3,
           "school": 3, "garage": 1, "garages": 1, "shed": 1}
@@ -144,7 +145,8 @@ def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=froz
         near = tree is not None and len(tree.query(p, predicate="dwithin", distance=house_dist)) > 0
         in_quarter = not near and quarters is not None and quarters.contains(p.centroid)
         listed = not near and not in_quarter and a.id in keep_ids     # named landmark kept by id (#46)
-        if not near and not in_quarter and not listed and (big_area <= 0 or p.area < big_area):
+        public = not near and not in_quarter and not listed and t["building"] in PUBLIC   # #761: stations, churches, schools …
+        if not near and not in_quarter and not listed and not public and (big_area <= 0 or p.area < big_area):
             continue
         kind, rect = roof(p)
         pal = "industrial" if sites is not None and sites.contains(p.centroid) else "village"
@@ -152,7 +154,7 @@ def build(areas, roads, clip, house_dist=30.0, big_area=1000.0, exclude_ids=froz
         rec = {"id": a.id, "h": height(t), "roof": kind, "palette": pal, "rect": rect, "ring": ring}
         out.append(rec); polys.append(p); own.append(join_numbers([t.get("addr:housenumber", "")]))
         own_street.append(t.get("addr:street", "").strip())
-        stats["kept_near" if near else "kept_area" if in_quarter else "kept_landmark" if listed else "kept_big"] += 1
+        stats["kept_near" if near else "kept_area" if in_quarter else "kept_landmark" if listed else "kept_public" if public else "kept_big"] += 1
     per_poly = nodes_per_polygon(polys, addr_nodes)
     _assign_numbers(out, own, per_poly, stats)
     _assign_streets(out, own_street, per_poly, stats)

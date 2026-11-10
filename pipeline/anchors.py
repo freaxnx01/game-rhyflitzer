@@ -105,6 +105,11 @@ def trail_ids(spec) -> set:
     return {_osm_ref(s)[1] for s in spec.get("trails", [])}
 
 
+def bus_lines(spec) -> list:
+    """#682: the PostAuto lines (OSM `ref` / GTFS `route_short_name`) whose routes go into the world."""
+    return list(spec.get("bus", {}).get("lines", []))
+
+
 def industrial_ids(spec) -> list:
     return [_osm_ref(s)[1] for s in spec.get("areas", {}).get("industrial", [])]
 

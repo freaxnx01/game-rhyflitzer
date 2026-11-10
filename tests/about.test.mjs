@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from '../about.js';
 
 test('ABOUT_LINKS: every link https, the agreed set, frozen', () => {
-  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'plattform', 'privacy', 'source', 'swisstopo', 'threejs']);
+  assert.deepEqual(Object.keys(ABOUT_LINKS).sort(), ['agentWorkflow', 'agis', 'aiInstructions', 'altcha', 'copernicus', 'crashcat', 'fonts', 'glossary', 'leaflet', 'midtown', 'osm', 'otd', 'plattform', 'privacy', 'source', 'swisstopo', 'threejs']);
   for (const [id, url] of Object.entries(ABOUT_LINKS)) assert.match(url, /^https:\/\/[^\s]+$/, id);
   assert.equal(ABOUT_LINKS.plattform, 'https://www.plattform-sisslerfeld.com/');
   assert.equal(ABOUT_LINKS.privacy, 'https://github.com/freaxnx01/game-rhyflitzer#datenschutz--privacy');
@@ -24,18 +24,19 @@ test('aboutReturn: over the paused game during a run, else the start screen', ()
   assert.equal(aboutReturn(false), 'start');
 });
 
-test('ABOUT_TABS: the four tabs in order, frozen', () => {
-  assert.deepEqual([...ABOUT_TABS], ['people', 'game', 'credits', 'built']);
+test('ABOUT_TABS: the five tabs in order, frozen', () => {
+  assert.deepEqual([...ABOUT_TABS], ['people', 'game', 'credits', 'built', 'loading']);
   assert.ok(Object.isFrozen(ABOUT_TABS));
 });
 
 test('aboutTabIndex: arrows wrap, Home/End jump, other keys give null', () => {
   assert.equal(aboutTabIndex('ArrowRight', 0), 1);
-  assert.equal(aboutTabIndex('ArrowRight', 3), 0);
+  assert.equal(aboutTabIndex('ArrowRight', 3), 4);
+  assert.equal(aboutTabIndex('ArrowRight', 4), 0);
   assert.equal(aboutTabIndex('ArrowLeft', 1), 0);
-  assert.equal(aboutTabIndex('ArrowLeft', 0), 3);
+  assert.equal(aboutTabIndex('ArrowLeft', 0), 4);
   assert.equal(aboutTabIndex('Home', 2), 0);
-  assert.equal(aboutTabIndex('End', 1), 3);
+  assert.equal(aboutTabIndex('End', 1), 4);
   for (const code of ['ArrowUp', 'ArrowDown', 'KeyW', 'Tab']) assert.equal(aboutTabIndex(code, 1), null, code);
 });
 
@@ -49,4 +50,7 @@ test('the Aargau parcels are credited with a link (#506)', () => {
 });
 test('the horizon backdrop is credited with a link (#593)', () => {
   assert.equal(ABOUT_LINKS.copernicus, 'https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM');
+});
+test('ABOUT_LINKS: the Postauto timetable source (#500)', () => {
+  assert.equal(ABOUT_LINKS.otd, 'https://opentransportdata.swiss/');
 });

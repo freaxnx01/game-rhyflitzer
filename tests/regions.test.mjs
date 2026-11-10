@@ -1,10 +1,10 @@
 // #127: the region table and its URL helpers. Pure: no DOM.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { REGIONS, DEFAULT_REGION, regionFromQuery, regionSearch } from '../regions.js';
+import { REGIONS, DEFAULT_REGION, regionFromQuery, regionSearch, generatedRegion } from '../regions.js';
 import { STRINGS } from '../strings.js';
 import { VILLAGES, BORDER_DE } from '../world.js';
-import { GEMEINDEN, LANDMARK_INFO } from '../landmarks.js';
+import { GEMEINDEN, GEMEINDEN_DE, LANDMARK_INFO } from '../landmarks.js';
 
 test('regionFromQuery: default, case-insensitive, unknown falls back', () => {
   assert.equal(DEFAULT_REGION, 'hochrhein');
@@ -40,9 +40,22 @@ test('the national border names are per region: Hochrhein has them, Ehrendingen 
   assert.deepEqual(REGIONS.ehrendingen.borderDe, []);
 });
 
+test('#782: the German Gemeinden are per region: only Hochrhein has them', () => {
+  assert.equal(REGIONS.hochrhein.gemeindenDe, GEMEINDEN_DE);
+  assert.deepEqual(REGIONS.ehrendingen.gemeindenDe, []);
+  // a generated world (?world=<id>) has no German list either: its J dialog stays today's
+  const w = { region: { id: 'w', name: 'Ahausen', gemeinden: ['Ahausen'], villages: [], jlist: [{ n: 'Kirche', x: 10, z: 20, g: 'Ahausen' }], treeBox: [-100, 100, -100, 100], race: null }, anchors: { cps: [] } };
+  assert.deepEqual(generatedRegion('0123456789ab', w).gemeindenDe, []);
+});
+
 test('#593: only Hochrhein has a horizon backdrop', () => {
   assert.equal(REGIONS.hochrhein.backdrop, './data/backdrop_hochrhein.mmh');
   assert.equal(REGIONS.ehrendingen.backdrop, undefined);
+});
+
+test('REGIONS: only Hochrhein has a Postauto timetable (#500)', () => {
+  assert.equal(REGIONS.hochrhein.timetable, './data/timetable_hochrhein.json');
+  assert.equal(REGIONS.ehrendingen.timetable, undefined);
 });
 
 test('every region is complete and its string keys exist', () => {

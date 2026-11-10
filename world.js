@@ -116,7 +116,7 @@ export function offsetPolyline(pts, d) {
 export function layoutFromWorld(w) {
   const roads = w.roads.map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
-           rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], fields: w.fields || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
+           rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], fields: w.fields || [], busRoutes: w.busRoutes || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }
 
 export function bridgeDeckAt(b, t) { const u = Math.max(0, Math.min(1, t / (b.len || 1))); return b.h0 + (b.h1 - b.h0) * u; }
@@ -1045,6 +1045,14 @@ export const FIELD_KINDS = Object.freeze({
   meadow: { color: '#86aa4e', role: 'meadow' }, meadowDry: { color: '#a6ad5a', role: 'meadow' }, pasture: { color: '#8db05a', role: 'meadow' },
   orchard: { color: '#5a8a46', role: 'field' }, vine: { color: '#6d8f4a', role: 'field' },
 });
+
+// #688: the ground layers are a few cm apart (fields 0.02 m, roads 0.04 m over the terrain); from the helicopter the depth
+// buffer cannot resolve that and the terrain flickers through. A polygon offset per role keeps the order at any range:
+// terrain, then fields and meadows, then roads (more negative = drawn nearer). The Crash-Platz slab uses -3 (yardGround).
+export const SURFACE_DEPTH_OFFSET = Object.freeze({ field: -1, meadow: -1, road: -2, roadOsm: -2, roadPlain: -2, motorway: -2, gravel: -2 });
+export function depthOffsetFor(role) { return SURFACE_DEPTH_OFFSET[role] ?? null; }
+// decals on the roads (markings, bay lines, street names, the bus-stop zigzag): nearer than every surface and the slab, factor and units
+export const DECAL_DEPTH_OFFSET = -4;
 
 // #506: texture coordinates of a parcel so the stripes of TEX.field (which vary with v) run along `dir`, the parcel's long side.
 export function fieldUV(x, z, cx, cz, dir, tile = 20) {

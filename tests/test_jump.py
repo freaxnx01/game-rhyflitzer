@@ -32,10 +32,11 @@ needs_world103 = pytest.mark.skipif(not WORLD103, reason="world not rebuilt for 
 WORLD47 = "flugplatzSchupfart" in _world_anchor_keys()  # world rebuilt for #47 (south to Schupfart)
 needs_world47 = pytest.mark.skipif(not WORLD47, reason="world not rebuilt for #47 (Tasks 8-10 of docs/superpowers/plans/2026-10-10-region-south-schupfart.md)")
 WORLD507 = WORLD.exists() and "sisseln" in json.loads(WORLD.read_text(encoding="utf-8"))["anchors"]["areas"]   # world rebuilt for #507 (every building in Sisseln)
-CHIPS = ["All", "Bad Säckingen", "Stein", "Münchwilen"] + (["Schupfart"] if WORLD47 else []) + ["Eiken", "Sisseln"]
+CHIPS = ["All", "Enterable", "Zuzgen", "Mumpf", "Hellikon", "Obermumpf", "Stein", "Münchwilen"] + (["Schupfart"] if WORLD47 else []) \
+    + ["Eiken", "Sisseln", "Oeschgen", "Frick", "Wallbach", "Bad Säckingen", "Murg"]   # #782: Enterable moved up beside All; then the CH row, then the DE row
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
-    + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Crash yard"]
-ALL_ROWS = (24 if WORLD46 else 17) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) are fixed points, listed in any world
+    + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Fahrzeug-Depot"] + ["Crash yard"]   # #553: the depot is an at, listed in any world, after its Gemeinde's last landmark (before the yard)
+ALL_ROWS = (25 if WORLD46 else 18) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 12 + 1 + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) and the Fahrzeug-Depot (#553) are fixed points, listed in any world; #715: Kirche Stein became the two churches of Stein; #782: 10 village/halt points + Bahnhof Frick + Bahnhof Mumpf
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else []) + (["Neues Schulhaus Sisseln", "Volg Sisseln"] if WORLD507 else [])
 
@@ -91,10 +92,10 @@ def test_j_opens_the_landmark_list_with_focus_in_the_search_field(server):
         assert page.evaluate("() => document.activeElement.id") == "jumpq"
         r = rows(page)
         assert len(r) == ALL_ROWS
-        assert r[0] == {"n": "Fridolinsmünster", "g": "Bad Säckingen"}
+        assert r[0] == {"n": "Dorfzentrum Wallbach", "g": "Wallbach"}   # #782: the most westerly village lists first
         assert r[-1] == {"n": "Random spot", "g": None}
         chips = page.eval_on_selector_all("#jumpchips button", "bs => bs.map(b => b.textContent)")
-        assert chips == CHIPS + ["Enterable"]   # #409: the spec adds the Enterable chip after the Gemeinde chips
+        assert chips == CHIPS   # #782: Enterable moved up beside All; then the CH row, then the DE row
         page.keyboard.type("münst")
         assert names(page) == ["Fridolinsmünster", "Random spot"]
         page.fill("#jumpq", "")
@@ -146,11 +147,13 @@ def test_arrows_move_the_selection_and_click_jumps(server):
         page.keyboard.press("KeyJ")
         page.click('#jumpchips button[data-g="Stein"]')
         sel = lambda: page.text_content("#jumplist li.sel")
-        assert sel().startswith("Kirche Stein")
+        assert sel().startswith("Kirche Bruder Klaus")
+        page.keyboard.press("ArrowDown")
+        assert sel().startswith("Reformierte Kirche")
         page.keyboard.press("ArrowDown")
         assert sel().startswith("Bahnhof Stein-Säckingen")
         page.keyboard.press("ArrowDown"); page.keyboard.press("ArrowDown")   # Random spot, then wrap
-        assert sel().startswith("Kirche Stein")
+        assert sel().startswith("Kirche Bruder Klaus")
         page.keyboard.press("ArrowUp")
         assert sel().startswith("Random spot")
         page.click("#jumplist li:has-text('Bahnhof Stein-Säckingen')")
@@ -545,6 +548,33 @@ def test_flugplatz_schupfart_is_listed_and_jumpable(server):
 
 
 @needs_world
+def test_chips_in_ch_and_de_rows_and_frick_station_is_reachable(server):
+    """#782: the Gemeinde chips sit in a CH row and a DE row; each row label shows the country; J reaches the Bahnhof Frick."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        try:
+            page.keyboard.press("KeyJ")
+            labels = page.eval_on_selector_all("#jumpchips .crow", "rs => rs.map(r => [r.dataset.country, [...r.querySelectorAll('button')].map(b => b.dataset.g)])")
+            assert [c for c, _ in labels] == ["CH", "DE"]
+            assert labels[1][1] == ["Wallbach", "Bad Säckingen", "Murg"]
+            page.click('#jumpchips button[data-g="Frick"]')
+            assert rows(page)[:2] == [{"n": "Dorfzentrum Frick", "g": "Frick"}, {"n": "Bahnhof Frick", "g": "Frick"}]   # g stays bare
+            assert page.text_content("#jumplist li:nth-child(2) span") == "Frick · CH"
+            page.click("#jumpchips button[data-enterable]")
+            spans = page.eval_on_selector_all("#jumplist li span", "ss => ss.map(s => s.textContent)")
+            page.click("#jumpchips button[data-enterable]")
+            page.click('#jumpchips button[data-g="All"]')
+            page.keyboard.press("Escape")
+            jump_via_dialog(page, "bahnhof frick")
+            c = car(page)
+        finally:
+            b.close()
+    assert all(s.endswith((" · CH", " · DE")) for s in spans if s), spans
+    bx, bz = building_mean(164951714)
+    assert math.hypot(c["x"] - bx, c["z"] - bz) < 60, c
+
+
+@needs_world
 def test_enterable_chip_lists_the_register_and_composes_with_the_gemeinde_chip(server):   # #409
     with sync_playwright() as p:
         b, page = open_page(p, server)
@@ -552,7 +582,7 @@ def test_enterable_chip_lists_the_register_and_composes_with_the_gemeinde_chip(s
         page.click("#jumpchips button[data-enterable]")
         listed = rows(page)
         assert sorted(r["n"] for r in listed) == ["Bodenackerstrasse 6c", "Plattform Sisslerfeld", "Reservoir H\u00fcbel"], listed
-        assert [r["n"] for r in listed if r.get("soon")] == ["Plattform Sisslerfeld"], listed   # #411 made the 6c enterable (ready); the secret Hübel never shows "soon"
+        assert [r["n"] for r in listed if r.get("soon")] == [], listed   # no dimmed row: the 6c (#411) and the Plattform (#413: the stair is open, ENTERABLE_INFO ready) are ready; the secret Hübel never shows "soon" (this assert was stale from #411 until #715's run caught it)
         page.click('#jumpchips button[data-g="Sisseln"]')
         assert names(page) == ["Bodenackerstrasse 6c"]
         page.click("#jumpchips button[data-enterable]")

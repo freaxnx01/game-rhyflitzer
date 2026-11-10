@@ -237,7 +237,7 @@ def test_room_helicopter_climbs_past_the_tower_top_and_sinks_back(server):
         sunk = page.evaluate("() => window.__mm.flySim(15, ['ShiftLeft'])")
         br.close()
     assert errors == []
-    assert mid["y"] > -600 + 120 + 100, mid                 # 10 s of Space: far above the +120 m take-off height
+    assert mid["y"] > -600 + 120, mid                 # 10 s of Space at 16 m/s, no 120 m head start
     assert top["y"] > -600 + 330, top                       # 22 s: above the tower top
     assert top["y"] <= -600 + 420 + 0.5 and capped["y"] <= -600 + 420 + 0.5 and capped["y"] > -600 + 395, capped
     assert sunk["y"] < capped["y"] - 150, (capped, sunk)    # Shift sinks
@@ -1080,9 +1080,10 @@ def test_atomium_room_builds_loads_its_model_on_entering_and_has_solid_feet(serv
 
 @needs_world
 def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_cradle(server, tmp_path):
-    """#421: entering spoke 3 builds the Vasa room and fetches vasa.glb then (not before); the ship stands dry along the room's cross axis,
-    its cradle feet on the floor (keel 2 m above it), no water basin; hull and cradle props are solid, beside them and under the overhanging
-    stern and bowsprit the car drives freely. Leaves a screenshot of the ship in tmp_path."""
+    """#421: entering spoke 3 builds the Vasa room and fetches vasa.glb then (not before); the ship stands dry, turned 45 degrees from the room's
+    cross axis (bow forward-right), its cradle feet on the floor and the keel 5 m above it, no water basin. The car drives under the keel
+    from end to end, beside the cradle and under the stern and bowsprit; the cradle feet are solid, and so is the hull above the keel (a car
+    up there is pushed). Leaves a screenshot of the ship in tmp_path."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         requests = []
@@ -1093,8 +1094,10 @@ def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_crad
         page.wait_for_function("() => window.__mm.vasa() && window.__mm.vasa().loaded === true", timeout=180000)
         t = page.evaluate("() => window.__mm.vasa()")
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
-        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
-          return { mid: p(0, 0), prop: p(9.7, -2), side: p(15, 0), stern: p(0, -32), bowsprit: p(0, 32) }; }""")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], r = Math.PI / 4,
+            ax = [v[0] * Math.cos(r) + f[0] * Math.sin(r), v[1] * Math.cos(r) + f[1] * Math.sin(r)], ac = [f[0] * Math.cos(r) - v[0] * Math.sin(r), f[1] * Math.cos(r) - v[1] * Math.sin(r)],
+            y = window.__mm.hideout().room.y, p = (a, b, h = 0) => window.__mm.pushAt(t.x + ac[0] * a + ax[0] * b, t.z + ac[1] * a + ax[1] * b, y + h);
+          return { mid: p(0, 0), keel: p(0, -10), hull: p(0, 0, 6), prop: p(9.72, -2), side: p(16, 0), stern: p(0, -32), bowsprit: p(0, 32) }; }""")
         view = page.evaluate("() => { const r = window.__mm.hideout().room, v = window.__mm.below().tower, th = window.__mm.spoke(3, 0).th; return { x: v.x - Math.cos(th) * 110, z: v.z - Math.sin(th) * 110, th, y: r.y }; }")
         page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
         page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
@@ -1103,11 +1106,11 @@ def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_crad
     print("screenshot:", tmp_path / "vasa.png")
     assert errors == []
     assert len(requests) == 1 and requests[0].endswith("/assets/models/vasa.glb"), requests
-    assert t["placeholder"] is False and 30000 <= t["tris"] <= 150000 and abs(t["height"] - 54.5) < 0.1 and t["length"] == 69, t
+    assert t["placeholder"] is False and 30000 <= t["tris"] <= 150000 and abs(t["height"] - 57.5) < 0.1 and t["length"] == 69, t
     assert info["below"]["built"] == 3 and info["below"]["object"] is True and info["counts"].get("vasa", 0) >= 1 and "eiffel" not in info["counts"], info
-    assert t["basin"] is None and abs(t["keel"] - (view["y"] + 2)) < 0.01, (t, view)
-    assert math.hypot(push["mid"]["dx"], push["mid"]["dz"]) > 0.5 and math.hypot(push["prop"]["dx"], push["prop"]["dz"]) > 0.3, push
-    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("side", "stern", "bowsprit")), push
+    assert t["basin"] is None and abs(t["keel"] - (view["y"] + 5)) < 0.01, (t, view)
+    assert math.hypot(push["hull"]["dx"], push["hull"]["dz"]) > 0.5 and math.hypot(push["prop"]["dx"], push["prop"]["dz"]) > 0.3, push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("mid", "keel", "side", "stern", "bowsprit")), push
 
 
 def test_titanic_room_builds_loads_its_model_on_entering_and_has_a_solid_hull(server, tmp_path):
@@ -1307,7 +1310,7 @@ def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(serve
     assert errors == []
     assert len(requests) == 1 and requests[0].endswith("/assets/models/enterprise_d.glb"), requests
     assert e["placeholder"] is False and 200000 <= e["tris"] <= 260000 and abs(e["height"] - 143.1) < 0.5 and e["length"] == 642.5, e
-    assert abs(e["y"] - (-1200 + 25)) <= 2.0 and e["lettering"] == 4 and e["look"] == "space", e
+    assert abs(e["y"] - (-1200 + 25)) <= 2.0 and e["lettering"] == 2 and e["look"] == "space", e
     assert e["paintedOut"] == 1 and e["drapeMs"] < 1500, ("#607: the baked registry is painted out, the drape stays quick", e)
     assert ded is not None and abs(ded["top"] - (-1200 + 1.2 + 4.5)) < 0.01 and ded["lead"] in ("In memory of", "In Erinnerung an"), ded
     assert ded["solid"], ded   # the car can't drive through it
@@ -1359,3 +1362,84 @@ def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(ser
     assert info["below"]["built"] == 6 and info["below"]["level"] == "room6" and info["below"]["object"] is True and info["counts"].get("ferris") == 1 and "eiffel" not in info["counts"], info
     assert math.hypot(push["foot"]["dx"], push["foot"]["dz"]) > 0.5, push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("centre", "beside")), push
+
+
+@needs_world
+def test_ferris_ride_boards_rides_one_turn_gets_out_and_reset_ends_it(server):
+    """On foot at the pad: E boards the lowest gondola, the walker is carried up (peak > 105 m over the room floor), E at the top is refused,
+    after one full turn the walker stands on the pad again; a second ride ends cleanly with R -- the wheel keeps turning without a jump.
+    Uses rideSim (headless renders under 1 fps). The car parks at the pad centre so boarding is certain (the lowest gondola is up to
+    rim*sin(pi/n) = 8.2 m off, the walker a couple more stepping out -- within RIDE.reach), and E is pressed at the top (polled), where the
+    bottom window is certainly far away."""
+    def ang_diff(a, b):
+        return (a - b + math.pi) % (2 * math.pi) - math.pi
+
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        into_room(page, 6, "room6")
+        page.wait_for_function("() => window.__mm.ferris() && window.__mm.ferris().built === 6", timeout=120000)
+        t = page.evaluate("() => window.__mm.below().tower")   # the room centre = the wheel centre = the pad centre
+        th = page.evaluate("() => window.__mm.spoke(6, 0).th")
+        floor = page.evaluate("() => window.__mm.ferrisRide().floor")
+        page.evaluate(f"() => window.__mm.sim({t['x']}, {t['z']}, {th}, 0, 0.2, [], {floor})")   # park the car on the pad centre
+        page.keyboard.press("z"); page.wait_for_function("() => window.__mm.foot().on", timeout=30000)
+        info = page.evaluate("() => window.__mm.ferrisRide()")
+        assert info["phase"] == "idle" and info["action"] == "board", info
+        page.keyboard.press("e")
+        boarded = page.evaluate("() => window.__mm.rideSim(2)")
+        assert boarded["phase"] == "riding", boarded
+        page.keyboard.press("z"); assert page.evaluate("() => window.__mm.ferrisRide().phase") == "riding"      # Z does not get back in the car
+        max_y = boarded["maxY"]
+        while abs(ang_diff(page.evaluate("() => window.__mm.ferrisRide().wheelAngle"), math.pi)) > 0.25:
+            max_y = max(max_y, page.evaluate("() => window.__mm.rideSim(1)")["maxY"])                            # ride up to the top
+        page.keyboard.press("e")                                                                                  # at the top: refused
+        assert page.evaluate("() => window.__mm.ferrisRide().phase") == "riding"
+        while True:
+            done = page.evaluate("() => window.__mm.rideSim(5)")                                                  # the turn takes ~63 s in total
+            max_y = max(max_y, done["maxY"])
+            if done["phase"] == "idle": break
+        assert max_y > floor + 105, (max_y, floor)
+        assert done["foot"] is True and abs(done["y"] - floor) < 0.5, done
+        page.keyboard.press("e"); page.evaluate("() => window.__mm.rideSim(3)")                                   # ride again, then R ends it
+        assert page.evaluate("() => window.__mm.ferrisRide().phase") == "riding"
+        before = page.evaluate("() => window.__mm.ferrisRide().wheelAngle")
+        page.keyboard.press("r")
+        after = page.evaluate("() => ({ ...window.__mm.ferrisRide(), foot: window.__mm.foot().on })")
+        br.close()
+    assert errors == []
+    assert after["phase"] == "idle" and after["foot"] is False, after
+    assert abs(ang_diff(after["wheelAngle"], before)) < 0.05, (before, after)   # the wheel keeps turning from where the ride left it
+
+
+def test_ferris_room_sign_is_solid_and_keys_3_and_4_fire_fireworks_and_switch_the_light_show(server):
+    """In star room 6 a sign stands inside the portal beside the lane (solid, the lane itself is open); key 3 fires a firework salvo at once
+    (a toast, sparks within ~2 s) and key 4 switches the light show to the next pattern. Both keys do nothing outside the room."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        page.keyboard.press("3"); page.keyboard.press("4")
+        outside = page.evaluate("() => window.__mm.ferrisFx()")
+        into_room(page, 6, "room6")
+        page.wait_for_function("() => window.__mm.ferris() && window.__mm.ferris().built === 6", timeout=120000)
+        fx0 = page.evaluate("() => window.__mm.ferrisFx()")
+        push = page.evaluate("""() => { const s = window.__mm.ferrisFx().sign, th = window.__mm.spoke(6, 0).th, v = [-Math.sin(th), Math.cos(th)];
+          return { lane: window.__mm.pushAt(s.x - v[0] * 14, s.z - v[1] * 14, -600), sign: window.__mm.pushAt(s.x, s.z, -600) }; }""")
+        page.keyboard.press("4")
+        fx1 = page.evaluate("() => window.__mm.ferrisFx()")
+        toast_show = page.inner_text("#toast")
+        page.keyboard.press("3")
+        fx2 = page.evaluate("() => window.__mm.ferrisFx()")
+        toast_fw = page.inner_text("#toast")
+        sparks = 0
+        for _ in range(40):
+            sparks = max(sparks, page.evaluate("() => { window.__mm.rideSim(1); return window.__mm.ferrisFx().sparks; }"))
+            if sparks > 0: break
+            page.wait_for_timeout(100)
+        br.close()
+    assert errors == []
+    assert outside["salvos"] == 0 and outside["shift"] == 0, outside   # not in the room: nothing happens
+    assert fx0["sign"] is not None and fx0["salvos"] == 0
+    assert math.hypot(push["sign"]["dx"], push["sign"]["dz"]) > 0.5 and math.hypot(push["lane"]["dx"], push["lane"]["dz"]) < 0.01, push
+    assert fx1["pattern"] != fx0["pattern"] and fx1["shift"] > 0 and "light show" in toast_show.lower(), (fx0, fx1, toast_show)
+    assert fx2["salvos"] == 1 and "fireworks" in toast_fw.lower() and sparks > 0, (fx2, toast_fw, sparks)

@@ -5,7 +5,7 @@ import { oldNationalBorder, apartRuns } from '../world.js';
 import { borderCrossing, BORDER } from '../holzbruecke.js';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rollingDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
-import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift } from '../world.js';
+import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, SURFACE_DEPTH_OFFSET, depthOffsetFor, DECAL_DEPTH_OFFSET } from '../world.js';
 
 test('grid finds segments near a point only', () => {
   const g = makeGrid(32);
@@ -1488,4 +1488,33 @@ test('layoutFromWorld carries fields and defaults to none', () => {
   assert.deepEqual(layoutFromWorld(base).fields, []);
   const f = [{ kind: 'cereal', ring: [[0, 0], [10, 0], [10, 10]], dir: 0, src: 'lwb' }];
   assert.deepEqual(layoutFromWorld({ ...base, fields: f }).fields, f);
+});
+
+test('layoutFromWorld passes busRoutes, empty without them (#500)', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], anchors: {}, bbox: [0, 0, 1, 1] };
+  const br = [{ id: 7, line: '133', pts: [[0, 0], [1, 0]], stops: [] }];
+  assert.deepEqual(layoutFromWorld({ ...base, busRoutes: br }).busRoutes, br);
+  assert.deepEqual(layoutFromWorld(base).busRoutes, []);
+});
+
+test('depthOffsetFor_surfaceRoles_fieldsOverTerrainRoadsOverFields', () => {
+  assert.equal(depthOffsetFor('grass'), null);
+  assert.ok(depthOffsetFor('field') < 0 && depthOffsetFor('meadow') === depthOffsetFor('field'));
+  for (const r of ['road', 'roadOsm', 'roadPlain', 'motorway', 'gravel']) assert.ok(depthOffsetFor(r) < depthOffsetFor('field'), r);
+  assert.equal(depthOffsetFor('wall'), null);
+});
+
+// road markings, bay lines, street names and the zigzag lie on the roads: their offset must beat every surface's, and the
+// Crash-Platz slab's -3, or the road wins the depth test at range and the markings only show up just before the car
+test('DECAL_DEPTH_OFFSET_roadDecals_drawnOverEverySurface', () => {
+  for (const [role, off] of Object.entries(SURFACE_DEPTH_OFFSET)) assert.ok(DECAL_DEPTH_OFFSET < off, role);
+  assert.ok(DECAL_DEPTH_OFFSET < -3);
+});
+
+test('SURFACE_DEPTH_OFFSET_isFrozen', () => { assert.ok(Object.isFrozen(SURFACE_DEPTH_OFFSET)); });
+
+test('world_hochrhein (#761): the Bahnhof Frick is in the world file, the hand-drawn public buildings are not', () => {
+  const ids = new Set(JSON.parse(readFileSync(new URL('../data/world_hochrhein.json', import.meta.url), 'utf8')).buildings.map(b => b.id));
+  assert.ok(ids.has(164951714), 'Bahnhof Frick w164951714');
+  for (const id of [162862443, 162862441, 1280041307, 183386655, 88836292]) assert.equal(ids.has(id), false, `w${id} is drawn by the game`);
 });

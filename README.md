@@ -19,6 +19,19 @@ Dedicated to my daughter.
 **More screenshots** (curated list: [`docs/gallery/shots.json`](docs/gallery/shots.json), click a thumbnail for the 3840x2160 image)
 
 <!-- shots:start -->
+<p>
+  <a href="docs/gallery/plattform-auto-3840.jpg"><img src="docs/gallery/plattform-auto-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld with the Postauto"></a>
+  <a href="docs/gallery/plattform-dsm-3840.jpg"><img src="docs/gallery/plattform-dsm-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld, the DSM chimney behind"></a>
+  <a href="docs/gallery/holzbruecke-aussen-3840.jpg"><img src="docs/gallery/holzbruecke-aussen-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke Bad Säckingen across the Rhine"></a>
+  <a href="docs/gallery/holzbruecke-nah-3840.jpg"><img src="docs/gallery/holzbruecke-nah-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke, close, along its length"></a>
+  <a href="docs/gallery/dsm-sisseln-3840.jpg"><img src="docs/gallery/dsm-sisseln-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: DSM Sisseln and its chimney"></a>
+  <a href="docs/gallery/dsm-wasserturm-3840.jpg"><img src="docs/gallery/dsm-wasserturm-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: DSM water tower"></a>
+  <a href="docs/gallery/helikopter-rhein-3840.jpg"><img src="docs/gallery/helikopter-rhein-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Helicopter over the Rhine at the Holzbrücke"></a>
+  <a href="docs/gallery/dampflok-sisseln-3840.jpg"><img src="docs/gallery/dampflok-sisseln-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Steam loco on the tracks at Bahnhof Sisseln"></a>
+  <a href="docs/gallery/dorfstrasse-hausnummern-3840.jpg"><img src="docs/gallery/dorfstrasse-hausnummern-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Hinterdorfstrasse Sisseln with house-number plates"></a>
+  <a href="docs/gallery/smile-kreisel-3840.jpg"><img src="docs/gallery/smile-kreisel-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: The Smile roundabout"></a>
+  <a href="docs/gallery/muenster-stein-3840.jpg"><img src="docs/gallery/muenster-stein-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Fridolinsmünster"></a>
+</p>
 <!-- shots:end -->
 
 Regenerate all images (JPG, 1920x1080 and 3840x2160, into `docs/gallery/`) with one command. It drives the real game, hides the HUD, the footer and the debug panel, and waits until the camera has arrived and the world is loaded:
@@ -110,5 +123,6 @@ The game and the region editor (`editor/`) count visits with **Umami**, self-hos
   - „Harvester Near Completion" ([Sketchfab](https://sketchfab.com/3d-models/harvester-near-completion-cc4bf1104f2840ddad4b3aaa68fc3f74)) by webbsketches, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); rescaled to 1.8 m front tyres, simplified, plain materials with a paintable body (the textures and a small emblem on them removed), the wheels and the reel in their own nodes, in the game as the **Rhy Harvester** combine (`assets/harvester.glb`, see `assets/harvester.LICENSE.md`).
   - „KITT - Knight Rider" ([Sketchfab](https://sketchfab.com/3d-models/kitt-knight-rider-60443abd88ef4cb7ab1df9ac5f622a36)) by thenerdybirdy, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); rescaled to a 2.565 m wheelbase, plain materials in the interior, the number plate painted out of the texture, the lamps split off by their texture colour, the scanner light rebuilt as eight segments that sweep, the wheels in their own nodes, in the game as the **Rhy Knight** car (`assets/knight.glb`, see `assets/knight.LICENSE.md`).
   - „Low Poly Fire Truck" ([Sketchfab](https://sketchfab.com/3d-models/low-poly-fire-truck-688b7c17a0e54a05b0b2d51a8aee061b)) by jg-3d, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); turned and re-centred, new plain materials, the blank front number plate removed, the blue lights split to flash in turn, the wheels in their own nodes, in the game as the **Rhy Blaze** fire engine (`assets/blaze.glb`, see `assets/blaze.LICENSE.md`).
+  - „2009 Skoda Octavia Combi" ([Sketchfab](https://sketchfab.com/3d-models/2009-skoda-octavia-combi-9b9f212d14b34d44bebf9fbb22afa54a)) by tonielpro520, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); rescaled to a 2.578 m wheelbase, simplified, plain materials with a paintable body, the badges removed. In the game: the Rhy Estate.
 
 Not affiliated with Microsoft, Angel Studios or Rockstar Games. Midtown Madness is a trademark of its respective owner.

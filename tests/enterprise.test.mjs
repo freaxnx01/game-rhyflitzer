@@ -33,13 +33,12 @@ test('enterpriseHover_SineBob_1_5MOver14s_ZeroAtStart', () => {
   assert.ok(Math.abs(enterpriseHover(123.4)) <= 1.5);
 });
 
-test('ENTERPRISE_lettering_FourDecalsOnTheSaucer_TopAndUnderside', () => {
-  const L = ENTERPRISE.lettering; assert.equal(L.length, 4);
-  for (const side of ['top', 'bottom']) {
-    const of = L.filter(d => d.side === side); assert.deepEqual(of.map(d => d.text), ['U.S.S. ENTERPRISE', 'NCC-1701-D']);
-    for (const d of of) assert.ok(d.x > 150 && d.x < 300 && d.w <= 200 && d.h >= 12, `${side} ${d.text} on the saucer forward of the bridge`);
-    assert.ok(of[0].x > of[1].x, 'the name lies nearer the bow than the registry');
-  }
+test('ENTERPRISE_lettering_TwoDecalsOnTheSaucerTop_NoneUnderneath', () => {
+  const L = ENTERPRISE.lettering; assert.equal(L.length, 2);
+  assert.ok(L.every(d => d.side === 'top'), 'the underside carries no lettering: it ran into the windows and bumps there');
+  assert.deepEqual(L.map(d => d.text), ['U.S.S. ENTERPRISE', 'NCC-1701-D']);
+  for (const d of L) assert.ok(d.x > 150 && d.x < 300 && d.w <= 200 && d.h >= 12, `${d.text} on the saucer forward of the bridge`);
+  assert.ok(L[0].x > L[1].x, 'the name lies nearer the bow than the registry');
 });
 
 test('ENTERPRISE_bakedLettering_CoversTheRedRegistryColumn', () => {

@@ -5,6 +5,7 @@
 // Film car numbers: a 5.7 l V8 behind the cockpit, rear-wheel drive on huge rear tyres, about 2.3 t, 0-100 in under 6 s, about
 // 180 km/h (50 m/s) and a jet burner for the boost (strong nitro); heavy, so it shrugs off hits; 4.57 m long, the driver in the middle.
 export const TUMBLER = {
+  type: 'screen',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'tumbler', url: './assets/tumbler.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[1.797, 0.613], [-1.797, 0.82]], wheelR: 0.557,   // the model's own wheel nodes: x ±1.797, |z| 0.613 front / 0.82 rear, r 0.417 front / 0.557 rear (the spin follows the rear)
   drive: { top: 50, topNitro: 90, accel: 15, accelNitro: 42, brake: 24, reverse: 8, reverseMax: 12, grip: 8.5, gripHandbrake: 1.6, steerRate: 2.4, airSteer: 0.35 },

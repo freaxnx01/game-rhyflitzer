@@ -6,11 +6,12 @@ const held = (keys, codes) => codes.some(c => keys[c]);
 const axis = (plus, minus) => (plus ? 1 : 0) - (minus ? 1 : 0);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// W/S or up/down walk, A/D sidestep, left/right turn (the keyboard-only look), Space up (or jump), Shift down, N held = nitro (#404)
-export function footInput(keys) {
+// W/S or up/down walk, A/D sidestep, left/right turn (the keyboard-only look), Space up (or jump), Shift down, N held = nitro (#404).
+// #535: the phone's touch stick adds to the same axes -- its y walks, its x sidesteps, both analog
+export function footInput(keys, stick = null) {
   return {
-    fwd: axis(held(keys, ['KeyW', 'ArrowUp']), held(keys, ['KeyS', 'ArrowDown'])),
-    side: axis(held(keys, ['KeyD']), held(keys, ['KeyA'])),
+    fwd: clamp(axis(held(keys, ['KeyW', 'ArrowUp']), held(keys, ['KeyS', 'ArrowDown'])) + (stick ? stick.y : 0), -1, 1),
+    side: clamp(axis(held(keys, ['KeyD']), held(keys, ['KeyA'])) + (stick ? stick.x : 0), -1, 1),
     turn: axis(held(keys, ['ArrowRight']), held(keys, ['ArrowLeft'])),
     lift: axis(held(keys, ['Space']), held(keys, ['ShiftLeft', 'ShiftRight'])),
     nitro: held(keys, ['KeyN']) ? 1 : 0,

@@ -1,7 +1,7 @@
 // The loading screen's stages. Pure module, node --test only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LOAD_STAGES, loadProgress, numberLocale } from '../loading.js';
+import { LOAD_STAGES, loadLines, loadProgress, numberLocale } from '../loading.js';
 import { translate } from '../strings.js';
 
 test('loadProgress_FirstStage_StartsAtZero_LastStageShortOfFull', () => {
@@ -40,4 +40,22 @@ test('numberLocale_FollowsTheOsRegion_GermanWithoutRegionFallsBackToSwiss', () =
   assert.equal(numberLocale('de', 'en-US'), 'en-US');
   assert.equal(numberLocale('en', 'en-US'), 'en-US');
   assert.equal(numberLocale('en', 'de-CH'), 'de-CH');
+});
+
+test('loadLines_AllStagesInOrder_WithAndWithoutCounts', () => {
+  const t = (key, args) => translate('de', key, args);
+  const counts = { roads: { roads: "1'234" }, props: { robidogs: '83', lamps: '1952' } };
+  const lines = loadLines(t, counts);
+  assert.equal(lines.length, LOAD_STAGES.length);
+  assert.deepEqual(lines, LOAD_STAGES.map(s => translate('de', `load_${s}`, counts[s] || {})));
+  assert.match(lines[LOAD_STAGES.indexOf('roads')], /1'234 Strassen/);
+  assert.match(lines[LOAD_STAGES.indexOf('props')], /83 Robidogs/);
+  assert.equal(lines[LOAD_STAGES.indexOf('houses')], 'Häuser aufstellen, Geranien giessen …');
+  for (const l of lines) assert.doesNotMatch(l, /undefined|^load_/);
+});
+
+test('loadLines_NoCountsAtAll_GivesTheLinesWithoutNumbers', () => {
+  const lines = loadLines((key, args) => translate('en', key, args), {});
+  assert.equal(lines[0], 'Fetching the map from OpenStreetMap …');
+  assert.equal(lines[LOAD_STAGES.indexOf('roads')], 'Paving the roads, still warm …');
 });

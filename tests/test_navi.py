@@ -31,7 +31,7 @@ RECTS_JS = """() => { const r = e => { if (!e || e.hidden || getComputedStyle(e)
   const b = e.getBoundingClientRect(); return b.width && b.height ? [b.left, b.top, b.right, b.bottom] : null; };
   const byId = id => r(document.getElementById(id));
   return { vw: innerWidth, vh: innerHeight, navi: byId('navi'),
-    others: Object.fromEntries([...['tl', 'tr', 'compass', 'br', 'debug', 'toast', 'pausebtn', 'stylebtn'].map(id => [id, byId(id)]),
+    others: Object.fromEntries([...['tl', 'tr', 'br', 'debug', 'toast', 'pausebtn'].map(id => [id, byId(id)]),
       ...[...document.getElementById('tc').children].map((c, i) => ['tc' + i, r(c)])]) }; }"""
 
 

@@ -1,7 +1,7 @@
 // #18: autopilot — road graph, A* route, turn signals, speed and steering rules. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
+import { AUTO, CLASS_KMH, TAKE_OVER_KEYS, cumulative, laneOffset, rightOf, routeLaneOffset, buildGraph, snapToGraph, findRoute, turnAt, routeSignals, blinkerAt, isRoundabout, trackRoute, steerToward, targetSpeed, autoStep, placeName, streetEntries, placeChips } from '../route.js';
 
 const road = (pts, cls = 'residential', extra = {}) => ({ n: '', cls, w: 6, bridge: false, pts, ...extra });
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -173,15 +173,47 @@ test('routeSignals_RouteThroughRoundabout_BlinksOnlyAtTheExit', () => {
   assert.equal(sigs.length, 1);
   assert.ok(Math.abs(sigs[0].s - (100 + 12 * Math.PI / 2)) < 2, 'the signal sits at the exit point');
   assert.equal(blinkerAt(sigs, 90), null, 'not before the entry');
-  assert.equal(blinkerAt(sigs, 100), null, 'not at the entry');
+  assert.equal(blinkerAt(sigs, 99), null, 'not before the entry');
   assert.ok(blinkerAt(sigs, sigs[0].s - 5));
   assert.equal(blinkerAt(sigs, sigs[0].s + 40), null);
 });
 
-test('routeSignals_RoundaboutExit_SideFollowsTheRingDirection', () => {
-  const a = routeSignals(roundaboutRoute([112, 0], [0, 112]))[0].side;
-  const b = routeSignals(roundaboutRoute([112, 0], [0, -112]))[0].side;
-  assert.notEqual(a, b);   // opposite ways round the ring, opposite exit side
+// a counter-clockwise ring (Rechtsverkehr: angle decreases on the x-east / z-south map), entered from the east arm,
+// left after `exitNo` quarter turns; joints at the three arm vertices like a real graph route
+const ccwPt = (k) => { const a = -k / 32 * Math.PI * 2; return [Math.round(Math.cos(a) * 12000) / 1000, Math.round(Math.sin(a) * 12000) / 1000]; };
+const CCW_RING = road(Array.from({ length: 33 }, (_, k) => ccwPt(k % 32)), 'primary');
+const ccwRoute = (exitNo) => {
+  const pts = [[112, 0], ccwPt(0)], rd = [road([[112, 0], ccwPt(0)], 'primary')];
+  for (let k = 1; k <= exitNo * 8; k++) { pts.push(ccwPt(k)); rd.push(CCW_RING); }
+  const e = ccwPt(exitNo * 8), out = [e[0] * 9, e[1] * 9];
+  pts.push(out); rd.push(road([e, out], 'primary'));
+  const cum = cumulative(pts);
+  const joints = [{ s: cum[1], deg: 3 }];   // the entry arm
+  for (let k = 1; k <= exitNo; k++) joints.push({ s: cum[1 + k * 8], deg: 3 });   // the arm at every quarter turn, the last one is the exit
+  return { pts, cum, road: rd, len: cum[cum.length - 1], joints };
+};
+
+for (const n of [1, 2, 3]) {
+  test(`routeSignals_CounterClockwiseRingExit${n}_SignalsRight`, () => {
+    const sigs = routeSignals(ccwRoute(n));
+    assert.equal(sigs.length, 1);
+    assert.equal(sigs[0].side, 'right');
+  });
+}
+
+test('routeSignals_RingExit1_StartsAtTheEntry', () => {
+  const r = ccwRoute(1), sg = routeSignals(r)[0];
+  assert.equal(sg.from, r.cum[1]);
+  assert.equal(blinkerAt([sg], r.cum[1] - 1), null);
+  assert.equal(blinkerAt([sg], r.cum[1] + 1), 'right');
+});
+
+test('routeSignals_RingExit3_StartsAtThePreviousExit', () => {
+  const r = ccwRoute(3), sg = routeSignals(r)[0];
+  assert.equal(sg.from, r.cum[1 + 2 * 8]);   // the arm of exit 2
+  assert.equal(blinkerAt([sg], r.cum[1 + 2 * 8] - 1), null);
+  assert.equal(blinkerAt([sg], r.cum[1 + 2 * 8] + 1), 'right');
+  assert.equal(sg.to, sg.s + AUTO.signalAfter);
 });
 
 test('routeSignals_RouteEndingInsideTheRing_HasNoSignal', () => {
@@ -190,4 +222,46 @@ test('routeSignals_RouteEndingInsideTheRing_HasNoSignal', () => {
 
 test('routeSignals_RouteStartingInsideTheRing_HasNoRingSignal', () => {
   assert.deepEqual(routeSignals(roundaboutRoute([12, 0], [0, 112])).filter((sg) => sg.from !== undefined), []);
+});
+
+test('laneOffset: half a lane to the right on a two-way road, capped; none on oneway, roundabouts and links', () => {
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'residential', { w: 6 })), 1.5);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'primary', { w: 12, lanes: 4 })), 1.5);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'primary', { w: 20 })), 2);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'residential', { oneway: true })), 0);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'primary_link')), 0);
+  assert.equal(laneOffset(road([[0, 0], [10, 0]], 'residential', { w: 0 })), 0);
+  const ring = Array.from({ length: 13 }, (_, i) => [15 * Math.cos(i * Math.PI / 6), 15 * Math.sin(i * Math.PI / 6)]);
+  ring[12] = [...ring[0]];
+  assert.equal(laneOffset(road(ring)), 0);
+});
+
+test('rightOf moves a point to the right of the direction of travel (east -> south, west -> north)', () => {
+  const east = [[0, 0], [100, 0]], west = [[100, 0], [0, 0]];
+  const [ex, ez] = rightOf(east, cumulative(east), 50, 1.5);
+  assert.ok(near(ex, 50) && near(ez, 1.5));
+  const [wx, wz] = rightOf(west, cumulative(west), 50, 1.5);
+  assert.ok(near(wx, 50) && near(wz, -1.5));
+  assert.deepEqual(rightOf(east, cumulative(east), 50, 0), [50, 0]);
+});
+
+test('routeLaneOffset: per-road offset, blended across a change of road without a jump', () => {
+  const g = buildGraph([road([[-100, 0], [0, 0]], 'residential', { w: 6 }), road([[0, 0], [100, 0]], 'residential', { w: 6, oneway: true })]);
+  const r = findRoute(g, snapToGraph(g, -90, 0), [snapToGraph(g, 90, 0)]);
+  assert.equal(routeLaneOffset(r, 20), 1.5);
+  assert.equal(routeLaneOffset(r, 170), 0);
+  const mid = routeLaneOffset(r, 90); // the junction is at s = 90 (the route starts at x = -90)
+  assert.ok(mid > 0 && mid < 1.5);
+  let prev = routeLaneOffset(r, 75);
+  for (let s = 76; s < 105; s++) { const o = routeLaneOffset(r, s); assert.ok(Math.abs(o - prev) < 0.2); prev = o; }
+});
+
+test('steerToward aims at the right lane: a car on the lane centre steers less than one on the centre line', () => {
+  const g = buildGraph([road([[-200, 0], [200, 0]], 'residential', { w: 6 })]);
+  const r = findRoute(g, snapToGraph(g, -150, 0), [snapToGraph(g, 150, 0)]);
+  const onCentre = steerToward(r, 100, -50, 0, 0, 10), inLane = steerToward(r, 100, -50, 1.5, 0, 10);
+  assert.ok(onCentre.steer > 0.01);
+  assert.ok(Math.abs(inLane.steer) < Math.abs(onCentre.steer));
+  const back = findRoute(g, snapToGraph(g, 150, 0), [snapToGraph(g, -150, 0)]);
+  assert.ok(steerToward(back, 100, 50, 0, Math.PI, 10).steer > 0.01);
 });

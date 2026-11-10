@@ -24,6 +24,17 @@ landmarks:
       tolerance_m: 1.0
     mode: hero          # Hülle als Massstab; Fachwerk wird in Blender gebaut
 
+  # Fridolinskapelle Sisseln: Punkt = Mittelpunkt des OSM-Grundrisses way 171822707 (2026-11-03)
+  - id: fridolinskapelle-sisseln
+    name: Fridolinskapelle Sisseln
+    select:
+      point: [2641525.99, 1267212.11]
+    expect:             # Werte aus --inspect (2026-11-03): EGID 263106794, Höchstpunkt mit Turm
+      typ: "Sakrales Gebäude"
+      roof_max: 324.6
+      tolerance_m: 1.0
+    mode: block
+
   # Areal-Beispiel: Eckpunkte im Viewer abklicken, dann --inspect laufen lassen
   # - id: feldschloesschen-rheinfelden
   #   name: Brauerei Feldschlösschen
@@ -37,3 +48,25 @@ landmarks:
   #   expect:
   #     min_count: 5
   #   mode: block
+
+  # Kath. Kirche Hl. Bruder Klaus Stein: Punkt = Mittelpunkt des OSM-Grundrisses way 407386050 (2026-11-07)
+  - id: kirche-bruder-klaus-stein
+    name: Kath. Kirche Hl. Bruder Klaus Stein
+    select:
+      point: [2638579.19, 1266094.0]
+    expect:             # Werte aus --inspect (2026-11-07): EGID 610009, Höchstpunkt mit Turm
+      typ: "Sakrales Gebäude"
+      roof_max: 316.5
+      tolerance_m: 1.0
+    mode: block
+
+  # Reformierte Kirche Stein, Gartenstrasse 9: Punkt = Mittelpunkt des OSM-Grundrisses way 88836292 (2026-11-07)
+  - id: reformierte-kirche-stein
+    name: Reformierte Kirche Stein
+    select:
+      point: [2638604.25, 1265994.86]
+    expect:             # Werte aus --inspect (2026-11-07): EGID 263007572, Höchstpunkt mit Turm
+      typ: "Sakrales Gebäude"
+      roof_max: 315.5
+      tolerance_m: 1.0
+    mode: block

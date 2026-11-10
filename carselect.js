@@ -15,7 +15,13 @@ export const PAINTS = [
   { id: 'plum', hex: '#7b3fa0', nameKey: 'paintPlum' },       // #25: absorbed into #7
   { id: 'flamingo', hex: '#ff6fa8', nameKey: 'paintFlamingo' }, // #25: absorbed into #7
   { id: 'racing', hex: '#2266dd', nameKey: 'paintRacing' },   // the Rhy Hyper's factory blue
+  { id: 'silver', hex: '#c3c7cc', nameKey: 'paintSilver', finish: { metalness: 0.55, roughness: 0.3 } },   // silver metallic, the Rhy Estate's
 ];
+
+// the surface a paint gives the body: a paint with its own finish (silver metallic) brings it, every other one keeps the model's
+export function paintFinish(paint, base) {
+  return paint.finish ? { ...paint.finish } : { metalness: base.metalness, roughness: base.roughness };
+}
 
 export const DEFAULT_CHOICE = { id: 'compact', paint: 'navy' };
 
@@ -141,4 +147,50 @@ export function vehicleText(tr, id, part) {
   const key = `veh_${id}_${part}`;
   const text = tr(key);
   return text === key ? (part === 'name' ? id : '') : text;
+}
+
+// ---- garage gallery (#626): every vehicle at once, each photographed live ----
+// the photo: px size, vertical field of view (deg), view from the front-left (yaw from the nose, pitch from level, rad), room around the car
+export const THUMB = { w: 320, h: 200, fov: 30, yaw: 0.75, pitch: 0.28, margin: 1.08 };
+
+// thumbView(box) — eye and look target for the photo of a car standing at the origin, nose +x, its right side +z; box: {min, max} [x, y, z] in metres.
+// The distance fits the box's bounding sphere into the frame's width (a car seen from the side is long and low), so a 12 m bus and a
+// Mini fill the frame alike.
+export function thumbView(box, cfg = THUMB) {
+  if (![box.min, box.max].every(c => Array.isArray(c) && c.length === 3 && c.every(Number.isFinite))) throw new Error('thumbView: box needs min and max, three finite numbers each');
+  const at = box.min.map((lo, i) => (lo + box.max[i]) / 2), r = Math.hypot(...box.min.map((lo, i) => box.max[i] - lo)) / 2;
+  const halfW = Math.atan(Math.tan((cfg.fov / 2) * Math.PI / 180) * cfg.w / cfg.h), dist = r * cfg.margin / Math.sin(halfW), cp = Math.cos(cfg.pitch);
+  return { eye: [at[0] + dist * cp * Math.cos(cfg.yaw), at[1] + dist * Math.sin(cfg.pitch), at[2] - dist * cp * Math.sin(cfg.yaw)], at };
+}
+
+// the photo cache key: a paintable car is photographed once per paint, a car in its own colours once
+export function thumbKey(id, paint, canPaint) { return canPaint ? `${id}|${paint}` : id; }
+
+// the next car to photograph: the current one first, then table order; cached (has) and not yet loaded (ready) cars are skipped
+export function nextThumb(ids, current, has, ready) { return [current, ...ids].find(id => ids.includes(id) && !has(id) && ready(id)) ?? null; }
+
+// ---- #493: type chips and the power class ----
+// a vehicle's type (def.type) is what the gallery's chips filter by; one without a known type shows under all only
+export const VEHICLE_TYPES = ['everyday', 'sport', 'utility', 'screen'];
+
+// the top-speed and acceleration bars added up (2..20): the power the class letter and the gallery's order go by
+const powerScore = (def) => { const b = statBars(def); return b.top + b.accel; };
+
+// the class letter, computed from the drive values instead of written by hand: A 17+, B 14+, C 10+, D below
+export function powerClass(def) {
+  const s = powerScore(def);
+  return s >= 17 ? 'A' : s >= 14 ? 'B' : s >= 10 ? 'C' : 'D';
+}
+
+// the class line under a name: the type name from the strings, then the computed class
+export function classLine(tr, id, def) {
+  const kind = vehicleText(tr, id, 'class'), cls = tr('powerClass', powerClass(def));
+  return kind ? `${kind} · ${cls}` : cls;
+}
+
+// the gallery's tiles: the vehicles of one type ('all' for every one), strongest first, table order on a tie
+export function galleryOrder(ids, defs, type) {
+  if (type !== 'all' && !VEHICLE_TYPES.includes(type)) throw new Error(`galleryOrder: unknown type ${type}`);
+  const score = new Map(ids.map(id => [id, powerScore(defs[id])]));
+  return ids.filter(id => type === 'all' || defs[id].type === type).sort((a, b) => score.get(b) - score.get(a));
 }

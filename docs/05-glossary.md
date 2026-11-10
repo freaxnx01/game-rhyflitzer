@@ -54,6 +54,8 @@ The project's own names (places, landmarks, game features, workflow) are in the 
 
 **Render resolution**: the resolution the scene is actually drawn at. Rendering lower and scaling up gives the chunky retro look and saves performance.
 
+**Z-fighting**: two surfaces at (almost) the same depth, e.g. a farm field laid a few centimetres over the meadow. The depth buffer cannot tell which is in front, so pixels of the lower surface flicker through, worse with distance (from the helicopter). Fixed by a larger gap, a polygon offset, or drawing only one of the two.
+
 **Style profile**: in this project, a bundle of materials, lighting and post-processing that can be swapped at runtime to change the graphic style without touching the world data.
 
 ## Performance
@@ -108,7 +110,13 @@ The project's own names (places, landmarks, game features, workflow) are in the 
 
 ## Platform
 
-**WebGL / WebGPU**: browser APIs to use the graphics card. WebGL is established; WebGPU is its modern successor. three.js supports both.
+**WebGL**: the established browser API for drawing with the graphics card, based on OpenGL ES. WebGL 2 runs in every current browser. The game draws with WebGL.
+
+**WebGPU**: the newer browser API for the graphics card, modelled on Vulkan, Metal and Direct3D 12. It has less overhead per draw call and adds compute shaders. Chrome and Edge ship it, Firefox and Safari are catching up.
+
+**WebGLRenderer**: the three.js renderer that draws through WebGL. The game uses it (`new THREE.WebGLRenderer` in `index.html`, three.js 0.170.0).
+
+**WebGPURenderer**: the newer three.js renderer, imported from `three/webgpu`. It uses WebGPU and falls back to a WebGL 2 backend where WebGPU is missing. Its materials are node materials, and custom shaders are written in TSL (Three Shading Language). Plain `ShaderMaterial` and `onBeforeCompile` do not work there. A switch would mean rewriting the game's own shaders: the sky and backdrop, the car's environment, the tree crowns and the tyres (`tyres.js`).
 
 **WASM (WebAssembly)**: a fast binary format running in the browser. Rapier's physics engine is compiled to it.
 

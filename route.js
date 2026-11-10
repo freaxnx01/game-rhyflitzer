@@ -23,7 +23,8 @@ export const AUTO = {
   brakeAccel: 4, latAccel: 3.5, chord: 16, sampleStep: 5,
   defaultKmh: 30, bridgeKmh: 30, bridgeMargin: 20, uturnSpeed: 4,
   arriveDist: 8, offRoute: 20, stuckSecs: 4,
-  turnAngle: Math.PI / 6, signalBefore: 50, signalAfter: 10, roundaboutSignalBefore: 15,
+  turnAngle: Math.PI / 6, signalBefore: 50, signalAfter: 10,
+  laneOffsetMax: 2, laneBlend: 8,
 };
 
 // a press of any of these hands the car back to the player (touch drive buttons do the same in index.html); Shift is nitro too since #535
@@ -47,6 +48,21 @@ export function pointAt(pts, cum, s) {
   while (cum[i + 1] < s) i++;
   const u = (s - cum[i]) / ((cum[i + 1] - cum[i]) || 1);
   return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * u, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * u];
+}
+
+// Metres to the right of a road's centre line where a car drives: the centre of the innermost right lane.
+// Oneway roads, roundabouts and ramps (*_link) have no opposite lane, so 0. Reused by Postautos (#500) and traffic (#364).
+export function laneOffset(r) {
+  if (!(r.w > 0) || r.oneway || r.cls.endsWith('_link') || isRoundabout(r)) return 0;
+  return Math.min(AUTO.laneOffsetMax, r.w / (2 * (r.lanes > 0 ? r.lanes : 2)));
+}
+
+// The point on a polyline at s, moved off metres to the right of the local direction of travel (x east, z south)
+export function rightOf(pts, cum, s, off) {
+  const p = pointAt(pts, cum, s);
+  if (!off) return p;
+  const a = pointAt(pts, cum, s - 1), b = pointAt(pts, cum, s + 1), dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+  return len ? [p[0] - (dz / len) * off, p[1] + (dx / len) * off] : p;
 }
 
 function project(a, b, x, z) {
@@ -196,31 +212,27 @@ export function turnAt(route, s, w = 10) {
   return Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
 }
 
-// Signed heading change over the route segments i0..i1 (> 0 turns right): the way round a ring
-function headingChange(route, i0, i1) {
-  let total = 0;
-  for (let i = i0; i < i1; i++) {
-    const [a, b, c] = [route.pts[i], route.pts[i + 1], route.pts[i + 2]];
-    const d1 = [b[0] - a[0], b[1] - a[1]], d2 = [c[0] - b[0], c[1] - b[1]];
-    total += Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
-  }
-  return total;
-}
-
-// Stretches of the route that run around a roundabout: { sIn, sOut, right }
+// Stretches of the route that run around a roundabout: { sIn, sOut }
 function ringRuns(route) {
   const runs = [];
   for (let i = 0; i < route.road.length; i++) {
     if (!isRoundabout(route.road[i])) continue;
     let k = i;
     while (k + 1 < route.road.length && route.road[k + 1] === route.road[i]) k++;
-    runs.push({ sIn: route.cum[i], sOut: route.cum[k + 1], right: headingChange(route, i, k) > 0 });
+    runs.push({ sIn: route.cum[i], sOut: route.cum[k + 1] });
     i = k;
   }
   return runs;
 }
 
-// Turn signals: at junctions (3+ roads) where the route turns by AUTO.turnAngle or more; on a roundabout only when leaving it
+// Where the exit signal of a ring run goes on: at the previous exit the route passes (an arm of degree 3+ inside the run), else at the entry
+function ringSignalStart(route, run) {
+  const passed = route.joints.filter((j) => j.deg >= 3 && j.s > run.sIn + 0.5 && j.s < run.sOut - 0.5);
+  return passed.length ? passed[passed.length - 1].s : run.sIn;
+}
+
+// Turn signals: at junctions (3+ roads) where the route turns by AUTO.turnAngle or more; on a roundabout only when
+// leaving it: always right (Swiss rule, Art. 41b VRV), from the previous exit or the entry
 export function routeSignals(route) {
   const runs = ringRuns(route), out = [];
   for (const j of route.joints) {
@@ -230,7 +242,7 @@ export function routeSignals(route) {
   }
   for (const r of runs) {
     if (r.sIn <= 0 || r.sOut >= route.len - 0.5) continue;
-    out.push({ s: r.sOut, side: r.right ? 'right' : 'left', from: r.sOut - AUTO.roundaboutSignalBefore, to: r.sOut + AUTO.signalAfter });
+    out.push({ s: r.sOut, side: 'right', from: ringSignalStart(route, r), to: r.sOut + AUTO.signalAfter });
   }
   return out.sort((a, b) => a.s - b.s);
 }
@@ -253,11 +265,21 @@ export function trackRoute(route, x, z, sPrev) {
 
 export function steerToward(route, s, x, z, th, speed) {
   const look = clamp(AUTO.lookMin + AUTO.lookPerMs * speed, AUTO.lookMin, AUTO.lookMax);
-  const p = pointAt(route.pts, route.cum, s + look), alpha = wrap(Math.atan2(p[1] - z, p[0] - x) - th);
+  const s2 = s + look, p = rightOf(route.pts, route.cum, s2, routeLaneOffset(route, s2)), alpha = wrap(Math.atan2(p[1] - z, p[0] - x) - th);
   return { steer: clamp(alpha * AUTO.steerGain, -1, 1), alpha };
 }
 
 const segAt = (route, s) => { let i = 0; while (i < route.road.length - 1 && route.cum[i + 1] <= s) i++; return i; };
+
+// Lane offset at progress s on a route: the mean of the road offsets over AUTO.laneBlend either side, so it slides across junctions
+export function routeLaneOffset(route, s) {
+  let sum = 0, n = 0;
+  for (let q = s - AUTO.laneBlend; q <= s + AUTO.laneBlend + 1e-9; q += AUTO.laneBlend / 4) {
+    sum += laneOffset(route.road[segAt(route, clamp(q, 0, route.len))]);
+    n++;
+  }
+  return sum / n;
+}
 const roadKmh = (r) => CLASS_KMH[r.cls] ?? AUTO.defaultKmh;
 
 // Speed the autopilot aims for at progress s, m/s: the road class, slower on and near bridges, slower before bends,

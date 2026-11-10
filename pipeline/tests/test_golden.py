@@ -373,3 +373,15 @@ def test_issue229_no_stream_ribbon_lies_on_a_road(world):
         ribbon = shapely.LineString(s["pts"]).buffer(s["w"] / 2, cap_style="flat")
         for line, w in roads:
             assert ribbon.intersection(line.buffer(w / 2)).area <= 1.0, (s["name"], s["w"])
+
+
+def test_roundabout_has_oneway_and_lanes(world):
+    ring = [r for r in world["roads"] if r["id"] == 672824132]
+    assert ring and all(r["oneway"] is True and r["lanes"] == 2 for r in ring)
+
+
+def test_public_buildings_drawn_by_hand_stay_out(world):
+    """#761: public footprints are kept now, except where the game draws its own model: the Münster's neighbours, the stations of
+    Stein and Sisseln, and the Reformierte Kirche Stein (#715 swissBUILDINGS3D landmark with its own collider)."""
+    ids = {b["id"] for b in world["buildings"]}
+    assert not ids & {162862443, 162862441, 1280041307, 183386655, 88836292}

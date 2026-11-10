@@ -6,6 +6,7 @@
 // least damage of all cars (damage / mass) and shoves the others aside; slow to turn. Caprice size: 5.4 m long, 2.946 m wheelbase,
 // 5.54 m with the push bar, which the capsule collision covers.
 export const BULLDOG = {
+  type: 'sport',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'bulldog', url: './assets/bulldog.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[1.473, 0.757], [-1.473, 0.757]], wheelR: 0.344,   // the model's own wheel nodes: x ±1.473, |z| 0.757, r 0.344
   drive: { top: 52.8, topNitro: 75, accel: 12, accelNitro: 28, brake: 22, reverse: 8, reverseMax: 12, grip: 8, gripHandbrake: 1.6, steerRate: 2.2, airSteer: 0.3 },

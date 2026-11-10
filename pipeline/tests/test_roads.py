@@ -89,3 +89,86 @@ def test_junction_needs_two_kept_ways():
     way_nodes = {1: [1, 7, 2], 2: [7, 8], 3: [1, 9], 4: [2, 10]}
     _, junctions = R.build(ways, nodes, way_nodes, shapely.box(-1000, -1000, 1000, 1000))
     assert junctions == [[50.0, 0.0, pytest.approx(3.8)]]
+
+
+@pytest.mark.parametrize("tags,d", [
+    ({"highway": "tertiary"}, 0),
+    ({"highway": "tertiary", "oneway": "yes"}, 1),
+    ({"highway": "tertiary", "oneway": "true"}, 1),
+    ({"highway": "tertiary", "oneway": "1"}, 1),
+    ({"highway": "tertiary", "oneway": "-1"}, -1),
+    ({"highway": "tertiary", "oneway": "reverse"}, -1),
+    ({"highway": "tertiary", "oneway": "no"}, 0),
+    ({"highway": "tertiary", "oneway": "reversible"}, 0),
+    ({"highway": "tertiary", "oneway": "alternating"}, 0),
+    ({"highway": "primary", "junction": "roundabout"}, 1),
+    ({"highway": "primary", "junction": "circular"}, 1),
+    ({"highway": "primary", "junction": "roundabout", "oneway": "no"}, 0),
+    ({"highway": "motorway"}, 1),
+    ({"highway": "motorway_link"}, 1),
+    ({"highway": "motorway", "oneway": "no"}, 0),
+    ({"highway": "trunk"}, 0),
+])
+def test_oneway_dir(tags, d):
+    assert R.oneway_dir(tags) == d
+
+
+@pytest.mark.parametrize("tags,n", [
+    ({"highway": "tertiary"}, None),
+    ({"highway": "tertiary", "lanes": "2"}, 2),
+    ({"highway": "tertiary", "lanes": "1"}, 1),
+    ({"highway": "tertiary", "lanes": "0"}, None),
+    ({"highway": "tertiary", "lanes": "2;3"}, None),
+    ({"highway": "tertiary", "lanes": "many"}, None),
+])
+def test_lane_count(tags, n):
+    assert R.lane_count(tags) == n
+
+
+BIG = shapely.box(-1000, -1000, 1000, 1000)
+
+
+def _build(tags, pts=((0, 0), (50, 0), (100, 0))):
+    roads, _ = R.build([Way(1, tags, shapely.LineString(pts))], {}, {}, BIG)
+    return roads
+
+
+def test_build_writes_oneway_and_lanes():
+    r = _build({"highway": "tertiary", "oneway": "yes", "lanes": "2"})[0]
+    assert r["oneway"] is True and r["lanes"] == 2
+    assert r["pts"][0] == [0.0, 0.0] and r["pts"][-1] == [100.0, 0.0]
+
+
+def test_build_omits_keys_when_unknown():
+    r = _build({"highway": "tertiary"})[0]
+    assert "oneway" not in r and "lanes" not in r
+
+
+def test_build_reverses_pts_for_oneway_minus_one():
+    r = _build({"highway": "tertiary", "oneway": "-1"})[0]
+    assert r["oneway"] is True
+    assert r["pts"][0] == [100.0, 0.0] and r["pts"][-1] == [0.0, 0.0]
+
+
+def test_build_keeps_direction_through_clip():
+    ways = [Way(1, {"highway": "tertiary", "oneway": "yes"}, shapely.LineString([(-50, 0), (50, 0), (150, 0)]))]
+    roads, _ = R.build(ways, {}, {}, shapely.box(0, -10, 100, 10))
+    assert roads[0]["pts"][0][0] < roads[0]["pts"][-1][0]
+
+
+def test_build_roundabout_is_oneway_without_tag():
+    assert _build({"highway": "primary", "junction": "roundabout", "lanes": "2"})[0]["oneway"] is True
+
+
+def test_build_split_pieces_all_carry_keys():
+    r = 60.0
+    arc = [(100 + r * math.sin(a), r - r * math.cos(a)) for a in [i * math.pi / 16 for i in range(9)]]
+    pts = [(0, 0), (50, 0), (100, 0)] + arc[1:]
+    roads = _build({"highway": "tertiary", "lanes": "2", "oneway": "yes"}, pts)
+    assert len(roads) >= 2 and all(p["oneway"] is True and p["lanes"] == 2 for p in roads)
+
+
+def test_build_trail_has_no_keys():
+    ways = [Way(5, {"highway": "track", "oneway": "yes", "lanes": "2"}, shapely.LineString([(0, 0), (50, 0)]))]
+    roads, _ = R.build(ways, {}, {}, BIG, trail_ids=frozenset({5}))
+    assert roads and "oneway" not in roads[0] and "lanes" not in roads[0]

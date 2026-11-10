@@ -53,7 +53,7 @@ def test_cruise_pause_has_no_restart_and_main_menu_goes_straight_back(server):
         after = page.evaluate("() => ({ abandon: !document.querySelector('#abandon').hidden, focus: document.activeElement.id, mode: window.__mm.blitz().mode })")
         b.close()
     assert restart_hidden is True
-    assert seen == ["pausevehicle", "pauseabout", "pausemenu", "pauseresume"], seen
+    assert seen == ["pausevehicle", "pausestyle", "pauseabout", "pausekeybar"], seen   # #773: the style switch after Change vehicle
     assert after == {"abandon": False, "focus": "cruisebtn", "mode": "cruise"}, after
     assert errors == []
 

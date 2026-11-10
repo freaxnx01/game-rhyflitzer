@@ -330,7 +330,7 @@ def test_panel_with_the_legend_open_stays_on_screen(server, name, opts):
         vp = page.evaluate(VIEWPORT)
         panel = page.locator("#debug").bounding_box()
         button = page.locator("#debughelp").bounding_box()
-        steering = [page.locator(sel).bounding_box() for sel in ("#tL", "#tR", "#tH")]
+        steering = [page.locator(sel).bounding_box() for sel in ("#tStick", "#tG", "#tB", "#tH", "#tZ", "#tJ", "#tC", "#tMenu")]
         steering = [b for b in steering if b]                                # display:none off a coarse pointer, so no box on the desktop
         lines = page.evaluate("() => window.__mm.debug().lines")
         br.close()

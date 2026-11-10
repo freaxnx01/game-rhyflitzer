@@ -112,7 +112,7 @@ WORLD = ROOT / "data" / "world_hochrhein.json"
 
 
 def test_hidden_selectors_cover_the_hud_the_toast_and_the_footer():
-    for sel in ("#tl", "#tr", "#compass", "#bl", "#br", "#game-nav", "#debug", "#toast", "#arrow"):
+    for sel in ("#tl", "#tr", "#bl", "#br", "#game-nav", "#debug", "#toast", "#arrow"):   # #773: #compass and #stylebtn are gone
         assert sel in shots.HIDDEN_SELECTORS
     assert "visibility:hidden!important" in shots.HIDE_CSS and "#game-nav" in shots.HIDE_CSS
 
