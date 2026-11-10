@@ -122,6 +122,12 @@ def test_build_keeps_one_route_per_line_and_in_map_stops():
     assert [r["id"] for r in out] == [700, 702] and stats["duplicate-variant"] == 1
 
 
+def test_servable_drops_routes_with_fewer_than_two_stops():
+    routes = [{"id": 1, "stops": [{"uic": "1"}]}, {"id": 2, "stops": [{"uic": "1"}, {"uic": "2"}]}, {"id": 3, "stops": []}]
+    stats = wb.Counter()
+    assert [r["id"] for r in wb.servable(routes, stats)] == [2] and stats["too-few-stops"] == 2
+
+
 def test_build_world_emits_bus_routes_only_with_the_anchors_key(tmp_path):
     spec = tmp_path / "a.json"
     spec.write_text(json.dumps({"bus": {"lines": ["133"]}}))

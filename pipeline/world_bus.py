@@ -232,6 +232,14 @@ def _unique_variants(routes: list[dict], stats: Counter) -> list[dict]:
     return kept
 
 
+def servable(routes: list[dict], stats: Counter) -> list[dict]:
+    """#808: a route with fewer than two in-map stops carries no trip (timetable.py needs two in-map calls); it would
+    only draw a line on the map. 135's through relation Aarau - Frick - Laufenburg is one."""
+    kept = [route for route in routes if len(route["stops"]) >= 2]
+    stats["too-few-stops"] += len(routes) - len(kept)
+    return kept
+
+
 def build(data: BusData, roads: list[dict], clip) -> tuple[list[dict], Counter]:
     """One busRoutes entry per route: the chained line clipped to the map, in travel direction,
     with its kerb-side stops. Of several pieces only the longest is kept (#682, A9); of several
