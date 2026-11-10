@@ -26,6 +26,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-10 18:16` A car with its own 3D model picked by **link** (`?vehicle=…`) or remembered from last time: the **start buttons wait** until the model has loaded, so the race starts in the **real car** instead of the blue stand-in.
+
 - `2026-11-10 15:39` **Change vehicle** from the pause menu after a **rollover** or a **wreck** now shows the car **upright** with all its **wheels** on the stage, instead of lying on its side with the wheels beside it.
 
 - `2026-11-10 15:34` The **woods** are **denser inside**: the interior of a forest now carries about five times as many trees as before, so from the helicopter the wood reads as a closed canopy instead of a thin edge around bare ground.

@@ -80,12 +80,22 @@ def test_nitro_flames_sit_behind_every_gltf_tail_one_centred_on_the_tumbler(serv
     assert not errors, errors
 
 
-def test_tumbler_from_the_url_appears_after_loading_even_when_the_race_already_started(server):
-    """#561: ?vehicle=tumbler, race started before the glb arrived: the real model still replaces the fallback, no player action."""
+def test_start_waits_for_the_tumbler_from_the_url_and_then_drives_the_real_model(server):
+    """#561: with ?vehicle=tumbler the start buttons wait while the glb loads (#236: no model swap mid-race), then the race starts in the real model."""
+    held = []
+
+    def hold_glb(page):
+        page.route("**/assets/tumbler.glb", lambda r: held.append(r))
+
     with sync_playwright() as p:
-        b, page, errors = open_page(p, server, query="?vehicle=tumbler")
-        page.click("#startbtn", timeout=180000)
-        page.wait_for_function("() => window.__mm.gltfVehicle('tumbler').state === 'ready'", timeout=180000)
+        b, page, errors = open_page(p, server, query="?vehicle=tumbler", before=hold_glb)
+        page.wait_for_function("() => window.__mm.gltfVehicle('tumbler').state === 'loading'", timeout=60000)
+        blocked = page.evaluate("() => ['startbtn', 'cruisebtn', 'blitzbtn'].map(id => document.getElementById(id).disabled)")
+        for r in held:
+            r.continue_()
+        page.wait_for_function("() => window.__mm.gltfVehicle('tumbler').state === 'ready' && !document.getElementById('startbtn').disabled", timeout=180000)
+        page.click("#startbtn")
         page.wait_for_function("() => window.__mm.vehicle().gltf?.id === 'tumbler' && window.__mm.carSize().l > 4.5", timeout=30000)
         b.close()
+    assert blocked == [True, True, True], blocked
     assert not errors, errors
