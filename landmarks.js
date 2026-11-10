@@ -40,6 +40,7 @@ export const LANDMARK_INFO = [
   { name: 'LANDI-Turm', gemeinde: 'Eiken', anchor: 'landiTurm' },                    // Sisslerstrasse 19.1, w197688923 (#81)
   { name: 'Südspange Sisslerfeld', gemeinde: 'Eiken', at: [1528, 409], jump: [1509.2, 425.4], look: [1441.4, 483.1] },   // #125: listed at the K295 junction, the road's start; #42: J lands 25 m into the Südspange, looking down it into the cutting
   { name: 'Güggeli-Foodtruck', gemeinde: 'Eiken', anchor: 'foodTruck' },            // on the Hauptstrasse (#205); the position lives in pipeline/anchors.json
+  { name: 'Fahrzeug-Depot', gemeinde: 'Eiken', at: [832.3, -107.5], jump: [770, -107.5], depot: true },   // #553: every vehicle on the DSM car park; J lands at the strip's west end, mid-depth, facing east
   { name: 'DSM-Wasserturm', gemeinde: 'Sisseln', anchor: 'dsmWaterTower' },
   { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
   { name: 'Hallenbad Sissila', gemeinde: 'Sisseln', anchor: 'hallenbad' },
@@ -99,7 +100,7 @@ export function landmarkEntries(info, anchors, buildings, gemeinden = GEMEINDEN)
   const found = [];
   info.forEach((item, i) => {
     const p = sourcePos(item, anchors || {}, byId);
-    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), ...(item.wreck ? { wreck: true } : {}), i });
+    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), ...(item.wreck ? { wreck: true } : {}), ...(item.depot ? { depot: true } : {}), i });
   });
   found.sort((a, b) => gemeinden.indexOf(a.g) - gemeinden.indexOf(b.g) || a.i - b.i);
   return found.map(({ i, ...entry }) => entry);

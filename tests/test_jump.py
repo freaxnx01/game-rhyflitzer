@@ -35,8 +35,8 @@ WORLD507 = WORLD.exists() and "sisseln" in json.loads(WORLD.read_text(encoding="
 CHIPS = ["All", "Enterable", "Zuzgen", "Mumpf", "Hellikon", "Obermumpf", "Stein", "Münchwilen"] + (["Schupfart"] if WORLD47 else []) \
     + ["Eiken", "Sisseln", "Oeschgen", "Frick", "Wallbach", "Bad Säckingen", "Murg"]   # #782: Enterable moved up beside All; then the CH row, then the DE row
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
-    + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Crash yard"]
-ALL_ROWS = (25 if WORLD46 else 18) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 12 + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) are fixed points, listed in any world; #715: Kirche Stein became the two churches of Stein; #782: 10 village/halt points + Bahnhof Frick + Bahnhof Mumpf
+    + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Fahrzeug-Depot"] + ["Crash yard"]   # #553: the depot is an at, listed in any world, after its Gemeinde's last landmark (before the yard)
+ALL_ROWS = (25 if WORLD46 else 18) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 12 + 1 + 5   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) and the Fahrzeug-Depot (#553) are fixed points, listed in any world; #715: Kirche Stein became the two churches of Stein; #782: 10 village/halt points + Bahnhof Frick + Bahnhof Mumpf
 SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else []) + (["Neues Schulhaus Sisseln", "Volg Sisseln"] if WORLD507 else [])
 

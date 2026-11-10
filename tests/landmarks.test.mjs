@@ -67,8 +67,8 @@ const BUILDINGS_46 = [
   ['Schulhaus Sisseln', 'Sisseln', 171822721],
 ];
 
-test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47 and the Rhine wrecks of #215 and the Neues Schulhaus and the Volg of #507', () => {
-  assert.equal(LANDMARK_INFO.length, 45);
+test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47 and the Rhine wrecks of #215 and the Neues Schulhaus and the Volg of #507 and the vehicle depot of #553', () => {
+  assert.equal(LANDMARK_INFO.length, 46);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
@@ -87,7 +87,7 @@ test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower
      ['Bahnhof Frick', 'Frick', 164951714]]);
   assert.deepEqual(LANDMARK_INFO.filter(l => l.gemeinde === 'Stein').map(l => l.name), ['Kirche Bruder Klaus', 'Reformierte Kirche', 'Bahnhof Stein-Säckingen']);
   assert.equal(LANDMARK_INFO.some(l => l.anchor === 'steinChurch'), false);
-  assert.deepEqual(LANDMARK_INFO.filter(l => l.gemeinde === 'Eiken').map(l => l.name), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Güggeli-Foodtruck']);
+  assert.deepEqual(LANDMARK_INFO.filter(l => l.gemeinde === 'Eiken').map(l => l.name), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Güggeli-Foodtruck', 'Fahrzeug-Depot']);
 });
 
 test('#46 entries resolve from their buildings, sort into their Gemeinde and are found accent-blind', () => {
@@ -101,6 +101,7 @@ test('#46 entries resolve from their buildings, sort into their Gemeinde and are
   expected.splice(expected.findIndex(([n]) => n === 'Kirche Bruder Klaus') + 1, 0, ['Reformierte Kirche', 'Stein']);
   expected.splice(expected.findIndex(([n]) => n === 'Reformierte Kirche') + 1, 0, ['Reservoir Hübel', 'Münchwilen']);
   expected.splice(expected.findIndex(([n]) => n === 'Bahnhof Eiken') + 1, 0, ['Südspange Sisslerfeld', 'Eiken']);
+  expected.splice(expected.findIndex(([n]) => n === 'Südspange Sisslerfeld') + 1, 0, ['Fahrzeug-Depot', 'Eiken']);   // #553: listed in any world (an at), after its Gemeinde's last entry
   expected.splice(0, 0, ['Dorfzentrum Wallbach', 'Wallbach'], ['Lohnberg', 'Zuzgen'], ['Dorfzentrum Mumpf', 'Mumpf'], ['Dorfzentrum Hellikon', 'Hellikon'], ['Dorfzentrum Obermumpf', 'Obermumpf']);   // #782: the village centres are fixed points, listed in any world
   expected.splice(expected.length, 0, ['Dorfzentrum Oeschgen', 'Oeschgen'], ['Dorfzentrum Frick', 'Frick'], ['Dorfzentrum Murg', 'Murg'], ['Bahnhof Murg (Baden)', 'Murg'], ['Rothaus', 'Murg']);   // #782
   assert.deepEqual(e.map(x => [x.n, x.g]), expected);
@@ -108,12 +109,20 @@ test('#46 entries resolve from their buildings, sort into their Gemeinde and are
   assert.deepEqual(filterLandmarks(e, 'schonau', null).map(x => x.n), ['Schloss Schönau (Trompeterschloss)']);
   assert.deepEqual(filterLandmarks(e, 'trompeter', null).map(x => x.n), ['Schloss Schönau (Trompeterschloss)']);
   assert.deepEqual(filterLandmarks(e, 'bahnhof bad sackingen', null).map(x => x.n), ['Bahnhof Bad Säckingen']);
-  assert.deepEqual(filterLandmarks(e, '', 'Eiken').map(x => x.n), ['Bahnhof Eiken', 'Südspange Sisslerfeld']);
+  assert.deepEqual(filterLandmarks(e, '', 'Eiken').map(x => x.n), ['Bahnhof Eiken', 'Südspange Sisslerfeld', 'Fahrzeug-Depot']);
 });
 
 test('landmarkEntries passes a jump spot through as j (#79)', () => {
   const info = [{ name: 'Brücke', gemeinde: 'Stein', anchor: 'muenster', jump: [10, 20] }];
   assert.deepEqual(landmarkEntries(info, ANCHORS, []), [{ n: 'Brücke', g: 'Stein', x: -1331, z: -172.7, j: [10, 20] }]);
+});
+
+test('LANDMARK_INFO has the vehicle depot at the DSM car park, in Eiken (#553)', () => {
+  const d = LANDMARK_INFO.find(l => l.name === 'Fahrzeug-Depot');
+  assert.deepEqual([d.gemeinde, d.at], ['Eiken', [832.3, -107.5]]);
+  assert.ok(Array.isArray(d.jump) && d.jump.length === 2);
+  const e = landmarkEntries(LANDMARK_INFO, {}, []).find(x => x.n === 'Fahrzeug-Depot');
+  assert.deepEqual(e, { n: 'Fahrzeug-Depot', g: 'Eiken', x: 832.3, z: -107.5, j: [770, -107.5], depot: true });
 });
 
 test('faceToward keeps a heading towards the target and flips one away from it (#79)', () => {
@@ -133,17 +142,17 @@ test('the Fridolinsbrücke jumps to the Swiss approach, east of the deck end (#7
 test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found by "landi"', () => {
   const anchors = { dsmChimney: { x: 1065.2, z: 345.1 }, stationSisseln: { x: 1854.2, z: 685.8 }, landiTurm: { x: 1832.7, z: 627.7 } };
   const e = landmarkEntries(LANDMARK_INFO, anchors, [{ id: '199241726', ring: [[2600, 900], [2610, 900], [2610, 910], [2600, 910]] }]);
-  assert.deepEqual(e.map(x => x.n), ['Dorfzentrum Wallbach', 'Lohnberg', 'Dorfzentrum Mumpf', 'Dorfzentrum Hellikon', 'Dorfzentrum Obermumpf', 'Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Dorfzentrum Oeschgen', 'Dorfzentrum Frick', 'Dorfzentrum Murg', 'Bahnhof Murg (Baden)', 'Rothaus']);   // #782: the village centres list between the anchored landmarks
+  assert.deepEqual(e.map(x => x.n), ['Dorfzentrum Wallbach', 'Lohnberg', 'Dorfzentrum Mumpf', 'Dorfzentrum Hellikon', 'Dorfzentrum Obermumpf', 'Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Fahrzeug-Depot', 'Dorfzentrum Oeschgen', 'Dorfzentrum Frick', 'Dorfzentrum Murg', 'Bahnhof Murg (Baden)', 'Rothaus']);   // #782: the village centres list between the anchored landmarks
   assert.deepEqual(e.find(x => x.n === 'LANDI-Turm'), { n: 'LANDI-Turm', g: 'Eiken', x: 1832.7, z: 627.7 });
   assert.deepEqual(filterLandmarks(e, 'landi', null).map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(filterLandmarks(e, 'LANDI', 'Eiken').map(x => x.n), ['LANDI-Turm']);
-  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Dorfzentrum Wallbach', 'Lohnberg', 'Dorfzentrum Mumpf', 'Dorfzentrum Hellikon', 'Dorfzentrum Obermumpf', 'Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld', 'Dorfzentrum Oeschgen', 'Dorfzentrum Frick', 'Dorfzentrum Murg', 'Bahnhof Murg (Baden)', 'Rothaus']);   // anchor missing: skipped
+  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Dorfzentrum Wallbach', 'Lohnberg', 'Dorfzentrum Mumpf', 'Dorfzentrum Hellikon', 'Dorfzentrum Obermumpf', 'Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld', 'Fahrzeug-Depot', 'Dorfzentrum Oeschgen', 'Dorfzentrum Frick', 'Dorfzentrum Murg', 'Bahnhof Murg (Baden)', 'Rothaus']);   // anchor missing: skipped
 });
 
 test('#103 Güggeli-Foodtruck resolves from its anchor, sits last in Eiken and is found by "gugg", "food" and "GÜGGELI"', () => {
   const anchors = { dsmChimney: { x: 1065.2, z: 345.1 }, stationSisseln: { x: 1854.2, z: 685.8 }, landiTurm: { x: 1832.7, z: 627.7 }, foodTruck: { x: 1758.5, z: 1986.5 } };
   const e = landmarkEntries(LANDMARK_INFO, anchors, [{ id: '199241726', ring: [[1700, 1930], [1720, 1930], [1720, 1943], [1700, 1943]] }]);
-  assert.deepEqual(filterLandmarks(e, '', 'Eiken').map(x => x.n), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Güggeli-Foodtruck']);
+  assert.deepEqual(filterLandmarks(e, '', 'Eiken').map(x => x.n), ['DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Güggeli-Foodtruck', 'Fahrzeug-Depot']);
   assert.deepEqual(e.find(x => x.n === 'Güggeli-Foodtruck'), { n: 'Güggeli-Foodtruck', g: 'Eiken', x: 1758.5, z: 1986.5 });
   for (const q of ['gugg', 'food', 'GÜGGELI', 'truck']) assert.deepEqual(filterLandmarks(e, q, null).map(x => x.n), ['Güggeli-Foodtruck'], q);
   assert.ok(!landmarkEntries(LANDMARK_INFO, { landiTurm: anchors.landiTurm }, []).some(x => x.n === 'Güggeli-Foodtruck'), 'skipped while the anchor is missing');
