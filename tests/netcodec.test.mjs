@@ -11,6 +11,16 @@ test('encodeCode_hostOffer_roundTripsWithRegion', async () => {
   assert.deepEqual(await decodeCode(c, 'H', 1010), { ok: true, t: 1000, g: 'hochrhein', sdp: SDP });
 });
 
+test('encodeCode_noDeflateStream_null', async () => {
+  const real = globalThis.CompressionStream;
+  globalThis.CompressionStream = function () { throw new TypeError('deflate-raw is not supported'); };
+  try {
+    assert.equal(await encodeCode('H', SDP, 'hochrhein', 1000), null);
+  } finally {
+    globalThis.CompressionStream = real;
+  }
+});
+
 test('decodeCode_wrongRoleVersionOrAge_namedError', async () => {
   const g = await encodeCode('G', SDP, null, 1000), h = await encodeCode('H', SDP, 'hochrhein', 1000);
   assert.equal((await decodeCode(g, 'H', 1000)).error, 'role'); assert.equal((await decodeCode(g, 'G', 1000)).ok, true);

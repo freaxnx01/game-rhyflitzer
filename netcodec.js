@@ -45,11 +45,19 @@ const deflate = (bytes) => through(new CompressionStream('deflate-raw'), bytes);
 const inflate = (bytes) => through(new DecompressionStream('deflate-raw'), bytes);
 
 // ---- connection codes ----
-// encodeCode(role, sdp, region, nowSec) — 'R1H.<base64url>' for the host (carries the region), 'R1G.…' for a guest
+// encodeCode(role, sdp, region, nowSec) — 'R1H.<base64url>' for the host (carries the region), 'R1G.…' for a guest,
+// or null when this browser has no working deflate-raw stream: then there is no code to show, and the caller says so
+// instead of letting the rejection travel on. Like decodeCode, this never throws.
 export async function encodeCode(role, sdp, region, nowSec) {
   const payload = role === 'H' ? { t: nowSec, g: region, s: sdp } : { t: nowSec, s: sdp };
   const bytes = new TextEncoder().encode(JSON.stringify(payload));
-  return `R${CODE_VERSION}${role}.${b64url(await deflate(bytes))}`;
+  let packed;
+  try {
+    packed = await deflate(bytes);
+  } catch (e) {
+    return null;
+  }
+  return `R${CODE_VERSION}${role}.${b64url(packed)}`;
 }
 
 // decodeCode(code, expectRole, nowSec) — { ok: true, t, g?, sdp } or { ok: false, error } with
