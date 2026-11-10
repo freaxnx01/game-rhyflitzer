@@ -840,7 +840,7 @@ import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInp
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
-import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
@@ -1376,8 +1376,16 @@ function cutFloorMin(x, z) {
   return f;
 }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
+// #477: 6c's porch and hall footprint. The EG is the terrain at the entrance (#445), but the ground a little further in can lie above it:
+// the pads lower the terrain patches there below the slab (stairhall.js terrainPads). '6c' = INT.house, which is declared further down.
+function hallTerrainPads() {
+  const b = L.buildings.find(isBodenacker6); if (!b) return [];
+  let porch; try { porch = bodenackerHouse(bodenackerLayout(b, 0, Math.max(b.h, 3)), '6c').porch; } catch (e) { return []; }   // the building code warns about a failing layout
+  return terrainPads(porch.entrance, { w: porch.w, d: porch.d }, terrainH(porch.entrance.x, porch.entrance.z));
+}
 function buildCuts() {
   const crossings = railRoadCrossings(L.roads, L.railBridges);
+  const PADS = hallTerrainPads();   // #477: the ground under 6c's porch and stair hall, lowered below the EG slab
   for (const g of L.grades) GRADE_CUTS.push(gradeCut(g, meshH, GRADE_CUT, gradeCaps(g, crossings)));
   for (const c of crossings) CUTS.push(makeCut(c));
   // #156: a lowered patch vertex reaches PATCH_BLEED on (the diagonal of a 1 m cell): lat ends the lowering that far inside the
@@ -1387,10 +1395,11 @@ function buildCuts() {
   if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);
   const fillCell = (i, j) => {
     const p = new Float32Array(W * W); let lowered = false;
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z), padFloorAt(PADS, x, z) ?? Infinity); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
     return { p, lowered };
   };
   for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
+  if (PADS.length) for (const [i, j] of patchCells(padBounds(PADS), G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
   // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
   // without 2 x CUT_N^2 more triangles to draw)
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
@@ -4717,10 +4726,12 @@ function buildInterior() {
   const h = INT.hall, f = h.frame, lv = h.levels, N = STAIRHALL.storeys;
   // #445: contrasting materials so the stairs read -- light plaster walls, dark stone treads with a light nosing, a dark handrail, light-grey landings
   const M = { concrete: new THREE.MeshLambertMaterial({ color: 0xb4b2ac, emissive: 0x33322f }), tread: new THREE.MeshLambertMaterial({ color: 0x5a5753, emissive: 0x1a1918 }), nosing: new THREE.MeshLambertMaterial({ color: 0xdedad0, emissive: 0x3c3b38 }), plaster: new THREE.MeshLambertMaterial({ color: 0xf3efe6, emissive: 0x47453f }), rail: new THREE.MeshLambertMaterial({ color: 0x2b2f36, emissive: 0x111214 }), wood: new THREE.MeshLambertMaterial({ color: 0x5b4636, emissive: 0x2b2b2b }), dark: new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }), cabin: new THREE.MeshLambertMaterial({ color: 0xd9d9d3, emissive: 0x2b2b2b }), cabinFloor: new THREE.MeshLambertMaterial({ color: 0x6a6a66, emissive: 0x2b2b2b }), lamp: new THREE.MeshBasicMaterial({ color: 0xfff3d6 }) };
+  INT.groundMat = M.ground = M.concrete.clone(); M.ground.polygonOffset = true; M.ground.polygonOffsetFactor = M.ground.polygonOffsetUnits = GROUND_DEPTH_OFFSET;   // #477: the EG slabs lie within cm of the grass; they win the depth test
   INT.mats = Object.values(M);
-  const parts = { concrete: [], tread: [], nosing: [], plaster: [], rail: [], wood: [], lamp: [] };
+  const parts = { ground: [], concrete: [], tread: [], nosing: [], plaster: [], rail: [], wood: [], lamp: [] };
   const put = (k, o, y0, y1) => { if (y1 - y0 > 0.001) parts[k].push(obbBox(o, y0, y1)); };
-  for (const s of h.walk.slabs) if (s.hw && s !== INT.cabin) put('concrete', s, s.y - WALKWAY.thick, s.y);   // the polygon roof deck is #410's; the cabin slab is the shell below
+  const onGround = new Set(groundSlabs(h));
+  for (const s of h.walk.slabs) if (s.hw && s !== INT.cabin) put(onGround.has(s) ? 'ground' : 'concrete', s, s.y - WALKWAY.thick, s.y);   // the polygon roof deck is #410's; the cabin slab is the shell below
   for (const r of h.walk.ramps) {
     const tw = r.hw / 7;
     for (let i = 0; i < 7; i++) {   // seven treads per flight, each at the ramp surface of its middle; a light strip along its front edge
@@ -4948,7 +4959,7 @@ window.__mm.platHop = () => platHop();   // #701: tests
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
   y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
   lift: INT.lift && { at: INT.lift.at, y: INT.lift.y, door: INT.lift.door, busy: INT.lift.busy, moving: INT.lift.moving },
-  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, pad: INT.pad, plug: INT.doorPlug ? INT.doorPlug.visible : null });
+  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, groundSlab: INT.group && INT.groundMat ? { meshes: INT.group.children.filter(o => o.material === INT.groundMat).length, offset: INT.groundMat.polygonOffset ? INT.groundMat.polygonOffsetFactor : null } : null, pad: INT.pad, plug: INT.doorPlug ? INT.doorPlug.visible : null });
 window.__mm.interiorSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(); };
 window.__mm.housingTint = () => { if (!INT.housing) return null; const m = INT.housing.material, c = INT.housing.geometry.attributes.color; if (!m.vertexColors) return 1; return c ? Math.min(...c.array) : 0; };   // #453: the darkest vertex colour the 6c housing's material multiplies in (no colour attribute reads as black)
 window.__mm.interiorFaceA = () => { if (!INT.group || !INT.hall) return null; const f = INT.hall.frame, lv = INT.hall.levels, roof = lv[lv.length - 1], v = new THREE.Vector3(); let min = Infinity; INT.group.updateMatrixWorld(true); INT.group.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= lv[0] + 0.1 || v.y >= roof - 0.01) continue; const a = f.fromWorld(v.x, v.z).a; if (a > -0.05) min = Math.min(min, Math.abs(a)); } }); return min; };   // #453: how close the hall's drawn faces come to the façade line between EG and roof
