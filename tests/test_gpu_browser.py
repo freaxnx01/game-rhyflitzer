@@ -156,3 +156,14 @@ def test_remote_launch_runs_the_restart_command_when_the_browser_is_gone():
 def test_restart_command_comes_from_the_environment():
     assert gpu_browser.restart_from({}) is None
     assert gpu_browser.restart_from({"PW_CDP_RESTART": "  bash restart.sh "}) == "bash restart.sh"
+
+
+def test_a_browser_on_this_machine_is_local():
+    """#879: the game honours ?worldhost= only on a localhost page, which a browser on another machine cannot open."""
+    assert not gpu_browser.is_remote(None)
+    assert not gpu_browser.is_remote("http://127.0.0.1:9222")
+    assert not gpu_browser.is_remote("http://localhost:9222/")
+
+
+def test_a_browser_on_the_lan_is_remote():
+    assert gpu_browser.is_remote("http://192.168.1.120:9223")
