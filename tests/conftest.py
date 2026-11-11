@@ -30,7 +30,7 @@ def _install_gpu_hook(config):
     if endpoint is None:
         return
     GPU["endpoint"], GPU["launch"] = endpoint, BrowserType.launch
-    BrowserType.launch = gpu_browser.remote_launch(endpoint, BrowserType.launch)
+    BrowserType.launch = gpu_browser.remote_launch(endpoint, BrowserType.launch, restart=gpu_browser.restart_from(os.environ))
 
 
 def _install_api_hook():

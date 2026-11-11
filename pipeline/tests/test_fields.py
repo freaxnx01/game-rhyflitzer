@@ -260,6 +260,15 @@ def test_build_cuts_keep_out_rectangle():
     assert [f["ring"] for f in same[0]] == [f["ring"] for f in uncut]
 
 
+def test_build_cuts_stream_corridor():
+    """A stream is no field: the parcel is cut half the stream width plus STREAM_GAP either side of the line (#661)."""
+    feats = [lwb(513, rect(0, 0, 300, 200))]
+    stream = {"name": "Bach", "w": 2.0, "pts": [[150.0, -10.0], [150.0, 210.0]]}
+    fields, _ = WFI.build(feats, [], [], [], CLIP, FRAME, streams=[stream])
+    zone = shapely.box(150 - 1.0 - WFI.STREAM_GAP + 0.05, 0, 150 + 1.0 + WFI.STREAM_GAP - 0.05, 200)
+    assert len(fields) == 2 and all(not poly(f).intersects(zone) for f in fields)
+
+
 def test_yard_constant_matches_crashyard_js():
     """WFI.CRASH_YARD mirrors CRASH_YARD in crashyard.js: (x0, z0, x0 + length, z0 + width)."""
     import re

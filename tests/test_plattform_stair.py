@@ -133,3 +133,27 @@ def test_the_parapet_holds_the_walker_on_the_deck(server):
     assert errors == []
     assert abs(foot["y"] - plat["deckY"]) < 0.05, foot
     assert math.hypot(foot["x"] - plat["x"], foot["z"] - plat["z"]) < inradius, foot
+
+
+@needs_world
+def test_the_tower_wears_the_real_look(server):
+    """#855: the white roof, the slats, the rafters and the parapet (wide cap, straight run) are in the built tower."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        look = page.evaluate("() => window.__mm.plattform().look")
+        b.close()
+    assert errors == []
+    assert look == {"roof": "#efece4", "slats": 72, "rafters": 45, "parapet": {"cap": 0.24, "straight": 11}}
+
+
+@needs_world
+def test_the_tower_keeps_its_colours_in_the_smooth_style(server):
+    """#855: the tower's timber and roof live in the plasterWhite role, so Smooth must keep its vertex colours (not a flat grey tower)."""
+    with sync_playwright() as p:
+        b, page, errors = open_world(p, server)
+        page.keyboard.press("KeyT")
+        page.wait_for_function("() => window.__mm.roleVertexColors('plasterWhite') !== undefined")
+        smooth = page.evaluate("() => window.__mm.roleVertexColors('plasterWhite')")
+        b.close()
+    assert errors == []
+    assert smooth is True

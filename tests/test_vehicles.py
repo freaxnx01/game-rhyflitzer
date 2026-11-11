@@ -21,13 +21,21 @@ GOLDEN_JS = """() => { const m = window.__mm, X = 1882.9, Z = -292.2, TH = Math.
 # gas, nitro and brakeReverse re-recorded for #353: #273 (PR#291, wheels on the drawn road at joints and junction
 # discs, surfH + discSurfH) moved the ground under the hand Bahnhofstrasse by a hair, 0.67 mm over the gas run
 # (found by git bisect, spec 2026-10-19). The other four reproduce bit for bit, so they stay as recorded.
+# gas, nitro, turn, handbrake, coast and brakeReverse re-recorded for #754 (found by git bisect from a1cd88c):
+# - f108e18 (PR#595, #290, road ribbons lifted over the drawn triangles): the ground under the hand road moved by
+#   about 3e-4 m, so gas, turn, handbrake, coast and brakeReverse drift by that much. Intended, same mechanism as #353.
+# - eab67d4 (PR#598, #506, farm fields): the new TEX.meadow texture draws its noise from the shared seeded rnd(), which
+#   shifts every random scatter after it. On the hand layout the obstacle the nitro run used to hit at x 1739 is gone,
+#   so the car now drives the whole 4 s straight (x 1730.01, 58.00 m/s). A side effect, not a physics bug.
+# - abb9c79 (PR#751, no shake after a handbrake turn): handbrake now ends at x 1873.95, z -300.95, 5.93 m/s. Intended.
+# kreisel moved by 7e-7 (inside the 1e-6 tolerance) and stays as recorded.
 GOLDEN = {
-    "gas": [1803.9693258088223, -292.2, 31.468011729494155],
-    "nitro": [1739.2332947215589, -290.6311891305134, 46.21726908969701],
-    "turn": [1882.5171647865836, -267.454153955126, 21.604638849512714],
-    "handbrake": [1873.6407168218582, -300.736676160143, 5.796862538598718],
-    "coast": [1834.6722120583554, -292.2, 12.614475983585198],
-    "brakeReverse": [1916.5563668400166, -292.2, 13.991231330343677],
+    "gas": [1803.9696142392509, -292.2, 31.468286880499843],
+    "nitro": [1730.0097789999577, -292.2, 58.00445665701573],
+    "turn": [1882.5173612640071, -267.4539137570359, 21.60482778471372],
+    "handbrake": [1873.954526449259, -300.9513646498912, 5.929877687046431],
+    "coast": [1834.6719348716697, -292.2, 12.614818090048061],
+    "brakeReverse": [1916.559328693726, -292.2, 13.992018339087409],
     "kreisel": [1218.7183244804414, -127, 1.0311994537196747],
 }
 
