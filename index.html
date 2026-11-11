@@ -6865,7 +6865,7 @@ function failRecord() {
 // every track off, the timer gone, the HUD light out; 'stopped' ends the state machine, anything else failed
 function cleanupRecord() {
   if (REC.rec && REC.rec.stream) for (const t of REC.rec.stream.getTracks()) t.stop();
-  REC.rec = null; REC.chunks = []; REC.fmt = null; REC.clock = null;
+  REC.rec = null; REC.chunks = []; REC.bytes = 0; REC.fmt = null; REC.clock = null;
   REC.state = recordNext(REC.state, REC.state === 'stopping' ? 'stopped' : 'fail');
   $('rec').hidden = true;
 }
