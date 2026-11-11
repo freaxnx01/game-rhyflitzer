@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, roofRafters, SLAT, HANDRAIL, parapetStraight } from '../plattform.js';
+import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, roofRafters, SLAT, HANDRAIL, parapetStraight, RAFTER, EAVE, eaveFrame } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
@@ -282,5 +282,34 @@ test('plattformWalk_ArrivalGap_OpenFromTheTopFlightOntoTheDeck', () => {
   for (let s = 0; s <= 2.5; s += 0.05) {
     const x = F.x + 0.8 * Math.cos(t0) + s * Math.cos(dir), z = F.z + 0.8 * Math.sin(t0) + s * Math.sin(dir);
     assert.equal(walkwayPush(railOnly, x, z, deckY + 0.1, WALKER.radius).length, 0, `rail in the way at s=${s.toFixed(2)}`);
+  }
+});
+
+// #855: the braces end on something -- each runs from its post out to an eave purlin that sits right under the rafters (s063, s076, s134)
+const rafterBottom = (s) => { const { roof } = PLATTFORM, R = Math.PI / 180; return roof.eaves - RAFTER.drop + s * Math.tan(roof.pitch * R) - RAFTER.t / (2 * Math.cos(roof.pitch * R)); };
+const edgeDist = ([x, z], a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1]; return Math.abs((x - a[0]) * dz - (z - a[1]) * dx) / Math.hypot(dx, dz); };
+
+test('eaveFrame_Purlins_SitUnderTheRaftersAlongEachEave', () => {
+  const e = eaveFrame(F), rtri = F.triangle(PLATTFORM.roof.side);
+  assert.equal(e.purlins.length, 3);
+  e.purlins.forEach((p, i) => {
+    const a = rtri[i], b = rtri[(i + 1) % 3];
+    assert.ok(near(edgeDist(p.a, a, b), EAVE.inset, 0.01) && near(edgeDist(p.b, a, b), EAVE.inset, 0.01), `purlin ${i} parallel to its eave at the inset`);
+    assert.ok(near(p.top, rafterBottom(EAVE.inset - EAVE.w / 2), 0.01), `purlin ${i} top ${p.top} touches the rafters`);
+  });
+});
+
+test('eaveFrame_Braces_TwoPerPostFromThePostToThePurlinUnderside', () => {
+  const e = eaveFrame(F), tri = F.triangle(PLATTFORM.frame.side);
+  assert.equal(e.braces.length, 6);
+  for (const br of e.braces) {
+    const post = tri[br.post], p = e.purlins[br.face];
+    assert.ok(Math.hypot(br.foot[0] - post[0], br.foot[2] - post[1]) < 0.01, 'the foot is on its post');
+    assert.ok(near(br.foot[1], PLATTFORM.roof.eaves - EAVE.braceDrop), 'the foot height');
+    const head = [br.head[0], br.head[2]], dx = p.b[0] - p.a[0], dz = p.b[1] - p.a[1], len = Math.hypot(dx, dz);
+    const along = ((head[0] - p.a[0]) * dx + (head[1] - p.a[1]) * dz) / len, off = Math.abs((head[0] - p.a[0]) * dz - (head[1] - p.a[1]) * dx) / len;
+    assert.ok(off < 0.01 && along > 0 && along < len, `the head lies on the purlin's centre line (off ${off.toFixed(3)}, along ${along.toFixed(2)} of ${len.toFixed(2)})`);
+    assert.ok(Math.abs(br.head[1] - (p.top - EAVE.h)) < 0.01, `the head meets the purlin's underside (${br.head[1]} vs ${p.top - EAVE.h})`);
+    assert.ok(br.head[1] - br.foot[1] > 1, 'it climbs');
   }
 });

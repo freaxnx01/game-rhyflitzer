@@ -971,7 +971,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, parapetStraight, SLAT, HANDRAIL, RAFTER } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -2050,10 +2050,9 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
       bar(ex + nx * RAFTER.tail, roof.eaves - RAFTER.drop - RAFTER.tail * slope, ez + nz * RAFTER.tail, ex - nx * r.d, roof.eaves + r.rise - RAFTER.drop, ez - nz * r.d, RAFTER.t, spruce); } }   // rafters hanging under the skin, their heads a row of teeth under the fascia
   for (let i = 0; i < 3; i++) { const a = tri[i], c = tri[(i + 1) % 3], [mx, mz] = mid(a, c), len = Math.hypot(c[0] - a[0], c[1] - a[1]);
     box(len, purlinH, 0.24, mx, b + purlinTop - purlinH, mz, Math.atan2(c[1] - a[1], c[0] - a[0]), beam, timber, [1, 1], 0); }   // purlin on the posts, right under the rafters
-  for (const [px, pz] of tri) for (let i = 0; i < 3; i++) { const a = rtri[i], c = rtri[(i + 1) % 3], dx = c[0] - a[0], dz = c[1] - a[1], l2 = dx * dx + dz * dz;
-    const t = ((px - a[0]) * dx + (pz - a[1]) * dz) / l2; if (t <= 0 || t >= 1) continue;   // only the two edges this post faces
-    const qx = a[0] + t * dx, qz = a[1] + t * dz; if (Math.hypot(qx - px, qz - pz) > 2.5) continue;
-    bar(px, roof.eaves - 1.8, pz, qx, roof.eaves - 0.3, qz, 0.14, beam); }   // brace from the post up to the eave
+  const eave = eaveFrame(f);   // #855: the eave purlins under the rafters, and the post braces that end on them (s063, s076, s134)
+  for (const p of eave.purlins) box(Math.hypot(p.b[0] - p.a[0], p.b[1] - p.a[1]), EAVE.h, EAVE.w, (p.a[0] + p.b[0]) / 2, b + p.top - EAVE.h, (p.a[1] + p.b[1]) / 2, Math.atan2(p.b[1] - p.a[1], p.b[0] - p.a[0]), beam, timber, [1, 1], 0);
+  for (const br of eave.braces) bar(br.foot[0], br.foot[1], br.foot[2], br.head[0], br.head[1], br.head[2], EAVE.braceT, beam);
   PLAT = { frame: f, base: b, walk: plattformWalk(f, b), look: { roof: ROOF_WHITE, slats: slatList.length, rafters: rafterList.length, parapet: { cap: +(HANDRAIL.inner + HANDRAIL.outer).toFixed(2), straight: run.slats.length } } };
 }
 // #102 / #361: the hideout -- trough walls along T1 (the #119 pattern without decks), the lift hall's ring wall (its one

@@ -191,3 +191,25 @@ export function roofRafters(P = PLATTFORM, pitch = RAFTER.pitch) {
   }
   return out;
 }
+
+// #855: the eave purlins and the post braces (s063, s076, s134): a glulam purlin under the rafters along each eave, `inset` in from the
+// roof edge (centre line), its top on the rafters' underside at its outer edge, running hip to hip; each post sends two braces out to
+// the purlins of the two eaves it faces, from `braceDrop` below the eaves on the post to the middle of the purlin's underside.
+// Heights relative to the base; purlins { a, b (world xz), top }; braces { post, face, foot, head ([x, y, z]) }
+export const EAVE = { inset: 0.5, w: 0.16, h: 0.24, braceDrop: 1.8, braceT: 0.14 };
+export function eaveFrame(frame, P = PLATTFORM) {
+  const { roof } = P, slope = Math.tan(roof.pitch * RAD), ri = roof.side / (2 * Math.sqrt(3));
+  const top = roof.eaves - RAFTER.drop + (EAVE.inset - EAVE.w / 2) * slope - RAFTER.t / (2 * Math.cos(roof.pitch * RAD));
+  const inner = frame.triangle(2 * Math.sqrt(3) * (ri - EAVE.inset)), rtri = frame.triangle(roof.side), posts = frame.triangle(P.frame.side);
+  const purlins = inner.map((a, i) => ({ a, b: inner[(i + 1) % 3], top }));
+  const braces = [];
+  posts.forEach(([px, pz], post) => rtri.forEach((a, face) => {
+    const c = rtri[(face + 1) % 3], dx = c[0] - a[0], dz = c[1] - a[1], t = ((px - a[0]) * dx + (pz - a[1]) * dz) / (dx * dx + dz * dz);
+    if (t <= 0 || t >= 1) return;   // only the two eaves this post faces
+    const qx = a[0] + t * dx, qz = a[1] + t * dz, d = Math.hypot(qx - px, qz - pz);
+    if (d > 2.5) return;
+    const k = (d - EAVE.inset) / d;
+    braces.push({ post, face, foot: [px, roof.eaves - EAVE.braceDrop, pz], head: [px + (qx - px) * k, top - EAVE.h, pz + (qz - pz) * k] });
+  }));
+  return { purlins, braces };
+}
