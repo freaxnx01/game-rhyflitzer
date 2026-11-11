@@ -226,10 +226,10 @@ const sameStreet = (a, b) => a.id === b.id || (!!a.n && a.n === b.n);
 // where it gets out. Leaving square-on that is the corridor's half-width at the junction's own floor; leaving at a slant it is
 // longer, and `a`'s floor climbs under it meanwhile, so the side road waits level at the floor where it gets out -- held at the
 // junction's floor it would sink below `a`'s road and step across its carriageway where its own corridor ends.
-function leaveCorridor(a, pts, t, floor, u) {
-  const half = a.hw + u.margin + u.wall / 2, len = polylineLength(pts);
+function leaveCorridor(a, pts, t, floor, u, level = a.hw + u.margin + u.wall / 2) {
+  const len = polylineLength(pts);
   const inside = (s) => { const [x, z] = pointAtLength(pts, t + s); return cutFloorAt(a, x, z, u) !== null; };
-  let best = { flat: half, f0: floor };
+  let best = { flat: level, f0: floor };
   for (const dir of [-1, 1]) {
     const room = dir < 0 ? t : len - t;
     let s = 0;
@@ -240,6 +240,17 @@ function leaveCorridor(a, pts, t, floor, u) {
     best = { flat: s, f0: cutFloorAt(a, x, z, u) };
   }
   return best;
+}
+// #575: the same street going on has no trough to cross, so its arm starts at `floor` and ramps at u.grade at once. But where it
+// leaves `a`'s corridor at a slant while `a`'s floor there lies lower (a is still on its level part, or climbs slower along its
+// own road than the arm does along its), the terrain steps from a's floor up to the arm's where the corridor ends: 0.3 m and
+// more in one metre. Where the arm lies more than ARM_STEP above a's floor there, it waits level ARM_DROP lower there instead,
+// as a side road does. A smaller gap leaves the arm as it is: lowering it moves where it meets the ground, and with it the
+// nodes it reaches (the Koenigsweg crossing at 4609/5563 loses its whole cut to a cap node that a 2 m longer arm reaches).
+const ARM_STEP = 0.3, ARM_DROP = 0.15;
+function continuedFloor(a, pts, t, floor, u) {
+  const out = leaveCorridor(a, pts, t, floor, u, 0), own = floor + u.grade * out.flat;
+  return own - out.f0 > ARM_STEP ? { flat: out.flat, f0: Math.max(floor, own - ARM_DROP) } : { flat: 0, f0: floor };
 }
 // #120: every road piece meeting the cut (or one of its arms) at a node below the ground descends with it: an arm anchored
 // there, starting at the floor of the road it leaves and ramping back up at u.grade (same street) or u.sideGrade. Breadth-
@@ -259,7 +270,7 @@ export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
         used.add(o);
         // a side road crosses the trough it leaves before it can ramp, so it stays level over that corridor (else the floor
         // steps up by grade * corridor where the parent's corridor ends); the same street going on has no trough to cross
-        const on = sameStreet(o, a.road), t = nearestOnPolyline(o.pts, nd.x, nd.z).t, lev = on ? { flat: 0, f0: floor } : leaveCorridor(a, o.pts, t, floor, u);
+        const on = sameStreet(o, a.road), t = nearestOnPolyline(o.pts, nd.x, nd.z).t, lev = on ? continuedFloor(a, o.pts, t, floor, u) : leaveCorridor(a, o.pts, t, floor, u);
         const arm = { pts: o.pts, road: o, t, hw: o.w / 2, flat: lev.flat, f0: lev.f0, grade: on ? u.grade : u.sideGrade, x: nd.x, z: nd.z };
         const r = armReach(arm, (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);
         arm.reach = r.map((p) => p.s); arm.stop = r.map((p) => p.why);
