@@ -234,3 +234,41 @@ def test_no_open_cut_faces(server):
     print(json.dumps({k: v for k, v in r.items() if k != "troughPts"}))
     assert r["checked"] > 0, r
     assert r["count"] == 0, r
+    # #844: a bank whose wall was dropped because the road it lines is not lowered there stays a grass slope -- counted,
+    # not open, and shallow (the Stein corner measured 0.22-0.64 m at the dropped piece's inner face)
+    assert r["slope"] > 0, "the Stein corner must show up as a slope"
+    assert r["slopeMax"] <= 1.0, r["slopePts"][:30]
+
+
+# #844: south of Stein the main road's west wall run is cut short by the service road w1216639317's gap; the 1 m piece left
+# at (-887.64, 1177.95) stood at the lane edge where the road itself is not lowered and stopped cars 23 m before the decks
+STEIN_STUB = (-887.64, 1177.95)
+STEIN_RUN = (-888.54, 1185.99)      # the west run in the real cut (1.5-2 m deep), which stays
+TESTER = (-881.7, 1143.9)           # the tester's spot, 2.6 m west of the centre line
+
+
+def bearing_th(bearing):
+    """The game's P.th for a compass bearing (index.html: bearing = atan2(cos th, -sin th))."""
+    return math.atan2(-math.cos(math.radians(bearing)), math.sin(math.radians(bearing)))
+
+
+@needs_world
+def test_stein_south_approach_has_no_wall_stub(server):
+    def script(page):
+        r = {"walls": page.evaluate("() => window.__mm.walls()")}
+        for name, bearing, until in (("along", 186.4, 3.5), ("tester", 188.0, 2.0)):
+            r[name] = page.evaluate("""([x, z, th, until]) => { const out = [];
+                for (let i = 1; i * 0.25 <= until + 1e-9; i++) { const s = window.__mm.sim(x, z, th, 13.9, i * 0.25); out.push([s.z, s.speed]); }
+                return { track: out, wrecked: window.__mm.damage().wrecked }; }""", [*TESTER, bearing_th(bearing), until])
+        return r
+    r = run(server, script)
+    print(json.dumps({k: v for k, v in r.items() if k != "walls"}))
+    near = lambda p: [w for w in r["walls"] if math.hypot(w["x"] - p[0], w["z"] - p[1]) < 1.5]
+    assert not near(STEIN_STUB), near(STEIN_STUB)                                      # the stub is gone
+    assert near(STEIN_RUN), "the west wall of the real cut must stay"
+    drops = lambda t, until_z: [(a, b) for a, b in zip([[TESTER[1], 13.9]] + t, t) if b[0] < until_z and a[1] - b[1] > 2.5]
+    along = r["along"]["track"]                                                        # 50 km/h, gas held, along the road
+    assert not drops(along, 1e9) and along[-1][0] > 1215 and not r["along"]["wrecked"], along
+    tester = r["tester"]["track"]                                                      # the tester's 188 deg line
+    assert not drops(tester, 1182), tester                                             # nothing stops it before the real cut
+    assert max(z for z, _ in tester) >= 1180, tester                                   # it got past where the stub stood

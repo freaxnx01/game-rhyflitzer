@@ -1440,7 +1440,7 @@ function meshH(x, z) {
 // #76: 16 m cells under a road cut are replaced by a CUT_N x CUT_N patch (1 m cells, so a trough wall's step stays behind its
 // face) (key 'i,j' -> heights, row-major (CUT_N+1)^2);
 // terrainH returns the patch surface there, with the mesh's own triangle split, so everything sits on what is drawn.
-const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], ARMS = [], WALLS = [];
+const CUT_N = 16, CUT_CELLS = new Map(), CUTS = [], ARMS = [], WALLS = [], SLOPES = [];
 // #42: graded roads (the Südspange's cutting): one more source for the patches. gradedH is the uncut mesh brought down to
 // their profile and banks -- the ground #76's cuts are sized on, so a crossing inside a grade cuts only what the grade
 // does not already give (nothing, at the Südspange: no walls, no arms there). Without grades gradedH === meshH.
@@ -2656,6 +2656,9 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     // below the floor (Bahnhofstrasse: the ground falls away from the road while the cut still lowers the bank 0.3 m)
     const lowered = Math.max(...[-1, 0, 1].map((k) => cutDepth(w.x + k * Math.cos(w.rot) * w.len / 2 - w.nx * UNDERPASS.wall / 2, w.z + k * Math.sin(w.rot) * w.len / 2 - w.nz * UNDERPASS.wall / 2)));
     if (ground - floor <= 0.1 && lowered <= 0.1) return;
+    // #844: where the road's own carriageway is not lowered, the bank beside it is only a side road's arm reaching around the
+    // corner (south of Stein: 0.2-0.64 m, a 1 m piece left at the lane edge by the side road's gap): a grass slope, no wall
+    if (cutDepth(rx, rz) <= 0.1) { SLOPES.push({ x: w.x, z: w.z, rot: w.rot, len: w.len }); return; }
     // the lowest deck surface over the piece's own footprint (half its length, plus how far it sits off the deck's centre
     // line): near a deck end bridgeDeckOffset fades, so the surface right above the piece is below the centre-line value
     // and the lowest of them where several decks lie over it (the nearest one's centre line can be the higher deck)
@@ -5285,21 +5288,26 @@ window.__mm.wreckSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepWreck
 window.__mm.pushAt = (x, z, y) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; if (y !== undefined) P.y = y; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return out; };   // #36: read-only, for the region-wide collider test; #119: optional car height
 window.__mm.walls = () => WALLS;
 // #120: points the cuts lower by > 0.3 m outside every road corridor (hw + margin) that no trough wall covers -- should be none
+window.__mm.slopes = () => SLOPES;   // #844: the wall pieces dropped because their road is not lowered there
 window.__mm.openCutFaces = (step = 0.5) => {
-  const out = [], trough = []; let checked = 0;
+  const out = [], trough = [], slope = []; let checked = 0;
+  const covers = (w, x, z) => { const dx = x - w.x, dz = z - w.z, c = Math.cos(w.rot), s = Math.sin(w.rot); return Math.abs(dx * c + dz * s) <= w.len / 2 + 0.3 && Math.abs(-dx * s + dz * c) <= UNDERPASS.wall / 2 + 0.3; };
   for (const a of ARMS) {
-    const [x0, z0, x1, z1] = a.bounds, walls = WALLS.filter((w) => w.x > x0 - 3 && w.x < x1 + 3 && w.z > z0 - 3 && w.z < z1 + 3);
+    const [x0, z0, x1, z1] = a.bounds, box = (w) => w.x > x0 - 3 && w.x < x1 + 3 && w.z > z0 - 3 && w.z < z1 + 3, walls = WALLS.filter(box), slopes = SLOPES.filter(box);
     for (let x = x0; x <= x1; x += step) for (let z = z0; z <= z1; z += step) {
       const d = cutDepth(x, z); if (d <= 0.3 || roadDist(x, z, 16) < UNDERPASS.margin) continue;
       checked++;
-      if (walls.some((w) => { const dx = x - w.x, dz = z - w.z, c = Math.cos(w.rot), s = Math.sin(w.rot); return Math.abs(dx * c + dz * s) <= w.len / 2 + 0.3 && Math.abs(-dx * s + dz * c) <= UNDERPASS.wall / 2 + 0.3; })) continue;
+      if (walls.some((w) => covers(w, x, z))) continue;
+      const p = [+x.toFixed(1), +z.toFixed(1), +d.toFixed(2)];
+      if (slopes.some((w) => covers(w, x, z))) { slope.push(p); continue; }   // #844: a grass slope by design
       // PR #156, option (a): between two corridors too close for a wall (sharedTrough) the roads share one trough, no bank is open
-      const p = [+x.toFixed(1), +z.toFixed(1), +d.toFixed(2)], roads = [...new Set([...gridQuery(ROAD_GRID, x, z, 16)].map(({ r }) => r))];
+      const roads = [...new Set([...gridQuery(ROAD_GRID, x, z, 16)].map(({ r }) => r))];
       (sharedTrough(x, z, roads) ? trough : out).push(p);
     }
   }
   const unique = (ps) => new Set(ps.map(([x, z]) => x + ',' + z)).size;
-  return { checked, count: out.length, open: out.slice(0, 30), unique: unique(out), trough: trough.length, troughUnique: unique(trough), troughPts: trough };
+  return { checked, count: out.length, open: out.slice(0, 30), unique: unique(out), trough: trough.length, troughUnique: unique(trough), troughPts: trough,
+           slope: slope.length, slopeMax: slope.reduce((m, p) => Math.max(m, p[2]), 0), slopePts: slope };
 };
 window.__mm.stoneChain = () => ({ ids: OSM_BRIDGES.filter(b => b.kind === 'stone' && !b.approach).map(b => b.r.id), approaches: OSM_BRIDGES.filter(b => b.approach).length, banks: STONE_AXIS ? [{ x: STONE_AXIS.a[0], z: STONE_AXIS.a[1], h: STONE_AXIS.ha }, { x: STONE_AXIS.e[0], z: STONE_AXIS.e[1], h: STONE_AXIS.he }] : [] });
 // #227: the generic decks with the ground each of them owns -- the deck itself, plus the fill run past each seated end
