@@ -1,9 +1,17 @@
-// radio.js (#735): the car radio (Rhyflitzer FM, SRF 3 live) and the start screen's menu music.
+// radio.js (#735, #845): the car radio (Rhyflitzer FM, SRF 3 live, Radio Argovia) and the start screen's menu music.
 // Pure: no DOM, no audio -- node --test imports it; the RADIO IIFE in index.html plays what these rules say.
 
 // NOT the short https://stream.srg-ssr.ch/m/drs3/mp3_128: it redirects to plain http://, blocked as mixed content
 export const SRF3_URL = 'https://stream.srg-ssr.ch/srgssr/srf3/mp3/128';
-export const STATIONS = Object.freeze(['fm', 'srf3']);
+// NOT the short https://stream.streambase.ch/argovia/mp3-192/ -- only this /direct/ URL was probed (302 to chmedia.streamabc.net, CORS * on both hops, 2026-11-10)
+export const ARGOVIA_URL = 'https://stream.streambase.ch/argovia/mp3-192/direct/';
+export const STATIONS = Object.freeze(['fm', 'srf3', 'argovia']);
+// the live stations: stream, the strings.js key of the radio display, the key of the "not reachable" toast. fm is not live
+export const LIVE = Object.freeze({
+  srf3: Object.freeze({ url: SRF3_URL, nameKey: 'radioStationSrf', failKey: 'radioSrfFail' }),
+  argovia: Object.freeze({ url: ARGOVIA_URL, nameKey: 'radioStationArgovia', failKey: 'radioArgoviaFail' }),
+});
+export const nextStation = (s) => STATIONS[(STATIONS.indexOf(s) + 1) % STATIONS.length];
 // the six tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
 // (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB; the soft-rock pair,
 // 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks)
@@ -85,7 +93,7 @@ export function srfVerdict(watch, now) {
 // the strings.js key and arguments the radio display shows for a state
 export function displayFor(s) {
   if (!s.on) return { key: 'radioOff', args: [] };
-  if (s.station === 'srf3') return { key: 'radioStationSrf', args: [] };
+  if (LIVE[s.station]) return { key: LIVE[s.station].nameKey, args: [] };
   const t = TRACKS[s.track];
   return { key: 'radioTrack', args: [t.title, t.artist] };
 }

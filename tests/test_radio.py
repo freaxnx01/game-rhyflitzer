@@ -198,3 +198,46 @@ def test_desktop_has_no_radio_widget(server):
         start_run(page)
         assert not page.is_visible("#radiobtn") and not page.is_visible("#radiopanel")
         b.close()
+
+
+ARGOVIA = "https://stream.streambase.ch/argovia/mp3-192/direct/"
+
+
+def stub_url(page, url, hits):
+    def answer(route):
+        hits.append(route.request.url)
+        route.fulfill(status=200, headers={"Access-Control-Allow-Origin": "*", "Content-Type": "audio/mpeg"}, body=STUB_MP3)
+    page.route(url, answer)
+
+
+def test_key_6_cycles_through_argovia(server):
+    with sync_playwright() as p:
+        hits = []
+        b, page, errors, music = open_game(p, server, srf_hits=[])
+        stub_url(page, ARGOVIA, hits)
+        start_run(page)
+        page.keyboard.press("6")                        # srf3
+        page.wait_for_function("() => window.__mm.radio().station === 'srf3' && window.__mm.radio().playing.srf", timeout=T)
+        with page.expect_request(lambda r: "argovia" in r.url, timeout=T):
+            page.keyboard.press("6")                    # argovia: the one live voice reloads with the new stream
+        page.wait_for_function("() => window.__mm.radio().station === 'argovia' && window.__mm.radio().playing.srf", timeout=T)
+        assert radio(page)["src"]["srf"] == ARGOVIA and hits, (radio(page), hits)
+        assert "Radio Argovia" in page.evaluate("() => window.__mm.toast().text")
+        assert page.evaluate("() => localStorage.getItem('mm.radioStation')") == "argovia"
+        page.keyboard.press("6")                        # back to FM
+        page.wait_for_function("() => window.__mm.radio().station === 'fm' && window.__mm.radio().playing.fm && !window.__mm.radio().playing.srf", timeout=T)
+        assert errors == [], errors
+        b.close()
+
+
+def test_argovia_failure_falls_back_to_rhyflitzer_fm(server):
+    with sync_playwright() as p:
+        b, page, errors, music = open_game(p, server)   # no stub: hermetic_api aborts the stream
+        page.evaluate("() => localStorage.setItem('mm.radioStation', 'argovia')")
+        page.reload()
+        page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        start_run(page)
+        page.wait_for_function("() => window.__mm.radio().failed === 1 && window.__mm.radio().station === 'fm'", timeout=T)
+        assert "Argovia" in page.evaluate("() => window.__mm.toast().text")
+        assert errors == [], errors
+        b.close()

@@ -506,7 +506,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="Backquote">§</kbd><span data-i18n="keyRecord">record: start · stop a video with sound</span>
       <kbd data-cmd="KeyM">M</kbd><span data-i18n="keyMute">mute</span>
       <kbd data-cmd="Digit5">5</kbd><span data-i18n="keyRadioPower">car radio on · off (start screen: music)</span>
-      <kbd data-cmd="Digit6">6</kbd><span data-i18n="keyRadioStation">radio station: Rhyflitzer FM · SRF 3 live</span>
+      <kbd data-cmd="Digit6">6</kbd><span data-i18n="keyRadioStation">radio station: Rhyflitzer FM · SRF 3 live · Radio Argovia</span>
       <kbd data-cmd="Digit8">7 · 8</kbd><span data-i18n="keyRadioTrack">radio: previous · next track</span>
       <kbd data-cmd="Digit0">9 · 0</kbd><span data-i18n="keyRadioVolume">radio volume down · up</span>
       <kbd data-cmd="KeyP">Esc · P</kbd><span data-i18n="keyPause">pause: resume · restart race · main menu</span>
@@ -735,7 +735,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small><small data-i18n="creditEstate"></small><small data-i18n="creditDelorean"></small>
         </dd>
         <dt data-i18n="aboutMusic"></dt>
-        <dd><small data-i18n="creditMusicCoolRider"></small><small data-i18n="creditMusicNeonAfterglow"></small><small data-i18n="creditMusicCalifornia"></small><small data-i18n="creditMusicSoftRockGroove"></small><small data-i18n="creditMusicMelrose"></small><small data-i18n="creditMusicMenu"></small><small data-i18n="creditSrf3"></small></dd>
+        <dd><small data-i18n="creditMusicCoolRider"></small><small data-i18n="creditMusicNeonAfterglow"></small><small data-i18n="creditMusicCalifornia"></small><small data-i18n="creditMusicSoftRockGroove"></small><small data-i18n="creditMusicMelrose"></small><small data-i18n="creditMusicMenu"></small><small data-i18n="creditSrf3"></small><small data-i18n="creditArgovia"></small></dd>
         <dt data-i18n="aboutData"></dt>
         <dd><a data-link="osm" data-i18n="aboutOsm"></a><br><a data-link="swisstopo" data-i18n="aboutSwisstopo"></a><br><a data-link="agis" data-i18n="aboutAgis"></a><br><a data-link="copernicus" data-i18n="aboutCopernicus"></a><br><a data-link="otd" data-i18n="aboutTimetable"></a></dd>
         <dt>Plattform Sisslerfeld</dt>
@@ -952,7 +952,7 @@ import { poleTop, signPanelZ, POLE_R, FACE_GAP } from './signpole.js';   // #822
 import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindow, cellTime, liveStops, clockText, minutesUntil, stopInReach } from './timetable.js';   // #801
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
-import { pickVoices } from './postautofx.js';   // #709
+import { pickVoices, ledCurrent, groundStale } from './postautofx.js';   // #709
 import { DISPLAY_TEX, displayLayout, REAR_TEX, SMILEY, rearLayout, thanksLayout, splitRearTriangles, normalizeUv } from './busdisplay.js';   // #713, #800
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
@@ -979,7 +979,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, centrePostTop, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -990,7 +990,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor,
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
-import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841
+import { TRACKS, MENU_TRACK, LIVE, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -2027,7 +2027,7 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
   for (let i = 0; i < 3; i++) { const [ax, az] = tri[i], [bx, bz] = tri[(i + 1) % 3];
     bar(ax, 0.2, az, bx, frame.braceH, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, 0.2, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, frame.braceH, bz, 0.22, beam); }
   const apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * Math.tan(roof.pitch * RAD);
-  box(centrePost, apex, centrePost, x, b, z, facing, spruce, timber, [1, 1], 0);   // the central post: no collider of its own, it lies inside the core's
+  box(centrePost, centrePostTop(), centrePost, x, b, z, facing, spruce, timber, [1, 1], 0);   // the central post: no collider of its own, it lies inside the core's; it ends under the sheathing, not through the apex
   addSolid(plattformCoreCollider(f, b));   // #567: the core cylinder is solid for the car (one circle over ring and post); carOnly, so on foot the walkway walls of plattformWalk still rule
   const slatList = coreSlats();   // #855: single solid slats, so the wall shows from inside with real gaps
   slatList.forEach((s, i) => { const g = new THREE.BoxGeometry(SLAT.w, s.y1 - s.y0, SLAT.d); g.translate(0, (s.y1 - s.y0) / 2, 0); g.rotateY(Math.PI / 2 - (facing + s.phi * RAD)); const [sx, sz] = f.polar(s.phi, core.r); g.translate(sx, b + s.y0, sz); colorize(g, i % 2 ? spruce.clone().multiplyScalar(0.94) : spruce); push(timber, g); });   // the box built along x, rotated so the width lies tangential and the depth radial
@@ -4190,7 +4190,11 @@ function openTouchMenu() {
 }
 document.getElementById('tMenu').addEventListener('click', () => { if (document.getElementById('tMenuList').hidden) openTouchMenu(); else closeTouchMenu(); });
 document.getElementById('tMenuList').addEventListener('click', (e) => { const b = e.target.closest('button[data-cmd]'); if (!b) return; closeTouchMenu(); pressKey(b.dataset.cmd); });
+let touchSig = '';   // #880: the phone controls are rewritten only when what they show changes, not 60 times a second
 function stepTouch(ctx, act) {
+  const sig = `${ctx}|${act}|${FOOT.on}|${window.GG_LANG}`;
+  if (sig === touchSig) return;
+  touchSig = sig;
   $('touch').dataset.ctx = ctx;
   $('tE').hidden = !act; if (act) $('tE').textContent = tr(contextLabel(act));
   $('tG').textContent = FOOT.on ? '⤒' : '▲'; $('tG').setAttribute('aria-label', tr(FOOT.on ? 'barJumpUp' : 'accelerate'));
@@ -4275,7 +4279,7 @@ const SFX = (() => {
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
-// #735: the car radio -- Rhyflitzer FM (the four tracks in assets/music) or SRF 3 live -- and the start screen's menu music.
+// #735, #845: the car radio -- Rhyflitzer FM (the four tracks in assets/music) or a live station (SRF 3, Radio Argovia) -- and the start screen's menu music.
 // Three <audio> elements, made on first use (preload none: nothing is fetched before a src is set), each through its own gain
 // into the SFX master. A run is on while R.state is not 'ready' (the result screen keeps the radio); tick() notices the change.
 const RADIO = (() => {
@@ -4283,7 +4287,7 @@ const RADIO = (() => {
   const save = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { } };
   const S = { on: load(RADIO_STORE.on, radioOnFrom), station: load(RADIO_STORE.station, stationFrom), vol: load(RADIO_STORE.vol, volumeFrom),
     menuOn: load(RADIO_STORE.menu, menuMusicOnFrom), track: 0, inRun: false, menuArmed: false, held: false, failed: 0 };
-  const els = {}; let watch = null;
+  const els = {}; let watch = null;   // els.srf is the one live voice (SRF 3, Radio Argovia)
   const now = () => performance.now() / 1000;
   function voice(name) {
     if (els[name]) return els[name];
@@ -4303,7 +4307,7 @@ const RADIO = (() => {
   function start(v) { v.want = true; const p = v.el.play(); if (p && p.catch) p.catch(() => { }); }   // a refused or interrupted play() never throws
   function fadeOut(name) { const v = els[name]; if (!v || !v.want) return; v.want = false; level(v, 0); setTimeout(() => { if (!v.want) v.el.pause(); }, 500); }
   function playFm() { const v = voice('fm'), t = TRACKS[S.track]; if (!v.el.src.endsWith(t.src)) v.el.src = t.src; level(v, trackGain(S.vol, t.gainDb)); start(v); }
-  function playSrf() { const v = voice('srf'); v.el.src = SRF3_URL; level(v, trackGain(S.vol)); watch = { since: now(), playing: false, waitingSince: null, error: false }; start(v); }
+  function playLive() { stopSrf(); const v = voice('srf'); v.el.src = LIVE[S.station].url; level(v, trackGain(S.vol)); watch = { station: S.station, since: now(), playing: false, waitingSince: null, error: false }; start(v); }
   function stopSrf() { watch = null; const v = els.srf; if (!v) return; v.want = false; v.el.pause(); if (v.el.getAttribute('src')) { v.el.removeAttribute('src'); v.el.load(); } }   // drop the src: a paused live stream would keep downloading
   function playMenu() { const v = voice('menu'); if (!v.el.getAttribute('src')) { v.el.src = MENU_TRACK.src; v.el.loop = true; } level(v, menuGain(S.vol)); start(v); }
   // what plays follows from the state alone; every command and every run change ends here
@@ -4311,12 +4315,12 @@ const RADIO = (() => {
     if (S.held) return;
     const radio = S.inRun && S.on;
     if (radio && S.station === 'fm') playFm(); else fadeOut('fm');
-    if (radio && S.station === 'srf3') { if (!watch) playSrf(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
+    if (radio && LIVE[S.station]) { if (!watch || watch.station !== S.station) playLive(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
     if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else { fadeOut('menu'); if (S.inRun || !S.menuOn) EARLY_MENU.drop(); }   // #841: an element nobody adopted must not outlive the start screen
   }
   const nowText = () => { const d = displayFor(S); return '📻 ' + tr(d.key, ...d.args); };
-  function fail() {   // SRF 3 did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
-    stopSrf(); S.station = 'fm'; S.failed++; save(RADIO_STORE.station, 'fm'); apply(); radioShow('📻 ' + tr('radioSrfFail'));
+  function fail() {   // a live station did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
+    const failKey = LIVE[S.station].failKey; stopSrf(); S.station = 'fm'; S.failed++; save(RADIO_STORE.station, 'fm'); apply(); radioShow('📻 ' + tr(failKey));
   }
   function menuCmd(action) {   // on the start screen only 5 does something: the menu music on / off
     if (action !== 'power') return;
@@ -4325,14 +4329,14 @@ const RADIO = (() => {
   function cmd(action) {
     if (!S.inRun) { menuCmd(action); return; }
     if (action === 'power') { S.on = !S.on; save(RADIO_STORE.on, S.on ? 1 : 0); }
-    if (action === 'station') { S.station = S.station === 'fm' ? 'srf3' : 'fm'; S.on = true; save(RADIO_STORE.station, S.station); save(RADIO_STORE.on, 1); }
+    if (action === 'station') { S.station = nextStation(S.station); S.on = true; save(RADIO_STORE.station, S.station); save(RADIO_STORE.on, 1); }
     if (action === 'next' && S.station === 'fm') S.track = nextTrack(S.track);
     if (action === 'prev' && S.station === 'fm') S.track = prevTrack(S.track);
     if (action === 'down' || action === 'up') { S.vol = stepVolume(S.vol, action === 'up' ? 1 : -1); save(RADIO_STORE.vol, S.vol); }
     apply(); renderSettings();
     radioShow(action === 'down' || action === 'up' ? '📻 ' + tr('radioVolume', S.vol * 10) : nowText());
   }
-  SFX.onHold((held) => {   // pause menu, hidden tab: everything stops; on release FM goes on where it was, SRF 3 reloads (live, not time-shifted)
+  SFX.onHold((held) => {   // pause menu, hidden tab: everything stops; on release FM goes on where it was, a live station reloads (live, not time-shifted)
     if (held === S.held) return;
     S.held = held;
     if (held) { for (const v of Object.values(els)) v.el.pause(); stopSrf(); return; }
@@ -4547,6 +4551,7 @@ function buildPostautoMesh(trip) {
 // a bus onto its next trip in place -- same b.key, same mesh, b.trip swapped -- so the baked LED needs a repaint too, not
 // just a new mesh
 function repaintBusLed(g, trip, thanks = null) {
+  if (ledCurrent(g.userData.led, trip, thanks)) return;   // the common frame: nothing to paint, nothing allocated
   const text = { ...ledText(trip), thanks }, prev = g.userData.led;
   const frontSame = !!prev && prev.line === text.line && prev.dest === text.dest;
   if (frontSame && prev.thanks === text.thanks) return;
@@ -4586,17 +4591,21 @@ function stepPostauto(dt) {
     if (b.phase === 'done') continue;
     if (surface && level && thankDue(b, now + b.shift, player)) markThanked(b, now + b.shift);
     alive.add(b.key);
-    if (surface) drawPostauto(b, flashOn, dt);
+    if (surface) drawPostauto(b, flashOn, dt, now);
   }
   const ear = { x: camera.position.x, z: camera.position.z };   // #709: the camera hears, so follow mode and the drone camera sound right
-  SFX.busEngines(surface ? pickVoices(POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, phase: b.phase, v: b.v, x: p.x, z: p.z }; }), ear) : [], dt);
+  SFX.busEngines(surface ? pickVoices(POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = b.pose ?? busPose(b.route, b.s); return { key: b.key, phase: b.phase, v: b.v, x: p.x, z: p.z }; }), ear) : [], dt);
   for (const [key, g] of POSTAUTO.meshes) if (!alive.has(key)) { POSTAUTO.group.remove(g); disposePostautoMesh(g); POSTAUTO.meshes.delete(key); }
   POSTAUTO.group.visible = surface;
 }
-function drawPostauto(b, flashOn, dt) {
-  const p = busPose(b.route, b.s), c = Math.cos(p.th), s = Math.sin(p.th), half = BUS.wheelbase / 2;
-  const yF = groundH(p.x + c * half, p.z + s * half, (b.y ?? 0) + 1), yR = groundH(p.x - c * half, p.z - s * half, (b.y ?? 0) + 1);
-  b.y = (yF + yR) / 2;
+function drawPostauto(b, flashOn, dt, now) {
+  const p = busPose(b.route, b.s); b.pose = p;   // busEngines reads it this frame instead of posing every bus again
+  if (groundStale(b.groundS, b.s)) {   // a standing or crawling bus keeps its heights; a moving one samples the ground every frame
+    const c = Math.cos(p.th), s = Math.sin(p.th), half = BUS.wheelbase / 2;
+    b.yF = groundH(p.x + c * half, p.z + s * half, (b.y ?? 0) + 1); b.yR = groundH(p.x - c * half, p.z - s * half, (b.y ?? 0) + 1);
+    b.y = (b.yF + b.yR) / 2; b.groundS = b.s;
+  }
+  const yF = b.yF, yR = b.yR;
   POSTAUTO.colliders.push(busCollider(p.x, p.z, p.th, b.y));
   if (gltfState('bus') !== 'ready') {
     if (gltfState('bus') === 'failed' && !POSTAUTO.modelFailed) { POSTAUTO.modelFailed = true; console.warn('Postauto model not available: no buses are drawn (A8)'); }
@@ -4604,9 +4613,9 @@ function drawPostauto(b, flashOn, dt) {
   }
   let g = POSTAUTO.meshes.get(b.key);
   if (!g) { g = buildPostautoMesh(b.trip); POSTAUTO.meshes.set(b.key, g); POSTAUTO.group.add(g); }
-  else repaintBusLed(g, b.trip, b.thanksUntil > postautoClock() + b.shift ? tr('paThanks') : null);
+  else repaintBusLed(g, b.trip, b.thanksUntil > now + b.shift ? tr('paThanks') : null);
   g.position.set(p.x, b.y, p.z); g.rotation.set(0, -p.th, Math.atan2(yF - yR, BUS.wheelbase));   // pitched like the car: the nose up on an uphill road
-  const side = busBlinker(b, postautoClock());
+  const side = busBlinker(b, now);
   g.userData.blink.left.visible = flashOn && side === 'left'; g.userData.blink.right.visible = flashOn && side === 'right';
   g.userData.spin = stepWheelSpin(g.userData.spin, b.v, VEHICLES.bus.wheelR, dt);   // #709: like drawWheels; a standing bus (v 0) keeps its wheels still
   for (const roll of g.userData.wheelRolls) roll.rotation.z = -g.userData.spin;
