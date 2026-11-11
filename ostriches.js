@@ -192,8 +192,3 @@ export function stepFlock(flock, dt, player, rnd) {
   for (const b of flock.birds) stepBird(b, dt, player, rnd);
   pushApart(flock.birds);
 }
-
-// the J list's row: on the Hauptstrasse in front of the farm, looking at the paddock (landmarks.js carries it)
-export function paddockEntry() {
-  return { name: 'Straussenfarm Sisseln', gemeinde: 'Sisseln', at: [2345, -318], look: [2385, -400] };
-}

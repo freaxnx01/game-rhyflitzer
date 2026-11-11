@@ -2,7 +2,7 @@
 // Pure module (ostriches.js); the glue (meshes, solids, stepOstriches) lives in index.html and is covered by tests/test_ostriches.py.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OSTRICH, PADDOCK, inPaddock, fencePosts, makeFlock, stepFlock, paddockEntry } from '../ostriches.js';
+import { OSTRICH, PADDOCK, inPaddock, fencePosts, makeFlock, stepFlock } from '../ostriches.js';
 import { LANDMARK_INFO } from '../landmarks.js';
 import { rng } from '../world.js';
 
@@ -126,16 +126,8 @@ test('walking swings the legs opposite, standing keeps them still', () => {
   assert.equal(stayer.legL, 0);
 });
 
-test('paddockEntry names the farm, the Gemeinde, the road spot and the look target', () => {
-  const e = paddockEntry();
-  assert.equal(e.name, 'Straussenfarm Sisseln');
-  assert.equal(e.gemeinde, 'Sisseln');
-  assert.deepEqual(e.at, [2345, -318]);
-  assert.deepEqual(e.look, [2385, -400]);
-});
-
 test('landmarks.js carries the paddock entry, so J lists the farm (#846)', () => {
-  const e = paddockEntry();
+  const e = { name: 'Straussenfarm Sisseln', gemeinde: 'Sisseln', at: [2345, -318], look: [2385, -400] };   // landmarks.js is the single source of the J row
   const item = LANDMARK_INFO.find(l => l.name === e.name);
   assert.ok(item, 'Straussenfarm Sisseln is not in LANDMARK_INFO');
   assert.equal(item.gemeinde, e.gemeinde);
