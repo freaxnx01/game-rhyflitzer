@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE, easeEye } from '../foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE, easeEye, smoothK, easeTo, easeLook, LOOK_EASE } from '../foot.js';
 import { footView } from '../camera.js';
 import { colliderPush } from '../world.js';
 import { translate } from '../strings.js';
@@ -305,4 +305,52 @@ test('easeEye_SmallRamp_NotAbsorbed', () => {
   let st = easeEye(null, 0, true, 1 / 60);
   st = easeEye(st, 0.02, true, 1 / 60);
   assert.equal(st.off, 0);
+});
+
+// #895: eased walking, turning and camera -- the pure helpers. easeTo returns the end value and the exact mean over the
+// step, so a distance integrates the same whatever the dt split (frame-rate independence is the whole point).
+test('easeTo_SplitDt_SameDistance', () => {
+  const distance = (steps) => { let v = 0, d = 0; for (let i = 0; i < steps; i++) { const r = easeTo(v, 4.5, 1 / steps, 0.1); d += r.avg * (1 / steps); v = r.v; } return d; };
+  close(distance(60), distance(30), 1e-9);
+  close(distance(60), distance(1), 1e-9);
+});
+
+test('easeTo_After3Tau_At95Percent', () => {
+  const r = easeTo(0, 4.5, 3 * 0.1, 0.1);
+  assert.ok(r.v >= 0.95 * 4.5 && r.v < 4.5, `after 3 tau at ${r.v}`);
+});
+
+test('easeTo_NeverOvershoots', () => {
+  let v = 0; for (let i = 0; i < 60; i++) { const r = easeTo(v, 4.5, 1 / 60, 0.1); assert.ok(r.v >= v && r.v <= 4.5, `from below ${r.v}`); v = r.v; }
+  v = 10; for (let i = 0; i < 60; i++) { const r = easeTo(v, 4.5, 1 / 60, 0.1); assert.ok(r.v <= v && r.v >= 4.5, `from above ${r.v}`); v = r.v; }
+});
+
+test('easeTo_ZeroTau_JumpsToTarget', () => {
+  assert.deepEqual(easeTo(0, 4.5, 1 / 60, 0), { v: 4.5, avg: 4.5 });
+  assert.deepEqual(easeTo(3, 1, 1 / 60, 0), { v: 1, avg: 1 });
+});
+
+// the view yaw/pitch follow the body's, the yaw by the shortest angle; a gap over LOOK_EASE.snap (a teleport, entering
+// foot) snaps instead of sweeping
+test('easeLook_NullView_Snaps', () => {
+  assert.deepEqual(easeLook(null, 1.234, 0.567, 1 / 60), { th: 1.234, pitch: 0.567 });
+});
+
+test('easeLook_Follows_ByTheShortestAngle', () => {
+  const first = easeLook({ th: 3.0, pitch: 0 }, -3.0, 0, 1 / 60);
+  assert.ok(first.th > 3.0 && first.th - 3.0 < 0.284, `turns across pi, not 6 rad: ${first.th}`);
+  let v = first; for (let i = 0; i < 180; i++) v = easeLook(v, -3.0, 0, 1 / 60);
+  close(v.th, -3.0 + 2 * Math.PI, 1e-9, 'settled on the target angle');
+});
+
+test('easeLook_GapOverSnap_Snaps', () => {
+  assert.deepEqual(easeLook({ th: 0, pitch: 0 }, 2.0, 0, 1 / 60), { th: 2.0, pitch: 0 });
+  assert.deepEqual(easeLook({ th: 0, pitch: 0 }, 0, LOOK_EASE.snap + 0.1, 1 / 60), { th: 0, pitch: LOOK_EASE.snap + 0.1 });
+});
+
+test('easeLook_SplitDt_SameResult', () => {
+  const once = easeLook({ th: 1.0, pitch: 0.2 }, 1.5, 0.4, 0.1);
+  let v = { th: 1.0, pitch: 0.2 }; for (let i = 0; i < 10; i++) v = easeLook(v, 1.5, 0.4, 0.01);
+  close(v.th, once.th, 1e-9); close(v.pitch, once.pitch, 1e-9);
+  close(smoothK(0.1, LOOK_EASE.tau), smoothK(0.1, LOOK_EASE.tau), 1e-12);
 });

@@ -1,6 +1,6 @@
 // #202: on foot (Z) -- the walker's pure model, no three.js, no DOM. Unit-tested with `node --test tests/*.test.mjs`.
 // Same frame as the car: x east, z south, th = heading (0 = +x, grows to the right). Units m, m/s, m/s², rad.
-export const WALKER = { eye: 1.7, radius: 0.35, walk: 4.5, hover: 11, nitro: 2, climb: 6, turnRate: 2.2, gravity: 22, jumpV: 6, stepUp: 0.6, enterReach: 2.5, exitGap: 0.6, mouse: 0.0025, pitchMax: 1.4, hoverMaxAgl: 150 };
+export const WALKER = { eye: 1.7, radius: 0.35, walk: 4.5, hover: 11, nitro: 2, climb: 6, turnRate: 2.2, walkTau: 0.10, turnTau: 0.12, gravity: 22, jumpV: 6, stepUp: 0.6, enterReach: 2.5, exitGap: 0.6, mouse: 0.0025, pitchMax: 1.4, hoverMaxAgl: 150 };
 
 const held = (keys, codes) => codes.some(c => keys[c]);
 const axis = (plus, minus) => (plus ? 1 : 0) - (minus ? 1 : 0);
@@ -38,6 +38,27 @@ function walkStep(s, input, dt, floor, cfg) {
   if (grounded && input.lift <= 0) return { ...s, y: floor, vy: 0 };
   const vy = grounded ? cfg.jumpV : s.vy - cfg.gravity * dt, y = s.y + (s.vy + vy) / 2 * dt;
   return y <= floor ? { ...s, y: floor, vy: 0 } : { ...s, y, vy };
+}
+
+// #895: frame-rate independent easing -- the fraction of the gap closed over dt for a time constant tau
+export const smoothK = (dt, tau) => (tau > 0 ? 1 - Math.exp(-dt / tau) : 1);
+// v eases from v0 to target; avg is the exact mean value over dt (so a distance integrates exactly, whatever the dt split)
+export function easeTo(v0, target, dt, tau) {
+  if (!(tau > 0) || !(dt > 0)) return { v: target, avg: target };
+  const k = smoothK(dt, tau);
+  return { v: v0 + (target - v0) * k, avg: target + (v0 - target) * (k * tau / dt) };
+}
+
+// #895: the camera's yaw/pitch follow the body's lightly damped (tau ~40 ms), the yaw by the shortest angle; a gap
+// over `snap` rad (a teleport, entering foot) snaps instead of sweeping
+export const LOOK_EASE = { tau: 0.04, snap: 1.2 };
+const wrapAngle = (a) => { const w = (a + Math.PI) % (2 * Math.PI); return w <= 0 ? w + Math.PI : w - Math.PI; };
+export function easeLook(view, th, pitch, dt, ease = LOOK_EASE) {
+  if (!view) return { th, pitch };
+  const d = wrapAngle(th - view.th);
+  if (Math.abs(d) > ease.snap || Math.abs(pitch - view.pitch) > ease.snap) return { th, pitch };
+  const k = smoothK(dt, ease.tau);
+  return { th: view.th + d * k, pitch: view.pitch + (pitch - view.pitch) * k };
 }
 
 // #592: the camera's eye height eases out over a tread snap; the body's y (physics) stays exact.
