@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Changed
+
+- `2026-11-11 14:52` The **Rhy Gullwing** now looks like the real thing: a detailed **3D model** in brushed steel with the proper wedge nose, louvres and door handles. The **gull-wing doors** still swing up on the start screen, the lamps still follow <kbd>L</kbd>.
+
 ### Added
 
 - `2026-11-10 22:25` Die **Plattform Sisslerfeld** sieht jetzt aus wie das Original: **weisses Dach**, **Sparren** und **Pfetten** unter dem Dach, **Streben** an den Pfosten, **Lattenwand** mit Lücken und **Brüstung** mit **Handlauf** um den Treppenausstieg, dickere helle Stufen. Das Holz leuchtet jetzt hell wie frische Fichte statt bräunlich, und die Pfosten reichen bis unter die Sparren.

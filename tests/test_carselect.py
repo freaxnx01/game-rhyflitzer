@@ -191,6 +191,9 @@ def test_delorean_has_fixed_paint_and_its_own_texts_and_bars(server):
         open_carsel(page)
         page.click("#csnext")
         page.wait_for_function("() => window.__mm.carsel().id === 'delorean'", timeout=T)
+        # #831: the DeLorean is a glTF car now, so the stage car stays the compact until delorean.glb is there; carsel().paintable
+        # reads the built car, and only the swapped-in model answers for the DeLorean (the swatches are off from the pick on).
+        page.wait_for_function("() => window.__mm.gltfVehicle('delorean').state === 'ready' && window.__mm.vehicle().model === 'delorean'", timeout=180000)
         fixed = page.evaluate("() => ({ disabled: [...document.querySelectorAll('#cspaints button')].every(b => b.disabled), name: document.querySelector('#cspaintname').textContent, paintable: window.__mm.carsel().paintable })")
         texts = page.evaluate("() => ({ count: document.querySelector('#cscount').textContent, name: document.querySelector('#csname').textContent, cls: document.querySelector('#csclass').textContent, desc: document.querySelector('#csdesc').textContent, model: window.__mm.vehicle().model })")
         bars = lit_counts(page)
@@ -271,6 +274,7 @@ def test_changing_the_vehicle_mid_race_keeps_the_run_and_flags_it(server):
         shown = page.evaluate("() => ({ pauseShown: !document.querySelector('#pause').hidden, drive: document.querySelector('#csrace').textContent })")
         page.evaluate(CLICK, "#csnext")
         page.wait_for_function("() => window.__mm.carsel().id === 'delorean'", timeout=T)
+        page.wait_for_function("() => !document.querySelector('#csrace').disabled", timeout=180000)   # #831: Drive on waits for delorean.glb, as it does for every glTF car
         page.evaluate(CLICK, "#csrace")
         page.wait_for_function("() => !window.__mm.carsel().open && !window.__mm.pause().on", timeout=T)
         after = page.evaluate(RUN)
