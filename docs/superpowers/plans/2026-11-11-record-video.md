@@ -63,9 +63,9 @@ test('formatClock: m:ss', () => {
   assert.equal(formatClock(0), '0:00'); assert.equal(formatClock(65), '1:05'); assert.equal(formatClock(3600), '60:00');
 });
 ```
-- [ ] **Step 2:** `node --test tests/record.test.mjs` -> FAIL (module missing).
+- [ ] **Step 2:** run -> FAIL.
 - [ ] **Step 3:** Implement `record.js` to the interfaces above, no hardcoded results.
-- [ ] **Step 4:** run again -> PASS. Commit `feat(record): pure recording rules (#749)`.
+- [ ] **Step 4:** PASS; commit `feat(record): pure rules (#749)`.
 
 ## Task 2: pause.js + controls.js
 
