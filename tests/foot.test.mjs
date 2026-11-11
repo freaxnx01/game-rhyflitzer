@@ -10,6 +10,9 @@ const IDLE = { fwd: 0, side: 0, turn: 0, lift: 0, nitro: 0 };
 const flat = (h = 0) => () => h;
 const run = (s, input, secs, floorAt = flat()) => { for (let i = 0; i < secs * 60; i++) s = stepFoot(s, input, 1 / 60, floorAt); return s; };
 const at = (o) => ({ x: 0, z: 0, y: 0, th: 0, vy: 0, hover: false, ...o });
+// #895: speeds ease in, so a test that pins a full-speed number settles first (2 s: within 1e-8 of the target) and
+// measures the next second -- the asserted numbers and tolerances are unchanged, only the lead-in is new
+const settle = (s, input, floorAt) => run(s, input, 2, floorAt);
 const box = (o) => ({ x: 0, z: 0, hw: 5, hd: 5, c: 1, s: 0, h: 10, ...o });
 
 test('footInput_Keys_MapToAxes', () => {
@@ -29,20 +32,28 @@ test('footInput_Stick_AddsToTheKeys_Clamped', () => {
   assert.deepEqual(footInput({ KeyW: true }), footInput({ KeyW: true }, null));
 });
 
+// #895: walking eases in -- settle first, then the next second covers walk metres exactly (same 4.5, same 1e-6)
 test('stepFoot_WalkForward_MovesAtWalkSpeedAlongHeading', () => {
-  const s = run(at({ th: Math.PI / 2 }), { ...IDLE, fwd: 1 }, 2);
-  close(s.x, 0, 1e-6); close(s.z, 2 * WALKER.walk, 1e-6); close(s.y, 0, 1e-9);
+  const s0 = settle(at({ th: Math.PI / 2 }), { ...IDLE, fwd: 1 });
+  const s = run(s0, { ...IDLE, fwd: 1 }, 1);
+  close(s.x, 0, 1e-6); close(s.z - s0.z, WALKER.walk, 1e-6); close(s.y, 0, 1e-9);
 });
 
+// #895: the sidestep eases on its own axis -- settled, the diagonal still covers walk metres, not more
 test('stepFoot_ForwardPlusSidestep_IsNotFaster', () => {
-  const s = run(at(), { ...IDLE, fwd: 1, side: 1 }, 1);
-  close(Math.hypot(s.x, s.z), WALKER.walk, 1e-6);
+  const s0 = settle(at(), { ...IDLE, fwd: 1, side: 1 });
+  const s = run(s0, { ...IDLE, fwd: 1, side: 1 }, 1);
+  close(Math.hypot(s.x - s0.x, s.z - s0.z), WALKER.walk, 1e-6);
   assert.ok(s.z > 0, 'D sidesteps to the right (+z when facing +x)');
 });
 
+// #895: the turn rate eases in -- settled it is the full turnRate, and the angle lost to the ramp over the first
+// second from rest is the analytic integral of the missing rate
 test('stepFoot_TurnKeys_ChangeHeading', () => {
-  const s = run(at(), { ...IDLE, turn: 1 }, 1);
-  close(s.th, WALKER.turnRate, 1e-6);
+  const settled = settle(at(), { ...IDLE, turn: 1 });
+  close(settled.tw, WALKER.turnRate, 1e-6);
+  const fromRest = run(at(), { ...IDLE, turn: 1 }, 1);
+  close(WALKER.turnRate * 1 - fromRest.th, WALKER.turnRate * WALKER.turnTau * (1 - Math.exp(-1 / WALKER.turnTau)), 1e-6);
 });
 
 test('stepFoot_WalkInAir_FallsOntoTheFloor', () => {
@@ -71,8 +82,10 @@ test('stepFoot_Hover_SpaceClimbsShiftSinksNeverBelowFloor', () => {
   close(stay.y, up.y, 1e-9, 'hover holds the height without input');
   const down = run(up, { ...IDLE, lift: -1 }, 10);
   close(down.y, 0, 1e-9);
-  const fast = run(at({ hover: true }), { ...IDLE, fwd: 1 }, 1);
-  close(fast.x, WALKER.hover, 1e-6);
+  // #895: the hover glide eases in too -- settle, then the next second covers hover metres (same 11, same 1e-6)
+  const fast0 = settle(at({ hover: true }), { ...IDLE, fwd: 1 });
+  const fast = run(fast0, { ...IDLE, fwd: 1 }, 1);
+  close(fast.x - fast0.x, WALKER.hover, 1e-6);
 });
 
 test('footFloor_BoxTopWithinStepUp_IsTheFloor', () => {
@@ -179,16 +192,20 @@ test('footStrings_BothLanguages_SwissGerman', () => {
   assert.match(translate('en', 'footOut'), /Z/); assert.match(translate('de', 'footOut'), /Zu Fuss/);
 });
 
-// #404: N held on foot doubles the horizontal speed (walk 4.5 -> 9, hover 11 -> 22); climb and sink stay as they are
+// #404: N held on foot doubles the horizontal speed (walk 4.5 -> 9, hover 11 -> 22); climb and sink stay as they are.
+// #895: the eased speed settles first -- the next second still covers twice the walk metres (same 2x, same 1e-6)
 test('stepFoot_WalkWithNitro_IsTwiceAsFast', () => {
-  const s = run(at(), { ...IDLE, fwd: 1, nitro: 1 }, 2);
-  close(s.x, 2 * 2 * WALKER.walk, 1e-6);
+  const s0 = settle(at(), { ...IDLE, fwd: 1, nitro: 1 });
+  const s = run(s0, { ...IDLE, fwd: 1, nitro: 1 }, 1);
+  close(s.x - s0.x, 2 * WALKER.walk, 1e-6);
   assert.equal(WALKER.nitro, 2);
 });
 
+// #895: settle the horizontal glide only (no lift held: hover holds the height), so the climb assertion keeps its metre
 test('stepFoot_HoverWithNitro_IsTwiceAsFastButClimbsAsBefore', () => {
-  const s = run(at({ hover: true, y: 20 }), { ...IDLE, fwd: 1, lift: 1, nitro: 1 }, 1, flat(0));
-  close(s.x, 2 * WALKER.hover, 1e-6); close(s.y, 20 + WALKER.climb, 1e-6);
+  const s0 = settle(at({ hover: true, y: 20 }), { ...IDLE, fwd: 1, nitro: 1 }, flat(0));
+  const s = run(s0, { ...IDLE, fwd: 1, lift: 1, nitro: 1 }, 1, flat(0));
+  close(s.x - s0.x, 2 * WALKER.hover, 1e-6); close(s.y, 20 + WALKER.climb, 1e-6);
 });
 
 test('stepFoot_NitroWithoutMovement_DoesNothing', () => {
@@ -196,9 +213,11 @@ test('stepFoot_NitroWithoutMovement_DoesNothing', () => {
   close(s.x, 0, 1e-9); close(s.z, 0, 1e-9);
 });
 
+// #895: the diagonal eases on both local axes -- settled, it still covers nitro speed, not more (same 2x, same 1e-6)
 test('stepFoot_DiagonalWithNitro_IsNotFasterThanStraight', () => {
-  const s = run(at(), { ...IDLE, fwd: 1, side: 1, nitro: 1 }, 1);
-  close(Math.hypot(s.x, s.z), 2 * WALKER.walk, 1e-6);
+  const s0 = settle(at(), { ...IDLE, fwd: 1, side: 1, nitro: 1 });
+  const s = run(s0, { ...IDLE, fwd: 1, side: 1, nitro: 1 }, 1);
+  close(Math.hypot(s.x - s0.x, s.z - s0.z), 2 * WALKER.walk, 1e-6);
 });
 
 test('keyFoot_MentionsNitro_InBothLanguages', () => {
