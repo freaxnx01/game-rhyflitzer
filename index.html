@@ -5293,7 +5293,7 @@ window.__mm.openCutFaces = (step = 0.5) => {
   const out = [], trough = [], slope = []; let checked = 0;
   const covers = (w, x, z) => { const dx = x - w.x, dz = z - w.z, c = Math.cos(w.rot), s = Math.sin(w.rot); return Math.abs(dx * c + dz * s) <= w.len / 2 + 0.3 && Math.abs(-dx * s + dz * c) <= UNDERPASS.wall / 2 + 0.3; };
   for (const a of ARMS) {
-    const [x0, z0, x1, z1] = a.bounds, box = (w) => w.x > x0 - 3 && w.x < x1 + 3 && w.z > z0 - 3 && w.z < z1 + 3, walls = WALLS.filter(box), slopes = SLOPES.filter(box);
+    const [x0, z0, x1, z1] = a.bounds, inArm = (w) => w.x > x0 - 3 && w.x < x1 + 3 && w.z > z0 - 3 && w.z < z1 + 3, walls = WALLS.filter(inArm), slopes = SLOPES.filter(inArm);
     for (let x = x0; x <= x1; x += step) for (let z = z0; z <= z1; z += step) {
       const d = cutDepth(x, z); if (d <= 0.3 || roadDist(x, z, 16) < UNDERPASS.margin) continue;
       checked++;

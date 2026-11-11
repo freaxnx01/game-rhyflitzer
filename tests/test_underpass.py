@@ -219,6 +219,11 @@ def test_walls_follow_skewed_decks_and_leave_side_roads_open(server):
                 assert dseg(ex, ez, r["pts"]) >= r["w"] / 2 + 1.0 + 0.25, (r["n"], round(dseg(ex, ez, r["pts"]) - r["w"] / 2, 3), x)
 
 
+# #844: south of Stein the main road's west wall run is cut short by the service road w1216639317's gap; the 1 m piece left
+# at (-887.64, 1177.95) stood at the lane edge where the road itself is not lowered and stopped cars 23 m before the decks
+STEIN_STUB = (-887.64, 1177.95)
+
+
 @needs_world
 def test_no_open_cut_faces(server):
     """#120: wherever a cut network lowers the ground by more than 0.3 m outside every road corridor, a trough wall stands
@@ -238,11 +243,14 @@ def test_no_open_cut_faces(server):
     # not open, and shallow (the Stein corner measured 0.22-0.64 m at the dropped piece's inner face)
     assert r["slope"] > 0, "the Stein corner must show up as a slope"
     assert r["slopeMax"] <= 1.0, r["slopePts"][:30]
+    # the slope rule in troughPiece (index.html) is generic: every wall piece over an un-lowered carriageway becomes a
+    # slope. The Stein corner is the only spot where that is by design -- so every slope point must lie there, and a slope
+    # wrongly recorded anywhere else fails here instead of masking an open face in the count above
+    assert all(math.hypot(x - STEIN_STUB[0], z - STEIN_STUB[1]) < 3 for x, z, _ in r["slopePts"]), r["slopePts"][:30]
 
 
 # #844: south of Stein the main road's west wall run is cut short by the service road w1216639317's gap; the 1 m piece left
 # at (-887.64, 1177.95) stood at the lane edge where the road itself is not lowered and stopped cars 23 m before the decks
-STEIN_STUB = (-887.64, 1177.95)
 STEIN_RUN = (-888.54, 1185.99)      # the west run in the real cut (1.5-2 m deep), which stays
 TESTER = (-881.7, 1143.9)           # the tester's spot, 2.6 m west of the centre line
 
