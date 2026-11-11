@@ -90,7 +90,8 @@ jobs:
         run: |
           gpu=false
           if [ "$HOSTED" != true ]; then
-            if [ "$EVENT" = workflow_dispatch ] || { [ "$EVENT" = pull_request ] && [ "$HEAD_REPO" = "$REPO" ]; }; then gpu=true; fi
+            # #746: the nightly too -- on hosted runners (SwiftShader) the full suite never fit its time limit
+            if [ "$EVENT" = workflow_dispatch ] || [ "$EVENT" = schedule ] || { [ "$EVENT" = pull_request ] && [ "$HEAD_REPO" = "$REPO" ]; }; then gpu=true; fi
           fi
           if [ "$gpu" = true ]; then labels='["self-hosted","gpu-browser"]'; else labels='["ubuntu-latest"]'; fi
           echo "gpu=$gpu" >> "$GITHUB_OUTPUT"; echo "labels=$labels" >> "$GITHUB_OUTPUT"; echo "browser tests on $labels"
@@ -125,7 +126,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.count != '0'
     runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}
-    timeout-minutes: 30
+    # #746: a full run (nightly or dispatched with all) is ~1360 tests, about 2 1/4 h per shard on the two GPU runners;
+    # a PR's selection stays within 30 min
+    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.all) && 150 || 30 }}
     env:
       GPU: ${{ needs.plan.outputs.gpu }}
     strategy:
