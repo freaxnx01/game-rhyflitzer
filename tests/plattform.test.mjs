@@ -225,6 +225,14 @@ test('roofRafters_15PerFace_RunFromEaveToHip', () => {
   }
 });
 
+// #855: the rafter rise follows the roof pitch of the plan, not an implicit 45 deg
+test('roofRafters_Rise_FollowsTheRoofPitch', () => {
+  for (const pitch of [45, 30]) {
+    const P = { ...PLATTFORM, roof: { ...PLATTFORM.roof, pitch } }, t = Math.tan(pitch * Math.PI / 180);
+    assert.ok(roofRafters(P).every(q => near(q.rise, q.d * t)));
+  }
+});
+
 test('plattformHopLanding_Down_StandsOutsideTheDoorOnTheGround', () => {
   const l = plattformHopLanding(F, BASE, 'down');
   assert.equal(l.y, BASE);

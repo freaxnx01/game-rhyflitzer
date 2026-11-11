@@ -10,7 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
-- `2026-11-10 22:25` Die **Plattform Sisslerfeld** sieht jetzt aus wie das Original: **weisses Dach**, **Sparren** und **Pfetten** unter dem Dach, **Streben** an den Pfosten, **Lattenwand** mit Lücken und **Brüstung** mit **Handlauf** um den Treppenausstieg, dickere helle Stufen.
+- `2026-11-10 22:25` Die **Plattform Sisslerfeld** sieht jetzt aus wie das Original: **weisses Dach**, **Sparren** und **Pfetten** unter dem Dach, **Streben** an den Pfosten, **Lattenwand** mit Lücken und **Brüstung** mit **Handlauf** um den Treppenausstieg, dickere helle Stufen. Das Holz leuchtet jetzt hell wie frische Fichte statt bräunlich, und die Pfosten reichen bis unter die Sparren.
 
 ### Fixed
 

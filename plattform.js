@@ -148,7 +148,7 @@ export function plattformYard(frame, P = PLATTFORM) {
 
 // #855: the core as single spruce slats, one per angle: from the ground (the door lintel inside the door) up to the deck, and
 // inside the rail range (the parapet round the stair opening) on up to the underside of the handrail ring
-export const SLAT = { w: 0.09, d: 0.06 }, HANDRAIL = { h: 0.1, half: 0.07 };
+export const SLAT = { w: 0.09, d: 0.06 }, HANDRAIL = { h: 0.1, half: 0.1 };
 const inArc = (phi, from, to) => { const a = ((phi - from) % 360 + 360) % 360; return a < to - from; };
 export function coreSlats(P = PLATTFORM, n = 72) {
   const { core, deck } = P, out = [];
@@ -162,13 +162,14 @@ export function coreSlats(P = PLATTFORM, n = 72) {
 }
 
 // #855: the rafters under each roof face, perpendicular to the eave: u = offset along the eave from the face centre,
-// d = the horizontal run inward from the eave to the hip (the rafter rises d * tan(pitch))
-export const RAFTER = { pitch: 0.8, t: 0.12, drop: 0.2, tail: 0.25 };
+// d = the horizontal run inward from the eave to the hip, rise = how much it climbs on that run (the roof pitch of the plan);
+// tail: the rafter heads stick out only just past the fascia, under the roof edge, not beyond the roof's silhouette
+export const RAFTER = { pitch: 0.8, t: 0.12, drop: 0.2, tail: 0.05 };
 export function roofRafters(P = PLATTFORM, pitch = RAFTER.pitch) {
-  const side = P.roof.side, ri = side / (2 * Math.sqrt(3)), m = Math.floor(side / pitch), out = [];
+  const side = P.roof.side, ri = side / (2 * Math.sqrt(3)), m = Math.floor(side / pitch), slope = Math.tan(P.roof.pitch * RAD), out = [];
   for (let face = 0; face < 3; face++) for (let j = 0; j < m; j++) {
-    const u = (j - (m - 1) / 2) * pitch;
-    out.push({ face, u, d: ri * (1 - Math.abs(u) / (side / 2)) });
+    const u = (j - (m - 1) / 2) * pitch, d = ri * (1 - Math.abs(u) / (side / 2));
+    out.push({ face, u, d, rise: d * slope });
   }
   return out;
 }
