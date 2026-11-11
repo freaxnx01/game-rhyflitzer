@@ -1,5 +1,6 @@
 """#735: the car radio and the menu music in a real browser. Hand layout (terrain and world blocked), autoplay allowed.
 The SRF 3 stream is never reached: hermetic_api aborts *.srg-ssr.ch, and the stub tests answer it with a local mp3.
+#841: the menu-music tests also run one load without the autoplay flag (blocked: silent until the first key).
 Slow (Playwright): run in the foreground."""
 from pathlib import Path
 
@@ -45,18 +46,50 @@ def start_run(page):
     page.wait_for_function("() => window.__mm.radio().inRun", timeout=T)
 
 
-def test_menu_music_loads_only_after_the_first_input(server):
+def test_menu_music_starts_during_loading(server):
     with sync_playwright() as p:
         b, page, errors, music = open_game(p, server)
-        page.wait_for_timeout(1500)
-        assert music == [], music                       # nothing fetched while loading or idling on the start screen
-        page.keyboard.press("Shift")                    # any first input arms it
+        assert any("menu-running-title.mp3" in u for u in music), music     # fetched at load start, autoplay allowed
+        page.keyboard.press("Shift")
         page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
-        assert all("menu-running-title.mp3" in u for u in music), music
         page.click("#musicbtn")
         page.wait_for_function("() => !window.__mm.radio().menuOn", timeout=T)
         assert page.evaluate("() => localStorage.getItem('mm.menuMusic')") == "0"
         assert "Music: off" in page.inner_text("#musicbtn") or "Musik: aus" in page.inner_text("#musicbtn")
+        assert errors == [], errors
+        b.close()
+
+
+def test_menu_music_off_fetches_nothing_while_loading(server):
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        ctx = b.new_context(viewport={"width": 1280, "height": 720})
+        ctx.add_init_script("localStorage.setItem('mm.menuMusic', '0')")
+        page, music = ctx.new_page(), []
+        page.on("request", lambda r: music.append(r.url) if "/assets/music/" in r.url else None)
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.wait_for_timeout(1500)
+        assert music == [], music
+        b.close()
+
+
+def test_menu_music_blocked_autoplay_waits_for_the_first_key(server):
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=[a for a in ARGS if "autoplay" not in a])
+        ctx = b.new_context(viewport={"width": 1280, "height": 720})
+        page, errors = ctx.new_page(), []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/index.html")
+        page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.wait_for_timeout(500)
+        assert not page.evaluate("() => window.__mm.radio().playing.menu")   # the refusal stays silent
+        page.keyboard.press("Shift")
+        page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
         assert errors == [], errors
         b.close()
 

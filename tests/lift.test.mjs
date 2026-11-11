@@ -201,3 +201,15 @@ test('freightPadView_OwnStopDisabled_ChoiceLit_AllDisabledDuringARide', () => {
   l.call('ring2'); assert.deepEqual(freightPadView(l).map(b => b.on), [false, false, true]);
   l.step(0.05, at('top')); assert.deepEqual(freightPadView(l).map(b => [b.disabled, b.on]), [[true, false], [true, false], [true, true]]);
 });
+
+// #603: the cab's faces -- BoxGeometry order px, nx, py, ny, pz, nz: the four walls scroll, ceiling (py) and floor (ny) stay still
+import { CAB_FACE_SCROLLS, cabCentre } from '../lift.js';
+
+test('CAB_FACE_SCROLLS_FourWallsScrollCeilingAndFloorStayStill', () => {
+  assert.deepEqual(CAB_FACE_SCROLLS, [true, true, false, false, true, true]);
+});
+
+test('cabCentre_CarOffTheAxis_SitsOnTheLiftAxisNotOnTheCar', () => {
+  const lift = { c: [100, 200], th: 0.7 };
+  assert.deepEqual(cabCentre(lift, 5, 3.5), { x: 100, y: 8.5, z: 200 });
+});

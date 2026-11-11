@@ -250,13 +250,26 @@ body.view #tr{display:none}   /* #824: the viewpoint score never uses time, so n
 .ab-tabs [role=tab]:focus-visible{outline:3px solid var(--sun);outline-offset:-3px}
 .ab-panels{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
 .ab-panel[hidden]{display:none}
-#about a{color:#8fd8e8}
+ #about a{color:#8fd8e8}
 .ab-foot{margin:0;padding-top:10px;border-top:3px solid var(--steel);color:var(--steel-l)}
+/* #842 Settings: the frame like #about, one stacked section now (Audio); #546 appends .st-sec blocks later */
+#settings{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;gap:16px;padding:16px 24px 24px;box-sizing:border-box;overflow:hidden;background:var(--ink);color:#f5efe0}
+#settings[hidden]{display:none}
+.st-panels{flex:1;min-height:0;overflow-y:auto}
+.st-sec h2{margin:0 0 8px;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel)}
+.st-row{display:grid;grid-template-columns:minmax(120px,1fr) auto minmax(160px,2fr) auto;gap:12px 16px;align-items:center;padding:14px 0;border-bottom:3px solid var(--steel)}
+.st-label{font-size:22px;font-weight:800;font-style:italic;letter-spacing:1px;text-transform:uppercase;color:var(--cream)}
+.st-cap{grid-column:1/-1;margin:0;font-size:15px;color:var(--steel-l)}
+.st-val{min-width:9ch}
+#settings input[type=range]{width:100%;height:44px;accent-color:var(--sun);margin:0}
+#settings input[type=range]:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+@media (max-width:600px){.st-row{grid-template-columns:1fr auto}.st-row input{grid-column:1/-1}}
 /* the speedo, clock, map and driving buttons mean nothing on the start screen or while choosing a world; #toast and #debug stay */
 body:has(#overlay:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
 body:has(#worlds:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
 body:has(#about:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
-body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast){display:none}
+body:has(#settings:not([hidden])) :is(#tl,#tr,#bl,#br,#pausebtn,#touch,#keybar,#radiobtn,#radiopanel),
+body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])) #tc>:not(#toast),body:has(#about:not([hidden])) #tc>:not(#toast),body:has(#settings:not([hidden])) #tc>:not(#toast){display:none}
 @media (max-width:600px){
   .tags{padding:10px 12px 0}.start .sub,.tag{font-size:11px;padding:4px 8px;letter-spacing:1px}
   .logo{padding:14px 12px 0;gap:8px}.start h1{font-size:48px;letter-spacing:-1px;text-shadow:3px 3px 0 var(--signal),6px 6px 0 var(--burnt),9px 9px 0 var(--charcoal)}
@@ -595,6 +608,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="worldbtn" class="btn small" type="button"></button>
         <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
         <button id="aboutbtn" class="btn small" type="button" data-i18n="aboutBtn" style="text-transform:none">About</button>
+        <button id="settingsbtn" class="btn small" type="button" data-i18n="settingsBtn" style="text-transform:none">Settings</button>
         <button id="musicbtn" class="btn small" type="button" aria-pressed="true" style="text-transform:none">Music: on</button>
       </div>
     </div>
@@ -694,6 +708,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <dl class="ab-people">
         <dt>Kicsi</dt><dd data-i18n="aboutRoleKicsi"></dd>
         <dt>Tschosi "forwardare"<br>Ätti aka L.A. Brace</dt><dd data-i18n="aboutRoleTschosi"></dd>
+        <dt>Eric</dt><dd data-i18n="aboutRoleEric"></dd>
       </dl>
     </section>
     <section id="aboutpanel-game" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-game" hidden>
@@ -701,6 +716,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <p><a data-link="midtown" data-i18n="aboutInspired"></a></p>
       <p data-i18n="aboutPrivacy"></p>
       <p><a data-link="privacy" data-i18n="aboutPrivacyLink"></a></p>
+      <p><span data-i18n="aboutContact"></span> <a id="aboutcontact"></a></p>
     </section>
     <section id="aboutpanel-credits" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-credits" hidden>
       <dl class="ab-credits">
@@ -742,6 +758,26 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     </section>
   </div>
   <p class="ab-foot"><a data-link="source" data-i18n="aboutSource"></a> · <a data-link="glossary" data-i18n="aboutGlossary"></a> · <span id="aboutversion"></span></p>
+</div>
+
+<!-- #842 Settings, first slice: audio (sound and music). Framed like #about; opened from the start screen (#settingsbtn)
+     and the pause menu (#pausesettings). Later #546 sections (graphics, language, controls) append .st-sec blocks below Audio. -->
+<div id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="settingstitle">
+  <div class="ws-head"><h1 id="settingstitle" data-i18n="setTitle">Settings</h1><span class="ws-sub" data-i18n="setSub">Sound and music</span>
+    <button id="settingsback" class="btn" type="button" data-i18n="carselBack">‹ Back</button></div>
+  <div id="settingspanels" class="st-panels">
+    <section class="st-sec"><h2 data-i18n="setAudio">Audio</h2>
+      <div class="st-row"><span class="st-label" id="setsoundlabel" data-i18n="setSound">Sound</span>
+        <button id="setsound" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setsoundlabel">on</button>
+        <input id="setsoundvol" type="range" min="0" max="10" step="1" aria-labelledby="setsoundlabel">
+        <span id="setsoundpct" class="st-val"></span><p class="st-cap" data-i18n="setSoundCap">engine, horn, crashes …</p></div>
+      <div class="st-row"><span class="st-label" id="setmusiclabel" data-i18n="setMusic">Music</span>
+        <button id="setmusic" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setmusiclabel">on</button>
+        <input id="setmusicvol" type="range" min="0" max="10" step="1" aria-labelledby="setmusiclabel">
+        <span id="setmusicpct" class="st-val"></span><p id="setmusiccap" class="st-cap"></p></div>
+    </section>
+  </div>
+  <p class="ab-foot"><span data-i18n="setHint">Esc: back</span></p>
 </div>
 
 <!-- #7 car selection: the stage is a see-through cut-out onto the live scene (the real car turns on it); the subtitle is the current mode -->
@@ -828,6 +864,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <!-- #801: the PostAuto timetable; hidden in a region without one -->
       <button id="pausetimetable" class="btn" type="button" data-i18n="ttPauseBtn">Timetable</button>
       <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
+      <!-- #842: Settings after About, like the start screen -->
+      <button id="pausesettings" class="btn" type="button" data-i18n="settingsBtn">Settings</button>
       <button id="pausekeybar" class="btn" type="button" aria-pressed="true">Key bar: on</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
@@ -881,7 +919,7 @@ import { encodeCode, decodeCode, parseMessage, cleanName, CODE_TTL, CLASSES, MAX
 import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage } from './netrace.js';
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
-import { createLift, shaftScrollDelta, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
+import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
 import { flyAllowed, roomFlyClamp, roomFlyCeiling, ROOMS, ROOMS2, roomLayout, shipFrame, RIM, RINGS, ringOf, ringOfStop, liftStopAt, belowKind, levelY, isRingLevel, isRoomLevel } from './rooms.js';
 import { FRIES } from './fries.js';
@@ -903,6 +941,7 @@ import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTime
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busPose, syncFleet, fleetJumped, stepBus, busBlinker, obstacleGap, busCollider, ledText, tripKey, thankDue, markThanked } from './postauto.js';   // #500
 import { STOP, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider, SIGN_FACES } from './busstop.js';   // #712
+import { poleTop, signPanelZ, POLE_R, FACE_GAP } from './signpole.js';   // #822
 import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindow, cellTime, liveStops, clockText, minutesUntil, stopInReach } from './timetable.js';   // #801
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
@@ -912,7 +951,8 @@ import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautode
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
-import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex } from './about.js';   // #509, #564
+import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction, musicCaptionKey } from './settings.js';   // #842
+import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from './tutorial.js';   // #534
@@ -923,13 +963,14 @@ import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, 
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
 import { FADED, createFader, resetFader, sample, phase, phases, createKeybar, keybarPhase, visibleInMode, headingText } from './hudfade.js';   // #773
+import { clampCentre, zoomAt } from './mapzoom.js';   // #843
 import { capsRow, capsCross } from './keycaps.js';   // #700
 import { bindStick, TOUCH_LOOK } from './touch.js';   // #535 phase 2
 import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInput, nextSwitch, distToEnd, chuffEmit, trainKeyAction, divergingApproaches, TURNTABLE, onTurntable, turnAngle, turnedState } from './train.js';   // #462, #496
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
-import { STAIRHALL, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
@@ -941,7 +982,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor 
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
-import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor } from './radio.js';   // #735
+import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -1020,6 +1061,9 @@ function logStageDone() { if (LOAD_LOG.stage) console.info(`Building the world: 
 // after one frame (or 100 ms, so a background tab, which gets no frames, keeps building), as a new task: the frame is painted by then
 function nextPaint() { return new Promise((res) => { let done = false; const go = () => { if (done) return; done = true; const ch = new MessageChannel(); ch.port1.onmessage = () => res(); ch.port2.postMessage(0); }; requestAnimationFrame(go); setTimeout(go, 100); }); }
 function endLoading() { logStageDone(); console.info(`Building the world: done after ${Math.round(performance.now())} ms.`); document.getElementById('overlay').classList.remove('loading'); }
+// #841: the menu music starts now, not after the world is built; RADIO adopts the element (voice('menu')) once it exists
+const EARLY_MENU = (() => { const get = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  return createEarlyMenu({ menuOn: menuMusicOnFrom(get(RADIO_STORE.menu)), vol: volumeFrom(get(RADIO_STORE.vol)), makeAudio: () => new Audio(), target: window }); })();
 await loadStage('map');
 
 // ---------- helpers ----------
@@ -1465,8 +1509,16 @@ function cutFloorMin(x, z) {
   return f;
 }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
+// #477: 6c's porch and hall footprint. The EG is the terrain at the entrance (#445), but the ground a little further in can lie above it:
+// the pads lower the terrain patches there below the slab (stairhall.js terrainPads). '6c' = INT.house, which is declared further down.
+function hallTerrainPads() {
+  const b = L.buildings.find(isBodenacker6); if (!b) return [];
+  let porch; try { porch = bodenackerHouse(bodenackerLayout(b, 0, Math.max(b.h, 3)), '6c').porch; } catch (e) { return []; }   // the building code warns about a failing layout
+  return terrainPads(porch.entrance, { w: porch.w, d: porch.d }, terrainH(porch.entrance.x, porch.entrance.z));
+}
 function buildCuts() {
   const crossings = railRoadCrossings(L.roads, L.railBridges);
+  const PADS = hallTerrainPads();   // #477: the ground under 6c's porch and stair hall, lowered below the EG slab
   for (const g of L.grades) GRADE_CUTS.push(gradeCut(g, meshH, GRADE_CUT, gradeCaps(g, crossings)));
   for (const c of crossings) CUTS.push(makeCut(c));
   // #156: a lowered patch vertex reaches PATCH_BLEED on (the diagonal of a 1 m cell): lat ends the lowering that far inside the
@@ -1476,10 +1528,11 @@ function buildCuts() {
   if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);
   const fillCell = (i, j) => {
     const p = new Float32Array(W * W); let lowered = false;
-    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z)); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
+    for (let b = 0; b < W; b++) for (let k = 0; k < W; k++) { const x = G.x0 + (i + k / CUT_N) * G.dx, z = G.z0 + (j + b / CUT_N) * G.dz; p[b * W + k] = Math.min(patchGround(x, z), cutFloorMin(x, z), padFloorAt(PADS, x, z) ?? Infinity); if (p[b * W + k] < meshH(x, z) - 1e-4) lowered = true; }
     return { p, lowered };
   };
   for (const a of patchCuts()) for (const [i, j] of patchCells(a.bounds, G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
+  if (PADS.length) for (const [i, j] of patchCells(padBounds(PADS), G)) { const key = i + ',' + j; if (!CUT_CELLS.has(key) || FINE_KEYS.has(key)) CUT_CELLS.set(key, fillCell(i, j).p); }
   // #42: the grade cells are picked generously around the band; one nothing lowers keeps the coarse mesh (the same surface,
   // without 2 x CUT_N^2 more triangles to draw)
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
@@ -1913,23 +1966,23 @@ function signTextures() {
 function signPanel(g, tex, w, h, y) {
   for (const back of [false, true]) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex, color: back ? 0x6a6f78 : 0xffffff, transparent: true, alphaTest: 0.5 }));
-    m.position.set(0, y, back ? -0.02 : 0.02); if (back) m.rotation.y = Math.PI; g.add(m);
+    m.position.set(0, y, signPanelZ(back)); if (back) m.rotation.y = Math.PI; g.add(m);
   }
 }
-function roadSign(kind, x, z, rot, build) {
-  const g = new THREE.Group(), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 8), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
-  pole.position.y = 1.3; g.add(pole); build(g, signTextures());
+function roadSign(kind, x, z, rot, build, panel) {   // #822: panel = the main panel's shape for poleTop
+  const top = poleTop(panel), g = new THREE.Group(), pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 8), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+  pole.position.y = top / 2; g.add(pole); build(g, signTextures());
   g.position.set(x, terrainH(x, z), z); g.rotation.y = Math.PI / 2 - rot; g.traverse(o => o.castShadow = true); signs.add(g);
   ROAD_SIGNS.push({ kind, x, z });
 }
 function baustelleSign(x, z, rot) {
   roadSign('baustelle', x, z, rot, (g, T) => {
-    signPanel(g, T.tri, 1.0, 1.0, 2.15); signPanel(g, T.baustelle, 1.0, 0.25, 1.5);
+    signPanel(g, T.tri, 1.0, 1.0, 2.15); signPanel(g, T.baustelle, 1.0, 0.25, 1.5);   // #822: panel (and the plate below it) covers the pole
     for (const side of [-1, 1]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.0, 0.1), new THREE.MeshLambertMaterial({ map: T.bake })); b.position.set(side * 1.2, 0.5, 0); g.add(b); }   // Leitbaken
-  });
+  }, { shape: 'tri', apex: 2.15 + 0.5 - 1.0 * 10 / 256, slope: 0.536 });   // #822: apex 2.611, half-width per metre (120/256)/(224/256) = 0.536
 }
 function fahrverbotSign(x, z, rot) {
-  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); });
+  roadSign('fahrverbot', x, z, rot, (g, T) => { signPanel(g, T.disc, 0.9, 0.9, 2.1); signPanel(g, T.fahrverbot, 1.2, 0.4, 1.4); }, { shape: 'disc', y: 2.1, d: 0.9 * 248 / 256 });   // #822: 4/256 border gap each side
 }
 function foodTruck(x, z, rot) { // #103 Güggeli food truck: cream box body on four wheels, red cab in front (local +x), serving hatch and awning on the local -z side, hand-painted roof board; generic look, no logo (docs/07); solid
   const b = terrainH(x, z), c = Math.cos(rot), s = Math.sin(rot), R = (ox, oz) => [x + ox * c - oz * s, z + ox * s + oz * c];
@@ -2172,12 +2225,14 @@ function parkingMeshes(lots) {
   decals.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET })));
 }
 function parkingSign([x, z, rot], name) {
-  const b = terrainH(x, z), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
-  pole.position.set(x, b + 1.3, z); signs.add(pole);
+  const b = terrainH(x, z), nx = Math.sin(-rot), nz = Math.cos(-rot),   // #822: the board's normal; the panel moves along it, the pole stays behind
+    top = Math.min(2.6, poleTop({ shape: 'rect', y: 2.3, h: 0.7 })),
+    pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+  pole.position.set(x, b + top / 2, z); signs.add(pole);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  board.position.set(x, b + 2.3, z); board.rotation.y = -rot; signs.add(board);
+  board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; signs.add(board);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  plate.position.set(x, b + 1.75, z); plate.rotation.y = -rot; signs.add(plate);
+  plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; signs.add(plate);
 }
 function propMeshes(props) {
   const geos = propGeometries(), byKind = {};
@@ -2213,7 +2268,7 @@ function crashSign() {
   const s = yardStart(YARD), x = s.x + 4, z = s.z - 5, b = terrainH(x, z), pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
   pole.position.set(x, b + 1.4, z); signs.add(pole);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.9), new THREE.MeshBasicMaterial({ map: textTex(tr('crashYard'), 512, 180, '#f5c400', '#111111', '700 120px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
-  board.position.set(x, b + 2.5, z); board.rotation.y = -Math.PI / 2; signs.add(board);   // faces the arriving car (heading +x)
+  board.position.set(x + FACE_GAP + 0.01, b + 2.5, z); board.rotation.y = -Math.PI / 2; signs.add(board);   // faces the arriving car (heading +x); #822: off the pole's face along its normal
 }
 function stationAt(x, z, rot, name) { const b = terrainH(x, z); box(26, 6, 8, x, b - 2, z, rot, col('#e0d8c8'), 'wallDoor', [4, 3], 2.1); gable(26, 8, b + 4, 2.2, x, z, rot, col('#5a4a48'), col('#e0d8c8')); addOBB(x, z, 26, 8, rot, b + 4); box(60, 0.6, 3, x, b, z + 8, rot, col('#c8c2b6'), 'stone', [4, 2], 0); if (name) stationSign(name, x, z, rot, b); }
 // #12: blue Swiss station board on both long facades (signW's 'ch' style), just under the eaves
@@ -2276,7 +2331,8 @@ let SPEEDSIGN = null;
 function speedDisplayBuild() {
   const cfg = SPEED_DISPLAY, g = new THREE.Group(), b = terrainH(cfg.x, cfg.z), PN = cfg.panel;
   const steel = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 });
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.8, 8), steel); pole.position.y = 1.4; g.add(pole);
+  const top = poleTop({ shape: 'rect', y: PN.y, h: PN.h }, POLE_R, 0.05);   // #822: pole ends 5 cm under the housing top
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 8), steel); pole.position.y = top / 2; g.add(pole);
   const housing = new THREE.Mesh(new THREE.BoxGeometry(PN.w, PN.h, 0.12), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); housing.position.y = PN.y; g.add(housing);
   const canvas = document.createElement('canvas'); canvas.width = cfg.tex.w; canvas.height = cfg.tex.h;
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
@@ -2306,7 +2362,7 @@ const STATION_SIGNS = [], STATION_NAMES = { stationStein: 'Bahnhof Stein-Säckin
 const nameTex = {};
 function streetNames() { for (const r of ROADS) { if (L && !/^(motorway|trunk|primary|secondary|tertiary)/.test(r.cls)) continue; if (!nameTex[r.n]) nameTex[r.n] = textTex(r.n, 1024, 128, null, 'rgba(245,239,224,.92)', '700 84px "Barlow Condensed", sans-serif'); const mat = new THREE.MeshBasicMaterial({ map: nameTex[r.n], transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET }); for (let i = 0; i < r.pts.length - 1; i++) { const [x0, z0] = r.pts[i], [x1, z1] = r.pts[i + 1]; const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz); if (L < 70) continue; const n = Math.max(1, Math.floor(L / 220)); for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; const len = Math.min(r.w * 5, L * 0.6), wid = len / 8; const g = new THREE.PlaneGeometry(len, wid); g.rotateX(-Math.PI / 2); let ang = Math.atan2(dz, dx); if (Math.cos(ang) < 0) ang += Math.PI; g.rotateY(-ang); const m = new THREE.Mesh(g, mat); const mx = x0 + dx * t, mz = z0 + dz * t; m.position.set(mx, terrainH(mx, mz) + 0.09, mz); decals.add(m); } } } }
 function sign(txt, kind, px, py, faceDeg) { signW(txt, kind, ...W(px, py), faceDeg); }
-function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(txt, 512, 256, '#1c5fb0', '#ffffff', '700 120px "Barlow Condensed", sans-serif', '#ffffff') : textTex(txt, 512, 256, '#ffcc00', '#111111', '700 120px "Barlow Condensed", sans-serif', '#111111'); const g = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), [new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 })]); board.position.y = 2.4; const pole = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }); for (const s of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3, 6), pole); p.position.set(s, 1.5, 0); g.add(p); } g.add(board); g.position.set(x, groundH(x, z), z); g.rotation.y = faceDeg * Math.PI / 180; g.traverse(o => o.castShadow = true); signs.add(g); }
+function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(txt, 512, 256, '#1c5fb0', '#ffffff', '700 120px "Barlow Condensed", sans-serif', '#ffffff') : textTex(txt, 512, 256, '#ffcc00', '#111111', '700 120px "Barlow Condensed", sans-serif', '#111111'); const g = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), [new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 })]); board.position.y = 2.4; const pole = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }); for (const s of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.95, 6), pole); p.position.set(s, 1.475, -0.09); g.add(p); } g.add(board); g.position.set(x, groundH(x, z), z); g.rotation.y = faceDeg * Math.PI / 180; g.traverse(o => o.castShadow = true); signs.add(g); }   // #822: poles behind the 0.08 deep board, 5 cm under its top
 
 const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795], [1960, 740]]);   // hand-traced Basel–Koblenz line stand-in
 // #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
@@ -3990,8 +4046,10 @@ window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const 
 // the ride; the camera keeps its mode and is carried by the same y step. Each level's door opens as the car comes near it
 // while the cabin sits there (stepLift animates both panels from LIFT_RIDE.doorAt).
 const LIFT_RIDE = createLift(LIFT_TIMES, FREIGHT_DEPTH);
-const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), new THREE.MeshBasicMaterial({ side: THREE.BackSide, color: 0x5e5e5e, fog: false, transparent: true, depthWrite: false, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) }));
-CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; CAB.material.map.wrapS = CAB.material.map.wrapT = THREE.RepeatWrapping; CAB.material.map.repeat.set(4, 2);
+const CAB_WALL_MAT = new THREE.MeshBasicMaterial({ side: THREE.BackSide, color: 0x5e5e5e, fog: false, transparent: true, depthWrite: false, map: makeTex(128, 256, (g, w, h) => { g.fillStyle = '#8d9096'; g.fillRect(0, 0, w, h); g.fillStyle = '#6c7076'; for (let y = 0; y < h; y += 64) g.fillRect(0, y, w, 8); g.fillStyle = '#b4b7bc'; for (let x = 0; x < w; x += 32) g.fillRect(x, 0, 3, h); }) });
+const CAB_CAP_MAT = CAB_WALL_MAT.clone(); CAB_CAP_MAT.map = CAB_WALL_MAT.map.clone(); CAB_CAP_MAT.map.needsUpdate = true;   // #603: ceiling and floor: the same look, never scrolled
+const CAB = new THREE.Mesh(new THREE.BoxGeometry(2 * LIFT.hd - 0.2, 7, 2 * LIFT.hw - 0.2), CAB_FACE_SCROLLS.map(scrolls => scrolls ? CAB_WALL_MAT : CAB_CAP_MAT));
+CAB.visible = false; CAB.rotation.y = -LIFT.th; scene.add(CAB); ROOM.cab = CAB; for (const m of [CAB_WALL_MAT, CAB_CAP_MAT]) { m.map.wrapS = m.map.wrapT = THREE.RepeatWrapping; m.map.repeat.set(4, 2); }
 const levelFloorY = () => LEVELS.isSurface() ? (HIDE && HIDE.floor) : levelY(LEVELS.id);
 function liftIndicator(text) { const el = $('liftfloor'); el.hidden = text === null; if (text !== null) el.textContent = text; }
 function stepLift(dt) {
@@ -4004,8 +4062,8 @@ function stepLift(dt) {
   for (const e of ev) liftEvent(e);
   setFreightPad(onPlatform && level === LIFT_RIDE.cabin);
   for (const doorLevel of FREIGHT_STOPS) { const m = LIFT_DOORS[doorLevel]; if (m) m.position.y = m.userData.y0 + LIFT.door.h / 2 + LIFT_RIDE.doorAt(doorLevel) * (LIFT.door.h + 0.2); }
-  CAB.material.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
-    CAB.position.set(P.x, P.y + 3.5, P.z); CAB.material.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
+  CAB_WALL_MAT.opacity = CAB_CAP_MAT.opacity = LIFT_RIDE.gate; CAB.visible = LIFT_RIDE.busy && LIFT_RIDE.gate > 0; if (CAB.visible) {   // #382: the cab fades in as the door shuts and out as it opens, no cut
+    { const c = cabCentre(LIFT, P.y, 3.5); CAB.position.set(c.x, c.y, c.z); } CAB_WALL_MAT.map.offset.y += shaftScrollDelta(LIFT_RIDE.dir, LIFT_RIDE.phase, dt); }
   const fl = LIFT_RIDE.floor(); liftIndicator(fl === null ? null : String(fl).replace('-', '−'));
 }
 // #361: the dark switch. On the ring level, entering spoke k builds room k's meshes; by position and with hysteresis (underground.js)
@@ -4037,7 +4095,7 @@ function liftSwitch(to) {
 }
 window.__mm.liftTimes = (t) => { LIFT_RIDE.setTimes(t); return LIFT_RIDE.times; };   // tests: a ride of 1 s instead of 8 (headless renders ~1 fps and the loop clamps dt to 0.05)
 const drawn = (o) => { for (let n = o; n; n = n.parent) if (!n.visible) return false; return !!o; };   // visible, and every parent up to the scene too
-window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[liftStopAt(LEVELS.id) || 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB.material.map.offset.y, indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null, target: LIFT_RIDE.target, chosen: LIFT_RIDE.chosen });
+window.__mm.lift = () => ({ deck: drawn(LIFT_DECKS[liftStopAt(LEVELS.id) || 'bottom']), phase: LIFT_RIDE.phase, gate: LIFT_RIDE.gate, cabin: LIFT_RIDE.cabin, door: LIFT_RIDE.door, floor: LIFT_RIDE.floor(), level: LEVELS.id, cab: CAB.visible, scroll: CAB_WALL_MAT.map.offset.y, capScroll: CAB_CAP_MAT.map.offset.y, cabAt: [CAB.position.x, CAB.position.z], indicator: $('liftfloor').hidden ? null : $('liftfloor').textContent, found: HIDE ? HIDE.found : null, target: LIFT_RIDE.target, chosen: LIFT_RIDE.chosen });
 // ---------- input ----------
 // HUD state (#20): car hidden (V), turn signal (Comma/Period, #535), odometer total persisted per browser; Gemeinde boundaries (G, #48)
 const HUD = { carHidden: false, bounds: false, borders: false, blinker: null, water: '', waterT: 0, road: '' };
@@ -4049,7 +4107,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (netOpen()) { netKey(e); return; }   /* #834: the connect dialog and the lobby swallow the game keys -- a name is typed into an input */ if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); } if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (netOpen()) { netKey(e); return; }   /* #834: the connect dialog and the lobby swallow the game keys -- a name is typed into an input */ if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (SETTINGS.on) { settingsKey(e); return; }   /* #842: the settings dialog swallows the game, M and 5-0 keys while it is open */ if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') { toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); renderSettings(); } if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); }   /* #842: M flips the same Sound switch the dialog shows */ if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -4085,11 +4143,17 @@ for (const id of ['stylebtn2', 'pausestyle']) document.getElementById(id).onclic
 
 // ---------- sound (WebAudio, synthesized) ----------
 const SFX = (() => {
-  let ac = null, eng = null, rot = null, muted = false, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set(); const holdFns = [];   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other.   #735: the radio follows every hold
+  // #842 (D4): the sound level is persisted like the radio's; '0'/'1' for on/off, 0-10 for the volume
+  const ls = (k) => { let v = null; try { v = localStorage.getItem(k); } catch (e) { } return v; };
+  const save = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { } };
+  const snd = { on: soundOnFrom(ls(SETTINGS_STORE.sound)), vol: soundVolFrom(ls(SETTINGS_STORE.soundVol)) };
+  let ac = null, eng = null, rot = null, muted = !snd.on, es = { rpm: 0, gear: 0, shift: 0 }, mix = null, rmix = null, frames = 0; const holds = new Set(); const holdFns = [];   // holds: every reason the sound is paused ('tab' hidden, 'menu' = #83's menu); they must not release each other.   #735: the radio follows every hold. muted = !snd.on (#842): the early-return guards, and what M reports
+  function applySound() { muted = !snd.on; save(SETTINGS_STORE.sound, snd.on ? 1 : 0); save(SETTINGS_STORE.soundVol, snd.vol); if (ac) ac.master.gain.setTargetAtTime(soundGain(snd.on, snd.vol), ac.currentTime, 0.02); }
   const knockAt = {}, kn = { played: 0, last: null }, gate = { t: -Infinity, s: 0 }, rec = { count: 0, last: null };   // #104: the crash retrigger gate, and what it let through (for the tests)
   const steps = { count: 0 }; let tyreAt = -1, siren = null; const tyreHits = { count: 0, last: null };   // #416
   const bv = new Map();   // #709: bus key -> { eng, es }, the Postauto engine voices
-  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const master = ac.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(limit); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
+  // #842 (D1): a.mix is the hub (0.5) into the limiter; a.master is the effects bus at the sound level. The radio bypasses the effects bus, so Sound off leaves the music playing
+  const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); const hub = ac.createGain(); hub.gain.value = 0.5; hub.connect(limit); ac.mix = hub; const master = ac.createGain(); master.gain.value = soundGain(snd.on, snd.vol); master.connect(hub); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once
   function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0 }; return eng; }
   function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted || holds.size) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
   function burst(dur, freq, q, vol) { if (muted || holds.size) return; const a = ctx(); const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(a.master); s.start(); }
@@ -4123,8 +4187,12 @@ const SFX = (() => {
     sirenTo(freq) { if (siren && siren.freq !== freq) { siren.to(freq, ac.currentTime); } },
     sirenState() { return siren ? { freq: siren.freq } : null; },   // #462: the loco's two-tone whistle
     chuff() { burst(0.16, 380, 0.9, 0.18); },   // #462: one chuff of the cylinders, a short low steam burst
-    toggle() { muted = !muted; if (ac) ac.master.gain.setTargetAtTime(muted ? 0 : 0.5, ac.currentTime, 0.02); return muted; },
-    graph() { const a = ctx(); return { ac: a, master: a.master }; },   // #735: the radio routes its <audio> elements into the master (so M mutes it too)
+    toggle() { snd.on = !snd.on; applySound(); return muted; },   // #842: M flips the Sound switch (the effects bus), persisted
+    sound() { return { ...snd }; },
+    setSoundOn(on) { snd.on = !!on; applySound(); },
+    setSoundVol(v) { snd.vol = v; applySound(); },
+    blip() { beep(880, 0.06, 'square', 0.12); },   // #842: one short blip so a Sound slider move is audible
+    graph() { const a = ctx(); return { ac: a, master: a.mix }; },   // #735 / #842 (D1): the radio routes its <audio> elements into the hub, so the Sound switch no longer mutes the music
     onHold(fn) { holdFns.push(fn); },
     hold(reason, on) { if (on) holds.add(reason); else holds.delete(reason); for (const fn of holdFns) fn(holds.size > 0); if (!ac) return; if (holds.size) ac.suspend(); else ac.resume(); },
     // #709: one engine voice per audible Postauto (the bus preset), level scaled by distance; a voice that drops out of the list fades and is freed
@@ -4141,7 +4209,7 @@ const SFX = (() => {
         applyEngine(s.eng, { ...mix, gain: mix.gain * v.gain, road: mix.road * v.gain, hiss: 0 }, t);
       }
     },
-    state() { return { ctx: ac ? ac.state : 'none', muted, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
+    state() { return { ctx: ac ? ac.state : 'none', muted, sound: { ...snd }, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
@@ -4157,7 +4225,8 @@ const RADIO = (() => {
   const now = () => performance.now() / 1000;
   function voice(name) {
     if (els[name]) return els[name];
-    const { ac, master } = SFX.graph(), el = new Audio(); el.crossOrigin = 'anonymous'; el.preload = 'none';
+    const { ac, master } = SFX.graph(), early = name === 'menu' ? EARLY_MENU.take() : null, el = early || new Audio();
+    if (!early) { el.crossOrigin = 'anonymous'; el.preload = 'none'; }   // #841: an adopted element keeps its same-origin src and is already playing
     const gain = ac.createGain(); gain.gain.value = 0; ac.createMediaElementSource(el).connect(gain); gain.connect(master);
     const v = els[name] = { el, gain, want: false };
     if (name === 'fm') el.addEventListener('ended', () => { S.track = nextTrack(S.track); apply(); });
@@ -4181,7 +4250,7 @@ const RADIO = (() => {
     const radio = S.inRun && S.on;
     if (radio && S.station === 'fm') playFm(); else fadeOut('fm');
     if (radio && S.station === 'srf3') { if (!watch) playSrf(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
-    if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else fadeOut('menu');
+    if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else { fadeOut('menu'); if (S.inRun || !S.menuOn) EARLY_MENU.drop(); }   // #841: an element nobody adopted must not outlive the start screen
   }
   const nowText = () => { const d = displayFor(S); return '📻 ' + tr(d.key, ...d.args); };
   function fail() {   // SRF 3 did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
@@ -4189,7 +4258,7 @@ const RADIO = (() => {
   }
   function menuCmd(action) {   // on the start screen only 5 does something: the menu music on / off
     if (action !== 'power') return;
-    S.menuOn = !S.menuOn; S.menuArmed = true; save(RADIO_STORE.menu, S.menuOn ? 1 : 0); apply(); renderMusicBtn(); radioShow('📻 ' + tr(S.menuOn ? 'menuMusicOn' : 'menuMusicOff'));
+    S.menuOn = !S.menuOn; S.menuArmed = true; save(RADIO_STORE.menu, S.menuOn ? 1 : 0); apply(); renderMusicBtn(); renderSettings(); radioShow('📻 ' + tr(S.menuOn ? 'menuMusicOn' : 'menuMusicOff'));
   }
   function cmd(action) {
     if (!S.inRun) { menuCmd(action); return; }
@@ -4198,7 +4267,7 @@ const RADIO = (() => {
     if (action === 'next' && S.station === 'fm') S.track = nextTrack(S.track);
     if (action === 'prev' && S.station === 'fm') S.track = prevTrack(S.track);
     if (action === 'down' || action === 'up') { S.vol = stepVolume(S.vol, action === 'up' ? 1 : -1); save(RADIO_STORE.vol, S.vol); }
-    apply();
+    apply(); renderSettings();
     radioShow(action === 'down' || action === 'up' ? '📻 ' + tr('radioVolume', S.vol * 10) : nowText());
   }
   SFX.onHold((held) => {   // pause menu, hidden tab: everything stops; on release FM goes on where it was, SRF 3 reloads (live, not time-shifted)
@@ -4209,6 +4278,7 @@ const RADIO = (() => {
   });
   return {
     cmd,
+    setVolume(v) { S.vol = stepVolume(v, 0); save(RADIO_STORE.vol, S.vol); apply(); },   // #842: the Music slider, no toast
     tick() {
       const run = R.state !== 'ready';
       if (run !== S.inRun) { S.inRun = run; apply(); if (run && S.on) radioShow(nowText()); }
@@ -4803,10 +4873,12 @@ function buildInterior() {
   const h = INT.hall, f = h.frame, lv = h.levels, N = STAIRHALL.storeys;
   // #445: contrasting materials so the stairs read -- light plaster walls, dark stone treads with a light nosing, a dark handrail, light-grey landings
   const M = { concrete: new THREE.MeshLambertMaterial({ color: 0xb4b2ac, emissive: 0x33322f }), tread: new THREE.MeshLambertMaterial({ color: 0x5a5753, emissive: 0x1a1918 }), nosing: new THREE.MeshLambertMaterial({ color: 0xdedad0, emissive: 0x3c3b38 }), plaster: new THREE.MeshLambertMaterial({ color: 0xf3efe6, emissive: 0x47453f }), rail: new THREE.MeshLambertMaterial({ color: 0x2b2f36, emissive: 0x111214 }), wood: new THREE.MeshLambertMaterial({ color: 0x5b4636, emissive: 0x2b2b2b }), dark: new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }), cabin: new THREE.MeshLambertMaterial({ color: 0xd9d9d3, emissive: 0x2b2b2b }), cabinFloor: new THREE.MeshLambertMaterial({ color: 0x6a6a66, emissive: 0x2b2b2b }), lamp: new THREE.MeshBasicMaterial({ color: 0xfff3d6 }) };
+  INT.groundMat = M.ground = M.concrete.clone(); M.ground.polygonOffset = true; M.ground.polygonOffsetFactor = M.ground.polygonOffsetUnits = GROUND_DEPTH_OFFSET;   // #477: the EG slabs lie within cm of the grass; they win the depth test
   INT.mats = Object.values(M);
-  const parts = { concrete: [], tread: [], nosing: [], plaster: [], rail: [], wood: [], lamp: [] };
+  const parts = { ground: [], concrete: [], tread: [], nosing: [], plaster: [], rail: [], wood: [], lamp: [] };
   const put = (k, o, y0, y1) => { if (y1 - y0 > 0.001) parts[k].push(obbBox(o, y0, y1)); };
-  for (const s of h.walk.slabs) if (s.hw && s !== INT.cabin) put('concrete', s, s.y - WALKWAY.thick, s.y);   // the polygon roof deck is #410's; the cabin slab is the shell below
+  const onGround = new Set(groundSlabs(h));
+  for (const s of h.walk.slabs) if (s.hw && s !== INT.cabin) put(onGround.has(s) ? 'ground' : 'concrete', s, s.y - WALKWAY.thick, s.y);   // the polygon roof deck is #410's; the cabin slab is the shell below
   for (const r of h.walk.ramps) {
     const tw = r.hw / 7;
     for (let i = 0; i < 7; i++) {   // seven treads per flight, each at the ramp surface of its middle; a light strip along its front edge
@@ -5003,6 +5075,7 @@ window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the 
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
 window.__mm.radio = () => RADIO.state();   // #735
+window.__mm.sfxGraph = () => SFX.graph();   // #842: the hub (graph().master) and the effects bus (ac.master), read-only, for the tests
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
 window.__mm.sfxCrashes = () => SFX.crashes();
@@ -5034,7 +5107,7 @@ window.__mm.platHop = () => platHop();   // #701: tests
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
   y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
   lift: INT.lift && { at: INT.lift.at, y: INT.lift.y, door: INT.lift.door, busy: INT.lift.busy, moving: INT.lift.moving },
-  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, pad: INT.pad, plug: INT.doorPlug ? INT.doorPlug.visible : null });
+  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, groundSlab: INT.group && INT.groundMat ? { meshes: INT.group.children.filter(o => o.material === INT.groundMat).length, offset: INT.groundMat.polygonOffset ? INT.groundMat.polygonOffsetFactor : null } : null, pad: INT.pad, plug: INT.doorPlug ? INT.doorPlug.visible : null });
 window.__mm.interiorSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(); };
 window.__mm.housingTint = () => { if (!INT.housing) return null; const m = INT.housing.material, c = INT.housing.geometry.attributes.color; if (!m.vertexColors) return 1; return c ? Math.min(...c.array) : 0; };   // #453: the darkest vertex colour the 6c housing's material multiplies in (no colour attribute reads as black)
 window.__mm.interiorFaceA = () => { if (!INT.group || !INT.hall) return null; const f = INT.hall.frame, lv = INT.hall.levels, roof = lv[lv.length - 1], v = new THREE.Vector3(); let min = Infinity; INT.group.updateMatrixWorld(true); INT.group.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= lv[0] + 0.1 || v.y >= roof - 0.01) continue; const a = f.fromWorld(v.x, v.z).a; if (a > -0.05) min = Math.min(min, Math.abs(a)); } }); return min; };   // #453: how close the hall's drawn faces come to the façade line between EG and roof
@@ -5506,7 +5579,9 @@ function modeText(mode) { const done = R.state === 'finished' && mode === R.mode
 function showModeText(mode) { $('ovtext').textContent = modeText(mode); }
 function revertModeText() { showModeText(focusedMode() ?? SHOWN.mode); }
 // the overlay doubles as the start and the result screen, so its texts depend on the race state
-function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('cruisebtn').textContent = tr('cruise'); $('startbtn').textContent = tr(done && R.mode === 'trial' ? 'retry' : 'trial'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); $('viewbtn').textContent = tr(done && R.mode === 'view' ? 'retry' : 'view'); $('tutorialbtn').textContent = tr('tutorial'); if (done) { $('result').innerHTML = resultHtml(R.last); if (R.last.mode === 'view') renderAlbum(); } for (const id of Object.keys(MODE_BTN)) $(id).disabled = !!WORLD_GONE; }
+function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('cruisebtn').textContent = tr('cruise'); $('startbtn').textContent = tr(done && R.mode === 'trial' ? 'retry' : 'trial'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); $('viewbtn').textContent = tr(done && R.mode === 'view' ? 'retry' : 'view'); $('tutorialbtn').textContent = tr('tutorial'); if (done) { $('result').innerHTML = resultHtml(R.last); if (R.last.mode === 'view') renderAlbum(); } renderModeButtons(); }
+// #561: a glTF car picked by URL or stored choice is still loading: the start waits like the car select's Race! (#236: no swap mid-race)
+function renderModeButtons() { const blocked = !!WORLD_GONE || raceBlocked(VEHICLES[CHOICE.id], gltfState(CHOICE.id)); for (const id of Object.keys(MODE_BTN)) $(id).disabled = blocked; }
 // #508: one frame per viewpoint, photo or empty; DOM calls only, the stored strings never reach innerHTML
 function renderAlbum() {
   const album = loadAlbum(), box = document.createElement('div'), head = document.createElement('h3');
@@ -5569,6 +5644,14 @@ function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overla
 // ---------- #509 About, #564 in tabs: the dialog -- over the start screen (Back returns there) or over the paused game (Back returns to the pause menu) ----------
 const ABOUT = { on: false, from: 'start', tab: 0 };
 for (const a of document.querySelectorAll('#about a[data-link]')) { a.href = ABOUT_LINKS[a.dataset.link]; a.target = '_blank'; a.rel = 'noopener'; }
+// #853: the contact address is only ever written by JS, per language (footer link + the About line to copy by hand)
+function renderContact() {
+  const lang = window.GG_LANG, href = contactHref(lang);
+  $('navcontact').href = href;
+  $('aboutcontact').href = href;
+  $('aboutcontact').textContent = contactAddress(lang);
+}
+renderContact();
 $('aboutversion').textContent = `v${window.GAME_VERSION}`;
 $('subversion').textContent = `v${window.GAME_VERSION.split('.').slice(0, 2).join('.')}`;   // start-screen tag: major.minor from version.js, never a literal
 const aboutTabs = () => [...document.querySelectorAll('#about [role=tab]')];
@@ -5591,6 +5674,24 @@ function aboutKey(e) {
 $('aboutbtn').onclick = () => openAbout('start'); $('aboutback').onclick = closeAbout;
 window.__mm.about = () => ({ open: ABOUT.on, from: ABOUT.from });
 window.__mm.aboutTab = () => ABOUT_TABS[ABOUT.tab];
+// ---------- #842 Settings, first slice: audio. Sound = the effects bus (SFX), Music = the menu music on the start screen, the car radio in a run (D3, key 5's rule) ----------
+const SETTINGS = { on: false, from: 'start' };
+// live binding: reads SFX.sound() / RADIO.state() and writes the switches, the ranges, the % texts and the music caption. Runs on open, after every control change and on language change; called from the M / 5 / 9 / 0 / music-button paths too, so the dialog always shows the same values the keys set
+function renderSettings() {
+  const s = SFX.sound(), r = RADIO.state(), musicOn = r.inRun ? r.on : r.menuOn;
+  const sw = (id, on) => { const b = $(id); b.setAttribute('aria-checked', String(on)); b.textContent = tr(on ? 'setOn' : 'setOff'); };
+  sw('setsound', s.on); $('setsoundvol').value = s.vol; $('setsoundpct').textContent = tr('radioVolume', s.vol * 10);
+  sw('setmusic', musicOn); $('setmusicvol').value = r.vol; $('setmusicpct').textContent = tr('radioVolume', r.vol * 10); $('setmusiccap').textContent = tr(musicCaptionKey(r.inRun));
+}
+function openSettings(from) { SETTINGS.on = true; SETTINGS.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('settings').hidden = false; renderSettings(); $('settingsback').focus(); }
+function closeSettings() { if (!SETTINGS.on) return; SETTINGS.on = false; $('settings').hidden = true; const back = SETTINGS.from === 'pause'; $(back ? 'pause' : 'overlay').hidden = false; $(back ? 'pausesettings' : 'settingsbtn').focus(); }
+function settingsKey(e) { if (settingsKeyAction(e) !== 'back') return; e.preventDefault(); if (!e.repeat) closeSettings(); }   // 'pass': native Tab / Enter / Space / range arrows; 'ignore': no game key while the dialog is open
+$('settingsbtn').onclick = () => openSettings('start'); $('pausesettings').onclick = () => openSettings('pause'); $('settingsback').onclick = closeSettings;
+$('setsound').onclick = () => { SFX.setSoundOn(!SFX.sound().on); renderSettings(); };
+$('setsoundvol').oninput = (e) => { SFX.setSoundVol(+e.target.value); SFX.blip(); renderSettings(); };
+$('setmusic').onclick = () => { RADIO.cmd('power'); renderSettings(); };
+$('setmusicvol').oninput = (e) => { RADIO.setVolume(+e.target.value); renderSettings(); };
+window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol }) => ({ on, menuOn, vol }))(RADIO.state()) });
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
 function moveWorldsFocus(step) { const list = rows(), next = list.find(b => rowKey(b) === nextFocus(list.map(rowKey), rowKey(document.activeElement), step)); if (!next) return; selectRow(rowSel(next)); next.focus(); }
 function worldsKey(e) { const act = worldsKeyAction(e, document.activeElement && document.activeElement.classList.contains('ws-row')); if (act === 'back') { e.preventDefault(); closeWorlds(); } else if (act === 'next' || act === 'prev') { e.preventDefault(); moveWorldsFocus(act === 'next' ? 1 : -1); } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while a world is chosen
@@ -5624,8 +5725,8 @@ function selectVehicle(id) {
 // #236: the glTF car's file is fetched once, on the first pick; the swap waits for a safe moment, a failure falls back (the stored choice is kept: the next visit tries again)
 function wantVehicleModel(id) { if (WANTED.has(id)) return; WANTED.add(id); loadVehicleModel(id).then(ok => (ok ? vehicleLoaded : vehicleFailed)(id)); }
 function swapInVehicle(id) { const def = VEHICLES[id]; PENDING_SWAP = null; setVehicle(def); applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen)); renderCarSelKeepFocus(); renderStartScreen(); }
-function vehicleLoaded(id) { if (CHOICE.id !== id || car.userData.gltfId === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
-function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); const name = vehicleText(tr, id, 'name'); toast(tr('vehicleLoadFailed', name), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); }
+function vehicleLoaded(id) { renderModeButtons(); if (CHOICE.id !== id || car.userData.gltfId === id) { if (CARSEL.on) renderCarSel(); return; } if (R.state === 'ready' || CARSEL.on) swapInVehicle(id); else PENDING_SWAP = id; }
+function vehicleFailed(id) { if (CHOICE.id !== id) return; CHOICE.id = VEHICLES[id].gltf.fallback; setVehicle(VEHICLES[CHOICE.id]); const name = vehicleText(tr, id, 'name'); toast(tr('vehicleLoadFailed', name), TOAST_S.event); renderCarSelKeepFocus(); renderStartScreen(); renderModeButtons(); }
 function applyPendingSwap() { if (PENDING_SWAP && CHOICE.id === PENDING_SWAP && gltfState(PENDING_SWAP) === 'ready') swapInVehicle(PENDING_SWAP); PENDING_SWAP = null; }
 function stepVehicle(step) { const ids = pickableIds(); selectVehicle(ids[cycle(Math.max(0, ids.indexOf(CHOICE.id)), ids.length, step)]); }
 function carselKey(e) { const act = carselKeyAction(e); if (act === 'back') { e.preventDefault(); if (CAR_GALLERY.on) closeGallery(); else closeCarSel(); } else if (act === 'spin') { e.preventDefault(); CARSEL.dir = e.code === 'ArrowLeft' ? -1 : 1; } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while choosing, browser default kept
@@ -6358,7 +6459,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too
+addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
@@ -6404,23 +6505,28 @@ if (L) { const g = mapBounds.getContext('2d'); g.strokeStyle = '#ff3fb4'; g.line
 // #397: the national borders on the minimap, solid yellow (new) and white (old, only where it leaves the new one), drawn over mapStatic only while Y is on
 const mapBorders = document.createElement('canvas'); mapBorders.width = mapC.width; mapBorders.height = mapC.height;
 if (NATLINES) { const g = mapBorders.getContext('2d'); g.lineWidth = 2; g.lineCap = 'round'; g.lineJoin = 'round'; for (const [lines, color] of [[[NATLINES.new], '#ffd400'], [NATLINES.apart, '#ffffff']]) { g.strokeStyle = color; for (const pts of lines) { g.beginPath(); pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } }
-// minimap zoom (#11): 1x = the whole region; zoomed in, the view follows the car but stays on the map. The view is a crop of mapStatic (base 1x canvas px ox/oy = its centre). Tab held (#77): MAP.full shows the whole region big, MAP.zoom is kept
-const MAP = { zoom: 1, full: false, wheel: 0, tapT: 0, tapX: 0, tapY: 0, placedT: 0 }, ZOOMS = [1, 2, 4, 8];
-function mapView() { const z = MAP.full ? 1 : MAP.zoom, w = mapC.width, h = mapC.height; return { z, ox: clamp(MX(P.x), w / 2 / z, w - w / 2 / z), oy: clamp(MZ(P.z), h / 2 / z, h - h / 2 / z) }; }
+// minimap zoom (#11): 1x = the whole region; zoomed in, the view follows the car but stays on the map. The view is a crop of mapStatic (base 1x canvas px ox/oy = its centre). Tab held (#77): MAP.full shows the whole region big; #843: the big map has its own zoom MAP.fz, reset to 1x on open
+const MAP = { zoom: 1, full: false, wheel: 0, tapT: 0, tapX: 0, tapY: 0, placedT: 0, fz: 1, fx: 0, fy: 0 }, ZOOMS = [1, 2, 4, 8];
+function mapView() { const w = mapC.width, h = mapC.height; if (MAP.full) return { z: MAP.fz, ox: clampCentre(MAP.fx, w, MAP.fz), oy: clampCentre(MAP.fy, h, MAP.fz) }; const z = MAP.zoom; return { z, ox: clamp(MX(P.x), w / 2 / z, w - w / 2 / z), oy: clamp(MZ(P.z), h / 2 / z, h - h / 2 / z) }; }
 const mapPt = (v, x, z) => [(MX(x) - v.ox) * v.z + mapC.width / 2, (MZ(z) - v.oy) * v.z + mapC.height / 2];
 const worldToMap = (x, z) => mapPt(mapView(), x, z);
 const mapToWorld = (px, py) => { const v = mapView(), bx = (px - mapC.width / 2) / v.z + v.ox, by = (py - mapC.height / 2) / v.z + v.oy; return [(bx - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, (by - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0]; };
 function stepMapZoom(dir) { MAP.zoom = ZOOMS[clamp(ZOOMS.indexOf(MAP.zoom) + dir, 0, ZOOMS.length - 1)]; renderMapZoom(); }
-function renderMapZoom() { $('mapzoom').textContent = (MAP.full ? 1 : MAP.zoom) + '×'; }
+function renderMapZoom() { $('mapzoom').textContent = (MAP.full ? MAP.fz : MAP.zoom) + '×'; }
 // #77: hold Tab = full map; #br gets the class `full` (CSS centres and enlarges it), only on a change
-function setFullMap(full) { if (full === MAP.full || (full && !LEVELS.isSurface())) return; MAP.full = full; $('br').classList.toggle('full', full); renderMapZoom(); }
-mapC.addEventListener('wheel', e => { e.preventDefault(); MAP.wheel += e.deltaY * (e.deltaMode ? 40 : 1); if (Math.abs(MAP.wheel) < 100) return; stepMapZoom(MAP.wheel < 0 ? 1 : -1); MAP.wheel = 0; }, { passive: false });   // one notch (100) = one step; trackpad deltas add up
+function setFullMap(full) { if (full === MAP.full || (full && !LEVELS.isSurface())) return; MAP.full = full; if (full) { MAP.fz = 1; MAP.fx = mapC.width / 2; MAP.fy = mapC.height / 2; } $('br').classList.toggle('full', full); renderMapZoom(); }
+function wheelStep(e, dir) {
+  if (!MAP.full) return stepMapZoom(dir);
+  const r = mapC.getBoundingClientRect(), v = zoomAt(mapView(), dir, (e.clientX - r.left) * mapC.width / r.width, (e.clientY - r.top) * mapC.height / r.height, mapC.width, mapC.height, ZOOMS);
+  MAP.fz = v.z; MAP.fx = v.ox; MAP.fy = v.oy; renderMapZoom();   // #843: the big map has its own zoom, the minimap's MAP.zoom stays
+}
+mapC.addEventListener('wheel', e => { e.preventDefault(); MAP.wheel += e.deltaY * (e.deltaMode ? 40 : 1); if (Math.abs(MAP.wheel) < 100) return; wheelStep(e, MAP.wheel < 0 ? 1 : -1); MAP.wheel = 0; }, { passive: false });   // one notch (100) = one step; trackpad deltas add up
 // double-click (mouse) on the map: the car goes onto the nearest jumpable road there, like J (a jump during a race). Placements < 500 ms apart are one gesture
 function placeFromMap(e) { if (performance.now() - MAP.placedT < 500) return; MAP.placedT = performance.now(); const r = mapC.getBoundingClientRect(), [x, z] = mapToWorld((e.clientX - r.left) * mapC.width / r.width, (e.clientY - r.top) * mapC.height / r.height); jumpTo({ n: tr('fromMap'), x, z }); }
 mapC.addEventListener('dblclick', placeFromMap);
 // double-tap (touch): mobile browsers do not fire dblclick reliably, so two taps < 300 ms and < 30 px apart
 mapC.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - MAP.tapT < 300 && Math.hypot(e.clientX - MAP.tapX, e.clientY - MAP.tapY) < 30) { MAP.tapT = 0; placeFromMap(e); return; } MAP.tapT = t; MAP.tapX = e.clientX; MAP.tapY = e.clientY; });
-window.__mm.map = () => { const [cx, cz] = mapToWorld(mapC.width / 2, mapC.height / 2); return { zoom: MAP.zoom, full: MAP.full, cx, cz }; }; window.__mm.mapToWorld = mapToWorld; window.__mm.worldToMap = worldToMap;
+window.__mm.map = () => { const [cx, cz] = mapToWorld(mapC.width / 2, mapC.height / 2); return { zoom: MAP.zoom, full: MAP.full, fullZoom: MAP.fz, cx, cz }; }; window.__mm.mapToWorld = mapToWorld; window.__mm.worldToMap = worldToMap;
 window.__mm.mapBuses = () => { const v = mapView(); return { full: MAP.full, marks: postautoMapMarks().map(m => { const [px, py] = mapPt(v, m.x, m.z); return { key: m.key, line: m.line, px, py, th: m.th, label: markLabel(m, MAP.full) }; }) }; };   // #711: read-only, for the test
 // #165: double-click (mouse) or double-tap (touch) on the 3D view beams the car to the ground point under the pointer; a blocked spot (water, a building) snaps to the nearest road within 30 m. Through placeOnRoad, so a race is flagged as a jump
 const BEAM = { ray: new THREE.Raycaster(), ndc: new THREE.Vector2(), t: 0, tapT: 0, tapX: 0, tapY: 0, last: null };
@@ -6771,9 +6877,10 @@ umamiTrack('game-ready', { region: regionId(REGION), lang: window.GG_LANG || 'en
 setInterval(() => { const now = performance.now(); STATS.vehicle.update(CHOICE.id, now); STATS.activity.update(activityOf({ train: TRAIN.on, level: LEVELS.id, indoors: INT.indoors, house: INT.house, foot: FOOT.on, fly: FLY.on }), now); }, 1000);
 addEventListener('gg-langchange', (e) => umamiTrack('lang', { lang: e.detail.lang }));
 endLoading();
-// #735: the menu music's file is fetched on the first input after loading, never during it; tick() follows run start / end and the SRF 3 watchdog
+// #735/#841: the menu track now starts during loading; armMenu adopts it. Without a gesture during loading the first input after it still arms, as before; tick() follows run start / end and the SRF 3 watchdog
 addEventListener('pointerdown', () => RADIO.armMenu(), { once: true });
 addEventListener('keydown', () => RADIO.armMenu(), { once: true });
+if (EARLY_MENU.gestured()) RADIO.armMenu();
 setInterval(() => RADIO.tick(), 500);
 requestAnimationFrame(loop);
 
@@ -6841,6 +6948,8 @@ showGallery();
   <a href="https://github.com/freaxnx01/game-rhyflitzer" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Source</a>
   <span style="color:#5a6072" aria-hidden="true">·</span>
   <a href="https://github.com/freaxnx01/game-rhyflitzer/issues/new?title=%5BFeedback%5D%20game-rhyflitzer&labels=feedback" target="_blank" rel="noopener" style="color:#8fd8e8;text-decoration:none">Feedback</a>
+  <span style="color:#5a6072" aria-hidden="true">·</span>
+  <a id="navcontact" data-i18n="navContact" style="color:#8fd8e8;text-decoration:none">Contact</a>
   <span style="color:#5a6072" aria-hidden="true">·</span>
   <a class="github-button" href="https://github.com/freaxnx01/game-rhyflitzer" data-icon="octicon-star" data-size="small" data-show-count="true" aria-label="Star freaxnx01/game-rhyflitzer on GitHub">Star</a>
 </nav>

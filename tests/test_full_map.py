@@ -122,6 +122,36 @@ def test_double_click_on_the_full_map_places_the_car(server):
     assert math.hypot(placed["x"] - UPHILL[0], placed["z"] - UPHILL[1]) < 30 and road < 0, (placed, road)
 
 
+def test_wheel_zooms_the_full_map_towards_the_cursor(server):
+    """#843: with Tab held the wheel zooms the big map (1/2/4/8x) towards the cursor; the minimap zoom is untouched."""
+    with sync_playwright() as p:
+        b, page = open_hand(p, server)
+        page.click("#startbtn")
+        page.evaluate(f"() => window.__mm.place({SISSELN[0]}, {SISSELN[1]})")
+        page.keyboard.press("NumpadAdd")                                        # minimap 2x
+        before = mm(page)
+        hold_tab(page)
+        start = mm(page)
+        x, y = on_map(page, *UPHILL)
+        page.mouse.move(x, y)
+        page.mouse.wheel(0, -100); wait_frames(page)
+        zoomed = mm(page); label = page.text_content("#mapzoom"); under = on_map(page, *UPHILL)
+        page.mouse.wheel(0, 100); wait_frames(page)
+        out = mm(page)
+        page.mouse.wheel(0, -100); wait_frames(page)
+        release_tab(page); hold_tab(page)
+        reopened = mm(page)
+        release_tab(page)
+        after = mm(page)
+        b.close()
+    assert start["fullZoom"] == 1
+    assert zoomed["fullZoom"] == 2 and label == "2×"
+    assert (under[0], under[1]) == pytest.approx((x, y), abs=3)                 # the point under the cursor stayed there
+    assert out["fullZoom"] == 1
+    assert reopened["fullZoom"] == 1                                            # every open starts at 1x
+    assert before["zoom"] == 2 and after["zoom"] == 2                           # minimap zoom unchanged
+
+
 def test_tab_no_longer_speeds_up_and_the_run_counts(server):
     with sync_playwright() as p:
         b, page = open_hand(p, server)

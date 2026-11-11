@@ -209,6 +209,11 @@ test('About (#564): Kicsi is the main tester and source of ideas: the bridge, Ro
   assert.match(translate('de', 'aboutRoleKicsi'), /^Haupttesterin und Ideengeberin: .*Holzbrücke.*Robidogs.*Häufchen.*viele andere Ideen mehr …$/);
 });
 
+test('About: Eric is credited for his vehicle ideas (#851), in both languages', () => {
+  assert.match(translate('en', 'aboutRoleEric'), /^Ideas for vehicles: .*motorcycle.*$/);
+  assert.match(translate('de', 'aboutRoleEric'), /^Ideengeber für Fahrzeuge: .*Motorrad.*$/);
+});
+
 test('About (#564): every agent and LLM of the pipeline is listed in both languages', () => {
   const rows = ['Impl', 'Review', 'Design', 'Local', 'Early', 'Helper', 'Mockup'];
   for (const lang of ['en', 'de']) {
@@ -264,4 +269,33 @@ test('the radio display strings render in both languages (#735)', () => {
   assert.equal(translate('de', 'radioVolume', 60), 'Lautstärke 60 %');
   assert.equal(translate('en', 'radioStationSrf'), 'SRF 3 live');
   assert.match(translate('de', 'radioSrfFail'), /SRF 3.*Rhyflitzer FM/);
+});
+
+test('the settings dialog has its texts in both languages (#842)', () => {
+  assert.equal(translate('en', 'settingsBtn'), 'Settings');
+  assert.equal(translate('de', 'settingsBtn'), 'Einstellungen');
+  assert.equal(translate('en', 'setTitle'), 'Settings');
+  assert.equal(translate('de', 'setTitle'), 'Einstellungen');
+  assert.equal(translate('en', 'setSub'), 'Sound and music');
+  assert.equal(translate('de', 'setSub'), 'Ton und Musik');
+  assert.equal(translate('en', 'setAudio'), 'Audio');
+  assert.equal(translate('de', 'setAudio'), 'Audio');
+  assert.equal(translate('en', 'setSound'), 'Sound');
+  assert.equal(translate('de', 'setSound'), 'Ton');
+  assert.match(translate('en', 'setSoundCap'), /engine, horn, crashes/);
+  assert.match(translate('de', 'setSoundCap'), /Motor, Hupe, Crashs/);
+  assert.equal(translate('en', 'setMusic'), 'Music');
+  assert.equal(translate('de', 'setMusic'), 'Musik');
+  assert.equal(translate('en', 'setMusicMenu'), 'Menu music');
+  assert.equal(translate('de', 'setMusicMenu'), 'Menümusik');
+  assert.equal(translate('en', 'setMusicRadio'), 'Car radio');
+  assert.equal(translate('de', 'setMusicRadio'), 'Autoradio');
+  assert.equal(translate('en', 'setOn'), 'on');
+  assert.equal(translate('de', 'setOn'), 'ein');
+  assert.equal(translate('en', 'setOff'), 'off');
+  assert.equal(translate('de', 'setOff'), 'aus');
+  assert.equal(translate('en', 'setHint'), 'Esc: back');
+  assert.equal(translate('de', 'setHint'), 'Esc: zurück');
+  assert.equal(translate('en', 'keyMute'), 'sound off · on (effects)');
+  assert.equal(translate('de', 'keyMute'), 'Ton aus · an (Effekte)');
 });

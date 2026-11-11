@@ -1478,3 +1478,34 @@ def test_shuttle_room_builds_the_launch_pad_on_the_holodeck_without_a_download(s
     assert s["look"] == "space" and s["grid"] is True and s["dome"] is True and s["lawn"] is False, s
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("hardstand", "tower")), push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("trench", "trenchEnd", "outside")), push
+
+
+RECORD_CAB = """async () => {
+  const rows = []; const t0 = performance.now(); let rode = false;
+  while (performance.now() - t0 < 200000) {
+    await new Promise(r => requestAnimationFrame(r));
+    const l = window.__mm.lift(); if (l.phase !== 'idle') rode = true; else if (rode) break;
+    if (l.phase === 'descending') rows.push({ scroll: l.scroll, capScroll: l.capScroll, cabAt: l.cabAt });
+  }
+  return rows;
+}"""
+
+
+@needs_world
+def test_lift_cab_stays_on_the_axis_and_only_the_walls_scroll(server):
+    """#603: the cab (the shaft's four walls) is centred on the lift, not on the car -- the shaft's own walls stand only 0.1 m outside it, so a
+    car parked off-centre pushed one cab wall behind the concrete -- and the ceiling and floor keep a still texture while the walls scroll."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        lx, lz = h["lift"]["c"]; th = h["lift"]["th"]
+        page.evaluate("() => window.__mm.liftTimes({dwell: 0.1, close: 0.1, ride: 2, open: 0.1})")
+        page.evaluate(f"() => window.__mm.sim({lx + math.cos(th) * -30}, {lz + math.sin(th) * -30}, {th}, 0, 0.1, [], {h['floor']})")
+        page.evaluate(f"() => window.__mm.place({lx - math.sin(th) * 1.5}, {lz + math.cos(th) * 1.5}, {th})")   # 1.5 m off the axis
+        rows = page.evaluate(RECORD_CAB)
+        br.close()
+    assert errors == []
+    assert len(rows) > 5, len(rows)
+    assert all(abs(r["cabAt"][0] - lx) < 1e-6 and abs(r["cabAt"][1] - lz) < 1e-6 for r in rows), rows[0]
+    assert rows[-1]["scroll"] < rows[0]["scroll"], (rows[0], rows[-1])
+    assert all(r["capScroll"] == 0 for r in rows), rows[0]
