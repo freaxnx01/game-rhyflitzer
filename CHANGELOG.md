@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Changed
+
+- `2026-11-11 13:05` The **Mazda hatchback** is now the **start car**. The **Sissle Speedster** has retired: it is gone from **Choose car**, the gallery and the vehicle depot. A saved Speedster choice drives the hatchback.
+
 ### Fixed
 
 - `2026-11-11 12:28` The **Hauptstrasse** in Sisseln no longer has a small **step** where it climbs out of the rail underpass, and the **stone walls** at the **Königsweg** rail decks stay below the deck instead of poking up through it.
