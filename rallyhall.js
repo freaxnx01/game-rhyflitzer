@@ -51,3 +51,29 @@ export function carExtent(parts) {
   }
   return { len: hi.x - lo.x, wid: hi.z - lo.z, hgt: hi.y, minY: lo.y };
 }
+
+// where the hall and its cars stand in a room ({ centre, frame: { f, v }, y } as roomLayout gives it): the hall at the
+// room centre turned to the frame, each car on its podium with its nose to the open front, the gravel apron from the
+// 95 m loop to the roof edge, and nine colliders (back wall, two side walls, two posts, the roof as a bridge deck,
+// one square per podium + car) -- all `low`, so the car stops on the floor and the helicopter passes over each top.
+export function rallyhallPlacement(room, cfg = RALLYHALL) {
+  const [cx, cz] = room.centre, { f, v } = room.frame, y = room.y, { hall: H, podium, apron } = cfg;
+  const th = Math.atan2(f[1], f[0]);
+  const loc = (a, b) => [cx + f[0] * a + v[0] * b, cz + f[1] * a + v[1] * b];
+  const box = (a, b, hw, hd, h, rallyhall, extra) => { const [x, z] = loc(a, b); return { x, z, hw, hd, c: f[0], s: f[1], h, low: true, rallyhall, ...extra }; };
+  const wallTop = { h: y + cfg.h };
+  const colliders = [
+    box(H.d / 2 - H.wall / 2, 0, H.wall / 2, H.w / 2, wallTop.h, 'back wall'),
+    box(0, H.w / 2 - H.wall / 2, H.d / 2, H.wall / 2, wallTop.h, 'side wall'),
+    box(0, -(H.w / 2 - H.wall / 2), H.d / 2, H.wall / 2, wallTop.h, 'side wall'),
+    box(-H.d / 2 + H.post / 2, H.w / 2 - H.post / 2, H.post / 2, H.post / 2, wallTop.h, 'post'),
+    box(-H.d / 2 + H.post / 2, -(H.w / 2 - H.post / 2), H.post / 2, H.post / 2, wallTop.h, 'post'),
+    box(-H.roof.canopy / 2, 0, (H.d + H.roof.canopy) / 2, H.w / 2, wallTop.h, 'roof', { bridge: true, y0: y + H.roof.y0 }),
+  ];
+  const cars = cfg.cars.map(c => {
+    const [x, z] = loc(...c.at);
+    colliders.push(box(c.at[0], c.at[1], podium.hw, podium.hw, y + podium.h + c.hgt + podium.clear, `car ${c.id}`));
+    return { id: c.id, x, z, th: th + c.th };
+  });
+  return { hall: { x: cx, z: cz, th }, cars, apron: [loc(-apron.from, 0), loc(-(H.d / 2 + H.roof.canopy), 0)], colliders };
+}

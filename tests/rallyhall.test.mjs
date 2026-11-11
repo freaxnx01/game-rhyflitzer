@@ -32,3 +32,36 @@ test('carParts_PlainPaintOnly_NoSponsorColoursNoThirdColour', () => {
   }
   assert.equal(new Set(RALLYHALL.cars.map(c => c.colour)).size, 3, 'three different paints');
 });
+
+import { rallyhallPlacement } from '../rallyhall.js';
+
+const room = { centre: [1000, -2000], frame: { f: [0, 1], v: [-1, 0] }, y: -600 };   // the far wall lies along +z; v = f turned +90°
+const loc = (a, b) => [room.centre[0] + room.frame.f[0] * a + room.frame.v[0] * b, room.centre[1] + room.frame.f[1] * a + room.frame.v[1] * b];
+const inside = (o, x, z, r = 0) => { const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; return Math.abs(lx) <= o.hw + r && Math.abs(lz) <= o.hd + r; };
+
+test('rallyhallPlacement_HallAtTheCentre_CarsOnTheirPodiumsNosesToTheOpenFront', () => {
+  const P = rallyhallPlacement(room, RALLYHALL), th = Math.atan2(room.frame.f[1], room.frame.f[0]);
+  assert.deepEqual([P.hall.x, P.hall.z], room.centre); near(P.hall.th, th, 1e-9);
+  assert.equal(P.cars.length, 3);
+  RALLYHALL.cars.forEach((c, i) => {
+    assert.equal(P.cars[i].id, c.id); assert.deepEqual([P.cars[i].x, P.cars[i].z], loc(...c.at)); near(P.cars[i].th, th + c.th, 1e-9);
+    assert.ok(Math.cos(c.th) < 0, `${c.id}: nose towards the portal side (-a)`);
+  });
+});
+
+test('rallyhallPlacement_NineColliders_AllLow_WallsToTheRoofTop_RoofIsABridge_CarsSolidAbove2m4', () => {
+  const P = rallyhallPlacement(room, RALLYHALL), Y = room.y;
+  assert.equal(P.colliders.length, 9); assert.ok(P.colliders.every(o => o.low === true && Number.isFinite(o.x) && o.hw > 0 && o.hd > 0));
+  const bridges = P.colliders.filter(o => o.bridge); assert.equal(bridges.length, 1);
+  near(bridges[0].y0, Y + 14.0, 1e-9, 'roof deck'); near(bridges[0].h, Y + 14.8, 1e-9, 'roof top');
+  const solid = P.colliders.filter(o => !o.bridge && o.h >= Y + 14.8 - 1e-9); assert.equal(solid.length, 5, 'back wall, two side walls, two posts');
+  const cars = P.colliders.filter(o => !o.bridge && o.h < Y + 14); assert.equal(cars.length, 3); for (const o of cars) assert.ok(o.h >= Y + 2.4);
+});
+
+test('rallyhallPlacement_BlocksTheCarAtWallsPostsAndPodiums_LeavesFloorUnderRoofApronAndLoopFree', () => {
+  const P = rallyhallPlacement(room, RALLYHALL), CAR_R = 2.6;
+  const blocked = (a, b, r = CAR_R) => P.colliders.some(o => !o.bridge && inside(o, ...loc(a, b), r));
+  for (const [a, b] of [[19.7, 0], [0, 35.7], [0, -35.7], [-19.5, 35.5], [-19.5, -35.5], [4, -22], [4, 0], [4, 22]]) assert.ok(blocked(a, b, 0), `solid at ${a},${b}`);
+  for (const [a, b] of [[-5, -11], [-5, 11], [4, -11], [4, 11], [12, 0], [-22, 0], [-23, 20], [-95, 0], [0, -95], [95, 0]]) assert.ok(!blocked(a, b), `free at ${a},${b}`);
+  const [from, to] = P.apron; assert.deepEqual(from, loc(-95, 0)); assert.deepEqual(to, loc(-24, 0));
+});
