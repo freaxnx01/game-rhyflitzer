@@ -80,6 +80,11 @@ test('loadStep_Lifecycle_IdleLoadingReadyOrFailed', () => {
   assert.equal(loadStep('loading', 'want'), 'loading', 'a second highlight does not start a second load');
 });
 
+test('loadStep_Evict_SendsAReadyModelBackToIdle', () => {
+  assert.equal(loadStep('ready', 'evict'), 'idle');
+  for (const s of ['idle', 'loading', 'failed']) assert.equal(loadStep(s, 'evict'), s);
+});
+
 test('loadStep_FailedAndReady_AreSticky', () => {
   assert.equal(loadStep('failed', 'want'), 'failed', 'no retry storm in one session');
   assert.equal(loadStep('ready', 'want'), 'ready');
