@@ -1,7 +1,7 @@
-# #844: the underpass south of Stein, a wall corner blocks the west edge of the road (design, needs a decision)
+# #844: the underpass south of Stein, a wall corner blocks the west edge of the road (design)
 
-Status: **reproduced and measured, fix direction open**. A human has to pick the fix (see "Open decision"), so this
-spec has no implementation plan yet.
+Status: **reproduced and measured. Fix decided by the maintainer: option A** (see "Decision"). Plan:
+`docs/superpowers/plans/2026-11-11-underpass-stein-south-wall-stub.md`.
 
 ## What the tester reported
 
@@ -77,11 +77,36 @@ obstacle is the wall piece `__mm.walls()`:
   south through this underpass) are solid (`index.html:5223`, `POSTAUTO.colliders`), but the sims do not run them.
   The bearing change 188° → 100° (thrown east) does fit a hit on the west side.
 
-## Open decision (why this needs a human)
+## Decision
 
-There are three ways to fix it. Each one changes a rule from #119/#120 that other cuts depend on:
+The maintainer's answer (2026-11-11): **"A: Drop the stub (Recommended)"**. In `troughPiece`
+(`index.html:2533-2552`), drop wall pieces on the cut road where its own carriageway is not lowered
+(`cutDepth(rx, rz) <= 0.1`). The corner becomes a 0.2 to 0.64 m grass slope. `test_no_open_cut_faces`
+(`tests/test_underpass.py:223`) gets a narrow carve-out for exactly that case.
 
-- **A (recommended, but [low])**: `troughPiece` drops a piece on the cut road when that road's own carriageway is not
+### Design of A
+
+- The new early return goes after the existing `ground - floor` / `lowered` test. That way only pieces that would
+  have been built are dropped, and each dropped piece is recorded in a new `SLOPES` array (x, z, rot, len). Its
+  footprint is not built and not solid.
+- The carve-out: `__mm.openCutFaces` counts a point inside a dropped piece's footprint (the same footprint test
+  as for walls, plus 0.3 m) as `slope`, not as `open`. The test keeps `count == 0` and adds `slope > 0` (the
+  Stein corner must show up there) and `slopeMax <= 1.0` m.
+- The rule applies to every cut, not only this corner. At the shallow ends of other cuts, pieces where the road
+  itself is lowered by ≤ 0.1 m are dropped as well. `slopeMax` bounds how deep those banks get.
+- A pinned test, `test_stein_south_approach_has_no_wall_stub`:
+  - the stub is gone, and the west run in the real cut at `(-888.54, 1185.99)` stays;
+  - from the tester's spot along the road (186.4°, 50 km/h, gas held) the car reaches z > 1215 with no hit and no
+    wreck;
+  - on the tester's 188° line, nothing stops the car before z 1182.
+- Why the 188° line stops at z 1182: at 188° the car has drifted ~3.6 m west of the centre line by z 1185, about
+  1 m off the lane. There it meets the kept wall of the real cut. Its corner piece at `(-888.15, 1185.4)`,
+  rot 3.99, reaches 3.37 m from the centre line (geometric estimate, not measured, because the stub stops the
+  car first). That wall is correct under #119 and option A keeps it.
+
+### Options that were considered
+
+- **A (chosen)**: `troughPiece` drops a piece on the cut road when that road's own carriageway is not
   lowered there (`cutDepth(rx, rz) <= 0.1`), so the bank only exists because a side road's arm reaches around
   the corner. The corner becomes a 0.2 to 0.64 m grass slope, and the service road's own walls still close its
   corridor. This breaks `test_no_open_cut_faces` (`tests/test_underpass.py:223`, every point lowered > 0.3 m
@@ -91,14 +116,17 @@ There are three ways to fix it. Each one changes a rule from #119/#120 that othe
 - **C**: shorten or flatten the service-road arm (w1216639317 runs in a 53 m walled trench). This is a deeper
   change to `armReach`/`cutNetwork` (`world.js`) for every side road whose terrain climbs at about `sideGrade`.
 
-Also open: whether the 16 m gap between the tester's impact and the measured one points to a second cause (for
-example a Postauto bus in the cut). If it does, the human should get another tester run or video frame at
-z 1150 to 1165.
+Still open (note, not part of this fix): the 16 m gap between the tester's impact (z 1159.5) and the measured one
+could point to a second cause, for example a Postauto bus of line 134 in the cut. If the tester sees it again after
+this fix, get a video frame at z 1150 to 1165.
 
-## Acceptance criteria (for whichever option is chosen)
+## Acceptance criteria
 
-- [ ] From `(-881.7, 1143.9)`, bearing 188°, 50 km/h with gas held, `__mm.sim` reaches z > 1215 without a speed drop
-      > 2.5 m/s per 0.25 s and without a wreck.
-- [ ] The same from the lane's west edge (start x -882.7) at bearings 186.4° and 188°.
+- [ ] `__mm.walls()` has no piece within 1.5 m of `(-887.64, 1177.95)`. The west wall at `(-888.54, 1185.99)` stays.
+- [ ] From `(-881.7, 1143.9)` along the road (186.4°), 50 km/h with gas held, `__mm.sim` reaches z > 1215 with no
+      speed drop > 2.5 m/s per 0.25 s and no wreck.
+- [ ] On the tester's line (`(-881.7, 1143.9)`, 188°, 50 km/h, gas held), no speed drop > 2.5 m/s per 0.25 s
+      before z 1182, and the car gets to z ≥ 1180.
+- [ ] `__mm.openCutFaces()`: `count` 0, `slope` > 0, `slopeMax` ≤ 1.0 m.
 - [ ] The six crossings at z 1200 to 1213 keep depth ≥ 4.5 m, clearance ≥ 4.45 m, `unsettled` false.
-- [ ] `tests/test_underpass.py` stays green, or is changed only as the chosen option says.
+- [ ] All of `tests/test_underpass.py` is green.
