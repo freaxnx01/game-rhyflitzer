@@ -32,12 +32,20 @@ GOLDEN = {
 }
 
 
+def pin_the_compact(page):
+    """#830: the hatchback is the start car and swaps itself in as soon as its file arrives. The numbers in this file
+    are the compact's -- it stays the reference vehicle -- so the stand-in is activated once that swap is through."""
+    page.wait_for_function("() => ['ready', 'failed'].includes(window.__mm.gltfVehicle('hatchback').state)", timeout=240000)
+    page.evaluate("() => window.__mm.setVehicle(window.__mm.vehicles().compact)")
+
+
 def open_hand(p, server):
     b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 320, "height": 180})
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    pin_the_compact(page)
     return b, page
 
 
@@ -334,16 +342,17 @@ def test_delorean_drives_slower_than_compact(server):
 
 
 def test_vehicle_query_selects_the_delorean(server):
-    """#126: ?vehicle=delorean starts with the DeLorean, an unknown id with the compact, no errors either way."""
+    """#126 + #830: ?vehicle=delorean starts with the DeLorean, an unknown id with the start car (the hatchback),
+    no errors either way."""
     with sync_playwright() as p:
         b, page, errors = open_hand_query(p, server, "?vehicle=delorean")
         picked = page.evaluate("() => window.__mm.vehicle().model")
         b.close()
         b, page, errors2 = open_hand_query(p, server, "?vehicle=tank")
-        fallback = page.evaluate("() => window.__mm.vehicle().model")
+        fallback = page.evaluate("() => window.__mm.carsel().id")
         b.close()
     assert picked == "delorean"
-    assert fallback == "compact"
+    assert fallback == "hatchback"
     assert errors == [] and errors2 == [], (errors, errors2)
 
 

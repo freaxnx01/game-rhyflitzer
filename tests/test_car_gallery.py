@@ -29,16 +29,16 @@ def test_gallery_shows_every_vehicle_with_a_photo_name_and_class(server):
         page.wait_for_function(ALL_PHOTOS, timeout=240000)
         g = page.evaluate(GALLERY_JS)
         texts = page.evaluate("() => [...document.querySelectorAll('#csgallery [data-id]')].map(t => ({ id: t.dataset.id, name: t.querySelector('.cs-tname').textContent, cls: t.querySelector('.cs-tclass').textContent, pressed: t.getAttribute('aria-pressed') }))")
-        spread = {i: page.evaluate(SPREAD_JS, i) for i in ("compact", "estate", "bus")}
+        spread = {i: page.evaluate(SPREAD_JS, i) for i in ("hatchback", "estate", "bus")}
         after = page.evaluate("() => window.__mm.carStats()")
         state = carsel(page)
         b.close()
     assert [t["id"] for t in g["tiles"]] == g["ids"] and len(g["ids"]) == state["count"], g
     assert not [t for t in g["tiles"] if t["failed"]], (g, warnings)
     assert all(t["name"] and t["cls"] for t in texts), texts
-    assert [t["id"] for t in texts if t["pressed"] == "true"] == ["compact"], texts
+    assert [t["id"] for t in texts if t["pressed"] == "true"] == ["hatchback"], texts
     assert all(s > 12 for s in spread.values()), spread
-    assert after == before and state["id"] == "compact", (before, after, state)   # photographing every car leaves the stage car as it was
+    assert after == before and state["id"] == "hatchback", (before, after, state)   # photographing every car leaves the stage car as it was
     assert not errors, errors
 
 
