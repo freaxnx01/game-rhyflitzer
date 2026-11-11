@@ -41,6 +41,11 @@ def resolve_endpoint(env, probe=reachable):
     return endpoint, None
 
 
+def is_remote(endpoint):
+    """#879: a browser on another machine opens the test pages on a LAN address, never on localhost."""
+    return endpoint is not None and urlparse(endpoint).hostname not in ("127.0.0.1", "localhost")
+
+
 def lan_host_for(endpoint):
     """The local IPv4 address this machine uses to reach the endpoint's host (a UDP connect sends nothing)."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
