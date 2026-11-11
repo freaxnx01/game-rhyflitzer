@@ -245,7 +245,9 @@ export function placeTrip(trip, route, now, cfg = PA, win = null) {
 // window so the bus is one continuous entity across a turn; null outside every leg's window
 export function placeRun(run, now, cfg = PA) {
   for (let i = 0; i < run.legs.length; i++) {
-    const leg = run.legs[i], b = placeTrip(leg.trip, leg.route, now, cfg, leg.win);
+    const leg = run.legs[i];
+    if (tripTime(leg.win, now) === null) continue;   // #880: the leg's window is closed, placeTrip would only rebuild its calls to say null
+    const b = placeTrip(leg.trip, leg.route, now, cfg, leg.win);
     if (b) return { ...b, key: run.key, legs: run.legs, leg: i, win: run.win };
   }
   return null;
