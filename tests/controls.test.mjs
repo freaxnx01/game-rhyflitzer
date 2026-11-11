@@ -90,8 +90,12 @@ test('barEntries_HeliTrainLift_OnlyAllKeys', () => {
 
 test('menuEntries_Car_ListsTheRestNotTheCore', () => {
   const cmds = menuEntries('car').map(e => e.cmd);
-  for (const k of ['Comma', 'Period', 'KeyL', 'Digit1', 'KeyH', 'KeyO', 'KeyI', 'KeyF', 'KeyX', 'KeyM', 'KeyT', 'KeyR']) assert.ok(cmds.includes(k), k);
+  for (const k of ['Comma', 'Period', 'KeyL', 'Digit1', 'KeyH', 'KeyO', 'KeyI', 'KeyF', 'KeyX', 'KeyM', 'KeyT', 'KeyR', 'Backquote']) assert.ok(cmds.includes(k), k);
   for (const k of ['KeyZ', 'KeyJ', 'KeyC']) assert.ok(!cmds.includes(k), k);
+});
+
+test('actionFor_Backquote_IsRecordInEveryRunContext (#749)', () => {
+  for (const c of ['car', 'foot', 'indoors']) assert.equal(actionFor(c, 'Backquote'), 'record', c);
 });
 
 test('labels_EveryLabelExistsInBothLanguages', () => {
