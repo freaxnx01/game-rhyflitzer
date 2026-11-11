@@ -77,6 +77,9 @@ def test_osm_rhine_splash_and_overpass(server):
         b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
         page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         page.goto(f"{server}/index.html"); page.wait_for_selector("#startbtn", timeout=180000)
+        # #661: #startbtn is static markup. A change event fired before index.html assigns the input's onchange (after the world
+        # build) is lost: no reload, expect_navigation times out. Wait for the handler, not the button.
+        page.wait_for_function("() => typeof document.querySelector('#mmhfile').onchange === 'function'", timeout=180000)
         with page.expect_navigation(timeout=180000):                                 # the page stores the terrain and reloads
             page.set_input_files("#mmhfile", str(MMH))
         page.wait_for_selector("#mmhstatus.real", timeout=180000)

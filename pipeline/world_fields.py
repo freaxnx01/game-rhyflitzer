@@ -14,6 +14,7 @@ FIELD_GAP = 1.0      # m beyond the road's half width
 RAIL_GAP = 3.0       # m either side of a track centre line
 PARKING_GAP = 3.0    # m around a car park lot
 YARD_GAP = 3.0       # m around the Crash-Platz (#629)
+STREAM_GAP = 1.0     # m beyond a stream's half width (#661)
 SEAM = 1.5           # m of grass between neighbouring parcels (each parcel inset by half)
 SIMPLIFY = 1.0       # m, topology-preserving
 MIN_AREA = 300.0     # m2
@@ -117,10 +118,11 @@ def _osm(areas, clip, taken, stats):
     return out
 
 
-def _cuts(areas, roads, rail, keep_out=()):
+def _cuts(areas, roads, rail, keep_out=(), streams=()):
     cuts = [shapely.LineString(r["pts"]).buffer(r["w"] / 2 + FIELD_GAP) for r in roads if len(r["pts"]) > 1]
     cuts += [shapely.LineString(line).buffer(RAIL_GAP) for line in rail if len(line) > 1]
     cuts += [a.geom.buffer(PARKING_GAP, join_style="mitre") for a in areas if world_parking.selected(a.tags)]
+    cuts += [shapely.LineString(s["pts"]).buffer(s["w"] / 2 + STREAM_GAP) for s in streams if len(s["pts"]) > 1]
     cuts += [shapely.box(*r).buffer(YARD_GAP, join_style="mitre") for r in keep_out]
     return shapely.unary_union(cuts) if cuts else None
 
@@ -137,7 +139,7 @@ def _entry(kind, p, src, cut):
     return e
 
 
-def build(features, areas, roads, rail, clip, frame, keep_out=()):
+def build(features, areas, roads, rail, clip, frame, keep_out=(), streams=()):
     """Fields inside `clip`: cantonal parcels, then OSM where they leave room; minus corridors; inset by SEAM/2."""
     stats = Counter()
     parcels = _lwb(features, clip, frame, stats)
@@ -145,7 +147,7 @@ def build(features, areas, roads, rail, clip, frame, keep_out=()):
     parcels += _osm(areas, clip, taken, stats)
     if not parcels:
         return [], {}
-    cut = _cuts(areas, roads, rail, keep_out)
+    cut = _cuts(areas, roads, rail, keep_out, streams)
     if cut is not None:
         shapely.prepare(cut)
     kept = []
