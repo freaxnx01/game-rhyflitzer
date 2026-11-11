@@ -18,13 +18,17 @@ export function footInput(keys, stick = null) {
   };
 }
 
-// one fixed step: turn, move along the heading (diagonals not faster; nitro doubles the horizontal speed, not the climb), then the height -- floorAt(x, z, y) is asked at the new spot
+// one fixed step: turn, move along the heading (diagonals not faster; nitro doubles the horizontal speed, not the climb), then the height -- floorAt(x, z, y) is asked at the new spot.
+// #895: the turn rate and the walking/sidestepping speeds ease in and out (walkTau/turnTau ~0.3 s to full); the eased
+// values ride in s.tw/s.lf/s.ls (missing = 0), so old callers and saves still work. Smoothing the local-frame velocity
+// (not the world's) keeps a turn while walking a clean arc; the height, jump, hover climb and gravity stay instant.
 export function stepFoot(s, input, dt, floorAt, cfg = WALKER) {
-  const th = s.th + input.turn * cfg.turnRate * dt, fx = Math.cos(th), fz = Math.sin(th);
-  let mx = input.fwd * fx - input.side * fz, mz = input.fwd * fz + input.side * fx;
-  const m = Math.hypot(mx, mz); if (m > 1) { mx /= m; mz /= m; }
-  const speed = (s.hover ? cfg.hover : cfg.walk) * (input.nitro ? cfg.nitro : 1), vx = mx * speed, vz = mz * speed, x = s.x + vx * dt, z = s.z + vz * dt;
-  const moved = { ...s, x, z, th, vx, vz }, floor = floorAt(x, z, s.y);
+  const tw = easeTo(s.tw ?? 0, input.turn * cfg.turnRate, dt, cfg.turnTau), th = s.th + tw.avg * dt, fx = Math.cos(th), fz = Math.sin(th);
+  let f = input.fwd, r = input.side; const m = Math.hypot(f, r); if (m > 1) { f /= m; r /= m; }
+  const speed = (s.hover ? cfg.hover : cfg.walk) * (input.nitro ? cfg.nitro : 1);
+  const lf = easeTo(s.lf ?? 0, f * speed, dt, cfg.walkTau), ls = easeTo(s.ls ?? 0, r * speed, dt, cfg.walkTau);
+  const vx = lf.avg * fx - ls.avg * fz, vz = lf.avg * fz + ls.avg * fx, x = s.x + vx * dt, z = s.z + vz * dt;
+  const moved = { ...s, x, z, th, vx, vz, lf: lf.v, ls: ls.v, tw: tw.v }, floor = floorAt(x, z, s.y);
   return s.hover ? hoverStep(moved, input, dt, floor, cfg) : walkStep(moved, input, dt, floor, cfg);
 }
 

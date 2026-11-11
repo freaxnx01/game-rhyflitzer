@@ -354,3 +354,63 @@ test('easeLook_SplitDt_SameResult', () => {
   close(v.th, once.th, 1e-9); close(v.pitch, once.pitch, 1e-9);
   close(smoothK(0.1, LOOK_EASE.tau), smoothK(0.1, LOOK_EASE.tau), 1e-12);
 });
+
+// #895: stepFoot eases into walking, sidestepping and turning (state lf/ls/tw carried by the caller); the height,
+// jump, hover climb and gravity stay exactly as they were (vertical motion is not smoothed, A2)
+test('stepFoot_WalkFromRest_RampsUpInAboutPointThreeSeconds', () => {
+  const early = run(at(), { ...IDLE, fwd: 1 }, 0.05);
+  assert.ok(Math.hypot(early.vx, early.vz) < 0.5 * WALKER.walk, `after 0.05 s at ${Math.hypot(early.vx, early.vz)}`);
+  const late = run(at(), { ...IDLE, fwd: 1 }, 0.5);
+  close(Math.hypot(late.vx, late.vz), WALKER.walk, 0.01 * WALKER.walk);
+});
+
+test('stepFoot_ReleaseKey_BrakesAndStopsMoving', () => {
+  let s = run(at(), { ...IDLE, fwd: 1 }, 1);
+  const from = { x: s.x, z: s.z };
+  s = run(s, IDLE, 0.6);
+  const glide = Math.hypot(s.x - from.x, s.z - from.z);
+  assert.ok(glide > 0 && glide < WALKER.walk * WALKER.walkTau * 1.01, `glide ${glide}`);
+  const still = run(s, IDLE, 0.5);
+  assert.ok(Math.hypot(still.x - s.x, still.z - s.z) < 2e-3, `keeps sliding ${Math.hypot(still.x - s.x, still.z - s.z)}`);
+});
+
+test('stepFoot_TurnKey_RampsAndSettlesAtTurnRate', () => {
+  const settled = run(at(), { ...IDLE, turn: 1 }, 0.6);
+  close(settled.tw, WALKER.turnRate, 0.01 * WALKER.turnRate);
+  const t = run(at(), { ...IDLE, turn: 1 }, 1);
+  close(WALKER.turnRate * 1 - t.th, WALKER.turnRate * WALKER.turnTau * (1 - Math.exp(-1 / WALKER.turnTau)), 1e-6, 'the lost angle');
+});
+
+// the exact step mean makes the distance dt-independent; under a turn key the endpoints differ by the arc
+// discretisation (as with the old instant turn), so the strides and the total heading are compared instead
+test('stepFoot_SameWalkAtDt60And30_SameDistance', () => {
+  const stride = (dt, input) => { let s = at(), dist = 0; for (let i = 0; i < Math.round(1 / dt); i++) { const n = stepFoot(s, input, dt, flat()); dist += Math.hypot(n.x - s.x, n.z - s.z); s = n; } return { s, dist }; };
+  const straight60 = stride(1 / 60, { ...IDLE, fwd: 1 }), straight30 = stride(1 / 30, { ...IDLE, fwd: 1 });
+  close(straight60.dist, straight30.dist, 1e-9);
+  close(Math.hypot(straight60.s.x, straight60.s.z), Math.hypot(straight30.s.x, straight30.s.z), 1e-9);
+  const turn60 = stride(1 / 60, { ...IDLE, fwd: 1, turn: 1 }), turn30 = stride(1 / 30, { ...IDLE, fwd: 1, turn: 1 });
+  close(turn60.dist, turn30.dist, 1e-3);
+  close(turn60.s.th, turn30.s.th, 1e-3);
+});
+
+test('stepFoot_TurnWhileWalking_NoSideSlip', () => {
+  const s = run(at(), { ...IDLE, fwd: 1, turn: 1 }, 1);
+  assert.equal(s.ls, 0, 'the eased speed stays on the walking axis while the heading turns');
+});
+
+test('stepFoot_HoverWithNitro_RampsToTwiceHover', () => {
+  const early = run(at({ hover: true }), { ...IDLE, fwd: 1, nitro: 1 }, 0.05);
+  assert.ok(Math.hypot(early.vx, early.vz) < WALKER.hover, `after 0.05 s at ${Math.hypot(early.vx, early.vz)}`);
+  const s = run(at({ hover: true }), { ...IDLE, fwd: 1, nitro: 1 }, 1);
+  close(Math.hypot(s.vx, s.vz), 2 * WALKER.hover, 0.02 * 2 * WALKER.hover);
+});
+
+test('stepFoot_StateRoundTrip_IsDeterministic', () => {
+  const journey = () => {
+    let s = run(at(), { ...IDLE, fwd: 1, turn: 1 }, 0.5);
+    s = run(s, { ...IDLE, lift: 1 }, 0.1);
+    s = run(s, IDLE, 1);
+    return s;
+  };
+  assert.deepEqual(journey(), journey());
+});
