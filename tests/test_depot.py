@@ -10,7 +10,7 @@ from test_carselect import ARGS, MMH_ROUTE, T, wait_frames
 DEPOT_JS = "() => window.__mm.depot()"
 AT_DEPOT = "() => window.__mm.sim(832.3, -107.5, 0, 0, 0.1, [])"
 ALL_BUILT = "() => { const d = window.__mm.depot(); return d.slots.length === window.__mm.carsel().count && d.slots.every(s => s.model === 'gltf' || s.id === window.__mm.carsel().id); }"
-# only one test waits for every glTF (21 models is a heavy load on a CI GPU); the others need every slot placed, or one model
+# only one test waits for every glTF (20 models is a heavy load on a CI GPU); the others need every slot placed, or one model
 ALL_PLACED = "() => { const d = window.__mm.depot(); return d.slots.length === window.__mm.carsel().count && d.slots.every(s => s.model); }"
 HYPER_GLTF = "() => window.__mm.depot().slots.some(s => s.id === 'hyper' && s.model === 'gltf')"
 
@@ -46,10 +46,10 @@ def test_depot_builds_every_vehicle_and_leaves_the_driven_car_alone(server):
         d = depot(page)
         after = page.evaluate("() => window.__mm.carStats()")
         b.close()
-    me = [s for s in d["slots"] if s["id"] == "compact"][0]
+    me = [s for s in d["slots"] if s["id"] == "hatchback"][0]
     assert d["on"] and len(d["slots"]) == page_count, d
     assert not me["shown"] and not me["solid"], me                       # the driven car's slot is empty
-    assert all(s["shown"] and s["solid"] for s in d["slots"] if s["id"] != "compact"), d
+    assert all(s["shown"] and s["solid"] for s in d["slots"] if s["id"] != "hatchback"), d
     assert after == before, (before, after)
     assert not errors, errors
 
@@ -61,7 +61,7 @@ def test_parked_cars_are_solid_and_far_ones_hidden(server):
         page.evaluate(AT_DEPOT)
         page.wait_for_function(ALL_PLACED, timeout=240000)
         d = depot(page)
-        high = [s for s in d["slots"] if abs(s["th"] + math.pi / 2) < 1e-9 and s["id"] != "compact"]
+        high = [s for s in d["slots"] if abs(s["th"] + math.pi / 2) < 1e-9 and s["id"] != "hatchback"]
         target = min(high, key=lambda s: math.hypot(s["x"] - 832.3, s["z"] + 107.5))
         th = math.atan2(target["z"] + 107.5, target["x"] - 832.3)
         res = page.evaluate(f"() => window.__mm.sim(832.3, -107.5, {th}, 15, 2, [])")   # straight at the slot, no gas
@@ -93,7 +93,7 @@ def test_parked_paint_ignores_later_repaints(server):
         page.wait_for_function("() => !window.__mm.carsel().open", timeout=T)
         after = {s["id"]: s for s in depot(page)["slots"]}["hyper"]
         b.close()
-    assert driven == "e0322d", driven                                # the driven compact took the swiss paint
+    assert driven == "e0322d", driven                                # the driven hatchback took the swiss paint
     assert before["paint"] == "#2266dd", before                      # the Rhy Hyper's factory racing blue
     assert after["paint"] == "#2266dd", after
     assert not errors, errors
@@ -118,7 +118,7 @@ def slots_by_id(page):
 
 
 def test_e_in_the_car_boards_the_parked_vehicle(server):
-    """Boards the hypercar before its model is loaded; the compact goes home, the hypercar's slot empties."""
+    """Boards the hypercar before its model is loaded; the hatchback goes home, the hypercar's slot empties."""
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
         page.click("#startbtn", timeout=180000)
@@ -128,19 +128,19 @@ def test_e_in_the_car_boards_the_parked_vehicle(server):
         d = depot(page)
         b.close()
     slot = {s["id"]: s for s in d["slots"]}
-    assert slot["compact"]["shown"] and slot["compact"]["solid"], slot["compact"]
+    assert slot["hatchback"]["shown"] and slot["hatchback"]["solid"], slot["hatchback"]
     assert not slot["hyper"]["shown"] and not slot["hyper"]["solid"], slot["hyper"]
     assert not errors, errors
 
 
 def test_boarding_on_foot(server):
-    """Z next to the strip, walk up: the key bar offers E 'get in', E boards, the compact goes home."""
+    """Z next to the strip, walk up: the key bar offers E 'get in', E boards, the hatchback goes home."""
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
         page.click("#startbtn", timeout=180000)
         page.evaluate(AT_DEPOT)
         page.wait_for_function("() => window.__mm.depot().slots.some(s => s.model)", timeout=T)
-        target = min((s for s in depot(page)["slots"] if s["id"] != "compact" and abs(s["th"] + math.pi / 2) < 1e-9),
+        target = min((s for s in depot(page)["slots"] if s["id"] != "hatchback" and abs(s["th"] + math.pi / 2) < 1e-9),
                      key=lambda s: math.hypot(s["x"] - 832.3, s["z"] + 107.5))
         nose = (target["x"] + math.cos(target["th"]) * target["l"] / 2, target["z"] + math.sin(target["th"]) * target["l"] / 2)
         q = (target["x"] + math.cos(target["th"]) * (target["l"] / 2 + 2), target["z"] + math.sin(target["th"]) * (target["l"] / 2 + 2))
@@ -165,7 +165,7 @@ def test_boarding_on_foot(server):
     assert "get in" in prompt, prompt
     assert on_foot is False
     slot = {s["id"]: s for s in d["slots"]}
-    assert slot["compact"]["shown"] and slot["compact"]["solid"], slot["compact"]
+    assert slot["hatchback"]["shown"] and slot["hatchback"]["solid"], slot["hatchback"]
     assert not slot[target["id"]]["shown"] and not slot[target["id"]]["solid"], slot[target["id"]]
     assert not errors, errors
 
@@ -192,7 +192,7 @@ def test_e_elsewhere_in_the_car_does_nothing(server):
         wait_frames(page)
         got = page.evaluate("() => ({ id: window.__mm.carsel().id, near: window.__mm.depot().near })")
         b.close()
-    assert got == {"id": "compact", "near": None}, got
+    assert got == {"id": "hatchback", "near": None}, got
     assert not errors, errors
 
 
@@ -202,7 +202,7 @@ def test_too_fast_shows_no_prompt(server):
         page.click("#startbtn", timeout=180000)
         page.evaluate(AT_DEPOT)
         page.wait_for_function("() => window.__mm.depot().slots.some(s => s.model)", timeout=T)
-        s = min((x for x in depot(page)["slots"] if x["id"] != "compact" and abs(x["th"] + math.pi / 2) < 1e-9),
+        s = min((x for x in depot(page)["slots"] if x["id"] != "hatchback" and abs(x["th"] + math.pi / 2) < 1e-9),
                 key=lambda x: math.hypot(x["x"] - 832.3, x["z"] + 107.5))
         qx, qz = s["x"] + math.cos(s["th"]) * (s["l"] / 2 + 2), s["z"] + math.sin(s["th"]) * (s["l"] / 2 + 2)
         th = math.atan2(s["z"] - qz, s["x"] - qx)

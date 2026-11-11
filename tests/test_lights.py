@@ -5,6 +5,8 @@ Slow (Playwright): run in the foreground. Verifies the compact and the DeLorean 
 import pytest
 from playwright.sync_api import sync_playwright
 
+from test_vehicles import pin_the_compact
+
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 
@@ -16,6 +18,7 @@ def start_hand(p, server, query=""):
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html{query}")
     page.wait_for_function("() => window.__mm && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    pin_the_compact(page)      # #830: these are the compact's own lamps; the hatchback would swap itself in mid-test
     page.click("#startbtn", timeout=180000)
     return b, page
 

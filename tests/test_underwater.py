@@ -5,6 +5,8 @@ Slow (Playwright): run in the foreground."""
 import pytest
 from playwright.sync_api import sync_playwright
 
+from test_vehicles import pin_the_compact
+
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 MID_RHINE = (863.6, -647.7)
@@ -17,6 +19,7 @@ def open_hand(p, server, locale="en-US"):
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    pin_the_compact(page)      # #830: the speeds below are the compact's; the hatchback would swap itself in mid-test
     return b, page
 
 
