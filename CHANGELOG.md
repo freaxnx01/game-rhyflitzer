@@ -10,7 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
-- `2026-11-11 13:14` The **Rhy Gullwing** now looks like the real thing: a detailed **3D model** in brushed steel with the proper wedge nose, louvres and door handles. The **gull-wing doors** still swing up on the start screen, the lamps still follow <kbd>L</kbd>.
+- `2026-11-11 14:52` The **Rhy Gullwing** now looks like the real thing: a detailed **3D model** in brushed steel with the proper wedge nose, louvres and door handles. The **gull-wing doors** still swing up on the start screen, the lamps still follow <kbd>L</kbd>.
 
 ### Added
 
