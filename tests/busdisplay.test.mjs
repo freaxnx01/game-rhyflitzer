@@ -73,8 +73,10 @@ test('rearFrame_Thanks_SmileyThenTextBothInsideTheGrid', () => {
   for (const thanks of ['Vielen Dank!', 'Thank you!']) {
     const f = rearFrame({ line: '133', thanks });
     assert.ok(f.dots.every(([c, r]) => c >= 0 && c < REAR_GRID.cols && r >= 0 && r < REAR_GRID.rows), thanks);
-    assert.equal(f.smiley.scale, 2);
-    assert.ok(f.text.x >= f.smiley.x + 7 * f.smiley.scale + 2, 'the text starts right of the smiley');
+    assert.equal(f.smiley.y, 0, 'the smiley uses the full height');
+    assert.ok(f.text.x >= f.smiley.x + SMILEY[0].length + 2, 'the text starts right of the smiley');
+    const smileyRows = f.dots.filter(([c]) => c < f.smiley.x + SMILEY[0].length).map(([, r]) => r);
+    assert.equal(Math.min(...smileyRows), 0); assert.equal(Math.max(...smileyRows), REAR_GRID.rows - 1);
     assert.equal(f.text.sy, 2);
     const cols = f.dots.map(([c]) => c);
     assert.ok(Math.abs((Math.min(...cols) + Math.max(...cols) + 1) / 2 - REAR_GRID.cols / 2) <= 2, thanks);
@@ -88,8 +90,15 @@ test('rearFrame_TooLongText_ClipsToTheGrid', () => {
   assert.equal(f.text.sx, 1);
 });
 
-test('SMILEY_IsSevenBySeven', () => {
-  assert.ok(SMILEY.length === 7 && SMILEY.every((r) => r.length === 7));
+test('SMILEY_IsAFullHeightRingWithEyesAndMouth', () => {
+  assert.equal(SMILEY.length, REAR_GRID.rows);
+  assert.ok(SMILEY.every((r) => /^[.#]{16}$/.test(r)));
+  const lit = SMILEY.join('').split('#').length - 1;
+  assert.ok(lit < 0.35 * 16 * 16, 'a ring with features, not a filled blob');
+  assert.equal(SMILEY[7][7], '.'); assert.equal(SMILEY[7][8], '.');   // the centre stays dark
+  assert.ok(SMILEY[0].includes('#') && SMILEY[15].includes('#'), 'the ring touches the top and bottom rows');
+  const eyes = SMILEY.slice(3, 7).join('');
+  assert.ok(eyes.includes('##..##') || eyes.includes('##...##') || eyes.includes('##....##'), 'two separate eyes');
 });
 
 test('REAR_TEX_HasSquareWholeCells', () => {

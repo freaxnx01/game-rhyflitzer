@@ -23,7 +23,25 @@ export function displayLayout({ line, dest }, measure, tex = DISPLAY_TEX) {
 export const REAR_GRID = { cols: 112, rows: 16 };
 export const REAR_CELL = 8;
 export const REAR_TEX = { w: REAR_GRID.cols * REAR_CELL, h: REAR_GRID.rows * REAR_CELL };
-export const SMILEY = ['..###..', '.#...#.', '#.#.#.#', '#.....#', '#.#.#.#', '.#.#.#.', '..###..'];
+// the smiley at the grid's native resolution, the full 16 rows: a ring, two eyes and a curved mouth with dark dots between
+export const SMILEY = [
+  '.....######.....',
+  '...##......##...',
+  '..#..........#..',
+  '.#............#.',
+  '.#...##..##...#.',
+  '#....##..##....#',
+  '#..............#',
+  '#..............#',
+  '#..............#',
+  '#..#........#..#',
+  '#...#......#...#',
+  '.#...##..##...#.',
+  '.#.....##.....#.',
+  '..#..........#..',
+  '...##......##...',
+  '.....######.....',
+];
 // 5x7 glyphs, rows top to bottom, '#' lit; the baseline is row 5 so g j p q y keep a descender
 const FONT = {
   '0': '.###.|#...#|#..##|#.#.#|##..#|#...#|.###.', '1': '..#..|.##..|..#..|..#..|..#..|..#..|.###.',
@@ -96,11 +114,11 @@ export function rearFrame({ line, thanks }, grid = REAR_GRID) {
     const sx = fitScaleX(line, grid.cols), x = Math.floor((grid.cols - textCols(line, sx)) / 2);
     return { dots: clip(textDots(line, x, y, sx, sy), grid), smiley: null, text: { x, y, sx, sy } };
   }
-  const scale = 2, gap = 4, smileyCols = SMILEY[0].length * scale;
+  const gap = 4, smileyCols = SMILEY[0].length;
   const sx = fitScaleX(thanks, grid.cols - smileyCols - gap), cols = smileyCols + gap + textCols(thanks, sx);
   const x = Math.max(0, Math.floor((grid.cols - cols) / 2)), tx = x + smileyCols + gap;
-  const dots = [...bitmapDots(SMILEY, x, y, scale, scale), ...textDots(thanks, tx, y, sx, sy)];
-  return { dots: clip(dots, grid), smiley: { x, y, scale }, text: { x: tx, y, sx, sy } };
+  const dots = [...bitmapDots(SMILEY, x, 0, 1, 1), ...textDots(thanks, tx, y, sx, sy)];
+  return { dots: clip(dots, grid), smiley: { x, y: 0 }, text: { x: tx, y, sx, sy } };
 }
 // the model's own rear quad is a 0.46 x 0.28 m window under the roof (x -5.825): stretched over the tail to the
 // front display's width, flush with the rear window (the tail is flat at x -5.975 from the bumper to the roof edge)
