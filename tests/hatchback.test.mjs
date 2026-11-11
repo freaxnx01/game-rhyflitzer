@@ -38,10 +38,10 @@ test('HATCHBACK_Camera_HasEveryViewTheTableNeeds', () => {
   assert.equal(HATCHBACK.camera.cockpit.eye.length, 3);
 });
 
-test('parseChoice_Hatchback_AcceptedAndUnknownFallsBackToCompact', () => {
+test('parseChoice_Hatchback_AcceptedAndUnknownFallsBackToTheDefault', () => {
   assert.deepEqual(parseChoice('{"id":"hatchback","paint":"ice"}', IDS, PAINT_IDS), { id: 'hatchback', paint: 'ice' });
-  assert.deepEqual(parseChoice('{"id":"tank","paint":"ice"}', IDS, PAINT_IDS), { id: 'compact', paint: 'ice' });
-  assert.equal(DEFAULT_CHOICE.id, 'compact');
+  assert.deepEqual(parseChoice('{"id":"tank","paint":"ice"}', IDS, PAINT_IDS), { id: 'hatchback', paint: 'ice' });
+  assert.equal(DEFAULT_CHOICE.id, 'hatchback');   // #830: the hatchback is the start car
   assert.deepEqual(initialChoice(null, '?vehicle=hatchback', IDS, PAINT_IDS), { id: 'hatchback', paint: 'navy' });
 });
 
