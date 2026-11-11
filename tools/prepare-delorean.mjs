@@ -210,6 +210,17 @@ await doc.transform(weld());
 // 8. normals: smooth across edges flatter than the crease angle
 for (const m of root.listMeshes()) for (const p of m.listPrimitives()) creaseNormals(p);
 await doc.transform(weld(), prune());
+
+// 9. the game swaps its own brushed steel (carMats.steel, index.html) in over the Steel material at build, and that one carries the
+//    grain map. Those faces get the uv the procedural car's ExtrudeGeometry has — x and y in car metres, so the brush lines repeat
+//    per metre; the node's translation is added back, or the doors' grain would not line up with the body's.
+for (const n of top.listChildren()) for (const p of n.getMesh().listPrimitives()) {
+  if (p.getMaterial().getName() !== 'Steel') continue;
+  const pos = p.getAttribute('POSITION'), [ox, oy] = n.getTranslation(), uv = new Float32Array(pos.getCount() * 2), v = [];
+  for (let i = 0; i < pos.getCount(); i++) { pos.getElement(i, v); uv.set([v[0] + ox, v[1] + oy], i * 2); }
+  p.setAttribute('TEXCOORD_0', doc.createAccessor().setType('VEC2').setArray(uv).setBuffer(root.listBuffers()[0]));
+}
+
 for (const e of root.listExtensionsUsed()) e.dispose();
 doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
 root.getAsset().extras = { title: 'DeLorean DMC 12 (Animated) (modified)', author: 'JEX-D (https://sketchfab.com/JEX-D)', license: 'CC-BY-4.0', source: 'https://sketchfab.com/3d-models/delorean-dmc-12-animated-e90955c1dce945dfbcac09886b9f310e' };
