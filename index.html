@@ -978,7 +978,7 @@ import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, p
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
 import { stepWheelYaw, stepWheelSpin, frontAxleX, plantedWheelY } from './steering.js';
 import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, shadowShown } from './shadow.js';
-import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor } from './delorean.js';
+import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor, doorPanelOffset } from './delorean.js';
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
@@ -3037,7 +3037,9 @@ const VEHICLES = {
       horn: { notes: [415, 523], dur: 0.9, gain: 0.22, band: 1400, wave: 'square' },
       crash: { weight: 1, thump: 70, noise: 1800, gain: 1 } } },
   // #126: DeLorean look-alike. DMC-12 numbers: 177 km/h = 49 m/s, slow off the line, rear engine (a little less grip), 2.41 m wheelbase, 14"/15" wheels; five-speed box
-  delorean: { model: 'delorean', type: 'screen', gltf: null, scale: 1.0, paint: false, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,
+  // #831: the real model (assets/delorean.glb) is built by buildDelorean once loaded; until then buildDelorean draws the primitives (fallback: itself)
+  delorean: { model: 'delorean', type: 'screen', gltf: { id: 'delorean', url: './assets/delorean.glb', fallback: 'delorean' }, scale: 1.0, paint: false, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,   // the primitives car's wheels; the model's own wheel nodes sit at x ±1.205, |z| 0.753, radius 0.313 front and 0.346 rear
+    blinkers: [[2.02, 0.5, 0.8], [-2.06, 0.5, 0.8]],   // the primitives car's corner boxes, mirrored to ±z (buildGltfVehicle -> addBlinkers)
     drive: { top: 49, topNitro: 80, accel: 10, accelNitro: 26, brake: 22, reverse: 8, reverseMax: 12, grip: 8, gripHandbrake: 1.6, steerRate: 2.4, airSteer: 0.4 },
     mass: 1.0, engineAt: [-1.5, 0.95, 0], collision: { shape: 'circle', r: 1.2 },
     camera: { chase: { dist: 6.9, h: 2.4 }, near: { dist: 4.6, h: 1.7 }, cockpit: { eye: [-0.15, 0.95, -0.38] }, bumper: { eye: [2.15, 0.45, 0] }, drone: { dist: 18, h: 12 } },
@@ -3172,6 +3174,7 @@ function buildCompact(g, v) {
 }
 // ---------- #126: DeLorean look-alike -- brushed steel, wedge nose, louvred rear, gull-wing doors; primitives only, no logo, no lettering ----------
 function buildDelorean(g, v) {
+  if (gltfState('delorean') === 'ready') { buildGltfVehicle(g, v); dressGullwing(g); return; }
   { const m = new THREE.MeshBasicMaterial({ color: 0xff9a1a }); for (const [side, z] of [['left', -0.8], ['right', 0.8]]) for (const x of [2.02, -2.06]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.22), m); b.position.set(x, 0.5, z); BLINK[side].add(b); } }
   const shape = (pts) => { const s = new THREE.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])); s.closePath(); return s; };
   const box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
@@ -3194,6 +3197,17 @@ function buildDelorean(g, v) {
   for (const s of [-1, 1]) { for (const z of [0.3, 0.62]) box(0.1, 0.14, 0.3, hl, 2.06, 0.52, s * z); box(0.08, 0.18, 0.7, tl, -2.09, 0.66, s * 0.5); box(0.14, 0.08, 0.14, carMats.steel, 0.85, 0.88, s * 0.93); }
   box(0.05, 0.1, 1.2, carMats.dark, 2.08, 0.36, 0);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.12), new THREE.MeshBasicMaterial({ map: textTex('AG · 1981', 256, 64, '#ffffff', '#111111', '700 44px "Barlow Condensed", sans-serif', '#111111') })); plate.position.set(-2.11, 0.46, 0); plate.rotation.y = -Math.PI / 2; g.add(plate);
+}
+// #831: the model in the game's brushed steel (the shared, restyled, never-disposed material), and its two door nodes on the
+// hinge wired into the same { side, hinge, panel } drawDoors and __mm.doors read for the primitives car
+function dressGullwing(g) {
+  g.traverse(o => { if (o.isMesh && o.material?.name === 'Steel') o.material = carMats.steel; });
+  for (const [name, side] of [['door_L', -1], ['door_R', 1]]) {
+    const hinge = g.getObjectByName(name); if (!hinge) throw new Error(`delorean: door node ${name} missing`);
+    const box = new THREE.Box3(); hinge.traverse(o => { if (o.isMesh) { o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox); } });   // node-local: no transform below the door node
+    const panel = new THREE.Object3D(); panel.position.fromArray(doorPanelOffset(box, side)); hinge.add(panel);
+    g.userData.doors.push({ side, hinge, panel });
+  }
 }
 // ---------- #463: Little Classic -- Citron Green boxy city car, matte black bonnet, round lamps; primitives only, no logo, no lettering ----------
 function buildMini(g, v) {
