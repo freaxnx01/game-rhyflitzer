@@ -261,6 +261,7 @@ test('the music is credited in both languages, Rob Bery as the author asks (#735
     assert.match(translate(lang, 'creditMusicSoftRockGroove'), /The 1980s Soft Rock.*Groove.*Michael-Vault.*Pixabay/);
     assert.match(translate(lang, 'creditMusicMelrose'), /Melrose Place Soft Rock.*DigiCompo.*Pixabay/);
     assert.match(translate(lang, 'creditSrf3'), /SRF 3/);
+    assert.match(translate(lang, 'creditArgovia'), /Radio Argovia/);
   }
 });
 
@@ -269,6 +270,10 @@ test('the radio display strings render in both languages (#735)', () => {
   assert.equal(translate('de', 'radioVolume', 60), 'Lautstärke 60 %');
   assert.equal(translate('en', 'radioStationSrf'), 'SRF 3 live');
   assert.match(translate('de', 'radioSrfFail'), /SRF 3.*Rhyflitzer FM/);
+  assert.equal(translate('en', 'radioStationArgovia'), 'Radio Argovia');
+  assert.equal(translate('de', 'radioStationArgovia'), 'Radio Argovia');
+  assert.match(translate('de', 'radioArgoviaFail'), /Argovia.*Rhyflitzer FM/);
+  assert.match(translate('en', 'keyRadioStation'), /Argovia/);
 });
 
 test('the settings dialog has its texts in both languages (#842)', () => {

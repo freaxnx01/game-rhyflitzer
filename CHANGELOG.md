@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-11-11 19:22` **Radio Argovia** is a third station on the car radio: press <kbd>6</kbd> to cycle Rhyflitzer FM, SRF 3 and Radio Argovia.
+
 ### Changed
 
 - `2026-11-11 19:03` Driving in the **OSM world** is **smoother**: the **Postauto** fleet and the **touch controls** do less work on every frame.
