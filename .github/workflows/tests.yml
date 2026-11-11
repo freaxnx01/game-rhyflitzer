@@ -174,16 +174,23 @@ jobs:
         # start-gpu-chrome's flags plus --disable-dev-shm-usage: the job container's /dev/shm is Docker's 64 MB default, and
         # two game pages in one browser (tests/test_multiplayer_lobby.py, #834) fill it, so the second page's requests fail
         # with ERR_INSUFFICIENT_RESOURCES and its renderer crashes. With the flag Chromium keeps that memory in /tmp.
+        # #746: the same script restarts a hung or dead Chromium; the tests' hook runs it (PW_CDP_RESTART) when a connect hangs
         run: |
+          cat > "$RUNNER_TEMP/gpu-chrome.sh" <<'EOF'
+          pkill -f -- '--remote-debugging-port=9222' && sleep 2
           CHROME="$(ls -d /opt/ms-playwright/chromium-*/chrome-linux64/chrome | head -n1)"
-          "$CHROME" --headless=new --remote-debugging-port=9222 --user-data-dir="$(mktemp -d)" --no-first-run --no-sandbox \
+          setsid "$CHROME" --headless=new --remote-debugging-port=9222 --user-data-dir="$(mktemp -d)" --no-first-run --no-sandbox \
             --ignore-gpu-blocklist --enable-gpu --use-angle=gl-egl --use-gl=angle --disable-dev-shm-usage \
-            >"$RUNNER_TEMP/gpu-chrome.log" 2>&1 &
+            >>"$RUNNER_TEMP/gpu-chrome.log" 2>&1 < /dev/null &
           for _ in $(seq 1 60); do
-            curl -fs http://127.0.0.1:9222/json/version >/dev/null 2>&1 && { echo "PW_CDP_ENDPOINT=http://127.0.0.1:9222" >> "$GITHUB_ENV"; exit 0; }   # the tests' GPU-browser hook (#324)
+            curl -fs http://127.0.0.1:9222/json/version >/dev/null 2>&1 && exit 0
             sleep 0.5
           done
           echo "Chromium did not open its debug port"; cat "$RUNNER_TEMP/gpu-chrome.log"; exit 1
+          EOF
+          RUNNER_TEMP="$RUNNER_TEMP" bash "$RUNNER_TEMP/gpu-chrome.sh"
+          echo "PW_CDP_ENDPOINT=http://127.0.0.1:9222" >> "$GITHUB_ENV"   # the tests' GPU-browser hook (#324)
+          echo "PW_CDP_RESTART=RUNNER_TEMP='$RUNNER_TEMP' bash '$RUNNER_TEMP/gpu-chrome.sh'" >> "$GITHUB_ENV"
 
       - name: Browser tests
         env:
