@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import sync_playwright
 
+from test_vehicles import pin_the_compact
+
 WORLD = Path(__file__).parents[1] / "data" / "world_hochrhein.json"
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
@@ -78,6 +80,7 @@ def open_world(p, server):
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    pin_the_compact(page)      # #830: CLEAR and the drives below are the compact's; the hatchback would swap itself in mid-test
     assert page.evaluate("() => window.__mm.layout") == "osm"
     return b, page
 

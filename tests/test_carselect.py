@@ -1,7 +1,7 @@
 """#7: the car selection screen -- Choose car opens it, the live car turns on the stage, stat bars and texts come from the
-vehicle table, paint swatches recolour the body, the choice is remembered, a further table entry appears by itself. main has four
-vehicles: the compact (paintable), the DeLorean look-alike (#126, brushed steel, paint fixed), the Hatchback (#236, glTF, loaded on
-demand) and the Little Classic (#463, Mini look-alike, fixed paint, armchair option).
+vehicle table, paint swatches recolour the body, the choice is remembered, a further table entry appears by itself. The start car is
+the Hatchback (#236, glTF, loaded on demand, paintable); the DeLorean look-alike (#126, brushed steel, paint fixed) and the Little
+Classic (#463, Mini look-alike, fixed paint, armchair option) follow. The compact only stands in while a glTF car loads (#830).
 Hand-traced layout (world + terrain blocked): no data files needed, deterministic and fast.
 Slow (Playwright): run in the foreground."""
 import json
@@ -47,6 +47,16 @@ def wait_frames(page, n=2):
     page.wait_for_function(f"() => window.__frames.n >= {n}", timeout=T)
 
 
+SETTLED = """() => { const id = window.__mm.carsel().id, def = window.__mm.vehicles()[id];
+  return !def.gltf || ['ready', 'failed'].includes(window.__mm.gltfVehicle(def.gltf.id).state); }"""
+
+
+def wait_for_the_start_car(page):
+    """#830: the start car is the glTF hatchback, with the compact standing in until assets/hatchback.glb arrives --
+    wait for the chosen car's own file (any car the test stored), or the swap lands mid-test."""
+    page.wait_for_function(SETTLED, timeout=T)
+
+
 def open_carsel(page):
     page.click("#carbtn")
     page.wait_for_function("() => !document.querySelector('#carsel').hidden && window.__mm.carsel().open", timeout=T)
@@ -56,12 +66,13 @@ def lit_counts(page):
     return page.evaluate("() => [...document.querySelectorAll('#csstats .cs-stat')].map(s => ({ lit: s.querySelectorAll('.cs-cells i.lit, .cs-cells i.tip').length, score: +s.querySelector('.cs-score').textContent }))")
 
 
-def test_choose_car_opens_the_screen_with_the_compact(server):
+def test_choose_car_opens_the_screen_with_the_hatchback(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server, query="?mode=trial")   # #551: cruise is the default now; this test stays a trial's
         assert page.evaluate("() => [...document.querySelector('#overlay .bar .row').children].map(b => b.id)") == ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "carbtn", "mpbtn"]
         assert page.evaluate("() => [...document.querySelector('#overlay .row.secondary').children].map(b => b.id).slice(0, 2)") == ["worldbtn", "stylebtn2"]
         open_carsel(page)
+        wait_for_the_start_car(page)
         wait_frames(page)
         got = carsel(page)
         shown = page.evaluate("""() => ({
@@ -79,13 +90,13 @@ def test_choose_car_opens_the_screen_with_the_compact(server):
         bars = lit_counts(page)
         b.close()
     assert shown["overlayHidden"] is True and shown["role"] == "dialog" and shown["modal"] == "true"
-    assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 21"
-    assert shown["name"] == "Sissle Speedster" and shown["cls"] == "Compact · Class B" and shown["desc"].startswith("Small, light")
-    assert shown["paintName"] == "Navy" and shown["swatches"] == ["true"] + ["false"] * 12 and shown["tiles"] == ["true"] + ["false"] * 20
-    assert shown["garage"] == "Garage · 21 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
-    assert bars == [{"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 8, "score": 8}, {"lit": 3, "score": 3}]
-    assert got["open"] is True and got["id"] == "compact" and got["paint"] == "navy" and got["focus"] == "csrace"
-    assert got["carVisible"] is True and got["bodyColor"] == "1b2d5e" and got["paintable"] is True
+    assert shown["title"] == "Choose car" and shown["mode"] == "Time trial · Hochrhein" and shown["count"] == "Car 1 of 20"
+    assert shown["name"] == "Hatchback" and shown["cls"] == "Compact hatchback · Class A" and shown["desc"].startswith("A proper little")
+    assert shown["paintName"] == "Swiss red" and shown["swatches"] == ["false"] * 3 + ["true"] + ["false"] * 9 and shown["tiles"] == ["true"] + ["false"] * 19
+    assert shown["garage"] == "Garage · 20 vehicles" and shown["back"] == "‹ Back" and shown["race"] == "Race! ›"
+    assert bars == [{"lit": 9, "score": 9}, {"lit": 9, "score": 9}, {"lit": 9, "score": 9}, {"lit": 4, "score": 4}]
+    assert got["open"] is True and got["id"] == "hatchback" and got["paint"] == "swiss" and got["focus"] == "csrace"      # #830: the factory red, as any first pick of the hatchback
+    assert got["carVisible"] is True and got["bodyColor"] == "e0322d" and got["paintable"] is True
     assert errors == []
 
 
@@ -122,6 +133,7 @@ def test_paint_recolours_and_persists(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
         open_carsel(page)
+        wait_for_the_start_car(page)
         page.click("#cspaints button[data-paint=sunflower]")
         got = carsel(page)
         shown = page.evaluate("""() => ({ stored: localStorage.getItem('mm.car'), name: document.querySelector('#cspaintname').textContent,
@@ -131,7 +143,7 @@ def test_paint_recolours_and_persists(server):
         reloaded = carsel(page)
         b.close()
     assert got["bodyColor"] == "ffc61a" and got["paint"] == "sunflower"
-    assert json.loads(shown["stored"]) == {"id": "compact", "paint": "sunflower", "paintChosen": True} and shown["name"] == "Sunflower" and shown["pressed"] == "true"
+    assert json.loads(shown["stored"]) == {"id": "hatchback", "paint": "sunflower", "paintChosen": True} and shown["name"] == "Sunflower" and shown["pressed"] == "true"
     assert shown["focus"] == "sunflower"                        # the re-render kept the focus on the clicked swatch
     assert reloaded["bodyColor"] == "ffc61a" and reloaded["paint"] == "sunflower" and reloaded["open"] is False
     assert errors == []
@@ -141,14 +153,16 @@ def test_paint_recolours_and_persists(server):
     ('{"id":"tank","paint":"zebra"}', ""),
     ("not json", ""),
     (None, "?vehicle=tank"),
+    (None, "?vehicle=compact"),      # #830: the stand-in is no longer an id the player can ask for
 ])
 def test_bad_stored_choice_or_unknown_query_falls_back(server, stored, query):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server, stored=stored, query=query)
+        wait_for_the_start_car(page)
         got = carsel(page)
         top = page.evaluate("() => window.__mm.vehicle().drive.top")
         b.close()
-    assert got["id"] == "compact" and got["paint"] == "navy" and got["bodyColor"] == "1b2d5e" and top == 60
+    assert got["id"] == "hatchback" and got["paint"] == "swiss" and got["bodyColor"] == "e0322d" and top == 64
     assert errors == []
 
 
@@ -166,8 +180,8 @@ def test_third_vehicle_and_race(server):
             cls: document.querySelector('#csclass').textContent, tiles: [...document.querySelectorAll('#csgarage button')].map(b => b.getAttribute('aria-pressed')),
             garage: document.querySelector('#csgaragelabel').textContent, top: window.__mm.vehicle().drive.top })""")
         bars = lit_counts(page)
-        page.click("#csnext")                                       # wraps back to compact
-        page.wait_for_function("() => window.__mm.carsel().id === 'compact'", timeout=T)
+        page.click("#csnext")                                       # wraps back to the start car
+        page.wait_for_function("() => window.__mm.carsel().id === 'hatchback'", timeout=T)
         page.click("#csgarage button[data-id=slow]")                # a tile selects too, and keeps the focus
         page.wait_for_function("() => window.__mm.carsel().id === 'slow'", timeout=T)
         tile_focus = page.evaluate("() => document.activeElement?.dataset?.id")
@@ -175,9 +189,9 @@ def test_third_vehicle_and_race(server):
         page.wait_for_function("() => document.querySelector('#carsel').hidden && document.querySelector('#overlay').hidden", timeout=T)
         raced = page.evaluate("() => ({ open: window.__mm.carsel().open, top: window.__mm.vehicle().drive.top, stored: localStorage.getItem('mm.car'), mode: window.__mm.blitz().mode })")
         b.close()
-    assert count1 == "Car 1 of 22"
-    assert shown["count"] == "Car 22 of 22" and shown["name"] == "slow" and shown["cls"] == "Class C" and shown["tiles"] == ["false"] * 21 + ["true"]   # #493: no type name, but the class is computed from its drive values
-    assert shown["garage"] == "Garage · 22 vehicles" and shown["top"] == 30
+    assert count1 == "Car 1 of 21"
+    assert shown["count"] == "Car 21 of 21" and shown["name"] == "slow" and shown["cls"] == "Class C" and shown["tiles"] == ["false"] * 20 + ["true"]   # #493: no type name, but the class is computed from its drive values
+    assert shown["garage"] == "Garage · 21 vehicles" and shown["top"] == 30
     assert bars[0] == {"lit": 4, "score": 4} and bars[3] == {"lit": 7, "score": 7}, bars
     assert tile_focus == "slow"
     assert raced["open"] is False and raced["top"] == 30 and raced["mode"] == "trial" and json.loads(raced["stored"]) == {"id": "slow", "paint": "navy"}
@@ -191,15 +205,18 @@ def test_delorean_has_fixed_paint_and_its_own_texts_and_bars(server):
         open_carsel(page)
         page.click("#csnext")
         page.wait_for_function("() => window.__mm.carsel().id === 'delorean'", timeout=T)
+        # #831: the DeLorean is a glTF car now, so the stage car stays the compact until delorean.glb is there; carsel().paintable
+        # reads the built car, and only the swapped-in model answers for the DeLorean (the swatches are off from the pick on).
+        page.wait_for_function("() => window.__mm.gltfVehicle('delorean').state === 'ready' && window.__mm.vehicle().model === 'delorean'", timeout=180000)
         fixed = page.evaluate("() => ({ disabled: [...document.querySelectorAll('#cspaints button')].every(b => b.disabled), name: document.querySelector('#cspaintname').textContent, paintable: window.__mm.carsel().paintable })")
         texts = page.evaluate("() => ({ count: document.querySelector('#cscount').textContent, name: document.querySelector('#csname').textContent, cls: document.querySelector('#csclass').textContent, desc: document.querySelector('#csdesc').textContent, model: window.__mm.vehicle().model })")
         bars = lit_counts(page)
         page.click("#csprev")
-        page.wait_for_function("() => window.__mm.carsel().id === 'compact'", timeout=T)
+        page.wait_for_function("() => window.__mm.carsel().id === 'hatchback'", timeout=T)
         back = page.evaluate("() => ({ disabled: [...document.querySelectorAll('#cspaints button')].some(b => b.disabled), paintable: window.__mm.carsel().paintable })")
         b.close()
     assert fixed == {"disabled": True, "name": "fixed", "paintable": False}
-    assert texts["count"] == "Car 2 of 21" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class C" and texts["desc"].startswith("Brushed steel")
+    assert texts["count"] == "Car 2 of 20" and texts["model"] == "delorean" and texts["name"] == "Rhy Gullwing" and texts["cls"] == "Stainless coupé · Class C" and texts["desc"].startswith("Brushed steel")
     assert [b["score"] for b in bars] == [7, 5, 7, 3], bars
     assert back == {"disabled": False, "paintable": True}
     assert errors == []
@@ -219,7 +236,7 @@ def test_phone_layout_de(server):
             nav: getComputedStyle(document.querySelector('#game-nav')).display, touch: getComputedStyle(document.querySelector('#touch')).display,
             race: document.querySelector('#csrace').textContent }; }""")
         b.close()
-    assert got["title"] == "Auto wählen" and got["count"] == "Auto 1 von 21" and got["race"] == "Los! ›"
+    assert got["title"] == "Auto wählen" and got["count"] == "Auto 1 von 20" and got["race"] == "Los! ›"
     assert got["labels"] == ["Höchsttempo", "Beschleunigung", "Handling", "Masse"]
     assert got["scrollW"] <= 360 and got["docScrollW"] <= 360, got
     assert got["minBtn"] >= 44, got
@@ -233,14 +250,14 @@ def test_language_toggle_rerenders_the_open_screen(server):
         b, page, errors = open_page(p, server)
         open_carsel(page)
         page.click("#gg-lang-toggle")
-        page.wait_for_function("() => document.querySelector('#cscount').textContent === 'Auto 1 von 21'", timeout=T)
+        page.wait_for_function("() => document.querySelector('#cscount').textContent === 'Auto 1 von 20'", timeout=T)
         got = page.evaluate("""() => ({ title: document.querySelector('#carseltitle').textContent, name: document.querySelector('#csname').textContent,
             cls: document.querySelector('#csclass').textContent, paint: document.querySelector('#cspaintname').textContent,
             garage: document.querySelector('#csgaragelabel').textContent, race: document.querySelector('#csrace').textContent,
             prev: document.querySelector('#csprev').getAttribute('aria-label'), carbtn: document.querySelector('#carbtn').textContent })""")
         b.close()
-    assert got == {"title": "Auto wählen", "name": "Sissle Speedster", "cls": "Kompakt · Klasse B", "paint": "Marine",
-                   "garage": "Garage · 21 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
+    assert got == {"title": "Auto wählen", "name": "Hatchback", "cls": "Kompaktklasse · Klasse A", "paint": "Schweizer Rot",
+                   "garage": "Garage · 20 Fahrzeuge", "race": "Los! ›", "prev": "Vorheriges Fahrzeug", "carbtn": "Auto wählen"}
     assert errors == []
 
 
@@ -251,6 +268,7 @@ RUN = """() => ({ pause: window.__mm.pause(), dmg: window.__mm.hunt().dmg, top: 
 
 def pause_in_a_run(page):
     """#189: racing, a clock of 12.5 s and 40 % damage in zero frames (test hook), then the pause menu."""
+    wait_for_the_start_car(page)      # #830: race in the hatchback itself, not in the stand-in it starts on
     page.click("#startbtn", timeout=T)
     page.evaluate("() => window.__mm.raceNow(12.5, 0.4)")
     page.keyboard.press("Escape")
@@ -271,13 +289,14 @@ def test_changing_the_vehicle_mid_race_keeps_the_run_and_flags_it(server):
         shown = page.evaluate("() => ({ pauseShown: !document.querySelector('#pause').hidden, drive: document.querySelector('#csrace').textContent })")
         page.evaluate(CLICK, "#csnext")
         page.wait_for_function("() => window.__mm.carsel().id === 'delorean'", timeout=T)
+        page.wait_for_function("() => !document.querySelector('#csrace').disabled", timeout=180000)   # #831: Drive on waits for delorean.glb, as it does for every glTF car
         page.evaluate(CLICK, "#csrace")
         page.wait_for_function("() => !window.__mm.carsel().open && !window.__mm.pause().on", timeout=T)
         after = page.evaluate(RUN)
         page.evaluate("() => window.__mm.finishNow()")
         result = page.inner_text("#result")
         b.close()
-    assert 12.5 <= before["pause"]["t"] < 13 and before["top"] == 60 and before["flags"]["swapped"] is False
+    assert 12.5 <= before["pause"]["t"] < 13 and before["top"] == 64 and before["flags"]["swapped"] is False
     assert shown == {"pauseShown": False, "drive": "Drive on ›"}
     assert after["top"] == 49 and after["flags"]["swapped"] is True
     assert (after["pause"]["x"], after["pause"]["z"]) == (before["pause"]["x"], before["pause"]["z"])
@@ -301,7 +320,7 @@ def test_back_in_a_vehicle_change_restores_the_choice_and_flags_nothing(server):
         focus = page.evaluate("() => window.__mm.pause().focus")
         chosen = page.evaluate("() => window.__mm.carsel().id")
         b.close()
-    assert chosen == "compact" and stored == "compact" and got["top"] == 60
+    assert chosen == "hatchback" and stored == "hatchback" and got["top"] == 64
     assert got["paused"] is True and got["pause"]["on"] is True and focus == "pausevehicle"
     assert got["flags"]["swapped"] is False and 12.5 <= got["pause"]["t"] < 13
     assert errors == []
@@ -320,7 +339,7 @@ def test_closing_the_pause_during_a_vehicle_change_cancels_it(server):
         run = page.evaluate(RUN)
         b.close()
     assert got["carsel"] is False and got["carselShown"] is False and got["pauseOn"] is False and got["pauseShown"] is False
-    assert got["id"] == "compact" and run["top"] == 60 and run["flags"]["swapped"] is False
+    assert got["id"] == "hatchback" and run["top"] == 64 and run["flags"]["swapped"] is False
     assert errors == []
 
 
@@ -334,16 +353,18 @@ def test_a_paint_change_mid_race_is_not_a_vehicle_change(server):
         page.wait_for_function("() => !window.__mm.carsel().open && !window.__mm.pause().on", timeout=T)
         got = page.evaluate(RUN)
         b.close()
-    assert got["flags"]["swapped"] is False and got["top"] == 60
+    assert got["flags"]["swapped"] is False and got["top"] == 64
 
 
 def test_car_mesh_follows_the_reset_after_a_run_is_abandoned(server):
     """#210: Main menu sends P back to the start; the mesh must go with it, or Choose car shows only the shadow."""
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
+        wait_for_the_start_car(page)      # #830: Start stays disabled while the start car's model is on its way
         page.evaluate("() => document.getElementById('startbtn').click()")
         page.wait_for_function("() => document.querySelector('#overlay').hidden", polling=250, timeout=T)
         page.evaluate("() => window.__mm.step(2, ['KeyW', 'KeyA'])")        # drive off and turn: mesh and P leave the start
+        page.wait_for_function("() => window.__mm.pause().state === 'racing'", polling=250, timeout=T)   # stepRace flips the state in the loop, not in step(); the pause freezes whatever it finds
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", polling=250, timeout=T)
         page.evaluate("() => document.getElementById('pausemenu').click()")  # state is 'racing' after step: confirm the abandon
@@ -369,18 +390,18 @@ def chair_state(page):
 
 
 def test_chair_toggle_only_for_the_mini(server):
-    """#463: the armchair toggle shows only under the Little Classic; the compact, the DeLorean and the Hatchback keep
-    their paint rows as the last option."""
+    """#463: the armchair toggle shows only under the Little Classic; the DeLorean and the Hatchback keep their paint
+    rows as the last option."""
     with sync_playwright() as p:
         b, page, errors = open_page(p, server, stored='{"id":"mini"}')
         open_carsel(page)
         states = {}
-        for vid in ["mini", "hatchback", "delorean", "compact"]:
+        for vid in ["mini", "delorean", "hatchback"]:
             page.wait_for_function(f"() => window.__mm.carsel().id === '{vid}'", timeout=T)
             states[vid] = page.evaluate("() => document.querySelector('#cschairrow').hidden")
             page.click("#csprev")
         b.close()
-    assert states == {"mini": False, "hatchback": True, "delorean": True, "compact": True}, states
+    assert states == {"mini": False, "delorean": True, "hatchback": True}, states
     assert errors == [], errors
 
 
@@ -430,17 +451,17 @@ def test_chair_survives_switching_cars(server):
         open_carsel(page)
         page.click("#cschair")
         page.wait_for_function("() => window.__mm.chair().on === true", timeout=T)
-        page.click('#csgarage button[data-id="compact"]')
-        page.wait_for_function("() => window.__mm.carsel().id === 'compact'", timeout=T)
-        compact_chair = page.evaluate(CHAIR_JS)
-        compact_eye = page.evaluate("() => window.__mm.vehicle().camera.cockpit.eye")
+        page.click('#csgarage button[data-id="delorean"]')
+        page.wait_for_function("() => window.__mm.carsel().id === 'delorean'", timeout=T)
+        other_chair = page.evaluate(CHAIR_JS)
+        other_eye = page.evaluate("() => window.__mm.vehicle().camera.cockpit.eye")
         page.click('#csgarage button[data-id="mini"]')
         page.wait_for_function("() => window.__mm.carsel().id === 'mini'", timeout=T)
         page.wait_for_function("() => window.__mm.vehicle().model === 'mini'", timeout=T)   # built once the model arrives or fails, never before
         back = page.evaluate(CHAIR_JS)
         b.close()
-    assert compact_chair["on"] is False and compact_chair["visible"] is False, compact_chair
-    assert compact_eye == [-0.25, 1.22, -0.38], compact_eye
+    assert other_chair["on"] is False and other_chair["visible"] is False, other_chair
+    assert other_eye == [-0.15, 0.95, -0.38], other_eye
     assert back["on"] is True and back["visible"] is True, back
     assert errors == [], errors
 

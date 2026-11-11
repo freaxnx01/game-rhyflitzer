@@ -2,6 +2,8 @@
 tests never reach the real Umami. Hand-traced layout (world and terrain blocked): fast and deterministic."""
 from playwright.sync_api import sync_playwright
 
+from test_carselect import SETTLED
+
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
 STUB = ("window.__umami = []; window.umami = { track: (a, b) => { window.__umami.push(typeof a === 'function' "
@@ -46,15 +48,16 @@ def test_pageview_keeps_only_the_path_and_campaign_tags_and_game_ready_names_the
 
 def test_start_sends_mode_start_and_a_garage_swap_sends_vehicle(server):
     with sync_playwright() as p:
-        b, page, errors = boot(p, server, "?vehicle=compact")
+        b, page, errors = boot(p, server, "?vehicle=delorean")
         page.click("#carbtn"); page.click("#csnext")
+        page.wait_for_function(SETTLED, timeout=240000)      # #830: every car but the DeLorean is a glTF one; a model still arriving holds up the loop that reports the change
         page.wait_for_function("() => window.__umami.some((c) => c.name === 'vehicle')", timeout=10000)
         vehicle = named(page, "vehicle")
         page.click("#csback"); page.click("#startbtn")
         page.wait_for_function("() => window.__umami.some((c) => c.name === 'mode-start')", timeout=10000)
         start = named(page, "mode-start"); b.close()
     assert not errors
-    assert len(vehicle) == 1 and vehicle[0]["previous"] == "compact" and vehicle[0]["vehicle"] != "compact"
+    assert len(vehicle) == 1 and vehicle[0]["previous"] == "delorean" and vehicle[0]["vehicle"] != "delorean"
     assert len(start) == 1 and start[0]["previous"] == "none" and start[0]["mode"] != "unknown"
     assert start[0]["vehicle"] == vehicle[0]["vehicle"]
 

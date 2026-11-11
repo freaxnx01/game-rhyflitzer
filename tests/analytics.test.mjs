@@ -182,3 +182,8 @@ test('campaignSource: utm_source only, trimmed and capped, empty without one', (
   assert.equal(campaignSource(undefined), '');
   assert.equal(campaignSource(`?utm_source=${'x'.repeat(100)}`).length, MAX_TEXT);
 });
+
+test('vehicleSource: ?vehicle=compact is not a query once compact is not selectable (#830)', () => {
+  assert.equal(vehicleSource('?vehicle=compact', null, ['hatchback', 'mini']), 'default');
+  assert.equal(vehicleSource('?vehicle=compact', '{"id":"compact"}', ['hatchback', 'mini']), 'stored');
+});

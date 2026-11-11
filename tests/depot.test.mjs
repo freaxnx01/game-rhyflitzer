@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEPOT, footprint, depotLayout, nearestSlot } from '../depot.js';
+import { selectableIds } from '../carselect.js';
 
 const car = (type, r, hl, top = 60, accel = 16) => ({ type, mass: 1, drive: { top, accel, grip: 9 }, collision: hl ? { shape: 'capsule', r, hl } : { shape: 'circle', r } });
 
@@ -35,4 +36,10 @@ test('nearestSlot: the closest parked vehicle within reach, never the driven one
   assert.deepEqual(nearestSlot(0, 2, slots, null, 2.5), { id: 'a', d: 1 });
   assert.equal(nearestSlot(0, 2, slots, 'a', 2.5), null);
   assert.equal(nearestSlot(5, 5, slots, null, 2.5), null);
+});
+
+test('depotLayout over selectable ids leaves the stand-in out (#830)', () => {
+  const defs = { compact: car('everyday', 1.3), hatchback: car('everyday', 1.25), mini: car('screen', 1.0) };
+  const ids = selectableIds(Object.keys(defs));
+  assert.deepEqual(depotLayout(ids, defs).map(s => s.id).sort(), ['hatchback', 'mini']);
 });
