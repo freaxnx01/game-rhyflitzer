@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DELOREAN_BODY, DELOREAN_GLASS, profileSize, louvreSlots, DOOR, doorTarget, stepDoor } from '../delorean.js';
+import { DELOREAN_BODY, DELOREAN_GLASS, profileSize, louvreSlots, DOOR, doorTarget, stepDoor, doorPanelOffset } from '../delorean.js';
 
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 
@@ -45,4 +45,10 @@ test('stepDoor: approaches without overshoot, settles, same real time gives the 
   for (let i = 0; i < 6; i++) a = stepDoor(a, 1, 1 / 30);
   for (let i = 0; i < 12; i++) b = stepDoor(b, 1, 1 / 60);
   close(a, b, 1e-9);
+});
+
+test('doorPanelOffset: the lowest outer corner of a door box, by side (#831)', () => {
+  const same = (got, want) => got.forEach((v, i) => close(v, want[i], 1e-12, `component ${i}`));   // (-0.7 + 0.8) / 2 is 0.05 only to within a float's last bit
+  same(doorPanelOffset({ min: { x: -0.7, y: -0.62, z: 0.02 }, max: { x: 0.8, y: 0.0, z: 0.95 } }, 1), [0.05, -0.62, 0.95]);
+  same(doorPanelOffset({ min: { x: -0.7, y: -0.62, z: -0.95 }, max: { x: 0.8, y: 0, z: -0.02 } }, -1), [0.05, -0.62, -0.95]);
 });
