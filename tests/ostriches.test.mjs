@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OSTRICH, PADDOCK, inPaddock, fencePosts, makeFlock, stepFlock, paddockEntry } from '../ostriches.js';
+import { LANDMARK_INFO } from '../landmarks.js';
 import { rng } from '../world.js';
 
 const G = PADDOCK.find(([x, z]) => x === 2365.4 && z === -379.3);   // the gate corner
@@ -131,4 +132,13 @@ test('paddockEntry names the farm, the Gemeinde, the road spot and the look targ
   assert.equal(e.gemeinde, 'Sisseln');
   assert.deepEqual(e.at, [2345, -318]);
   assert.deepEqual(e.look, [2385, -400]);
+});
+
+test('landmarks.js carries the paddock entry, so J lists the farm (#846)', () => {
+  const e = paddockEntry();
+  const item = LANDMARK_INFO.find(l => l.name === e.name);
+  assert.ok(item, 'Straussenfarm Sisseln is not in LANDMARK_INFO');
+  assert.equal(item.gemeinde, e.gemeinde);
+  assert.deepEqual(item.at, e.at);
+  assert.deepEqual(item.look, e.look);
 });

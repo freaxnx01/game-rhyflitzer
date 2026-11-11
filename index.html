@@ -1025,6 +1025,7 @@ import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelec
 import { DEPOT, depotLayout, nearestSlot } from './depot.js';   // #553: the vehicle depot's pure layout rules
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
+import { OSTRICH, inPaddock, fencePosts, makeFlock, stepFlock } from './ostriches.js';   // #846: the Straussenfarm Sisseln's ostrich paddock
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
 trackPageview(); identifySource(); if (document.readyState === 'complete') umamiSettle(); else addEventListener('load', umamiSettle, { once: true });   // #538: the pageview waits in the queue for g.js
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
@@ -1751,7 +1752,8 @@ let RAIL_GRID = null;   // built on first use (RAIL_PTS is defined further down)
 function railDist(x, z) { if (!RAIL_GRID) { RAIL_GRID = makeGrid(64); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) for (let i = 0; i < pts.length - 1; i++) gridAddSegment(RAIL_GRID, ...pts[i], ...pts[i + 1], 12, [pts[i], pts[i + 1]]); } let m = 1e9; for (const [a, b] of gridQuery(RAIL_GRID, x, z, 1)) m = Math.min(m, segDist(x, z, ...a, ...b)); return m; }
 function roadDist(x, z, reach = 32) { let m = 1e9; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) m = Math.min(m, segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) - r.w / 2); return m; }
 const YARD = L ? yardFor(REGION.id) : null;   // #415: the Crash-Platz keeps trees, fields and houses out
-function free(x, z, rad) { if (YARD && inYard(x, z, rad + 3, YARD)) return false; if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (!o.secret && Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
+const OSTRICHES_ON = REGION.id === 'hochrhein' && !REGION.generated;   // #846: the ostrich paddock, Hochrhein world only (as DEPOT_S)
+function free(x, z, rad) { if (YARD && inYard(x, z, rad + 3, YARD)) return false; if (OSTRICHES_ON && inPaddock(x, z, rad + 1)) return false; if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (!o.secret && Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
 const PLASTER = ['#e9dfc8', '#e5cfa8', '#d9c2a0', '#f0e6d6', '#d8c9b8', '#e8d3b0', '#cdb894', '#f2e0c0', '#dfe3d8', '#e6d4c4'];
 const ROOFS = ['#8a3a2a', '#7a3f30', '#9a4a34', '#6e3a30', '#5a4a48', '#8a5a3a'];
 function house(x, z, rot, w, d, floors, style) { const b = terrainH(x, z), h = floors * 3 + 0.4, wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]); box(w, h + 3, d, x, b - 3, z, rot, wc, rnd() < 0.5 ? 'wall' : 'wallDoor', [4, 3], 3.1); const rh = style === 'oldtown' ? Math.min(w, d) * 0.55 : Math.min(w, d) * 0.4; if (w >= d) gable(w, d, b + h, rh, x, z, rot, rc, wc); else gable(d, w, b + h, rh, x, z, rot + Math.PI / 2, rc, wc); addOBB(x, z, w, d, rot, b + h); }
@@ -2908,6 +2910,111 @@ function buildUnderwater() {
 const FISH_TMP = { m: new THREE.Matrix4(), q: new THREE.Quaternion(), up: new THREE.Vector3(0, 1, 0), p: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1), pose: {} };
 function stepFish(dt, force = false) { if (!FISH.mesh || (!UWS.on && !force)) return; FISH.t += dt; const { m, q, up, p, one, pose } = FISH_TMP; let i = 0; for (const s of FISH.schools) for (let k = 0; k < s.n; k++) { const f = schoolPose(s, k, FISH.t, pose); p.set(f.x, f.y, f.z); q.setFromAxisAngle(up, -f.th); m.compose(p, q, one); FISH.mesh.setMatrixAt(i++, m); } FISH.mesh.instanceMatrix.needsUpdate = true; }
 buildUnderwater();
+// ---------- #846: the Straussenfarm Sisseln's ostrich paddock -- fence, gate, eight code-built ostriches ----------
+// The fence is one merged mesh of boxes (posts, three rails per run, the gate leaf), built once at world build;
+// every run is solid (addSolid, registered here after the tree scatter, so free() above never sees it); the eight
+// ostriches are four InstancedMeshes (body / neck / legL / legR) posed per frame by stepOstriches, the way stepFish
+// poses its school. All geometry is three.js primitives: no file, no credit.
+const OST = { on: OSTRICHES_ON, group: new THREE.Group(), parts: {}, flock: OSTRICHES_ON ? makeFlock(31) : null, rnd: rng(31), solids: 0, visible: true };
+// one box along a to b with its ends at ya / yb (the rails and the gate's diagonal brace follow the slope)
+function padRail(geos, ax, az, bx, bz, ya, yb, c) {
+  const dx = bx - ax, dz = bz - az, dy = yb - ya, len = Math.hypot(dx, dy, dz) || 1e-6;
+  const v = new THREE.Vector3(dx / len, dy / len, dz / len), side = new THREE.Vector3(-v.z, 0, v.x).normalize(), up = new THREE.Vector3().crossVectors(side, v);
+  const g = new THREE.BoxGeometry(len, 0.06, 0.08);
+  g.applyMatrix4(new THREE.Matrix4().makeBasis(v, up, side));
+  g.translate((ax + bx) / 2, (ya + yb) / 2, (az + bz) / 2);
+  colorize(g, c);
+  geos.push(g);
+}
+function buildPaddock() {
+  const { posts, runs } = fencePosts(), geos = [];
+  const wood = col('#6b4a2a'), rail = col('#8a6a44'), gateC = col('#9a7a50');
+  const gate = runs.find(r => r.gate);
+  const isGatePost = p => gate && (Math.hypot(p[0] - gate.a[0], p[1] - gate.a[1]) < 1e-6 || Math.hypot(p[0] - gate.b[0], p[1] - gate.b[1]) < 1e-6);
+  for (const [x, z] of posts) {
+    const h = isGatePost([x, z]) ? 2.0 : OSTRICH.postH;
+    const g = new THREE.BoxGeometry(0.12, h + 0.3, 0.12);
+    g.translate(x, terrainH(x, z) + (h + 0.3) / 2 - 0.3, z);   // the base sunk 0.3 m so the post never floats on a slope
+    colorize(g, wood);
+    geos.push(g);
+  }
+  for (const r of runs) {
+    const [ax, az] = r.a, [bx, bz] = r.b;
+    const ha = terrainH(ax, az), hb = terrainH(bx, bz);
+    if (r.gate) {   // the closed leaf: two rails plus a diagonal brace, solid like any other run
+      padRail(geos, ax, az, bx, bz, ha + 0.6, hb + 0.6, gateC);
+      padRail(geos, ax, az, bx, bz, ha + 1.65, hb + 1.65, gateC);
+      padRail(geos, ax, az, bx, bz, ha + 0.45, hb + 1.75, gateC);
+    } else {
+      for (const rh of OSTRICH.rails) padRail(geos, ax, az, bx, bz, ha + rh, hb + rh, rail);
+    }
+    const len = Math.hypot(bx - ax, bz - az), rot = Math.atan2(bz - az, bx - ax);
+    addSolid({ x: (ax + bx) / 2, z: (az + bz) / 2, hw: len / 2, hd: 0.1, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(ha, hb) + OSTRICH.postH });   // addSolid, not addOBB: no minimap box, not a building
+    OST.solids++;
+  }
+  const fence = new THREE.Mesh(mergeGeometries(geos, false), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  fence.castShadow = true;
+  OST.group.add(fence);
+  // the ostriches, one InstancedMesh per jointed part so neck and legs can move per instance (#807, #550: cheap)
+  const bodyBase = new THREE.SphereGeometry(1, 12, 9); bodyBase.scale(0.65, 0.45, 0.4); colorize(bodyBase, col('#ffffff'));   // 1.3 x 0.9 x 0.8, centred at hip height
+  const wing = (s) => { const w = new THREE.SphereGeometry(1, 8, 6); w.scale(0.42, 0.16, 0.1); w.translate(-0.05, 0.1, s * 0.42); colorize(w, col('#ffffff').multiplyScalar(1.8)); return w; };   // lighter tips
+  const tail = new THREE.ConeGeometry(0.16, 0.45, 7); tail.rotateZ(Math.PI / 2); tail.translate(-0.82, 0.12, 0); colorize(tail, col('#ffffff'));
+  const bodyGeo = mergeGeometries([bodyBase, wing(1), wing(-1), tail], false);
+  const neckC = new THREE.CylinderGeometry(0.07, 0.1, 1.1, 8); neckC.translate(0, 0.55, 0); colorize(neckC, col('#ffffff'));
+  const head = new THREE.SphereGeometry(0.13, 10, 8); head.translate(0, 1.18, 0);
+  {   // two black dot eyes as vertex colour, no extra geometry
+    const pos = head.attributes.position, c = new Float32Array(pos.count * 3).fill(1);
+    for (let i = 0; i < pos.count; i++) if (pos.getX(i) > 0.02 && Math.abs(pos.getZ(i)) > 0.08 && pos.getY(i) > 0) c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = 0.05;
+    head.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  }
+  const beak = new THREE.ConeGeometry(0.055, 0.16, 7); beak.rotateZ(-Math.PI / 2); beak.translate(0.15, 1.14, 0); colorize(beak, col('#ffffff'));
+  const neckGeo = mergeGeometries([neckC, head, beak], false);
+  const legC = new THREE.CylinderGeometry(0.05, 0.05, 1.1, 7); legC.translate(0, -0.55, 0);
+  const foot = new THREE.BoxGeometry(0.2, 0.05, 0.3); foot.translate(0.05, -1.08, 0);
+  const thigh = new THREE.SphereGeometry(0.16, 8, 6); thigh.scale(1.5, 1.2, 1); thigh.translate(0, -0.02, 0);
+  const legGeo = mergeGeometries([legC, foot, thigh], false);
+  colorize(legGeo, col('#ffffff'));
+  const mkPart = (geo) => { const m = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }), OSTRICH.count); m.frustumCulled = false; OST.group.add(m); return m; };
+  OST.parts.body = mkPart(bodyGeo); OST.parts.neck = mkPart(neckGeo); OST.parts.legL = mkPart(legGeo); OST.parts.legR = mkPart(legGeo);
+  const c = new THREE.Color();
+  OST.flock.birds.forEach((b, i) => {   // 3 dark males, 5 brown females; neck and legs sand for all
+    OST.parts.body.setColorAt(i, c.set(b.male ? '#2b2b30' : '#8a7a66'));
+    OST.parts.neck.setColorAt(i, c.set('#c9a89a'));
+    OST.parts.legL.setColorAt(i, c.set('#c9a89a'));
+    OST.parts.legR.setColorAt(i, c.set('#c9a89a'));
+  });
+  for (const p of Object.values(OST.parts)) p.instanceColor.needsUpdate = true;
+  scene.add(OST.group);
+  poseOstriches();   // the build-time pose (stepOstriches reads P, which does not exist yet here)
+}
+const OST_TMP = { m: new THREE.Matrix4(), a: new THREE.Matrix4(), b: new THREE.Matrix4(), r: new THREE.Matrix4() };
+// the four part matrices per bird: body at hip height, neck pitched at the body's front, legs swung at the hip
+function poseOstriches() {
+  const { m, a, b, r } = OST_TMP;
+  OST.flock.birds.forEach((bd, i) => {
+    const y = terrainH(bd.x, bd.z), yaw = r.makeRotationY(-bd.yaw);
+    m.makeTranslation(bd.x, y + 1.1 + bd.bob, bd.z).multiply(yaw);   // the body ellipsoid, centred at hip height
+    OST.parts.body.setMatrixAt(i, m);
+    b.makeTranslation(0.55, 1.4 + bd.bob, 0).multiply(a.makeRotationZ(-bd.neck));   // neck pivot at the body's front
+    m.makeTranslation(bd.x, y, bd.z).multiply(yaw).multiply(b);
+    OST.parts.neck.setMatrixAt(i, m);
+    for (const [part, swing, side] of [[OST.parts.legL, bd.legL, 0.15], [OST.parts.legR, bd.legR, -0.15]]) {   // hip pivot, feet planted
+      b.makeTranslation(0, 1.1, side).multiply(a.makeRotationZ(swing));
+      m.makeTranslation(bd.x, y, bd.z).multiply(yaw).multiply(b);
+      part.setMatrixAt(i, m);
+    }
+  });
+  for (const p of Object.values(OST.parts)) p.instanceMatrix.needsUpdate = true;
+}
+function stepOstriches(dt) {
+  if (!OST.on) return;
+  const show = Math.hypot(P.x - OSTRICH.centre[0], P.z - OSTRICH.centre[1]) < OSTRICH.show;
+  if (show !== OST.visible) { OST.visible = show; OST.group.visible = show; }
+  if (!show) return;   // beyond the radius nothing is simulated: the birds freeze where they are
+  stepFlock(OST.flock, dt, { x: P.x, z: P.z }, OST.rnd);   // #6: the walker and the car are the same P
+  poseOstriches();
+}
+if (OST.on) buildPaddock();
 for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; }
 if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own meshes so the interior can hide them; applyStyle sets the material
   INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing);
@@ -6195,6 +6302,10 @@ window.__mm.depot = () => ({
       solid: !!solid && !solid.off, model: b ? b.model : null, paint: b ? b.paint : null };
   }),
 });
+window.__mm.ostriches = () => ({   // #846: the paddock's debug hook
+  on: OST.on, visible: OST.visible, count: OST.flock ? OST.flock.birds.length : 0, solids: OST.solids,
+  birds: OST.flock ? OST.flock.birds.map(b => ({ x: b.x, z: b.z, state: b.state, inside: inPaddock(b.x, b.z, -OSTRICH.inset + 0.5) })) : [],
+});
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };
 const inRun = () => canPause($('overlay').hidden, R.state);
@@ -6948,7 +7059,7 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open || TTV.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play
