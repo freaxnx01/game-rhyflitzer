@@ -2602,7 +2602,9 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // at a skewed crossing those are metres apart) up to that deck's underside there and no parapet. Per side, the run stops
   // where its centre line reaches another road's wall face, so a side road enters through a gap and the walls meet at the
   // corner. Solid, but `low`: a car above the top passes over.
-  const deckOver = (arms, x, z) => { let best = null; for (const c of arms) { const n = nearestOnPolyline(c.deck.r.pts, x, z); if (!best || n.d < best.n.d) best = { c, n }; } return best; };
+  // #576: every rail deck whose footprint reaches the piece (half: its half length) -- also a deck of a crossing without a cut of
+  // its own, and both of two tracks side by side (Koenigsweg, 3.8 m apart on 5.5 m wide decks): the piece is under the lowest
+  const decksOver = (x, z, half) => RAIL_DECKS.map((deck) => ({ deck, n: nearestOnPolyline(deck.r.pts, x, z) })).filter(({ deck, n }) => n.d <= deck.hw + half);
   // review of #156: the run stops WALL_SLACK short of the other road's wall face, so no piece end reaches into that road's
   // corridor; wallSpans finds that point to the centimetre, so the slack is also the whole notch left open at the corner (under
   // the 0.3 m a wall covers in __mm.openCutFaces)
@@ -2615,12 +2617,12 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     const hw = road.w / 2, inner = hw + UNDERPASS.margin, off = inner + UNDERPASS.wall / 2;
     for (const side of [-1, 1]) {
       const runs = wallSpans(road.pts, spans, off, side, otherRoad(road), PATCH_BLEED);
-      for (const w of wallStations(road.pts, runs, off, 2, [side])) troughPiece(road, arms, w, ...pointAtLength(road.pts, w.t));
-      for (const w of runCorners(road, runs, off, side)) troughPiece(road, arms, w, w.x - w.nx * off, w.z - w.nz * off);
+      for (const w of wallStations(road.pts, runs, off, 2, [side])) troughPiece(road, w, ...pointAtLength(road.pts, w.t));
+      for (const w of runCorners(road, runs, off, side)) troughPiece(road, w, w.x - w.nx * off, w.z - w.nz * off);
     }
   }
   // one wall piece w, its road point (rx, rz): (rx, rz) + n * d lies d m off the road through the piece
-  function troughPiece(road, arms, w, rx, rz) {
+  function troughPiece(road, w, rx, rz) {
     const inner = road.w / 2 + UNDERPASS.margin, at = (d) => meshH(rx + w.nx * d, rz + w.nz * d), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25));
     // #156: the ground the wall retains -- behind it, or on its own band where the cut still lowers it (on a slope falling away
     // from the road the ground 0.5 m behind can lie below the floor while the band is lowered 0.8 m)
@@ -2631,8 +2633,9 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     if (ground - floor <= 0.1 && lowered <= 0.1) return;
     // the lowest deck surface over the piece's own footprint (half its length, plus how far it sits off the deck's centre
     // line): near a deck end bridgeDeckOffset fades, so the surface right above the piece is below the centre-line value
-    const dk = deckOver(arms, w.x, w.z), under = dk.n.d <= dk.c.deck.hw + w.len / 2, span = w.len / 2 + dk.n.d;
-    const deckTop = Math.min(...[-span, 0, span].map((k) => bridgeSurfaceAt(dk.c.deck, dk.n.t + k)));
+    // and the lowest of them where several decks lie over it (the nearest one's centre line can be the higher deck)
+    const over = decksOver(w.x, w.z, w.len / 2), under = over.length > 0;
+    const deckTop = Math.min(...over.flatMap(({ deck, n }) => { const span = w.len / 2 + n.d; return [-span, 0, span].map((k) => bridgeSurfaceAt(deck, n.t + k)); }));
     const top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
     box(w.len + 0.05, top - floor, UNDERPASS.wall, w.x, floor, w.z, w.rot, col('#b8b2a6'), 'stone', [4, 3], 0);
     pushOBB({ x: w.x, z: w.z, hw: w.len / 2, hd: UNDERPASS.wall / 2, c: Math.cos(w.rot), s: Math.sin(w.rot), h: top, low: true });
