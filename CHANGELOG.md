@@ -16,6 +16,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Changed
 
 - `2026-11-12 08:38` The **vehicle depot** only parks the nearest cars for real; the far slots wait under **grey covers** until you come close, so weak devices no longer crash there. Drive off and the cars you left behind give their memory back.
+- `2026-11-11 20:40` The **Postauto's rear display** is now as wide as the front one and a real **LED dot matrix**: the line number in big pixel digits, and the **smiley** and **thank-you** after you waited behind it in the same pixel font, readable from the car behind.
 - `2026-11-11 19:26` **Postautos** cost less per frame in the **OSM world**: standing buses no longer re-measure the ground, and their **LED** and engine sound reuse work already done.
 - `2026-11-11 19:03` Driving in the **OSM world** is **smoother**: the **Postauto** fleet and the **touch controls** do less work on every frame.
 - `2026-11-11 14:53` The **Mazda hatchback** is now the **start car**. The **Sissle Speedster** has retired: it is gone from **Choose car**, the gallery and the vehicle depot. A saved Speedster choice drives the hatchback.

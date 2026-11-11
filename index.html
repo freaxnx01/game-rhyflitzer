@@ -953,7 +953,7 @@ import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindo
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices, ledCurrent, groundStale } from './postautofx.js';   // #709
-import { DISPLAY_TEX, displayLayout, REAR_TEX, SMILEY, rearLayout, thanksLayout, splitRearTriangles, normalizeUv } from './busdisplay.js';   // #713, #800
+import { DISPLAY_TEX, displayLayout, REAR_TEX, REAR_GRID, REAR_CELL, rearFrame, stretchRearQuad, quadSize, splitRearTriangles, normalizeUv } from './busdisplay.js';   // #713, #800
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
@@ -4591,19 +4591,16 @@ function displayTexture({ line, dest }) {
   tex.flipY = false;   // the glTF display UVs run v downwards with Repeat wrapping, unlike a canvas texture's default
   return tex;
 }
-// #800: the rear quad's own texture -- the line number centred, or a smiley + thank-you text while `thanks` holds
+// #800: the rear quad's own texture, an LED dot matrix (busdisplay.js rearFrame): the line number centred, or a smiley +
+// thank-you text while `thanks` holds. Every cell shows a dim unlit LED, so the grid reads as a dot matrix
 function rearTexture({ line, thanks }) {
   const tex = makeTex(REAR_TEX.w, REAR_TEX.h, (g, w, h) => {
+    const cell = REAR_CELL, dot = cell - 2;
     g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#ff9a1a'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    const measure = (s, size) => { g.font = `700 ${size}px "Barlow Condensed", sans-serif`; return g.measureText(s).width; };
-    if (!thanks) { const l = rearLayout(line, measure); g.font = `700 ${l.size}px "Barlow Condensed", sans-serif`; g.fillText(line, l.x, l.y); return; }
-    const l = thanksLayout(thanks, measure);
-    SMILEY.forEach((row, r) => [...row].forEach((c, q) => {
-      if (c !== '#') return;
-      g.beginPath(); g.arc(l.smiley.x + (q + 0.5) * l.smiley.cell, l.smiley.y + (r + 0.5) * l.smiley.cell, l.smiley.cell * 0.4, 0, 7); g.fill();
-    }));
-    g.font = `700 ${l.text.size}px "Barlow Condensed", sans-serif`; g.fillText(thanks, l.text.x, l.text.y);
+    g.fillStyle = '#231608';
+    for (let r = 0; r < REAR_GRID.rows; r++) for (let c = 0; c < REAR_GRID.cols; c++) g.fillRect(c * cell + 1, r * cell + 1, dot, dot);
+    g.fillStyle = '#ff9a1a';
+    for (const [c, r] of rearFrame({ line, thanks }).dots) g.fillRect(c * cell + 1, r * cell + 1, dot, dot);
   });
   tex.flipY = false;
   return tex;
@@ -4611,8 +4608,9 @@ function rearTexture({ line, thanks }) {
 // #800 (A9): the Display meshes of a Postauto, found by the overGlass marker on its (possibly already split) material
 const displayMeshes = (root) => { const out = []; root.traverse((o) => { if (o.isMesh && (Array.isArray(o.material) ? o.material[0] : o.material)?.userData?.overGlass) out.push(o); }); return out; };
 // splits the rear quad into its own geometry group (no model rebuild): clones the geometry, finds the rear triangles
-// by position (tools/prepare-bus.mjs: +x is forward, so the rear sits at the most negative x) and renormalises their
-// UVs to 0..1 so the rear texture can use the whole quad. False when no separable rear quad is found.
+// by position (tools/prepare-bus.mjs: +x is forward, so the rear sits at the most negative x), renormalises their
+// UVs to 0..1 so the rear texture can use the whole quad, and stretches the quad over the tail to the front display's
+// width (its vertices are the quad's own, so nothing else moves). False when no separable rear quad is found.
 function splitDisplayRear(o) {
   const geo = o.geometry.clone(), uv = geo.attributes.uv, count = geo.attributes.position.count;
   const index = geo.index ? Array.from(geo.index.array) : Array.from({ length: count }, (_, i) => i);
@@ -4620,6 +4618,7 @@ function splitDisplayRear(o) {
   const shared = rear.some((v) => rest.includes(v));
   if (!rear.length || !uv || shared) { geo.dispose(); console.warn('Postauto Display: no separable rear quad, no thank-you on the rear'); return false; }
   normalizeUv(uv.array, rear);
+  stretchRearQuad(geo.attributes.position.array, rear); geo.attributes.position.needsUpdate = true; geo.computeBoundingSphere();
   geo.setIndex([...rest, ...rear]); geo.clearGroups(); geo.addGroup(0, rest.length, 0); geo.addGroup(rest.length, rear.length, 1);
   o.geometry = geo; o.userData.sharedGeo = false;   // freed by disposePostautoMesh
   return true;
@@ -5244,9 +5243,11 @@ window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the 
     buses: [...POSTAUTO.meshes].map(([key, g]) => {
       const planes = [], displays = [];
       g.traverse((o) => { if (o.geometry?.type === 'PlaneGeometry') planes.push(o); if (o.isMesh && (Array.isArray(o.material) ? o.material[0] : o.material)?.userData?.overGlass) displays.push(o); });
-      const mat = displays[0]?.material, m = Array.isArray(mat) ? mat[0] : mat;
+      const mat = displays[0]?.material, m = Array.isArray(mat) ? mat[0] : mat, geo = displays[0]?.geometry;
+      const rearGroup = Array.isArray(mat) ? geo.groups[1] : null;   // the stretched rear quad's size in metres (busdisplay.js REAR_QUAD)
+      const rear = rearGroup ? quadSize(geo.attributes.position.array, Array.from(geo.index.array.slice(rearGroup.start, rearGroup.start + rearGroup.count))) : null;
       return { key, planes: planes.length, displays: displays.length, own: !!m && m !== cached, ownMap: !!m?.map && m.map !== cached?.map, flipY: m?.map?.flipY ?? null, led: g.userData.led,
-        frontMap: m?.map?.uuid ?? null, rearMap: Array.isArray(mat) ? mat[1].map?.uuid ?? null : null, split: Array.isArray(mat) };   // #800
+        frontMap: m?.map?.uuid ?? null, rearMap: Array.isArray(mat) ? mat[1].map?.uuid ?? null : null, split: Array.isArray(mat), rearW: rear?.w ?? null, rearH: rear?.h ?? null };   // #800
     }) };
 };
 // drive headless: step the car and the race at 1/60 s while the autopilot is on, at most secs seconds

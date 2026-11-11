@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DISPLAY_TEX, displayLayout, REAR_TEX, SMILEY, rearLayout, thanksLayout, splitRearTriangles, normalizeUv } from '../busdisplay.js';
+import { DISPLAY_TEX, displayLayout, REAR_TEX, REAR_GRID, SMILEY, glyph, textCols, textDots, rearFrame, stretchRearQuad, quadSize, splitRearTriangles, normalizeUv } from '../busdisplay.js';
 
 const measure = (text, size) => text.length * size * 0.55;   // a fixed-width fake font
 
@@ -34,25 +34,86 @@ test('displayLayout_ImpossibleWidth_StopsAtMinimumSize', () => {
   assert.equal(l.dest.size, 20);
 });
 
-// #800
-test('rearLayout_LineNumber_CentredAndFits', () => {
-  const l = rearLayout('1234', measure);
-  assert.equal(l.x, REAR_TEX.w / 2);
-  assert.ok(measure('1234', l.size) <= 0.92 * REAR_TEX.w);
+// #800 (rear LED): the rear display is an LED dot matrix -- the 5x7 bitmap font and the dot layout are pure
+test('glyph_KnownCharacters_AreFiveBySeven', () => {
+  for (const ch of '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzäöüÄÖÜß !.,-:\'/()?+') {
+    const g = glyph(ch);
+    assert.equal(g.length, 7, ch);
+    assert.ok(g.every((row) => /^[.#]{5}$/.test(row)), ch);
+    assert.notDeepEqual(g, glyph('☃'), `${ch} falls back`);
+  }
 });
 
-test('thanksLayout_TextFitsAndSitsBelowTheSmiley', () => {
-  for (const text of ['Vielen Dank!', 'Thank you!']) {
-    const l = thanksLayout(text, measure);
-    assert.ok(measure(text, l.text.size) <= 0.92 * REAR_TEX.w, text);
-    assert.ok(l.smiley.y + 7 * l.smiley.cell < l.text.y - 0.5 * l.text.size);
+test('glyph_UnknownCharacter_FallsBackToTheBox', () => {
+  assert.deepEqual(glyph('☃'), ['#####', '#...#', '#...#', '#...#', '#...#', '#...#', '#####']);
+});
+
+test('textCols_CountsGlyphsAndOneColumnGaps', () => {
+  assert.equal(textCols('Dank'), 4 * 5 + 3);
+  assert.equal(textCols('Dank', 2), 2 * (4 * 5 + 3));
+  assert.equal(textCols(''), 0);
+});
+
+test('textDots_ScaledGlyph_FillsTheScaledCells', () => {
+  const dots = textDots('1', 3, 2, 2, 2);   // the '1' is lit at glyph (2, 0): cells 7..8 x 2..3
+  assert.ok(dots.some(([c, r]) => c === 7 && r === 2) && dots.some(([c, r]) => c === 8 && r === 3));
+  assert.ok(dots.every(([c, r]) => c >= 3 && c < 13 && r >= 2 && r < 16));
+});
+
+test('rearFrame_LineNumber_DoubleSizeAndCentred', () => {
+  const f = rearFrame({ line: '133', thanks: null });
+  const cols = f.dots.map(([c]) => c), rows = f.dots.map(([, r]) => r);
+  assert.equal(f.text.sx, 2); assert.equal(f.text.sy, 2);
+  assert.ok(Math.abs((Math.min(...cols) + Math.max(...cols) + 1) / 2 - REAR_GRID.cols / 2) <= 1);
+  assert.equal(Math.min(...rows), 1); assert.equal(Math.max(...rows), 14);
+  assert.equal(f.smiley, null);
+});
+
+test('rearFrame_Thanks_SmileyThenTextBothInsideTheGrid', () => {
+  for (const thanks of ['Vielen Dank!', 'Thank you!']) {
+    const f = rearFrame({ line: '133', thanks });
+    assert.ok(f.dots.every(([c, r]) => c >= 0 && c < REAR_GRID.cols && r >= 0 && r < REAR_GRID.rows), thanks);
+    assert.equal(f.smiley.scale, 2);
+    assert.ok(f.text.x >= f.smiley.x + 7 * f.smiley.scale + 2, 'the text starts right of the smiley');
+    assert.equal(f.text.sy, 2);
+    const cols = f.dots.map(([c]) => c);
+    assert.ok(Math.abs((Math.min(...cols) + Math.max(...cols) + 1) / 2 - REAR_GRID.cols / 2) <= 2, thanks);
+    assert.ok(f.dots.length > 7 * 7 * 4, 'the text is lit too');
   }
+});
+
+test('rearFrame_TooLongText_ClipsToTheGrid', () => {
+  const f = rearFrame({ line: '1', thanks: 'x'.repeat(200) });
+  assert.ok(f.dots.every(([c]) => c >= 0 && c < REAR_GRID.cols));
+  assert.equal(f.text.sx, 1);
+});
+
+test('SMILEY_IsSevenBySeven', () => {
   assert.ok(SMILEY.length === 7 && SMILEY.every((r) => r.length === 7));
+});
+
+test('REAR_TEX_HasSquareWholeCells', () => {
+  assert.equal(REAR_TEX.w % REAR_GRID.cols, 0);
+  assert.equal(REAR_TEX.h % REAR_GRID.rows, 0);
+  assert.equal(REAR_TEX.w / REAR_GRID.cols, REAR_TEX.h / REAR_GRID.rows);
 });
 
 // two quads: the tail at x = -5.8 (vertices 0-3) and the nose at x = 5.8 (4-7)
 const POS = [-5.8, 2.5, -0.2, -5.8, 2.5, 0.2, -5.8, 2.8, 0.2, -5.8, 2.8, -0.2, 5.8, 2.4, -1, 5.8, 2.4, 1, 5.8, 2.7, 1, 5.8, 2.7, -1];
 const IDX = [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7];
+
+// the model's small rear quad is stretched over the tail; +x is forward, so x is the depth and z the width
+test('stretchRearQuad_SmallQuad_BecomesTheWidePanel', () => {
+  const pos = POS.slice();
+  stretchRearQuad(pos, [0, 1, 2, 0, 2, 3], { x: -5.985, y: 2.5, w: 2.2, h: 0.314 });
+  const ids = [0, 1, 2, 3];
+  assert.ok(ids.every((i) => pos[3 * i] === -5.985));
+  assert.deepEqual(ids.map((i) => +pos[3 * i + 2].toFixed(3)), [-1.1, 1.1, 1.1, -1.1]);
+  assert.deepEqual(ids.map((i) => +pos[3 * i + 1].toFixed(3)), [2.5, 2.5, 2.814, 2.814]);
+  assert.deepEqual(pos.slice(12), POS.slice(12));   // the nose is untouched
+  const { w, h } = quadSize(pos, [0, 1, 2, 0, 2, 3]);
+  assert.ok(Math.abs(w - 2.2) < 1e-9 && Math.abs(h - 0.314) < 1e-9);
+});
 test('splitRearTriangles_TwoQuads_SeparatesTheTail', () => {
   const { rear, rest } = splitRearTriangles(POS, IDX);
   assert.deepEqual(rear, [0, 1, 2, 0, 2, 3]);
