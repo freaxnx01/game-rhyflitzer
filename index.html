@@ -6305,6 +6305,7 @@ window.__mm.depot = () => ({
 window.__mm.ostriches = () => ({   // #846: the paddock's debug hook
   on: OST.on, visible: OST.visible, count: OST.flock ? OST.flock.birds.length : 0, solids: OST.solids,
   birds: OST.flock ? OST.flock.birds.map(b => ({ x: b.x, z: b.z, state: b.state, inside: inPaddock(b.x, b.z, -OSTRICH.inset + 0.5) })) : [],
+  free: (x, z, rad) => free(x, z, rad),   // the placement test trees and props use, so a test can probe the paddock guard
 });
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };

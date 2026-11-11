@@ -101,3 +101,15 @@ def test_jump_list_has_the_farm(server):
         b.close()
     assert "Straussenfarm Sisseln" in names, names
     assert not errors, errors
+
+
+@needs_world
+def test_trees_and_props_keep_out_of_the_paddock(server):
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        d = page.evaluate(OSTRICHES_JS)
+        pts = [(2380, -422)] + [(x["x"], x["z"]) for x in d["birds"]]
+        blocked = page.evaluate("(pts) => pts.map(([x, z]) => window.__mm.ostriches().free(x, z, 1))", pts)
+        b.close()
+    assert not any(blocked), f"free() allowed placement inside the paddock: {blocked}"
+    assert not errors, errors
