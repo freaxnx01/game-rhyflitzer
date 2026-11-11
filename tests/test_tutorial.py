@@ -164,6 +164,7 @@ def test_esc_offers_end_tutorial_which_marks_it_done_and_returns_to_cruise(serve
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=T)
         shown = page.evaluate("() => Object.fromEntries(['pauserestart', 'pausemenu', 'pausetutorial'].map(i => [i, !document.getElementById(i).hidden]))")
+        timetable = page.evaluate("() => !document.getElementById('pausetimetable').hidden")   # #801: only where the region has a timetable
         seen = []
         for _ in range(5):
             page.keyboard.press("ArrowDown")
@@ -173,7 +174,7 @@ def test_esc_offers_end_tutorial_which_marks_it_done_and_returns_to_cruise(serve
         after = page.evaluate("() => ({ abandon: !document.querySelector('#abandon').hidden, focus: document.activeElement.id, glow: document.querySelector('#tutorialbtn').classList.contains('first'), flag: localStorage.getItem('mm.tutorialDone') })")
         b.close()
     assert shown == {"pauserestart": False, "pausemenu": False, "pausetutorial": True}, shown
-    assert seen == ["pausevehicle", "pausestyle", "pauseabout", "pausesettings", "pausekeybar"], seen
+    assert seen == ["pausevehicle", "pausestyle"] + (["pausetimetable"] if timetable else []) + ["pauseabout", "pausesettings", "pausetutorial"][:3 - timetable], seen
     assert after == {"abandon": False, "focus": "cruisebtn", "glow": False, "flag": "1"}, after
     assert errors == []
 

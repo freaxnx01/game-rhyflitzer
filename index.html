@@ -310,7 +310,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #keybar[hidden]{display:none}
 #keybar kbd{font:inherit;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px}
 #keybar .ctx{color:var(--ink);background:var(--sun);padding:0 6px}#keybar .ctx kbd{color:var(--ink);border-color:var(--ink)}
-@media (pointer:coarse){#keybar,#pausekeybar{display:none!important}}
+@media (pointer:coarse){#keybar,#setkeybarrow{display:none!important}}
 body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,body:has(#abandon:not([hidden])) #keybar,body:has(#help:not([hidden])) #keybar,body:has(#jump:not([hidden])) #keybar,body:has(#borderinfo:not([hidden])) #keybar,body:has(#timetable:not([hidden])) #keybar{display:none}
 #pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
 #pausebtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
@@ -770,7 +770,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <!-- #842 Settings, first slice: audio (sound and music). Framed like #about; opened from the start screen (#settingsbtn)
      and the pause menu (#pausesettings). Later #546 sections (graphics, language, controls) append .st-sec blocks below Audio. -->
 <div id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="settingstitle">
-  <div class="ws-head"><h1 id="settingstitle" data-i18n="setTitle">Settings</h1><span class="ws-sub" data-i18n="setSub">Sound and music</span>
+  <div class="ws-head"><h1 id="settingstitle" data-i18n="setTitle">Settings</h1><span class="ws-sub" data-i18n="setSub">Sound, music and display</span>
     <button id="settingsback" class="btn" type="button" data-i18n="carselBack">‹ Back</button></div>
   <div id="settingspanels" class="st-panels">
     <section class="st-sec"><h2 data-i18n="setAudio">Audio</h2>
@@ -782,6 +782,12 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="setmusic" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setmusiclabel">on</button>
         <input id="setmusicvol" type="range" min="0" max="10" step="1" aria-labelledby="setmusiclabel">
         <span id="setmusicpct" class="st-val"></span><p id="setmusiccap" class="st-cap"></p></div>
+    </section>
+    <!-- the key bar's switch, moved here from the pause menu; desktop only, like the bar -->
+    <section class="st-sec" id="setkeybarrow"><h2 data-i18n="setDisplay">Display</h2>
+      <div class="st-row"><span class="st-label" id="setkeybarlabel" data-i18n="setKeybar">Key bar</span>
+        <button id="setkeybar" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setkeybarlabel">on</button>
+        <p class="st-cap" data-i18n="setKeybarCap">the keys for the moment, at the top of the screen</p></div>
     </section>
   </div>
   <p class="ab-foot"><span data-i18n="setHint">Esc: back</span></p>
@@ -873,7 +879,6 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
       <!-- #842: Settings after About, like the start screen -->
       <button id="pausesettings" class="btn" type="button" data-i18n="settingsBtn">Settings</button>
-      <button id="pausekeybar" class="btn" type="button" aria-pressed="true">Key bar: on</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
       <button id="pausetutorial" class="btn" type="button" data-i18n="tutPause" hidden>End tutorial</button>
@@ -4719,8 +4724,7 @@ function stepKeybar() {
   KEYBAR.sig = sig; $('keybar').hidden = !KEYBAR.on;
   $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}>${capsRow(x.cap)} ${tr(x.label)}</span>`).join('');   // #700: one cap per key
 }
-function renderKeybarToggle() { const b = $('pausekeybar'); b.textContent = tr(KEYBAR.on ? 'pauseKeybarOn' : 'pauseKeybarOff'); b.setAttribute('aria-pressed', String(KEYBAR.on)); }
-function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } renderKeybarToggle(); stepKeybar(); }
+function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } stepKeybar(); }
 window.__mm.keybar = () => { stepKeybar(); const el = $('keybar'); return { shown: !el.hidden && getComputedStyle(el).display !== 'none', text: el.textContent, ctx: controlContext(), action: contextAction(), on: KEYBAR.on }; };
 function stepEnter() {
   stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; in the car E boards a parked depot vehicle, #553)
@@ -5737,6 +5741,7 @@ function renderSettings() {
   const s = SFX.sound(), r = RADIO.state(), musicOn = r.inRun ? r.on : r.menuOn;
   const sw = (id, on) => { const b = $(id); b.setAttribute('aria-checked', String(on)); b.textContent = tr(on ? 'setOn' : 'setOff'); };
   sw('setsound', s.on); $('setsoundvol').value = s.vol; $('setsoundpct').textContent = tr('radioVolume', s.vol * 10);
+  sw('setkeybar', KEYBAR.on);
   sw('setmusic', musicOn); $('setmusicvol').value = r.vol; $('setmusicpct').textContent = tr('radioVolume', r.vol * 10); $('setmusiccap').textContent = tr(musicCaptionKey(r.inRun));
 }
 function openSettings(from) { SETTINGS.on = true; SETTINGS.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('settings').hidden = false; renderSettings(); $('settingsback').focus(); }
@@ -5746,6 +5751,7 @@ $('settingsbtn').onclick = () => openSettings('start'); $('pausesettings').oncli
 $('setsound').onclick = () => { SFX.setSoundOn(!SFX.sound().on); renderSettings(); };
 $('setsoundvol').oninput = (e) => { SFX.setSoundVol(+e.target.value); SFX.blip(); renderSettings(); };
 $('setmusic').onclick = () => { RADIO.cmd('power'); renderSettings(); };
+$('setkeybar').onclick = () => { toggleKeybar(); renderSettings(); };
 $('setmusicvol').oninput = (e) => { RADIO.setVolume(+e.target.value); renderSettings(); };
 window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol }) => ({ on, menuOn, vol }))(RADIO.state()) });
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
@@ -6223,7 +6229,7 @@ function movePauseFocus(step) { $(nextFocus(PAUSE.confirm ? ABANDON_BUTTONS : pa
 const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon, next: () => movePauseFocus(1), prev: () => movePauseFocus(-1), debug: () => toggleDebug(), photo: () => { photoPending = true; }, record: () => { if (REC.state !== 'idle') stopRecord(); } };
 // true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
 function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
-$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('pausetutorial').onclick = quitTutorial; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause'); $('pausetimetable').onclick = () => openTimetable('pause', null);   // #801 $('pausekeybar').onclick = toggleKeybar; renderKeybarToggle();   // #509
+$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('pausetutorial').onclick = quitTutorial; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause'); $('pausetimetable').onclick = () => openTimetable('pause', null);   // #801; #509
 // #735: the phone's radio -- 📻 opens six buttons that run what 5-0 do; it closes on a second tap, on pause and after 6 s untouched
 const RADIO_PANEL = { closeAt: 0 };
 function setRadioPanel(open) { $('radiopanel').hidden = !open; $('radiobtn').setAttribute('aria-expanded', String(open)); RADIO_PANEL.closeAt = open ? performance.now() + 6000 : 0; }
@@ -6515,7 +6521,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;

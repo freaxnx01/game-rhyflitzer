@@ -27,6 +27,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-11 20:41` The **key bar** switch works again and has moved from the pause menu to **Settings** (new section **Display**): one click hides or shows the keys at the top of the screen, and the choice is kept.
 - `2026-11-11 12:28` The **Hauptstrasse** in Sisseln no longer has a small **step** where it climbs out of the rail underpass, and the **stone walls** at the **Königsweg** rail decks stay below the deck instead of poking up through it.
 - `2026-11-11 12:20` The **Sissle** and the other small **streams** are visible again where they run through farmland: the **fields** no longer cover the water in places.
 - `2026-11-10 15:35` On **road signs** (Fahrverbot, Baustelle), the **place-name boards**, the **P and Crash-Platz signs** and the **speed display** in Sisseln, the **pole** no longer sticks out above the sign or through its face: it ends behind the panel.

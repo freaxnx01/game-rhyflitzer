@@ -137,7 +137,7 @@ def test_phone_layout_fits(server, vp):
         scroll_width = page.evaluate("() => document.documentElement.scrollWidth")
         boxes = page.evaluate(BOXES, CONTROLS + ["#pausebtn"])
         bars = page.evaluate("""() => ({ keybar: getComputedStyle(document.querySelector('#keybar')).display,
-            pausekeybar: getComputedStyle(document.querySelector('#pausekeybar')).display })""")
+            setkeybar: getComputedStyle(document.querySelector('#setkeybarrow')).display })""")
         b.close()
     shown = {k: v for k, v in boxes.items() if v}
     assert errors == []
@@ -150,4 +150,4 @@ def test_phone_layout_fits(server, vp):
     for i, a in enumerate(names):
         for c in names[i + 1:]:
             assert not overlap(shown[a], shown[c]), (a, c, shown[a], shown[c])
-    assert bars == {"keybar": "none", "pausekeybar": "none"}          # the key bar is the desktop's
+    assert bars == {"keybar": "none", "setkeybar": "none"}          # the key bar is the desktop's
