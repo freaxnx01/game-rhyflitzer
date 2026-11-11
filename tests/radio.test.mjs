@@ -2,14 +2,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { SRF3_URL, STATIONS, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain,
+import { SRF3_URL, ARGOVIA_URL, STATIONS, LIVE, nextStation, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain,
   radioOnFrom, menuMusicOnFrom, stationFrom, volumeFrom, srfVerdict, displayFor, createEarlyMenu, EARLY_GESTURES } from '../radio.js';
 
 const key = (code, o = {}) => ({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, ...o });
 
 test('SRF3_URL_IsTheHttpsStream_NotTheShortLink', () => {
   assert.equal(SRF3_URL, 'https://stream.srg-ssr.ch/srgssr/srf3/mp3/128');
-  assert.deepEqual(STATIONS, ['fm', 'srf3']);
+  assert.deepEqual(STATIONS, ['fm', 'srf3', 'argovia']);
 });
 
 test('TRACKS_AreTheSixCommittedFiles_WithLicences', () => {
@@ -74,7 +74,8 @@ test('storedValues_FallBackToDefaults', () => {
   assert.equal(menuMusicOnFrom(null), true);
   assert.equal(menuMusicOnFrom('0'), false);
   assert.equal(stationFrom('srf3'), 'srf3');
-  for (const bad of [null, '', 'radio1', 'SRF3']) assert.equal(stationFrom(bad), 'fm', String(bad));
+  assert.equal(stationFrom('argovia'), 'argovia');
+  for (const bad of [null, '', 'radio1', 'SRF3', 'Argovia']) assert.equal(stationFrom(bad), 'fm', String(bad));
   assert.equal(volumeFrom('3'), 3);
   assert.equal(volumeFrom('0'), 0);
   for (const bad of [null, '', '11', '-1', '2.5', 'loud']) assert.equal(volumeFrom(bad), VOLUME.start, String(bad));
@@ -98,6 +99,32 @@ test('displayFor_OffSrfAndTrack', () => {
   assert.deepEqual(displayFor({ on: false, station: 'fm', track: 0 }), { key: 'radioOff', args: [] });
   assert.deepEqual(displayFor({ on: true, station: 'srf3', track: 2 }), { key: 'radioStationSrf', args: [] });
   assert.deepEqual(displayFor({ on: true, station: 'fm', track: 1 }), { key: 'radioTrack', args: ['Neon Afterglow', 'MemoryArcade'] });
+});
+
+test('ARGOVIA_URL_IsTheProbedHttpsStream', () => {
+  assert.equal(ARGOVIA_URL, 'https://stream.streambase.ch/argovia/mp3-192/direct/');
+  assert.equal(LIVE.argovia.url, ARGOVIA_URL);
+  assert.equal(LIVE.srf3.url, SRF3_URL);
+});
+
+test('LIVE_HasExactlyTheLiveStations_WithStringKeys', () => {
+  assert.deepEqual(Object.keys(LIVE), STATIONS.filter(s => s !== 'fm'));
+  for (const l of Object.values(LIVE)) assert.ok(l.url.startsWith('https://') && l.nameKey && l.failKey);
+});
+
+test('nextStation_CyclesFmSrf3ArgoviaFm', () => {
+  assert.equal(nextStation('fm'), 'srf3');
+  assert.equal(nextStation('srf3'), 'argovia');
+  assert.equal(nextStation('argovia'), 'fm');
+});
+
+test('stationFrom_AStoredArgovia_Survives', () => {
+  assert.equal(stationFrom('argovia'), 'argovia');
+  assert.equal(stationFrom('Argovia'), 'fm');
+});
+
+test('displayFor_Argovia_IsTheStationString', () => {
+  assert.deepEqual(displayFor({ on: true, station: 'argovia', track: 0 }), { key: 'radioStationArgovia', args: [] });
 });
 
 // #841: the menu music's early start, before RADIO and the SFX graph exist. Audio and target are injected, so these run under node.

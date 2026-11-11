@@ -350,6 +350,11 @@ test('placeRun_ClockJump_PlacesTheLegForNow', () => {
   assert.equal(placeRun(run, 1500 + 60 + 10_000), null);          // past the window
 });
 
+test('placeRun_ClosedWindow_DoesNotRebuildTheLegsCalls', () => {   // #880: syncFleet asks every run every second; a closed run must cost no allocation
+  const poisoned = { trip: null, route: null, win: { from: 100, to: 200 } };   // placeTrip(null) would throw if it were reached
+  assert.equal(placeRun({ key: 'k', legs: [poisoned], win: poisoned.win }, 5000), null);
+});
+
 test('syncFleet_ShortTurnaround_NeverTwoBusesOnTheSameStand', () => {   // fails on main: 60 s gap, layover 60, spawnBefore 90
   const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1060, 1060, 2);
   for (let now = 700; now < 1400; now += 5) {

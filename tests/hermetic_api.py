@@ -6,10 +6,12 @@ stub. conftest.py wires it.
 #534: every new context also starts as a returning player (`mm.tutorialDone` set) unless the page URL contains
 `firstvisit`, so the first-visit tutorial preselect does not change what the other tests see.
 #735: every new context also aborts the SRF 3 stream host, so no browser test reaches the real live stream; a test's own
-page.route() stub (a local mp3) still wins over the context route."""
+page.route() stub (a local mp3) still wins over the context route.
+#845: Radio Argovia's stream host (and its 302 redirect target chmedia.streamabc.net) are aborted too."""
 GALLERY = "https://rhyflitzer-api.freaxnx01.ch/api/gallery"   # WORLD_HOST in worlds.js + /api/gallery
 CORS = {"Access-Control-Allow-Origin": "*"}
 SRF_GLOB = "https://*.srg-ssr.ch/**"   # #735: the SRF 3 stream and its livestreaming-node-N redirect targets
+ARGOVIA_GLOBS = ("https://stream.streambase.ch/**", "https://*.streamabc.net/**")   # #845: Radio Argovia and its redirect target
 
 
 def answer_empty_gallery(route):
@@ -25,7 +27,8 @@ def abort_srf(route):
 
 
 def route_srf(context):
-    context.route(SRF_GLOB, abort_srf)
+    for glob in (SRF_GLOB, *ARGOVIA_GLOBS):
+        context.route(glob, abort_srf)
 
 
 # #534: a fresh context is a first visitor and would get the tutorial preselected; tests opt in with ?firstvisit=1
