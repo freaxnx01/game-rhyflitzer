@@ -6,7 +6,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
 T = 240000
 BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "carbtn", "mpbtn"]
-SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn"]
+SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn", "settingsbtn", "musicbtn"]   # #735 Music, #842 Settings between About and Music
 
 
 def boot(p, server, viewport=(1280, 720), touch=False, query=""):
