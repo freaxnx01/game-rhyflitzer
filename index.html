@@ -968,7 +968,7 @@ import { photoFileName, canPhoto } from './photo.js';
 import { MAX_SECONDS, pickRecordFormat, recordFileName, recordBitrate, recordKeyAction, recordNext, recordElapsed, formatClock } from './record.js';   // #749
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from './heli.js';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye, easeLook, LOOK_EASE } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
 import { FADED, createFader, resetFader, sample, phase, phases, createKeybar, keybarPhase, visibleInMode, headingText } from './hudfade.js';   // #773
 import { clampCentre, zoomAt } from './mapzoom.js';   // #843
@@ -3866,7 +3866,7 @@ function releaseWheel(angle) { RIDE.offset = clockOffset(angle, performance.now(
 function endRide() { if (RIDE.s.phase !== 'idle') releaseWheel(rideAngle(RIDE.s)); }   // R, J, the beam and the Testhub all end on foot through endFoot
 function pressRide() {   // E on foot at the pad, or in the gondola; true when the ride took the key
   const a = rideNow();
-  if (a.do === 'board') { RIDE.s = rideBegin(currentWheelAngle(), a.index, rideContext().local); P.vx = P.vz = 0; FOOT.vy = 0; return true; }
+  if (a.do === 'board') { RIDE.s = rideBegin(currentWheelAngle(), a.index, rideContext().local); P.vx = P.vz = 0; FOOT.vy = 0; FOOT.mv = FOOT.view = null; return true; }   // #895: the wheel carries the walker -- no eased speeds, the view snaps
   if (a.do === 'leave') { RIDE.leave = true; return true; }
   if (a.do === 'wait') { toast(tr('rideWait')); return true; }
   return false;
@@ -3874,9 +3874,9 @@ function pressRide() {   // E on foot at the pad, or in the gondola; true when t
 function stepRide(dt) {   // replaces stepOnFoot while a ride runs: the walker is carried, only the mouse looks
   const c = rideContext(); if (!c) { endRide(); return; }
   const next = rideStep(RIDE.s, dt, RIDE.leave); RIDE.leave = false;
-  if (next.phase === 'idle') { releaseWheel(rideAngle(next)); P.y = ROOM.layout.y; FOOT.vy = 0; return; }   // set down on the pad: on foot again next frame
+  if (next.phase === 'idle') { releaseWheel(rideAngle(next)); P.y = ROOM.layout.y; FOOT.vy = 0; FOOT.mv = FOOT.view = null; return; }   // set down on the pad: on foot again next frame; #895: no eased glide off the wheel
   RIDE.s = next; const f = rideFeet(next), [x, z] = fromWheel(c.w, f.x, f.z);
-  P.x = x; P.z = z; P.y = ROOM.layout.y + f.y + eyeShift; P.vx = P.vz = P.vy = 0; FOOT.vy = 0; followCave();
+  P.x = x; P.z = z; P.y = ROOM.layout.y + f.y + eyeShift; P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.mv = FOOT.view = null; followCave();   // #895: the wheel sets the pose -- no eased speeds, the view snaps
 }
 function roomTrees(group, R) {   // #359: the single trees' species meshes (edge mix), about 1000 trees, no shadows
   const r = rng(278), trees = R.trees.map(([x, z, h]) => [x, z, h, R.y, 'edge']);
@@ -4661,7 +4661,8 @@ function land() { if (!LEVELS.isSurface()) { P.safe = [P.x, P.z, P.th]; resetCar
   const spot = landingSpot(nearestJumpable(P.x, P.z)); if (!spot) { toast(tr('heliNoRoad')); return; } P.safe = [spot.x, spot.z, spot.th]; resetCar(); toast(tr('heliLanded')); }
 // #202 on foot (Z): FOOT is the walker's state and P is the walker (so map, compass and HUD follow, as for the helicopter);
 // the car stays where stepCar last put it, FOOT.car is that pose. R, J, the map, the beam and Start end it through resetCar
-const FOOT = { on: false, hover: false, vy: 0, pitch: 0, stride: 0, car: null, eye: null };
+// #895: FOOT.mv carries the eased speeds (lf/ls/tw) between frames, FOOT.view the eased camera yaw/pitch
+const FOOT = { on: false, hover: false, vy: 0, pitch: 0, stride: 0, car: null, eye: null, mv: null, view: null };
 const parked = () => parkedBox(FOOT.car, CAR_SIZE);
 // #412: the walkway set around the walker -- the slabs, ramps, walls and ceilings of the interior it is in. It starts empty
 // (outdoors every walkway query answers "nothing"), and the interior of a building fills it while the walker is in it (6c, #411).
@@ -4696,11 +4697,11 @@ function stepEnterGlow() {   // on foot only: every ready, visible entrance on t
     });
   }
 }
-function leaveBuilding() { if (!INT.hall || !INT.indoors) return; const s = exitSpot(INT.hall.entrance); P.x = s.x; P.z = s.z; P.th = s.th; P.y = groundH(s.x, s.z, -Infinity); P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.hover = false; updateInterior(); }   // #474: B inside 6c, from any floor or the roof
+function leaveBuilding() { if (!INT.hall || !INT.indoors) return; const s = exitSpot(INT.hall.entrance); P.x = s.x; P.z = s.z; P.th = s.th; P.y = groundH(s.x, s.z, -Infinity); P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.hover = false; FOOT.mv = FOOT.view = null; updateInterior(); }   // #474: B inside 6c, from any floor or the roof; #895: E out teleports -- no eased speeds, the view snaps
  function pressEnter() { const n = HUD.enter; if (!n) return; const h = ENTER_HANDLERS[n.entry.id]; if (h) h(n.entry, n.entrance); else toast(tr('enterSoon')); }   // #409: E on foot at a ready entrance
 // #701: the Plattform shortcut -- 'up' at the door, 'down' on the deck by the stair; not while hovering
 const platHop = () => FOOT.on && !FOOT.hover && PLAT ? plattformHop(PLAT.frame, PLAT.base, P) : null;
-function platHopGo(dir) { const l = plattformHopLanding(PLAT.frame, PLAT.base, dir); P.x = l.x; P.z = l.z; P.th = l.th; P.y = l.y; P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.eye = null; restShadow(); }
+function platHopGo(dir) { const l = plattformHopLanding(PLAT.frame, PLAT.base, dir); P.x = l.x; P.z = l.z; P.th = l.th; P.y = l.y; P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.eye = null; FOOT.mv = FOOT.view = null; restShadow(); }   // #895: a hop teleports -- no eased speeds, the view snaps
 // #535: E is the one context key on foot -- lift (at the lift gap) > leave (inside) > hop (#701) > enter (at a glowing door)
 // > a parked depot vehicle (#553) > a stop's timetable board (#801); in the car E is the depot's board action or that board
 function contextAction() {
@@ -4756,7 +4757,7 @@ function leaveTrain() {
   if (Math.abs(TRAIN.st.v) >= 0.5) { toast(tr('footStopFirst')); return; }
   finishTurn();
   const p = poseAt(TRAIN.graph, TRAIN.st), side = p.th + Math.PI / 2, x = p.x + Math.cos(side) * (LOCO.width / 2 + 1.2), z = p.z + Math.sin(side) * (LOCO.width / 2 + 1.2);
-  TRAIN.on = false; Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: TRAIN.car, eye: null }); TRAIN.car = null;
+  TRAIN.on = false; Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: TRAIN.car, eye: null, mv: null, view: null }); TRAIN.car = null;   // #895: boardTrain skips endFoot, so the eased speeds die here
   P.x = x; P.z = z; P.y = groundH(x, z, TRAIN.y + 1); P.vx = P.vz = P.vy = 0; P.th = p.th; toast(tr('trainOut'));
 }
 // resetCar (R in the car, J, the map, the beam, Start) leaves the loco where it stands and puts you back in the car
@@ -4802,7 +4803,7 @@ function getOut() {
   if (Math.hypot(P.vx, P.vz) >= 0.5) { toast(tr('footStopFirst')); return; }
   const car0 = { x: P.x, z: P.z, y: P.y, th: P.th }, spot = exitSpots(car0, CAR_SIZE).find(s => footFree(s.x, s.z, car0.y));
   if (!spot) { toast(tr('footNoRoom')); return; }
-  stopAuto('reset'); Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: car0, eye: null }); flames.visible = false;
+  stopAuto('reset'); Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: car0, eye: null, mv: null, view: null }); flames.visible = false;
   P.x = spot.x; P.z = spot.z; P.y = groundH(spot.x, spot.z, car0.y + 1); P.vx = P.vz = P.vy = 0;
   if (R.state === 'racing' || R.state === 'armed') R.walked = true;
   toast(tr('footOut'));
@@ -4814,7 +4815,7 @@ function getIn() {
 }
 // off before the pointer is let go, so the unlock event does not pause (see the pointerlockchange listener)
 function endFoot() { if (!FOOT.on) return; endRide();   // #516: R, J, the beam and the Testhub all end a ride here (A10)
-  FOOT.on = false; FOOT.car = null; FOOT.eye = null; if (document.pointerLockElement) document.exitPointerLock(); }
+  FOOT.on = false; FOOT.car = null; FOOT.eye = null; FOOT.mv = FOOT.view = null; if (document.pointerLockElement) document.exitPointerLock(); }   // #895: the eased speeds and view die with the walk
 function toggleHover() { if (RIDE.s.phase !== 'idle') return;   // #516: F does nothing while the wheel carries the walker
   FOOT.hover = !FOOT.hover; FOOT.vy = 0; toast(tr(FOOT.hover ? 'footHover' : 'footWalk')); }
 // the car's collider filters (collide), plus: a box whose top is under your feet does not block (you stand on it or hover over it).
@@ -5014,12 +5015,13 @@ function clampHover() {
   const lid = caveInside() ? ceilingH(P.x, P.z) : null; if (lid !== null) P.y = Math.min(P.y, lid - WALKER.eye - 0.3);
 }
 function stepOnFoot(dt) {
-  if (LIFT_RIDE.busy) { P.vx = P.vz = 0; return; }   // #489: the walker rides like the car: no input during the ride
+  if (LIFT_RIDE.busy) { P.vx = P.vz = 0; FOOT.mv = null; return; }   // #489: the walker rides like the car: no input during the ride
   LIGHTS.braking = false;
   updateInterior();   // #411: area, indoors, bodyOff, floor, the door target -- before the step moves the walker
-  let s = stepFoot({ x: P.x, z: P.z, y: P.y, th: P.th, vy: FOOT.vy, hover: FOOT.hover }, footInput(keys, touch), dt, footFloorAt);
+  let s = stepFoot({ x: P.x, z: P.z, y: P.y, th: P.th, vy: FOOT.vy, hover: FOOT.hover, ...FOOT.mv }, footInput(keys, touch), dt, footFloorAt);
   const ceil = walkwayCeiling(WALKS, s.x, s.z, s.y);   // #412: the storey above stops a jump (or a rise) through it
   if (ceil !== null) s = headBump(s, footFloorAt(s.x, s.z, s.y), ceil);
+  FOOT.mv = { lf: s.lf, ls: s.ls, tw: s.tw };   // #895: the eased speeds ride with the walker, whatever pushed it
   const x0 = P.x, z0 = P.z;
   P.x = s.x; P.z = s.z; P.y = s.y; P.th = s.th; P.vx = s.vx; P.vz = s.vz; FOOT.vy = s.vy;
   collideFoot(WALKER.radius); collideWalkways(WALKER.radius); interiorFoot(); if (FOOT.hover) clampHover(); followCave();
@@ -5029,7 +5031,7 @@ function footMouse(dx, dy) { const l = footLook(P.th, FOOT.pitch, dx, dy); P.th 
 // indoors the walker comes within WALKER.radius of a wall: the outdoor near plane (0.5 m) cut the wall away and showed the street
 const CAM_NEAR = { out: 0.5, indoors: 0.05 };
 function setCameraNear(near) { if (camera.near === near) return; camera.near = near; camera.updateProjectionMatrix(); }
-function footCamera(dt) { const steady = !FOOT.hover && FOOT.vy === 0 && !LIFT_RIDE.busy; FOOT.eye = easeEye(FOOT.eye, P.y, steady, dt); const v = footView(P.x, P.y + FOOT.eye.off, P.z, P.th, FOOT.pitch, WALKER.eye, CAM.back); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); setCameraNear(INT.indoors ? CAM_NEAR.indoors : CAM_NEAR.out); }
+function footCamera(dt) { const steady = !FOOT.hover && FOOT.vy === 0 && !LIFT_RIDE.busy; FOOT.eye = easeEye(FOOT.eye, P.y, steady, dt); FOOT.view = easeLook(FOOT.view, P.th, FOOT.pitch, dt); const v = footView(P.x, P.y + FOOT.eye.off, P.z, FOOT.view.th, FOOT.view.pitch, WALKER.eye, CAM.back); camPos.set(...v.eye); camera.position.copy(camPos); camera.lookAt(...v.at); setCameraNear(INT.indoors ? CAM_NEAR.indoors : CAM_NEAR.out); }   // #895: the view trails the body's heading by LOOK_EASE.tau (~40 ms); movement and aim keep the undamped P.th
 // #100: pontoon bridge (U). Rules in pontoon.js; here the world adapters, the key, the step and the hooks (meshes: buildPontoonMeshes below)
 const pontoonEnv = () => ({ dist: riverDist, nameAt: L ? (x, z) => WATER.nameAt(x, z) : () => 'Rhein', waterLevel: (x, z) => (L && REAL ? WATER.levelAt(x, z) : 0) ?? 0, roadAt: (x, z) => roadDist(x, z) <= 0, bridgeNear: L ? (x, z) => [...gridQuery(BRIDGE_GRID, x, z, PONTOON_CFG.bridgeClear)].some(b => b.kind !== 'rail' && nearestOnPolyline(b.r.pts, x, z).d <= PONTOON_CFG.bridgeClear) : (x, z) => BRIDGES.some(b => segDist(x, z, ...b.a, ...b.b) <= PONTOON_CFG.bridgeClear), ground: (x, z) => groundH(x, z, 1e4) });
 const PONTOON_ERR = { noBank: 'pontoonNoBank', noFarBank: 'pontoonNoFarBank', hasBridge: 'pontoonHasBridge' };
@@ -5075,7 +5077,7 @@ function resetProps() { if (KNOCK) KNOCK.restoreAll(); if (TYRES) TYRES.reset();
 window.__mm.tyreState = () => TYRES ? TYRES.state() : null;
 window.__mm.tyreReset = () => { if (TYRES) TYRES.reset(); };
 window.__mm.sfxTyres = () => SFX.tyres();
-window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; FOOT.eye = null; restShadow(); };
+window.__mm.place = (x, z, th) => { P.x = x; P.z = z; if (th !== undefined) P.th = th; P.vx = P.vz = P.vy = 0; P.y = groundH(x, z, -Infinity); P.splash = 0; FOOT.eye = null; FOOT.mv = FOOT.view = null; restShadow(); };   // #895: a placement teleports -- no eased speeds, the view snaps
 window.__mm.ground = (x, z, y) => groundH(x, z, y);
 window.__mm.landmarkBox = (id) => { const o = scene.getObjectByName(id); if (!o) return null; const b = new THREE.Box3().setFromObject(o); return { min: b.min.toArray(), max: b.max.toArray() }; };   // #649
 window.__mm.ramp = () => RAMP && ({ x0: RAMP.x0, x1: RAMP.x1, z0: RAMP.z0, z1: RAMP.z1, h: RAMP.h });
@@ -5168,9 +5170,9 @@ window.__mm.housingTint = () => { if (!INT.housing) return null; const m = INT.h
 window.__mm.interiorFaceA = () => { if (!INT.group || !INT.hall) return null; const f = INT.hall.frame, lv = INT.hall.levels, roof = lv[lv.length - 1], v = new THREE.Vector3(); let min = Infinity; INT.group.updateMatrixWorld(true); INT.group.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= lv[0] + 0.1 || v.y >= roof - 0.01) continue; const a = f.fromWorld(v.x, v.z).a; if (a > -0.05) min = Math.min(min, Math.abs(a)); } }); return min; };   // #453: how close the hall's drawn faces come to the façade line between EG and roof
 window.__mm.interiorCount = () => ({ meshes: INT.group ? INT.group.children.length : 0 });   // the built group's own objects (merged meshes, leaves, cabin)
 window.__mm.interiorRay = () => { camera.updateMatrixWorld(); const rc = new THREE.Raycaster(camera.getWorldPosition(new THREE.Vector3()), camera.getWorldDirection(new THREE.Vector3())); rc.camera = camera; const hit = rc.intersectObjects(scene.children, true).find(h => h.object.visible); return { dist: hit ? hit.distance : null, role: hit ? (hit.object.userData.role || hit.object.name || '') : null }; };   // what the eye looks at (material.side counts, as rendering does: the A3 check; sprites need rc.camera)
-window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; };   // tests: put the walker on a storey of 6c
+window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; FOOT.mv = FOOT.view = null; };   // tests: put the walker on a storey of 6c (a teleport: #895 no eased speeds, the view snaps)
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
-window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); return window.__mm.foot(); };
+window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); FOOT.view = null; return window.__mm.foot(); };   // #895: tests and screenshot scripts read the new pitch at once
 // tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
 window.__mm.nearestSolid = (x, z) => { let best = null, bd = Infinity; for (const o of OBB) { if (o.bridge || o.low || o.secret || o.ring || o.circle) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best && { x: best.x, z: best.z, hw: best.hw, hd: best.hd, c: best.c, s: best.s, h: best.h }; };
 // water vs drawn ground at a point: is the water surface above the ground mesh there (visible) or under it?
