@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Added
+
+- `2026-11-11 18:54` **Radio Argovia** is a third station on the car radio: press <kbd>6</kbd> to cycle Rhyflitzer FM, SRF 3 and Radio Argovia.
+
 ### Changed
 
 - `2026-11-11 14:53` The **Mazda hatchback** is now the **start car**. The **Sissle Speedster** has retired: it is gone from **Choose car**, the gallery and the vehicle depot. A saved Speedster choice drives the hatchback.

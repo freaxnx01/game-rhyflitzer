@@ -990,7 +990,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor,
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
-import { TRACKS, MENU_TRACK, SRF3_URL, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841
+import { TRACKS, MENU_TRACK, LIVE, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -4259,7 +4259,7 @@ const SFX = (() => {
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
-// #735: the car radio -- Rhyflitzer FM (the four tracks in assets/music) or SRF 3 live -- and the start screen's menu music.
+// #735, #845: the car radio -- Rhyflitzer FM (the four tracks in assets/music) or a live station (SRF 3, Radio Argovia) -- and the start screen's menu music.
 // Three <audio> elements, made on first use (preload none: nothing is fetched before a src is set), each through its own gain
 // into the SFX master. A run is on while R.state is not 'ready' (the result screen keeps the radio); tick() notices the change.
 const RADIO = (() => {
@@ -4267,7 +4267,7 @@ const RADIO = (() => {
   const save = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { } };
   const S = { on: load(RADIO_STORE.on, radioOnFrom), station: load(RADIO_STORE.station, stationFrom), vol: load(RADIO_STORE.vol, volumeFrom),
     menuOn: load(RADIO_STORE.menu, menuMusicOnFrom), track: 0, inRun: false, menuArmed: false, held: false, failed: 0 };
-  const els = {}; let watch = null;
+  const els = {}; let watch = null;   // els.srf is the one live voice (SRF 3, Radio Argovia)
   const now = () => performance.now() / 1000;
   function voice(name) {
     if (els[name]) return els[name];
@@ -4287,7 +4287,7 @@ const RADIO = (() => {
   function start(v) { v.want = true; const p = v.el.play(); if (p && p.catch) p.catch(() => { }); }   // a refused or interrupted play() never throws
   function fadeOut(name) { const v = els[name]; if (!v || !v.want) return; v.want = false; level(v, 0); setTimeout(() => { if (!v.want) v.el.pause(); }, 500); }
   function playFm() { const v = voice('fm'), t = TRACKS[S.track]; if (!v.el.src.endsWith(t.src)) v.el.src = t.src; level(v, trackGain(S.vol, t.gainDb)); start(v); }
-  function playSrf() { const v = voice('srf'); v.el.src = SRF3_URL; level(v, trackGain(S.vol)); watch = { since: now(), playing: false, waitingSince: null, error: false }; start(v); }
+  function playLive() { stopSrf(); const v = voice('srf'); v.el.src = LIVE[S.station].url; level(v, trackGain(S.vol)); watch = { station: S.station, since: now(), playing: false, waitingSince: null, error: false }; start(v); }
   function stopSrf() { watch = null; const v = els.srf; if (!v) return; v.want = false; v.el.pause(); if (v.el.getAttribute('src')) { v.el.removeAttribute('src'); v.el.load(); } }   // drop the src: a paused live stream would keep downloading
   function playMenu() { const v = voice('menu'); if (!v.el.getAttribute('src')) { v.el.src = MENU_TRACK.src; v.el.loop = true; } level(v, menuGain(S.vol)); start(v); }
   // what plays follows from the state alone; every command and every run change ends here
@@ -4295,12 +4295,12 @@ const RADIO = (() => {
     if (S.held) return;
     const radio = S.inRun && S.on;
     if (radio && S.station === 'fm') playFm(); else fadeOut('fm');
-    if (radio && S.station === 'srf3') { if (!watch) playSrf(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
+    if (radio && LIVE[S.station]) { if (!watch || watch.station !== S.station) playLive(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
     if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else { fadeOut('menu'); if (S.inRun || !S.menuOn) EARLY_MENU.drop(); }   // #841: an element nobody adopted must not outlive the start screen
   }
   const nowText = () => { const d = displayFor(S); return '📻 ' + tr(d.key, ...d.args); };
-  function fail() {   // SRF 3 did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
-    stopSrf(); S.station = 'fm'; S.failed++; save(RADIO_STORE.station, 'fm'); apply(); radioShow('📻 ' + tr('radioSrfFail'));
+  function fail() {   // a live station did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
+    const failKey = LIVE[S.station].failKey; stopSrf(); S.station = 'fm'; S.failed++; save(RADIO_STORE.station, 'fm'); apply(); radioShow('📻 ' + tr(failKey));
   }
   function menuCmd(action) {   // on the start screen only 5 does something: the menu music on / off
     if (action !== 'power') return;
@@ -4309,14 +4309,14 @@ const RADIO = (() => {
   function cmd(action) {
     if (!S.inRun) { menuCmd(action); return; }
     if (action === 'power') { S.on = !S.on; save(RADIO_STORE.on, S.on ? 1 : 0); }
-    if (action === 'station') { S.station = S.station === 'fm' ? 'srf3' : 'fm'; S.on = true; save(RADIO_STORE.station, S.station); save(RADIO_STORE.on, 1); }
+    if (action === 'station') { S.station = nextStation(S.station); S.on = true; save(RADIO_STORE.station, S.station); save(RADIO_STORE.on, 1); }
     if (action === 'next' && S.station === 'fm') S.track = nextTrack(S.track);
     if (action === 'prev' && S.station === 'fm') S.track = prevTrack(S.track);
     if (action === 'down' || action === 'up') { S.vol = stepVolume(S.vol, action === 'up' ? 1 : -1); save(RADIO_STORE.vol, S.vol); }
     apply(); renderSettings();
     radioShow(action === 'down' || action === 'up' ? '📻 ' + tr('radioVolume', S.vol * 10) : nowText());
   }
-  SFX.onHold((held) => {   // pause menu, hidden tab: everything stops; on release FM goes on where it was, SRF 3 reloads (live, not time-shifted)
+  SFX.onHold((held) => {   // pause menu, hidden tab: everything stops; on release FM goes on where it was, a live station reloads (live, not time-shifted)
     if (held === S.held) return;
     S.held = held;
     if (held) { for (const v of Object.values(els)) v.el.pause(); stopSrf(); return; }
