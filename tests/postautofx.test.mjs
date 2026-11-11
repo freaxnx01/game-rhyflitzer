@@ -1,7 +1,25 @@
 // #709: which Postautos are heard, and how loud. Pure module, no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FX, engineGain, pickVoices } from '../postautofx.js';
+import { FX, engineGain, pickVoices, ledCurrent, groundStale, GROUND_EPS } from '../postautofx.js';
+
+test('ledCurrent: only an unchanged line, destination and thank-you skip the repaint', () => {
+  const trip = { line: 133, to: 'Stein AG' };
+  assert.equal(ledCurrent(undefined, trip, null), false);
+  assert.equal(ledCurrent({ line: '133', dest: 'Stein AG', thanks: null }, trip, null), true);
+  assert.equal(ledCurrent({ line: '133', dest: 'Stein AG', thanks: null }, trip, 'Danke'), false);
+  assert.equal(ledCurrent({ line: '133', dest: 'Laufenburg', thanks: null }, trip, null), false);
+  assert.equal(ledCurrent({ line: '134', dest: 'Stein AG', thanks: null }, trip, null), false);
+});
+
+test('groundStale: first sample and real movement resample, a crawl does not', () => {
+  assert.equal(groundStale(undefined, 10), true);
+  assert.equal(groundStale(10, 10), false);
+  assert.equal(groundStale(10, 10 + GROUND_EPS / 2), false);
+  assert.equal(groundStale(10, 10 + GROUND_EPS), true);
+  assert.equal(groundStale(10, 5), true);
+  assert.equal(groundStale(10, NaN), true);
+});
 
 const bus = (key, x, extra = {}) => ({ key, phase: 'drive', v: 10, x, z: 0, ...extra });
 

@@ -952,7 +952,7 @@ import { poleTop, signPanelZ, POLE_R, FACE_GAP } from './signpole.js';   // #822
 import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindow, cellTime, liveStops, clockText, minutesUntil, stopInReach } from './timetable.js';   // #801
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
-import { pickVoices } from './postautofx.js';   // #709
+import { pickVoices, ledCurrent, groundStale } from './postautofx.js';   // #709
 import { DISPLAY_TEX, displayLayout, REAR_TEX, SMILEY, rearLayout, thanksLayout, splitRearTriangles, normalizeUv } from './busdisplay.js';   // #713, #800
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
@@ -4535,6 +4535,7 @@ function buildPostautoMesh(trip) {
 // a bus onto its next trip in place -- same b.key, same mesh, b.trip swapped -- so the baked LED needs a repaint too, not
 // just a new mesh
 function repaintBusLed(g, trip, thanks = null) {
+  if (ledCurrent(g.userData.led, trip, thanks)) return;   // the common frame: nothing to paint, nothing allocated
   const text = { ...ledText(trip), thanks }, prev = g.userData.led;
   const frontSame = !!prev && prev.line === text.line && prev.dest === text.dest;
   if (frontSame && prev.thanks === text.thanks) return;
@@ -4574,17 +4575,21 @@ function stepPostauto(dt) {
     if (b.phase === 'done') continue;
     if (surface && level && thankDue(b, now + b.shift, player)) markThanked(b, now + b.shift);
     alive.add(b.key);
-    if (surface) drawPostauto(b, flashOn, dt);
+    if (surface) drawPostauto(b, flashOn, dt, now);
   }
   const ear = { x: camera.position.x, z: camera.position.z };   // #709: the camera hears, so follow mode and the drone camera sound right
-  SFX.busEngines(surface ? pickVoices(POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = busPose(b.route, b.s); return { key: b.key, phase: b.phase, v: b.v, x: p.x, z: p.z }; }), ear) : [], dt);
+  SFX.busEngines(surface ? pickVoices(POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = b.pose ?? busPose(b.route, b.s); return { key: b.key, phase: b.phase, v: b.v, x: p.x, z: p.z }; }), ear) : [], dt);
   for (const [key, g] of POSTAUTO.meshes) if (!alive.has(key)) { POSTAUTO.group.remove(g); disposePostautoMesh(g); POSTAUTO.meshes.delete(key); }
   POSTAUTO.group.visible = surface;
 }
-function drawPostauto(b, flashOn, dt) {
-  const p = busPose(b.route, b.s), c = Math.cos(p.th), s = Math.sin(p.th), half = BUS.wheelbase / 2;
-  const yF = groundH(p.x + c * half, p.z + s * half, (b.y ?? 0) + 1), yR = groundH(p.x - c * half, p.z - s * half, (b.y ?? 0) + 1);
-  b.y = (yF + yR) / 2;
+function drawPostauto(b, flashOn, dt, now) {
+  const p = busPose(b.route, b.s); b.pose = p;   // busEngines reads it this frame instead of posing every bus again
+  if (groundStale(b.groundS, b.s)) {   // a standing or crawling bus keeps its heights; a moving one samples the ground every frame
+    const c = Math.cos(p.th), s = Math.sin(p.th), half = BUS.wheelbase / 2;
+    b.yF = groundH(p.x + c * half, p.z + s * half, (b.y ?? 0) + 1); b.yR = groundH(p.x - c * half, p.z - s * half, (b.y ?? 0) + 1);
+    b.y = (b.yF + b.yR) / 2; b.groundS = b.s;
+  }
+  const yF = b.yF, yR = b.yR;
   POSTAUTO.colliders.push(busCollider(p.x, p.z, p.th, b.y));
   if (gltfState('bus') !== 'ready') {
     if (gltfState('bus') === 'failed' && !POSTAUTO.modelFailed) { POSTAUTO.modelFailed = true; console.warn('Postauto model not available: no buses are drawn (A8)'); }
@@ -4592,9 +4597,9 @@ function drawPostauto(b, flashOn, dt) {
   }
   let g = POSTAUTO.meshes.get(b.key);
   if (!g) { g = buildPostautoMesh(b.trip); POSTAUTO.meshes.set(b.key, g); POSTAUTO.group.add(g); }
-  else repaintBusLed(g, b.trip, b.thanksUntil > postautoClock() + b.shift ? tr('paThanks') : null);
+  else repaintBusLed(g, b.trip, b.thanksUntil > now + b.shift ? tr('paThanks') : null);
   g.position.set(p.x, b.y, p.z); g.rotation.set(0, -p.th, Math.atan2(yF - yR, BUS.wheelbase));   // pitched like the car: the nose up on an uphill road
-  const side = busBlinker(b, postautoClock());
+  const side = busBlinker(b, now);
   g.userData.blink.left.visible = flashOn && side === 'left'; g.userData.blink.right.visible = flashOn && side === 'right';
   g.userData.spin = stepWheelSpin(g.userData.spin, b.v, VEHICLES.bus.wheelR, dt);   // #709: like drawWheels; a standing bus (v 0) keeps its wheels still
   for (const roll of g.userData.wheelRolls) roll.rotation.z = -g.userData.spin;
