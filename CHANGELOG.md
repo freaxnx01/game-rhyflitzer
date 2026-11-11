@@ -10,6 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-11 14:50` Die Taste <kbd>§</kbd> nimmt das **Spielbild mit Ton** als **Video** auf: Motor, Hupe, Crash und Radio sind mit drin. Ein **roter Punkt** mit der Laufzeit zeigt die Aufnahme an (und ist nicht im Video). <kbd>§</kbd> stoppt sie wieder, das **Pause-Menü** hält sie mit — und <kbd>§</kbd> im Pause-Menü stoppt sie auch. Nach **10 Minuten** stoppt die Aufnahme von selbst. Das Video lädt als `mp4` (oder `webm`) mit **Bild und Ton** herunter — ohne Browser-Rand, Mauszeiger und Systemtöne wie bei einer Bildschirmaufnahme des Systems.
+
 - `2026-11-10 22:25` Die **Plattform Sisslerfeld** sieht jetzt aus wie das Original: **weisses Dach**, **Sparren** und **Pfetten** unter dem Dach, **Streben** an den Pfosten, **Lattenwand** mit Lücken und **Brüstung** mit **Handlauf** um den Treppenausstieg, dickere helle Stufen. Das Holz leuchtet jetzt hell wie frische Fichte statt bräunlich, und die Pfosten reichen bis unter die Sparren.
 
 ### Fixed
