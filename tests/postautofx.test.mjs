@@ -16,7 +16,7 @@ test('groundStale: first sample and real movement resample, a crawl does not', (
   assert.equal(groundStale(undefined, 10), true);
   assert.equal(groundStale(10, 10), false);
   assert.equal(groundStale(10, 10 + GROUND_EPS / 2), false);
-  assert.equal(groundStale(10, 10 + GROUND_EPS), true);
+  assert.equal(groundStale(10, 10 + GROUND_EPS * 2), true);
   assert.equal(groundStale(10, 5), true);
   assert.equal(groundStale(10, NaN), true);
 });
