@@ -2,7 +2,7 @@
 Hand-traced layout (world + terrain blocked). Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
-from test_carselect import T, carsel, open_carsel, open_page
+from test_carselect import T, carsel, open_carsel, open_page, wait_for_the_start_car
 
 GALLERY_JS = "() => window.__mm.carGallery()"
 ALL_PHOTOS = "() => { const g = window.__mm.carGallery(); return g.open && g.tiles.every(t => t.photo || t.failed); }"
@@ -23,6 +23,7 @@ def test_gallery_shows_every_vehicle_with_a_photo_name_and_class(server):
     with sync_playwright() as p:
         warnings = []   # loadVehicleModel says why a model did not load
         b, page, errors = open_page(p, server, before=lambda pg: pg.on("console", lambda m: warnings.append(m.text) if "not loaded" in m.text else None))
+        wait_for_the_start_car(page)      # #830: count the stage car's meshes once the start car's model is in, not the stand-in's
         before = page.evaluate("() => window.__mm.carStats()")
         open_gallery(page)
         assert page.is_hidden("#csstage") and page.is_hidden("#carsel .cs-info"), "the grid takes the turntable's place"
