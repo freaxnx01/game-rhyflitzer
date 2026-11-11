@@ -14,6 +14,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-11 19:26` **Postautos** cost less per frame in the **OSM world**: standing buses no longer re-measure the ground, and their **LED** and engine sound reuse work already done.
 - `2026-11-11 19:03` Driving in the **OSM world** is **smoother**: the **Postauto** fleet and the **touch controls** do less work on every frame.
 - `2026-11-11 14:53` The **Mazda hatchback** is now the **start car**. The **Sissle Speedster** has retired: it is gone from **Choose car**, the gallery and the vehicle depot. A saved Speedster choice drives the hatchback.
 - `2026-11-11 14:52` The **Rhy Gullwing** now looks like the real thing: a detailed **3D model** in brushed steel with the proper wedge nose, louvres and door handles. The **gull-wing doors** still swing up on the start screen, the lamps still follow <kbd>L</kbd>.
