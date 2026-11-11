@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, roofRafters, SLAT, HANDRAIL } from '../plattform.js';
+import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, roofRafters, SLAT, HANDRAIL, parapetStraight } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
@@ -238,4 +238,49 @@ test('plattformHopLanding_Down_StandsOutsideTheDoorOnTheGround', () => {
   assert.equal(l.y, BASE);
   assert.equal(plattformHop(F, BASE, l), 'up', 'a second E takes the walker straight back up');
   assert.ok(Math.hypot(l.x - F.x, l.z - F.z) > PLATTFORM.core.r + WALKER.radius);
+});
+
+// #855: the parapet round the stair opening -- a wide cap that projects onto the deck and a lower rail board outside the slats (s075-s078)
+test('handrail_Cap_WideFlatShelfProjectingOntoTheDeck', () => {
+  const cap = HANDRAIL.inner + HANDRAIL.outer;
+  assert.ok(cap >= 0.22 && cap <= 0.3, `cap width ${cap}`);
+  assert.ok(HANDRAIL.h >= 0.04 && HANDRAIL.h <= 0.06, `cap thickness ${HANDRAIL.h}`);
+  assert.ok(HANDRAIL.outer > 2 * HANDRAIL.inner, 'most of it projects outward, onto the deck side');
+  assert.ok(HANDRAIL.outer > SLAT.d / 2 + HANDRAIL.low.t, 'the cap shades the lower rail');
+});
+
+test('handrail_LowerRail_ABandOutsideTheSlatsBelowTheCap', () => {
+  const { drop, h, t } = HANDRAIL.low;
+  assert.ok(drop >= 0.12 && drop <= 0.25, `drop ${drop}`);
+  assert.ok(drop - h >= HANDRAIL.h, 'the band starts below the cap, slats show between');
+  assert.ok(t > 0 && t < 0.06 && h > 0.04 && h < 0.15);
+});
+
+// #855: the parapet is a bow plus a straight run: the straight one closes the opening from the bow's start towards its end, the gap at the arrival
+test('parapetStraight_FromTheBowStartAlongTheChord_LeavesTheArrivalGap', () => {
+  const { core, deck } = PLATTFORM, s = parapetStraight(F);
+  const [ax, az] = F.polar(deck.railFrom, core.r), [ex, ez] = F.polar(deck.railTo, core.r);
+  assert.ok(near(s.a[0], ax) && near(s.a[1], az), 'starts where the bow starts');
+  const len = Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]), chord = Math.hypot(ex - ax, ez - az);
+  assert.ok(near(len, HANDRAIL.straight) && len < chord);
+  const ux = (ex - ax) / chord, uz = (ez - az) / chord, ox = (s.b[0] - s.a[0]) / len, oz = (s.b[1] - s.a[1]) / len;
+  assert.ok(near(ux, ox) && near(uz, oz), 'runs along the chord towards the bow end');
+  assert.ok(Math.hypot(ex - s.b[0], ez - s.b[1]) >= 2 * WALKER.radius + 0.3, 'the arrival gap lets the walker through');
+  const [mx, mz] = [(s.a[0] + s.b[0]) / 2, (s.a[1] + s.b[1]) / 2];
+  assert.ok((mx - F.x) * s.out[0] + (mz - F.z) * s.out[1] > 0 && near(Math.hypot(...s.out), 1), 'out points away from the opening, onto the deck');
+  assert.ok(s.slats.length >= 8 && s.slats.every(([x, z]) => Math.abs((x - s.a[0]) * oz - (z - s.a[1]) * ox) < 1e-9), 'slats on the line');
+});
+
+const railOnly = { slabs: [], walls: W.walls.filter(w => w.tag === 'rail') };
+test('plattformWalk_ParapetStraight_BlocksTheDeckFromTheOpening', () => {
+  const s = parapetStraight(F), deckY = BASE + PLATTFORM.deck.y, mx = (s.a[0] + s.b[0]) / 2, mz = (s.a[1] + s.b[1]) / 2;
+  assert.ok(walkwayPush(railOnly, mx, mz, deckY + 0.1, WALKER.radius).length > 0);
+});
+
+test('plattformWalk_ArrivalGap_OpenFromTheTopFlightOntoTheDeck', () => {
+  const deckY = BASE + PLATTFORM.deck.y, t0 = F.facing + 70 * Math.PI / 180, dir = F.facing + 160 * Math.PI / 180;   // the test_plattform_stair walk: upper:15, tangential
+  for (let s = 0; s <= 2.5; s += 0.05) {
+    const x = F.x + 0.8 * Math.cos(t0) + s * Math.cos(dir), z = F.z + 0.8 * Math.sin(t0) + s * Math.sin(dir);
+    assert.equal(walkwayPush(railOnly, x, z, deckY + 0.1, WALKER.radius).length, 0, `rail in the way at s=${s.toFixed(2)}`);
+  }
 });

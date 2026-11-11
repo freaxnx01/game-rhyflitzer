@@ -971,7 +971,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, SLAT, HANDRAIL, RAFTER } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, parapetStraight, SLAT, HANDRAIL, RAFTER } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -2023,7 +2023,14 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
   addSolid(plattformCoreCollider(f, b));   // #567: the core cylinder is solid for the car (one circle over ring and post); carOnly, so on foot the walkway walls of plattformWalk still rule
   const slatList = coreSlats();   // #855: single solid slats, so the wall shows from inside with real gaps
   slatList.forEach((s, i) => { const g = new THREE.BoxGeometry(SLAT.w, s.y1 - s.y0, SLAT.d); g.translate(0, (s.y1 - s.y0) / 2, 0); g.rotateY(Math.PI / 2 - (facing + s.phi * RAD)); const [sx, sz] = f.polar(s.phi, core.r); g.translate(sx, b + s.y0, sz); colorize(g, i % 2 ? spruce.clone().multiplyScalar(0.94) : spruce); push(timber, g); });   // the box built along x, rotated so the width lies tangential and the depth radial
-  const railG = new THREE.ExtrudeGeometry(flat(sectorPoly(f, deck.railFrom, deck.railTo, core.r - HANDRAIL.half, core.r + HANDRAIL.half)), { depth: HANDRAIL.h, bevelEnabled: false }); railG.rotateX(-Math.PI / 2); railG.translate(0, b + deck.y + deck.rail - HANDRAIL.h, 0); colorize(railG, beam); push(timber, railG);   // the handrail ring on the parapet slats
+  const railTop = b + deck.y + deck.rail, ring = (r0, r1, y, h, c) => { const g = new THREE.ExtrudeGeometry(flat(sectorPoly(f, deck.railFrom, deck.railTo, r0, r1)), { depth: h, bevelEnabled: false }); g.rotateX(-Math.PI / 2); g.translate(0, y, 0); colorize(g, c); push(timber, g); };
+  ring(core.r - HANDRAIL.inner, core.r + HANDRAIL.outer, railTop - HANDRAIL.h, HANDRAIL.h, beam);   // the wide flat cap on the parapet slats, a shelf onto the deck (s075-s078)
+  ring(core.r + SLAT.d / 2, core.r + SLAT.d / 2 + HANDRAIL.low.t, railTop - HANDRAIL.low.drop - HANDRAIL.low.h, HANDRAIL.low.h, beam);   // the lower rail board round the outside of the slats
+  const run = parapetStraight(f), runLen = Math.hypot(run.b[0] - run.a[0], run.b[1] - run.a[1]), runRot = Math.atan2(run.b[1] - run.a[1], run.b[0] - run.a[0]), back = 0.1;   // #855: the straight run closing the opening; back: its cap and rail reach a little behind the bow's start, so the joint has no notch
+  run.slats.forEach(([sx, sz], i) => { const h = deck.rail - HANDRAIL.h, g = new THREE.BoxGeometry(SLAT.w, h, SLAT.d); g.translate(0, h / 2, 0); g.rotateY(-runRot); g.translate(sx, b + deck.y, sz); colorize(g, i % 2 ? spruce.clone().multiplyScalar(0.94) : spruce); push(timber, g); });
+  const along = (off, w, h, y) => { const c0 = -back + (runLen + back) / 2, cx = run.a[0] + Math.cos(runRot) * c0 + run.out[0] * off, cz = run.a[1] + Math.sin(runRot) * c0 + run.out[1] * off; box(runLen + back, h, w, cx, y, cz, runRot, beam, timber, [1, 1], 0); };
+  along((HANDRAIL.outer - HANDRAIL.inner) / 2, HANDRAIL.inner + HANDRAIL.outer, HANDRAIL.h, railTop - HANDRAIL.h);   // its cap
+  along(SLAT.d / 2 + HANDRAIL.low.t / 2, HANDRAIL.low.t, HANDRAIL.low.h, railTop - HANDRAIL.low.drop - HANDRAIL.low.h);   // its lower rail, on the deck side
   for (const t of stairTreads()) { const segs = Math.max(2, Math.ceil((t.to - t.from) / 5)); const g = new THREE.CylinderGeometry(core.r - 0.03, core.r - 0.03, 0.09, segs, 1, false, Math.PI / 2 - facing - t.to * RAD, (t.to - t.from) * RAD); g.translate(x, b + t.y - 0.045, z); colorize(g, spruce); push(timber, g); }   // 9 cm thick, light, up to the slat wall; the collider keeps core.tread (plattform.js)
   const hole = new THREE.Path(); Array.from({ length: deck.opening }, (_, i) => f.polar(i * 360 / deck.opening, core.r)).forEach(([px, pz], i) => i ? hole.lineTo(px, -pz) : hole.moveTo(px, -pz));
   const deckShape = flat(f.triangle(deck.side)); deckShape.holes.push(hole);
@@ -2047,7 +2054,7 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
     const t = ((px - a[0]) * dx + (pz - a[1]) * dz) / l2; if (t <= 0 || t >= 1) continue;   // only the two edges this post faces
     const qx = a[0] + t * dx, qz = a[1] + t * dz; if (Math.hypot(qx - px, qz - pz) > 2.5) continue;
     bar(px, roof.eaves - 1.8, pz, qx, roof.eaves - 0.3, qz, 0.14, beam); }   // brace from the post up to the eave
-  PLAT = { frame: f, base: b, walk: plattformWalk(f, b), look: { roof: ROOF_WHITE, slats: slatList.length, rafters: rafterList.length } };
+  PLAT = { frame: f, base: b, walk: plattformWalk(f, b), look: { roof: ROOF_WHITE, slats: slatList.length, rafters: rafterList.length, parapet: { cap: +(HANDRAIL.inner + HANDRAIL.outer).toFixed(2), straight: run.slats.length } } };
 }
 // #102 / #361: the hideout -- trough walls along T1 (the #119 pattern without decks), the lift hall's ring wall (its one
 // opening towards T1), the reservoir gate at the portal, gravel down T1, a concrete disc and lamps in the hall, and the
