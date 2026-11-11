@@ -187,6 +187,7 @@ def test_boarding_on_foot(server):
         page.evaluate(f"() => window.__mm.footLook({turn / 0.0025}, 0)")
         page.evaluate("([s, h]) => window.__mm.footSim(s, h)", [math.hypot(q[0] - f["x"], q[1] - f["z"]) / 4.5, ["KeyW"]])
         page.wait_for_function(f"() => window.__mm.depot().near === '{target['id']}'", timeout=T)
+        wait_frames(page)                                            # depot().near is read live, the prompt is written by stepEnter in the loop
         bar = page.evaluate("() => window.__mm.keybar()")
         prompt = page.evaluate("() => document.querySelector('#prompt').textContent")
         page.keyboard.press("KeyE")
