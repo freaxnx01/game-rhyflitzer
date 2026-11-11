@@ -1022,7 +1022,7 @@ import { loadLines, loadProgress, numberLocale } from './loading.js';   // the l
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, floorPlan, floorFaces } from './gltfvehicle.js';
-import { DEPOT, depotLayout, nearestSlot } from './depot.js';   // #553: the vehicle depot's pure layout rules
+import { DEPOT, depotLayout, nearestSlot, depotWants } from './depot.js';   // #553: the vehicle depot's pure layout rules; #807: which slots get a real model
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
@@ -3373,6 +3373,22 @@ function loadVehicleModel(id) {
     } catch (err) { console.warn(`${id} model not loaded:`, err); e.state = loadStep(e.state, 'error'); return false; }
   })();
   return e.promise;
+}
+// #807: gives a cached file back -- its geometries, its materials and their own textures (never the shared car sky map, which every
+// car uses), out of the env and shared lists so buildCarEnv stops touching them, back to idle; WANTED forgets it, so picking the car
+// in Choose car fetches it again. Only safe while nothing still clones the scene -- the depot's canEvict decides that.
+function evictVehicleModel(id) {
+  const e = GLTF_CARS[id];
+  if (!e || e.state !== 'ready') return;
+  const mats = new Set();
+  e.scene.traverse(o => { if (!o.isMesh) return; o.geometry.dispose(); for (const m of [].concat(o.material)) mats.add(m); });
+  for (const m of mats) {
+    for (const v of Object.values(m)) if (v?.isTexture && v !== m.envMap) v.dispose();
+    m.dispose(); SHARED_CAR_MATS.delete(m);
+    const i = CAR_ENV_MATS.indexOf(m); if (i >= 0) CAR_ENV_MATS.splice(i, 1);
+  }
+  e.state = loadStep(e.state, 'evict'); e.scene = e.mats = e.promise = null; e.tris = 0; e.floorFaces = 0; WANTED.delete(id);
+  console.info(`${id} model given back: the depot no longer needs it`);
 }
 // the cached wheel nodes move under steer > roll groups at their centre, the same shape buildWheels makes (drawWheels, detachWheels and the wheel tests work unchanged)
 function wireWheels(g, root) {
@@ -6113,7 +6129,10 @@ window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
 // materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
-const DEPOT_S = { on: REGION.id === 'hochrhein' && !REGION.generated, slots: null, built: new Map(), solids: new Map(), loadChain: Promise.resolve() };
+// #807: only the nearest DEPOT.nearMax slots get a real model -- all 21 at once crashed a weak GPU. Every other slot
+// shows a grey box (one InstancedMesh for the lot); driving away frees the models and the files the depot fetched.
+const DEPOT_S = { on: REGION.id === 'hochrhein' && !REGION.generated, slots: null, built: new Map(), solids: new Map(), loadChain: Promise.resolve(),
+  boxes: null, boxMats: [], boxHidden: [], owned: new Set(), queued: new Set(), wants: { load: [], keep: new Set() } };
 // the parked vehicle in reach of E: on foot within the walker's enterReach, in the car within reachCar and only nearly stopped
 function depotNear() {
   if (!DEPOT_S.on || !DEPOT_S.slots || WRECK_S.on) return null;
@@ -6141,12 +6160,11 @@ function stagePaint(g, def) {
   const col = paintMat ? paintMat.color : paintable(def) ? carMats.body.color : null;
   return col ? '#' + col.getHexString() : null;
 }
-// a replaced parked mesh frees its own geometry and its cloned materials -- never the shared glTF geometry (userData.sharedGeo)
+// a parked mesh that goes frees its own geometry and its cloned materials -- never the shared glTF geometry (userData.sharedGeo)
 // nor a material's map (each clone shares it with the stage build and the glTF cache)
 function disposeParked(g) { g.traverse(o => { if (!o.isMesh) return; if (!o.userData.sharedGeo) o.geometry.dispose(); for (const m of [].concat(o.material)) m.dispose(); }); }
 function buildDepotSlot(s) {
-  const def = VEHICLES[s.id], old = DEPOT_S.built.get(s.id);
-  if (def.gltf) DEPOT_S.loadChain = DEPOT_S.loadChain.then(() => loadVehicleModel(s.id));   // one file at a time, like the gallery
+  const def = VEHICLES[s.id];
   let mesh = null, paint = null;
   withStageVehicle(s.id, paintOnSelect(def, 'navy', false, 'navy', def), (stage) => {
     const drop = new Set([flames, BLINK.left, BLINK.right]);
@@ -6156,43 +6174,96 @@ function buildDepotSlot(s) {
     g.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); });
     paint = stagePaint(g, def); mesh = g;
   });
-  if (old) { scene.remove(old.mesh); disposeParked(old.mesh); }   // the fallback makes way for the real model
   mesh.position.set(s.x, groundH(s.x, s.z, -Infinity), s.z);
   mesh.rotation.set(0, -s.th, 0);
   mesh.visible = s.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show;
   scene.add(mesh);
-  DEPOT_S.built.set(s.id, { mesh, model: !def.gltf || gltfState(s.id) === 'ready' ? 'gltf' : 'fallback', paint });
-  if (!DEPOT_S.solids.has(s.id)) {
+  DEPOT_S.built.set(s.id, { mesh, paint });
+}
+// #807: once, with the layout -- the solid every slot keeps (a box is as solid as a car), and one grey cover per slot in a single
+// InstancedMesh, so a slot the player is nowhere near costs one matrix instead of a model
+const BOX_GONE = new THREE.Matrix4().makeScale(0, 0, 0);
+function placeDepot() {
+  for (const s of DEPOT_S.slots) {
     const solid = { x: s.x, z: s.z, hw: s.l / 2, hd: s.w / 2, c: Math.cos(s.th), s: Math.sin(s.th), h: 3, depot: s.id, off: s.id === CHOICE.id };
     addSolid(solid); DEPOT_S.solids.set(s.id, solid);
   }
+  if (!DEPOT_S.slots.length) return;
+  const boxes = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0x6b7178 }), DEPOT_S.slots.length);
+  DEPOT_S.boxMats = DEPOT_S.slots.map((s, i) => {
+    const h = s.l > DEPOT.longL ? DEPOT.boxHLong : DEPOT.boxH;
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(s.x, groundH(s.x, s.z, -Infinity) + h / 2, s.z),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -s.th, 0)), new THREE.Vector3(s.l, h, s.w));
+    boxes.setMatrixAt(i, m);
+    return m;
+  });
+  DEPOT_S.boxHidden = DEPOT_S.slots.map(() => false);
+  boxes.instanceMatrix.needsUpdate = true;
+  scene.add(boxes); DEPOT_S.boxes = boxes;
 }
-// once per frame: lay the slots out on the first visit, build at most one parked mesh, keep the driven slot empty and far ones hidden
+// #807: only a file the depot itself fetched, and only while nobody else builds from it -- the driven car, a pending swap and the
+// open Choose car screen all clone the cached scene, and so does every Postauto bus
+const canEvict = (id) => DEPOT_S.owned.has(id) && gltfState(id) === 'ready' && id !== CHOICE.id && id !== PENDING_SWAP
+  && car.userData.gltfId !== id && !CARSEL.on && !(id === 'bus' && POSTAUTO.meshes.size > 0);
+// #807: the parked mesh goes, and with it the file the depot fetched for it
+function freeDepotSlot(id) {
+  const b = DEPOT_S.built.get(id);
+  if (b) { scene.remove(b.mesh); disposeParked(b.mesh); DEPOT_S.built.delete(id); }
+  if (canEvict(id)) { evictVehicleModel(id); DEPOT_S.owned.delete(id); }
+}
+// #807: one file at a time, like the gallery; a file the player has driven away from before its turn came is never fetched
+function requestDepotModel(id) {
+  if (!VEHICLES[id].gltf || gltfState(id) !== 'idle' || DEPOT_S.queued.has(id)) return;
+  DEPOT_S.queued.add(id);
+  DEPOT_S.loadChain = DEPOT_S.loadChain.then(() => {
+    DEPOT_S.queued.delete(id);
+    if (!DEPOT_S.wants.load.includes(id) || gltfState(id) !== 'idle') return null;
+    DEPOT_S.owned.add(id);
+    return loadVehicleModel(id);
+  });
+}
+// once per frame: lay the slots out on the first visit, keep a real model on the nearest slots only (one build per frame, nearest
+// first), a box on every other, the driven slot empty and the whole lot hidden from afar
 function stepDepot() {
   if (!DEPOT_S.on || WRECK_S.on) return;
   const dist = Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z);
   if (!DEPOT_S.slots) {
     if (dist > DEPOT.build) return;
     try { DEPOT_S.slots = depotLayout(vehicleIds(), VEHICLES); } catch (e) { console.warn(e.message); DEPOT_S.slots = []; }
+    placeDepot();
   }
-  const next = DEPOT_S.slots.find(sl => { const b = DEPOT_S.built.get(sl.id); return !b || (b.model === 'fallback' && gltfState(sl.id) === 'ready'); });
-  if (next) buildDepotSlot(next);
+  const wants = DEPOT_S.wants = depotWants(P.x, P.z, DEPOT_S.slots, CHOICE.id);
+  for (const id of [...DEPOT_S.built.keys()]) if (!wants.keep.has(id)) freeDepotSlot(id);
+  for (const id of [...DEPOT_S.owned]) if (!wants.keep.has(id) && canEvict(id)) { evictVehicleModel(id); DEPOT_S.owned.delete(id); }   // a load that finished after the player left
+  for (const id of wants.load) requestDepotModel(id);
+  const next = wants.load.find(id => !DEPOT_S.built.has(id) && (!VEHICLES[id].gltf || gltfState(id) === 'ready'));
+  if (next) buildDepotSlot(DEPOT_S.slots.find(sl => sl.id === next));
   const show = dist < DEPOT.show;
   for (const sl of DEPOT_S.slots) {
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
-    if (!b || !solid) continue;
-    const driven = sl.id === CHOICE.id;
-    b.mesh.visible = show && !driven;
-    solid.off = driven;
+    if (solid) solid.off = sl.id === CHOICE.id;
+    if (b) b.mesh.visible = show && sl.id !== CHOICE.id;
   }
+  if (!DEPOT_S.boxes) return;
+  DEPOT_S.boxes.visible = show;
+  let moved = false;
+  DEPOT_S.slots.forEach((sl, i) => {
+    const hide = sl.id === CHOICE.id || DEPOT_S.built.has(sl.id);   // the driven car's slot stands empty, a real model covers its own box
+    if (hide === DEPOT_S.boxHidden[i]) return;
+    DEPOT_S.boxHidden[i] = hide;
+    DEPOT_S.boxes.setMatrixAt(i, hide ? BOX_GONE : DEPOT_S.boxMats[i]);
+    moved = true;
+  });
+  if (moved) DEPOT_S.boxes.instanceMatrix.needsUpdate = true;
 }
 window.__mm.depot = () => ({
   on: DEPOT_S.on, near: depotNear(),
+  real: DEPOT_S.built.size, cached: [...DEPOT_S.owned].filter(id => gltfState(id) === 'ready'),   // #807: real models alive, files the depot fetched
   slots: (DEPOT_S.slots ?? []).map(sl => {
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
     return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l,
-      shown: !!b && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
-      solid: !!solid && !solid.off, model: b ? b.model : null, paint: b ? b.paint : null };
+      shown: (!!b || !!DEPOT_S.boxes) && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
+      solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null };
   }),
 });
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
