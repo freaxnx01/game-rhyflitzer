@@ -107,6 +107,7 @@ rest, freed again when driving away.
 - Leaving and coming back reloads the evicted files (network + parse again); a phone pays that on every visit.
 - After the Choose car gallery has loaded every model (~160 MB), the depot evicts nothing it did not load itself, so
   that peak stays as before.
-- Depends loosely on #830 (Speedster leaves the depot, 21 → 20 slots) and #831 (DeLorean becomes a glTF): neither
-  changes this design; tests read the slot count from `__mm.carsel().count` and must not hard-code 21. Both touch
+- Depends loosely on #830 (Speedster `compact` leaves the depot, 21 → 20 slots, the glTF hatchback becomes the start
+  car) and #831 (DeLorean becomes a glTF): neither changes this design (the driven glTF is never evicted); tests read
+  the slot count and the driven id from `__mm.carsel()` and must not hard-code 21 or `compact`. Both touch
   `tests/test_depot.py` / the depot block in `index.html`, so expect a merge conflict if they land in parallel.

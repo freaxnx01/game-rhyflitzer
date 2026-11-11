@@ -15,7 +15,8 @@ block (`index.html:5710-5795`) reworked: box `InstancedMesh`, no fallback build,
 - TDD for the pure modules: failing test, red, implement, green. `node --test tests/*.test.mjs` after each pure task.
 - Browser: run **only** `pytest tests/test_depot.py`, in the **foreground**, generous `timeout`, never the full suite.
   Commit and push the branch **before** the Playwright run.
-- Never hard-code the slot count (21 today; #830 makes it 20) — read `__mm.carsel().count`.
+- Never hard-code the slot count or the driven id: #830 drops the Speedster (`compact`) from the depot and makes the
+  glTF hatchback the start car. Read `__mm.carsel().id`; keep `depotLayout`'s id list as `main` has it then.
 
 ---
 
@@ -83,7 +84,7 @@ test('loadStep: evict sends a ready model back to idle, nothing else', () => {
 - [ ] Replace `ALL_BUILT` and `test_depot_builds_every_vehicle_and_leaves_the_driven_car_alone` with:
 
 ```python
-NEAR_BUILT = "() => { const d = window.__mm.depot(); return d.slots.length === window.__mm.carsel().count && d.real === Math.min(6, d.slots.length - 1) && d.slots.every(s => s.model); }"
+NEAR_BUILT = "() => { const d = window.__mm.depot(); return d.slots.length === window.__mm.carsel().count && d.real === Math.min(6, d.slots.filter(s => s.id !== window.__mm.carsel().id).length) && d.slots.every(s => s.model); }"
 
 
 def test_depot_builds_only_the_nearest_models_and_frees_them(server):
@@ -92,6 +93,7 @@ def test_depot_builds_only_the_nearest_models_and_frees_them(server):
         page.click("#startbtn", timeout=180000)
         wait_frames(page)
         before = page.evaluate("() => window.__mm.carStats()")
+        driven = page.evaluate("() => window.__mm.carsel().id")
         gpu0 = page.evaluate("() => window.__mm.gpu()")
         page.evaluate(AT_DEPOT)
         page.wait_for_function(NEAR_BUILT, timeout=240000)
@@ -102,9 +104,8 @@ def test_depot_builds_only_the_nearest_models_and_frees_them(server):
         gpu1 = page.evaluate("() => window.__mm.gpu()")
         after = page.evaluate("() => window.__mm.carStats()")
         b.close()
-    me = [s for s in d["slots"] if s["id"] == "compact"][0]
-    assert not me["shown"] and not me["solid"], me                       # the driven car's slot is empty
-    assert all(s["shown"] and s["solid"] for s in d["slots"] if s["id"] != "compact"), d
+    assert all(s["shown"] and s["solid"] for s in d["slots"] if s["id"] != driven), d
+    assert all(not s["shown"] and not s["solid"] for s in d["slots"] if s["id"] == driven), d   # its slot is empty (if it has one)
     assert sum(s["model"] == "gltf" for s in d["slots"]) == d["real"] <= 6, d
     assert all(s["model"] == "box" for s in d["slots"] if s["model"] != "gltf"), d
     assert gpu1["geometries"] <= gpu0["geometries"] + 5 and gpu1["textures"] <= gpu0["textures"] + 2, (gpu0, gpu1)
