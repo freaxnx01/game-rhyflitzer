@@ -51,6 +51,7 @@ export const LANDMARK_INFO = [
   { name: 'Schulhaus Sisseln', gemeinde: 'Sisseln', building: 171822721 },
   { name: 'Neues Schulhaus Sisseln', gemeinde: 'Sisseln', building: 282842878 },   // #507
   { name: 'Volg Sisseln', gemeinde: 'Sisseln', building: 171822900 },               // #507: Hauptstrasse 17
+  { name: 'Straussenfarm Sisseln', gemeinde: 'Sisseln', at: [2345, -318], look: [2385, -400] },   // #846: the ostrich paddock beside the farm; J snaps to the Hauptstrasse in front, looking at the fence
   // #782: village centre = OSM place node, J snaps to the nearest road
   { name: 'Dorfzentrum Oeschgen', gemeinde: 'Oeschgen', at: [3788.1, 3471.3] },
   // #782: village centre = OSM place node; the station building w164951714
