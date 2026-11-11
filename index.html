@@ -4174,7 +4174,11 @@ function openTouchMenu() {
 }
 document.getElementById('tMenu').addEventListener('click', () => { if (document.getElementById('tMenuList').hidden) openTouchMenu(); else closeTouchMenu(); });
 document.getElementById('tMenuList').addEventListener('click', (e) => { const b = e.target.closest('button[data-cmd]'); if (!b) return; closeTouchMenu(); pressKey(b.dataset.cmd); });
+let touchSig = '';   // #880: the phone controls are rewritten only when what they show changes, not 60 times a second
 function stepTouch(ctx, act) {
+  const sig = `${ctx}|${act}|${FOOT.on}|${window.GG_LANG}`;
+  if (sig === touchSig) return;
+  touchSig = sig;
   $('touch').dataset.ctx = ctx;
   $('tE').hidden = !act; if (act) $('tE').textContent = tr(contextLabel(act));
   $('tG').textContent = FOOT.on ? '⤒' : '▲'; $('tG').setAttribute('aria-label', tr(FOOT.on ? 'barJumpUp' : 'accelerate'));
