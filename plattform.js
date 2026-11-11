@@ -213,3 +213,10 @@ export function eaveFrame(frame, P = PLATTFORM) {
   }));
   return { purlins, braces };
 }
+
+// the central post's height above the base: under the sheathing (2 cm below the skin) at its corners, so its top does not poke
+// through the narrowing roof at the apex; the pyramid falls by at least slope per metre out from the axis in every direction
+export function centrePostTop(P = PLATTFORM) {
+  const { roof, centrePost } = P, slope = Math.tan(roof.pitch * RAD), apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * slope;
+  return apex - 0.05 - centrePost / Math.SQRT2 * slope;
+}

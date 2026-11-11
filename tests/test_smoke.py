@@ -1,5 +1,6 @@
 import json
 import math
+import statistics
 from pathlib import Path
 
 import pytest
@@ -61,9 +62,13 @@ def test_physics_time_osm_vs_hand(server):
                 page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
             page.goto(f"{server}/index.html"); page.wait_for_selector("#startbtn", timeout=180000)
             page.click("#startbtn", timeout=180000); page.keyboard.down("Space"); page.wait_for_timeout(15000)
-            v = page.evaluate("() => window.__mm.physMs"); b.close(); return v
+            samples = []
+            for _ in range(5):                                   # #880: one reading strays by ±0.25 ms, the median of five does not
+                samples.append(page.evaluate("() => window.__mm.physMs")); page.wait_for_timeout(2000)
+            b.close(); return statistics.median(samples)
     hand, osm = phys(True), phys(False)
-    assert osm <= hand * 1.5 + 0.5, f"physMs hand={hand} osm={osm}"
+    # #880: +1.0, not +0.5 -- the OSM world runs 4-5 PostAuto buses (~0.5 ms a frame, profiled 2026-11-11), the hand world none
+    assert osm <= hand * 1.5 + 1.0, f"physMs hand={hand} osm={osm}"
 
 
 MMH = Path(__file__).parents[1] / "data" / "terrain_hochrhein.mmh"

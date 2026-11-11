@@ -9,7 +9,9 @@ import hermetic_api
 ROOT = Path(__file__).parents[1]
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
-ROUTED = [(hermetic_api.GALLERY, hermetic_api.answer_empty_gallery), (hermetic_api.SRF_GLOB, hermetic_api.abort_srf)]   # #735: the SRF abort rides along
+ROUTED = [(hermetic_api.GALLERY, hermetic_api.answer_empty_gallery), (hermetic_api.SRF_GLOB, hermetic_api.abort_srf)]
+for _g in getattr(hermetic_api, "ARGOVIA_GLOBS", ()):
+    ROUTED.append((_g, hermetic_api.abort_srf))
 
 
 class FakeContext:
@@ -51,6 +53,8 @@ def test_every_context_aborts_the_srf_stream():
     hermetic_api.hermetic_new_context(lambda self, *a, **k: FakeContext())(None)
     assert hermetic_api.SRF_GLOB in calls
     assert hermetic_api.SRF_GLOB == "https://*.srg-ssr.ch/**"
+    for g in hermetic_api.ARGOVIA_GLOBS:
+        assert g in calls
 
 
 def test_new_context_routes_the_gallery_on_the_context_it_returns():
