@@ -935,7 +935,7 @@ import { RIDE as RIDE_CFG, toWheel, fromWheel, rideIdle, rideBegin, rideStep, ri
 import { SPOKE, spokeFrame, spokeAt, belowLevelAt, ringColliders, ringCeilingAt, ringSpawn, spokeSigns, RING, EXIT, spokeColour, darkAlphaAt, bandAlphaAt, spokeDarkAt, ringNumberSign, RING2_STYLE } from './underground.js';
 import { translate } from './strings.js';
 import { esc } from './escape.js';
-import { PAINTS, paintFinish, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, classLine, galleryOrder } from './carselect.js';
+import { PAINTS, paintFinish, selectableIds, STAT_KEYS, STAT_LABEL_KEYS, statBars, barCells, cycle, paintable, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, classLine, galleryOrder } from './carselect.js';
 import { beamSpot } from './beam.js';
 import { BLITZ, tick as blitzTick, addBonus as blitzBonus, isTimeUp as blitzTimeUp, rankFor as blitzRank, isNewBest as blitzNewBest } from './blitz.js';
 import { buildGraph, snapToGraph, findRoute, routeSignals, autoStep, streetEntries, placeChips, pointAt, TAKE_OVER_KEYS } from './route.js';
@@ -3020,7 +3020,7 @@ function burstConfetti(x, y, z, rng) { confetti.parts = confettiBurst(confetti.n
 function drawConfetti(dt) { if (!confetti.parts.length) { confetti.pts.visible = false; return; } confetti.parts = stepConfetti(confetti.parts, dt); const a = confetti.pts.geometry.attributes.position; for (let i = 0; i < confetti.n; i++) { const p = confetti.parts[i]; a.setXYZ(i, p ? p.x : 0, p ? p.y : -1e4, p ? p.z : 0); } a.needsUpdate = true; }
 
 await loadStage('cars');
-// ---------- vehicles (#5): one entry per vehicle, physical units (m, m/s, m/s², rad/s, Hz, km/h); compact = the original car ----------
+// ---------- vehicles (#5): one entry per vehicle, physical units (m, m/s, m/s², rad/s, Hz, km/h); compact = the stand-in while a glTF car loads (#830, no longer selectable) ----------
 // model: builder id in MODELS (gltf: reserved for a glTF file, not loaded yet); wheels: [x, z] in model metres, each mirrored to ±z
 // mass: only the crash response (speed loss and damage / mass); collision: circle radius in model metres (OBB for long vehicles: #6)
 //   ; engineAt (#105): where the wreck smokes, model metres (x forward, y up, z right) — a vehicle without it smokes from [collision.r, 1, 0]
@@ -3036,6 +3036,7 @@ const VEHICLES = {
         filter: { idle: 450, open: 2600, offLoad: 0.55, q: 1.6 }, gain: { idle: 0.06, rev: 0.06, load: 0.1 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
       horn: { notes: [415, 523], dur: 0.9, gain: 0.22, band: 1400, wave: 'square' },
       crash: { weight: 1, thump: 70, noise: 1800, gain: 1 } } },
+  hatchback: HATCHBACK,   // #236: a glTF car (assets/hatchback.glb), lazy-loaded; the compact stands in until it is ready
   // #126: DeLorean look-alike. DMC-12 numbers: 177 km/h = 49 m/s, slow off the line, rear engine (a little less grip), 2.41 m wheelbase, 14"/15" wheels; five-speed box
   delorean: { model: 'delorean', type: 'screen', gltf: null, scale: 1.0, paint: false, wheels: [[1.2, 0.8], [-1.2, 0.8]], wheelR: 0.32,
     drive: { top: 49, topNitro: 80, accel: 10, accelNitro: 26, brake: 22, reverse: 8, reverseMax: 12, grip: 8, gripHandbrake: 1.6, steerRate: 2.4, airSteer: 0.4 },
@@ -3046,7 +3047,6 @@ const VEHICLES = {
         filter: { idle: 380, open: 2200, offLoad: 0.5, q: 1.4 }, gain: { idle: 0.06, rev: 0.05, load: 0.09 }, shiftTime: 0.15, shiftDip: 0.6, nitroHiss: 0.07 },
       horn: { notes: [370, 466], dur: 0.9, gain: 0.22, band: 1200, wave: 'square' },
       crash: { weight: 1, thump: 80, noise: 2200, gain: 1 } } },   // the PRV V6 sits behind the cabin: lazier revs, darker filter, a lower horn than the compact's
-  hatchback: HATCHBACK,   // #236: a glTF car (assets/hatchback.glb), lazy-loaded; the compact stands in until it is ready
   // #463: Little Classic -- a 1970s city-car look-alike (Mr. Bean's Mini; primitives only, no logo, no lettering).
   // 54 m/s ~ 194 km/h: a little quicker off the line and nimbler than the compact, lighter (loses more speed in a crash);
   // 2.04 m wheelbase, 10" wheels; the cockpit eye sits on the right like the UK car; four gears, a thin high horn
@@ -3094,6 +3094,7 @@ const VEHICLES = {
   estate: ESTATE,   // Rhy Estate, a 2009–2013 Octavia Combi look-alike without the badge, paintable (assets/estate.glb); the compact stands in until it is ready
 };
 let VEH = VEHICLES.compact;   // the active vehicle: physics, collision, cameras, sound and HUD read it; swap with setVehicle
+function vehicleIds() { return selectableIds(Object.keys(VEHICLES)); }   // #830: what the player can pick; the compact only stands in
 
 // ---------- the car: navy compact hatchback ----------
 // the model is drawn true to size (4.66 m, like a Mazda 3; compact.scale 1.0, #69): it fits the 2.5 x 5 m car-park bays. 1.3x made it read less like a toy car; the closer chase cams (6.9 m / 4.6 m) do that now
@@ -3382,7 +3383,7 @@ const carRadius = () => VEH.collision.r * VEH.scale;   // the centre circle; the
 let VEH_OFFSETS = [0];
 const carCircles = () => capsuleCircles(P.x, P.z, P.th, VEH_OFFSETS);
 // #7: the player's vehicle and paint (localStorage mm.car; ?vehicle=<id> wins for this load, #126), restored before the first frame
-let CHOICE = initialChoice((() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), location.search, Object.keys(VEHICLES), PAINTS.map(p => p.id));   // #463: let -- the chair toggle rebinds it (withChair drops the flag when off)
+let CHOICE = initialChoice((() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), location.search, vehicleIds(), PAINTS.map(p => p.id));   // #463: let -- the chair toggle rebinds it (withChair drops the flag when off)
 function saveChoice() { try { localStorage.setItem('mm.car', JSON.stringify(CHOICE)); } catch (e) { } }
 // #463: the armchair on the roof -- on exactly when the choice asks for it on a car that declares the option
 const chairOn = () => CHOICE.chair === true && chairable(VEH);
@@ -5703,7 +5704,7 @@ $('worldbtn').onclick = openWorlds; $('worldsback').onclick = closeWorlds; $('dr
 // ---------- car selection (#7): the live car on a turntable, stats from the table, paint, garage; Race! starts the current mode ----------
 const CARSEL = { on: false, spin: { angle: 0, idle: SPIN_RESUME }, dir: 0, drag: 0, dragX: null, swap: null, mp: false };   // swap: {id, paint} at entry while the pause menu's Change vehicle is open (#189), else null; mp: opened from the multiplayer lobby (#834), so only the host's class is offered and the primary button takes the car
 // #834: the cars the picker offers -- every one, or only those of the class the host set while the pick comes from the lobby
-function pickableIds() { const ids = Object.keys(VEHICLES); return CARSEL.mp && NET.lobby ? ids.filter((id) => carFits(NET.lobby.cls, VEHICLES[id])) : ids; }
+function pickableIds() { const ids = vehicleIds(); return CARSEL.mp && NET.lobby ? ids.filter((id) => carFits(NET.lobby.cls, VEHICLES[id])) : ids; }
 function showcaseCar() { if (WRECK_S.on) endWreck(); TIP_S = TIP_UP; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); }   // #625: the stage shows the car intact and on its wheels, never the wreck or the rollover the pause froze (a swap mid-race frames no steps to right it)
 function openCarSel() { hideGallery(); showcaseCar(); CARSEL.on = true; CARSEL.dir = 0; CARSEL.drag = 0; CARSEL.dragX = null; CARSEL.spin = { angle: P.th - 0.6, idle: SPIN_RESUME }; for (const k in keys) keys[k] = false; closeHelp(); $('overlay').hidden = true; $('carsel').hidden = false; renderCarSel(); $('csrace').focus(); }
 function closeCarSel() { if (CARSEL.swap) { cancelVehicleSwap(); return; } if (CARSEL.mp) { leaveLobbyCarSel(); return; } CARSEL.on = false; CARSEL.dir = 0; $('carsel').hidden = true; $('overlay').hidden = false; $('carbtn').focus(); }
@@ -5798,7 +5799,7 @@ $('csgallerybtn').onclick = openGallery;
 function pickGalleryType(type) { CAR_GALLERY.type = type; renderGallery(); $('csgallery').querySelector(`[data-type="${type}"]`).focus(); }
 $('csgallery').onclick = (e) => { const c = e.target.closest('button[data-type]'); if (c) return pickGalleryType(c.dataset.type); const b = e.target.closest('button[data-id]'); if (!b) return; hideGallery(); selectVehicle(b.dataset.id); $('csrace').focus(); };
 window.__mm.carGallery = () => ({ open: CAR_GALLERY.on, type: CAR_GALLERY.type, ids: galleryIds(), types: Object.fromEntries(Object.entries(VEHICLES).map(([id, d]) => [id, d.type])), tiles: [...$('csgallery').querySelectorAll('[data-id]')].map(t => ({ id: t.dataset.id, photo: Boolean(t.querySelector('img').getAttribute('src')), failed: t.classList.contains('failed') })) });
-window.__mm.carsel = () => { const ids = Object.keys(VEHICLES); return { open: CARSEL.on, id: CHOICE.id, index: ids.indexOf(CHOICE.id), count: ids.length, paint: CHOICE.paint, paintable: paintable(VEH), bars: statBars(VEH), bodyColor: carMats.body.color.getHexString(), angle: CARSEL.spin.angle, focus: document.activeElement?.id || '', carVisible: car.visible }; };
+window.__mm.carsel = () => { const ids = vehicleIds(); return { open: CARSEL.on, id: CHOICE.id, index: ids.indexOf(CHOICE.id), count: ids.length, paint: CHOICE.paint, paintable: paintable(VEH), bars: statBars(VEH), bodyColor: carMats.body.color.getHexString(), angle: CARSEL.spin.angle, focus: document.activeElement?.id || '', carVisible: car.visible }; };
 window.__mm.chair = () => ({ on: chairOn(), visible: car.userData.chair ? car.userData.chair.visible : false, eye: VEH.camera.chair ? VEH.camera.chair.eye.map(c => c * VEH.scale) : null });   // #463: the armchair state (read-only, for the test)
 if (VEHICLES[CHOICE.id].gltf) wantVehicleModel(CHOICE.id);   // #236: the page started with the fallback car; the glTF car swaps in when its file arrives
 window.__mm.registerVehicle = (id, def) => { checkVehicle(def); VEHICLES[id] = structuredClone(def); if (CARSEL.on) renderCarSel(); };   // test hook: a further table entry (tractor / bus: #6)
@@ -6129,7 +6130,7 @@ function stepDepot() {
   const dist = Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z);
   if (!DEPOT_S.slots) {
     if (dist > DEPOT.build) return;
-    try { DEPOT_S.slots = depotLayout(Object.keys(VEHICLES), VEHICLES); } catch (e) { console.warn(e.message); DEPOT_S.slots = []; }
+    try { DEPOT_S.slots = depotLayout(vehicleIds(), VEHICLES); } catch (e) { console.warn(e.message); DEPOT_S.slots = []; }
   }
   const next = DEPOT_S.slots.find(sl => { const b = DEPOT_S.built.get(sl.id); return !b || (b.model === 'fallback' && gltfState(sl.id) === 'ready'); });
   if (next) buildDepotSlot(next);
@@ -6876,7 +6877,7 @@ if (REGION.backdrop && !GEN) fetch(REGION.backdrop).then((r) => (r.ok ? r.arrayB
 const STATS = { lastMode: null, vehicle: createChangeReporter({ name: 'vehicle', initial: CHOICE.id, shape: vehicleData }), activity: createChangeReporter({ name: 'activity', initial: 'car', shape: activityData }) };
 function trackModeStart(mode) { STATS.vehicle.flush(); umamiTrack('mode-start', { ...modeData(mode, MODES, STATS.lastMode), region: regionId(REGION), vehicle: CHOICE.id }); STATS.lastMode = mode; }
 function trackModeEnd(outcome) { umamiTrack('mode-end', modeEndData({ mode: R.mode, outcome, seconds: R.t }, MODES)); }
-umamiTrack('game-ready', { region: regionId(REGION), lang: window.GG_LANG || 'en', vehicle: CHOICE.id, vehicle_source: vehicleSource(location.search, (() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), Object.keys(VEHICLES)), mode: SHOWN.mode, touch: matchMedia('(pointer: coarse)').matches ? 'yes' : 'no' });
+umamiTrack('game-ready', { region: regionId(REGION), lang: window.GG_LANG || 'en', vehicle: CHOICE.id, vehicle_source: vehicleSource(location.search, (() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), vehicleIds()), mode: SHOWN.mode, touch: matchMedia('(pointer: coarse)').matches ? 'yes' : 'no' });
 setInterval(() => { const now = performance.now(); STATS.vehicle.update(CHOICE.id, now); STATS.activity.update(activityOf({ train: TRAIN.on, level: LEVELS.id, indoors: INT.indoors, house: INT.house, foot: FOOT.on, fly: FLY.on }), now); }, 1000);
 addEventListener('gg-langchange', (e) => umamiTrack('lang', { lang: e.detail.lang }));
 endLoading();
