@@ -8,6 +8,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ## [Unreleased]
 
+### Changed
+
+- `2026-11-11 13:14` The **Rhy Gullwing** now looks like the real thing: a detailed **3D model** in brushed steel with the proper wedge nose, louvres and door handles. The **gull-wing doors** still swing up on the start screen, the lamps still follow <kbd>L</kbd>.
+
 ### Fixed
 
 - `2026-11-11 12:28` The **Hauptstrasse** in Sisseln no longer has a small **step** where it climbs out of the rail underpass, and the **stone walls** at the **Königsweg** rail decks stay below the deck instead of poking up through it.
