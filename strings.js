@@ -117,6 +117,12 @@ const en = {
   sirenNone: 'This vehicle has no siren (the Rhy Blaze has)',
   photoSaved: 'Photo taken',
   photoFailed: 'Photo failed',
+  // ---- #749 video recording ----
+  recStarted: 'Recording',
+  recSaved: 'Video saved',
+  recFailed: 'Recording failed',
+  recUnsupported: 'Recording not supported',
+  recLimit: 'Recording stopped at 10 minutes',
   camera: (view) => `Camera: ${view}`,
   camChase: 'Chase',
   camNear: 'Chase near',
@@ -363,6 +369,7 @@ const en = {
   keyStyle: 'toggle graphic style',
   keyPhoto: 'photo: save the view as a PNG',
   keyMute: 'sound off · on (effects)',
+  keyRecord: 'record: start · stop a video with sound',   // #749
   // ---- #735 car radio ----
   radioStationFm: 'Rhyflitzer FM',
   radioStationSrf: 'SRF 3 live',
@@ -847,6 +854,12 @@ const de = {
   sirenNone: 'Dieses Fahrzeug hat kein Martinshorn (der Rhy Löschi schon)',
   photoSaved: 'Foto gemacht',
   photoFailed: 'Foto fehlgeschlagen',
+  // ---- #749 Videoaufnahme ----
+  recStarted: 'Aufnahme läuft',
+  recSaved: 'Video gespeichert',
+  recFailed: 'Aufnahme fehlgeschlagen',
+  recUnsupported: 'Aufnahme wird nicht unterstützt',
+  recLimit: 'Aufnahme nach 10 Minuten gestoppt',
   camera: (view) => `Kamera: ${view}`,
   camChase: 'Verfolger',
   camNear: 'Verfolger nah',
@@ -1091,6 +1104,7 @@ const de = {
   keyStyle: 'Grafikstil wechseln',
   keyPhoto: 'Foto: Ansicht als PNG speichern',
   keyMute: 'Ton aus · an (Effekte)',
+  keyRecord: 'Aufnahme: Video mit Ton starten · stoppen',   // #749
   // ---- #735 Autoradio ----
   radioStationFm: 'Rhyflitzer FM',
   radioStationSrf: 'SRF 3 live',

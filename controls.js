@@ -30,6 +30,7 @@ const CAR = [
   menu('autopilot', ['KeyO'], 'keyAuto'), menu('navi', ['KeyI'], 'keyNavi'), menu('heli', ['KeyF'], 'keyHeli'), menu('pontoon', ['KeyU'], 'keyPontoon'),
   menu('hideCar', ['KeyV'], 'keyCar'), menu('bounds', ['KeyG'], 'keyBounds'), menu('borders', ['KeyY'], 'keyBorders'),
   menu('trip', ['KeyK'], 'keyTrip'), menu('reset', ['KeyR'], 'keyReset'), menu('style', ['KeyT'], 'keyStyle'), menu('photo', ['KeyX'], 'keyPhoto'), menu('mute', ['KeyM'], 'keyMute'),
+  menu('record', ['Backquote'], 'keyRecord'),   // #749: the literal stays -- controls.js does not import record.js, so the modules stay independent
   entry('pause', ['Escape', 'KeyP'], { label: 'keyPause' }),
   ...radio(),
 ];
@@ -43,6 +44,7 @@ const WALK = [
   entry('footNitro', ['KeyN'], { hold: true }),
   entry('lookBack', ['KeyB'], { hold: true, label: 'keyLookBack' }),
   menu('bounds', ['KeyG'], 'keyBounds'), menu('borders', ['KeyY'], 'keyBorders'), menu('style', ['KeyT'], 'keyStyle'), menu('photo', ['KeyX'], 'keyPhoto'), menu('mute', ['KeyM'], 'keyMute'),
+  menu('record', ['Backquote'], 'keyRecord'),   // #749: also in the indoor / foot contexts, so § records there too
   ...radio(),
 ];
 const TABLE = {
