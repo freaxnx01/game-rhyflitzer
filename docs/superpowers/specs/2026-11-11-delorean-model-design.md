@@ -32,9 +32,10 @@ the DMC-12 driving values and sounds.
 
 A prep script in the `tools/prepare-*.mjs` family (template: `tools/prepare-knight.mjs`, the wheel split as in
 `tools/prepare-tumbler.mjs`), run outside the repo with `@gltf-transform/*` + `meshoptimizer` under
-`systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0`. **Sketchfab's download needs a login**
-(the API's `/download` endpoint answers 401 headless), so the maintainer downloads the original GLB and hands it to
-the script; the script is deterministic from that file.
+`systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0`. The original GLB
+is committed unmodified at `assets/src/delorean_dmc_12_animated.glb` (CC BY 4.0, downloaded 2026-11-11 via the
+Sketchfab API); the script is deterministic from that file. Nodes `C`, `D`, `M`, `M.001` (likely the "DMC" letters)
+and `DeLorean Body_license plate_0` are branding to remove.
 
 Output contract (the one `index.html` relies on, see `tools/prepare-hatchback.mjs`), plus the doors:
 

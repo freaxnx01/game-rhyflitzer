@@ -8,9 +8,9 @@ the way the mini's model does; doors, steel, lamps and driving values stay. Spec
 named in Task 5, foreground, under `systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0`. Line numbers
 are from `4d8d742`; grep, don't trust them. Commit and push before the browser tests.
 
-**Needs the maintainer first:** Sketchfab's download needs a login (API `/download` → 401 headless). Download the
-original GLB of https://sketchfab.com/3d-models/delorean-dmc-12-animated-e90955c1dce945dfbcac09886b9f310e to
-`~/LocalSend/delorean_dmc_12_animated.glb` on agent-dev (or attach it to the issue). Without it Task 1 stops.
+**Source GLB:** the unmodified original is in the repo at `assets/src/delorean_dmc_12_animated.glb` (CC BY 4.0,
+JEX-D, see `assets/src/delorean_dmc_12_animated.LICENSE.md`). Run the prep script on it. Nodes `C`, `D`, `M`, `M.001`
+(likely the "DMC" letters) and `DeLorean Body_license plate_0` are branding: remove them, and check with `--list`.
 
 ---
 
