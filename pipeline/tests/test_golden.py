@@ -100,8 +100,9 @@ def test_house_numbers_from_osm(world):
     assert by_id[171822862]["addr"] == "5"               # one node inside, Bodenackerstrasse 5
     assert by_id[171822634]["addr"] == "6a–6d"      # Bodenackerstrasse 6: four entrance nodes
     assert world["anchors"]["landmarks"]["hallenbad"]["addr"] == "2"
+    # #789: a share, not a count -- the band 1100-1400 went stale as the map grew (2364 buildings, 1625 numbered, 2026-11-10)
     n = sum(1 for b in world["buildings"] if "addr" in b)
-    assert 1100 <= n <= 1400, n
+    assert 0.55 <= n / len(world["buildings"]) <= 0.8, (n, len(world["buildings"]))
     assert all("street" not in b for b in world["buildings"])
 
 
