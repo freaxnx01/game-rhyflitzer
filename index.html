@@ -6862,9 +6862,10 @@ function failRecord() {
   cleanupRecord();
   toast(tr('recFailed'));
 }
-// every track off, the timer gone, the HUD light out; 'stopped' ends the state machine, anything else failed
+// the canvas video track off, the timer gone, the HUD light out; 'stopped' ends the state machine, anything else failed
 function cleanupRecord() {
-  if (REC.rec && REC.rec.stream) for (const t of REC.rec.stream.getTracks()) t.stop();
+  // only the video track: the audio track is the shared SFX.recordTap() destination, a stopped track never restarts
+  if (REC.rec && REC.rec.stream) for (const t of REC.rec.stream.getVideoTracks()) t.stop();
   REC.rec = null; REC.chunks = []; REC.bytes = 0; REC.fmt = null; REC.clock = null;
   REC.state = recordNext(REC.state, REC.state === 'stopping' ? 'stopped' : 'fail');
   $('rec').hidden = true;
@@ -6875,7 +6876,7 @@ SFX.onHold((held) => {   // #749: pause / hold also pauses the recorder -- no st
   else if (!held && REC.state === 'paused') { REC.clock.pausedTotal += performance.now() - REC.clock.pausedAt; REC.clock.pausedAt = null; REC.rec.resume(); REC.state = recordNext(REC.state, 'resume'); }
 });
 window.__mm.record = (on) => (on ? startRecord() : stopRecord());   // tests: start / stop a recording
-window.__mm.recordState = () => ({ state: REC.state, mime: REC.fmt && REC.fmt.mime, bytes: REC.bytes, seconds: REC.clock ? recordElapsed(REC.clock, performance.now()) : 0 });
+window.__mm.recordState = () => ({ state: REC.state, mime: REC.fmt && REC.fmt.mime, bytes: REC.bytes, audioLive: !!REC.rec && REC.rec.stream.getAudioTracks().some((t) => t.readyState === 'live'), seconds: REC.clock ? recordElapsed(REC.clock, performance.now()) : 0 });
 
 // ---------- Testhub (#251) ----------
 // Dev mode only: the loader in the body appends /testhub/client.js, which defines window.ggTesthub and then fires

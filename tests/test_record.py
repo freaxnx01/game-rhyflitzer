@@ -39,3 +39,22 @@ def test_recording_one_second_downloads_one_playable_video(server):
     assert len(data) > 1000, len(data)                                  # a second of video, even under SwiftShader
     assert final["state"] == "idle", final
     assert final["bytes"] == 0 and final["seconds"] == 0, final         # cleaned up behind itself
+
+def test_second_recording_in_the_same_session_still_has_live_audio(server):
+    with sync_playwright() as p:
+        b, page = start_hand(p, server)
+        first = page.evaluate("() => { __mm.record(true); return __mm.recordState(); }")
+        page.wait_for_timeout(1200)
+        with page.expect_download(timeout=120000):
+            page.evaluate("() => __mm.record(false)")
+        second = page.evaluate("() => { __mm.record(true); return __mm.recordState(); }")
+        page.wait_for_timeout(1200)
+        with page.expect_download(timeout=120000) as d:
+            page.evaluate("() => __mm.record(false)")
+        with open(d.value.path(), "rb") as f:
+            size = len(f.read())
+        b.close()
+    assert first["audioLive"] is True, first
+    assert second["state"] == "recording", second
+    assert second["audioLive"] is True, second                          # the sound tap survived recording 1
+    assert size > 1000, size
