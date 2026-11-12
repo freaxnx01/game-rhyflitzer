@@ -44,6 +44,13 @@ def test_depot_builds_only_the_nearest_models_and_frees_them(server):
         wait_frames(page)
         before = page.evaluate("() => window.__mm.carStats()")
         driven = page.evaluate("() => window.__mm.carsel().id")
+        # the baseline 232 m short of the depot, its slots laid out as boxes and no real model yet: the scenery east of the
+        # depot (signs, posts) is first drawn when the camera looks that way and stays resident, so a start-screen baseline
+        # would count it as a leak
+        page.evaluate("() => window.__mm.sim(600, -107.5, 0, 0, 0.1, [])")
+        page.wait_for_function("() => { const d = window.__mm.depot(); return d.slots.length > 0 && d.real === 0 && d.slots.every(s => s.model === 'box'); }", timeout=T)
+        page.wait_for_function("() => { const d = window.__mm.cam().d; return d[0] < -6 && Math.abs(d[2]) < 0.5; }", timeout=120000)   # the chase cam is behind the car, looking east
+        wait_frames(page, 5)
         gpu0 = page.evaluate("() => window.__mm.gpu()")
         page.evaluate(AT_DEPOT)
         page.wait_for_function(NEAR_BUILT, timeout=240000)
@@ -241,8 +248,9 @@ def test_too_fast_shows_no_prompt(server):
                 key=lambda x: math.hypot(x["x"] - 832.3, x["z"] + 107.5))
         qx, qz = s["x"] + math.cos(s["th"]) * (s["l"] / 2 + 2), s["z"] + math.sin(s["th"]) * (s["l"] / 2 + 2)
         th = math.atan2(s["z"] - qz, s["x"] - qx)
-        fast = page.evaluate(f"() => window.__mm.sim({qx}, {qz}, {th}, 10, 0.05, [])")   # 10 m/s, 2 m off the nose
-        near_fast = depot(page)["near"]
+        # 10 m/s, 2 m off the nose; near is read in the same evaluate: every box is solid from the start (#807), so the
+        # frames the loop runs between two evaluates crash the car into the slot and it stands still there
+        fast, near_fast = page.evaluate(f"() => {{ const f = window.__mm.sim({qx}, {qz}, {th}, 10, 0.05, []); return [f, window.__mm.depot().near]; }}")
         page.evaluate(f"() => window.__mm.sim({fast['x']}, {fast['z']}, {th}, 0, 0.05, [])")
         near_stopped = depot(page)["near"]
         b.close()
