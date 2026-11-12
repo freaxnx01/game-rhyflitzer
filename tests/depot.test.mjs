@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEPOT, footprint, depotLayout, nearestSlot } from '../depot.js';
+import { DEPOT, footprint, depotLayout, nearestSlot, depotWants } from '../depot.js';
 import { selectableIds } from '../carselect.js';
 
 const car = (type, r, hl, top = 60, accel = 16) => ({ type, mass: 1, drive: { top, accel, grip: 9 }, collision: hl ? { shape: 'capsule', r, hl } : { shape: 'circle', r } });
@@ -42,4 +42,20 @@ test('depotLayout over selectable ids leaves the stand-in out (#830)', () => {
   const defs = { compact: car('everyday', 1.3), hatchback: car('everyday', 1.25), mini: car('screen', 1.0) };
   const ids = selectableIds(Object.keys(defs));
   assert.deepEqual(depotLayout(ids, defs).map(s => s.id).sort(), ['hatchback', 'mini']);
+});
+
+// #807: only the nearest slots get a real model, the rest a box
+const row = (n, x0 = 0, dx = 10) => Array.from({ length: n }, (_, i) => ({ id: `v${i}`, x: x0 + i * dx, z: 0 }));
+const cfg = { ...DEPOT, near: 100, nearMax: 3, keep: 130, keepMax: 4 };
+
+test('depotWants: nearest first, within near, capped, never the driven id', () => {
+  const w = depotWants(25, 0, row(20), 'v2', cfg);
+  assert.deepEqual(w.load, ['v3', 'v1', 'v4']);              // from x 25: v2 driven, v3 5 m, then v1 / v4 15 m in table order (stable sort)
+  assert.ok(!w.keep.has('v2'));
+  assert.equal(w.keep.size, 4);
+});
+
+test('depotWants: nothing beyond near, keep reaches farther than load', () => {
+  assert.deepEqual(depotWants(-115, 0, row(3), null, cfg).load, []);       // v0 is 115 m away
+  assert.deepEqual([...depotWants(-115, 0, row(3), null, cfg).keep], ['v0', 'v1']);
 });

@@ -202,6 +202,25 @@ def test_a_double_click_on_foot_beams_and_never_takes_the_mouse(server):   # #40
     assert early == 0 and single == {"calls": 1, "foot": True}, (early, single)                     # a single click still grabs the mouse, after the delay
 
 
+def test_a_second_click_on_foot_lets_the_mouse_go_without_pausing(server):   # the look mode toggles; a hint says how to leave it
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = ROAD
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        page.evaluate(FAKE_LOCK)
+        page.mouse.click(640, 360)
+        page.wait_for_function("() => !!document.pointerLockElement", timeout=10000)
+        hint = page.evaluate("() => window.__mm.toast()")
+        page.mouse.click(640, 360)
+        page.wait_for_timeout(700)                                       # longer than the lock delay: the click must not grab again
+        after = page.evaluate("() => ({ locked: !!document.pointerLockElement, calls: window.__lockCalls, paused: !document.querySelector('#pause').hidden, foot: window.__mm.foot().on })")
+        b.close()
+    assert errors == []
+    assert hint["shown"] and hint["text"] in ("Look around with the mouse · click again to let it go", "Mit der Maus umschauen · nochmals klicken zum Beenden"), hint
+    assert after == {"locked": False, "calls": 1, "paused": False, "foot": True}, after
+
+
 def test_j_and_f1_on_foot_let_the_mouse_go_and_keep_their_dialog(server):   # #365
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server)

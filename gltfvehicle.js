@@ -1,11 +1,13 @@
 // gltfvehicle.js — rules every glTF vehicle shares (#236): load state machine, buildable id, model URL, paint on select, lamp role, race button.
 // Pure module: no DOM, no three.js, so node --test can import it. index.html keeps the glue.
 
-// 'idle' --want--> 'loading' --loaded--> 'ready' | --error--> 'failed'; 'ready' and 'failed' are sticky (no retry storm in one session)
+// 'idle' --want--> 'loading' --loaded--> 'ready' | --error--> 'failed'; 'failed' is sticky (no retry storm in one session)
+// and so is 'ready', except that #807 gives a cached model back: 'ready' --evict--> 'idle', so it can be loaded again
 export function loadStep(state, event) {
   if (state === 'idle' && event === 'want') return 'loading';
   if (state === 'loading' && event === 'loaded') return 'ready';
   if (state === 'loading' && event === 'error') return 'failed';
+  if (state === 'ready' && event === 'evict') return 'idle';
   return state;
 }
 
