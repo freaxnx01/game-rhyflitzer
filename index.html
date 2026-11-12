@@ -940,7 +940,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage } from './netrace.js';
+import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from './netrace.js';
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
@@ -6247,8 +6247,8 @@ function netHostMessage(peerId, msg) {
 }
 function netHostHello(peerId, name) {
   if (NET.slots.has(peerId)) return;                     // a repeated hello changes nothing
-  const added = addPlayer(NET.lobby, name);
-  if (!added) { NET.link.send(peerId, { type: 'deny', reason: 'full' }); NET.link.close(peerId); return; }
+  const added = admitHello(NET.lobby, name, !!NET.session);   // #916: nobody joins a drive that already runs
+  if (added.deny) { NET.link.send(peerId, { type: 'deny', reason: added.deny }); NET.link.close(peerId); return; }
   NET.lobby = added.lobby; NET.slots.set(peerId, added.id);
   openLobby(); netHostBroadcast();
 }
@@ -6271,7 +6271,7 @@ function netGuestMessage(msg) {
   if (msg.type === 'pong') { NET.clock = addClockSample(NET.clock, msg.a, msg.b, performance.now()); NET.offset = netClockOffset(NET.clock); return; }
   // the deny reason is not a string key: it is turned into one before the toast, so every key at a toast(tr(…)) call
   // site stays a plain literal (what tests/toast.test.mjs reads to check the text it shows carries no markup)
-  if (msg.type === 'deny') { const key = msg.reason === 'full' ? 'mpFull' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
+  if (msg.type === 'deny') { const key = msg.reason === 'full' ? 'mpFull' : msg.reason === 'started' ? 'mpStarted' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
   if (msg.type === 'bye') netHostGone();
 }
 function netPeerState(peerId, state) {
@@ -6432,11 +6432,12 @@ function syncNetCars() {
 // and built on a later frame; a file that never arrives builds the fallback, because setVehicle falls back by itself.
 function buildNetCar(entry) {
   const def = VEHICLES[entry.car];
-  if (!def) return;
-  if (def.gltf && ['idle', 'loading'].includes(gltfState(entry.car))) { loadVehicleModel(entry.car); return; }
+  if (!def) return false;
+  if (def.gltf && ['idle', 'loading'].includes(gltfState(entry.car))) { loadVehicleModel(entry.car); return false; }   // #916: no mesh yet, so it does not use up this frame's build
   const mesh = cloneStageVehicle(entry.car, paintOnSelect(def, entry.paint, true, 'navy', def)).mesh;
   mesh.visible = false;
   scene.add(mesh); entry.mesh = mesh;
+  return true;
 }
 // from the loop: at most one model is built per frame, then every remote car is put where its sender was DELAY ms ago
 function stepNetCars() {
@@ -6444,7 +6445,7 @@ function stepNetCars() {
   const now = hostNow();
   let built = false;
   for (const entry of NETCARS.values()) {
-    if (!entry.mesh && entry.car && !built) { built = true; buildNetCar(entry); }
+    if (!entry.mesh && entry.car && !built) built = buildNetCar(entry);
     if (!entry.mesh) continue;
     const pose = sampleRemote(entry.track, now);
     entry.mesh.visible = !!pose && !!(pose.flags & FLAG.visible);
