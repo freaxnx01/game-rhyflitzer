@@ -6450,7 +6450,7 @@ function buildNetCar(entry) {
   const def = VEHICLES[entry.car];
   if (!def) return false;
   if (def.gltf && ['idle', 'loading'].includes(gltfState(entry.car))) { loadVehicleModel(entry.car); return false; }   // #916: no mesh yet, so it does not use up this frame's build
-  const built = cloneStageVehicle(entry.car, paintOnSelect(def, entry.paint, true, 'navy', def));
+  const built = cloneStageVehicle(entry.car, paintOnSelect(def, entry.paint, true, 'navy', def), true);
   const mesh = built.mesh;
   mesh.visible = false;
   scene.add(mesh); entry.mesh = mesh;
@@ -6596,20 +6596,21 @@ function stagePaint(g, def) {
 function disposeParked(g) { g.traverse(o => { if (!o.isMesh) return; if (!o.userData.sharedGeo) o.geometry.dispose(); for (const m of [].concat(o.material)) m.dispose(); }); }
 // #553 / #835: a standalone copy of the stage car as `id` in `paint`, with its own materials, plus the body colour it
 // came out in. Shared by the depot's parked cars and the multiplayer's remote cars -- neither drives, so neither
-// carries the nitro flames. Part c keeps the blinkers in the clone and records the cloned lamp materials so a remote
-// car's head, brake and blinker lamps can follow the pose flags.
-function cloneStageVehicle(id, paint) {
+// carries the nitro flames; a depot clone drops the blinkers too, while a remote clone (keepBlink) keeps them and
+// records the cloned lamp materials so its head, brake and blinker lamps can follow the pose flags.
+function cloneStageVehicle(id, paint, keepBlink) {
   const def = VEHICLES[id];
   let mesh = null, bodyPaint = null;
   const lamps = { head: [], tail: [] };
   const blink = { left: null, right: null };
   withStageVehicle(id, paint, (stage) => {
-    const drop = new Set([flames]);   // part c: keep BLINK.left/right in the clone, still drop the nitro flames
+    const drop = new Set([flames]);   // part c: a remote clone keeps BLINK.left/right; a depot clone drops them with the flames
+    if (!keepBlink) { drop.add(BLINK.left); drop.add(BLINK.right); }
     const dropIdx = stage.children.map((c, i) => drop.has(c) ? i : -1).filter(i => i >= 0);
     const g = stage.clone(true);
-    const li = stage.children.indexOf(BLINK.left), ri = stage.children.indexOf(BLINK.right);   // capture before flames is removed
-    if (li >= 0) blink.left = g.children[li];
-    if (ri >= 0) blink.right = g.children[ri];
+    const li = stage.children.indexOf(BLINK.left), ri = stage.children.indexOf(BLINK.right);   // capture before the removal loop detaches them
+    if (keepBlink && li >= 0) blink.left = g.children[li];
+    if (keepBlink && ri >= 0) blink.right = g.children[ri];
     for (const i of dropIdx.sort((a, b) => b - a)) g.remove(g.children[i]);
     const headMats = new Set([carMats.lampHead, ...GLTF_LAMPS.head]);
     const tailMats = new Set([carMats.lampTail, ...GLTF_LAMPS.tail]);
@@ -7031,7 +7032,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); renderLobby(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too; #950: the lobby status too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
