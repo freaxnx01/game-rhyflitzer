@@ -2,6 +2,7 @@
 drive-through freight lift; below it a short exit leads into a tunnel ring with eight star-shaped spokes, each ending (after a dark
 stretch where the level switches unseen) in its own 500 m meadow room; the Eiffel Tower stands in room 0. Found when the lift's door
 opens below. Needs the real world and terrain (the hill is swisstopo's). Slow (Playwright): run in the foreground."""
+import json
 import math
 from pathlib import Path
 
@@ -15,8 +16,16 @@ GLB = ROOT / "assets" / "models" / "eiffel_tower.glb"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 MOUTH_ROAD = (-703.3, 1419.1)          # the Hübel's centre line at the mouth
 HEADING = 95 * math.pi / 180
-needs_world = pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
+LANDMARKS = ROOT / "assets" / "landmarks" / "index.json"   # surface landmarks load at boot, async, 2-6 KB each (#649, index.html loader)
+needs_world =pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
 needs_model = pytest.mark.skipif(not GLB.exists(), reason="assets/models/eiffel_tower.glb is not committed yet (#201)")
+
+
+def room_glbs(urls):
+    """The fetched .glb urls minus the surface landmarks (assets/landmarks/<name>.glb, listed in index.json): they stream in at boot
+    and the last one can land after a test's request listener is attached (#906). Any other model still counts."""
+    names = {lm["file"] for lm in json.loads(LANDMARKS.read_text(encoding="utf-8"))["landmarks"].values()}
+    return [u for u in urls if not any(u.endswith("/assets/landmarks/" + n) for n in names)]
 
 
 def open_page(p, server, init_script=None):
@@ -561,9 +570,9 @@ def test_eiffel_model_loads_lazily_and_matches_the_feet(server):
         page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
         h = page.evaluate("() => window.__mm.hideout()")
         e0 = page.evaluate("() => window.__mm.eiffel()")
-        assert e0 is None and requests == []                  # #277: no room, no tower, before the first ride
+        assert e0 is None and room_glbs(requests) == []        # #277: no room, no tower, before the first ride (surface landmarks excluded by room_glbs, #906)
         page.evaluate(f"() => window.__mm.sim({MOUTH_ROAD[0]}, {MOUTH_ROAD[1]}, {HEADING}, 0, 0.1, [])")
-        page.wait_for_function("() => performance.getEntriesByType('resource').some(r => r.name.endsWith('.glb'))", timeout=60000)
+        page.wait_for_function("() => performance.getEntriesByType('resource').some(r => r.name.endsWith('eiffel_tower.glb'))", timeout=60000)
         ride(page, h, "ring"); into_room(page, 0, "eiffel")
         page.wait_for_function("() => window.__mm.eiffel().loaded === true", timeout=120000)
         e = page.evaluate("() => window.__mm.eiffel()")
@@ -571,7 +580,8 @@ def test_eiffel_model_loads_lazily_and_matches_the_feet(server):
         push = page.evaluate("() => { const h = window.__mm.hideout(), t = h.room.tower, f = window.__mm.eiffel().feet; return { foot: window.__mm.pushAt(t.x + f[2][0], t.z + f[2][1], -600), centre: window.__mm.pushAt(t.x, t.z, -600) }; }")
         br.close()
     assert errors == []
-    assert len(requests) == 1 and requests[0].endswith("/assets/models/eiffel_tower.glb"), requests
+    rg = room_glbs(requests)
+    assert len(rg) == 1 and rg[0].endswith("/assets/models/eiffel_tower.glb"), requests
     assert e["placeholder"] is False and e["tris"] >= 400000 and abs(e["height"] - 330) <= 2 and e["base"] <= 145 and e["material"] == "#6b4a32", e
     assert len(fp) == 4, fp
     for box in fp:                      # per-quadrant bbox of the model's vertices below 20 m, relative to the tower centre
@@ -1212,7 +1222,7 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
         br.close()
     print("screenshot:", tmp_path / "artemis-room.png")
     assert errors == []
-    assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design (loadWithin, index.html followCave); the room itself fetches nothing
+    assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design (loadWithin, index.html followCave); the room itself fetches nothing (surface landmarks excluded by room_glbs, #906)
     assert a["built"] == 2 and abs(a["h"] - 98.1) < 1e-6 and 1000 <= a["tris"] <= 20000 and a["colliders"] == 5, a
     assert info["below"]["built"] == 2 and info["below"]["level"] == "room2" and info["below"]["object"] is True and info["counts"].get("artemis") == 1 and "eiffel" not in info["counts"], info
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("core", "mount", "capsule")), push
@@ -1247,7 +1257,7 @@ def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_dow
     print("screenshot:", tmp_path / "rallyhall-room.png")
     print("screenshot:", tmp_path / "rallyhall-board.png")
     assert errors == []
-    assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design; the room itself fetches nothing
+    assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design; the room itself fetches nothing (surface landmarks excluded by room_glbs, #906)
     assert a["built"] == 5 and abs(a["h"] - 14.8) < 1e-6 and 500 <= a["tris"] <= 30000 and a["colliders"] == 9 and len(a["cars"]) == 3, a
     assert a["board"]["text"][:2] == ["Elfyn Evans", "WRC World Champion 2026"] and a["board"]["found"], a   # #907: the honour board is in the hall group
     assert info["below"]["built"] == 5 and info["below"]["level"] == "room5" and info["below"]["object"] is True and info["counts"].get("rallyhall") == 1 and "eiffel" not in info["counts"], info
@@ -1391,7 +1401,7 @@ def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(ser
         br.close()
     print("screenshot:", tmp_path / "ferris-room.png")
     assert errors == []
-    assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design
+    assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design (surface landmarks excluded by room_glbs, #906)
     assert w0["built"] == 6 and abs(w0["h"] - 265.75) < 1e-6 and w0["gondolas"] == 48 and 1500 <= w0["tris"] <= 150000 and w0["colliders"] == 4, w0
     assert 1500 <= w0["leds"] <= 2500 and led_changed and sparks > 0, (w0, w1, sparks)   # #588
     assert w1["angle"] != w0["angle"], (w0, w1)
