@@ -30,7 +30,7 @@ in the others: the key bar, the tutorial and the help list disagree with what pl
 - **A4** [high] `TAKE_OVER_KEYS` (`route.js:31`) loses `ShiftLeft` / `ShiftRight`: the autopilot hands the car back on
   a press of a nitro key, and Shift is not one any more. Its comment and the test at `tests/route.test.mjs:131` follow.
 - **A5** [high] Touch has no nitro control (`controls.js:30`, no `touch` field), so nothing changes on phones.
-- **A6** [med] No migration hint: a player used to Shift in the car simply gets nothing and sees N in the key bar.
+- **A6** [confirmed] No migration hint: a player used to Shift in the car simply gets nothing and sees N in the key bar. Confirmed 2026-11-12: "No hint, key bar shows N".
   Rejected: a one-off toast; the key bar already teaches the key and a toast is extra UI nobody asked for.
 - **A7** [high] Tests that press Shift for nitro in the car are changed to N (they test the old binding, not a
   behaviour to keep): `tests/controls.test.mjs:28`, `tests/test_controls.py:30-41`, `tests/test_tutorial.py:115,151,154`,
