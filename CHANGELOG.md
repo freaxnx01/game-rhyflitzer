@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-12 12:07` Multiplayer gets its **pose stream plumbing**: car positions can travel as compact binary records, so part b of *see each other drive* can render the other players.
 - `2026-11-12 10:37` On the **Plattform deck** a plate names the **Verein Plattform Sisslerfeld**; <kbd>E</kbd> opens its website in a new tab.
 - `2026-11-11 21:47` A **fenced paddock** with eight **ostriches** at the Straussenfarm in Sisseln: they stand, peck and walk, and run off when the car or the walker comes close. <kbd>J</kbd> lists the farm.
 - `2026-11-11 19:22` **Radio Argovia** is a third station on the car radio: press <kbd>6</kbd> to cycle Rhyflitzer FM, SRF 3 and Radio Argovia.
