@@ -100,3 +100,20 @@ def test_settings_toggle_hides_the_bar_and_survives_a_reload(server):
     assert label in ("off", "aus") and state == "false", (label, state)   # the switch flips at once (#801 had commented its handler out)
     assert off["on"] is False and off["shown"] is False, off
     assert reloaded["on"] is False and reloaded["shown"] is False, reloaded
+
+
+def test_bar_is_hidden_in_the_tutorial_and_back_in_the_next_mode(server):
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server, start=None)
+        page.unroute("**/data/world_hochrhein.json")                # landmarks must load for the tutorial to be offered
+        page.reload()
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.wait_for_function("() => !document.querySelector('#tutorialbtn').disabled", timeout=240000)
+        page.click("#tutorialbtn")
+        page.wait_for_function("() => document.querySelector('#overlay').hidden", timeout=240000)
+        tut = page.evaluate(BAR)
+        stored = page.evaluate("() => localStorage.getItem('mm.keybar')")
+        b.close()
+    assert tut["on"] is True and tut["shown"] is False, tut          # setting kept, bar hidden
+    assert stored in (None, "1"), stored                              # the tutorial wrote nothing
+    assert errors == []
