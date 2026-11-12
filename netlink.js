@@ -23,10 +23,11 @@ function gatherIce(pc) {
   });
 }
 
-// createLink({ iceServers, onMessage, onPeerState }) — one object per page; the page is either a host or a guest, never both.
+// createLink({ iceServers, onMessage, onPose, onPeerState }) — one object per page; the page is either a host or a guest, never both.
 // onMessage(peerId, rawText) gets the untouched channel text: the caller validates it with parseMessage.
+// onPose(peerId, buf) gets raw ArrayBuffers from the `pose` channel: the caller validates them with parsePose (#835).
 // onPeerState(peerId, state) gets the connection state, plus 'timeout' when a peer never connects.
-export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerState = () => {} } = {}) {
+export function createLink({ iceServers = STUN, onMessage = () => {}, onPose = () => {}, onPeerState = () => {} } = {}) {
   const peers = new Map();   // peerId -> { pc, ev, pose, timers: [] }
 
   function wire(peerId, entry) {
@@ -52,7 +53,11 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
 
   function attachChannel(peerId, entry, channel) {
     entry[channel.label] = channel;
-    channel.addEventListener('message', (e) => { if (typeof e.data === 'string') onMessage(peerId, e.data); });
+    channel.binaryType = 'arraybuffer';
+    channel.addEventListener('message', (e) => {
+      if (typeof e.data === 'string') onMessage(peerId, e.data);
+      else if (channel.label === 'pose' && e.data instanceof ArrayBuffer) onPose(peerId, e.data);
+    });
   }
 
   function openPeer(peerId) {
@@ -114,6 +119,13 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
 
   function broadcast(msg) { for (const peerId of peers.keys()) send(peerId, msg); }
 
+  // sendPose(peerId, buf) — one binary pose record on the unreliable channel; silently skipped while it is not open
+  function sendPose(peerId, buf) {
+    const channel = peers.get(peerId)?.pose;
+    if (channel?.readyState !== 'open') return;
+    channel.send(buf);
+  }
+
   function close(peerId) {
     const entry = peers.get(peerId);
     if (!entry) return;
@@ -126,5 +138,5 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
 
   const peerIds = () => [...peers.keys()];
 
-  return { hostOffer, hostAccept, guestAnswer, send, broadcast, close, closeAll, peerIds };
+  return { hostOffer, hostAccept, guestAnswer, send, sendPose, broadcast, close, closeAll, peerIds };
 }
