@@ -34,6 +34,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-12 13:55` The **tutorial** no longer shows an **empty little frame** above its hint when the step has nothing to point at.
 - `2026-11-12 09:12` The **houses** along the Hauptstrasse now have exactly **one front door** at street level instead of a door in **every storey**, only **whole windows** (none cut in half by the gable, the eaves or a corner — the gable ends are plain wall with at most one attic window), and you can no longer see the **sky through the roof** overhang from below.
 - `2026-11-11 20:47` Starting a **video recording** with <kbd>§</kbd> no longer makes the **music** drop out for a moment, neither in the game nor in the video.
 - `2026-11-11 20:41` The **key bar** switch works again and has moved from the pause menu to **Settings** (new section **Display**): one click hides or shows the keys at the top of the screen, and the choice is kept. With the keyboard, Enter on the start screen starts the preselected mode again once the start car has loaded.
