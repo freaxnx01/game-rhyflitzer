@@ -107,3 +107,25 @@ def test_a_player_who_leaves_disappears_on_the_other_device(pair):
     assert guest.evaluate("() => window.__mm.netCars().length") == 0
     host.wait_for_function("() => window.__mm.netCars().length === 0", timeout=T)
     assert errors == []
+
+
+def test_remote_car_has_tag_and_fades_when_guest_leaves(pair):
+    """Part c: a remote car carries a name tag, and a leaving player fades out over 1 s with a toast on the host."""
+    host, guest, errors = pair
+    connect(host, guest)
+    ready_both(host, guest)
+    # part c (#921 review): the start hint is in the status line, not the button title
+    assert "Starts when everyone is ready" in guest.locator("#mplobbystatus").inner_text()
+    host.click("#mpgo")
+    host.wait_for_function("() => window.__mm.netCars().some(c => c.id === 1 && c.visible)", timeout=T)
+    car = host.evaluate("() => window.__mm.netCars().find(c => c.id === 1)")
+    assert car["tag"] == {"visible": True, "name": "Ben"}
+
+    guest.keyboard.press("Escape")                     # pause
+    guest.click("#pausemenu")
+    if guest.is_visible("#abandonok"):
+        guest.click("#abandonok")
+    host.wait_for_function("() => document.querySelector('#toast').textContent === 'Ben has left.'", timeout=T)
+    host.wait_for_function("() => !window.__mm.netCars().some(c => c.id === 1)", timeout=T)
+    assert net(guest)["role"] is None
+    assert errors == []

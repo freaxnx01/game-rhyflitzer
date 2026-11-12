@@ -6314,8 +6314,9 @@ function renderLobby() {
   const ready = canStart(lobby);
   $('mpgo').hidden = !host || NET.session;
   $('mpgo').disabled = !ready;
-  $('mpgo').title = ready ? '' : tr('mpGoHint');
-  $('mplobbystatus').textContent = tr(ready ? 'mpAllReady' : lobby.players.length < 2 ? 'mpNeedMore' : 'mpNeedReady');
+  // part c (#921 review): the start hint lives in the status line, not the button title -- a title is invisible on touch
+  // and goes stale on a language switch; renderLobby re-runs on gg-langchange, so the text stays current.
+  $('mplobbystatus').textContent = ready ? tr('mpAllReady') : lobby.players.length < 2 ? tr('mpNeedMore') : tr('mpGoHint');
 }
 function netSetReady(on) {
   if (NET.role === 'H') { NET.lobby = setReady(NET.lobby, NET.you, on); netHostBroadcast(); return; }
