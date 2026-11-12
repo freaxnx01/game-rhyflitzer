@@ -159,7 +159,7 @@ def run(args) -> int:
 
 def capture(page, args, duration: float, frames: int, errors: list[str]) -> int:
     """Tick the game frame by frame and pipe the PNGs into ffmpeg. Stepped mode is on."""
-    print(f"{args.out}: {frames} frames, {duration:.2f} s of path at {args.fps} fps, canvas {args.size[0]}x{args.size[1]}")
+    print(f"{args.out}: {frames} frames, {duration:.2f} s of path at {args.fps} fps, canvas {args.size[0]}x{args.size[1]}", flush=True)
     ffmpeg = subprocess.Popen(ffmpeg_cmd(str(args.out), args.fps, args.crf), stdin=subprocess.PIPE)
     started = time.monotonic()
     try:
@@ -170,7 +170,7 @@ def capture(page, args, duration: float, frames: int, errors: list[str]) -> int:
                 secs = time.monotonic() - started
                 rate = done / secs if secs > 0 else 0.0
                 eta = datetime.timedelta(seconds=round((frames - done) / rate)) if rate > 0 else "?"
-                print(f"  frame {done}/{frames} ({done / frames:.0%}), {rate:.2f} frames/s, ETA {eta}")
+                print(f"  frame {done}/{frames} ({done / frames:.0%}), {rate:.2f} frames/s, ETA {eta}", flush=True)
         ffmpeg.stdin.close()
     except BrokenPipeError:
         return fail(f"ffmpeg closed the pipe early (exit {ffmpeg.wait()}); no video was written", 1)
@@ -178,7 +178,7 @@ def capture(page, args, duration: float, frames: int, errors: list[str]) -> int:
         return fail(f"ffmpeg failed with exit code {ffmpeg.returncode}; no video was written", 1)
     if errors:
         return fail(f"page error during the capture: {errors[0]}", 1)
-    print(f"{args.out} done in {datetime.timedelta(seconds=round(time.monotonic() - started))}")
+    print(f"{args.out} done in {datetime.timedelta(seconds=round(time.monotonic() - started))}", flush=True)
     return 0
 
 
