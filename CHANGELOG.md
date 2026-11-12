@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-12 15:35` **Gemeinsam losfahren**: sind in der Lobby alle bereit, schickt der Host alle mit einem Klick auf die Strasse. Ihr startet hintereinander am Start, und jeder sieht die **anderen Autos** in ihrer eigenen Farbe fahren — flüssig, auch über eine zappelige Verbindung. Wer das Spiel verlässt, verschwindet bei den anderen.
 - `2026-11-12 10:51` In der **Rally-Halle** hängt jetzt eine **Ehrentafel** für **Elfyn Evans**, **WRC-Weltmeister 2026** (mit **Scott Martin**): eine dunkle Tafel mit goldener Schrift an der Rückwand hinter dem roten Auto.
 - `2026-11-12 11:18` Film your own **camera flight**: press <kbd>ü</kbd> wherever you are looking to drop a **waypoint** (nicest while hovering on foot), <kbd>ö</kbd> takes the last one back, and <kbd>ä</kbd> flies the whole path in one smooth sweep with the HUD out of the way. <kbd>Shift</kbd>+<kbd>ä</kbd> records the flight as a video. The path survives a reload, and the debug panel (<kbd>Ctrl</kbd>+<kbd>D</kbd>) can **save it to a file** and load it back.
 - `2026-11-12 10:37` On the **Plattform deck** a plate names the **Verein Plattform Sisslerfeld**; <kbd>E</kbd> opens its website in a new tab.
