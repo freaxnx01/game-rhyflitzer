@@ -1,7 +1,7 @@
 // #834: the lobby state of the multiplayer race. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage } from '../netrace.js';
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from '../netrace.js';
 
 const DEFS = { fast: { drive: { top: 75, accel: 20, grip: 9, steerRate: 2.6 }, mass: 1 }, slow: { drive: { top: 11, accel: 4, grip: 9, steerRate: 2 }, mass: 2 } };
 
@@ -34,4 +34,12 @@ test('setReady_canStart_needsCarTwoPlayersAllReady', () => {
 test('lobbyMessage_perPeer_carriesYou', () => {
   const m = lobbyMessage(addPlayer(createLobby('hochrhein', 'Host'), 'B').lobby, 1);
   assert.deepEqual([m.type, m.you, m.region, m.cls, m.players.length], ['lobby', 1, 'hochrhein', 'all', 2]);
+});
+
+test('admitHello_sessionRunning_deniesStarted', () => {
+  const l = createLobby('hochrhein', 'Host');
+  assert.deepEqual(admitHello(l, 'B', true), { deny: 'started' });
+  assert.equal(admitHello(l, 'B', false).id, 1);
+  let f = l; for (const n of ['B', 'C', 'D']) ({ lobby: f } = addPlayer(f, n));
+  assert.deepEqual(admitHello(f, 'E', false), { deny: 'full' });
 });

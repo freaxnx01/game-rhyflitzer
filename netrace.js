@@ -15,6 +15,12 @@ export function createLobby(region, hostName) {
   return { region, cls: 'all', players: [newPlayer(0, hostName)] };
 }
 
+// admitHello(lobby, name, running) — #916: { lobby, id } for a hello that may join, or { deny } when a session already runs ('started') or the lobby is full
+export function admitHello(lobby, name, running) {
+  if (running) return { deny: 'started' };
+  return addPlayer(lobby, name) || { deny: 'full' };
+}
+
 // addPlayer(lobby, name) — { lobby, id } with the lowest free id, or null when the lobby is full
 export function addPlayer(lobby, name) {
   const taken = new Set(lobby.players.map((p) => p.id));

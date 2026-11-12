@@ -870,6 +870,8 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <p id="mpclasstext" class="mp-hint"></p>
     <button id="mppick" class="btn primary" type="button" data-i18n="mpPickCar">Pick a car</button>
     <button id="mpready" class="btn" type="button" aria-pressed="false"></button>
+    <!-- #835: only the host sees this, and only while everybody is ready -- it puts the whole lobby on the road -->
+    <button id="mpgo" class="btn primary" type="button" hidden data-i18n="mpGo">Drive together</button>
     <button id="mpinvite" class="btn" type="button" hidden data-i18n="mpMakeCode"></button>
     <button id="mpleave" class="btn" type="button" data-i18n="mpLeave"></button>
     <p id="mplobbystatus" role="status"></p>
@@ -937,9 +939,10 @@ import { chLandmarksFor, roofOrWall, plateBuildings } from './chlandmarks.js';  
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
-import { encodeCode, decodeCode, parseMessage, cleanName, CODE_TTL, CLASSES, MAX_PLAYERS } from './netcodec.js';   // #834: multiplayer codes and messages
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage } from './netrace.js';
+import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record
+import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from './netrace.js';
 import { createLink, STUN, HOST_ID } from './netlink.js';
+import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
@@ -6009,6 +6012,7 @@ function selectVehicle(id) {
   if (def.gltf && gltfState(id) === 'failed') { vehicleFailed(id); return; }
   if (buildsOnSelect(def, gltfState(id))) setVehicle(def);   // a glTF car that is not ready yet leaves the stage car as it is
   applyPaint(paintOnSelect(def, CHOICE.paint, CHOICE.paintChosen, 'navy', previous)); saveChoice(); renderCarSelKeepFocus(); renderStartScreen();   // #346: the start screen's car tag follows the pick
+  netSessionPick();   // #835: during a shared drive the others follow the change
 }
 // #236: the glTF car's file is fetched once, on the first pick; the swap waits for a safe moment, a failure falls back (the stored choice is kept: the next visit tries again)
 function wantVehicleModel(id) { if (WANTED.has(id)) return; WANTED.add(id); loadVehicleModel(id).then(ok => (ok ? vehicleLoaded : vehicleFailed)(id)); }
@@ -6102,8 +6106,15 @@ const NET = {
   slots: new Map(),    // host only: netlink peer id -> lobby player id
   slot: null,          // host only: the peer id the code on screen belongs to
   codeAt: 0,           // Unix seconds the shown code was made; 0 when none is shown
-  clock: null,         // the countdown's interval
+  codeClock: null,     // the countdown's interval
   pending: null,       // a host code held back while the region question is open
+  // #835 part b: the shared drive
+  session: false,      // true from the host's "Drive together" until this device leaves
+  seq: 0,              // the pose counter this device stamps its records with
+  clock: null,         // guest only: the last ping/pong offsets to the host clock
+  offset: null,        // guest only: the median of those, null while no pong has come back
+  poseTimer: null,     // the 20 Hz pose sender
+  pingTimer: null,     // guest only: the clock sync
 };
 const MP_NAME_KEY = 'mm.mpName', MP_JOIN_KEY = 'mm.mpJoin';
 const MP_ERR = { size: 'mpErrSize', format: 'mpErrFormat', version: 'mpErrVersion', role: 'mpErrRole', expired: 'mpErrExpired' };
@@ -6119,16 +6130,16 @@ function netWarn(text) { const p = $('mpstatus'); p.textContent = text; p.classL
 function netTrouble(text) { if ($('mplobby').hidden) netWarn(text); else toast(text, TOAST_S.event); }
 
 // ---- the code's five minutes, counted down next to it ----
-function stopCodeClock() { if (NET.clock) clearInterval(NET.clock); NET.clock = null; NET.codeAt = 0; $('mpclock').textContent = ''; }
+function stopCodeClock() { if (NET.codeClock) clearInterval(NET.codeClock); NET.codeClock = null; NET.codeAt = 0; $('mpclock').textContent = ''; }
 function tickCodeClock() {
   const left = Math.max(0, CODE_TTL - (nowSec() - NET.codeAt));
   $('mpclock').textContent = tr('mpExpiresIn', `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
   if (left === 0) { stopCodeClock(); netWarn(tr('mpCodeGone')); }
 }
-function startCodeClock(madeAt) { stopCodeClock(); NET.codeAt = madeAt; NET.clock = setInterval(tickCodeClock, 1000); tickCodeClock(); }
+function startCodeClock(madeAt) { stopCodeClock(); NET.codeAt = madeAt; NET.codeClock = setInterval(tickCodeClock, 1000); tickCodeClock(); }
 
 function netLink() {
-  if (!NET.link) NET.link = createLink({ iceServers: netIce(), onMessage: netMessage, onPeerState: netPeerState });
+  if (!NET.link) NET.link = createLink({ iceServers: netIce(), onMessage: netMessage, onPose: netPose, onPeerState: netPeerState });
   return NET.link;
 }
 
@@ -6225,6 +6236,7 @@ function netHostMessage(peerId, msg) {
   const id = NET.slots.get(peerId);
   if (id === undefined) return;                          // nothing a peer sends counts before its hello
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
+  if (msg.type === 'ping') { NET.link.send(peerId, { type: 'pong', a: msg.a, b: performance.now() }); return; }   // #835: the host's clock is the session's clock
   if (msg.type === 'pick') {
     const picked = pickCar(NET.lobby, id, msg.car, msg.paint, VEHICLES);
     NET.lobby = picked.lobby;
@@ -6235,13 +6247,14 @@ function netHostMessage(peerId, msg) {
 }
 function netHostHello(peerId, name) {
   if (NET.slots.has(peerId)) return;                     // a repeated hello changes nothing
-  const added = addPlayer(NET.lobby, name);
-  if (!added) { NET.link.send(peerId, { type: 'deny', reason: 'full' }); NET.link.close(peerId); return; }
+  const added = admitHello(NET.lobby, name, !!NET.session);   // #916: nobody joins a drive that already runs
+  if (added.deny) { NET.link.send(peerId, { type: 'deny', reason: added.deny }); NET.link.close(peerId); return; }
   NET.lobby = added.lobby; NET.slots.set(peerId, added.id);
   openLobby(); netHostBroadcast();
 }
 function netHostBroadcast() {
   for (const [peerId, id] of NET.slots) NET.link.send(peerId, lobbyMessage(NET.lobby, id));
+  if (NET.session) syncNetCars();                        // #835: a new car, a new paint or a player gone
   renderLobby();
 }
 function netHostDrop(peerId) {
@@ -6253,10 +6266,12 @@ function netHostDrop(peerId) {
   netHostBroadcast();
 }
 function netGuestMessage(msg) {
-  if (msg.type === 'lobby') { NET.lobby = msg; NET.you = msg.you; openLobby(); return; }
+  if (msg.type === 'lobby') { NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
+  if (msg.type === 'start') { netStartSession(); return; }
+  if (msg.type === 'pong') { NET.clock = addClockSample(NET.clock, msg.a, msg.b, performance.now()); NET.offset = netClockOffset(NET.clock); return; }
   // the deny reason is not a string key: it is turned into one before the toast, so every key at a toast(tr(…)) call
   // site stays a plain literal (what tests/toast.test.mjs reads to check the text it shows carries no markup)
-  if (msg.type === 'deny') { const key = msg.reason === 'full' ? 'mpFull' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
+  if (msg.type === 'deny') { const key = msg.reason === 'full' ? 'mpFull' : msg.reason === 'started' ? 'mpStarted' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
   if (msg.type === 'bye') netHostGone();
 }
 function netPeerState(peerId, state) {
@@ -6270,6 +6285,7 @@ function netHostGone() { if (NET.role !== 'G') return; netLeave(); toast(tr('mpH
 
 // ---- the lobby ----
 function openLobby() {
+  if (NET.session) { renderLobby(); return; }   // #835: a lobby message during the shared drive updates the list, it never puts the dialog back over the road
   const first = $('mplobby').hidden;
   stopCodeClock(); $('mp').hidden = true; $('mplobby').hidden = false;
   renderLobby();
@@ -6292,9 +6308,14 @@ function renderLobby() {
   $('mpready').textContent = tr(me && me.ready ? 'mpUnready' : 'mpReady');
   $('mpready').setAttribute('aria-pressed', String(!!(me && me.ready)));
   $('mpready').disabled = !me || !me.car;
-  $('mpinvite').hidden = !host || lobby.players.length >= MAX_PLAYERS;
-  // A4: no start button in part 1 -- the line says when the field would be ready to go (#837 adds the countdown)
-  $('mplobbystatus').textContent = tr(canStart(lobby) ? 'mpAllReady' : lobby.players.length < 2 ? 'mpNeedMore' : 'mpNeedReady');
+  // A8: no late joiners once the field is on the road -- a spawn in the middle of a drive is #837's problem, not this one
+  $('mpinvite').hidden = !host || NET.session || lobby.players.length >= MAX_PLAYERS;
+  // A4: the host starts the shared drive; the line below says when the field is ready to go (#837 adds the countdown)
+  const ready = canStart(lobby);
+  $('mpgo').hidden = !host || NET.session;
+  $('mpgo').disabled = !ready;
+  $('mpgo').title = ready ? '' : tr('mpGoHint');
+  $('mplobbystatus').textContent = tr(ready ? 'mpAllReady' : lobby.players.length < 2 ? 'mpNeedMore' : 'mpNeedReady');
 }
 function netSetReady(on) {
   if (NET.role === 'H') { NET.lobby = setReady(NET.lobby, NET.you, on); netHostBroadcast(); return; }
@@ -6316,7 +6337,134 @@ function netTakeCar() {
   } else NET.link.send(HOST_ID, { type: 'pick', car: CHOICE.id, paint: CHOICE.paint });
   leaveLobbyCarSel();
 }
+// ---------- #835 part b: the shared drive -- the pose stream and the other players' cars ----------
+// Every device sends its own pose 20 times a second on the unreliable channel; the host relays each guest's record to
+// the other guests with the player id stamped from its own slot map, so no guest can steer another player's car. Times
+// are host-clock milliseconds: a guest learns the offset from ping/pong (A2). The remote cars are visual only -- no
+// solid, no physics, no collision (#836 adds those).
+const POSE_MS = 50, PING_MS = 2000;
+const NETCARS = new Map();   // lobby player id -> { car, paint, mesh, track }
+
+// the session's clock: the host's own performance.now(), and a guest's shifted onto it
+const hostNow = () => performance.now() + (NET.role === 'H' ? 0 : NET.offset ?? 0);
+
+function netStartSession() {
+  if (NET.session) return;
+  NET.session = true;
+  CARSEL.mp = false;
+  stopCodeClock(); $('mplobby').hidden = true; $('mp').hidden = true;
+  startRace('cruise');                                              // the shared drive is a cruise run on every device
+  P.safe = gridPose([START.x, START.z, START.th], NET.you); resetCar();   // A5: a column at the start, one slot per lobby id
+  camPos.set(P.x + 12, P.y + 5, P.z);
+  syncNetCars();
+  NET.poseTimer = setInterval(netSendPose, POSE_MS);
+  if (NET.role === 'G') { netPing(); NET.pingTimer = setInterval(netPing, PING_MS); }
+}
+// leaves the shared drive: the timers stop and every remote car is taken off the scene. The run itself keeps going.
+function netEndSession() {
+  clearInterval(NET.poseTimer); clearInterval(NET.pingTimer);
+  for (const id of [...NETCARS.keys()]) dropNetCar(id);
+  Object.assign(NET, { session: false, seq: 0, clock: null, offset: null, poseTimer: null, pingTimer: null });
+}
+function netPing() { NET.link.send(HOST_ID, { type: 'ping', a: performance.now() }); }
+
+// the lamp and visibility bits of the pose record; part c reads them back for the remote cars' lamps
+function poseFlags() {
+  const hazard = LIGHTS.hazard;
+  return (car.visible ? FLAG.visible : 0) | (LIGHTS.head ? FLAG.head : 0) | (LIGHTS.braking ? FLAG.brake : 0)
+    | (hazard || HUD.blinker === 'left' ? FLAG.left : 0) | (hazard || HUD.blinker === 'right' ? FLAG.right : 0)
+    | (P.nitro ? FLAG.nitro : 0);
+}
+// A6: the pose is read off the visible car, not off P -- roll and pitch live only on car.rotation, and a car parked
+// while its owner walks around stands where parkCarAt left it
+function netSendPose() {
+  if (!NET.session || !NET.link) return;
+  if (NET.role !== 'H' && NET.offset === null) return;              // nothing to stamp a host time with yet
+  NET.seq = (NET.seq + 1) & 0xffff;
+  const buf = encodePose({
+    id: NET.you, seq: NET.seq, t: Math.max(0, Math.round(hostNow())),
+    x: car.position.x, y: car.position.y, z: car.position.z,
+    rx: car.rotation.x, ry: car.rotation.y, rz: car.rotation.z,
+    vx: P.vx, vz: P.vz, steer: WHEEL_STATE.yaw, flags: poseFlags(),
+  });
+  for (const peerId of NET.link.peerIds()) NET.link.sendPose(peerId, buf);
+}
+// A3: peerId is the only trustworthy fact about a record. The host overwrites the id with the sender's slot before it
+// relays, and a guest drops anything that does not belong to another player of its lobby.
+function netPose(peerId, buf) {
+  const pose = parsePose(buf);
+  if (!pose) { NET.bad++; return; }
+  if (NET.role === 'H') {
+    const id = NET.slots.get(peerId);
+    if (id === undefined) { NET.bad++; return; }
+    pose.id = id;
+    const relay = encodePose(pose);
+    for (const other of NET.slots.keys()) if (other !== peerId) NET.link.sendPose(other, relay);
+  } else if (pose.id === NET.you || !NET.lobby || !NET.lobby.players.some((p) => p.id === pose.id)) { NET.bad++; return; }
+  pushPose(trackFor(pose.id), pose);
+}
+const newNetCar = () => ({ car: null, paint: null, mesh: null, track: createTrack() });
+// the track a player's poses go into; a pose that arrives before the lobby message opens the entry
+function trackFor(id) {
+  let entry = NETCARS.get(id);
+  if (!entry) { entry = newNetCar(); NETCARS.set(id, entry); }
+  return entry.track;
+}
+function dropNetCar(id) {
+  const entry = NETCARS.get(id);
+  if (entry) { removeNetMesh(entry); NETCARS.delete(id); }
+}
+function removeNetMesh(entry) {
+  if (!entry.mesh) return;
+  scene.remove(entry.mesh); disposeParked(entry.mesh); entry.mesh = null;
+}
+// one entry per other player who has picked a car; a changed car or paint throws the built model away (A9)
+function syncNetCars() {
+  const others = new Map((NET.lobby?.players ?? []).filter((p) => p.id !== NET.you && p.car).map((p) => [p.id, p]));
+  for (const id of [...NETCARS.keys()]) if (!others.has(id)) dropNetCar(id);
+  for (const [id, player] of others) {
+    const entry = NETCARS.get(id) ?? newNetCar();
+    if (entry.car !== player.car || entry.paint !== player.paint) { removeNetMesh(entry); entry.car = player.car; entry.paint = player.paint; }
+    NETCARS.set(id, entry);
+  }
+}
+// the remote car's model, cloned off the stage car like a parked depot vehicle. A glTF car is fetched on the first try
+// and built on a later frame; a file that never arrives builds the fallback, because setVehicle falls back by itself.
+function buildNetCar(entry) {
+  const def = VEHICLES[entry.car];
+  if (!def) return false;
+  if (def.gltf && ['idle', 'loading'].includes(gltfState(entry.car))) { loadVehicleModel(entry.car); return false; }   // #916: no mesh yet, so it does not use up this frame's build
+  const mesh = cloneStageVehicle(entry.car, paintOnSelect(def, entry.paint, true, 'navy', def)).mesh;
+  mesh.visible = false;
+  scene.add(mesh); entry.mesh = mesh;
+  return true;
+}
+// from the loop: at most one model is built per frame, then every remote car is put where its sender was DELAY ms ago
+function stepNetCars() {
+  if (!NET.session) return;
+  const now = hostNow();
+  let built = false;
+  for (const entry of NETCARS.values()) {
+    if (!entry.mesh && entry.car && !built) built = buildNetCar(entry);
+    if (!entry.mesh) continue;
+    const pose = sampleRemote(entry.track, now);
+    entry.mesh.visible = !!pose && !!(pose.flags & FLAG.visible);
+    if (!pose) continue;
+    entry.mesh.position.set(pose.x, pose.y, pose.z);
+    entry.mesh.rotation.set(pose.rx, pose.ry, pose.rz);
+  }
+}
+// A9: a vehicle change during the shared drive goes through the lobby, so the others rebuild the model
+function netSessionPick() {
+  if (!NET.session || !NET.lobby) return;
+  if (NET.role !== 'H') { NET.link.send(HOST_ID, { type: 'pick', car: CHOICE.id, paint: CHOICE.paint }); return; }
+  const picked = pickCar(NET.lobby, NET.you, CHOICE.id, CHOICE.paint, VEHICLES);
+  if (!picked.ok) { toast(tr('mpDenyClass'), TOAST_S.event); return; }
+  NET.lobby = picked.lobby; netHostBroadcast();
+}
+
 function netLeave() {
+  netEndSession();
   if (NET.link) { NET.link.broadcast({ type: 'bye' }); NET.link.closeAll(); }
   stopCodeClock();
   Object.assign(NET, { role: null, link: null, lobby: null, you: null, name: null, slots: new Map(), slot: null, pending: null });
@@ -6340,6 +6488,7 @@ $('mpregion').onclick = () => { try { sessionStorage.setItem(MP_JOIN_KEY, NET.pe
 $('mpclassbtns').onclick = (e) => { const b = e.target.closest('button[data-cls]'); if (!b || NET.role !== 'H') return; NET.lobby = setClass(NET.lobby, b.dataset.cls, VEHICLES); netHostBroadcast(); };
 $('mppick').onclick = openLobbyCarSel;
 $('mpready').onclick = () => { const me = NET.lobby && NET.lobby.players.find((p) => p.id === NET.you); if (me) netSetReady(!me.ready); };
+$('mpgo').onclick = () => { if (NET.role !== 'H' || !NET.lobby || !canStart(NET.lobby)) return; NET.link.broadcast({ type: 'start', mode: 'cruise' }); netStartSession(); };
 $('mpleave').onclick = netLeave;
 // A5: a guest would need the same world file, and the code cannot carry one
 if (REGION.generated) $('mpbtn').hidden = true;
@@ -6349,8 +6498,9 @@ if (REGION.generated) $('mpbtn').hidden = true;
   try { parked = sessionStorage.getItem(MP_JOIN_KEY); sessionStorage.removeItem(MP_JOIN_KEY); } catch (e) { /* nothing parked */ }
   if (parked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = parked; $('mpmake').focus(); }
 }
-window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [] });
+window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset });
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
+window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null }));   // #835: read-only, for the test
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
 // materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
@@ -6388,17 +6538,25 @@ function stagePaint(g, def) {
 // a parked mesh that goes frees its own geometry and its cloned materials -- never the shared glTF geometry (userData.sharedGeo)
 // nor a material's map (each clone shares it with the stage build and the glTF cache)
 function disposeParked(g) { g.traverse(o => { if (!o.isMesh) return; if (!o.userData.sharedGeo) o.geometry.dispose(); for (const m of [].concat(o.material)) m.dispose(); }); }
-function buildDepotSlot(s) {
-  const def = VEHICLES[s.id];
-  let mesh = null, paint = null;
-  withStageVehicle(s.id, paintOnSelect(def, 'navy', false, 'navy', def), (stage) => {
+// #553 / #835: a standalone copy of the stage car as `id` in `paint`, with its own materials, plus the body colour it
+// came out in. Shared by the depot's parked cars and the multiplayer's remote cars -- neither drives, so neither
+// carries the nitro flames or the blinkers.
+function cloneStageVehicle(id, paint) {
+  const def = VEHICLES[id];
+  let mesh = null, bodyPaint = null;
+  withStageVehicle(id, paint, (stage) => {
     const drop = new Set([flames, BLINK.left, BLINK.right]);
     const dropIdx = stage.children.map((c, i) => drop.has(c) ? i : -1).filter(i => i >= 0);
     const g = stage.clone(true);
-    for (const i of dropIdx.sort((a, b) => b - a)) g.remove(g.children[i]);   // no flames, no blinkers on a parked car
+    for (const i of dropIdx.sort((a, b) => b - a)) g.remove(g.children[i]);
     g.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); });
-    paint = stagePaint(g, def); mesh = g;
+    bodyPaint = stagePaint(g, def); mesh = g;
   });
+  return { mesh, paint: bodyPaint };
+}
+function buildDepotSlot(s) {
+  const def = VEHICLES[s.id];
+  const { mesh, paint } = cloneStageVehicle(s.id, paintOnSelect(def, 'navy', false, 'navy', def));
   mesh.position.set(s.x, groundH(s.x, s.z, -Infinity), s.z);
   mesh.rotation.set(0, -s.th, 0);
   mesh.visible = s.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show;
@@ -6506,7 +6664,7 @@ function openPause() { if (PAUSE.on || !inRun()) return; PAUSE.on = true; setRad
 function closePause() { if (!PAUSE.on) return; if (CARSEL.swap) restoreVehicleSwap(); /* every exit from the pause undoes an open vehicle change (#189) */ PAUSE.on = false; PAUSE.confirm = false; $('pause').hidden = true; $('abandon').hidden = true; document.activeElement?.blur(); holdSound(false); }   // blur: the next Space / Enter is a game key again
 function restartRace() { closePause(); startRace(R.mode); }
 function resetMode() { R.mode = START_MODE; R.left = 0; R.timeUp = false; SURP = { turbo: 0, moon: 0 }; startHuntRun(false, Math.random); startViewRun(); startTutorialRun(); }   // #551: back to the preselected mode: no Blitz clock, no boxes, no confetti, no surprise running; every way out to the start screen calls this; #508: no viewpoint run either; #534: no tutorial run either
-function toMainMenu() { if (R.state === 'racing' || R.state === 'armed') trackModeEnd('abandoned'); closePause(); R.state = 'ready'; R.t = 0; resetMode(); clearNavi(); P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderModeLine(); renderOverlay(); $('overlay').hidden = false; focusStart(); RADIO.tick(); }   // the run is abandoned, never recorded; R.best untouched
+function toMainMenu() { if (NET.session) netLeave();   /* #835: the main menu during a shared drive leaves the session first -- the others see the car go */ if (R.state === 'racing' || R.state === 'armed') trackModeEnd('abandoned'); closePause(); R.state = 'ready'; R.t = 0; resetMode(); clearNavi(); P.safe = [START.x, START.z, START.th]; resetCar(); $('result').hidden = true; renderModeLine(); renderOverlay(); $('overlay').hidden = false; focusStart(); RADIO.tick(); }   // the run is abandoned, never recorded; R.best untouched
 // A3 (user decision 2026-10-03): with the clock running, ask first; 'armed' goes straight back
 function chooseMainMenu() { if (needsAbandonConfirm(R.state)) openAbandon(); else toMainMenu(); }
 function openAbandon() { PAUSE.confirm = true; $('pause').hidden = true; $('abandon').hidden = false; $(ABANDON_BUTTONS[0]).focus(); }
@@ -7342,7 +7500,7 @@ function loop(now) { if (SIMCLOCK.stepped) { last = now; requestAnimationFrame(l
   requestAnimationFrame(loop); }
 // #875: one frame's simulation and render -- the real-time loop's body, also run by __mm.tick with the caller's exact dt (no clamp)
 function frame(dt) {
-  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); }
+  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepNetCars(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); }
 // #875: the stepped capture hooks. stepped(true) freezes the loop (only tick runs frames) and moves a wall-mode fleet
 // clock onto sim time so the buses keep rolling; stepped(false) hands both back without a jump.
 window.__mm.stepped = (on) => {
