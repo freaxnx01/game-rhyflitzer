@@ -32,6 +32,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-12 11:39` The **tutorial** no longer shows an **empty little frame** above its hint when the step has nothing to point at.
 - `2026-11-11 20:47` Starting a **video recording** with <kbd>§</kbd> no longer makes the **music** drop out for a moment, neither in the game nor in the video.
 - `2026-11-11 20:41` The **key bar** switch works again and has moved from the pause menu to **Settings** (new section **Display**): one click hides or shows the keys at the top of the screen, and the choice is kept. With the keyboard, Enter on the start screen starts the preselected mode again once the start car has loaded.
 - `2026-11-11 20:47` **On foot**, looking around with the mouse is now a toggle: a **left click** grabs the mouse, a **second left click** lets it go again without opening the pause menu. A short hint says so when it starts.
