@@ -192,7 +192,8 @@ def test_boarding_on_foot(server):
         turn = math.atan2(q[1] - f["z"], q[0] - f["x"]) - f["th"]     # aim the walker at the nose + 2 m
         turn = (turn + math.pi) % (2 * math.pi) - math.pi
         page.evaluate(f"() => window.__mm.footLook({turn / 0.0025}, 0)")
-        page.evaluate("([s, h]) => window.__mm.footSim(s, h)", [math.hypot(q[0] - f["x"], q[1] - f["z"]) / 4.5, ["KeyW"]])
+        # #895: the walk eases in and starts ~0.45 m short -- one walkTau of extra seconds reaches the same spot
+        page.evaluate("([s, h]) => window.__mm.footSim(s, h)", [math.hypot(q[0] - f["x"], q[1] - f["z"]) / 4.5 + 0.1, ["KeyW"]])
         page.wait_for_function(f"() => window.__mm.depot().near === '{target['id']}'", timeout=T)
         wait_frames(page)                                            # depot().near is read live, the prompt is written by stepEnter in the loop
         bar = page.evaluate("() => window.__mm.keybar()")
