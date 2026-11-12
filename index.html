@@ -6397,10 +6397,11 @@ function netPose(peerId, buf) {
   } else if (pose.id === NET.you || !NET.lobby || !NET.lobby.players.some((p) => p.id === pose.id)) { NET.bad++; return; }
   pushPose(trackFor(pose.id), pose);
 }
+const newNetCar = () => ({ car: null, paint: null, mesh: null, track: createTrack() });
 // the track a player's poses go into; a pose that arrives before the lobby message opens the entry
 function trackFor(id) {
   let entry = NETCARS.get(id);
-  if (!entry) { entry = { car: null, paint: null, mesh: null, track: createTrack() }; NETCARS.set(id, entry); }
+  if (!entry) { entry = newNetCar(); NETCARS.set(id, entry); }
   return entry.track;
 }
 function dropNetCar(id) {
@@ -6416,7 +6417,7 @@ function syncNetCars() {
   const others = new Map((NET.lobby?.players ?? []).filter((p) => p.id !== NET.you && p.car).map((p) => [p.id, p]));
   for (const id of [...NETCARS.keys()]) if (!others.has(id)) dropNetCar(id);
   for (const [id, player] of others) {
-    const entry = NETCARS.get(id) ?? { car: null, paint: null, mesh: null, track: createTrack() };
+    const entry = NETCARS.get(id) ?? newNetCar();
     if (entry.car !== player.car || entry.paint !== player.paint) { removeNetMesh(entry); entry.car = player.car; entry.paint = player.paint; }
     NETCARS.set(id, entry);
   }
