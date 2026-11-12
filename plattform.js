@@ -131,6 +131,12 @@ export function plattformHopLanding(frame, base, dir, P = PLATTFORM) {
   return { x, z, th: frame.facing, y: base };
 }
 
+// #887: true on the deck at deck height within the deck's circumradius, false on the ground under it or outside the radius
+export function plattformOnDeck(frame, base, pos, P = PLATTFORM) {
+  if (pos.y < base + P.deck.y - HOP.deckSlack) return false;
+  return Math.hypot(pos.x - frame.x, pos.z - frame.z) <= P.deck.side / Math.sqrt(3);
+}
+
 // #567: the core cylinder as one solid circle -- the batten ring and the central post inside it -- for the car, the helicopter
 // floor and the camera. carOnly: footSolids() skips it, so on foot the walkway walls of plattformWalk (open at the door) still rule.
 // No door gap: the gap (2 x door.half at core.r, ~0.81 m) is narrower than any car.

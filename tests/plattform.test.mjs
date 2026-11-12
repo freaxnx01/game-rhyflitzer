@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, roofRafters, SLAT, HANDRAIL, parapetStraight, RAFTER, EAVE, eaveFrame, centrePostTop } from '../plattform.js';
+import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, plattformOnDeck, coreSlats, roofRafters, SLAT, HANDRAIL, parapetStraight, RAFTER, EAVE, eaveFrame, centrePostTop } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
@@ -178,6 +178,20 @@ test('plattformHop_OnTheDeckAtTheStairGap_IsDown', () => {
 test('plattformHop_OnTheDeckFarFromTheGap_IsNull', () => {
   const [x, z] = F.polar(0, 5);   // the door-side corner area of the deck
   assert.equal(plattformHop(F, BASE, { x, z, y: BASE + PLATTFORM.deck.y }), null);
+});
+
+// #887: true on the deck at deck height, false on the ground under the deck, false at deck height outside the circumradius
+test('plattformOnDeck_DeckHeightNearTheCentre_IsTrue', () => {
+  const [x, z] = F.polar(90, 3);
+  assert.equal(plattformOnDeck(F, BASE, { x, z, y: BASE + PLATTFORM.deck.y }), true);
+});
+test('plattformOnDeck_GroundUnderTheDeck_IsFalse', () => {
+  const [x, z] = F.polar(90, 3);
+  assert.equal(plattformOnDeck(F, BASE, { x, z, y: BASE }), false);
+});
+test('plattformOnDeck_DeckHeightOutsideTheCircumradius_IsFalse', () => {
+  const [x, z] = F.polar(90, PLATTFORM.deck.side / Math.sqrt(3) + 0.5);
+  assert.equal(plattformOnDeck(F, BASE, { x, z, y: BASE + PLATTFORM.deck.y }), false);
 });
 
 test('plattformHopLanding_Up_StandsOnTheDeckBesideTheOpening', () => {
