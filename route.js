@@ -27,8 +27,8 @@ export const AUTO = {
   laneOffsetMax: 2, laneBlend: 8,
 };
 
-// a press of any of these hands the car back to the player (touch drive buttons do the same in index.html); Shift is nitro too since #535
-export const TAKE_OVER_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ControlLeft', 'ControlRight', 'KeyN', 'ShiftLeft', 'ShiftRight', 'KeyO']);
+// a press of any of these hands the car back to the player (touch drive buttons do the same in index.html); N is nitro (#913: Shift no longer is)
+export const TAKE_OVER_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ControlLeft', 'ControlRight', 'KeyN', 'KeyO']);
 
 const keyOf = (p) => Math.round(p[0] * 10) + ',' + Math.round(p[1] * 10);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

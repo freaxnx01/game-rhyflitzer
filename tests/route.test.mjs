@@ -128,9 +128,9 @@ test('autoStep drives, arrives, notices leaving the route and gives up when stuc
   assert.equal(s, 'stuck');
 });
 
-test('TAKE_OVER_KEYS: steering, gas, brake, handbrake, nitro (N and Shift, #535) and O; not the turn signals or the camera', () => {
-  for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ControlLeft', 'ControlRight', 'KeyN', 'ShiftLeft', 'ShiftRight', 'KeyO']) assert.ok(TAKE_OVER_KEYS.has(k), k);
-  for (const k of ['KeyQ', 'KeyE', 'Comma', 'Period', 'KeyC', 'KeyB', 'Tab', 'KeyH', 'Enter']) assert.ok(!TAKE_OVER_KEYS.has(k), k);
+test('TAKE_OVER_KEYS: steering, gas, brake, handbrake, nitro (N, not Shift, #913) and O; not the turn signals or the camera', () => {
+  for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'ControlLeft', 'ControlRight', 'KeyN', 'KeyO']) assert.ok(TAKE_OVER_KEYS.has(k), k);
+  for (const k of ['ShiftLeft', 'ShiftRight', 'KeyQ', 'KeyE', 'Comma', 'Period', 'KeyC', 'KeyB', 'Tab', 'KeyH', 'Enter']) assert.ok(!TAKE_OVER_KEYS.has(k), k);
 });
 
 test('placeName turns a village sign into a place name', () => {

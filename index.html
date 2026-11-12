@@ -478,7 +478,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="hold">Space</kbd><span data-i18n="keyAccel">accelerate (W or ↑ also work)</span>
       <kbd data-cmd="hold">A D</kbd><span data-i18n="keySteer">or ← →: steer · <b>S</b> / ↓ brake, reverse</span>
       <kbd data-cmd="hold">Ctrl</kbd><span data-i18n="keyHandbrake">handbrake (drift)</span>
-      <kbd data-cmd="hold">Shift · N</kbd><span data-i18n="keyNitro">Nitro (hold)</span>
+      <kbd data-cmd="hold">N</kbd><span data-i18n="keyNitro">Nitro (hold)</span>
       <kbd data-cmd="hold">Tab</kbd><span data-i18n="keyTab">full map (hold)</span>
       <kbd data-cmd="Comma|,">, · .</kbd><span data-i18n="keySignals">Turn signals left · right</span>
       <kbd data-cmd="KeyL">L</kbd><span data-i18n="keyLights">Lights on · off</span>
@@ -5598,7 +5598,7 @@ function stepCar(dt) {
   if (LIFT_RIDE.busy) { P.vx = P.vz = P.vy = 0; car.position.set(P.x, P.y, P.z); return; }   // #277: input is locked for the ride
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx; let vf = P.vx * fx + P.vz * fz, vs = P.vx * rx + P.vz * rz; const speed = Math.hypot(P.vx, P.vz);
   const dead = WRECK_S.on, down = tipped(TIP_S), inp = dead || down ? NO_INPUT : keys, tch = dead || down ? NO_INPUT : touch;   // #105: a wreck ignores the keys and the touch buttons (the autopilot was stopped in startWreck); so does a car on its side
-  const ap = down ? null : autoInputs(dt), nitro = ap ? 0 : ((inp.ShiftLeft || inp.ShiftRight || inp.KeyN) ? 1 : 0), gas = ap ? ap.gas : ((inp.Space || inp.KeyW || inp.ArrowUp || tch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((inp.KeyS || inp.ArrowDown || tch.b) ? 1 : 0), steer = ap ? ap.steer : Math.max(-1, Math.min(1, ((inp.KeyD || inp.ArrowRight) ? 1 : 0) - ((inp.KeyA || inp.ArrowLeft) ? 1 : 0) + (tch.x || 0))),   /* #535: the phone's stick steers analog (tch is NO_INPUT in a wreck, so tch.x is undefined there) */ hb = ap ? 0 : ((inp.ControlLeft || inp.ControlRight || tch.h) ? 1 : 0);
+  const ap = down ? null : autoInputs(dt), nitro = ap ? 0 : (inp.KeyN ? 1 : 0), gas = ap ? ap.gas : ((inp.Space || inp.KeyW || inp.ArrowUp || tch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((inp.KeyS || inp.ArrowDown || tch.b) ? 1 : 0), steer = ap ? ap.steer : Math.max(-1, Math.min(1, ((inp.KeyD || inp.ArrowRight) ? 1 : 0) - ((inp.KeyA || inp.ArrowLeft) ? 1 : 0) + (tch.x || 0))),   /* #535: the phone's stick steers analog (tch is NO_INPUT in a wreck, so tch.x is undefined there) */ hb = ap ? 0 : ((inp.ControlLeft || inp.ControlRight || tch.h) ? 1 : 0);
   const gh = groundH(P.x, P.z, P.y); const air = P.y > gh + 0.15;
   const wet = waterLevelAt(P.x, P.z, P.y) !== null;   // #101: on the riverbed the engine runs, but slowly (every water modifier is gated on wet: the land trace is unchanged)
   P.gas = gas; P.air = air; P.nitro = nitro || (SURP.turbo > 0 && gas) ? 1 : 0; { const d = Math.hypot(P.vx, P.vz) * dt / 1000; P.trip += d; P.odo += d; }

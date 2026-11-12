@@ -27,7 +27,7 @@ const camPath = () => [
 
 const CAR = [
   entry('drive', [...MOVE, 'Space'], { hold: true, core: true, touch: 'button', label: 'barDrive', cap: 'WASD' }),
-  entry('nitro', [...SHIFT, 'KeyN'], { hold: true, core: true, label: 'barNitro', cap: 'Shift' }),
+  entry('nitro', ['KeyN'], { hold: true, core: true, label: 'barNitro', cap: 'N' }),
   entry('getOut', ['KeyZ'], { core: true, touch: 'button', label: 'barGetOut', cap: 'Z' }),
   jumpTo(), camera(), help(),
   entry('handbrake', ['ControlLeft', 'ControlRight'], { hold: true, touch: 'button', label: 'keyHandbrake' }),
