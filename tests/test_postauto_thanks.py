@@ -51,6 +51,7 @@ def test_waiting_behind_a_departing_bus_thanks_on_the_rear_only(server):
 
         before = next(d for d in page.evaluate("() => window.__mm.postautoDisplay().buses") if d["key"] == key)
         assert before["split"], "the rear quad did not split off its own material"
+        assert before["rearW"] > 2.0 and 0.25 < before["rearH"] < 0.4, "the rear display is not stretched to the front display's width"
         front_before, rear_before = before["frontMap"], before["rearMap"]
 
         # wait until the bus is 15 m further on, then put the player where the bus itself stood (in its lane, 15 m
