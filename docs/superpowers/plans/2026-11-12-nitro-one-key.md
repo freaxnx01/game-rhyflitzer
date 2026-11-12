@@ -60,7 +60,7 @@ test('nitro_EveryContext_OnNAndNeverOnShift', () => {
 - [ ] `route.js:30-31`: comment "N is nitro (#913: Shift no longer is)"; remove `'ShiftLeft', 'ShiftRight'` from `TAKE_OVER_KEYS`.
 - [ ] `index.html:5601`: `nitro = ap ? 0 : (inp.KeyN ? 1 : 0)` (was `(inp.ShiftLeft || inp.ShiftRight || inp.KeyN) ? 1 : 0`).
 - [ ] `index.html:481`: `<kbd data-cmd="hold">N</kbd>`.
-- [ ] Re-run the three node files: all green. Run `node --test tests/*.test.mjs` is NOT needed.
+- [ ] Re-run the three node files: all green.
 
 ## Task 3: Playwright tests follow
 
@@ -80,5 +80,5 @@ test('nitro_EveryContext_OnNAndNeverOnShift', () => {
 **Files:** `CHANGELOG.md`
 
 - [ ] Add under `[Unreleased]` `### Changed`, first line:
-  `- `<TZ=Europe/Zurich date '+%F %H:%M'>` **Nitro** is now **one key everywhere**: <kbd>N</kbd> in the car, on foot and in the helicopter. <kbd>Shift</kbd> no longer fires nitro in the car; it keeps <kbd>down</kbd> on foot and <kbd>sink</kbd> in the helicopter, and the key bar, the tutorial and the help list all show N.`
+  `- `<TZ=Europe/Zurich date '+%F %H:%M'>` **Nitro** is now **one key everywhere**: <kbd>N</kbd> in the car, on foot and in the helicopter. <kbd>Shift</kbd> no longer fires nitro in the car; it still means down on foot and sink in the helicopter, and the key bar, the tutorial and the help list all show N.`
 - [ ] Commit `fix(controls): one key for nitro in every context (#913)`; PR as the repo requires.
