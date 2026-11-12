@@ -1218,6 +1218,36 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("beside", "ring")), push
 
 
+@needs_world
+def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_download(server, tmp_path):
+    """#859: entering spoke 5 builds the rally hall with its three podium cars from primitives -- no model file is fetched; the back wall and a
+    podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        assert page.evaluate("() => window.__mm.rallyhall()") is None
+        into_room(page, 5, "room5")
+        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5", timeout=120000)
+        a = page.evaluate("() => window.__mm.rallyhall()")
+        info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
+          return { wall: p(19.7, 0), podium: p(4, 0), floor: p(-5, -11), apron: p(-60, 0) }; }""")
+        view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th; return { x: v.x - Math.cos(th) * 80, z: v.z - Math.sin(th) * 80, th }; }")
+        page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "rallyhall-room.png"))
+        br.close()
+    print("screenshot:", tmp_path / "rallyhall-room.png")
+    assert errors == []
+    assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design; the room itself fetches nothing
+    assert a["built"] == 5 and abs(a["h"] - 14.8) < 1e-6 and 500 <= a["tris"] <= 30000 and a["colliders"] == 9 and len(a["cars"]) == 3, a
+    assert info["below"]["built"] == 5 and info["below"]["level"] == "room5" and info["below"]["object"] is True and info["counts"].get("rallyhall") == 1 and "eiffel" not in info["counts"], info
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("wall", "podium")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("floor", "apron")), push
+
+
 # ---------- #489: ring 2 -- the keypad's ride, the space-station look, the walker in the cabin ----------
 
 FREIGHT_SLOW_DWELL = "() => window.__mm.liftTimes({dwell: 30, close: 0.1, ride: 0.4, open: 0.1})"
