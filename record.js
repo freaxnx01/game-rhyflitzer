@@ -4,8 +4,10 @@
 export const RECORD_KEY = 'Backquote';
 export const MAX_SECONDS = 600;   // A7: chunks live in RAM, so a recording stops by itself after 10 minutes
 
-// A2: mp4/H.264 preferred (YouTube), else webm vp9/opus -- the first the browser supports wins
-export const FORMATS = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4',
+// A2: mp4/H.264 preferred (YouTube), else webm vp9/opus -- the first the browser supports wins.
+// #891: Opus before AAC in mp4 -- starting Chrome's platform AAC encoder (Media Foundation on Windows) drops the
+// music for a moment, live and in the file; Opus is encoded in the page and measured gap-free
+export const FORMATS = ['video/mp4;codecs=avc1,opus', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4',
   'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
 
 // isSupported = MediaRecorder.isTypeSupported bound; the first supported mime wins, null when none is

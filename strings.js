@@ -214,6 +214,7 @@ const en = {
   footNoRoom: 'No room to get out here',
   footTooFar: 'Walk back to the car to get in',
   // ---- the steam locomotive (#462) ----
+  footLookHint: 'Look around with the mouse · click again to let it go',
   trainIn: 'All aboard! W steam, S brake, Q/E pick the next switch, H whistle, Z get out',
   turnNotHere: 'Stop on the turntable at Sisseln to turn round',
   turnDone: 'Loco turned round',
@@ -224,6 +225,8 @@ const en = {
   enterPrompt: 'E · Enter',
   hopUpPrompt: 'E · Up to the deck',   // #701
   hopDownPrompt: 'E · Down',
+  vereinName: 'Verein Plattform Sisslerfeld',   // #887: the association's own name, the same in both languages
+  vereinOpen: 'E · Open website ↗',   // #887
   enterSoon: 'Not enterable yet',
   ridePrompt: 'E · Ride the Ferris wheel',   // #516
   rideExit: 'E · Get out',
@@ -326,14 +329,13 @@ const en = {
   barLift: 'lift',
   barHopUp: 'up to the deck',   // #701
   barHopDown: 'down',
+  barWebsite: 'website ↗',   // #887
   menuSignalLeft: 'Turn signal left',
   menuSignalRight: 'Turn signal right',
   menuHover: 'Hover on · off',
   menuSwitchLeft: 'Next switch left',
   menuSwitchRight: 'Next switch right',
   menuWhistle: 'Whistle',
-  pauseKeybarOn: 'Key bar: on',
-  pauseKeybarOff: 'Key bar: off',
   keyTab: 'full map (hold)',
   keySignals: 'Turn signals left · right',
   keyLights: 'Lights on · off',
@@ -446,7 +448,10 @@ const en = {
   // ---- #842 Settings ----
   settingsBtn: 'Settings',
   setTitle: 'Settings',
-  setSub: 'Sound and music',
+  setSub: 'Sound, music and display',
+  setDisplay: 'Display',
+  setKeybar: 'Key bar',
+  setKeybarCap: 'the keys for the moment, at the top of the screen',
   setAudio: 'Audio',
   setSound: 'Sound',
   setSoundCap: 'engine, horn, crashes …',
@@ -955,6 +960,7 @@ const de = {
   footNoRoom: 'Hier ist kein Platz zum Aussteigen',
   footTooFar: 'Geh zurück zum Auto, um einzusteigen',
   // ---- die Dampflok (#462) ----
+  footLookHint: 'Mit der Maus umschauen · nochmals klicken zum Beenden',
   trainIn: 'Einsteigen bitte! W Dampf, S bremsen, Q/E nächste Weiche wählen, H pfeifen, Z aussteigen',
   turnNotHere: 'Zum Wenden still auf der Drehscheibe in Sisseln halten',
   turnDone: 'Lok gewendet',
@@ -965,6 +971,8 @@ const de = {
   enterPrompt: 'E · Betreten',
   hopUpPrompt: 'E · Aufs Deck',   // #701
   hopDownPrompt: 'E · Hinunter',
+  vereinName: 'Verein Plattform Sisslerfeld',   // #887: the association's own name, the same in both languages
+  vereinOpen: 'E · Website öffnen ↗',   // #887
   enterSoon: 'Noch nicht begehbar',
   ridePrompt: 'E · Riesenrad fahren',   // #516
   rideExit: 'E · Aussteigen',
@@ -1065,14 +1073,13 @@ const de = {
   barLift: 'Lift',
   barHopUp: 'hinauf',   // #701
   barHopDown: 'hinunter',
+  barWebsite: 'Website ↗',   // #887
   menuSignalLeft: 'Blinker links',
   menuSignalRight: 'Blinker rechts',
   menuHover: 'Schweben ein · aus',
   menuSwitchLeft: 'Nächste Weiche links',
   menuSwitchRight: 'Nächste Weiche rechts',
   menuWhistle: 'Pfeifen',
-  pauseKeybarOn: 'Tastenleiste: ein',
-  pauseKeybarOff: 'Tastenleiste: aus',
   keyTab: 'ganze Karte (halten)',
   keySignals: 'Blinker links · rechts',
   keyLights: 'Licht an · aus',
@@ -1185,7 +1192,10 @@ const de = {
   // ---- #842 Einstellungen ----
   settingsBtn: 'Einstellungen',
   setTitle: 'Einstellungen',
-  setSub: 'Ton und Musik',
+  setSub: 'Ton, Musik und Anzeige',
+  setDisplay: 'Anzeige',
+  setKeybar: 'Tastenleiste',
+  setKeybarCap: 'die Tasten für den Moment, am oberen Bildrand',
   setAudio: 'Audio',
   setSound: 'Ton',
   setSoundCap: 'Motor, Hupe, Crashs …',

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE, easeEye } from '../foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE, easeEye, smoothK, easeTo, easeLook, LOOK_EASE, footClickAction } from '../foot.js';
 import { footView } from '../camera.js';
 import { colliderPush } from '../world.js';
 import { translate } from '../strings.js';
@@ -10,6 +10,9 @@ const IDLE = { fwd: 0, side: 0, turn: 0, lift: 0, nitro: 0 };
 const flat = (h = 0) => () => h;
 const run = (s, input, secs, floorAt = flat()) => { for (let i = 0; i < secs * 60; i++) s = stepFoot(s, input, 1 / 60, floorAt); return s; };
 const at = (o) => ({ x: 0, z: 0, y: 0, th: 0, vy: 0, hover: false, ...o });
+// #895: speeds ease in, so a test that pins a full-speed number settles first (2 s: within 1e-8 of the target) and
+// measures the next second -- the asserted numbers and tolerances are unchanged, only the lead-in is new
+const settle = (s, input, floorAt) => run(s, input, 2, floorAt);
 const box = (o) => ({ x: 0, z: 0, hw: 5, hd: 5, c: 1, s: 0, h: 10, ...o });
 
 test('footInput_Keys_MapToAxes', () => {
@@ -29,20 +32,28 @@ test('footInput_Stick_AddsToTheKeys_Clamped', () => {
   assert.deepEqual(footInput({ KeyW: true }), footInput({ KeyW: true }, null));
 });
 
+// #895: walking eases in -- settle first, then the next second covers walk metres exactly (same 4.5, same 1e-6)
 test('stepFoot_WalkForward_MovesAtWalkSpeedAlongHeading', () => {
-  const s = run(at({ th: Math.PI / 2 }), { ...IDLE, fwd: 1 }, 2);
-  close(s.x, 0, 1e-6); close(s.z, 2 * WALKER.walk, 1e-6); close(s.y, 0, 1e-9);
+  const s0 = settle(at({ th: Math.PI / 2 }), { ...IDLE, fwd: 1 });
+  const s = run(s0, { ...IDLE, fwd: 1 }, 1);
+  close(s.x, 0, 1e-6); close(s.z - s0.z, WALKER.walk, 1e-6); close(s.y, 0, 1e-9);
 });
 
+// #895: the sidestep eases on its own axis -- settled, the diagonal still covers walk metres, not more
 test('stepFoot_ForwardPlusSidestep_IsNotFaster', () => {
-  const s = run(at(), { ...IDLE, fwd: 1, side: 1 }, 1);
-  close(Math.hypot(s.x, s.z), WALKER.walk, 1e-6);
+  const s0 = settle(at(), { ...IDLE, fwd: 1, side: 1 });
+  const s = run(s0, { ...IDLE, fwd: 1, side: 1 }, 1);
+  close(Math.hypot(s.x - s0.x, s.z - s0.z), WALKER.walk, 1e-6);
   assert.ok(s.z > 0, 'D sidesteps to the right (+z when facing +x)');
 });
 
+// #895: the turn rate eases in -- settled it is the full turnRate, and the angle lost to the ramp over the first
+// second from rest is the analytic integral of the missing rate
 test('stepFoot_TurnKeys_ChangeHeading', () => {
-  const s = run(at(), { ...IDLE, turn: 1 }, 1);
-  close(s.th, WALKER.turnRate, 1e-6);
+  const settled = settle(at(), { ...IDLE, turn: 1 });
+  close(settled.tw, WALKER.turnRate, 1e-6);
+  const fromRest = run(at(), { ...IDLE, turn: 1 }, 1);
+  close(WALKER.turnRate * 1 - fromRest.th, WALKER.turnRate * WALKER.turnTau * (1 - Math.exp(-1 / WALKER.turnTau)), 1e-6);
 });
 
 test('stepFoot_WalkInAir_FallsOntoTheFloor', () => {
@@ -71,8 +82,10 @@ test('stepFoot_Hover_SpaceClimbsShiftSinksNeverBelowFloor', () => {
   close(stay.y, up.y, 1e-9, 'hover holds the height without input');
   const down = run(up, { ...IDLE, lift: -1 }, 10);
   close(down.y, 0, 1e-9);
-  const fast = run(at({ hover: true }), { ...IDLE, fwd: 1 }, 1);
-  close(fast.x, WALKER.hover, 1e-6);
+  // #895: the hover glide eases in too -- settle, then the next second covers hover metres (same 11, same 1e-6)
+  const fast0 = settle(at({ hover: true }), { ...IDLE, fwd: 1 });
+  const fast = run(fast0, { ...IDLE, fwd: 1 }, 1);
+  close(fast.x - fast0.x, WALKER.hover, 1e-6);
 });
 
 test('footFloor_BoxTopWithinStepUp_IsTheFloor', () => {
@@ -179,16 +192,20 @@ test('footStrings_BothLanguages_SwissGerman', () => {
   assert.match(translate('en', 'footOut'), /Z/); assert.match(translate('de', 'footOut'), /Zu Fuss/);
 });
 
-// #404: N held on foot doubles the horizontal speed (walk 4.5 -> 9, hover 11 -> 22); climb and sink stay as they are
+// #404: N held on foot doubles the horizontal speed (walk 4.5 -> 9, hover 11 -> 22); climb and sink stay as they are.
+// #895: the eased speed settles first -- the next second still covers twice the walk metres (same 2x, same 1e-6)
 test('stepFoot_WalkWithNitro_IsTwiceAsFast', () => {
-  const s = run(at(), { ...IDLE, fwd: 1, nitro: 1 }, 2);
-  close(s.x, 2 * 2 * WALKER.walk, 1e-6);
+  const s0 = settle(at(), { ...IDLE, fwd: 1, nitro: 1 });
+  const s = run(s0, { ...IDLE, fwd: 1, nitro: 1 }, 1);
+  close(s.x - s0.x, 2 * WALKER.walk, 1e-6);
   assert.equal(WALKER.nitro, 2);
 });
 
+// #895: settle the horizontal glide only (no lift held: hover holds the height), so the climb assertion keeps its metre
 test('stepFoot_HoverWithNitro_IsTwiceAsFastButClimbsAsBefore', () => {
-  const s = run(at({ hover: true, y: 20 }), { ...IDLE, fwd: 1, lift: 1, nitro: 1 }, 1, flat(0));
-  close(s.x, 2 * WALKER.hover, 1e-6); close(s.y, 20 + WALKER.climb, 1e-6);
+  const s0 = settle(at({ hover: true, y: 20 }), { ...IDLE, fwd: 1, nitro: 1 }, flat(0));
+  const s = run(s0, { ...IDLE, fwd: 1, lift: 1, nitro: 1 }, 1, flat(0));
+  close(s.x - s0.x, 2 * WALKER.hover, 1e-6); close(s.y, 20 + WALKER.climb, 1e-6);
 });
 
 test('stepFoot_NitroWithoutMovement_DoesNothing', () => {
@@ -196,9 +213,11 @@ test('stepFoot_NitroWithoutMovement_DoesNothing', () => {
   close(s.x, 0, 1e-9); close(s.z, 0, 1e-9);
 });
 
+// #895: the diagonal eases on both local axes -- settled, it still covers nitro speed, not more (same 2x, same 1e-6)
 test('stepFoot_DiagonalWithNitro_IsNotFasterThanStraight', () => {
-  const s = run(at(), { ...IDLE, fwd: 1, side: 1, nitro: 1 }, 1);
-  close(Math.hypot(s.x, s.z), 2 * WALKER.walk, 1e-6);
+  const s0 = settle(at(), { ...IDLE, fwd: 1, side: 1, nitro: 1 });
+  const s = run(s0, { ...IDLE, fwd: 1, side: 1, nitro: 1 }, 1);
+  close(Math.hypot(s.x - s0.x, s.z - s0.z), 2 * WALKER.walk, 1e-6);
 });
 
 test('keyFoot_MentionsNitro_InBothLanguages', () => {
@@ -305,4 +324,126 @@ test('easeEye_SmallRamp_NotAbsorbed', () => {
   let st = easeEye(null, 0, true, 1 / 60);
   st = easeEye(st, 0.02, true, 1 / 60);
   assert.equal(st.off, 0);
+});
+
+// #895: eased walking, turning and camera -- the pure helpers. easeTo returns the end value and the exact mean over the
+// step, so a distance integrates the same whatever the dt split (frame-rate independence is the whole point).
+test('easeTo_SplitDt_SameDistance', () => {
+  const distance = (steps) => { let v = 0, d = 0; for (let i = 0; i < steps; i++) { const r = easeTo(v, 4.5, 1 / steps, 0.1); d += r.avg * (1 / steps); v = r.v; } return d; };
+  close(distance(60), distance(30), 1e-9);
+  close(distance(60), distance(1), 1e-9);
+});
+
+test('easeTo_After3Tau_At95Percent', () => {
+  const r = easeTo(0, 4.5, 3 * 0.1, 0.1);
+  assert.ok(r.v >= 0.95 * 4.5 && r.v < 4.5, `after 3 tau at ${r.v}`);
+});
+
+test('easeTo_NeverOvershoots', () => {
+  let v = 0; for (let i = 0; i < 60; i++) { const r = easeTo(v, 4.5, 1 / 60, 0.1); assert.ok(r.v >= v && r.v <= 4.5, `from below ${r.v}`); v = r.v; }
+  v = 10; for (let i = 0; i < 60; i++) { const r = easeTo(v, 4.5, 1 / 60, 0.1); assert.ok(r.v <= v && r.v >= 4.5, `from above ${r.v}`); v = r.v; }
+});
+
+test('easeTo_ZeroTau_JumpsToTarget', () => {
+  assert.deepEqual(easeTo(0, 4.5, 1 / 60, 0), { v: 4.5, avg: 4.5 });
+  assert.deepEqual(easeTo(3, 1, 1 / 60, 0), { v: 1, avg: 1 });
+});
+
+// the view yaw/pitch follow the body's, the yaw by the shortest angle; a gap over LOOK_EASE.snap (a teleport, entering
+// foot) snaps instead of sweeping
+test('easeLook_NullView_Snaps', () => {
+  assert.deepEqual(easeLook(null, 1.234, 0.567, 1 / 60), { th: 1.234, pitch: 0.567 });
+});
+
+test('easeLook_Follows_ByTheShortestAngle', () => {
+  const first = easeLook({ th: 3.0, pitch: 0 }, -3.0, 0, 1 / 60);
+  assert.ok(first.th > 3.0 && first.th - 3.0 < 0.284, `turns across pi, not 6 rad: ${first.th}`);
+  let v = first; for (let i = 0; i < 180; i++) v = easeLook(v, -3.0, 0, 1 / 60);
+  close(v.th, -3.0 + 2 * Math.PI, 1e-9, 'settled on the target angle');
+});
+
+test('easeLook_GapOverSnap_Snaps', () => {
+  assert.deepEqual(easeLook({ th: 0, pitch: 0 }, 2.0, 0, 1 / 60), { th: 2.0, pitch: 0 });
+  assert.deepEqual(easeLook({ th: 0, pitch: 0 }, 0, LOOK_EASE.snap + 0.1, 1 / 60), { th: 0, pitch: LOOK_EASE.snap + 0.1 });
+});
+
+test('easeLook_SplitDt_SameResult', () => {
+  const once = easeLook({ th: 1.0, pitch: 0.2 }, 1.5, 0.4, 0.1);
+  let v = { th: 1.0, pitch: 0.2 }; for (let i = 0; i < 10; i++) v = easeLook(v, 1.5, 0.4, 0.01);
+  close(v.th, once.th, 1e-9); close(v.pitch, once.pitch, 1e-9);
+  close(smoothK(0.1, LOOK_EASE.tau), smoothK(0.1, LOOK_EASE.tau), 1e-12);
+});
+
+// #895: stepFoot eases into walking, sidestepping and turning (state lf/ls/tw carried by the caller); the height,
+// jump, hover climb and gravity stay exactly as they were (vertical motion is not smoothed, A2)
+test('stepFoot_WalkFromRest_RampsUpInAboutPointThreeSeconds', () => {
+  const early = run(at(), { ...IDLE, fwd: 1 }, 0.05);
+  assert.ok(Math.hypot(early.vx, early.vz) < 0.5 * WALKER.walk, `after 0.05 s at ${Math.hypot(early.vx, early.vz)}`);
+  const late = run(at(), { ...IDLE, fwd: 1 }, 0.5);
+  close(Math.hypot(late.vx, late.vz), WALKER.walk, 0.01 * WALKER.walk);
+});
+
+test('stepFoot_ReleaseKey_BrakesAndStopsMoving', () => {
+  let s = run(at(), { ...IDLE, fwd: 1 }, 1);
+  const from = { x: s.x, z: s.z };
+  s = run(s, IDLE, 0.6);
+  const glide = Math.hypot(s.x - from.x, s.z - from.z);
+  assert.ok(glide > 0 && glide < WALKER.walk * WALKER.walkTau * 1.01, `glide ${glide}`);
+  const still = run(s, IDLE, 0.5);
+  assert.ok(Math.hypot(still.x - s.x, still.z - s.z) < 2e-3, `keeps sliding ${Math.hypot(still.x - s.x, still.z - s.z)}`);
+});
+
+test('stepFoot_TurnKey_RampsAndSettlesAtTurnRate', () => {
+  const settled = run(at(), { ...IDLE, turn: 1 }, 0.6);
+  close(settled.tw, WALKER.turnRate, 0.01 * WALKER.turnRate);
+  const t = run(at(), { ...IDLE, turn: 1 }, 1);
+  close(WALKER.turnRate * 1 - t.th, WALKER.turnRate * WALKER.turnTau * (1 - Math.exp(-1 / WALKER.turnTau)), 1e-6, 'the lost angle');
+});
+
+// the exact step mean makes the distance dt-independent; under a turn key the endpoints differ by the arc
+// discretisation (as with the old instant turn), so the strides and the total heading are compared instead
+test('stepFoot_SameWalkAtDt60And30_SameDistance', () => {
+  const stride = (dt, input) => { let s = at(), dist = 0; for (let i = 0; i < Math.round(1 / dt); i++) { const n = stepFoot(s, input, dt, flat()); dist += Math.hypot(n.x - s.x, n.z - s.z); s = n; } return { s, dist }; };
+  const straight60 = stride(1 / 60, { ...IDLE, fwd: 1 }), straight30 = stride(1 / 30, { ...IDLE, fwd: 1 });
+  close(straight60.dist, straight30.dist, 1e-9);
+  close(Math.hypot(straight60.s.x, straight60.s.z), Math.hypot(straight30.s.x, straight30.s.z), 1e-9);
+  const turn60 = stride(1 / 60, { ...IDLE, fwd: 1, turn: 1 }), turn30 = stride(1 / 30, { ...IDLE, fwd: 1, turn: 1 });
+  close(turn60.dist, turn30.dist, 1e-3);
+  close(turn60.s.th, turn30.s.th, 1e-3);
+});
+
+test('stepFoot_TurnWhileWalking_NoSideSlip', () => {
+  const s = run(at(), { ...IDLE, fwd: 1, turn: 1 }, 1);
+  assert.equal(s.ls, 0, 'the eased speed stays on the walking axis while the heading turns');
+});
+
+test('stepFoot_HoverWithNitro_RampsToTwiceHover', () => {
+  const early = run(at({ hover: true }), { ...IDLE, fwd: 1, nitro: 1 }, 0.05);
+  assert.ok(Math.hypot(early.vx, early.vz) < WALKER.hover, `after 0.05 s at ${Math.hypot(early.vx, early.vz)}`);
+  const s = run(at({ hover: true }), { ...IDLE, fwd: 1, nitro: 1 }, 1);
+  close(Math.hypot(s.vx, s.vz), 2 * WALKER.hover, 0.02 * 2 * WALKER.hover);
+});
+
+test('stepFoot_StateRoundTrip_IsDeterministic', () => {
+  const journey = () => {
+    let s = run(at(), { ...IDLE, fwd: 1, turn: 1 }, 0.5);
+    s = run(s, { ...IDLE, lift: 1 }, 0.1);
+    s = run(s, IDLE, 1);
+    return s;
+  };
+  assert.deepEqual(journey(), journey());
+});
+
+// a left click on the landscape on foot toggles the look mode: it grabs the mouse, and a second one lets it go again (no pause)
+test('footClickAction_OnFootUnlocked_Locks', () => {
+  assert.equal(footClickAction({ foot: true, locked: false, menu: false }), 'lock');
+});
+
+test('footClickAction_OnFootLocked_Unlocks', () => {
+  assert.equal(footClickAction({ foot: true, locked: true, menu: false }), 'unlock');
+});
+
+test('footClickAction_InTheCarOrAMenu_Nothing', () => {
+  assert.equal(footClickAction({ foot: false, locked: false, menu: false }), null);
+  assert.equal(footClickAction({ foot: true, locked: false, menu: true }), null);
 });

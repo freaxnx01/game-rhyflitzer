@@ -10,11 +10,15 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-12 10:37` On the **Plattform deck** a plate names the **Verein Plattform Sisslerfeld**; <kbd>E</kbd> opens its website in a new tab.
 - `2026-11-11 21:47` A **fenced paddock** with eight **ostriches** at the Straussenfarm in Sisseln: they stand, peck and walk, and run off when the car or the walker comes close. <kbd>J</kbd> lists the farm.
 - `2026-11-11 19:22` **Radio Argovia** is a third station on the car radio: press <kbd>6</kbd> to cycle Rhyflitzer FM, SRF 3 and Radio Argovia.
 
 ### Changed
 
+- `2026-11-11 20:59` Zu Fuss **laufen**, **drehen** und der **Blick** sind jetzt weich: Anlauf und Auslauf statt Ruckeln. Die Pfeiltasten drehen mit Anlauf, Gehen und **Seitschritt** beschleunigen und bremsen, und die Kamera folgt der Blickrichtung einen Augenblick später — auch bei der **Maus**. Springen und Hover steigen wie gehabt, und Teleporte (Lift, Riesenrad, Plattform-Sprung) setzen dich wie immer sofort ab.
+- `2026-11-12 08:38` The **vehicle depot** only parks the nearest cars for real; the far slots wait under **grey covers** until you come close, so weak devices no longer crash there. Drive off and the cars you left behind give their memory back.
+- `2026-11-11 20:40` The **Postauto's rear display** is now as wide as the front one and a real **LED dot matrix**: the line number in big pixel digits, and the **smiley** and **thank-you** after you waited behind it in the same pixel font, readable from the car behind.
 - `2026-11-11 19:26` **Postautos** cost less per frame in the **OSM world**: standing buses no longer re-measure the ground, and their **LED** and engine sound reuse work already done.
 - `2026-11-11 19:03` Driving in the **OSM world** is **smoother**: the **Postauto** fleet and the **touch controls** do less work on every frame.
 - `2026-11-11 14:53` The **Mazda hatchback** is now the **start car**. The **Sissle Speedster** has retired: it is gone from **Choose car**, the gallery and the vehicle depot. A saved Speedster choice drives the hatchback.
@@ -29,6 +33,9 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Fixed
 
 - `2026-11-12 09:12` The **houses** along the Hauptstrasse now have exactly **one front door** at street level instead of a door in **every storey**, only **whole windows** (none cut in half by the gable, the eaves or a corner — the gable ends are plain wall with at most one attic window), and you can no longer see the **sky through the roof** overhang from below.
+- `2026-11-11 20:47` Starting a **video recording** with <kbd>§</kbd> no longer makes the **music** drop out for a moment, neither in the game nor in the video.
+- `2026-11-11 20:41` The **key bar** switch works again and has moved from the pause menu to **Settings** (new section **Display**): one click hides or shows the keys at the top of the screen, and the choice is kept. With the keyboard, Enter on the start screen starts the preselected mode again once the start car has loaded.
+- `2026-11-11 20:47` **On foot**, looking around with the mouse is now a toggle: a **left click** grabs the mouse, a **second left click** lets it go again without opening the pause menu. A short hint says so when it starts.
 - `2026-11-11 20:27` The **Plattform Sisslerfeld**'s roof tip is clean again: the central post no longer pokes out above the apex as a little wooden block.
 - `2026-11-11 12:28` The **Hauptstrasse** in Sisseln no longer has a small **step** where it climbs out of the rail underpass, and the **stone walls** at the **Königsweg** rail decks stay below the deck instead of poking up through it.
 - `2026-11-11 12:20` The **Sissle** and the other small **streams** are visible again where they run through farmland: the **fields** no longer cover the water in places.

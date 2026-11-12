@@ -58,7 +58,8 @@ test('stepFoot_WalkingUpARamp_FollowsItsSurface', () => {
   const walk = set({ ramps: [rect({ x: 5, hw: 5, hd: 1, y0: 0, y1: 2.5 })] });
   const floorAt = (x, z, y) => walkwayFloor(walk, x, z, y) ?? 0;
   let s = { x: 0.5, z: 0, y: 0, th: 0, vy: 0, hover: false };
-  for (let i = 0; i < 90; i++) s = stepFoot(s, { fwd: 1, side: 0, turn: 0, lift: 0, nitro: 0 }, 1 / 60, floorAt);
+  // #895: the walk eases in and loses ~0.45 m at the start -- 110 steps walk as far as 90 did before
+  for (let i = 0; i < 110; i++) s = stepFoot(s, { fwd: 1, side: 0, turn: 0, lift: 0, nitro: 0 }, 1 / 60, floorAt);
   assert.ok(s.x > 6.5, `walked ${s.x}`);
   close(s.y, rampY(walk.ramps[0], s.x, s.z), 1e-6);
   assert.equal(s.vy, 0, 'grounded on the slope');

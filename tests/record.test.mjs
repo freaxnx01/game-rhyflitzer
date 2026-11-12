@@ -55,3 +55,12 @@ test('formatClock: m:ss', () => {
 test('MAX_SECONDS: 10 minutes', () => {
   assert.equal(MAX_SECONDS, 600);
 });
+
+test('pickRecordFormat: H.264 + Opus in mp4 before AAC -- the AAC encoder start drops the music (#891)', () => {
+  assert.equal(FORMATS[0], 'video/mp4;codecs=avc1,opus');
+  assert.ok(FORMATS.indexOf('video/mp4;codecs=avc1,opus') < FORMATS.indexOf('video/mp4;codecs=avc1,mp4a.40.2'));
+  const chrome = new Set(['video/mp4;codecs=avc1,opus', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus']);
+  assert.deepEqual(pickRecordFormat(m => chrome.has(m)), { mime: 'video/mp4;codecs=avc1,opus', ext: 'mp4' });
+  const noOpusInMp4 = new Set(['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4']);
+  assert.deepEqual(pickRecordFormat(m => noOpusInMp4.has(m)), { mime: 'video/mp4;codecs=avc1,mp4a.40.2', ext: 'mp4' });
+});

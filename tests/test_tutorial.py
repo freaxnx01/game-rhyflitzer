@@ -5,6 +5,7 @@ import math
 from playwright.sync_api import sync_playwright
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
+MODES_OPEN = "() => !document.querySelector('#tutorialbtn').disabled"
 READY = "() => window.__mm && window.__mm.tutorial && window.__mm.plattform() && document.querySelector('#worldstatus')?.textContent"
 T = 240000
 DEFS = "async () => (await import('./tutorial.js')).TUTORIAL_DEFS.hochrhein"
@@ -70,10 +71,12 @@ def assert_cross(crosses):
 def test_first_visit_preselects_the_tutorial_and_a_returning_player_gets_cruise(server):
     with sync_playwright() as p:
         b, page, errors = boot(p, server, "?firstvisit=1")
+        page.wait_for_function(MODES_OPEN, timeout=T)                   # the start car's model loads after the boot: the focus follows it
         first = page.evaluate("() => ({ ...window.__mm.startScreen(), glow: document.querySelector('#tutorialbtn').classList.contains('first'), label: document.querySelector('#tutorialbtn').textContent })")
         flag = page.evaluate(FLAG)
         b.close()
         b2, page2, errors2 = boot(p, server)
+        page2.wait_for_function(MODES_OPEN, timeout=T)
         again = page2.evaluate("() => ({ focus: document.activeElement.id, glow: document.querySelector('#tutorialbtn').classList.contains('first') })")
         b2.close()
     assert flag is None
@@ -164,6 +167,7 @@ def test_esc_offers_end_tutorial_which_marks_it_done_and_returns_to_cruise(serve
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=T)
         shown = page.evaluate("() => Object.fromEntries(['pauserestart', 'pausemenu', 'pausetutorial'].map(i => [i, !document.getElementById(i).hidden]))")
+        timetable = page.evaluate("() => !document.getElementById('pausetimetable').hidden")   # #801: only where the region has a timetable
         seen = []
         for _ in range(5):
             page.keyboard.press("ArrowDown")
@@ -173,7 +177,7 @@ def test_esc_offers_end_tutorial_which_marks_it_done_and_returns_to_cruise(serve
         after = page.evaluate("() => ({ abandon: !document.querySelector('#abandon').hidden, focus: document.activeElement.id, glow: document.querySelector('#tutorialbtn').classList.contains('first'), flag: localStorage.getItem('mm.tutorialDone') })")
         b.close()
     assert shown == {"pauserestart": False, "pausemenu": False, "pausetutorial": True}, shown
-    assert seen == ["pausevehicle", "pausestyle", "pauseabout", "pausesettings", "pausekeybar"], seen
+    assert seen == ["pausevehicle", "pausestyle"] + (["pausetimetable"] if timetable else []) + ["pauseabout", "pausesettings", "pausetutorial"][:3 - timetable], seen
     assert after == {"abandon": False, "focus": "cruisebtn", "glow": False, "flag": "1"}, after
     assert errors == []
 
