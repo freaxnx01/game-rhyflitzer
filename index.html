@@ -1044,6 +1044,11 @@ import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
 import { OSTRICH, inPaddock, fencePosts, makeFlock, stepFlock } from './ostriches.js';   // #846: the Straussenfarm Sisseln's ostrich paddock
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
+import { createSimClock, simClockNow, simClockSetStepped, simClockAdvance } from './simclock.js';   // #875
+// #875: the sim clock -- wall time while playing, exact fixed steps while a capture drives __mm.tick. simNow() replaces
+// performance.now() at every simulation/visual read; UI timing (loading, toasts, debounces) stays on the wall clock.
+let SIMCLOCK = createSimClock();
+const simNow = () => simClockNow(SIMCLOCK, performance.now());
 trackPageview(); identifySource(); if (document.readyState === 'complete') umamiSettle(); else addEventListener('load', umamiSettle, { once: true });   // #538: the pageview waits in the queue for g.js
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
 
@@ -4046,16 +4051,16 @@ function drawKeyLine(g, text, cx, y, maxW) {
   g.textAlign = 'center';
 }
 function relabelFerrisSign() { const d = ROOM.ferrisSign; if (!d) return; drawFerrisSign(d.tex.image.getContext('2d'), d.tex.image.width, d.tex.image.height); d.tex.needsUpdate = true; }
-function stepFerris() {   // #513: the wheel's turn -- visual only, from the wall clock so it never depends on the frame rate
+function stepFerris() {   // #513: the wheel's turn -- visual only, from the sim clock (#875) so it never depends on the frame rate
   if (!ROOM.ferris || ROOM.built !== ROOM.ferris.built) return;
   ROOM.ferris.angle = currentWheelAngle(); setWheelAngle(ROOM.ferris.handle, ROOM.ferris.angle);   // #516: the ride drives or holds the wheel
-  const t = performance.now() / 1000; setWheelLights(ROOM.ferris.handle, t + FX.shift); setFireworks(ROOM.ferris.fw, t, FERRIS, FX.salvos);   // #588: the light show and the fireworks, also from the wall clock
+  const t = simNow() / 1000; setWheelLights(ROOM.ferris.handle, t + FX.shift); setFireworks(ROOM.ferris.fw, t, FERRIS, FX.salvos);   // #588: the light show and the fireworks, also from the sim clock
 }
-// the Ferris room's keys (3 fireworks, 4 light show): FX.salvos are the start times of the manual salvos (wall clock, s), FX.shift the show clock's skip
+// the Ferris room's keys (3 fireworks, 4 light show): FX.salvos are the start times of the manual salvos (sim clock, s), FX.shift the show clock's skip
 const FX = { salvos: [], shift: 0 }, FX_SHOW_TOAST = { chase: 'ferrisShowChase', pulse: 'ferrisShowPulse', sparkle: 'ferrisShowSparkle', fade: 'ferrisShowFade' };
 function pressFerrisFx(code) {   // true when the key was one of the room's and the walker or car is in the built Ferris room
   const F = ROOM.ferris; if (!F || ROOM.built !== F.built || LEVELS.id !== ROOM.layout.id) return false;
-  const t = performance.now() / 1000;
+  const t = simNow() / 1000;
   if (code === FERRIS_KEYS.fireworks) { FX.salvos = FX.salvos.filter(s => t - s < FERRIS.fireworks.life + 2).concat(t); toast(tr('ferrisFireworks')); return true; }
   if (code === FERRIS_KEYS.show) { FX.shift = nextPatternShift(t, FX.shift); toast(tr(FX_SHOW_TOAST[patternAt(t + FX.shift).a])); return true; }
   return false;
@@ -4063,14 +4068,14 @@ function pressFerrisFx(code) {   // true when the key was one of the room's and 
 // #516: riding the Ferris wheel on foot (ferrisride.js is the pure state machine). RIDE.s is the ride's state,
 // RIDE.offset the resting wheel's clock offset, RIDE.leave a requested early exit.
 const RIDE = { s: rideIdle(), offset: 0, leave: false };
-const currentWheelAngle = () => RIDE.s.phase !== 'idle' ? rideAngle(RIDE.s) : wheelAngle(performance.now() / 1000 + RIDE.offset);
+const currentWheelAngle = () => RIDE.s.phase !== 'idle' ? rideAngle(RIDE.s) : wheelAngle(simNow() / 1000 + RIDE.offset);
 function rideContext() {   // null unless the walker is on foot in the built Ferris room
   const F = ROOM.ferris; if (!FOOT.on || !F || ROOM.built !== F.built || LEVELS.id !== ROOM.layout.id) return null;
   const w = ROOM.layout.ferris.wheel, [x, z] = toWheel(w, P.x, P.z);
   return { w, local: { x, z }, grounded: !FOOT.hover && P.y - ROOM.layout.y <= RIDE_CFG.groundTol };
 }
 const rideNow = () => { const c = rideContext(); return c ? rideAction(RIDE.s, currentWheelAngle(), c.local, c.grounded) : { do: 'none' }; };
-function releaseWheel(angle) { RIDE.offset = clockOffset(angle, performance.now() / 1000); RIDE.s = rideIdle(); }   // the resting clock continues from `angle`: no jump
+function releaseWheel(angle) { RIDE.offset = clockOffset(angle, simNow() / 1000); RIDE.s = rideIdle(); }   // the resting clock continues from `angle`: no jump
 function endRide() { if (RIDE.s.phase !== 'idle') releaseWheel(rideAngle(RIDE.s)); }   // R, J, the beam and the Testhub all end on foot through endFoot
 function pressRide() {   // E on foot at the pad, or in the gondola; true when the ride took the key
   const a = rideNow();
@@ -4284,7 +4289,7 @@ window.__mm.ferrisRide = () => {
 window.__mm.rideSim = (secs) => { let maxY = -Infinity; for (let i = 0; i < secs * 60; i++) { if (FOOT.on && RIDE.s.phase !== 'idle') stepRide(1 / 60); stepFerris(); maxY = Math.max(maxY, P.y); } stepCamera(1 / 60); return { ...window.__mm.ferrisRide(), maxY, y: P.y, foot: FOOT.on }; };
 window.__mm.vasa = () => ROOM.states[3] ? { ...ROOM.states[3], hull: VASA.hull, length: VASA.length, keel: ROOM.models[3] ? ROOM.models[3].position.y : null, basin: ROOM.layouts[3].basin } : null;   // #421
 window.__mm.titanic = () => ROOM.states[7] ? { ...ROOM.states[7], hull: TITANIC.hull, length: TITANIC.length, draught: TITANIC.draught, keel: ROOM.models[7] ? ROOM.models[7].position.y : null, basin: ROOM.layouts[7].basin && { w: ROOM.layouts[7].basin.w, end: ROOM.layouts[7].basin.end, y: ROOM.layouts[7].basin.y, lane: ROOM.layouts[7].basin.lane } } : null;   // #422
-window.__mm.ferrisFx = () => ({ salvos: FX.salvos.length, shift: FX.shift, pattern: patternAt(performance.now() / 1000 + FX.shift).a, sparks: ROOM.ferris ? ROOM.ferris.fw.live : 0, sign: ROOM.ferrisSign ? { x: ROOM.ferrisSign.x, z: ROOM.ferrisSign.z } : null });   // the Ferris room's keys 3 / 4 and the sign
+window.__mm.ferrisFx = () => ({ salvos: FX.salvos.length, shift: FX.shift, pattern: patternAt(simNow() / 1000 + FX.shift).a, sparks: ROOM.ferris ? ROOM.ferris.fw.live : 0, sign: ROOM.ferrisSign ? { x: ROOM.ferrisSign.x, z: ROOM.ferrisSign.z } : null });   // the Ferris room's keys 3 / 4 and the sign
 window.__mm.dedication = () => ROOM.dedication && { x: ROOM.dedication.x, z: ROOM.dedication.z, face: ROOM.dedication.face, top: ROOM.dedication.top, lead: tr('dedicationLead'), solid: (({ dx, dz }) => Math.hypot(dx, dz) > 0.1)(window.__mm.pushAt(ROOM.dedication.x, ROOM.dedication.z, -1200)) };
 window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489); the glow per section is read off the loaded meshes
   if (!ROOM.states[8] || ROOM.built !== 8) return null;
@@ -4651,9 +4656,10 @@ scene.add(POSTAUTO.group);
 // #726: the fleet clock -- Europe/Zurich wall time, or set from the panel / ?patime=HH:MM, at a ?pasp= time-lapse factor
 const PA_QUERY = clockFromQuery(new URLSearchParams(location.search).get('patime'), new URLSearchParams(location.search).get('pasp'));
 // patime and pasp combine (setFactor rebases without a jump and keeps `given`)
-let PACLOCK = PA_QUERY.patime !== null ? setTime(wallClock(), PA_QUERY.patime, performance.now()) : wallClock();
-if (PA_QUERY.factor > 1) PACLOCK = setFactor(PACLOCK, PA_QUERY.factor, performance.now(), zurichSeconds(new Date()));
-function postautoClock() { return clockNow(PACLOCK, performance.now(), zurichSeconds(new Date())); }
+let PACLOCK = PA_QUERY.patime !== null ? setTime(wallClock(), PA_QUERY.patime, simNow()) : wallClock();
+if (PA_QUERY.factor > 1) PACLOCK = setFactor(PACLOCK, PA_QUERY.factor, simNow(), zurichSeconds(new Date()));
+function postautoClock() { return clockNow(PACLOCK, simNow(), zurichSeconds(new Date())); }
+let PA_STEPPED_FROM_WALL = false;   // #875: __mm.stepped converted a wall fleet clock to sim time; leaving restores wall
 async function loadPostauto() {
   if (!L || !REGION.timetable || !L.busRoutes.length) return;
   console.info('Loading the Postauto timetable from', REGION.timetable);
@@ -4770,7 +4776,7 @@ function stepPostauto(dt) {
   if (jumped || POSTAUTO.syncT <= 0) { POSTAUTO.buses = syncFleet(jumped ? [] : POSTAUTO.buses, POSTAUTO.trips, POSTAUTO.routes, now); POSTAUTO.syncT = 1; }
   POSTAUTO.prev = now;
   if (POSTAUTO.buses.some((b) => b.phase !== 'done') && gltfState('bus') === 'idle') loadVehicleModel('bus');
-  const surface = LEVELS.isSurface(), flashOn = Math.floor(performance.now() / 350) % 2 === 0;
+  const surface = LEVELS.isSurface(), flashOn = Math.floor(simNow() / 350) % 2 === 0;
   const player = { x: P.x, z: P.z, v: Math.hypot(P.vx, P.vz), r: FOOT.on ? WALKER.radius : carRadius() };
   POSTAUTO.colliders = [];
   const alive = new Set();
@@ -4894,7 +4900,7 @@ function stepEnterGlow() {   // on foot only: every ready, visible entrance on t
   for (const sp of ENTER_GLOW.sprites.values()) sp.visible = false;
   ENTER_GLOW.shown = [];
   if (!FOOT.on) return;
-  const pulse = reducedMotion() ? 1 : 0.85 + 0.15 * Math.sin(performance.now() / 500);
+  const pulse = reducedMotion() ? 1 : 0.85 + 0.15 * Math.sin(simNow() / 500);
   for (const e of visibleEnterables(ENTERABLES, secretRevealed())) {
     if (!e.ready || e.level !== LEVELS.id) continue;
     e.entrances.forEach((en, i) => {
@@ -5612,7 +5618,7 @@ function stepCar(dt) {
   if (KNOCK) { const sl = KNOCK.step(); if (sl) { P.vx *= 1 - sl; P.vz *= 1 - sl; } }   // #415: knocked-over props go first, so their colliders are off for this step
   collide(carRadius());
   followCave();
-  car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; { const flick = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04)); for (const f of flames.children) f.scale.y = flick; }   // each cone along its own axis (local y): scaling the group would pull the flames into the body
+  car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); flames.visible = !!P.nitro && !wet && !CAM_VIEWS[camView].eye; { const flick = 0.7 + 0.5 * Math.abs(Math.sin(simNow() * 0.04)); for (const f of flames.children) f.scale.y = flick; }   // each cone along its own axis (local y): scaling the group would pull the flames into the body
   const slope = air ? 0 : (groundH(P.x + fx * 2, P.z + fz * 2, P.y) - groundH(P.x - fx * 2, P.z - fz * 2, P.y)) / 4; car.rotation.z = Math.atan(slope) * 0.8 + (air ? -P.vy * 0.03 : 0); car.rotation.x = -vs * 0.01 + TIP_S.roll;
   if (TIP_S.roll) { const l = tipLift(TIP_S.roll, VEH.tip.pivot * VEH.scale); car.position.set(P.x + rx * l.dz, P.y + l.dy, P.z + rz * l.dz); }   // it rolls over its outer edge, not its centre
   // #163: the shadow's pose, as state only -- drawShadow writes the mesh. The pitch reuses the forward samples above (groundTilt of
@@ -5739,7 +5745,7 @@ function renderModeLine() { document.body.classList.toggle('cruise', R.mode === 
 function setPipCount(n) { $('cpt').textContent = n; const pips = $('pips'); if (pips.children.length === n) return; pips.replaceChildren(...Array.from({ length: n }, () => document.createElement('div'))); pips.style.gridTemplateColumns = `repeat(${n},1fr)`; }
 function updatePips() { const on = R.mode === 'hunt' ? HUNT_RUN.found : R.mode === 'view' ? VIEW_RUN.shot : R.mode === 'tutorial' ? TUT_RUN.st.steps.slice(0, -1).map((_, k) => k < TUT_RUN.st.i) : cpObjs.map(c => c.done); $('cpn').textContent = R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', !!on[i])); }
 // armed -> racing is deliberately outside the !FLY.on gate below: helicopter movement starts the clock too, and it runs on in flight (#10)
-function stepRace(dt) { if (R.mode === 'cruise') { R.target = null; return; }   /* #551: nothing to race, nothing to point at — the state stays 'armed', so pause works and Main menu never asks to abandon */ if (R.mode === 'hunt') { stepHunt(dt); return; } if (R.mode === 'view') { stepView(dt); return; } if (R.mode === 'tutorial') { stepTutorial(dt); return; } if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; if (R.state === 'racing' && R.mode === 'blitz') { R.left = blitzTick(R.left, dt); if (blitzTimeUp(R.left)) { timeUp(); return; } } let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on && !FOOT.on) { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); if (R.mode === 'blitz') { R.left = blitzBonus(R.left); toastHtml(tr('cpToastBlitz', R.done, esc(best.n), BLITZ.bonus), TOAST_S.event); } else toastHtml(tr('cpToast', R.done, esc(best.n)), TOAST_S.event); if (R.done === 5) finishG.visible = true; } else if (best.i < 0 && bd < 7 && R.state === 'racing') finish(); const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toastHtml(tr('holzToast'), TOAST_S.event); } if (ob && ob.pontoon) R.pontoon = true; } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(performance.now() / 300) * 0.08; }
+function stepRace(dt) { if (R.mode === 'cruise') { R.target = null; return; }   /* #551: nothing to race, nothing to point at — the state stays 'armed', so pause works and Main menu never asks to abandon */ if (R.mode === 'hunt') { stepHunt(dt); return; } if (R.mode === 'view') { stepView(dt); return; } if (R.mode === 'tutorial') { stepTutorial(dt); return; } if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; if (R.state === 'racing' && R.mode === 'blitz') { R.left = blitzTick(R.left, dt); if (blitzTimeUp(R.left)) { timeUp(); return; } } let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on && !FOOT.on) { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); if (R.mode === 'blitz') { R.left = blitzBonus(R.left); toastHtml(tr('cpToastBlitz', R.done, esc(best.n), BLITZ.bonus), TOAST_S.event); } else toastHtml(tr('cpToast', R.done, esc(best.n)), TOAST_S.event); if (R.done === 5) finishG.visible = true; } else if (best.i < 0 && bd < 7 && R.state === 'racing') finish(); const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toastHtml(tr('holzToast'), TOAST_S.event); } if (ob && ob.pontoon) R.pontoon = true; } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(simNow() / 300) * 0.08; }
 function stepHunt(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; { const ob = onBridge(P.x, P.z, P.y); if (ob && ob.pontoon) R.pontoon = true; } SURP = tickSurprises(SURP, dt); animatePresents(dt); drawConfetti(dt); if (HUNT_RUN.endIn > 0) { HUNT_RUN.endIn -= dt; if (HUNT_RUN.endIn <= 0) showHuntResult(); } const i = nearestPresent(HUNT_RUN.spots, HUNT_RUN.found, P.x, P.z); R.target = i < 0 ? null : { ...HUNT_RUN.spots[i], n: '', i, hunt: true }; if (i >= 0 && canCollect(HUNT_RUN.spots[i], P, R.state, FLY.on || FOOT.on)) collectPresent(i); }
 // #508: the clock runs from the first movement; the arrow leads to the nearest open viewpoint, and once there to its subject
 function stepView(dt) {
@@ -5835,7 +5841,7 @@ function finishTutorial() { markTutorialDone(); R.state = 'finished'; SFX.finish
 function showTutorialResult() { TUT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'tutorial') return; endFoot(); $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; $(!$('viewbtn').hidden ? 'viewbtn' : 'cruisebtn').focus(); }   // #534: the suggestion -- Viewpoints next
 function markTutorialDone() { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) { } START_MODE = startModeFrom(location.search, RACELESS, VIEWPOINTS.length > 0, true); $('tutorialbtn').classList.remove('first'); }
 function quitTutorial() { markTutorialDone(); toMainMenu(); }   // #534: End tutorial in the pause menu; no clock, so no abandon question
-function animatePresents(dt) { const now = performance.now() / 1000; presentObjs.forEach((o, i) => { if (!o.g.visible) return; o.box.rotation.y += dt * 1.2; o.box.position.y = 1.6 + Math.sin(now * 2 + i) * 0.3; }); }
+function animatePresents(dt) { const now = simNow() / 1000; presentObjs.forEach((o, i) => { if (!o.g.visible) return; o.box.rotation.y += dt * 1.2; o.box.position.y = 1.6 + Math.sin(now * 2 + i) * 0.3; }); }
 function collectPresent(i) { const s = HUNT_RUN.spots[i]; HUNT_RUN.found[i] = true; presentObjs[i].g.visible = false; R.done++; updatePips(); burstConfetti(s.x, s.y, s.z, HUNT_RUN.rng); SFX.present(); const r = nextSurprise(HUNT_RUN.bag, HUNT_RUN.rng); HUNT_RUN.bag = r.bag; applySurprise(r.surprise); toastHtml(tr('presentToast', R.done, HUNT_RUN.spots.length, surpriseLine(r.surprise)), TOAST_S.surprise); if (R.done === HUNT_RUN.spots.length) endHunt(); }
 function surpriseLine(s) { return s.id === 'hop' ? tr('surpriseHop') : s.id === 'turbo' ? tr('surpriseTurbo', s.secs) : s.id === 'moon' ? tr('surpriseMoon', s.secs) : tr('surpriseRepair'); }
 function applySurprise(s) { if (s.id === 'hop') { if (!FLY.on) { P.y += 0.3; P.vy = s.vy; } } else if (s.id === 'turbo') SURP.turbo = s.secs; else if (s.id === 'moon') SURP.moon = s.secs; else P.dmg = 0; }
@@ -7022,11 +7028,11 @@ for (const id of ['debugpatime', 'debugpaspeed']) for (const type of ['keydown',
 $('debugpaset').addEventListener('click', (e) => e.stopPropagation());   // a click in the row does not copy the panel
 function syncClockUrl() { const u = new URL(location.href), q = clockQuery(PACLOCK); for (const [k, v] of Object.entries(q)) v === null ? u.searchParams.delete(k) : u.searchParams.set(k, v); history.replaceState(null, '', u); }
 function applyPaTime() { const secs = parsePatime($('debugpatime').value.trim()); $('debugpatime').classList.toggle('bad', secs === null); if (secs === null) return;
-  PACLOCK = setTime(PACLOCK, secs, performance.now()); POSTAUTO.forceSync = true; syncClockUrl(); }
+  PACLOCK = setTime(PACLOCK, secs, simNow()); POSTAUTO.forceSync = true; syncClockUrl(); }
 $('debugpasetgo').addEventListener('click', (e) => { applyPaTime(); e.currentTarget.blur(); });
 $('debugpatime').addEventListener('keydown', (e) => { if (e.key === 'Enter') { applyPaTime(); e.currentTarget.blur(); } else if (e.key === 'Escape') e.currentTarget.blur(); });   // Esc does not pause while typing
 $('debugpawall').addEventListener('click', (e) => { PACLOCK = wallClock(); PA_SPEED_SEL.value = '1'; $('debugpatime').classList.remove('bad'); POSTAUTO.forceSync = true; syncClockUrl(); e.currentTarget.blur(); });
-PA_SPEED_SEL.addEventListener('change', (e) => { PACLOCK = setFactor(PACLOCK, parseFactor(e.currentTarget.value), performance.now(), zurichSeconds(new Date())); syncClockUrl(); e.currentTarget.blur(); });
+PA_SPEED_SEL.addEventListener('change', (e) => { PACLOCK = setFactor(PACLOCK, parseFactor(e.currentTarget.value), simNow(), zurichSeconds(new Date())); syncClockUrl(); e.currentTarget.blur(); });
 // building heights (data h, +rh, hsrc) over the buildings within 60 m: own grid, sprite pool and LRU, built like the house numbers (LABELS)
 const DEBUG_H = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [] };
 if (L) for (const it of heightLabels(L.buildings)) { const g = terrainH(it.x, it.z); it.y = g + it.top + 4; it.floor = g + 2; gridAdd(DEBUG_H.grid, it.x, it.z, it.x, it.z, it); }
@@ -7060,7 +7066,7 @@ const DMG_FMT = new Intl.NumberFormat(navigator.language, { style: 'percent' });
 function showDamage() { const pct = Math.round(P.dmg * 100); if (pct === HUD.dmgPct) return; HUD.dmgPct = pct; $('dmg').firstElementChild.style.width = pct + '%'; $('dmg').classList.toggle('crit', pct >= 75); $('dmg').setAttribute('aria-valuenow', String(pct)); $('dmgpct').textContent = DMG_FMT.format(pct / 100); }
 // #270: applies the shared lamp state (#270 head/tail, #271 hazard, #230 brake) to the compact's shared materials and the DeLorean's
 // local lamp materials, and drives the blinker boxes + HUD arrows. Called from hud() every frame, where the blinker block used to live.
-function applyLamps() { const flashOn = Math.floor(performance.now() / 350) % 2 === 0; const s = lampState({ head: LIGHTS.head, hazard: LIGHTS.hazard, blinker: HUD.blinker, braking: LIGHTS.braking, flashOn }); carMats.lampHead.emissiveIntensity = s.headLevel; carMats.lampTail.emissiveIntensity = s.tailLevel; for (const m of GLTF_LAMPS.head) m.emissiveIntensity = s.headLevel; for (const m of GLTF_LAMPS.tail) m.emissiveIntensity = s.tailLevel; for (const l of LOCAL_LAMPS) { l.head.color.setHex(0xfff6d0).multiplyScalar(s.headLevel / LAMP.head.off); l.tail.color.setHex(0xe0322d).multiplyScalar(s.tailLevel / LAMP.tail.off); } $('blL').className = s.left ? 'on' : ''; $('blR').className = s.right ? 'on' : ''; BLINK.left.visible = s.left; BLINK.right.visible = s.right; }
+function applyLamps() { const flashOn = Math.floor(simNow() / 350) % 2 === 0; const s = lampState({ head: LIGHTS.head, hazard: LIGHTS.hazard, blinker: HUD.blinker, braking: LIGHTS.braking, flashOn }); carMats.lampHead.emissiveIntensity = s.headLevel; carMats.lampTail.emissiveIntensity = s.tailLevel; for (const m of GLTF_LAMPS.head) m.emissiveIntensity = s.headLevel; for (const m of GLTF_LAMPS.tail) m.emissiveIntensity = s.tailLevel; for (const l of LOCAL_LAMPS) { l.head.color.setHex(0xfff6d0).multiplyScalar(s.headLevel / LAMP.head.off); l.tail.color.setHex(0xe0322d).multiplyScalar(s.tailLevel / LAMP.tail.off); } $('blL').className = s.left ? 'on' : ''; $('blR').className = s.right ? 'on' : ''; BLINK.left.visible = s.left; BLINK.right.visible = s.right; }
 // #773: the fader -- game time, so a slow tab and the __mm.hudFade hook agree; the sampled values are what the player sees
 const FADER = createFader(0), KEYBAR_FADE = createKeybar(0);
 function fadeValues() {
@@ -7329,8 +7335,32 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 }
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
-function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open || TTV.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+function loop(now) { if (SIMCLOCK.stepped) { last = now; requestAnimationFrame(loop); return; }   // #875: stepped capture mode -- the clock stands still, only __mm.tick moves the game
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open || TTV.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
+  frame(dt);
+  requestAnimationFrame(loop); }
+// #875: one frame's simulation and render -- the real-time loop's body, also run by __mm.tick with the caller's exact dt (no clamp)
+function frame(dt) {
+  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); }
+// #875: the stepped capture hooks. stepped(true) freezes the loop (only tick runs frames) and moves a wall-mode fleet
+// clock onto sim time so the buses keep rolling; stepped(false) hands both back without a jump.
+window.__mm.stepped = (on) => {
+  const stepping = !!on, was = SIMCLOCK.stepped, wallPa = PACLOCK.mode === 'wall';
+  SIMCLOCK = simClockSetStepped(SIMCLOCK, stepping, performance.now());
+  if (was !== stepping) {
+    if (stepping) { PA_STEPPED_FROM_WALL = wallPa; if (wallPa) PACLOCK = setTime(PACLOCK, postautoClock(), simNow()); }
+    else if (PA_STEPPED_FROM_WALL) { PACLOCK = wallClock(); PA_STEPPED_FROM_WALL = false; }
+  }
+  return { stepped: SIMCLOCK.stepped };
+};
+// one exact step: advance the sim clock by dt seconds, simulate and render one frame, and (grab) return the canvas as a
+// data URL from the same task that drew it (the renderer has no preserveDrawingBuffer, the read must not wait)
+window.__mm.tick = (dt, opts = {}) => {
+  if (!SIMCLOCK.stepped) throw new Error('tick needs stepped mode');
+  SIMCLOCK = simClockAdvance(SIMCLOCK, dt);
+  frame(dt);
+  return opts.grab ? $('gl').toDataURL(opts.grab === 'jpeg' ? 'image/jpeg' : 'image/png', 0.95) : null;
+};
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play
