@@ -5,6 +5,7 @@ import math
 from playwright.sync_api import sync_playwright
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
+MODES_OPEN = "() => !document.querySelector('#tutorialbtn').disabled"
 READY = "() => window.__mm && window.__mm.tutorial && window.__mm.plattform() && document.querySelector('#worldstatus')?.textContent"
 T = 240000
 DEFS = "async () => (await import('./tutorial.js')).TUTORIAL_DEFS.hochrhein"
@@ -70,10 +71,12 @@ def assert_cross(crosses):
 def test_first_visit_preselects_the_tutorial_and_a_returning_player_gets_cruise(server):
     with sync_playwright() as p:
         b, page, errors = boot(p, server, "?firstvisit=1")
+        page.wait_for_function(MODES_OPEN, timeout=T)                   # the start car's model loads after the boot: the focus follows it
         first = page.evaluate("() => ({ ...window.__mm.startScreen(), glow: document.querySelector('#tutorialbtn').classList.contains('first'), label: document.querySelector('#tutorialbtn').textContent })")
         flag = page.evaluate(FLAG)
         b.close()
         b2, page2, errors2 = boot(p, server)
+        page2.wait_for_function(MODES_OPEN, timeout=T)
         again = page2.evaluate("() => ({ focus: document.activeElement.id, glow: document.querySelector('#tutorialbtn').classList.contains('first') })")
         b2.close()
     assert flag is None

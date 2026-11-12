@@ -5641,7 +5641,9 @@ function revertModeText() { showModeText(focusedMode() ?? SHOWN.mode); }
 // the overlay doubles as the start and the result screen, so its texts depend on the race state
 function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('cruisebtn').textContent = tr('cruise'); $('startbtn').textContent = tr(done && R.mode === 'trial' ? 'retry' : 'trial'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); $('viewbtn').textContent = tr(done && R.mode === 'view' ? 'retry' : 'view'); $('tutorialbtn').textContent = tr('tutorial'); if (done) { $('result').innerHTML = resultHtml(R.last); if (R.last.mode === 'view') renderAlbum(); } renderModeButtons(); }
 // #561: a glTF car picked by URL or stored choice is still loading: the start waits like the car select's Race! (#236: no swap mid-race)
-function renderModeButtons() { const blocked = !!WORLD_GONE || raceBlocked(VEHICLES[CHOICE.id], gltfState(CHOICE.id)); for (const id of Object.keys(MODE_BTN)) $(id).disabled = blocked; }
+function renderModeButtons() { const blocked = !!WORLD_GONE || raceBlocked(VEHICLES[CHOICE.id], gltfState(CHOICE.id)); for (const id of Object.keys(MODE_BTN)) $(id).disabled = blocked; if (!blocked) refocusStart(); }
+// the start car's model can finish loading after the boot's focusStart, which then hit a disabled button and left the focus on the body
+function refocusStart() { if (document.activeElement !== document.body || $('overlay').hidden || matchMedia('(pointer:coarse)').matches) return; focusStart(); }
 // #508: one frame per viewpoint, photo or empty; DOM calls only, the stored strings never reach innerHTML
 function renderAlbum() {
   const album = loadAlbum(), box = document.createElement('div'), head = document.createElement('h3');

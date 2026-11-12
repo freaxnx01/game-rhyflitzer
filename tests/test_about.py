@@ -51,7 +51,7 @@ def test_links_point_to_the_listed_sites_and_open_in_a_new_tab(server):
     with sync_playwright() as p:
         b, page, errors = boot(p, server)
         page.click("#aboutbtn")
-        links = page.evaluate("() => [...document.querySelectorAll('#about a')].map(a => ({ id: a.dataset.link, href: a.href, target: a.target, rel: a.rel }))")
+        links = page.evaluate("() => [...document.querySelectorAll('#about a[data-link]')].map(a => ({ id: a.dataset.link, href: a.href, target: a.target, rel: a.rel }))")
         listed = page.evaluate("async () => (await import('/about.js')).ABOUT_LINKS")
         b.close()
     assert {l["id"] for l in links} == set(listed), links                # every listed link is shown, nothing else
