@@ -968,7 +968,7 @@ import { photoFileName, canPhoto } from './photo.js';
 import { MAX_SECONDS, pickRecordFormat, recordFileName, recordBitrate, recordKeyAction, recordNext, recordElapsed, formatClock } from './record.js';   // #749
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from './heli.js';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye } from './foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye, footClickAction } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
 import { FADED, createFader, resetFader, sample, phase, phases, createKeybar, keybarPhase, visibleInMode, headingText } from './hudfade.js';   // #773
 import { clampCentre, zoomAt } from './mapzoom.js';   // #843
@@ -6704,18 +6704,18 @@ function beamPick(cx, cy) { BEAM.ndc.set(cx / innerWidth * 2 - 1, 1 - cy / inner
 function spotBlocked(x, z) { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; P.y = groundH(x, z, -Infinity); P.vx = P.vz = 0; collide(carRadius()); const pushed = Math.hypot(P.x - x, P.z - z) > 0.05; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return pushed || waterLevelAt(x, z, 1e4) !== null; }
 function beamTo(cx, cy) { if (!beamAllowed() || performance.now() - BEAM.t < 500) return; BEAM.t = performance.now(); const hit = beamPick(cx, cy), spot = hit && beamSpot(hit.x, hit.z, { blocked: spotBlocked, nearestRoad: nearestJumpable }); BEAM.last = spot; if (!spot) { toast(tr('beamNone')); return; } placeOnRoad(spot.x, spot.z, spot.th ?? P.th, tr('beamed')); }
 $('gl').addEventListener('dblclick', e => borderOrBeam(e.clientX, e.clientY));
-// #202: on foot a click on the landscape grabs the mouse for looking around; the browser lets it go on Esc (and Chrome keeps that
+// #202: on foot a click on the landscape grabs the mouse for looking around, a second click lets it go (no pause); the browser lets it go on Esc (and Chrome keeps that
 // Esc keydown to itself), so losing the lock on foot opens the pause -- openPause is a no-op when already paused or not in a run
 // #403: the lock waits out the double-click interval, so a double-click reaches borderOrBeam with the cursor still there; a dblclick cancels it
 let footLockTimer = 0;
-$('gl').addEventListener('click', () => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; clearTimeout(footLockTimer); footLockTimer = setTimeout(() => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; try { $('gl').requestPointerLock()?.catch?.(() => {}); } catch (e) { } }, FOOT_LOCK_DELAY); });
+$('gl').addEventListener('click', () => { const act = footClickAction({ foot: FOOT.on, locked: !!document.pointerLockElement, menu: !$('overlay').hidden || PAUSE.on }); if (act === 'unlock') { releaseFootLock(); return; } if (act !== 'lock') return; clearTimeout(footLockTimer); footLockTimer = setTimeout(() => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; try { $('gl').requestPointerLock()?.catch?.(() => {}); } catch (e) { } }, FOOT_LOCK_DELAY); });
 $('gl').addEventListener('dblclick', () => clearTimeout(footLockTimer));
 document.addEventListener('mousemove', e => { if (FOOT.on && document.pointerLockElement === $('gl')) footMouse(e.movementX, e.movementY); });
 const FOOT_LOCK_DELAY = 300;
 // #365: J, F1 (and O, I) open dialogs that need the mouse: let the lock go first, and do not read that as the Esc-pause (the dialog stays open)
 let footLockQuiet = false;
 function releaseFootLock() { if (FOOT.on && document.pointerLockElement) { footLockQuiet = true; document.exitPointerLock(); } }
-function footLockLost() { if (document.pointerLockElement) return; if (footLockQuiet) { footLockQuiet = false; return; } if (FOOT.on) openPause(); }
+function footLockLost() { if (document.pointerLockElement) { if (FOOT.on) toast(tr('footLookHint')); return; } if (footLockQuiet) { footLockQuiet = false; return; } if (FOOT.on) openPause(); }
 document.addEventListener('pointerlockchange', footLockLost);
 window.__mm.footUnlock = () => footLockLost();   // tests: headless Chromium cannot lock the pointer; this is the release path
 $('gl').addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - BEAM.tapT < 300 && Math.hypot(e.clientX - BEAM.tapX, e.clientY - BEAM.tapY) < 30) { BEAM.tapT = 0; borderOrBeam(e.clientX, e.clientY); return; } BEAM.tapT = t; BEAM.tapX = e.clientX; BEAM.tapY = e.clientY; });
