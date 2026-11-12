@@ -19,6 +19,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-12 17:22` On the **Plattform deck** <kbd>E</kbd> now always goes **down**; the **Verein Plattform Sisslerfeld** line sits under that prompt and opens its **website** with <kbd>V</kbd> (or a click / tap).
 - `2026-11-12 16:24` **Nitro** is now **one key everywhere**: <kbd>N</kbd> in the car, on foot and in the helicopter. <kbd>Shift</kbd> no longer fires nitro in the car; it still means down on foot and sink in the helicopter, and the key bar, the tutorial and the help list all show N.
 - `2026-11-12 16:20` In the **tutorial** the **key bar** at the top is gone: the hint already names the keys of each step. Afterwards, and in every other mode, it works as before, and the **Key bar** switch in Settings keeps your choice. <kbd>F1</kbd> still lists all keys.
 - `2026-11-11 20:59` Zu Fuss **laufen**, **drehen** und der **Blick** sind jetzt weich: Anlauf und Auslauf statt Ruckeln. Die Pfeiltasten drehen mit Anlauf, Gehen und **Seitschritt** beschleunigen und bremsen, und die Kamera folgt der Blickrichtung einen Augenblick später — auch bei der **Maus**. Springen und Hover steigen wie gehabt, und Teleporte (Lift, Riesenrad, Plattform-Sprung) setzen dich wie immer sofort ab.
