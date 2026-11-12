@@ -30,6 +30,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-11 20:47` Starting a **video recording** with <kbd>§</kbd> no longer makes the **music** drop out for a moment, neither in the game nor in the video.
 - `2026-11-11 20:41` The **key bar** switch works again and has moved from the pause menu to **Settings** (new section **Display**): one click hides or shows the keys at the top of the screen, and the choice is kept. With the keyboard, Enter on the start screen starts the preselected mode again once the start car has loaded.
 - `2026-11-11 20:47` **On foot**, looking around with the mouse is now a toggle: a **left click** grabs the mouse, a **second left click** lets it go again without opening the pause menu. A short hint says so when it starts.
 - `2026-11-11 20:27` The **Plattform Sisslerfeld**'s roof tip is clean again: the central post no longer pokes out above the apex as a little wooden block.
