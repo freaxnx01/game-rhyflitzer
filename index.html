@@ -1823,6 +1823,47 @@ function landmarkReplaces(b, base) {
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(base + 3, lm.top), ring: b.ring });
   window.__mm.counts.chLandmarks.replaced.push(b.id); return true;
 }
+// #901: the walls of a gable-path OSM house, drawn as fitted quads instead of one tiled box: a plain plaster plinth from
+// 3 m under the ring minimum up to the door's ground, window storeys anchored there (whole rows, whole half-tile columns),
+// plain plaster above the band, and exactly one door in the middle column of the face toward the nearest road. Returns the
+// door {x, z, y, k}; the storey grid comes from facadeRows, the columns from facadeColumns (world.js, node-tested).
+const HOUSE_DOORS = new Map();
+function gableHouseWalls(b, base, h, wc) {
+  const [cx, cz, w, d, rot] = b.rect, c = Math.cos(rot), s = Math.sin(rot);
+  const world = (lx, lz) => [cx + lx * c - lz * s, cz + lx * s + lz * c];
+  const F = [[-w / 2, d / 2, w / 2, d / 2], [w / 2, d / 2, w / 2, -d / 2], [w / 2, -d / 2, -w / 2, -d / 2], [-w / 2, -d / 2, -w / 2, d / 2]]
+    .map(([ax, az, bx, bz]) => ({ a: world(ax, az), b: world(bx, bz) }));   // facadeLabels order: +z, +x, -z, -x, corners wound for wallQuads' outward normal
+  const road = nearestRoadPoint(cx, cz, b.st, FACADE.reach), k = facingFace(cx, cz, rot, w, d, road);
+  const kf = F[k], L = Math.hypot(kf.b[0] - kf.a[0], kf.b[1] - kf.a[1]), { n, cw } = facadeColumns(L);
+  const t = n ? (Math.floor((n - 1) / 2) + 0.5) * cw : L / 2;   // the middle half-tile; the face centre on a sliver face
+  const dp = [kf.a[0] + (kf.b[0] - kf.a[0]) * t / L, kf.a[1] + (kf.b[1] - kf.a[1]) * t / L];
+  const rows = facadeRows(base, h, terrainH(dp[0], dp[1]));
+  for (let f = 0; f < 4; f++) {
+    const { a, b: e } = F[f], len = Math.hypot(e[0] - a[0], e[1] - a[1]), { n: nf, cw: fcw } = facadeColumns(len);
+    wallQuads([{ a, b: e }], rows.floor0, 0, wc, 'plaster', [4, 3], rows.floor0 - (base - 3));   // the plinth carries the slope below the door's ground
+    if (nf > 0 && rows.floors > 0) {
+      if (f !== k) wallQuads([{ a, b: e }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+      else {
+        const dir = [(e[0] - a[0]) / len, (e[1] - a[1]) / len], at = (m) => [a[0] + dir[0] * m, a[1] + dir[1] * m];
+        const j = Math.floor((nf - 1) / 2);
+        if (j > 0) wallQuads([{ a, b: at(j * fcw) }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+        if (j + 1 < nf) wallQuads([{ a: at((j + 1) * fcw), b: e, u0: (j + 1) * fcw }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+        wallQuads([{ a: at(j * fcw), b: at((j + 1) * fcw) }], rows.floor0, rows.sh, wc, 'plaster', [4, 3], 0);   // the door's column: plain beside the door
+        if (rows.floors > 1) wallQuads([{ a: at(j * fcw), b: at((j + 1) * fcw), u0: j * fcw, dy: rows.sh }], rows.floor0 + rows.sh, (rows.floors - 1) * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+      }
+      if (base + h - rows.bandTop > 0.01) wallQuads([{ a, b: e }], rows.bandTop, base + h - rows.bandTop, wc, 'plaster', [4, 3], 0);
+    } else wallQuads([{ a, b: e }], rows.floor0, base + h - rows.floor0, wc, 'plaster', [4, 3], 0);   // sliver face or shed: plain plaster
+  }
+  const g = new THREE.PlaneGeometry(FACADE.door.w, FACADE.door.h), uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, 150 / 256 + uv.getX(i) * 62 / 256, uv.getY(i) * (1 - 60 / 192));   // the door of TEX.facadeDoor
+  const nx = -(kf.b[1] - kf.a[1]) / L, nz = (kf.b[0] - kf.a[0]) / L;
+  g.rotateY(-rot + k * Math.PI / 2);
+  g.translate(dp[0] + nx * FACADE.door.off, rows.floor0 + FACADE.door.h / 2, dp[1] + nz * FACADE.door.off);
+  colorize(g, col('#ffffff')); push('wallDoor', g);
+  const door = { x: dp[0], z: dp[1], y: rows.floor0, k };
+  HOUSE_DOORS.set(b.id, door); window.__mm.counts.houseDoors++;
+  return door;
+}
 function osmBuilding(b) {
   const [cx, cz, w, d, rot] = b.rect; let base = Infinity; for (const [x, z] of b.ring) base = Math.min(base, terrainH(x, z));
   // measured buildings (hsrc 'dsm', #17): eaves h and ridge rh from swissSURFACE3D; a measured flat roof is drawn flat
@@ -1832,9 +1873,10 @@ function osmBuilding(b) {
   const row = isRowHouse(b); if (row) window.__mm.counts.rowHouses = (window.__mm.counts.rowHouses || 0) + 1;
   if (b.roof === 'gable' && !(dsm && b.rh < 0.6)) {
     const floors = Math.max(1, Math.round(b.h / 3)); const wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]);
-    const h = dsm ? b.h : floors * 3 + 0.4; const door = rnd() < 0.5 ? 'wall' : 'wallDoor';
+    const h = dsm ? b.h : floors * 3 + 0.4; const _doorCoin = rnd() < 0.5 ? 'wall' : 'wallDoor';   // #901: still drawn for the seeded sequence; gableHouseWalls places the one real door
     if (landmarkReplaces(b, base)) return;   // #649: after all the branch's rr()/rnd() draws, so every later building keeps its colours
-    box(w, h + 3, d, cx, base - 3, cz, rot, row ? col('#ffffff') : wc, row ? 'rowHouse' : door, row ? rowHouseTile(b) : [4, 3], 3.1);
+    if (row) box(w, h + 3, d, cx, base - 3, cz, rot, col('#ffffff'), 'rowHouse', rowHouseTile(b), 3.1);
+    else gableHouseWalls(b, base, h, wc);
     gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, row ? col('#ffffff') : wc, 0.45, row ? ROW_GABLE_END : GABLE_END_WALL); addOBB(cx, cz, w, d, rot, base + h); return;
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
@@ -2739,6 +2781,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   CH_LM = (L && REAL && L.origin) ? chLandmarksFor(await fetch('assets/landmarks/index.json').then(r => r.ok ? r.json() : null).catch(() => null), REGION.id, L.origin, REAL.hdr.base) : [];
   CH_LM_BY_OSM = new Map(CH_LM.filter(c => c.osm != null).map(c => [c.osm, c]));
   window.__mm.counts.chLandmarks = { placed: [], replaced: [] };
+  window.__mm.counts.houseDoors = 0;   // #901: one per drawn gable house
   // #715: a landmark without an OSM building in the world file (the Reformierte Kirche, #716) is solid as its own rect up to its top
   for (const c of CH_LM) if (c.rect) { const [x, z, w, d, rot] = c.rect; pushOBB({ x, z, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(terrainH(x, z) + 3, c.top) }); }
   if (L) for (const b of L.buildings) osmBuilding(b);
@@ -5309,6 +5352,7 @@ window.__mm.roleVertexColors = (role) => MESH[role]?.material.vertexColors;   //
 const wallHits = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); return ray.intersectObjects([...Object.values(MESH), ...(INT.housing ? [INT.housing] : []), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).filter(h => h.object.userData.role); };
 window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const hit = wallHits(x, z, tx, tz, up, up1)[0]; return hit ? hit.object.userData.role : null; };
 window.__mm.wallRolesAt = (x, z, tx, tz, up = 2.5, eps = 0.01) => { const hits = wallHits(x, z, tx, tz, up); return hits.length ? [...new Set(hits.filter(h => h.distance - hits[0].distance <= eps).map(h => h.object.userData.role))].sort() : []; };
+window.__mm.houseDoor = (id) => HOUSE_DOORS.get(id) || null;   // #901: the one door of a gable house -- {x, z, y, k} on the wall, k in facadeLabels order
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
 window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x, z, 1e4), bridge: !!onBridge(x, z, 1e4) });
 // #101: the riverbed under (x, z): groundH's value, the water surface, the bedDepth, and where the drawn terrain is (raycast on the grass mesh)
