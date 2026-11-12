@@ -310,7 +310,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #keybar[hidden]{display:none}
 #keybar kbd{font:inherit;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px}
 #keybar .ctx{color:var(--ink);background:var(--sun);padding:0 6px}#keybar .ctx kbd{color:var(--ink);border-color:var(--ink)}
-@media (pointer:coarse){#keybar,#pausekeybar{display:none!important}}
+@media (pointer:coarse){#keybar,#setkeybarrow{display:none!important}}
 body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,body:has(#abandon:not([hidden])) #keybar,body:has(#help:not([hidden])) #keybar,body:has(#jump:not([hidden])) #keybar,body:has(#borderinfo:not([hidden])) #keybar,body:has(#timetable:not([hidden])) #keybar{display:none}
 #pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
 #pausebtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
@@ -770,7 +770,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <!-- #842 Settings, first slice: audio (sound and music). Framed like #about; opened from the start screen (#settingsbtn)
      and the pause menu (#pausesettings). Later #546 sections (graphics, language, controls) append .st-sec blocks below Audio. -->
 <div id="settings" hidden role="dialog" aria-modal="true" aria-labelledby="settingstitle">
-  <div class="ws-head"><h1 id="settingstitle" data-i18n="setTitle">Settings</h1><span class="ws-sub" data-i18n="setSub">Sound and music</span>
+  <div class="ws-head"><h1 id="settingstitle" data-i18n="setTitle">Settings</h1><span class="ws-sub" data-i18n="setSub">Sound, music and display</span>
     <button id="settingsback" class="btn" type="button" data-i18n="carselBack">‹ Back</button></div>
   <div id="settingspanels" class="st-panels">
     <section class="st-sec"><h2 data-i18n="setAudio">Audio</h2>
@@ -782,6 +782,12 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="setmusic" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setmusiclabel">on</button>
         <input id="setmusicvol" type="range" min="0" max="10" step="1" aria-labelledby="setmusiclabel">
         <span id="setmusicpct" class="st-val"></span><p id="setmusiccap" class="st-cap"></p></div>
+    </section>
+    <!-- the key bar's switch, moved here from the pause menu; desktop only, like the bar -->
+    <section class="st-sec" id="setkeybarrow"><h2 data-i18n="setDisplay">Display</h2>
+      <div class="st-row"><span class="st-label" id="setkeybarlabel" data-i18n="setKeybar">Key bar</span>
+        <button id="setkeybar" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setkeybarlabel">on</button>
+        <p class="st-cap" data-i18n="setKeybarCap">the keys for the moment, at the top of the screen</p></div>
     </section>
   </div>
   <p class="ab-foot"><span data-i18n="setHint">Esc: back</span></p>
@@ -873,7 +879,6 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <button id="pauseabout" class="btn" type="button" data-i18n="aboutBtn">About</button>
       <!-- #842: Settings after About, like the start screen -->
       <button id="pausesettings" class="btn" type="button" data-i18n="settingsBtn">Settings</button>
-      <button id="pausekeybar" class="btn" type="button" aria-pressed="true">Key bar: on</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
       <button id="pausetutorial" class="btn" type="button" data-i18n="tutPause" hidden>End tutorial</button>
@@ -953,7 +958,7 @@ import { TIMETABLE, lineIds, stopLines, stopDepartures, lineDirections, runWindo
 import { SPEED_DISPLAY, faceYaw, displayState, displayKey, panelColors, delayedReading } from './speeddisplay.js';   // #745
 import { busMarks, markLabel, onCanvas } from './busmarks.js';   // #711
 import { pickVoices, ledCurrent, groundStale } from './postautofx.js';   // #709
-import { DISPLAY_TEX, displayLayout, REAR_TEX, SMILEY, rearLayout, thanksLayout, splitRearTriangles, normalizeUv } from './busdisplay.js';   // #713, #800
+import { DISPLAY_TEX, displayLayout, REAR_TEX, REAR_GRID, REAR_CELL, rearFrame, stretchRearQuad, quadSize, splitRearTriangles, normalizeUv } from './busdisplay.js';   // #713, #800
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
@@ -968,7 +973,7 @@ import { photoFileName, canPhoto } from './photo.js';
 import { MAX_SECONDS, pickRecordFormat, recordFileName, recordBitrate, recordKeyAction, recordNext, recordElapsed, formatClock } from './record.js';   // #749
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from './heli.js';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye, easeLook, LOOK_EASE } from './foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye, easeLook, LOOK_EASE, footClickAction } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
 import { FADED, createFader, resetFader, sample, phase, phases, createKeybar, keybarPhase, visibleInMode, headingText } from './hudfade.js';   // #773
 import { clampCentre, zoomAt } from './mapzoom.js';   // #843
@@ -979,7 +984,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, centrePostTop, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -1022,9 +1027,10 @@ import { loadLines, loadProgress, numberLocale } from './loading.js';   // the l
 import { TIP_UP, stepTip, tipped, tipLift, lateralAccel, tipSounds } from './tipover.js';
 import { BUS, BUS_COLOURS, BUS_HORN, capsuleOffsets, capsuleCircles, wallYaw, deepestHit } from './bus.js';   // #473: capsule collision for long vehicles
 import { loadStep, buildableId, buildsOnSelect, modelUrl, lampRole, paintOnSelect, raceBlocked, spinPlan, floorPlan, floorFaces } from './gltfvehicle.js';
-import { DEPOT, depotLayout, nearestSlot } from './depot.js';   // #553: the vehicle depot's pure layout rules
+import { DEPOT, depotLayout, nearestSlot, depotWants } from './depot.js';   // #553: the vehicle depot's pure layout rules; #807: which slots get a real model
 import { createKnock, soundPlan, hissPlan, playPlan } from './knock.js';
 import { yardFor, yardProps, yardStart, inYard, yardEntry, yardTyreStacks } from './crashyard.js';   // #415
+import { OSTRICH, inPaddock, fencePosts, makeFlock, stepFlock } from './ostriches.js';   // #846: the Straussenfarm Sisseln's ostrich paddock
 import { ENTERABLE_INFO, GLOW_RANGE, glowStrength, glowAnchor, exitSpot, jumpRowsFor, enterableEntries, visibleEnterables, nearestEntrance, enterPrompt } from './enterables.js';   // #409
 trackPageview(); identifySource(); if (document.readyState === 'complete') umamiSettle(); else addEventListener('load', umamiSettle, { once: true });   // #538: the pageview waits in the queue for g.js
 let OBB_GRID = makeGrid(32); const ROAD_GRID = makeGrid(32);   // #277: OBB_GRID is swapped to the room's grid below (LEVELS.onChange)
@@ -1751,7 +1757,8 @@ let RAIL_GRID = null;   // built on first use (RAIL_PTS is defined further down)
 function railDist(x, z) { if (!RAIL_GRID) { RAIL_GRID = makeGrid(64); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) for (let i = 0; i < pts.length - 1; i++) gridAddSegment(RAIL_GRID, ...pts[i], ...pts[i + 1], 12, [pts[i], pts[i + 1]]); } let m = 1e9; for (const [a, b] of gridQuery(RAIL_GRID, x, z, 1)) m = Math.min(m, segDist(x, z, ...a, ...b)); return m; }
 function roadDist(x, z, reach = 32) { let m = 1e9; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) m = Math.min(m, segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) - r.w / 2); return m; }
 const YARD = L ? yardFor(REGION.id) : null;   // #415: the Crash-Platz keeps trees, fields and houses out
-function free(x, z, rad) { if (YARD && inYard(x, z, rad + 3, YARD)) return false; if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (!o.secret && Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
+const OSTRICHES_ON = REGION.id === 'hochrhein' && !REGION.generated;   // #846: the ostrich paddock, Hochrhein world only (as DEPOT_S)
+function free(x, z, rad) { if (YARD && inYard(x, z, rad + 3, YARD)) return false; if (OSTRICHES_ON && inPaddock(x, z, rad + 1)) return false; if (riverDist(x, z) < rad + 14) return false; if (roadDist(x, z, rad + 1.5 + 8) < rad + 1.5) return false; for (const o of gridQuery(OBB_GRID, x, z, rad + 1)) if (!o.secret && Math.hypot(o.x - x, o.z - z) < rad + Math.hypot(o.hw, o.hd)) return false; for (const c of [...CPS, FINISH]) if (Math.hypot(c.x - x, c.z - z) < rad + 9) return false; if (Math.hypot(START.x - x, START.z - z) < rad + 8) return false; return true; }
 const PLASTER = ['#e9dfc8', '#e5cfa8', '#d9c2a0', '#f0e6d6', '#d8c9b8', '#e8d3b0', '#cdb894', '#f2e0c0', '#dfe3d8', '#e6d4c4'];
 const ROOFS = ['#8a3a2a', '#7a3f30', '#9a4a34', '#6e3a30', '#5a4a48', '#8a5a3a'];
 function house(x, z, rot, w, d, floors, style) { const b = terrainH(x, z), h = floors * 3 + 0.4, wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]); box(w, h + 3, d, x, b - 3, z, rot, wc, rnd() < 0.5 ? 'wall' : 'wallDoor', [4, 3], 3.1); const rh = style === 'oldtown' ? Math.min(w, d) * 0.55 : Math.min(w, d) * 0.4; if (w >= d) gable(w, d, b + h, rh, x, z, rot, rc, wc); else gable(d, w, b + h, rh, x, z, rot + Math.PI / 2, rc, wc); addOBB(x, z, w, d, rot, b + h); }
@@ -2027,7 +2034,7 @@ function plattformTower(x, z) { // #413: the Plattform Sisslerfeld to its real p
   for (let i = 0; i < 3; i++) { const [ax, az] = tri[i], [bx, bz] = tri[(i + 1) % 3];
     bar(ax, 0.2, az, bx, frame.braceH, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, 0.2, bz, 0.16, beam); bar(ax, frame.braceH, az, bx, frame.braceH, bz, 0.22, beam); }
   const apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * Math.tan(roof.pitch * RAD);
-  box(centrePost, apex, centrePost, x, b, z, facing, spruce, timber, [1, 1], 0);   // the central post: no collider of its own, it lies inside the core's
+  box(centrePost, centrePostTop(), centrePost, x, b, z, facing, spruce, timber, [1, 1], 0);   // the central post: no collider of its own, it lies inside the core's; it ends under the sheathing, not through the apex
   addSolid(plattformCoreCollider(f, b));   // #567: the core cylinder is solid for the car (one circle over ring and post); carOnly, so on foot the walkway walls of plattformWalk still rule
   const slatList = coreSlats();   // #855: single solid slats, so the wall shows from inside with real gaps
   slatList.forEach((s, i) => { const g = new THREE.BoxGeometry(SLAT.w, s.y1 - s.y0, SLAT.d); g.translate(0, (s.y1 - s.y0) / 2, 0); g.rotateY(Math.PI / 2 - (facing + s.phi * RAD)); const [sx, sz] = f.polar(s.phi, core.r); g.translate(sx, b + s.y0, sz); colorize(g, i % 2 ? spruce.clone().multiplyScalar(0.94) : spruce); push(timber, g); });   // the box built along x, rotated so the width lies tangential and the depth radial
@@ -2908,6 +2915,111 @@ function buildUnderwater() {
 const FISH_TMP = { m: new THREE.Matrix4(), q: new THREE.Quaternion(), up: new THREE.Vector3(0, 1, 0), p: new THREE.Vector3(), one: new THREE.Vector3(1, 1, 1), pose: {} };
 function stepFish(dt, force = false) { if (!FISH.mesh || (!UWS.on && !force)) return; FISH.t += dt; const { m, q, up, p, one, pose } = FISH_TMP; let i = 0; for (const s of FISH.schools) for (let k = 0; k < s.n; k++) { const f = schoolPose(s, k, FISH.t, pose); p.set(f.x, f.y, f.z); q.setFromAxisAngle(up, -f.th); m.compose(p, q, one); FISH.mesh.setMatrixAt(i++, m); } FISH.mesh.instanceMatrix.needsUpdate = true; }
 buildUnderwater();
+// ---------- #846: the Straussenfarm Sisseln's ostrich paddock -- fence, gate, eight code-built ostriches ----------
+// The fence is one merged mesh of boxes (posts, three rails per run, the gate leaf), built once at world build;
+// every run is solid (addSolid, registered here after the tree scatter, so free() above never sees it); the eight
+// ostriches are four InstancedMeshes (body / neck / legL / legR) posed per frame by stepOstriches, the way stepFish
+// poses its school. All geometry is three.js primitives: no file, no credit.
+const OST = { on: OSTRICHES_ON, group: new THREE.Group(), parts: {}, flock: OSTRICHES_ON ? makeFlock(31) : null, rnd: rng(31), solids: 0, visible: true };
+// one box along a to b with its ends at ya / yb (the rails and the gate's diagonal brace follow the slope)
+function padRail(geos, ax, az, bx, bz, ya, yb, c) {
+  const dx = bx - ax, dz = bz - az, dy = yb - ya, len = Math.hypot(dx, dy, dz) || 1e-6;
+  const v = new THREE.Vector3(dx / len, dy / len, dz / len), side = new THREE.Vector3(-v.z, 0, v.x).normalize(), up = new THREE.Vector3().crossVectors(side, v);
+  const g = new THREE.BoxGeometry(len, 0.06, 0.08);
+  g.applyMatrix4(new THREE.Matrix4().makeBasis(v, up, side));
+  g.translate((ax + bx) / 2, (ya + yb) / 2, (az + bz) / 2);
+  colorize(g, c);
+  geos.push(g);
+}
+function buildPaddock() {
+  const { posts, runs } = fencePosts(), geos = [];
+  const wood = col('#6b4a2a'), rail = col('#8a6a44'), gateC = col('#9a7a50');
+  const gate = runs.find(r => r.gate);
+  const isGatePost = p => gate && (Math.hypot(p[0] - gate.a[0], p[1] - gate.a[1]) < 1e-6 || Math.hypot(p[0] - gate.b[0], p[1] - gate.b[1]) < 1e-6);
+  for (const [x, z] of posts) {
+    const h = isGatePost([x, z]) ? 2.0 : OSTRICH.postH;
+    const g = new THREE.BoxGeometry(0.12, h + 0.3, 0.12);
+    g.translate(x, terrainH(x, z) + (h + 0.3) / 2 - 0.3, z);   // the base sunk 0.3 m so the post never floats on a slope
+    colorize(g, wood);
+    geos.push(g);
+  }
+  for (const r of runs) {
+    const [ax, az] = r.a, [bx, bz] = r.b;
+    const ha = terrainH(ax, az), hb = terrainH(bx, bz);
+    if (r.gate) {   // the closed leaf: two rails plus a diagonal brace, solid like any other run
+      padRail(geos, ax, az, bx, bz, ha + 0.6, hb + 0.6, gateC);
+      padRail(geos, ax, az, bx, bz, ha + 1.65, hb + 1.65, gateC);
+      padRail(geos, ax, az, bx, bz, ha + 0.45, hb + 1.75, gateC);
+    } else {
+      for (const rh of OSTRICH.rails) padRail(geos, ax, az, bx, bz, ha + rh, hb + rh, rail);
+    }
+    const len = Math.hypot(bx - ax, bz - az), rot = Math.atan2(bz - az, bx - ax);
+    addSolid({ x: (ax + bx) / 2, z: (az + bz) / 2, hw: len / 2, hd: 0.1, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(ha, hb) + OSTRICH.postH });   // addSolid, not addOBB: no minimap box, not a building
+    OST.solids++;
+  }
+  const fence = new THREE.Mesh(mergeGeometries(geos, false), new THREE.MeshLambertMaterial({ vertexColors: true }));
+  fence.castShadow = true;
+  OST.group.add(fence);
+  // the ostriches, one InstancedMesh per jointed part so neck and legs can move per instance (#807, #550: cheap)
+  const bodyBase = new THREE.SphereGeometry(1, 12, 9); bodyBase.scale(0.65, 0.45, 0.4); colorize(bodyBase, col('#ffffff'));   // 1.3 x 0.9 x 0.8, centred at hip height
+  const wing = (s) => { const w = new THREE.SphereGeometry(1, 8, 6); w.scale(0.42, 0.16, 0.1); w.translate(-0.05, 0.1, s * 0.42); colorize(w, col('#ffffff').multiplyScalar(1.8)); return w; };   // lighter tips
+  const tail = new THREE.ConeGeometry(0.16, 0.45, 7); tail.rotateZ(Math.PI / 2); tail.translate(-0.82, 0.12, 0); colorize(tail, col('#ffffff'));
+  const bodyGeo = mergeGeometries([bodyBase, wing(1), wing(-1), tail], false);
+  const neckC = new THREE.CylinderGeometry(0.07, 0.1, 1.1, 8); neckC.translate(0, 0.55, 0); colorize(neckC, col('#ffffff'));
+  const head = new THREE.SphereGeometry(0.13, 10, 8); head.translate(0, 1.18, 0);
+  {   // two black dot eyes as vertex colour, no extra geometry
+    const pos = head.attributes.position, c = new Float32Array(pos.count * 3).fill(1);
+    for (let i = 0; i < pos.count; i++) if (pos.getX(i) > 0.02 && Math.abs(pos.getZ(i)) > 0.08 && pos.getY(i) > 0) c[i * 3] = c[i * 3 + 1] = c[i * 3 + 2] = 0.05;
+    head.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  }
+  const beak = new THREE.ConeGeometry(0.055, 0.16, 7); beak.rotateZ(-Math.PI / 2); beak.translate(0.15, 1.14, 0); colorize(beak, col('#ffffff'));
+  const neckGeo = mergeGeometries([neckC, head, beak], false);
+  const legC = new THREE.CylinderGeometry(0.05, 0.05, 1.1, 7); legC.translate(0, -0.55, 0);
+  const foot = new THREE.BoxGeometry(0.2, 0.05, 0.3); foot.translate(0.05, -1.08, 0);
+  const thigh = new THREE.SphereGeometry(0.16, 8, 6); thigh.scale(1.5, 1.2, 1); thigh.translate(0, -0.02, 0);
+  const legGeo = mergeGeometries([legC, foot, thigh], false);
+  colorize(legGeo, col('#ffffff'));
+  const mkPart = (geo) => { const m = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }), OSTRICH.count); m.frustumCulled = false; OST.group.add(m); return m; };
+  OST.parts.body = mkPart(bodyGeo); OST.parts.neck = mkPart(neckGeo); OST.parts.legL = mkPart(legGeo); OST.parts.legR = mkPart(legGeo);
+  const c = new THREE.Color();
+  OST.flock.birds.forEach((b, i) => {   // 3 dark males, 5 brown females; neck and legs sand for all
+    OST.parts.body.setColorAt(i, c.set(b.male ? '#2b2b30' : '#8a7a66'));
+    OST.parts.neck.setColorAt(i, c.set('#c9a89a'));
+    OST.parts.legL.setColorAt(i, c.set('#c9a89a'));
+    OST.parts.legR.setColorAt(i, c.set('#c9a89a'));
+  });
+  for (const p of Object.values(OST.parts)) p.instanceColor.needsUpdate = true;
+  scene.add(OST.group);
+  poseOstriches();   // the build-time pose (stepOstriches reads P, which does not exist yet here)
+}
+const OST_TMP = { m: new THREE.Matrix4(), a: new THREE.Matrix4(), b: new THREE.Matrix4(), r: new THREE.Matrix4() };
+// the four part matrices per bird: body at hip height, neck pitched at the body's front, legs swung at the hip
+function poseOstriches() {
+  const { m, a, b, r } = OST_TMP;
+  OST.flock.birds.forEach((bd, i) => {
+    const y = terrainH(bd.x, bd.z), yaw = r.makeRotationY(-bd.yaw);
+    m.makeTranslation(bd.x, y + 1.1 + bd.bob, bd.z).multiply(yaw);   // the body ellipsoid, centred at hip height
+    OST.parts.body.setMatrixAt(i, m);
+    b.makeTranslation(0.55, 1.4 + bd.bob, 0).multiply(a.makeRotationZ(-bd.neck));   // neck pivot at the body's front
+    m.makeTranslation(bd.x, y, bd.z).multiply(yaw).multiply(b);
+    OST.parts.neck.setMatrixAt(i, m);
+    for (const [part, swing, side] of [[OST.parts.legL, bd.legL, 0.15], [OST.parts.legR, bd.legR, -0.15]]) {   // hip pivot, feet planted
+      b.makeTranslation(0, 1.1, side).multiply(a.makeRotationZ(swing));
+      m.makeTranslation(bd.x, y, bd.z).multiply(yaw).multiply(b);
+      part.setMatrixAt(i, m);
+    }
+  });
+  for (const p of Object.values(OST.parts)) p.instanceMatrix.needsUpdate = true;
+}
+function stepOstriches(dt) {
+  if (!OST.on) return;
+  const show = Math.hypot(P.x - OSTRICH.centre[0], P.z - OSTRICH.centre[1]) < OSTRICH.show;
+  if (show !== OST.visible) { OST.visible = show; OST.group.visible = show; }
+  if (!show) return;   // beyond the radius nothing is simulated: the birds freeze where they are
+  stepFlock(OST.flock, dt, { x: P.x, z: P.z }, OST.rnd);   // #6: the walker and the car are the same P
+  poseOstriches();
+}
+if (OST.on) buildPaddock();
 for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; }
 if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own meshes so the interior can hide them; applyStyle sets the material
   INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing);
@@ -3373,6 +3485,22 @@ function loadVehicleModel(id) {
     } catch (err) { console.warn(`${id} model not loaded:`, err); e.state = loadStep(e.state, 'error'); return false; }
   })();
   return e.promise;
+}
+// #807: gives a cached file back -- its geometries, its materials and their own textures (never the shared car sky map, which every
+// car uses), out of the env and shared lists so buildCarEnv stops touching them, back to idle; WANTED forgets it, so picking the car
+// in Choose car fetches it again. Only safe while nothing still clones the scene -- the depot's canEvict decides that.
+function evictVehicleModel(id) {
+  const e = GLTF_CARS[id];
+  if (!e || e.state !== 'ready') return;
+  const mats = new Set();
+  e.scene.traverse(o => { if (!o.isMesh) return; o.geometry.dispose(); for (const m of [].concat(o.material)) mats.add(m); });
+  for (const m of mats) {
+    for (const v of Object.values(m)) if (v?.isTexture && v !== m.envMap) v.dispose();
+    m.dispose(); SHARED_CAR_MATS.delete(m);
+    const i = CAR_ENV_MATS.indexOf(m); if (i >= 0) CAR_ENV_MATS.splice(i, 1);
+  }
+  e.state = loadStep(e.state, 'evict'); e.scene = e.mats = e.promise = null; e.tris = 0; e.floorFaces = 0; WANTED.delete(id);
+  console.info(`${id} model given back: the depot no longer needs it`);
 }
 // the cached wheel nodes move under steer > roll groups at their centre, the same shape buildWheels makes (drawWheels, detachWheels and the wheel tests work unchanged)
 function wireWheels(g, root) {
@@ -4468,19 +4596,16 @@ function displayTexture({ line, dest }) {
   tex.flipY = false;   // the glTF display UVs run v downwards with Repeat wrapping, unlike a canvas texture's default
   return tex;
 }
-// #800: the rear quad's own texture -- the line number centred, or a smiley + thank-you text while `thanks` holds
+// #800: the rear quad's own texture, an LED dot matrix (busdisplay.js rearFrame): the line number centred, or a smiley +
+// thank-you text while `thanks` holds. Every cell shows a dim unlit LED, so the grid reads as a dot matrix
 function rearTexture({ line, thanks }) {
   const tex = makeTex(REAR_TEX.w, REAR_TEX.h, (g, w, h) => {
+    const cell = REAR_CELL, dot = cell - 2;
     g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#ff9a1a'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    const measure = (s, size) => { g.font = `700 ${size}px "Barlow Condensed", sans-serif`; return g.measureText(s).width; };
-    if (!thanks) { const l = rearLayout(line, measure); g.font = `700 ${l.size}px "Barlow Condensed", sans-serif`; g.fillText(line, l.x, l.y); return; }
-    const l = thanksLayout(thanks, measure);
-    SMILEY.forEach((row, r) => [...row].forEach((c, q) => {
-      if (c !== '#') return;
-      g.beginPath(); g.arc(l.smiley.x + (q + 0.5) * l.smiley.cell, l.smiley.y + (r + 0.5) * l.smiley.cell, l.smiley.cell * 0.4, 0, 7); g.fill();
-    }));
-    g.font = `700 ${l.text.size}px "Barlow Condensed", sans-serif`; g.fillText(thanks, l.text.x, l.text.y);
+    g.fillStyle = '#231608';
+    for (let r = 0; r < REAR_GRID.rows; r++) for (let c = 0; c < REAR_GRID.cols; c++) g.fillRect(c * cell + 1, r * cell + 1, dot, dot);
+    g.fillStyle = '#ff9a1a';
+    for (const [c, r] of rearFrame({ line, thanks }).dots) g.fillRect(c * cell + 1, r * cell + 1, dot, dot);
   });
   tex.flipY = false;
   return tex;
@@ -4488,8 +4613,9 @@ function rearTexture({ line, thanks }) {
 // #800 (A9): the Display meshes of a Postauto, found by the overGlass marker on its (possibly already split) material
 const displayMeshes = (root) => { const out = []; root.traverse((o) => { if (o.isMesh && (Array.isArray(o.material) ? o.material[0] : o.material)?.userData?.overGlass) out.push(o); }); return out; };
 // splits the rear quad into its own geometry group (no model rebuild): clones the geometry, finds the rear triangles
-// by position (tools/prepare-bus.mjs: +x is forward, so the rear sits at the most negative x) and renormalises their
-// UVs to 0..1 so the rear texture can use the whole quad. False when no separable rear quad is found.
+// by position (tools/prepare-bus.mjs: +x is forward, so the rear sits at the most negative x), renormalises their
+// UVs to 0..1 so the rear texture can use the whole quad, and stretches the quad over the tail to the front display's
+// width (its vertices are the quad's own, so nothing else moves). False when no separable rear quad is found.
 function splitDisplayRear(o) {
   const geo = o.geometry.clone(), uv = geo.attributes.uv, count = geo.attributes.position.count;
   const index = geo.index ? Array.from(geo.index.array) : Array.from({ length: count }, (_, i) => i);
@@ -4497,6 +4623,7 @@ function splitDisplayRear(o) {
   const shared = rear.some((v) => rest.includes(v));
   if (!rear.length || !uv || shared) { geo.dispose(); console.warn('Postauto Display: no separable rear quad, no thank-you on the rear'); return false; }
   normalizeUv(uv.array, rear);
+  stretchRearQuad(geo.attributes.position.array, rear); geo.attributes.position.needsUpdate = true; geo.computeBoundingSphere();
   geo.setIndex([...rest, ...rear]); geo.clearGroups(); geo.addGroup(0, rest.length, 0); geo.addGroup(rest.length, rear.length, 1);
   o.geometry = geo; o.userData.sharedGeo = false;   // freed by disposePostautoMesh
   return true;
@@ -4720,8 +4847,7 @@ function stepKeybar() {
   KEYBAR.sig = sig; $('keybar').hidden = !KEYBAR.on;
   $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}>${capsRow(x.cap)} ${tr(x.label)}</span>`).join('');   // #700: one cap per key
 }
-function renderKeybarToggle() { const b = $('pausekeybar'); b.textContent = tr(KEYBAR.on ? 'pauseKeybarOn' : 'pauseKeybarOff'); b.setAttribute('aria-pressed', String(KEYBAR.on)); }
-function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } renderKeybarToggle(); stepKeybar(); }
+function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } stepKeybar(); }
 window.__mm.keybar = () => { stepKeybar(); const el = $('keybar'); return { shown: !el.hidden && getComputedStyle(el).display !== 'none', text: el.textContent, ctx: controlContext(), action: contextAction(), on: KEYBAR.on }; };
 function stepEnter() {
   stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; in the car E boards a parked depot vehicle, #553)
@@ -5123,9 +5249,11 @@ window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the 
     buses: [...POSTAUTO.meshes].map(([key, g]) => {
       const planes = [], displays = [];
       g.traverse((o) => { if (o.geometry?.type === 'PlaneGeometry') planes.push(o); if (o.isMesh && (Array.isArray(o.material) ? o.material[0] : o.material)?.userData?.overGlass) displays.push(o); });
-      const mat = displays[0]?.material, m = Array.isArray(mat) ? mat[0] : mat;
+      const mat = displays[0]?.material, m = Array.isArray(mat) ? mat[0] : mat, geo = displays[0]?.geometry;
+      const rearGroup = Array.isArray(mat) ? geo.groups[1] : null;   // the stretched rear quad's size in metres (busdisplay.js REAR_QUAD)
+      const rear = rearGroup ? quadSize(geo.attributes.position.array, Array.from(geo.index.array.slice(rearGroup.start, rearGroup.start + rearGroup.count))) : null;
       return { key, planes: planes.length, displays: displays.length, own: !!m && m !== cached, ownMap: !!m?.map && m.map !== cached?.map, flipY: m?.map?.flipY ?? null, led: g.userData.led,
-        frontMap: m?.map?.uuid ?? null, rearMap: Array.isArray(mat) ? mat[1].map?.uuid ?? null : null, split: Array.isArray(mat) };   // #800
+        frontMap: m?.map?.uuid ?? null, rearMap: Array.isArray(mat) ? mat[1].map?.uuid ?? null : null, split: Array.isArray(mat), rearW: rear?.w ?? null, rearH: rear?.h ?? null };   // #800
     }) };
 };
 // drive headless: step the car and the race at 1/60 s while the autopilot is on, at most secs seconds
@@ -5639,7 +5767,9 @@ function revertModeText() { showModeText(focusedMode() ?? SHOWN.mode); }
 // the overlay doubles as the start and the result screen, so its texts depend on the race state
 function renderOverlay() { const done = R.state === 'finished', blitz = R.mode === 'blitz', hunt = R.mode === 'hunt'; if (done) SHOWN.mode = R.mode; revertModeText(); $('cruisebtn').textContent = tr('cruise'); $('startbtn').textContent = tr(done && R.mode === 'trial' ? 'retry' : 'trial'); $('blitzbtn').textContent = tr(done && blitz ? 'retry' : 'blitz'); $('blitzbtn').title = tr('blitzIntro'); $('huntbtn').textContent = tr(done && hunt ? 'retry' : 'hunt'); $('viewbtn').textContent = tr(done && R.mode === 'view' ? 'retry' : 'view'); $('tutorialbtn').textContent = tr('tutorial'); if (done) { $('result').innerHTML = resultHtml(R.last); if (R.last.mode === 'view') renderAlbum(); } renderModeButtons(); }
 // #561: a glTF car picked by URL or stored choice is still loading: the start waits like the car select's Race! (#236: no swap mid-race)
-function renderModeButtons() { const blocked = !!WORLD_GONE || raceBlocked(VEHICLES[CHOICE.id], gltfState(CHOICE.id)); for (const id of Object.keys(MODE_BTN)) $(id).disabled = blocked; }
+function renderModeButtons() { const blocked = !!WORLD_GONE || raceBlocked(VEHICLES[CHOICE.id], gltfState(CHOICE.id)); for (const id of Object.keys(MODE_BTN)) $(id).disabled = blocked; if (!blocked) refocusStart(); }
+// the start car's model can finish loading after the boot's focusStart, which then hit a disabled button and left the focus on the body
+function refocusStart() { if (document.activeElement !== document.body || $('overlay').hidden || matchMedia('(pointer:coarse)').matches) return; focusStart(); }
 // #508: one frame per viewpoint, photo or empty; DOM calls only, the stored strings never reach innerHTML
 function renderAlbum() {
   const album = loadAlbum(), box = document.createElement('div'), head = document.createElement('h3');
@@ -5739,6 +5869,7 @@ function renderSettings() {
   const s = SFX.sound(), r = RADIO.state(), musicOn = r.inRun ? r.on : r.menuOn;
   const sw = (id, on) => { const b = $(id); b.setAttribute('aria-checked', String(on)); b.textContent = tr(on ? 'setOn' : 'setOff'); };
   sw('setsound', s.on); $('setsoundvol').value = s.vol; $('setsoundpct').textContent = tr('radioVolume', s.vol * 10);
+  sw('setkeybar', KEYBAR.on);
   sw('setmusic', musicOn); $('setmusicvol').value = r.vol; $('setmusicpct').textContent = tr('radioVolume', r.vol * 10); $('setmusiccap').textContent = tr(musicCaptionKey(r.inRun));
 }
 function openSettings(from) { SETTINGS.on = true; SETTINGS.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('settings').hidden = false; renderSettings(); $('settingsback').focus(); }
@@ -5748,6 +5879,7 @@ $('settingsbtn').onclick = () => openSettings('start'); $('pausesettings').oncli
 $('setsound').onclick = () => { SFX.setSoundOn(!SFX.sound().on); renderSettings(); };
 $('setsoundvol').oninput = (e) => { SFX.setSoundVol(+e.target.value); SFX.blip(); renderSettings(); };
 $('setmusic').onclick = () => { RADIO.cmd('power'); renderSettings(); };
+$('setkeybar').onclick = () => { toggleKeybar(); renderSettings(); };
 $('setmusicvol').oninput = (e) => { RADIO.setVolume(+e.target.value); renderSettings(); };
 window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol }) => ({ on, menuOn, vol }))(RADIO.state()) });
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
@@ -6124,7 +6256,10 @@ window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
 // materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
-const DEPOT_S = { on: REGION.id === 'hochrhein' && !REGION.generated, slots: null, built: new Map(), solids: new Map(), loadChain: Promise.resolve() };
+// #807: only the nearest DEPOT.nearMax slots get a real model -- all 21 at once crashed a weak GPU. Every other slot
+// shows a grey box (one InstancedMesh for the lot); driving away frees the models and the files the depot fetched.
+const DEPOT_S = { on: REGION.id === 'hochrhein' && !REGION.generated, slots: null, built: new Map(), solids: new Map(), loadChain: Promise.resolve(),
+  boxes: null, boxMats: [], boxHidden: [], owned: new Set(), queued: new Set(), wants: { load: [], keep: new Set() } };
 // the parked vehicle in reach of E: on foot within the walker's enterReach, in the car within reachCar and only nearly stopped
 function depotNear() {
   if (!DEPOT_S.on || !DEPOT_S.slots || WRECK_S.on) return null;
@@ -6152,12 +6287,11 @@ function stagePaint(g, def) {
   const col = paintMat ? paintMat.color : paintable(def) ? carMats.body.color : null;
   return col ? '#' + col.getHexString() : null;
 }
-// a replaced parked mesh frees its own geometry and its cloned materials -- never the shared glTF geometry (userData.sharedGeo)
+// a parked mesh that goes frees its own geometry and its cloned materials -- never the shared glTF geometry (userData.sharedGeo)
 // nor a material's map (each clone shares it with the stage build and the glTF cache)
 function disposeParked(g) { g.traverse(o => { if (!o.isMesh) return; if (!o.userData.sharedGeo) o.geometry.dispose(); for (const m of [].concat(o.material)) m.dispose(); }); }
 function buildDepotSlot(s) {
-  const def = VEHICLES[s.id], old = DEPOT_S.built.get(s.id);
-  if (def.gltf) DEPOT_S.loadChain = DEPOT_S.loadChain.then(() => loadVehicleModel(s.id));   // one file at a time, like the gallery
+  const def = VEHICLES[s.id];
   let mesh = null, paint = null;
   withStageVehicle(s.id, paintOnSelect(def, 'navy', false, 'navy', def), (stage) => {
     const drop = new Set([flames, BLINK.left, BLINK.right]);
@@ -6167,44 +6301,102 @@ function buildDepotSlot(s) {
     g.traverse(o => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone(); });
     paint = stagePaint(g, def); mesh = g;
   });
-  if (old) { scene.remove(old.mesh); disposeParked(old.mesh); }   // the fallback makes way for the real model
   mesh.position.set(s.x, groundH(s.x, s.z, -Infinity), s.z);
   mesh.rotation.set(0, -s.th, 0);
   mesh.visible = s.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show;
   scene.add(mesh);
-  DEPOT_S.built.set(s.id, { mesh, model: !def.gltf || gltfState(s.id) === 'ready' ? 'gltf' : 'fallback', paint });
-  if (!DEPOT_S.solids.has(s.id)) {
+  DEPOT_S.built.set(s.id, { mesh, paint });
+}
+// #807: once, with the layout -- the solid every slot keeps (a box is as solid as a car), and one grey cover per slot in a single
+// InstancedMesh, so a slot the player is nowhere near costs one matrix instead of a model
+const BOX_GONE = new THREE.Matrix4().makeScale(0, 0, 0);
+function placeDepot() {
+  for (const s of DEPOT_S.slots) {
     const solid = { x: s.x, z: s.z, hw: s.l / 2, hd: s.w / 2, c: Math.cos(s.th), s: Math.sin(s.th), h: 3, depot: s.id, off: s.id === CHOICE.id };
     addSolid(solid); DEPOT_S.solids.set(s.id, solid);
   }
+  if (!DEPOT_S.slots.length) return;
+  const boxes = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0x6b7178 }), DEPOT_S.slots.length);
+  DEPOT_S.boxMats = DEPOT_S.slots.map((s, i) => {
+    const h = s.l > DEPOT.longL ? DEPOT.boxHLong : DEPOT.boxH;
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(s.x, groundH(s.x, s.z, -Infinity) + h / 2, s.z),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -s.th, 0)), new THREE.Vector3(s.l, h, s.w));
+    boxes.setMatrixAt(i, m);
+    return m;
+  });
+  DEPOT_S.boxHidden = DEPOT_S.slots.map(() => false);
+  boxes.instanceMatrix.needsUpdate = true;
+  scene.add(boxes); DEPOT_S.boxes = boxes;
 }
-// once per frame: lay the slots out on the first visit, build at most one parked mesh, keep the driven slot empty and far ones hidden
+// #807: only a file the depot itself fetched, and only while nobody else builds from it -- the driven car, a pending swap and the
+// open Choose car screen all clone the cached scene, and so does every Postauto bus
+const canEvict = (id) => DEPOT_S.owned.has(id) && gltfState(id) === 'ready' && id !== CHOICE.id && id !== PENDING_SWAP
+  && car.userData.gltfId !== id && !CARSEL.on && !(id === 'bus' && POSTAUTO.meshes.size > 0);
+// #807: the parked mesh goes, and with it the file the depot fetched for it
+function freeDepotSlot(id) {
+  const b = DEPOT_S.built.get(id);
+  if (b) { scene.remove(b.mesh); disposeParked(b.mesh); DEPOT_S.built.delete(id); }
+  if (canEvict(id)) { evictVehicleModel(id); DEPOT_S.owned.delete(id); }
+}
+// #807: one file at a time, like the gallery; a file the player has driven away from before its turn came is never fetched
+function requestDepotModel(id) {
+  if (!VEHICLES[id].gltf || gltfState(id) !== 'idle' || DEPOT_S.queued.has(id)) return;
+  DEPOT_S.queued.add(id);
+  DEPOT_S.loadChain = DEPOT_S.loadChain.then(() => {
+    DEPOT_S.queued.delete(id);
+    if (!DEPOT_S.wants.load.includes(id) || gltfState(id) !== 'idle') return null;
+    DEPOT_S.owned.add(id);
+    return loadVehicleModel(id);
+  });
+}
+// once per frame: lay the slots out on the first visit, keep a real model on the nearest slots only (one build per frame, nearest
+// first), a box on every other, the driven slot empty and the whole lot hidden from afar
 function stepDepot() {
   if (!DEPOT_S.on || WRECK_S.on) return;
   const dist = Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z);
   if (!DEPOT_S.slots) {
     if (dist > DEPOT.build) return;
     try { DEPOT_S.slots = depotLayout(vehicleIds(), VEHICLES); } catch (e) { console.warn(e.message); DEPOT_S.slots = []; }
+    placeDepot();
   }
-  const next = DEPOT_S.slots.find(sl => { const b = DEPOT_S.built.get(sl.id); return !b || (b.model === 'fallback' && gltfState(sl.id) === 'ready'); });
-  if (next) buildDepotSlot(next);
+  const wants = DEPOT_S.wants = depotWants(P.x, P.z, DEPOT_S.slots, CHOICE.id);
+  for (const id of [...DEPOT_S.built.keys()]) if (!wants.keep.has(id)) freeDepotSlot(id);
+  for (const id of [...DEPOT_S.owned]) if (!wants.keep.has(id) && canEvict(id)) { evictVehicleModel(id); DEPOT_S.owned.delete(id); }   // a load that finished after the player left
+  for (const id of wants.load) requestDepotModel(id);
+  const next = wants.load.find(id => !DEPOT_S.built.has(id) && (!VEHICLES[id].gltf || gltfState(id) === 'ready'));
+  if (next) buildDepotSlot(DEPOT_S.slots.find(sl => sl.id === next));
   const show = dist < DEPOT.show;
   for (const sl of DEPOT_S.slots) {
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
-    if (!b || !solid) continue;
-    const driven = sl.id === CHOICE.id;
-    b.mesh.visible = show && !driven;
-    solid.off = driven;
+    if (solid) solid.off = sl.id === CHOICE.id;
+    if (b) b.mesh.visible = show && sl.id !== CHOICE.id;
   }
+  if (!DEPOT_S.boxes) return;
+  DEPOT_S.boxes.visible = show;
+  let moved = false;
+  DEPOT_S.slots.forEach((sl, i) => {
+    const hide = sl.id === CHOICE.id || DEPOT_S.built.has(sl.id);   // the driven car's slot stands empty, a real model covers its own box
+    if (hide === DEPOT_S.boxHidden[i]) return;
+    DEPOT_S.boxHidden[i] = hide;
+    DEPOT_S.boxes.setMatrixAt(i, hide ? BOX_GONE : DEPOT_S.boxMats[i]);
+    moved = true;
+  });
+  if (moved) DEPOT_S.boxes.instanceMatrix.needsUpdate = true;
 }
 window.__mm.depot = () => ({
   on: DEPOT_S.on, near: depotNear(),
+  real: DEPOT_S.built.size, cached: [...DEPOT_S.owned].filter(id => gltfState(id) === 'ready'),   // #807: real models alive, files the depot fetched
   slots: (DEPOT_S.slots ?? []).map(sl => {
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
     return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l,
-      shown: !!b && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
-      solid: !!solid && !solid.off, model: b ? b.model : null, paint: b ? b.paint : null };
+      shown: (!!b || !!DEPOT_S.boxes) && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
+      solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null };
   }),
+});
+window.__mm.ostriches = () => ({   // #846: the paddock's debug hook
+  on: OST.on, visible: OST.visible, count: OST.flock ? OST.flock.birds.length : 0, solids: OST.solids,
+  birds: OST.flock ? OST.flock.birds.map(b => ({ x: b.x, z: b.z, state: b.state, inside: inPaddock(b.x, b.z, -OSTRICH.inset + 0.5) })) : [],
+  free: (x, z, rad) => free(x, z, rad),   // the placement test trees and props use, so a test can probe the paddock guard
 });
 // #83: pause menu (Esc / P / the II button; automatic on a hidden tab). Rules in pause.js; loop() skips every step while PAUSE.on.
 const PAUSE = { on: false, confirm: false, frame: 0 };
@@ -6225,7 +6417,7 @@ function movePauseFocus(step) { $(nextFocus(PAUSE.confirm ? ABANDON_BUTTONS : pa
 const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon, next: () => movePauseFocus(1), prev: () => movePauseFocus(-1), debug: () => toggleDebug(), photo: () => { photoPending = true; }, record: () => { if (REC.state !== 'idle') stopRecord(); } };
 // true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
 function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
-$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('pausetutorial').onclick = quitTutorial; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause'); $('pausetimetable').onclick = () => openTimetable('pause', null);   // #801 $('pausekeybar').onclick = toggleKeybar; renderKeybarToggle();   // #509
+$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('pausetutorial').onclick = quitTutorial; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause'); $('pausetimetable').onclick = () => openTimetable('pause', null);   // #801; #509
 // #735: the phone's radio -- 📻 opens six buttons that run what 5-0 do; it closes on a second tap, on pause and after 6 s untouched
 const RADIO_PANEL = { closeAt: 0 };
 function setRadioPanel(open) { $('radiopanel').hidden = !open; $('radiobtn').setAttribute('aria-expanded', String(open)); RADIO_PANEL.closeAt = open ? performance.now() + 6000 : 0; }
@@ -6517,7 +6709,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { renderKeybarToggle(); rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
@@ -6594,18 +6786,18 @@ function beamPick(cx, cy) { BEAM.ndc.set(cx / innerWidth * 2 - 1, 1 - cy / inner
 function spotBlocked(x, z) { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; P.y = groundH(x, z, -Infinity); P.vx = P.vz = 0; collide(carRadius()); const pushed = Math.hypot(P.x - x, P.z - z) > 0.05; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return pushed || waterLevelAt(x, z, 1e4) !== null; }
 function beamTo(cx, cy) { if (!beamAllowed() || performance.now() - BEAM.t < 500) return; BEAM.t = performance.now(); const hit = beamPick(cx, cy), spot = hit && beamSpot(hit.x, hit.z, { blocked: spotBlocked, nearestRoad: nearestJumpable }); BEAM.last = spot; if (!spot) { toast(tr('beamNone')); return; } placeOnRoad(spot.x, spot.z, spot.th ?? P.th, tr('beamed')); }
 $('gl').addEventListener('dblclick', e => borderOrBeam(e.clientX, e.clientY));
-// #202: on foot a click on the landscape grabs the mouse for looking around; the browser lets it go on Esc (and Chrome keeps that
+// #202: on foot a click on the landscape grabs the mouse for looking around, a second click lets it go (no pause); the browser lets it go on Esc (and Chrome keeps that
 // Esc keydown to itself), so losing the lock on foot opens the pause -- openPause is a no-op when already paused or not in a run
 // #403: the lock waits out the double-click interval, so a double-click reaches borderOrBeam with the cursor still there; a dblclick cancels it
 let footLockTimer = 0;
-$('gl').addEventListener('click', () => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; clearTimeout(footLockTimer); footLockTimer = setTimeout(() => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; try { $('gl').requestPointerLock()?.catch?.(() => {}); } catch (e) { } }, FOOT_LOCK_DELAY); });
+$('gl').addEventListener('click', () => { const act = footClickAction({ foot: FOOT.on, locked: !!document.pointerLockElement, menu: !$('overlay').hidden || PAUSE.on }); if (act === 'unlock') { releaseFootLock(); return; } if (act !== 'lock') return; clearTimeout(footLockTimer); footLockTimer = setTimeout(() => { if (!FOOT.on || !$('overlay').hidden || PAUSE.on || document.pointerLockElement) return; try { $('gl').requestPointerLock()?.catch?.(() => {}); } catch (e) { } }, FOOT_LOCK_DELAY); });
 $('gl').addEventListener('dblclick', () => clearTimeout(footLockTimer));
 document.addEventListener('mousemove', e => { if (FOOT.on && document.pointerLockElement === $('gl')) footMouse(e.movementX, e.movementY); });
 const FOOT_LOCK_DELAY = 300;
 // #365: J, F1 (and O, I) open dialogs that need the mouse: let the lock go first, and do not read that as the Esc-pause (the dialog stays open)
 let footLockQuiet = false;
 function releaseFootLock() { if (FOOT.on && document.pointerLockElement) { footLockQuiet = true; document.exitPointerLock(); } }
-function footLockLost() { if (document.pointerLockElement) return; if (footLockQuiet) { footLockQuiet = false; return; } if (FOOT.on) openPause(); }
+function footLockLost() { if (document.pointerLockElement) { if (FOOT.on) toast(tr('footLookHint')); return; } if (footLockQuiet) { footLockQuiet = false; return; } if (FOOT.on) openPause(); }
 document.addEventListener('pointerlockchange', footLockLost);
 window.__mm.footUnlock = () => footLockLost();   // tests: headless Chromium cannot lock the pointer; this is the release path
 $('gl').addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; const t = performance.now(); if (t - BEAM.tapT < 300 && Math.hypot(e.clientX - BEAM.tapX, e.clientY - BEAM.tapY) < 30) { BEAM.tapT = 0; borderOrBeam(e.clientX, e.clientY); return; } BEAM.tapT = t; BEAM.tapX = e.clientX; BEAM.tapY = e.clientY; });
@@ -6959,7 +7151,7 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open || TTV.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play

@@ -76,13 +76,17 @@ def test_bar_hidden_on_the_start_screen_and_in_the_help(server):
     assert (start["shown"], racing["shown"], help_open["shown"], back["shown"]) == (False, True, False, True)
 
 
-def test_pause_toggle_hides_the_bar_and_survives_a_reload(server):
+def test_settings_toggle_hides_the_bar_and_survives_a_reload(server):
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server)
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=120000)
-        page.click("#pausekeybar")
-        label = page.text_content("#pausekeybar")
+        page.click("#pausesettings")
+        page.click("#setkeybar")
+        label = page.text_content("#setkeybar")
+        state = page.get_attribute("#setkeybar", "aria-checked")
+        page.keyboard.press("Escape")                                # Settings back to the pause menu
+        page.wait_for_function("() => document.querySelector('#settings').hidden", timeout=60000)
         page.keyboard.press("Escape")
         page.wait_for_function("() => !window.__mm.pause().on", timeout=120000)
         off = page.evaluate(BAR)
@@ -93,6 +97,6 @@ def test_pause_toggle_hides_the_bar_and_survives_a_reload(server):
         page.evaluate("() => localStorage.removeItem('mm.keybar')")
         b.close()
     assert errors == []
-    assert label in ("Key bar: off", "Tastenleiste: aus"), label
+    assert label in ("off", "aus") and state == "false", (label, state)   # the switch flips at once (#801 had commented its handler out)
     assert off["on"] is False and off["shown"] is False, off
     assert reloaded["on"] is False and reloaded["shown"] is False, reloaded

@@ -127,3 +127,9 @@ export function footSteps(acc, dist, nitro, grounded, stride = STEP_STRIDE) {
   const len = nitro ? stride.nitro : stride.walk, total = acc + dist, steps = Math.floor(total / len);
   return { acc: total - steps * len, steps };
 }
+
+// a left click on the landscape: on foot it toggles the look mode -- 'lock' grabs the mouse, 'unlock' lets it go again; null in the car or a menu
+export function footClickAction({ foot, locked, menu }) {
+  if (!foot || menu) return null;
+  return locked ? 'unlock' : 'lock';
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE, easeEye, smoothK, easeTo, easeLook, LOOK_EASE } from '../foot.js';
+import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, STEP_STRIDE, easeEye, smoothK, easeTo, easeLook, LOOK_EASE, footClickAction } from '../foot.js';
 import { footView } from '../camera.js';
 import { colliderPush } from '../world.js';
 import { translate } from '../strings.js';
@@ -432,4 +432,18 @@ test('stepFoot_StateRoundTrip_IsDeterministic', () => {
     return s;
   };
   assert.deepEqual(journey(), journey());
+});
+
+// a left click on the landscape on foot toggles the look mode: it grabs the mouse, and a second one lets it go again (no pause)
+test('footClickAction_OnFootUnlocked_Locks', () => {
+  assert.equal(footClickAction({ foot: true, locked: false, menu: false }), 'lock');
+});
+
+test('footClickAction_OnFootLocked_Unlocks', () => {
+  assert.equal(footClickAction({ foot: true, locked: true, menu: false }), 'unlock');
+});
+
+test('footClickAction_InTheCarOrAMenu_Nothing', () => {
+  assert.equal(footClickAction({ foot: false, locked: false, menu: false }), null);
+  assert.equal(footClickAction({ foot: true, locked: false, menu: true }), null);
 });

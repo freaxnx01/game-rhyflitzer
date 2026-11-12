@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, roofRafters, SLAT, HANDRAIL, parapetStraight, RAFTER, EAVE, eaveFrame } from '../plattform.js';
+import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, coreSlats, roofRafters, SLAT, HANDRAIL, parapetStraight, RAFTER, EAVE, eaveFrame, centrePostTop } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
@@ -312,4 +312,13 @@ test('eaveFrame_Braces_TwoPerPostFromThePostToThePurlinUnderside', () => {
     assert.ok(Math.abs(br.head[1] - (p.top - EAVE.h)) < 0.01, `the head meets the purlin's underside (${br.head[1]} vs ${p.top - EAVE.h})`);
     assert.ok(br.head[1] - br.foot[1] > 1, 'it climbs');
   }
+});
+
+// the central post ends under the roof's sheathing: its four top corners lie inside the pyramid, so no block pokes out at the apex
+test('centrePostTop_PostCorners_StayUnderTheRoofSheathing', () => {
+  const { roof, centrePost } = PLATTFORM, slope = Math.tan(roof.pitch * Math.PI / 180);
+  const apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * slope, corner = centrePost / Math.SQRT2;
+  const top = centrePostTop();
+  assert.ok(top <= apex - 0.02 - corner * slope, `post top ${top} pokes through the roof (apex ${apex})`);
+  assert.ok(top > apex - 0.6, `post top ${top} ends far below the apex`);
 });
