@@ -51,6 +51,10 @@ export function encodePose(p) {
 // parsePose(buf) — the pose as a fresh object, or null for anything this version refuses: not an ArrayBuffer of
 // exactly 36 bytes, a wrong kind, an id beyond MAX_PLAYERS, a non-finite float, a position or speed out of bounds,
 // or a set reserved flag bit. Never throws on peer input.
+// The id inside the record is the sender's claim, not a verified fact: parsePose cannot know which peer the buffer
+// arrived from, so a guest could stuff another player's id into a relayed record. Whoever consumes poses (#835 parts
+// b/c) must take the player from netlink's peerId (onPose) and drop a record whose id disagrees with it — anything
+// else lets a guest steer another player's car.
 export function parsePose(buf) {
   if (!(buf instanceof ArrayBuffer) || buf.byteLength !== POSE_BYTES) return null;
   const v = new DataView(buf);
