@@ -1,4 +1,4 @@
-"""#535: the desktop controls -- Space, Shift and B held together; Comma / Period signal; E is the context key.
+"""#535: the desktop controls -- Space, N and B held together (#913: nitro is N, not Shift); Comma / Period signal; E is the context key.
 Hand-traced layout (world + terrain blocked). Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
@@ -27,28 +27,34 @@ def press_z(page):
     page.wait_for_timeout(200)
 
 
-def test_space_shift_and_b_held_together_give_gas_nitro_and_look_back(server):
+def test_space_n_and_b_held_together_give_gas_nitro_and_look_back(server):
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server)
-        for k in ("Space", "ShiftLeft", "KeyB"):
+        for k in ("Space", "KeyN", "KeyB"):
             page.keyboard.down(k)
         page.wait_for_function("() => { const d = window.__mm.drive(); return d.gas === 1 && d.nitro === 1 && d.back === true; }", timeout=120000)
         held = page.evaluate("() => window.__mm.keysDown()")
-        for k in ("KeyB", "ShiftLeft", "Space"):
+        for k in ("KeyB", "KeyN", "Space"):
             page.keyboard.up(k)
         b.close()
     assert errors == []
-    assert {"Space", "ShiftLeft", "KeyB"} <= set(held), held
+    assert {"Space", "KeyN", "KeyB"} <= set(held), held
 
 
-def test_n_still_gives_nitro(server):
+def test_shift_is_no_longer_nitro_in_the_car_but_n_still_is(server):
+    """#913: nitro is N in every context; Shift means down on foot and sink in the heli, so in the car it does nothing."""
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server)
+        page.keyboard.down("ShiftLeft")
+        page.wait_for_timeout(500)
+        shift_nitro = page.evaluate("() => window.__mm.drive().nitro")
+        page.keyboard.up("ShiftLeft")
         page.keyboard.down("KeyN")
         page.wait_for_function("() => window.__mm.drive().nitro === 1", timeout=120000)
         page.keyboard.up("KeyN")
         b.close()
     assert errors == []
+    assert shift_nitro == 0, shift_nitro
 
 
 def test_comma_and_period_toggle_the_signals_and_q_e_do_nothing_in_the_car(server):

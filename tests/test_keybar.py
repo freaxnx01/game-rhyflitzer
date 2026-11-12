@@ -51,7 +51,7 @@ def test_bar_follows_the_context_and_the_language(server):
         b.close()
     overlap = lambda a, c: not (a[2] <= c[0] or c[2] <= a[0] or a[3] <= c[1] or c[3] <= a[1])
     assert errors == []
-    assert car["shown"] and car["text"] == "WASD fahrenShift NitroZ aussteigenJ springenC KameraF1 alle Tasten", car
+    assert car["shown"] and car["text"] == "WASD fahrenN NitroZ aussteigenJ springenC KameraF1 alle Tasten", car
     assert car_kbd == ["W", "A", "S", "D"], car_kbd   # #700: four caps, not one "WASD"
     assert boxes["pe"] == "none" and not overlap(boxes["bar"], boxes["bl"]) and not overlap(boxes["bar"], boxes["br"]), boxes
     assert foot["ctx"] == "foot" and foot["text"].startswith("WASD gehenSpace springenZ einsteigen") and "Kamera" not in foot["text"], foot
