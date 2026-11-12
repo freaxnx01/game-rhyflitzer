@@ -1,9 +1,12 @@
 """#735: the car radio and the menu music in a real browser. Hand layout (terrain and world blocked), autoplay allowed.
 The SRF 3 stream is never reached: hermetic_api aborts *.srg-ssr.ch, and the stub tests answer it with a local mp3.
 #841: the menu-music tests also run one load without the autoplay flag (blocked: silent until the first key).
+#856: over CDP (PW_CDP_ENDPOINT) the launch flag does not apply: open_game presses Shift once, the load-start test is skipped.
 Slow (Playwright): run in the foreground."""
 from pathlib import Path
 
+import pytest
+from conftest import GPU
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).parents[1]
@@ -12,6 +15,11 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 SRF = "https://stream.srg-ssr.ch/srgssr/srf3/mp3/128"
 STUB_MP3 = (ROOT / "assets/music/california-snares-and-synths.mp3").read_bytes()
 T = 120000
+
+
+def over_cdp():
+    """#856: with PW_CDP_ENDPOINT the browser is connected over CDP, so the launch flags in ARGS (autoplay policy) never apply."""
+    return GPU["endpoint"] is not None
 
 
 def stub_srf(page, hits):
@@ -34,6 +42,8 @@ def open_game(p, server, srf_hits=None, touch=False):
         stub_srf(page, srf_hits)
     page.goto(f"{server}/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    if over_cdp():
+        page.keyboard.press("Shift")   # #856: no autoplay flag over CDP; one user activation lets the radio play
     return b, page, errors, music
 
 
@@ -46,7 +56,17 @@ def start_run(page):
     page.wait_for_function("() => window.__mm.radio().inRun", timeout=T)
 
 
+def test_over_cdp_reflects_the_gpu_endpoint(monkeypatch):
+    import conftest
+    monkeypatch.setitem(conftest.GPU, "endpoint", "http://192.168.1.120:9223")
+    assert over_cdp()
+    monkeypatch.setitem(conftest.GPU, "endpoint", None)
+    assert not over_cdp()
+
+
 def test_menu_music_starts_during_loading(server):
+    if over_cdp():
+        pytest.skip("#856: asserts the menu track is fetched at load start, before any gesture; needs the autoplay launch flag, which a CDP-connected browser ignores")
     with sync_playwright() as p:
         b, page, errors, music = open_game(p, server)
         assert any("menu-running-title.mp3" in u for u in music), music     # fetched at load start, autoplay allowed

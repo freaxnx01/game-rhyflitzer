@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-11 21:47` A **fenced paddock** with eight **ostriches** at the Straussenfarm in Sisseln: they stand, peck and walk, and run off when the car or the walker comes close. <kbd>J</kbd> lists the farm.
 - `2026-11-11 19:22` **Radio Argovia** is a third station on the car radio: press <kbd>6</kbd> to cycle Rhyflitzer FM, SRF 3 and Radio Argovia.
 
 ### Changed
@@ -28,6 +29,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-11 20:47` **On foot**, looking around with the mouse is now a toggle: a **left click** grabs the mouse, a **second left click** lets it go again without opening the pause menu. A short hint says so when it starts.
 - `2026-11-11 20:27` The **Plattform Sisslerfeld**'s roof tip is clean again: the central post no longer pokes out above the apex as a little wooden block.
 - `2026-11-11 12:28` The **Hauptstrasse** in Sisseln no longer has a small **step** where it climbs out of the rail underpass, and the **stone walls** at the **Königsweg** rail decks stay below the deck instead of poking up through it.
 - `2026-11-11 12:20` The **Sissle** and the other small **streams** are visible again where they run through farmland: the **fields** no longer cover the water in places.

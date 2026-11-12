@@ -67,8 +67,8 @@ const BUILDINGS_46 = [
   ['Schulhaus Sisseln', 'Sisseln', 171822721],
 ];
 
-test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47 and the Rhine wrecks of #215 and the Neues Schulhaus and the Volg of #507 and the vehicle depot of #553', () => {
-  assert.equal(LANDMARK_INFO.length, 46);
+test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower of #81, the Südspange of #125, the Bergsee of #94 and the hideout of #102 and the food truck of #103 and Flugplatz Schupfart of #47 and the Rhine wrecks of #215 and the Neues Schulhaus and the Volg of #507 and the vehicle depot of #553 and the Straussenfarm of #846', () => {
+  assert.equal(LANDMARK_INFO.length, 47);
   for (const l of LANDMARK_INFO) {
     assert.ok(GEMEINDEN.includes(l.gemeinde), l.name);
     assert.equal([l.anchor, l.building, l.at].filter(Boolean).length, 1, `${l.name}: exactly one of anchor / building / at`);
@@ -103,7 +103,7 @@ test('#46 entries resolve from their buildings, sort into their Gemeinde and are
   expected.splice(expected.findIndex(([n]) => n === 'Bahnhof Eiken') + 1, 0, ['Südspange Sisslerfeld', 'Eiken']);
   expected.splice(expected.findIndex(([n]) => n === 'Südspange Sisslerfeld') + 1, 0, ['Fahrzeug-Depot', 'Eiken']);   // #553: listed in any world (an at), after its Gemeinde's last entry
   expected.splice(0, 0, ['Dorfzentrum Wallbach', 'Wallbach'], ['Lohnberg', 'Zuzgen'], ['Dorfzentrum Mumpf', 'Mumpf'], ['Dorfzentrum Hellikon', 'Hellikon'], ['Dorfzentrum Obermumpf', 'Obermumpf']);   // #782: the village centres are fixed points, listed in any world
-  expected.splice(expected.length, 0, ['Dorfzentrum Oeschgen', 'Oeschgen'], ['Dorfzentrum Frick', 'Frick'], ['Dorfzentrum Murg', 'Murg'], ['Bahnhof Murg (Baden)', 'Murg'], ['Rothaus', 'Murg']);   // #782
+  expected.splice(expected.length, 0, ['Straussenfarm Sisseln', 'Sisseln'], ['Dorfzentrum Oeschgen', 'Oeschgen'], ['Dorfzentrum Frick', 'Frick'], ['Dorfzentrum Murg', 'Murg'], ['Bahnhof Murg (Baden)', 'Murg'], ['Rothaus', 'Murg']);   // #846 the Straussenfarm is a fixed point after its Gemeinde's last entry; #782
   assert.deepEqual(e.map(x => [x.n, x.g]), expected);
   assert.deepEqual(e.find(x => x.n === 'Kursaal'), { n: 'Kursaal', g: 'Bad Säckingen', x: 405, z: 5 });
   assert.deepEqual(filterLandmarks(e, 'schonau', null).map(x => x.n), ['Schloss Schönau (Trompeterschloss)']);
@@ -142,11 +142,11 @@ test('the Fridolinsbrücke jumps to the Swiss approach, east of the deck end (#7
 test('#81 LANDI-Turm resolves from its anchor, sits last in Eiken and is found by "landi"', () => {
   const anchors = { dsmChimney: { x: 1065.2, z: 345.1 }, stationSisseln: { x: 1854.2, z: 685.8 }, landiTurm: { x: 1832.7, z: 627.7 } };
   const e = landmarkEntries(LANDMARK_INFO, anchors, [{ id: '199241726', ring: [[2600, 900], [2610, 900], [2610, 910], [2600, 910]] }]);
-  assert.deepEqual(e.map(x => x.n), ['Dorfzentrum Wallbach', 'Lohnberg', 'Dorfzentrum Mumpf', 'Dorfzentrum Hellikon', 'Dorfzentrum Obermumpf', 'Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Fahrzeug-Depot', 'Dorfzentrum Oeschgen', 'Dorfzentrum Frick', 'Dorfzentrum Murg', 'Bahnhof Murg (Baden)', 'Rothaus']);   // #782: the village centres list between the anchored landmarks
+  assert.deepEqual(e.map(x => x.n), ['Dorfzentrum Wallbach', 'Lohnberg', 'Dorfzentrum Mumpf', 'Dorfzentrum Hellikon', 'Dorfzentrum Obermumpf', 'Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Bahnhof Sisseln', 'Bahnhof Eiken', 'LANDI-Turm', 'Südspange Sisslerfeld', 'Fahrzeug-Depot', 'Straussenfarm Sisseln', 'Dorfzentrum Oeschgen', 'Dorfzentrum Frick', 'Dorfzentrum Murg', 'Bahnhof Murg (Baden)', 'Rothaus']);   // #782: the village centres list between the anchored landmarks
   assert.deepEqual(e.find(x => x.n === 'LANDI-Turm'), { n: 'LANDI-Turm', g: 'Eiken', x: 1832.7, z: 627.7 });
   assert.deepEqual(filterLandmarks(e, 'landi', null).map(x => x.n), ['LANDI-Turm']);
   assert.deepEqual(filterLandmarks(e, 'LANDI', 'Eiken').map(x => x.n), ['LANDI-Turm']);
-  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Dorfzentrum Wallbach', 'Lohnberg', 'Dorfzentrum Mumpf', 'Dorfzentrum Hellikon', 'Dorfzentrum Obermumpf', 'Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld', 'Fahrzeug-Depot', 'Dorfzentrum Oeschgen', 'Dorfzentrum Frick', 'Dorfzentrum Murg', 'Bahnhof Murg (Baden)', 'Rothaus']);   // anchor missing: skipped
+  assert.deepEqual(landmarkEntries(LANDMARK_INFO, { dsmChimney: anchors.dsmChimney }, []).map(x => x.n), ['Dorfzentrum Wallbach', 'Lohnberg', 'Dorfzentrum Mumpf', 'Dorfzentrum Hellikon', 'Dorfzentrum Obermumpf', 'Bergsee', 'Rhein-Wracks', 'Reformierte Kirche', 'Reservoir Hübel', 'DSM-Kamin', 'Südspange Sisslerfeld', 'Fahrzeug-Depot', 'Straussenfarm Sisseln', 'Dorfzentrum Oeschgen', 'Dorfzentrum Frick', 'Dorfzentrum Murg', 'Bahnhof Murg (Baden)', 'Rothaus']);   // anchor missing: skipped
 });
 
 test('#103 Güggeli-Foodtruck resolves from its anchor, sits last in Eiken and is found by "gugg", "food" and "GÜGGELI"', () => {
@@ -298,7 +298,7 @@ test('landmarkEntries_LookPoint_IsPassedThrough (#102)', () => {
 test('#47: Flugplatz Schupfart sits in its own Gemeinde, between Münchwilen and Eiken', () => {
   const e = landmarkEntries(LANDMARK_INFO, { flugplatzSchupfart: { x: -1219.4, z: 4633.6 } }, []);
   assert.deepEqual(e.find(x => x.n === 'Flugplatz Schupfart'), { n: 'Flugplatz Schupfart', g: 'Schupfart', x: -1219.4, z: 4633.6 });
-  assert.deepEqual(gemeindenOf(e, GEMEINDEN), ['Wallbach', 'Zuzgen', 'Mumpf', 'Hellikon', 'Obermumpf', 'Bad Säckingen', 'Stein', 'Münchwilen', 'Schupfart', 'Eiken', 'Oeschgen', 'Frick', 'Murg']);   // #715: the Reformierte Kirche lists Stein in any world; #782: the village centres list their Gemeinden, Sisseln has only anchor/building entries
+  assert.deepEqual(gemeindenOf(e, GEMEINDEN), ['Wallbach', 'Zuzgen', 'Mumpf', 'Hellikon', 'Obermumpf', 'Bad Säckingen', 'Stein', 'Münchwilen', 'Schupfart', 'Eiken', 'Sisseln', 'Oeschgen', 'Frick', 'Murg']);   // #715: the Reformierte Kirche lists Stein in any world; #782: the village centres list their Gemeinden; #846: the Straussenfarm lists Sisseln (an at)
   assert.deepEqual(filterLandmarks(e, 'flugplatz', null).map(x => x.n), ['Flugplatz Schupfart']);
 });
 
