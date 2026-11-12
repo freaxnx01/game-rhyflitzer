@@ -1,5 +1,6 @@
-// netlink.js — #834: the WebRTC host star of the multiplayer race. Browser only (RTCPeerConnection), so the node tests
-// cover netcodec.js and netrace.js instead and this file is exercised by tests/test_multiplayer_lobby.py.
+// netlink.js — #834: the WebRTC host star of the multiplayer race. Browser only (RTCPeerConnection): the node tests
+// cover netcodec.js and netrace.js, and this file against a fake RTCPeerConnection (tests/netlink.test.mjs); the real
+// handshake is exercised by tests/test_multiplayer_lobby.py.
 // No signaling server, no PeerJS, no Firebase, no TURN: the players exchange the codes themselves (netcodec.js).
 // The host keeps one connection per guest (guest ids 1..3) and relays; a guest has exactly one connection, to the host (peer 0).
 
@@ -23,10 +24,13 @@ function gatherIce(pc) {
   });
 }
 
-// createLink({ iceServers, onMessage, onPeerState }) — one object per page; the page is either a host or a guest, never both.
+// createLink({ iceServers, onMessage, onPose, onPeerState }) — one object per page; the page is either a host or a guest, never both.
 // onMessage(peerId, rawText) gets the untouched channel text: the caller validates it with parseMessage.
+// onPose(peerId, buf) gets raw ArrayBuffers from the `pose` channel: the caller validates them with parsePose (#835).
+// peerId is the only trustworthy fact about the sender; the id inside the record is peer-supplied and must be
+// cross-checked against peerId by the consumer (see parsePose) — a guest may forge another player's id.
 // onPeerState(peerId, state) gets the connection state, plus 'timeout' when a peer never connects.
-export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerState = () => {} } = {}) {
+export function createLink({ iceServers = STUN, onMessage = () => {}, onPose = () => {}, onPeerState = () => {} } = {}) {
   const peers = new Map();   // peerId -> { pc, ev, pose, timers: [] }
 
   function wire(peerId, entry) {
@@ -52,7 +56,11 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
 
   function attachChannel(peerId, entry, channel) {
     entry[channel.label] = channel;
-    channel.addEventListener('message', (e) => { if (typeof e.data === 'string') onMessage(peerId, e.data); });
+    channel.binaryType = 'arraybuffer';
+    channel.addEventListener('message', (e) => {
+      if (typeof e.data === 'string') onMessage(peerId, e.data);
+      else if (channel.label === 'pose' && e.data instanceof ArrayBuffer) onPose(peerId, e.data);
+    });
   }
 
   function openPeer(peerId) {
@@ -114,6 +122,13 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
 
   function broadcast(msg) { for (const peerId of peers.keys()) send(peerId, msg); }
 
+  // sendPose(peerId, buf) — one binary pose record on the unreliable channel; silently skipped while it is not open
+  function sendPose(peerId, buf) {
+    const channel = peers.get(peerId)?.pose;
+    if (channel?.readyState !== 'open') return;
+    channel.send(buf);
+  }
+
   function close(peerId) {
     const entry = peers.get(peerId);
     if (!entry) return;
@@ -126,5 +141,5 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPeerStat
 
   const peerIds = () => [...peers.keys()];
 
-  return { hostOffer, hostAccept, guestAnswer, send, broadcast, close, closeAll, peerIds };
+  return { hostOffer, hostAccept, guestAnswer, send, sendPose, broadcast, close, closeAll, peerIds };
 }

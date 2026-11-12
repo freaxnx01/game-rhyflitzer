@@ -12,6 +12,76 @@ export const CLASSES = ['A', 'B', 'C', 'D'];        // the power classes a host 
 export const MAX_PLAYERS = 4;
 const DENY_REASONS = ['class', 'full'];
 
+// ---- binary pose record (#835) ----
+export const POSE_BYTES = 36;       // the record size: byteLength of a pose, asserted by the tests and read by part b
+export const POSE_KIND = 1;         // u8 at byte 0: this record kind; other kinds are refused, room is left for #836/#837
+export const START_MODES = ['cruise'];  // the modes a 'start' message may carry; #837 adds 'race'
+const POS_MAX = 50000;              // m: |x| and |z| bound, "region bounds plus margin"
+const Y_MIN = -1000, Y_MAX = 10000; // m: the height band a car can plausibly be in
+const V_MAX = 150;                  // m/s: the speed bound, checked on the combined velocity
+const ROT_SCALE = 10000;            // rotations and steer are carried as i16 radians × 10000
+const V_SCALE = 100;                // velocities are carried as i16 cm/s
+const I16_MAX = 0x7fff, I16_MIN = -0x8000;
+const clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
+const scaledInt16 = (v, scale) => clampInt(v * scale, I16_MIN, I16_MAX);
+
+// encodePose(pose) — the 36-byte little-endian record of the spec table. Ints are clamped into range, so a caller
+// that hands in an out-of-range value still gets a decodable record, not a wrapped one.
+export function encodePose(p) {
+  const buf = new ArrayBuffer(POSE_BYTES);
+  const v = new DataView(buf);
+  v.setUint8(0, POSE_KIND);
+  v.setUint8(1, clampInt(p.id, 0, 255));
+  v.setUint16(2, clampInt(p.seq, 0, 0xffff), true);
+  v.setUint32(4, clampInt(p.t, 0, 0xffffffff), true);
+  v.setFloat32(8, p.x, true);
+  v.setFloat32(12, p.y, true);
+  v.setFloat32(16, p.z, true);
+  v.setInt16(20, scaledInt16(p.rx, ROT_SCALE), true);
+  v.setInt16(22, scaledInt16(p.ry, ROT_SCALE), true);
+  v.setInt16(24, scaledInt16(p.rz, ROT_SCALE), true);
+  v.setInt16(26, scaledInt16(p.vx, V_SCALE), true);
+  v.setInt16(28, scaledInt16(p.vz, V_SCALE), true);
+  v.setInt16(30, scaledInt16(p.steer, ROT_SCALE), true);
+  v.setUint8(32, p.flags & 0x3f);   // bits 6–7 are reserved and must stay 0, also in what we send
+  // bytes 33–35 stay 0: reserved for #836
+  return buf;
+}
+
+// parsePose(buf) — the pose as a fresh object, or null for anything this version refuses: not an ArrayBuffer of
+// exactly 36 bytes, a wrong kind, an id beyond MAX_PLAYERS, a non-finite float, a position or speed out of bounds,
+// or a set reserved flag bit. Never throws on peer input.
+// The id inside the record is the sender's claim, not a verified fact: parsePose cannot know which peer the buffer
+// arrived from, so a guest could stuff another player's id into a relayed record. Whoever consumes poses (#835 parts
+// b/c) must take the player from netlink's peerId (onPose) and drop a record whose id disagrees with it — anything
+// else lets a guest steer another player's car.
+export function parsePose(buf) {
+  if (!(buf instanceof ArrayBuffer) || buf.byteLength !== POSE_BYTES) return null;
+  const v = new DataView(buf);
+  if (v.getUint8(0) !== POSE_KIND) return null;
+  const id = v.getUint8(1);
+  if (id >= MAX_PLAYERS) return null;
+  const x = v.getFloat32(8, true), y = v.getFloat32(12, true), z = v.getFloat32(16, true);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return null;
+  if (Math.abs(x) > POS_MAX || Math.abs(z) > POS_MAX || y < Y_MIN || y > Y_MAX) return null;
+  const vx = v.getInt16(26, true) / V_SCALE, vz = v.getInt16(28, true) / V_SCALE;
+  if (Math.hypot(vx, vz) > V_MAX) return null;
+  const flags = v.getUint8(32);
+  if (flags & 0xc0) return null;
+  return {
+    id,
+    seq: v.getUint16(2, true),
+    t: v.getUint32(4, true),
+    x, y, z,
+    rx: v.getInt16(20, true) / ROT_SCALE,
+    ry: v.getInt16(22, true) / ROT_SCALE,
+    rz: v.getInt16(24, true) / ROT_SCALE,
+    vx, vz,
+    steer: v.getInt16(30, true) / ROT_SCALE,
+    flags,
+  };
+}
+
 // ---- base64url ----
 const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -103,6 +173,8 @@ export function cleanName(raw) {
 // ---- reliable lobby messages ----
 // Every validator reads only the fields it knows and returns a fresh object, so nothing an unknown field carries
 // can reach the game state. An unknown type, a missing field or one out of range reads as null.
+const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+
 const VALIDATORS = {
   hello: (m) => { const name = cleanName(m.name); return name ? { type: 'hello', name } : null; },
   pick: (m, ctx) => (ctx.carIds.has(m.car) && ctx.paintIds.has(m.paint) ? { type: 'pick', car: m.car, paint: m.paint } : null),
@@ -110,6 +182,9 @@ const VALIDATORS = {
   deny: (m) => (DENY_REASONS.includes(m.reason) ? { type: 'deny', reason: m.reason } : null),
   bye: () => ({ type: 'bye' }),
   lobby: parseLobby,
+  ping: (m) => (finite(m.a) ? { type: 'ping', a: m.a } : null),
+  pong: (m) => (finite(m.a) && finite(m.b) ? { type: 'pong', a: m.a, b: m.b } : null),
+  start: (m) => (START_MODES.includes(m.mode) ? { type: 'start', mode: m.mode } : null),
 };
 
 function parsePlayer(raw, ctx) {

@@ -1,7 +1,7 @@
 // #834: connection codes and lobby messages. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName } from '../netcodec.js';
+import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES } from '../netcodec.js';
 
 const SDP = 'v=0\r\n' + 'a=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n'.repeat(8);
 
@@ -54,3 +54,35 @@ test('parseMessage_invalid_null', () => {
 });
 
 test('cleanName_badInput_null', () => { assert.equal(cleanName('x'.repeat(30)), null); assert.equal(cleanName(7), null); });
+
+// #835 part a: the binary pose record and the ping/pong/start messages.
+const POSE = { id: 2, seq: 65535, t: 4294967000, x: 1234.5, y: 312.25, z: -876.125, rx: 0.05, ry: -3.1, rz: -0.2, vx: 30.12, vz: -4.5, steer: 0.31, flags: 0b100011 };
+
+test('parsePose_encoded_roundTripsWithinQuantisation', () => {
+  const buf = encodePose(POSE); assert.equal(buf.byteLength, POSE_BYTES); assert.equal(POSE_BYTES, 36);
+  const p = parsePose(buf);
+  for (const k of ['id', 'seq', 't', 'flags']) assert.equal(p[k], POSE[k], k);
+  for (const k of ['x', 'y', 'z']) assert.ok(Math.abs(p[k] - POSE[k]) < 1e-3, k);
+  for (const k of ['rx', 'ry', 'rz', 'steer']) assert.ok(Math.abs(p[k] - POSE[k]) <= 1e-4, k);
+  for (const k of ['vx', 'vz']) assert.ok(Math.abs(p[k] - POSE[k]) <= 0.01, k);
+});
+
+test('parsePose_badRecords_null', () => {
+  const bad = (patch) => { const b = encodePose(POSE), v = new DataView(b); patch(v); return b; };
+  assert.equal(parsePose('x'.repeat(36)), null); assert.equal(parsePose(new ArrayBuffer(35)), null); assert.equal(parsePose(new ArrayBuffer(37)), null);
+  assert.equal(parsePose(bad((v) => v.setUint8(0, 2))), null);            // unknown kind
+  assert.equal(parsePose(bad((v) => v.setUint8(1, 4))), null);            // id beyond MAX_PLAYERS
+  assert.equal(parsePose(bad((v) => v.setFloat32(8, NaN, true))), null);
+  assert.equal(parsePose(bad((v) => v.setFloat32(16, 60000, true))), null);   // |z| > 50 km
+  assert.equal(parsePose(bad((v) => v.setFloat32(12, -2000, true))), null);   // y below -1000
+  assert.equal(parsePose(bad((v) => v.setInt16(26, 20000, true))), null);     // vx 200 m/s
+  assert.equal(parsePose(bad((v) => v.setUint8(32, 0b1000000))), null);       // reserved flag bit
+});
+
+test('parseMessage_pingPongStart_validated', () => {
+  assert.deepEqual(parseMessage('{"type":"ping","a":12.5}', CTX), { type: 'ping', a: 12.5 });
+  assert.deepEqual(parseMessage('{"type":"pong","a":12.5,"b":99}', CTX), { type: 'pong', a: 12.5, b: 99 });
+  assert.deepEqual(parseMessage('{"type":"start","mode":"cruise"}', CTX), { type: 'start', mode: 'cruise' });
+  for (const m of ['{"type":"ping","a":"1"}', '{"type":"pong","a":1}', '{"type":"pong","a":1,"b":null}', '{"type":"start","mode":"race"}', '{"type":"start"}'])
+    assert.equal(parseMessage(m, CTX), null, m);
+});
