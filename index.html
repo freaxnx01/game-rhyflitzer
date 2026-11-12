@@ -6422,11 +6422,21 @@ function dropNetTag(entry) {
   if (!entry.tag) return;
   scene.remove(entry.tag); entry.tag.material.map?.dispose(); entry.tag.material.dispose(); entry.tag = null;
 }
-// one entry per other player who has picked a car; a changed car or paint throws the built model away (A9)
+const netEntryMats = (mesh) => { const out = []; mesh.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) out.push(m); }); return out; };
+// one entry per other player who has picked a car; a changed car or paint throws the built model away (A9). A player
+// who leaves is not dropped at once: the entry goes into a 1 s fade (part c), then stepNetCars removes it.
 function syncNetCars() {
   const others = new Map((NET.lobby?.players ?? []).filter((p) => p.id !== NET.you && p.car).map((p) => [p.id, p]));
-  for (const id of [...NETCARS.keys()]) if (!others.has(id)) dropNetCar(id);
+  for (const [id, entry] of [...NETCARS]) {
+    if (others.has(id) || entry.leaving != null) continue;   // still driving, or already fading
+    if (!entry.mesh) { dropNetCar(id); continue; }            // never built: nothing to fade out
+    entry.leaving = performance.now();
+    entry.mesh.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { m.transparent = true; m.needsUpdate = true; } });
+    if (NET.role === 'G') toast(tr('mpGuestLeft', entry.name), TOAST_S.event);   // the host already toasts in netHostDrop
+  }
   for (const [id, player] of others) {
+    const existing = NETCARS.get(id);
+    if (existing && existing.leaving != null) dropNetCar(id);   // came back before the fade ended: start fresh
     const entry = NETCARS.get(id) ?? newNetCar();
     if (entry.car !== player.car || entry.paint !== player.paint) { removeNetMesh(entry); dropNetTag(entry); entry.car = player.car; entry.paint = player.paint; }
     if (entry.name !== player.name) { dropNetTag(entry); entry.name = player.name; }
@@ -6467,7 +6477,15 @@ function stepNetCars() {
   const now = hostNow();
   const flashOn = Math.floor(performance.now() / 350) % 2 === 0;   // the same 350 ms cadence the driven car's blinkers use
   let built = false;
-  for (const entry of NETCARS.values()) {
+  for (const id of [...NETCARS.keys()]) {
+    const entry = NETCARS.get(id);
+    if (entry.leaving != null) {   // part c: fade the car out over FADE ms, holding its last pose, then remove it
+      const a = fadeAlpha(performance.now() - entry.leaving);
+      for (const m of netEntryMats(entry.mesh)) m.opacity = a;
+      if (entry.tag) entry.tag.material.opacity = a;
+      if (a === 0) dropNetCar(id);
+      continue;
+    }
     if (!entry.mesh && entry.car && !built) built = buildNetCar(entry);
     if (!entry.mesh) continue;
     const pose = sampleRemote(entry.track, now);
@@ -7256,6 +7274,7 @@ debugSection(() => positionLines(debugPosition(L && L.origin, P.x, P.z), P.y, be
 debugSection(() => buildingLines(DEBUG_H.shown[0]));
 debugSection(() => [sizeLine(CAR_SIZE)]);   // #124: the size measured at build time
 debugSection(() => mapLines(TGRID.GW, TGRID.GD));   // #124
+debugSection(() => NET.role ? [`net: ${NET.role} · peers ${NET.link ? NET.link.peerIds().length : 0} · bad ${NET.bad} · offset ${Math.round(NET.offset ?? 0)} ms`] : []);   // #835 part c: the multiplayer counters
 window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), links: mapUrls(debugPosition(L && L.origin, P.x, P.z), bearing()), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length, labels: [...document.querySelectorAll('#debugtext > div')].map(d => d.dataset.label), legend: !$('debuglegend').hidden });
 if (debugFromQuery(location.search)) toggleDebug();
 // #106 Navi panel: the turn arrow, the stepped distance and the instruction, all from navi.js's description
