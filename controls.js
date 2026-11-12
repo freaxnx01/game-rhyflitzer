@@ -17,6 +17,14 @@ const radio = () => [
   entry('radioTrack', ['Digit7', 'Digit8'], { label: 'keyRadioTrack' }), entry('radioVolume', ['Digit9', 'Digit0'], { label: 'keyRadioVolume' }),
 ];
 
+// #900: the camera path on ü ö ä (BracketLeft · Semicolon · Quote), in every run context -- a waypoint stores whatever
+// the rendered camera shows, so the car chase, hover, the heli chase and the train cab all author the same path
+const camPath = () => [
+  entry('camPathAdd', ['BracketLeft'], { label: 'keyCamPathAdd' }),
+  entry('camPathUndo', ['Semicolon'], { label: 'keyCamPathUndo' }),
+  entry('camPathPlay', ['Quote'], { label: 'keyCamPathPlay' }),
+];
+
 const CAR = [
   entry('drive', [...MOVE, 'Space'], { hold: true, core: true, touch: 'button', label: 'barDrive', cap: 'WASD' }),
   entry('nitro', [...SHIFT, 'KeyN'], { hold: true, core: true, label: 'barNitro', cap: 'Shift' }),
@@ -32,7 +40,7 @@ const CAR = [
   menu('trip', ['KeyK'], 'keyTrip'), menu('reset', ['KeyR'], 'keyReset'), menu('style', ['KeyT'], 'keyStyle'), menu('photo', ['KeyX'], 'keyPhoto'), menu('mute', ['KeyM'], 'keyMute'),
   menu('record', ['Backquote'], 'keyRecord'),   // #749: the literal stays -- controls.js does not import record.js, so the modules stay independent
   entry('pause', ['Escape', 'KeyP'], { label: 'keyPause' }),
-  ...radio(),
+  ...radio(), ...camPath(),
 ];
 const WALK = [
   entry('walk', MOVE, { hold: true, core: true, touch: 'button', label: 'barWalk', cap: 'WASD' }),
@@ -45,15 +53,15 @@ const WALK = [
   entry('lookBack', ['KeyB'], { hold: true, label: 'keyLookBack' }),
   menu('bounds', ['KeyG'], 'keyBounds'), menu('borders', ['KeyY'], 'keyBorders'), menu('style', ['KeyT'], 'keyStyle'), menu('photo', ['KeyX'], 'keyPhoto'), menu('mute', ['KeyM'], 'keyMute'),
   menu('record', ['Backquote'], 'keyRecord'),   // #749: also in the indoor / foot contexts, so § records there too
-  ...radio(),
+  ...radio(), ...camPath(),
 ];
 const TABLE = {
   car: CAR,
   foot: [...WALK, menu('hover', ['KeyF'], 'menuHover')],
   indoors: WALK,
-  heli: [entry('fly', MOVE, { hold: true }), entry('climb', ['Space'], { hold: true }), entry('sink', SHIFT, { hold: true }), entry('heliNitro', ['KeyN'], { hold: true }), menu('land', ['KeyF'], 'keyHeli'), ...radio(), help()],
+  heli: [entry('fly', MOVE, { hold: true }), entry('climb', ['Space'], { hold: true }), entry('sink', SHIFT, { hold: true }), entry('heliNitro', ['KeyN'], { hold: true }), menu('land', ['KeyF'], 'keyHeli'), ...radio(), ...camPath(), help()],
   train: [entry('steam', ['KeyW'], { hold: true }), entry('trainBrake', ['KeyS'], { hold: true }), menu('switchLeft', ['KeyQ'], 'menuSwitchLeft'), menu('switchRight', ['KeyE'], 'menuSwitchRight'),
-    menu('whistle', ['KeyH'], 'menuWhistle'), menu('trainReset', ['KeyR'], 'keyReset'), entry('trainCamera', ['KeyC'], {}), entry('turnLeft', ['KeyA'], {}), entry('turnRight', ['KeyD'], {}), entry('leaveTrain', ['KeyZ'], { touch: 'button' }), ...radio(), help()],
+    menu('whistle', ['KeyH'], 'menuWhistle'), menu('trainReset', ['KeyR'], 'keyReset'), entry('trainCamera', ['KeyC'], {}), entry('turnLeft', ['KeyA'], {}), entry('turnRight', ['KeyD'], {}), entry('leaveTrain', ['KeyZ'], { touch: 'button' }), ...radio(), ...camPath(), help()],
   lift: [entry('floor', ['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'], {}), entry('roof', ['KeyD'], {}), entry('context', ['KeyE'], {}), help()],
 };
 
