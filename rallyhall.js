@@ -16,6 +16,7 @@ export const RALLYHALL = {
     { id: 'mccrae',   at: [4, 22],  th: Math.PI - 0.5, len: 4.34, wid: 1.77, hgt: 1.42, wheelbase: 2.52, wheelR: 0.32, wheelW: 0.28, colour: 0x1b2f78 },   // deep blue
   ],
   colours: { glass: 0x1b2330, dark: 0x202226, tyre: 0x17181a, rim: 0xb7b9bd, wall: 0xc9c8c2, roof: 0x8d9096, floor: 0x9b9a95, podium: 0xe6e6e2, band: 0x2c3b4d },
+  board: { a: 19.34, b: 0, y0: 0.8, w: 6.0, h: 2.2, panel: 0x14171c, gold: 0xd4a83a, lines: [{ text: 'Elfyn Evans', size: 0.22, y: 0.30, weight: 800 }, { text: 'WRC World Champion 2026', size: 0.14, y: 0.58, weight: 700 }, { text: '& Scott Martin', size: 0.09, y: 0.80, weight: 600 }] },
 };
 
 // one rally car in its own frame (+x nose, y up with the tyres at y = 0, z across): the lower body box, the cabin
@@ -51,6 +52,10 @@ export function carExtent(parts) {
   }
   return { len: hi.x - lo.x, wid: hi.z - lo.z, hgt: hi.y, minY: lo.y };
 }
+
+// #907: the honour board on the back wall behind the Evans car -- plain numbers in the hall frame (a into the room,
+// b across, y up from the floor); rallyhallmesh.js draws it. Hangs on the wall, so it adds no collider.
+export function boardLayout(cfg = RALLYHALL) { const { a, b, y0, w, h, lines } = cfg.board; return { a, b, y0, w, h, lines }; }
 
 // where the hall and its cars stand in a room ({ centre, frame: { f, v }, y } as roomLayout gives it): the hall at the
 // room centre turned to the frame, each car on its podium with its nose to the open front, the gravel apron from the
