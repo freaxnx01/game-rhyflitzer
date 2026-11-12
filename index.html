@@ -920,7 +920,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, treeHash, lodTier } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
@@ -1191,6 +1191,13 @@ TEX.plasterWhite = makeTex(64, 64, (g, w, h) => {
   g.fillStyle = '#f1efe8'; g.fillRect(0, 0, w, h);
   let s = 45; const lr = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   for (let i = 0; i < 60; i++) { const v = Math.floor(lr() * 12); g.fillStyle = `rgba(${200 - v},${196 - v},${186 - v},.22)`; g.fillRect(lr() * w, lr() * h, 2 + lr() * 3, 2 + lr() * 3); }
+});
+// #901: the facade's own plaster without windows, for gable ends, plinths and the door column. Own local LCG like
+// plasterWhite above -- noise() would draw rr() and shift every later building's seeded colours
+TEX.plaster = makeTex(256, 192, (g, w, h) => {
+  g.fillStyle = '#d8d2c6'; g.fillRect(0, 0, w, h);
+  let s = 3141; const lr = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 720; i++) { const v = Math.floor(lr() * 12); g.fillStyle = `rgba(${216 - v},${210 - v},${198 - v},.22)`; g.fillRect(lr() * w, lr() * h, 2 + lr() * 3, 2 + lr() * 3); }
 });
 // #87: gable ends of a row house -- plain plaster only. The tile above is 256 x 128: yellow panel at x 0-29, window frame at
 // x 96-214 / y 22-116, storey joint at y 0-3 (canvas y flips to v). u 0.14-0.35, v 0.05-0.90 is speckled white with nothing
@@ -1637,7 +1644,7 @@ function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.toNonIndexe
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
 function rawGeo(pos, nrm, uv, rot, x, z, c, role) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); if (rot) g.rotateY(-rot); g.translate(x, 0, z); colorize(g, c); push(role, g); return g; }
-const GABLE_END_WALL = { role: 'wall', uv: null };   // #87: default gable end -- plaster texture, UVs computed from the triangle
+const GABLE_END_WALL = { role: 'plaster', uv: null };   // #87/#901: default gable end -- plain plaster, no window tile runs into the triangle
 function gable(w, d, h0, rh, x, z, rot, roofC, wallC, over = 0.45, end = GABLE_END_WALL) {
   const hw = w / 2 + over, hd = d / 2 + over, y0 = h0 - 0.05, y1 = h0 + rh; const pos = [], uv = [], nrm = [];
   const q = (a, b, c, d2, n) => { for (const v of [a, b, c, a, c, d2]) { pos.push(...v); nrm.push(...n); } const L = w / 2, Sl = Math.hypot(hd, rh); uv.push(0, 0, L, 0, L, Sl, 0, 0, L, Sl, 0, Sl); };
@@ -1647,6 +1654,16 @@ function gable(w, d, h0, rh, x, z, rot, roofC, wallC, over = 0.45, end = GABLE_E
   const gp = [], gn = [], gu = []; const hw2 = w / 2, hd2 = d / 2; const endUV = end.uv || [0, 0, d / 4, 0, d / 8, rh / 3];
   const tri = (a, b, c, n) => { gp.push(...a, ...b, ...c); gn.push(...n, ...n, ...n); gu.push(...endUV); };
   tri([hw2, h0, hd2], [hw2, h0, -hd2], [hw2, h0 + rh, 0], [1, 0, 0]); tri([-hw2, h0, -hd2], [-hw2, h0, hd2], [-hw2, h0 + rh, 0], [-1, 0, 0]); rawGeo(gp, gn, gu, rot, x, z, wallC, end.role);
+  // #901: one whole attic window per end when it fits under both slopes with a margin; the window frame of TEX.facade
+  if (end === GABLE_END_WALL) {
+    const gw = gableWindow(d, rh);
+    if (gw) for (const sx of [1, -1]) {
+      const g = new THREE.PlaneGeometry(gw.w, gw.h), u = g.attributes.uv;
+      for (let i = 0; i < u.count; i++) u.setXY(i, 34 / 256 + u.getX(i) * 76 / 256, 1 - 152 / 192 + u.getY(i) * 108 / 192);
+      g.rotateY(sx * Math.PI / 2); g.translate(sx * (hw2 + FACADE.door.off), h0 + gw.y + gw.h / 2, 0);
+      g.rotateY(-rot); g.translate(x, 0, z); colorize(g, wallC); push('wall', g);
+    }
+  }
 }
 function resample(pts, step) { const out = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / step)); for (let k = 1; k <= n; k++) out.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); } return out; }
 function waterPolys() {
@@ -1817,6 +1834,47 @@ function landmarkReplaces(b, base) {
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(base + 3, lm.top), ring: b.ring });
   window.__mm.counts.chLandmarks.replaced.push(b.id); return true;
 }
+// #901: the walls of a gable-path OSM house, drawn as fitted quads instead of one tiled box: a plain plaster plinth from
+// 3 m under the ring minimum up to the door's ground, window storeys anchored there (whole rows, whole half-tile columns),
+// plain plaster above the band, and exactly one door in the middle column of the face toward the nearest road. Returns the
+// door {x, z, y, k}; the storey grid comes from facadeRows, the columns from facadeColumns (world.js, node-tested).
+const HOUSE_DOORS = new Map();
+function gableHouseWalls(b, base, h, wc) {
+  const [cx, cz, w, d, rot] = b.rect, c = Math.cos(rot), s = Math.sin(rot);
+  const world = (lx, lz) => [cx + lx * c - lz * s, cz + lx * s + lz * c];
+  const F = [[-w / 2, d / 2, w / 2, d / 2], [w / 2, d / 2, w / 2, -d / 2], [w / 2, -d / 2, -w / 2, -d / 2], [-w / 2, -d / 2, -w / 2, d / 2]]
+    .map(([ax, az, bx, bz]) => ({ a: world(ax, az), b: world(bx, bz) }));   // facadeLabels order: +z, +x, -z, -x, corners wound for wallQuads' outward normal
+  const road = nearestRoadPoint(cx, cz, b.st, FACADE.reach), k = facingFace(cx, cz, rot, w, d, road);
+  const kf = F[k], L = Math.hypot(kf.b[0] - kf.a[0], kf.b[1] - kf.a[1]), { n, cw } = facadeColumns(L);
+  const t = n ? (Math.floor((n - 1) / 2) + 0.5) * cw : L / 2;   // the middle half-tile; the face centre on a sliver face
+  const dp = [kf.a[0] + (kf.b[0] - kf.a[0]) * t / L, kf.a[1] + (kf.b[1] - kf.a[1]) * t / L];
+  const rows = facadeRows(base, h, terrainH(dp[0], dp[1]));
+  for (let f = 0; f < 4; f++) {
+    const { a, b: e } = F[f], len = Math.hypot(e[0] - a[0], e[1] - a[1]), { n: nf, cw: fcw } = facadeColumns(len);
+    wallQuads([{ a, b: e }], rows.floor0, 0, wc, 'plaster', [4, 3], rows.floor0 - (base - 3));   // the plinth carries the slope below the door's ground
+    if (nf > 0 && rows.floors > 0) {
+      if (f !== k) wallQuads([{ a, b: e }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+      else {
+        const dir = [(e[0] - a[0]) / len, (e[1] - a[1]) / len], at = (m) => [a[0] + dir[0] * m, a[1] + dir[1] * m];
+        const j = Math.floor((nf - 1) / 2);
+        if (j > 0) wallQuads([{ a, b: at(j * fcw) }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+        if (j + 1 < nf) wallQuads([{ a: at((j + 1) * fcw), b: e, u0: (j + 1) * fcw }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+        wallQuads([{ a: at(j * fcw), b: at((j + 1) * fcw) }], rows.floor0, rows.sh, wc, 'plaster', [4, 3], 0);   // the door's column: plain beside the door
+        if (rows.floors > 1) wallQuads([{ a: at(j * fcw), b: at((j + 1) * fcw), u0: j * fcw, dy: rows.sh }], rows.floor0 + rows.sh, (rows.floors - 1) * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+      }
+      if (base + h - rows.bandTop > 0.01) wallQuads([{ a, b: e }], rows.bandTop, base + h - rows.bandTop, wc, 'plaster', [4, 3], 0);
+    } else wallQuads([{ a, b: e }], rows.floor0, base + h - rows.floor0, wc, 'plaster', [4, 3], 0);   // sliver face or shed: plain plaster
+  }
+  const g = new THREE.PlaneGeometry(FACADE.door.w, FACADE.door.h), uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, 150 / 256 + uv.getX(i) * 62 / 256, uv.getY(i) * (1 - 60 / 192));   // the door of TEX.facadeDoor
+  const nx = -(kf.b[1] - kf.a[1]) / L, nz = (kf.b[0] - kf.a[0]) / L;
+  g.rotateY(-rot + k * Math.PI / 2);
+  g.translate(dp[0] + nx * FACADE.door.off, rows.floor0 + FACADE.door.h / 2, dp[1] + nz * FACADE.door.off);
+  colorize(g, col('#ffffff')); push('wallDoor', g);
+  const door = { x: dp[0], z: dp[1], y: rows.floor0, k };
+  HOUSE_DOORS.set(b.id, door); window.__mm.counts.houseDoors++;
+  return door;
+}
 function osmBuilding(b) {
   const [cx, cz, w, d, rot] = b.rect; let base = Infinity; for (const [x, z] of b.ring) base = Math.min(base, terrainH(x, z));
   // measured buildings (hsrc 'dsm', #17): eaves h and ridge rh from swissSURFACE3D; a measured flat roof is drawn flat
@@ -1826,9 +1884,10 @@ function osmBuilding(b) {
   const row = isRowHouse(b); if (row) window.__mm.counts.rowHouses = (window.__mm.counts.rowHouses || 0) + 1;
   if (b.roof === 'gable' && !(dsm && b.rh < 0.6)) {
     const floors = Math.max(1, Math.round(b.h / 3)); const wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]);
-    const h = dsm ? b.h : floors * 3 + 0.4; const door = rnd() < 0.5 ? 'wall' : 'wallDoor';
+    const h = dsm ? b.h : floors * 3 + 0.4; const _doorCoin = rnd() < 0.5 ? 'wall' : 'wallDoor';   // #901: still drawn for the seeded sequence; gableHouseWalls places the one real door
     if (landmarkReplaces(b, base)) return;   // #649: after all the branch's rr()/rnd() draws, so every later building keeps its colours
-    box(w, h + 3, d, cx, base - 3, cz, rot, row ? col('#ffffff') : wc, row ? 'rowHouse' : door, row ? rowHouseTile(b) : [4, 3], 3.1);
+    if (row) box(w, h + 3, d, cx, base - 3, cz, rot, col('#ffffff'), 'rowHouse', rowHouseTile(b), 3.1);
+    else gableHouseWalls(b, base, h, wc);
     gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, row ? col('#ffffff') : wc, 0.45, row ? ROW_GABLE_END : GABLE_END_WALL); addOBB(cx, cz, w, d, rot, base + h); return;
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
@@ -2733,6 +2792,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   CH_LM = (L && REAL && L.origin) ? chLandmarksFor(await fetch('assets/landmarks/index.json').then(r => r.ok ? r.json() : null).catch(() => null), REGION.id, L.origin, REAL.hdr.base) : [];
   CH_LM_BY_OSM = new Map(CH_LM.filter(c => c.osm != null).map(c => [c.osm, c]));
   window.__mm.counts.chLandmarks = { placed: [], replaced: [] };
+  window.__mm.counts.houseDoors = 0;   // #901: one per drawn gable house
   // #715: a landmark without an OSM building in the world file (the Reformierte Kirche, #716) is solid as its own rect up to its top
   for (const c of CH_LM) if (c.rect) { const [x, z, w, d, rot] = c.rect; pushOBB({ x, z, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(terrainH(x, z) + 3, c.top) }); }
   if (L) for (const b of L.buildings) osmBuilding(b);
@@ -2823,7 +2883,7 @@ if (CH_LM.length) (async () => {
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], all: [], t: 0, ticks: 0 };
 const PLATE = { h: 0.5, px: 96, bg: '#1b4c9c', fg: '#ffffff', font: '700 64px "Barlow Condensed", sans-serif', door: 2.4, clear: 1.8, reach: 80 };
 // #557: with a street name, the nearest point of a road so named; none in reach, or no name: the nearest road of any name
-function nearestRoadPoint(x, z, name) { const scan = (want) => { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, PLATE.reach)) { if (want && r.n !== want) continue; const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= PLATE.reach ? best : null; }; return (name && scan(name)) || scan(); }
+function nearestRoadPoint(x, z, name, reach = PLATE.reach) { const scan = (want) => { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) { if (want && r.n !== want) continue; const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= reach ? best : null; }; return (name && scan(name)) || scan(); }   // #901: explicit reach -- the building loop runs before PLATE exists
 if (L) for (const it of addrLabels(plateBuildings(L.buildings, CH_LM_BY_OSM), L.anchors.landmarks, nearestRoadPoint)) { let base = Infinity; for (const [x, z] of it.foot || [[it.x, it.z]]) base = Math.min(base, terrainH(x, z)); it.y = Math.max(base + PLATE.door, terrainH(it.x, it.z) + PLATE.clear); it.foot = null; LABELS.all.push(it); gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
 { const plane = new THREE.PlaneGeometry(1, 1); for (let i = 0; i < 40; i++) { const s = new THREE.Mesh(plane); s.visible = false; LABELS.pool.push(s); scene.add(s); } }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
@@ -3597,9 +3657,11 @@ heli.rotation.order = 'YZX';   // yaw outermost, then pitch, then roll about the
 // full-strength sky reflection clips to white, so it is toned down; smooth has ACES to roll the highlights off and gets 1.0.
 const STYLES = {
   original: { nameKey: 'styleOriginal', sky: ['#3d6fb5', '#e8bd8c'], fog: () => new THREE.Fog(col('#e8bd8c'), 320, 1400), hemi: 0.95, sunI: 0.75, shadows: false, carShadow: 0.55, pixel: Math.min(1.5, window.devicePixelRatio || 1), trees: 'bill', tone: THREE.NoToneMapping, carEnv: 0.45,
-    mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, rowHouse: TEX.rowHouse, bodenacker: TEX.bodenacker, bodenackerLoggia: TEX.bodenackerLoggia, plasterWhite: TEX.plasterWhite, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadOsm: TEX.asphaltOnly, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, meadow: TEX.meadow, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96, side: THREE.DoubleSide }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } return m; } },
+    mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, plaster: TEX.plaster, rowHouse: TEX.rowHouse, bodenacker: TEX.bodenacker, bodenackerLoggia: TEX.bodenackerLoggia, plasterWhite: TEX.plasterWhite, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadOsm: TEX.asphaltOnly, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, meadow: TEX.meadow, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96, side: THREE.DoubleSide }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } if (role === 'roof') m.side = THREE.DoubleSide;   // #901: the overhang's underside draws seen from below
+      return m; } },
   smooth: { nameKey: 'styleSmooth', sky: ['#5d9be0', '#f2d9c4'], fog: () => new THREE.FogExp2(col('#f2d9c4'), 0.00095), hemi: 0.55, sunI: 1.6, shadows: true, carShadow: 0.3, pixel: Math.min(2, window.devicePixelRatio || 1), trees: 'cone', tone: THREE.ACESFilmicToneMapping, carEnv: 1.0,
-    mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', meadow: '#8aa84f', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', bodenacker: '#f1efe8', bodenackerLoggia: '#f1efe8', plasterWhite: '#f1efe8', glass: '#bfd6e4', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'bodenacker', 'bodenackerLoggia', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
+    mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', meadow: '#8aa84f', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', plaster: '#efe4cf', rowHouse: '#f4f1ea', bodenacker: '#f1efe8', bodenackerLoggia: '#f1efe8', plasterWhite: '#f1efe8', glass: '#bfd6e4', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'plaster', 'rowHouse', 'bodenacker', 'bodenackerLoggia', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' || role === 'roof' ? THREE.DoubleSide : THREE.FrontSide });   // #901: the overhang's underside draws seen from below
+      if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
 function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = MESH[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
@@ -5333,6 +5395,7 @@ window.__mm.roleVertexColors = (role) => MESH[role]?.material.vertexColors;   //
 const wallHits = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); return ray.intersectObjects([...Object.values(MESH), ...(INT.housing ? [INT.housing] : []), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).filter(h => h.object.userData.role); };
 window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const hit = wallHits(x, z, tx, tz, up, up1)[0]; return hit ? hit.object.userData.role : null; };
 window.__mm.wallRolesAt = (x, z, tx, tz, up = 2.5, eps = 0.01) => { const hits = wallHits(x, z, tx, tz, up); return hits.length ? [...new Set(hits.filter(h => h.distance - hits[0].distance <= eps).map(h => h.object.userData.role))].sort() : []; };
+window.__mm.houseDoor = (id) => HOUSE_DOORS.get(id) || null;   // #901: the one door of a gable house -- {x, z, y, k} on the wall, k in facadeLabels order
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
 window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x, z, 1e4), bridge: !!onBridge(x, z, 1e4) });
 // #101: the riverbed under (x, z): groundH's value, the water surface, the bedDepth, and where the drawn terrain is (raycast on the grass mesh)
