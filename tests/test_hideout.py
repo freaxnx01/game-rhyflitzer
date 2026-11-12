@@ -897,8 +897,8 @@ def test_cave_switches_happen_deep_in_the_tunnel_not_at_the_portal(server):
         assert 30 <= went_out <= 45 and went_out < went_in, (key, "out", went_out)
 
 
-T1_STEP = """async ({x, z, th}) => {
-  window.__mm.place(x, z, th); window.__mm.sim(x, z, th, 3, 0.05, [], window.__mm.car().y);
+T1_STEP = """async ({x, z, th, v = 3}) => {
+  window.__mm.place(x, z, th); window.__mm.sim(x, z, th, v, 0.05, [], window.__mm.car().y);
   for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
   const c = window.__mm.cave(); return { k: c.k, group: c.visible, veil: c.veil, lining: c.lining, lamps: c.lamps, house: c.liftHouse, on: c.on, hemi: c.hemi };
 }"""
@@ -921,7 +921,7 @@ def test_t1_fades_between_day_and_cave_without_a_cut_both_ways(server):
             for d in ds:
                 r = page.evaluate(T1_STEP, {"x": mx + ux * (ps + d), "z": mz + uz * (ps + d), "th": th}); r["d"] = d; r["lum"] = crop_brightness(page); rows.append(r)
             runs[name] = rows
-        hover = [page.evaluate(T1_STEP, {"x": mx + ux * (ps + 39 + 2.5 * math.sin(i)), "z": mz + uz * (ps + 39 + 2.5 * math.sin(i)), "th": HEADING}) for i in range(12)]
+        hover = [page.evaluate(T1_STEP, {"x": mx + ux * (ps + 39 + 2.5 * math.sin(i)), "z": mz + uz * (ps + 39 + 2.5 * math.sin(i)), "th": HEADING, "v": 0}) for i in range(12)]   # #906: standing, so the three frames of each row cannot drift the car over CAVE_SWITCH_IN on a slow box
         br.close()
     assert errors == []
     for name, rows in runs.items():
