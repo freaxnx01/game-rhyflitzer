@@ -25,8 +25,17 @@ test('coreKeys_FootAndIndoors_HaveZJAndF1_NoCamera', () => {
   }
 });
 
-test('actionFor_Car_ShiftAndNBothNitro', () => {
-  for (const k of ['ShiftLeft', 'ShiftRight', 'KeyN']) assert.equal(actionFor('car', k), 'nitro', k);
+test('actionFor_Car_OnlyNIsNitro_ShiftIsNothing', () => {
+  assert.equal(actionFor('car', 'KeyN'), 'nitro');
+  for (const k of ['ShiftLeft', 'ShiftRight']) assert.equal(actionFor('car', k), null, k);
+});
+
+test('nitro_EveryContext_OnNAndNeverOnShift', () => {
+  const nitro = { car: 'nitro', foot: 'footNitro', indoors: 'footNitro', heli: 'heliNitro' };
+  for (const [ctx, action] of Object.entries(nitro)) {
+    assert.equal(actionFor(ctx, 'KeyN'), action, ctx);
+    for (const k of ['ShiftLeft', 'ShiftRight']) assert.notEqual(actionFor(ctx, k), action, `${ctx} ${k}`);
+  }
 });
 
 test('actionFor_FootAndHeli_ShiftIsDownAndNStaysNitro', () => {
@@ -59,7 +68,7 @@ test('actionFor_Train_QEStayTheSwitches', () => {
 });
 
 test('barEntries_Car_SpecOrder', () => {
-  assert.deepEqual(barEntries('car').map(e => e.cap), ['WASD', 'Shift', 'Z', 'J', 'C', 'F1']);
+  assert.deepEqual(barEntries('car').map(e => e.cap), ['WASD', 'N', 'Z', 'J', 'C', 'F1']);
   assert.deepEqual(barEntries('car').map(e => translate('de', e.label)), ['fahren', 'Nitro', 'aussteigen', 'springen', 'Kamera', 'alle Tasten']);
 });
 

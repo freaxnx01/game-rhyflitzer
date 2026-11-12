@@ -112,7 +112,7 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
         wait_step(page, "nitro")
         hints["nitro"] = hint(page)
         kbds["nitro"] = caps(page)
-        hold_until(page, ["ShiftLeft", "KeyW"], "jump")
+        hold_until(page, ["KeyN", "KeyW"], "jump")
         hints["jump"] = hint(page)
         page.keyboard.press("KeyJ")
         page.wait_for_function("() => !document.querySelector('#jump').hidden", timeout=T)
@@ -148,10 +148,10 @@ def test_the_tutorial_runs_through_every_step_and_marks_itself_done(server):
     assert begin["line"] == "Tutorial · Hochrhein" and begin["pips"] == 9 and begin["clock"] == "none", begin
     assert "WASD" in hints["drive"] and "20 km/h" in hints["drive"], hints
     assert "checkpoint 1 of 3" in hints["checkpoints"], hints
-    assert "Shift" in hints["nitro"] and "J" in hints["jump"] and "WASD" in hints["climb"], hints
+    assert "N" in hints["nitro"] and "J" in hints["jump"] and "WASD" in hints["climb"], hints
     assert kbds["drive"] == ["W", "A", "S", "D", "↑", "←", "↓", "→"] and " or " in hints["drive"], (kbds, hints)   # #700: the two crosses
     assert_cross(crosses["drive"])   # #700: and both really sit as a cross, not a scrambled row
-    assert kbds["climb"] == kbds["drive"] and kbds["nitro"] == ["Shift"] and kbds["checkpoints"] == [], kbds
+    assert kbds["climb"] == kbds["drive"] and kbds["nitro"] == ["N"] and kbds["checkpoints"] == [], kbds
     assert node and kept, "the banner was rewritten on an unchanged hint"
     assert "stair" in hints["down"] and "mouse" in hints["down"] and "car" in hints["back"], hints
     assert math.hypot(top["x"] - plat["x"], top["z"] - plat["z"]) <= 2.41, top   # the arrow on the deck leads round the rail to the stair (2.4 m from the centre), not over the parapet at the car
