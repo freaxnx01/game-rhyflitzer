@@ -281,8 +281,11 @@ test('the settings dialog has its texts in both languages (#842)', () => {
   assert.equal(translate('de', 'settingsBtn'), 'Einstellungen');
   assert.equal(translate('en', 'setTitle'), 'Settings');
   assert.equal(translate('de', 'setTitle'), 'Einstellungen');
-  assert.equal(translate('en', 'setSub'), 'Sound and music');
-  assert.equal(translate('de', 'setSub'), 'Ton und Musik');
+  assert.equal(translate('en', 'setSub'), 'Sound, music and display');
+  assert.equal(translate('de', 'setSub'), 'Ton, Musik und Anzeige');
+  assert.equal(translate('en', 'setKeybar'), 'Key bar');   // the key bar's switch, moved here from the pause menu
+  assert.equal(translate('de', 'setKeybar'), 'Tastenleiste');
+  assert.equal(translate('de', 'setDisplay'), 'Anzeige');
   assert.equal(translate('en', 'setAudio'), 'Audio');
   assert.equal(translate('de', 'setAudio'), 'Audio');
   assert.equal(translate('en', 'setSound'), 'Sound');
