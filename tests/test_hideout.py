@@ -1238,11 +1238,17 @@ def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_dow
         page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
         page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
         page.screenshot(path=str(tmp_path / "rallyhall-room.png"))
+        board_view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th; return { x: v.x + Math.cos(th) * 16.3, z: v.z + Math.sin(th) * 16.3, th }; }")   # #907: 3 m in front of the board (a = 19.34), looking at +a
+        page.evaluate(f"() => window.__mm.sim({board_view['x']}, {board_view['z']}, {board_view['th']}, 0, 1.5, [], -600)")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "rallyhall-board.png"))
         br.close()
     print("screenshot:", tmp_path / "rallyhall-room.png")
+    print("screenshot:", tmp_path / "rallyhall-board.png")
     assert errors == []
     assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design; the room itself fetches nothing
     assert a["built"] == 5 and abs(a["h"] - 14.8) < 1e-6 and 500 <= a["tris"] <= 30000 and a["colliders"] == 9 and len(a["cars"]) == 3, a
+    assert a["board"]["text"][:2] == ["Elfyn Evans", "WRC World Champion 2026"] and a["board"]["found"], a   # #907: the honour board is in the hall group
     assert info["below"]["built"] == 5 and info["below"]["level"] == "room5" and info["below"]["object"] is True and info["counts"].get("rallyhall") == 1 and "eiffel" not in info["counts"], info
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("wall", "podium")), push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("floor", "apron")), push

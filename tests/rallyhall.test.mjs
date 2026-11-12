@@ -1,7 +1,7 @@
 // #859: the rally hall and its three cars -- pure. node --test tests/rallyhall.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RALLYHALL, carParts, carExtent } from '../rallyhall.js';
+import { RALLYHALL, carParts, carExtent, boardLayout } from '../rallyhall.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg || ''}: ${a} vs ${b}`);
 
@@ -64,4 +64,21 @@ test('rallyhallPlacement_BlocksTheCarAtWallsPostsAndPodiums_LeavesFloorUnderRoof
   for (const [a, b] of [[19.7, 0], [0, 35.7], [0, -35.7], [-19.5, 35.5], [-19.5, -35.5], [4, -22], [4, 0], [4, 22]]) assert.ok(blocked(a, b, 0), `solid at ${a},${b}`);
   for (const [a, b] of [[-5, -11], [-5, 11], [4, -11], [4, 11], [12, 0], [-22, 0], [-23, 20], [-95, 0], [0, -95], [95, 0]]) assert.ok(!blocked(a, b), `free at ${a},${b}`);
   const [from, to] = P.apron; assert.deepEqual(from, loc(-95, 0)); assert.deepEqual(to, loc(-24, 0));
+});
+
+test('boardLayout_TextIsTheHonour_MainLineReadableAt3m_ThirdLineSmaller', () => {
+  const B = boardLayout(RALLYHALL);
+  assert.deepEqual(B.lines.map(l => l.text), ['Elfyn Evans', 'WRC World Champion 2026', '& Scott Martin']);
+  assert.ok(B.lines[0].size * B.h >= 0.4, 'main line letters are at least 0.4 m');
+  assert.ok(B.lines[2].size < B.lines[0].size && B.lines[1].size < B.lines[0].size);
+});
+
+test('boardLayout_OnTheBackWallBehindEvans_BelowTheGlassBand_NoCollider_FreeFloorAt3m', () => {
+  const B = boardLayout(RALLYHALL), H = RALLYHALL.hall, wallFace = H.d / 2 - H.wall;
+  assert.ok(B.a <= wallFace && wallFace - B.a <= 0.1, 'hangs within 10 cm of the wall face');
+  assert.ok(B.b - B.w / 2 >= -(H.w / 2 - H.wall) && B.b + B.w / 2 <= H.w / 2 - H.wall, 'inside the wall width');
+  assert.ok(B.y0 >= H.floor && B.y0 + B.h <= H.glass.y0, 'between floor and the glass band');
+  const evans = RALLYHALL.cars.find(c => c.id === 'evans'); near(B.b, evans.at[1], 1e-9, 'behind the Evans car');
+  assert.ok(evans.at[0] + RALLYHALL.podium.hw < B.a - 3, 'a 3 m viewing spot lies beyond the podium collider');
+  assert.equal(rallyhallPlacement(room, RALLYHALL).colliders.length, 9);
 });

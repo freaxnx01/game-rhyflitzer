@@ -948,7 +948,7 @@ import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
-import { RALLYHALL } from './rallyhall.js';   // #859
+import { RALLYHALL, boardLayout } from './rallyhall.js';   // #859 / #907
 import { buildHall, rallyhallTriangles } from './rallyhallmesh.js';
 import { SHUTTLE, stackBase } from './shuttle.js';   // #811
 import { buildShuttle } from './shuttlemesh.js';
@@ -3992,7 +3992,7 @@ function roomArtemis(group, R) {
 // room centre and turned to the room's frame. All goes with the room's group (disposeGroup); ROOM.rallyhall tells the debug hook what was built.
 function roomRallyhall(group, R) {
   const H = R.rallyhall, hall = buildHall(RALLYHALL); hall.position.set(H.hall.x, R.y, H.hall.z); hall.rotation.y = -H.hall.th; group.add(hall);
-  ROOM.rallyhall = { built: R.k, hall: H.hall, cars: H.cars, h: RALLYHALL.h, tris: rallyhallTriangles(hall), colliders: H.colliders.length };
+  ROOM.rallyhall = { built: R.k, hall: H.hall, cars: H.cars, h: RALLYHALL.h, tris: rallyhallTriangles(hall), colliders: H.colliders.length, board: { text: boardLayout(RALLYHALL).lines.map(l => l.text), found: hall.children.some(o => o.userData.role === 'rallyhallboard') } };
 }
 // #811: the Space Shuttle Enterprise on Launch Pad 39A (shuttle.js places it, shuttlemesh.js builds it): the hardstand with
 // the flame trench, the platform, the stack, the tower with its arms, the service structure and the water tower, one group
