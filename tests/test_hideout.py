@@ -17,7 +17,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 MOUTH_ROAD = (-703.3, 1419.1)          # the Hübel's centre line at the mouth
 HEADING = 95 * math.pi / 180
 LANDMARKS = ROOT / "assets" / "landmarks" / "index.json"   # surface landmarks load at boot, async, 2-6 KB each (#649, index.html loader)
-needs_world =pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
+needs_world = pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
 needs_model = pytest.mark.skipif(not GLB.exists(), reason="assets/models/eiffel_tower.glb is not committed yet (#201)")
 
 
