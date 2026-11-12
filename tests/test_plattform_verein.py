@@ -42,6 +42,11 @@ def on_foot_at(page, x, z, th, y):
     """Put the walker at (x, z, th) at height y (the car first, then Z, then place)."""
     page.evaluate("([x, z]) => window.__mm.place(x, z)", [plattform(page)["x"], plattform(page)["z"]])
     key(page, "z", 300)
+    move_to(page, x, z, th, y)
+
+
+def move_to(page, x, z, th, y):
+    """Move the walker who is already on foot. Z would toggle back into the car, so on_foot_at is not reusable."""
     page.evaluate("([x, z, th, y]) => { window.__mm.place(x, z, th); window.__mm.setFootY(y); }", [x, z, th, y])
 
 
@@ -51,9 +56,11 @@ def test_deck_shows_the_verein_plate_and_e_opens_the_website(server):
         b, page, errors = open_world(p, server)
         page.evaluate("() => { window.__opened = []; window.open = (u, t, f) => { window.__opened.push([u, t]); return null; }; }")
         plat = plattform(page)
-        # on the deck walkway (core r 1.56, deck inradius 2.84), phi 355 deg is 3.9 m from the stair head
-        # at polar(175, 1.56) -- outside HOP.stairReach (3.2), so the hop never wins over 'website'
-        x, z = polar(page, 355, 2.3)
+        # On the deck walkway, in the band that offers 'website': past the stair head at polar(175, 1.56)
+        # (within HOP.stairReach the hop wins, up to ~276 deg) and clear of the entrance below at
+        # polar(0, 2.0) (within PROMPT_RANGE 'enter' wins, from ~294 deg on). Measured at r 2.5:
+        # 278, 285 and 292 deg all give 'website', 272 gives 'down' and 298 gives 'enter'.
+        x, z = polar(page, 285, 2.5)
         on_foot_at(page, x, z, plat["facing"], plat["deckY"])
         page.wait_for_function("() => !document.getElementById('vereinplate').hidden", timeout=120000)
         name = page.inner_text("#vereinplate")
@@ -61,7 +68,7 @@ def test_deck_shows_the_verein_plate_and_e_opens_the_website(server):
         action = page.evaluate("() => window.__mm.keybar().action")
         key(page, "e")
         opened = page.evaluate("() => window.__opened")
-        on_foot_at(page, x, z, plat["facing"], plat["base"])   # back on the ground
+        move_to(page, x, z, plat["facing"], plat["base"])   # back on the ground under the deck
         page.wait_for_function("() => document.getElementById('vereinplate').hidden", timeout=120000)
         b.close()
     assert "Verein Plattform Sisslerfeld" in name, name
@@ -76,8 +83,7 @@ def test_in_the_car_on_the_deck_there_is_no_plate(server):
     """The plate is the walker's: driving up onto the deck offers nothing."""
     with sync_playwright() as p:
         b, page, errors = open_world(p, server)
-        plat = plattform(page)
-        x, z = polar(page, 355, 2.3)
+        x, z = polar(page, 285, 2.5)
         page.evaluate("([x, z]) => window.__mm.place(x, z)", [x, z])
         page.wait_for_timeout(1000)
         state = page.evaluate("() => ({ hidden: document.getElementById('vereinplate').hidden, onDeck: window.__mm.onDeck(), action: window.__mm.keybar().action })")

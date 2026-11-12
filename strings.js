@@ -225,6 +225,8 @@ const en = {
   enterPrompt: 'E · Enter',
   hopUpPrompt: 'E · Up to the deck',   // #701
   hopDownPrompt: 'E · Down',
+  vereinName: 'Verein Plattform Sisslerfeld',   // #887: the association's own name, the same in both languages
+  vereinOpen: 'E · Open website ↗',   // #887
   enterSoon: 'Not enterable yet',
   ridePrompt: 'E · Ride the Ferris wheel',   // #516
   rideExit: 'E · Get out',
@@ -327,6 +329,7 @@ const en = {
   barLift: 'lift',
   barHopUp: 'up to the deck',   // #701
   barHopDown: 'down',
+  barWebsite: 'website ↗',   // #887
   menuSignalLeft: 'Turn signal left',
   menuSignalRight: 'Turn signal right',
   menuHover: 'Hover on · off',
@@ -968,6 +971,8 @@ const de = {
   enterPrompt: 'E · Betreten',
   hopUpPrompt: 'E · Aufs Deck',   // #701
   hopDownPrompt: 'E · Hinunter',
+  vereinName: 'Verein Plattform Sisslerfeld',   // #887: the association's own name, the same in both languages
+  vereinOpen: 'E · Website öffnen ↗',   // #887
   enterSoon: 'Noch nicht begehbar',
   ridePrompt: 'E · Riesenrad fahren',   // #516
   rideExit: 'E · Aussteigen',
@@ -1068,6 +1073,7 @@ const de = {
   barLift: 'Lift',
   barHopUp: 'hinauf',   // #701
   barHopDown: 'hinunter',
+  barWebsite: 'Website ↗',   // #887
   menuSignalLeft: 'Blinker links',
   menuSignalRight: 'Blinker rechts',
   menuHover: 'Schweben ein · aus',
