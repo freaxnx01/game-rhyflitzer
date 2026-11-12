@@ -4932,10 +4932,10 @@ function controlContext() { if (FOOT.on) return INT.pad ? 'lift' : INT.indoors ?
 // #535: the key bar -- core keys of the current context, the context key first; rebuilt only when what it shows changes
 const KEYBAR = { on: keybarOnFrom((() => { try { return localStorage.getItem(KEYBAR_KEY); } catch (e) { return null; } })()), sig: '' };
 function stepKeybar() {
-  const ctx = controlContext(), act = contextAction(), sig = `${KEYBAR.on}|${ctx}|${act}|${window.GG_LANG}`;
+  const ctx = controlContext(), act = contextAction(), tut = R.mode === 'tutorial', sig = `${KEYBAR.on}|${tut}|${ctx}|${act}|${window.GG_LANG}`;
   stepTouch(ctx, act);   // #535 phase 2: the phone controls follow the same context, every frame (attributes only)
   if (sig === KEYBAR.sig) return;
-  KEYBAR.sig = sig; $('keybar').hidden = !KEYBAR.on;
+  KEYBAR.sig = sig; $('keybar').hidden = !KEYBAR.on || tut;   // #912: the tutorial hint names the keys; the setting (KEYBAR.on) stays the user's
   $('keybar').innerHTML = barEntries(ctx, act).map(x => `<span${x.highlight ? ' class="ctx"' : ''}>${capsRow(x.cap)} ${tr(x.label)}</span>`).join('');   // #700: one cap per key
 }
 function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } stepKeybar(); }

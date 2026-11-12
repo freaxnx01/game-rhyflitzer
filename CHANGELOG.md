@@ -19,6 +19,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-12 15:57` In the **tutorial** the **key bar** at the top is gone: the hint already names the keys of each step. Afterwards, and in every other mode, it works as before, and the **Key bar** switch in Settings keeps your choice. <kbd>F1</kbd> still lists all keys.
 - `2026-11-11 20:59` Zu Fuss **laufen**, **drehen** und der **Blick** sind jetzt weich: Anlauf und Auslauf statt Ruckeln. Die Pfeiltasten drehen mit Anlauf, Gehen und **Seitschritt** beschleunigen und bremsen, und die Kamera folgt der Blickrichtung einen Augenblick später — auch bei der **Maus**. Springen und Hover steigen wie gehabt, und Teleporte (Lift, Riesenrad, Plattform-Sprung) setzen dich wie immer sofort ab.
 - `2026-11-12 08:38` The **vehicle depot** only parks the nearest cars for real; the far slots wait under **grey covers** until you come close, so weak devices no longer crash there. Drive off and the cars you left behind give their memory back.
 - `2026-11-11 20:40` The **Postauto's rear display** is now as wide as the front one and a real **LED dot matrix**: the line number in big pixel digits, and the **smiley** and **thank-you** after you waited behind it in the same pixel font, readable from the car behind.
