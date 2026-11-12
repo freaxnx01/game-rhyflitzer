@@ -28,6 +28,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-12 09:12` The **houses** along the Hauptstrasse now have exactly **one front door** at street level instead of a door in **every storey**, only **whole windows** (none cut in half by the gable, the eaves or a corner — the gable ends are plain wall with at most one attic window), and you can no longer see the **sky through the roof** overhang from below.
 - `2026-11-11 20:27` The **Plattform Sisslerfeld**'s roof tip is clean again: the central post no longer pokes out above the apex as a little wooden block.
 - `2026-11-11 12:28` The **Hauptstrasse** in Sisseln no longer has a small **step** where it climbs out of the rail underpass, and the **stone walls** at the **Königsweg** rail decks stay below the deck instead of poking up through it.
 - `2026-11-11 12:20` The **Sissle** and the other small **streams** are visible again where they run through farmland: the **fields** no longer cover the water in places.
