@@ -146,16 +146,23 @@ test('contextKeyAction_HopWinsOverEnter_LiftAndLeaveWinOverHop', () => {   // #7
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true }), 'enter', 'hop is optional');
 });
 
-// #887: E on the Plattform deck opens the Verein's website -- lowest priority: everything else wins over it
-test('contextKeyAction_OnDeckNothingElse_IsWebsite', () => {
-  assert.equal(contextKeyAction({ onDeck: true }), 'website');
+// #914: the Verein's website is on V, never on E
+test('contextKeyAction_OnDeckNothingElse_IsNull', () => {
+  assert.equal(contextKeyAction({ onDeck: true }), null);
 });
-test('contextKeyAction_HopDownWinsOverWebsite', () => {
+test('contextKeyAction_HopDownOnDeck_StaysDown', () => {
   assert.equal(contextKeyAction({ hop: 'down', onDeck: true }), 'down');
   assert.equal(contextKeyAction({ stopPrompt: true, onDeck: true }), 'timetable');
 });
-test('contextLabel_Website_IsBarWebsite', () => {
-  assert.equal(contextLabel('website'), 'barWebsite');
+test('actionFor_FootAndIndoorsKeyV_IsWebsite', () => {
+  assert.equal(actionFor('foot', 'KeyV'), 'website');
+  assert.equal(actionFor('indoors', 'KeyV'), 'website');
+});
+test('actionFor_CarKeyV_StillHidesTheCar', () => {
+  assert.equal(actionFor('car', 'KeyV'), 'hideCar');
+});
+test('contextLabel_Website_IsGone', () => {
+  assert.equal(contextLabel('website'), null);
 });
 
 test('contextLabel_KnownAndUnknown', () => {

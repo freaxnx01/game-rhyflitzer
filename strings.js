@@ -345,7 +345,7 @@ const en = {
   barLift: 'lift',
   barHopUp: 'up to the deck',   // #701
   barHopDown: 'down',
-  barWebsite: 'website ↗',   // #887
+  keyWebsite: 'Verein website ↗',   // #914
   menuSignalLeft: 'Turn signal left',
   menuSignalRight: 'Turn signal right',
   menuHover: 'Hover on · off',
@@ -1108,7 +1108,7 @@ const de = {
   barLift: 'Lift',
   barHopUp: 'hinauf',   // #701
   barHopDown: 'hinunter',
-  barWebsite: 'Website ↗',   // #887
+  keyWebsite: 'Verein-Website ↗',   // #914
   menuSignalLeft: 'Blinker links',
   menuSignalRight: 'Blinker rechts',
   menuHover: 'Schweben ein · aus',
