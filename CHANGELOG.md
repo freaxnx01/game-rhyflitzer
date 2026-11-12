@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-12 13:29` **Kamerafahrten** lassen sich jetzt **Bild für Bild** aufnehmen: `scripts/campath_video.py` spielt einen gespeicherten Pfad in exakten 1/60-s-Schritten ab und rendert daraus ein **ruckelfreies 60-fps-Video** — auch auf einem Rechner, der das Spiel selbst nur mit ein paar Bildern pro Sekunde schafft.
 - `2026-11-12 11:18` Film your own **camera flight**: press <kbd>ü</kbd> wherever you are looking to drop a **waypoint** (nicest while hovering on foot), <kbd>ö</kbd> takes the last one back, and <kbd>ä</kbd> flies the whole path in one smooth sweep with the HUD out of the way. <kbd>Shift</kbd>+<kbd>ä</kbd> records the flight as a video. The path survives a reload, and the debug panel (<kbd>Ctrl</kbd>+<kbd>D</kbd>) can **save it to a file** and load it back.
 - `2026-11-12 10:37` On the **Plattform deck** a plate names the **Verein Plattform Sisslerfeld**; <kbd>E</kbd> opens its website in a new tab.
 - `2026-11-11 21:47` A **fenced paddock** with eight **ostriches** at the Straussenfarm in Sisseln: they stand, peck and walk, and run off when the car or the walker comes close. <kbd>J</kbd> lists the farm.
