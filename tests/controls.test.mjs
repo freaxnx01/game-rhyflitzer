@@ -137,6 +137,18 @@ test('contextKeyAction_HopWinsOverEnter_LiftAndLeaveWinOverHop', () => {   // #7
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true }), 'enter', 'hop is optional');
 });
 
+// #887: E on the Plattform deck opens the Verein's website -- lowest priority: everything else wins over it
+test('contextKeyAction_OnDeckNothingElse_IsWebsite', () => {
+  assert.equal(contextKeyAction({ onDeck: true }), 'website');
+});
+test('contextKeyAction_HopDownWinsOverWebsite', () => {
+  assert.equal(contextKeyAction({ hop: 'down', onDeck: true }), 'down');
+  assert.equal(contextKeyAction({ stopPrompt: true, onDeck: true }), 'timetable');
+});
+test('contextLabel_Website_IsBarWebsite', () => {
+  assert.equal(contextLabel('website'), 'barWebsite');
+});
+
 test('contextLabel_KnownAndUnknown', () => {
   assert.equal(contextLabel('leave'), 'barLeave');
   assert.equal(contextLabel(null), null);
