@@ -471,6 +471,7 @@ def test_cave_mode_toggles_and_restores(server):
     values."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
+        page.evaluate("() => Promise.all(['hatchback', 'bus'].map(id => window.__mm.loadVehicle(id)))")   # #906: the lazy vehicle glTFs are in before the count is taken (the Postauto bus otherwise arrives mid-drive and its programs read as the cave's)
         before = page.evaluate("() => window.__mm.cave()")
         h = page.evaluate("() => window.__mm.hideout()"); hx, hz = h["centre"]
         page.evaluate(f"() => window.__mm.sim({hx + 15}, {hz}, {math.pi}, 8, 0.5, ['KeyW'], {h['floor']})")
