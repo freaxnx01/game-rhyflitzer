@@ -61,7 +61,7 @@ def test_row_houses_carry_the_facade_role_and_the_neighbour_does_not(server):
     assert hits[OTHER_ID] not in (None, "rowHouse"), hits[OTHER_ID]
 
 
-GABLE_CONTROL_ID = 171822877   # Lerchenweg 11: gable path (h 3.0, rh 5.7), not a row house — its gable end stays plain 'wall'
+GABLE_CONTROL_ID = 171822877   # Lerchenweg 11: gable path (h 3.0, rh 5.7), not a row house — its gable end is plain 'plaster' (#901: intended change, non-row gable ends carry no window tile any more)
 
 
 @needs_world
@@ -79,7 +79,7 @@ def test_pitched_row_houses_have_rowhouse_gable_ends_and_other_gables_do_not(ser
             hits[i] = page.evaluate(f"() => window.__mm.wallRoleAt({x}, {z}, {tx}, {tz}, {up})")
         br.close()
     assert all(hits[i] == "rowHouse" for i in pitched), hits
-    assert hits[GABLE_CONTROL_ID] == "wall", hits[GABLE_CONTROL_ID]
+    assert hits[GABLE_CONTROL_ID] == "plaster", hits[GABLE_CONTROL_ID]   # #901: plain plaster instead of the cut window tile
 
 
 def test_hand_layout_has_no_row_houses(server):

@@ -27,12 +27,14 @@ concurrency:
 env:
   PLAYWRIGHT_VERSION: "1.63.0"
   MAX_SHARDS: 8          # browser-test jobs in parallel; public repos get 20 hosted jobs at once
-  MAX_SHARDS_GPU: 2      # one per homelab GPU runner (#369); each runs one job at a time
+  MAX_SHARDS_GPU: 12     # #746: more shards than the 2 homelab GPU runners (#369), which pick up one job at a time: the faster runner takes more
+  SHARD_TARGET_MIN: 20   # #746: estimated minutes per GPU shard (gpu-cirrus; gpu-odroid is ~1.23x slower), well inside the 30 min PR limit
   TESTS_PER_SHARD: 3     # fewer tests than this per job aren't worth another Chromium install
 
 jobs:
   # Node tests, the test selection (#330) and the split: the selected files are collected into test ids, which are dealt
-  # round-robin onto up to MAX_SHARDS jobs, so one slow file (test_hideout.py) no longer fills a single 30-minute job.
+  # split (tests/shard_plan.py, #746) by measured runtime onto up to MAX_SHARDS jobs, so one slow file (test_hideout.py) no longer
+  # fills a single 30-minute job and no shard outlasts the others.
   plan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -96,19 +98,25 @@ jobs:
           if [ "$gpu" = true ]; then labels='["self-hosted","gpu-browser"]'; else labels='["ubuntu-latest"]'; fi
           echo "gpu=$gpu" >> "$GITHUB_OUTPUT"; echo "labels=$labels" >> "$GITHUB_OUTPUT"; echo "browser tests on $labels"
 
+      - name: Shard planner tests
+        run: python -m pytest tests/test_shard_plan.py -q
+
+      # #746: the ids are split by measured runtime (tests/shard_durations.json), not dealt round-robin. The GPU runners differ
+      # in speed and take whichever shard is next, so the shards are equal in estimated time and there are more of them than runners.
       - name: Split the tests into shards
         id: split
         env:
           GPU: ${{ steps.runner.outputs.gpu }}
         run: |
-          [ "$GPU" = true ] && MAX_SHARDS=$MAX_SHARDS_GPU
+          target=0
+          if [ "$GPU" = true ]; then MAX_SHARDS=$MAX_SHARDS_GPU; target=$SHARD_TARGET_MIN; fi
           : > ids.txt
           if grep -q . "$RUNNER_TEMP/selected.txt"; then
             python -m pytest --collect-only -q $(cat "$RUNNER_TEMP/selected.txt") | grep '::' > ids.txt || true
           fi
           count=$(grep -c . ids.txt || true)
-          shards=$(( (count + TESTS_PER_SHARD - 1) / TESTS_PER_SHARD ))
-          [ "$shards" -gt "$MAX_SHARDS" ] && shards=$MAX_SHARDS
+          shards=$(python tests/shard_plan.py count ids.txt --max "$MAX_SHARDS" --target-min "$target" --min-tests "$TESTS_PER_SHARD")
+          if [ "$shards" -gt 0 ]; then python tests/shard_plan.py split ids.txt "$shards" shards --summary "$GITHUB_STEP_SUMMARY"; fi
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "shards=$(python -c "import json, sys; print(json.dumps(list(range(int(sys.argv[1])))))" "$shards")" >> "$GITHUB_OUTPUT"
           echo "$count browser tests in $shards shards"
@@ -119,15 +127,15 @@ jobs:
         if: steps.split.outputs.count != '0'
         with:
           name: test-ids
-          path: ids.txt
+          path: shards
           retention-days: 1
 
   browser:
     needs: plan
     if: needs.plan.outputs.count != '0'
     runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}
-    # #746: a full run (nightly or dispatched with all) is ~1360 tests, about 2 1/4 h per shard on the two GPU runners;
-    # a PR's selection stays within 30 min
+    # #746: a full run (nightly or dispatched with all) is ~1040 tests in 12 shards of ~20 min each (25 on the slower runner),
+    # taken by the two GPU runners in turn, ~2 1/2 h in all; the limit is per shard. A PR's selection stays within 30 min
     timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.all) && 150 || 30 }}
     env:
       GPU: ${{ needs.plan.outputs.gpu }}
@@ -163,13 +171,13 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           name: test-ids
+          path: test-ids
 
       - name: This shard's tests
         env:
-          SHARDS: ${{ strategy.job-total }}
           SHARD: ${{ matrix.shard }}
         run: |
-          awk -v n="$SHARDS" -v k="$SHARD" '(NR - 1) % n == k' ids.txt > "$RUNNER_TEMP/mine.txt"
+          cp "test-ids/$SHARD.txt" "$RUNNER_TEMP/mine.txt"
           cat "$RUNNER_TEMP/mine.txt"
 
       - name: Start Chromium on the GPU

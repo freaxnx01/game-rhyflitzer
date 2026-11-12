@@ -123,6 +123,14 @@ const en = {
   recFailed: 'Recording failed',
   recUnsupported: 'Recording not supported',
   recLimit: 'Recording stopped at 10 minutes',
+  // ---- #900 camera path ----
+  camPathPoint: (n) => `Waypoint ${n}`,
+  camPathRemoved: (n) => `Waypoint removed · ${n} left`,
+  camPathEmpty: 'Set at least two waypoints first (ü)',
+  camPathLoaded: (n) => `Camera path loaded · ${n} waypoints`,
+  camPathCleared: 'Camera path cleared',
+  camPathBad: 'That is not a camera path file',
+  camPathRegion: (r) => `This camera path was set in ${r}`,
   camera: (view) => `Camera: ${view}`,
   camChase: 'Chase',
   camNear: 'Chase near',
@@ -277,6 +285,14 @@ const en = {
   dbgLegendBtn: 'Explain the debug values',
   dbgJumpLabel: 'Hideout',
   dbgJumpGo: 'Go',
+  // ---- #900: the camera path section of the debug panel ----
+  dbgCamPathTitle: 'Camera path',
+  dbgCamPathCount: (n) => `${n} waypoints`,
+  dbgCamPathPlay: 'Play',
+  dbgCamPathRecord: 'Play + record',
+  dbgCamPathExport: 'Export',
+  dbgCamPathImport: 'Import',
+  dbgCamPathClear: 'Clear',
   // ---- #707: the Postauto section of the debug panel ----
   dbgPaTitle: 'Postauto',
   dbgPaClock: (a) => `Clock ${a.time}${a.speed} (${a.source})`,
@@ -372,6 +388,9 @@ const en = {
   keyPhoto: 'photo: save the view as a PNG',
   keyMute: 'sound off · on (effects)',
   keyRecord: 'record: start · stop a video with sound',   // #749
+  keyCamPathAdd: 'camera path: add a waypoint where you look now (best while hovering on foot)',   // #900
+  keyCamPathUndo: 'camera path: remove the last waypoint',
+  keyCamPathPlay: 'camera path: fly it · stop (with Shift: fly it and record)',
   // ---- #735 car radio ----
   radioStationFm: 'Rhyflitzer FM',
   radioStationSrf: 'SRF 3 live',
@@ -869,6 +888,14 @@ const de = {
   recFailed: 'Aufnahme fehlgeschlagen',
   recUnsupported: 'Aufnahme wird nicht unterstützt',
   recLimit: 'Aufnahme nach 10 Minuten gestoppt',
+  // ---- #900 Kamerafahrt ----
+  camPathPoint: (n) => `Wegpunkt ${n}`,
+  camPathRemoved: (n) => `Wegpunkt weg · noch ${n}`,
+  camPathEmpty: 'Zuerst mindestens zwei Wegpunkte setzen (ü)',
+  camPathLoaded: (n) => `Kamerafahrt geladen · ${n} Wegpunkte`,
+  camPathCleared: 'Kamerafahrt gelöscht',
+  camPathBad: 'Das ist keine Kamerafahrt-Datei',
+  camPathRegion: (r) => `Diese Kamerafahrt wurde in ${r} gesetzt`,
   camera: (view) => `Kamera: ${view}`,
   camChase: 'Verfolger',
   camNear: 'Verfolger nah',
@@ -1022,6 +1049,14 @@ const de = {
   dbgLegendBtn: 'Debug-Werte erklären',
   dbgJumpLabel: 'Höhle',
   dbgJumpGo: 'Hin',
+  // ---- #900: die Kamerafahrt-Sektion im Debug-Panel ----
+  dbgCamPathTitle: 'Kamerafahrt',
+  dbgCamPathCount: (n) => `${n} Wegpunkte`,
+  dbgCamPathPlay: 'Abspielen',
+  dbgCamPathRecord: 'Abspielen + aufnehmen',
+  dbgCamPathExport: 'Exportieren',
+  dbgCamPathImport: 'Importieren',
+  dbgCamPathClear: 'Löschen',
   // ---- #707: die Postauto-Sektion im Debug-Panel ----
   dbgPaTitle: 'Postauto',
   dbgPaClock: (a) => `Uhr ${a.time}${a.speed} (${a.source})`,
@@ -1116,6 +1151,9 @@ const de = {
   keyPhoto: 'Foto: Ansicht als PNG speichern',
   keyMute: 'Ton aus · an (Effekte)',
   keyRecord: 'Aufnahme: Video mit Ton starten · stoppen',   // #749
+  keyCamPathAdd: 'Kamerafahrt: Wegpunkt setzen, wo du gerade hinschaust (am besten im Schwebeflug zu Fuss)',   // #900
+  keyCamPathUndo: 'Kamerafahrt: letzten Wegpunkt löschen',
+  keyCamPathPlay: 'Kamerafahrt: abspielen · stoppen (mit Shift: abspielen und aufnehmen)',
   // ---- #735 Autoradio ----
   radioStationFm: 'Rhyflitzer FM',
   radioStationSrf: 'SRF 3 live',

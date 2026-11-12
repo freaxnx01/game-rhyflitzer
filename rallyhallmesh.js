@@ -5,7 +5,7 @@
 // Verified by the browser test (#859).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { RALLYHALL, carParts } from './rallyhall.js';
+import { RALLYHALL, carParts, boardLayout } from './rallyhall.js';
 
 // one merged mesh per colour from ready-made geometries (like artemismesh.js's partsGroup, but for boxes and wheels)
 function boxGroup(entries) {
@@ -54,7 +54,47 @@ export function buildHall(cfg = RALLYHALL) {
     c.position.set(car.at[0], podium.h, car.at[1]); c.rotation.y = -car.th;
     group.add(c);
   }
+  group.add(buildBoard(cfg));
   return group;
+}
+
+// #907: the honour board on the back wall -- a dark panel, a gold frame and a lettering plane, in the hall frame
+// (+x into the depth/a, +z across/b; the group is turned -PI/2 about y so the plane's normal +z faces -a, towards the
+// open front, and the lettering reads left to right). Canvas texture only, no external asset, no logo. Hangs on the
+// wall, so it adds no collider.
+export function buildBoard(cfg = RALLYHALL) {
+  const B = boardLayout(cfg), board = cfg.board, { w, h } = B, group = new THREE.Group();
+  group.userData.role = 'rallyhallboard';
+  group.position.set(B.a, B.y0 + B.h / 2, B.b);
+  group.rotation.y = -Math.PI / 2;
+  group.add(new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.06), new THREE.MeshLambertMaterial({ color: board.panel })));
+  const goldMat = new THREE.MeshLambertMaterial({ color: board.gold }), strip = 0.08;
+  const addStrip = (sx, sy, x, y) => { const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, 0.03), goldMat); m.position.set(x, y, 0.035); group.add(m); };
+  addStrip(w, strip, 0, h / 2 - strip / 2);                    // top
+  addStrip(w, strip, 0, -(h / 2 - strip / 2));                 // bottom
+  addStrip(strip, h - 2 * strip, -(w / 2 - strip / 2), 0);     // left
+  addStrip(strip, h - 2 * strip, w / 2 - strip / 2, 0);         // right
+  const cw = 1536, ch = Math.round(cw * (h - 0.3) / (w - 0.3));
+  const canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch;
+  drawBoard(canvas.getContext('2d'), cw, ch, board);
+  const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.3, h - 0.3), new THREE.MeshBasicMaterial({ map: tex }));
+  face.position.z = 0.06; group.add(face);
+  return group;
+}
+
+// the lettering canvas: the panel colour filled, a gold inner rule, then each line centred in gold. ch spans the
+// plane's (h - 0.3) m, so the font px is sized for the line's metre cap-height (line.size * board.h) to hold.
+function drawBoard(g, cw, ch, board) {
+  const panel = '#' + board.panel.toString(16).padStart(6, '0'), gold = '#' + board.gold.toString(16).padStart(6, '0');
+  g.fillStyle = panel; g.fillRect(0, 0, cw, ch);
+  g.strokeStyle = gold; g.lineWidth = 4; g.strokeRect(8, 8, cw - 16, ch - 16);
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = gold;
+  for (const line of board.lines) {
+    const px = Math.round(line.size * board.h / (board.h - 0.3) * ch / 0.7);
+    g.font = `${line.weight} ${px}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+    g.fillText(line.text, cw / 2, line.y * ch, cw - 120);
+  }
 }
 
 // the group's triangle count (like artemisTriangles)
