@@ -6,6 +6,8 @@ Later: pick any region on a map, and the game builds it into a world you can rac
 
 Dedicated to my daughter.
 
+**Play it in the browser: [rhyflitzer.ch](https://rhyflitzer.ch)**
+
 ## Screenshots and videos
 
 **Plattform Sisslerfeld**
