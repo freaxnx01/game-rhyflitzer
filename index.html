@@ -942,7 +942,7 @@ import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from './netrace.js';
 import { createLink, STUN, HOST_ID } from './netlink.js';
-import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
+import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
@@ -6403,7 +6403,7 @@ function netPose(peerId, buf) {
   } else if (pose.id === NET.you || !NET.lobby || !NET.lobby.players.some((p) => p.id === pose.id)) { NET.bad++; return; }
   pushPose(trackFor(pose.id), pose);
 }
-const newNetCar = () => ({ car: null, paint: null, mesh: null, track: createTrack() });
+const newNetCar = () => ({ car: null, paint: null, name: null, mesh: null, tag: null, roof: 0, track: createTrack() });
 // the track a player's poses go into; a pose that arrives before the lobby message opens the entry
 function trackFor(id) {
   let entry = NETCARS.get(id);
@@ -6412,11 +6412,15 @@ function trackFor(id) {
 }
 function dropNetCar(id) {
   const entry = NETCARS.get(id);
-  if (entry) { removeNetMesh(entry); NETCARS.delete(id); }
+  if (entry) { removeNetMesh(entry); dropNetTag(entry); NETCARS.delete(id); }
 }
 function removeNetMesh(entry) {
   if (!entry.mesh) return;
   scene.remove(entry.mesh); disposeParked(entry.mesh); entry.mesh = null;
+}
+function dropNetTag(entry) {
+  if (!entry.tag) return;
+  scene.remove(entry.tag); entry.tag.material.map?.dispose(); entry.tag.material.dispose(); entry.tag = null;
 }
 // one entry per other player who has picked a car; a changed car or paint throws the built model away (A9)
 function syncNetCars() {
@@ -6424,7 +6428,8 @@ function syncNetCars() {
   for (const id of [...NETCARS.keys()]) if (!others.has(id)) dropNetCar(id);
   for (const [id, player] of others) {
     const entry = NETCARS.get(id) ?? newNetCar();
-    if (entry.car !== player.car || entry.paint !== player.paint) { removeNetMesh(entry); entry.car = player.car; entry.paint = player.paint; }
+    if (entry.car !== player.car || entry.paint !== player.paint) { removeNetMesh(entry); dropNetTag(entry); entry.car = player.car; entry.paint = player.paint; }
+    if (entry.name !== player.name) { dropNetTag(entry); entry.name = player.name; }
     NETCARS.set(id, entry);
   }
 }
@@ -6437,7 +6442,21 @@ function buildNetCar(entry) {
   const mesh = cloneStageVehicle(entry.car, paintOnSelect(def, entry.paint, true, 'navy', def)).mesh;
   mesh.visible = false;
   scene.add(mesh); entry.mesh = mesh;
+  entry.roof = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3()).y;   // part c: the tag floats above the roof
+  if (entry.name && !entry.tag) { entry.tag = netTag(entry.name); scene.add(entry.tag); }
   return true;
+}
+// a name tag: the lobby name drawn on a canvas (never innerHTML), as a sprite that ignores depth so it reads through
+// buildings and shrinks with distance. Added to the scene, not to the mesh, so it does not inherit the car's roll.
+function netTag(name) {
+  const map = makeTex(256, 64, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = 'rgba(20,23,29,.82)';
+    const r = 14; g.beginPath(); g.moveTo(r, 4); g.arcTo(w - 4, 4, w - 4, h - 4, r); g.arcTo(w - 4, h - 4, 4, h - 4, r); g.arcTo(4, h - 4, 4, 4, r); g.arcTo(4, 4, w - 4, 4, r); g.fill();
+    g.fillStyle = '#f3ead4'; g.font = 'bold 34px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(name, w / 2, h / 2 + 1);
+  }, { alpha: true });
+  const mat = new THREE.SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false, fog: false });
+  const s = new THREE.Sprite(mat); s.renderOrder = 10; s.visible = false; return s;
 }
 // from the loop: at most one model is built per frame, then every remote car is put where its sender was DELAY ms ago
 function stepNetCars() {
@@ -6449,9 +6468,16 @@ function stepNetCars() {
     if (!entry.mesh) continue;
     const pose = sampleRemote(entry.track, now);
     entry.mesh.visible = !!pose && !!(pose.flags & FLAG.visible);
+    if (entry.tag) entry.tag.visible = entry.mesh.visible;
     if (!pose) continue;
     entry.mesh.position.set(pose.x, pose.y, pose.z);
     entry.mesh.rotation.set(pose.rx, pose.ry, pose.rz);
+    if (entry.tag) {
+      const tx = pose.x, ty = pose.y + entry.roof + 1.2, tz = pose.z;
+      const s = tagScale(camera.position.distanceTo(new THREE.Vector3(tx, ty, tz)));
+      entry.tag.position.set(tx, ty, tz);
+      entry.tag.scale.set(s * 4, s, 1);
+    }
   }
 }
 // A9: a vehicle change during the shared drive goes through the lobby, so the others rebuild the model
@@ -6500,7 +6526,7 @@ if (REGION.generated) $('mpbtn').hidden = true;
 }
 window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset });
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
-window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null }));   // #835: read-only, for the test
+window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name } }));   // #835: read-only, for the test
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
 // materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
