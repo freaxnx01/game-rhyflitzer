@@ -223,6 +223,69 @@ test('wallPlate (#557): short walls, fallbacks, every plate stays within 0.1 m o
   assert.equal(wallPlate(null, 0, 0, null), null);
 });
 
+// #901: storeys, window columns, the attic window and the door face of a gable house (see FACADE in world.js)
+import { FACADE, facadeRows, facadeColumns, gableWindow, facingFace } from '../world.js';
+const near = (a, b) => Math.abs(a - b) < 1e-9;
+
+test('facadeRows_TwoStoreyEave_WholeRowsUpToEave', () => {
+  const r = facadeRows(10, 5.5, 10);   // base 10, eave 15.5, terrain at the door 10
+  assert.equal(r.floor0, 10);
+  assert.equal(r.floors, 2);
+  assert.ok(near(r.sh, 2.75));
+  assert.ok(near(r.bandTop, 15.5));
+});
+
+test('facadeRows_FourMetreEave_OneRowPlainAbove', () => {
+  const r = facadeRows(0, 4, 0);   // 4 m eave: one storey at the nominal 3 m, the rest above is plain
+  assert.equal(r.floors, 1);
+  assert.ok(near(r.sh, FACADE.storey));
+  assert.ok(near(r.bandTop, 3));
+});
+
+test('facadeRows_DoorUphill_RowsStartAtDoorGround', () => {
+  const r = facadeRows(0, 6.4, 1.2);   // the door's ground sits 1.2 m above the ring minimum: rows start there
+  assert.ok(near(r.floor0, 1.2));
+  assert.equal(r.floors, 2);
+  assert.ok(near(r.sh, 2.6));
+});
+
+test('facadeRows_GroundAboveEave_Clamped', () => {
+  assert.ok(near(facadeRows(0, 4, 9).floor0, 4 - FACADE.minWall));   // door ground clamped under the eave
+});
+
+test('facadeRows_Shed_NoWindows', () => {
+  const r = facadeRows(0, 2.0, 0);   // under minWall: no window rows at all
+  assert.equal(r.floors, 0);
+});
+
+test('facadeColumns_AnyLength_EndsOnWholeHalfTile', () => {
+  for (const len of [2.1, 5.84, 13.01, 14.98]) {
+    const { n, cw } = facadeColumns(len);
+    assert.ok(n >= 1 && n * cw > 0);
+    assert.ok(Math.abs(n * cw - len) < 1e-9, `${n} * ${cw} != ${len}`);
+    assert.ok(cw >= 4 / 3 && cw <= 4, `half tile ${cw} out of range for ${len}`);
+  }
+  assert.equal(facadeColumns(1.2).n, 0);   // a sliver face: no windows, plain plaster
+});
+
+test('gableWindow_SteepWideGable_Fits', () => {
+  const gw = gableWindow(7, 3.4);
+  assert.ok(gw, 'fits under the slopes');
+  assert.ok(near(gw.y, FACADE.attic.sill));
+});
+
+test('gableWindow_LowGable_Null', () => {
+  assert.equal(gableWindow(7, 1.3), null);   // too flat
+  assert.equal(gableWindow(3, 3), null);     // too narrow
+});
+
+test('facingFace_RoadOnPlusX_PicksFace1', () => {
+  assert.equal(facingFace(0, 0, 0, 10, 8, [50, 0]), 1);
+  assert.equal(facingFace(0, 0, 0, 10, 8, [0, 50]), 0);   // road on +z: face 0
+  const rot = 1.0, c = Math.cos(rot), s = Math.sin(rot);
+  assert.equal(facingFace(100, 200, rot, 10, 8, [100 + 50 * c, 200 + 50 * s]), 1, 'the road rotated with the house');
+});
+
 test('addrLabels (#557): ring buildings use wallPlate, roadAt hears the street', () => {
   const near = (a, b) => Math.abs(a - b) < 1e-9;
   const L = [[0, 0], [20, 0], [20, 10], [12, 10], [12, 22], [0, 22]];

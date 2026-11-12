@@ -12,6 +12,7 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;background:var(--charco
 #hud{position:fixed;inset:0;pointer-events:none;font-variant-numeric:tabular-nums}
 /* #305: Ctrl+H -- a clean view; the toast still says what happened, the dialogs and the lift pads still open */
 body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #navi,body.hud-off #bl,body.hud-off #br,body.hud-off #pausebtn,body.hud-off #debug,body.hud-off #touch,body.hud-off #game-nav,body.hud-off #radiobtn,body.hud-off #radiopanel{visibility:hidden}
+body.campath-play #toast{visibility:hidden}   /* #900: hud-off keeps the toast readable -- a camera path wants a clean frame */
 #tl{left:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:6px;min-width:200px}
 #tl .mode{font-size:16px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel-l)}
 #tl .cps{font-size:22px;font-weight:800;font-style:italic;color:var(--sun);line-height:1}
@@ -51,6 +52,9 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 /* #445: an action prompt ("E · Enter", "E · call the lift") as a badge: the key as a cap, larger and brighter than the info lines above it */
 #prompt:not(:empty){margin-top:4px;padding:5px 14px 5px 8px;background:rgba(20,23,29,.88);border:3px solid #eaffb0;box-shadow:4px 4px 0 var(--ink);font-size:22px;letter-spacing:1px;color:#eaffb0;text-shadow:none;text-transform:uppercase;line-height:1}
 #prompt:not(:empty)::first-letter{display:inline-block;margin-right:4px;padding:1px 9px;background:#eaffb0;color:var(--ink)}
+/* #887: the Verein's plate under the prompt -- the same badge family, quieter, and the link itself takes the clicks */
+#vereinplate{margin-top:4px;padding:4px 10px;background:rgba(20,23,29,.88);border:2px solid #d8e8a0;box-shadow:3px 3px 0 var(--ink);font-size:13px;font-weight:700;letter-spacing:1px;color:#d8e8a0;line-height:1.5}
+#vereinplate a{color:#eaffb0;text-decoration:underline;pointer-events:auto;white-space:nowrap}
 /* #106 Navi panel: right edge, under the pause button, above the minimap */
 #navi{position:fixed;right:16px;top:calc(260px + env(safe-area-inset-top,0px));width:180px;max-width:calc(100vw - 32px);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}#navi[hidden]{display:none}
 #navarrow{width:56px;height:42px;transition:transform .12s linear}
@@ -78,7 +82,8 @@ body.hud-off #tl,body.hud-off #tc>:not(#toast),body.hud-off #tr,body.hud-off #na
 #debug{padding-right:36px;box-sizing:border-box;max-width:calc(100vw - 32px)}#debugtext>div{white-space:pre-wrap}#debughelp{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font:inherit;line-height:18px;color:#b6ff7a;background:#14171d;border:2px solid #3a404b;cursor:pointer}
 /* the open legend must not push the panel (and its ? button) off screen: the panel is a column capped at the room its anchor leaves (below),
    and the legend is the one part that gives, so it scrolls instead of the panel growing past the screen edge (#415, #439) */
-#debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#debugjump,#knockreset{flex:none}
+#debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#debugjump,#debugcampath,#knockreset{flex:none}
+#debugcampath{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px;white-space:normal}#debugcampath button{font:inherit;color:#8fd8e8;background:none;border:1px solid #3a404b;padding:1px 6px;cursor:pointer}
 @media (max-width:900px){#debug{max-height:calc(100vh - 166px - env(safe-area-inset-bottom,0px))}}
 @media (pointer:coarse){#debug{padding-right:48px;max-height:calc(100vh - 124px - env(safe-area-inset-top,0px))}#debughelp{width:36px;height:36px;line-height:32px}}
 /* a phone's steering buttons sit in the strip below the panel's anchor (y 460-614 of 844), so the open legend would cover them anyway: they step aside while it is read, like during the car choice (#439) */
@@ -457,6 +462,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <div id="blink" aria-hidden="true"><span id="blL">◀</span><span id="blR">▶</span></div>
     <div id="watername"></div>
     <div id="roadname"></div><div id="autoline"></div><div id="prompt"></div>
+    <div id="vereinplate" hidden><span data-i18n="vereinName">Verein Plattform Sisslerfeld</span> <a id="vereinlink" target="_blank" rel="noopener" data-i18n="vereinOpen"></a></div>   <!-- #887: on the Plattform deck -->
     <div id="toast">Holzbrücke!</div>
     <div id="liftfloor" hidden></div>
   </div>
@@ -504,6 +510,9 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="KeyT">T</kbd><span data-i18n="keyStyle">toggle graphic style</span>
       <kbd data-cmd="KeyX">X</kbd><span data-i18n="keyPhoto">photo: save the view as a PNG</span>
       <kbd data-cmd="Backquote">§</kbd><span data-i18n="keyRecord">record: start · stop a video with sound</span>
+      <kbd data-cmd="BracketLeft">ü</kbd><span data-i18n="keyCamPathAdd">camera path: add a waypoint where you look now (best while hovering on foot)</span>
+      <kbd data-cmd="Semicolon">ö</kbd><span data-i18n="keyCamPathUndo">camera path: remove the last waypoint</span>
+      <kbd data-cmd="Quote">ä</kbd><span data-i18n="keyCamPathPlay">camera path: fly it · stop (with Shift: fly it and record)</span>
       <kbd data-cmd="KeyM">M</kbd><span data-i18n="keyMute">mute</span>
       <kbd data-cmd="Digit5">5</kbd><span data-i18n="keyRadioPower">car radio on · off (start screen: music)</span>
       <kbd data-cmd="Digit6">6</kbd><span data-i18n="keyRadioStation">radio station: Rhyflitzer FM · SRF 3 live · Radio Argovia</span>
@@ -557,7 +566,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <button type="button" data-radio="down" aria-label="Quieter" data-i18n-aria="radioDownBtn">−</button>
     <button type="button" data-radio="up" aria-label="Louder" data-i18n-aria="radioUpBtn">+</button>
   </div>
-  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debugpa" hidden><div id="debugpatitle" data-i18n="dbgPaTitle">Postauto</div><div id="debugpaclock"></div><div id="debugpaset"><input id="debugpatime" type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" aria-label="Fleet time (HH:MM)" data-i18n-aria="dbgPaTimeLabel"> <button id="debugpasetgo" type="button" data-i18n="dbgPaSet">Set</button> <button id="debugpawall" type="button" data-i18n="dbgPaWall">Real time</button> <label for="debugpaspeed" data-i18n="dbgPaSpeed">Time-lapse</label> <select id="debugpaspeed"></select></div><div id="debugparows"></div><button id="debugpaback" type="button" hidden data-i18n="dbgPaBack">Back to car</button></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
+  <div id="debug" hidden title="Click to copy"><div id="debugtext"></div><div id="debugpa" hidden><div id="debugpatitle" data-i18n="dbgPaTitle">Postauto</div><div id="debugpaclock"></div><div id="debugpaset"><input id="debugpatime" type="text" inputmode="numeric" maxlength="5" placeholder="HH:MM" aria-label="Fleet time (HH:MM)" data-i18n-aria="dbgPaTimeLabel"> <button id="debugpasetgo" type="button" data-i18n="dbgPaSet">Set</button> <button id="debugpawall" type="button" data-i18n="dbgPaWall">Real time</button> <label for="debugpaspeed" data-i18n="dbgPaSpeed">Time-lapse</label> <select id="debugpaspeed"></select></div><div id="debugparows"></div><button id="debugpaback" type="button" hidden data-i18n="dbgPaBack">Back to car</button></div><div id="debuglinks" hidden><button type="button" data-map="osm" data-i18n-title="mapOsm" title="Open in OpenStreetMap (new tab)">OSM</button><button type="button" data-map="maps" data-i18n-title="mapGoogle" title="Open in Google Maps (new tab)">Maps</button><button type="button" data-map="street" data-i18n-title="mapStreetView" title="Open in Google Street View (new tab) — only where Google has images; otherwise use Maps">Street View</button></div><button id="debughelp" type="button" aria-expanded="false" aria-controls="debuglegend" aria-label="Explain the debug values" data-i18n-aria="dbgLegendBtn">?</button><div id="debuglegend" hidden data-i18n="dbgLegend"></div><div id="debugjump" hidden><label for="debugjumpsel" data-i18n="dbgJumpLabel">Hideout</label> <select id="debugjumpsel"></select> <button id="debugjumpgo" type="button" data-i18n="dbgJumpGo">Go</button></div><div id="debugcampath"><span id="debugcampathtitle" data-i18n="dbgCamPathTitle">Camera path</span> <span id="debugcampathcount"></span> <button id="debugcampathplay" type="button" data-i18n="dbgCamPathPlay">Play</button> <button id="debugcampathrec" type="button" data-i18n="dbgCamPathRecord">Play + record</button> <button id="debugcampathexport" type="button" data-i18n="dbgCamPathExport">Export</button> <button id="debugcampathimport" type="button" data-i18n="dbgCamPathImport">Import</button> <button id="debugcampathclear" type="button" data-i18n="dbgCamPathClear">Clear</button><input id="debugcampathfile" type="file" accept=".json,application/json" hidden></div><button id="knockreset" type="button" data-i18n="knockReset">Set up props</button></div>
 </div>
 
 <!-- #535 phase 2: the phone controls -- joystick left, gas/brake/handbrake right, the core round buttons above them,
@@ -916,7 +925,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, treeHash, lodTier } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
@@ -973,6 +982,7 @@ import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, t
 import { track as umamiTrack, settle as umamiSettle, trackPageview, identifySource, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
 import { photoFileName, canPhoto } from './photo.js';
 import { MAX_SECONDS, pickRecordFormat, recordFileName, recordBitrate, recordKeyAction, recordNext, recordElapsed, formatClock } from './record.js';   // #749
+import { waypointFrom, newCamPath, parseCamPath, serializeCamPath, camPathFileName, buildTrack, sampleTrack, camPathKeyAction } from './campath.js';   // #900
 import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye, easeLook, LOOK_EASE, footClickAction } from './foot.js';
@@ -986,7 +996,7 @@ import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
 import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
-import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, centrePostTop, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
+import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, plattformOnDeck, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, centrePostTop, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
@@ -1187,6 +1197,13 @@ TEX.plasterWhite = makeTex(64, 64, (g, w, h) => {
   g.fillStyle = '#f1efe8'; g.fillRect(0, 0, w, h);
   let s = 45; const lr = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   for (let i = 0; i < 60; i++) { const v = Math.floor(lr() * 12); g.fillStyle = `rgba(${200 - v},${196 - v},${186 - v},.22)`; g.fillRect(lr() * w, lr() * h, 2 + lr() * 3, 2 + lr() * 3); }
+});
+// #901: the facade's own plaster without windows, for gable ends, plinths and the door column. Own local LCG like
+// plasterWhite above -- noise() would draw rr() and shift every later building's seeded colours
+TEX.plaster = makeTex(256, 192, (g, w, h) => {
+  g.fillStyle = '#d8d2c6'; g.fillRect(0, 0, w, h);
+  let s = 3141; const lr = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 720; i++) { const v = Math.floor(lr() * 12); g.fillStyle = `rgba(${216 - v},${210 - v},${198 - v},.22)`; g.fillRect(lr() * w, lr() * h, 2 + lr() * 3, 2 + lr() * 3); }
 });
 // #87: gable ends of a row house -- plain plaster only. The tile above is 256 x 128: yellow panel at x 0-29, window frame at
 // x 96-214 / y 22-116, storey joint at y 0-3 (canvas y flips to v). u 0.14-0.35, v 0.05-0.90 is speckled white with nothing
@@ -1633,7 +1650,7 @@ function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.toNonIndexe
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
 function rawGeo(pos, nrm, uv, rot, x, z, c, role) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); if (rot) g.rotateY(-rot); g.translate(x, 0, z); colorize(g, c); push(role, g); return g; }
-const GABLE_END_WALL = { role: 'wall', uv: null };   // #87: default gable end -- plaster texture, UVs computed from the triangle
+const GABLE_END_WALL = { role: 'plaster', uv: null };   // #87/#901: default gable end -- plain plaster, no window tile runs into the triangle
 function gable(w, d, h0, rh, x, z, rot, roofC, wallC, over = 0.45, end = GABLE_END_WALL) {
   const hw = w / 2 + over, hd = d / 2 + over, y0 = h0 - 0.05, y1 = h0 + rh; const pos = [], uv = [], nrm = [];
   const q = (a, b, c, d2, n) => { for (const v of [a, b, c, a, c, d2]) { pos.push(...v); nrm.push(...n); } const L = w / 2, Sl = Math.hypot(hd, rh); uv.push(0, 0, L, 0, L, Sl, 0, 0, L, Sl, 0, Sl); };
@@ -1643,6 +1660,16 @@ function gable(w, d, h0, rh, x, z, rot, roofC, wallC, over = 0.45, end = GABLE_E
   const gp = [], gn = [], gu = []; const hw2 = w / 2, hd2 = d / 2; const endUV = end.uv || [0, 0, d / 4, 0, d / 8, rh / 3];
   const tri = (a, b, c, n) => { gp.push(...a, ...b, ...c); gn.push(...n, ...n, ...n); gu.push(...endUV); };
   tri([hw2, h0, hd2], [hw2, h0, -hd2], [hw2, h0 + rh, 0], [1, 0, 0]); tri([-hw2, h0, -hd2], [-hw2, h0, hd2], [-hw2, h0 + rh, 0], [-1, 0, 0]); rawGeo(gp, gn, gu, rot, x, z, wallC, end.role);
+  // #901: one whole attic window per end when it fits under both slopes with a margin; the window frame of TEX.facade
+  if (end === GABLE_END_WALL) {
+    const gw = gableWindow(d, rh);
+    if (gw) for (const sx of [1, -1]) {
+      const g = new THREE.PlaneGeometry(gw.w, gw.h), u = g.attributes.uv;
+      for (let i = 0; i < u.count; i++) u.setXY(i, 34 / 256 + u.getX(i) * 76 / 256, 1 - 152 / 192 + u.getY(i) * 108 / 192);
+      g.rotateY(sx * Math.PI / 2); g.translate(sx * (hw2 + FACADE.door.off), h0 + gw.y + gw.h / 2, 0);
+      g.rotateY(-rot); g.translate(x, 0, z); colorize(g, wallC); push('wall', g);
+    }
+  }
 }
 function resample(pts, step) { const out = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const [x0, z0] = pts[i], [x1, z1] = pts[i + 1]; const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(L / step)); for (let k = 1; k <= n; k++) out.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); } return out; }
 function waterPolys() {
@@ -1813,6 +1840,47 @@ function landmarkReplaces(b, base) {
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(base + 3, lm.top), ring: b.ring });
   window.__mm.counts.chLandmarks.replaced.push(b.id); return true;
 }
+// #901: the walls of a gable-path OSM house, drawn as fitted quads instead of one tiled box: a plain plaster plinth from
+// 3 m under the ring minimum up to the door's ground, window storeys anchored there (whole rows, whole half-tile columns),
+// plain plaster above the band, and exactly one door in the middle column of the face toward the nearest road. Returns the
+// door {x, z, y, k}; the storey grid comes from facadeRows, the columns from facadeColumns (world.js, node-tested).
+const HOUSE_DOORS = new Map();
+function gableHouseWalls(b, base, h, wc) {
+  const [cx, cz, w, d, rot] = b.rect, c = Math.cos(rot), s = Math.sin(rot);
+  const world = (lx, lz) => [cx + lx * c - lz * s, cz + lx * s + lz * c];
+  const F = [[-w / 2, d / 2, w / 2, d / 2], [w / 2, d / 2, w / 2, -d / 2], [w / 2, -d / 2, -w / 2, -d / 2], [-w / 2, -d / 2, -w / 2, d / 2]]
+    .map(([ax, az, bx, bz]) => ({ a: world(ax, az), b: world(bx, bz) }));   // facadeLabels order: +z, +x, -z, -x, corners wound for wallQuads' outward normal
+  const road = nearestRoadPoint(cx, cz, b.st, FACADE.reach), k = facingFace(cx, cz, rot, w, d, road);
+  const kf = F[k], L = Math.hypot(kf.b[0] - kf.a[0], kf.b[1] - kf.a[1]), { n, cw } = facadeColumns(L);
+  const t = n ? (Math.floor((n - 1) / 2) + 0.5) * cw : L / 2;   // the middle half-tile; the face centre on a sliver face
+  const dp = [kf.a[0] + (kf.b[0] - kf.a[0]) * t / L, kf.a[1] + (kf.b[1] - kf.a[1]) * t / L];
+  const rows = facadeRows(base, h, terrainH(dp[0], dp[1]));
+  for (let f = 0; f < 4; f++) {
+    const { a, b: e } = F[f], len = Math.hypot(e[0] - a[0], e[1] - a[1]), { n: nf, cw: fcw } = facadeColumns(len);
+    wallQuads([{ a, b: e }], rows.floor0, 0, wc, 'plaster', [4, 3], rows.floor0 - (base - 3));   // the plinth carries the slope below the door's ground
+    if (nf > 0 && rows.floors > 0) {
+      if (f !== k) wallQuads([{ a, b: e }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+      else {
+        const dir = [(e[0] - a[0]) / len, (e[1] - a[1]) / len], at = (m) => [a[0] + dir[0] * m, a[1] + dir[1] * m];
+        const j = Math.floor((nf - 1) / 2);
+        if (j > 0) wallQuads([{ a, b: at(j * fcw) }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+        if (j + 1 < nf) wallQuads([{ a: at((j + 1) * fcw), b: e, u0: (j + 1) * fcw }], rows.floor0, rows.floors * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+        wallQuads([{ a: at(j * fcw), b: at((j + 1) * fcw) }], rows.floor0, rows.sh, wc, 'plaster', [4, 3], 0);   // the door's column: plain beside the door
+        if (rows.floors > 1) wallQuads([{ a: at(j * fcw), b: at((j + 1) * fcw), u0: j * fcw, dy: rows.sh }], rows.floor0 + rows.sh, (rows.floors - 1) * rows.sh, wc, 'wall', [2 * fcw, rows.sh], 0);
+      }
+      if (base + h - rows.bandTop > 0.01) wallQuads([{ a, b: e }], rows.bandTop, base + h - rows.bandTop, wc, 'plaster', [4, 3], 0);
+    } else wallQuads([{ a, b: e }], rows.floor0, base + h - rows.floor0, wc, 'plaster', [4, 3], 0);   // sliver face or shed: plain plaster
+  }
+  const g = new THREE.PlaneGeometry(FACADE.door.w, FACADE.door.h), uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, 150 / 256 + uv.getX(i) * 62 / 256, uv.getY(i) * (1 - 60 / 192));   // the door of TEX.facadeDoor
+  const nx = -(kf.b[1] - kf.a[1]) / L, nz = (kf.b[0] - kf.a[0]) / L;
+  g.rotateY(-rot + k * Math.PI / 2);
+  g.translate(dp[0] + nx * FACADE.door.off, rows.floor0 + FACADE.door.h / 2, dp[1] + nz * FACADE.door.off);
+  colorize(g, col('#ffffff')); push('wallDoor', g);
+  const door = { x: dp[0], z: dp[1], y: rows.floor0, k };
+  HOUSE_DOORS.set(b.id, door); window.__mm.counts.houseDoors++;
+  return door;
+}
 function osmBuilding(b) {
   const [cx, cz, w, d, rot] = b.rect; let base = Infinity; for (const [x, z] of b.ring) base = Math.min(base, terrainH(x, z));
   // measured buildings (hsrc 'dsm', #17): eaves h and ridge rh from swissSURFACE3D; a measured flat roof is drawn flat
@@ -1822,9 +1890,10 @@ function osmBuilding(b) {
   const row = isRowHouse(b); if (row) window.__mm.counts.rowHouses = (window.__mm.counts.rowHouses || 0) + 1;
   if (b.roof === 'gable' && !(dsm && b.rh < 0.6)) {
     const floors = Math.max(1, Math.round(b.h / 3)); const wc = col(PLASTER[Math.floor(rr(0, PLASTER.length))]), rc = col(ROOFS[Math.floor(rr(0, ROOFS.length))]);
-    const h = dsm ? b.h : floors * 3 + 0.4; const door = rnd() < 0.5 ? 'wall' : 'wallDoor';
+    const h = dsm ? b.h : floors * 3 + 0.4; const _doorCoin = rnd() < 0.5 ? 'wall' : 'wallDoor';   // #901: still drawn for the seeded sequence; gableHouseWalls places the one real door
     if (landmarkReplaces(b, base)) return;   // #649: after all the branch's rr()/rnd() draws, so every later building keeps its colours
-    box(w, h + 3, d, cx, base - 3, cz, rot, row ? col('#ffffff') : wc, row ? 'rowHouse' : door, row ? rowHouseTile(b) : [4, 3], 3.1);
+    if (row) box(w, h + 3, d, cx, base - 3, cz, rot, col('#ffffff'), 'rowHouse', rowHouseTile(b), 3.1);
+    else gableHouseWalls(b, base, h, wc);
     gable(w, d, base + h, dsm ? b.rh : Math.min(w, d) * 0.4, cx, cz, rot, rc, row ? col('#ffffff') : wc, 0.45, row ? ROW_GABLE_END : GABLE_END_WALL); addOBB(cx, cz, w, d, rot, base + h); return;
   }
   const ind = b.palette === 'industrial', h = Math.max(b.h, 3);
@@ -2729,6 +2798,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   CH_LM = (L && REAL && L.origin) ? chLandmarksFor(await fetch('assets/landmarks/index.json').then(r => r.ok ? r.json() : null).catch(() => null), REGION.id, L.origin, REAL.hdr.base) : [];
   CH_LM_BY_OSM = new Map(CH_LM.filter(c => c.osm != null).map(c => [c.osm, c]));
   window.__mm.counts.chLandmarks = { placed: [], replaced: [] };
+  window.__mm.counts.houseDoors = 0;   // #901: one per drawn gable house
   // #715: a landmark without an OSM building in the world file (the Reformierte Kirche, #716) is solid as its own rect up to its top
   for (const c of CH_LM) if (c.rect) { const [x, z, w, d, rot] = c.rect; pushOBB({ x, z, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(terrainH(x, z) + 3, c.top) }); }
   if (L) for (const b of L.buildings) osmBuilding(b);
@@ -2819,7 +2889,7 @@ if (CH_LM.length) (async () => {
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], all: [], t: 0, ticks: 0 };
 const PLATE = { h: 0.5, px: 96, bg: '#1b4c9c', fg: '#ffffff', font: '700 64px "Barlow Condensed", sans-serif', door: 2.4, clear: 1.8, reach: 80 };
 // #557: with a street name, the nearest point of a road so named; none in reach, or no name: the nearest road of any name
-function nearestRoadPoint(x, z, name) { const scan = (want) => { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, PLATE.reach)) { if (want && r.n !== want) continue; const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= PLATE.reach ? best : null; }; return (name && scan(name)) || scan(); }
+function nearestRoadPoint(x, z, name, reach = PLATE.reach) { const scan = (want) => { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) { if (want && r.n !== want) continue; const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= reach ? best : null; }; return (name && scan(name)) || scan(); }   // #901: explicit reach -- the building loop runs before PLATE exists
 if (L) for (const it of addrLabels(plateBuildings(L.buildings, CH_LM_BY_OSM), L.anchors.landmarks, nearestRoadPoint)) { let base = Infinity; for (const [x, z] of it.foot || [[it.x, it.z]]) base = Math.min(base, terrainH(x, z)); it.y = Math.max(base + PLATE.door, terrainH(it.x, it.z) + PLATE.clear); it.foot = null; LABELS.all.push(it); gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
 { const plane = new THREE.PlaneGeometry(1, 1); for (let i = 0; i < 40; i++) { const s = new THREE.Mesh(plane); s.visible = false; LABELS.pool.push(s); scene.add(s); } }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows
@@ -3593,9 +3663,11 @@ heli.rotation.order = 'YZX';   // yaw outermost, then pitch, then roll about the
 // full-strength sky reflection clips to white, so it is toned down; smooth has ACES to roll the highlights off and gets 1.0.
 const STYLES = {
   original: { nameKey: 'styleOriginal', sky: ['#3d6fb5', '#e8bd8c'], fog: () => new THREE.Fog(col('#e8bd8c'), 320, 1400), hemi: 0.95, sunI: 0.75, shadows: false, carShadow: 0.55, pixel: Math.min(1.5, window.devicePixelRatio || 1), trees: 'bill', tone: THREE.NoToneMapping, carEnv: 0.45,
-    mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, rowHouse: TEX.rowHouse, bodenacker: TEX.bodenacker, bodenackerLoggia: TEX.bodenackerLoggia, plasterWhite: TEX.plasterWhite, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadOsm: TEX.asphaltOnly, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, meadow: TEX.meadow, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96, side: THREE.DoubleSide }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } return m; } },
+    mat: (role) => { const map = { wall: TEX.facade, wallDoor: TEX.facadeDoor, plaster: TEX.plaster, rowHouse: TEX.rowHouse, bodenacker: TEX.bodenacker, bodenackerLoggia: TEX.bodenackerLoggia, plasterWhite: TEX.plasterWhite, roof: TEX.roof, roofFlat: TEX.gravel, hall: TEX.hall, hallBand: TEX.hallBand, road: TEX.road, roadOsm: TEX.asphaltOnly, roadPlain: TEX.roadPlain, motorway: TEX.motorway, grass: TEX.grass, field: TEX.field, meadow: TEX.meadow, water: TEX.water, current: TEX.current, wood: TEX.wood, stone: TEX.stone, gravel: TEX.gravel, rail: TEX.rail, dome: null, tree: TEX.tree }[role]; if (role === 'water') return new THREE.MeshPhongMaterial({ map, vertexColors: true, shininess: 160, specular: 0xd8e8ff, transparent: true, opacity: 0.96, side: THREE.DoubleSide }); if (role === 'current') return new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshLambertMaterial({ map, vertexColors: true }); if (role === 'tree') { m.alphaTest = 0.5; m.side = THREE.DoubleSide; m.transparent = true; } if (role === 'roof') m.side = THREE.DoubleSide;   // #901: the overhang's underside draws seen from below
+      return m; } },
   smooth: { nameKey: 'styleSmooth', sky: ['#5d9be0', '#f2d9c4'], fog: () => new THREE.FogExp2(col('#f2d9c4'), 0.00095), hemi: 0.55, sunI: 1.6, shadows: true, carShadow: 0.3, pixel: Math.min(2, window.devicePixelRatio || 1), trees: 'cone', tone: THREE.ACESFilmicToneMapping, carEnv: 1.0,
-    mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', meadow: '#8aa84f', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', rowHouse: '#f4f1ea', bodenacker: '#f1efe8', bodenackerLoggia: '#f1efe8', plasterWhite: '#f1efe8', glass: '#bfd6e4', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'rowHouse', 'bodenacker', 'bodenackerLoggia', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' ? THREE.DoubleSide : THREE.FrontSide }); if (role === 'tree') m.visible = false; return m; } },
+    mat: (role) => { const flat = { road: '#3f4148', roadOsm: '#3f4148', roadPlain: '#3f4148', motorway: '#3a3c44', grass: '#7aa356', field: '#c2b06e', meadow: '#8aa84f', water: '#4f95cf', current: '#ffffff', wall: '#efe4cf', wallDoor: '#efe4cf', plaster: '#efe4cf', rowHouse: '#f4f1ea', bodenacker: '#f1efe8', bodenackerLoggia: '#f1efe8', plasterWhite: '#f1efe8', glass: '#bfd6e4', roof: '#b0533f', roofFlat: '#9aa0a8', hall: '#d7dde3', hallBand: '#e8ecf0', wood: '#a8784c', stone: '#b6b0a4', gravel: '#c9bda6', rail: '#7a7468', dome: '#2f6d6a', tree: '#000000' }[role]; if (role === 'current') return new THREE.MeshBasicMaterial({ map: TEX.current, transparent: true, opacity: 0.22, depthWrite: false }); if (role === 'glass') return new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.35, shininess: 140, specular: 0xe8f4ff, side: THREE.DoubleSide, depthWrite: false }); const m = new THREE.MeshStandardMaterial({ color: col(flat), vertexColors: !['road', 'roadOsm', 'roadPlain', 'motorway', 'grass', 'water', 'wall', 'wallDoor', 'plaster', 'rowHouse', 'bodenacker', 'bodenackerLoggia', 'hall', 'hallBand', 'wood', 'stone', 'gravel'].includes(role), flatShading: true, roughness: role === 'water' ? 0.35 : 0.95, metalness: 0, transparent: role === 'water', opacity: role === 'water' ? 0.9 : 1, side: role === 'water' || role === 'roof' ? THREE.DoubleSide : THREE.FrontSide });   // #901: the overhang's underside draws seen from below
+      if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
 function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = MESH[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
@@ -4287,7 +4359,7 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
-const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (netOpen()) { netKey(e); return; }   /* #834: the connect dialog and the lobby swallow the game keys -- a name is typed into an input */ if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (SETTINGS.on) { settingsKey(e); return; }   /* #842: the settings dialog swallows the game, M and 5-0 keys while it is open */ if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ const ra = recordKeyAction(e); if (ra) { e.preventDefault(); if (ra === 'toggle') toggleRecord(); return; }   /* #749: § records, a held § does nothing */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') { toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); renderSettings(); } if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); }   /* #842: M flips the same Sound switch the dialog shows */ if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (netOpen()) { netKey(e); return; }   /* #834: the connect dialog and the lobby swallow the game keys -- a name is typed into an input */ if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (SETTINGS.on) { settingsKey(e); return; }   /* #842: the settings dialog swallows the game, M and 5-0 keys while it is open */ if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ const ra = recordKeyAction(e); if (ra) { e.preventDefault(); if (ra === 'toggle') toggleRecord(); return; }   /* #749: § records, a held § does nothing */ const ca = $('overlay').hidden && !CARSEL.on ? camPathKeyAction(e) : null; if (ca) { e.preventDefault(); if (ca !== 'ignore') runCamPathKey(ca); return; }   /* #900: ü sets a waypoint, ö drops the last, ä flies the path */ if (e.repeat) return; keys[e.code] = true; if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { clearNavi(); resetCar(); } if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') { toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); renderSettings(); } if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); }   /* #842: M flips the same Sound switch the dialog shows */ if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
 // Y (#397): the national borders on/off, in 3D and on the minimap; "no data" without Gemeinde boundaries
@@ -4837,15 +4909,18 @@ function leaveBuilding() { if (!INT.hall || !INT.indoors) return; const s = exit
  function pressEnter() { const n = HUD.enter; if (!n) return; const h = ENTER_HANDLERS[n.entry.id]; if (h) h(n.entry, n.entrance); else toast(tr('enterSoon')); }   // #409: E on foot at a ready entrance
 // #701: the Plattform shortcut -- 'up' at the door, 'down' on the deck by the stair; not while hovering
 const platHop = () => FOOT.on && !FOOT.hover && PLAT ? plattformHop(PLAT.frame, PLAT.base, P) : null;
+// #887: on the deck on foot -- the Verein's plate and E for its website; not while hovering, and never from the car
+const platOnDeck = () => FOOT.on && !FOOT.hover && PLAT ? plattformOnDeck(PLAT.frame, PLAT.base, P) : false;
 function platHopGo(dir) { const l = plattformHopLanding(PLAT.frame, PLAT.base, dir); P.x = l.x; P.z = l.z; P.th = l.th; P.y = l.y; P.vx = P.vz = P.vy = 0; FOOT.vy = 0; FOOT.eye = null; FOOT.mv = FOOT.view = null; restShadow(); }   // #895: a hop teleports -- no eased speeds, the view snaps
 // #535: E is the one context key on foot -- lift (at the lift gap) > leave (inside) > hop (#701) > enter (at a glowing door)
-// > a parked depot vehicle (#553) > a stop's timetable board (#801); in the car E is the depot's board action or that board
+// > a parked depot vehicle (#553) > a stop's timetable board (#801) > the Verein's website on the Plattform deck (#887);
+// in the car E is the depot's board action or that board
 function contextAction() {
-  if (FOOT.on) return contextKeyAction({ liftPrompt: INT.indoors && !!INT.prompt, indoors: INT.indoors, doorPrompt: !!HUD.enter, hop: platHop(), boardPrompt: !!depotNear(), stopPrompt: !!stopNear() });
+  if (FOOT.on) return contextKeyAction({ liftPrompt: INT.indoors && !!INT.prompt, indoors: INT.indoors, doorPrompt: !!HUD.enter, hop: platHop(), boardPrompt: !!depotNear(), stopPrompt: !!stopNear(), onDeck: platOnDeck() });
   return depotNear() ? 'board' : stopNear() ? 'timetable' : null;
 }
 function runContextKey() { if (pressRide()) return;   // #516: E boards the wheel / gets out -- one more enterable thing, before the doors
-  const a = contextAction(); if (a === 'lift') INT.lift.call(INT.floor); else if (a === 'leave') leaveBuilding(); else if (a === 'up' || a === 'down') platHopGo(a); else if (a === 'enter') pressEnter(); else if (a === 'board') boardDepot(depotNear()); else if (a === 'timetable') openTimetable('world', stopNear()); }
+  const a = contextAction(); if (a === 'lift') INT.lift.call(INT.floor); else if (a === 'leave') leaveBuilding(); else if (a === 'up' || a === 'down') platHopGo(a); else if (a === 'enter') pressEnter(); else if (a === 'board') boardDepot(depotNear()); else if (a === 'timetable') openTimetable('world', stopNear()); else if (a === 'website') window.open(ABOUT_LINKS.plattform, '_blank', 'noopener'); }   // #887
 function controlContext() { if (FOOT.on) return INT.pad ? 'lift' : INT.indoors ? 'indoors' : 'foot'; if (TRAIN.on) return 'train'; if (FLY.on) return 'heli'; return 'car'; }
 // #535: the key bar -- core keys of the current context, the context key first; rebuilt only when what it shows changes
 const KEYBAR = { on: keybarOnFrom((() => { try { return localStorage.getItem(KEYBAR_KEY); } catch (e) { return null; } })()), sig: '' };
@@ -4858,8 +4933,11 @@ function stepKeybar() {
 }
 function toggleKeybar() { KEYBAR.on = !KEYBAR.on; try { localStorage.setItem(KEYBAR_KEY, KEYBAR.on ? '1' : '0'); } catch (e) { } stepKeybar(); }
 window.__mm.keybar = () => { stepKeybar(); const el = $('keybar'); return { shown: !el.hidden && getComputedStyle(el).display !== 'none', text: el.textContent, ctx: controlContext(), action: contextAction(), on: KEYBAR.on }; };
+// #887: the Verein's plate rides with the walker on the deck -- gone while paused or behind the overlay, like the rest of the HUD
+function stepVereinPlate() { $('vereinplate').hidden = !platOnDeck() || PAUSE.on || !$('overlay').hidden; }
 function stepEnter() {
   stepEnterGlow();   // #409: the E prompt at a ready entrance (on foot only; in the car E boards a parked depot vehicle, #553)
+  stepVereinPlate();
   const ra = rideNow();   // #516: the Ferris wheel's prompt wins at the pad / in the bottom window
   if (ra.do === 'board' || ra.do === 'leave') { $('prompt').textContent = tr(ra.do === 'board' ? 'ridePrompt' : 'rideExit'); HUD.enterShown = true; return; }
   const near = FOOT.on ? nearestEntrance(visibleEnterables(ENTERABLES, secretRevealed()), LEVELS.id, P.x, P.z, GLOW_RANGE) : null;
@@ -5297,6 +5375,7 @@ window.__mm.resetCar = () => resetCar();
 window.__mm.walkways = (set) => { if (set) Object.assign(WALKS, set); return WALKS; };   // #412: the walkway set around the walker; tests put an interior's set in (empty = outdoors)
 window.__mm.plattform = () => PLAT && { facing: PLAT.frame.facing, base: PLAT.base, x: PLAT.frame.x, z: PLAT.frame.z, deckY: PLAT.base + PLATTFORM.deck.y, look: PLAT.look };   // #413: the tower's frame, for the stair tests; #855: look, for the real-look test
 window.__mm.platHop = () => platHop();   // #701: tests
+window.__mm.onDeck = () => platOnDeck();   // #887: tests
 // #411: the interior of 6c as the tests see it. updateInterior() first, so a headless read is fresh even between frames.
 window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
   y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
@@ -5322,6 +5401,7 @@ window.__mm.roleVertexColors = (role) => MESH[role]?.material.vertexColors;   //
 const wallHits = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); return ray.intersectObjects([...Object.values(MESH), ...(INT.housing ? [INT.housing] : []), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).filter(h => h.object.userData.role); };
 window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const hit = wallHits(x, z, tx, tz, up, up1)[0]; return hit ? hit.object.userData.role : null; };
 window.__mm.wallRolesAt = (x, z, tx, tz, up = 2.5, eps = 0.01) => { const hits = wallHits(x, z, tx, tz, up); return hits.length ? [...new Set(hits.filter(h => h.distance - hits[0].distance <= eps).map(h => h.object.userData.role))].sort() : []; };
+window.__mm.houseDoor = (id) => HOUSE_DOORS.get(id) || null;   // #901: the one door of a gable house -- {x, z, y, k} on the wall, k in facadeLabels order
 window.__mm.waterVisible = (pts) => { const ray = new THREE.Raycaster(), down = new THREE.Vector3(0, -1, 0), meshes = [MESH.water, MESH.grass, MESH.field].filter(Boolean); let checked = 0, visible = 0, wet = 0; for (const [x, z] of pts) { if (onBridge(x, z, 1e4) || gridQuery(BRIDGE_GRID, x, z, 15).length || roadSurfH(x, z) > -Infinity) continue; checked++; ray.set(new THREE.Vector3(x, 2000, z), down); const h = ray.intersectObjects(meshes, false)[0]; if (h && h.object === MESH.water) visible++; if (waterLevelAt(x, z, 1e4) !== null) wet++; } return { checked, visible, wet }; };
 window.__mm.probe = (x, z) => ({ terrain: terrainH(x, z), water: waterLevelAt(x, z, 1e4), bridge: !!onBridge(x, z, 1e4) });
 // #101: the riverbed under (x, z): groundH's value, the water surface, the bedDepth, and where the drawn terrain is (raycast on the grass mesh)
@@ -5572,7 +5652,8 @@ function trainCamera(dt, s, snap) {   // #495: s = -1 while B is held: the chase
   const target = new THREE.Vector3(P.x - fx * 14 * s, P.y + 5, P.z - fz * 14 * s);
   if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-4 * dt)); camera.position.copy(camPos); camera.lookAt(P.x + fx * 8 * s, P.y + 2, P.z + fz * 8 * s);
 }
-function stepCamera(dt) { const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
+function stepCamera(dt) { if (CAMPATH.play) { stepCamPath(dt); camTail(); return; }   // #900: the camera path owns the camera while it flies
+  const speed = Math.hypot(P.vx, P.vz); const fx = Math.cos(P.th), fz = Math.sin(P.th); const v = CAM_VIEWS[camView];
   if (!v.drone || FLY.on || FOOT.on || CARSEL.on) CAM.aiming = false;   // #93: re-seed the drone's aim point when it takes over again
   const back = !!keys.KeyB && $('overlay').hidden, snap = back !== CAM.back, s = back ? -1 : 1; CAM.back = back;   /* #408: on foot too */ // #65: hold B to look back; snap on change so the chase cam doesn't swing through the car
   if (CARSEL.on) { stepTurntable(dt); camTail(); return; }   // #7: the turntable owns the camera while the car selection is open
@@ -5841,6 +5922,7 @@ function closeWorlds() { WORLDS.on = false; $('worlds').hidden = true; $('overla
 // ---------- #509 About, #564 in tabs: the dialog -- over the start screen (Back returns there) or over the paused game (Back returns to the pause menu) ----------
 const ABOUT = { on: false, from: 'start', tab: 0 };
 for (const a of document.querySelectorAll('#about a[data-link]')) { a.href = ABOUT_LINKS[a.dataset.link]; a.target = '_blank'; a.rel = 'noopener'; }
+$('vereinlink').href = ABOUT_LINKS.plattform;   // #887: the deck's plate links to the same one URL -- the loop above only walks #about
 // #853: the contact address is only ever written by JS, per language (footer link + the About line to copy by hand)
 function renderContact() {
   const lang = window.GG_LANG, href = contactHref(lang);
@@ -6869,7 +6951,7 @@ function toggleHudShown() { const off = document.body.classList.toggle('hud-off'
 function toggleDebug() { DEBUG.on = !DEBUG.on; DEBUG.t = 0; $('debug').hidden = !DEBUG.on; if (!DEBUG.on) for (const l of DEBUG.layers) l.hide(); toast(tr(DEBUG.on ? 'debugOn' : 'debugOff')); }
 // #74: one <div> per panel line; the label is drawn by CSS ::before from data-label, so innerText and the copied text stay the bare values
 function debugLineEl(line) { const el = document.createElement('div'); const key = lineLabelKey(line); el.dataset.label = key ? tr(key) : ''; el.textContent = line; return el; }
-function debugTick() { if (!DEBUG.on || performance.now() - DEBUG.t < 250) return; DEBUG.t = performance.now(); for (const l of DEBUG.layers) l.tick(P.x, P.z); DEBUG.lines = DEBUG.sections.flatMap(fn => fn()); $('debugtext').replaceChildren(...DEBUG.lines.map(debugLineEl)); drawPostautoPanel(); }
+function debugTick() { if (!DEBUG.on || performance.now() - DEBUG.t < 250) return; DEBUG.t = performance.now(); for (const l of DEBUG.layers) l.tick(P.x, P.z); DEBUG.lines = DEBUG.sections.flatMap(fn => fn()); $('debugtext').replaceChildren(...DEBUG.lines.map(debugLineEl)); drawPostautoPanel(); drawCamPathPanel(); }
 function copyDebug() { const text = copyText(DEBUG.lines); if (!navigator.clipboard) { toast(tr('copyFailed')); return; } navigator.clipboard.writeText(text).then(() => toast(tr('copied')), () => toast(tr('copyFailed'))); }
 $('debug').addEventListener('click', copyDebug);
 // #63: map links in the panel -- URL from the car's spot at click time, new tab, never copies the panel; blur so Enter (horn) can't re-click
@@ -7105,6 +7187,94 @@ SFX.onHold((held) => {   // #749: pause / hold also pauses the recorder -- no st
 window.__mm.record = (on) => (on ? startRecord() : stopRecord());   // tests: start / stop a recording
 window.__mm.recordState = () => ({ state: REC.state, mime: REC.fmt && REC.fmt.mime, bytes: REC.bytes, audioLive: !!REC.rec && REC.rec.stream.getAudioTracks().some((t) => t.readyState === 'live'), seconds: REC.clock ? recordElapsed(REC.clock, performance.now()) : 0 });
 
+// ---------- camera path (#900) ----------
+// ü sets a waypoint from the rendered camera, ö drops the last, ä flies the path with the HUD off (Shift+ä records it
+// with § too). Rules in campath.js; this is the controller. #875 renders the same path frame by frame.
+const CAMPATH_KEY = 'mm.campath';
+const CAMPATH = { path: storedCamPath(), play: null };   // play = { track, t, rec, hud }
+function storedCamPath() {
+  try { const raw = localStorage.getItem(CAMPATH_KEY); const kept = raw && parseCamPath(raw); if (kept && kept.path) return kept.path; } catch (e) { }
+  return newCamPath(REGION.id);
+}
+// a path under two points is no path yet: it is dropped instead of stored, so a reload never resurrects an undone one
+function saveCamPath() {
+  try { if (camPathCount() < 2) localStorage.removeItem(CAMPATH_KEY); else localStorage.setItem(CAMPATH_KEY, serializeCamPath(CAMPATH.path)); } catch (e) { }
+}
+const camPathCount = () => CAMPATH.path.points.length;
+function drawCamPathPanel() { $('debugcampathcount').textContent = tr('dbgCamPathCount', camPathCount()); }
+function addWaypoint() {
+  CAMPATH.path.points.push(waypointFrom(camera.position, camera.getWorldDirection(new THREE.Vector3())));
+  saveCamPath(); drawCamPathPanel(); toast(tr('camPathPoint', camPathCount()));
+}
+function undoWaypoint() {
+  if (!camPathCount()) { toast(tr('camPathEmpty')); return; }
+  CAMPATH.path.points.pop(); saveCamPath(); drawCamPathPanel(); toast(tr('camPathRemoved', camPathCount()));
+}
+function clearCamPath() { stopCamPath(); CAMPATH.path = newCamPath(REGION.id); saveCamPath(); drawCamPathPanel(); toast(tr('camPathCleared')); }
+// a file's text or a plain object -> { ok } | { error }; a bad file toasts and changes nothing
+function loadCamPathFrom(input) {
+  const read = parseCamPath(input);
+  if (read.error) { toast(tr('camPathBad'), TOAST_S.event); return read; }
+  CAMPATH.path = read.path; saveCamPath(); drawCamPathPanel();
+  const foreign = read.path.region && read.path.region !== REGION.id;   // the points are world metres: another region puts them somewhere else
+  toast(foreign ? tr('camPathRegion', read.path.region) : tr('camPathLoaded', camPathCount()), TOAST_S.event);
+  return { ok: true };
+}
+function exportCamPath() {
+  const url = URL.createObjectURL(new Blob([serializeCamPath(CAMPATH.path)], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = camPathFileName(new Date());
+  document.body.appendChild(link); link.click(); link.remove();   // like finishRecord: the anchor in the document, the URL outlives the click
+  setTimeout(() => URL.revokeObjectURL(url), 40000);
+}
+function playCamPath(options = {}) {
+  if (CAMPATH.play) return;
+  if (camPathCount() < 2) { toast(tr('camPathEmpty'), TOAST_S.event); return; }
+  const rec = !!options.record && REC.state === 'idle';   // a recording the player started themselves is left alone
+  CAMPATH.play = { track: buildTrack(CAMPATH.path), t: 0, rec, hud: document.body.classList.contains('hud-off') };
+  document.body.classList.add('hud-off', 'campath-play');   // campath-play hides the toast too: a clean frame
+  if (rec) startRecord();
+}
+function stopCamPath() {
+  const play = CAMPATH.play;
+  if (!play) return;
+  CAMPATH.play = null;
+  document.body.classList.remove('campath-play');
+  if (!play.hud) document.body.classList.remove('hud-off');   // the HUD state from before the flight comes back
+  if (play.rec && (REC.state === 'recording' || REC.state === 'paused')) stopRecord();
+}
+// the camera for this frame, from the path's own clock; the player is frozen meanwhile (loop)
+function stepCamPath(dt) {
+  const play = CAMPATH.play;
+  play.t += dt;
+  const at = sampleTrack(play.track, play.t);
+  camPos.set(at.x, at.y, at.z); camera.position.copy(camPos); camera.lookAt(at.look.x, at.look.y, at.look.z);
+  setCameraNear(CAM_NEAR.out);
+  if (play.t >= play.track.duration) stopCamPath();
+}
+function runCamPathKey(action) {
+  if (action === 'add') { addWaypoint(); return; }
+  if (action === 'undo') { undoWaypoint(); return; }
+  if (CAMPATH.play) { stopCamPath(); return; }   // ä stops a flight in progress, whatever started it
+  playCamPath({ record: action === 'playRecord' });
+}
+$('debugcampath').addEventListener('click', (e) => e.stopPropagation());   // a click in the block does not copy the panel
+$('debugcampathplay').addEventListener('click', (e) => { e.currentTarget.blur(); playCamPath(); });
+$('debugcampathrec').addEventListener('click', (e) => { e.currentTarget.blur(); playCamPath({ record: true }); });
+$('debugcampathexport').addEventListener('click', (e) => { e.currentTarget.blur(); exportCamPath(); });
+$('debugcampathimport').addEventListener('click', (e) => { e.currentTarget.blur(); $('debugcampathfile').click(); });
+$('debugcampathclear').addEventListener('click', (e) => { e.currentTarget.blur(); clearCamPath(); });
+$('debugcampathfile').addEventListener('change', (e) => { const file = e.target.files[0]; e.target.value = ''; if (file) file.text().then(loadCamPathFrom); });
+drawCamPathPanel();
+window.__mm.campath = {   // #875 builds on these
+  get: () => CAMPATH.path,
+  load: (input) => loadCamPathFrom(input),
+  add: () => { addWaypoint(); return camPathCount(); },
+  clear: () => clearCamPath(),
+  play: (options) => playCamPath(options),
+  stop: () => stopCamPath(),
+  state: () => ({ playing: !!CAMPATH.play, t: CAMPATH.play ? CAMPATH.play.t : 0, duration: CAMPATH.play ? CAMPATH.play.track.duration : 0, count: camPathCount() }),
+};
+
 // ---------- Testhub (#251) ----------
 // Dev mode only: the loader in the body appends /testhub/client.js, which defines window.ggTesthub and then fires
 // 'gg-testhub-ready'. The client may arrive before or after this module, so handle both orders (no polling).
@@ -7160,7 +7330,7 @@ if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCav
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open || TTV.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
-  const t0 = performance.now(); if (R.state !== 'ready') { if (FOOT.on) { if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
+  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); requestAnimationFrame(loop); }
 { const sy = groundH(START.x, START.z); P.y = sy; camera.position.set(START.x + 14, sy + 5, START.z + 4); camPos.copy(camera.position); camera.lookAt(START.x, sy + 1, START.z); car.position.set(START.x, sy, START.z); car.rotation.y = -START.th; restShadow(); }
 if (REGION_FALLBACK) toast(tr('regionMissing', REGION_FALLBACK), TOAST_S.event);   // #127: ?region= named a region without data
 loadPostauto();   // #500: the timetable loads in the background, never blocking play

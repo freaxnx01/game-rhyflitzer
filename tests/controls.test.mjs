@@ -137,6 +137,18 @@ test('contextKeyAction_HopWinsOverEnter_LiftAndLeaveWinOverHop', () => {   // #7
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true }), 'enter', 'hop is optional');
 });
 
+// #887: E on the Plattform deck opens the Verein's website -- lowest priority: everything else wins over it
+test('contextKeyAction_OnDeckNothingElse_IsWebsite', () => {
+  assert.equal(contextKeyAction({ onDeck: true }), 'website');
+});
+test('contextKeyAction_HopDownWinsOverWebsite', () => {
+  assert.equal(contextKeyAction({ hop: 'down', onDeck: true }), 'down');
+  assert.equal(contextKeyAction({ stopPrompt: true, onDeck: true }), 'timetable');
+});
+test('contextLabel_Website_IsBarWebsite', () => {
+  assert.equal(contextLabel('website'), 'barWebsite');
+});
+
 test('contextLabel_KnownAndUnknown', () => {
   assert.equal(contextLabel('leave'), 'barLeave');
   assert.equal(contextLabel(null), null);
@@ -157,4 +169,20 @@ test('actionFor_Digits5To0_AreTheRadioInEveryRunContext_ButNotTheLiftPad', () =>
 
 test('radioEntries_AreNotTouchMenuEntries', () => {
   for (const c of CONTEXTS) assert.ok(!menuEntries(c).some(e => e.action.startsWith('radio')), c);   // the phone has its own 📻 panel
+});
+
+test('actionFor_CamPathKeys_InEveryRunContext (#900)', () => {
+  const want = { BracketLeft: 'camPathAdd', Semicolon: 'camPathUndo', Quote: 'camPathPlay' };
+  for (const c of ['car', 'foot', 'indoors', 'heli', 'train']) for (const [k, a] of Object.entries(want)) assert.equal(actionFor(c, k), a, `${c} ${k}`);
+  assert.equal(actionFor('lift', 'Quote'), null);   // the lift pad has its own keys, the path keys stay out
+});
+
+test('camPathEntries_AreLabelledAndNotOnThePhone (#900)', () => {
+  for (const c of ['car', 'foot', 'indoors', 'heli', 'train']) {
+    for (const e of entriesFor(c).filter(e => e.action.startsWith('camPath'))) {
+      assert.ok(translate('en', e.label) !== e.label, `${c} ${e.label} en`);
+      assert.ok(translate('de', e.label) !== e.label, `${c} ${e.label} de`);
+      assert.equal(e.touch, null, `${c} ${e.action}`);   // too rare for the key bar or the ☰ menu
+    }
+  }
 });
