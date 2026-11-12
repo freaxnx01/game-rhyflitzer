@@ -42,6 +42,13 @@ def ready_both(host, guest):
     host.wait_for_function("() => !document.querySelector('#mpgo').disabled", timeout=T)
 
 
+# that player's car is drawn more than 5 m from where it spawned
+MOVED = """([id, from]) => {
+  const c = window.__mm.netCars().find(c => c.id === id);
+  return !!c && !!c.pos && Math.hypot(c.pos[0] - from[0], c.pos[2] - from[2]) > 5;
+}"""
+
+
 def net_car(page, player_id):
     return page.evaluate("(id) => window.__mm.netCars().find(c => c.id === id)", player_id)
 
@@ -66,14 +73,17 @@ def test_two_players_see_each_other_drive(pair):
 
     for page in (host, guest):
         page.evaluate("() => window.__mm.driveSim(2.5, ['ArrowUp'])")
-    host.wait_for_timeout(1500)          # the last poses of that drive still have to travel
+
+    # a remote car is placed in the seeing page's own frame, and two heavy pages on a software GL draw about one frame
+    # a second: wait for the car to have arrived, never for a fixed stretch of wall clock
+    for page, other in ((host, 1), (guest, 0)):
+        page.wait_for_function(MOVED, arg=[other, start[other]], polling=250, timeout=T)
 
     for other, them, seer in ((1, guest, host), (0, host, guest)):
         seen = net_car(seer, other)["pos"]
         real = them.evaluate("() => window.__mm.carPose().pos")
-        moved = sum((a - b) ** 2 for a, b in zip(seen, start[other])) ** 0.5
         gap = sum((a - b) ** 2 for a, b in zip(seen, real)) ** 0.5
-        assert moved > 5 and gap < 15, (other, moved, gap, seen, real)
+        assert gap < 15, (other, gap, seen, real)
 
     assert net(host)["bad"] == 0 and net(guest)["bad"] == 0
     assert errors == []
