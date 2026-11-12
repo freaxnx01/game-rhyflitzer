@@ -214,6 +214,7 @@ const en = {
   footNoRoom: 'No room to get out here',
   footTooFar: 'Walk back to the car to get in',
   // ---- the steam locomotive (#462) ----
+  footLookHint: 'Look around with the mouse · click again to let it go',
   trainIn: 'All aboard! W steam, S brake, Q/E pick the next switch, H whistle, Z get out',
   turnNotHere: 'Stop on the turntable at Sisseln to turn round',
   turnDone: 'Loco turned round',
@@ -956,6 +957,7 @@ const de = {
   footNoRoom: 'Hier ist kein Platz zum Aussteigen',
   footTooFar: 'Geh zurück zum Auto, um einzusteigen',
   // ---- die Dampflok (#462) ----
+  footLookHint: 'Mit der Maus umschauen · nochmals klicken zum Beenden',
   trainIn: 'Einsteigen bitte! W Dampf, S bremsen, Q/E nächste Weiche wählen, H pfeifen, Z aussteigen',
   turnNotHere: 'Zum Wenden still auf der Drehscheibe in Sisseln halten',
   turnDone: 'Lok gewendet',
