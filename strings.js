@@ -234,7 +234,7 @@ const en = {
   hopUpPrompt: 'E · Up to the deck',   // #701
   hopDownPrompt: 'E · Down',
   vereinName: 'Verein Plattform Sisslerfeld',   // #887: the association's own name, the same in both languages
-  vereinOpen: 'E · Open website ↗',   // #887
+  vereinOpen: 'V Website ↗',   // #914
   enterSoon: 'Not enterable yet',
   ridePrompt: 'E · Ride the Ferris wheel',   // #516
   rideExit: 'E · Get out',
@@ -999,7 +999,7 @@ const de = {
   hopUpPrompt: 'E · Aufs Deck',   // #701
   hopDownPrompt: 'E · Hinunter',
   vereinName: 'Verein Plattform Sisslerfeld',   // #887: the association's own name, the same in both languages
-  vereinOpen: 'E · Website öffnen ↗',   // #887
+  vereinOpen: 'V Website öffnen ↗',   // #914
   enterSoon: 'Noch nicht begehbar',
   ridePrompt: 'E · Riesenrad fahren',   // #516
   rideExit: 'E · Aussteigen',
