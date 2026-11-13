@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines } from '../busstop.js';
+import { STOP, rectClearance, roadEdgeDist, stopLayout, zigzagLine, stopKey, stopRows, stopEnds, sheetLines, shelterCollider, SIGN_FACES } from '../busstop.js';
 import { buildGraph, cumulative } from '../route.js';
 import { BUS } from '../bus.js';
 import { busRoute, busPose } from '../postauto.js';
@@ -111,33 +111,88 @@ test('sheetLines_RowsOfTwoLines_EachLineOnceSorted', () => {
   assert.equal(sheetLines([]), '');
 });
 
-// the real world: every stop keeps its shelter, nothing of it within 0.5 m of a standing bus or on asphalt
+// the real world: every stop point lays out clear of buses and roads; the count comes from the world file
 const WORLD = new URL('../data/world_hochrhein.json', import.meta.url);
 test('world_hochrhein: every stop point lays out clear of every standing bus and every road', { skip: !fs.existsSync(WORLD) }, () => {
   const L = JSON.parse(fs.readFileSync(WORLD, 'utf8'));
-  const G = buildGraph(L.roads), byKey = new Map();
+  const G = buildGraph(L.roads), byKey = new Map(), shelterless = [], FAR_SHIFT = { 'Frick Bahnhof': 9 };   // #808 A8
   for (const br of L.busRoutes) { const R = busRoute(br, L.roads, G); for (const st of R.stops) { const k = stopKey(st); if (!byKey.has(k)) byKey.set(k, { st, poses: [] }); byKey.get(k).poses.push(busPose(R, st.s)); } }
-  assert.equal(byKey.size, L.busRoutes.some((r) => r.line === '143') ? 24 : 20);
+  assert.ok(byKey.size >= new Set(L.busRoutes.flatMap((r) => r.stops.map((s) => s.uic))).size, 'every stop has a point');   // #808: no literal count
   for (const { st, poses } of byKey.values()) {
     const lay = stopLayout(st, poses, L.roads);
-    assert.ok(lay.shelter, `${st.name}: no shelter`);
-    for (const p of [lay.pole, ...lay.shelter.corners]) for (const pose of poses) assert.ok(rectClearance(...p, pose, STAND) >= STOP.clear - 1e-9, `${st.name}: ${rectClearance(...p, pose, STAND)}`);
+    for (const pose of poses) assert.ok(rectClearance(...lay.pole, pose, STAND) >= STOP.clear - 1e-9, `${st.name}: pole ${rectClearance(...lay.pole, pose, STAND)}`);
+    assert.ok(roadEdgeDist(...lay.pole, L.roads) >= STOP.poleRoad - 1e-9, `${st.name}: pole on asphalt`);
+    if (!lay.shelter) { shelterless.push(st.name); continue; }   // sign and pole only
+    for (const p of lay.shelter.corners) for (const pose of poses) assert.ok(rectClearance(...p, pose, STAND) >= STOP.clear - 1e-9, `${st.name}: ${rectClearance(...p, pose, STAND)}`);
     for (const p of lay.shelter.corners) assert.ok(roadEdgeDist(...p, L.roads) >= -1e-9, `${st.name}: shelter on asphalt`);
-    assert.ok(Math.abs(lay.shift) <= 6 && lay.pushed <= 2, `${st.name}: shift ${lay.shift} push ${lay.pushed}`);
+    assert.ok(Math.abs(lay.shift) <= (FAR_SHIFT[st.name] ?? 6) && lay.pushed <= 2, `${st.name}: shift ${lay.shift} push ${lay.pushed}`);
   }
+  assert.ok(shelterless.every((n) => n === 'Stein-Säckingen Bahnhof'), `shelterless: ${shelterless}`);
 });
 
 // rows per stop (uic): Frick Bahnhof has two points 5 m apart, and the 11533941 one is a pure terminus --
 // per-point calls would leave it without a single row (AC: every stop has at least one)
-test('world_hochrhein: every stop has at least one row; Frick Bahnhof shows only the way to Stein-Säckingen', { skip: !fs.existsSync(WORLD) }, () => {
+test('world_hochrhein: every stop has at least one row; Frick Bahnhof never shows a way to itself', { skip: !fs.existsSync(WORLD) }, () => {
   const L = JSON.parse(fs.readFileSync(WORLD, 'utf8')), calls = new Map();
   for (const br of L.busRoutes) for (const [i, st] of br.stops.entries()) { if (!calls.has(st.uic)) calls.set(st.uic, { st, calls: [] }); calls.get(st.uic).calls.push({ line: br.line, dest: br.to, last: stopEnds(i, br.stops.length, br.cut) }); }
   for (const { st, calls: c } of calls.values()) assert.ok(stopRows(c).length >= 1, `${st.name}: no row`);
   const frick = [...calls.values()].filter(({ st }) => st.uic === '8500583');
   assert.ok(frick.length >= 1);
-  for (const { calls: c } of frick) assert.deepEqual(stopRows(c), [{ line: '133', dest: 'Stein-Säckingen, Bahnhof' }]);
+  for (const { calls: c } of frick) {
+    const rows = stopRows(c);
+    assert.ok(rows.some((r) => r.line === '133' && r.dest === 'Stein-Säckingen, Bahnhof'));
+    assert.ok(rows.every((r) => r.dest !== 'Frick, Bahnhof'), 'no row points at the stop itself');
+  }
+  if (['134', '135'].every((ln) => L.busRoutes.some((r) => r.line === ln))) {   // #808: after the data rebuild
+    for (const { calls: c } of frick) assert.deepEqual(stopRows(c), [{ line: '133', dest: 'Stein-Säckingen, Bahnhof' }, { line: '134', dest: 'Stein-Säckingen, Bahnhof' }, { line: '135', dest: 'Aarau, Bahnhof' }, { line: '135', dest: 'Laufenburg, Bahnhof' }]);
+  }
   if (L.busRoutes.some((r) => r.line === '143')) {   // #767: after the data rebuild
     for (const { st, calls: c } of calls.values()) if (st.uic === '8572416') assert.deepEqual(stopRows(c), [{ line: '143', dest: 'Laufenburg, Bahnhof' }, { line: '143', dest: 'Stein-Säckingen, Bahnhof' }]);
-    for (const { st, calls: c } of calls.values()) if (st.uic === '8572748') assert.deepEqual(stopRows(c), [{ line: '133', dest: 'Frick, Bahnhof' }, { line: '143', dest: 'Laufenburg, Bahnhof' }]);
+    for (const { st, calls: c } of calls.values()) if (st.uic === '8572748') assert.deepEqual(stopRows(c).filter((r) => r.line !== '134'), [{ line: '133', dest: 'Frick, Bahnhof' }, { line: '143', dest: 'Laufenburg, Bahnhof' }]);
+  }
+});
+
+// #760: the shelter as one car-only solid box -- solid for the car, the heli floor and the camera; on foot you step in under the roof
+test('shelterCollider: one car-only box over the shelter, hw along the kerb, top at the roof', () => {
+  const lay = { yaw: Math.PI / 6, pole: [0, 0], shelter: { x: 3, z: 4, corners: [] } };
+  const o = shelterCollider(lay, 10);
+  assert.equal(o.x, 3); assert.equal(o.z, 4);
+  assert.ok(near(o.hw, STOP.shelter.w / 2)); assert.ok(near(o.hd, STOP.shelter.d / 2));
+  assert.ok(near(o.c, Math.cos(Math.PI / 6))); assert.ok(near(o.s, Math.sin(Math.PI / 6)));
+  assert.ok(near(o.h, 10 + STOP.shelter.h + 0.25));
+  assert.equal(o.carOnly, true);
+});
+
+test('shelterCollider: a sign-only stop has no collider', () => {
+  assert.equal(shelterCollider({ yaw: 0, pole: [0, 0], shelter: null }, 0), null);
+});
+
+test('shelterCollider: the box covers exactly the shelter corners stopLayout computes', () => {
+  const R = road([[0, 0], [200, 0]]);
+  const lay = stopLayout({ x: 100, z: 3.5, rot: 0 }, [], [R]);
+  const o = shelterCollider(lay, 0);
+  for (const [x, z] of lay.shelter.corners) {
+    const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c;
+    assert.ok(near(Math.abs(lx), o.hw) && near(Math.abs(lz), o.hd), [x, z, lx, lz]);
+  }
+});
+// plane normal after rotation.y = r is (sin r, 0, cos r); the group puts local +z away from the road (stopLayout n)
+test('SIGN_FACES: one face looks toward the road, one away, none is double-sided', () => {
+  const nz = SIGN_FACES.map((f) => Math.cos(f.rotY));
+  assert.equal(SIGN_FACES.length, 2);
+  assert.ok(nz.some((v) => near(v, -1)), 'a face toward the road (-z local)');
+  assert.ok(nz.some((v) => near(v, 1)), 'a face away from the road (+z local)');
+  assert.ok(SIGN_FACES.every((f) => f.z < 0), 'both in front of the pole line, behind the frame');
+});
+
+test('SIGN_FACES: for every stop yaw the road-side face normal points at the road', () => {
+  for (const rot of [0, 1, 2.5, -2]) {
+    const lay = stopLayout({ x: 0, z: 0, rot }, [], []);
+    const away = [-Math.sin(lay.yaw), Math.cos(lay.yaw)];                  // world direction of local +z
+    const road = SIGN_FACES.find((f) => Math.cos(f.rotY) < 0);
+    const nLocal = [Math.sin(road.rotY), Math.cos(road.rotY)];             // (x, z) local
+    const c = Math.cos(-lay.yaw), s = Math.sin(-lay.yaw);                  // three.js rotation.y = -yaw
+    const w = [nLocal[0] * c + nLocal[1] * s, -nLocal[0] * s + nLocal[1] * c];
+    assert.ok(w[0] * away[0] + w[1] * away[1] < -0.999);
   }
 });

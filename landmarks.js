@@ -1,9 +1,22 @@
 // The J dialog's landmarks (#41): names and Gemeinden kept by hand here, positions from the loaded world
 // (an anchors.landmarks key or a world building id), or a fixed game point (at). Pure: no DOM, no three.js.
-export const GEMEINDEN = ['Bad Säckingen', 'Stein', 'Münchwilen', 'Schupfart', 'Eiken', 'Sisseln'];   // west → east
+export const GEMEINDEN = ['Wallbach', 'Zuzgen', 'Mumpf', 'Hellikon', 'Obermumpf', 'Bad Säckingen', 'Stein', 'Münchwilen', 'Schupfart', 'Eiken', 'Sisseln', 'Oeschgen', 'Frick', 'Murg'];   // west → east
+export const GEMEINDEN_DE = ['Wallbach', 'Bad Säckingen', 'Murg'];   // #782: the German Gemeinden; every other one is Swiss
 
-// Gemeinden verified against OpenStreetMap on 2026-10-02/03 (#41, #46, #81, #103) and 2026-10-10 (#47)
+// Gemeinden verified against OpenStreetMap on 2026-10-02/03 (#41, #46, #81, #103) and 2026-10-10 (#47),
+// the village places and stations on 2026-11-09 (#782)
 export const LANDMARK_INFO = [
+  // #782: village centre = OSM place node, J snaps to the nearest road
+  { name: 'Dorfzentrum Wallbach', gemeinde: 'Wallbach', at: [-3984.9, -1744.8] },
+  // #782: Lohnberg is a hamlet of Zuzgen
+  { name: 'Lohnberg', gemeinde: 'Zuzgen', at: [-3721.1, 2697.5] },
+  // #782: village centre = OSM place node; the station building w1556606688
+  { name: 'Dorfzentrum Mumpf', gemeinde: 'Mumpf', at: [-3484.8, 596.6] },
+  { name: 'Bahnhof Mumpf', gemeinde: 'Mumpf', building: 1556606688 },
+  // #782: village centre = OSM place node, J snaps to the nearest road
+  { name: 'Dorfzentrum Hellikon', gemeinde: 'Hellikon', at: [-3142.8, 4582.5] },
+  // #782: village centre = OSM place node, J snaps to the nearest road
+  { name: 'Dorfzentrum Obermumpf', gemeinde: 'Obermumpf', at: [-2160.9, 2378.8] },
   { name: 'Fridolinsmünster', gemeinde: 'Bad Säckingen', anchor: 'muenster' },
   { name: 'Holzbrücke', gemeinde: 'Bad Säckingen', anchor: 'holzbruecke' },
   { name: 'Fridolinsbrücke', gemeinde: 'Bad Säckingen', anchor: 'fridolinsbruecke', jump: [-1211.0, 535.5] },   // #79: J lands on the Swiss approach (Stein), westbound, ~23 m before the deck
@@ -27,6 +40,7 @@ export const LANDMARK_INFO = [
   { name: 'LANDI-Turm', gemeinde: 'Eiken', anchor: 'landiTurm' },                    // Sisslerstrasse 19.1, w197688923 (#81)
   { name: 'Südspange Sisslerfeld', gemeinde: 'Eiken', at: [1528, 409], jump: [1509.2, 425.4], look: [1441.4, 483.1] },   // #125: listed at the K295 junction, the road's start; #42: J lands 25 m into the Südspange, looking down it into the cutting
   { name: 'Güggeli-Foodtruck', gemeinde: 'Eiken', anchor: 'foodTruck' },            // on the Hauptstrasse (#205); the position lives in pipeline/anchors.json
+  { name: 'Fahrzeug-Depot', gemeinde: 'Eiken', at: [832.3, -107.5], jump: [770, -107.5], depot: true },   // #553: every vehicle on the DSM car park; J lands at the strip's west end, mid-depth, facing east
   { name: 'DSM-Wasserturm', gemeinde: 'Sisseln', anchor: 'dsmWaterTower' },
   { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
   { name: 'Hallenbad Sissila', gemeinde: 'Sisseln', anchor: 'hallenbad' },
@@ -37,6 +51,16 @@ export const LANDMARK_INFO = [
   { name: 'Schulhaus Sisseln', gemeinde: 'Sisseln', building: 171822721 },
   { name: 'Neues Schulhaus Sisseln', gemeinde: 'Sisseln', building: 282842878 },   // #507
   { name: 'Volg Sisseln', gemeinde: 'Sisseln', building: 171822900 },               // #507: Hauptstrasse 17
+  { name: 'Straussenfarm Sisseln', gemeinde: 'Sisseln', at: [2345, -318], look: [2385, -400] },   // #846: the ostrich paddock beside the farm; J snaps to the Hauptstrasse in front, looking at the fence
+  // #782: village centre = OSM place node, J snaps to the nearest road
+  { name: 'Dorfzentrum Oeschgen', gemeinde: 'Oeschgen', at: [3788.1, 3471.3] },
+  // #782: village centre = OSM place node; the station building w164951714
+  { name: 'Dorfzentrum Frick', gemeinde: 'Frick', at: [4040.6, 4762.8] },
+  { name: 'Bahnhof Frick', gemeinde: 'Frick', building: 164951714 },
+  // #782: village centre = OSM place node; Rothaus is a hamlet of Murg; the halt n3255719712 has no building
+  { name: 'Dorfzentrum Murg', gemeinde: 'Murg', at: [4361.6, -689.8] },
+  { name: 'Bahnhof Murg (Baden)', gemeinde: 'Murg', at: [3877.0, -347.8] },
+  { name: 'Rothaus', gemeinde: 'Murg', at: [2581.9, -838.3] },
 ];
 
 // #127: the second region. Positions from the Ehrendingen world (pipeline/anchors_ehrendingen.json, kept buildings).
@@ -77,7 +101,7 @@ export function landmarkEntries(info, anchors, buildings, gemeinden = GEMEINDEN)
   const found = [];
   info.forEach((item, i) => {
     const p = sourcePos(item, anchors || {}, byId);
-    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), ...(item.wreck ? { wreck: true } : {}), i });
+    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), ...(item.wreck ? { wreck: true } : {}), ...(item.depot ? { depot: true } : {}), i });
   });
   found.sort((a, b) => gemeinden.indexOf(a.g) - gemeinden.indexOf(b.g) || a.i - b.i);
   return found.map(({ i, ...entry }) => entry);
@@ -96,6 +120,14 @@ export function filterLandmarks(entries, query, gemeinde) {
 export function gemeindenOf(entries, gemeinden = GEMEINDEN) {
   const present = new Set(entries.map(e => e.g));
   return gemeinden.filter(g => present.has(g));
+}
+
+// #782: the present Gemeinden split into a CH and a DE row, west → east; an empty row is dropped,
+// and without a German list one unlabelled row keeps today's look
+export function chipRows(present, de) {
+  if (!de.length) return present.length ? [{ country: null, gemeinden: present }] : [];
+  const ch = present.filter(g => !de.includes(g)), ger = present.filter(g => de.includes(g));
+  return [...(ch.length ? [{ country: 'CH', gemeinden: ch }] : []), ...(ger.length ? [{ country: 'DE', gemeinden: ger }] : [])];
 }
 
 // The Sprungschanze's run-up (#80): runUp metres before the low edge x0, centred across it, facing up the ramp

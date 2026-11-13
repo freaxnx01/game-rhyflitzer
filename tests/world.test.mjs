@@ -223,6 +223,69 @@ test('wallPlate (#557): short walls, fallbacks, every plate stays within 0.1 m o
   assert.equal(wallPlate(null, 0, 0, null), null);
 });
 
+// #901: storeys, window columns, the attic window and the door face of a gable house (see FACADE in world.js)
+import { FACADE, facadeRows, facadeColumns, gableWindow, facingFace } from '../world.js';
+const near = (a, b) => Math.abs(a - b) < 1e-9;
+
+test('facadeRows_TwoStoreyEave_WholeRowsUpToEave', () => {
+  const r = facadeRows(10, 5.5, 10);   // base 10, eave 15.5, terrain at the door 10
+  assert.equal(r.floor0, 10);
+  assert.equal(r.floors, 2);
+  assert.ok(near(r.sh, 2.75));
+  assert.ok(near(r.bandTop, 15.5));
+});
+
+test('facadeRows_FourMetreEave_OneRowPlainAbove', () => {
+  const r = facadeRows(0, 4, 0);   // 4 m eave: one storey at the nominal 3 m, the rest above is plain
+  assert.equal(r.floors, 1);
+  assert.ok(near(r.sh, FACADE.storey));
+  assert.ok(near(r.bandTop, 3));
+});
+
+test('facadeRows_DoorUphill_RowsStartAtDoorGround', () => {
+  const r = facadeRows(0, 6.4, 1.2);   // the door's ground sits 1.2 m above the ring minimum: rows start there
+  assert.ok(near(r.floor0, 1.2));
+  assert.equal(r.floors, 2);
+  assert.ok(near(r.sh, 2.6));
+});
+
+test('facadeRows_GroundAboveEave_Clamped', () => {
+  assert.ok(near(facadeRows(0, 4, 9).floor0, 4 - FACADE.minWall));   // door ground clamped under the eave
+});
+
+test('facadeRows_Shed_NoWindows', () => {
+  const r = facadeRows(0, 2.0, 0);   // under minWall: no window rows at all
+  assert.equal(r.floors, 0);
+});
+
+test('facadeColumns_AnyLength_EndsOnWholeHalfTile', () => {
+  for (const len of [2.1, 5.84, 13.01, 14.98]) {
+    const { n, cw } = facadeColumns(len);
+    assert.ok(n >= 1 && n * cw > 0);
+    assert.ok(Math.abs(n * cw - len) < 1e-9, `${n} * ${cw} != ${len}`);
+    assert.ok(cw >= 4 / 3 && cw <= 4, `half tile ${cw} out of range for ${len}`);
+  }
+  assert.equal(facadeColumns(1.2).n, 0);   // a sliver face: no windows, plain plaster
+});
+
+test('gableWindow_SteepWideGable_Fits', () => {
+  const gw = gableWindow(7, 3.4);
+  assert.ok(gw, 'fits under the slopes');
+  assert.ok(near(gw.y, FACADE.attic.sill));
+});
+
+test('gableWindow_LowGable_Null', () => {
+  assert.equal(gableWindow(7, 1.3), null);   // too flat
+  assert.equal(gableWindow(3, 3), null);     // too narrow
+});
+
+test('facingFace_RoadOnPlusX_PicksFace1', () => {
+  assert.equal(facingFace(0, 0, 0, 10, 8, [50, 0]), 1);
+  assert.equal(facingFace(0, 0, 0, 10, 8, [0, 50]), 0);   // road on +z: face 0
+  const rot = 1.0, c = Math.cos(rot), s = Math.sin(rot);
+  assert.equal(facingFace(100, 200, rot, 10, 8, [100 + 50 * c, 200 + 50 * s]), 1, 'the road rotated with the house');
+});
+
 test('addrLabels (#557): ring buildings use wallPlate, roadAt hears the street', () => {
   const near = (a, b) => Math.abs(a - b) < 1e-9;
   const L = [[0, 0], [20, 0], [20, 10], [12, 10], [12, 22], [0, 22]];
@@ -1062,12 +1125,12 @@ test('forestEdges: inward normals point to the centre, long edges are split, sli
   assert.deepEqual(forestEdges([], forestIndex([])), []);
 });
 
-test('forestTrees: seeded, edge every 6 m, fill one per 600 m2, cap thins the fill only', () => {
+test('forestTrees: seeded, edge every 6 m, fill one per 300 m2 (#461), cap thins the fill only', () => {
   const fi = forestIndex([SQUARE]), edges = forestEdges([SQUARE], fi);
   const a = forestTrees([SQUARE], fi, edges, rng(13)), b = forestTrees([SQUARE], fi, edges, rng(13));
   assert.deepEqual(a, b);
   assert.ok(Math.abs(a.edge.length - 400 / 6) <= 8, a.edge.length);       // 12 segments x round(33.3 / 6) = 72
-  assert.ok(Math.abs(a.fill.length - 10000 / 600) <= 10, a.fill.length);   // the 8 m mask rounds the square out to ~104 m
+  assert.ok(Math.abs(a.fill.length - 10000 / 300) <= 14, a.fill.length);   // the 8 m mask rounds the square out to ~104 m
   assert.equal(a.thinned, 0);
   for (const [x, z, h] of a.edge) { assert.ok(x > -0.01 && x < 100.01 && z > -0.01 && z < 100.01); assert.ok(h >= 7 && h < 12); }
   for (const [, , h] of a.fill) assert.ok(h >= 8 && h < 14);
@@ -1259,6 +1322,17 @@ test('forestTrees: the committed Hochrhein world keeps its fill above 10000 unde
   const placed = forestTrees(forests, fi, forestEdges(forests, fi), rng(13));
   assert.ok(placed.edge.length >= 20000, placed.edge.length);
   assert.ok(placed.fill.length >= 10000, `edge ${placed.edge.length}, fill ${placed.fill.length}, thinned ${placed.thinned}`);
+  assert.ok(placed.edge.length + placed.fill.length <= FOREST_BUDGET.cap);
+});
+
+test('forestTrees: the Hochrhein interiors are not thinned and reach 30 trees per hectare (#461)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const world = JSON.parse(readFileSync(new URL('../data/world_hochrhein.json', import.meta.url), 'utf8'));
+  const forests = layoutFromWorld(world).forests, fi = forestIndex(forests);
+  const placed = forestTrees(forests, fi, forestEdges(forests, fi), rng(13));
+  assert.equal(placed.thinned, 0, 'the cap must not thin the interiors');
+  const maskHa = fi.mask.reduce((n, v) => n + v, 0) * fi.step * fi.step / 1e4;   // wood nodes x 64 m2
+  assert.ok(placed.fill.length / maskHa >= 30, `fill ${placed.fill.length} on ${maskHa.toFixed(0)} ha`);
   assert.ok(placed.edge.length + placed.fill.length <= FOREST_BUDGET.cap);
 });
 

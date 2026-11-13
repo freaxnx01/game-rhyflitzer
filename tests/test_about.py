@@ -51,7 +51,7 @@ def test_links_point_to_the_listed_sites_and_open_in_a_new_tab(server):
     with sync_playwright() as p:
         b, page, errors = boot(p, server)
         page.click("#aboutbtn")
-        links = page.evaluate("() => [...document.querySelectorAll('#about a')].map(a => ({ id: a.dataset.link, href: a.href, target: a.target, rel: a.rel }))")
+        links = page.evaluate("() => [...document.querySelectorAll('#about a[data-link]')].map(a => ({ id: a.dataset.link, href: a.href, target: a.target, rel: a.rel }))")
         listed = page.evaluate("async () => (await import('/about.js')).ABOUT_LINKS")
         b.close()
     assert {l["id"] for l in links} == set(listed), links                # every listed link is shown, nothing else
@@ -149,7 +149,7 @@ def test_pause_menu_opens_about_and_back_returns_to_the_pause_menu(server):
         page.keyboard.press("Escape")
         after = page.evaluate("() => ({ about: window.__mm.about().open, pauseShown: !document.getElementById('pause').hidden, paused: window.__mm.pause().on, focus: document.activeElement.id })")
         b.close()
-    assert order == ["pauseresume", "pausevehicle", "pauseabout", "pauserestart", "pausemenu"], order
+    assert order == ["pauseresume", "pausevehicle", "pausestyle", "pausetimetable", "pauseabout", "pausesettings", "pauserestart", "pausemenu", "pausetutorial"], order   # every button in the markup, Settings after About (#842); hidden ones the mode never shows included
     assert opened == {"about": {"open": True, "from": "pause"}, "pause": False}, opened
     assert after == {"about": False, "pauseShown": True, "paused": True, "focus": "pauseabout"}, after   # Esc goes back, it does not resume
     assert errors == []

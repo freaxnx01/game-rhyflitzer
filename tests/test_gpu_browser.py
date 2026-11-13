@@ -4,6 +4,8 @@ import socket
 import threading
 
 import gpu_browser
+import pytest
+from playwright.sync_api import Error as PlaywrightError
 
 
 def _serve(status):
@@ -79,13 +81,27 @@ def test_bind_opens_to_the_lan_when_on():
 
 
 class _FakeBrowserType:
-    def __init__(self, name):
+    def __init__(self, name, hangs=0):
         self.name = name
         self.cdp = None
+        self.timeouts = []
+        self.hangs = hangs          # how many connects time out before one succeeds
 
-    def connect_over_cdp(self, endpoint):
+    def connect_over_cdp(self, endpoint, timeout=None):
+        self.timeouts.append(timeout)
+        if self.hangs:
+            self.hangs -= 1
+            raise PlaywrightError("BrowserType.connect_over_cdp: Timeout exceeded")
         self.cdp = endpoint
         return "remote browser"
+
+
+def _launch(probe=lambda e: True, restart=None, calls=None):
+    """remote_launch with a fake probe, a recorded restart and no real waiting."""
+    def run(command):
+        calls.append(command)
+    return gpu_browser.remote_launch("http://gpu:9223", original=lambda self, *a, **k: "local browser", restart=restart,
+                                     probe=probe, run=run, sleep=lambda s: None)
 
 
 def test_remote_launch_connects_chromium_over_cdp_and_ignores_the_launch_args():
@@ -100,3 +116,54 @@ def test_remote_launch_keeps_the_original_for_other_browser_types():
     firefox = _FakeBrowserType("firefox")
     assert launch(firefox, headless=True) == "local browser"
     assert firefox.cdp is None
+
+
+def test_remote_launch_connects_with_a_short_timeout():
+    """#746: a hung browser answered every later connect only after 180 s, so one hang ran a whole shard into its 30 min."""
+    chromium = _FakeBrowserType("chromium")
+    assert _launch(calls=[])(chromium) == "remote browser"
+    assert chromium.timeouts == [gpu_browser.CONNECT_TIMEOUT_MS] and gpu_browser.CONNECT_TIMEOUT_MS <= 30000
+
+
+def test_remote_launch_restarts_a_hung_browser_and_connects_again():
+    calls, chromium = [], _FakeBrowserType("chromium", hangs=1)
+    assert _launch(restart="restart-chrome", calls=calls)(chromium) == "remote browser"
+    assert calls == ["restart-chrome"] and len(chromium.timeouts) == 2
+
+
+def test_remote_launch_gives_up_after_one_restart():
+    calls, chromium = [], _FakeBrowserType("chromium", hangs=2)
+    with pytest.raises(PlaywrightError):
+        _launch(restart="restart-chrome", calls=calls)(chromium)
+    assert calls == ["restart-chrome"]
+
+
+def test_remote_launch_waits_for_a_browser_that_is_coming_back():
+    """The GPU browser's systemd restarts Chrome a few seconds after an OOM kill: wait for it instead of failing at once."""
+    answers = iter([False, False, True, True])
+    calls, chromium = [], _FakeBrowserType("chromium")
+    assert _launch(probe=lambda e: next(answers), calls=calls)(chromium) == "remote browser"
+    assert calls == []                                                   # no restart command set: only waited
+
+
+def test_remote_launch_runs_the_restart_command_when_the_browser_is_gone():
+    answers = iter([False, True, True])
+    calls, chromium = [], _FakeBrowserType("chromium")
+    assert _launch(probe=lambda e: next(answers), restart="restart-chrome", calls=calls)(chromium) == "remote browser"
+    assert calls == ["restart-chrome"]
+
+
+def test_restart_command_comes_from_the_environment():
+    assert gpu_browser.restart_from({}) is None
+    assert gpu_browser.restart_from({"PW_CDP_RESTART": "  bash restart.sh "}) == "bash restart.sh"
+
+
+def test_a_browser_on_this_machine_is_local():
+    """#879: the game honours ?worldhost= only on a localhost page, which a browser on another machine cannot open."""
+    assert not gpu_browser.is_remote(None)
+    assert not gpu_browser.is_remote("http://127.0.0.1:9222")
+    assert not gpu_browser.is_remote("http://localhost:9222/")
+
+
+def test_a_browser_on_the_lan_is_remote():
+    assert gpu_browser.is_remote("http://192.168.1.120:9223")

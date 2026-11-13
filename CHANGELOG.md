@@ -10,6 +10,62 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-12 15:35` **Gemeinsam losfahren**: sind in der Lobby alle bereit, schickt der Host alle mit einem Klick auf die Strasse. Ihr startet hintereinander am Start, und jeder sieht die **anderen Autos** in ihrer eigenen Farbe fahren — flüssig, auch über eine zappelige Verbindung. Wer das Spiel verlässt, verschwindet bei den anderen.
+- `2026-11-12 13:29` **Kamerafahrten** lassen sich jetzt **Bild für Bild** aufnehmen: `scripts/campath_video.py` spielt einen gespeicherten Pfad in exakten 1/60-s-Schritten ab und rendert daraus ein **ruckelfreies 60-fps-Video** — auch auf einem Rechner, der das Spiel selbst nur mit ein paar Bildern pro Sekunde schafft.
+- `2026-11-12 10:51` In der **Rally-Halle** hängt jetzt eine **Ehrentafel** für **Elfyn Evans**, **WRC-Weltmeister 2026** (mit **Scott Martin**): eine dunkle Tafel mit goldener Schrift an der Rückwand hinter dem roten Auto.
+- `2026-11-12 11:18` Film your own **camera flight**: press <kbd>ü</kbd> wherever you are looking to drop a **waypoint** (nicest while hovering on foot), <kbd>ö</kbd> takes the last one back, and <kbd>ä</kbd> flies the whole path in one smooth sweep with the HUD out of the way. <kbd>Shift</kbd>+<kbd>ä</kbd> records the flight as a video. The path survives a reload, and the debug panel (<kbd>Ctrl</kbd>+<kbd>D</kbd>) can **save it to a file** and load it back.
+- `2026-11-12 10:37` On the **Plattform deck** a plate names the **Verein Plattform Sisslerfeld**; <kbd>E</kbd> opens its website in a new tab.
+- `2026-11-11 21:47` A **fenced paddock** with eight **ostriches** at the Straussenfarm in Sisseln: they stand, peck and walk, and run off when the car or the walker comes close. <kbd>J</kbd> lists the farm.
+- `2026-11-11 19:22` **Radio Argovia** is a third station on the car radio: press <kbd>6</kbd> to cycle Rhyflitzer FM, SRF 3 and Radio Argovia.
+
+### Changed
+
+- `2026-11-12 17:22` On the **Plattform deck** <kbd>E</kbd> now always goes **down**; the **Verein Plattform Sisslerfeld** line sits under that prompt and opens its **website** with <kbd>V</kbd> (or a click / tap).
+- `2026-11-12 16:24` **Nitro** is now **one key everywhere**: <kbd>N</kbd> in the car, on foot and in the helicopter. <kbd>Shift</kbd> no longer fires nitro in the car; it still means down on foot and sink in the helicopter, and the key bar, the tutorial and the help list all show N.
+- `2026-11-12 16:20` In the **tutorial** the **key bar** at the top is gone: the hint already names the keys of each step. Afterwards, and in every other mode, it works as before, and the **Key bar** switch in Settings keeps your choice. <kbd>F1</kbd> still lists all keys.
+- `2026-11-11 20:59` Zu Fuss **laufen**, **drehen** und der **Blick** sind jetzt weich: Anlauf und Auslauf statt Ruckeln. Die Pfeiltasten drehen mit Anlauf, Gehen und **Seitschritt** beschleunigen und bremsen, und die Kamera folgt der Blickrichtung einen Augenblick später — auch bei der **Maus**. Springen und Hover steigen wie gehabt, und Teleporte (Lift, Riesenrad, Plattform-Sprung) setzen dich wie immer sofort ab.
+- `2026-11-12 08:38` The **vehicle depot** only parks the nearest cars for real; the far slots wait under **grey covers** until you come close, so weak devices no longer crash there. Drive off and the cars you left behind give their memory back.
+- `2026-11-11 20:40` The **Postauto's rear display** is now as wide as the front one and a real **LED dot matrix**: the line number in big pixel digits, and the **smiley** and **thank-you** after you waited behind it in the same pixel font, readable from the car behind.
+- `2026-11-11 19:26` **Postautos** cost less per frame in the **OSM world**: standing buses no longer re-measure the ground, and their **LED** and engine sound reuse work already done.
+- `2026-11-11 19:03` Driving in the **OSM world** is **smoother**: the **Postauto** fleet and the **touch controls** do less work on every frame.
+- `2026-11-11 14:53` The **Mazda hatchback** is now the **start car**. The **Sissle Speedster** has retired: it is gone from **Choose car**, the gallery and the vehicle depot. A saved Speedster choice drives the hatchback.
+- `2026-11-11 14:52` The **Rhy Gullwing** now looks like the real thing: a detailed **3D model** in brushed steel with the proper wedge nose, louvres and door handles. The **gull-wing doors** still swing up on the start screen, the lamps still follow <kbd>L</kbd>.
+
+### Added
+
+- `2026-11-11 14:50` Die Taste <kbd>§</kbd> nimmt das **Spielbild mit Ton** als **Video** auf: Motor, Hupe, Crash und Radio sind mit drin. Ein **roter Punkt** mit der Laufzeit zeigt die Aufnahme an (und ist nicht im Video). <kbd>§</kbd> stoppt sie wieder, das **Pause-Menü** hält sie mit — und <kbd>§</kbd> im Pause-Menü stoppt sie auch. Nach **10 Minuten** stoppt die Aufnahme von selbst. Das Video lädt als `mp4` (oder `webm`) mit **Bild und Ton** herunter — ohne Browser-Rand, Mauszeiger und Systemtöne wie bei einer Bildschirmaufnahme des Systems.
+
+- `2026-11-10 22:25` Die **Plattform Sisslerfeld** sieht jetzt aus wie das Original: **weisses Dach**, **Sparren** und **Pfetten** unter dem Dach, **Streben** an den Pfosten, **Lattenwand** mit Lücken und **Brüstung** mit **Handlauf** um den Treppenausstieg, dickere helle Stufen. Das Holz leuchtet jetzt hell wie frische Fichte statt bräunlich, und die Pfosten reichen bis unter die Sparren.
+
+### Fixed
+
+- `2026-11-13 11:50` **Change vehicle while flying** now shows your **car** on the turntable instead of the helicopter. You are still in the air afterwards, and the helicopter is back as soon as you drive on or go back.
+- `2026-11-12 16:05` Beim ersten Einfahren in den **Berg** ruckelt das Bild nicht mehr kurz: auch **nachgeladene Fahrzeuge** und die **Landmarken** werden gleich für das **Höhlenlicht** vorbereitet.
+- `2026-11-12 13:55` The **tutorial** no longer shows an **empty little frame** above its hint when the step has nothing to point at.
+- `2026-11-12 09:12` The **houses** along the Hauptstrasse now have exactly **one front door** at street level instead of a door in **every storey**, only **whole windows** (none cut in half by the gable, the eaves or a corner — the gable ends are plain wall with at most one attic window), and you can no longer see the **sky through the roof** overhang from below.
+- `2026-11-11 20:47` Starting a **video recording** with <kbd>§</kbd> no longer makes the **music** drop out for a moment, neither in the game nor in the video.
+- `2026-11-11 20:41` The **key bar** switch works again and has moved from the pause menu to **Settings** (new section **Display**): one click hides or shows the keys at the top of the screen, and the choice is kept. With the keyboard, Enter on the start screen starts the preselected mode again once the start car has loaded.
+- `2026-11-11 20:47` **On foot**, looking around with the mouse is now a toggle: a **left click** grabs the mouse, a **second left click** lets it go again without opening the pause menu. A short hint says so when it starts.
+- `2026-11-11 20:27` The **Plattform Sisslerfeld**'s roof tip is clean again: the central post no longer pokes out above the apex as a little wooden block.
+- `2026-11-11 12:28` The **Hauptstrasse** in Sisseln no longer has a small **step** where it climbs out of the rail underpass, and the **stone walls** at the **Königsweg** rail decks stay below the deck instead of poking up through it.
+- `2026-11-11 12:20` The **Sissle** and the other small **streams** are visible again where they run through farmland: the **fields** no longer cover the water in places.
+- `2026-11-10 15:35` On **road signs** (Fahrverbot, Baustelle), the **place-name boards**, the **P and Crash-Platz signs** and the **speed display** in Sisseln, the **pole** no longer sticks out above the sign or through its face: it ends behind the panel.
+
+### Added
+
+- `2026-11-10 20:23` **Settings** in the main menu and the pause menu: **Sound** and **Music** each with an on/off switch and a volume slider. <kbd>M</kbd>, 5 and 9 / 0 and the Music button change the same values, and the sound setting now survives a reload. <kbd>M</kbd> mutes the effects only; the radio keeps playing.
+- `2026-11-10 20:21` Hold <kbd>Tab</kbd> and turn the **mouse wheel** to **zoom the big map** in and out (1x to 8x) towards the cursor. The big map opens at 1x each time and its zoom is separate from the **minimap**.
+- `2026-11-10 20:19` The **menu music** now plays while the world is **loading**: it starts by itself where the browser allows it, otherwise with the first **click** or <kbd>key</kbd> press on the loading screen. Switched off, nothing changes.
+- `2026-11-10 20:17` **Eric** is now in the **About** screen's people tab, credited for his **vehicle ideas**.
+- `2026-11-10 19:22` A **contact address** in the footer ("Kontakt"/"Contact") and under About → The game: write to the game without a GitHub account.
+- `2026-11-10 19:19` **Mit Freunden fahren** (*Race friends*): the new start-screen button connects **up to four** of you, each on their own device, with no server and no login — one of you creates the race and sends a **code** per chat or mail, the others paste it and send their **answer code** back. Everyone then meets in a **lobby** that shows every player's name, car and ready flag on every device; the host sets the **class** (A to D or all) and the car picker only offers cars that fit it. The race itself follows.
+- `2026-11-10 11:34` At every **PostAuto stop** press <kbd>E</kbd> at the board — on foot or from the car — to see the next **departures** there, with the minutes until each one. From there, or from the pause menu → *Fahrplan*, each line's whole **timetable** opens: all stops of a direction with the next four runs, <kbd>◀</kbd> <kbd>▶</kbd> for earlier and later ones, and a 🚌 where a bus is on its way right now.
+- `2026-11-10 11:19` In the hideout's **ring 2**, the room next to the USS Enterprise now holds the **Space Shuttle Enterprise** in **launch position** on the whole of **Launch Pad 39A**: the orbiter on its orange tank between the two boosters, on the launch platform over the **flame trench** (drive through it, right under the rocket), with the lattice tower, its arms, the swung-back service structure and the water tower, life size.
+- `2026-11-10 11:18` **PostAuto lines 134 and 135** now run too, so more Postautos are on the road at once: **134** from **Frick Bahnhof** through Oeschgen, Eiken and Münchwilen to **Stein-Säckingen Bahnhof** and back; **135** from **Frick Bahnhof** out of the map at the eastern edge towards **Aarau** or **Laufenburg**, and back in. The signs at Frick Bahnhof list **133, 134 and 135**.
+- `2026-11-10 10:18` **Postautos say thank you**: wait behind a Postauto that is just pulling out of a stop, and its **rear display** shows a **smiley** and "Vielen Dank!" ("Thank you!" in English) for four seconds. The front and side displays keep showing line and destination.
+- `2026-11-10 09:49` **Rhyflitzer FM** plays two more tracks in the spirit of 80s West Coast soft rock: **„The 1980s Soft Rock Groove" by Michael-Vault** and **„Melrose Place Soft Rock" by DigiCompo**. <kbd>8</kbd> skips to them after the four tracks so far; About → Credits names them.
+- `2026-11-09 19:58` <kbd>J</kbd> now reaches **every village** in the world, from Wallbach and Mumpf to Frick and Murg, with the **Bahnhof Frick**, Mumpf and Murg; the villages are split into a **CH** and a **DE** row, and each entry says which side of the Rhine it is on.
+- `2026-11-09 15:37` At the **DSM car park** in Sisseln every vehicle now stands in a **vehicle depot**: drive or walk up to one and press <kbd>E</kbd> to drive on in it. Find it with <kbd>J</kbd> → *Fahrzeug-Depot*.
 - `2026-11-09 14:06` **PostAuto line 143** now runs too, about every half hour from early morning until late evening: from **Stein-Säckingen Bahnhof** past Novartis, Syngenta and DSM to **Sisseln Unterdorf** and **Sisseln Breitenacher**, then on towards **Kaisten and Laufenburg** — it leaves the map at the eastern edge and comes back in from there. Unterdorf and Breitenacher get bus stops; the signs at the stops both lines share list **133 and 143**.
 - `2026-11-09 11:24` A **shortcut up the Plattform Sisslerfeld**: on foot at the door press <kbd>E</kbd> (on a phone, tap the button that appears) to jump straight up to the **viewing deck**, and press <kbd>E</kbd> again by the stair opening to jump back down to the door. Walking the stair still works. The tutorial mentions it.
 - `2026-11-09 10:37` A **car radio**: <kbd>5</kbd> switches it on and off, <kbd>6</kbd> changes between **Rhyflitzer FM** (four freely licensed tracks) and **SRF 3 live**, <kbd>7</kbd> <kbd>8</kbd> skip a track and <kbd>9</kbd> <kbd>0</kbd> set the volume, all while you keep driving; for three seconds a small display shows what is playing. On a phone, the 📻 button next to pause opens the same controls. The start screen plays quiet music, which <kbd>5</kbd> or the Music button switches off; About → Credits names every track.
@@ -18,6 +74,22 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-11-08 19:11` At the **Sisseln** village entrance, on the **Hauptstrasse** between the **Smile-Kreisel** and the **Volg**, a **speed display** now shows your speed as you drive in from the roundabout: **amber km/h** and below it a **green smile** at 50 km/h or under, a **red frown** above. Only for cars heading into the village; it does nothing to the game.
 
 ### Fixed
+
+- `2026-11-10 18:16` A car with its own 3D model picked by **link** (`?vehicle=…`) or remembered from last time: the **start buttons wait** until the model has loaded, so the race starts in the **real car** instead of the blue stand-in.
+
+- `2026-11-10 16:05` In the **glass porch** and on the **ground floor** of the **Bodenackerstrasse 6c** stair hall the **grass** no longer shows through the floor.
+
+- `2026-11-10 15:52` In the hideout's **freight lift** all **four shaft walls** now slide past during the ride, whichever way the car stands in the cabin, while the **ceiling** and **floor** stay still.
+
+- `2026-11-10 15:39` **Change vehicle** from the pause menu after a **rollover** or a **wreck** now shows the car **upright** with all its **wheels** on the stage, instead of lying on its side with the wheels beside it.
+
+- `2026-11-10 15:36` The **house number** no longer floats in the air in front of the **Fridolinskapelle** in Sisseln: the churches drawn from the real 3D models (the chapel and the Catholic church in Stein) carry no number plate any more.
+
+- `2026-11-10 15:34` The **woods** are **denser inside**: the interior of a forest now carries about five times as many trees as before, so from the helicopter the wood reads as a closed canopy instead of a thin edge around bare ground.
+
+- `2026-11-10 11:25` The **PostAuto stop signs** read correctly now: the **stop name** and the **line rows** were mirrored when you drove past, and the back of the sign is printed the right way round too.
+
+- `2026-11-10 11:25` Visits through an **old /prototype/ link** now show up in the stats under their real **referrer** (e.g. reddit.com) instead of the forwarding page `/prototype/`.
 
 - `2026-11-09 16:13` Getting out of the car at the **Plattform Sisslerfeld** door no longer leaves the "you got out" hint **on top of** the "up to the deck" prompt: the hint disappears as the prompt appears.
 
@@ -35,13 +107,20 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-11-08 18:34` After a **handbrake turn** the camera no longer **shakes left and right**: while the car slides sideways, the steering fades out smoothly instead of flipping back and forth every frame.
 - `2026-11-08 12:26` The **Regional Bus** and the **Postautos** are **yellow** again instead of dark grey; the floor stays closed when you look in through the windows.
 - `2026-11-07 22:38` **For testers:** <kbd>?patime=</kbd> and <kbd>?pasp=</kbd> in the URL now **combine** — a link like `?patime=07:30&pasp=10` starts the fleet clock at 07:30 *and* runs it at 10×, instead of silently dropping the time-lapse factor.
-
-- `2026-11-07 22:23` **Change vehicle while flying** now shows your **car** on the turntable instead of the helicopter. You are still in the air afterwards, and the helicopter is back as soon as you drive on or go back.
 - `2026-11-07 21:27` The **Postautos** now turn their **wheels** with their speed, you can no longer see through the **bus floor** (the Regional Bus too), and a passing Postauto can be heard: an **engine** that gets louder as it comes closer.
 
 ### Changed
 
+- `2026-11-10 15:34` The **Viewpoints** mode no longer shows a **running clock**: the score never depended on time, so the timer is gone from the screen and the result shows only your photos and points. Hunt and Blitz keep their clocks.
+
+- `2026-11-10 08:29` The **smiley speed display** in Sisseln now lags like a real radar sign: it shows your speed from **two seconds ago**, so as you pass it you see how fast you came in, and after you pass it the last reading stays up for a moment.
+
+- `2026-11-09 20:09` The **Rhy Wobbler**, the yellow three-wheeler, now sits under **Film & TV** in the vehicle gallery instead of Everyday: it is the Mr Bean car.
+
+- `2026-11-09 19:57` The **glass shelters** at the Postauto stops are now **solid**: the car bumps into them like into a wall instead of driving through. On foot you can still step in under the roof.
+
 - `2026-11-09 16:22` A **tidier driving HUD**: everything but the speedometer, the clock, the checkpoint arrow and the map now fades to a faint ghost four seconds after it last changed and lights up again for three seconds when it does — the mode plate, gear and trip, the road and water names, the best time. The **damage** plate appears only once the car has taken damage, the blinker glyphs only while a signal is on, and the key bar dims after half a minute and returns when you get out, fly or board. The **compass** has moved into the minimap: the car marker has a needle and the map bar shows the heading in degrees. The style button under the road is gone — switch the style in the **pause** menu or with <kbd>T</kbd> — and the footer links show only on the start screen and in pause.
+
 - `2026-11-08 09:29` The **trees** in the Smooth style have a new look: lumpy broadleaf crowns in several greens, spruces with tiers, slim birches, poplars and the **Hochstamm fruit trees** of the Fricktal, every tree a little different, and the crowns **sway in the wind**. Woods far away stay as light to draw as before, so phones keep their frame rate.
 
 - `2026-11-08 08:59` The **helicopter** flies much more like a real one: it **leans** forward when it speeds up and **banks** into turns, **climbs and sinks** the moment you press <kbd>Space</kbd> or <kbd>Shift</kbd>, **brakes smoothly** when you let go, and the camera now follows **closer and steadier** behind it. The rotor shows as a **disc** and sounds harder while climbing. Flight model after the helicopter in slop-newyork (MIT).
@@ -49,6 +128,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-11-08 08:54` Rhyflitzer now lives at the short address **rhyflitzer.ch**. The old address rhyflitzer.freaxnx01.ch (including the `/nfz` link) forwards there, and the editor's share links point to the new address.
 
 - `2026-11-08 08:30` Visits on the upcoming short addresses **rhyflitzer.ch** and **freax.games** are counted in the stats too (game and editor), so nothing is lost when the game moves there.
+
+- `2026-11-07 22:19` The **glow at an entrance** (Plattform Sisslerfeld, Bodenackerstrasse 6c) now shows from **60 m** away on foot instead of 15 m, and is clearly bright well before you reach the door. In the tutorial, the Plattform door is already glowing when you get out after the jump.
 
 - `2026-11-07 21:26` The **keys now look like keys**: in the tutorial, the hint shows the movement keys as the **W A S D** cluster the way it sits on the keyboard, "or" the **arrow keys** next to it, and every other key (<kbd>Shift</kbd>, <kbd>Z</kbd>, <kbd>J</kbd>, <kbd>X</kbd>) as its own key cap. The key bar at the bottom shows <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> as four keys instead of one "WASD", which a tester had read as a word to type.
 

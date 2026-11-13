@@ -2,11 +2,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { buildGraph, rightOf } from '../route.js';
+import { buildGraph, rightOf, routeLaneOffset } from '../route.js';
 import { BUS } from '../bus.js';
 import { PA, zurichSeconds, parsePatime, busRoute, busOffset, busPose, tripCalls, tripWindow, tripTime, tripKey, placeTrip,
   busTarget, stepBus, busBlinker, obstacleGap, syncFleet, fleetJumped, busCollider, ledText,
-  driveLine, drivePoint, lanePoint, linkTrips, fleetRuns, placeRun } from '../postauto.js';
+  driveLine, drivePoint, lanePoint, linkTrips, fleetRuns, placeRun, thankDue, markThanked } from '../postauto.js';
 import { fleetSteps } from '../paclock.js';   // #726
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
@@ -350,6 +350,11 @@ test('placeRun_ClockJump_PlacesTheLegForNow', () => {
   assert.equal(placeRun(run, 1500 + 60 + 10_000), null);          // past the window
 });
 
+test('placeRun_ClosedWindow_DoesNotRebuildTheLegsCalls', () => {   // #880: syncFleet asks every run every second; a closed run must cost no allocation
+  const poisoned = { trip: null, route: null, win: { from: 100, to: 200 } };   // placeTrip(null) would throw if it were reached
+  assert.equal(placeRun({ key: 'k', legs: [poisoned], win: poisoned.win }, 5000), null);
+});
+
 test('syncFleet_ShortTurnaround_NeverTwoBusesOnTheSameStand', () => {   // fails on main: 60 s gap, layover 60, spawnBefore 90
   const a = leg('133', '1', '3', 1000, 800), b = leg('133', '3', '1', 1060, 1060, 2);
   for (let now = 700; now < 1400; now += 5) {
@@ -382,11 +387,15 @@ function synthRoutes(trips) {
   }
   return out;
 }
+// #808: a terminus is a stop *point* (the world's uic:x:z per route and stop), not a uic (three lines end at Frick Bahnhof)
+const WORLD_DATA = JSON.parse(fs.readFileSync(new URL('../data/world_hochrhein.json', import.meta.url), 'utf8'));
+const POINT = new Map(WORLD_DATA.busRoutes.flatMap((r) => r.stops.map((s) => [`${r.id}:${s.uic}`, `${s.uic}:${s.x}:${s.z}`])));
+const pointOf = (b) => POINT.get(`${b.trip.route}:${b.calls[b.k].uic}`) ?? b.calls[b.k].uic;
 function standingAtTerminus(fleet) {
   const by = new Map();
   for (const b of fleet) {
     const first = b.k === 0 && !b.trip.fromOutside, last = b.k === b.calls.length - 1 && !b.trip.toOutside;   // #767: 143's Breitenacher is a through stop
-    if (b.phase === 'stand' && (first || last)) by.set(b.calls[b.k].uic, (by.get(b.calls[b.k].uic) ?? 0) + 1);
+    if (b.phase === 'stand' && (first || last)) by.set(pointOf(b), (by.get(pointOf(b)) ?? 0) + 1);
   }
   return [...by].filter(([, n]) => n > 1);
 }
@@ -412,4 +421,43 @@ test('stepBus_StopWithinTwoMetresOfRouteEnd_StillArrives', () => {
   const trip = { line: '133', route: 7, to: 'Ende', fromOutside: false, toOutside: false, calls: [['1', 36000, 36000], ['2', 36100, 36100]] };
   const b = placeTrip(trip, r, 36001), log = run(b, 36001, 200);
   assert.ok(log.some((x) => x.k === 1 && x.phase === 'stand' && x.s === 499.7));
+});
+
+// #796: the weekday timetable has trips of several lines inside the map at the same time (133 runs in the peaks only)
+const REAL_WORLD = new URL('../data/world_hochrhein.json', import.meta.url);
+const REAL_TT = new URL('../data/timetable_hochrhein.json', import.meta.url);
+const linesAt = (routes, trips, hhmm) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return [...new Set(syncFleet([], trips, routes, h * 3600 + m * 60).filter((b) => b.phase !== 'done').map((b) => b.trip.line))].sort();
+};
+test('realData_PeakHour_TwoLinesOnTheRoadAtOnce', { skip: !fs.existsSync(REAL_WORLD) || !fs.existsSync(REAL_TT) }, () => {
+  const L = JSON.parse(fs.readFileSync(REAL_WORLD, 'utf8')), tt = JSON.parse(fs.readFileSync(REAL_TT, 'utf8'));
+  const G = buildGraph(L.roads), routes = new Map(L.busRoutes.map((br) => [br.id, busRoute(br, L.roads, G)]));
+  // line-agnostic (#808 added 134 and 135): the peaks have 133 among several lines, midday several lines without 133
+  for (const hhmm of ['07:00', '16:30']) {
+    const at = linesAt(routes, tt.trips, hhmm);
+    assert.ok(at.length >= 2 && at.includes('133'), `${hhmm}: ${at}`);
+  }
+  const noon = linesAt(routes, tt.trips, '12:00');
+  assert.ok(noon.length >= 2 && !noon.includes('133'), `12:00: ${noon}`);   // 133 has no trip in the map between 09:18 and 14:43
+});
+
+// #800: does the player wait behind a Postauto that just left a stop?
+const lane = (s) => routeLaneOffset(R, s);
+const dep = (over = {}) => ({ phase: 'drive', route: R, s: 105, leftAt: 100, shift: 0, ...over });
+const behind = (back, v = 0, dz = 0) => ({ x: 105 - back, z: lane(105 - back) + dz, v, r: 1 });
+const CASES = [['PlayerWaitsBehind', dep(), 102, behind(25), true], ['PlayerOvertakesBeside', dep(), 102, behind(2), false],
+  ['PlayerAhead', dep(), 102, behind(-20), false], ['PlayerFar', dep(), 102, behind(60), false],
+  ['PlayerFast', dep(), 102, behind(25, 12), false], ['PlayerInOtherLane', dep(), 102, behind(25, 0, 5), false],
+  ['LongAfterDeparture', dep(), 111, behind(25), false], ['BusPlacedWhileDriving', dep({ leftAt: -Infinity }), 102, behind(25), false],
+  ['BusStanding', dep({ phase: 'stand' }), 102, behind(25), false]];
+for (const [name, b, t, player, want] of CASES) test(`thankDue_${name}_${want}`, () => assert.equal(thankDue(b, t, player), want));
+
+test('markThanked_OncePerDeparture_ThenAgainAfterNextDeparture', () => {
+  const b = dep();
+  markThanked(b, 102);
+  assert.equal(b.thanksUntil, 102 + PA.thankSecs);
+  assert.equal(thankDue(b, 103, behind(25)), false);
+  b.leftAt = 300;
+  assert.equal(thankDue(b, 302, behind(25)), true);
 });

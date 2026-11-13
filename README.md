@@ -6,6 +6,8 @@ Later: pick any region on a map, and the game builds it into a world you can rac
 
 Dedicated to my daughter.
 
+**Play it in the browser: [rhyflitzer.ch](https://rhyflitzer.ch)**
+
 ## Screenshots and videos
 
 **Plattform Sisslerfeld**
@@ -124,5 +126,6 @@ The game and the region editor (`editor/`) count visits with **Umami**, self-hos
   - „KITT - Knight Rider" ([Sketchfab](https://sketchfab.com/3d-models/kitt-knight-rider-60443abd88ef4cb7ab1df9ac5f622a36)) by thenerdybirdy, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); rescaled to a 2.565 m wheelbase, plain materials in the interior, the number plate painted out of the texture, the lamps split off by their texture colour, the scanner light rebuilt as eight segments that sweep, the wheels in their own nodes, in the game as the **Rhy Knight** car (`assets/knight.glb`, see `assets/knight.LICENSE.md`).
   - „Low Poly Fire Truck" ([Sketchfab](https://sketchfab.com/3d-models/low-poly-fire-truck-688b7c17a0e54a05b0b2d51a8aee061b)) by jg-3d, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); turned and re-centred, new plain materials, the blank front number plate removed, the blue lights split to flash in turn, the wheels in their own nodes, in the game as the **Rhy Blaze** fire engine (`assets/blaze.glb`, see `assets/blaze.LICENSE.md`).
   - „2009 Skoda Octavia Combi" ([Sketchfab](https://sketchfab.com/3d-models/2009-skoda-octavia-combi-9b9f212d14b34d44bebf9fbb22afa54a)) by tonielpro520, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); rescaled to a 2.578 m wheelbase, simplified, plain materials with a paintable body, the badges removed. In the game: the Rhy Estate.
+  - „DeLorean DMC 12 (Animated)" ([Sketchfab](https://sketchfab.com/3d-models/delorean-dmc-12-animated-e90955c1dce945dfbcac09886b9f310e)) by JEX-D, [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); rescaled to the real 2.41 m wheelbase, new plain materials (the body in the game's brushed steel), the number plate and the lettering removed, the gull-wing doors and the wheels in their own nodes, in the game as the **Rhy Gullwing** car (`assets/delorean.glb`, see `assets/delorean.LICENSE.md`).
 
 Not affiliated with Microsoft, Angel Studios or Rockstar Games. Midtown Madness is a trademark of its respective owner.

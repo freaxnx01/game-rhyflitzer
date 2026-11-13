@@ -38,10 +38,10 @@ test('HATCHBACK_Camera_HasEveryViewTheTableNeeds', () => {
   assert.equal(HATCHBACK.camera.cockpit.eye.length, 3);
 });
 
-test('parseChoice_Hatchback_AcceptedAndUnknownFallsBackToCompact', () => {
+test('parseChoice_Hatchback_AcceptedAndUnknownFallsBackToTheDefault', () => {
   assert.deepEqual(parseChoice('{"id":"hatchback","paint":"ice"}', IDS, PAINT_IDS), { id: 'hatchback', paint: 'ice' });
-  assert.deepEqual(parseChoice('{"id":"tank","paint":"ice"}', IDS, PAINT_IDS), { id: 'compact', paint: 'ice' });
-  assert.equal(DEFAULT_CHOICE.id, 'compact');
+  assert.deepEqual(parseChoice('{"id":"tank","paint":"ice"}', IDS, PAINT_IDS), { id: 'hatchback', paint: 'ice' });
+  assert.equal(DEFAULT_CHOICE.id, 'hatchback');   // #830: the hatchback is the start car
   assert.deepEqual(initialChoice(null, '?vehicle=hatchback', IDS, PAINT_IDS), { id: 'hatchback', paint: 'navy' });
 });
 
@@ -78,6 +78,11 @@ test('loadStep_Lifecycle_IdleLoadingReadyOrFailed', () => {
   assert.equal(loadStep('loading', 'loaded'), 'ready');
   assert.equal(loadStep('loading', 'error'), 'failed');
   assert.equal(loadStep('loading', 'want'), 'loading', 'a second highlight does not start a second load');
+});
+
+test('loadStep_Evict_SendsAReadyModelBackToIdle', () => {
+  assert.equal(loadStep('ready', 'evict'), 'idle');
+  for (const s of ['idle', 'loading', 'failed']) assert.equal(loadStep(s, 'evict'), s);
 });
 
 test('loadStep_FailedAndReady_AreSticky', () => {

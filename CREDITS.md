@@ -9,8 +9,14 @@
   - „Cool Rider" by Emmraan, https://pixabay.com/music/rock-cool-rider-243777/, Pixabay Content License
   - „Neon Afterglow" by MemoryArcade, https://pixabay.com/music/hard-rock-neon-afterglow-480092/, Pixabay Content License
   - „California Snares and Synths" by Eliza_music, https://pixabay.com/music/rock-california-snares-and-synths-435003/, Pixabay Content License (tagged "AI generated" on Pixabay)
+  - „The 1980s soft rock danceable mid tempo four on the floor groove" by Michael-Vault, https://pixabay.com/music/rock-the-1980s-soft-rock-danceable-mid-tempo-four-on-the-floor-groove-611150/, Pixabay Content License (tagged "AI generated" on Pixabay)
+  - „Melrose Place Soft Rock" by DigiCompo, https://pixabay.com/music/rock-melrose-place-soft-rock-304003/, Pixabay Content License (tagged "AI generated" on Pixabay)
   - „Menu / Running Title" by Rob Bery · Rob Bery Art (OpenGameArt user R0B B3RY), https://opengameart.org/content/menu-running-title, CC0 (re-encoded to 128 kbps)
 - SRF 3 live (https://www.srf.ch/radio-srf-3): the live stream `https://stream.srg-ssr.ch/srgssr/srf3/mp3/128`, played unchanged, not re-hosted
+- WebGPU PoC (`poc/webgpu/`): demo code "Slop New York" (MIT) © Mr.doob (https://github.com/mrdoob/slop-newyork)
+- WebGPU PoC data: NYC Open Data, building footprints and heights and Forestry Tree Points (https://opendata.cityofnewyork.us/); MTA Subway Entrances (https://data.ny.gov/)
+- WebGPU PoC map data: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright)
+- WebGPU PoC car: bulldog.glb from "Chevrolet Caprice Classic Sedan" by popit228fm (https://sketchfab.com/popit228fm), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), source https://sketchfab.com/3d-models/chevrolet-caprice-classic-sedan-96200ce146014b858e2b284c123bbe42
 
 ## slop-newyork (MIT)
 

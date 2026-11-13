@@ -16,3 +16,15 @@ export function pickVoices(buses, listener, cfg = FX) {
     .sort((a, b) => b.gain - a.gain || (a.key < b.key ? -1 : 1))
     .slice(0, cfg.voices);
 }
+
+// per-frame savings for a drawn bus: the LED is only repainted when its text changed, and the ground under a bus
+// that crept less than GROUND_EPS metres along its route is not sampled again
+export const GROUND_EPS = 0.1;
+
+export function ledCurrent(prev, trip, thanks) {
+  return !!prev && prev.line === String(trip.line) && prev.dest === trip.to && prev.thanks === thanks;
+}
+
+export function groundStale(lastS, s, eps = GROUND_EPS) {
+  return lastS === undefined || !(Math.abs(s - lastS) < eps);
+}

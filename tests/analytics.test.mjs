@@ -61,6 +61,16 @@ test('pageviewProps keeps umami props and replaces the url', () => {
   finally { delete globalThis.location; }
 });
 
+test('pageviewProps: a referrer kept by the legacy redirect (#663) replaces the stub page once', () => {
+  const store = new Map([['legacy-referrer', 'https://www.reddit.com/']]);
+  globalThis.location = { pathname: '/', search: '' };
+  globalThis.sessionStorage = { getItem: (k) => store.get(k) ?? null, removeItem: (k) => store.delete(k) };
+  try {
+    assert.equal(pageviewProps({ url: '/', referrer: 'https://x.example/prototype/' }).referrer, 'https://www.reddit.com/');
+    assert.equal(pageviewProps({ url: '/', referrer: 'r' }).referrer, 'r');
+  } finally { delete globalThis.location; delete globalThis.sessionStorage; }
+});
+
 test('roundSeconds: steps of 5, bad input is 0', () => {
   assert.equal(roundSeconds(62.4), 60); assert.equal(roundSeconds(63), 65); assert.equal(roundSeconds(-1), 0);
   assert.equal(roundSeconds(NaN), 0); assert.equal(roundSeconds(undefined), 0);
@@ -171,4 +181,9 @@ test('campaignSource: utm_source only, trimmed and capped, empty without one', (
   assert.equal(campaignSource(''), '');
   assert.equal(campaignSource(undefined), '');
   assert.equal(campaignSource(`?utm_source=${'x'.repeat(100)}`).length, MAX_TEXT);
+});
+
+test('vehicleSource: ?vehicle=compact is not a query once compact is not selectable (#830)', () => {
+  assert.equal(vehicleSource('?vehicle=compact', null, ['hatchback', 'mini']), 'default');
+  assert.equal(vehicleSource('?vehicle=compact', '{"id":"compact"}', ['hatchback', 'mini']), 'stored');
 });

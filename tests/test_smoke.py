@@ -1,5 +1,6 @@
 import json
 import math
+import statistics
 from pathlib import Path
 
 import pytest
@@ -61,9 +62,13 @@ def test_physics_time_osm_vs_hand(server):
                 page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
             page.goto(f"{server}/index.html"); page.wait_for_selector("#startbtn", timeout=180000)
             page.click("#startbtn", timeout=180000); page.keyboard.down("Space"); page.wait_for_timeout(15000)
-            v = page.evaluate("() => window.__mm.physMs"); b.close(); return v
+            samples = []
+            for _ in range(5):                                   # #880: one reading strays by ±0.25 ms, the median of five does not
+                samples.append(page.evaluate("() => window.__mm.physMs")); page.wait_for_timeout(2000)
+            b.close(); return statistics.median(samples)
     hand, osm = phys(True), phys(False)
-    assert osm <= hand * 1.5 + 0.5, f"physMs hand={hand} osm={osm}"
+    # #880: +1.0, not +0.5 -- the OSM world runs 4-5 PostAuto buses (~0.5 ms a frame, profiled 2026-11-11), the hand world none
+    assert osm <= hand * 1.5 + 1.0, f"physMs hand={hand} osm={osm}"
 
 
 MMH = Path(__file__).parents[1] / "data" / "terrain_hochrhein.mmh"
@@ -77,6 +82,9 @@ def test_osm_rhine_splash_and_overpass(server):
         b = p.chromium.launch(args=ARGS); page = b.new_page(viewport={"width": 480, "height": 270})
         page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
         page.goto(f"{server}/index.html"); page.wait_for_selector("#startbtn", timeout=180000)
+        # #661: #startbtn is static markup. A change event fired before index.html assigns the input's onchange (after the world
+        # build) is lost: no reload, expect_navigation times out. Wait for the handler, not the button.
+        page.wait_for_function("() => typeof document.querySelector('#mmhfile').onchange === 'function'", timeout=180000)
         with page.expect_navigation(timeout=180000):                                 # the page stores the terrain and reloads
             page.set_input_files("#mmhfile", str(MMH))
         page.wait_for_selector("#mmhstatus.real", timeout=180000)

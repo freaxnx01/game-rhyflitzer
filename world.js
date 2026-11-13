@@ -226,10 +226,10 @@ const sameStreet = (a, b) => a.id === b.id || (!!a.n && a.n === b.n);
 // where it gets out. Leaving square-on that is the corridor's half-width at the junction's own floor; leaving at a slant it is
 // longer, and `a`'s floor climbs under it meanwhile, so the side road waits level at the floor where it gets out -- held at the
 // junction's floor it would sink below `a`'s road and step across its carriageway where its own corridor ends.
-function leaveCorridor(a, pts, t, floor, u) {
-  const half = a.hw + u.margin + u.wall / 2, len = polylineLength(pts);
+function leaveCorridor(a, pts, t, floor, u, level = a.hw + u.margin + u.wall / 2) {
+  const len = polylineLength(pts);
   const inside = (s) => { const [x, z] = pointAtLength(pts, t + s); return cutFloorAt(a, x, z, u) !== null; };
-  let best = { flat: half, f0: floor };
+  let best = { flat: level, f0: floor };
   for (const dir of [-1, 1]) {
     const room = dir < 0 ? t : len - t;
     let s = 0;
@@ -240,6 +240,17 @@ function leaveCorridor(a, pts, t, floor, u) {
     best = { flat: s, f0: cutFloorAt(a, x, z, u) };
   }
   return best;
+}
+// #575: the same street going on has no trough to cross, so its arm starts at `floor` and ramps at u.grade at once. But where it
+// leaves `a`'s corridor at a slant while `a`'s floor there lies lower (a is still on its level part, or climbs slower along its
+// own road than the arm does along its), the terrain steps from a's floor up to the arm's where the corridor ends: 0.3 m and
+// more in one metre. Where the arm lies more than ARM_STEP above a's floor there, it waits level ARM_DROP lower there instead,
+// as a side road does. A smaller gap leaves the arm as it is: lowering it moves where it meets the ground, and with it the
+// nodes it reaches (the Koenigsweg crossing at 4609/5563 loses its whole cut to a cap node that a 2 m longer arm reaches).
+const ARM_STEP = 0.3, ARM_DROP = 0.15;
+function continuedFloor(a, pts, t, floor, u) {
+  const out = leaveCorridor(a, pts, t, floor, u, 0), own = floor + u.grade * out.flat;
+  return own - out.f0 > ARM_STEP ? { flat: out.flat, f0: Math.max(floor, own - ARM_DROP) } : { flat: 0, f0: floor };
 }
 // #120: every road piece meeting the cut (or one of its arms) at a node below the ground descends with it: an arm anchored
 // there, starting at the floor of the road it leaves and ramping back up at u.grade (same street) or u.sideGrade. Breadth-
@@ -259,7 +270,7 @@ export function cutNetwork(cut, roads, junctions, ground, u = UNDERPASS) {
         used.add(o);
         // a side road crosses the trough it leaves before it can ramp, so it stays level over that corridor (else the floor
         // steps up by grade * corridor where the parent's corridor ends); the same street going on has no trough to cross
-        const on = sameStreet(o, a.road), t = nearestOnPolyline(o.pts, nd.x, nd.z).t, lev = on ? { flat: 0, f0: floor } : leaveCorridor(a, o.pts, t, floor, u);
+        const on = sameStreet(o, a.road), t = nearestOnPolyline(o.pts, nd.x, nd.z).t, lev = on ? continuedFloor(a, o.pts, t, floor, u) : leaveCorridor(a, o.pts, t, floor, u);
         const arm = { pts: o.pts, road: o, t, hw: o.w / 2, flat: lev.flat, f0: lev.f0, grade: on ? u.grade : u.sideGrade, x: nd.x, z: nd.z };
         const r = armReach(arm, (s) => ground(...pointAtLength(o.pts, t + s)), polylineLength(o.pts), u);
         arm.reach = r.map((p) => p.s); arm.stop = r.map((p) => p.why);
@@ -586,11 +597,10 @@ export function addrLabels(buildings, landmarks = {}, roadAt = () => null) {
           ...Object.values(landmarks).filter(l => l.addr).map(l => plate(l.addr, l.x, l.z, ...l.size, l.rot || 0, null, undefined, null))];
 }
 const PLATE_OFF = 0.06, PLATE_IN = 1;   // m off the wall (clear of z-fighting); m in from the façade's right corner
-// as in Switzerland: near the right edge of the façade as seen from outside, not in its middle
+// as in Switzerland: near the right edge of the façade as seen from outside, not in its middle; the face itself is #901's facingFace
 function facingFacade(x, z, rot, w, d, road) {
   const faces = facadeLabels(x, z, rot, w, d, PLATE_OFF), lengths = [w, d, w, d];
-  const facing = (f) => road ? ((f.x - x) * (road[0] - x) + (f.z - z) * (road[1] - z)) / Math.hypot(f.x - x, f.z - z) : 0;
-  const k = faces.reduce((a, f, i) => (facing(f) > facing(faces[a]) ? i : a), 0), f = faces[k];
+  const k = facingFace(x, z, rot, w, d, road), f = faces[k];
   const nx = Math.sin(f.rotY), nz = Math.cos(f.rotY), shift = Math.max(0, lengths[k] / 2 - PLATE_IN);   // right of a viewer facing -n: (n.z, -n.x)
   return { x: f.x + nz * shift, z: f.z - nx * shift, rotY: f.rotY };
 }
@@ -630,6 +640,32 @@ export function facadeLabels(x, z, rot, w, d, off = 0.1) {
     const lw = Math.min(0.6 * len, 20);
     return { x: x + lx * c - lz * s, z: z + lx * s + lz * c, rotY: -rot + k * Math.PI / 2, w: lw, h: lw * 2.2 / 16 };
   });
+}
+// #901: the facade layout of a gable house -- storeys anchored at the door's ground, whole window columns, the attic window
+// and the face the door goes on. index.html's gableHouseWalls draws from these; pure maths here, node-tested.
+export const FACADE = { storey: 3, maxStorey: 3.5, minWall: 2.2, half: 2, minFace: 1.6, reach: 40, door: { w: 1.0, h: 2.1, off: 0.03 },
+  attic: { w: 0.9, h: 1.1, sill: 0.4, margin: 0.3 } };
+// rows of window texture from floor0 to bandTop: whole storeys fitted between the door's ground (clamped under the eave) and
+// base + h; floors 0 when what is left is under minWall (sheds); a storey over maxStorey falls back to the nominal height
+export function facadeRows(base, h, ground) {
+  const floor0 = Math.min(Math.max(ground, base), base + Math.max(0, h - FACADE.minWall)), H = base + h - floor0;
+  if (H < FACADE.minWall) return { floor0, floors: 0, sh: FACADE.storey, bandTop: floor0 };
+  const floors = Math.max(1, Math.round(H / FACADE.storey)); let sh = H / floors;
+  if (sh > FACADE.maxStorey) sh = FACADE.storey;
+  return { floor0, floors, sh, bandTop: floor0 + floors * sh };
+}
+// n half tiles stretched to exactly len, so a face always ends on a whole window; n 0 on a sliver face
+export function facadeColumns(len) { if (len < FACADE.minFace) return { n: 0, cw: len }; const n = Math.max(1, Math.round(len / FACADE.half)); return { n, cw: len / n }; }
+// one attic window under both slopes of a d-wide, rh-tall gable (margin included), or null when it does not fit
+export function gableWindow(span, rh) {
+  const a = FACADE.attic, x = a.w / 2 + a.margin, top = a.sill + a.h + a.margin;
+  return span / 2 > x && rh * (1 - x / (span / 2)) >= top ? { w: a.w, h: a.h, y: a.sill } : null;
+}
+// the index (facadeLabels order: +z, +x, -z, -x) of the face whose centre looks at `road` most (0 = +z without one)
+export function facingFace(x, z, rot, w, d, road) {
+  const faces = facadeLabels(x, z, rot, w, d, 0);
+  const facing = (f) => road ? ((f.x - x) * (road[0] - x) + (f.z - z) * (road[1] - z)) / Math.hypot(f.x - x, f.z - z) : 0;
+  return faces.reduce((a, f, i) => (facing(f) > facing(faces[a]) ? i : a), 0);
 }
 
 // car parks (#40): split triangles at their longest edge until no edge is longer than maxEdge, so a lot draped on the
@@ -709,7 +745,8 @@ export function forestEdges(forests, index, maxLen = 48) {
   return out;
 }
 
-export const FOREST_BUDGET = { edgeStep: 6, fillArea: 600, cap: 85000, edgeH: [7, 12], fillH: [8, 14], tile: 512 };
+// #461: one interior tree per 300 m2 (~17 m apart, 33 per ha; was 600 m2 and thinned to ~6 per ha by the cap on the Hochrhein world); cap 150000 holds edge 71k + fill 78k unthinned
+export const FOREST_BUDGET = { edgeStep: 6, fillArea: 300, cap: 150000, edgeH: [7, 12], fillH: [8, 14], tile: 512 };
 export function forestTrees(forests, index, edges, rnd, budget = FOREST_BUDGET) {
   const edge = [], fill = [], rr = ([a, b]) => a + rnd() * (b - a);
   for (const e of edges) {

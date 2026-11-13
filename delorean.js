@@ -31,3 +31,9 @@ export function doorTarget(raceState, speed) {
 export function stepDoor(open, target, dt, cfg = DOOR) {
   return open + (target - open) * (1 - Math.exp(-cfg.rate * dt));
 }
+
+// #831: the model's door nodes sit on the hinge, so their own position never moves; __mm.doors watches a marker at the
+// door's lowest outer corner instead. box = the node-local bounds { min, max }, side -1 left (-z) / +1 right
+export function doorPanelOffset(box, side) {
+  return [(box.min.x + box.max.x) / 2, box.min.y, side > 0 ? box.max.z : box.min.z];
+}

@@ -52,8 +52,14 @@ test('X photographs the frozen scene from the pause menu, but not from behind th
   assert.equal(pauseKeyAction(key('KeyX'), RUN), 'pass');
 });
 
+test('§ records from the pause menu (stopping a running one), but not from behind the abandon question (#749)', () => {
+  assert.equal(pauseKeyAction(key('Backquote'), PAUSED), 'record');
+  assert.equal(pauseKeyAction(key('Backquote', { repeat: true }), PAUSED), 'ignore');
+  assert.equal(pauseKeyAction(key('Backquote'), CONFIRM), 'ignore');
+});
+
 test('nextFocus wraps both ways and starts at the first button from anywhere else', () => {
-  assert.deepEqual(PAUSE_BUTTONS, ['pauseresume', 'pausevehicle', 'pausestyle', 'pauseabout', 'pausekeybar', 'pauserestart', 'pausemenu']);   // #509: About after Change vehicle; #535: the key bar toggle after About; #773: the style switch after Change vehicle
+  assert.deepEqual(PAUSE_BUTTONS, ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pauserestart', 'pausemenu']);   // #509: About after Change vehicle; #842: Settings after About; #535: the key bar toggle after About; #773: the style switch after Change vehicle; #801: Timetable after Style
   assert.equal(nextFocus(PAUSE_BUTTONS, 'pauseresume', 1), 'pausevehicle');
   assert.equal(nextFocus(PAUSE_BUTTONS, 'pausemenu', 1), 'pauseresume');
   assert.equal(nextFocus(PAUSE_BUTTONS, 'pauseresume', -1), 'pausemenu');
@@ -95,7 +101,7 @@ test('Ctrl+D is the debug key in the pause menu and the abandon question too; a 
 });
 
 test('pauseButtonsFor_Cruise_HasNoRestart', () => {
-  assert.deepEqual(pauseButtonsFor('cruise'), ['pauseresume', 'pausevehicle', 'pausestyle', 'pauseabout', 'pausekeybar', 'pausemenu']);
+  assert.deepEqual(pauseButtonsFor('cruise'), ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pausemenu']);
 });
 
 test('pauseButtonsFor_RaceModes_AreTheFullMenu', () => {
@@ -103,6 +109,6 @@ test('pauseButtonsFor_RaceModes_AreTheFullMenu', () => {
 });
 
 test('pauseButtonsFor_Tutorial_EndsTheTutorialInsteadOfRestartOrMainMenu', () => {
-  assert.deepEqual(pauseButtonsFor('tutorial'), ['pauseresume', 'pausevehicle', 'pausestyle', 'pauseabout', 'pausekeybar', 'pausetutorial']);
+  assert.deepEqual(pauseButtonsFor('tutorial'), ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pausetutorial']);
   assert.ok(!PAUSE_BUTTONS.includes('pausetutorial'), 'the other modes never show it');
 });

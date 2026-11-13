@@ -1,16 +1,27 @@
-// radio.js (#735): the car radio (Rhyflitzer FM, SRF 3 live) and the start screen's menu music.
+// radio.js (#735, #845): the car radio (Rhyflitzer FM, SRF 3 live, Radio Argovia) and the start screen's menu music.
 // Pure: no DOM, no audio -- node --test imports it; the RADIO IIFE in index.html plays what these rules say.
 
 // NOT the short https://stream.srg-ssr.ch/m/drs3/mp3_128: it redirects to plain http://, blocked as mixed content
 export const SRF3_URL = 'https://stream.srg-ssr.ch/srgssr/srf3/mp3/128';
-export const STATIONS = Object.freeze(['fm', 'srf3']);
-// the four tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
-// (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB)
+// NOT the short https://stream.streambase.ch/argovia/mp3-192/ -- only this /direct/ URL was probed (302 to chmedia.streamabc.net, CORS * on both hops, 2026-11-10)
+export const ARGOVIA_URL = 'https://stream.streambase.ch/argovia/mp3-192/direct/';
+export const STATIONS = Object.freeze(['fm', 'srf3', 'argovia']);
+// the live stations: stream, the strings.js key of the radio display, the key of the "not reachable" toast. fm is not live
+export const LIVE = Object.freeze({
+  srf3: Object.freeze({ url: SRF3_URL, nameKey: 'radioStationSrf', failKey: 'radioSrfFail' }),
+  argovia: Object.freeze({ url: ARGOVIA_URL, nameKey: 'radioStationArgovia', failKey: 'radioArgoviaFail' }),
+});
+export const nextStation = (s) => STATIONS[(STATIONS.indexOf(s) + 1) % STATIONS.length];
+// the six tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
+// (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB; the soft-rock pair,
+// 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks)
 export const TRACKS = Object.freeze([
   { id: 'cool-rider', title: 'Cool Rider', artist: 'Emmraan', src: 'assets/music/cool-rider.mp3', gainDb: -6 },
   { id: 'neon-afterglow', title: 'Neon Afterglow', artist: 'MemoryArcade', src: 'assets/music/neon-afterglow.mp3', gainDb: 0 },
   { id: 'california-snares-and-synths', title: 'California Snares and Synths', artist: 'Eliza_music', src: 'assets/music/california-snares-and-synths.mp3', gainDb: 0 },
   { id: 'menu-running-title', title: 'Menu / Running Title', artist: 'Rob Bery', src: 'assets/music/menu-running-title.mp3', gainDb: 0 },
+  { id: 'soft-rock-groove', title: 'The 1980s Soft Rock Groove', artist: 'Michael-Vault', src: 'assets/music/soft-rock-groove.mp3', gainDb: 0 },
+  { id: 'melrose-place-soft-rock', title: 'Melrose Place Soft Rock', artist: 'DigiCompo', src: 'assets/music/melrose-place-soft-rock.mp3', gainDb: 0 },
 ]);
 export const MENU_TRACK = TRACKS[3];
 export const VOLUME = Object.freeze({ min: 0, max: 10, start: 6 });
@@ -50,6 +61,27 @@ export function volumeFrom(stored) {
   return Number.isInteger(n) && n >= VOLUME.min && n <= VOLUME.max ? n : VOLUME.start;
 }
 
+// #841: the menu music before the world is built. RADIO and the SFX graph do not exist until loading is far along, so a bare
+// element starts here (autoplay tried at once, retried on every gesture) and RADIO adopts it with take(). Pure: audio and target injected.
+export const EARLY_GESTURES = Object.freeze(['pointerdown', 'pointerup', 'keydown', 'touchend']);
+export function createEarlyMenu({ menuOn, vol, makeAudio, target, src = MENU_TRACK.src }) {
+  let el = null, gestured = false, listening = false;
+  const tryPlay = () => { if (!el) return; const p = el.play(); if (p && p.catch) p.catch(() => { }); };   // a refused play() stays silent
+  const onGesture = () => { gestured = true; tryPlay(); };
+  const release = () => { if (listening) { listening = false; for (const g of EARLY_GESTURES) target.removeEventListener(g, onGesture, true); } const e = el; el = null; return e; };   // music off: no element, no listeners, nothing to remove
+  if (menuOn) {
+    el = makeAudio(); el.preload = 'none'; el.loop = true; el.src = src; el.volume = Math.min(1, menuGain(vol));
+    listening = true;
+    for (const g of EARLY_GESTURES) target.addEventListener(g, onGesture, { capture: true, passive: true });
+    tryPlay();
+  }
+  return {
+    gestured: () => gestured,
+    take() { const e = release(); if (e) e.volume = 1; return e; },   // RADIO's gain node sets the level from here on
+    drop() { const e = release(); if (e) e.pause(); },
+  };
+}
+
 // watch = { since: play() asked at (s), playing: 'playing' fired, waitingSince: 'waiting'/'stalled' since (s) or null, error }
 export function srfVerdict(watch, now) {
   if (watch.error) return 'fail';
@@ -61,7 +93,7 @@ export function srfVerdict(watch, now) {
 // the strings.js key and arguments the radio display shows for a state
 export function displayFor(s) {
   if (!s.on) return { key: 'radioOff', args: [] };
-  if (s.station === 'srf3') return { key: 'radioStationSrf', args: [] };
+  if (LIVE[s.station]) return { key: LIVE[s.station].nameKey, args: [] };
   const t = TRACKS[s.track];
   return { key: 'radioTrack', args: [t.title, t.artist] };
 }

@@ -129,6 +129,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     bus_routes = []
     if bus_lines:        # #682: PostAuto routes and kerb-side stops; no `bus` anchors key, no busRoutes key
         bus_routes, bus_stats = world_bus.build(world_bus.read(Path(pbf), frame, bus_lines), roads, clip)
+        bus_routes = world_bus.servable(bus_routes, bus_stats)
         log(f"bus routes {len(bus_routes)} {dict(bus_stats)}")
     parking, park_stats = world_parking.build(data.areas, data.ways, buildings, osm_roads, clip)
     forests, forest_stats = world_forests.build(data.areas, osm_roads + game_roads, clip)
@@ -142,9 +143,11 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
     rail, rail_bridges = world_rail.build(data.ways, clip)
     # #506: the cantonal parcels first (crop per parcel), OSM landuse where they leave room; the cut runs on the
     # pre-deck rail so a field keeps off a track whether it ends up on a deck or not
+    streams = world_water.streams(data.areas, data.ways, clip, roads)   # #661: no field grows over a stream
     lwb = json.loads(Path(fields_geojson).read_text(encoding="utf-8"))["features"] if fields_geojson else None
     fields, field_stats = world_fields.build(lwb, data.areas, osm_roads + game_roads, rail, clip, frame,
-                                            keep_out=(world_fields.CRASH_YARD,) if tuple(origin) == tuple(geo.DEFAULT_ORIGIN) else ())
+                                            keep_out=(world_fields.CRASH_YARD,) if tuple(origin) == tuple(geo.DEFAULT_ORIGIN) else (),
+                                            streams=streams)
     log(f"fields {len(fields)} {field_stats}")
     rail, rail_bridges = world_extra_roads.deck_rail(grades, rail, rail_bridges)
     if boundary_items is None:
@@ -170,7 +173,7 @@ def build_world(pbf, mmh_path, bbox, origin, house_dist, big_area, anchors_path,
         "grades": grades,
         "water": world_water.to_json(polys, hdr, heights, data.areas, data.ways),
         "waterSdf": world_water.sdf(polys, clip.bounds),
-        "streams": world_water.streams(data.areas, data.ways, clip, roads),
+        "streams": streams,
         "buildings": buildings,
         "rail": rail,
         "railBridges": rail_bridges,

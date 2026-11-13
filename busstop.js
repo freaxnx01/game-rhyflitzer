@@ -4,6 +4,10 @@
 import { BUS } from './bus.js';
 import { rightOf } from './route.js';
 
+// #795: the Haltestellentafel is printed on both sides. Local +z points away from the road, so the road face is
+// turned by PI; both are single-sided, a DoubleSide plane shows its back mirrored. z is behind the frame at -0.05.
+export const SIGN_FACES = [{ z: -0.052, rotY: Math.PI }, { z: -0.048, rotY: 0 }];
+
 export const STOP = {
   poleOut: 0.6,                 // m: the pole this far beyond the stop point, away from the road
   clear: 0.5,                   // m: pole and shelter to every standing bus; shelter to every asphalt edge
@@ -76,6 +80,14 @@ export function stopLayout(stop, poses, roads, bus = BUS, cfg = STOP) {
   }
   // no candidate clears: the sign alone on the pole with the best achieved clearance, not the furthest-fetched one
   return { ...best, shelter: null };
+}
+
+// #760: the shelter as one solid box for the car, the helicopter floor and the camera. carOnly: footSolids() skips it,
+// so on foot you step in under the roof. hw along the kerb (u = cos/sin yaw), h absolute: the roof top over the pole's ground.
+export function shelterCollider(layout, base, cfg = STOP) {
+  if (!layout.shelter) return null;
+  const S = cfg.shelter;
+  return { x: layout.shelter.x, z: layout.shelter.z, hw: S.w / 2, hd: S.d / 2, c: Math.cos(layout.yaw), s: Math.sin(layout.yaw), h: base + S.h + 0.25, carOnly: true };
 }
 
 export function zigzagLine(route, s, roadW, cfg = STOP) {

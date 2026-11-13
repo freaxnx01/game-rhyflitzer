@@ -25,8 +25,17 @@ test('coreKeys_FootAndIndoors_HaveZJAndF1_NoCamera', () => {
   }
 });
 
-test('actionFor_Car_ShiftAndNBothNitro', () => {
-  for (const k of ['ShiftLeft', 'ShiftRight', 'KeyN']) assert.equal(actionFor('car', k), 'nitro', k);
+test('actionFor_Car_OnlyNIsNitro_ShiftIsNothing', () => {
+  assert.equal(actionFor('car', 'KeyN'), 'nitro');
+  for (const k of ['ShiftLeft', 'ShiftRight']) assert.equal(actionFor('car', k), null, k);
+});
+
+test('nitro_EveryContext_OnNAndNeverOnShift', () => {
+  const nitro = { car: 'nitro', foot: 'footNitro', indoors: 'footNitro', heli: 'heliNitro' };
+  for (const [ctx, action] of Object.entries(nitro)) {
+    assert.equal(actionFor(ctx, 'KeyN'), action, ctx);
+    for (const k of ['ShiftLeft', 'ShiftRight']) assert.notEqual(actionFor(ctx, k), action, `${ctx} ${k}`);
+  }
 });
 
 test('actionFor_FootAndHeli_ShiftIsDownAndNStaysNitro', () => {
@@ -59,7 +68,7 @@ test('actionFor_Train_QEStayTheSwitches', () => {
 });
 
 test('barEntries_Car_SpecOrder', () => {
-  assert.deepEqual(barEntries('car').map(e => e.cap), ['WASD', 'Shift', 'Z', 'J', 'C', 'F1']);
+  assert.deepEqual(barEntries('car').map(e => e.cap), ['WASD', 'N', 'Z', 'J', 'C', 'F1']);
   assert.deepEqual(barEntries('car').map(e => translate('de', e.label)), ['fahren', 'Nitro', 'aussteigen', 'springen', 'Kamera', 'alle Tasten']);
 });
 
@@ -90,12 +99,36 @@ test('barEntries_HeliTrainLift_OnlyAllKeys', () => {
 
 test('menuEntries_Car_ListsTheRestNotTheCore', () => {
   const cmds = menuEntries('car').map(e => e.cmd);
-  for (const k of ['Comma', 'Period', 'KeyL', 'Digit1', 'KeyH', 'KeyO', 'KeyI', 'KeyF', 'KeyX', 'KeyM', 'KeyT', 'KeyR']) assert.ok(cmds.includes(k), k);
+  for (const k of ['Comma', 'Period', 'KeyL', 'Digit1', 'KeyH', 'KeyO', 'KeyI', 'KeyF', 'KeyX', 'KeyM', 'KeyT', 'KeyR', 'Backquote']) assert.ok(cmds.includes(k), k);
   for (const k of ['KeyZ', 'KeyJ', 'KeyC']) assert.ok(!cmds.includes(k), k);
+});
+
+test('actionFor_Backquote_IsRecordInEveryRunContext (#749)', () => {
+  for (const c of ['car', 'foot', 'indoors']) assert.equal(actionFor(c, 'Backquote'), 'record', c);
 });
 
 test('labels_EveryLabelExistsInBothLanguages', () => {
   for (const c of CONTEXTS) for (const e of entriesFor(c)) if (e.label) for (const l of ['en', 'de']) assert.notEqual(translate(l, e.label), e.label, `${c} ${e.action} ${l}`);
+});
+
+test('contextKeyAction_BoardOnlyWhenNothingElseIsUp', () => {   // #553
+  assert.equal(contextKeyAction({ boardPrompt: true }), 'board');
+  assert.equal(contextKeyAction({ doorPrompt: true, boardPrompt: true }), 'enter');   // a door beats a parked car
+  assert.equal(contextKeyAction({ indoors: true, boardPrompt: true }), 'leave');
+  assert.equal(contextKeyAction({}), null);
+  assert.equal(contextLabel('board'), 'barBoard');
+});
+
+test('contextKeyAction_TimetableOnlyWhenNothingElseIsUp', () => {   // #801
+  assert.equal(contextKeyAction({ stopPrompt: true }), 'timetable');
+  assert.equal(contextKeyAction({ boardPrompt: true, stopPrompt: true }), 'board');
+  assert.equal(contextKeyAction({ doorPrompt: true, stopPrompt: true }), 'enter');
+  assert.equal(contextKeyAction({ hop: 'up', stopPrompt: true }), 'up');
+  assert.equal(contextKeyAction({ indoors: true, stopPrompt: true }), 'leave');
+  assert.equal(contextLabel('timetable'), 'barTimetable');
+  for (const l of ['en', 'de']) for (const k of ['barTimetable', 'ttPrompt', 'ttPauseBtn', 'ttDepartures', 'ttNone', 'keyTimetable', 'ttEarlier', 'ttLater', 'ttBus']) assert.notEqual(translate(l, k), k, `${l} ${k}`);
+  assert.equal(translate('de', 'ttLine', '143'), 'Linie 143');
+  assert.equal(translate('en', 'ttIn', 5), "in 5'");
 });
 
 test('contextKeyAction_LiftWinsOverLeave_LeaveOverEnter', () => {
@@ -111,6 +144,25 @@ test('contextKeyAction_HopWinsOverEnter_LiftAndLeaveWinOverHop', () => {   // #7
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: true, doorPrompt: false, hop: 'up' }), 'leave');
   assert.equal(contextKeyAction({ liftPrompt: true, indoors: true, doorPrompt: false, hop: 'up' }), 'lift');
   assert.equal(contextKeyAction({ liftPrompt: false, indoors: false, doorPrompt: true }), 'enter', 'hop is optional');
+});
+
+// #914: the Verein's website is on V, never on E
+test('contextKeyAction_OnDeckNothingElse_IsNull', () => {
+  assert.equal(contextKeyAction({ onDeck: true }), null);
+});
+test('contextKeyAction_HopDownOnDeck_StaysDown', () => {
+  assert.equal(contextKeyAction({ hop: 'down', onDeck: true }), 'down');
+  assert.equal(contextKeyAction({ stopPrompt: true, onDeck: true }), 'timetable');
+});
+test('actionFor_FootAndIndoorsKeyV_IsWebsite', () => {
+  assert.equal(actionFor('foot', 'KeyV'), 'website');
+  assert.equal(actionFor('indoors', 'KeyV'), 'website');
+});
+test('actionFor_CarKeyV_StillHidesTheCar', () => {
+  assert.equal(actionFor('car', 'KeyV'), 'hideCar');
+});
+test('contextLabel_Website_IsGone', () => {
+  assert.equal(contextLabel('website'), null);
 });
 
 test('contextLabel_KnownAndUnknown', () => {
@@ -133,4 +185,20 @@ test('actionFor_Digits5To0_AreTheRadioInEveryRunContext_ButNotTheLiftPad', () =>
 
 test('radioEntries_AreNotTouchMenuEntries', () => {
   for (const c of CONTEXTS) assert.ok(!menuEntries(c).some(e => e.action.startsWith('radio')), c);   // the phone has its own 📻 panel
+});
+
+test('actionFor_CamPathKeys_InEveryRunContext (#900)', () => {
+  const want = { BracketLeft: 'camPathAdd', Semicolon: 'camPathUndo', Quote: 'camPathPlay' };
+  for (const c of ['car', 'foot', 'indoors', 'heli', 'train']) for (const [k, a] of Object.entries(want)) assert.equal(actionFor(c, k), a, `${c} ${k}`);
+  assert.equal(actionFor('lift', 'Quote'), null);   // the lift pad has its own keys, the path keys stay out
+});
+
+test('camPathEntries_AreLabelledAndNotOnThePhone (#900)', () => {
+  for (const c of ['car', 'foot', 'indoors', 'heli', 'train']) {
+    for (const e of entriesFor(c).filter(e => e.action.startsWith('camPath'))) {
+      assert.ok(translate('en', e.label) !== e.label, `${c} ${e.label} en`);
+      assert.ok(translate('de', e.label) !== e.label, `${c} ${e.label} de`);
+      assert.equal(e.touch, null, `${c} ${e.action}`);   // too rare for the key bar or the ☰ menu
+    }
+  }
 });

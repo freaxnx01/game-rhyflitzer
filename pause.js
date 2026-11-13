@@ -2,12 +2,12 @@
 import { isDebugKey } from './debug.js';
 
 // the menu's buttons, in focus order (ids in index.html)
-export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pausestyle', 'pauseabout', 'pausekeybar', 'pauserestart', 'pausemenu'];
+export const PAUSE_BUTTONS = ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pauserestart', 'pausemenu'];
 // the „Abandon this run?" question's buttons, Cancel first (it gets the focus)
 export const ABANDON_BUTTONS = ['abandoncancel', 'abandonok'];
 
 // #534: the tutorial has no race to restart and leaves through "End tutorial" instead of Main menu
-const TUTORIAL_PAUSE = ['pauseresume', 'pausevehicle', 'pausestyle', 'pauseabout', 'pausekeybar', 'pausetutorial'];
+const TUTORIAL_PAUSE = ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pausetutorial'];
 
 // #551: cruise has no race to restart, so its menu drops "Restart race"
 export function pauseButtonsFor(mode) {
@@ -30,7 +30,7 @@ const NEXT = new Set(['ArrowDown', 'ArrowRight']);
 const PREV = new Set(['ArrowUp', 'ArrowLeft']);
 
 // key = { code, shiftKey, repeat }, state = { paused, canPause, confirm }
-// → 'pause' | 'resume' | 'cancel' | 'next' | 'prev' | 'debug' | 'photo' | 'ignore' (swallowed, browser default kept) | 'pass' (normal game key handling)
+// → 'pause' | 'resume' | 'cancel' | 'next' | 'prev' | 'debug' | 'photo' | 'record' | 'ignore' (swallowed, browser default kept) | 'pass' (normal game key handling)
 export function pauseKeyAction(key, state) {
   if (state.paused) return state.confirm ? confirmAction(key) : pausedAction(key);
   if (!TOGGLE.has(key.code) || key.repeat || !state.canPause) return 'pass';
@@ -41,6 +41,8 @@ function pausedAction(key) {
   if (TOGGLE.has(key.code)) return key.repeat ? 'ignore' : 'resume';
   // #113: a photo of the frozen scene is harmless here, unlike behind the abandon question
   if (key.code === 'KeyX') return key.repeat ? 'ignore' : 'photo';
+  // #749: § only stops a running recording from the pause menu (start makes no sense while held)
+  if (key.code === 'Backquote') return key.repeat ? 'ignore' : 'record';
   return menuAction(key);
 }
 

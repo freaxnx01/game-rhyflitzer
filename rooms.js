@@ -1,13 +1,15 @@
 // #277 / #361: the room template -- pure layout (no three.js, no DOM): a 500 x 500 m lawn at ROOM_Y under the Hübel, facing
 // along its own spoke, the object (if any) in its centre, a closed ring of trees at the edge with a gap only at the
 // portal, gravel paths, a ship's water basin, and the tunnel stub leading back to the portal. Eight rooms share this template (ROOMS); only the
-// Eiffel, Atomium (room 1), Artemis II (room 2), Vasa (room 3), Ferris wheel (room 6) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
+// Eiffel, Atomium (room 1), Artemis II (room 2), Vasa (room 3), Rally hall (room 5), Ferris wheel (room 6) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
 // entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test tests/rooms.test.mjs`.
 import { EIFFEL, ATOMIUM, TITANIC, VASA } from './hideout.js';
 import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
 import { ENTERPRISE, DEDICATION, dedicationPlacement } from './enterprise.js';   // #491
 import { FERRIS, ferrisPlacement } from './ferris.js';      // #513
+import { SHUTTLE, shuttlePlacement } from './shuttle.js';   // #811
 import { FRIES, friesPlacement } from './fries.js';
+import { RALLYHALL, rallyhallPlacement } from './rallyhall.js';   // #859
 import { BELOW_Y, BELOW2_Y, SPOKE, spokeFrame } from './underground.js';
 
 export const ROOM_Y = BELOW_Y, ROOM_HALF = 250;
@@ -24,17 +26,22 @@ export const ROOMS = [
   { id: 'room2', name: 'Artemis II', object: ARTEMIS, signed: false },   // #488: the SLS stack and the Orion capsule
   { id: 'room3', name: 'Vasa', object: VASA, signed: false },   // #421: the warship on its museum cradle
   { id: 'room4', name: null, object: null },
-  { id: 'room5', name: null, object: null },
+  { id: 'room5', name: 'Rally hall', object: RALLYHALL, signed: false },   // #859: the rally hall
   { id: 'room6', name: 'Ferris wheel', object: FERRIS, signed: false, look: 'dusk' },   // #513: the wheel and its 48 gondolas; #588: at dusk
   { id: 'room7', name: 'Titanic', object: TITANIC, signed: false },
 ];
 // #422: the free rooms in the order new objects take them -- from the lift outwards, left and right in turn. The lift's exit meets
 // the ring between spoke 7 (front left) and spoke 0 (front right, the Eiffel); 1 (the Atomium) follows on the right, so the Titanic
-// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic), 2 (Artemis II), 6 (Ferris wheel) and 3 (Vasa) are taken; 5 is next.
+// opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic), 2 (Artemis II), 6 (Ferris wheel), 3 (Vasa) and
+// 5 (Rally hall) are taken; 4 is last.
 export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
-// #489 / #491: ring 2's eight rooms -- the Enterprise took the first; the rest are empty for now. `look`: 'meadow' (the ring-1 template)
-// or 'space' (#491: a holodeck grid under a star dome, no trees, paths or clouds)
-export const ROOMS2 = Array.from({ length: SPOKE.n }, (_, k) => (k === 0 ? { id: 'r2room0', name: 'Enterprise', object: ENTERPRISE, signed: false, look: 'space', dedication: DEDICATION } : { id: `r2room${k}`, name: null, object: null }));
+// #489 / #491: ring 2's eight rooms -- the Enterprise took the first, the Space Shuttle Enterprise the second (#811); the rest are empty
+// for now. `look`: 'meadow' (the ring-1 template) or 'space' (#491: a holodeck grid under a star dome, no trees, paths or clouds)
+const TAKEN2 = {
+  0: { name: 'Enterprise', object: ENTERPRISE, signed: false, look: 'space', dedication: DEDICATION },
+  7: { name: 'Space Shuttle Enterprise', object: SHUTTLE, signed: false, look: 'space' },   // #811: OV-101 in launch position
+};
+export const ROOMS2 = Array.from({ length: SPOKE.n }, (_, k) => ({ id: `r2room${k}`, name: null, object: null, ...TAKEN2[k] }));
 export const NEXT_ROOMS2 = [0, 7, 1, 6, 2, 5, 3, 4];
 // #489: the rings below the lift: level id, the freight lift's stop, depth, room half width, rooms
 export const RINGS = [
@@ -147,6 +154,12 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   // #513: the Ferris wheel in the centre (ferris.js places it; ferrismesh.js builds it): four foot colliders, the car drives under the rim
   const ferris = (room.object && room.object.gondola) ? ferrisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: ROOM_Y }, room.object) : null;
   if (ferris) colliders.push(...ferris.colliders, ...ferris.sign.colliders);
+  // #811: the Space Shuttle stack on its launch platform in the centre (shuttle.js places it; shuttlemesh.js builds it)
+  const shuttle = (room.object && room.object.orbiter) ? shuttlePlacement({ centre, frame: { f, v }, y: Y }, room.object) : null;
+  if (shuttle) colliders.push(...shuttle.colliders);
+  // #859: the rally hall in the centre (rallyhall.js places it; rallyhallmesh.js builds it) with its three podium cars
+  const rallyhall = (room.object && room.object.cars) ? rallyhallPlacement({ centre, frame: { f, v }, y: Y }, room.object) : null;
+  if (rallyhall) colliders.push(...rallyhall.colliders);
   // the plaque for Sir Patrick Stewart just inside the Enterprise room's portal (enterprise.js places it)
   const dedication = room.dedication ? dedicationPlacement({ portal: { c: P }, frame: { f, v }, y: Y }, room.dedication) : null;
   if (dedication) colliders.push(...dedication.colliders);
@@ -167,6 +180,7 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   const reachA = basin ? basin.lane.w : 95;
   const start = at(10, 0), end = [cx - f[0] * reachA, cz - f[1] * reachA], paths = space ? [] : [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];   // #491: a space room has no gravel
   if (artemis) paths.push({ pts: artemis.ring, hw: room.object.capsule.ring.hw });   // #488: the gravel ring round the Orion capsule
+  if (rallyhall) paths.push({ pts: rallyhall.apron, hw: room.object.apron.hw });   // #859: the gravel apron from the loop into the hall
   const view = [cx - f[0] * 150, cz - f[1] * 150];
   return {
     id: room.id, k, ring: ring.id, y: Y, half: HALF, look: space ? 'space' : (room.look || 'meadow'), fly: { wall: HALF - 25, ceiling: ROOM_FLY.ceiling }, centre, frame: { f, v }, groundAt: () => Y,
@@ -174,7 +188,7 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? Y + SPOKE.ceiling : null;
     },
-    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, artemis, ferris, dedication, colliders, trees, paths,
+    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, artemis, ferris, shuttle, rallyhall, dedication, colliders, trees, paths,
     portal: { c: P, th: Math.atan2(f[1], f[0]), hw: SPOKE.hw, h: SPOKE.ceiling },
     spawn: { x: at(20, 0)[0], z: at(20, 0)[1], th: Math.atan2(f[1], f[0]) },
     towerView: room.object ? { x: view[0], z: view[1], th: Math.atan2(f[1], f[0]) } : null,

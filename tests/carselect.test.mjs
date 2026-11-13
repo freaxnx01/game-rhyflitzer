@@ -1,7 +1,7 @@
 // #7: the car selection screen's pure rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, powerClass, classLine, galleryOrder } from '../carselect.js';
+import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, powerClass, classLine, galleryOrder, selectableIds, STAND_IN_IDS } from '../carselect.js';
 
 const COMPACT = { model: 'compact', drive: { top: 60, accel: 16, grip: 9, steerRate: 2.6 }, mass: 1.0 };
 const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRate: 2.2 }, mass: 2.5 };   // #6 spec values
@@ -18,7 +18,7 @@ test('PAINTS: thirteen unique ids and hexes, navy first, purple and pink from #2
   assert.equal(PAINTS.find(p => p.id === 'flamingo')?.hex, '#ff6fa8');
   assert.deepEqual(PAINTS.filter(p => p.hex === '#ff7a1a').map(p => p.id), ['signal']);   // #25's orange is the mockup's Signal, not a second entry
   for (const p of PAINTS) { assert.match(p.hex, /^#[0-9a-f]{6}$/, p.id); assert.ok(p.nameKey.startsWith('paint'), p.id); }
-  assert.deepEqual(DEFAULT_CHOICE, { id: 'compact', paint: 'navy' });
+  assert.deepEqual(DEFAULT_CHOICE, { id: 'hatchback', paint: 'navy' });   // #830: the hatchback is the start car
 });
 
 test('paintFinish_SilverIsMetallic_EveryOtherPaintKeepsTheModelsOwnFinish', () => {
@@ -64,7 +64,7 @@ test('parseChoice: a valid choice passes, every kind of garbage falls back field
   assert.deepEqual(parseChoice('', IDS, PAINT_IDS), DEFAULT_CHOICE);
   assert.deepEqual(parseChoice('not json', IDS, PAINT_IDS), DEFAULT_CHOICE);
   assert.deepEqual(parseChoice('42', IDS, PAINT_IDS), DEFAULT_CHOICE);
-  assert.deepEqual(parseChoice('{"id":"tank","paint":"ice"}', IDS, PAINT_IDS), { id: 'compact', paint: 'ice' });
+  assert.deepEqual(parseChoice('{"id":"tank","paint":"ice"}', IDS, PAINT_IDS), { id: 'hatchback', paint: 'ice' });
   assert.deepEqual(parseChoice('{"id":"bus","paint":"zebra"}', IDS, PAINT_IDS), { id: 'bus', paint: 'navy' });
   assert.deepEqual(parseChoice('{"id":"constructor"}', IDS, PAINT_IDS), DEFAULT_CHOICE);
   assert.notEqual(parseChoice(null, IDS, PAINT_IDS), DEFAULT_CHOICE);   // a copy, never the constant itself
@@ -203,4 +203,18 @@ test('galleryOrder: the chosen type only, strongest first, table order on a tie;
   assert.deepEqual(galleryOrder(ids, defs, 'all'), ['hyper', 'compact', 'knight', 'estate', 'odd', 'modelt']);   // compact and knight tie at 16
   assert.deepEqual(galleryOrder(ids, defs, 'utility'), []);
   assert.throws(() => galleryOrder(ids, defs, 'boats'), /type/);
+});
+
+// ---- #830: the Sissle Speedster retires ----
+test('selectableIds: the stand-in compact is never offered, order and other ids kept (#830)', () => {
+  assert.deepEqual(STAND_IN_IDS, ['compact']);
+  assert.deepEqual(selectableIds(['compact', 'hatchback', 'delorean', 'slow']), ['hatchback', 'delorean', 'slow']);
+  assert.deepEqual(selectableIds([]), []);
+});
+
+test('initialChoice: a stored or queried compact becomes the hatchback, its paint kept (#830)', () => {
+  const ids = selectableIds(['compact', 'hatchback', 'bus']);
+  assert.deepEqual(initialChoice('{"id":"compact","paint":"ice","paintChosen":true}', '', ids, PAINT_IDS), { id: 'hatchback', paint: 'ice', paintChosen: true });
+  assert.deepEqual(initialChoice('{"id":"bus","paint":"ice"}', '?vehicle=compact', ids, PAINT_IDS), { id: 'bus', paint: 'ice' });
+  assert.deepEqual(initialChoice(null, '?vehicle=compact', ids, PAINT_IDS), { id: 'hatchback', paint: 'navy' });
 });

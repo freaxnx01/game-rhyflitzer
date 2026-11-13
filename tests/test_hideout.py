@@ -2,6 +2,7 @@
 drive-through freight lift; below it a short exit leads into a tunnel ring with eight star-shaped spokes, each ending (after a dark
 stretch where the level switches unseen) in its own 500 m meadow room; the Eiffel Tower stands in room 0. Found when the lift's door
 opens below. Needs the real world and terrain (the hill is swisstopo's). Slow (Playwright): run in the foreground."""
+import json
 import math
 from pathlib import Path
 
@@ -15,8 +16,16 @@ GLB = ROOT / "assets" / "models" / "eiffel_tower.glb"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 MOUTH_ROAD = (-703.3, 1419.1)          # the Hübel's centre line at the mouth
 HEADING = 95 * math.pi / 180
+LANDMARKS = ROOT / "assets" / "landmarks" / "index.json"   # surface landmarks load at boot, async, 2-6 KB each (#649, index.html loader)
 needs_world = pytest.mark.skipif(not (WORLD.exists() and MMH.exists()), reason="run pipeline/osm.py build and terrain.py first")
 needs_model = pytest.mark.skipif(not GLB.exists(), reason="assets/models/eiffel_tower.glb is not committed yet (#201)")
+
+
+def room_glbs(urls):
+    """The fetched .glb urls minus the surface landmarks (assets/landmarks/<name>.glb, listed in index.json): they stream in at boot
+    and the last one can land after a test's request listener is attached (#906). Any other model still counts."""
+    names = {lm["file"] for lm in json.loads(LANDMARKS.read_text(encoding="utf-8"))["landmarks"].values()}
+    return [u for u in urls if not any(u.endswith("/assets/landmarks/" + n) for n in names)]
 
 
 def open_page(p, server, init_script=None):
@@ -471,6 +480,7 @@ def test_cave_mode_toggles_and_restores(server):
     values."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
+        page.evaluate("() => Promise.all(['hatchback', 'bus'].map(id => window.__mm.loadVehicle(id)))")   # #906: the lazy vehicle glTFs are in before the count is taken (the Postauto bus otherwise arrives mid-drive and its programs read as the cave's)
         before = page.evaluate("() => window.__mm.cave()")
         h = page.evaluate("() => window.__mm.hideout()"); hx, hz = h["centre"]
         page.evaluate(f"() => window.__mm.sim({hx + 15}, {hz}, {math.pi}, 8, 0.5, ['KeyW'], {h['floor']})")
@@ -560,9 +570,9 @@ def test_eiffel_model_loads_lazily_and_matches_the_feet(server):
         page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
         h = page.evaluate("() => window.__mm.hideout()")
         e0 = page.evaluate("() => window.__mm.eiffel()")
-        assert e0 is None and requests == []                  # #277: no room, no tower, before the first ride
+        assert e0 is None and room_glbs(requests) == []        # #277: no room, no tower, before the first ride (surface landmarks excluded by room_glbs, #906)
         page.evaluate(f"() => window.__mm.sim({MOUTH_ROAD[0]}, {MOUTH_ROAD[1]}, {HEADING}, 0, 0.1, [])")
-        page.wait_for_function("() => performance.getEntriesByType('resource').some(r => r.name.endsWith('.glb'))", timeout=60000)
+        page.wait_for_function("() => performance.getEntriesByType('resource').some(r => r.name.endsWith('eiffel_tower.glb'))", timeout=60000)
         ride(page, h, "ring"); into_room(page, 0, "eiffel")
         page.wait_for_function("() => window.__mm.eiffel().loaded === true", timeout=120000)
         e = page.evaluate("() => window.__mm.eiffel()")
@@ -570,7 +580,8 @@ def test_eiffel_model_loads_lazily_and_matches_the_feet(server):
         push = page.evaluate("() => { const h = window.__mm.hideout(), t = h.room.tower, f = window.__mm.eiffel().feet; return { foot: window.__mm.pushAt(t.x + f[2][0], t.z + f[2][1], -600), centre: window.__mm.pushAt(t.x, t.z, -600) }; }")
         br.close()
     assert errors == []
-    assert len(requests) == 1 and requests[0].endswith("/assets/models/eiffel_tower.glb"), requests
+    rg = room_glbs(requests)
+    assert len(rg) == 1 and rg[0].endswith("/assets/models/eiffel_tower.glb"), requests
     assert e["placeholder"] is False and e["tris"] >= 400000 and abs(e["height"] - 330) <= 2 and e["base"] <= 145 and e["material"] == "#6b4a32", e
     assert len(fp) == 4, fp
     for box in fp:                      # per-quadrant bbox of the model's vertices below 20 m, relative to the tower centre
@@ -886,8 +897,8 @@ def test_cave_switches_happen_deep_in_the_tunnel_not_at_the_portal(server):
         assert 30 <= went_out <= 45 and went_out < went_in, (key, "out", went_out)
 
 
-T1_STEP = """async ({x, z, th}) => {
-  window.__mm.place(x, z, th); window.__mm.sim(x, z, th, 3, 0.05, [], window.__mm.car().y);
+T1_STEP = """async ({x, z, th, v = 3}) => {
+  window.__mm.place(x, z, th); window.__mm.sim(x, z, th, v, 0.05, [], window.__mm.car().y);
   for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
   const c = window.__mm.cave(); return { k: c.k, group: c.visible, veil: c.veil, lining: c.lining, lamps: c.lamps, house: c.liftHouse, on: c.on, hemi: c.hemi };
 }"""
@@ -910,7 +921,7 @@ def test_t1_fades_between_day_and_cave_without_a_cut_both_ways(server):
             for d in ds:
                 r = page.evaluate(T1_STEP, {"x": mx + ux * (ps + d), "z": mz + uz * (ps + d), "th": th}); r["d"] = d; r["lum"] = crop_brightness(page); rows.append(r)
             runs[name] = rows
-        hover = [page.evaluate(T1_STEP, {"x": mx + ux * (ps + 39 + 2.5 * math.sin(i)), "z": mz + uz * (ps + 39 + 2.5 * math.sin(i)), "th": HEADING}) for i in range(12)]
+        hover = [page.evaluate(T1_STEP, {"x": mx + ux * (ps + 39 + 2.5 * math.sin(i)), "z": mz + uz * (ps + 39 + 2.5 * math.sin(i)), "th": HEADING, "v": 0}) for i in range(12)]   # #906: standing, so the three frames of each row cannot drift the car over CAVE_SWITCH_IN on a slow box
         br.close()
     assert errors == []
     for name, rows in runs.items():
@@ -1211,11 +1222,47 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
         br.close()
     print("screenshot:", tmp_path / "artemis-room.png")
     assert errors == []
-    assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design (loadWithin, index.html followCave); the room itself fetches nothing
+    assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design (loadWithin, index.html followCave); the room itself fetches nothing (surface landmarks excluded by room_glbs, #906)
     assert a["built"] == 2 and abs(a["h"] - 98.1) < 1e-6 and 1000 <= a["tris"] <= 20000 and a["colliders"] == 5, a
     assert info["below"]["built"] == 2 and info["below"]["level"] == "room2" and info["below"]["object"] is True and info["counts"].get("artemis") == 1 and "eiffel" not in info["counts"], info
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("core", "mount", "capsule")), push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("beside", "ring")), push
+
+
+@needs_world
+def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_download(server, tmp_path):
+    """#859: entering spoke 5 builds the rally hall with its three podium cars from primitives -- no model file is fetched; the back wall and a
+    podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        assert page.evaluate("() => window.__mm.rallyhall()") is None
+        into_room(page, 5, "room5")
+        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5", timeout=120000)
+        a = page.evaluate("() => window.__mm.rallyhall()")
+        info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
+          return { wall: p(19.7, 0), podium: p(4, 0), floor: p(-5, -11), apron: p(-60, 0) }; }""")
+        view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th; return { x: v.x - Math.cos(th) * 80, z: v.z - Math.sin(th) * 80, th }; }")
+        page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "rallyhall-room.png"))
+        board_view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th; return { x: v.x + Math.cos(th) * 16.3, z: v.z + Math.sin(th) * 16.3, th }; }")   # #907: 3 m in front of the board (a = 19.34), looking at +a
+        page.evaluate(f"() => window.__mm.sim({board_view['x']}, {board_view['z']}, {board_view['th']}, 0, 1.5, [], -600)")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "rallyhall-board.png"))
+        br.close()
+    print("screenshot:", tmp_path / "rallyhall-room.png")
+    print("screenshot:", tmp_path / "rallyhall-board.png")
+    assert errors == []
+    assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design; the room itself fetches nothing (surface landmarks excluded by room_glbs, #906)
+    assert a["built"] == 5 and abs(a["h"] - 14.8) < 1e-6 and 500 <= a["tris"] <= 30000 and a["colliders"] == 9 and len(a["cars"]) == 3, a
+    assert a["board"]["text"][:2] == ["Elfyn Evans", "WRC World Champion 2026"] and a["board"]["found"], a   # #907: the honour board is in the hall group
+    assert info["below"]["built"] == 5 and info["below"]["level"] == "room5" and info["below"]["object"] is True and info["counts"].get("rallyhall") == 1 and "eiffel" not in info["counts"], info
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("wall", "podium")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("floor", "apron")), push
 
 
 # ---------- #489: ring 2 -- the keypad's ride, the space-station look, the walker in the cabin ----------
@@ -1354,7 +1401,7 @@ def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(ser
         br.close()
     print("screenshot:", tmp_path / "ferris-room.png")
     assert errors == []
-    assert [u for u in requests if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design
+    assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design (surface landmarks excluded by room_glbs, #906)
     assert w0["built"] == 6 and abs(w0["h"] - 265.75) < 1e-6 and w0["gondolas"] == 48 and 1500 <= w0["tris"] <= 150000 and w0["colliders"] == 4, w0
     assert 1500 <= w0["leds"] <= 2500 and led_changed and sparks > 0, (w0, w1, sparks)   # #588
     assert w1["angle"] != w0["angle"], (w0, w1)
@@ -1443,3 +1490,69 @@ def test_ferris_room_sign_is_solid_and_keys_3_and_4_fire_fireworks_and_switch_th
     assert math.hypot(push["sign"]["dx"], push["sign"]["dz"]) > 0.5 and math.hypot(push["lane"]["dx"], push["lane"]["dz"]) < 0.01, push
     assert fx1["pattern"] != fx0["pattern"] and fx1["shift"] > 0 and "light show" in toast_show.lower(), (fx0, fx1, toast_show)
     assert fx2["salvos"] == 1 and "fireworks" in toast_fw.lower() and sparks > 0, (fx2, toast_fw, sparks)
+
+
+@needs_world
+def test_shuttle_room_builds_the_launch_pad_on_the_holodeck_without_a_download(server, tmp_path):
+    """#811: ring-2 spoke 7 builds the Space Shuttle Enterprise upright on Launch Pad 39A (56.1 m from the deck top, which stands
+    29 m over the floor) from primitives -- no model file is fetched; the holodeck floor and star dome, no meadow; the
+    hardstand is solid, the flame trench under the rocket and the floor round the pad are open. Leaves screenshots in tmp_path."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL); page.wait_for_function(PAD_SHOWN, timeout=120000)
+        page.keyboard.press("Digit2"); page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        assert page.evaluate("() => window.__mm.shuttle()") is None
+        into_room(page, 7, "r2room7", -1200)
+        page.wait_for_function("() => window.__mm.shuttle() && window.__mm.shuttle().built === 15", timeout=120000)
+        s = page.evaluate("() => window.__mm.shuttle()")
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.shuttle().stack.th, x = [Math.cos(th), Math.sin(th)], z = [-x[1], x[0]], p = (a, b) => window.__mm.pushAt(t.x + x[0] * a + z[0] * b, t.z + x[1] * a + z[1] * b, -1200);
+          return { hardstand: p(23, -19), tower: p(-31.5, 6), trench: p(0, 0), trenchEnd: p(0, -45), outside: p(75, 0) }; }""")   # in the stack's own frame (turned 45°)
+        turn = page.evaluate("() => { const d = window.__mm.shuttle().stack.th - window.__mm.spoke(7, 0).th; return Math.atan2(Math.sin(d), Math.cos(d)); }")
+        for name, a, b in (("shuttle-portal-view", -230, 0), ("shuttle-three-quarter", -160, 160), ("shuttle-in-the-trench", -45, 45)):
+            cam = page.evaluate(f"() => {{ const t = window.__mm.below().tower, th = window.__mm.spoke(7, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], x = t.x + f[0] * {a} + v[0] * {b}, z = t.z + f[1] * {a} + v[1] * {b}; return {{ x, z, th: Math.atan2(t.z - z, t.x - x) }}; }}")
+            page.evaluate(f"() => window.__mm.sim({cam['x']}, {cam['z']}, {cam['th']}, 0, 1.5, [], -1200)")
+            page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(9000)   # past the "hideout found" toast
+            page.screenshot(path=str(tmp_path / f"{name}.png"))
+        br.close()
+    print("screenshots:", tmp_path)
+    assert errors == []
+    assert [u for u in requests if "/assets/models/" in u and not u.endswith("/eiffel_tower.glb")] == [], requests   # surface landmarks (assets/landmarks) may stream in meanwhile
+    assert abs(s["h"] - 56.1) < 1e-6 and abs(s["base"] - (-1200 + 28.9)) < 1e-6 and 3000 <= s["tris"] <= 60000 and s["colliders"] == 11, s
+    assert abs(turn - math.pi / 4) < 1e-6, turn   # turned 45° from the room's axis: the portal sees the orbiter three-quarter on
+    assert s["look"] == "space" and s["grid"] is True and s["dome"] is True and s["lawn"] is False, s
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("hardstand", "tower")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("trench", "trenchEnd", "outside")), push
+
+
+RECORD_CAB = """async () => {
+  const rows = []; const t0 = performance.now(); let rode = false;
+  while (performance.now() - t0 < 200000) {
+    await new Promise(r => requestAnimationFrame(r));
+    const l = window.__mm.lift(); if (l.phase !== 'idle') rode = true; else if (rode) break;
+    if (l.phase === 'descending') rows.push({ scroll: l.scroll, capScroll: l.capScroll, cabAt: l.cabAt });
+  }
+  return rows;
+}"""
+
+
+@needs_world
+def test_lift_cab_stays_on_the_axis_and_only_the_walls_scroll(server):
+    """#603: the cab (the shaft's four walls) is centred on the lift, not on the car -- the shaft's own walls stand only 0.1 m outside it, so a
+    car parked off-centre pushed one cab wall behind the concrete -- and the ceiling and floor keep a still texture while the walls scroll."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()")
+        lx, lz = h["lift"]["c"]; th = h["lift"]["th"]
+        page.evaluate("() => window.__mm.liftTimes({dwell: 0.1, close: 0.1, ride: 2, open: 0.1})")
+        page.evaluate(f"() => window.__mm.sim({lx + math.cos(th) * -30}, {lz + math.sin(th) * -30}, {th}, 0, 0.1, [], {h['floor']})")
+        page.evaluate(f"() => window.__mm.place({lx - math.sin(th) * 1.5}, {lz + math.cos(th) * 1.5}, {th})")   # 1.5 m off the axis
+        rows = page.evaluate(RECORD_CAB)
+        br.close()
+    assert errors == []
+    assert len(rows) > 5, len(rows)
+    assert all(abs(r["cabAt"][0] - lx) < 1e-6 and abs(r["cabAt"][1] - lz) < 1e-6 for r in rows), rows[0]
+    assert rows[-1]["scroll"] < rows[0]["scroll"], (rows[0], rows[-1])
+    assert all(r["capScroll"] == 0 for r in rows), rows[0]

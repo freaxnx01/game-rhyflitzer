@@ -1,6 +1,7 @@
 // #538: what the game tells Umami (self-hosted, stats.freaxnx01.ch). Never breaks the game: blocked, offline or missing umami = silent no-op.
 // Coarse by design: ids of public things (vehicle, mode, region, house, landmark label), times rounded to 5 s. Never a position, the world id, the query string or anything typed.
-export const MAX_TEXT = 60, STEP_S = 5, SETTLE_MS = 2000, MAX_QUEUE = 50, MAX_CHANGES = 200;
+import { takeReferrer } from './legacy.js';
+export const MAX_TEXT =60, STEP_S = 5, SETTLE_MS = 2000, MAX_QUEUE = 50, MAX_CHANGES = 200;
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign'], OUTCOMES = ['finished', 'timeup', 'abandoned'];
 
 const text = (v) => String(v ?? '').trim().slice(0, MAX_TEXT);
@@ -32,7 +33,8 @@ export function pageUrl(loc) {
   const query = keep.toString();
   return `${loc.pathname}${query ? `?${query}` : ''}`;
 }
-export const pageviewProps = (props) => ({ ...props, url: pageUrl(globalThis.location) });
+// #663: an old /prototype/ link arrives via a redirect; legacy.js keeps its real external referrer for this one pageview.
+export const pageviewProps = (props) => ({ ...props, url: pageUrl(globalThis.location), referrer: takeReferrer(globalThis.sessionStorage) || props.referrer });
 // The campaign tag sits on the pageview only; events after it carry none. Stored as session data (umami.identify) so a
 // segment on the session property `source` also shows the events of those visitors, e.g. readers of the NFZ article.
 export const campaignSource = (search) => text(new URLSearchParams(search ?? '').get('utm_source'));

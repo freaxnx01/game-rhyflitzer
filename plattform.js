@@ -86,6 +86,7 @@ export function plattformWalk(frame, base, P = PLATTFORM) {
   const [cx, cz] = frame.toWorld(0, 0);
   walk.walls.push({ x: cx, z: cz, hw: half, hd: half, c: Math.cos(frame.facing), s: Math.sin(frame.facing), y0: base, y1: base + P.roof.eaves + 4, tag: 'post' });
   for (let a = deck.railFrom; a < deck.railTo; a += core.segment) walk.walls.push(segment(frame.polar(a, core.r), frame.polar(a + core.segment, core.r), deckY, deckY + deck.rail, 'rail'));
+  { const s = parapetStraight(frame, P); walk.walls.push(segment(s.a, s.b, deckY, deckY + deck.rail, 'rail')); }   // #855: the straight run of the parapet
   const tri = frame.triangle(deck.side);
   for (let i = 0; i < 3; i++) walk.walls.push(segment(tri[i], tri[(i + 1) % 3], deckY, deckY + deck.parapet, 'parapet', 0.12));
   return walk;
@@ -130,6 +131,12 @@ export function plattformHopLanding(frame, base, dir, P = PLATTFORM) {
   return { x, z, th: frame.facing, y: base };
 }
 
+// #887: true on the deck at deck height within the deck's circumradius, false on the ground under it or outside the radius
+export function plattformOnDeck(frame, base, pos, P = PLATTFORM) {
+  if (pos.y < base + P.deck.y - HOP.deckSlack) return false;
+  return Math.hypot(pos.x - frame.x, pos.z - frame.z) <= P.deck.side / Math.sqrt(3);
+}
+
 // #567: the core cylinder as one solid circle -- the batten ring and the central post inside it -- for the car, the helicopter
 // floor and the camera. carOnly: footSolids() skips it, so on foot the walkway walls of plattformWalk (open at the door) still rule.
 // No door gap: the gap (2 x door.half at core.r, ~0.81 m) is narrower than any car.
@@ -144,4 +151,78 @@ export function plattformYard(frame, P = PLATTFORM) {
   const rect = (u0, u1, v0, v1) => [frame.toWorld(u1, v0), frame.toWorld(u1, v1), frame.toWorld(u0, v1), frame.toWorld(u0, v0)];
   const parking = Array.from({ length: k.n }, (_, i) => rect(k.u1 - (i + 1) * k.w, k.u1 - i * k.w, k.v0, k.v0 + k.d));
   return { gravel: rect(g.u0, g.u1, g.v0, g.v1), parking };
+}
+
+// #855: the core as single spruce slats, one per angle: from the ground (the door lintel inside the door) up to the deck, and
+// inside the rail range (the parapet round the stair opening) on up to the underside of the handrail ring
+// HANDRAIL (s075-s078, the frames on the deck): a wide flat glulam cap on the slats, from `inner` inside the slat centre line to
+// `outer` outside it (a shelf onto the deck), `h` thick; below it a lower rail board round the outside of the slats, its top `low.drop`
+// under the cap's top; `straight`: the length of the straight run that closes the opening from the bow's start (see parapetStraight)
+export const SLAT = { w: 0.09, d: 0.06 }, HANDRAIL = { h: 0.05, inner: 0.05, outer: 0.19, low: { drop: 0.16, h: 0.08, t: 0.035 }, straight: 1.5 };
+const inArc = (phi, from, to) => { const a = ((phi - from) % 360 + 360) % 360; return a < to - from; };
+export function coreSlats(P = PLATTFORM, n = 72) {
+  const { core, deck } = P, out = [];
+  for (let i = 0; i < n; i++) {
+    const phi = i * 360 / n, off = ((phi + 180) % 360 + 360) % 360 - 180;
+    const y0 = Math.abs(off) <= core.door.half ? core.door.h : 0;
+    const y1 = inArc(phi, deck.railFrom, deck.railTo) ? deck.y + deck.rail - HANDRAIL.h : deck.y;
+    out.push({ phi, y0, y1 });
+  }
+  return out;
+}
+
+// #855: the parapet round the stair opening is a bow (the rail range of the core circle) plus a straight run: from the bow's start
+// along the chord towards the bow's end, stopping HANDRAIL.straight along it, so the gap at the bow's end is the stair arrival.
+// a, b: the run's ends; out: the unit normal away from the opening (onto the deck); slats: one per arc slat pitch, centred on the run
+export function parapetStraight(frame, P = PLATTFORM) {
+  const { core, deck } = P, a = frame.polar(deck.railFrom, core.r), e = frame.polar(deck.railTo, core.r);
+  const chord = Math.hypot(e[0] - a[0], e[1] - a[1]), ux = (e[0] - a[0]) / chord, uz = (e[1] - a[1]) / chord, len = HANDRAIL.straight;
+  const b = [a[0] + ux * len, a[1] + uz * len];
+  let out = [-uz, ux];
+  if (((a[0] + b[0]) / 2 - frame.x) * out[0] + ((a[1] + b[1]) / 2 - frame.z) * out[1] < 0) out = [uz, -ux];
+  const pitch = 2 * Math.PI * core.r / 72, n = Math.floor(len / pitch), first = (len - (n - 1) * pitch) / 2;
+  const slats = Array.from({ length: n }, (_, i) => [a[0] + ux * (first + i * pitch), a[1] + uz * (first + i * pitch)]);
+  return { a, b, out, slats };
+}
+
+// #855: the rafters under each roof face, perpendicular to the eave: u = offset along the eave from the face centre,
+// d = the horizontal run inward from the eave to the hip, rise = how much it climbs on that run (the roof pitch of the plan);
+// tail: the rafter heads stick out only just past the fascia, under the roof edge, not beyond the roof's silhouette
+export const RAFTER = { pitch: 0.8, t: 0.12, drop: 0.2, tail: 0.05 };
+export function roofRafters(P = PLATTFORM, pitch = RAFTER.pitch) {
+  const side = P.roof.side, ri = side / (2 * Math.sqrt(3)), m = Math.floor(side / pitch), slope = Math.tan(P.roof.pitch * RAD), out = [];
+  for (let face = 0; face < 3; face++) for (let j = 0; j < m; j++) {
+    const u = (j - (m - 1) / 2) * pitch, d = ri * (1 - Math.abs(u) / (side / 2));
+    out.push({ face, u, d, rise: d * slope });
+  }
+  return out;
+}
+
+// #855: the eave purlins and the post braces (s063, s076, s134): a glulam purlin under the rafters along each eave, `inset` in from the
+// roof edge (centre line), its top on the rafters' underside at its outer edge, running hip to hip; each post sends two braces out to
+// the purlins of the two eaves it faces, from `braceDrop` below the eaves on the post to the middle of the purlin's underside.
+// Heights relative to the base; purlins { a, b (world xz), top }; braces { post, face, foot, head ([x, y, z]) }
+export const EAVE = { inset: 0.5, w: 0.16, h: 0.24, braceDrop: 1.8, braceT: 0.14 };
+export function eaveFrame(frame, P = PLATTFORM) {
+  const { roof } = P, slope = Math.tan(roof.pitch * RAD), ri = roof.side / (2 * Math.sqrt(3));
+  const top = roof.eaves - RAFTER.drop + (EAVE.inset - EAVE.w / 2) * slope - RAFTER.t / (2 * Math.cos(roof.pitch * RAD));
+  const inner = frame.triangle(2 * Math.sqrt(3) * (ri - EAVE.inset)), rtri = frame.triangle(roof.side), posts = frame.triangle(P.frame.side);
+  const purlins = inner.map((a, i) => ({ a, b: inner[(i + 1) % 3], top }));
+  const braces = [];
+  posts.forEach(([px, pz], post) => rtri.forEach((a, face) => {
+    const c = rtri[(face + 1) % 3], dx = c[0] - a[0], dz = c[1] - a[1], t = ((px - a[0]) * dx + (pz - a[1]) * dz) / (dx * dx + dz * dz);
+    if (t <= 0 || t >= 1) return;   // only the two eaves this post faces
+    const qx = a[0] + t * dx, qz = a[1] + t * dz, d = Math.hypot(qx - px, qz - pz);
+    if (d > 2.5) return;
+    const k = (d - EAVE.inset) / d;
+    braces.push({ post, face, foot: [px, roof.eaves - EAVE.braceDrop, pz], head: [px + (qx - px) * k, top - EAVE.h, pz + (qz - pz) * k] });
+  }));
+  return { purlins, braces };
+}
+
+// the central post's height above the base: under the sheathing (2 cm below the skin) at its corners, so its top does not poke
+// through the narrowing roof at the apex; the pyramid falls by at least slope per metre out from the axis in every direction
+export function centrePostTop(P = PLATTFORM) {
+  const { roof, centrePost } = P, slope = Math.tan(roof.pitch * RAD), apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * slope;
+  return apex - 0.05 - centrePost / Math.SQRT2 * slope;
 }

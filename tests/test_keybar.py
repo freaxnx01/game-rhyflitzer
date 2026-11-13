@@ -51,7 +51,7 @@ def test_bar_follows_the_context_and_the_language(server):
         b.close()
     overlap = lambda a, c: not (a[2] <= c[0] or c[2] <= a[0] or a[3] <= c[1] or c[3] <= a[1])
     assert errors == []
-    assert car["shown"] and car["text"] == "WASD fahrenShift NitroZ aussteigenJ springenC KameraF1 alle Tasten", car
+    assert car["shown"] and car["text"] == "WASD fahrenN NitroZ aussteigenJ springenC KameraF1 alle Tasten", car
     assert car_kbd == ["W", "A", "S", "D"], car_kbd   # #700: four caps, not one "WASD"
     assert boxes["pe"] == "none" and not overlap(boxes["bar"], boxes["bl"]) and not overlap(boxes["bar"], boxes["br"]), boxes
     assert foot["ctx"] == "foot" and foot["text"].startswith("WASD gehenSpace springenZ einsteigen") and "Kamera" not in foot["text"], foot
@@ -76,13 +76,17 @@ def test_bar_hidden_on_the_start_screen_and_in_the_help(server):
     assert (start["shown"], racing["shown"], help_open["shown"], back["shown"]) == (False, True, False, True)
 
 
-def test_pause_toggle_hides_the_bar_and_survives_a_reload(server):
+def test_settings_toggle_hides_the_bar_and_survives_a_reload(server):
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server)
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=120000)
-        page.click("#pausekeybar")
-        label = page.text_content("#pausekeybar")
+        page.click("#pausesettings")
+        page.click("#setkeybar")
+        label = page.text_content("#setkeybar")
+        state = page.get_attribute("#setkeybar", "aria-checked")
+        page.keyboard.press("Escape")                                # Settings back to the pause menu
+        page.wait_for_function("() => document.querySelector('#settings').hidden", timeout=60000)
         page.keyboard.press("Escape")
         page.wait_for_function("() => !window.__mm.pause().on", timeout=120000)
         off = page.evaluate(BAR)
@@ -93,6 +97,23 @@ def test_pause_toggle_hides_the_bar_and_survives_a_reload(server):
         page.evaluate("() => localStorage.removeItem('mm.keybar')")
         b.close()
     assert errors == []
-    assert label in ("Key bar: off", "Tastenleiste: aus"), label
+    assert label in ("off", "aus") and state == "false", (label, state)   # the switch flips at once (#801 had commented its handler out)
     assert off["on"] is False and off["shown"] is False, off
     assert reloaded["on"] is False and reloaded["shown"] is False, reloaded
+
+
+def test_bar_is_hidden_in_the_tutorial_and_back_in_the_next_mode(server):
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server, start=None)
+        page.unroute("**/data/world_hochrhein.json")                # landmarks must load for the tutorial to be offered
+        page.reload()
+        page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.wait_for_function("() => !document.querySelector('#tutorialbtn').disabled", timeout=240000)
+        page.click("#tutorialbtn")
+        page.wait_for_function("() => document.querySelector('#overlay').hidden", timeout=240000)
+        tut = page.evaluate(BAR)
+        stored = page.evaluate("() => localStorage.getItem('mm.keybar')")
+        b.close()
+    assert tut["on"] is True and tut["shown"] is False, tut          # setting kept, bar hidden
+    assert stored in (None, "1"), stored                              # the tutorial wrote nothing
+    assert errors == []

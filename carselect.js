@@ -23,7 +23,11 @@ export function paintFinish(paint, base) {
   return paint.finish ? { ...paint.finish } : { metalness: base.metalness, roughness: base.roughness };
 }
 
-export const DEFAULT_CHOICE = { id: 'compact', paint: 'navy' };
+export const DEFAULT_CHOICE = { id: 'hatchback', paint: 'navy' };   // #830: the hatchback is the start car; navy stays the factory paint paintOnSelect treats as automatic
+
+// #830: built as the stand-in while a glTF car loads and as its load-failure fallback, never offered to the player
+export const STAND_IN_IDS = ['compact'];
+export const selectableIds = (ids) => ids.filter(id => !STAND_IN_IDS.includes(id));
 
 // ---- stats ----
 // Fixed reference ceilings: a new vehicle never moves an existing bar. Compact: 8/8/8/3; tractor 1/3/?/8; bus 3/2/?/10.

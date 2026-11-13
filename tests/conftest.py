@@ -30,7 +30,7 @@ def _install_gpu_hook(config):
     if endpoint is None:
         return
     GPU["endpoint"], GPU["launch"] = endpoint, BrowserType.launch
-    BrowserType.launch = gpu_browser.remote_launch(endpoint, BrowserType.launch)
+    BrowserType.launch = gpu_browser.remote_launch(endpoint, BrowserType.launch, restart=gpu_browser.restart_from(os.environ))
 
 
 def _install_api_hook():
@@ -114,6 +114,8 @@ class _CorsHandler(http.server.SimpleHTTPRequestHandler):
 @pytest.fixture(scope="session")
 def world_host(tmp_path_factory):
     """#167: a local world host serving a temp directory (worlds/<id>/..., api/worlds/<id>). Yields (url, root)."""
+    if gpu_browser.is_remote(GPU["endpoint"]):   # #879: worlds.js honours ?worldhost= only on a localhost page (a guard, kept)
+        pytest.skip("?worldhost= needs a localhost page; the GPU browser on another machine opens a LAN address")
     root = tmp_path_factory.mktemp("worldhost")
     bind, host = gpu_browser.bind_for(GPU["endpoint"])
     s = socket.socket(); s.bind((bind, 0)); port = s.getsockname()[1]; s.close()

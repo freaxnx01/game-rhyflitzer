@@ -1,7 +1,7 @@
 // #413: the Plattform Sisslerfeld -- frame, walkways, entrance. Run: node --test tests/plattform.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding } from '../plattform.js';
+import { stairHeadTarget, PLATTFORM, plattformFrame, facingToRoad, sectorPoly, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, HOP, plattformHop, plattformHopLanding, plattformOnDeck, coreSlats, roofRafters, SLAT, HANDRAIL, parapetStraight, RAFTER, EAVE, eaveFrame, centrePostTop } from '../plattform.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush } from '../walkways.js';
 import { colliderPush } from '../world.js';
 import { WALKER } from '../foot.js';
@@ -180,6 +180,20 @@ test('plattformHop_OnTheDeckFarFromTheGap_IsNull', () => {
   assert.equal(plattformHop(F, BASE, { x, z, y: BASE + PLATTFORM.deck.y }), null);
 });
 
+// #887: true on the deck at deck height, false on the ground under the deck, false at deck height outside the circumradius
+test('plattformOnDeck_DeckHeightNearTheCentre_IsTrue', () => {
+  const [x, z] = F.polar(90, 3);
+  assert.equal(plattformOnDeck(F, BASE, { x, z, y: BASE + PLATTFORM.deck.y }), true);
+});
+test('plattformOnDeck_GroundUnderTheDeck_IsFalse', () => {
+  const [x, z] = F.polar(90, 3);
+  assert.equal(plattformOnDeck(F, BASE, { x, z, y: BASE }), false);
+});
+test('plattformOnDeck_DeckHeightOutsideTheCircumradius_IsFalse', () => {
+  const [x, z] = F.polar(90, PLATTFORM.deck.side / Math.sqrt(3) + 0.5);
+  assert.equal(plattformOnDeck(F, BASE, { x, z, y: BASE + PLATTFORM.deck.y }), false);
+});
+
 test('plattformHopLanding_Up_StandsOnTheDeckBesideTheOpening', () => {
   const l = plattformHopLanding(F, BASE, 'up');
   assert.equal(l.y, BASE + PLATTFORM.deck.y);
@@ -194,9 +208,131 @@ test('plattformHopLanding_Up_IsInsideTheTutorialViewpoint', () => {   // viewpoi
   assert.ok(Math.hypot(l.x - F.x, l.z - F.z) <= 6 && l.y >= BASE + 5);
 });
 
+// #855: the core as single spruce slats -- one per angle, door slats starting at the lintel, the rail range continuing as the parapet
+test('coreSlats_72At5Deg_DoorSlatsStartAtLintel', () => {
+  const s = coreSlats();
+  assert.equal(s.length, 72);
+  assert.ok(s.every((q, i) => near(q.phi, i * 5)));
+  const door = s.filter(q => q.y0 > 0);
+  assert.equal(door.length, 7);   // 345..360 and 0..15 deg, inclusive edges
+  assert.ok(door.every(q => near(q.y0, 2.2)));
+});
+
+test('coreSlats_RailRange_ContinuesToUnderTheHandrail', () => {
+  const s = coreSlats(), top = 5.735 + 1.1 - HANDRAIL.h;
+  const parapet = s.filter(q => near(q.y1, top));
+  assert.equal(parapet.length, 46);   // 230..355 and 0..95
+  assert.ok(s.filter(q => near(q.y1, 5.735)).length === 26);
+  assert.ok(s.find(q => near(q.phi, 100)).y1 === 5.735 && near(s.find(q => near(q.phi, 95)).y1, top));
+});
+
+// #855: the rafters under each roof face -- 15 per face, the middle one running to the apex line, the outer ones stopping short at the hip
+test('roofRafters_15PerFace_RunFromEaveToHip', () => {
+  const r = roofRafters(), ri = 12.10 / (2 * Math.sqrt(3));
+  assert.equal(r.length, 45);
+  for (const f of [0, 1, 2]) {
+    const face = r.filter(q => q.face === f);
+    assert.equal(face.length, 15);
+    assert.ok(near(face[7].u, 0) && near(face[7].d, ri));          // the middle rafter reaches the apex line
+    assert.ok(near(face[0].u, -5.6) && face[0].d > 0 && face[0].d < ri);
+    assert.ok(face.every(q => Math.abs(q.u) <= 12.10 / 2));
+  }
+});
+
+// #855: the rafter rise follows the roof pitch of the plan, not an implicit 45 deg
+test('roofRafters_Rise_FollowsTheRoofPitch', () => {
+  for (const pitch of [45, 30]) {
+    const P = { ...PLATTFORM, roof: { ...PLATTFORM.roof, pitch } }, t = Math.tan(pitch * Math.PI / 180);
+    assert.ok(roofRafters(P).every(q => near(q.rise, q.d * t)));
+  }
+});
+
 test('plattformHopLanding_Down_StandsOutsideTheDoorOnTheGround', () => {
   const l = plattformHopLanding(F, BASE, 'down');
   assert.equal(l.y, BASE);
   assert.equal(plattformHop(F, BASE, l), 'up', 'a second E takes the walker straight back up');
   assert.ok(Math.hypot(l.x - F.x, l.z - F.z) > PLATTFORM.core.r + WALKER.radius);
+});
+
+// #855: the parapet round the stair opening -- a wide cap that projects onto the deck and a lower rail board outside the slats (s075-s078)
+test('handrail_Cap_WideFlatShelfProjectingOntoTheDeck', () => {
+  const cap = HANDRAIL.inner + HANDRAIL.outer;
+  assert.ok(cap >= 0.22 && cap <= 0.3, `cap width ${cap}`);
+  assert.ok(HANDRAIL.h >= 0.04 && HANDRAIL.h <= 0.06, `cap thickness ${HANDRAIL.h}`);
+  assert.ok(HANDRAIL.outer > 2 * HANDRAIL.inner, 'most of it projects outward, onto the deck side');
+  assert.ok(HANDRAIL.outer > SLAT.d / 2 + HANDRAIL.low.t, 'the cap shades the lower rail');
+});
+
+test('handrail_LowerRail_ABandOutsideTheSlatsBelowTheCap', () => {
+  const { drop, h, t } = HANDRAIL.low;
+  assert.ok(drop >= 0.12 && drop <= 0.25, `drop ${drop}`);
+  assert.ok(drop - h >= HANDRAIL.h, 'the band starts below the cap, slats show between');
+  assert.ok(t > 0 && t < 0.06 && h > 0.04 && h < 0.15);
+});
+
+// #855: the parapet is a bow plus a straight run: the straight one closes the opening from the bow's start towards its end, the gap at the arrival
+test('parapetStraight_FromTheBowStartAlongTheChord_LeavesTheArrivalGap', () => {
+  const { core, deck } = PLATTFORM, s = parapetStraight(F);
+  const [ax, az] = F.polar(deck.railFrom, core.r), [ex, ez] = F.polar(deck.railTo, core.r);
+  assert.ok(near(s.a[0], ax) && near(s.a[1], az), 'starts where the bow starts');
+  const len = Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]), chord = Math.hypot(ex - ax, ez - az);
+  assert.ok(near(len, HANDRAIL.straight) && len < chord);
+  const ux = (ex - ax) / chord, uz = (ez - az) / chord, ox = (s.b[0] - s.a[0]) / len, oz = (s.b[1] - s.a[1]) / len;
+  assert.ok(near(ux, ox) && near(uz, oz), 'runs along the chord towards the bow end');
+  assert.ok(Math.hypot(ex - s.b[0], ez - s.b[1]) >= 2 * WALKER.radius + 0.3, 'the arrival gap lets the walker through');
+  const [mx, mz] = [(s.a[0] + s.b[0]) / 2, (s.a[1] + s.b[1]) / 2];
+  assert.ok((mx - F.x) * s.out[0] + (mz - F.z) * s.out[1] > 0 && near(Math.hypot(...s.out), 1), 'out points away from the opening, onto the deck');
+  assert.ok(s.slats.length >= 8 && s.slats.every(([x, z]) => Math.abs((x - s.a[0]) * oz - (z - s.a[1]) * ox) < 1e-9), 'slats on the line');
+});
+
+const railOnly = { slabs: [], walls: W.walls.filter(w => w.tag === 'rail') };
+test('plattformWalk_ParapetStraight_BlocksTheDeckFromTheOpening', () => {
+  const s = parapetStraight(F), deckY = BASE + PLATTFORM.deck.y, mx = (s.a[0] + s.b[0]) / 2, mz = (s.a[1] + s.b[1]) / 2;
+  assert.ok(walkwayPush(railOnly, mx, mz, deckY + 0.1, WALKER.radius).length > 0);
+});
+
+test('plattformWalk_ArrivalGap_OpenFromTheTopFlightOntoTheDeck', () => {
+  const deckY = BASE + PLATTFORM.deck.y, t0 = F.facing + 70 * Math.PI / 180, dir = F.facing + 160 * Math.PI / 180;   // the test_plattform_stair walk: upper:15, tangential
+  for (let s = 0; s <= 2.5; s += 0.05) {
+    const x = F.x + 0.8 * Math.cos(t0) + s * Math.cos(dir), z = F.z + 0.8 * Math.sin(t0) + s * Math.sin(dir);
+    assert.equal(walkwayPush(railOnly, x, z, deckY + 0.1, WALKER.radius).length, 0, `rail in the way at s=${s.toFixed(2)}`);
+  }
+});
+
+// #855: the braces end on something -- each runs from its post out to an eave purlin that sits right under the rafters (s063, s076, s134)
+const rafterBottom = (s) => { const { roof } = PLATTFORM, R = Math.PI / 180; return roof.eaves - RAFTER.drop + s * Math.tan(roof.pitch * R) - RAFTER.t / (2 * Math.cos(roof.pitch * R)); };
+const edgeDist = ([x, z], a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1]; return Math.abs((x - a[0]) * dz - (z - a[1]) * dx) / Math.hypot(dx, dz); };
+
+test('eaveFrame_Purlins_SitUnderTheRaftersAlongEachEave', () => {
+  const e = eaveFrame(F), rtri = F.triangle(PLATTFORM.roof.side);
+  assert.equal(e.purlins.length, 3);
+  e.purlins.forEach((p, i) => {
+    const a = rtri[i], b = rtri[(i + 1) % 3];
+    assert.ok(near(edgeDist(p.a, a, b), EAVE.inset, 0.01) && near(edgeDist(p.b, a, b), EAVE.inset, 0.01), `purlin ${i} parallel to its eave at the inset`);
+    assert.ok(near(p.top, rafterBottom(EAVE.inset - EAVE.w / 2), 0.01), `purlin ${i} top ${p.top} touches the rafters`);
+  });
+});
+
+test('eaveFrame_Braces_TwoPerPostFromThePostToThePurlinUnderside', () => {
+  const e = eaveFrame(F), tri = F.triangle(PLATTFORM.frame.side);
+  assert.equal(e.braces.length, 6);
+  for (const br of e.braces) {
+    const post = tri[br.post], p = e.purlins[br.face];
+    assert.ok(Math.hypot(br.foot[0] - post[0], br.foot[2] - post[1]) < 0.01, 'the foot is on its post');
+    assert.ok(near(br.foot[1], PLATTFORM.roof.eaves - EAVE.braceDrop), 'the foot height');
+    const head = [br.head[0], br.head[2]], dx = p.b[0] - p.a[0], dz = p.b[1] - p.a[1], len = Math.hypot(dx, dz);
+    const along = ((head[0] - p.a[0]) * dx + (head[1] - p.a[1]) * dz) / len, off = Math.abs((head[0] - p.a[0]) * dz - (head[1] - p.a[1]) * dx) / len;
+    assert.ok(off < 0.01 && along > 0 && along < len, `the head lies on the purlin's centre line (off ${off.toFixed(3)}, along ${along.toFixed(2)} of ${len.toFixed(2)})`);
+    assert.ok(Math.abs(br.head[1] - (p.top - EAVE.h)) < 0.01, `the head meets the purlin's underside (${br.head[1]} vs ${p.top - EAVE.h})`);
+    assert.ok(br.head[1] - br.foot[1] > 1, 'it climbs');
+  }
+});
+
+// the central post ends under the roof's sheathing: its four top corners lie inside the pyramid, so no block pokes out at the apex
+test('centrePostTop_PostCorners_StayUnderTheRoofSheathing', () => {
+  const { roof, centrePost } = PLATTFORM, slope = Math.tan(roof.pitch * Math.PI / 180);
+  const apex = roof.eaves + roof.side / (2 * Math.sqrt(3)) * slope, corner = centrePost / Math.SQRT2;
+  const top = centrePostTop();
+  assert.ok(top <= apex - 0.02 - corner * slope, `post top ${top} pokes through the roof (apex ${apex})`);
+  assert.ok(top > apex - 0.6, `post top ${top} ends far below the apex`);
 });

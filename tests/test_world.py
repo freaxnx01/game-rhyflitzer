@@ -207,16 +207,28 @@ def test_upload_world_zip_plays_offline(server, world_host, tmp_path):
         b.close()
 
 
+# #641: a 33 MB file through set_input_files went over CDP to the GPU browser and timed out there (30 s); the game refuses it
+# on f.size before reading a byte, so the page builds the file itself and only the small cases cross CDP
+BIG = "big.zip (33 MB, built in the page)"
+
+
+def pick_world_file(page, z):
+    if z != BIG:
+        page.set_input_files("#worldfile", str(z))
+        return
+    page.evaluate("""() => { const t = new DataTransfer(); t.items.add(new File([new Uint8Array(33e6)], 'big.zip'));
+        const input = document.getElementById('worldfile'); input.files = t.files; input.dispatchEvent(new Event('change')); }""")
+
+
 @needs_ehr
 def test_bad_zips_are_refused(server, world_host, tmp_path):
     url, root = world_host
     d = make_world(root, FILE_ID)
-    big = tmp_path / "big.zip"; big.write_bytes(b"\0" * 33_000_000)
     text = tmp_path / "text.zip"; text.write_text("this is not a zip")
     bad_mmh = (d / "terrain.mmh").read_bytes().replace(b"MMH1", b"XXXX", 1)
     bad_meta = json.loads((d / "meta.json").read_text())
     bad_meta["id"] = "../../x"
-    cases = [big, text,
+    cases = [BIG, text,
              make_zip(tmp_path / "trav.zip", d, skip=("world.json",), extra={"../world.json": (d / "world.json").read_bytes()}),
              make_zip(tmp_path / "noterrain.zip", d, skip=("terrain.mmh",)),
              make_zip(tmp_path / "magic.zip", d, replace={"terrain.mmh": bad_mmh}),
@@ -227,9 +239,9 @@ def test_bad_zips_are_refused(server, world_host, tmp_path):
         start = page.url
         for z in cases:
             page.evaluate("() => { document.getElementById('worldfilestatus').textContent = ''; }")
-            page.set_input_files("#worldfile", str(z))
+            pick_world_file(page, z)
             page.wait_for_function("() => document.getElementById('worldfilestatus').textContent.startsWith('Not a usable world file')", timeout=60000)
-            assert page.url == start, z.name
+            assert page.url == start, str(z)
         keys = page.evaluate("""() => new Promise((res) => { const r = indexedDB.open('mapmadness', 1);
             r.onsuccess = () => { const q = r.result.transaction('kv').objectStore('kv').getAllKeys(); q.onsuccess = () => res(q.result); }; })""")
         assert not [k for k in keys if str(k).startswith("world:")]

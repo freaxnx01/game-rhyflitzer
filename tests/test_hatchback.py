@@ -75,8 +75,9 @@ def release(page, held):
 
 def test_highlighting_the_hatchback_loads_it_lazily_and_holds_the_race_button(server):
     with sync_playwright() as p:
-        b, page, errors, held = open_held(p, server)
-        idle = page.evaluate("() => ({ state: window.__mm.gltfVehicle().state, files: performance.getEntriesByType('resource').filter(e => e.name.includes('hatchback.glb')).length })")
+        # #830: the hatchback is the start car and loads at boot, so the lazy path is checked from another start car
+        b, page, errors, held = open_held(p, server, stored='{"id":"mini","paint":"navy"}')
+        idle = page.evaluate("() => ({ state: window.__mm.gltfVehicle('hatchback').state, files: performance.getEntriesByType('resource').filter(e => e.name.includes('hatchback.glb')).length })")
         page.click("#carbtn")
         page.wait_for_function("() => window.__mm.carsel().open", timeout=120000)
         page.click('#csgarage button[data-id="hatchback"]')

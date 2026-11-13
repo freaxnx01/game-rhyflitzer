@@ -161,10 +161,13 @@ def test_n_held_on_foot_doubles_the_walking_speed(server):
     with sync_playwright() as p:
         b, page, errors = open_hand(p, server)
         press_z(page)
+        # #895: walking eases in -- settle at each speed first, then measure the next second's distance
+        foot_sim(page, 1, ["KeyW"])
         a = foot(page); foot_sim(page, 1, ["KeyW"]); b1 = foot(page)
         plain = math.hypot(b1["x"] - a["x"], b1["z"] - a["z"])
-        foot_sim(page, 1, ["KeyW", "KeyN"]); c = foot(page)
-        fast = math.hypot(c["x"] - b1["x"], c["z"] - b1["z"])
+        foot_sim(page, 1, ["KeyW", "KeyN"])
+        n0 = foot(page); foot_sim(page, 1, ["KeyW", "KeyN"]); c = foot(page)
+        fast = math.hypot(c["x"] - n0["x"], c["z"] - n0["z"])
         b.close()
     assert 4.0 < plain < 5.0, plain
     assert abs(fast - 2 * plain) < 0.5, (plain, fast)
@@ -200,6 +203,25 @@ def test_a_double_click_on_foot_beams_and_never_takes_the_mouse(server):   # #40
     assert pick is not None
     assert double["calls"] == 0 and double["beam"] is not None and double["foot"] is False, double   # the car was beamed, the walk ended
     assert early == 0 and single == {"calls": 1, "foot": True}, (early, single)                     # a single click still grabs the mouse, after the delay
+
+
+def test_a_second_click_on_foot_lets_the_mouse_go_without_pausing(server):   # the look mode toggles; a hint says how to leave it
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = ROAD
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        press_z(page)
+        page.evaluate(FAKE_LOCK)
+        page.mouse.click(640, 360)
+        page.wait_for_function("() => !!document.pointerLockElement", timeout=10000)
+        hint = page.evaluate("() => window.__mm.toast()")
+        page.mouse.click(640, 360)
+        page.wait_for_timeout(700)                                       # longer than the lock delay: the click must not grab again
+        after = page.evaluate("() => ({ locked: !!document.pointerLockElement, calls: window.__lockCalls, paused: !document.querySelector('#pause').hidden, foot: window.__mm.foot().on })")
+        b.close()
+    assert errors == []
+    assert hint["shown"] and hint["text"] in ("Look around with the mouse · click again to let it go", "Mit der Maus umschauen · nochmals klicken zum Beenden"), hint
+    assert after == {"locked": False, "calls": 1, "paused": False, "foot": True}, after
 
 
 def test_j_and_f1_on_foot_let_the_mouse_go_and_keep_their_dialog(server):   # #365
@@ -281,7 +303,7 @@ def test_e_on_foot_at_a_ready_entrance_shows_the_prompt_and_reaches_the_toast(se
         b.close()
     assert errors == []
     assert shown == "E · Enter", shown
-    assert pressed["toast"] == "Not enterable yet" and not pressed["blinker"], pressed
+    assert pressed["toast"] == "The stair is open -- just walk in" and not pressed["blinker"], pressed   # #413: the Plattform's own E handler
     assert gone == "", gone
 
 
@@ -298,7 +320,7 @@ def test_a_ready_entrance_glows_on_foot_only(server):   # #409
             page.wait_for_timeout(300)
             return page.evaluate("() => window.__mm.enterables.glows()")
 
-        mid, near, far = glows_at(10), glows_at(2), glows_at(20)
+        mid, near, early, far = glows_at(10), glows_at(2), glows_at(20), glows_at(65)   # #702: glows from 60 m
         page.evaluate(f"() => window.__mm.place({x + 2}, {z}, 0)")   # back next to the car, 10 m from the entrance
         press_z(page)
         page.wait_for_timeout(300)
@@ -308,4 +330,5 @@ def test_a_ready_entrance_glows_on_foot_only(server):   # #409
     assert errors == []
     assert len(mid) == 1 and 0 < mid[0]["opacity"] < 1, mid
     assert near[0]["opacity"] == 1 and far == [], (near, far)
+    assert len(early) == 1 and early[0]["opacity"] > 0.5, early
     assert driving == {"foot": False, "glows": []}, driving

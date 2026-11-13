@@ -46,7 +46,7 @@ test('keyCap_KeyAndDigitCodes_LoseTheirPrefix', () => {
 test('howTo_Desktop_UsesTheKeyBarCapOrTheKey', () => {
   assert.deepEqual(howTo(def('drive'), false), { via: 'key', cap: 'WASD' });
   assert.deepEqual(howTo(def('brake'), false), { via: 'key', cap: 'S' });
-  assert.deepEqual(howTo(def('nitro'), false), { via: 'key', cap: 'Shift' });
+  assert.deepEqual(howTo(def('nitro'), false), { via: 'key', cap: 'N' });
   assert.deepEqual(howTo(def('jump'), false), { via: 'key', cap: 'J' });
   assert.deepEqual(howTo(def('getOut'), false), { via: 'key', cap: 'Z' });
   assert.deepEqual(howTo(def('climb'), false), { via: 'key', cap: 'WASD' });

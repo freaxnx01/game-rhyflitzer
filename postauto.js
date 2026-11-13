@@ -13,6 +13,7 @@ export const PA = {
   look: 40, sideClear: 0.5, gap: 2, above: 3,                            // A7
   maxBuses: 8, resync: 5, reach: 2,
   smoothHalf: 10, smoothStopFree: 8, smoothStopFull: 20,               // #710
+  thankBehind: 40, thankLane: 2.5, thankKmh: 20, thankWindow: 10, thankSecs: 4,   // #800
 };
 const DAY = 86400;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -244,7 +245,9 @@ export function placeTrip(trip, route, now, cfg = PA, win = null) {
 // window so the bus is one continuous entity across a turn; null outside every leg's window
 export function placeRun(run, now, cfg = PA) {
   for (let i = 0; i < run.legs.length; i++) {
-    const leg = run.legs[i], b = placeTrip(leg.trip, leg.route, now, cfg, leg.win);
+    const leg = run.legs[i];
+    if (tripTime(leg.win, now) === null) continue;   // #880: the leg's window is closed, placeTrip would only rebuild its calls to say null
+    const b = placeTrip(leg.trip, leg.route, now, cfg, leg.win);
     if (b) return { ...b, key: run.key, legs: run.legs, leg: i, win: run.win };
   }
   return null;
@@ -323,6 +326,18 @@ export function obstacleGap(route, s, player, cfg = PA) {
   if (Math.hypot(player.x - lx, player.z - lz) > BUS.width / 2 + player.r + cfg.sideClear) return null;
   return Math.max(0, ahead - BUS.length / 2 - player.r - cfg.gap);
 }
+
+// #800: does the player (x, z, v) wait behind the bus that just left a stop? trackRoute scans only 10 m behind its seed, so seed at
+// the full thankBehind distance -- its +60 forward reach then still covers all the way back up to the bus itself
+export function thankDue(b, t, player, cfg = PA) {
+  if (b.phase !== 'drive' || b.thankedAt === b.leftAt || !(t - b.leftAt < cfg.thankWindow)) return false;
+  if (player.v > cfg.thankKmh / 3.6) return false;
+  const tr = trackRoute(b.route, player.x, player.z, b.s - cfg.thankBehind), back = b.s - tr.s;
+  if (back < BUS.length / 2 || back > cfg.thankBehind) return false;
+  const [lx, lz] = lanePoint(b.route, tr.s, cfg);
+  return Math.hypot(player.x - lx, player.z - lz) <= cfg.thankLane;
+}
+export function markThanked(b, t, cfg = PA) { b.thankedAt = b.leftAt; b.thanksUntil = t + cfg.thankSecs; }
 
 // ---------- the fleet ----------
 // the buses for `now`: running ones kept, finished ones kept (hidden) until their run's window closes so they are not
