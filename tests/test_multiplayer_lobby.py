@@ -87,7 +87,7 @@ def test_two_pages_meet_in_one_lobby(pair):
     assert rows(guest)[1].count("Ben") == 1 and "you" in rows(guest)[1]
     # the host owns the class: only the host sees the buttons
     assert host.is_visible("#mpclassrow") and not guest.is_visible("#mpclassrow")
-    assert host.text_content("#mplobbystatus") == "Not everyone is ready yet."
+    assert host.text_content("#mplobbystatus") == "Starts when everyone is ready"   # #917: the start hint is the visible status (was a hidden title)
 
     # the host narrows the class to D; the guest's picker then offers only class-D cars
     host.click("#mpclassbtns button[data-cls='D']")
