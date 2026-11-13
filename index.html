@@ -3520,6 +3520,7 @@ function buildBus(g, v) {
 const MODELS = { compact: buildCompact, delorean: buildDelorean, mini: buildMini, bus: buildBus, gltf: buildGltfVehicle };
 // ---------- #236: glTF cars -- one cache entry per vehicle id, built into the car group like any other model ----------
 const GLTF_CARS = {};                                  // id -> { state, scene, mats, tris, promise }
+let LOOKS_READY = false;   // #906: set after the start pre-compile; a model that arrives later compiles its own cave look (compileLooks)
 const GLTF_LAMPS = { head: [], tail: [] };             // the lamp materials of the car that is built right now (applyLamps writes them)
 let PENDING_SWAP = null;                              // a glTF car that arrived while a race was running: it is built at the next reset or start
 const WANTED = new Set();                             // ids whose load has a completion handler
@@ -3562,6 +3563,7 @@ function loadVehicleModel(id) {
       const gltf = await loader.loadAsync(modelUrl(def, location.search));
       wheelPlan(wheelNames(gltf.scene));   // fails fast when a wheel node is missing
       e.scene = gltf.scene; prepareGltfScene(e, e.scene, def); e.state = loadStep(e.state, 'loaded');
+      compileLooks(e.scene);   // #906: its programs in the cave look too, so the first cave entry costs no hitch
       console.info(`${id} model loaded: ${Math.round(e.tris)} triangles`); return true;
     } catch (err) { console.warn(`${id} model not loaded:`, err); e.state = loadStep(e.state, 'error'); return false; }
   })();
@@ -7549,16 +7551,30 @@ buildBusStops();   // #712: before loadPostauto's fetch, so the stops stand with
 // #201: compile the cave look up front (the lit materials' programs differ with the lights and the fog type), so the door costs no hitch.
 // #734: the outside look too -- a material whose meshes first come into view later (the water along a drive, a role the start
 // frustum never shows) otherwise compiles on first sight, mid-drive, which reads as a hitch and as "new" programs in a test.
-if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); renderer.compile(scene, camera); }
-{ // #734: pre-warm the ch-landmarks' program. Their meshes load async (#649: the start does not wait) and every one gets
-  // the same vertex-coloured double-sided lambert, so the program is the same -- compiled once here, a landmark's first
-  // sight mid-drive costs no hitch (and no program the load did not already have).
+{ // #734: the ch-landmarks' program is pre-warmed too. Their meshes load async (#649: the start does not wait) and every one gets
+  // the same vertex-coloured double-sided lambert, so the program is the same -- compiled once here, in both looks (#906), a landmark's
+  // first sight mid-drive costs no hitch (and no program the load did not already have).
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute([1, 1, 1, 1, 1, 1, 1, 1, 1], 3));
   const warm = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
-  scene.add(warm); renderer.compile(scene, camera); scene.remove(warm);
+  scene.add(warm);
+  if (CAVE_MODE.group) { setCave(true, 1); renderer.compile(scene, camera); setCave(false); }
+  renderer.compile(scene, camera); scene.remove(warm);
+  LOOKS_READY = true;
+}
+// #906: a model that arrives after the start compiles in both looks, as the start pre-compile does for what is there then (the vehicle
+// glTFs load async: the hatchback and the Postauto bus showed up as 7 new programs on the first cave entry). Only on the surface in the
+// plain day look -- mid-fade or below ground the look is not ours to flip; the programs then compile on first sight as before.
+function compileLooks(root) {
+  if (!LOOKS_READY) return;
+  const flip = CAVE_MODE.group && !CAVE_MODE.on && CAVE_MODE.k === 0 && LEVELS.isSurface();
+  try {
+    if (flip) setCave(true, 1);
+    renderer.compile(root, camera, scene);
+    if (flip) { setCave(false); renderer.compile(root, camera, scene); }
+  } catch (err) { console.warn('pre-compile of a late model failed', err); }
 }
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
