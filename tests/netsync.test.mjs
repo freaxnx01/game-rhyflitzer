@@ -1,7 +1,7 @@
 // #835 part a: clock offset, pose track and start column of netsync.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addClockSample, clockOffset, createTrack, pushPose, sampleRemote, gridPose, DELAY, EXTRAP, HIDE } from '../netsync.js';
+import { addClockSample, clockOffset, createTrack, pushPose, sampleRemote, gridPose, fadeAlpha, FADE, tagScale, remoteLamps, FLAG, DELAY, EXTRAP, HIDE } from '../netsync.js';
 const pose = (t, x, extra = {}) => ({ id: 1, seq: t, t, x, y: 0, z: 0, rx: 0, ry: 0, rz: 0, vx: 20, vz: 0, steer: 0, flags: 1, ...extra });
 
 test('clockOffset_fiveSamples_median', () => {
@@ -44,4 +44,21 @@ test('gridPose_slots_columnBehindStart', () => {
   const [x1, z1] = gridPose([10, 20, 0], 1), [x2, z2] = gridPose([10, 20, 0], 2);
   assert.ok(Math.abs(x1 - 2) < 1e-9 && Math.abs(Math.abs(z1 - 20) - 1.5) < 1e-9);
   assert.ok(Math.abs(x2 + 6) < 1e-9 && Math.sign(z2 - 20) === -Math.sign(z1 - 20));
+});
+
+test('fadeAlpha_overOneSecond_linearThenZero', () => {
+  assert.equal(FADE, 1000);
+  assert.equal(fadeAlpha(0), 1); assert.equal(fadeAlpha(500), 0.5); assert.equal(fadeAlpha(1000), 0); assert.equal(fadeAlpha(5000), 0);
+  assert.equal(fadeAlpha(-10), 1);
+});
+test('tagScale_distance_clampedSoTagStaysReadable', () => {
+  assert.equal(tagScale(5), tagScale(0));          // never larger than at 10 m
+  assert.ok(tagScale(100) > tagScale(10));          // world size grows with distance (screen size ~constant)
+  assert.equal(tagScale(1000), tagScale(400));      // capped far away
+});
+test('remoteLamps_flags_headBrakeBlinkPhase', () => {
+  const f = FLAG.visible | FLAG.head | FLAG.brake | FLAG.left;
+  assert.deepEqual(remoteLamps(f, true), { head: true, brake: true, left: true, right: false });
+  assert.deepEqual(remoteLamps(f, false), { head: true, brake: true, left: false, right: false });   // blink off-phase
+  assert.deepEqual(remoteLamps(FLAG.visible, true), { head: false, brake: false, left: false, right: false });
 });

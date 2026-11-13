@@ -10,6 +10,9 @@ export const MAX_POSES = 20;     // per track: the interpolation window
 export const CLOCK_N = 5;        // clock samples the median is taken over
 export const GRID_BACK = 8;      // m: start column spacing along the heading
 export const GRID_SIDE = 1.5;    // m: lateral offset of the start column
+export const FADE = 1000;        // ms: a leaving player's car fades out over this long (#835 part c)
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // The pose record's flag bits, shared by part b's encoder and part c's lamps.
 export const FLAG = { visible: 1, head: 2, brake: 4, left: 8, right: 16, nitro: 32 };
@@ -96,4 +99,27 @@ export function gridPose([x, z, th], slot) {
   const back = GRID_BACK * slot;
   const side = slot === 0 ? 0 : slot % 2 ? GRID_SIDE : -GRID_SIDE;
   return [x - Math.cos(th) * back - Math.sin(th) * side, z - Math.sin(th) * back + Math.cos(th) * side, th];
+}
+
+// ---- part c polish ----
+// fadeAlpha(ms) — the opacity of a leaving player's car: 1 at leave, 0 after FADE ms. A query: pure.
+export function fadeAlpha(ms) {
+  return clamp(1 - ms / FADE, 0, 1);
+}
+
+// tagScale(d) — the world size of a name tag so its on-screen size stays ~constant: it grows with distance, clamped
+// between 10 and 400 m so it never crowds a near car nor fills the screen far away. A query: pure.
+export function tagScale(d) {
+  return clamp(d, 10, 400) * 0.06;
+}
+
+// remoteLamps(flags, flashOn) — reads the pose flag bits back into per-lamp on/off states. The blinkers flash on the
+// given phase (the caller passes the same 350 ms cadence the driven car's own blinkers use). A query: pure.
+export function remoteLamps(flags, flashOn) {
+  return {
+    head: !!(flags & FLAG.head),
+    brake: !!(flags & FLAG.brake),
+    left: !!(flags & FLAG.left) && flashOn,
+    right: !!(flags & FLAG.right) && flashOn,
+  };
 }

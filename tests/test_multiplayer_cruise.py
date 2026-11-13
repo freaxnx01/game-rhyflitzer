@@ -107,3 +107,37 @@ def test_a_player_who_leaves_disappears_on_the_other_device(pair):
     assert guest.evaluate("() => window.__mm.netCars().length") == 0
     host.wait_for_function("() => window.__mm.netCars().length === 0", timeout=T)
     assert errors == []
+
+
+def test_lobby_status_follows_language_switch(pair):
+    """#917: the lobby status line (the start hint) re-renders on an EN/DE switch while waiting in the lobby."""
+    host, guest, errors = pair
+    connect(host, guest)
+    ready_both(host, guest)
+    en = guest.locator("#mplobbystatus").inner_text()
+    guest.evaluate("() => window.ggSetLang(window.GG_LANG === 'en' ? 'de' : 'en')")
+    guest.wait_for_function("(old) => document.querySelector('#mplobbystatus').textContent !== old", arg=en, timeout=T)
+    assert guest.locator("#mplobbystatus").inner_text() != en
+    assert errors == []
+
+
+def test_remote_car_has_tag_and_fades_when_guest_leaves(pair):
+    """Part c: a remote car carries a name tag, and a leaving player fades out over 1 s with a toast on the host."""
+    host, guest, errors = pair
+    connect(host, guest)
+    # part c (#921 review): the start hint is in the status line, not the button title (shown until everyone is ready)
+    assert "Starts when everyone is ready" in guest.locator("#mplobbystatus").inner_text()
+    ready_both(host, guest)
+    host.click("#mpgo")
+    host.wait_for_function("() => window.__mm.netCars().some(c => c.id === 1 && c.visible)", timeout=T)
+    car = host.evaluate("() => window.__mm.netCars().find(c => c.id === 1)")
+    assert car["tag"] == {"visible": True, "name": "Ben"}
+
+    guest.keyboard.press("Escape")                     # pause
+    guest.click("#pausemenu")
+    if guest.is_visible("#abandonok"):
+        guest.click("#abandonok")
+    host.wait_for_function("() => document.querySelector('#toast').textContent === 'Ben has left.'", timeout=T)
+    host.wait_for_function("() => !window.__mm.netCars().some(c => c.id === 1)", timeout=T)
+    assert net(guest)["role"] is None
+    assert errors == []
