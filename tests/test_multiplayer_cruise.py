@@ -125,9 +125,9 @@ def test_remote_car_has_tag_and_fades_when_guest_leaves(pair):
     """Part c: a remote car carries a name tag, and a leaving player fades out over 1 s with a toast on the host."""
     host, guest, errors = pair
     connect(host, guest)
-    ready_both(host, guest)
-    # part c (#921 review): the start hint is in the status line, not the button title
+    # part c (#921 review): the start hint is in the status line, not the button title (shown until everyone is ready)
     assert "Starts when everyone is ready" in guest.locator("#mplobbystatus").inner_text()
+    ready_both(host, guest)
     host.click("#mpgo")
     host.wait_for_function("() => window.__mm.netCars().some(c => c.id === 1 && c.visible)", timeout=T)
     car = host.evaluate("() => window.__mm.netCars().find(c => c.id === 1)")
