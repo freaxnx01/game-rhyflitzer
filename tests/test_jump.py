@@ -468,18 +468,24 @@ def test_sprungschanze_puts_the_ramp_right_ahead(server):
 
 @needs_world
 def test_sprungschanze_run_up_launches_the_car(server):
-    # Fixed 1/60 s steps: the dry run (procedural terrain, as here) was 2.41 m above the ground at x 362.8 after 4 s.
+    """#80 / #931: from the J run-up the car flies off the Sprungschanze. Measured as the jump itself (peak clearance,
+    flight length past the lip), not the clearance at one instant: that tied the test to the default car's acceleration
+    (#830 hatchback: peak 3.47 m, touchdown ~19 m past the lip at ~4.0 s)."""
     with sync_playwright() as p:
         b, page = open_page(p, server)
         c = jump_via_dialog(page, "sprung")
         th = page.evaluate("() => window.__mm.heading()")
         r = ramp(page)
-        end = page.evaluate(f"() => window.__mm.sim({c['x']}, {c['z']}, {th}, 0, 4)")
-        g = page.evaluate(f"() => window.__mm.ground({end['x']}, {end['z']}, -Infinity)")
-        assert end["x"] > r["x1"], "the car did not get over the ramp"
-        assert r["z0"] < end["z"] < r["z1"], "the car left the ramp sideways"
-        assert end["y"] - g > 1.0, "the ramp did not launch the car"
+        samples = page.evaluate(f"() => [...Array(121)].map((_, i) => window.__mm.sim({c['x']}, {c['z']}, {th}, 0, 2 + i / 30))"
+                                ".map(e => ({ x: e.x, z: e.z, clear: e.y - window.__mm.ground(e.x, e.z, -Infinity) }))")
         b.close()
+    past = [s for s in samples if s["x"] > r["x1"]]
+    assert past, "the car did not get over the ramp"
+    down = next((s for s in past if s["clear"] < 0.05), past[-1])
+    assert r["z0"] < down["z"] < r["z1"], "the car left the ramp sideways"
+    top = max(s["clear"] for s in samples)
+    assert top > 2.5, f"the car rose only {top:.2f} m over the ground"
+    assert down["x"] - r["x1"] > 10, f"the car touched down {down['x'] - r['x1']:.1f} m past the lip: the ramp did not launch it"
 
 
 def test_hand_layout_still_draws_the_ramp(server):
