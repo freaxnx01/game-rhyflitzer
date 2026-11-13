@@ -153,6 +153,9 @@ export function vehicleText(tr, id, part) {
   return text === key ? (part === 'name' ? id : '') : text;
 }
 
+// #903: the stage frames the car where the car is -- on foot that is the parked pose, not the walker in P
+export function stagePose(parked, p) { const s = parked ?? p; return { x: s.x, y: s.y, z: s.z, th: s.th }; }
+
 // ---- garage gallery (#626): every vehicle at once, each photographed live ----
 // the photo: px size, vertical field of view (deg), view from the front-left (yaw from the nose, pitch from level, rad), room around the car
 export const THUMB = { w: 320, h: 200, fov: 30, yaw: 0.75, pitch: 0.28, margin: 1.08 };

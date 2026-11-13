@@ -1,7 +1,7 @@
 // #7: the car selection screen's pure rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, powerClass, classLine, galleryOrder, selectableIds, STAND_IN_IDS } from '../carselect.js';
+import { PAINTS, paintFinish, DEFAULT_CHOICE, STAT_KEYS, statBars, barCells, cycle, paintable, parseChoice, withPaint, withChair, chairable, initialChoice, carselKeyAction, spinStep, lookShift, vehicleText, SPIN_RESUME, SPIN_AUTO, SPIN_KEY, THUMB, thumbView, thumbKey, nextThumb, VEHICLE_TYPES, powerClass, classLine, galleryOrder, selectableIds, STAND_IN_IDS, stagePose } from '../carselect.js';
 
 const COMPACT = { model: 'compact', drive: { top: 60, accel: 16, grip: 9, steerRate: 2.6 }, mass: 1.0 };
 const TRACTOR = { model: 'gltf', drive: { top: 11.1, accel: 6, grip: 30, steerRate: 2.2 }, mass: 2.5 };   // #6 spec values
@@ -217,4 +217,15 @@ test('initialChoice: a stored or queried compact becomes the hatchback, its pain
   assert.deepEqual(initialChoice('{"id":"compact","paint":"ice","paintChosen":true}', '', ids, PAINT_IDS), { id: 'hatchback', paint: 'ice', paintChosen: true });
   assert.deepEqual(initialChoice('{"id":"bus","paint":"ice"}', '?vehicle=compact', ids, PAINT_IDS), { id: 'bus', paint: 'ice' });
   assert.deepEqual(initialChoice(null, '?vehicle=compact', ids, PAINT_IDS), { id: 'hatchback', paint: 'navy' });
+});
+
+// ---- #903: the car-selection stage frames the parked car on foot, not the walker ----
+test('stagePose_OnFootWithParkedCar_ReturnsTheParkedPoseNotTheWalker', () => {
+  const walker = { x: 1810, y: 28.8, z: 608, th: 0.3, vx: 1 }, parked = { x: 1810, y: 16.8, z: 610, th: 0 };
+  assert.deepEqual(stagePose(parked, walker), { x: 1810, y: 16.8, z: 610, th: 0 });
+});
+
+test('stagePose_NoParkedCar_ReturnsThePlayerPose', () => {
+  const p = { x: 5, y: 2, z: -3, th: 1.2, vx: 9 };
+  assert.deepEqual(stagePose(null, p), { x: 5, y: 2, z: -3, th: 1.2 });
 });
