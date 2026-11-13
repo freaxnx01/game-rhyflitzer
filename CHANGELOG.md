@@ -39,7 +39,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
-- `2026-11-13 11:50` **Change vehicle while flying** now shows your **car** on the turntable instead of the helicopter. You are still in the air afterwards, and the helicopter is back as soon as you drive on or go back.
+- `2026-11-13 13:38` **Change vehicle while flying** now shows your **car** on the turntable instead of the helicopter. You are still in the air afterwards, and the helicopter is back as soon as you drive on or go back.
+- `2026-11-13 12:12` Kein **Riesensprung** mehr, wenn man **vom Feld her** zur **Plattform Sisslerfeld** fährt: eine Strassenkante hebt das Auto jetzt nur noch auf die Strasse, statt es meterhoch in die Luft zu schleudern. Das gilt auch für andere Kanten, z. B. am Kreisel.
 - `2026-11-12 16:05` Beim ersten Einfahren in den **Berg** ruckelt das Bild nicht mehr kurz: auch **nachgeladene Fahrzeuge** und die **Landmarken** werden gleich für das **Höhlenlicht** vorbereitet.
 - `2026-11-12 13:55` The **tutorial** no longer shows an **empty little frame** above its hint when the step has nothing to point at.
 - `2026-11-12 09:12` The **houses** along the Hauptstrasse now have exactly **one front door** at street level instead of a door in **every storey**, only **whole windows** (none cut in half by the gable, the eaves or a corner — the gable ends are plain wall with at most one attic window), and you can no longer see the **sky through the roof** overhang from below.
