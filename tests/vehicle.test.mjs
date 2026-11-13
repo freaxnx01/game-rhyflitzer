@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { vehicleFromQuery, KERB, stepSamples, isKerb, launchVy } from '../vehicle.js';
+import { vehicleFromQuery, KERB, stepSamples, isKerb, isEdge, launchVy } from '../vehicle.js';
 
 test('vehicleFromQuery: known id, unknown id, no parameter', () => {
   const ids = ['compact', 'delorean'];
@@ -58,4 +58,28 @@ test('launchVy_SlopeRise_SameAsBefore', () => {
 test('launchVy_TinyOrNegativeLift_Zero', () => {
   assert.equal(launchVy(0.02, 1 / 60, false), 0);   // 0.72 m/s < min 1
   assert.equal(launchVy(-0.3, 1 / 60, false), 0);
+});
+
+test('isEdge_RoadEdge055mAhead_IsEdge', () => {
+  // #902 measured: the Geuerenstrasse south edge -- road top, then the yard 0.55 m down within 0.25 m
+  assert.equal(isEdge([20.94, 20.94, 20.39, 20.39], 0.39), true);
+});
+
+test('isEdge_YardDecliningPastTheEdge_StillAnEdge', () => {
+  // the bottom is the ground right after the step, not the lowest point of the look-ahead (a fast car looks further ahead)
+  assert.equal(isEdge([20.92, 20.95, 20.36, 20.30, 20.24], 1.0), true);
+});
+
+test('isEdge_RampEnd34mDrop_NotAnEdge', () => {
+  // the Sprungschanze take-off stands 3.4 m over the terrain beyond: a real jump keeps its launch
+  assert.equal(isEdge([23.77, 23.77, 20.42, 20.42], 0.52), false);
+});
+
+test('isEdge_SmoothDownslopeAhead_NotAnEdge', () => {
+  assert.equal(isEdge([20, 19.95, 19.9, 19.85], 0.4), false);   // a crest's gentle far side, grade 0.125
+});
+
+test('isEdge_FlatOrRisingAhead_NotAnEdge', () => {
+  assert.equal(isEdge([20, 20, 20], 0.4), false);
+  assert.equal(isEdge([20, 20.05, 20.1], 0.4), false);
 });
