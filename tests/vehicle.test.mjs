@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { vehicleFromQuery, KERB, stepSamples, isKerb, isEdge, launchVy } from '../vehicle.js';
+import { vehicleFromQuery, KERB, stepSamples, isKerb, isEdge, launchVy, RAMP_KICK, crossesLip, rampKick } from '../vehicle.js';
 
 test('vehicleFromQuery: known id, unknown id, no parameter', () => {
   const ids = ['compact', 'delorean'];
@@ -82,4 +82,37 @@ test('isEdge_SmoothDownslopeAhead_NotAnEdge', () => {
 test('isEdge_FlatOrRisingAhead_NotAnEdge', () => {
   assert.equal(isEdge([20, 20, 20], 0.4), false);
   assert.equal(isEdge([20, 20.05, 20.1], 0.4), false);
+});
+
+const RAMP = { x0: 397.3, x1: 422.7, z0: 152.4, z1: 188, h: 3.4 };
+
+test('crossesLip_FromRampPastHighEdge_True', () => {
+  assert.equal(crossesLip(RAMP, 422.3, 170, 422.8, 170), true);
+});
+
+test('crossesLip_StaysOnRamp_False', () => {
+  assert.equal(crossesLip(RAMP, 410, 170, 410.5, 170), false);
+});
+
+test('crossesLip_AlreadyPastLip_False', () => {
+  assert.equal(crossesLip(RAMP, 423, 170, 423.5, 170), false);
+});
+
+test('crossesLip_LeavesOverSideEdge_False', () => {
+  assert.equal(crossesLip(RAMP, 422.5, 187.9, 422.9, 188.3), false);
+});
+
+test('crossesLip_BackwardsOverLowEdge_False', () => {
+  assert.equal(crossesLip(RAMP, 397.5, 170, 397.0, 170), false);
+});
+
+test('rampKick_RunUpSpeed_ApexAbout2mAboveLip', () => {
+  const vy = rampKick(31.3);
+  assert.ok(Math.abs(vy - 31.3 * RAMP_KICK) < 1e-9);
+  assert.ok(vy * vy / (2 * 22) > 1.8);   // gravity 22 (index.html stepCar)
+});
+
+test('rampKick_ReverseOrStill_Zero', () => {
+  assert.equal(rampKick(-10), 0);
+  assert.equal(rampKick(0), 0);
 });

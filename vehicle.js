@@ -37,3 +37,17 @@ export function isEdge(heights, run, cfg = KERB) {
     return heights[0] - heights[i] > 0 && heights[0] - heights[i] <= cfg.snap;
   return false;
 }
+
+// #969: the Sprungschanze throws the car up. Leaving the ramp over its high edge (x1; the ramp rises along +x) a
+// grounded car gets at least RAMP_KICK x its speed along the rise as vertical speed: ~16.7 deg, apex ~2 m above the
+// lip at the J run-up's 31 m/s. Keyed to the ramp's footprint, so no kerb or crest can trigger it (#902).
+export const RAMP_KICK = 0.30;
+
+export function crossesLip(ramp, ax, az, bx, bz) {
+  const onRamp = ax >= ramp.x0 && ax <= ramp.x1 && az >= ramp.z0 && az <= ramp.z1;
+  return onRamp && bx > ramp.x1 && bz >= ramp.z0 && bz <= ramp.z1;
+}
+
+export function rampKick(vx, kick = RAMP_KICK) {
+  return Math.max(0, vx * kick);
+}
