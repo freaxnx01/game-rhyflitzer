@@ -29,6 +29,9 @@ GOLDEN_JS = """() => { const m = window.__mm, X = 1882.9, Z = -292.2, TH = Math.
 #   so the car now drives the whole 4 s straight (x 1730.01, 58.00 m/s). A side effect, not a physics bug.
 # - abb9c79 (PR#751, no shake after a handbrake turn): handbrake now ends at x 1873.95, z -300.95, 5.93 m/s. Intended.
 # kreisel moved by 7e-7 (inside the 1e-6 tolerance) and stays as recorded.
+# kreisel re-recorded for #902: the Kreisel apron is a kerb (a 0.3 m rise), so the car no longer hops off it (y -0.06 -> 1.7 m
+# on main) and flies over the island hit. It rolls up the apron (y -0.25), meets the island at x 1217.3 (rim 1216 + radius
+# 1.3), keeps a small rebound on the ground and, gas held, stays pinned there (0.05 m/s) instead of 1.03 m/s in the air.
 GOLDEN = {
     "gas": [1803.9696142392509, -292.2, 31.468286880499843],
     "nitro": [1730.0097789999577, -292.2, 58.00445665701573],
@@ -36,7 +39,7 @@ GOLDEN = {
     "handbrake": [1873.954526449259, -300.9513646498912, 5.929877687046431],
     "coast": [1834.6719348716697, -292.2, 12.614818090048061],
     "brakeReverse": [1916.559328693726, -292.2, 13.992018339087409],
-    "kreisel": [1218.7183244804414, -127, 1.0311994537196747],
+    "kreisel": [1217.3, -127, 0.049316005987694256],
 }
 
 
@@ -137,7 +140,7 @@ def test_table_mass_softens_the_crash(server):
         use_vehicle(page, "c.mass = 2")
         heavy = page.evaluate(crash)
         b.close()
-    assert light == pytest.approx(2.074, abs=0.005), light      # recorded on main @ 6d29cb8
+    assert light == pytest.approx(2.012, abs=0.005), light      # was 2.074 on main @ 6d29cb8; #902: the car stays on the apron instead of flying off it, so ground drag acts on the rebound
     assert heavy > light * 1.15, (light, heavy)
 
 
