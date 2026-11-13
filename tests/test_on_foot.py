@@ -332,3 +332,35 @@ def test_a_ready_entrance_glows_on_foot_only(server):   # #409
     assert near[0]["opacity"] == 1 and far == [], (near, far)
     assert len(early) == 1 and early[0]["opacity"] > 0.5, early
     assert driving == {"foot": False, "glows": []}, driving
+
+
+def test_carsel_on_foot_hovering_keeps_the_preview_car_on_the_ground(server):
+    """#903: Z, F, climb, pause, change vehicle: the preview car stands at the parked pose on the ground, also after Drive on."""
+    pose = "() => window.__mm.carPose().pos"
+    with sync_playwright() as p:
+        b, page, errors = open_hand(p, server)
+        x, z = ROAD
+        page.evaluate(f"() => window.__mm.place({x}, {z}, 0)")
+        page.wait_for_function(f"() => Math.abs(window.__mm.foot().carMesh.x - {x}) < 0.01", timeout=60000)
+        press_z(page)
+        page.keyboard.press("f")
+        page.wait_for_timeout(200)
+        page.evaluate("() => window.__mm.footSim(2, ['Space'])")
+        up = foot(page)
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => window.__mm.pause().on", timeout=120000)
+        page.evaluate("() => document.querySelector('#pausevehicle').click()")
+        page.wait_for_function("() => window.__mm.carsel().open", timeout=120000)
+        page.wait_for_timeout(1000)
+        shown = page.evaluate(pose)
+        ground = page.evaluate(f"() => window.__mm.ground({shown[0]}, {shown[2]}, -Infinity)")
+        page.evaluate("() => document.querySelector('#csrace').click()")
+        page.wait_for_function("() => !window.__mm.carsel().open && !window.__mm.pause().on", timeout=120000)
+        after = page.evaluate(pose)
+        b.close()
+    car = up["car"]
+    assert up["hover"] is True and up["y"] - car["y"] > 5, up                  # really hovering high above the car
+    assert abs(shown[0] - car["x"]) < 0.01 and abs(shown[2] - car["z"]) < 0.01, (shown, car)
+    assert abs(shown[1] - car["y"]) < 0.01 and abs(shown[1] - ground) < 0.1, (shown, ground)
+    assert abs(after[1] - car["y"]) < 0.01 and abs(after[2] - car["z"]) < 0.01, (after, car)
+    assert errors == []
