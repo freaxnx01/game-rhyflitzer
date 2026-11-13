@@ -10,7 +10,7 @@ export const MSG_MAX = 4096;        // characters per JSON message on the reliab
 export const NAME_MAX = 24;         // characters of a player name
 export const CLASSES = ['A', 'B', 'C', 'D'];        // the power classes a host can set, plus 'all'
 export const MAX_PLAYERS = 4;
-const DENY_REASONS = ['class', 'full'];
+const DENY_REASONS = ['class', 'full', 'started'];
 
 // ---- binary pose record (#835) ----
 export const POSE_BYTES = 36;       // the record size: byteLength of a pose, asserted by the tests and read by part b

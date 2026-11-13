@@ -13,7 +13,7 @@
   "steering.js": ["test_wheels.py"],
   "pause.js": ["test_pause.py"],
   "carselect.js": ["test_carselect.py"],
-  "net*.js": ["test_multiplayer_lobby.py"],
+  "net*.js": ["test_multiplayer_lobby.py", "test_multiplayer_cruise.py"],
   "hatchback.js": ["test_hatchback.py", "test_carselect.py"],
   "gltfvehicle.js": ["test_hatchback.py", "test_carselect.py"],
   "assets/hatchback.*": ["test_hatchback.py", "test_credits.py"],
