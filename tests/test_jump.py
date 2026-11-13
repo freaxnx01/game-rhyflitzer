@@ -468,16 +468,16 @@ def test_sprungschanze_puts_the_ramp_right_ahead(server):
 
 @needs_world
 def test_sprungschanze_run_up_launches_the_car(server):
-    """#80 / #931: from the J run-up the car flies off the Sprungschanze. Measured as the jump itself (peak clearance,
-    flight length past the lip), not the clearance at one instant: that tied the test to the default car's acceleration
-    (#830 hatchback: peak 3.47 m, touchdown ~19 m past the lip at ~4.0 s)."""
+    """#80 / #931 / #969: from the J run-up the car flies off the Sprungschanze. Measured as the jump itself: apex above
+    the lip (#969: 0.06 m before the kick, ~2.0 m with it), peak clearance, touchdown past the lip (~34 m)."""
     with sync_playwright() as p:
         b, page = open_page(p, server)
         c = jump_via_dialog(page, "sprung")
         th = page.evaluate("() => window.__mm.heading()")
         r = ramp(page)
+        lip = page.evaluate(f"() => window.__mm.ground({r['x1']} - 0.01, {c['z']}, 1e4)")
         samples = page.evaluate(f"() => [...Array(121)].map((_, i) => window.__mm.sim({c['x']}, {c['z']}, {th}, 0, 2 + i / 30))"
-                                ".map(e => ({ x: e.x, z: e.z, clear: e.y - window.__mm.ground(e.x, e.z, -Infinity) }))")
+                                ".map(e => ({ x: e.x, y: e.y, z: e.z, clear: e.y - window.__mm.ground(e.x, e.z, -Infinity) }))")
         b.close()
     past = [s for s in samples if s["x"] > r["x1"]]
     assert past, "the car did not get over the ramp"
@@ -485,7 +485,9 @@ def test_sprungschanze_run_up_launches_the_car(server):
     assert r["z0"] < down["z"] < r["z1"], "the car left the ramp sideways"
     top = max(s["clear"] for s in samples)
     assert top > 2.5, f"the car rose only {top:.2f} m over the ground"
-    assert down["x"] - r["x1"] > 10, f"the car touched down {down['x'] - r['x1']:.1f} m past the lip: the ramp did not launch it"
+    apex = max(s["y"] for s in past) - lip
+    assert apex > 1.6, f"the apex is only {apex:.2f} m above the lip: the ramp did not throw the car up"
+    assert down["x"] - r["x1"] > 25, f"the car touched down {down['x'] - r['x1']:.1f} m past the lip: the ramp did not launch it"
 
 
 def test_hand_layout_still_draws_the_ramp(server):
