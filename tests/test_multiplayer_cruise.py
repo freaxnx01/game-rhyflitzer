@@ -109,6 +109,18 @@ def test_a_player_who_leaves_disappears_on_the_other_device(pair):
     assert errors == []
 
 
+def test_lobby_status_follows_language_switch(pair):
+    """#917: the lobby status line (the start hint) re-renders on an EN/DE switch while waiting in the lobby."""
+    host, guest, errors = pair
+    connect(host, guest)
+    ready_both(host, guest)
+    en = guest.locator("#mplobbystatus").inner_text()
+    guest.evaluate("() => window.ggSetLang(window.GG_LANG === 'en' ? 'de' : 'en')")
+    guest.wait_for_function("(old) => document.querySelector('#mplobbystatus').textContent !== old", arg=en, timeout=T)
+    assert guest.locator("#mplobbystatus").inner_text() != en
+    assert errors == []
+
+
 def test_remote_car_has_tag_and_fades_when_guest_leaves(pair):
     """Part c: a remote car carries a name tag, and a leaving player fades out over 1 s with a toast on the host."""
     host, guest, errors = pair
