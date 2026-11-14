@@ -1,7 +1,7 @@
 // #834: connection codes and lobby messages. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES } from '../netcodec.js';
+import { encodeCode, decodeCode, CODE_TTL, parseMessage, cleanName, encodePose, parsePose, POSE_BYTES, joinLinkFor, readJoinHash } from '../netcodec.js';
 
 const SDP = 'v=0\r\n' + 'a=candidate:1 1 udp 1 192.168.1.2 5000 typ host\r\n'.repeat(8);
 
@@ -25,8 +25,8 @@ test('decodeCode_wrongRoleVersionOrAge_namedError', async () => {
   const g = await encodeCode('G', SDP, null, 1000), h = await encodeCode('H', SDP, 'hochrhein', 1000);
   assert.equal((await decodeCode(g, 'H', 1000)).error, 'role'); assert.equal((await decodeCode(g, 'G', 1000)).ok, true);
   assert.equal((await decodeCode(h.replace(/^R1/, 'R2'), 'H', 1000)).error, 'version');
-  assert.equal(CODE_TTL, 300);
-  assert.equal((await decodeCode(h, 'H', 1301)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 939)).error, 'expired');
+  assert.equal(CODE_TTL, 600);
+  assert.equal((await decodeCode(h, 'H', 1601)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 939)).error, 'expired'); assert.equal((await decodeCode(h, 'H', 1600)).ok, true);
 });
 
 test('decodeCode_garbageOrHuge_formatOrSize', async () => {
@@ -85,4 +85,14 @@ test('parseMessage_pingPongStart_validated', () => {
   assert.deepEqual(parseMessage('{"type":"start","mode":"cruise"}', CTX), { type: 'start', mode: 'cruise' });
   for (const m of ['{"type":"ping","a":"1"}', '{"type":"pong","a":1}', '{"type":"pong","a":1,"b":null}', '{"type":"start","mode":"race"}', '{"type":"start"}'])
     assert.equal(parseMessage(m, CTX), null, m);
+});
+
+test('joinLinkFor_readJoinHash_roundTrip', () => {
+  const link = joinLinkFor('https://github.freaxnx01.ch', '/game-rhyflitzer/index.html', 'R1H.abc-_XYZ');
+  assert.equal(link, 'https://github.freaxnx01.ch/game-rhyflitzer/index.html#join=R1H.abc-_XYZ');
+  assert.equal(readJoinHash(new URL(link).hash), 'R1H.abc-_XYZ');
+});
+
+test('readJoinHash_noJoinOrEmpty_null', () => {
+  for (const h of ['', '#', '#join=', '#join=   ', '#other=R1H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
 });
