@@ -49,17 +49,22 @@ def frames(page, n=4):
     page.evaluate("(n) => new Promise(res => { const f = () => (n-- > 0 ? requestAnimationFrame(f) : res()); f(); })", n)
 
 
+# the last order of a shift ends it, and an ended shift reports through `last` instead of a running `idx`
+ADVANCED = "() => window.__mm.delivery().idx > {idx} || !!window.__mm.delivery().last"
+
+
 def deliver_current(page):
     """Park on the drop point and let the loop notice: the handover needs < 10 m and < 1.5 m/s."""
     idx = delivery(page)["idx"]
     page.evaluate("() => window.__mm.deliveryTeleportToDrop()")
-    page.wait_for_function(f"() => window.__mm.delivery().idx > {idx}", timeout=T)
+    page.wait_for_function(ADVANCED.format(idx=idx), timeout=T)
 
 
 def run_out_of_time(page):
     idx = delivery(page)["idx"]
     page.evaluate("() => window.__mm.deliveryTick(window.__mm.delivery().order.left + 1)")
-    assert delivery(page)["idx"] == idx + 1
+    d = delivery(page)
+    assert d["idx"] == idx + 1 or d["last"], d
 
 
 @needs_world
@@ -181,7 +186,7 @@ def test_the_shift_ends_with_a_result_and_saves_the_best(server):
         start_shift(page)
         for _ in range(5):
             deliver_current(page)
-        d = delivery(page)
+        last = delivery(page)["last"]
         result = page.text_content("#result")
         stored = page.evaluate("() => localStorage.getItem('mm.deliveryBest')")
         shown = page.is_visible("#overlay")
@@ -190,18 +195,18 @@ def test_the_shift_ends_with_a_result_and_saves_the_best(server):
         start_shift(page, SEED + 1)
         for _ in range(5):
             run_out_of_time(page)
-        weak = delivery(page)
+        weak = delivery(page)["last"]
         kept = page.evaluate("() => localStorage.getItem('mm.deliveryBest')")
         b.close()
     assert not errors, errors
-    assert d["phase"] == "over" and d["idx"] == 5 and d["score"] > 0, d
+    assert last and last["delivered"] == 5 and last["total"] == 5 and last["score"] > 0, last
     assert shown, "the result screen is the start screen's overlay"
     assert "Shift done" in result and "5 of 5 delivered" in result, result
-    assert str(d["score"]) in result, result
+    assert str(last["score"]) in result, result
     assert "New best!" in result, result
-    assert stored == str(d["score"]), (stored, d["score"])
+    assert stored == str(last["score"]), (stored, last["score"])
     assert another == "Another shift", another
-    assert weak["score"] == 0 and kept == stored, (weak["score"], kept, stored)
+    assert weak["score"] == 0 and weak["rec"] is False and kept == stored, (weak, kept, stored)
 
 
 @needs_world
@@ -212,7 +217,7 @@ def test_the_best_shift_survives_a_reload(server):
         deliver_current(page)
         for _ in range(4):
             run_out_of_time(page)
-        score = delivery(page)["score"]
+        score = delivery(page)["last"]["score"]
         page.reload()
         page.wait_for_function(start_ready(), timeout=240000)
         best = delivery(page)["best"]
