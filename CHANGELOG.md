@@ -40,6 +40,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-14 20:26` Starting a **surprise hunt** (or a viewpoint run) now shows its **"Find the presents"** message again: the **radio** display no longer covers it when the run begins.
 - `2026-11-13 11:42` **Fahrzeug wechseln zu Fuss**: bist Du ausgestiegen und geschwebt, schwebten die Autos in der Vorschau mit Dir in der Luft. Jetzt steht die Vorschau am geparkten Platz auf dem Boden, und das gewählte Auto wartet dort, bis Du wieder einsteigst.
 - `2026-11-13 13:38` **Change vehicle while flying** now shows your **car** on the turntable instead of the helicopter. You are still in the air afterwards, and the helicopter is back as soon as you drive on or go back.
 - `2026-11-13 12:12` Kein **Riesensprung** mehr, wenn man **vom Feld her** zur **Plattform Sisslerfeld** fährt: eine Strassenkante hebt das Auto jetzt nur noch auf die Strasse, statt es meterhoch in die Luft zu schleudern. Das gilt auch für andere Kanten, z. B. am Kreisel.

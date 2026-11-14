@@ -128,7 +128,7 @@ def test_keys_drive_the_radio_and_show_the_display(server):
         assert radio(page)["track"] == 0
         for _ in range(5):                              # Review Focus 1: rapid skips while loading never throw
             page.keyboard.press("8")
-        assert radio(page)["track"] == 1
+        assert radio(page)["track"] == 5                # 0 + 5 skips on six tracks (8d34c93 added the two soft-rock tracks; with four it wrapped to 1)
         vol = radio(page)["vol"]
         page.keyboard.press("0")
         assert radio(page)["vol"] == vol + 1
@@ -184,6 +184,10 @@ def test_pause_pauses_and_resumes_the_radio(server):
         page.wait_for_function("() => window.__mm.radio().held && !window.__mm.radio().playing.srf", timeout=T)
         page.keyboard.press("Escape")
         page.wait_for_function("() => !window.__mm.radio().held && window.__mm.radio().playing.srf", timeout=T)   # Review Focus 4: live again
+        for _ in range(100):                            # playing.srf is just !paused: the route handler runs a moment after play(), so wait for the reload request
+            if len(hits) >= 2:
+                break
+            page.wait_for_timeout(100)
         assert len(hits) >= 2, hits                     # the stream was reloaded on resume
         assert errors == [], errors
         b.close()
