@@ -842,11 +842,12 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <textarea id="mpin" rows="3" spellcheck="false" autocapitalize="off"></textarea>
       <button id="mpmake" class="btn primary" type="button" data-i18n="mpMakeAnswer"></button>
     </div>
-    <!-- our own code: copy it out, with the countdown of its five minutes -->
+    <!-- our own code: copy it out, with the countdown of its ten minutes -->
     <div id="mpoutbox" hidden>
       <div class="mp-label mp-split"><span id="mpoutlabel"></span><span id="mpclock"></span></div>
       <textarea id="mpcode" rows="3" readonly spellcheck="false"></textarea>
       <button id="mpcopy" class="btn" type="button" data-i18n="mpCopy">Copy</button>
+      <button id="mpcopylink" class="btn" type="button" data-i18n="mpCopyLink">Copy invite link</button>
     </div>
     <!-- the host pastes the guest's answer back -->
     <div id="mpanswerbox" hidden>
@@ -941,7 +942,7 @@ import { chLandmarksFor, roofOrWall, plateBuildings } from './chlandmarks.js';  
 import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regions.js';
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
-import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record
+import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from './netrace.js';
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
@@ -6137,7 +6138,7 @@ function netSay(text) { const p = $('mpstatus'); p.textContent = text; p.classLi
 function netWarn(text) { const p = $('mpstatus'); p.textContent = text; p.classList.add('bad'); }
 function netTrouble(text) { if ($('mplobby').hidden) netWarn(text); else toast(text, TOAST_S.event); }
 
-// ---- the code's five minutes, counted down next to it ----
+// ---- the code's ten minutes, counted down next to it ----
 function stopCodeClock() { if (NET.codeClock) clearInterval(NET.codeClock); NET.codeClock = null; NET.codeAt = 0; $('mpclock').textContent = ''; }
 function tickCodeClock() {
   const left = Math.max(0, CODE_TTL - (nowSec() - NET.codeAt));
@@ -6192,12 +6193,13 @@ async function netHostCode() {
   $('mpcode').value = text;
   $('mpoutlabel').textContent = tr('mpCodeLabel');
   $('mpoutbox').hidden = false; $('mpanswerbox').hidden = false; $('mpanswerin').value = '';
+  $('mpcopylink').hidden = false; $('mpcopylink').textContent = tr('mpCopyLink'); $('mpcopy').textContent = tr('mpCopy');
   startCodeClock(made); netSay('');
 }
 async function netHostAccept() {
   const code = await decodeCode($('mpanswerin').value.trim(), 'G', nowSec());
   if (!code.ok) { netWarn(tr(MP_ERR[code.error])); return; }
-  // the slot behind the shown code is given back once the code's five minutes are up, so there can be nothing left to
+  // the slot behind the shown code is given back once the code's ten minutes are up, so there can be nothing left to
   // accept the answer into: say the code is gone instead of waiting for a connection that cannot come
   const taken = await netLink().hostAccept(NET.slot, code.sdp);
   if (!taken) { netWarn(tr('mpCodeGone')); return; }
@@ -6220,7 +6222,7 @@ async function netGuestAnswer() {
   if (!text) { netWarn(tr('mpNoCodec')); return; }
   $('mpcode').value = text;
   $('mpoutlabel').textContent = tr('mpCodeLabel');
-  $('mpinbox').hidden = true; $('mpname').disabled = true; $('mpoutbox').hidden = false;
+  $('mpinbox').hidden = true; $('mpname').disabled = true; $('mpoutbox').hidden = false; $('mpcopylink').hidden = true;
   startCodeClock(made); netSay(tr('mpWaiting'));
 }
 // A1: the lobby's region is the one the host has loaded. Switching region reloads the page, so the code is parked in
@@ -6283,9 +6285,10 @@ function netGuestMessage(msg) {
   if (msg.type === 'bye') netHostGone();
 }
 function netPeerState(peerId, state) {
-  if (state === 'timeout') { netTrouble(tr('mpIceFail')); return; }
+  if (state === 'timeout') { netTrouble(tr(NET.role === 'G' ? 'mpAnswerUnused' : 'mpIceFail')); return; }
   if (state === 'open') { if (NET.role === 'G') NET.link.send(HOST_ID, { type: 'hello', name: NET.name }); return; }
   if (!['disconnected', 'failed', 'closed'].includes(state)) return;
+  if (NET.role === 'G' && state === 'failed' && !NET.lobby) { netTrouble(tr('mpIceFail')); return; }
   if (NET.role === 'G') netHostGone(); else if (NET.link) netHostDrop(peerId);
 }
 // there is no host migration in v1: a guest whose host is gone goes back to the start screen
@@ -6548,6 +6551,11 @@ $('mpcopy').onclick = () => {
   if (!navigator.clipboard) { netWarn(tr('copyFailed')); return; }
   navigator.clipboard.writeText($('mpcode').value).then(() => { $('mpcopy').textContent = tr('mpCopied'); }, () => netWarn(tr('copyFailed')));
 };
+$('mpcopylink').onclick = () => {
+  if (!navigator.clipboard) { netWarn(tr('copyFailed')); return; }
+  const link = joinLinkFor(location.origin, location.pathname, $('mpcode').value);
+  navigator.clipboard.writeText(link).then(() => { $('mpcopylink').textContent = tr('mpLinkCopied'); }, () => netWarn(tr('copyFailed')));
+};
 $('mpregion').onclick = () => { try { sessionStorage.setItem(MP_JOIN_KEY, NET.pending); } catch (e) { /* no session storage: the code has to be pasted again */ } location.search = regionSearch(location.search, $('mpregion').dataset.region); };
 $('mpclassbtns').onclick = (e) => { const b = e.target.closest('button[data-cls]'); if (!b || NET.role !== 'H') return; NET.lobby = setClass(NET.lobby, b.dataset.cls, VEHICLES); netHostBroadcast(); };
 $('mppick').onclick = openLobbyCarSel;
@@ -6561,6 +6569,12 @@ if (REGION.generated) $('mpbtn').hidden = true;
   let parked = null;
   try { parked = sessionStorage.getItem(MP_JOIN_KEY); sessionStorage.removeItem(MP_JOIN_KEY); } catch (e) { /* nothing parked */ }
   if (parked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = parked; $('mpmake').focus(); }
+}
+// #980: a `#join=<code>` link fills the guest screen; the fragment goes at once, nothing connects before the click
+{
+  const linked = readJoinHash(location.hash);
+  if (location.hash.startsWith('#join=')) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* harmless */ } }
+  if (linked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = linked; $('mpmake').focus(); }
 }
 window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset });
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
