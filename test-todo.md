@@ -2,6 +2,21 @@
 
 Manual playtests still owed. Tick an item once it has been played in the browser (live: https://github.freaxnx01.ch/game-rhyflitzer/), and note what was found.
 
+## Delivery mode (#107)
+
+**Delivery** on the start screen puts the car at one of three invented pizzerias and runs a shift of five orders.
+
+- [ ] Start a shift: the car stands on the road at a pizzeria, the toast names it, and the first order shows a real address in the HUD.
+- [ ] The address is plausible: the street fits the house (check three of them on the minimap against the house-number plates).
+- [ ] The Navi leads there and announces the arrival at 20 m; the pink marker stands at the road in front of the house and shows on the minimap.
+- [ ] Stopping inside the marker hands the pizza over and pays a tip; driving past it at speed does not.
+- [ ] The time feels right for a 600 m and for a 2 km order — tune `DELIV.refSpeed` / `DELIV.grace` in `delivery.js` if not.
+- [ ] A wall hit at speed costs about 40 % cargo, a tap under 3 m/s nothing; three hard hits ruin the order.
+- [ ] <kbd>J</kbd>, <kbd>F</kbd>, <kbd>O</kbd>, <kbd>I</kbd> and a double-click on the minimap are refused with „Not during a delivery"; <kbd>R</kbd> works and costs 15 s.
+- [ ] <kbd>Esc</kbd> freezes the countdown; Main menu asks before it throws the shift away; Restart starts a fresh shift.
+- [ ] After five orders the result screen shows the total and the delivered count; the best shift survives a reload, and „New best!" shows when it is beaten.
+- [ ] Start (race) still works and ends a running shift; the hand-traced layout (`?region=` without OSM data) shows a disabled **Delivery** button.
+
 ## Drive into the woods (#211)
 
 - [ ] Drive off-road into the Sisslerwald: no wall at the edge, the car rolls in between the trees and is clearly slower than on grass.

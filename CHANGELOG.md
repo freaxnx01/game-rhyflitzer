@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-14 21:28` Neu: **Ausliefern**. Auf dem Startbildschirm startet **Ausliefern** eine Schicht mit fünf Bestellungen. Ab der Pizzeria führt das Navi zu einer echten Hausadresse, die Zeit läuft, und wer rasant und sorgsam fährt, bekommt mehr **Trinkgeld**: Mit jedem Crash leidet die Pizza, bei 0 % ist sie hin. Der beste Wert wird gespeichert. Während einer Lieferung gehen <kbd>J</kbd>, <kbd>F</kbd> und <kbd>O</kbd> nicht, und <kbd>R</kbd> kostet 15 Sekunden.
 - `2026-11-12 15:35` **Gemeinsam losfahren**: sind in der Lobby alle bereit, schickt der Host alle mit einem Klick auf die Strasse. Ihr startet hintereinander am Start, und jeder sieht die **anderen Autos** in ihrer eigenen Farbe fahren — flüssig, auch über eine zappelige Verbindung. Wer das Spiel verlässt, verschwindet bei den anderen.
 - `2026-11-12 13:29` **Kamerafahrten** lassen sich jetzt **Bild für Bild** aufnehmen: `scripts/campath_video.py` spielt einen gespeicherten Pfad in exakten 1/60-s-Schritten ab und rendert daraus ein **ruckelfreies 60-fps-Video** — auch auf einem Rechner, der das Spiel selbst nur mit ein paar Bildern pro Sekunde schafft.
 - `2026-11-12 10:51` In der **Rally-Halle** hängt jetzt eine **Ehrentafel** für **Elfyn Evans**, **WRC-Weltmeister 2026** (mit **Scott Martin**): eine dunkle Tafel mit goldener Schrift an der Rückwand hinter dem roten Auto.

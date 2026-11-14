@@ -5942,7 +5942,7 @@ function dropSnap(x, z) { return snapToGraph(AUTOP.graph, x, z, DELIV.nameRadius
 // than the route, so the cheap test first keeps pickOrder from running 200 A* searches)
 function deliveryRouteLen(addr) {
   const straight = Math.hypot(addr.x - P.x, addr.z - P.z);
-  if (straight > DELIV.maxRoute || straight < DELIV.minRoute * 0.35) return null;
+  if (straight > DELIV.wideMax || straight < DELIV.wideMin * 0.35) return null;
   const s = dropSnap(addr.x, addr.z);
   if (!s) return null;
   const r = planGoals([s], P.x, P.z);
@@ -5991,22 +5991,27 @@ function finishShift() {
 function stepDelivery(dt) {
   if (!deliveryActive() || !DEL.st || !DEL.st.order || !$('overlay').hidden) return;
   const o = DEL.st.order, ev = delivTick(DEL.st, dt, Math.hypot(P.x - o.dx, P.z - o.dz), Math.hypot(P.vx, P.vz));
-  if (!ev) return;
-  if (ev === 'delivered') { const r = DEL.st.results[DEL.st.results.length - 1]; toastHtml(tr('delivHandOver', esc(r.label), r.tip), TOAST_S.event); SFX.checkpoint(); }
-  else toast(tr('delivLate'), TOAST_S.event);
-  afterOrder();
+  if (ev) afterOrder(ev);
 }
-function afterOrder() { if (DEL.mark) DEL.mark.visible = false; clearNavi(); if (DEL.st.phase === 'over') finishShift(); else nextOrder(); }
+// outcome = 'delivered' | 'late' | 'ruined'. The news of the order just closed is toasted LAST, after the next order
+// has started the Navi: both toast, and the finished order's line is the one the player wants to read.
+function afterOrder(outcome) {
+  const r = DEL.st.results[DEL.st.results.length - 1];
+  if (DEL.mark) DEL.mark.visible = false;
+  clearNavi();
+  if (DEL.st.phase === 'over') finishShift(); else nextOrder();
+  if (outcome === 'delivered') { toastHtml(tr('delivHandOver', esc(r.label), r.tip), TOAST_S.event); SFX.checkpoint(); return; }
+  toast(tr(outcome === 'ruined' ? 'delivRuined' : 'delivLate'), TOAST_S.event);
+}
 // every crash call site runs through crashHit, so the cargo is damaged wherever the car is hurt
 function deliveryImpact(strength) {
   if (!deliveryActive() || !DEL.st) return;
-  if (delivImpact(DEL.st, strength) !== 'ruined') return;
-  toast(tr('delivRuined'), TOAST_S.event); afterOrder();
+  if (delivImpact(DEL.st, strength) === 'ruined') afterOrder('ruined');
 }
 const DELIV_BLOCKED = new Set(['KeyJ', 'KeyF', 'KeyO', 'KeyI']);   // A7: the jump, the helicopter, the autopilot and the Navi key
 function deliveryBlocks(e) { if (!deliveryActive() || !DELIV_BLOCKED.has(e.code)) return false; e.preventDefault(); toast(tr('delivNoCheat')); return true; }
 // R is allowed (a car stuck at a wall would end the shift) but costs seconds; the delivery Navi keeps guiding
-function deliveryReset() { resetCar(); delivPenalty(DEL.st, DELIV.resetPenalty); }
+function deliveryReset() { resetCar(); if (DEL.st) delivPenalty(DEL.st, DELIV.resetPenalty); }
 function deliveryHud() {
   const o = DEL.st && DEL.st.order;
   if (!deliveryActive() || !o) { for (const id of ['delivline', 'delivtime', 'delivcargo']) $(id).textContent = ''; return; }
