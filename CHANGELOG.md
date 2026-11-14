@@ -20,6 +20,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-13 21:29` Die **Sprungschanze** wirft das Auto jetzt richtig in die Luft: rund **2 m über die Kante** hinaus, statt nur darüber abzukippen.
 - `2026-11-12 17:22` On the **Plattform deck** <kbd>E</kbd> now always goes **down**; the **Verein Plattform Sisslerfeld** line sits under that prompt and opens its **website** with <kbd>V</kbd> (or a click / tap).
 - `2026-11-12 16:24` **Nitro** is now **one key everywhere**: <kbd>N</kbd> in the car, on foot and in the helicopter. <kbd>Shift</kbd> no longer fires nitro in the car; it still means down on foot and sink in the helicopter, and the key bar, the tutorial and the help list all show N.
 - `2026-11-12 16:20` In the **tutorial** the **key bar** at the top is gone: the hint already names the keys of each step. Afterwards, and in every other mode, it works as before, and the **Key bar** switch in Settings keeps your choice. <kbd>F1</kbd> still lists all keys.

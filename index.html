@@ -1017,7 +1017,7 @@ import { TRACKS, MENU_TRACK, LIVE, nextStation, RADIO_STORE, RADIO_SHOW_S, radio
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
-import { stepSamples, isKerb, isEdge, launchVy } from './vehicle.js';   // #902
+import { stepSamples, isKerb, isEdge, launchVy, crossesLip, rampKick } from './vehicle.js';   // #902, #969
 import { HUNT, SURPRISES, presentCandidates, deckFootprints, pickPresentSpots, seededRng, nextSurprise, tickSurprises, gravityScale, nearestPresent, canCollect, isNewHuntBest, confettiBurst, stepConfetti } from './presents.js';
 import { UW, pierBase, bedDepth, submerged, underwaterCamY, bedSamples, shuffled, spreadSchools, makeSchool, schoolPose, surfaceLook } from './underwater.js';
 import { LAMP, lampState } from './lights.js';
@@ -5620,6 +5620,7 @@ function stepCar(dt) {
   P.x += P.vx * dt; P.z += P.vz * dt;
   // in the water: everything is relative to the surface (wl), which is 0 on the hand path and the chunk level (Rhine above the Säckingen weir ~5.5 m) on the OSM path
   const gh2 = groundH(P.x, P.z, P.y), wl = waterLevelAt(P.x, P.z, P.y);
+  if (RAMP && !air && crossesLip(RAMP, P.x - P.vx * dt, P.z - P.vz * dt, P.x, P.z)) P.vy = Math.max(P.vy, rampKick(P.vx));   // #969: the Sprungschanze throws the car up at its lip; `air` is the frame-start flag, so only a car driving on the ramp
   // toast(tr('fishes')): the Midtown Madness homage, in the game language (#9). #101: no reset -- the car sinks onto the bed (gh2, see groundH)
   // at UW.sink, braked by the water, and once down it lies on the bed and follows it down AND up (the shelf back to the shore)
   if (wl !== null) { if (P.splash === 0) { SFX.splash(); P.hinted = false; } const was = P.splash; P.splash += dt; P.vy = 0; if (P.y > gh2 + 0.15) { const k = Math.exp(-UW.drag * dt); P.vx *= k; P.vz *= k; P.y = Math.max(P.y - UW.sink * dt, gh2); } else P.y = gh2; if (was < 0.35 && P.splash >= 0.35) toast(tr('fishes'), TOAST_S.event); if (!P.hinted && P.splash >= UW.hintAt) { P.hinted = true; toast(tr('underwaterHint'), TOAST_S.event); } }
