@@ -4554,7 +4554,7 @@ const RADIO = (() => {
     setVolume(v) { S.vol = stepVolume(v, 0); save(RADIO_STORE.vol, S.vol); apply(); },   // #842: the Music slider, no toast
     tick() {
       const run = R.state !== 'ready';
-      if (run !== S.inRun) { S.inRun = run; apply(); if (run && S.on) radioShow(nowText()); }
+      if (run !== S.inRun) { S.inRun = run; apply(); if (run && S.on && !gameToastShown()) radioShow(nowText()); }   // the run-start display never covers a game message (hunt / view start toast); keys and failures still show it
       if (watch && !S.held && srfVerdict(watch, now()) === 'fail') fail();
     },
     armMenu() { if (S.menuArmed) return; S.menuArmed = true; apply(); },   // the first input after loading: only now is the menu track fetched
@@ -5740,6 +5740,7 @@ function showToast(secs) { $('toast').classList.add('show'); toastT = secs; }
 function toast(text, secs = TOAST_S.info) { $('toast').classList.remove('big', 'radio'); $('toast').textContent = text; showToast(secs); }
 function toastHtml(html, secs = TOAST_S.info) { $('toast').classList.remove('big', 'radio'); $('toast').innerHTML = html; showToast(secs); }
 function toastBig(text, secs = TOAST_S.surprise) { $('toast').classList.remove('radio'); $('toast').textContent = text; $('toast').classList.add('big'); showToast(secs); }   // #660: the viewpoint arrival, readable from the deck
+function gameToastShown() { const t = $('toast'); return t.classList.contains('show') && !t.classList.contains('radio'); }   // a toast that is not the radio's own display is up
 function radioShow(text) { $('toast').classList.remove('big'); $('toast').classList.add('radio'); $('toast').textContent = text; showToast(RADIO_SHOW_S); }   // #735: no HUD widget of its own; any later toast replaces it
 window.__mm.toast = () => ({ text: $('toast').textContent, shown: $('toast').classList.contains('show'), left: toastT });
 function fadeToast(dt) { if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('show'); } }   // also while paused (review of #90)
