@@ -136,7 +136,7 @@ def test_panel_shows_car_size_and_hand_layout_map(server):
         lines = panel_lines(page)
         size = page.evaluate("() => window.__mm.carSize()")
         text = page.evaluate("() => window.__mm.debug().copy")
-        page.evaluate("() => { const c = window.__mm.vehicles().compact; c.scale = 1.5; window.__mm.setVehicle(c); }")
+        page.evaluate("() => { const c = window.__mm.vehicles()[window.__mm.carsel().id]; c.scale = 1.5; window.__mm.setVehicle(c); }")   # #830: the start car is no longer the compact
         page.wait_for_function("() => window.__mm.debug().lines.some(l => l.startsWith('size ') && parseFloat(l.slice(5)) > 6)", timeout=60000)
         scaled = next(l for l in page.evaluate("() => window.__mm.debug().lines") if l.startswith("size "))
         br.close()
