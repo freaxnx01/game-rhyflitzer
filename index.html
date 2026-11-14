@@ -6001,7 +6001,8 @@ function afterOrder(outcome) {
   clearNavi();
   if (DEL.st.phase === 'over') finishShift(); else nextOrder();
   if (outcome === 'delivered') { toastHtml(tr('delivHandOver', esc(r.label), r.tip), TOAST_S.event); SFX.checkpoint(); return; }
-  toast(tr(outcome === 'ruined' ? 'delivRuined' : 'delivLate'), TOAST_S.event);
+  if (outcome === 'ruined') { toast(tr('delivRuined'), TOAST_S.event); return; }
+  toast(tr('delivLate'), TOAST_S.event);
 }
 // every crash call site runs through crashHit, so the cargo is damaged wherever the car is hurt
 function deliveryImpact(strength) {
