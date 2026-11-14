@@ -15,14 +15,14 @@ export function pauseButtonsFor(mode) {
   return mode === 'cruise' ? PAUSE_BUTTONS.filter(id => id !== 'pauserestart') : PAUSE_BUTTONS;
 }
 
-// a pause only makes sense during a run: start / result screen hidden, race armed or running
+// a pause only makes sense during a run: start / result screen hidden, race armed or running, or a delivery shift (#107)
 export function canPause(overlayHidden, raceState) {
-  return overlayHidden && (raceState === 'armed' || raceState === 'racing');
+  return overlayHidden && (raceState === 'armed' || raceState === 'racing' || raceState === 'delivery');
 }
 
-// Main menu asks first only while the race clock runs; 'armed' has nothing to lose (A3)
+// Main menu asks first only while something is at stake: the race clock (A3), or a shift's orders and tip (#107)
 export function needsAbandonConfirm(raceState) {
-  return raceState === 'racing';
+  return raceState === 'racing' || raceState === 'delivery';
 }
 
 const TOGGLE = new Set(['Escape', 'KeyP']);

@@ -16,6 +16,11 @@ test('canPause: only with the start / result screen hidden and the race armed or
   assert.equal(canPause(false, 'racing'), false);
 });
 
+test('canPause: a delivery shift pauses like a run (#107)', () => {
+  assert.equal(canPause(true, 'delivery'), true);
+  assert.equal(canPause(false, 'delivery'), false);
+});
+
 test('Esc and P pause a run; other keys pass to the game', () => {
   assert.equal(pauseKeyAction(key('Escape'), RUN), 'pause');
   assert.equal(pauseKeyAction(key('KeyP'), RUN), 'pause');
@@ -72,6 +77,10 @@ test('the abandon question only while the race clock runs (A3)', () => {
   assert.equal(needsAbandonConfirm('armed'), false);
   assert.equal(needsAbandonConfirm('ready'), false);
   assert.equal(needsAbandonConfirm('finished'), false);
+});
+
+test('the abandon question during a delivery shift too: orders and the tip are lost (#107)', () => {
+  assert.equal(needsAbandonConfirm('delivery'), true);
 });
 
 test('in the abandon question: Esc cancels, P is ignored, arrows and Tab move the focus, F3 stays', () => {
