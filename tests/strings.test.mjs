@@ -307,3 +307,21 @@ test('the settings dialog has its texts in both languages (#842)', () => {
   assert.equal(translate('en', 'keyMute'), 'sound off · on (effects)');
   assert.equal(translate('de', 'keyMute'), 'Ton aus · an (Effekte)');
 });
+
+test('the delivery mode names the order, the tip and the refusals in both languages (#107)', () => {
+  for (const lang of ['en', 'de']) {
+    assert.match(translate(lang, 'startDelivery'), /Delivery|Ausliefern/);
+    assert.match(translate(lang, 'delivOrder', 2, 5, 'Hauptstrasse 7'), /2.*5.*Hauptstrasse 7/);
+    assert.match(translate(lang, 'delivCargo', 60), /60/);
+    assert.match(translate(lang, 'delivScore', 210), /210/);
+    assert.match(translate(lang, 'delivPickup', 'Pizza Fridolin'), /Pizza Fridolin/);
+    assert.match(translate(lang, 'delivHandOver', 'Hauptstrasse 7', 210), /Hauptstrasse 7.*210/);
+    assert.match(translate(lang, 'delivResult', 4, 5), /4.*5/);
+    assert.match(translate(lang, 'modeDelivery', 'Hochrhein'), /Hochrhein/);
+    assert.match(translate(lang, 'delivBest', 340), /340/);
+    assert.match(translate(lang, 'delivBest', null), /—/);
+    for (const k of ['deliveryNeedsWorld', 'keyDelivery', 'delivLate', 'delivRuined', 'delivNoCheat', 'delivNoOrder', 'delivShiftDone', 'delivNewBest', 'delivAnother']) {
+      assert.ok(translate(lang, k) && translate(lang, k) !== k, `${lang} ${k}`);
+    }
+  }
+});
