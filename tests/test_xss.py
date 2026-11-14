@@ -15,6 +15,8 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import sync_playwright
 
+from conftest import start_ready
+
 WORLD = Path(__file__).parents[1] / "data" / "world_hochrhein.json"
 LANDMARKS = Path(__file__).parents[1] / "landmarks.js"
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
@@ -70,7 +72,7 @@ def open_page(p, server, world=None, landmarks=False, viewport=None):
         text = poisoned_landmarks()
         page.route(LANDMARKS_ROUTE, lambda r: r.fulfill(status=200, content_type="text/javascript", body=text))
     page.goto(f"{server}/index.html")
-    page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent && (() => { const id = window.__mm.carsel?.().id, d = id && window.__mm.vehicles?.()[id]; return !!d && (!d.gltf || ['ready', 'failed'].includes(window.__mm.gltfVehicle(d.gltf.id).state)); })()", timeout=240000)
+    page.wait_for_function(start_ready(), timeout=240000)
     return b, page, errs
 
 

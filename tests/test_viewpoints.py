@@ -2,8 +2,10 @@
 Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
+from conftest import start_ready
+
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
-READY = "() => window.__mm && window.__mm.views && document.querySelector('#worldstatus')?.textContent && (() => { const id = window.__mm.carsel?.().id, d = id && window.__mm.vehicles?.()[id]; return !!d && (!d.gltf || ['ready', 'failed'].includes(window.__mm.gltfVehicle(d.gltf.id).state)); })()"
+READY = start_ready("views")
 T = 240000
 AIMED = """(id) => { const v = window.__mm.views(), s = v.spots.find(q => q.id === id), p = v.pose;
   const want = Math.atan2(s.sz - p.z, s.sx - p.x), have = Math.atan2(p.dz, p.dx);
