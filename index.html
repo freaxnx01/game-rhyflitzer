@@ -6571,11 +6571,14 @@ if (REGION.generated) $('mpbtn').hidden = true;
   if (parked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = parked; $('mpmake').focus(); }
 }
 // #980: a `#join=<code>` link fills the guest screen; the fragment goes at once, nothing connects before the click
-{
+// also on hashchange: a link pasted into a tab that already runs the game only changes the fragment, it does not reload
+function openJoinLink() {
   const linked = readJoinHash(location.hash);
   if (location.hash.startsWith('#join=')) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* harmless */ } }
-  if (linked && !REGION.generated) { openMp(); netGuestRole(); $('mpin').value = linked; $('mpmake').focus(); }
+  if (linked && !REGION.generated && !NET.role) { openMp(); netGuestRole(); $('mpin').value = linked; $('mpmake').focus(); }
 }
+openJoinLink();
+window.addEventListener('hashchange', openJoinLink);
 window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset });
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
 window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp }));   // #835: read-only, for the test

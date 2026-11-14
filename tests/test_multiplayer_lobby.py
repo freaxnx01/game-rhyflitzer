@@ -156,12 +156,13 @@ def test_join_link_prefills_the_guest_and_waits_for_the_click(pair, server):
     host.click("#mpbtn"); host.fill("#mpname", "Anna"); host.click("#mphostbtn")
     host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1H.')", timeout=T)
     code = host.input_value("#mpcode")
-    host.evaluate("() => { navigator.clipboard.writeText = (t) => { window.__link = t; return Promise.resolve(); }; }")
+    # a stub, not the real clipboard: a page served from a LAN address is no secure context, so navigator.clipboard is missing there
+    host.evaluate("() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (t) => { window.__link = t; return Promise.resolve(); } } })")
     host.click("#mpcopylink")
     assert host.evaluate("() => window.__link").endswith("#join=" + code)
     guest.goto(f"{server}/index.html?netice=none#join={code}")
     guest.wait_for_function(READY, timeout=240000)
     assert guest.input_value("#mpin") == code and "#" not in guest.url and net(guest)["peers"] == []
-    guest.click("#mpmake")
+    guest.fill("#mpname", "Ben"); guest.click("#mpmake")
     guest.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1G.')", timeout=T)
     assert not errors
