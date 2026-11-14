@@ -486,7 +486,9 @@ def test_hud_bundle(server):
         page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 0, 0.02, [])")                  # heading +x = east
         page.wait_for_timeout(400); east = hud()["compass"]
         page.evaluate(f"() => window.__mm.sim({x}, {z}, 0, 20, 3, [])")
-        trip = hud()["trip"]; page.keyboard.press("KeyK"); trip_reset = hud()["trip"]; total = hud()["total"]
+        trip = hud()["trip"]
+        # K and the read happen in one task: the car still coasts at 20 m/s, so a frame between the press and the read would already add distance back (#976)
+        trip_reset = page.evaluate("() => { window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' })); return window.__mm.hud().trip; }"); total = hud()["total"]
         # the shadow follows the toggle in stepCar, i.e. one frame later - and a headless tab only renders while a raf-polled wait drives it, so count frames instead of waiting on the clock
         page.evaluate("() => { window.__frames = 0; const tick = () => { window.__frames++; requestAnimationFrame(tick); }; requestAnimationFrame(tick); }")
         wait_frames = lambda: page.wait_for_function("f0 => window.__frames > f0 + 2", arg=page.evaluate("() => window.__frames"), timeout=60000)
