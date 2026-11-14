@@ -10,7 +10,7 @@ numbers are from `e3d35fd`; grep, don't trust them. Commit and push before the b
 (`beb07da`) file for file.
 
 **Precondition:** the unmodified download is in the repo at `assets/src/free_monster_truck_model.glb` with
-`assets/src/free_monster_truck_model.LICENSE.md` (the maintainer commits it, as for #831). If it is missing, stop
+`assets/src/free_monster_truck_model.LICENSE.md` (committed 2026-11-14, as for #831). If it is missing, stop
 and say so — do not try to download it.
 
 ---
