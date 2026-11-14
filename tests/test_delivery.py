@@ -180,6 +180,26 @@ def test_the_cheat_keys_are_refused_and_reset_costs_time(server):
 
 
 @needs_world
+def test_teleports_are_refused_during_a_shift(server):
+    """Every teleport (the minimap jump, a double-tap and the landscape beam) runs through placeOnRoad."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        start_shift(page)
+        before = page.evaluate("() => { const c = window.__mm.car(); return [c.x, c.z]; }")
+        page.evaluate("() => { const m = document.getElementById('map'), r = m.getBoundingClientRect();"
+                      " for (let i = 0; i < 2; i++) m.dispatchEvent(new MouseEvent('dblclick', { clientX: r.left + 8, clientY: r.top + 8, bubbles: true })); }")
+        frames(page)
+        toast = page.text_content("#toast")
+        after = page.evaluate("() => { const c = window.__mm.car(); return [c.x, c.z]; }")
+        d = delivery(page)
+        b.close()
+    assert not errors, errors
+    assert toast == "Not during a delivery", toast
+    assert abs(after[0] - before[0]) < 30 and abs(after[1] - before[1]) < 30, (before, after)
+    assert d["order"], "the order survives the refused jump"
+
+
+@needs_world
 def test_the_shift_ends_with_a_result_and_saves_the_best(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server)
