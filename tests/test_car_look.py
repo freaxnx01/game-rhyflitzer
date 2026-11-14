@@ -15,7 +15,7 @@ def test_car_materials_are_pbr_with_env_map(server):
         m = page.evaluate(MATS_JS)
         b.close()
     assert m["body"]["type"] == "MeshPhysicalMaterial" and m["body"]["clearcoat"] == 1 and m["body"]["hasEnv"], m["body"]
-    assert m["body"]["color"] == "#1b2d5e", m["body"]
+    assert m["body"]["color"] == "#e0322d", m["body"]   # #830: the hatchback (default paint swiss) swaps in first and its paint stays on the shared body material when the compact is pinned
     assert m["glass"]["hasEnv"] and m["glass"]["roughness"] <= 0.1, m["glass"]
     assert m["rim"]["metalness"] == 1 and m["rim"]["hasEnv"], m["rim"]
     assert m["steel"]["metalness"] >= 0.8 and m["steel"]["hasEnv"], m["steel"]
