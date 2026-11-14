@@ -25,7 +25,7 @@ def open_page(p, server, block_world=False, query="", **page_opts):
     if block_world:
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html{query}")
-    page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent && (() => { const id = window.__mm.carsel?.().id, d = id && window.__mm.vehicles?.()[id]; return !!d && (!d.gltf || ['ready', 'failed'].includes(window.__mm.gltfVehicle(d.gltf.id).state)); })()", timeout=240000)
     return b, page
 
 
@@ -423,7 +423,7 @@ def test_debug_panel_jumps_to_any_hideout_room(server):
     with sync_playwright() as p:
         br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 960, "height": 540})   # not open_page: the hideout needs the real terrain, which open_page blocks
         page.goto(f"{server}/index.html?debug")
-        page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent && (() => { const id = window.__mm.carsel?.().id, d = id && window.__mm.vehicles?.()[id]; return !!d && (!d.gltf || ['ready', 'failed'].includes(window.__mm.gltfVehicle(d.gltf.id).state)); })()", timeout=240000)
         page.click("#startbtn", timeout=180000)
         page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
         page.evaluate("() => { window.__copied = null; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.__copied = t; return Promise.resolve(); } } }); }")   # served over plain http off localhost, navigator.clipboard is missing

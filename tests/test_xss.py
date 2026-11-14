@@ -70,7 +70,7 @@ def open_page(p, server, world=None, landmarks=False, viewport=None):
         text = poisoned_landmarks()
         page.route(LANDMARKS_ROUTE, lambda r: r.fulfill(status=200, content_type="text/javascript", body=text))
     page.goto(f"{server}/index.html")
-    page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    page.wait_for_function("() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent && (() => { const id = window.__mm.carsel?.().id, d = id && window.__mm.vehicles?.()[id]; return !!d && (!d.gltf || ['ready', 'failed'].includes(window.__mm.gltfVehicle(d.gltf.id).state)); })()", timeout=240000)
     return b, page, errs
 
 

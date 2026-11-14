@@ -2,7 +2,7 @@
 from playwright.sync_api import sync_playwright
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
-READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
+READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent && (() => { const id = window.__mm.carsel?.().id, d = id && window.__mm.vehicles?.()[id]; return !!d && (!d.gltf || ['ready', 'failed'].includes(window.__mm.gltfVehicle(d.gltf.id).state)); })()"
 T = 240000
 SHOWN = "(s) => getComputedStyle(document.querySelector(s)).display !== 'none'"
 
