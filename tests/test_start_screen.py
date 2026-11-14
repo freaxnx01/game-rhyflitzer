@@ -2,8 +2,10 @@
 Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
+from conftest import start_ready
+
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
-READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
+READY = start_ready()
 T = 240000
 BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "carbtn", "mpbtn"]
 SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn", "settingsbtn", "musicbtn"]   # #735 Music, #842 Settings between About and Music

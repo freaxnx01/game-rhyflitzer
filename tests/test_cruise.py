@@ -1,8 +1,10 @@
 """#551: cruise -- the default mode, no clock, no checkpoints. Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
+from conftest import start_ready
+
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
-READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
+READY = start_ready()
 T = 240000
 SHOWN = "(s) => getComputedStyle(document.querySelector(s)).display !== 'none'"
 

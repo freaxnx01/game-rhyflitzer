@@ -3,9 +3,11 @@ without any game key firing. Hand-traced layout (world + terrain blocked): no da
 Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
+from conftest import start_ready
+
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"]
-READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
+READY = start_ready()
 T = 120000
 
 
