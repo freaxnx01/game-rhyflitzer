@@ -149,3 +149,19 @@ def test_garbage_on_the_channel_is_counted_and_a_lost_host_sends_the_guest_home(
     assert guest.evaluate("() => document.querySelector('#overlay').hidden") is False
     assert net(guest)["role"] is None and net(guest)["lobby"] is None
     assert errors == []
+
+
+def test_join_link_prefills_the_guest_and_waits_for_the_click(pair, server):
+    host, guest, errors = pair
+    host.click("#mpbtn"); host.fill("#mpname", "Anna"); host.click("#mphostbtn")
+    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1H.')", timeout=T)
+    code = host.input_value("#mpcode")
+    host.evaluate("() => { navigator.clipboard.writeText = (t) => { window.__link = t; return Promise.resolve(); }; }")
+    host.click("#mpcopylink")
+    assert host.evaluate("() => window.__link").endswith("#join=" + code)
+    guest.goto(f"{server}/index.html?netice=none#join={code}")
+    guest.wait_for_function(READY, timeout=240000)
+    assert guest.input_value("#mpin") == code and "#" not in guest.url and net(guest)["peers"] == []
+    guest.click("#mpmake")
+    guest.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1G.')", timeout=T)
+    assert not errors

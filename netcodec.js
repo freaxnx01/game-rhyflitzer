@@ -3,7 +3,7 @@
 // Nothing here ever throws and nothing is ever eval'd: a bad code or a bad message comes back as a named error or null.
 
 export const CODE_VERSION = 1;      // the R<version> prefix: a code from another game version is refused, not misread
-export const CODE_TTL = 300;        // seconds a code stays valid (5 minutes, shown as a countdown)
+export const CODE_TTL = 600;        // seconds a code stays valid (10 minutes, shown as a countdown)
 export const CODE_SKEW = 60;        // seconds a code may lie in the future before it reads as expired (clock skew between devices)
 export const CODE_MAX = 16000;      // characters: a longer code is refused unread
 export const MSG_MAX = 4096;        // characters per JSON message on the reliable channel
@@ -221,4 +221,15 @@ export function parseMessage(raw, ctx) {
   if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return null;
   const validate = Object.prototype.hasOwnProperty.call(VALIDATORS, msg.type) ? VALIDATORS[msg.type] : null;
   return validate ? validate(msg, ctx) : null;
+}
+
+// ---- the invite link (#980) ----
+const JOIN_PREFIX = '#join=';
+export function joinLinkFor(origin, pathname, code) { return `${origin}${pathname}${JOIN_PREFIX}${encodeURIComponent(code)}`; }
+// readJoinHash(hash) — the code a `#join=` fragment carries, or null; decodeCode judges the code itself
+export function readJoinHash(hash) {
+  if (typeof hash !== 'string' || !hash.startsWith(JOIN_PREFIX)) return null;
+  let code = hash.slice(JOIN_PREFIX.length);
+  try { code = decodeURIComponent(code); } catch (e) { /* a broken escape: hand the raw text on */ }
+  return code.trim() || null;
 }
