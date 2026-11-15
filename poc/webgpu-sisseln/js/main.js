@@ -3,9 +3,9 @@
 import * as THREE from 'three/webgpu';
 import { pass, mrt, output, normalView, positionView, metalness, roughness, vec2, smoothstep } from 'three/tsl';
 import { ssr } from 'three/addons/tsl/display/SSRNode.js';
+import { ClusteredLighting } from 'three/addons/lighting/ClusteredLighting.js';
 import { parseMmh } from '../../../worlds.js';
 import { SLICE, MARGIN, expandBox, sliceWorld } from './sisseln-slice.js';
-import { heightAt } from './sisseln-geom.js';
 import { LightingSystem, TIME_PRESETS } from './lighting.js';
 import { createPostProcessing } from './post-processing.js';
 import { cityUniforms } from './sisseln-materials.js';
@@ -14,6 +14,7 @@ import { buildRoads } from './sisseln-roads.js';
 import { buildBuildings } from './sisseln-buildings.js';
 import { buildTrees } from './sisseln-trees.js';
 import { buildLandmarks } from './sisseln-landmarks.js';
+import { createCar, createDriveInput } from './sisseln-car.js';
 import { hasWebGPU, wantsForcedWebGL } from './poc-gate.js';
 import { nextTimePreset, roadWetness, isLookKey } from './poc-look.js';
 import { isNightPreset } from './poc-car.js';
@@ -49,6 +50,8 @@ function createRenderer(container) {
   renderer.setPixelRatio(1.0);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
+  // The street lamps and the car's headlights are many small unshadowed lights: clustered lighting keeps them cheap.
+  renderer.lighting = new ClusteredLighting(256, 32, 28, 48);
   container.appendChild(renderer.domElement);
   return renderer;
 }
@@ -136,11 +139,14 @@ async function initApp() {
   await breathe();
   buildLandmarks(scene, slice, terrain);
 
+  setStatus('Auto …');
+  await breathe();
+  const car = createCar(scene, slice, terrain);
+  const carLoaded = await car.load();
+  const input = createDriveInput();
+
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.3, 6000);
-  const plattform = slice.landmarks.plattform || { x: 0, z: 0 };
-  const ground = heightAt(terrain, plattform.x, plattform.z);
-  camera.position.set(plattform.x - 90, ground + 55, plattform.z + 120);
-  camera.lookAt(plattform.x, ground + 8, plattform.z);
+  car.applyCamera(camera, 1);
 
   setStatus('Spiegelungen und Bloom …');
   await breathe();
@@ -150,23 +156,32 @@ async function initApp() {
   const elTime = document.getElementById('hud-time');
   const elWet = document.getElementById('hud-wet');
   const elFps = document.getElementById('hud-fps');
+  const elSpeed = document.getElementById('hud-speed');
+  const elCamera = document.getElementById('hud-camera');
 
   function applyLook() {
+    const night = isNightPreset(look.time);
     lighting.applyPreset(look.time);
     colorGrade.applyPreset(look.time);
     cityUniforms.uRoadWetness.value = roadWetness(TIME_PRESETS[look.time].roadWetness, look.wet);
-    roads.setNight(isNightPreset(look.time));
+    roads.setNight(night);
+    car.setNight(night);
     if (elTime) elTime.textContent = TIME_LABELS[look.time];
     if (elWet) elWet.textContent = look.wet ? 'nass' : 'trocken';
   }
   applyLook();
+  if (elCamera) elCamera.textContent = car.cameraLabel;
 
   window.addEventListener('keydown', (event) => {
     const key = isLookKey(event);
     if (key === 'time') look.time = nextTimePreset(look.time);
     else if (key === 'wet') look.wet = !look.wet;
-    else if (event.code === 'KeyH' && !event.repeat) document.body.classList.toggle('clean-view');
-    else return;
+    else if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+    else if (event.code === 'KeyH') return document.body.classList.toggle('clean-view');
+    else if (event.code === 'KeyV') {
+      if (elCamera) elCamera.textContent = car.cycleCamera();
+      return;
+    } else return;
     applyLook();
   });
 
@@ -186,7 +201,11 @@ async function initApp() {
       buildings: buildings.count,
       roads: slice.roads.length,
       lamps: roads.lampCount,
-      trees: trees.count
+      trees: trees.count,
+      car: carLoaded ? 'bulldog' : 'none',
+      camera: car.cameraLabel,
+      position: { x: car.root.position.x, y: car.root.position.y, z: car.root.position.z },
+      speed: car.speed
     })
   };
 
@@ -200,10 +219,13 @@ async function initApp() {
   renderer.setAnimationLoop((now) => {
     const rawDt = (now - lastTime) * 0.001;
     lastTime = now;
-    elapsed += Math.min(Math.max(rawDt, 0.001), 0.05);
+    const dt = Math.min(Math.max(rawDt, 0.001), 0.05);
+    elapsed += dt;
 
-    roads.update(elapsed, camera.position);
-    lighting.update(camera.position);
+    car.update(dt, input);
+    car.applyCamera(camera, dt);
+    roads.update(elapsed, car.root.position);
+    lighting.update(car.root.position);
     renderPipeline.render();
 
     if (!warmedUp) {
@@ -216,6 +238,7 @@ async function initApp() {
     fpsTimer += Math.max(0, rawDt);
     if (fpsTimer >= 0.25) {
       if (elFps) elFps.textContent = String(Math.round(frames / fpsTimer));
+      if (elSpeed) elSpeed.textContent = String(Math.round(Math.abs(car.speed) * 3.6));
       frames = 0;
       fpsTimer = 0;
     }
