@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-15 20:28` Mehr **Pressebilder**: die Plattform Sisslerfeld aus der Nähe, ein **Luftbild der Felder** im Sisslerfeld und ein **Mähdrescher** auf dem Acker; die Spielszenen zeigen modernere Autos.
 - `2026-11-15 15:09` **Pressematerial** unter **rhyflitzer.ch/presse**: Bilder der Plattform Sisslerfeld und weitere Spielszenen in Druckqualität zum Herunterladen, die YouTube-Playlist und die wichtigsten Angaben zum Spiel.
 - `2026-11-15 09:54` Im Mehrspieler ist schon ein **lustiger Name** eingetragen; wer einen eigenen tippt, behält ihn.
 - `2026-11-14 21:28` Neu: **Ausliefern**. Auf dem Startbildschirm startet **Ausliefern** eine Schicht mit fünf Bestellungen. Ab der Pizzeria führt das Navi zu einer echten Hausadresse, die Zeit läuft, und wer rasant und sorgsam fährt, bekommt mehr **Trinkgeld**: Mit jedem Crash leidet die Pizza, bei 0 % ist sie hin. Der beste Wert wird gespeichert. Während einer Lieferung gehen <kbd>J</kbd>, <kbd>F</kbd> und <kbd>O</kbd> nicht, und <kbd>R</kbd> kostet 15 Sekunden.
