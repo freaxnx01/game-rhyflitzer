@@ -1,7 +1,7 @@
 // #834: the lobby state of the multiplayer race. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace } from '../netrace.js';
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint } from '../netrace.js';
 
 const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
 
@@ -95,3 +95,19 @@ test('tickRace_dnfSixtySecondsAfterFirstFinish', () => {
   r = tickRace(r, 61000);
   assert.deepEqual([r.racers[1].st, r.over], ['dnf', true]);
 });
+
+test('standings_order_ties_gaps', () => {
+  const rows = [
+    { id: 0, name: 'A', times: [1000], st: 'run' },
+    { id: 1, name: 'B', times: [900, 2000], st: 'run' },
+    { id: 2, name: 'C', times: [800, 1900, 5000], st: 'fin' },
+    { id: 3, name: 'D', times: [1000], st: 'run' },
+  ];
+  const s = standings(rows);
+  assert.deepEqual(s.map((r) => r.id), [2, 1, 0, 3]);              // fin, more passes, tie → lower id
+  assert.deepEqual(s.map((r) => r.pos), [1, 2, 3, 4]);
+  assert.deepEqual(s.map((r) => r.gap), [-100, 100, 100, 0]);      // B 2000 vs C 1900; A 1000 vs B 900; D vs A
+  assert.equal(standings([{ id: 0, name: 'A', times: [], st: 'run' }])[0].gap, null);
+  assert.deepEqual(standings([{ id: 0, name: 'A', times: [], st: 'dnf' }, { id: 1, name: 'B', times: [], st: 'run' }]).map((r) => r.id), [1, 0]);
+});
+test('boardRows_dropsMask', () => assert.deepEqual(boardRows(createRace(lobby2, 1))[0], { id: 0, name: 'A', times: [], st: 'run' }));

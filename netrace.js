@@ -124,3 +124,25 @@ export function tickRace(race, now) {
 
 // nearPoint(poses, pt) — the host found a buffered pose (last second) within radius + slack of the point (x/z only).
 export function nearPoint(poses, pt) { return poses.some((q) => Math.hypot(q.x - pt.x, q.z - pt.z) <= RACE.radius + RACE.slack); }
+
+// standings(rows) — the pure ranking every device applies to the same board rows, so the order is identical
+// everywhere: 1) finished by finish time, 2) running by more passes then earlier last pass, 3) DNF by more
+// passes. A tie goes to the lower id. Each row gains pos (1-based) and gap; the leader shows -second's gap.
+const GROUP = { fin: 0, run: 1, dnf: 2 };
+const last = (r) => r.times[r.times.length - 1] ?? Infinity;
+function compare(a, b) {
+  if (GROUP[a.st] !== GROUP[b.st]) return GROUP[a.st] - GROUP[b.st];
+  if (a.st !== 'fin' && a.times.length !== b.times.length) return b.times.length - a.times.length;
+  if (a.st !== 'dnf' && last(a) !== last(b)) return last(a) - last(b);
+  return a.id - b.id;
+}
+const gapTo = (r, ahead) => (r.times.length && ahead.times.length >= r.times.length ? last(r) - ahead.times[r.times.length - 1] : null);
+export function standings(rows) {
+  const s = [...rows].sort(compare).map((r, k) => ({ ...r, pos: k + 1, gap: null }));
+  for (let k = 1; k < s.length; k++) s[k].gap = gapTo(s[k], s[k - 1]);
+  if (s.length > 1 && s[1].gap !== null) s[0].gap = -s[1].gap;
+  return s;
+}
+
+// boardRows(race) — the rows of a `board` message: id, name, times, st (mask is host-internal and dropped).
+export function boardRows(race) { return race.racers.map(({ id, name, times, st }) => ({ id, name, times, st })); }
