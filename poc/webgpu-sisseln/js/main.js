@@ -99,8 +99,9 @@ async function initApp() {
   const { world, terrain } = await loadWorld(setStatus);
   setStatus('Sisseln wird ausgeschnitten …');
   await breathe();
+  // sliceWorld clips to SLICE plus MARGIN; the terrain spans the same outer box, so nothing floats past its edge.
+  const slice = sliceWorld(world);
   const box = expandBox(SLICE, MARGIN);
-  const slice = sliceWorld(world, box);
 
   const renderer = createRenderer(container);
   await renderer.init();
