@@ -891,6 +891,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <button id="mpready" class="btn" type="button" aria-pressed="false"></button>
     <!-- #835: only the host sees this, and only while everybody is ready -- it puts the whole lobby on the road -->
     <button id="mpgo" class="btn primary" type="button" hidden data-i18n="mpGo">Drive together</button>
+    <button id="mprace" class="btn primary" type="button" hidden data-i18n="mpRace">Start race</button>
     <button id="mpinvite" class="btn" type="button" hidden data-i18n="mpMakeCode"></button>
     <button id="mpleave" class="btn" type="button" data-i18n="mpLeave"></button>
     <p id="mplobbystatus" role="status"></p>
@@ -959,7 +960,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
-import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from './netrace.js';
+import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
@@ -6469,6 +6470,8 @@ function renderLobby() {
   const ready = canStart(lobby);
   $('mpgo').hidden = !host || NET.session;
   $('mpgo').disabled = !ready;
+  $('mprace').hidden = !host || NET.session;
+  $('mprace').disabled = !ready;
   // part c (#921 review): the start hint lives in the status line, not the button title -- a title is invisible on touch
   // and goes stale on a language switch; renderLobby re-runs on gg-langchange, so the text stays current.
   $('mplobbystatus').textContent = ready ? tr('mpAllReady') : lobby.players.length < 2 ? tr('mpNeedMore') : tr('mpGoHint');
