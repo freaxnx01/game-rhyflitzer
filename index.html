@@ -5566,6 +5566,7 @@ window.__mm.genericBridges = () => OSM_BRIDGES.filter(b => b.kind === 'generic' 
 // vehicle table (#5): tests activate a modified copy of compact and watch the game change
 window.__mm.vehicles = () => structuredClone(VEHICLES);
 window.__mm.loadVehicle = (id) => loadVehicleModel(id);   // #236: resolves true when the glTF car is ready
+window.__mm.setPaint = (id) => applyPaint(id);   // gallery shots (scripts/shots.py): a motif's own paint
 window.__mm.gltfVehicle = (id = 'hatchback') => { const e = GLTF_CARS[id]; return { state: e?.state ?? 'idle', tris: Math.round(e?.tris ?? 0), materials: (e?.mats?.all ?? []).map(m => m.name), wheels: car.userData.wheels?.length ?? 0, paintColor: e?.mats?.paint ? '#' + e.mats.paint.color.getHexString() : null, lamps: { head: e?.mats?.head.length ?? 0, tail: e?.mats?.tail.length ?? 0, headLevel: e?.mats?.head[0]?.emissiveIntensity ?? null, tailLevel: e?.mats?.tail[0]?.emissiveIntensity ?? null } }; };
 window.__mm.vehicle = () => structuredClone(VEH);
 window.__mm.carSize = () => ({ ...CAR_SIZE });   // #69: body box in world metres, measured at build time (measureCar)
