@@ -5630,6 +5630,7 @@ function collide(r) { const under = caveInside(); const reach = VEH.collision.sh
 function stepCar(dt) {
   LIGHTS.braking = false;   // #230: reset every step so it never sticks (airborne, flying, coasting)
   if (LIFT_RIDE.busy) { P.vx = P.vz = P.vy = 0; car.position.set(P.x, P.y, P.z); return; }   // #277: input is locked for the ride
+  if (netHeld()) { P.vx = P.vz = 0; car.position.set(P.x, P.y, P.z); return; }   // #837: held on the grid until T0
   const fx = Math.cos(P.th), fz = Math.sin(P.th), rx = -fz, rz = fx; let vf = P.vx * fx + P.vz * fz, vs = P.vx * rx + P.vz * rz; const speed = Math.hypot(P.vx, P.vz);
   const dead = WRECK_S.on, down = tipped(TIP_S), inp = dead || down ? NO_INPUT : keys, tch = dead || down ? NO_INPUT : touch;   // #105: a wreck ignores the keys and the touch buttons (the autopilot was stopped in startWreck); so does a car on its side
   const ap = down ? null : autoInputs(dt), nitro = ap ? 0 : (inp.KeyN ? 1 : 0), gas = ap ? ap.gas : ((inp.Space || inp.KeyW || inp.ArrowUp || tch.g || nitro) ? 1 : 0), brake = ap ? ap.brake : ((inp.KeyS || inp.ArrowDown || tch.b) ? 1 : 0), steer = ap ? ap.steer : Math.max(-1, Math.min(1, ((inp.KeyD || inp.ArrowRight) ? 1 : 0) - ((inp.KeyA || inp.ArrowLeft) ? 1 : 0) + (tch.x || 0))),   /* #535: the phone's stick steers analog (tch is NO_INPUT in a wreck, so tch.x is undefined there) */ hb = ap ? 0 : ((inp.ControlLeft || inp.ControlRight || tch.h) ? 1 : 0);
@@ -5786,7 +5787,7 @@ function renderModeLine() { document.body.classList.toggle('cruise', R.mode === 
 function setPipCount(n) { $('cpt').textContent = n; const pips = $('pips'); if (pips.children.length === n) return; pips.replaceChildren(...Array.from({ length: n }, () => document.createElement('div'))); pips.style.gridTemplateColumns = `repeat(${n},1fr)`; }
 function updatePips() { const on = R.mode === 'hunt' ? HUNT_RUN.found : R.mode === 'view' ? VIEW_RUN.shot : R.mode === 'tutorial' ? TUT_RUN.st.steps.slice(0, -1).map((_, k) => k < TUT_RUN.st.i) : cpObjs.map(c => c.done); $('cpn').textContent = R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', !!on[i])); }
 // armed -> racing is deliberately outside the !FLY.on gate below: helicopter movement starts the clock too, and it runs on in flight (#10)
-function stepRace(dt) { if (R.mode === 'cruise' || R.mode === 'delivery') { R.target = null; return; }   /* #551: nothing to race, nothing to point at — the state stays 'armed', so pause works and Main menu never asks to abandon; #107: a shift has its own clock and its own marker */ if (R.mode === 'hunt') { stepHunt(dt); return; } if (R.mode === 'view') { stepView(dt); return; } if (R.mode === 'tutorial') { stepTutorial(dt); return; } if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; if (R.state === 'racing' && R.mode === 'blitz') { R.left = blitzTick(R.left, dt); if (blitzTimeUp(R.left)) { timeUp(); return; } } let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on && !FOOT.on) { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); if (R.mode === 'blitz') { R.left = blitzBonus(R.left); toastHtml(tr('cpToastBlitz', R.done, esc(best.n), BLITZ.bonus), TOAST_S.event); } else toastHtml(tr('cpToast', R.done, esc(best.n)), TOAST_S.event); if (R.done === 5) finishG.visible = true; } else if (best.i < 0 && bd < 7 && R.state === 'racing') finish(); const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toastHtml(tr('holzToast'), TOAST_S.event); } if (ob && ob.pontoon) R.pontoon = true; } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(simNow() / 300) * 0.08; }
+function stepRace(dt) { if (R.mode === 'cruise' || R.mode === 'delivery') { R.target = null; return; }   /* #551: nothing to race, nothing to point at — the state stays 'armed', so pause works and Main menu never asks to abandon; #107: a shift has its own clock and its own marker */ if (R.mode === 'hunt') { stepHunt(dt); return; } if (R.mode === 'view') { stepView(dt); return; } if (R.mode === 'tutorial') { stepTutorial(dt); return; } if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; if (R.state === 'racing' && R.mode === 'blitz') { R.left = blitzTick(R.left, dt); if (blitzTimeUp(R.left)) { timeUp(); return; } } let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on && !FOOT.on) { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); if (R.mode === 'blitz') { R.left = blitzBonus(R.left); toastHtml(tr('cpToastBlitz', R.done, esc(best.n), BLITZ.bonus), TOAST_S.event); } else toastHtml(tr('cpToast', R.done, esc(best.n)), TOAST_S.event); if (R.done === 5) finishG.visible = true; }       else if (best.i < 0 && bd < 7 && R.state === 'racing') { if (NET.race) netRaceFinish(); else finish(); } const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toastHtml(tr('holzToast'), TOAST_S.event); } if (ob && ob.pontoon) R.pontoon = true; } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(simNow() / 300) * 0.08; }
 function stepHunt(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; { const ob = onBridge(P.x, P.z, P.y); if (ob && ob.pontoon) R.pontoon = true; } SURP = tickSurprises(SURP, dt); animatePresents(dt); drawConfetti(dt); if (HUNT_RUN.endIn > 0) { HUNT_RUN.endIn -= dt; if (HUNT_RUN.endIn <= 0) showHuntResult(); } const i = nearestPresent(HUNT_RUN.spots, HUNT_RUN.found, P.x, P.z); R.target = i < 0 ? null : { ...HUNT_RUN.spots[i], n: '', i, hunt: true }; if (i >= 0 && canCollect(HUNT_RUN.spots[i], P, R.state, FLY.on || FOOT.on)) collectPresent(i); }
 // #508: the clock runs from the first movement; the arrow leads to the nearest open viewpoint, and once there to its subject
 function stepView(dt) {
@@ -5890,6 +5891,8 @@ function applySurprise(s) { if (s.id === 'hop') { if (!FLY.on) { P.y += 0.3; P.v
 function endHunt() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); const t = R.t, clean = !R.jumped && !R.auto && !R.flown && !R.walked && !R.pontoon && !R.swapped; let rec = false; if (clean && isNewHuntBest(R.huntBest, t)) { rec = R.huntBest !== null; R.huntBest = t; try { localStorage.setItem('mm.huntBest', String(t)); } catch (e) { } } R.last = { t, rec, mode: 'hunt' }; HUNT_RUN.endIn = HUNT.celebrate; }
 function showHuntResult() { HUNT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'hunt') return; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 function finish() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); const t = R.t, clean = !R.jumped && !R.auto && !R.flown && !R.walked && !R.pontoon && !R.swapped; let rec = false; if (R.mode === 'blitz') { const rank = blitzRank(R.left); if (clean && blitzNewBest(R.blitzBest, R.left)) { rec = R.blitzBest !== null; R.blitzBest = R.left; try { localStorage.setItem('mm.blitzBest', String(R.left)); } catch (e) { } } R.last = { mode: 'blitz', t, left: R.left, rank, rec }; } else { if (clean && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem(REGION.bestKey, String(t)); } catch (e) { } } R.last = { mode: 'trial', t, rec }; } $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
+// #837 part b: the own finish; part d sends it to the host and shows the result
+function netRaceFinish() { stopAuto('reset'); R.state = 'finished'; R.target = null; SFX.finish(); toastBig(tr('mpRaceFinished')); }
 function timeUp() { endFoot(); /* #365: no pointer lock / stepOnFoot behind the result screen */ stopAuto('reset'); R.state = 'finished'; R.timeUp = true; trackModeEnd('timeup'); R.last = { mode: 'blitz', timeUp: true, done: R.done }; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }   // #128: the Blitz clock hit zero — no rank, no best, no sound
 const penalties = () => `${R.jumped ? tr('notCountedJump') : ''}${R.auto ? tr('notCountedAuto') : ''}${R.flown ? tr('notCountedHeli') : ''}${R.walked ? tr('notCountedFoot') : ''}${R.pontoon ? tr('notCountedPontoon') : ''}${R.swapped ? tr('notCountedSwap') : ''}`;
 const notes = () => `${penalties()}${R.shortcut ? tr('viaHolz') : ''}`;
@@ -6266,6 +6269,7 @@ const NET = {
   offset: null,        // guest only: the median of those, null while no pong has come back
   poseTimer: null,     // the 20 Hz pose sender
   pingTimer: null,     // guest only: the clock sync
+  race: null,          // #837: { t0, shown, go } while a network race runs
 };
 const MP_NAME_KEY = 'mm.mpName', MP_JOIN_KEY = 'mm.mpJoin';
 const MP_ERR = { size: 'mpErrSize', format: 'mpErrFormat', version: 'mpErrVersion', role: 'mpErrRole', expired: 'mpErrExpired' };
@@ -6422,7 +6426,11 @@ function netHostDrop(peerId) {
 }
 function netGuestMessage(msg) {
   if (msg.type === 'lobby') { NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
-  if (msg.type === 'start') { netStartSession(); return; }
+  if (msg.type === 'start') {
+    if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
+    netStartSession(msg.mode, msg.t0 ?? null);
+    return;
+  }
   if (msg.type === 'pong') { NET.clock = addClockSample(NET.clock, msg.a, msg.b, performance.now()); NET.offset = netClockOffset(NET.clock); return; }
   // the deny reason is not a string key: it is turned into one before the toast, so every key at a toast(tr(…)) call
   // site stays a plain literal (what tests/toast.test.mjs reads to check the text it shows carries no markup)
@@ -6431,7 +6439,7 @@ function netGuestMessage(msg) {
 }
 function netPeerState(peerId, state) {
   if (state === 'timeout') { netTrouble(tr(NET.role === 'G' ? 'mpAnswerUnused' : 'mpIceFail')); return; }
-  if (state === 'open') { if (NET.role === 'G') NET.link.send(HOST_ID, { type: 'hello', name: NET.name, custom: NET.nameCustom }); return; }
+  if (state === 'open') { if (NET.role === 'G') { NET.link.send(HOST_ID, { type: 'hello', name: NET.name, custom: NET.nameCustom }); netPing(); NET.pingTimer = setInterval(netPing, PING_MS); } return; }
   if (!['disconnected', 'failed', 'closed'].includes(state)) return;
   if (NET.role === 'G' && state === 'failed' && !NET.lobby) { netTrouble(tr('mpIceFail')); return; }
   if (NET.role === 'G') netHostGone(); else if (NET.link) netHostDrop(peerId);
@@ -6540,24 +6548,40 @@ function netBump() {
 // the session's clock: the host's own performance.now(), and a guest's shifted onto it
 const hostNow = () => performance.now() + (NET.role === 'H' ? 0 : NET.offset ?? 0);
 
-function netStartSession() {
+// #837: the own car stands on the grid until T0 (host clock)
+const netHeld = () => !!NET.race && !NET.race.go && hostNow() < NET.race.t0;
+// from the loop: 3-2-1 in big toasts, then Go! -- the race clock starts at T0, not at the first movement
+function stepNetRace() {
+  if (!NET.race || NET.race.go) return;
+  const left = Math.ceil((NET.race.t0 - hostNow()) / 1000);
+  if (left > 0) {
+    if (left <= 3 && left !== NET.race.shown) { NET.race.shown = left; toastBig(String(left)); }
+    return;
+  }
+  NET.race.go = true; R.state = 'racing'; R.t = 0; toastBig(tr('mpRaceGo'));
+}
+
+function netStartSession(mode = 'cruise', t0 = null) {
   if (NET.session) return;
   NET.session = true;
   CARSEL.mp = false;
   stopCodeClock(); $('mplobby').hidden = true; $('mp').hidden = true;
-  startRace('cruise');                                              // the shared drive is a cruise run on every device
-  P.safe = gridPose([START.x, START.z, START.th], NET.you); resetCar();   // A5: a column at the start, one slot per lobby id
+  const race = mode === 'race';
+  startRace(race ? 'trial' : 'cruise');                            // #837: a race is the trial's checkpoints under NET.race
+  NET.race = race ? { t0, shown: null, go: false } : null;
+  $('pauserestart').hidden = race;                                  // a restart would leave the shared start
+  P.safe = (race ? raceGrid : gridPose)([START.x, START.z, START.th], NET.you); resetCar();
   camPos.set(P.x + 12, P.y + 5, P.z);
   syncNetCars();
   NET.poseTimer = setInterval(netSendPose, POSE_MS);
-  if (NET.role === 'G') { netPing(); NET.pingTimer = setInterval(netPing, PING_MS); }
 }
 // leaves the shared drive: the timers stop and every remote car is taken off the scene. The run itself keeps going.
 function netEndSession() {
-  clearInterval(NET.poseTimer); clearInterval(NET.pingTimer);
+  clearInterval(NET.poseTimer);
   for (const id of [...NETCARS.keys()]) dropNetCar(id);
   BUMP.gate.clear();   // #836: a fresh session does not inherit the last drive's cooldowns
-  Object.assign(NET, { session: false, seq: 0, clock: null, offset: null, poseTimer: null, pingTimer: null });
+  Object.assign(NET, { session: false, seq: 0, poseTimer: null });   // #837: the clock, the offset and the ping timer survive a session end (part d goes back to the lobby without leaving)
+  NET.race = null; $('pauserestart').hidden = false;
 }
 function netPing() { NET.link.send(HOST_ID, { type: 'ping', a: performance.now() }); }
 
@@ -6713,6 +6737,8 @@ function netSessionPick() {
 
 function netLeave() {
   netEndSession();
+  clearInterval(NET.pingTimer);
+  Object.assign(NET, { clock: null, offset: null, pingTimer: null });
   if (NET.link) { NET.link.broadcast({ type: 'bye' }); NET.link.closeAll(); }
   stopCodeClock();
   Object.assign(NET, { role: null, link: null, lobby: null, you: null, name: null, slots: new Map(), slot: null, pending: null });
@@ -6743,6 +6769,12 @@ $('mpclassbtns').onclick = (e) => { const b = e.target.closest('button[data-cls]
 $('mppick').onclick = openLobbyCarSel;
 $('mpready').onclick = () => { const me = NET.lobby && NET.lobby.players.find((p) => p.id === NET.you); if (me) netSetReady(!me.ready); };
 $('mpgo').onclick = () => { if (NET.role !== 'H' || !NET.lobby || !canStart(NET.lobby)) return; NET.link.broadcast({ type: 'start', mode: 'cruise' }); netStartSession(); };
+$('mprace').onclick = () => {
+  if (NET.role !== 'H' || !NET.lobby || !canStart(NET.lobby)) return;
+  const now = performance.now(), t0 = now + RACE.countdown;
+  NET.link.broadcast({ type: 'start', mode: 'race', t0, now });
+  netStartSession('race', t0);
+};
 $('mpleave').onclick = netLeave;
 // A5: a guest would need the same world file, and the code cannot carry one
 if (REGION.generated) $('mpbtn').hidden = true;
@@ -6761,7 +6793,7 @@ function openJoinLink() {
 }
 openJoinLink();
 window.addEventListener('hashchange', openJoinLink);
-window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset });
+window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset, race: NET.race ? { t0: NET.race.t0, held: netHeld(), go: NET.race.go } : null });
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
 window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp }));   // #835: read-only, for the test
 window.__mm.netContacts = () => netContacts().map(({ id, hit }) => ({ id, pen: hit.pen }));   // #836: the overlaps the own car has now
@@ -7805,7 +7837,7 @@ function loop(now) { if (SIMCLOCK.stepped) { last = now; requestAnimationFrame(l
   requestAnimationFrame(loop); }
 // #875: one frame's simulation and render -- the real-time loop's body, also run by __mm.tick with the caller's exact dt (no clamp)
 function frame(dt) {
-  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepDelivery(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepNetCars(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); }
+  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepDelivery(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepNetCars(); stepNetRace(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); }
 // #875: the stepped capture hooks. stepped(true) freezes the loop (only tick runs frames) and moves a wall-mode fleet
 // clock onto sim time so the buses keep rolling; stepped(false) hands both back without a jump.
 window.__mm.stepped = (on) => {
