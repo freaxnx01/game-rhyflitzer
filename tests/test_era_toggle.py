@@ -101,3 +101,55 @@ def test_delivery_refuses_the_layer_and_a_shift_switches_back(server):
     assert not started["on"] and started["visible"], started
     assert not refused["on"], (refused, toast)
     assert page.errors == []
+
+
+def modern_unique_plate():
+    import json
+    from collections import Counter
+    bs = json.loads(WORLD.read_text(encoding="utf-8"))["buildings"]
+    counts = Counter(b["addr"] for b in bs if b.get("addr"))
+    return next(b["addr"] for b in bs if b.get("modern") and b.get("addr") and counts[b["addr"]] == 1)
+
+
+@needs_world
+def test_hidden_buildings_leave_map_plates_and_jumps(server):
+    plate = modern_unique_plate()
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        boxes0 = page.evaluate("() => window.__mm.mapBoxes()")
+        spots0 = page.evaluate("(t) => window.__mm.plateSpots(t)", plate)
+        page.keyboard.press("j")
+        page.wait_for_function("() => window.__mm.jumpList().length > 0", timeout=60000)
+        jumps0 = page.evaluate("() => window.__mm.jumpList()")
+        page.keyboard.press("Escape")
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        boxes1 = page.evaluate("() => window.__mm.mapBoxes()")
+        spots1 = page.evaluate("(t) => window.__mm.plateSpots(t)", plate)
+        page.keyboard.press("j")
+        page.wait_for_function("() => window.__mm.jumpList().length > 0", timeout=60000)
+        jumps1 = page.evaluate("() => window.__mm.jumpList()")
+        page.keyboard.press("Escape")
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        boxes2 = page.evaluate("() => window.__mm.mapBoxes()")
+        spots2 = page.evaluate("(t) => window.__mm.plateSpots(t)", plate)
+        page.keyboard.press("Escape")
+        b.close()
+    assert boxes0 - boxes1 >= 1000, (boxes0, boxes1)
+    assert len(spots0) == 1 and spots1 == [], (spots0, spots1)
+    assert not any(r.get("modern") for r in jumps1), jumps1
+    assert boxes2 == boxes0 and spots2 == spots0
+    assert page.errors == []
+
+
+@needs_world
+def test_about_names_the_gwr(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.evaluate("() => document.querySelector('#about')?.removeAttribute('hidden')")
+        text = page.evaluate("() => document.querySelector('#about').textContent")
+        href = page.evaluate("() => document.querySelector('#about a[data-link=gwr]').href")
+        b.close()
+    assert "GWR" in text and href.startswith("https://www.housing-stat.ch"), (text[:200], href)
+    assert page.errors == []
