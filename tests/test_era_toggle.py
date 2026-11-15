@@ -1,0 +1,86 @@
+"""#530: Ctrl+Y shows the Swiss villages as in 1952 (newer buildings hidden, colliders off) and back; the borders toggle stays put.
+Needs the Hochrhein world (run pipeline/osm.py build first). Slow (Playwright): run in the foreground."""
+import math
+from pathlib import Path
+
+import pytest
+from playwright.sync_api import sync_playwright
+
+WORLD = Path(__file__).parents[1] / "data" / "world_hochrhein.json"
+MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
+ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
+READY = "() => window.__mm && window.__mm.sim && window.__mm.era && document.querySelector('#worldstatus')?.textContent"
+needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
+
+
+def open_game(p, server):
+    b = p.chromium.launch(args=ARGS)
+    page = b.new_context(viewport={"width": 640, "height": 360}, locale="en-US").new_page()
+    page.errors = []
+    page.on("pageerror", lambda e: page.errors.append(str(e)))
+    page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+    page.goto(f"{server}/index.html")
+    page.wait_for_function(READY, timeout=240000)
+    page.click("#startbtn", timeout=180000)
+    return b, page
+
+
+ERA = "() => window.__mm.era()"
+BORDERS = "() => window.__mm.borders().on"
+
+
+@needs_world
+def test_ctrl_y_hides_newer_buildings_and_back(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        e0 = page.evaluate(ERA); borders0 = page.evaluate(BORDERS)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        e1 = page.evaluate(ERA); toast = page.evaluate("() => document.querySelector('#toast').textContent"); borders1 = page.evaluate(BORDERS)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        e2 = page.evaluate(ERA); borders2 = page.evaluate(BORDERS)
+        b.close()
+    assert e0["available"] and e0["solids"] > 1000 and e0["off"] == 0 and e0["visible"], e0
+    assert e1["on"] and e1["off"] == e1["solids"] and not e1["visible"], e1
+    assert "Ctrl+Y" in toast, toast
+    assert borders0 == borders1 == borders2
+    assert not e2["on"] and e2["off"] == 0 and e2["visible"], e2
+    assert page.errors == []
+
+
+@needs_world
+def test_switching_back_inside_a_building_moves_the_player(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        x, z = page.evaluate("() => window.__mm.era().sample")
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", [x, z])
+        inside_before = page.evaluate(ERA)["inside"]
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        car = page.evaluate("() => window.__mm.car()"); after = page.evaluate(ERA)
+        b.close()
+    assert inside_before, "the sample spot lies inside a hidden building"
+    assert not after["inside"] and math.hypot(car["x"] - x, car["z"] - z) > 1, (car, x, z)
+    assert page.errors == []
+
+
+@needs_world
+def test_style_switch_keeps_the_layer(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        before = page.evaluate(ERA)["materials"]
+        page.keyboard.press("t")
+        page.wait_for_function("(m) => JSON.stringify(window.__mm.era().materials) !== m", arg=__import__("json").dumps(before), timeout=60000)
+        during = page.evaluate(ERA)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        after = page.evaluate(ERA)
+        b.close()
+    assert not during["visible"] and during["on"], during
+    assert after["visible"], after
+    assert page.errors == []
