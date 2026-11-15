@@ -169,3 +169,28 @@ def test_about_names_the_gwr(server):
         b.close()
     assert "GWR" in text and href.startswith("https://www.housing-stat.ch"), (text[:200], href)
     assert page.errors == []
+
+
+@needs_world
+def test_a_race_in_1952_is_flagged_and_not_clean(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.evaluate("() => window.__mm.startHunt(1)")
+        before = page.evaluate("() => window.__mm.raceFlags()")
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        armed = page.evaluate("() => window.__mm.raceFlags()")
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        page.evaluate("() => window.__mm.startHunt(1)")
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        page.evaluate("() => window.__mm.startHunt(1)")  # armed again with the layer on
+        rearmed = page.evaluate("() => window.__mm.raceFlags()")
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        page.evaluate("() => window.__mm.startHunt(1)")
+        after = page.evaluate("() => window.__mm.raceFlags()")
+        b.close()
+    assert not before["era"] and armed["era"] and rearmed["era"] and not after["era"], (before, armed, rearmed, after)
+    assert page.errors == []
