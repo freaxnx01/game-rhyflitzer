@@ -7,7 +7,7 @@ from conftest import start_ready
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = start_ready()
 T = 240000
-BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "carbtn", "mpbtn"]
+BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "deliverybtn", "carbtn", "mpbtn"]   # #107 Delivery before Choose car
 SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn", "settingsbtn", "musicbtn"]   # #735 Music, #842 Settings between About and Music
 
 
@@ -28,14 +28,14 @@ def ids(page, sel):
 
 
 def test_bar_order_focus_order_and_enter_starts(server):
-    """The steel bar is 6 + 2 buttons in wireframe order, Tab walks it, Enter on the focused button starts."""
+    """The steel bar is 7 + 2 buttons in wireframe order (#107 added Delivery), Tab walks it, Enter on the focused button starts."""
     with sync_playwright() as p:
         b, page, errors = boot(p, server)
         bar = ids(page, "#overlay .bar .row:not(.secondary) > button")
         secondary = ids(page, "#overlay .bar .row.secondary > button")
         first = page.evaluate("() => document.activeElement.id")
         order = []
-        for _ in range(7):
+        for _ in range(8):
             page.keyboard.press("Tab")
             order.append(page.evaluate("() => document.activeElement.id"))
         page.focus("#startbtn")
@@ -45,7 +45,7 @@ def test_bar_order_focus_order_and_enter_starts(server):
     assert bar == BAR, bar
     assert secondary == SECONDARY, secondary
     assert first == "cruisebtn"
-    assert order == ["startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "carbtn", "mpbtn"], order
+    assert order == ["startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "deliverybtn", "carbtn", "mpbtn"], order
     assert errors == []
 
 
