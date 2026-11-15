@@ -69,7 +69,8 @@ Both carry the demo equally: the empty Sisslerfeld *and* a recognisable old vill
   enterables outside the industrial area are untouched. Any viewpoint, mission or start point whose subject
   or position is hidden is simply not offered while the layer is on.
 - **Road selection:** by OSM class (`motorway`, `motorway_link`) plus an explicit ID list (new road bridge,
-  industrial-area roads). Village roads stay even if all their houses vanish — no dead-end rule.
+  industrial-area roads). ~~Village roads stay even if all their houses vanish.~~ Changed by the maintainer
+  2026-11-15 after the PR 2 screenshot (empty street grid read as a building plot): see "Residential streets" under Roads.
 - **Industrial-area boundary:** the existing industrial areas from the anchors (`anchors.industrial_ids`).
 
 ## Data sources
@@ -114,7 +115,9 @@ framing) goes to the maintainer for approval.
 ### Roads
 
 The pipeline flags new roads as modern: every `motorway`/`motorway_link`, the newer
-Stein–Bad Säckingen road bridge, and the roads inside the industrial area. The **wooden bridge**
+Stein–Bad Säckingen road bridge, and the roads inside the industrial area. **Residential streets** (decided by the
+maintainer 2026-11-15): a residential street on the Swiss side disappears in 1952 when no building that stood in 1952
+lies along it; main and through roads, and roads leading to old houses, stay. The **wooden bridge**
 (Holzbrücke) is old and stays. The road-gone fallback moves the car to the nearest old road (same
 spawn logic the game already uses for jumps/teleports) and shows a short bilingual notice.
 
