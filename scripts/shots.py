@@ -36,13 +36,14 @@ FOOT_AGL = (1.7, 150)      # WALKER.eye .. WALKER.hoverMaxAgl
 FOOT_PITCH = (-80, 80)     # WALKER.pitchMax is 1.4 rad
 STARTS = ("trial", "cruise")   # optional `start`: cruise has no checkpoint pillars and no finish in the frame (default trial)
 STYLES = ("original", "smooth")
-VEHICLES = ("compact", "delorean", "mini", "bus")
+VEHICLES = ("compact", "delorean", "mini", "bus", "estate", "coupe", "hyper", "harvester")
 TIMES = ("day",)        # the game has no time of day (spec A3)
 WEATHERS = ("clear",)   # nor weather
-ENUMS = {"mode": MODES, "camera": CAMERAS, "style": STYLES, "vehicle": VEHICLES, "time": TIMES, "weather": WEATHERS, "start": STARTS}
+PAINTS = ("navy", "sunflower", "signal", "swiss", "rhine", "ice", "meadow", "cream", "charcoal", "plum", "flamingo", "racing", "silver")   # optional `paint` (carselect.js PAINTS)
+ENUMS = {"paint": PAINTS, "mode": MODES, "camera": CAMERAS, "style": STYLES, "vehicle": VEHICLES, "time": TIMES, "weather": WEATHERS, "start": STARTS}
 ID_RE = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 NEAR_MAX_M = 600
-COUNT_RANGE = (8, 14)
+COUNT_RANGE = (8, 18)
 
 
 def _is_point(p) -> bool:
@@ -225,7 +226,9 @@ def start_game(page, base_url: str, shot: dict, args) -> None:
 def stage(page, shot: dict) -> None:
     """Style, vehicle, placement, motion: everything the picture shows, before the clean-up and the camera wait."""
     page.evaluate("(k) => window.__mm.setStyle(k)", shot["style"])
-    page.evaluate("(id) => { const v = window.__mm.vehicles()[id]; if (!v) throw new Error('unknown vehicle ' + id); window.__mm.setVehicle(v); }", shot["vehicle"])
+    page.evaluate("async (id) => { const v = window.__mm.vehicles()[id]; if (!v) throw new Error('unknown vehicle ' + id); if (v.gltf) await window.__mm.loadVehicle(id); window.__mm.setVehicle(v); }", shot["vehicle"])   # glTF cars: wait for the model, not the stand-in
+    if "paint" in shot:
+        page.evaluate("(id) => window.__mm.setPaint(id)", shot["paint"])
     page.evaluate("([x, z, th]) => window.__mm.place(x, z, th)", [shot["at"]["x"], shot["at"]["z"], heading(shot["at"], shot["look_at"])])
     if shot["mode"] == "heli":
         page.keyboard.press("KeyF")

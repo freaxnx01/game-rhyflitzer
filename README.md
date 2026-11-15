@@ -26,6 +26,11 @@ Dedicated to my daughter.
   <a href="docs/gallery/plattform-dsm-3840.jpg"><img src="docs/gallery/plattform-dsm-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld, the DSM chimney behind"></a>
   <a href="docs/gallery/plattform-luftbild-3840.jpg"><img src="docs/gallery/plattform-luftbild-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld from above"></a>
   <a href="docs/gallery/plattform-aussicht-3840.jpg"><img src="docs/gallery/plattform-aussicht-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: View from the Plattform Sisslerfeld to DSM"></a>
+  <a href="docs/gallery/plattform-nah-3840.jpg"><img src="docs/gallery/plattform-nah-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld up close"></a>
+  <a href="docs/gallery/plattform-treppe-3840.jpg"><img src="docs/gallery/plattform-treppe-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld, stair and deck"></a>
+  <a href="docs/gallery/plattform-kombi-3840.jpg"><img src="docs/gallery/plattform-kombi-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld with the estate"></a>
+  <a href="docs/gallery/felder-luftbild-3840.jpg"><img src="docs/gallery/felder-luftbild-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: The fields of the Sisslerfeld from the air"></a>
+  <a href="docs/gallery/maehdrescher-feld-3840.jpg"><img src="docs/gallery/maehdrescher-feld-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Combine harvester in a field by the Plattform"></a>
   <a href="docs/gallery/holzbruecke-aussen-3840.jpg"><img src="docs/gallery/holzbruecke-aussen-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke Bad Säckingen across the Rhine"></a>
   <a href="docs/gallery/holzbruecke-nah-3840.jpg"><img src="docs/gallery/holzbruecke-nah-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke, close, along its length"></a>
   <a href="docs/gallery/dsm-sisseln-3840.jpg"><img src="docs/gallery/dsm-sisseln-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: DSM Sisseln and its chimney"></a>
@@ -34,7 +39,6 @@ Dedicated to my daughter.
   <a href="docs/gallery/dampflok-sisseln-3840.jpg"><img src="docs/gallery/dampflok-sisseln-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Steam loco on the tracks at Bahnhof Sisseln"></a>
   <a href="docs/gallery/dorfstrasse-hausnummern-3840.jpg"><img src="docs/gallery/dorfstrasse-hausnummern-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Hinterdorfstrasse Sisseln with house-number plates"></a>
   <a href="docs/gallery/smile-kreisel-3840.jpg"><img src="docs/gallery/smile-kreisel-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: The Smile roundabout"></a>
-  <a href="docs/gallery/muenster-stein-3840.jpg"><img src="docs/gallery/muenster-stein-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Fridolinsmünster"></a>
 </p>
 <!-- shots:end -->
 
