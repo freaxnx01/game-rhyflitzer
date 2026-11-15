@@ -1,7 +1,7 @@
 // #834: the lobby state of the multiplayer race. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE } from '../netrace.js';
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace } from '../netrace.js';
 
 const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
 
@@ -69,4 +69,29 @@ test('admitHello_autoNameFree_unchanged', () => {
 // #837 part a: the pure race rules — grid, checkpoints, standings, board rows.
 test('raceGrid_twoAbreast_rowsBack', () => {
   [[0, -2], [0, 2], [-8, -2], [-8, 2]].forEach(([x, z], slot) => assert.ok(near(raceGrid([0, 0, 0], slot), [x, z, 0])));
+});
+
+const lobby2 = { region: 'hochrhein', cls: 'all', players: [{ id: 0, name: 'A' }, { id: 1, name: 'B' }] };
+test('acceptCp_onlyNewRealNearAndRunning', () => {
+  let r = createRace(lobby2, 3);
+  for (const a of [[1, 0, 5000, false], [1, 3, 5000, true], [9, 0, 5000, true]]) assert.equal(acceptCp(r, ...a).ok, false);   // far, no cp 3, no racer 9
+  r = acceptCp(r, 1, 2, 5000, true).race;                            // any order
+  assert.equal(acceptCp(r, 1, 2, 6000, true).ok, false);            // already passed
+  r = acceptCp(r, 1, 0, 4000, true).race;                            // earlier t is clamped up
+  assert.deepEqual(r.racers[1].times, [5000, 5000]);
+});
+test('acceptFinish_needsAllCps_thenFin', () => {
+  let r = createRace(lobby2, 1);
+  assert.equal(acceptFinish(r, 0, 9000, true, 100).ok, false);
+  r = acceptCp(r, 0, 0, 3000, true).race;
+  r = acceptFinish(r, 0, 9000, true, 100).race;
+  assert.deepEqual([r.racers[0].st, r.racers[0].times, r.firstFin, r.over], ['fin', [3000, 9000], 100, false]);
+  r = dropRacer(r, 1);
+  assert.deepEqual([r.racers[1].st, r.over], ['dnf', true]);
+});
+test('tickRace_dnfSixtySecondsAfterFirstFinish', () => {
+  let r = acceptFinish(acceptCp(createRace(lobby2, 1), 0, 0, 1, true).race, 0, 2, true, 1000).race;
+  assert.equal(tickRace(r, 60999).over, false);
+  r = tickRace(r, 61000);
+  assert.deepEqual([r.racers[1].st, r.over], ['dnf', true]);
 });

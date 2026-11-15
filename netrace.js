@@ -82,3 +82,45 @@ export function raceGrid([x, z, th], slot) {
   const back = RACE.row * Math.floor(slot / 2), side = slot % 2 ? RACE.half : -RACE.half;
   return [x - Math.cos(th) * back - Math.sin(th) * side, z - Math.sin(th) * back + Math.cos(th) * side, th];
 }
+
+// Racer { id, name, times, mask, st }; race { cps, firstFin, over, racers }. st ∈ run/fin/dnf.
+const settle = (race) => ({ ...race, over: race.racers.every((p) => p.st !== 'run') });
+const withRacer = (race, id, change) => settle({ ...race, racers: race.racers.map((p) => (p.id === id ? change(p) : p)) });
+const runner = (race, id) => race.racers.find((p) => p.id === id && p.st === 'run');
+const okTime = (t) => Number.isFinite(t) && t >= 0 && t <= RACE.maxMs;
+const stamp = (p, t) => [...p.times, Math.max(p.times[p.times.length - 1] ?? 0, t)];
+
+// createRace(lobby, cps) — every lobby player starts running with an empty pass log; cps = checkpoint count.
+export function createRace(lobby, cps) {
+  return { cps, firstFin: null, over: false, racers: lobby.players.map((p) => ({ id: p.id, name: p.name, times: [], mask: 0, st: 'run' })) };
+}
+
+// acceptCp(race, id, i, t, near) — { ok, race }: a checkpoint pass the host accepts only when the racer is
+// still running, `near` (the host found a buffered pose of that racer close enough), t is a real time, i is a
+// real checkpoint that racer has not passed yet (any order). The stored time is clamped to ≥ the previous pass.
+export function acceptCp(race, id, i, t, near) {
+  const p = runner(race, id);
+  if (!p || !near || !okTime(t) || !Number.isInteger(i) || i < 0 || i >= race.cps || p.mask & (1 << i)) return { ok: false, race };
+  return { ok: true, race: withRacer(race, id, (q) => ({ ...q, times: stamp(q, t), mask: q.mask | (1 << i) })) };
+}
+
+// acceptFinish(race, id, t, near, now) — { ok, race }: the finish needs every checkpoint passed and a near pose.
+// firstFin keeps the host-clock ms of the first accepted finish; over follows settle (no one still running).
+export function acceptFinish(race, id, t, near, now) {
+  const p = runner(race, id);
+  if (!p || !near || !okTime(t) || p.mask !== (1 << race.cps) - 1) return { ok: false, race };
+  const next = withRacer(race, id, (q) => ({ ...q, times: stamp(q, t), st: 'fin' }));
+  return { ok: true, race: { ...next, firstFin: race.firstFin ?? now } };
+}
+
+// dropRacer(race, id) — a bye/peer-state drop marks a running racer DNF; settle sets over when nobody runs.
+export function dropRacer(race, id) { return runner(race, id) ? withRacer(race, id, (q) => ({ ...q, st: 'dnf' })) : race; }
+
+// tickRace(race, now) — 60 s after the first finish, everyone still running goes DNF; otherwise the race stands.
+export function tickRace(race, now) {
+  if (race.firstFin === null || now - race.firstFin < RACE.dnf) return race;
+  return settle({ ...race, racers: race.racers.map((p) => (p.st === 'run' ? { ...p, st: 'dnf' } : p)) });
+}
+
+// nearPoint(poses, pt) — the host found a buffered pose (last second) within radius + slack of the point (x/z only).
+export function nearPoint(poses, pt) { return poses.some((q) => Math.hypot(q.x - pt.x, q.z - pt.z) <= RACE.radius + RACE.slack); }
