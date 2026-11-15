@@ -111,3 +111,17 @@ test('standings_order_ties_gaps', () => {
   assert.deepEqual(standings([{ id: 0, name: 'A', times: [], st: 'dnf' }, { id: 1, name: 'B', times: [], st: 'run' }]).map((r) => r.id), [1, 0]);
 });
 test('boardRows_dropsMask', () => assert.deepEqual(boardRows(createRace(lobby2, 1))[0], { id: 0, name: 'A', times: [], st: 'run' }));
+
+test('nearPoint_xzOnly_withinRadiusSlack_trueBeyondFalse', () => {
+  const pt = { x: 0, z: 0 };
+  assert.equal(nearPoint([{ x: 0, y: 0, z: 0 }], pt), true);                          // on point
+  assert.equal(nearPoint([{ x: RACE.radius + RACE.slack, y: 0, z: 0 }], pt), true);   // exactly radius + slack (<=)
+  assert.equal(nearPoint([{ x: RACE.radius + RACE.slack + 1, y: 0, z: 0 }], pt), false); // beyond radius + slack
+  assert.equal(nearPoint([{ x: 0, y: 9999, z: 0 }], pt), true);                       // y ignored — x/z on point
+  assert.equal(nearPoint([{ x: 50, y: 0, z: 50 }, { x: 0, y: 0, z: 0 }], pt), true);   // any pose near
+});
+
+test('createRace_clampsCpsPastThirtyOne', () => {
+  assert.equal(createRace(lobby2, 32).cps, 31);   // 1 << cps wraps past 31 under JS's 32-bit bitwise
+  assert.equal(createRace(lobby2, 3).cps, 3);     // an in-range count is unchanged
+});

@@ -91,8 +91,11 @@ const okTime = (t) => Number.isFinite(t) && t >= 0 && t <= RACE.maxMs;
 const stamp = (p, t) => [...p.times, Math.max(p.times[p.times.length - 1] ?? 0, t)];
 
 // createRace(lobby, cps) — every lobby player starts running with an empty pass log; cps = checkpoint count.
+// cps is clamped to ≤ 31: `1 << cps` / `(1 << cps) - 1` wrap under JS's 32-bit bitwise semantics past that, so a
+// future dynamic-course host setting cps too high can't silently break the checkpoint bitmask math downstream.
 export function createRace(lobby, cps) {
-  return { cps, firstFin: null, over: false, racers: lobby.players.map((p) => ({ id: p.id, name: p.name, times: [], mask: 0, st: 'run' })) };
+  const safe = Math.max(0, Math.min(cps, 31));
+  return { cps: safe, firstFin: null, over: false, racers: lobby.players.map((p) => ({ id: p.id, name: p.name, times: [], mask: 0, st: 'run' })) };
 }
 
 // acceptCp(race, id, i, t, near) — { ok, race }: a checkpoint pass the host accepts only when the racer is
