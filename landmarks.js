@@ -93,7 +93,7 @@ function sourcePos(item, anchors, buildingsById) {
     return a ? { x: a.x, z: a.z } : null;
   }
   const b = buildingsById.get(Number(item.building));
-  return b && b.ring && b.ring.length ? ringMean(b.ring) : null;
+  return b && b.ring && b.ring.length ? { ...ringMean(b.ring), ...(b.modern ? { modern: true } : {}) } : null;   // #530: modern follows the source building
 }
 
 export function landmarkEntries(info, anchors, buildings, gemeinden = GEMEINDEN) {
@@ -101,7 +101,7 @@ export function landmarkEntries(info, anchors, buildings, gemeinden = GEMEINDEN)
   const found = [];
   info.forEach((item, i) => {
     const p = sourcePos(item, anchors || {}, byId);
-    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), ...(item.wreck ? { wreck: true } : {}), ...(item.depot ? { depot: true } : {}), i });
+    if (p) found.push({ n: item.name, g: item.gemeinde, x: p.x, z: p.z, ...(p.modern ? { modern: true } : {}), ...(item.jump ? { j: [...item.jump] } : {}), ...(item.look ? { look: [...item.look] } : {}), ...(item.ramp ? { ramp: true } : {}), ...(item.wreck ? { wreck: true } : {}), ...(item.depot ? { depot: true } : {}), i });
   });
   found.sort((a, b) => gemeinden.indexOf(a.g) - gemeinden.indexOf(b.g) || a.i - b.i);
   return found.map(({ i, ...entry }) => entry);

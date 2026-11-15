@@ -29,7 +29,7 @@ export function heliInput(keys, touch) {
 export function heliFloor(ground, boxes, x, z, cfg = HELI) {
   let top = ground;
   for (const o of boxes) {
-    if (o.bridge) continue;
+    if (o.bridge || o.off) continue;
     const dx = x - o.x, dz = z - o.z, lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c;
     if (Math.abs(lx) <= o.hw + cfg.rotorMargin && Math.abs(lz) <= o.hd + cfg.rotorMargin) top = Math.max(top, o.h);
   }

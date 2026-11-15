@@ -27,7 +27,7 @@ function sourcePos(item, anchors, roomCentres, byId) {
   if (item.anchor) { const a = anchors[item.anchor]; return a ? { x: a.x, z: a.z } : null; }
   if (item.room) { const c = roomCentres[item.room]; return c ? { x: c[0], z: c[1] } : null; }
   const b = byId.get(Number(item.building));
-  return b && b.ring && b.ring.length ? ringMean(b.ring) : null;
+  return b && b.ring && b.ring.length ? { ...ringMean(b.ring), ...(b.modern ? { modern: true } : {}) } : null;   // #530
 }
 
 // rel: [along, across] on the entrance's own heading (th = the direction you walk in)
@@ -43,7 +43,7 @@ export function enterableEntries(info, anchors, buildings, roomCentres) {
   const found = [];
   for (const item of info) {
     const p = sourcePos(item, anchors || {}, roomCentres || {}, byId);
-    if (p) found.push({ ...item, x: p.x, z: p.z, entrances: item.entrances.map(e => absEntrance(e, p)) });
+    if (p) found.push({ ...item, x: p.x, z: p.z, ...(p.modern ? { modern: true } : {}), entrances: item.entrances.map(e => absEntrance(e, p)) });
   }
   return found;
 }
