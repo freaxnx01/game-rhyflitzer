@@ -42,7 +42,7 @@ def test_opens_from_start_and_esc_returns(server):
     assert visible and title == "Settings"
     assert held == [], held                                          # game keys never reach the game behind the dialog
     assert after == {"settings": {"open": False, "from": "start", "sound": {"on": True, "vol": 10},
-                                   "music": {"on": True, "menuOn": True, "vol": 6}}, "overlay": True, "focus": "settingsbtn"}, after
+                                   "music": {"on": True, "menuOn": True, "vol": 6, "shuffle": True}}, "overlay": True, "focus": "settingsbtn"}, after
     assert errors == []
 
 
