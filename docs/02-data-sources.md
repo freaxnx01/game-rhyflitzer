@@ -53,6 +53,14 @@ cd pipeline && python fields_ch.py fetch --out cache/lwb/hochrhein.geojson
 
 Attribution in the game: "Landwirtschaftliche Nutzungsflächen © Kanton Aargau, geodienste.ch" (About tab, CREDITS.md, the world file's `sources` line). SWISSIMAGE (swisstopo OGD) serves as the visual colour reference only, never as a texture.
 
+## Switzerland: building ages (GWR, BFS)
+
+The Federal "Gebäude- und Wohnungsregister" (GWR) gives a build year (`GBAUJ`) or period (`GBAUP`) per building point, the basis of the "Sisseln 1952" layer (#530). The public extract `https://public.madd.bfs.admin.ch/ag.zip` (member `gebaeude_batiment_edificio.csv`, tab-separated, LV95) is fetched once by `pipeline/gwr_ch.py fetch` into the gitignored `cache/gwr/`; `era_1952.py` then flags the Swiss buildings newer than 1952 (`modern: true`) and never touches the network.
+
+Terms: "Gebäude- und Wohnungsregister (GWR) © BFS, Open Data (freie Nutzung, Quellenangabe Pflicht)". Not verified against the BFS/opendata.swiss pages (blocked for the fetch tool), check before release.
+
+Attribution in the game: "Building ages: GWR © BFS" (CREDITS.md, the world file's `sources` line).
+
 ## Textures
 
 No open facade data exists on either side.
