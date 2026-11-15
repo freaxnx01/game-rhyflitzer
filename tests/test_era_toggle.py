@@ -29,6 +29,17 @@ ERA = "() => window.__mm.era()"
 BORDERS = "() => window.__mm.borders().on"
 
 
+def test_help_lists_ctrl_y_with_the_era_label(server):
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_context(viewport={"width": 640, "height": 360}, locale="en-US").new_page()
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/index.html", wait_until="domcontentloaded")
+        label = page.evaluate("""() => document.querySelector('[data-cmd="ctrl+KeyY"] + [data-i18n="keyEra"]')?.textContent""")
+        b.close()
+    assert label, "help row with Ctrl+Y followed by keyEra is missing"
+
+
 @needs_world
 def test_ctrl_y_hides_newer_buildings_and_back(server):
     with sync_playwright() as p:

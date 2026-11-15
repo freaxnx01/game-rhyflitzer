@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-15 21:28` <kbd>Ctrl</kbd> <kbd>Y</kbd> zeigt die Dörfer auf der Schweizer Seite wie **1952**: Häuser, die erst später gebaut wurden, verschwinden (laut **Gebäuderegister** des Bundes); nochmals drücken bringt **heute** zurück. Mit <kbd>Ctrl</kbd> <kbd>B</kbd> dazu sieht es aus wie ein altes Foto.
 - `2026-11-15 15:15` <kbd>Ctrl</kbd> <kbd>B</kbd> zeigt die Welt in **Schwarzweiss**, wie ein **altes Foto** mit leichter Körnung und dunkleren Ecken; nochmals drücken bringt die Farbe zurück. Tacho und Karte bleiben farbig, und Fotos, die Du dabei machst, werden grau.
 - `2026-11-15 15:09` **Pressematerial** unter **rhyflitzer.ch/presse**: Bilder der Plattform Sisslerfeld und weitere Spielszenen in Druckqualität zum Herunterladen, die YouTube-Playlist und die wichtigsten Angaben zum Spiel.
 - `2026-11-15 09:54` Im Mehrspieler ist schon ein **lustiger Name** eingetragen; wer einen eigenen tippt, behält ihn.
