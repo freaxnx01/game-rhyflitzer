@@ -269,6 +269,9 @@ const en = {
   debugOn: 'Debug on',
   hudOff: 'HUD hidden · Ctrl+H shows it again',
   hudOn: 'HUD shown',
+  monoOn: 'Black and white · Ctrl+B for colour',   // #530
+  monoOff: 'Colour',   // #530
+  keyMono: 'black and white like an old photo, and back',   // #530
   debugOff: 'Debug off',
   copied: 'Copied',
   copyFailed: 'Copy failed',
@@ -1059,6 +1062,9 @@ const de = {
   debugOn: 'Debug an',
   hudOff: 'HUD ausgeblendet · Ctrl+H zeigt es wieder',
   hudOn: 'HUD eingeblendet',
+  monoOn: 'Schwarzweiss · Ctrl+B für Farbe',   // #530
+  monoOff: 'Farbe',   // #530
+  keyMono: 'Schwarzweiss wie ein altes Foto, und zurück',   // #530
   debugOff: 'Debug aus',
   copied: 'Kopiert',
   copyFailed: 'Kopieren fehlgeschlagen',
