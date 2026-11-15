@@ -6502,7 +6502,7 @@ function netContacts() {
     const pose = sampleRemote(entry.track, hostNow());
     if (!pose || !(pose.flags & FLAG.visible) || Math.abs(pose.y - P.y) > BUMP_DY) continue;
     const hit = carContact(own, carShape(pose.x, pose.z, -pose.ry, def.collision, def.scale));
-    if (hit) out.push({ id, hit, pose, mass: def.mass });
+    if (hit) out.push({ id, hit, pose, mass: def.mass ?? 1 });   // #836: a missing mass falls back to 1 (the compact's), never NaN into P.x/P.vx
   }
   return out;
 }

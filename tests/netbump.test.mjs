@@ -1,7 +1,7 @@
 // #836 part a: car-to-car contact in a shared drive. Pure netbump.js, node --test only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, RESTITUTION, BUMP_COOLDOWN, BUMP_DY } from '../netbump.js';
+import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, RESTITUTION, BUMP_COOLDOWN, BUMP_DY, MAX_CLOSING } from '../netbump.js';
 const CIRCLE = { shape: 'circle', r: 1.3 }, BUS = { shape: 'capsule', r: 1.3, hl: 4.8 };
 
 test('carContact_apart_null', () => {
@@ -32,6 +32,12 @@ test('bumpImpulse_heavierCar_movesLess', () => {
 test('bumpImpulse_separating_none', () => {
   const r = bumpImpulse({ vx: -5, vz: 0, m: 1 }, { vx: 5, vz: 0, m: 1 }, { nx: -1, nz: 0 });
   assert.deepEqual([r.dvx, r.dvz, r.closing], [0, 0, 0]);
+});
+test('bumpImpulse_implausibleClosing_isClamped', () => {   // #836: a peer reporting an absurd vx must not impose an unbounded Δv on the local car
+  const a = { vx: 0, vz: 0, m: 1 }, b = { vx: -1e9, vz: 0, m: 1 };
+  const r = bumpImpulse(a, b, { nx: -1, nz: 0 });
+  assert.equal(r.closing, MAX_CLOSING);
+  assert.ok(Math.abs(r.dvx + MAX_CLOSING * (1 + RESTITUTION) / 2) < 1e-6);
 });
 test('bumpGate_cooldownPerPlayer', () => {
   const g = new Map(); assert.equal(BUMP_COOLDOWN, 0.3); assert.equal(BUMP_DY, 2.5);
