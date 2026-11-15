@@ -84,3 +84,20 @@ def test_style_switch_keeps_the_layer(server):
     assert not during["visible"] and during["on"], during
     assert after["visible"], after
     assert page.errors == []
+
+
+@needs_world
+def test_delivery_refuses_the_layer_and_a_shift_switches_back(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        page.evaluate("() => window.__mm.deliveryStart(1)")
+        page.wait_for_function("() => window.__mm.delivery().on", timeout=60000)
+        started = page.evaluate(ERA)
+        page.keyboard.press("Control+y")
+        refused = page.evaluate(ERA); toast = page.evaluate("() => document.querySelector('#toast').textContent")
+        b.close()
+    assert not started["on"] and started["visible"], started
+    assert not refused["on"], (refused, toast)
+    assert page.errors == []
