@@ -18,6 +18,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-11-11 21:47` A **fenced paddock** with eight **ostriches** at the Straussenfarm in Sisseln: they stand, peck and walk, and run off when the car or the walker comes close. <kbd>J</kbd> lists the farm.
 - `2026-11-11 19:22` **Radio Argovia** is a third station on the car radio: press <kbd>6</kbd> to cycle Rhyflitzer FM, SRF 3 and Radio Argovia.
 
+### Fixed
+
+- `2026-11-14 20:39` In **?debug** mode the **debug panel** no longer covers the centred **message toast** on wide windows.
+
 ### Changed
 
 - `2026-11-13 21:29` Die **Sprungschanze** wirft das Auto jetzt richtig in die Luft: rund **2 m über die Kante** hinaus, statt nur darüber abzukippen.

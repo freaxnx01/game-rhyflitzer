@@ -88,6 +88,7 @@ body.campath-play #toast{visibility:hidden}   /* #900: hud-off keeps the toast r
 #debug{display:flex;flex-direction:column;max-height:calc(100vh - 236px - env(safe-area-inset-bottom,0px))}#debug[hidden]{display:none}#debugtext,#debuglinks,#debugjump,#debugcampath,#knockreset{flex:none}
 #debugcampath{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px;white-space:normal}#debugcampath button{font:inherit;color:#8fd8e8;background:none;border:1px solid #3a404b;padding:1px 6px;cursor:pointer}
 @media (max-width:900px){#debug{max-height:calc(100vh - 166px - env(safe-area-inset-bottom,0px))}}
+@media (min-width:901px){#debug{max-width:min(508px,calc(50vw - 180px))}}   /* #965: stay left of the centred key toast (322 px wide at 1280) */
 @media (pointer:coarse){#debug{padding-right:48px;max-height:calc(100vh - 124px - env(safe-area-inset-top,0px))}#debughelp{width:36px;height:36px;line-height:32px}}
 /* a phone's steering buttons sit in the strip below the panel's anchor (y 460-614 of 844), so the open legend would cover them anyway: they step aside while it is read, like during the car choice (#439) */
 body:has(#debuglegend:not([hidden])) #touch{display:none}
