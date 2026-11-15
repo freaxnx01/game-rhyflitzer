@@ -134,11 +134,16 @@ def test_hidden_buildings_leave_map_plates_and_jumps(server):
         page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
         boxes2 = page.evaluate("() => window.__mm.mapBoxes()")
         spots2 = page.evaluate("(t) => window.__mm.plateSpots(t)", plate)
+        page.keyboard.press("j")
+        page.wait_for_function("() => window.__mm.jumpList().length > 0", timeout=60000)
+        jumps2 = page.evaluate("() => window.__mm.jumpList()")
         page.keyboard.press("Escape")
         b.close()
     assert boxes0 - boxes1 >= 1000, (boxes0, boxes1)
     assert len(spots0) == 1 and spots1 == [], (spots0, spots1)
+    assert any(r.get("modern") for r in jumps0), "no modern J entry in the Hochrhein data: the filter would be untested"
     assert not any(r.get("modern") for r in jumps1), jumps1
+    assert len(jumps1) < len(jumps0) and len(jumps2) == len(jumps0), (len(jumps0), len(jumps1), len(jumps2))
     assert boxes2 == boxes0 and spots2 == spots0
     assert page.errors == []
 

@@ -6947,7 +6947,7 @@ function renderJump() {
   const chip = g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`;
   $('jumpchips').innerHTML = !L ? '' : drive ? ['All', ...placeChips(jumpEntries())].map(chip).join('')   /* #782: drive and navi keep the single placeChips row */
     : chip('All') + `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`   /* #782: Enterable moved up beside All */
-      + chipRows(gemeindenOf(JUMP_ENTRIES, REGION.gemeinden), REGION.gemeindenDe).map(row =>
+      + chipRows(gemeindenOf(eraEntries(JUMP_ENTRIES), REGION.gemeinden), REGION.gemeindenDe).map(row =>
         `<div class="crow"${row.country ? ` data-country="${row.country}"` : ''}>${row.country ? `<b>${row.country}</b>` : ''}${row.gemeinden.map(chip).join('')}</div>`).join('');
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
