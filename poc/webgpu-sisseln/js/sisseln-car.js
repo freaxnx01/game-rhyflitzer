@@ -21,7 +21,8 @@ const DRIVE = {
   halfWidth: 0.95
 };
 
-// The car's own lights, in the chassis frame: the headlight pair and where the nose is.
+// The car's own lights, in the chassis frame: the headlight pair and where the nose is (bulldog.glb is fitted to
+// 5.05 m). The lit look of the lamps themselves comes from the model's own emissive lamp materials, via setLampsLit.
 const CAR_LAMP_SPEC = { headlight: [0.72, 0.66], zFront: 2.25 };
 
 const CAMERAS = [
