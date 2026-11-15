@@ -40,6 +40,8 @@ def open_game(p, server, srf_hits=None, touch=False):
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     if srf_hits is not None:
         stub_srf(page, srf_hits)
+    # these tests step through the list in order (8 goes from track 0 to 1), so they turn the default shuffle off
+    page.add_init_script("if (localStorage.getItem('mm.radioShuffle') === null) localStorage.setItem('mm.radioShuffle', '0')")
     page.goto(f"{server}/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
     if over_cdp():

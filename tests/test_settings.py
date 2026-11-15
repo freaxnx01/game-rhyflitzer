@@ -121,6 +121,28 @@ def test_music_row_is_the_menu_music_on_the_start_screen(server):
     assert errors == []
 
 
+
+def test_shuffle_is_on_by_default_and_the_switch_keeps_the_track(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        first = page.evaluate("() => window.__mm.radio()")
+        page.click("#settingsbtn")
+        sw_on = page.get_attribute("#setshuffle", "aria-checked")
+        page.click("#setshuffle")
+        off = page.evaluate("() => ({ r: window.__mm.radio(), sw: document.getElementById('setshuffle').getAttribute('aria-checked'), ls: localStorage.getItem('mm.radioShuffle') })")
+        page.reload()
+        page.wait_for_function(READY, timeout=240000)
+        reloaded = page.evaluate("() => window.__mm.radio()")
+        b.close()
+    assert first["shuffle"] is True and first["order"][0] == first["track"], first
+    assert sorted(first["order"]) == list(range(len(first["order"]))), first
+    assert sw_on == "true"
+    assert off["sw"] == "false" and off["ls"] == "0" and off["r"]["shuffle"] is False, off
+    assert off["r"]["track"] == first["track"] and off["r"]["order"] == sorted(off["r"]["order"]), off   # the current track plays on, the list is back in order
+    assert reloaded["shuffle"] is False and reloaded["track"] == 0 and reloaded["order"] == sorted(reloaded["order"]), reloaded
+    assert errors == []
+
+
 def start_race(page):
     page.click("#startbtn")
     page.wait_for_function("() => window.__mm.pause().state === 'armed' || window.__mm.pause().state === 'racing'", timeout=120000)

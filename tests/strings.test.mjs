@@ -298,6 +298,8 @@ test('the settings dialog has its texts in both languages (#842)', () => {
   assert.equal(translate('de', 'setMusicMenu'), 'Menümusik');
   assert.equal(translate('en', 'setMusicRadio'), 'Car radio');
   assert.equal(translate('de', 'setMusicRadio'), 'Autoradio');
+  assert.equal(translate('en', 'setShuffle'), 'Shuffle');
+  assert.equal(translate('de', 'setShuffle'), 'Zufallswiedergabe');
   assert.equal(translate('en', 'setOn'), 'on');
   assert.equal(translate('de', 'setOn'), 'ein');
   assert.equal(translate('en', 'setOff'), 'off');
