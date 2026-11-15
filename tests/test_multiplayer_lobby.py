@@ -39,16 +39,16 @@ def rows(page):
     return page.evaluate("() => [...document.querySelectorAll('#mpplayers .mp-row')].map(r => r.textContent)")
 
 
-def connect(host, guest):
+def connect(host, guest, named=True):
     """Host Anna invites, guest Ben answers -- the codes travel through the test, as they would through a chat."""
     host.click("#mpbtn")
-    host.fill("#mpname", "Anna")
+    if named: host.fill("#mpname", "Anna")
     host.click("#mphostbtn")
     host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1H.')", timeout=T)
     host_code = host.input_value("#mpcode")
 
     guest.click("#mpbtn")
-    guest.fill("#mpname", "Ben")
+    if named: guest.fill("#mpname", "Ben")
     guest.click("#mpguestbtn")
     guest.fill("#mpin", host_code)
     guest.click("#mpmake")
@@ -166,3 +166,12 @@ def test_join_link_prefills_the_guest_and_waits_for_the_click(pair, server):
     guest.fill("#mpname", "Ben"); guest.click("#mpmake")
     guest.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1G.')", timeout=T)
     assert not errors
+
+
+def test_default_names_are_filled_and_unique(pair):
+    """#979: no typing needed; the lobby holds two different, non-empty names."""
+    host, guest, errors = pair
+    connect(host, guest, named=False)
+    found = names(host)
+    assert len(found) == 2 and len(set(n.lower() for n in found)) == 2 and all(found), found
+    assert names(guest) == found and not errors

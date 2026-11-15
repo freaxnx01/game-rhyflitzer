@@ -952,6 +952,7 @@ import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpa
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from './netrace.js';
+import { funnyName, parsePool } from './netnames.js';   // #979: funny default player names
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
@@ -6233,6 +6234,8 @@ const NET = {
   lobby: null,         // the host's own netrace lobby, or the last `lobby` message a guest received
   you: null,           // this device's player id inside that lobby
   name: null,          // the name this device says hello with
+  autoName: null,      // the generated name sitting in the field, or null
+  nameCustom: false,   // true when the player typed a name distinct from the generated one
   bad: 0,              // inbound messages parseMessage refused, over the whole session (__mm.net().bad)
   slots: new Map(),    // host only: netlink peer id -> lobby player id
   slot: null,          // host only: the peer id the code on screen belongs to
@@ -6255,6 +6258,7 @@ const netOpen = () => !$('mp').hidden || !$('mplobby').hidden;
 const netCtx = () => ({ carIds: new Set(Object.keys(VEHICLES)), paintIds: new Set(PAINTS.map((p) => p.id)), regions: new Set(Object.keys(REGIONS)) });
 const netIce = () => (new URLSearchParams(location.search).get('netice') === 'none' ? [] : STUN);   // ?netice=none: loopback only, for the browser test
 const storedMpName = () => { try { return localStorage.getItem(MP_NAME_KEY) || ''; } catch (e) { return ''; } };
+const namePool = () => parsePool(tr('mpFunnyNames'));
 
 function netSay(text) { const p = $('mpstatus'); p.textContent = text; p.classList.remove('bad'); }
 function netWarn(text) { const p = $('mpstatus'); p.textContent = text; p.classList.add('bad'); }
@@ -6276,7 +6280,7 @@ function netLink() {
 
 // ---- the connect dialog ----
 function openMp() {
-  $('mpname').value = storedMpName(); $('mpname').disabled = false;
+  NET.autoName = storedMpName() ? null : funnyName(namePool()); $('mpname').value = storedMpName() || NET.autoName; $('mpname').disabled = false;
   $('mproles').hidden = false; $('mphint').textContent = '';
   for (const id of ['mpinbox', 'mpoutbox', 'mpanswerbox', 'mpregion']) $(id).hidden = true;
   $('mpin').value = ''; $('mpanswerin').value = ''; $('mpcode').value = '';
@@ -6288,17 +6292,17 @@ function netBack() { if (NET.lobby && NET.slots.size > 0) { stopCodeClock(); ope
 function netKey(e) { if (e.code === 'Escape') { e.preventDefault(); netBack(); } }
 
 function netTakeName() {
-  const name = cleanName($('mpname').value);
-  if (!name) { netWarn(tr('mpNeedName')); return null; }
-  try { localStorage.setItem(MP_NAME_KEY, name); } catch (e) { /* a private window keeps nothing */ }
-  NET.name = name;
-  return name;
+  const typed = cleanName($('mpname').value);
+  NET.nameCustom = typed !== null && typed !== NET.autoName;
+  NET.name = typed || funnyName(namePool());
+  $('mpname').value = NET.name;
+  if (NET.nameCustom) try { localStorage.setItem(MP_NAME_KEY, NET.name); } catch (e) { /* a private window keeps nothing */ }
+  return NET.name;
 }
 
 // ---- host ----
 async function netHostStart() {
   const name = netTakeName();
-  if (!name) return;
   NET.role = 'H'; NET.lobby = createLobby(REGION.id, name); NET.you = 0;
   $('mproles').hidden = true; $('mpname').disabled = true; $('mphint').textContent = tr('mpHostHint');
   await netHostCode();
@@ -6333,7 +6337,7 @@ async function netHostAccept() {
 // ---- guest ----
 function netGuestRole() { NET.role = 'G'; $('mproles').hidden = true; $('mphint').textContent = tr('mpGuestHint'); $('mpinbox').hidden = false; }
 async function netGuestAnswer() {
-  if (!netTakeName()) return;
+  netTakeName();
   const code = await decodeCode($('mpin').value.trim(), 'H', nowSec());
   if (!code.ok) { netWarn(tr(MP_ERR[code.error])); return; }
   if (code.g !== REGION.id) { netAskRegion(code.g); return; }
@@ -6364,7 +6368,7 @@ function netMessage(peerId, raw) {
   if (NET.role === 'H') netHostMessage(peerId, msg); else netGuestMessage(msg);
 }
 function netHostMessage(peerId, msg) {
-  if (msg.type === 'hello') { netHostHello(peerId, msg.name); return; }
+  if (msg.type === 'hello') { netHostHello(peerId, msg.name, msg.custom); return; }
   const id = NET.slots.get(peerId);
   if (id === undefined) return;                          // nothing a peer sends counts before its hello
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
@@ -6377,9 +6381,9 @@ function netHostMessage(peerId, msg) {
   else return;                                           // `lobby` and `deny` are the host's to send, never a guest's
   netHostBroadcast();
 }
-function netHostHello(peerId, name) {
+function netHostHello(peerId, name, custom) {
   if (NET.slots.has(peerId)) return;                     // a repeated hello changes nothing
-  const added = admitHello(NET.lobby, name, !!NET.session);   // #916: nobody joins a drive that already runs
+  const added = admitHello(NET.lobby, name, !!NET.session, { custom, pool: namePool() });   // #916: nobody joins a drive that already runs; #979: a colliding generated name is renamed
   if (added.deny) { NET.link.send(peerId, { type: 'deny', reason: added.deny }); NET.link.close(peerId); return; }
   NET.lobby = added.lobby; NET.slots.set(peerId, added.id);
   openLobby(); netHostBroadcast();
@@ -6408,7 +6412,7 @@ function netGuestMessage(msg) {
 }
 function netPeerState(peerId, state) {
   if (state === 'timeout') { netTrouble(tr(NET.role === 'G' ? 'mpAnswerUnused' : 'mpIceFail')); return; }
-  if (state === 'open') { if (NET.role === 'G') NET.link.send(HOST_ID, { type: 'hello', name: NET.name }); return; }
+  if (state === 'open') { if (NET.role === 'G') NET.link.send(HOST_ID, { type: 'hello', name: NET.name, custom: NET.nameCustom }); return; }
   if (!['disconnected', 'failed', 'closed'].includes(state)) return;
   if (NET.role === 'G' && state === 'failed' && !NET.lobby) { netTrouble(tr('mpIceFail')); return; }
   if (NET.role === 'G') netHostGone(); else if (NET.link) netHostDrop(peerId);
