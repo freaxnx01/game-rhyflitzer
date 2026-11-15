@@ -6,13 +6,15 @@ import time
 import pytest
 from playwright.sync_api import sync_playwright
 
+from test_vehicles import pin_the_compact
+
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 
-# Smile-Kreisel island = (1206.5, -127), radius 9.5; the car's circle is 1.3, so a head-on stop sits at x 1217.4.
+# Smile-Kreisel island = (1206.5, -127), radius 9.5; the car's circle is 1.3, so a head-on stop sits at x 1217.3.
 # Coasting into it from 1236.5 at 15 m/s is the approach test_vehicles.py::test_table_mass_softens_the_crash uses.
 HARD_HIT = "() => window.__mm.sim(1236.5, -127, Math.PI, 15, 1.6, [])"
-CONTACT_X = 1217.4
+CONTACT_X = 1217.3   # 1206.5 + 9.5 + 1.3; since #902 (PR#953) a 2 m/s roll from 1219 coasts to rest at 1217.52, short of the island, so the test starts it at 1218.5
 
 # The 0.35 s cooldown runs on AudioContext.currentTime, i.e. on wall-clock time, so a pair of hits that has to land
 # inside the window goes into one page.evaluate: a Playwright round trip between them can outlast the cooldown and
@@ -82,7 +84,8 @@ def test_scraping_along_a_wall_stays_silent(server):
     the hit is below the 3 m/s threshold, so nothing plays."""
     with sync_playwright() as p:
         b, page = open_hand(p, server)
-        end = page.evaluate("() => window.__mm.sim(1219, -127, Math.PI, 2, 2, [])")
+        pin_the_compact(page)   # #830: the hatchback is the start car; its drive and circle differ, CONTACT_X is the compact's
+        end = page.evaluate("() => window.__mm.sim(1218.5, -127, Math.PI, 2, 2, [])")
         got = crashes(page)
         b.close()
     assert end["x"] == pytest.approx(CONTACT_X, abs=0.1), end   # it really touched the island

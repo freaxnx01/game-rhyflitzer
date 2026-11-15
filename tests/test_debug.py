@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import sync_playwright
 
+from conftest import start_ready
+
 WORLD = Path(__file__).parents[1] / "data" / "world_hochrhein.json"
 MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
@@ -25,7 +27,7 @@ def open_page(p, server, block_world=False, query="", **page_opts):
     if block_world:
         page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     page.goto(f"{server}/index.html{query}")
-    page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+    page.wait_for_function(start_ready("hud"), timeout=240000)
     return b, page
 
 
@@ -134,7 +136,7 @@ def test_panel_shows_car_size_and_hand_layout_map(server):
         lines = panel_lines(page)
         size = page.evaluate("() => window.__mm.carSize()")
         text = page.evaluate("() => window.__mm.debug().copy")
-        page.evaluate("() => { const c = window.__mm.vehicles().compact; c.scale = 1.5; window.__mm.setVehicle(c); }")
+        page.evaluate("() => { const c = window.__mm.vehicles()[window.__mm.carsel().id]; c.scale = 1.5; window.__mm.setVehicle(c); }")   # #830: the start car is no longer the compact
         page.wait_for_function("() => window.__mm.debug().lines.some(l => l.startsWith('size ') && parseFloat(l.slice(5)) > 6)", timeout=60000)
         scaled = next(l for l in page.evaluate("() => window.__mm.debug().lines") if l.startswith("size "))
         br.close()
@@ -423,7 +425,7 @@ def test_debug_panel_jumps_to_any_hideout_room(server):
     with sync_playwright() as p:
         br = p.chromium.launch(args=ARGS); page = br.new_page(viewport={"width": 960, "height": 540})   # not open_page: the hideout needs the real terrain, which open_page blocks
         page.goto(f"{server}/index.html?debug")
-        page.wait_for_function("() => window.__mm && window.__mm.hud && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.wait_for_function(start_ready("hud"), timeout=240000)
         page.click("#startbtn", timeout=180000)
         page.wait_for_function("() => window.__mm.debug().lines.length > 0", timeout=60000)
         page.evaluate("() => { window.__copied = null; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.__copied = t; return Promise.resolve(); } } }); }")   # served over plain http off localhost, navigator.clipboard is missing

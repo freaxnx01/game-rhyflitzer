@@ -1,8 +1,10 @@
 """#551: cruise -- the default mode, no clock, no checkpoints. Slow (Playwright): run in the foreground."""
 from playwright.sync_api import sync_playwright
 
+from conftest import start_ready
+
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
-READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
+READY = start_ready()
 T = 240000
 SHOWN = "(s) => getComputedStyle(document.querySelector(s)).display !== 'none'"
 
@@ -44,6 +46,7 @@ def test_cruise_pause_has_no_restart_and_main_menu_goes_straight_back(server):
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.pause().on", timeout=T)
         restart_hidden = page.evaluate("() => document.querySelector('#pauserestart').hidden")
+        timetable = page.evaluate("() => !document.getElementById('pausetimetable').hidden")   # #801: only where the region has a timetable
         seen = []
         for _ in range(4):
             page.keyboard.press("ArrowDown")
@@ -53,7 +56,7 @@ def test_cruise_pause_has_no_restart_and_main_menu_goes_straight_back(server):
         after = page.evaluate("() => ({ abandon: !document.querySelector('#abandon').hidden, focus: document.activeElement.id, mode: window.__mm.blitz().mode })")
         b.close()
     assert restart_hidden is True
-    assert seen == ["pausevehicle", "pausestyle", "pauseabout", "pausesettings"], seen   # #773: the style switch after Change vehicle; #842: Settings after About
+    assert seen == (["pausevehicle", "pausestyle"] + (["pausetimetable"] if timetable else []) + ["pauseabout", "pausesettings"])[:4], seen   # #773: the style switch after Change vehicle; #801: Timetable after it where the region has one; #842: Settings after About
     assert after == {"abandon": False, "focus": "cruisebtn", "mode": "cruise"}, after
     assert errors == []
 

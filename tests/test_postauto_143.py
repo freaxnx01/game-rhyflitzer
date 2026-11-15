@@ -33,7 +33,7 @@ def test_line_143_enters_from_the_east_with_its_number(server):
                 if bus:
                     break
             assert bus, "the 143 bus never appeared under the stepped clock"
-            assert bus["line"] == "143" and bus["led"] == {"line": "143", "dest": trip["to"]}
+            assert bus["line"] == "143" and bus["led"] == {"line": "143", "dest": trip["to"], "thanks": None}   # #894: the led state gained the rear display's thanks text (None until the stop)
             stops = [s for s in page.evaluate("() => window.__mm.busStops()") if s["uic"] == BREITENACHER]
             assert stops and all(s["rows"] for s in stops)
             page.keyboard.press("F3")

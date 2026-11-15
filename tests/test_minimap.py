@@ -138,7 +138,7 @@ def test_help_mentions_map_zoom_and_placement(server):
 
 
 # Swiss layout: '=' is Shift+0 and '+' is Shift+1, so the zoom keys arrive with a digit code
-KEY_JS = """([code, key]) => dispatchEvent(new KeyboardEvent('keydown', { code, key, bubbles: true }))"""
+KEY_JS = """([code, key, shiftKey]) => dispatchEvent(new KeyboardEvent('keydown', { code, key, shiftKey: !!shiftKey, bubbles: true }))"""
 
 
 def test_zoom_keys_on_digit_codes_never_place_the_car(server):
@@ -154,9 +154,9 @@ def test_zoom_keys_on_digit_codes_never_place_the_car(server):
             page.evaluate(KEY_JS, [code, key]); page.wait_for_timeout(300)
         in_menu = car(page); zoom_in_menu = zoom(page); flags_menu = page.evaluate("() => window.__mm.raceFlags()")
         page.keyboard.press("Escape")
-        page.evaluate(KEY_JS, ["Digit0", "="]); page.wait_for_timeout(300)
+        page.evaluate(KEY_JS, ["Digit0", "=", True]); page.wait_for_timeout(300)   # #735: Digit0 is the radio volume; the layout's '=' is Shift+0, and a modifier leaves it to the zoom
         after_eq = car(page); zoom_eq = zoom(page)
-        page.evaluate(KEY_JS, ["Digit1", "+"]); page.wait_for_timeout(300)
+        page.evaluate(KEY_JS, ["Digit1", "+", True]); page.wait_for_timeout(300)
         after_plus = car(page); zoom_plus = zoom(page); flags = page.evaluate("() => window.__mm.raceFlags()")
         b.close()
     assert menu_open

@@ -23,6 +23,14 @@ RUN_HOOK = {"launch": None}
 API_HOOK = {"new_context": None, "new_page": None}
 
 
+def start_ready(hook="sim"):
+    """JS predicate: the world is loaded and the start car is ready. #840 keeps the start bar disabled while the
+    default glTF car (#830) loads, so '#worldstatus has text' alone lets a test press a disabled button."""
+    return ("() => window.__mm && window.__mm." + hook + " && document.querySelector('#worldstatus')?.textContent"
+            " && (() => { const id = window.__mm.carsel?.().id, d = id && window.__mm.vehicles?.()[id];"
+            " return !!d && (!d.gltf || ['ready', 'failed'].includes(window.__mm.gltfVehicle(d.gltf.id).state)); })()")
+
+
 def _install_gpu_hook(config):
     endpoint, warning = gpu_browser.resolve_endpoint(os.environ)
     if warning:

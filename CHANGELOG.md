@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-14 21:28` Neu: **Ausliefern**. Auf dem Startbildschirm startet **Ausliefern** eine Schicht mit fünf Bestellungen. Ab der Pizzeria führt das Navi zu einer echten Hausadresse, die Zeit läuft, und wer rasant und sorgsam fährt, bekommt mehr **Trinkgeld**: Mit jedem Crash leidet die Pizza, bei 0 % ist sie hin. Der beste Wert wird gespeichert. Während einer Lieferung gehen <kbd>J</kbd>, <kbd>F</kbd> und <kbd>O</kbd> nicht, und <kbd>R</kbd> kostet 15 Sekunden.
 - `2026-11-12 15:35` **Gemeinsam losfahren**: sind in der Lobby alle bereit, schickt der Host alle mit einem Klick auf die Strasse. Ihr startet hintereinander am Start, und jeder sieht die **anderen Autos** in ihrer eigenen Farbe fahren — flüssig, auch über eine zappelige Verbindung. Wer das Spiel verlässt, verschwindet bei den anderen.
 - `2026-11-12 13:29` **Kamerafahrten** lassen sich jetzt **Bild für Bild** aufnehmen: `scripts/campath_video.py` spielt einen gespeicherten Pfad in exakten 1/60-s-Schritten ab und rendert daraus ein **ruckelfreies 60-fps-Video** — auch auf einem Rechner, der das Spiel selbst nur mit ein paar Bildern pro Sekunde schafft.
 - `2026-11-12 10:51` In der **Rally-Halle** hängt jetzt eine **Ehrentafel** für **Elfyn Evans**, **WRC-Weltmeister 2026** (mit **Scott Martin**): eine dunkle Tafel mit goldener Schrift an der Rückwand hinter dem roten Auto.
@@ -17,6 +18,10 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 - `2026-11-12 10:37` On the **Plattform deck** a plate names the **Verein Plattform Sisslerfeld**; <kbd>E</kbd> opens its website in a new tab.
 - `2026-11-11 21:47` A **fenced paddock** with eight **ostriches** at the Straussenfarm in Sisseln: they stand, peck and walk, and run off when the car or the walker comes close. <kbd>J</kbd> lists the farm.
 - `2026-11-11 19:22` **Radio Argovia** is a third station on the car radio: press <kbd>6</kbd> to cycle Rhyflitzer FM, SRF 3 and Radio Argovia.
+
+### Fixed
+
+- `2026-11-14 20:39` In **?debug** mode the **debug panel** no longer covers the centred **message toast** on wide windows.
 
 ### Changed
 
@@ -41,6 +46,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Fixed
 
 - `2026-11-14 20:37` Gast gibt nach **20 s** nicht mehr auf, während sein Antwort-Code noch zum Host unterwegs ist: die Verbindung bleibt offen, bis der Host ihn übernimmt oder der Code abläuft. Codes gelten **zehn Minuten**, und der Host kann einen **Einladungslink** kopieren, der beim Gast den Code schon eingefüllt öffnet — verbinden tut er erst mit dem Klick auf «Antwort erstellen».
+- `2026-11-14 20:26` Starting a **surprise hunt** (or a viewpoint run) now shows its **"Find the presents"** message again: the **radio** display no longer covers it when the run begins.
 - `2026-11-13 11:42` **Fahrzeug wechseln zu Fuss**: bist Du ausgestiegen und geschwebt, schwebten die Autos in der Vorschau mit Dir in der Luft. Jetzt steht die Vorschau am geparkten Platz auf dem Boden, und das gewählte Auto wartet dort, bis Du wieder einsteigst.
 - `2026-11-13 13:38` **Change vehicle while flying** now shows your **car** on the turntable instead of the helicopter. You are still in the air afterwards, and the helicopter is back as soon as you drive on or go back.
 - `2026-11-13 12:12` Kein **Riesensprung** mehr, wenn man **vom Feld her** zur **Plattform Sisslerfeld** fährt: eine Strassenkante hebt das Auto jetzt nur noch auf die Strasse, statt es meterhoch in die Luft zu schleudern. Das gilt auch für andere Kanten, z. B. am Kreisel.
