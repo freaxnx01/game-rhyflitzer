@@ -12,9 +12,9 @@ export const LIVE = Object.freeze({
   argovia: Object.freeze({ url: ARGOVIA_URL, nameKey: 'radioStationArgovia', failKey: 'radioArgoviaFail' }),
 });
 export const nextStation = (s) => STATIONS[(STATIONS.indexOf(s) + 1) % STATIONS.length];
-// the seven tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
+// the thirteen tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
 // (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB; the soft-rock pair,
-// 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks; Gritty Riffing, 2026-11-15, is -17.6 dB mean)
+// 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks; Gritty Riffing, 2026-11-15, is -17.6 dB mean; the six later Suno tracks -16.2 to -18.2 dB)
 export const TRACKS = Object.freeze([
   { id: 'cool-rider', title: 'Cool Rider', artist: 'Emmraan', src: 'assets/music/cool-rider.mp3', gainDb: -6 },
   { id: 'neon-afterglow', title: 'Neon Afterglow', artist: 'MemoryArcade', src: 'assets/music/neon-afterglow.mp3', gainDb: 0 },
@@ -23,13 +23,19 @@ export const TRACKS = Object.freeze([
   { id: 'soft-rock-groove', title: 'The 1980s Soft Rock Groove', artist: 'Michael-Vault', src: 'assets/music/soft-rock-groove.mp3', gainDb: 0 },
   { id: 'melrose-place-soft-rock', title: 'Melrose Place Soft Rock', artist: 'DigiCompo', src: 'assets/music/melrose-place-soft-rock.mp3', gainDb: 0 },
   { id: 'gritty-riffing', title: 'Gritty Riffing', artist: 'freaxnx01', src: 'assets/music/gritty-riffing.mp3', gainDb: 0 },
+  { id: 'fuzz-riff-breakdown', title: 'Fuzz Riff Breakdown', artist: 'freaxnx01', src: 'assets/music/fuzz-riff-breakdown.mp3', gainDb: 0 },
+  { id: 'pulsing-arpeggio', title: 'Pulsing Arpeggio', artist: 'freaxnx01', src: 'assets/music/pulsing-arpeggio.mp3', gainDb: 0 },
+  { id: 'pulsing-arpeggio-take-2', title: 'Pulsing Arpeggio (Take 2)', artist: 'freaxnx01', src: 'assets/music/pulsing-arpeggio-take-2.mp3', gainDb: 0 },
+  { id: 'rising-tension', title: 'Rising Tension', artist: 'freaxnx01', src: 'assets/music/rising-tension.mp3', gainDb: 0 },
+  { id: 'open-road', title: 'Open Road', artist: 'freaxnx01', src: 'assets/music/open-road.mp3', gainDb: 0 },
+  { id: 'night-drive', title: 'Night Drive', artist: 'freaxnx01', src: 'assets/music/night-drive.mp3', gainDb: 0 },
 ]);
 export const MENU_TRACK = TRACKS[3];
 export const VOLUME = Object.freeze({ min: 0, max: 10, start: 6 });
 const RADIO_BASE = 0.8, MENU_SHARE = 0.35;   // full volume into the SFX master; the menu music plays at 35 % of the radio
 export const SRF_TIMEOUT = Object.freeze({ start: 8, stall: 10 });   // seconds without 'playing' after play(), and in 'waiting'/'stalled'
 export const RADIO_SHOW_S = 3;   // the radio display in #toast
-export const RADIO_STORE = Object.freeze({ on: 'mm.radio', station: 'mm.radioStation', vol: 'mm.radioVol', menu: 'mm.menuMusic' });
+export const RADIO_STORE = Object.freeze({ on: 'mm.radio', station: 'mm.radioStation', vol: 'mm.radioVol', menu: 'mm.menuMusic', shuffle: 'mm.radioShuffle' });
 
 // the top-row digits 5-0: free in every run context (the lift pads take 0-9 only while open, and run first)
 const KEY_ACTIONS = { Digit5: 'power', Digit6: 'station', Digit7: 'prev', Digit8: 'next', Digit9: 'down', Digit0: 'up' };
@@ -47,6 +53,15 @@ export function radioKeyAction(e) {
 
 export const nextTrack = (i, n = TRACKS.length) => (i + 1) % n;
 export const prevTrack = (i, n = TRACKS.length) => (i - 1 + n) % n;
+// Rhyflitzer FM's play order: the list as it is, or (shuffle, the default) a random permutation that starts at first.
+// nextTrack / prevTrack walk positions in this order, so 7 goes back to the track that really played before
+export function playlistOrder(shuffle, n, first, rand = Math.random) {
+  const order = Array.from({ length: n }, (_, i) => i);
+  if (!shuffle) return order;
+  const rest = order.filter(i => i !== first);
+  for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+  return [first, ...rest];
+}
 export const stepVolume = (vol, step) => Math.max(VOLUME.min, Math.min(VOLUME.max, vol + step));
 
 // a square law, so the low steps stay usable
@@ -55,6 +70,7 @@ export const menuGain = (vol) => MENU_SHARE * trackGain(vol, MENU_TRACK.gainDb);
 
 export const radioOnFrom = (stored) => stored !== '0';
 export const menuMusicOnFrom = (stored) => stored !== '0';
+export const shuffleOnFrom = (stored) => stored !== '0';
 export const stationFrom = (stored) => (STATIONS.includes(stored) ? stored : 'fm');
 export function volumeFrom(stored) {
   if (stored === null || stored === undefined || stored === '') return VOLUME.start;
