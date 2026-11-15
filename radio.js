@@ -12,9 +12,9 @@ export const LIVE = Object.freeze({
   argovia: Object.freeze({ url: ARGOVIA_URL, nameKey: 'radioStationArgovia', failKey: 'radioArgoviaFail' }),
 });
 export const nextStation = (s) => STATIONS[(STATIONS.indexOf(s) + 1) % STATIONS.length];
-// the six tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
+// the seven tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
 // (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB; the soft-rock pair,
-// 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks)
+// 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks; Gritty Riffing, 2026-11-15, is -17.6 dB mean)
 export const TRACKS = Object.freeze([
   { id: 'cool-rider', title: 'Cool Rider', artist: 'Emmraan', src: 'assets/music/cool-rider.mp3', gainDb: -6 },
   { id: 'neon-afterglow', title: 'Neon Afterglow', artist: 'MemoryArcade', src: 'assets/music/neon-afterglow.mp3', gainDb: 0 },
@@ -22,6 +22,7 @@ export const TRACKS = Object.freeze([
   { id: 'menu-running-title', title: 'Menu / Running Title', artist: 'Rob Bery', src: 'assets/music/menu-running-title.mp3', gainDb: 0 },
   { id: 'soft-rock-groove', title: 'The 1980s Soft Rock Groove', artist: 'Michael-Vault', src: 'assets/music/soft-rock-groove.mp3', gainDb: 0 },
   { id: 'melrose-place-soft-rock', title: 'Melrose Place Soft Rock', artist: 'DigiCompo', src: 'assets/music/melrose-place-soft-rock.mp3', gainDb: 0 },
+  { id: 'gritty-riffing', title: 'Gritty Riffing', artist: 'freaxnx01', src: 'assets/music/gritty-riffing.mp3', gainDb: 0 },
 ]);
 export const MENU_TRACK = TRACKS[3];
 export const VOLUME = Object.freeze({ min: 0, max: 10, start: 6 });
