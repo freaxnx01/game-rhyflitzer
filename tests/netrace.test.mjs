@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint } from '../netrace.js';
+import { CP_MAX } from '../netcodec.js';
 
 const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
 
@@ -121,7 +122,15 @@ test('nearPoint_xzOnly_withinRadiusSlack_trueBeyondFalse', () => {
   assert.equal(nearPoint([{ x: 50, y: 0, z: 50 }, { x: 0, y: 0, z: 0 }], pt), true);   // any pose near
 });
 
-test('createRace_clampsCpsPastThirtyOne', () => {
-  assert.equal(createRace(lobby2, 32).cps, 31);   // 1 << cps wraps past 31 under JS's 32-bit bitwise
-  assert.equal(createRace(lobby2, 3).cps, 3);     // an in-range count is unchanged
+test('createRace_clampsCpsToCodecMax', () => {
+  assert.equal(createRace(lobby2, 32).cps, CP_MAX);  // clamped to netcodec's CP_MAX so the wire-layer cp/cpno validators agree
+  assert.equal(createRace(lobby2, 3).cps, 3);          // an in-range count is unchanged
+});
+
+test('acceptFinish_succeedsAtClampedCps', () => {
+  let r = createRace(lobby2, CP_MAX);
+  for (let i = 0; i < CP_MAX; i++) r = acceptCp(r, 0, i, 1000 * (i + 1), true).race;
+  const fin = acceptFinish(r, 0, 90000, true, 100000);
+  assert.equal(fin.ok, true);
+  assert.equal(fin.race.racers[0].st, 'fin');
 });

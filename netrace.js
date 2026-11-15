@@ -3,7 +3,7 @@
 // broadcasts a `lobby` message after every change; every function here returns a new lobby instead of mutating one.
 
 import { powerClass } from './carselect.js';
-import { MAX_PLAYERS } from './netcodec.js';
+import { MAX_PLAYERS, CP_MAX } from './netcodec.js';
 import { uniqueFunnyName } from './netnames.js';
 
 // carFits(cls, def) — may this vehicle be driven in this class? 'all' takes every one.
@@ -91,10 +91,12 @@ const okTime = (t) => Number.isFinite(t) && t >= 0 && t <= RACE.maxMs;
 const stamp = (p, t) => [...p.times, Math.max(p.times[p.times.length - 1] ?? 0, t)];
 
 // createRace(lobby, cps) — every lobby player starts running with an empty pass log; cps = checkpoint count.
-// cps is clamped to ≤ 31: `1 << cps` / `(1 << cps) - 1` wrap under JS's 32-bit bitwise semantics past that, so a
-// future dynamic-course host setting cps too high can't silently break the checkpoint bitmask math downstream.
+// cps is clamped to CP_MAX (imported from netcodec.js): the wire-layer cp/cpno validators reject any
+// i > CP_MAX, so a higher count would leave higher-indexed checkpoints unvalidatable; and
+// (1 << cps) / (1 << cps) - 1 wrap under JS's 32-bit signed bitwise semantics past 30, so the
+// clamp also keeps the checkpoint bitmask math valid for every accepted cps.
 export function createRace(lobby, cps) {
-  const safe = Math.max(0, Math.min(cps, 31));
+  const safe = Math.max(0, Math.min(cps, CP_MAX));
   return { cps: safe, firstFin: null, over: false, racers: lobby.players.map((p) => ({ id: p.id, name: p.name, times: [], mask: 0, st: 'run' })) };
 }
 

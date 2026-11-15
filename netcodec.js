@@ -176,7 +176,9 @@ export function cleanName(raw) {
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
 
 // ---- #837 race messages: start race (t0/now), cp, finish, cpno, board, back ----
-const RACE_MS = 3600000, CP_MAX = 15, TIMES_MAX = 17, ST = ['run', 'fin', 'dnf'];
+const RACE_MS = 3600000;
+export const CP_MAX = 15;
+const TIMES_MAX = 17, ST = ['run', 'fin', 'dnf'];
 const raceTime = (t) => finite(t) && t >= 0 && t <= RACE_MS;
 const cpIndex = (i, lo) => Number.isInteger(i) && i >= lo && i <= CP_MAX;
 
