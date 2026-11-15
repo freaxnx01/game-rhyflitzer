@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Sisseln · WebGPU PoC</title>
+  <link rel="icon" href="data:," />
+  <meta name="description" content="WebGPU proof of concept: Sisseln and the Sisslerfeld built from the Rhyflitzer map data with three.js WebGPURenderer and TSL -- sky, times of day, wet roads, reflections and street lamps." />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <!-- three.js r187 release (npm package, served by jsDelivr) -- the same pin as poc/webgpu/ -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js",
+        "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.webgpu.js",
+        "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.tsl.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+      }
+    }
+  </script>
+  <link rel="modulepreload" href="./js/sisseln-slice.js" />
+  <link rel="modulepreload" href="./js/sisseln-geom.js" />
+  <link rel="modulepreload" href="./js/sisseln-materials.js" />
+  <link rel="modulepreload" href="./js/sisseln-ground.js" />
+  <link rel="modulepreload" href="./js/lighting.js" />
+  <link rel="modulepreload" href="./js/post-processing.js" />
+  <link rel="modulepreload" href="./js/main.js" />
+  <link rel="preload" href="../../data/world_hochrhein.json" as="fetch" crossorigin />
+  <link rel="preload" href="../../data/terrain_hochrhein.mmh" as="fetch" crossorigin />
+  <script type="module" src="./js/main.js"></script>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <!-- Shown instead of the renderer when the browser has no WebGPU adapter -->
+  <div id="no-webgpu" role="alert" hidden>
+    <p>Dieser Browser unterstützt kein WebGPU. / This browser does not support WebGPU.</p>
+    <a href="../../">&larr; Rhyflitzer</a>
+  </div>
+
+  <div id="loading-overlay" role="status" aria-live="polite">
+    <div class="loader">
+      <div class="loader-title">Sisseln · WebGPU</div>
+      <div id="loading-status">Karte und Gelände werden geladen …</div>
+    </div>
+  </div>
+
+  <main id="canvas-container" aria-label="3D-Ansicht von Sisseln"></main>
+
+  <header class="hud hud-top-left">
+    <div class="panel">
+      <h1>Sisseln · Sisslerfeld</h1>
+      <p class="subtitle">three.js · WebGPU · TSL · <span id="hud-fps">60</span> fps</p>
+    </div>
+  </header>
+
+  <div class="hud hud-top-right">
+    <div class="panel" id="hud-state">
+      <span id="hud-time">Golden Hour</span> · <span id="hud-wet">trocken</span>
+    </div>
+  </div>
+
+  <footer class="hud hud-bottom-center">
+    <p id="poc-hint" class="panel">
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fahren ·
+      <kbd>T</kbd> Tageszeit · <kbd>R</kbd> nass/trocken · <kbd>V</kbd> Kamera · <kbd>H</kbd> Anzeige
+    </p>
+  </footer>
+
+  <div class="hud hud-bottom-right">
+    <div class="panel cluster">
+      <span class="speed"><span id="hud-speed">0</span> km/h</span>
+      <span id="hud-camera" class="camera">Verfolgung</span>
+    </div>
+  </div>
+
+  <p id="credit">
+    © OpenStreetMap contributors (ODbL) · swissALTI3D / swissSURFACE3D © swisstopo ·
+    Nutzungsflächen © Kanton Aargau · Demo-Code MIT © Mr.doob
+  </p>
+</body>
+</html>
