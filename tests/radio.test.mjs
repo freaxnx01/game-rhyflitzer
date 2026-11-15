@@ -12,9 +12,10 @@ test('SRF3_URL_IsTheHttpsStream_NotTheShortLink', () => {
   assert.deepEqual(STATIONS, ['fm', 'srf3', 'argovia']);
 });
 
-test('TRACKS_AreTheSevenCommittedFiles_WithLicences', () => {
+test('TRACKS_AreTheThirteenCommittedFiles_WithLicences', () => {
   assert.deepEqual(TRACKS.map(t => t.id), ['cool-rider', 'neon-afterglow', 'california-snares-and-synths', 'menu-running-title',
-    'soft-rock-groove', 'melrose-place-soft-rock', 'gritty-riffing']);
+    'soft-rock-groove', 'melrose-place-soft-rock', 'gritty-riffing',
+    'fuzz-riff-breakdown', 'pulsing-arpeggio', 'pulsing-arpeggio-take-2', 'rising-tension', 'open-road', 'night-drive']);
   for (const t of TRACKS) {
     assert.equal(t.src, `assets/music/${t.id}.mp3`);
     assert.ok(existsSync(new URL(`../${t.src}`, import.meta.url)), t.src);
@@ -46,8 +47,8 @@ test('radioKeyAction_Repeat_OnlyVolumeRepeats', () => {
 test('nextTrack_prevTrack_Wrap', () => {
   assert.equal(nextTrack(0), 1);
   assert.equal(nextTrack(3), 4);   // the soft-rock pair follows the menu track
-  assert.equal(nextTrack(6), 0);
-  assert.equal(prevTrack(0), 6);
+  assert.equal(nextTrack(TRACKS.length - 1), 0);
+  assert.equal(prevTrack(0), TRACKS.length - 1);
   assert.equal(prevTrack(2), 1);
 });
 
