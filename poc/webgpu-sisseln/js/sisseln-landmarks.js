@@ -15,6 +15,25 @@ function trianglePoints(side) {
   });
 }
 
+/** A hipped roof over a triangle: the eaves ring rising to an apex at PLATTFORM.roof.pitch degrees. */
+function pyramidRoof(points, eaves, pitch, material) {
+  const inradius = Math.min(...points.map(([x, z]) => Math.hypot(x, z))) / 2;
+  const apex = eaves + inradius * Math.tan((pitch * Math.PI) / 180);
+  const positions = new Float32Array([
+    points[0][0], eaves, points[0][1],
+    points[1][0], eaves, points[1][1],
+    points[2][0], eaves, points[2][1],
+    0, apex, 0
+  ]);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex([0, 1, 3, 1, 2, 3, 2, 0, 3, 0, 2, 1]);
+  geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.castShadow = true;
+  return mesh;
+}
+
 function slab(points, y, thickness, material) {
   const shape = new THREE.Shape();
   shape.moveTo(points[0][0], -points[0][1]);
@@ -57,7 +76,9 @@ function buildPlattform(anchor, terrain) {
   group.add(centre);
 
   group.add(slab(trianglePoints(PLATTFORM.deck.side), PLATTFORM.deck.y, PLATTFORM.deck.thick, timber));
-  group.add(slab(trianglePoints(PLATTFORM.roof.side), PLATTFORM.roof.eaves, 0.28, createRoofMaterial(false)));
+  const roof = trianglePoints(PLATTFORM.roof.side);
+  group.add(slab(roof, PLATTFORM.roof.eaves - 0.22, 0.22, timber));
+  group.add(pyramidRoof(roof, PLATTFORM.roof.eaves, PLATTFORM.roof.pitch, createRoofMaterial(false)));
 
   group.position.set(anchor.x, ground, anchor.z);
   return group;

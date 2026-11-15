@@ -191,9 +191,18 @@ async function initApp() {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  // The PoC's test hook: the smoke test waits for `ready` and reads `state()`.
+  // The PoC's test hook: the smoke test waits for `ready`, reads `state()` and drives the look for screenshots.
   window.__poc = {
     ready: false,
+    setTime: (id) => {
+      if (!TIME_PRESETS[id]) return;
+      look.time = id;
+      applyLook();
+    },
+    setWet: (wet) => {
+      look.wet = Boolean(wet);
+      applyLook();
+    },
     state: () => ({
       time: look.time,
       wet: look.wet,
