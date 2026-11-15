@@ -18,7 +18,7 @@ SPOT_DX = {BODENACKER_6: 20, TALLEST: 22}            # car this far east of the 
 CHASE_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d, th = window.__mm.heading(); return c.view === 0"
                  " && Math.hypot(d[0] + 6.9 * Math.cos(th), d[1] - 2.6, d[2] + 6.9 * Math.sin(th)) < 0.3; }")   # #143: at the chase target BEHIND the car, not anywhere on the 6.9 m ring
 COCKPIT_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view === 2"
-                   " && Math.abs(d[0] - 0.25) < 0.05 && Math.abs(d[1] - 1.22) < 0.05 && Math.abs(d[2] - 0.38) < 0.05; }")   # cockpit eye x scale 1.0 (#69)
+                   " && Math.abs(d[0] - 0.2) < 0.05 && Math.abs(d[1] - 1.18) < 0.05 && Math.abs(d[2] - 0.37) < 0.05; }")   # cockpit eye x scale 1.0 (#69) of the hatchback start car (#830)
 
 
 def open_page(p, server, block_world=False, query="", **page_opts):
