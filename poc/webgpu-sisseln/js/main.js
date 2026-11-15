@@ -10,8 +10,13 @@ import { LightingSystem, TIME_PRESETS } from './lighting.js';
 import { createPostProcessing } from './post-processing.js';
 import { cityUniforms } from './sisseln-materials.js';
 import { buildGround } from './sisseln-ground.js';
+import { buildRoads } from './sisseln-roads.js';
+import { buildBuildings } from './sisseln-buildings.js';
+import { buildTrees } from './sisseln-trees.js';
+import { buildLandmarks } from './sisseln-landmarks.js';
 import { hasWebGPU, wantsForcedWebGL } from './poc-gate.js';
 import { nextTimePreset, roadWetness, isLookKey } from './poc-look.js';
+import { isNightPreset } from './poc-car.js';
 
 const WORLD_URL = '../../data/world_hochrhein.json';
 const TERRAIN_URL = '../../data/terrain_hochrhein.mmh';
@@ -115,6 +120,22 @@ async function initApp() {
   await breathe();
   buildGround(scene, slice, terrain, box);
 
+  setStatus('Strassen und Laternen …');
+  await breathe();
+  const roads = buildRoads(scene, slice, terrain);
+
+  setStatus('Häuser und Hallen …');
+  await breathe();
+  const buildings = buildBuildings(scene, slice, terrain);
+
+  setStatus('Wald …');
+  await breathe();
+  const trees = buildTrees(scene, slice, terrain);
+
+  setStatus('Plattform und DSM-Kamin …');
+  await breathe();
+  buildLandmarks(scene, slice, terrain);
+
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.3, 6000);
   const plattform = slice.landmarks.plattform || { x: 0, z: 0 };
   const ground = heightAt(terrain, plattform.x, plattform.z);
@@ -134,6 +155,7 @@ async function initApp() {
     lighting.applyPreset(look.time);
     colorGrade.applyPreset(look.time);
     cityUniforms.uRoadWetness.value = roadWetness(TIME_PRESETS[look.time].roadWetness, look.wet);
+    roads.setNight(isNightPreset(look.time));
     if (elTime) elTime.textContent = TIME_LABELS[look.time];
     if (elWet) elWet.textContent = look.wet ? 'nass' : 'trocken';
   }
@@ -161,13 +183,16 @@ async function initApp() {
       time: look.time,
       wet: look.wet,
       roadWetness: cityUniforms.uRoadWetness.value,
-      buildings: slice.buildings.length,
-      roads: slice.roads.length
+      buildings: buildings.count,
+      roads: slice.roads.length,
+      lamps: roads.lampCount,
+      trees: trees.count
     })
   };
 
   setStatus('Erstes Bild …');
   let lastTime = performance.now();
+  let elapsed = 0;
   let frames = 0;
   let fpsTimer = 0;
   let warmedUp = false;
@@ -175,7 +200,9 @@ async function initApp() {
   renderer.setAnimationLoop((now) => {
     const rawDt = (now - lastTime) * 0.001;
     lastTime = now;
+    elapsed += Math.min(Math.max(rawDt, 0.001), 0.05);
 
+    roads.update(elapsed, camera.position);
     lighting.update(camera.position);
     renderPipeline.render();
 

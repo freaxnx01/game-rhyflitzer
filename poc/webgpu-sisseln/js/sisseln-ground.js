@@ -3,6 +3,7 @@
 import * as THREE from 'three/webgpu';
 import { makeGrid, gridAdd, gridQuery, FIELD_KINDS } from '../../../world.js';
 import { heightAt, roadRibbon, pointInRing } from './sisseln-geom.js';
+import { capGeometry, mergeGeometries, outwardRing } from './sisseln-mesh.js';
 import { createTerrainMaterial, createWaterMaterial } from './sisseln-materials.js';
 
 // One terrain vertex every 8 m: the step of terrain_hochrhein.mmh, so the mesh resolves everything the data holds.
@@ -78,30 +79,17 @@ function buildTerrain(slice, terrain, box) {
   return mesh;
 }
 
-function ringShape(ring) {
-  const shape = new THREE.Shape();
-  shape.moveTo(ring[0][0], ring[0][1]);
-  for (let i = 1; i < ring.length; i++) shape.lineTo(ring[i][0], ring[i][1]);
-  shape.closePath();
-  return shape;
-}
-
 /** The water bodies: flat surfaces at their own `level`, which is what makes the Rhine sit in its valley. */
 function buildWater(slice, material) {
-  const group = new THREE.Group();
-  group.name = 'water';
+  const geometries = [];
   for (const body of slice.water) {
-    for (const ring of body.rings) {
-      const geometry = new THREE.ShapeGeometry(ringShape(ring));
-      // ShapeGeometry builds in the xy plane; lay it flat and lift it to the water level
-      geometry.rotateX(Math.PI / 2);
-      geometry.translate(0, body.level, 0);
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.receiveShadow = true;
-      group.add(mesh);
-    }
+    for (const ring of body.rings) geometries.push(capGeometry(outwardRing(ring), body.level));
   }
-  return group;
+  if (geometries.length === 0) return null;
+  const mesh = new THREE.Mesh(mergeGeometries(geometries), material);
+  mesh.receiveShadow = true;
+  mesh.name = 'water';
+  return mesh;
 }
 
 /** Streams as narrow ribbons following the terrain, drawn with the same water material. */
@@ -125,48 +113,6 @@ function buildStreams(slice, terrain, material) {
   return mesh;
 }
 
-/**
- * Merges plain position/uv/index geometries. three's BufferGeometryUtils would do this too, but it is one more
- * addon to fetch for a job this small and it insists on identical attribute sets.
- */
-export function mergeGeometries(geometries) {
-  const merged = new THREE.BufferGeometry();
-  const hasUv = geometries.every((geometry) => geometry.attributes.uv);
-  const hasBase = geometries.every((geometry) => geometry.attributes.baseY);
-  let vertexCount = 0;
-  let indexCount = 0;
-  for (const geometry of geometries) {
-    vertexCount += geometry.attributes.position.count;
-    indexCount += geometry.index.count;
-  }
-
-  const positions = new Float32Array(vertexCount * 3);
-  const normals = new Float32Array(vertexCount * 3);
-  const uvs = hasUv ? new Float32Array(vertexCount * 2) : null;
-  const bases = hasBase ? new Float32Array(vertexCount) : null;
-  const indices = new Uint32Array(indexCount);
-
-  let vertex = 0;
-  let index = 0;
-  for (const geometry of geometries) {
-    const count = geometry.attributes.position.count;
-    positions.set(geometry.attributes.position.array, vertex * 3);
-    normals.set(geometry.attributes.normal.array, vertex * 3);
-    if (uvs) uvs.set(geometry.attributes.uv.array, vertex * 2);
-    if (bases) bases.set(geometry.attributes.baseY.array, vertex);
-    for (let i = 0; i < geometry.index.count; i++) indices[index + i] = geometry.index.array[i] + vertex;
-    vertex += count;
-    index += geometry.index.count;
-  }
-
-  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-  if (uvs) merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  if (bases) merged.setAttribute('baseY', new THREE.BufferAttribute(bases, 1));
-  merged.setIndex(new THREE.BufferAttribute(indices, 1));
-  return merged;
-}
-
 /** Terrain, water and streams, added to the scene. */
 export function buildGround(scene, slice, terrain, box) {
   const waterMaterial = createWaterMaterial();
@@ -175,7 +121,7 @@ export function buildGround(scene, slice, terrain, box) {
   const streams = buildStreams(slice, terrain, waterMaterial);
 
   scene.add(terrainMesh);
-  scene.add(water);
+  if (water) scene.add(water);
   if (streams) scene.add(streams);
   return { terrainMesh, water, streams };
 }
