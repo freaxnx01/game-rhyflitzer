@@ -20,3 +20,10 @@ def test_presse_page_offers_every_plattform_image():
     text = PAGE.read_text(encoding="utf-8")
     plattform = sorted(p.name for p in (ROOT / "docs" / "gallery").glob("plattform-*.jpg") if not p.name.endswith("-1920.jpg"))
     assert [n for n in plattform if f'../docs/gallery/{n}" download' not in text] == []
+
+
+def test_presse_page_a_click_on_a_picture_shows_it_large_not_a_download():
+    text = PAGE.read_text(encoding="utf-8")
+    pictures = re.findall(r'<figure><a ([^>]*)><img', text)
+    assert pictures and all('class="zoom"' in a and "download" not in a for a in pictures)
+    assert 'id="lightbox"' in text
