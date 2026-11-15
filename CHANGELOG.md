@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-15 21:28` **Autos prallen voneinander ab**: beim gemeinsamen Fahren prallt man vom anderen Auto ab und nimmt Schaden wie an einer Wand; ein schweres Fahrzeug lässt sich weniger schieben.
 - `2026-11-15 20:40` Auf der **Presseseite** öffnet ein Klick auf ein Bild es **gross im Browser**; ein Klick oder <kbd>Esc</kbd> schliesst es wieder. Herunterladen geht weiterhin über den Link darunter.
 - `2026-11-15 20:28` Mehr **Pressebilder**: die Plattform Sisslerfeld aus der Nähe, ein **Luftbild der Felder** im Sisslerfeld und ein **Mähdrescher** auf dem Acker; die Spielszenen zeigen modernere Autos.
 - `2026-11-15 20:22` **Rhyflitzer FM** hat einen siebten Track: **Gritty Riffing**, ein rauer Blues-Rock-Instrumental mit **Gitarrensolo**. <kbd>8</kbd> springt zum nächsten Track.
