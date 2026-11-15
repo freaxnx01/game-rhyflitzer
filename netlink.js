@@ -10,7 +10,7 @@ export const STUN = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stu
 export const HOST_ID = 0;
 export const MAX_GUESTS = 3;
 const GATHER_MS = 5000;     // ICE is gathered to 'complete', but a candidate that never arrives must not hang the code
-const CONNECT_MS = 20000;   // no connection this long after the answer: the NAT/Wi-Fi error (epic spec, Failure handling)
+const CONNECT_MS = 20000;   // the host's deadline after hostAccept: no connection this long after the answer is the NAT/Wi-Fi error
 
 // gatherIce(pc) — the local description once ICE gathering is complete, or whatever it has after GATHER_MS
 function gatherIce(pc) {
@@ -52,6 +52,16 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPose = (
       onPeerState(peerId, 'timeout');
       close(peerId);
     }, CONNECT_MS));
+  }
+
+  // armAnswerLifetime(entry) — no 20 s deadline: the answer travels by hand. The host's slot lives CODE_TTL s; after that an
+  // untaken answer is dead; once ICE runs (not 'new') the host has it.
+  function armAnswerLifetime(entry) {
+    entry.timers.push(setTimeout(() => {
+      if (entry.pc.connectionState !== 'new') return;
+      onPeerState(HOST_ID, 'timeout');
+      close(HOST_ID);
+    }, CODE_TTL * 1000));
   }
 
   function attachChannel(peerId, entry, channel) {
@@ -109,7 +119,7 @@ export function createLink({ iceServers = STUN, onMessage = () => {}, onPose = (
     await entry.pc.setRemoteDescription({ type: 'offer', sdp });
     await entry.pc.setLocalDescription(await entry.pc.createAnswer());
     await gatherIce(entry.pc);
-    armConnectDeadline(HOST_ID, entry);
+    armAnswerLifetime(entry);
     return entry.pc.localDescription.sdp;
   }
 

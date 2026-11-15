@@ -45,6 +45,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-14 20:37` Gast gibt nach **20 s** nicht mehr auf, während sein Antwort-Code noch zum Host unterwegs ist: die Verbindung bleibt offen, bis der Host ihn übernimmt oder der Code abläuft. Codes gelten **zehn Minuten**, und der Host kann einen **Einladungslink** kopieren, der beim Gast den Code schon eingefüllt öffnet — verbinden tut er erst mit dem Klick auf «Antwort erstellen».
 - `2026-11-14 20:26` Starting a **surprise hunt** (or a viewpoint run) now shows its **"Find the presents"** message again: the **radio** display no longer covers it when the run begins.
 - `2026-11-13 11:42` **Fahrzeug wechseln zu Fuss**: bist Du ausgestiegen und geschwebt, schwebten die Autos in der Vorschau mit Dir in der Luft. Jetzt steht die Vorschau am geparkten Platz auf dem Boden, und das gewählte Auto wartet dort, bis Du wieder einsteigst.
 - `2026-11-13 13:38` **Change vehicle while flying** now shows your **car** on the turntable instead of the helicopter. You are still in the air afterwards, and the helicopter is back as soon as you drive on or go back.
