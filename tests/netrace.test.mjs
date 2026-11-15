@@ -1,7 +1,9 @@
 // #834: the lobby state of the multiplayer race. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from '../netrace.js';
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE } from '../netrace.js';
+
+const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
 
 const DEFS = { fast: { drive: { top: 75, accel: 20, grip: 9, steerRate: 2.6 }, mass: 1 }, slow: { drive: { top: 11, accel: 4, grip: 9, steerRate: 2 }, mass: 2 } };
 
@@ -62,4 +64,9 @@ test('admitHello_typedNameCollides_nameStays', () => {
 test('admitHello_autoNameFree_unchanged', () => {
   const l = createLobby('hochrhein', 'Anna');
   assert.equal(admitHello(l, 'Idle Ida', false, { custom: false, pool: POOL }).lobby.players[1].name, 'Idle Ida');
+});
+
+// #837 part a: the pure race rules — grid, checkpoints, standings, board rows.
+test('raceGrid_twoAbreast_rowsBack', () => {
+  [[0, -2], [0, 2], [-8, -2], [-8, 2]].forEach(([x, z], slot) => assert.ok(near(raceGrid([0, 0, 0], slot), [x, z, 0])));
 });

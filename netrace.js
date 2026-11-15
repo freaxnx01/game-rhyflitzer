@@ -70,3 +70,15 @@ export function lobbyMessage(lobby, you) {
     players: lobby.players.map((p) => ({ id: p.id, name: p.name, car: p.car, paint: p.paint, ready: p.ready })),
   };
 }
+
+// ---- #837 part a: the race rules (countdown, host-checked checkpoints, position, result) ----
+// Pure state: cps = checkpoint count, firstFin = host-clock ms of the first finish (or null), over, racers.
+// Every function returns a new race instead of mutating one; nothing throws on bad input.
+export const RACE = { countdown: 4000, dnf: 60000, radius: 7, slack: 15, maxMs: 3600000, row: 8, half: 2 };
+
+// raceGrid([x, z, th], slot) — the world pose of grid slot = lobby id. Two abreast, 4 m apart (±2 m),
+// rows 8 m back, slot 0 front left. The pose is rotated by th around (x, z); a 0 heading puts row 0 on START.
+export function raceGrid([x, z, th], slot) {
+  const back = RACE.row * Math.floor(slot / 2), side = slot % 2 ? RACE.half : -RACE.half;
+  return [x - Math.cos(th) * back - Math.sin(th) * side, z - Math.sin(th) * back + Math.cos(th) * side, th];
+}
