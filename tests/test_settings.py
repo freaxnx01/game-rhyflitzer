@@ -42,7 +42,7 @@ def test_opens_from_start_and_esc_returns(server):
     assert visible and title == "Settings"
     assert held == [], held                                          # game keys never reach the game behind the dialog
     assert after == {"settings": {"open": False, "from": "start", "sound": {"on": True, "vol": 10},
-                                   "music": {"on": True, "menuOn": True, "vol": 6}}, "overlay": True, "focus": "settingsbtn"}, after
+                                   "music": {"on": True, "menuOn": True, "vol": 6, "shuffle": True}}, "overlay": True, "focus": "settingsbtn"}, after
     assert errors == []
 
 
@@ -118,6 +118,28 @@ def test_music_row_is_the_menu_music_on_the_start_screen(server):
     assert off == {"btn": "Music: off", "pressed": "false", "music": False, "sw": "false"}, off
     assert back == {"checked": "true", "text": "on"}, back
     assert vol == {"vol": 3, "pct": "Volume 30 %", "ls": "3"}, vol
+    assert errors == []
+
+
+
+def test_shuffle_is_on_by_default_and_the_switch_keeps_the_track(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        first = page.evaluate("() => window.__mm.radio()")
+        page.click("#settingsbtn")
+        sw_on = page.get_attribute("#setshuffle", "aria-checked")
+        page.click("#setshuffle")
+        off = page.evaluate("() => ({ r: window.__mm.radio(), sw: document.getElementById('setshuffle').getAttribute('aria-checked'), ls: localStorage.getItem('mm.radioShuffle') })")
+        page.reload()
+        page.wait_for_function(READY, timeout=240000)
+        reloaded = page.evaluate("() => window.__mm.radio()")
+        b.close()
+    assert first["shuffle"] is True and first["order"][0] == first["track"], first
+    assert sorted(first["order"]) == list(range(len(first["order"]))), first
+    assert sw_on == "true"
+    assert off["sw"] == "false" and off["ls"] == "0" and off["r"]["shuffle"] is False, off
+    assert off["r"]["track"] == first["track"] and off["r"]["order"] == sorted(off["r"]["order"]), off   # the current track plays on, the list is back in order
+    assert reloaded["shuffle"] is False and reloaded["track"] == 0 and reloaded["order"] == sorted(reloaded["order"]), reloaded
     assert errors == []
 
 
