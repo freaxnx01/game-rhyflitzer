@@ -43,3 +43,23 @@ test('admitHello_sessionRunning_deniesStarted', () => {
   let f = l; for (const n of ['B', 'C', 'D']) ({ lobby: f } = addPlayer(f, n));
   assert.deepEqual(admitHello(f, 'E', false), { deny: 'full' });
 });
+
+// #979: a generated name that collides gets another one; a typed name stays
+const POOL = ['Turbo Tony', 'Pedal Pete', 'Idle Ida'];
+test('admitHello_autoNameCollides_hostGivesAnotherPoolName', () => {
+  const l = createLobby('hochrhein', 'Turbo Tony');
+  const added = admitHello(l, 'turbo tony', false, { custom: false, pool: POOL });
+  const name = added.lobby.players[1].name;
+  assert.ok(POOL.includes(name) && name !== 'Turbo Tony', name);
+});
+
+test('admitHello_typedNameCollides_nameStays', () => {
+  const l = createLobby('hochrhein', 'Anna');
+  assert.equal(admitHello(l, 'Anna', false, { custom: true, pool: POOL }).lobby.players[1].name, 'Anna');
+  assert.equal(admitHello(l, 'Anna', false).lobby.players[1].name, 'Anna', 'no policy: unchanged');
+});
+
+test('admitHello_autoNameFree_unchanged', () => {
+  const l = createLobby('hochrhein', 'Anna');
+  assert.equal(admitHello(l, 'Idle Ida', false, { custom: false, pool: POOL }).lobby.players[1].name, 'Idle Ida');
+});

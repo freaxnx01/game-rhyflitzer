@@ -38,7 +38,9 @@ const CTX = { carIds: new Set(['compact', 'bus']), paintIds: new Set(['navy', 's
 const P = (o) => parseMessage(JSON.stringify(o), CTX);
 
 test('parseMessage_validLobbyMessages_normalised', () => {
-  assert.deepEqual(P({ type: 'hello', name: '  Kicsi\x07 ' }), { type: 'hello', name: 'Kicsi' });
+  assert.deepEqual(P({ type: 'hello', name: '  Kicsi\x07 ' }), { type: 'hello', name: 'Kicsi', custom: false });
+  assert.deepEqual(P({ type: 'hello', name: 'Ben', custom: true }), { type: 'hello', name: 'Ben', custom: true });
+  assert.equal(P({ type: 'hello', name: 'Ben', custom: 'yes' }).custom, false);
   for (const m of [{ type: 'pick', car: 'bus', paint: 'navy' }, { type: 'ready', on: true }, { type: 'bye' }, { type: 'deny', reason: 'class' }]) assert.deepEqual(P(m), m);
   const lobby = { type: 'lobby', you: 1, region: 'hochrhein', cls: 'B', players: [{ id: 0, name: 'A', car: 'bus', paint: 'navy', ready: true }, { id: 1, name: 'B', car: null, paint: null, ready: false }] };
   assert.deepEqual(P(lobby), lobby);
