@@ -7498,9 +7498,11 @@ let photoPending = false;
 let photoSink = null;   // #251: set by photoDataUrl(); the next capture goes there instead of into a download
 let photoNote = null;   // #508: the viewpoint hunt's word on this photo, shown instead of "Photo taken"
 let albumPending = -1;   // #508: the viewpoint the next capture also files in the album
-function capturePhoto() { const sink = photoSink || savePhoto; photoSink = null; photoPending = false; if (albumPending >= 0) { fileAlbumPhoto(albumPending, captureThumb()); albumPending = -1; } canvas.toBlob(sink, 'image/png'); }
+function capturePhoto() { const sink = photoSink || savePhoto; photoSink = null; photoPending = false; if (albumPending >= 0) { fileAlbumPhoto(albumPending, captureThumb()); albumPending = -1; } photoCanvas().toBlob(sink, 'image/png'); }
+// #530: CSS filters never reach toBlob/drawImage of the WebGL canvas, so in black and white the photo is greyed on a 2D copy (same task as the render; no grain/vignette)
+function photoCanvas() { if (!document.body.classList.contains('mono')) return canvas; const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height; const x = c.getContext('2d'); x.filter = 'grayscale(1)'; x.drawImage(canvas, 0, 0); return c; }
 // #508: same task as the render, so the WebGL canvas is still readable (no preserveDrawingBuffer)
-function captureThumb() { const t = thumbSize(canvas.width, canvas.height), c = document.createElement('canvas'); c.width = t.w; c.height = t.h; c.getContext('2d').drawImage(canvas, 0, 0, t.w, t.h); return c.toDataURL('image/jpeg', ALBUM.quality); }
+function captureThumb() { const t = thumbSize(canvas.width, canvas.height), c = document.createElement('canvas'); c.width = t.w; c.height = t.h; c.getContext('2d').drawImage(photoCanvas(), 0, 0, t.w, t.h); return c.toDataURL('image/jpeg', ALBUM.quality); }
 function loadAlbum() { try { return parseAlbum(localStorage.getItem(ALBUM.key), VIEWPOINTS.map(v => v.id)); } catch (e) { return {}; } }
 function fileAlbumPhoto(i, img) { if (img.length > ALBUM.maxLen) return; const album = albumWith(loadAlbum(), VIEWPOINTS[i].id, { img, pts: VIEW_RUN.pts[i], at: Date.now() }); try { localStorage.setItem(ALBUM.key, JSON.stringify(album)); } catch (e) { } }
 function blobToDataUrl(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(new Error('photo failed')); r.readAsDataURL(blob); }); }

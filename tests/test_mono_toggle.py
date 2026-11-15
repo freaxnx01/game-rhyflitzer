@@ -35,3 +35,25 @@ def test_ctrl_b_turns_the_3d_view_grey_and_back(server):
     assert not back
     assert gl2["filter"] == "none" and photo2["display"] == "none", (gl2, photo2)
     assert errors == []
+
+
+GRID = """(url) => new Promise(res => { const im = new Image(); im.onload = () => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const x = c.getContext('2d'); x.drawImage(im, 0, 0); let n = 0, col = 0; for (let i = 1; i < 12; i++) for (let j = 1; j < 8; j++) { const d = x.getImageData(Math.floor(im.width * i / 12), Math.floor(im.height * j / 8), 1, 1).data; n++; if (Math.max(Math.abs(d[0] - d[1]), Math.abs(d[1] - d[2]), Math.abs(d[0] - d[2])) > 1) col++; } res({ n, col }); }; im.src = url; })"""
+
+
+def test_photo_is_grey_in_mono(server):
+    """#530: a photo taken while Ctrl+B is on comes out grey (CSS filters never reach toBlob); in colour a coloured pixel exists."""
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_context(viewport={"width": 1280, "height": 720}, locale="en-US").new_page()
+        page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
+        page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
+        page.goto(f"{server}/index.html")
+        page.wait_for_function(READY, timeout=240000)
+        page.click("#startbtn", timeout=180000)
+        colour = page.evaluate(GRID, page.evaluate("() => window.__mm.photoUrl()"))
+        page.keyboard.press("Control+b")
+        page.wait_for_function("() => document.body.classList.contains('mono')", timeout=60000)
+        grey = page.evaluate(GRID, page.evaluate("() => window.__mm.photoUrl()"))
+        b.close()
+    assert colour["col"] > 0, colour
+    assert grey["col"] == 0, grey
