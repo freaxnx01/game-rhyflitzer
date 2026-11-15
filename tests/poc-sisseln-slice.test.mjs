@@ -17,8 +17,11 @@ const WORLD_FILE = new URL('../data/world_hochrhein.json', import.meta.url);
 
 const BOX = { x0: -10, x1: 10, z0: -10, z1: 10 };
 
-test('SLICE_bounds_matchTheDesign', () => {
-  assert.deepEqual(SLICE, { x0: -700, x1: 1300, z0: -1000, z1: 1000 });
+test('SLICE_bounds_holdThePlattformTheChimneyAndTheVillage', () => {
+  assert.deepEqual(SLICE, { x0: -700, x1: 2300, z0: -1000, z1: 1000 });
+  assert.equal(inSlice(304.8, 427.1), true, 'the Plattform Sisslerfeld');
+  assert.equal(inSlice(1065.2, 345.1), true, 'the DSM chimney');
+  assert.equal(inSlice(1950, -420), true, "Sisseln's village centre");
 });
 
 test('expandBox_margin_growsEverySide', () => {
@@ -150,8 +153,8 @@ test('sliceWorld_realWorld_hasTheRhineAndTheLandmarks', () => {
   assert.ok(inSlice(slice.landmarks.dsmChimney.x, slice.landmarks.dsmChimney.z), 'the DSM chimney is in the slice');
   assert.equal(slice.landmarks.dsmChimney.h, 140);
 
-  assert.ok(slice.buildings.length >= 100, `got ${slice.buildings.length} buildings`);
-  assert.ok(slice.roads.length >= 100, `got ${slice.roads.length} roads`);
+  assert.ok(slice.buildings.length >= 500, `got ${slice.buildings.length} buildings`);
+  assert.ok(slice.roads.length >= 300, `got ${slice.roads.length} roads`);
   assert.ok(slice.forests.length >= 10, `got ${slice.forests.length} forests`);
   assert.ok(slice.fields.length >= 100, `got ${slice.fields.length} fields`);
 });

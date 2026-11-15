@@ -2,7 +2,11 @@
 // Pure: no three.js, no DOM, so node --test can load it.
 
 // World metres around the world origin (Sisseln). World x/z map straight onto three.js x/z, y is up.
-export const SLICE = { x0: -700, x1: 1300, z0: -1000, z1: 1000 };
+// The design named x1 = 1300 for a box holding "the village centre, the Plattform, the DSM chimney and the Rhine".
+// Sisseln's built-up centre actually sits at x 1500 ... 2000 (the `SISSELN` label is at x 1950), so x1 = 1300 held
+// the Sisslerfeld and 105 buildings but not the village. x1 = 2300 keeps everything the design named and adds the
+// village itself: 659 buildings, the station and the Landi tower. The design leaves the exact bounds to the builder.
+export const SLICE = { x0: -700, x1: 2300, z0: -1000, z1: 1000 };
 
 // Geometry is clipped to the slice plus this margin, and the terrain is built over the same outer box: a feature
 // that straddles the edge then still stands on ground instead of floating past it. Fog hides the edge itself.
