@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { SRF3_URL, ARGOVIA_URL, STATIONS, LIVE, nextStation, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain,
+import { SRF3_URL, ARGOVIA_URL, STATIONS, LIVE, nextStation, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, RADIO_STORE, nextTrack, prevTrack, shuffleOnFrom, playlistOrder, stepVolume, trackGain, menuGain,
   radioOnFrom, menuMusicOnFrom, stationFrom, volumeFrom, srfVerdict, displayFor, createEarlyMenu, EARLY_GESTURES } from '../radio.js';
 
 const key = (code, o = {}) => ({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, ...o });
@@ -12,9 +12,10 @@ test('SRF3_URL_IsTheHttpsStream_NotTheShortLink', () => {
   assert.deepEqual(STATIONS, ['fm', 'srf3', 'argovia']);
 });
 
-test('TRACKS_AreTheSevenCommittedFiles_WithLicences', () => {
+test('TRACKS_AreTheThirteenCommittedFiles_WithLicences', () => {
   assert.deepEqual(TRACKS.map(t => t.id), ['cool-rider', 'neon-afterglow', 'california-snares-and-synths', 'menu-running-title',
-    'soft-rock-groove', 'melrose-place-soft-rock', 'gritty-riffing']);
+    'soft-rock-groove', 'melrose-place-soft-rock', 'gritty-riffing',
+    'fuzz-riff-breakdown', 'pulsing-arpeggio', 'pulsing-arpeggio-take-2', 'rising-tension', 'open-road', 'night-drive']);
   for (const t of TRACKS) {
     assert.equal(t.src, `assets/music/${t.id}.mp3`);
     assert.ok(existsSync(new URL(`../${t.src}`, import.meta.url)), t.src);
@@ -46,9 +47,31 @@ test('radioKeyAction_Repeat_OnlyVolumeRepeats', () => {
 test('nextTrack_prevTrack_Wrap', () => {
   assert.equal(nextTrack(0), 1);
   assert.equal(nextTrack(3), 4);   // the soft-rock pair follows the menu track
-  assert.equal(nextTrack(6), 0);
-  assert.equal(prevTrack(0), 6);
+  assert.equal(nextTrack(TRACKS.length - 1), 0);
+  assert.equal(prevTrack(0), TRACKS.length - 1);
   assert.equal(prevTrack(2), 1);
+});
+
+test('shuffleOnFrom_OnUnlessStoredOff', () => {
+  assert.equal(shuffleOnFrom(null), true);   // the default: random order
+  assert.equal(shuffleOnFrom('1'), true);
+  assert.equal(shuffleOnFrom('0'), false);
+  assert.equal(RADIO_STORE.shuffle, 'mm.radioShuffle');
+});
+
+test('playlistOrder_ShuffleOff_IsTheListOrder', () => {
+  assert.deepEqual(playlistOrder(false, 5, 0), [0, 1, 2, 3, 4]);
+});
+
+test('playlistOrder_ShuffleOn_IsAPermutationStartingAtFirst', () => {
+  let seed = 7; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (const first of [0, 3, 6]) {
+    const o = playlistOrder(true, 7, first, rand);
+    assert.equal(o[0], first);
+    assert.deepEqual([...o].sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6]);
+  }
+  const orders = new Set(Array.from({ length: 20 }, () => playlistOrder(true, 7, 0, rand).join()));
+  assert.ok(orders.size > 1, 'the order is random, not fixed');
 });
 
 test('stepVolume_ClampsTo0And10', () => {

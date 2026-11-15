@@ -175,3 +175,18 @@ def test_default_names_are_filled_and_unique(pair):
     found = names(host)
     assert len(found) == 2 and len(set(n.lower() for n in found)) == 2 and all(found), found
     assert names(guest) == found and not errors
+
+
+def test_dice_rolls_a_name_and_forgets_the_typed_one(pair):
+    """#1002: the dice replaces a typed name with a pool name and forgets the stored one."""
+    host, guest, errors = pair
+    host.click("#mpbtn"); host.fill("#mpname", "p1"); host.click("#mphostbtn")
+    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1H.')", timeout=T)
+    host.reload(); host.wait_for_function(READY, timeout=240000)
+    host.click("#mpbtn")
+    assert host.input_value("#mpname") == "p1"
+    host.click("#mpdice")
+    rolled = host.input_value("#mpname")
+    assert rolled and rolled != "p1"
+    assert host.evaluate("() => localStorage.getItem('mm.mpName')") is None
+    assert not errors

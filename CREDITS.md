@@ -12,6 +12,12 @@
   - „The 1980s soft rock danceable mid tempo four on the floor groove" by Michael-Vault, https://pixabay.com/music/rock-the-1980s-soft-rock-danceable-mid-tempo-four-on-the-floor-groove-611150/, Pixabay Content License (tagged "AI generated" on Pixabay)
   - „Melrose Place Soft Rock" by DigiCompo, https://pixabay.com/music/rock-melrose-place-soft-rock-304003/, Pixabay Content License (tagged "AI generated" on Pixabay)
   - „Gritty Riffing" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Fuzz Riff Breakdown" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Pulsing Arpeggio" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Pulsing Arpeggio (Take 2)" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Rising Tension" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Open Road" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Night Drive" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Menu / Running Title" by Rob Bery · Rob Bery Art (OpenGameArt user R0B B3RY), https://opengameart.org/content/menu-running-title, CC0 (re-encoded to 128 kbps)
 - SRF 3 live (https://www.srf.ch/radio-srf-3): the live stream `https://stream.srg-ssr.ch/srgssr/srf3/mp3/128`, played unchanged, not re-hosted
 - WebGPU PoC (`poc/webgpu/`): demo code "Slop New York" (MIT) © Mr.doob (https://github.com/mrdoob/slop-newyork)

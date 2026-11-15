@@ -372,6 +372,8 @@ table.ttgrid button{font:inherit;color:#f5efe0;background:none;border:2px solid 
 #mp .btn,#mplobby .btn{width:100%;height:auto;min-height:48px;padding:6px 14px;font-size:clamp(16px,4.5vw,22px);white-space:normal;overflow-wrap:anywhere}
 #mp small,#mplobby small{font-size:15px;font-weight:600;color:var(--steel-l)}
 .mp-label{display:block;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--steel-l)}
+.mp-namerow{display:flex;gap:6px}
+.mp-namerow input{flex:1;min-width:0}
 .mp-split{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .mp-hint{margin:0;font-size:15px;font-weight:600;color:var(--steel-l)}
 #mp input,#mp textarea{font:inherit;font-size:16px;width:100%;box-sizing:border-box;color:#fff;background:rgba(10,12,16,.6);border:3px solid;border-color:var(--ink) var(--steel-l) var(--steel-l) var(--ink);padding:6px 8px}
@@ -802,6 +804,9 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="setmusic" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setmusiclabel">on</button>
         <input id="setmusicvol" type="range" min="0" max="10" step="1" aria-labelledby="setmusiclabel">
         <span id="setmusicpct" class="st-val"></span><p id="setmusiccap" class="st-cap"></p></div>
+      <div class="st-row"><span class="st-label" id="setshufflelabel" data-i18n="setShuffle">Shuffle</span>
+        <button id="setshuffle" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setshufflelabel">on</button>
+        <p class="st-cap" data-i18n="setShuffleCap">Rhyflitzer FM plays its tracks in random order</p></div>
     </section>
     <!-- the key bar's switch, moved here from the pause menu; desktop only, like the bar -->
     <section class="st-sec" id="setkeybarrow"><h2 data-i18n="setDisplay">Display</h2>
@@ -837,7 +842,10 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <small data-i18n="mpSub"></small>
     <div>
       <label class="mp-label" for="mpname" data-i18n="mpNameLabel">Your name</label>
-      <input id="mpname" type="text" maxlength="24" autocomplete="nickname" data-i18n-placeholder="mpNamePlaceholder">
+      <div class="mp-namerow">
+        <input id="mpname" type="text" maxlength="24" autocomplete="nickname" data-i18n-placeholder="mpNamePlaceholder">
+        <button id="mpdice" class="btn" type="button" title="Roll a random name" aria-label="Roll a random name" data-i18n-title="mpDice" data-i18n-aria="mpDice">🎲</button>
+      </div>
     </div>
     <div id="mproles" class="mp-roles">
       <button id="mphostbtn" class="btn primary" type="button" data-i18n="mpHost">Create a race</button>
@@ -952,7 +960,7 @@ import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpa
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from './netrace.js';
-import { funnyName, parsePool } from './netnames.js';   // #979: funny default player names
+import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
 import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, BUMP_DY } from './netbump.js';   // #836: car-to-car contact in a shared drive
@@ -1025,7 +1033,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor,
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
-import { TRACKS, MENU_TRACK, LIVE, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
+import { TRACKS, MENU_TRACK, LIVE, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, playlistOrder, stepVolume, trackGain, menuGain, radioOnFrom, shuffleOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -4505,7 +4513,10 @@ const RADIO = (() => {
   const load = (k, from) => { let v = null; try { v = localStorage.getItem(k); } catch (e) { } return from(v); };
   const save = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { } };
   const S = { on: load(RADIO_STORE.on, radioOnFrom), station: load(RADIO_STORE.station, stationFrom), vol: load(RADIO_STORE.vol, volumeFrom),
-    menuOn: load(RADIO_STORE.menu, menuMusicOnFrom), track: 0, inRun: false, menuArmed: false, held: false, failed: 0 };
+    menuOn: load(RADIO_STORE.menu, menuMusicOnFrom), shuffle: load(RADIO_STORE.shuffle, shuffleOnFrom), track: 0, inRun: false, menuArmed: false, held: false, failed: 0 };
+  // Rhyflitzer FM walks S.order; with shuffle (the default) a random track opens it
+  S.order = playlistOrder(S.shuffle, TRACKS.length, S.shuffle ? Math.floor(Math.random() * TRACKS.length) : 0); S.pos = 0; S.track = S.order[0];
+  function step(dir) { S.pos = (dir > 0 ? nextTrack : prevTrack)(S.pos); S.track = S.order[S.pos]; }
   const els = {}; let watch = null;   // els.srf is the one live voice (SRF 3, Radio Argovia)
   const now = () => performance.now() / 1000;
   function voice(name) {
@@ -4514,7 +4525,7 @@ const RADIO = (() => {
     if (!early) { el.crossOrigin = 'anonymous'; el.preload = 'none'; }   // #841: an adopted element keeps its same-origin src and is already playing
     const gain = ac.createGain(); gain.gain.value = 0; ac.createMediaElementSource(el).connect(gain); gain.connect(master);
     const v = els[name] = { el, gain, want: false };
-    if (name === 'fm') el.addEventListener('ended', () => { S.track = nextTrack(S.track); apply(); });
+    if (name === 'fm') el.addEventListener('ended', () => { step(1); apply(); });
     if (name === 'srf') {
       el.addEventListener('playing', () => { if (watch) { watch.playing = true; watch.waitingSince = null; } });
       for (const ev of ['waiting', 'stalled']) el.addEventListener(ev, () => { if (watch && watch.waitingSince === null) watch.waitingSince = now(); });
@@ -4549,8 +4560,8 @@ const RADIO = (() => {
     if (!S.inRun) { menuCmd(action); return; }
     if (action === 'power') { S.on = !S.on; save(RADIO_STORE.on, S.on ? 1 : 0); }
     if (action === 'station') { S.station = nextStation(S.station); S.on = true; save(RADIO_STORE.station, S.station); save(RADIO_STORE.on, 1); }
-    if (action === 'next' && S.station === 'fm') S.track = nextTrack(S.track);
-    if (action === 'prev' && S.station === 'fm') S.track = prevTrack(S.track);
+    if (action === 'next' && S.station === 'fm') step(1);
+    if (action === 'prev' && S.station === 'fm') step(-1);
     if (action === 'down' || action === 'up') { S.vol = stepVolume(S.vol, action === 'up' ? 1 : -1); save(RADIO_STORE.vol, S.vol); }
     apply(); renderSettings();
     radioShow(action === 'down' || action === 'up' ? '📻 ' + tr('radioVolume', S.vol * 10) : nowText());
@@ -4564,6 +4575,7 @@ const RADIO = (() => {
   return {
     cmd,
     setVolume(v) { S.vol = stepVolume(v, 0); save(RADIO_STORE.vol, S.vol); apply(); },   // #842: the Music slider, no toast
+    setShuffle(on) { S.shuffle = on; save(RADIO_STORE.shuffle, on ? 1 : 0); S.order = playlistOrder(on, TRACKS.length, S.track); S.pos = S.order.indexOf(S.track); },   // the current track plays on
     tick() {
       const run = R.state !== 'ready';
       if (run !== S.inRun) { S.inRun = run; apply(); if (run && S.on && !gameToastShown()) radioShow(nowText()); }   // the run-start display never covers a game message (hunt / view start toast); keys and failures still show it
@@ -4573,7 +4585,7 @@ const RADIO = (() => {
     menuOn: () => S.menuOn,
     state() {
       const p = (n) => !!els[n] && !els[n].el.paused, src = (n) => (els[n] && els[n].el.getAttribute('src')) || null;
-      return { on: S.on, station: S.station, track: S.track, vol: S.vol, menuOn: S.menuOn, inRun: S.inRun, menuArmed: S.menuArmed, held: S.held, failed: S.failed,
+      return { on: S.on, station: S.station, track: S.track, shuffle: S.shuffle, order: [...S.order], vol: S.vol, menuOn: S.menuOn, inRun: S.inRun, menuArmed: S.menuArmed, held: S.held, failed: S.failed,
         playing: { fm: p('fm'), srf: p('srf'), menu: p('menu') }, src: { fm: src('fm'), srf: src('srf'), menu: src('menu') } };
     },
   };
@@ -6104,7 +6116,7 @@ function renderSettings() {
   const s = SFX.sound(), r = RADIO.state(), musicOn = r.inRun ? r.on : r.menuOn;
   const sw = (id, on) => { const b = $(id); b.setAttribute('aria-checked', String(on)); b.textContent = tr(on ? 'setOn' : 'setOff'); };
   sw('setsound', s.on); $('setsoundvol').value = s.vol; $('setsoundpct').textContent = tr('radioVolume', s.vol * 10);
-  sw('setkeybar', KEYBAR.on);
+  sw('setkeybar', KEYBAR.on); sw('setshuffle', r.shuffle);
   sw('setmusic', musicOn); $('setmusicvol').value = r.vol; $('setmusicpct').textContent = tr('radioVolume', r.vol * 10); $('setmusiccap').textContent = tr(musicCaptionKey(r.inRun));
 }
 function openSettings(from) { SETTINGS.on = true; SETTINGS.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('settings').hidden = false; renderSettings(); $('settingsback').focus(); }
@@ -6115,8 +6127,9 @@ $('setsound').onclick = () => { SFX.setSoundOn(!SFX.sound().on); renderSettings(
 $('setsoundvol').oninput = (e) => { SFX.setSoundVol(+e.target.value); SFX.blip(); renderSettings(); };
 $('setmusic').onclick = () => { RADIO.cmd('power'); renderSettings(); };
 $('setkeybar').onclick = () => { toggleKeybar(); renderSettings(); };
+$('setshuffle').onclick = () => { RADIO.setShuffle(!RADIO.state().shuffle); renderSettings(); };
 $('setmusicvol').oninput = (e) => { RADIO.setVolume(+e.target.value); renderSettings(); };
-window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol }) => ({ on, menuOn, vol }))(RADIO.state()) });
+window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol, shuffle }) => ({ on, menuOn, vol, shuffle }))(RADIO.state()) });
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }
 function moveWorldsFocus(step) { const list = rows(), next = list.find(b => rowKey(b) === nextFocus(list.map(rowKey), rowKey(document.activeElement), step)); if (!next) return; selectRow(rowSel(next)); next.focus(); }
 function worldsKey(e) { const act = worldsKeyAction(e, document.activeElement && document.activeElement.classList.contains('ws-row')); if (act === 'back') { e.preventDefault(); closeWorlds(); } else if (act === 'next' || act === 'prev') { e.preventDefault(); moveWorldsFocus(act === 'next' ? 1 : -1); } }   // 'pass': native Tab / Enter / Space; 'ignore': no game key while a world is chosen
@@ -6261,6 +6274,7 @@ const netOpen = () => !$('mp').hidden || !$('mplobby').hidden;
 const netCtx = () => ({ carIds: new Set(Object.keys(VEHICLES)), paintIds: new Set(PAINTS.map((p) => p.id)), regions: new Set(Object.keys(REGIONS)) });
 const netIce = () => (new URLSearchParams(location.search).get('netice') === 'none' ? [] : STUN);   // ?netice=none: loopback only, for the browser test
 const storedMpName = () => { try { return localStorage.getItem(MP_NAME_KEY) || ''; } catch (e) { return ''; } };
+const forgetMpName = () => { try { localStorage.removeItem(MP_NAME_KEY); } catch (e) { /* a private window keeps nothing */ } };
 const namePool = () => parsePool(tr('mpFunnyNames'));
 
 function netSay(text) { const p = $('mpstatus'); p.textContent = text; p.classList.remove('bad'); }
@@ -6283,7 +6297,7 @@ function netLink() {
 
 // ---- the connect dialog ----
 function openMp() {
-  NET.autoName = storedMpName() ? null : funnyName(namePool()); $('mpname').value = storedMpName() || NET.autoName; $('mpname').disabled = false;
+  NET.autoName = storedMpName() ? null : funnyName(namePool()); $('mpname').value = storedMpName() || NET.autoName; $('mpname').disabled = false; $('mpdice').disabled = false;
   $('mproles').hidden = false; $('mphint').textContent = '';
   for (const id of ['mpinbox', 'mpoutbox', 'mpanswerbox', 'mpregion']) $(id).hidden = true;
   $('mpin').value = ''; $('mpanswerin').value = ''; $('mpcode').value = '';
@@ -6299,7 +6313,8 @@ function netTakeName() {
   NET.nameCustom = typed !== null && typed !== NET.autoName;
   NET.name = typed || funnyName(namePool());
   $('mpname').value = NET.name;
-  if (NET.nameCustom) try { localStorage.setItem(MP_NAME_KEY, NET.name); } catch (e) { /* a private window keeps nothing */ }
+  if (typed === null) forgetMpName();
+  else if (NET.nameCustom) try { localStorage.setItem(MP_NAME_KEY, NET.name); } catch (e) { /* a private window keeps nothing */ }
   return NET.name;
 }
 
@@ -6307,7 +6322,7 @@ function netTakeName() {
 async function netHostStart() {
   const name = netTakeName();
   NET.role = 'H'; NET.lobby = createLobby(REGION.id, name); NET.you = 0;
-  $('mproles').hidden = true; $('mpname').disabled = true; $('mphint').textContent = tr('mpHostHint');
+  $('mproles').hidden = true; $('mpname').disabled = true; $('mpdice').disabled = true; $('mphint').textContent = tr('mpHostHint');
   await netHostCode();
 }
 // one code per guest: netlink opens a fresh connection for the next free slot and this wraps its offer into a code
@@ -6351,7 +6366,7 @@ async function netGuestAnswer() {
   if (!text) { netWarn(tr('mpNoCodec')); return; }
   $('mpcode').value = text;
   $('mpoutlabel').textContent = tr('mpCodeLabel');
-  $('mpinbox').hidden = true; $('mpname').disabled = true; $('mpoutbox').hidden = false; $('mpcopylink').hidden = true;
+  $('mpinbox').hidden = true; $('mpname').disabled = true; $('mpdice').disabled = true; $('mpoutbox').hidden = false; $('mpcopylink').hidden = true;
   startCodeClock(made); netSay(tr('mpWaiting'));
 }
 // A1: the lobby's region is the one the host has loaded. Switching region reloads the page, so the code is parked in
@@ -6707,6 +6722,7 @@ $('mpbtn').onclick = openMp;
 $('mpclose').onclick = netBack;
 $('mphostbtn').onclick = netHostStart;
 $('mpguestbtn').onclick = () => { netGuestRole(); $('mpin').focus(); };
+$('mpdice').onclick = () => { if ($('mpdice').disabled) return; NET.autoName = rerollName(namePool(), $('mpname').value); $('mpname').value = NET.autoName; forgetMpName(); };
 $('mpmake').onclick = netGuestAnswer;
 $('mpaccept').onclick = netHostAccept;
 $('mpinvite').onclick = async () => { $('mplobby').hidden = true; $('mp').hidden = false; netSay(''); await netHostCode(); };
