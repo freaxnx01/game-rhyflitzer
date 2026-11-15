@@ -176,7 +176,7 @@ export function cleanName(raw) {
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
 
 const VALIDATORS = {
-  hello: (m) => { const name = cleanName(m.name); return name ? { type: 'hello', name } : null; },
+  hello: (m) => { const name = cleanName(m.name); return name ? { type: 'hello', name, custom: m.custom === true } : null; },
   pick: (m, ctx) => (ctx.carIds.has(m.car) && ctx.paintIds.has(m.paint) ? { type: 'pick', car: m.car, paint: m.paint } : null),
   ready: (m) => (typeof m.on === 'boolean' ? { type: 'ready', on: m.on } : null),
   deny: (m) => (DENY_REASONS.includes(m.reason) ? { type: 'deny', reason: m.reason } : null),

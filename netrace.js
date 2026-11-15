@@ -4,6 +4,7 @@
 
 import { powerClass } from './carselect.js';
 import { MAX_PLAYERS } from './netcodec.js';
+import { uniqueFunnyName } from './netnames.js';
 
 // carFits(cls, def) — may this vehicle be driven in this class? 'all' takes every one.
 export function carFits(cls, def) { return cls === 'all' || powerClass(def) === cls; }
@@ -15,10 +16,15 @@ export function createLobby(region, hostName) {
   return { region, cls: 'all', players: [newPlayer(0, hostName)] };
 }
 
-// admitHello(lobby, name, running) — #916: { lobby, id } for a hello that may join, or { deny } when a session already runs ('started') or the lobby is full
-export function admitHello(lobby, name, running) {
+// admitHello(lobby, name, running, { custom, pool, rnd }) — { lobby, id } for a hello that may join, or { deny } when a
+// session already runs ('started') or the lobby is full. A non-custom name that clashes (any case) with a name in the
+// lobby is swapped for a free pool name (#979); a custom name always stays.
+export function admitHello(lobby, name, running, { custom = true, pool = [], rnd } = {}) {
   if (running) return { deny: 'started' };
-  return addPlayer(lobby, name) || { deny: 'full' };
+  const taken = lobby.players.map((p) => p.name);
+  const clash = taken.some((t) => t.trim().toLowerCase() === name.trim().toLowerCase());
+  const final = !custom && clash && pool.length ? uniqueFunnyName(pool, taken, rnd) : name;
+  return addPlayer(lobby, final) || { deny: 'full' };
 }
 
 // addPlayer(lobby, name) — { lobby, id } with the lowest free id, or null when the lobby is full
