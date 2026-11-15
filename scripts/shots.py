@@ -42,7 +42,7 @@ WEATHERS = ("clear",)   # nor weather
 ENUMS = {"mode": MODES, "camera": CAMERAS, "style": STYLES, "vehicle": VEHICLES, "time": TIMES, "weather": WEATHERS, "start": STARTS}
 ID_RE = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 NEAR_MAX_M = 600
-COUNT_RANGE = (8, 12)
+COUNT_RANGE = (8, 14)
 
 
 def _is_point(p) -> bool:

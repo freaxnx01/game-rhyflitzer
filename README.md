@@ -13,9 +13,9 @@ Dedicated to my daughter.
 **Plattform Sisslerfeld**
 
 <p>
-  <a href="docs/gallery/plattform-1-luftbild.jpg"><img src="docs/gallery/plattform-1-luftbild.jpg" width="32%" alt="Plattform Sisslerfeld from above"></a>
-  <a href="docs/gallery/plattform-2-postauto.jpg"><img src="docs/gallery/plattform-2-postauto.jpg" width="32%" alt="Postauto in front of the Plattform Sisslerfeld"></a>
-  <a href="docs/gallery/plattform-3-aussicht.jpg"><img src="docs/gallery/plattform-3-aussicht.jpg" width="32%" alt="View from the Plattform Sisslerfeld"></a>
+  <a href="docs/gallery/plattform-luftbild-3840.jpg"><img src="docs/gallery/plattform-luftbild-1920.jpg" width="32%" alt="Plattform Sisslerfeld from above"></a>
+  <a href="docs/gallery/plattform-auto-3840.jpg"><img src="docs/gallery/plattform-auto-1920.jpg" width="32%" alt="Postauto in front of the Plattform Sisslerfeld"></a>
+  <a href="docs/gallery/plattform-aussicht-3840.jpg"><img src="docs/gallery/plattform-aussicht-1920.jpg" width="32%" alt="View from the Plattform Sisslerfeld"></a>
 </p>
 
 **More screenshots** (curated list: [`docs/gallery/shots.json`](docs/gallery/shots.json), click a thumbnail for the 3840x2160 image)
@@ -24,6 +24,8 @@ Dedicated to my daughter.
 <p>
   <a href="docs/gallery/plattform-auto-3840.jpg"><img src="docs/gallery/plattform-auto-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld with the Postauto"></a>
   <a href="docs/gallery/plattform-dsm-3840.jpg"><img src="docs/gallery/plattform-dsm-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld, the DSM chimney behind"></a>
+  <a href="docs/gallery/plattform-luftbild-3840.jpg"><img src="docs/gallery/plattform-luftbild-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Plattform Sisslerfeld from above"></a>
+  <a href="docs/gallery/plattform-aussicht-3840.jpg"><img src="docs/gallery/plattform-aussicht-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: View from the Plattform Sisslerfeld to DSM"></a>
   <a href="docs/gallery/holzbruecke-aussen-3840.jpg"><img src="docs/gallery/holzbruecke-aussen-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke Bad Säckingen across the Rhine"></a>
   <a href="docs/gallery/holzbruecke-nah-3840.jpg"><img src="docs/gallery/holzbruecke-nah-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: Holzbrücke, close, along its length"></a>
   <a href="docs/gallery/dsm-sisseln-3840.jpg"><img src="docs/gallery/dsm-sisseln-1920.jpg" width="32%" alt="Rhyflitzer – Map Madness: DSM Sisseln and its chimney"></a>
