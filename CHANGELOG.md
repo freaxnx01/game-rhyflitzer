@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-15 20:40` Auf der **Presseseite** öffnet ein Klick auf ein Bild es **gross im Browser**; ein Klick oder <kbd>Esc</kbd> schliesst es wieder. Herunterladen geht weiterhin über den Link darunter.
 - `2026-11-15 20:28` Mehr **Pressebilder**: die Plattform Sisslerfeld aus der Nähe, ein **Luftbild der Felder** im Sisslerfeld und ein **Mähdrescher** auf dem Acker; die Spielszenen zeigen modernere Autos.
 - `2026-11-15 15:09` **Pressematerial** unter **rhyflitzer.ch/presse**: Bilder der Plattform Sisslerfeld und weitere Spielszenen in Druckqualität zum Herunterladen, die YouTube-Playlist und die wichtigsten Angaben zum Spiel.
 - `2026-11-15 09:54` Im Mehrspieler ist schon ein **lustiger Name** eingetragen; wer einen eigenen tippt, behält ihn.
