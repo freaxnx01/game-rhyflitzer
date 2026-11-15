@@ -372,6 +372,8 @@ table.ttgrid button{font:inherit;color:#f5efe0;background:none;border:2px solid 
 #mp .btn,#mplobby .btn{width:100%;height:auto;min-height:48px;padding:6px 14px;font-size:clamp(16px,4.5vw,22px);white-space:normal;overflow-wrap:anywhere}
 #mp small,#mplobby small{font-size:15px;font-weight:600;color:var(--steel-l)}
 .mp-label{display:block;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--steel-l)}
+.mp-namerow{display:flex;gap:6px}
+.mp-namerow input{flex:1;min-width:0}
 .mp-split{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .mp-hint{margin:0;font-size:15px;font-weight:600;color:var(--steel-l)}
 #mp input,#mp textarea{font:inherit;font-size:16px;width:100%;box-sizing:border-box;color:#fff;background:rgba(10,12,16,.6);border:3px solid;border-color:var(--ink) var(--steel-l) var(--steel-l) var(--ink);padding:6px 8px}
@@ -840,7 +842,10 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
     <small data-i18n="mpSub"></small>
     <div>
       <label class="mp-label" for="mpname" data-i18n="mpNameLabel">Your name</label>
-      <input id="mpname" type="text" maxlength="24" autocomplete="nickname" data-i18n-placeholder="mpNamePlaceholder">
+      <div class="mp-namerow">
+        <input id="mpname" type="text" maxlength="24" autocomplete="nickname" data-i18n-placeholder="mpNamePlaceholder">
+        <button id="mpdice" class="btn" type="button" title="Roll a random name" aria-label="Roll a random name" data-i18n-title="mpDice" data-i18n-aria="mpDice">🎲</button>
+      </div>
     </div>
     <div id="mproles" class="mp-roles">
       <button id="mphostbtn" class="btn primary" type="button" data-i18n="mpHost">Create a race</button>
@@ -955,7 +960,7 @@ import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpa
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from './netrace.js';
-import { funnyName, parsePool } from './netnames.js';   // #979: funny default player names
+import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
@@ -6267,6 +6272,7 @@ const netOpen = () => !$('mp').hidden || !$('mplobby').hidden;
 const netCtx = () => ({ carIds: new Set(Object.keys(VEHICLES)), paintIds: new Set(PAINTS.map((p) => p.id)), regions: new Set(Object.keys(REGIONS)) });
 const netIce = () => (new URLSearchParams(location.search).get('netice') === 'none' ? [] : STUN);   // ?netice=none: loopback only, for the browser test
 const storedMpName = () => { try { return localStorage.getItem(MP_NAME_KEY) || ''; } catch (e) { return ''; } };
+const forgetMpName = () => { try { localStorage.removeItem(MP_NAME_KEY); } catch (e) { /* a private window keeps nothing */ } };
 const namePool = () => parsePool(tr('mpFunnyNames'));
 
 function netSay(text) { const p = $('mpstatus'); p.textContent = text; p.classList.remove('bad'); }
@@ -6289,7 +6295,7 @@ function netLink() {
 
 // ---- the connect dialog ----
 function openMp() {
-  NET.autoName = storedMpName() ? null : funnyName(namePool()); $('mpname').value = storedMpName() || NET.autoName; $('mpname').disabled = false;
+  NET.autoName = storedMpName() ? null : funnyName(namePool()); $('mpname').value = storedMpName() || NET.autoName; $('mpname').disabled = false; $('mpdice').disabled = false;
   $('mproles').hidden = false; $('mphint').textContent = '';
   for (const id of ['mpinbox', 'mpoutbox', 'mpanswerbox', 'mpregion']) $(id).hidden = true;
   $('mpin').value = ''; $('mpanswerin').value = ''; $('mpcode').value = '';
@@ -6305,7 +6311,8 @@ function netTakeName() {
   NET.nameCustom = typed !== null && typed !== NET.autoName;
   NET.name = typed || funnyName(namePool());
   $('mpname').value = NET.name;
-  if (NET.nameCustom) try { localStorage.setItem(MP_NAME_KEY, NET.name); } catch (e) { /* a private window keeps nothing */ }
+  if (typed === null) forgetMpName();
+  else if (NET.nameCustom) try { localStorage.setItem(MP_NAME_KEY, NET.name); } catch (e) { /* a private window keeps nothing */ }
   return NET.name;
 }
 
@@ -6313,7 +6320,7 @@ function netTakeName() {
 async function netHostStart() {
   const name = netTakeName();
   NET.role = 'H'; NET.lobby = createLobby(REGION.id, name); NET.you = 0;
-  $('mproles').hidden = true; $('mpname').disabled = true; $('mphint').textContent = tr('mpHostHint');
+  $('mproles').hidden = true; $('mpname').disabled = true; $('mpdice').disabled = true; $('mphint').textContent = tr('mpHostHint');
   await netHostCode();
 }
 // one code per guest: netlink opens a fresh connection for the next free slot and this wraps its offer into a code
@@ -6357,7 +6364,7 @@ async function netGuestAnswer() {
   if (!text) { netWarn(tr('mpNoCodec')); return; }
   $('mpcode').value = text;
   $('mpoutlabel').textContent = tr('mpCodeLabel');
-  $('mpinbox').hidden = true; $('mpname').disabled = true; $('mpoutbox').hidden = false; $('mpcopylink').hidden = true;
+  $('mpinbox').hidden = true; $('mpname').disabled = true; $('mpdice').disabled = true; $('mpoutbox').hidden = false; $('mpcopylink').hidden = true;
   startCodeClock(made); netSay(tr('mpWaiting'));
 }
 // A1: the lobby's region is the one the host has loaded. Switching region reloads the page, so the code is parked in
@@ -6679,6 +6686,7 @@ $('mpbtn').onclick = openMp;
 $('mpclose').onclick = netBack;
 $('mphostbtn').onclick = netHostStart;
 $('mpguestbtn').onclick = () => { netGuestRole(); $('mpin').focus(); };
+$('mpdice').onclick = () => { if ($('mpdice').disabled) return; NET.autoName = rerollName(namePool(), $('mpname').value); $('mpname').value = NET.autoName; forgetMpName(); };
 $('mpmake').onclick = netGuestAnswer;
 $('mpaccept').onclick = netHostAccept;
 $('mpinvite').onclick = async () => { $('mplobby').hidden = true; $('mp').hidden = false; netSay(''); await netHostCode(); };

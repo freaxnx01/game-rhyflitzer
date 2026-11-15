@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-15 20:35` Im Mehrspieler würfelt der **🎲-Knopf** neben dem Namen einen neuen lustigen Namen, und ein eigener Name wie «p1» lässt sich so wieder loswerden.
 - `2026-11-15 21:13` **Rhyflitzer FM** hat **sechs neue Tracks**: **Fuzz Riff Breakdown**, zweimal **Pulsing Arpeggio**, **Rising Tension**, **Open Road** und **Night Drive**, von rauem Rock bis zur nächtlichen Trance-Fahrt.
 - `2026-11-15 20:40` Auf der **Presseseite** öffnet ein Klick auf ein Bild es **gross im Browser**; ein Klick oder <kbd>Esc</kbd> schliesst es wieder. Herunterladen geht weiterhin über den Link darunter.
 - `2026-11-15 20:38` **Rhyflitzer FM** spielt die Tracks jetzt standardmässig in **zufälliger Reihenfolge** und beginnt mit einem zufälligen Track; <kbd>7</kbd> geht weiterhin zum vorherigen zurück. In den Einstellungen schaltet **Zufallswiedergabe** das ab.
