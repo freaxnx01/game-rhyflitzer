@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-16 21:58` Mehrspieler: Ein **Zusammenstoss**, den nur ein Gerät sieht, registriert sich jetzt auch auf dem **anderen Gerät** — das zweite Auto prallt ab, kracht und nimmt Schaden, auch wenn es die Berührung selbst nicht gemerkt hat.
 - `2026-11-16 17:00` Mehrspieler-Rennen mit **Ergebnis**: Alle sehen dieselbe Rangliste mit Zeiten und Rückstand. Wer 60 Sekunden nach dem Sieger noch fährt oder die Verbindung verliert, ist *nicht im Ziel*. Danach startet der Host eine **Revanche** oder geht **zurück zur Lobby**.
 - `2026-11-16 17:00` Neue **Titel- und Menümusik**: **Pulsing Arpeggio** läuft jetzt im Startbildschirm. «Menu / Running Title» bleibt im Radio auf Rhyflitzer FM Cruise.
 - `2026-11-16 11:17` Mehrspieler-Rennen: Oben rechts steht jetzt der **Platz** (z. B. *Platz 2/3*) und der **Abstand** zum Auto davor in Sekunden. Der Host prüft jeden Checkpoint mit.

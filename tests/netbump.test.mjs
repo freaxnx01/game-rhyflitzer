@@ -1,7 +1,7 @@
 // #836 part a: car-to-car contact in a shared drive. Pure netbump.js, node --test only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, hitImpulse, RESTITUTION, BUMP_COOLDOWN, BUMP_DY, MAX_CLOSING, HIT_WINDOW, HIT_REACH } from '../netbump.js';
+import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, hitImpulse, RESTITUTION, BUMP_COOLDOWN, BUMP_DY, MAX_CLOSING, HIT_WINDOW, HIT_REACH, LOCAL_SEEN_WINDOW } from '../netbump.js';
 const CIRCLE = { shape: 'circle', r: 1.3 }, BUS = { shape: 'capsule', r: 1.3, hl: 4.8 };
 
 test('carContact_apart_null', () => {
@@ -47,13 +47,21 @@ test('bumpGate_cooldownPerPlayer', () => {
 
 // #836 part b: accepting a one-sided hit from a remote device that saw the contact.
 test('acceptHit_oncePerCounter_andNotDuringCooldown', () => {
-  const seen = new Map(), gate = new Map();
-  assert.equal(acceptHit(seen, 1, { n: 5 }, gate, 10), true);
-  assert.equal(acceptHit(seen, 1, { n: 5 }, gate, 10.5), false);      // the same hit, repeated in the next poses
+  const seen = new Map(), local = new Map(), gate = new Map();
+  assert.equal(acceptHit(seen, local, 1, { n: 5 }, gate, 10), true);
+  assert.equal(acceptHit(seen, local, 1, { n: 5 }, gate, 10.5), false);      // the same hit, repeated in the next poses
   bumpGate(gate, 2, 20);                                              // the own device already saw this contact
-  assert.equal(acceptHit(seen, 2, { n: 1 }, gate, 20.1), false);
-  assert.equal(acceptHit(seen, 2, { n: 1 }, gate, 20.5), false);      // still the same counter
-  assert.equal(acceptHit(seen, 1, { n: 6 }, gate, 11), true);
+  assert.equal(acceptHit(seen, local, 2, { n: 1 }, gate, 20.1), false);
+  assert.equal(acceptHit(seen, local, 2, { n: 1 }, gate, 20.5), false);  // still the same counter
+  assert.equal(acceptHit(seen, local, 1, { n: 6 }, gate, 11), true);
+});
+test('acceptHit_localSeen_suppressesSlowRelay', () => {   // #836 part b: a relay arriving past BUMP_COOLDOWN but within LOCAL_SEEN_WINDOW is still suppressed
+  const seen = new Map(), local = new Map(), gate = new Map();
+  local.set(1, 10);                                                   // the own device saw this contact at t=10
+  assert.equal(LOCAL_SEEN_WINDOW, 1);
+  assert.equal(acceptHit(seen, local, 1, { n: 5 }, gate, 10.29), false);  // past BUMP_COOLDOWN (0.3) but within the local window
+  assert.equal(acceptHit(seen, local, 1, { n: 6 }, gate, 10.3), false);   // a fresh counter is still suppressed within the window
+  assert.equal(acceptHit(seen, local, 1, { n: 7 }, gate, 11.01), true);    // a genuinely later collision is accepted again
 });
 test('hitNormal_fromSenderToOwn_fallbackVelocity_tooFarNull', () => {
   assert.deepEqual(hitNormal(0, 3, { x: 0, z: 0, vx: 0, vz: 0 }), { nx: 0, nz: 1 });

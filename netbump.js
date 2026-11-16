@@ -7,6 +7,7 @@ export const BUMP_DY = 2.5;         // m: further above/below (bridge, jump) is 
 export const MAX_CLOSING = 240;     // m/s: two cars at top nitro speed head-on; caps an implausible peer-reported vx/vz (#836)
 export const HIT_WINDOW = 300;      // ms: a sent hit rides on every pose for this long, so one lost packet does not lose it
 export const HIT_REACH = 10;        // m: a hit from a car drawn further away than this is ignored
+export const LOCAL_SEEN_WINDOW = 1; // s: a relay arriving within this window after the own device already saw the same contact is suppressed — longer than HIT_WINDOW + lag, so one collision never counts twice
 
 // the collision circles the walls already use, in world metres
 export function carShape(x, z, th, collision, scale) {
@@ -49,10 +50,15 @@ export function bumpGate(gate, id, now) {
   return true;
 }
 
-// acceptHit(seen, from, hit, gate, now) — true once per (from, hit.n), and only while the pair's cooldown is off
-export function acceptHit(seen, from, hit, gate, now) {
+// acceptHit(seen, local, from, hit, gate, now) — true once per (from, hit.n), and only while the pair's cooldown is off
+// and the own device did not already see this same contact locally. local is a Map<from, now> the own-contact path
+// stamps; a relay arriving after BUMP_COOLDOWN (a slow P2P link) but within LOCAL_SEEN_WINDOW is still suppressed, so
+// one physical collision never registers as two hits (#836 part b).
+export function acceptHit(seen, local, from, hit, gate, now) {
   if (seen.get(from) === hit.n) return false;
   seen.set(from, hit.n);
+  const loc = local.get(from);
+  if (loc !== undefined && now - loc < LOCAL_SEEN_WINDOW) return false;
   return bumpGate(gate, from, now);
 }
 
