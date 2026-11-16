@@ -1,6 +1,6 @@
 // #859: the rally hall and its three cars (Toyota GR Yaris Rally1, Hyundai i20 N Rally1, Subaru Impreza WRC)
-// as pure numbers, no three.js, no DOM: the descriptor, which of the game's own glTF vehicles stands in for each car
-// and in which paint, and where everything stands in a room, with the colliders. rallyhallmesh.js builds the hall from
+// as pure numbers, no three.js, no DOM: the descriptor, the game's own Rhy Rally standing in for each car with the
+// tint its livery gets (the livery texture times this colour), and where everything stands in a room, with the colliders. rallyhallmesh.js builds the hall from
 // these numbers; index.html places it and parks the vehicles on the podiums. Unit-tested with `node --test tests/rallyhall.test.mjs`.
 //
 // The hall's frame: a along its length (into the room, towards the back wall), b across, y = 0 on the floor;
@@ -11,9 +11,9 @@ export const RALLYHALL = {
   podium: { r: 4.5, h: 0.5, hw: 3.0, clear: 0.6 },
   apron: { from: 95, hw: 5 },                               // gravel strip from a = -95 to the roof edge
   cars: [                                                   // a, b: centre-relative (a towards the far wall); th: heading in the hall frame, PI = nose to the open front
-    { id: 'neuville', at: [4, -22], th: Math.PI + 0.5, len: 4.10, wid: 1.88, hgt: 1.40, vehicle: 'rally', paint: null },          // the Rhy Rally, an i20 WRC look-alike in its own livery
-    { id: 'evans',    at: [4, 0],   th: Math.PI,       len: 4.07, wid: 1.88, hgt: 1.40, vehicle: 'hatchback', paint: 'swiss' },  // a red hot hatch for the GR Yaris
-    { id: 'mccrae',   at: [4, 22],  th: Math.PI - 0.5, len: 4.34, wid: 1.77, hgt: 1.42, vehicle: 'coupe', paint: 'racing' },     // a blue two-door for the Impreza WRC
+    { id: 'neuville', at: [4, -22], th: Math.PI + 0.5, len: 4.10, wid: 1.88, hgt: 1.40, vehicle: 'rally', tint: null },       // the Rhy Rally as it comes, light blue and white
+    { id: 'evans',    at: [4, 0],   th: Math.PI,       len: 4.07, wid: 1.88, hgt: 1.40, vehicle: 'rally', tint: 0xd0302a },   // red
+    { id: 'mccrae',   at: [4, 22],  th: Math.PI - 0.5, len: 4.34, wid: 1.77, hgt: 1.42, vehicle: 'rally', tint: 0x2a4fb0 },   // deep blue
   ],
   colours: { wall: 0xc9c8c2, roof: 0x8d9096, floor: 0x9b9a95, podium: 0xe6e6e2, band: 0x2c3b4d },
   board: { a: 19.34, b: 0, y0: 0.8, w: 6.0, h: 2.2, panel: 0x14171c, gold: 0xd4a83a, lines: [{ text: 'Elfyn Evans', size: 0.22, y: 0.30, weight: 800 }, { text: 'WRC World Champion 2026', size: 0.14, y: 0.58, weight: 700 }, { text: '& Scott Martin', size: 0.09, y: 0.80, weight: 600 }] },

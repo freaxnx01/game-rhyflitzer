@@ -2,10 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RALLYHALL, boardLayout } from '../rallyhall.js';
-import { PAINTS } from '../carselect.js';
 import { RALLY } from '../rally.js';
-import { HATCHBACK } from '../hatchback.js';
-import { COUPE } from '../coupe.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg || ''}: ${a} vs ${b}`);
 
@@ -16,14 +13,11 @@ test('RALLYHALL_ThreeCarsOfTheirRealSizes_EvansNeuvilleMcCrae', () => {
   near(RALLYHALL.hall.roof.y0 + RALLYHALL.hall.roof.t, RALLYHALL.h, 1e-9, 'the roof top is the hall height');
 });
 
-test('RALLYHALL_EachCarIsOneOfTheGamesGltfVehicles_InAPaintTheGameKnows', () => {
-  const gltf = { rally: RALLY, hatchback: HATCHBACK, coupe: COUPE };
-  for (const c of RALLYHALL.cars) {
-    assert.ok(gltf[c.vehicle]?.gltf, `${c.id}: ${c.vehicle} is a glTF vehicle`);
-    if (c.paint === null) assert.equal(gltf[c.vehicle].paint, false, `${c.id}: only a fixed livery goes unpainted`);
-    else { assert.ok(PAINTS.some(p => p.id === c.paint), `${c.id}: paint ${c.paint}`); assert.equal(gltf[c.vehicle].paint, true, `${c.id}: ${c.vehicle} takes paint`); }
-  }
-  assert.equal(new Set(RALLYHALL.cars.map(c => c.vehicle)).size, 3, 'three different cars');
+test('RALLYHALL_EveryCarIsTheRhyRally_ThreeDifferentLiveryTints', () => {
+  for (const c of RALLYHALL.cars) assert.equal(c.vehicle, 'rally', `${c.id} is the game's rally car`);
+  assert.ok(RALLY.gltf, 'the Rhy Rally is a glTF vehicle');
+  assert.equal(new Set(RALLYHALL.cars.map(c => c.tint)).size, 3, 'three different looks');
+  for (const c of RALLYHALL.cars) assert.ok(c.tint === null || (Number.isInteger(c.tint) && c.tint >= 0 && c.tint <= 0xffffff), `${c.id} tint`);
 });
 
 import { rallyhallPlacement } from '../rallyhall.js';

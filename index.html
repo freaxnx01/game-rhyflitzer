@@ -4034,7 +4034,7 @@ function roomRallyhall(group, R) {
   RALLYHALL_S.hall = hall; RALLYHALL_S.waiting = [...RALLYHALL.cars];
   for (const c of RALLYHALL.cars) loadVehicleModel(c.vehicle);
 }
-// one podium car per frame once its glTF file is in, a parked copy like the depot's (cloneStageVehicle rebuilds the stage car,
+// one podium car per frame once its glTF file is in, a parked copy like the depot's with its livery tinted, (cloneStageVehicle rebuilds the stage car,
 // so never during a wreck); a file that failed leaves its podium empty
 function stepRallyhall() {
   const S = RALLYHALL_S;
@@ -4043,7 +4043,8 @@ function stepRallyhall() {
   if (!car) return;
   S.waiting.splice(S.waiting.indexOf(car), 1);
   if (gltfState(car.vehicle) !== 'ready') return;
-  const def = VEHICLES[car.vehicle], { mesh } = cloneStageVehicle(car.vehicle, car.paint ?? paintOnSelect(def, 'navy', false, 'navy', def));
+  const def = VEHICLES[car.vehicle], { mesh } = cloneStageVehicle(car.vehicle, paintOnSelect(def, 'navy', false, 'navy', def));
+  if (car.tint !== null) mesh.traverse(o => { if (o.isMesh && o.material.name === 'Livery') o.material.color.setHex(car.tint); });   // the copy's own material: the driven Rhy Rally keeps its livery
   mesh.position.set(car.at[0], RALLYHALL.podium.h, car.at[1]); mesh.rotation.set(0, -car.th, 0);
   S.hall.add(mesh); S.meshes.push(mesh); ROOM.rallyhall.parked.push(car.id);
 }

@@ -1231,8 +1231,8 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
 
 @needs_world
 def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(server, tmp_path):
-    """#859: entering spoke 5 builds the rally hall and parks the game's own Rhy Rally, hatchback and Rhy Coupé on its podiums -- those three
-    vehicle files are all the room fetches; the back wall and a podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
+    """#859: entering spoke 5 builds the rally hall and parks the game's own Rhy Rally on its three podiums, two with a tinted livery -- that one
+    vehicle file is all the room fetches; the back wall and a podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         requests = []
@@ -1257,7 +1257,7 @@ def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(se
     print("screenshot:", tmp_path / "rallyhall-room.png")
     print("screenshot:", tmp_path / "rallyhall-board.png")
     assert errors == []
-    assert {u.rsplit("/", 1)[-1] for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")} <= {"rally.glb", "hatchback.glb", "coupe.glb"}, requests   # the Eiffel preloads near the Hübel by design; the room fetches only its three vehicles (the hatchback may already be cached as the start car)
+    assert {u.rsplit("/", 1)[-1] for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")} <= {"rally.glb"}, requests   # the Eiffel preloads near the Hübel by design; the room fetches only the Rhy Rally
     assert sorted(a["parked"]) == ["evans", "mccrae", "neuville"], a
     assert a["built"] == 5 and abs(a["h"] - 14.8) < 1e-6 and 500 <= a["tris"] <= 30000 and a["colliders"] == 9 and len(a["cars"]) == 3, a
     assert a["board"]["text"][:2] == ["Elfyn Evans", "WRC World Champion 2026"] and a["board"]["found"], a   # #907: the honour board is in the hall group
