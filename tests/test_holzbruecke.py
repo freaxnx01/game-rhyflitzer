@@ -153,7 +153,7 @@ def settle_camera(page):
 
 
 def screen_point(page, want):
-    """A screen point whose pick is `want` ('old' / 'new' a border line, None ground that beams), the middle of the hit run on its row.
+    """A screen point whose pick is `want` ('old' / 'new' a border line, None ground that beams): for a line the middle of its hit run on the middle hit row.
     Ground is the first beamable point bottom-up from the centre: one beamPick raycast costs ~0.3 s, the full grid would take hours (#405)."""
     if want is None:
         found = page.evaluate("""() => { for (let y = innerHeight - 60; y > 40; y -= 30) for (let k = 0; k < 15; k++) {
@@ -161,9 +161,11 @@ def screen_point(page, want):
           return null; }""")
         assert found is not None, "no screen point picks None"
         return found
-    found = page.evaluate("""(want) => { const rows = {}; for (let y = 40; y < innerHeight - 40; y += 6) for (let x = 20; x < innerWidth - 20; x += 6) {
-        const line = window.__mm.borderPick(x, y); if (want ? line === want : (line === null && window.__mm.beamPick(x, y))) (rows[y] = rows[y] || []).push(x); }
-      const ys = Object.keys(rows).map(Number); if (!ys.length) return null; const y = ys[ys.length >> 1], xs = rows[y]; return [xs[xs.length >> 1], y]; }""", want)
+    found = page.evaluate("""(want) => { const ys = [];   // the 1.6 m pick strip is only ~4 px tall on screen: every row, coarse columns (#405)
+        for (let y = 40; y < innerHeight - 40; y++) for (let x = 20; x < innerWidth - 20; x += 30) if (window.__mm.borderPick(x, y) === want) { ys.push(y); break; }
+        if (!ys.length) return null; const y = ys[ys.length >> 1], xs = [];
+        for (let x = 20; x < innerWidth - 20; x += 2) if (window.__mm.borderPick(x, y) === want) xs.push(x);
+        return [xs[xs.length >> 1], y]; }""", want)
     assert found is not None, f"no screen point picks {want!r}"
     return found
 
