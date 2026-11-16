@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-16 11:17` Mehrspieler-Rennen: Oben rechts steht jetzt der **Platz** (z. B. *Platz 2/3*) und der **Abstand** zum Auto davor in Sekunden. Der Host prüft jeden Checkpoint mit.
 - `2026-11-15 23:00` Mehrspieler: Der Host kann jetzt ein **Rennen starten**. Alle stehen nebeneinander am Start, nach **3-2-1-Los!** fahren alle gleichzeitig los zu den Checkpoints.
 - `2026-11-15 21:28` **Autos prallen voneinander ab**: beim gemeinsamen Fahren prallt man vom anderen Auto ab und nimmt Schaden wie an einer Wand; ein schweres Fahrzeug lässt sich weniger schieben.
 - `2026-11-15 20:35` Im Mehrspieler würfelt der **🎲-Knopf** neben dem Namen einen neuen lustigen Namen, und ein eigener Name wie «p1» lässt sich so wieder loswerden.
