@@ -5900,8 +5900,21 @@ function applySurprise(s) { if (s.id === 'hop') { if (!FLY.on) { P.y += 0.3; P.v
 function endHunt() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); const t = R.t, clean = !R.jumped && !R.auto && !R.flown && !R.walked && !R.pontoon && !R.swapped; let rec = false; if (clean && isNewHuntBest(R.huntBest, t)) { rec = R.huntBest !== null; R.huntBest = t; try { localStorage.setItem('mm.huntBest', String(t)); } catch (e) { } } R.last = { t, rec, mode: 'hunt' }; HUNT_RUN.endIn = HUNT.celebrate; }
 function showHuntResult() { HUNT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'hunt') return; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 function finish() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); const t = R.t, clean = !R.jumped && !R.auto && !R.flown && !R.walked && !R.pontoon && !R.swapped; let rec = false; if (R.mode === 'blitz') { const rank = blitzRank(R.left); if (clean && blitzNewBest(R.blitzBest, R.left)) { rec = R.blitzBest !== null; R.blitzBest = R.left; try { localStorage.setItem('mm.blitzBest', String(R.left)); } catch (e) { } } R.last = { mode: 'blitz', t, left: R.left, rank, rec }; } else { if (clean && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem(REGION.bestKey, String(t)); } catch (e) { } } R.last = { mode: 'trial', t, rec }; } $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
-// #837 part b: the own finish; part d sends it to the host and shows the result
-function netRaceFinish() { stopAuto('reset'); R.state = 'finished'; R.target = null; SFX.finish(); toastBig(tr('mpRaceFinished')); }
+// #837 part d: the own finish -- the host books it (its own is trusted), a guest asks; the car keeps driving.
+// A10: a network race never writes the single-player best and never opens the trial result overlay.
+function netRaceFinish() {
+  stopAuto('reset'); R.state = 'finished'; R.target = null; SFX.finish(); toastBig(tr('mpRaceFinished'));
+  if (NET.role === 'H') netHostFinish(NET.you, raceMs(), null);
+  else NET.link.send(HOST_ID, { type: 'finish', t: raceMs() });
+}
+// host: peerId null = the host's own finish (trusted); a guest's needs one of its last poses near the finish.
+// A refused finish goes back as cpno -1, so that device opens its finish again.
+function netHostFinish(id, t, peerId) {
+  const near = peerId === null || nearPoint(NETCARS.get(id)?.track.poses ?? [], FINISH);
+  const r = acceptFinish(NET.race.state, id, t, near, performance.now());
+  if (!r.ok) { if (peerId !== null) NET.link.send(peerId, { type: 'cpno', i: -1 }); return; }
+  NET.race.state = r.race; netRaceBoard();
+}
 function timeUp() { endFoot(); /* #365: no pointer lock / stepOnFoot behind the result screen */ stopAuto('reset'); R.state = 'finished'; R.timeUp = true; trackModeEnd('timeup'); R.last = { mode: 'blitz', timeUp: true, done: R.done }; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }   // #128: the Blitz clock hit zero — no rank, no best, no sound
 const penalties = () => `${R.jumped ? tr('notCountedJump') : ''}${R.auto ? tr('notCountedAuto') : ''}${R.flown ? tr('notCountedHeli') : ''}${R.walked ? tr('notCountedFoot') : ''}${R.pontoon ? tr('notCountedPontoon') : ''}${R.swapped ? tr('notCountedSwap') : ''}`;
 const notes = () => `${penalties()}${R.shortcut ? tr('viaHolz') : ''}`;
@@ -6406,6 +6419,7 @@ function netHostMessage(peerId, msg) {
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
   if (msg.type === 'ping') { NET.link.send(peerId, { type: 'pong', a: msg.a, b: performance.now() }); return; }   // #835: the host's clock is the session's clock
   if (msg.type === 'cp') { if (NET.race?.state && NET.race.go) netHostPass(id, msg.i, raceMs(), peerId); return; }   // #837 part c, #1022: the host stamps a guest's pass from its own clock (never msg.t), and only once go — defense in depth vs. a forged/early pass
+  if (msg.type === 'finish') { if (NET.race?.state && NET.race.go) netHostFinish(id, raceMs(), peerId); return; }   // #837 part d: the finish is stamped from the host's clock too
   if (msg.type === 'pick') {
     const picked = pickCar(NET.lobby, id, msg.car, msg.paint, VEHICLES);
     NET.lobby = picked.lobby;
@@ -6607,6 +6621,7 @@ function netHostPass(id, i, t, peerId) {
 }
 // the host did not count this pass: the checkpoint opens again, so it can be driven once more
 function netReopenCp(i) {
+  if (i === -1) { if (R.state === 'finished') { R.state = 'racing'; finishG.visible = true; } return; }   // #837 part d: the finish opens again
   const c = cpObjs[i];
   if (!c || !c.done) return;
   c.done = false; c.pillar.material = cpMat; c.ring.visible = true;
