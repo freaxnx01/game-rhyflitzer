@@ -2,14 +2,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { SRF3_URL, ARGOVIA_URL, STATIONS, LIVE, nextStation, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, RADIO_STORE, nextTrack, prevTrack, shuffleOnFrom, playlistOrder, stepVolume, trackGain, menuGain,
+import { SRF3_URL, ARGOVIA_URL, STATIONS, LIVE, FM, isFm, stationOrder, nextStation, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, RADIO_STORE, nextTrack, prevTrack, shuffleOnFrom, playlistOrder, stepVolume, trackGain, menuGain,
   radioOnFrom, menuMusicOnFrom, stationFrom, volumeFrom, srfVerdict, displayFor, createEarlyMenu, EARLY_GESTURES } from '../radio.js';
 
 const key = (code, o = {}) => ({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, ...o });
 
 test('SRF3_URL_IsTheHttpsStream_NotTheShortLink', () => {
   assert.equal(SRF3_URL, 'https://stream.srg-ssr.ch/srgssr/srf3/mp3/128');
-  assert.deepEqual(STATIONS, ['fm', 'srf3', 'argovia']);
+  assert.deepEqual(STATIONS, ['mix', 'rock', 'cruise', 'srf3', 'argovia']);
 });
 
 test('TRACKS_AreTheThirteenCommittedFiles_WithLicences', () => {
@@ -98,7 +98,9 @@ test('storedValues_FallBackToDefaults', () => {
   assert.equal(menuMusicOnFrom('0'), false);
   assert.equal(stationFrom('srf3'), 'srf3');
   assert.equal(stationFrom('argovia'), 'argovia');
-  for (const bad of [null, '', 'radio1', 'SRF3', 'Argovia']) assert.equal(stationFrom(bad), 'fm', String(bad));
+  assert.equal(stationFrom('rock'), 'rock');
+  assert.equal(stationFrom('fm'), 'mix');   // #1016: the one Rhyflitzer FM of before is the mix now
+  for (const bad of [null, '', 'radio1', 'SRF3', 'Argovia']) assert.equal(stationFrom(bad), 'mix', String(bad));
   assert.equal(volumeFrom('3'), 3);
   assert.equal(volumeFrom('0'), 0);
   for (const bad of [null, '', '11', '-1', '2.5', 'loud']) assert.equal(volumeFrom(bad), VOLUME.start, String(bad));
@@ -119,9 +121,10 @@ test('srfVerdict_StallAfterStart_FailsAfter10S', () => {
 });
 
 test('displayFor_OffSrfAndTrack', () => {
-  assert.deepEqual(displayFor({ on: false, station: 'fm', track: 0 }), { key: 'radioOff', args: [] });
+  assert.deepEqual(displayFor({ on: false, station: 'mix', track: 0 }), { key: 'radioOff', args: [] });
   assert.deepEqual(displayFor({ on: true, station: 'srf3', track: 2 }), { key: 'radioStationSrf', args: [] });
-  assert.deepEqual(displayFor({ on: true, station: 'fm', track: 1 }), { key: 'radioTrack', args: ['Neon Afterglow', 'MemoryArcade'] });
+  assert.deepEqual(displayFor({ on: true, station: 'mix', track: 1 }), { key: 'radioFmTrack', args: ['Rhyflitzer FM Mix', 'Neon Afterglow', 'MemoryArcade'] });
+  assert.deepEqual(displayFor({ on: true, station: 'rock', track: 0 }), { key: 'radioFmTrack', args: ['Rhyflitzer FM Rock', 'Cool Rider', 'Emmraan'] });
 });
 
 test('ARGOVIA_URL_IsTheProbedHttpsStream', () => {
@@ -131,19 +134,45 @@ test('ARGOVIA_URL_IsTheProbedHttpsStream', () => {
 });
 
 test('LIVE_HasExactlyTheLiveStations_WithStringKeys', () => {
-  assert.deepEqual(Object.keys(LIVE), STATIONS.filter(s => s !== 'fm'));
+  assert.deepEqual(Object.keys(LIVE), STATIONS.filter(s => !isFm(s)));
   for (const l of Object.values(LIVE)) assert.ok(l.url.startsWith('https://') && l.nameKey && l.failKey);
 });
 
-test('nextStation_CyclesFmSrf3ArgoviaFm', () => {
-  assert.equal(nextStation('fm'), 'srf3');
+test('nextStation_CyclesMixRockCruiseSrf3ArgoviaMix', () => {
+  assert.equal(nextStation('mix'), 'rock');
+  assert.equal(nextStation('rock'), 'cruise');
+  assert.equal(nextStation('cruise'), 'srf3');
   assert.equal(nextStation('srf3'), 'argovia');
-  assert.equal(nextStation('argovia'), 'fm');
+  assert.equal(nextStation('argovia'), 'mix');
+});
+
+const ids = (station) => FM[station].tracks.map(i => TRACKS[i].id);
+
+test('FM_RockAndCruise_SplitTheTracks_MixHasThemAll', () => {
+  assert.deepEqual(Object.keys(FM), ['mix', 'rock', 'cruise']);
+  assert.deepEqual(ids('rock'), ['cool-rider', 'gritty-riffing', 'fuzz-riff-breakdown', 'pulsing-arpeggio', 'pulsing-arpeggio-take-2', 'rising-tension']);
+  assert.deepEqual(ids('cruise'), ['neon-afterglow', 'california-snares-and-synths', 'menu-running-title', 'soft-rock-groove', 'melrose-place-soft-rock',
+    'open-road', 'night-drive']);
+  assert.deepEqual(FM.mix.tracks, TRACKS.map((_, i) => i));
+  assert.equal(FM.rock.tracks.length + FM.cruise.tracks.length, TRACKS.length);
+  assert.deepEqual(Object.values(FM).map(f => f.name), ['Rhyflitzer FM Mix', 'Rhyflitzer FM Rock', 'Rhyflitzer FM Cruise']);
+  for (const s of STATIONS) assert.equal(isFm(s), s in FM, s);
+});
+
+test('stationOrder_ShuffleOff_IsTheStationList', () => {
+  assert.deepEqual(stationOrder('rock', false, FM.rock.tracks[0]), FM.rock.tracks);
+});
+
+test('stationOrder_ShuffleOn_StaysInTheStation_StartsAtFirst', () => {
+  let seed = 3; const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const first = FM.cruise.tracks[4], o = stationOrder('cruise', true, first, rand);
+  assert.equal(o[0], first);
+  assert.deepEqual([...o].sort((a, b) => a - b), [...FM.cruise.tracks].sort((a, b) => a - b));
 });
 
 test('stationFrom_AStoredArgovia_Survives', () => {
   assert.equal(stationFrom('argovia'), 'argovia');
-  assert.equal(stationFrom('Argovia'), 'fm');
+  assert.equal(stationFrom('Argovia'), 'mix');
 });
 
 test('displayFor_Argovia_IsTheStationString', () => {
