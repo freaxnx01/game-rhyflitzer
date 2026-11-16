@@ -44,3 +44,22 @@ def test_guest_pass_counts_on_host_and_far_claim_is_refused(pair):
     guest.wait_for_function("() => window.__mm.netRace().cpno === 1", timeout=T)
     assert host.evaluate("() => window.__mm.netRace().board.find(r => r.id === 1).times.length") == 1
     assert errors == []
+
+
+def test_a_refused_far_claim_reopens_a_locally_done_checkpoint(pair):
+    """#1022: the guest's own cpObjs[0].done is true when the host's far refusal arrives (the near-check window
+    raced — the host has no near pose), so netReopenCp reverts the pillar/ring/R.done, not just the cpno counter."""
+    host, guest, errors = pair
+    start_race(host, guest)
+    guest.wait_for_function("() => window.__mm.netRace().pos.length > 0", timeout=T)
+    host.wait_for_function("() => window.__mm.netCars().some(c => c.id === 1 && c.pos)", timeout=T)   # the host has the guest's pose track
+    # the guest is still on the start grid (hundreds of m from cp 0): a local pass the host has not seen near,
+    # exactly the race-the-near-window case — cpObjs[0].done is true before the refusal arrives
+    guest.evaluate("() => window.__mm.netMarkCpDone(0)")
+    assert guest.evaluate("() => window.__mm.netRace().done[0]") is True
+    guest.evaluate("() => window.__mm.netSend(0, { type: 'cp', i: 0, t: 1000 })")   # far from checkpoint 0
+    guest.wait_for_function("() => window.__mm.netRace().done[0] === false", timeout=T)   # the revert ran, not the guard's short-circuit
+    assert guest.evaluate("() => window.__mm.netRace().cpno") >= 1
+    # the host never accepted the pass, so the board has no time for the guest
+    assert host.evaluate("() => window.__mm.netRace().board.find(r => r.id === 1).times.length") == 0
+    assert errors == []

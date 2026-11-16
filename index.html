@@ -33,6 +33,7 @@ body.campath-play #toast{visibility:hidden}   /* #900: hud-off keeps the toast r
 #time b{color:var(--sun);font-weight:800}
 #time.low{color:#ff5a3c}
 #best{font-size:16px;font-weight:600;color:var(--steel)}
+#netpos{font-size:16px;font-weight:600;color:var(--steel)}
 #toast{margin-top:10px;max-width:calc(100vw - 48px);box-sizing:border-box;padding:8px 18px;background:linear-gradient(#ffe27a,#ffc61a 50%,#ff9a1a);border:4px solid var(--ink);box-shadow:5px 5px 0 var(--ink);transform:rotate(-3deg);color:var(--ink);font-size:24px;font-weight:800;font-style:italic;text-transform:uppercase;line-height:1.05;text-align:center;opacity:0;transition:opacity .2s}
 #toast.big{font-size:34px;padding:12px 24px}
 #toast.show{opacity:1}
@@ -6593,6 +6594,7 @@ function netHostPass(id, i, t, peerId) {
   const cp = CPS[i], poses = NETCARS.get(id)?.track.poses ?? [];
   const near = peerId === null || (!!cp && nearPoint(poses, cp));
   const r = acceptCp(NET.race.state, id, i, t, near);
+  // #1022: assumes a cp is delivered once (reliable/ordered channel, single netRaceCp call site) — a retried/duplicated cp would fail acceptCp's mask check and spuriously revert an already-accepted pass
   if (!r.ok) { if (peerId !== null) { NET.link.send(peerId, { type: 'cpno', i }); } return; }
   NET.race.state = r.race; netRaceBoard();
 }
@@ -6841,6 +6843,7 @@ openJoinLink();
 window.addEventListener('hashchange', openJoinLink);
 window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset, race: NET.race ? { t0: NET.race.t0, held: netHeld(), go: NET.race.go } : null });
 window.__mm.netRace = () => ({ cps: CPS.map((c) => [c.x, c.z]), finish: [FINISH.x, FINISH.z], done: cpObjs.map((c) => c.done), board: NET.race?.board ?? null, over: !!NET.race?.over, cpno: NET.race?.cpno ?? 0, pos: $('netpos').textContent });   // #837 part c: the checkpoints, the board and the position line
+window.__mm.netMarkCpDone = (i) => { const c = cpObjs[i]; if (c && !c.done) { c.done = true; c.pillar.material = cpMatDone; c.ring.visible = false; R.done++; updatePips(); } };   // #1022 test hook: a local pass the host has not (yet) accepted — the race-the-near-window case netReopenCp must revert
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
 window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp }));   // #835: read-only, for the test
 window.__mm.netContacts = () => netContacts().map(({ id, hit }) => ({ id, pen: hit.pen }));   // #836: the overlaps the own car has now
