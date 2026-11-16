@@ -30,7 +30,7 @@ export const TRACKS = Object.freeze([
   { id: 'open-road', title: 'Open Road', artist: 'freaxnx01', src: 'assets/music/open-road.mp3', mood: 'cruise', gainDb: 0 },
   { id: 'night-drive', title: 'Night Drive', artist: 'freaxnx01', src: 'assets/music/night-drive.mp3', mood: 'cruise', gainDb: 0 },
 ]);
-export const MENU_TRACK = TRACKS[3];
+export const MENU_TRACK = TRACKS.find(t => t.id === 'pulsing-arpeggio');   // title and menu music; it also stays on FM Rock
 // #1016 / #1023: the Rhyflitzer FM stations -- TRACKS indices by mood; the mix plays them all. The names are the same in en and de
 const moodTracks = (mood) => Object.freeze(TRACKS.flatMap((t, i) => (t.mood === mood ? [i] : [])));
 export const FM = Object.freeze({
