@@ -971,7 +971,7 @@ import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFi
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
-import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, BUMP_DY } from './netbump.js';   // #836: car-to-car contact in a shared drive
+import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, hitImpulse, BUMP_DY, HIT_WINDOW } from './netbump.js';   // #836: car-to-car contact in a shared drive
 import { HIDEOUT, TUNNEL, TUNNEL_CEIL, CAVE, EIFFEL, ATOMIUM, TITANIC, VASA, LIFT, inCabin, liftDoor, nearLiftDoor, liftColliders, hideoutAxis, floorAt, portalS, inHideout, ringStations, eiffelParts, caveCuts, caveLamps, roomAt, corridorAt, caveRoofed, caveBlend, caveDepth, caveSwitch, caveLookK, TUNNEL_DARK, CAVE_SWITCH_IN, blendLook, ringArcs, ceilingAt, nodeR, pointBounds } from './hideout.js';
 import { createLift, shaftScrollDelta, CAB_FACE_SCROLLS, cabCentre, LIFT_TIMES, FREIGHT_DEPTH, FREIGHT_STOPS, FREIGHT_DEFAULT, freightKeyStop, freightPadLabel, freightPadView } from './lift.js';
 import { createLevels } from './levels.js';
@@ -6569,7 +6569,7 @@ const NETCARS = new Map();   // lobby player id -> { car, paint, mesh, track }
 
 // #836: per remote player, the time of the last impulse (s). The position push runs every step; the impulse and the
 // feedback are gated so a resting contact does not retrigger the crash sound and damage each frame.
-const BUMP = { gate: new Map() };
+const BUMP = { gate: new Map(), seen: new Map(), inbox: [], out: null, n: 0 };   // #836: gate (own contacts), seen+inbox+out+n (#836 part b: relayed hits)
 
 // the remote cars the own car overlaps now (a query; also the test hook). On foot, flying, in the train and on the lift
 // ride there is no bump (the early return in stepCar). A leaving car, a hidden one, one without a pose, or one more
@@ -6590,6 +6590,15 @@ function netContacts() {
 // #836: push the own car out (mass-weighted); a closing contact past the cooldown also bounces, crashes and hurts,
 // exactly as a wall hit does (impactStrength → crashHit + SFX.crash).
 function netBump() {
+  if (!NET.session) return;   // #836 part b: on foot / no session, the inbox drain is skipped too
+  for (const { from, hit } of BUMP.inbox.splice(0)) {   // #836 part b: a one-sided hit the other device saw
+    const entry = NETCARS.get(from), def = entry?.car && VEHICLES[entry.car];
+    const pose = def && sampleRemote(entry.track, hostNow()), n = pose && hitNormal(P.x, P.z, pose);
+    if (!n || !acceptHit(BUMP.seen, from, hit, BUMP.gate, performance.now() / 1000)) continue;
+    const d = hitImpulse(hit.c, n, VEH.mass, def.mass ?? 1);
+    P.vx += d.dvx; P.vz += d.dvz;
+    const s = impactStrength(hit.c); crashHit(s); SFX.crash(s);
+  }
   for (const { id, hit, pose, mass } of netContacts()) {
     const share = bumpShare(VEH.mass, mass);
     P.x += hit.nx * hit.pen * share; P.z += hit.nz * hit.pen * share;
@@ -6597,6 +6606,8 @@ function netBump() {
     if (imp.closing <= 0 || !bumpGate(BUMP.gate, id, performance.now() / 1000)) continue;
     P.vx += imp.dvx; P.vz += imp.dvz;
     const s = impactStrength(imp.closing); crashHit(s); SFX.crash(s);
+    BUMP.n = (BUMP.n + 1) & 31;   // #836 part b: announce this hit for 300 ms so the other device learns of it
+    BUMP.out = { to: id, n: BUMP.n, c: imp.closing, until: performance.now() + HIT_WINDOW };
   }
 }
 
@@ -6704,7 +6715,7 @@ function netStartSession(mode = 'cruise', t0 = null) {
 function netEndSession() {
   clearInterval(NET.poseTimer);
   for (const id of [...NETCARS.keys()]) dropNetCar(id);
-  BUMP.gate.clear();   // #836: a fresh session does not inherit the last drive's cooldowns
+  BUMP.gate.clear(); BUMP.seen.clear(); BUMP.inbox.length = 0; BUMP.out = null;   // #836: a fresh session does not inherit the last drive's cooldowns or hits
   Object.assign(NET, { session: false, seq: 0, poseTimer: null });   // #837: the clock, the offset and the ping timer survive a session end (part d goes back to the lobby without leaving)
   NET.race = null; $('pauserestart').hidden = false;
   $('netpos').hidden = true;   // #837 part c: the position line leaves with the session
@@ -6730,6 +6741,7 @@ function netSendPose() {
     x: car.position.x, y: car.position.y, z: car.position.z,
     rx: car.rotation.x, ry: car.rotation.y, rz: car.rotation.z,
     vx: FOOT.on ? 0 : P.vx, vz: FOOT.on ? 0 : P.vz, steer: WHEEL_STATE.yaw, flags: poseFlags(),   // #836: on foot P is the walker; the parked car stands still
+    hit: BUMP.out && performance.now() < BUMP.out.until ? BUMP.out : null,   // #836 part b: ride the outgoing hit for 300 ms
   });
   for (const peerId of NET.link.peerIds()) NET.link.sendPose(peerId, buf);
 }
@@ -6746,6 +6758,7 @@ function netPose(peerId, buf) {
     for (const other of NET.slots.keys()) if (other !== peerId) NET.link.sendPose(other, relay);
   } else if (pose.id === NET.you || !NET.lobby || !NET.lobby.players.some((p) => p.id === pose.id)) { NET.bad++; return; }
   pushPose(trackFor(pose.id), pose);
+  if (pose.hit && pose.hit.to === NET.you) { BUMP.inbox.push({ from: pose.id, hit: pose.hit }); if (BUMP.inbox.length > 16) BUMP.inbox.shift(); }   // #836 part b: applied in netBump, never here
 }
 const newNetCar = () => ({ car: null, paint: null, name: null, mesh: null, tag: null, roof: 0, lamps: { head: [], tail: [] }, blink: { left: null, right: null }, lamp: { head: false, brake: false, left: false, right: false }, track: createTrack() });
 // the track a player's poses go into; a pose that arrives before the lobby message opens the entry
