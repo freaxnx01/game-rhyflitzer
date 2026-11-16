@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-16 17:00` Mehrspieler-Rennen mit **Ergebnis**: Alle sehen dieselbe Rangliste mit Zeiten und Rückstand. Wer 60 Sekunden nach dem Sieger noch fährt oder die Verbindung verliert, ist *nicht im Ziel*. Danach startet der Host eine **Revanche** oder geht **zurück zur Lobby**.
 - `2026-11-16 17:00` Neue **Titel- und Menümusik**: **Pulsing Arpeggio** läuft jetzt im Startbildschirm. «Menu / Running Title» bleibt im Radio auf Rhyflitzer FM Cruise.
 - `2026-11-16 11:17` Mehrspieler-Rennen: Oben rechts steht jetzt der **Platz** (z. B. *Platz 2/3*) und der **Abstand** zum Auto davor in Sekunden. Der Host prüft jeden Checkpoint mit.
 - `2026-11-16 11:54` **Rhyflitzer FM** sendet jetzt auf drei Kanälen: **Rock**, **Cruise** und **Mix** mit allen Tracks. <kbd>6</kbd> schaltet Mix → Rock → Cruise → SRF 3 → Radio Argovia; das Display zeigt Sender und Track. Die **Zufallswiedergabe** gilt je Sender.

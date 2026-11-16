@@ -384,7 +384,8 @@ table.ttgrid button{font:inherit;color:#f5efe0;background:none;border:2px solid 
 #mpclock{font-size:15px;font-weight:700;color:var(--sun);text-transform:none;letter-spacing:0}
 #mpstatus,#mplobbystatus{margin:0;font-size:16px;font-weight:700;min-height:1.2em}
 #mpstatus.bad,#mplobbystatus.bad{color:#ff9d7a}
-.mp-players{display:flex;flex-direction:column;gap:6px}
+.mp-players,#mpresult{display:flex;flex-direction:column;gap:6px}
+#mpresult[hidden]{display:none}#mpresult h3{margin:0;font-size:18px}   /* #837 part d: the race result stacks like the player list */
 .mp-row{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:baseline;padding:6px 8px;background:rgba(10,12,16,.45);border-left:5px solid var(--steel-l)}
 .mp-row.ready{border-left-color:#8fd8e8}
 .mp-row b{font-weight:800;font-size:18px;overflow-wrap:anywhere}
@@ -889,6 +890,10 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <span id="mpclassbtns"></span>
     </div>
     <p id="mpclasstext" class="mp-hint"></p>
+    <!-- #837 part d: the race result, and the host's two ways on from it -->
+    <div id="mpresult" hidden aria-live="polite"></div>
+    <button id="mprematch" class="btn primary" type="button" hidden data-i18n="mpRematch">Rematch</button>
+    <button id="mpback" class="btn" type="button" hidden data-i18n="mpBackLobby">Back to lobby</button>
     <button id="mppick" class="btn primary" type="button" data-i18n="mpPickCar">Pick a car</button>
     <button id="mpready" class="btn" type="button" aria-pressed="false"></button>
     <!-- #835: only the host sees this, and only while everybody is ready -- it puts the whole lobby on the road -->
@@ -962,7 +967,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
-import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, standings, boardRows, nearPoint } from './netrace.js';
+import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
@@ -5921,8 +5926,21 @@ function applySurprise(s) { if (s.id === 'hop') { if (!FLY.on) { P.y += 0.3; P.v
 function endHunt() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); const t = R.t, clean = !R.jumped && !R.auto && !R.flown && !R.walked && !R.pontoon && !R.swapped; let rec = false; if (clean && isNewHuntBest(R.huntBest, t)) { rec = R.huntBest !== null; R.huntBest = t; try { localStorage.setItem('mm.huntBest', String(t)); } catch (e) { } } R.last = { t, rec, mode: 'hunt' }; HUNT_RUN.endIn = HUNT.celebrate; }
 function showHuntResult() { HUNT_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'hunt') return; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 function finish() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); const t = R.t, clean = !R.jumped && !R.auto && !R.flown && !R.walked && !R.pontoon && !R.swapped; let rec = false; if (R.mode === 'blitz') { const rank = blitzRank(R.left); if (clean && blitzNewBest(R.blitzBest, R.left)) { rec = R.blitzBest !== null; R.blitzBest = R.left; try { localStorage.setItem('mm.blitzBest', String(R.left)); } catch (e) { } } R.last = { mode: 'blitz', t, left: R.left, rank, rec }; } else { if (clean && (R.best === null || t < R.best)) { rec = R.best !== null; R.best = t; try { localStorage.setItem(REGION.bestKey, String(t)); } catch (e) { } } R.last = { mode: 'trial', t, rec }; } $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
-// #837 part b: the own finish; part d sends it to the host and shows the result
-function netRaceFinish() { stopAuto('reset'); R.state = 'finished'; R.target = null; SFX.finish(); toastBig(tr('mpRaceFinished')); }
+// #837 part d: the own finish -- the host books it (its own is trusted), a guest asks; the car keeps driving.
+// A10: a network race never writes the single-player best and never opens the trial result overlay.
+function netRaceFinish() {
+  stopAuto('reset'); R.state = 'finished'; R.target = null; SFX.finish(); toastBig(tr('mpRaceFinished'));
+  if (NET.role === 'H') netHostFinish(NET.you, raceMs(), null);
+  else NET.link.send(HOST_ID, { type: 'finish', t: raceMs() });
+}
+// host: peerId null = the host's own finish (trusted); a guest's needs one of its last poses near the finish.
+// A refused finish goes back as cpno -1, so that device opens its finish again.
+function netHostFinish(id, t, peerId) {
+  const near = peerId === null || nearPoint(NETCARS.get(id)?.track.poses ?? [], FINISH);
+  const r = acceptFinish(NET.race.state, id, t, near, performance.now());
+  if (!r.ok) { if (peerId !== null) NET.link.send(peerId, { type: 'cpno', i: -1 }); return; }
+  NET.race.state = r.race; netRaceBoard();
+}
 function timeUp() { endFoot(); /* #365: no pointer lock / stepOnFoot behind the result screen */ stopAuto('reset'); R.state = 'finished'; R.timeUp = true; trackModeEnd('timeup'); R.last = { mode: 'blitz', timeUp: true, done: R.done }; $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }   // #128: the Blitz clock hit zero — no rank, no best, no sound
 const penalties = () => `${R.jumped ? tr('notCountedJump') : ''}${R.auto ? tr('notCountedAuto') : ''}${R.flown ? tr('notCountedHeli') : ''}${R.walked ? tr('notCountedFoot') : ''}${R.pontoon ? tr('notCountedPontoon') : ''}${R.swapped ? tr('notCountedSwap') : ''}`;
 const notes = () => `${penalties()}${R.shortcut ? tr('viaHolz') : ''}`;
@@ -6427,6 +6445,7 @@ function netHostMessage(peerId, msg) {
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
   if (msg.type === 'ping') { NET.link.send(peerId, { type: 'pong', a: msg.a, b: performance.now() }); return; }   // #835: the host's clock is the session's clock
   if (msg.type === 'cp') { if (NET.race?.state && NET.race.go) netHostPass(id, msg.i, raceMs(), peerId); return; }   // #837 part c, #1022: the host stamps a guest's pass from its own clock (never msg.t), and only once go — defense in depth vs. a forged/early pass
+  if (msg.type === 'finish') { if (NET.race?.state && NET.race.go) netHostFinish(id, raceMs(), peerId); return; }   // #837 part d: the finish is stamped from the host's clock too
   if (msg.type === 'pick') {
     const picked = pickCar(NET.lobby, id, msg.car, msg.paint, VEHICLES);
     NET.lobby = picked.lobby;
@@ -6454,17 +6473,20 @@ function netHostDrop(peerId) {
   NET.link.close(peerId);
   if (gone) toast(tr('mpGuestLeft', gone.name), TOAST_S.event);
   netHostBroadcast();
+  if (NET.race?.state && id !== undefined) { NET.race.state = dropRacer(NET.race.state, id); netRaceBoard(); }   // #837 part d: a guest who drops mid-race is DNF
 }
 function netGuestMessage(msg) {
   if (msg.type === 'lobby') { NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
   if (msg.type === 'start') {
     if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
+    if (NET.session) netEndSession();   // #837 part d: a rematch restarts the guest too
     netStartSession(msg.mode, msg.t0 ?? null);
     return;
   }
   if (msg.type === 'pong') { NET.clock = addClockSample(NET.clock, msg.a, msg.b, performance.now()); NET.offset = netClockOffset(NET.clock); return; }
   if (msg.type === 'board') { if (NET.race) netApplyBoard(msg.rows, msg.over); return; }   // #837 part c: the host's standings
   if (msg.type === 'cpno') { if (NET.race) { NET.race.cpno = (NET.race.cpno ?? 0) + 1; netReopenCp(msg.i); } return; }   // #837 part c: a refused pass reopens the checkpoint
+  if (msg.type === 'back') { if (NET.session) netBackToLobby(); return; }   // #837 part d: the host went back to the lobby
   // the deny reason is not a string key: it is turned into one before the toast, so every key at a toast(tr(…)) call
   // site stays a plain literal (what tests/toast.test.mjs reads to check the text it shows carries no markup)
   if (msg.type === 'deny') { const key = msg.reason === 'full' ? 'mpFull' : msg.reason === 'started' ? 'mpStarted' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
@@ -6585,6 +6607,11 @@ const hostNow = () => performance.now() + (NET.role === 'H' ? 0 : NET.offset ?? 
 const netHeld = () => !!NET.race && !NET.race.go && hostNow() < NET.race.t0;
 // from the loop: 3-2-1 in big toasts, then Go! -- the race clock starts at T0, not at the first movement
 function stepNetRace() {
+  // #837 part d: 60 s after the first finish the host writes off everyone still running
+  if (NET.role === 'H' && NET.race?.state && !NET.race.state.over) {
+    const r = tickRace(NET.race.state, performance.now());
+    if (r !== NET.race.state) { NET.race.state = r; netRaceBoard(); }
+  }
   if (!NET.race || NET.race.go) return;
   const left = Math.ceil((NET.race.t0 - hostNow()) / 1000);
   if (left > 0) {
@@ -6600,7 +6627,7 @@ function netRaceBoard() {
   NET.link.broadcast(msg);
   netApplyBoard(msg.rows, msg.over);
 }
-function netApplyBoard(rows, over) { NET.race.board = rows; NET.race.over = over; renderNetPos(); }
+function netApplyBoard(rows, over) { NET.race.board = rows; NET.race.over = over; renderNetPos(); if (over) showNetResult(rows); }
 const gapText = (ms) => (ms === null ? '—' : `${(ms / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'always' })} s`);
 function renderNetPos() {
   const el = $('netpos'), rows = NET.race?.board;
@@ -6609,6 +6636,28 @@ function renderNetPos() {
   const me = standings(rows).find((r) => r.id === NET.you);
   el.textContent = me ? tr('mpPos', me.pos, rows.length, gapText(me.gap)) : '';
 }
+
+// #837 part d, A8/A11: the ranking every device shows is standings() of the host's final board, so the order is the
+// same everywhere; it lives in the lobby dialog, where only the host gets Rematch and Back to lobby.
+function netResultHtml(rows) {
+  const s = standings(rows), win = s[0].st === 'fin' ? s[0].times[s[0].times.length - 1] : null;
+  const line = (r) => {
+    if (r.st !== 'fin') return tr('mpDnf');
+    const t = r.times[r.times.length - 1];
+    return fmt(t / 1000).replace(/<[^>]+>/g, '') + (r.pos > 1 && win !== null ? ` (${gapText(t - win)})` : '');
+  };
+  return `<h3>${esc(tr('mpResultTitle'))}</h3>` + s.map((r) => `<div class="mp-row"><b>${r.pos}. ${esc(r.name)}</b><em>${esc(line(r))}</em></div>`).join('');
+}
+function showNetResult(rows) {
+  const host = NET.role === 'H';
+  $('mpresult').innerHTML = netResultHtml(rows); $('mpresult').hidden = false;
+  $('mprematch').hidden = !host; $('mprematch').disabled = !NET.lobby || NET.lobby.players.length < 2;
+  $('mpback').hidden = !host;
+  $('mplobby').hidden = false; renderLobby();
+  if (!host) $('mplobbystatus').textContent = tr('mpWaitHost');
+  (host ? $('mprematch') : $('mpleave')).focus();
+}
+function hideNetResult() { for (const id of ['mpresult', 'mprematch', 'mpback']) $(id).hidden = true; }
 
 const raceMs = () => Math.max(0, Math.round(hostNow() - NET.race.t0));
 // the own pass: the host books it directly, a guest asks the host
@@ -6628,6 +6677,7 @@ function netHostPass(id, i, t, peerId) {
 }
 // the host did not count this pass: the checkpoint opens again, so it can be driven once more
 function netReopenCp(i) {
+  if (i === -1) { if (R.state === 'finished') { R.state = 'racing'; finishG.visible = true; } return; }   // #837 part d: the finish opens again
   const c = cpObjs[i];
   if (!c || !c.done) return;
   c.done = false; c.pillar.material = cpMat; c.ring.visible = true;
@@ -6658,6 +6708,7 @@ function netEndSession() {
   Object.assign(NET, { session: false, seq: 0, poseTimer: null });   // #837: the clock, the offset and the ping timer survive a session end (part d goes back to the lobby without leaving)
   NET.race = null; $('pauserestart').hidden = false;
   $('netpos').hidden = true;   // #837 part c: the position line leaves with the session
+  hideNetResult();             // #837 part d: and so do the result and the host's two buttons
 }
 function netPing() { NET.link.send(HOST_ID, { type: 'ping', a: performance.now() }); }
 
@@ -6811,6 +6862,26 @@ function netSessionPick() {
   NET.lobby = picked.lobby; netHostBroadcast();
 }
 
+// #837 part d, host: the same field again, a fresh countdown. The remote car meshes are rebuilt from the cached glTFs.
+function netRematch() {
+  if (NET.role !== 'H' || !NET.lobby || NET.lobby.players.length < 2) return;
+  netEndSession();
+  const now = performance.now(), t0 = now + RACE.countdown;
+  NET.link.broadcast({ type: 'start', mode: 'race', t0, now });
+  netStartSession('race', t0);
+}
+// everyone: the session ends, the link stays, the lobby is back. A13: the start overlay shows behind it, as netLeave
+// does. The host clears the ready flags, so a new car pick and an invite are possible again.
+function netBackToLobby() {
+  netEndSession();
+  $('overlay').hidden = false;
+  if (NET.role === 'H') {
+    for (const p of NET.lobby.players) NET.lobby = setReady(NET.lobby, p.id, false);
+    netHostBroadcast();
+  }
+  openLobby();
+}
+
 function netLeave() {
   netEndSession();
   clearInterval(NET.pingTimer);
@@ -6851,6 +6922,8 @@ $('mprace').onclick = () => {
   NET.link.broadcast({ type: 'start', mode: 'race', t0, now });
   netStartSession('race', t0);
 };
+$('mprematch').onclick = netRematch;
+$('mpback').onclick = () => { if (NET.role !== 'H') return; NET.link.broadcast({ type: 'back' }); netBackToLobby(); };
 $('mpleave').onclick = netLeave;
 // A5: a guest would need the same world file, and the code cannot carry one
 if (REGION.generated) $('mpbtn').hidden = true;
@@ -6870,7 +6943,7 @@ function openJoinLink() {
 openJoinLink();
 window.addEventListener('hashchange', openJoinLink);
 window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset, race: NET.race ? { t0: NET.race.t0, held: netHeld(), go: NET.race.go } : null });
-window.__mm.netRace = () => ({ cps: CPS.map((c) => [c.x, c.z]), finish: [FINISH.x, FINISH.z], done: cpObjs.map((c) => c.done), board: NET.race?.board ?? null, over: !!NET.race?.over, cpno: NET.race?.cpno ?? 0, pos: $('netpos').textContent });   // #837 part c: the checkpoints, the board and the position line
+window.__mm.netRace = () => ({ cps: CPS.map((c) => [c.x, c.z]), finish: [FINISH.x, FINISH.z], done: cpObjs.map((c) => c.done), board: NET.race?.board ?? null, over: !!NET.race?.over, cpno: NET.race?.cpno ?? 0, pos: $('netpos').textContent, result: $('mpresult').hidden ? null : [...document.querySelectorAll('#mpresult .mp-row b')].map((b) => b.textContent) });   // #837 part c: the checkpoints, the board and the position line; part d: the ranked result lines
 window.__mm.netMarkCpDone = (i) => { const c = cpObjs[i]; if (c && !c.done) { c.done = true; c.pillar.material = cpMatDone; c.ring.visible = false; R.done++; updatePips(); } };   // #1022 test hook: a local pass the host has not (yet) accepted — the race-the-near-window case netReopenCp must revert
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
 window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp }));   // #835: read-only, for the test
