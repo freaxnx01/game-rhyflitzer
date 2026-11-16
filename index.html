@@ -4047,6 +4047,9 @@ function stepRallyhall() {
   mesh.position.set(car.at[0], RALLYHALL.podium.h, car.at[1]); mesh.rotation.set(0, -car.th, 0);
   S.hall.add(mesh); S.meshes.push(mesh); ROOM.rallyhall.parked.push(car.id);
 }
+// while the hall stands, its three vehicles' files stay cached: the depot's canEvict asks, so a jump from the depot straight into the hall
+// neither empties a podium nor frees what a parked copy shares
+const rallyhallUses = (id) => RALLYHALL_S.hall !== null && RALLYHALL.cars.some(c => c.vehicle === id);
 // the podium cars share the glTF cache's geometry and maps, so they leave before disposeGroup frees the hall
 function clearRallyhallCars() {
   for (const m of RALLYHALL_S.meshes) { m.parent?.remove(m); disposeParked(m); }
@@ -6968,7 +6971,7 @@ function placeDepot() {
 // #807: only a file the depot itself fetched, and only while nobody else builds from it -- the driven car, a pending swap and the
 // open Choose car screen all clone the cached scene, and so does every Postauto bus
 const canEvict = (id) => DEPOT_S.owned.has(id) && gltfState(id) === 'ready' && id !== CHOICE.id && id !== PENDING_SWAP
-  && car.userData.gltfId !== id && !CARSEL.on && !(id === 'bus' && POSTAUTO.meshes.size > 0);
+  && car.userData.gltfId !== id && !CARSEL.on && !(id === 'bus' && POSTAUTO.meshes.size > 0) && !rallyhallUses(id);
 // #807: the parked mesh goes, and with it the file the depot fetched for it
 function freeDepotSlot(id) {
   const b = DEPOT_S.built.get(id);
