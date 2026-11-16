@@ -1,7 +1,7 @@
 // #836 part a: car-to-car contact in a shared drive. Pure netbump.js, node --test only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, RESTITUTION, BUMP_COOLDOWN, BUMP_DY, MAX_CLOSING } from '../netbump.js';
+import { carShape, carContact, bumpShare, bumpImpulse, bumpGate, acceptHit, hitNormal, hitImpulse, RESTITUTION, BUMP_COOLDOWN, BUMP_DY, MAX_CLOSING, HIT_WINDOW, HIT_REACH } from '../netbump.js';
 const CIRCLE = { shape: 'circle', r: 1.3 }, BUS = { shape: 'capsule', r: 1.3, hl: 4.8 };
 
 test('carContact_apart_null', () => {
@@ -43,4 +43,26 @@ test('bumpGate_cooldownPerPlayer', () => {
   const g = new Map(); assert.equal(BUMP_COOLDOWN, 0.3); assert.equal(BUMP_DY, 2.5);
   assert.equal(bumpGate(g, 1, 10), true); assert.equal(bumpGate(g, 1, 10.2), false);
   assert.equal(bumpGate(g, 2, 10.2), true); assert.equal(bumpGate(g, 1, 10.31), true);
+});
+
+// #836 part b: accepting a one-sided hit from a remote device that saw the contact.
+test('acceptHit_oncePerCounter_andNotDuringCooldown', () => {
+  const seen = new Map(), gate = new Map();
+  assert.equal(acceptHit(seen, 1, { n: 5 }, gate, 10), true);
+  assert.equal(acceptHit(seen, 1, { n: 5 }, gate, 10.5), false);      // the same hit, repeated in the next poses
+  bumpGate(gate, 2, 20);                                              // the own device already saw this contact
+  assert.equal(acceptHit(seen, 2, { n: 1 }, gate, 20.1), false);
+  assert.equal(acceptHit(seen, 2, { n: 1 }, gate, 20.5), false);      // still the same counter
+  assert.equal(acceptHit(seen, 1, { n: 6 }, gate, 11), true);
+});
+test('hitNormal_fromSenderToOwn_fallbackVelocity_tooFarNull', () => {
+  assert.deepEqual(hitNormal(0, 3, { x: 0, z: 0, vx: 0, vz: 0 }), { nx: 0, nz: 1 });
+  assert.deepEqual(hitNormal(0, 0, { x: 0, z: 0, vx: -4, vz: 0 }), { nx: -1, nz: 0 });
+  assert.equal(hitNormal(0, 0, { x: 0, z: 0, vx: 0, vz: 0 }), null);
+  assert.equal(HIT_REACH, 10); assert.equal(hitNormal(0, 11, { x: 0, z: 0, vx: 0, vz: 0 }), null);
+});
+test('hitImpulse_scalesWithMassShare', () => {
+  const d = hitImpulse(20, { nx: 1, nz: 0 }, 1, 1);
+  assert.ok(Math.abs(d.dvx - 13) < 1e-9 && d.dvz === 0);              // 20 · 1.3 · 0.5
+  assert.ok(hitImpulse(20, { nx: 1, nz: 0 }, 4, 1).dvx < d.dvx);
 });
