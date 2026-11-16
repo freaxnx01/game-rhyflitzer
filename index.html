@@ -889,6 +889,10 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <span id="mpclassbtns"></span>
     </div>
     <p id="mpclasstext" class="mp-hint"></p>
+    <!-- #837 part d: the race result, and the host's two ways on from it -->
+    <div id="mpresult" hidden aria-live="polite"></div>
+    <button id="mprematch" class="btn primary" type="button" hidden data-i18n="mpRematch">Rematch</button>
+    <button id="mpback" class="btn" type="button" hidden data-i18n="mpBackLobby">Back to lobby</button>
     <button id="mppick" class="btn primary" type="button" data-i18n="mpPickCar">Pick a car</button>
     <button id="mpready" class="btn" type="button" aria-pressed="false"></button>
     <!-- #835: only the host sees this, and only while everybody is ready -- it puts the whole lobby on the road -->
@@ -962,7 +966,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
-import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, standings, boardRows, nearPoint } from './netrace.js';
+import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
 import { FLAG, addClockSample, clockOffset as netClockOffset, createTrack, pushPose, sampleRemote, gridPose, tagScale, fadeAlpha, remoteLamps } from './netsync.js';   // #835: the clock, the pose track and the start column (netClockOffset: ferrisride.js already owns `clockOffset`)
