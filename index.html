@@ -3797,6 +3797,7 @@ const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
 const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null, shuttle: null, ferris: null, ferrisSign: null, rallyhall: null, dedication: null };
+const RALLYHALL_S = { hall: null, waiting: [], meshes: [] };   // #859: the rally hall's podium cars -- the hall group they stand in, the cars still waiting for their glTF, the parked copies
 const RING_L = { ring: { built: false, group: null }, ring2: { built: false, group: null, sign: null } };
 const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab]);
 const roomIndex = (id) => (ROOM.layouts ? ROOM.layouts.findIndex(R => R.id === id) : -1);
@@ -3965,7 +3966,7 @@ function disposeGroup(group) {   // free a thrown-away room: its own geometry, m
 // #489: k is the flat layout index -- ring 1's room k stays k, ring 2's room k is 8 + k.
 function ensureRoom(k) {
   if (ROOM.built === k) return;
-  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; ROOM.shuttle = null; ROOM.ferris = null; ROOM.ferrisSign = null; ROOM.rallyhall = null; ROOM.dedication = null; }
+  if (ROOM.group) { scene.remove(ROOM.group); const shown = ROOM.models[ROOM.built]; if (shown && shown.parent === ROOM.group) ROOM.group.remove(shown); clearRallyhallCars(); disposeGroup(ROOM.group); ROOM.group = null; ROOM.placeholder = null; ROOM.figure = null; ROOM.artemis = null; ROOM.shuttle = null; ROOM.ferris = null; ROOM.ferrisSign = null; ROOM.rallyhall = null; ROOM.dedication = null; }
   const R = ROOM.layouts[k], group = new THREE.Group(); ROOM.group = group; ROOM.layout = R; ROOM.built = k; group.visible = false;
   roomMeshes(group, R); scene.add(group);
   for (const L of ROOM.layouts) if (L.object) delete window.__mm.counts[L.object.key || 'eiffel'];   // #491: both rings, flat layouts
@@ -4034,7 +4035,31 @@ function roomArtemis(group, R) {
 // room centre and turned to the room's frame. All goes with the room's group (disposeGroup); ROOM.rallyhall tells the debug hook what was built.
 function roomRallyhall(group, R) {
   const H = R.rallyhall, hall = buildHall(RALLYHALL); hall.position.set(H.hall.x, R.y, H.hall.z); hall.rotation.y = -H.hall.th; group.add(hall);
-  ROOM.rallyhall = { built: R.k, hall: H.hall, cars: H.cars, h: RALLYHALL.h, tris: rallyhallTriangles(hall), colliders: H.colliders.length, board: { text: boardLayout(RALLYHALL).lines.map(l => l.text), found: hall.children.some(o => o.userData.role === 'rallyhallboard') } };
+  ROOM.rallyhall = { built: R.k, hall: H.hall, cars: H.cars, h: RALLYHALL.h, tris: rallyhallTriangles(hall), colliders: H.colliders.length, board: { text: boardLayout(RALLYHALL).lines.map(l => l.text), found: hall.children.some(o => o.userData.role === 'rallyhallboard') }, parked: [] };
+  RALLYHALL_S.hall = hall; RALLYHALL_S.waiting = [...RALLYHALL.cars];
+  for (const c of RALLYHALL.cars) loadVehicleModel(c.vehicle);
+}
+// one podium car per frame once its glTF file is in, a parked copy like the depot's with its livery tinted, (cloneStageVehicle rebuilds the stage car,
+// so never during a wreck); a file that failed leaves its podium empty
+function stepRallyhall() {
+  const S = RALLYHALL_S;
+  if (!S.waiting.length || WRECK_S.on) return;
+  const car = S.waiting.find(c => gltfState(c.vehicle) === 'ready' || gltfState(c.vehicle) === 'failed');
+  if (!car) return;
+  S.waiting.splice(S.waiting.indexOf(car), 1);
+  if (gltfState(car.vehicle) !== 'ready') return;
+  const def = VEHICLES[car.vehicle], { mesh } = cloneStageVehicle(car.vehicle, paintOnSelect(def, 'navy', false, 'navy', def));
+  if (car.tint !== null) mesh.traverse(o => { if (o.isMesh && o.material.name === 'Livery') o.material.color.setHex(car.tint); });   // the copy's own material: the driven Rhy Rally keeps its livery
+  mesh.position.set(car.at[0], RALLYHALL.podium.h, car.at[1]); mesh.rotation.set(0, -car.th, 0);
+  S.hall.add(mesh); S.meshes.push(mesh); ROOM.rallyhall.parked.push(car.id);
+}
+// while the hall stands, its three vehicles' files stay cached: the depot's canEvict asks, so a jump from the depot straight into the hall
+// neither empties a podium nor frees what a parked copy shares
+const rallyhallUses = (id) => RALLYHALL_S.hall !== null && RALLYHALL.cars.some(c => c.vehicle === id);
+// the podium cars share the glTF cache's geometry and maps, so they leave before disposeGroup frees the hall
+function clearRallyhallCars() {
+  for (const m of RALLYHALL_S.meshes) { m.parent?.remove(m); disposeParked(m); }
+  RALLYHALL_S.meshes = []; RALLYHALL_S.waiting = []; RALLYHALL_S.hall = null;
 }
 // #811: the Space Shuttle Enterprise on Launch Pad 39A (shuttle.js places it, shuttlemesh.js builds it): the hardstand with
 // the flame trench, the platform, the stack, the tower with its arms, the service structure and the water tower, one group
@@ -7020,7 +7045,7 @@ function placeDepot() {
 // #807: only a file the depot itself fetched, and only while nobody else builds from it -- the driven car, a pending swap and the
 // open Choose car screen all clone the cached scene, and so does every Postauto bus
 const canEvict = (id) => DEPOT_S.owned.has(id) && gltfState(id) === 'ready' && id !== CHOICE.id && id !== PENDING_SWAP
-  && car.userData.gltfId !== id && !CARSEL.on && !(id === 'bus' && POSTAUTO.meshes.size > 0);
+  && car.userData.gltfId !== id && !CARSEL.on && !(id === 'bus' && POSTAUTO.meshes.size > 0) && !rallyhallUses(id);
 // #807: the parked mesh goes, and with it the file the depot fetched for it
 function freeDepotSlot(id) {
   const b = DEPOT_S.built.get(id);
@@ -7963,7 +7988,7 @@ function loop(now) { if (SIMCLOCK.stepped) { last = now; requestAnimationFrame(l
   requestAnimationFrame(loop); }
 // #875: one frame's simulation and render -- the real-time loop's body, also run by __mm.tick with the caller's exact dt (no clamp)
 function frame(dt) {
-  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepDelivery(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepNetCars(); stepNetRace(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); }
+  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepDelivery(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepRallyhall(); stepNetCars(); stepNetRace(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(false); }
 // #875: the stepped capture hooks. stepped(true) freezes the loop (only tick runs frames) and moves a wall-mode fleet
 // clock onto sim time so the buses keep rolling; stepped(false) hands both back without a jump.
 window.__mm.stepped = (on) => {

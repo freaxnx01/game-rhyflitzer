@@ -21,8 +21,8 @@ test('TRACKS_AreTheThirteenCommittedFiles_WithLicences', () => {
     assert.ok(existsSync(new URL(`../${t.src}`, import.meta.url)), t.src);
     assert.ok(existsSync(new URL(`../assets/music/${t.id}.LICENSE.md`, import.meta.url)), t.id);
   }
-  assert.equal(MENU_TRACK.id, 'menu-running-title');
-  assert.equal(MENU_TRACK.artist, 'Rob Bery');
+  assert.equal(MENU_TRACK.id, 'pulsing-arpeggio');
+  assert.equal(MENU_TRACK.artist, 'freaxnx01');
 });
 
 test('radioKeyAction_Digits5To0_AreTheRadioBank', () => {

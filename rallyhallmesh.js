@@ -1,13 +1,13 @@
-// #859: the rally hall and its three cars as meshes -- built from rallyhall.js's numbers (which are pure and
-// unit-tested; this file is not): every part is a box or a wheel cylinder, one merged mesh per colour (each with
-// userData.role = 'rallyhall'), no textures, no text, no logos, no liveries. buildHall stands on the floor, +x along
-// the room's forward axis (into the hall's depth), +z across; a car's frame: +x nose, y up with the tyres at y = 0.
+// #859: the rally hall as meshes -- built from rallyhall.js's numbers (which are pure and unit-tested; this file is
+// not): every part is a box or a podium cylinder, one merged mesh per colour (each with userData.role = 'rallyhall'),
+// no logos, no liveries. The cars on the podiums are the game's own glTF vehicles, parked by index.html. buildHall
+// stands on the floor, +x along the room's forward axis (into the hall's depth), +z across.
 // Verified by the browser test (#859).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { RALLYHALL, carParts, boardLayout } from './rallyhall.js';
+import { RALLYHALL, boardLayout } from './rallyhall.js';
 
-// one merged mesh per colour from ready-made geometries (like artemismesh.js's partsGroup, but for boxes and wheels)
+// one merged mesh per colour from ready-made geometries (like artemismesh.js's partsGroup, but for boxes and podiums)
 function boxGroup(entries) {
   const group = new THREE.Group(), byColour = {};
   const add = (colour, g) => (byColour[colour] ||= []).push(g.index ? g.toNonIndexed() : g);
@@ -19,21 +19,9 @@ function boxGroup(entries) {
   return group;
 }
 
-// one rally car in its own frame (+x nose, y up with the tyres at y = 0, z across), from carParts's boxes and wheels
-export function buildCar(car, cfg = RALLYHALL) {
-  const entries = [];
-  for (const p of carParts(car, cfg)) {
-    const g = p.kind === 'box' ? new THREE.BoxGeometry(p.sx, p.sy, p.sz) : new THREE.CylinderGeometry(p.r, p.r, p.w, 16);
-    if (p.kind === 'wheel') g.rotateX(Math.PI / 2);   // the wheel's axis across the car, along z
-    g.translate(p.x, p.y, p.z);
-    entries.push([p.colour, g]);
-  }
-  return boxGroup(entries);
-}
-
 // the hall in its own frame (+x into its depth, +z across its width, y = 0 on the floor): the floor slab, the back
 // wall with its dark glass band, the two side walls, the two corner posts at the open front, the roof slab with its
-// canopy past the front, and the three round podiums with a car on each, its nose turned by its descriptor heading.
+// canopy past the front, and the three round podiums (index.html parks a car on each).
 export function buildHall(cfg = RALLYHALL) {
   const { hall: H, podium, colours: C } = cfg, entries = [];
   const box = (x, y, z, sx, sy, sz, colour) => { const g = new THREE.BoxGeometry(sx, sy, sz); g.translate(x, y, z); entries.push([colour, g]); };
@@ -43,17 +31,12 @@ export function buildHall(cfg = RALLYHALL) {
   for (const s of [-1, 1]) box(-H.d / 2 + H.post / 2, cfg.h / 2, s * (H.w / 2 - H.post / 2), H.post, cfg.h, H.post, C.wall);   // the two corner posts at the open front
   box(H.d / 2 - H.wall - 0.075, (H.glass.y0 + H.glass.y1) / 2, 0, 0.05, H.glass.y1 - H.glass.y0, H.w - 2 * H.wall, C.band);   // the dark glass band, just off the wall's inside
   box(-H.roof.canopy / 2, H.roof.y0 + H.roof.t / 2, 0, H.d + H.roof.canopy, H.roof.t, H.w, C.roof);   // the roof slab, its canopy reaching past the open front
-  for (const car of cfg.cars) {                                                                       // the three podiums, each with its car on top
+  for (const car of cfg.cars) {                                                                       // the three podiums
     const pd = new THREE.CylinderGeometry(podium.r, podium.r, podium.h, 32);
     pd.translate(car.at[0], podium.h / 2, car.at[1]);
     entries.push([C.podium, pd]);
   }
   const group = boxGroup(entries);
-  for (const car of cfg.cars) {
-    const c = buildCar(car, cfg);
-    c.position.set(car.at[0], podium.h, car.at[1]); c.rotation.y = -car.th;
-    group.add(c);
-  }
   group.add(buildBoard(cfg));
   return group;
 }

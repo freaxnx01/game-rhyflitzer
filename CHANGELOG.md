@@ -11,6 +11,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Added
 
 - `2026-11-16 17:00` Mehrspieler-Rennen mit **Ergebnis**: Alle sehen dieselbe Rangliste mit Zeiten und Rückstand. Wer 60 Sekunden nach dem Sieger noch fährt oder die Verbindung verliert, ist *nicht im Ziel*. Danach startet der Host eine **Revanche** oder geht **zurück zur Lobby**.
+- `2026-11-16 17:00` Neue **Titel- und Menümusik**: **Pulsing Arpeggio** läuft jetzt im Startbildschirm. «Menu / Running Title» bleibt im Radio auf Rhyflitzer FM Cruise.
 - `2026-11-16 11:17` Mehrspieler-Rennen: Oben rechts steht jetzt der **Platz** (z. B. *Platz 2/3*) und der **Abstand** zum Auto davor in Sekunden. Der Host prüft jeden Checkpoint mit.
 - `2026-11-16 11:54` **Rhyflitzer FM** sendet jetzt auf drei Kanälen: **Rock**, **Cruise** und **Mix** mit allen Tracks. <kbd>6</kbd> schaltet Mix → Rock → Cruise → SRF 3 → Radio Argovia; das Display zeigt Sender und Track. Die **Zufallswiedergabe** gilt je Sender.
 - `2026-11-15 23:00` Mehrspieler: Der Host kann jetzt ein **Rennen starten**. Alle stehen nebeneinander am Start, nach **3-2-1-Los!** fahren alle gleichzeitig los zu den Checkpoints.
@@ -39,6 +40,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-16 16:55` In der **Rallye-Halle** steht jetzt auf allen drei Podesten der **Rhy Rally** statt der Klötzchen-Autos: hellblau für Neuville, **rot** für Evans und **dunkelblau** für McRae.
 - `2026-11-13 21:29` Die **Sprungschanze** wirft das Auto jetzt richtig in die Luft: rund **2 m über die Kante** hinaus, statt nur darüber abzukippen.
 - `2026-11-12 17:22` On the **Plattform deck** <kbd>E</kbd> now always goes **down**; the **Verein Plattform Sisslerfeld** line sits under that prompt and opens its **website** with <kbd>V</kbd> (or a click / tap).
 - `2026-11-12 16:24` **Nitro** is now **one key everywhere**: <kbd>N</kbd> in the car, on foot and in the helicopter. <kbd>Shift</kbd> no longer fires nitro in the car; it still means down on foot and sink in the helicopter, and the key bar, the tutorial and the help list all show N.
