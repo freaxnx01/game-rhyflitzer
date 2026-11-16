@@ -5,8 +5,8 @@
 export const SRF3_URL = 'https://stream.srg-ssr.ch/srgssr/srf3/mp3/128';
 // NOT the short https://stream.streambase.ch/argovia/mp3-192/ -- only this /direct/ URL was probed (302 to chmedia.streamabc.net, CORS * on both hops, 2026-11-10)
 export const ARGOVIA_URL = 'https://stream.streambase.ch/argovia/mp3-192/direct/';
-export const STATIONS = Object.freeze(['fm', 'srf3', 'argovia']);
-// the live stations: stream, the strings.js key of the radio display, the key of the "not reachable" toast. fm is not live
+export const STATIONS = Object.freeze(['mix', 'rock', 'cruise', 'srf3', 'argovia']);   // key 6 cycles them; the first three are Rhyflitzer FM (#1016)
+// the live stations: stream, the strings.js key of the radio display, the key of the "not reachable" toast. The FM stations are not live
 export const LIVE = Object.freeze({
   srf3: Object.freeze({ url: SRF3_URL, nameKey: 'radioStationSrf', failKey: 'radioSrfFail' }),
   argovia: Object.freeze({ url: ARGOVIA_URL, nameKey: 'radioStationArgovia', failKey: 'radioArgoviaFail' }),
@@ -16,21 +16,29 @@ export const nextStation = (s) => STATIONS[(STATIONS.indexOf(s) + 1) % STATIONS.
 // (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB; the soft-rock pair,
 // 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks; Gritty Riffing, 2026-11-15, is -17.6 dB mean; the six later Suno tracks -16.2 to -18.2 dB)
 export const TRACKS = Object.freeze([
-  { id: 'cool-rider', title: 'Cool Rider', artist: 'Emmraan', src: 'assets/music/cool-rider.mp3', gainDb: -6 },
-  { id: 'neon-afterglow', title: 'Neon Afterglow', artist: 'MemoryArcade', src: 'assets/music/neon-afterglow.mp3', gainDb: 0 },
-  { id: 'california-snares-and-synths', title: 'California Snares and Synths', artist: 'Eliza_music', src: 'assets/music/california-snares-and-synths.mp3', gainDb: 0 },
-  { id: 'menu-running-title', title: 'Menu / Running Title', artist: 'Rob Bery', src: 'assets/music/menu-running-title.mp3', gainDb: 0 },
-  { id: 'soft-rock-groove', title: 'The 1980s Soft Rock Groove', artist: 'Michael-Vault', src: 'assets/music/soft-rock-groove.mp3', gainDb: 0 },
-  { id: 'melrose-place-soft-rock', title: 'Melrose Place Soft Rock', artist: 'DigiCompo', src: 'assets/music/melrose-place-soft-rock.mp3', gainDb: 0 },
-  { id: 'gritty-riffing', title: 'Gritty Riffing', artist: 'freaxnx01', src: 'assets/music/gritty-riffing.mp3', gainDb: 0 },
-  { id: 'fuzz-riff-breakdown', title: 'Fuzz Riff Breakdown', artist: 'freaxnx01', src: 'assets/music/fuzz-riff-breakdown.mp3', gainDb: 0 },
-  { id: 'pulsing-arpeggio', title: 'Pulsing Arpeggio', artist: 'freaxnx01', src: 'assets/music/pulsing-arpeggio.mp3', gainDb: 0 },
-  { id: 'pulsing-arpeggio-take-2', title: 'Pulsing Arpeggio (Take 2)', artist: 'freaxnx01', src: 'assets/music/pulsing-arpeggio-take-2.mp3', gainDb: 0 },
-  { id: 'rising-tension', title: 'Rising Tension', artist: 'freaxnx01', src: 'assets/music/rising-tension.mp3', gainDb: 0 },
-  { id: 'open-road', title: 'Open Road', artist: 'freaxnx01', src: 'assets/music/open-road.mp3', gainDb: 0 },
-  { id: 'night-drive', title: 'Night Drive', artist: 'freaxnx01', src: 'assets/music/night-drive.mp3', gainDb: 0 },
+  { id: 'cool-rider', title: 'Cool Rider', artist: 'Emmraan', src: 'assets/music/cool-rider.mp3', mood: 'rock', gainDb: -6 },
+  { id: 'neon-afterglow', title: 'Neon Afterglow', artist: 'MemoryArcade', src: 'assets/music/neon-afterglow.mp3', mood: 'cruise', gainDb: 0 },
+  { id: 'california-snares-and-synths', title: 'California Snares and Synths', artist: 'Eliza_music', src: 'assets/music/california-snares-and-synths.mp3', mood: 'cruise', gainDb: 0 },
+  { id: 'menu-running-title', title: 'Menu / Running Title', artist: 'Rob Bery', src: 'assets/music/menu-running-title.mp3', mood: 'cruise', gainDb: 0 },
+  { id: 'soft-rock-groove', title: 'The 1980s Soft Rock Groove', artist: 'Michael-Vault', src: 'assets/music/soft-rock-groove.mp3', mood: 'cruise', gainDb: 0 },
+  { id: 'melrose-place-soft-rock', title: 'Melrose Place Soft Rock', artist: 'DigiCompo', src: 'assets/music/melrose-place-soft-rock.mp3', mood: 'cruise', gainDb: 0 },
+  { id: 'gritty-riffing', title: 'Gritty Riffing', artist: 'freaxnx01', src: 'assets/music/gritty-riffing.mp3', mood: 'rock', gainDb: 0 },
+  { id: 'fuzz-riff-breakdown', title: 'Fuzz Riff Breakdown', artist: 'freaxnx01', src: 'assets/music/fuzz-riff-breakdown.mp3', mood: 'rock', gainDb: 0 },
+  { id: 'pulsing-arpeggio', title: 'Pulsing Arpeggio', artist: 'freaxnx01', src: 'assets/music/pulsing-arpeggio.mp3', mood: 'rock', gainDb: 0 },
+  { id: 'pulsing-arpeggio-take-2', title: 'Pulsing Arpeggio (Take 2)', artist: 'freaxnx01', src: 'assets/music/pulsing-arpeggio-take-2.mp3', mood: 'rock', gainDb: 0 },
+  { id: 'rising-tension', title: 'Rising Tension', artist: 'freaxnx01', src: 'assets/music/rising-tension.mp3', mood: 'rock', gainDb: 0 },
+  { id: 'open-road', title: 'Open Road', artist: 'freaxnx01', src: 'assets/music/open-road.mp3', mood: 'cruise', gainDb: 0 },
+  { id: 'night-drive', title: 'Night Drive', artist: 'freaxnx01', src: 'assets/music/night-drive.mp3', mood: 'cruise', gainDb: 0 },
 ]);
 export const MENU_TRACK = TRACKS[3];
+// #1016 / #1023: the Rhyflitzer FM stations -- TRACKS indices by mood; the mix plays them all. The names are the same in en and de
+const moodTracks = (mood) => Object.freeze(TRACKS.flatMap((t, i) => (t.mood === mood ? [i] : [])));
+export const FM = Object.freeze({
+  mix: Object.freeze({ name: 'Rhyflitzer FM Mix', tracks: Object.freeze(TRACKS.map((_, i) => i)) }),
+  rock: Object.freeze({ name: 'Rhyflitzer FM Rock', tracks: moodTracks('rock') }),
+  cruise: Object.freeze({ name: 'Rhyflitzer FM Cruise', tracks: moodTracks('cruise') }),
+});
+export const isFm = (station) => Object.hasOwn(FM, station);
 export const VOLUME = Object.freeze({ min: 0, max: 10, start: 6 });
 const RADIO_BASE = 0.8, MENU_SHARE = 0.35;   // full volume into the SFX master; the menu music plays at 35 % of the radio
 export const SRF_TIMEOUT = Object.freeze({ start: 8, stall: 10 });   // seconds without 'playing' after play(), and in 'waiting'/'stalled'
@@ -62,6 +70,11 @@ export function playlistOrder(shuffle, n, first, rand = Math.random) {
   for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
   return [first, ...rest];
 }
+// an FM station's play order as TRACKS indices: its list, or (shuffle) a random permutation of it that starts at first
+export function stationOrder(station, shuffle, first, rand = Math.random) {
+  const tracks = FM[station].tracks;
+  return playlistOrder(shuffle, tracks.length, tracks.indexOf(first), rand).map(i => tracks[i]);
+}
 export const stepVolume = (vol, step) => Math.max(VOLUME.min, Math.min(VOLUME.max, vol + step));
 
 // a square law, so the low steps stay usable
@@ -71,7 +84,7 @@ export const menuGain = (vol) => MENU_SHARE * trackGain(vol, MENU_TRACK.gainDb);
 export const radioOnFrom = (stored) => stored !== '0';
 export const menuMusicOnFrom = (stored) => stored !== '0';
 export const shuffleOnFrom = (stored) => stored !== '0';
-export const stationFrom = (stored) => (STATIONS.includes(stored) ? stored : 'fm');
+export const stationFrom = (stored) => (STATIONS.includes(stored) ? stored : 'mix');   // also the old single 'fm'
 export function volumeFrom(stored) {
   if (stored === null || stored === undefined || stored === '') return VOLUME.start;
   const n = Number(stored);
@@ -112,5 +125,5 @@ export function displayFor(s) {
   if (!s.on) return { key: 'radioOff', args: [] };
   if (LIVE[s.station]) return { key: LIVE[s.station].nameKey, args: [] };
   const t = TRACKS[s.track];
-  return { key: 'radioTrack', args: [t.title, t.artist] };
+  return { key: 'radioFmTrack', args: [FM[s.station].name, t.title, t.artist] };
 }

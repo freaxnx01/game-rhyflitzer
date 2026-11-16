@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-16 11:54` **Rhyflitzer FM** sendet jetzt auf drei Kanälen: **Rock**, **Cruise** und **Mix** mit allen Tracks. <kbd>6</kbd> schaltet Mix → Rock → Cruise → SRF 3 → Radio Argovia; das Display zeigt Sender und Track. Die **Zufallswiedergabe** gilt je Sender.
 - `2026-11-15 23:00` Mehrspieler: Der Host kann jetzt ein **Rennen starten**. Alle stehen nebeneinander am Start, nach **3-2-1-Los!** fahren alle gleichzeitig los zu den Checkpoints.
 - `2026-11-15 21:28` **Autos prallen voneinander ab**: beim gemeinsamen Fahren prallt man vom anderen Auto ab und nimmt Schaden wie an einer Wand; ein schweres Fahrzeug lässt sich weniger schieben.
 - `2026-11-15 20:35` Im Mehrspieler würfelt der **🎲-Knopf** neben dem Namen einen neuen lustigen Namen, und ein eigener Name wie «p1» lässt sich so wieder loswerden.
