@@ -69,6 +69,18 @@ test('parsePose_encoded_roundTripsWithinQuantisation', () => {
   for (const k of ['vx', 'vz']) assert.ok(Math.abs(p[k] - POSE[k]) <= 0.01, k);
 });
 
+test('parsePose_hit_roundTrips', () => {
+  assert.equal(parsePose(encodePose(POSE)).hit, null);
+  const p = parsePose(encodePose({ ...POSE, hit: { to: 3, n: 31, c: 42.5 } }));
+  assert.deepEqual(p.hit, { to: 3, n: 31, c: 42.5 });
+});
+test('parsePose_badHit_null', () => {
+  const bad = (patch) => { const b = encodePose(POSE), v = new DataView(b); patch(v); return b; };
+  assert.equal(parsePose(bad((v) => v.setUint8(33, 1))), null);               // bits without the present bit
+  assert.equal(parsePose(bad((v) => v.setUint16(34, 5, true))), null);        // a speed without the present bit
+  assert.equal(parsePose(bad((v) => { v.setUint8(33, 4); v.setUint16(34, 30001, true); })), null);   // > 300 m/s
+});
+
 test('parsePose_badRecords_null', () => {
   const bad = (patch) => { const b = encodePose(POSE), v = new DataView(b); patch(v); return b; };
   assert.equal(parsePose('x'.repeat(36)), null); assert.equal(parsePose(new ArrayBuffer(35)), null); assert.equal(parsePose(new ArrayBuffer(37)), null);
