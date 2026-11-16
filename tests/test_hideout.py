@@ -1230,9 +1230,9 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
 
 
 @needs_world
-def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_download(server, tmp_path):
-    """#859: entering spoke 5 builds the rally hall with its three podium cars from primitives -- no model file is fetched; the back wall and a
-    podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
+def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(server, tmp_path):
+    """#859: entering spoke 5 builds the rally hall and parks the game's own Rhy Rally, hatchback and Rhy Coupé on its podiums -- those three
+    vehicle files are all the room fetches; the back wall and a podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         requests = []
@@ -1240,7 +1240,7 @@ def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_dow
         h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
         assert page.evaluate("() => window.__mm.rallyhall()") is None
         into_room(page, 5, "room5")
-        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5", timeout=120000)
+        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5 && window.__mm.rallyhall().parked.length === 3", timeout=120000)
         a = page.evaluate("() => window.__mm.rallyhall()")
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
         push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
@@ -1257,7 +1257,8 @@ def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_dow
     print("screenshot:", tmp_path / "rallyhall-room.png")
     print("screenshot:", tmp_path / "rallyhall-board.png")
     assert errors == []
-    assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design; the room itself fetches nothing (surface landmarks excluded by room_glbs, #906)
+    assert {u.rsplit("/", 1)[-1] for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")} <= {"rally.glb", "hatchback.glb", "coupe.glb"}, requests   # the Eiffel preloads near the Hübel by design; the room fetches only its three vehicles (the hatchback may already be cached as the start car)
+    assert sorted(a["parked"]) == ["evans", "mccrae", "neuville"], a
     assert a["built"] == 5 and abs(a["h"] - 14.8) < 1e-6 and 500 <= a["tris"] <= 30000 and a["colliders"] == 9 and len(a["cars"]) == 3, a
     assert a["board"]["text"][:2] == ["Elfyn Evans", "WRC World Champion 2026"] and a["board"]["found"], a   # #907: the honour board is in the hall group
     assert info["below"]["built"] == 5 and info["below"]["level"] == "room5" and info["below"]["object"] is True and info["counts"].get("rallyhall") == 1 and "eiffel" not in info["counts"], info
