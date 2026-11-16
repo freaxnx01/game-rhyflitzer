@@ -6562,6 +6562,22 @@ function stepNetRace() {
   NET.race.go = true; R.state = 'racing'; R.t = 0; toastBig(tr('mpRaceGo'));
 }
 
+// #837 part c: the host's standings go to everyone; every device ranks them with the same standings()
+function netRaceBoard() {
+  const msg = { type: 'board', over: NET.race.state.over, rows: boardRows(NET.race.state) };
+  NET.link.broadcast(msg);
+  netApplyBoard(msg.rows, msg.over);
+}
+function netApplyBoard(rows, over) { NET.race.board = rows; NET.race.over = over; renderNetPos(); }
+const gapText = (ms) => (ms === null ? '—' : `${(ms / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'always' })} s`);
+function renderNetPos() {
+  const el = $('netpos'), rows = NET.race?.board;
+  el.hidden = !rows;
+  if (!rows) return;
+  const me = standings(rows).find((r) => r.id === NET.you);
+  el.textContent = me ? tr('mpPos', me.pos, rows.length, gapText(me.gap)) : '';
+}
+
 function netStartSession(mode = 'cruise', t0 = null) {
   if (NET.session) return;
   NET.session = true;
@@ -6570,11 +6586,13 @@ function netStartSession(mode = 'cruise', t0 = null) {
   const race = mode === 'race';
   startRace(race ? 'trial' : 'cruise');                            // #837: a race is the trial's checkpoints under NET.race
   NET.race = race ? { t0, shown: null, go: false } : null;
+  if (race && NET.role === 'H') NET.race.state = createRace(NET.lobby, CPS.length);
   $('pauserestart').hidden = race;                                  // a restart would leave the shared start
   P.safe = (race ? raceGrid : gridPose)([START.x, START.z, START.th], NET.you); resetCar();
   camPos.set(P.x + 12, P.y + 5, P.z);
   syncNetCars();
   NET.poseTimer = setInterval(netSendPose, POSE_MS);
+  if (NET.race?.state) netRaceBoard();   // #837 part c: every HUD shows its start position
 }
 // leaves the shared drive: the timers stop and every remote car is taken off the scene. The run itself keeps going.
 function netEndSession() {
@@ -6583,6 +6601,7 @@ function netEndSession() {
   BUMP.gate.clear();   // #836: a fresh session does not inherit the last drive's cooldowns
   Object.assign(NET, { session: false, seq: 0, poseTimer: null });   // #837: the clock, the offset and the ping timer survive a session end (part d goes back to the lobby without leaving)
   NET.race = null; $('pauserestart').hidden = false;
+  $('netpos').hidden = true;   // #837 part c: the position line leaves with the session
 }
 function netPing() { NET.link.send(HOST_ID, { type: 'ping', a: performance.now() }); }
 
@@ -7280,7 +7299,7 @@ window.__mm.timetable = () => ({ open: TTV.open, from: TTV.from, view: TTV.view,
 // Every standing text at once (#9). Also the first render: #worldstatus, the status lines and the J list start out empty,
 // and a toggle click while the world was still loading had no listener to reach yet.
 function rerenderAll() { applyStaticStrings(); renderStyleName(); renderOverlay(); renderStartScreen(); renderStatus(); renderWorldGone(); renderJump(); renderHelp(); renderOdo(); renderModeLine(); renderCarSel(); renderBorderInfo(); renderTimetable(); }
-addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); renderLobby(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too; #950: the lobby status too
+addEventListener('gg-langchange', () => { rerenderAll(); relabelLiftPad(); relabelFreightPad(); relabelDedication(); relabelFerrisSign(); renderAboutLoading(); renderMusicBtn(); renderSettings(); renderContact(); renderLobby(); renderNetPos(); }); rerenderAll();   // #411: the lift pad's buttons re-label with the language too; #695: About's Beim Laden list re-renders too; #735: the Music button too; #842: the settings dialog too; #853: the contact address too; #950: the lobby status too
 { const grid = document.getElementById('liftpad').querySelector('.padgrid');   // the buttons: EG, 1-2 / 3-5 / 6-8 / 9, Dach — click, tap or the keys 0-9 and D
   for (const k of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const btn = document.createElement('button'); btn.type = 'button'; btn.dataset.level = k;
