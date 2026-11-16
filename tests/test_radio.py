@@ -77,7 +77,7 @@ def test_menu_music_starts_during_loading(server):
         pytest.skip("#856: asserts the menu track is fetched at load start, before any gesture; needs the autoplay launch flag, which a CDP-connected browser ignores")
     with sync_playwright() as p:
         b, page, errors, music = open_game(p, server)
-        assert any("menu-running-title.mp3" in u for u in music), music     # fetched at load start, autoplay allowed
+        assert any("pulsing-arpeggio.mp3" in u for u in music), music     # fetched at load start, autoplay allowed
         page.keyboard.press("Shift")
         page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
         page.click("#musicbtn")
