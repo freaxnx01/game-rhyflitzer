@@ -153,7 +153,14 @@ def settle_camera(page):
 
 
 def screen_point(page, want):
-    """A screen point whose pick is `want` ('old' / 'new' a border line, None ground that beams), the middle of the hit run on its row."""
+    """A screen point whose pick is `want` ('old' / 'new' a border line, None ground that beams), the middle of the hit run on its row.
+    Ground is the first beamable point bottom-up from the centre: one beamPick raycast costs ~0.3 s, the full grid would take hours (#405)."""
+    if want is None:
+        found = page.evaluate("""() => { for (let y = innerHeight - 60; y > 40; y -= 30) for (let k = 0; k < 15; k++) {
+            const x = (innerWidth >> 1) + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 40; if (window.__mm.borderPick(x, y) === null && window.__mm.beamPick(x, y)) return [x, y]; }
+          return null; }""")
+        assert found is not None, "no screen point picks None"
+        return found
     found = page.evaluate("""(want) => { const rows = {}; for (let y = 40; y < innerHeight - 40; y += 6) for (let x = 20; x < innerWidth - 20; x += 6) {
         const line = window.__mm.borderPick(x, y); if (want ? line === want : (line === null && window.__mm.beamPick(x, y))) (rows[y] = rows[y] || []).push(x); }
       const ys = Object.keys(rows).map(Number); if (!ys.length) return null; const y = ys[ys.length >> 1], xs = rows[y]; return [xs[xs.length >> 1], y]; }""", want)
