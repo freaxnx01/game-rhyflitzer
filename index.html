@@ -6454,12 +6454,14 @@ function netGuestMessage(msg) {
   if (msg.type === 'lobby') { NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
   if (msg.type === 'start') {
     if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
+    if (NET.session) netEndSession();   // #837 part d: a rematch restarts the guest too
     netStartSession(msg.mode, msg.t0 ?? null);
     return;
   }
   if (msg.type === 'pong') { NET.clock = addClockSample(NET.clock, msg.a, msg.b, performance.now()); NET.offset = netClockOffset(NET.clock); return; }
   if (msg.type === 'board') { if (NET.race) netApplyBoard(msg.rows, msg.over); return; }   // #837 part c: the host's standings
   if (msg.type === 'cpno') { if (NET.race) { NET.race.cpno = (NET.race.cpno ?? 0) + 1; netReopenCp(msg.i); } return; }   // #837 part c: a refused pass reopens the checkpoint
+  if (msg.type === 'back') { if (NET.session) netBackToLobby(); return; }   // #837 part d: the host went back to the lobby
   // the deny reason is not a string key: it is turned into one before the toast, so every key at a toast(tr(…)) call
   // site stays a plain literal (what tests/toast.test.mjs reads to check the text it shows carries no markup)
   if (msg.type === 'deny') { const key = msg.reason === 'full' ? 'mpFull' : msg.reason === 'started' ? 'mpStarted' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
@@ -6835,6 +6837,26 @@ function netSessionPick() {
   NET.lobby = picked.lobby; netHostBroadcast();
 }
 
+// #837 part d, host: the same field again, a fresh countdown. The remote car meshes are rebuilt from the cached glTFs.
+function netRematch() {
+  if (NET.role !== 'H' || !NET.lobby || NET.lobby.players.length < 2) return;
+  netEndSession();
+  const now = performance.now(), t0 = now + RACE.countdown;
+  NET.link.broadcast({ type: 'start', mode: 'race', t0, now });
+  netStartSession('race', t0);
+}
+// everyone: the session ends, the link stays, the lobby is back. A13: the start overlay shows behind it, as netLeave
+// does. The host clears the ready flags, so a new car pick and an invite are possible again.
+function netBackToLobby() {
+  netEndSession();
+  $('overlay').hidden = false;
+  if (NET.role === 'H') {
+    for (const p of NET.lobby.players) NET.lobby = setReady(NET.lobby, p.id, false);
+    netHostBroadcast();
+  }
+  openLobby();
+}
+
 function netLeave() {
   netEndSession();
   clearInterval(NET.pingTimer);
@@ -6875,6 +6897,8 @@ $('mprace').onclick = () => {
   NET.link.broadcast({ type: 'start', mode: 'race', t0, now });
   netStartSession('race', t0);
 };
+$('mprematch').onclick = netRematch;
+$('mpback').onclick = () => { if (NET.role !== 'H') return; NET.link.broadcast({ type: 'back' }); netBackToLobby(); };
 $('mpleave').onclick = netLeave;
 // A5: a guest would need the same world file, and the code cannot carry one
 if (REGION.generated) $('mpbtn').hidden = true;
