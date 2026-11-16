@@ -6397,7 +6397,7 @@ function netHostMessage(peerId, msg) {
   if (id === undefined) return;                          // nothing a peer sends counts before its hello
   if (msg.type === 'bye') { netHostDrop(peerId); return; }
   if (msg.type === 'ping') { NET.link.send(peerId, { type: 'pong', a: msg.a, b: performance.now() }); return; }   // #835: the host's clock is the session's clock
-  if (msg.type === 'cp') { if (NET.race?.state) netHostPass(id, msg.i, msg.t, peerId); return; }   // #837 part c: the host checks a guest's pass
+  if (msg.type === 'cp') { if (NET.race?.state && NET.race.go) netHostPass(id, msg.i, raceMs(), peerId); return; }   // #837 part c, #1022: the host stamps a guest's pass from its own clock (never msg.t), and only once go — defense in depth vs. a forged/early pass
   if (msg.type === 'pick') {
     const picked = pickCar(NET.lobby, id, msg.car, msg.paint, VEHICLES);
     NET.lobby = picked.lobby;
