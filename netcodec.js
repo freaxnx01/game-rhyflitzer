@@ -25,7 +25,7 @@ const I16_MAX = 0x7fff, I16_MIN = -0x8000;
 const clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
 const scaledInt16 = (v, scale) => clampInt(v * scale, I16_MIN, I16_MAX);
 const HIT_PRESENT = 4;       // bit 2 of byte 33: set when a hit is carried, so zero bytes (no hit) stay valid
-const HIT_C_MAX = 300;       // m/s: a closing speed above this is refused as implausible
+const HIT_C_MAX = 240;       // m/s: matches netbump.js MAX_CLOSING — the physical cap ("two cars at top nitro speed head-on"); a peer-reported closing speed above this is refused, so a crafted hit.c cannot impose a stronger impulse than a legitimate collision
 
 // encodePose(pose) — the 36-byte little-endian record of the spec table. Ints are clamped into range, so a caller
 // that hands in an out-of-range value still gets a decodable record, not a wrapped one.
