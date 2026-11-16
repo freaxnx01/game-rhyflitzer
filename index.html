@@ -7200,7 +7200,7 @@ function renderBorderInfo() {
 }
 function openBorderInfo(line) { releaseFootLock(); for (const k in keys) keys[k] = false; BORDERINFO.open = true; BORDERINFO.line = line; renderBorderInfo(); $('borderinfo').hidden = false; $('borderinfox').focus(); }
 function closeBorderInfo() { BORDERINFO.open = false; $('borderinfo').hidden = true; $('borderinfox').blur(); }
-function borderInfoKey(e) { if (e.code === 'Escape') { e.preventDefault(); if (!e.repeat) closeBorderInfo(); } }   // Esc closes, a held key never does; Tab moves between ✕ and the sources, everything else is swallowed
+function borderInfoKey(e) { if (e.code === 'Space') e.preventDefault(); if (e.code === 'Escape') { e.preventDefault(); if (!e.repeat) closeBorderInfo(); } }   // Esc closes, a held key never does; Tab moves between ✕ and the sources, everything else is swallowed -- Space too, or it clicks the focused ✕ (#405)
 $('borderinfox').addEventListener('click', closeBorderInfo);
 $('borderinfo').addEventListener('click', e => { if (e.target === $('borderinfo')) closeBorderInfo(); });   // the backdrop, not the box
 window.__mm.borderPick = borderPick; window.__mm.borderInfo = () => ({ open: BORDERINFO.open, line: BORDERINFO.line });   // test hooks (#396): the line under a pointer position, the popup's state

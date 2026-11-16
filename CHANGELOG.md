@@ -33,6 +33,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-16 13:53` Die Info zur **Landesgrenze** auf der Holzbrücke bleibt offen, wenn man <kbd>Leertaste</kbd> drückt. Vorher schloss die Taste das Fenster, und das folgende <kbd>Esc</kbd> öffnete die Pause.
 - `2026-11-14 20:39` In **?debug** mode the **debug panel** no longer covers the centred **message toast** on wide windows.
 
 ### Changed
