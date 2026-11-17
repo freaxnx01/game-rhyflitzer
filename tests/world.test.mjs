@@ -1592,3 +1592,34 @@ test('world_hochrhein (#761): the Bahnhof Frick is in the world file, the hand-d
   assert.ok(ids.has(164951714), 'Bahnhof Frick w164951714');
   for (const id of [162862443, 162862441, 1280041307, 183386655, 88836292]) assert.equal(ids.has(id), false, `w${id} is drawn by the game`);
 });
+
+// #1044: road crossings under road bridges
+import { roadBridgeCrossings, DECK_END_GAP } from '../world.js';
+test('roadBridgeCrossings_NormalRoadUnderDeck_OneRecord', () => {
+  const road = { n: 'R', cls: 'residential', w: 5.5, bridge: false, layer: 0, pts: [[0, -20], [0, 20]] };
+  const [c, ...rest] = roadBridgeCrossings([road], [{ pts: [[-10, 5], [10, 5]], layer: 1 }]);
+  assert.equal(rest.length, 0); assert.equal(c.bridge, 0); assert.equal(c.tRoad, 25); assert.equal(c.tRail, 10);
+});
+test('roadBridgeCrossings_MotorwayOrLinkUnderDeck_None', () => {
+  for (const cls of ['motorway', 'motorway_link'])
+    assert.deepEqual(roadBridgeCrossings([{ cls, w: 14, bridge: false, layer: 0, pts: [[0, -20], [0, 20]] }], [{ pts: [[-10, 5], [10, 5]], layer: 1 }]), []);
+});
+test('roadBridgeCrossings_DeckEndOnTheRoad_IsAJoinNotACrossing', () => {
+  const road = { cls: 'residential', w: 5.5, bridge: false, layer: 0, pts: [[0, -20], [0, 20]] };
+  assert.deepEqual(roadBridgeCrossings([road], [{ pts: [[0, 5], [20, 5]], layer: 1 }]), []);          // starts on it
+  assert.deepEqual(roadBridgeCrossings([road], [{ pts: [[-0.9, 5], [20, 5]], layer: 1 }]), []);       // 0.9 m < DECK_END_GAP
+  assert.equal(roadBridgeCrossings([road], [{ pts: [[-1.1, 5], [20, 5]], layer: 1 }]).length, 1);
+});
+const WORLD_HOCHRHEIN = new URL('../data/world_hochrhein.json', import.meta.url);
+const ISSUE_1044_PAIRS = [[51687867, 31970306], [51688069, 31970306], [4988444, 116017354], [4985551, 116017354], [4988444, 969542283],
+  [4985551, 969542283], [4985554, 1238921972], [4985555, 1238921972], [107186388, 345612508], [107186377, 345612508],
+  [25976772, 331388063], [28810416, 319322059], [25976777, 967940907], [25976788, 967940893], [40388838, 28165755],
+  [154394930, 1531664793], [162987100, 162941411], [1382546970, 1238831069]];
+test('roadBridgeCrossings_Hochrhein_TheEighteenOfIssue1044', { skip: !existsSync(WORLD_HOCHRHEIN) }, () => {
+  const w = JSON.parse(readFileSync(WORLD_HOCHRHEIN));
+  const L = layoutFromWorld(w), decks = L.roads.filter((r) => r.bridge);
+  const got = roadBridgeCrossings(L.roads, decks.map((r) => ({ pts: r.pts, layer: r.layer ?? 0 }))).map((c) => [decks[c.bridge].id, c.road.id]);
+  // 18 pairs of the spec table + 6 with enough headroom (the clearance filter is the cut depth, Task 3) = 24 (verified on the data 2026-11-17)
+  assert.equal(got.length, 24);
+  for (const pair of ISSUE_1044_PAIRS) assert.ok(got.some(([b, r]) => b === pair[0] && r === pair[1]), pair);
+});
