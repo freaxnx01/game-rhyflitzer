@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-16 21:58` Mehrspieler: Ein **Zusammenstoss**, den nur ein Gerät sieht, registriert sich jetzt auch auf dem **anderen Gerät** — das zweite Auto prallt ab, kracht und nimmt Schaden, auch wenn es die Berührung selbst nicht gemerkt hat.
 - `2026-11-16 21:33` **Rhyflitzer FM Rock** hat **zwei neue Tracks**: **Hurricane Bloom**, Electro-Disco mit Psychedelic-Gitarren, und **Celtic Jig of Iron**, Hard Rock mit irischer Doppel-Leadgitarre.
 - `2026-11-16 17:00` Mehrspieler-Rennen mit **Ergebnis**: Alle sehen dieselbe Rangliste mit Zeiten und Rückstand. Wer 60 Sekunden nach dem Sieger noch fährt oder die Verbindung verliert, ist *nicht im Ziel*. Danach startet der Host eine **Revanche** oder geht **zurück zur Lobby**.
 - `2026-11-16 17:00` Neue **Titel- und Menümusik**: **Pulsing Arpeggio** läuft jetzt im Startbildschirm. «Menu / Running Title» bleibt im Radio auf Rhyflitzer FM Cruise.

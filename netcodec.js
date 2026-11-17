@@ -24,6 +24,8 @@ const V_SCALE = 100;                // velocities are carried as i16 cm/s
 const I16_MAX = 0x7fff, I16_MIN = -0x8000;
 const clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
 const scaledInt16 = (v, scale) => clampInt(v * scale, I16_MIN, I16_MAX);
+const HIT_PRESENT = 4;       // bit 2 of byte 33: set when a hit is carried, so zero bytes (no hit) stay valid
+const HIT_C_MAX = 240;       // m/s: matches netbump.js MAX_CLOSING — the physical cap ("two cars at top nitro speed head-on"); a peer-reported closing speed above this is refused, so a crafted hit.c cannot impose a stronger impulse than a legitimate collision
 
 // encodePose(pose) — the 36-byte little-endian record of the spec table. Ints are clamped into range, so a caller
 // that hands in an out-of-range value still gets a decodable record, not a wrapped one.
@@ -44,7 +46,11 @@ export function encodePose(p) {
   v.setInt16(28, scaledInt16(p.vz, V_SCALE), true);
   v.setInt16(30, scaledInt16(p.steer, ROT_SCALE), true);
   v.setUint8(32, p.flags & 0x3f);   // bits 6–7 are reserved and must stay 0, also in what we send
-  // bytes 33–35 stay 0: reserved for #836
+  // bytes 33–35: #836 part b hit relay — byte 33 = to (bits 0–1) | present (bit 2) | n (bits 3–7); bytes 34–35 = closing speed in cm/s
+  if (p.hit) {
+    v.setUint8(33, (p.hit.to & 3) | HIT_PRESENT | ((p.hit.n & 31) << 3));
+    v.setUint16(34, clampInt(p.hit.c * V_SCALE, 0, 0xffff), true);
+  }
   return buf;
 }
 
@@ -68,6 +74,10 @@ export function parsePose(buf) {
   if (Math.hypot(vx, vz) > V_MAX) return null;
   const flags = v.getUint8(32);
   if (flags & 0xc0) return null;
+  const hb = v.getUint8(33), hc = v.getUint16(34, true);
+  let hit = null;
+  if (hb & HIT_PRESENT) { hit = { to: hb & 3, n: hb >> 3, c: hc / V_SCALE }; if (hit.c > HIT_C_MAX) return null; }
+  else if (hb || hc) return null;
   return {
     id,
     seq: v.getUint16(2, true),
@@ -79,6 +89,7 @@ export function parsePose(buf) {
     vx, vz,
     steer: v.getInt16(30, true) / ROT_SCALE,
     flags,
+    hit,
   };
 }
 
