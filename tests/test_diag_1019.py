@@ -6,16 +6,18 @@ from playwright.sync_api import sync_playwright
 import test_multiplayer_lobby as L
 
 INSTR = """(() => {
-  const t0 = performance.now(), log = window.__rtclog = [];
-  const add = (who, what) => log.push([Math.round(performance.now() - t0), who, what]);
+  const log = window.__rtclog = [];
+  const add = (who, what) => log.push([Date.now() % 1000000, who, what]);
+  const osend = RTCDataChannel.prototype.send; RTCDataChannel.prototype.send = function (d) { if (typeof d === 'string') add(this.label, 'send ' + this.readyState + ' ' + d.slice(0, 50)); return osend.call(this, d); };
   const Orig = window.RTCPeerConnection; let n = 0;
   window.RTCPeerConnection = function (...a) { const pc = new Orig(...a), id = 'pc' + (n++);
     add(id, 'new ' + JSON.stringify(a[0] && a[0].iceServers));
     for (const ev of ['connectionstatechange', 'iceconnectionstatechange', 'icegatheringstatechange', 'signalingstatechange'])
       pc.addEventListener(ev, () => add(id, ev + ':' + ({connectionstatechange: pc.connectionState, iceconnectionstatechange: pc.iceConnectionState, icegatheringstatechange: pc.iceGatheringState, signalingstatechange: pc.signalingState})[ev]));
     pc.addEventListener('icecandidate', (e) => add(id, 'cand:' + (e.candidate ? e.candidate.candidate.split(' ').slice(4, 8).join(' ') : 'null')));
-    pc.addEventListener('datachannel', (e) => { add(id, 'dc:' + e.channel.label); e.channel.addEventListener('open', () => add(id, 'dcopen:' + e.channel.label)); });
-    const cdc = pc.createDataChannel.bind(pc); pc.createDataChannel = (l, o) => { const c = cdc(l, o); c.addEventListener('open', () => add(id, 'dcopen:' + l)); return c; };
+    pc.addEventListener('datachannel', (e) => { add(id, 'dc:' + e.channel.label + ' ' + e.channel.readyState); e.channel.addEventListener('open', () => add(id, 'dcopen:' + e.channel.label)); e.channel.addEventListener('message', (m) => { if (typeof m.data === 'string') add(id, 'recv ' + m.data.slice(0, 50)); }); });
+    const cdc = pc.createDataChannel.bind(pc); pc.createDataChannel = (l, o) => { const c = cdc(l, o); c.addEventListener('open', () => add(id, 'dcopen:' + l)); c.addEventListener('message', (m) => { if (typeof m.data === 'string') add(id, 'recv ' + m.data.slice(0, 50)); }); return c; };
+    const srd = pc.setRemoteDescription.bind(pc); pc.setRemoteDescription = (d) => { add(id, 'SRD ' + (d && d.type)); return srd(d); };
     return pc; };
   window.RTCPeerConnection.prototype = Orig.prototype;
   let last = performance.now(); (function f() { const now = performance.now(); if (now - last > 1500) add('main', 'gap ' + Math.round(now - last)); last = now; requestAnimationFrame(f); })();
@@ -35,10 +37,10 @@ def open_page(browser, server):
 
 
 def state(page):
-    return page.evaluate("() => ({net: window.__mm.net(), ua: navigator.userAgent, status: document.querySelector('#mpstatus')?.textContent, log: window.__rtclog})")
+    return page.evaluate("() => ({net: window.__mm.net(), ua: navigator.userAgent, names: (window.__mm.net().lobby || {players: []}).players.map(p => p.name), log: window.__rtclog})")
 
 
-@pytest.mark.parametrize("k", range(6))
+@pytest.mark.parametrize("k", range(10))
 def test_diag_lobby_connect(server, k):
     L.T = 90000
     with sync_playwright() as p:
