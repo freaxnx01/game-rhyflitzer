@@ -1113,9 +1113,11 @@ def test_atomium_room_has_the_manneken_pis_life_size_in_its_solid_fountain_corne
         m = page.evaluate("() => window.__mm.manneken()")
         push = page.evaluate("""() => { const m = window.__mm.manneken(), f = [Math.cos(m.th), Math.sin(m.th)], p = (d) => window.__mm.pushAt(m.x + f[0] * d, m.z + f[1] * d, m.y);
           return { railing: p(1.9), front: p(8) }; }""")
-        # the close shot: park the car 25 m behind the viewer, step out, and stand 3.5 m in front of the niche looking at the boy
-        spot = page.evaluate("""() => { const m = window.__mm.manneken(), f = [Math.cos(m.th), Math.sin(m.th)];
-          return { carX: m.x + f[0] * 28.5, carZ: m.z + f[1] * 28.5, x: m.x + f[0] * 3.5, z: m.z + f[1] * 3.5, th: m.th + Math.PI, y: m.y }; }""")
+        # the close shot: park the car 25 m behind the viewer, step out, and stand 3.5 m from the niche, 25 degrees off its axis --
+        # head-on the jet is foreshortened into a line, from here its arc into the basin reads while the boy still faces the camera
+        spot = page.evaluate("""() => { const m = window.__mm.manneken(), a = m.th + 25 * Math.PI / 180, f = [Math.cos(m.th), Math.sin(m.th)];
+          const x = m.x + Math.cos(a) * 3.5, z = m.z + Math.sin(a) * 3.5;
+          return { carX: m.x + f[0] * 28.5, carZ: m.z + f[1] * 28.5, x, z, th: Math.atan2(m.z - z, m.x - x), y: m.y }; }""")
         page.evaluate(f"() => window.__mm.sim({spot['carX']}, {spot['carZ']}, {spot['th']}, 0, 0.5, [], {spot['y']})")
         page.keyboard.press("z"); page.wait_for_timeout(300)
         page.evaluate(f"() => {{ window.__mm.place({spot['x']}, {spot['z']}, {spot['th']}); window.__mm.setFootY({spot['y']}); }}")

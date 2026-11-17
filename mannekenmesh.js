@@ -56,8 +56,8 @@ export function buildManneken(cfg = MANNEKEN) {
   for (const side of [-1, 1]) box('stone', 0.14, springer, 0.18, CH.x + 0.07, springer / 2, side * (N.w / 2 + 0.09));
   add('stone', place(new THREE.TorusGeometry(N.w / 2 + 0.09, 0.07, 6, 20, Math.PI), CH.x + 0.07, springer, 0, 0, Math.PI / 2));
   // the little shell over the arch: a half dome, squashed flat against the wall
-  const shell = new THREE.SphereGeometry(0.42, 14, 7, 0, Math.PI); shell.scale(1, 1, 0.45);
-  add('stone', place(shell, CH.x + 0.04, N.h + 0.16, 0, 0, Math.PI / 2));
+  const shell = new THREE.SphereGeometry(0.26, 14, 7, 0, Math.PI); shell.scale(1, 1, 0.45);
+  add('stone', place(shell, CH.x + 0.04, N.h + 0.22, 0, 0, Math.PI / 2));
   // 5. the basin: a half-round shell on the +x side of the axis, closed flat against the wall, with its rim and the water in it
   const halfShell = (r, h) => new THREE.CylinderGeometry(r, r, h, 18, 1, true, 0, Math.PI);
   add('stone', place(halfShell(B.r, B.rim), 0, B.rim / 2, 0));
