@@ -151,6 +151,7 @@ def test_station_list_picks_any_station_and_keeps_it(server):
         first = page.input_value("#setstation")
         page.select_option("#setstation", "rock")
         rock = page.evaluate("() => ({ r: window.__mm.radio(), ls: localStorage.getItem('mm.radioStation') })")
+        rock_tracks = page.evaluate("() => import('./radio.js').then(m => [...m.FM.rock.tracks])")
         page.select_option("#setstation", "argovia")
         argovia = page.evaluate("() => window.__mm.radio()")
         page.reload()
@@ -162,7 +163,7 @@ def test_station_list_picks_any_station_and_keeps_it(server):
                     ["srf3", "SRF 3 live"], ["argovia", "Radio Argovia"]], opts
     assert first == "mix"
     assert rock["ls"] == "rock" and rock["r"]["station"] == rock["r"]["fm"] == "rock", rock
-    assert sorted(rock["r"]["order"]) == [0, 6, 7, 8, 9, 10, 13, 14], rock   # the order is the rock station's tracks
+    assert sorted(rock["r"]["order"]) == rock_tracks and len(rock_tracks) < 15, (rock, rock_tracks)   # the order is the rock station's tracks, not the mix
     assert argovia["station"] == "argovia" and argovia["fm"] == "rock", argovia   # a live station keeps the last FM one
     assert reloaded == ("argovia", "argovia"), reloaded
     assert errors == []
