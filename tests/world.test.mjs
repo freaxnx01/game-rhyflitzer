@@ -1600,3 +1600,10 @@ test('addrLabels: a plate carries modern for a modern building only (#530)', () 
   assert.equal(a.modern, true);
   assert.equal('modern' in b, false);
 });
+
+test('layoutFromWorld keeps a road\'s modern flag on roads and bridges (#530)', () => {
+  const w = { roads: [{ cls: 'residential', modern: true, bridge: true, pts: [[0, 0], [10, 0]], w: 5.5 }], junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: {}, anchors: {} };
+  const L = layoutFromWorld(w);
+  assert.equal(L.roads[0].modern, true);
+  assert.equal(L.bridges[0].modern, true);
+});

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isEraKey, eraAvailable, clearExempt, eraShown } from '../timelayer.js';
+import { isEraKey, eraAvailable, clearExempt, eraShown, roadGoneAt, eraRoads } from '../timelayer.js';
 import { translate } from '../strings.js';
 
 test('isEraKey: Ctrl+Y by letter; a US key on QWERTZ does not count', () => {
@@ -30,7 +30,20 @@ test('eraShown: a modern entry hides while the layer is on', () => {
 });
 
 test('strings: era texts exist in en and de', () => {
-  for (const lang of ['en', 'de']) for (const k of ['eraOn', 'eraOff', 'eraNone', 'eraNoDelivery', 'keyEra', 'aboutGwr']) assert.notEqual(translate(lang, k), k, `${lang}.${k}`);
+  for (const lang of ['en', 'de']) for (const k of ['eraOn', 'eraOff', 'eraNone', 'eraNoDelivery', 'eraRoadGone', 'keyEra', 'aboutGwr']) assert.notEqual(translate(lang, k), k, `${lang}.${k}`);
   assert.match(translate('en', 'eraOn'), /Ctrl\+Y/);
   assert.match(translate('de', 'eraOn'), /Ctrl\+Y/);
+});
+
+test('roadGoneAt: gone only when every road under the point is modern', () => {
+  assert.equal(roadGoneAt([]), false);
+  assert.equal(roadGoneAt([{ modern: true, d: 1, hw: 3 }]), true);
+  assert.equal(roadGoneAt([{ modern: true, d: 1, hw: 3 }, { modern: false, d: 2, hw: 3 }]), false);
+  assert.equal(roadGoneAt([{ modern: true, d: 5, hw: 3 }]), false);
+});
+
+test('eraRoads: off keeps all roads, on drops the modern ones', () => {
+  const rs = [{ id: 1, modern: true }, { id: 2 }];
+  assert.deepEqual(eraRoads(rs, false).map(r => r.id), [1, 2]);
+  assert.deepEqual(eraRoads(rs, true).map(r => r.id), [2]);
 });
