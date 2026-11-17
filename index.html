@@ -955,7 +955,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, treeHash, lodTier } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, sameBank } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
@@ -1007,7 +1007,7 @@ import { DISPLAY_TEX, displayLayout, REAR_TEX, REAR_GRID, REAR_CELL, rearFrame, 
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
-import { DELIV, DEPOTS, mulberry32, buildAddresses, resolveDepots, pickOrder, newShift, beginOrder, tick as delivTick, applyImpact as delivImpact, applyPenalty as delivPenalty, isNewBest } from './delivery.js';
+import { DELIV, DEPOTS, mulberry32, nearestPlace, buildAddresses, resolveDepots, homeDepots, pickOrder, newShift, beginOrder, tick as delivTick, applyImpact as delivImpact, applyPenalty as delivPenalty, isNewBest } from './delivery.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
 import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction, musicCaptionKey } from './settings.js';   // #842
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
@@ -6061,8 +6061,11 @@ function nearestDeliveryRoad(x, z) {
 function deliveryPool() {
   if (DEL.addresses) return DEL.addresses;
   if (!L || !autoGraph()) return null;
-  DEL.addresses = buildAddresses(L.buildings, nearestDeliveryRoad);
-  DEL.depots = resolveDepots(DEPOTS, Object.entries(L.anchors.landmarks).map(([n, a]) => ({ n, x: a.x, z: a.z })), DEL.addresses);
+  const lms = Object.entries(L.anchors.landmarks), placeOf = (x, z) => nearestPlace(REGION.villages, x, z, (ax, az, bx, bz) => sameBank(VILLAGE_SIGNS.border, ax, az, bx, bz), REGION.gemeindenDe);
+  // stations and the indoor pool are landmarks, not OSM buildings: they join as extra public targets
+  const extra = lms.filter(([, a]) => a.kind === 'station' || a.kind === 'hallenbad').map(([key, a]) => ({ id: 'lm:' + key, addr: a.addr ?? null, use: a.kind === 'station' ? 'station' : 'pool', rect: [a.x, a.z] }));
+  DEL.addresses = buildAddresses([...L.buildings, ...extra], nearestDeliveryRoad, placeOf);
+  DEL.depots = homeDepots(resolveDepots(DEPOTS, lms.map(([n, a]) => ({ n, x: a.x, z: a.z })), DEL.addresses));
   return DEL.addresses;
 }
 function dropSnap(x, z) { return snapToGraph(AUTOP.graph, x, z, DELIV.nameRadius + 20); }
@@ -6083,15 +6086,17 @@ function dropMark() {
   const ring = new THREE.Mesh(new THREE.TorusGeometry(DELIV.stopRadius, 0.35, 8, 28), new THREE.MeshBasicMaterial({ color: 0xff5fb0 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.6;
   g.add(pillar, ring); g.visible = false; scene.add(g); DEL.mark = g; return g;
 }
+// the line a customer is shown by: a public building leads with its kind ("School · Schulstrasse 4, Stein")
+function orderText(o) { return o.kind ? tr('delivKind', o.kind) + ' · ' + o.label : o.label; }
 function nextOrder() {
-  const picked = pickOrder({ addresses: DEL.addresses, rng: DEL.rng, routeLen: deliveryRouteLen, recent: DEL.st.recent });
+  const picked = pickOrder({ addresses: DEL.addresses, rng: DEL.rng, routeLen: deliveryRouteLen, recent: DEL.st.recent, abroadLeft: DELIV.maxAbroad - DEL.st.abroad });
   if (!picked) { toast(tr('delivNoOrder')); finishShift(); return; }
   beginOrder(DEL.st, picked.addr, picked.len);
   const o = DEL.st.order, drop = dropSnap(o.x, o.z);
   o.dx = drop ? drop.x : o.x; o.dz = drop ? drop.z : o.z;
-  clearNavi(); startNavi({ n: o.label, x: o.dx, z: o.dz });
+  clearNavi(); startNavi({ n: orderText(o), x: o.dx, z: o.dz });
   const m = dropMark(); m.position.set(o.dx, groundH(o.dx, o.dz), o.dz); m.visible = true;
-  toast(tr('delivOrder', DEL.st.idx + 1, DEL.st.total, o.label), TOAST_S.event);
+  toast(tr('delivOrder', DEL.st.idx + 1, DEL.st.total, orderText(o)), TOAST_S.event);
 }
 function startDelivery(seed) {
   if (!deliveryPool() || !DEL.depots.length || !DEL.addresses.length) { toast(tr('deliveryNeedsWorld')); return false; }
@@ -6128,7 +6133,7 @@ function afterOrder(outcome) {
   if (DEL.mark) DEL.mark.visible = false;
   clearNavi();
   if (DEL.st.phase === 'over') finishShift(); else nextOrder();
-  if (outcome === 'delivered') { toastHtml(tr('delivHandOver', esc(r.label), r.tip), TOAST_S.event); SFX.checkpoint(); return; }
+  if (outcome === 'delivered') { toastHtml(tr('delivHandOver', esc(orderText(r)), r.tip), TOAST_S.event); SFX.checkpoint(); return; }
   if (outcome === 'ruined') { toast(tr('delivRuined'), TOAST_S.event); return; }
   toast(tr('delivLate'), TOAST_S.event);
 }
@@ -6144,7 +6149,7 @@ function deliveryReset() { resetCar(); if (DEL.st) delivPenalty(DEL.st, DELIV.re
 function deliveryHud() {
   const o = DEL.st && DEL.st.order;
   if (!deliveryActive() || !o) { for (const id of ['delivline', 'delivtime', 'delivcargo']) $(id).textContent = ''; return; }
-  $('delivline').textContent = tr('delivOrder', DEL.st.idx + 1, DEL.st.total, o.label);
+  $('delivline').textContent = tr('delivOrder', DEL.st.idx + 1, DEL.st.total, orderText(o));
   $('delivtime').textContent = `${Math.floor(o.left / 60)}:${String(Math.floor(o.left % 60)).padStart(2, '0')}`;
   $('delivtime').classList.toggle('low', o.left < DELIV.lowTime);
   $('delivcargo').textContent = `${tr('delivCargo', Math.round(o.cargo))} · ${tr('delivScore', DEL.st.score)}`;

@@ -775,7 +775,7 @@ export const VILLAGES = [
   { t: 'BAD SÄCKINGEN', x: -1372.9, z: -263.1, r: 800 },   // node 240042433 (town)
   { t: 'STEIN', x: -981.8, z: 615.7, r: 450 },             // node 240097537
   { t: 'SISSELN', x: 1677.6, z: -329.8, r: 450 },          // node 240055476
-  { t: 'SISSLERFELD', x: 420, z: 300, r: 600 },            // map label, no place node
+  { t: 'SISSLERFELD', x: 420, z: 300, r: 600, flur: true },            // map label, no place node
   { t: 'MÜNCHWILEN', x: -299.3, z: 1408.4, r: 350 },       // node 240115055
   { t: 'MUMPF', x: -3484.8, z: 596.6, r: 450 },            // node 192826016
   { t: 'MURG', x: 4361.6, z: -689.8, r: 550 },             // node 240124251

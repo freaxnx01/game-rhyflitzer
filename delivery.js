@@ -125,7 +125,7 @@ export function beginOrder(st, addr, len) {
 export function finishOrder(st, outcome) {
   const o = st.order;
   const tip = outcome === 'delivered' ? orderScore({ len: o.len, left: o.left, cargo: o.cargo }).tip : 0;
-  st.results.push({ label: o.label, outcome, tip, cargo: o.cargo });
+  st.results.push({ label: o.label, kind: o.kind, outcome, tip, cargo: o.cargo });
   st.score += tip; st.idx++; st.order = null;
   if (st.idx >= st.total) st.phase = 'over';
 }
