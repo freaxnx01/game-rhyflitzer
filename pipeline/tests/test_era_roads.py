@@ -88,6 +88,20 @@ def test_reconnect_ignores_a_cut_off_german_network():
     assert R.reconnect(roads, hidden, SWISS) == set()
 
 
+def test_reconnect_joins_a_kept_bridge_to_the_network_through_an_empty_road():
+    a = road("primary", [(100, 0), (200, 0)])
+    b = road("residential", [(200, 0), (200, 100)])
+    bridge = road("secondary", [(200, 111), (200, 300)], bridge=True)  # its end is 11 m from B's far end, no shared vertex
+    roads = [a, b, bridge]
+    assert R.reconnect(roads, {1: "empty"}) == {1}
+
+
+def test_reconnect_leaves_a_bridge_alone_that_is_already_joined():
+    a = road("primary", [(100, 0), (200, 0)])
+    bridge = road("secondary", [(200, 10), (200, 300)], bridge=True)
+    assert R.reconnect([a, bridge], {}) == set()
+
+
 def test_apply_is_idempotent_and_byte_stable():
     world = {"origin": {"lat": 47.5506, "lon": 7.9671},
              "roads": [road("motorway", [(100, 0), (300, 0)]), road("primary", [(100, 90), (300, 90)])],

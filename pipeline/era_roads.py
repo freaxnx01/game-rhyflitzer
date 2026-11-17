@@ -7,7 +7,8 @@ INDUSTRIAL_SHARE inside the Sisslerfeld industrial site and is not a main road, 
 is hidden on both banks. Precedence: bridge > motorway > industrial > empty.
 
 A kept road that the hiding cuts off from the main kept network gets back the fewest "empty" roads that reconnect it
-(shortest chain, BFS over road vertices snapped to ENDPOINT_TOL).
+(shortest chain, BFS over road vertices snapped to ENDPOINT_TOL). A kept bridge also joins every road vertex within
+BRIDGE_SNAP of its ends, so the Holzbruecke keeps its Swiss approach.
 
 Sets `road["modern"] = True` (last key) and removes it from every other road; idempotent.
 
@@ -29,6 +30,7 @@ from geo import Frame
 NEAR_OLD = 25.0  # m, an old Swiss building footprint this close to a street makes it "lead to an old house"
 INDUSTRIAL_SHARE = 0.5  # share of the road length inside the industrial site
 ENDPOINT_TOL = 0.5  # m, vertices closer than this are the same junction
+BRIDGE_SNAP = 15.0  # m, a kept bridge end joins any road vertex this close (bridges often end beside the road, not on it)
 RESIDENTIAL = ("residential", "living_street", "service")
 MAIN_PREFIXES = ("motorway", "trunk", "primary", "secondary", "tertiary")
 BRIDGE_NAME = "Fridolinsbrücke"
@@ -78,7 +80,23 @@ def _nodes(road):
     return {(round(x / ENDPOINT_TOL), round(z / ENDPOINT_TOL)) for x, z in road["pts"]}
 
 
-def _components(roads, kept):
+def _node_sets(roads, hidden):
+    """Junction keys per road index; a kept bridge's ends also count as the vertices of any road within BRIDGE_SNAP."""
+    sets = [_nodes(r) for r in roads]
+    vertices = [(x, z, key) for r in roads for (x, z), key in zip(r["pts"], _vertex_keys(r))]
+    for i, road in enumerate(roads):
+        if not road.get("bridge") or i in hidden:
+            continue
+        for ex, ez in (road["pts"][0], road["pts"][-1]):
+            sets[i].update(key for x, z, key in vertices if (x - ex) ** 2 + (z - ez) ** 2 <= BRIDGE_SNAP ** 2)
+    return sets
+
+
+def _vertex_keys(road):
+    return [(round(x / ENDPOINT_TOL), round(z / ENDPOINT_TOL)) for x, z in road["pts"]]
+
+
+def _components(node_sets, kept):
     """Kept road indices grouped by shared vertices (union-find), each with its node set."""
     parent = {}
 
@@ -89,7 +107,6 @@ def _components(roads, kept):
             n = parent[n]
         return n
 
-    node_sets = {i: _nodes(roads[i]) for i in kept}
     for i in kept:
         first, *rest = node_sets[i]
         for n in rest:
@@ -100,17 +117,17 @@ def _components(roads, kept):
     return [(idx, set().union(*(node_sets[i] for i in idx))) for idx in groups.values()]
 
 
-def _empty_index(roads, hidden):
+def _empty_index(node_sets, hidden):
     """node -> the "empty" roads that have a vertex there."""
     index = {}
     for i, reason in hidden.items():
         if reason == "empty":
-            for n in _nodes(roads[i]):
+            for n in node_sets[i]:
                 index.setdefault(n, []).append(i)
     return index
 
 
-def _shortest_chain(roads, index, sources, targets):
+def _shortest_chain(node_sets, index, sources, targets):
     """Road indices of the fewest "empty" roads linking any source node to any target node, or None."""
     came = {n: None for n in sources}
     queue = deque(sorted(sources))
@@ -123,7 +140,7 @@ def _shortest_chain(roads, index, sources, targets):
                 chain.append(road)
             return chain
         for road in index.get(node, ()):
-            for nxt in sorted(_nodes(roads[road])):
+            for nxt in sorted(node_sets[road]):
                 if nxt not in came:
                     came[nxt] = (node, road)
                     queue.append(nxt)
@@ -143,19 +160,20 @@ def reconnect(roads, hidden, swiss=None):
     components without any are left alone (the German network is cut off at the hidden bridge, not by us).
     """
     kept = [i for i in range(len(roads)) if i not in hidden]
-    comps = [(idx, nodes, _swiss_kept_count(roads, idx, swiss)) for idx, nodes in _components(roads, kept)]
+    node_sets = _node_sets(roads, hidden)
+    comps = [(idx, nodes, _swiss_kept_count(roads, idx, swiss)) for idx, nodes in _components(node_sets, kept)]
     comps.sort(key=lambda c: (-c[2], min(c[0])))
     main_nodes = set(comps[0][1])
-    index = _empty_index(roads, hidden)
+    index = _empty_index(node_sets, hidden)
     restored = set()
     for _, nodes, swiss_count in comps[1:]:
         if not swiss_count or nodes & main_nodes:
             continue
-        chain = _shortest_chain(roads, index, nodes, main_nodes)
+        chain = _shortest_chain(node_sets, index, nodes, main_nodes)
         if chain is None:
             continue
         restored.update(chain)
-        main_nodes |= nodes.union(*(_nodes(roads[i]) for i in chain))
+        main_nodes |= nodes.union(*(node_sets[i] for i in chain))
     return restored
 
 
