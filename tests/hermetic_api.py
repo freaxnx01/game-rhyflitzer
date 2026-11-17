@@ -7,10 +7,13 @@ stub. conftest.py wires it.
 `firstvisit`, so the first-visit tutorial preselect does not change what the other tests see.
 #735: every new context also aborts the SRF 3 stream host, so no browser test reaches the real live stream; a test's own
 page.route() stub (a local mp3) still wins over the context route.
-#845: Radio Argovia's stream host (and its 302 redirect target chmedia.streamabc.net) are aborted too."""
+#845: Radio Argovia's stream host (and its 302 redirect target chmedia.streamabc.net) are aborted too.
+The rally hall's YouTube embed (youtube-nocookie.com) is answered with a plain red stub page, so no test reaches YouTube."""
 GALLERY = "https://rhyflitzer-api.freaxnx01.ch/api/gallery"   # WORLD_HOST in worlds.js + /api/gallery
 CORS = {"Access-Control-Allow-Origin": "*"}
 SRF_GLOB = "https://*.srg-ssr.ch/**"   # #735: the SRF 3 stream and its livestreaming-node-N redirect targets
+YOUTUBE_GLOB = "https://www.youtube-nocookie.com/**"   # the rally hall's Short
+YOUTUBE_STUB = "<!doctype html><title>stub</title><body style='margin:0;background:#c8102e'>"
 ARGOVIA_GLOBS = ("https://stream.streambase.ch/**", "https://*.streamabc.net/**")   # #845: Radio Argovia and its redirect target
 
 
@@ -22,6 +25,10 @@ def route_gallery(context):
     context.route(GALLERY, answer_empty_gallery)
 
 
+def answer_youtube_stub(route):
+    route.fulfill(status=200, content_type="text/html", body=YOUTUBE_STUB)
+
+
 def abort_srf(route):
     route.abort()
 
@@ -29,6 +36,7 @@ def abort_srf(route):
 def route_srf(context):
     for glob in (SRF_GLOB, *ARGOVIA_GLOBS):
         context.route(glob, abort_srf)
+    context.route(YOUTUBE_GLOB, answer_youtube_stub)
 
 
 # #534: a fresh context is a first visitor and would get the tutorial preselected; tests opt in with ?firstvisit=1

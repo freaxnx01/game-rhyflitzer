@@ -90,3 +90,31 @@ test('flagLayout_OnTheGlassBandAboveTheBoard_CentredOverIt_WalesOnTheLeftSeenFro
   assert.ok(F[0].b < F[1].b, 'Wales on -b: the left as seen from the open front (looking +a, +b is to the right)');
   assert.equal(rallyhallPlacement(room, RALLYHALL).colliders.length, 9);
 });
+
+import { videoLayout, videoEmbedUrl, videoShown } from '../rallyhall.js';
+
+test('videoLayout_PortraitShortOnTheGlassBand_LeftOfTheFlags_ClearOfThem', () => {
+  const V = videoLayout(RALLYHALL), H = RALLYHALL.hall, F = flagLayout(RALLYHALL), glassFront = H.d / 2 - H.wall - 0.1;
+  near(V.w / V.h, 9 / 16, 1e-9, 'a Short is 9:16');
+  assert.ok(V.a < glassFront && glassFront - V.a <= 0.1, 'within 10 cm in front of the glass band');
+  assert.ok(V.y0 >= H.glass.y0 && V.y0 + V.h <= H.glass.y1, 'on the glass band');
+  assert.ok(V.b + V.w / 2 < Math.min(...F.map(f => f.b - f.w / 2)) - 1, 'left of the flags with a metre between');
+  assert.ok(V.b - V.w / 2 >= -(H.w / 2 - H.wall), 'inside the wall width');
+});
+
+test('videoEmbedUrl_NoCookieEmbed_MutedAutoplayLoopingThatOneVideo', () => {
+  const u = new URL(videoEmbedUrl(RALLYHALL.video.id));
+  assert.equal(u.origin, 'https://www.youtube-nocookie.com');
+  assert.equal(u.pathname, '/embed/cZxfLJdhWk8');
+  for (const [k, v] of [['autoplay', '1'], ['mute', '1'], ['loop', '1'], ['playlist', 'cZxfLJdhWk8'], ['playsinline', '1'], ['rel', '0']]) assert.equal(u.searchParams.get(k), v, k);
+});
+
+test('videoShown_OnlyFromTheHallFloorAndApronInFrontOfTheWall', () => {
+  assert.equal(videoShown(-80, 0, 1.5), true, 'on the apron');
+  assert.equal(videoShown(10, -13, 1.5), true, 'in the hall');
+  assert.equal(videoShown(19.5, 0, 1.5), false, 'at or behind the wall');
+  assert.equal(videoShown(-120, 0, 1.5), false, 'beyond the apron');
+  assert.equal(videoShown(0, 50, 1.5), false, 'beside the hall');
+  assert.equal(videoShown(0, 0, -5), false, 'below the floor');
+  assert.equal(videoShown(0, 0, 40), false, 'above the roof');
+});

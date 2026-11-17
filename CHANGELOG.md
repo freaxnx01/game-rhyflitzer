@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-17 09:43` In der **Rallye-Halle** läuft links neben den Flaggen das **YouTube-Short** der WRC vom Titeltag von Elfyn Evans und Scott Martin, stumm in Schleife. Ein **Klick** auf das Video schaltet den Ton ein.
 - `2026-11-17 09:03` In der **Rallye-Halle** hängen über der Ehrentafel jetzt die Flaggen des Weltmeisters 2026: die **walisische Flagge** für Elfyn Evans und der **Union Jack**.
 - `2026-11-16 21:58` Mehrspieler: Ein **Zusammenstoss**, den nur ein Gerät sieht, registriert sich jetzt auch auf dem **anderen Gerät** — das zweite Auto prallt ab, kracht und nimmt Schaden, auch wenn es die Berührung selbst nicht gemerkt hat.
 - `2026-11-16 21:33` **Rhyflitzer FM Rock** hat **zwei neue Tracks**: **Hurricane Bloom**, Electro-Disco mit Psychedelic-Gitarren, und **Celtic Jig of Iron**, Hard Rock mit irischer Doppel-Leadgitarre.

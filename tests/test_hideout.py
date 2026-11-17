@@ -1272,6 +1272,37 @@ def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(se
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("floor", "apron")), push
 
 
+def test_rallyhall_youtube_short_shows_on_the_back_wall_hides_outside_and_leaves_with_the_room(server, tmp_path):
+    """The rally hall's YouTube Short: an iframe (the no-cookie embed, muted autoplay; stubbed by hermetic_api) in a CSS3D layer, shown from
+    the apron and the hall floor, hidden where walls would stand in front; a click on it hands the keys back to the game; gone with the room."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        into_room(page, 5, "room5")
+        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5 && window.__mm.rallyhall().video", timeout=120000)
+        page.set_viewport_size({"width": 1280, "height": 720})
+        at = lambda a, b: page.evaluate(f"() => {{ const v = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th, f = [Math.cos(th), Math.sin(th)], s = [-f[1], f[0]]; window.__mm.sim(v.x + f[0] * {a} + s[0] * {b}, v.z + f[1] * {a} + s[1] * {b}, th, 0, 1.5, [], -600); }}")
+        at(-8, -13); page.wait_for_timeout(1500)
+        front = page.evaluate("() => window.__mm.rallyhall().video")
+        box = page.locator("iframe[title^='Elfyn Evans']").bounding_box()
+        page.screenshot(path=str(tmp_path / "rallyhall-video.png"))
+        page.locator("iframe[title^='Elfyn Evans']").click(); page.wait_for_timeout(300)
+        focus = page.evaluate("() => document.activeElement === document.body || document.activeElement?.tagName !== 'IFRAME'")
+        at(0, 60); page.wait_for_timeout(800)
+        beside = page.evaluate("() => window.__mm.rallyhall().video.shown")
+        hidden = page.evaluate("() => getComputedStyle(document.querySelector(\"iframe[title^='Elfyn Evans']\")).display")
+        back_to_ring(page, 5); into_room(page, 4, "room4")   # the next spoke's room replaces the hall
+        page.wait_for_function("() => !window.__mm.rallyhall()", timeout=120000)
+        left = page.locator("iframe[title^='Elfyn Evans']").count()
+        br.close()
+    print("screenshot:", tmp_path / "rallyhall-video.png")
+    assert errors == []
+    assert front["src"].startswith("https://www.youtube-nocookie.com/embed/cZxfLJdhWk8?") and front["shown"] is True, front
+    assert box and box["width"] > 20 and box["height"] > box["width"] * 1.5 and 0 <= box["x"] and box["x"] + box["width"] <= 1280, box   # a portrait frame on screen
+    assert focus, "a click on the player must hand the keys back to the game"
+    assert beside is False and hidden == "none", (beside, hidden)
+    assert left == 0, "the iframe leaves with the room"
+
 # ---------- #489: ring 2 -- the keypad's ride, the space-station look, the walker in the cabin ----------
 
 FREIGHT_SLOW_DWELL = "() => window.__mm.liftTimes({dwell: 30, close: 0.1, ride: 0.4, open: 0.1})"

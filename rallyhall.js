@@ -18,6 +18,7 @@ export const RALLYHALL = {
   colours: { wall: 0xc9c8c2, roof: 0x8d9096, floor: 0x9b9a95, podium: 0xe6e6e2, band: 0x2c3b4d },
   board: { a: 19.34, b: 0, y0: 0.8, w: 6.0, h: 2.2, panel: 0x14171c, gold: 0xd4a83a, lines: [{ text: 'Elfyn Evans', size: 0.22, y: 0.30, weight: 800 }, { text: 'WRC World Champion 2026', size: 0.14, y: 0.58, weight: 700 }, { text: '& Scott Martin', size: 0.09, y: 0.80, weight: 600 }] },
   flags: { a: 19.25, y0: 4.6, w: 5.0, h: 3.0, gap: 1.0, list: [{ id: 'wales', src: './assets/flags/wales.svg' }, { id: 'uk', src: './assets/flags/uk.svg' }] },
+  video: { id: 'cZxfLJdhWk8', a: 19.25, b: -13, y0: 3.2, h: 5.6 },   // the WRC's Short of Evans' title day, 9:16
 };
 
 // #907: the honour board on the back wall behind the Evans car -- plain numbers in the hall frame (a into the room,
@@ -29,6 +30,23 @@ export function boardLayout(cfg = RALLYHALL) { const { a, b, y0, w, h, lines } =
 export function flagLayout(cfg = RALLYHALL) {
   const { a, y0, w, h, gap, list } = cfg.flags, step = w + gap;
   return list.map((f, i) => ({ id: f.id, src: f.src, a, b: cfg.board.b + (i - (list.length - 1) / 2) * step, y0, w, h }));
+}
+
+// the YouTube Short on the glass band left of the flags, 9:16, in the hall frame. index.html shows it as an iframe in a CSS3D
+// layer over the canvas, so nothing in the scene can hide it: it is shown only where nothing stands in between (videoShown).
+export function videoLayout(cfg = RALLYHALL) { const { a, b, y0, h } = cfg.video; return { a, b, y0, w: h * 9 / 16, h }; }
+
+// the privacy-enhanced embed, muted (browsers only autoplay muted video) and looping its one video (YouTube loops a playlist)
+export function videoEmbedUrl(id) {
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&playsinline=1&rel=0`;
+}
+
+// whether the camera at (a, b, y) in the hall frame (y above the floor) sees the back wall's glass band unblocked: under
+// the roof or on the apron, between the side walls' lines and in front of the wall. Outside that box the hall's walls,
+// the roof or the room's floor stand in between, and the iframe would draw through them.
+export function videoShown(a, b, y, cfg = RALLYHALL) {
+  const { hall: H, apron } = cfg;
+  return a > -apron.from && a < H.d / 2 - H.wall - 0.1 && Math.abs(b) <= H.w / 2 - H.wall && y > 0 && y < H.roof.y0;
 }
 
 // where the hall and its cars stand in a room ({ centre, frame: { f, v }, y } as roomLayout gives it): the hall at the
