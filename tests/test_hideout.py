@@ -940,6 +940,14 @@ def test_t1_fades_between_day_and_cave_without_a_cut_both_ways(server):
 # ---------- #361: the tunnel ring, the star of rooms, the dark switch ----------
 
 
+YOUTUBE_STUB = "<!doctype html><title>stub</title><body style='margin:0;background:#c8102e'>"
+
+
+def stub_youtube(page):
+    """The rally hall's YouTube embed answered by a plain red page, so no test reaches YouTube."""
+    page.route("https://www.youtube-nocookie.com/**", lambda route: route.fulfill(status=200, content_type="text/html", body=YOUTUBE_STUB))
+
+
 def into_room(page, k, room_id, y=-600):
     """From the ring level: drive from 45 m into spoke k past the switch (s 52)."""
     s = page.evaluate(f"() => window.__mm.spoke({k}, 45)")
@@ -1235,7 +1243,7 @@ def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(se
     vehicle file is all the room fetches; the back wall and a podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
-        requests = []
+        requests = []; stub_youtube(page)
         page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
         h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
         assert page.evaluate("() => window.__mm.rallyhall()") is None
@@ -1273,10 +1281,10 @@ def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(se
 
 
 def test_rallyhall_youtube_short_shows_on_the_back_wall_hides_outside_and_leaves_with_the_room(server, tmp_path):
-    """The rally hall's YouTube Short: an iframe (the no-cookie embed, muted autoplay; stubbed by hermetic_api) in a CSS3D layer, shown from
-    the apron and the hall floor, hidden where walls would stand in front; a click on it hands the keys back to the game; gone with the room."""
+    """The rally hall's YouTube Short: an iframe (the no-cookie embed, muted autoplay; stubbed here) in a CSS3D layer, shown from the apron
+    and the hall floor, hidden where walls would stand in front; a click on it hands the keys back to the game; gone with the room."""
     with sync_playwright() as p:
-        br, page, errors = open_page(p, server)
+        br, page, errors = open_page(p, server); stub_youtube(page)
         h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
         into_room(page, 5, "room5")
         page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5 && window.__mm.rallyhall().video", timeout=120000)
