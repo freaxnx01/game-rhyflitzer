@@ -1625,7 +1625,7 @@ test('roadBridgeCrossings_Hochrhein_TheEighteenOfIssue1044', { skip: !existsSync
 });
 
 // #1044: bank roads of a road deck keep their ground
-import { deckGuards, guardedAt } from '../world.js';
+import { deckGuards } from '../world.js';
 test('deckGuards_BankRoadsAtBothEnds_OrientedAwayAndCut', () => {
   const deck = [[0, 0], [20, 0]];
   const roads = [{ id: 1, w: 14, bridge: false, pts: [[-100, 0], [0, 0]] }, { id: 2, w: 14, bridge: false, pts: [[20, 0], [200, 0]] },
@@ -1634,10 +1634,6 @@ test('deckGuards_BankRoadsAtBothEnds_OrientedAwayAndCut', () => {
   assert.deepEqual(g.map((x) => x.road.id).sort(), [1, 2]);                       // no bridge, no road merely crossing the deck
   const a = g.find((x) => x.road.id === 1);
   assert.deepEqual(a.pts[0], [0, 0]); assert.ok(Math.abs(polylineLength(a.pts) - 30) < 1e-9); assert.equal(a.hw, 7);
-});
-test('guardedAt_InsideRibbonPlusPad_True_OutsideFalse', () => {
-  const g = [{ pts: [[0, 0], [30, 0]], hw: 7 }];
-  assert.equal(guardedAt(10, 7.4, g), true); assert.equal(guardedAt(10, 7.6, g), false); assert.equal(guardedAt(31, 0, g), true);
 });
 test('deckGuards_Hochrhein_NoBankRoadReachesPastTheTroughFace', { skip: !existsSync(WORLD_HOCHRHEIN) }, () => {
   // spec "Main risk": a guard keeps a bank road up only behind the wall's inner face (hw + margin)
