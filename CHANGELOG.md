@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-17 22:27` Mit <kbd>Ctrl</kbd> <kbd>Y</kbd> verschwinden auch die **neuen Strassen**: die Autobahn, die **Fridolinsbrücke**, die Strassen im Industriegebiet Sisslerfeld und die Quartierstrassen ohne altes Haus. Über den Rhein geht's 1952 über die **Holzbrücke**; stehst Du auf einer Strasse, die es noch nicht gab, landest Du auf der nächsten alten. Postautos fahren 1952 keine.
 - `2026-11-15 21:28` <kbd>Ctrl</kbd> <kbd>Y</kbd> zeigt die Dörfer auf der Schweizer Seite wie **1952**: Häuser, die erst später gebaut wurden, verschwinden (laut **Gebäuderegister** des Bundes); nochmals drücken bringt **heute** zurück. Mit <kbd>Ctrl</kbd> <kbd>B</kbd> dazu sieht es aus wie ein altes Foto.
 - `2026-11-15 15:15` <kbd>Ctrl</kbd> <kbd>B</kbd> zeigt die Welt in **Schwarzweiss**, wie ein **altes Foto** mit leichter Körnung und dunkleren Ecken; nochmals drücken bringt die Farbe zurück. Tacho und Karte bleiben farbig, und Fotos, die Du dabei machst, werden grau.
 - `2026-11-15 15:09` **Pressematerial** unter **rhyflitzer.ch/presse**: Bilder der Plattform Sisslerfeld und weitere Spielszenen in Druckqualität zum Herunterladen, die YouTube-Playlist und die wichtigsten Angaben zum Spiel.
