@@ -194,3 +194,27 @@ def test_a_race_in_1952_is_flagged_and_not_clean(server):
         b.close()
     assert not before["era"] and armed["era"] and rearmed["era"] and not after["era"], (before, armed, rearmed, after)
     assert page.errors == []
+
+
+@needs_world
+def test_era_hides_new_roads_and_bridge_deck(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        e0 = page.evaluate(ERA)
+        gx, gz = e0["goneSample"]; dx, dz = e0["deckSample"]
+        road0 = page.evaluate("([x, z]) => window.__mm.era().roadMeshAt(x, z)", [gx, gz])
+        deck0 = page.evaluate("([x, z]) => window.__mm.era().bridgeAt(x, z)", [dx, dz])
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        road1 = page.evaluate("([x, z]) => window.__mm.era().roadMeshAt(x, z)", [gx, gz])
+        deck1 = page.evaluate("([x, z]) => window.__mm.era().bridgeAt(x, z)", [dx, dz])
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        road2 = page.evaluate("([x, z]) => window.__mm.era().roadMeshAt(x, z)", [gx, gz])
+        deck2 = page.evaluate("([x, z]) => window.__mm.era().bridgeAt(x, z)", [dx, dz])
+        b.close()
+    assert e0["roadsHidden"] > 50, e0["roadsHidden"]
+    assert road0 and deck0, (road0, deck0)
+    assert not road1 and not deck1, (road1, deck1)
+    assert road2 and deck2, (road2, deck2)
+    assert page.errors == []
