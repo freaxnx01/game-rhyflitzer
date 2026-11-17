@@ -69,10 +69,10 @@ A crossing is a segment intersection of a **generic road deck** and a lower road
   - The bound applies to **road cuts only**: rail cuts keep their tested floors (`test_underpass.py` unchanged).
   - A cut raised by this bound may end with **< 4.5 m clearance; that is accepted** (maintainer).
 
-### Candidate crossings (18 at 12 sites → 16 cut at 10 sites)
+### Candidate crossings (18 at 12 sites → 12 cut at 7 sites)
 
 Measured on main (`clear` = deck surface − lower surface), deck end margin explained under *Main risk*. Rows 11
-and 12 fail the terrain rule; row 17 is bounded by the water rule.
+and 12 fail the terrain rule; rows 9, 10, 17 and 18 end capped and are dropped (*Dropped sites*, Task 3, 2026-11-17).
 
 | # | Site | Deck (OSM) | Lower road (OSM, cls) | x, z | clear | deck end margin |
 |---|---|---|---|---|---|---|
@@ -84,24 +84,34 @@ and 12 fail the terrain rule; row 17 is bounded by the water rule.
 | 6 | ″ | w4985551 | w969542283 primary | -628.0, 1068.3 | 4.49 | 3.8 |
 | 7 | **Kaistenbergstrasse** (A3) | w4985554 | w1238921972 tertiary | 4304.3, 4478.4 | 3.53 | 4.8 |
 | 8 | ″ | w4985555 | w1238921972 tertiary | 4297.2, 4487.3 | 3.40 | 5.8 |
-| 9 | **Gartenstrasse** (A3) | w107186388 | w345612508 service | 3913.7, 4024.3 | 2.96 | **-0.6** |
-| 10 | ″ | w107186377 | w345612508 service | 3908.5, 4036.9 | 3.14 | 1.2 |
+| ~~9~~ | **Gartenstrasse** (A3) — *dropped, capped* | w107186388 | w345612508 service | 3913.7, 4024.3 | 2.96 | **-0.6** |
+| ~~10~~ | ″ — *dropped, capped* | w107186377 | w345612508 service | 3908.5, 4036.9 | 3.14 | 1.2 |
 | ~~11~~ | **Jurastraße / Wallbacher Straße** (DE) — *skipped, no terrain data* | w25976772 | w331388063 tertiary | -2882.8, -238.0 | 0.30 | **0.0** |
 | ~~12~~ | **Basler Straße / Feldstraße** (DE) — *skipped, no terrain data* | w28810416 | w319322059 primary | -3530.7, -1955.9 | 0.30 | 1.5 |
 | 13 | **Fricktalstraße / Hebelweg** | w25976777 | w967940907 primary | -2312.1, -89.7 | 1.28 | 1.8 |
 | 14 | **Fricktalstraße / Mumpferfährstraße** | w25976788 | w967940893 primary | -2256.4, 76.4 | 2.23 | 3.4 |
 | 15 | **Vordermattweg / Bahnhofstrasse** | w40388838 | w28165755 residential | -3996.2, 498.0 | 4.10 | 4.6 |
 | 16 | **Fabrikstraße / Murgtalbrücke** | w154394930 | w1531664793 residential | 4351.6, -1189.9 | 1.88 | 11.6 |
-| 17 | **Lohgerbe** — *shallower, water bound* | w162987100 | w162941411 residential | -1550.0, -324.2 | 0.65 | 22.8 |
-| 18 | **service road under w1382546970** | w1382546970 | w1238831069 service | 1797.0, 1010.1 | 0.18 | 5.1 |
+| ~~17~~ | **Lohgerbe** — *dropped, capped* | w162987100 | w162941411 residential | -1550.0, -324.2 | 0.65 | 22.8 |
+| ~~18~~ | **service road under w1382546970** — *dropped, capped* | w1382546970 | w1238831069 service | 1797.0, 1010.1 | 0.18 | 5.1 |
 
 Sites 11 and 12 lie on the German part of the map where the DTM has no data (all 16 samples exactly 0, the deck
 flat at 0.34 m). They are **skipped and stay exactly as they are** (no cut, no walls, no deck box).
 
-**Lohgerbe becomes shallower, not dropped.** Without the water bound its floor would be `deckMin − 5.74 ≈ −1.22`,
-0.27 m above the Rhine (−1.49, 307 m away; the earlier note that it would lie ~1.2 m *below* the Rhine was wrong).
-With the bound: `f0 = −1.49 + 1.0 = −0.49`, road surface ≈ −0.45 (ground 3.87, cut depth ≈ 4.36), clearance
-(deck underside − road) ≈ **3.77 m**, below 4.5 m — accepted. No other crossing is touched by the bound.
+### Dropped sites (measured in Task 3, controller rulings 2026-11-17)
+
+A road cut whose floor still ends **capped** — after its own deck and its bank roads are kept out of the cut network —
+is **dropped**: no cut, no arms, no record; the site stays exactly as on main. A road that meets a bank road's far end
+also counts as a cap (lowering it would pull the bank road's end, and the deck seat read from it, down with it).
+
+| Site | Crossing(s) | Cap |
+|---|---|---|
+| **Gartenstrasse** (A3) | rows 9 and 10 | footbridge **w138786586** (`bridge`) starts on the service road w345612508 inside the cut, 3.4 m from the w107186377 crossing |
+| **Service road under w1382546970** | row 18 | dead end **w925856926** (21.5 m side road) inside the cut network |
+| **Lohgerbe** | row 17 | the deck's only bank road w91453296 (10.2 m) ends on **Werderstraße** (w967940928 / w153992480), which the network would lower ~3.8 m; that drops the bank road's end and lifts the deck seat (h0 6.53 → 8.26). The water bound is therefore never applied in today's world. |
+
+The water bound (`ROAD_UNDERPASS`) stays in the code: it would have raised only Lohgerbe (`f0 = −1.49 + 1.0`), and
+`__mm.roadCrossings()` reports `water` only where it raised a floor.
 
 ### Not changed
 
@@ -140,8 +150,15 @@ With the bound: `f0 = −1.49 + 1.0 = −0.49`, road surface ≈ −0.45 (ground
   only raises it further). A road cut and its arms carry `roadCut: true` and
   `guards` (the deck's `deckGuards`). Road cuts with depth > 0 join `ARMS`, so patches, walls and `openCutFaces` treat
   them like rail cuts.
-- **Bank roads keep their ground** (`cutFloorMin`): a road arm's floor does not apply at a point that is `guardedAt`
-  and lies outside the arm's inner wall face (`hw + margin`). Inside the trough the floor always wins.
+- **Cut network of a road cut:** the deck's own road and its bank roads are kept out of `cutNetwork`'s road set (never
+  arms, never caps). A road that meets a bank road's far end counts as a cap. A cut still capped is dropped.
+- **Bank roads keep their ground** (`cutFloorMin`, every road arm against **all** road cuts' bank roads — the
+  Zürcherstrasse cut under w4988444 runs on under w4985551's bank road): a road arm's floor does not apply at a point
+  that is `guardedAt` and lies outside the arm's inner wall face (`hw + margin`), nor at a patch vertex within
+  `hw + PATCH_BLEED` of a bank road's centre line, measured on the line extended `PATCH_BLEED` back under the deck
+  (no round cap). `PATCH_BLEED` (√2 · 0.5 m, a cut cell's diagonal) is how far one patch triangle carries a lowered
+  vertex; keeping every vertex that close at its ground keeps the bank ribbon's edge vertices — and so `ribbonLift`
+  and the second seat pass — exactly as on main (measured: without it w4985551 h1 drops 23.75 → 23.54).
 - **Walls:** the per-road wall runs ignore, as blocking "other roads", the decks over that road's road cuts and their
   guard roads (otherwise every run stops 8 m short of an A3 deck and the trough under it is open). A wall piece under
   a road deck uses the same `decksOver` rule as under a rail deck (top at the deck underside); a piece under a guard
@@ -151,7 +168,7 @@ With the bound: `f0 = −1.49 + 1.0 = −0.49`, road surface ≈ −0.45 (ground
   under the driven surface and `UNDERPASS.deck` (1.2 m) deep, as wide as the existing ledge (`r.w + 1.2`) — the
   concrete portal. Without it the deck is a set of upward-facing strips, invisible from the trough.
 - **Debug API:** `__mm.roadCrossings()` (shape of `__mm.crossings()` minus `railGap`, plus `roadId`, `deckId`,
-  `water` (the level that bounded the floor, else null), `guardDepth` = the deepest lowering under the deck's guard roads' centre lines), `__mm.roadWalls()`,
+  `water` (the level that bounded the floor, else null), `guardDepth` = the deepest lowering under the deck's guard roads' centre lines **by road cuts** — points a rail arm's patch reaches (its `lat` + `PATCH_BLEED`) are left out: Vordermattweg's bank road ends in the Kapfstrasse rail cut, 0.65 m deep on main), `__mm.roadWalls()`,
   `__mm.rayHits(x, z, from = 2000)` (optional ray start height, so a ray can start under a deck).
 
 ## Main risk: the deck's own seat
@@ -177,17 +194,20 @@ extended instead — out of scope until it happens.
 1. `roadBridgeCrossings` on `world_hochrhein.json` returns the 18 candidate pairs of the table (+ the 6 with enough
    headroom); `terrainHasData` is false at exactly rows 11 and 12; among the other 16, `nearbyWaterLevel` is
    non-null only at Lohgerbe (−1.49).
-2. `__mm.roadCrossings()` has **16** cuts with depth > 0 and no record at rows 11 / 12. Every one except Lohgerbe has
-   `clearance ≥ 4.45` or `depth ≥ 5.99`; none is `capped` or `unsettled`; `guardDepth ≤ 0.05`.
+2. `__mm.roadCrossings()` has **12** cuts with depth > 0 and no record at rows 11 / 12. Every one has
+   `clearance ≥ 4.45` or `depth ≥ 5.99` and `water` null; none is `capped` or `unsettled`; `guardDepth ≤ 0.05`.
+   - **Dropped sites unchanged:** rows 9, 10, 17, 18 have no record with depth > 0 and `__mm.cutDepth` = 0 at the
+     crossing.
    - **Missing terrain unchanged:** at Jurastraße (-2882.8, -238.0) and Basler Straße (-3530.7, -1955.9)
-     `__mm.ground(x, z, -1e4)` = 0.04 ± 0.02 and `__mm.cutDepth(x, z)` = 0 at the crossing and every 5 m to ±30 m
-     along the lower road; no `__mm.roadWalls()` piece within 30 m.
-   - **Lohgerbe pinned:** `water` = −1.49 ± 0.05, road surface under the deck −0.45 ± 0.15, clearance 3.77 ± 0.2,
-     depth ≥ 4.0, not capped.
+     `__mm.cutDepth(x, z)` = 0 at the crossing and every 5 m to ±30 m along the lower road, `__mm.ground(x, z, -1e4)`
+     = 0.04 ± 0.02 within ±15 m (Jurastraße reaches measured terrain 20-30 m north); no `__mm.roadWalls()` piece
+     within 30 m.
+   - **Lohgerbe as on main:** no record, `cutDepth` 0 at the crossing and along Werderstraße within 40 m of the deck
+     end.
 3. **Rütistrasse:** clearance ≥ 4.45 (≥ 4 m was the floor asked for) at both decks; the road surface under both decks
    is 16.0 ± 0.5; along the road from z 1060 to 1140 the drivable top never exceeds 17.0 and no 1 m step exceeds 0.3 m.
    A car starting at (-871.3, 1074) on the road at **13.9 m/s (50 km/h)** holding W passes z 1135 within 6 s, never on
-   a deck, never above y 17.5.
+   a deck, never above y 17.5 while z ≤ 1140 (past it the road climbs the natural hill).
 4. Deck seats of the baseline decks above stay within 0.1 m.
 5. Visual, at both Rütistrasse crossings: the drawn deck clears the drawn road,
    `rayHits(x, z).stone − rayHits(x, z, deck − 1.3).roadOsm ≥ 1.2 + 4.45 − 0.1` (the second ray starts under the deck
@@ -199,6 +219,6 @@ extended instead — out of scope until it happens.
 
 ## Sites expected to change visibly
 
-The 10 sites with a cut (16 crossings). Most visible: Rütistrasse (5.4 m deep, the reported bug), the service
-road at 1797 / 1010 (~5.6 m), Fricktalstraße / Hebelweg (~4.5 m), Lohgerbe (~4.4 m, bounded by the Rhine level).
-Jurastraße and Basler Straße do not change. Zürcherstrasse and Vordermattweg change least (~1.3-1.8 m).
+The 7 sites with a cut (12 crossings). Most visible: Rütistrasse (5.5 m deep, the reported bug), Fricktalstraße /
+Hebelweg (~4.5 m), Fabrikstraße / Murgtalbrücke (~4.2 m). Jurastraße, Basler Straße and the dropped sites
+(Gartenstrasse, Lohgerbe, the service road at 1797 / 1010) do not change. Zürcherstrasse and Vordermattweg change least (~1.3-1.8 m).
