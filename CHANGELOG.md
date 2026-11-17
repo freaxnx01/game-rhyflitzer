@@ -45,6 +45,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-17 17:25` Auf dem Kiesplatz der **Plattform Sisslerfeld** sind die **weissen Parkplatz-Linien** weg.
 - `2026-11-16 16:55` In der **Rallye-Halle** steht jetzt auf allen drei Podesten der **Rhy Rally** statt der Klötzchen-Autos: hellblau für Neuville, **rot** für Evans und **dunkelblau** für McRae.
 - `2026-11-13 21:29` Die **Sprungschanze** wirft das Auto jetzt richtig in die Luft: rund **2 m über die Kante** hinaus, statt nur darüber abzukippen.
 - `2026-11-12 17:22` On the **Plattform deck** <kbd>E</kbd> now always goes **down**; the **Verein Plattform Sisslerfeld** line sits under that prompt and opens its **website** with <kbd>V</kbd> (or a click / tap).

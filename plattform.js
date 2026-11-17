@@ -21,7 +21,6 @@ export const PLATTFORM = {
   roof: { side: 12.10, eaves: 8.2, pitch: 45 },
   slab: { side: 12.03 },
   yard: { u0: -12.5, u1: 7.47, v0: -16.5, v1: 9.5 },        // KSL: north edge = the road edge (4 m + inradius 3.47 north of the centroid), 20 m deep, 26 m wide
-  parking: { n: 6, w: 2.5, d: 5, v0: -16.5, u1: 2.47 },     // KSL: 6 spaces 2.50 x 5.00 along the west edge, below a 5 m strip at the road
   entranceR: 2.0,
 };
 const RAD = Math.PI / 180;
@@ -145,12 +144,11 @@ export function plattformCoreCollider(frame, base, P = PLATTFORM) {
   return { x: frame.x, z: frame.z, hw: r, hd: r, c: 1, s: 0, h: base + P.roof.eaves, circle: r, carOnly: true };
 }
 
-// the KSL situation plan's yard: the gravel rectangle and the six parking spaces, as world polygons
+// the KSL situation plan's yard: the gravel rectangle, as a world polygon
 export function plattformYard(frame, P = PLATTFORM) {
-  const { yard: g, parking: k } = P;
+  const { yard: g } = P;
   const rect = (u0, u1, v0, v1) => [frame.toWorld(u1, v0), frame.toWorld(u1, v1), frame.toWorld(u0, v1), frame.toWorld(u0, v0)];
-  const parking = Array.from({ length: k.n }, (_, i) => rect(k.u1 - (i + 1) * k.w, k.u1 - i * k.w, k.v0, k.v0 + k.d));
-  return { gravel: rect(g.u0, g.u1, g.v0, g.v1), parking };
+  return { gravel: rect(g.u0, g.u1, g.v0, g.v1) };
 }
 
 // #855: the core as single spruce slats, one per angle: from the ground (the door lintel inside the door) up to the deck, and
