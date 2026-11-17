@@ -66,7 +66,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
-- `2026-11-17 20:26` Im **Fahrzeug-Depot** warten die hinteren Plätze unter **Autoplanen** statt unter grauen Klötzen: eine übergeworfene Plane mit **Dach** und **Reifen** darunter, für Autos und für Busse und Laster.
+- `2026-11-17 20:26` Im **Fahrzeug-Depot** warten die hinteren Plätze unter **Autoplanen** statt unter grauen Klötzen: eine übergeworfene Plane mit Dach und Reifen darunter, für Autos und für Busse und Laster.
 - `2026-11-17 17:25` Auf dem Kiesplatz der **Plattform Sisslerfeld** sind die **weissen Parkplatz-Linien** weg.
 - `2026-11-17 12:01` Die **Lieferung** startet in einer Schweizer Pizzeria und beliefert vor allem die Schweizer Seite, mit gelegentlicher Fahrt nach Bad Säckingen. Jede Bestellung nennt **Strasse und Ort**; Schulen, Bahnhöfe, das Hallenbad, der Werkhof und Turnhallen sind häufige Kunden.
 - `2026-11-16 16:55` In der **Rallye-Halle** steht jetzt auf allen drei Podesten der **Rhy Rally** statt der Klötzchen-Autos: hellblau für Neuville, **rot** für Evans und **dunkelblau** für McRae.

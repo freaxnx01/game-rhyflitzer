@@ -7547,7 +7547,7 @@ function stepDepot() {
   for (const c of covers) c.visible = show;
   let moved = false;
   DEPOT_S.slots.forEach((sl, i) => {
-    const hide = sl.id === CHOICE.id || DEPOT_S.built.has(sl.id);   // the driven car's slot stands empty, a real model covers its own box
+    const hide = sl.id === CHOICE.id || DEPOT_S.built.has(sl.id);   // the driven car's slot stands empty, a real model takes its own cover's place
     if (hide === DEPOT_S.boxHidden[i]) return;
     DEPOT_S.boxHidden[i] = hide;
     const [kind, at] = DEPOT_S.boxAt[i];
