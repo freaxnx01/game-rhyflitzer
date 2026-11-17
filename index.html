@@ -7417,7 +7417,7 @@ function toggleEra() {   // #530: Ctrl+Y -- the Swiss villages as in 1952, and b
   ERA.on = !ERA.on; if (ERA.on && (R.state === 'racing' || R.state === 'armed')) R.era = true; ERA.group.visible = !ERA.on; for (const o of ERA.solids) o.off = ERA.on;
   if (!ERA.on && !FLY.on && LEVELS.isSurface() && !caveInside() && ERA.solids.some(o => solidHolds(o, P.x, P.z))) { const best = nearestJumpable(P.x, P.z); if (best) placeOnRoad(best.x, best.z, P.th, 'era'); }   // back inside a reappearing building: out to the road, like a J jump
   let moved = false;
-  if (ERA.on && wasGone && !FLY.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) { placeOnRoad(best.x, best.z, P.th, 'era'); moved = true; } }   // standing on a road of today: to the nearest old one
+  if (ERA.on && wasGone && !FLY.on && !FOOT.on && !TRAIN.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) { placeOnRoad(best.x, best.z, P.th, 'era'); moved = true; } }   // standing on a road of today: to the nearest old one
   if (AUTOP.graphs.today || AUTOP.graphs.era) autoGraph();   // AUTOP.graph / .streets follow the layer
   paintMapStatic();   // the minimap drops the hidden buildings and roads
   toast(tr(ERA.on ? (moved ? 'eraRoadGone' : 'eraOn') : 'eraOff'));
