@@ -1580,7 +1580,7 @@ function makeCut(c, deck = RAIL_DECKS[c.bridge], minFloor = -Infinity, skip = ne
 // from their own array: CUTS stays rail-only for __mm.crossings and the #119 walls. Built on the measured terrain only -- the
 // made-up hills have no Hübel.
 const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...caveCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, lidTris: 0, floorTris: 0, lidCells: new Set(), floor: null, ring: {}, rooms: null, lights: [] }; })() : null;
-// the rail arms (ARMS) plus the hideout's cuts: everything that lowers the patches
+// the rail and road arms (ARMS) plus the hideout's cuts: everything that lowers the patches
 const patchCuts = () => HIDE ? [...ARMS, ...HIDE.cuts.filter((c) => c.depth > 0)] : ARMS;
 // #1044: a patch triangle carries a lowered vertex at most PATCH_BLEED (a cut cell's diagonal) on, so the bank road's ribbon (and the
 // deck seat read from it) stays on the ground only if every vertex within hw + PATCH_BLEED of it does -- also the PATCH_BLEED behind its
@@ -1621,10 +1621,11 @@ function buildCuts() {
     const meetsFar = (r) => far.some(([fx, fz]) => nearestOnPolyline(r.pts, fx, fz).d < 0.6);
     if (!cut.capped) { const a = [cut, ...cut.arms].find((a) => meetsFar(a.road)); if (a) cut.capped = { x: a.x, z: a.z, kind: 'bank' }; }
     if (cut.capped) { console.warn(`road underpass at ${c.road.n || c.road.id} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): capped (${cut.capped.kind}), no cut`); continue; }   // #1044: a capped road cut is dropped, the site stays as it was
-    cut.roadCut = true; cut.guards = guards; cut.water = cut.raised ? level : null; ROAD_GUARDS.push(...guards);
+    cut.roadCut = true; cut.guards = guards; cut.water = cut.raised ? level : null;
     for (const a of cut.arms) { a.roadCut = true; a.guards = cut.guards; }
     ROAD_CUTS.push(cut);
   }
+  for (const d of new Set(ROAD_CUTS.map((c) => c.deck))) ROAD_GUARDS.push(...ROAD_CUTS.find((c) => c.deck === d).guards);   // each kept deck's bank roads once
   for (const c of [...CUTS, ...ROAD_CUTS]) if (c.depth > 0) for (const a of [c, ...c.arms]) { a.lat = a.hw + UNDERPASS.margin + UNDERPASS.wall - PATCH_BLEED; a.bounds = cutBounds(a); ARMS.push(a); }
   const G = TGRID, W = CUT_N + 1;
   if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);

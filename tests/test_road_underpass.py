@@ -136,7 +136,7 @@ def test_lohgerbe_stays_as_it_was(server):
               for q in along(r["pts"], r["pts"][0], range(0, 400)) if math.hypot(q[0] - LOHGERBE_DECK_END[0], q[1] - LOHGERBE_DECK_END[1]) <= 40]
 
     def script(page):
-        return {"xs": page.evaluate("() => window.__mm.roadCrossings()"), "seats": page.evaluate("() => window.__mm.genericBridges()"),
+        return {"xs": page.evaluate("() => window.__mm.roadCrossings()"),
                 "here": page.evaluate(f"() => window.__mm.cutDepth({LOHGERBE[0]}, {LOHGERBE[1]})"),
                 "werder": page.evaluate("(ps) => ps.map(([x, z]) => window.__mm.cutDepth(x, z))", werder)}
     r = run(server, script)
@@ -144,7 +144,13 @@ def test_lohgerbe_stays_as_it_was(server):
     assert not [c for c in r["xs"] if near(c, LOHGERBE)], [c for c in r["xs"] if near(c, LOHGERBE)]
     assert r["here"] == 0, r["here"]
     assert max(r["werder"]) == 0, max(r["werder"])
-    seats = {b["id"]: (b["h0"], b["h1"]) for b in r["seats"] if b["id"] in SEATS}
+
+
+@needs_world
+def test_deck_seats_stay(server):
+    """The bank roads keep their ground, so the second seat pass seats every baseline deck as on main."""
+    gb = run(server, lambda page: page.evaluate("() => window.__mm.genericBridges()"))
+    seats = {b["id"]: (b["h0"], b["h1"]) for b in gb if b["id"] in SEATS}
     print("seats:", seats)
     assert set(seats) == set(SEATS), seats
     bad = {i: (seats[i], SEATS[i]) for i in SEATS if abs(seats[i][0] - SEATS[i][0]) > 0.1 or abs(seats[i][1] - SEATS[i][1]) > 0.1}
