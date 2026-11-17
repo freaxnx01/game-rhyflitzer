@@ -1654,3 +1654,39 @@ test('deckGuards_Hochrhein_NoBankRoadReachesPastTheTroughFace', { skip: !existsS
       }
   }
 });
+
+// #1044: missing terrain and the water level
+import { terrainHasData, nearbyWaterLevel, ROAD_UNDERPASS } from '../world.js';
+test('terrainHasData_NoMmh_False_AllZeroBlock_False_RealBlock_True', () => {
+  const hdr = { x0: 0, z0: 0, step: 8, w: 8, h: 8 }, data = new Float32Array(64).fill(3.2);
+  assert.equal(terrainHasData(null, 20, 20), false);
+  assert.equal(terrainHasData({ hdr, data }, 20, 20), true);
+  data.fill(0); assert.equal(terrainHasData({ hdr, data }, 20, 20), false);
+  data.fill(3.2); for (const k of [9, 10, 11, 17, 18, 19, 25]) data[k] = 0;      // 7 of the 16 around (20, 20): still data
+  assert.equal(terrainHasData({ hdr, data }, 20, 20), true);
+});
+test('nearbyWaterLevel_NearestLargePolygonWithinRadius', () => {
+  const sq = (x, z, s, level) => ({ level, rings: [[[x, z], [x + s, z], [x + s, z + s], [x, z + s]]] });
+  const water = [sq(100, 0, 5, 9), sq(300, 0, 40, -1.5), sq(500, 0, 40, 7)];   // pond (25 m²) nearer, river 300 m, lake 500 m
+  assert.equal(nearbyWaterLevel(water, 0, 0), -1.5);
+  assert.equal(nearbyWaterLevel(water, 0, 0, { ...ROAD_UNDERPASS, waterRadius: 250 }), null);
+  assert.equal(nearbyWaterLevel(water, 310, 10), -1.5);                          // inside counts as 0 m
+});
+const TERRAIN_HOCHRHEIN = new URL('../data/terrain_hochrhein.mmh', import.meta.url);
+test('roadUnderpassConditions_Hochrhein_TwoNoDataSitesAndLohgerbeOnly', { skip: !existsSync(WORLD_HOCHRHEIN) || !existsSync(TERRAIN_HOCHRHEIN) }, () => {
+  const w = JSON.parse(readFileSync(WORLD_HOCHRHEIN)), buf = readFileSync(TERRAIN_HOCHRHEIN);   // MMH1, u32 header length, JSON header, Float32 samples
+  assert.equal(buf.toString('latin1', 0, 4), 'MMH1');
+  const n = buf.readUInt32LE(4), hdr = JSON.parse(buf.toString('utf8', 8, 8 + n));
+  const data = new Float32Array(buf.buffer.slice(buf.byteOffset + 8 + n, buf.byteOffset + 8 + n + hdr.w * hdr.h * 4)), mmh = { hdr, data };
+  const L = layoutFromWorld(w), decks = L.roads.filter((r) => r.bridge);
+  const cs = roadBridgeCrossings(L.roads, decks.map((r) => ({ pts: r.pts, layer: r.layer ?? 0 })))
+    .filter((c) => ISSUE_1044_PAIRS.some(([b, r]) => decks[c.bridge].id === b && c.road.id === r));
+  assert.equal(cs.length, 18);
+  const noData = cs.filter((c) => !terrainHasData(mmh, c.x, c.z));
+  assert.deepEqual(noData.map((c) => decks[c.bridge].id).sort(), [25976772, 28810416]);
+  const wet = cs.filter((c) => terrainHasData(mmh, c.x, c.z)).map((c) => [decks[c.bridge].id, nearbyWaterLevel(w.water, c.x, c.z)]).filter(([, lv]) => lv !== null);
+  // large water within 400 m at three sites; the floor is raised only at Lohgerbe (checked in Task 3)
+  const want = new Map([[162987100, -1.49], [25976788, -2], [40388838, -2.36]]);
+  assert.deepEqual(wet.map(([id]) => id).sort(), [...want.keys()].sort());
+  for (const [id, lv] of wet) assert.ok(Math.abs(lv - want.get(id)) <= 0.01, `${id}: ${lv}`);
+});

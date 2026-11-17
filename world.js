@@ -196,6 +196,33 @@ export function deckGuards(deckPts, roads, reach = 30) {
 }
 export function guardedAt(x, z, guards, pad = 0.5) { return guards.some((g) => nearestOnPolyline(g.pts, x, z).d <= g.hw + pad); }
 
+// #1044: an underpass needs measured terrain (an all-zero block is the world file's no-data fill) and a floor above the nearby water
+export const ROAD_UNDERPASS = { waterRadius: 400, waterArea: 1000, waterMargin: 1.0 };
+export function terrainHasData(mmh, x, z) {
+  if (!mmh) return false;
+  const { hdr, data } = mmh, i0 = Math.floor((x - hdr.x0) / hdr.step) - 1, j0 = Math.floor((z - hdr.z0) / hdr.step) - 1;
+  let zeros = 0;
+  for (let j = j0; j < j0 + 4; j++) for (let i = i0; i < i0 + 4; i++)
+    if (data[Math.max(0, Math.min(hdr.h - 1, j)) * hdr.w + Math.max(0, Math.min(hdr.w - 1, i))] === 0) zeros++;
+  return 16 - zeros >= 8;
+}
+function ringDistance(ring, x, z) {
+  if (inRing(ring, x, z)) return 0;
+  let best = Infinity;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) best = Math.min(best, nearestOnPolyline([ring[j], ring[i]], x, z).d);
+  return best;
+}
+function ringArea(ring) { let s = 0; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) s += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]; return Math.abs(s) / 2; }
+export function nearbyWaterLevel(water, x, z, u = ROAD_UNDERPASS) {
+  let best = null, bd = u.waterRadius;
+  for (const w of water) {
+    if (ringArea(w.rings[0]) < u.waterArea) continue;
+    const d = ringDistance(w.rings[0], x, z);
+    if (d <= bd) { bd = d; best = w.level ?? 0; }
+  }
+  return best;
+}
+
 export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidth / Math.max(0.3, sin) + u.apron; }
 
 // #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at
