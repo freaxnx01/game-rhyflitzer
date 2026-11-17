@@ -20,6 +20,9 @@
   - „Night Drive" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Hurricane Bloom" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Celtic Jig of Iron" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Stadium Scale" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Unison Riff" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Motores Relentless" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Menu / Running Title" by Rob Bery · Rob Bery Art (OpenGameArt user R0B B3RY), https://opengameart.org/content/menu-running-title, CC0 (re-encoded to 128 kbps)
 - Flags in the rally hall (`assets/flags/`, see its LICENSE.md): Flag of Wales by Tobias Jakobs (Open Clipart Library) via Wikimedia Commons, public domain; Union Jack, public domain
 - Rally hall videos: „A day that Elfyn Evans & Scott Martin will never forget" by FIA World Rally Championship (https://www.youtube.com/shorts/cZxfLJdhWk8), and „wrc rally Sweden 2026 Elfyn Evans faster passage" by wrcfans (https://www.youtube.com/shorts/RFIVbPT6pdI), both embedded with YouTube's own player (youtube-nocookie.com), not re-hosted

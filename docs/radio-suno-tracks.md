@@ -26,6 +26,9 @@ ist aus der Erstellungszeit der Suno-Dateien abgeleitet (2026-11-15), nicht noti
 | Phil Carmen – On My Way in L.A. | Open Road | `open-road.mp3` |
 | Justice feat. Tame Impala / SZA / King Gizzard & the Lizard Wizard – Flower in a Hurricane | Hurricane Bloom | `hurricane-bloom.mp3` (Suno-Titel «Untitled») |
 | Metallica – Whiskey in the Jar | Celtic Jig of Iron | `celtic-jig-of-iron.mp3` |
+| Linkin Park – New Divide (Live in Red Square 2011) | Stadium Scale | `stadium-scale.mp3` |
+| Linkin Park – Heavy Is the Crown (Live) | Unison Riff | `unison-riff.mp3` |
+| WRC Theme Song (2022 – heute) | Motores Relentless | `motores-relentless.mp3` (59 s) |
 
 ### Prompts
 
@@ -79,6 +82,29 @@ Thin-Lizzy- und Metallica-Fassung nicht, darum verlangt der Prompt eine eigene M
 instrumental only, no vocals, no singing, no rap, late-90s heavy hard rock with Irish folk flavour, original harmonized twin lead guitar melody in a Celtic jig feel, chunky palm-muted rhythm guitars, driving bass, big tight rock drums, rowdy drinking-song swagger, rousing guitar solo, live pub-rock energy, 120 bpm, proud and wild, purely instrumental
 ```
 
+**Stadium Scale** (wie Linkin Park – New Divide, Live in Red Square 2011):
+
+```text
+instrumental only, no vocals, no singing, no rap, late-2000s alternative rock with electronic layers, shimmering synth arpeggio intro, massive distorted wall-of-guitars chorus, punchy tight drums, deep pulsing bass, cinematic blockbuster scale, soaring melodic lead guitar replacing the vocal line, big stadium live sound with crowd ambience, 115 bpm, epic and defiant, purely instrumental
+```
+
+**Unison Riff** (wie Linkin Park – Heavy Is the Crown, live; eine Live-Variante zu Rising Tension):
+
+```text
+instrumental only, no vocals, no singing, no rap, 2020s nu-metal anthem played live in an arena, heavy downtuned riffs, glitchy distorted synth stabs, thunderous live drums with big fills, sub bass drops, call-and-response guitar hooks, roaring crowd ambience, raw stadium mix, explosive breakdown before the last chorus, 150 bpm half-time feel, dark and triumphant, purely instrumental
+```
+
+**Motores Relentless** (wie die WRC-Titelmusik 2022 – heute; der Prompt entstand nach Titel und Genre, ohne Anhören):
+
+```text
+instrumental only, no vocals, no singing, no rap, modern motorsport TV broadcast theme, hybrid of epic cinematic orchestra and aggressive electronic rock, pounding big drums and taiko hits, gritty distorted synth bass pulse, heavy palm-muted guitar chugs, bold brass stabs, sweeping string ostinato, whooshes and risers like a car flying past, short punchy intro into a high-octane main theme, gravel-and-dust rally energy, 128 bpm, triumphant and relentless, purely instrumental
+```
+
 ## Todo
 
-Keine offenen Tracks.
+[ ] **1.** Wie **Loud Luxury feat. Brando – Body** erzeugen (für Rhyflitzer FM Cruise). Das Original lebt vom Gesang,
+ohne Stimme trägt der gezupfte Synth-Hook:
+
+```text
+instrumental only, no vocals, no singing, no rap, late-2010s deep progressive house, bouncy plucked synth lead hook, warm rolling bassline, four-on-the-floor kick with crisp claps and shakers, airy filtered pads, sunny summer festival vibe, long filter-sweep build into a feel-good drop, 122 bpm, carefree and groovy, purely instrumental
+```

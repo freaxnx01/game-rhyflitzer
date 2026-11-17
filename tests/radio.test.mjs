@@ -12,11 +12,11 @@ test('SRF3_URL_IsTheHttpsStream_NotTheShortLink', () => {
   assert.deepEqual(STATIONS, ['mix', 'rock', 'cruise', 'srf3', 'argovia']);
 });
 
-test('TRACKS_AreTheFifteenCommittedFiles_WithLicences', () => {
+test('TRACKS_AreTheEighteenCommittedFiles_WithLicences', () => {
   assert.deepEqual(TRACKS.map(t => t.id), ['cool-rider', 'neon-afterglow', 'california-snares-and-synths', 'menu-running-title',
     'soft-rock-groove', 'melrose-place-soft-rock', 'gritty-riffing',
     'fuzz-riff-breakdown', 'pulsing-arpeggio', 'pulsing-arpeggio-take-2', 'rising-tension', 'open-road', 'night-drive',
-    'hurricane-bloom', 'celtic-jig-of-iron']);
+    'hurricane-bloom', 'celtic-jig-of-iron', 'stadium-scale', 'unison-riff', 'motores-relentless']);
   for (const t of TRACKS) {
     assert.equal(t.src, `assets/music/${t.id}.mp3`);
     assert.ok(existsSync(new URL(`../${t.src}`, import.meta.url)), t.src);
@@ -152,7 +152,7 @@ const ids = (station) => FM[station].tracks.map(i => TRACKS[i].id);
 test('FM_RockAndCruise_SplitTheTracks_MixHasThemAll', () => {
   assert.deepEqual(Object.keys(FM), ['mix', 'rock', 'cruise']);
   assert.deepEqual(ids('rock'), ['cool-rider', 'gritty-riffing', 'fuzz-riff-breakdown', 'pulsing-arpeggio', 'pulsing-arpeggio-take-2', 'rising-tension',
-    'hurricane-bloom', 'celtic-jig-of-iron']);
+    'hurricane-bloom', 'celtic-jig-of-iron', 'stadium-scale', 'unison-riff', 'motores-relentless']);
   assert.deepEqual(ids('cruise'), ['neon-afterglow', 'california-snares-and-synths', 'menu-running-title', 'soft-rock-groove', 'melrose-place-soft-rock',
     'open-road', 'night-drive']);
   assert.deepEqual(FM.mix.tracks, TRACKS.map((_, i) => i));
