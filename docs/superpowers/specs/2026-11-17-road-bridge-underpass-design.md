@@ -62,8 +62,9 @@ A crossing is a segment intersection of a **generic road deck** and a lower road
     water. 56 of the 176 polygons pass.
   - *400 m:* the Rhine valley-floor band, where the ground lies only a few metres above the river (Lohgerbe: ground
     3.87, Rhine −1.49). Every other candidate has either no large water within 400 m or a floor ≥ 4 m above it
-    (Fricktalstraße / Mumpferfährstraße: floor 2.45, Rhine −2.00 at 339 m; Vordermattweg: 8.15 vs −2.36 at 168 m),
-    so the radius changes only Lohgerbe.
+    (Fricktalstraße / Mumpferfährstraße: floor 2.45, Rhine −2.00 at 339 m; Vordermattweg: 8.15 vs −2.36 at 168 m).
+    The lookup is non-null at three decks (w162987100 Lohgerbe −1.49, w25976788 −2.00, w40388838 −2.36), but the bound
+    changes the floor only at Lohgerbe -- which is dropped (capped), so today it changes nothing.
   - *+1.0 m:* the polygon `level` is one static surface per water body (the shoreline on the survey day). The cut
     floor carries ~0.5 m of road structure and should still lie above a river running ~0.5 m higher than surveyed.
   - The bound applies to **road cuts only**: rail cuts keep their tested floors (`test_underpass.py` unchanged).
@@ -193,7 +194,8 @@ extended instead — out of scope until it happens.
 
 1. `roadBridgeCrossings` on `world_hochrhein.json` returns the 18 candidate pairs of the table (+ the 6 with enough
    headroom); `terrainHasData` is false at exactly rows 11 and 12; among the other 16, `nearbyWaterLevel` is
-   non-null only at Lohgerbe (−1.49).
+   non-null at three decks (w162987100 Lohgerbe −1.49, w25976788 −2.00, w40388838 −2.36), and the bound raises the
+   floor only at Lohgerbe (dropped, so no kept cut is raised).
 2. `__mm.roadCrossings()` has **12** cuts with depth > 0 and no record at rows 11 / 12. Every one has
    `clearance ≥ 4.45` or `depth ≥ 5.99` and `water` null; none is `capped` or `unsettled`; `guardDepth ≤ 0.05`.
    - **Dropped sites unchanged:** rows 9, 10, 17, 18 have no record with depth > 0 and `__mm.cutDepth` = 0 at the

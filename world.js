@@ -183,7 +183,7 @@ export function roadBridgeCrossings(roads, decks) {
 }
 
 // #1044: ground roads that end on a road deck's end keep their ground (the cut under the deck must not eat the bank road); pts run
-// away from the deck, cut to `reach` m. guardedAt: inside such a road's ribbon + pad
+// away from the deck, cut to `reach` m
 export function deckGuards(deckPts, roads, reach = 30) {
   const ends = [deckPts[0], deckPts[deckPts.length - 1]], near = (p) => ends.some((e) => Math.hypot(p[0] - e[0], p[1] - e[1]) <= 0.5), out = [];
   for (const road of roads) {
@@ -194,7 +194,6 @@ export function deckGuards(deckPts, roads, reach = 30) {
   }
   return out;
 }
-export function guardedAt(x, z, guards, pad = 0.5) { return guards.some((g) => nearestOnPolyline(g.pts, x, z).d <= g.hw + pad); }
 
 // #1044: an underpass needs measured terrain (an all-zero block is the world file's no-data fill) and a floor above the nearby water
 export const ROAD_UNDERPASS = { waterRadius: 400, waterArea: 1000, waterMargin: 1.0 };
