@@ -135,7 +135,7 @@ def test_menu_song_plays_on_into_the_run_then_hands_over_to_rhyflitzer_fm(server
         assert r["carry"] and r["playing"]["menu"] and not r["playing"]["fm"], r
         assert r["menuAt"] >= at and r["src"]["menu"].endswith("pulsing-arpeggio.mp3"), (at, r)   # same element, same place in the song
         assert "Pulsing Arpeggio" in page.evaluate("() => window.__mm.toast().text")
-        page.evaluate("() => window.__mm.radioSeekMenuEnd()")
+        page.evaluate("() => window.__mm.radioEndMenuSong()")
         page.wait_for_function("() => !window.__mm.radio().carry && window.__mm.radio().playing.fm && !window.__mm.radio().playing.menu", timeout=T)
         r = radio(page)
         assert r["station"] == "mix" and r["track"] == 0, r   # shuffle off: the mix opens with track 0, Cool Rider
