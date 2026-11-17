@@ -204,10 +204,12 @@ def test_era_hides_new_roads_and_bridge_deck(server):
         gx, gz = e0["goneSample"]; dx, dz = e0["deckSample"]
         road0 = page.evaluate("([x, z]) => window.__mm.era().roadMeshAt(x, z)", [gx, gz])
         deck0 = page.evaluate("([x, z]) => window.__mm.era().bridgeAt(x, z)", [dx, dz])
+        mesh0 = page.evaluate("([x, z]) => window.__mm.era().meshAt(x, z)", [dx, dz])
         page.keyboard.press("Control+y")
         page.wait_for_function("() => window.__mm.era().on", timeout=60000)
         road1 = page.evaluate("([x, z]) => window.__mm.era().roadMeshAt(x, z)", [gx, gz])
         deck1 = page.evaluate("([x, z]) => window.__mm.era().bridgeAt(x, z)", [dx, dz])
+        mesh1 = page.evaluate("([x, z]) => window.__mm.era().meshAt(x, z)", [dx, dz])
         page.keyboard.press("Control+y")
         page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
         road2 = page.evaluate("([x, z]) => window.__mm.era().roadMeshAt(x, z)", [gx, gz])
@@ -216,5 +218,83 @@ def test_era_hides_new_roads_and_bridge_deck(server):
     assert e0["roadsHidden"] > 50, e0["roadsHidden"]
     assert road0 and deck0, (road0, deck0)
     assert not road1 and not deck1, (road1, deck1)
+    assert mesh0 and not mesh1, (mesh0, mesh1)
     assert road2 and deck2, (road2, deck2)
+    assert page.errors == []
+
+
+def toast_text(page):
+    return page.evaluate("() => window.__mm.toast().text")
+
+
+def car_of(page):
+    return page.evaluate("() => window.__mm.car()")
+
+
+@needs_world
+def test_era_road_gone_moves_car_off_street(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        gx, gz = page.evaluate(ERA)["goneSample"]
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", [gx, gz])
+        assert page.evaluate(ERA)["goneHere"], "the sample lies on a road gone in 1952"
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        toast = toast_text(page)
+        car = car_of(page); e = page.evaluate(ERA)
+        ground = page.evaluate("([x, z]) => window.__mm.probe(x, z).terrain", [car["x"], car["z"]])
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        car2 = car_of(page); toast2 = toast_text(page)
+        b.close()
+    assert "did not exist" in toast, toast
+    assert math.hypot(car["x"] - gx, car["z"] - gz) > 3, (car, gx, gz)
+    assert not e["goneHere"] and abs(car["y"] - ground) < 1.5, (e, car, ground)
+    assert math.hypot(car2["x"] - car["x"], car2["z"] - car["z"]) < 1, (car, car2)
+    assert "did not exist" not in toast2 and "1952" in toast2, toast2
+    assert page.errors == []
+
+
+@needs_world
+def test_era_road_gone_moves_car_off_bridge(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        dx, dz = page.evaluate(ERA)["deckSample"]
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", [dx, dz])
+        y0 = car_of(page)["y"]
+        assert page.evaluate(ERA)["goneHere"], "the deck sample counts as a gone spot"
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        page.wait_for_timeout(2000)
+        car = car_of(page); e = page.evaluate(ERA)
+        page.wait_for_timeout(500)
+        car_later = car_of(page)
+        water = page.evaluate("([x, z]) => window.__mm.probe(x, z).water", [car["x"], car["z"]])
+        b.close()
+    assert not e["goneHere"], e
+    assert water is None or car["y"] > water, (car, water)
+    assert abs(car_later["y"] - car["y"]) < 0.3, (car, car_later)
+    assert math.hypot(car["x"] - dx, car["z"] - dz) > 3, (car, dx, dz)
+    assert page.errors == []
+
+
+@needs_world
+def test_era_road_logic_follows_layer(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.keyboard.press("KeyO"); page.keyboard.type("Smile"); page.keyboard.press("Enter")
+        page.wait_for_function("() => window.__mm.auto().on", timeout=60000)
+        j0 = page.evaluate(ERA)["jumpableRoads"]
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        auto = page.evaluate("() => window.__mm.auto().on"); e = page.evaluate(ERA)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        j2 = page.evaluate(ERA)["jumpableRoads"]
+        b.close()
+    assert auto is False
+    assert e["jumpsOnGone"] == 0 and e["buses"] == 0, e
+    assert e["jumpableRoads"] < j0 and j2 == j0, (j0, e["jumpableRoads"], j2)
     assert page.errors == []

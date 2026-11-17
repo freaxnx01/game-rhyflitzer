@@ -947,7 +947,7 @@ import { crownFor } from './treegeo.js';
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { isMonoKey } from './oldphoto.js';
-import { isEraKey, eraAvailable, clearExempt, eraShown } from './timelayer.js';   // #530
+import { isEraKey, eraAvailable, clearExempt, eraShown, eraRoads, roadGoneAt } from './timelayer.js';   // #530
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
@@ -1658,7 +1658,8 @@ let CPS = [{ n: 'Bahnhof Sisseln', x: 1780, z: 560 }, mk('Sisslerfeld', 995, 660
 let FINISH = mk('Münsterplatz Bad Säckingen', 452, 464);
 let START = { x: V(1140, 685)[0], z: V(1140, 685)[1], th: Math.PI };
 // OSM world: race points come from the anchors, snapped onto the nearest drivable (non-motorway, non-bridge) road within 60 m
-const snapRoad = (x, z) => { let best = null; for (const r of ROADS) { if (r.bridge || r.cls === 'motorway') continue; const n = nearestOnPolyline(r.pts, x, z); if (!best || n.d < best.n.d) best = { r, n }; } if (!best || best.n.d > 60) return [x, z]; const { r, n } = best, p = r.pts; let acc = 0; for (let i = 0; i < p.length - 1; i++) { const L2 = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); if (acc + L2 >= n.t) { const u = (n.t - acc) / (L2 || 1); return [p[i][0] + (p[i + 1][0] - p[i][0]) * u, p[i][1] + (p[i + 1][1] - p[i][1]) * u]; } acc += L2; } return [x, z]; };
+const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {} };
+const snapRoad = (x, z) => { let best = null; for (const r of ROADS) { if (r.bridge || r.cls === 'motorway' || !eraShown(r, ERA.on)) continue; const n = nearestOnPolyline(r.pts, x, z); if (!best || n.d < best.n.d) best = { r, n }; } if (!best || best.n.d > 60) return [x, z]; const { r, n } = best, p = r.pts; let acc = 0; for (let i = 0; i < p.length - 1; i++) { const L2 = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); if (acc + L2 >= n.t) { const u = (n.t - acc) / (L2 || 1); return [p[i][0] + (p[i + 1][0] - p[i][0]) * u, p[i][1] + (p[i + 1][1] - p[i][1]) * u]; } acc += L2; } return [x, z]; };
 if (L && L.anchors.cps.length) {
   CPS = L.anchors.cps.map(c => { const [x, z] = snapRoad(c.x, c.z); return { n: c.n, x, z }; });
   { const [x, z] = snapRoad(L.anchors.finish.x, L.anchors.finish.z); FINISH = { n: L.anchors.finish.n, x, z }; }
@@ -1674,7 +1675,6 @@ else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has 
 // ---------- geometry builders ----------
 const parts = {};
 const partsModern = {}; let ERA_COLLECT = false;   // #530: while a modern (post-1952) building is built, push() and pushOBB() file it under the time layer
-const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {} };
 const UWS = { on: false };   // #101: true while the camera is under the water surface (setUnderwater switches the look)
 // #201: cave mode -- on while the car is under the hill (caveInside); group = the lobby's lights and platform, drawn only then (setCave)
 const CAVE_MODE = { on: false, group: null, dark: null, veil: null, k: 0 };
@@ -4619,7 +4619,7 @@ const ENTER_HANDLERS = {};
 ENTER_HANDLERS['bodenackerstrasse-6c'] = () => { INT.door.target = 1; };   // #411: E at the porch swings the door open; it shuts again when the walker has walked away
 ENTER_HANDLERS['plattform-sisslerfeld'] = () => toast(tr('plattformOpen'));   // #413: nothing to open, the stair is open -- just walk in
 const secretRevealed = () => !!(HIDE && HIDE.found);
-const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
+const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link' && eraShown(r, ERA.on);   // #530: a road of today is no place to land in 1952
 // back up on the surface with the lift parked at the top: every jump, and since #504 a race (re)start too; true when it came from below
 function leaveBelow() { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; setFreightPad(false); liftIndicator(null); return wasBelow; }
 let LAST_JUMP = null;   // #534: where the last jump landed [x, z]; the tutorial's jump step reads and clears it
@@ -4687,8 +4687,21 @@ function stepWreck(dt) {
 }
 function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endTrain(); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; TIP_S = TIP_UP; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
-const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
-function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
+const AUTOP = { on: false, graph: null, graphs: { today: null, era: null }, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
+function autoGraph() {   // #530: one graph per state of the layer, built on first use; AUTOP.graph / .streets point at the current one
+  if (!L) return AUTOP.graph;
+  const key = ERA.on ? 'era' : 'today';
+  if (!AUTOP.graphs[key]) { const graph = buildGraph(eraRoads(ROADS, ERA.on)); AUTOP.graphs[key] = { graph, streets: streetEntries(graph, REGION.villages) }; }
+  AUTOP.graph = AUTOP.graphs[key].graph; AUTOP.streets = AUTOP.graphs[key].streets;
+  return AUTOP.graph;
+}
+const roadHitsAt = (x, z) => [...gridQuery(ROAD_GRID, x, z, 16)].map(({ r, i }) => ({ modern: !!r.modern, d: segDist(x, z, ...r.pts[i], ...r.pts[i + 1]), hw: r.w / 2 }));
+// #530: is the car on a road (or a bridge deck) that did not exist in 1952? Independent of the layer's state
+function goneUnderCar() {
+  if (roadGoneAt(roadHitsAt(P.x, P.z))) return true;
+  const was = ERA.on; ERA.on = false; const deckOfToday = !!onBridge(P.x, P.z, P.y + 0.5); ERA.on = true; const deckOf1952 = !!onBridge(P.x, P.z, P.y + 0.5); ERA.on = was;
+  return deckOfToday && !deckOf1952;
+}
 // ---------- #500: Postautos on their lines by the weekday timetable (postauto.js) ----------
 // The timetable loads in the background after the world, never blocking play. The clock is real Europe/Zurich time (A0a),
 // unless ?patime=HH:MM starts it at a fixed time for testers (A11); a jump > PA.resync re-places the fleet (A3).
@@ -4814,7 +4827,8 @@ function stepPostauto(dt) {
   const jumped = POSTAUTO.forceSync || (POSTAUTO.prev !== null && fleetJumped(POSTAUTO.prev, now, dtF, { resync: jumpLimit(f, PA.resync) }));
   POSTAUTO.forceSync = false;
   POSTAUTO.syncT -= dt;
-  if (jumped || POSTAUTO.syncT <= 0) { POSTAUTO.buses = syncFleet(jumped ? [] : POSTAUTO.buses, POSTAUTO.trips, POSTAUTO.routes, now); POSTAUTO.syncT = 1; }
+  if (ERA.on) POSTAUTO.buses = [];   // #530: no Postauto in 1952 (every route runs over roads that are hidden)
+  else if (jumped || POSTAUTO.syncT <= 0) { POSTAUTO.buses = syncFleet(jumped ? [] : POSTAUTO.buses, POSTAUTO.trips, POSTAUTO.routes, now); POSTAUTO.syncT = 1; }
   POSTAUTO.prev = now;
   if (POSTAUTO.buses.some((b) => b.phase !== 'done') && gltfState('bus') === 'idle') loadVehicleModel('bus');
   const surface = LEVELS.isSurface(), flashOn = Math.floor(simNow() / 350) % 2 === 0;
@@ -4835,7 +4849,7 @@ function stepPostauto(dt) {
   const ear = { x: camera.position.x, z: camera.position.z };   // #709: the camera hears, so follow mode and the drone camera sound right
   SFX.busEngines(surface ? pickVoices(POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = b.pose ?? busPose(b.route, b.s); return { key: b.key, phase: b.phase, v: b.v, x: p.x, z: p.z }; }), ear) : [], dt);
   for (const [key, g] of POSTAUTO.meshes) if (!alive.has(key)) { POSTAUTO.group.remove(g); disposePostautoMesh(g); POSTAUTO.meshes.delete(key); }
-  POSTAUTO.group.visible = surface;
+  POSTAUTO.group.visible = surface && !ERA.on;
 }
 function drawPostauto(b, flashOn, dt, now) {
   const p = busPose(b.route, b.s); b.pose = p;   // busEngines reads it this frame instead of posing every bus again
@@ -5437,15 +5451,26 @@ window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; FOOT.mv =
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
 window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); FOOT.view = null; return window.__mm.foot(); };   // #895: tests and screenshot scripts read the new pitch at once
 // tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
-window.__mm.era = () => { const s = ERA.solids[0]; return { available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), ...eraRoadProbe() }; };   // #530
+window.__mm.era = () => { const s = ERA.solids[0]; return { available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), goneHere: goneUnderCar(), jumpableRoads: ROADS.filter(jumpable).length, jumpsOnGone: eraEntries(JUMP_ENTRIES).filter(landsOnGoneRoad).length, buses: POSTAUTO.buses.filter(b => b.phase !== 'done').length, ...eraRoadProbe() }; };   // #530
 // #530: the new roads and the Fridolinsbruecke -- how many are hidden, where to look for them, and whether anything of them is left
+let ERA_SAMPLES = null;   // the sample spots never change: found once, on the first probe
 function eraRoadProbe() {
   const longest = (list, pts) => list.reduce((a, c) => !a || polylineLength(pts(c)) > polylineLength(pts(a)) ? c : a, null), mid = (p) => pointAtLength(p, polylineLength(p) / 2);
-  const gone = longest(ROADS.filter(r => r.modern && !r.bridge && r.n !== 'Fridolinsbrücke'), r => r.pts), deck = longest(OSM_BRIDGES.filter(b => b.modern), b => b.r.pts);
   const roles = new Set(['road', 'roadOsm', 'roadPlain', 'motorway', 'gravel']);
-  return { roadsHidden: ROADS.filter(r => r.modern).length, goneSample: gone ? mid(gone.pts) : null, deckSample: deck ? mid(deck.r.pts) : null,
+  if (!ERA_SAMPLES) {
+    // a point on a new road that is clear of every old road by more than that road's width, so a crossing cannot make the road "not gone"
+    const clear = ([x, z]) => roadHitsAt(x, z).every(h => h.modern || h.d > 2 * h.hw);
+    const sampleOf = r => { const len = polylineLength(r.pts); for (const f of [0.5, 0.35, 0.65, 0.2, 0.8]) { const p = pointAtLength(r.pts, len * f); if (clear(p)) return p; } return null; };
+    const goneRoads = ROADS.filter(r => r.modern && !r.bridge && r.n !== 'Fridolinsbrücke').sort((a, b) => polylineLength(b.pts) - polylineLength(a.pts));
+    let goneSample = null; for (const r of goneRoads) if ((goneSample = sampleOf(r))) break;
+    const deck = longest(OSM_BRIDGES.filter(b => b.modern), b => b.r.pts);
+    ERA_SAMPLES = { roadsHidden: ROADS.filter(r => r.modern).length, goneSample, deckSample: deck ? mid(deck.r.pts) : null };
+  }
+  const rayAt = (x, z, meshes) => new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)).intersectObjects(meshes, false).length > 0;
+  return { ...ERA_SAMPLES,
     bridgeAt: (x, z) => !!onBridge(x, z, 1e4),
-    roadMeshAt: (x, z) => new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)).intersectObjects(sceneMeshes().filter(m => roles.has(m.userData.role)), false).length > 0 };
+    roadMeshAt: (x, z) => rayAt(x, z, sceneMeshes().filter(m => roles.has(m.userData.role))),
+    meshAt: (x, z) => rayAt(x, z, sceneMeshes().filter(m => m.userData.role !== 'water' && m.userData.role !== 'grass')) };
 }
 window.__mm.nearestSolid = (x, z) => { let best = null, bd = Infinity; for (const o of OBB) { if (o.off || o.bridge || o.low || o.secret || o.ring || o.circle) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best && { x: best.x, z: best.z, hw: best.hw, hd: best.hd, c: best.c, s: best.s, h: best.h }; };
 // water vs drawn ground at a point: is the water surface above the ground mesh there (visible) or under it?
@@ -6943,7 +6968,8 @@ window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.
 // 'jump' (J) lists the landmarks and the random spot; 'drive' (O, #18) and 'navi' (I, #106) share the landmarks + streets rows
 const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
-const eraEntries = list => list.filter(e => eraShown(e, ERA.on));   // #530: entries of hidden buildings leave the lists
+const eraEntries = list => list.filter(e => eraShown(e, ERA.on) && !(ERA.on && landsOnGoneRoad(e)));
+const landsOnGoneRoad = e => { const [x, z] = e.jump || [e.x, e.z]; return Number.isFinite(x) && Number.isFinite(z) && roadGoneAt(roadHitsAt(x, z)); };   // #530: a spot on a road of today is not offered   // #530: entries of hidden buildings leave the lists
 const eraEnterables = () => eraEntries(visibleEnterables(ENTERABLES, secretRevealed()));
 function destEntries() { return [...eraEntries(JUMP_ENTRIES).filter(e => !e.wreck && !e.yard && !e.depot), ...AUTOP.streets]; }   // #553: the autopilot drives roads; the depot, the wreck and the yard land off them
 function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : eraEntries(JUMP_ENTRIES); }
@@ -7263,7 +7289,7 @@ const MB = L ? (() => { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const
 const mapStatic = document.createElement('canvas'); mapStatic.width = mapC.width; mapStatic.height = mapC.height;
 const MAP_NAMES = L ? minimapNames(REGION.villages, L.anchors.labels) : [];
 const MOTORWAY_LABELS = L && REGION.motorwayRef ? motorwayLabelSpots(ROADS).map(s => ({ t: REGION.motorwayRef, x: s.x, z: s.z })) : [];   // #226
-function paintMapStatic() { const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = HIDE && roofedAt(x, z) ? meshH(x, z) : terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge || o.secret || (o.modern && o.off)) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' || r.cls === 'motorway' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) { for (const lb of MAP_NAMES) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); g.lineWidth = 3; g.strokeStyle = 'rgba(31,42,34,.9)'; for (const lb of MOTORWAY_LABELS) { g.strokeText(lb.t, MX(lb.x), MZ(lb.z)); g.fillText(lb.t, MX(lb.x), MZ(lb.z)); } } else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
+function paintMapStatic() { const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = HIDE && roofedAt(x, z) ? meshH(x, z) : terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge || o.secret || (o.modern && o.off)) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { if (r.modern && ERA.on) continue; g.strokeStyle = r.n === 'A3' || r.cls === 'motorway' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) { for (const lb of MAP_NAMES) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); g.lineWidth = 3; g.strokeStyle = 'rgba(31,42,34,.9)'; for (const lb of ERA.on ? [] : MOTORWAY_LABELS) { g.strokeText(lb.t, MX(lb.x), MZ(lb.z)); g.fillText(lb.t, MX(lb.x), MZ(lb.z)); } } else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
 paintMapStatic();   // #530: also repainted by toggleEra()
 // #48: the Gemeinde boundaries as a dashed overlay, pre-rendered like mapStatic and drawn over it only while G is on
 const mapBounds = document.createElement('canvas'); mapBounds.width = mapC.width; mapBounds.height = mapC.height;
@@ -7354,7 +7380,7 @@ function drawDelivMarks(v) {
   if (o) dot(o.dx, o.dz, 7, '#ff5fb0');
 }
 function drawPostautoMarks(v) {
-  if (MAP.full && POSTAUTO.ready) {
+  if (MAP.full && POSTAUTO.ready && !ERA.on) {
     mg.save(); mg.globalAlpha = 0.35; mg.lineWidth = 2; mg.lineJoin = 'round'; mg.strokeStyle = BUS_MARK.fill;
     for (const r of POSTAUTO.routes.values()) { mg.beginPath(); r.pts.forEach(([x, z], i) => { const [px, py] = mapPt(v, x, z); if (i) mg.lineTo(px, py); else mg.moveTo(px, py); }); mg.stroke(); }
     mg.restore();
@@ -7385,10 +7411,13 @@ const solidHolds = (o, x, z) => !!colliderPush(o, x, z, 0);
 function toggleEra() {   // #530: Ctrl+Y -- the Swiss villages as in 1952, and back
   if (!eraAvailable(WORLD)) { toast(tr('eraNone')); return; }
   if (deliveryActive()) { toast(tr('eraNoDelivery')); return; }
+  const wasGone = !ERA.on && goneUnderCar(); stopAuto('era'); stopNavi();   // the route may run over roads that appear or vanish
   ERA.on = !ERA.on; if (ERA.on && (R.state === 'racing' || R.state === 'armed')) R.era = true; ERA.group.visible = !ERA.on; for (const o of ERA.solids) o.off = ERA.on;
   if (!ERA.on && !FLY.on && LEVELS.isSurface() && !caveInside() && ERA.solids.some(o => solidHolds(o, P.x, P.z))) { const best = nearestJumpable(P.x, P.z); if (best) placeOnRoad(best.x, best.z, P.th, 'era'); }   // back inside a reappearing building: out to the road, like a J jump
-  paintMapStatic();   // the minimap drops the hidden buildings
-  toast(tr(ERA.on ? 'eraOn' : 'eraOff'));
+  if (ERA.on && wasGone && !FLY.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) placeOnRoad(best.x, best.z, P.th, 'era'); }   // standing on a road of today: to the nearest old one
+  if (AUTOP.graphs.today || AUTOP.graphs.era) autoGraph();   // AUTOP.graph / .streets follow the layer
+  paintMapStatic();   // the minimap drops the hidden buildings and roads
+  toast(tr(ERA.on ? (wasGone ? 'eraRoadGone' : 'eraOn') : 'eraOff'));
 }
 function toggleMono() { const on = document.body.classList.toggle('mono'); toast(tr(on ? 'monoOn' : 'monoOff')); }   // #530
 function toggleDebug() { DEBUG.on = !DEBUG.on; DEBUG.t = 0; $('debug').hidden = !DEBUG.on; if (!DEBUG.on) for (const l of DEBUG.layers) l.hide(); toast(tr(DEBUG.on ? 'debugOn' : 'debugOff')); }
