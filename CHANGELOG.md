@@ -41,6 +41,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-17 17:22` South of **Stein**, the road into the **railway underpass** no longer has a **stone corner** at its edge where the side road turns off: it is a low grass bank now.
 - `2026-11-16 13:53` Die Info zur **Landesgrenze** auf der Holzbrücke bleibt offen, wenn man <kbd>Leertaste</kbd> drückt. Vorher schloss die Taste das Fenster, und das folgende <kbd>Esc</kbd> öffnete die Pause.
 - `2026-11-14 20:39` In **?debug** mode the **debug panel** no longer covers the centred **message toast** on wide windows.
 
