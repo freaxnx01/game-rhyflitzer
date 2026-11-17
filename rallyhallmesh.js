@@ -5,7 +5,7 @@
 // Verified by the browser test (#859).
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { RALLYHALL, boardLayout } from './rallyhall.js';
+import { RALLYHALL, boardLayout, flagLayout } from './rallyhall.js';
 
 // one merged mesh per colour from ready-made geometries (like artemismesh.js's partsGroup, but for boxes and podiums)
 function boxGroup(entries) {
@@ -63,6 +63,23 @@ export function buildBoard(cfg = RALLYHALL) {
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
   const face = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.3, h - 0.3), new THREE.MeshBasicMaterial({ map: tex }));
   face.position.z = 0.06; group.add(face);
+  return group;
+}
+
+// the champion's flags over the board (flagLayout): per flag a group (userData.role = 'rallyhallflag') with an unlit plane showing
+// its SVG file and a gold rod along its top, turned like the board so the plane faces the open front. The SVG loads
+// asynchronously; onLoad(id) reports each one that arrived. Hangs on the glass band, so it adds no collider.
+export function buildFlags(cfg = RALLYHALL, onLoad = () => {}) {
+  const group = new THREE.Group(), loader = new THREE.TextureLoader(), rodMat = new THREE.MeshLambertMaterial({ color: cfg.board.gold });
+  for (const f of flagLayout(cfg)) {
+    const flag = new THREE.Group();
+    flag.userData.role = 'rallyhallflag'; flag.userData.id = f.id;
+    flag.position.set(f.a, f.y0 + f.h / 2, f.b); flag.rotation.y = -Math.PI / 2;
+    const tex = loader.load(f.src, () => onLoad(f.id)); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    flag.add(new THREE.Mesh(new THREE.PlaneGeometry(f.w, f.h), new THREE.MeshBasicMaterial({ map: tex })));
+    const rod = new THREE.Mesh(new THREE.BoxGeometry(f.w + 0.3, 0.1, 0.1), rodMat); rod.position.set(0, f.h / 2 + 0.05, 0.02); flag.add(rod);
+    group.add(flag);
+  }
   return group;
 }
 

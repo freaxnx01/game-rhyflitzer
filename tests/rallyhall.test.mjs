@@ -69,3 +69,24 @@ test('boardLayout_OnTheBackWallBehindEvans_BelowTheGlassBand_NoCollider_FreeFloo
   assert.ok(evans.at[0] + RALLYHALL.podium.hw < B.a - 3, 'a 3 m viewing spot lies beyond the podium collider');
   assert.equal(rallyhallPlacement(room, RALLYHALL).colliders.length, 9);
 });
+
+import { flagLayout } from '../rallyhall.js';
+
+test('flagLayout_WalesThenTheUnionJack_FiveByThree_SvgFilesUnderAssetsFlags', () => {
+  const F = flagLayout(RALLYHALL);
+  assert.deepEqual(F.map(f => f.id), ['wales', 'uk']);
+  for (const f of F) { near(f.w / f.h, 5 / 3, 1e-9, `${f.id} is 5:3`); assert.match(f.src, /^\.\/assets\/flags\/[a-z]+\.svg$/); }
+});
+
+test('flagLayout_OnTheGlassBandAboveTheBoard_CentredOverIt_WalesOnTheLeftSeenFromTheFront_NoCollider', () => {
+  const F = flagLayout(RALLYHALL), B = boardLayout(RALLYHALL), H = RALLYHALL.hall, glassFront = H.d / 2 - H.wall - 0.1;
+  for (const f of F) {
+    assert.ok(f.a < glassFront && glassFront - f.a <= 0.1, `${f.id} hangs within 10 cm in front of the glass band`);
+    assert.ok(f.y0 >= H.glass.y0 && f.y0 > B.y0 + B.h && f.y0 + f.h <= H.glass.y1, `${f.id} on the glass band, above the board`);
+    assert.ok(Math.abs(f.b) + f.w / 2 <= H.w / 2 - H.wall, `${f.id} inside the wall width`);
+  }
+  near((F[0].b + F[1].b) / 2, B.b, 1e-9, 'centred over the board');
+  assert.ok(F[1].b - F[0].b >= F[0].w, 'side by side, not overlapping');
+  assert.ok(F[0].b < F[1].b, 'Wales on -b: the left as seen from the open front (looking +a, +b is to the right)');
+  assert.equal(rallyhallPlacement(room, RALLYHALL).colliders.length, 9);
+});
