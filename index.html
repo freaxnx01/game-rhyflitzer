@@ -955,7 +955,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, treeHash, lodTier } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, sameBank, roadBridgeCrossings, deckGuards, guardedAt, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
@@ -1585,13 +1585,16 @@ const patchCuts = () => HIDE ? [...ARMS, ...HIDE.cuts.filter((c) => c.depth > 0)
 // #1044: a patch triangle carries a lowered vertex at most PATCH_BLEED (a cut cell's diagonal) on, so the bank road's ribbon (and the
 // deck seat read from it) stays on the ground only if every vertex within hw + PATCH_BLEED of it does -- also the PATCH_BLEED behind its
 // deck end (g.ext starts that far back), not the round cap of a plain distance, which would reach metres into the trough under the deck
+// onBank: on a bank road's ribbon + 0.5, past its deck end only -- guardedAt's round cap reaches hw + 0.5 back under the deck, which
+// under a short deck is most of it (the A3 over the Rütistrasse: 7.5 m of 19) and kept the bank's ground in the trough's wall band
+const onBank = (x, z, guards) => guards.some((g) => { const n = nearestOnPolyline(g.pts, x, z); return n.t > 1e-9 && n.d <= g.hw + 0.5; });
 const inGuardBleed = (x, z, guards) => guards.some((g) => { const n = nearestOnPolyline(g.ext, x, z); return n.t > 1e-9 && n.d <= g.hw + PATCH_BLEED; });
 function cutFloorMin(x, z) {
   let f = Infinity;
   for (const a of patchCuts()) { const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue;
     // #1044: a bank road outside the trough keeps its ground, and so does every patch vertex whose triangles reach its ribbon, inside the
     // trough too -- every road cut's bank roads, not just its own deck's (Zürcherstrasse's cut under w4988444 runs on under w4985551's bank)
-    if (a.roadCut && ((guardedAt(x, z, ROAD_GUARDS) && nearestOnPolyline(a.pts, x, z).d > a.hw + UNDERPASS.margin) || inGuardBleed(x, z, ROAD_GUARDS))) continue;
+    if (a.roadCut && ((onBank(x, z, ROAD_GUARDS) && nearestOnPolyline(a.pts, x, z).d > a.hw + UNDERPASS.margin) || inGuardBleed(x, z, ROAD_GUARDS))) continue;
     const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
   return f;
 }
@@ -2618,8 +2621,11 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     for (const key in geos) if (geos[key].length) marks.add(new THREE.Mesh(mergeGeometries(geos[key], false), mats[key]));
   }
   if (!L) for (const r of ROADS) for (const p of r.pts) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
-  if (L) for (const r of ROADS) if (!r.bridge) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
-  if (L) for (const [x, z, r] of L.junctions) disc(x, z, r, 0.05, 'roadPlain', col('#ffffff'));
+  // #1044: no end cap or junction disc where a bank road meets a road deck over a road cut: its hw + 0.3 radius reaches back under the deck,
+  // and its coarse rings, draped from the bank down into the trough, stood as road-grey spikes beside the lower road (and lifted the car)
+  const overCut = (p) => [...ROAD_CUT_DECKS].some((b) => [b.r.pts[0], b.r.pts[b.r.pts.length - 1]].some((e) => Math.hypot(p[0] - e[0], p[1] - e[1]) <= 0.5));
+  if (L) for (const r of ROADS) if (!r.bridge) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) if (!overCut(p)) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
+  if (L) for (const [x, z, r] of L.junctions) if (!overCut([x, z])) disc(x, z, r, 0.05, 'roadPlain', col('#ffffff'));
   if (!L) for (let a = 0; a < ROADS.length; a++) for (let b = a + 1; b < ROADS.length; b++) if (!(L && (ROADS[a].bridge || ROADS[b].bridge))) for (let i = 0; i < ROADS[a].pts.length - 1; i++) for (let j = 0; j < ROADS[b].pts.length - 1; j++) { const [x1, y1] = ROADS[a].pts[i], [x2, y2] = ROADS[a].pts[i + 1], [x3, y3] = ROADS[b].pts[j], [x4, y4] = ROADS[b].pts[j + 1]; const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4); if (Math.abs(den) < 1e-6) continue; const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den, u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den; if (t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99) disc(x1 + t * (x2 - x1), y1 + t * (y2 - y1), Math.max(ROADS[a].w, ROADS[b].w) / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff')); }
   await loadStage('bridges');
   // bridges: the stone hero model on one straight span (deck, parapets, piers) -- the hand layout's Fridolinsbrücke and the OSM one while
@@ -2839,10 +2845,8 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     const over = decksOver(w.x, w.z, w.len / 2, roadCut ? [...RAIL_DECKS, ...ROAD_CUT_DECKS] : RAIL_DECKS), under = over.length > 0;
     const deckTop = Math.min(...over.flatMap(({ deck, n }) => { const span = w.len / 2 + n.d; return [-span, 0, span].map((k) => bridgeSurfaceAt(deck, n.t + k)); }));
     let top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
-    // #1044: on a road cut's bank road the wall ends just under the road the car drives on, no parapet -- past the deck end only
-    // (as inGuardBleed): guardedAt's round cap reaches hw + 0.5 back under a short deck (the A3 over the Rütistrasse: 7.5 m of 19)
-    const onBank = (g) => { const n = nearestOnPolyline(g.pts, w.x, w.z); return n.t > 1e-9 && n.d <= g.hw + 0.5; };
-    if (roadCut && cuts.some((a) => a.guards.some(onBank))) top = Math.min(top, roadTopH(w.x, w.z) - 0.05);
+    // #1044: on a road cut's bank road (past the deck end, onBank) the wall ends just under the road the car drives on, no parapet
+    if (roadCut && cuts.some((a) => onBank(w.x, w.z, a.guards))) top = Math.min(top, roadTopH(w.x, w.z) - 0.05);
     box(w.len + 0.05, top - floor, UNDERPASS.wall, w.x, floor, w.z, w.rot, col('#b8b2a6'), 'stone', [4, 3], 0);
     pushOBB({ x: w.x, z: w.z, hw: w.len / 2, hd: UNDERPASS.wall / 2, c: Math.cos(w.rot), s: Math.sin(w.rot), h: top, low: true });
     WALLS.push({ road: ROADS.indexOf(road), x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under, roadCut });

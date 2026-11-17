@@ -252,3 +252,31 @@ def dseg(x, z, pts):
         t = max(0.0, min(1.0, ((x - ax) * vx + (z - az) * vz) / ((vx * vx + vz * vz) or 1e-9)))
         best = min(best, math.hypot(x - ax - t * vx, z - az - t * vz))
     return best
+
+
+@needs_world
+def test_no_ground_spikes_under_the_ruti_decks(server):
+    """Under the A3 the cut floor is level across the corridor out to the wall face (hw + margin): the band between the
+    road edge and the wall foot lies at the road, not on the bank's ground kept by a bank road's round end cap."""
+    pts = lower_road(31970306, RUTI_DECKS[51687867])
+    hw = 5.5 / 2
+    probes = []
+    for d, p in RUTI_DECKS.items():
+        for s in [k * 0.5 for k in range(-14, 15)]:                    # across the 14 m deck, every 0.5 m along the road
+            (cx, cz), (ax, az) = along(pts, p, [s, s + 0.5])
+            l = math.hypot(ax - cx, az - cz) or 1
+            nx, nz = -(az - cz) / l, (ax - cx) / l
+            for side in (-1, 1):
+                for o in (0.25, 0.5, 0.75):                            # road edge .. wall face (margin 1 m)
+                    probes.append([d, s, side, o, cx, cz, cx + nx * side * (hw + o), cz + nz * side * (hw + o)])
+
+    def script(page):
+        return page.evaluate("""(ps) => ps.map(([d, s, side, o, cx, cz, x, z]) => {
+            const road = window.__mm.ground(cx, cz, 18); return [d, s, side, o, road, window.__mm.ground(x, z, road + 1)]; })""", probes)
+    r = run(server, script)
+    # o 0.25 / 0.5: the level floor, at the road. o 0.75 is the wall foot line (troughPiece samples the floor there): the cut stops
+    # lowering at lat = the wall's outer face - PATCH_BLEED (#156), so the patch's last 1 m triangle may carry the bank up a little
+    # in front of the face -- tens of centimetres, never the metre-high spikes of a disc or a kept bank vertex
+    bad = [q for q in r if q[5] > q[4] + (0.3 if q[3] < 0.7 else 1.0)]
+    print(len(r), "probes; worst:", sorted(r, key=lambda q: q[4] - q[5])[:5])
+    assert not bad, (len(bad), bad[:10])
