@@ -1625,7 +1625,10 @@ function buildCuts() {
     if (!cut.capped) { const a = [cut, ...cut.arms].find((a) => meetsFar(a.road)); if (a) cut.capped = { x: a.x, z: a.z, kind: 'bank' }; }
     if (cut.capped) { console.warn(`road underpass at ${c.road.n || c.road.id} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): capped (${cut.capped.kind}), no cut`); continue; }   // #1044: a capped road cut is dropped, the site stays as it was
     cut.roadCut = true; cut.guards = guards; cut.water = cut.raised ? level : null;
-    for (const a of cut.arms) { a.roadCut = true; a.guards = cut.guards; }
+    // roundEnds: past a road's polyline end (a junction: Fricktalstraße is a 17 m way between two) the floor runs on as a level
+    // disc; else neither the road nor the one leaving there lowers the junction's outer side and its disc and ribbons ride the bank
+    cut.roundEnds = true;
+    for (const a of cut.arms) { a.roadCut = true; a.guards = cut.guards; a.roundEnds = true; }
     ROAD_CUTS.push(cut);
   }
   for (const d of new Set(ROAD_CUTS.map((c) => c.deck))) ROAD_GUARDS.push(...ROAD_CUTS.find((c) => c.deck === d).guards);   // each kept deck's bank roads once
@@ -5637,6 +5640,9 @@ window.__mm.roadCrossings = () => ROAD_CUTS.map(c => {
            deck, clearance: deck - UNDERPASS.deck - road, water: c.water, guardDepth };
 });
 window.__mm.roadWalls = () => WALLS.filter((w) => w.roadCut);
+// #1044: the road cuts' arms (the cut road itself included): its road, polyline, half width, floor at the crossing and lowered span
+window.__mm.roadArms = () => ARMS.filter((a) => a.roadCut).map((a) => ({ road: a.road.id, pts: a.pts, hw: a.hw, f0: a.f0, span: armSpan(a), bounds: a.bounds }));
+window.__mm.roadArmFloor = (k, x, z) => { const a = ARMS.filter((a) => a.roadCut)[k]; return cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); };   // that arm's own floor (null off it)
 // #120: the side-road arms of every cut, with a 1 m profile per side: [s, terrain, uncut mesh, x, z, this arm's own floor]
 // (terrain is the lowest floor of the whole network there, so where cuts overlap it stays under an arm that has surfaced)
 window.__mm.arms = () => CUTS.filter((c) => c.depth > 0).flatMap((c) => c.arms.map((a) => ({

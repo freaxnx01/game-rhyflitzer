@@ -294,3 +294,93 @@ def test_no_ground_spikes_under_road_decks(server):
     print(len(r), "probes; worst per crossing:", json.dumps(list(worst.values())))
     assert len(worst) == EXPECTED, sorted(worst)
     assert not bad, (len(bad), bad[:10])
+
+
+def nearest_on(pts, x, z):
+    """(distance, arc length, point) of the nearest point on pts to (x, z)."""
+    best, acc = (math.inf, 0.0, pts[0]), 0.0
+    for a, b in zip(pts, pts[1:]):
+        L = math.hypot(b[0] - a[0], b[1] - a[1]); t = max(0.0, min(1.0, ((x - a[0]) * (b[0] - a[0]) + (z - a[1]) * (b[1] - a[1])) / (L * L or 1)))
+        q = (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])); d = math.hypot(x - q[0], z - q[1])
+        if d < best[0]:
+            best = (d, acc + t * L, q)
+        acc += L
+    return best
+
+
+def through(pts, x, z):
+    """pts, run on through (x, z) when that is one of its ends: joined with the world road that continues most nearly straight."""
+    roads = [r["pts"] for r in json.loads(WORLD.read_text(encoding="utf-8"))["roads"] if not r.get("bridge")]
+    for flip in (False, True):
+        p = pts[::-1] if flip else pts
+        if math.hypot(p[0][0] - x, p[0][1] - z) > 0.5:
+            continue
+        ux, uz = p[1][0] - p[0][0], p[1][1] - p[0][1]
+        best = None
+        for q in roads:
+            for qq in (q, q[::-1]):
+                if math.hypot(qq[-1][0] - x, qq[-1][1] - z) <= 0.5 and qq != p[::-1] and len(qq) > 1:
+                    vx, vz = qq[-1][0] - qq[-2][0], qq[-1][1] - qq[-2][1]
+                    c = (ux * vx + uz * vz) / ((math.hypot(ux, uz) * math.hypot(vx, vz)) or 1)
+                    if best is None or c > best[0]:
+                        best = (c, qq)
+        return (best[1] + p[1:]) if best else p
+    return pts
+
+
+@needs_world
+def test_junctions_in_a_road_underpass_follow_the_floor(server):
+    """A junction disc or road end cap on a road-cut arm's lowered road lies on the cut floor: at its centre and around it
+    (0.8 x radius) no higher than the arm's floor at its centre line there + 0.3, and a car driving through it at 50 km/h neither tips nor brakes."""
+    world = json.loads(WORLD.read_text(encoding="utf-8"))
+    discs = [(x, z, r) for x, z, r in world["junctions"]]
+    discs += [(p[0], p[1], r["w"] / 2 + 0.3) for r in world["roads"] if not r.get("bridge") for p in (r["pts"][0], r["pts"][-1])]
+
+    def script(page):
+        arms = page.evaluate("() => window.__mm.roadArms()")
+        found, out = [], {"points": [], "drives": []}
+        for k, a in enumerate(arms):
+            a["k"] = k
+        for x, z, rad in discs:
+            for a in arms:
+                d, t, _ = nearest_on(a["pts"], x, z)
+                if d <= a["hw"] and a["span"][0] <= t <= a["span"][1] and (x, z) not in [(f[0], f[1]) for f in found]:
+                    found.append((x, z, rad, a))
+        for x, z, rad, a in found:
+            ps = [(x, z)] + [(x + 0.8 * rad * math.cos(k * math.pi / 3), z + 0.8 * rad * math.sin(k * math.pi / 3)) for k in range(6)]
+            for px, pz in ps:
+                # the cut road surface there: the floor, at its centre line, of the road-cut arm whose road passes nearest to the point
+                # (around a junction the point can lie on the joining road, which climbs away from the junction on its own arm)
+                near = min(arms, key=lambda b: nearest_on(b["pts"], px, pz)[0])
+                _, _, q = nearest_on(near["pts"], px, pz)
+                floor = page.evaluate(f"() => window.__mm.roadArmFloor({near['k']}, {q[0]}, {q[1]})")
+                if floor is None:
+                    continue
+                g = page.evaluate(f"() => window.__mm.ground({px}, {pz}, {floor + 3})")
+                out["points"].append([a["road"], round(x, 1), round(z, 1), round(px, 2), round(pz, 2), floor, g])
+            route = through(a["pts"], x, z)
+            (sx, sz), (ex, ez) = along(route, (x, z), [-30, 30])                  # 30 m before the junction to 30 m after, on the chord
+            th = math.atan2(ez - sz, ex - sx)
+            y0 = page.evaluate(f"() => {{ const f = window.__mm.roadArmFloor({a['k']}, {sx}, {sz}); return window.__mm.ground({sx}, {sz}, f === null ? 1e4 : f + 3); }}")
+            dmg0 = page.evaluate(f"() => {{ window.__mm.setDamage(0); window.__mm.sim({sx}, {sz}, {th}, 13.9, 0.25, ['KeyW'], {y0}); return window.__mm.damage().dmg; }}")
+            steps = []
+            while len(steps) < 40 and (not steps or math.hypot(steps[-1]["x"] - sx, steps[-1]["z"] - sz) < 60):   # 30 m before to 30 m after
+                s = page.evaluate("() => ({ ...window.__mm.step(0.25), pose: window.__mm.carPose().rot, dmg: window.__mm.damage().dmg })")
+                steps.append(s)
+            out["drives"].append({"road": a["road"], "at": [round(x, 1), round(z, 1)], "from": [sx, sz, th, y0], "dmg0": dmg0, "steps": steps})
+        out["n"] = len(found)
+        return out
+    r = run(server, script)
+    print("discs on lowered arms:", r["n"])
+    bad = [p for p in r["points"] if p[6] > p[5] + 0.3]
+    print("worst points:", sorted(r["points"], key=lambda p: p[5] - p[6])[:5])
+    assert r["n"] > 0
+    assert not bad, (len(bad), bad[:10])
+    for dv in r["drives"]:
+        st = [s for s in dv["steps"] if math.hypot(s["x"] - dv["at"][0], s["z"] - dv["at"][1]) <= 30]   # the junction's +-30 m
+        assert len(st) >= 6, dv
+        sp = [s["speed"] for s in st]
+        print(dv["road"], dv["at"], dv["from"], "speed", [round(v, 1) for v in sp], "roll/pitch max", round(max(max(abs(s["pose"][0]), abs(s["pose"][2])) for s in st), 3), "dmg", st[-1]["dmg"])
+        assert all(b >= a - 2.5 for a, b in zip(sp, sp[1:])), dv
+        assert max(max(abs(s["pose"][0]), abs(s["pose"][2])) for s in st) < 0.2, dv
+        assert st[-1]["dmg"] <= dv["dmg0"], dv
