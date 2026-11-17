@@ -41,6 +41,8 @@ deck-seat risk).
   their `decksOver` = `RAIL_DECKS`.
 - `openCutFaces` now covers road cuts too (shared `ARMS`). It cannot see under a road deck (`roadDist` counts the deck
   road), so walls under the deck are asserted separately in Task 4.
+- The two new conditions (spec): a road cut needs `terrainHasData(REAL, …)`; its floor never goes under
+  `nearbyWaterLevel + 1.0`. Both apply to road cuts only — a rail cut must not see either.
 - Index alignment: `roadBridgeCrossings(...).bridge` indexes the deck list passed in, never `OSM_BRIDGES` or `RAIL_DECKS`.
 
 ---
@@ -136,6 +138,48 @@ test('deckGuards_Hochrhein_NoBankRoadReachesPastTheTroughFace', () => {
 - [ ] **Step 2:** run, see them fail. **Step 3:** implement. **Step 4:** green, full node suite green.
 - [ ] **Step 5:** commit `feat(world): bank roads of a road deck keep their ground (#1044)`.
 
+### Task 2b: missing terrain and the water level — `terrainHasData`, `nearbyWaterLevel`
+
+**Files:** modify `world.js`; test `tests/world.test.mjs`
+
+**Interfaces** (spec, *Which crossings qualify*, for the reasons behind the numbers):
+```js
+export const ROAD_UNDERPASS = { waterRadius: 400, waterArea: 1000, waterMargin: 1.0 };
+export function terrainHasData(mmh, x, z)                     // mmh = { hdr, data } as parseMMH returns, or null -> false;
+                                                              // i0 = floor((x - hdr.x0) / hdr.step) - 1, j0 likewise; of the 4 x 4 samples
+                                                              // (i0..i0+3, j0..j0+3, clamped to the grid) fewer than 8 are exactly 0
+export function nearbyWaterLevel(water, x, z, u = ROAD_UNDERPASS)   // -> level of the nearest polygon (rings[0] area >= u.waterArea,
+                                                              //    distance 0 inside, else to rings[0]) within u.waterRadius, or null
+```
+
+- [ ] **Step 1: failing tests**
+
+```js
+test('terrainHasData_NoMmh_False_AllZeroBlock_False_RealBlock_True', () => {
+  const hdr = { x0: 0, z0: 0, step: 8, w: 8, h: 8 }, data = new Float32Array(64).fill(3.2);
+  assert.equal(terrainHasData(null, 20, 20), false);
+  assert.equal(terrainHasData({ hdr, data }, 20, 20), true);
+  data.fill(0); assert.equal(terrainHasData({ hdr, data }, 20, 20), false);
+  data.fill(3.2); for (const k of [9, 10, 11, 17, 18, 19, 25]) data[k] = 0;      // 7 of the 16 around (20, 20): still data
+  assert.equal(terrainHasData({ hdr, data }, 20, 20), true);
+});
+test('nearbyWaterLevel_NearestLargePolygonWithinRadius', () => {
+  const sq = (x, z, s, level) => ({ level, rings: [[[x, z], [x + s, z], [x + s, z + s], [x, z + s]]] });
+  const water = [sq(100, 0, 5, 9), sq(300, 0, 40, -1.5), sq(500, 0, 40, 7)];   // pond (25 m²) nearer, river 300 m, lake 500 m
+  assert.equal(nearbyWaterLevel(water, 0, 0), -1.5);
+  assert.equal(nearbyWaterLevel(water, 0, 0, { ...ROAD_UNDERPASS, waterRadius: 250 }), null);
+  assert.equal(nearbyWaterLevel(water, 310, 10), -1.5);                          // inside counts as 0 m
+});
+test('roadUnderpassConditions_Hochrhein_TwoNoDataSitesAndLohgerbeOnly', { skip: <both data files absent> }, () => {
+  // parse data/terrain_hochrhein.mmh like parseMMH (MMH1 magic, u32 header length, JSON header, Float32 samples);
+  // over Task 1's 18 candidate records: terrainHasData false exactly for decks 25976772 and 28810416;
+  // nearbyWaterLevel(w.water, c.x, c.z) non-null among the other 16 only for deck 162987100, value -1.49 +- 0.01
+});
+```
+
+- [ ] **Step 2:** run, see them fail. **Step 3:** implement. **Step 4:** green, full node suite green.
+- [ ] **Step 5:** commit `feat(world): road underpasses only on measured terrain and above the water level (#1044)`.
+
 ### Task 3: road cuts in the world — `ROAD_CUTS`, guards, `__mm.roadCrossings()`
 
 **Files:** modify `index.html` (`deckMinAt` / `makeCut` ~1551-1574, `cutFloorMin` ~1580, `buildCuts` ~1593, debug API
@@ -146,11 +190,13 @@ next to `__mm.crossings` ~5544); create `tests/test_road_underpass.py`
 const ROAD_CUTS = [], ROAD_DECKS = OSM_BRIDGES.filter((b) => b.kind === 'generic' && !b.approach);  // ROAD_DECKS after the hero-chain pass (~1420)
 function deckMinAt(c, deck = RAIL_DECKS[c.bridge])     // unchanged body, deck from the parameter
 function makeCut(c, deck = RAIL_DECKS[c.bridge])       // unchanged body, deck from the parameter; gradeCaps keeps the rail default
-window.__mm.roadCrossings = () => ROAD_CUTS.map(...)   // { x, z, road, roadId, deckId, depth, arms, unsettled, capped, deck, clearance, guardDepth }
+window.__mm.roadCrossings = () => ROAD_CUTS.map(...)   // { x, z, road, roadId, deckId, depth, arms, unsettled, capped, deck, clearance, water, guardDepth }
 ```
 - `buildCuts`, after the rail loop: for each `roadBridgeCrossings(L.roads, ROAD_DECKS.map((b) => ({ pts: b.r.pts, layer: b.r.layer ?? 0 })))`
-  record `c`: `const d = ROAD_DECKS[c.bridge], cut = makeCut(c, d); cut.roadCut = true; cut.guards = deckGuards(d.r.pts, L.roads);`
-  then `ROAD_CUTS.push(cut)`. Road cuts with `depth > 0` join `ARMS` with the same `lat` / `bounds` as rail ones, and
+  record `c` with `terrainHasData(REAL, c.x, c.z)` (skip the rest): `const d = ROAD_DECKS[c.bridge], cut = makeCut(c, d); cut.roadCut = true; cut.guards = deckGuards(d.r.pts, L.roads);`
+  then `ROAD_CUTS.push(cut)`. Water bound: `makeCut` gets an optional `minFloor` (default `-Infinity`); for a road
+  cut pass `level + ROAD_UNDERPASS.waterMargin` when `nearbyWaterLevel(L.water, c.x, c.z)` is non-null, and
+  `cut.f0 = Math.max(cutFloorTarget(...), minFloor)` before `settleCut`; record `cut.water = level ?? null`. Road cuts with `depth > 0` join `ARMS` with the same `lat` / `bounds` as rail ones, and
   each arm gets `roadCut` and the cut's `guards`.
 - `cutFloorMin`: skip arm `a` at (x, z) when `a.guards && guardedAt(x, z, a.guards) && nearestOnPolyline(a.pts, x, z).d > a.hw + UNDERPASS.margin`.
 - `clearance` and `deck` exactly as `__mm.crossings()` computes them (road max over the flat part); `guardDepth` = max
@@ -165,21 +211,32 @@ RUTI = [[-871.0, 1071.3], [-876.8, 1120.3], [-879.7, 1149.8]]        # w31970306
 RUTI_DECKS = {51687867: (-873.4, 1091.4), 51688069: (-874.8, 1103.1)}
 SEATS = {51687867: (21.50, 21.21), 51688069: (21.10, 21.49), 107186388: (55.59, 54.56), 107186377: (54.33, 56.11),
          4985551: (22.65, 23.75), 4988444: (21.93, 22.78), 25976772: (0.04, 0.04)}   # main, 2026-11-17
-EXPECTED = 18
+EXPECTED = 16
+NO_TERRAIN = {331388063: (-2882.8, -238.0), 319322059: (-3530.7, -1955.9)}   # lower road id -> crossing (Jurastrasse, Basler Strasse)
+LOHGERBE = (-1550.0, -324.2)
 ```
+(The lower roads' polylines for sampling come from the world file by id.)
 
   `test_every_road_underpass_has_headroom`: `xs = __mm.roadCrossings()`; `len([c for c in xs if c["depth"] > 0]) == EXPECTED`;
-  every one with depth > 0: `clearance >= 4.45 or depth >= 5.99`, not `capped`, not `unsettled`, `guardDepth <= 0.05`;
-  every crossing with depth 0 has `clearance >= 4.45`. Seats: `__mm.genericBridges()` for the `SEATS` ids within 0.1 m.
+  every one with depth > 0 except Lohgerbe (within 2 m of `LOHGERBE`): `clearance >= 4.45 or depth >= 5.99`, `water is None`;
+  all: not `capped`, not `unsettled`, `guardDepth <= 0.05`; every crossing with depth 0 has `clearance >= 4.45`.
+
+  `test_no_cut_where_the_terrain_has_no_data`: no `roadCrossings()` record within 2 m of either `NO_TERRAIN` crossing;
+  at the crossing and every 5 m to ±30 m along the lower road `__mm.cutDepth(x, z) == 0` and
+  `__mm.ground(x, z, -1e4)` is `0.04 ± 0.02`; no `__mm.roadWalls()` piece within 30 m.
+
+  `test_lohgerbe_stays_above_the_rhine`: the record at `LOHGERBE`: `water` `-1.49 ± 0.05`, `depth >= 4.0`, not capped,
+  `clearance` `3.77 ± 0.2` (below 4.5 m by design — spec); road surface under the deck
+  (`__mm.ground(x, z, deck - 2)`) `-0.45 ± 0.15`. Seats: `__mm.genericBridges()` for the `SEATS` ids within 0.1 m.
 
   `test_rutistrasse_stays_level_under_the_a3`: both `RUTI_DECKS` crossings: `clearance >= 4.45`, road surface under the
   deck (`__mm.ground(x, z, deck - 2)`) `16.0 ± 0.5`; the profile `__mm.ground(x, z, 18)` along `RUTI` every 1 m from
   z 1060 to 1140 has max ≤ 17.0 and no step > 0.3; drive: `__mm.sim(-871.3, 1074, atan2(49, -5.8), 13.9, 0.25)` then
   `__mm.step(0.25)` × 23, collecting `y`, `bridge`; final `z >= 1135`, `max(y) <= 17.5`, never `bridge`.
 
-- [ ] **Step 2:** run the new file → both fail (`__mm.roadCrossings` is not a function). That proves the harness.
+- [ ] **Step 2:** run the new file → all four fail (`__mm.roadCrossings` is not a function). That proves the harness.
 - [ ] **Step 3:** implement the bullets above.
-- [ ] **Step 4:** both tests green. If a crossing is capped or unsettled, print its `capped` node and stop — do not
+- [ ] **Step 4:** all four green. If a crossing is capped or unsettled, print its `capped` node and stop — do not
   add an allow-list; report it (the spec counts it as a qualifying site).
 - [ ] **Step 5:** `node --test tests/*.test.mjs` green; commit `fix(world): roads under road bridges are cut down under the deck (#1044)`; push.
 
@@ -216,6 +273,6 @@ EXPECTED = 18
 **Files:** modify `CHANGELOG.md`
 
 - [ ] Under `## [Unreleased]` → `### Fixed` (create the heading if missing), newest first, e.g.:
-  `` - `<TZ=Europe/Zurich date '+%F %H:%M'>` Die **Rütistrasse** in Stein führt wieder eben **unter der A3** durch statt über einen Buckel auf Brückenhöhe; auch an elf weiteren Stellen (u. a. Zürcherstrasse, Kaistenbergstrasse, Fricktalstrasse) liegt die Strasse unter einer **Strassenbrücke** jetzt in einer Unterführung mit Betonwänden. ``
+  `` - `<TZ=Europe/Zurich date '+%F %H:%M'>` Die **Rütistrasse** in Stein führt wieder eben **unter der A3** durch statt über einen Buckel auf Brückenhöhe; auch an neun weiteren Stellen (u. a. Zürcherstrasse, Kaistenbergstrasse, Fricktalstrasse) liegt die Strasse unter einer **Strassenbrücke** jetzt in einer Unterführung mit Betonwänden. ``
   (match the language of the surrounding entries — currently German.)
 - [ ] `node --test tests/*.test.mjs` green; commit `docs(changelog): road-bridge underpasses (#1044)`; push.
