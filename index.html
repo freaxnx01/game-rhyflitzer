@@ -4572,13 +4572,16 @@ const RADIO = (() => {
   const load = (k, from) => { let v = null; try { v = localStorage.getItem(k); } catch (e) { } return from(v); };
   const save = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) { } };
   const S = { on: load(RADIO_STORE.on, radioOnFrom), station: load(RADIO_STORE.station, stationFrom), vol: load(RADIO_STORE.vol, volumeFrom),
-    menuOn: load(RADIO_STORE.menu, menuMusicOnFrom), shuffle: load(RADIO_STORE.shuffle, shuffleOnFrom), track: 0, inRun: false, menuArmed: false, held: false, failed: 0 };
+    menuOn: load(RADIO_STORE.menu, menuMusicOnFrom), shuffle: load(RADIO_STORE.shuffle, shuffleOnFrom), track: 0, inRun: false, menuArmed: false, held: false, failed: 0, carry: false };
   // Rhyflitzer FM walks S.order, the play order of the FM station S.fm (a live station keeps the last one); with shuffle (the default) a random track opens it
   S.fm = isFm(S.station) ? S.station : 'mix';
   function orderFrom(first) { S.order = stationOrder(S.fm, S.shuffle, first); S.pos = S.order.indexOf(first); S.track = first; }
   function freshStart() { const t = FM[S.fm].tracks; orderFrom(S.shuffle ? t[Math.floor(Math.random() * t.length)] : t[0]); }
   freshStart();
   function step(dir) { S.pos = (dir > 0 ? nextTrack : prevTrack)(S.pos); S.track = S.order[S.pos]; }
+  // the menu song plays on into the run (S.carry) and then hands over to the radio; it was just heard, so FM does not open with it again
+  const MENU_INDEX = TRACKS.indexOf(MENU_TRACK);
+  function endCarry() { S.carry = false; if (S.track === MENU_INDEX && S.order.length > 1) step(1); }
   const els = {}; let watch = null;   // els.srf is the one live voice (SRF 3, Radio Argovia)
   const now = () => performance.now() / 1000;
   function voice(name) {
@@ -4588,6 +4591,7 @@ const RADIO = (() => {
     const gain = ac.createGain(); gain.gain.value = 0; ac.createMediaElementSource(el).connect(gain); gain.connect(master);
     const v = els[name] = { el, gain, want: false };
     if (name === 'fm') el.addEventListener('ended', () => { step(1); apply(); });
+    if (name === 'menu') el.addEventListener('ended', () => { if (!S.carry) return; endCarry(); apply(); if (!gameToastShown()) radioShow(nowText()); });   // only a carried song ends: on the start screen it loops
     if (name === 'srf') {
       el.addEventListener('playing', () => { if (watch) { watch.playing = true; watch.waitingSince = null; } });
       for (const ev of ['waiting', 'stalled']) el.addEventListener(ev, () => { if (watch && watch.waitingSince === null) watch.waitingSince = now(); });
@@ -4601,16 +4605,19 @@ const RADIO = (() => {
   function playFm() { const v = voice('fm'), t = TRACKS[S.track]; if (!v.el.src.endsWith(t.src)) v.el.src = t.src; level(v, trackGain(S.vol, t.gainDb)); start(v); }
   function playLive() { stopSrf(); const v = voice('srf'); v.el.src = LIVE[S.station].url; level(v, trackGain(S.vol)); watch = { station: S.station, since: now(), playing: false, waitingSince: null, error: false }; start(v); }
   function stopSrf() { watch = null; const v = els.srf; if (!v) return; v.want = false; v.el.pause(); if (v.el.getAttribute('src')) { v.el.removeAttribute('src'); v.el.load(); } }   // drop the src: a paused live stream would keep downloading
-  function playMenu() { const v = voice('menu'); if (!v.el.getAttribute('src')) { v.el.src = MENU_TRACK.src; v.el.loop = true; } level(v, menuGain(S.vol)); start(v); }
+  function playMenu() { const v = voice('menu'); if (!v.el.getAttribute('src')) v.el.src = MENU_TRACK.src; v.el.loop = true; level(v, menuGain(S.vol)); start(v); }
+  function playCarry() { const v = voice('menu'); v.el.loop = false; level(v, trackGain(S.vol, MENU_TRACK.gainDb)); start(v); }   // same element, same position, radio loudness
+  const menuPlaying = () => !!els.menu && els.menu.want && !els.menu.el.paused;
   // what plays follows from the state alone; every command and every run change ends here
   function apply() {
     if (S.held) return;
-    const radio = S.inRun && S.on;
+    const radio = S.inRun && S.on && !S.carry;
     if (radio && isFm(S.station)) playFm(); else fadeOut('fm');
     if (radio && LIVE[S.station]) { if (!watch || watch.station !== S.station) playLive(); else level(els.srf, trackGain(S.vol)); } else stopSrf();
-    if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else { fadeOut('menu'); if (S.inRun || !S.menuOn) EARLY_MENU.drop(); }   // #841: an element nobody adopted must not outlive the start screen
+    if (S.carry) playCarry(); else if (!S.inRun && S.menuOn && S.menuArmed) playMenu(); else { fadeOut('menu'); if (S.inRun || !S.menuOn) EARLY_MENU.drop(); }   // #841: an element nobody adopted must not outlive the start screen
   }
-  const nowText = () => { const d = displayFor(S); return '📻 ' + tr(d.key, ...d.args); };
+  const carryStation = () => (FM[S.fm].tracks.includes(MENU_INDEX) ? S.fm : 'mix');
+  const nowText = () => { const d = displayFor(S.carry ? { ...S, station: carryStation(), track: MENU_INDEX } : S); return '📻 ' + tr(d.key, ...d.args); };
   function fail() {   // a live station did not start or stalled: back to Rhyflitzer FM, stored, with a short message; never a hang, never a throw
     const failKey = LIVE[S.station].failKey; stopSrf(); S.station = S.fm = 'mix'; orderFrom(S.track); S.failed++; save(RADIO_STORE.station, 'mix'); apply(); radioShow('📻 ' + tr(failKey));
   }
@@ -4620,10 +4627,12 @@ const RADIO = (() => {
   }
   function cmd(action) {
     if (!S.inRun) { menuCmd(action); return; }
+    const carried = S.carry && action !== 'down' && action !== 'up';   // any radio key but the volume ends the carried menu song
+    if (carried) endCarry();
     if (action === 'power') { S.on = !S.on; save(RADIO_STORE.on, S.on ? 1 : 0); }
     if (action === 'station') { S.station = nextStation(S.station); S.on = true; save(RADIO_STORE.station, S.station); save(RADIO_STORE.on, 1); if (isFm(S.station)) { S.fm = S.station; freshStart(); } }
-    if (action === 'next' && isFm(S.station)) step(1);
-    if (action === 'prev' && isFm(S.station)) step(-1);
+    if (action === 'next' && isFm(S.station) && !carried) step(1);   // 7 / 8 out of the menu song land on the radio's current track
+    if (action === 'prev' && isFm(S.station) && !carried) step(-1);
     if (action === 'down' || action === 'up') { S.vol = stepVolume(S.vol, action === 'up' ? 1 : -1); save(RADIO_STORE.vol, S.vol); }
     apply(); renderSettings();
     radioShow(action === 'down' || action === 'up' ? '📻 ' + tr('radioVolume', S.vol * 10) : nowText());
@@ -4640,14 +4649,15 @@ const RADIO = (() => {
     setShuffle(on) { S.shuffle = on; save(RADIO_STORE.shuffle, on ? 1 : 0); orderFrom(S.track); },   // the current track plays on
     tick() {
       const run = R.state !== 'ready';
-      if (run !== S.inRun) { S.inRun = run; apply(); if (run && S.on && !gameToastShown()) radioShow(nowText()); }   // the run-start display never covers a game message (hunt / view start toast); keys and failures still show it
+      if (run !== S.inRun) { S.inRun = run; S.carry = run && S.on && menuPlaying(); apply(); if (run && S.on && !gameToastShown()) radioShow(nowText()); }   // the run-start display never covers a game message (hunt / view start toast); keys and failures still show it
       if (watch && !S.held && srfVerdict(watch, now()) === 'fail') fail();
     },
     armMenu() { if (S.menuArmed) return; S.menuArmed = true; apply(); },   // the first input after loading: only now is the menu track fetched
     menuOn: () => S.menuOn,
+    seekMenuEnd() { const v = els.menu; if (v && Number.isFinite(v.el.duration)) v.el.currentTime = Math.max(0, v.el.duration - 1); },   // tests: the carried song ends in a second
     state() {
       const p = (n) => !!els[n] && !els[n].el.paused, src = (n) => (els[n] && els[n].el.getAttribute('src')) || null;
-      return { on: S.on, station: S.station, fm: S.fm, track: S.track, shuffle: S.shuffle, order: [...S.order], vol: S.vol, menuOn: S.menuOn, inRun: S.inRun, menuArmed: S.menuArmed, held: S.held, failed: S.failed,
+      return { on: S.on, station: S.station, fm: S.fm, track: S.track, shuffle: S.shuffle, order: [...S.order], vol: S.vol, menuOn: S.menuOn, inRun: S.inRun, menuArmed: S.menuArmed, held: S.held, failed: S.failed, carry: S.carry, menuAt: els.menu ? els.menu.el.currentTime : 0,
         playing: { fm: p('fm'), srf: p('srf'), menu: p('menu') }, src: { fm: src('fm'), srf: src('srf'), menu: src('menu') } };
     },
   };
@@ -5448,6 +5458,7 @@ window.__mm.postautoDisplay = () => {   // #713: read-only, for the test -- the 
 window.__mm.autoSim = (secs) => { const blinkers = new Set(); let maxKmh = 0, n = 0; for (; n < secs * 60 && AUTOP.on; n++) { stepCar(1 / 60); stepRace(1 / 60); if (HUD.blinker) blinkers.add(HUD.blinker); maxKmh = Math.max(maxKmh, Math.hypot(P.vx, P.vz) * 3.6); } return { on: AUTOP.on, last: AUTOP.last, x: P.x, z: P.z, blinkers: [...blinkers], maxKmh, secs: n / 60 }; };
 window.__mm.audio = () => SFX.state();   // #14: context state, pause holds, heard rpm / gear and the last mix
 window.__mm.radio = () => RADIO.state();   // #735
+window.__mm.radioSeekMenuEnd = () => RADIO.seekMenuEnd();
 window.__mm.sfxGraph = () => SFX.graph();   // #842: the hub (graph().master) and the effects bus (ac.master), read-only, for the tests
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels

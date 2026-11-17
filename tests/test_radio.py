@@ -29,7 +29,7 @@ def stub_srf(page, hits):
     page.route(SRF, answer)
 
 
-def open_game(p, server, srf_hits=None, touch=False):
+def open_game(p, server, srf_hits=None, touch=False, menu_music=False):
     b = p.chromium.launch(args=ARGS)
     ctx = b.new_context(viewport={"width": 390, "height": 844} if touch else {"width": 1280, "height": 720}, has_touch=touch)
     page = ctx.new_page()
@@ -42,6 +42,8 @@ def open_game(p, server, srf_hits=None, touch=False):
         stub_srf(page, srf_hits)
     # these tests step through the list in order (8 goes from track 0 to 1), so they turn the default shuffle off
     page.add_init_script("if (localStorage.getItem('mm.radioShuffle') === null) localStorage.setItem('mm.radioShuffle', '0')")
+    if not menu_music:   # a playing menu song carries into the run and holds the radio back; the radio tests start on the radio itself
+        page.add_init_script("if (localStorage.getItem('mm.menuMusic') === null) localStorage.setItem('mm.menuMusic', '0')")
     page.goto(f"{server}/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
     if over_cdp():
@@ -76,7 +78,7 @@ def test_menu_music_starts_during_loading(server):
     if over_cdp():
         pytest.skip("#856: asserts the menu track is fetched at load start, before any gesture; needs the autoplay launch flag, which a CDP-connected browser ignores")
     with sync_playwright() as p:
-        b, page, errors, music = open_game(p, server)
+        b, page, errors, music = open_game(p, server, menu_music=True)
         assert any("pulsing-arpeggio.mp3" in u for u in music), music     # fetched at load start, autoplay allowed
         page.keyboard.press("Shift")
         page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
@@ -118,6 +120,56 @@ def test_menu_music_blocked_autoplay_waits_for_the_first_key(server):
         assert not page.evaluate("() => window.__mm.radio().playing.menu")   # the refusal stays silent
         page.keyboard.press("Shift")
         page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
+        assert errors == [], errors
+        b.close()
+
+
+def test_menu_song_plays_on_into_the_run_then_hands_over_to_rhyflitzer_fm(server):
+    with sync_playwright() as p:
+        b, page, errors, music = open_game(p, server, menu_music=True)
+        page.keyboard.press("Shift")                    # the first input arms the menu music
+        page.wait_for_function("() => window.__mm.radio().playing.menu && window.__mm.radio().menuAt > 0.5", timeout=T)
+        at = radio(page)["menuAt"]
+        start_run(page)
+        r = radio(page)
+        assert r["carry"] and r["playing"]["menu"] and not r["playing"]["fm"], r
+        assert r["menuAt"] >= at and r["src"]["menu"].endswith("pulsing-arpeggio.mp3"), (at, r)   # same element, same place in the song
+        assert "Pulsing Arpeggio" in page.evaluate("() => window.__mm.toast().text")
+        page.evaluate("() => window.__mm.radioSeekMenuEnd()")
+        page.wait_for_function("() => !window.__mm.radio().carry && window.__mm.radio().playing.fm && !window.__mm.radio().playing.menu", timeout=T)
+        r = radio(page)
+        assert r["station"] == "mix" and r["track"] == 0, r   # shuffle off: the mix opens with track 0, Cool Rider
+        assert "Cool Rider" in page.evaluate("() => window.__mm.toast().text")
+        assert errors == [], errors
+        b.close()
+
+
+def test_a_radio_key_ends_the_carried_menu_song(server):
+    with sync_playwright() as p:
+        b, page, errors, music = open_game(p, server, menu_music=True)
+        page.keyboard.press("Shift")
+        page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
+        start_run(page)
+        assert radio(page)["carry"]
+        page.keyboard.press("0")                        # the volume keeps the song
+        assert radio(page)["carry"]
+        page.keyboard.press("8")                        # 8 leaves it for the radio's current track, it does not skip one
+        page.wait_for_function("() => !window.__mm.radio().carry && window.__mm.radio().playing.fm && !window.__mm.radio().playing.menu", timeout=T)
+        assert radio(page)["track"] == 0
+        assert errors == [], errors
+        b.close()
+
+
+def test_radio_off_ends_the_menu_song_at_the_run_start(server):
+    with sync_playwright() as p:
+        b, page, errors, music = open_game(p, server, menu_music=True)
+        page.evaluate("() => localStorage.setItem('mm.radio', '0')")
+        page.reload()
+        page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.keyboard.press("Shift")
+        page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
+        start_run(page)
+        page.wait_for_function("() => !window.__mm.radio().playing.menu && !window.__mm.radio().carry", timeout=T)
         assert errors == [], errors
         b.close()
 
