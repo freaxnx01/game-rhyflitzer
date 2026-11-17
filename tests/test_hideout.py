@@ -1457,9 +1457,18 @@ def test_ds9_room_station_hovering_with_the_defiant_docked(server, tmp_path):
         page.evaluate("() => window.__mm.flySim(16, ['Space'])")                                       # ~16 m/s: up to the ring's height
         page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
         page.screenshot(path=str(tmp_path / "ds9.png"))
+        # and once from beside the dock, 235 m off the Defiant, to see it against the ring
+        near = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9();
+          const a = Math.atan2(e.defiant[2] - t.z, e.defiant[0] - t.x) + Math.PI / 6;                  // a quarter round the ring from the dock
+          const x = t.x + Math.cos(a) * 470, z = t.z + Math.sin(a) * 470;                              // still inside the 475 m fly wall
+          return { x, z, th: Math.atan2(e.defiant[2] - z, e.defiant[0] - x) }; }""")
+        page.evaluate(f"() => window.__mm.place({near['x']}, {near['z']}, {near['th']})")
+        page.evaluate("() => window.__mm.flySim(16, ['Space'])")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "ds9-defiant.png"))
         capped = page.evaluate("() => window.__mm.flySim(30, ['Space'])")                              # the room's own ceiling, 570 m
         br.close()
-    print("screenshot:", tmp_path / "ds9.png")
+    print("screenshots:", tmp_path / "ds9.png", tmp_path / "ds9-defiant.png")
     assert errors == []
     assert len(requests) == 1 and requests[0].endswith("/assets/models/ds9.glb"), requests
     assert d["placeholder"] is False and 85000 <= d["tris"] <= 105000, d
