@@ -982,7 +982,7 @@ import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
 import { RALLYHALL, boardLayout, flagLayout, videoShown } from './rallyhall.js';   // #859 / #907
-import { buildHall, buildFlags, buildVideo, rallyhallTriangles } from './rallyhallmesh.js';
+import { buildHall, buildFlags, buildVideos, rallyhallTriangles } from './rallyhallmesh.js';
 import { CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer.js';   // the rally hall's YouTube Short
 import { SHUTTLE, stackBase } from './shuttle.js';   // #811
 import { buildShuttle } from './shuttlemesh.js';
@@ -3798,7 +3798,7 @@ const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.
 // #361: ROOM.layouts are the eight rooms' pure layouts (data only); ROOM.layout is the layout of the room whose meshes are built
 // (ROOM.built = its index, null before) -- only one room's meshes exist at a time (#308). RING_L holds the ring level's group.
 const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, artemis: null, shuttle: null, ferris: null, ferrisSign: null, rallyhall: null, dedication: null };
-const RALLYHALL_S = { hall: null, waiting: [], meshes: [], css: null, cssRoot: null, video: null };   // #859: the rally hall's podium cars -- the hall group they stand in, the cars still waiting for their glTF, the parked copies
+const RALLYHALL_S = { hall: null, waiting: [], meshes: [], css: null, cssRoot: null, videos: [] };   // #859: the rally hall's podium cars -- the hall group they stand in, the cars still waiting for their glTF, the parked copies
 const RING_L = { ring: { built: false, group: null }, ring2: { built: false, group: null, sign: null } };
 const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab]);
 const roomIndex = (id) => (ROOM.layouts ? ROOM.layouts.findIndex(R => R.id === id) : -1);
@@ -4042,8 +4042,8 @@ function roomRallyhall(group, R) {
   for (const c of RALLYHALL.cars) loadVehicleModel(c.vehicle);
   showRallyhallVideo();
 }
-// the YouTube Short on the back wall: an iframe in its own CSS3D scene, rendered over the canvas and under the HUD. Its root
-// copies the hall's world matrix every frame; the iframe goes when the hall goes (CSS3DObject drops its element on removal).
+// the YouTube Shorts on the back wall: iframes in their own CSS3D scene, rendered over the canvas and under the HUD. Its root
+// copies the hall's world matrix every frame; the iframes go when the hall goes (CSS3DObject drops its element on removal).
 function showRallyhallVideo() {
   const S = RALLYHALL_S;
   if (!S.css) {
@@ -4052,18 +4052,19 @@ function showRallyhallVideo() {
     canvas.after(S.css.domElement);
     S.cssScene = new THREE.Scene(); S.cssRoot = new THREE.Group(); S.cssRoot.matrixAutoUpdate = false; S.cssScene.add(S.cssRoot);
     addEventListener('resize', () => S.css.setSize(innerWidth, innerHeight));
-    addEventListener('blur', () => setTimeout(() => { if (document.activeElement === S.video?.element) { document.activeElement.blur(); focus(); } }, 0));   // a click on the player (to unmute) must not keep the game's keys
+    addEventListener('blur', () => setTimeout(() => { if (S.videos.some(v => v.element === document.activeElement)) { document.activeElement.blur(); focus(); } }, 0));   // a click on the player (to unmute) must not keep the game's keys
   }
-  S.video = buildVideo(RALLYHALL); S.cssRoot.add(S.video);
-  ROOM.rallyhall.video = { src: S.video.element.src, shown: false };
+  S.videos = buildVideos(RALLYHALL); for (const v of S.videos) S.cssRoot.add(v);
+  ROOM.rallyhall.videos = S.videos.map(v => ({ src: v.element.src, shown: false }));
 }
-// per frame while the hall stands: follow the hall, hide the iframe wherever a wall, the roof or the floor would stand in front of it
+// per frame while the hall stands: follow the hall, hide the iframes wherever a wall, the roof or the floor would stand in front of it
 function stepRallyhallVideo() {
   const S = RALLYHALL_S;
-  if (!S.video || !S.hall) return;
+  if (!S.videos.length || !S.hall) return;
   S.cssRoot.matrix.copy(S.hall.matrixWorld); S.cssRoot.matrixWorldNeedsUpdate = true;
   const eye = S.hall.worldToLocal(camera.position.clone());
-  S.video.visible = videoShown(eye.x, eye.z, eye.y); ROOM.rallyhall.video.shown = S.video.visible;
+  const shown = videoShown(eye.x, eye.z, eye.y);
+  S.videos.forEach((v, i) => { v.visible = shown; ROOM.rallyhall.videos[i].shown = shown; });
   S.css.render(S.cssScene, camera);
 }
 // one podium car per frame once its glTF file is in, a parked copy like the depot's with its livery tinted, (cloneStageVehicle rebuilds the stage car,
@@ -4087,7 +4088,7 @@ const rallyhallUses = (id) => RALLYHALL_S.hall !== null && RALLYHALL.cars.some(c
 function clearRallyhallCars() {
   for (const m of RALLYHALL_S.meshes) { m.parent?.remove(m); disposeParked(m); }
   RALLYHALL_S.meshes = []; RALLYHALL_S.waiting = []; RALLYHALL_S.hall = null;
-  if (RALLYHALL_S.video) { RALLYHALL_S.cssRoot.remove(RALLYHALL_S.video); RALLYHALL_S.css.render(RALLYHALL_S.cssScene, camera); RALLYHALL_S.video = null; }
+  if (RALLYHALL_S.videos.length) { RALLYHALL_S.cssRoot.remove(...RALLYHALL_S.videos); RALLYHALL_S.css.render(RALLYHALL_S.cssScene, camera); RALLYHALL_S.videos = []; }
 }
 // #811: the Space Shuttle Enterprise on Launch Pad 39A (shuttle.js places it, shuttlemesh.js builds it): the hardstand with
 // the flame trench, the platform, the stack, the tower with its arms, the service structure and the water tower, one group

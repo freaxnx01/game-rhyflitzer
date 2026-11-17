@@ -84,17 +84,19 @@ export function buildFlags(cfg = RALLYHALL, onLoad = () => {}) {
   return group;
 }
 
-// the YouTube Short as a CSS3D object (an iframe, 360 px wide, scaled to the layout's metres) in the hall frame, turned like
-// the board so it faces the open front. index.html renders it with a CSS3DRenderer over the canvas; it is not in the WebGL scene.
-export function buildVideo(cfg = RALLYHALL) {
-  const V = videoLayout(cfg), px = 360, frame = document.createElement('iframe');
-  frame.src = videoEmbedUrl(cfg.video.id); frame.width = String(px); frame.height = String(Math.round(px * V.h / V.w));
-  frame.title = 'Elfyn Evans & Scott Martin, WRC'; frame.allow = 'autoplay; encrypted-media; picture-in-picture'; frame.referrerPolicy = 'strict-origin-when-cross-origin';
-  frame.style.cssText = 'border:0;background:#000;pointer-events:auto';
-  const video = new CSS3DObject(frame);
-  video.userData.role = 'rallyhallvideo';
-  video.position.set(V.a, V.y0 + V.h / 2, V.b); video.rotation.y = -Math.PI / 2; video.scale.setScalar(V.w / px);
-  return video;
+// the YouTube Shorts as CSS3D objects (iframes, 360 px wide, scaled to the layout's metres) in the hall frame, turned like
+// the board so they face the open front. index.html renders them with a CSS3DRenderer over the canvas; they are not in the WebGL scene.
+export function buildVideos(cfg = RALLYHALL) {
+  return videoLayout(cfg).map(V => {
+    const px = 360, frame = document.createElement('iframe');
+    frame.src = videoEmbedUrl(V.id); frame.width = String(px); frame.height = String(Math.round(px * V.h / V.w)); frame.dataset.video = V.id;
+    frame.title = V.title; frame.allow = 'autoplay; encrypted-media; picture-in-picture'; frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.style.cssText = 'border:0;background:#000;pointer-events:auto';
+    const video = new CSS3DObject(frame);
+    video.userData.role = 'rallyhallvideo';
+    video.position.set(V.a, V.y0 + V.h / 2, V.b); video.rotation.y = -Math.PI / 2; video.scale.setScalar(V.w / px);
+    return video;
+  });
 }
 
 // the lettering canvas: the panel colour filled, a gold inner rule, then each line centred in gold. ch spans the

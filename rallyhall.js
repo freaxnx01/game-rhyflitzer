@@ -18,7 +18,10 @@ export const RALLYHALL = {
   colours: { wall: 0xc9c8c2, roof: 0x8d9096, floor: 0x9b9a95, podium: 0xe6e6e2, band: 0x2c3b4d },
   board: { a: 19.34, b: 0, y0: 0.8, w: 6.0, h: 2.2, panel: 0x14171c, gold: 0xd4a83a, lines: [{ text: 'Elfyn Evans', size: 0.22, y: 0.30, weight: 800 }, { text: 'WRC World Champion 2026', size: 0.14, y: 0.58, weight: 700 }, { text: '& Scott Martin', size: 0.09, y: 0.80, weight: 600 }] },
   flags: { a: 19.25, y0: 4.6, w: 5.0, h: 3.0, gap: 1.0, list: [{ id: 'wales', src: './assets/flags/wales.svg' }, { id: 'uk', src: './assets/flags/uk.svg' }] },
-  video: { id: 'cZxfLJdhWk8', a: 19.25, b: -13, y0: 3.2, h: 5.6 },   // the WRC's Short of Evans' title day, 9:16
+  videos: { a: 19.25, y0: 3.2, h: 5.6, list: [                                                                 // YouTube Shorts, 9:16, either side of the flags
+    { id: 'cZxfLJdhWk8', b: -13, title: 'Elfyn Evans & Scott Martin, WRC' },                                   // the WRC's Short of the title day
+    { id: 'RFIVbPT6pdI', b: 13, title: 'Elfyn Evans, Rally Sweden 2026' },                                      // a fast pass in Sweden
+  ] },
 };
 
 // #907: the honour board on the back wall behind the Evans car -- plain numbers in the hall frame (a into the room,
@@ -32,9 +35,9 @@ export function flagLayout(cfg = RALLYHALL) {
   return list.map((f, i) => ({ id: f.id, src: f.src, a, b: cfg.board.b + (i - (list.length - 1) / 2) * step, y0, w, h }));
 }
 
-// the YouTube Short on the glass band left of the flags, 9:16, in the hall frame. index.html shows it as an iframe in a CSS3D
-// layer over the canvas, so nothing in the scene can hide it: it is shown only where nothing stands in between (videoShown).
-export function videoLayout(cfg = RALLYHALL) { const { a, b, y0, h } = cfg.video; return { a, b, y0, w: h * 9 / 16, h }; }
+// the YouTube Shorts on the glass band, one either side of the flags, 9:16, in the hall frame. index.html shows each as an iframe
+// in a CSS3D layer over the canvas, so nothing in the scene can hide it: it is shown only where nothing stands in between (videoShown).
+export function videoLayout(cfg = RALLYHALL) { const { a, y0, h, list } = cfg.videos; return list.map(v => ({ id: v.id, title: v.title, a, b: v.b, y0, w: h * 9 / 16, h })); }
 
 // the privacy-enhanced embed, muted (browsers only autoplay muted video) and looping its one video (YouTube loops a playlist)
 export function videoEmbedUrl(id) {
