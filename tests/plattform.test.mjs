@@ -123,14 +123,13 @@ test('plattformCoreCollider_CarCircleClearOfTheRing_NoHit', () => {
   assert.equal(colliderPush(o, x, z, 0.9), null);
 });
 
-test('plattformYard_KslPlan_GravelRectAndSixParkingSpaces', () => {
+test('plattformYard_KslPlan_GravelRectWithoutParkingBays', () => {
   const y = plattformYard(plattformFrame(0, 0, 0));
   assert.equal(y.gravel.length, 4);
   const us = y.gravel.map(p => p[0]), vs = y.gravel.map(p => p[1]);   // facing 0: u = x, v = z
   assert.ok(near(Math.max(...us), PLATTFORM.yard.u1) && near(Math.min(...us), PLATTFORM.yard.u0));
   assert.ok(near(Math.max(...vs) - Math.min(...vs), 26), 'the yard is 26 m wide');
-  assert.equal(y.parking.length, 6);
-  for (const s of y.parking) assert.equal(s.length, 4);
+  assert.equal(y.parking, undefined, 'no painted parking bays on the yard');
 });
 
 test('stairHeadTarget_FromTheFarSide_LeadsRoundTheRailNotThroughIt', () => {
