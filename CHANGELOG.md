@@ -42,6 +42,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-18 09:32` Die **Rütistrasse** in Stein führt wieder eben **unter der A3** durch statt über einen Buckel auf Brückenhöhe; auch an sechs weiteren Stellen (u. a. Zürcherstrasse, Kaistenbergstrasse, Fricktalstrasse) liegt die Strasse unter einer **Strassenbrücke** jetzt in einer Unterführung mit Betonwänden.
 - `2026-11-17 22:14` Mehrspieler: Geht die erste Anmeldung eines Gastes unterwegs verloren, versucht er es jede Sekunde erneut, statt ewig auf die Lobby zu warten.
 - `2026-11-17 17:22` South of **Stein**, the road into the **railway underpass** no longer has a **stone corner** at its edge where the side road turns off: it is a low grass bank now.
 - `2026-11-16 13:53` Die Info zur **Landesgrenze** auf der Holzbrücke bleibt offen, wenn man <kbd>Leertaste</kbd> drückt. Vorher schloss die Taste das Fenster, und das folgende <kbd>Esc</kbd> öffnete die Pause.
