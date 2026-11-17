@@ -981,8 +981,8 @@ import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
-import { RALLYHALL, boardLayout } from './rallyhall.js';   // #859 / #907
-import { buildHall, rallyhallTriangles } from './rallyhallmesh.js';
+import { RALLYHALL, boardLayout, flagLayout } from './rallyhall.js';   // #859 / #907
+import { buildHall, buildFlags, rallyhallTriangles } from './rallyhallmesh.js';
 import { SHUTTLE, stackBase } from './shuttle.js';   // #811
 import { buildShuttle } from './shuttlemesh.js';
 import { FERRIS, wheelAngle, DUSK_LOOK, FERRIS_KEYS, nextPatternShift, patternAt } from './ferris.js';   // #513; #588: the dusk look
@@ -4035,7 +4035,8 @@ function roomArtemis(group, R) {
 // room centre and turned to the room's frame. All goes with the room's group (disposeGroup); ROOM.rallyhall tells the debug hook what was built.
 function roomRallyhall(group, R) {
   const H = R.rallyhall, hall = buildHall(RALLYHALL); hall.position.set(H.hall.x, R.y, H.hall.z); hall.rotation.y = -H.hall.th; group.add(hall);
-  ROOM.rallyhall = { built: R.k, hall: H.hall, cars: H.cars, h: RALLYHALL.h, tris: rallyhallTriangles(hall), colliders: H.colliders.length, board: { text: boardLayout(RALLYHALL).lines.map(l => l.text), found: hall.children.some(o => o.userData.role === 'rallyhallboard') }, parked: [] };
+  ROOM.rallyhall = { built: R.k, hall: H.hall, cars: H.cars, h: RALLYHALL.h, tris: rallyhallTriangles(hall), colliders: H.colliders.length, board: { text: boardLayout(RALLYHALL).lines.map(l => l.text), found: hall.children.some(o => o.userData.role === 'rallyhallboard') }, flags: { ids: flagLayout(RALLYHALL).map(f => f.id), loaded: [] }, parked: [] };
+  const loaded = ROOM.rallyhall.flags.loaded; hall.add(buildFlags(RALLYHALL, id => loaded.push(id)));   // the champion's flags over the board
   RALLYHALL_S.hall = hall; RALLYHALL_S.waiting = [...RALLYHALL.cars];
   for (const c of RALLYHALL.cars) loadVehicleModel(c.vehicle);
 }

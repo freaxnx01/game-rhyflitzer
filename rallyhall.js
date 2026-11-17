@@ -17,11 +17,19 @@ export const RALLYHALL = {
   ],
   colours: { wall: 0xc9c8c2, roof: 0x8d9096, floor: 0x9b9a95, podium: 0xe6e6e2, band: 0x2c3b4d },
   board: { a: 19.34, b: 0, y0: 0.8, w: 6.0, h: 2.2, panel: 0x14171c, gold: 0xd4a83a, lines: [{ text: 'Elfyn Evans', size: 0.22, y: 0.30, weight: 800 }, { text: 'WRC World Champion 2026', size: 0.14, y: 0.58, weight: 700 }, { text: '& Scott Martin', size: 0.09, y: 0.80, weight: 600 }] },
+  flags: { a: 19.25, y0: 4.6, w: 5.0, h: 3.0, gap: 1.0, list: [{ id: 'wales', src: './assets/flags/wales.svg' }, { id: 'uk', src: './assets/flags/uk.svg' }] },
 };
 
 // #907: the honour board on the back wall behind the Evans car -- plain numbers in the hall frame (a into the room,
 // b across, y up from the floor); rallyhallmesh.js draws it. Hangs on the wall, so it adds no collider.
 export function boardLayout(cfg = RALLYHALL) { const { a, b, y0, w, h, lines } = cfg.board; return { a, b, y0, w, h, lines }; }
+
+// the champion's flags over the honour board, Wales then the Union Jack: 5:3 banners side by side on the glass band, centred
+// over the board and just off the glass (a = 19.3), in the hall frame. Seen from the open front, -b is on the left. No collider.
+export function flagLayout(cfg = RALLYHALL) {
+  const { a, y0, w, h, gap, list } = cfg.flags, step = w + gap;
+  return list.map((f, i) => ({ id: f.id, src: f.src, a, b: cfg.board.b + (i - (list.length - 1) / 2) * step, y0, w, h }));
+}
 
 // where the hall and its cars stand in a room ({ centre, frame: { f, v }, y } as roomLayout gives it): the hall at the
 // room centre turned to the frame, each car on its podium with its nose to the open front, the gravel apron from the

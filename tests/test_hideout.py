@@ -1240,7 +1240,7 @@ def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(se
         h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
         assert page.evaluate("() => window.__mm.rallyhall()") is None
         into_room(page, 5, "room5")
-        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5 && window.__mm.rallyhall().parked.length === 3", timeout=120000)
+        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5 && window.__mm.rallyhall().parked.length === 3 && window.__mm.rallyhall().flags.loaded.length === 2", timeout=120000)
         a = page.evaluate("() => window.__mm.rallyhall()")
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
         push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
@@ -1253,14 +1253,20 @@ def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(se
         page.evaluate(f"() => window.__mm.sim({board_view['x']}, {board_view['z']}, {board_view['th']}, 0, 1.5, [], -600)")
         page.wait_for_timeout(1500)
         page.screenshot(path=str(tmp_path / "rallyhall-board.png"))
+        flag_view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th; return { x: v.x - Math.cos(th) * 8, z: v.z - Math.sin(th) * 8, th }; }")   # 27 m in front of the flags (a = 19.25), clear of the podiums, looking at +a
+        page.evaluate(f"() => window.__mm.sim({flag_view['x']}, {flag_view['z']}, {flag_view['th']}, 0, 1.5, [], -600)")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "rallyhall-flags.png"))
         br.close()
     print("screenshot:", tmp_path / "rallyhall-room.png")
     print("screenshot:", tmp_path / "rallyhall-board.png")
+    print("screenshot:", tmp_path / "rallyhall-flags.png")
     assert errors == []
     assert {u.rsplit("/", 1)[-1] for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")} <= {"rally.glb"}, requests   # the Eiffel preloads near the Hübel by design; the room fetches only the Rhy Rally
     assert sorted(a["parked"]) == ["evans", "mccrae", "neuville"], a
     assert a["built"] == 5 and abs(a["h"] - 14.8) < 1e-6 and 500 <= a["tris"] <= 30000 and a["colliders"] == 9 and len(a["cars"]) == 3, a
     assert a["board"]["text"][:2] == ["Elfyn Evans", "WRC World Champion 2026"] and a["board"]["found"], a   # #907: the honour board is in the hall group
+    assert a["flags"]["ids"] == ["wales", "uk"] and sorted(a["flags"]["loaded"]) == ["uk", "wales"], a   # the champion's flags, both SVGs loaded
     assert info["below"]["built"] == 5 and info["below"]["level"] == "room5" and info["below"]["object"] is True and info["counts"].get("rallyhall") == 1 and "eiffel" not in info["counts"], info
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("wall", "podium")), push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("floor", "apron")), push
