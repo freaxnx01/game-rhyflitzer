@@ -185,3 +185,70 @@ def test_rutistrasse_stays_level_under_the_a3(server):
     assert r["drive"][-1]["z"] >= 1135, r["drive"][-1]
     assert max(d["y"] for d in r["drive"] if d["z"] <= 1140) <= 17.5, r["drive"]   # past z 1140 the road climbs the natural hill
     assert not any(d["bridge"] for d in r["drive"]), r["drive"]
+
+
+def guard_road_ids(world, deck_ids):
+    """Per deck id, the ids of the ground roads that end on that deck's ends (world.js deckGuards)."""
+    decks = {r["id"]: r["pts"] for r in world["roads"] if r.get("bridge") and r["id"] in deck_ids}
+    out = {}
+    for d, pts in decks.items():
+        ends = [pts[0], pts[-1]]
+        out[d] = {r["id"] for r in world["roads"] if not r.get("bridge")
+                  and any(math.hypot(p[0] - e[0], p[1] - e[1]) <= 0.5 for p in (r["pts"][0], r["pts"][-1]) for e in ends)}
+    return out
+
+
+@needs_world
+def test_rutistrasse_portal(server):
+    """Under the A3 the Rütistrasse runs between trough walls on both sides, under a solid deck box that clears the road;
+    the walls stop a car in the trough, not one on the deck. No road-cut wall stands in a road that is not its deck's bank road."""
+    world = json.loads(WORLD.read_text(encoding="utf-8"))
+
+    def script(page):
+        xs = page.evaluate("() => window.__mm.roadCrossings()")
+        walls = page.evaluate("() => window.__mm.roadWalls()")
+        out = {"xs": xs, "walls": walls, "sites": {}}
+        for d, p in RUTI_DECKS.items():
+            c = next(c for c in xs if c["deckId"] == d and near(c, p))
+            deck = page.evaluate(f"() => window.__mm.ground({c['x']}, {c['z']}, 1e4)")
+            top = page.evaluate(f"() => window.__mm.rayHits({c['x']}, {c['z']})")
+            low = page.evaluate(f"() => window.__mm.rayHits({c['x']}, {c['z']}, {deck - 1.3})")
+            here = [w for w in walls if math.hypot(w["x"] - c["x"], w["z"] - c["z"]) < 8]
+            pushes = []
+            for w in (w for w in here if w["under"]):
+                x, z = w["x"] - w["nx"] * 1.5, w["z"] - w["nz"] * 1.5
+                pushes.append({"side": w["side"], "trough": page.evaluate(f"() => window.__mm.pushAt({x}, {z}, {w['floor'] + 0.1})"),
+                               "deck": page.evaluate(f"() => window.__mm.pushAt({x}, {z}, {w['top'] + 1.2})")})
+            out["sites"][d] = {"deck": deck, "top": top, "low": low, "here": here, "pushes": pushes}
+        return out
+    r = run(server, script)
+    for d, s in r["sites"].items():
+        print(d, "deck", round(s["deck"], 2), "stone", s["top"].get("stone"), "road", s["low"].get("roadOsm"), "walls", len(s["here"]))
+        assert s["top"]["stone"] is not None and s["low"]["roadOsm"] is not None, (d, s["top"], s["low"])
+        assert s["top"]["stone"] - s["low"]["roadOsm"] >= 1.2 + 4.45 - 0.1, (d, s["top"], s["low"])   # the drawn deck box clears the drawn road
+        assert {w["side"] for w in s["here"] if w["under"]} == {-1, 1}, (d, s["here"])
+        for p in s["pushes"]:
+            assert math.hypot(p["trough"]["dx"], p["trough"]["dz"]) > 0.01, (d, p)                    # the wall stops a car in the trough
+            assert math.hypot(p["deck"]["dx"], p["deck"]["dz"]) < 0.01, (d, p)                        # but not one on the deck above it
+    # no road-cut wall piece (both ends) in the corridor of a ground road other than its own and its decks' bank roads
+    cut_decks = {c["deckId"] for c in r["xs"] if c["depth"] > 0}
+    guards = guard_road_ids(world, cut_decks)
+    deck_pts = {r_["id"]: r_["pts"] for r_ in world["roads"] if r_.get("bridge") and r_["id"] in cut_decks}
+    assert r["walls"], "no road-cut walls"
+    for w in r["walls"]:
+        allowed = {g for d, pts in deck_pts.items() if dseg(w["x"], w["z"], pts) < 40 for g in guards[d]}
+        ends = [(w["x"] + k * math.cos(w["rot"]) * w["len"] / 2, w["z"] + k * math.sin(w["rot"]) * w["len"] / 2) for k in (-1, 1)]
+        for k, rd in enumerate(world["roads"]):
+            if rd.get("bridge") or k == w["road"] or rd["id"] in allowed:
+                continue
+            for ex, ez in ends:
+                assert dseg(ex, ez, rd["pts"]) >= rd["w"] / 2 + 1.0, (rd["id"], rd.get("n"), round(dseg(ex, ez, rd["pts"]) - rd["w"] / 2, 3), w)
+
+
+def dseg(x, z, pts):
+    best = math.inf
+    for (ax, az), (bx, bz) in zip(pts, pts[1:]):
+        vx, vz = bx - ax, bz - az
+        t = max(0.0, min(1.0, ((x - ax) * vx + (z - az) * vz) / ((vx * vx + vz * vz) or 1e-9)))
+        best = min(best, math.hypot(x - ax - t * vx, z - az - t * vz))
+    return best
