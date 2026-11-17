@@ -18,6 +18,8 @@
   - „Rising Tension" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Open Road" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Night Drive" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Hurricane Bloom" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Celtic Jig of Iron" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Menu / Running Title" by Rob Bery · Rob Bery Art (OpenGameArt user R0B B3RY), https://opengameart.org/content/menu-running-title, CC0 (re-encoded to 128 kbps)
 - SRF 3 live (https://www.srf.ch/radio-srf-3): the live stream `https://stream.srg-ssr.ch/srgssr/srf3/mp3/128`, played unchanged, not re-hosted
 - WebGPU PoC (`poc/webgpu/`): demo code "Slop New York" (MIT) © Mr.doob (https://github.com/mrdoob/slop-newyork)
