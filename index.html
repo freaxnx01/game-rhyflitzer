@@ -5451,7 +5451,7 @@ window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; FOOT.mv =
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
 window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); FOOT.view = null; return window.__mm.foot(); };   // #895: tests and screenshot scripts read the new pitch at once
 // tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
-window.__mm.era = () => { const s = ERA.solids[0]; return { available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), goneHere: goneUnderCar(), jumpableRoads: ROADS.filter(jumpable).length, jumpsOnGone: eraEntries(JUMP_ENTRIES).filter(landsOnGoneRoad).length, buses: POSTAUTO.buses.filter(b => b.phase !== 'done').length, ...eraRoadProbe() }; };   // #530
+window.__mm.era = () => { const s = ERA.solids[0]; return { available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), goneHere: goneUnderCar(), jumpableRoads: ROADS.filter(jumpable).length, jumpsOnGone: eraJumpEntries(JUMP_ENTRIES).filter(landsOnGoneRoad).length, buses: POSTAUTO.buses.filter(b => b.phase !== 'done').length, ...eraRoadProbe() }; };   // #530
 // #530: the new roads and the Fridolinsbruecke -- how many are hidden, where to look for them, and whether anything of them is left
 let ERA_SAMPLES = null;   // the sample spots never change: found once, on the first probe
 function eraRoadProbe() {
@@ -6968,14 +6968,16 @@ window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.
 // 'jump' (J) lists the landmarks and the random spot; 'drive' (O, #18) and 'navi' (I, #106) share the landmarks + streets rows
 const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
-const eraEntries = list => list.filter(e => eraShown(e, ERA.on) && !(ERA.on && landsOnGoneRoad(e)));
-const landsOnGoneRoad = e => { const [x, z] = e.jump || [e.x, e.z]; return Number.isFinite(x) && Number.isFinite(z) && roadGoneAt(roadHitsAt(x, z)); };   // #530: a spot on a road of today is not offered   // #530: entries of hidden buildings leave the lists
+const eraEntries = list => list.filter(e => eraShown(e, ERA.on));   // #530: entries of hidden buildings leave the lists
+const GONE_LANDING = new WeakMap();   // the road flags never change: one answer per entry
+const landsOnGoneRoad = e => { let v = GONE_LANDING.get(e); if (v === undefined) { const [x, z] = e.jump || [e.x, e.z]; v = Number.isFinite(x) && Number.isFinite(z) && roadGoneAt(roadHitsAt(x, z)); GONE_LANDING.set(e, v); } return v; };
+const eraJumpEntries = list => ERA.on ? eraEntries(list).filter(e => !landsOnGoneRoad(e)) : list;   // #530: a J spot on a road of today is not offered in 1952
 const eraEnterables = () => eraEntries(visibleEnterables(ENTERABLES, secretRevealed()));
-function destEntries() { return [...eraEntries(JUMP_ENTRIES).filter(e => !e.wreck && !e.yard && !e.depot), ...AUTOP.streets]; }   // #553: the autopilot drives roads; the depot, the wreck and the yard land off them
-function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : eraEntries(JUMP_ENTRIES); }
+function destEntries() { return [...eraJumpEntries(JUMP_ENTRIES).filter(e => !e.wreck && !e.yard && !e.depot), ...AUTOP.streets]; }   // #553: the autopilot drives roads; the depot, the wreck and the yard land off them
+function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : eraJumpEntries(JUMP_ENTRIES); }
 function jumpRows() {
   if (DEST_MODES.has(JUMP.mode)) return filterLandmarks(jumpEntries(), JUMP.q, JUMP.g);
-  const rows = jumpRowsFor(eraEntries(JUMP_ENTRIES), eraEntries(ENTERABLES), { q: JUMP.q, g: JUMP.g, enterable: JUMP.enterable, lang: window.GG_LANG === 'de' ? 'de' : 'en' }, secretRevealed());   // #409: the Enterable chip narrows the list to the register
+  const rows = jumpRowsFor(eraJumpEntries(JUMP_ENTRIES), eraEntries(ENTERABLES), { q: JUMP.q, g: JUMP.g, enterable: JUMP.enterable, lang: window.GG_LANG === 'de' ? 'de' : 'en' }, secretRevealed());   // #409: the Enterable chip narrows the list to the register
   return JUMP.enterable ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }];
 }
 function renderJump() {
@@ -6989,7 +6991,7 @@ function renderJump() {
   const chip = g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`;
   $('jumpchips').innerHTML = !L ? '' : drive ? ['All', ...placeChips(jumpEntries())].map(chip).join('')   /* #782: drive and navi keep the single placeChips row */
     : chip('All') + `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`   /* #782: Enterable moved up beside All */
-      + chipRows(gemeindenOf(eraEntries(JUMP_ENTRIES), REGION.gemeinden), REGION.gemeindenDe).map(row =>
+      + chipRows(gemeindenOf(eraJumpEntries(JUMP_ENTRIES), REGION.gemeinden), REGION.gemeindenDe).map(row =>
         `<div class="crow"${row.country ? ` data-country="${row.country}"` : ''}>${row.country ? `<b>${row.country}</b>` : ''}${row.gemeinden.map(chip).join('')}</div>`).join('');
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
@@ -7354,11 +7356,11 @@ function currentRoute() { return AUTOP.on ? { route: AUTOP.st.route, s: AUTOP.st
 function drawRoute(v, route, s) { let i = 0; while (i < route.pts.length - 2 && route.cum[i + 1] <= s) i++; mg.beginPath(); mg.moveTo(...mapPt(v, P.x, P.z)); for (let k = i + 1; k < route.pts.length; k++) mg.lineTo(...mapPt(v, route.pts[k][0], route.pts[k][1])); mg.lineJoin = 'round'; mg.lineWidth = 7; mg.strokeStyle = '#1c1f26'; mg.stroke(); mg.lineWidth = 4; mg.strokeStyle = '#3ddcff'; mg.stroke(); const [ex, ey] = mapPt(v, ...route.pts[route.pts.length - 1]); mg.beginPath(); mg.arc(ex, ey, 7, 0, 7); mg.fillStyle = '#3ddcff'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = '#1c1f26'; mg.stroke(); }
 const MAP_MARKS = { list: [] };
 function enterableMapMarks() {   // #409: ready, visible entrances on the surface; the hideout objects collapse to one mark at the Hübel
-  const marks = [], seen = new Set();
+  const marks = [], seen = new Set(), jumps = eraEntries(JUMP_ENTRIES);
   for (const e of eraEnterables()) {
     if (!e.ready) continue;
     if (e.level === 'surface') { marks.push({ id: e.id, x: e.x, z: e.z }); continue; }
-    const at = eraEntries(JUMP_ENTRIES).find(j => j.n === e.landmark);
+    const at = jumps.find(j => j.n === e.landmark);
     if (at && !seen.has(e.landmark)) { seen.add(e.landmark); marks.push({ id: e.id, x: at.x, z: at.z }); }
   }
   return marks;
@@ -7414,10 +7416,11 @@ function toggleEra() {   // #530: Ctrl+Y -- the Swiss villages as in 1952, and b
   const wasGone = !ERA.on && goneUnderCar(); stopAuto('era'); stopNavi();   // the route may run over roads that appear or vanish
   ERA.on = !ERA.on; if (ERA.on && (R.state === 'racing' || R.state === 'armed')) R.era = true; ERA.group.visible = !ERA.on; for (const o of ERA.solids) o.off = ERA.on;
   if (!ERA.on && !FLY.on && LEVELS.isSurface() && !caveInside() && ERA.solids.some(o => solidHolds(o, P.x, P.z))) { const best = nearestJumpable(P.x, P.z); if (best) placeOnRoad(best.x, best.z, P.th, 'era'); }   // back inside a reappearing building: out to the road, like a J jump
-  if (ERA.on && wasGone && !FLY.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) placeOnRoad(best.x, best.z, P.th, 'era'); }   // standing on a road of today: to the nearest old one
+  let moved = false;
+  if (ERA.on && wasGone && !FLY.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) { placeOnRoad(best.x, best.z, P.th, 'era'); moved = true; } }   // standing on a road of today: to the nearest old one
   if (AUTOP.graphs.today || AUTOP.graphs.era) autoGraph();   // AUTOP.graph / .streets follow the layer
   paintMapStatic();   // the minimap drops the hidden buildings and roads
-  toast(tr(ERA.on ? (wasGone ? 'eraRoadGone' : 'eraOn') : 'eraOff'));
+  toast(tr(ERA.on ? (moved ? 'eraRoadGone' : 'eraOn') : 'eraOff'));
 }
 function toggleMono() { const on = document.body.classList.toggle('mono'); toast(tr(on ? 'monoOn' : 'monoOff')); }   // #530
 function toggleDebug() { DEBUG.on = !DEBUG.on; DEBUG.t = 0; $('debug').hidden = !DEBUG.on; if (!DEBUG.on) for (const l of DEBUG.layers) l.hide(); toast(tr(DEBUG.on ? 'debugOn' : 'debugOff')); }

@@ -248,12 +248,16 @@ def test_era_road_gone_moves_car_off_street(server):
         page.keyboard.press("Control+y")
         page.wait_for_function("() => window.__mm.era().on", timeout=60000)
         car2 = car_of(page); toast2 = toast_text(page)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        toast3 = toast_text(page)
         b.close()
     assert "did not exist" in toast, toast
     assert math.hypot(car["x"] - gx, car["z"] - gz) > 3, (car, gx, gz)
     assert not e["goneHere"] and abs(car["y"] - ground) < 1.5, (e, car, ground)
     assert math.hypot(car2["x"] - car["x"], car2["z"] - car["z"]) < 1, (car, car2)
     assert "did not exist" not in toast2 and "1952" in toast2, toast2
+    assert "did not exist" not in toast3, toast3
     assert page.errors == []
 
 
@@ -286,7 +290,8 @@ def test_era_road_logic_follows_layer(server):
         b, page = open_game(p, server)
         page.keyboard.press("KeyO"); page.keyboard.type("Smile"); page.keyboard.press("Enter")
         page.wait_for_function("() => window.__mm.auto().on", timeout=60000)
-        j0 = page.evaluate(ERA)["jumpableRoads"]
+        page.wait_for_function("() => window.__mm.era().buses > 0", timeout=120000)
+        e0 = page.evaluate(ERA); j0 = e0["jumpableRoads"]
         page.keyboard.press("Control+y")
         page.wait_for_function("() => window.__mm.era().on", timeout=60000)
         auto = page.evaluate("() => window.__mm.auto().on"); e = page.evaluate(ERA)
@@ -295,6 +300,8 @@ def test_era_road_logic_follows_layer(server):
         j2 = page.evaluate(ERA)["jumpableRoads"]
         b.close()
     assert auto is False
+    assert e0["buses"] > 0, "buses ran before the toggle"
+    assert e0["jumpsOnGone"] > 0, "some J entry lands on a road gone in 1952 while the layer is off"
     assert e["jumpsOnGone"] == 0 and e["buses"] == 0, e
     assert e["jumpableRoads"] < j0 and j2 == j0, (j0, e["jumpableRoads"], j2)
     assert page.errors == []
