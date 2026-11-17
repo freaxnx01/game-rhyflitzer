@@ -93,17 +93,22 @@ test('flagLayout_OnTheGlassBandAboveTheBoard_CentredOverIt_WalesOnTheLeftSeenFro
 
 import { videoLayout, videoEmbedUrl, videoShown } from '../rallyhall.js';
 
-test('videoLayout_PortraitShortOnTheGlassBand_LeftOfTheFlags_ClearOfThem', () => {
-  const V = videoLayout(RALLYHALL), H = RALLYHALL.hall, F = flagLayout(RALLYHALL), glassFront = H.d / 2 - H.wall - 0.1;
-  near(V.w / V.h, 9 / 16, 1e-9, 'a Short is 9:16');
-  assert.ok(V.a < glassFront && glassFront - V.a <= 0.1, 'within 10 cm in front of the glass band');
-  assert.ok(V.y0 >= H.glass.y0 && V.y0 + V.h <= H.glass.y1, 'on the glass band');
-  assert.ok(V.b + V.w / 2 < Math.min(...F.map(f => f.b - f.w / 2)) - 1, 'left of the flags with a metre between');
-  assert.ok(V.b - V.w / 2 >= -(H.w / 2 - H.wall), 'inside the wall width');
+test('videoLayout_TwoPortraitShortsOnTheGlassBand_OneEitherSideOfTheFlags_ClearOfThem', () => {
+  const VS = videoLayout(RALLYHALL), H = RALLYHALL.hall, F = flagLayout(RALLYHALL), glassFront = H.d / 2 - H.wall - 0.1;
+  assert.deepEqual(VS.map(v => v.id), ['cZxfLJdhWk8', 'RFIVbPT6pdI']);
+  const flagsLeft = Math.min(...F.map(f => f.b - f.w / 2)), flagsRight = Math.max(...F.map(f => f.b + f.w / 2));
+  for (const V of VS) {
+    near(V.w / V.h, 9 / 16, 1e-9, `${V.id}: a Short is 9:16`); assert.ok(V.title, `${V.id} has a title`);
+    assert.ok(V.a < glassFront && glassFront - V.a <= 0.1, `${V.id}: within 10 cm in front of the glass band`);
+    assert.ok(V.y0 >= H.glass.y0 && V.y0 + V.h <= H.glass.y1, `${V.id}: on the glass band`);
+    assert.ok(Math.abs(V.b) + V.w / 2 <= H.w / 2 - H.wall, `${V.id}: inside the wall width`);
+  }
+  assert.ok(VS[0].b + VS[0].w / 2 < flagsLeft - 1, 'the first left of the flags with a metre between');
+  assert.ok(VS[1].b - VS[1].w / 2 > flagsRight + 1, 'the second right of the flags with a metre between');
 });
 
 test('videoEmbedUrl_NoCookieEmbed_MutedAutoplayLoopingThatOneVideo', () => {
-  const u = new URL(videoEmbedUrl(RALLYHALL.video.id));
+  const u = new URL(videoEmbedUrl('cZxfLJdhWk8'));
   assert.equal(u.origin, 'https://www.youtube-nocookie.com');
   assert.equal(u.pathname, '/embed/cZxfLJdhWk8');
   for (const [k, v] of [['autoplay', '1'], ['mute', '1'], ['loop', '1'], ['playlist', 'cZxfLJdhWk8'], ['playsinline', '1'], ['rel', '0']]) assert.equal(u.searchParams.get(k), v, k);
