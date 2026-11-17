@@ -182,6 +182,20 @@ export function roadBridgeCrossings(roads, decks) {
     .filter((c) => Math.min(c.tRail, polylineLength(decks[c.bridge].pts) - c.tRail) >= DECK_END_GAP);
 }
 
+// #1044: ground roads that end on a road deck's end keep their ground (the cut under the deck must not eat the bank road); pts run
+// away from the deck, cut to `reach` m. guardedAt: inside such a road's ribbon + pad
+export function deckGuards(deckPts, roads, reach = 30) {
+  const ends = [deckPts[0], deckPts[deckPts.length - 1]], near = (p) => ends.some((e) => Math.hypot(p[0] - e[0], p[1] - e[1]) <= 0.5), out = [];
+  for (const road of roads) {
+    if (road.bridge) continue;
+    const first = near(road.pts[0]), last = near(road.pts[road.pts.length - 1]);
+    if (!first && !last) continue;
+    out.push({ road, pts: cutPolyline(first ? road.pts : [...road.pts].reverse(), reach), hw: road.w / 2 });
+  }
+  return out;
+}
+export function guardedAt(x, z, guards, pad = 0.5) { return guards.some((g) => nearestOnPolyline(g.pts, x, z).d <= g.hw + pad); }
+
 export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidth / Math.max(0.3, sin) + u.apron; }
 
 // #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at

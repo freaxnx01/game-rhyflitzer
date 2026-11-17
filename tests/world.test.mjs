@@ -1623,3 +1623,34 @@ test('roadBridgeCrossings_Hochrhein_TheEighteenOfIssue1044', { skip: !existsSync
   assert.equal(got.length, 24);
   for (const pair of ISSUE_1044_PAIRS) assert.ok(got.some(([b, r]) => b === pair[0] && r === pair[1]), pair);
 });
+
+// #1044: bank roads of a road deck keep their ground
+import { deckGuards, guardedAt } from '../world.js';
+test('deckGuards_BankRoadsAtBothEnds_OrientedAwayAndCut', () => {
+  const deck = [[0, 0], [20, 0]];
+  const roads = [{ id: 1, w: 14, bridge: false, pts: [[-100, 0], [0, 0]] }, { id: 2, w: 14, bridge: false, pts: [[20, 0], [200, 0]] },
+                 { id: 3, w: 14, bridge: true, pts: [[20, 0], [40, 0]] }, { id: 4, w: 5, bridge: false, pts: [[10, -20], [10, 20]] }];
+  const g = deckGuards(deck, roads);
+  assert.deepEqual(g.map((x) => x.road.id).sort(), [1, 2]);                       // no bridge, no road merely crossing the deck
+  const a = g.find((x) => x.road.id === 1);
+  assert.deepEqual(a.pts[0], [0, 0]); assert.ok(Math.abs(polylineLength(a.pts) - 30) < 1e-9); assert.equal(a.hw, 7);
+});
+test('guardedAt_InsideRibbonPlusPad_True_OutsideFalse', () => {
+  const g = [{ pts: [[0, 0], [30, 0]], hw: 7 }];
+  assert.equal(guardedAt(10, 7.4, g), true); assert.equal(guardedAt(10, 7.6, g), false); assert.equal(guardedAt(31, 0, g), true);
+});
+test('deckGuards_Hochrhein_NoBankRoadReachesPastTheTroughFace', { skip: !existsSync(WORLD_HOCHRHEIN) }, () => {
+  // spec "Main risk": a guard keeps a bank road up only behind the wall's inner face (hw + margin)
+  const L = layoutFromWorld(JSON.parse(readFileSync(WORLD_HOCHRHEIN))), decks = L.roads.filter((r) => r.bridge);
+  const crossings = roadBridgeCrossings(L.roads, decks.map((r) => ({ pts: r.pts, layer: r.layer ?? 0 })))
+    .filter((c) => ISSUE_1044_PAIRS.some(([b, r]) => decks[c.bridge].id === b && c.road.id === r));
+  assert.equal(crossings.length, 18);
+  for (const c of crossings) for (const g of deckGuards(decks[c.bridge].pts, L.roads)) {
+    const len = polylineLength(g.pts);
+    for (const line of [g.pts, offsetPolyline(g.pts, g.hw), offsetPolyline(g.pts, -g.hw)])
+      for (let s = 0; s <= len; s += 0.5) {
+        const [px, pz] = pointAtLength(line, s), d = nearestOnPolyline(c.road.pts, px, pz).d;
+        assert.ok(d >= c.road.w / 2 + UNDERPASS.margin, `deck ${decks[c.bridge].id} road ${c.road.id} guard ${g.road.id} s=${s}: ${d}`);
+      }
+  }
+});
