@@ -757,7 +757,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small><small data-i18n="creditEstate"></small><small data-i18n="creditDelorean"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditDs9"></small><small data-i18n="creditDefiant"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small><small data-i18n="creditEstate"></small><small data-i18n="creditDelorean"></small>
         </dd>
         <dt data-i18n="aboutMusic"></dt>
         <dd><small data-i18n="creditMusicCoolRider"></small><small data-i18n="creditMusicNeonAfterglow"></small><small data-i18n="creditMusicCalifornia"></small><small data-i18n="creditMusicSoftRockGroove"></small><small data-i18n="creditMusicMelrose"></small><small data-i18n="creditMusicMenu"></small><small data-i18n="creditSrf3"></small><small data-i18n="creditArgovia"></small></dd>
@@ -980,6 +980,7 @@ import { FRIES } from './fries.js';
 import { buildFries, friesTriangles } from './friesmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
+import { DS9 } from './ds9.js';   // #620: the station hovers and bobs on the Enterprise's machinery
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
 import { RALLYHALL, boardLayout, flagLayout, videoShown } from './rallyhall.js';   // #859 / #907
 import { buildHall, buildFlags, buildVideos, rallyhallTriangles } from './rallyhallmesh.js';
@@ -4399,6 +4400,12 @@ window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489)
   if (!ROOM.states[8] || ROOM.built !== 8) return null;
   const m = ROOM.models[8], glow = {}; if (m) m.traverse(o => { if (o.isMesh && o.material.userData.glow) glow[o.material.userData.glow] = o.material.emissiveIntensity; });
   return { ...ROOM.states[8], hover: ENTERPRISE.hover, length: ENTERPRISE.length, y: m ? m.position.y : null, th: m ? m.userData.th : null, lettering: m ? m.userData.lettering || 0 : 0, paintedOut: m ? m.userData.paintedOut || 0 : 0, drapeMs: m ? m.userData.drapeMs : null, look: ROOM.layout.look, sun: sun.intensity, hemi: hemi.intensity, sunDisc: sunSprite.visible, dome: ROOM.group.children.some(o => o.userData.role === 'stardome'), grid: ROOM.group.children.some(o => o.userData.role === 'holodeck'), glow: m ? glow : null };
+};
+window.__mm.ds9 = () => {   // #620: ring-2 room 1 is flat index 9 (#489); `defiant` is where the docked ship ended up in the world
+  if (!ROOM.states[9] || ROOM.built !== 9) return null;
+  const m = ROOM.models[9], defiant = m && m.getObjectByName('defiant');
+  if (defiant) defiant.updateWorldMatrix(true, false);
+  return { ...ROOM.states[9], hover: DS9.hover, diameter: DS9.diameter, y: m ? m.position.y : null, th: m ? m.userData.th : null, ceiling: ROOM.layout.fly.ceiling, look: ROOM.layout.look, defiant: defiant ? defiant.getWorldPosition(new THREE.Vector3()).toArray() : null };
 };
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)

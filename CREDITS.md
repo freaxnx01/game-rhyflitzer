@@ -24,6 +24,7 @@
   - „Unison Riff" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Motores Relentless" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Menu / Running Title" by Rob Bery · Rob Bery Art (OpenGameArt user R0B B3RY), https://opengameart.org/content/menu-running-title, CC0 (re-encoded to 128 kbps)
+- Deep Space Nine in ring-2 room 1 (`assets/models/ds9.glb`, see its LICENSE.md): „Deep Space Nine - Star Trek" by rossrobotics (https://sketchfab.com/rossrobotics), source https://sketchfab.com/3d-models/deep-space-nine-star-trek-3e1743fc00be4d83848c7d890b8a5988, and „U.S.S. Defiant" by Feltman_Langer (https://sketchfab.com/Feltman_Langer), source https://sketchfab.com/3d-models/uss-defiant-8e875133c49240699d3b19de324826cf, both CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); decimated and scaled to 50 %
 - Flags in the rally hall (`assets/flags/`, see its LICENSE.md): Flag of Wales by Tobias Jakobs (Open Clipart Library) via Wikimedia Commons, public domain; Union Jack, public domain
 - Rally hall videos: „A day that Elfyn Evans & Scott Martin will never forget" by FIA World Rally Championship (https://www.youtube.com/shorts/cZxfLJdhWk8), and „wrc rally Sweden 2026 Elfyn Evans faster passage" by wrcfans (https://www.youtube.com/shorts/RFIVbPT6pdI), both embedded with YouTube's own player (youtube-nocookie.com), not re-hosted
 - SRF 3 live (https://www.srf.ch/radio-srf-3): the live stream `https://stream.srg-ssr.ch/srgssr/srf3/mp3/128`, played unchanged, not re-hosted
