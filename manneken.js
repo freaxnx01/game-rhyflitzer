@@ -10,10 +10,13 @@ export const MANNEKEN = {
   at: [-60, -34],                        // room frame [a, b] from the Atomium's axis, as FRIES.at (see rooms.js roomLayout)
   url: './assets/models/manneken_pis.glb',
   figure: { h: 0.61 },                   // the bronze's real height; the file is prepared to it (tools/prepare-manneken.mjs)
-  walls: { h: 6, len: 3.2, t: 0.6 },     // two cream plaster house walls meeting at a right angle behind the niche, with a plinth band and a cornice
+  // two cream plaster house walls meeting at a right angle, their corner chamfered towards the viewer to carry the niche; `len` is the
+  // facade each wall shows beside the chamfer -- from the corner the two would meet at, each is about 1.7 m longer
+  walls: { h: 6, len: 2.3, t: 0.6 },
+  chamfer: { hw: 1.2, x: 0.25 },         // the chamfered front: half its width, and how far its face stands ahead of the basin's axis
   band: { h: 0.5 },                      // the bluestone plinth band round the walls' feet
   niche: { w: 1.6, h: 3.4, depth: 0.6 }, // the arched bluestone niche in the chamfered corner; h = the arch's top over the floor
-  basin: { r: 0.7, rim: 0.7, water: 0.6 },   // the half-round stone basin: 1.4 m across, its rim 0.7 m up, the water just under it
+  basin: { r: 0.7, wall: 0.08, rim: 0.7, water: 0.6 },   // the half-round stone basin: 1.4 m across, its rim 0.7 m up, the water just under it
   pedestal: { r: 0.175, top: 1.9 },      // the column the boy stands on
   railing: { r: 1.9, h: 1.2, step: 0.12 },   // the wrought-iron half circle in front, a bar every 0.12 m, spear tips on the top rail
   jet: { from: [0.0797, 0.2254, 0.0394], r: 0.012, reach: 0.5 },   // where the water leaves him (printed by the prep script) and how far ahead it lands

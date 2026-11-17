@@ -19,6 +19,14 @@ test('MANNEKEN_LifeSizeOnAPedestalIn6mHighCorner', () => {
   assert.ok(MANNEKEN.basin.water < MANNEKEN.basin.rim && MANNEKEN.basin.rim < MANNEKEN.pedestal.top, 'the water stands below the rim, the pedestal above it');
 });
 
+test('MANNEKEN_TheWholeCornerFitsInsideItsCollider', () => {
+  const back = Math.SQRT1_2 * (MANNEKEN.walls.len + MANNEKEN.walls.t);   // the two walls splay back at a right angle from the chamfer's edges
+  assert.ok(MANNEKEN.chamfer.hw + back <= MANNEKEN.box.hd, 'the wall tips stay inside the collider, across');
+  assert.ok(MANNEKEN.chamfer.x - back >= -MANNEKEN.box.hw, 'and the wall backs, along');
+  assert.ok(MANNEKEN.railing.r <= MANNEKEN.box.hw && MANNEKEN.basin.r <= MANNEKEN.box.hw, 'the railing and the basin too');
+  assert.ok(MANNEKEN.chamfer.hw >= MANNEKEN.niche.w / 2, 'the niche fits in the chamfered front');
+});
+
 test('mannekenPlacement_NearTheFriesFigure_ClearOfIt', () => {
   const d = Math.hypot(M.x - R.figure.x, M.z - R.figure.z);
   assert.ok(d > 12 && d < 25, `${d.toFixed(1)} m from the fries`);
@@ -55,6 +63,7 @@ test('jetArc_StartsAtTheBoy_EndsOnTheWaterInsideTheBasin', () => {
   assert.ok(pts.length > 8, 'enough points for a smooth tube');
   assert.ok(Math.abs(a.y - (MANNEKEN.pedestal.top + MANNEKEN.jet.from[1])) < 1e-9);
   assert.ok(Math.abs(b.y - MANNEKEN.basin.water) < 1e-6 && Math.hypot(b.x, b.z) < MANNEKEN.basin.r);
+  assert.ok(Math.hypot(b.x, b.z) < MANNEKEN.basin.r - MANNEKEN.basin.wall, 'it lands on the water, not on the rim');
   for (let i = 1; i < pts.length; i++) assert.ok(pts[i].x >= pts[i - 1].x, 'flows forward');
   assert.ok(Math.max(...pts.map(p => p.y)) > a.y, 'it arches before it falls');
 });
