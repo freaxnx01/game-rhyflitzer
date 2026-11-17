@@ -28,6 +28,9 @@ def open_page(browser, server):
     ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
     ctx.add_init_script(INSTR)
     page = ctx.new_page()
+    page._diag = []
+    page.on("pageerror", lambda e: page._diag.append("pageerror " + str(e)[:200]))
+    page.on("console", lambda m: page._diag.append(m.type + " " + m.text[:200]) if m.type in ("error", "warning") else None)
     page.set_default_timeout(L.T)
     page.route("**/data/terrain_hochrhein.mmh", lambda r: r.fulfill(status=404, body=""))
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
@@ -37,10 +40,10 @@ def open_page(browser, server):
 
 
 def state(page):
-    return page.evaluate("() => ({net: window.__mm.net(), ua: navigator.userAgent, names: (window.__mm.net().lobby || {players: []}).players.map(p => p.name), log: window.__rtclog})")
+    return {"errors": page._diag[-20:], **page.evaluate("() => ({net: window.__mm.net(), ua: navigator.userAgent, names: (window.__mm.net().lobby || {players: []}).players.map(p => p.name), log: window.__rtclog})")}
 
 
-@pytest.mark.parametrize("k", range(10))
+@pytest.mark.parametrize("k", range(16))
 def test_diag_lobby_connect(server, k):
     L.T = 90000
     with sync_playwright() as p:
