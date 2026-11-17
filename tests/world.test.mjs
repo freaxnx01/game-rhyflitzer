@@ -1664,6 +1664,8 @@ test('terrainHasData_NoMmh_False_AllZeroBlock_False_RealBlock_True', () => {
   data.fill(0); assert.equal(terrainHasData({ hdr, data }, 20, 20), false);
   data.fill(3.2); for (const k of [9, 10, 11, 17, 18, 19, 25]) data[k] = 0;      // 7 of the 16 around (20, 20): still data
   assert.equal(terrainHasData({ hdr, data }, 20, 20), true);
+  data[26] = 0;                                                                  // 8 of 16: no data
+  assert.equal(terrainHasData({ hdr, data }, 20, 20), false);
 });
 test('nearbyWaterLevel_NearestLargePolygonWithinRadius', () => {
   const sq = (x, z, s, level) => ({ level, rings: [[[x, z], [x + s, z], [x + s, z + s], [x, z + s]]] });

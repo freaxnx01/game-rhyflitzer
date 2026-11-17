@@ -204,7 +204,7 @@ export function terrainHasData(mmh, x, z) {
   let zeros = 0;
   for (let j = j0; j < j0 + 4; j++) for (let i = i0; i < i0 + 4; i++)
     if (data[Math.max(0, Math.min(hdr.h - 1, j)) * hdr.w + Math.max(0, Math.min(hdr.w - 1, i))] === 0) zeros++;
-  return 16 - zeros >= 8;
+  return zeros < 8;
 }
 function ringDistance(ring, x, z) {
   if (inRing(ring, x, z)) return 0;
