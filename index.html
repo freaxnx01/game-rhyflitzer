@@ -1641,6 +1641,7 @@ function buildCuts() {
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
 }
 if (L) buildCuts();
+const ROAD_CUT_DECKS = new Set(ROAD_CUTS.filter((c) => c.depth > 0).map((c) => c.deck));   // #1044: the road decks a kept road cut runs under
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
 function roofedAt(x, z) { return !!HIDE && caveRoofed(x, z, HIDE.portal); }
 // the lid reaches TUNNEL.wall further out than the corridor, over the trough walls and the cut's edge (drawn and solid)
@@ -2767,6 +2768,15 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     }
     const g = ribbonGeo(b.r.pts, 2.5, 0.03, 4, false, (p) => hs(p[0], p[1])); colorize(g, col('#ffffff')); push('rail', g);
   }
+  // #1044: a road deck over a road cut gets the same stone box, as wide as its stone strip, its top 0.02 m under the road strip
+  // -- under the lowest of the piece's ends and middle: the flat box would otherwise poke through a sloped or humped deck
+  for (const b of ROAD_CUT_DECKS) {
+    const hs = (x, z) => bridgeSurfaceAt(b, nearestOnPolyline(b.r.pts, x, z).t), pts = resample(b.r.pts, 10);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, low = Math.min(hs(x0, z0), hs(mx, mz), hs(x1, z1));
+      box(Math.hypot(x1 - x0, z1 - z0) + 0.1, UNDERPASS.deck - 0.02, b.r.w + 1.2, mx, low - UNDERPASS.deck, mz, Math.atan2(z1 - z0, x1 - x0), col('#b8b2a6'), 'stone', [4, 3], 0);
+    }
+  }
   // #119/#120 trough walls: along every road with a cut or an arm, a stone wall with its face at hw + margin, from the floor
   // to 1 m over the ground behind it (parapet); where a deck passes over the piece itself (not over the road's centre line --
   // at a skewed crossing those are metres apart) up to that deck's underside there and no parapet. Per side, the run stops
@@ -2774,21 +2784,26 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // corner. Solid, but `low`: a car above the top passes over.
   // #576: every rail deck whose footprint reaches the piece (half: its half length) -- also a deck of a crossing without a cut of
   // its own, and both of two tracks side by side (Koenigsweg, 3.8 m apart on 5.5 m wide decks): the piece is under the lowest
-  const decksOver = (x, z, half) => RAIL_DECKS.map((deck) => ({ deck, n: nearestOnPolyline(deck.r.pts, x, z) })).filter(({ deck, n }) => n.d <= deck.hw + half);
+  // #1044: decks = RAIL_DECKS, plus the road decks over a road-cut piece
+  const decksOver = (x, z, half, decks = RAIL_DECKS) => decks.map((deck) => ({ deck, n: nearestOnPolyline(deck.r.pts, x, z) })).filter(({ deck, n }) => n.d <= deck.hw + half);
   // review of #156: the run stops WALL_SLACK short of the other road's wall face, so no piece end reaches into that road's
   // corridor; wallSpans finds that point to the centimetre, so the slack is also the whole notch left open at the corner (under
   // the 0.3 m a wall covers in __mm.openCutFaces)
   const WALL_SLACK = 0.28;
-  const otherRoad = (road) => (x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK);
+  // #1044: pass = roads a run goes on through (a road cut's decks and their bank roads: the trough runs on under the deck, the bank road keeps its ground)
+  const otherRoad = (road, pass) => (x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && !pass.has(r) && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK);
   const byRoad = new Map(); for (const a of ARMS) { if (!byRoad.has(a.road)) byRoad.set(a.road, []); byRoad.get(a.road).push(a); }
   for (const [road, arms] of byRoad) {
     // #156: the patch triangles run the lowering out up to PATCH_BLEED (a cell's diagonal) past where a floor ends, so the runs go on that far
     const spans = arms.map(armSpan).map(([a, b]) => [a - PATCH_BLEED, b + PATCH_BLEED]);
     const hw = road.w / 2, inner = hw + UNDERPASS.margin, off = inner + UNDERPASS.wall / 2;
+    // #1044: the road-cut arms on this road, each with its (bled) span: a piece in one is a road-cut piece
+    const roadArms = arms.filter((a) => a.roadCut).map((a) => { const [t0, t1] = armSpan(a); return { a, t0: t0 - PATCH_BLEED, t1: t1 + PATCH_BLEED }; });
+    const pass = new Set(roadArms.flatMap(({ a }) => [a.deck.r, ...a.guards.map((g) => g.road)]));
     for (const side of [-1, 1]) {
-      const runs = wallSpans(road.pts, spans, off, side, otherRoad(road), PATCH_BLEED);
-      for (const w of wallStations(road.pts, runs, off, 2, [side])) troughPiece(road, w, ...pointAtLength(road.pts, w.t), atGradeCorner(road, runs, w, off, side));
-      for (const w of runCorners(road, runs, off, side)) troughPiece(road, w, w.x - w.nx * off, w.z - w.nz * off);
+      const runs = wallSpans(road.pts, spans, off, side, otherRoad(road, pass), PATCH_BLEED);
+      for (const w of wallStations(road.pts, runs, off, 2, [side])) troughPiece(road, w, ...pointAtLength(road.pts, w.t), roadArms, atGradeCorner(road, runs, w, off, side));
+      for (const w of runCorners(road, runs, off, side, pass)) troughPiece(road, w, w.x - w.nx * off, w.z - w.nz * off, roadArms);
     }
   }
   // #844: w is the end piece of its run, the run is stopped there by another road, and one of the two roads is not lowered
@@ -2807,7 +2822,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     return false;
   }
   // one wall piece w, its road point (rx, rz): (rx, rz) + n * d lies d m off the road through the piece
-  function troughPiece(road, w, rx, rz, atGrade = false) {
+  function troughPiece(road, w, rx, rz, roadArms, atGrade = false) {
     const inner = road.w / 2 + UNDERPASS.margin, at = (d) => meshH(rx + w.nx * d, rz + w.nz * d), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25));
     // #156: the ground the wall retains -- behind it, or on its own band where the cut still lowers it (on a slope falling away
     // from the road the ground 0.5 m behind can lie below the floor while the band is lowered 0.8 m)
@@ -2820,27 +2835,32 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     // the lowest deck surface over the piece's own footprint (half its length, plus how far it sits off the deck's centre
     // line): near a deck end bridgeDeckOffset fades, so the surface right above the piece is below the centre-line value
     // and the lowest of them where several decks lie over it (the nearest one's centre line can be the higher deck)
-    const over = decksOver(w.x, w.z, w.len / 2), under = over.length > 0;
+    const cuts = roadArms.filter(({ t0, t1 }) => w.t >= t0 && w.t <= t1).map(({ a }) => a), roadCut = cuts.length > 0;
+    const over = decksOver(w.x, w.z, w.len / 2, roadCut ? [...RAIL_DECKS, ...ROAD_CUT_DECKS] : RAIL_DECKS), under = over.length > 0;
     const deckTop = Math.min(...over.flatMap(({ deck, n }) => { const span = w.len / 2 + n.d; return [-span, 0, span].map((k) => bridgeSurfaceAt(deck, n.t + k)); }));
-    const top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
+    let top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
+    // #1044: on a road cut's bank road the wall ends just under the road the car drives on, no parapet -- past the deck end only
+    // (as inGuardBleed): guardedAt's round cap reaches hw + 0.5 back under a short deck (the A3 over the Rütistrasse: 7.5 m of 19)
+    const onBank = (g) => { const n = nearestOnPolyline(g.pts, w.x, w.z); return n.t > 1e-9 && n.d <= g.hw + 0.5; };
+    if (roadCut && cuts.some((a) => a.guards.some(onBank))) top = Math.min(top, roadTopH(w.x, w.z) - 0.05);
     box(w.len + 0.05, top - floor, UNDERPASS.wall, w.x, floor, w.z, w.rot, col('#b8b2a6'), 'stone', [4, 3], 0);
     pushOBB({ x: w.x, z: w.z, hw: w.len / 2, hd: UNDERPASS.wall / 2, c: Math.cos(w.rot), s: Math.sin(w.rot), h: top, low: true });
-    WALLS.push({ road: ROADS.indexOf(road), x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under });
+    WALLS.push({ road: ROADS.indexOf(road), x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under, roadCut });
   }
   // #156: a run that ends on another road's corridor at an acute angle leaves the corner between the two open; cornerPiece
   // closes it. Only where its centre stays outside every corridor and its ends keep the run-end slack, once per corner.
-  function runCorners(road, runs, off, side) {
-    const out = [], len = polylineLength(road.pts), blocked = otherRoad(road);
+  function runCorners(road, runs, off, side, pass) {
+    const out = [], len = polylineLength(road.pts), blocked = otherRoad(road, pass);
     for (const [t0, t1] of runs) for (const [t, dir] of [[t0, -1], [t1, 1]]) {
       if (t < 0 || t > len || !blocked(...wallPoint(road.pts, t + dir * 0.3, off, side))) continue;
       const E = wallPoint(road.pts, t, off, side), q = pointAtLength(road.pts, t), a = { q, n: [(E[0] - q[0]) / off, (E[1] - q[1]) / off], hw: road.w / 2 };
       const beyond = wallPoint(road.pts, t + dir * 0.3, off, side);
-      for (const r of new Set([...gridQuery(ROAD_GRID, ...beyond, 8)].filter(({ r, i }) => r !== road && segDist(...beyond, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK).map(({ r }) => r))) {
+      for (const r of new Set([...gridQuery(ROAD_GRID, ...beyond, 8)].filter(({ r, i }) => r !== road && !pass.has(r) && segDist(...beyond, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK).map(({ r }) => r))) {
         const n = nearestOnPolyline(r.pts, ...E), qb = pointAtLength(r.pts, n.t);
         const w = n.d > 1e-9 && cornerPiece(a, { q: qb, n: [(E[0] - qb[0]) / n.d, (E[1] - qb[1]) / n.d], hw: r.w / 2 }, UNDERPASS.margin + WALL_SLACK + 0.02);
         if (!w || roadDist(w.x, w.z, 16) < UNDERPASS.margin || WALLS.some((o) => Math.hypot(o.x - w.x, o.z - w.z) < 0.2)) continue;
         if ([-1, 1].some((k) => blocked(w.x + k * Math.cos(w.rot) * w.len / 2, w.z + k * Math.sin(w.rot) * w.len / 2))) continue;
-        out.push({ ...w, side });
+        out.push({ ...w, side, t });
       }
     }
     return out;
@@ -5611,7 +5631,7 @@ window.__mm.roadCrossings = () => ROAD_CUTS.map(c => {
   return { x: c.x, z: c.z, road: c.road.n, roadId: c.road.id, deckId: c.deck.r.id, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind },
            deck, clearance: deck - UNDERPASS.deck - road, water: c.water, guardDepth };
 });
-window.__mm.roadWalls = () => WALLS.filter((w) => w.roadCut);   // #1044: empty until the road-cut walls carry roadCut
+window.__mm.roadWalls = () => WALLS.filter((w) => w.roadCut);
 // #120: the side-road arms of every cut, with a 1 m profile per side: [s, terrain, uncut mesh, x, z, this arm's own floor]
 // (terrain is the lowest floor of the whole network there, so where cuts overlap it stays under an arm that has surfaced)
 window.__mm.arms = () => CUTS.filter((c) => c.depth > 0).flatMap((c) => c.arms.map((a) => ({
@@ -5619,7 +5639,7 @@ window.__mm.arms = () => CUTS.filter((c) => c.depth > 0).flatMap((c) => c.arms.m
   sides: [-1, 1].map((dir, k) => { const out = []; for (let s = 0; s <= a.reach[k]; s += 1) { const [x, z] = pointAtLength(a.pts, a.t + dir * s); out.push([s, terrainH(x, z), meshH(x, z), x, z, cutFloor(a, dir * s)]); } return out; }),
   // review of #156: from 3 m before each end to 30 m past it (on the road, not past its end): [s, terrain, uncut mesh]
   past: [-1, 1].map((dir, k) => { const out = [], room = dir < 0 ? a.t : polylineLength(a.pts) - a.t; for (let s = Math.max(0, a.reach[k] - 3); s <= Math.min(room, a.reach[k] + 30); s += 1) { const [x, z] = pointAtLength(a.pts, a.t + dir * s); out.push([s, terrainH(x, z), meshH(x, z)]); } return out; }) })));
- window.__mm.rayHits = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'field', 'meadow', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
+ window.__mm.rayHits = (x, z, from = 2000) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, from, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'field', 'meadow', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
 window.__mm.depthOffsets = () => Object.fromEntries(Object.entries(MESH).map(([r, m]) => [r, m.material.polygonOffset ? m.material.polygonOffsetFactor : null]));   // #688: the applied per-role offsets, for the test
 window.__mm.project = (x, y, z) => { camera.updateMatrixWorld(); const v = new THREE.Vector3(x, y, z).project(camera); return v.z < 1 && Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1 ? { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight } : null; };   // #688: a world point as screen pixels (null: behind the camera or off-frame)
 window.__mm.fieldProbe = () => {   // #506: a ray over the largest Sisslerfeld parcel (the plain east and south of Sisseln; x/z window measured against the built frame)
@@ -5680,7 +5700,7 @@ window.__mm.damage = () => ({ dmg: P.dmg, wrecked: WRECK_S.on, t: WRECK_S.t, whe
 window.__mm.setDamage = (d) => { if (WRECK_S.on) endWreck(); P.dmg = 0; hurt(d); };
 window.__mm.wreckSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepWreck(1 / 60); };
 window.__mm.pushAt = (x, z, y) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; if (y !== undefined) P.y = y; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return out; };   // #36: read-only, for the region-wide collider test; #119: optional car height
-window.__mm.walls = () => WALLS;
+window.__mm.walls = () => WALLS.filter((w) => !w.roadCut).map(({ roadCut, ...w }) => w);   // #1044: the rail cuts' walls, as before; the road cuts' are __mm.roadWalls
 // #120: points the cuts lower by > 0.3 m outside every road corridor (hw + margin) that no trough wall covers -- should be none
 window.__mm.slopes = () => SLOPES;   // #844: run-end pieces dropped at an at-grade corner
 window.__mm.openCutFaces = (step = 0.5) => {
