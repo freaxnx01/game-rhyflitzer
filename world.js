@@ -174,6 +174,14 @@ export function railRoadCrossings(roads, railBridges) {
   return out;
 }
 
+// #1044: ground roads under a road bridge; a deck end within DECK_END_GAP of the road is a join, not a crossing, and motorways stay up
+export const DECK_END_GAP = 1;
+export const UNDERPASS_SKIP_CLS = new Set(['motorway', 'motorway_link']);
+export function roadBridgeCrossings(roads, decks) {
+  return railRoadCrossings(roads.filter((r) => !UNDERPASS_SKIP_CLS.has(r.cls)), decks)
+    .filter((c) => Math.min(c.tRail, polylineLength(decks[c.bridge].pts) - c.tRail) >= DECK_END_GAP);
+}
+
 export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidth / Math.max(0.3, sin) + u.apron; }
 
 // #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at
