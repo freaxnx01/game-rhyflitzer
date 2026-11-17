@@ -24,6 +24,8 @@ ist aus der Erstellungszeit der Suno-Dateien abgeleitet (2026-11-15), nicht noti
 | Linkin Park – Up From the Bottom | Pulsing Arpeggio, Pulsing Arpeggio (Take 2) | `pulsing-arpeggio.mp3`, `pulsing-arpeggio-take-2.mp3` |
 | Faithless – Insomnia | Night Drive | `night-drive.mp3` |
 | Phil Carmen – On My Way in L.A. | Open Road | `open-road.mp3` |
+| Justice feat. Tame Impala / SZA / King Gizzard & the Lizard Wizard – Flower in a Hurricane | Hurricane Bloom | `hurricane-bloom.mp3` (Suno-Titel «Untitled») |
+| Metallica – Whiskey in the Jar | Celtic Jig of Iron | `celtic-jig-of-iron.mp3` |
 
 ### Prompts
 
@@ -63,19 +65,20 @@ instrumental only, no vocals, no singing, no rap, mid-90s progressive trance hou
 instrumental only, no vocals, no singing, no rap, mid-80s soft rock AOR ballad, melancholic piano intro, warm Rhodes and lush synth pads, clean chorus electric guitar, gated reverb drums, melodic bass, soaring emotional guitar solo, wide open highway feeling, longing and hopeful, 96 bpm, polished 1985 production, purely instrumental
 ```
 
-## Todo
-
-[ ] **1.** Wie **Justice feat. Tame Impala / SZA / King Gizzard & the Lizard Wizard – Flower in a Hurricane** erzeugen.
-Der Prompt beschreibt die Stile der beteiligten Künstler, nicht den Song selbst:
+**Hurricane Bloom** (wie Justice feat. Tame Impala / SZA / King Gizzard & the Lizard Wizard – Flower in a Hurricane;
+der Prompt beschreibt die Stile der beteiligten Künstler, nicht den Song selbst):
 
 ```text
 instrumental only, no vocals, no singing, no rap, French touch electro-disco with psychedelic rock, distorted compressed synth bass, funky slap bass and four-on-the-floor disco drums, dramatic orchestral string stabs, dreamy phased analog synths with heavy reverb, fuzzy wah psych-rock guitar lead, swirling build into a stormy euphoric climax, 118 bpm, glossy and wild, purely instrumental
 ```
 
-[ ] **2.** Wie **Metallica – Whiskey in the Jar** erzeugen.
-Die Volksmelodie ist gemeinfrei, das Gitarrenriff der Thin-Lizzy- und Metallica-Fassung nicht. Der Prompt
-verlangt deshalb ein eigenes Riff:
+**Celtic Jig of Iron** (wie Metallica – Whiskey in the Jar; die Volksmelodie ist gemeinfrei, das Gitarrenriff der
+Thin-Lizzy- und Metallica-Fassung nicht, darum verlangt der Prompt eine eigene Melodie):
 
 ```text
 instrumental only, no vocals, no singing, no rap, late-90s heavy hard rock with Irish folk flavour, original harmonized twin lead guitar melody in a Celtic jig feel, chunky palm-muted rhythm guitars, driving bass, big tight rock drums, rowdy drinking-song swagger, rousing guitar solo, live pub-rock energy, 120 bpm, proud and wild, purely instrumental
 ```
+
+## Todo
+
+Keine offenen Tracks.
