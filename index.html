@@ -840,6 +840,9 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <div class="st-row"><span class="st-label" id="setshufflelabel" data-i18n="setShuffle">Shuffle</span>
         <button id="setshuffle" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="setshufflelabel">on</button>
         <p class="st-cap" data-i18n="setShuffleCap">Rhyflitzer FM plays its tracks in random order</p></div>
+      <div class="st-row"><span class="st-label" id="setstationlabel" data-i18n="setStation">Station</span>
+        <select id="setstation" class="btn small" aria-labelledby="setstationlabel"></select>
+        <p class="st-cap" data-i18n="setStationCap">key 6 switches to the next one</p></div>
     </section>
     <!-- the key bar's switch, moved here from the pause menu; desktop only, like the bar -->
     <section class="st-sec" id="setkeybarrow"><h2 data-i18n="setDisplay">Display</h2>
@@ -1077,7 +1080,7 @@ import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor,
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
 import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
-import { TRACKS, MENU_TRACK, LIVE, FM, isFm, stationOrder, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, shuffleOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
+import { TRACKS, MENU_TRACK, LIVE, FM, isFm, STATIONS, stationName, stationOrder, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, shuffleOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
 import { WRECK, impactDamage, landingHurts, isWrecked, wreckTick, detachWheels, stepDebris, smokeAt, smokeEmit } from './wreck.js';
@@ -4846,6 +4849,12 @@ const RADIO = (() => {
   return {
     cmd,
     setVolume(v) { S.vol = stepVolume(v, 0); save(RADIO_STORE.vol, S.vol); apply(); },   // #842: the Music slider, no toast
+    setStation(station) {   // the settings' list: no display, the radio's on/off stays as it is
+      if (!STATIONS.includes(station) || station === S.station) return;
+      if (S.carry) endCarry();
+      S.station = station; save(RADIO_STORE.station, station); if (isFm(station)) { S.fm = station; freshStart(); }
+      apply();
+    },
     setShuffle(on) { S.shuffle = on; save(RADIO_STORE.shuffle, on ? 1 : 0); orderFrom(S.track); },   // the current track plays on
     tick() {
       const run = R.state !== 'ready';
@@ -6445,6 +6454,7 @@ function renderSettings() {
   const sw = (id, on) => { const b = $(id); b.setAttribute('aria-checked', String(on)); b.textContent = tr(on ? 'setOn' : 'setOff'); };
   sw('setsound', s.on); $('setsoundvol').value = s.vol; $('setsoundpct').textContent = tr('radioVolume', s.vol * 10);
   sw('setkeybar', KEYBAR.on); sw('setshuffle', r.shuffle);
+  const st = $('setstation'); st.replaceChildren(...STATIONS.map((k) => new Option(stationName(k, tr), k))); st.value = r.station;   // rebuilt each time: the live names follow the language
   sw('setmusic', musicOn); $('setmusicvol').value = r.vol; $('setmusicpct').textContent = tr('radioVolume', r.vol * 10); $('setmusiccap').textContent = tr(musicCaptionKey(r.inRun));
 }
 function openSettings(from) { SETTINGS.on = true; SETTINGS.from = from; for (const k in keys) keys[k] = false; closeHelp(); $(from === 'pause' ? 'pause' : 'overlay').hidden = true; $('settings').hidden = false; renderSettings(); $('settingsback').focus(); }
@@ -6456,6 +6466,7 @@ $('setsoundvol').oninput = (e) => { SFX.setSoundVol(+e.target.value); SFX.blip()
 $('setmusic').onclick = () => { RADIO.cmd('power'); renderSettings(); };
 $('setkeybar').onclick = () => { toggleKeybar(); renderSettings(); };
 $('setshuffle').onclick = () => { RADIO.setShuffle(!RADIO.state().shuffle); renderSettings(); };
+$('setstation').onchange = (e) => { RADIO.setStation(e.target.value); renderSettings(); };
 $('setmusicvol').oninput = (e) => { RADIO.setVolume(+e.target.value); renderSettings(); };
 window.__mm.settings = () => ({ open: SETTINGS.on, from: SETTINGS.from, sound: SFX.sound(), music: (({ on, menuOn, vol, shuffle }) => ({ on, menuOn, vol, shuffle }))(RADIO.state()) });
 function driveSelection() { const sel = WORLDS.sel; if (sameSel(sel, CURRENT_SEL)) { closeWorlds(); return; } location.search = sel.kind === 'region' ? regionSearch(location.search, sel.id) : worldSearch(location.search, sel.id); }

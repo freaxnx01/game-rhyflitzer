@@ -143,6 +143,31 @@ def test_shuffle_is_on_by_default_and_the_switch_keeps_the_track(server):
     assert errors == []
 
 
+def test_station_list_picks_any_station_and_keeps_it(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, locale="de-CH")
+        page.click("#settingsbtn")
+        opts = page.evaluate("() => [...document.querySelectorAll('#setstation option')].map(o => [o.value, o.textContent])")
+        first = page.input_value("#setstation")
+        page.select_option("#setstation", "rock")
+        rock = page.evaluate("() => ({ r: window.__mm.radio(), ls: localStorage.getItem('mm.radioStation') })")
+        page.select_option("#setstation", "argovia")
+        argovia = page.evaluate("() => window.__mm.radio()")
+        page.reload()
+        page.wait_for_function(READY, timeout=240000)
+        page.click("#settingsbtn")
+        reloaded = (page.input_value("#setstation"), page.evaluate("() => window.__mm.radio().station"))
+        b.close()
+    assert opts == [["mix", "Rhyflitzer FM Mix"], ["rock", "Rhyflitzer FM Rock"], ["cruise", "Rhyflitzer FM Cruise"],
+                    ["srf3", "SRF 3 live"], ["argovia", "Radio Argovia"]], opts
+    assert first == "mix"
+    assert rock["ls"] == "rock" and rock["r"]["station"] == rock["r"]["fm"] == "rock", rock
+    assert sorted(rock["r"]["order"]) == [0, 6, 7, 8, 9, 10, 13, 14], rock   # the order is the rock station's tracks
+    assert argovia["station"] == "argovia" and argovia["fm"] == "rock", argovia   # a live station keeps the last FM one
+    assert reloaded == ("argovia", "argovia"), reloaded
+    assert errors == []
+
+
 def start_race(page):
     page.click("#startbtn")
     page.wait_for_function("() => window.__mm.pause().state === 'armed' || window.__mm.pause().state === 'racing'", timeout=120000)
