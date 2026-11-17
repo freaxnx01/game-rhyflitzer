@@ -12,9 +12,9 @@ export const LIVE = Object.freeze({
   argovia: Object.freeze({ url: ARGOVIA_URL, nameKey: 'radioStationArgovia', failKey: 'radioArgoviaFail' }),
 });
 export const nextStation = (s) => STATIONS[(STATIONS.indexOf(s) + 1) % STATIONS.length];
-// the fifteen tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
+// the eighteen tracks without Content ID; licences in assets/music/<id>.LICENSE.md. gainDb evens out the levels
 // (ffmpeg volumedetect 2026-11-09: Cool Rider -10.1 dB mean, the others about -16 dB; the soft-rock pair,
-// 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks; Gritty Riffing, 2026-11-15, is -17.6 dB mean; the six later Suno tracks -16.2 to -18.2 dB; Hurricane Bloom and Celtic Jig of Iron, 2026-11-16, -17.0 and -18.9 dB)
+// 2026-11-10, is -15.2 and -13.9 LUFS, level with the 0 dB tracks; Gritty Riffing, 2026-11-15, is -17.6 dB mean; the six later Suno tracks -16.2 to -18.2 dB; Hurricane Bloom and Celtic Jig of Iron, 2026-11-16, -17.0 and -18.9 dB; Stadium Scale, Unison Riff and Motores Relentless, 2026-11-17, -18.6, -17.5 and -19.8 dB)
 export const TRACKS = Object.freeze([
   { id: 'cool-rider', title: 'Cool Rider', artist: 'Emmraan', src: 'assets/music/cool-rider.mp3', mood: 'rock', gainDb: -6 },
   { id: 'neon-afterglow', title: 'Neon Afterglow', artist: 'MemoryArcade', src: 'assets/music/neon-afterglow.mp3', mood: 'cruise', gainDb: 0 },
@@ -31,6 +31,9 @@ export const TRACKS = Object.freeze([
   { id: 'night-drive', title: 'Night Drive', artist: 'freaxnx01', src: 'assets/music/night-drive.mp3', mood: 'cruise', gainDb: 0 },
   { id: 'hurricane-bloom', title: 'Hurricane Bloom', artist: 'freaxnx01', src: 'assets/music/hurricane-bloom.mp3', mood: 'rock', gainDb: 0 },
   { id: 'celtic-jig-of-iron', title: 'Celtic Jig of Iron', artist: 'freaxnx01', src: 'assets/music/celtic-jig-of-iron.mp3', mood: 'rock', gainDb: 0 },
+  { id: 'stadium-scale', title: 'Stadium Scale', artist: 'freaxnx01', src: 'assets/music/stadium-scale.mp3', mood: 'rock', gainDb: 0 },
+  { id: 'unison-riff', title: 'Unison Riff', artist: 'freaxnx01', src: 'assets/music/unison-riff.mp3', mood: 'rock', gainDb: 0 },
+  { id: 'motores-relentless', title: 'Motores Relentless', artist: 'freaxnx01', src: 'assets/music/motores-relentless.mp3', mood: 'rock', gainDb: 0 },
 ]);
 export const MENU_TRACK = TRACKS.find(t => t.id === 'pulsing-arpeggio');   // title and menu music; it also stays on FM Rock
 // #1016 / #1023: the Rhyflitzer FM stations -- TRACKS indices by mood; the mix plays them all. The names are the same in en and de

@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-17 19:42` **Rhyflitzer FM Rock** hat **drei neue Tracks**: **Stadium Scale**, Stadionrock mit Synth-Arpeggio, **Unison Riff**, Nu-Metal wie live in der Arena, und **Motores Relentless**, eine kurze Rallye-Titelmusik.
 - `2026-11-17 14:03` Rechts neben den Flaggen in der **Rallye-Halle** läuft ein zweites **YouTube-Short**: Elfyn Evans bei der **Rallye Schweden 2026**, ebenfalls stumm in Schleife, Ton per Klick.
 - `2026-11-17 09:43` In der **Rallye-Halle** läuft links neben den Flaggen das **YouTube-Short** der WRC vom Titeltag von Elfyn Evans und Scott Martin, stumm in Schleife. Ein **Klick** auf das Video schaltet den Ton ein.
 - `2026-11-17 09:03` In der **Rallye-Halle** hängen über der Ehrentafel jetzt die Flaggen des Weltmeisters 2026: die **walisische Flagge** für Elfyn Evans und der **Union Jack**.
