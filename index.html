@@ -206,6 +206,9 @@ html:not(.installed) #reloadbtn,html:not(.installed) #pausereload{display:none} 
 .btn:disabled{cursor:default;color:#2a2e38;background:#5f6673;border-color:#737b88 #3a404b #3a404b #737b88;box-shadow:none}
 .foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding:8px 32px calc(64px + env(safe-area-inset-bottom,0px))}
 .foot p{margin:0}#blurb{font-size:14px;color:var(--steel-l)}.foot .status{flex-basis:100%;font-size:13px;color:var(--steel-l)}
+#ioshint{flex-basis:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;color:var(--sun)}   /* #1080: below the sticky bar, never moves the buttons */
+#ioshint[hidden],html.installed #ioshint{display:none}
+#ioshintx{min-width:44px;min-height:44px;padding:0;font:inherit;font-size:24px;line-height:1;color:var(--cream);background:none;border:0;cursor:pointer}
 #worldgone{padding:0 0 8px;margin:0 0 8px;border:0;border-bottom:3px solid #a04a00}#worldgone[hidden]{display:none}#worldgone h2{margin:0 0 4px;font-size:22px;color:var(--sun)}#worldgone p{margin:4px 0 8px;font-size:16px}#worldgone .row{display:flex;flex-wrap:wrap;gap:10px}#worldgone a.btn{display:inline-flex;align-items:center;text-decoration:none}#worldgone a.btn[hidden],#worldgone [hidden]{display:none}
 #mmhstatus,#worldstatus,#worldfilestatus,#wpworld,#wpterrain{font-size:inherit;font-weight:600;color:var(--steel-l)}
 #mmhstatus.real,#worldstatus.real{color:var(--go)}
@@ -652,6 +655,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       </div>
     </div>
     <div class="foot">
+      <p id="ioshint" hidden><span data-i18n="iosHint">Play as an app: Share ⬆ → Add to Home Screen</span><button id="ioshintx" type="button" data-i18n-aria="iosHintClose" aria-label="Dismiss">×</button></p>
       <p id="blurb">Layout traced from OpenStreetMap by hand. Timer starts when you move.</p>
       <p class="status"><span id="mmhstatus">Terrain: made up (smooth hills, not measured)</span></p>
     </div>
@@ -1023,6 +1027,7 @@ import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKey
 import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction, musicCaptionKey } from './settings.js';   // #842
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
+import { shouldShowIosHint } from './iosinstall.js';   // #1080
 import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from './tutorial.js';   // #534
 import { track as umamiTrack, settle as umamiSettle, trackPageview, identifySource, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
@@ -6406,6 +6411,11 @@ function aboutKey(e) {
   e.preventDefault(); selectAboutTab(aboutTabIndex(e.code, at), true);
 }
 $('aboutbtn').onclick = () => openAbout('start'); $('aboutback').onclick = closeAbout; $('reloadbtn').onclick = () => location.reload();
+// #1080: iPhone/iPad in the browser: how to add the game to the home screen. Decided once at boot; the foot sits below the sticky bar and #1071's ResizeObserver re-pins the scroll.
+{ const IOS_HINT_KEY = 'mm.iosHintDismissed', hint = $('ioshint');
+  let dismissed = false; try { dismissed = localStorage.getItem(IOS_HINT_KEY) === '1'; } catch (e) { }
+  hint.hidden = !shouldShowIosHint({ ua: navigator.userAgent, platform: navigator.platform, maxTouchPoints: navigator.maxTouchPoints, installed: document.documentElement.classList.contains('installed'), dismissed });
+  $('ioshintx').onclick = () => { hint.hidden = true; try { localStorage.setItem(IOS_HINT_KEY, '1'); } catch (e) { } }; }
 window.__mm.about = () => ({ open: ABOUT.on, from: ABOUT.from });
 window.__mm.aboutTab = () => ABOUT_TABS[ABOUT.tab];
 // ---------- #842 Settings, first slice: audio. Sound = the effects bus (SFX), Music = the menu music on the start screen, the car radio in a run (D3, key 5's rule) ----------
