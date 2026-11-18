@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isIos, shouldShowIosHint } from '../iosinstall.js';
+import { STRINGS } from '../strings.js';
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 const IPAD_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
@@ -32,4 +33,12 @@ test('shouldShowIosHint: never in the installed app, never after a dismissal, ne
   assert.equal(shouldShowIosHint({ ...base, installed: true }), false);
   assert.equal(shouldShowIosHint({ ...base, dismissed: true }), false);
   assert.equal(shouldShowIosHint({ ...base, ua: ANDROID, platform: 'Linux armv81' }), false);
+});
+
+test('strings: the hint and its close label exist in en and de, and name the Share path', () => {
+  for (const lang of ['en', 'de']) {
+    assert.ok(STRINGS[lang].iosHint.includes('⬆'), lang);
+    assert.ok(STRINGS[lang].iosHintClose, lang);
+  }
+  assert.match(STRINGS.de.iosHint, /Home-Bildschirm/);
 });
