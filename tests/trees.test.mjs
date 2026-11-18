@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPECIES, KINDS, SPECIES_WEIGHTS, SPECIES_SHAPE, LOD, lodTier, treeHash, treeSpecies, treeParts, treeColour, billShape, seasonFor } from '../trees.js';
+import { SPECIES, KINDS, SPECIES_WEIGHTS, SPECIES_SHAPE, LOD, lodTier, treeHash, treeSpecies, treeParts, treeColour, billShape, billTints, seasonFor } from '../trees.js';
 import { rng } from '../world.js';
 
 const samples = (kind, n, seed = 7) => { const r = rng(seed), out = {}; for (const s of SPECIES) out[s] = 0; for (let i = 0; i < n; i++) out[treeSpecies(-3000 + r() * 6000, -3000 + r() * 6000, kind)]++; return out; };
@@ -180,4 +180,16 @@ test('billShape in autumn: tinted yellow, orange and red per tree, the spruce an
     assert.ok(tints.size >= 2, `${s}: more than one autumn tint`);
     assert.ok(warm >= 35, `${s}: most tints turn the green texture warm`);
   }
+});
+
+test('billTints: the crown takes the season tint, the trunk keeps the species tint of the green season', () => {
+  for (const s of SPECIES) for (const u of [0, 0.5, 0.999]) {
+    const green = billTints(s, 'green', u);
+    assert.deepEqual(green, { crown: billShape(s).tint, trunk: billShape(s).tint }, `${s}: green season`);
+    const autumn = billTints(s, 'autumn', u);
+    assert.deepEqual(autumn.trunk, billShape(s).tint, `${s}: the trunk never changes`);
+    assert.deepEqual(autumn.crown, billShape(s, 'autumn', u).tint, `${s}: the crown is the autumn tint`);
+  }
+  assert.deepEqual(billTints('spruce', 'autumn', 0.5), billTints('spruce', 'green', 0.5));
+  assert.notDeepEqual(billTints('deciduous', 'autumn', 0).crown, billTints('deciduous', 'autumn', 0).trunk);
 });
