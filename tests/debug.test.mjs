@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls, isDebugKey, isHudKey } from '../debug.js';
+import { debugFromQuery, gameToLv95, lv95ToWgs84, debugPosition, heightText, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, osmUrl, googleMapsUrl, streetViewUrl, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from '../debug.js';
 import { translate } from '../strings.js';
 
 const ORIGIN = { lat: 47.5506, lon: 7.9671, E: 2639781.3458206826, N: 1266787.080520644, crs: 'EPSG:2056' };   // data/world_hochrhein.json
@@ -100,8 +100,9 @@ test('DEBUG_LABEL_NDC_MAX: 0.8 leaves a tenth of the screen above the label cent
 // #74: the panel explains itself — a short label per line and a legend behind the ? button
 test('lineLabelKey: one label key per panel line, by prefix; null for anything else', () => {
   const p = { x: 1234.54, z: -253.26, E: 2641015.9, N: 1267040.3, lat: 47.552843, lon: 7.983451 };
-  const lines = [...positionLines(p, 312.44, 86.6), ...buildingLines({ id: 171822634, t: '22.8 m +1.2 dsm' }), sizeLine({ l: 4.66, w: 2.18, h: 1.55 }), ...mapLines(9440, 4392)];
-  assert.deepEqual(lines.map(lineLabelKey), ['dbgLabCar', 'dbgLabLv95', 'dbgLabWgs84', 'dbgLabBldg', 'dbgLabSize', 'dbgLabMap']);
+  const lines = [...positionLines(p, 312.44, 86.6), ...buildingLines({ id: 171822634, t: '22.8 m +1.2 dsm' }), sizeLine({ l: 4.66, w: 2.18, h: 1.55 }), ...mapLines(9440, 4392),
+    fpsLine(59.6, 16.78), gpuLine({ render: { calls: 470, triangles: 2940000 }, memory: { geometries: 812, textures: 41 } }), ...memLine({ usedJSHeapSize: 894 * 2 ** 20, jsHeapSizeLimit: 4096 * 2 ** 20 })];
+  assert.deepEqual(lines.map(lineLabelKey), ['dbgLabCar', 'dbgLabLv95', 'dbgLabWgs84', 'dbgLabBldg', 'dbgLabSize', 'dbgLabMap', 'dbgLabFps', 'dbgLabGpu', 'dbgLabMem']);
   const bare = [...positionLines({ x: 1, z: 2, E: null, N: null, lat: null, lon: null }, 0, 0), ...buildingLines(undefined)];
   assert.deepEqual(bare.map(lineLabelKey), ['dbgLabCar', 'dbgLabLv95', 'dbgLabBldg']);
   for (const other of ['', 'xyz', 'LV9', 'something else', 'building 1']) assert.equal(lineLabelKey(other), null, other);
@@ -158,4 +159,17 @@ test('isHudKey: Ctrl+H hides and shows the HUD, a bare H (the horn) and Ctrl+D d
   assert.equal(isHudKey({ code: 'KeyH', ctrlKey: false }), false);
   assert.equal(isHudKey({ code: 'KeyH' }), false);
   assert.equal(isHudKey({ code: 'KeyD', ctrlKey: true }), false);
+});
+
+test('fpsLine: rounded fps and mean frame time', () => {
+  assert.equal(fpsLine(59.6, 16.78), 'fps 60 · 16.8 ms');
+  assert.equal(fpsLine(0, 0), 'fps 0 · 0.0 ms');
+});
+test('gpuLine: renderer.info counts, thousands with apostrophe-free compact k/M', () => {
+  assert.equal(gpuLine({ render: { calls: 470, triangles: 2940000 }, memory: { geometries: 812, textures: 41 } }), 'gpu 470 calls · 2.94 M tris · 812 geo · 41 tex');
+  assert.equal(gpuLine({ render: { calls: 3, triangles: 1200 }, memory: { geometries: 2, textures: 0 } }), 'gpu 3 calls · 1.2 k tris · 2 geo · 0 tex');
+});
+test('memLine: MB of used / limit; empty without performance.memory', () => {
+  assert.deepEqual(memLine({ usedJSHeapSize: 894 * 2 ** 20, jsHeapSizeLimit: 4096 * 2 ** 20 }), ['mem 894 / 4096 MB']);
+  assert.deepEqual(memLine(undefined), []);
 });
