@@ -1254,6 +1254,8 @@ TEX.plaster = makeTex(256, 192, (g, w, h) => {
 // painted on it. Three (u, v) pairs: eave-left, eave-right, ridge, in gable()'s tri() order
 const ROW_GABLE_END = { role: 'rowHouse', uv: [0.14, 0.05, 0.35, 0.05, 0.245, 0.90] };
 const textTex = (txt, w, h, bg, fg, font, border) => makeTex(w, h, (g) => { g.clearRect(0, 0, w, h); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); } if (border) { g.strokeStyle = border; g.lineWidth = h * 0.06; g.strokeRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1); } g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + h * 0.03); }, { alpha: true });
+const SHARED_TEX = new Map();   // #1065: identical sign canvases (a stop in both directions, every "P" board) share one texture; signs are never disposed
+function sharedTex(key, make) { if (!SHARED_TEX.has(key)) SHARED_TEX.set(key, make()); return SHARED_TEX.get(key); }
 // #712: the Haltestellentafel -- landscape 0.9 x 0.55 m: Postgelb header with a black bus pictogram (no wordmark, spec A5), white
 // stop-name band, one Postgelb row per line and direction with thin white separators
 function busPictogram(g, x, y, h) {   // procedural, black: rounded body, yellow window cut-outs, two wheels
@@ -2409,9 +2411,9 @@ function parkingSign([x, z, rot], name) {
     top = Math.min(2.6, poleTop({ shape: 'rect', y: 2.3, h: 0.7 })),
     pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
   pole.position.set(x, b + top / 2, z); signs.add(pole);
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: sharedTex('P', () => textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif')), side: THREE.DoubleSide }));
   board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; signs.add(board);
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: sharedTex('plate|' + name, () => textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif')), side: THREE.DoubleSide }));
   plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; signs.add(plate);
 }
 function propMeshes(props) {
@@ -2462,10 +2464,10 @@ function busStop(layout, name, rows) {
   tube(0, 0, 2.9); tube(-1, 2.15, 2.9);   // the pole leg and the short leg of the inverted U
   const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1, 8), steel); bar.rotation.z = Math.PI / 2; bar.position.set(-0.5, 2.9, 0); g.add(bar);
   for (const x of [0, -1]) { const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), steel); knob.position.set(x, 2.9, 0); g.add(knob); }   // rounded top corners
-  const signMat = new THREE.MeshBasicMaterial({ map: stopSignTex(name, rows) });   // FrontSide: a DoubleSide back would be mirrored (#795)
+  const signMat = new THREE.MeshBasicMaterial({ map: sharedTex('stop|' + name + '|' + JSON.stringify(rows), () => stopSignTex(name, rows)) });   // FrontSide: a DoubleSide back would be mirrored (#795)
   for (const f of SIGN_FACES) { const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55), signMat); sign.position.set(-0.5, 2.5, f.z); sign.rotation.y = f.rotY; sign.userData.signFace = true; g.add(sign); }
   const frame = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.03), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); frame.position.set(0, 1.6, -0.05); g.add(frame);
-  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: timetableTex(sheetLines(rows)) })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: sharedTex('sheet|' + JSON.stringify(sheetLines(rows)), () => timetableTex(sheetLines(rows))) })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
   if (layout.shelter) {
     const S = STOP.shelter, mid = (S.front + S.back) / 2;   // the shelter centre is mid metres further out than the pole
     const roof = new THREE.Mesh(new THREE.BoxGeometry(S.w, 0.15, S.d), new THREE.MeshLambertMaterial({ color: 0x4a515e })); roof.position.set(0, S.h + 0.1, mid); g.add(roof);
@@ -5871,6 +5873,7 @@ window.__mm.setStyle = (k) => { if (!Object.hasOwn(STYLES, k)) throw new Error(`
 window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
 window.__mm.cpuGeometry = () => { const roles = {}; let retainedOther = 0; for (const [role, m] of Object.entries(MESH)) { const r = roles[role] = { position: 0, other: 0 }; for (const [name, a] of Object.entries(m.geometry.attributes)) { const n = a.array ? a.array.byteLength : 0; if (name === 'position') r.position += n; else { r.other += n; retainedOther += n; } } } return { partsLeft: Object.keys(parts).length, builtOther: CPU_GEO.builtOther, retainedOther, roles }; };   // #323: CPU bytes the merged roles still hold, for the test
 window.__mm.gpuGeometry = () => Object.fromEntries(Object.entries(MESH).map(([r, m]) => [r, m.geometry.userData.gpu]));   // #1065: GPU layout per role, for the test
+window.__mm.duplicateTextures = () => { const seen = new Set(); let mb = 0; scene.traverse((o) => { for (const m of [].concat(o.material || [])) { const t = m.map; if (!t || !t.image?.toDataURL || seen.has(t)) continue; seen.add(t); const k = t.image.width + 'x' + t.image.height + t.image.toDataURL(); if (seen.has(k)) mb += t.image.width * t.image.height * 4 / 1048576; else seen.add(k); } }); return { mb }; };   // #1065: MB of canvas textures that copy another pixel for pixel
 window.__mm.camStep = (dt, from) => { if (from) camPos.set(...from); stepCamera(dt); return window.__mm.cam(); };   // #102: one camera step from a given position (the loop's frames are too slow to catch an easing camera)
 window.__mm.camPull = () => ({ ...CAM.pull });   // #777: the chase cam's eased pull-in state, read-only, for the test
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z], near: camera.near }; };   // back/look: #65
