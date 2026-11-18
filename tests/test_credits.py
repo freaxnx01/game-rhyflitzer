@@ -294,3 +294,20 @@ def test_estate_model_is_credited_everywhere():
 def test_estate_model_is_committed_and_small():
     glb = ROOT / "assets" / "estate.glb"
     assert glb.exists() and 50_000 < glb.stat().st_size <= 1000 * 1024
+
+
+def test_ds9_and_defiant_models_are_credited_everywhere():
+    """#620: "Deep Space Nine - Star Trek" by rossrobotics and "U.S.S. Defiant" by Feltman_Langer, both CC BY 4.0 (Sketchfab) --
+    README, CHANGELOG, CREDITS.md, the licence notes beside the files, and the F1 help (both languages)."""
+    for f in ("README.md", "CHANGELOG.md", "CREDITS.md", "assets/models/ds9.LICENSE.md"):
+        t = (ROOT / f).read_text(encoding="utf-8")
+        assert "rossrobotics" in t and "Feltman_Langer" in t and "CC BY 4.0" in t, f
+    strings = (ROOT / "strings.js").read_text(encoding="utf-8")
+    index = (ROOT / "index.html").read_text(encoding="utf-8")
+    assert strings.count("creditDs9") == 2 and strings.count("creditDefiant") == 2
+    assert 'data-i18n="creditDs9"' in index and 'data-i18n="creditDefiant"' in index
+
+
+def test_ds9_model_is_committed_and_small():
+    glb = ROOT / "assets" / "models" / "ds9.glb"
+    assert glb.exists() and 1_000_000 < glb.stat().st_size <= 2.5 * 1024 * 1024
