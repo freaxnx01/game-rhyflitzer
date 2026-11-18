@@ -2841,11 +2841,12 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     // below the floor (Bahnhofstrasse: the ground falls away from the road while the cut still lowers the bank 0.3 m)
     const lowered = Math.max(...[-1, 0, 1].map((k) => cutDepth(w.x + k * Math.cos(w.rot) * w.len / 2 - w.nx * UNDERPASS.wall / 2, w.z + k * Math.sin(w.rot) * w.len / 2 - w.nz * UNDERPASS.wall / 2)));
     if (ground - floor <= 0.1 && lowered <= 0.1) return;
-    if (atGrade) { SLOPES.push({ x: w.x, z: w.z, rot: w.rot, len: w.len }); return; }   // #844: a grass slope, no wall
+    const cuts = roadArms.filter(({ t0, t1 }) => w.t >= t0 && w.t <= t1).map(({ a }) => a), roadCut = cuts.length > 0;
+    // #844: a grass slope, no wall -- rail cuts only (#1044: a road cut's run ends at its bank roads and decks, not at grade)
+    if (atGrade && !roadCut) { SLOPES.push({ x: w.x, z: w.z, rot: w.rot, len: w.len }); return; }
     // the lowest deck surface over the piece's own footprint (half its length, plus how far it sits off the deck's centre
     // line): near a deck end bridgeDeckOffset fades, so the surface right above the piece is below the centre-line value
     // and the lowest of them where several decks lie over it (the nearest one's centre line can be the higher deck)
-    const cuts = roadArms.filter(({ t0, t1 }) => w.t >= t0 && w.t <= t1).map(({ a }) => a), roadCut = cuts.length > 0;
     const over = decksOver(w.x, w.z, w.len / 2, roadCut ? [...RAIL_DECKS, ...ROAD_CUT_DECKS] : RAIL_DECKS), under = over.length > 0;
     const deckTop = Math.min(...over.flatMap(({ deck, n }) => { const span = w.len / 2 + n.d; return [-span, 0, span].map((k) => bridgeSurfaceAt(deck, n.t + k)); }));
     let top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
