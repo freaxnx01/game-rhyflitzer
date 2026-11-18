@@ -2,7 +2,8 @@
 // along its own spoke, the object (if any) in its centre, a closed ring of trees at the edge with a gap only at the
 // portal, gravel paths, a ship's water basin, and the tunnel stub leading back to the portal. Eight rooms share this template (ROOMS); only the
 // Eiffel, Atomium (room 1), Artemis II (room 2), Vasa (room 3), Rally hall (room 5), Ferris wheel (room 6) and Titanic (room 7) rooms have an object today; new objects take NEXT_ROOMS in turn. index.html builds the meshes from a room's layout the first time its spoke is
-// entered (#308: only one room's meshes exist at a time). Unit-tested with `node --test tests/rooms.test.mjs`.
+// entered (#308: only one room's meshes exist at a time). The Artemis II room (2) also holds the Space Shuttle's launch pad as
+// its second object, both at the room's `spots` off the centre (#622). Unit-tested with `node --test tests/rooms.test.mjs`.
 import { EIFFEL, ATOMIUM, TITANIC, VASA } from './hideout.js';
 import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
 import { ENTERPRISE, DEDICATION, dedicationPlacement } from './enterprise.js';   // #491
@@ -23,7 +24,7 @@ const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return
 export const ROOMS = [
   { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL, signed: false },   // signed: false -- unsigned for now, so finding them stays a surprise
   { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false, figure: FRIES },   // #451: the fries figure stands beside the Atomium
-  { id: 'room2', name: 'Artemis II', object: ARTEMIS, signed: false },   // #488: the SLS stack and the Orion capsule
+  { id: 'room2', name: 'Artemis II', object: ARTEMIS, signed: false, second: SHUTTLE, spots: { artemis: [0, 100], second: [-20, -110] } },   // #488: the SLS stack and the Orion capsule; #622: the Space Shuttle pad on the left, Artemis II and the Orion capsule moved aside to the right
   { id: 'room3', name: 'Vasa', object: VASA, signed: false },   // #421: the warship on its museum cradle
   { id: 'room4', name: null, object: null },
   { id: 'room5', name: 'Rally hall', object: RALLYHALL, signed: false },   // #859: the rally hall
@@ -148,14 +149,19 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   // #451: a figure beside the object (the fries figure in the Atomium room), on its plinth collider
   const figure = room.figure ? friesPlacement({ centre, frame: { f, v }, portal: { c: P }, y: Y }, room.figure) : null;
   if (figure) colliders.push(...figure.colliders);
-  // #488: the Artemis II stack on its mount in the centre and the Orion capsule beside it (artemis.js places them; artemismesh.js builds them)
-  const artemis = (room.object && room.object.capsule) ? artemisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: Y }, room.object) : null;
+  // #622: a room with two objects holds them at its spots (room frame, off the centre) instead of both on the centre;
+  // a room without spots -- or without that spot -- keeps the centre, as before
+  const spot = (name) => (room.spots && room.spots[name]) ? loc(...room.spots[name]) : centre;
+  // #488: the Artemis II stack on its mount and the Orion capsule beside it (artemis.js places them; artemismesh.js builds them)
+  const artemis = (room.object && room.object.capsule) ? artemisPlacement({ centre: spot('artemis'), frame: { f, v }, portal: { c: P }, y: Y }, room.object) : null;
   if (artemis) colliders.push(...artemis.colliders);
   // #513: the Ferris wheel in the centre (ferris.js places it; ferrismesh.js builds it): four foot colliders, the car drives under the rim
   const ferris = (room.object && room.object.gondola) ? ferrisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: ROOM_Y }, room.object) : null;
   if (ferris) colliders.push(...ferris.colliders, ...ferris.sign.colliders);
-  // #811: the Space Shuttle stack on its launch platform in the centre (shuttle.js places it; shuttlemesh.js builds it)
-  const shuttle = (room.object && room.object.orbiter) ? shuttlePlacement({ centre, frame: { f, v }, y: Y }, room.object) : null;
+  // #811: the Space Shuttle stack on its launch platform (shuttle.js places it; shuttlemesh.js builds it) -- the room's
+  // object in ring 2 room 7, the second object besides the room's own in room 2 (#622), each on the centre it is given
+  const shuttleObject = room.object && room.object.orbiter ? room.object : room.second;
+  const shuttle = (shuttleObject && shuttleObject.orbiter) ? shuttlePlacement({ centre: spot('second'), frame: { f, v }, y: Y }, shuttleObject) : null;
   if (shuttle) colliders.push(...shuttle.colliders);
   // #859: the rally hall in the centre (rallyhall.js places it; rallyhallmesh.js builds it) with its three podium cars
   const rallyhall = (room.object && room.object.cars) ? rallyhallPlacement({ centre, frame: { f, v }, y: Y }, room.object) : null;
