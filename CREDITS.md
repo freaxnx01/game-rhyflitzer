@@ -28,6 +28,7 @@
 - Flags in the rally hall (`assets/flags/`, see its LICENSE.md): Flag of Wales by Tobias Jakobs (Open Clipart Library) via Wikimedia Commons, public domain; Union Jack, public domain
 - Rally hall videos: „A day that Elfyn Evans & Scott Martin will never forget" by FIA World Rally Championship (https://www.youtube.com/shorts/cZxfLJdhWk8), and „wrc rally Sweden 2026 Elfyn Evans faster passage" by wrcfans (https://www.youtube.com/shorts/RFIVbPT6pdI), both embedded with YouTube's own player (youtube-nocookie.com), not re-hosted
 - SRF 3 live (https://www.srf.ch/radio-srf-3): the live stream `https://stream.srg-ssr.ch/srgssr/srf3/mp3/128`, played unchanged, not re-hosted
+- Manneken Pis in the Atomium room (`assets/models/manneken_pis.glb`, see its LICENSE.md): „177_ Manneken Pis In Brussels, Belgium" by RascalFR (https://sketchfab.com/RascalFR), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), source https://sketchfab.com/3d-models/177--manneken-pis-in-brussels-belgium-fd4be588ea3d4a0fa349ae393a4f3b9f; joined into one mesh, simplified, rescaled to the real 0.61 m and given our own bronze material
 - WebGPU PoC (`poc/webgpu/`): demo code "Slop New York" (MIT) © Mr.doob (https://github.com/mrdoob/slop-newyork)
 - WebGPU PoC data: NYC Open Data, building footprints and heights and Forestry Tree Points (https://opendata.cityofnewyork.us/); MTA Subway Entrances (https://data.ny.gov/)
 - WebGPU PoC map data: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright)

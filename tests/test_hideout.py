@@ -1098,6 +1098,45 @@ def test_atomium_room_builds_loads_its_model_on_entering_and_has_solid_feet(serv
 
 
 @needs_world
+def test_atomium_room_has_the_manneken_pis_life_size_in_its_solid_fountain_corner(server, tmp_path):
+    """#585: entering spoke 1 also builds the Manneken Pis's fountain corner and fetches manneken_pis.glb then (not before); the bronze
+    boy is life size on his pedestal, the corner is solid at the railing and the car drives past 8 m in front of it. Leaves a close
+    screenshot, taken on foot from in front of the railing, where the face and the jet into the basin must be."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith("manneken_pis.glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        assert page.evaluate("() => window.__mm.manneken()") is None and requests == []
+        into_room(page, 1, "atomium")
+        page.wait_for_function("() => window.__mm.manneken() && window.__mm.manneken().loaded === true", timeout=120000)
+        m = page.evaluate("() => window.__mm.manneken()")
+        push = page.evaluate("""() => { const m = window.__mm.manneken(), f = [Math.cos(m.th), Math.sin(m.th)], p = (d) => window.__mm.pushAt(m.x + f[0] * d, m.z + f[1] * d, m.y);
+          return { railing: p(1.9), front: p(8) }; }""")
+        # the close shot: park the car 25 m behind the viewer, step out, and stand 3.5 m from the niche, 25 degrees off its axis --
+        # head-on the jet is foreshortened into a line, from here its arc into the basin reads while the boy still faces the camera
+        spot = page.evaluate("""() => { const m = window.__mm.manneken(), a = m.th + 25 * Math.PI / 180, f = [Math.cos(m.th), Math.sin(m.th)];
+          const x = m.x + Math.cos(a) * 3.5, z = m.z + Math.sin(a) * 3.5;
+          return { carX: m.x + f[0] * 28.5, carZ: m.z + f[1] * 28.5, x, z, th: Math.atan2(m.z - z, m.x - x), y: m.y }; }""")
+        page.evaluate(f"() => window.__mm.sim({spot['carX']}, {spot['carZ']}, {spot['th']}, 0, 0.5, [], {spot['y']})")
+        page.keyboard.press("z"); page.wait_for_timeout(300)
+        page.evaluate(f"() => {{ window.__mm.place({spot['x']}, {spot['z']}, {spot['th']}); window.__mm.setFootY({spot['y']}); }}")
+        page.evaluate("() => window.__mm.footLook(0, -57)")   # 0.14 rad up: the eye at 1.7 m onto the boy's middle, 2.2 m up and 3.5 m away
+        on_foot = page.evaluate("() => window.__mm.footSim(0.3)")
+        page.set_viewport_size({"width": 1600, "height": 1000}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "manneken.png"))
+        br.close()
+    print("screenshot:", tmp_path / "manneken.png")
+    assert errors == []
+    assert len(requests) == 1 and requests[0].endswith("/assets/models/manneken_pis.glb"), requests
+    assert m["loaded"] is True and 14000 <= m["tris"] <= 22000 and abs(m["height"] - 0.61) < 0.01 and m["colliders"] == 1, m
+    assert m["built"] == 1, m
+    assert math.hypot(push["railing"]["dx"], push["railing"]["dz"]) > 1, push
+    assert math.hypot(push["front"]["dx"], push["front"]["dz"]) < 0.01, push
+    assert on_foot["on"] is True, on_foot
+
+
+@needs_world
 def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_cradle(server, tmp_path):
     """#421: entering spoke 3 builds the Vasa room and fetches vasa.glb then (not before); the ship stands dry, turned 45 degrees from the room's
     cross axis (bow forward-right), its cradle feet on the floor and the keel 5 m above it, no water basin. The car drives under the keel
