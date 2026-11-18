@@ -472,6 +472,7 @@ const en = {
   aboutBtn: 'About',
   // ---- #842 Settings ----
   settingsBtn: 'Settings',
+  reloadBtn: 'Reload',   // #1076: the installed fullscreen app has no browser bar to reload from
   setTitle: 'Settings',
   setSub: 'Sound, music and display',
   setDisplay: 'Display',
@@ -1279,6 +1280,7 @@ const de = {
   aboutBtn: 'Über',
   // ---- #842 Einstellungen ----
   settingsBtn: 'Einstellungen',
+  reloadBtn: 'Neu laden',
   setTitle: 'Einstellungen',
   setSub: 'Ton, Musik und Anzeige',
   setDisplay: 'Anzeige',

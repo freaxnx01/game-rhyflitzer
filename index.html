@@ -2,6 +2,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="favicon.png" sizes="32x32" type="image/png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1c1f26">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png">
+<!-- #1076: the installed app (fullscreen/standalone) has no browser bar, so it shows Reload buttons; see html.installed -->
+<script>if (matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) document.documentElement.classList.add('installed');</script>
 <title>Rhyflitzer – Map Madness</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&display=swap">
 <style>
@@ -195,6 +200,7 @@ body.view #tr{display:none}   /* #824: the viewpoint score never uses time, so n
 #sticker{position:absolute;right:10%;bottom:30%;max-width:260px;padding:12px 18px;transform:rotate(-7deg);background:var(--sun);border:5px solid var(--charcoal);box-shadow:8px 8px 0 var(--charcoal);color:var(--charcoal);font-size:20px;font-weight:800;font-style:italic;line-height:1.05;text-transform:uppercase;text-align:center}#sticker[hidden]{display:none}
 .bar{padding:18px 32px 14px;background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3;box-shadow:0 -12px 30px rgba(0,0,0,.5)}
 .bar .row{justify-content:center;gap:16px}.bar .row.secondary{margin-top:12px;gap:10px}
+html:not(.installed) #reloadbtn,html:not(.installed) #pausereload{display:none}   /* #1076 */
 .bar .row:not(.secondary) .btn{min-width:180px}
 .btn:hover:not(:disabled){background:linear-gradient(#ffe27a,#ffc61a 45%,#ff9a1a);border-color:#fff2b8 #a04a00 #a04a00 #fff2b8}
 .btn:disabled{cursor:default;color:#2a2e38;background:#5f6673;border-color:#737b88 #3a404b #3a404b #737b88;box-shadow:none}
@@ -642,6 +648,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
         <button id="aboutbtn" class="btn small" type="button" data-i18n="aboutBtn" style="text-transform:none">About</button>
         <button id="settingsbtn" class="btn small" type="button" data-i18n="settingsBtn" style="text-transform:none">Settings</button>
         <button id="musicbtn" class="btn small" type="button" aria-pressed="true" style="text-transform:none">Music: on</button>
+        <button id="reloadbtn" class="btn small" type="button" data-i18n="reloadBtn" style="text-transform:none">Reload</button>
       </div>
     </div>
     <div class="foot">
@@ -920,6 +927,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <button id="pausesettings" class="btn" type="button" data-i18n="settingsBtn">Settings</button>
       <button id="pauserestart" class="btn" type="button" data-i18n="pauseRestart">Restart race</button>
       <button id="pausemenu" class="btn" type="button" data-i18n="pauseMenu">Main menu</button>
+      <button id="pausereload" class="btn" type="button" data-i18n="reloadBtn">Reload</button>
       <button id="pausetutorial" class="btn" type="button" data-i18n="tutPause" hidden>End tutorial</button>
     </div>
     <small data-i18n="pauseHint">Esc · P: resume</small>
@@ -6397,7 +6405,7 @@ function aboutKey(e) {
   if (at < 0) return;             // arrows outside the tab row do nothing (the game must not see them either: we returned from the keydown chain)
   e.preventDefault(); selectAboutTab(aboutTabIndex(e.code, at), true);
 }
-$('aboutbtn').onclick = () => openAbout('start'); $('aboutback').onclick = closeAbout;
+$('aboutbtn').onclick = () => openAbout('start'); $('aboutback').onclick = closeAbout; $('reloadbtn').onclick = () => location.reload();
 window.__mm.about = () => ({ open: ABOUT.on, from: ABOUT.from });
 window.__mm.aboutTab = () => ABOUT_TABS[ABOUT.tab];
 // ---------- #842 Settings, first slice: audio. Sound = the effects bus (SFX), Music = the menu music on the start screen, the car radio in a run (D3, key 5's rule) ----------
@@ -7401,7 +7409,8 @@ function movePauseFocus(step) { $(nextFocus(PAUSE.confirm ? ABANDON_BUTTONS : pa
 const PAUSE_KEYS = { pause: openPause, resume: closePause, cancel: closeAbandon, next: () => movePauseFocus(1), prev: () => movePauseFocus(-1), debug: () => toggleDebug(), photo: () => { photoPending = true; }, record: () => { if (REC.state !== 'idle') stopRecord(); } };
 // true = the key is the pause menu's; 'ignore' keeps the browser default so Enter / Space press the focused button
 function pauseKey(e) { const a = pauseKeyAction(e, { paused: PAUSE.on, canPause: inRun(), confirm: PAUSE.confirm }); if (a === 'pass') return false; if (a !== 'ignore') { e.preventDefault(); PAUSE_KEYS[a](); } return true; }
-$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('pausetutorial').onclick = quitTutorial; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause'); $('pausetimetable').onclick = () => openTimetable('pause', null);   // #801; #509
+$('pausebtn').onclick = () => openPause(); $('pauseresume').onclick = () => closePause(); $('pauserestart').onclick = restartRace; $('pausemenu').onclick = chooseMainMenu; $('pausereload').onclick = () => location.reload();   // #1076
+ $('pausetutorial').onclick = quitTutorial; $('abandoncancel').onclick = closeAbandon; $('abandonok').onclick = toMainMenu; $('pausevehicle').onclick = openVehicleSwap; $('pauseabout').onclick = () => openAbout('pause'); $('pausetimetable').onclick = () => openTimetable('pause', null);   // #801; #509
 // #735: the phone's radio -- 📻 opens six buttons that run what 5-0 do; it closes on a second tap, on pause and after 6 s untouched
 const RADIO_PANEL = { closeAt: 0 };
 function setRadioPanel(open) { $('radiopanel').hidden = !open; $('radiobtn').setAttribute('aria-expanded', String(open)); RADIO_PANEL.closeAt = open ? performance.now() + 6000 : 0; }
