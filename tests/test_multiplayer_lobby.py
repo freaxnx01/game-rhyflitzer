@@ -14,8 +14,10 @@ READY = "() => window.__mm && window.__mm.sim && window.__mm.net && document.que
 T = 120000
 
 
-def open_page(browser, server):
+def open_page(browser, server, init=None):
     ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
+    if init:
+        ctx.add_init_script(init)
     page = ctx.new_page()
     page.set_default_timeout(T)   # two heavy pages in one browser: the background one settles slowly, so let clicks block
     errors = []
@@ -190,3 +192,26 @@ def test_dice_rolls_a_name_and_forgets_the_typed_one(pair):
     assert rolled and rolled != "p1"
     assert host.evaluate("() => localStorage.getItem('mm.mpName')") is None
     assert not errors
+
+
+DROP_FIRST_HELLO = """(() => {
+  const send = RTCDataChannel.prototype.send;
+  let dropped = false;
+  RTCDataChannel.prototype.send = function (data) {
+    if (!dropped && typeof data === 'string' && data.startsWith('{"type":"hello"')) { dropped = true; return; }
+    return send.call(this, data);
+  };
+})();"""
+
+
+def test_lost_first_hello_still_joins(server):
+    """#1019: one lost hello must not strand the guest -- it repeats the hello until the lobby comes."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(args=ARGS)
+        host, host_errors = open_page(browser, server)
+        guest, guest_errors = open_page(browser, server, init=DROP_FIRST_HELLO)
+        connect(host, guest)
+        assert names(host) == ["Anna", "Ben"]
+        assert names(guest) == ["Anna", "Ben"]
+        assert host_errors + guest_errors == []
+        browser.close()

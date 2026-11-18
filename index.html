@@ -6380,6 +6380,7 @@ const NET = {
   offset: null,        // guest only: the median of those, null while no pong has come back
   poseTimer: null,     // the 20 Hz pose sender
   pingTimer: null,     // guest only: the clock sync
+  helloTimer: null,    // #1019: the guest's hello retry until the lobby (or deny) arrives
   race: null,          // #837: { t0, shown, go } while a network race runs
 };
 const MP_NAME_KEY = 'mm.mpName', MP_JOIN_KEY = 'mm.mpJoin';
@@ -6518,7 +6519,7 @@ function netHostMessage(peerId, msg) {
   netHostBroadcast();
 }
 function netHostHello(peerId, name, custom) {
-  if (NET.slots.has(peerId)) return;                     // a repeated hello changes nothing
+  if (NET.slots.has(peerId)) { NET.link.send(peerId, lobbyMessage(NET.lobby, NET.slots.get(peerId))); return; }   // #1019: a repeated hello gets the lobby again (the first answer may be lost)
   const added = admitHello(NET.lobby, name, !!NET.session, { custom, pool: namePool() });   // #916: nobody joins a drive that already runs; #979: a colliding generated name is renamed
   if (added.deny) { NET.link.send(peerId, { type: 'deny', reason: added.deny }); NET.link.close(peerId); return; }
   NET.lobby = added.lobby; NET.slots.set(peerId, added.id);
@@ -6539,7 +6540,7 @@ function netHostDrop(peerId) {
   if (NET.race?.state && id !== undefined) { NET.race.state = dropRacer(NET.race.state, id); netRaceBoard(); }   // #837 part d: a guest who drops mid-race is DNF
 }
 function netGuestMessage(msg) {
-  if (msg.type === 'lobby') { NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
+  if (msg.type === 'lobby') { stopHello(); NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
   if (msg.type === 'start') {
     if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
     if (NET.session) netEndSession();   // #837 part d: a rematch restarts the guest too
@@ -6552,12 +6553,15 @@ function netGuestMessage(msg) {
   if (msg.type === 'back') { if (NET.session) netBackToLobby(); return; }   // #837 part d: the host went back to the lobby
   // the deny reason is not a string key: it is turned into one before the toast, so every key at a toast(tr(…)) call
   // site stays a plain literal (what tests/toast.test.mjs reads to check the text it shows carries no markup)
-  if (msg.type === 'deny') { const key = msg.reason === 'full' ? 'mpFull' : msg.reason === 'started' ? 'mpStarted' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
+  if (msg.type === 'deny') { stopHello(); const key = msg.reason === 'full' ? 'mpFull' : msg.reason === 'started' ? 'mpStarted' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
   if (msg.type === 'bye') netHostGone();
 }
+// #1019: the hello is repeated until the host's lobby (or a deny) comes back -- one lost message must not strand the guest
+function netHello() { NET.link.send(HOST_ID, { type: 'hello', name: NET.name, custom: NET.nameCustom }); }
+function stopHello() { clearInterval(NET.helloTimer); NET.helloTimer = null; }
 function netPeerState(peerId, state) {
   if (state === 'timeout') { netTrouble(tr(NET.role === 'G' ? 'mpAnswerUnused' : 'mpIceFail')); return; }
-  if (state === 'open') { if (NET.role === 'G') { NET.link.send(HOST_ID, { type: 'hello', name: NET.name, custom: NET.nameCustom }); netPing(); NET.pingTimer = setInterval(netPing, PING_MS); } return; }
+  if (state === 'open') { if (NET.role === 'G') { netHello(); stopHello(); NET.helloTimer = setInterval(netHello, HELLO_MS); netPing(); NET.pingTimer = setInterval(netPing, PING_MS); } return; }
   if (!['disconnected', 'failed', 'closed'].includes(state)) return;
   if (NET.role === 'G' && state === 'failed' && !NET.lobby) { netTrouble(tr('mpIceFail')); return; }
   if (NET.role === 'G') netHostGone(); else if (NET.link) netHostDrop(peerId);
@@ -6627,7 +6631,7 @@ function netTakeCar() {
 // the other guests with the player id stamped from its own slot map, so no guest can steer another player's car. Times
 // are host-clock milliseconds: a guest learns the offset from ping/pong (A2). The remote cars are visual only -- no
 // solid, no physics, no collision (#836 adds those).
-const POSE_MS = 50, PING_MS = 2000;
+const POSE_MS = 50, PING_MS = 2000, HELLO_MS = 1000;   // #1019: the guest repeats its hello until the lobby comes
 const NETCARS = new Map();   // lobby player id -> { car, paint, mesh, track }
 
 // #836: per remote player, the time of the last impulse (s). The position push runs every step; the impulse and the
@@ -6972,6 +6976,7 @@ function netBackToLobby() {
 }
 
 function netLeave() {
+  stopHello();
   netEndSession();
   clearInterval(NET.pingTimer);
   Object.assign(NET, { clock: null, offset: null, pingTimer: null });
