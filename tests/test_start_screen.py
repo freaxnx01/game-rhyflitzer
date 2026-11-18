@@ -8,7 +8,7 @@ ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-
 READY = start_ready()
 T = 240000
 BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "deliverybtn", "carbtn", "mpbtn"]   # #107 Delivery before Choose car
-SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn", "settingsbtn", "musicbtn"]   # #735 Music, #842 Settings between About and Music
+SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn", "settingsbtn", "musicbtn", "reloadbtn"]   # #735 Music, #842 Settings between About and Music, #1076 Reload (hidden on the website)
 
 
 def boot(p, server, viewport=(1280, 720), touch=False, query=""):
