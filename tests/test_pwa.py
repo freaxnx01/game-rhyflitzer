@@ -14,7 +14,7 @@ def test_pwa_reload_button_only_in_the_installed_app(server):
         page.evaluate("() => document.documentElement.classList.add('installed')")
         assert page.locator("#reloadbtn").is_visible()
         assert page.locator("#reloadbtn").inner_text().strip() == "Reload"
-        page.locator("#reloadbtn").click()
+        page.locator("#reloadbtn").click(no_wait_after=True)
         page.wait_for_function(READY, timeout=T)
         assert page.evaluate("() => performance.getEntriesByType('navigation')[0].type") == "reload"
         assert errors == []
