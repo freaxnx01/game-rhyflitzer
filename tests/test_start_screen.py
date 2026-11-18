@@ -184,3 +184,18 @@ def test_loading_screen_runs_through_every_stage_then_steps_aside(server):
     assert seen == stages, seen
     assert not box and slot
     assert not errors, errors
+
+
+def test_phone_menu_opens_scrolled_to_the_end_so_the_slot_shows_above_the_bar(server):
+    """#1071: on a short phone screen the menu is taller than the viewport and the sticky bar covers the text slot.
+    At scrollTop 0 the first tap scrolled the menu under the finger and was lost; the menu opens scrolled to the end."""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, viewport=(390, 664), touch=True)
+        got = page.evaluate("""() => { const o = document.getElementById('overlay'), text = document.getElementById('ovtext').getBoundingClientRect(),
+            bar = document.querySelector('#overlay .bar').getBoundingClientRect();
+            return { scrollable: o.scrollHeight > o.clientHeight, gap: o.scrollHeight - o.clientHeight - o.scrollTop, textBottom: text.bottom, barTop: bar.top }; }""")
+        b.close()
+    assert got["scrollable"], got                  # the screen is short enough to need the fix
+    assert got["gap"] <= 1, got                    # scrolled to the end
+    assert got["textBottom"] <= got["barTop"] + 1, got   # the mode text is not hidden behind the bar
+    assert errors == []

@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-18 13:07` Das **Debug-Panel** (Strg+D oder `?debug`) zeigt jetzt auch **Bildrate**, **Grafik-Zahlen** und – wo der Browser es verrät – den **Speicherverbrauch**.
 - `2026-11-18 11:04` Von **September bis November** tragen die **Laubbäume Herbstfarben**: Buchen in Gelb, Orange und Rostrot mit ein paar noch grünen, Birken und Pappeln leuchtend gelb, Obstbäume gelb-orange bis rot. Die **Tannen bleiben grün**, und ab Dezember sind alle Bäume wieder grün wie bisher.
 - `2026-11-17 21:30` Im **zweiten Ring** schwebt jetzt **Deep Space Nine** über dem Boden, mit der **Defiant** am Andockring — die Raumstation im halben Massstab (726 m breit, 494 m hoch), das Auto fährt darunter durch. In diesem Raum steigt der **Helikopter** (<kbd>F</kbd>) bis 570 m, also einmal rund um die Station. 3D-Modelle „Deep Space Nine - Star Trek" von rossrobotics und „U.S.S. Defiant" von Feltman_Langer (Sketchfab), beide CC BY 4.0, vereinfacht und komprimiert.
 - `2026-11-17 20:38` Neben dem **Atomium** steht der **Manneken Pis** in seiner **Brunnen-Ecke** — lebensgross mit 61 cm, in der Steinnische über dem Becken, hinter dem schmiedeeisernen Gitter, und sein **Wasserstrahl** läuft.
@@ -46,6 +47,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Fixed
 
 - `2026-11-18 13:51` Die **Welt braucht nochmals rund 250 MB weniger Grafikspeicher** — **Strassen, Boden und Schilder** sind kompakter gespeichert (die Strassenscheibe an jeder Kreuzung und der Boden teilen ihre Eckpunkte, Normale und Farben als schmale Bytes), und **gleiche Schilder** (der **P** an jedem Parkplatz, die **Haltestellentafel** in beiden Richtungen) liegen nur noch einmal vor. So bleibt das Spiel auf dem **Handy** geöffnet, statt dass Safari den Tab immer wieder neu lädt und abbricht.
+- `2026-11-18 14:07` Auf dem **Handy** startet ein Modus im Startmenü wieder mit dem **ersten Antippen**: das Menü öffnet ganz nach unten gescrollt, sodass die Knöpfe nicht mehr unter dem Finger wegrutschen, und der Beschreibungstext steht sichtbar über den Knöpfen statt dahinter.
 - `2026-11-18 12:49` Das Spiel braucht nach dem Laden der Welt rund **700 MB weniger Speicher**, damit es auch auf dem **Handy** geöffnet bleibt — auf einem iPhone hat Safari die Seite bisher immer wieder neu geladen und dann ganz abgebrochen.
 - `2026-11-18 09:32` Die **Rütistrasse** in Stein führt wieder eben **unter der A3** durch statt über einen Buckel auf Brückenhöhe; auch an sechs weiteren Stellen (u. a. Zürcherstrasse, Kaistenbergstrasse, Fricktalstrasse) liegt die Strasse unter einer **Strassenbrücke** jetzt in einer Unterführung mit Betonwänden.
 - `2026-11-17 22:14` Mehrspieler: Geht die erste Anmeldung eines Gastes unterwegs verloren, versucht er es jede Sekunde erneut, statt ewig auf die Lobby zu warten.

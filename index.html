@@ -956,7 +956,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, billTints, treeHash, lodTier, seasonFor } from './trees.js';
 import { crownFor } from './treegeo.js';
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank } from './world.js';
-import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
+import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
@@ -6204,6 +6204,12 @@ function renderAlbum() {
 function renderStartScreen() { $('edition').textContent = editionText(REGION, tr); $('worldbtn').textContent = tr('worldBtn', REGION.name); $('cartagname').textContent = tr('carTag', vehicleText(tr, CHOICE.id, 'name')); const sticker = REGION.generated ? null : REGION.id === 'ehrendingen' ? 'stickerEhrendingen' : 'stickerHochrhein'; $('sticker').hidden = !sticker; $('sticker').textContent = sticker ? tr(sticker) : ''; }
 const firstModeButton = () => Object.keys(MODE_BTN).map($).find(b => !b.hidden);   // RACELESS hides two of the four, never all
 const startModeButton = () => { const id = Object.keys(MODE_BTN).find(k => MODE_BTN[k] === START_MODE); return id && !$(id).hidden ? $(id) : firstModeButton(); };
+// #1071: on a short phone screen the menu is taller than the viewport and the sticky bar covers the text slot. At scrollTop 0
+// the first tap scrolled the menu under the finger and was lost, so the menu opens scrolled to the end: the bar sits in place, the slot shows above it.
+function scrollMenuToEnd() { const o = $('overlay'); if (!o.hidden) o.scrollTop = o.scrollHeight; }
+new MutationObserver(scrollMenuToEnd).observe($('overlay'), { attributes: true, attributeFilter: ['hidden', 'class'] });
+new ResizeObserver(scrollMenuToEnd).observe(document.querySelector('#overlay .start'));   // late text and the loading box change its height; the bar stays pinned either way
+addEventListener('resize', scrollMenuToEnd);
 function focusStart() { (WORLD_GONE ? $('worldbtn') : startModeButton()).focus(); }   // #551: the preselected mode's button; the error state has no mode to start
 if (RACELESS) for (const id of ['startbtn', 'blitzbtn']) $(id).hidden = true;
 if (!VIEWPOINTS.length) $('viewbtn').hidden = true;   // #508: only a world with viewpoints offers the hunt
@@ -7847,6 +7853,14 @@ function waterNameNear(x, z) { for (const [ox, oz] of [[0, 0], [20, 0], [-20, 0]
 function renderOdo() { $('odo').textContent = tr('odo', P.odo.toFixed(0)); }
 // #39: debug overlay (Ctrl+D, F3 or ?debug, not persisted). Extensible: debugSection(fn) adds panel lines, debugLayer({ tick(x, z), hide() }) adds world content.
 const DEBUG = { on: false, t: 0, sections: [], layers: [], lines: [] };
+const DEBUG_FPS = { n: 0, t0: 0, fps: 0, ms: 0 };
+function countDebugFrame(now) {   // fps over the last second, only while the panel is open
+  if (!DEBUG.on) { DEBUG_FPS.n = 0; DEBUG_FPS.t0 = now; return; }
+  if (DEBUG_FPS.n === 0) DEBUG_FPS.t0 = now;
+  DEBUG_FPS.n++; const span = now - DEBUG_FPS.t0;
+  if (span < 1000) return;
+  DEBUG_FPS.fps = DEBUG_FPS.n * 1000 / span; DEBUG_FPS.ms = span / DEBUG_FPS.n; DEBUG_FPS.n = 0; DEBUG_FPS.t0 = now;
+}
 function debugSection(fn) { DEBUG.sections.push(fn); }
 function debugLayer(layer) { DEBUG.layers.push(layer); }
 function toggleHudShown() { const off = document.body.classList.toggle('hud-off'); toast(tr(off ? 'hudOff' : 'hudOn')); }   // #305
@@ -7947,6 +7961,7 @@ debugSection(() => buildingLines(DEBUG_H.shown[0]));
 debugSection(() => [sizeLine(CAR_SIZE)]);   // #124: the size measured at build time
 debugSection(() => mapLines(TGRID.GW, TGRID.GD));   // #124
 debugSection(() => NET.role ? [`net: ${NET.role} · peers ${NET.link ? NET.link.peerIds().length : 0} · bad ${NET.bad} · offset ${Math.round(NET.offset ?? 0)} ms`] : []);   // #835 part c: the multiplayer counters
+debugSection(() => [fpsLine(DEBUG_FPS.fps, DEBUG_FPS.ms), gpuLine(renderer.info), ...memLine(performance.memory)]);   // #1069: frame rate and memory, for phones
 window.__mm.debug = () => ({ on: DEBUG.on, lines: [...DEBUG.lines], copy: copyText(DEBUG.lines), pos: debugPosition(L && L.origin, P.x, P.z), links: mapUrls(debugPosition(L && L.origin, P.x, P.z), bearing()), heights: DEBUG_H.shown.map((l, i) => { const s = DEBUG_H.pool[i], ny = labelNdcY(camera.matrixWorldInverse.elements, camTanHalf(), s.position.x, s.position.y, s.position.z); return { t: l.t, id: l.id, d: +l.d.toFixed(1), ny: Number.isNaN(ny) ? null : +ny.toFixed(3), clamped: s.position.y < l.y - 1e-6 }; }), sprites: DEBUG_H.pool.filter(s => s.visible).length, labels: [...document.querySelectorAll('#debugtext > div')].map(d => d.dataset.label), legend: !$('debuglegend').hidden });
 if (debugFromQuery(location.search)) toggleDebug();
 // #106 Navi panel: the turn arrow, the stepped distance and the instruction, all from navi.js's description
@@ -8247,7 +8262,7 @@ function compileLooks(root) {
 window.__mm.sim = (x, z, th, v, secs, hold = ['KeyW'], y = null, props = false) => { P.x = x; P.z = z; P.th = th; P.vx = v * Math.cos(th); P.vz = v * Math.sin(th); P.vy = 0; P.y = y ?? groundH(x, z, 1e4); P.splash = 0; for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); stepLift(1 / 60); if (props && KNOCK) KNOCK.animate(1 / 60); stepTyres(1 / 60); /* #428: knocked props move while the car drives */ } for (const k of hold) keys[k] = false; return { x: P.x, z: P.z, y: P.y, th: P.th, speed: Math.hypot(P.vx, P.vz), bridge: isDeck(onBridge(P.x, P.z, P.y)) }; };
 let last = performance.now();   // #187: the first rAF stamp can precede this on a busy box; loop() floors dt at 0 (a negative one flung the camera to 1e20 m)
 function loop(now) { if (SIMCLOCK.stepped) { last = now; requestAnimationFrame(loop); return; }   // #875: stepped capture mode -- the clock stands still, only __mm.tick moves the game
-  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; PAUSE.frame++; if (PAUSE.on || BORDERINFO.open || TTV.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now; countDebugFrame(now); PAUSE.frame++; if (PAUSE.on || BORDERINFO.open || TTV.open) { fadeToast(dt); debugTick(); clampDebugHeights(); if (CARSEL.on) { stepGallery(); stepCamera(dt); drawWheels(); drawShadow(); } renderer.render(scene, camera); if (photoPending) capturePhoto(); drawMirror(true); requestAnimationFrame(loop); return; }   // #83: frozen, but F3 and resizes still draw
   frame(dt);
   requestAnimationFrame(loop); }
 // #875: one frame's simulation and render -- the real-time loop's body, also run by __mm.tick with the caller's exact dt (no clamp)
