@@ -1209,8 +1209,10 @@ def test_helicopter_is_refused_on_the_ring_level_and_in_a_spoke(server):
 
 @needs_world
 def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_download(server, tmp_path):
-    """#488: entering spoke 2 builds the Artemis II stack (98.1 m on its mount) and the Orion capsule from primitives -- no model file is
-    fetched; the core, the mount's edge and the capsule are solid, the lawn beside the mount and the capsule's ring are open. Leaves a screenshot."""
+    """#488 / #622: entering spoke 2 builds the Artemis II stack (98.1 m on its mount) and the Orion capsule from primitives -- and,
+    since #622 moved them aside to (0, +100), the Space Shuttle on its launch pad (56.1 m over the deck) besides them; no model
+    file is fetched; the Artemis core, the mount's edge, the capsule and the Shuttle's hardstand and tower are solid, the lawn
+    beside the mount, the capsule's ring, the flame trench under the rocket and the old room centre are open. Leaves screenshots."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
         requests = []
@@ -1220,21 +1222,28 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
         into_room(page, 2, "room2")
         page.wait_for_function("() => window.__mm.artemis() && window.__mm.artemis().built === 2", timeout=120000)
         a = page.evaluate("() => window.__mm.artemis()")
+        s = page.evaluate("() => window.__mm.shuttle()")
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
         push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(2, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
-          const c = window.__mm.artemis().capsule; return { core: p(0, 0), mount: p(0, 11), beside: p(0, 30), capsule: window.__mm.pushAt(c.x, c.z, -600), ring: p(-50, 45 + 11) }; }""")
+          const c = window.__mm.artemis().capsule, st = window.__mm.shuttle().stack, x = [Math.cos(st.th), Math.sin(st.th)], z = [-x[1], x[0]], q = (a, b) => window.__mm.pushAt(st.x + x[0] * a + z[0] * b, st.z + x[1] * a + z[1] * b, -600);
+          return { core: p(0, 100), mount: p(0, 111), beside: p(0, 130), capsule: window.__mm.pushAt(c.x, c.z, -600), ring: p(-50, 156), hardstand: q(23, -19), tower: q(-31.5, 6), trench: q(0, 0), oldCentre: p(0, 0) }; }""")   # room frame; the pad's probes in the stack's own frame (turned 45°)
         view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(2, 0).th; return { x: v.x - Math.cos(th) * 150, z: v.z - Math.sin(th) * 150, th }; }")
         page.evaluate(f"() => window.__mm.sim({view['x']}, {view['z']}, {view['th']}, 0, 1.5, [], -600)")
         page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
         page.screenshot(path=str(tmp_path / "artemis-room.png"))
+        portal = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(2, 0).th; return { x: v.x - Math.cos(th) * 160, z: v.z - Math.sin(th) * 160, th }; }")   # the portal view: both stacks from the axis nearer the portal
+        page.evaluate(f"() => window.__mm.sim({portal['x']}, {portal['z']}, {portal['th']}, 0, 1.5, [], -600)")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "artemis-room-portal.png"))
         br.close()
-    print("screenshot:", tmp_path / "artemis-room.png")
+    print("screenshots:", tmp_path / "artemis-room.png", tmp_path / "artemis-room-portal.png")
     assert errors == []
     assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design (loadWithin, index.html followCave); the room itself fetches nothing (surface landmarks excluded by room_glbs, #906)
     assert a["built"] == 2 and abs(a["h"] - 98.1) < 1e-6 and 1000 <= a["tris"] <= 20000 and a["colliders"] == 5, a
+    assert s["built"] == 2 and s["colliders"] == 11 and 3000 <= s["tris"] <= 60000 and s["look"] == "meadow" and s["lawn"] is True, s
     assert info["below"]["built"] == 2 and info["below"]["level"] == "room2" and info["below"]["object"] is True and info["counts"].get("artemis") == 1 and "eiffel" not in info["counts"], info
-    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("core", "mount", "capsule")), push
-    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("beside", "ring")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("core", "mount", "capsule", "hardstand", "tower")), push
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("beside", "ring", "trench", "oldCentre")), push
 
 
 @needs_world
