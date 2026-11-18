@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-18 11:04` Von **September bis November** tragen die **Laubbäume Herbstfarben**: Buchen in Gelb, Orange und Rostrot mit ein paar noch grünen, Birken und Pappeln leuchtend gelb, Obstbäume gelb-orange bis rot. Die **Tannen bleiben grün**, und ab Dezember sind alle Bäume wieder grün wie bisher.
 - `2026-11-17 21:30` Im **zweiten Ring** schwebt jetzt **Deep Space Nine** über dem Boden, mit der **Defiant** am Andockring — die Raumstation im halben Massstab (726 m breit, 494 m hoch), das Auto fährt darunter durch. In diesem Raum steigt der **Helikopter** (<kbd>F</kbd>) bis 570 m, also einmal rund um die Station. 3D-Modelle „Deep Space Nine - Star Trek" von rossrobotics und „U.S.S. Defiant" von Feltman_Langer (Sketchfab), beide CC BY 4.0, vereinfacht und komprimiert.
 - `2026-11-17 20:38` Neben dem **Atomium** steht der **Manneken Pis** in seiner **Brunnen-Ecke** — lebensgross mit 61 cm, in der Steinnische über dem Becken, hinter dem schmiedeeisernen Gitter, und sein **Wasserstrahl** läuft.
 - `2026-11-17 19:42` **Rhyflitzer FM Rock** hat **drei neue Tracks**: **Stadium Scale**, Stadionrock mit Synth-Arpeggio, **Unison Riff**, Nu-Metal wie live in der Arena, und **Motores Relentless**, eine kurze Rallye-Titelmusik.
