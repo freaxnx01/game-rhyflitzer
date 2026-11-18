@@ -276,7 +276,7 @@ test('RINGS_Ring1AsBefore_Ring2EightEmptyRoomsTwiceAsWideAtMinus1200', () => {
   assert.deepEqual(RINGS.map(g => [g.id, g.stop, g.y, g.half]), [['ring', 'bottom', -600, 250], ['ring2', 'ring2', -1200, 500]]);
   assert.equal(RINGS[0].rooms, ROOMS); assert.equal(RINGS[1].rooms, ROOMS2);
   assert.deepEqual(ROOMS2.map(r => r.id), ['r2room0', 'r2room1', 'r2room2', 'r2room3', 'r2room4', 'r2room5', 'r2room6', 'r2room7']);
-  for (const r of ROOMS2.slice(1, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }   // #491: room 0 holds the Enterprise, #811: room 7 the Space Shuttle
+  for (const r of ROOMS2.slice(2, 7)) { assert.equal(r.object, null); assert.equal(r.name, null); }   // #491: room 0 holds the Enterprise, #620: room 1 Deep Space Nine, #811: room 7 the Space Shuttle
   assert.deepEqual(spokeSigns(ROOMS2), [], 'no signs in ring 2');
 });
 
@@ -305,7 +305,7 @@ test('roomLayout_Ring1_UnchangedByTheRingParameter', () => {
 test('roomLayout_Ring2_ThousandMetreSquareAtItsDepth_PortalAtTheSpokeEnd', () => {
   rooms2.forEach((R, k) => {
     assert.equal(R.id, `r2room${k}`); assert.equal(R.ring, 'ring2'); assert.equal(R.y, ROOM2_Y); assert.equal(R.half, ROOM2_HALF); assert.equal(R.groundAt(), -1200);
-    if (k && k !== 7) { assert.equal(R.object, null); assert.equal(R.tower, null); }   // #491: room 0 holds the Enterprise, #811: room 7 the Space Shuttle
+    if (k !== 0 && k !== 1 && k !== 7) { assert.equal(R.object, null); assert.equal(R.tower, null); }   // #491: room 0 holds the Enterprise, #620: room 1 Deep Space Nine, #811: room 7 the Space Shuttle
     const sp = spokeFrame(k); assert.deepEqual(R.portal.c, sp.end);
     const [a, b] = toLocal(R, ...sp.end); assert.ok(Math.abs(a + 500) < 1e-6 && Math.abs(b) < 1e-6, 'the portal is 500 m before the centre');
     for (const o of R.colliders) assert.ok(o.h > ROOM2_Y && o.h < BELOW_Y, 'colliders stand at ring 2 depth');
@@ -431,4 +431,28 @@ test('roomLayout_RallyHall_WallsPodiumsBlock_FloorAndApronDrive_FloodFillReaches
   for (const [a, b] of [[-5, -11], [4, 11], [12, 0], [-22, 0], [-60, 0], [-95, 0]]) assert.ok(!blocked(hall, ...toWorld(hall, a, b)), `free at ${a},${b}`);
   const r = reach(hall), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
   for (const b of [-22, 0, 22]) { assert.ok(cell(-6, b), `front of the podium at b ${b}`); assert.ok(cell(13, b), `back of the podium at b ${b}`); }
+});
+
+// #620: Deep Space Nine in ring-2 room 1 -- the station hovers, the Defiant is docked at it; the room's own fly ceiling
+import { DS9 } from '../ds9.js';
+const ds9Room = rooms2[1];
+test('ROOMS2_Room1_HoldsDeepSpaceNine_ThirdInLine_UnsignedWithTheSpaceLook_NoPlaque', () => {
+  assert.equal(ROOMS2[1].object, DS9); assert.equal(ROOMS2[1].name, 'Deep Space Nine'); assert.equal(ROOMS2[1].signed, false);
+  assert.equal(ROOMS2[1].look, 'space'); assert.equal(ROOMS2[1].dedication, undefined); assert.equal(NEXT_ROOMS2[2], 1, 'it took the next room in line');
+  assert.equal(ds9Room.look, 'space'); assert.deepEqual(ds9Room.paths, []); assert.deepEqual(ds9Room.trees, []);
+  assert.deepEqual(ds9Room.tower, { x: ds9Room.centre[0], z: ds9Room.centre[1] });
+  assert.deepEqual(spokeSigns(ROOMS2), [], 'still no signs in ring 2');
+});
+
+test('roomLayout_Ds9Room_AddsNoCollider_TheCarDrivesUnderTheStation', () => {
+  const M = roomLayout(1, { id: 'r2room1', name: null, object: null }, RINGS[1]);   // the same room, empty
+  assert.equal(ds9Room.colliders.length, M.colliders.length, 'the station hovers 25 m up: nothing of it is solid');
+  assert.deepEqual([ds9Room.feet, ds9Room.hull], [[], []]); assert.equal(ds9Room.basin, null);
+  for (const a of [0, 100, 200, 300]) assert.ok(!blocked2(ds9Room, ...toWorld(ds9Room, a, 0)), `free under the station at ${a} m from the centre`);
+});
+
+test('roomLayout_FlyCeiling_570InTheDs9RoomOnly_420EverywhereElse', () => {
+  assert.deepEqual(ds9Room.fly, { wall: 475, ceiling: DS9.ceiling });
+  for (const R of [...rooms, ...rooms2].filter(r => r !== ds9Room)) assert.equal(R.fly.ceiling, ROOM_FLY.ceiling, `${R.ring} room ${R.k}`);
+  assert.ok(ROOM2_Y + DS9.ceiling < BELOW_Y, 'the ceiling stays under ring 1\'s floor');
 });

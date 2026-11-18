@@ -757,7 +757,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
           <small data-i18n="creditEiffel"></small><small data-i18n="creditAtomium"></small><small data-i18n="creditManneken"></small><small data-i18n="creditTitanic"></small>
           <small data-i18n="creditHatchback"></small><small data-i18n="creditMini"></small><small data-i18n="creditBus"></small>
           <small data-i18n="creditModelT"></small><small data-i18n="creditRally"></small><small data-i18n="creditBeetle"></small>
-          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small><small data-i18n="creditEstate"></small><small data-i18n="creditDelorean"></small>
+          <small data-i18n="creditNewBeetle"></small><small data-i18n="creditEnterprise"></small><small data-i18n="creditDs9"></small><small data-i18n="creditDefiant"></small><small data-i18n="creditTumbler"></small><small data-i18n="creditCoupe"></small><small data-i18n="creditHyper"></small><small data-i18n="creditMclaren"></small><small data-i18n="creditBulldog"></small><small data-i18n="creditWobbler"></small><small data-i18n="creditMixer"></small><small data-i18n="creditFizz"></small><small data-i18n="creditHarvester"></small><small data-i18n="creditKnight"></small><small data-i18n="creditBlaze"></small><small data-i18n="creditEstate"></small><small data-i18n="creditDelorean"></small>
         </dd>
         <dt data-i18n="aboutMusic"></dt>
         <dd><small data-i18n="creditMusicCoolRider"></small><small data-i18n="creditMusicNeonAfterglow"></small><small data-i18n="creditMusicCalifornia"></small><small data-i18n="creditMusicSoftRockGroove"></small><small data-i18n="creditMusicMelrose"></small><small data-i18n="creditMusicMenu"></small><small data-i18n="creditSrf3"></small><small data-i18n="creditArgovia"></small></dd>
@@ -955,7 +955,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES, treeSpecies, treeParts, treeColour, billShape, treeHash, lodTier } from './trees.js';
 import { crownFor } from './treegeo.js';
-import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace } from './world.js';
+import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
@@ -982,6 +982,7 @@ import { MANNEKEN } from './manneken.js';   // #585
 import { buildManneken, loadMannekenFigure, stepJet } from './mannekenmesh.js';
 import { ARTEMIS } from './artemis.js';
 import { ENTERPRISE, enterprisePlacement, enterpriseHover, letteringFrame, ringMean, columnIndex, columnExtent, SPACE_LOOK, HOLODECK, starField, DEDICATION } from './enterprise.js';   // #491 / #607: ringMean paints out the baked registry
+import { DS9 } from './ds9.js';   // #620: the station hovers and bobs on the Enterprise's machinery
 import { buildRocket, buildCapsule, artemisTriangles } from './artemismesh.js';
 import { RALLYHALL, boardLayout, flagLayout, videoShown } from './rallyhall.js';   // #859 / #907
 import { buildHall, buildFlags, buildVideos, rallyhallTriangles } from './rallyhallmesh.js';
@@ -1009,7 +1010,7 @@ import { DISPLAY_TEX, displayLayout, REAR_TEX, REAR_GRID, REAR_CELL, rearFrame, 
 import { hhmmss, clockLine, busRow, nextDeparture, chaseCam } from './postautodebug.js';   // #707
 import { PA_SPEEDS, wallClock, clockNow, setTime, setFactor, parseFactor, clockQuery, clockFromQuery, fleetSteps, jumpLimit } from './paclock.js';   // #726
 import { newNaviState, naviStep, afterReplan, describe as naviDescribe } from './navi.js';
-import { DELIV, DEPOTS, mulberry32, buildAddresses, resolveDepots, pickOrder, newShift, beginOrder, tick as delivTick, applyImpact as delivImpact, applyPenalty as delivPenalty, isNewBest } from './delivery.js';
+import { DELIV, DEPOTS, mulberry32, nearestPlace, buildAddresses, resolveDepots, homeDepots, pickOrder, newShift, beginOrder, tick as delivTick, applyImpact as delivImpact, applyPenalty as delivPenalty, isNewBest } from './delivery.js';
 import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from './pause.js';
 import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction, musicCaptionKey } from './settings.js';   // #842
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
@@ -1420,6 +1421,8 @@ if (L) for (const rb of L.railBridges) {
 // #78: a hero piece grows along same-named generic bridge pieces sharing an endpoint (the Fridolinsbrücke is four OSM ways); rail decks (#76) never join.
 // The grid entries keep the old, wider hw -- it is only the broad phase.
 for (const kind of ['wood', 'stone']) { const seed = OSM_BRIDGES.findIndex(b => b.kind === kind); if (seed < 0) continue; for (const i of bridgeChain(OSM_BRIDGES.map(b => ({ name: b.r.n, kind: b.kind, pts: b.r.pts })), seed)) if (OSM_BRIDGES[i].kind === 'generic') Object.assign(OSM_BRIDGES[i], { kind, hw: kind === 'wood' ? 2.6 : 4.2 }); }
+// #1044: the road decks that can get an underpass -- generic only (the hero chains above and the stone abutments never do)
+const ROAD_CUTS = [], ROAD_GUARDS = [], ROAD_DECKS = OSM_BRIDGES.filter((b) => b.kind === 'generic' && !b.approach);
 // end heights need terrainH (REAL is parsed above); filled before anything calls groundH
 let STONE_AXIS = null;   // #78: the stone chain's deck line, bank point -> bank point, once the chain is a two-bank crossing
 // #78: roads (no bridges, none in skip) with an endpoint within 0.5 m of p, each oriented away from p
@@ -1548,8 +1551,8 @@ fillBridgeHeights();
 // it on arms (cutNetwork); only what cannot (dead ends, bridges, arms out of budget) still caps the floor. Then the patches
 // for every cell an arm touches.
 // the lowest deck surface over the road's band at a crossing
-function deckMinAt(c) {
-  const b = RAIL_DECKS[c.bridge], span = c.road.w / 2 / Math.max(0.3, c.sin) + 1;
+function deckMinAt(c, deck = RAIL_DECKS[c.bridge]) {
+  const b = deck, span = c.road.w / 2 / Math.max(0.3, c.sin) + 1;
   let deckMin = Infinity; for (const k of [-1, 0, 1]) deckMin = Math.min(deckMin, bridgeSurfaceAt(b, c.tRail + k * span));
   return deckMin;
 }
@@ -1562,11 +1565,14 @@ function gradeCaps(g, crossings) {
   }
   return caps;
 }
-function makeCut(c) {
-  const b = RAIL_DECKS[c.bridge], hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), len = polylineLength(c.road.pts), deckMin = deckMinAt(c);
+// #1044: deck = the record's deck (a road deck for a road cut); minFloor = the water bound, applied before settleCut; skip = road ids
+// the network never enters nor caps at (a road cut's own deck and its bank roads)
+function makeCut(c, deck = RAIL_DECKS[c.bridge], minFloor = -Infinity, skip = new Set()) {
+  const b = deck, hw = c.road.w / 2, flat = cutFlat(b.hw, c.sin), len = polylineLength(c.road.pts), deckMin = deckMinAt(c, b);
   const groundAt = (s) => { const [x, z] = pointAtLength(c.road.pts, c.tRoad + s); return gradedH(x, z); };
-  const near = [...new Set([...gridQuery(ROAD_GRID, c.x, c.z, 250)].map(({ r }) => r))];
-  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: cutFloorTarget(deckMin, groundAt(0)), capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [] };
+  const near = [...new Set([...gridQuery(ROAD_GRID, c.x, c.z, 250)].map(({ r }) => r))].filter((r) => !skip.has(r.id));
+  const target = cutFloorTarget(deckMin, groundAt(0));
+  const cut = { pts: c.road.pts, t: c.tRoad, hw, flat, f0: Math.max(target, minFloor), raised: minFloor > target, capped: null, x: c.x, z: c.z, road: c.road, deck: b, tRail: c.tRail, deckMin, arms: [] };
   settleCut(cut, (c) => { c.reach = armReach(c, groundAt, len).map((p) => p.s); return cutNetwork(c, near, L.junctions, gradedH); });
   if (cut.unsettled) console.warn(`underpass at ${c.road.n} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): the cut floor did not settle; kept the shallowest capped floor`);
   for (const a of cut.arms) a.deck = b;
@@ -1577,11 +1583,22 @@ function makeCut(c) {
 // from their own array: CUTS stays rail-only for __mm.crossings and the #119 walls. Built on the measured terrain only -- the
 // made-up hills have no Hübel.
 const HIDE = L && REAL && REGION.id === 'hochrhein' ? (() => { const found = (() => { try { return localStorage.getItem(HIDEOUT.key) === '1'; } catch (e) { return false; } })(); return { ...caveCuts(meshH), portal: portalS(meshH), found, walls: 0, lamps: 0, lidTris: 0, floorTris: 0, lidCells: new Set(), floor: null, ring: {}, rooms: null, lights: [] }; })() : null;
-// the rail arms (ARMS) plus the hideout's cuts: everything that lowers the patches
+// the rail and road arms (ARMS) plus the hideout's cuts: everything that lowers the patches
 const patchCuts = () => HIDE ? [...ARMS, ...HIDE.cuts.filter((c) => c.depth > 0)] : ARMS;
+// #1044: a patch triangle carries a lowered vertex at most PATCH_BLEED (a cut cell's diagonal) on, so the bank road's ribbon (and the
+// deck seat read from it) stays on the ground only if every vertex within hw + PATCH_BLEED of it does -- also the PATCH_BLEED behind its
+// deck end (g.ext starts that far back), not the round cap of a plain distance, which would reach metres into the trough under the deck
+// onBank: on a bank road's ribbon + 0.5, past its deck end only -- a plain distance's round cap reaches hw + 0.5 back under the deck, which
+// under a short deck is most of it (the A3 over the Rütistrasse: 7.5 m of 19) and kept the bank's ground in the trough's wall band
+const onBank = (x, z, guards) => guards.some((g) => { const n = nearestOnPolyline(g.pts, x, z); return n.t > 1e-9 && n.d <= g.hw + 0.5; });
+const inGuardBleed = (x, z, guards) => guards.some((g) => { const n = nearestOnPolyline(g.ext, x, z); return n.t > 1e-9 && n.d <= g.hw + PATCH_BLEED; });
 function cutFloorMin(x, z) {
   let f = Infinity;
-  for (const a of patchCuts()) { const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue; const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
+  for (const a of patchCuts()) { const [x0, z0, x1, z1] = a.bounds; if (x < x0 || x > x1 || z < z0 || z > z1) continue;
+    // #1044: a bank road outside the trough keeps its ground, and so does every patch vertex whose triangles reach its ribbon, inside the
+    // trough too -- every road cut's bank roads, not just its own deck's (Zürcherstrasse's cut under w4988444 runs on under w4985551's bank)
+    if (a.roadCut && ((onBank(x, z, ROAD_GUARDS) && nearestOnPolyline(a.pts, x, z).d > a.hw + UNDERPASS.margin) || inGuardBleed(x, z, ROAD_GUARDS))) continue;
+    const h = cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); if (h !== null) f = Math.min(f, h); }
   return f;
 }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
@@ -1599,7 +1616,26 @@ function buildCuts() {
   for (const c of crossings) CUTS.push(makeCut(c));
   // #156: a lowered patch vertex reaches PATCH_BLEED on (the diagonal of a 1 m cell): lat ends the lowering that far inside the
   // wall's outer face, so nothing behind a wall is lowered
-  for (const c of CUTS) if (c.depth > 0) for (const a of [c, ...c.arms]) { a.lat = a.hw + UNDERPASS.margin + UNDERPASS.wall - PATCH_BLEED; a.bounds = cutBounds(a); ARMS.push(a); }
+  // #1044: one cut per road-deck crossing on measured terrain, its floor kept ROAD_UNDERPASS.waterMargin over the nearby water
+  for (const c of roadBridgeCrossings(L.roads, ROAD_DECKS.map((b) => ({ pts: b.r.pts, layer: b.r.layer ?? 0 })))) {
+    if (!terrainHasData(REAL, c.x, c.z)) continue;
+    const d = ROAD_DECKS[c.bridge], level = nearbyWaterLevel(L.water, c.x, c.z), guards = deckGuards(d.r.pts, L.roads);
+    for (const g of guards) { const [a, b] = g.pts, l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; g.ext = [[a[0] - (b[0] - a[0]) / l * PATCH_BLEED, a[1] - (b[1] - a[1]) / l * PATCH_BLEED], ...g.pts]; }
+    const cut = makeCut(c, d, level === null ? -Infinity : level + ROAD_UNDERPASS.waterMargin, new Set([d.r.id, ...guards.map((g) => g.road.id)]));
+    // a road meeting a bank road's far end is a cap too: lowering it drops the bank road's end and the deck seat with it (Lohgerbe / Werderstrasse)
+    const far = guards.map((g) => { const p = g.road.pts, s = p[0], e = p[p.length - 1]; return Math.hypot(s[0] - g.pts[0][0], s[1] - g.pts[0][1]) <= 0.5 ? e : s; });
+    const meetsFar = (r) => far.some(([fx, fz]) => nearestOnPolyline(r.pts, fx, fz).d < 0.6);
+    if (!cut.capped) { const a = [cut, ...cut.arms].find((a) => meetsFar(a.road)); if (a) cut.capped = { x: a.x, z: a.z, kind: 'bank' }; }
+    if (cut.capped) { console.warn(`road underpass at ${c.road.n || c.road.id} (${c.x.toFixed(0)}, ${c.z.toFixed(0)}): capped (${cut.capped.kind}), no cut`); continue; }   // #1044: a capped road cut is dropped, the site stays as it was
+    cut.roadCut = true; cut.guards = guards; cut.water = cut.raised ? level : null;
+    // roundEnds: past a road's polyline end (a junction: Fricktalstraße is a 17 m way between two) the floor runs on as a level
+    // disc; else neither the road nor the one leaving there lowers the junction's outer side and its disc and ribbons ride the bank
+    cut.roundEnds = true;
+    for (const a of cut.arms) { a.roadCut = true; a.guards = cut.guards; a.roundEnds = true; }
+    ROAD_CUTS.push(cut);
+  }
+  for (const d of new Set(ROAD_CUTS.map((c) => c.deck))) ROAD_GUARDS.push(...ROAD_CUTS.find((c) => c.deck === d).guards);   // each kept deck's bank roads once
+  for (const c of [...CUTS, ...ROAD_CUTS]) if (c.depth > 0) for (const a of [c, ...c.arms]) { a.lat = a.hw + UNDERPASS.margin + UNDERPASS.wall - PATCH_BLEED; a.bounds = cutBounds(a); ARMS.push(a); }
   const G = TGRID, W = CUT_N + 1;
   if (HIDE) for (const c of HIDE.cuts) c.bounds = cutBounds(c, c.u);
   const fillCell = (i, j) => {
@@ -1614,6 +1650,7 @@ function buildCuts() {
   for (const gc of GRADE_CUTS) for (const [i, j] of gradeCells(gc, G)) { const key = i + ',' + j; if (CUT_CELLS.has(key) && !FINE_KEYS.has(key)) continue; const c = fillCell(i, j); if (c.lowered || FINE_KEYS.has(key)) CUT_CELLS.set(key, c.p); }
 }
 if (L) buildCuts();
+const ROAD_CUT_DECKS = new Set(ROAD_CUTS.filter((c) => c.depth > 0).map((c) => c.deck));   // #1044: the road decks a kept road cut runs under
 // #102: under the lid? the ceiling height there (null elsewhere); the ground a helicopter sees (the hill, not the cavern floor)
 function roofedAt(x, z) { return !!HIDE && caveRoofed(x, z, HIDE.portal); }
 // the lid reaches TUNNEL.wall further out than the corridor, over the trough walls and the cut's edge (drawn and solid)
@@ -2590,8 +2627,11 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     for (const key in geos) if (geos[key].length) marks.add(new THREE.Mesh(mergeGeometries(geos[key], false), mats[key]));
   }
   if (!L) for (const r of ROADS) for (const p of r.pts) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
-  if (L) for (const r of ROADS) if (!r.bridge) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
-  if (L) for (const [x, z, r] of L.junctions) disc(x, z, r, 0.05, 'roadPlain', col('#ffffff'));
+  // #1044: no end cap or junction disc where a bank road meets a road deck over a road cut: its hw + 0.3 radius reaches back under the deck,
+  // and its coarse rings, draped from the bank down into the trough, stood as road-grey spikes beside the lower road (and lifted the car)
+  const overCut = (p) => [...ROAD_CUT_DECKS].some((b) => [b.r.pts[0], b.r.pts[b.r.pts.length - 1]].some((e) => Math.hypot(p[0] - e[0], p[1] - e[1]) <= 0.5));
+  if (L) for (const r of ROADS) if (!r.bridge) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) if (!overCut(p)) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
+  if (L) for (const [x, z, r] of L.junctions) if (!overCut([x, z])) disc(x, z, r, 0.05, 'roadPlain', col('#ffffff'));
   if (!L) for (let a = 0; a < ROADS.length; a++) for (let b = a + 1; b < ROADS.length; b++) if (!(L && (ROADS[a].bridge || ROADS[b].bridge))) for (let i = 0; i < ROADS[a].pts.length - 1; i++) for (let j = 0; j < ROADS[b].pts.length - 1; j++) { const [x1, y1] = ROADS[a].pts[i], [x2, y2] = ROADS[a].pts[i + 1], [x3, y3] = ROADS[b].pts[j], [x4, y4] = ROADS[b].pts[j + 1]; const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4); if (Math.abs(den) < 1e-6) continue; const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den, u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den; if (t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99) disc(x1 + t * (x2 - x1), y1 + t * (y2 - y1), Math.max(ROADS[a].w, ROADS[b].w) / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff')); }
   await loadStage('bridges');
   // bridges: the stone hero model on one straight span (deck, parapets, piers) -- the hand layout's Fridolinsbrücke and the OSM one while
@@ -2740,6 +2780,15 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     }
     const g = ribbonGeo(b.r.pts, 2.5, 0.03, 4, false, (p) => hs(p[0], p[1])); colorize(g, col('#ffffff')); push('rail', g);
   }
+  // #1044: a road deck over a road cut gets the same stone box, as wide as its stone strip, its top 0.02 m under the road strip
+  // -- under the lowest of the piece's ends and middle: the flat box would otherwise poke through a sloped or humped deck
+  for (const b of ROAD_CUT_DECKS) {
+    const hs = (x, z) => bridgeSurfaceAt(b, nearestOnPolyline(b.r.pts, x, z).t), pts = resample(b.r.pts, 10);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, z0] = pts[i], [x1, z1] = pts[i + 1], mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, low = Math.min(hs(x0, z0), hs(mx, mz), hs(x1, z1));
+      box(Math.hypot(x1 - x0, z1 - z0) + 0.1, UNDERPASS.deck - 0.02, b.r.w + 1.2, mx, low - UNDERPASS.deck, mz, Math.atan2(z1 - z0, x1 - x0), col('#b8b2a6'), 'stone', [4, 3], 0);
+    }
+  }
   // #119/#120 trough walls: along every road with a cut or an arm, a stone wall with its face at hw + margin, from the floor
   // to 1 m over the ground behind it (parapet); where a deck passes over the piece itself (not over the road's centre line --
   // at a skewed crossing those are metres apart) up to that deck's underside there and no parapet. Per side, the run stops
@@ -2747,21 +2796,27 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // corner. Solid, but `low`: a car above the top passes over.
   // #576: every rail deck whose footprint reaches the piece (half: its half length) -- also a deck of a crossing without a cut of
   // its own, and both of two tracks side by side (Koenigsweg, 3.8 m apart on 5.5 m wide decks): the piece is under the lowest
-  const decksOver = (x, z, half) => RAIL_DECKS.map((deck) => ({ deck, n: nearestOnPolyline(deck.r.pts, x, z) })).filter(({ deck, n }) => n.d <= deck.hw + half);
+  // #1044: decks = RAIL_DECKS, plus the road decks over a road-cut piece
+  const decksOver = (x, z, half, decks = RAIL_DECKS) => decks.map((deck) => ({ deck, n: nearestOnPolyline(deck.r.pts, x, z) })).filter(({ deck, n }) => n.d <= deck.hw + half);
   // review of #156: the run stops WALL_SLACK short of the other road's wall face, so no piece end reaches into that road's
   // corridor; wallSpans finds that point to the centimetre, so the slack is also the whole notch left open at the corner (under
   // the 0.3 m a wall covers in __mm.openCutFaces)
   const WALL_SLACK = 0.28;
-  const otherRoad = (road) => (x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK);
+  // #1044: pass = roads a run goes on through (a road cut's decks and their bank roads: the trough runs on under the deck, the bank road keeps its ground)
+  const otherRoad = (road, pass) => (x, z) => [...gridQuery(ROAD_GRID, x, z, 8)].some(({ r, i }) => r !== road && !pass.has(r) && segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK);
   const byRoad = new Map(); for (const a of ARMS) { if (!byRoad.has(a.road)) byRoad.set(a.road, []); byRoad.get(a.road).push(a); }
   for (const [road, arms] of byRoad) {
     // #156: the patch triangles run the lowering out up to PATCH_BLEED (a cell's diagonal) past where a floor ends, so the runs go on that far
     const spans = arms.map(armSpan).map(([a, b]) => [a - PATCH_BLEED, b + PATCH_BLEED]);
     const hw = road.w / 2, inner = hw + UNDERPASS.margin, off = inner + UNDERPASS.wall / 2;
+    // #1044: the road-cut arms on this road, each with its (bled) span: a piece in one is a road-cut piece
+    const roadArms = arms.filter((a) => a.roadCut).map((a) => { const [t0, t1] = armSpan(a); return { a, t0: t0 - PATCH_BLEED, t1: t1 + PATCH_BLEED }; });
+    // road-wide: assumes no road carries both a rail arm and a road arm (true today -- the road walls stand on 18 roads with no rail wall)
+    const pass = new Set(roadArms.flatMap(({ a }) => [a.deck.r, ...a.guards.map((g) => g.road)]));
     for (const side of [-1, 1]) {
-      const runs = wallSpans(road.pts, spans, off, side, otherRoad(road), PATCH_BLEED);
-      for (const w of wallStations(road.pts, runs, off, 2, [side])) troughPiece(road, w, ...pointAtLength(road.pts, w.t), atGradeCorner(road, runs, w, off, side));
-      for (const w of runCorners(road, runs, off, side)) troughPiece(road, w, w.x - w.nx * off, w.z - w.nz * off);
+      const runs = wallSpans(road.pts, spans, off, side, otherRoad(road, pass), PATCH_BLEED);
+      for (const w of wallStations(road.pts, runs, off, 2, [side])) troughPiece(road, w, ...pointAtLength(road.pts, w.t), roadArms, atGradeCorner(road, runs, w, off, side));
+      for (const w of runCorners(road, runs, off, side, pass)) troughPiece(road, w, w.x - w.nx * off, w.z - w.nz * off, roadArms);
     }
   }
   // #844: w is the end piece of its run, the run is stopped there by another road, and one of the two roads is not lowered
@@ -2780,7 +2835,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     return false;
   }
   // one wall piece w, its road point (rx, rz): (rx, rz) + n * d lies d m off the road through the piece
-  function troughPiece(road, w, rx, rz, atGrade = false) {
+  function troughPiece(road, w, rx, rz, roadArms, atGrade = false) {
     const inner = road.w / 2 + UNDERPASS.margin, at = (d) => meshH(rx + w.nx * d, rz + w.nz * d), floor = terrainH(rx + w.nx * (inner - 0.25), rz + w.nz * (inner - 0.25));
     // #156: the ground the wall retains -- behind it, or on its own band where the cut still lowers it (on a slope falling away
     // from the road the ground 0.5 m behind can lie below the floor while the band is lowered 0.8 m)
@@ -2789,31 +2844,35 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     // below the floor (Bahnhofstrasse: the ground falls away from the road while the cut still lowers the bank 0.3 m)
     const lowered = Math.max(...[-1, 0, 1].map((k) => cutDepth(w.x + k * Math.cos(w.rot) * w.len / 2 - w.nx * UNDERPASS.wall / 2, w.z + k * Math.sin(w.rot) * w.len / 2 - w.nz * UNDERPASS.wall / 2)));
     if (ground - floor <= 0.1 && lowered <= 0.1) return;
-    if (atGrade) { SLOPES.push({ x: w.x, z: w.z, rot: w.rot, len: w.len }); return; }   // #844: a grass slope, no wall
+    const cuts = roadArms.filter(({ t0, t1 }) => w.t >= t0 && w.t <= t1).map(({ a }) => a), roadCut = cuts.length > 0;
+    // #844: a grass slope, no wall -- rail cuts only (#1044: a road cut's run ends at its bank roads and decks, not at grade)
+    if (atGrade && !roadCut) { SLOPES.push({ x: w.x, z: w.z, rot: w.rot, len: w.len }); return; }
     // the lowest deck surface over the piece's own footprint (half its length, plus how far it sits off the deck's centre
     // line): near a deck end bridgeDeckOffset fades, so the surface right above the piece is below the centre-line value
     // and the lowest of them where several decks lie over it (the nearest one's centre line can be the higher deck)
-    const over = decksOver(w.x, w.z, w.len / 2), under = over.length > 0;
+    const over = decksOver(w.x, w.z, w.len / 2, roadCut ? [...RAIL_DECKS, ...ROAD_CUT_DECKS] : RAIL_DECKS), under = over.length > 0;
     const deckTop = Math.min(...over.flatMap(({ deck, n }) => { const span = w.len / 2 + n.d; return [-span, 0, span].map((k) => bridgeSurfaceAt(deck, n.t + k)); }));
-    const top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
+    let top = under ? Math.min(Math.max(ground, deckTop - UNDERPASS.deck), deckTop - 0.3) : ground + 1;   // under a deck: inside its stone box even where the hillside tops the deck
+    // #1044: on a road cut's bank road (past the deck end, onBank) the wall ends just under the road the car drives on, no parapet
+    if (roadCut && cuts.some((a) => onBank(w.x, w.z, a.guards))) top = Math.min(top, roadTopH(w.x, w.z) - 0.05);
     box(w.len + 0.05, top - floor, UNDERPASS.wall, w.x, floor, w.z, w.rot, col('#b8b2a6'), 'stone', [4, 3], 0);
     pushOBB({ x: w.x, z: w.z, hw: w.len / 2, hd: UNDERPASS.wall / 2, c: Math.cos(w.rot), s: Math.sin(w.rot), h: top, low: true });
-    WALLS.push({ road: ROADS.indexOf(road), x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under });
+    WALLS.push({ road: ROADS.indexOf(road), x: w.x, z: w.z, nx: w.nx, nz: w.nz, rot: w.rot, len: w.len, side: w.side, floor, top, under: !!under, roadCut });
   }
   // #156: a run that ends on another road's corridor at an acute angle leaves the corner between the two open; cornerPiece
   // closes it. Only where its centre stays outside every corridor and its ends keep the run-end slack, once per corner.
-  function runCorners(road, runs, off, side) {
-    const out = [], len = polylineLength(road.pts), blocked = otherRoad(road);
+  function runCorners(road, runs, off, side, pass) {
+    const out = [], len = polylineLength(road.pts), blocked = otherRoad(road, pass);
     for (const [t0, t1] of runs) for (const [t, dir] of [[t0, -1], [t1, 1]]) {
       if (t < 0 || t > len || !blocked(...wallPoint(road.pts, t + dir * 0.3, off, side))) continue;
       const E = wallPoint(road.pts, t, off, side), q = pointAtLength(road.pts, t), a = { q, n: [(E[0] - q[0]) / off, (E[1] - q[1]) / off], hw: road.w / 2 };
       const beyond = wallPoint(road.pts, t + dir * 0.3, off, side);
-      for (const r of new Set([...gridQuery(ROAD_GRID, ...beyond, 8)].filter(({ r, i }) => r !== road && segDist(...beyond, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK).map(({ r }) => r))) {
+      for (const r of new Set([...gridQuery(ROAD_GRID, ...beyond, 8)].filter(({ r, i }) => r !== road && !pass.has(r) && segDist(...beyond, ...r.pts[i], ...r.pts[i + 1]) < r.w / 2 + UNDERPASS.margin + WALL_SLACK).map(({ r }) => r))) {
         const n = nearestOnPolyline(r.pts, ...E), qb = pointAtLength(r.pts, n.t);
         const w = n.d > 1e-9 && cornerPiece(a, { q: qb, n: [(E[0] - qb[0]) / n.d, (E[1] - qb[1]) / n.d], hw: r.w / 2 }, UNDERPASS.margin + WALL_SLACK + 0.02);
         if (!w || roadDist(w.x, w.z, 16) < UNDERPASS.margin || WALLS.some((o) => Math.hypot(o.x - w.x, o.z - w.z) < 0.2)) continue;
         if ([-1, 1].some((k) => blocked(w.x + k * Math.cos(w.rot) * w.len / 2, w.z + k * Math.sin(w.rot) * w.len / 2))) continue;
-        out.push({ ...w, side });
+        out.push({ ...w, side, t });
       }
     }
     return out;
@@ -4421,6 +4480,12 @@ window.__mm.enterprise = () => {   // #491: ring-2 room 0 is flat index 8 (#489)
   const m = ROOM.models[8], glow = {}; if (m) m.traverse(o => { if (o.isMesh && o.material.userData.glow) glow[o.material.userData.glow] = o.material.emissiveIntensity; });
   return { ...ROOM.states[8], hover: ENTERPRISE.hover, length: ENTERPRISE.length, y: m ? m.position.y : null, th: m ? m.userData.th : null, lettering: m ? m.userData.lettering || 0 : 0, paintedOut: m ? m.userData.paintedOut || 0 : 0, drapeMs: m ? m.userData.drapeMs : null, look: ROOM.layout.look, sun: sun.intensity, hemi: hemi.intensity, sunDisc: sunSprite.visible, dome: ROOM.group.children.some(o => o.userData.role === 'stardome'), grid: ROOM.group.children.some(o => o.userData.role === 'holodeck'), glow: m ? glow : null };
 };
+window.__mm.ds9 = () => {   // #620: ring-2 room 1 is flat index 9 (#489); `defiant` is where the docked ship ended up in the world
+  if (!ROOM.states[9] || ROOM.built !== 9) return null;
+  const m = ROOM.models[9], defiant = m && m.getObjectByName('defiant');
+  if (defiant) defiant.updateWorldMatrix(true, false);
+  return { ...ROOM.states[9], hover: DS9.hover, diameter: DS9.diameter, y: m ? m.position.y : null, th: m ? m.userData.th : null, ceiling: ROOM.layout.fly.ceiling, look: ROOM.layout.look, defiant: defiant ? defiant.getWorldPosition(new THREE.Vector3()).toArray() : null };
+};
 window.__mm.eiffelFootprints = eiffelFootprints;
 window.__mm.frameMs = (n = 30) => new Promise(res => { let k = 0, t0 = 0; const tick = (t) => { if (k === 0) t0 = t; if (++k > n) res((t - t0) / n); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });   // #277: mean frame time over n frames (the PR's surface-vs-room measurement)
 // #277 / #361: the drive-through freight lift. LIFT_RIDE is the lift.js state machine driven by the car in the cabin; the
@@ -5592,6 +5657,21 @@ window.__mm.crossings = () => CUTS.map(c => {
   return { x: c.x, z: c.z, road: c.road.n, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind }, deck, clearance: deck - UNDERPASS.deck - road,
            railGap: Math.max(...ends.map(([[x, z], h]) => railEndGap(c.deck, x, z, h))) };
 });
+// #1044: the road cuts, as __mm.crossings (no railGap) plus the lower road's and deck's OSM ids, the water level that raised the
+// floor (else null) and guardDepth, the deepest lowering under the deck's bank roads' centre lines
+window.__mm.roadCrossings = () => ROAD_CUTS.map(c => {
+  let road = -Infinity; for (let s = -c.flat + UNDERPASS.apron; s <= c.flat - UNDERPASS.apron; s += 1) { const [x, z] = pointAtLength(c.pts, c.t + s); road = Math.max(road, roadSurfH(x, z), terrainH(x, z)); }
+  // guardDepth: the road cuts' lowering only -- a point a rail arm's patch reaches (its lat plus the bleed) is the rail cut's (Vordermattweg's bank road ends in the Kapfstrasse cut)
+  const railAt = (x, z) => ARMS.some((a) => !a.roadCut && x >= a.bounds[0] && x <= a.bounds[2] && z >= a.bounds[1] && z <= a.bounds[3] && nearestOnPolyline(a.pts, x, z).d <= a.lat + PATCH_BLEED);
+  let guardDepth = 0; for (const g of c.guards) for (let s = 0; s <= polylineLength(g.pts); s += 1) { const [x, z] = pointAtLength(g.pts, s); if (!railAt(x, z)) guardDepth = Math.max(guardDepth, cutDepth(x, z)); }
+  const deck = bridgeSurfaceAt(c.deck, c.tRail);
+  return { x: c.x, z: c.z, road: c.road.n, roadId: c.road.id, deckId: c.deck.r.id, depth: c.depth, arms: c.arms.length, unsettled: c.unsettled, capped: c.capped && { x: c.capped.x, z: c.capped.z, kind: c.capped.kind },
+           deck, clearance: deck - UNDERPASS.deck - road, water: c.water, guardDepth };
+});
+window.__mm.roadWalls = () => WALLS.filter((w) => w.roadCut);
+// #1044: the road cuts' arms (the cut road itself included): its road, polyline, half width, floor at the crossing and lowered span
+window.__mm.roadArms = () => ARMS.filter((a) => a.roadCut).map((a) => ({ road: a.road.id, pts: a.pts, hw: a.hw, f0: a.f0, span: armSpan(a), bounds: a.bounds }));
+window.__mm.roadArmFloor = (k, x, z) => { const a = ARMS.filter((a) => a.roadCut)[k]; return cutFloorAt(a, x, z, a.u ?? UNDERPASS, gradedH); };   // that arm's own floor (null off it)
 // #120: the side-road arms of every cut, with a 1 m profile per side: [s, terrain, uncut mesh, x, z, this arm's own floor]
 // (terrain is the lowest floor of the whole network there, so where cuts overlap it stays under an arm that has surfaced)
 window.__mm.arms = () => CUTS.filter((c) => c.depth > 0).flatMap((c) => c.arms.map((a) => ({
@@ -5599,7 +5679,7 @@ window.__mm.arms = () => CUTS.filter((c) => c.depth > 0).flatMap((c) => c.arms.m
   sides: [-1, 1].map((dir, k) => { const out = []; for (let s = 0; s <= a.reach[k]; s += 1) { const [x, z] = pointAtLength(a.pts, a.t + dir * s); out.push([s, terrainH(x, z), meshH(x, z), x, z, cutFloor(a, dir * s)]); } return out; }),
   // review of #156: from 3 m before each end to 30 m past it (on the road, not past its end): [s, terrain, uncut mesh]
   past: [-1, 1].map((dir, k) => { const out = [], room = dir < 0 ? a.t : polylineLength(a.pts) - a.t; for (let s = Math.max(0, a.reach[k] - 3); s <= Math.min(room, a.reach[k] + 30); s += 1) { const [x, z] = pointAtLength(a.pts, a.t + dir * s); out.push([s, terrainH(x, z), meshH(x, z)]); } return out; }) })));
- window.__mm.rayHits = (x, z) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'field', 'meadow', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
+ window.__mm.rayHits = (x, z, from = 2000) => { const ray = new THREE.Raycaster(new THREE.Vector3(x, from, z), new THREE.Vector3(0, -1, 0)), out = {}; for (const role of ['grass', 'field', 'meadow', 'road', 'roadOsm', 'stone', 'rail']) { if (!MESH[role]) continue; const h = ray.intersectObject(MESH[role], false); out[role] = h.length ? h[0].point.y : null; } return out; };
 window.__mm.depthOffsets = () => Object.fromEntries(Object.entries(MESH).map(([r, m]) => [r, m.material.polygonOffset ? m.material.polygonOffsetFactor : null]));   // #688: the applied per-role offsets, for the test
 window.__mm.project = (x, y, z) => { camera.updateMatrixWorld(); const v = new THREE.Vector3(x, y, z).project(camera); return v.z < 1 && Math.abs(v.x) <= 1 && Math.abs(v.y) <= 1 ? { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight } : null; };   // #688: a world point as screen pixels (null: behind the camera or off-frame)
 window.__mm.fieldProbe = () => {   // #506: a ray over the largest Sisslerfeld parcel (the plain east and south of Sisseln; x/z window measured against the built frame)
@@ -5660,7 +5740,7 @@ window.__mm.damage = () => ({ dmg: P.dmg, wrecked: WRECK_S.on, t: WRECK_S.t, whe
 window.__mm.setDamage = (d) => { if (WRECK_S.on) endWreck(); P.dmg = 0; hurt(d); };
 window.__mm.wreckSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepWreck(1 / 60); };
 window.__mm.pushAt = (x, z, y) => { const keep = [P.x, P.z, P.vx, P.vz, P.dmg, P.y]; P.x = x; P.z = z; if (y !== undefined) P.y = y; P.vx = P.vz = 0; collide(carRadius()); const out = { dx: P.x - x, dz: P.z - z }; [P.x, P.z, P.vx, P.vz, P.dmg, P.y] = keep; return out; };   // #36: read-only, for the region-wide collider test; #119: optional car height
-window.__mm.walls = () => WALLS;
+window.__mm.walls = () => WALLS.filter((w) => !w.roadCut).map(({ roadCut, ...w }) => w);   // #1044: the rail cuts' walls, as before; the road cuts' are __mm.roadWalls
 // #120: points the cuts lower by > 0.3 m outside every road corridor (hw + margin) that no trough wall covers -- should be none
 window.__mm.slopes = () => SLOPES;   // #844: run-end pieces dropped at an at-grade corner
 window.__mm.openCutFaces = (step = 0.5) => {
@@ -6082,8 +6162,11 @@ function nearestDeliveryRoad(x, z) {
 function deliveryPool() {
   if (DEL.addresses) return DEL.addresses;
   if (!L || !autoGraph()) return null;
-  DEL.addresses = buildAddresses(L.buildings, nearestDeliveryRoad);
-  DEL.depots = resolveDepots(DEPOTS, Object.entries(L.anchors.landmarks).map(([n, a]) => ({ n, x: a.x, z: a.z })), DEL.addresses);
+  const lms = Object.entries(L.anchors.landmarks), placeOf = (x, z) => nearestPlace(REGION.villages, x, z, (ax, az, bx, bz) => sameBank(VILLAGE_SIGNS.border, ax, az, bx, bz), REGION.gemeindenDe);
+  // stations and the indoor pool are landmarks, not OSM buildings: they join as extra public targets
+  const extra = lms.filter(([, a]) => a.kind === 'station' || a.kind === 'hallenbad').map(([key, a]) => ({ id: 'lm:' + key, addr: a.addr ?? null, use: a.kind === 'station' ? 'station' : 'pool', rect: [a.x, a.z] }));
+  DEL.addresses = buildAddresses([...L.buildings, ...extra], nearestDeliveryRoad, placeOf);
+  DEL.depots = homeDepots(resolveDepots(DEPOTS, lms.map(([n, a]) => ({ n, x: a.x, z: a.z })), DEL.addresses));
   return DEL.addresses;
 }
 function dropSnap(x, z) { return snapToGraph(AUTOP.graph, x, z, DELIV.nameRadius + 20); }
@@ -6104,15 +6187,17 @@ function dropMark() {
   const ring = new THREE.Mesh(new THREE.TorusGeometry(DELIV.stopRadius, 0.35, 8, 28), new THREE.MeshBasicMaterial({ color: 0xff5fb0 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.6;
   g.add(pillar, ring); g.visible = false; scene.add(g); DEL.mark = g; return g;
 }
+// the line a customer is shown by: a public building leads with its kind ("School · Schulstrasse 4, Stein")
+function orderText(o) { return o.kind ? tr('delivKind', o.kind) + ' · ' + o.label : o.label; }
 function nextOrder() {
-  const picked = pickOrder({ addresses: DEL.addresses, rng: DEL.rng, routeLen: deliveryRouteLen, recent: DEL.st.recent });
+  const picked = pickOrder({ addresses: DEL.addresses, rng: DEL.rng, routeLen: deliveryRouteLen, recent: DEL.st.recent, abroadLeft: DELIV.maxAbroad - DEL.st.abroad });
   if (!picked) { toast(tr('delivNoOrder')); finishShift(); return; }
   beginOrder(DEL.st, picked.addr, picked.len);
   const o = DEL.st.order, drop = dropSnap(o.x, o.z);
   o.dx = drop ? drop.x : o.x; o.dz = drop ? drop.z : o.z;
-  clearNavi(); startNavi({ n: o.label, x: o.dx, z: o.dz });
+  clearNavi(); startNavi({ n: orderText(o), x: o.dx, z: o.dz });
   const m = dropMark(); m.position.set(o.dx, groundH(o.dx, o.dz), o.dz); m.visible = true;
-  toast(tr('delivOrder', DEL.st.idx + 1, DEL.st.total, o.label), TOAST_S.event);
+  toast(tr('delivOrder', DEL.st.idx + 1, DEL.st.total, orderText(o)), TOAST_S.event);
 }
 function startDelivery(seed) {
   if (!deliveryPool() || !DEL.depots.length || !DEL.addresses.length) { toast(tr('deliveryNeedsWorld')); return false; }
@@ -6149,7 +6234,7 @@ function afterOrder(outcome) {
   if (DEL.mark) DEL.mark.visible = false;
   clearNavi();
   if (DEL.st.phase === 'over') finishShift(); else nextOrder();
-  if (outcome === 'delivered') { toastHtml(tr('delivHandOver', esc(r.label), r.tip), TOAST_S.event); SFX.checkpoint(); return; }
+  if (outcome === 'delivered') { toastHtml(tr('delivHandOver', esc(orderText(r)), r.tip), TOAST_S.event); SFX.checkpoint(); return; }
   if (outcome === 'ruined') { toast(tr('delivRuined'), TOAST_S.event); return; }
   toast(tr('delivLate'), TOAST_S.event);
 }
@@ -6165,7 +6250,7 @@ function deliveryReset() { resetCar(); if (DEL.st) delivPenalty(DEL.st, DELIV.re
 function deliveryHud() {
   const o = DEL.st && DEL.st.order;
   if (!deliveryActive() || !o) { for (const id of ['delivline', 'delivtime', 'delivcargo']) $(id).textContent = ''; return; }
-  $('delivline').textContent = tr('delivOrder', DEL.st.idx + 1, DEL.st.total, o.label);
+  $('delivline').textContent = tr('delivOrder', DEL.st.idx + 1, DEL.st.total, orderText(o));
   $('delivtime').textContent = `${Math.floor(o.left / 60)}:${String(Math.floor(o.left % 60)).padStart(2, '0')}`;
   $('delivtime').classList.toggle('low', o.left < DELIV.lowTime);
   $('delivcargo').textContent = `${tr('delivCargo', Math.round(o.cargo))} · ${tr('delivScore', DEL.st.score)}`;
@@ -6396,6 +6481,7 @@ const NET = {
   offset: null,        // guest only: the median of those, null while no pong has come back
   poseTimer: null,     // the 20 Hz pose sender
   pingTimer: null,     // guest only: the clock sync
+  helloTimer: null,    // #1019: the guest's hello retry until the lobby (or deny) arrives
   race: null,          // #837: { t0, shown, go } while a network race runs
 };
 const MP_NAME_KEY = 'mm.mpName', MP_JOIN_KEY = 'mm.mpJoin';
@@ -6534,7 +6620,7 @@ function netHostMessage(peerId, msg) {
   netHostBroadcast();
 }
 function netHostHello(peerId, name, custom) {
-  if (NET.slots.has(peerId)) return;                     // a repeated hello changes nothing
+  if (NET.slots.has(peerId)) { NET.link.send(peerId, lobbyMessage(NET.lobby, NET.slots.get(peerId))); return; }   // #1019: a repeated hello gets the lobby again (the first answer may be lost)
   const added = admitHello(NET.lobby, name, !!NET.session, { custom, pool: namePool() });   // #916: nobody joins a drive that already runs; #979: a colliding generated name is renamed
   if (added.deny) { NET.link.send(peerId, { type: 'deny', reason: added.deny }); NET.link.close(peerId); return; }
   NET.lobby = added.lobby; NET.slots.set(peerId, added.id);
@@ -6555,7 +6641,7 @@ function netHostDrop(peerId) {
   if (NET.race?.state && id !== undefined) { NET.race.state = dropRacer(NET.race.state, id); netRaceBoard(); }   // #837 part d: a guest who drops mid-race is DNF
 }
 function netGuestMessage(msg) {
-  if (msg.type === 'lobby') { NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
+  if (msg.type === 'lobby') { stopHello(); NET.lobby = msg; NET.you = msg.you; if (NET.session) syncNetCars(); openLobby(); return; }
   if (msg.type === 'start') {
     if (msg.mode === 'race' && NET.offset === null) NET.offset = msg.now - performance.now();   // no pong yet: latency ignored once
     if (NET.session) netEndSession();   // #837 part d: a rematch restarts the guest too
@@ -6568,12 +6654,15 @@ function netGuestMessage(msg) {
   if (msg.type === 'back') { if (NET.session) netBackToLobby(); return; }   // #837 part d: the host went back to the lobby
   // the deny reason is not a string key: it is turned into one before the toast, so every key at a toast(tr(…)) call
   // site stays a plain literal (what tests/toast.test.mjs reads to check the text it shows carries no markup)
-  if (msg.type === 'deny') { const key = msg.reason === 'full' ? 'mpFull' : msg.reason === 'started' ? 'mpStarted' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
+  if (msg.type === 'deny') { stopHello(); const key = msg.reason === 'full' ? 'mpFull' : msg.reason === 'started' ? 'mpStarted' : 'mpDenyClass'; toast(tr(key), TOAST_S.event); return; }
   if (msg.type === 'bye') netHostGone();
 }
+// #1019: the hello is repeated until the host's lobby (or a deny) comes back -- one lost message must not strand the guest
+function netHello() { NET.link.send(HOST_ID, { type: 'hello', name: NET.name, custom: NET.nameCustom }); }
+function stopHello() { clearInterval(NET.helloTimer); NET.helloTimer = null; }
 function netPeerState(peerId, state) {
   if (state === 'timeout') { netTrouble(tr(NET.role === 'G' ? 'mpAnswerUnused' : 'mpIceFail')); return; }
-  if (state === 'open') { if (NET.role === 'G') { NET.link.send(HOST_ID, { type: 'hello', name: NET.name, custom: NET.nameCustom }); netPing(); NET.pingTimer = setInterval(netPing, PING_MS); } return; }
+  if (state === 'open') { if (NET.role === 'G') { netHello(); stopHello(); NET.helloTimer = setInterval(netHello, HELLO_MS); netPing(); NET.pingTimer = setInterval(netPing, PING_MS); } return; }
   if (!['disconnected', 'failed', 'closed'].includes(state)) return;
   if (NET.role === 'G' && state === 'failed' && !NET.lobby) { netTrouble(tr('mpIceFail')); return; }
   if (NET.role === 'G') netHostGone(); else if (NET.link) netHostDrop(peerId);
@@ -6643,7 +6732,7 @@ function netTakeCar() {
 // the other guests with the player id stamped from its own slot map, so no guest can steer another player's car. Times
 // are host-clock milliseconds: a guest learns the offset from ping/pong (A2). The remote cars are visual only -- no
 // solid, no physics, no collision (#836 adds those).
-const POSE_MS = 50, PING_MS = 2000;
+const POSE_MS = 50, PING_MS = 2000, HELLO_MS = 1000;   // #1019: the guest repeats its hello until the lobby comes
 const NETCARS = new Map();   // lobby player id -> { car, paint, mesh, track }
 
 // #836: per remote player, the time of the last impulse (s). The position push runs every step; the impulse and the
@@ -6988,6 +7077,7 @@ function netBackToLobby() {
 }
 
 function netLeave() {
+  stopHello();
   netEndSession();
   clearInterval(NET.pingTimer);
   Object.assign(NET, { clock: null, offset: null, pingTimer: null });

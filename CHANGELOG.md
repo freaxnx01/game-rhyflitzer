@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-17 21:30` Im **zweiten Ring** schwebt jetzt **Deep Space Nine** über dem Boden, mit der **Defiant** am Andockring — die Raumstation im halben Massstab (726 m breit, 494 m hoch), das Auto fährt darunter durch. In diesem Raum steigt der **Helikopter** (<kbd>F</kbd>) bis 570 m, also einmal rund um die Station. 3D-Modelle „Deep Space Nine - Star Trek" von rossrobotics und „U.S.S. Defiant" von Feltman_Langer (Sketchfab), beide CC BY 4.0, vereinfacht und komprimiert.
 - `2026-11-17 20:38` Neben dem **Atomium** steht der **Manneken Pis** in seiner **Brunnen-Ecke** — lebensgross mit 61 cm, in der Steinnische über dem Becken, hinter dem schmiedeeisernen Gitter, und sein **Wasserstrahl** läuft.
 - `2026-11-17 19:42` **Rhyflitzer FM Rock** hat **drei neue Tracks**: **Stadium Scale**, Stadionrock mit Synth-Arpeggio, **Unison Riff**, Nu-Metal wie live in der Arena, und **Motores Relentless**, eine kurze Rallye-Titelmusik.
 - `2026-11-17 14:03` Rechts neben den Flaggen in der **Rallye-Halle** läuft ein zweites **YouTube-Short**: Elfyn Evans bei der **Rallye Schweden 2026**, ebenfalls stumm in Schleife, Ton per Klick.
@@ -43,6 +44,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-18 09:32` Die **Rütistrasse** in Stein führt wieder eben **unter der A3** durch statt über einen Buckel auf Brückenhöhe; auch an sechs weiteren Stellen (u. a. Zürcherstrasse, Kaistenbergstrasse, Fricktalstrasse) liegt die Strasse unter einer **Strassenbrücke** jetzt in einer Unterführung mit Betonwänden.
+- `2026-11-17 22:14` Mehrspieler: Geht die erste Anmeldung eines Gastes unterwegs verloren, versucht er es jede Sekunde erneut, statt ewig auf die Lobby zu warten.
 - `2026-11-17 17:22` South of **Stein**, the road into the **railway underpass** no longer has a **stone corner** at its edge where the side road turns off: it is a low grass bank now.
 - `2026-11-16 13:53` Die Info zur **Landesgrenze** auf der Holzbrücke bleibt offen, wenn man <kbd>Leertaste</kbd> drückt. Vorher schloss die Taste das Fenster, und das folgende <kbd>Esc</kbd> öffnete die Pause.
 - `2026-11-14 20:39` In **?debug** mode the **debug panel** no longer covers the centred **message toast** on wide windows.
@@ -50,6 +53,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 ### Changed
 
 - `2026-11-17 17:25` Auf dem Kiesplatz der **Plattform Sisslerfeld** sind die **weissen Parkplatz-Linien** weg.
+- `2026-11-17 12:01` Die **Lieferung** startet in einer Schweizer Pizzeria und beliefert vor allem die Schweizer Seite, mit gelegentlicher Fahrt nach Bad Säckingen. Jede Bestellung nennt **Strasse und Ort**; Schulen, Bahnhöfe, das Hallenbad, der Werkhof und Turnhallen sind häufige Kunden.
 - `2026-11-16 16:55` In der **Rallye-Halle** steht jetzt auf allen drei Podesten der **Rhy Rally** statt der Klötzchen-Autos: hellblau für Neuville, **rot** für Evans und **dunkelblau** für McRae.
 - `2026-11-13 21:29` Die **Sprungschanze** wirft das Auto jetzt richtig in die Luft: rund **2 m über die Kante** hinaus, statt nur darüber abzukippen.
 - `2026-11-12 17:22` On the **Plattform deck** <kbd>E</kbd> now always goes **down**; the **Verein Plattform Sisslerfeld** line sits under that prompt and opens its **website** with <kbd>V</kbd> (or a click / tap).

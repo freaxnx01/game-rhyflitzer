@@ -1455,6 +1455,74 @@ def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(serve
     assert math.hypot(push["wall"]["dx"], push["wall"]["dz"]) > 0.3, push
 
 
+# ---------- #620: Deep Space Nine with the Defiant docked -- ring-2 room 1, the 570 m fly ceiling ----------
+
+
+@needs_world
+def test_ds9_room_station_hovering_with_the_defiant_docked(server, tmp_path):
+    """#620: ring-2 spoke 1 builds the space room and fetches ds9.glb then; the station hovers 25 m up at half scale, the Defiant is
+    docked at its ring towards the portal, the car drives under it, and the helicopter ceiling is 570 m in this room. Leaves a
+    screenshot of the whole station from the far corner at the docking ring's height."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith("ds9.glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL); page.wait_for_function(PAD_SHOWN, timeout=120000)
+        page.keyboard.press("Digit2"); page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        assert page.evaluate("() => window.__mm.ds9()") is None and requests == []
+        into_room(page, 1, "r2room1", -1200)
+        page.wait_for_function("() => window.__mm.ds9() && window.__mm.ds9().loaded === true", timeout=240000)
+        page.wait_for_timeout(500)
+        d = page.evaluate("() => window.__mm.ds9()"); below = page.evaluate("() => window.__mm.below()")
+        # the station hovers: the car is pushed nowhere under it, out to the ring's radius, and the room's walls still are solid
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9(), c = Math.cos(e.th), s = Math.sin(e.th);
+          const at = (x, z) => window.__mm.pushAt(t.x + x * c - z * s, t.z + x * s + z * c, -1200);   // model frame -> world
+          const th = window.__mm.spoke(1, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], room = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -1200);
+          return { centre: at(0, 0), ring: at(360, 0), dock: at(406, 0), side: at(0, 340), corner: room(450, 450), wall: room(499, 0) }; }""")
+        # where the Defiant ended up: its azimuth off the portal direction, seen from the station's axis
+        dock = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9();
+          const th = window.__mm.spoke(1, 0).th, toPortal = th + Math.PI;                              // f points into the room, so the portal lies at -f
+          const az = Math.atan2(e.defiant[2] - t.z, e.defiant[0] - t.x), off = Math.atan2(Math.sin(az - toPortal), Math.cos(az - toPortal));
+          return { off, r: Math.hypot(e.defiant[0] - t.x, e.defiant[2] - t.z), y: e.defiant[1] }; }""")
+        # the screenshot: the helicopter in the room corner away from the Defiant, risen to the docking ring's height, facing the station
+        cam = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9();
+          const th = window.__mm.spoke(1, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]];
+          const across = (e.defiant[0] - t.x) * v[0] + (e.defiant[2] - t.z) * v[1], b = (across > 0 ? -475 : 475);
+          const x = t.x - f[0] * 475 + v[0] * b, z = t.z - f[1] * 475 + v[1] * b;                      // the portal-side corner, other hand than the Defiant
+          return { x, z, th: Math.atan2(t.z - z, t.x - x) }; }""")
+        page.evaluate(f"() => window.__mm.place({cam['x']}, {cam['z']}, {cam['th']})")
+        page.keyboard.press("KeyF"); page.wait_for_timeout(300)
+        page.evaluate("() => window.__mm.flySim(16, ['Space'])")                                       # ~16 m/s: up to the ring's height
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "ds9.png"))
+        # and once from beside the dock, 235 m off the Defiant, to see it against the ring
+        near = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9();
+          const a = Math.atan2(e.defiant[2] - t.z, e.defiant[0] - t.x) + Math.PI / 6;                  // a quarter round the ring from the dock
+          const x = t.x + Math.cos(a) * 470, z = t.z + Math.sin(a) * 470;                              // still inside the 475 m fly wall
+          return { x, z, th: Math.atan2(e.defiant[2] - z, e.defiant[0] - x) }; }""")
+        page.evaluate(f"() => window.__mm.place({near['x']}, {near['z']}, {near['th']})")
+        page.evaluate("() => window.__mm.flySim(16, ['Space'])")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "ds9-defiant.png"))
+        capped = page.evaluate("() => window.__mm.flySim(30, ['Space'])")                              # the room's own ceiling, 570 m
+        br.close()
+    print("screenshots:", tmp_path / "ds9.png", tmp_path / "ds9-defiant.png")
+    assert errors == []
+    assert len(requests) == 1 and requests[0].endswith("/assets/models/ds9.glb"), requests
+    assert d["placeholder"] is False and 85000 <= d["tris"] <= 105000, d
+    assert abs(d["height"] - 493.9) < 0.5 and d["diameter"] == 726 and d["hover"] == 25, d
+    assert abs(d["y"] - (-1200 + 25)) <= 2.0, ("hovering 25 m up, bobbing 1 m", d)
+    assert d["look"] == "space" and d["ceiling"] == 570, d
+    assert below["level"] == "r2room1" and below["built"] == 9 and below["object"] is True and below["fog"] == "#04050a", below
+    assert abs(abs(dock["off"]) - math.pi / 6) < 0.05, ("the Defiant 30 degrees off the portal", dock)
+    assert 400 < dock["r"] < 415, ("docked just outside the 363 m ring", dock)
+    assert abs(dock["y"] - (-1200 + 25 + 246.9)) < 3.0, ("at the ring's mid-plane", dock)
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("centre", "ring", "dock", "side", "corner")), push
+    assert math.hypot(push["wall"]["dx"], push["wall"]["dz"]) > 0.3, push
+    assert capped["y"] <= -1200 + 570 + 0.5 and capped["y"] > -1200 + 545, ("the helicopter reaches 570 m here", capped)
+
+
 @needs_world
 def test_ferris_room_builds_the_turning_wheel_on_entering_without_a_download(server, tmp_path):
     """Entering spoke 6 builds the Ferris wheel (265.75 m, 48 gondolas, LED show, fireworks) from primitives -- no model file is fetched; a foot is solid, the room

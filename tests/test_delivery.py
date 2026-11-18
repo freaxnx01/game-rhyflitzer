@@ -15,7 +15,7 @@ MMH_ROUTE = "**/data/terrain_hochrhein.mmh"
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--disable-accelerated-2d-canvas"]
 needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 T = 180000
-ADDRESS = re.compile(r"^\S.* \d+[a-zA-Z]?$")       # "<street> <number>", the number plain or with one letter
+ADDRESS = re.compile(r"^\S.*, \S.*$")             # "<street> <number>, <town>" or "<name>, <town>"
 SEED = 20261003                                     # a fixed seed: the same shift every run
 
 
@@ -90,7 +90,7 @@ def test_the_button_starts_a_shift_at_a_pizzeria(server):
     assert abs(o["left"] - o["limit"]) <= 2 and o["limit"] == max(45, round(25 + o["len"] / 9))
     assert o["cargo"] == 100
     assert hidden, "the start screen is gone once the shift runs"
-    assert navi["on"] is True and navi["dest"]["n"] == o["label"]
+    assert navi["on"] is True and o["label"] in navi["dest"]["n"]
     assert o["label"] in line, line
 
 
@@ -297,3 +297,29 @@ def test_the_hand_layout_disables_the_button(server):
     assert not errors, errors
     assert disabled, "the hand-traced layout has no addresses to deliver to"
     assert title == "Delivery needs the OSM world", title
+
+
+@needs_world
+def test_shift_starts_in_switzerland_and_names_street_and_place(server):
+    """#1035: a Swiss pizzeria, street and town in every label, at most one trip abroad per shift."""
+    shifts = []
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        for seed in (SEED, SEED + 1, SEED + 2):
+            d = start_shift(page, seed)
+            depot, orders = d["depot"], []
+            while delivery(page)["order"]:
+                orders.append(delivery(page)["order"])
+                deliver_current(page)
+                if delivery(page)["last"]:
+                    break
+            shifts.append((depot, orders))
+        b.close()
+    assert not errors, errors
+    for depot, orders in shifts:
+        assert depot in ("Pizza Rheinblick", "Pizza Sissla"), depot
+        assert len(orders) == 5, orders
+        for o in orders:
+            assert o["place"] and ", " in o["label"], o
+            assert ADDRESS.match(o["label"]), o["label"]
+        assert sum(1 for o in orders if o["abroad"]) <= 1, orders
