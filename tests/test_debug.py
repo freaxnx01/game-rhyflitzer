@@ -242,8 +242,6 @@ def test_every_panel_line_has_a_label(server):
         br.close()
     expected = list(HAND_LABELS)
     # #1069: 'memory' is only present where the browser exposes performance.memory (Chrome/Edge/Brave); Safari/iOS leave it out
-    if "memory" in dbg["labels"] and "memory" not in expected:
-        expected = expected + ["memory"]
     if "memory" not in dbg["labels"] and "memory" in expected:
         expected = [l for l in expected if l != "memory"]
     assert dbg["labels"] == expected, dbg

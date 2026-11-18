@@ -7803,6 +7803,7 @@ const DEBUG = { on: false, t: 0, sections: [], layers: [], lines: [] };
 const DEBUG_FPS = { n: 0, t0: 0, fps: 0, ms: 0 };
 function countDebugFrame(now) {   // fps over the last second, only while the panel is open
   if (!DEBUG.on) { DEBUG_FPS.n = 0; DEBUG_FPS.t0 = now; return; }
+  if (DEBUG_FPS.n === 0) DEBUG_FPS.t0 = now;
   DEBUG_FPS.n++; const span = now - DEBUG_FPS.t0;
   if (span < 1000) return;
   DEBUG_FPS.fps = DEBUG_FPS.n * 1000 / span; DEBUG_FPS.ms = span / DEBUG_FPS.n; DEBUG_FPS.n = 0; DEBUG_FPS.t0 = now;
