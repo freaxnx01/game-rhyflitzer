@@ -18,8 +18,8 @@ No service worker, no offline caching.
 - Browser: **only** `pytest tests/test_pwa.py tests/test_start_screen.py -k "pwa or bar_order"`, in the **foreground**
   (never `run_in_background`, `timeout` ≥ 600000), never the full suite; commit and push **before** the run.
 - `CHANGELOG.md`: one hand-written player-facing entry (Task 4). Never `git cliff -o`.
-- Commits: Conventional Commits, scope `pwa`, footer `Refs #1076`, last commit `Closes #1076`; push after every task;
-  draft PR after Task 1. Branch `feature/1076-pwa-installable`.
+- Commits: Conventional Commits, scope `pwa`, footer `Refs #1076` (last one `Closes #1076`); push after every task;
+  draft PR after Task 1; branch `feature/1076-pwa-installable`.
 
 Files: new `manifest.webmanifest`, `tests/pwa.test.mjs`, `tests/test_pwa.py`; changed `index.html`, `strings.js`,
 `tests/test_start_screen.py`, `CHANGELOG.md`.
@@ -64,7 +64,7 @@ test('manifest: Rhyflitzer, fullscreen, scope /, charcoal colours, three icons t
 });
 ```
 
-Run `node --test tests/pwa.test.mjs` → red (no manifest file).
+Run → red (no manifest file).
 
 **Implement:** create `manifest.webmanifest` with exactly the JSON from the spec's "Design" section (`id`, `name`,
 `short_name`, `start_url`, `scope`, `display`, `background_color`, `theme_color`, `lang: "de"`, three icons with
@@ -76,7 +76,7 @@ Run `node --test tests/pwa.test.mjs` → red (no manifest file).
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon-180.png">
 ```
 
-Run green. Commit `feat(pwa): add web app manifest and icons links`.
+Run green. Commit `feat(pwa): add web app manifest and icon links`.
 
 ### Task 2: strings + installed-app detection + reload buttons (`strings.js`, `index.html`)
 
@@ -118,7 +118,7 @@ test('reload control: de/en label, buttons on the start screen and in the pause 
 6. Wiring: append to the `$('aboutbtn').onclick = …` line (6400): ` $('reloadbtn').onclick = () => location.reload();`
    and to the pause wiring line (7404): ` $('pausereload').onclick = () => location.reload();   // #1076`.
 
-Run `node --test tests/pwa.test.mjs` green, then `node --test tests/*.test.mjs`. Commit
+Run green, then `node --test tests/*.test.mjs`. Commit
 `feat(pwa): reload button for the installed fullscreen app`.
 
 ### Task 3: browser test (`tests/test_pwa.py`, `tests/test_start_screen.py`)
