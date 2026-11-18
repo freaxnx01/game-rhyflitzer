@@ -1254,6 +1254,8 @@ TEX.plaster = makeTex(256, 192, (g, w, h) => {
 // painted on it. Three (u, v) pairs: eave-left, eave-right, ridge, in gable()'s tri() order
 const ROW_GABLE_END = { role: 'rowHouse', uv: [0.14, 0.05, 0.35, 0.05, 0.245, 0.90] };
 const textTex = (txt, w, h, bg, fg, font, border) => makeTex(w, h, (g) => { g.clearRect(0, 0, w, h); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); } if (border) { g.strokeStyle = border; g.lineWidth = h * 0.06; g.strokeRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1); } g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, w / 2, h / 2 + h * 0.03); }, { alpha: true });
+const SHARED_TEX = new Map();   // #1065: identical sign canvases (a stop in both directions, every "P" board) share one texture; signs are never disposed
+function sharedTex(key, make) { if (!SHARED_TEX.has(key)) SHARED_TEX.set(key, make()); return SHARED_TEX.get(key); }
 // #712: the Haltestellentafel -- landscape 0.9 x 0.55 m: Postgelb header with a black bus pictogram (no wordmark, spec A5), white
 // stop-name band, one Postgelb row per line and direction with thin white separators
 function busPictogram(g, x, y, h) {   // procedural, black: rounded body, yellow window cut-outs, two wheels
@@ -1726,7 +1728,7 @@ const UWS = { on: false };   // #101: true while the camera is under the water s
 // #201: cave mode -- on while the car is under the hill (caveInside); group = the lobby's lights and platform, drawn only then (setCave)
 const CAVE_MODE = { on: false, group: null, dark: null, veil: null, k: 0 };
 const BORDER_LINES = [];   // #396: the Holzbrücke's border lines, built in heroWood and added to the scene once it exists
-function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.toNonIndexed() : geo); }
+function push(role, geo) { (parts[role] ||= []).push(geo.index ? geo.clone() : geo); }   // #1065: mergeRole decides indexed or not
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
 function rawGeo(pos, nrm, uv, rot, x, z, c, role) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); if (rot) g.rotateY(-rot); g.translate(x, 0, z); colorize(g, c); push(role, g); return g; }
@@ -2409,9 +2411,9 @@ function parkingSign([x, z, rot], name) {
     top = Math.min(2.6, poleTop({ shape: 'rect', y: 2.3, h: 0.7 })),
     pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
   pole.position.set(x, b + top / 2, z); signs.add(pole);
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: sharedTex('P', () => textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif')), side: THREE.DoubleSide }));
   board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; signs.add(board);
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif'), side: THREE.DoubleSide }));
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: sharedTex('plate|' + name, () => textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif')), side: THREE.DoubleSide }));
   plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; signs.add(plate);
 }
 function propMeshes(props) {
@@ -2462,10 +2464,10 @@ function busStop(layout, name, rows) {
   tube(0, 0, 2.9); tube(-1, 2.15, 2.9);   // the pole leg and the short leg of the inverted U
   const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1, 8), steel); bar.rotation.z = Math.PI / 2; bar.position.set(-0.5, 2.9, 0); g.add(bar);
   for (const x of [0, -1]) { const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), steel); knob.position.set(x, 2.9, 0); g.add(knob); }   // rounded top corners
-  const signMat = new THREE.MeshBasicMaterial({ map: stopSignTex(name, rows) });   // FrontSide: a DoubleSide back would be mirrored (#795)
+  const signMat = new THREE.MeshBasicMaterial({ map: sharedTex('stop|' + name + '|' + JSON.stringify(rows), () => stopSignTex(name, rows)) });   // FrontSide: a DoubleSide back would be mirrored (#795)
   for (const f of SIGN_FACES) { const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55), signMat); sign.position.set(-0.5, 2.5, f.z); sign.rotation.y = f.rotY; sign.userData.signFace = true; g.add(sign); }
   const frame = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.03), new THREE.MeshLambertMaterial({ color: 0x2b2f36 })); frame.position.set(0, 1.6, -0.05); g.add(frame);
-  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: timetableTex(sheetLines(rows)) })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.58), new THREE.MeshBasicMaterial({ map: sharedTex('sheet|' + JSON.stringify(sheetLines(rows)), () => timetableTex(sheetLines(rows))) })); sheet.position.set(0, 1.6, -0.07); sheet.rotation.y = Math.PI; g.add(sheet);
   if (layout.shelter) {
     const S = STOP.shelter, mid = (S.front + S.back) / 2;   // the shelter centre is mid metres further out than the pole
     const roof = new THREE.Mesh(new THREE.BoxGeometry(S.w, 0.15, S.d), new THREE.MeshLambertMaterial({ color: 0x4a515e })); roof.position.set(0, S.h + 0.1, mid); g.add(roof);
@@ -2568,7 +2570,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     }
     ground.setIndex(keep);
   }
-  parts.grass = [ground.toNonIndexed()];
+  parts.grass = [ground];
   // #201: the cells of the cave system (the hall alone is 450 of the 1 m patches' 512 triangles each): drawn through cellTris,
   // which keeps a 4 m sub-block that is wholly flat floor or wholly lid at 2 triangles
   const caveCells = new Set(); if (HIDE) for (const c of HIDE.cuts) for (const [i, j] of patchCells(cutBounds(c, c.u), TGRID)) caveCells.add(i + ',' + j);
@@ -2581,7 +2583,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     p.rotateX(-Math.PI / 2); p.translate(TGRID.x0 + (i + 0.5) * TGRID.dx, 0, TGRID.z0 + (j + 0.5) * TGRID.dz);
     const q = p.attributes.position, uv = p.attributes.uv, cArr = new Float32Array(q.count * 3);
     for (let v = 0; v < q.count; v++) { const x = q.getX(v), z = q.getZ(v), { h, c } = groundVertex(x, z); q.setY(v, h); uv.setXY(v, (x - TGRID.x0) / 20, (TGRID.z0 + GD - z) / 20); cArr[v * 3] = c.r; cArr[v * 3 + 1] = c.g; cArr[v * 3 + 2] = c.b; }
-    p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); parts.grass.push(p.toNonIndexed());
+    p.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); p.computeVertexNormals(); parts.grass.push(p);
   }
   if (HIDE) { // #102: the hill's own surface back over the roofed part (lid, into grass) and a dark copy under it, wound to face down (ceiling, into stone)
     // #201: the ceiling is ceilingH (tunnels capped at 12 m, rooms the hill's underside, the lobby 14 m)
@@ -3226,7 +3228,30 @@ function freeCpuCopy(m) {
   const g = m.geometry; m.userData.pick = pickGeometry(g); m.raycast = raycastPositions;
   for (const [name, a] of Object.entries(g.attributes)) if (name !== 'position') { CPU_GEO.builtOther += a.array.byteLength; a.onUpload(dropArray); }
 }
-for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; freeCpuCopy(m); delete parts[role]; }
+// #1065: a role is drawn indexed when that is smaller (terrain and junction discs share ~5 corners per vertex), with
+// normal/colour as normalized bytes in 4 components (Metal wants 4-byte strides). uv and position stay Float32.
+const GPU_VERTEX_BYTES = 28;   // position 12 + normal 4 + uv 8 + color 4
+function withIndex(g) { if (!g.index) g.setIndex(new THREE.BufferAttribute(Uint32Array.from({ length: g.attributes.position.count }, (_, i) => i), 1)); return g; }
+function compactAttribute(g, name, Type, scale, w) {
+  const a = g.attributes[name]; if (!a || a.itemSize !== 3) return;
+  const lo = Type === Int8Array ? -1 : 0, out = new Type(a.count * 4);
+  for (let i = 0; i < a.count; i++) { for (let c = 0; c < 3; c++) out[i * 4 + c] = Math.round(clamp(a.array[i * 3 + c], lo, 1) * scale); out[i * 4 + 3] = w; }
+  g.setAttribute(name, new THREE.BufferAttribute(out, 4, true));
+}
+function gpuStats(g, corners) {
+  const formats = {}; let bytes = g.index ? g.index.array.byteLength : 0;
+  for (const [n, a] of Object.entries(g.attributes)) { formats[n] = a.array.constructor.name + '/' + a.itemSize; bytes += a.array.byteLength; }
+  return { verts: g.attributes.position.count, index: g.index ? g.index.count : 0, formats, bytes, flatBytes: corners * 44 };
+}
+function mergeRole(list) {
+  const corners = list.reduce((s, g) => s + (g.index ? g.index.count : g.attributes.position.count), 0), stored = list.reduce((s, g) => s + g.attributes.position.count, 0);
+  const indexed = list.some((g) => g.index) && stored * GPU_VERTEX_BYTES + corners * 4 < corners * GPU_VERTEX_BYTES;
+  const g = mergeGeometries(list.map((p) => indexed ? withIndex(p) : p.index ? p.toNonIndexed() : p), false);
+  compactAttribute(g, 'normal', Int8Array, 127, 0); compactAttribute(g, 'color', Uint8Array, 255, 255);
+  g.userData.gpu = gpuStats(g, corners);   // the arrays are dropped after upload (#323), so the byte count is kept here
+  return g;
+}
+for (const role in parts) { const g = mergeRole(parts[role]); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; freeCpuCopy(m); delete parts[role]; }
 if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own meshes so the interior can hide them; applyStyle sets the material
   INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing);
   const h = INT.hall, rd = STAIRHALL.roofDoor;   // the dark roof-door panel on the housing's left face
@@ -5847,6 +5872,8 @@ window.__mm.carStats = () => { let meshes = 0, triangles = 0; const walk = (o) =
 window.__mm.setStyle = (k) => { if (!Object.hasOwn(STYLES, k)) throw new Error(`Unknown style '${k}'`); applyStyle(k); };
 window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
 window.__mm.cpuGeometry = () => { const roles = {}; let retainedOther = 0; for (const [role, m] of Object.entries(MESH)) { const r = roles[role] = { position: 0, other: 0 }; for (const [name, a] of Object.entries(m.geometry.attributes)) { const n = a.array ? a.array.byteLength : 0; if (name === 'position') r.position += n; else { r.other += n; retainedOther += n; } } } return { partsLeft: Object.keys(parts).length, builtOther: CPU_GEO.builtOther, retainedOther, roles }; };   // #323: CPU bytes the merged roles still hold, for the test
+window.__mm.gpuGeometry = () => Object.fromEntries(Object.entries(MESH).map(([r, m]) => [r, m.geometry.userData.gpu]));   // #1065: GPU layout per role, for the test
+window.__mm.duplicateTextures = () => { const seen = new Set(); let mb = 0; scene.traverse((o) => { for (const m of [].concat(o.material || [])) { const t = m.map; if (!t || !t.image?.toDataURL || seen.has(t)) continue; seen.add(t); const k = t.image.width + 'x' + t.image.height + t.image.toDataURL(); if (seen.has(k)) mb += t.image.width * t.image.height * 4 / 1048576; else seen.add(k); } }); return { mb }; };   // #1065: MB of canvas textures that copy another pixel for pixel
 window.__mm.camStep = (dt, from) => { if (from) camPos.set(...from); stepCamera(dt); return window.__mm.cam(); };   // #102: one camera step from a given position (the loop's frames are too slow to catch an easing camera)
 window.__mm.camPull = () => ({ ...CAM.pull });   // #777: the chase cam's eased pull-in state, read-only, for the test
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z], near: camera.near }; };   // back/look: #65
