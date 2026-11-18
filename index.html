@@ -4035,10 +4035,11 @@ function roomFigure(group, R) {
 }
 // #488: the Artemis II stack and the Orion capsule (artemis.js places them, artemismesh.js builds them): a concrete
 // pad on the lawn, the launch mount on it, the rocket standing upright on the mount and the capsule on its stand
-// beside it, both turned to the room's frame / towards the portal. All goes with the room's group (disposeGroup);
-// ROOM.artemis tells the debug hook what was built.
+// beside it, both turned to the room's frame / towards the portal. #622: the slab and the mount follow the rocket's
+// spot -- room 2 also holds the Shuttle pad, so the stack stands off the centre besides it. All goes with the room's
+// group (disposeGroup); ROOM.artemis tells the debug hook what was built.
 function roomArtemis(group, R) {
-  const A = R.artemis, [cx, cz] = R.centre, y = R.y, a = R.portal.th;
+  const A = R.artemis, { x: cx, z: cz } = A.rocket, y = R.y, a = R.portal.th;
   const pad = orientedBox(ARTEMIS.pad.w, ARTEMIS.pad.lift, ARTEMIS.pad.w, cx, cz, y, a, new THREE.MeshLambertMaterial({ color: ARTEMIS.colours.pad })); pad.renderOrder = 1; group.add(pad);
   group.add(orientedBox(ARTEMIS.deck.w, ARTEMIS.deck.h, ARTEMIS.deck.w, cx, cz, y + ARTEMIS.pad.lift, a, new THREE.MeshLambertMaterial({ color: ARTEMIS.colours.deck })));
   const rocket = buildRocket(ARTEMIS); rocket.position.set(A.rocket.x, y + ARTEMIS.pad.lift + ARTEMIS.deck.h, A.rocket.z); rocket.rotation.y = -A.rocket.th; group.add(rocket);
@@ -4105,8 +4106,9 @@ function clearRallyhallCars() {
 }
 // #811: the Space Shuttle Enterprise on Launch Pad 39A (shuttle.js places it, shuttlemesh.js builds it): the hardstand with
 // the flame trench, the platform, the stack, the tower with its arms, the service structure and the water tower, one group
-// stood on the floor at the room centre and turned 45° from the room's axis (shuttle.js stackFrame) so the portal sees the
-// orbiter three-quarter on. All goes with the room's group (disposeGroup); ROOM.shuttle tells the debug hook what was built.
+// stood on the floor at the stack's spot (ring 2 room 7 keeps it on the centre; #622: in room 2 besides the Artemis stack)
+// and turned 45° from the room's axis (shuttle.js stackFrame) so the portal sees the orbiter three-quarter on. All goes with
+// the room's group (disposeGroup); ROOM.shuttle tells the debug hook what was built.
 function roomShuttle(group, R) {
   const S = R.shuttle, pad = buildShuttle(SHUTTLE);
   pad.position.set(S.stack.x, R.y, S.stack.z); pad.rotation.y = -S.stack.th; group.add(pad);
