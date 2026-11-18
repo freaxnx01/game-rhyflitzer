@@ -3207,7 +3207,26 @@ function stepOstriches(dt) {
   poseOstriches();
 }
 if (OST.on) buildPaddock();
-for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; }
+// #323: the merged roles exist twice, on the GPU and as typed arrays in the tab (~365 MB on the full world, plus
+// ~365 MB more in `parts`). After the first upload only `position` (and the index, see below) stays on the CPU: the
+// raycasts (beamPick, the test hooks) need it. three.js r170's Mesh.raycast also reads uv/normal when present, so rays
+// go through a position-only pick geometry that shares the same attribute and bounds.
+const CPU_GEO = { builtOther: 0 };
+function dropArray() { this.array = null; }
+function pickGeometry(g) {
+  const pick = new THREE.BufferGeometry(); pick.setAttribute('position', g.attributes.position);
+  // the index is the topology: without it Mesh.raycast reads `position` as a plain triangle stream (0-1-2, 3-4-5, ...),
+  // which is a different mesh wherever an indexed role shares vertices between triangles -- wrong hits, not an error
+  if (g.index) pick.setIndex(g.index);
+  g.computeBoundingSphere(); g.computeBoundingBox(); pick.boundingSphere = g.boundingSphere; pick.boundingBox = g.boundingBox;
+  return pick;
+}
+function raycastPositions(raycaster, hits) { const full = this.geometry; this.geometry = this.userData.pick; try { THREE.Mesh.prototype.raycast.call(this, raycaster, hits); } finally { this.geometry = full; } }
+function freeCpuCopy(m) {
+  const g = m.geometry; m.userData.pick = pickGeometry(g); m.raycast = raycastPositions;
+  for (const [name, a] of Object.entries(g.attributes)) if (name !== 'position') { CPU_GEO.builtOther += a.array.byteLength; a.onUpload(dropArray); }
+}
+for (const role in parts) { const g = mergeGeometries(parts[role], false); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; freeCpuCopy(m); delete parts[role]; }
 if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own meshes so the interior can hide them; applyStyle sets the material
   INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing);
   const h = INT.hall, rd = STAIRHALL.roofDoor;   // the dark roof-door panel on the housing's left face
@@ -5827,6 +5846,7 @@ window.__mm.carMats = () => Object.fromEntries(Object.entries(carMats).map(([k, 
 window.__mm.carStats = () => { let meshes = 0, triangles = 0; const walk = (o) => { if (!o.visible) return; if (o.isMesh) { meshes++; const g = o.geometry; triangles += Math.round((g.index ? g.index.count : g.attributes.position.count) / 3); } for (const c of o.children) walk(c); }; walk(car); return { meshes, triangles }; };
 window.__mm.setStyle = (k) => { if (!Object.hasOwn(STYLES, k)) throw new Error(`Unknown style '${k}'`); applyStyle(k); };
 window.__mm.gpu = () => ({ ...renderer.info.memory });   // read-only GPU counters (geometries, textures) for the rebuild leak test
+window.__mm.cpuGeometry = () => { const roles = {}; let retainedOther = 0; for (const [role, m] of Object.entries(MESH)) { const r = roles[role] = { position: 0, other: 0 }; for (const [name, a] of Object.entries(m.geometry.attributes)) { const n = a.array ? a.array.byteLength : 0; if (name === 'position') r.position += n; else { r.other += n; retainedOther += n; } } } return { partsLeft: Object.keys(parts).length, builtOther: CPU_GEO.builtOther, retainedOther, roles }; };   // #323: CPU bytes the merged roles still hold, for the test
 window.__mm.camStep = (dt, from) => { if (from) camPos.set(...from); stepCamera(dt); return window.__mm.cam(); };   // #102: one camera step from a given position (the loop's frames are too slow to catch an easing camera)
 window.__mm.camPull = () => ({ ...CAM.pull });   // #777: the chase cam's eased pull-in state, read-only, for the test
 window.__mm.cam = () => { const l = camera.getWorldDirection(new THREE.Vector3()); return { view: camView, d: [camera.position.x - P.x, camera.position.y - P.y, camera.position.z - P.z], back: CAM.back, look: [l.x, l.y, l.z], near: camera.near }; };   // back/look: #65
