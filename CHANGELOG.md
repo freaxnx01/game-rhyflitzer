@@ -45,6 +45,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-18 12:49` Das Spiel braucht nach dem Laden der Welt rund **700 MB weniger Speicher**, damit es auch auf dem **Handy** geöffnet bleibt — auf einem iPhone hat Safari die Seite bisher immer wieder neu geladen und dann ganz abgebrochen.
 - `2026-11-18 09:32` Die **Rütistrasse** in Stein führt wieder eben **unter der A3** durch statt über einen Buckel auf Brückenhöhe; auch an sechs weiteren Stellen (u. a. Zürcherstrasse, Kaistenbergstrasse, Fricktalstrasse) liegt die Strasse unter einer **Strassenbrücke** jetzt in einer Unterführung mit Betonwänden.
 - `2026-11-17 22:14` Mehrspieler: Geht die erste Anmeldung eines Gastes unterwegs verloren, versucht er es jede Sekunde erneut, statt ewig auf die Lobby zu warten.
 - `2026-11-17 17:22` South of **Stein**, the road into the **railway underpass** no longer has a **stone corner** at its edge where the side road turns off: it is a low grass bank now.
