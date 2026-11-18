@@ -83,3 +83,7 @@ export function billShape(species, season = 'green', u = 0) {
   if (!tints) return b;
   return { w: b.w, tint: tints[Math.min(tints.length - 1, Math.floor(u * tints.length))] };
 }
+
+// #1062: the billboard's two tints: the crown texels take the season's tint, the trunk texels keep the species' green-season
+// tint, so an autumn tree keeps its brown trunk (index.html's billboard shader tells the texels apart)
+export function billTints(species, season, u) { return { crown: billShape(species, season, u).tint, trunk: billShape(species).tint }; }
