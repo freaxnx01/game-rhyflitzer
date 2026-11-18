@@ -3208,13 +3208,16 @@ function stepOstriches(dt) {
 }
 if (OST.on) buildPaddock();
 // #323: the merged roles exist twice, on the GPU and as typed arrays in the tab (~365 MB on the full world, plus
-// ~365 MB more in `parts`). After the first upload only `position` stays on the CPU: the raycasts (beamPick, the
-// test hooks) need it. three.js r170's Mesh.raycast also reads uv/normal when present, so rays go through a
-// position-only pick geometry that shares the same attribute and bounds.
+// ~365 MB more in `parts`). After the first upload only `position` (and the index, see below) stays on the CPU: the
+// raycasts (beamPick, the test hooks) need it. three.js r170's Mesh.raycast also reads uv/normal when present, so rays
+// go through a position-only pick geometry that shares the same attribute and bounds.
 const CPU_GEO = { builtOther: 0 };
 function dropArray() { this.array = null; }
 function pickGeometry(g) {
   const pick = new THREE.BufferGeometry(); pick.setAttribute('position', g.attributes.position);
+  // the index is the topology: without it Mesh.raycast reads `position` as a plain triangle stream (0-1-2, 3-4-5, ...),
+  // which is a different mesh wherever an indexed role shares vertices between triangles -- wrong hits, not an error
+  if (g.index) pick.setIndex(g.index);
   g.computeBoundingSphere(); g.computeBoundingBox(); pick.boundingSphere = g.boundingSphere; pick.boundingBox = g.boundingBox;
   return pick;
 }
