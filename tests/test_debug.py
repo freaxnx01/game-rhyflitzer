@@ -255,10 +255,11 @@ def test_every_panel_line_has_a_label(server):
 def test_world_layout_labels_every_line(server):
     with sync_playwright() as p:
         br, page = open_page(p, server, query="?debug")
-        page.wait_for_function("() => (window.__mm.debug().labels || []).length === 6", timeout=120000)
+        page.wait_for_function("() => (window.__mm.debug().labels || []).includes('GPU')", timeout=120000)
         dbg = page.evaluate("() => window.__mm.debug()")
         br.close()
-    assert dbg["labels"] == ["car", "Swiss", "GPS", "nearest", "car body", "world"], dbg
+    perf = ["frame", "GPU"] + (["memory"] if "memory" in dbg["labels"] else [])   # #1069: 'memory' only where performance.memory exists
+    assert dbg["labels"] == ["car", "Swiss", "GPS", "nearest", "car body", "world"] + perf, dbg
     assert dbg["lines"][2].startswith("WGS84 "), dbg["lines"]
 
 
@@ -322,7 +323,8 @@ def test_labels_and_legend_follow_the_language(server):
         copy = page.evaluate("() => window.__mm.debug().copy")
         page.evaluate("() => window.ggSetLang('en')")                         # gg-lang is shared across the site's games
         br.close()
-    assert labels == ["Auto", "Schweiz", "nächstes", "Karosserie", "Welt"], labels
+    perf = ["Bild", "GPU"] + (["Speicher"] if "Speicher" in labels else [])   # #1069: 'Speicher' only where performance.memory exists
+    assert labels == ["Auto", "Schweiz", "nächstes", "Karosserie", "Welt"] + perf, labels
     assert "Traufe" in legend and "Dach" in legend and "2.5 m" in legend and "digitales Oberflächenmodell (DSM)" in legend, legend
     assert aria == "Debug-Werte erklären"
     assert copy.startswith("x ") and " | LV95 —" in copy                      # the copied text stays language-neutral
