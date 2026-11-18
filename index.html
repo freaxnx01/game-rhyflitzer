@@ -953,7 +953,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { SPECIES, treeSpecies, treeParts, treeColour, billShape, treeHash, lodTier } from './trees.js';
+import { SPECIES, treeSpecies, treeParts, treeColour, billShape, treeHash, lodTier, seasonFor } from './trees.js';
 import { crownFor } from './treegeo.js';
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey } from './debug.js';
@@ -3273,6 +3273,9 @@ TREE_MAT.crown.onBeforeCompile = (shader) => {
 };
 TREE_MAT.crown.customProgramCacheKey = () => 'tree-wind';
 const TREE_UP = new THREE.Vector3(0, 1, 0);
+// #1062: the season, once at world build -- September to November the deciduous crowns wear autumn colours. ?season=autumn|green
+// overrides the date, for screenshots.
+const SEASON = (() => { const q = new URLSearchParams(location.search).get('season'); return q === 'autumn' || q === 'green' ? q : seasonFor(new Date()); })();
 // one InstancedMesh per species and part for trees [x, z, h, y, kind]; jitter[i] = [u1, u2] is the tree's colour jitter (the caller's rng, in its order)
 function speciesMeshes(trees, G, jitter, shadows) {
   const by = new Map(SPECIES.map(s => [s, []])); trees.forEach((t, i) => by.get(treeSpecies(t[0], t[1], t[4])).push(i));
@@ -3284,14 +3287,14 @@ function speciesMeshes(trees, G, jitter, shadows) {
       const [x, z, h, y] = trees[ti], p = treeParts(s, h), [u1, u2] = jitter[ti];
       q.setFromAxisAngle(TREE_UP, u1 * Math.PI * 2);   // the ball's facets turned per tree, so a row never looks stamped
       m.compose(new THREE.Vector3(x, y + p.crown.y, z), q, new THREE.Vector3(p.crown.sx, p.crown.sy, p.crown.sx)); crown.setMatrixAt(i, m);
-      c.setHSL(...treeColour(s, u1, u2, treeHash(z, x))); crown.setColorAt(i, c);   // #734: u3 = a second hash of the position picks the colour variety
+      c.setHSL(...treeColour(s, u1, u2, treeHash(z, x), SEASON)); crown.setColorAt(i, c);   // #734: u3 = a second hash of the position picks the colour variety
       m.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(p.trunk.sx, p.trunk.sy, p.trunk.sx)); trunk.setMatrixAt(i, m);
     });
     for (const im of [crown, trunk]) { im.castShadow = shadows; im.computeBoundingSphere(); im.userData.species = s; im.userData.part = im === crown ? 'crown' : 'trunk'; out.push(im); }
   }
   return out;
 }
-const treeGeos = []; for (const t of window.__TREES) { const [x, z, h] = t; t[3] = terrainH(x, z); t[4] = 'single'; const b = billShape(treeSpecies(x, z, 'single')); for (const rot of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(h * 0.9 * b.w, h); g.translate(0, h / 2, 0); g.rotateY(rot + rr(-0.2, 0.2)); g.translate(x, t[3], z); colorize(g, new THREE.Color(...b.tint)); treeGeos.push(g); } }
+const treeGeos = []; for (const t of window.__TREES) { const [x, z, h] = t; t[3] = terrainH(x, z); t[4] = 'single'; const b = billShape(treeSpecies(x, z, 'single'), SEASON, treeHash(z, x)); for (const rot of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(h * 0.9 * b.w, h); g.translate(0, h / 2, 0); g.rotateY(rot + rr(-0.2, 0.2)); g.translate(x, t[3], z); colorize(g, new THREE.Color(...b.tint)); treeGeos.push(g); } }
 const treeBill = new THREE.Mesh(mergeGeometries(treeGeos, false)); treeBill.userData.role = 'tree'; scene.add(treeBill);
 const TREE_SOLID = speciesMeshes(window.__TREES, TREE_GEO.single, window.__TREES.map(() => [rnd(), rnd()]), true); scene.add(...TREE_SOLID);
 // #13: forest trees per 512 m tile -- one InstancedMesh per tile, species and part, so three.js culls whole tiles; 14..28 triangles per tree, no shadows
@@ -3303,7 +3306,7 @@ const FOREST_MESHES = [];
     const bill = new THREE.InstancedMesh(fbill, new THREE.MeshBasicMaterial(), list.length), jitter = [];
     list.forEach(([x, z, h, ty, kind], i) => {
       jitter.push([frnd(), frnd()]);
-      const b = billShape(treeSpecies(x, z, kind));
+      const b = billShape(treeSpecies(x, z, kind), SEASON, treeHash(z, x));
       q.setFromAxisAngle(TREE_UP, (frnd() - 0.5) * 0.4); m.compose(new THREE.Vector3(x, ty, z), q, new THREE.Vector3(h * b.w, h, h * b.w)); bill.setMatrixAt(i, m); bill.setColorAt(i, c.setRGB(...b.tint));
     });
     bill.computeBoundingSphere(); scene.add(bill);
@@ -3326,6 +3329,7 @@ function stepTreeLod() {
   }
 }
 window.__mm.treeLod = () => { const r = { fineTiles: 0, coarseTiles: 0, fineTrees: 0, coarseTrees: 0, visibleSolid: 0 }; for (const f of FOREST_MESHES) { r[f.tier + 'Tiles']++; r[f.tier + 'Trees'] += f.list.length; if (f.coarse[0].visible || (f.fine && f.fine[0].visible)) r.visibleSolid++; } return r; };
+window.__mm.season = SEASON;
 window.__mm.treeWind = () => ({ time: TREE_WIND.time.value, amp: TREE_WIND.amp.value, patched: TREE_WIND.patched });
 window.__mm.treeSpecies = () => { const n = { single: {}, forest: {} }, add = (to, im) => { if (im.userData.part === 'crown') to[im.userData.species] = (to[im.userData.species] || 0) + im.count; }; for (const im of TREE_SOLID) add(n.single, im); for (const f of FOREST_MESHES) for (const im of f.coarse) add(n.forest, im); return n; };
 // checkpoints and finish
