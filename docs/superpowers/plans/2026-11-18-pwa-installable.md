@@ -6,8 +6,7 @@ No service worker, no offline caching.
 
 **Spec:** `docs/superpowers/specs/2026-11-18-pwa-installable-design.md`.
 
-**Icons already exist on `main`** (`assets/icons/icon-192.png`, `icon-512.png`, `icon-512-maskable.png`,
-`apple-touch-icon-180.png`). Do **not** draw, regenerate or edit any image.
+**Icons already exist on `main`** (`assets/icons/`). Do **not** draw, regenerate or edit any image.
 
 **Global constraints:**
 
@@ -16,9 +15,8 @@ No service worker, no offline caching.
 - TDD: write the failing test, run it red, implement, run green. Never edit a test to make it pass (the `SECONDARY` change
   in Task 3 *is* the specified change).
 - Node: `node --test tests/pwa.test.mjs` per task; at the end `node --test tests/*.test.mjs`.
-- Browser: run **only** `pytest tests/test_pwa.py tests/test_start_screen.py -k "pwa or bar_order"`, in the
-  **foreground**, never `run_in_background`, `timeout` ≥ 600000. Never the full Playwright suite. Commit and push the
-  branch **before** starting the Playwright run.
+- Browser: **only** `pytest tests/test_pwa.py tests/test_start_screen.py -k "pwa or bar_order"`, in the **foreground**
+  (never `run_in_background`, `timeout` ≥ 600000), never the full suite; commit and push **before** the run.
 - `CHANGELOG.md`: one hand-written player-facing entry (Task 4). Never `git cliff -o`.
 - Commits: Conventional Commits, scope `pwa`, footer `Refs #1076`, last commit `Closes #1076`; push after every task;
   draft PR after Task 1. Branch `feature/1076-pwa-installable`.
@@ -97,7 +95,7 @@ test('reload control: de/en label, buttons on the start screen and in the pause 
 });
 ```
 
-(`import` lines are hoisted; put it with the other imports at the top.) Run → red.
+(Put the `import` with the others at the top.) Run → red.
 
 **Implement:**
 
@@ -128,7 +126,6 @@ Run `node --test tests/pwa.test.mjs` green, then `node --test tests/*.test.mjs`.
 **Failing tests:**
 
 1. `tests/test_start_screen.py:11`: `SECONDARY = [..., "musicbtn", "reloadbtn"]   # #1076 Reload, hidden on the website`
-   (already green after Task 2; it documents the order).
 2. Create `tests/test_pwa.py`:
 
 ```python
@@ -156,8 +153,7 @@ def test_pwa_reload_button_only_in_the_installed_app(server):
 ```
 
 Commit and push, then run `pytest tests/test_pwa.py tests/test_start_screen.py -k "pwa or bar_order"` in the foreground
-(`timeout` ≥ 600000). Both green (no implementation change expected; if `bar_order` is red, the button's position in
-`.row.secondary` is wrong — fix `index.html`, not the test). Commit `test(pwa): reload button in the installed app`.
+(`timeout` ≥ 600000). Both green (if `bar_order` is red, the button's position in `.row.secondary` is wrong — fix `index.html`, not the test). Commit `test(pwa): reload button in the installed app`.
 
 ### Task 4: changelog (`CHANGELOG.md`)
 
@@ -171,7 +167,6 @@ Commit `docs(pwa): changelog for the installable app`, footer `Closes #1076`. Pu
 
 ### Done when
 
-`node --test tests/*.test.mjs` green; the two targeted Playwright tests green; `git grep serviceWorker` finds nothing;
-the PR touches only the files listed above. The maintainer verifies after deploy: `curl -sI
-https://rhyflitzer.ch/manifest.webmanifest` shows `application/manifest+json`, DevTools → Application → Manifest shows no
-error, Android Chrome offers "App installieren".
+`node --test tests/*.test.mjs` and the two targeted Playwright tests are green; `git grep serviceWorker` finds nothing;
+the PR touches only the files listed above. Deploy checks (maintainer): `curl -sI` of the manifest, DevTools → Manifest,
+Android "App installieren".
