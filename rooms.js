@@ -8,7 +8,7 @@ import { EIFFEL, ATOMIUM, TITANIC, VASA } from './hideout.js';
 import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
 import { ENTERPRISE, DEDICATION, dedicationPlacement } from './enterprise.js';   // #491
 import { FERRIS, ferrisPlacement } from './ferris.js';      // #513
-import { SHUTTLE, shuttlePlacement } from './shuttle.js';   // #811
+import { SHUTTLE, shuttlePlacement, stackFrame } from './shuttle.js';   // #811
 import { FRIES, friesPlacement } from './fries.js';
 import { RALLYHALL, rallyhallPlacement } from './rallyhall.js';   // #859
 import { BELOW_Y, BELOW2_Y, SPOKE, spokeFrame } from './underground.js';
@@ -108,6 +108,21 @@ export function cradleColliders(cr, at, y) {
   return out;
 }
 
+// #622: the gravel of a room with two spots (room 2: the Shuttle pad besides the Artemis stack) -- the 95 m loop would run
+// through both mounts, so the car gets the way into the flame trench (through it, right under the rocket), the ring round
+// the stack, the way to it and the capsule's ring instead. Pure points, `hw` 4 unless the capsule's ring says otherwise.
+function spotPaths({ loc, end, frame, room, artemis, shuttleObject }) {
+  const [ax, az] = room.spots.artemis, [px, pz] = loc(...room.spots.second), { z: Z } = stackFrame(frame.f, frame.v, shuttleObject.turn);
+  const trench = (b) => [px + Z[0] * b, pz + Z[1] * b];   // the mouths on the pad's z axis, 10 m before the hardstand either way
+  const ring = Array.from({ length: 33 }, (_, i) => loc(ax + Math.cos(i / 32 * 2 * Math.PI) * 45, az + Math.sin(i / 32 * 2 * Math.PI) * 45));
+  return [
+    { pts: [end, trench(60), trench(-60)], hw: 4 },
+    { pts: ring, hw: 4 },
+    { pts: [end, loc(ax - 45, az)], hw: 4 },
+    { pts: artemis.ring, hw: room.object.capsule.ring.hw },
+  ];
+}
+
 export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   const Y = ring.y, HALF = ring.half, space = room.look === 'space';   // #489: the ring's depth and room size; #491: no meadow in a space room
   const sp = spokeFrame(k), f = sp.u, v = sp.v, P = sp.end;
@@ -181,11 +196,15 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
       trees.push([...loc(x, z), 9 + rand() * 6]);
     }
   }
-  // gravel: portal -> centre loop, and the loop round the centre (radius 95 m, outside the feet); a ship gets the lane round its basin instead
+  // gravel: portal -> centre loop, and the loop round the centre (radius 95 m, outside the feet); a ship gets the lane round its basin instead;
+  // #622: a room with two spots drops the loop (it would run through both mounts) and takes its own gravel instead
   const loop = basin ? stadium(basin.lane, loc) : Array.from({ length: 33 }, (_, i) => [cx + Math.cos(i / 32 * 2 * Math.PI) * 95, cz + Math.sin(i / 32 * 2 * Math.PI) * 95]);
   const reachA = basin ? basin.lane.w : 95;
-  const start = at(10, 0), end = [cx - f[0] * reachA, cz - f[1] * reachA], paths = space ? [] : [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];   // #491: a space room has no gravel
-  if (artemis) paths.push({ pts: artemis.ring, hw: room.object.capsule.ring.hw });   // #488: the gravel ring round the Orion capsule
+  const start = at(10, 0), end = [cx - f[0] * reachA, cz - f[1] * reachA];
+  const paths = space ? [] : room.spots
+    ? [{ pts: [start, end], hw: 4 }, ...spotPaths({ loc, end, frame: { f, v }, room, artemis, shuttleObject })]
+    : [{ pts: [start, end], hw: 4 }, { pts: loop, hw: 4 }];   // #491: a space room has no gravel
+  if (artemis && !room.spots) paths.push({ pts: artemis.ring, hw: room.object.capsule.ring.hw });   // #488: the gravel ring round the Orion capsule
   if (rallyhall) paths.push({ pts: rallyhall.apron, hw: room.object.apron.hw });   // #859: the gravel apron from the loop into the hall
   const view = [cx - f[0] * 150, cz - f[1] * 150];
   return {
