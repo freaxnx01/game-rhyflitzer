@@ -239,32 +239,49 @@ test('roomLayout_TheTitanicsTowerViewLooksAtItBroadsideFromTheLawn', () => {
   const v = titanic.towerView, d = Math.hypot(titanic.tower.x - v.x, titanic.tower.z - v.z); assert.ok(d > 120 && d < 180, `${d}`); assert.ok(!blocked(titanic, v.x, v.z));
 });
 
-// #488: the Artemis II stack and the Orion capsule -- star room 2
+// #488: the Artemis II stack and the Orion capsule -- star room 2, which #622 shares with the Shuttle pad
 import { ARTEMIS } from '../artemis.js';
 const artemis = rooms[2];
-test('roomLayout_Room2HoldsTheArtemisStackOnTheCentre_AndTheCapsuleBesideIt_UnsignedLikeTheOthers', () => {
+const near = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-6;
+test('roomLayout_Room2_ArtemisMovesAside_TheShuttlePadStandsOnTheOtherSide_NextRoomsUnchanged', () => {
+  assert.equal(ROOMS[2].object, ARTEMIS); assert.equal(ROOMS[2].second, SHUTTLE); assert.equal(ROOMS[2].signed, false);
+  assert.deepEqual(ROOMS[2].spots, { artemis: [0, 100], second: [-20, -110] });
+  assert.deepEqual(NEXT_ROOMS, [7, 2, 6, 3, 5, 4]);
   assert.deepEqual([artemis.tower.x, artemis.tower.z], artemis.centre); assert.deepEqual(artemis.feet, []); assert.equal(artemis.hull.length, 0); assert.equal(artemis.basin, null);
-  assert.ok(artemis.artemis); assert.deepEqual([artemis.artemis.rocket.x, artemis.artemis.rocket.z], artemis.centre);
-  assert.deepEqual([artemis.artemis.capsule.x, artemis.artemis.capsule.z], toWorld(artemis, ...ARTEMIS.capsule.at));
+  assert.ok(near([artemis.artemis.rocket.x, artemis.artemis.rocket.z], toWorld(artemis, 0, 100)), 'Artemis at b = +100');
+  assert.ok(near([artemis.artemis.capsule.x, artemis.artemis.capsule.z], toWorld(artemis, ARTEMIS.capsule.at[0], 100 + ARTEMIS.capsule.at[1])), 'the capsule keeps its offset from the stack');
+  assert.ok(near([artemis.shuttle.stack.x, artemis.shuttle.stack.z], toWorld(artemis, -20, -110)), 'the pad at (-20, -110)');
+  const d = artemis.shuttle.stack.th - Math.atan2(artemis.frame.f[1], artemis.frame.f[0]); assert.ok(Math.abs(Math.atan2(Math.sin(d), Math.cos(d)) - SHUTTLE.turn) < 1e-6, 'turned 45 degrees');
+  assert.equal(artemis.shuttle.colliders.length, 11); assert.equal(artemis.artemis.colliders.length, 5);
   assert.ok(artemis.towerView && !blocked(artemis, artemis.towerView.x, artemis.towerView.z));
-  for (const R of rooms.filter(r => r.k !== 2)) assert.equal(R.artemis, null);
+  for (const R of rooms.filter(r => r.k !== 2)) { assert.equal(R.artemis, null); assert.equal(R.shuttle, null); }
 });
 
-test('roomLayout_Room2_MountCoreAndCapsuleAreSolid_TheLawnBetweenAndBothGravelRingsAreFree', () => {
-  const D = ARTEMIS.deck.w / 2, C = ARTEMIS.capsule;
-  assert.ok(blocked(artemis, ...artemis.centre), 'the core'); assert.ok(blocked(artemis, ...toWorld(artemis, 0, D - 1)), 'the mount edge');
-  assert.ok(blocked(artemis, ...toWorld(artemis, ...C.at)), 'the capsule');
-  for (const [a, b] of [[0, D + CAR_R + 2], [-D - CAR_R - 2, 0], [C.at[0], C.at[1] + C.hw * Math.SQRT2 + CAR_R + 1], [-30, 20], [95, 0], [0, -95]]) assert.ok(!blocked(artemis, ...toWorld(artemis, a, b)), `free at ${a},${b}`);
-  for (const [x, z] of artemis.paths[2].pts) assert.ok(!blocked(artemis, x, z), 'the capsule ring is drivable');
-  for (const [x, z] of artemis.paths[1].pts) assert.ok(!blocked(artemis, x, z), 'the 95 m loop is drivable');
+const onPad = (R, a, b) => { const { x: X, z: Z } = stackFrame(R.frame.f, R.frame.v, SHUTTLE.turn), [sx, sz] = toWorld(R, -20, -110); return [sx + X[0] * a + Z[0] * b, sz + X[1] * a + Z[1] * b]; };
+test('roomLayout_Room2_BothObjectsAreSolid_TheTrenchTheLawnBetweenAndTheOldCentreAreFree', () => {
+  const D = ARTEMIS.deck.w / 2, C = ARTEMIS.capsule, H = SHUTTLE.pad.hard, L = padLayout(SHUTTLE);
+  assert.ok(blocked(artemis, ...toWorld(artemis, 0, 100)), 'the Artemis core'); assert.ok(blocked(artemis, ...toWorld(artemis, 0, 100 + D - 1)), 'the mount edge');
+  assert.ok(blocked(artemis, ...toWorld(artemis, C.at[0], 100 + C.at[1])), 'the capsule');
+  for (const [a, b] of [[23, -19], [-20, 30], [L.fss.x, L.fss.z], [L.water.x, L.water.z]]) assert.ok(blocked(artemis, ...onPad(artemis, a, b)), `the hardstand / tower / water at ${a},${b}`);
+  for (let b = -H.d / 2 - 10; b <= H.d / 2 + 10; b += 5) assert.ok(!blocked(artemis, ...onPad(artemis, 0, b)), `the trench is open at ${b}, right under the rocket`);
+  assert.ok(!blocked(artemis, ...artemis.centre), 'the old centre is free lawn');
+  for (const [a, b] of [[0, 100 + D + CAR_R + 2], [-D - CAR_R - 2, 100], [-30, 20], [0, 30], [50, -20]]) assert.ok(!blocked(artemis, ...toWorld(artemis, a, b)), `free at ${a},${b}`);
 });
 
-test('roomLayout_Room2_ThreePaths_TheThirdRingsTheCapsule_AndTheCarReachesRoundBoth', () => {
-  assert.equal(artemis.paths.length, 3); const ring = artemis.paths[2]; assert.equal(ring.hw, ARTEMIS.capsule.ring.hw); assert.equal(ring.pts.length, 33);
-  for (const [x, z] of ring.pts) assert.ok(Math.abs(Math.hypot(x - artemis.artemis.capsule.x, z - artemis.artemis.capsule.z) - ARTEMIS.capsule.ring.r) < 1e-6);
+test('roomLayout_Room2_FivePaths_AllDrivable_AndTheCarReachesTheTrenchBothArtemisSidesAndTheCapsule', () => {
+  assert.equal(artemis.paths.length, 5);
+  const [entry, trench, ring, way, capRing] = artemis.paths;
+  assert.ok(near(entry.pts[1], toWorld(artemis, -95, 0)), 'the entry ends at the junction');
+  assert.ok(near(trench.pts[0], toWorld(artemis, -95, 0)) && near(trench.pts[1], onPad(artemis, 0, 60)) && near(trench.pts[2], onPad(artemis, 0, -60)), 'junction, near mouth, far mouth');
+  assert.equal(ring.pts.length, 33); for (const [x, z] of ring.pts) assert.ok(Math.abs(Math.hypot(x - artemis.artemis.rocket.x, z - artemis.artemis.rocket.z) - 45) < 1e-6);
+  assert.ok(near(way.pts[0], toWorld(artemis, -95, 0)) && near(way.pts[1], toWorld(artemis, -45, 100)));
+  assert.equal(capRing.hw, ARTEMIS.capsule.ring.hw); assert.equal(capRing.pts.length, 33);
+  for (const p of artemis.paths) for (const [x, z] of p.pts) assert.ok(!blocked(artemis, x, z), 'every path point is drivable');
   const r = reach(artemis), cell = (a, b) => r.seen.has(Math.round(a / r.step) + ',' + Math.round(b / r.step));
-  assert.ok(!cell(0, 0), 'the rocket is solid'); assert.ok(cell(40, 0) && cell(0, 40) && cell(0, -40), 'the far side and both sides of the mount');
-  const [ca, cb] = ARTEMIS.capsule.at; assert.ok(cell(ca - 12, cb) && cell(ca + 12, cb) && cell(ca, cb + 12) && cell(ca, cb - 12), 'all round the capsule'); assert.ok(r.seen.size > 4000);
+  assert.ok(cell(...toLocal(artemis, ...onPad(artemis, 0, 60))) && cell(...toLocal(artemis, ...onPad(artemis, 0, 0))) && cell(...toLocal(artemis, ...onPad(artemis, 0, -60))), 'both trench mouths and the middle');
+  assert.ok(!cell(0, 100), 'the Artemis core is solid');
+  assert.ok(cell(0, 100 + 16) && cell(0, 100 - 16) && cell(16, 100) && cell(-16, 100), 'all round the Artemis mount');
+  const [ca, cb] = ARTEMIS.capsule.at; assert.ok(cell(ca - 12, 100 + cb) && cell(ca + 12, 100 + cb) && cell(ca, 100 + cb + 12) && cell(ca, 100 + cb - 12), 'all round the capsule'); assert.ok(r.seen.size > 4000);
 });
 
 // #489: ring 2 -- eight empty 1000 m rooms at -1200, levels of their own
@@ -399,7 +416,7 @@ test('ROOMS2_Room7_HoldsTheSpaceShuttle_SecondInLine_UnsignedWithTheSpaceLook_No
   assert.equal(ROOMS2[7].look, 'space'); assert.equal(ROOMS2[7].dedication, undefined); assert.equal(NEXT_ROOMS2[1], 7, 'it took the next room in line');
   assert.equal(shuttleRoom.look, 'space'); assert.deepEqual(shuttleRoom.paths, []); assert.deepEqual(shuttleRoom.trees, []);
   assert.ok(shuttleRoom.shuttle); assert.deepEqual([shuttleRoom.shuttle.stack.x, shuttleRoom.shuttle.stack.z], shuttleRoom.centre);
-  for (const R of [...rooms, ...rooms2].filter(r => r !== shuttleRoom)) assert.equal(R.shuttle, null);
+  for (const R of [...rooms, ...rooms2].filter(r => r !== shuttleRoom && r !== artemis)) assert.equal(R.shuttle, null);
 });
 
 test('roomLayout_ShuttleRoom_HardstandIsSolid_TheTrenchUnderTheRocketAndTheWayInAreFree', () => {
