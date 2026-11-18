@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { STRINGS } from '../strings.js';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const manifest = JSON.parse(readFileSync(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
@@ -28,4 +29,14 @@ test('manifest: Rhyflitzer, fullscreen, scope /, charcoal colours, three icons t
     assert.ok(existsSync(new URL(`../${i.src}`, import.meta.url)), i.src); assert.equal(i.type, 'image/png');
     assert.deepEqual(pngSize(i.src), i.sizes.split('x').map(Number), i.src);
   }
+});
+
+test('reload control: de/en label, buttons on the start screen and in the pause menu, hidden unless installed', () => {
+  assert.equal(STRINGS.en.reloadBtn, 'Reload'); assert.equal(STRINGS.de.reloadBtn, 'Neu laden');
+  assert.match(html, /<button id="reloadbtn" class="btn small" type="button" data-i18n="reloadBtn" style="text-transform:none">Reload<\/button>\s*<\/div>/);
+  assert.match(html, /id="pausemenu"[^\n]*\n\s*<button id="pausereload" class="btn" type="button" data-i18n="reloadBtn">Reload<\/button>/);
+  assert.match(html, /html:not\(\.installed\) #reloadbtn, ?html:not\(\.installed\) #pausereload ?\{ ?display: ?none ?\}/);
+  assert.match(html, /display-mode: fullscreen/); assert.match(html, /navigator\.standalone === true/);
+  assert.match(html, /\$\('reloadbtn'\)\.onclick = \(\) => location\.reload\(\)/);
+  assert.match(html, /\$\('pausereload'\)\.onclick = \(\) => location\.reload\(\)/);
 });
