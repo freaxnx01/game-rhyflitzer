@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { SRF3_URL, ARGOVIA_URL, STATIONS, LIVE, FM, isFm, stationOrder, nextStation, TRACKS, MENU_TRACK, VOLUME, RADIO_KEYS, radioKeyAction, RADIO_STORE, nextTrack, prevTrack, shuffleOnFrom, playlistOrder, stepVolume, trackGain, menuGain,
-  radioOnFrom, menuMusicOnFrom, stationFrom, volumeFrom, srfVerdict, displayFor, createEarlyMenu, EARLY_GESTURES } from '../radio.js';
+  radioOnFrom, menuMusicOnFrom, stationFrom, volumeFrom, srfVerdict, displayFor, stationName, createEarlyMenu, EARLY_GESTURES } from '../radio.js';
 
 const key = (code, o = {}) => ({ code, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, ...o });
 
@@ -119,6 +119,12 @@ test('srfVerdict_StallAfterStart_FailsAfter10S', () => {
   const w = { since: 100, playing: true, waitingSince: 150, error: false };
   assert.equal(srfVerdict(w, 159), 'ok');
   assert.equal(srfVerdict(w, 160.5), 'fail');
+});
+
+test('stationName_FmByName_LiveByString', () => {
+  const tr = (k) => `<${k}>`;
+  assert.deepEqual(STATIONS.map(s => stationName(s, tr)),
+    ['Rhyflitzer FM Mix', 'Rhyflitzer FM Rock', 'Rhyflitzer FM Cruise', '<radioStationSrf>', '<radioStationArgovia>']);
 });
 
 test('displayFor_OffSrfAndTrack', () => {

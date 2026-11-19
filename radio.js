@@ -126,6 +126,7 @@ export function srfVerdict(watch, now) {
 }
 
 // the strings.js key and arguments the radio display shows for a state
+export const stationName = (station, translate) => (isFm(station) ? FM[station].name : translate(LIVE[station].nameKey));   // the settings' station list; FM names are the same in en and de
 export function displayFor(s) {
   if (!s.on) return { key: 'radioOff', args: [] };
   if (LIVE[s.station]) return { key: LIVE[s.station].nameKey, args: [] };
