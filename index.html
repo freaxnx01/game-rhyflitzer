@@ -345,6 +345,23 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
 #keybar .ctx{color:var(--ink);background:var(--sun);padding:0 6px}#keybar .ctx kbd{color:var(--ink);border-color:var(--ink)}
 @media (pointer:coarse){#keybar,#setkeybarrow{display:none!important}}
 body:has(#carsel:not([hidden])) #keybar,body:has(#pause:not([hidden])) #keybar,body:has(#abandon:not([hidden])) #keybar,body:has(#help:not([hidden])) #keybar,body:has(#jump:not([hidden])) #keybar,body:has(#borderinfo:not([hidden])) #keybar,body:has(#timetable:not([hidden])) #keybar{display:none}
+/* #1093: the hint card -- looks like the key bar, and like it a row of #tc, so on a desktop it sits under the bar and
+   moves down with the mirror. stepHints hides it behind every dialog, so no :has() rule is needed here. */
+#hintcard{max-width:min(560px,calc(100vw - 32px));margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;padding:6px 10px;box-sizing:border-box;background:rgba(20,23,29,.82);border:3px solid var(--sun);color:var(--cream);font-size:16px;font-weight:700;line-height:1.25;text-align:left;pointer-events:auto;cursor:pointer}
+#hintcard[hidden]{display:none}
+#hintcard .hc-icon{font-size:20px;line-height:1.2}
+#hintcard .hc-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+#hintcard .hc-row{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:var(--steel-l)}
+#hintcard .hc-key{font:inherit;font-size:15px;font-weight:800;color:var(--sun);border:2px solid var(--steel);padding:0 5px}
+#hintcard .hc-key:empty{display:none}   /* a statement has no key to press */
+#hintcard .hc-off{background:none;border:0;padding:0;font:inherit;color:var(--steel-l);text-decoration:underline;cursor:pointer}
+#hintcard .hc-close{min-width:28px;min-height:28px;margin:-2px -4px 0 auto;padding:0;background:none;border:0;font:inherit;font-size:24px;line-height:1;color:var(--cream);cursor:pointer}
+/* a phone puts the card in the free band between the pause/radio column and the highest touch button: absolutely
+   placed inside #tc (which @media (max-width:600px) drops to top 140), so no touch control is ever covered */
+@media (pointer:coarse){
+  #hintcard{position:absolute;left:50%;top:136px;transform:translateX(-50%);width:calc(100vw - 32px);margin:0;font-size:15px}
+  #hintcard .hc-close{min-width:44px;min-height:44px;margin:-6px -6px 0 auto;font-size:28px}
+}
 #pausebtn{position:fixed;right:16px;top:calc(208px + env(safe-area-inset-top,0px));width:48px;height:48px;padding:0;pointer-events:auto;cursor:pointer;background:rgba(20,23,29,.82);border:3px solid var(--steel-l);color:var(--cream);font-family:inherit;font-size:22px;font-weight:800;letter-spacing:2px}
 #pausebtn:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 /* #735: the phone's car radio -- one small button left of #pausebtn, a 3x2 panel under the pair; desktop has keys only */
@@ -487,6 +504,13 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
   </div>
   <div id="tc">
     <div id="keybar" aria-hidden="true"></div>
+    <!-- #1093: the discovery hint card -- one hint at a time while the game runs; the whole card is tappable (the tap
+         runs the hint's action), × marks it seen and the link switches hints off for good -->
+    <div id="hintcard" hidden role="status">
+      <span class="hc-icon" aria-hidden="true"></span>
+      <span class="hc-body"><span class="hc-text"></span><span class="hc-row"><kbd class="hc-key"></kbd><button class="hc-off" type="button"></button></span></span>
+      <button class="hc-close" type="button">×</button>
+    </div>
     <svg id="arrow" viewBox="0 0 160 120" aria-hidden="true"><polygon points="80,4 156,84 118,84 118,116 42,116 42,84 4,84" fill="#ffc61a" stroke="#1c1f26" stroke-width="6" stroke-linejoin="round"/><polygon points="80,26 130,80 104,80 104,102 56,102 56,80 30,80" fill="#ff9a1a"/></svg>
     <div id="dist">— m</div>
     <div id="cpname" data-i18n="ready">Ready</div>
@@ -1066,7 +1090,7 @@ import { buildTargets } from './testhub-targets.js';
 import { HELI, heliInput, heliFloor, heliStart, stepHeli, landingSpot, heliBob, heliLoad, heliChaseFrom, heliChaseStep } from './heli.js';
 import { WALKER, footInput, stepFoot, footFloor, footLook, exitSpots, parkedBox, carReach, footKeyAction, footSteps, easeEye, easeLook, LOOK_EASE, footClickAction } from './foot.js';
 import { actionFor, contextKeyAction, barEntries, menuEntries, contextLabel, KEYBAR_KEY, keybarOnFrom } from './controls.js';   // #535
-import { HINTS_KEY, HINTS_ON_KEY, PLAY_TIME_KEY, hintStoreFrom, hintsOnFrom, playTimeFrom } from './hints.js';   // #1090
+import { HINT_CFG, HINTS_KEY, HINTS_ON_KEY, PLAY_TIME_KEY, hintStoreFrom, hintsOnFrom, playTimeFrom, newHintSession, hintTick, hintEvent, hintSessionAfter, hintStoreAfter, pickHint, hintTap, hintCap } from './hints.js';   // #1090 the rules, #1093 the card
 import { FADED, createFader, resetFader, sample, phase, phases, createKeybar, keybarPhase, visibleInMode, headingText } from './hudfade.js';   // #773
 import { clampCentre, zoomAt } from './mapzoom.js';   // #843
 import { capsRow, capsCross } from './keycaps.js';   // #700
@@ -4662,6 +4686,9 @@ function liftPadKey(e) {   // #411: while the lift's pad is open, 0-9 pick a flo
   if (k === null) return false;
   e.preventDefault(); INT.lift.call(k); return true;
 }
+// #1093: a key the hint card names counts as acted -- registered before the game's own chain below, so a key that opens
+// a dialog (J, Esc) ends the card first instead of leaving it behind the dialog
+addEventListener('keydown', e => { if (HINT_CARD.hint?.keys.includes(e.code)) endHint('acted'); });
 const keys = {}; addEventListener('keydown', e => { if (TTV.open) { ttKey(e); return; }   /* #801: the timetable swallows the game keys while it is open */ if (BORDERINFO.open) { borderInfoKey(e); return; } if (!$('help').hidden) { helpKey(e); return; } if (!$('jump').hidden) { jumpKey(e); return; } if (netOpen()) { netKey(e); return; }   /* #834: the connect dialog and the lobby swallow the game keys -- a name is typed into an input */ if (CARSEL.on) { carselKey(e); return; } if (WORLDS.on) { worldsKey(e); return; } if (ABOUT.on) { aboutKey(e); return; } if (SETTINGS.on) { settingsKey(e); return; }   /* #842: the settings dialog swallows the game, M and 5-0 keys while it is open */ if (liftPadKey(e)) return; if (freightPadKey(e)) return; if (e.code === 'KeyP' && e.ctrlKey) { e.preventDefault(); if (!e.repeat && !PAUSE.on) openHelp(); return; } /* #190: Ctrl+P opens the command search, it must not also pause */ if (e.code === 'Escape' && POSTAUTO.follow) { e.preventDefault(); if (!e.repeat) stopFollow(); return; } /* #707: while following, the first Esc ends follow mode; a second Esc pauses as usual */ if (pauseKey(e)) return; /* a held Tab auto-repeats; those keydowns used to reach the browser's focus navigation (#129). Only while racing: on the start screen and in a dialog, Tab is how the keyboard moves between the buttons (#346). */ if (e.code === 'Tab' && $('overlay').hidden) e.preventDefault(); if (isDebugKey(e)) { e.preventDefault(); if (!e.repeat) toggleDebug(); return; } if (isHudKey(e)) { e.preventDefault(); if (!e.repeat) toggleHudShown(); return; } /* #305: before the horn on H */ /* Ctrl+D (F3 alias): Ctrl is the handbrake and D steers, so this press never reaches keys */ if (radioKey(e)) return;   /* #735: before the repeat return -- a held 9 / 0 keeps stepping the volume */ const ra = recordKeyAction(e); if (ra) { e.preventDefault(); if (ra === 'toggle') toggleRecord(); return; }   /* #749: § records, a held § does nothing */ const ca = $('overlay').hidden && !CARSEL.on ? camPathKeyAction(e) : null; if (ca) { e.preventDefault(); if (ca !== 'ignore') runCamPathKey(ca); return; }   /* #900: ü sets a waypoint, ö drops the last, ä flies the path */ if (e.repeat) return; keys[e.code] = true; if (deliveryBlocks(e)) return;   /* #107 */ if ((e.key || '').toLowerCase() === 'z') { pressZ(); return; }   if (FOOT.on && actionFor('foot', e.code) === 'website' && platOnDeck()) { e.preventDefault(); openVerein(); return; }   /* #914: V on the deck opens the Verein's site -- footKeyAction would otherwise swallow V (#887 gave it to E) */ if (FOOT.on) { const fa = footKeyAction(e.code, INT.indoors); if (fa === 'hover') toggleHover(); if (fa === 'enter' || fa === 'leave') runContextKey(); if (fa !== 'pass') { e.preventDefault(); return; } } /* #462: in the loco the train keys swallow the car's */ if (TRAIN.on) { const ta = trainKeyAction(e.code); if (ta !== 'pass') { e.preventDefault(); trainKey(ta); return; } } if (e.code === 'KeyE' && !FOOT.on && !TRAIN.on && contextAction()) { e.preventDefault(); runContextKey(); return; }   /* #553: in the car E boards the parked depot vehicle in reach; #801: or opens the timetable at a stop's board; anywhere else it still does nothing */ if (AUTOP.on && $('overlay').hidden && TAKE_OVER_KEYS.has(e.code)) { stopAuto('off'); if (e.code === 'KeyO') { e.preventDefault(); clearNavi(); return; } } if (e.code === 'KeyT') toggleStyle(); if (e.code === 'KeyC' && $('overlay').hidden && !FLY.on) cycleCamera(); if (e.code === 'KeyF' && $('overlay').hidden) toggleFly(); if (e.code === 'KeyU') pressPontoon(); if (e.code === 'KeyR' && !LIFT_RIDE.busy) { if (deliveryActive()) deliveryReset(); else { clearNavi(); resetCar(); } }   /* #107: a reset keeps the delivery Navi and costs seconds */ if (e.code === 'KeyH' || ((e.code === 'Enter' || e.code === 'NumpadEnter') && $('overlay').hidden)) SFX.horn(); if (e.code === 'KeyX' && canPhoto($('overlay').hidden)) { photoPending = true; if (R.mode === 'view') viewShot(); } if (e.code === 'KeyM') { toast(tr(SFX.toggle() ? 'muted' : 'soundOn')); renderSettings(); } if (e.code === 'F1' || e.key === '?') { e.preventDefault(); openHelp(); }   /* #842: M flips the same Sound switch the dialog shows */ if (e.code === 'KeyV') { HUD.carHidden = !HUD.carHidden; car.visible = !HUD.carHidden && !CAM_VIEWS[camView].eye; } if (e.code === 'KeyG') toggleBounds(); if ((e.key || '').toLowerCase() === 'y') toggleBorders(); /* by the letter, like Z: on a Swiss/German QWERTZ keyboard the key labelled Y sends code KeyZ */ if (e.code === 'KeyK') { P.trip = 0; HUD.tripResets = (HUD.tripResets || 0) + 1; }   /* #773: a reset wakes the trip plate */ const sig = actionFor('car', e.code); if (sig === 'signalLeft') HUD.blinker = HUD.blinker === 'left' ? null : 'left'; if (sig === 'signalRight') HUD.blinker = HUD.blinker === 'right' ? null : 'right';   /* #535: Comma · Period */ if (e.code === 'KeyL' && $('overlay').hidden) { LIGHTS.head = !LIGHTS.head; toast(tr(LIGHTS.head ? 'lightsOn' : 'lightsOff')); } if ((e.code === FERRIS_KEYS.fireworks || e.code === FERRIS_KEYS.show) && $('overlay').hidden && !e.repeat) pressFerrisFx(e.code); if (e.code === 'Digit1' && $('overlay').hidden) { LIGHTS.hazard = !LIGHTS.hazard; toast(tr(LIGHTS.hazard ? 'hazardOn' : 'hazardOff')); } if (e.code === 'Digit2' && $('overlay').hidden && !e.repeat) { if (hasSiren(VEH)) { SIREN_S.on = toggleSiren(SIREN_S.on, VEH); SIREN_S.t = 0; toast(tr(SIREN_S.on ? 'sirenOn' : 'sirenOff')); } else toast(tr('sirenNone')); } if (e.key === '+' || e.key === '=') stepMapZoom(1); if (e.key === '-') stepMapZoom(-1); if (e.code === 'KeyJ' && $('overlay').hidden) { e.preventDefault(); openJump('jump'); } if (e.code === 'KeyO' && $('overlay').hidden && !FLY.on) { e.preventDefault(); openDrive(); } if (e.code === 'KeyI' && $('overlay').hidden && !FLY.on) { e.preventDefault(); if (NAVIS.on) stopNavi(); else openNavi(); } if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ControlLeft', 'ControlRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => { keys[e.code] = false; if (CARSEL.on) carselKeyUp(e); }); addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 // G (#48): Gemeinde boundaries on/off, in 3D and on the minimap; "no data" in the hand layout or with a world file built before #48
 function toggleBounds() { HUD.bounds = !HUD.bounds; BOUNDS.visible = HUD.bounds; toast(tr(!L || !L.boundaries.length ? 'boundsNoData' : HUD.bounds ? 'boundsOn' : 'boundsOff')); }
@@ -5271,7 +5298,83 @@ const HINTS_S = {
 function saveHintStore() { if (!HINTS_S.store) return; try { localStorage.setItem(HINTS_KEY, JSON.stringify(HINTS_S.store)); } catch (e) { } }
 function setHintsOn(on) { HINTS_S.on = on; try { localStorage.setItem(HINTS_ON_KEY, on ? '1' : '0'); } catch (e) { } }
 function resetHints() { HINTS_S.store = {}; HINTS_S.reset = true; try { localStorage.removeItem(HINTS_KEY); } catch (e) { } }
-window.__mm.hints = () => ({ on: HINTS_S.on, store: HINTS_S.store, play: HINTS_S.play });
+// #1093 part b: the card. hint = what is up, t = how long it has been up, sess = what this visit has seen, near = the
+// spots in reach (recomputed every 0.25 s, like the HUD's water and road names).
+const HINT_CARD = { hint: null, t: 0, sess: newHintSession(), near: [], nearT: 0 };
+// the card never sits over a dialog, the pause menu, the full map or the start screen; #result rides inside #overlay
+function hintsBlocked() {
+  return PAUSE.on || !$('overlay').hidden || R.state === 'ready' || CARSEL.on || SETTINGS.on || WORLDS.on || ABOUT.on
+    || TTV.open || BORDERINFO.open || netOpen() || !$('jump').hidden || !$('help').hidden || !!keys.Tab;   // a held Tab is the full map
+}
+// where each place hint's spot is -- the player is standing at it now
+const HINT_SPOTS = {
+  loco: () => FOOT.on && !!TRAIN.mesh && Math.hypot(P.x - TRAIN.mesh.position.x, P.z - TRAIN.mesh.position.z) <= 20,
+  postauto: () => !!stopNear(),
+  depot: () => DEPOT_S.on && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) <= DEPOT.near,
+  pontoon: () => !FOOT.on && !FLY.on && atRhineBank(pontoonEnv(), P.x, P.z),
+  plattform: () => !!PLAT && Math.hypot(P.x - PLAT.frame.x, P.z - PLAT.frame.z) <= 40,
+  holz: () => onBridge(P.x, P.z, P.y)?.b.kind === 'wood',
+  crash: () => !!YARD && inYard(P.x, P.z, 15, YARD),
+  ostriches: () => OSTRICHES_ON && inPaddock(P.x, P.z, 30),
+  bodenacker: () => HUD.enter?.entry.id === 'bodenackerstrasse-6c',
+  ferris: () => rideNow().do === 'board',
+  freight: () => !$('freightpad').hidden,
+};
+const hintNear = () => Object.keys(HINT_SPOTS).filter(id => HINT_SPOTS[id]());
+const hintCtx = () => ({ mode: R.mode, multiplayer: !!NET.race, coarse: TUT_COARSE, region: REGION.generated ? null : REGION.id, hideoutFound: !!HIDE?.found, near: HINT_CARD.near, playTime: HINTS_S.play });
+function stepHints(dt) {
+  const blocked = hintsBlocked();
+  if (HINTS_S.on && HINTS_S.store && performance.now() - HINT_CARD.nearT > 250) { HINT_CARD.nearT = performance.now(); HINT_CARD.near = hintNear(); }
+  HINT_CARD.sess = hintTick(HINT_CARD.sess, dt, { cruising: R.mode === 'cruise' && !NET.race && !blocked, near: HINT_CARD.near });
+  if (HINT_CARD.hint) { stepShownHint(dt, blocked); return; }
+  if (!HINTS_S.on || blocked) return;
+  const next = pickHint(HINTS_S.store, HINT_CARD.sess, hintCtx());
+  if (next) showHint(next);
+}
+// a card is up: switching hints off takes it away without marking it seen, a dialog hides it with its timer frozen
+function stepShownHint(dt, blocked) {
+  if (!HINTS_S.on) { HINT_CARD.hint = null; $('hintcard').hidden = true; return; }
+  $('hintcard').hidden = blocked;
+  if (blocked) return;
+  HINT_CARD.t += dt;
+  if (HINT_CARD.t >= HINT_CFG.stayS) endHint('timeout');
+}
+function showHint(hint) { HINT_CARD.hint = hint; HINT_CARD.t = 0; renderHintCard(); }
+// on touch the card says what a tap does instead of naming a key, and names the buttons where a hint's text does
+function renderHintCard() {
+  const hint = HINT_CARD.hint, el = $('hintcard');
+  if (!hint) return;
+  el.querySelector('.hc-icon').textContent = hint.icon;
+  el.querySelector('.hc-text').textContent = tr(TUT_COARSE && hint.touchText ? hint.touchText : hint.text);
+  el.querySelector('.hc-key').textContent = (TUT_COARSE ? hintTap(hint, true) && tr('hintTapCap') : hintCap(hint)) || '';
+  el.querySelector('.hc-off').textContent = tr('hintOff');
+  el.querySelector('.hc-close').setAttribute('aria-label', tr('hintCloseAria'));
+  el.hidden = false;
+}
+// how: 'acted' (the card was tapped or its key pressed) | 'closed' (×) | 'timeout'
+function endHint(how) {
+  const hint = HINT_CARD.hint;
+  if (!hint) return;
+  HINT_CARD.hint = null; HINT_CARD.t = 0; $('hintcard').hidden = true;
+  HINTS_S.store = hintStoreAfter(HINTS_S.store, hint, how); saveHintStore();
+  HINT_CARD.sess = hintSessionAfter(HINT_CARD.sess, hint);
+}
+// the card is gone before the action runs, so it never sits over the dialog its own tap opens
+function tapHint() {
+  if (!HINT_CARD.hint) return;
+  const act = hintTap(HINT_CARD.hint, TUT_COARSE);
+  endHint(act ? 'acted' : 'closed');
+  if (!act) return;
+  if (act.via === 'key') pressKey(act.cmd); else document.querySelector(act.sel).click();
+}
+function switchHintsOff() { setHintsOn(false); HINT_CARD.hint = null; $('hintcard').hidden = true; renderSettings(); }
+document.getElementById('hintcard').addEventListener('click', tapHint);   // $ is declared further down (TDZ at module load)
+document.getElementById('hintcard').querySelector('.hc-close').addEventListener('click', (e) => { e.stopPropagation(); endHint('closed'); });
+document.getElementById('hintcard').querySelector('.hc-off').addEventListener('click', (e) => { e.stopPropagation(); switchHintsOff(); });
+addEventListener('gg-langchange', renderHintCard);
+window.__mm.hints = () => ({ on: HINTS_S.on, store: HINTS_S.store, play: HINTS_S.play, card: HINT_CARD.hint?.id ?? null, t: HINT_CARD.t });
+window.__mm.hintsStep = (secs, extra = {}) => { if (extra.cruiseS) HINT_CARD.sess = { ...HINT_CARD.sess, cruiseS: HINT_CARD.sess.cruiseS + extra.cruiseS }; stepHints(secs); return window.__mm.hints(); };
+window.__mm.hintsSeen = (ids) => { if (!HINTS_S.store) return; for (const id of ids) HINTS_S.store[id] = { shown: 1, seen: true }; saveHintStore(); };
 // #887: the Verein's plate rides with the walker on the deck -- gone while paused or behind the overlay, like the rest of the HUD
 function stepVereinPlate() { $('vereinplate').hidden = !platOnDeck() || PAUSE.on || !$('overlay').hidden; }
 function stepEnter() {
@@ -5358,6 +5461,7 @@ function getOut() {
   stopAuto('reset'); Object.assign(FOOT, { on: true, hover: false, vy: 0, pitch: 0, stride: 0, car: car0, eye: null, mv: null, view: null }); flames.visible = false;
   P.x = spot.x; P.z = spot.z; P.y = groundH(spot.x, spot.z, car0.y + 1); P.vx = P.vz = P.vy = 0;
   if (R.state === 'racing' || R.state === 'armed') R.walked = true;
+  HINT_CARD.sess = hintEvent(HINT_CARD.sess, 'footOut');   // #1093: the walker's own hint waits for the first time out of the car
   toast(tr('footOut'));
 }
 function getIn() {
@@ -8338,7 +8442,7 @@ function loop(now) { if (SIMCLOCK.stepped) { last = now; requestAnimationFrame(l
   requestAnimationFrame(loop); }
 // #875: one frame's simulation and render -- the real-time loop's body, also run by __mm.tick with the caller's exact dt (no clamp)
 function frame(dt) {
-  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepDelivery(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepRallyhall(); stepManneken(dt); stepNetCars(); stepNetRace(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); stepRallyhallVideo(); if (photoPending) capturePhoto(); drawMirror(false); }
+  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepHints(dt);   /* #1093 */ stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepDelivery(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepRallyhall(); stepManneken(dt); stepNetCars(); stepNetRace(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); stepRallyhallVideo(); if (photoPending) capturePhoto(); drawMirror(false); }
 // #875: the stepped capture hooks. stepped(true) freezes the loop (only tick runs frames) and moves a wall-mode fleet
 // clock onto sim time so the buses keep rolling; stepped(false) hands both back without a jump.
 window.__mm.stepped = (on) => {
