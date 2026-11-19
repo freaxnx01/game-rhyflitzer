@@ -266,6 +266,15 @@ html:not(.installed) #reloadbtn,html:not(.installed) #pausereload{display:none} 
 .ab-credits small{display:block;font-size:15px}
 .ab-sec h2{margin:0 0 8px;font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--steel)}
 .ab-sec p{margin:0 0 6px;font-size:16px;overflow-wrap:anywhere}
+/* the game tab in sections: a readable lead, the outward links as a row of plates with a kicker each, statistics and contact quieter below */
+#aboutpanel-game h2{margin-top:22px}#aboutpanel-game h2:first-of-type{margin-top:0}
+.ab-sec .ab-lead{max-width:76ch;margin:0 0 22px;font-size:19px;line-height:1.4;color:var(--cream)}
+.ab-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;max-width:1000px;margin:0;padding:0;list-style:none}
+.ab-links a{display:flex;align-items:center;gap:12px;height:100%;min-height:64px;padding:10px 14px;box-sizing:border-box;background:#23272f;border:3px solid;border-color:var(--steel) var(--ink) var(--ink) var(--steel);text-decoration:none;font-size:16px;font-weight:600;line-height:1.25}
+.ab-links a:hover,.ab-links a:focus-visible{background:#2a2e38;border-color:var(--steel-l) var(--ink) var(--ink) var(--steel-l);outline:none}
+.ab-links svg{flex:none;width:28px;height:28px;color:var(--sun)}.ab-links b{flex:none;width:28px;text-align:center;font-size:26px;line-height:1;color:#ff0033}
+.ab-links a>span{min-width:0;overflow-wrap:anywhere}.ab-links small{display:block;margin-bottom:2px;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--steel-l)}
+.ab-sec .ab-fine{max-width:76ch;font-size:15px;line-height:1.4;color:var(--steel-l)}
 .ab-load{margin:0;padding-left:28px;text-align:left;font-size:16px;line-height:1.5}
 .ab-load li{overflow-wrap:anywhere}
 .ab-tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:5px solid var(--steel-l)}
@@ -758,13 +767,18 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       </dl>
     </section>
     <section id="aboutpanel-game" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-game" hidden>
-      <p data-i18n="aboutGame"></p>
-      <p><a data-link="midtown" data-i18n="aboutInspired"></a></p>
-      <p><a data-link="nfz" data-i18n="aboutPress"></a></p>
-      <p><a data-link="youtube" data-i18n="aboutYoutube"></a></p>
-      <p data-i18n="aboutPrivacy"></p>
-      <p><a data-link="privacy" data-i18n="aboutPrivacyLink"></a></p>
-      <p><span data-i18n="aboutContact"></span> <a id="aboutcontact"></a></p>
+      <p class="ab-lead" data-i18n="aboutGame"></p>
+      <h2 data-i18n="aboutLinksTitle">Links</h2>
+      <ul class="ab-links">
+        <li><a data-link="midtown"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path fill="currentColor" d="M6 4h14v9H6z"/><path fill="var(--ink)" d="M6 4h3.5v3H6zm7 0h3.5v3H13zM9.5 7H13v3H9.5zm7 0H20v3h-3.5zM6 10h3.5v3H6zm7 0h3.5v3H13z"/></svg><span><small data-i18n="aboutLinkInspired"></small><span data-i18n="aboutInspired"></span></span></a></li>
+        <li><a data-link="nfz"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M4 4h16v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path fill="currentColor" d="M7 7h5v5H7z"/><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M14 8h3M14 11h3M7 15h10"/></svg><span><small data-i18n="aboutLinkPress"></small><span data-i18n="aboutPress"></span></span></a></li>
+        <li><a data-link="youtube"><b aria-hidden="true">▶</b><span><small data-i18n="aboutLinkYoutube"></small><span data-i18n="aboutYoutube"></span></span></a></li>
+      </ul>
+      <h2 data-i18n="aboutPrivacyTitle">Anonymous statistics</h2>
+      <p class="ab-fine" data-i18n="aboutPrivacy"></p>
+      <p class="ab-fine"><a data-link="privacy" data-i18n="aboutPrivacyLink"></a></p>
+      <h2 data-i18n="aboutContact">Contact</h2>
+      <p><a id="aboutcontact"></a></p>
     </section>
     <section id="aboutpanel-credits" class="ab-sec ab-panel" role="tabpanel" aria-labelledby="abouttab-credits" hidden>
       <dl class="ab-credits">
