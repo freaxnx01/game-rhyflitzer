@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-19 22:19` Ab und zu zeigt ein **Hinweis** oben in der Mitte, was das Spiel noch kann — ein **Tipp** darauf (oder die genannte Taste) führt es gleich aus, das **×** schliesst ihn, und mit „keine Hinweise mehr" ist Ruhe. Abschalten geht auch unter **Einstellungen › Anzeige**.
 - `2026-11-19 16:39` Unter **Über → Das Spiel** ist es aufgeräumter: eine kurze Beschreibung, darunter die **Links** zu Midtown Madness, zum NFZ-Artikel und zum YouTube-Kanal als drei Kacheln, dann die **Anonyme Statistik** und der Kontakt je mit eigener Überschrift.
 - `2026-11-19 16:19` Unter **Über → Das Spiel** stehen neu der **NFZ-Artikel** «Mit dem Rhyflitzer wird das Fricktal zur Spielwelt» und der **YouTube-Kanal** freax.games.
 - `2026-11-19 15:53` Im Startmenü führt neu ein **YouTube**-Knopf direkt zum **freax.games-Kanal** mit den Videos zum Spiel. Auf dem Handy steht er neben dem Welt-Knopf, die Leiste bleibt gleich hoch.
