@@ -134,12 +134,12 @@ def test_worlds_dialog_selects_then_drives_and_esc_returns_focus(server):
 
 
 def test_phone_layout_and_screenshots(server, tmp_path):
-    """390x844 coarse pointer: 2x2 primary grid, full-width WORLD, sticky bar, no sticker, nothing focused."""
+    """390x844 coarse pointer: 2x2 primary grid, WORLD + YouTube fill one row, sticky bar, no sticker, nothing focused."""
     with sync_playwright() as p:
         b, page, errors = boot(p, server, viewport=(390, 844), touch=True)
         got = page.evaluate("""() => { const r = (i) => document.getElementById(i).getBoundingClientRect();
-            const s = r('startbtn'), bl = r('blitzbtn'), h = r('huntbtn'), w = r('worldbtn'), bar = document.querySelector('#overlay .bar').getBoundingClientRect();
-            return { sameRow: Math.abs(s.top - bl.top) < 2, below: h.top > s.bottom - 1, worldFull: w.width > innerWidth * 0.8,
+            const s = r('startbtn'), bl = r('blitzbtn'), h = r('huntbtn'), w = r('worldbtn'), yt = r('ytbtn'), bar = document.querySelector('#overlay .bar').getBoundingClientRect();
+            return { sameRow: Math.abs(s.top - bl.top) < 2, below: h.top > s.bottom - 1, worldFull: Math.abs(w.top - yt.top) < 2 && w.width + yt.width > innerWidth * 0.8,
                      barInside: bar.bottom <= innerHeight + 1, noHScroll: document.documentElement.scrollWidth <= innerWidth,
                      sticker: getComputedStyle(document.getElementById('sticker')).display, focus: document.activeElement.id || document.activeElement.tagName.toLowerCase(),
                      sticky: getComputedStyle(document.querySelector('#overlay .bar')).position }; }""")
@@ -199,3 +199,27 @@ def test_phone_menu_opens_scrolled_to_the_end_so_the_slot_shows_above_the_bar(se
     assert got["gap"] <= 1, got                    # scrolled to the end
     assert got["textBottom"] <= got["barTop"] + 1, got   # the mode text is not hidden behind the bar
     assert errors == []
+
+
+def test_youtube_link_sits_in_the_bar_without_making_the_phone_bar_taller(server):
+    """The freax.games YouTube channel is one tap from the start menu (the NFZ article names only rhyflitzer.ch). On a phone it
+    shares the World row, so the sticky bar keeps its height and #1071's scrolled-to-the-end menu still shows the slot."""
+    probe = """() => { const a = document.getElementById('ytbtn'), r = a.getBoundingClientRect(), w = document.getElementById('worldbtn').getBoundingClientRect(),
+        s = document.querySelector('#overlay .bar .row.secondary').getBoundingClientRect(), t = document.getElementById('ovtext').getBoundingClientRect(),
+        bar = document.querySelector('#overlay .bar').getBoundingClientRect();
+        return { inBar: !!a.closest('#overlay .bar .row.secondary'), href: a.href, target: a.target, rel: a.rel, title: a.title, w: r.width, h: r.height,
+            sameRowAsWorld: Math.abs(r.top - w.top) < 1, secH: s.height, textBottom: t.bottom, barTop: bar.top, right: r.right, vw: innerWidth }; }"""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        desk = page.evaluate(probe)
+        b.close()
+        b, page, errors2 = boot(p, server, viewport=(390, 664), touch=True)
+        phone = page.evaluate(probe)
+        b.close()
+    assert desk["inBar"] and desk["href"] == "https://www.youtube.com/@freax-games", desk
+    assert desk["target"] == "_blank" and "noopener" in desk["rel"] and desk["title"], desk
+    assert desk["w"] > 0 and desk["h"] > 0, desk
+    assert phone["sameRowAsWorld"] and phone["right"] <= phone["vw"], phone
+    assert phone["secH"] <= 88, phone                     # two rows, as before the link
+    assert phone["textBottom"] <= phone["barTop"] + 1, phone
+    assert errors == [] and errors2 == []

@@ -201,6 +201,7 @@ body.view #tr{display:none}   /* #824: the viewpoint score never uses time, so n
 .bar{padding:18px 32px 14px;background:linear-gradient(#66707e,#3a404b 40%,#23272f);border-top:5px solid #9ea7b3;box-shadow:0 -12px 30px rgba(0,0,0,.5)}
 .bar .row{justify-content:center;gap:16px}.bar .row.secondary{margin-top:12px;gap:10px}
 html:not(.installed) #reloadbtn,html:not(.installed) #pausereload{display:none}   /* #1076 */
+#ytbtn{box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;text-decoration:none;text-transform:none}#ytbtn b{color:#ff0033}   /* the freax.games channel; the NFZ article names only rhyflitzer.ch */
 .bar .row:not(.secondary) .btn{min-width:180px}
 .btn:hover:not(:disabled){background:linear-gradient(#ffe27a,#ffc61a 45%,#ff9a1a);border-color:#fff2b8 #a04a00 #a04a00 #fff2b8}
 .btn:disabled{cursor:default;color:#2a2e38;background:#5f6673;border-color:#737b88 #3a404b #3a404b #737b88;box-shadow:none}
@@ -300,7 +301,7 @@ body:has(#overlay:not([hidden])) #tc>:not(#toast),body:has(#worlds:not([hidden])
   .mid{padding:12px 12px 10px}.slot{padding:8px 10px}.slot p{font-size:15px}#sticker{display:none}
   .bar{position:sticky;bottom:0;padding:10px 12px}
   .bar .row:not(.secondary){display:grid;grid-template-columns:1fr 1fr;gap:8px}.bar .row:not(.secondary) .btn{min-width:0;height:48px;padding:0 8px;font-size:20px}#cruisebtn{grid-column:1/-1}#viewbtn:not([hidden])~#carbtn{grid-column:1/-1}#tutorialbtn:not([hidden])~#carbtn{grid-column:auto}#mpbtn{grid-column:1/-1}   /* #551: cruise spans the full first row, trial/blitz/hunt/car keep their 2x2; #508: hunt + view share a row, the car button gets the full next row; #534: tutorial + car share the last row */
-  .bar .row.secondary{gap:8px}#worldbtn{flex-basis:100%}.bar .row.secondary .btn{flex:1;padding:0 8px;font-size:15px}
+  .bar .row.secondary{gap:8px}#worldbtn{flex-basis:calc(100% - 128px)}.bar .row.secondary #ytbtn{flex:0 0 120px;justify-content:center}   /* the link shares the World row, the bar keeps its two rows (#1071) */.bar .row.secondary .btn{flex:1;padding:0 8px;font-size:15px}
   .foot{padding:8px 12px calc(16px + env(safe-area-inset-bottom,0px))}#blurb{font-size:13px}
   #worlds{padding:12px 16px 0;gap:10px}.ws-sub{display:none}.ws-body{flex-direction:column;flex:none}.ws-list{flex:none}.ws-preview{box-shadow:none;padding:10px 12px}.ws-name{font-size:26px}#worldsdesc{display:none}
   #about{padding:12px 16px 16px;gap:12px}.ab-car{width:48px;height:24px}.ab-rope{width:16px}.ab-tabs [role=tab]{flex-basis:40%;padding:0 8px;letter-spacing:1px}.ab-people,.ab-credits{grid-template-columns:minmax(0,1fr)}
@@ -647,6 +648,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       </div>
       <div class="row secondary">
         <button id="worldbtn" class="btn small" type="button"></button>
+        <a id="ytbtn" class="btn small" href="https://www.youtube.com/@freax-games" target="_blank" rel="noopener" data-i18n-title="ytChannel" title="Our videos on YouTube"><b>▶</b> YouTube</a>
         <button id="stylebtn2" class="btn small" type="button">Style: Original</button>
         <button id="aboutbtn" class="btn small" type="button" data-i18n="aboutBtn" style="text-transform:none">About</button>
         <button id="settingsbtn" class="btn small" type="button" data-i18n="settingsBtn" style="text-transform:none">Settings</button>

@@ -472,7 +472,8 @@ const en = {
   aboutBtn: 'About',
   // ---- #842 Settings ----
   settingsBtn: 'Settings',
-  reloadBtn: 'Reload',   // #1076: the installed fullscreen app has no browser bar to reload from
+  reloadBtn: 'Reload',
+  ytChannel: 'Our videos on YouTube',   // #1076: the installed fullscreen app has no browser bar to reload from
   iosHint: 'Play as an app: Share ⬆ → Add to Home Screen',   // #1080: iPhone/iPad, in the browser only
   iosHintClose: 'Dismiss',
   setTitle: 'Settings',
@@ -1283,6 +1284,7 @@ const de = {
   // ---- #842 Einstellungen ----
   settingsBtn: 'Einstellungen',
   reloadBtn: 'Neu laden',
+  ytChannel: 'Unsere Videos auf YouTube',
   iosHint: 'Als App spielen: Teilen ⬆ → Zum Home-Bildschirm',
   iosHintClose: 'Schliessen',
   setTitle: 'Einstellungen',
