@@ -5368,9 +5368,9 @@ function tapHint() {
   if (act.via === 'key') pressKey(act.cmd); else document.querySelector(act.sel).click();
 }
 function switchHintsOff() { setHintsOn(false); HINT_CARD.hint = null; $('hintcard').hidden = true; renderSettings(); }
-$('hintcard').addEventListener('click', tapHint);
-$('hintcard').querySelector('.hc-close').addEventListener('click', (e) => { e.stopPropagation(); endHint('closed'); });
-$('hintcard').querySelector('.hc-off').addEventListener('click', (e) => { e.stopPropagation(); switchHintsOff(); });
+document.getElementById('hintcard').addEventListener('click', tapHint);   // $ is declared further down (TDZ at module load)
+document.getElementById('hintcard').querySelector('.hc-close').addEventListener('click', (e) => { e.stopPropagation(); endHint('closed'); });
+document.getElementById('hintcard').querySelector('.hc-off').addEventListener('click', (e) => { e.stopPropagation(); switchHintsOff(); });
 addEventListener('gg-langchange', renderHintCard);
 window.__mm.hints = () => ({ on: HINTS_S.on, store: HINTS_S.store, play: HINTS_S.play, card: HINT_CARD.hint?.id ?? null, t: HINT_CARD.t });
 window.__mm.hintsStep = (secs, extra = {}) => { if (extra.cruiseS) HINT_CARD.sess = { ...HINT_CARD.sess, cruiseS: HINT_CARD.sess.cruiseS + extra.cruiseS }; stepHints(secs); return window.__mm.hints(); };
