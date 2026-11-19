@@ -194,6 +194,17 @@ def test_dice_rolls_a_name_and_forgets_the_typed_one(pair):
     assert not errors
 
 
+def test_name_field_takes_the_row_and_the_dice_stays_small(pair):
+    """The dice beside the name keeps its own width; #mp .btn{width:100%} squeezed the field to nothing, so a rolled
+    name was invisible and the dice looked broken."""
+    host, guest, errors = pair
+    host.click("#mpbtn")
+    field, dice = (host.locator(s).bounding_box()["width"] for s in ("#mpname", "#mpdice"))
+    assert dice <= 80 and field > 3 * dice, (field, dice)
+    assert host.evaluate("() => { const i = document.querySelector('#mpname'); return i.scrollWidth <= i.clientWidth; }")
+    assert not errors
+
+
 DROP_FIRST_HELLO = """(() => {
   const send = RTCDataChannel.prototype.send;
   let dropped = false;
