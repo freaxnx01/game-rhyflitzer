@@ -1,6 +1,6 @@
 # Discovery hints: show new players what the game can do, one hint at a time, design
 
-**Status:** brainstormed with the maintainer on 2026-11-19, approved in chat. No issue yet.
+**Status:** brainstormed with the maintainer on 2026-11-19, approved in chat. Issue #1090; touch controls for heli and loco split out to #1091.
 
 ## Why
 
@@ -28,7 +28,7 @@ The NFZ newspaper article will bring players who have never seen Rhyflitzer. The
 
 ## Non-goals
 
-- **Touch controls for flying the helicopter and driving the loco.** Today on a phone the heli takes off through the ☰ menu but cannot be steered, and the loco has no steam or brake. That is a separate issue. Until it ships, the heli and loco hints are **not shown on touch devices**.
+- **Touch controls for flying the helicopter and driving the loco.** Today on a phone the heli takes off through the ☰ menu but cannot be steered, and the loco has no steam or brake. That is #1091. Until it ships, the heli and loco hints are **not shown on touch devices**.
 - A video tutorial.
 - Changing the existing tutorial.
 - A help overlay for touch. Today F1 and Ctrl+P have no touch route. That is a separate topic, noted here only.
