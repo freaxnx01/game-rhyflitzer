@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-19 15:53` Im Startmenü führt neu ein **YouTube**-Knopf direkt zum **freax.games-Kanal** mit den Videos zum Spiel. Auf dem Handy steht er neben dem Welt-Knopf, die Leiste bleibt gleich hoch.
 - `2026-11-18 16:27` **Hinweis fürs iPhone:** Wer Rhyflitzer auf dem **iPhone oder iPad** im Browser öffnet, sieht unten im Startmenü jetzt einen Tipp, wie das Spiel als App auf den Home-Bildschirm kommt: **Teilen ⬆ → Zum Home-Bildschirm**. Mit dem **×** verschwindet der Hinweis für immer; in der installierten App und auf allen anderen Geräten erscheint er nie.
 - `2026-11-18 15:40` **Rhyflitzer als App:** auf dem Handy lässt sich rhyflitzer.ch jetzt über das Chrome-Menü **„App installieren"** auf den Home-Bildschirm legen, mit eigenem Icon (das gelbe „R" im Sonnenuntergang) und im **Vollbild** ohne Browserleiste. Weil dort die Adresszeile fehlt, gibt es in der App einen Knopf **„Neu laden"** im Startmenü und im Pausemenü. Offline spielen geht nicht, die Welt wird weiterhin geladen.
 - `2026-11-18 13:07` Das **Debug-Panel** (Strg+D oder `?debug`) zeigt jetzt auch **Bildrate**, **Grafik-Zahlen** und – wo der Browser es verrät – den **Speicherverbrauch**.
