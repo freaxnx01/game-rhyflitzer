@@ -169,6 +169,33 @@ def test_station_list_picks_any_station_and_keeps_it(server):
     assert errors == []
 
 
+def test_hints_switch_and_reset(server):
+    """#1090: Display carries the hints switch and "Show hints again" -- the switch writes mm.hintsOn,
+    the button drops the whole seen store."""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        page.evaluate("() => localStorage.setItem('mm.hints', '{\"heli\":{\"shown\":1,\"seen\":true}}')")
+        page.reload(); page.wait_for_function(READY, timeout=240000); page.click("#settingsbtn")
+        first = page.evaluate("() => window.__mm.hints()")
+        page.click("#sethints"); page.click("#sethintsreset")
+        after = page.evaluate("() => [window.__mm.hints(), localStorage.getItem('mm.hintsOn'), localStorage.getItem('mm.hints')]")
+        b.close()
+    assert first["on"] is True and first["store"]["heli"]["seen"] is True, first
+    assert after[0]["on"] is False and after[0]["store"] == {} and after[1:] == ["0", None], after
+    assert errors == []
+
+
+def test_hints_row_shows_on_touch(server):
+    """#1090: unlike the key bar, the hints rows stay on a phone -- the card is tappable there."""
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True).new_page()
+        for r in ("**/data/terrain_*.mmh", "**/data/world_hochrhein.json"): page.route(r, lambda x: x.fulfill(status=404, body=""))
+        page.goto(f"{server}/index.html"); page.wait_for_function(READY, timeout=240000); page.tap("#settingsbtn")
+        vis = [page.is_visible(s) for s in ("#sethints", "#sethintsreset", "#setkeybar")]; b.close()
+    assert vis == [True, True, False], vis
+
+
 def start_race(page):
     page.click("#startbtn")
     page.wait_for_function("() => window.__mm.pause().state === 'armed' || window.__mm.pause().state === 'racing'", timeout=120000)
