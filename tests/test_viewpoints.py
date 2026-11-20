@@ -130,18 +130,32 @@ def test_the_result_screen_shows_the_album_with_empty_frames(server):
     assert errors == []
 
 
-def test_1952_plattform_viewpoint_not_offered(server):   # #530: the DSM chimney is gone in 1952
+def test_1952_plattform_viewpoint_not_offered(server):   # #530: the DSM chimney and the Fridolinsbrücke are gone in 1952
     with sync_playwright() as p:
         b, page, errors = boot(p, server)
         start_view(page)
         page.keyboard.press("Control+y")
         got = page.evaluate("() => ({ v: window.__mm.views(), cpt: document.querySelector('#cpt').textContent, pips: document.querySelector('#pips').children.length })")
-        page.evaluate("() => { for (const i of [0, 2, 3]) window.__mm.viewScore(i, 120); }")
+        page.evaluate("() => { for (const i of [3]) window.__mm.viewScore(i, 120); }")
         after = page.evaluate("() => window.__mm.views().state")
         last = page.evaluate("() => window.__mm.views().last")
         b.close()
-    assert last["max"] == 450 and last["pts"] == 360, last   # #530: three offered viewpoints only
-    assert got["v"]["offered"] == 3 and got["cpt"] == "3" and got["pips"] == 3, got
-    assert [s["id"] for s in got["v"]["spots"] if s["hidden"]] == ["plattform"], got
+    assert last["max"] == 150 and last["pts"] == 120, last   # #530: the Münsterplatz is the one viewpoint offered
+    assert got["v"]["offered"] == 1 and got["cpt"] == "1" and got["pips"] == 1, got
+    assert [s["id"] for s in got["v"]["spots"] if s["hidden"]] == ["rheinblick", "plattform", "fridolinsbruecke"], got
     assert after == "finished"
+    assert errors == []
+
+
+def test_1952_toggled_back_offers_all_four_viewpoints_again(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        start_view(page)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.views().offered === 1", timeout=60000)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.views().offered === 4", timeout=60000)
+        got = page.evaluate("() => window.__mm.views()")
+        b.close()
+    assert got["offered"] == 4 and not any(s["hidden"] for s in got["spots"]), got
     assert errors == []

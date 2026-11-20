@@ -36,6 +36,7 @@ CROSS_MIN = 120.0   # m, strip length along it
 CROSS_MAX = 260.0
 ERA_KINDS = ("cereal", "cereal", "cereal", "root", "meadow", "pasture", "bare")
 KEEP_LANDMARKS = ("plattform",)  # stays visible in 1952
+ROAD_LANDMARKS = ("fridolinsbruecke",)  # flagged by era_roads (its road is hidden), not by the site
 HERE = Path(__file__).parent
 FOREST_WATER_GAP = 2.0  # m around forest and water
 
@@ -89,7 +90,7 @@ def _road_parts(road):
     return [substring(line, a, min(b, line.length)) for a, b in road["keep1952"]]
 
 
-def keep_out_of(world, site):
+def keep_out_of(world):
     """What stays visible in 1952: geometry the strips must not cover."""
     cuts = []
     for road in world["roads"]:
@@ -121,7 +122,10 @@ def flag_site(world, site):
     for prop in world.get("props", []):
         counts["props"] += _set_flag(prop, site.contains(Point(prop["x"], prop["z"])))
     for name, lm in world.get("anchors", {}).get("landmarks", {}).items():
-        if name in KEEP_LANDMARKS or "x" not in lm or "z" not in lm:
+        if name in ROAD_LANDMARKS or "x" not in lm or "z" not in lm:
+            continue
+        if name in KEEP_LANDMARKS:
+            lm.pop("modern", None)
             continue
         counts["landmarks"] += _set_flag(lm, site.contains(Point(lm["x"], lm["z"])))
     return counts
@@ -134,7 +138,7 @@ def apply(world, industrial_lonlat):
     frame = Frame(world["origin"]["lat"], world["origin"]["lon"])
     site = _to_game(industrial_lonlat, frame)
     counts = flag_site(world, site)
-    world["era"]["fields"] = layout(site, keep_out_of(world, site))
+    world["era"]["fields"] = layout(site, keep_out_of(world))
     counts["fields"] = len(world["era"]["fields"])
     return counts
 

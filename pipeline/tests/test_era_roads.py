@@ -385,3 +385,16 @@ def test_apply_Idempotent_WithKeep1952():
     assert json.dumps(world, ensure_ascii=False, separators=(",", ":")) == first
     assert counts["trimmed"] == 1
     assert not any("keep1952" in r and "modern" in r for r in world["roads"])
+
+
+def test_apply_FridolinsbrueckeHidden_FlagsItsLandmarkAnchor():
+    ind = {"type": "Polygon", "coordinates": [[[7.99, 47.55], [7.991, 47.55], [7.991, 47.551], [7.99, 47.551], [7.99, 47.55]]]}
+    world = {"origin": {"lat": 47.5506, "lon": 7.9671},
+             "roads": [road("primary", [(100, 0), (300, 0)]), road("secondary", [(300, 10), (300, 200)], n="Fridolinsbrücke", bridge=True)],
+             "buildings": [], "anchors": {"landmarks": {"fridolinsbruecke": {"x": 300, "z": 100}, "muenster": {"x": 5, "z": 5}}}}
+    R.apply(world, SWISS_LV95(), ind)
+    lms = world["anchors"]["landmarks"]
+    assert lms["fridolinsbruecke"]["modern"] is True and "modern" not in lms["muenster"]
+    world["roads"][1]["n"] = "Other"
+    R.apply(world, SWISS_LV95(), ind)
+    assert "modern" not in world["anchors"]["landmarks"]["fridolinsbruecke"]

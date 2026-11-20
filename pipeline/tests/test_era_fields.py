@@ -67,7 +67,7 @@ def _world_for_keep_out():
 
 
 def test_keep_out_holds_old_roads_kept_stretches_rail_forest_water_and_todays_fields():
-    ko = F.keep_out_of(_world_for_keep_out(), SITE)
+    ko = F.keep_out_of(_world_for_keep_out())
     for p in [(200, 10), (25, 50), (200, 70), (320, 100), (220, 100), (120, 100), (30, 100)]:
         assert ko.contains(Point(p)), p
     for p in [(200, 30), (150, 50)]:
@@ -118,3 +118,17 @@ def test_apply_is_idempotent_and_writes_era_fields():
     assert w["era"]["year"] == 1952 and w["era"]["fields"] and counts["fields"] == len(w["era"]["fields"])
     corridor = LineString([(0, 10), (400, 10)]).buffer(3)
     assert not any(Polygon(e["ring"]).intersects(corridor) for e in w["era"]["fields"])
+
+
+def test_flag_site_clears_a_stale_flag_on_a_kept_landmark():
+    w = _flag_world()
+    w["anchors"]["landmarks"]["plattform"]["modern"] = True
+    F.flag_site(w, SITE)
+    assert "modern" not in w["anchors"]["landmarks"]["plattform"]
+
+
+def test_flag_site_leaves_a_road_owned_landmark_alone():
+    w = _flag_world()
+    w["anchors"]["landmarks"]["fridolinsbruecke"] = {"x": 900, "z": 900, "modern": True}
+    F.flag_site(w, SITE)
+    assert w["anchors"]["landmarks"]["fridolinsbruecke"]["modern"] is True
