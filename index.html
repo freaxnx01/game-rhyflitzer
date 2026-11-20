@@ -1082,7 +1082,7 @@ import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editio
 import { shouldShowIosHint } from './iosinstall.js';   // #1080
 import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from './tutorial.js';   // #534
-import { track as umamiTrack, settle as umamiSettle, trackPageview, identifySource, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
+import { track as umamiTrack, settle as umamiSettle, trackPageview, identifySource, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionData } from './analytics.js';   // #538
 import { photoFileName, canPhoto } from './photo.js';
 import { MAX_SECONDS, pickRecordFormat, recordFileName, recordBitrate, recordKeyAction, recordNext, recordElapsed, formatClock } from './record.js';   // #749
 import { waypointFrom, newCamPath, parseCamPath, serializeCamPath, camPathFileName, buildTrack, sampleTrack, camPathKeyAction } from './campath.js';   // #900
@@ -8500,9 +8500,9 @@ function buildBusStops() {
 if (REGION.backdrop && !GEN) fetch(REGION.backdrop).then((r) => (r.ok ? r.arrayBuffer() : null)).then((buf) => { if (buf) buildBackdrop(parseMMH(buf), buf.byteLength); }).catch(() => {});   // #593: never awaited, startup does not wait for the horizon
 // #538: Umami bookkeeping. Coarse ids only (see analytics.js). Vehicle and activity are sampled once a second (the interval also runs while the pause menu freezes the loop, where a car swap happens); modes and jumps are one-line calls from startRace, finish, endHunt, timeUp, toMainMenu and placeOnRoad.
 const STATS = { lastMode: null, vehicle: createChangeReporter({ name: 'vehicle', initial: CHOICE.id, shape: vehicleData }), activity: createChangeReporter({ name: 'activity', initial: 'car', shape: activityData }) };
-function trackModeStart(mode) { STATS.vehicle.flush(); umamiTrack('mode-start', { ...modeData(mode, MODES, STATS.lastMode), region: regionId(REGION), vehicle: CHOICE.id }); STATS.lastMode = mode; }
+function trackModeStart(mode) { STATS.vehicle.flush(); umamiTrack('mode-start', { ...modeData(mode, MODES, STATS.lastMode), ...regionData(REGION), vehicle: CHOICE.id }); STATS.lastMode = mode; }
 function trackModeEnd(outcome) { umamiTrack('mode-end', modeEndData({ mode: R.mode, outcome, seconds: R.t }, MODES)); }
-umamiTrack('game-ready', { region: regionId(REGION), lang: window.GG_LANG || 'en', vehicle: CHOICE.id, vehicle_source: vehicleSource(location.search, (() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), vehicleIds()), mode: SHOWN.mode, touch: matchMedia('(pointer: coarse)').matches ? 'yes' : 'no' });
+umamiTrack('game-ready', { ...regionData(REGION), lang: window.GG_LANG || 'en', vehicle: CHOICE.id, vehicle_source: vehicleSource(location.search, (() => { try { return localStorage.getItem('mm.car'); } catch (e) { return null; } })(), vehicleIds()), mode: SHOWN.mode, touch: matchMedia('(pointer: coarse)').matches ? 'yes' : 'no' });
 setInterval(() => { const now = performance.now(); STATS.vehicle.update(CHOICE.id, now); STATS.activity.update(activityOf({ train: TRAIN.on, level: LEVELS.id, indoors: INT.indoors, house: INT.house, foot: FOOT.on, fly: FLY.on }), now); }, 1000);
 addEventListener('gg-langchange', (e) => umamiTrack('lang', { lang: e.detail.lang }));
 endLoading();

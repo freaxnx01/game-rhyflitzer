@@ -1,5 +1,5 @@
 // #538: what the game tells Umami (self-hosted, stats.freaxnx01.ch). Never breaks the game: blocked, offline or missing umami = silent no-op.
-// Coarse by design: ids of public things (vehicle, mode, region, house, landmark label), times rounded to 5 s. Never a position, the world id, the query string or anything typed.
+// Coarse by design: ids of public things (vehicle, mode, region, a generated world's Gemeinde names, house, landmark label), times rounded to 5 s. Never a position, the world id, the query string or anything typed.
 import { takeReferrer } from './legacy.js';
 export const MAX_TEXT =60, STEP_S = 5, SETTLE_MS = 2000, MAX_QUEUE = 50, MAX_CHANGES = 200;
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign'], OUTCOMES = ['finished', 'timeup', 'abandoned'];
@@ -46,6 +46,13 @@ export const identifySource = () => { const source = campaignSource(globalThis.l
 
 export const roundSeconds = (t, step = STEP_S) => (Number.isFinite(t) && t >= 0 ? Math.round(t / step) * step : 0);
 export const regionId = (region) => (region?.generated ? 'world' : text(region?.id) || 'unknown');   // a generated world's id is never sent
+// #1100: a generated world also sends its Gemeinde names (from the pipeline's world.json, public, never typed), capped; still never its id
+export const MAX_WORLD_NAMES = 4;
+const worldName = (region) => {
+  const names = (Array.isArray(region.gemeinden) ? region.gemeinden : []).filter((n) => typeof n === 'string' && n.trim()).map((n) => n.trim());
+  return text(names.length ? names.slice(0, MAX_WORLD_NAMES).join(', ') : region.name) || 'unknown';
+};
+export const regionData = (region) => (region?.generated ? { region: regionId(region), world: worldName(region) } : { region: regionId(region) });
 
 export function vehicleSource(search, stored, ids) {
   const match = /[?&]vehicle=([^&]*)/.exec(search ?? '');

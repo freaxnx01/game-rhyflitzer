@@ -3,6 +3,9 @@ tests never reach the real Umami. Hand-traced layout (world and terrain blocked)
 from playwright.sync_api import sync_playwright
 
 from test_carselect import SETTLED
+from test_world import make_world, needs_ehr
+
+ANALYTICS_WID = "aabbccddeeff"
 
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = "() => window.__mm && window.__mm.sim && document.querySelector('#worldstatus')?.textContent"
@@ -75,3 +78,17 @@ def test_a_blocked_umami_never_breaks_the_game(server):
         page.wait_for_function(READY, timeout=240000)
         page.click("#startbtn"); page.wait_for_timeout(500); b.close()
     assert not errors
+
+
+@needs_ehr
+def test_a_generated_world_sends_its_gemeinde_names_but_never_its_id(server, world_host):
+    """#1100: Umami can tell which built world was played, by the pipeline's Gemeinde names; the id stays out."""
+    url, root = world_host
+    make_world(root, ANALYTICS_WID, name="Testdorf")
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, f"?worldhost={url}&world={ANALYTICS_WID}")
+        ready = named(page, "game-ready")
+        everything = str(calls(page)); b.close()
+    assert not errors
+    assert len(ready) == 1 and ready[0]["region"] == "world" and ready[0]["world"] == "Testdorf"
+    assert ANALYTICS_WID not in everything

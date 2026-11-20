@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createTracker, pageUrl, pageviewProps, createChangeReporter, roundSeconds, regionId, vehicleSource, vehicleData,
-  activityOf, activityData, modeData, modeEndData, jumpData, MAX_TEXT, campaignSource,
+  activityOf, activityData, modeData, modeEndData, jumpData, MAX_TEXT, campaignSource, regionData, MAX_WORLD_NAMES,
 } from '../analytics.js';
 
 const MODES = ['trial', 'blitz', 'hunt'];
@@ -80,6 +80,27 @@ test('regionId: a generated world is just "world", never its id', () => {
   assert.equal(regionId({ id: 'hochrhein' }), 'hochrhein');
   assert.equal(regionId({ id: 'world:abc123', worldId: 'abc123', generated: true }), 'world');
   assert.equal(regionId(undefined), 'unknown');
+});
+
+// #1100: a generated world names its Gemeinden (the pipeline's public names, never typed), still never its id
+test('regionData: a built-in region sends its id and no world', () => {
+  assert.deepEqual(regionData({ id: 'hochrhein', gemeinden: ['Sisseln', 'Stein'] }), { region: 'hochrhein' });
+  assert.deepEqual(regionData(undefined), { region: 'unknown' });
+});
+
+test('regionData: a generated world sends its Gemeinde names, never its id', () => {
+  const world = { id: 'world:abc123', worldId: 'abc123', generated: true, name: 'Dornach', gemeinden: ['Dornach', 'Aesch (BL)'] };
+  assert.deepEqual(regionData(world), { region: 'world', world: 'Dornach, Aesch (BL)' });
+  assert.ok(!JSON.stringify(regionData(world)).includes('abc123'));
+});
+
+test('regionData: the world names are capped in count and length; no Gemeinden falls back to the name', () => {
+  const many = Array.from({ length: 9 }, (_, i) => `Gemeinde${i}`);
+  assert.equal(regionData({ generated: true, gemeinden: many }).world.split(', ').length, MAX_WORLD_NAMES);
+  const long = regionData({ generated: true, gemeinden: ['x'.repeat(50), 'y'.repeat(50)] }).world;
+  assert.ok(long.length <= MAX_TEXT);
+  assert.deepEqual(regionData({ generated: true, name: 'Baden · Waldshut', gemeinden: [] }), { region: 'world', world: 'Baden · Waldshut' });
+  assert.deepEqual(regionData({ generated: true, gemeinden: [' ', 3] }), { region: 'world', world: 'unknown' });
 });
 
 test('vehicleSource: query beats stored beats default; an unknown ?vehicle= is ignored', () => {
