@@ -8,6 +8,8 @@ The two pages share one browser, so the background one is never the foreground t
 timers and its rAF loop running, and the driving itself goes through __mm.driveSim, which steps the simulation
 without needing a focused window.
 Slow (Playwright, two heavy pages): run in the foreground."""
+import math
+
 import pytest
 from playwright.sync_api import sync_playwright
 
@@ -185,4 +187,83 @@ def test_remote_car_has_tag_and_fades_when_guest_leaves(pair):
     host.wait_for_function("() => document.querySelector('#toast').textContent === 'Ben has left.'", timeout=T)
     host.wait_for_function("() => !window.__mm.netCars().some(c => c.id === 1)", timeout=T)
     assert net(guest)["role"] is None
+    assert errors == []
+
+
+# the connect / start lines of test_two_players_see_each_other_drive, shared by the #1108 wheel tests below
+def start_session(host, guest):
+    """Connect, ready up and start the shared drive, until the guest sees the host's car."""
+    connect(host, guest)
+    ready_both(host, guest)
+    host.click("#mpgo")
+    for page in (host, guest):
+        page.wait_for_function(
+            "() => window.__mm.net().session && document.querySelector('#mplobby').hidden", timeout=T)
+    guest.wait_for_function("() => window.__mm.net().offset !== null", timeout=T)   # the clock is synced to the host
+    guest.wait_for_function(
+        "() => window.__mm.netCars().some(c => c.id === 0 && c.built && c.visible)", timeout=T)
+
+
+def wheels_ready(page):
+    page.wait_for_function(
+        "() => { const c = window.__mm.netCars().find(c => c.id === 0); return c && c.wheels && c.wheels.n >= 4; }",
+        timeout=T)
+
+
+def test_remote_car_turns_and_rolls_its_wheels(pair):
+    """#1108: the other player's front wheels turn with its steering and all wheels roll while it drives."""
+    host, guest, errors = pair
+    start_session(host, guest)
+    wheels_ready(guest)
+    assert net_car(guest, 0)["wheels"]["spin"] == 0    # a standing remote car keeps its wheels still
+    spin_before = net_car(guest, 0)["wheels"]["spin"]
+
+    host.evaluate("() => window.__mm.driveSim(2, ['KeyW', 'KeyD'])")
+
+    # The sender's steering eases back to 0 once the keys come up (and driveSim blocks the host's
+    # event loop, so poses only flow between calls), so read the yaw while it drives again: run
+    # the drive in a second step and poll -- the headless guest draws about one frame a second,
+    # so give it as many frames as it needs, never a fixed stretch of wall clock.
+    yaw_seen, rolled = False, False
+    for _ in range(20):
+        w = net_car(guest, 0)["wheels"]
+        yaw_seen = yaw_seen or any(abs(y) > 0.05 for y in w["yaw"])
+        guest.wait_for_timeout(200)
+        rolled = rolled or net_car(guest, 0)["wheels"]["spin"] != spin_before
+        if yaw_seen and rolled:
+            break
+        host.evaluate("() => window.__mm.driveSim(0.5, ['KeyW', 'KeyD'])")
+    assert yaw_seen, net_car(guest, 0)["wheels"]
+    assert rolled, net_car(guest, 0)["wheels"]
+    assert errors == []
+
+
+def test_remote_car_reversing_rolls_backwards(pair):
+    """#1108: while the other player reverses, its wheels roll backwards on this screen."""
+    host, guest, errors = pair
+    start_session(host, guest)
+    wheels_ready(guest)
+    th = host.evaluate("() => window.__mm.heading()")       # the sender's heading, constant (no steer held)
+    pos0 = net_car(guest, 0)["pos"]
+
+    # Brake in short taps: a tap keeps the reverse speed under ~1 m/s, so one frame of the
+    # headless guest (about one a second, dt clamped to 0.1 s) turns the wheels well under
+    # half a turn and the signed wrapped delta of two reads stays unambiguous. A full-speed
+    # reverse (driveSim(2, ['KeyS'])) turns ~4 rad a frame: that wraps around 2*pi and reads
+    # as a false forward roll -- so the wheels are sampled at a speed they can be read at,
+    # the assertion itself is never skipped.
+    for _ in range(20):
+        host.evaluate("() => window.__mm.driveSim(0.1, ['KeyS'])")   # a tap: the car creeps backwards
+        a = net_car(guest, 0)["wheels"]["spin"]
+        guest.wait_for_timeout(200)
+        b = net_car(guest, 0)["wheels"]["spin"]
+        delta = (b - a + math.pi) % (2 * math.pi) - math.pi
+        if abs(delta) > 0.01:
+            assert delta < 0, (a, b, delta)
+            break
+    else:
+        pytest.fail("the guest's remote wheels never turned between two reads")
+    pos1 = net_car(guest, 0)["pos"]
+    along = (pos1[0] - pos0[0]) * math.cos(th) + (pos1[2] - pos0[2]) * math.sin(th)
+    assert along < 0, (th, pos0, pos1)     # the car really moved opposite its heading: it reversed
     assert errors == []
