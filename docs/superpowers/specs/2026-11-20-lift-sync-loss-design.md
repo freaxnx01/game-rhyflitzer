@@ -5,6 +5,49 @@
 Two-player playtest 2026-11-20: "MP J Hübel, beide in Lift, plötzlich synchronisierung verloren". Both players jumped
 to the Hübel (J), drove into the freight lift, and the sync between them was suddenly lost.
 
+**Playtester's answer (2026-11-20, amended run):** asked "Did the sync come back by itself after a few seconds, or did
+the other car stay gone?", the answer was "We jumped out of Hübel to the same place and the sync was back". So the
+other car stayed gone the whole time both were in the lift / hideout, and came back only once both were on the
+surface again. That is not the temporary loss measured below; it has its own cause.
+
+## Main cause: below ground, the remote cars are swept into the hidden surface group
+
+`LEVELS.onChange` (`index.html:4045`) is how the game leaves the surface: on a switch to any level below
+(`liftSwitch` `index.html:4699`, `stepSpokes` `index.html:4686`, `jumpBelow` `index.html:8534`), it moves **every
+direct child of the scene that is not on `keepBelow()`** into `surfaceRoot` (`index.html:4049`), a group that is
+always hidden (`surfaceRoot.visible = false`, `index.html:4033`). Back on the surface it moves them all back
+(`index.html:4052`).
+
+`keepBelow()` (`index.html:4039`) lists the car, sky, lights, shadow, the ring and room groups and the cab, but not
+the other players' cars. `buildNetCar` adds each remote car straight to the scene (`scene.add(mesh)`,
+`index.html:7311`) and its name tag likewise (`scene.add(entry.tag)`, `index.html:7315`). So the first time the
+**own** player goes below, every remote car and tag built so far ends up under `surfaceRoot` and is never drawn,
+however correct its pose. `stepNetCars` (`index.html:7339`) keeps setting `entry.mesh.visible = true` and moving it,
+which is why `__mm.netCars()` still reports `visible: true` (it reads the mesh's own flag, `index.html:7475`), and why
+nothing in the pose path looks wrong. The car comes back only on the switch to the surface, exactly as the tester
+saw. Being on the same level as the other player makes no difference: the sweep depends only on the own level.
+
+### Measured (headless, one real-world page, 2026-11-20)
+
+A temporary hook added a plain `Object3D` to the scene exactly as `buildNetCar` does (`scene.add`), and read
+`drawn()` (`index.html:4706`, visible up to the scene) and its parent. Testhub jumps (`?dev=1`, stub client as in
+`tests/test_testhub.py`):
+
+| own level | parent | drawn |
+|---|---|---|
+| surface, after `scene.add` | `scene` | true |
+| `ring` (jump `hideout.ring1`) | `surfaceRoot` | **false** |
+| `ring`, 2 s later | `surfaceRoot` | **false** |
+| surface again (jump `hideout.gate`) | `scene` | true |
+
+No page errors. The hook was reverted; nothing of it is committed.
+
+Side effect of the same sweep: `removeNetMesh` / `dropNetTag` call `scene.remove(...)` (`index.html:7273`,
+`index.html:7277`), which does nothing for a node whose parent is `surfaceRoot`. A player who leaves while the own
+player is below leaves a ghost car in `surfaceRoot`, which the switch back to the surface puts into the scene for good.
+
+## Secondary cause: the ride's render stalls and the clock skew (previous run)
+
 ## Reproduction (headless, 2026-11-20)
 
 Two pages in one 2 GB-capped Playwright run, `?netice=none`, lobby handshake from `tests/test_multiplayer_lobby.py`
@@ -50,7 +93,7 @@ Two pages in one 2 GB-capped Playwright run, `?netice=none`, lobby handshake fro
    a late sample: `addClockSample` (`netsync.js:23-26`) takes `b - (a + c) / 2`, which is off by up to half the
    round trip. Three or more of the last five (`CLOCK_N`, `netsync.js:10`) are bad, so the median
    (`clockOffset`, `netsync.js:29-34`) moves: +3.3 s / +5.7 s measured. The pong handler applies it at once
-   (`index.html:6967`). For the next ~6 s:
+   (`index.html:6968`). For the next ~6 s:
    - the guest stamps its poses seconds in the future (`hostNow`, `index.html:7101`); the host holds the guest's
      car at its oldest buffered pose (`netsync.js:74`) and drops the corrected poses as stragglers
      (`pushPose`, `netsync.js:46`);
@@ -70,31 +113,52 @@ page in `__mm.stepped(true)` for the lobby clicks (SwiftShader draws the real wo
 
 ## Design
 
-Fix the clock, which turns a stall into a much longer loss:
+### Main fix: keep the remote cars out of the surface sweep
+
+- `index.html`, next to `keepBelow` (`index.html:4039`): a new function declaration `netKeepNodes()` returning every
+  built remote car mesh and name tag (`[...NETCARS.values()].flatMap(e => [e.mesh, e.tag]).filter(Boolean)`).
+  `keepBelow()` spreads it into its set. `NETCARS` is declared later (`index.html:7053`); that is safe because
+  `keepBelow` is only called from the `LEVELS.onChange` listener, which runs on a level switch, and every switch
+  (lift ride, spoke, testhub jump) happens after the module has finished loading.
+- Nothing else in the level switch changes. The remote cars stay direct children of the scene on every level, so
+  `scene.remove` in `removeNetMesh` / `dropNetTag` works below ground too (no ghost car).
+- Test hook, read-only: `window.__mm.netDrawn = () => [...NETCARS].map(([id, e]) => ({ id, car: drawn(e.mesh), tag:
+  drawn(e.tag) }))`, next to `__mm.netContacts` (`index.html:7476`). `__mm.netCars` stays as it is.
+
+### Further fix: bound the ping round trip (unchanged from the previous run)
 
 - `netsync.js`: new `export const RTT_MAX = 1000` (ms). `addClockSample(samples, a, b, c)` returns `samples`
   unchanged when there already is at least one sample and the round trip `c - a` is longer than `RTT_MAX`. The
   first sample is always kept, so a slow link still gets an offset (`netSendPose` waits for one,
-  `index.html:7234`).
-- Nothing else changes: `index.html:6967` already passes `a`, `b`, `c`.
+  `index.html:7236`). `index.html:6968` already passes `a`, `b`, `c`.
 
-Effect: pongs that queued behind a stall (on either side) never move the offset; the remote car comes back with the
-first pose after the stall instead of seconds later, and the host no longer holds the guest at a stale pose.
+Effect: pongs that queued behind a stall never move the offset; after the lift ride's first-render stalls the remote
+car comes back with the first pose instead of seconds later.
 
-Not in this change (see Assumptions): shortening the stall itself (pre-compiling the hall, cab and ring before
-they are first drawn), and a longer `HIDE` that would keep a stalled car frozen in place instead of hiding it.
+Not in this change (see Assumptions): showing a remote car only when it is on the observer's own level (the pose
+carries no level), shortening the stall itself, a longer `HIDE`.
 
-## Functions and files touched (landing order vs #1108, #1113, #1114, #1116)
+## Functions and files touched (overlap with #1108, #1120 in flight)
 
+- `index.html`: `keepBelow` (one line), new `netKeepNodes` beside it, new hook `__mm.netDrawn` after
+  `__mm.netContacts`.
 - `netsync.js`: `addClockSample`, new `RTT_MAX`.
-- `tests/netsync.test.mjs`, `CHANGELOG.md`.
-- **No `index.html` change**: no overlap with `netStartSession` (#1114) or `cloneStageVehicle` / `buildNetCar` /
-  `stepNetCars` (#1108, #1116) or the map (#1113). Lands in any order.
+- `tests/test_multiplayer_below.py` (new), `tests/netsync.test.mjs`, `CHANGELOG.md`.
+- **#1108** changes `cloneStageVehicle`, `buildNetCar`, `newNetCar`, `stepNetCars` and adds `stepRemoteWheels`:
+  none of those is edited here. `netKeepNodes` reads `entry.mesh` / `entry.tag` only, which #1108 keeps. If #1108
+  adds further direct scene children per remote car (e.g. wheels added to the scene rather than the mesh), they must
+  go into `netKeepNodes` too. The `__mm.netDrawn` line sits near the `__mm.netCars` hook line, which #1108 may also
+  extend: a textual merge conflict at most, not a logic one.
+- **#1120** (`stepRace`, `netRaceFinish`, `netReopenCp`, `netEndSession`, `drawMap`): no overlap.
 
 ## Acceptance criteria
 
-- A ping round trip longer than 1000 ms does not change the clock samples once one exists.
-- Pongs that queued behind a 10 s host stall leave the offset where it was (unit test).
-- The first sample is kept whatever its round trip.
-- The existing `clockOffset_fiveSamples_median` test still passes unchanged.
-- `node --test tests/netsync.test.mjs` and `tests/test_multiplayer_cruise.py` pass.
+- While the own player is on a level below (ring, room), every built remote car and its name tag stay direct
+  children of the scene and are drawn (`__mm.netDrawn` reports `car: true`, `tag: true` for a player with a fresh,
+  visible pose), and they still are after the switch back to the surface.
+- `tests/test_multiplayer_below.py` fails before the fix and passes after it.
+- A ping round trip longer than 1000 ms does not change the clock samples once one exists; pongs that queued behind
+  a 10 s host stall leave the offset where it was; the first sample is kept whatever its round trip.
+- `clockOffset_fiveSamples_median` passes unchanged; `node --test tests/*.test.mjs` passes.
+- `tests/test_multiplayer_cruise.py` passes.
+- CHANGELOG entry under `[Unreleased]` / `Fixed`.
