@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DRONE, droneSway, PULL, clearFraction, aheadHeadings, pullStep } from '../camera.js';
+import { DRONE, droneSway, PULL, clearFraction, aheadHeadings, pullStep, SIDE, sideOffsets, sideTarget } from '../camera.js';
 
 test('DRONE: the agreed camera constants (#93)', () => {
   assert.deepEqual(DRONE, { rate: 2.5, aimRate: 4, aimAhead: 4, aimUp: 1, swaySide: 0.5, swayUp: 0.3, swaySideHz: 0.33, swayUpHz: 0.21 });
@@ -98,4 +98,43 @@ test('pullStep: per-step change bounded at any dt up to the loop clamp', () => {
     let s = { pull: 1, hold: 0 }, prev = 1;
     for (let i = 0; i < 400; i++) { s = pullStep(s, i % 40 < 20 ? 0.2 : 1, dt); assert.ok(Math.abs(s.pull - prev) <= PULL.inRate * dt + 1e-12); prev = s.pull; }
   }
+});
+
+// #1106: the side camera
+const near = (a, b) => Math.abs(a - b) < 1e-9;
+const nearAll = (a, b) => a.length === b.length && a.every((v, i) => near(v, b[i]));
+
+test('sideOffsets derives from the chase numbers', () => {
+  const o = sideOffsets({ dist: 6.9, h: 2.6 });
+  assert.ok(near(o.dist, 6.9) && near(o.h, 4.16) && near(o.back, 2.07) && o.aimBack === 0, JSON.stringify(o));
+});
+
+test('a camera.side override wins', () => {
+  const o = sideOffsets({ dist: 6.9, h: 2.6, side: { dist: 9, h: 5, back: 1 } });
+  assert.deepEqual(o, { dist: 9, h: 5, back: 1, aimBack: 0 });
+});
+
+test('a trailer moves the view back', () => {
+  const o = sideOffsets({ dist: 20, h: 6.5 }, { hitch: 5.2, length: 3.85 });
+  assert.ok(near(o.aimBack, 4.525) && near(o.back, 6), JSON.stringify(o));
+});
+
+test('sideTarget sits on the left at th 0', () => {
+  const t = sideTarget({ x: 0, y: 0, z: 0, th: 0 }, { dist: 5, h: 3, back: 2, aimBack: 0 }, 1);
+  assert.ok(nearAll(t.eye, [-2, 3, -5]) && nearAll(t.at, [0, 1.2, 0]), JSON.stringify(t));
+});
+
+test('s = -1 mirrors to the right', () => {
+  const t = sideTarget({ x: 0, y: 0, z: 0, th: 0 }, { dist: 5, h: 3, back: 2, aimBack: 0 }, -1);
+  assert.ok(nearAll(t.eye, [-2, 3, 5]), JSON.stringify(t));
+});
+
+test('at th = PI the left is +z', () => {
+  const t = sideTarget({ x: 0, y: 0, z: 0, th: Math.PI }, { dist: 5, h: 3, back: 2, aimBack: 0 }, 1);
+  assert.ok(nearAll(t.eye, [2, 3, 5]), JSON.stringify(t));
+});
+
+test('the trailer shifts eye and look back', () => {
+  const t = sideTarget({ x: 0, y: 0, z: 0, th: 0 }, { dist: 5, h: 3, back: 2, aimBack: 4 }, 1);
+  assert.ok(near(t.at[0], -4) && near(t.eye[0], -6), JSON.stringify(t));
 });
