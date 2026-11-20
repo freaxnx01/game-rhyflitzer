@@ -1608,6 +1608,31 @@ test('layoutFromWorld keeps a road\'s modern flag on roads and bridges (#530)', 
   assert.equal(L.bridges[0].modern, true);
 });
 
+const keepWorld = roads => ({ roads, junctions: [], water: [], buildings: [], rail: [], bbox: [0, 0, 1, 1], waterSdf: {}, anchors: {} });
+test('layoutFromWorld_Keep1952_SplitsIntoKeptAndModernPieces', () => {
+  const road = { n: 'Q', cls: 'residential', w: 5.5, pts: [[0, 0], [40, 0], [40, 60]], keep1952: [[10, 30], [50, 70]] };
+  const L = layoutFromWorld(keepWorld([road]));
+  assert.equal(L.roads.length, 5);
+  assert.deepEqual(L.roads.map(r => !!r.modern), [true, false, true, false, true]);
+  assert.deepEqual(L.roads.map(r => Math.round(polylineLength(r.pts))), [10, 20, 20, 20, 30]);
+  assert.deepEqual(L.roads[0].pts, [[0, 0], [10, 0]]);
+  assert.deepEqual(L.roads[1].pts, [[10, 0], [30, 0]]);
+  assert.deepEqual(L.roads[2].pts, [[30, 0], [40, 0], [40, 10]]);
+  assert.deepEqual(L.roads[3].pts, [[40, 10], [40, 30]]);
+  assert.deepEqual(L.roads[4].pts, [[40, 30], [40, 60]]);
+  for (const r of L.roads) { assert.equal(r.keep1952, undefined); assert.equal(r.n, 'Q'); assert.equal(r.tex, 'road'); }
+  assert.equal('modern' in L.roads[1], false);
+  assert.deepEqual(L.bridges, []);
+});
+test('layoutFromWorld_Keep1952_FullRange_NoSplit', () => {
+  const road = { cls: 'residential', w: 5.5, pts: [[0, 0], [100, 0]], keep1952: [[0, 100]] };
+  const L = layoutFromWorld(keepWorld([road]));
+  assert.equal(L.roads.length, 1);
+  assert.equal(L.roads[0].modern, undefined);
+  assert.equal(L.roads[0].keep1952, undefined);
+  assert.deepEqual(L.roads[0].pts, [[0, 0], [100, 0]]);
+});
+
 // #1044: road crossings under road bridges
 import { roadBridgeCrossings, DECK_END_GAP } from '../world.js';
 test('roadBridgeCrossings_NormalRoadUnderDeck_OneRecord', () => {
