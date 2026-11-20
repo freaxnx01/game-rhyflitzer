@@ -97,7 +97,9 @@ def open_sound(p, server):
 
 
 def test_engine_follows_the_car_and_nitro(server):
-    """72 km/h coasting: 3rd gear, rpm heads for 6200 * 72 / 75; holding N adds the hiss."""
+    """72 km/h coasting: 3rd gear, rpm heads for 6200 * 72 / 75; holding N adds the hiss. #1130: coasting is no load at
+    all and the wind already rushes past at 72 km/h; holding W puts the engine past its cruising load, which it can only
+    do if the loop really hands sound.js the car's acceleration."""
     with sync_playwright() as p:
         b, page = open_sound(p, server)
         page.evaluate("() => window.__mm.sim(1882.9, -292.2, Math.PI, 20, 0.02, [])"); wait_frames(page, 3)
@@ -105,10 +107,17 @@ def test_engine_follows_the_car_and_nitro(server):
         page.keyboard.down("KeyN"); wait_frames(page, 3)
         nitro = page.evaluate("() => window.__mm.audio()")
         page.keyboard.up("KeyN")
+        page.keyboard.down("KeyW"); wait_frames(page, 20)
+        pulling = page.evaluate("() => window.__mm.audio()")
+        page.keyboard.up("KeyW")
         b.close()
     assert coast["gear"] == 2, coast
     assert coast["mix"]["hiss"] == 0 and coast["mix"]["road"] > 0, coast
+    assert coast["mix"]["load"] == 0, coast
+    assert coast["mix"]["wind"] > 0, coast
     assert nitro["mix"]["hiss"] > 0, nitro
+    assert pulling["mix"]["load"] > 0.55, pulling
+    assert pulling["mix"]["rough"] > coast["mix"]["rough"], (pulling, coast)
 
 
 def test_hidden_tab_and_hold_suspend_the_sound(server):
