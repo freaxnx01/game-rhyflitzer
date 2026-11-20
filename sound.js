@@ -52,8 +52,10 @@ function windLevel(kmh, engine) {
   return (engine.wind ?? WIND.gain) * clamp((kmh * kmh - floor) / (top * top - floor), 0, 1);
 }
 
-// #1130: the combustion rasp -- band-limited noise at twice the firing rate, growing with load and rpm. Never louder than the harmonics it sits under
-export const ROUGH = { gain: 0.9, base: 0.25, perLoad: 0.55, perRev: 0.2 };
+// #1130: the combustion rasp -- band-limited noise at twice the firing rate, growing with load and rpm. `mix` is the
+// preset's 0..1 share (engine.rough overrides it), `voice` how loud the band itself plays at full roughness: a narrow
+// band passes little of the noise through, so it takes a gain above 1 to sit a dozen dB under the harmonics
+export const ROUGH = { mix: 0.9, voice: 4, base: 0.25, perLoad: 0.55, perRev: 0.2 };
 
 // what the synth plays for an engine state: firing frequency, load-dependent lowpass, level, road and wind noise, combustion rasp and nitro hiss
 export function engineMix(s, input, engine) {
@@ -65,7 +67,7 @@ export function engineMix(s, input, engine) {
   return { f0: s.rpm / 60 * engine.cylinders / 2 * (1 + drift), cutoff, q: F.q * (0.6 + 0.4 * load), gain: silent ? 0 : level, load,
     road: input.fly || input.air || input.off ? 0 : Math.min(0.25, input.kmh / 400) * (1 + drift * 4), hiss: input.nitro && !silent ? engine.nitroHiss : 0,
     wind: silent ? 0 : windLevel(input.kmh, engine),
-    rough: silent ? 0 : (engine.rough ?? ROUGH.gain) * clamp(ROUGH.base + ROUGH.perLoad * load + ROUGH.perRev * n, 0, 1) };
+    rough: silent ? 0 : (engine.rough ?? ROUGH.mix) * clamp(ROUGH.base + ROUGH.perLoad * load + ROUGH.perRev * n, 0, 1) };
 }
 
 export function rotorMix(input) {
@@ -104,17 +106,26 @@ export function noiseBuffer(ac, secs) { const b = ac.createBuffer(1, Math.round(
 export function buildEngine(ac, dest, engine) {
   const out = ac.createGain(); out.gain.value = 0; const filter = ac.createBiquadFilter(); filter.type = 'lowpass'; filter.connect(out); out.connect(dest);
   const oscs = engine.harmonics.map(h => { const o = ac.createOscillator(), g = ac.createGain(); o.type = h.mul === 1 ? 'sawtooth' : 'triangle'; o.detune.value = h.detune; g.gain.value = h.gain; o.connect(g); g.connect(filter); o.start(); return { o, mul: h.mul }; });
-  const noise = noiseBuffer(ac, 2), sources = oscs.map(h => h.o), voice = (type, freq, q) => { const s = ac.createBufferSource(); s.buffer = noise; s.loop = true; sources.push(s); const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = ac.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(dest); s.start(); return g; };
-  return { oscs, filter, out, sources, road: voice('bandpass', 300, 0.6), hiss: voice('bandpass', 2600, 0.9) };
+  const noise = noiseBuffer(ac, 2), sources = oscs.map(h => h.o);
+  const source = () => { const s = ac.createBufferSource(); s.buffer = noise; s.loop = true; sources.push(s); s.start(); return s; };
+  const band = (from, type, freq, q, to) => { const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; const g = ac.createGain(); g.gain.value = 0; from.connect(f); f.connect(g); g.connect(to); return { f, g }; };
+  const low = source(), high = source();
+  // #1130: the wind and the rasp hang off the two noise sources the tyre roll and the hiss already run, so a livelier engine
+  // costs four nodes, not six. Their bands do not overlap the band they share a source with, so the shared noise is inaudible as such.
+  const road = band(low, 'bandpass', 300, 0.6, dest).g, wind = band(low, 'highpass', 1200, 0.7, dest).g;
+  const hiss = band(high, 'bandpass', 2600, 0.9, dest).g, rough = band(high, 'bandpass', 400, 1.2, filter);
+  return { oscs, filter, out, sources, road, hiss, wind, rough: rough.g, roughBand: rough.f };
 }
 
 // a vehicle swap with another preset: silence and drop the old voices
-export function stopEngine(n) { for (const s of n.sources) s.stop(); n.out.disconnect(); n.road.disconnect(); n.hiss.disconnect(); }
+export function stopEngine(n) { for (const s of n.sources) s.stop(); n.out.disconnect(); n.road.disconnect(); n.hiss.disconnect(); n.wind.disconnect(); n.rough.disconnect(); }
 
 export function applyEngine(n, mix, t) {
   for (const { o, mul } of n.oscs) o.frequency.setTargetAtTime(mix.f0 * mul, t, 0.03);
   n.filter.frequency.setTargetAtTime(mix.cutoff, t, 0.06); n.filter.Q.setTargetAtTime(mix.q, t, 0.06);
   n.out.gain.setTargetAtTime(mix.gain, t, 0.05); n.road.gain.setTargetAtTime(mix.road, t, 0.1); n.hiss.gain.setTargetAtTime(mix.hiss, t, 0.08);
+  n.roughBand.frequency.setTargetAtTime(Math.max(40, mix.f0 * 2), t, 0.04); n.rough.gain.setTargetAtTime(mix.rough * ROUGH.voice, t, 0.06);   // #1130: the rasp rides on twice the firing rate
+  n.wind.gain.setTargetAtTime(mix.wind, t, 0.15);
 }
 
 // #10 rotor: lowpassed noise, its level pulsed by a sine at the blade rate
