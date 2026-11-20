@@ -1670,16 +1670,19 @@ function cutFloorMin(x, z) {
   return f;
 }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
-// #477: 6c's porch and hall footprint. The EG is the terrain at the entrance (#445), but the ground a little further in can lie above it:
-// the pads lower the terrain patches there below the slab (stairhall.js terrainPads). '6c' = INT.house, which is declared further down.
+// #445: the block stands on the terrain at this house's door, and every hall's EG is that level
+const BODENACKER_BASE_HOUSE = '6c';
+// #477: the porch and hall footprints of all four houses (#1099). The EG is the terrain at the base house's entrance (#445), but the
+// ground a little further in or under another porch can lie above it: the pads lower the terrain patches there below the slab (stairhall.js terrainPads).
 function hallTerrainPads() {
   const b = L.buildings.find(isBodenacker6); if (!b) return [];
-  let porch; try { porch = bodenackerHouse(bodenackerLayout(b, 0, Math.max(b.h, 3)), '6c').porch; } catch (e) { return []; }   // the building code warns about a failing layout
-  return terrainPads(porch.entrance, { w: porch.w, d: porch.d }, terrainH(porch.entrance.x, porch.entrance.z));
+  let lay; try { lay = bodenackerLayout(b, 0, Math.max(b.h, 3)); } catch (e) { return []; }   // the building code warns about a failing layout
+  const door = bodenackerHouse(lay, BODENACKER_BASE_HOUSE).porch.entrance, eg = terrainH(door.x, door.z);
+  return BODENACKER6.houses.flatMap(house => { const p = bodenackerHouse(lay, house).porch; return terrainPads(p.entrance, { w: p.w, d: p.d }, eg); });
 }
 function buildCuts() {
   const crossings = railRoadCrossings(L.roads, L.railBridges);
-  const PADS = hallTerrainPads();   // #477: the ground under 6c's porch and stair hall, lowered below the EG slab
+  const PADS = hallTerrainPads();   // #477: the ground under every porch and stair hall of the block, lowered below the EG slab
   for (const g of L.grades) GRADE_CUTS.push(gradeCut(g, meshH, GRADE_CUT, gradeCaps(g, crossings)));
   for (const c of crossings) CUTS.push(makeCut(c));
   // #156: a lowered patch vertex reaches PATCH_BLEED on (the diagonal of a 1 m cell): lat ends the lowering that far inside the
@@ -2112,14 +2115,16 @@ function hallRect(f, a0, a1, b0, b1) {   // #411: a rectangle in the hall's own 
 // so the hall's storeys are the façade's; a plain concrete foundation skirt runs from there down the slope to the ring's lowest ground.
 function bodenackerBuilding(b, lowest, h) {
   let L; try { L = bodenackerLayout(b, lowest, h); } catch (e) { console.warn(e.message); return false; }   // fail loudly, never a hole
-  const door = bodenackerHouse(L, INT.house).porch.entrance, plinth = bodenackerPlinth(terrainH(door.x, door.z), lowest), base = plinth.floor;
+  const door = bodenackerHouse(L, BODENACKER_BASE_HOUSE).porch.entrance, plinth = bodenackerPlinth(terrainH(door.x, door.z), lowest), base = plinth.floor;
   L = bodenackerLayout(b, base, h);
   const tile = [BODENACKER6.moduleWidth, L.floors.pitch], white = col('#ffffff'), concrete = col('#c4bfb4');
   if (plinth.skirt) wallQuads(L.walls, plinth.skirt.y0, plinth.skirt.y1 - plinth.skirt.y0, concrete, 'stone', [4, 4], 0);
   wallQuads(L.walls.filter(w => w.face === 'back'), base, h, white, 'bodenackerLoggia', tile, plinth.skirt ? 0 : 2);
-  const fd = STAIRHALL.frontDoor, gap = bodenackerDoorway(L.walls, L.frame, bodenackerHouse(L, INT.house).porch, fd.b1 - fd.b0);   // #467: the façade open behind 6c's porch
-  wallQuads(gap.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
-  wallQuads([{ ...gap.lintel, dy: fd.h }], base + fd.h, h - fd.h, white, 'bodenacker', tile, 0);
+  const fd = STAIRHALL.frontDoor;   // #467 / #1099: the façade open behind every porch -- each call cuts the pieces the previous one left
+  let street = L.walls; const lintels = [];
+  for (const house of BODENACKER6.houses) { const gap = bodenackerDoorway(street, L.frame, bodenackerHouse(L, house).porch, fd.b1 - fd.b0); street = gap.walls; lintels.push(gap.lintel); }
+  wallQuads(street.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
+  for (const lintel of lintels) wallQuads([{ ...lintel, dy: fd.h }], base + fd.h, h - fd.h, white, 'bodenacker', tile, 0);
   const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
   extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'), [4, 3], false, 0);   // the band's top is the roof slab; #453: no 2 m skirt, it sat coplanar on the top storey's façade (z-fighting)
   for (const s of L.stairs) {
