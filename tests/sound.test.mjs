@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gearAt, targetRpm, engineStep, engineMix, engineLoad, rotorMix, checkSound, RPM_RATE, ROTOR, stepVoice, WHISTLE } from '../sound.js';
+import { gearAt, targetRpm, engineStep, engineMix, engineLoad, rotorMix, checkSound, RPM_RATE, ROTOR, DRIFT, stepVoice, WHISTLE } from '../sound.js';
 
 // a copy of VEHICLES.compact.sound in index.html (#14); test_sound.py checks the game's own table passes checkSound
 const SOUND = () => ({
@@ -92,6 +92,36 @@ test('engineStep_Load_SmoothsTowardsTarget', () => {
   assert.ok(Math.abs(s.load - 0.5) < 0.01, s.load);
   for (let i = 0; i < 120; i++) s = engineStep(s, IN({ kmh: 100 }), S, 1 / 60);
   assert.ok(s.load < 0.01, s.load);
+});
+
+// #1130: a slow random walk on the rpm, so a steady cruise is never one frozen tone. Seeded, so it is testable
+const lcg = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+const runDrift = (input, rng) => {
+  const S = SOUND(), seen = [];
+  let s = { rpm: 6200, gear: 5, shift: 0, load: 0.5, drift: 0 };
+  for (let i = 0; i < 600; i++) { s = engineStep(s, input, S, 1 / 60, rng); seen.push(s.drift); }
+  return seen;
+};
+const std = (xs) => { const m = xs.reduce((a, b) => a + b, 0) / xs.length; return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length); };
+
+test('engineStep_Drift_WandersWithinBoundWhileDriving', () => {
+  const seen = runDrift(IN({ kmh: 220, gas: 1 }), lcg(12345));
+  assert.ok(seen.every((d) => Math.abs(d) <= DRIFT.max + 1e-12), Math.max(...seen.map(Math.abs)));
+  assert.ok(std(seen) > 0.002, std(seen));
+});
+
+test('engineStep_Drift_ZeroAtStandstillAndInTheAir', () => {
+  assert.ok(runDrift(IN({ kmh: 0, gas: 1 }), lcg(7)).every((d) => d === 0));
+  assert.ok(runDrift(IN({ kmh: 220, gas: 1, air: 1 }), lcg(7)).every((d) => d === 0));
+});
+
+test('engineMix_Drift_MovesTheFiringFrequencyAndTheLevel', () => {
+  const { engine } = SOUND(), s = { rpm: 6200, gear: 5, shift: 0, load: 0.5 };
+  const still = engineMix({ ...s, drift: 0 }, IN({ kmh: 220, gas: 1 }), engine);
+  const up = engineMix({ ...s, drift: DRIFT.max }, IN({ kmh: 220, gas: 1 }), engine);
+  assert.ok(Math.abs(up.f0 / still.f0 - (1 + DRIFT.max)) < 1e-12, up.f0 / still.f0);
+  assert.ok(up.gain > still.gain && up.gain / still.gain < 1.1, up.gain / still.gain);
+  assert.ok(up.road > still.road, [up.road, still.road]);
 });
 
 test('engineMix: firing frequency of a four-stroke, filter opens with rpm and load, nitro opens it further', () => {

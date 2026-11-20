@@ -27,23 +27,32 @@ export function engineLoad(input, engine) {
   return clamp(cruise + LOAD.perAccel * Math.max(0, input.accel ?? 0) + LOAD.perClimb * Math.max(0, input.climb ?? 0), 0, 1);
 }
 
-// one audio tick: smoothed rpm, current gear, the remaining throttle-lift time after an upshift, and the smoothed load
-export function engineStep(s, input, sound, dt) {
+// #1130: the slow life of a running engine -- a bounded random walk on the rpm, pulled back to 0, about 1 Hz
+export const DRIFT = { max: 0.015, kick: 8, pull: 1 };
+function driftStep(drift, input, engine, dt, rng) {
+  if (input.air || input.kmh <= 1) return 0;   // a standing or airborne engine holds its note
+  const max = engine.drift ?? DRIFT.max;
+  return clamp(drift + ((rng() * 2 - 1) * DRIFT.kick * max - drift * DRIFT.pull) * dt, -max, max);
+}
+
+// one audio tick: smoothed rpm, current gear, the remaining throttle-lift time after an upshift, the smoothed load and the drift
+export function engineStep(s, input, sound, dt, rng = Math.random) {
   const gear = gearAt(input.kmh, sound.gears), up = gear > s.gear && !input.air;
   const target = targetRpm(input, sound.gears, sound.engine), rate = target > s.rpm ? RPM_RATE.up : RPM_RATE.down;
   const load = s.load ?? 0, toward = engineLoad(input, sound.engine) - load;
   return { rpm: s.rpm + clamp(target - s.rpm, -rate * dt, rate * dt), gear, shift: up ? sound.engine.shiftTime : Math.max(0, s.shift - dt),
-    load: load + toward * (1 - Math.exp(-dt / LOAD.tau)) };
+    load: load + toward * (1 - Math.exp(-dt / LOAD.tau)), drift: driftStep(s.drift ?? 0, input, sound.engine, dt, rng) };
 }
 
 // what the synth plays for an engine state: firing frequency, load-dependent lowpass, level, road noise and nitro hiss
 export function engineMix(s, input, engine) {
   const n = clamp((s.rpm - engine.idleRpm) / (engine.limitRpm - engine.idleRpm), 0, 1), load = clamp(s.load ?? 0, 0, 1), F = engine.filter, G = engine.gain;
+  const drift = s.drift ?? 0;   // #1130: the same wander moves the pitch a little, the level twice as much and the tyre roll four times
   const cutoff = (F.idle + (F.open - F.idle) * n) * (F.offLoad + (1 - F.offLoad) * load) * (input.nitro ? 1.25 : 1);
-  const level = (G.idle + G.rev * n + G.load * load) * (s.shift > 0 ? 1 - engine.shiftDip : 1);
+  const level = (G.idle + G.rev * n + G.load * load) * (s.shift > 0 ? 1 - engine.shiftDip : 1) * (1 + drift * 2);
   const silent = input.fly || input.dead || input.off;   // #475 off: the driver got out and switched the engine off
-  return { f0: s.rpm / 60 * engine.cylinders / 2, cutoff, q: F.q * (0.6 + 0.4 * load), gain: silent ? 0 : level, load,
-    road: input.fly || input.air || input.off ? 0 : Math.min(0.25, input.kmh / 400), hiss: input.nitro && !silent ? engine.nitroHiss : 0 };
+  return { f0: s.rpm / 60 * engine.cylinders / 2 * (1 + drift), cutoff, q: F.q * (0.6 + 0.4 * load), gain: silent ? 0 : level, load,
+    road: input.fly || input.air || input.off ? 0 : Math.min(0.25, input.kmh / 400) * (1 + drift * 4), hiss: input.nitro && !silent ? engine.nitroHiss : 0 };
 }
 
 export function rotorMix(input) {
