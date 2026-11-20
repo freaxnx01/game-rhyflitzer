@@ -44,12 +44,14 @@ export function engineStep(s, input, sound, dt, rng = Math.random) {
     load: load + toward * (1 - Math.exp(-dt / LOAD.tau)), drift: driftStep(s.drift ?? 0, input, sound.engine, dt, rng) };
 }
 
-// #1130: the wind rushing past -- nothing below WIND.from, then roughly with speed^2 up to the top gear's speed
-export const WIND = { from: 40, gain: 0.12 };
+// #1130: the wind rushing past -- nothing below WIND.from, then roughly with speed^2 until it is at full at WIND.full.
+// The reference is a road speed, not engine.topKmh: that is the top gear's shift speed (330 km/h for the compact), so
+// measuring against it would leave every speed anyone actually drives at the very bottom of the curve, barely audible.
+export const WIND = { from: 40, full: 200, gain: 0.2 };
 function windLevel(kmh, engine) {
   if (kmh <= WIND.from) return 0;
-  const top = Math.max(WIND.from + 1, engine.topKmh), floor = WIND.from * WIND.from;
-  return (engine.wind ?? WIND.gain) * clamp((kmh * kmh - floor) / (top * top - floor), 0, 1);
+  const floor = WIND.from * WIND.from;
+  return (engine.wind ?? WIND.gain) * clamp((kmh * kmh - floor) / (WIND.full * WIND.full - floor), 0, 1);
 }
 
 // #1130: the combustion rasp -- band-limited noise at twice the firing rate, growing with load and rpm. `mix` is the

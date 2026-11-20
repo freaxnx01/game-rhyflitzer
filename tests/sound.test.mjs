@@ -131,8 +131,9 @@ test('engineMix_Wind_SilentBelow40_RisesWithSpeed', () => {
   assert.deepEqual([at(0), at(20), at(WIND.from)], [0, 0, 0]);
   assert.ok(at(50) > 0, at(50));
   assert.ok(at(200) > 4 * at(50), [at(200), at(50)]);
-  assert.ok(Math.abs(at(engine.topKmh) - WIND.gain) < 1e-12, at(engine.topKmh));
-  assert.equal(at(500), at(engine.topKmh));   // it does not keep growing past the top gear's speed
+  assert.ok(at(100) > 0.1 * WIND.gain, at(100));   // and it is already audible at the speeds people drive at
+  assert.ok(Math.abs(at(WIND.full) - WIND.gain) < 1e-12, at(WIND.full));
+  assert.equal(at(500), at(WIND.full));   // it does not keep growing once it is at full
   assert.ok(at(220, { air: 1 }) > 0, 'airborne: the wind still rushes past');
 });
 
