@@ -130,37 +130,58 @@ def long_street(pts=((100, 0), (300, 0)), cls="residential"):
     return road(cls, pts)
 
 
+def near(got, expected, tol=0.5):
+    assert len(got) == len(expected)
+    for (a, b), (ea, eb) in zip(got, expected):
+        assert abs(a - ea) < tol and abs(b - eb) < tol
+
+
 def test_trim_DeadEndWithOldHouseNearStart_KeepsStartToHousePlusPad():
     main = road("primary", [(100, -100), (100, 0), (100, 100)])
-    street = long_street()  # 200 m, starts on the main road
-    roads = [main, street]
+    roads = [main, long_street()]  # 200 m, starts on the main road
     got = R.trim(roads, {}, [house(140, 5)], SWISS)  # footprint spans 40..50 m along the street
     assert list(got) == [1]
-    a, b = got[1]
-    assert a == 0
-    assert abs(b - (50 + R.TRIM_PAD)) < 0.5
+    near(got[1], [(0, 50 + R.TRIM_PAD)])
 
 
-def test_trim_BothEndsOnKeptNetwork_KeepsWhole():
-    roads = [road("primary", [(100, -100), (100, 0), (100, 100)]), road("primary", [(300, -100), (300, 0), (300, 100)]), long_street()]
-    assert R.trim(roads, {}, [house(140, 5)], SWISS) == {}
+def test_trim_GridOfStreets_KeepsOnlyShortestRouteToHouse():
+    m1 = road("primary", [(100, -50), (100, 0), (100, 100), (100, 200), (100, 250)])
+    m2 = road("primary", [(300, -50), (300, 0), (300, 100), (300, 200), (300, 250)])
+    h = [road("residential", [(100, z), (200, z), (300, z)]) for z in (0, 100, 200)]
+    v = [road("residential", [(200, 0), (200, 100)]), road("residential", [(200, 100), (200, 200)])]
+    roads = [m1, m2, *h, *v]
+    hidden = {2: "empty", 4: "empty"}  # the outer streets have no old house
+    got = R.trim(roads, hidden, [house(205, 105)], SWISS)
+    assert sorted(got) == [3, 5, 6]
+    near(got[3], [(95, 200)])  # the middle street keeps the house stretch plus the shorter (east) route
+    near(got[5], [(90, 100)])
+    near(got[6], [(0, 25)])
 
 
-def test_trim_NoConnectedEnd_FallsBackToWhole():
+def test_trim_NoRouteToNetwork_FallsBackToWhole():
     hidden_a = road("residential", [(50, 0), (100, 0)])
     hidden_b = road("residential", [(300, 0), (350, 0)])
     roads = [hidden_a, hidden_b, long_street()]
     assert R.trim(roads, {0: "empty", 1: "empty"}, [house(140, 5)], SWISS) == {}
 
 
-def test_trim_ChainCutOff_RestoresFull():
+def test_trim_ChainThroughNeighbour_KeepsTheLink():
     main = road("primary", [(100, -100), (100, 0), (100, 100)])
-    b = road("residential", [(100, 0), (200, 0), (300, 0)])  # old house near the main-road end
-    a = road("residential", [(200, 0), (400, 0)])  # joins B at B's middle vertex, old house near its far end
-    roads = [main, b, a]
-    got = R.trim(roads, {}, [house(120, 5), house(370, 5)], SWISS)
-    assert 1 not in got  # B comes back full, otherwise A's stretch hangs in the air
-    assert got[2][0] == 0  # A keeps its link to B
+    b = road("residential", [(100, 0), (200, 0), (300, 0)])
+    a = road("residential", [(200, 0), (400, 0)])  # joins B at its middle vertex, old house near its far end
+    got = R.trim([main, b, a], {}, [house(120, 5), house(370, 5)], SWISS)
+    near(got[1], [(0, 100)])  # B between the main road and A's junction stays, its far end goes
+    near(got[2], [(0, 190)])
+
+
+def test_trim_TwoIntervalsOnOneRoad():
+    m1 = road("primary", [(100, -100), (100, 0), (100, 100)])
+    m2 = road("primary", [(700, -100), (700, 0), (700, 100)])
+    long = road("residential", [(100, 0), (300, 0), (500, 0), (700, 0)])  # house near its start
+    side = road("residential", [(500, 0), (500, 200)])  # house far up; its shortest route runs along the long street's east end
+    got = R.trim([m1, m2, long, side], {}, [house(130, 5), house(505, 100)], SWISS)
+    near(got[2], [(0, 50), (400, 600)])
+    near(got[3], [(0, 120)])
 
 
 def test_trim_MainRoadsAndGermanSideNeverTrimmed():
@@ -187,7 +208,7 @@ def test_apply_Idempotent_WithKeep1952():
     outline = SWISS_LV95()
     R.apply(world, outline, ind)
     first = json.dumps(world, ensure_ascii=False, separators=(",", ":"))
-    assert world["roads"][1]["keep1952"][0] == 0
+    assert world["roads"][1]["keep1952"][0][0] == 0
     assert "modern" not in world["roads"][1]
     counts = R.apply(world, outline, ind)
     assert json.dumps(world, ensure_ascii=False, separators=(",", ":")) == first

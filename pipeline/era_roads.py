@@ -10,10 +10,11 @@ A kept road that the hiding cuts off from the main kept network gets back the fe
 (shortest chain, BFS over road vertices snapped to ENDPOINT_TOL). A kept bridge also joins every road vertex within
 BRIDGE_SNAP of its ends, so the Holzbruecke keeps its Swiss approach.
 
-A kept residential street with old houses nearby is then trimmed to the stretch those houses need (`trim`): from the
-first old footprint minus TRIM_PAD to the last plus TRIM_PAD along the street, whole on each side whose end touches the
-kept network. Cut-off pieces get their trimmed roads back at full length. Written as `road["keep1952"] = [a, b]`
-(metres along `pts`).
+A kept residential street with old houses nearby (a trim candidate) is then trimmed (`trim`): it keeps the stretch from
+its first old footprint minus TRIM_PAD to the last plus TRIM_PAD, and each such stretch is joined to the old network
+(kept roads that are not candidates) by the shortest route through candidate roads (Dijkstra over road vertices and the
+cut points, cost = metres not yet kept), nearest first. A stretch with no route keeps its whole road. Written as
+`road["keep1952"] = [[a, b], ...]` (metres along `pts`, only if at least MIN_TRIM is dropped).
 
 Sets `road["modern"] = True` (last key) and removes it from every other road; likewise `keep1952`; idempotent.
 
@@ -22,6 +23,7 @@ Sets `road["modern"] = True` (last key) and removes it from every other road; li
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 from collections import deque
 from pathlib import Path
@@ -184,83 +186,138 @@ def reconnect(roads, hidden, swiss=None):
     return restored
 
 
-def _end_keys(road):
-    keys = _vertex_keys(road)
-    return keys[0], keys[-1]
-
-
 def _arc_range(line, polygons):
     arcs = [line.project(Point(x, z)) for p in polygons for x, z in p.exterior.coords]
     return min(arcs), max(arcs)
 
 
-def _wanted_stretch(i, roads, node_sets, others, line, old_polys, old_tree):
-    """(a, b) the road needs, or None if it stays whole (no old house, no or both ends on the kept network)."""
-    near = old_tree.query(line.buffer(NEAR_OLD), predicate="intersects")
-    if not len(near):
-        return None
-    first, last = _end_keys(roads[i])
-    start_joined = any(first in node_sets[j] for j in others if j != i)
-    end_joined = any(last in node_sets[j] for j in others if j != i)
-    if start_joined == end_joined:
-        return None
-    lo, hi = _arc_range(line, [old_polys[k] for k in near])
-    a, b = (0.0, min(hi + TRIM_PAD, line.length)) if start_joined else (max(lo - TRIM_PAD, 0.0), line.length)
-    return (a, b) if a + (line.length - b) >= MIN_TRIM else None
-
-
-def _stretch_nodes(road, a, b):
-    line = LineString(road["pts"])
-    return {key for (x, z), key in zip(road["pts"], _vertex_keys(road)) if a - 1e-6 <= line.project(Point(x, z)) <= b + 1e-6}
-
-
-def _cut_off_trimmed(roads, hidden, node_sets, wanted, swiss, base_main):
-    """Trimmed roads to restore: those in or touching a Swiss group the trimming cut off from the main kept component."""
-    kept = [i for i in range(len(roads)) if i not in hidden]
-    pieces = [(_stretch_nodes(roads[i], *wanted[i]) if i in wanted else node_sets[i]) for i in range(len(roads))]
-    comps = [(idx, nodes, _swiss_kept_count(roads, idx, swiss)) for idx, nodes in _components(pieces, kept)]
-    comps.sort(key=lambda c: (-c[2], min(c[0])))
-    restore = set()
-    for idx, nodes, swiss_count in comps[1:]:
-        if not swiss_count or not base_main.intersection(idx):
-            continue
-        neighbours = {i for i in wanted if i not in idx and node_sets[i] & nodes}
-        restore.update(neighbours or (i for i in idx if i in wanted))
-    return restore
-
-
-def trim(roads, hidden, buildings, swiss, restored=frozenset()):
-    """Road index -> (a, b) metres along `pts` that a kept residential Swiss street keeps in 1952.
-
-    The street keeps the stretch from its first old footprint minus TRIM_PAD to its last plus TRIM_PAD, whole on a side
-    whose end vertex touches another kept road. A street with no or both ends on the kept network stays whole. Where the
-    trimming cuts a Swiss group off the main kept component, the trimmed roads that join it (else its own) come back whole (repeated
-    until stable; the set only shrinks). Restored roads, bridges, main roads and the German side are never trimmed.
-    """
-    node_sets = _node_sets(roads, hidden)
-    kept = [i for i in range(len(roads)) if i not in hidden]
+def _house_stretches(roads, hidden, restored, buildings, swiss):
+    """Road index -> (a, b): the stretch of each trim candidate that its old footprints need (pad included)."""
     old_polys = _old_swiss_footprints(buildings, swiss)
     old_tree = STRtree(old_polys)
-    wanted = {}
-    for i in kept:
-        road = roads[i]
-        if road["cls"] not in RESIDENTIAL or road.get("bridge") or i in restored:
+    stretches = {}
+    for i, road in enumerate(roads):
+        if i in hidden or i in restored or road["cls"] not in RESIDENTIAL or road.get("bridge"):
             continue
         line = LineString(road["pts"])
         if not swiss.contains(line.interpolate(0.5, normalized=True)):
             continue
-        stretch = _wanted_stretch(i, roads, node_sets, kept, line, old_polys, old_tree)
-        if stretch:
-            wanted[i] = stretch
-    base_comps = sorted(((idx, _swiss_kept_count(roads, idx, swiss)) for idx, _ in _components(node_sets, kept)),
-                        key=lambda c: (-c[1], min(c[0])))
-    base_main = set(base_comps[0][0]) if base_comps else set()
-    while True:
-        back = _cut_off_trimmed(roads, hidden, node_sets, wanted, swiss, base_main)
-        if not back:
-            return wanted
-        for i in back:
-            del wanted[i]
+        near = old_tree.query(line.buffer(NEAR_OLD), predicate="intersects")
+        if len(near):
+            lo, hi = _arc_range(line, [old_polys[k] for k in near])
+            stretches[i] = (max(lo - TRIM_PAD, 0.0), min(hi + TRIM_PAD, line.length))
+    return stretches
+
+
+def _road_points(index, road, stretch):
+    """[(arc, node key)] along a candidate road: its vertices plus the two cut points of its house stretch."""
+    arcs, total = [], 0.0
+    for k, ((x, z), key) in enumerate(zip(road["pts"], _vertex_keys(road))):
+        if k:
+            total += ((x - road["pts"][k - 1][0]) ** 2 + (z - road["pts"][k - 1][1]) ** 2) ** 0.5
+        arcs.append((total, key))
+    for cut in stretch:
+        if all(abs(cut - arc) > 1e-6 for arc, _ in arcs):
+            arcs.append((cut, ("cut", index, round(cut, 3))))
+    arcs.sort(key=lambda a: a[0])
+    return arcs
+
+
+def _graph(roads, stretches):
+    """Node ids (deterministic), per-road point lists and the adjacency of candidate road pieces."""
+    ids, points, adjacency = {}, {}, []
+    for i in sorted(stretches):
+        points[i] = [(arc, ids.setdefault(key, len(ids))) for arc, key in _road_points(i, roads[i], stretches[i])]
+    adjacency = [[] for _ in ids]
+    for i, pts in points.items():
+        for (s, u), (t, v) in zip(pts, pts[1:]):
+            adjacency[u].append((v, i, s, t))
+            adjacency[v].append((u, i, s, t))
+    return ids, points, adjacency
+
+
+def _overlap(intervals, s, t):
+    return sum(max(0.0, min(t, b) - max(s, a)) for a, b in intervals)
+
+
+def _add_interval(intervals, s, t):
+    merged = []
+    for a, b in sorted(intervals + [(s, t)]):
+        if merged and a <= merged[-1][1] + 1e-6:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], b))
+        else:
+            merged.append((a, b))
+    return merged
+
+
+def _dijkstra(adjacency, sources, kept):
+    """Cost = metres not yet kept; returns (dist, pred) over node ids."""
+    dist = {n: 0.0 for n in sources}
+    pred = {n: None for n in sources}
+    heap = [(0.0, n) for n in sorted(sources)]
+    heapq.heapify(heap)
+    while heap:
+        d, u = heapq.heappop(heap)
+        if d > dist[u]:
+            continue
+        for v, road, s, t in adjacency[u]:
+            cost = (t - s) - _overlap(kept[road], s, t)
+            nd = d + (cost if cost > 1e-6 else 0.0)
+            if nd < dist.get(v, float("inf")) - 1e-9:
+                dist[v] = nd
+                pred[v] = (u, road, s, t)
+                heapq.heappush(heap, (nd, v))
+    return dist, pred
+
+
+def _best_node(dist, nodes):
+    """(cost, node) of the cheapest reachable node in `nodes`, or None."""
+    reached = [(dist[n], n) for n in nodes if n in dist]
+    return min(reached) if reached else None
+
+
+def _join_stretches(roads, stretches, network_keys):
+    """Kept intervals per candidate road: house stretches plus, nearest first, the shortest route of each to the network."""
+    ids, points, adjacency = _graph(roads, stretches)
+    sources = {n for key, n in ids.items() if key in network_keys}
+    kept = {i: [stretches[i]] for i in stretches}
+    stretch_nodes = {i: [n for arc, n in points[i] if stretches[i][0] - 1e-6 <= arc <= stretches[i][1] + 1e-6] for i in stretches}
+    unjoined = set(stretches)
+    while unjoined:
+        dist, pred = _dijkstra(adjacency, sources, kept)
+        best = {i: _best_node(dist, stretch_nodes[i]) for i in sorted(unjoined)}
+        for i in [i for i, b in best.items() if b is None]:  # no route at all: the whole road stays
+            kept[i] = [(0.0, points[i][-1][0])]
+            unjoined.discard(i)
+        unjoined = {i for i in unjoined if best[i][0] > 1e-6}
+        if not unjoined:
+            break
+        pick = min((best[i][0], i, best[i][1]) for i in unjoined)
+        node = pick[2]
+        while pred[node] is not None:
+            node, road, s, t = pred[node]
+            kept[road] = _add_interval(kept[road], s, t)
+    return kept
+
+
+def trim(roads, hidden, buildings, swiss, restored=frozenset()):
+    """Road index -> [(a, b), ...] metres along `pts` that a kept residential Swiss street keeps in 1952.
+
+    Candidates keep their house stretch (first old footprint minus TRIM_PAD to the last plus TRIM_PAD); each stretch is
+    then joined to the old network (kept roads that are not candidates) by the shortest route through candidate
+    roads, nearest stretch first. A stretch with no route keeps its whole road. Whatever is not kept is dropped; a
+    road that loses less than MIN_TRIM is not listed.
+    """
+    stretches = _house_stretches(roads, hidden, restored, buildings, swiss)
+    node_sets = _node_sets(roads, hidden)
+    network_keys = set().union(*(node_sets[i] for i in range(len(roads)) if i not in hidden and i not in stretches))
+    kept = _join_stretches(roads, stretches, network_keys)
+    result = {}
+    for i, intervals in kept.items():
+        length = LineString(roads[i]["pts"]).length
+        if length - sum(b - a for a, b in intervals) >= MIN_TRIM:
+            result[i] = intervals
+    return result
 
 
 def _to_game(geometry, frame):
@@ -286,7 +343,7 @@ def apply(world, outline_lv95, industrial_lonlat):
         if i in hidden:
             road["modern"] = True
         elif i in trimmed:
-            road["keep1952"] = [round(v, 1) for v in trimmed[i]]
+            road["keep1952"] = [[round(a, 1), round(b, 1)] for a, b in trimmed[i]]
     counts = {k: sum(1 for v in hidden.values() if v == k) for k in ("motorway", "bridge", "industrial", "empty")}
     counts["restored"] = len(restored)
     counts["trimmed"] = len(trimmed)
