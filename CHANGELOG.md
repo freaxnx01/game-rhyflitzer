@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-20 14:35` In einer **im Editor erstellten Welt** zählt die anonyme Statistik jetzt auch die **Namen ihrer Gemeinden**, nie die Welt-ID oder den Link. So steht unter **Über → Anonyme Statistik**.
 - `2026-11-20 11:10` In the **helicopter** and the **steam loco** the key bar now shows how to fly, climb, sink and **land** (<kbd>F</kbd>), or steam, brake and get out. In the settings, „Hinweise wieder zeigen“ is now **„Gesehene Hinweise zurücksetzen“**.
 - `2026-11-19 22:19` Ab und zu zeigt ein **Hinweis** oben in der Mitte, was das Spiel noch kann — ein **Tipp** darauf (oder die genannte Taste) führt es gleich aus, das **×** schliesst ihn, und mit „keine Hinweise mehr" ist Ruhe. Abschalten geht auch unter **Einstellungen › Anzeige**.
 - `2026-11-19 16:39` Unter **Über → Das Spiel** ist es aufgeräumter: eine kurze Beschreibung, darunter die **Links** zu Midtown Madness, zum NFZ-Artikel und zum YouTube-Kanal als drei Kacheln, dann die **Anonyme Statistik** und der Kontakt je mit eigener Überschrift.
