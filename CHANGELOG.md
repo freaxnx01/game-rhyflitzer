@@ -59,6 +59,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-20 22:29` Im **Mehrspieler** sieht man jetzt die **Nitroflammen** am Auto des anderen Spielers.
 - `2026-11-20 22:22` Im **Mehrspieler** hört man jetzt den **Motor**, auch wenn man vorher keine Einzelfahrt gestartet hat.
 - `2026-11-19 16:30` Im Dialog **„Mit Freunden fahren"** ist das **Namensfeld** wieder breit und der **Würfel** daneben klein. Vorher drückte der Würfelknopf das Feld auf eine schmale Lücke zusammen, sodass der gewürfelte Name nicht zu sehen war und der Würfel wirkungslos schien.
 - `2026-11-18 13:51` Die **Welt braucht nochmals rund 250 MB weniger Grafikspeicher** — **Strassen, Boden und Schilder** sind kompakter gespeichert (die Strassenscheibe an jeder Kreuzung und der Boden teilen ihre Eckpunkte, Normale und Farben als schmale Bytes), und **gleiche Schilder** (der **P** an jedem Parkplatz, die **Haltestellentafel** in beiden Richtungen) liegen nur noch einmal vor. So bleibt das Spiel auf dem **Handy** geöffnet, statt dass Safari den Tab immer wieder neu lädt und abbricht.
