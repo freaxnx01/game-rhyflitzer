@@ -79,7 +79,7 @@ def test_e_opens_the_door_and_the_hall_is_reachable_on_foot(server):
     assert opened["door"] > 0.9, opened
     assert inside["area"] == "tower" and inside["indoors"] is True and inside["floor"] == 0, inside
     assert abs(inside["y"] - inside["levels"][0]) < 0.05, inside
-    assert re.fullmatch(r"6c · (EG|ground floor)", inside["label"]) and inside["hidden"] is False, inside
+    assert re.fullmatch(r"6 · (EG|ground floor)", inside["label"]) and inside["hidden"] is False, inside
     assert hover is False
 
 
@@ -191,7 +191,7 @@ def test_lift_to_the_fifth_floor_and_to_the_roof(server):
     assert errors == []
     assert in_cabin["pad"] is True and in_cabin["lift"]["at"] == 0, in_cabin
     assert at5["lift"]["at"] == 5 and abs(at5["y"] - at5["levels"][5]) < 0.1, at5
-    assert re.fullmatch(r"6c · (5\. OG|5th floor)", at5["label"]), at5
+    assert re.fullmatch(r"6 · (5\. OG|5th floor)", at5["label"]), at5
     assert out5["area"] == "tower" and abs(out5["y"] - out5["levels"][5]) < 0.1, out5
     assert atroof["floor"] == 10 and abs(atroof["y"] - atroof["levels"][10]) < 0.1, atroof
 
@@ -298,7 +298,7 @@ def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
     assert lobby["floor"] == 10, lobby
     assert outside["area"] == "out" and abs(outside["y"] - outside["levels"][10]) < 0.1, outside
     assert abs(edge["y"] - edge["levels"][10]) < 0.1, edge   # still on the roof, not fallen
-    assert re.fullmatch(r"6c · (Dach|roof)", edge["label"]) and hover is False, edge
+    assert re.fullmatch(r"6 · (Dach|roof)", edge["label"]) and hover is False, edge
 
 
 @needs_world

@@ -1,6 +1,6 @@
 // #409: the enterable-buildings register -- one list of everything that will be enterable, with the markers' pure
 // decisions. Pure: no DOM, no three.js. #410-#413 flip `ready` and add `ENTER_HANDLERS[id]`; this module stays as is.
-// Privacy: names only the public address (Bodenackerstrasse 6c, Sisseln) and that a building will be enterable --
+// Privacy: names only the public address (Bodenackerstrasse 6, Sisseln) and that a building will be enterable --
 // nothing about who or what is inside, in any direction or storey, here or in any string.
 import { foldText } from './landmarks.js';
 
@@ -9,8 +9,8 @@ export const GLOW_RANGE = 60;   // the entrance glows from here (on foot); #702:
 export const PROMPT_RANGE = 2.5;   // = WALKER.enterReach: from here the E prompt shows
 
 export const ENTERABLE_INFO = [
-  { id: 'bodenackerstrasse-6c', kind: 'building', name: { de: 'Bodenackerstrasse 6c', en: 'Bodenackerstrasse 6c' },
-    gemeinde: 'Sisseln', landmark: 'Bodenackerstrasse 6c', building: 171822634, level: 'surface', ready: true, secret: false, entrances: [] },   // #411: enterable (the runtime fills entrances from the porch)
+  { id: 'bodenackerstrasse-6c', kind: 'building', name: { de: 'Bodenackerstrasse 6', en: 'Bodenackerstrasse 6' },
+    gemeinde: 'Sisseln', landmark: 'Bodenackerstrasse 6', building: 171822634, level: 'surface', ready: true, secret: false, entrances: [] },   // #411: enterable (the runtime fills entrances from the porch)
   { id: 'plattform-sisslerfeld', kind: 'tower', name: { de: 'Plattform Sisslerfeld', en: 'Plattform Sisslerfeld' },
     gemeinde: 'Münchwilen', landmark: 'Plattform Sisslerfeld', anchor: 'plattform', level: 'surface', ready: true, secret: false, entrances: [] },   // #413: the stair is open; the runtime fills entrances from plattformEntrance
   { id: 'eiffel', kind: 'hideout', name: { de: 'Eiffelturm', en: 'Eiffel Tower' }, gemeinde: 'Münchwilen',

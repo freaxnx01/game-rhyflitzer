@@ -44,7 +44,7 @@ landing doors are plain closed doors with no names, numbers or mats. Grep the di
    walkable up to its edge with an invisible railing there (cannot fall). **Lift:** shaft next to the stairs, a visibly moving cabin, the `lift.js`
    state machine reused, a **keypad panel** (DOM, de/en) with buttons **EG, 1-9, Dach/Roof** by click/tap or the keys **0-9 and D**; **E** on each
    storey calls the lift. **Flat doors** on the landings are visible but closed. Inside: first-person camera forced (**C does nothing**), the HUD
-   shows **"6c · 4. OG"** (en: "6c · 4th floor"; EG = ground floor). Exit by walking out the door; **R** goes back to the car as usual.
+   shows **"6c · 5. OG"** (en: "6c · 5th floor"; EG = ground floor). Exit by walking out the door; **R** goes back to the car as usual.
    `bodenackerstrasse-6c` gets `ready: true` at the end.
 3. **Tests:** node tests for ramps, heights, ceilings, wall height ranges, lift targets and the stair layout per storey; **one** Playwright test
    (jump to 6c, E in, lift to the 5th floor, stand at a window, roof).
@@ -164,7 +164,7 @@ stairs end in the roof lobby inside the housing; a handrail wall stops the walke
 
 ### HUD
 
-`#mapfloor` (new, in the minimap bar, hidden unless the walker is indoors or on the roof) shows `hudFloorText('6c', k, lang)`: "6c · 4. OG" / "6c · 4th floor", EG "6c · EG" / "6c · ground floor", roof "6c · Dach" / "6c · roof". `k = floorAtY(levels, P.y)`.
+`#mapfloor` (new, in the minimap bar, hidden unless the walker is indoors or on the roof) shows `hudFloorText('6c', k, lang)`: "6c · 5. OG" / "6c · 5th floor", EG "6c · EG" / "6c · ground floor", roof "6c · Dach" / "6c · roof". `k = floorAtY(levels, P.y)`.
 
 ## Testing
 
@@ -181,7 +181,7 @@ stairs end in the roof lobby inside the housing; a handrail wall stops the walke
       `footKeyAction('KeyF', true)` blocks hover; all older foot tests are unchanged and green.
 - [ ] On foot in front of 6c, the E prompt shows (#409); E swings the door leaf open; the walker walks through the porch into the entrance hall without teleporting.
 - [ ] Inside, F does nothing, C does nothing, the view is first person; the HUD shows "6c · EG" / "6c · ground floor".
-- [ ] All ten storeys and the roof level can be reached on foot over the stairs (the node test proves it) and by lift; the HUD shows "6c · 4. OG" / "6c · 4th floor" etc.
+- [ ] All ten storeys and the roof level can be reached on foot over the stairs (the node test proves it) and by lift; the HUD shows "6c · 5. OG" / "6c · 5th floor" etc.
 - [ ] The lift cabin is visibly moving, its door opens at the stop; the keypad (EG, 1-9, Dach/Roof) works by click and by keys 0-9 and D; E on a landing calls the lift; the same panel is in German and English.
 - [ ] Each landing 1.-9. OG has a window to look out through onto the real Sisseln (free mouse look); closed flat doors on the landings; nothing personal on them.
 - [ ] The roof is reachable through the housing door and walkable to its edge; the walker cannot fall off.

@@ -365,10 +365,10 @@ test('floorAtY_OnStairsAndLandings_NamesTheStoreyBelowTheHalfLanding', () => {
 });
 
 test('floorLabel_SwissNaming_EgOgDach_AndEnglish', () => {
-  assert.deepEqual([0, 1, 4, 9, 10].map(k => floorLabel(k, 'de')), ['EG', '1. OG', '4. OG', '9. OG', 'Dach']);
-  assert.deepEqual([0, 1, 2, 3, 4, 9, 10].map(k => floorLabel(k, 'en')), ['ground floor', '1st floor', '2nd floor', '3rd floor', '4th floor', '9th floor', 'roof']);
-  assert.equal(hudFloorText('6c', 4, 'de'), '6c · 4. OG');
-  assert.equal(hudFloorText('6c', 4, 'en'), '6c · 4th floor');
+  assert.deepEqual([0, 1, 5, 9, 10].map(k => floorLabel(k, 'de')), ['EG', '1. OG', '5. OG', '9. OG', 'Dach']);
+  assert.deepEqual([0, 1, 2, 3, 5, 9, 10].map(k => floorLabel(k, 'en')), ['ground floor', '1st floor', '2nd floor', '3rd floor', '5th floor', '9th floor', 'roof']);
+  assert.equal(hudFloorText('6c', 5, 'de'), '6c · 5. OG');
+  assert.equal(hudFloorText('6c', 5, 'en'), '6c · 5th floor');
   assert.equal(hudFloorText('6c', 0, 'en'), '6c · ground floor');
 });
 
@@ -532,7 +532,7 @@ export const FLOOR_LABELS = {
   de: (k) => (k === 0 ? 'EG' : k === 10 ? 'Dach' : `${k}. OG`),
   en: (k) => (k === 0 ? 'ground floor' : k === 10 ? 'roof' : `${ORDINAL[k]} floor`),
 };
-// "6c · 4. OG" / "6c · 4th floor"
+// "6c · 5. OG" / "6c · 5th floor"
 export const floorLabel = (k, lang) => (FLOOR_LABELS[lang] || FLOOR_LABELS.en)(k);
 export const keypadLabel = (k, lang) => (k === 0 ? 'EG' : k === 10 ? (lang === 'de' ? 'Dach' : 'Roof') : String(k));
 export const hudFloorText = (house, k, lang) => `${house} · ${floorLabel(k, lang)}`;
@@ -1207,7 +1207,7 @@ def test_roof_door_and_the_roof_edge_cannot_be_crossed(server):
 
 - [ ] **Step 1: CHANGELOG** under `[Unreleased]` / `Added` (English, player voice, the date and Swiss time it goes live, only the address named):
 
-  `- \`YYYY-MM-DD HH:MM\` **Walk into Bodenackerstrasse 6c!** On foot (**Z**), walk up to the glass entrance of the block at **Bodenackerstrasse 6c** in Sisseln and press **E**: the door swings open. Inside there is a stair hall with a **lift** (the buttons **EG, 1-9 and Dach**, or the keys **0-9** and **D**; **E** calls it on every floor), a **window on every floor** to look out over the real Sisseln, and a door at the top onto the **roof**, where you can walk right up to the edge. The HUD shows where you are ("6c · 4. OG"). Hovering (**F**) is off inside.`
+  `- \`YYYY-MM-DD HH:MM\` **Walk into Bodenackerstrasse 6c!** On foot (**Z**), walk up to the glass entrance of the block at **Bodenackerstrasse 6c** in Sisseln and press **E**: the door swings open. Inside there is a stair hall with a **lift** (the buttons **EG, 1-9 and Dach**, or the keys **0-9** and **D**; **E** calls it on every floor), a **window on every floor** to look out over the real Sisseln, and a door at the top onto the **roof**, where you can walk right up to the edge. The HUD shows where you are ("6c · 5. OG"). Hovering (**F**) is off inside.`
 - [ ] **Step 2: sweep (foreground, one file at a time, after pushing):** the full `node --test prototype/tests/*.test.mjs`; Playwright `test_enter_6c.py`, `test_bodenacker6.py`, `test_on_foot.py`, `test_building_collision.py`, `test_row_houses.py`, `test_smoke.py`, `test_minimap.py`, `test_hideout.py` (the freight lift is untouched). A walker outside the block is still blocked by the body and the porch with the door shut: add one assert to `test_enter_6c.py` if there is none (walk into the porch front without pressing E and check `area` stays `out`).
 - [ ] **Step 3: privacy grep of the diff:** `git diff origin/main... | grep -n -i -E "wohn|mieter|resident|lebt|urlaub|ferien"` must show nothing personal (the words "flat doors" and "flats (stage 2)" are fine; names of people are not).
 - [ ] **Step 4: commit** `feat(foot): 6c is enterable (#411, #412)`, push, open the PR (title `feat(buildings): enter Bodenackerstrasse 6c: stair hall, lift, roof (#411, #412)`, body with Summary, Changes, Testing, `Closes #411` / `Closes #412` as the maintainer decides).
