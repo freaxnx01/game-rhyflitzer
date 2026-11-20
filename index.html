@@ -7341,6 +7341,17 @@ function swingRemoteTrailer(rig, pose) {
   const dt = Math.min((at - prev.at) / 1000, 0.25), dry = pose.ry - prev.ry, dth = -Math.atan2(Math.sin(dry), Math.cos(dry)), th = -pose.ry;
   swingTrailer(rig, ((pose.x - prev.x) * Math.cos(th) + (pose.z - prev.z) * Math.sin(th)) / dt, dth / dt, dt);
 }
+// #1108: a remote car's wheels from its sampled pose, with the signs of drawWheels (front yaw = -steer, roll = -spin). The roll
+// speed is the signed forward speed, so a reversing car rolls backwards. dt is this entry's own frame time, clamped so a
+// backgrounded tab does not spin the wheels wildly.
+function stepRemoteWheels(entry, pose) {
+  const at = performance.now(), dt = entry.wheelAt === null ? 0 : Math.min((at - entry.wheelAt) / 1000, 0.1);
+  entry.wheelAt = at;
+  const def = VEHICLES[entry.car];
+  if (!def?.wheelR) return;
+  entry.spin = stepWheelSpin(entry.spin, forwardSpeed(pose.vx, pose.vz, pose.ry), def.wheelR * def.scale, dt);
+  for (const w of entry.wheels) { w.steer.rotation.y = w.front ? -pose.steer : 0; w.roll.rotation.z = -entry.spin; }
+}
 // from the loop: at most one model is built per frame, then every remote car is put where its sender was DELAY ms ago
 function stepNetCars() {
   if (!NET.session) return;
@@ -7365,6 +7376,7 @@ function stepNetCars() {
     entry.mesh.position.set(pose.x, pose.y, pose.z);
     entry.mesh.rotation.set(pose.rx, pose.ry, pose.rz);
     if (entry.trailer) swingRemoteTrailer(entry.trailer, pose);
+    stepRemoteWheels(entry, pose);
     const l = remoteLamps(pose.flags, flashOn);
     entry.lamp = l;
     const lv = lampState({ head: l.head, hazard: false, blinker: null, braking: l.brake, flashOn: false });
@@ -7478,7 +7490,7 @@ window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: 
 window.__mm.netRace = () => ({ cps: CPS.map((c) => [c.x, c.z]), finish: [FINISH.x, FINISH.z], done: cpObjs.map((c) => c.done), board: NET.race?.board ?? null, over: !!NET.race?.over, cpno: NET.race?.cpno ?? 0, pos: $('netpos').textContent, result: $('mpresult').hidden ? null : [...document.querySelectorAll('#mpresult .mp-row b')].map((b) => b.textContent) });   // #837 part c: the checkpoints, the board and the position line; part d: the ranked result lines
 window.__mm.netMarkCpDone = (i) => { const c = cpObjs[i]; if (c && !c.done) { c.done = true; c.pillar.material = cpMatDone; c.ring.visible = false; R.done++; updatePips(); } };   // #1022 test hook: a local pass the host has not (yet) accepted — the race-the-near-window case netReopenCp must revert
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
-window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp, flames: e.flames ? { n: e.flames.children.length, visible: e.flames.visible } : null }));   // #835: read-only, for the test; #1116: the flames group
+window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp, flames: e.flames ? { n: e.flames.children.length, visible: e.flames.visible } : null, wheels: e.mesh ? { spin: e.spin, yaw: e.wheels.filter(w => w.front).map(w => w.steer.rotation.y), rear: e.wheels.filter(w => !w.front).map(w => w.steer.rotation.y), n: e.wheels.length } : null }));   // #835: read-only, for the test; #1116: the flames group; #1108: the wheels
 window.__mm.netContacts = () => netContacts().map(({ id, hit }) => ({ id, pen: hit.pen }));   // #836: the overlaps the own car has now
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
