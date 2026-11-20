@@ -30,3 +30,7 @@ test('a long frame stays finite and clamped', () => {
   const p = trailerStep(0.2, 22, 1, geom, 0.5);
   assert.ok(Number.isFinite(p) && Math.abs(p) <= TRAILER.maxAngle);
 });
+
+test('the jackknife clamp is 70 degrees', () => {
+  assert.equal(TRAILER.maxAngle, 70 * Math.PI / 180);
+});
