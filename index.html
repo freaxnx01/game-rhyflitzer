@@ -1113,7 +1113,7 @@ import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lif
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
-import { stepWheelYaw, stepWheelSpin, frontAxleX, plantedWheelY } from './steering.js';
+import { stepWheelYaw, stepWheelSpin, forwardSpeed, frontAxleX, plantedWheelY } from './steering.js';
 import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, shadowShown } from './shadow.js';
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor, doorPanelOffset } from './delorean.js';
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
@@ -7259,7 +7259,7 @@ function netPose(peerId, buf) {
   pushPose(trackFor(pose.id), pose);
   if (pose.hit && pose.hit.to === NET.you) { BUMP.inbox.push({ from: pose.id, hit: pose.hit }); if (BUMP.inbox.length > 16) BUMP.inbox.shift(); }   // #836 part b: applied in netBump, never here
 }
-const newNetCar = () => ({ car: null, paint: null, name: null, mesh: null, tag: null, roof: 0, lamps: { head: [], tail: [] }, blink: { left: null, right: null }, flames: null, lamp: { head: false, brake: false, left: false, right: false }, track: createTrack() });
+const newNetCar = () => ({ car: null, paint: null, name: null, mesh: null, tag: null, roof: 0, lamps: { head: [], tail: [] }, blink: { left: null, right: null }, flames: null, wheels: [], spin: 0, wheelAt: null, lamp: { head: false, brake: false, left: false, right: false }, track: createTrack() });
 // the track a player's poses go into; a pose that arrives before the lobby message opens the entry
 function trackFor(id) {
   let entry = NETCARS.get(id);
@@ -7311,6 +7311,7 @@ function buildNetCar(entry) {
   scene.add(mesh); entry.mesh = mesh;
   entry.lamps = built.lamps; entry.trailer = rigTrailer(mesh, def);
   entry.blink = built.blink; entry.flames = built.flames;
+  entry.wheels = built.wheels; entry.spin = 0; entry.wheelAt = null;   // #1108: the cloned wheel groups and their roll state
   entry.roof = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3()).y;   // part c: the tag floats above the roof
   if (entry.name && !entry.tag) { entry.tag = netTag(entry.name); scene.add(entry.tag); }
   return true;
@@ -7521,6 +7522,7 @@ function cloneStageVehicle(id, paint, remote) {
   let mesh = null, bodyPaint = null;
   const lamps = { head: [], tail: [] };
   const blink = { left: null, right: null };
+  let wheels = [];
   let flameGroup = null;
   withStageVehicle(id, paint, (stage) => {
     const drop = new Set();   // a remote clone keeps the flames and BLINK.left/right; a depot or podium clone drops them
@@ -7528,6 +7530,7 @@ function cloneStageVehicle(id, paint, remote) {
     const dropIdx = stage.children.map((c, i) => drop.has(c) ? i : -1).filter(i => i >= 0);
     const g = stage.clone(true);
     const li = stage.children.indexOf(BLINK.left), ri = stage.children.indexOf(BLINK.right), fi = stage.children.indexOf(flames);   // capture before the removal loop detaches them
+    if (remote) wheels = (stage.userData.wheels ?? []).map(w => ({ front: w.front, steer: g.children[stage.children.indexOf(w.steer)] })).filter(w => w.steer && w.steer.children[0]).map(w => ({ front: w.front, steer: w.steer, roll: w.steer.children[0] }));   // #1108: the clone's userData has no node refs, so find the wheel groups by child index like the blinkers
     if (remote && li >= 0) blink.left = g.children[li];
     if (remote && ri >= 0) blink.right = g.children[ri];
     if (remote && fi >= 0) { flameGroup = g.children[fi]; flameGroup.visible = false; }
@@ -7539,7 +7542,7 @@ function cloneStageVehicle(id, paint, remote) {
     if (blink.right) blink.right.visible = false;
     bodyPaint = stagePaint(g, def); mesh = g;
   });
-  return { mesh, paint: bodyPaint, lamps, blink, flames: flameGroup };
+  return { mesh, paint: bodyPaint, lamps, blink, flames: flameGroup, wheels };
 }
 function buildDepotSlot(s) {
   const def = VEHICLES[s.id];
