@@ -14,8 +14,10 @@ READY = "() => window.__mm && window.__mm.sim && window.__mm.net && document.que
 T = 120000
 
 
-def open_page(browser, server):
+def open_page(browser, server, init=None):
     ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
+    if init:
+        ctx.add_init_script(init)
     page = ctx.new_page()
     page.set_default_timeout(T)   # two heavy pages in one browser: the background one settles slowly, so let clicks block
     errors = []
@@ -175,3 +177,52 @@ def test_default_names_are_filled_and_unique(pair):
     found = names(host)
     assert len(found) == 2 and len(set(n.lower() for n in found)) == 2 and all(found), found
     assert names(guest) == found and not errors
+
+
+def test_dice_rolls_a_name_and_forgets_the_typed_one(pair):
+    """#1002: the dice replaces a typed name with a pool name and forgets the stored one."""
+    host, guest, errors = pair
+    host.click("#mpbtn"); host.fill("#mpname", "p1"); host.click("#mphostbtn")
+    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1H.')", timeout=T)
+    host.reload(); host.wait_for_function(READY, timeout=240000)
+    host.click("#mpbtn")
+    assert host.input_value("#mpname") == "p1"
+    host.click("#mpdice")
+    rolled = host.input_value("#mpname")
+    assert rolled and rolled != "p1"
+    assert host.evaluate("() => localStorage.getItem('mm.mpName')") is None
+    assert not errors
+
+
+def test_name_field_takes_the_row_and_the_dice_stays_small(pair):
+    """The dice beside the name keeps its own width; #mp .btn{width:100%} squeezed the field to nothing, so a rolled
+    name was invisible and the dice looked broken."""
+    host, guest, errors = pair
+    host.click("#mpbtn")
+    field, dice = (host.locator(s).bounding_box()["width"] for s in ("#mpname", "#mpdice"))
+    assert dice <= 80 and field > 3 * dice, (field, dice)
+    assert host.evaluate("() => { const i = document.querySelector('#mpname'); return i.scrollWidth <= i.clientWidth; }")
+    assert not errors
+
+
+DROP_FIRST_HELLO = """(() => {
+  const send = RTCDataChannel.prototype.send;
+  let dropped = false;
+  RTCDataChannel.prototype.send = function (data) {
+    if (!dropped && typeof data === 'string' && data.startsWith('{"type":"hello"')) { dropped = true; return; }
+    return send.call(this, data);
+  };
+})();"""
+
+
+def test_lost_first_hello_still_joins(server):
+    """#1019: one lost hello must not strand the guest -- it repeats the hello until the lobby comes."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(args=ARGS)
+        host, host_errors = open_page(browser, server)
+        guest, guest_errors = open_page(browser, server, init=DROP_FIRST_HELLO)
+        connect(host, guest)
+        assert names(host) == ["Anna", "Ben"]
+        assert names(guest) == ["Anna", "Ben"]
+        assert host_errors + guest_errors == []
+        browser.close()

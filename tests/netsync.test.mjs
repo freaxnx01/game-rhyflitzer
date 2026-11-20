@@ -27,6 +27,16 @@ test('sampleRemote_bigGap_snapsNotSlides', () => {
   assert.equal(sampleRemote(tr, 1130).x, 400);
 });
 
+test('sampleRemote_velocity_interpolatedAndHeld', () => {
+  const tr = createTrack(); pushPose(tr, pose(1000, 0, { vx: 10, vz: 1 })); pushPose(tr, pose(1100, 1, { vx: 20, vz: 2 }));
+  assert.ok(Math.abs(sampleRemote(tr, 1150).vx - 15) < 1e-9);             // interpolated (rt 1050, f 0.5)
+  assert.ok(Math.abs(sampleRemote(tr, 1150).vz - 1.5) < 1e-9);
+  assert.ok(Math.abs(sampleRemote(tr, 1300).vx - 20) < 1e-9);             // past newest: held at the newest's vx
+  assert.ok(Math.abs(sampleRemote(tr, 1300).vz - 2) < 1e-9);
+  assert.ok(Math.abs(sampleRemote(tr, 1050).vx - 10) < 1e-9);             // before the oldest: the oldest's vx
+  assert.ok(Math.abs(sampleRemote(tr, 1050).vz - 1) < 1e-9);
+});
+
 test('sampleRemote_yaw_shortestPath', () => {
   const tr = createTrack(); pushPose(tr, pose(1000, 0, { ry: 3.1 })); pushPose(tr, pose(1100, 0, { ry: -3.1 }));
   assert.ok(Math.abs(Math.abs(sampleRemote(tr, 1150).ry) - Math.PI) < 0.01);

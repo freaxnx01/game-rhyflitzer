@@ -231,6 +231,52 @@ def test_no_open_cut_faces(server):
     1.85-2.84 m apart (64 points; PR #156 comment "Status: test_side_roads_descend_with_the_cut green", option (a), chosen
     by the user). Junction corners do not qualify (their roads meet, they do not face each other); nothing else is relaxed."""
     r = run(server, lambda page: page.evaluate("() => window.__mm.openCutFaces()"))
-    print(json.dumps({k: v for k, v in r.items() if k != "troughPts"}))
+    print(json.dumps({k: v for k, v in r.items() if k not in ("troughPts", "slopePts")}))
     assert r["checked"] > 0, r
     assert r["count"] == 0, r
+    # #844: banks at an at-grade corner whose run end was dropped stay a shallow grass slope (measured max 0.81 m, Stein)
+    assert r["slope"] > 0, "the Stein corner must show up as a slope"
+    assert r["slopeMax"] <= 1.0, r["slopePts"][:30]
+
+
+# #844: south of Stein the service road w1216639317 leaves the main road's cut where that cut is still at grade; the end
+# pieces of both roads' runs at that corner stopped cars at the lane edge 8 m before the real cut
+STEIN_CORNER = [(-887.91, 1177.73), (-887.64, 1177.95)]          # service road's north run end, main road's west run end
+STEIN_KEEP = [(-888.54, 1185.99), (-888.15, 1185.4), (-889.94, 1177.70)]   # real cut wall, its corner piece, service run
+KAPF_KEEP = [(-4006.27, 615.65), (-4001.34, 607.53)]              # PR#886's rule dropped these and opened 1.88 m faces
+TESTER = (-881.7, 1143.9)                                         # 2.66 m west of the centre line
+LANE = (-880.45, 1143.9)                                          # the southbound lane's centre
+
+
+def bearing_th(bearing):
+    """The game's P.th for a compass bearing (index.html: bearing = atan2(cos th, -sin th))."""
+    return math.atan2(-math.cos(math.radians(bearing)), math.sin(math.radians(bearing)))
+
+
+def speed_drops(track, start_z, until_z):
+    """Steps (0.25 s apart) that lose more than 2.5 m/s before until_z."""
+    return [(a, b) for a, b in zip([[start_z, 13.9]] + track, track) if b[0] < until_z and a[1] - b[1] > 2.5]
+
+
+@needs_world
+def test_stein_south_corner_has_no_wall_stub(server):
+    def script(page):
+        r = {"walls": page.evaluate("() => window.__mm.walls()"), "slopes": page.evaluate("() => window.__mm.slopes()")}
+        for name, (x, z), bearing, until in (("lane", LANE, 186.4, 3.5), ("tester", TESTER, 188.0, 2.0)):
+            r[name] = page.evaluate("""([x, z, th, until]) => { const out = [];
+                for (let i = 1; i * 0.25 <= until + 1e-9; i++) { window.__mm.setDamage(0); const s = window.__mm.sim(x, z, th, 13.9, i * 0.25); out.push([s.z, s.speed]); }
+                return { track: out, wrecked: window.__mm.damage().wrecked }; }""", [x, z, bearing_th(bearing), until])
+        return r
+    r = run(server, script)
+    print(json.dumps({k: v for k, v in r.items() if k != "walls"}))
+    near = lambda ws, p: [w for w in ws if math.hypot(w["x"] - p[0], w["z"] - p[1]) < 1.0]
+    for p in STEIN_CORNER:
+        assert not near(r["walls"], p), near(r["walls"], p)
+        assert near(r["slopes"], p), p
+    for p in STEIN_KEEP + KAPF_KEEP:
+        assert near(r["walls"], p), p
+    lane = r["lane"]["track"]
+    assert not speed_drops(lane, LANE[1], 1222) and max(z for z, _ in lane) > 1215, lane   # road bends at z 1222.8
+    tester = r["tester"]["track"]
+    assert not speed_drops(tester, TESTER[1], 1182), tester                                 # real cut starts at z ~1182
+    assert max(z for z, _ in tester) >= 1182, tester

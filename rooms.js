@@ -8,7 +8,9 @@ import { ARTEMIS, artemisPlacement } from './artemis.js';   // #488
 import { ENTERPRISE, DEDICATION, dedicationPlacement } from './enterprise.js';   // #491
 import { FERRIS, ferrisPlacement } from './ferris.js';      // #513
 import { SHUTTLE, shuttlePlacement } from './shuttle.js';   // #811
+import { DS9 } from './ds9.js';                            // #620
 import { FRIES, friesPlacement } from './fries.js';
+import { MANNEKEN, mannekenPlacement } from './manneken.js';   // #585
 import { RALLYHALL, rallyhallPlacement } from './rallyhall.js';   // #859
 import { BELOW_Y, BELOW2_Y, SPOKE, spokeFrame } from './underground.js';
 
@@ -22,7 +24,7 @@ const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) >>> 0; return
 // one issue per landmark) -- an empty room's spoke stays unsigned (spokeSigns in underground.js) so it raises no expectations.
 export const ROOMS = [
   { id: 'eiffel', name: 'La Tour Eiffel', object: EIFFEL, signed: false },   // signed: false -- unsigned for now, so finding them stays a surprise
-  { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false, figure: FRIES },   // #451: the fries figure stands beside the Atomium
+  { id: 'atomium', name: 'Atomium', object: ATOMIUM, signed: false, figure: FRIES, corner: MANNEKEN },   // #451: the fries figure stands beside the Atomium; #585: the Manneken Pis in his fountain corner
   { id: 'room2', name: 'Artemis II', object: ARTEMIS, signed: false },   // #488: the SLS stack and the Orion capsule
   { id: 'room3', name: 'Vasa', object: VASA, signed: false },   // #421: the warship on its museum cradle
   { id: 'room4', name: null, object: null },
@@ -35,10 +37,12 @@ export const ROOMS = [
 // opens the left side, then 2, 6, 3, 5 and last 4, the room straight behind the lift. 7 (Titanic), 2 (Artemis II), 6 (Ferris wheel), 3 (Vasa) and
 // 5 (Rally hall) are taken; 4 is last.
 export const NEXT_ROOMS = [7, 2, 6, 3, 5, 4];
-// #489 / #491: ring 2's eight rooms -- the Enterprise took the first, the Space Shuttle Enterprise the second (#811); the rest are empty
-// for now. `look`: 'meadow' (the ring-1 template) or 'space' (#491: a holodeck grid under a star dome, no trees, paths or clouds)
+// #489 / #491: ring 2's eight rooms -- the Enterprise took the first, the Space Shuttle Enterprise the second (#811), Deep Space
+// Nine the third (#620); the rest are empty for now. `look`: 'meadow' (the ring-1 template) or 'space' (#491: a holodeck grid
+// under a star dome, no trees, paths or clouds)
 const TAKEN2 = {
   0: { name: 'Enterprise', object: ENTERPRISE, signed: false, look: 'space', dedication: DEDICATION },
+  1: { name: 'Deep Space Nine', object: DS9, signed: false, look: 'space' },   // #620: the station at half scale, the Defiant docked
   7: { name: 'Space Shuttle Enterprise', object: SHUTTLE, signed: false, look: 'space' },   // #811: OV-101 in launch position
 };
 export const ROOMS2 = Array.from({ length: SPOKE.n }, (_, k) => ({ id: `r2room${k}`, name: null, object: null, ...TAKEN2[k] }));
@@ -148,6 +152,9 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   // #451: a figure beside the object (the fries figure in the Atomium room), on its plinth collider
   const figure = room.figure ? friesPlacement({ centre, frame: { f, v }, portal: { c: P }, y: Y }, room.figure) : null;
   if (figure) colliders.push(...figure.colliders);
+  // #585: the Manneken Pis's fountain corner beside the figure (manneken.js places it; mannekenmesh.js builds it), facing the portal
+  const corner = room.corner ? mannekenPlacement({ centre, frame: { f, v }, portal: { c: P }, y: Y }, room.corner) : null;
+  if (corner) colliders.push(...corner.colliders);
   // #488: the Artemis II stack on its mount in the centre and the Orion capsule beside it (artemis.js places them; artemismesh.js builds them)
   const artemis = (room.object && room.object.capsule) ? artemisPlacement({ centre, frame: { f, v }, portal: { c: P }, y: Y }, room.object) : null;
   if (artemis) colliders.push(...artemis.colliders);
@@ -183,12 +190,13 @@ export function roomLayout(k, room = ROOMS[k], ring = RINGS[0]) {
   if (rallyhall) paths.push({ pts: rallyhall.apron, hw: room.object.apron.hw });   // #859: the gravel apron from the loop into the hall
   const view = [cx - f[0] * 150, cz - f[1] * 150];
   return {
-    id: room.id, k, ring: ring.id, y: Y, half: HALF, look: space ? 'space' : (room.look || 'meadow'), fly: { wall: HALF - 25, ceiling: ROOM_FLY.ceiling }, centre, frame: { f, v }, groundAt: () => Y,
+    // #620: an object taller than the standard 420 m ceiling raises it for its own room (Deep Space Nine: 570 m)
+    id: room.id, k, ring: ring.id, y: Y, half: HALF, look: space ? 'space' : (room.look || 'meadow'), fly: { wall: HALF - 25, ceiling: room.object?.ceiling ?? ROOM_FLY.ceiling }, centre, frame: { f, v }, groundAt: () => Y,
     ceilingAt(x, z) {
       const dx = x - P[0], dz = z - P[1], a = dx * f[0] + dz * f[1], b = dx * v[0] + dz * v[1];
       return a >= tunA0 && a <= 0 && Math.abs(b) <= SPOKE.hw + 1 ? Y + SPOKE.ceiling : null;
     },
-    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, artemis, ferris, shuttle, rallyhall, dedication, colliders, trees, paths,
+    object: room.object, tower: room.object ? { x: cx, z: cz } : null, feet, hull, basin, figure, corner, artemis, ferris, shuttle, rallyhall, dedication, colliders, trees, paths,
     portal: { c: P, th: Math.atan2(f[1], f[0]), hw: SPOKE.hw, h: SPOKE.ceiling },
     spawn: { x: at(20, 0)[0], z: at(20, 0)[1], th: Math.atan2(f[1], f[0]) },
     towerView: room.object ? { x: view[0], z: view[1], th: Math.atan2(f[1], f[0]) } : null,

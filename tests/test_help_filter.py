@@ -59,11 +59,11 @@ def test_f1_focuses_the_search_and_typing_filters(server):
         page.wait_for_function("() => !document.querySelector('#help').hidden", timeout=T)
         focus = page.evaluate("() => document.activeElement.id")
         page.keyboard.type("ton")
-        page.wait_for_function("() => [...document.querySelectorAll('#help .keys kbd')].filter(k => !k.hidden).length === 2", timeout=T)
+        page.wait_for_function("() => [...document.querySelectorAll('#help .keys kbd')].filter(k => !k.hidden).length === 3", timeout=T)
         rows = help_rows(page)
         b.close()
     assert focus == "helpq"
-    assert rows["kbdCount"] == 2   # "ton" matches "Ton aus" (M) and "Pontonbrücke" (U): substring, per the spec
+    assert rows["kbdCount"] == 3   # "ton" matches "Ton aus" (M), "Pontonbrücke" (U) and "Video mit Ton" (§, #749): substring, per the spec
     assert any("Ton" in t for t in rows["spanText"]), rows["spanText"]   # the "Ton aus" (M) row is kept
     assert errors == []
 
@@ -73,12 +73,12 @@ def test_f1_search_filters_in_english_too(server):
         b, page, errors = open_page(p, server, locale="en-US")
         page.keyboard.press("F1")
         page.wait_for_function("() => !document.querySelector('#help').hidden", timeout=T)
-        page.keyboard.type("mute")
+        page.keyboard.type("sound off")   # #842 renamed "mute" to "sound off · on (effects)"
         page.wait_for_function("() => [...document.querySelectorAll('#help .keys kbd')].filter(k => !k.hidden).length === 1", timeout=T)
         rows = help_rows(page)
         b.close()
     assert rows["kbdCount"] == 1
-    assert any("mute" in t.lower() for t in rows["spanText"]), rows["spanText"]
+    assert any("sound off" in t.lower() for t in rows["spanText"]), rows["spanText"]
     assert errors == []
 
 

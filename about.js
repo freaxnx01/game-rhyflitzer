@@ -2,6 +2,8 @@
 
 export const ABOUT_LINKS = Object.freeze({
   midtown: 'https://en.wikipedia.org/wiki/Midtown_Madness',   // the article only: its screenshot is not free, never copy it
+  nfz: 'https://www.nfz.ch/mit-dem-rhyflitzer-wird-das-fricktal-zur-spielwelt',   // the NFZ article of 19.11.2026
+  youtube: 'https://www.youtube.com/@freax-games',
   osm: 'https://www.openstreetmap.org/copyright',
   otd: 'https://opentransportdata.swiss/',   // #500: Postauto timetable (terms 5.1: cite as source)
   swisstopo: 'https://www.swisstopo.admin.ch/',

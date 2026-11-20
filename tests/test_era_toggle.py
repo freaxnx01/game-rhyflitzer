@@ -13,13 +13,13 @@ READY = "() => window.__mm && window.__mm.sim && window.__mm.era && document.que
 needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py build first")
 
 
-def open_game(p, server):
+def open_game(p, server, query=""):
     b = p.chromium.launch(args=ARGS)
-    page = b.new_context(viewport={"width": 640, "height": 360}, locale="en-US").new_page()
+    page = b.new_context(viewport={"width": 1280, "height": 720}, locale="en-US").new_page()
     page.errors = []
     page.on("pageerror", lambda e: page.errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))
-    page.goto(f"{server}/index.html")
+    page.goto(f"{server}/index.html{query}")
     page.wait_for_function(READY, timeout=240000)
     page.click("#startbtn", timeout=180000)
     return b, page
@@ -287,7 +287,7 @@ def test_era_road_gone_moves_car_off_bridge(server):
 @needs_world
 def test_era_road_logic_follows_layer(server):
     with sync_playwright() as p:
-        b, page = open_game(p, server)
+        b, page = open_game(p, server, "?patime=10:00")   # buses run by the Zurich clock: none late at night (CI ran at 23:00)
         page.keyboard.press("KeyO"); page.keyboard.type("Smile"); page.keyboard.press("Enter")
         page.wait_for_function("() => window.__mm.auto().on", timeout=60000)
         page.wait_for_function("() => window.__mm.era().buses > 0", timeout=120000)

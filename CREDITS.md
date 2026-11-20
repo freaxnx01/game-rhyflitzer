@@ -12,8 +12,24 @@
   - „California Snares and Synths" by Eliza_music, https://pixabay.com/music/rock-california-snares-and-synths-435003/, Pixabay Content License (tagged "AI generated" on Pixabay)
   - „The 1980s soft rock danceable mid tempo four on the floor groove" by Michael-Vault, https://pixabay.com/music/rock-the-1980s-soft-rock-danceable-mid-tempo-four-on-the-floor-groove-611150/, Pixabay Content License (tagged "AI generated" on Pixabay)
   - „Melrose Place Soft Rock" by DigiCompo, https://pixabay.com/music/rock-melrose-place-soft-rock-304003/, Pixabay Content License (tagged "AI generated" on Pixabay)
+  - „Gritty Riffing" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Fuzz Riff Breakdown" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Pulsing Arpeggio" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Pulsing Arpeggio (Take 2)" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Rising Tension" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Open Road" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Night Drive" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Hurricane Bloom" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Celtic Jig of Iron" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Stadium Scale" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Unison Riff" by freaxnx01, made with Suno (paid plan), generated for this game
+  - „Motores Relentless" by freaxnx01, made with Suno (paid plan), generated for this game
   - „Menu / Running Title" by Rob Bery · Rob Bery Art (OpenGameArt user R0B B3RY), https://opengameart.org/content/menu-running-title, CC0 (re-encoded to 128 kbps)
+- Deep Space Nine in ring-2 room 1 (`assets/models/ds9.glb`, see its LICENSE.md): „Deep Space Nine - Star Trek" by rossrobotics (https://sketchfab.com/rossrobotics), source https://sketchfab.com/3d-models/deep-space-nine-star-trek-3e1743fc00be4d83848c7d890b8a5988, and „U.S.S. Defiant" by Feltman_Langer (https://sketchfab.com/Feltman_Langer), source https://sketchfab.com/3d-models/uss-defiant-8e875133c49240699d3b19de324826cf, both CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); decimated and scaled to 50 %
+- Flags in the rally hall (`assets/flags/`, see its LICENSE.md): Flag of Wales by Tobias Jakobs (Open Clipart Library) via Wikimedia Commons, public domain; Union Jack, public domain
+- Rally hall videos: „A day that Elfyn Evans & Scott Martin will never forget" by FIA World Rally Championship (https://www.youtube.com/shorts/cZxfLJdhWk8), and „wrc rally Sweden 2026 Elfyn Evans faster passage" by wrcfans (https://www.youtube.com/shorts/RFIVbPT6pdI), both embedded with YouTube's own player (youtube-nocookie.com), not re-hosted
 - SRF 3 live (https://www.srf.ch/radio-srf-3): the live stream `https://stream.srg-ssr.ch/srgssr/srf3/mp3/128`, played unchanged, not re-hosted
+- Manneken Pis in the Atomium room (`assets/models/manneken_pis.glb`, see its LICENSE.md): „177_ Manneken Pis In Brussels, Belgium" by RascalFR (https://sketchfab.com/RascalFR), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), source https://sketchfab.com/3d-models/177--manneken-pis-in-brussels-belgium-fd4be588ea3d4a0fa349ae393a4f3b9f; joined into one mesh, simplified, rescaled to the real 0.61 m and given our own bronze material
 - WebGPU PoC (`poc/webgpu/`): demo code "Slop New York" (MIT) © Mr.doob (https://github.com/mrdoob/slop-newyork)
 - WebGPU PoC data: NYC Open Data, building footprints and heights and Forestry Tree Points (https://opendata.cityofnewyork.us/); MTA Subway Entrances (https://data.ny.gov/)
 - WebGPU PoC map data: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright)

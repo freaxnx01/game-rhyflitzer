@@ -69,6 +69,18 @@ test('parsePose_encoded_roundTripsWithinQuantisation', () => {
   for (const k of ['vx', 'vz']) assert.ok(Math.abs(p[k] - POSE[k]) <= 0.01, k);
 });
 
+test('parsePose_hit_roundTrips', () => {
+  assert.equal(parsePose(encodePose(POSE)).hit, null);
+  const p = parsePose(encodePose({ ...POSE, hit: { to: 3, n: 31, c: 42.5 } }));
+  assert.deepEqual(p.hit, { to: 3, n: 31, c: 42.5 });
+});
+test('parsePose_badHit_null', () => {
+  const bad = (patch) => { const b = encodePose(POSE), v = new DataView(b); patch(v); return b; };
+  assert.equal(parsePose(bad((v) => v.setUint8(33, 1))), null);               // bits without the present bit
+  assert.equal(parsePose(bad((v) => v.setUint16(34, 5, true))), null);        // a speed without the present bit
+  assert.equal(parsePose(bad((v) => { v.setUint8(33, 4); v.setUint16(34, 30001, true); })), null);   // > 300 m/s
+});
+
 test('parsePose_badRecords_null', () => {
   const bad = (patch) => { const b = encodePose(POSE), v = new DataView(b); patch(v); return b; };
   assert.equal(parsePose('x'.repeat(36)), null); assert.equal(parsePose(new ArrayBuffer(35)), null); assert.equal(parsePose(new ArrayBuffer(37)), null);
@@ -97,4 +109,23 @@ test('joinLinkFor_readJoinHash_roundTrip', () => {
 
 test('readJoinHash_noJoinOrEmpty_null', () => {
   for (const h of ['', '#', '#join=', '#join=   ', '#other=R1H.x', undefined, 7]) assert.equal(readJoinHash(h), null, String(h));
+});
+
+// #837 part a: the race messages — start race (t0, now), cp, finish, cpno, back, and the board.
+test('parseMessage_raceMessages', () => {
+  assert.deepEqual(P({ type: 'start', mode: 'race', t0: 5000, now: 1000 }), { type: 'start', mode: 'race', t0: 5000, now: 1000 });
+  assert.equal(P({ type: 'start', mode: 'race', t0: 'x', now: 1 }), null);
+  assert.deepEqual(P({ type: 'cp', i: 2, t: 4100 }), { type: 'cp', i: 2, t: 4100 });
+  for (const bad of [{ i: 16, t: 1 }, { i: 1.5, t: 1 }, { i: 0, t: -1 }, { i: 0, t: 3600001 }]) assert.equal(P({ type: 'cp', ...bad }), null);
+  assert.deepEqual(P({ type: 'finish', t: 9 }), { type: 'finish', t: 9 });
+  assert.deepEqual(P({ type: 'cpno', i: -1 }), { type: 'cpno', i: -1 });
+  assert.deepEqual(P({ type: 'back', x: 1 }), { type: 'back' });
+});
+test('parseMessage_board', () => {
+  const row = { id: 0, name: 'A', times: [1, 2], st: 'run' };
+  assert.deepEqual(P({ type: 'board', over: false, rows: [row] }), { type: 'board', over: false, rows: [row] });
+  for (const bad of [{ ...row, times: [2, 1] }, { ...row, st: 'won' }, { ...row, id: 4 }, { ...row, times: Array(18).fill(1) }, { ...row, name: '' }])
+    assert.equal(P({ type: 'board', over: false, rows: [bad] }), null);
+  assert.equal(P({ type: 'board', over: false, rows: [row, row] }), null);   // duplicate id
+  assert.equal(P({ type: 'board', over: 1, rows: [row] }), null);
 });

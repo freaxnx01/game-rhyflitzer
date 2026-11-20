@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPECIES, KINDS, SPECIES_WEIGHTS, SPECIES_SHAPE, LOD, lodTier, treeHash, treeSpecies, treeParts, treeColour, billShape } from '../trees.js';
+import { SPECIES, KINDS, SPECIES_WEIGHTS, SPECIES_SHAPE, LOD, lodTier, treeHash, treeSpecies, treeParts, treeColour, billShape, billTints, seasonFor } from '../trees.js';
 import { rng } from '../world.js';
 
 const samples = (kind, n, seed = 7) => { const r = rng(seed), out = {}; for (const s of SPECIES) out[s] = 0; for (let i = 0; i < n; i++) out[treeSpecies(-3000 + r() * 6000, -3000 + r() * 6000, kind)]++; return out; };
@@ -113,4 +113,83 @@ test('billShape: per-species width and tint for the billboard style', () => {
   for (const s of SPECIES) { const b = billShape(s); assert.ok(b.w > 0.3 && b.w <= 1); assert.equal(b.tint.length, 3); for (const c of b.tint) assert.ok(c > 0 && c <= 1); }
   assert.deepEqual(billShape('deciduous'), { w: 1, tint: [1, 1, 1] }, 'the deciduous billboard is today\'s');
   assert.ok(billShape('poplar').w < billShape('spruce').w && billShape('spruce').w < billShape('deciduous').w);
+});
+
+// #1062: autumn colours from September to November, by date; the green season stays bit-identical
+const AUTUMN_SPECIES = ['deciduous', 'birch', 'poplar', 'fruit'];
+const hsl2rgb = (h, s, l) => { const f = (n) => { const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); }; return [f(0), f(8), f(4)]; };
+
+test('seasonFor: September to November are autumn, every other month is green (local time)', () => {
+  for (let m = 0; m < 12; m++) {
+    const season = seasonFor(new Date(2026, m, 15, 12));
+    assert.equal(season, m >= 8 && m <= 10 ? 'autumn' : 'green', `month ${m + 1}`);
+  }
+  assert.equal(seasonFor(new Date(2026, 8, 1, 0, 0, 1)), 'autumn', 'the first second of September');
+  assert.equal(seasonFor(new Date(2026, 11, 1, 0, 0, 0)), 'green', 'the first second of December');
+  assert.equal(seasonFor(new Date(2026, 10, 30, 23, 59)), 'autumn', 'the last minute of November');
+});
+
+test('treeColour in the green season (and without a season) is exactly what it was', () => {
+  for (const s of SPECIES) for (const [u1, u2, u3] of [[0, 0, 0], [0.5, 0.5, 0.5], [0.99, 0.01, 0.999], [0.13, 0.77, 0.42]]) {
+    const pal = SPECIES_SHAPE[s].colour, i = Math.min(pal.length - 1, Math.floor(u3 * pal.length)), f = u3 * pal.length - i;
+    const before = [pal[i][0] + (u1 - 0.5) * 0.08, Math.min(1, Math.max(0, pal[i][1] + (f - 0.5) * 0.12)), pal[i][2] + u2 * 0.12];
+    assert.deepEqual(treeColour(s, u1, u2, u3), before, `${s} ${[u1, u2, u3]}`);
+    assert.deepEqual(treeColour(s, u1, u2, u3, 'green'), before, `${s} green ${[u1, u2, u3]}`);
+  }
+});
+
+test('the deciduous species have an autumn palette, the spruce has none', () => {
+  for (const s of AUTUMN_SPECIES) assert.ok(Array.isArray(SPECIES_SHAPE[s].autumn) && SPECIES_SHAPE[s].autumn.length >= 2, s);
+  assert.equal(SPECIES_SHAPE.spruce.autumn, undefined);
+  for (const s of AUTUMN_SPECIES) for (const [h, sat, l] of SPECIES_SHAPE[s].autumn) {
+    assert.ok(h >= 0 && h < 0.26, `${s}: hue ${h} is yellow, orange, red or yellow-green`);
+    assert.ok(sat >= 0.4 && sat <= 0.7, `${s}: saturation ${sat}`);
+    assert.ok(l >= 0.27 && l <= 0.46, `${s}: lightness ${l} stays in today's range`);
+  }
+});
+
+test('treeColour in autumn: a mix of yellow, orange and red per species, the spruce unchanged', () => {
+  const hues = (s) => { const out = []; for (let i = 0; i < 200; i++) out.push(treeColour(s, 0.5, 0, i / 200, 'autumn')[0]); return out; };
+  for (const s of AUTUMN_SPECIES) {
+    const hs = hues(s);
+    assert.ok(hs.every(h => h >= 0 && h < 0.26), `${s}: all autumn hues`);
+    assert.ok(new Set(hs).size >= 2, `${s}: more than one variety`);
+    assert.ok(hs.some(h => h >= 0.11 && h <= 0.17), `${s}: some yellow`);
+  }
+  const share = (s, lo, hi) => hues(s).filter(h => h >= lo && h < hi).length / 200;
+  assert.ok(share('birch', 0.11, 0.18) >= 0.6, 'birch: mostly bright yellow');
+  assert.ok(share('poplar', 0.11, 0.18) >= 0.6, 'poplar: yellow');
+  assert.ok(share('fruit', 0, 0.11) >= 0.3, 'fruit: a share of orange and red');
+  assert.ok(share('deciduous', 0, 0.11) > 0 && share('deciduous', 0.11, 0.18) > 0 && share('deciduous', 0.18, 0.3) > 0, 'deciduous: the widest mix, some still green');
+  assert.ok(share('deciduous', 0, 0.11) < 0.6, 'deciduous: not a uniform orange blob');
+  for (const [u1, u2, u3] of [[0, 0, 0], [0.5, 0.5, 0.5], [0.9, 0.1, 0.999]]) assert.deepEqual(treeColour('spruce', u1, u2, u3, 'autumn'), treeColour('spruce', u1, u2, u3));
+});
+
+test('billShape in autumn: tinted yellow, orange and red per tree, the spruce and the green season unchanged', () => {
+  for (const s of SPECIES) { assert.deepEqual(billShape(s, 'green', 0.3), billShape(s)); assert.deepEqual(billShape(s, undefined, 0.7), billShape(s)); }
+  for (const u of [0, 0.3, 0.6, 0.999]) assert.deepEqual(billShape('spruce', 'autumn', u), billShape('spruce'));
+  for (const s of AUTUMN_SPECIES) {
+    const tints = new Set(); let warm = 0;
+    for (let i = 0; i < 50; i++) {
+      const b = billShape(s, 'autumn', i / 50);
+      assert.equal(b.w, billShape(s).w, `${s}: the width is the species'`);
+      assert.equal(b.tint.length, 3); tints.add(b.tint.join());
+      assert.ok(b.tint[0] >= b.tint[1] && b.tint[1] >= b.tint[2], `${s}: the tint never cools the green texture (${b.tint})`);
+      if (b.tint[0] > b.tint[1]) warm++;
+    }
+    assert.ok(tints.size >= 2, `${s}: more than one autumn tint`);
+    assert.ok(warm >= 35, `${s}: most tints turn the green texture warm`);
+  }
+});
+
+test('billTints: the crown takes the season tint, the trunk keeps the species tint of the green season', () => {
+  for (const s of SPECIES) for (const u of [0, 0.5, 0.999]) {
+    const green = billTints(s, 'green', u);
+    assert.deepEqual(green, { crown: billShape(s).tint, trunk: billShape(s).tint }, `${s}: green season`);
+    const autumn = billTints(s, 'autumn', u);
+    assert.deepEqual(autumn.trunk, billShape(s).tint, `${s}: the trunk never changes`);
+    assert.deepEqual(autumn.crown, billShape(s, 'autumn', u).tint, `${s}: the crown is the autumn tint`);
+  }
+  assert.deepEqual(billTints('spruce', 'autumn', 0.5), billTints('spruce', 'green', 0.5));
+  assert.notDeepEqual(billTints('deciduous', 'autumn', 0).crown, billTints('deciduous', 'autumn', 0).trunk);
 });

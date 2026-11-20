@@ -519,7 +519,7 @@ def test_forest_loaded(server):
     info, msgs = load(server, block_world=False)
     f = info["mm"]["counts"]["forest"]
     assert f["polys"] == len(forests) - 1, f   # #214: clearWoods drops the Fridolinsinsel wood (REGION.openWoods)
-    assert 20000 <= f["edge"] and 10000 <= f["fill"] and f["edge"] + f["fill"] <= 85000, f
+    assert 20000 <= f["edge"] and 10000 <= f["fill"] and f["edge"] + f["fill"] <= 150000, f   # #461: FOREST_BUDGET.cap in world.js, the fill is no longer thinned
     assert 0 < f["trees"] <= f["edge"] + f["fill"] and f["solid"] == f["trees"] and 100 <= f["tiles"] <= 350, f
     assert "walls" not in f, f
     assert msgs == []

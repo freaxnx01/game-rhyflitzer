@@ -61,6 +61,16 @@ export function mapLines(widthM, depthM) {
   return [`map ${km(widthM)} × ${km(depthM)} km · ${(widthM * depthM / 1e6).toFixed(1)} km²`];
 }
 
+// #1069: frame rate, renderer.info counts and JS heap, for debugging on phones
+export function fpsLine(fps, ms) { return `fps ${Math.round(fps)} · ${ms.toFixed(1)} ms`; }
+const count = n => n >= 1e6 ? `${(n / 1e6).toFixed(2)} M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)} k` : `${n}`;
+export function gpuLine(info) { return `gpu ${info.render.calls} calls · ${count(info.render.triangles)} tris · ${info.memory.geometries} geo · ${info.memory.textures} tex`; }
+export function memLine(mem) {
+  if (!mem) return [];
+  const mb = b => Math.round(b / 2 ** 20);
+  return [`mem ${mb(mem.usedJSHeapSize)} / ${mb(mem.jsHeapSizeLimit)} MB`];
+}
+
 // #70: keep debug height labels on screen. view = camera.matrixWorldInverse.elements (column-major), tanHalf = tan(fov / 2).
 export const DEBUG_LABEL_NDC_MAX = 0.8;
 export function labelNdcY(view, tanHalf, x, y, z) {
@@ -77,7 +87,7 @@ export function clampLabelY(view, tanHalf, x, y, z, ndcMax, floor) {
 }
 
 // #74: the short label drawn left of each panel line (a strings.js key); the line text itself stays language-neutral
-const LINE_LABELS = [['x ', 'dbgLabCar'], ['LV95 ', 'dbgLabLv95'], ['WGS84 ', 'dbgLabWgs84'], ['bldg ', 'dbgLabBldg'], ['size ', 'dbgLabSize'], ['map ', 'dbgLabMap']];
+const LINE_LABELS = [['x ', 'dbgLabCar'], ['LV95 ', 'dbgLabLv95'], ['WGS84 ', 'dbgLabWgs84'], ['bldg ', 'dbgLabBldg'], ['size ', 'dbgLabSize'], ['map ', 'dbgLabMap'], ['fps ', 'dbgLabFps'], ['gpu ', 'dbgLabGpu'], ['mem ', 'dbgLabMem']];
 export function lineLabelKey(line) {
   const hit = LINE_LABELS.find(([prefix]) => line.startsWith(prefix));
   return hit ? hit[1] : null;

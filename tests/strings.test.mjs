@@ -266,7 +266,7 @@ test('the music is credited in both languages, Rob Bery as the author asks (#735
 });
 
 test('the radio display strings render in both languages (#735)', () => {
-  assert.equal(translate('en', 'radioTrack', 'Cool Rider', 'Emmraan'), 'Cool Rider · Emmraan');
+  assert.equal(translate('en', 'radioFmTrack', 'Rhyflitzer FM Rock', 'Cool Rider', 'Emmraan'), 'Rhyflitzer FM Rock: Cool Rider · Emmraan');
   assert.equal(translate('de', 'radioVolume', 60), 'Lautstärke 60 %');
   assert.equal(translate('en', 'radioStationSrf'), 'SRF 3 live');
   assert.match(translate('de', 'radioSrfFail'), /SRF 3.*Rhyflitzer FM/);
@@ -298,6 +298,8 @@ test('the settings dialog has its texts in both languages (#842)', () => {
   assert.equal(translate('de', 'setMusicMenu'), 'Menümusik');
   assert.equal(translate('en', 'setMusicRadio'), 'Car radio');
   assert.equal(translate('de', 'setMusicRadio'), 'Autoradio');
+  assert.equal(translate('en', 'setShuffle'), 'Shuffle');
+  assert.equal(translate('de', 'setShuffle'), 'Zufallswiedergabe');
   assert.equal(translate('en', 'setOn'), 'on');
   assert.equal(translate('de', 'setOn'), 'ein');
   assert.equal(translate('en', 'setOff'), 'off');

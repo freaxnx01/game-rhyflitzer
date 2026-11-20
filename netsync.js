@@ -61,7 +61,7 @@ function lerpAngle(a, b, f) {
 }
 
 const poseDistance = (a, b) => Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-const pick = (p) => ({ x: p.x, y: p.y, z: p.z, rx: p.rx, ry: p.ry, rz: p.rz, steer: p.steer, flags: p.flags });
+const pick = (p) => ({ x: p.x, y: p.y, z: p.z, rx: p.rx, ry: p.ry, rz: p.rz, vx: p.vx, vz: p.vz, steer: p.steer, flags: p.flags });
 
 // sampleRemote(track, now) — the pose to draw at host-clock time `now`: interpolated, extrapolated or held, or null
 // once the sender has been silent for HIDE. A query: reads the track, never mutates it.
@@ -74,7 +74,7 @@ export function sampleRemote(track, now) {
   if (rt <= oldest.t) return pick(oldest);
   if (rt >= newest.t) {
     const dt = Math.min(rt - newest.t, EXTRAP) / 1000;
-    return { x: newest.x + newest.vx * dt, y: newest.y, z: newest.z + newest.vz * dt, rx: newest.rx, ry: newest.ry, rz: newest.rz, steer: newest.steer, flags: newest.flags };
+    return { x: newest.x + newest.vx * dt, y: newest.y, z: newest.z + newest.vz * dt, rx: newest.rx, ry: newest.ry, rz: newest.rz, vx: newest.vx, vz: newest.vz, steer: newest.steer, flags: newest.flags };
   }
   let i = poses.length - 2;
   while (poses[i].t > rt) i--;
@@ -88,6 +88,8 @@ export function sampleRemote(track, now) {
     rx: lerpAngle(b0.rx, b1.rx, f),
     ry: lerpAngle(b0.ry, b1.ry, f),
     rz: lerpAngle(b0.rz, b1.rz, f),
+    vx: lerp(b0.vx, b1.vx, f),
+    vz: lerp(b0.vz, b1.vz, f),
     steer: lerpAngle(b0.steer, b1.steer, f),
     flags: b1.flags,
   };
