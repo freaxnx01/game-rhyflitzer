@@ -20,6 +20,12 @@ export function stepWheelSpin(spin, vf, wheelR, dt) {
   return (((spin + vf * dt / wheelR) % TAU) + TAU) % TAU;
 }
 
+// a remote car's signed forward speed from its pose: heading th = -ry (the car's rotation.y = -th), so a reversing car is negative
+export function forwardSpeed(vx, vz, ry) {
+  const th = -ry;
+  return vx * Math.cos(th) + vz * Math.sin(th);
+}
+
 // #542: the body leans by `lean` about its forward axis at ground level (car.rotation.x); a wheel at (homeY, homeZ) in the car's frame
 // would dip by homeZ * sin(lean) on the outer side. This is the wheel's height in the car's frame that keeps its centre at homeY in
 // the world, like a spring taking up the lean (the wheel is also turned back by -lean so it stands upright).
