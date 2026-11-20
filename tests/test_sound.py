@@ -42,13 +42,19 @@ RENDER_JS = """async () => {
   const rasping = await cruise({ drift: true, mute: { road: 0, hiss: 0, wind: 0 } });
   // the wind band on its own: the same graph with the harmonics, the tyre roll and the hiss muted
   const windOnly = async (kmh) => { const d = await render(1, oc => { const n = m.buildEngine(oc, oc.destination, engine); const mix = m.engineMix({ rpm: 6200, gear: 5, shift: 0, load: 0.5, drift: 0 }, { kmh, gas: 1 }, engine); m.applyEngine(n, { ...mix, gain: 0, road: 0, hiss: 0 }, 0); }); return rms(d, 0.4, 1); };
+  // #709: a Postauto heard across the field. distantMix leaves mix.rough alone (the rasp plays behind out.gain), so
+  // only a render proves it really fades with the distance factor: the preset's harmonics are silenced and the tyre
+  // roll and the wind muted, leaving the rasp as the only thing through the lowpass.
+  const rasper = { ...engine, harmonics: [{ mul: 1, gain: 0, detune: 0 }] };
+  const raspAt = async (gain) => { const d = await render(1, oc => { const n = m.buildEngine(oc, oc.destination, rasper); const mix = m.engineMix({ rpm: 1800, gear: 1, shift: 0, load: 0.5, drift: 0 }, { kmh: 60, gas: 1, nitro: 1 }, rasper); m.applyEngine(n, { ...m.distantMix(mix, gain), road: 0, wind: 0 }, 0); }); return rms(d, 0.4, 1); };
   return { horn: { body: rms(h, 0.05, 0.8), tail: rms(h, 0.8, 0.85), after: rms(h, 0.95, 1.2), peak: peak(h) },
     idle: await eng({ rpm: 850, gear: 0, shift: 0, load: 0 }, { kmh: 0 }), load: await eng({ rpm: 5000, gear: 2, shift: 0, load: 1 }, { kmh: 70, gas: 1 }),
     fly: await eng({ rpm: 5000, gear: 2, shift: 0, load: 1 }, { kmh: 70, gas: 1, fly: true }), rotor: { rms: rms(rd, 0.8, 1.5), peak: peak(rd) },
     cruise: metrics(await cruise({ drift: true, mute: {} })),
     frozen: metrics(frozen), rasping: metrics(rasping),
     drifting: { ...metrics(drifting), apart: apart(drifting, frozen) / metrics(frozen).rms, same: apart(frozen, frozen) },
-    wind: { at50: await windOnly(50), at200: await windOnly(200), at30: await windOnly(30) } };
+    wind: { at50: await windOnly(50), at200: await windOnly(200), at30: await windOnly(30) },
+    rasp: { near: await raspAt(1), far: await raspAt(0.25) } };
 }"""
 
 
@@ -60,7 +66,8 @@ def test_voices_render_offline(server):
     acceptance figure, but on its own it proves little -- the detuned partials beat against each other, so even the old
     frozen voice measured ~0.097. The harmonics alone, rendered deterministically, are the real gate: the drift lifts
     their coefficient of variation well above the standing-still baseline, the rasp adds audible energy on top, and the
-    wind band is silent below 40 km/h and far louder at 200 km/h than at 50."""
+    wind band is silent below 40 km/h and far louder at 200 km/h than at 50.
+    #709: a Postauto's rasp fades with its distance factor (distantMix), like its tyre roll and its wind."""
     with sync_playwright() as p:
         b = p.chromium.launch(); page = b.new_page()
         page.goto(f"{server}/tests/")
@@ -82,6 +89,8 @@ def test_voices_render_offline(server):
     assert r["rasping"]["rms"] > 1.02 * r["drifting"]["rms"], (r["rasping"], r["drifting"])
     assert r["wind"]["at30"] == 0, r["wind"]
     assert r["wind"]["at200"] > 4 * r["wind"]["at50"] > 0, r["wind"]
+    assert r["rasp"]["near"] > 0.001, r["rasp"]
+    assert 0.2 < r["rasp"]["far"] / r["rasp"]["near"] < 0.3, r["rasp"]
 
 
 def open_sound(p, server):
@@ -118,6 +127,37 @@ def test_engine_follows_the_car_and_nitro(server):
     assert nitro["mix"]["hiss"] > 0, nitro
     assert pulling["mix"]["load"] > 0.55, pulling
     assert pulling["mix"]["rough"] > coast["mix"]["rough"], (pulling, coast)
+
+
+BUS_VOICES_JS = """() => {
+  const near = { key: 't-near', kmh: 50, gain: 1 }, far = { key: 't-far', kmh: 50, gain: 0.25 };
+  let heard = null;
+  for (let i = 0; i < 30; i++) heard = window.__mm.sfxBuses([near, far], 1 / 60);   // both voices spin up from idle through the same steps
+  const left = window.__mm.sfxBuses([near], 1 / 60).map((v) => v.key);
+  const by = (key) => heard.find((v) => v.key === key);
+  return { near: by('t-near'), far: by('t-far'), freed: !left.includes('t-far') };
+}"""
+
+
+def test_a_distant_postauto_fades_in_every_band(server):
+    """#709 / #1130: SFX.busEngines() runs one voice per audible Postauto, each through distantMix with its distance
+    factor. Two buses at the same speed, one at full gain and one at a quarter: the engine level, the tyre roll and the
+    wind are all a quarter, and so is the audible rasp -- mix.rough stays put, but it plays behind out.gain, so what
+    comes out of the far bus is gain * rough. Each voice runs its own #1130 drift, which wanders their levels a few
+    percent apart, so only the drift-free bands compare exactly. A voice that drops out of the list is freed."""
+    with sync_playwright() as p:
+        b, page = open_sound(p, server)
+        r = page.evaluate(BUS_VOICES_JS)
+        b.close()
+    near, far = r["near"], r["far"]
+    assert near["gain"] > 0 and near["road"] > 0 and near["wind"] > 0 and near["rough"] > 0, near
+    assert abs(far["wind"] - near["wind"] * 0.25) < 1e-12, (near, far)   # the wind does not drift: exactly a quarter
+    assert 0.22 < far["gain"] / near["gain"] < 0.28, (near, far)
+    assert 0.21 < far["road"] / near["road"] < 0.29, (near, far)         # the drift moves the tyre roll four times as much
+    assert far["hiss"] == 0 and near["hiss"] == 0, (near, far)
+    assert far["rough"] == near["rough"], (near, far)                    # the share itself is left alone -- it plays behind out.gain
+    assert 0.22 < (far["gain"] * far["rough"]) / (near["gain"] * near["rough"]) < 0.28, (near, far)   # so what is heard of it fades too
+    assert r["freed"], r
 
 
 def test_hidden_tab_and_hold_suspend_the_sound(server):

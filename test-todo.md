@@ -485,6 +485,6 @@ signals move.
 - [ ] Above 100 km/h the **wind** is clearly audible; below about 40 km/h there is none. Does it come in too early / too loud? (`WIND` in `sound.js`.)
 - [ ] Uphill (Stein → Obermumpf) sounds like harder work than the same speed on the flat; lifting off clearly eases it.
 - [ ] Idle still sounds calm — no rasp or wind standing still, and the voice is as quiet as before.
-- [ ] A **Postauto** still sounds like a bus, not like a rasping sports car; its wind fades with distance like the tyre roll.
+- [ ] A **Postauto** still sounds like a bus, not like a rasping sports car; its wind and its rasp fade with distance like the tyre roll.
 - [ ] Nothing clips: full throttle in the top gear with nitro (<kbd>N</kbd>) plus the horn plus a crash landing stays clean.
 - [ ] Silent exactly as before: <kbd>M</kbd> muted, the pause menu, a hidden tab, out of the car (<kbd>Z</kbd>), a wreck, and in flight (<kbd>F</kbd>).

@@ -72,6 +72,14 @@ export function engineMix(s, input, engine) {
     rough: silent ? 0 : (engine.rough ?? ROUGH.mix) * clamp(ROUGH.base + ROUGH.perLoad * load + ROUGH.perRev * n, 0, 1) };
 }
 
+// #709: the same mix heard from another vehicle `gain` far away (a Postauto across the field). The distance factor goes
+// on the bands that hang straight off the master -- the tyre roll and #1130's wind; the nitro hiss is not another
+// vehicle's sound at all. mix.rough is deliberately left alone: the rasp feeds the engine's own lowpass, behind
+// out.gain, so `gain` already fades it there and scaling it here would fade it twice over.
+export function distantMix(mix, gain) {
+  return { ...mix, gain: mix.gain * gain, road: mix.road * gain, wind: mix.wind * gain, hiss: 0 };
+}
+
 export function rotorMix(input) {
   if (!input.fly) return { rate: ROTOR.rate, gain: 0, cutoff: ROTOR.cutoff };
   const dl = (input.load ?? ROTOR.hoverLoad) - ROTOR.hoverLoad;

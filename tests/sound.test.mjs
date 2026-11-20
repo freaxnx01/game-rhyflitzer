@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gearAt, targetRpm, engineStep, engineMix, engineLoad, rotorMix, checkSound, RPM_RATE, ROTOR, DRIFT, WIND, stepVoice, WHISTLE } from '../sound.js';
+import { gearAt, targetRpm, engineStep, engineMix, engineLoad, distantMix, rotorMix, checkSound, RPM_RATE, ROTOR, DRIFT, WIND, stepVoice, WHISTLE } from '../sound.js';
 
 // a copy of VEHICLES.compact.sound in index.html (#14); test_sound.py checks the game's own table passes checkSound
 const SOUND = () => ({
@@ -153,6 +153,25 @@ test('engineMix_Off_SilencesWindAndRough', () => {
     const m = engineMix(s, IN({ kmh: 200, gas: 1, [flag]: true }), engine);
     assert.deepEqual([m.wind, m.rough], [0, 0], flag);
   }
+});
+
+// #709: the Postauto voices -- SFX.busEngines() builds a mix for each audible bus and hands it to applyEngine through distantMix
+const busMix = (kmh) => engineMix({ rpm: 1800, gear: 1, shift: 0, load: 0.5, drift: 0 }, IN({ kmh, gas: 1, nitro: 1 }), SOUND().engine);
+
+test('distantMix_Distance_FadesTheBandsOffTheMasterAndDropsTheHiss', () => {
+  const near = busMix(60), far = distantMix(near, 0.25);
+  assert.ok(near.road > 0 && near.wind > 0 && near.gain > 0, near);
+  assert.deepEqual([far.gain, far.road, far.wind], [near.gain * 0.25, near.road * 0.25, near.wind * 0.25]);
+  assert.equal(far.hiss, 0);   // another vehicle's engine never hisses, however close it is
+  assert.deepEqual([far.f0, far.cutoff, far.q], [near.f0, near.cutoff, near.q]);
+});
+
+test('distantMix_Distance_FadesTheRaspThroughTheEngineGain', () => {
+  const near = busMix(60), far = distantMix(near, 0.25);
+  assert.ok(near.rough > 0, near.rough);
+  assert.equal(far.rough, near.rough);   // untouched on purpose: the rasp plays behind out.gain, so scaling it here would fade it twice
+  assert.equal(far.gain * far.rough, near.gain * near.rough * 0.25);   // what is heard of it is the gain times the share -- it fades like the tyre roll
+  assert.equal(distantMix(near, 0).gain * distantMix(near, 0).rough, 0);
 });
 
 test('checkSound_OptionalFieldsOutOfRange_Throw', () => {

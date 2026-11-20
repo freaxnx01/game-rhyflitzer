@@ -1118,7 +1118,7 @@ import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, s
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor, doorPanelOffset } from './delorean.js';
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
-import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
+import { gearAt, engineStep, engineMix, distantMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
 import { TRACKS, MENU_TRACK, LIVE, FM, isFm, STATIONS, stationName, stationOrder, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, shuffleOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
@@ -4824,13 +4824,12 @@ const SFX = (() => {
         if (!s) { s = { eng: buildEngine(ac, ac.master, pre.engine), es: { rpm: pre.engine.idleRpm, gear: 0, shift: 0, load: 0, drift: 0 } }; bv.set(v.key, s); }
         const input = { kmh: v.kmh, gas: v.kmh > 1, nitro: false, air: false, fly: false, accel: 0, climb: 0 };
         s.es = engineStep(s.es, input, pre, dt);
-        const mix = engineMix(s.es, input, pre.engine);
-        // the distance factor v.gain goes on the three bands that hang straight off the master (road, wind, and the muted hiss);
-        // #1130's rasp is not one of them -- it feeds the engine's own lowpass, so it is already behind out.gain and would fade twice over
-        applyEngine(s.eng, { ...mix, gain: mix.gain * v.gain, road: mix.road * v.gain, wind: mix.wind * v.gain, hiss: 0 }, t);
+        s.mix = distantMix(engineMix(s.es, input, pre.engine), v.gain);   // v.gain = the distance factor; which bands it goes on is distantMix's business
+        applyEngine(s.eng, s.mix, t);
       }
     },
-    state() { return { ctx: ac ? ac.state : 'none', muted, sound: { ...snd }, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
+    state() { return { ctx: ac ? ac.state : 'none', muted, sound: { ...snd }, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size,
+      busMix: [...bv].map(([key, s]) => ({ key, ...s.mix })) }; },   // #709: what each Postauto voice is playing, for the test
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
@@ -5848,6 +5847,7 @@ window.__mm.radio = () => RADIO.state();   // #735
 window.__mm.radioEndMenuSong = () => RADIO.endMenuSong();
 window.__mm.sfxGraph = () => SFX.graph();   // #842: the hub (graph().master) and the effects bus (ac.master), read-only, for the tests
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
+window.__mm.sfxBuses = (list, dt = 1 / 60) => { SFX.busEngines(list, dt); return SFX.state().busMix; };   // #709: drive the Postauto voices with a hand-made list, for the test
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
 window.__mm.sfxCrashes = () => SFX.crashes();
 window.__mm.sfxKnocks = () => SFX.knocks();   // #415
