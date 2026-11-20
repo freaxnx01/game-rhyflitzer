@@ -214,6 +214,15 @@ over road vertices, cost = metres not yet kept, 0 for metres already kept) throu
 the route's metres become kept. Whatever of a candidate is not kept in the end is hidden in 1952. A stretch with no
 route at all keeps its whole road (the old fallback). Cut points at `a`/`b` are interpolated, not snapped to vertices.
 
+**Rule revision 2 (2026-11-20, from the top-down map of Sisseln: Rütistrasse 256 m, Alte Bündten-Strasse 167 m and
+Innermattstrasse with no old house stayed whole as `restored` roads; corner houses kept stretches on every street within
+25 m).** (a) An old footprint counts only for its **nearest** road (distance to the footprint; another road within 1 m
+of that distance counts too), still only within `NEAR_OLD`. (b) The trim replaces the whole-road `reconnect` for these
+roads: "empty" roads are routable with full cost, and the targets to join are the house stretches **plus** every kept
+Swiss component that `reconnect` would have joined (its islands). An "empty" road keeps only the metres a route uses
+(`keep1952` intervals, not `modern`); an "empty" road no route uses stays `modern`. `restored` in the counts becomes the
+number of "empty" roads with kept metres. The no-route fallback stays (whole road).
+
 **Data shape.** `road["keep1952"] = [[a, b], ...]` (sorted, disjoint intervals in metres along `pts`, rounded to 0.1) on
 a trimmed road only; removed from every other road; never together with `modern`. Written only if at least 0.5 m is
 dropped. A candidate whose kept intervals are empty does not occur (its house stretch is always kept).
@@ -229,6 +238,8 @@ dropped. A candidate whose kept intervals are empty does not occur (its house st
   - `test_trim_GridOfStreets_KeepsOnlyShortestRouteToHouse`: a 3×3 residential grid between two main roads, one old house mid-grid → only the house stretch plus the shortest route to a main road stay; the rest of the grid is dropped.
   - `test_trim_NoRouteToNetwork_FallsBackToWhole`: a street joined to nothing kept → no entry (it stays whole, as before).
   - `test_trim_ChainThroughNeighbour_KeepsTheLink`: street A (old house near its far end) reaches the main road only through street B → the part of B between A's junction and the main road stays, B's other end is dropped.
+  - `test_trim_CornerHouse_CountsForNearestRoadOnly`: a house 5 m from street A and 20 m from street B → only A gets a house stretch.
+  - `test_trim_RestoredRoad_KeepsOnlyTheRouteMetres`: an island reached through a long empty road keeps only the empty road's metres between the island and the network.
   - `test_trim_TwoIntervalsOnOneRoad`: a long street whose two old houses are reached from opposite ends → two intervals.
   - `test_trim_MainRoadsAndGermanSideNeverTrimmed`.
   - `test_apply_Idempotent_WithKeep1952` (run twice, same JSON; `keep1952` never together with `modern`).
