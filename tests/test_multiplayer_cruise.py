@@ -103,6 +103,34 @@ def test_both_players_have_engine_sound(pair):
         page.wait_for_function(
             "() => window.__mm.net().session && window.__mm.audio().ctx !== 'none'", timeout=T)
         page.wait_for_function("() => window.__mm.audio().mix !== null", polling=250, timeout=T)
+
+
+def test_remote_car_shows_nitro_flames_while_the_sender_holds_nitro(pair):
+    """#1116: the other player's nitro flames follow the pose's nitro flag."""
+    host, guest, errors = pair
+    connect(host, guest)
+    ready_both(host, guest)
+    host.bring_to_front()   # the host takes real keys below: front it before the start, while hiding still cannot pause (openPause is a no-op outside a run)
+    host.click("#mpgo")
+    for page in (host, guest):
+        page.wait_for_function(
+            "() => window.__mm.net().session && document.querySelector('#mplobby').hidden", timeout=T)
+    guest.wait_for_function("() => window.__mm.net().offset !== null", timeout=T)
+    guest.wait_for_function(
+        "() => window.__mm.netCars().some(c => c.id === 0 && c.built && c.visible)", timeout=T)
+    assert net_car(guest, 0)["flames"]["n"] > 0            # the clone keeps the flames
+    assert net_car(guest, 0)["flames"]["visible"] is False  # idle: hidden
+    # nitro held as real keys across frames: the 50 ms pose interval must overlap the running sim -- one blocking
+    # driveSim cannot (its single nitro pose leaves the interpolation window within ~100 ms)
+    host.keyboard.down("ArrowUp")
+    host.keyboard.down("KeyN")
+    host.wait_for_function("() => window.__mm.drive().nitro === 1", timeout=T)
+    guest.wait_for_function(
+        "() => window.__mm.netCars().find(c => c.id === 0).flames.visible", polling=250, timeout=T)
+    host.keyboard.up("KeyN")
+    host.keyboard.up("ArrowUp")
+    guest.wait_for_function(
+        "() => !window.__mm.netCars().find(c => c.id === 0).flames.visible", polling=250, timeout=T)
     assert errors == []
 
 
