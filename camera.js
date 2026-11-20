@@ -50,13 +50,13 @@ export function pullStep(state, need, dt, cfg = PULL) {
   return { pull: Math.min(need, state.pull + cfg.outRate * dt), hold: 0 };
 }
 
-// #1106: the side camera -- level with the car, looking at its flank. hFactor / backFactor scale the chase h / dist when a vehicle has no
-// camera.side; aimUp: the look point above the origin (m); rate: lerp rate (1/s); minClear: closest the eye may be pulled in (m)
+// #1106: the side camera -- left of the car, diagonally above and a little behind, looking at its flank. hFactor / backFactor scale the
+// chase h / dist when a vehicle has no camera.side; aimUp: the look point above the origin (m); rate: lerp rate (1/s); minClear: least height over the ground (m)
 export const SIDE = { hFactor: 1.6, backFactor: 0.3, aimUp: 1.2, rate: 6, minClear: 1 };
 
-// the side offsets from a vehicle's camera block (camera.side wins as is) and its trailer (aimBack: the look point shifts to the middle of the rig)
+// the side offsets from a vehicle's camera block (camera.side wins as is, else derived from camera.chase) and its trailer (aimBack: the look point shifts to the middle of the rig)
 export function sideOffsets(camera, trailer) {
-  const o = camera.side || { dist: camera.dist, h: camera.h * SIDE.hFactor, back: camera.dist * SIDE.backFactor };
+  const c = camera.chase, o = camera.side || { dist: c.dist, h: c.h * SIDE.hFactor, back: c.dist * SIDE.backFactor };
   const aimBack = trailer ? (trailer.hitch + trailer.length) / 2 : 0;
   return { dist: o.dist, h: o.h, back: o.back, aimBack };
 }

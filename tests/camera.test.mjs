@@ -105,17 +105,17 @@ const near = (a, b) => Math.abs(a - b) < 1e-9;
 const nearAll = (a, b) => a.length === b.length && a.every((v, i) => near(v, b[i]));
 
 test('sideOffsets derives from the chase numbers', () => {
-  const o = sideOffsets({ dist: 6.9, h: 2.6 });
+  const o = sideOffsets({ chase: { dist: 6.9, h: 2.6 } });
   assert.ok(near(o.dist, 6.9) && near(o.h, 4.16) && near(o.back, 2.07) && o.aimBack === 0, JSON.stringify(o));
 });
 
 test('a camera.side override wins', () => {
-  const o = sideOffsets({ dist: 6.9, h: 2.6, side: { dist: 9, h: 5, back: 1 } });
+  const o = sideOffsets({ chase: { dist: 6.9, h: 2.6 }, side: { dist: 9, h: 5, back: 1 } });
   assert.deepEqual(o, { dist: 9, h: 5, back: 1, aimBack: 0 });
 });
 
 test('a trailer moves the view back', () => {
-  const o = sideOffsets({ dist: 20, h: 6.5 }, { hitch: 5.2, length: 3.85 });
+  const o = sideOffsets({ chase: { dist: 20, h: 6.5 } }, { hitch: 5.2, length: 3.85 });
   assert.ok(near(o.aimBack, 4.525) && near(o.back, 6), JSON.stringify(o));
 });
 
