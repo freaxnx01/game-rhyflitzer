@@ -138,7 +138,9 @@ def test_1952_plattform_viewpoint_not_offered(server):   # #530: the DSM chimney
         got = page.evaluate("() => ({ v: window.__mm.views(), cpt: document.querySelector('#cpt').textContent, pips: document.querySelector('#pips').children.length })")
         page.evaluate("() => { for (const i of [0, 2, 3]) window.__mm.viewScore(i, 120); }")
         after = page.evaluate("() => window.__mm.views().state")
+        last = page.evaluate("() => window.__mm.views().last")
         b.close()
+    assert last["max"] == 450 and last["pts"] == 360, last   # #530: three offered viewpoints only
     assert got["v"]["offered"] == 3 and got["cpt"] == "3" and got["pips"] == 3, got
     assert [s["id"] for s in got["v"]["spots"] if s["hidden"]] == ["plattform"], got
     assert after == "finished"

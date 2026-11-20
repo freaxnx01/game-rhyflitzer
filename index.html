@@ -6338,7 +6338,7 @@ function scoreView(i, pts) {
   checkViewDone();
 }
 function checkViewDone() { if ((R.state === 'armed' || R.state === 'racing') && R.mode === 'view' && viewShotOffered() === viewOffered()) endView(); }   // #530: also after a Ctrl+Y toggle
-function endView() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); R.last = { mode: 'view', t: R.t, pts: VIEW_RUN.pts.reduce((a, b) => a + b, 0), max: maxPoints(VIEWPOINTS) }; VIEW_RUN.endIn = VIEW.endS; }
+function endView() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); R.last = { mode: 'view', t: R.t, pts: VIEW_RUN.pts.reduce((a, b, i) => a + (eraShown(VIEWPOINTS[i], ERA.on) ? b : 0), 0), max: maxPoints(VIEWPOINTS.filter(v => eraShown(v, ERA.on))) }; VIEW_RUN.endIn = VIEW.endS; /* #530: offered viewpoints only */ }
 function showViewResult() { VIEW_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'view') return; endFoot(); /* the Plattform is shot on foot: no pointer lock behind the result (#365) */ $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 
 // #534: the tutorial -- no clock (R.state stays 'armed'); each frame the game's own signals advance the step (tutorial.js)
