@@ -347,3 +347,10 @@ test('landmarkEntries: an entry sourced from a modern building carries modern (#
   assert.equal(e.find(x => x.n === 'A').modern, true);
   assert.equal('modern' in e.find(x => x.n === 'B'), false);
 });
+
+test('landmarkEntries_modernAnchor_entryIsModern', () => {
+  const info = [{ name: 'DSM-Kamin', gemeinde: 'Sisseln', anchor: 'dsmChimney' }, { name: 'Muenster', gemeinde: 'Bad Säckingen', anchor: 'muenster' }];
+  const e = landmarkEntries(info, { dsmChimney: { x: 1, z: 2, modern: true }, muenster: { x: 3, z: 4 } }, []);
+  assert.equal(e.find(x => x.n === 'DSM-Kamin').modern, true);
+  assert.ok(!('modern' in e.find(x => x.n === 'Muenster')));
+});

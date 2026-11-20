@@ -90,7 +90,7 @@ function sourcePos(item, anchors, buildingsById) {
   if (item.at) return { x: item.at[0], z: item.at[1] };   // #125: a fixed game point, independent of what the world carries
   if (item.anchor) {
     const a = anchors[item.anchor];
-    return a ? { x: a.x, z: a.z } : null;
+    return a ? { x: a.x, z: a.z, ...(a.modern ? { modern: true } : {}) } : null;   // #530: modern follows the source anchor
   }
   const b = buildingsById.get(Number(item.building));
   return b && b.ring && b.ring.length ? { ...ringMean(b.ring), ...(b.modern ? { modern: true } : {}) } : null;   // #530: modern follows the source building

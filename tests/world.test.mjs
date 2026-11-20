@@ -1728,3 +1728,10 @@ test('roadUnderpassConditions_Hochrhein_TwoNoDataSitesAndLohgerbeOnly', { skip: 
   assert.deepEqual(wet.map(([id]) => id).sort(), [...want.keys()].sort());
   for (const [id, lv] of wet) assert.ok(Math.abs(lv - want.get(id)) <= 0.01, `${id}: ${lv}`);
 });
+
+test('layoutFromWorld_eraFields_passThroughAndDefaultEmpty', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [7.9, 47.5, 8.0, 47.6], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: {} };
+  const f = { kind: 'crop', ring: [[0, 0], [1, 0], [1, 1]] };
+  assert.deepEqual(layoutFromWorld({ ...base, era: { year: 1952, fields: [f] } }).eraFields, [f]);
+  assert.deepEqual(layoutFromWorld(base).eraFields, []);
+});
