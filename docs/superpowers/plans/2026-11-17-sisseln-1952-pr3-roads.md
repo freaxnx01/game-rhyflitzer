@@ -204,15 +204,19 @@ The PR 3 screenshot showed most of Sisseln's empty street grid still standing in
 when a single old house lies anywhere along it (21 of 24 residential streets in the Sisseln view). The maintainer
 chose to trim before merging. Same Global Constraints as above (TDD verbatim).
 
-**Rule.** A kept Swiss road of a `RESIDENTIAL` class that has old Swiss footprints within `NEAR_OLD` keeps only the
-stretch the old houses need: from the nearest old footprint's projection minus `TRIM_PAD` to the farthest one plus
-`TRIM_PAD` (arc length along `pts`, clamped to `[0, length]`), extended to the full end on each side whose end vertex
-touches the kept network. Connectivity is checked on the trimmed stretches: any group of kept pieces that is cut off
-from the main kept component gets its trimmed roads back at full length, repeated until stable (it only grows, so it
-ends). Roads with no old house nearby, restored roads, main roads, bridges and the German side are never trimmed.
+**Rule (revised 2026-11-20 after the first Task 6 run trimmed only 4 of 18 streets in the Sisseln view: "both ends on
+the network keeps it whole" exempts every street of a grid).** The old network is every kept road that is not a
+trim candidate (main roads, `unclassified`, restored roads, bridges, German side). A trim candidate is a kept Swiss road
+of a `RESIDENTIAL` class with old Swiss footprints within `NEAR_OLD`. Each candidate's *house stretch* runs from its
+nearest old footprint's projection minus `TRIM_PAD` to its farthest plus `TRIM_PAD` (clamped). Then, house stretches
+nearest the network first, each stretch not yet joined to the kept set is joined by the **shortest route** (Dijkstra
+over road vertices, cost = metres not yet kept, 0 for metres already kept) through candidate roads to the kept set;
+the route's metres become kept. Whatever of a candidate is not kept in the end is hidden in 1952. A stretch with no
+route at all keeps its whole road (the old fallback). Cut points at `a`/`b` are interpolated, not snapped to vertices.
 
-**Data shape.** `road["keep1952"] = [a, b]` (metres along `pts`, rounded to 0.1) on a trimmed road only; removed from
-every other road; never together with `modern`. A trim that keeps less than 0.5 m off both ends is not written.
+**Data shape.** `road["keep1952"] = [[a, b], ...]` (sorted, disjoint intervals in metres along `pts`, rounded to 0.1) on
+a trimmed road only; removed from every other road; never together with `modern`. Written only if at least 0.5 m is
+dropped. A candidate whose kept intervals are empty does not occur (its house stretch is always kept).
 
 ### Task 6: pipeline trim
 
@@ -222,9 +226,10 @@ every other road; never together with `modern`. A trim that keeps less than 0.5 
 
 - [ ] **Step 1: Failing tests** in `pipeline/tests/test_era_roads.py`:
   - `test_trim_DeadEndWithOldHouseNearStart_KeepsStartToHousePlusPad`: a 200 m residential street whose start joins a kept main road, one old footprint beside it at 40 m → `trim` gives `(0, ≈ house far edge + TRIM_PAD)`; the end is dropped.
-  - `test_trim_BothEndsOnKeptNetwork_KeepsWhole`: same street with both ends on kept main roads → no entry.
-  - `test_trim_NoConnectedEnd_FallsBackToWhole`: a street joined only to hidden roads at both ends → no entry (it stays whole, as before).
-  - `test_trim_ChainCutOff_RestoresFull`: street A (old house near its far end) joins the main road only through street B, whose own old house is near B's main-road end; trimming B alone would cut A off → B (or A) comes back full so A's stretch stays connected.
+  - `test_trim_GridOfStreets_KeepsOnlyShortestRouteToHouse`: a 3×3 residential grid between two main roads, one old house mid-grid → only the house stretch plus the shortest route to a main road stay; the rest of the grid is dropped.
+  - `test_trim_NoRouteToNetwork_FallsBackToWhole`: a street joined to nothing kept → no entry (it stays whole, as before).
+  - `test_trim_ChainThroughNeighbour_KeepsTheLink`: street A (old house near its far end) reaches the main road only through street B → the part of B between A's junction and the main road stays, B's other end is dropped.
+  - `test_trim_TwoIntervalsOnOneRoad`: a long street whose two old houses are reached from opposite ends → two intervals.
   - `test_trim_MainRoadsAndGermanSideNeverTrimmed`.
   - `test_apply_Idempotent_WithKeep1952` (run twice, same JSON; `keep1952` never together with `modern`).
 - [ ] **Step 2:** Run `pipeline/.venv/bin/python -m pytest pipeline/tests/test_era_roads.py -v` — FAIL.
@@ -236,9 +241,9 @@ every other road; never together with `modern`. A trim that keeps less than 0.5 
 
 **Files:** Modify `world.js` `layoutFromWorld`; `tests/world.test.mjs`; `CHANGELOG.md` (reword the PR 3 entry: "Quartierstrassen ohne altes Haus" → "Quartierstrassen enden nach dem letzten alten Haus").
 
-**Interfaces:** `layoutFromWorld` turns a road with `keep1952: [a, b]` into up to three roads: `[0, a]` and `[b, L]` with `modern: true`, `[a, b]` without, each `{ ...r, pts }` minus `keep1952`, cut points interpolated on the polyline; pieces shorter than 0.5 m are dropped. Everything downstream (meshes, physics, J, autopilot, minimap) already handles per-road `modern`.
+**Interfaces:** `layoutFromWorld` turns a road with `keep1952: [[a, b], ...]` into alternating pieces: the kept intervals without `modern`, the gaps (including before the first and after the last) with `modern: true`, each `{ ...r, pts }` minus `keep1952`, cut points interpolated on the polyline; pieces shorter than 0.5 m are dropped. Everything downstream (meshes, physics, J, autopilot, minimap) already handles per-road `modern`.
 
-- [ ] **Step 1: Failing node tests:** `layoutFromWorld_Keep1952_SplitsIntoKeptAndModernPieces` (lengths, flags, endpoints match the cut points, `L.bridges` unaffected); `layoutFromWorld_Keep1952_FullRange_NoSplit`.
+- [ ] **Step 1: Failing node tests:** `layoutFromWorld_Keep1952_SplitsIntoKeptAndModernPieces` (two intervals → five pieces; lengths, flags, endpoints match the cut points, `L.bridges` unaffected); `layoutFromWorld_Keep1952_FullRange_NoSplit`.
 - [ ] **Step 2:** `node --test tests/world.test.mjs` — FAIL.
 - [ ] **Step 3:** Implement with the existing `polylineLength`/`pointAtLength` helpers.
 - [ ] **Step 4:** `node --test tests/*.test.mjs` PASS; `python3 -m pytest tests/test_era_toggle.py` PASS (under `systemd-run … MemoryMax=3G`); re-shoot `era-shots/pr3_shots.py` and look at it.
