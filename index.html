@@ -5367,7 +5367,7 @@ function hintsBlocked() {
 const HINT_SPOTS = {
   loco: () => FOOT.on && !!TRAIN.mesh && Math.hypot(P.x - TRAIN.mesh.position.x, P.z - TRAIN.mesh.position.z) <= 20,
   postauto: () => !!stopNear(),
-  depot: () => DEPOT_S.on && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) <= DEPOT.near,
+  depot: () => DEPOT_S.on && !ERA.on && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) <= DEPOT.near,
   pontoon: () => !FOOT.on && !FLY.on && atRhineBank(pontoonEnv(), P.x, P.z),
   plattform: () => !!PLAT && Math.hypot(P.x - PLAT.frame.x, P.z - PLAT.frame.z) <= 40,
   holz: () => onBridge(P.x, P.z, P.y)?.b.kind === 'wood',
@@ -7494,7 +7494,7 @@ const DEPOT_S = { on: REGION.id === 'hochrhein' && !REGION.generated, slots: nul
   boxes: null, boxAt: [], boxMats: [], boxHidden: [], owned: new Set(), queued: new Set(), wants: { load: [], keep: new Set() } };
 // the parked vehicle in reach of E: on foot within the walker's enterReach, in the car within reachCar and only nearly stopped
 function depotNear() {
-  if (!DEPOT_S.on || !DEPOT_S.slots || WRECK_S.on) return null;
+  if (!DEPOT_S.on || ERA.on || !DEPOT_S.slots || WRECK_S.on) return null;   // #530: no depot in 1952
   if (FOOT.on) return nearestSlot(P.x, P.z, DEPOT_S.slots, CHOICE.id, WALKER.enterReach)?.id ?? null;
   if (TRAIN.on || FLY.on || Math.hypot(P.vx, P.vz) >= DEPOT.reachSpeed) return null;
   return nearestSlot(P.x, P.z, DEPOT_S.slots, CHOICE.id, DEPOT.reachCar)?.id ?? null;
@@ -7615,9 +7615,14 @@ function requestDepotModel(id) {
 }
 // once per frame: lay the slots out on the first visit, keep a real model on the nearest slots only (one build per frame, nearest
 // first), a box on every other, the driven slot empty and the whole lot hidden from afar
+function eraHideDepot() {   // #530: the lot is hidden, the slots stay laid out for the way back
+  for (const sl of DEPOT_S.slots ?? []) { const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id); if (solid) solid.off = true; if (b) b.mesh.visible = false; }
+  for (const c of [DEPOT_S.boxes?.car, DEPOT_S.boxes?.long]) if (c) c.visible = false;
+}
 function stepDepot() {
   if (!DEPOT_S.on || WRECK_S.on) return;
   const dist = Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z);
+  if (ERA.on) { eraHideDepot(); return; }   // #530: the car park is a field in 1952: vehicles, covers and colliders gone
   if (!DEPOT_S.slots) {
     if (dist > DEPOT.build) return;
     try { DEPOT_S.slots = depotLayout(vehicleIds(), VEHICLES); } catch (e) { console.warn(e.message); DEPOT_S.slots = []; }
@@ -7656,7 +7661,7 @@ window.__mm.depot = () => ({
   slots: (DEPOT_S.slots ?? []).map(sl => {
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
     return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l, span: sl.span, off: sl.off,
-      shown: (!!b || !!DEPOT_S.boxes) && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
+      shown: (!!b || !!DEPOT_S.boxes) && !ERA.on && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
       solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null, trailerY: b?.mesh.getObjectByName('trailer')?.rotation.y ?? null };
   }),
 });

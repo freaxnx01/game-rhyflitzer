@@ -122,7 +122,7 @@ test('LANDMARK_INFO has the vehicle depot at the DSM car park, in Eiken (#553)',
   assert.deepEqual([d.gemeinde, d.at], ['Eiken', [832.3, -107.5]]);
   assert.ok(Array.isArray(d.jump) && d.jump.length === 2);
   const e = landmarkEntries(LANDMARK_INFO, {}, []).find(x => x.n === 'Fahrzeug-Depot');
-  assert.deepEqual(e, { n: 'Fahrzeug-Depot', g: 'Eiken', x: 832.3, z: -107.5, j: [770, -107.5], depot: true });
+  assert.deepEqual(e, { n: 'Fahrzeug-Depot', g: 'Eiken', x: 832.3, z: -107.5, modern: true, j: [770, -107.5], depot: true });
 });
 
 test('faceToward keeps a heading towards the target and flips one away from it (#79)', () => {
@@ -353,4 +353,14 @@ test('landmarkEntries_modernAnchor_entryIsModern', () => {
   const e = landmarkEntries(info, { dsmChimney: { x: 1, z: 2, modern: true }, muenster: { x: 3, z: 4 } }, []);
   assert.equal(e.find(x => x.n === 'DSM-Kamin').modern, true);
   assert.ok(!('modern' in e.find(x => x.n === 'Muenster')));
+});
+
+test('landmarkEntries_itemFlaggedModern_entryIsModern', () => {
+  const e = landmarkEntries([{ name: 'Depot', gemeinde: 'Eiken', at: [10, 20], modern: true }, { name: 'Plain', gemeinde: 'Eiken', at: [1, 2] }], {}, []);
+  assert.equal(e.find(x => x.n === 'Depot').modern, true);
+  assert.equal('modern' in e.find(x => x.n === 'Plain'), false);
+});
+
+test('LANDMARK_INFO_fahrzeugDepot_isModern', () => {
+  assert.equal(LANDMARK_INFO.find(x => x.name === 'Fahrzeug-Depot').modern, true);
 });
