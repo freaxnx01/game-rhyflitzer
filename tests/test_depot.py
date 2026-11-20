@@ -55,6 +55,7 @@ def test_depot_builds_only_the_nearest_models_and_frees_them(server):
         page.evaluate(AT_DEPOT)
         page.wait_for_function(NEAR_BUILT, timeout=240000)
         d = depot(page)
+        assert d["covers"]["car"] > 12 and d["covers"]["long"] > 12, d["covers"]   # draped covers, not a 12-triangle box (#1045)
         page.evaluate("() => window.__mm.sim(832.3 - 600, -107.5, 0, 0, 0.1, [])")
         page.wait_for_function("() => window.__mm.depot().real === 0 && window.__mm.depot().cached.length === 0", timeout=T)
         wait_frames(page, 3)
