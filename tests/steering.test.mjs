@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WHEEL, wheelTargetYaw, stepWheelYaw, stepWheelSpin, frontAxleX, plantedWheelY } from '../steering.js';
+import { WHEEL, wheelTargetYaw, stepWheelYaw, stepWheelSpin, forwardSpeed, frontAxleX, plantedWheelY } from '../steering.js';
 
 const close = (a, b, eps, msg = '') => assert.ok(Math.abs(a - b) <= eps, `${msg} ${a} vs ${b}`);
 
@@ -44,6 +44,15 @@ test('stepWheelSpin: forward rolls v*dt/r, reverse runs backwards (wrapped), the
   close(stepWheelSpin(0, 10, 0.34, 0.1), 1 / 0.34, 1e-9);
   close(stepWheelSpin(1, -10, 0.34, 0.1), 1 - 1 / 0.34 + 2 * Math.PI, 1e-9);
   close(stepWheelSpin(2 * Math.PI - 0.1, 1, 1, 0.5), 0.4, 1e-9);
+});
+
+// #1108: a remote car's signed forward speed, from its pose's velocity and heading (th = -ry, the car's rotation.y = -th)
+test('forwardSpeed: signed speed along the heading, heading th = -ry', () => {
+  close(forwardSpeed(10, 0, 0), 10, 1e-9);                 // ry 0 -> th 0 -> +x is forward
+  close(forwardSpeed(-10, 0, 0), -10, 1e-9);               // reversing
+  close(forwardSpeed(0, 10, -Math.PI / 2), 10, 1e-9);      // ry -pi/2 -> th pi/2 -> +z is forward
+  close(forwardSpeed(0, 10, Math.PI / 2), -10, 1e-9);
+  close(forwardSpeed(0, 0, 1), 0, 1e-9);
 });
 
 test('frontAxleX: the largest x', () => {
