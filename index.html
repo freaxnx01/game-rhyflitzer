@@ -1087,7 +1087,7 @@ import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { shouldShowIosHint } from './iosinstall.js';   // #1080
-import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
+import { VIEW, offeredMask, offeredCount, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from './tutorial.js';   // #534
 import { track as umamiTrack, settle as umamiSettle, trackPageview, identifySource, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
 import { photoFileName, canPhoto } from './photo.js';
@@ -6264,6 +6264,8 @@ const TUT_COARSE = matchMedia('(pointer:coarse)').matches;
 const tutorialDoneStored = () => { try { return tutorialDoneFrom(localStorage.getItem(TUT_KEY)); } catch (e) { return true; } };   // storage blocked: never nag
 let TUT_RUN = { st: tutorialStart(stepsFor(TUT_COARSE), TUT_DEF ? TUT_DEF.cps.length : 0), endIn: 0 };
 function startTutorialRun() { TUT_RUN = { st: tutorialStart(stepsFor(TUT_COARSE), TUT_DEF ? TUT_DEF.cps.length : 0), endIn: 0 }; LAST_JUMP = null; tutMark.visible = false; $('tuthint').textContent = ''; }
+// #530: in 1952 the Plattform (its subject, the DSM chimney) is not offered; the run is over when every offered viewpoint is shot
+const viewOffered = () => offeredCount(VIEWPOINTS, ERA.on), viewShotOffered = () => VIEWPOINTS.filter((v, i) => VIEW_RUN.shot[i] && eraShown(v, ERA.on)).length, viewSkip = () => offeredMask(VIEWPOINTS, VIEW_RUN.shot, ERA.on);
 let VIEW_RUN = { shot: [], pts: [], endIn: 0, notice: { at: -1, cool: [] } };
 function startViewRun() { VIEW_RUN = { shot: VIEWPOINTS.map(() => false), pts: VIEWPOINTS.map(() => 0), endIn: 0, notice: { at: -1, cool: [] } }; }
 let HUNT_RUN = { spots: [], found: [], bag: [], rng: Math.random, endIn: 0 }, SURP = { turbo: 0, moon: 0 };
@@ -6289,10 +6291,10 @@ const startPose = (mode) => mode === 'tutorial' && TUT_ON ? [TUT_DEF.start.x, TU
 function startRace(mode = 'trial', rng = Math.random) { endDelivery(); DEL.last = null;   /* #107: a race ends a running shift and clears its result */ if (RACELESS && mode !== 'cruise') mode = 'hunt'; R.mode = mode; trackModeStart(mode); try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = hasCheckpoints(mode); } finishG.visible = false; R.done = 0; R.t = 0; resetFader(FADER); KEYBAR_FADE.sig = null;   /* #773: every plate holds its 4 s from the run start, the key bar its 30 s */ R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.era = ERA.on; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = startPose(mode); clearNavi(); if (KNOCK) KNOCK.resetCount(); /* #415 */ leaveBelow(); /* #504: a restart in a room below kept its level */ resetCar(); camPos.set(P.x + (mode === 'tutorial' ? -12 : 12), P.y + 5, P.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); startViewRun(); startTutorialRun(); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); if (mode === 'view') toast(tr('viewStart'), TOAST_S.event); RADIO.tick(); }
 function startHuntRun(hunt, rng, cands = PRESENT_CANDS) { const spots = hunt ? pickPresentSpots(cands, START, rng).map(s => ({ ...s, y: groundH(s.x, s.z) })) : []; HUNT_RUN = { spots, found: spots.map(() => false), bag: [], rng, endIn: 0 }; presentObjs.forEach((o, i) => { const s = spots[i]; o.g.visible = !!s; if (s) o.g.position.set(s.x, s.y, s.z); }); confetti.parts = []; confetti.pts.visible = false; }
 const modeKey = () => R.mode === 'delivery' ? 'modeDelivery' : R.mode === 'tutorial' ? 'modeTutorial' : R.mode === 'cruise' ? 'modeCruise' : R.mode === 'view' ? 'modeView' : R.mode === 'hunt' ? 'modeHunt' : R.mode === 'blitz' ? 'modeBlitz' : 'mode';   // #7: the car screen's subtitle shows the same mode; #534: the tutorial's line
-function renderModeLine() { document.body.classList.toggle('cruise', R.mode === 'cruise'); document.body.classList.toggle('delivery', R.mode === 'delivery'); document.body.classList.toggle('tutorial', R.mode === 'tutorial'); document.body.classList.toggle('view', R.mode === 'view'); const hunt = R.mode === 'hunt', view = R.mode === 'view', blitz = R.mode === 'blitz', tut = R.mode === 'tutorial'; $('tl').querySelector('.mode').textContent = tr(modeKey(), REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : view ? 'viewsLabel' : tut ? 'tutStepsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : view ? VIEWPOINTS.length : tut ? TUT_RUN.st.steps.length - 1 : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's; #534: the tutorial counts its steps; #824: view has no clock
+function renderModeLine() { document.body.classList.toggle('cruise', R.mode === 'cruise'); document.body.classList.toggle('delivery', R.mode === 'delivery'); document.body.classList.toggle('tutorial', R.mode === 'tutorial'); document.body.classList.toggle('view', R.mode === 'view'); const hunt = R.mode === 'hunt', view = R.mode === 'view', blitz = R.mode === 'blitz', tut = R.mode === 'tutorial'; $('tl').querySelector('.mode').textContent = tr(modeKey(), REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : view ? 'viewsLabel' : tut ? 'tutStepsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : view ? viewOffered() : tut ? TUT_RUN.st.steps.length - 1 : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's; #534: the tutorial counts its steps; #824: view has no clock
 // the total and the pips follow the run: a hunt can have fewer than five boxes when the roads around the start are sparse
 function setPipCount(n) { $('cpt').textContent = n; const pips = $('pips'); if (pips.children.length === n) return; pips.replaceChildren(...Array.from({ length: n }, () => document.createElement('div'))); pips.style.gridTemplateColumns = `repeat(${n},1fr)`; }
-function updatePips() { const on = R.mode === 'hunt' ? HUNT_RUN.found : R.mode === 'view' ? VIEW_RUN.shot : R.mode === 'tutorial' ? TUT_RUN.st.steps.slice(0, -1).map((_, k) => k < TUT_RUN.st.i) : cpObjs.map(c => c.done); $('cpn').textContent = R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', !!on[i])); }
+function updatePips() { const on = R.mode === 'hunt' ? HUNT_RUN.found : R.mode === 'view' ? VIEWPOINTS.filter(v => eraShown(v, ERA.on)).map(v => VIEW_RUN.shot[VIEWPOINTS.indexOf(v)]) : R.mode === 'tutorial' ? TUT_RUN.st.steps.slice(0, -1).map((_, k) => k < TUT_RUN.st.i) : cpObjs.map(c => c.done); $('cpn').textContent = R.mode === 'view' ? viewShotOffered() : R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', !!on[i])); }
 // armed -> racing is deliberately outside the !FLY.on gate below: helicopter movement starts the clock too, and it runs on in flight (#10)
 function stepRace(dt) { if (R.mode === 'cruise' || R.mode === 'delivery') { R.target = null; return; }   /* #551: nothing to race, nothing to point at — the state stays 'armed', so pause works and Main menu never asks to abandon; #107: a shift has its own clock and its own marker */ if (R.mode === 'hunt') { stepHunt(dt); return; } if (R.mode === 'view') { stepView(dt); return; } if (R.mode === 'tutorial') { stepTutorial(dt); return; } if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; if (R.state === 'racing' && R.mode === 'blitz') { R.left = blitzTick(R.left, dt); if (blitzTimeUp(R.left)) { timeUp(); return; } } let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on && !FOOT.on) { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); if (R.mode === 'blitz') { R.left = blitzBonus(R.left); toastHtml(tr('cpToastBlitz', R.done, esc(best.n), BLITZ.bonus), TOAST_S.event); } else toastHtml(tr('cpToast', R.done, esc(best.n)), TOAST_S.event); if (R.done === 5) finishG.visible = true; if (NET.race) netRaceCp(best.i); }       else if (best.i < 0 && bd < 7 && R.state === 'racing') { if (NET.race) netRaceFinish(); else finish(); } const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toastHtml(tr('holzToast'), TOAST_S.event); } if (ob && ob.pontoon) R.pontoon = true; } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(simNow() / 300) * 0.08; }
 function stepHunt(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; { const ob = onBridge(P.x, P.z, P.y); if (ob && ob.pontoon) R.pontoon = true; } SURP = tickSurprises(SURP, dt); animatePresents(dt); drawConfetti(dt); if (HUNT_RUN.endIn > 0) { HUNT_RUN.endIn -= dt; if (HUNT_RUN.endIn <= 0) showHuntResult(); } const i = nearestPresent(HUNT_RUN.spots, HUNT_RUN.found, P.x, P.z); R.target = i < 0 ? null : { ...HUNT_RUN.spots[i], n: '', i, hunt: true }; if (i >= 0 && canCollect(HUNT_RUN.spots[i], P, R.state, FLY.on || FOOT.on)) collectPresent(i); }
@@ -6302,20 +6304,20 @@ function stepView(dt) {
   if (R.state === 'racing') R.t += dt;
   if (VIEW_RUN.endIn > 0) { VIEW_RUN.endIn -= dt; if (VIEW_RUN.endIn <= 0) showViewResult(); }
   if (R.state !== 'finished') {   // #660: say what X is for, at the spot and again when leaving without a photo
-    const r = viewNoticeStep(VIEW_RUN.notice, standingAt(VIEWPOINTS, VIEW_RUN.shot, shotPose()), VIEW_RUN.shot, dt);
+    const r = viewNoticeStep(VIEW_RUN.notice, standingAt(VIEWPOINTS, viewSkip(), shotPose()), VIEW_RUN.shot, dt);
     VIEW_RUN.notice = r.st;
     if (r.event) showViewNotice(r.event);
   }
-  R.target = R.state === 'finished' ? null : viewTarget(shotPose());
+  checkViewDone(); R.target = R.state === 'finished' ? null : viewTarget(shotPose());
 }
 function showViewNotice(e) {
   if (e.kind === 'arrive') toastBig(tr('viewArrive', VIEWPOINTS[e.i].subjectN));
   else toast(tr('viewLeft', VIEWPOINTS[e.i].n), TOAST_S.event);
 }
 function viewTarget(pose) {
-  const here = standingAt(VIEWPOINTS, VIEW_RUN.shot, pose);
+  const here = standingAt(VIEWPOINTS, viewSkip(), pose);
   if (here >= 0) { const v = VIEWPOINTS[here]; return { x: v.sx, z: v.sz, n: v.subjectN, i: here, view: 'aim' }; }
-  const i = nearestPresent(VIEWPOINTS, VIEW_RUN.shot, P.x, P.z);
+  const i = nearestPresent(VIEWPOINTS, viewSkip(), P.x, P.z);
   return i < 0 ? null : { x: VIEWPOINTS[i].x, z: VIEWPOINTS[i].z, n: VIEWPOINTS[i].n, i, view: 'go' };
 }
 const SHOT_DIR = new THREE.Vector3();
@@ -6324,7 +6326,7 @@ function shotPose() { camera.getWorldDirection(SHOT_DIR); return { x: P.x, y: P.
 // X in the viewpoint hunt: scores once at an open viewpoint when aimed at its subject; the note replaces the "Photo taken" toast
 function viewShot() {
   if (R.state !== 'armed' && R.state !== 'racing') return;
-  const pose = shotPose(), i = standingAt(VIEWPOINTS, VIEW_RUN.shot, pose);
+  const pose = shotPose(), i = standingAt(VIEWPOINTS, viewSkip(), pose);
   if (i < 0) { photoNote = tr('viewMiss'); return; }
   const pts = shotPoints(VIEWPOINTS[i], pose);
   if (!pts) { photoNote = tr('viewAim', VIEWPOINTS[i].subjectN); return; }
@@ -6332,9 +6334,10 @@ function viewShot() {
 }
 function scoreView(i, pts) {
   VIEW_RUN.shot[i] = true; VIEW_RUN.pts[i] = pts; R.done++; updatePips(); SFX.present();
-  photoNote = tr('viewScored', VIEWPOINTS[i].n, pts, R.done, VIEWPOINTS.length);
-  if (R.done === VIEWPOINTS.length) endView();
+  photoNote = tr('viewScored', VIEWPOINTS[i].n, pts, viewShotOffered(), viewOffered());
+  checkViewDone();
 }
+function checkViewDone() { if ((R.state === 'armed' || R.state === 'racing') && R.mode === 'view' && viewShotOffered() === viewOffered()) endView(); }   // #530: also after a Ctrl+Y toggle
 function endView() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); R.last = { mode: 'view', t: R.t, pts: VIEW_RUN.pts.reduce((a, b) => a + b, 0), max: maxPoints(VIEWPOINTS) }; VIEW_RUN.endIn = VIEW.endS; }
 function showViewResult() { VIEW_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'view') return; endFoot(); /* the Plattform is shot on foot: no pointer lock behind the result (#365) */ $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 
@@ -8014,7 +8017,7 @@ window.__mm.hunt = () => ({ mode: R.mode, state: R.state, found: R.done, total: 
 window.__mm.startHunt = (seed, cands) => { SFX.start(); startRace('hunt', seededRng(seed)); if (cands) { startHuntRun(true, seededRng(seed), cands); renderModeLine(); updatePips(); } };   // cands: a test's own candidate list in place of the roads
 window.__mm.surprise = (id) => applySurprise(SURPRISES.find(s => s.id === id));
 window.__mm.huntSetEndIn = (s) => { HUNT_RUN.endIn = s; };   // tests: shorten the celebration before the result screen, which takes ~30 frames at the dt clamp
-window.__mm.views = () => ({ mode: R.mode, state: R.state, shot: R.done, total: VIEWPOINTS.length, spots: VIEWPOINTS.map(s => ({ id: s.id, x: s.x, z: s.z, sx: s.sx, sz: s.sz })), pts: [...VIEW_RUN.pts], target: R.target && R.target.view ? { view: R.target.view, n: R.target.n, i: R.target.i } : null, pose: shotPose(), last: R.last ? { ...R.last } : null });
+window.__mm.views = () => ({ mode: R.mode, state: R.state, shot: R.done, total: VIEWPOINTS.length, offered: offeredCount(VIEWPOINTS, ERA.on), spots: VIEWPOINTS.map(s => ({ id: s.id, x: s.x, z: s.z, sx: s.sx, sz: s.sz, hidden: !eraShown(s, ERA.on) })), pts: [...VIEW_RUN.pts], target: R.target && R.target.view ? { view: R.target.view, n: R.target.n, i: R.target.i } : null, pose: shotPose(), last: R.last ? { ...R.last } : null });
 window.__mm.viewScore = (i, pts) => scoreView(i, pts);   // tests: score viewpoint i without getting there (the Plattform needs the stair)
 window.__mm.viewSetEndIn = (s) => { VIEW_RUN.endIn = s; };   // tests: skip the 2 s before the result screen
 window.__mm.tutorial = () => ({ step: tutorialStepId(TUT_RUN.st), done: TUT_RUN.st.done, target: R.target && { x: R.target.x, z: R.target.z, label: R.target.tutLabel } });   // #534: read-only
@@ -8131,7 +8134,7 @@ function drawPostautoMarks(v) {
 }
 function drawMap() { const v = mapView(), w = mapC.width, h = mapC.height; mg.drawImage(mapStatic, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); if (HUD.bounds) mg.drawImage(mapBounds, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); if (HUD.borders) mg.drawImage(mapBorders, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); { const cr = currentRoute(); if (cr) drawRoute(v, cr.route, cr.s); } if (PONTOON.deck) { const d = PONTOON.deck, A = mapPt(v, d.a[0], d.a[1]), B = mapPt(v, d.b[0], d.b[1]); mg.lineCap = 'round'; mg.beginPath(); mg.moveTo(A[0], A[1]); mg.lineTo(B[0], B[1]); mg.strokeStyle = '#1e2414'; mg.lineWidth = 5; mg.stroke(); mg.strokeStyle = '#8a8f5a'; mg.lineWidth = 3; mg.stroke(); } if (hasCheckpoints(R.mode)) { CPS.forEach((c, i) => { const d = cpObjs[i].done, [cx, cy] = mapPt(v, c.x, c.z); mg.beginPath(); mg.arc(cx, cy, 7, 0, 7); mg.fillStyle = d ? '#7fe0a0' : (R.target && R.target.i === i ? '#ffc61a' : '#4a515e'); mg.fill(); mg.lineWidth = 2; mg.strokeStyle = d ? '#1c1f26' : '#ffc61a'; mg.stroke(); if (!d) { mg.fillStyle = R.target && R.target.i === i ? '#1c1f26' : '#ffc61a'; mg.font = '800 11px "Barlow Condensed", sans-serif'; mg.textAlign = 'center'; mg.fillText(String(i + 1), cx, cy + 4); mg.textAlign = 'left'; } }); } else if (R.mode === 'hunt') { HUNT_RUN.spots.forEach((s, i) => { if (HUNT_RUN.found[i]) return; const [cx, cy] = mapPt(v, s.x, s.z); mg.beginPath(); mg.arc(cx, cy, 6, 0, 7); mg.fillStyle = '#ff5fb0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = R.target && R.target.i === i ? '#ffc61a' : '#1c1f26'; mg.stroke(); }); } else if (R.mode === 'view') drawViewMarks(v); if (deliveryActive() && DEL.depot) drawDelivMarks(v); MAP_MARKS.list = enterableMapMarks(); for (const m of MAP_MARKS.list) drawEnterableDoor(v, m); drawPostautoMarks(v); const [px, py] = mapPt(v, P.x, P.z); if (hasCheckpoints(R.mode)) { const [fx, fy] = mapPt(v, FINISH.x, FINISH.z); mg.fillStyle = R.done === 5 ? '#e0322d' : '#6a2a2a'; mg.fillRect(fx - 6, fy - 6, 12, 12); mg.strokeStyle = '#1c1f26'; mg.strokeRect(fx - 6, fy - 6, 12, 12); } mg.save(); mg.translate(px, py); mg.rotate(P.th); mg.beginPath(); mg.moveTo(10, 0); mg.lineTo(-7, 6); mg.lineTo(-4, 0); mg.lineTo(-7, -6); mg.closePath(); mg.fillStyle = '#f5efe0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = '#1c1f26'; mg.stroke(); mg.beginPath(); mg.moveTo(10, 0); mg.lineTo(22, 0); mg.lineWidth = 2; mg.strokeStyle = '#ffc61a'; mg.stroke();   /* #773: the heading needle, the compass lives here now */ mg.restore(); }
 // #508: the open viewpoints as cyan squares, the arrow's target ringed yellow
-function drawViewMarks(v) { VIEWPOINTS.forEach((s, i) => { if (VIEW_RUN.shot[i]) return; const [cx, cy] = mapPt(v, s.x, s.z); mg.beginPath(); mg.rect(cx - 6, cy - 6, 12, 12); mg.fillStyle = '#5fd0ff'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = R.target && R.target.view && R.target.i === i ? '#ffc61a' : '#1c1f26'; mg.stroke(); }); }
+function drawViewMarks(v) { VIEWPOINTS.forEach((s, i) => { if (viewSkip()[i]) return; const [cx, cy] = mapPt(v, s.x, s.z); mg.beginPath(); mg.rect(cx - 6, cy - 6, 12, 12); mg.fillStyle = '#5fd0ff'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = R.target && R.target.view && R.target.i === i ? '#ffc61a' : '#1c1f26'; mg.stroke(); }); }
 // compass bearing: 0 = north (-z), 90 = east (+x)
 const bearing = () => ((Math.atan2(Math.cos(P.th), -Math.sin(P.th)) * 180 / Math.PI) + 360) % 360;
 const COMPASS_PTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -8161,6 +8164,7 @@ function toggleEra() {   // #530: Ctrl+Y -- the Swiss villages as in 1952, and b
   let moved = false;
   if (ERA.on && wasGone && !FLY.on && !FOOT.on && !TRAIN.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) { placeOnRoad(best.x, best.z, P.th, 'era'); moved = true; } }   // standing on a road of today: to the nearest old one
   if (AUTOP.graphs.today || AUTOP.graphs.era) autoGraph();   // AUTOP.graph / .streets follow the layer
+  if (R.mode === 'view') { renderModeLine(); updatePips(); }   // #530: the Plattform leaves / rejoins the hunt
   paintMapStatic();   // the minimap drops the hidden buildings and roads
   toast(tr(ERA.on ? (moved ? 'eraRoadGone' : 'eraOn') : 'eraOff'));
 }

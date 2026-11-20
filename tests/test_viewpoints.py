@@ -128,3 +128,18 @@ def test_the_result_screen_shows_the_album_with_empty_frames(server):
     assert got[0] == {"img": True, "empty": False, "cap": "Rheinblick Stein · 140 points"}, got
     assert got[1] == {"img": False, "empty": True, "cap": "Plattform Sisslerfeld · not yet"}, got   # the script URL was dropped
     assert errors == []
+
+
+def test_1952_plattform_viewpoint_not_offered(server):   # #530: the DSM chimney is gone in 1952
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        start_view(page)
+        page.keyboard.press("Control+y")
+        got = page.evaluate("() => ({ v: window.__mm.views(), cpt: document.querySelector('#cpt').textContent, pips: document.querySelector('#pips').children.length })")
+        page.evaluate("() => { for (const i of [0, 2, 3]) window.__mm.viewScore(i, 120); }")
+        after = page.evaluate("() => window.__mm.views().state")
+        b.close()
+    assert got["v"]["offered"] == 3 and got["cpt"] == "3" and got["pips"] == 3, got
+    assert [s["id"] for s in got["v"]["spots"] if s["hidden"]] == ["plattform"], got
+    assert after == "finished"
+    assert errors == []
