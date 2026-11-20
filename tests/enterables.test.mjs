@@ -16,7 +16,7 @@ const resolved = () => enterableEntries(ENTERABLE_INFO, ANCHORS, BUILDINGS, ROOM
 const JUMP_ROWS = [   // the J landmark rows these entries belong to, in J order (Münchwilen before Sisseln)
   { n: 'Plattform Sisslerfeld', g: 'Münchwilen', x: 10, z: 20, j: [78.1, 861.4] },
   { n: 'Reservoir Hübel', g: 'Münchwilen', x: -712.8, z: 1528.2, j: [-703.3, 1419.1], look: [-703.7, 1423.6] },
-  { n: 'Bodenackerstrasse 6c', g: 'Sisseln', x: 5, z: 5 },
+  { n: 'Bodenackerstrasse 6', g: 'Sisseln', x: 5, z: 5 },
 ];
 
 const mk = (over = {}) => ({
@@ -162,7 +162,7 @@ test('jumpRowsFor_FilterOff_ReturnsJumpEntriesFiltered', () => {
 
 test('jumpRowsFor_EnterableOn_ReturnsLandmarkRowsOfVisibleEntries', () => {
   const rows = jumpRowsFor(JUMP_ROWS, resolved(), { q: '', g: null, enterable: true }, false);
-  assert.deepEqual(rows.map(r => r.n), ['Plattform Sisslerfeld', 'Reservoir Hübel', 'Bodenackerstrasse 6c'], 'J order');
+  assert.deepEqual(rows.map(r => r.n), ['Plattform Sisslerfeld', 'Reservoir Hübel', 'Bodenackerstrasse 6'], 'J order');
   assert.deepEqual(rows.map(r => r.soon), [undefined, undefined, undefined], 'no dimmed row: 6c (#411) and the Plattform (#413) are ready');
   assert.deepEqual([rows[0].x, rows[0].z, rows[0].j], [10, 20, [78.1, 861.4]], 'the J row, jumpable as before');
   assert.deepEqual([rows[1].x, rows[1].z], [-712.8, 1528.2], 'the hideout landmark row, once');
@@ -171,20 +171,20 @@ test('jumpRowsFor_EnterableOn_ReturnsLandmarkRowsOfVisibleEntries', () => {
 test('jumpRowsFor_HideoutUnrevealed_OnlyReservoirRow', () => {
   const es = resolved();
   const unrevealed = jumpRowsFor(JUMP_ROWS, es, { q: '', g: null, enterable: true }, false);
-  assert.deepEqual(unrevealed.map(r => r.n), ['Plattform Sisslerfeld', 'Reservoir Hübel', 'Bodenackerstrasse 6c']);
+  assert.deepEqual(unrevealed.map(r => r.n), ['Plattform Sisslerfeld', 'Reservoir Hübel', 'Bodenackerstrasse 6']);
   const revealed = jumpRowsFor(JUMP_ROWS, es, { q: '', g: null, enterable: true, lang: 'de' }, true);
-  assert.deepEqual(revealed.map(r => r.n), ['Plattform Sisslerfeld', 'Eiffelturm', 'Atomium', 'Bodenackerstrasse 6c']);
+  assert.deepEqual(revealed.map(r => r.n), ['Plattform Sisslerfeld', 'Eiffelturm', 'Atomium', 'Bodenackerstrasse 6']);
   for (const r of revealed.filter(r => r.n === 'Eiffelturm' || r.n === 'Atomium')) {
     assert.deepEqual([r.x, r.z, r.j, r.look], [-712.8, 1528.2, [-703.3, 1419.1], [-703.7, 1423.6]], 'the Hübel jump point');
     assert.equal(r.g, 'Münchwilen');
   }
   const revealedEn = jumpRowsFor(JUMP_ROWS, es, { q: '', g: null, enterable: true }, true);
-  assert.deepEqual(revealedEn.map(r => r.n), ['Plattform Sisslerfeld', 'Eiffel Tower', 'Atomium', 'Bodenackerstrasse 6c']);
+  assert.deepEqual(revealedEn.map(r => r.n), ['Plattform Sisslerfeld', 'Eiffel Tower', 'Atomium', 'Bodenackerstrasse 6']);
 });
 
 test('jumpRowsFor_GemeindeAndQuery_Compose', () => {
   const rows = jumpRowsFor(JUMP_ROWS, resolved(), { q: '', g: 'Sisseln', enterable: true }, false);
-  assert.deepEqual(rows.map(r => r.n), ['Bodenackerstrasse 6c']);
+  assert.deepEqual(rows.map(r => r.n), ['Bodenackerstrasse 6']);
   const rows2 = jumpRowsFor(JUMP_ROWS, resolved(), { q: 'platt', g: null, enterable: true }, false);
   assert.deepEqual(rows2.map(r => r.n), ['Plattform Sisslerfeld']);
 });
@@ -223,5 +223,5 @@ test('ENTERABLE_INFO_BodenackerstrasseSixC_IsReadyAndStillNamesOnlyTheAddress', 
   assert.equal(e.ready, true);
   assert.equal(e.secret, false);
   assert.equal(e.kind, 'building');
-  assert.deepEqual(e.name, { de: 'Bodenackerstrasse 6c', en: 'Bodenackerstrasse 6c' });
+  assert.deepEqual(e.name, { de: 'Bodenackerstrasse 6', en: 'Bodenackerstrasse 6' });
 });

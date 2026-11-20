@@ -7,7 +7,7 @@ const ANCHORS = { muenster: { x: -1331, z: -172.7 }, smileKreisel: { x: 1270, z:
 const BUILDINGS = [{ id: '171822634', ring: [[0, 0], [10, 0], [10, 20], [0, 20]] }];
 const INFO = [
   { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
-  { name: 'Bodenackerstrasse 6c', gemeinde: 'Sisseln', building: 171822634 },
+  { name: 'Bodenackerstrasse 6', gemeinde: 'Sisseln', building: 171822634 },
   { name: 'Fridolinsmünster', gemeinde: 'Bad Säckingen', anchor: 'muenster' },
   { name: 'Gone', gemeinde: 'Stein', anchor: 'notInWorld' },
   { name: 'Gone too', gemeinde: 'Eiken', building: 1 },
@@ -22,7 +22,7 @@ test('foldText drops accents and case', () => {
 test('landmarkEntries takes anchor positions and building ring means', () => {
   const e = landmarkEntries(INFO, ANCHORS, BUILDINGS);
   assert.deepEqual(e.find(x => x.n === 'Fridolinsmünster'), { n: 'Fridolinsmünster', g: 'Bad Säckingen', x: -1331, z: -172.7 });
-  assert.deepEqual(e.find(x => x.n === 'Bodenackerstrasse 6c'), { n: 'Bodenackerstrasse 6c', g: 'Sisseln', x: 5, z: 10 });
+  assert.deepEqual(e.find(x => x.n === 'Bodenackerstrasse 6'), { n: 'Bodenackerstrasse 6', g: 'Sisseln', x: 5, z: 10 });
 });
 
 test('landmarkEntries skips sources missing from the world', () => {
@@ -33,7 +33,7 @@ test('landmarkEntries skips sources missing from the world', () => {
 });
 
 test('landmarkEntries orders west to east by Gemeinde, then by table order', () => {
-  assert.deepEqual(landmarkEntries(INFO, ANCHORS, BUILDINGS).map(x => x.n), ['Fridolinsmünster', 'Smile-Kreisel', 'Bodenackerstrasse 6c']);
+  assert.deepEqual(landmarkEntries(INFO, ANCHORS, BUILDINGS).map(x => x.n), ['Fridolinsmünster', 'Smile-Kreisel', 'Bodenackerstrasse 6']);
 });
 
 test('landmarkEntries copes with a world without anchors or buildings', () => {
@@ -44,7 +44,7 @@ test('filterLandmarks searches names accent-blind and combines with the Gemeinde
   const e = landmarkEntries(INFO, ANCHORS, BUILDINGS);
   assert.deepEqual(filterLandmarks(e, 'munst', null).map(x => x.n), ['Fridolinsmünster']);
   assert.deepEqual(filterLandmarks(e, ' Münst ', null).map(x => x.n), ['Fridolinsmünster']);
-  assert.deepEqual(filterLandmarks(e, '', 'Sisseln').map(x => x.n), ['Smile-Kreisel', 'Bodenackerstrasse 6c']);
+  assert.deepEqual(filterLandmarks(e, '', 'Sisseln').map(x => x.n), ['Smile-Kreisel', 'Bodenackerstrasse 6']);
   assert.deepEqual(filterLandmarks(e, 'smile', 'Sisseln').map(x => x.n), ['Smile-Kreisel']);
   assert.deepEqual(filterLandmarks(e, 'smile', 'Bad Säckingen'), []);
   assert.deepEqual(filterLandmarks(e, 'sisseln', null), []);   // Gemeinde is not searched, only names
@@ -81,7 +81,7 @@ test('LANDMARK_INFO holds the 14 landmarks of #41, the 9 of #46, the LANDI tower
      ['Kursaal', 'Bad Säckingen', 91592556], ['Aqualon Therme', 'Bad Säckingen', 92039355],
      ['Kirche Bruder Klaus', 'Stein', 407386050],
      ['Bahnhof Eiken', 'Eiken', 199241726],
-     ['Bodenackerstrasse 6c', 'Sisseln', 171822634], ['Bodenackerstrasse 10B', 'Sisseln', 171822943],
+     ['Bodenackerstrasse 6', 'Sisseln', 171822634], ['Bodenackerstrasse 10B', 'Sisseln', 171822943],
      ['Gemeindehaus Sisseln', 'Sisseln', 171822808], ['Schulhaus Sisseln', 'Sisseln', 171822721],
      ['Neues Schulhaus Sisseln', 'Sisseln', 282842878], ['Volg Sisseln', 'Sisseln', 171822900],
      ['Bahnhof Frick', 'Frick', 164951714]]);
