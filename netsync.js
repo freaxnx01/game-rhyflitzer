@@ -8,6 +8,7 @@ export const SNAP = 25;          // m: bracketing poses further apart than this 
 export const KEEP = 1000;        // ms: poses older than this behind the newest are dropped
 export const MAX_POSES = 20;     // per track: the interpolation window
 export const CLOCK_N = 5;        // clock samples the median is taken over
+export const RTT_MAX = 1000;     // ms: a longer ping round trip (a stalled peer) is no clock sample once one exists (#1109)
 export const GRID_BACK = 8;      // m: start column spacing along the heading
 export const GRID_SIDE = 1.5;    // m: lateral offset of the start column
 export const FADE = 1000;        // ms: a leaving player's car fades out over this long (#835 part c)
@@ -19,8 +20,11 @@ export const FLAG = { visible: 1, head: 2, brake: 4, left: 8, right: 16, nitro: 
 
 // ---- clock ----
 // addClockSample(samples, a, b, c) — one ping/pong round: a = send time, b = host clock, c = receive time (guest ms).
-// Returns a new array holding the last CLOCK_N offsets; never mutates the one it is given.
+// Returns a new array holding the last CLOCK_N offsets; never mutates the one it is given. A round trip longer than
+// RTT_MAX is dropped once there is a sample: a pong that queued behind a stalled main thread (#1109: the lift ride's
+// first renders) would move the median by seconds. The first sample is always kept, so a slow link still gets an offset.
 export function addClockSample(samples, a, b, c) {
+  if (samples && samples.length && c - a > RTT_MAX) return samples;
   const next = [...(samples || []), b - (a + c) / 2];
   return next.length > CLOCK_N ? next.slice(next.length - CLOCK_N) : next;
 }
