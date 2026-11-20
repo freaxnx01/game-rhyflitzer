@@ -4052,7 +4052,10 @@ const surfaceRoot = new THREE.Group(); surfaceRoot.visible = false; surfaceRoot.
 const ROOM = { layouts: HIDE ? RINGS.flatMap(g => g.rooms.map((r, k) => roomLayout(k, r, g))) : null, layout: null, built: null, group: null, cab: null, states: {}, models: {}, placeholder: null, figure: null, manneken: null, artemis: null, shuttle: null, ferris: null, ferrisSign: null, rallyhall: null, dedication: null };
 const RALLYHALL_S = { hall: null, waiting: [], meshes: [], css: null, cssRoot: null, videos: [] };   // #859: the rally hall's podium cars -- the hall group they stand in, the cars still waiting for their glTF, the parked copies
 const RING_L = { ring: { built: false, group: null }, ring2: { built: false, group: null, sign: null } };
-const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab]);
+// #1109: the other players' cars and name tags are direct scene children too (buildNetCar); below ground they must stay drawn.
+// NETCARS is declared further down; this only runs from LEVELS.onChange, i.e. on a level switch after load.
+function netKeepNodes() { return [...NETCARS.values()].flatMap(e => [e.mesh, e.tag]).filter(Boolean); }
+const keepBelow = () => new Set([car, sky, sun, sun.target, hemi, sunSprite, shadowMesh, surfaceRoot, ROOM.group, RING_L.ring.group, RING_L.ring2.group, ROOM.cab, ...netKeepNodes()]);
 const roomIndex = (id) => (ROOM.layouts ? ROOM.layouts.findIndex(R => R.id === id) : -1);
 function showBelow(id) {   // each below-group is visible only on its own level
   for (const g of RINGS) if (RING_L[g.id].group) RING_L[g.id].group.visible = id === g.id;
@@ -7517,6 +7520,7 @@ window.__mm.netMarkCpDone = (i) => { const c = cpObjs[i]; if (c && !c.done) { c.
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
 window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp, flames: e.flames ? { n: e.flames.children.length, visible: e.flames.visible } : null, wheels: e.mesh ? { spin: e.spin, yaw: e.wheels.filter(w => w.front).map(w => w.steer.rotation.y), rear: e.wheels.filter(w => !w.front).map(w => w.steer.rotation.y), n: e.wheels.length } : null }));   // #835: read-only, for the test; #1116: the flames group; #1108: the wheels
 window.__mm.netContacts = () => netContacts().map(({ id, hit }) => ({ id, pen: hit.pen }));   // #836: the overlaps the own car has now
+window.__mm.netDrawn = () => [...NETCARS].map(([id, e]) => ({ id, car: drawn(e.mesh), tag: drawn(e.tag) }));   // #1109: drawn up to the scene (surfaceRoot hides below ground)
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
 // materials deep-cloned so no later applyPaint reaches them), one solid per slot and the driven car's slot empty.
