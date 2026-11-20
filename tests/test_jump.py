@@ -37,7 +37,7 @@ CHIPS = ["All", "Enterable", "Zuzgen", "Mumpf", "Hellikon", "Obermumpf", "Stein"
 EIKEN_ROWS = ["DSM-Kamin", "Bahnhof Sisseln"] + (["Bahnhof Eiken"] if WORLD46 else []) + (["LANDI-Turm"] if WORLD81 else []) + ["Südspange Sisslerfeld"] \
     + (["Güggeli-Foodtruck"] if WORLD103 else []) + ["Fahrzeug-Depot"] + ["Crash yard"]   # #553: the depot is an at, listed in any world, after its Gemeinde's last landmark (before the yard)
 ALL_ROWS = (25 if WORLD46 else 18) + (1 if WORLD81 else 0) + (1 if WORLD103 else 0) + (1 if WORLD47 else 0) + (2 if WORLD507 else 0) + 12 + 1 + 5 + 1   # landmarks shown + Random spot; the Südspange (#125), the Bergsee (#94), the Reservoir Hübel (#102) and the Rhein-Wracks (#215) and the Crash yard (#415) and the Fahrzeug-Depot (#553) are fixed points, listed in any world; #715: Kirche Stein became the two churches of Stein; #782: 10 village/halt points + Bahnhof Frick + Bahnhof Mumpf; #846: the Straussenfarm Sisseln
-SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Sprungschanze"] \
+SISSELN_ROWS = ["DSM-Wasserturm", "Smile-Kreisel", "Hallenbad Sissila", "Bodenackerstrasse 6", "Bodenackerstrasse 10B", "Sprungschanze"] \
     + (["Gemeindehaus Sisseln", "Schulhaus Sisseln"] if WORLD46 else []) + (["Neues Schulhaus Sisseln", "Volg Sisseln"] if WORLD507 else []) + ["Straussenfarm Sisseln"]   # #846: after Volg, like in LANDMARK_INFO
 
 
@@ -113,11 +113,11 @@ def test_chip_filters_and_keeps_typing_in_the_field(server):
         assert names(page) == SISSELN_ROWS + ["Random spot"]
         assert page.evaluate("() => document.activeElement.id") == "jumpq"
         page.keyboard.type("bodenacker")
-        assert names(page) == ["Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Random spot"]
+        assert names(page) == ["Bodenackerstrasse 6", "Bodenackerstrasse 10B", "Random spot"]
         page.click('#jumpchips button[data-g="Stein"]')
         assert names(page) == ["Random spot"]
         page.click('#jumpchips button[data-g="All"]')
-        assert names(page) == ["Bodenackerstrasse 6c", "Bodenackerstrasse 10B", "Random spot"]
+        assert names(page) == ["Bodenackerstrasse 6", "Bodenackerstrasse 10B", "Random spot"]
         b.close()
 
 
@@ -589,10 +589,10 @@ def test_enterable_chip_lists_the_register_and_composes_with_the_gemeinde_chip(s
         page.keyboard.press("KeyJ")
         page.click("#jumpchips button[data-enterable]")
         listed = rows(page)
-        assert sorted(r["n"] for r in listed) == ["Bodenackerstrasse 6c", "Plattform Sisslerfeld", "Reservoir H\u00fcbel"], listed
+        assert sorted(r["n"] for r in listed) == ["Bodenackerstrasse 6", "Plattform Sisslerfeld", "Reservoir H\u00fcbel"], listed
         assert [r["n"] for r in listed if r.get("soon")] == [], listed   # no dimmed row: the 6c (#411) and the Plattform (#413: the stair is open, ENTERABLE_INFO ready) are ready; the secret Hübel never shows "soon" (this assert was stale from #411 until #715's run caught it)
         page.click('#jumpchips button[data-g="Sisseln"]')
-        assert names(page) == ["Bodenackerstrasse 6c"]
+        assert names(page) == ["Bodenackerstrasse 6"]
         page.click("#jumpchips button[data-enterable]")
         assert "Random spot" in names(page) and len(names(page)) == len(SISSELN_ROWS) + 1
         page.keyboard.press("Escape")

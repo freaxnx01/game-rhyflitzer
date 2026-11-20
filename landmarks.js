@@ -44,7 +44,7 @@ export const LANDMARK_INFO = [
   { name: 'DSM-Wasserturm', gemeinde: 'Sisseln', anchor: 'dsmWaterTower' },
   { name: 'Smile-Kreisel', gemeinde: 'Sisseln', anchor: 'smileKreisel' },
   { name: 'Hallenbad Sissila', gemeinde: 'Sisseln', anchor: 'hallenbad' },
-  { name: 'Bodenackerstrasse 6c', gemeinde: 'Sisseln', building: 171822634 },
+  { name: 'Bodenackerstrasse 6', gemeinde: 'Sisseln', building: 171822634 },
   { name: 'Bodenackerstrasse 10B', gemeinde: 'Sisseln', building: 171822943 },
   { name: 'Sprungschanze', gemeinde: 'Sisseln', anchor: 'jumpRamp', ramp: true },     // J puts the car on its run-up, not on a road (#80)
   { name: 'Gemeindehaus Sisseln', gemeinde: 'Sisseln', building: 171822808 },

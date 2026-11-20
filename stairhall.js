@@ -22,7 +22,7 @@ export const FLOOR_LABELS = {
   de: (k) => (k === 0 ? 'EG' : k === 10 ? 'Dach' : `${k}. OG`),
   en: (k) => (k === 0 ? 'ground floor' : k === 10 ? 'roof' : `${ORDINAL[k]} floor`),
 };
-// "6c · 4. OG" / "6c · 4th floor"
+// "6 · 5. OG" / "6 · 5th floor"
 export const floorLabel = (k, lang) => (FLOOR_LABELS[lang] || FLOOR_LABELS.en)(k);
 export const keypadLabel = (k, lang) => (k === 0 ? 'EG' : k === 10 ? (lang === 'de' ? 'Dach' : 'Roof') : String(k));
 export const hudFloorText = (house, k, lang) => `${house} · ${floorLabel(k, lang)}`;

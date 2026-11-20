@@ -5507,7 +5507,7 @@ function updateInterior() {
   INT.floor = floorAtY(INT.hall.levels, P.y);
   if (doorShouldClose(INT.hall, P.x, P.z, INT.area)) INT.door.target = 0;
   $('mapfloor').hidden = !INT.indoors;
-  $('mapfloor').textContent = hudFloorText(INT.house, INT.floor, window.GG_LANG);
+  $('mapfloor').textContent = hudFloorText('6', INT.floor, window.GG_LANG);
 }
 function interiorFoot() {   // #411: the hall's own walls and ceilings, applied after collideFoot/collideWalkways
   if (!INT.hall) return;
