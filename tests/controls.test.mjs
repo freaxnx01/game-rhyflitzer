@@ -93,8 +93,20 @@ test('barEntries_HopActions_HighlightedEWithTheirLabels', () => {   // #701
   }
 });
 
-test('barEntries_HeliTrainLift_OnlyAllKeys', () => {
-  for (const c of ['heli', 'train', 'lift']) assert.deepEqual(barEntries(c).map(e => e.cap), ['F1'], c);
+test('barEntries_Heli_FlyClimbSinkLandAndAllKeys', () => {   // a player who took off must see how to land again
+  const bar = barEntries('heli');
+  assert.deepEqual(bar.map(e => e.cap), ['WASD', 'Space', 'Shift', 'F', 'F1']);
+  assert.deepEqual(bar.map(e => translate('de', e.label)), ['fliegen', 'steigen', 'sinken', 'landen', 'alle Tasten']);
+});
+
+test('barEntries_Train_SteamBrakeGetOutAndAllKeys', () => {
+  const bar = barEntries('train');
+  assert.deepEqual(bar.map(e => e.cap), ['W', 'S', 'Z', 'F1']);
+  assert.deepEqual(bar.map(e => translate('de', e.label)), ['Dampf', 'bremsen', 'aussteigen', 'alle Tasten']);
+});
+
+test('barEntries_Lift_OnlyAllKeys', () => {
+  assert.deepEqual(barEntries('lift').map(e => e.cap), ['F1']);
 });
 
 test('menuEntries_Car_ListsTheRestNotTheCore', () => {
