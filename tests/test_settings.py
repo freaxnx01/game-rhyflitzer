@@ -170,7 +170,7 @@ def test_station_list_picks_any_station_and_keeps_it(server):
 
 
 def test_hints_switch_and_reset(server):
-    """#1090: Display carries the hints switch and "Show hints again" -- the switch writes mm.hintsOn,
+    """#1090: Display carries the hints switch and "Reset seen hints" -- the switch writes mm.hintsOn,
     the button drops the whole seen store."""
     with sync_playwright() as p:
         b, page, errors = boot(p, server)

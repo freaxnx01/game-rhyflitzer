@@ -876,7 +876,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <!-- #1090: the discovery hints -- the switch, and a button that forgets what was shown (a child starts fresh on the same device) -->
       <div class="st-row"><span class="st-label" id="sethintslabel" data-i18n="setHints">Hints</span>
         <button id="sethints" class="btn small" type="button" role="switch" aria-checked="true" aria-labelledby="sethintslabel">on</button>
-        <button id="sethintsreset" class="btn small" type="button" data-i18n="setHintsReset">Show hints again</button>
+        <button id="sethintsreset" class="btn small" type="button" data-i18n="setHintsReset">Reset seen hints</button>
         <p class="st-cap" data-i18n="setHintsCap">short tips while you drive, each one only once</p>
         <p id="sethintsresetcap" class="st-cap"></p></div>
     </section>
@@ -5293,7 +5293,7 @@ const HINTS_S = {
   on: hintsOnFrom((() => { try { return localStorage.getItem(HINTS_ON_KEY); } catch (e) { return null; } })()),
   store: (() => { try { return hintStoreFrom(localStorage.getItem(HINTS_KEY)); } catch (e) { return null; } })(),
   play: playTimeFrom((() => { try { return localStorage.getItem(PLAY_TIME_KEY); } catch (e) { return null; } })()),
-  reset: false,   // "Show hints again" was pressed: the row's caption says so
+  reset: false,   // "Reset seen hints" was pressed: the row's caption says so
 };
 function saveHintStore() { if (!HINTS_S.store) return; try { localStorage.setItem(HINTS_KEY, JSON.stringify(HINTS_S.store)); } catch (e) { } }
 function setHintsOn(on) { HINTS_S.on = on; try { localStorage.setItem(HINTS_ON_KEY, on ? '1' : '0'); } catch (e) { } }
