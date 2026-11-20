@@ -15,6 +15,7 @@ export const STAIRHALL = {
   liftDoor: { a0: 0.3, a1: 1.1, h: 2.1 }, frontDoor: { b0: -0.6, b1: 0.6, h: 2.2 }, roofDoor: { a0: 0.35, a1: 1.25, h: 2.1 },
   window: { b0: -0.6, b1: 0.6, sill: 0.9, top: 2.0 },
   rail: 1.1, porchH: 3.0, door: 1.0,
+  steps: { run: 2.0, min: 0.05 },                   // #1099: the flight in front of a porch whose ground lies below the EG: how far out it reaches, from which drop on
 };
 
 const ORDINAL = ['', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th'];
@@ -22,7 +23,7 @@ export const FLOOR_LABELS = {
   de: (k) => (k === 0 ? 'EG' : k === 10 ? 'Dach' : `${k}. OG`),
   en: (k) => (k === 0 ? 'ground floor' : k === 10 ? 'roof' : `${ORDINAL[k]} floor`),
 };
-// "6c · 4. OG" / "6c · 4th floor"
+// "6 · 4. OG" / "6 · 4th floor"
 export const floorLabel = (k, lang) => (FLOOR_LABELS[lang] || FLOOR_LABELS.en)(k);
 export const keypadLabel = (k, lang) => (k === 0 ? 'EG' : k === 10 ? (lang === 'de' ? 'Dach' : 'Roof') : String(k));
 export const hudFloorText = (house, k, lang) => `${house} · ${floorLabel(k, lang)}`;
@@ -121,7 +122,7 @@ export function stairHall(entrance, porch, floors, eg, cfg = STAIRHALL) {
   wall('porch:door', -porch.d - 0.05, -porch.d, -cfg.door / 2, cfg.door / 2, L(0), L(0) + cfg.frontDoor.h);
   wall('porch:lintel', -porch.d - 0.05, -porch.d, -cfg.door / 2, cfg.door / 2, L(0) + cfg.frontDoor.h, L(0) + cfg.porchH);
   walk.ceilings.push({ ...rectAB(f, -porch.d, 0, -pw, pw), y: L(0) + cfg.porchH });
-  // the housing's roof; the roof deck itself is added by the caller (it needs the building's ring): hallRoofSlab()
+  // the housing's roof; the roof deck itself is its own set, built by the caller from the building's ring: blockRoof()
   walk.ceilings.push({ ...rectAB(f, 0, depth, b0, b1), y: top - 0.15 });
 
   const windows = [];
@@ -143,6 +144,16 @@ export function blockRoof(halls, bodyWorld) {
     walk.walls.push({ x: (ax + bx) / 2, z: (az + bz) / 2, hw: len / 2 + 0.2, hd: 0.1, c: (bx - ax) / len, s: (bz - az) / len, y0: roof, y1: roof + 1.2, tag: 'edge' });
   }
   return walk;
+}
+
+// #1099: the block stands on the level of one house's door (#445), so at its low end the EG is over a metre above the ground and no
+// walker can step up into the porch. There a flight in front of the glass front climbs from the ground to the threshold, the porch's
+// width; `ground` = the terrain cfg.steps.run metres out from the door. Level ground (or higher) gets none.
+export function addEntranceSteps(hall, ground, cfg = STAIRHALL) {
+  const eg = hall.levels[0], run = cfg.steps.run;
+  if (eg - ground <= cfg.steps.min) return;
+  const f = hall.frame, pw = hall.porch.w / 2;
+  hall.walk.ramps.push(rampAB(f, -hall.porch.d - run, -hall.porch.d, -pw, pw, ground, eg));
 }
 
 // where a point is relative to the hall: 'out', 'porch' or 'tower'

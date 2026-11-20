@@ -107,6 +107,18 @@ test('nearestEntrance_TwoEntrances_PicksTheCloser', () => {
   assert.equal(near.d, 5);
 });
 
+// #1099: Bodenackerstrasse 6 is one entry with one entrance per house; the runtime opens the door of entrance.house
+test('nearestEntrance_FourEntrancesOneEntry_PicksTheOneAtTheWalkerAndKeepsItsHouse', () => {
+  const houses = ['6a', '6b', '6c', '6d'];
+  const e = mk({ id: 'bodenackerstrasse-6c', entrances: houses.map((house, k) => ({ x: 0, z: k * 12, th: 0, w: 1, house })) });
+  for (const [k, house] of houses.entries()) {
+    const near = nearestEntrance([e], 'surface', 0, k * 12 - 1.5, 15);
+    assert.equal(near.entrance.house, house, `at ${house}`);
+    assert.equal(near.entry.id, 'bodenackerstrasse-6c');
+    assert.ok(Math.abs(near.d - 1.5) < 1e-9, near.d);
+  }
+});
+
 test('enterPrompt_WithinPromptRange_AsksForKeyE', () => {
   const near = nearestEntrance([mk()], 'surface', 0, 32, 15);
   assert.deepEqual(enterPrompt(near), { id: 't', key: 'KeyE' });

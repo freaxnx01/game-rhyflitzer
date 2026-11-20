@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WALKER } from '../foot.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush, WALKWAY, wallActive } from '../walkways.js';
-import { STAIRHALL, stairHall, hallLevels, floorAtY, floorLabel, keypadLabel, hudFloorText, hallFrame, hallArea, bodyColliderOff, blockRoof, wallByTag, doorShouldClose } from '../stairhall.js';
+import { STAIRHALL, stairHall, hallLevels, floorAtY, floorLabel, keypadLabel, hudFloorText, hallFrame, hallArea, bodyColliderOff, blockRoof, addEntranceSteps, wallByTag, doorShouldClose } from '../stairhall.js';
 
 const EG = 312.4, FLOORS = { pitch: 2.53, floors: Array.from({ length: 10 }, (_, k) => EG + k * 2.53), roof: EG + 25.3 + 0.5, housingTop: EG + 25.3 + 0.5 + 2.6 };
 const ENTRANCE = { x: 2100, z: -380, th: 0.7, w: 1.0 }, PORCH = { w: 2.3, d: 2.9 };
@@ -28,9 +28,9 @@ test('floorAtY_OnStairsAndLandings_NamesTheStoreyBelowTheHalfLanding', () => {
 test('floorLabel_SwissNaming_EgOgDach_AndEnglish', () => {
   assert.deepEqual([0, 1, 4, 9, 10].map(k => floorLabel(k, 'de')), ['EG', '1. OG', '4. OG', '9. OG', 'Dach']);
   assert.deepEqual([0, 1, 2, 3, 4, 9, 10].map(k => floorLabel(k, 'en')), ['ground floor', '1st floor', '2nd floor', '3rd floor', '4th floor', '9th floor', 'roof']);
-  assert.equal(hudFloorText('6c', 4, 'de'), '6c · 4. OG');
-  assert.equal(hudFloorText('6c', 4, 'en'), '6c · 4th floor');
-  assert.equal(hudFloorText('6c', 0, 'en'), '6c · ground floor');
+  assert.equal(hudFloorText('6', 4, 'de'), '6 · 4. OG');       // #1099: the block is one place to the player, without a house letter
+  assert.equal(hudFloorText('6', 4, 'en'), '6 · 4th floor');
+  assert.equal(hudFloorText('6', 0, 'en'), '6 · ground floor');
 });
 
 test('keypadLabel_Buttons_EgOneToNineDach', () => {
@@ -152,6 +152,29 @@ test('blockRoof_TwoHallsUnderOneBody_OneDeckWithBothTowerHolesAndTheRailsOnce', 
   assert.equal(walkwayPush(deck, mx, mz, roof, 0.35).length, 0, 'the deck is walkable between the two towers');
   for (const h of [h1, h2]) assert.equal(walkwayFloor(deck, h.roofHole.x, h.roofHole.z, roof, WALKER), null, 'both tower holes are no roof');
   assert.ok(walkwayPush(deck, cx - 30.1, cz - 8, roof, 0.35).length > 0, 'cannot step over the edge');
+});
+
+// #1099: at the low end of the block the EG stands over a metre above the ground (6d), so the door needs steps up to it
+test('addEntranceSteps_GroundBelowTheEg_AClimbableFlightUpToTheThreshold', () => {
+  const h = hall(), low = EG - 1.3, flights = h.walk.ramps.length;
+  addEntranceSteps(h, low);
+  assert.equal(h.walk.ramps.length, flights + 1, 'one flight in front of the porch');
+  let y = low;
+  for (let t = 0.02; t <= 1.0001; t += 0.05) {   // from just inside the foot of the steps (where the walker arrives on the terrain) to the threshold
+    const a = -PORCH.d - STAIRHALL.steps.run * (1 - t), [x, z] = at(h, a, 0);
+    const f = walkwayFloor(h.walk, x, z, y, WALKER);
+    assert.notEqual(f, null, `a floor under the steps at a = ${a.toFixed(2)}`);
+    assert.ok(f - y <= 0.2, `step of ${(f - y).toFixed(2)} at a = ${a.toFixed(2)}`);
+    y = f;
+  }
+  const [px, pz] = at(h, -PORCH.d + 0.05, 0);   // and from the top step onto the porch floor, which is the EG
+  close(walkwayFloor(h.walk, px, pz, y, WALKER), EG, 1e-9);
+});
+
+test('addEntranceSteps_GroundAtTheEg_NoSteps', () => {
+  const h = hall(), flights = h.walk.ramps.length;
+  addEntranceSteps(h, EG - 0.01);
+  assert.equal(h.walk.ramps.length, flights, 'level ground needs none');
 });
 
 test('hallArea_PointsOnAndAroundThePorchAndTower', () => {

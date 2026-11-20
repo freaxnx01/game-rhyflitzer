@@ -1099,7 +1099,7 @@ import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInp
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
-import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, blockRoof, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, blockRoof, addEntranceSteps, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, plattformOnDeck, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, centrePostTop, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
@@ -2080,7 +2080,8 @@ function paneStreet(frame, u0, u1, v, y0, y1) {
   colorize(g, col('#bfd6e4')); push('glass', g);
 }
 // #410: one entrance porch: dark posts, a flat roof slab with an overhang, two glass side panes, and the street pane split
-// into two side lights around the solid door leaf (which #411 can swing or hide). The rear is the body façade.
+// into two side lights around the door leaf. The rear is the body façade; #1099: every porch has a hinged leaf of its own
+// (the housing-mesh block below), so none is drawn here.
 // ground = the porch's own ground: the block sits on sloping terrain, and base (the ring's lowest sample) would bury it.
 function porchMesh(p, frame, ground) {
   const P = BODENACKER6.porch, vc = (p.v0 + p.v1) / 2;
@@ -2092,7 +2093,6 @@ function porchMesh(p, frame, ground) {
   box(p.w + 2 * P.overhang, P.slab, p.d + 2 * P.overhang, rx, ground + P.h, rz, frame.rot, col('#c9ccd0'), 'plasterWhite', [4, 3], 0);
   for (const du of [-1, 1]) paneSide(frame, p.u + du * p.w / 2, p.v0, p.v1, ground, ground + P.h);
   for (const du of [-1, 1]) paneStreet(frame, Math.min(p.u + du * P.door / 2, p.u + du * p.w / 2), Math.max(p.u + du * P.door / 2, p.u + du * p.w / 2), p.v1, ground, ground + P.h);
-  if (p.house !== '6c') box(P.door, 2.2, 0.05, p.entrance.x, ground, p.entrance.z, frame.rot, col('#3a3f47'), 'plasterWhite', [4, 3], 0);   // #411: 6c gets a hinged leaf instead (buildInterior)
 }
 function obbBox(o, y0, y1) {   // #411: an OBB footprint as a box geometry, world position (the room code's kerbs use the same rotation)
   const g = new THREE.BoxGeometry(2 * o.hw, y1 - y0, 2 * o.hd);
@@ -2127,11 +2127,6 @@ function bodenackerBuilding(b, lowest, h) {
   for (const lintel of lintels) wallQuads([{ ...lintel, dy: fd.h }], base + fd.h, h - fd.h, white, 'bodenacker', tile, 0);
   const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
   extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'), [4, 3], false, 0);   // the band's top is the roof slab; #453: no 2 m skirt, it sat coplanar on the top storey's façade (z-fighting)
-  for (const s of L.stairs) {
-    if (s.house === '6c') continue;   // #411: 6c's housing is the stair tower's own outline (below), not the merged box
-    const [x, z] = L.frame.toWorld(s.u, (s.vFront + s.vBack) / 2);
-    box(s.w, BODENACKER6.housingRise, s.d, x, L.floors.roof, z, L.frame.rot, white, 'plasterWhite', [4, 3], 0);
-  }
   for (const p of L.porches) {   // each porch on the block's level with its own skirt down to its ground, or on its ground where that lies higher
     let ground = Infinity;
     for (const [du, dv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
@@ -2143,16 +2138,20 @@ function bodenackerBuilding(b, lowest, h) {
     if (pp.skirt) { const [x, z] = L.frame.toWorld(p.u, (p.v0 + p.v1) / 2); box(p.w, pp.skirt.y1 - pp.skirt.y0, p.d, x, pp.skirt.y0, z, L.frame.rot, concrete, 'stone', [4, 4], 0); }
   }
   pushOBB({ x: cx, z: cz, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: L.floors.roof, ring: b.ring, bodenacker6: true });   // the OSM outline = body + porches, as before; #411: tagged so the walker can be let in
-  {   // #411: the stair hall of 6c as a walkway set, built in place once. The EG is the block's level = the terrain at the door (#445)
-    const porch = bodenackerHouse(L, INT.house).porch, entrance = porch.entrance;
-    INT.hall = stairHall(entrance, { w: porch.w, d: porch.d }, L.floors, base);
-    INT.roofWalk = blockRoof([INT.hall], bodyWorld);   // #1099: the block's roof deck is its own set, pushed once for all halls
-    INT.lift = createTowerLift(INT.hall.levels);
-    INT.cabin = { ...INT.hall.cabinRect, y: INT.lift.y };   // the dynamic slab: stepInterior keeps its y on the lift
-    INT.hall.walk.slabs.push(INT.cabin);
-    const hg = INT.hall.housing, f = INT.hall.frame, [hx, hz] = f.toWorld((hg.a0 + hg.a1) / 2, (hg.b0 + hg.b1) / 2);
-    INT.housingGeo = colorize(obbBox({ x: hx, z: hz, hw: (hg.a1 - hg.a0) / 2, hd: (hg.b1 - hg.b0) / 2, c: f.c, s: f.s }, hg.y0, hg.y1), white);   // the tower outline as the permanent low-poly housing; #453: white vertex colours, the style's material multiplies them in
-  }
+  // #411 / #1099: the stair hall behind every porch as a walkway set, built in place once. Every EG is the block's level = the terrain at the base house's door (#445)
+  INT.halls = BODENACKER6.houses.map(house => {
+    const porch = bodenackerHouse(L, house).porch;
+    const hall = stairHall(porch.entrance, { w: porch.w, d: porch.d }, L.floors, base), lift = createTowerLift(hall.levels);
+    const e = porch.entrance, run = STAIRHALL.steps.run;   // #1099: at the block's low end the EG stands over a metre over the ground: steps up to the door
+    addEntranceSteps(hall, terrainH(e.x - Math.cos(e.th) * run, e.z - Math.sin(e.th) * run));
+    const cabin = { ...hall.cabinRect, y: lift.y };   // the dynamic slab: stepInterior keeps its y on the lift
+    hall.walk.slabs.push(cabin);
+    const hg = hall.housing, f = hall.frame, [hx, hz] = f.toWorld((hg.a0 + hg.a1) / 2, (hg.b0 + hg.b1) / 2);
+    const housingGeo = colorize(obbBox({ x: hx, z: hz, hw: (hg.a1 - hg.a0) / 2, hd: (hg.b1 - hg.b0) / 2, c: f.c, s: f.s }, hg.y0, hg.y1), white);   // the tower outline as the permanent low-poly housing; #453: white vertex colours, the style's material multiplies them in
+    return { house, hall, lift, cabin, housingGeo, door: { open: 0, target: 0 }, roofDoorOpen: false, roofDoorAmt: 0 };
+  });
+  INT.cur = hallRecord(BODENACKER_BASE_HOUSE);
+  INT.roofWalk = blockRoof(INT.halls.map(r => r.hall), bodyWorld);   // #1099: one roof deck for the block, with a hole per tower
   window.__mm.counts.bodenacker6 = 1; window.__mm.bodenacker6 = () => L;
   return true;
 }
@@ -2618,9 +2617,15 @@ function sign(txt, kind, px, py, faceDeg) { signW(txt, kind, ...W(px, py), faceD
 function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(txt, 512, 256, '#1c5fb0', '#ffffff', '700 120px "Barlow Condensed", sans-serif', '#ffffff') : textTex(txt, 512, 256, '#ffcc00', '#111111', '700 120px "Barlow Condensed", sans-serif', '#111111'); const g = new THREE.Group(); const board = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 0.08), [new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 }), new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ color: 0x8a8f96 })]); board.position.y = 2.4; const pole = new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }); for (const s of [-0.9, 0.9]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.95, 6), pole); p.position.set(s, 1.475, -0.09); g.add(p); } g.add(board); g.position.set(x, groundH(x, z), z); g.rotation.y = faceDeg * Math.PI / 180; g.traverse(o => o.castShadow = true); signs.add(g); }   // #822: poles behind the 0.08 deep board, 5 cm under its top
 
 const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795], [1960, 740]]);   // hand-traced Basel–Koblenz line stand-in
-// #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
-// indoor is additive behind INT.hall (null until bodenackerBuilding built it); every glue function guards on it.
-const INT = { hall: null, roofWalk: null, house: '6c', on: false, group: null, housing: null, lift: null, cabin: null, door: { open: 0, target: 0 }, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null, roofDoorOpen: false, roofDoorAmt: 0 };
+// #411 / #1099: the interior state of Bodenackerstrasse 6 -- one record per house in INT.halls (the walkway hall, the lift, the cabin,
+// the porch door and the always-present meshes), the block's roof deck in INT.roofWalk, and INT.cur: the record the walker is in or
+// nearest to. Everything indoor is additive behind INT.halls (empty until bodenackerBuilding built it); every glue function guards on it.
+// The fields of INT.cur are readable and writable through INT itself (INT.hall, INT.lift, INT.door, ...), so the lift pad, the door
+// easing, LIFT_RIDE and the debug hooks address the current house without knowing about the records.
+const INT = { halls: [], cur: null, roofWalk: null, on: false, group: null, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null };
+for (const k of ['house', 'hall', 'lift', 'cabin', 'door', 'housing', 'housingGeo', 'housingPanel', 'doorLeaf', 'doorPlug', 'roofDoorOpen', 'roofDoorAmt'])
+  Object.defineProperty(INT, k, { get: () => INT.cur && INT.cur[k], set: (v) => { if (INT.cur) INT.cur[k] = v; } });
+const hallRecord = (house) => INT.halls.find(r => r.house === house) || INT.cur;   // the record of a house, e.g. of an entrance the walker pressed E at
 let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM world only)
 // ---------- build the world ----------
 {
@@ -3323,18 +3328,18 @@ function mergeRole(list) {
   return g;
 }
 for (const role in parts) { const g = mergeRole(parts[role]); const m = new THREE.Mesh(g); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; scene.add(m); MESH[role] = m; freeCpuCopy(m); delete parts[role]; }
-if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own meshes so the interior can hide them; applyStyle sets the material
-  INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing);
-  const h = INT.hall, rd = STAIRHALL.roofDoor;   // the dark roof-door panel on the housing's left face
-  INT.housingPanel = new THREE.Mesh(obbBox(hallRect(h.frame, rd.a0, rd.a1, h.housing.b0 - 0.02, h.housing.b0), h.levels[STAIRHALL.storeys], h.levels[STAIRHALL.storeys] + rd.h), new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }));
-  scene.add(INT.housingPanel);
+for (const rec of INT.halls) {   // #411 / #1099: every stair tower's housing, roof-door panel, entrance leaf and door plug -- their own meshes so the interior can hide them; applyStyle sets the housing's material
+  rec.housing = new THREE.Mesh(rec.housingGeo, new THREE.MeshBasicMaterial()); rec.housing.userData.role = 'plasterWhite'; scene.add(rec.housing);
+  const h = rec.hall, rd = STAIRHALL.roofDoor;   // the dark roof-door panel on the housing's left face
+  rec.housingPanel = new THREE.Mesh(obbBox(hallRect(h.frame, rd.a0, rd.a1, h.housing.b0 - 0.02, h.housing.b0), h.levels[STAIRHALL.storeys], h.levels[STAIRHALL.storeys] + rd.h), new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }));
+  scene.add(rec.housingPanel);
   const p = h.porch, [dx, dz] = h.frame.toWorld(-p.d, STAIRHALL.door / 2);   // the hinged entrance leaf: permanent (visible from far), swings inward on E
   const leaf = new THREE.Mesh(new THREE.BoxGeometry(STAIRHALL.door, STAIRHALL.frontDoor.h, 0.05), new THREE.MeshLambertMaterial({ color: 0x3a3f47, emissive: 0x2b2b2b }));
   leaf.position.set(STAIRHALL.door / 2, STAIRHALL.frontDoor.h / 2, 0);
-  INT.doorLeaf = new THREE.Group(); INT.doorLeaf.position.set(dx, h.levels[0], dz); INT.doorLeaf.add(leaf); scene.add(INT.doorLeaf);
+  rec.doorLeaf = new THREE.Group(); rec.doorLeaf.position.set(dx, h.levels[0], dz); rec.doorLeaf.add(leaf); scene.add(rec.doorLeaf);
   const fd = STAIRHALL.frontDoor;   // #467: a dark backing in the façade's doorway while the hall is not built, so the porch glass does not look through the block
-  INT.doorPlug = new THREE.Mesh(obbBox(hallRect(h.frame, 0.05, 0.08, fd.b0, fd.b1), h.levels[0], h.levels[0] + fd.h), new THREE.MeshLambertMaterial({ color: 0x2a2c30, emissive: 0x1a1a1a }));
-  scene.add(INT.doorPlug);
+  rec.doorPlug = new THREE.Mesh(obbBox(hallRect(h.frame, 0.05, 0.08, fd.b0, fd.b1), h.levels[0], h.levels[0] + fd.h), new THREE.MeshLambertMaterial({ color: 0x2a2c30, emissive: 0x1a1a1a }));
+  scene.add(rec.doorPlug);
 }
 // Gemeinde boundaries (#48, OSM admin_level 8): a magenta strip on the ground, the road or the water, hidden until G; its own group outside MESH, so applyStyle and the collision code never see it
 const boundaryY = (x, z) => Math.max(terrainH(x, z), roadSurfH(x, z), waterSurface(riverDist(x, z), L && REAL ? WATER.levelAt(x, z) : 0) ?? -Infinity) + 0.25;
@@ -3924,7 +3929,7 @@ const STYLES = {
       if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = MESH[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const role in MESH) { MESH[role].material.dispose?.(); MESH[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = MESH[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } for (const rec of INT.halls) if (rec.housing) { rec.housing.material.dispose?.(); rec.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
 function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; TREES_ON.solid = solid; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.coarse) im.visible = solid && f.tier === 'coarse'; if (f.fine) for (const im of f.fine) im.visible = solid && f.tier === 'fine'; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
@@ -4925,10 +4930,10 @@ if (YARD) { const at = JUMP_ENTRIES.map(e => e.g).lastIndexOf(YARD.gemeinde); JU
 // #409: the enterable-buildings register, resolved once. #411 / #412 add ENTER_HANDLERS[id] = (entry, entrance) => ...
 const hideoutRoomCentres = () => ({ eiffel: roomLayout(0).centre, atomium: roomLayout(1).centre });   // pure layout maths (rooms.js): resolvable even where the hideout itself is not built; the entries stay secret until HIDE.found
 const ENTERABLES = enterableEntries(ENTERABLE_INFO, L ? L.anchors.landmarks : {}, L ? L.buildings : [], hideoutRoomCentres());
-{ const lay = window.__mm.bodenacker6 && window.__mm.bodenacker6(), e = ENTERABLES.find(q => q.id === 'bodenackerstrasse-6c'); if (lay && e) e.entrances = [{ ...bodenackerHouse(lay, '6c').porch.entrance }]; }   // #411: the 6c glass porch is the entrance (its position is the hall's own entrance)
+{ const e = ENTERABLES.find(q => q.id === 'bodenackerstrasse-6c'); if (e && INT.halls.length) e.entrances = INT.halls.map(r => ({ ...r.hall.entrance, house: r.house })); }   // #411 / #1099: all four glass porches are entrances of the one entry (each hall's own entrance), each carrying its house
 { const e = ENTERABLES.find(q => q.id === 'plattform-sisslerfeld'); if (PLAT && e) e.entrances = [plattformEntrance(PLAT.frame)]; }   // #413: the door of the batten cylinder
 const ENTER_HANDLERS = {};
-ENTER_HANDLERS['bodenackerstrasse-6c'] = () => { INT.door.target = 1; };   // #411: E at the porch swings the door open; it shuts again when the walker has walked away
+ENTER_HANDLERS['bodenackerstrasse-6c'] = (entry, entrance) => { const rec = hallRecord(entrance.house); if (rec) rec.door.target = 1; };   // #411: E at a porch swings that house's door open; it shuts again when the walker has walked away
 ENTER_HANDLERS['plattform-sisslerfeld'] = () => toast(tr('plattformOpen'));   // #413: nothing to open, the stair is open -- just walk in
 const secretRevealed = () => !!(HIDE && HIDE.found);
 const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
@@ -5234,7 +5239,7 @@ const parked = () => parkedBox(FOOT.car, CAR_SIZE);
 // #412: the walkway set around the walker -- the slabs, ramps, walls and ceilings of the interior it is in. It starts empty
 // (outdoors every walkway query answers "nothing"), and the interior of a building fills it while the walker is in it (6c, #411).
 const WALKS = emptyWalkways();
-for (const set of [INT.hall && INT.hall.walk, INT.roofWalk, PLAT && PLAT.walk]) if (set) for (const k of Object.keys(WALKS)) WALKS[k] = [...WALKS[k], ...set[k]];   // #411 6c hall + #1099 the block's roof deck + #413 Plattform: new arrays, the same piece objects (door leaves, the cabin slab and wallByTag stay live; nothing is pushed after this)
+for (const set of [...INT.halls.map(r => r.hall.walk), INT.roofWalk, PLAT && PLAT.walk]) if (set) for (const k of Object.keys(WALKS)) WALKS[k] = [...WALKS[k], ...set[k]];   // #411 the four stair halls + #1099 the block's roof deck + #413 Plattform: new arrays, the same piece objects (door leaves, the cabin slab and wallByTag stay live; nothing is pushed after this)
 const ENTER_GLOW = { sprites: new Map(), shown: [], tex: null };   // #409: one pooled additive sprite per entrance
 function enterGlowTexture() {
   if (ENTER_GLOW.tex) return ENTER_GLOW.tex;
@@ -5495,11 +5500,27 @@ function collideFoot(r) { const under = caveInside(); for (const o of footSolids
 function collideWalkways(r) { for (const hit of walkwayPush(WALKS, P.x, P.z, P.y, r)) { P.x += hit.wx * hit.pen; P.z += hit.wz * hit.pen; } }
 // #411: inside 6c the terrain under the building must not lift the walker -- the EG slab (levels[0]) is the ground source there
 const footFloorAt = (x, z, y) => footFloor(INT.indoors && INT.hall ? INT.hall.levels[0] - 1 : groundH(x, z, y), footSolids(x, z), x, z, y, WALKER, walkwayFloor(WALKS, x, z, y));
-// #411: the interior state of 6c, stepped from stepOnFoot, the main loop and footSim -- area, roof, HUD floor, the door
+// #1099: the house the walker is in -- the hall whose porch or tower they stand in, else (on the roof deck too) the one with the nearest entrance
+function currentHall() {
+  const inside = INT.halls.find(r => hallArea(r.hall, P.x, P.z) !== 'out');
+  if (inside) return inside;
+  let best = INT.cur, bd = Infinity;
+  for (const r of INT.halls) { const d = Math.hypot(P.x - r.hall.entrance.x, P.z - r.hall.entrance.z); if (d < bd) { bd = d; best = r; } }
+  return best;
+}
+// one interior group at a time: taking over hands the build to the new house and shuts the old one's roof door behind the walker
+function setCurrentHall(rec) {
+  if (rec === INT.cur) return;
+  if (INT.on) disposeInterior();
+  if (INT.cur) { INT.roofDoorOpen = false; INT.roofDoorAmt = 0; wallByTag(INT.hall, 'roofDoor').off = false; }
+  INT.cur = rec;
+}
+// #411: the interior state of the block, stepped from stepOnFoot, the main loop and footSim -- the current house, area, roof, HUD floor, the doors
 function updateInterior() {
-  if (!INT.hall) return;
-  if (!FOOT.on) {   // in the car or in a dialog: the door still shuts behind the walker, the HUD goes dark
-    if (doorShouldClose(INT.hall, P.x, P.z, 'out')) INT.door.target = 0;
+  if (!INT.halls.length) return;
+  setCurrentHall(currentHall());
+  if (!FOOT.on) {   // in the car or in a dialog: the doors still shut behind the walker, the HUD goes dark
+    for (const r of INT.halls) if (doorShouldClose(r.hall, P.x, P.z, 'out')) r.door.target = 0;
     if (INT.indoors || INT.area !== 'out' || INT.prompt) { INT.indoors = false; INT.bodyOff = false; INT.onRoof = false; INT.area = 'out'; INT.prompt = null; }
     $('mapfloor').hidden = true;
     return;
@@ -5508,11 +5529,11 @@ function updateInterior() {
   const roof = INT.hall.levels[INT.hall.levels.length - 1];
   INT.onRoof = P.y >= roof - 0.1 && (walkwayFloor(INT.hall.walk, P.x, P.z, P.y) !== null || walkwayFloor(INT.roofWalk, P.x, P.z, P.y) !== null);   // #1099: the roof lobby's landing, or the block's own deck
   INT.indoors = INT.area !== 'out' || INT.onRoof;
-  INT.bodyOff = bodyColliderOff(INT.hall, P.x, P.z, INT.door.open > 0.5);
+  INT.bodyOff = INT.halls.some(r => bodyColliderOff(r.hall, P.x, P.z, r.door.open > 0.5));   // #1099: the block's collider stands aside at every open door
   INT.floor = floorAtY(INT.hall.levels, P.y);
-  if (doorShouldClose(INT.hall, P.x, P.z, INT.area)) INT.door.target = 0;
+  for (const r of INT.halls) if (doorShouldClose(r.hall, P.x, P.z, r === INT.cur ? INT.area : 'out')) r.door.target = 0;
   $('mapfloor').hidden = !INT.indoors;
-  $('mapfloor').textContent = hudFloorText(INT.house, INT.floor, window.GG_LANG);
+  $('mapfloor').textContent = hudFloorText('6', INT.floor, window.GG_LANG);   // #1099: the block is one place to the player -- "6 · 4. OG", never a house letter
 }
 function interiorFoot() {   // #411: the hall's own walls and ceilings, applied after collideFoot/collideWalkways
   if (!INT.hall) return;
@@ -5521,15 +5542,19 @@ function interiorFoot() {   // #411: the hall's own walls and ceilings, applied 
   P.y = b.y; FOOT.vy = b.vy;
   if (INT.indoors && FOOT.hover) { FOOT.hover = false; FOOT.vy = 0; }   // a hover that flew in through the open door ends at the threshold
 }
+// #1099: every house's porch door eases every frame -- all four can stand open at once, whichever house the walker is in
+function stepPorchDoor(rec, dt) {
+  rec.door.open += (rec.door.target - rec.door.open) * Math.min(1, dt * 4);   // eases to the target and snaps within 0.01
+  if (Math.abs(rec.door.target - rec.door.open) < 0.01) rec.door.open = rec.door.target;
+  wallByTag(rec.hall, 'porch:door').off = rec.door.open > 0.6;
+  if (rec.doorLeaf) rec.doorLeaf.rotation.y = Math.PI / 2 - rec.hall.entrance.th - rec.door.open * 1.75;   // ~100 degrees open, swung inward
+}
 function stepInterior(dt) {
-  if (!INT.hall) return;
+  if (!INT.halls.length) return;
   updateInterior();
-  INT.door.open += (INT.door.target - INT.door.open) * Math.min(1, dt * 4);   // eases to the target and snaps within 0.01
-  if (Math.abs(INT.door.target - INT.door.open) < 0.01) INT.door.open = INT.door.target;
-  wallByTag(INT.hall, 'porch:door').off = INT.door.open > 0.6;
+  for (const r of INT.halls) stepPorchDoor(r, dt);
   const dEnt = Math.hypot(P.x - INT.hall.entrance.x, P.z - INT.hall.entrance.z);
-  if (!INT.on && dEnt < 40) buildInterior(); else if (INT.on && dEnt > 55) disposeInterior();   // hysteresis, checked every frame (foot or car)
-  if (INT.doorLeaf) INT.doorLeaf.rotation.y = Math.PI / 2 - INT.hall.entrance.th - INT.door.open * 1.75;   // ~100 degrees open, swung inward
+  if (!INT.on && dEnt < 40) buildInterior(); else if (INT.on && dEnt > 55) disposeInterior();   // hysteresis, checked every frame (foot or car); only the current house is ever built
   if (INT.cabinMesh) INT.cabinMesh.position.y = INT.lift.y;
   if (INT.liftPanels) for (const p of INT.liftPanels) {   // the leaf slides open only where the cabin stands
     const s = (p.userData.k === INT.lift.at ? INT.lift.door : 0) * (STAIRHALL.liftDoor.a1 - STAIRHALL.liftDoor.a0);
@@ -5825,15 +5850,16 @@ window.__mm.walkways = (set) => { if (set) Object.assign(WALKS, set); return WAL
 window.__mm.plattform = () => PLAT && { facing: PLAT.frame.facing, base: PLAT.base, x: PLAT.frame.x, z: PLAT.frame.z, deckY: PLAT.base + PLATTFORM.deck.y, look: PLAT.look };   // #413: the tower's frame, for the stair tests; #855: look, for the real-look test
 window.__mm.platHop = () => platHop();   // #701: tests
 window.__mm.onDeck = () => platOnDeck();   // #887: tests
-// #411: the interior of 6c as the tests see it. updateInterior() first, so a headless read is fresh even between frames.
-window.__mm.interior = () => (updateInterior(), { hall: !!INT.hall, built: INT.on, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: INT.door.open,
-  y: P.y, levels: INT.hall && INT.hall.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
-  lift: INT.lift && { at: INT.lift.at, y: INT.lift.y, door: INT.lift.door, busy: INT.lift.busy, moving: INT.lift.moving },
-  entrance: INT.hall && INT.hall.entrance, porch: INT.hall && INT.hall.porch, groundSlab: INT.group && INT.groundMat ? { meshes: INT.group.children.filter(o => o.material === INT.groundMat).length, offset: INT.groundMat.polygonOffset ? INT.groundMat.polygonOffsetFactor : null } : null, pad: INT.pad, plug: INT.doorPlug ? INT.doorPlug.visible : null });
-window.__mm.interiorSim = (secs) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(); };
+// #411: the interior of the block as the tests see it; #1099: of one house, the current one by default. updateInterior() first, so a headless read is fresh even between frames.
+window.__mm.interior = (house) => { updateInterior(); const rec = (house ? hallRecord(house) : INT.cur) || {}, h = rec.hall; return { hall: !!h, house: rec.house, built: INT.on && rec === INT.cur, area: INT.area, indoors: INT.indoors, floor: INT.floor, door: rec.door ? rec.door.open : null,
+  y: P.y, levels: h && h.levels, label: $('mapfloor').textContent, hidden: $('mapfloor').hidden,
+  lift: rec.lift && { at: rec.lift.at, y: rec.lift.y, door: rec.lift.door, busy: rec.lift.busy, moving: rec.lift.moving },
+  entrance: h && h.entrance, porch: h && h.porch, groundSlab: INT.group && INT.groundMat ? { meshes: INT.group.children.filter(o => o.material === INT.groundMat).length, offset: INT.groundMat.polygonOffset ? INT.groundMat.polygonOffsetFactor : null } : null, pad: INT.pad, plug: rec.doorPlug ? rec.doorPlug.visible : null }; };
+window.__mm.interiorSim = (secs, house) => { for (let i = 0; i < secs * 60; i++) stepInterior(1 / 60); return window.__mm.interior(house); };
+window.__mm.interiorHouse = () => (updateInterior(), INT.cur && INT.cur.house);   // #1099: which of the four houses the walker is in or nearest to
 window.__mm.housingTint = () => { if (!INT.housing) return null; const m = INT.housing.material, c = INT.housing.geometry.attributes.color; if (!m.vertexColors) return 1; return c ? Math.min(...c.array) : 0; };   // #453: the darkest vertex colour the 6c housing's material multiplies in (no colour attribute reads as black)
 window.__mm.interiorFaceA = () => { if (!INT.group || !INT.hall) return null; const f = INT.hall.frame, lv = INT.hall.levels, roof = lv[lv.length - 1], v = new THREE.Vector3(); let min = Infinity; INT.group.updateMatrixWorld(true); INT.group.traverse(o => { if (!o.isMesh) return; const pos = o.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (v.y <= lv[0] + 0.1 || v.y >= roof - 0.01) continue; const a = f.fromWorld(v.x, v.z).a; if (a > -0.05) min = Math.min(min, Math.abs(a)); } }); return min; };   // #453: how close the hall's drawn faces come to the façade line between EG and roof
-window.__mm.interiorCount = () => ({ meshes: INT.group ? INT.group.children.length : 0 });   // the built group's own objects (merged meshes, leaves, cabin)
+window.__mm.interiorCount = (house) => ({ meshes: INT.group && (!house || hallRecord(house) === INT.cur) ? INT.group.children.length : 0 });   // the built group's own objects (merged meshes, leaves, cabin); #1099: nothing is built for a house that is not the current one
 window.__mm.interiorRay = () => { camera.updateMatrixWorld(); const rc = new THREE.Raycaster(camera.getWorldPosition(new THREE.Vector3()), camera.getWorldDirection(new THREE.Vector3())); rc.camera = camera; const hit = rc.intersectObjects(scene.children, true).find(h => h.object.visible); return { dist: hit ? hit.distance : null, role: hit ? (hit.object.userData.role || hit.object.name || '') : null }; };   // what the eye looks at (material.side counts, as rendering does: the A3 check; sprites need rc.camera)
 window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; FOOT.mv = FOOT.view = null; };   // tests: put the walker on a storey of 6c (a teleport: #895 no eased speeds, the view snaps)
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
@@ -5847,7 +5873,7 @@ window.__mm.roleVertexColors = (role) => MESH[role]?.material.vertexColors;   //
 // #45: role of the first merged mesh a horizontal ray from (x, z) towards (tx, tz) hits, `up` m above the terrain at the target
 // #201: with up1 the ray climbs: from `up` over the ground at (x, z) to terrain + up1 over the target; the cave group's meshes count while drawn
 // #453: every role-tagged hit of that ray, nearest first: wallRoleAt takes the first, wallRolesAt the set at the first hit's distance (± eps) -- two roles there are coplanar faces, i.e. z-fighting
-const wallHits = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); return ray.intersectObjects([...Object.values(MESH), ...(INT.housing ? [INT.housing] : []), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).filter(h => h.object.userData.role); };
+const wallHits = (x, z, tx, tz, up = 2.5, up1 = null) => { const from = new THREE.Vector3(x, up1 === null ? terrainH(tx, tz) + up : groundH(x, z, 1e4) + up, z), to = new THREE.Vector3(tx, up1 === null ? from.y : terrainH(tx, tz) + up1, tz), dir = to.clone().sub(from).normalize(); const ray = new THREE.Raycaster(from, dir, 0, from.distanceTo(to) + 1); return ray.intersectObjects([...Object.values(MESH), ...INT.halls.map(r => r.housing).filter(Boolean), ...(CAVE_MODE.group && CAVE_MODE.group.visible ? [CAVE_MODE.group] : [])], true).filter(h => h.object.userData.role); };
 window.__mm.wallRoleAt = (x, z, tx, tz, up = 2.5, up1 = null) => { const hit = wallHits(x, z, tx, tz, up, up1)[0]; return hit ? hit.object.userData.role : null; };
 window.__mm.wallRolesAt = (x, z, tx, tz, up = 2.5, eps = 0.01) => { const hits = wallHits(x, z, tx, tz, up); return hits.length ? [...new Set(hits.filter(h => h.distance - hits[0].distance <= eps).map(h => h.object.userData.role))].sort() : []; };
 window.__mm.houseDoor = (id) => HOUSE_DOORS.get(id) || null;   // #901: the one door of a gable house -- {x, z, y, k} on the wall, k in facadeLabels order
@@ -7672,6 +7698,7 @@ window.__mm.enterables = {   // #409: test hooks
   mapMarks: () => MAP_MARKS.list.map(m => ({ ...m })),
   glows: () => { stepEnterGlow(); return ENTER_GLOW.shown.map(g => ({ ...g })); },   // #702: steps first, like __mm.touch -- a headless renderer draws under 1 fps, so the shown list would stay stale within a test's waits
   prompt: () => HUD.enter ? HUD.enter.entry.id : null,
+  promptHouse: () => HUD.enter && HUD.enter.entrance ? HUD.enter.entrance.house : null,   // #1099: which of the four Bodenackerstrasse 6 porches the prompt stands at (the four entrances share one entry id)
 };
 window.__mm.jumpList = () => JUMP.rows.map(r => ({ n: r.n, g: r.g, ...(r.soon ? { soon: true } : {}) }));
 if (REAL) { $('mmhstatus').classList.add('real'); $('mmhclear').hidden = REAL_SRC !== 'uploaded'; }
