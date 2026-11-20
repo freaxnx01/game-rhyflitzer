@@ -73,6 +73,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Changed
 
+- `2026-11-21 00:17` Der **Motor** klingt lebendiger: die Verbrennung **rasselt** leicht und ungleichmässig, bergauf und beim Beschleunigen hört man ihn **arbeiten**, und ab 40 km/h rauscht der **Wind** mit — im höchsten Gang dröhnt er nicht mehr monoton vor sich hin.
 - `2026-11-20 14:21` Im **Fahrzeug-Depot** warten die hinteren Plätze unter **Autoplanen** statt unter grauen Klötzen: eine übergeworfene Plane mit Dach und Reifen darunter, für Autos und für Busse und Laster.
 - `2026-11-17 17:25` Auf dem Kiesplatz der **Plattform Sisslerfeld** sind die **weissen Parkplatz-Linien** weg.
 - `2026-11-17 12:01` Die **Lieferung** startet in einer Schweizer Pizzeria und beliefert vor allem die Schweizer Seite, mit gelegentlicher Fahrt nach Bad Säckingen. Jede Bestellung nennt **Strasse und Ort**; Schulen, Bahnhöfe, das Hallenbad, der Werkhof und Turnhallen sind häufige Kunden.
