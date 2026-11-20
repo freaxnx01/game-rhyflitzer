@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WALKER } from '../foot.js';
 import { walkwayFloor, walkwayCeiling, walkwayPush, WALKWAY, wallActive } from '../walkways.js';
-import { STAIRHALL, stairHall, hallLevels, floorAtY, floorLabel, keypadLabel, hudFloorText, hallFrame, hallArea, bodyColliderOff, hallRoofSlab, wallByTag, doorShouldClose } from '../stairhall.js';
+import { STAIRHALL, stairHall, hallLevels, floorAtY, floorLabel, keypadLabel, hudFloorText, hallFrame, hallArea, bodyColliderOff, blockRoof, wallByTag, doorShouldClose } from '../stairhall.js';
 
 const EG = 312.4, FLOORS = { pitch: 2.53, floors: Array.from({ length: 10 }, (_, k) => EG + k * 2.53), roof: EG + 25.3 + 0.5, housingTop: EG + 25.3 + 0.5 + 2.6 };
 const ENTRANCE = { x: 2100, z: -380, th: 0.7, w: 1.0 }, PORCH = { w: 2.3, d: 2.9 };
@@ -126,18 +126,32 @@ test('stairHall_Housing_RoofLobbyHasADoorOntoTheRoofAndAHousingCeiling', () => {
   assert.equal(walkwayPush(h.walk, lx, lz, roof, 0.1).length, 0);
 });
 
-test('hallRoofSlab_BodyRing_RoofWalkableWithTheTowerCutOutAndRailedEdge', () => {
-  const h = hall(), [cx, cz] = at(h, 10, 0);
-  const ring = [-30, 30].flatMap(du => [-8, 8].map(dv => [cx + du, cz + dv]));
-  const body = [ring[0], ring[1], ring[3], ring[2]];
-  hallRoofSlab(h, body);
-  const roof = FLOORS.roof;
-  close(walkwayFloor(h.walk, cx, cz, roof, WALKER), roof);
+// the 60 x 16 m body around a hall's tower, as the block's ring reaches it
+const bodyAround = (h) => { const [cx, cz] = at(h, 10, 0); return [[cx - 30, cz - 8], [cx + 30, cz - 8], [cx + 30, cz + 8], [cx - 30, cz + 8]]; };
+
+test('blockRoof_BodyRing_RoofWalkableWithTheTowerCutOutAndRailedEdge', () => {
+  const h = hall(), [cx, cz] = at(h, 10, 0), roof = FLOORS.roof;
+  const deck = blockRoof([h], bodyAround(h));
+  assert.equal(deck.slabs.length, 1); assert.deepEqual(deck.ramps, []); assert.deepEqual(deck.ceilings, []);
+  close(walkwayFloor(deck, cx, cz, roof, WALKER), roof);
   const [tx, tz] = at(h, 3, 0);
-  assert.equal(walkwayFloor(h.walk, tx, tz, roof, WALKER) === roof, false, 'the tower hole is no roof (the flights are below)');
-  const edge = h.walk.walls.filter(w => w.tag === 'edge'); assert.equal(edge.length, 4);
-  assert.ok(walkwayPush(h.walk, cx - 30.1, cz - 8, roof, 0.35).length > 0, 'cannot step over the edge');
-  assert.equal(walkwayPush(h.walk, cx, cz, roof, 0.35).length, 0);
+  assert.equal(walkwayFloor(deck, tx, tz, roof, WALKER), null, 'the tower hole is no roof (the flights are below)');
+  const edge = deck.walls.filter(w => w.tag === 'edge'); assert.equal(edge.length, 4);
+  assert.ok(walkwayPush(deck, cx - 30.1, cz - 8, roof, 0.35).length > 0, 'cannot step over the edge');
+  assert.equal(walkwayPush(deck, cx, cz, roof, 0.35).length, 0);
+});
+
+test('blockRoof_TwoHallsUnderOneBody_OneDeckWithBothTowerHolesAndTheRailsOnce', () => {
+  const h1 = hall(), h2 = stairHall({ ...ENTRANCE, x: ENTRANCE.x + 12 }, PORCH, FLOORS, EG), roof = FLOORS.roof;
+  const [cx, cz] = at(h1, 10, 0);
+  const deck = blockRoof([h1, h2], bodyAround(h1));
+  assert.equal(deck.slabs.length, 1, 'one deck for the whole block');
+  assert.equal(deck.walls.filter(w => w.tag === 'edge').length, 4, 'the rails are pushed once');
+  const mx = (h1.roofHole.x + h2.roofHole.x) / 2, mz = (h1.roofHole.z + h2.roofHole.z) / 2;
+  close(walkwayFloor(deck, mx, mz, roof, WALKER), roof);
+  assert.equal(walkwayPush(deck, mx, mz, roof, 0.35).length, 0, 'the deck is walkable between the two towers');
+  for (const h of [h1, h2]) assert.equal(walkwayFloor(deck, h.roofHole.x, h.roofHole.z, roof, WALKER), null, 'both tower holes are no roof');
+  assert.ok(walkwayPush(deck, cx - 30.1, cz - 8, roof, 0.35).length > 0, 'cannot step over the edge');
 });
 
 test('hallArea_PointsOnAndAroundThePorchAndTower', () => {
