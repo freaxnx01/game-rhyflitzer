@@ -7259,7 +7259,7 @@ function netPose(peerId, buf) {
   pushPose(trackFor(pose.id), pose);
   if (pose.hit && pose.hit.to === NET.you) { BUMP.inbox.push({ from: pose.id, hit: pose.hit }); if (BUMP.inbox.length > 16) BUMP.inbox.shift(); }   // #836 part b: applied in netBump, never here
 }
-const newNetCar = () => ({ car: null, paint: null, name: null, mesh: null, tag: null, roof: 0, lamps: { head: [], tail: [] }, blink: { left: null, right: null }, lamp: { head: false, brake: false, left: false, right: false }, track: createTrack() });
+const newNetCar = () => ({ car: null, paint: null, name: null, mesh: null, tag: null, roof: 0, lamps: { head: [], tail: [] }, blink: { left: null, right: null }, flames: null, lamp: { head: false, brake: false, left: false, right: false }, track: createTrack() });
 // the track a player's poses go into; a pose that arrives before the lobby message opens the entry
 function trackFor(id) {
   let entry = NETCARS.get(id);
@@ -7310,7 +7310,7 @@ function buildNetCar(entry) {
   mesh.visible = false;
   scene.add(mesh); entry.mesh = mesh;
   entry.lamps = built.lamps; entry.trailer = rigTrailer(mesh, def);
-  entry.blink = built.blink;
+  entry.blink = built.blink; entry.flames = built.flames;
   entry.roof = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3()).y;   // part c: the tag floats above the roof
   if (entry.name && !entry.tag) { entry.tag = netTag(entry.name); scene.add(entry.tag); }
   return true;
@@ -7366,6 +7366,10 @@ function stepNetCars() {
     for (const m of entry.lamps.tail) m.emissiveIntensity = lv.tailLevel;
     if (entry.blink.left) entry.blink.left.visible = l.left;
     if (entry.blink.right) entry.blink.right.visible = l.right;
+    if (entry.flames) {   // #1116: the sender's nitro, flickering like the driven car's but on wall clock (a remote car has no sim clock)
+      entry.flames.visible = !!(pose.flags & FLAG.nitro);
+      if (entry.flames.visible) { const flick = 0.7 + 0.5 * Math.abs(Math.sin(performance.now() * 0.04)); for (const f of entry.flames.children) f.scale.y = flick; }
+    }
     if (entry.tag) {
       const tx = pose.x, ty = pose.y + entry.roof + 1.2, tz = pose.z;
       const s = tagScale(camera.position.distanceTo(new THREE.Vector3(tx, ty, tz)));
@@ -7468,7 +7472,7 @@ window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: 
 window.__mm.netRace = () => ({ cps: CPS.map((c) => [c.x, c.z]), finish: [FINISH.x, FINISH.z], done: cpObjs.map((c) => c.done), board: NET.race?.board ?? null, over: !!NET.race?.over, cpno: NET.race?.cpno ?? 0, pos: $('netpos').textContent, result: $('mpresult').hidden ? null : [...document.querySelectorAll('#mpresult .mp-row b')].map((b) => b.textContent) });   // #837 part c: the checkpoints, the board and the position line; part d: the ranked result lines
 window.__mm.netMarkCpDone = (i) => { const c = cpObjs[i]; if (c && !c.done) { c.done = true; c.pillar.material = cpMatDone; c.ring.visible = false; R.done++; updatePips(); } };   // #1022 test hook: a local pass the host has not (yet) accepted — the race-the-near-window case netReopenCp must revert
 window.__mm.netSend = (peerId, msg) => { if (NET.link) NET.link.send(peerId, msg); };   // test hook: a message the peer's parseMessage must refuse (#834)
-window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp }));   // #835: read-only, for the test
+window.__mm.netCars = () => [...NETCARS].map(([id, e]) => ({ id, car: e.car, built: !!e.mesh, visible: !!e.mesh && e.mesh.visible, pos: e.mesh ? e.mesh.position.toArray() : null, tag: e.tag ? { visible: e.tag.visible, name: e.name } : { visible: false, name: e.name }, lamps: e.lamp, flames: e.flames ? { n: e.flames.children.length, visible: e.flames.visible } : null }));   // #835: read-only, for the test; #1116: the flames group
 window.__mm.netContacts = () => netContacts().map(({ id, hit }) => ({ id, pen: hit.pen }));   // #836: the overlaps the own car has now
 // ---------- #553: the vehicle depot -- every vehicle stands on the DSM car park, its home slot; board with E ----------
 // The layout is pure (depot.js); this keeps the world side: the parked meshes (built one per frame from a stage build,
@@ -7507,23 +7511,26 @@ function stagePaint(g, def) {
 // a parked mesh that goes frees its own geometry and its cloned materials -- never the shared glTF geometry (userData.sharedGeo)
 // nor a material's map (each clone shares it with the stage build and the glTF cache)
 function disposeParked(g) { g.traverse(o => { if (!o.isMesh) return; if (!o.userData.sharedGeo) o.geometry.dispose(); for (const m of [].concat(o.material)) m.dispose(); }); }
-// #553 / #835: a standalone copy of the stage car as `id` in `paint`, with its own materials, plus the body colour it
-// came out in. Shared by the depot's parked cars and the multiplayer's remote cars -- neither drives, so neither
-// carries the nitro flames; a depot clone drops the blinkers too, while a remote clone (keepBlink) keeps them and
-// records the cloned lamp materials so its head, brake and blinker lamps can follow the pose flags.
-function cloneStageVehicle(id, paint, keepBlink) {
+// #553 / #835 / #1116: a standalone copy of the stage car as `id` in `paint`, with its own materials, plus the body
+// colour it came out in. Shared by the depot's parked cars and the multiplayer's remote cars -- a depot clone carries
+// neither the nitro flames nor the blinkers, while a remote clone (remote) keeps both and records the cloned lamp
+// materials so its head, brake and blinker lamps can follow the pose flags, and its flames group so #1116 can show
+// the sender's nitro.
+function cloneStageVehicle(id, paint, remote) {
   const def = VEHICLES[id];
   let mesh = null, bodyPaint = null;
   const lamps = { head: [], tail: [] };
   const blink = { left: null, right: null };
+  let flameGroup = null;
   withStageVehicle(id, paint, (stage) => {
-    const drop = new Set([flames]);   // part c: a remote clone keeps BLINK.left/right; a depot clone drops them with the flames
-    if (!keepBlink) { drop.add(BLINK.left); drop.add(BLINK.right); }
+    const drop = new Set();   // a remote clone keeps the flames and BLINK.left/right; a depot or podium clone drops them
+    if (!remote) { drop.add(flames); drop.add(BLINK.left); drop.add(BLINK.right); }
     const dropIdx = stage.children.map((c, i) => drop.has(c) ? i : -1).filter(i => i >= 0);
     const g = stage.clone(true);
-    const li = stage.children.indexOf(BLINK.left), ri = stage.children.indexOf(BLINK.right);   // capture before the removal loop detaches them
-    if (keepBlink && li >= 0) blink.left = g.children[li];
-    if (keepBlink && ri >= 0) blink.right = g.children[ri];
+    const li = stage.children.indexOf(BLINK.left), ri = stage.children.indexOf(BLINK.right), fi = stage.children.indexOf(flames);   // capture before the removal loop detaches them
+    if (remote && li >= 0) blink.left = g.children[li];
+    if (remote && ri >= 0) blink.right = g.children[ri];
+    if (remote && fi >= 0) { flameGroup = g.children[fi]; flameGroup.visible = false; }
     for (const i of dropIdx.sort((a, b) => b - a)) g.remove(g.children[i]);
     const headMats = new Set([carMats.lampHead, ...GLTF_LAMPS.head]);
     const tailMats = new Set([carMats.lampTail, ...GLTF_LAMPS.tail]);
@@ -7532,7 +7539,7 @@ function cloneStageVehicle(id, paint, keepBlink) {
     if (blink.right) blink.right.visible = false;
     bodyPaint = stagePaint(g, def); mesh = g;
   });
-  return { mesh, paint: bodyPaint, lamps, blink };
+  return { mesh, paint: bodyPaint, lamps, blink, flames: flameGroup };
 }
 function buildDepotSlot(s) {
   const def = VEHICLES[s.id];
