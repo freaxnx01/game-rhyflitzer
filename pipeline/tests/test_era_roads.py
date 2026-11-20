@@ -152,9 +152,8 @@ def test_trim_GridOfStreets_KeepsOnlyShortestRouteToHouse():
     roads = [m1, m2, *h, *v]
     hidden = {2: "empty", 4: "empty"}  # the outer streets have no old house
     got = R.trim(roads, hidden, [house(205, 105)], SWISS)
-    assert sorted(got) == [3, 5, 6]
+    assert sorted(got) == [3, 6]  # the lower vertical street (5) ends 7 m from the house, so the house is not its own
     near(got[3], [(95, 200)])  # the middle street keeps the house stretch plus the shorter (east) route
-    near(got[5], [(90, 100)])
     near(got[6], [(0, 25)])
 
 
@@ -193,9 +192,28 @@ def test_trim_MainRoadsAndGermanSideNeverTrimmed():
     assert R.trim(roads, {}, [house(140, 5), house(-250, 55)], SWISS) == {}
 
 
-def test_trim_RestoredRoadIsNeverTrimmed():
-    roads = [road("primary", [(100, -100), (100, 0), (100, 100)]), long_street()]
-    assert R.trim(roads, {}, [house(140, 5)], SWISS, restored={1}) == {}
+def test_trim_CornerHouse_CountsForNearestRoadOnly():
+    main = road("primary", [(100, -100), (100, 0), (100, 35), (100, 100)])
+    a = road("residential", [(100, 0), (300, 0)])
+    b = road("residential", [(100, 35), (300, 35)])
+    got = R.trim([main, a, b], {}, [house(150, 5)], SWISS)  # footprint z 5..15: 5 m from A, 20 m from B
+    assert list(got) == [1]
+    near(got[1], [(0, 70)])
+
+
+def test_trim_RestoredRoad_KeepsOnlyTheRouteMetres():
+    main = road("primary", [(100, -100), (100, 0), (100, 100)])
+    empty = road("residential", [(100, 0), (300, 0), (500, 0)])  # no old house: hidden, but the only link of the island
+    island = road("primary", [(300, 0), (300, 100)])
+    got = R.trim([main, empty, island], {1: "empty"}, [], SWISS)
+    assert list(got) == [1]
+    near(got[1], [(0, 200)])
+
+
+def test_trim_UnusedEmptyRoad_IsNotListed():
+    main = road("primary", [(100, -100), (100, 0), (100, 100)])
+    unused = road("residential", [(100, 50), (300, 50)])
+    assert R.trim([main, unused], {1: "empty"}, [], SWISS) == {}
 
 
 def test_apply_Idempotent_WithKeep1952():
