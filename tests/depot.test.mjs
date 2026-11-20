@@ -62,10 +62,11 @@ test('depotWants: nothing beyond near, keep reaches farther than load', () => {
 });
 
 test('footprint: a vehicle with a trailer is longer than its capsule by at least hitch + length, its origin ahead of the middle', () => {
-  const f = footprint(TANKER), body = 2 * (TANKER.collision.hl + TANKER.collision.r), { hitch, length } = TANKER.trailer;
-  assert.equal(f.body, body);
-  assert.ok(f.l >= body + hitch + length, f);
-  assert.ok(Math.abs(f.l - 18.25) < 0.01 && Math.abs(f.off - 4.525) < 0.01, f);   // truck + drawbar + trailer, the origin 4.5 m ahead of the middle
+  const f = footprint(TANKER), front = TANKER.collision.hl + TANKER.collision.r, { hitch, length, tail } = TANKER.trailer;
+  assert.equal(f.body, 2 * front);
+  assert.ok(f.l >= 2 * front + hitch + length, f);
+  assert.ok(Math.abs(f.l - (front + hitch + length + tail)) < 1e-9 && Math.abs(f.off - (hitch + length + tail - front) / 2) < 1e-9, f);   // the nose to the trailer's tail, the origin ahead of the middle
+  assert.ok(Math.abs(f.l / 2 - f.off - front) < 1e-9, 'the nose is half a footprint ahead of the middle');
   assert.equal(footprint(car('utility', 1.3, 4.8)).off, undefined);   // no trailer: no offset
 });
 

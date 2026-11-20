@@ -41,6 +41,24 @@ def test_trailer_swings_to_the_inside_straightens_and_starts_straight_on_every_p
     assert not errors, errors
 
 
+def test_reversing_folds_the_trailer_up_to_the_clamp_and_never_past_it(server):
+    """Backing up with steering folds the trailer towards the jackknife clamp (70 degrees) and no further."""
+    with sync_playwright() as p:
+        b, page, errors = open_page(p, server)
+        pick_tanker(page)
+        page.click("#startbtn", timeout=180000)
+        wait_frames(page)
+        page.evaluate("() => window.__mm.sim(0, 0, 0, 0, 0.1, [])")
+        phis = []
+        for _ in range(8):
+            page.evaluate("() => window.__mm.sim(0, 0, 0, -2, 2, ['KeyS', 'KeyA'])")
+            phis.append(abs(page.evaluate("() => window.__mm.trailer().phi")))
+        b.close()
+    assert max(phis) >= 0.5, phis
+    assert all(x <= 70 * math.pi / 180 + 1e-9 for x in phis), phis
+    assert not errors, errors
+
+
 def test_depot_parked_tanker_keeps_its_trailer_straight_and_every_slot_stays_inside_the_strip(server):
     """The depot fits the 18 m combination in the low row, its footprint inside the strip; the parked copy's trailer node is straight."""
     with sync_playwright() as p:

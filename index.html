@@ -1143,8 +1143,8 @@ import { HARVESTER } from './harvester.js';   // Rhy Harvester, a glTF combine h
 import { KNIGHT } from './knight.js';   // Rhy Knight, a glTF sports coupé with a scanner light
 import { scannerLevels, scannerGlow } from './scanner.js';
 import { BLAZE } from './blaze.js';   // Rhy Blaze, a glTF fire engine with blue lights and a siren
-import { TANKER } from './tanker.js';
-import { trailerStep } from './trailer.js';   // Rhy Tanker, a glTF heating-oil tanker with a drawbar trailer
+import { TANKER } from './tanker.js';   // Rhy Tanker, a glTF heating-oil tanker with a drawbar trailer
+import { trailerStep } from './trailer.js';   // the drawbar trailer's swing (#1103)
 import { ESTATE } from './estate.js';   // Rhy Estate, a glTF family estate of about 2011
 import { SIREN, hasSiren, toggleSiren, sirenNote, beaconLevels, beaconGlow } from './siren.js';
 import { EXHAUST, exhaustSpots } from './exhaust.js';
@@ -3905,9 +3905,8 @@ function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL
 function stepScanner(dt) { const sc = car.userData.scan; if (!sc) return; sc.t += dt; scannerLevels(sc.t, sc.mats.length).forEach((level, i) => { sc.mats[i].emissiveIntensity = scannerGlow(level); }); }   // the light sweeps all the time
 function stepSiren(dt) { const b = car.userData.beacon; SFX.siren(SIREN_S.on); if (SIREN_S.on) { SIREN_S.t += dt; SFX.sirenTo(sirenNote(SIREN_S.t)); } if (!b) return; const levels = SIREN_S.on ? beaconLevels(SIREN_S.t) : [0, 0]; b.forEach((m, i) => { m.emissiveIntensity = beaconGlow(levels[i]); }); }   // the blue lights flash left and right in turn while the siren runs
 // #1103: a drawbar trailer: the glb's `trailer` node swings about the hitch (trailer.js; phi > 0 = to the right, three's +y turns the other way), its wheels roll with the road
-const TRAILER_WHEEL_R = 0.544;
 function rigTrailer(root, def) { const node = def.trailer && root.getObjectByName('trailer'); return node ? { node, wheels: node.children.filter(c => c.name.startsWith('trailer_wheel_')), geom: def.trailer, phi: 0, spin: 0, last: null } : null; }
-function swingTrailer(rig, v, yawRate, dt) { rig.phi = trailerStep(rig.phi, v, yawRate, rig.geom, dt); rig.spin = stepWheelSpin(rig.spin, v, TRAILER_WHEEL_R, dt); rig.node.rotation.y = -rig.phi; for (const w of rig.wheels) w.rotation.z = -rig.spin; }
+function swingTrailer(rig, v, yawRate, dt) { rig.phi = trailerStep(rig.phi, v, yawRate, rig.geom, dt); rig.spin = stepWheelSpin(rig.spin, v, rig.geom.wheelR, dt); rig.node.rotation.y = -rig.phi; for (const w of rig.wheels) w.rotation.z = -rig.spin; }
 function drawWheels() { const lean = car.rotation.x - TIP_S.roll; for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.x = -lean; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.steer.position.y = plantedWheelY(w.home.y, w.home.z, lean); w.roll.rotation.z = -WHEEL_STATE.spin; } }   // #542: the body leans, the wheels stay on the road; the tip-over roll lifts them with the body
 // #163: shadow state is written by stepCar only; drawShadow (from the loop) only reads it. restShadow seeds it where P.y is set
 // outside the physics step -- the start screen, resetCar, __mm.place, landing from the helicopter

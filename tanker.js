@@ -11,7 +11,7 @@ export const TANKER = {
   type: 'utility',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'tanker', url: './assets/tanker.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[3.04, 1.054], [-2.36, 0.939]], wheelR: 0.535,   // the model's front axle and the tandem's first axle (the second at x -3.71)
-  trailer: { hitch: 5.2, length: 3.85 },   // the glb's root extras: the hitch behind the origin, hitch -> midpoint of the trailer axles
+  trailer: { hitch: 5.2, length: 3.85, tail: 4.6, wheelR: 0.544 },   // the glb's root extras: the hitch behind the origin, hitch -> midpoint of the trailer axles; the body's reach behind that midpoint; the trailer tyres' radius
   drive: { top: 22.2, topNitro: 30, accel: 3.0, accelNitro: 7, brake: 8, reverse: 3, reverseMax: 4, grip: 6, gripHandbrake: 1.5, steerRate: 1.2, airSteer: 0.2 },
   mass: 9, engineAt: [3.6, 1.2, 0], collision: { shape: 'capsule', r: 1.3, hl: 3.3 },   // circles reach -4.6 .. 4.6 m over the 9.8 m truck (-5.2 .. 4.6)
   camera: { chase: { dist: 20, h: 6.5 }, near: { dist: 15, h: 5 }, cockpit: { eye: [3.5, 2.5, -0.62] }, bumper: { eye: [4.7, 0.9, 0] }, drone: { dist: 32, h: 20 } },

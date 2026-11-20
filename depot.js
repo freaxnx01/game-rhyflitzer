@@ -8,18 +8,15 @@ import { parkedBox, carReach } from './foot.js';
 // keep/keepMax = the looser set a built model may stay in, so a step over the edge does not flicker
 export const DEPOT = { x: 832.3, z: -107.5, len: 130, depth: 30, gap: 1.2, inset: 0.5, longL: 7, build: 400, show: 300, reachCar: 4, reachSpeed: 2, near: 100, nearMax: 6, keep: 130, keepMax: 8, boxH: 1.5, boxHLong: 3 };
 
-// #1103: how far the trailer's body reaches behind its axles' midpoint
-const TRAILER_TAIL = 4.6;
-
 // the footprint from the collision entry (pure data, known before any model loads): 2r square, a capsule 2(hl + r) long.
-// #1103: a drawbar trailer adds hitch + length + TRAILER_TAIL behind the origin; then `body` is the truck's own length (the solid and
+// #1103: a drawbar trailer adds hitch + length + tail behind the origin; then `body` is the truck's own length (the solid and
 // the reach stay the truck's) and `off` is how far the origin stands ahead of the footprint's middle
 export function footprint(def) {
   const c = def.collision;
   if (!c || (c.shape !== 'circle' && c.shape !== 'capsule')) throw new Error(`footprint: unknown collision shape ${c?.shape}`);
   const w = 2 * c.r, l = c.shape === 'capsule' ? 2 * (c.hl + c.r) : 2 * c.r;
   if (!def.trailer) return { w, l };
-  const front = l / 2, rear = Math.max(front, def.trailer.hitch + def.trailer.length + TRAILER_TAIL);
+  const front = l / 2, rear = Math.max(front, def.trailer.hitch + def.trailer.length + def.trailer.tail);
   return { w, l: front + rear, body: l, off: (rear - front) / 2 };
 }
 
