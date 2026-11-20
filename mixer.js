@@ -4,12 +4,12 @@
 //
 // Mixer numbers: a big air-cooled diesel under the cab, three axles (6x4), about 25 t loaded, 80 km/h flat out, six gears; 7.2 m
 // long, 2.5 m wide; left-hand drive. Six wheel nodes: the front axle and the tandem's two (wheel_RL2 / RR2). The heaviest after the
-// bus: it shrugs off knocks, but it is slow off the line and turns wide.
+// bus: it shrugs off knocks, but it is slow off the line and turns wide. #1122: the low dry `drag` (0.014, the others 0.12) lets it settle at ~80 km/h, ~100 with nitro.
 export const MIXER = {
   type: 'utility',   // #493: the gallery's type chip
   model: 'gltf', gltf: { id: 'mixer', url: './assets/mixer.glb', fallback: 'compact' }, scale: 1.0, paint: false,
   wheels: [[1.73, 1.04], [-1.02, 0.87]], wheelR: 0.535,   // the model's front axle and the tandem's front axle (the second at x -2.44)
-  drive: { top: 22.2, topNitro: 30, accel: 3.5, accelNitro: 8, brake: 9, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.4, airSteer: 0.2 },
+  drive: { top: 30, topNitro: 31.7, accel: 3.5, accelNitro: 8, drag: 0.014, brake: 9, reverse: 3, reverseMax: 5, grip: 6, gripHandbrake: 1.5, steerRate: 1.4, airSteer: 0.2 },
   mass: 6, engineAt: [2.2, 1.0, 0], collision: { shape: 'capsule', r: 1.3, hl: 2.6 },   // circles reach -3.9 .. 3.9 m: the 7.2 m body sits from -3.95 to 3.28
   spin: [{ node: 'drum', rate: 1.0 }],   // the drum, about 10 turns a minute
   camera: { chase: { dist: 12, h: 4.5 }, near: { dist: 8.5, h: 3.5 }, cockpit: { eye: [2.3, 2.45, -0.72] }, bumper: { eye: [3.4, 1.0, 0] }, drone: { dist: 24, h: 15 } },

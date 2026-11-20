@@ -35,10 +35,10 @@ test('MIXER_Drum_TurnsAboutTheDrumNode', () => {
 });
 
 test('MIXER_Drive_IsASlowHeavyTruck', () => {
-  assert.equal(Math.round(MIXER.drive.top * 3.6), 80);
+  assert.equal(MIXER.drive.top, 30);   // #1122: the equilibrium with drive.drag is ~80 km/h (see the test below)
   assert.equal(MIXER.sound.engine.topKmh, 80);
   assert.ok(impactDamage(1, MIXER.mass) < impactDamage(1, 3), 'tougher than the Bulldog');
-  assert.deepEqual(statBars(MIXER), { top: 3, accel: 2, handling: 5, mass: 10 });
+  assert.deepEqual(statBars(MIXER), { top: 4, accel: 2, handling: 5, mass: 10 });   // #1122: top 22.2 -> 30 lifts the bar from 3 to 4
 });
 
 test('MIXER_Gearbox_HasSixForwardGears', () => {
@@ -51,4 +51,10 @@ test('MIXER_Livery_IsFixed_NotPaintable', () => {
   assert.equal(paintOnSelect(MIXER, 'meadow', true), 'meadow', 'a chosen paint stays for the next car');
   assert.equal(buildableId('mixer', MIXER, 'loading'), 'compact');
   assert.equal(buildableId('mixer', MIXER, 'ready'), 'mixer');
+});
+
+test('MIXER_Drive_BalancesAtAbout80KmhOnADryRoad', () => {   // #1122: v_eq = (accel - 0.6) / (accel / top + drag)
+  const d = MIXER.drive, eq = (a, top, drag) => (a - 0.6) / (a / top + drag);
+  assert.equal(d.drag, 0.014);
+  assert.ok(Math.abs(eq(d.accel, d.top, d.drag) * 3.6 - 80) < 3);
 });
