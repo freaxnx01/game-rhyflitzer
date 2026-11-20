@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gearAt, targetRpm, engineStep, engineMix, engineLoad, rotorMix, checkSound, RPM_RATE, ROTOR, DRIFT, stepVoice, WHISTLE } from '../sound.js';
+import { gearAt, targetRpm, engineStep, engineMix, engineLoad, rotorMix, checkSound, RPM_RATE, ROTOR, DRIFT, WIND, stepVoice, WHISTLE } from '../sound.js';
 
 // a copy of VEHICLES.compact.sound in index.html (#14); test_sound.py checks the game's own table passes checkSound
 const SOUND = () => ({
@@ -122,6 +122,45 @@ test('engineMix_Drift_MovesTheFiringFrequencyAndTheLevel', () => {
   assert.ok(Math.abs(up.f0 / still.f0 - (1 + DRIFT.max)) < 1e-12, up.f0 / still.f0);
   assert.ok(up.gain > still.gain && up.gain / still.gain < 1.1, up.gain / still.gain);
   assert.ok(up.road > still.road, [up.road, still.road]);
+});
+
+// #1130: the wind rushing past, and the combustion rasp
+test('engineMix_Wind_SilentBelow40_RisesWithSpeed', () => {
+  const { engine } = SOUND(), s = { rpm: 6200, gear: 5, shift: 0, load: 0.5, drift: 0 };
+  const at = (kmh, o) => engineMix(s, IN({ kmh, gas: 1, ...o }), engine).wind;
+  assert.deepEqual([at(0), at(20), at(WIND.from)], [0, 0, 0]);
+  assert.ok(at(50) > 0, at(50));
+  assert.ok(at(200) > 4 * at(50), [at(200), at(50)]);
+  assert.ok(Math.abs(at(engine.topKmh) - WIND.gain) < 1e-12, at(engine.topKmh));
+  assert.equal(at(500), at(engine.topKmh));   // it does not keep growing past the top gear's speed
+  assert.ok(at(220, { air: 1 }) > 0, 'airborne: the wind still rushes past');
+});
+
+test('engineMix_Rough_GrowsWithLoad', () => {
+  const { engine } = SOUND(), s = { rpm: 5000, gear: 3, shift: 0, drift: 0 };
+  const cruise = engineMix({ ...s, load: 0.5 }, IN({ kmh: 150, gas: 1 }), engine).rough;
+  const pulling = engineMix({ ...s, load: 1 }, IN({ kmh: 150, gas: 1 }), engine).rough;
+  const idle = engineMix({ rpm: 850, gear: 0, shift: 0, load: 0, drift: 0 }, IN({ kmh: 0 }), engine).rough;
+  assert.ok(pulling > cruise && cruise > idle && idle > 0, [pulling, cruise, idle]);
+  assert.ok(pulling <= 1, pulling);
+  assert.ok(engineMix({ ...s, rpm: 6800, load: 1 }, IN({ kmh: 150, gas: 1 }), engine).rough > pulling);   // and with rpm
+});
+
+test('engineMix_Off_SilencesWindAndRough', () => {
+  const { engine } = SOUND(), s = { rpm: 5000, gear: 3, shift: 0, load: 1, drift: 0 };
+  for (const flag of ['off', 'dead', 'fly']) {
+    const m = engineMix(s, IN({ kmh: 200, gas: 1, [flag]: true }), engine);
+    assert.deepEqual([m.wind, m.rough], [0, 0], flag);
+  }
+});
+
+test('checkSound_OptionalFieldsOutOfRange_Throw', () => {
+  const tuned = SOUND(); Object.assign(tuned.engine, { cruise: 0.4, drift: 0.01, wind: 0.2, rough: 0.5 });
+  checkSound(tuned);   // present and in range
+  for (const [field, value] of [['cruise', 1.5], ['drift', 0.2], ['wind', 0.8], ['rough', 2]]) {
+    const s = SOUND(); s.engine[field] = value;
+    assert.throws(() => checkSound(s), (e) => e instanceof Error && e.message.includes(field), field);
+  }
 });
 
 test('engineMix: firing frequency of a four-stroke, filter opens with rpm and load, nitro opens it further', () => {

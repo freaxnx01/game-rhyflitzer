@@ -44,7 +44,18 @@ export function engineStep(s, input, sound, dt, rng = Math.random) {
     load: load + toward * (1 - Math.exp(-dt / LOAD.tau)), drift: driftStep(s.drift ?? 0, input, sound.engine, dt, rng) };
 }
 
-// what the synth plays for an engine state: firing frequency, load-dependent lowpass, level, road noise and nitro hiss
+// #1130: the wind rushing past -- nothing below WIND.from, then roughly with speed^2 up to the top gear's speed
+export const WIND = { from: 40, gain: 0.12 };
+function windLevel(kmh, engine) {
+  if (kmh <= WIND.from) return 0;
+  const top = Math.max(WIND.from + 1, engine.topKmh), floor = WIND.from * WIND.from;
+  return (engine.wind ?? WIND.gain) * clamp((kmh * kmh - floor) / (top * top - floor), 0, 1);
+}
+
+// #1130: the combustion rasp -- band-limited noise at twice the firing rate, growing with load and rpm. Never louder than the harmonics it sits under
+export const ROUGH = { gain: 0.9, base: 0.25, perLoad: 0.55, perRev: 0.2 };
+
+// what the synth plays for an engine state: firing frequency, load-dependent lowpass, level, road and wind noise, combustion rasp and nitro hiss
 export function engineMix(s, input, engine) {
   const n = clamp((s.rpm - engine.idleRpm) / (engine.limitRpm - engine.idleRpm), 0, 1), load = clamp(s.load ?? 0, 0, 1), F = engine.filter, G = engine.gain;
   const drift = s.drift ?? 0;   // #1130: the same wander moves the pitch a little, the level twice as much and the tyre roll four times
@@ -52,7 +63,9 @@ export function engineMix(s, input, engine) {
   const level = (G.idle + G.rev * n + G.load * load) * (s.shift > 0 ? 1 - engine.shiftDip : 1) * (1 + drift * 2);
   const silent = input.fly || input.dead || input.off;   // #475 off: the driver got out and switched the engine off
   return { f0: s.rpm / 60 * engine.cylinders / 2 * (1 + drift), cutoff, q: F.q * (0.6 + 0.4 * load), gain: silent ? 0 : level, load,
-    road: input.fly || input.air || input.off ? 0 : Math.min(0.25, input.kmh / 400) * (1 + drift * 4), hiss: input.nitro && !silent ? engine.nitroHiss : 0 };
+    road: input.fly || input.air || input.off ? 0 : Math.min(0.25, input.kmh / 400) * (1 + drift * 4), hiss: input.nitro && !silent ? engine.nitroHiss : 0,
+    wind: silent ? 0 : windLevel(input.kmh, engine),
+    rough: silent ? 0 : (engine.rough ?? ROUGH.gain) * clamp(ROUGH.base + ROUGH.perLoad * load + ROUGH.perRev * n, 0, 1) };
 }
 
 export function rotorMix(input) {
@@ -77,6 +90,9 @@ export function checkSound(sound) {
   if (!e.filter || !num(e.filter.idle, 50, 2e4) || !num(e.filter.open, e.filter.idle, 2e4) || !num(e.filter.offLoad, 0.1, 1) || !num(e.filter.q, 0.1, 20)) bad('engine.filter needs idle <= open Hz, offLoad 0.1-1, q');
   if (!e.gain || !num(e.gain.idle, 0, 1) || !num(e.gain.rev, 0, 1) || !num(e.gain.load, 0, 1)) bad('engine.gain needs idle, rev, load in 0-1');
   if (!num(e.shiftTime, 0, 1) || !num(e.shiftDip, 0, 1) || !num(e.nitroHiss, 0, 1)) bad('engine.shiftTime, shiftDip, nitroHiss must be 0-1');
+  // #1130: optional, defaults in LOAD / DRIFT / WIND / ROUGH -- an existing preset that leaves them out keeps sounding as it did
+  for (const [field, hi] of [['cruise', 1], ['drift', 0.05], ['wind', 0.5], ['rough', 1]])
+    if (e[field] !== undefined && !num(e[field], 0, hi)) bad(`engine.${field} must be 0-${hi}`);
   const h = sound.horn;
   if (!h || !Array.isArray(h.notes) || h.notes.length < 1 || h.notes.length > 4 || h.notes.some(f => !num(f, 100, 2000))) bad('horn.notes needs 1-4 frequencies in 100-2000 Hz');
   if (!num(h.dur, 0.2, 3) || !num(h.gain, 0.01, 0.6) || !num(h.band, 200, 8000) || !['square', 'sawtooth', 'triangle'].includes(h.wave)) bad('horn needs dur 0.2-3 s, gain 0.01-0.6, band 200-8000 Hz, wave square|sawtooth|triangle');
