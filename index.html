@@ -1143,7 +1143,8 @@ import { HARVESTER } from './harvester.js';   // Rhy Harvester, a glTF combine h
 import { KNIGHT } from './knight.js';   // Rhy Knight, a glTF sports coupé with a scanner light
 import { scannerLevels, scannerGlow } from './scanner.js';
 import { BLAZE } from './blaze.js';   // Rhy Blaze, a glTF fire engine with blue lights and a siren
-import { TANKER } from './tanker.js';   // Rhy Tanker, a glTF heating-oil tanker with a drawbar trailer
+import { TANKER } from './tanker.js';
+import { trailerStep } from './trailer.js';   // Rhy Tanker, a glTF heating-oil tanker with a drawbar trailer
 import { ESTATE } from './estate.js';   // Rhy Estate, a glTF family estate of about 2011
 import { SIREN, hasSiren, toggleSiren, sirenNote, beaconLevels, beaconGlow } from './siren.js';
 import { EXHAUST, exhaustSpots } from './exhaust.js';
@@ -3852,6 +3853,7 @@ function buildGltfVehicle(g, v) {
   const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
   wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes, v.exhaustAt)); g.add(root); addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
   g.userData.spin = spinPlan(v, wheelNames(root)).map(s => ({ node: root.getObjectByName(s.node), rate: s.rate, turned: 0 }));   // the mixer's drum
+  g.userData.trailer = rigTrailer(root, v);
   g.userData.scan = e.mats.scan.length ? { mats: e.mats.scan, t: 0 } : null;   // the Rhy Knight's scanner light
   g.userData.beacon = e.mats.beacon.length ? e.mats.beacon : null; for (const m of e.mats.beacon) m.emissiveIntensity = beaconGlow(0);   // the Rhy Blaze's blue lights, dark until the siren runs
   GLTF_LAMPS.head = e.mats.head; GLTF_LAMPS.tail = e.mats.tail;
@@ -3902,6 +3904,10 @@ const WHEEL_STATE = { yaw: 0, spin: 0 };
 function stepWheels(dt, steer, vf, speed) { WHEEL_STATE.yaw = stepWheelYaw(WHEEL_STATE.yaw, steer, speed, dt); WHEEL_STATE.spin = stepWheelSpin(WHEEL_STATE.spin, vf, VEH.wheelR * VEH.scale, dt); }
 function stepScanner(dt) { const sc = car.userData.scan; if (!sc) return; sc.t += dt; scannerLevels(sc.t, sc.mats.length).forEach((level, i) => { sc.mats[i].emissiveIntensity = scannerGlow(level); }); }   // the light sweeps all the time
 function stepSiren(dt) { const b = car.userData.beacon; SFX.siren(SIREN_S.on); if (SIREN_S.on) { SIREN_S.t += dt; SFX.sirenTo(sirenNote(SIREN_S.t)); } if (!b) return; const levels = SIREN_S.on ? beaconLevels(SIREN_S.t) : [0, 0]; b.forEach((m, i) => { m.emissiveIntensity = beaconGlow(levels[i]); }); }   // the blue lights flash left and right in turn while the siren runs
+// #1103: a drawbar trailer: the glb's `trailer` node swings about the hitch (trailer.js; phi > 0 = to the right, three's +y turns the other way), its wheels roll with the road
+const TRAILER_WHEEL_R = 0.544;
+function rigTrailer(root, def) { const node = def.trailer && root.getObjectByName('trailer'); return node ? { node, wheels: node.children.filter(c => c.name.startsWith('trailer_wheel_')), geom: def.trailer, phi: 0, spin: 0, last: null } : null; }
+function swingTrailer(rig, v, yawRate, dt) { rig.phi = trailerStep(rig.phi, v, yawRate, rig.geom, dt); rig.spin = stepWheelSpin(rig.spin, v, TRAILER_WHEEL_R, dt); rig.node.rotation.y = -rig.phi; for (const w of rig.wheels) w.rotation.z = -rig.spin; }
 function drawWheels() { const lean = car.rotation.x - TIP_S.roll; for (const w of car.userData.wheels ?? []) { if (w.d) continue; w.steer.rotation.x = -lean; w.steer.rotation.y = w.front ? -WHEEL_STATE.yaw : 0; w.steer.position.y = plantedWheelY(w.home.y, w.home.z, lean); w.roll.rotation.z = -WHEEL_STATE.spin; } }   // #542: the body leans, the wheels stay on the road; the tip-over roll lifts them with the body
 // #163: shadow state is written by stepCar only; drawShadow (from the loop) only reads it. restShadow seeds it where P.y is set
 // outside the physics step -- the start screen, resetCar, __mm.place, landing from the helicopter
@@ -5009,7 +5015,7 @@ function stepWreck(dt) {
   }
   stepSmoke(dt);
 }
-function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endTrain(); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; TIP_S = TIP_UP; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
+function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endTrain(); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; { const t = car.userData.trailer; if (t) { t.phi = 0; t.node.rotation.y = 0; } } TIP_S = TIP_UP; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
 const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
 function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
@@ -6032,6 +6038,7 @@ window.__mm.tipSim = (speed, secs, hold = []) => { const th0 = P.th; if (speed) 
 window.__mm.siren = () => ({ on: SIREN_S.on, beacons: car.userData.beacon?.map(m => m.emissiveIntensity) ?? null, voice: SFX.sirenState() });   // read-only, for the tests
 window.__mm.nitroFlames = () => flames.children.map(f => f.position.toArray());   // read-only: where each nitro flame sits, car-local
 window.__mm.scanner = () => car.userData.scan?.mats.map(m => m.emissiveIntensity) ?? null;   // read-only: each scanner segment's glow, left to right
+window.__mm.trailer = () => { const t = car.userData.trailer; return t ? { phi: t.phi, wheelTurn: t.spin, rotY: t.node.rotation.y } : null; };   // read-only: the trailer's angle (> 0 = to the right) and how far its wheels have rolled
 window.__mm.spin = () => (car.userData.spin ?? []).map(s => ({ node: s.node.name, turned: s.turned }));   // read-only: what turns on the car and how far
 window.__mm.driveSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; let worst = Infinity, roll = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); worst = Math.min(worst, wheelClearance()); roll = Math.max(roll, Math.abs(car.rotation.x)); } for (const k of hold) keys[k] = false; return { worst, roll, speed: Math.hypot(P.vx, P.vz) }; };
 window.__mm.carPose = () => ({ rot: [car.rotation.x, car.rotation.y, car.rotation.z], pos: [car.position.x, car.position.y, car.position.z], visible: car.visible });   // #124: read-only, for the test
@@ -6099,6 +6106,7 @@ function stepCar(dt) {
   else { P.splash = 0; P.vy -= 22 * gravityScale(SURP) * dt; P.y += P.vy * dt; if (P.y <= gh2) { if (landingHurts(P.vy)) { const s = impactStrength(-P.vy); crashHit(s); SFX.crash(s); } P.y = gh2; const bx = P.x - P.vx * dt, bz = P.z - P.vz * dt, lift = gh2 - groundH(bx, bz, P.y); const kerb = launchVy(lift, dt, false) > 0 && (isKerb(stepSamples(bx, bz, P.x, P.z).map(([sx, sz]) => groundH(sx, sz, P.y)), Math.hypot(P.x - bx, P.z - bz)) || isEdge(stepSamples(P.x, P.z, P.x + 2 * P.vx * dt, P.z + 2 * P.vz * dt).map(([sx, sz]) => groundH(sx, sz, P.y)), Math.hypot(2 * P.vx * dt, 2 * P.vz * dt)));   // #902: sampled only when it would launch; the edge look-ahead is two frame-paths (the slope's micro-launch can float the car that far past its last grounded frame); snap = stepCar's 0.6 window below
   P.vy = L && lift > 1 ? 0 : launchVy(lift, dt, kerb); } else if (P.y - gh2 < 0.6 && P.vy <= 0.5) { P.y = gh2; P.vy = 0; } if (LEVELS.isSurface() && !dead && roadDist(P.x, P.z) < 0 && !onBridge(P.x, P.z, P.y) && !air) P.safe = [P.x, P.z, P.th]; }   // OSM: a ground step over 1 m is a kerb or a deck edge, not a jump; #902: a kerb (a rise steeper than 1:2 over 0.25 m) is stepped onto, not launched from, and a rise that ends in a small edge drop (within the 0.6 snap window, not a real jump) rolls onto the lower ground instead of launching; #105: a wreck does not move the safe spot (the new car comes to the last road position, not wherever the wreck rolled)
   if (KNOCK) { const sl = KNOCK.step(); if (sl) { P.vx *= 1 - sl; P.vz *= 1 - sl; } }   // #415: knocked-over props go first, so their colliders are off for this step
+  { const rig = car.userData.trailer; if (rig) swingTrailer(rig, vf, (P.th - th0) / dt, dt); }   // #1103: the truck's yaw over this step turns the trailer
   collide(carRadius());
   netBump();   // #836: a remote car in a shared drive
   followCave();
@@ -7259,7 +7267,7 @@ function buildNetCar(entry) {
   const mesh = built.mesh;
   mesh.visible = false;
   scene.add(mesh); entry.mesh = mesh;
-  entry.lamps = built.lamps;
+  entry.lamps = built.lamps; entry.trailer = rigTrailer(mesh, def);
   entry.blink = built.blink;
   entry.roof = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3()).y;   // part c: the tag floats above the roof
   if (entry.name && !entry.tag) { entry.tag = netTag(entry.name); scene.add(entry.tag); }
@@ -7276,6 +7284,14 @@ function netTag(name) {
   }, { alpha: true });
   const mat = new THREE.SpriteMaterial({ map, transparent: true, depthTest: false, depthWrite: false, fog: false });
   const s = new THREE.Sprite(mat); s.renderOrder = 10; s.visible = false; return s;
+}
+// #1103: a remote trailer swings from the sender's consecutive poses (yaw = -ry, like the car); a jump over 20 m (a reset, a teleport) straightens it
+function swingRemoteTrailer(rig, pose) {
+  const prev = rig.last, at = performance.now(); rig.last = { x: pose.x, z: pose.z, ry: pose.ry, at };
+  if (!prev || at <= prev.at) return;
+  if (Math.hypot(pose.x - prev.x, pose.z - prev.z) > 20) { rig.phi = 0; rig.node.rotation.y = 0; return; }
+  const dt = Math.min((at - prev.at) / 1000, 0.25), dry = pose.ry - prev.ry, dth = -Math.atan2(Math.sin(dry), Math.cos(dry)), th = -pose.ry;
+  swingTrailer(rig, ((pose.x - prev.x) * Math.cos(th) + (pose.z - prev.z) * Math.sin(th)) / dt, dth / dt, dt);
 }
 // from the loop: at most one model is built per frame, then every remote car is put where its sender was DELAY ms ago
 function stepNetCars() {
@@ -7300,6 +7316,7 @@ function stepNetCars() {
     if (!pose) continue;
     entry.mesh.position.set(pose.x, pose.y, pose.z);
     entry.mesh.rotation.set(pose.rx, pose.ry, pose.rz);
+    if (entry.trailer) swingRemoteTrailer(entry.trailer, pose);
     const l = remoteLamps(pose.flags, flashOn);
     entry.lamp = l;
     const lv = lampState({ head: l.head, hazard: false, blinker: null, braking: l.brake, flashOn: false });
@@ -7500,7 +7517,7 @@ function placeDepot() {
     addSolid(solid); DEPOT_S.solids.set(s.id, solid);
   }
   if (!DEPOT_S.slots.length) return;
-  const kindOf = (s) => s.l > DEPOT.longL ? 'long' : 'car', mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const kindOf = (s) => s.span > DEPOT.longL ? 'long' : 'car', mat = new THREE.MeshLambertMaterial({ vertexColors: true });
   const count = { car: 0, long: 0 };
   for (const s of DEPOT_S.slots) count[kindOf(s)]++;
   const boxes = DEPOT_S.boxes = { car: null, long: null };
@@ -7508,8 +7525,9 @@ function placeDepot() {
   const next = { car: 0, long: 0 };
   DEPOT_S.boxMats = DEPOT_S.slots.map((s, i) => {
     const k = kindOf(s), h = k === 'long' ? DEPOT.boxHLong : DEPOT.boxH;
-    const m = new THREE.Matrix4().compose(new THREE.Vector3(s.x, groundH(s.x, s.z, -Infinity), s.z),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -s.th, 0)), new THREE.Vector3(s.l, h, s.w));
+    const cx = s.x - Math.cos(s.th) * s.off, cz = s.z - Math.sin(s.th) * s.off;   // #1103: the cover lies over the whole footprint, trailer included; the origin stands `off` ahead of its middle
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(cx, groundH(cx, cz, -Infinity), cz),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -s.th, 0)), new THREE.Vector3(s.span, h, s.w));
     DEPOT_S.boxAt[i] = [k, next[k]++];
     boxes[k].setMatrixAt(DEPOT_S.boxAt[i][1], m);
     return m;
@@ -7580,9 +7598,9 @@ window.__mm.depot = () => ({
   real: DEPOT_S.built.size, cached: [...DEPOT_S.owned].filter(id => gltfState(id) === 'ready'),   // #807: real models alive, files the depot fetched
   slots: (DEPOT_S.slots ?? []).map(sl => {
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
-    return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l,
+    return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l, span: sl.span, off: sl.off,
       shown: (!!b || !!DEPOT_S.boxes) && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
-      solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null };
+      solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null, trailerY: b?.mesh.getObjectByName('trailer')?.rotation.y ?? null };
   }),
 });
 window.__mm.ostriches = () => ({   // #846: the paddock's debug hook

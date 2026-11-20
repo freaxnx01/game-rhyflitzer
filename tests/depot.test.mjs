@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEPOT, footprint, depotLayout, nearestSlot, depotWants } from '../depot.js';
 import { selectableIds } from '../carselect.js';
+import { TANKER } from '../tanker.js';
 
 const car = (type, r, hl, top = 60, accel = 16) => ({ type, mass: 1, drive: { top, accel, grip: 9 }, collision: hl ? { shape: 'capsule', r, hl } : { shape: 'circle', r } });
 
@@ -58,4 +59,22 @@ test('depotWants: nearest first, within near, capped, never the driven id', () =
 test('depotWants: nothing beyond near, keep reaches farther than load', () => {
   assert.deepEqual(depotWants(-115, 0, row(3), null, cfg).load, []);       // v0 is 115 m away
   assert.deepEqual([...depotWants(-115, 0, row(3), null, cfg).keep], ['v0', 'v1']);
+});
+
+test('footprint: a vehicle with a trailer is longer than its capsule by at least hitch + length, its origin ahead of the middle', () => {
+  const f = footprint(TANKER), body = 2 * (TANKER.collision.hl + TANKER.collision.r), { hitch, length } = TANKER.trailer;
+  assert.equal(f.body, body);
+  assert.ok(f.l >= body + hitch + length, f);
+  assert.ok(Math.abs(f.l - 18.25) < 0.01 && Math.abs(f.off - 4.525) < 0.01, f);   // truck + drawbar + trailer, the origin 4.5 m ahead of the middle
+  assert.equal(footprint(car('utility', 1.3, 4.8)).off, undefined);   // no trailer: no offset
+});
+
+test('depotLayout: a trailer combination keeps its origin off the middle of its footprint and stays inside the strip', () => {
+  const defs = { compact: car('everyday', 1.3), bus: car('utility', 1.3, 4.8, 27.8, 4), tanker: TANKER };
+  const s = Object.fromEntries(depotLayout(Object.keys(defs), defs).map(v => [v.id, v]));
+  const zLow = DEPOT.z - DEPOT.depth / 2, f = footprint(TANKER);
+  assert.equal(s.tanker.th, Math.PI / 2);   // a long vehicle: the low-z edge, nose to the middle
+  assert.ok(Math.abs(s.tanker.z - (zLow + DEPOT.inset + f.l / 2 + f.off * Math.sin(s.tanker.th))) < 1e-9, s.tanker);   // the tail 0.5 m inside the edge
+  assert.equal(s.tanker.l, f.body); assert.equal(s.tanker.span, f.l);   // the solid and the reach stay the truck's
+  for (const v of Object.values(s)) assert.ok(v.z - Math.sin(v.th) * (v.off ?? 0) - v.span / 2 >= zLow - 1e-9 && v.z - Math.sin(v.th) * (v.off ?? 0) + v.span / 2 <= DEPOT.z + DEPOT.depth / 2 + 1e-9, v);
 });
