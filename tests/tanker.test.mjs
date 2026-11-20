@@ -34,13 +34,12 @@ test('TANKER_Wheels_MatchTheModelsWheelNodes', () => {
 });
 
 test('TANKER_Trailer_MatchesTheModelsExtras', () => {
-  assert.deepEqual(TANKER.trailer, { hitch: 5.2, length: 3.85, tail: 4.6, wheelR: 0.544 });
+  assert.deepEqual(TANKER.trailer, { hitch: 5.2, length: 3.85, tail: 4.6, wheelR: 0.544, exhaustAt: [-8.45, 0.6] });
   assert.ok(TANKER.trailer.hitch > 0 && TANKER.trailer.length > 3, 'the axles sit well behind the hitch');
 });
 
 test('TANKER_Drive_IsAHeavyTruckAt80Kmh', () => {
-  assert.equal(TANKER.drive.top, 22.2);
-  assert.equal(Math.round(TANKER.drive.top * 3.6), 80);
+  assert.equal(TANKER.drive.top, 30);   // #1122: the equilibrium with drive.drag is ~80 km/h (see the test below)
   assert.equal(TANKER.sound.engine.topKmh, 80);
   assert.equal(TANKER.mass, 9);
   assert.ok(impactDamage(1, TANKER.mass) < impactDamage(1, 6), 'tougher than the Mixer');
@@ -60,4 +59,10 @@ test('TANKER_Camera_StaysBehindAndAboveTheTrailer', () => {
   const c = TANKER.camera;
   assert.deepEqual([c.chase.dist, c.chase.h, c.near.dist, c.near.h, c.drone.dist, c.drone.h], [20, 6.5, 15, 5, 32, 20]);
   assert.ok(c.near.dist > 13.65 + 1, 'the near cam clears the trailer tail');
+});
+
+test('TANKER_Drive_BalancesAtAbout80KmhOnADryRoad', () => {   // #1122: v_eq = (accel - 0.6) / (accel / top + drag)
+  const d = TANKER.drive, eq = (a, top, drag) => (a - 0.6) / (a / top + drag);
+  assert.equal(d.drag, 0.008);
+  assert.ok(Math.abs(eq(d.accel, d.top, d.drag) * 3.6 - 80) < 3);
 });
