@@ -89,6 +89,23 @@ def test_two_players_see_each_other_drive(pair):
     assert errors == []
 
 
+def test_both_players_have_engine_sound(pair):
+    """#1114: a multiplayer session starts the engine voice on both pages, with no single-player run first.
+
+    The menu music (armed by the lobby clicks) already creates the AudioContext, so the context alone does not
+    discriminate; the engine mix does -- SFX.update returns while the engine voice is null, and only SFX.start
+    (what the single-player buttons call) builds it."""
+    host, guest, errors = pair
+    connect(host, guest)
+    ready_both(host, guest)
+    host.click("#mpgo")
+    for page in (host, guest):
+        page.wait_for_function(
+            "() => window.__mm.net().session && window.__mm.audio().ctx !== 'none'", timeout=T)
+        page.wait_for_function("() => window.__mm.audio().mix !== null", polling=250, timeout=T)
+    assert errors == []
+
+
 def test_a_player_who_leaves_disappears_on_the_other_device(pair):
     """The guest goes back to the main menu: the session ends there and its car is gone on the host."""
     host, guest, errors = pair
