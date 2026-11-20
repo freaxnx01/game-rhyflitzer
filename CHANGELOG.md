@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-20 23:46` The other player's car now **turns its wheels** in multiplayer: they roll, roll backwards when it reverses, and the front wheels steer.
 - `2026-11-20 21:55` Im Mehrspieler siehst Du alle **Mitspieler** auf der Karte: ein Pfeil in der Farbe ihres Autos auf der **Minikarte** und der grossen Karte (<kbd>Tab</kbd>), dort zusätzlich mit Namen.
 - `2026-11-20 15:38` Neuer Lastwagen **Rhy Tanklaster** (englisch Rhy Tanker): ein weisser **Heizöl-Tanklaster** mit orangeroter Binde und einem Deichselanhänger, der in den Kurven **ausschwenkt**. Drei Achsen, höchstens 80 km/h, zäh beim Anfahren und weit in den Kurven; er steckt fast jeden Rempler weg. 3D-Modell „MAN TGX 2010 V8 – High-Detail Semi-Truck" von DevPoly3D (Sketchfab), CC BY 4.0.
 - `2026-11-20 11:10` In the **helicopter** and the **steam loco** the key bar now shows how to fly, climb, sink and **land** (<kbd>F</kbd>), or steam, brake and get out. In the settings, „Hinweise wieder zeigen“ is now **„Gesehene Hinweise zurücksetzen“**.
