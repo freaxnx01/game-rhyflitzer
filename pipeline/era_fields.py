@@ -54,11 +54,6 @@ def strips(site, seed=1952):
     return out
 
 
-def box(x0, z0, x1, z1):
-    from shapely.geometry import box
-    return box(x0, z0, x1, z1)
-
-
 def layout(site, keep_out):
     """Field entries for `site` minus `keep_out` (a geometry or None), each inset by SEAM / 2."""
     kept = []
