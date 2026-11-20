@@ -62,6 +62,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-21 00:47` Gemeinsam fahren: Im **Hübel** (Lift, Tunnelring, Räume) bleibt das Auto des anderen Spielers jetzt **sichtbar**, statt bis zur Rückkehr an die Oberfläche verschwunden zu sein. Ruckelt das Spiel eines Spielers kurz (etwa beim ersten Mal im Lift), taucht das andere Auto gleich danach wieder auf, statt noch Sekunden **eingefroren** zu bleiben.
 - `2026-11-21 00:19` In einem **Mehrspieler-Rennen** verschwinden die **Checkpoints** und der **Pfeil**, sobald Du im Ziel bist.
 - `2026-11-20 22:41` Der **Rhy Tanklaster** und der Fahrmischer fahren jetzt wirklich bis 80 km/h (mit Nitro rund 100); die **Nitroflammen** des Tanklasters kommen hinten aus dem Anhänger; schwere Fahrzeuge knicken **Strassenlaternen** schon langsam um (der Tanklaster im Schritttempo), Autos ab 30 km/h.
 - `2026-11-20 22:29` Im **Mehrspieler** sieht man jetzt die **Nitroflammen** am Auto des anderen Spielers.
