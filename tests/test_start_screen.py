@@ -7,8 +7,8 @@ from conftest import start_ready
 ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"]
 READY = start_ready()
 T = 240000
-BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "carbtn", "mpbtn"]
-SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn", "settingsbtn", "musicbtn"]   # #735 Music, #842 Settings between About and Music
+BAR = ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "deliverybtn", "carbtn", "mpbtn"]   # #107 Delivery before Choose car
+SECONDARY = ["worldbtn", "stylebtn2", "aboutbtn", "settingsbtn", "musicbtn", "reloadbtn"]   # #735 Music, #842 Settings between About and Music, #1076 Reload (hidden on the website)
 
 
 def boot(p, server, viewport=(1280, 720), touch=False, query=""):
@@ -28,14 +28,14 @@ def ids(page, sel):
 
 
 def test_bar_order_focus_order_and_enter_starts(server):
-    """The steel bar is 6 + 2 buttons in wireframe order, Tab walks it, Enter on the focused button starts."""
+    """The steel bar is 7 + 2 buttons in wireframe order (#107 added Delivery), Tab walks it, Enter on the focused button starts."""
     with sync_playwright() as p:
         b, page, errors = boot(p, server)
         bar = ids(page, "#overlay .bar .row:not(.secondary) > button")
         secondary = ids(page, "#overlay .bar .row.secondary > button")
         first = page.evaluate("() => document.activeElement.id")
         order = []
-        for _ in range(7):
+        for _ in range(8):
             page.keyboard.press("Tab")
             order.append(page.evaluate("() => document.activeElement.id"))
         page.focus("#startbtn")
@@ -45,7 +45,7 @@ def test_bar_order_focus_order_and_enter_starts(server):
     assert bar == BAR, bar
     assert secondary == SECONDARY, secondary
     assert first == "cruisebtn"
-    assert order == ["startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "carbtn", "mpbtn"], order
+    assert order == ["startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "deliverybtn", "carbtn", "mpbtn"], order
     assert errors == []
 
 
@@ -134,12 +134,12 @@ def test_worlds_dialog_selects_then_drives_and_esc_returns_focus(server):
 
 
 def test_phone_layout_and_screenshots(server, tmp_path):
-    """390x844 coarse pointer: 2x2 primary grid, full-width WORLD, sticky bar, no sticker, nothing focused."""
+    """390x844 coarse pointer: 2x2 primary grid, WORLD + YouTube fill one row, sticky bar, no sticker, nothing focused."""
     with sync_playwright() as p:
         b, page, errors = boot(p, server, viewport=(390, 844), touch=True)
         got = page.evaluate("""() => { const r = (i) => document.getElementById(i).getBoundingClientRect();
-            const s = r('startbtn'), bl = r('blitzbtn'), h = r('huntbtn'), w = r('worldbtn'), bar = document.querySelector('#overlay .bar').getBoundingClientRect();
-            return { sameRow: Math.abs(s.top - bl.top) < 2, below: h.top > s.bottom - 1, worldFull: w.width > innerWidth * 0.8,
+            const s = r('startbtn'), bl = r('blitzbtn'), h = r('huntbtn'), w = r('worldbtn'), yt = r('ytbtn'), bar = document.querySelector('#overlay .bar').getBoundingClientRect();
+            return { sameRow: Math.abs(s.top - bl.top) < 2, below: h.top > s.bottom - 1, worldFull: Math.abs(w.top - yt.top) < 2 && w.width + yt.width > innerWidth * 0.8,
                      barInside: bar.bottom <= innerHeight + 1, noHScroll: document.documentElement.scrollWidth <= innerWidth,
                      sticker: getComputedStyle(document.getElementById('sticker')).display, focus: document.activeElement.id || document.activeElement.tagName.toLowerCase(),
                      sticky: getComputedStyle(document.querySelector('#overlay .bar')).position }; }""")
@@ -184,3 +184,42 @@ def test_loading_screen_runs_through_every_stage_then_steps_aside(server):
     assert seen == stages, seen
     assert not box and slot
     assert not errors, errors
+
+
+def test_phone_menu_opens_scrolled_to_the_end_so_the_slot_shows_above_the_bar(server):
+    """#1071: on a short phone screen the menu is taller than the viewport and the sticky bar covers the text slot.
+    At scrollTop 0 the first tap scrolled the menu under the finger and was lost; the menu opens scrolled to the end."""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, viewport=(390, 664), touch=True)
+        got = page.evaluate("""() => { const o = document.getElementById('overlay'), text = document.getElementById('ovtext').getBoundingClientRect(),
+            bar = document.querySelector('#overlay .bar').getBoundingClientRect();
+            return { scrollable: o.scrollHeight > o.clientHeight, gap: o.scrollHeight - o.clientHeight - o.scrollTop, textBottom: text.bottom, barTop: bar.top }; }""")
+        b.close()
+    assert got["scrollable"], got                  # the screen is short enough to need the fix
+    assert got["gap"] <= 1, got                    # scrolled to the end
+    assert got["textBottom"] <= got["barTop"] + 1, got   # the mode text is not hidden behind the bar
+    assert errors == []
+
+
+def test_youtube_link_sits_in_the_bar_without_making_the_phone_bar_taller(server):
+    """The freax.games YouTube channel is one tap from the start menu (the NFZ article names only rhyflitzer.ch). On a phone it
+    shares the World row, so the sticky bar keeps its height and #1071's scrolled-to-the-end menu still shows the slot."""
+    probe = """() => { const a = document.getElementById('ytbtn'), r = a.getBoundingClientRect(), w = document.getElementById('worldbtn').getBoundingClientRect(),
+        s = document.querySelector('#overlay .bar .row.secondary').getBoundingClientRect(), t = document.getElementById('ovtext').getBoundingClientRect(),
+        bar = document.querySelector('#overlay .bar').getBoundingClientRect();
+        return { inBar: !!a.closest('#overlay .bar .row.secondary'), href: a.href, target: a.target, rel: a.rel, title: a.title, w: r.width, h: r.height,
+            sameRowAsWorld: Math.abs(r.top - w.top) < 1, secH: s.height, textBottom: t.bottom, barTop: bar.top, right: r.right, vw: innerWidth }; }"""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        desk = page.evaluate(probe)
+        b.close()
+        b, page, errors2 = boot(p, server, viewport=(390, 664), touch=True)
+        phone = page.evaluate(probe)
+        b.close()
+    assert desk["inBar"] and desk["href"] == "https://www.youtube.com/@freax-games", desk
+    assert desk["target"] == "_blank" and "noopener" in desk["rel"] and desk["title"], desk
+    assert desk["w"] > 0 and desk["h"] > 0, desk
+    assert phone["sameRowAsWorld"] and phone["right"] <= phone["vw"], phone
+    assert phone["secH"] <= 88, phone                     # two rows, as before the link
+    assert phone["textBottom"] <= phone["barTop"] + 1, phone
+    assert errors == [] and errors2 == []

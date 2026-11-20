@@ -29,7 +29,7 @@ def stub_srf(page, hits):
     page.route(SRF, answer)
 
 
-def open_game(p, server, srf_hits=None, touch=False):
+def open_game(p, server, srf_hits=None, touch=False, menu_music=False):
     b = p.chromium.launch(args=ARGS)
     ctx = b.new_context(viewport={"width": 390, "height": 844} if touch else {"width": 1280, "height": 720}, has_touch=touch)
     page = ctx.new_page()
@@ -40,6 +40,10 @@ def open_game(p, server, srf_hits=None, touch=False):
     page.route("**/data/world_hochrhein.json", lambda r: r.fulfill(status=404, body=""))
     if srf_hits is not None:
         stub_srf(page, srf_hits)
+    # these tests step through the list in order (8 goes from track 0 to 1), so they turn the default shuffle off
+    page.add_init_script("if (localStorage.getItem('mm.radioShuffle') === null) localStorage.setItem('mm.radioShuffle', '0')")
+    if not menu_music:   # a playing menu song carries into the run and holds the radio back; the radio tests start on the radio itself
+        page.add_init_script("if (localStorage.getItem('mm.menuMusic') === null) localStorage.setItem('mm.menuMusic', '0')")
     page.goto(f"{server}/index.html")
     page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
     if over_cdp():
@@ -49,6 +53,12 @@ def open_game(p, server, srf_hits=None, touch=False):
 
 def radio(page):
     return page.evaluate("() => window.__mm.radio()")
+
+
+def to_srf3(page):
+    """#1016: key 6 goes Mix -> Rock -> Cruise -> SRF 3 -> Argovia, so SRF 3 is three presses from a fresh start."""
+    for _ in range(3):
+        page.keyboard.press("6")
 
 
 def start_run(page):
@@ -68,8 +78,8 @@ def test_menu_music_starts_during_loading(server):
     if over_cdp():
         pytest.skip("#856: asserts the menu track is fetched at load start, before any gesture; needs the autoplay launch flag, which a CDP-connected browser ignores")
     with sync_playwright() as p:
-        b, page, errors, music = open_game(p, server)
-        assert any("menu-running-title.mp3" in u for u in music), music     # fetched at load start, autoplay allowed
+        b, page, errors, music = open_game(p, server, menu_music=True)
+        assert any("pulsing-arpeggio.mp3" in u for u in music), music     # fetched at load start, autoplay allowed
         page.keyboard.press("Shift")
         page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
         page.click("#musicbtn")
@@ -114,6 +124,56 @@ def test_menu_music_blocked_autoplay_waits_for_the_first_key(server):
         b.close()
 
 
+def test_menu_song_plays_on_into_the_run_then_hands_over_to_rhyflitzer_fm(server):
+    with sync_playwright() as p:
+        b, page, errors, music = open_game(p, server, menu_music=True)
+        page.keyboard.press("Shift")                    # the first input arms the menu music
+        page.wait_for_function("() => window.__mm.radio().playing.menu && window.__mm.radio().menuAt > 0.5", timeout=T)
+        at = radio(page)["menuAt"]
+        start_run(page)
+        r = radio(page)
+        assert r["carry"] and r["playing"]["menu"] and not r["playing"]["fm"], r
+        assert r["menuAt"] >= at and r["src"]["menu"].endswith("pulsing-arpeggio.mp3"), (at, r)   # same element, same place in the song
+        assert "Pulsing Arpeggio" in page.evaluate("() => window.__mm.toast().text")
+        page.evaluate("() => window.__mm.radioEndMenuSong()")
+        page.wait_for_function("() => !window.__mm.radio().carry && window.__mm.radio().playing.fm && !window.__mm.radio().playing.menu", timeout=T)
+        r = radio(page)
+        assert r["station"] == "mix" and r["track"] == 0, r   # shuffle off: the mix opens with track 0, Cool Rider
+        assert "Cool Rider" in page.evaluate("() => window.__mm.toast().text")
+        assert errors == [], errors
+        b.close()
+
+
+def test_a_radio_key_ends_the_carried_menu_song(server):
+    with sync_playwright() as p:
+        b, page, errors, music = open_game(p, server, menu_music=True)
+        page.keyboard.press("Shift")
+        page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
+        start_run(page)
+        assert radio(page)["carry"]
+        page.keyboard.press("0")                        # the volume keeps the song
+        assert radio(page)["carry"]
+        page.keyboard.press("8")                        # 8 leaves it for the radio's current track, it does not skip one
+        page.wait_for_function("() => !window.__mm.radio().carry && window.__mm.radio().playing.fm && !window.__mm.radio().playing.menu", timeout=T)
+        assert radio(page)["track"] == 0
+        assert errors == [], errors
+        b.close()
+
+
+def test_radio_off_ends_the_menu_song_at_the_run_start(server):
+    with sync_playwright() as p:
+        b, page, errors, music = open_game(p, server, menu_music=True)
+        page.evaluate("() => localStorage.setItem('mm.radio', '0')")
+        page.reload()
+        page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
+        page.keyboard.press("Shift")
+        page.wait_for_function("() => window.__mm.radio().playing.menu", timeout=T)
+        start_run(page)
+        page.wait_for_function("() => !window.__mm.radio().playing.menu && !window.__mm.radio().carry", timeout=T)
+        assert errors == [], errors
+        b.close()
+
+
 def test_keys_drive_the_radio_and_show_the_display(server):
     with sync_playwright() as p:
         b, page, errors, music = open_game(p, server)
@@ -148,14 +208,15 @@ def test_srf3_plays_the_stubbed_stream(server):
         hits = []
         b, page, errors, music = open_game(p, server, srf_hits=hits)
         start_run(page)
-        page.keyboard.press("6")
+        to_srf3(page)
         page.wait_for_function("() => window.__mm.radio().playing.srf && !window.__mm.radio().playing.fm", timeout=T)
         r = radio(page)
         assert r["station"] == "srf3" and r["src"]["srf"] == "https://stream.srg-ssr.ch/srgssr/srf3/mp3/128", r
         assert hits and all(u.startswith("https://stream.srg-ssr.ch/") for u in hits), hits
         assert "SRF 3 live" in page.evaluate("() => window.__mm.toast().text")
+        track = r["track"]
         page.keyboard.press("8")                        # no tracks on a live station: the display only
-        assert radio(page)["track"] == 0
+        assert radio(page)["track"] == track
         assert errors == [], errors
         b.close()
 
@@ -164,11 +225,11 @@ def test_srf3_failure_falls_back_to_rhyflitzer_fm(server):
     with sync_playwright() as p:
         b, page, errors, music = open_game(p, server)   # no stub: hermetic_api aborts the stream
         start_run(page)
-        page.keyboard.press("6")
-        page.wait_for_function("() => window.__mm.radio().failed === 1 && window.__mm.radio().station === 'fm'", timeout=T)
+        to_srf3(page)
+        page.wait_for_function("() => window.__mm.radio().failed === 1 && window.__mm.radio().station === 'mix'", timeout=T)
         page.wait_for_function("() => window.__mm.radio().playing.fm", timeout=T)
         assert "SRF 3" in page.evaluate("() => window.__mm.toast().text")
-        assert page.evaluate("() => localStorage.getItem('mm.radioStation')") == "fm"
+        assert page.evaluate("() => localStorage.getItem('mm.radioStation')") == "mix"
         assert errors == [], errors
         b.close()
 
@@ -178,7 +239,7 @@ def test_pause_pauses_and_resumes_the_radio(server):
         hits = []
         b, page, errors, music = open_game(p, server, srf_hits=hits)
         start_run(page)
-        page.keyboard.press("6")
+        to_srf3(page)
         page.wait_for_function("() => window.__mm.radio().playing.srf", timeout=T)
         page.keyboard.press("Escape")
         page.wait_for_function("() => window.__mm.radio().held && !window.__mm.radio().playing.srf", timeout=T)
@@ -240,6 +301,14 @@ def test_key_6_cycles_through_argovia(server):
         b, page, errors, music = open_game(p, server, srf_hits=[])
         stub_url(page, ARGOVIA, hits)
         start_run(page)
+        page.keyboard.press("6")                        # rock: its first track (shuffle off here)
+        rock = page.evaluate("() => ({ r: window.__mm.radio(), toast: window.__mm.toast().text })")
+        page.keyboard.press("6")                        # cruise
+        cruise = page.evaluate("() => ({ r: window.__mm.radio(), toast: window.__mm.toast().text })")
+        assert rock["r"]["station"] == "rock" and rock["r"]["src"]["fm"].endswith("cool-rider.mp3"), rock
+        assert "Rhyflitzer FM Rock: Cool Rider" in rock["toast"], rock
+        assert cruise["r"]["station"] == "cruise" and cruise["r"]["src"]["fm"].endswith("neon-afterglow.mp3"), cruise
+        assert "Rhyflitzer FM Cruise: Neon Afterglow" in cruise["toast"], cruise
         page.keyboard.press("6")                        # srf3
         page.wait_for_function("() => window.__mm.radio().station === 'srf3' && window.__mm.radio().playing.srf", timeout=T)
         with page.expect_request(lambda r: "argovia" in r.url, timeout=T):
@@ -248,8 +317,8 @@ def test_key_6_cycles_through_argovia(server):
         assert radio(page)["src"]["srf"] == ARGOVIA and hits, (radio(page), hits)
         assert "Radio Argovia" in page.evaluate("() => window.__mm.toast().text")
         assert page.evaluate("() => localStorage.getItem('mm.radioStation')") == "argovia"
-        page.keyboard.press("6")                        # back to FM
-        page.wait_for_function("() => window.__mm.radio().station === 'fm' && window.__mm.radio().playing.fm && !window.__mm.radio().playing.srf", timeout=T)
+        page.keyboard.press("6")                        # back to the FM mix
+        page.wait_for_function("() => window.__mm.radio().station === 'mix' && window.__mm.radio().playing.fm && !window.__mm.radio().playing.srf", timeout=T)
         assert errors == [], errors
         b.close()
 
@@ -261,7 +330,7 @@ def test_argovia_failure_falls_back_to_rhyflitzer_fm(server):
         page.reload()
         page.wait_for_function("() => window.__mm && window.__mm.radio && document.querySelector('#worldstatus')?.textContent", timeout=240000)
         start_run(page)
-        page.wait_for_function("() => window.__mm.radio().failed === 1 && window.__mm.radio().station === 'fm'", timeout=T)
+        page.wait_for_function("() => window.__mm.radio().failed === 1 && window.__mm.radio().station === 'mix'", timeout=T)
         assert "Argovia" in page.evaluate("() => window.__mm.toast().text")
         assert errors == [], errors
         b.close()

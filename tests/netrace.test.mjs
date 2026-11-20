@@ -1,7 +1,10 @@
 // #834: the lobby state of the multiplayer race. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello } from '../netrace.js';
+import { createLobby, addPlayer, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, nearPoint } from '../netrace.js';
+import { CP_MAX } from '../netcodec.js';
+
+const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-9);
 
 const DEFS = { fast: { drive: { top: 75, accel: 20, grip: 9, steerRate: 2.6 }, mass: 1 }, slow: { drive: { top: 11, accel: 4, grip: 9, steerRate: 2 }, mass: 2 } };
 
@@ -62,4 +65,72 @@ test('admitHello_typedNameCollides_nameStays', () => {
 test('admitHello_autoNameFree_unchanged', () => {
   const l = createLobby('hochrhein', 'Anna');
   assert.equal(admitHello(l, 'Idle Ida', false, { custom: false, pool: POOL }).lobby.players[1].name, 'Idle Ida');
+});
+
+// #837 part a: the pure race rules — grid, checkpoints, standings, board rows.
+test('raceGrid_twoAbreast_rowsBack', () => {
+  [[0, -2], [0, 2], [-8, -2], [-8, 2]].forEach(([x, z], slot) => assert.ok(near(raceGrid([0, 0, 0], slot), [x, z, 0])));
+});
+
+const lobby2 = { region: 'hochrhein', cls: 'all', players: [{ id: 0, name: 'A' }, { id: 1, name: 'B' }] };
+test('acceptCp_onlyNewRealNearAndRunning', () => {
+  let r = createRace(lobby2, 3);
+  for (const a of [[1, 0, 5000, false], [1, 3, 5000, true], [9, 0, 5000, true]]) assert.equal(acceptCp(r, ...a).ok, false);   // far, no cp 3, no racer 9
+  r = acceptCp(r, 1, 2, 5000, true).race;                            // any order
+  assert.equal(acceptCp(r, 1, 2, 6000, true).ok, false);            // already passed
+  r = acceptCp(r, 1, 0, 4000, true).race;                            // earlier t is clamped up
+  assert.deepEqual(r.racers[1].times, [5000, 5000]);
+});
+test('acceptFinish_needsAllCps_thenFin', () => {
+  let r = createRace(lobby2, 1);
+  assert.equal(acceptFinish(r, 0, 9000, true, 100).ok, false);
+  r = acceptCp(r, 0, 0, 3000, true).race;
+  r = acceptFinish(r, 0, 9000, true, 100).race;
+  assert.deepEqual([r.racers[0].st, r.racers[0].times, r.firstFin, r.over], ['fin', [3000, 9000], 100, false]);
+  r = dropRacer(r, 1);
+  assert.deepEqual([r.racers[1].st, r.over], ['dnf', true]);
+});
+test('tickRace_dnfSixtySecondsAfterFirstFinish', () => {
+  let r = acceptFinish(acceptCp(createRace(lobby2, 1), 0, 0, 1, true).race, 0, 2, true, 1000).race;
+  assert.equal(tickRace(r, 60999).over, false);
+  r = tickRace(r, 61000);
+  assert.deepEqual([r.racers[1].st, r.over], ['dnf', true]);
+});
+
+test('standings_order_ties_gaps', () => {
+  const rows = [
+    { id: 0, name: 'A', times: [1000], st: 'run' },
+    { id: 1, name: 'B', times: [900, 2000], st: 'run' },
+    { id: 2, name: 'C', times: [800, 1900, 5000], st: 'fin' },
+    { id: 3, name: 'D', times: [1000], st: 'run' },
+  ];
+  const s = standings(rows);
+  assert.deepEqual(s.map((r) => r.id), [2, 1, 0, 3]);              // fin, more passes, tie → lower id
+  assert.deepEqual(s.map((r) => r.pos), [1, 2, 3, 4]);
+  assert.deepEqual(s.map((r) => r.gap), [-100, 100, 100, 0]);      // B 2000 vs C 1900; A 1000 vs B 900; D vs A
+  assert.equal(standings([{ id: 0, name: 'A', times: [], st: 'run' }])[0].gap, null);
+  assert.deepEqual(standings([{ id: 0, name: 'A', times: [], st: 'dnf' }, { id: 1, name: 'B', times: [], st: 'run' }]).map((r) => r.id), [1, 0]);
+});
+test('boardRows_dropsMask', () => assert.deepEqual(boardRows(createRace(lobby2, 1))[0], { id: 0, name: 'A', times: [], st: 'run' }));
+
+test('nearPoint_xzOnly_withinRadiusSlack_trueBeyondFalse', () => {
+  const pt = { x: 0, z: 0 };
+  assert.equal(nearPoint([{ x: 0, y: 0, z: 0 }], pt), true);                          // on point
+  assert.equal(nearPoint([{ x: RACE.radius + RACE.slack, y: 0, z: 0 }], pt), true);   // exactly radius + slack (<=)
+  assert.equal(nearPoint([{ x: RACE.radius + RACE.slack + 1, y: 0, z: 0 }], pt), false); // beyond radius + slack
+  assert.equal(nearPoint([{ x: 0, y: 9999, z: 0 }], pt), true);                       // y ignored — x/z on point
+  assert.equal(nearPoint([{ x: 50, y: 0, z: 50 }, { x: 0, y: 0, z: 0 }], pt), true);   // any pose near
+});
+
+test('createRace_clampsCpsToCodecMax', () => {
+  assert.equal(createRace(lobby2, 32).cps, CP_MAX);  // clamped to netcodec's CP_MAX so the wire-layer cp/cpno validators agree
+  assert.equal(createRace(lobby2, 3).cps, 3);          // an in-range count is unchanged
+});
+
+test('acceptFinish_succeedsAtClampedCps', () => {
+  let r = createRace(lobby2, CP_MAX);
+  for (let i = 0; i < CP_MAX; i++) r = acceptCp(r, 0, i, 1000 * (i + 1), true).race;
+  const fin = acceptFinish(r, 0, 90000, true, 100000);
+  assert.equal(fin.ok, true);
+  assert.equal(fin.race.racers[0].st, 'fin');
 });

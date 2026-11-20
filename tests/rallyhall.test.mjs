@@ -1,7 +1,8 @@
 // #859: the rally hall and its three cars -- pure. node --test tests/rallyhall.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RALLYHALL, carParts, carExtent, boardLayout } from '../rallyhall.js';
+import { RALLYHALL, boardLayout } from '../rallyhall.js';
+import { RALLY } from '../rally.js';
 
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg || ''}: ${a} vs ${b}`);
 
@@ -12,25 +13,11 @@ test('RALLYHALL_ThreeCarsOfTheirRealSizes_EvansNeuvilleMcCrae', () => {
   near(RALLYHALL.hall.roof.y0 + RALLYHALL.hall.roof.t, RALLYHALL.h, 1e-9, 'the roof top is the hall height');
 });
 
-test('carParts_ExtentsMatchTheCar_FourWheelsOnTheFloor_ARearWing', () => {
-  for (const car of RALLYHALL.cars) {
-    const parts = carParts(car, RALLYHALL), e = carExtent(parts);
-    near(e.len, car.len, 0.05, `${car.id} len`); near(e.wid, car.wid, 0.05, `${car.id} wid`); near(e.hgt, car.hgt, 0.05, `${car.id} hgt`); near(e.minY, 0, 1e-9, 'tyres touch y = 0');
-    const wheels = parts.filter(p => p.kind === 'wheel' && p.colour === RALLYHALL.colours.tyre);
-    assert.equal(wheels.length, 4); for (const w of wheels) { near(w.r, car.wheelR, 1e-9); near(w.y, car.wheelR, 1e-9); near(Math.abs(w.x), car.wheelbase / 2, 1e-9); }
-    assert.equal(new Set(wheels.map(w => `${Math.sign(w.x)},${Math.sign(w.z)}`)).size, 4, 'one wheel per corner');
-    for (const b of parts.filter(p => p.kind === 'box')) assert.ok(b.y - b.sy / 2 >= 0.05 - 1e-9, `a ${b.colour} box is off the floor`);
-    assert.ok(parts.some(p => p.kind === 'box' && p.x < -car.len / 2 + 0.6 && p.y > 0.9 && p.sz > 0.8 * car.wid), 'a rear wing');
-  }
-});
-
-test('carParts_PlainPaintOnly_NoSponsorColoursNoThirdColour', () => {
-  const C = RALLYHALL.colours;
-  for (const car of RALLYHALL.cars) {
-    const allowed = new Set([car.colour, C.glass, C.dark, C.tyre, C.rim]);
-    for (const p of carParts(car, RALLYHALL)) assert.ok(allowed.has(p.colour), `${car.id}: unexpected colour ${p.colour.toString(16)}`);
-  }
-  assert.equal(new Set(RALLYHALL.cars.map(c => c.colour)).size, 3, 'three different paints');
+test('RALLYHALL_EveryCarIsTheRhyRally_ThreeDifferentLiveryTints', () => {
+  for (const c of RALLYHALL.cars) assert.equal(c.vehicle, 'rally', `${c.id} is the game's rally car`);
+  assert.ok(RALLY.gltf, 'the Rhy Rally is a glTF vehicle');
+  assert.equal(new Set(RALLYHALL.cars.map(c => c.tint)).size, 3, 'three different looks');
+  for (const c of RALLYHALL.cars) assert.ok(c.tint === null || (Number.isInteger(c.tint) && c.tint >= 0 && c.tint <= 0xffffff), `${c.id} tint`);
 });
 
 import { rallyhallPlacement } from '../rallyhall.js';
@@ -81,4 +68,58 @@ test('boardLayout_OnTheBackWallBehindEvans_BelowTheGlassBand_NoCollider_FreeFloo
   const evans = RALLYHALL.cars.find(c => c.id === 'evans'); near(B.b, evans.at[1], 1e-9, 'behind the Evans car');
   assert.ok(evans.at[0] + RALLYHALL.podium.hw < B.a - 3, 'a 3 m viewing spot lies beyond the podium collider');
   assert.equal(rallyhallPlacement(room, RALLYHALL).colliders.length, 9);
+});
+
+import { flagLayout } from '../rallyhall.js';
+
+test('flagLayout_WalesThenTheUnionJack_FiveByThree_SvgFilesUnderAssetsFlags', () => {
+  const F = flagLayout(RALLYHALL);
+  assert.deepEqual(F.map(f => f.id), ['wales', 'uk']);
+  for (const f of F) { near(f.w / f.h, 5 / 3, 1e-9, `${f.id} is 5:3`); assert.match(f.src, /^\.\/assets\/flags\/[a-z]+\.svg$/); }
+});
+
+test('flagLayout_OnTheGlassBandAboveTheBoard_CentredOverIt_WalesOnTheLeftSeenFromTheFront_NoCollider', () => {
+  const F = flagLayout(RALLYHALL), B = boardLayout(RALLYHALL), H = RALLYHALL.hall, glassFront = H.d / 2 - H.wall - 0.1;
+  for (const f of F) {
+    assert.ok(f.a < glassFront && glassFront - f.a <= 0.1, `${f.id} hangs within 10 cm in front of the glass band`);
+    assert.ok(f.y0 >= H.glass.y0 && f.y0 > B.y0 + B.h && f.y0 + f.h <= H.glass.y1, `${f.id} on the glass band, above the board`);
+    assert.ok(Math.abs(f.b) + f.w / 2 <= H.w / 2 - H.wall, `${f.id} inside the wall width`);
+  }
+  near((F[0].b + F[1].b) / 2, B.b, 1e-9, 'centred over the board');
+  assert.ok(F[1].b - F[0].b >= F[0].w, 'side by side, not overlapping');
+  assert.ok(F[0].b < F[1].b, 'Wales on -b: the left as seen from the open front (looking +a, +b is to the right)');
+  assert.equal(rallyhallPlacement(room, RALLYHALL).colliders.length, 9);
+});
+
+import { videoLayout, videoEmbedUrl, videoShown } from '../rallyhall.js';
+
+test('videoLayout_TwoPortraitShortsOnTheGlassBand_OneEitherSideOfTheFlags_ClearOfThem', () => {
+  const VS = videoLayout(RALLYHALL), H = RALLYHALL.hall, F = flagLayout(RALLYHALL), glassFront = H.d / 2 - H.wall - 0.1;
+  assert.deepEqual(VS.map(v => v.id), ['cZxfLJdhWk8', 'RFIVbPT6pdI']);
+  const flagsLeft = Math.min(...F.map(f => f.b - f.w / 2)), flagsRight = Math.max(...F.map(f => f.b + f.w / 2));
+  for (const V of VS) {
+    near(V.w / V.h, 9 / 16, 1e-9, `${V.id}: a Short is 9:16`); assert.ok(V.title, `${V.id} has a title`);
+    assert.ok(V.a < glassFront && glassFront - V.a <= 0.1, `${V.id}: within 10 cm in front of the glass band`);
+    assert.ok(V.y0 >= H.glass.y0 && V.y0 + V.h <= H.glass.y1, `${V.id}: on the glass band`);
+    assert.ok(Math.abs(V.b) + V.w / 2 <= H.w / 2 - H.wall, `${V.id}: inside the wall width`);
+  }
+  assert.ok(VS[0].b + VS[0].w / 2 < flagsLeft - 1, 'the first left of the flags with a metre between');
+  assert.ok(VS[1].b - VS[1].w / 2 > flagsRight + 1, 'the second right of the flags with a metre between');
+});
+
+test('videoEmbedUrl_NoCookieEmbed_MutedAutoplayLoopingThatOneVideo', () => {
+  const u = new URL(videoEmbedUrl('cZxfLJdhWk8'));
+  assert.equal(u.origin, 'https://www.youtube-nocookie.com');
+  assert.equal(u.pathname, '/embed/cZxfLJdhWk8');
+  for (const [k, v] of [['autoplay', '1'], ['mute', '1'], ['loop', '1'], ['playlist', 'cZxfLJdhWk8'], ['playsinline', '1'], ['rel', '0']]) assert.equal(u.searchParams.get(k), v, k);
+});
+
+test('videoShown_OnlyFromTheHallFloorAndApronInFrontOfTheWall', () => {
+  assert.equal(videoShown(-80, 0, 1.5), true, 'on the apron');
+  assert.equal(videoShown(10, -13, 1.5), true, 'in the hall');
+  assert.equal(videoShown(19.5, 0, 1.5), false, 'at or behind the wall');
+  assert.equal(videoShown(-120, 0, 1.5), false, 'beyond the apron');
+  assert.equal(videoShown(0, 50, 1.5), false, 'beside the hall');
+  assert.equal(videoShown(0, 0, -5), false, 'below the floor');
+  assert.equal(videoShown(0, 0, 40), false, 'above the roof');
 });

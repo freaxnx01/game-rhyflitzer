@@ -1,7 +1,7 @@
 // #979: funny default player names. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePool, funnyName, uniqueFunnyName } from '../netnames.js';
+import { parsePool, funnyName, uniqueFunnyName, rerollName } from '../netnames.js';
 import { STRINGS } from '../strings.js';
 import { NAME_MAX } from '../netcodec.js';
 
@@ -29,4 +29,11 @@ test('uniqueFunnyName_takenIgnoringCase_picksAFreeOne', () => {
 test('uniqueFunnyName_poolExhausted_numberedSuffix', () => {
   const name = uniqueFunnyName(POOL, [...POOL, 'Turbo Tony 2'], () => 0);
   assert.equal(name, 'Turbo Tony 3');
+});
+
+test('rerollName_differsFromCurrent_whenPoolAllows', () => {
+  const pool = ['Turbo Tony', 'Pedal Pete', 'Idle Ida'];
+  for (let i = 0; i < 30; i++) assert.notEqual(rerollName(pool, 'Turbo Tony'), 'Turbo Tony');
+  assert.equal(rerollName(['Solo'], 'Solo'), 'Solo');
+  assert.ok(pool.includes(rerollName(pool, 'p1')));
 });

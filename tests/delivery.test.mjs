@@ -1,7 +1,7 @@
 // #107: the delivery mode's rules. Pure module, so node --test imports it without a browser.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DELIV, DEPOTS, mulberry32, parseHouse, buildAddresses, resolveDepots, timeLimit, orderScore, hitCargo, isHandover, pickOrder, newShift, beginOrder, tick, applyImpact, applyPenalty, finishOrder, isNewBest } from '../delivery.js';
+import { DELIV, DEPOTS, mulberry32, parseHouse, buildAddresses, resolveDepots, nearestPlace, addressLabel, homeDepots, timeLimit, orderScore, hitCargo, isHandover, pickOrder, newShift, beginOrder, tick, applyImpact, applyPenalty, finishOrder, isNewBest } from '../delivery.js';
 
 const BLD = (id, addr, x = 0, z = 0, st = null) => ({ id, addr, st, rect: [x, z, 10, 8, 0] });
 
@@ -147,4 +147,96 @@ test('the depots carry invented names only, each anchored to a world landmark', 
   assert.equal(DEPOTS.length, 3);
   assert.deepEqual(DEPOTS.map(d => d.name), ['Pizza Fridolin', 'Pizza Rheinblick', 'Pizza Sissla']);
   for (const d of DEPOTS) assert.ok(d.near && typeof d.near === 'string', d.name);
+});
+
+const VIL = [{ t: 'BAD SÄCKINGEN', x: 0, z: 0, r: 300 }, { t: 'STEIN', x: 0, z: 500, r: 300 }];
+
+test('nearestPlace_swissBank_givesStein', () => {
+  const stein = (x, z, vx, vz) => vz === 500;
+  assert.deepEqual(nearestPlace(VIL, 0, 200, stein), { place: 'Stein', abroad: false });
+});
+
+test('nearestPlace_flurVillage_isSkipped', () => {
+  const out = nearestPlace([{ t: 'IM FELD', x: 0, z: 390, r: 50, flur: true }, ...VIL], 0, 400);
+  assert.equal(out.place, 'Stein');
+});
+
+test('nearestPlace_germanPlace_isAbroad', () => {
+  assert.deepEqual(nearestPlace(VIL, 0, 100, () => true, ['Bad Säckingen']), { place: 'Bad Säckingen', abroad: true });
+});
+
+test('nearestPlace_noVillages_givesNull', () => {
+  assert.equal(nearestPlace([], 0, 0), null);
+});
+
+test('nearestPlace_noneOnSameBank_usesNearestOfAll', () => {
+  assert.equal(nearestPlace(VIL, 0, 100, () => false).place, 'Bad Säckingen');
+});
+
+test('addressLabel_threeForms', () => {
+  assert.equal(addressLabel({ street: 'Schulstrasse', no: '12', place: 'Stein' }), 'Schulstrasse 12, Stein');
+  assert.equal(addressLabel({ street: 'Schulstrasse', no: '', place: 'Stein' }), 'Schulstrasse, Stein');
+  assert.equal(addressLabel({ street: 'Schulstrasse', no: '12', place: null }), 'Schulstrasse 12');
+});
+
+test('buildAddresses_useBuildingWithoutNumber_isTakenWithKind', () => {
+  const near = () => ({ n: 'Schulstrasse', d: 5 });
+  const out = buildAddresses([{ ...BLD(1, undefined), use: 'school' }, BLD(2, undefined)], near, () => ({ place: 'Stein', abroad: false }));
+  assert.equal(out.length, 1);
+  assert.deepEqual([out[0].label, out[0].kind, out[0].no, out[0].place, out[0].abroad], ['Schulstrasse, Stein', 'school', '', 'Stein', false]);
+});
+
+test('buildAddresses_withoutPlaceOf_labelHasNoPlace', () => {
+  const out = buildAddresses([BLD(1, '4')], () => ({ n: 'Hauptstrasse', d: 5 }));
+  assert.deepEqual([out[0].label, out[0].place, out[0].abroad, out[0].kind], ['Hauptstrasse 4', null, false, null]);
+});
+
+test('buildAddresses_placeOfAbroad_marksAddress', () => {
+  const out = buildAddresses([BLD(1, '4')], () => ({ n: 'Hauptstrasse', d: 5 }), () => ({ place: 'Bad Säckingen', abroad: true }));
+  assert.equal(out[0].abroad, true);
+});
+
+test('homeDepots_abroadDepot_isDropped', () => {
+  const ds = [{ name: 'A', abroad: false }, { name: 'B', abroad: true }];
+  assert.deepEqual(homeDepots(ds).map(d => d.name), ['A']);
+  const all = [{ name: 'B', abroad: true }];
+  assert.deepEqual(homeDepots(all), all);
+});
+
+test('resolveDepots_abroadAddress_isCarriedOver', () => {
+  const out = resolveDepots(DEPOTS, [{ n: 'muenster', x: 0, z: 0 }], [{ label: 'A 1', x: 10, z: 0, abroad: true }]);
+  assert.equal(out[0].abroad, true);
+});
+
+const share = (n, make) => {
+  let hit = 0, total = 0;
+  for (let s = 1; s <= 200; s++) {
+    const p = pickOrder(make(mulberry32(s)));
+    if (p) { total++; if (n(p.addr)) hit++; }
+  }
+  return hit / total;
+};
+
+test('pickOrder_manyAbroad_atMost15PercentAbroad', () => {
+  const addrs = Array.from({ length: 100 }, (_, i) => ({ id: i, label: 'S', x: i, z: 0, abroad: i >= 50 }));
+  assert.ok(share(a => a.abroad, rng => ({ addresses: addrs, rng, routeLen: () => 1000, recent: [] })) <= 0.15);
+});
+
+test('pickOrder_abroadLeftZero_neverAbroad', () => {
+  const addrs = Array.from({ length: 100 }, (_, i) => ({ id: i, label: 'S', x: i, z: 0, abroad: i >= 50 }));
+  assert.equal(share(a => a.abroad, rng => ({ addresses: addrs, rng, routeLen: () => 1000, recent: [], abroadLeft: 0 })), 0);
+});
+
+test('pickOrder_fewPublic_atLeast30PercentPublic', () => {
+  const addrs = Array.from({ length: 100 }, (_, i) => ({ id: i, label: 'S', x: i, z: 0, kind: i < 5 ? 'school' : null }));
+  assert.ok(share(a => a.kind, rng => ({ addresses: addrs, rng, routeLen: () => 1000, recent: [] })) >= 0.3);
+});
+
+test('beginOrder_abroadAddress_countsAndCarriesPlaceAndKind', () => {
+  const st = newShift(0);
+  assert.equal(st.abroad, 0);
+  beginOrder(st, { id: 1, label: 'S', x: 0, z: 0, place: 'Bad Säckingen', abroad: true, kind: 'school' }, 1000);
+  assert.deepEqual([st.abroad, st.order.place, st.order.abroad, st.order.kind], [1, 'Bad Säckingen', true, 'school']);
+  beginOrder(st, { id: 2, label: 'S', x: 0, z: 0 }, 1000);
+  assert.equal(st.abroad, 1);
 });

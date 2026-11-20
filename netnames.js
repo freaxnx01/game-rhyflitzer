@@ -16,3 +16,9 @@ export function uniqueFunnyName(pool, taken, rnd = Math.random) {
   while (isTaken(taken, `${base} ${n}`)) n++;
   return `${base} ${n}`.slice(0, NAME_MAX);
 }
+
+// rerollName(pool, current, rnd) — a pool name other than the one in the field, when the pool has another
+export function rerollName(pool, current, rnd = Math.random) {
+  const others = pool.filter((n) => n.trim().toLowerCase() !== String(current).trim().toLowerCase());
+  return funnyName(others.length ? others : pool, rnd);
+}

@@ -51,8 +51,8 @@ def test_validate_shots_checks_the_landmark_distance_and_a_distinct_heading_targ
 def test_validate_shots_needs_climb_seconds_for_the_heli_and_a_count_in_range():
     assert any("climb_s" in e for e in shots.validate_shots([shot(mode="heli")], REGIONS, LANDMARKS, min_count=1))
     assert shots.validate_shots([shot(mode="heli", climb_s=3)], REGIONS, LANDMARKS, min_count=1) == []
-    assert any("8-14" in e for e in shots.validate_shots([shot()], REGIONS, LANDMARKS))
-    assert not any("8-14" in e for e in shots.validate_shots([shot(id=f"m{i}") for i in range(14)], REGIONS, LANDMARKS))
+    assert any("8-18" in e for e in shots.validate_shots([shot()], REGIONS, LANDMARKS))
+    assert not any("8-18" in e for e in shots.validate_shots([shot(id=f"m{i}") for i in range(18)], REGIONS, LANDMARKS))
 
 
 def test_heading_points_from_at_to_look_at():
