@@ -37,7 +37,7 @@ def test_a_refused_finish_brings_markers_and_arrow_back(pair):
         guest.evaluate("(i) => window.__mm.netMarkCpDone(i)", i)
     fx, fz = guest.evaluate(NET_RACE)["finish"]
     guest.evaluate("([x, z]) => window.__mm.place(x, z, 0)", [fx, fz])
-    guest.wait_for_function("() => window.__mm.netRace().cpno === -1 || window.__mm.netRace().state === 'racing'", timeout=T)
+    guest.wait_for_function("() => window.__mm.netRace().cpno >= 1", timeout=T)   # the refusal arrived and netReopenCp(-1) ran (cpno counts refusals; === -1 can never be true)
     guest.wait_for_function("() => window.__mm.netRace().state === 'racing' && window.__mm.netRace().arrowShown", timeout=T)
     back = guest.evaluate(NET_RACE)
     assert back["finishVisible"] is True
