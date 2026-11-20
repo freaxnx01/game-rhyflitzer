@@ -8,10 +8,13 @@ is hidden on both banks. Precedence: bridge > motorway > industrial > empty.
 
 A kept bridge also joins every road vertex within BRIDGE_SNAP of its ends, so the Holzbruecke keeps its Swiss approach.
 
-Kept residential streets are then trimmed (`trim`). An old footprint counts only for its nearest road (plus any road
+Kept residential streets are then trimmed (`trim`). The old network is the largest Swiss connected component of the
+kept roads that are neither candidates nor routable (built without any residential street); every other Swiss
+component of those roads is an island that must be joined too. A kept interval that ends within BRIDGE_SNAP of a
+kept bridge end is extended to the road point nearest that end, so the asphalt reaches the deck. An old footprint counts only for its nearest road (plus any road
 within 1 m of that distance, within NEAR_OLD); a road with such footprints keeps the stretch from the first minus
 TRIM_PAD to the last plus TRIM_PAD (a trim candidate). Each stretch, and every kept Swiss island the hiding cut off
-from the main network, is joined to the old network (kept roads that are not candidates) by the cheapest route
+from the main network, is joined to the old network by the cheapest route
 (Dijkstra over road vertices and the cut points, cost = metres not yet kept), nearest first, through candidate,
 residential and "empty" roads. An "empty" road keeps only the metres a route uses (the others stay hidden), an unused
 one stays `modern`. A stretch with no route keeps its whole road. Written as `road["keep1952"] = [[a, b], ...]`
@@ -339,16 +342,44 @@ def _plan(roads, hidden, buildings, swiss):
     routable = {i for i, reason in hidden.items() if reason == "empty"}
     routable |= {i for i, r in enumerate(roads) if i not in hidden and i not in stretches and _is_residential(r, swiss)}
     node_sets = _node_sets(roads, hidden)
-    _, islands = _reconnect_plan(roads, hidden, swiss)
-    island_roads = {i for idx in islands for i in idx}
-    island_keys = [set().union(*(node_sets[i] for i in idx if i not in stretches and i not in routable)) for idx in islands]
-    island_keys = [keys for keys in island_keys if keys]
-    sources = [i for i in range(len(roads)) if i not in hidden and i not in stretches and i not in routable
-               and i not in island_roads]
-    network_keys = set().union(*(node_sets[i] for i in sources))
-    solid = {i for i in island_roads if i not in stretches and i not in routable}
-    kept = _join_targets(roads, stretches, routable, solid, island_keys, network_keys)
-    return {i: iv for i, iv in kept.items() if i not in solid}, routable
+    fixed = [i for i in range(len(roads)) if i not in hidden and i not in stretches and i not in routable]
+    comps = [(idx, nodes, _swiss_kept_count(roads, idx, swiss)) for idx, nodes in _components(node_sets, fixed)]
+    comps.sort(key=lambda c: (-c[2], min(c[0])))
+    network_keys = set(comps[0][1]) if comps and comps[0][2] else set()
+    islands = [c for c in comps[1:] if c[2]] if network_keys else []  # German pieces are left alone
+    solid = {i for idx, _, _ in islands for i in idx}
+    kept = _join_targets(roads, stretches, routable, solid, [nodes for _, nodes, _ in islands], network_keys)
+    kept = {i: iv for i, iv in kept.items() if i not in solid}
+    _reach_bridges(roads, hidden, kept)
+    return kept, routable
+
+
+def _reach_bridges(roads, hidden, kept):
+    """Extend a kept interval that ends within BRIDGE_SNAP of a kept bridge end to the road point nearest that end:
+    the route counted the bridge as joined at the snapped vertex, but the asphalt has to reach the deck."""
+    ends = [Point(*p) for i, r in enumerate(roads) if r.get("bridge") and i not in hidden for p in (r["pts"][0], r["pts"][-1])]
+    for i, intervals in kept.items():
+        line = LineString(roads[i]["pts"])
+        for end in ends:
+            if line.distance(end) > BRIDGE_SNAP:
+                continue
+            reach = line.project(end)
+            for k, (a, b) in enumerate(intervals):
+                if b < reach and line.interpolate(b).distance(end) <= BRIDGE_SNAP:
+                    intervals[k] = (a, reach)
+                elif a > reach and line.interpolate(a).distance(end) <= BRIDGE_SNAP:
+                    intervals[k] = (reach, b)
+            kept[i] = _merge(intervals)
+
+
+def _merge(intervals):
+    merged = []
+    for a, b in sorted(intervals):
+        if merged and a <= merged[-1][1] + 1e-6:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], b))
+        else:
+            merged.append((a, b))
+    return merged
 
 
 def _is_residential(road, swiss):
