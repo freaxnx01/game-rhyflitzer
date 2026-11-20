@@ -340,3 +340,10 @@ test('chipRows_TwoCountries_SplitsKeepingOrderAndDropsEmptyRows', () => {
 test('chipRows_NoGermanList_OneUnlabelledRow', () => {
   assert.deepEqual(chipRows(['Ehrendingen'], []), [{ country: null, gemeinden: ['Ehrendingen'] }]);
 });
+
+test('landmarkEntries: an entry sourced from a modern building carries modern (#530)', () => {
+  const bs = [{ id: '171822634', ring: [[0, 0], [10, 0], [10, 20], [0, 20]], modern: true }];
+  const e = landmarkEntries([{ name: 'A', gemeinde: 'Sisseln', building: 171822634 }, { name: 'B', gemeinde: 'Sisseln', anchor: 'smileKreisel' }], ANCHORS, bs);
+  assert.equal(e.find(x => x.n === 'A').modern, true);
+  assert.equal('modern' in e.find(x => x.n === 'B'), false);
+});

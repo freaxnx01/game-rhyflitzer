@@ -225,3 +225,10 @@ test('ENTERABLE_INFO_BodenackerstrasseSixC_IsReadyAndStillNamesOnlyTheAddress', 
   assert.equal(e.kind, 'building');
   assert.deepEqual(e.name, { de: 'Bodenackerstrasse 6c', en: 'Bodenackerstrasse 6c' });
 });
+
+test('enterableEntries: an entry sourced from a modern building carries modern (#530)', () => {
+  const bs = [{ ...BUILDINGS[0], modern: true }];
+  const e = enterableEntries([{ building: 171822634, entrances: [] }, { anchor: 'plattform', entrances: [] }], ANCHORS, bs, {});
+  assert.equal(e[0].modern, true);
+  assert.equal('modern' in e[1], false);
+});

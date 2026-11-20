@@ -190,3 +190,8 @@ test('heliAltitude: metres above the ground, and above sea level only with a dat
   assert.deepEqual(heliAltitude(130.4, 10.2, NaN), { agl: 120, asl: null });
   assert.deepEqual(heliAltitude(5, 5, 284), { agl: 0, asl: 289 });
 });
+
+test('heliFloor: a box with off (hidden in 1952) no longer lifts the floor -- #530', () => {
+  assert.equal(heliFloor(0, [box({})], 0, 0), 30 + HELI.clearance);
+  assert.equal(heliFloor(0, [box({ off: true })], 0, 0), HELI.clearance);
+});

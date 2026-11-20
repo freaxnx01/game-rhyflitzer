@@ -79,6 +79,7 @@ const en = {
   notCountedHeli: 'with the helicopter, not counted · ',
   notCountedFoot: 'on foot, not counted · ',
   notCountedSwap: 'with a vehicle change, not counted · ',
+  notCountedEra: 'in 1952, not counted · ',
   notCountedAuto: 'with the autopilot, not counted · ',
   viaHolz: 'via the Holzbrücke · ',
   bestLower: 'best',
@@ -299,6 +300,11 @@ const en = {
   monoOn: 'Black and white · Ctrl+B for colour',   // #530
   monoOff: 'Colour',   // #530
   keyMono: 'black and white like an old photo, and back',   // #530
+  eraOn: '1952 · Ctrl+Y for today',   // #530
+  eraOff: 'Today',
+  eraNone: 'This world has no 1952 view',
+  eraNoDelivery: 'Not during a delivery',
+  keyEra: 'the villages as they stood in 1952, and back',
   debugOff: 'Debug off',
   copied: 'Copied',
   copyFailed: 'Copy failed',
@@ -558,6 +564,7 @@ const en = {
   aboutOsm: '© OpenStreetMap contributors, ODbL',
   aboutSwisstopo: 'Terrain swissALTI3D, building heights swissSURFACE3D, Swiss border swissBOUNDARIES3D, Holzbrücke reference swissBUILDINGS3D © swisstopo',
   aboutAgis: 'Farm fields: Landwirtschaftliche Nutzungsflächen © Kanton Aargau via geodienste.ch (free use, attribution required)',
+  aboutGwr: 'Building ages: Federal Register of Buildings and Dwellings (GWR) © BFS (free use, attribution required)',
   aboutCopernicus: 'Horizon (Black Forest, Jura): produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved',
   aboutTimetable: 'Postauto timetable: opentransportdata.swiss',
   horizonSource: 'Horizon: Copernicus DEM GLO-30',
@@ -941,6 +948,7 @@ const de = {
   notCountedHeli: 'mit Helikopter, zählt nicht · ',
   notCountedFoot: 'zu Fuss, zählt nicht · ',
   notCountedSwap: 'mit Fahrzeugwechsel, zählt nicht · ',
+  notCountedEra: 'in 1952, zählt nicht · ',
   notCountedAuto: 'mit Autopilot, zählt nicht · ',
   viaHolz: 'über die Holzbrücke · ',
   bestLower: 'Bestzeit',
@@ -1159,6 +1167,11 @@ const de = {
   monoOn: 'Schwarzweiss · Ctrl+B für Farbe',   // #530
   monoOff: 'Farbe',   // #530
   keyMono: 'Schwarzweiss wie ein altes Foto, und zurück',   // #530
+  eraOn: '1952 · Ctrl+Y für heute',   // #530
+  eraOff: 'Heute',
+  eraNone: 'In dieser Welt gibt es kein 1952',
+  eraNoDelivery: 'Nicht während einer Lieferung',
+  keyEra: 'die Dörfer wie 1952, und zurück',
   debugOff: 'Debug aus',
   copied: 'Kopiert',
   copyFailed: 'Kopieren fehlgeschlagen',
@@ -1416,6 +1429,7 @@ const de = {
   aboutOsm: '© OpenStreetMap-Mitwirkende, ODbL',
   aboutSwisstopo: 'Gelände swissALTI3D, Gebäudehöhen swissSURFACE3D, Landesgrenze swissBOUNDARIES3D, Massstab Holzbrücke swissBUILDINGS3D © swisstopo',
   aboutAgis: 'Felder: Landwirtschaftliche Nutzungsflächen © Kanton Aargau via geodienste.ch (freie Nutzung, Quellenangabe Pflicht)',
+  aboutGwr: 'Baujahre: Gebäude- und Wohnungsregister (GWR) © BFS (freie Nutzung, Quellenangabe Pflicht)',
   aboutCopernicus: 'Horizont (Schwarzwald, Jura): produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved',
   aboutTimetable: 'Postauto-Fahrplan: opentransportdata.swiss',
   horizonSource: 'Horizont: Copernicus DEM GLO-30',

@@ -637,11 +637,11 @@ export function rowHouseTile(b) { const w = Math.max(b.rect[2], b.rect[3]), h = 
 // point of the street named st -- the address's own street, when the data has it -- or of any road, as [x, z] or null (then the
 // +z side). foot = the ring the base height comes from (null for a landmark, which stands on the terrain at its centre).
 export function addrLabels(buildings, landmarks = {}, roadAt = () => null) {
-  const plate = (t, x, z, w, d, rot, foot, st, ring) => {
+  const plate = (t, x, z, w, d, rot, foot, st, ring, modern) => {
     const road = roadAt(x, z, st);
-    return { t, ...(wallPlate(ring, x, z, road) || facingFacade(x, z, rot, w, d, road)), foot };
+    return { t, ...(wallPlate(ring, x, z, road) || facingFacade(x, z, rot, w, d, road)), foot, ...(modern ? { modern: true } : {}) };   // #530: modern = newer than 1952
   };
-  return [...buildings.filter(b => b.addr).map(b => plate(b.addr, ...b.rect, b.ring, b.st, b.ring)),
+  return [...buildings.filter(b => b.addr).map(b => plate(b.addr, ...b.rect, b.ring, b.st, b.ring, b.modern)),
           ...Object.values(landmarks).filter(l => l.addr).map(l => plate(l.addr, l.x, l.z, ...l.size, l.rot || 0, null, undefined, null))];
 }
 const PLATE_OFF = 0.06, PLATE_IN = 1;   // m off the wall (clear of z-fighting); m in from the façade's right corner

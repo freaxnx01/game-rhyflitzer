@@ -1593,6 +1593,14 @@ test('world_hochrhein (#761): the Bahnhof Frick is in the world file, the hand-d
   for (const id of [162862443, 162862441, 1280041307, 183386655, 88836292]) assert.equal(ids.has(id), false, `w${id} is drawn by the game`);
 });
 
+test('addrLabels: a plate carries modern for a modern building only (#530)', () => {
+  const ring = [[0, 0], [10, 0], [10, 10], [0, 10]];
+  const mk = (id, modern) => ({ id, addr: '1', rect: [5, 5, 10, 10, 0], ring, st: null, ...(modern ? { modern: true } : {}) });
+  const [a, b] = addrLabels([mk(1, true), mk(2, false)], {}, () => [5, 100]);
+  assert.equal(a.modern, true);
+  assert.equal('modern' in b, false);
+});
+
 // #1044: road crossings under road bridges
 import { roadBridgeCrossings, DECK_END_GAP } from '../world.js';
 test('roadBridgeCrossings_NormalRoadUnderDeck_OneRecord', () => {
