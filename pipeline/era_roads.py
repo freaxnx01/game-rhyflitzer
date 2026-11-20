@@ -10,7 +10,12 @@ A kept road that the hiding cuts off from the main kept network gets back the fe
 (shortest chain, BFS over road vertices snapped to ENDPOINT_TOL). A kept bridge also joins every road vertex within
 BRIDGE_SNAP of its ends, so the Holzbruecke keeps its Swiss approach.
 
-Sets `road["modern"] = True` (last key) and removes it from every other road; idempotent.
+A kept residential street with old houses nearby is then trimmed to the stretch those houses need (`trim`): from the
+first old footprint minus TRIM_PAD to the last plus TRIM_PAD along the street, whole on each side whose end touches the
+kept network. Cut-off pieces get their trimmed roads back at full length. Written as `road["keep1952"] = [a, b]`
+(metres along `pts`).
+
+Sets `road["modern"] = True` (last key) and removes it from every other road; likewise `keep1952`; idempotent.
 
     python era_roads.py --world ../data/world_hochrhein.json
 """
@@ -22,7 +27,7 @@ from collections import deque
 from pathlib import Path
 
 from shapely import STRtree
-from shapely.geometry import LineString, Polygon, shape
+from shapely.geometry import LineString, Point, Polygon, shape
 
 from era_1952 import _load_outline, _outline_to_game
 from geo import Frame
@@ -31,6 +36,8 @@ NEAR_OLD = 25.0  # m, an old Swiss building footprint this close to a street mak
 INDUSTRIAL_SHARE = 0.5  # share of the road length inside the industrial site
 ENDPOINT_TOL = 0.5  # m, vertices closer than this are the same junction
 BRIDGE_SNAP = 15.0  # m, a kept bridge end joins any road vertex this close (bridges often end beside the road, not on it)
+TRIM_PAD = 10.0  # m, a trimmed street runs this far past the old house it serves
+MIN_TRIM = 0.5  # m, a trim that cuts less than this off both ends is not worth writing
 RESIDENTIAL = ("residential", "living_street", "service")
 MAIN_PREFIXES = ("motorway", "trunk", "primary", "secondary", "tertiary")
 BRIDGE_NAME = "Fridolinsbrücke"
@@ -177,6 +184,85 @@ def reconnect(roads, hidden, swiss=None):
     return restored
 
 
+def _end_keys(road):
+    keys = _vertex_keys(road)
+    return keys[0], keys[-1]
+
+
+def _arc_range(line, polygons):
+    arcs = [line.project(Point(x, z)) for p in polygons for x, z in p.exterior.coords]
+    return min(arcs), max(arcs)
+
+
+def _wanted_stretch(i, roads, node_sets, others, line, old_polys, old_tree):
+    """(a, b) the road needs, or None if it stays whole (no old house, no or both ends on the kept network)."""
+    near = old_tree.query(line.buffer(NEAR_OLD), predicate="intersects")
+    if not len(near):
+        return None
+    first, last = _end_keys(roads[i])
+    start_joined = any(first in node_sets[j] for j in others if j != i)
+    end_joined = any(last in node_sets[j] for j in others if j != i)
+    if start_joined == end_joined:
+        return None
+    lo, hi = _arc_range(line, [old_polys[k] for k in near])
+    a, b = (0.0, min(hi + TRIM_PAD, line.length)) if start_joined else (max(lo - TRIM_PAD, 0.0), line.length)
+    return (a, b) if a + (line.length - b) >= MIN_TRIM else None
+
+
+def _stretch_nodes(road, a, b):
+    line = LineString(road["pts"])
+    return {key for (x, z), key in zip(road["pts"], _vertex_keys(road)) if a - 1e-6 <= line.project(Point(x, z)) <= b + 1e-6}
+
+
+def _cut_off_trimmed(roads, hidden, node_sets, wanted, swiss, base_main):
+    """Trimmed roads to restore: those in or touching a Swiss group the trimming cut off from the main kept component."""
+    kept = [i for i in range(len(roads)) if i not in hidden]
+    pieces = [(_stretch_nodes(roads[i], *wanted[i]) if i in wanted else node_sets[i]) for i in range(len(roads))]
+    comps = [(idx, nodes, _swiss_kept_count(roads, idx, swiss)) for idx, nodes in _components(pieces, kept)]
+    comps.sort(key=lambda c: (-c[2], min(c[0])))
+    restore = set()
+    for idx, nodes, swiss_count in comps[1:]:
+        if not swiss_count or not base_main.intersection(idx):
+            continue
+        neighbours = {i for i in wanted if i not in idx and node_sets[i] & nodes}
+        restore.update(neighbours or (i for i in idx if i in wanted))
+    return restore
+
+
+def trim(roads, hidden, buildings, swiss, restored=frozenset()):
+    """Road index -> (a, b) metres along `pts` that a kept residential Swiss street keeps in 1952.
+
+    The street keeps the stretch from its first old footprint minus TRIM_PAD to its last plus TRIM_PAD, whole on a side
+    whose end vertex touches another kept road. A street with no or both ends on the kept network stays whole. Where the
+    trimming cuts a Swiss group off the main kept component, the trimmed roads that join it (else its own) come back whole (repeated
+    until stable; the set only shrinks). Restored roads, bridges, main roads and the German side are never trimmed.
+    """
+    node_sets = _node_sets(roads, hidden)
+    kept = [i for i in range(len(roads)) if i not in hidden]
+    old_polys = _old_swiss_footprints(buildings, swiss)
+    old_tree = STRtree(old_polys)
+    wanted = {}
+    for i in kept:
+        road = roads[i]
+        if road["cls"] not in RESIDENTIAL or road.get("bridge") or i in restored:
+            continue
+        line = LineString(road["pts"])
+        if not swiss.contains(line.interpolate(0.5, normalized=True)):
+            continue
+        stretch = _wanted_stretch(i, roads, node_sets, kept, line, old_polys, old_tree)
+        if stretch:
+            wanted[i] = stretch
+    base_comps = sorted(((idx, _swiss_kept_count(roads, idx, swiss)) for idx, _ in _components(node_sets, kept)),
+                        key=lambda c: (-c[1], min(c[0])))
+    base_main = set(base_comps[0][0]) if base_comps else set()
+    while True:
+        back = _cut_off_trimmed(roads, hidden, node_sets, wanted, swiss, base_main)
+        if not back:
+            return wanted
+        for i in back:
+            del wanted[i]
+
+
 def _to_game(geometry, frame):
     geom = shape(geometry) if isinstance(geometry, dict) else geometry
     ring = [tuple(map(float, frame.to_game(x, y))) for x, y in geom.exterior.coords]
@@ -184,7 +270,7 @@ def _to_game(geometry, frame):
 
 
 def apply(world, outline_lv95, industrial_lonlat):
-    """Retrofit `world` in place; returns the counts per reason (after the reconnect) plus `restored`."""
+    """Retrofit `world` in place; returns the counts per reason (after the reconnect) plus `restored` and `trimmed`."""
     frame = Frame(world["origin"]["lat"], world["origin"]["lon"])
     swiss = _outline_to_game(outline_lv95, frame)
     industrial = _to_game(industrial_lonlat, frame)
@@ -193,12 +279,17 @@ def apply(world, outline_lv95, industrial_lonlat):
     restored = reconnect(roads, hidden, swiss)
     for i in restored:
         del hidden[i]
+    trimmed = trim(roads, hidden, world["buildings"], swiss, restored)
     for i, road in enumerate(roads):
         road.pop("modern", None)
+        road.pop("keep1952", None)
         if i in hidden:
             road["modern"] = True
+        elif i in trimmed:
+            road["keep1952"] = [round(v, 1) for v in trimmed[i]]
     counts = {k: sum(1 for v in hidden.values() if v == k) for k in ("motorway", "bridge", "industrial", "empty")}
     counts["restored"] = len(restored)
+    counts["trimmed"] = len(trimmed)
     return counts
 
 

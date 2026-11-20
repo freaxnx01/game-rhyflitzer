@@ -124,3 +124,72 @@ def SWISS_LV95():
     from geo import Frame
     fr = Frame(47.5506, 7.9671)
     return box(fr.e0 + 0, fr.n0 - 1000, fr.e0 + 1000, fr.n0 + 1000)
+
+
+def long_street(pts=((100, 0), (300, 0)), cls="residential"):
+    return road(cls, pts)
+
+
+def test_trim_DeadEndWithOldHouseNearStart_KeepsStartToHousePlusPad():
+    main = road("primary", [(100, -100), (100, 0), (100, 100)])
+    street = long_street()  # 200 m, starts on the main road
+    roads = [main, street]
+    got = R.trim(roads, {}, [house(140, 5)], SWISS)  # footprint spans 40..50 m along the street
+    assert list(got) == [1]
+    a, b = got[1]
+    assert a == 0
+    assert abs(b - (50 + R.TRIM_PAD)) < 0.5
+
+
+def test_trim_BothEndsOnKeptNetwork_KeepsWhole():
+    roads = [road("primary", [(100, -100), (100, 0), (100, 100)]), road("primary", [(300, -100), (300, 0), (300, 100)]), long_street()]
+    assert R.trim(roads, {}, [house(140, 5)], SWISS) == {}
+
+
+def test_trim_NoConnectedEnd_FallsBackToWhole():
+    hidden_a = road("residential", [(50, 0), (100, 0)])
+    hidden_b = road("residential", [(300, 0), (350, 0)])
+    roads = [hidden_a, hidden_b, long_street()]
+    assert R.trim(roads, {0: "empty", 1: "empty"}, [house(140, 5)], SWISS) == {}
+
+
+def test_trim_ChainCutOff_RestoresFull():
+    main = road("primary", [(100, -100), (100, 0), (100, 100)])
+    b = road("residential", [(100, 0), (200, 0), (300, 0)])  # old house near the main-road end
+    a = road("residential", [(200, 0), (400, 0)])  # joins B at B's middle vertex, old house near its far end
+    roads = [main, b, a]
+    got = R.trim(roads, {}, [house(120, 5), house(370, 5)], SWISS)
+    assert 1 not in got  # B comes back full, otherwise A's stretch hangs in the air
+    assert got[2][0] == 0  # A keeps its link to B
+
+
+def test_trim_MainRoadsAndGermanSideNeverTrimmed():
+    main = road("primary", [(100, -100), (100, 0), (100, 100)])
+    tert = road("tertiary", [(100, 0), (300, 0)])
+    german = road("residential", [(-300, 50), (-100, 50)])
+    german_main = road("primary", [(-100, -100), (-100, 100)])
+    roads = [main, tert, german, german_main]
+    assert R.trim(roads, {}, [house(140, 5), house(-250, 55)], SWISS) == {}
+
+
+def test_trim_RestoredRoadIsNeverTrimmed():
+    roads = [road("primary", [(100, -100), (100, 0), (100, 100)]), long_street()]
+    assert R.trim(roads, {}, [house(140, 5)], SWISS, restored={1}) == {}
+
+
+def test_apply_Idempotent_WithKeep1952():
+    from geo import Frame
+    fr = Frame(47.5506, 7.9671)
+    ind = {"type": "Polygon", "coordinates": [[[7.99, 47.55], [7.991, 47.55], [7.991, 47.551], [7.99, 47.551], [7.99, 47.55]]]}
+    world = {"origin": {"lat": 47.5506, "lon": 7.9671},
+             "roads": [road("primary", [(100, -100), (100, 0), (100, 100)]), long_street()],
+             "buildings": [house(140, 5)]}
+    outline = SWISS_LV95()
+    R.apply(world, outline, ind)
+    first = json.dumps(world, ensure_ascii=False, separators=(",", ":"))
+    assert world["roads"][1]["keep1952"][0] == 0
+    assert "modern" not in world["roads"][1]
+    counts = R.apply(world, outline, ind)
+    assert json.dumps(world, ensure_ascii=False, separators=(",", ":")) == first
+    assert counts["trimmed"] == 1
+    assert not any("keep1952" in r and "modern" in r for r in world["roads"])
