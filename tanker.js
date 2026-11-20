@@ -14,7 +14,7 @@ export const TANKER = {
   trailer: { hitch: 5.2, length: 3.85 },   // the glb's root extras: the hitch behind the origin, hitch -> midpoint of the trailer axles
   drive: { top: 22.2, topNitro: 30, accel: 3.0, accelNitro: 7, brake: 8, reverse: 3, reverseMax: 4, grip: 6, gripHandbrake: 1.5, steerRate: 1.2, airSteer: 0.2 },
   mass: 9, engineAt: [3.6, 1.2, 0], collision: { shape: 'capsule', r: 1.3, hl: 3.3 },   // circles reach -4.6 .. 4.6 m over the 9.8 m truck (-5.2 .. 4.6)
-  camera: { chase: { dist: 16, h: 5.5 }, near: { dist: 11, h: 4.2 }, cockpit: { eye: [3.5, 2.5, -0.62] }, bumper: { eye: [4.7, 0.9, 0] }, drone: { dist: 28, h: 17 } },
+  camera: { chase: { dist: 20, h: 6.5 }, near: { dist: 15, h: 5 }, cockpit: { eye: [3.5, 2.5, -0.62] }, bumper: { eye: [4.7, 0.9, 0] }, drone: { dist: 32, h: 20 } },
   sound: { gears: [0, 9, 18, 28, 40, 54, 999],
     engine: { cylinders: 6, idleRpm: 580, shiftRpm: 2000, limitRpm: 2300, topKmh: 80, harmonics: [{ mul: 0.5, gain: 0.7, detune: -6 }, { mul: 1, gain: 1, detune: 0 }, { mul: 1.5, gain: 0.32, detune: 5 }, { mul: 2, gain: 0.3, detune: -4 }],
       filter: { idle: 230, open: 1150, offLoad: 0.45, q: 1.25 }, gain: { idle: 0.08, rev: 0.05, load: 0.12 }, shiftTime: 0.4, shiftDip: 0.5, nitroHiss: 0.07 },

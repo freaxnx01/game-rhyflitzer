@@ -54,3 +54,10 @@ test('TANKER_Livery_IsFixed_NotPaintable', () => {
   assert.equal(buildableId('tanker', TANKER, 'loading'), 'compact');
   assert.equal(buildableId('tanker', TANKER, 'ready'), 'tanker');
 });
+
+test('TANKER_Camera_StaysBehindAndAboveTheTrailer', () => {
+  // dist is measured from the car origin; the trailer's tail lies about 13.65 m behind it (18.25 m combination)
+  const c = TANKER.camera;
+  assert.deepEqual([c.chase.dist, c.chase.h, c.near.dist, c.near.h, c.drone.dist, c.drone.h], [20, 6.5, 15, 5, 32, 20]);
+  assert.ok(c.near.dist > 13.65 + 1, 'the near cam clears the trailer tail');
+});
