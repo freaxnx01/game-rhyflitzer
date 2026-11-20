@@ -15,7 +15,7 @@ const DENY_REASONS = ['class', 'full', 'started'];
 // ---- binary pose record (#835) ----
 export const POSE_BYTES = 36;       // the record size: byteLength of a pose, asserted by the tests and read by part b
 export const POSE_KIND = 1;         // u8 at byte 0: this record kind; other kinds are refused, room is left for #836/#837
-export const START_MODES = ['cruise'];  // the modes a 'start' message may carry; #837 adds 'race'
+export const START_MODES = ['cruise', 'race'];  // the modes a 'start' message may carry; 'race' adds t0/now (#837)
 const POS_MAX = 50000;              // m: |x| and |z| bound, "region bounds plus margin"
 const Y_MIN = -1000, Y_MAX = 10000; // m: the height band a car can plausibly be in
 const V_MAX = 150;                  // m/s: the speed bound, checked on the combined velocity
@@ -24,6 +24,8 @@ const V_SCALE = 100;                // velocities are carried as i16 cm/s
 const I16_MAX = 0x7fff, I16_MIN = -0x8000;
 const clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
 const scaledInt16 = (v, scale) => clampInt(v * scale, I16_MIN, I16_MAX);
+const HIT_PRESENT = 4;       // bit 2 of byte 33: set when a hit is carried, so zero bytes (no hit) stay valid
+const HIT_C_MAX = 240;       // m/s: matches netbump.js MAX_CLOSING — the physical cap ("two cars at top nitro speed head-on"); a peer-reported closing speed above this is refused, so a crafted hit.c cannot impose a stronger impulse than a legitimate collision
 
 // encodePose(pose) — the 36-byte little-endian record of the spec table. Ints are clamped into range, so a caller
 // that hands in an out-of-range value still gets a decodable record, not a wrapped one.
@@ -44,7 +46,11 @@ export function encodePose(p) {
   v.setInt16(28, scaledInt16(p.vz, V_SCALE), true);
   v.setInt16(30, scaledInt16(p.steer, ROT_SCALE), true);
   v.setUint8(32, p.flags & 0x3f);   // bits 6–7 are reserved and must stay 0, also in what we send
-  // bytes 33–35 stay 0: reserved for #836
+  // bytes 33–35: #836 part b hit relay — byte 33 = to (bits 0–1) | present (bit 2) | n (bits 3–7); bytes 34–35 = closing speed in cm/s
+  if (p.hit) {
+    v.setUint8(33, (p.hit.to & 3) | HIT_PRESENT | ((p.hit.n & 31) << 3));
+    v.setUint16(34, clampInt(p.hit.c * V_SCALE, 0, 0xffff), true);
+  }
   return buf;
 }
 
@@ -68,6 +74,10 @@ export function parsePose(buf) {
   if (Math.hypot(vx, vz) > V_MAX) return null;
   const flags = v.getUint8(32);
   if (flags & 0xc0) return null;
+  const hb = v.getUint8(33), hc = v.getUint16(34, true);
+  let hit = null;
+  if (hb & HIT_PRESENT) { hit = { to: hb & 3, n: hb >> 3, c: hc / V_SCALE }; if (hit.c > HIT_C_MAX) return null; }
+  else if (hb || hc) return null;
   return {
     id,
     seq: v.getUint16(2, true),
@@ -79,6 +89,7 @@ export function parsePose(buf) {
     vx, vz,
     steer: v.getInt16(30, true) / ROT_SCALE,
     flags,
+    hit,
   };
 }
 
@@ -175,6 +186,37 @@ export function cleanName(raw) {
 // can reach the game state. An unknown type, a missing field or one out of range reads as null.
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
 
+// ---- #837 race messages: start race (t0/now), cp, finish, cpno, board, back ----
+const RACE_MS = 3600000;
+export const CP_MAX = 15;
+const TIMES_MAX = 17, ST = ['run', 'fin', 'dnf'];
+const raceTime = (t) => finite(t) && t >= 0 && t <= RACE_MS;
+const cpIndex = (i, lo) => Number.isInteger(i) && i >= lo && i <= CP_MAX;
+
+// parseStart — 'cruise' is the lobby cruise; 'race' carries the host-clock T0 and the host's now for the offset.
+function parseStart(m) {
+  if (!START_MODES.includes(m.mode)) return null;
+  if (m.mode !== 'race') return { type: 'start', mode: m.mode };
+  return finite(m.t0) && finite(m.now) ? { type: 'start', mode: 'race', t0: m.t0, now: m.now } : null;
+}
+
+// parseRow — one row of a board: id 0..3, a clean name, st ∈ run/fin/dnf, ≤ 17 finite non-decreasing times.
+function parseRow(r) {
+  if (!r || typeof r !== 'object' || !Number.isInteger(r.id) || r.id < 0 || r.id >= MAX_PLAYERS) return null;
+  const name = cleanName(r.name);
+  if (!name || !ST.includes(r.st) || !Array.isArray(r.times) || r.times.length > TIMES_MAX) return null;
+  if (!r.times.every((t, k) => raceTime(t) && (k === 0 || t >= r.times[k - 1]))) return null;
+  return { id: r.id, name, times: [...r.times], st: r.st };
+}
+
+// parseBoard — over is a boolean; rows 1..4, each a clean row, ids unique. The host is the only sender.
+function parseBoard(m) {
+  if (typeof m.over !== 'boolean' || !Array.isArray(m.rows) || m.rows.length < 1 || m.rows.length > MAX_PLAYERS) return null;
+  const rows = m.rows.map(parseRow);
+  if (rows.some((r) => r === null) || new Set(rows.map((r) => r.id)).size !== rows.length) return null;
+  return { type: 'board', over: m.over, rows };
+}
+
 const VALIDATORS = {
   hello: (m) => { const name = cleanName(m.name); return name ? { type: 'hello', name, custom: m.custom === true } : null; },
   pick: (m, ctx) => (ctx.carIds.has(m.car) && ctx.paintIds.has(m.paint) ? { type: 'pick', car: m.car, paint: m.paint } : null),
@@ -184,7 +226,12 @@ const VALIDATORS = {
   lobby: parseLobby,
   ping: (m) => (finite(m.a) ? { type: 'ping', a: m.a } : null),
   pong: (m) => (finite(m.a) && finite(m.b) ? { type: 'pong', a: m.a, b: m.b } : null),
-  start: (m) => (START_MODES.includes(m.mode) ? { type: 'start', mode: m.mode } : null),
+  start: parseStart,
+  cp: (m) => (cpIndex(m.i, 0) && raceTime(m.t) ? { type: 'cp', i: m.i, t: m.t } : null),
+  finish: (m) => (raceTime(m.t) ? { type: 'finish', t: m.t } : null),
+  cpno: (m) => (cpIndex(m.i, -1) ? { type: 'cpno', i: m.i } : null),
+  board: parseBoard,
+  back: () => ({ type: 'back' }),
 };
 
 function parsePlayer(raw, ctx) {

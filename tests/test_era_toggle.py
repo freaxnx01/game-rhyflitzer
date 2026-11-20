@@ -15,7 +15,7 @@ needs_world = pytest.mark.skipif(not WORLD.exists(), reason="run pipeline/osm.py
 
 def open_game(p, server):
     b = p.chromium.launch(args=ARGS)
-    page = b.new_context(viewport={"width": 640, "height": 360}, locale="en-US").new_page()
+    page = b.new_context(viewport={"width": 1280, "height": 720}, locale="en-US").new_page()
     page.errors = []
     page.on("pageerror", lambda e: page.errors.append(str(e)))
     page.route(MMH_ROUTE, lambda r: r.fulfill(status=404, body=""))

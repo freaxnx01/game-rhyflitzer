@@ -151,3 +151,25 @@ def test_loading_tab_lists_every_loading_line_and_follows_the_language(server):
     assert tab == "Beim Laden", tab
     assert not any("undefined" in l or l.startswith("load_") for l in en + de), (en, de)
     assert errors == []
+
+
+def test_game_tab_groups_the_links_and_keeps_the_lead_readable(server):
+    """The game tab is sectioned: a lead capped at a readable width, the three outward links in one .ab-links group,
+    privacy and contact under their own headings; nothing overflows sideways on a phone or a wide window."""
+    with sync_playwright() as p:
+        for viewport, touch in [((2000, 800), False), ((390, 844), True)]:
+            b, page, errors = boot(p, server, viewport=viewport, touch=touch)
+            page.click("#aboutbtn")
+            page.click("#abouttab-game")
+            r = page.evaluate("""() => { const panel = document.getElementById('aboutpanel-game'), group = panel.querySelector('.ab-links');
+              const link = k => panel.querySelector(`a[data-link="${k}"]`), panels = document.getElementById('aboutpanels');
+              return { grouped: !!group && ['midtown', 'nfz', 'youtube'].every(k => group.contains(link(k))), privacyOutside: !!group && !group.contains(link('privacy')),
+                       headings: [...panel.querySelectorAll('h2')].map(h => h.textContent.trim()), lead: panel.querySelector('.ab-lead').getBoundingClientRect().width,
+                       contact: panel.querySelector('#aboutcontact').textContent, overflow: panels.scrollWidth - panels.clientWidth }; }""")
+            b.close()
+            assert r["grouped"] and r["privacyOutside"], (viewport, r)
+            assert len(r["headings"]) >= 3 and all(r["headings"]), (viewport, r)
+            assert r["overflow"] <= 0 and "@" in r["contact"], (viewport, r)
+            if viewport[0] == 2000:
+                assert r["lead"] < 900, (viewport, r)
+            assert errors == []

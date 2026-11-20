@@ -174,6 +174,54 @@ export function railRoadCrossings(roads, railBridges) {
   return out;
 }
 
+// #1044: ground roads under a road bridge; a deck end within DECK_END_GAP of the road is a join, not a crossing, and motorways stay up
+export const DECK_END_GAP = 1;
+export const UNDERPASS_SKIP_CLS = new Set(['motorway', 'motorway_link']);
+export function roadBridgeCrossings(roads, decks) {
+  return railRoadCrossings(roads.filter((r) => !UNDERPASS_SKIP_CLS.has(r.cls)), decks)
+    .filter((c) => Math.min(c.tRail, polylineLength(decks[c.bridge].pts) - c.tRail) >= DECK_END_GAP);
+}
+
+// #1044: ground roads that end on a road deck's end keep their ground (the cut under the deck must not eat the bank road); pts run
+// away from the deck, cut to `reach` m
+export function deckGuards(deckPts, roads, reach = 30) {
+  const ends = [deckPts[0], deckPts[deckPts.length - 1]], near = (p) => ends.some((e) => Math.hypot(p[0] - e[0], p[1] - e[1]) <= 0.5), out = [];
+  for (const road of roads) {
+    if (road.bridge) continue;
+    const first = near(road.pts[0]), last = near(road.pts[road.pts.length - 1]);
+    if (!first && !last) continue;
+    out.push({ road, pts: cutPolyline(first ? road.pts : [...road.pts].reverse(), reach), hw: road.w / 2 });
+  }
+  return out;
+}
+
+// #1044: an underpass needs measured terrain (an all-zero block is the world file's no-data fill) and a floor above the nearby water
+export const ROAD_UNDERPASS = { waterRadius: 400, waterArea: 1000, waterMargin: 1.0 };
+export function terrainHasData(mmh, x, z) {
+  if (!mmh) return false;
+  const { hdr, data } = mmh, i0 = Math.floor((x - hdr.x0) / hdr.step) - 1, j0 = Math.floor((z - hdr.z0) / hdr.step) - 1;
+  let zeros = 0;
+  for (let j = j0; j < j0 + 4; j++) for (let i = i0; i < i0 + 4; i++)
+    if (data[Math.max(0, Math.min(hdr.h - 1, j)) * hdr.w + Math.max(0, Math.min(hdr.w - 1, i))] === 0) zeros++;
+  return zeros < 8;
+}
+function ringDistance(ring, x, z) {
+  if (inRing(ring, x, z)) return 0;
+  let best = Infinity;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) best = Math.min(best, nearestOnPolyline([ring[j], ring[i]], x, z).d);
+  return best;
+}
+function ringArea(ring) { let s = 0; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) s += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1]; return Math.abs(s) / 2; }
+export function nearbyWaterLevel(water, x, z, u = ROAD_UNDERPASS) {
+  let best = null, bd = u.waterRadius;
+  for (const w of water) {
+    if (ringArea(w.rings[0]) < u.waterArea) continue;
+    const d = ringDistance(w.rings[0], x, z);
+    if (d <= bd) { bd = d; best = w.level ?? 0; }
+  }
+  return best;
+}
+
 export function cutFlat(deckHalfWidth, sin, u = UNDERPASS) { return deckHalfWidth / Math.max(0.3, sin) + u.apron; }
 
 // #119: a cut is an absolute floor along its road, level across the corridor: f0 under the deck band, ramping out at
@@ -775,7 +823,7 @@ export const VILLAGES = [
   { t: 'BAD SÄCKINGEN', x: -1372.9, z: -263.1, r: 800 },   // node 240042433 (town)
   { t: 'STEIN', x: -981.8, z: 615.7, r: 450 },             // node 240097537
   { t: 'SISSELN', x: 1677.6, z: -329.8, r: 450 },          // node 240055476
-  { t: 'SISSLERFELD', x: 420, z: 300, r: 600 },            // map label, no place node
+  { t: 'SISSLERFELD', x: 420, z: 300, r: 600, flur: true },            // map label, no place node
   { t: 'MÜNCHWILEN', x: -299.3, z: 1408.4, r: 350 },       // node 240115055
   { t: 'MUMPF', x: -3484.8, z: 596.6, r: 450 },            // node 192826016
   { t: 'MURG', x: 4361.6, z: -689.8, r: 550 },             // node 240124251

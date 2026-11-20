@@ -42,7 +42,7 @@ def test_opens_from_start_and_esc_returns(server):
     assert visible and title == "Settings"
     assert held == [], held                                          # game keys never reach the game behind the dialog
     assert after == {"settings": {"open": False, "from": "start", "sound": {"on": True, "vol": 10},
-                                   "music": {"on": True, "menuOn": True, "vol": 6}}, "overlay": True, "focus": "settingsbtn"}, after
+                                   "music": {"on": True, "menuOn": True, "vol": 6, "shuffle": True}}, "overlay": True, "focus": "settingsbtn"}, after
     assert errors == []
 
 
@@ -119,6 +119,81 @@ def test_music_row_is_the_menu_music_on_the_start_screen(server):
     assert back == {"checked": "true", "text": "on"}, back
     assert vol == {"vol": 3, "pct": "Volume 30 %", "ls": "3"}, vol
     assert errors == []
+
+
+
+def test_shuffle_is_on_by_default_and_the_switch_keeps_the_track(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        first = page.evaluate("() => window.__mm.radio()")
+        page.click("#settingsbtn")
+        sw_on = page.get_attribute("#setshuffle", "aria-checked")
+        page.click("#setshuffle")
+        off = page.evaluate("() => ({ r: window.__mm.radio(), sw: document.getElementById('setshuffle').getAttribute('aria-checked'), ls: localStorage.getItem('mm.radioShuffle') })")
+        page.reload()
+        page.wait_for_function(READY, timeout=240000)
+        reloaded = page.evaluate("() => window.__mm.radio()")
+        b.close()
+    assert first["shuffle"] is True and first["order"][0] == first["track"], first
+    assert sorted(first["order"]) == list(range(len(first["order"]))), first
+    assert sw_on == "true"
+    assert off["sw"] == "false" and off["ls"] == "0" and off["r"]["shuffle"] is False, off
+    assert off["r"]["track"] == first["track"] and off["r"]["order"] == sorted(off["r"]["order"]), off   # the current track plays on, the list is back in order
+    assert reloaded["shuffle"] is False and reloaded["track"] == 0 and reloaded["order"] == sorted(reloaded["order"]), reloaded
+    assert errors == []
+
+
+def test_station_list_picks_any_station_and_keeps_it(server):
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server, locale="de-CH")
+        page.click("#settingsbtn")
+        opts = page.evaluate("() => [...document.querySelectorAll('#setstation option')].map(o => [o.value, o.textContent])")
+        first = page.input_value("#setstation")
+        page.select_option("#setstation", "rock")
+        rock = page.evaluate("() => ({ r: window.__mm.radio(), ls: localStorage.getItem('mm.radioStation') })")
+        rock_tracks = page.evaluate("() => import('./radio.js').then(m => [...m.FM.rock.tracks])")
+        page.select_option("#setstation", "argovia")
+        argovia = page.evaluate("() => window.__mm.radio()")
+        page.reload()
+        page.wait_for_function(READY, timeout=240000)
+        page.click("#settingsbtn")
+        reloaded = (page.input_value("#setstation"), page.evaluate("() => window.__mm.radio().station"))
+        b.close()
+    assert opts == [["mix", "Rhyflitzer FM Mix"], ["rock", "Rhyflitzer FM Rock"], ["cruise", "Rhyflitzer FM Cruise"],
+                    ["srf3", "SRF 3 live"], ["argovia", "Radio Argovia"]], opts
+    assert first == "mix"
+    assert rock["ls"] == "rock" and rock["r"]["station"] == rock["r"]["fm"] == "rock", rock
+    assert sorted(rock["r"]["order"]) == rock_tracks and len(rock_tracks) < 15, (rock, rock_tracks)   # the order is the rock station's tracks, not the mix
+    assert argovia["station"] == "argovia" and argovia["fm"] == "rock", argovia   # a live station keeps the last FM one
+    assert reloaded == ("argovia", "argovia"), reloaded
+    assert errors == []
+
+
+def test_hints_switch_and_reset(server):
+    """#1090: Display carries the hints switch and "Reset seen hints" -- the switch writes mm.hintsOn,
+    the button drops the whole seen store."""
+    with sync_playwright() as p:
+        b, page, errors = boot(p, server)
+        page.evaluate("() => localStorage.setItem('mm.hints', '{\"heli\":{\"shown\":1,\"seen\":true}}')")
+        page.reload(); page.wait_for_function(READY, timeout=240000); page.click("#settingsbtn")
+        first = page.evaluate("() => window.__mm.hints()")
+        page.click("#sethints"); page.click("#sethintsreset")
+        after = page.evaluate("() => [window.__mm.hints(), localStorage.getItem('mm.hintsOn'), localStorage.getItem('mm.hints')]")
+        b.close()
+    assert first["on"] is True and first["store"]["heli"]["seen"] is True, first
+    assert after[0]["on"] is False and after[0]["store"] == {} and after[1:] == ["0", None], after
+    assert errors == []
+
+
+def test_hints_row_shows_on_touch(server):
+    """#1090: unlike the key bar, the hints rows stay on a phone -- the card is tappable there."""
+    with sync_playwright() as p:
+        b = p.chromium.launch(args=ARGS)
+        page = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True).new_page()
+        for r in ("**/data/terrain_*.mmh", "**/data/world_hochrhein.json"): page.route(r, lambda x: x.fulfill(status=404, body=""))
+        page.goto(f"{server}/index.html"); page.wait_for_function(READY, timeout=240000); page.tap("#settingsbtn")
+        vis = [page.is_visible(s) for s in ("#sethints", "#sethintsreset", "#setkeybar")]; b.close()
+    assert vis == [True, True, False], vis
 
 
 def start_race(page):

@@ -18,7 +18,7 @@ SPOT_DX = {BODENACKER_6: 20, TALLEST: 22}            # car this far east of the 
 CHASE_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d, th = window.__mm.heading(); return c.view === 0"
                  " && Math.hypot(d[0] + 6.9 * Math.cos(th), d[1] - 2.6, d[2] + 6.9 * Math.sin(th)) < 0.3; }")   # #143: at the chase target BEHIND the car, not anywhere on the 6.9 m ring
 COCKPIT_ARRIVED = ("() => { const c = window.__mm.cam(), d = c.d; return c.view === 2"
-                   " && Math.abs(d[0] - 0.25) < 0.05 && Math.abs(d[1] - 1.22) < 0.05 && Math.abs(d[2] - 0.38) < 0.05; }")   # cockpit eye x scale 1.0 (#69)
+                   " && Math.abs(d[0] - 0.2) < 0.05 && Math.abs(d[1] - 1.18) < 0.05 && Math.abs(d[2] - 0.37) < 0.05; }")   # cockpit eye x scale 1.0 (#69) of the hatchback start car (#830)
 
 
 def open_page(p, server, block_world=False, query="", **page_opts):
@@ -177,6 +177,21 @@ def test_panel_ticks_leave_the_car_alone(server):
     assert after == before, (before, after)
 
 
+def test_panel_shows_fps_and_gpu_lines(server):
+    """#1069: with the panel open, a `fps <n> · <ms> ms` line with a positive frame rate
+    and a `gpu <calls> calls · ...` line appear."""
+    with sync_playwright() as p:
+        br, page = open_page(p, server, block_world=True, query="?debug")
+        page.wait_for_function(
+            "() => window.__mm.debug().lines.some(l => /^fps (\\d+) ·/.test(l) && parseFloat(l.split(' ')[1]) > 0)",
+            timeout=120000,
+        )
+        lines = page.evaluate("() => window.__mm.debug().lines")
+        br.close()
+    assert any(l.startswith("fps ") for l in lines), lines
+    assert any(l.startswith("gpu ") and " calls · " in l and " tris · " in l for l in lines), lines
+
+
 @needs_world
 def test_panel_shows_world_map_extent(server):
     with sync_playwright() as p:
@@ -214,7 +229,7 @@ def test_tall_building_label_stays_on_screen(server, bid):
 
 
 # #74: a short label left of every line, drawn by CSS ::before so the line text and the copied text stay bare
-HAND_LABELS = ["car", "Swiss", "nearest", "car body", "world"]
+HAND_LABELS = ["car", "Swiss", "nearest", "car body", "world", "frame", "GPU", "memory"]
 
 
 def test_every_panel_line_has_a_label(server):
@@ -225,10 +240,14 @@ def test_every_panel_line_has_a_label(server):
         drawn = page.evaluate("() => [...document.querySelectorAll('#debugtext > div')].map(d => getComputedStyle(d, '::before').content)")
         text = page.inner_text("#debug")
         br.close()
-    assert dbg["labels"] == HAND_LABELS, dbg
+    expected = list(HAND_LABELS)
+    # #1069: 'memory' is only present where the browser exposes performance.memory (Chrome/Edge/Brave); Safari/iOS leave it out
+    if "memory" not in dbg["labels"] and "memory" in expected:
+        expected = [l for l in expected if l != "memory"]
+    assert dbg["labels"] == expected, dbg
     assert len(dbg["labels"]) == len(dbg["lines"])
     assert all(dbg["labels"]), dbg["labels"]                               # no line is left unexplained
-    assert drawn == [f'"{l}"' for l in HAND_LABELS], drawn                 # drawn by ::before, not a text node
+    assert drawn == [f'"{l}"' for l in expected], drawn                    # drawn by ::before, not a text node
     assert text.startswith("x ") and "LV95 —" in text and "bldg —" in text, text
 
 
@@ -236,10 +255,11 @@ def test_every_panel_line_has_a_label(server):
 def test_world_layout_labels_every_line(server):
     with sync_playwright() as p:
         br, page = open_page(p, server, query="?debug")
-        page.wait_for_function("() => (window.__mm.debug().labels || []).length === 6", timeout=120000)
+        page.wait_for_function("() => (window.__mm.debug().labels || []).includes('GPU')", timeout=120000)
         dbg = page.evaluate("() => window.__mm.debug()")
         br.close()
-    assert dbg["labels"] == ["car", "Swiss", "GPS", "nearest", "car body", "world"], dbg
+    perf = ["frame", "GPU"] + (["memory"] if "memory" in dbg["labels"] else [])   # #1069: 'memory' only where performance.memory exists
+    assert dbg["labels"] == ["car", "Swiss", "GPS", "nearest", "car body", "world"] + perf, dbg
     assert dbg["lines"][2].startswith("WGS84 "), dbg["lines"]
 
 
@@ -303,7 +323,8 @@ def test_labels_and_legend_follow_the_language(server):
         copy = page.evaluate("() => window.__mm.debug().copy")
         page.evaluate("() => window.ggSetLang('en')")                         # gg-lang is shared across the site's games
         br.close()
-    assert labels == ["Auto", "Schweiz", "nächstes", "Karosserie", "Welt"], labels
+    perf = ["Bild", "GPU"] + (["Speicher"] if "Speicher" in labels else [])   # #1069: 'Speicher' only where performance.memory exists
+    assert labels == ["Auto", "Schweiz", "nächstes", "Karosserie", "Welt"] + perf, labels
     assert "Traufe" in legend and "Dach" in legend and "2.5 m" in legend and "digitales Oberflächenmodell (DSM)" in legend, legend
     assert aria == "Debug-Werte erklären"
     assert copy.startswith("x ") and " | LV95 —" in copy                      # the copied text stays language-neutral

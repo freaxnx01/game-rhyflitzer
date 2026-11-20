@@ -1600,3 +1600,99 @@ test('addrLabels: a plate carries modern for a modern building only (#530)', () 
   assert.equal(a.modern, true);
   assert.equal('modern' in b, false);
 });
+
+// #1044: road crossings under road bridges
+import { roadBridgeCrossings, DECK_END_GAP } from '../world.js';
+test('roadBridgeCrossings_NormalRoadUnderDeck_OneRecord', () => {
+  const road = { n: 'R', cls: 'residential', w: 5.5, bridge: false, layer: 0, pts: [[0, -20], [0, 20]] };
+  const [c, ...rest] = roadBridgeCrossings([road], [{ pts: [[-10, 5], [10, 5]], layer: 1 }]);
+  assert.equal(rest.length, 0); assert.equal(c.bridge, 0); assert.equal(c.tRoad, 25); assert.equal(c.tRail, 10);
+});
+test('roadBridgeCrossings_MotorwayOrLinkUnderDeck_None', () => {
+  for (const cls of ['motorway', 'motorway_link'])
+    assert.deepEqual(roadBridgeCrossings([{ cls, w: 14, bridge: false, layer: 0, pts: [[0, -20], [0, 20]] }], [{ pts: [[-10, 5], [10, 5]], layer: 1 }]), []);
+});
+test('roadBridgeCrossings_DeckEndOnTheRoad_IsAJoinNotACrossing', () => {
+  const road = { cls: 'residential', w: 5.5, bridge: false, layer: 0, pts: [[0, -20], [0, 20]] };
+  assert.deepEqual(roadBridgeCrossings([road], [{ pts: [[0, 5], [20, 5]], layer: 1 }]), []);          // starts on it
+  assert.deepEqual(roadBridgeCrossings([road], [{ pts: [[-0.9, 5], [20, 5]], layer: 1 }]), []);       // 0.9 m < DECK_END_GAP
+  assert.equal(roadBridgeCrossings([road], [{ pts: [[-1.1, 5], [20, 5]], layer: 1 }]).length, 1);
+});
+const WORLD_HOCHRHEIN = new URL('../data/world_hochrhein.json', import.meta.url);
+const ISSUE_1044_PAIRS = [[51687867, 31970306], [51688069, 31970306], [4988444, 116017354], [4985551, 116017354], [4988444, 969542283],
+  [4985551, 969542283], [4985554, 1238921972], [4985555, 1238921972], [107186388, 345612508], [107186377, 345612508],
+  [25976772, 331388063], [28810416, 319322059], [25976777, 967940907], [25976788, 967940893], [40388838, 28165755],
+  [154394930, 1531664793], [162987100, 162941411], [1382546970, 1238831069]];
+test('roadBridgeCrossings_Hochrhein_TheEighteenOfIssue1044', { skip: !existsSync(WORLD_HOCHRHEIN) }, () => {
+  const w = JSON.parse(readFileSync(WORLD_HOCHRHEIN));
+  const L = layoutFromWorld(w), decks = L.roads.filter((r) => r.bridge);
+  const got = roadBridgeCrossings(L.roads, decks.map((r) => ({ pts: r.pts, layer: r.layer ?? 0 }))).map((c) => [decks[c.bridge].id, c.road.id]);
+  // 18 pairs of the spec table + 6 with enough headroom (the clearance filter is the cut depth, Task 3) = 24 (verified on the data 2026-11-17)
+  assert.equal(got.length, 24);
+  for (const pair of ISSUE_1044_PAIRS) assert.ok(got.some(([b, r]) => b === pair[0] && r === pair[1]), pair);
+});
+
+// #1044: bank roads of a road deck keep their ground
+import { deckGuards } from '../world.js';
+test('deckGuards_BankRoadsAtBothEnds_OrientedAwayAndCut', () => {
+  const deck = [[0, 0], [20, 0]];
+  const roads = [{ id: 1, w: 14, bridge: false, pts: [[-100, 0], [0, 0]] }, { id: 2, w: 14, bridge: false, pts: [[20, 0], [200, 0]] },
+                 { id: 3, w: 14, bridge: true, pts: [[20, 0], [40, 0]] }, { id: 4, w: 5, bridge: false, pts: [[10, -20], [10, 20]] }];
+  const g = deckGuards(deck, roads);
+  assert.deepEqual(g.map((x) => x.road.id).sort(), [1, 2]);                       // no bridge, no road merely crossing the deck
+  const a = g.find((x) => x.road.id === 1);
+  assert.deepEqual(a.pts[0], [0, 0]); assert.ok(Math.abs(polylineLength(a.pts) - 30) < 1e-9); assert.equal(a.hw, 7);
+});
+test('deckGuards_Hochrhein_NoBankRoadReachesPastTheTroughFace', { skip: !existsSync(WORLD_HOCHRHEIN) }, () => {
+  // spec "Main risk": a guard keeps a bank road up only behind the wall's inner face (hw + margin)
+  const L = layoutFromWorld(JSON.parse(readFileSync(WORLD_HOCHRHEIN))), decks = L.roads.filter((r) => r.bridge);
+  const crossings = roadBridgeCrossings(L.roads, decks.map((r) => ({ pts: r.pts, layer: r.layer ?? 0 })))
+    .filter((c) => ISSUE_1044_PAIRS.some(([b, r]) => decks[c.bridge].id === b && c.road.id === r));
+  assert.equal(crossings.length, 18);
+  for (const c of crossings) for (const g of deckGuards(decks[c.bridge].pts, L.roads)) {
+    const len = polylineLength(g.pts);
+    for (const line of [g.pts, offsetPolyline(g.pts, g.hw), offsetPolyline(g.pts, -g.hw)])
+      for (let s = 0; s <= len; s += 0.5) {
+        const [px, pz] = pointAtLength(line, s), d = nearestOnPolyline(c.road.pts, px, pz).d;
+        assert.ok(d >= c.road.w / 2 + UNDERPASS.margin, `deck ${decks[c.bridge].id} road ${c.road.id} guard ${g.road.id} s=${s}: ${d}`);
+      }
+  }
+});
+
+// #1044: missing terrain and the water level
+import { terrainHasData, nearbyWaterLevel, ROAD_UNDERPASS } from '../world.js';
+test('terrainHasData_NoMmh_False_AllZeroBlock_False_RealBlock_True', () => {
+  const hdr = { x0: 0, z0: 0, step: 8, w: 8, h: 8 }, data = new Float32Array(64).fill(3.2);
+  assert.equal(terrainHasData(null, 20, 20), false);
+  assert.equal(terrainHasData({ hdr, data }, 20, 20), true);
+  data.fill(0); assert.equal(terrainHasData({ hdr, data }, 20, 20), false);
+  data.fill(3.2); for (const k of [9, 10, 11, 17, 18, 19, 25]) data[k] = 0;      // 7 of the 16 around (20, 20): still data
+  assert.equal(terrainHasData({ hdr, data }, 20, 20), true);
+  data[26] = 0;                                                                  // 8 of 16: no data
+  assert.equal(terrainHasData({ hdr, data }, 20, 20), false);
+});
+test('nearbyWaterLevel_NearestLargePolygonWithinRadius', () => {
+  const sq = (x, z, s, level) => ({ level, rings: [[[x, z], [x + s, z], [x + s, z + s], [x, z + s]]] });
+  const water = [sq(100, 0, 5, 9), sq(300, 0, 40, -1.5), sq(500, 0, 40, 7)];   // pond (25 m²) nearer, river 300 m, lake 500 m
+  assert.equal(nearbyWaterLevel(water, 0, 0), -1.5);
+  assert.equal(nearbyWaterLevel(water, 0, 0, { ...ROAD_UNDERPASS, waterRadius: 250 }), null);
+  assert.equal(nearbyWaterLevel(water, 310, 10), -1.5);                          // inside counts as 0 m
+});
+const TERRAIN_HOCHRHEIN = new URL('../data/terrain_hochrhein.mmh', import.meta.url);
+test('roadUnderpassConditions_Hochrhein_TwoNoDataSitesAndLohgerbeOnly', { skip: !existsSync(WORLD_HOCHRHEIN) || !existsSync(TERRAIN_HOCHRHEIN) }, () => {
+  const w = JSON.parse(readFileSync(WORLD_HOCHRHEIN)), buf = readFileSync(TERRAIN_HOCHRHEIN);   // MMH1, u32 header length, JSON header, Float32 samples
+  assert.equal(buf.toString('latin1', 0, 4), 'MMH1');
+  const n = buf.readUInt32LE(4), hdr = JSON.parse(buf.toString('utf8', 8, 8 + n));
+  const data = new Float32Array(buf.buffer.slice(buf.byteOffset + 8 + n, buf.byteOffset + 8 + n + hdr.w * hdr.h * 4)), mmh = { hdr, data };
+  const L = layoutFromWorld(w), decks = L.roads.filter((r) => r.bridge);
+  const cs = roadBridgeCrossings(L.roads, decks.map((r) => ({ pts: r.pts, layer: r.layer ?? 0 })))
+    .filter((c) => ISSUE_1044_PAIRS.some(([b, r]) => decks[c.bridge].id === b && c.road.id === r));
+  assert.equal(cs.length, 18);
+  const noData = cs.filter((c) => !terrainHasData(mmh, c.x, c.z));
+  assert.deepEqual(noData.map((c) => decks[c.bridge].id).sort(), [25976772, 28810416]);
+  const wet = cs.filter((c) => terrainHasData(mmh, c.x, c.z)).map((c) => [decks[c.bridge].id, nearbyWaterLevel(w.water, c.x, c.z)]).filter(([, lv]) => lv !== null);
+  // large water within 400 m at three sites; the floor is raised only at Lohgerbe (checked in Task 3)
+  const want = new Map([[162987100, -1.49], [25976788, -2], [40388838, -2.36]]);
+  assert.deepEqual(wet.map(([id]) => id).sort(), [...want.keys()].sort());
+  for (const [id, lv] of wet) assert.ok(Math.abs(lv - want.get(id)) <= 0.01, `${id}: ${lv}`);
+});

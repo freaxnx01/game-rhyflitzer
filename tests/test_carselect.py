@@ -69,7 +69,7 @@ def lit_counts(page):
 def test_choose_car_opens_the_screen_with_the_hatchback(server):
     with sync_playwright() as p:
         b, page, errors = open_page(p, server, query="?mode=trial")   # #551: cruise is the default now; this test stays a trial's
-        assert page.evaluate("() => [...document.querySelector('#overlay .bar .row').children].map(b => b.id)") == ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "carbtn", "mpbtn"]
+        assert page.evaluate("() => [...document.querySelector('#overlay .bar .row').children].map(b => b.id)") == ["cruisebtn", "startbtn", "blitzbtn", "huntbtn", "viewbtn", "tutorialbtn", "deliverybtn", "carbtn", "mpbtn"]   # #107 Delivery
         assert page.evaluate("() => [...document.querySelector('#overlay .row.secondary').children].map(b => b.id).slice(0, 2)") == ["worldbtn", "stylebtn2"]
         open_carsel(page)
         wait_for_the_start_car(page)

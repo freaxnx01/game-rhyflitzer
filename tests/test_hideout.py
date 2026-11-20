@@ -940,6 +940,14 @@ def test_t1_fades_between_day_and_cave_without_a_cut_both_ways(server):
 # ---------- #361: the tunnel ring, the star of rooms, the dark switch ----------
 
 
+YOUTUBE_STUB = "<!doctype html><title>stub</title><body style='margin:0;background:#c8102e'>"
+
+
+def stub_youtube(page):
+    """The rally hall's YouTube embed answered by a plain red page, so no test reaches YouTube."""
+    page.route("https://www.youtube-nocookie.com/**", lambda route: route.fulfill(status=200, content_type="text/html", body=YOUTUBE_STUB))
+
+
 def into_room(page, k, room_id, y=-600):
     """From the ring level: drive from 45 m into spoke k past the switch (s 52)."""
     s = page.evaluate(f"() => window.__mm.spoke({k}, 45)")
@@ -1090,6 +1098,45 @@ def test_atomium_room_builds_loads_its_model_on_entering_and_has_solid_feet(serv
 
 
 @needs_world
+def test_atomium_room_has_the_manneken_pis_life_size_in_its_solid_fountain_corner(server, tmp_path):
+    """#585: entering spoke 1 also builds the Manneken Pis's fountain corner and fetches manneken_pis.glb then (not before); the bronze
+    boy is life size on his pedestal, the corner is solid at the railing and the car drives past 8 m in front of it. Leaves a close
+    screenshot, taken on foot from in front of the railing, where the face and the jet into the basin must be."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith("manneken_pis.glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        assert page.evaluate("() => window.__mm.manneken()") is None and requests == []
+        into_room(page, 1, "atomium")
+        page.wait_for_function("() => window.__mm.manneken() && window.__mm.manneken().loaded === true", timeout=120000)
+        m = page.evaluate("() => window.__mm.manneken()")
+        push = page.evaluate("""() => { const m = window.__mm.manneken(), f = [Math.cos(m.th), Math.sin(m.th)], p = (d) => window.__mm.pushAt(m.x + f[0] * d, m.z + f[1] * d, m.y);
+          return { railing: p(1.9), front: p(8) }; }""")
+        # the close shot: park the car 25 m behind the viewer, step out, and stand 3.5 m from the niche, 25 degrees off its axis --
+        # head-on the jet is foreshortened into a line, from here its arc into the basin reads while the boy still faces the camera
+        spot = page.evaluate("""() => { const m = window.__mm.manneken(), a = m.th + 25 * Math.PI / 180, f = [Math.cos(m.th), Math.sin(m.th)];
+          const x = m.x + Math.cos(a) * 3.5, z = m.z + Math.sin(a) * 3.5;
+          return { carX: m.x + f[0] * 28.5, carZ: m.z + f[1] * 28.5, x, z, th: Math.atan2(m.z - z, m.x - x), y: m.y }; }""")
+        page.evaluate(f"() => window.__mm.sim({spot['carX']}, {spot['carZ']}, {spot['th']}, 0, 0.5, [], {spot['y']})")
+        page.keyboard.press("z"); page.wait_for_timeout(300)
+        page.evaluate(f"() => {{ window.__mm.place({spot['x']}, {spot['z']}, {spot['th']}); window.__mm.setFootY({spot['y']}); }}")
+        page.evaluate("() => window.__mm.footLook(0, -57)")   # 0.14 rad up: the eye at 1.7 m onto the boy's middle, 2.2 m up and 3.5 m away
+        on_foot = page.evaluate("() => window.__mm.footSim(0.3)")
+        page.set_viewport_size({"width": 1600, "height": 1000}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "manneken.png"))
+        br.close()
+    print("screenshot:", tmp_path / "manneken.png")
+    assert errors == []
+    assert len(requests) == 1 and requests[0].endswith("/assets/models/manneken_pis.glb"), requests
+    assert m["loaded"] is True and 14000 <= m["tris"] <= 22000 and abs(m["height"] - 0.61) < 0.01 and m["colliders"] == 1, m
+    assert m["built"] == 1, m
+    assert math.hypot(push["railing"]["dx"], push["railing"]["dz"]) > 1, push
+    assert math.hypot(push["front"]["dx"], push["front"]["dz"]) < 0.01, push
+    assert on_foot["on"] is True, on_foot
+
+
+@needs_world
 def test_vasa_room_builds_loads_its_model_on_entering_and_stands_dry_on_its_cradle(server, tmp_path):
     """#421: entering spoke 3 builds the Vasa room and fetches vasa.glb then (not before); the ship stands dry, turned 45 degrees from the room's
     cross axis (bow forward-right), its cradle feet on the floor and the keel 5 m above it, no water basin. The car drives under the keel
@@ -1230,17 +1277,17 @@ def test_artemis_room_builds_the_rocket_and_capsule_on_entering_without_a_downlo
 
 
 @needs_world
-def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_download(server, tmp_path):
-    """#859: entering spoke 5 builds the rally hall with its three podium cars from primitives -- no model file is fetched; the back wall and a
-    podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
+def test_rallyhall_room_builds_the_hall_and_parks_three_gltf_cars_on_entering(server, tmp_path):
+    """#859: entering spoke 5 builds the rally hall and parks the game's own Rhy Rally on its three podiums, two with a tinted livery -- that one
+    vehicle file is all the room fetches; the back wall and a podium are solid, the hall's centre floor and the apron are open. Leaves a screenshot."""
     with sync_playwright() as p:
         br, page, errors = open_page(p, server)
-        requests = []
+        requests = []; stub_youtube(page)
         page.on("request", lambda r: requests.append(r.url) if r.url.endswith(".glb") else None)
         h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
         assert page.evaluate("() => window.__mm.rallyhall()") is None
         into_room(page, 5, "room5")
-        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5", timeout=120000)
+        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5 && window.__mm.rallyhall().parked.length === 3 && window.__mm.rallyhall().flags.loaded.length === 2", timeout=120000)
         a = page.evaluate("() => window.__mm.rallyhall()")
         info = page.evaluate("() => ({ below: window.__mm.below(), counts: window.__mm.counts })")
         push = page.evaluate("""() => { const t = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], p = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -600);
@@ -1253,17 +1300,57 @@ def test_rallyhall_room_builds_the_hall_and_three_cars_on_entering_without_a_dow
         page.evaluate(f"() => window.__mm.sim({board_view['x']}, {board_view['z']}, {board_view['th']}, 0, 1.5, [], -600)")
         page.wait_for_timeout(1500)
         page.screenshot(path=str(tmp_path / "rallyhall-board.png"))
+        flag_view = page.evaluate("() => { const v = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th; return { x: v.x - Math.cos(th) * 8, z: v.z - Math.sin(th) * 8, th }; }")   # 27 m in front of the flags (a = 19.25), clear of the podiums, looking at +a
+        page.evaluate(f"() => window.__mm.sim({flag_view['x']}, {flag_view['z']}, {flag_view['th']}, 0, 1.5, [], -600)")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "rallyhall-flags.png"))
         br.close()
     print("screenshot:", tmp_path / "rallyhall-room.png")
     print("screenshot:", tmp_path / "rallyhall-board.png")
+    print("screenshot:", tmp_path / "rallyhall-flags.png")
     assert errors == []
-    assert [u for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")] == [], requests   # the Eiffel preloads near the Hübel by design; the room itself fetches nothing (surface landmarks excluded by room_glbs, #906)
+    assert {u.rsplit("/", 1)[-1] for u in room_glbs(requests) if not u.endswith("/eiffel_tower.glb")} <= {"rally.glb"}, requests   # the Eiffel preloads near the Hübel by design; the room fetches only the Rhy Rally
+    assert sorted(a["parked"]) == ["evans", "mccrae", "neuville"], a
     assert a["built"] == 5 and abs(a["h"] - 14.8) < 1e-6 and 500 <= a["tris"] <= 30000 and a["colliders"] == 9 and len(a["cars"]) == 3, a
     assert a["board"]["text"][:2] == ["Elfyn Evans", "WRC World Champion 2026"] and a["board"]["found"], a   # #907: the honour board is in the hall group
+    assert a["flags"]["ids"] == ["wales", "uk"] and sorted(a["flags"]["loaded"]) == ["uk", "wales"], a   # the champion's flags, both SVGs loaded
     assert info["below"]["built"] == 5 and info["below"]["level"] == "room5" and info["below"]["object"] is True and info["counts"].get("rallyhall") == 1 and "eiffel" not in info["counts"], info
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) > 0.5 for k in ("wall", "podium")), push
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("floor", "apron")), push
 
+
+def test_rallyhall_youtube_shorts_show_on_the_back_wall_hide_outside_and_leave_with_the_room(server, tmp_path):
+    """The rally hall's two YouTube Shorts: iframes (the no-cookie embed, muted autoplay; stubbed here) in a CSS3D layer either side of the
+    flags, shown from the apron and the hall floor, hidden where walls would stand in front; a click hands the keys back; gone with the room."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server); stub_youtube(page)
+        h = page.evaluate("() => window.__mm.hideout()"); ride(page, h, "ring")
+        into_room(page, 5, "room5")
+        page.wait_for_function("() => window.__mm.rallyhall() && window.__mm.rallyhall().built === 5 && window.__mm.rallyhall().videos", timeout=120000)
+        page.set_viewport_size({"width": 1280, "height": 720})
+        at = lambda a, b: page.evaluate(f"() => {{ const v = window.__mm.below().tower, th = window.__mm.spoke(5, 0).th, f = [Math.cos(th), Math.sin(th)], s = [-f[1], f[0]]; window.__mm.sim(v.x + f[0] * {a} + s[0] * {b}, v.z + f[1] * {a} + s[1] * {b}, th, 0, 1.5, [], -600); }}")
+        at(-30, 0); page.wait_for_timeout(1500)
+        front = page.evaluate("() => window.__mm.rallyhall().videos")
+        boxes = [page.locator(f"iframe[data-video='{i}']").bounding_box() for i in ("cZxfLJdhWk8", "RFIVbPT6pdI")]
+        page.screenshot(path=str(tmp_path / "rallyhall-videos.png"))
+        page.locator("iframe[data-video='RFIVbPT6pdI']").click(); page.wait_for_timeout(300)
+        focus = page.evaluate("() => document.activeElement?.tagName !== 'IFRAME'")
+        at(0, 60); page.wait_for_timeout(800)
+        beside = page.evaluate("() => window.__mm.rallyhall().videos.map(v => v.shown)")
+        hidden = page.evaluate("() => [...document.querySelectorAll('iframe[data-video]')].map(f => getComputedStyle(f).display)")
+        back_to_ring(page, 5); into_room(page, 4, "room4")   # the next spoke's room replaces the hall
+        page.wait_for_function("() => !window.__mm.rallyhall()", timeout=120000)
+        left = page.locator("iframe[data-video]").count()
+        br.close()
+    print("screenshot:", tmp_path / "rallyhall-videos.png")
+    assert errors == []
+    assert [v["src"].split("?")[0] for v in front] == ["https://www.youtube-nocookie.com/embed/cZxfLJdhWk8", "https://www.youtube-nocookie.com/embed/RFIVbPT6pdI"] and all(v["shown"] for v in front), front
+    for box in boxes:
+        assert box and box["width"] > 20 and box["height"] > box["width"] * 1.5 and 0 <= box["x"] and box["x"] + box["width"] <= 1280, boxes   # portrait frames on screen
+    assert boxes[0]["x"] + boxes[0]["width"] < 640 < boxes[1]["x"], boxes   # one left, one right of the middle (the flags)
+    assert focus, "a click on a player must hand the keys back to the game"
+    assert beside == [False, False] and hidden == ["none", "none"], (beside, hidden)
+    assert left == 0, "the iframes leave with the room"
 
 # ---------- #489: ring 2 -- the keypad's ride, the space-station look, the walker in the cabin ----------
 
@@ -1366,6 +1453,74 @@ def test_enterprise_room_holodeck_stars_and_the_ship_hovering_over_the_car(serve
     assert below["level"] == "r2room0" and below["built"] == 8 and below["object"] is True and below["fog"] == "#04050a", below
     assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("centre", "hull", "saucer", "bow", "corner", "corner2")), push
     assert math.hypot(push["wall"]["dx"], push["wall"]["dz"]) > 0.3, push
+
+
+# ---------- #620: Deep Space Nine with the Defiant docked -- ring-2 room 1, the 570 m fly ceiling ----------
+
+
+@needs_world
+def test_ds9_room_station_hovering_with_the_defiant_docked(server, tmp_path):
+    """#620: ring-2 spoke 1 builds the space room and fetches ds9.glb then; the station hovers 25 m up at half scale, the Defiant is
+    docked at its ring towards the portal, the car drives under it, and the helicopter ceiling is 570 m in this room. Leaves a
+    screenshot of the whole station from the far corner at the docking ring's height."""
+    with sync_playwright() as p:
+        br, page, errors = open_page(p, server)
+        requests = []
+        page.on("request", lambda r: requests.append(r.url) if r.url.endswith("ds9.glb") else None)
+        h = page.evaluate("() => window.__mm.hideout()")
+        enter_cabin(page, h, "ring", FREIGHT_SLOW_DWELL); page.wait_for_function(PAD_SHOWN, timeout=120000)
+        page.keyboard.press("Digit2"); page.wait_for_function(RIDE_DONE, arg="ring2", timeout=240000)
+        assert page.evaluate("() => window.__mm.ds9()") is None and requests == []
+        into_room(page, 1, "r2room1", -1200)
+        page.wait_for_function("() => window.__mm.ds9() && window.__mm.ds9().loaded === true", timeout=240000)
+        page.wait_for_timeout(500)
+        d = page.evaluate("() => window.__mm.ds9()"); below = page.evaluate("() => window.__mm.below()")
+        # the station hovers: the car is pushed nowhere under it, out to the ring's radius, and the room's walls still are solid
+        push = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9(), c = Math.cos(e.th), s = Math.sin(e.th);
+          const at = (x, z) => window.__mm.pushAt(t.x + x * c - z * s, t.z + x * s + z * c, -1200);   // model frame -> world
+          const th = window.__mm.spoke(1, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]], room = (a, b) => window.__mm.pushAt(t.x + f[0] * a + v[0] * b, t.z + f[1] * a + v[1] * b, -1200);
+          return { centre: at(0, 0), ring: at(360, 0), dock: at(406, 0), side: at(0, 340), corner: room(450, 450), wall: room(499, 0) }; }""")
+        # where the Defiant ended up: its azimuth off the portal direction, seen from the station's axis
+        dock = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9();
+          const th = window.__mm.spoke(1, 0).th, toPortal = th + Math.PI;                              // f points into the room, so the portal lies at -f
+          const az = Math.atan2(e.defiant[2] - t.z, e.defiant[0] - t.x), off = Math.atan2(Math.sin(az - toPortal), Math.cos(az - toPortal));
+          return { off, r: Math.hypot(e.defiant[0] - t.x, e.defiant[2] - t.z), y: e.defiant[1] }; }""")
+        # the screenshot: the helicopter in the room corner away from the Defiant, risen to the docking ring's height, facing the station
+        cam = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9();
+          const th = window.__mm.spoke(1, 0).th, f = [Math.cos(th), Math.sin(th)], v = [-f[1], f[0]];
+          const across = (e.defiant[0] - t.x) * v[0] + (e.defiant[2] - t.z) * v[1], b = (across > 0 ? -475 : 475);
+          const x = t.x - f[0] * 475 + v[0] * b, z = t.z - f[1] * 475 + v[1] * b;                      // the portal-side corner, other hand than the Defiant
+          return { x, z, th: Math.atan2(t.z - z, t.x - x) }; }""")
+        page.evaluate(f"() => window.__mm.place({cam['x']}, {cam['z']}, {cam['th']})")
+        page.keyboard.press("KeyF"); page.wait_for_timeout(300)
+        page.evaluate("() => window.__mm.flySim(16, ['Space'])")                                       # ~16 m/s: up to the ring's height
+        page.set_viewport_size({"width": 1280, "height": 720}); page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "ds9.png"))
+        # and once from beside the dock, 235 m off the Defiant, to see it against the ring
+        near = page.evaluate("""() => { const t = window.__mm.below().tower, e = window.__mm.ds9();
+          const a = Math.atan2(e.defiant[2] - t.z, e.defiant[0] - t.x) + Math.PI / 6;                  // a quarter round the ring from the dock
+          const x = t.x + Math.cos(a) * 470, z = t.z + Math.sin(a) * 470;                              // still inside the 475 m fly wall
+          return { x, z, th: Math.atan2(e.defiant[2] - z, e.defiant[0] - x) }; }""")
+        page.evaluate(f"() => window.__mm.place({near['x']}, {near['z']}, {near['th']})")
+        page.evaluate("() => window.__mm.flySim(16, ['Space'])")
+        page.wait_for_timeout(1500)
+        page.screenshot(path=str(tmp_path / "ds9-defiant.png"))
+        capped = page.evaluate("() => window.__mm.flySim(30, ['Space'])")                              # the room's own ceiling, 570 m
+        br.close()
+    print("screenshots:", tmp_path / "ds9.png", tmp_path / "ds9-defiant.png")
+    assert errors == []
+    assert len(requests) == 1 and requests[0].endswith("/assets/models/ds9.glb"), requests
+    assert d["placeholder"] is False and 85000 <= d["tris"] <= 105000, d
+    assert abs(d["height"] - 493.9) < 0.5 and d["diameter"] == 726 and d["hover"] == 25, d
+    assert abs(d["y"] - (-1200 + 25)) <= 2.0, ("hovering 25 m up, bobbing 1 m", d)
+    assert d["look"] == "space" and d["ceiling"] == 570, d
+    assert below["level"] == "r2room1" and below["built"] == 9 and below["object"] is True and below["fog"] == "#04050a", below
+    assert abs(abs(dock["off"]) - math.pi / 6) < 0.05, ("the Defiant 30 degrees off the portal", dock)
+    assert 400 < dock["r"] < 415, ("docked just outside the 363 m ring", dock)
+    assert abs(dock["y"] - (-1200 + 25 + 246.9)) < 3.0, ("at the ring's mid-plane", dock)
+    assert all(math.hypot(push[k]["dx"], push[k]["dz"]) < 0.01 for k in ("centre", "ring", "dock", "side", "corner")), push
+    assert math.hypot(push["wall"]["dx"], push["wall"]["dz"]) > 0.3, push
+    assert capped["y"] <= -1200 + 570 + 0.5 and capped["y"] > -1200 + 545, ("the helicopter reaches 570 m here", capped)
 
 
 @needs_world
