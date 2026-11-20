@@ -113,8 +113,32 @@ export function offsetPolyline(pts, d) {
   return out;
 }
 
+// #530: the part of a polyline between a and b metres along it, cut points interpolated, interior vertices kept in order
+function polylineSlice(pts, a, b) {
+  const out = [pointAtLength(pts, a)];
+  let acc = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (acc > a && acc < b) out.push(pts[i].slice());
+  }
+  out.push(pointAtLength(pts, b));
+  return out;
+}
+// #530: a road that keeps only keep1952 intervals in 1952 becomes alternating pieces: kept stretches as they are, gaps `modern`
+const MIN_PIECE = 0.5;
+function splitKept(r) {
+  const { keep1952, ...rest } = r;
+  if (!keep1952) return [r];
+  const total = polylineLength(r.pts), pieces = [];
+  let from = 0;
+  const add = (a, b, modern) => { if (b - a >= MIN_PIECE) pieces.push(modern ? { ...rest, pts: polylineSlice(r.pts, a, b), modern: true } : { ...rest, pts: polylineSlice(r.pts, a, b) }); };
+  for (const [a, b] of keep1952) { add(from, a, true); add(a, b, false); from = b; }
+  add(from, total, true);
+  return pieces;
+}
+
 export function layoutFromWorld(w) {
-  const roads = w.roads.map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
+  const roads = w.roads.flatMap(splitKept).map(r => ({ ...r, tex: r.trail ? 'gravel' : r.cls === 'motorway' || r.cls === 'motorway_link' ? 'motorway' : 'road' }));
   return { roads, bridges: roads.filter(r => r.bridge), junctions: w.junctions, water: w.water, buildings: w.buildings,
            rail: w.rail, railBridges: w.railBridges || [], grades: w.grades || [], props: w.props || [], parking: w.parking || [], streams: w.streams || [], boundaries: w.boundaries || [], forests: w.forests || [], fields: w.fields || [], busRoutes: w.busRoutes || [], anchors: w.anchors, bbox: w.bbox, sdf: w.waterSdf, sources: w.sources || [], origin: w.origin || null };
 }

@@ -1027,7 +1027,7 @@ import { crownFor } from './treegeo.js';
 import { oldNationalBorder, apartRuns, ringAround, motorwayLabelSpots, makeGrid, gridAdd, gridAddSegment, gridQuery, sdfSampler, terrainGrid, fineCells, fineWeight, cellHeights, smoothedGround, FINE_BANK, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, bridgeDeckAt, bridgeSurfaceAt, bridgeAccepts, bridgeChain, bankTop, pastEnd, seatEnd, endFrame, END_SEAT, DECK_OFFSET, deckLine, cutPolyline, waterSurface, markLines, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, villageNames, minimapNames, nationalBorder, isRowHouse, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, armReach, cutNetwork, cutFloorAt, cutBounds, wallStations, wallSpans, patchCells, triLerp, treeTrunkR, treeCollider, forestCollider, rollingDrag, rng, clearWoods, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, cutFloor, settleCut, armSpan, sharedTrough, cornerPiece, wallPoint, gradeCut, gradeCutAt, gradeCells, gradeY, GRADE_CUT, GRADE_BAND, sampled, trisHeightAt, dropRepeats, colliderPush, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, depthOffsetFor, DECAL_DEPTH_OFFSET, FACADE, facadeRows, facadeColumns, gableWindow, facingFace, roadBridgeCrossings, deckGuards, ROAD_UNDERPASS, terrainHasData, nearbyWaterLevel, sameBank } from './world.js';
 import { debugFromQuery, debugPosition, heightLabels, positionLines, buildingLines, copyText, DEBUG_LABEL_NDC_MAX, labelNdcY, clampLabelY, sizeLine, mapLines, lineLabelKey, mapUrls, isDebugKey, isHudKey, fpsLine, gpuLine, memLine } from './debug.js';
 import { isMonoKey } from './oldphoto.js';
-import { isEraKey, eraAvailable, clearExempt, eraShown } from './timelayer.js';   // #530
+import { isEraKey, eraAvailable, clearExempt, eraShown, eraRoads, roadGoneAt } from './timelayer.js';   // #530
 import { BACKDROP_SCALE, CURVE_R, HAZE, VALLEY, backdropMesh, backdropVisible } from './backdrop.js';
 import { LANDMARK_INFO, landmarkEntries, filterLandmarks, gemeindenOf, chipRows, faceToward, rampApproach } from './landmarks.js';
 import { filterHelpRows, isHoldCommand, commandAction, commandEventInit, moveSelection } from './helpfilter.js';
@@ -1436,6 +1436,7 @@ function onBridge(x, z, y) {
   // an abutment (#78) is solid ground at any height: nothing drives under one, so a car or a J spot lands on it, not on the bank road it buries
   if (L) { let fill = null;
     for (const b of gridQuery(BRIDGE_GRID, x, z, 1)) {
+      if (b.modern && ERA.on) continue;   // #530: this deck is not there in 1952
       // #227: past an open end of a generic deck the ground is fill (the bank road), not a flat deck plateau; a deck hit still wins
       if (b.kind === 'generic' && !b.approach) { const f = endFrame(b.r.pts, x, z); if (f.e !== 0) {
         const k = f.e > 0 ? 1 : 0, t = k ? b.len : 0;
@@ -1485,7 +1486,7 @@ if (L) for (const r of L.bridges) {
   const len = polylineLength(r.pts), kind = L.anchors.landmarks.holzbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.holzbruecke.x, L.anchors.landmarks.holzbruecke.z).d < 15 ? 'wood'
     : L.anchors.landmarks.fridolinsbruecke && nearestOnPolyline(r.pts, L.anchors.landmarks.fridolinsbruecke.x, L.anchors.landmarks.fridolinsbruecke.z).d < 15 ? 'stone' : 'generic';
   // the two hero bridges use the hand models' deck widths, so physics and visuals agree
-  const b = { r, len, hw: kind === 'wood' ? 2.6 : kind === 'stone' ? 4.2 : r.w / 2, kind, h0: 0, h1: 0 }; OSM_BRIDGES.push(b);
+  const b = { r, len, hw: kind === 'wood' ? 2.6 : kind === 'stone' ? 4.2 : r.w / 2, kind, h0: 0, h1: 0, modern: !!r.modern }; OSM_BRIDGES.push(b);   // #530: modern = not there in 1952
   for (let i = 0; i < r.pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...r.pts[i], ...r.pts[i + 1], b.hw * 2, b);
 }
 // #76: OSM railway bridges become rail decks -- ground from above like a road bridge (onBridge), nothing to a car underneath
@@ -1521,7 +1522,7 @@ function approachPieces(ends, H, seen) {
     q = next; }
   return out;
 }
-function addApproach({ r, pts, h1, joint }, H) { const b = { r: { ...r, pts }, len: polylineLength(pts), hw: Math.max(4.2, r.w / 2), kind: 'stone', approach: true, h0: H, h1, fade0: false, ...(joint ? { fade1: false } : {}) }; OSM_BRIDGES.push(b); for (let i = 0; i < pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...pts[i], ...pts[i + 1], b.hw * 2, b); }
+function addApproach({ r, pts, h1, joint }, H, modern = false) { const b = { r: { ...r, pts }, len: polylineLength(pts), hw: Math.max(4.2, r.w / 2), kind: 'stone', approach: true, modern, h0: H, h1, fade0: false, ...(joint ? { fade1: false } : {}) }; OSM_BRIDGES.push(b); for (let i = 0; i < pts.length - 1; i++) gridAddSegment(BRIDGE_GRID, ...pts[i], ...pts[i + 1], b.hw * 2, b); }
 // #78: the stone chain gets one straight deck line between its two bank tops, plus flat abutments over the bank-climbing approach roads
 function buildStoneChain() {
   const chain = OSM_BRIDGES.filter(b => b.kind === 'stone' && !b.approach), end = (b, k) => k ? b.r.pts[b.r.pts.length - 1] : b.r.pts[0], near = (p, q, d) => Math.hypot(p[0] - q[0], p[1] - q[1]) <= d;
@@ -1536,7 +1537,7 @@ function buildStoneChain() {
   const H = banks.map(k => bankHeight(k) ?? terrainH(k[0][0], k[0][1]));
   STONE_AXIS = { a: mid(banks[0]), ha: H[0], e: mid(banks[1]), he: H[1] };
   for (const b of chain) for (const k of [0, 1]) b['h' + k] = deckLine(STONE_AXIS.a, H[0], STONE_AXIS.e, H[1], ...end(b, k));
-  const seen = new Set(); banks.forEach((k, i) => { for (const ap of approachPieces(k, H[i], seen)) addApproach(ap, H[i]); });
+  const seen = new Set(); banks.forEach((k, i) => { for (const ap of approachPieces(k, H[i], seen)) addApproach(ap, H[i], chain.some(c => c.modern)); });   // #530: an abutment goes with its bridge
   for (const o of opens) if (OSM_BRIDGES.some(x => x.approach && near(x.r.pts[0], o.p, 0.5))) o.b['fade' + o.k] = false;   // an end that continues as an abutment is a joint too
 }
 // #227: a generic deck end takes the lowest bank top its continuing roads reach within END_SEAT.reach m (seatEnd); an end joined only
@@ -1752,14 +1753,14 @@ function roadSurfH(x, z) { return surfH(SURF_GRID, x, z); }
 const roadTopH = (x, z) => Math.max(terrainH(x, z), roadSurfH(x, z));
 // #273: junction and road-end discs (roadPlain): drawn coarser than the roads under them, so the car drives on the drawn disc
 const DISC_GRID = makeGrid(32);
-function discSurfH(x, z) { let h = -Infinity; for (const d of gridQuery(DISC_GRID, x, z, 0)) if ((x - d.x) ** 2 + (z - d.z) ** 2 <= d.r * d.r) h = Math.max(h, trisHeightAt(d.tris, x, z)); return h; }
+function discSurfH(x, z) { let h = -Infinity; for (const d of gridQuery(DISC_GRID, x, z, 0)) if (!(d.modern && ERA.on) && ((x - d.x) ** 2 + (z - d.z) ** 2 <= d.r * d.r)) h = Math.max(h, trisHeightAt(d.tris, x, z)); return h; }
 function streamH(x, z) { return surfH(STREAM_GRID, x, z); }
 function streamNameAt(x, z) { for (const { sf, i } of gridQuery(STREAM_GRID, x, z, 1)) { if (sf.name && segDist(x, z, ...sf.pts[i], ...sf.pts[i + 1]) <= sf.hw) return sf.name; } return ''; }
 // #273: where along segment i of pts (x, z) projects, 0 at its start and 1 at its end
 function segS(pts, i, x, z) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1], dx = bx - ax, dz = bz - az; return ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1); }
 // a point past a segment's end and before the next one's start (the outer side of a bend, or a joint itself in rounding) lies on
 // the strip's mitred corner: it takes the joint's heights
-function surfH(grid, x, z) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const s = ((x - ax) * dx + (z - az) * dz) / L2; if (s < 0 ? !(i > 0 && segS(sf.pts, i - 1, x, z) > 1) : s > 1 && !(i < sf.pts.length - 2 && segS(sf.pts, i + 1, x, z) < 0)) continue; const t = clamp(s, 0, 1), side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; h = Math.max(h, f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f)); } return h; }
+function surfH(grid, x, z) { let h = -Infinity; for (const { sf, i } of gridQuery(grid, x, z, 1)) { if (sf.modern && ERA.on) continue; const [ax, az] = sf.pts[i], [bx, bz] = sf.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz; if (!L2) continue; const s = ((x - ax) * dx + (z - az) * dz) / L2; if (s < 0 ? !(i > 0 && segS(sf.pts, i - 1, x, z) > 1) : s > 1 && !(i < sf.pts.length - 2 && segS(sf.pts, i + 1, x, z) < 0)) continue; const t = clamp(s, 0, 1), side = ((x - ax) * -dz + (z - az) * dx) / Math.sqrt(L2); if (Math.abs(side) > sf.hw + 0.3) continue; const f = clamp((side / sf.hw + 1) / 2, 0, 1), hA = sf.hl[i], hB = sf.hr[i], hC = sf.hr[i + 1], hD = sf.hl[i + 1]; h = Math.max(h, f >= t ? hA + (hB - hA) * (f - t) + (hC - hA) * t : hA + (hC - hA) * f + (hD - hA) * (t - f)); } return h; }
 // #277: the levels. The surface keeps today's ground and colliders; the ring and the eight rooms register theirs on the first ride (ringBuild).
 const LEVELS = createLevels(); const SURFACE_GRID = OBB_GRID;
 function groundH(x, z, y) { return LEVELS.isSurface() ? surfaceGroundH(x, z, y) : LEVELS.groundAt(x, z, y); }
@@ -1783,7 +1784,8 @@ let CPS = [{ n: 'Bahnhof Sisseln', x: 1780, z: 560 }, mk('Sisslerfeld', 995, 660
 let FINISH = mk('Münsterplatz Bad Säckingen', 452, 464);
 let START = { x: V(1140, 685)[0], z: V(1140, 685)[1], th: Math.PI };
 // OSM world: race points come from the anchors, snapped onto the nearest drivable (non-motorway, non-bridge) road within 60 m
-const snapRoad = (x, z) => { let best = null; for (const r of ROADS) { if (r.bridge || r.cls === 'motorway') continue; const n = nearestOnPolyline(r.pts, x, z); if (!best || n.d < best.n.d) best = { r, n }; } if (!best || best.n.d > 60) return [x, z]; const { r, n } = best, p = r.pts; let acc = 0; for (let i = 0; i < p.length - 1; i++) { const L2 = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); if (acc + L2 >= n.t) { const u = (n.t - acc) / (L2 || 1); return [p[i][0] + (p[i + 1][0] - p[i][0]) * u, p[i][1] + (p[i + 1][1] - p[i][1]) * u]; } acc += L2; } return [x, z]; };
+const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {} };
+const snapRoad = (x, z) => { let best = null; for (const r of ROADS) { if (r.bridge || r.cls === 'motorway' || !eraShown(r, ERA.on)) continue; const n = nearestOnPolyline(r.pts, x, z); if (!best || n.d < best.n.d) best = { r, n }; } if (!best || best.n.d > 60) return [x, z]; const { r, n } = best, p = r.pts; let acc = 0; for (let i = 0; i < p.length - 1; i++) { const L2 = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); if (acc + L2 >= n.t) { const u = (n.t - acc) / (L2 || 1); return [p[i][0] + (p[i + 1][0] - p[i][0]) * u, p[i][1] + (p[i + 1][1] - p[i][1]) * u]; } acc += L2; } return [x, z]; };
 if (L && L.anchors.cps.length) {
   CPS = L.anchors.cps.map(c => { const [x, z] = snapRoad(c.x, c.z); return { n: c.n, x, z }; });
   { const [x, z] = snapRoad(L.anchors.finish.x, L.anchors.finish.z); FINISH = { n: L.anchors.finish.n, x, z }; }
@@ -1799,7 +1801,6 @@ else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has 
 // ---------- geometry builders ----------
 const parts = {};
 const partsModern = {}; let ERA_COLLECT = false;   // #530: while a modern (post-1952) building is built, push() and pushOBB() file it under the time layer
-const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {} };
 const UWS = { on: false };   // #101: true while the camera is under the water surface (setUnderwater switches the look)
 // #201: cave mode -- on while the car is under the hill (caveInside); group = the lobby's lights and platform, drawn only then (setCave)
 const CAVE_MODE = { on: false, group: null, dark: null, veil: null, k: 0 };
@@ -1930,7 +1931,7 @@ function cellGeo(tris, colAt, flip = false) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(cArr, 3)); g.computeVertexNormals();
   return g;
 }
-function disc(x, z, r, y, role, c, seg = 14) { const g = new THREE.RingGeometry(0, r, seg, 3); g.rotateX(-Math.PI / 2); g.translate(x, 0, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const vx = p.getX(i), vz = p.getZ(i); p.setY(i, Math.max(terrainH(vx, vz) + y, roadSurfH(vx, vz) + 0.01)); } if (role === 'roadPlain') { const tris = Array.from(g.index.array, (k) => [p.getX(k), p.getY(k), p.getZ(k)]).flat(); gridAdd(DISC_GRID, x - r, z - r, x + r, z + r, { x, z, r, tris }); } const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * r / 4, uv.getY(i) * r / 4); colorize(g, c); push(role, g); }
+function disc(x, z, r, y, role, c, seg = 14) { const g = new THREE.RingGeometry(0, r, seg, 3); g.rotateX(-Math.PI / 2); g.translate(x, 0, z); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const vx = p.getX(i), vz = p.getZ(i); p.setY(i, Math.max(terrainH(vx, vz) + y, roadSurfH(vx, vz) + 0.01)); } if (role === 'roadPlain') { const tris = Array.from(g.index.array, (k) => [p.getX(k), p.getY(k), p.getZ(k)]).flat(); gridAdd(DISC_GRID, x - r, z - r, x + r, z + r, { x, z, r, tris, modern: ERA_COLLECT }); } const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * r / 4, uv.getY(i) * r / 4); colorize(g, c); push(role, g); }
 
 // ---------- placement bookkeeping ----------
 const OBB = [];
@@ -2690,26 +2691,29 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   await loadStage('roads', { roads: L ? ROADS.length : 0 });
   // roads
   const ROAD_SURF = new Map();
-  for (const r of ROADS) if (!(L && r.bridge)) ROAD_SURF.set(r, registerSurface(ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true).userData.surf));
+  for (const r of ROADS) if (!(L && r.bridge)) { ERA_COLLECT = !!r.modern; const sf = ribbon(r.pts, r.w / 2, 0.04, r.tex === 'motorway' ? 'motorway' : r.tex === 'gravel' ? 'gravel' : L ? 'roadOsm' : 'road', col('#ffffff'), r.tex === 'motorway' ? 12 : 8, true).userData.surf; sf.modern = ERA_COLLECT; ERA_COLLECT = false; ROAD_SURF.set(r, registerSurface(sf)); }   // #530: a modern road is built into the time layer, its surface flagged so the car ignores it in 1952
   if (L) seatGenericEnds(roadTopH);   // #227: the ribbons exist now, so a generic deck end can be seated on the surface the car drives on (the decks below are drawn after this)
   await loadStage('markings');
   if (L) { // Swiss markings from the OSM tags, style-independent like the street names; one merged mesh per dash pattern
-    const mats = {}, geos = {};
+    const mats = {}, geos = {}, geosModern = {};
     const buried = ([x, z]) => { const ob = onBridge(x, z, 1e4); return !!ob && !!ob.b.approach; };   // #290: an abutment (#78) buries its bank road
     for (const r of ROADS) if (!r.bridge) for (const { pts, spec } of markLines(r)) {
       const key = spec.color + spec.dash + spec.gap;
-      if (!mats[key]) { mats[key] = new THREE.MeshBasicMaterial({ map: markTex(spec.color === 'yellow' ? '#f2c21a' : '#f4f1e6', spec.dash, spec.gap), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET }); geos[key] = []; }
+      if (!mats[key]) { geosModern[key] = []; mats[key] = new THREE.MeshBasicMaterial({ map: markTex(spec.color === 'yellow' ? '#f2c21a' : '#f4f1e6', spec.dash, spec.gap), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET }); geos[key] = []; }
       const sf = ROAD_SURF.get(r);
-      for (const run of keptRuns(resample(dropRepeats(pts), 4), (p) => !buried(p))) geos[key].push(markGeo(run, spec, sf));
+      for (const run of keptRuns(resample(dropRepeats(pts), 4), (p) => !buried(p))) (r.modern ? geosModern : geos)[key].push(markGeo(run, spec, sf));
     }
     for (const key in geos) if (geos[key].length) marks.add(new THREE.Mesh(mergeGeometries(geos[key], false), mats[key]));
+    for (const key in geosModern) if (geosModern[key].length) { ERA.group.add(new THREE.Mesh(mergeGeometries(geosModern[key], false), mats[key])); }   // #530: a modern road's markings belong to the time layer
   }
   if (!L) for (const r of ROADS) for (const p of r.pts) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
   // #1044: no end cap or junction disc where a bank road meets a road deck over a road cut: its hw + 0.3 radius reaches back under the deck,
   // and its coarse rings, draped from the bank down into the trough, stood as road-grey spikes beside the lower road (and lifted the car)
   const overCut = (p) => [...ROAD_CUT_DECKS].some((b) => [b.r.pts[0], b.r.pts[b.r.pts.length - 1]].some((e) => Math.hypot(p[0] - e[0], p[1] - e[1]) <= 0.5));
-  if (L) for (const r of ROADS) if (!r.bridge) for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) if (!overCut(p)) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff'));
-  if (L) for (const [x, z, r] of L.junctions) if (!overCut([x, z])) disc(x, z, r, 0.05, 'roadPlain', col('#ffffff'));
+  if (L) for (const r of ROADS) if (!r.bridge) { ERA_COLLECT = !!r.modern; for (const p of [r.pts[0], r.pts[r.pts.length - 1]]) if (!overCut(p)) disc(p[0], p[1], r.w / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff')); ERA_COLLECT = false; }
+  // #530: a junction disc that touches no old road goes with the new roads
+  const oldRoadNear = (x, z, r) => [...gridQuery(ROAD_GRID, x, z, r + 0.5)].some(({ r: o, i }) => !o.modern && segDist(x, z, ...o.pts[i], ...o.pts[i + 1]) <= o.w / 2 + r + 0.5);
+  if (L) for (const [x, z, r] of L.junctions) if (!overCut([x, z])) { ERA_COLLECT = !oldRoadNear(x, z, r); disc(x, z, r, 0.05, 'roadPlain', col('#ffffff')); ERA_COLLECT = false; }
   if (!L) for (let a = 0; a < ROADS.length; a++) for (let b = a + 1; b < ROADS.length; b++) if (!(L && (ROADS[a].bridge || ROADS[b].bridge))) for (let i = 0; i < ROADS[a].pts.length - 1; i++) for (let j = 0; j < ROADS[b].pts.length - 1; j++) { const [x1, y1] = ROADS[a].pts[i], [x2, y2] = ROADS[a].pts[i + 1], [x3, y3] = ROADS[b].pts[j], [x4, y4] = ROADS[b].pts[j + 1]; const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4); if (Math.abs(den) < 1e-6) continue; const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den, u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den; if (t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99) disc(x1 + t * (x2 - x1), y1 + t * (y2 - y1), Math.max(ROADS[a].w, ROADS[b].w) / 2 + 0.3, 0.05, 'roadPlain', col('#ffffff')); }
   await loadStage('bridges');
   // bridges: the stone hero model on one straight span (deck, parapets, piers) -- the hand layout's Fridolinsbrücke and the OSM one while
@@ -2821,12 +2825,13 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   // two-bank crossing, on one straight span between its farthest-apart points (heroBridge). Generic bridges stay flat strips.
   { const heroes = {}; for (const ob of OSM_BRIDGES) if (ob.kind === 'wood' || ob.kind === 'stone') (heroes[ob.kind] ||= []).push(ob);
     for (const kind in heroes) {
-      if (kind === 'stone' && STONE_AXIS) { heroStone(heroes.stone); continue; }
+      ERA_COLLECT = heroes[kind].some(p => p.modern);   // #530: the Fridolinsbruecke (model, colliders) is built into the time layer; reset after the loop
+      if (kind === 'stone' && STONE_AXIS) { heroStone(heroes.stone); ERA_COLLECT = false; continue; }
       if (kind === 'wood') {   // #241: along the pieces' own line, not a chord; no hero span, so onBridge measures the line too
         const wood = heroes.wood, wpts = orientEastWest(joinPolylines(wood.map(p => p.r.pts))), mid = pointAtLength(wpts, polylineLength(wpts) / 2);
         const hs = (x, z) => { let bp = null; for (const p of wood) { const n = nearestOnPolyline(p.r.pts, x, z); if (!bp || n.d < bp.n.d) bp = { p, n }; } return bridgeSurfaceAt(bp.p, bp.n.t); };
         const wy0 = Math.min(...wood.map(p => Math.min(p.h0, p.h1))) - 1.5, wl = REAL ? (WATER.levelAt(mid[0], mid[1]) ?? wy0 - 4) : 0;
-        heroWood(wpts, hs, pierBase(wl), wy0); continue; }
+        heroWood(wpts, hs, pierBase(wl), wy0); ERA_COLLECT = false; continue; }
       const pcs = heroes[kind], all = pcs.flatMap(p => p.r.pts); let a = all[0], e = all[1], best = -1;
       for (const p of all) for (const q of all) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d > best) { best = d; a = p; e = q; } }
       const hb = { a, b: e, len: best, ux: (e[0] - a[0]) / best, uz: (e[1] - a[1]) / best, hw: pcs[0].hw, kind }; hb.rot = Math.atan2(hb.uz, hb.ux);
@@ -2834,9 +2839,10 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
       hb.y0 = Math.min(...pcs.map(p => Math.min(p.h0, p.h1))) - 1.5;
       const hAt = (t) => { const x = a[0] + hb.ux * t, z = a[1] + hb.uz * t; let bp = null; for (const p of pcs) { const n = nearestOnPolyline(p.r.pts, x, z); if (!bp || n.d < bp.n.d) bp = { p, n }; } return bridgeSurfaceAt(bp.p, bp.n.t); };
       const wl = REAL ? (WATER.levelAt(a[0] + hb.ux * best / 2, a[1] + hb.uz * best / 2) ?? hb.y0 - 4) : 0;
-      heroBridge(hb, hAt, pierBase(wl));
+      heroBridge(hb, hAt, pierBase(wl)); ERA_COLLECT = false;
     } }
   for (const b of OSM_BRIDGES) if (b.kind === 'generic') {
+    ERA_COLLECT = !!b.modern;   // #530
     const pts = resample(b.r.pts, 5), hf = (x, z) => bridgeDeckAt(b, nearestOnPolyline(b.r.pts, x, z).t), hs = (x, z) => bridgeSurfaceAt(b, nearestOnPolyline(b.r.pts, x, z).t);
     strip(pts, b.r.w, 0, b.kind === 'wood' ? 'wood' : 'roadOsm', col('#ffffff'), 8, hs);
     strip(pts, b.r.w + 1.2, -0.6, b.kind === 'wood' ? 'wood' : 'stone', col('#c8c2b6'), 4, hf);
@@ -2849,6 +2855,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
       strip(pad, b.r.w, 0.02, 'roadOsm', col('#ffffff'), 8, gh);
       strip(pad, b.r.w + 1.2, -0.6, 'stone', col('#c8c2b6'), 4, gh); }
   }
+  ERA_COLLECT = false;
   // #76 rail decks: a stone box per <= 10 m piece with its top at the deck surface, the track on top
   for (const b of RAIL_DECKS) {
     const hs = (x, z) => bridgeSurfaceAt(b, nearestOnPolyline(b.r.pts, x, z).t), pts = resample(b.r.pts, 10);
@@ -4941,7 +4948,7 @@ const ENTER_HANDLERS = {};
 ENTER_HANDLERS['bodenackerstrasse-6c'] = () => { INT.door.target = 1; };   // #411: E at the porch swings the door open; it shuts again when the walker has walked away
 ENTER_HANDLERS['plattform-sisslerfeld'] = () => toast(tr('plattformOpen'));   // #413: nothing to open, the stair is open -- just walk in
 const secretRevealed = () => !!(HIDE && HIDE.found);
-const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link';
+const jumpable = r => !r.bridge && r.cls !== 'motorway' && r.cls !== 'motorway_link' && eraShown(r, ERA.on);   // #530: a road of today is no place to land in 1952
 // back up on the surface with the lift parked at the top: every jump, and since #504 a race (re)start too; true when it came from below
 function leaveBelow() { const wasBelow = LEVELS.onJump(); LIFT_RIDE.abort(); LIFT_RIDE.place('top'); CAB.visible = false; setFreightPad(false); liftIndicator(null); return wasBelow; }
 let LAST_JUMP = null;   // #534: where the last jump landed [x, z]; the tutorial's jump step reads and clears it
@@ -5009,8 +5016,21 @@ function stepWreck(dt) {
 }
 function resetCar() { applyPendingSwap(); /* #236 */ resetProps(); /* #415, #416 */ if (WRECK_S.on) endWreck(); stopAuto('reset'); endTrain(); endFoot(); FLY.on = false; P.x = P.safe[0]; P.z = P.safe[1]; P.th = P.safe[2]; P.vx = P.vz = P.vy = 0; P.y = groundH(P.x, P.z, -Infinity); P.splash = 0; P.hinted = false; WHEEL_STATE.yaw = 0; TIP_S = TIP_UP; car.position.set(P.x, P.y, P.z); car.rotation.set(0, -P.th, 0); restShadow(); }   // safe spots are never on a bridge, so ask for the ground under any OSM deck
 // #18 autopilot: O picks a destination (J landmarks + streets), the car drives there along an A* route (route.js). The graph is built on first use
-const AUTOP = { on: false, graph: null, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
-function autoGraph() { if (!AUTOP.graph && L) { AUTOP.graph = buildGraph(ROADS); AUTOP.streets = streetEntries(AUTOP.graph, REGION.villages); } return AUTOP.graph; }
+const AUTOP = { on: false, graph: null, graphs: { today: null, era: null }, streets: [], dest: null, goals: [], st: null, last: null, ownBlinker: false };
+function autoGraph() {   // #530: one graph per state of the layer, built on first use; AUTOP.graph / .streets point at the current one
+  if (!L) return AUTOP.graph;
+  const key = ERA.on ? 'era' : 'today';
+  if (!AUTOP.graphs[key]) { const graph = buildGraph(eraRoads(ROADS, ERA.on)); AUTOP.graphs[key] = { graph, streets: streetEntries(graph, REGION.villages) }; }
+  AUTOP.graph = AUTOP.graphs[key].graph; AUTOP.streets = AUTOP.graphs[key].streets;
+  return AUTOP.graph;
+}
+const roadHitsAt = (x, z) => [...gridQuery(ROAD_GRID, x, z, 16)].map(({ r, i }) => ({ modern: !!r.modern, d: segDist(x, z, ...r.pts[i], ...r.pts[i + 1]), hw: r.w / 2 }));
+// #530: is the car on a road (or a bridge deck) that did not exist in 1952? Independent of the layer's state
+function goneUnderCar() {
+  if (roadGoneAt(roadHitsAt(P.x, P.z))) return true;
+  const was = ERA.on; ERA.on = false; const deckOfToday = !!onBridge(P.x, P.z, P.y + 0.5); ERA.on = true; const deckOf1952 = !!onBridge(P.x, P.z, P.y + 0.5); ERA.on = was;
+  return deckOfToday && !deckOf1952;
+}
 // ---------- #500: Postautos on their lines by the weekday timetable (postauto.js) ----------
 // The timetable loads in the background after the world, never blocking play. The clock is real Europe/Zurich time (A0a),
 // unless ?patime=HH:MM starts it at a fixed time for testers (A11); a jump > PA.resync re-places the fleet (A3).
@@ -5136,7 +5156,8 @@ function stepPostauto(dt) {
   const jumped = POSTAUTO.forceSync || (POSTAUTO.prev !== null && fleetJumped(POSTAUTO.prev, now, dtF, { resync: jumpLimit(f, PA.resync) }));
   POSTAUTO.forceSync = false;
   POSTAUTO.syncT -= dt;
-  if (jumped || POSTAUTO.syncT <= 0) { POSTAUTO.buses = syncFleet(jumped ? [] : POSTAUTO.buses, POSTAUTO.trips, POSTAUTO.routes, now); POSTAUTO.syncT = 1; }
+  if (ERA.on) POSTAUTO.buses = [];   // #530: no Postauto in 1952 (every route runs over roads that are hidden)
+  else if (jumped || POSTAUTO.syncT <= 0) { POSTAUTO.buses = syncFleet(jumped ? [] : POSTAUTO.buses, POSTAUTO.trips, POSTAUTO.routes, now); POSTAUTO.syncT = 1; }
   POSTAUTO.prev = now;
   if (POSTAUTO.buses.some((b) => b.phase !== 'done') && gltfState('bus') === 'idle') loadVehicleModel('bus');
   const surface = LEVELS.isSurface(), flashOn = Math.floor(simNow() / 350) % 2 === 0;
@@ -5157,7 +5178,7 @@ function stepPostauto(dt) {
   const ear = { x: camera.position.x, z: camera.position.z };   // #709: the camera hears, so follow mode and the drone camera sound right
   SFX.busEngines(surface ? pickVoices(POSTAUTO.buses.filter((b) => b.phase !== 'done').map((b) => { const p = b.pose ?? busPose(b.route, b.s); return { key: b.key, phase: b.phase, v: b.v, x: p.x, z: p.z }; }), ear) : [], dt);
   for (const [key, g] of POSTAUTO.meshes) if (!alive.has(key)) { POSTAUTO.group.remove(g); disposePostautoMesh(g); POSTAUTO.meshes.delete(key); }
-  POSTAUTO.group.visible = surface;
+  POSTAUTO.group.visible = surface && !ERA.on;
 }
 function drawPostauto(b, flashOn, dt, now) {
   const p = busPose(b.route, b.s); b.pose = p;   // busEngines reads it this frame instead of posing every bus again
@@ -5849,7 +5870,27 @@ window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; FOOT.mv =
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
 window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); FOOT.view = null; return window.__mm.foot(); };   // #895: tests and screenshot scripts read the new pitch at once
 // tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
-window.__mm.era = () => { const s = ERA.solids[0]; return { available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])) }; };   // #530
+window.__mm.era = () => { const s = ERA.solids[0]; return { available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), goneHere: goneUnderCar(), jumpableRoads: ROADS.filter(jumpable).length, jumpsOnGone: eraJumpEntries(JUMP_ENTRIES).filter(landsOnGoneRoad).length, buses: POSTAUTO.buses.filter(b => b.phase !== 'done').length, ...eraRoadProbe() }; };   // #530
+// #530: the new roads and the Fridolinsbruecke -- how many are hidden, where to look for them, and whether anything of them is left
+let ERA_SAMPLES = null;   // the sample spots never change: found once, on the first probe
+function eraRoadProbe() {
+  const longest = (list, pts) => list.reduce((a, c) => !a || polylineLength(pts(c)) > polylineLength(pts(a)) ? c : a, null), mid = (p) => pointAtLength(p, polylineLength(p) / 2);
+  const roles = new Set(['road', 'roadOsm', 'roadPlain', 'motorway', 'gravel']);
+  if (!ERA_SAMPLES) {
+    // a point on a new road that is clear of every old road by more than that road's width, so a crossing cannot make the road "not gone"
+    const clear = ([x, z]) => roadHitsAt(x, z).every(h => h.modern || h.d > 2 * h.hw);
+    const sampleOf = r => { const len = polylineLength(r.pts); for (const f of [0.5, 0.35, 0.65, 0.2, 0.8]) { const p = pointAtLength(r.pts, len * f); if (clear(p)) return p; } return null; };
+    const goneRoads = ROADS.filter(r => r.modern && !r.bridge && r.n !== 'Fridolinsbrücke').sort((a, b) => polylineLength(b.pts) - polylineLength(a.pts));
+    let goneSample = null; for (const r of goneRoads) if ((goneSample = sampleOf(r))) break;
+    const deck = longest(OSM_BRIDGES.filter(b => b.modern), b => b.r.pts);
+    ERA_SAMPLES = { roadsHidden: ROADS.filter(r => r.modern).length, goneSample, deckSample: deck ? mid(deck.r.pts) : null };
+  }
+  const rayAt = (x, z, meshes) => new THREE.Raycaster(new THREE.Vector3(x, 2000, z), new THREE.Vector3(0, -1, 0)).intersectObjects(meshes, false).length > 0;
+  return { ...ERA_SAMPLES,
+    bridgeAt: (x, z) => !!onBridge(x, z, 1e4),
+    roadMeshAt: (x, z) => rayAt(x, z, sceneMeshes().filter(m => roles.has(m.userData.role))),
+    meshAt: (x, z) => rayAt(x, z, sceneMeshes().filter(m => m.userData.role !== 'water' && m.userData.role !== 'grass')) };
+}
 window.__mm.nearestSolid = (x, z) => { let best = null, bd = Infinity; for (const o of OBB) { if (o.off || o.bridge || o.low || o.secret || o.ring || o.circle) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best && { x: best.x, z: best.z, hw: best.hw, hd: best.hd, c: best.c, s: best.s, h: best.h }; };
 // water vs drawn ground at a point: is the water surface above the ground mesh there (visible) or under it?
 // from above, is water the first thing seen at these points (not grass or a field), and is the car wet there? Bridges and roads are skipped
@@ -7629,12 +7670,15 @@ window.__mm.pause = () => ({ on: PAUSE.on, confirm: PAUSE.confirm, frame: PAUSE.
 const DEST_MODES = new Set(['drive', 'navi']);
 const JUMP_CLOSE_KEYS = { jump: 'KeyJ', drive: 'KeyO', navi: 'KeyI' };
 const eraEntries = list => list.filter(e => eraShown(e, ERA.on));   // #530: entries of hidden buildings leave the lists
+const GONE_LANDING = new WeakMap();   // the road flags never change: one answer per entry
+const landsOnGoneRoad = e => { let v = GONE_LANDING.get(e); if (v === undefined) { const [x, z] = e.jump || [e.x, e.z]; v = Number.isFinite(x) && Number.isFinite(z) && roadGoneAt(roadHitsAt(x, z)); GONE_LANDING.set(e, v); } return v; };
+const eraJumpEntries = list => ERA.on ? eraEntries(list).filter(e => !landsOnGoneRoad(e)) : list;   // #530: a J spot on a road of today is not offered in 1952
 const eraEnterables = () => eraEntries(visibleEnterables(ENTERABLES, secretRevealed()));
-function destEntries() { return [...eraEntries(JUMP_ENTRIES).filter(e => !e.wreck && !e.yard && !e.depot), ...AUTOP.streets]; }   // #553: the autopilot drives roads; the depot, the wreck and the yard land off them
-function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : eraEntries(JUMP_ENTRIES); }
+function destEntries() { return [...eraJumpEntries(JUMP_ENTRIES).filter(e => !e.wreck && !e.yard && !e.depot), ...AUTOP.streets]; }   // #553: the autopilot drives roads; the depot, the wreck and the yard land off them
+function jumpEntries() { return DEST_MODES.has(JUMP.mode) ? destEntries() : eraJumpEntries(JUMP_ENTRIES); }
 function jumpRows() {
   if (DEST_MODES.has(JUMP.mode)) return filterLandmarks(jumpEntries(), JUMP.q, JUMP.g);
-  const rows = jumpRowsFor(eraEntries(JUMP_ENTRIES), eraEntries(ENTERABLES), { q: JUMP.q, g: JUMP.g, enterable: JUMP.enterable, lang: window.GG_LANG === 'de' ? 'de' : 'en' }, secretRevealed());   // #409: the Enterable chip narrows the list to the register
+  const rows = jumpRowsFor(eraJumpEntries(JUMP_ENTRIES), eraEntries(ENTERABLES), { q: JUMP.q, g: JUMP.g, enterable: JUMP.enterable, lang: window.GG_LANG === 'de' ? 'de' : 'en' }, secretRevealed());   // #409: the Enterable chip narrows the list to the register
   return JUMP.enterable ? rows : [...rows, { n: tr('randomSpot'), g: null, random: true }];
 }
 function renderJump() {
@@ -7648,7 +7692,7 @@ function renderJump() {
   const chip = g => `<button type="button" data-g="${esc(g)}"${(g === 'All' ? !JUMP.g : JUMP.g === g) ? ' class="on"' : ''}>${g === 'All' ? tr('chipAll') : esc(g)}</button>`;
   $('jumpchips').innerHTML = !L ? '' : drive ? ['All', ...placeChips(jumpEntries())].map(chip).join('')   /* #782: drive and navi keep the single placeChips row */
     : chip('All') + `<button type="button" data-enterable="1"${JUMP.enterable ? ' class="on"' : ''}>${tr('chipEnterable')}</button>`   /* #782: Enterable moved up beside All */
-      + chipRows(gemeindenOf(eraEntries(JUMP_ENTRIES), REGION.gemeinden), REGION.gemeindenDe).map(row =>
+      + chipRows(gemeindenOf(eraJumpEntries(JUMP_ENTRIES), REGION.gemeinden), REGION.gemeindenDe).map(row =>
         `<div class="crow"${row.country ? ` data-country="${row.country}"` : ''}>${row.country ? `<b>${row.country}</b>` : ''}${row.gemeinden.map(chip).join('')}</div>`).join('');
   $('jumplist').querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
 }
@@ -7948,7 +7992,7 @@ const MB = L ? (() => { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const
 const mapStatic = document.createElement('canvas'); mapStatic.width = mapC.width; mapStatic.height = mapC.height;
 const MAP_NAMES = L ? minimapNames(REGION.villages, L.anchors.labels) : [];
 const MOTORWAY_LABELS = L && REGION.motorwayRef ? motorwayLabelSpots(ROADS).map(s => ({ t: REGION.motorwayRef, x: s.x, z: s.z })) : [];   // #226
-function paintMapStatic() { const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = HIDE && roofedAt(x, z) ? meshH(x, z) : terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge || o.secret || (o.modern && o.off)) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { g.strokeStyle = r.n === 'A3' || r.cls === 'motorway' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) { for (const lb of MAP_NAMES) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); g.lineWidth = 3; g.strokeStyle = 'rgba(31,42,34,.9)'; for (const lb of MOTORWAY_LABELS) { g.strokeText(lb.t, MX(lb.x), MZ(lb.z)); g.fillText(lb.t, MX(lb.x), MZ(lb.z)); } } else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
+function paintMapStatic() { const g = mapStatic.getContext('2d'); g.fillStyle = '#1f2a22'; g.fillRect(0, 0, mapC.width, mapC.height); for (let cx = 0; cx < mapC.width; cx += 8) for (let cy = 0; cy < mapC.height; cy += 8) { const x = (cx + 4 - (mapC.width - (MB.x1 - MB.x0) * MS) / 2) / MS + MB.x0, z = (cy + 4 - (mapC.height - (MB.z1 - MB.z0) * MS) / 2) / MS + MB.z0; const h = HIDE && roofedAt(x, z) ? meshH(x, z) : terrainH(x, z); if (h > 4) { g.fillStyle = `rgba(120,140,90,${Math.min(0.55, h / 200)})`; g.fillRect(cx, cy, 8, 8); } } g.lineCap = 'round'; g.lineJoin = 'round'; if (L) { g.fillStyle = '#2f6a96'; for (const w of L.water) { g.beginPath(); w.rings[0].forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.closePath(); g.fill(); } g.strokeStyle = '#2f6a96'; for (const st of L.streams) { g.lineWidth = Math.max(1.5, st.w * MS); g.beginPath(); st.pts.forEach(([x, z], i) => i ? g.lineTo(MX(x), MZ(z)) : g.moveTo(MX(x), MZ(z))); g.stroke(); } } else { g.strokeStyle = '#2f6a96'; g.lineWidth = RIVER.hw * 2 * MS; g.beginPath(); RIVER.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } g.fillStyle = '#4a515e'; for (const o of OBB) { if (o.bridge || o.secret || (o.modern && o.off)) continue; g.save(); g.translate(MX(o.x), MZ(o.z)); g.rotate(Math.atan2(o.s, o.c)); g.fillRect(-o.hw * MS, -o.hd * MS, o.hw * 2 * MS, o.hd * 2 * MS); g.restore(); } for (const r of ROADS) { if (r.modern && ERA.on) continue; g.strokeStyle = r.n === 'A3' || r.cls === 'motorway' ? '#b05050' : r.trail ? '#c9bda6' : '#8d96a3'; g.lineWidth = Math.max(2, r.w * MS); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); } for (const b of BRIDGES) { g.strokeStyle = b.kind === 'wood' ? '#c08a4a' : '#d0d6de'; g.lineWidth = Math.max(3, b.hw * 2 * MS + 1); g.beginPath(); g.moveTo(MX(b.a[0]), MZ(b.a[1])); g.lineTo(MX(b.b[0]), MZ(b.b[1])); g.stroke(); } g.strokeStyle = '#6a6458'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); for (const pts of (L ? [...L.rail, ...L.railBridges.map(b => b.pts)] : [RAIL_PTS])) pts.forEach((p, i) => i ? g.lineTo(MX(p[0]), MZ(p[1])) : g.moveTo(MX(p[0]), MZ(p[1]))); g.stroke(); g.setLineDash([]); g.fillStyle = 'rgba(245,239,224,.9)'; g.font = '700 15px "Barlow Condensed", sans-serif'; if (L) { for (const lb of MAP_NAMES) g.fillText(lb.t, MX(lb.x), MZ(lb.z)); g.lineWidth = 3; g.strokeStyle = 'rgba(31,42,34,.9)'; for (const lb of ERA.on ? [] : MOTORWAY_LABELS) { g.strokeText(lb.t, MX(lb.x), MZ(lb.z)); g.fillText(lb.t, MX(lb.x), MZ(lb.z)); } } else for (const [t, px, py] of [['BAD SÄCKINGEN', 300, 395], ['STEIN', 600, 770], ['SISSELN', 1640, 350], ['SISSLERFELD', 1000, 520], ['RHEIN', 1450, 240], ['RHEIN', 200, 740], ['HOLZBRÜCKE', 520, 440], ['A3', 1500, 830]]) { const [x, z] = W(px, py); g.fillText(t, MX(x), MZ(z)); } }
 paintMapStatic();   // #530: also repainted by toggleEra()
 // #48: the Gemeinde boundaries as a dashed overlay, pre-rendered like mapStatic and drawn over it only while G is on
 const mapBounds = document.createElement('canvas'); mapBounds.width = mapC.width; mapBounds.height = mapC.height;
@@ -8013,11 +8057,11 @@ function currentRoute() { return AUTOP.on ? { route: AUTOP.st.route, s: AUTOP.st
 function drawRoute(v, route, s) { let i = 0; while (i < route.pts.length - 2 && route.cum[i + 1] <= s) i++; mg.beginPath(); mg.moveTo(...mapPt(v, P.x, P.z)); for (let k = i + 1; k < route.pts.length; k++) mg.lineTo(...mapPt(v, route.pts[k][0], route.pts[k][1])); mg.lineJoin = 'round'; mg.lineWidth = 7; mg.strokeStyle = '#1c1f26'; mg.stroke(); mg.lineWidth = 4; mg.strokeStyle = '#3ddcff'; mg.stroke(); const [ex, ey] = mapPt(v, ...route.pts[route.pts.length - 1]); mg.beginPath(); mg.arc(ex, ey, 7, 0, 7); mg.fillStyle = '#3ddcff'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = '#1c1f26'; mg.stroke(); }
 const MAP_MARKS = { list: [] };
 function enterableMapMarks() {   // #409: ready, visible entrances on the surface; the hideout objects collapse to one mark at the Hübel
-  const marks = [], seen = new Set();
+  const marks = [], seen = new Set(), jumps = eraEntries(JUMP_ENTRIES);
   for (const e of eraEnterables()) {
     if (!e.ready) continue;
     if (e.level === 'surface') { marks.push({ id: e.id, x: e.x, z: e.z }); continue; }
-    const at = eraEntries(JUMP_ENTRIES).find(j => j.n === e.landmark);
+    const at = jumps.find(j => j.n === e.landmark);
     if (at && !seen.has(e.landmark)) { seen.add(e.landmark); marks.push({ id: e.id, x: at.x, z: at.z }); }
   }
   return marks;
@@ -8039,7 +8083,7 @@ function drawDelivMarks(v) {
   if (o) dot(o.dx, o.dz, 7, '#ff5fb0');
 }
 function drawPostautoMarks(v) {
-  if (MAP.full && POSTAUTO.ready) {
+  if (MAP.full && POSTAUTO.ready && !ERA.on) {
     mg.save(); mg.globalAlpha = 0.35; mg.lineWidth = 2; mg.lineJoin = 'round'; mg.strokeStyle = BUS_MARK.fill;
     for (const r of POSTAUTO.routes.values()) { mg.beginPath(); r.pts.forEach(([x, z], i) => { const [px, py] = mapPt(v, x, z); if (i) mg.lineTo(px, py); else mg.moveTo(px, py); }); mg.stroke(); }
     mg.restore();
@@ -8078,10 +8122,14 @@ const solidHolds = (o, x, z) => !!colliderPush(o, x, z, 0);
 function toggleEra() {   // #530: Ctrl+Y -- the Swiss villages as in 1952, and back
   if (!eraAvailable(WORLD)) { toast(tr('eraNone')); return; }
   if (deliveryActive()) { toast(tr('eraNoDelivery')); return; }
+  const wasGone = !ERA.on && goneUnderCar(); stopAuto('era'); stopNavi();   // the route may run over roads that appear or vanish
   ERA.on = !ERA.on; if (ERA.on && (R.state === 'racing' || R.state === 'armed')) R.era = true; ERA.group.visible = !ERA.on; for (const o of ERA.solids) o.off = ERA.on;
   if (!ERA.on && !FLY.on && LEVELS.isSurface() && !caveInside() && ERA.solids.some(o => solidHolds(o, P.x, P.z))) { const best = nearestJumpable(P.x, P.z); if (best) placeOnRoad(best.x, best.z, P.th, 'era'); }   // back inside a reappearing building: out to the road, like a J jump
-  paintMapStatic();   // the minimap drops the hidden buildings
-  toast(tr(ERA.on ? 'eraOn' : 'eraOff'));
+  let moved = false;
+  if (ERA.on && wasGone && !FLY.on && !FOOT.on && !TRAIN.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) { placeOnRoad(best.x, best.z, P.th, 'era'); moved = true; } }   // standing on a road of today: to the nearest old one
+  if (AUTOP.graphs.today || AUTOP.graphs.era) autoGraph();   // AUTOP.graph / .streets follow the layer
+  paintMapStatic();   // the minimap drops the hidden buildings and roads
+  toast(tr(ERA.on ? (moved ? 'eraRoadGone' : 'eraOn') : 'eraOff'));
 }
 function toggleMono() { const on = document.body.classList.toggle('mono'); toast(tr(on ? 'monoOn' : 'monoOff')); }   // #530
 function toggleDebug() { DEBUG.on = !DEBUG.on; DEBUG.t = 0; $('debug').hidden = !DEBUG.on; if (!DEBUG.on) for (const l of DEBUG.layers) l.hide(); toast(tr(DEBUG.on ? 'debugOn' : 'debugOff')); }
