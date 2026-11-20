@@ -115,7 +115,7 @@ export function bodenackerDoorway(walls, frame, porch, w) {
     const t0 = (porch.u - w / 2 - ua) / (ub - ua), t1 = (porch.u + w / 2 - ua) / (ub - ua), lo = Math.min(t0, t1), hi = Math.max(t0, t1);
     if (lo <= 0 || hi >= 1 || Math.abs(va + (vb - va) * (lo + hi) / 2 - porch.v0) > 0.5) continue;
     const L = Math.hypot(wall.b[0] - wall.a[0], wall.b[1] - wall.a[1]), pa = at(wall.a, wall.b, lo), pb = at(wall.a, wall.b, hi);
-    const piece = (a, b, t) => ({ a, b, face: 'street', u0: L * t });
+    const piece = (a, b, t) => ({ a, b, face: 'street', u0: (wall.u0 || 0) + L * t });   // #1099: cutting a piece of an earlier call keeps its offset, so the tile runs on across all four doorways
     return { walls: [...walls.slice(0, k), piece(wall.a, pa, 0), piece(pb, wall.b, hi), ...walls.slice(k + 1)], lintel: piece(pa, pb, lo) };
   }
   throw new Error(`bodenacker6: no street wall behind porch ${porch.house}`);

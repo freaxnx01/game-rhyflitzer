@@ -132,15 +132,17 @@ export function stairHall(entrance, porch, floors, eg, cfg = STAIRHALL) {
     towerRect: rectAB(f, 0, depth, b0, b1), roofHole: rectAB(f, 0, depth, b0, b1), housing: { a0: 0, a1: depth, b0, b1, y0: roof, y1: top } };
 }
 
-// the roof deck: the body ring as a polygon with the tower cut out; rails along its edge (invisible, 1.2 m)
-export function hallRoofSlab(hall, bodyWorld) {
-  const roof = hall.levels[hall.levels.length - 1], walk = hall.walk;
-  walk.slabs.push({ poly: bodyWorld, holes: [hall.roofHole], y: roof });
+// #1099: one roof deck for the whole block, its own walkway set: the body ring as a polygon with every stair tower cut
+// out, and the rails along its edge (invisible, 1.2 m) once -- not once per hall
+export function blockRoof(halls, bodyWorld) {
+  const roof = halls[0].levels[halls[0].levels.length - 1], walk = emptyWalkways();
+  walk.slabs.push({ poly: bodyWorld, holes: halls.map(h => h.roofHole), y: roof });
   for (let i = 0; i < bodyWorld.length; i++) {
     const [ax, az] = bodyWorld[i], [bx, bz] = bodyWorld[(i + 1) % bodyWorld.length], len = Math.hypot(bx - ax, bz - az);
     if (len < 0.05) continue;
     walk.walls.push({ x: (ax + bx) / 2, z: (az + bz) / 2, hw: len / 2 + 0.2, hd: 0.1, c: (bx - ax) / len, s: (bz - az) / len, y0: roof, y1: roof + 1.2, tag: 'edge' });
   }
+  return walk;
 }
 
 // where a point is relative to the hall: 'out', 'porch' or 'tower'

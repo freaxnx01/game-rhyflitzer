@@ -1099,7 +1099,7 @@ import { TRAIN_CFG, buildTrackGraph, nearestOnGraph, stepTrain, poseAt, trainInp
 import { LOCO, wheelTurn, rodOffset } from './loco.js';
 import { buildLoco, buildTurntable } from './locomesh.js';
 import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalkways } from './walkways.js';   // #412: indoor slabs, ramps, walls, ceilings
-import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
+import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, blockRoof, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, plattformOnDeck, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, centrePostTop, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
 import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
@@ -1671,16 +1671,19 @@ function cutFloorMin(x, z) {
   return f;
 }
 function cutDepth(x, z) { return meshH(x, z) - terrainH(x, z); }
-// #477: 6c's porch and hall footprint. The EG is the terrain at the entrance (#445), but the ground a little further in can lie above it:
-// the pads lower the terrain patches there below the slab (stairhall.js terrainPads). '6c' = INT.house, which is declared further down.
+// #445: the block stands on the terrain at this house's door, and every hall's EG is that level
+const BODENACKER_BASE_HOUSE = '6c';
+// #477: the porch and hall footprints of all four houses (#1099). The EG is the terrain at the base house's entrance (#445), but the
+// ground a little further in or under another porch can lie above it: the pads lower the terrain patches there below the slab (stairhall.js terrainPads).
 function hallTerrainPads() {
   const b = L.buildings.find(isBodenacker6); if (!b) return [];
-  let porch; try { porch = bodenackerHouse(bodenackerLayout(b, 0, Math.max(b.h, 3)), '6c').porch; } catch (e) { return []; }   // the building code warns about a failing layout
-  return terrainPads(porch.entrance, { w: porch.w, d: porch.d }, terrainH(porch.entrance.x, porch.entrance.z));
+  let lay; try { lay = bodenackerLayout(b, 0, Math.max(b.h, 3)); } catch (e) { return []; }   // the building code warns about a failing layout
+  const door = bodenackerHouse(lay, BODENACKER_BASE_HOUSE).porch.entrance, eg = terrainH(door.x, door.z);
+  return BODENACKER6.houses.flatMap(house => { const p = bodenackerHouse(lay, house).porch; return terrainPads(p.entrance, { w: p.w, d: p.d }, eg); });
 }
 function buildCuts() {
   const crossings = railRoadCrossings(L.roads, L.railBridges);
-  const PADS = hallTerrainPads();   // #477: the ground under 6c's porch and stair hall, lowered below the EG slab
+  const PADS = hallTerrainPads();   // #477: the ground under every porch and stair hall of the block, lowered below the EG slab
   for (const g of L.grades) GRADE_CUTS.push(gradeCut(g, meshH, GRADE_CUT, gradeCaps(g, crossings)));
   for (const c of crossings) CUTS.push(makeCut(c));
   // #156: a lowered patch vertex reaches PATCH_BLEED on (the diagonal of a 1 m cell): lat ends the lowering that far inside the
@@ -2113,14 +2116,16 @@ function hallRect(f, a0, a1, b0, b1) {   // #411: a rectangle in the hall's own 
 // so the hall's storeys are the façade's; a plain concrete foundation skirt runs from there down the slope to the ring's lowest ground.
 function bodenackerBuilding(b, lowest, h) {
   let L; try { L = bodenackerLayout(b, lowest, h); } catch (e) { console.warn(e.message); return false; }   // fail loudly, never a hole
-  const door = bodenackerHouse(L, INT.house).porch.entrance, plinth = bodenackerPlinth(terrainH(door.x, door.z), lowest), base = plinth.floor;
+  const door = bodenackerHouse(L, BODENACKER_BASE_HOUSE).porch.entrance, plinth = bodenackerPlinth(terrainH(door.x, door.z), lowest), base = plinth.floor;
   L = bodenackerLayout(b, base, h);
   const tile = [BODENACKER6.moduleWidth, L.floors.pitch], white = col('#ffffff'), concrete = col('#c4bfb4');
   if (plinth.skirt) wallQuads(L.walls, plinth.skirt.y0, plinth.skirt.y1 - plinth.skirt.y0, concrete, 'stone', [4, 4], 0);
   wallQuads(L.walls.filter(w => w.face === 'back'), base, h, white, 'bodenackerLoggia', tile, plinth.skirt ? 0 : 2);
-  const fd = STAIRHALL.frontDoor, gap = bodenackerDoorway(L.walls, L.frame, bodenackerHouse(L, INT.house).porch, fd.b1 - fd.b0);   // #467: the façade open behind 6c's porch
-  wallQuads(gap.walls.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
-  wallQuads([{ ...gap.lintel, dy: fd.h }], base + fd.h, h - fd.h, white, 'bodenacker', tile, 0);
+  const fd = STAIRHALL.frontDoor;   // #467 / #1099: the façade open behind every porch -- each call cuts the pieces the previous one left
+  let street = L.walls; const lintels = [];
+  for (const house of BODENACKER6.houses) { const gap = bodenackerDoorway(street, L.frame, bodenackerHouse(L, house).porch, fd.b1 - fd.b0); street = gap.walls; lintels.push(gap.lintel); }
+  wallQuads(street.filter(w => w.face !== 'back'), base, h, white, 'bodenacker', tile, plinth.skirt ? 0 : 2);
+  for (const lintel of lintels) wallQuads([{ ...lintel, dy: fd.h }], base + fd.h, h - fd.h, white, 'bodenacker', tile, 0);
   const [cx, cz, w, d, rot] = b.rect, bodyWorld = L.body.map(([u, v]) => L.frame.toWorld(u, v));
   extrudeFootprint(bodyWorld, base + h, BODENACKER6.parapet, white, 'plasterWhite', col('#8f8a84'), [4, 3], false, 0);   // the band's top is the roof slab; #453: no 2 m skirt, it sat coplanar on the top storey's façade (z-fighting)
   for (const s of L.stairs) {
@@ -2142,7 +2147,7 @@ function bodenackerBuilding(b, lowest, h) {
   {   // #411: the stair hall of 6c as a walkway set, built in place once. The EG is the block's level = the terrain at the door (#445)
     const porch = bodenackerHouse(L, INT.house).porch, entrance = porch.entrance;
     INT.hall = stairHall(entrance, { w: porch.w, d: porch.d }, L.floors, base);
-    hallRoofSlab(INT.hall, L.body.map(([u, v]) => L.frame.toWorld(u, v)));
+    INT.roofWalk = blockRoof([INT.hall], bodyWorld);   // #1099: the block's roof deck is its own set, pushed once for all halls
     INT.lift = createTowerLift(INT.hall.levels);
     INT.cabin = { ...INT.hall.cabinRect, y: INT.lift.y };   // the dynamic slab: stepInterior keeps its y on the lift
     INT.hall.walk.slabs.push(INT.cabin);
@@ -2616,7 +2621,7 @@ function signW(txt, kind, x, z, faceDeg) { const tex = kind === 'ch' ? textTex(t
 const RAIL_PTS = WP([[-60, 990], [300, 960], [700, 905], [1100, 850], [1500, 795], [1960, 740]]);   // hand-traced Basel–Koblenz line stand-in
 // #411: the interior state of Bodenackerstrasse 6c -- the walkway hall, the lift, the porch door, the HUD floor. Everything
 // indoor is additive behind INT.hall (null until bodenackerBuilding built it); every glue function guards on it.
-const INT = { hall: null, house: '6c', on: false, group: null, housing: null, lift: null, cabin: null, door: { open: 0, target: 0 }, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null, roofDoorOpen: false, roofDoorAmt: 0 };
+const INT = { hall: null, roofWalk: null, house: '6c', on: false, group: null, housing: null, lift: null, cabin: null, door: { open: 0, target: 0 }, area: 'out', floor: 0, bodyOff: false, indoors: false, onRoof: false, pad: false, prompt: null, roofDoorOpen: false, roofDoorAmt: 0 };
 let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM world only)
 // ---------- build the world ----------
 {
@@ -5230,7 +5235,7 @@ const parked = () => parkedBox(FOOT.car, CAR_SIZE);
 // #412: the walkway set around the walker -- the slabs, ramps, walls and ceilings of the interior it is in. It starts empty
 // (outdoors every walkway query answers "nothing"), and the interior of a building fills it while the walker is in it (6c, #411).
 const WALKS = emptyWalkways();
-for (const set of [INT.hall && INT.hall.walk, PLAT && PLAT.walk]) if (set) for (const k of Object.keys(WALKS)) WALKS[k] = [...WALKS[k], ...set[k]];   // #411 6c hall + #413 Plattform: new arrays, the same piece objects (door leaves, the cabin slab and wallByTag stay live; nothing is pushed after this)
+for (const set of [INT.hall && INT.hall.walk, INT.roofWalk, PLAT && PLAT.walk]) if (set) for (const k of Object.keys(WALKS)) WALKS[k] = [...WALKS[k], ...set[k]];   // #411 6c hall + #1099 the block's roof deck + #413 Plattform: new arrays, the same piece objects (door leaves, the cabin slab and wallByTag stay live; nothing is pushed after this)
 const ENTER_GLOW = { sprites: new Map(), shown: [], tex: null };   // #409: one pooled additive sprite per entrance
 function enterGlowTexture() {
   if (ENTER_GLOW.tex) return ENTER_GLOW.tex;
@@ -5502,7 +5507,7 @@ function updateInterior() {
   }
   INT.area = hallArea(INT.hall, P.x, P.z);
   const roof = INT.hall.levels[INT.hall.levels.length - 1];
-  INT.onRoof = P.y >= roof - 0.1 && walkwayFloor(INT.hall.walk, P.x, P.z, P.y) !== null;
+  INT.onRoof = P.y >= roof - 0.1 && (walkwayFloor(INT.hall.walk, P.x, P.z, P.y) !== null || walkwayFloor(INT.roofWalk, P.x, P.z, P.y) !== null);   // #1099: the roof lobby's landing, or the block's own deck
   INT.indoors = INT.area !== 'out' || INT.onRoof;
   INT.bodyOff = bodyColliderOff(INT.hall, P.x, P.z, INT.door.open > 0.5);
   INT.floor = floorAtY(INT.hall.levels, P.y);

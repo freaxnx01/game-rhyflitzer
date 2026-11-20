@@ -107,6 +107,22 @@ test('bodenackerDoorway_Rectangle_StreetWallCutAroundThePorchAxisWithTheLintelOv
   for (const w of [...pieces, d.lintel]) assert.ok(near(w.u0, Math.min(along(w.a), along(w.b)), 1e-9), 'u0 = start along the uncut wall');
 });
 
+// #1099: all four porches get a doorway, so the call is chained over the pieces the previous call left
+test('bodenackerDoorway_ChainedOverTwoPorches_BothGapsCutAndTheTileOffsetsStayOnTheUncutWall', () => {
+  const walls = bodenackerWalls([[-20, -6], [20, -6], [20, 6], [-20, 6]], STREET_V), street = walls.find(w => w.face === 'street');
+  const along = (p) => Math.hypot(p[0] - street.a[0], p[1] - street.a[1]);
+  for (const [u0, u1] of [[-5, 5], [5, -5]]) {   // either order: the second gap is cut out of a piece the first call left
+    const first = bodenackerDoorway(walls, STREET_V, { house: 'a', u: u0, v0: 6 }, 1.2);
+    const second = bodenackerDoorway(first.walls, STREET_V, { house: 'b', u: u1, v0: 6 }, 1.2);
+    const pieces = second.walls.filter(w => w.face === 'street');
+    assert.equal(second.walls.length, walls.length + 2);
+    assert.equal(pieces.length, 3, 'two gaps leave three pieces of the street wall');
+    const us = [...pieces, first.lintel, second.lintel].flatMap(w => [w.a[0], w.b[0]]).map(u => +u.toFixed(6));
+    assert.deepEqual(us.sort((a, b) => a - b), [-20, -5.6, -5.6, -4.4, -4.4, 4.4, 4.4, 5.6, 5.6, 20]);
+    for (const w of [...pieces, first.lintel, second.lintel]) assert.ok(near(w.u0, Math.min(along(w.a), along(w.b)), 1e-9), `u0 ${w.u0} of ${Math.min(along(w.a), along(w.b))}`);
+  }
+});
+
 test('bodenackerDoorway_NoStreetWallBehindThePorch_Throws', () => {
   const walls = bodenackerWalls([[-20, -6], [20, -6], [20, 6], [-20, 6]], STREET_V);
   assert.throws(() => bodenackerDoorway(walls, STREET_V, { house: 'x', u: 30, v0: 6 }, 1.2), /no street wall behind porch x/);
