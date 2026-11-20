@@ -34,7 +34,7 @@ test('TANKER_Wheels_MatchTheModelsWheelNodes', () => {
 });
 
 test('TANKER_Trailer_MatchesTheModelsExtras', () => {
-  assert.deepEqual(TANKER.trailer, { hitch: 5.2, length: 3.85, tail: 4.6, wheelR: 0.544 });
+  assert.deepEqual(TANKER.trailer, { hitch: 5.2, length: 3.85, tail: 4.6, wheelR: 0.544, exhaustAt: [-8.45, 0.6] });
   assert.ok(TANKER.trailer.hitch > 0 && TANKER.trailer.length > 3, 'the axles sit well behind the hitch');
 });
 

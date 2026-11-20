@@ -3583,7 +3583,7 @@ function vehicleIds() { return selectableIds(Object.keys(VEHICLES)); }   // #830
 // the model is drawn true to size (4.66 m, like a Mazda 3; compact.scale 1.0, #69): it fits the 2.5 x 5 m car-park bays. 1.3x made it read less like a toy car; the closer chase cams (6.9 m / 4.6 m) do that now
 const car = new THREE.Group(); car.rotation.order = 'YZX'; scene.add(car);   // #542: like the shadow -- the lean (rotation.x) turns about the car's own forward axis, not the world's x axis
 const WRECK_S = { on: false, t: 0, acc: 0 }, NO_INPUT = {};   // #105: a wreck runs from 100 % damage until the new car; NO_INPUT = the keys and touch buttons a wreck ignores
-const flames = new THREE.Group(); flames.visible = false;
+const flames = new THREE.Group(); flames.visible = false; flames.userData.nitroFlames = true;
 const BLINK = { left: new THREE.Group(), right: new THREE.Group() }; BLINK.left.visible = BLINK.right.visible = false;
 // #270: procedural cars with local lamp materials (the DeLorean's, the mini's) collect one { head, tail } entry per build
 // here, so applyLamps can recolour them whatever car is on the road. buildCar empties it before each rebuild.
@@ -3858,7 +3858,8 @@ function addBlinkers(spots) { const m = new THREE.MeshBasicMaterial({ color: 0xf
 function addFlames(spots) { const m = new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 }); for (const [x, y, z] of spots) { const f = new THREE.Mesh(new THREE.ConeGeometry(EXHAUST.flameR, EXHAUST.flameLen, 10), m); f.rotation.z = Math.PI / 2; f.position.set(x, y, z); flames.add(f); } }
 function buildGltfVehicle(g, v) {
   const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
-  wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes, v.exhaustAt)); g.add(root); addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
+  const tail = v.trailer?.exhaustAt && root.getObjectByName('trailer'); wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes, tail ? v.trailer.exhaustAt : v.exhaustAt)); if (tail) tail.add(flames); g.add(root);   // #1122: a trailer vehicle's flames hang on the trailer node at its tail (trailer metres) and swing with it; the next build's car.add(flames) takes them back
+  addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
   g.userData.spin = spinPlan(v, wheelNames(root)).map(s => ({ node: root.getObjectByName(s.node), rate: s.rate, turned: 0 }));   // the mixer's drum
   g.userData.trailer = rigTrailer(root, v);
   g.userData.scan = e.mats.scan.length ? { mats: e.mats.scan, t: 0 } : null;   // the Rhy Knight's scanner light
@@ -6076,6 +6077,7 @@ function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vec
 // lift, the damage, how far the heading turned, and the angle between the motion and the heading at the end
 window.__mm.tipSim = (speed, secs, hold = []) => { const th0 = P.th; if (speed) { P.vx = Math.cos(P.th) * speed; P.vz = Math.sin(P.th) * speed; } for (const k of hold) keys[k] = true; const phases = new Set(); let roll = 0, lift = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); phases.add(TIP_S.phase); roll = Math.max(roll, Math.abs(car.rotation.x)); lift = Math.max(lift, car.position.y - P.y); } for (const k of hold) keys[k] = false; return { phases: [...phases], phase: TIP_S.phase, roll, lift, dmg: P.dmg, speed: Math.hypot(P.vx, P.vz), turned: P.th - th0, slid: Math.atan2(P.vz, P.vx) - P.th }; };
 window.__mm.siren = () => ({ on: SIREN_S.on, beacons: car.userData.beacon?.map(m => m.emissiveIntensity) ?? null, voice: SFX.sirenState() });   // read-only, for the tests
+window.__mm.flames = () => { car.updateMatrixWorld(true); const t = car.userData.trailer, at = o => o.getWorldPosition(new THREE.Vector3()); return { trailer: t ? { phi: t.phi } : null, onCar: flames.parent === car, hitch: t ? at(t.node) : null, fwd: t ? new THREE.Vector3(1, 0, 0).transformDirection(t.node.matrixWorld) : null, flames: flames.children.map(f => { const p = at(f); return { x: p.x, y: p.y, z: p.z, visible: flames.visible && f.visible }; }) }; };   // #1122: read-only: the flames in world metres with the trailer's hitch and forward
 window.__mm.nitroFlames = () => flames.children.map(f => f.position.toArray());   // read-only: where each nitro flame sits, car-local
 window.__mm.scanner = () => car.userData.scan?.mats.map(m => m.emissiveIntensity) ?? null;   // read-only: each scanner segment's glow, left to right
 window.__mm.trailer = () => { const t = car.userData.trailer; return t ? { phi: t.phi, wheelTurn: t.spin, rotY: t.node.rotation.y } : null; };   // read-only: the trailer's angle (> 0 = to the right) and how far its wheels have rolled
@@ -6743,7 +6745,7 @@ function photoVehicle(id) {
   let url = null;
   withStageVehicle(id, galleryPaint(id), () => {
     car.position.set(0, 0, 0); car.rotation.set(0, 0, 0); flames.visible = BLINK.left.visible = BLINK.right.visible = false; car.visible = true;
-    CAR_GALLERY.studio.add(car); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true);
+    CAR_GALLERY.studio.add(car); car.updateMatrixWorld(true); const box = new THREE.Box3(); const fp = flames.parent; flames.removeFromParent(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); fp.add(flames);   // #1122: the flames may hang on the trailer: out of the box
     const v = thumbView({ min: box.min.toArray(), max: box.max.toArray() }); CAR_GALLERY.cam.position.set(...v.eye); CAR_GALLERY.cam.lookAt(...v.at);
     const pr = renderer.getPixelRatio(); renderer.setViewport(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissor(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissorTest(true); renderer.render(CAR_GALLERY.studio, CAR_GALLERY.cam); renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
     const gl = renderer.domElement; CAR_GALLERY.shot.getContext('2d').drawImage(gl, 0, gl.height - THUMB.h, THUMB.w, THUMB.h, 0, 0, THUMB.w, THUMB.h); url = CAR_GALLERY.shot.toDataURL('image/jpeg', 0.85);
@@ -7519,6 +7521,7 @@ function cloneStageVehicle(id, paint, keepBlink) {
     if (!keepBlink) { drop.add(BLINK.left); drop.add(BLINK.right); }
     const dropIdx = stage.children.map((c, i) => drop.has(c) ? i : -1).filter(i => i >= 0);
     const g = stage.clone(true);
+    { const gone = []; g.traverse(o => { if (o.userData.nitroFlames) gone.push(o); }); for (const o of gone) o.removeFromParent(); }   // #1122: a trailer vehicle's flames hang under its trailer node, not under the stage: no clone carries them
     const li = stage.children.indexOf(BLINK.left), ri = stage.children.indexOf(BLINK.right);   // capture before the removal loop detaches them
     if (keepBlink && li >= 0) blink.left = g.children[li];
     if (keepBlink && ri >= 0) blink.right = g.children[ri];
@@ -7640,7 +7643,7 @@ window.__mm.depot = () => ({
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
     return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l, span: sl.span, off: sl.off,
       shown: (!!b || !!DEPOT_S.boxes) && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
-      solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null, trailerY: b?.mesh.getObjectByName('trailer')?.rotation.y ?? null };
+      solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null, trailerY: b?.mesh.getObjectByName('trailer')?.rotation.y ?? null, flames: b ? (() => { let n = 0; b.mesh.traverse(o => { if (o.userData.nitroFlames) n++; }); return n; })() : null };
   }),
 });
 window.__mm.ostriches = () => ({   // #846: the paddock's debug hook
