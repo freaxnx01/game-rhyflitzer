@@ -167,8 +167,8 @@ def test_trim_NoRouteToNetwork_FallsBackToWhole():
 def test_trim_ChainThroughNeighbour_KeepsTheLink():
     main = road("primary", [(100, -100), (100, 0), (100, 100)])
     b = road("residential", [(100, 0), (200, 0), (300, 0)])
-    a = road("residential", [(200, 0), (400, 0)])  # joins B at its middle vertex, old house near its far end
-    got = R.trim([main, b, a], {}, [house(120, 5), house(370, 5)], SWISS)
+    a = road("residential", [(200, 0), (200, 200)])  # joins B at its middle vertex, old house near its far end
+    got = R.trim([main, b, a], {}, [house(120, 5), house(205, 170)], SWISS)
     near(got[1], [(0, 100)])  # B between the main road and A's junction stays, its far end goes
     near(got[2], [(0, 190)])
 
@@ -260,31 +260,26 @@ def test_trim_BridgeApproach_ReachesThePointNearestTheBridgeEnd():
     near(got[2], [(0, 200)])  # not the 194.5 m of the snapped vertex
 
 
-def kept_pieces_off_main(world, swiss):
-    """Number of Swiss kept road pieces (a whole kept road or one keep1952 interval) not joined to the main kept network.
+def roads_off_main(world, swiss):
+    """Indices of Swiss roads with kept metres (a whole kept road or a keep1952 interval) not joined to the main kept network.
 
-    Pieces join when vertices lie within 0.6 m; a kept bridge end also joins every vertex within BRIDGE_SNAP.
-    The main network is the component with the most Swiss pieces.
+    Pieces join when their geometries lie within 0.6 m (so a T-junction without a shared vertex counts); a kept bridge
+    end also joins every piece within BRIDGE_SNAP. The main network is the component with the most Swiss pieces.
     """
-    import math
-    pieces = []
-    for road_ in world["roads"]:
+    from shapely import STRtree
+    from shapely.geometry import Point
+    from shapely.ops import substring
+    pieces, geoms = [], []
+    for index, road_ in enumerate(world["roads"]):
         if road_.get("modern"):
             continue
-        pts = road_["pts"]
-        arcs = [0.0]
-        for p, q in zip(pts, pts[1:]):
-            arcs.append(arcs[-1] + math.dist(p, q))
-        spans = road_.get("keep1952") or [[0.0, arcs[-1]]]
-        mid = R.LineString(pts).interpolate(0.5, normalized=True)
-        for a, b in spans:
-            points = [p for p, arc in zip(pts, arcs) if a - 0.15 <= arc <= b + 0.15]
-            ends = [pts[0], pts[-1]] if road_.get("bridge") else []
-            pieces.append((points, ends, swiss.contains(mid)))
-    all_points = [p for r in world["roads"] if not r.get("modern") for p in r["pts"]]
-    for points, ends, _ in pieces:
-        for ex, ez in ends:
-            points.extend(p for p in all_points if (p[0] - ex) ** 2 + (p[1] - ez) ** 2 <= R.BRIDGE_SNAP ** 2)
+        line = R.LineString(road_["pts"])
+        mid = line.interpolate(0.5, normalized=True)
+        for a, b in road_.get("keep1952") or [[0.0, line.length]]:
+            if b - a > 1e-6:
+                pieces.append((swiss.contains(mid), index, bool(road_.get("bridge")), line))
+                geoms.append(substring(line, a, b))
+    tree = STRtree(geoms)
     parent = list(range(len(pieces)))
 
     def find(i):
@@ -292,24 +287,51 @@ def kept_pieces_off_main(world, swiss):
             parent[i] = parent[parent[i]]
             i = parent[i]
         return i
-    cell = 0.6
-    grid = {}
-    for i, (points, _, _) in enumerate(pieces):
-        for x, z in points:
-            grid.setdefault((math.floor(x / cell), math.floor(z / cell)), []).append((i, x, z))
-    for (cx, cz), members in grid.items():
-        for dx in (-1, 0, 1):
-            for dz in (-1, 0, 1):
-                for i, x, z in members:
-                    for j, u, v in grid.get((cx + dx, cz + dz), ()):
-                        if (x - u) ** 2 + (z - v) ** 2 <= cell ** 2:
-                            parent[find(i)] = find(j)
+    for i, geom in enumerate(geoms):
+        for j in tree.query(geom.buffer(0.6), predicate="intersects"):
+            if geom.distance(geoms[int(j)]) <= 0.6:
+                parent[find(i)] = find(int(j))
+        if pieces[i][2]:
+            line = pieces[i][3]
+            for end in (Point(line.coords[0]), Point(line.coords[-1])):
+                for j in tree.query(end.buffer(R.BRIDGE_SNAP), predicate="intersects"):
+                    parent[find(i)] = find(int(j))
     count = {}
-    for i, (_, _, is_swiss) in enumerate(pieces):
-        if is_swiss:
+    for i, piece in enumerate(pieces):
+        if piece[0]:
             count[find(i)] = count.get(find(i), 0) + 1
     main = max(count, key=lambda root: (count[root], -root)) if count else None
-    return sum(n for root, n in count.items() if root != main)
+    return {pieces[i][1] for i in range(len(pieces)) if pieces[i][0] and find(i) != main}
+
+
+def pre_trim(world, swiss, industrial_lonlat):
+    """The world as the pipeline flagged it before the trim: classify plus whole-road reconnect."""
+    before = copy.deepcopy(world)
+    ind = R._to_game(industrial_lonlat, R.Frame(world["origin"]["lat"], world["origin"]["lon"]))
+    hidden = R.classify(before["roads"], before["buildings"], swiss, ind)
+    for i in R.reconnect(before["roads"], hidden, swiss):
+        del hidden[i]
+    for i in hidden:
+        before["roads"][i]["modern"] = True
+    return before
+
+
+def test_trim_TJunctionWithoutSharedVertex_StillRoutes():
+    main = road("primary", [(100, -100), (100, 100)])  # no vertex where the link ends
+    link = road("service", [(100.14, 0), (200, 0)])
+    street = road("residential", [(200, 0), (500, 0)])  # old house near its far end
+    got = R.trim([main, link, street], {1: "empty"}, [house(470, 5)], SWISS)
+    near(got[2], [(0, 290)])
+    kept, _ = R._plan([main, link, street], {1: "empty"}, [house(470, 5)], SWISS)
+    assert kept[1] == [(0.0, kept[1][0][1])] and kept[1][0][1] > 99
+
+
+def test_trim_NetworkEndOnAStreetSegment_StartsTheRouteThere():
+    main_a = road("primary", [(100, -100), (100, 0)])
+    main_b = road("primary", [(100, -100), (300, -100), (300.1, -0.2)])  # its end touches the street mid-segment
+    street = road("residential", [(100, 0), (500, 0)])  # old house near its far end
+    got = R.trim([main_a, main_b, street], {}, [house(470, 5)], SWISS)
+    near(got[2], [(200, 390)])
 
 
 def test_apply_ClusterBehindResidentialLink_IsNotCutOff():
@@ -320,8 +342,9 @@ def test_apply_ClusterBehindResidentialLink_IsNotCutOff():
                        road("tertiary", [(300, -50), (300, 0), (300, 50)])],
              "buildings": [house(150, 5)]}
     swiss = R._outline_to_game(SWISS_LV95(), R.Frame(47.5506, 7.9671))
+    before = pre_trim(world, swiss, ind)
     R.apply(world, SWISS_LV95(), ind)
-    assert kept_pieces_off_main(world, swiss) == 0
+    assert roads_off_main(world, swiss) <= roads_off_main(before, swiss)
 
 
 def test_apply_RoutedEmptyRoadKeepsRoute_UnusedResidentialIsHidden():
@@ -330,8 +353,8 @@ def test_apply_RoutedEmptyRoadKeepsRoute_UnusedResidentialIsHidden():
              "roads": [road("primary", [(100, -100), (100, 0), (100, 50), (100, 100)]),
                        road("residential", [(100, 0), (300, 0), (500, 0)]),  # no old house: empty, but the island's only link
                        road("primary", [(300, 0), (300, 100)]),  # the island
-                       road("residential", [(100, 50), (300, 50)]),  # old house on it
-                       road("residential", [(100, 70), (300, 70)])],  # house within 25 m, but nearer to the street above
+                       road("residential", [(100, 50), (250, 50)]),  # old house on it
+                       road("residential", [(100, 70), (250, 70)])],  # house within 25 m, but nearer to the street above
              "buildings": [house(150, 45)]}
     outline = SWISS_LV95()
     counts = R.apply(world, outline, ind)

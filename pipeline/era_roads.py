@@ -11,7 +11,9 @@ A kept bridge also joins every road vertex within BRIDGE_SNAP of its ends, so th
 Kept residential streets are then trimmed (`trim`). The old network is the largest Swiss connected component of the
 kept roads that are neither candidates nor routable (built without any residential street); every other Swiss
 component of those roads is an island that must be joined too. A kept interval that ends within BRIDGE_SNAP of a
-kept bridge end is extended to the road point nearest that end, so the asphalt reaches the deck. An old footprint counts only for its nearest road (plus any road
+kept bridge end is extended to the road point nearest that end, so the asphalt reaches the deck. A road end within
+ENDPOINT_TOL of another road's segment without a shared vertex (a T-junction) is a junction too: the segment gets a node
+at the projected point. An old footprint counts only for its nearest road (plus any road
 within 1 m of that distance, within NEAR_OLD); a road with such footprints keeps the stretch from the first minus
 TRIM_PAD to the last plus TRIM_PAD (a trim candidate). Each stretch, and every kept Swiss island the hiding cut off
 from the main network, is joined to the old network by the cheapest route
@@ -248,12 +250,42 @@ def _road_points(index, road, stretch):
     return arcs
 
 
-def _graph(roads, stretches, routable):
-    """Node ids (deterministic), per-road point lists and the adjacency of the pieces of candidate/routable roads."""
+def _t_junctions(roads, active):
+    """Road ends that lie within ENDPOINT_TOL of another active road's segment without sharing a vertex key there.
+
+    Returns (inserts, aliases): `inserts[j]` = [(arc along j, end key)], the junction node a road in the graph gets at
+    the projected point; `aliases[j]` = the same end keys, which join road j when it is outside the graph.
+    """
+    active = sorted(active)
+    lines = [LineString(roads[i]["pts"]) for i in active]
+    tree = STRtree(lines)
+    inserts, aliases = {}, {}
+    for i in active:
+        for point, key in ((roads[i]["pts"][0], _vertex_keys(roads[i])[0]), (roads[i]["pts"][-1], _vertex_keys(roads[i])[-1])):
+            end = Point(point)
+            for k in sorted(int(n) for n in tree.query(end.buffer(ENDPOINT_TOL), predicate="intersects")):
+                j = active[k]
+                if j == i or key in _nodes(roads[j]) or lines[k].distance(end) > ENDPOINT_TOL:
+                    continue
+                inserts.setdefault(j, []).append((lines[k].project(end), key))
+                aliases.setdefault(j, set()).add(key)
+    return inserts, aliases
+
+
+def _graph(roads, stretches, routable, inserts=None):
+    """Node ids (deterministic), per-road point lists and the adjacency of the pieces of candidate/routable roads.
+
+    `inserts` (from `_t_junctions`) adds junction nodes on a road's segments, splitting the edge there."""
     ids, points = {}, {}
     for i in sorted(set(stretches) | set(routable)):
         cuts = stretches.get(i, ())
         points[i] = [(arc, ids.setdefault(key, len(ids))) for arc, key in _road_points(i, roads[i], cuts)]
+    for j in sorted(j for j in (inserts or ()) if j in points):
+        for arc, key in inserts[j]:
+            node = ids.setdefault(key, len(ids))
+            if all(node != n for _, n in points[j]):
+                points[j].append((arc, node))
+        points[j].sort(key=lambda a: a[0])
     adjacency = [[] for _ in ids]
     for i, pts in points.items():
         for (s, u), (t, v) in zip(pts, pts[1:]):
@@ -302,11 +334,11 @@ def _best_node(dist, nodes):
     return min(reached) if reached else None
 
 
-def _join_targets(roads, stretches, routable, solid, island_keys, network_keys):
+def _join_targets(roads, stretches, routable, solid, island_keys, network_keys, inserts=None):
     """Kept intervals per candidate/routable/island road: house stretches plus, nearest first, the cheapest route of each
     target (house stretch or cut-off island) to the old network; routable roads start with nothing kept and the roads
     of an island (`solid`) are fully kept, so a joined island carries later routes at no cost."""
-    ids, points, adjacency = _graph(roads, stretches, routable | solid)
+    ids, points, adjacency = _graph(roads, stretches, routable | solid, inserts)
     sources = {n for key, n in ids.items() if key in network_keys}
     kept = {i: [stretches[i]] if i in stretches else [(0.0, points[i][-1][0])] if i in solid else [] for i in points}
     targets = [("road", i, [n for arc, n in points[i] if stretches[i][0] - 1e-6 <= arc <= stretches[i][1] + 1e-6])
@@ -342,13 +374,17 @@ def _plan(roads, hidden, buildings, swiss):
     routable = {i for i, reason in hidden.items() if reason == "empty"}
     routable |= {i for i, r in enumerate(roads) if i not in hidden and i not in stretches and _is_residential(r, swiss)}
     node_sets = _node_sets(roads, hidden)
+    active = [i for i in range(len(roads)) if i not in hidden or i in routable]
+    inserts, aliases = _t_junctions(roads, active)
+    for j, keys in aliases.items():
+        node_sets[j] |= keys
     fixed = [i for i in range(len(roads)) if i not in hidden and i not in stretches and i not in routable]
     comps = [(idx, nodes, _swiss_kept_count(roads, idx, swiss)) for idx, nodes in _components(node_sets, fixed)]
     comps.sort(key=lambda c: (-c[2], min(c[0])))
     network_keys = set(comps[0][1]) if comps and comps[0][2] else set()
     islands = [c for c in comps[1:] if c[2]] if network_keys else []  # German pieces are left alone
     solid = {i for idx, _, _ in islands for i in idx}
-    kept = _join_targets(roads, stretches, routable, solid, [nodes for _, nodes, _ in islands], network_keys)
+    kept = _join_targets(roads, stretches, routable, solid, [nodes for _, nodes, _ in islands], network_keys, inserts)
     kept = {i: iv for i, iv in kept.items() if i not in solid}
     _reach_bridges(roads, hidden, kept)
     return kept, routable
