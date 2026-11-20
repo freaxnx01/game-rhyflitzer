@@ -4825,6 +4825,8 @@ const SFX = (() => {
         const input = { kmh: v.kmh, gas: v.kmh > 1, nitro: false, air: false, fly: false, accel: 0, climb: 0 };
         s.es = engineStep(s.es, input, pre, dt);
         const mix = engineMix(s.es, input, pre.engine);
+        // the distance factor v.gain goes on the three bands that hang straight off the master (road, wind, and the muted hiss);
+        // #1130's rasp is not one of them -- it feeds the engine's own lowpass, so it is already behind out.gain and would fade twice over
         applyEngine(s.eng, { ...mix, gain: mix.gain * v.gain, road: mix.road * v.gain, wind: mix.wind * v.gain, hiss: 0 }, t);
       }
     },
