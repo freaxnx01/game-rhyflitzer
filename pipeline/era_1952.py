@@ -147,7 +147,7 @@ def apply(world, gwr_rows, outline_lv95):
             b.pop("modern", None)
     if SOURCE_LINE not in world["sources"]:
         world["sources"].append(SOURCE_LINE)
-    _insert_after(world, "sources", "era", {"year": 1952})
+    _insert_after(world, "sources", "era", {**world.get("era", {}), "year": 1952})
     return counts
 
 

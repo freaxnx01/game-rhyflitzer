@@ -7,21 +7,37 @@ drawn from a seeded RNG, so the same site always gives the same strips.
 
 `layout` cuts the strips by a keep-out geometry, insets them by half a seam and returns entries shaped like
 `world["fields"]` items with `src: "era"`.
+
+`keep_out_of` is what stays visible in 1952 (old roads and their kept stretches, rail, streams, forest, water, today's
+fields, old buildings and car parks). `flag_site` sets `modern: true` on the car parks, props and DSM landmarks inside the
+site (`plattform` is never flagged). `apply` does both and writes `world["era"]["fields"]`; run it after `era_1952.py`
+and `era_roads.py`:
+
+    python era_fields.py --world ../data/world_hochrhein.json
 """
 from __future__ import annotations
 
+import argparse
+import json
 import random
+from pathlib import Path
 
 from shapely import affinity
-from shapely.geometry import box
+from shapely.geometry import LineString, Point, Polygon, box
+from shapely.ops import substring, unary_union
 
-from world_fields import MIN_AREA, SEAM, _entry, _polys, direction
+from era_roads import _to_game
+from geo import Frame
+from world_fields import FIELD_GAP, MIN_AREA, PARKING_GAP, RAIL_GAP, SEAM, STREAM_GAP, _entry, _polys, direction
 
 STRIP_MIN = 18.0    # m, strip width across the long axis
 STRIP_MAX = 40.0
 CROSS_MIN = 120.0   # m, strip length along it
 CROSS_MAX = 260.0
 ERA_KINDS = ("cereal", "cereal", "cereal", "root", "meadow", "pasture", "bare")
+KEEP_LANDMARKS = ("plattform",)  # stays visible in 1952
+HERE = Path(__file__).parent
+FOREST_WATER_GAP = 2.0  # m around forest and water
 
 
 def _edges(lo, hi, size_min, size_max, rng):
@@ -64,3 +80,78 @@ def layout(site, keep_out):
                 kept.append((kind, part))
     kept.sort(key=lambda t: (t[1].bounds[0], t[1].bounds[1]))
     return [_entry(kind, part, "era", keep_out) for kind, part in kept]
+
+
+def _road_parts(road):
+    line = LineString(road["pts"])
+    if "keep1952" not in road:
+        return [line]
+    return [substring(line, a, min(b, line.length)) for a, b in road["keep1952"]]
+
+
+def keep_out_of(world, site):
+    """What stays visible in 1952: geometry the strips must not cover."""
+    cuts = []
+    for road in world["roads"]:
+        if road.get("modern"):
+            continue
+        cuts += [part.buffer(road["w"] / 2 + FIELD_GAP) for part in _road_parts(road) if part.length > 0]
+    cuts += [LineString(pts).buffer(RAIL_GAP) for pts in world.get("rail", []) if len(pts) > 1]
+    cuts += [LineString(s["pts"]).buffer(s["w"] / 2 + STREAM_GAP) for s in world.get("streams", []) if len(s["pts"]) > 1]
+    cuts += [Polygon(f["ring"]).buffer(FOREST_WATER_GAP) for f in world.get("forests", [])]
+    cuts += [Polygon(w["rings"][0]).buffer(FOREST_WATER_GAP) for w in world.get("water", [])]
+    cuts += [Polygon(f["ring"]).buffer(SEAM) for f in world.get("fields", [])]
+    for key in ("buildings", "parking"):
+        cuts += [Polygon(i["ring"]).buffer(PARKING_GAP) for i in world.get(key, []) if not i.get("modern")]
+    return unary_union(cuts)
+
+
+def _set_flag(item, inside):
+    item.pop("modern", None)
+    if inside:
+        item["modern"] = True
+    return inside
+
+
+def flag_site(world, site):
+    """Flag car parks, props and DSM landmarks inside `site` as `modern`; clear the flag elsewhere."""
+    counts = {"parking": 0, "props": 0, "landmarks": 0}
+    for lot in world.get("parking", []):
+        counts["parking"] += _set_flag(lot, site.contains(Polygon(lot["ring"]).centroid))
+    for prop in world.get("props", []):
+        counts["props"] += _set_flag(prop, site.contains(Point(prop["x"], prop["z"])))
+    for name, lm in world.get("anchors", {}).get("landmarks", {}).items():
+        if name in KEEP_LANDMARKS or "x" not in lm or "z" not in lm:
+            continue
+        counts["landmarks"] += _set_flag(lm, site.contains(Point(lm["x"], lm["z"])))
+    return counts
+
+
+def apply(world, industrial_lonlat):
+    """Retrofit `world` in place; returns the flag counts plus `fields`."""
+    if "era" not in world:
+        raise ValueError("world has no `era`: run era_1952.py first")
+    frame = Frame(world["origin"]["lat"], world["origin"]["lon"])
+    site = _to_game(industrial_lonlat, frame)
+    counts = flag_site(world, site)
+    world["era"]["fields"] = layout(site, keep_out_of(world, site))
+    counts["fields"] = len(world["era"]["fields"])
+    return counts
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--world", required=True, type=Path, help="the world json to patch in place")
+    ap.add_argument("--industrial", type=Path, default=HERE / "industrial_sisslerfeld.geojson")
+    a = ap.parse_args(argv)
+    world = json.loads(a.world.read_text(encoding="utf-8"))
+    geo = json.loads(a.industrial.read_text(encoding="utf-8"))
+    geometry = geo["features"][0]["geometry"] if geo.get("type") == "FeatureCollection" else geo.get("geometry", geo)
+    counts = apply(world, geometry)
+    a.world.write_text(json.dumps(world, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"era_fields: {counts}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
