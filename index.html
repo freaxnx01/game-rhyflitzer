@@ -1786,7 +1786,7 @@ let CPS = [{ n: 'Bahnhof Sisseln', x: 1780, z: 560 }, mk('Sisslerfeld', 995, 660
 let FINISH = mk('Münsterplatz Bad Säckingen', 452, 464);
 let START = { x: V(1140, 685)[0], z: V(1140, 685)[1], th: Math.PI };
 // OSM world: race points come from the anchors, snapped onto the nearest drivable (non-motorway, non-bridge) road within 60 m
-const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {} };
+const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {}, past: new THREE.Group(), pastMesh: {}, lots: 0 };   // #530: past = what exists only in 1952 (the field strips), hidden today
 const snapRoad = (x, z) => { let best = null; for (const r of ROADS) { if (r.bridge || r.cls === 'motorway' || !eraShown(r, ERA.on)) continue; const n = nearestOnPolyline(r.pts, x, z); if (!best || n.d < best.n.d) best = { r, n }; } if (!best || best.n.d > 60) return [x, z]; const { r, n } = best, p = r.pts; let acc = 0; for (let i = 0; i < p.length - 1; i++) { const L2 = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); if (acc + L2 >= n.t) { const u = (n.t - acc) / (L2 || 1); return [p[i][0] + (p[i + 1][0] - p[i][0]) * u, p[i][1] + (p[i + 1][1] - p[i][1]) * u]; } acc += L2; } return [x, z]; };
 if (L && L.anchors.cps.length) {
   CPS = L.anchors.cps.map(c => { const [x, z] = snapRoad(c.x, c.z); return { n: c.n, x, z }; });
@@ -1802,12 +1802,12 @@ else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has 
 
 // ---------- geometry builders ----------
 const parts = {};
-const partsModern = {}; let ERA_COLLECT = false;   // #530: while a modern (post-1952) building is built, push() and pushOBB() file it under the time layer
+const partsModern = {}, partsPast = {}; let ERA_COLLECT = false, ERA_PAST = false;   // #530: while a modern (post-1952) building is built, push() and pushOBB() file it under the time layer
 const UWS = { on: false };   // #101: true while the camera is under the water surface (setUnderwater switches the look)
 // #201: cave mode -- on while the car is under the hill (caveInside); group = the lobby's lights and platform, drawn only then (setCave)
 const CAVE_MODE = { on: false, group: null, dark: null, veil: null, k: 0 };
 const BORDER_LINES = [];   // #396: the Holzbrücke's border lines, built in heroWood and added to the scene once it exists
-function push(role, geo) { ((ERA_COLLECT ? partsModern : parts)[role] ||= []).push(geo.index ? geo.clone() : geo); }   // #1065: mergeRole decides indexed or not
+function push(role, geo) { ((ERA_PAST ? partsPast : ERA_COLLECT ? partsModern : parts)[role] ||= []).push(geo.index ? geo.clone() : geo); }   // #1065: mergeRole decides indexed or not
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
 function rawGeo(pos, nrm, uv, rot, x, z, c, role) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); if (rot) g.rotateY(-rot); g.translate(x, 0, z); colorize(g, c); push(role, g); return g; }
@@ -1852,9 +1852,9 @@ function waterPolys() {
 // measured on the real 3505 parcels, maxEdge 16 gives 1.52 M tris (blows the 400 k budget and the 2 GB test cap), 24 gives
 // 794 k, 48 gives 286 k with a worst lift of 0.16 m over rolling ground -- the budget wins (the plan's 250 k estimate).
 const FIELD_LIFT = 0.02, FIELD_EDGE = 48;
-function fieldMeshes() {
+function fieldMeshes(list, countsKey) {   // #530: today's strips and the 1952 ones share the builder
   const counts = { n: 0, tris: 0, lwb: 0, osm: 0 };
-  L.fields.forEach((f, idx) => {
+  list.forEach((f, idx) => {
     const spec = FIELD_KINDS[f.kind]; if (!spec) return;
     const ring = f.ring.map(([x, z]) => new THREE.Vector2(x, z)), holes = (f.holes || []).map(h => h.map(([x, z]) => new THREE.Vector2(x, z)));
     const coarse = THREE.ShapeUtils.triangulateShape(ring, holes); if (!coarse.length) return;
@@ -1872,7 +1872,7 @@ function fieldMeshes() {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3)); g.computeVertexNormals();
     push(spec.role, g); counts.n++; counts.tris += tris.length; counts[f.src === 'osm' ? 'osm' : 'lwb']++;
   });
-  window.__mm.counts.fields = counts;
+  window.__mm.counts[countsKey] = counts;
 }
 function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain); colorize(g, c); push(role, g); return g; }
 function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // mitred polyline strip, shared vertices at joints; hFn: lay it on another surface
@@ -2173,15 +2173,15 @@ function dsmChimney(x, z, h) { // slender light-grey concrete tube, red/white ba
   const shaft = new THREE.CylinderGeometry(rAt(0.6), r0, band0, 20); shaft.translate(x, b + band0 / 2, z); colorize(shaft, col('#d9d9d4')); push('stone', shaft);
   for (let i = 0; i < bands; i++) { const y0 = band0 + i * (h - band0) / bands, y1 = y0 + (h - band0) / bands; const g = new THREE.CylinderGeometry(rAt(y1 / h), rAt(y0 / h), y1 - y0, 20); g.translate(x, b + (y0 + y1) / 2, z); colorize(g, col((bands - i) % 2 ? '#c8302a' : '#f2f2ee')); push('stone', g); }
   const top = new THREE.CylinderGeometry(r1 + 0.1, r1 + 0.1, 1.2, 20); top.translate(x, b + h + 0.6, z); colorize(top, col('#3a3a3a')); push('stone', top);
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a })); lamp.position.set(x, b + h + 1.6, z); signs.add(lamp);
-  addOBB(x, z, r0 * 2, r0 * 2, 0, b + h);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a })); lamp.position.set(x, b + h + 1.6, z); (ERA_COLLECT ? ERA.group : signs).add(lamp);   // #530: the DSM chimney's light goes with it in 1952
+  pushOBB({ x, z, hw: r0, hd: r0, c: 1, s: 0, h: b + h, landmark: true });
 }
 function waterTower(x, z, h) { // grey concrete shaft, short wider cylindrical tank on top with a flat roof (goblet silhouette), tank ~1/5 of the height
   const b = terrainH(x, z), tankH = h * 0.2, shaftH = h - tankH;
   const shaft = new THREE.CylinderGeometry(4.2, 4.8, shaftH, 20); shaft.translate(x, b + shaftH / 2, z); colorize(shaft, col('#b9b8b2')); push('stone', shaft);
   const neck = new THREE.CylinderGeometry(8.2, 4.2, 2.5, 20); neck.translate(x, b + shaftH + 1.25, z); colorize(neck, col('#b0afa9')); push('stone', neck);
   const tank = new THREE.CylinderGeometry(8.5, 8.2, tankH - 2.5, 24); tank.translate(x, b + shaftH + 2.5 + (tankH - 2.5) / 2, z); colorize(tank, col('#c4c3bd')); push('stone', tank);
-  addOBB(x, z, 9.6, 9.6, 0, b + h);
+  pushOBB({ x, z, hw: 4.8, hd: 4.8, c: 1, s: 0, h: b + h, landmark: true });   // #530
 }
 function siloTower(x, z, rot, w, d, h) { // #81 LANDI silo tower by Bahnhof Sisseln: flat-roofed concrete slab (w along rot, d across), small head house on the roof, no lettering (docs/07); solid
   const b = terrainH(x, z);
@@ -2475,28 +2475,33 @@ function parkingMeshes(lots) {
       for (const k of [a, b, c]) { const [x, z] = pts[k]; pos.push(x, terrainH(x, z) + 0.03, z); uv.push(x / 4, z / 4); }
     }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
-    colorize(g, col('#b8b0a0')); push('roadPlain', g);
-    if (lot.sign) parkingSign(lot.sign, lot.name);
+    ERA_COLLECT = !!lot.modern; if (ERA_COLLECT) ERA.lots++; colorize(g, col('#b8b0a0')); push('roadPlain', g);   // #530: a lot that is not there in 1952 goes into the time layer
+    if (lot.sign) parkingSign(lot.sign, lot.name, ERA_COLLECT ? ERA.group : signs); ERA_COLLECT = false;
   }
-  const quads = lineQuads(lots.flatMap(l => l.lines), 0.12), pos = [];
-  window.__mm.counts.parking = { lots: lots.length, lines: quads.length, signs: lots.filter(l => l.sign).length };
-  for (const [p0, p1, p2, p3] of quads) for (const [x, z] of [p0, p1, p2, p0, p2, p3]) pos.push(x, terrainH(x, z) + 0.035, z);
-  if (!pos.length) return;
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  decals.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET })));
+  const lines = parkingLines(lots.filter(l => !l.modern), decals) + parkingLines(lots.filter(l => l.modern), ERA.group);
+  window.__mm.counts.parking = { lots: lots.length, lines, signs: lots.filter(l => l.sign).length };
 }
-function parkingSign([x, z, rot], name) {
+function parkingLines(lots, parent) {   // #530: bay lines as one decal mesh per layer
+  const quads = lineQuads(lots.flatMap(l => l.lines), 0.12), pos = [];
+  for (const [p0, p1, p2, p3] of quads) for (const [x, z] of [p0, p1, p2, p0, p2, p3]) pos.push(x, terrainH(x, z) + 0.035, z);
+  if (!pos.length) return 0;
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  parent.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET })));
+  return quads.length;
+}
+function parkingSign([x, z, rot], name, parent = signs) {
   const b = terrainH(x, z), nx = Math.sin(-rot), nz = Math.cos(-rot),   // #822: the board's normal; the panel moves along it, the pole stays behind
     top = Math.min(2.6, poleTop({ shape: 'rect', y: 2.3, h: 0.7 })),
     pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
-  pole.position.set(x, b + top / 2, z); signs.add(pole);
+  pole.position.set(x, b + top / 2, z); parent.add(pole);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: sharedTex('P', () => textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif')), side: THREE.DoubleSide }));
-  board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; signs.add(board);
+  board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; parent.add(board);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: sharedTex('plate|' + name, () => textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif')), side: THREE.DoubleSide }));
-  plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; signs.add(plate);
+  plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; parent.add(plate);
 }
 function propMeshes(props) {
   const geos = propGeometries(), byKind = {};
+  const past = props.filter(p => p.modern); props = props.filter(p => !p.modern);   // #530: modern props stay out of KNOCK (its stand-up would revive a 1952 collider)
   for (const p of props) (byKind[p.kind] ||= []).push(p);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), at = new THREE.Vector3();
   window.__mm.counts.props = {}; window.__mm.counts.yard = props.filter(p => p.yard).length; const groups = {};
@@ -2509,6 +2514,13 @@ function propMeshes(props) {
     const solid = PROP_SOLID[kind];
     if (solid) for (const p of list) { addOBB(p.x, p.z, solid.size, solid.size, 0, terrainH(p.x, p.z) + solid.h); p.obb = OBB[OBB.length - 1]; }   // #415: knock.js switches the collider off when the prop goes over
     groups[kind] = { mesh, list };
+  }
+  const modernKinds = {}; for (const p of past) (modernKinds[p.kind] ||= []).push(p);
+  for (const kind in modernKinds) {
+    const list = modernKinds[kind], mesh = new THREE.InstancedMesh(geos[kind], new THREE.MeshLambertMaterial({ vertexColors: true }), list.length), solid = PROP_SOLID[kind];
+    list.forEach((p, i) => { q.setFromAxisAngle(up, -p.rot); at.set(p.x, terrainH(p.x, p.z), p.z); m4.compose(at, q, one); mesh.setMatrixAt(i, m4); });
+    mesh.castShadow = true; ERA.group.add(mesh);
+    ERA_COLLECT = true; if (solid) for (const p of list) addOBB(p.x, p.z, solid.size, solid.size, 0, terrainH(p.x, p.z) + solid.h); ERA_COLLECT = false;
   }
   const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
   KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); kcar.circles = VEH.collision.shape === 'capsule' ? carCircles() : null; /* #473: the bus knocks props along its length */ return kcar; },
@@ -2689,7 +2701,8 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     parts.current = [ribbon(RIVER.pts, RIVER.hw - 6, 0.08, 'currentTmp', col('#ffffff'), 90)]; delete parts.currentTmp;
   }
   if (L) waterPolys();
-  if (L && L.fields.length) fieldMeshes();
+  if (L && L.fields.length) fieldMeshes(L.fields, 'fields');
+  if (L && L.eraFields && L.eraFields.length) { ERA_PAST = true; fieldMeshes(L.eraFields, 'eraFields'); ERA_PAST = false; }   // #530: the 1952 strips, shown only by Ctrl+Y
   await loadStage('roads', { roads: L ? ROADS.length : 0 });
   // roads
   const ROAD_SURF = new Map();
@@ -3010,8 +3023,8 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   if (L && L.parking.length) parkingMeshes(L.parking);
   if (L) { // landmarks on their real positions (the Plattform Sisslerfeld, built to the builder's plans (#413))
     const lm = L.anchors.landmarks, at = (k) => lm[k];
-    if (at('dsmChimney')) dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140);
-    if (at('dsmWaterTower')) waterTower(at('dsmWaterTower').x, at('dsmWaterTower').z, at('dsmWaterTower').h || 59);
+    if (at('dsmChimney')) { ERA_COLLECT = !!at('dsmChimney').modern; dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140); ERA_COLLECT = false; }   // #530
+    if (at('dsmWaterTower')) { ERA_COLLECT = !!at('dsmWaterTower').modern; waterTower(at('dsmWaterTower').x, at('dsmWaterTower').z, at('dsmWaterTower').h || 59); ERA_COLLECT = false; }
     if (at('landiTurm')) { const t = at('landiTurm'); siloTower(t.x, t.z, t.rot, t.size[0], t.size[1], t.h); }
     if (at('foodTruck')) foodTruck(at('foodTruck').x, at('foodTruck').z, at('foodTruck').rot || 0);
     if (at('smileKreisel')) { const k = at('smileKreisel'); const rb = ROADS.filter(r => r.pts.length > 4 && Math.hypot(r.pts[0][0] - r.pts[r.pts.length - 1][0], r.pts[0][1] - r.pts[r.pts.length - 1][1]) < 0.5).map(r => { const q = r.pts.slice(0, -1), cx = q.reduce((a, p) => a + p[0], 0) / q.length, cz = q.reduce((a, p) => a + p[1], 0) / q.length; return { r, cx, cz, rad: q.reduce((a, p) => a + Math.hypot(p[0] - cx, p[1] - cz), 0) / q.length }; }).filter(o => Math.hypot(o.cx - k.x, o.cz - k.z) < 30).sort((a, b) => Math.hypot(a.cx - k.x, a.cz - k.z) - Math.hypot(b.cx - k.x, b.cz - k.z))[0]; if (rb) smileKreiselAt(rb.cx, rb.cz, Math.max(2.5, rb.rad - rb.r.w / 2)); else smileKreiselAt(k.x, k.z); }
@@ -3340,8 +3353,9 @@ function mergeRole(list) {
 function roleMesh(role, list) { const m = new THREE.Mesh(mergeRole(list)); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; return m; }
 for (const role in parts) { const m = roleMesh(role, parts[role]); scene.add(m); MESH[role] = m; freeCpuCopy(m); delete parts[role]; }
 for (const role in partsModern) { const m = roleMesh(role, partsModern[role]); ERA.group.add(m); ERA.mesh[role] = m; freeCpuCopy(m); delete partsModern[role]; }   // #530: the post-1952 buildings, one mesh per role in their own group
-scene.add(ERA.group);
-const sceneMeshes = () => [...Object.values(MESH), ...(ERA.group.visible ? Object.values(ERA.mesh) : [])];   // #530: what a ray sees -- the merged meshes, plus the 1952 layer's while it is shown
+for (const role in partsPast) { const m = roleMesh(role, partsPast[role]); ERA.past.add(m); ERA.pastMesh[role] = m; freeCpuCopy(m); delete partsPast[role]; }   // #530: what exists only in 1952
+ERA.past.visible = false; scene.add(ERA.group, ERA.past);
+const sceneMeshes = () => [...Object.values(MESH), ...(ERA.group.visible ? Object.values(ERA.mesh) : []), ...(ERA.past.visible ? Object.values(ERA.pastMesh) : [])];   // #530: what a ray sees -- the merged meshes, plus the 1952 layer's while it is shown
 if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own meshes so the interior can hide them; applyStyle sets the material
   INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing);
   const h = INT.hall, rd = STAIRHALL.roofDoor;   // the dark roof-door panel on the housing's left face
@@ -3948,7 +3962,7 @@ const STYLES = {
       if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const set of [MESH, ERA.mesh]) for (const role in set) { set[role].material.dispose?.(); set[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = set[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const set of [MESH, ERA.mesh, ERA.pastMesh]) for (const role in set) { set[role].material.dispose?.(); set[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = set[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
 function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; TREES_ON.solid = solid; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.coarse) im.visible = solid && f.tier === 'coarse'; if (f.fine) for (const im of f.fine) im.visible = solid && f.tier === 'fine'; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
@@ -5877,7 +5891,7 @@ window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; FOOT.mv =
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
 window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); FOOT.view = null; return window.__mm.foot(); };   // #895: tests and screenshot scripts read the new pitch at once
 // tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
-window.__mm.era = () => { const s = ERA.solids[0]; return { available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), goneHere: goneUnderCar(), jumpableRoads: ROADS.filter(jumpable).length, jumpsOnGone: eraJumpEntries(JUMP_ENTRIES).filter(landsOnGoneRoad).length, buses: POSTAUTO.buses.filter(b => b.phase !== 'done').length, ...eraRoadProbe() }; };   // #530
+window.__mm.era = () => { const s = ERA.solids[0]; return { pastVisible: ERA.past.visible, pastFields: (window.__mm.counts.eraFields || {}).n || 0, pastMaterials: Object.fromEntries(Object.entries(ERA.pastMesh).map(([r, m]) => [r, m.material.uuid])), landmarkSolidsOff: ERA.solids.filter(o => o.landmark && o.off).length, parkingHidden: ERA.on ? ERA.lots : 0, available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), goneHere: goneUnderCar(), jumpableRoads: ROADS.filter(jumpable).length, jumpsOnGone: eraJumpEntries(JUMP_ENTRIES).filter(landsOnGoneRoad).length, buses: POSTAUTO.buses.filter(b => b.phase !== 'done').length, ...eraRoadProbe() }; };   // #530
 // #530: the new roads and the Fridolinsbruecke -- how many are hidden, where to look for them, and whether anything of them is left
 let ERA_SAMPLES = null;   // the sample spots never change: found once, on the first probe
 function eraRoadProbe() {
@@ -8142,7 +8156,7 @@ function toggleEra() {   // #530: Ctrl+Y -- the Swiss villages as in 1952, and b
   if (!eraAvailable(WORLD)) { toast(tr('eraNone')); return; }
   if (deliveryActive()) { toast(tr('eraNoDelivery')); return; }
   const wasGone = !ERA.on && goneUnderCar(); stopAuto('era'); stopNavi();   // the route may run over roads that appear or vanish
-  ERA.on = !ERA.on; if (ERA.on && (R.state === 'racing' || R.state === 'armed')) R.era = true; ERA.group.visible = !ERA.on; for (const o of ERA.solids) o.off = ERA.on;
+  ERA.on = !ERA.on; if (ERA.on && (R.state === 'racing' || R.state === 'armed')) R.era = true; ERA.group.visible = !ERA.on; ERA.past.visible = ERA.on; for (const o of ERA.solids) o.off = ERA.on;
   if (!ERA.on && !FLY.on && LEVELS.isSurface() && !caveInside() && ERA.solids.some(o => solidHolds(o, P.x, P.z))) { const best = nearestJumpable(P.x, P.z); if (best) placeOnRoad(best.x, best.z, P.th, 'era'); }   // back inside a reappearing building: out to the road, like a J jump
   let moved = false;
   if (ERA.on && wasGone && !FLY.on && !FOOT.on && !TRAIN.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) { placeOnRoad(best.x, best.z, P.th, 'era'); moved = true; } }   // standing on a road of today: to the nearest old one
