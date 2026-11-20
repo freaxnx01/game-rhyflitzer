@@ -126,6 +126,16 @@ test('stairHall_Housing_RoofLobbyHasADoorOntoTheRoofAndAHousingCeiling', () => {
   assert.equal(walkwayPush(h.walk, lx, lz, roof, 0.1).length, 0);
 });
 
+// #1099: every tower is a hole in the block's one roof deck, so a walker crossing the deck must be stopped by its housing on
+// every side -- the roof door is the only way in. The back-right corner of the housing used to be open: a pit inside the drawn box.
+test('stairHall_AboveTheRoof_TheHousingIsClosedOnEverySide', () => {
+  const h = hall(), roof = FLOORS.roof;
+  const spots = [[3.0, STAIRHALL.b1 + 0.2, 'the right side'], [STAIRHALL.depth + 0.2, 2.0, 'the back behind the shaft'],
+    [3.0, STAIRHALL.b0 - 0.2, 'the left side'], [-0.2, 0, 'the front']];
+  for (const [a, b, what] of spots)
+    assert.ok(walkwayPush(h.walk, ...at(h, a, b), roof, WALKER.radius).length > 0, `${what} is wall above the roof`);
+});
+
 // the 60 x 16 m body around a hall's tower, as the block's ring reaches it
 const bodyAround = (h) => { const [cx, cz] = at(h, 10, 0); return [[cx - 30, cz - 8], [cx + 30, cz - 8], [cx + 30, cz + 8], [cx - 30, cz + 8]]; };
 

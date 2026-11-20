@@ -113,6 +113,10 @@ export function stairHall(entrance, porch, floors, eg, cfg = STAIRHALL) {
   wall('housing:left:b', r.a1, depth, b0, -1.2, roof, top);
   wall('roofDoor', r.a0, r.a1, b0, -1.2, roof, roof + r.h);
   wall('roofDoorLintel', r.a0, r.a1, b0, -1.2, roof + r.h, top);
+  // #1099: the housing's right and back face behind the shaft -- below the roof nothing can reach that corner of the tower, but on the
+  // block's one roof deck (blockRoof cuts every tower out of it) it was a pit inside the drawn housing box
+  wall('housing:right', 1.4, depth, b1 - t, b1, roof, top);
+  wall('housing:back', depth - t, depth, 1.35, b1, roof, top);
   // the porch: side panes, the front with the door leaf between two side lights, a roof
   const pw = porch.w / 2;
   wall('porch:l', -porch.d, 0, -pw - 0.05, -pw, L(0), L(0) + cfg.porchH);
