@@ -18,20 +18,31 @@ export function targetRpm(input, gears, engine) {
   return clamp(engine.shiftRpm * input.kmh / hi, engine.idleRpm, engine.limitRpm);
 }
 
-// one audio tick: smoothed rpm, current gear, and the remaining throttle-lift time after an upshift
+// #1130: how hard the engine is working, 0..1 -- cruising on the flat sits at LOAD.cruise, pulling away or climbing goes to 1
+export const LOAD = { cruise: 0.5, perAccel: 0.3, perClimb: 0.18, tau: 0.3 };   // perAccel: ~1.7 m/s^2 is flat out; perClimb: so is 3 m/s of climb
+export function engineLoad(input, engine) {
+  if (!input.gas) return 0;
+  if (input.air) return 1;   // free-revving: the throttle is the whole story
+  const cruise = engine.cruise ?? LOAD.cruise;
+  return clamp(cruise + LOAD.perAccel * Math.max(0, input.accel ?? 0) + LOAD.perClimb * Math.max(0, input.climb ?? 0), 0, 1);
+}
+
+// one audio tick: smoothed rpm, current gear, the remaining throttle-lift time after an upshift, and the smoothed load
 export function engineStep(s, input, sound, dt) {
   const gear = gearAt(input.kmh, sound.gears), up = gear > s.gear && !input.air;
   const target = targetRpm(input, sound.gears, sound.engine), rate = target > s.rpm ? RPM_RATE.up : RPM_RATE.down;
-  return { rpm: s.rpm + clamp(target - s.rpm, -rate * dt, rate * dt), gear, shift: up ? sound.engine.shiftTime : Math.max(0, s.shift - dt) };
+  const load = s.load ?? 0, toward = engineLoad(input, sound.engine) - load;
+  return { rpm: s.rpm + clamp(target - s.rpm, -rate * dt, rate * dt), gear, shift: up ? sound.engine.shiftTime : Math.max(0, s.shift - dt),
+    load: load + toward * (1 - Math.exp(-dt / LOAD.tau)) };
 }
 
 // what the synth plays for an engine state: firing frequency, load-dependent lowpass, level, road noise and nitro hiss
 export function engineMix(s, input, engine) {
-  const n = clamp((s.rpm - engine.idleRpm) / (engine.limitRpm - engine.idleRpm), 0, 1), load = input.gas ? 1 : 0, F = engine.filter, G = engine.gain;
-  const cutoff = (F.idle + (F.open - F.idle) * n) * (load ? 1 : F.offLoad) * (input.nitro ? 1.25 : 1);
+  const n = clamp((s.rpm - engine.idleRpm) / (engine.limitRpm - engine.idleRpm), 0, 1), load = clamp(s.load ?? 0, 0, 1), F = engine.filter, G = engine.gain;
+  const cutoff = (F.idle + (F.open - F.idle) * n) * (F.offLoad + (1 - F.offLoad) * load) * (input.nitro ? 1.25 : 1);
   const level = (G.idle + G.rev * n + G.load * load) * (s.shift > 0 ? 1 - engine.shiftDip : 1);
   const silent = input.fly || input.dead || input.off;   // #475 off: the driver got out and switched the engine off
-  return { f0: s.rpm / 60 * engine.cylinders / 2, cutoff, q: F.q * (load ? 1 : 0.6), gain: silent ? 0 : level,
+  return { f0: s.rpm / 60 * engine.cylinders / 2, cutoff, q: F.q * (0.6 + 0.4 * load), gain: silent ? 0 : level, load,
     road: input.fly || input.air || input.off ? 0 : Math.min(0.25, input.kmh / 400), hiss: input.nitro && !silent ? engine.nitroHiss : 0 };
 }
 
