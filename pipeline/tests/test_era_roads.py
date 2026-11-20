@@ -216,6 +216,51 @@ def test_trim_UnusedEmptyRoad_IsNotListed():
     assert R.trim([main, unused], {1: "empty"}, [], SWISS) == {}
 
 
+def test_trim_ChainedIslands_JoinedThroughTheFirstIsland():
+    main = road("primary", [(100, -100), (100, 0), (100, 100)])
+    link1 = road("residential", [(100, 0), (300, 0), (400, 0)])
+    first = road("unclassified", [(300, 0), (500, 0)])
+    link2 = road("residential", [(500, 0), (500, 100), (500, 300)])
+    second = road("unclassified", [(500, 100), (700, 100)])
+    got = R.trim([main, link1, first, link2, second], {1: "empty", 3: "empty"}, [], SWISS)
+    near(got[1], [(0, 200)])
+    near(got[3], [(0, 100)])  # the second island reaches the network over the first one
+
+
+def test_trim_RouteThroughAJoinedIsland_BeatsALongEmptyRoad():
+    main = road("primary", [(100, -100), (100, 0), (100, 300)])
+    link = road("residential", [(100, 0), (300, 0), (400, 0)])
+    island = road("unclassified", [(300, 0), (500, 0)])
+    street = road("residential", [(500, 0), (900, 0)])  # old house near its far end
+    long_empty = road("residential", [(900, 0), (900, 300), (100, 300)])
+    got = R.trim([main, link, island, street, long_empty], {1: "empty", 4: "empty"}, [house(870, 5)], SWISS)
+    assert 4 not in got
+    near(got[1], [(0, 200)])
+    near(got[3], [(0, 390)])
+
+
+def test_apply_RoutedEmptyRoadKeepsRoute_UnusedResidentialIsHidden():
+    ind = {"type": "Polygon", "coordinates": [[[7.99, 47.55], [7.991, 47.55], [7.991, 47.551], [7.99, 47.551], [7.99, 47.55]]]}
+    world = {"origin": {"lat": 47.5506, "lon": 7.9671},
+             "roads": [road("primary", [(100, -100), (100, 0), (100, 50), (100, 100)]),
+                       road("residential", [(100, 0), (300, 0), (500, 0)]),  # no old house: empty, but the island's only link
+                       road("primary", [(300, 0), (300, 100)]),  # the island
+                       road("residential", [(100, 50), (300, 50)]),  # old house on it
+                       road("residential", [(100, 70), (300, 70)])],  # house within 25 m, but nearer to the street above
+             "buildings": [house(150, 45)]}
+    outline = SWISS_LV95()
+    counts = R.apply(world, outline, ind)
+    first = json.dumps(world, ensure_ascii=False, separators=(",", ":"))
+    roads_ = world["roads"]
+    assert roads_[1]["keep1952"] == [[0.0, 200.0]] and "modern" not in roads_[1]
+    assert roads_[3]["keep1952"] == [[0.0, 70.0]] and "modern" not in roads_[3]
+    assert roads_[4]["modern"] is True and "keep1952" not in roads_[4]
+    assert (counts["restored"], counts["trimmed"], counts["empty"]) == (1, 2, 1)
+    assert R.apply(world, outline, ind) == counts
+    assert json.dumps(world, ensure_ascii=False, separators=(",", ":")) == first
+    assert not any("keep1952" in r and "modern" in r for r in roads_)
+
+
 def test_apply_Idempotent_WithKeep1952():
     from geo import Frame
     fr = Frame(47.5506, 7.9671)

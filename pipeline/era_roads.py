@@ -15,7 +15,8 @@ from the main network, is joined to the old network (kept roads that are not can
 (Dijkstra over road vertices and the cut points, cost = metres not yet kept), nearest first, through candidate,
 residential and "empty" roads. An "empty" road keeps only the metres a route uses (the others stay hidden), an unused
 one stays `modern`. A stretch with no route keeps its whole road. Written as `road["keep1952"] = [[a, b], ...]`
-(metres along `pts`, only if at least MIN_TRIM is dropped).
+(metres along `pts`, only if at least MIN_TRIM is dropped). A kept residential street without a footprint of its own
+(every footprint near it is nearer to another street) counts as an "empty" one: hidden unless a route uses it.
 
 Sets `road["modern"] = True` (last key) and removes it from every other road; likewise `keep1952`; idempotent.
 
@@ -40,7 +41,7 @@ INDUSTRIAL_SHARE = 0.5  # share of the road length inside the industrial site
 ENDPOINT_TOL = 0.5  # m, vertices closer than this are the same junction
 BRIDGE_SNAP = 15.0  # m, a kept bridge end joins any road vertex this close (bridges often end beside the road, not on it)
 TRIM_PAD = 10.0  # m, a trimmed street runs this far past the old house it serves
-MIN_TRIM = 0.5  # m, a trim that cuts less than this off both ends is not worth writing
+MIN_TRIM = 0.5  # m, a street that loses less than this in total is not written
 RESIDENTIAL = ("residential", "living_street", "service")
 MAIN_PREFIXES = ("motorway", "trunk", "primary", "secondary", "tertiary")
 BRIDGE_NAME = "Fridolinsbrücke"
@@ -298,12 +299,13 @@ def _best_node(dist, nodes):
     return min(reached) if reached else None
 
 
-def _join_targets(roads, stretches, routable, island_keys, network_keys):
-    """Kept intervals per candidate/routable road: house stretches plus, nearest first, the cheapest route of each
-    target (house stretch or cut-off island) to the old network; routable roads start with nothing kept."""
-    ids, points, adjacency = _graph(roads, stretches, routable)
+def _join_targets(roads, stretches, routable, solid, island_keys, network_keys):
+    """Kept intervals per candidate/routable/island road: house stretches plus, nearest first, the cheapest route of each
+    target (house stretch or cut-off island) to the old network; routable roads start with nothing kept and the roads
+    of an island (`solid`) are fully kept, so a joined island carries later routes at no cost."""
+    ids, points, adjacency = _graph(roads, stretches, routable | solid)
     sources = {n for key, n in ids.items() if key in network_keys}
-    kept = {i: [stretches[i]] if i in stretches else [] for i in points}
+    kept = {i: [stretches[i]] if i in stretches else [(0.0, points[i][-1][0])] if i in solid else [] for i in points}
     targets = [("road", i, [n for arc, n in points[i] if stretches[i][0] - 1e-6 <= arc <= stretches[i][1] + 1e-6])
                for i in sorted(stretches)]
     targets += [("island", None, [ids[k] for k in sorted(keys) if k in ids]) for keys in island_keys]
@@ -344,7 +346,9 @@ def _plan(roads, hidden, buildings, swiss):
     sources = [i for i in range(len(roads)) if i not in hidden and i not in stretches and i not in routable
                and i not in island_roads]
     network_keys = set().union(*(node_sets[i] for i in sources))
-    return _join_targets(roads, stretches, routable, island_keys, network_keys), routable
+    solid = {i for i in island_roads if i not in stretches and i not in routable}
+    kept = _join_targets(roads, stretches, routable, solid, island_keys, network_keys)
+    return {i: iv for i, iv in kept.items() if i not in solid}, routable
 
 
 def _is_residential(road, swiss):
@@ -366,13 +370,29 @@ def trim(roads, hidden, buildings, swiss):
     and "empty" roads, nearest first. An "empty" road keeps only the metres a route uses. A stretch with no route keeps
     its whole road. Roads that lose less than MIN_TRIM, and roads with nothing kept, are not listed.
     """
-    kept, _ = _plan(roads, hidden, buildings, swiss)
+    return _listed(roads, _plan(roads, hidden, buildings, swiss)[0])
+
+
+def _listed(roads, kept):
+    """The kept intervals that `trim` reports: roads that keep something and lose at least MIN_TRIM."""
     result = {}
     for i, intervals in kept.items():
         length = LineString(roads[i]["pts"]).length
         if _kept_length(intervals) > 1e-3 and length - _kept_length(intervals) >= MIN_TRIM:
             result[i] = intervals
     return result
+
+
+def _rounded(intervals):
+    """Intervals at 0.1 m; ones that touch after rounding are merged so they stay disjoint."""
+    merged = []
+    for a, b in intervals:
+        a, b = round(a, 1), round(b, 1)
+        if merged and a <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return merged
 
 
 def _to_game(geometry, frame):
@@ -395,15 +415,14 @@ def apply(world, outline_lv95, industrial_lonlat):
             restored += hidden.pop(i, None) == "empty"
         else:
             hidden[i] = "empty"
-    trimmed = {i: iv for i, iv in kept.items()
-               if _kept_length(iv) > 1e-3 and LineString(roads[i]["pts"]).length - _kept_length(iv) >= MIN_TRIM}
+    trimmed = _listed(roads, kept)  # the same filter `trim` applies, on the plan computed once above
     for i, road in enumerate(roads):
         road.pop("modern", None)
         road.pop("keep1952", None)
         if i in hidden:
             road["modern"] = True
         elif i in trimmed:
-            road["keep1952"] = [[round(a, 1), round(b, 1)] for a, b in trimmed[i]]
+            road["keep1952"] = _rounded(trimmed[i])
     counts = {k: sum(1 for v in hidden.values() if v == k) for k in ("motorway", "bridge", "industrial", "empty")}
     counts["restored"] = restored
     counts["trimmed"] = len(trimmed)
