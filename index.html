@@ -2511,7 +2511,7 @@ function propMeshes(props) {
     groups[kind] = { mesh, list };
   }
   const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
-  KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); kcar.circles = VEH.collision.shape === 'capsule' ? carCircles() : null; /* #473: the bus knocks props along its length */ return kcar; },
+  KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); kcar.mass = VEH.mass; /* #1122 */ kcar.circles = VEH.collision.shape === 'capsule' ? carCircles() : null; /* #473: the bus knocks props along its length */ return kcar; },
     play: (sound, level) => SFX.knock(sound, level), hiss: (s) => SFX.hiss(s), onCount: (n) => { KROW.props = n; showKnockRow(); } });
   window.__mm.knock = () => KNOCK.debug(); window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length, tyreStacks: yardTyreStacks(YARD) } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit, at: a.hit && !a.hit.bend ? { x: a.hit.x, z: a.hit.z } : null })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
 }

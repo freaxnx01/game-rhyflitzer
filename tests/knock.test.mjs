@@ -8,8 +8,17 @@ test('knockAction: lamps bend only above the bend speed, everything else flies f
   assert.equal(knockAction('bin', 1), null);
   assert.equal(knockAction('bin', 2), 'fly');
   assert.equal(knockAction('hydrant', 5), 'fly');
-  assert.equal(knockAction('lamp', 39 / 3.6), null);
-  assert.equal(knockAction('lamp', 41 / 3.6), 'bend');
+  // #1122: the bend speed falls with the mass (30 km/h for a car, walking pace for the heavy ones)
+  assert.equal(knockAction('lamp', 29 / 3.6), null);
+  assert.equal(knockAction('lamp', 31 / 3.6), 'bend');
+  assert.equal(knockAction('lamp', 29 / 3.6, 0.6), null);
+  assert.equal(knockAction('lamp', 31 / 3.6, 0.6), 'bend');
+  assert.equal(knockAction('lamp', 7 / 3.6, 5), 'bend');
+  assert.equal(knockAction('lamp', 5 / 3.6, 5), null);
+  assert.equal(knockAction('lamp', 6 / 3.6, 9), 'bend');
+  assert.equal(knockAction('lamp', 1.4, 9), null);
+  assert.equal(knockAction('lamp', 1.4, 1), null);
+  assert.equal(knockAction('bin', 2, 9), 'fly');
   assert.equal(knockAction('tree', 30), null);
 });
 

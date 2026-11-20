@@ -116,6 +116,20 @@ def test_crash_yard_is_listed_and_every_kind_can_be_knocked_over_and_set_up_agai
 
 
 @needs_world
+def test_a_tanker_bends_a_lamp_at_walking_pace_where_a_car_leaves_it_standing(server):
+    """#1122: the bend speed falls with the mass; the default car at 10 km/h leaves a lamp solid, the tanker at 10 km/h bends it."""
+    with sync_playwright() as p:
+        b, page = open_page(p, server)
+        jump_to_yard(page)
+        hit(page, "lamp", 10, lane=0)
+        assert page.evaluate("() => window.__mm.knock().bent") == 0
+        page.evaluate("async () => { await window.__mm.loadVehicle('tanker'); window.__mm.setVehicle(window.__mm.vehicles().tanker); }")
+        hit(page, "lamp", 10, lane=0)
+        assert page.evaluate("() => window.__mm.knock().bent") == 1
+        b.close()
+
+
+@needs_world
 def test_hydrant_and_lamp_colliders_come_back_with_the_props(server):
     with sync_playwright() as p:
         b, page = open_page(p, server)
