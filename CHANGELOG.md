@@ -10,7 +10,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
-- `2026-11-20 22:10` In **1952** (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) the **Sisslerfeld** is farmland again: field strips instead of the factories and car parks, without the **DSM chimney** and water tower, and the **vehicle depot** and the **Fridolinsbrücke** viewpoints are not there.
+- `2026-11-20 22:10` In **1952** (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) ist das **Sisslerfeld** wieder Ackerland: Feldstreifen statt Fabriken und Parkplätze, ohne **DSM-Kamin** und Wasserturm. Auch das Fahrzeug-Depot und die Aussichtspunkte an der Fridolinsbrücke gibt es dann nicht.
+- `2026-11-20 21:55` Im Mehrspieler siehst Du alle **Mitspieler** auf der Karte: ein Pfeil in der Farbe ihres Autos auf der **Minikarte** und der grossen Karte (<kbd>Tab</kbd>), dort zusätzlich mit Namen.
 - `2026-11-20 15:38` Neuer Lastwagen **Rhy Tanklaster** (englisch Rhy Tanker): ein weisser **Heizöl-Tanklaster** mit orangeroter Binde und einem Deichselanhänger, der in den Kurven **ausschwenkt**. Drei Achsen, höchstens 80 km/h, zäh beim Anfahren und weit in den Kurven; er steckt fast jeden Rempler weg. 3D-Modell „MAN TGX 2010 V8 – High-Detail Semi-Truck" von DevPoly3D (Sketchfab), CC BY 4.0.
 - `2026-11-20 11:10` In the **helicopter** and the **steam loco** the key bar now shows how to fly, climb, sink and **land** (<kbd>F</kbd>), or steam, brake and get out. In the settings, „Hinweise wieder zeigen“ is now **„Gesehene Hinweise zurücksetzen“**.
 - `2026-11-19 22:19` Ab und zu zeigt ein **Hinweis** oben in der Mitte, was das Spiel noch kann — ein **Tipp** darauf (oder die genannte Taste) führt es gleich aus, das **×** schliesst ihn, und mit „keine Hinweise mehr" ist Ruhe. Abschalten geht auch unter **Einstellungen › Anzeige**.
@@ -59,6 +60,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-20 22:29` Im **Mehrspieler** sieht man jetzt die **Nitroflammen** am Auto des anderen Spielers.
+- `2026-11-20 22:22` Im **Mehrspieler** hört man jetzt den **Motor**, auch wenn man vorher keine Einzelfahrt gestartet hat.
 - `2026-11-19 16:30` Im Dialog **„Mit Freunden fahren"** ist das **Namensfeld** wieder breit und der **Würfel** daneben klein. Vorher drückte der Würfelknopf das Feld auf eine schmale Lücke zusammen, sodass der gewürfelte Name nicht zu sehen war und der Würfel wirkungslos schien.
 - `2026-11-18 13:51` Die **Welt braucht nochmals rund 250 MB weniger Grafikspeicher** — **Strassen, Boden und Schilder** sind kompakter gespeichert (die Strassenscheibe an jeder Kreuzung und der Boden teilen ihre Eckpunkte, Normale und Farben als schmale Bytes), und **gleiche Schilder** (der **P** an jedem Parkplatz, die **Haltestellentafel** in beiden Richtungen) liegen nur noch einmal vor. So bleibt das Spiel auf dem **Handy** geöffnet, statt dass Safari den Tab immer wieder neu lädt und abbricht.
 - `2026-11-18 14:07` Auf dem **Handy** startet ein Modus im Startmenü wieder mit dem **ersten Antippen**: das Menü öffnet ganz nach unten gescrollt, sodass die Knöpfe nicht mehr unter dem Finger wegrutschen, und der Beschreibungstext steht sichtbar über den Knöpfen statt dahinter.
