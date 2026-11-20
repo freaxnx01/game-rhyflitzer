@@ -7185,6 +7185,7 @@ function netReopenCp(i) {
 function netStartSession(mode = 'cruise', t0 = null) {
   if (NET.session) return;
   NET.session = true;
+  SFX.start();                                                     // #1114: the engine voice (every single-player button does this before startRace)
   CARSEL.mp = false;
   stopCodeClock(); $('mplobby').hidden = true; $('mp').hidden = true;
   const race = mode === 'race';
