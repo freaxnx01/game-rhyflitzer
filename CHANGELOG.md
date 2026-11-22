@@ -10,6 +10,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Added
 
+- `2026-11-20 23:28` <kbd>C</kbd> schaltet jetzt auch in eine **Seitenansicht**: Die Kamera schwebt links schräg über dem Fahrzeug und zeigt seine Flanke, ideal, um den **Tanklaster** mit ausschwenkendem Anhänger durch die Kurve zu sehen. Mit gehaltenem <kbd>B</kbd> schaust Du von rechts.
 - `2026-11-20 22:10` In **1952** (<kbd>Ctrl</kbd>+<kbd>Y</kbd>) ist das **Sisslerfeld** wieder Ackerland: Feldstreifen statt Fabriken und Parkplätze, ohne **DSM-Kamin** und Wasserturm. Auch das Fahrzeug-Depot und die Aussichtspunkte an der Fridolinsbrücke gibt es dann nicht.
 - `2026-11-20 21:55` Im Mehrspieler siehst Du alle **Mitspieler** auf der Karte: ein Pfeil in der Farbe ihres Autos auf der **Minikarte** und der grossen Karte (<kbd>Tab</kbd>), dort zusätzlich mit Namen.
 - `2026-11-20 15:38` Neuer Lastwagen **Rhy Tanklaster** (englisch Rhy Tanker): ein weisser **Heizöl-Tanklaster** mit orangeroter Binde und einem Deichselanhänger, der in den Kurven **ausschwenkt**. Drei Achsen, höchstens 80 km/h, zäh beim Anfahren und weit in den Kurven; er steckt fast jeden Rempler weg. 3D-Modell „MAN TGX 2010 V8 – High-Detail Semi-Truck" von DevPoly3D (Sketchfab), CC BY 4.0.
@@ -60,6 +61,7 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-20 22:41` Der **Rhy Tanklaster** und der Fahrmischer fahren jetzt wirklich bis 80 km/h (mit Nitro rund 100); die **Nitroflammen** des Tanklasters kommen hinten aus dem Anhänger; schwere Fahrzeuge knicken **Strassenlaternen** schon langsam um (der Tanklaster im Schritttempo), Autos ab 30 km/h.
 - `2026-11-20 22:29` Im **Mehrspieler** sieht man jetzt die **Nitroflammen** am Auto des anderen Spielers.
 - `2026-11-20 22:22` Im **Mehrspieler** hört man jetzt den **Motor**, auch wenn man vorher keine Einzelfahrt gestartet hat.
 - `2026-11-19 16:30` Im Dialog **„Mit Freunden fahren"** ist das **Namensfeld** wieder breit und der **Würfel** daneben klein. Vorher drückte der Würfelknopf das Feld auf eine schmale Lücke zusammen, sodass der gewürfelte Name nicht zu sehen war und der Würfel wirkungslos schien.

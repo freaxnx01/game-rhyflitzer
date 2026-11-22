@@ -545,7 +545,7 @@ body:has(#carsel:not([hidden])) #hud,body:has(#carsel:not([hidden])) #touch{disp
       <kbd data-cmd="Digit1">1</kbd><span data-i18n="keyHazard">Hazard lights on · off</span>
       <kbd data-cmd="Digit2">2</kbd><span data-i18n="keySiren">fire engine: blue lights and siren on · off</span>
       <kbd data-cmd="KeyH">H · Enter</kbd><span data-i18n="keyHorn">horn</span>
-      <kbd data-cmd="KeyC">C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper · drone</span>
+      <kbd data-cmd="KeyC">C</kbd><span data-i18n="keyCamera">camera: chase · near · cockpit · bumper · drone · side</span>
       <kbd data-cmd="hold">B</kbd><span data-i18n="keyLookBack">look back (hold)</span>
       <kbd data-cmd="KeyV">V</kbd><span data-i18n="keyCar">show / hide the car</span>
       <kbd data-cmd="KeyG">G</kbd><span data-i18n="keyBounds">show / hide the Gemeinde boundaries</span>
@@ -1110,7 +1110,7 @@ import { WALKWAY, walkwayFloor, walkwayCeiling, headBump, walkwayPush, emptyWalk
 import { STAIRHALL, GROUND_DEPTH_OFFSET, groundSlabs, terrainPads, padFloorAt, padBounds, stairHall, hallRoofSlab, hallArea, bodyColliderOff, doorShouldClose, wallByTag, hallLevels, floorAtY, hudFloorText, keypadLabel } from './stairhall.js';   // #411: the stair hall of 6c as walkways
 import { PLATTFORM, plattformFrame, facingToRoad, stairTreads, plattformWalk, plattformEntrance, plattformYard, plattformCoreCollider, stairHeadTarget, plattformHop, plattformHopLanding, plattformOnDeck, sectorPoly, coreSlats, roofRafters, parapetStraight, eaveFrame, centrePostTop, SLAT, HANDRAIL, RAFTER, EAVE } from './plattform.js';   // #413: the Plattform Sisslerfeld, true to the builder's plans; #526: the KSL yard; #567: the core's car collider; #855: the real look's slats and rafters
 import { createTowerLift, TOWER_LIFT } from './towerlift.js';   // #411: its lift, 11 stops
-import { DRONE, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
+import { DRONE, SIDE, sideOffsets, sideTarget, droneSway, footView, PULL, clearFraction, aheadHeadings, pullStep } from './camera.js';
 import { PONTOON_CFG, atRhineBank, crossingLine, pontoonSurfaceAt, pontoonHit, pontoonCorridor, stepPontoon, togglePontoon, bayFrames, bayVisible, bayDrop, nearDeck, pontoonPrompt } from './pontoon.js';
 import { MIRROR, mirrorVisible, mirrorRect, mirrorDue, mirrorHudDrop, mirrorEyeY } from './mirror.js';
 import { stepWheelYaw, stepWheelSpin, frontAxleX, plantedWheelY } from './steering.js';
@@ -2524,7 +2524,7 @@ function propMeshes(props) {
     ERA_COLLECT = true; if (solid) for (const p of list) addOBB(p.x, p.z, solid.size, solid.size, 0, terrainH(p.x, p.z) + solid.h); ERA_COLLECT = false;
   }
   const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
-  KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); kcar.circles = VEH.collision.shape === 'capsule' ? carCircles() : null; /* #473: the bus knocks props along its length */ return kcar; },
+  KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); kcar.mass = VEH.mass; /* #1122 */ kcar.circles = VEH.collision.shape === 'capsule' ? carCircles() : null; /* #473: the bus knocks props along its length */ return kcar; },
     play: (sound, level) => SFX.knock(sound, level), hiss: (s) => SFX.hiss(s), onCount: (n) => { KROW.props = n; showKnockRow(); } });
   window.__mm.knock = () => KNOCK.debug(); window.__mm.yard = () => YARD ? { start: yardStart(YARD), props: yardProps(YARD).length, tyreStacks: yardTyreStacks(YARD) } : null; window.__mm.knockProps = (kind) => KNOCK.all().filter(a => a.kind === kind).map(a => ({ x: a.p.x, z: a.p.z, yard: !!a.p.yard, hit: !!a.hit, at: a.hit && !a.hit.bend ? { x: a.hit.x, z: a.hit.z } : null })); window.__mm.knockSim = (secs) => { for (let i = 0; i < secs * 60; i++) KNOCK.animate(1 / 60); return KNOCK.debug(); };
 }
@@ -3598,7 +3598,7 @@ function vehicleIds() { return selectableIds(Object.keys(VEHICLES)); }   // #830
 // the model is drawn true to size (4.66 m, like a Mazda 3; compact.scale 1.0, #69): it fits the 2.5 x 5 m car-park bays. 1.3x made it read less like a toy car; the closer chase cams (6.9 m / 4.6 m) do that now
 const car = new THREE.Group(); car.rotation.order = 'YZX'; scene.add(car);   // #542: like the shadow -- the lean (rotation.x) turns about the car's own forward axis, not the world's x axis
 const WRECK_S = { on: false, t: 0, acc: 0 }, NO_INPUT = {};   // #105: a wreck runs from 100 % damage until the new car; NO_INPUT = the keys and touch buttons a wreck ignores
-const flames = new THREE.Group(); flames.visible = false;
+const flames = new THREE.Group(); flames.visible = false; flames.userData.nitroFlames = true;
 const BLINK = { left: new THREE.Group(), right: new THREE.Group() }; BLINK.left.visible = BLINK.right.visible = false;
 // #270: procedural cars with local lamp materials (the DeLorean's, the mini's) collect one { head, tail } entry per build
 // here, so applyLamps can recolour them whatever car is on the road. buildCar empties it before each rebuild.
@@ -3873,7 +3873,8 @@ function addBlinkers(spots) { const m = new THREE.MeshBasicMaterial({ color: 0xf
 function addFlames(spots) { const m = new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.85 }); for (const [x, y, z] of spots) { const f = new THREE.Mesh(new THREE.ConeGeometry(EXHAUST.flameR, EXHAUST.flameLen, 10), m); f.rotation.z = Math.PI / 2; f.position.set(x, y, z); flames.add(f); } }
 function buildGltfVehicle(g, v) {
   const e = GLTF_CARS[v.gltf.id], root = e.scene.clone(true); g.userData.gltfId = v.gltf.id;
-  wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes, v.exhaustAt)); g.add(root); addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
+  const tail = v.trailer?.exhaustAt && root.getObjectByName('trailer'); wireWheels(g, root); addFlames(exhaustSpots(new THREE.Box3().setFromObject(root), v.exhaustPipes, tail ? v.trailer.exhaustAt : v.exhaustAt)); if (tail) tail.add(flames); g.add(root);   // #1122: a trailer vehicle's flames hang on the trailer node at its tail (trailer metres) and swing with it; the next build's car.add(flames) takes them back
+  addBlinkers(v.blinkers);   // the box before g.add: root has no parent yet, so it is in car-local metres
   g.userData.spin = spinPlan(v, wheelNames(root)).map(s => ({ node: root.getObjectByName(s.node), rate: s.rate, turned: 0 }));   // the mixer's drum
   g.userData.trailer = rigTrailer(root, v);
   g.userData.scan = e.mats.scan.length ? { mats: e.mats.scan, t: 0 } : null;   // the Rhy Knight's scanner light
@@ -6091,6 +6092,7 @@ function wheelClearance() { car.updateMatrixWorld(true); const p = new THREE.Vec
 // lift, the damage, how far the heading turned, and the angle between the motion and the heading at the end
 window.__mm.tipSim = (speed, secs, hold = []) => { const th0 = P.th; if (speed) { P.vx = Math.cos(P.th) * speed; P.vz = Math.sin(P.th) * speed; } for (const k of hold) keys[k] = true; const phases = new Set(); let roll = 0, lift = 0; for (let i = 0; i < secs * 60; i++) { stepCar(1 / 60); drawWheels(); phases.add(TIP_S.phase); roll = Math.max(roll, Math.abs(car.rotation.x)); lift = Math.max(lift, car.position.y - P.y); } for (const k of hold) keys[k] = false; return { phases: [...phases], phase: TIP_S.phase, roll, lift, dmg: P.dmg, speed: Math.hypot(P.vx, P.vz), turned: P.th - th0, slid: Math.atan2(P.vz, P.vx) - P.th }; };
 window.__mm.siren = () => ({ on: SIREN_S.on, beacons: car.userData.beacon?.map(m => m.emissiveIntensity) ?? null, voice: SFX.sirenState() });   // read-only, for the tests
+window.__mm.flames = () => { car.updateMatrixWorld(true); const t = car.userData.trailer, at = o => o.getWorldPosition(new THREE.Vector3()); return { trailer: t ? { phi: t.phi } : null, onCar: flames.parent === car, hitch: t ? at(t.node) : null, fwd: t ? new THREE.Vector3(1, 0, 0).transformDirection(t.node.matrixWorld) : null, flames: flames.children.map(f => { const p = at(f); return { x: p.x, y: p.y, z: p.z, visible: flames.visible && f.visible }; }) }; };   // #1122: read-only: the flames in world metres with the trailer's hitch and forward
 window.__mm.nitroFlames = () => flames.children.map(f => f.position.toArray());   // read-only: where each nitro flame sits, car-local
 window.__mm.scanner = () => car.userData.scan?.mats.map(m => m.emissiveIntensity) ?? null;   // read-only: each scanner segment's glow, left to right
 window.__mm.trailer = () => { const t = car.userData.trailer; return t ? { phi: t.phi, wheelTurn: t.spin, rotY: t.node.rotation.y } : null; };   // read-only: the trailer's angle (> 0 = to the right) and how far its wheels have rolled
@@ -6148,7 +6150,7 @@ function stepCar(dt) {
   for (const s of car.userData.spin ?? []) { s.node.rotateX(s.rate * dt); s.turned += s.rate * dt; }   // e.g. the mixer's drum, always turning
   stepScanner(dt); stepSiren(dt);
   const D = VEH.drive, th0 = P.th;
-  if (!air) { const top = (P.nitro && !wet ? D.topNitro : D.top) * (wet ? UW.topFactor : 1); if (gas) vf += (P.nitro ? D.accelNitro : D.accel) * (1 - Math.max(0, vf) / top) * dt; LIGHTS.braking = !!((brake || hb) && vf > 0.5); if (brake) { if (vf > 0.5) vf -= D.brake * dt; else vf -= D.reverse * dt * (vf > -D.reverseMax ? 1 : 0); } vf -= vf * (rollingDrag(wet, UW.drag, FOREST.inside(P.x, P.z), roadDist(P.x, P.z)) + (dead ? WRECK.coast : 0)) * dt + Math.sign(vf) * 0.6 * dt; const sl = (groundH(P.x + fx * 3, P.z + fz * 3, P.y) - groundH(P.x - fx * 3, P.z - fz * 3, P.y)) / 6; vf -= 9.81 * sl / Math.sqrt(1 + sl * sl) * dt; if (Math.abs(vf) < 0.3 && !gas && !brake) vf = 0; const grip = hb ? D.gripHandbrake : D.grip; if (!down) vs *= Math.exp(-grip * dt);   /* on its side no tyre holds it: it slides sideways */ const sf = clamp(speed / 6, 0, 1) * (1 / (1 + speed / 30)); P.th += steer * D.steerRate * sf * dt * clamp(vf / STEER_FADE, -1, 1) + (hb ? steer * 1.2 * clamp(speed / 20, 0, 1) * dt : 0); } else { P.th += steer * D.airSteer * dt; }
+  if (!air) { const top = (P.nitro && !wet ? D.topNitro : D.top) * (wet ? UW.topFactor : 1); if (gas) vf += (P.nitro ? D.accelNitro : D.accel) * (1 - Math.max(0, vf) / top) * dt; LIGHTS.braking = !!((brake || hb) && vf > 0.5); if (brake) { if (vf > 0.5) vf -= D.brake * dt; else vf -= D.reverse * dt * (vf > -D.reverseMax ? 1 : 0); } vf -= vf * (rollingDrag(wet, UW.drag, FOREST.inside(P.x, P.z), roadDist(P.x, P.z), D.drag) + (dead ? WRECK.coast : 0)) * dt + Math.sign(vf) * 0.6 * dt; const sl = (groundH(P.x + fx * 3, P.z + fz * 3, P.y) - groundH(P.x - fx * 3, P.z - fz * 3, P.y)) / 6; vf -= 9.81 * sl / Math.sqrt(1 + sl * sl) * dt; if (Math.abs(vf) < 0.3 && !gas && !brake) vf = 0; const grip = hb ? D.gripHandbrake : D.grip; if (!down) vs *= Math.exp(-grip * dt);   /* on its side no tyre holds it: it slides sideways */ const sf = clamp(speed / 6, 0, 1) * (1 / (1 + speed / 30)); P.th += steer * D.steerRate * sf * dt * clamp(vf / STEER_FADE, -1, 1) + (hb ? steer * 1.2 * clamp(speed / 20, 0, 1) * dt : 0); } else { P.th += steer * D.airSteer * dt; }
   P.vx = vf * fx + vs * rx; P.vz = vf * fz + vs * rz;
   if (VEH.tip) stepTipping(dt, air ? 0 : lateralAccel(vf, th0, P.th, dt));
   P.x += P.vx * dt; P.z += P.vz * dt;
@@ -6181,15 +6183,15 @@ function followCave() { if (!HIDE) return; const inside = caveInside(), depth = 
 
 // ---------- camera ----------
 const camPos = new THREE.Vector3(START.x + 12, 20, START.z);
-// five camera views, cycled with C: the original chase cam (default), a closer chase cam, cockpit (driver's eye, left seat), bumper and the drone (#93: high, lazy, hovering).
+// six camera views, cycled with C: the original chase cam (default), a closer chase cam, cockpit (driver's eye, left seat), bumper and the drone (#93: high, lazy, hovering) and the side view (#1106: left of the car, diagonally above, B = the right side).
 // the car model is hidden in the inside views (seen from within, its parts float in the picture)
 // offsets per vehicle: VEH.camera[k] (chase: dist/h in world metres; eye views: car-model metres, x forward, y up, side + = right, scaled with the car)
-const CAM_VIEWS = [{ nameKey: 'camChase', k: 'chase' }, { nameKey: 'camNear', k: 'near' }, { nameKey: 'camCockpit', k: 'cockpit', eye: true }, { nameKey: 'camBumper', k: 'bumper', eye: true }, { nameKey: 'camDrone', k: 'drone', drone: true }];
+const CAM_VIEWS = [{ nameKey: 'camChase', k: 'chase' }, { nameKey: 'camNear', k: 'near' }, { nameKey: 'camCockpit', k: 'cockpit', eye: true }, { nameKey: 'camBumper', k: 'bumper', eye: true }, { nameKey: 'camDrone', k: 'drone', drone: true }, { nameKey: 'camSide', k: 'side', side: true }];   // #1106: the sixth view, left of the car
 const vehEye = (k) => VEH.camera[k].eye.map(c => c * VEH.scale);
 const viewEye = (k) => k === 'cockpit' && chairOn() ? VEH.camera.chair.eye.map(c => c * VEH.scale) : vehEye(k);   // #463: with the chair on, the cockpit view sits in the chair
 let SWAY_S = { roll: 0, pitch: 0 };   // #463: the chair's sway state, stepped only in the cockpit view with the chair on
 let camView = 0;
-const CAM = { back: false, t: 0, aim: new THREE.Vector3(), aiming: false, pull: { pull: 1, hold: 0 }, th: null };   // #65: B held = look back (read each frame in stepCamera); #93: the drone's clock, lagging aim point and whether it is seeded; #777: pull = the chase cam's eased obstacle pull-in (camera.js pullStep), th = last frame's heading for the yaw rate (null until the first camera step seeds it, so the spawn heading reads as no spin)
+const CAM = { prevView: -1, back: false, t: 0, aim: new THREE.Vector3(), aiming: false, pull: { pull: 1, hold: 0 }, th: null };   // #65: B held = look back (read each frame in stepCamera); #93: the drone's clock, lagging aim point and whether it is seeded; #777: pull = the chase cam's eased obstacle pull-in (camera.js pullStep), th = last frame's heading for the yaw rate (null until the first camera step seeds it, so the spawn heading reads as no spin)
 function cycleCamera() { camView = (camView + 1) % CAM_VIEWS.length; window.__mm.camView = camView; toast(tr('camera', tr(CAM_VIEWS[camView].nameKey))); }
 // #10: one heli chase cam, behind and above, looking ahead and down; C does nothing while flying
 // #102: a camera height held 1 m under the hideout's ceiling while the car is down in it (below the hill), the easing
@@ -6220,13 +6222,16 @@ function stepCamera(dt) { if (CAMPATH.play) { stepCamPath(dt); camTail(); return
     if (v.k === 'cockpit' && chairOn()) SWAY_S = stepSway(SWAY_S, { steer: WHEEL_STATE.yaw, speed }, dt);   // #463: the chair sways gently, camera only -- driving is unchanged
     camera.lookAt(P.x + fx * 40 * s + rx * es, P.y + ey - 1.2 + (v.k === 'cockpit' && chairOn() ? SWAY_S.pitch : 0), P.z + fz * 40 * s + rz * es);
     if (v.k === 'cockpit' && chairOn()) camera.rotateZ(SWAY_S.roll); }
+  else if (v.side) { const off = sideOffsets(VEH.camera, VEH.trailer), tg = sideTarget({ x: P.x, y: P.y, z: P.z, th: P.th }, off, s), jump = snap || CAM.prevView !== camView, wlc = waterLevelAt(P.x, P.z, P.y);   // #1106: whole camera block + trailer every frame; snap on B and when the view is entered
+    if (submerged(P.y, wlc)) tg.eye[1] = underwaterCamY(tg.eye[1], wlc); tg.eye[1] = Math.max(tg.eye[1], groundH(tg.eye[0], tg.eye[2], tg.eye[1]) + SIDE.minClear);
+    const goal = new THREE.Vector3(tg.eye[0], underCeiling(tg.eye[0], tg.eye[2], tg.eye[1]), tg.eye[2]); if (jump) camPos.copy(goal); else camPos.lerp(goal, 1 - Math.exp(-SIDE.rate * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos); camera.lookAt(tg.at[0], tg.at[1], tg.at[2]); }
   else { const bx = fx * s, bz = fz * s, vc = VEH.camera[v.k]; let dist = vc.dist + speed * 0.09, h = vc.h + speed * 0.03; const under = caveInside(), blockedAt = (ux, uz) => (t) => { const tx = P.x - ux * dist * t, tz = P.z - uz * dist * t, ty = P.y + h + (1 - t) * PULL.rise;   /* #777: the height the risen camera really gets at pull t -- h is not scaled by t, the probe must match it or short obstacles pull in a camera that would have cleared them */ for (const o of gridQuery(OBB_GRID, tx, tz, 1)) { if (o.off || o.bridge || (under && !o.secret) || (o.liftDoor && LIFT_RIDE.doorAt(o.liftDoor) >= 0.9)) continue; const dx = tx - o.x, dz = tz - o.z; const lx = dx * o.c + dz * o.s, lz = -dx * o.s + dz * o.c; if (Math.abs(lx) < o.hw + 0.8 && Math.abs(lz) < o.hd + 0.8 && ty < o.h) return true; } return false; }; if (CAM.th === null) CAM.th = P.th;   // #777: seed the spawn heading, else the first frame reads a whole heading as one step of spin
 const dth = P.th - CAM.th, yaw = dt > 0 ? Math.atan2(Math.sin(dth), Math.cos(dth)) / dt : 0; CAM.th = P.th; const need = Math.min(...aheadHeadings(P.th, yaw).map((a) => clearFraction(blockedAt(Math.cos(a) * s, Math.sin(a) * s)))); CAM.pull = snap ? { pull: need, hold: PULL.hold } : pullStep(CAM.pull, need, dt); dist *= CAM.pull.pull; h += (1 - CAM.pull.pull) * PULL.rise;   /* #777: eased, held, looking ahead along the spin -- the old step loop snapped up to 1.2 m a frame */ const target = new THREE.Vector3(P.x - bx * dist, P.y + h, P.z - bz * dist); const wlc = waterLevelAt(P.x, P.z, P.y); if (submerged(P.y, wlc)) target.y = underwaterCamY(target.y, wlc); target.y = Math.max(target.y, groundH(target.x, target.z, target.y) + 1.2); target.y = underCeiling(target.x, target.z, target.y);   // #102: under the hideout's ceiling
     const drone = !!v.drone; if (drone) { CAM.t += dt; const sw = droneSway(CAM.t); target.x -= fz * sw.side; target.z += fx * sw.side; target.y += sw.up; }   // #93: hover on the car's true right vector (-fz, fx), not on b, so B does not flip it
     if (snap) camPos.copy(target); else camPos.lerp(target, 1 - Math.exp(-(drone ? DRONE.rate : 6) * dt)); camPos.y = underCeiling(camPos.x, camPos.z, camPos.y); camera.position.copy(camPos);
     const ahead = drone ? DRONE.aimAhead : 6, aim = new THREE.Vector3(P.x + bx * ahead, P.y + (drone ? DRONE.aimUp : 1.2), P.z + bz * ahead); if (snap || (drone && !CAM.aiming)) CAM.aim.copy(aim); else if (drone) CAM.aim.lerp(aim, 1 - Math.exp(-DRONE.aimRate * dt)); CAM.aiming = drone; const look = drone ? CAM.aim.clone() : aim; camera.lookAt(look); }
   camTail(); }
-function camTail() { sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); const base = LEVELS.isSurface() ? 0 : levelY(LEVELS.id); sun.position.set(P.x - 300, base + 400, P.z - 200); sun.target.position.set(P.x, base, P.z);
+function camTail() { CAM.prevView = camView;   /* #1106: the side view snaps on entry */ sky.position.copy(camera.position); sunSprite.position.set(camera.position.x - 1200, camera.position.y + 560, camera.position.z - 900); const base = LEVELS.isSurface() ? 0 : levelY(LEVELS.id); sun.position.set(P.x - 300, base + 400, P.z - 200); sun.target.position.set(P.x, base, P.z);
   const camWl = waterLevelAt(camera.position.x, camera.position.z, camera.position.y), under = camWl !== null && camera.position.y < camWl; if (under !== UWS.on) setUnderwater(under);
   if (BACKDROP.mesh) { const m = BACKDROP.mesh, s = BACKDROP_SCALE; m.visible = backdropVisible({ surface: LEVELS.isSurface(), underwater: UWS.on, cave: CAVE_MODE.on }); m.scale.setScalar(s); m.position.copy(camera.position).multiplyScalar(1 - s); m.material.uniforms.camPos.value.copy(camera.position); m.material.uniforms.hazeCol.value.copy(skyMat.uniforms.hor.value); if (scene.fog) m.material.uniforms.fogCol.value.copy(scene.fog.color); }   // #593; #617: the fog colour too
 }   // #101: the look follows the camera, not the car
@@ -6761,7 +6766,7 @@ function photoVehicle(id) {
   let url = null;
   withStageVehicle(id, galleryPaint(id), () => {
     car.position.set(0, 0, 0); car.rotation.set(0, 0, 0); flames.visible = BLINK.left.visible = BLINK.right.visible = false; car.visible = true;
-    CAR_GALLERY.studio.add(car); car.updateMatrixWorld(true); const box = new THREE.Box3(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true);
+    CAR_GALLERY.studio.add(car); car.updateMatrixWorld(true); const box = new THREE.Box3(); const fp = flames.parent; flames.removeFromParent(); for (const o of car.children) if (o !== flames) box.expandByObject(o, true); fp.add(flames);   // #1122: the flames may hang on the trailer: out of the box
     const v = thumbView({ min: box.min.toArray(), max: box.max.toArray() }); CAR_GALLERY.cam.position.set(...v.eye); CAR_GALLERY.cam.lookAt(...v.at);
     const pr = renderer.getPixelRatio(); renderer.setViewport(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissor(0, 0, THUMB.w / pr, THUMB.h / pr); renderer.setScissorTest(true); renderer.render(CAR_GALLERY.studio, CAR_GALLERY.cam); renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight);
     const gl = renderer.domElement; CAR_GALLERY.shot.getContext('2d').drawImage(gl, 0, gl.height - THUMB.h, THUMB.w, THUMB.h, 0, 0, THUMB.w, THUMB.h); url = CAR_GALLERY.shot.toDataURL('image/jpeg', 0.85);
@@ -7548,6 +7553,7 @@ function cloneStageVehicle(id, paint, remote) {
     if (remote && li >= 0) blink.left = g.children[li];
     if (remote && ri >= 0) blink.right = g.children[ri];
     if (remote && fi >= 0) { flameGroup = g.children[fi]; flameGroup.visible = false; }
+    { const nested = []; g.traverse(o => { if (o.userData.nitroFlames && o.parent !== g) nested.push(o); }); if (remote && nested.length) { flameGroup = nested[0]; flameGroup.visible = false; } else for (const o of nested) o.removeFromParent(); }   // #1122: a trailer vehicle's flames hang under its trailer node: a remote clone keeps them there (they swing with its trailer), a depot or podium clone drops them
     for (const i of dropIdx.sort((a, b) => b - a)) g.remove(g.children[i]);
     const headMats = new Set([carMats.lampHead, ...GLTF_LAMPS.head]);
     const tailMats = new Set([carMats.lampTail, ...GLTF_LAMPS.tail]);
@@ -7671,7 +7677,7 @@ window.__mm.depot = () => ({
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
     return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l, span: sl.span, off: sl.off,
       shown: (!!b || !!DEPOT_S.boxes) && !ERA.on && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
-      solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null, trailerY: b?.mesh.getObjectByName('trailer')?.rotation.y ?? null };
+      solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null, trailerY: b?.mesh.getObjectByName('trailer')?.rotation.y ?? null, flames: b ? (() => { let n = 0; b.mesh.traverse(o => { if (o.userData.nitroFlames) n++; }); return n; })() : null };
   }),
 });
 window.__mm.ostriches = () => ({   // #846: the paddock's debug hook

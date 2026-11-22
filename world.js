@@ -1051,7 +1051,8 @@ export function forestCollider(x, z, h, base) { return { ...treeCollider(x, z, h
 export const FOREST_FLOOR = { drag: 0.4 };
 export function floorDrag(inWood, roadD) { return inWood && roadD > 0 ? FOREST_FLOOR.drag : 0; }
 // the forest floor drag stacks on top of the wet (underwater) drag as well as the dry rolling drag
-export function rollingDrag(wet, wetDrag, inWood, roadD) { return (wet ? wetDrag : 0.12) + floorDrag(inWood, roadD); }
+// #1122: `dry` is the vehicle's own dry base (drive.drag); the trucks need a lower one to reach their top; the wet drag and the forest floor stay
+export function rollingDrag(wet, wetDrag, inWood, roadD, dry = 0.12) { return (wet ? wetDrag : dry) + floorDrag(inWood, roadD); }
 
 // #273: pick a point by its coordinates, not by its index, so a bigger world does not change which points a check sees
 export function sampled(x, z, pct) {

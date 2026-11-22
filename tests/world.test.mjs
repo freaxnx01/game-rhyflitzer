@@ -1735,3 +1735,19 @@ test('layoutFromWorld_eraFields_passThroughAndDefaultEmpty', () => {
   assert.deepEqual(layoutFromWorld({ ...base, era: { year: 1952, fields: [f] } }).eraFields, [f]);
   assert.deepEqual(layoutFromWorld(base).eraFields, []);
 });
+
+test('rollingDrag_DryWithoutABase_StaysTheOldBase', () => {
+  assert.equal(rollingDrag(false, 0.9, false, 1), 0.12);   // #1122
+});
+
+test('rollingDrag_DryWithAVehicleBase_IsThatBase', () => {
+  assert.equal(rollingDrag(false, 0.9, false, 1, 0.008), 0.008);   // #1122
+});
+
+test('rollingDrag_Wet_IgnoresTheVehicleBase', () => {
+  assert.equal(rollingDrag(true, 0.9, false, 1, 0.008), 0.9);   // #1122
+});
+
+test('rollingDrag_ForestFloor_AddsOnTopOfTheVehicleBase', () => {
+  assert.equal(rollingDrag(false, 0.9, true, 3, 0.008), 0.008 + FOREST_FLOOR.drag);   // #1122
+});

@@ -4,7 +4,7 @@
 // and angular velocities. It flies, bounces on the ground height it is given, tumbles and ends up lying down.
 
 export const GRAVITY = 20;
-export const BEND_KMH = 40;          // a lamp bends over above this speed, below it stays solid
+export const LAMP_BEND = { kmh: 30, minMass: 1 };   // #1122: a lamp bends over from kmh / mass (a car 30 km/h, the tanker a walking pace), below it stays solid
 export const KNOCK_MIN = 1.5;        // m/s: slower than a walk and the car just touches the prop
 export const RESTORE_AFTER = 60;     // s lying before it may stand up again ...
 export const RESTORE_DIST = 70;      // ... once the car is further away than this (out of view)
@@ -28,10 +28,10 @@ export const KNOCKABLE = Object.keys(KINDS);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // what a hit at this speed (m/s) does to this kind: 'fly' | 'bend' | null (not hit: too slow, or a lamp below the bend speed)
-export function knockAction(kind, speed) {
+export function knockAction(kind, speed, mass = 1) {
   const k = KINDS[kind];
   if (!k || !(speed >= KNOCK_MIN)) return null;
-  if (kind === 'lamp') return speed * 3.6 >= BEND_KMH ? 'bend' : null;
+  if (kind === 'lamp') return speed * 3.6 >= Math.max(KNOCK_MIN * 3.6, LAMP_BEND.kmh / Math.max(LAMP_BEND.minMass, mass)) ? 'bend' : null;
   return 'fly';
 }
 
@@ -394,7 +394,7 @@ export function createKnock(deps) {
           for (let n = 0; n < nearBuf.length; n++) {
             const a = all[nearBuf[n]]; if (a.hit) continue;
             if (!touchesAny(a.kind, a.p.x, a.p.z, terrainH(a.p.x, a.p.z), c)) continue;
-            const act = knockAction(a.kind, speed); if (act) slow = Math.max(slow, knock(a, act, speed));
+            const act = knockAction(a.kind, speed, c.mass); if (act) slow = Math.max(slow, knock(a, act, speed));
           }
         }
       }
