@@ -30,7 +30,7 @@ test('eraShown: a modern entry hides while the layer is on', () => {
 });
 
 test('strings: era texts exist in en and de', () => {
-  for (const lang of ['en', 'de']) for (const k of ['eraOn', 'eraOff', 'eraNone', 'eraNoDelivery', 'eraRoadGone', 'keyEra', 'aboutGwr']) assert.notEqual(translate(lang, k), k, `${lang}.${k}`);
+  for (const lang of ['en', 'de']) for (const k of ['eraOn', 'eraOff', 'eraNone', 'eraNoDelivery', 'eraRoadGone', 'keyEra', 'aboutGwr', 'aboutHist']) assert.notEqual(translate(lang, k), k, `${lang}.${k}`);
   assert.match(translate('en', 'eraOn'), /Ctrl\+Y/);
   assert.match(translate('de', 'eraOn'), /Ctrl\+Y/);
 });

@@ -1736,6 +1736,15 @@ test('layoutFromWorld_eraFields_passThroughAndDefaultEmpty', () => {
   assert.deepEqual(layoutFromWorld(base).eraFields, []);
 });
 
+test('layoutFromWorld_eraHouses_passThroughDefaultEmptyAndNeverInBuildings', () => {
+  const base = { roads: [], junctions: [], water: [], buildings: [], rail: [], bbox: [7.9, 47.5, 8.0, 47.6], waterSdf: { x0: 0, z0: 0, step: 8, w: 1, h: 1, data: 'AA==' }, anchors: {} };
+  const h = { id: 'sisseln-01', h: 6, roof: 'gable', palette: 'village', rect: [0, 0, 8, 6, 0], ring: [[0, 0], [1, 0], [1, 1]], rh: 4 };
+  const L = layoutFromWorld({ ...base, era: { year: 1952, houses: [h] } });
+  assert.deepEqual(L.eraHouses, [h]);
+  assert.equal(L.buildings.length, 0);
+  assert.deepEqual(layoutFromWorld(base).eraHouses, []);
+});
+
 test('rollingDrag_DryWithoutABase_StaysTheOldBase', () => {
   assert.equal(rollingDrag(false, 0.9, false, 1), 0.12);   // #1122
 });

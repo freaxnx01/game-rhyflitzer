@@ -379,3 +379,68 @@ def test_1952_hides_the_depot(server):
         b.close()
     assert "Fahrzeug-Depot" in names0 and "Fahrzeug-Depot" not in names1, (names0, names1)
     assert page.errors == []
+
+
+@needs_world
+def test_traced_houses_hidden_today(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        e = page.evaluate(ERA)
+        b.close()
+    assert e["pastHouses"] == 28 and e["pastHouseSolidsOn"] == 0 and not e["pastVisible"], e
+    assert page.errors == []
+
+
+@needs_world
+def test_traced_houses_shown_in_1952(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        e1 = page.evaluate(ERA)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        e2 = page.evaluate(ERA)
+        b.close()
+    assert e1["pastHouseSolidsOn"] == 28 and e1["pastVisible"], e1
+    assert e2["pastHouseSolidsOn"] == 0 and not e2["pastVisible"], e2
+    assert page.errors == []
+
+
+@needs_world
+def test_car_moved_out_of_appearing_house(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        x, z = page.evaluate(ERA)["pastSample"]
+        page.evaluate("([x, z]) => window.__mm.place(x, z)", [x, z])
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        car = page.evaluate("() => window.__mm.car()"); after = page.evaluate(ERA)
+        b.close()
+    assert not after["insidePast"] and math.hypot(car["x"] - x, car["z"] - z) > 1, (car, x, z)
+    assert page.errors == []
+
+
+@needs_world
+def test_minimap_paints_traced_houses_only_in_1952(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        boxes0 = page.evaluate("() => window.__mm.mapBoxes()"); modern = page.evaluate(ERA)["pastModernBoxes"]
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        boxes1 = page.evaluate("() => window.__mm.mapBoxes()")
+        b.close()
+    # 1952 drops the hidden modern boxes and paints the 28 traced houses instead
+    assert boxes0 - boxes1 == modern - 28, (boxes0, boxes1, modern)
+    assert page.errors == []
+
+
+def test_about_names_the_swisstopo_history(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.evaluate("() => document.querySelector('#about')?.removeAttribute('hidden')")
+        text = page.evaluate("() => document.querySelector('#about').textContent")
+        href = page.evaluate("() => document.querySelector('#about a[data-link=hist]').href")
+        b.close()
+    assert "SWISSIMAGE HIST" in text and href.startswith("https://map.geo.admin.ch"), (text[:200], href)
+    assert page.errors == []
