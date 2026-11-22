@@ -2,7 +2,7 @@
 
 `era_traced_sisseln.json` holds the footprints in LV95 (traced from the Siegfried map and SWISSIMAGE HIST 1946,
 tracing references only, no imagery is stored). `house` turns one entry into a building shaped like `world["buildings"]`
-items in the game frame: default two storeys (`H`, ridge `RH`), gable roof, village palette, `rect` from
+items in the game frame: default two storeys (`H`), gable roof, village palette, `rect` from
 `world_buildings.roof`. `apply` writes them to `world["era"]["houses"]` (last key of `era`, replaced on every run) and
 adds the source line; run it after `era_1952.py` and before `era_roads.py`, so the roads count these houses:
 
@@ -21,7 +21,6 @@ from geo import Frame
 from world_buildings import roof
 
 H = 6.0   # m, two storeys
-RH = 4.0  # m, ridge height of the gable roof
 SOURCE_LINE = "Historic houses: traced from the Siegfried map and SWISSIMAGE HIST 1946 © swisstopo"
 HERE = Path(__file__).parent
 
@@ -32,7 +31,7 @@ def house(entry, frame):
     x, z = frame.lv95_to_game(e, n)
     ring = [[round(float(a), 2), round(float(b), 2)] for a, b in zip(x, z)]
     return {"id": entry["id"], "h": H, "roof": "gable", "palette": "village",
-            "rect": roof(Polygon(ring))[1], "ring": ring, "rh": RH}
+            "rect": roof(Polygon(ring))[1], "ring": ring}
 
 
 def apply(world, traced):

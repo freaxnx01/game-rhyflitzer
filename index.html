@@ -1788,7 +1788,7 @@ let CPS = [{ n: 'Bahnhof Sisseln', x: 1780, z: 560 }, mk('Sisslerfeld', 995, 660
 let FINISH = mk('Münsterplatz Bad Säckingen', 452, 464);
 let START = { x: V(1140, 685)[0], z: V(1140, 685)[1], th: Math.PI };
 // OSM world: race points come from the anchors, snapped onto the nearest drivable (non-motorway, non-bridge) road within 60 m
-const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {}, past: new THREE.Group(), pastMesh: {}, pastSolids: [], lots: 0 };   // #530: past = what exists only in 1952 (the field strips), hidden today
+const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {}, past: new THREE.Group(), pastMesh: {}, pastSolids: [], lots: 0 };   // #530: past = what exists only in 1952 (the field strips and the traced houses), hidden today
 const snapRoad = (x, z) => { let best = null; for (const r of ROADS) { if (r.bridge || r.cls === 'motorway' || !eraShown(r, ERA.on)) continue; const n = nearestOnPolyline(r.pts, x, z); if (!best || n.d < best.n.d) best = { r, n }; } if (!best || best.n.d > 60) return [x, z]; const { r, n } = best, p = r.pts; let acc = 0; for (let i = 0; i < p.length - 1; i++) { const L2 = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); if (acc + L2 >= n.t) { const u = (n.t - acc) / (L2 || 1); return [p[i][0] + (p[i + 1][0] - p[i][0]) * u, p[i][1] + (p[i + 1][1] - p[i][1]) * u]; } acc += L2; } return [x, z]; };
 if (L && L.anchors.cps.length) {
   CPS = L.anchors.cps.map(c => { const [x, z] = snapRoad(c.x, c.z); return { n: c.n, x, z }; });
@@ -2013,7 +2013,7 @@ function gableHouseWalls(b, base, h, wc) {
   const world = (lx, lz) => [cx + lx * c - lz * s, cz + lx * s + lz * c];
   const F = [[-w / 2, d / 2, w / 2, d / 2], [w / 2, d / 2, w / 2, -d / 2], [w / 2, -d / 2, -w / 2, -d / 2], [-w / 2, -d / 2, -w / 2, d / 2]]
     .map(([ax, az, bx, bz]) => ({ a: world(ax, az), b: world(bx, bz) }));   // facadeLabels order: +z, +x, -z, -x, corners wound for wallQuads' outward normal
-  const road = nearestRoadPoint(cx, cz, b.st, FACADE.reach), k = facingFace(cx, cz, rot, w, d, road);
+  const road = nearestRoadPoint(cx, cz, b.st, FACADE.reach, ERA_PAST), k = facingFace(cx, cz, rot, w, d, road);
   const kf = F[k], L = Math.hypot(kf.b[0] - kf.a[0], kf.b[1] - kf.a[1]), { n, cw } = facadeColumns(L);
   const t = n ? (Math.floor((n - 1) / 2) + 0.5) * cw : L / 2;   // the middle half-tile; the face centre on a sliver face
   const dp = [kf.a[0] + (kf.b[0] - kf.a[0]) * t / L, kf.a[1] + (kf.b[1] - kf.a[1]) * t / L];
@@ -2041,7 +2041,7 @@ function gableHouseWalls(b, base, h, wc) {
   g.translate(dp[0] + nx * FACADE.door.off, rows.floor0 + FACADE.door.h / 2, dp[1] + nz * FACADE.door.off);
   colorize(g, col('#ffffff')); push('wallDoor', g);
   const door = { x: dp[0], z: dp[1], y: rows.floor0, k };
-  HOUSE_DOORS.set(b.id, door); window.__mm.counts.houseDoors++;
+  HOUSE_DOORS.set(b.id, door); window.__mm.counts[ERA_PAST ? 'eraHouseDoors' : 'houseDoors']++;
   return door;
 }
 function osmBuilding(b) {
@@ -3016,7 +3016,7 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   CH_LM_BY_OSM = new Map(CH_LM.filter(c => c.osm != null).map(c => [c.osm, c]));
   if (L) window.__mm.counts.eraExempt = clearExempt(L.buildings, b => isRowHouse(b) || isBodenacker6(b) || CH_LM_BY_OSM.has(b.id));   // #530: special models stay standing in 1952; before the plates, jump entries and the building loop
   window.__mm.counts.chLandmarks = { placed: [], replaced: [] };
-  window.__mm.counts.houseDoors = 0;   // #901: one per drawn gable house
+  window.__mm.counts.houseDoors = 0; window.__mm.counts.eraHouseDoors = 0;   // #901: one per drawn gable house; #530: the traced 1952 houses count apart
   // #715: a landmark without an OSM building in the world file (the Reformierte Kirche, #716) is solid as its own rect up to its top
   for (const c of CH_LM) if (c.rect) { const [x, z, w, d, rot] = c.rect; pushOBB({ x, z, hw: w / 2, hd: d / 2, c: Math.cos(rot), s: Math.sin(rot), h: Math.max(terrainH(x, z) + 3, c.top) }); }
   if (L) for (const b of L.buildings) { ERA_COLLECT = !!b.modern; osmBuilding(b); ERA_COLLECT = false; }   // #530: modern buildings collect into the time layer; osmBuilding itself is unchanged
@@ -3108,7 +3108,7 @@ if (CH_LM.length) (async () => {
 const LABELS = { grid: makeGrid(64), mat: new Map(), cap: 128, pool: [], shown: [], all: [], t: 0, ticks: 0 };
 const PLATE = { h: 0.5, px: 96, bg: '#1b4c9c', fg: '#ffffff', font: '700 64px "Barlow Condensed", sans-serif', door: 2.4, clear: 1.8, reach: 80 };
 // #557: with a street name, the nearest point of a road so named; none in reach, or no name: the nearest road of any name
-function nearestRoadPoint(x, z, name, reach = PLATE.reach) { const scan = (want) => { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) { if (want && r.n !== want) continue; const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= reach ? best : null; }; return (name && scan(name)) || scan(); }   // #901: explicit reach -- the building loop runs before PLATE exists
+function nearestRoadPoint(x, z, name, reach = PLATE.reach, oldOnly = false) { const scan = (want) => { let best = null, bd = Infinity; for (const { r, i } of gridQuery(ROAD_GRID, x, z, reach)) { if (want && r.n !== want) continue; if (oldOnly && r.modern) continue; const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, u = L2 ? clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1) : 0, px = ax + dx * u, pz = az + dz * u, d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = [px, pz]; } } return bd <= reach ? best : null; }; return (name && scan(name)) || scan(); }   // #901: explicit reach -- the building loop runs before PLATE exists
 if (L) for (const it of addrLabels(plateBuildings(L.buildings, CH_LM_BY_OSM), L.anchors.landmarks, nearestRoadPoint)) { let base = Infinity; for (const [x, z] of it.foot || [[it.x, it.z]]) base = Math.min(base, terrainH(x, z)); it.y = Math.max(base + PLATE.door, terrainH(it.x, it.z) + PLATE.clear); it.foot = null; LABELS.all.push(it); gridAdd(LABELS.grid, it.x, it.z, it.x, it.z, it); }
 { const plane = new THREE.PlaneGeometry(1, 1); for (let i = 0; i < 40; i++) { const s = new THREE.Mesh(plane); s.visible = false; LABELS.pool.push(s); scene.add(s); } }
 // LRU (Map insertion order = recency): a hit moves the number to the back; trimLabelMats frees the oldest beyond LABELS.cap, never one a visible sprite shows

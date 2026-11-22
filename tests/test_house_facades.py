@@ -61,6 +61,7 @@ def test_each_gable_house_has_one_door_on_the_ground(server):
         replaced = set(page.evaluate("() => window.__mm.counts.chLandmarks.replaced"))
         doors = page.evaluate("() => window.__mm.counts.houseDoors")
         assert doors == len([b for b in gable_path_houses(w) if b["id"] not in replaced]), doors
+        assert page.evaluate("() => window.__mm.counts.eraHouseDoors") == 28   # the traced 1952 houses count apart (#530)
         for i in DOOR_IDS:
             b = by_id[i]; cx, cz, bw, bd, rot = b["rect"]
             door = page.evaluate(f"() => window.__mm.houseDoor({i})")

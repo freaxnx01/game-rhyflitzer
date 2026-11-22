@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Use Test-Driven Development for every task: write a failing test first, watch it fail, implement minimally to pass, verify green.
-- Default height 2 storeys, gable roof, village palette (spec): `h = 6.0`, `rh = 4.0`, `roof = "gable"`, `palette = "village"`.
+- Default height 2 storeys, gable roof, village palette (spec): `h = 6.0`, (`rh = 4.0` was dropped: osmBuilding only reads `rh` for DSM-measured buildings, roof shape follows the game's gable default), `roof = "gable"`, `palette = "village"`.
 - Tracing references only, never textures: no historic imagery is committed or loaded at runtime.
 - Collision follows visibility: traced houses are solid only while the 1952 layer is on.
 - Memory-heavy jobs (world JSON regeneration, pytest over the world file) run under `systemd-run --user --scope -q -p MemoryMax=2G -p MemorySwapMax=0`; Playwright under `MemoryMax=3G`.

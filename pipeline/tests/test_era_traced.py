@@ -21,8 +21,8 @@ def entry(i, de, dn, size=10.0):
 
 def test_house_shape():
     h = T.house(entry(1, 100, -50), FRAME)
-    assert set(h) == {"id", "h", "roof", "palette", "rect", "ring", "rh"}
-    assert (h["id"], h["h"], h["rh"], h["roof"], h["palette"]) == ("sisseln-01", 6.0, 4.0, "gable", "village")
+    assert set(h) == {"id", "h", "roof", "palette", "rect", "ring"}
+    assert (h["id"], h["h"], h["roof"], h["palette"]) == ("sisseln-01", 6.0, "gable", "village")
     xs = sorted({round(x, 3) for x, _ in h["ring"]})
     zs = sorted({round(z, 3) for _, z in h["ring"]})
     assert xs == [100.0, 110.0] and zs == [40.0, 50.0]
