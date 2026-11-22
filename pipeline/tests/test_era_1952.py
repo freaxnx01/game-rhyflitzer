@@ -102,3 +102,10 @@ def test_apply_clears_stale_modern_on_old_and_german():
     counts = E.apply(world, rows, OUTLINE_LV95)
     assert counts == {"old": 1, "modern": 0, "de": 1}
     assert "modern" not in world["buildings"][0] and "modern" not in world["buildings"][1]
+
+
+def test_apply_keeps_existing_era_keys():
+    x = {"kind": "cereal"}
+    world = {"origin": dict(ORIGIN), "sources": [], "buildings": [], "era": {"year": 1952, "fields": [x]}}
+    E.apply(world, [], OUTLINE_LV95)
+    assert world["era"]["fields"] == [x] and world["era"]["year"] == 1952

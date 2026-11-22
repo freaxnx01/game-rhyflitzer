@@ -1,7 +1,7 @@
 // #508: the viewpoint hunt's pure rules
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VIEW, VIEWPOINT_DEFS, viewpointsFor, resolveViewpoints, standsAt, standingAt, aimError, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep, NOTICE } from '../viewpoints.js';
+import { VIEW, VIEWPOINT_DEFS, viewpointsFor, resolveViewpoints, offeredMask, offeredCount, standsAt, standingAt, aimError, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep, NOTICE } from '../viewpoints.js';
 import { STRINGS, translate } from '../strings.js';
 
 const RAD = Math.PI / 180;
@@ -131,4 +131,23 @@ test('#660: viewArrive/viewLeft exist in both languages, viewAimTarget names the
   assert.ok(translate('en', 'viewAimTarget', 'DSM-Kamin').startsWith('Photo (X):'));
   assert.ok(translate('de', 'viewAimTarget', 'DSM-Kamin').includes('Foto (X):'));
   assert.ok(!translate('de', 'viewAimTarget', 'DSM-Kamin').includes('Ziel'));
+});
+
+test('resolveViewpoints_modernSubject_flagged', () => {
+  const defs = [{ id: 'a', n: 'A', at: 'p', r: 5, subject: 'm', subjectN: 'M' }, { id: 'b', n: 'B', at: 'm', r: 5, subject: 'p', subjectN: 'P' }, { id: 'c', n: 'C', at: 'p', r: 5, subject: 'p', subjectN: 'P' }];
+  const got = resolveViewpoints(defs, { p: { x: 1, z: 2 }, m: { x: 3, z: 4, modern: true } }, () => 0);
+  assert.deepEqual(got.map(v => !!v.modern), [true, true, false]);
+});
+
+test('offeredMask_hidesModernOnlyWhenOn', () => {
+  const list = [{}, { modern: true }];
+  assert.deepEqual(offeredMask(list, [false, false], true), [false, true]);
+  assert.deepEqual(offeredMask(list, [false, false], false), [false, false]);
+  assert.deepEqual(offeredMask(list, [true, false], false), [true, false]);
+});
+
+test('offeredCount_1952_countsOnlyShown', () => {
+  const list = [{}, { modern: true }, {}];
+  assert.equal(offeredCount(list, true), 2);
+  assert.equal(offeredCount(list, false), 3);
 });

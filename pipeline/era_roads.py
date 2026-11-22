@@ -490,6 +490,11 @@ def apply(world, outline_lv95, industrial_lonlat):
             road["modern"] = True
         elif i in trimmed:
             road["keep1952"] = _rounded(trimmed[i])
+    bridge = world.get("anchors", {}).get("landmarks", {}).get("fridolinsbruecke")
+    if bridge is not None:
+        bridge.pop("modern", None)
+        if any(roads[i].get("n") == BRIDGE_NAME for i in hidden):
+            bridge["modern"] = True  # the landmark goes with its road: its viewpoints are not offered in 1952
     counts = {k: sum(1 for v in hidden.values() if v == k) for k in ("motorway", "bridge", "industrial", "empty")}
     counts["restored"] = restored
     counts["trimmed"] = len(trimmed)

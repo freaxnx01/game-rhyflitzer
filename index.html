@@ -1088,7 +1088,7 @@ import { SETTINGS_STORE, soundOnFrom, soundVolFrom, soundGain, settingsKeyAction
 import { ABOUT_LINKS, ABOUT_TABS, aboutKeyAction, aboutReturn, aboutTabIndex, contactAddress, contactHref } from './about.js';   // #509, #564, #853
 import { MODES, lastModeFrom, startModeFrom, modeTextKey, hasCheckpoints, editionText, worldsKeyAction, bestKeyFor } from './startscreen.js';
 import { shouldShowIosHint } from './iosinstall.js';   // #1080
-import { VIEW, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
+import { VIEW, offeredMask, offeredCount, viewpointsFor, resolveViewpoints, standingAt, standsAt, shotPoints, maxPoints, ALBUM, parseAlbum, albumWith, thumbSize, viewNoticeStep } from './viewpoints.js';   // #508
 import { TUT, TUT_KEY, tutorialFor, tutorialDoneFrom, stepsFor, tutorialStart, tutorialStep, tutorialStepId, tutorialHint } from './tutorial.js';   // #534
 import { track as umamiTrack, settle as umamiSettle, trackPageview, identifySource, createChangeReporter, activityOf, activityData, vehicleData, vehicleSource, modeData, modeEndData, jumpData, regionId } from './analytics.js';   // #538
 import { photoFileName, canPhoto } from './photo.js';
@@ -1787,7 +1787,7 @@ let CPS = [{ n: 'Bahnhof Sisseln', x: 1780, z: 560 }, mk('Sisslerfeld', 995, 660
 let FINISH = mk('Münsterplatz Bad Säckingen', 452, 464);
 let START = { x: V(1140, 685)[0], z: V(1140, 685)[1], th: Math.PI };
 // OSM world: race points come from the anchors, snapped onto the nearest drivable (non-motorway, non-bridge) road within 60 m
-const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {} };
+const ERA = { on: false, group: new THREE.Group(), solids: [], mesh: {}, past: new THREE.Group(), pastMesh: {}, lots: 0 };   // #530: past = what exists only in 1952 (the field strips), hidden today
 const snapRoad = (x, z) => { let best = null; for (const r of ROADS) { if (r.bridge || r.cls === 'motorway' || !eraShown(r, ERA.on)) continue; const n = nearestOnPolyline(r.pts, x, z); if (!best || n.d < best.n.d) best = { r, n }; } if (!best || best.n.d > 60) return [x, z]; const { r, n } = best, p = r.pts; let acc = 0; for (let i = 0; i < p.length - 1; i++) { const L2 = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); if (acc + L2 >= n.t) { const u = (n.t - acc) / (L2 || 1); return [p[i][0] + (p[i + 1][0] - p[i][0]) * u, p[i][1] + (p[i + 1][1] - p[i][1]) * u]; } acc += L2; } return [x, z]; };
 if (L && L.anchors.cps.length) {
   CPS = L.anchors.cps.map(c => { const [x, z] = snapRoad(c.x, c.z); return { n: c.n, x, z }; });
@@ -1803,12 +1803,12 @@ else if (L) RAMP = null;   // #127: a region without a Sprungschanze anchor has 
 
 // ---------- geometry builders ----------
 const parts = {};
-const partsModern = {}; let ERA_COLLECT = false;   // #530: while a modern (post-1952) building is built, push() and pushOBB() file it under the time layer
+const partsModern = {}, partsPast = {}; let ERA_COLLECT = false, ERA_PAST = false;   // #530: while a modern (post-1952) building is built, push() and pushOBB() file it under the time layer
 const UWS = { on: false };   // #101: true while the camera is under the water surface (setUnderwater switches the look)
 // #201: cave mode -- on while the car is under the hill (caveInside); group = the lobby's lights and platform, drawn only then (setCave)
 const CAVE_MODE = { on: false, group: null, dark: null, veil: null, k: 0 };
 const BORDER_LINES = [];   // #396: the Holzbrücke's border lines, built in heroWood and added to the scene once it exists
-function push(role, geo) { ((ERA_COLLECT ? partsModern : parts)[role] ||= []).push(geo.index ? geo.clone() : geo); }   // #1065: mergeRole decides indexed or not
+function push(role, geo) { ((ERA_PAST ? partsPast : ERA_COLLECT ? partsModern : parts)[role] ||= []).push(geo.index ? geo.clone() : geo); }   // #1065: mergeRole decides indexed or not
 function colorize(geo, c, darkBottom = 0) { const p = geo.attributes.position, n = p.count, arr = new Float32Array(n * 3); for (let i = 0; i < n; i++) { let f = 1; if (darkBottom && p.getY(i) < darkBottom) f = 0.72; arr[i * 3] = c.r * f; arr[i * 3 + 1] = c.g * f; arr[i * 3 + 2] = c.b * f; } geo.setAttribute('color', new THREE.BufferAttribute(arr, 3)); return geo; }
 function box(w, h, d, x, y, z, rot, c, role, tile = [4, 3], dark = 0.1) { const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) { const f = Math.floor(i / 4); let su = 1, sv = 1; if (f < 2) { su = d / tile[0]; sv = h / tile[1]; } else if (f > 3) { su = w / tile[0]; sv = h / tile[1]; } else { su = w / tile[0]; sv = d / tile[0]; } uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); } g.translate(0, h / 2, 0); g.rotateY(-rot); g.translate(x, y, z); colorize(g, c, dark ? y + dark : 0); push(role, g); }
 function rawGeo(pos, nrm, uv, rot, x, z, c, role) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); if (rot) g.rotateY(-rot); g.translate(x, 0, z); colorize(g, c); push(role, g); return g; }
@@ -1853,9 +1853,9 @@ function waterPolys() {
 // measured on the real 3505 parcels, maxEdge 16 gives 1.52 M tris (blows the 400 k budget and the 2 GB test cap), 24 gives
 // 794 k, 48 gives 286 k with a worst lift of 0.16 m over rolling ground -- the budget wins (the plan's 250 k estimate).
 const FIELD_LIFT = 0.02, FIELD_EDGE = 48;
-function fieldMeshes() {
+function fieldMeshes(list, countsKey) {   // #530: today's strips and the 1952 ones share the builder
   const counts = { n: 0, tris: 0, lwb: 0, osm: 0 };
-  L.fields.forEach((f, idx) => {
+  list.forEach((f, idx) => {
     const spec = FIELD_KINDS[f.kind]; if (!spec) return;
     const ring = f.ring.map(([x, z]) => new THREE.Vector2(x, z)), holes = (f.holes || []).map(h => h.map(([x, z]) => new THREE.Vector2(x, z)));
     const coarse = THREE.ShapeUtils.triangulateShape(ring, holes); if (!coarse.length) return;
@@ -1873,7 +1873,7 @@ function fieldMeshes() {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3)); g.computeVertexNormals();
     push(spec.role, g); counts.n++; counts.tris += tris.length; counts[f.src === 'osm' ? 'osm' : 'lwb']++;
   });
-  window.__mm.counts.fields = counts;
+  window.__mm.counts[countsKey] = counts;
 }
 function ribbon(src, hw, y, role, c, tileLen = 8, onTerrain = false) { const g = ribbonGeo(src, hw, y, tileLen, onTerrain); colorize(g, c); push(role, g); return g; }
 function ribbonGeo(src, hw, y, tileLen = 8, onTerrain = false, hFn = null) { // mitred polyline strip, shared vertices at joints; hFn: lay it on another surface
@@ -2174,15 +2174,15 @@ function dsmChimney(x, z, h) { // slender light-grey concrete tube, red/white ba
   const shaft = new THREE.CylinderGeometry(rAt(0.6), r0, band0, 20); shaft.translate(x, b + band0 / 2, z); colorize(shaft, col('#d9d9d4')); push('stone', shaft);
   for (let i = 0; i < bands; i++) { const y0 = band0 + i * (h - band0) / bands, y1 = y0 + (h - band0) / bands; const g = new THREE.CylinderGeometry(rAt(y1 / h), rAt(y0 / h), y1 - y0, 20); g.translate(x, b + (y0 + y1) / 2, z); colorize(g, col((bands - i) % 2 ? '#c8302a' : '#f2f2ee')); push('stone', g); }
   const top = new THREE.CylinderGeometry(r1 + 0.1, r1 + 0.1, 1.2, 20); top.translate(x, b + h + 0.6, z); colorize(top, col('#3a3a3a')); push('stone', top);
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a })); lamp.position.set(x, b + h + 1.6, z); signs.add(lamp);
-  addOBB(x, z, r0 * 2, r0 * 2, 0, b + h);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a })); lamp.position.set(x, b + h + 1.6, z); (ERA_COLLECT ? ERA.group : signs).add(lamp);   // #530: the DSM chimney's light goes with it in 1952
+  pushOBB({ x, z, hw: r0, hd: r0, c: 1, s: 0, h: b + h, landmark: true });
 }
 function waterTower(x, z, h) { // grey concrete shaft, short wider cylindrical tank on top with a flat roof (goblet silhouette), tank ~1/5 of the height
   const b = terrainH(x, z), tankH = h * 0.2, shaftH = h - tankH;
   const shaft = new THREE.CylinderGeometry(4.2, 4.8, shaftH, 20); shaft.translate(x, b + shaftH / 2, z); colorize(shaft, col('#b9b8b2')); push('stone', shaft);
   const neck = new THREE.CylinderGeometry(8.2, 4.2, 2.5, 20); neck.translate(x, b + shaftH + 1.25, z); colorize(neck, col('#b0afa9')); push('stone', neck);
   const tank = new THREE.CylinderGeometry(8.5, 8.2, tankH - 2.5, 24); tank.translate(x, b + shaftH + 2.5 + (tankH - 2.5) / 2, z); colorize(tank, col('#c4c3bd')); push('stone', tank);
-  addOBB(x, z, 9.6, 9.6, 0, b + h);
+  pushOBB({ x, z, hw: 4.8, hd: 4.8, c: 1, s: 0, h: b + h, landmark: true });   // #530
 }
 function siloTower(x, z, rot, w, d, h) { // #81 LANDI silo tower by Bahnhof Sisseln: flat-roofed concrete slab (w along rot, d across), small head house on the roof, no lettering (docs/07); solid
   const b = terrainH(x, z);
@@ -2476,28 +2476,33 @@ function parkingMeshes(lots) {
       for (const k of [a, b, c]) { const [x, z] = pts[k]; pos.push(x, terrainH(x, z) + 0.03, z); uv.push(x / 4, z / 4); }
     }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
-    colorize(g, col('#b8b0a0')); push('roadPlain', g);
-    if (lot.sign) parkingSign(lot.sign, lot.name);
+    ERA_COLLECT = !!lot.modern; if (ERA_COLLECT) ERA.lots++; colorize(g, col('#b8b0a0')); push('roadPlain', g);   // #530: a lot that is not there in 1952 goes into the time layer
+    if (lot.sign) parkingSign(lot.sign, lot.name, ERA_COLLECT ? ERA.group : signs); ERA_COLLECT = false;
   }
-  const quads = lineQuads(lots.flatMap(l => l.lines), 0.12), pos = [];
-  window.__mm.counts.parking = { lots: lots.length, lines: quads.length, signs: lots.filter(l => l.sign).length };
-  for (const [p0, p1, p2, p3] of quads) for (const [x, z] of [p0, p1, p2, p0, p2, p3]) pos.push(x, terrainH(x, z) + 0.035, z);
-  if (!pos.length) return;
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  decals.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET })));
+  const lines = parkingLines(lots.filter(l => !l.modern), decals) + parkingLines(lots.filter(l => l.modern), ERA.group);
+  window.__mm.counts.parking = { lots: lots.length, lines, signs: lots.filter(l => l.sign).length };
 }
-function parkingSign([x, z, rot], name) {
+function parkingLines(lots, parent) {   // #530: bay lines as one decal mesh per layer
+  const quads = lineQuads(lots.flatMap(l => l.lines), 0.12), pos = [];
+  for (const [p0, p1, p2, p3] of quads) for (const [x, z] of [p0, p1, p2, p0, p2, p3]) pos.push(x, terrainH(x, z) + 0.035, z);
+  if (!pos.length) return 0;
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  parent.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xf4f1e6, side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: DECAL_DEPTH_OFFSET, polygonOffsetUnits: DECAL_DEPTH_OFFSET })));
+  return quads.length;
+}
+function parkingSign([x, z, rot], name, parent = signs) {
   const b = terrainH(x, z), nx = Math.sin(-rot), nz = Math.cos(-rot),   // #822: the board's normal; the panel moves along it, the pole stays behind
     top = Math.min(2.6, poleTop({ shape: 'rect', y: 2.3, h: 0.7 })),
     pole = new THREE.Mesh(new THREE.CylinderGeometry(POLE_R, POLE_R, top, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
-  pole.position.set(x, b + top / 2, z); signs.add(pole);
+  pole.position.set(x, b + top / 2, z); parent.add(pole);
   const board = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshBasicMaterial({ map: sharedTex('P', () => textTex('P', 256, 256, '#1f5fae', '#ffffff', '700 200px "Barlow Condensed", sans-serif')), side: THREE.DoubleSide }));
-  board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; signs.add(board);
+  board.position.set(x + nx * FACE_GAP, b + 2.3, z + nz * FACE_GAP); board.rotation.y = -rot; parent.add(board);
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.3), new THREE.MeshBasicMaterial({ map: sharedTex('plate|' + name, () => textTex(name, 512, 96, '#ffffff', '#1f5fae', '700 64px "Barlow Condensed", sans-serif')), side: THREE.DoubleSide }));
-  plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; signs.add(plate);
+  plate.position.set(x + nx * FACE_GAP, b + 1.75, z + nz * FACE_GAP); plate.rotation.y = -rot; parent.add(plate);
 }
 function propMeshes(props) {
   const geos = propGeometries(), byKind = {};
+  const past = props.filter(p => p.modern); props = props.filter(p => !p.modern);   // #530: modern props stay out of KNOCK (its stand-up would revive a 1952 collider)
   for (const p of props) (byKind[p.kind] ||= []).push(p);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), at = new THREE.Vector3();
   window.__mm.counts.props = {}; window.__mm.counts.yard = props.filter(p => p.yard).length; const groups = {};
@@ -2510,6 +2515,13 @@ function propMeshes(props) {
     const solid = PROP_SOLID[kind];
     if (solid) for (const p of list) { addOBB(p.x, p.z, solid.size, solid.size, 0, terrainH(p.x, p.z) + solid.h); p.obb = OBB[OBB.length - 1]; }   // #415: knock.js switches the collider off when the prop goes over
     groups[kind] = { mesh, list };
+  }
+  const modernKinds = {}; for (const p of past) (modernKinds[p.kind] ||= []).push(p);
+  for (const kind in modernKinds) {
+    const list = modernKinds[kind], mesh = new THREE.InstancedMesh(geos[kind], new THREE.MeshLambertMaterial({ vertexColors: true }), list.length), solid = PROP_SOLID[kind];
+    list.forEach((p, i) => { q.setFromAxisAngle(up, -p.rot); at.set(p.x, terrainH(p.x, p.z), p.z); m4.compose(at, q, one); mesh.setMatrixAt(i, m4); });
+    mesh.castShadow = true; ERA.group.add(mesh);
+    ERA_COLLECT = true; if (solid) for (const p of list) addOBB(p.x, p.z, solid.size, solid.size, 0, terrainH(p.x, p.z) + solid.h); ERA_COLLECT = false;
   }
   const kcar = { x: 0, y: 0, z: 0, vx: 0, vz: 0, r: 1 };   // reused: no allocation per frame
   KNOCK = createKnock({ THREE, parent: signs, terrainH, groups, car: () => { kcar.x = P.x; kcar.y = P.y; kcar.z = P.z; kcar.vx = P.vx; kcar.vz = P.vz; kcar.r = carRadius(); kcar.mass = VEH.mass; /* #1122 */ kcar.circles = VEH.collision.shape === 'capsule' ? carCircles() : null; /* #473: the bus knocks props along its length */ return kcar; },
@@ -2690,7 +2702,8 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
     parts.current = [ribbon(RIVER.pts, RIVER.hw - 6, 0.08, 'currentTmp', col('#ffffff'), 90)]; delete parts.currentTmp;
   }
   if (L) waterPolys();
-  if (L && L.fields.length) fieldMeshes();
+  if (L && L.fields.length) fieldMeshes(L.fields, 'fields');
+  if (L && L.eraFields && L.eraFields.length) { ERA_PAST = true; fieldMeshes(L.eraFields, 'eraFields'); ERA_PAST = false; }   // #530: the 1952 strips, shown only by Ctrl+Y
   await loadStage('roads', { roads: L ? ROADS.length : 0 });
   // roads
   const ROAD_SURF = new Map();
@@ -3011,8 +3024,8 @@ let PLAT = null;   // #413: { frame, base, walk } once the tower is built (OSM w
   if (L && L.parking.length) parkingMeshes(L.parking);
   if (L) { // landmarks on their real positions (the Plattform Sisslerfeld, built to the builder's plans (#413))
     const lm = L.anchors.landmarks, at = (k) => lm[k];
-    if (at('dsmChimney')) dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140);
-    if (at('dsmWaterTower')) waterTower(at('dsmWaterTower').x, at('dsmWaterTower').z, at('dsmWaterTower').h || 59);
+    if (at('dsmChimney')) { ERA_COLLECT = !!at('dsmChimney').modern; dsmChimney(at('dsmChimney').x, at('dsmChimney').z, at('dsmChimney').h || 140); ERA_COLLECT = false; }   // #530
+    if (at('dsmWaterTower')) { ERA_COLLECT = !!at('dsmWaterTower').modern; waterTower(at('dsmWaterTower').x, at('dsmWaterTower').z, at('dsmWaterTower').h || 59); ERA_COLLECT = false; }
     if (at('landiTurm')) { const t = at('landiTurm'); siloTower(t.x, t.z, t.rot, t.size[0], t.size[1], t.h); }
     if (at('foodTruck')) foodTruck(at('foodTruck').x, at('foodTruck').z, at('foodTruck').rot || 0);
     if (at('smileKreisel')) { const k = at('smileKreisel'); const rb = ROADS.filter(r => r.pts.length > 4 && Math.hypot(r.pts[0][0] - r.pts[r.pts.length - 1][0], r.pts[0][1] - r.pts[r.pts.length - 1][1]) < 0.5).map(r => { const q = r.pts.slice(0, -1), cx = q.reduce((a, p) => a + p[0], 0) / q.length, cz = q.reduce((a, p) => a + p[1], 0) / q.length; return { r, cx, cz, rad: q.reduce((a, p) => a + Math.hypot(p[0] - cx, p[1] - cz), 0) / q.length }; }).filter(o => Math.hypot(o.cx - k.x, o.cz - k.z) < 30).sort((a, b) => Math.hypot(a.cx - k.x, a.cz - k.z) - Math.hypot(b.cx - k.x, b.cz - k.z))[0]; if (rb) smileKreiselAt(rb.cx, rb.cz, Math.max(2.5, rb.rad - rb.r.w / 2)); else smileKreiselAt(k.x, k.z); }
@@ -3341,8 +3354,9 @@ function mergeRole(list) {
 function roleMesh(role, list) { const m = new THREE.Mesh(mergeRole(list)); m.userData.role = role; m.receiveShadow = true; m.castShadow = !['grass', 'field', 'meadow', 'water', 'current', 'road', 'roadOsm', 'roadPlain', 'motorway', 'rail', 'gravel'].includes(role); if (role === 'current') m.renderOrder = 2; return m; }
 for (const role in parts) { const m = roleMesh(role, parts[role]); scene.add(m); MESH[role] = m; freeCpuCopy(m); delete parts[role]; }
 for (const role in partsModern) { const m = roleMesh(role, partsModern[role]); ERA.group.add(m); ERA.mesh[role] = m; freeCpuCopy(m); delete partsModern[role]; }   // #530: the post-1952 buildings, one mesh per role in their own group
-scene.add(ERA.group);
-const sceneMeshes = () => [...Object.values(MESH), ...(ERA.group.visible ? Object.values(ERA.mesh) : [])];   // #530: what a ray sees -- the merged meshes, plus the 1952 layer's while it is shown
+for (const role in partsPast) { const m = roleMesh(role, partsPast[role]); ERA.past.add(m); ERA.pastMesh[role] = m; freeCpuCopy(m); delete partsPast[role]; }   // #530: what exists only in 1952
+ERA.past.visible = false; scene.add(ERA.group, ERA.past);
+const sceneMeshes = () => [...Object.values(MESH), ...(ERA.group.visible ? Object.values(ERA.mesh) : []), ...(ERA.past.visible ? Object.values(ERA.pastMesh) : [])];   // #530: what a ray sees -- the merged meshes, plus the 1952 layer's while it is shown
 if (INT.housingGeo) {   // #411: 6c's housing over the stair tower, its own meshes so the interior can hide them; applyStyle sets the material
   INT.housing = new THREE.Mesh(INT.housingGeo, new THREE.MeshBasicMaterial()); INT.housing.userData.role = 'plasterWhite'; scene.add(INT.housing);
   const h = INT.hall, rd = STAIRHALL.roofDoor;   // the dark roof-door panel on the housing's left face
@@ -3950,7 +3964,7 @@ const STYLES = {
       if (role === 'tree') m.visible = false; return m; } },
 };
 let styleKey = 'original';
-function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const set of [MESH, ERA.mesh]) for (const role in set) { set[role].material.dispose?.(); set[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = set[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
+function applyStyle(k) { styleKey = k; const St = STYLES[k]; for (const set of [MESH, ERA.mesh, ERA.pastMesh]) for (const role in set) { set[role].material.dispose?.(); set[role].material = St.mat(role); const off = depthOffsetFor(role); if (off !== null) { const m = set[role].material; m.polygonOffset = true; m.polygonOffsetFactor = off; m.polygonOffsetUnits = off; } } if (INT.housing) { INT.housing.material.dispose?.(); INT.housing.material = St.mat('plasterWhite'); } treeBill.material = St.mat('tree'); { const fm = St.mat('tree'); for (const f of FOREST_MESHES) f.bill.material = fm; } treesVisible(!CAVE_MODE.on); skyMat.uniforms.top.value.set(St.sky[0]); skyMat.uniforms.hor.value.set(St.sky[1]); scene.fog = St.fog(); hemi.intensity = St.hemi; sun.intensity = St.sunI; renderer.shadowMap.enabled = St.shadows; sun.castShadow = St.shadows; renderer.toneMapping = St.tone; renderer.setPixelRatio(St.pixel); buildCarEnv(St); for (const m of [carMats.body, carMats.steel]) { m.flatShading = k === 'smooth'; m.needsUpdate = true; } setUnderwater(UWS.on); if (CAVE_MODE.on || CAVE_MODE.k > 0) setCave(CAVE_MODE.on, CAVE_MODE.k); if (!LEVELS.isSurface()) setBelowLook(belowKind(LEVELS.id)); renderStyleName(); resize(); }
 // #201: the trees per style, or none (cave mode: the forest stands on the hill over the hall, which does not exist down there)
 function treesVisible(on) { on = on && LEVELS.isSurface(); const St = STYLES[styleKey], bill = on && St.trees === 'bill', solid = on && St.trees === 'cone'; TREES_ON.solid = solid; treeBill.visible = bill; for (const im of TREE_SOLID) im.visible = solid; for (const f of FOREST_MESHES) { f.bill.visible = bill; for (const im of f.coarse) im.visible = solid && f.tier === 'coarse'; if (f.fine) for (const im of f.fine) im.visible = solid && f.tier === 'fine'; } }
 // #201: under the hill -- near-black fog and sky, the hall's interior drawn, cool hemisphere light, the sun as a faint top
@@ -5355,7 +5369,7 @@ function hintsBlocked() {
 const HINT_SPOTS = {
   loco: () => FOOT.on && !!TRAIN.mesh && Math.hypot(P.x - TRAIN.mesh.position.x, P.z - TRAIN.mesh.position.z) <= 20,
   postauto: () => !!stopNear(),
-  depot: () => DEPOT_S.on && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) <= DEPOT.near,
+  depot: () => DEPOT_S.on && !ERA.on && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) <= DEPOT.near,
   pontoon: () => !FOOT.on && !FLY.on && atRhineBank(pontoonEnv(), P.x, P.z),
   plattform: () => !!PLAT && Math.hypot(P.x - PLAT.frame.x, P.z - PLAT.frame.z) <= 40,
   holz: () => onBridge(P.x, P.z, P.y)?.b.kind === 'wood',
@@ -5879,7 +5893,7 @@ window.__mm.setFootY = (y) => { P.y = y; FOOT.vy = 0; FOOT.eye = null; FOOT.mv =
 window.__mm.footSim = (secs, hold = []) => { for (const k of hold) keys[k] = true; for (let i = 0; i < secs * 60; i++) { stepOnFoot(1 / 60); stepInterior(1 / 60); stepRace(1 / 60); } for (const k of hold) keys[k] = false; stepCamera(1 / 60); return window.__mm.foot(); };
 window.__mm.footLook = (dx, dy) => { footMouse(dx, dy); FOOT.view = null; return window.__mm.foot(); };   // #895: tests and screenshot scripts read the new pitch at once
 // tests: the nearest plain building box (no bridge, ring, circle, low or hideout wall) to (x, z)
-window.__mm.era = () => { const s = ERA.solids[0]; return { available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), goneHere: goneUnderCar(), jumpableRoads: ROADS.filter(jumpable).length, jumpsOnGone: eraJumpEntries(JUMP_ENTRIES).filter(landsOnGoneRoad).length, buses: POSTAUTO.buses.filter(b => b.phase !== 'done').length, ...eraRoadProbe() }; };   // #530
+window.__mm.era = () => { const s = ERA.solids[0]; return { pastVisible: ERA.past.visible, pastFields: (window.__mm.counts.eraFields || {}).n || 0, pastMaterials: Object.fromEntries(Object.entries(ERA.pastMesh).map(([r, m]) => [r, m.material.uuid])), landmarkSolidsOff: ERA.solids.filter(o => o.landmark && o.off).length, parkingHidden: ERA.on ? ERA.lots : 0, available: eraAvailable(WORLD), on: ERA.on, solids: ERA.solids.length, off: ERA.solids.filter(o => o.off).length, visible: ERA.group.visible, sample: s ? [s.x, s.z] : null, inside: ERA.solids.some(o => solidHolds(o, P.x, P.z)), materials: Object.fromEntries(Object.entries(ERA.mesh).map(([r, m]) => [r, m.material.uuid])), goneHere: goneUnderCar(), jumpableRoads: ROADS.filter(jumpable).length, jumpsOnGone: eraJumpEntries(JUMP_ENTRIES).filter(landsOnGoneRoad).length, buses: POSTAUTO.buses.filter(b => b.phase !== 'done').length, ...eraRoadProbe() }; };   // #530
 // #530: the new roads and the Fridolinsbruecke -- how many are hidden, where to look for them, and whether anything of them is left
 let ERA_SAMPLES = null;   // the sample spots never change: found once, on the first probe
 function eraRoadProbe() {
@@ -6256,6 +6270,8 @@ const TUT_COARSE = matchMedia('(pointer:coarse)').matches;
 const tutorialDoneStored = () => { try { return tutorialDoneFrom(localStorage.getItem(TUT_KEY)); } catch (e) { return true; } };   // storage blocked: never nag
 let TUT_RUN = { st: tutorialStart(stepsFor(TUT_COARSE), TUT_DEF ? TUT_DEF.cps.length : 0), endIn: 0 };
 function startTutorialRun() { TUT_RUN = { st: tutorialStart(stepsFor(TUT_COARSE), TUT_DEF ? TUT_DEF.cps.length : 0), endIn: 0 }; LAST_JUMP = null; tutMark.visible = false; $('tuthint').textContent = ''; }
+// #530: in 1952 the Plattform (its subject, the DSM chimney) is not offered; the run is over when every offered viewpoint is shot
+const viewOffered = () => offeredCount(VIEWPOINTS, ERA.on), viewShotOffered = () => VIEWPOINTS.filter((v, i) => VIEW_RUN.shot[i] && eraShown(v, ERA.on)).length, viewSkip = () => offeredMask(VIEWPOINTS, VIEW_RUN.shot, ERA.on);
 let VIEW_RUN = { shot: [], pts: [], endIn: 0, notice: { at: -1, cool: [] } };
 function startViewRun() { VIEW_RUN = { shot: VIEWPOINTS.map(() => false), pts: VIEWPOINTS.map(() => 0), endIn: 0, notice: { at: -1, cool: [] } }; }
 let HUNT_RUN = { spots: [], found: [], bag: [], rng: Math.random, endIn: 0 }, SURP = { turbo: 0, moon: 0 };
@@ -6281,10 +6297,10 @@ const startPose = (mode) => mode === 'tutorial' && TUT_ON ? [TUT_DEF.start.x, TU
 function startRace(mode = 'trial', rng = Math.random) { endDelivery(); DEL.last = null;   /* #107: a race ends a running shift and clears its result */ if (RACELESS && mode !== 'cruise') mode = 'hunt'; R.mode = mode; trackModeStart(mode); try { localStorage.setItem('mm.lastMode', mode); } catch (e) { } SHOWN.mode = mode; /* #346: the slot defaults to the mode last played, across reloads */ const hunt = mode === 'hunt'; for (const c of cpObjs) { c.done = false; c.pillar.material = cpMat; c.ring.visible = true; c.g.visible = hasCheckpoints(mode); } finishG.visible = false; R.done = 0; R.t = 0; resetFader(FADER); KEYBAR_FADE.sig = null;   /* #773: every plate holds its 4 s from the run start, the key bar its 30 s */ R.shortcut = false; R.jumped = false; R.auto = false; R.flown = false; R.walked = false; R.pontoon = false; R.swapped = false; R.era = ERA.on; R.state = 'armed'; R.left = mode === 'blitz' ? BLITZ.start : 0; R.timeUp = false; P.dmg = 0; P.safe = startPose(mode); clearNavi(); if (KNOCK) KNOCK.resetCount(); /* #415 */ leaveBelow(); /* #504: a restart in a room below kept its level */ resetCar(); camPos.set(P.x + (mode === 'tutorial' ? -12 : 12), P.y + 5, P.z); SURP = { turbo: 0, moon: 0 }; startHuntRun(hunt, rng); startViewRun(); startTutorialRun(); $('overlay').hidden = true; $('result').hidden = true; renderModeLine(); updatePips(); if (hunt) toast(tr('huntStart'), TOAST_S.event); if (mode === 'view') toast(tr('viewStart'), TOAST_S.event); RADIO.tick(); }
 function startHuntRun(hunt, rng, cands = PRESENT_CANDS) { const spots = hunt ? pickPresentSpots(cands, START, rng).map(s => ({ ...s, y: groundH(s.x, s.z) })) : []; HUNT_RUN = { spots, found: spots.map(() => false), bag: [], rng, endIn: 0 }; presentObjs.forEach((o, i) => { const s = spots[i]; o.g.visible = !!s; if (s) o.g.position.set(s.x, s.y, s.z); }); confetti.parts = []; confetti.pts.visible = false; }
 const modeKey = () => R.mode === 'delivery' ? 'modeDelivery' : R.mode === 'tutorial' ? 'modeTutorial' : R.mode === 'cruise' ? 'modeCruise' : R.mode === 'view' ? 'modeView' : R.mode === 'hunt' ? 'modeHunt' : R.mode === 'blitz' ? 'modeBlitz' : 'mode';   // #7: the car screen's subtitle shows the same mode; #534: the tutorial's line
-function renderModeLine() { document.body.classList.toggle('cruise', R.mode === 'cruise'); document.body.classList.toggle('delivery', R.mode === 'delivery'); document.body.classList.toggle('tutorial', R.mode === 'tutorial'); document.body.classList.toggle('view', R.mode === 'view'); const hunt = R.mode === 'hunt', view = R.mode === 'view', blitz = R.mode === 'blitz', tut = R.mode === 'tutorial'; $('tl').querySelector('.mode').textContent = tr(modeKey(), REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : view ? 'viewsLabel' : tut ? 'tutStepsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : view ? VIEWPOINTS.length : tut ? TUT_RUN.st.steps.length - 1 : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's; #534: the tutorial counts its steps; #824: view has no clock
+function renderModeLine() { document.body.classList.toggle('cruise', R.mode === 'cruise'); document.body.classList.toggle('delivery', R.mode === 'delivery'); document.body.classList.toggle('tutorial', R.mode === 'tutorial'); document.body.classList.toggle('view', R.mode === 'view'); const hunt = R.mode === 'hunt', view = R.mode === 'view', blitz = R.mode === 'blitz', tut = R.mode === 'tutorial'; $('tl').querySelector('.mode').textContent = tr(modeKey(), REGION.name); $('tr').querySelector('.lbl').textContent = tr(blitz ? 'timeLeft' : 'time'); $('tl').querySelector('[data-i18n="checkpointsLabel"]').textContent = tr(hunt ? 'presentsLabel' : view ? 'viewsLabel' : tut ? 'tutStepsLabel' : 'checkpointsLabel'); setPipCount(hunt ? HUNT_RUN.spots.length : view ? viewOffered() : tut ? TUT_RUN.st.steps.length - 1 : CPS.length); }   // #128: after applyStaticStrings, which resets the labels to the trial's; #534: the tutorial counts its steps; #824: view has no clock
 // the total and the pips follow the run: a hunt can have fewer than five boxes when the roads around the start are sparse
 function setPipCount(n) { $('cpt').textContent = n; const pips = $('pips'); if (pips.children.length === n) return; pips.replaceChildren(...Array.from({ length: n }, () => document.createElement('div'))); pips.style.gridTemplateColumns = `repeat(${n},1fr)`; }
-function updatePips() { const on = R.mode === 'hunt' ? HUNT_RUN.found : R.mode === 'view' ? VIEW_RUN.shot : R.mode === 'tutorial' ? TUT_RUN.st.steps.slice(0, -1).map((_, k) => k < TUT_RUN.st.i) : cpObjs.map(c => c.done); $('cpn').textContent = R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', !!on[i])); }
+function updatePips() { const on = R.mode === 'hunt' ? HUNT_RUN.found : R.mode === 'view' ? VIEWPOINTS.filter(v => eraShown(v, ERA.on)).map(v => VIEW_RUN.shot[VIEWPOINTS.indexOf(v)]) : R.mode === 'tutorial' ? TUT_RUN.st.steps.slice(0, -1).map((_, k) => k < TUT_RUN.st.i) : cpObjs.map(c => c.done); $('cpn').textContent = R.mode === 'view' ? viewShotOffered() : R.done; [...$('pips').children].forEach((d, i) => d.classList.toggle('on', !!on[i])); }
 // armed -> racing is deliberately outside the !FLY.on gate below: helicopter movement starts the clock too, and it runs on in flight (#10)
 function stepRace(dt) { if (R.mode === 'cruise' || R.mode === 'delivery') { R.target = null; return; }   /* #551: nothing to race, nothing to point at — the state stays 'armed', so pause works and Main menu never asks to abandon; #107: a shift has its own clock and its own marker */ if (R.mode === 'hunt') { stepHunt(dt); return; } if (R.mode === 'view') { stepView(dt); return; } if (R.mode === 'tutorial') { stepTutorial(dt); return; } if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; if (R.state === 'racing' && R.mode === 'blitz') { R.left = blitzTick(R.left, dt); if (blitzTimeUp(R.left)) { timeUp(); return; } } let best = null, bd = 1e9; for (let i = 0; i < CPS.length; i++) if (!cpObjs[i].done) { const d = Math.hypot(CPS[i].x - P.x, CPS[i].z - P.z); if (d < bd) { bd = d; best = { ...CPS[i], i }; } } if (!best) { best = { ...FINISH, i: -1 }; bd = Math.hypot(FINISH.x - P.x, FINISH.z - P.z); } R.target = best; if ((R.state === 'racing' || R.state === 'armed') && !FLY.on && !FOOT.on) { if (best.i >= 0 && bd < 7) { cpObjs[best.i].done = true; cpObjs[best.i].pillar.material = cpMatDone; cpObjs[best.i].ring.visible = false; R.done++; updatePips(); SFX.checkpoint(); if (R.mode === 'blitz') { R.left = blitzBonus(R.left); toastHtml(tr('cpToastBlitz', R.done, esc(best.n), BLITZ.bonus), TOAST_S.event); } else toastHtml(tr('cpToast', R.done, esc(best.n)), TOAST_S.event); if (R.done === 5) finishG.visible = true; if (NET.race) netRaceCp(best.i); }       else if (best.i < 0 && bd < 7 && R.state === 'racing') { if (NET.race) netRaceFinish(); else finish(); } const ob = onBridge(P.x, P.z, P.y); if (!R.shortcut && ob && ob.b.kind === 'wood' && ob.t > 40) { R.shortcut = true; toastHtml(tr('holzToast'), TOAST_S.event); } if (ob && ob.pontoon) R.pontoon = true; } for (const c of cpObjs) if (!c.done) c.ring.rotation.z += dt * 1.5; cpMat.opacity = 0.3 + Math.sin(simNow() / 300) * 0.08; }
 function stepHunt(dt) { if (R.state === 'armed' && Math.hypot(P.vx, P.vz) > 0.5) R.state = 'racing'; if (R.state === 'racing') R.t += dt; { const ob = onBridge(P.x, P.z, P.y); if (ob && ob.pontoon) R.pontoon = true; } SURP = tickSurprises(SURP, dt); animatePresents(dt); drawConfetti(dt); if (HUNT_RUN.endIn > 0) { HUNT_RUN.endIn -= dt; if (HUNT_RUN.endIn <= 0) showHuntResult(); } const i = nearestPresent(HUNT_RUN.spots, HUNT_RUN.found, P.x, P.z); R.target = i < 0 ? null : { ...HUNT_RUN.spots[i], n: '', i, hunt: true }; if (i >= 0 && canCollect(HUNT_RUN.spots[i], P, R.state, FLY.on || FOOT.on)) collectPresent(i); }
@@ -6294,20 +6310,20 @@ function stepView(dt) {
   if (R.state === 'racing') R.t += dt;
   if (VIEW_RUN.endIn > 0) { VIEW_RUN.endIn -= dt; if (VIEW_RUN.endIn <= 0) showViewResult(); }
   if (R.state !== 'finished') {   // #660: say what X is for, at the spot and again when leaving without a photo
-    const r = viewNoticeStep(VIEW_RUN.notice, standingAt(VIEWPOINTS, VIEW_RUN.shot, shotPose()), VIEW_RUN.shot, dt);
+    const r = viewNoticeStep(VIEW_RUN.notice, standingAt(VIEWPOINTS, viewSkip(), shotPose()), viewSkip(), dt);   // #530: a viewpoint hidden in 1952 counts as shot, no "left without photo" toast
     VIEW_RUN.notice = r.st;
     if (r.event) showViewNotice(r.event);
   }
-  R.target = R.state === 'finished' ? null : viewTarget(shotPose());
+  checkViewDone(); R.target = R.state === 'finished' ? null : viewTarget(shotPose());
 }
 function showViewNotice(e) {
   if (e.kind === 'arrive') toastBig(tr('viewArrive', VIEWPOINTS[e.i].subjectN));
   else toast(tr('viewLeft', VIEWPOINTS[e.i].n), TOAST_S.event);
 }
 function viewTarget(pose) {
-  const here = standingAt(VIEWPOINTS, VIEW_RUN.shot, pose);
+  const here = standingAt(VIEWPOINTS, viewSkip(), pose);
   if (here >= 0) { const v = VIEWPOINTS[here]; return { x: v.sx, z: v.sz, n: v.subjectN, i: here, view: 'aim' }; }
-  const i = nearestPresent(VIEWPOINTS, VIEW_RUN.shot, P.x, P.z);
+  const i = nearestPresent(VIEWPOINTS, viewSkip(), P.x, P.z);
   return i < 0 ? null : { x: VIEWPOINTS[i].x, z: VIEWPOINTS[i].z, n: VIEWPOINTS[i].n, i, view: 'go' };
 }
 const SHOT_DIR = new THREE.Vector3();
@@ -6316,7 +6332,7 @@ function shotPose() { camera.getWorldDirection(SHOT_DIR); return { x: P.x, y: P.
 // X in the viewpoint hunt: scores once at an open viewpoint when aimed at its subject; the note replaces the "Photo taken" toast
 function viewShot() {
   if (R.state !== 'armed' && R.state !== 'racing') return;
-  const pose = shotPose(), i = standingAt(VIEWPOINTS, VIEW_RUN.shot, pose);
+  const pose = shotPose(), i = standingAt(VIEWPOINTS, viewSkip(), pose);
   if (i < 0) { photoNote = tr('viewMiss'); return; }
   const pts = shotPoints(VIEWPOINTS[i], pose);
   if (!pts) { photoNote = tr('viewAim', VIEWPOINTS[i].subjectN); return; }
@@ -6324,10 +6340,11 @@ function viewShot() {
 }
 function scoreView(i, pts) {
   VIEW_RUN.shot[i] = true; VIEW_RUN.pts[i] = pts; R.done++; updatePips(); SFX.present();
-  photoNote = tr('viewScored', VIEWPOINTS[i].n, pts, R.done, VIEWPOINTS.length);
-  if (R.done === VIEWPOINTS.length) endView();
+  photoNote = tr('viewScored', VIEWPOINTS[i].n, pts, viewShotOffered(), viewOffered());
+  checkViewDone();
 }
-function endView() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); R.last = { mode: 'view', t: R.t, pts: VIEW_RUN.pts.reduce((a, b) => a + b, 0), max: maxPoints(VIEWPOINTS) }; VIEW_RUN.endIn = VIEW.endS; }
+function checkViewDone() { if ((R.state === 'armed' || R.state === 'racing') && R.mode === 'view' && viewShotOffered() === viewOffered()) endView(); }   // #530: also after a Ctrl+Y toggle
+function endView() { stopAuto('reset'); R.state = 'finished'; SFX.finish(); trackModeEnd('finished'); R.last = { mode: 'view', t: R.t, pts: VIEW_RUN.pts.reduce((a, b, i) => a + (eraShown(VIEWPOINTS[i], ERA.on) ? b : 0), 0), max: maxPoints(VIEWPOINTS.filter(v => eraShown(v, ERA.on))) }; VIEW_RUN.endIn = VIEW.endS; /* #530: offered viewpoints only */ }
 function showViewResult() { VIEW_RUN.endIn = 0; if (R.state !== 'finished' || R.mode !== 'view') return; endFoot(); /* the Plattform is shot on foot: no pointer lock behind the result (#365) */ $('result').hidden = false; renderOverlay(); $('overlay').hidden = false; }
 
 // #534: the tutorial -- no clock (R.state stays 'armed'); each frame the game's own signals advance the step (tutorial.js)
@@ -7501,7 +7518,7 @@ const DEPOT_S = { on: REGION.id === 'hochrhein' && !REGION.generated, slots: nul
   boxes: null, boxAt: [], boxMats: [], boxHidden: [], owned: new Set(), queued: new Set(), wants: { load: [], keep: new Set() } };
 // the parked vehicle in reach of E: on foot within the walker's enterReach, in the car within reachCar and only nearly stopped
 function depotNear() {
-  if (!DEPOT_S.on || !DEPOT_S.slots || WRECK_S.on) return null;
+  if (!DEPOT_S.on || ERA.on || !DEPOT_S.slots || WRECK_S.on) return null;   // #530: no depot in 1952
   if (FOOT.on) return nearestSlot(P.x, P.z, DEPOT_S.slots, CHOICE.id, WALKER.enterReach)?.id ?? null;
   if (TRAIN.on || FLY.on || Math.hypot(P.vx, P.vz) >= DEPOT.reachSpeed) return null;
   return nearestSlot(P.x, P.z, DEPOT_S.slots, CHOICE.id, DEPOT.reachCar)?.id ?? null;
@@ -7628,9 +7645,14 @@ function requestDepotModel(id) {
 }
 // once per frame: lay the slots out on the first visit, keep a real model on the nearest slots only (one build per frame, nearest
 // first), a box on every other, the driven slot empty and the whole lot hidden from afar
+function eraHideDepot() {   // #530: the lot is hidden, the slots stay laid out for the way back
+  for (const sl of DEPOT_S.slots ?? []) { const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id); if (solid) solid.off = true; if (b) b.mesh.visible = false; }
+  for (const c of [DEPOT_S.boxes?.car, DEPOT_S.boxes?.long]) if (c) c.visible = false;
+}
 function stepDepot() {
   if (!DEPOT_S.on || WRECK_S.on) return;
   const dist = Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z);
+  if (ERA.on) { eraHideDepot(); return; }   // #530: the car park is a field in 1952: vehicles, covers and colliders gone
   if (!DEPOT_S.slots) {
     if (dist > DEPOT.build) return;
     try { DEPOT_S.slots = depotLayout(vehicleIds(), VEHICLES); } catch (e) { console.warn(e.message); DEPOT_S.slots = []; }
@@ -7669,7 +7691,7 @@ window.__mm.depot = () => ({
   slots: (DEPOT_S.slots ?? []).map(sl => {
     const b = DEPOT_S.built.get(sl.id), solid = DEPOT_S.solids.get(sl.id);
     return { id: sl.id, x: sl.x, z: sl.z, th: sl.th, w: sl.w, l: sl.l, span: sl.span, off: sl.off,
-      shown: (!!b || !!DEPOT_S.boxes) && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
+      shown: (!!b || !!DEPOT_S.boxes) && !ERA.on && sl.id !== CHOICE.id && Math.hypot(P.x - DEPOT.x, P.z - DEPOT.z) < DEPOT.show,
       solid: !!solid && !solid.off, model: b ? 'gltf' : DEPOT_S.boxes ? 'box' : null, paint: b ? b.paint : null, trailerY: b?.mesh.getObjectByName('trailer')?.rotation.y ?? null, flames: b ? (() => { let n = 0; b.mesh.traverse(o => { if (o.userData.nitroFlames) n++; }); return n; })() : null };
   }),
 });
@@ -8030,7 +8052,7 @@ window.__mm.hunt = () => ({ mode: R.mode, state: R.state, found: R.done, total: 
 window.__mm.startHunt = (seed, cands) => { SFX.start(); startRace('hunt', seededRng(seed)); if (cands) { startHuntRun(true, seededRng(seed), cands); renderModeLine(); updatePips(); } };   // cands: a test's own candidate list in place of the roads
 window.__mm.surprise = (id) => applySurprise(SURPRISES.find(s => s.id === id));
 window.__mm.huntSetEndIn = (s) => { HUNT_RUN.endIn = s; };   // tests: shorten the celebration before the result screen, which takes ~30 frames at the dt clamp
-window.__mm.views = () => ({ mode: R.mode, state: R.state, shot: R.done, total: VIEWPOINTS.length, spots: VIEWPOINTS.map(s => ({ id: s.id, x: s.x, z: s.z, sx: s.sx, sz: s.sz })), pts: [...VIEW_RUN.pts], target: R.target && R.target.view ? { view: R.target.view, n: R.target.n, i: R.target.i } : null, pose: shotPose(), last: R.last ? { ...R.last } : null });
+window.__mm.views = () => ({ mode: R.mode, state: R.state, shot: R.done, total: VIEWPOINTS.length, offered: offeredCount(VIEWPOINTS, ERA.on), spots: VIEWPOINTS.map(s => ({ id: s.id, x: s.x, z: s.z, sx: s.sx, sz: s.sz, hidden: !eraShown(s, ERA.on) })), pts: [...VIEW_RUN.pts], target: R.target && R.target.view ? { view: R.target.view, n: R.target.n, i: R.target.i } : null, pose: shotPose(), last: R.last ? { ...R.last } : null });
 window.__mm.viewScore = (i, pts) => scoreView(i, pts);   // tests: score viewpoint i without getting there (the Plattform needs the stair)
 window.__mm.viewSetEndIn = (s) => { VIEW_RUN.endIn = s; };   // tests: skip the 2 s before the result screen
 window.__mm.tutorial = () => ({ step: tutorialStepId(TUT_RUN.st), done: TUT_RUN.st.done, target: R.target && { x: R.target.x, z: R.target.z, label: R.target.tutLabel } });   // #534: read-only
@@ -8164,7 +8186,7 @@ function drawNetMarks(v) {
 }
 function drawMap() { const v = mapView(), w = mapC.width, h = mapC.height; mg.drawImage(mapStatic, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); if (HUD.bounds) mg.drawImage(mapBounds, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); if (HUD.borders) mg.drawImage(mapBorders, v.ox - w / 2 / v.z, v.oy - h / 2 / v.z, w / v.z, h / v.z, 0, 0, w, h); { const cr = currentRoute(); if (cr) drawRoute(v, cr.route, cr.s); } if (PONTOON.deck) { const d = PONTOON.deck, A = mapPt(v, d.a[0], d.a[1]), B = mapPt(v, d.b[0], d.b[1]); mg.lineCap = 'round'; mg.beginPath(); mg.moveTo(A[0], A[1]); mg.lineTo(B[0], B[1]); mg.strokeStyle = '#1e2414'; mg.lineWidth = 5; mg.stroke(); mg.strokeStyle = '#8a8f5a'; mg.lineWidth = 3; mg.stroke(); } if (hasCheckpoints(R.mode)) { CPS.forEach((c, i) => { const d = cpObjs[i].done, [cx, cy] = mapPt(v, c.x, c.z); mg.beginPath(); mg.arc(cx, cy, 7, 0, 7); mg.fillStyle = d ? '#7fe0a0' : (R.target && R.target.i === i ? '#ffc61a' : '#4a515e'); mg.fill(); mg.lineWidth = 2; mg.strokeStyle = d ? '#1c1f26' : '#ffc61a'; mg.stroke(); if (!d) { mg.fillStyle = R.target && R.target.i === i ? '#1c1f26' : '#ffc61a'; mg.font = '800 11px "Barlow Condensed", sans-serif'; mg.textAlign = 'center'; mg.fillText(String(i + 1), cx, cy + 4); mg.textAlign = 'left'; } }); } else if (R.mode === 'hunt') { HUNT_RUN.spots.forEach((s, i) => { if (HUNT_RUN.found[i]) return; const [cx, cy] = mapPt(v, s.x, s.z); mg.beginPath(); mg.arc(cx, cy, 6, 0, 7); mg.fillStyle = '#ff5fb0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = R.target && R.target.i === i ? '#ffc61a' : '#1c1f26'; mg.stroke(); }); } else if (R.mode === 'view') drawViewMarks(v); if (deliveryActive() && DEL.depot) drawDelivMarks(v); MAP_MARKS.list = enterableMapMarks(); for (const m of MAP_MARKS.list) drawEnterableDoor(v, m); drawPostautoMarks(v); drawNetMarks(v); const [px, py] = mapPt(v, P.x, P.z); if (hasCheckpoints(R.mode)) { const [fx, fy] = mapPt(v, FINISH.x, FINISH.z); mg.fillStyle = R.done === 5 ? '#e0322d' : '#6a2a2a'; mg.fillRect(fx - 6, fy - 6, 12, 12); mg.strokeStyle = '#1c1f26'; mg.strokeRect(fx - 6, fy - 6, 12, 12); } mg.save(); mg.translate(px, py); mg.rotate(P.th); mg.beginPath(); mg.moveTo(10, 0); mg.lineTo(-7, 6); mg.lineTo(-4, 0); mg.lineTo(-7, -6); mg.closePath(); mg.fillStyle = '#f5efe0'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = '#1c1f26'; mg.stroke(); mg.beginPath(); mg.moveTo(10, 0); mg.lineTo(22, 0); mg.lineWidth = 2; mg.strokeStyle = '#ffc61a'; mg.stroke();   /* #773: the heading needle, the compass lives here now */ mg.restore(); }
 // #508: the open viewpoints as cyan squares, the arrow's target ringed yellow
-function drawViewMarks(v) { VIEWPOINTS.forEach((s, i) => { if (VIEW_RUN.shot[i]) return; const [cx, cy] = mapPt(v, s.x, s.z); mg.beginPath(); mg.rect(cx - 6, cy - 6, 12, 12); mg.fillStyle = '#5fd0ff'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = R.target && R.target.view && R.target.i === i ? '#ffc61a' : '#1c1f26'; mg.stroke(); }); }
+function drawViewMarks(v) { const skip = viewSkip(); VIEWPOINTS.forEach((s, i) => { if (skip[i]) return; const [cx, cy] = mapPt(v, s.x, s.z); mg.beginPath(); mg.rect(cx - 6, cy - 6, 12, 12); mg.fillStyle = '#5fd0ff'; mg.fill(); mg.lineWidth = 2; mg.strokeStyle = R.target && R.target.view && R.target.i === i ? '#ffc61a' : '#1c1f26'; mg.stroke(); }); }
 // compass bearing: 0 = north (-z), 90 = east (+x)
 const bearing = () => ((Math.atan2(Math.cos(P.th), -Math.sin(P.th)) * 180 / Math.PI) + 360) % 360;
 const COMPASS_PTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -8189,11 +8211,12 @@ function toggleEra() {   // #530: Ctrl+Y -- the Swiss villages as in 1952, and b
   if (!eraAvailable(WORLD)) { toast(tr('eraNone')); return; }
   if (deliveryActive()) { toast(tr('eraNoDelivery')); return; }
   const wasGone = !ERA.on && goneUnderCar(); stopAuto('era'); stopNavi();   // the route may run over roads that appear or vanish
-  ERA.on = !ERA.on; if (ERA.on && (R.state === 'racing' || R.state === 'armed')) R.era = true; ERA.group.visible = !ERA.on; for (const o of ERA.solids) o.off = ERA.on;
+  ERA.on = !ERA.on; if (ERA.on && (R.state === 'racing' || R.state === 'armed')) R.era = true; ERA.group.visible = !ERA.on; ERA.past.visible = ERA.on; for (const o of ERA.solids) o.off = ERA.on;
   if (!ERA.on && !FLY.on && LEVELS.isSurface() && !caveInside() && ERA.solids.some(o => solidHolds(o, P.x, P.z))) { const best = nearestJumpable(P.x, P.z); if (best) placeOnRoad(best.x, best.z, P.th, 'era'); }   // back inside a reappearing building: out to the road, like a J jump
   let moved = false;
   if (ERA.on && wasGone && !FLY.on && !FOOT.on && !TRAIN.on && LEVELS.isSurface() && !caveInside()) { const best = nearestJumpable(P.x, P.z); if (best) { placeOnRoad(best.x, best.z, P.th, 'era'); moved = true; } }   // standing on a road of today: to the nearest old one
   if (AUTOP.graphs.today || AUTOP.graphs.era) autoGraph();   // AUTOP.graph / .streets follow the layer
+  if (R.mode === 'view') { renderModeLine(); updatePips(); }   // #530: the Plattform leaves / rejoins the hunt
   paintMapStatic();   // the minimap drops the hidden buildings and roads
   toast(tr(ERA.on ? (moved ? 'eraRoadGone' : 'eraOn') : 'eraOff'));
 }

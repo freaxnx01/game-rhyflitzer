@@ -2,6 +2,7 @@
 // Pure: no DOM, no three.js. Unit-tested with `node --test tests/*.test.mjs`.
 // World metres, x east, z south (origin: data/world_<region>.json). Names are proper names: never translated.
 
+import { eraShown } from './timelayer.js';
 export const VIEW = { aimDeg: 30, base: 100, bonus: 50, endS: 2 };
 
 // stand `at` (a landmark key of the world's anchors.landmarks, or {x, z}) within r metres, at least `aboveGround` metres up
@@ -28,10 +29,14 @@ export function resolveViewpoints(defs, landmarks = {}, groundAt) {
     const at = pointOf(d.at, landmarks), subject = pointOf(d.subject, landmarks);
     if (!at || !subject) continue;
     const minY = d.aboveGround === undefined ? -Infinity : groundAt(at.x, at.z) + d.aboveGround;
-    out.push({ id: d.id, n: d.n, subjectN: d.subjectN, x: at.x, z: at.z, r: d.r, minY, sx: subject.x, sz: subject.z });
+    out.push({ id: d.id, n: d.n, subjectN: d.subjectN, x: at.x, z: at.z, r: d.r, minY, sx: subject.x, sz: subject.z, ...(at.modern || subject.modern ? { modern: true } : {}) });   // #530: gone in 1952 when either end is
   }
   return out;
 }
+
+// #530: index i is "skip" - shot already, or modern while the 1952 layer is on
+export const offeredMask = (list, shot, on) => list.map((vp, i) => !!shot[i] || !eraShown(vp, on));
+export const offeredCount = (list, on) => list.filter(vp => eraShown(vp, on)).length;
 
 // pose = { x, y, z } of the player plus the camera's horizontal direction { dx, dz }
 export function standsAt(vp, pose) {

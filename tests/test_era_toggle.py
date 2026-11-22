@@ -305,3 +305,77 @@ def test_era_road_logic_follows_layer(server):
     assert e["jumpsOnGone"] == 0 and e["buses"] == 0, e
     assert e["jumpableRoads"] < j0 and j2 == j0, (j0, e["jumpableRoads"], j2)
     assert page.errors == []
+
+
+@needs_world
+def test_1952_fields_appear_only_in_1952(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        e0 = page.evaluate(ERA)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        e1 = page.evaluate(ERA)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        e2 = page.evaluate(ERA)
+        b.close()
+    assert e0["pastFields"] > 50 and not e0["pastVisible"], e0
+    assert e1["pastVisible"], e1
+    assert not e2["pastVisible"], e2
+    assert page.errors == []
+
+
+@needs_world
+def test_1952_hides_site_parking_and_dsm_landmarks(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        e0 = page.evaluate(ERA)
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        e1 = page.evaluate(ERA)
+        b.close()
+    assert e0["landmarkSolidsOff"] == 0 and e0["parkingHidden"] == 0, e0
+    assert e1["landmarkSolidsOff"] == 2, e1
+    assert e1["parkingHidden"] == 3, e1
+    assert page.errors == []
+
+
+@needs_world
+def test_style_switch_while_today_restyles_the_1952_fields(server):
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        before = page.evaluate(ERA)["pastMaterials"]
+        page.keyboard.press("t")
+        page.wait_for_function("(m) => JSON.stringify(window.__mm.era().pastMaterials) !== m", arg=__import__("json").dumps(before), timeout=60000)
+        after = page.evaluate(ERA)["pastMaterials"]
+        b.close()
+    assert before and set(before) == set(after)
+    assert all(before[r] != after[r] for r in before), (before, after)
+    assert page.errors == []
+
+
+@needs_world
+def test_1952_hides_the_depot(server):
+    """#530: the vehicle depot stands on a DSM car park inside the Sisslerfeld site: in 1952 its vehicles, covers and colliders are gone, no J entry, no boarding."""
+    depot = "() => window.__mm.depot()"
+    with sync_playwright() as p:
+        b, page = open_game(p, server)
+        page.evaluate("() => window.__mm.sim(780, -107.5, 0, 0, 0.1, [])")
+        page.wait_for_function("() => { const d = window.__mm.depot(); return d.slots.length > 0 && d.slots.some(s => s.shown && s.solid); }", timeout=240000)
+        page.keyboard.press("j")
+        page.wait_for_function("() => window.__mm.jumpList().length > 0", timeout=60000)
+        names0 = [r["n"] for r in page.evaluate("() => window.__mm.jumpList()")]
+        page.keyboard.press("Escape")
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => window.__mm.era().on", timeout=60000)
+        page.wait_for_function("() => { const d = window.__mm.depot(); return d.slots.length > 0 && d.slots.every(s => !s.shown && !s.solid) && d.near === null; }", timeout=60000)
+        page.keyboard.press("j")
+        page.wait_for_function("() => window.__mm.jumpList().length > 0", timeout=60000)
+        names1 = [r["n"] for r in page.evaluate("() => window.__mm.jumpList()")]
+        page.keyboard.press("Escape")
+        page.keyboard.press("Control+y")
+        page.wait_for_function("() => !window.__mm.era().on", timeout=60000)
+        page.wait_for_function("() => window.__mm.depot().slots.some(s => s.shown && s.solid)", timeout=60000)
+        b.close()
+    assert "Fahrzeug-Depot" in names0 and "Fahrzeug-Depot" not in names1, (names0, names1)
+    assert page.errors == []
