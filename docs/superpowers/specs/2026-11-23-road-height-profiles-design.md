@@ -37,12 +37,12 @@ and fits the terrain at the road edges to it (cut or fill), so the car drives on
   same code `osm.build_world` and `region._world` call. Rejected: a full `osm.py build` of Hochrhein/Ehrendingen.
   `cap_ridges.py:3-5`: "a CI runner has no OSM extract, and a full `osm.py build` would drag in every OSM edit since the
   last stand"; the `era_*.py` steps are retrofits the same way (`docs/11-pipeline-osm.md:145-151`).
-- **A3** [med] The profile comes from the same data as the terrain under it: swissALTI3D 2 m where it has data, LGL DGM1
+- **A3** [confirmed] The profile comes from the same data as the terrain under it: swissALTI3D 2 m where it has data, LGL DGM1
   only when `--dgm-dir` is given and the `.mmh` header lists DGM1, else the `.mmh` itself. Rejected: DGM1 for German
   roads regardless of the terrain. The shipped `terrain_hochrhein.mmh` header lists only "swissALTI3D (c) swisstopo",
   16 % of its grid is the no-data fill 0 (`terrain.py:186-190`), and no DGM1 folder exists on the agent box; DGM1
   roads over that flat fill would float metres above the ground. German roads outside the swissALTI3D strip therefore
-  stay as flat as their terrain until DGM1 is added to the terrain (out of scope).
+  stay as flat as their terrain until DGM1 is added to the terrain (out of scope). Confirmed 2026-11-23: "Out of scope, new issue (German roads stay as their terrain is today; a separate issue adds LGL DGM1 to the Hochrhein terrain build)"
 - **A4** [med] Smoothing is a Gaussian over the 2 m samples, sigma 15 m (motorway, trunk), 8 m (links and other main
   roads), 4 m (the rest, trails), with the samples extended 3 sigma past each end. Rejected: a max-grade-change limiter
   (the issue's "e.g."). The real A3 is very smooth (swissTLM3D 2nd difference ≤ 0.01 m per 2 m, issue comment); the 2 m
@@ -64,10 +64,10 @@ and fits the terrain at the road edges to it (cut or fill), so the car drives on
   flat margin of one sub-cell diagonal + 0.5 m beside the carriageway. Rejected: the 1 m `CUT_N` patches of the grade
   cut. Probe on the shipped Hochrhein world: 42 755-54 127 road cells → 21.9-27.7 M triangles at 1 m, 1.4-1.7 M at 4 m
   (the whole ground mesh is about 0.6 M).
-- **A10** [med] Cost gate on the desktop GPU browser at a phone viewport with 4x CPU throttle: ≤ 2.0 M added ground
+- **A10** [confirmed] Cost gate on the desktop GPU browser at a phone viewport with 4x CPU throttle: ≤ 2.0 M added ground
   triangles, load time ≤ +3 s and ≤ +15 %, frame time ≤ +15 % (start view, A3); a failing `FIT_N` 4 stops the
   implementation with the numbers. The real-phone check is manual after deploy, as in
-  `docs/superpowers/specs/2026-11-18-gpu-memory-budget-design.md:113`.
+  `docs/superpowers/specs/2026-11-18-gpu-memory-budget-design.md:113`. Confirmed 2026-11-23: "Stop and report (a failing cost gate stops the run with the numbers; no automatic quality fallback)"
 - **A11** [high] No `PIPELINE_VERSION` bump: world ids stay; pinned gallery worlds are re-queued by the operator
   (`service/README.md:151-170`: "World ids stay the same (the `PIPELINE_VERSION` is not bumped)").
 

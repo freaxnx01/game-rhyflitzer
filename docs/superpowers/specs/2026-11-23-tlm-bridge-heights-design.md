@@ -212,8 +212,8 @@ built without the extract): no `tlm` key, byte-for-byte today's behaviour.
 - **A8** [med] Rail deck ends get #259's fine-ground patches (`inner 16, outer 28, r 4`) so the track meets the deck on
   the measured embankment. Rejected: a ramp on the track (floating track, anti-goal) and a new fill/embankment
   geometry (a second terrain mechanism next to the patches). Cost guarded by AC-9.
-- **A9** [med] `TLM_CLEAR_MIN = 3.0` m: below that the floor is lowered as today. The game's deck is a fixed 1.2 m,
-  so a real low underpass could otherwise put the drawn underside into the car. Real heights win above it (A-C2).
+- **A9** [confirmed] `TLM_CLEAR_MIN = 3.0` m: below that the floor is lowered as today. The game's deck is a fixed 1.2 m,
+  so a real low underpass could otherwise put the drawn underside into the car. Real heights win above it (A-C2). Confirmed 2026-11-23: "3.0 m"
 - **A10** [med] Hero chains (wood, stone) and their approaches keep #78/#259; TLM covers only their Swiss half
   (`index.html:1491-1494, 1501-1505, 1527-1543`).
 - **A11** [high] Existing browser tests that pin today's heights (Stein cut depths in `tests/test_underpass.py`,
