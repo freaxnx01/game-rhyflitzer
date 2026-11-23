@@ -122,5 +122,6 @@ def test_cost_within_budget(server):
         base, new = measure(p, server, "?noprofile=1"), measure(p, server, "")
     print("\n#1152 cost", {"noprofile": base, "profile": new})
     assert new["triangles"] <= 2_000_000
-    assert new["load_ms"] - base["load_ms"] <= 3000 and new["load_ms"] <= 1.15 * base["load_ms"]
+    # load: relative budget only (the maintainer dropped the +3 s cap, spec amendment d68073f: A10 and the budget table)
+    assert new["load_ms"] <= 1.15 * base["load_ms"]
     assert new["start_ms"] <= 1.15 * base["start_ms"] and new["a3_ms"] <= 1.15 * base["a3_ms"]
