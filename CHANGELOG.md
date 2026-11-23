@@ -65,6 +65,8 @@ Every entry carries the date and time it went live, in Swiss local time (Europe/
 
 ### Fixed
 
+- `2026-11-23 15:34` **Strassen** wellen nicht mehr: jede Strasse hat jetzt ein eigenes, **glattes Höhenprofil** aus dem 2-m-Gelände von swisstopo, und das Gelände am Strassenrand ist daran angepasst. Am deutlichsten auf der **A3**.
+
 - `2026-11-23 09:13` Im **Mehrspieler** steht das Auto des anderen Spielers nicht mehr **quer**: Nach mehr als einer halben Drehung kam seine Fahrtrichtung bisher falsch an, auch beim Zusammenstossen.
 - `2026-11-21 00:47` Gemeinsam fahren: Im **Hübel** (Lift, Tunnelring, Räume) bleibt das Auto des anderen Spielers jetzt **sichtbar**, statt bis zur Rückkehr an die Oberfläche verschwunden zu sein. Ruckelt das Spiel eines Spielers kurz (etwa beim ersten Mal im Lift), taucht das andere Auto gleich danach wieder auf, statt noch Sekunden **eingefroren** zu bleiben.
 - `2026-11-21 00:19` In einem **Mehrspieler-Rennen** verschwinden die **Checkpoints** und der **Pfeil**, sobald Du im Ziel bist.
