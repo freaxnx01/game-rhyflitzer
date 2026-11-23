@@ -64,7 +64,7 @@ the link intact; the host picks **Drive together** or **Start race** there, as f
   Rejected: a new `mode` message that switches cruise ↔ race directly from the pause menu. A1
   puts the choice in the lobby, and the lobby already has both mode buttons
   (`index.html:7051-7055`).
-- **A3** [med] Going back to the lobby clears every ready flag, as `netBackToLobby` does today
+- **A3** [confirmed: "Ja, alle bestätigen neu", maintainer 2026-11-23] Going back to the lobby clears every ready flag, as `netBackToLobby` does today
   (`index.html:7449-7452`), so each guest presses **Ready** once before the host can start the
   new mode. Rejected: keep the ready flags on a mode switch so the host can start at once — it
   needs a second back path and departs from #837 part d's "everyone confirms a new start".

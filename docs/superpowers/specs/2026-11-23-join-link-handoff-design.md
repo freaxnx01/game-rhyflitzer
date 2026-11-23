@@ -15,7 +15,7 @@ A friend sends an invite link (`#join=<code>`, #980). If the game is already ope
 - **A7** [med] The notice in the new tab is the game's existing `toast()` with a long duration (no new DOM or CSS), and the new tab does not open a guest screen. The tab stays open and idle; the player closes it. Alternative: a full-page "continued in the other tab" overlay (needs new markup and styling).
 - **A8** [high] The sender removes the `#join=` fragment at once, as today (`index.html:7513`), also on handoff, so a reload never re-offers the code.
 - **A9** [high] The channel carries only the raw code string. The receiving tab runs the same path as a pasted link (`openMp(); netGuestRole(); $('mpin').value = code; $('mpmake').focus()`), so `decodeCode`, the region check (`netAskRegion`) and expiry stay the guest screen's job; nothing is trusted from the channel. The receiver validates the message shape (types, string ids, code a string of 1..4000 chars) and ignores anything else.
-- **A10** [low] The open tab cannot focus itself (browsers forbid it), so after a handoff the player has to switch to it. The open tab additionally shows a toast "Einladung erhalten" / "Invitation received" so the arrival is visible when the player switches. Alternative: flash `document.title`; not done.
+- **A10** [confirmed: "Ja, Toast zeigen", maintainer 2026-11-23] The open tab cannot focus itself (browsers forbid it), so after a handoff the player has to switch to it. The open tab additionally shows a toast "Einladung erhalten" / "Invitation received" so the arrival is visible when the player switches. Alternative: flash `document.title`; not done.
 
 ## Goals
 
