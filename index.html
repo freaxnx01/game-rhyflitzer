@@ -1119,7 +1119,7 @@ import { SHADOW, shadowSize, shadowAlpha, groundTilt, sunShift, shadowOpacity, s
 import { DELOREAN_BODY, DELOREAN_GLASS, louvreSlots, DOOR, doorTarget, stepDoor, doorPanelOffset } from './delorean.js';
 import { MINI_BODY, MINI_GLASS, CHAIR, SWAY, stepSway } from './mini.js';
 import { COMPACT, loftBody, WHEEL_PROFILE, spokeBars, archRadius, ARCH } from './carbody.js';
-import { gearAt, engineStep, engineMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
+import { gearAt, engineStep, engineMix, distantMix, rotorMix, checkSound, buildEngine, stopEngine, applyEngine, buildRotor, applyRotor, playHorn, startSiren, stepVoice, WHISTLE } from './sound.js';
 import { TRACKS, MENU_TRACK, LIVE, FM, isFm, STATIONS, stationName, stationOrder, nextStation, RADIO_STORE, RADIO_SHOW_S, radioKeyAction, nextTrack, prevTrack, stepVolume, trackGain, menuGain, radioOnFrom, shuffleOnFrom, stationFrom, volumeFrom, menuMusicOnFrom, srfVerdict, displayFor, createEarlyMenu } from './radio.js';   // #735, #841, #845
 import { createTyreStacks } from './tyres.js';   // #416: the physics engine itself loads lazily, only once the car comes near the Crash-Platz
 import { impactStrength, crashVoice, crashGate, checkCrash, playCrash } from './impact.js';
@@ -4790,12 +4790,12 @@ const SFX = (() => {
   const bv = new Map();   // #709: bus key -> { eng, es }, the Postauto engine voices
   // #842 (D1): a.mix is the hub (0.5) into the limiter; a.master is the effects bus at the sound level. The radio bypasses the effects bus, so Sound off leaves the music playing
   const ctx = () => { if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); const limit = ac.createDynamicsCompressor(); limit.threshold.value = -6; limit.knee.value = 4; limit.ratio.value = 12; limit.connect(ac.destination); ac.limit = limit; const hub = ac.createGain(); hub.gain.value = 0.5; hub.connect(limit); ac.mix = hub; const master = ac.createGain(); master.gain.value = soundGain(snd.on, snd.vol); master.connect(hub); ac.master = master; } if (ac.state === 'suspended' && !holds.size) ac.resume(); return ac; };   // the limiter catches a horn, the engine and a crash landing at once; ac.limit feeds the recording too (#749)
-  function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0 }; return eng; }
+  function engine() { if (eng) return eng; const a = ctx(); eng = buildEngine(a, a.master, VEH.sound.engine); eng.src = VEH.sound.engine; if (!rot) rot = buildRotor(a, a.master); es = { rpm: VEH.sound.engine.idleRpm, gear: 0, shift: 0, load: 0, drift: 0 }; return eng; }
   function beep(freq, dur, type = 'sine', vol = 0.25, when = 0) { if (muted || holds.size) return; const a = ctx(); const o = a.createOscillator(), g = a.createGain(); o.type = type; o.frequency.value = freq; g.gain.setValueAtTime(0, a.currentTime + when); g.gain.linearRampToValueAtTime(vol, a.currentTime + when + 0.01); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + when + dur); o.connect(g); g.connect(a.master); o.start(a.currentTime + when); o.stop(a.currentTime + when + dur + 0.05); }
   function burst(dur, freq, q, vol) { if (muted || holds.size) return; const a = ctx(); const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = q; const g = a.createGain(); g.gain.value = vol; s.connect(f); f.connect(g); g.connect(a.master); s.start(); }
   return {
     start() { try { ctx(); engine(); } catch (e) { } },
-    // input { kmh, gas, nitro, air, fly } from the loop; a vehicle swap (setVehicle clones VEH) rebuilds the engine voices for the new preset
+    // input { kmh, gas, nitro, air, fly, accel, climb } from engineInput; a vehicle swap (setVehicle clones VEH) rebuilds the engine voices for the new preset
     update(input, dt) { if (!eng) return; if (eng.src !== VEH.sound.engine) { stopEngine(eng); eng = null; engine(); } es = engineStep(es, input, VEH.sound, dt); mix = engineMix(es, input, VEH.sound.engine); rmix = rotorMix(input); frames++; const t = ac.currentTime; applyEngine(eng, mix, t); applyRotor(rot, rmix, t); },
     checkpoint() { beep(660, 0.12, 'square', 0.18); beep(990, 0.18, 'square', 0.18, 0.1); },
     finish() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.25, 'square', 0.2, i * 0.12)); },
@@ -4841,17 +4841,27 @@ const SFX = (() => {
       for (const [key, s] of bv) if (!want.has(key)) { s.eng.out.gain.setTargetAtTime(0, t, 0.05); setTimeout(() => stopEngine(s.eng), 400); bv.delete(key); }
       for (const v of list) {
         let s = bv.get(v.key);
-        if (!s) { s = { eng: buildEngine(ac, ac.master, pre.engine), es: { rpm: pre.engine.idleRpm, gear: 0, shift: 0 } }; bv.set(v.key, s); }
-        const input = { kmh: v.kmh, gas: v.kmh > 1, nitro: false, air: false, fly: false };
+        if (!s) { s = { eng: buildEngine(ac, ac.master, pre.engine), es: { rpm: pre.engine.idleRpm, gear: 0, shift: 0, load: 0, drift: 0 } }; bv.set(v.key, s); }
+        const input = { kmh: v.kmh, gas: v.kmh > 1, nitro: false, air: false, fly: false, accel: 0, climb: 0 };
         s.es = engineStep(s.es, input, pre, dt);
-        const mix = engineMix(s.es, input, pre.engine);
-        applyEngine(s.eng, { ...mix, gain: mix.gain * v.gain, road: mix.road * v.gain, hiss: 0 }, t);
+        s.mix = distantMix(engineMix(s.es, input, pre.engine), v.gain);   // v.gain = the distance factor; which bands it goes on is distantMix's business
+        applyEngine(s.eng, s.mix, t);
       }
     },
-    state() { return { ctx: ac ? ac.state : 'none', muted, sound: { ...snd }, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size }; },
+    state() { return { ctx: ac ? ac.state : 'none', muted, sound: { ...snd }, holds: [...holds], rpm: es.rpm, gear: es.gear, shift: es.shift, frames, mix: mix && { ...mix }, rotor: rmix && { ...rmix }, busVoices: bv.size,
+      busMix: [...bv].map(([key, s]) => ({ key, ...s.mix })) }; },   // #709: what each Postauto voice is playing, for the test
   };
 })();
 document.addEventListener('visibilitychange', () => SFX.hold('tab', document.hidden));   // a hidden tab is silent; the loop stops there anyway, so the engine would otherwise drone on at its last gain
+// #1130: what the engine voice hears. accel (m/s^2 forward, smoothed over ~0.2 s so a single frame's jitter does not
+// rev it) and climb (m/s) are what sound.js makes the continuous load from; on foot and on the train both are 0
+const ACCEL_S = { v: 0, a: 0 };
+function engineInput(dt) {
+  const driving = !(FOOT.on || TRAIN.on), kmh = driving ? Math.hypot(P.vx, P.vz) * 3.6 : 0, v = kmh / 3.6;
+  ACCEL_S.a += ((dt > 0 ? (v - ACCEL_S.v) / dt : 0) - ACCEL_S.a) * Math.min(1, dt * 5); ACCEL_S.v = v;
+  return { kmh, gas: driving ? P.gas : 0, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: !driving,
+    accel: driving ? ACCEL_S.a : 0, climb: driving ? P.vy : 0 };
+}
 // #735, #845, #1016: the car radio -- Rhyflitzer FM Mix / Rock / Cruise (the tracks in assets/music) or a live station (SRF 3, Radio Argovia) -- and the start screen's menu music.
 // Three <audio> elements, made on first use (preload none: nothing is fetched before a src is set), each through its own gain
 // into the SFX master. A run is on while R.state is not 'ready' (the result screen keeps the radio); tick() notices the change.
@@ -5857,6 +5867,7 @@ window.__mm.radio = () => RADIO.state();   // #735
 window.__mm.radioEndMenuSong = () => RADIO.endMenuSong();
 window.__mm.sfxGraph = () => SFX.graph();   // #842: the hub (graph().master) and the effects bus (ac.master), read-only, for the tests
 window.__mm.sfxHold = (reason, on) => SFX.hold(reason, on);
+window.__mm.sfxBuses = (list, dt = 1 / 60) => { SFX.busEngines(list, dt); return SFX.state().busMix; };   // #709: drive the Postauto voices with a hand-made list, for the test
 window.__mm.sfx = () => { const s = SFX.state(); return { engine: s.mix ? s.mix.gain : 0, noise: s.mix ? s.mix.road : 0, frames: s.frames }; };   // #10 reads the car's engine and tyre levels
 window.__mm.sfxCrashes = () => SFX.crashes();
 window.__mm.sfxKnocks = () => SFX.knocks();   // #415
@@ -8639,7 +8650,7 @@ function loop(now) { if (SIMCLOCK.stepped) { last = now; requestAnimationFrame(l
   requestAnimationFrame(loop); }
 // #875: one frame's simulation and render -- the real-time loop's body, also run by __mm.tick with the caller's exact dt (no clamp)
 function frame(dt) {
-  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepHints(dt);   /* #1093 */ stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepDelivery(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update({ kmh: FOOT.on || TRAIN.on ? 0 : Math.hypot(P.vx, P.vz) * 3.6, gas: FOOT.on || TRAIN.on ? 0 : P.gas, nitro: P.nitro, air: P.air, fly: FLY.on, load: FLY.load, dead: WRECK_S.on, off: FOOT.on || TRAIN.on }, dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepRallyhall(); stepManneken(dt); stepNetCars(); stepNetRace(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); stepRallyhallVideo(); if (photoPending) capturePhoto(); drawMirror(false); }
+  const t0 = performance.now(); if (R.state !== 'ready' && !CAMPATH.play) { if (FOOT.on) {   /* #900: the player is frozen while the camera path flies -- world, traffic and water keep running */ if (RIDE.s.phase !== 'idle') stepRide(dt); else stepOnFoot(dt); } else if (TRAIN.on) stepTrainMode(dt); else if (FLY.on) stepFly(dt); else stepCar(dt); } stepWreck(dt); stepKeybar(); stepHints(dt);   /* #1093 */ stepFerris(); stepPostauto(dt); stepSpeedDisplay(dt); stepTrainSmoke(dt); if (KNOCK) KNOCK.animate(dt); stepTyres(dt); stepRace(dt); stepDelivery(dt); stepLift(dt); stepEnterprise(dt); stepInterior(dt); stepPontoonWorld(dt); stepNavi(dt); stepCamera(dt); TREE_WIND.time.value += dt; stepTreeLod(); window.__mm.physMs = window.__mm.physMs * 0.95 + (performance.now() - t0) * 0.05; hud(dt); stepEnter(); SFX.update(engineInput(dt), dt); TEX.water.offset.y -= dt * 0.012; TEX.current.offset.y -= dt * 0.05; stepGallery(); stepDepot(); stepRallyhall(); stepManneken(dt); stepNetCars(); stepNetRace(); drawWheels(); drawShadow(); stepBubbles(dt); stepFish(dt); stepOstriches(dt); stepDoors(dt); drawDoors(); renderer.render(scene, camera); stepRallyhallVideo(); if (photoPending) capturePhoto(); drawMirror(false); }
 // #875: the stepped capture hooks. stepped(true) freezes the loop (only tick runs frames) and moves a wall-mode fleet
 // clock onto sim time so the buses keep rolling; stepped(false) hands both back without a jump.
 window.__mm.stepped = (on) => {
