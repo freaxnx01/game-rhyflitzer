@@ -24,6 +24,7 @@ const V_SCALE = 100;                // velocities are carried as i16 cm/s
 const I16_MAX = 0x7fff, I16_MIN = -0x8000;
 const clampInt = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
 const scaledInt16 = (v, scale) => clampInt(v * scale, I16_MIN, I16_MAX);
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));   // #1146: into ±pi, so an unwrapped yaw (-P.th grows with every turn) is never clamped to the wrong direction
 const HIT_PRESENT = 4;       // bit 2 of byte 33: set when a hit is carried, so zero bytes (no hit) stay valid
 const HIT_C_MAX = 240;       // m/s: matches netbump.js MAX_CLOSING — the physical cap ("two cars at top nitro speed head-on"); a peer-reported closing speed above this is refused, so a crafted hit.c cannot impose a stronger impulse than a legitimate collision
 
@@ -39,12 +40,12 @@ export function encodePose(p) {
   v.setFloat32(8, p.x, true);
   v.setFloat32(12, p.y, true);
   v.setFloat32(16, p.z, true);
-  v.setInt16(20, scaledInt16(p.rx, ROT_SCALE), true);
-  v.setInt16(22, scaledInt16(p.ry, ROT_SCALE), true);
-  v.setInt16(24, scaledInt16(p.rz, ROT_SCALE), true);
+  v.setInt16(20, scaledInt16(wrapAngle(p.rx), ROT_SCALE), true);
+  v.setInt16(22, scaledInt16(wrapAngle(p.ry), ROT_SCALE), true);
+  v.setInt16(24, scaledInt16(wrapAngle(p.rz), ROT_SCALE), true);
   v.setInt16(26, scaledInt16(p.vx, V_SCALE), true);
   v.setInt16(28, scaledInt16(p.vz, V_SCALE), true);
-  v.setInt16(30, scaledInt16(p.steer, ROT_SCALE), true);
+  v.setInt16(30, scaledInt16(wrapAngle(p.steer), ROT_SCALE), true);
   v.setUint8(32, p.flags & 0x3f);   // bits 6–7 are reserved and must stay 0, also in what we send
   // bytes 33–35: #836 part b hit relay — byte 33 = to (bits 0–1) | present (bit 2) | n (bits 3–7); bytes 34–35 = closing speed in cm/s
   if (p.hit) {
