@@ -5,7 +5,7 @@ import { oldNationalBorder, apartRuns } from '../world.js';
 import { borderCrossing, BORDER } from '../holzbruecke.js';
 import { makeGrid, gridAddSegment, gridQuery, sdfSampler, waterIndex, parkingIndex, polylineLength, nearestOnPolyline, offsetPolyline, layoutFromWorld, roadNameAt, addrLabels, pickLabels, facadeLabels, subdivideTris, lineQuads, VILLAGES, VILLAGES_EHRENDINGEN, VILLAGE_FADE, villageFade, villageHeight, villageLabels, minimapNames, BORDER_DE, VILLAGE_BANK_FADE, nationalBorder, sameBank, bankFade, villageQuiet, villageNames, roofTop, ROW_HOUSE_IDS, isRowHouse, rowUnits, rowHouseTile, ringPush, UNDERPASS, pointAtLength, railRoadCrossings, cutFlat, cutFloorTarget, capFloor, cutFloor, armReach, armNodes, cutNetwork, wallSpans, cutFloorAt, cutBounds, mergeIntervals, wallStations, patchCells, triLerp, TREE_TRUNK, treeTrunkR, treeCollider, forestCollider, FOREST_FLOOR, floorDrag, rollingDrag, rng, forestIndex, forestEdges, forestTrees, FOREST_BUDGET, tileKey, settleCut, armSpan, sharedTrough, cornerPiece } from '../world.js';
 import { GRADE_BAND, GRADE_CUT, gradeProfile, profileY, gradeY, gradeCut, gradeCutAt, gradeCells } from '../world.js';
-import { PROFILE_STEP, profileAt, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, patchH } from '../world.js';
+import { PROFILE_STEP, profileAt, roadProfileH, FIT, fitMargin, fitRoad, roadFitAt, yieldWeight, yieldIndex, patchH } from '../world.js';
 import { sampled, trisHeightAt, motorwayLabelSpots, ribbonLift, surfTriAt, surfFolds, keptRuns, FIELD_KINDS, fieldUV, meshLift, SURFACE_DEPTH_OFFSET, depthOffsetFor, DECAL_DEPTH_OFFSET } from '../world.js';
 
 test('grid finds segments near a point only', () => {
@@ -1467,6 +1467,19 @@ test('oldNationalBorder: the real data -- old crosses the Holzbrücke at its old
   assert.ok(border.filter(p => p[0] > -1300 && p[0] < -1100 && p[1] > 130 && p[1] < 200).every(p => nearestOnPolyline([...island, island[0]], p[0], p[1]).d < 6), 'new hugs the island shore (OSM puts it within a few m of the wood edge)');
 });
 function pointInRing(ring, p) { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) if ((ring[i][1] > p[1]) !== (ring[j][1] > p[1]) && p[0] < (ring[j][0] - ring[i][0]) * (p[1] - ring[i][1]) / (ring[j][1] - ring[i][1]) + ring[i][0]) c = !c; return c; }
+test('#1152 yieldIndex: the table gives the same weight as the scan, and skips the scan on free cells', () => {
+  const G = { x0: -50, z0: -30, dx: 16, dz: 16, nx: 40, nz: 30 }, cells = new Set(['10,10', '11,10', '3,25', '0,0', '39,29']);
+  let seed = 7; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const idx = yieldIndex(cells, G);
+  for (let k = 0; k < 4000; k++) {
+    const x = G.x0 - 60 + rnd() * (G.nx * G.dx + 120), z = G.z0 - 60 + rnd() * (G.nz * G.dz + 120);
+    assert.equal(yieldWeight(cells, G, x, z, undefined, idx), yieldWeight(cells, G, x, z), `at ${x}, ${z}`);
+  }
+  let looks = 0; const spy = new Set(cells); const has = spy.has.bind(spy); spy.has = (k) => { looks++; return has(k); };
+  assert.equal(yieldWeight(spy, G, G.x0 + 20 * G.dx, G.z0 + 20 * G.dz, undefined, idx), 1);
+  assert.equal(looks, 0);
+});
+
 
 // #290: one 4 m quad along +x, 4 m wide: left edge z = -2, right edge z = +2 (A = left 0, B = right 0, C = right 1, D = left 1)
 const QL = [[0, -2], [4, -2]], QR = [[0, 2], [4, 2]];

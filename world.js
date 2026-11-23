@@ -580,15 +580,28 @@ export function roadFitAt(cands, x, z, m, margin) {
 }
 // #1152: where the game already patches the terrain at 1 m (cuts, grades, banks, pads, the cave) profile and fit step back:
 // 0 inside those cells and the ring around them, rising to 1 over `ramp` m, so a fitted cell never borders a 1 m one
-export function yieldWeight(cells, G, x, z, ramp = FIT.ramp) {
+// idx (yieldIndex): a per-cell table, 1 where a yield cell lies within the scan's reach; 0 means weight 1, no scan
+export function yieldWeight(cells, G, x, z, ramp = FIT.ramp, idx = null) {
   if (!cells.size) return 1;
-  const ci = Math.floor((x - G.x0) / G.dx), cj = Math.floor((z - G.z0) / G.dz), r = 1 + Math.ceil(ramp / G.dx); let best = Infinity;
+  const ci = Math.floor((x - G.x0) / G.dx), cj = Math.floor((z - G.z0) / G.dz);
+  if (idx && ci >= 0 && cj >= 0 && ci < G.nx && cj < G.nz && !idx[cj * G.nx + ci]) return 1;
+  const r = 1 + Math.ceil(ramp / G.dx); let best = Infinity;
   for (let j = cj - r; j <= cj + r; j++) for (let i = ci - r; i <= ci + r; i++) {
     if (!cells.has(i + ',' + j)) continue;
     const x0 = G.x0 + i * G.dx, z0 = G.z0 + j * G.dz, ex = Math.max(0, x0 - x, x - x0 - G.dx), ez = Math.max(0, z0 - z, z - z0 - G.dz);
     best = Math.min(best, Math.hypot(ex, ez));
   }
   return Math.max(0, Math.min(1, (best - G.dx) / ramp));
+}
+// the table for yieldWeight: per grid cell, is any yield cell within the scan's reach (r cells each way)? Built once from the
+// cells, so a point on the free ground (nearly all of them) costs one lookup instead of (2r + 1)^2 string keys
+export function yieldIndex(cells, G, ramp = FIT.ramp) {
+  const idx = new Uint8Array(G.nx * G.nz), r = 1 + Math.ceil(ramp / G.dx);
+  for (const key of cells) {
+    const [ci, cj] = key.split(',').map(Number);
+    for (let j = Math.max(0, cj - r); j <= Math.min(G.nz - 1, cj + r); j++) for (let i = Math.max(0, ci - r); i <= Math.min(G.nx - 1, ci + r); i++) idx[j * G.nx + i] = 1;
+  }
+  return idx;
 }
 
 // #42 grades: a stretch of road on its own vertical profile (the Südspange's cutting and underpass). g = { pts, hw,
