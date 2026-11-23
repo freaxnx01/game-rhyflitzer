@@ -75,6 +75,10 @@ def test_roads_on_profile_smooth_uncovered_and_no_cracks(server):
         b, page, errors, _ = load(p, server)
         r = page.evaluate(CHECKS); b.close()
     assert errors == [], errors
+    print("\n#1152 measured", {"onProfile_p99": round(pct(r["onProfile"], 0.99), 4), "onProfile_n": len(r["onProfile"]),
+                               "wave_p99": round(pct(r["wave"], 0.99), 4), "wave_n": len(r["wave"]),
+                               "covered": r["covered"], "sampled": r["sampled"], "crack": round(r["crack"], 4),
+                               "overlap": r["overlap"], "cliff": r["cliff"], "fit": r["fit"]})
     assert r["fit"]["roads"] > 3000 and r["fit"]["cells"] > 0
     counted = len(r["onProfile"])
     assert counted > 0.9 * (counted + r["overlap"] + r["cliff"]), r   # the exclusions stay a small minority
