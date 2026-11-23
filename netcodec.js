@@ -2,7 +2,7 @@
 // Pure module: no DOM, no three.js, no RTCPeerConnection, so node --test can import it. index.html and netlink.js wire it up.
 // Nothing here ever throws and nothing is ever eval'd: a bad code or a bad message comes back as a named error or null.
 
-export const CODE_VERSION = 1;      // the R<version> prefix: a code from another game version is refused, not misread
+export const CODE_VERSION = 2;      // the R<version> prefix: a code from another game version is refused, not misread (#1112: bit 6 became the horn bit, so old and new builds must not mix)
 export const CODE_TTL = 600;        // seconds a code stays valid (10 minutes, shown as a countdown)
 export const CODE_SKEW = 60;        // seconds a code may lie in the future before it reads as expired (clock skew between devices)
 export const CODE_MAX = 16000;      // characters: a longer code is refused unread
@@ -46,7 +46,7 @@ export function encodePose(p) {
   v.setInt16(26, scaledInt16(p.vx, V_SCALE), true);
   v.setInt16(28, scaledInt16(p.vz, V_SCALE), true);
   v.setInt16(30, scaledInt16(wrapAngle(p.steer), ROT_SCALE), true);
-  v.setUint8(32, p.flags & 0x3f);   // bits 6–7 are reserved and must stay 0, also in what we send
+  v.setUint8(32, p.flags & 0x7f);   // bit 7 is reserved and must stay 0, also in what we send (bit 6 is the horn, #1112)
   // bytes 33–35: #836 part b hit relay — byte 33 = to (bits 0–1) | present (bit 2) | n (bits 3–7); bytes 34–35 = closing speed in cm/s
   if (p.hit) {
     v.setUint8(33, (p.hit.to & 3) | HIT_PRESENT | ((p.hit.n & 31) << 3));
@@ -62,6 +62,7 @@ export function encodePose(p) {
 // arrived from, so a guest could stuff another player's id into a relayed record. Whoever consumes poses (#835 parts
 // b/c) must take the player from netlink's peerId (onPose) and drop a record whose id disagrees with it — anything
 // else lets a guest steer another player's car.
+// #1112: bit 6 of the flags is the horn bit and accepted; bit 7 stays reserved and refused.
 export function parsePose(buf) {
   if (!(buf instanceof ArrayBuffer) || buf.byteLength !== POSE_BYTES) return null;
   const v = new DataView(buf);
@@ -74,7 +75,7 @@ export function parsePose(buf) {
   const vx = v.getInt16(26, true) / V_SCALE, vz = v.getInt16(28, true) / V_SCALE;
   if (Math.hypot(vx, vz) > V_MAX) return null;
   const flags = v.getUint8(32);
-  if (flags & 0xc0) return null;
+  if (flags & 0x80) return null;
   const hb = v.getUint8(33), hc = v.getUint16(34, true);
   let hit = null;
   if (hb & HIT_PRESENT) { hit = { to: hb & 3, n: hb >> 3, c: hc / V_SCALE }; if (hit.c > HIT_C_MAX) return null; }

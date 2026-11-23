@@ -46,7 +46,7 @@ def connect(host, guest, named=True):
     host.click("#mpbtn")
     if named: host.fill("#mpname", "Anna")
     host.click("#mphostbtn")
-    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1H.')", timeout=T)
+    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R2H.')", timeout=T)
     host_code = host.input_value("#mpcode")
 
     guest.click("#mpbtn")
@@ -54,7 +54,7 @@ def connect(host, guest, named=True):
     guest.click("#mpguestbtn")
     guest.fill("#mpin", host_code)
     guest.click("#mpmake")
-    guest.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1G.')", timeout=T)
+    guest.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R2G.')", timeout=T)
 
     host.fill("#mpanswerin", guest.input_value("#mpcode"))
     host.click("#mpaccept")
@@ -156,7 +156,7 @@ def test_garbage_on_the_channel_is_counted_and_a_lost_host_sends_the_guest_home(
 def test_join_link_prefills_the_guest_and_waits_for_the_click(pair, server):
     host, guest, errors = pair
     host.click("#mpbtn"); host.fill("#mpname", "Anna"); host.click("#mphostbtn")
-    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1H.')", timeout=T)
+    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R2H.')", timeout=T)
     code = host.input_value("#mpcode")
     # a stub, not the real clipboard: a page served from a LAN address is no secure context, so navigator.clipboard is missing there
     host.evaluate("() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (t) => { window.__link = t; return Promise.resolve(); } } })")
@@ -166,7 +166,7 @@ def test_join_link_prefills_the_guest_and_waits_for_the_click(pair, server):
     guest.wait_for_function(READY, timeout=240000)
     assert guest.input_value("#mpin") == code and "#" not in guest.url and net(guest)["peers"] == []
     guest.fill("#mpname", "Ben"); guest.click("#mpmake")
-    guest.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1G.')", timeout=T)
+    guest.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R2G.')", timeout=T)
     assert not errors
 
 
@@ -183,7 +183,7 @@ def test_dice_rolls_a_name_and_forgets_the_typed_one(pair):
     """#1002: the dice replaces a typed name with a pool name and forgets the stored one."""
     host, guest, errors = pair
     host.click("#mpbtn"); host.fill("#mpname", "p1"); host.click("#mphostbtn")
-    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R1H.')", timeout=T)
+    host.wait_for_function("() => document.querySelector('#mpcode').value.startsWith('R2H.')", timeout=T)
     host.reload(); host.wait_for_function(READY, timeout=240000)
     host.click("#mpbtn")
     assert host.input_value("#mpname") == "p1"
