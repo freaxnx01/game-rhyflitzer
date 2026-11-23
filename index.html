@@ -1044,6 +1044,7 @@ import { REGIONS, regionFromQuery, regionSearch, generatedRegion } from './regio
 import { worldIdFromQuery, worldSearch, worldHost, loadGenerated, savedKey, unpackWorldZip, packWorldZip, editorUrl, MAX_ZIP } from './worlds.js';
 import { loadGallery } from './gallery.js';
 import { encodeCode, decodeCode, parseMessage, cleanName, encodePose, parsePose, CODE_TTL, CLASSES, MAX_PLAYERS, joinLinkFor, readJoinHash } from './netcodec.js';   // #834: multiplayer codes and messages; #835: the binary pose record; #980: join-link helpers
+import { offerJoin, listenForJoin } from './joinhandoff.js';   // #1111: an invite link clicked in a second tab joins in the open one
 import { createLobby, removePlayer, setClass, pickCar, setReady, canStart, carFits, lobbyMessage, admitHello, raceGrid, RACE, createRace, acceptCp, acceptFinish, dropRacer, tickRace, standings, boardRows, opponentRows, nearPoint, raceLocksSwitch } from './netrace.js';
 import { funnyName, parsePool, rerollName } from './netnames.js';   // #979: funny default player names; #1002: reroll a fresh funny name
 import { createLink, STUN, HOST_ID } from './netlink.js';
@@ -7559,13 +7560,20 @@ if (REGION.generated) $('mpbtn').hidden = true;
 }
 // #980: a `#join=<code>` link fills the guest screen; the fragment goes at once, nothing connects before the click
 // also on hashchange: a link pasted into a tab that already runs the game only changes the fragment, it does not reload
-function openJoinLink() {
-  const linked = readJoinHash(location.hash);
-  if (location.hash.startsWith('#join=')) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* harmless */ } }
-  if (linked && !REGION.generated && !NET.role) { openMp(); netGuestRole(); $('mpin').value = linked; $('mpmake').focus(); }
+// #1111: at load the code is first offered to a tab that already runs the game; only one that answers takes it
+const TAB_ID = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+function joinWithCode(linked) { if (!linked || REGION.generated || NET.role) return false; openMp(); netGuestRole(); $('mpin').value = linked; $('mpmake').focus(); return true; }
+function dropJoinHash() { if (location.hash.startsWith('#join=')) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* harmless */ } } }
+function openJoinLink() { const linked = readJoinHash(location.hash); dropJoinHash(); joinWithCode(linked); }
+async function openJoinLinkAtLoad() {
+  const linked = readJoinHash(location.hash); dropJoinHash();
+  if (!linked || REGION.generated) return;
+  const taken = await offerJoin(linked, { open: () => new BroadcastChannel('rhyflitzer-join'), id: TAB_ID }).catch(() => false);
+  if (taken) toast(tr('mpJoinedElsewhere'), 3600); else joinWithCode(linked);
 }
-openJoinLink();
+openJoinLinkAtLoad();
 window.addEventListener('hashchange', openJoinLink);
+listenForJoin({ id: TAB_ID, open: () => new BroadcastChannel('rhyflitzer-join'), canAccept: () => !REGION.generated && !NET.role, onJoin: (code) => { if (joinWithCode(code)) toast(tr('mpJoinReceived')); } });   // no toast when NET.role appeared between this tab's ready and the go: nothing visibly changed
 window.__mm.net = () => ({ role: NET.role, lobby: NET.lobby, you: NET.you, bad: NET.bad, peers: NET.link ? NET.link.peerIds() : [], session: NET.session, offset: NET.role === 'H' ? 0 : NET.offset, race: NET.race ? { t0: NET.race.t0, held: netHeld(), go: NET.race.go } : null });
 window.__mm.netRace = () => ({ cps: CPS.map((c) => [c.x, c.z]), finish: [FINISH.x, FINISH.z], done: cpObjs.map((c) => c.done), board: NET.race?.board ?? null, over: !!NET.race?.over, cpno: NET.race?.cpno ?? 0, pos: $('netpos').textContent, opp: $('netopp').textContent, result: $('mpresult').hidden ? null : [...document.querySelectorAll('#mpresult .mp-row b')].map((b) => b.textContent), state: R.state, cpVisible: cpObjs.map((c) => c.g.visible), finishVisible: finishG.visible, arrowShown: getComputedStyle($('arrow')).display !== 'none' });   // #837 part c: the checkpoints, the board and the position line; #1119: the opponent list; part d: the ranked result lines
 window.__mm.netMarkCpDone = (i) => { const c = cpObjs[i]; if (c && !c.done) { c.done = true; c.pillar.material = cpMatDone; c.ring.visible = false; R.done++; updatePips(); } };   // #1022 test hook: a local pass the host has not (yet) accepted — the race-the-near-window case netReopenCp must revert
