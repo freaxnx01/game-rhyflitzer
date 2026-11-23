@@ -91,3 +91,24 @@ export function createChangeReporter({ send = track, name, initial = null, settl
   }
   return { update, flush };
 }
+
+// #1171: which Hübel ring and room a level id is (rings = rooms.js RINGS, passed in to keep this file pure); null for the surface and any other level
+export function hideoutData(levelId, rings) {
+  for (const [i, ring] of rings.entries()) {
+    if (ring.id === levelId) return { ring: i + 1 };
+    const room = ring.rooms.find((r) => r.id === levelId);
+    if (room) return { ring: i + 1, room: text(room.name ?? room.id) };
+  }
+  return null;
+}
+// Each ring and room once per page load; a room counts its ring too, as the once-a-second sample may have missed the ring.
+export function createOnceReporter({ send = track } = {}) {
+  const rings = new Set(), rooms = new Set();
+  function see(levelId, ringList) {
+    const data = hideoutData(levelId, ringList);
+    if (!data) return;
+    if (!rings.has(data.ring)) { rings.add(data.ring); send('hideout-ring', { ring: data.ring }); }
+    if (data.room !== undefined && !rooms.has(levelId)) { rooms.add(levelId); send('hideout-room', data); }
+  }
+  return { see };
+}
