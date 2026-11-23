@@ -111,7 +111,12 @@ test('standings_order_ties_gaps', () => {
   assert.equal(standings([{ id: 0, name: 'A', times: [], st: 'run' }])[0].gap, null);
   assert.deepEqual(standings([{ id: 0, name: 'A', times: [], st: 'dnf' }, { id: 1, name: 'B', times: [], st: 'run' }]).map((r) => r.id), [1, 0]);
 });
-test('boardRows_dropsMask', () => assert.deepEqual(boardRows(createRace(lobby2, 1))[0], { id: 0, name: 'A', times: [], st: 'run' }));
+test('boardRows_includesMask', () => {
+  const r = createRace(addPlayer(createLobby('hochrhein', 'A'), 'B').lobby, 4);
+  const a = acceptCp(r, 0, 2, 1000, true).race;
+  assert.equal(boardRows(a)[0].mask, 4);   // bit 2
+  assert.equal(boardRows(a)[1].mask, 0);
+});
 
 test('nearPoint_xzOnly_withinRadiusSlack_trueBeyondFalse', () => {
   const pt = { x: 0, z: 0 };

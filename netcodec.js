@@ -201,13 +201,14 @@ function parseStart(m) {
   return finite(m.t0) && finite(m.now) ? { type: 'start', mode: 'race', t0: m.t0, now: m.now } : null;
 }
 
-// parseRow — one row of a board: id 0..3, a clean name, st ∈ run/fin/dnf, ≤ 17 finite non-decreasing times.
+// parseRow — one row of a board: id 0..3, a clean name, st ∈ run/fin/dnf, ≤ 17 finite non-decreasing times, an optional integer mask 0..2^CP_MAX-1 (#1119).
 function parseRow(r) {
   if (!r || typeof r !== 'object' || !Number.isInteger(r.id) || r.id < 0 || r.id >= MAX_PLAYERS) return null;
   const name = cleanName(r.name);
   if (!name || !ST.includes(r.st) || !Array.isArray(r.times) || r.times.length > TIMES_MAX) return null;
   if (!r.times.every((t, k) => raceTime(t) && (k === 0 || t >= r.times[k - 1]))) return null;
-  return { id: r.id, name, times: [...r.times], st: r.st };
+  if (r.mask !== undefined && (!Number.isInteger(r.mask) || r.mask < 0 || r.mask >= (1 << CP_MAX))) return null;
+  return r.mask === undefined ? { id: r.id, name, times: [...r.times], st: r.st } : { id: r.id, name, times: [...r.times], st: r.st, mask: r.mask };
 }
 
 // parseBoard — over is a boolean; rows 1..4, each a clean row, ids unique. The host is the only sender.
