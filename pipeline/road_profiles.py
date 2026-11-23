@@ -189,8 +189,9 @@ class Raster:
         E, N = np.asarray(E, float), np.asarray(N, float)
         if self.to is not None:
             E, N = self.to.transform(E, N)
-        c, r = self.inv * (E, N)
-        c, r = np.asarray(c) - 0.5, np.asarray(r) - 0.5
+        inv = self.inv      # the affine by hand: Affine * tuple is scalar-only (and deprecated)
+        c = inv.a * E + inv.b * N + inv.c - 0.5
+        r = inv.d * E + inv.e * N + inv.f - 0.5
         h, w = self.a.shape
         ok = (c >= -0.5) & (r >= -0.5) & (c <= w - 0.5) & (r <= h - 0.5)
         out = np.full(c.shape, np.nan)
