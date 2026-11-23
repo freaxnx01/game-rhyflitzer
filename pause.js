@@ -15,6 +15,13 @@ export function pauseButtonsFor(mode) {
   return mode === 'cruise' ? PAUSE_BUTTONS.filter(id => id !== 'pauserestart') : PAUSE_BUTTONS;
 }
 
+// #1110: the multiplayer host's "Change mode" sits just before Main menu; a menu without Main menu (tutorial) has no place for it
+export function withLobbyButton(ids) {
+  const at = ids.indexOf('pausemenu');
+  if (at < 0) return ids;
+  return [...ids.slice(0, at), 'pauselobby', ...ids.slice(at)];
+}
+
 // a pause only makes sense during a run: start / result screen hidden, race armed or running, or a delivery shift (#107)
 export function canPause(overlayHidden, raceState) {
   return overlayHidden && (raceState === 'armed' || raceState === 'racing' || raceState === 'delivery');

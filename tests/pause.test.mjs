@@ -1,7 +1,7 @@
 // #83: the pause menu's key and focus rules. Pure module, so node --test can import it without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor } from '../pause.js';
+import { PAUSE_BUTTONS, ABANDON_BUTTONS, canPause, needsAbandonConfirm, pauseKeyAction, nextFocus, pauseButtonsFor, withLobbyButton } from '../pause.js';
 
 const key = (code, extra = {}) => ({ code, shiftKey: false, repeat: false, ...extra });
 const RUN = { paused: false, canPause: true };
@@ -120,4 +120,22 @@ test('pauseButtonsFor_RaceModes_AreTheFullMenu', () => {
 test('pauseButtonsFor_Tutorial_EndsTheTutorialInsteadOfRestartOrMainMenu', () => {
   assert.deepEqual(pauseButtonsFor('tutorial'), ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pausetutorial']);
   assert.ok(!PAUSE_BUTTONS.includes('pausetutorial'), 'the other modes never show it');
+});
+
+test('withLobbyButton_WithMainMenu_InsertsChangeModeBeforeIt', () => {
+  assert.deepEqual(withLobbyButton(pauseButtonsFor('cruise')),
+    ['pauseresume', 'pausevehicle', 'pausestyle', 'pausetimetable', 'pauseabout', 'pausesettings', 'pauselobby', 'pausemenu']);
+  const race = withLobbyButton(PAUSE_BUTTONS);
+  assert.equal(race[race.indexOf('pausemenu') - 1], 'pauselobby');
+});
+
+test('withLobbyButton_WithoutMainMenu_LeavesTheListAlone', () => {
+  assert.deepEqual(withLobbyButton(pauseButtonsFor('tutorial')), pauseButtonsFor('tutorial'));
+});
+
+test('withLobbyButton_DoesNotChangeItsInput', () => {
+  const ids = pauseButtonsFor('cruise');
+  withLobbyButton(ids);
+  assert.ok(!ids.includes('pauselobby'));
+  assert.ok(!PAUSE_BUTTONS.includes('pauselobby'), 'single player never shows it');
 });
